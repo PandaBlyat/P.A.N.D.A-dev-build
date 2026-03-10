@@ -1314,28 +1314,38 @@ function pda_private_tab:OnSelectNPC()
 		return math.floor(math.max(local_min, math.min(local_max, estimated)))
 	end
 
+	local lane_insets = {
+		left = 16,
+		right = 16,
+		scrollbar_gutter = 16,
+	}
+
+	local lane_width = (self.scrollbar and self.scrollbar.GetWidth and self.scrollbar:GetWidth())
+	if not lane_width or lane_width <= 0 then
+		local description_width = (self.desc_box and self.desc_box.GetWidth and self.desc_box:GetWidth()) or 720
+		lane_width = math.max(220, description_width - (lane_insets.left + lane_insets.right))
+	end
+
+	local right_inset = lane_insets.right + lane_insets.scrollbar_gutter
+	local maxBubbleWidth = math.max(220, lane_width - lane_insets.left - right_inset)
+
     local row_idx = 0
-    for i = #log, 1, -1 do
+	    for i = #log, 1, -1 do
         local entry = log[i]
         if (entry.contact_name or "Unknown") == item.contact_id then
             row_idx = row_idx + 1
-            local is_player_lane = is_player_sender(entry)
-            local template = is_player_lane and "private_pda:info:description:message_lane_player" or "private_pda:info:description:message_lane_npc"
-            local lane_root = CUIStatic()
-            local chat_panel_width = (self.composer_container and self.composer_container.GetWidth and self.composer_container:GetWidth()) or 700
-            lane_root:SetWndSize(vector2():set(chat_panel_width, 50))
+	            local is_player_lane = is_player_sender(entry)
+	            local template = is_player_lane and "private_pda:info:description:message_lane_player" or "private_pda:info:description:message_lane_npc"
+	            local lane_root = CUIStatic()
+	            lane_root:SetWndSize(vector2():set(lane_width, 50))
             local lane_bg = self.xml:InitStatic(template .. ":bubble_bg", lane_root)
             local text_wnd = self.xml:InitTextWnd(template .. ":text_box", lane_root)
             local status_wnd = is_player_lane and self.xml:InitTextWnd(template .. ":delivery_status", lane_root) or nil
             local relative_time = get_relative_time(entry.timestamp, current_game_time)
 
-			local right_padding = 48
-			local left_padding = 16
-			local player_available_w = math.max(220, chat_panel_width - right_padding - 8)
-			local npc_available_w = math.max(220, chat_panel_width - left_padding - right_padding)
 			local lane_max_w = is_player_lane
-				and math.floor(math.min(player_available_w, chat_panel_width * 0.46))
-				or math.floor(math.min(npc_available_w, chat_panel_width * 0.52))
+				and math.floor(math.min(maxBubbleWidth, lane_width * 0.46))
+				or math.floor(math.min(maxBubbleWidth, lane_width * 0.52))
 
 			local body_text = tostring(entry.text or "")
 			if entry.is_typing then
@@ -1362,13 +1372,11 @@ function pda_private_tab:OnSelectNPC()
                     tostring(entry.sender or "Unknown"), tostring(relative_time or "Unknown"), wrapped_body)
             end
 
-            text_wnd:SetText(display_text)
+	            text_wnd:SetText(display_text)
 
-            if is_player_lane then
-				local chat_panel_width = lane_root:GetWidth()
-				-- 48px keeps bubbles clear of the scrollbar (~16px) and pane edge
-				local bubble_x = chat_panel_width - bubble_w - right_padding
-				bubble_x = math.max(8, bubble_x)
+	            if is_player_lane then
+				local bubble_x = lane_width - right_inset - bubble_w
+				bubble_x = math.max(lane_insets.left, bubble_x)
 
 				lane_bg:SetWndPos(vector2():set(bubble_x, 0))
 				lane_bg:SetWndSize(vector2():set(bubble_w, lane_bg:GetHeight()))
@@ -1380,6 +1388,8 @@ function pda_private_tab:OnSelectNPC()
 					status_wnd:SetWndSize(vector2():set(math.max(100, bubble_w - 28), status_wnd:GetHeight()))
 				end
 			else
+				lane_bg:SetWndPos(vector2():set(lane_insets.left, 0))
+				text_wnd:SetWndPos(vector2():set(lane_insets.left + 14, 6))
 				lane_bg:SetWndSize(vector2():set(bubble_w, lane_bg:GetHeight()))
 				text_wnd:SetWndSize(vector2():set(math.max(100, bubble_w - 28), text_wnd:GetHeight()))
 			end
@@ -1400,9 +1410,9 @@ function pda_private_tab:OnSelectNPC()
 
             style_message_lane(lane_root, lane_bg, is_player_lane, row_idx)
 
-            local lane_h = text_h + status_h + 16
-            lane_bg:SetWndSize(vector2():set(bubble_w, lane_h))
-            lane_root:SetWndSize(vector2():set(chat_panel_width, lane_h)) 
+	            local lane_h = text_h + status_h + 16
+	            lane_bg:SetWndSize(vector2():set(bubble_w, lane_h))
+	            lane_root:SetWndSize(vector2():set(lane_width, lane_h)) 
 
             lane_root:SetAutoDelete(false)
             self.scrollbar:AddWindow(lane_root, false)
@@ -1439,8 +1449,7 @@ function pda_private_tab:OnSelectNPC()
         local composer_center_x = 350
 		local centered_x = math.floor(composer_center_x - chip_w / 2)
 		local min_x = 16
-		local chat_panel_width = (self.composer_container and self.composer_container.GetWidth and self.composer_container:GetWidth()) or 700
-		local max_x = chat_panel_width - chip_w - 16
+		local max_x = lane_width - right_inset - chip_w
 		local shared_left_x = math.max(min_x, math.min(max_x, centered_x))
 
         self:EnsureChoiceButtonPool(usable_choices, chip_h)
