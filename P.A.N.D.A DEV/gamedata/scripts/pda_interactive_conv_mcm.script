@@ -1,0 +1,417 @@
+-- ============================================================
+-- pda_interactive_conv_mcm.script (Fixed Version)
+-- ============================================================
+
+local ROOT_ID = "pda_interactive_conv"
+
+-- Helper functions for preconditions
+local function isInteractiveEnabled() return ui_mcm.get(ROOT_ID.."/interactive/enabled") end
+local function isFlexibleMode()       return ui_mcm.get(ROOT_ID.."/interactive/cooldown_mode") == 2 end
+local function isStrictMode()         return ui_mcm.get(ROOT_ID.."/interactive/cooldown_mode") == 1 end
+local function isBackgroundEnabled()  return ui_mcm.get(ROOT_ID.."/background/npc_conv_enabled") end
+local function isBackgroundStrict()   return ui_mcm.get(ROOT_ID.."/background/npc_conv_strict_cooldown") end
+local function isDynamicNewsEnabled() return ui_mcm.get(ROOT_ID.."/dynamic_news/dn_enabled") end
+
+-- ============================================================
+-- Main MCM options table
+-- ============================================================
+function on_mcm_load()
+    return {
+        id = ROOT_ID,
+        gr = {
+            -- ================================================
+            -- MOD INFO (Title Banner & Credits)
+            -- ================================================
+            {
+                id   = "mod_info",
+                text = "pda_interactive_conv_menu_mod_info",
+                clr  = {255, 255, 255, 255},  -- white
+                sh   = true,
+                gr   = {
+                    -- Main banner with mod title/subtitle
+                    { id = "slide_mod_info", type = "slide",
+                      link = "banner_panda_n1_icon.dds",
+                      text = "", size = {512, 50}, spacing = 10, stretch = true },
+                    -- Brief description / credits
+                    { id = "desc_mod_info", type = "desc",
+                      text = "pda_interactive_conv_desc_mod_info",
+                      clr = {255, 200, 200, 200} },
+                }
+            },
+
+            -- ================================================
+            -- INTERACTIVE CONVERSATIONS
+            -- ================================================
+            {
+                id   = "interactive",
+                text = "pda_interactive_conv_menu_interactive",
+                clr  = {255, 100, 200, 255},  -- Light purple
+                sh   = true,
+                gr   = {
+                    -- Section banner
+                    { id = "slide_interactive", type = "slide",
+                      link = "banner_panda_interactive_conv_icon.dds",
+                      text = "", size = {512, 50}, spacing = 10, stretch = true },
+
+                    -- Master enable/disable
+                    { id = "enabled", type = "check", val = 1, def = true },
+
+                    -- Brief description
+                    { id = "desc_interactive", type = "desc",
+                      text = "pda_interactive_conv_desc_interactive",
+                      clr = {255, 200, 200, 200} },
+
+                    -- TIMING (only shown if enabled)
+                    { id = "title_timing", type = "title",
+                      text = "pda_interactive_conv_title_timing",
+                      clr = {255, 200, 220, 100},
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "line_timing", type = "line",
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "trigger_min", type = "track", val = 2, min = 1, max = 60, step = 1, def = 8,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "trigger_max", type = "track", val = 2, min = 1, max = 120, step = 1, def = 15,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "default_cooldown", type = "track", val = 2, min = 5, max = 300, step = 5, def = 60,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "choice_tip_duration", type = "track", val = 2, min = 10, max = 120, step = 5, def = 40,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "pda_retry_delay", type = "track", val = 2, min = 1, max = 10, step = 1, def = 2,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "npc_reply_delay_min", type = "track", val = 2, min = 1, max = 10, step = 1, def = 2,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "npc_reply_delay_max", type = "track", val = 2, min = 1, max = 10, step = 1, def = 4,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "outcome_delay_min", type = "track", val = 2, min = 0, max = 5, step = 1, def = 1,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "outcome_delay_max", type = "track", val = 2, min = 0, max = 5, step = 1, def = 2,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "branch_delay_min", type = "track", val = 2, min = 1, max = 10, step = 1, def = 2,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "branch_delay_max", type = "track", val = 2, min = 1, max = 10, step = 1, def = 4,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "intro_delay", type = "track", val = 2, min = 1, max = 10, step = 1, def = 2,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "no_intro_delay", type = "track", val = 2, min = 0, max = 5, step = 1, def = 1,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "line_timing_end", type = "line",
+                      precondition = { isInteractiveEnabled, {} } },
+
+                    -- COOLDOWN BEHAVIOUR (only shown if enabled)
+                    { id = "title_cooldown", type = "title",
+                      text = "pda_interactive_conv_title_cooldown",
+                      clr = {255, 150, 200, 150},
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "line_cooldown", type = "line",
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "cooldown_mode", type = "radio_h", val = 2, def = 2, no_str = true,
+                      content = { {1, "Strict (hard block)"}, {2, "Flexible (reduced chance)"} },
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "cooldown_penalty", type = "track", val = 2, min = 5, max = 75, step = 5, def = 25,
+                      precondition = { function() return isInteractiveEnabled() and isFlexibleMode() end, {} } },
+                    { id = "cooldown_hard_min", type = "track", val = 2, min = 0, max = 30, step = 1, def = 5,
+                      precondition = { function() return isInteractiveEnabled() and isStrictMode() end, {} } },
+                    { id = "allow_cross_faction", type = "check", val = 1, def = false,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "line_cooldown_end", type = "line",
+                      precondition = { isInteractiveEnabled, {} } },
+
+                    -- GAMEPLAY (only shown if enabled)
+                    { id = "title_gameplay", type = "title",
+                      text = "pda_interactive_conv_title_gameplay",
+                      clr = {255, 100, 200, 255},
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "line_gameplay", type = "line",
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "spawn_chance_mult", type = "track", val = 2, min = 0, max = 200, step = 5, def = 100,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "require_pda_equipped", type = "check", val = 1, def = true,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "companion_limit", type = "track", val = 2, min = 1, max = 10, step = 1, def = 4,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "max_npcs_per_trigger", type = "track", val = 2, min = 5, max = 100, step = 5, def = 20,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "npc_cooldown", type = "track", val = 2, min = 1, max = 120, step = 5, def = 10,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "line_gameplay_end", type = "line",
+                      precondition = { isInteractiveEnabled, {} } },
+
+                    -- NOTIFICATIONS (only shown if enabled)
+                    { id = "title_notifications", type = "title",
+                      text = "pda_interactive_conv_title_notifications",
+                      clr = {255, 200, 150, 200},
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "line_notifications", type = "line",
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "show_hunt_notifications", type = "check", val = 1, def = true,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "show_companion_notifications", type = "check", val = 1, def = true,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "show_courier_notifications", type = "check", val = 1, def = true,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "line_notifications_end", type = "line",
+                      precondition = { isInteractiveEnabled, {} } },
+
+                    -- CONVERSATION TYPES (only shown if enabled)
+                    { id = "title_conv_types", type = "title",
+                      text = "pda_interactive_conv_title_conv_types",
+                      clr = {255, 180, 120, 220},
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "line_conversation_types", type = "line",
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "non_task_chance", type = "track", val = 2, min = 0, max = 100, step = 5, def = 50,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "friendly_hostile_ratio", type = "track", val = 2, min = 0, max = 100, step = 5, def = 50,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "min_distance_for_call", type = "track", val = 2, min = 0, max = 200, step = 5, def = 30,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "line_conversation_types_end", type = "line",
+                      precondition = { isInteractiveEnabled, {} } },
+
+                    -- SPAWN DISTANCES (only shown if enabled)
+                    { id = "title_spawn_dist", type = "title",
+                      text = "pda_interactive_conv_title_spawn_dist",
+                      clr = {255, 120, 200, 180},
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "line_spawn_dist", type = "line",
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "spawn_distance_min", type = "track", val = 2, min = 10, max = 200, step = 5, def = 30,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "spawn_distance_max", type = "track", val = 2, min = 10, max = 200, step = 5, def = 60,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "companion_spawn_min", type = "track", val = 2, min = 10, max = 200, step = 5, def = 20,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "companion_spawn_max", type = "track", val = 2, min = 10, max = 200, step = 5, def = 50,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "mutant_spawn_min", type = "track", val = 2, min = 10, max = 200, step = 5, def = 40,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "mutant_spawn_max", type = "track", val = 2, min = 10, max = 200, step = 5, def = 100,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "smart_spawn_min", type = "track", val = 2, min = 10, max = 300, step = 5, def = 40,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "smart_spawn_max", type = "track", val = 2, min = 10, max = 300, step = 5, def = 150,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "line_spawn_dist_end", type = "line",
+                      precondition = { isInteractiveEnabled, {} } },
+
+                    -- TECHNICAL (only shown if enabled)
+                    { id = "title_technical", type = "title",
+                      text = "pda_interactive_conv_title_technical",
+                      clr = {255, 160, 160, 160},
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "line_technical", type = "line",
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "poll_retries", type = "track", val = 2, min = 5, max = 50, step = 1, def = 20,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "line_technical_end", type = "line",
+                      precondition = { isInteractiveEnabled, {} } },
+
+                    -- DEBUG (always shown)
+                    { id = "title_debug", type = "title",
+                      text = "pda_interactive_conv_title_debug",
+                      clr = {255, 220, 100, 100} },
+                    { id = "line_debug", type = "line" },
+                    { id = "debug_logging", type = "check", val = 1, def = false },
+                    { id = "debug_trigger", type = "check", val = 1, def = false },
+                    { id = "line_debug_end", type = "line" },
+                }
+            },
+
+            -- ================================================
+            -- BACKGROUND NPC CONVERSATIONS
+            -- ================================================
+            {
+                id   = "background",
+                text = "pda_interactive_conv_menu_background",
+                clr  = {255, 200, 220, 100},  -- Light green
+                sh   = true,
+                gr   = {
+                    -- Section banner
+                    { id = "slide_background", type = "slide",
+                      link = "banner_panda_npc_conv_icon.dds",
+                      text = "", size = {512, 50}, spacing = 10, stretch = true },
+
+                    { id = "desc_background", type = "desc",
+                      text = "pda_interactive_conv_desc_background",
+                      clr = {255, 200, 200, 200} },
+
+                    { id = "npc_conv_enabled", type = "check", val = 1, def = true },
+
+                    -- All following options only visible when enabled
+                    { id = "npc_conv_interval", type = "track", val = 2, min = 30, max = 600, step = 10, def = 240,
+                      precondition = { isBackgroundEnabled, {} } },
+                    { id = "npc_conv_chance", type = "track", val = 2, min = 0, max = 100, step = 5, def = 50,
+                      precondition = { isBackgroundEnabled, {} } },
+                    { id = "npc_conv_topic_cooldown", type = "track", val = 2, min = 15, max = 300, step = 15, def = 120,
+                      precondition = { isBackgroundEnabled, {} } },
+                    { id = "npc_conv_rep_gossip_chance", type = "track", val = 2, min = 0, max = 50, step = 1, def = 10,
+                      precondition = { isBackgroundEnabled, {} } },
+                    { id = "npc_conv_rep_gossip_interval", type = "track", val = 2, min = 30, max = 600, step = 30, def = 180,
+                      precondition = { isBackgroundEnabled, {} } },
+                    { id = "npc_conv_group_chance", type = "track", val = 2, min = 0, max = 100, step = 5, def = 50,
+                      precondition = { isBackgroundEnabled, {} } },
+                    { id = "npc_conv_strict_cooldown", type = "check", val = 1, def = true,
+                      precondition = { isBackgroundEnabled, {} } },
+                    -- Conditional cooldown settings
+                    { id = "npc_conv_flex_penalty", type = "track", val = 2, min = 5, max = 75, step = 5, def = 25,
+                      precondition = { function() return isBackgroundEnabled() and not isBackgroundStrict() end, {} } },
+                    { id = "npc_conv_hard_min", type = "track", val = 2, min = 0, max = 30, step = 1, def = 5,
+                      precondition = { function() return isBackgroundEnabled() and isBackgroundStrict() end, {} } },
+                }
+            },
+
+            -- ================================================
+            -- DYNAMIC NEWS
+            -- ================================================
+            {
+                id   = "dynamic_news",
+                text = "pda_interactive_conv_menu_dynamic_news",
+                clr  = {255, 150, 200, 150},  -- Soft green
+                sh   = true,
+                gr   = {
+                    -- Section banner
+                    { id = "slide_dynamic_news", type = "slide",
+                      link = "banner_panda_dyn_news_icon.dds",
+                      text = "", size = {512, 50}, spacing = 10, stretch = true },
+
+                    { id = "desc_dynamic_news", type = "desc",
+                      text = "pda_interactive_conv_desc_dynamic_news",
+                      clr = {255, 200, 200, 200} },
+
+                    -- Master enable
+                    { id = "dn_enabled", type = "check", val = 1, def = true },
+
+                    -- Death News (only shown if enabled)
+                    { id = "title_dn_death", type = "title",
+                      text = "pda_interactive_conv_title_dn_death",
+                      clr = {255, 220, 100, 100},
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "line_dn_separator", type = "line",
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_death_stalker", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_death_mutant", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_generic_death", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_death_report", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_kill_wounded", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "line_dn_death_end", type = "line",
+                      precondition = { isDynamicNewsEnabled, {} } },
+
+                    -- Discovery News
+                    { id = "title_dn_discovery", type = "title",
+                      text = "pda_interactive_conv_title_dn_discovery",
+                      clr = {255, 180, 220, 120},
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "line_dn_discovery", type = "line",
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_found_artifact", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_heli_call", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_loot", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "line_dn_discovery_end", type = "line",
+                      precondition = { isDynamicNewsEnabled, {} } },
+
+                    -- Reaction News
+                    { id = "title_dn_reaction", type = "title",
+                      text = "pda_interactive_conv_title_dn_reaction",
+                      clr = {255, 100, 200, 255},
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "line_dn_reaction", type = "line",
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_reaction", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "line_dn_reaction_end", type = "line",
+                      precondition = { isDynamicNewsEnabled, {} } },
+
+                    -- Special News
+                    { id = "title_dn_special", type = "title",
+                      text = "pda_interactive_conv_title_dn_special",
+                      clr = {255, 200, 150, 200},
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "line_dn_special", type = "line",
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_weather", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_time", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_nearby_activity", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_zombie", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "line_dn_special_end", type = "line",
+                      precondition = { isDynamicNewsEnabled, {} } },
+
+                    -- Task News
+                    { id = "title_dn_task", type = "title",
+                      text = "pda_interactive_conv_title_dn_task",
+                      clr = {255, 180, 120, 220},
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "line_dn_task", type = "line",
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_bounty", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "line_dn_task_end", type = "line",
+                      precondition = { isDynamicNewsEnabled, {} } },
+
+                    -- Random News
+                    { id = "title_dn_random", type = "title",
+                      text = "pda_interactive_conv_title_dn_random",
+                      clr = {255, 120, 200, 180},
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "line_dn_random", type = "line",
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_random_msg", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_factions_report", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_zone_activity", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_found_dead", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_surge", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "line_dn_random_end", type = "line",
+                      precondition = { isDynamicNewsEnabled, {} } },
+
+                    -- Companion News
+                    { id = "title_dn_companion", type = "title",
+                      text = "pda_interactive_conv_title_dn_companion",
+                      clr = {255, 160, 160, 160},
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "line_dn_companion", type = "line",
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_companions", type = "check", val = 1, def = true,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "line_dn_companion_end", type = "line",
+                      precondition = { isDynamicNewsEnabled, {} } },
+
+                    -- Timing (only shown if enabled)
+                    { id = "title_dn_timing", type = "title",
+                      text = "pda_interactive_conv_title_dn_timing",
+                      clr = {255, 220, 180, 120},
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "line_dn_timing", type = "line",
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_cycle_special", type = "track", val = 2, min = 30, max = 600, step = 10, def = 240,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_cycle_task", type = "track", val = 2, min = 30, max = 600, step = 10, def = 300,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_cycle_random", type = "track", val = 2, min = 30, max = 600, step = 10, def = 240,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_cycle_companion", type = "track", val = 2, min = 30, max = 600, step = 10, def = 240,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "dn_msg_duration", type = "track", val = 2, min = 5, max = 60, step = 1, def = 15,
+                      precondition = { isDynamicNewsEnabled, {} } },
+                    { id = "line_dn_timing_end", type = "line",
+                      precondition = { isDynamicNewsEnabled, {} } },
+                }
+            },
+        }
+    }
+end
