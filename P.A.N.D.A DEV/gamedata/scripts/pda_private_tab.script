@@ -1411,14 +1411,14 @@ function pda_private_tab:OnSelectNPC()
 		local width = 0
 		for i = 1, #line do
 			local char = line:sub(i, i)
-			if char:match("%u") then width = width + 8.0
-			elseif char == "m" or char == "w" then width = width + 8.5
-			elseif char == "i" or char == "l" or char == "t" then width = width + 4.5
-			elseif char:match("%l") then width = width + 6.5
-			elseif char:match("%d") then width = width + 6.5
-			elseif char == " " then width = width + 3.5
-			elseif char == "[" or char == "]" then width = width + 4.0
-			else width = width + 6.0 end
+			if char:match("%u") then width = width + 4.8
+			elseif char == "m" or char == "w" then width = width + 5.1
+			elseif char == "i" or char == "l" or char == "t" then width = width + 2.8
+			elseif char:match("%l") then width = width + 3.9
+			elseif char:match("%d") then width = width + 3.9
+			elseif char == " " then width = width + 2.1
+			elseif char == "[" or char == "]" then width = width + 2.4
+			else width = width + 3.6 end
 		end
 		return width
 	end
@@ -1460,6 +1460,7 @@ function pda_private_tab:OnSelectNPC()
 	end
 
 	local right_inset = lane_insets.right + lane_insets.scrollbar_gutter
+	local player_spawn_shift_x = 70
 	local maxBubbleWidth = math.max(220, lane_width - lane_insets.left - right_inset)
 
     local row_idx = 0
@@ -1477,8 +1478,9 @@ function pda_private_tab:OnSelectNPC()
             local relative_time = get_relative_time(entry.timestamp, current_game_time)
 
 			local lane_max_w = is_player_lane
-				and math.floor(math.min(maxBubbleWidth, lane_width * 0.46))
+				and math.floor(math.min(maxBubbleWidth - player_spawn_shift_x, lane_width * 0.46))
 				or math.floor(math.min(maxBubbleWidth, lane_width * 0.52))
+			lane_max_w = math.max(180, lane_max_w)
 
 			local body_text = tostring(entry.text or "")
 			if entry.is_typing then
@@ -1490,7 +1492,7 @@ function pda_private_tab:OnSelectNPC()
 			local header_line = string.format("%s [%s]", header_sender, tostring(relative_time or "Unknown"))
 			local wrap_chars = math.max(20, math.floor((lane_max_w - 30) / 7))
 			local wrapped_body = wrap_plain_text(body_text, wrap_chars)
-			local bubble_w = estimate_bubble_width(header_line, wrapped_body, 180, lane_max_w, 34)
+			local bubble_w = estimate_bubble_width(header_line, wrapped_body, 180, lane_max_w, 24)
 
             local display_text = ""
             if is_player_lane then
@@ -1508,7 +1510,7 @@ function pda_private_tab:OnSelectNPC()
 	            text_wnd:SetText(display_text)
 
 	            if is_player_lane then
-				local bubble_x = lane_width - right_inset - bubble_w
+				local bubble_x = lane_width - (right_inset + player_spawn_shift_x) - bubble_w
 				bubble_x = math.max(lane_insets.left, bubble_x)
 
 				lane_bg:SetWndPos(vector2():set(bubble_x, 0))
