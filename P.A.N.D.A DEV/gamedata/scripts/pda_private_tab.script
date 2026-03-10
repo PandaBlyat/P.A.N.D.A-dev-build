@@ -1273,28 +1273,40 @@ function pda_private_tab:OnSelectNPC()
         return "%c[255,150,150,150]Sent", GetARGB(255, 150, 150, 150)
     end
 
-	function estimate_bubble_width(text, min_w, max_w, padding_x)
-		local raw_text = tostring(text or "")
-		local compact = raw_text:gsub("%%c%[[^%]]+%]", "")
-		local split_text = compact:gsub("\\n", "\n")
-		local widest_line = 0
-		for line in split_text:gmatch("[^\n]+") do
-			line = line:match("^%s*(.-)%s*$") or line
-			local width = 0
-			for i = 1, #line do
-				local char = line:sub(i, i)
-				if char:match("%u") then width = width + 8.0
-				elseif char == "m" or char == "w" then width = width + 8.5
-				elseif char == "i" or char == "l" or char == "t" then width = width + 4.5
-				elseif char:match("%l") then width = width + 6.5
-				elseif char:match("%d") then width = width + 6.5
-				elseif char == " " then width = width + 3.5
-				elseif char == "[" or char == "]" then width = width + 4.0
-				else width = width + 6.0 end
-			end
-			if width > widest_line then widest_line = width end
+	local function estimate_line_width(text)
+		local line = tostring(text or ""):gsub("%%c%[[^%]]+%]", "")
+		local width = 0
+		for i = 1, #line do
+			local char = line:sub(i, i)
+			if char:match("%u") then width = width + 8.0
+			elseif char == "m" or char == "w" then width = width + 8.5
+			elseif char == "i" or char == "l" or char == "t" then width = width + 4.5
+			elseif char:match("%l") then width = width + 6.5
+			elseif char:match("%d") then width = width + 6.5
+			elseif char == " " then width = width + 3.5
+			elseif char == "[" or char == "]" then width = width + 4.0
+			else width = width + 6.0 end
 		end
-		if widest_line == 0 then widest_line = tonumber(min_w) or 80 end
+		return width
+	end
+
+	local function split_wrapped_lines(text)
+		local split_text = tostring(text or ""):gsub("\\n", "\n")
+		local lines = {}
+		for line in (split_text .. "\n"):gmatch("(.-)\n") do
+			table.insert(lines, line)
+		end
+		if #lines == 0 then table.insert(lines, "") end
+		return lines
+	end
+
+	local function estimate_bubble_width(header_line, wrapped_body_text, min_w, max_w, padding_x)
+		local widest_line = estimate_line_width(header_line)
+		for _, line in ipairs(split_wrapped_lines(wrapped_body_text)) do
+			local line_width = estimate_line_width(line)
+			if line_width > widest_line then widest_line = line_width end
+		end
+
 		local local_pad = tonumber(padding_x) or 28
 		local local_min = tonumber(min_w) or 80
 		local local_max = tonumber(max_w) or 460
@@ -1317,31 +1329,35 @@ function pda_private_tab:OnSelectNPC()
             local status_wnd = is_player_lane and self.xml:InitTextWnd(template .. ":delivery_status", lane_root) or nil
             local relative_time = get_relative_time(entry.timestamp, current_game_time)
 
-			local body_text_for_width = tostring(entry.text or "")
-			if entry.is_typing then body_text_for_width = "Typing..." end
+			local right_padding = 48
+			local left_padding = 16
+			local player_available_w = math.max(220, chat_panel_width - right_padding - 8)
+			local npc_available_w = math.max(220, chat_panel_width - left_padding - right_padding)
+			local lane_max_w = is_player_lane
+				and math.floor(math.min(player_available_w, chat_panel_width * 0.46))
+				or math.floor(math.min(npc_available_w, chat_panel_width * 0.52))
+
+			local body_text = tostring(entry.text or "")
+			if entry.is_typing then
+				local current_time = type(time_real_ms) == "function" and time_real_ms() or (os.clock() * 1000)
+				local phase = math.floor((current_time / 350) % 4)
+				body_text = "Typing" .. string.rep(".", phase)
+			end
 			local header_sender = is_player_lane and "You" or tostring(entry.sender or "Unknown")
-			local width_probe_text = string.format("%s [%s]\\n%s", header_sender, tostring(relative_time or "Unknown"), body_text_for_width)
-			-- Narrower max widths produce compact WhatsApp-style bubbles.
-			-- Player bubbles are capped shorter so they fit comfortably on the right.
-			local lane_max_w = is_player_lane and 320 or 360
-			local bubble_w = estimate_bubble_width(width_probe_text, 180, lane_max_w, 34)
-			local wrap_chars = math.max(20, math.floor((bubble_w - 30) / 7))
+			local header_line = string.format("%s [%s]", header_sender, tostring(relative_time or "Unknown"))
+			local wrap_chars = math.max(20, math.floor((lane_max_w - 30) / 7))
+			local wrapped_body = wrap_plain_text(body_text, wrap_chars)
+			local bubble_w = estimate_bubble_width(header_line, wrapped_body, 180, lane_max_w, 34)
 
             local display_text = ""
             if is_player_lane then
-                local wrapped_body = wrap_plain_text(entry.text or "", wrap_chars)
                 display_text = string.format("%%c[255,150,255,150]You %%c[255,100,100,100][%s]\\n%%c[default]%s",
                     tostring(relative_time or "Unknown"), wrapped_body)
             else
-                local npc_body = entry.text or ""
                 if entry.is_typing then
-                    local current_time = type(time_real_ms) == "function" and time_real_ms() or (os.clock() * 1000)
-                    local phase = math.floor((current_time / 350) % 4)
-                    npc_body = "Typing" .. string.rep(".", phase)
                     self.typing_text_wnd = text_wnd
                     self.typing_entry_data = { sender = entry.sender, timestamp = entry.timestamp }
                 end
-                local wrapped_body = wrap_plain_text(npc_body, wrap_chars)
                 display_text = string.format("%%c[255,255,200,50]%s %%c[255,100,100,100][%s]\\n%%c[default]%s",
                     tostring(entry.sender or "Unknown"), tostring(relative_time or "Unknown"), wrapped_body)
             end
@@ -1351,7 +1367,6 @@ function pda_private_tab:OnSelectNPC()
             if is_player_lane then
 				local chat_panel_width = lane_root:GetWidth()
 				-- 48px keeps bubbles clear of the scrollbar (~16px) and pane edge
-				local right_padding = 48
 				local bubble_x = chat_panel_width - bubble_w - right_padding
 				bubble_x = math.max(8, bubble_x)
 
