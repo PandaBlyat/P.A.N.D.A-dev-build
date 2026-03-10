@@ -587,6 +587,129 @@ function pda_private_tab:GetRealtimeMs()
     return math.floor((os.clock() or 0) * 1000)
 end
 
+function pda_private_tab:GetScrollMetrics()
+    local metrics = {
+        scroll_pos = 0,
+        viewport_h = 0,
+        content_h = 0,
+        visible_bottom = 0,
+    }
+
+    if not self.scrollbar then
+        return metrics
+    end
+
+    if self.scrollbar.GetScrollPos then
+        local ok, value = pcall(function() return self.scrollbar:GetScrollPos() end)
+        if ok and type(value) == "number" then metrics.scroll_pos = value end
+    end
+
+    if metrics.scroll_pos == 0 and self.scrollbar.GetVScrollPos then
+        local ok, value = pcall(function() return self.scrollbar:GetVScrollPos() end)
+        if ok and type(value) == "number" then metrics.scroll_pos = value end
+    end
+
+    if self.scrollbar.GetHeight then
+        local ok, value = pcall(function() return self.scrollbar:GetHeight() end)
+        if ok and type(value) == "number" then metrics.viewport_h = value end
+    end
+
+    if metrics.viewport_h <= 0 and self.desc_box and self.desc_box.GetHeight then
+        local ok, value = pcall(function() return self.desc_box:GetHeight() end)
+        if ok and type(value) == "number" then metrics.viewport_h = value end
+    end
+
+    if self.scrollbar.GetChildWndSize then
+        local ok, value = pcall(function() return self.scrollbar:GetChildWndSize() end)
+        if ok and value then
+            local h = value.y or value.h or value.height
+            if type(h) == "number" then metrics.content_h = h end
+        end
+    end
+
+    if metrics.content_h <= 0 and self.scrollbar.GetTotalHeight then
+        local ok, value = pcall(function() return self.scrollbar:GetTotalHeight() end)
+        if ok and type(value) == "number" then metrics.content_h = value end
+    end
+
+    if metrics.content_h <= 0 and self.scrollbar.GetContentHeight then
+        local ok, value = pcall(function() return self.scrollbar:GetContentHeight() end)
+        if ok and type(value) == "number" then metrics.content_h = value end
+    end
+
+    metrics.visible_bottom = metrics.scroll_pos + metrics.viewport_h
+    return metrics
+end
+
+function pda_private_tab:GetScrollBreathingMargin()
+    local composer_h = 0
+    if self.composer_container and self.composer_container.GetHeight then
+        local ok, value = pcall(function() return self.composer_container:GetHeight() end)
+        if ok and type(value) == "number" then composer_h = math.max(0, value) end
+    end
+    if composer_h <= 0 then composer_h = 64 end
+
+    local choice_stack_h = 0
+    if self.choice_buttons_visible then
+        local active_conv = pda_interactive_conv.CONV
+        local count = 0
+        if active_conv and active_conv.num_choices then
+            count = math.min(4, math.max(0, tonumber(active_conv.num_choices) or 0))
+        end
+        if count > 0 then
+            local chip_h, chip_gap = 28, 6
+            choice_stack_h = count * (chip_h + chip_gap)
+        end
+    end
+
+    return composer_h + choice_stack_h + 16
+end
+
+function pda_private_tab:ShouldAutoScroll(prev_metrics, new_content_bottom, trigger_threshold_px)
+    local previous = prev_metrics or { visible_bottom = 0, content_h = 0 }
+    local threshold = tonumber(trigger_threshold_px) or 110
+
+    local prev_bottom_gap = (previous.content_h or 0) - (previous.visible_bottom or 0)
+    if prev_bottom_gap <= threshold then
+        return true
+    end
+
+    if (new_content_bottom or 0) > ((previous.visible_bottom or 0) + threshold) then
+        return true
+    end
+
+    return false
+end
+
+function pda_private_tab:ApplyAutoScrollTarget(content_bottom, breathing_margin)
+    if not self.scrollbar then return end
+
+    local margin = math.max(0, tonumber(breathing_margin) or 0)
+    local target = math.max(0, math.floor((tonumber(content_bottom) or 0) - margin))
+
+    if self.scrollbar.SetScrollPos then
+        local ok = pcall(function() self.scrollbar:SetScrollPos(target) end)
+        if ok then return end
+    end
+
+    if self.scrollbar.SetVScrollPos then
+        local ok = pcall(function() self.scrollbar:SetVScrollPos(target) end)
+        if ok then return end
+    end
+
+    if margin > 0 then
+        local spacer = CUIStatic()
+        spacer:SetAutoDelete(false)
+        spacer:SetWndSize(vector2():set(10, margin))
+        self.scrollbar:AddWindow(spacer, false)
+        table.insert(self.scroll_dynamic_windows, spacer)
+    end
+
+    if self.scrollbar.ScrollToEnd then
+        self.scrollbar:ScrollToEnd()
+    end
+end
+
 function pda_private_tab:BeginChoiceTypewriter(idx, text)
     local now = self:GetRealtimeMs()
     local clean = tostring(text or ""):gsub("%%c%[[^%]]+%]", "")
@@ -651,8 +774,11 @@ function pda_private_tab:OnComposerQuick2Clicked()
         self:HideQuickMenuButtons()
         self:RefreshChoiceButtons()
 
-        if self.scrollbar.ScrollToEnd then
-            self.scrollbar:ScrollToEnd()
+        local prev_metrics = self:GetScrollMetrics()
+        local breathing_margin = self:GetScrollBreathingMargin()
+        local should_auto_scroll = self:ShouldAutoScroll(prev_metrics, prev_metrics.content_h + breathing_margin, 110)
+        if should_auto_scroll then
+            self:ApplyAutoScrollTarget(prev_metrics.content_h + breathing_margin, breathing_margin)
         end
         return
     end
@@ -866,7 +992,12 @@ function pda_private_tab:OnReplyTriggerClicked()
         self.reply_trigger_btn_hint_until = 0
         self.choice_buttons_visible = true
         self:RefreshChoiceButtons()
-        if self.scrollbar.ScrollToEnd then self.scrollbar:ScrollToEnd() end
+        local prev_metrics = self:GetScrollMetrics()
+        local breathing_margin = self:GetScrollBreathingMargin()
+        local should_auto_scroll = self:ShouldAutoScroll(prev_metrics, prev_metrics.content_h + breathing_margin, 110)
+        if should_auto_scroll then
+            self:ApplyAutoScrollTarget(prev_metrics.content_h + breathing_margin, breathing_margin)
+        end
         return
     end
 
@@ -1200,6 +1331,8 @@ function pda_private_tab:OnSelectNPC()
         return 
     end
 
+    local pre_refresh_metrics = self:GetScrollMetrics()
+
     self.empty_state:Show(false)
     self.scroll_dynamic_windows = {}
     self.scrollbar:Clear()
@@ -1478,7 +1611,12 @@ function pda_private_tab:OnSelectNPC()
         self:RefreshChoiceButtons()
     end
 
-    if self.scrollbar.ScrollToEnd then self.scrollbar:ScrollToEnd() end
+    local post_refresh_metrics = self:GetScrollMetrics()
+    local breathing_margin = self:GetScrollBreathingMargin()
+    local trigger_threshold = 110
+    if self:ShouldAutoScroll(pre_refresh_metrics, post_refresh_metrics.content_h, trigger_threshold) then
+        self:ApplyAutoScrollTarget(post_refresh_metrics.content_h, breathing_margin)
+    end
     self:ShowStats(item.contact_id)
 end
 
