@@ -736,7 +736,25 @@ local function sub_placeholders(str, npc_name, npc_faction)
     return utils_data.parse_string_keys(str, subs)
 end
 
-function check_preconditions_generic(precond_key)
+local function get_rank_order_value(rank_name)
+    if not rank_name then return 1 end
+    return RANK_ORDER[tostring(rank_name):lower()] or 1
+end
+
+local function get_npc_rank_name(npc_se)
+    if not npc_se or not ranks or not ranks.get_obj_rank_name then
+        return nil
+    end
+
+    local npc_obj = level.object_by_id(npc_se.id)
+    if not npc_obj then
+        return nil
+    end
+
+    return ranks.get_obj_rank_name(npc_obj)
+end
+
+function check_preconditions_generic(precond_key, npc_se)
     local val = game.translate_string(precond_key)
     if val == precond_key then return true end
     local act = db.actor
@@ -759,12 +777,24 @@ function check_preconditions_generic(precond_key)
         elseif cmd == "req_rank" then
             -- req_rank:veteran — player rank must be at least veteran
             local p_rank = ranks.get_obj_rank_name(act) or "novice"
-            if (RANK_ORDER[p_rank] or 1) < (RANK_ORDER[parts[2]] or 1) then return false end
+            if get_rank_order_value(p_rank) < get_rank_order_value(parts[2]) then return false end
 
         elseif cmd == "req_rank_max" then
             -- req_rank_max:trainee — player rank must be at most trainee
             local p_rank = ranks.get_obj_rank_name(act) or "novice"
-            if (RANK_ORDER[p_rank] or 1) > (RANK_ORDER[parts[2]] or 1) then return false end
+            if get_rank_order_value(p_rank) > get_rank_order_value(parts[2]) then return false end
+
+        elseif cmd == "req_npc_rank" then
+            -- req_npc_rank:professional — conversation NPC rank must be at least professional
+            local npc_rank = get_npc_rank_name(npc_se)
+            if not npc_rank then return false end
+            if get_rank_order_value(npc_rank) < get_rank_order_value(parts[2]) then return false end
+
+        elseif cmd == "req_npc_rank_max" then
+            -- req_npc_rank_max:experienced — conversation NPC rank must be at most experienced
+            local npc_rank = get_npc_rank_name(npc_se)
+            if not npc_rank then return false end
+            if get_rank_order_value(npc_rank) > get_rank_order_value(parts[2]) then return false end
 
         -- ========== REPUTATION ==========
         elseif cmd == "req_rep" then
@@ -953,7 +983,7 @@ function is_conv_on_cooldown_generic(key)
     return (game.get_game_time():diffSec(last) / 60) < cd_min
 end
 
-function pick_random_conv_id_generic(prefix, xml_fac, category)
+function pick_random_conv_id_generic(prefix, xml_fac, category, npc_se)
     local base
     if prefix == "task" or not prefix then
         base = "st_pda_ic_"
@@ -980,7 +1010,7 @@ function pick_random_conv_id_generic(prefix, xml_fac, category)
 
         -- Preconditions
         local precond_key = base .. xml_fac .. "_" .. tostring(cid) .. "_precond"
-        if not check_preconditions_generic(precond_key) then skip = true end
+        if not check_preconditions_generic(precond_key, npc_se) then skip = true end
 
         -- Category filtering for task conversations
         if not skip and prefix == "task" then
@@ -1825,22 +1855,33 @@ local function attempt_non_task_conversation()
     end
     printf("Found %d %s NPCs", #npc_list, is_friendly and "friendly" or "hostile")
 
-    local npc_se = pick_random_npc_from_list(npc_list)
-    if not npc_se then
+    if #npc_list == 0 then
         printf("No %s NPCs available for non‑task call.", is_friendly and "friendly" or "hostile")
         return false
     end
-    printf("Picked NPC: %s (ID %d)", npc_se:character_name(), npc_se.id)
 
     local player_comm = get_actor_true_community() or "stalker"
     local xml_fac = (player_comm == "stalker") and "loner" or player_comm
     local prefix = is_friendly and "friendly" or "hostile"
 
-    local conv_id = pick_random_conv_id_generic(prefix, xml_fac, nil)
+    local npc_se, conv_id
+    local pool = {}
+    for i = 1, #npc_list do pool[i] = npc_list[i] end
+
+    while #pool > 0 and not conv_id do
+        local idx = math.random(#pool)
+        local candidate = table.remove(pool, idx)
+        local candidate_conv = pick_random_conv_id_generic(prefix, xml_fac, nil, candidate)
+        if candidate_conv then
+            npc_se, conv_id = candidate, candidate_conv
+        end
+    end
+
     if not conv_id then
-        printf("No %s conversation found for faction %s.", prefix, xml_fac)
+        printf("No %s conversation found for faction %s that matches available NPC preconditions.", prefix, xml_fac)
         return false
     end
+    printf("Picked NPC: %s (ID %d)", npc_se:character_name(), npc_se.id)
     printf("Selected conv_id = %d", conv_id)
 
     return start_interactive_conv(npc_se, conv_id, prefix, xml_fac, nil, nil)
@@ -1980,7 +2021,7 @@ function try_trigger_interactive_conv()
             local player_comm = get_actor_true_community() or "stalker"
             local xml_fac = (player_comm == "stalker") and "loner" or player_comm
 
-            local conv_id = pick_random_conv_id_generic("task", xml_fac, task_category)
+            local conv_id = pick_random_conv_id_generic("task", xml_fac, task_category, npc_se)
 
             if conv_id then
                 printf("Found matching task conversation! NPC: %s, Category: %s, Conv ID: %s",
