@@ -6,302 +6,122 @@
 <!-- Procedural Anomaly Narrative Dialogue Architecture -->
 <!-- ============================================================ -->
 <!--
-	HOW TO CREATE NEW FRIENDLY LONER PDA CONVERSATIONS FOR P.A.N.D.A.
-This guide explains how to add new interactive conversations for friendly Loner NPCs in the P.A.N.D.A. system. The system supports deep, branching, multi‑turn dialogues with optional gameplay outcomes , from simple social chats to rewarding trades, companion spawns, or even betrayals. All conversations are lore‑friendly and avoid hard‑coded names or locations.
-
-1. UNDERSTANDING THE SYSTEM
-Conversations are triggered randomly (if preconditions are met) when the player has a PDA equipped.
-
-They are defined entirely in the string table XML files (like the one you saw).
-
-The Lua script reads these strings, replaces placeholders ($player_name, $npc_faction, etc.), and drives the conversation through a simple state machine.
-
-Each conversation belongs to a prefix and faction. For friendly Loners the prefix is friendly and the faction in the string ID is loner (even though the NPC may be a stalker, the XML uses loner for consistency).
-
-Example string ID:
-st_pda_ic_friendly_loner_1_open
-
-st_pda_ic_ , base for all P.A.N.D.A. conversations
-
-friendly_ , type of conversation (friendly, hostile, task)
-
-loner_ , faction (loner, dolg, freedom, etc.)
-
-1 , conversation number (unique per faction/prefix)
-
-_open , opening line of the conversation
-
-2. CONVERSATION STRUCTURE
-Every conversation is built from these components:
-
-Field	Purpose	Example
-_open	The NPC’s opening message.	"$player_name, it's $npc_name. I've got a couple of spare guys..."
-_choice_X	Player’s response option (X = 1..4).	"Sure, I can babysit. Send them over."
-_reply_X	NPC’s reply to that choice.	"They're on their way. ETA about a minute."
-_outcome_X	Gameplay effect triggered after the reply. Can be empty ("none").	"spawn_companion:stalker:60,reward_gw:15:stalker"
-_cont_X	Next turn number if the conversation continues (optional).	"2" means go to turn 2 of the same conversation.
-Multi‑turn conversations
-If a choice leads to another turn, set _cont_X to the turn number (2, 3, …).
-
-For turn 2, all strings use the same base ID but append _t2 before the field name.
-Example:
-st_pda_ic_friendly_loner_1_t2_choice_1
-st_pda_ic_friendly_loner_1_t2_reply_1
-st_pda_ic_friendly_loner_1_t2_outcome_1
-st_pda_ic_friendly_loner_1_t2_cont_1 (if it continues to turn 3)
-
-You can have as many turns as you like , the script handles the flow automatically.
-
-3. STEP‑BY‑STEP CREATION
-3.1 Choose a theme and personality
-Think about the NPC’s character: are they grateful, greedy, paranoid, helpful, drunk? The dialogue should reflect that.
-Examples from the existing file:
-
-Grateful friend sends a gift (F2).
-
-Argumentative acquaintance accuses you of spreading rumours (F10).
-
-Stoner buddy offers a joint (F14).
-
-Gambler proposes a coin flip (F8).
-
-3.2 Write the opening line
-Keep it natural, use placeholders, and hint at the situation.
-Do:
-
-Use $player_name and $npc_name , they are replaced automatically.
-
-Use $npc_faction if you want to refer to the NPC’s group.
-
-Use $current_level for the current location name (translated).
-
-Don’t:
-
-Use real stalker names (like “Sidorovich” or “Fanatic”).
-
-Mention specific in‑game quests or events that the player may not have experienced.
-
-Refer to locations that may not exist in every playthrough (e.g., “the Agroprom underground”).
-
-3.3 Create up to 4 player choices
-Each choice should feel meaningful and lead to a different reply. They can be:
-
-Accepting / declining an offer.
-
-Asking for more information.
-
-Being friendly or hostile.
-
-Making a counter‑proposal.
-
-Do:
-
-Make choices distinct; avoid having two options that are nearly identical.
-
-Allow the player to role‑play (helpful, selfish, curious, aggressive).
-
-Don’t:
-
-Make a choice that is obviously the “correct” one , let the player decide based on their character.
-
-3.4 Write the NPC’s reply for each choice (if it makes sense)
-The reply should logically follow from the player’s choice and advance the conversation or wrap it up.
-
-Do:
-
-Keep replies consistent with the NPC’s personality.
-
-Use placeholders where appropriate.
-
-End the reply with a natural closing if the conversation ends there.
-
-3.5 Define outcomes (optional)
-Outcomes are comma‑separated commands that trigger after the NPC’s reply. Not every conversation needs an outcome , sometimes just talking is enough.
-
-Available outcome commands (see Lua script for full list):
-
-Command	Parameters	Effect
-reward_money	amount	Gives money to player.
-punish_money	amount	Takes money from player.
-reward_rep	amount	Increases player reputation.
-punish_rep	amount	Decreases player reputation.
-reward_gw	amount:faction	Increases goodwill with a faction.
-punish_gw	amount:faction	Decreases goodwill with a faction.
-give_item	section	Creates an item in player’s inventory.
-courier_item	section	Spawns a courier who brings the item.
-###########################################
-items that can be used for conversations: 
-
-Artifacts: af_gold_fish (Goldfish), af_dummy_battery (Battery), af_ice (Snowflake), af_ring (Ring), af_mincer_meat (Meat Chunk), af_fireball (Fireball), af_medusa (Jellyfish), af_moh (Moss), af_ear (Heart), af_kogot (Claw), af_skull_miser (Miser's Skull), af_kislushka (Sourpuss), af_peas (Moon), af_atom (Atom), af_ball (Ball), af_repei (Thistle), af_signet (Signet), af_tapeworm (Tapeworm), af_dragon_eye (Dragon's Eye), af_cristall (Crystal)
-
-Medical: bandage, medkit (AI-2 Medkit), stimpack (Improvised Stimpack), antirad (Anti-radiation Drugs), caffeine (Caffeine Tablets), analgetic (Diclofenac Sodium), akvatab (Ibuprofen), salicidic_acid (Metamizole Ampoule), glucose_s (Glucose Shot), drug_antidot (Antidote), antibio_sulfad (Sulfadimethoxine), antibio_chlor (Chlortetracycline), antirad_kalium (Potassium Iodide), drug_coagulant (Vinca), drug_radioprotector (Radioprotectant), drug_booster (Hercules), morphine (Morphine Ampoule), adrenalin (Epinephrine Shot), jgut (Tourniquet), survival_kit (Survival Kit)
-
-Mutant Parts: mutant_part_boar_chop (Boar Chop), mutant_part_tusk_boar (Boar Fang), mutant_part_boar_leg (Boar Leg), mutant_part_dog_heart (Dog Heart), mutant_part_dog_liver (Dog Liver), mutant_part_dog_meat (Dog Meat), mutant_part_dog_tail (Dog Tail), mutant_part_flesh_eye (Flesh Eye), mutant_part_flesh_meat (Flesh Meat), mutant_part_cat_claw (Cat Claw), mutant_part_cat_tail (Cat Tail), mutant_part_cat_thyroid (Cat Thyroid), mutant_part_tushkano_head (Tushkano Head), mutant_part_tushkano_meat (Tushkano Meat), mutant_part_crow_beak (Mutated Crow Beak), mutant_part_fang_psevdodog (Pseudodog Fang), mutant_part_psevdodog_meat (Pseudodog Meat), mutant_part_psevdodog_tail (Pseudodog Tail), mutant_part_snork_hand (Snork Hand), mutant_part_snork_mask (Snork Mask)
-
-Crafting: prt_i_scrap (Metallic Scrap), prt_i_copper (Copper Wire), duct_tape (Duct Tape), prt_i_plastic (Plastic Film), rope (Rope), swiss_knife (Swiss Knife), e_syringe (Syringe), jar (Plastic Jar), prt_i_paper (Paper Sheets), prt_i_wood (Wooden Part), prt_i_fasteners (Fasteners), prt_i_resistors (Box of Resistors), prt_i_transistors (Box of Transistors), prt_i_capacitors (Pack of Capacitors), prt_i_textolite (Textolite Base), prt_o_fabrics_1 (Cloth Sheets), prt_o_fabrics_2 (Synthetic Cloth Sheets), prt_o_fabrics_3 (Durable Textiles), powder_1 (Pistol/Shotgun Propellant), powder_2 (Small Rifle Propellant)
-
-Pistols: wpn_pm (Makarov PM), wpn_pm_custom (Makarov PM Custom), wpn_pmm (Makarov PMM), wpn_pb (PB), wpn_fort (Fort-12), wpn_fort17 (Fort-17), wpn_tt33 (TT-33), wpn_tt33_modern (TT-33), wpn_beretta (Beretta 92F), wpn_beretta_modern (Beretta 92F), wpn_glock (Glock 19), wpn_glock17 (Glock 17), wpn_aps (APS Stechkin), wpn_sr1m (Serdyukov SR1M Gyurza), wpn_usp (USP45), wpn_colt1911 (Colt M1911), wpn_colt1911_modern (Colt M1911), wpn_fn57 (FN Five-seveN), wpn_cz75 (CZ-75), wpn_sig220 (SIG P220)
-
-Shotguns: wpn_toz34 (TOZ-34), wpn_toz34_obrez (TOZ-34 (Sawn-off)), wpn_bm16 (TOZ-66 (Sawn-off)), wpn_bm16_full (TOZ-66), wpn_toz106 (TOZ-106), wpn_mp133 (MP-133), wpn_remington870 (Remington 870), wpn_mossberg590 (Mossberg 590A1), wpn_wincheaster1300 (TOZ-194), wpn_ithacam37 (Ithaca M37 Riot), wpn_ithacam37_sawnoff (Ithaca M37 (Sawn-off)), wpn_fort500 (Fort-500), wpn_mp153 (MP-153), wpn_saiga12s (Saiga-12), wpn_ks23 (KS-23), wpn_ks23_kaban (KS-23M Drozd), wpn_protecta (Armsel Protecta), wpn_usas12 (USAS-12), wpn_vepr (Vepr-12), wpn_raptr (RAPTR)
-
-SMGs: wpn_vz61 (Skorpion vz.68), wpn_vz61_alt (Skorpion vz.68), wpn_pp2000 (PP-2000), wpn_kiparis (OTs-02 Kiparis), wpn_bizon (PP-19 Bizon), wpn_vityaz (PP-19-01 Vityaz), wpn_mp5 (MP5A3), wpn_mp5_alt (MP5A3), wpn_mp5sd (MP5SD6), wpn_ump45 (UMP45), wpn_mp9 (Brugger & Thomet MP9), wpn_mp7 (MP7), wpn_p90 (FN P90), wpn_kriss_vector (KRISS Vector), wpn_sr2_veresk (SR-2M Veresk), wpn_thompson_1921 (Thompson Model 1921), wpn_thompson_m1a1 (Thompson M1A1), wpn_aug_freedom (Steyr AUG A3 9mm), wpn_udp9 (UDP-9 Carbine), wpn_pp2000_operator (PP-2000 "Operator")
-
-Assault Rifles: wpn_ak (AK-47), wpn_akm (AKM), wpn_akms (AKMS), wpn_aks (AKS-47), wpn_ak74 (AK-74N), wpn_ak74_old (AK-74), wpn_ak74_n (AK-74), wpn_ak74m (AK-74M), wpn_ak74u (AKS-74UN), wpn_ak74u_old (AK-74U), wpn_ak105 (AK-105), wpn_ak104 (AK-104), wpn_ak101 (AK-101), wpn_ak102 (AK-102), wpn_ak103 (AK-103), wpn_m16 (M16A4), wpn_m4a1 (M4A1), wpn_g36 (G36), wpn_sig552 (SIG SG 552 Commando), wpn_l85 (L85A1)
-
-Snipers: wpn_mosin (Mosin-Nagant), wpn_sks (SKS), wpn_sks_modern (SKS), wpn_svt40 (SVT-40), wpn_k98 (Karabiner 98k), wpn_g43 (Gewehr 43), wpn_remington700 (Remington 700), wpn_remington700_archangel (Remington 700 "Archangel"), wpn_svd (SVD), wpn_svds (SVDS), wpn_svu (OTs-03 SVU), wpn_sv98 (SV98), wpn_l96a1 (L96A1), wpn_m24 (M24 SWS), wpn_m98b (Barrett M98B), wpn_dvl10 (DVL-10 M2 Urbana), wpn_steyr_scout (Steyr Scout 5.56), wpn_sr25 (SR-25), wpn_winchester1873 (Winchester Model 1873), wpn_vssk (VSSK Vykhlop)
-
-Armours: novice_outfit (Leather Jacket), novice_outfit_tourist (Tourist’s Jacket), bandit_novice_outfit (Black Leather Jacket), bandit_novice_outfit_alt (Armored Leather Jacket), dolg_novice_outfit (Duty Leather Jacket), svoboda_novice_outfit (Freedom Leather Jacket), cs_novice_outfit (Clear Sky Leather Jacket), redline_novice_outfit (Redline Leather Jacket), army_outfit (Military Service Outfit), trenchcoat_outfit (Overcoat), trenchcoat_brown_outfit (Heavy Brown Overcoat), stalker_outfit (Sunrise Stalker Suit), stalker_autumn_outfit (Autumn Stalker Suit), stalker_graphite_outfit (Graphite Stalker Suit), stalker_bear_outfit (Bear Stalker Suit), stalker_predator_outfit (Predator Stalker Suit), wastelander_outfit (Wastelander Stalker Suit), light_loner_outfit (Interceptor Body Armor), merc_outfit (Mercenary LC Suit), cs_light_outfit (CS-2a Body Armor)
-
-Ammo: ammo_9x18_fmj (9x18 FMJ), ammo_9x19_fmj (9x19 FMJ), ammo_5.45x39_fmj (5.45x39 FMJ), ammo_5.56x45_fmj (5.56x45 FMJ), ammo_7.62x39_fmj (7.62x39 FMJ), ammo_7.62x51_fmj (7.62x51 NATO ball), ammo_7.62x54_7h1 (7.62x54 7N1), ammo_12x70_buck (12x70 buckshot), ammo_20x70_buck (20x70 buckshot), ammo_12x70_buck_self (Home-made 12x70 shot), ammo_11.43x23_fmj (.45 ACP FMJ), ammo_357_hp_mag (.357 HP), ammo_9x18_pmm (9x18 HP), ammo_9x19_pbp (9x19 HP), ammo_5.45x39_ep (5.45x39 HP), ammo_5.56x45_ss190 (5.56x45 HP), ammo_7.62x25_p (7.62x25 LRNPC), ammo_7.62x25_ps (7.62x25 Pst), ammo_9x39_pab9 (9x39 SP-5), ammo_23x75_shrapnel (Shrapnel-25 23x75)
-
-###########################################
-spawn_companion	faction:delay	Spawns friendly squad that follows player.
-spawn_hostile	faction:delay	Spawns hunting squad (hostile).
-spawn_mutant	type:delay	Spawns mutant pack (type can be "random" or specific like "bloodsucker").
-reward_stash	(none)	Reveals a random stash on the map.
-chance	percent:command	Executes command only with given percentage chance.
-Examples:
-
-"reward_money:1000,reward_rep:10" , gives 1000 RU and 10 rep.
-
-"chance:50:spawn_hostile:bandit:90" , 50% chance to spawn bandit hunters.
-
-"punish_gw:20:stalker" , lose 20 goodwill with stalkers.
-
-Do:
-
-Balance outcomes , giving huge sums of money or reputation can break the game. Immersion is number one. 
-
-Use chance: for uncertainty (e.g., a deal may go wrong).
-
-Combine multiple outcomes with commas.
-
-Don’t:
-
-Spawn too many NPCs at once (respect the companion limit, etc.).
-
-3.6 Set the next turn (if any)
-If the conversation should continue, set _cont_X to the next turn number (2, 3, …).
-
-If _cont_X is 0 or missing, the conversation ends after the reply and outcome.
-
-For turn 2, all strings must be defined with _t2 in their IDs.
-
-Example of a two‑turn conversation:
-Turn 1:
-
-_choice_1 → _reply_1 → _outcome_1 = "none" → _cont_1 = "2"
-
-Then define _t2_choice_1, _t2_reply_1, _t2_outcome_1 (and optionally _t2_cont_1 if it goes further).
-
-USING PRECONDITIONS
-You can make a conversation appear only if the player meets certain requirements. Add a string with the same base ID plus _precond.
-Example: st_pda_ic_friendly_loner_8_precond with value "req_money:1000" means the coin‑flip conversation only triggers if the player has at least 1000 RU.
-
-Available preconditions:
-
-req_money:amount – player must have at least amount money.
-
-req_money_max:amount – player must have less than amount money.
-
-req_rep:amount – player reputation must be at least amount.
-
-req_rep_max:amount – player reputation must be below amount (can be negative).
-
-req_rank:rank – player rank must be at least rank (values: novice, trainee, experienced, professional, veteran, expert, master, legend).
-
-req_rank_max:rank – player rank must be at most rank (same rank values).
-
-req_kills:count – player must have at least count stalker kills.
-
-req_mutant_kills:count – player must have at least count mutant kills.
-
-req_faction:faction – player must belong to the specified faction (e.g., bandit, dolg, freedom, etc.).
-
-req_not_faction:faction – player must not belong to the specified faction.
-
-req_level:map_name – player must be on the specific map (e.g., l03_agroprom).
-
-req_companions:count – player must have at least count companions.
-
-req_companions_max:count – player must have at most count companions (use 0 for “no companions”).
-
-req_goodwill:amount:faction – player’s goodwill toward faction must be at least amount.
-
-req_has_item:item – player must have the item item in inventory (e.g., wpn_ak74).
-
-req_equipped:item – player must have the item item equipped.
-
-req_equipped_slot:slot_number – player must have something equipped in the specified slot (slot numbers depend on game configuration).
-
-req_achievement:achievement_name – player must have earned the achievement.
-
-req_time_day – it must be daytime (between 6:00 and 20:00).
-
-req_time_night – it must be nighttime (between 20:00 and 6:00).
-
-req_health_min:value – player health must be at least value (0.0 to 1.0; e.g., 0.5 = 50%).
-
-req_health_max:value – player health must be at most value (0.0 to 1.0; e.g., 0.3 = 30%).
-
-If multiple conditions are needed, separate them with commas, e.g., "req_money:2000,req_rep:100".
-
-Do: Use preconditions to make conversations feel appropriate (e.g., only wealthy players get investment offers, players with many kills receive stash coordinates).
-Don’t: Overuse them – you still want conversations to trigger often.
-
-5. PLACEHOLDERS AND LORE‑FRIENDLINESS
-The system automatically replaces these placeholders:
-
-Placeholder	Replaced with
-$player_name	Actor’s name
-$npc_name	NPC’s name
-$player_faction	Actor’s faction (translated)
-$npc_faction	NPC’s faction (translated)
-$current_level	Current level name (translated)
-
-Lore‑friendly rules:
-
-Never reference specific quests or events that may not have happened (e.g., “after you killed the pseudogiant at the farm”).
-
-Avoid naming specific artifacts or items that are extremely rarE.
-
-Keep locations generic , use $current_level (Will use names like, Cordon, Rostok, etc)
-
-Good examples:
-
-“I heard you helped clear out the mutants near the depot.” (vague but plausible)
-
-“There’s stash coordinates i managed to get from a pda i found.” (no specific coordinates)
-
-“I’m sending a runner with some supplies.”
-
-Bad examples:
-
-“Meet me at the 100 Rads bar, Sidorovich will vouch for me.” (names a specific NPC)
-
-“Remember that job you did for Fanatic last week?” (assumes a specific quest)
-
-“The artifact is in the Agroprom underground, level 2.” (way too specific)
-
-6. TIPS FOR DEEP, BRANCHING CONVERSATIONS
-Use multiple turns to build tension or develop a story.
-Example F9 (scam) takes two turns: first the player pays, then later they learn the outcome.
-
-Let choices meaningfully affect the outcome.
-In F8 (coin flip), choosing “Heads” or “Tails” leads to different outcomes. In F9, investing 3000 vs 2000 changes the outcome.
-
-Give the player agency to change their mind.
-In F5, you can later remind the player about the compass and let them accept or decline again.
-
-Create personality through dialogue.
-Some are serious, some are more relaxed, some are more friendly, some are distant/uncaring, some are rude, etc; F7 (reputation boost) is warm and grateful; F10 (argument) is tense and threatening.
-
-Not every conversation needs a gameplay outcome.
-Sometimes just a friendly/argumentative chat with a reputation reward or a simple “thanks” is enough.
-Example: F7 has only reputation rewards, no items or spawns.
-
-Balance positive and negative consequences.
-Some conversations should be purely beneficial, others can have risks (like the scam or the argument that leads to hostility).
+HOW TO: IMMERSIVE FRIENDLY PDA CONVERSATIONS (LONER)
+
+P.A.N.D.A conversations must be grounded in real game state and real consequences.
+No imaginary dialogue: every line should be supportable by trackable mechanics (money,
+reputation, goodwill, item transfer, spawned allies/threats, stash reveal, task handoff,
+location/time context, rank context, etc.).
+
+1) ID FORMAT + PICKING
+- Base key: st_pda_ic_friendly_loner_<id>_<field>
+- Turn key: st_pda_ic_friendly_loner_<id>_t<turn>_<field>
+- Non-task selection flow:
+  a) Script picks friendly/hostile pool.
+  b) Script evaluates each available NPC against conversation preconditions.
+  c) Conversation is selected with weighted cooldown logic.
+- If a precondition references NPC rank, only NPCs with matching rank can be selected.
+
+2) REQUIRED CORE FIELDS
+For each conversation ID:
+- _open                NPC opener text
+- _choice_1..4         Player choices (1..4, stop at first missing)
+- _reply_1..4          NPC replies to each choice
+- _outcome_1..4        Gameplay effects (or "none")
+- _cont_1..4           Optional next turn number (2,3,4...)
+
+For later turns:
+- _t2_choice_1, _t2_reply_1, _t2_outcome_1, _t2_cont_1
+- _t3_..., _t4_... etc.
+
+3) PLACEHOLDERS (SAFE + IMMERSIVE)
+Supported placeholders:
+- $player_name
+- $npc_name
+- $player_faction
+- $npc_faction
+- $current_level
+- $player_money
+- $player_rank
+- $player_reputation
+- $companion_count
+- $time_of_day
+- $game_hour
+
+Use placeholders to keep messages contextual without inventing fixed story facts.
+
+4) PRECONDITIONS (_precond)
+Attach to conversation root ID:
+- st_pda_ic_friendly_loner_<id>_precond
+- Value is comma-separated commands.
+
+Core player checks:
+- req_money:<amount>, req_money_max:<amount>
+- req_rank:<rank>, req_rank_max:<rank>
+- req_rep:<amount>, req_rep_max:<amount>
+- req_kills:<count>, req_mutant_kills:<count>
+- req_faction:<fac>, req_not_faction:<fac>
+- req_level:<map>, req_not_level:<map>
+- req_companions:<n>, req_companions_max:<n>
+- req_goodwill:<amount>:<fac>, req_goodwill_max:<amount>:<fac>
+- req_has_item:<section>
+- req_equipped:<section>, req_equipped_slot:<slot>
+- req_achievement:<id>
+- req_time_day, req_time_night
+- req_health_min:<0..1>, req_health_max:<0..1>
+
+NPC suitability checks (new immersive gate):
+- req_npc_rank:<rank>         NPC rank must be >= rank
+- req_npc_rank_max:<rank>     NPC rank must be <= rank
+
+Ranks: novice, trainee, experienced, professional, veteran, expert, master, legend.
+
+5) OUTCOMES (_outcome_X)
+Comma-separated commands, executed after reply:
+- reward_money:<amount>, punish_money:<amount>
+- reward_rep:<amount>, punish_rep:<amount>
+- reward_gw:<amount>:<fac>, punish_gw:<amount>:<fac>
+- give_item:<section>
+- courier_item:<section>
+- reward_stash
+- spawn_companion:<fac>:<delay_s>
+- spawn_hostile:<fac>:<delay_s>
+- spawn_mutant:<type|random>:<delay_s>
+- give_task_cat:<category> (task conversations)
+
+Chance wrapper:
+- chance:<percent>:<command>
+Example: chance:40:reward_stash
+
+Design rule: outcomes must match what dialogue promises. If the NPC says no payment,
+do not grant money; if they promise risk, use chance/spawn outcomes accordingly.
+
+6) TIMEOUTS (NEW)
+Each conversation can expire if ignored:
+- st_pda_ic_friendly_loner_<id>_timeout      (seconds, real-time)
+- st_pda_ic_friendly_loner_<id>_timeout_msg  (NPC annoyed closeout)
+
+If timeout key is absent, script uses a random fallback window.
+Use timeout lines that sound like PDA texting cutoffs, not face-to-face roleplay.
+
+7) LORE / IMMERSION RULES
+- PDA remote-text tone only (short, practical, uncertain signal context).
+- No fixed canon assumptions the player may never have seen.
+- No impossible claims without matching mechanics.
+- Distinct personalities are good, but must remain plausible for radio/PDA chat.
+- Branches should represent meaningful stance: cooperative, cautious, greedy, dismissive.
+
+8) QUICK TEMPLATE
+st_pda_ic_friendly_loner_99_open
+st_pda_ic_friendly_loner_99_precond
+st_pda_ic_friendly_loner_99_choice_1
+st_pda_ic_friendly_loner_99_reply_1
+st_pda_ic_friendly_loner_99_outcome_1
+st_pda_ic_friendly_loner_99_cont_1
+... (repeat choice 2..4)
+... (add _t2/_t3 branches as needed)
+st_pda_ic_friendly_loner_99_timeout
+st_pda_ic_friendly_loner_99_timeout_msg
 -->
 
 <!-- ============================================================ -->
@@ -382,5 +202,194 @@ Some conversations should be purely beneficial, others can have risks (like the 
 <!-- ============================================================ -->
 
 
+
+
+<string id="st_pda_ic_friendly_loner_1_open">
+    <text>$player_name, this is $npc_name. Long-range ping from $current_level perimeter. Need a second pair of eyes on a route report.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_precond">
+    <text>req_npc_rank:professional</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_timeout">
+    <text>160</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_timeout_msg">
+    <text>No reply. I am closing this channel and rerouting through another stalker.</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_choice_1">
+    <text>Send the route details. I will verify what I can from my side.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_reply_1">
+    <text>Copy. Three heat marks moved past an old checkpoint, then vanished near anomalies. Pick an approach.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_outcome_1">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_cont_1">
+    <text>2</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_choice_2">
+    <text>Info is expensive. Transfer payment first, then we talk.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_reply_2">
+    <text>Fair. Sending a partial transfer now for your time. Earn the rest by staying useful.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_outcome_2">
+    <text>reward_money:1200,reward_rep:5</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_cont_2">
+    <text>2</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_choice_3">
+    <text>Negative. I am not getting involved in your patrol problems.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_reply_3">
+    <text>Understood. Noted as refusal. Stay clear of that route anyway.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_outcome_3">
+    <text>punish_rep:5</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_choice_4">
+    <text>Before anything else, authenticate. Rank, unit role, and why you contacted me.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_reply_4">
+    <text>Professional scout detail, independent loner net. Contacted you because your route overlaps mine on $current_level.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_outcome_4">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_cont_4">
+    <text>3</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t2_choice_1">
+    <text>I will watch the checkpoint lane and report movement updates.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_reply_1">
+    <text>Good discipline. If your report matches mine, I will share my reserve cache ping.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_outcome_1">
+    <text>chance:45:reward_stash,reward_rep:8</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t2_choice_2">
+    <text>If this is serious, I need hazard pay before I stay on that lane.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_reply_2">
+    <text>Reasonable. Sending extra pay. Keep this channel open and do not drift.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_outcome_2">
+    <text>reward_money:1800,reward_gw:20:stalker</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t2_choice_3">
+    <text>I can dispatch supplies instead: anti-rads and med support by courier.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_reply_3">
+    <text>That helps. I will receive the drop and update you once my side is stable.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_outcome_3">
+    <text>courier_item:antirad,reward_rep:10</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t2_choice_4">
+    <text>Too many unknowns. I am out.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_reply_4">
+    <text>Then I reroute with weaker coverage. Bad call, but your choice.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_outcome_4">
+    <text>punish_gw:15:stalker</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t3_choice_1">
+    <text>Confirmed. Send your movement window and I will sync to it.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_reply_1">
+    <text>Window is short. If this turns hot, I can call one loner to your flank.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_outcome_1">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_cont_1">
+    <text>4</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t3_choice_2">
+    <text>Authentication accepted, but I am still not committing resources.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_reply_2">
+    <text>Copy. Channel closed with no commitment logged.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_outcome_2">
+    <text>none</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t3_choice_3">
+    <text>Share collateral first: stash ping, then I commit.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_reply_3">
+    <text>You drive a hard bargain. Sending one limited-use cache location now.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_outcome_3">
+    <text>chance:60:reward_stash</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_cont_3">
+    <text>4</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t3_choice_4">
+    <text>I still think this is a trap. Prove me wrong immediately.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_reply_4">
+    <text>Paranoia keeps people alive, but delay gets people killed. Your call.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_outcome_4">
+    <text>chance:35:spawn_hostile:bandit:80</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t4_choice_1">
+    <text>Call that flank support. I will hold until link-up.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t4_reply_1">
+    <text>Support acknowledged. Loner moving to your signal now. Keep comms concise.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t4_outcome_1">
+    <text>spawn_companion:stalker:45,reward_rep:12</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t4_choice_2">
+    <text>No support needed. Just forward the final route warning.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t4_reply_2">
+    <text>Final note: avoid open ground this $time_of_day. Signal drift is masking movement.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t4_outcome_2">
+    <text>reward_rep:6</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t4_choice_3">
+    <text>Understood. Send any med packet you can spare and close channel.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t4_reply_3">
+    <text>Done. One field package queued through courier relay. Stay operational.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t4_outcome_3">
+    <text>courier_item:medkit,reward_gw:10:stalker</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t4_choice_4">
+    <text>This is too chaotic. I am dropping this contract now.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t4_reply_4">
+    <text>Copy. Contract dropped. Next time decide faster.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t4_outcome_4">
+    <text>punish_rep:8,punish_gw:20:stalker</text>
+</string>
 
 </string_table>
