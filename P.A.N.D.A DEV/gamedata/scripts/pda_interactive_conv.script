@@ -118,6 +118,10 @@ function block_contact(contact_name)
     pda_private_blocked_contacts[contact_name] = true
     local removed = delete_contact_thread(contact_name)
 
+    -- Remove from multi-conversation table
+    if active_conversations[contact_name] then
+        active_conversations[contact_name] = nil
+    end
     if CONV and CONV.npc_name == contact_name then
         CONV = nil
     end
@@ -259,11 +263,42 @@ local TASK_ID_TO_CAT = {
 -- ============================================================
 -- UTILITY FUNCTIONS
 -- ============================================================
-CONV = nil
+CONV = nil  -- Legacy: kept as a reference to the most-recently-started conversation
+active_conversations = {}  -- Table keyed by npc_name → conversation data
 pda_reply_pending = false  -- True while the multi-stage reply timer chain is active
 local conv_last_played, last_conv_npc_id, _callbacks_registered = {}, nil, false
 local npc_last_used = {}   -- store last used time per NPC
 local last_pda_warning_time = 0 
+
+-- ============================================================
+-- MULTI-CONVERSATION HELPERS
+-- ============================================================
+function get_active_conv(contact_name)
+    if not contact_name then return nil end
+    return active_conversations[contact_name]
+end
+
+function get_active_conv_for_selected()
+    -- Returns the conversation for whatever contact the PDA tab currently shows
+    if pda_private_tab and pda_private_tab.is_private_tab_visible and pda_private_tab.is_private_tab_visible() then
+        -- Fallback: return CONV (the latest)
+    end
+    return CONV
+end
+
+function get_any_active_conv()
+    -- Returns any active conversation (for compatibility checks like "is anything active?")
+    for _, c in pairs(active_conversations) do
+        return c
+    end
+    return nil
+end
+
+function count_active_conversations()
+    local n = 0
+    for _ in pairs(active_conversations) do n = n + 1 end
+    return n
+end
 
 -- Safe time‑event removal – prevents crash if the function doesn't exist
 local function safe_remove_time_event(id, name)
@@ -646,12 +681,35 @@ local function build_substitution_table(npc_name, npc_faction)
     local display_npc_fac = (npc_faction == "loner") and "stalker" or (npc_faction or "stalker")
     local cur_level = level and level.name and level.name() or "unknown"
 
+    -- Player money
+    local money = act and act:money() or 0
+    -- Player rank
+    local rank_name = (act and ranks and ranks.get_obj_rank_name) and ranks.get_obj_rank_name(act) or "unknown"
+    -- Player reputation
+    local reputation = act and act.character_reputation and act:character_reputation() or 0
+    -- Companion count
+    local comp_count = 0
+    if axr_companions and axr_companions.companion_squads then
+        for _ in pairs(axr_companions.companion_squads) do comp_count = comp_count + 1 end
+    end
+    -- Time of day
+    local gt = game.get_game_time()
+    local Y, M, D, h, mi = 0, 0, 0, 0, 0
+    Y, M, D, h, mi = gt:get(Y, M, D, h, mi, 0, 0)
+    local time_of_day = (h >= 6 and h < 12) and "morning" or (h >= 12 and h < 18) and "afternoon" or (h >= 18 and h < 22) and "evening" or "night"
+
     return {
         ["player_name"] = player_name,
         ["npc_name"] = npc_name or "Stalker",
         ["player_faction"] = game.translate_string("st_faction_"..player_comm),
         ["npc_faction"] = game.translate_string("st_faction_"..display_npc_fac),
         ["current_level"] = game.translate_string(cur_level),
+        ["player_money"] = tostring(money),
+        ["player_rank"] = rank_name,
+        ["player_reputation"] = tostring(reputation),
+        ["companion_count"] = tostring(comp_count),
+        ["time_of_day"] = time_of_day,
+        ["game_hour"] = string.format("%02d:%02d", h, mi),
     }
 end
 
@@ -670,13 +728,202 @@ function check_preconditions_generic(precond_key)
         entry = entry:match("^%s*(.-)%s*$")
         local parts = str_explode(entry, ":")
         local cmd = parts[1]
+
+        -- ========== MONEY ==========
         if cmd == "req_money" then
+            -- req_money:5000 — player must have at least 5000 RU
             if act:money() < (tonumber(parts[2]) or 0) then return false end
+
+        elseif cmd == "req_money_max" then
+            -- req_money_max:2000 — player must have LESS than 2000 RU
+            if act:money() >= (tonumber(parts[2]) or 0) then return false end
+
+        -- ========== RANK ==========
         elseif cmd == "req_rank" then
+            -- req_rank:veteran — player rank must be at least veteran
             local p_rank = ranks.get_obj_rank_name(act) or "novice"
             if (RANK_ORDER[p_rank] or 1) < (RANK_ORDER[parts[2]] or 1) then return false end
+
+        elseif cmd == "req_rank_max" then
+            -- req_rank_max:trainee — player rank must be at most trainee
+            local p_rank = ranks.get_obj_rank_name(act) or "novice"
+            if (RANK_ORDER[p_rank] or 1) > (RANK_ORDER[parts[2]] or 1) then return false end
+
+        -- ========== REPUTATION ==========
         elseif cmd == "req_rep" then
+            -- req_rep:500 — player reputation >= 500
             if act:character_reputation() < (tonumber(parts[2]) or 0) then return false end
+
+        elseif cmd == "req_rep_max" then
+            -- req_rep_max:-100 — player reputation <= -100
+            if act:character_reputation() > (tonumber(parts[2]) or 0) then return false end
+
+        -- ========== KILLS ==========
+        elseif cmd == "req_kills" then
+            -- req_kills:50 — player must have at least 50 kills
+            local kills = 0
+            if act_statistic and act_statistic.get_stat then
+                kills = act_statistic.get_stat("killed_stalkers") or 0
+            elseif game_stats and game_stats.get_actor_stat then
+                kills = game_stats.get_actor_stat("killed_stalkers") or 0
+            end
+            if kills < (tonumber(parts[2]) or 0) then return false end
+
+        elseif cmd == "req_mutant_kills" then
+            -- req_mutant_kills:20 — player must have killed at least 20 mutants
+            local kills = 0
+            if act_statistic and act_statistic.get_stat then
+                kills = act_statistic.get_stat("killed_monsters") or 0
+            elseif game_stats and game_stats.get_actor_stat then
+                kills = game_stats.get_actor_stat("killed_monsters") or 0
+            end
+            if kills < (tonumber(parts[2]) or 0) then return false end
+
+        -- ========== FACTION ==========
+        elseif cmd == "req_faction" then
+            -- req_faction:bandit — player must be part of bandit faction
+            local player_comm = get_actor_true_community() or "stalker"
+            local required_fac = normalize_faction(parts[2])
+            if player_comm ~= required_fac then return false end
+
+        elseif cmd == "req_not_faction" then
+            -- req_not_faction:monolith — player must NOT be monolith
+            local player_comm = get_actor_true_community() or "stalker"
+            local excluded_fac = normalize_faction(parts[2])
+            if player_comm == excluded_fac then return false end
+
+        -- ========== LEVEL / LOCATION ==========
+        elseif cmd == "req_level" then
+            -- req_level:l03_agroprom — player must be on this map
+            local cur_level = level and level.name and level.name() or "unknown"
+            if cur_level ~= parts[2] then return false end
+
+        elseif cmd == "req_not_level" then
+            -- req_not_level:l01_escape — player must NOT be on this map
+            local cur_level = level and level.name and level.name() or "unknown"
+            if cur_level == parts[2] then return false end
+
+        -- ========== DISTANCE TO NPC ==========
+        elseif cmd == "req_distance_max" then
+            -- req_distance_max:100 — NPC must be within 100m of player
+            -- (This is checked at conversation selection time; NPC proximity is already
+            -- filtered by get_friendly_npcs/get_hostile_npcs, but this adds a tighter cap)
+            -- Handled at selection level - passes through here
+            -- Store for external checker
+            -- NOTE: actual distance check happens in NPC filtering
+
+        elseif cmd == "req_distance_min" then
+            -- req_distance_min:50 — NPC must be at least 50m away
+            -- NOTE: actual distance check happens in NPC filtering
+
+        -- ========== COMPANIONS ==========
+        elseif cmd == "req_companions" then
+            -- req_companions:2 — player must have at least 2 companions
+            local comps = 0
+            if axr_companions and axr_companions.companion_squads then
+                for _ in pairs(axr_companions.companion_squads) do comps = comps + 1 end
+            end
+            if comps < (tonumber(parts[2]) or 0) then return false end
+
+        elseif cmd == "req_companions_max" then
+            -- req_companions_max:0 — player must have no companions
+            local comps = 0
+            if axr_companions and axr_companions.companion_squads then
+                for _ in pairs(axr_companions.companion_squads) do comps = comps + 1 end
+            end
+            if comps > (tonumber(parts[2]) or 0) then return false end
+
+        -- ========== FACTION GOODWILL ==========
+        elseif cmd == "req_goodwill" then
+            -- req_goodwill:500:dolg — player must have >= 500 goodwill with Duty
+            local amount = tonumber(parts[2]) or 0
+            local fac = normalize_faction(parts[3] or "stalker")
+            local gw = 0
+            if relation_registry and relation_registry.community_goodwill then
+                gw = relation_registry.community_goodwill(fac, 0) or 0
+            end
+            if gw < amount then return false end
+
+        elseif cmd == "req_goodwill_max" then
+            -- req_goodwill_max:-500:bandit — player goodwill with bandits must be <= -500
+            local amount = tonumber(parts[2]) or 0
+            local fac = normalize_faction(parts[3] or "stalker")
+            local gw = 0
+            if relation_registry and relation_registry.community_goodwill then
+                gw = relation_registry.community_goodwill(fac, 0) or 0
+            end
+            if gw > amount then return false end
+
+        -- ========== HAS ITEM ==========
+        elseif cmd == "req_has_item" then
+            -- req_has_item:wpn_ak74 — player must have this item in inventory
+            local item_sec = parts[2]
+            if not item_sec then return false end
+            local found = false
+            act:iterate_inventory(function(owner, item)
+                if item:section() == item_sec then found = true end
+            end, act)
+            if not found then return false end
+
+        -- ========== EQUIPPED ITEM ==========
+        elseif cmd == "req_equipped" then
+            -- req_equipped:wpn_ak74 — player must have this item equipped
+            local item_sec = parts[2]
+            if not item_sec then return false end
+            local found = false
+            for slot = 0, 12 do
+                local slot_item = act:item_in_slot(slot)
+                if slot_item and slot_item:section() == item_sec then
+                    found = true
+                    break
+                end
+            end
+            if not found then return false end
+
+        elseif cmd == "req_equipped_slot" then
+            -- req_equipped_slot:2 — player must have something in weapon slot 2
+            local slot = tonumber(parts[2]) or 0
+            if not act:item_in_slot(slot) then return false end
+
+        -- ========== ACHIEVEMENTS ==========
+        elseif cmd == "req_achievement" then
+            -- req_achievement:ach_name — player must have earned this achievement
+            local ach_name = parts[2]
+            if not ach_name then return false end
+            local has_ach = false
+            if game_achievements and game_achievements.has_achievement then
+                has_ach = game_achievements.has_achievement(ach_name)
+            elseif achieved then
+                has_ach = achieved[ach_name] == true
+            end
+            if not has_ach then return false end
+
+        -- ========== TIME OF DAY ==========
+        elseif cmd == "req_time_day" then
+            -- req_time_day — must be daytime (6:00-20:00)
+            local gt = game.get_game_time()
+            local Y, M, D, h = 0, 0, 0, 0
+            Y, M, D, h = gt:get(Y, M, D, h, 0, 0, 0)
+            if h < 6 or h >= 20 then return false end
+
+        elseif cmd == "req_time_night" then
+            -- req_time_night — must be nighttime (20:00-6:00)
+            local gt = game.get_game_time()
+            local Y, M, D, h = 0, 0, 0, 0
+            Y, M, D, h = gt:get(Y, M, D, h, 0, 0, 0)
+            if h >= 6 and h < 20 then return false end
+
+        -- ========== HEALTH ==========
+        elseif cmd == "req_health_min" then
+            -- req_health_min:0.5 — player health must be >= 50%
+            if act.health and act:health() < (tonumber(parts[2]) or 0) then return false end
+
+        elseif cmd == "req_health_max" then
+            -- req_health_max:0.3 — player health must be <= 30%
+            if act.health and act:health() > (tonumber(parts[2]) or 0) then return false end
+
+        else
+            printf("Unknown precondition command: %s", cmd)
         end
     end
     return true
@@ -1361,24 +1608,32 @@ end
 
 
 
-function on_player_choice(idx)
-    -- 1. Fail early if CONV is already missing (Safety catch)
-    if not CONV or not CONV.choices[idx] then return end
+function on_player_choice(idx, contact_name)
+    -- Resolve which conversation to act on: use contact_name if given, else fall back to CONV
+    local c
+    if contact_name and active_conversations[contact_name] then
+        c = active_conversations[contact_name]
+    elseif CONV then
+        c = CONV
+    end
 
-    local ch = CONV.choices[idx]
+    if not c or not c.choices or not c.choices[idx] then return end
+
+    local ch = c.choices[idx]
+    local npc_name = c.npc_name
 
     -- Add player choice to log, NO global tip
-    pda_private_add_message(CONV.npc_name, db.actor:character_name(), ch.text, db.actor:character_icon(), true, "sent")
-    
-    -- This right here is what protects you from button-mashing abuse!
-    local c = CONV
-    CONV = nil 
+    pda_private_add_message(npc_name, db.actor:character_name(), ch.text, db.actor:character_icon(), true, "sent")
+
+    -- Remove from active table to prevent button-mashing abuse
+    active_conversations[npc_name] = nil
+    if CONV and CONV.npc_name == npc_name then CONV = nil end
 
     -- Check if outcome has already been triggered in this conversation
     local outcome_key = tostring(c.turn) .. "_" .. tostring(idx)
     local has_outcome = ch.outcome and ch.outcome ~= "none"
     local should_apply_outcome = false
-    
+
     if has_outcome then
         c.applied_outcomes = c.applied_outcomes or {}
         if not c.applied_outcomes[outcome_key] then
@@ -1389,8 +1644,8 @@ function on_player_choice(idx)
         end
     end
 
-    -- Stage 1: Message is "sent" (already done above)
     -- Mark reply chain as active so UI doesn't prematurely clear typing
+    c.reply_pending = true
     pda_reply_pending = true
 
     -- Estimate typing duration based on reply length (roughly 1s per 20 chars, min 2s, max 8s)
@@ -1398,70 +1653,77 @@ function on_player_choice(idx)
     local reply_len = string.len(reply_text)
     local typing_duration = math.max(2, math.min(8, math.floor(reply_len / 20) + 1))
 
+    -- Use per-conversation event IDs so multiple conversations don't clobber each other
+    local ev_prefix = "pda_ic_" .. tostring(c.npc_id)
+
     -- Stage 2: After a short delay, mark as "delivered" (message reaches NPC's PDA)
     local delivered_delay = math.random(1, 2)
-    CreateTimeEvent("pda_ic", "delivery_ack", delivered_delay, function()
-        set_last_player_message_state(c.npc_name, "delivered")
+    CreateTimeEvent(ev_prefix, "delivery_ack", delivered_delay, function()
+        set_last_player_message_state(npc_name, "delivered")
 
-        -- Stage 3: NPC reads the message - brief pause proportional to player message length
+        -- Stage 3: NPC reads the message
         local player_msg_len = string.len(ch.text or "")
         local read_delay = math.max(1, math.min(4, math.floor(player_msg_len / 30) + 1))
-        CreateTimeEvent("pda_ic", "npc_read", read_delay, function()
-            set_last_player_message_state(c.npc_name, "read")
+        CreateTimeEvent(ev_prefix, "npc_read", read_delay, function()
+            set_last_player_message_state(npc_name, "read")
 
-            -- Stage 4: NPC thinks before typing - a short deliberation pause
+            -- Stage 4: NPC thinks before typing
             local think_delay = math.random(1, 3)
-            CreateTimeEvent("pda_ic", "npc_thinking", think_delay, function()
+            CreateTimeEvent(ev_prefix, "npc_thinking", think_delay, function()
 
-                -- Stage 5: NPC starts typing - duration scales with reply message length
-                upsert_npc_typing_message(c.npc_name, c.npc_name, c.npc_icon)
-                CreateTimeEvent("pda_ic", "npc_reply", typing_duration, function()
-                    clear_npc_typing_message(c.npc_name)
+                -- Stage 5: NPC starts typing
+                upsert_npc_typing_message(npc_name, npc_name, c.npc_icon)
+                CreateTimeEvent(ev_prefix, "npc_reply", typing_duration, function()
+                    clear_npc_typing_message(npc_name)
 
-                if ch.reply and ch.reply ~= "" then
-                    if is_private_tab_visible and is_private_tab_visible() then
-                        -- Tab is open and visible, no global alert
-                    else
-                        printf("Global alert: New message from %s", c.npc_name)
+                    if ch.reply and ch.reply ~= "" then
+                        if is_private_tab_visible and is_private_tab_visible() then
+                            -- Tab is open and visible, no global alert
+                        else
+                            printf("Global alert: New message from %s", npc_name)
+                        end
+                        pda_private_add_message(npc_name, npc_name, ch.reply, c.npc_icon, false)
+                        set_last_player_message_state(npc_name, "read")
                     end
-                    pda_private_add_message(c.npc_name, c.npc_name, ch.reply, c.npc_icon, false)
-                    set_last_player_message_state(c.npc_name, "read")
-                end
 
-                if should_apply_outcome then
-                    local outcome_delay_min = PANDA.get_config("outcome_delay_min") or 1
-                    local outcome_delay_max = PANDA.get_config("outcome_delay_max") or 2
-                    CreateTimeEvent("pda_ic", "outcome", math.random(outcome_delay_min, outcome_delay_max), function()
-                        apply_outcome(ch.outcome, c.npc_name, c.faction, c.npc_id, c.task_id)
-                        return true
-                    end)
-                end
-
-                if ch.next_turn then
-                    local next_choices, num = load_choices_for_turn(c.prefix, c.faction, c.conv_id, ch.next_turn, c.npc_name)
-                    if num > 0 then
-                        CONV = c
-                        CONV.turn = ch.next_turn
-                        CONV.choices = next_choices
-                        CONV.num_choices = num
+                    if should_apply_outcome then
+                        local outcome_delay_min = PANDA.get_config("outcome_delay_min") or 1
+                        local outcome_delay_max = PANDA.get_config("outcome_delay_max") or 2
+                        CreateTimeEvent(ev_prefix, "outcome", math.random(outcome_delay_min, outcome_delay_max), function()
+                            apply_outcome(ch.outcome, npc_name, c.faction, c.npc_id, c.task_id)
+                            return true
+                        end)
                     end
-                end
 
-                if get_ui then
-                    get_ui():Reset()
-                end
+                    if ch.next_turn then
+                        local next_choices, num = load_choices_for_turn(c.prefix, c.faction, c.conv_id, ch.next_turn, npc_name)
+                        if num > 0 then
+                            c.turn = ch.next_turn
+                            c.choices = next_choices
+                            c.num_choices = num
+                            c.reply_pending = false
+                            -- Re-register in multi-conv table
+                            active_conversations[npc_name] = c
+                            CONV = c
+                        end
+                    end
 
-                pda_reply_pending = false
+                    if get_ui then
+                        get_ui():Reset()
+                    end
+
+                    c.reply_pending = false
+                    pda_reply_pending = false
+                    return true
+                end)
                 return true
             end)
             return true
         end)
         return true
-        end)
-        return true
     end)
 
-    -- FIX: Record cooldown immediately if this choice ends the conversation (no next turn)
+    -- Record cooldown immediately if this choice ends the conversation (no next turn)
     if not ch.next_turn then
         local composite_key = (c.prefix or "task") .. "_" .. c.faction .. "_" .. c.conv_id
         conv_last_played[composite_key] = game.get_game_time()
@@ -1469,7 +1731,10 @@ function on_player_choice(idx)
 end
 
 function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, category)
-    if CONV then return false end
+    local name = npc_se:character_name()
+
+    -- Block if this specific NPC already has an active conversation
+    if active_conversations[name] then return false end
 
     local key
     if prefix == "task" or not prefix then
@@ -1479,26 +1744,32 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
     end
 
     local msg = game.translate_string(key)
-    if msg == key then return false end 
+    if msg == key then return false end
 
-    local name = npc_se:character_name()
     local choices, num = load_choices_for_turn(prefix, faction, conv_id, 1, name)
     if num == 0 then return false end
 
-    CONV = {
+    local conv_data = {
         npc_id = npc_se.id,
         npc_name = name,
         npc_icon = npc_se:character_icon() or FALLBACK_NPC_ICON,
         faction = faction,
-        prefix = prefix,                     
+        prefix = prefix,
         conv_id = conv_id,
         turn = 1,
         choices = choices,
         num_choices = num,
         task_id = task_id,
         category = category,
-        applied_outcomes = {} -- Track applied outcomes to prevent farming during UI loops
+        applied_outcomes = {}, -- Track applied outcomes to prevent farming during UI loops
+        started_at = time_global(),  -- Track when conversation started (for timeout)
+        reply_pending = false,  -- Per-conversation reply pending flag
     }
+
+    -- Store in multi-conversation table
+    active_conversations[name] = conv_data
+    -- Keep CONV pointing to the latest conversation for backward compatibility
+    CONV = conv_data
 
     last_conv_npc_id = npc_se.id
     record_npc_use(npc_se.id)
@@ -1506,11 +1777,11 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
     -- Send ONLY the Generic Global Chat Alert
     dynamic_news_helper.send_tip(
         "You've received a Private Message from " .. name,
-        "PDA Alert", 0, 10, CONV.npc_icon, "news", "npc"
+        "PDA Alert", 0, 10, conv_data.npc_icon, "news", "npc"
     )
-    
+
     -- Add the actual message directly into the custom Private PDA Log
-    pda_private_add_message(name, name, sub_placeholders(msg, name, faction), CONV.npc_icon, false)
+    pda_private_add_message(name, name, sub_placeholders(msg, name, faction), conv_data.npc_icon, false)
 
     -- Force refresh of UI if PDA is actively open so the message pops up immediately
     if get_ui then
@@ -1559,13 +1830,116 @@ local function attempt_non_task_conversation()
 end
 
 -- ============================================================
+-- CONVERSATION TIMEOUT SYSTEM
+-- ============================================================
+-- Each conversation can define a timeout (in real seconds) and an annoyed
+-- message that gets sent when the player ignores the NPC.  Timeouts are
+-- read from XML: st_pda_ic_<prefix>_<fac>_<id>_timeout  (seconds, e.g. "120")
+--                 st_pda_ic_<prefix>_<fac>_<id>_timeout_msg (annoyed text)
+-- If no XML timeout is found, a random default between 90-300 seconds is used.
+
+local CONV_TIMEOUT_DEFAULT_MIN = 90   -- seconds (real-time)
+local CONV_TIMEOUT_DEFAULT_MAX = 300
+
+local function get_conv_timeout_config(prefix, faction, conv_id)
+    local base
+    if prefix == "task" or not prefix then
+        base = "st_pda_ic_" .. faction .. "_" .. tostring(conv_id)
+    else
+        base = "st_pda_ic_" .. prefix .. "_" .. faction .. "_" .. tostring(conv_id)
+    end
+
+    local timeout_key = base .. "_timeout"
+    local timeout_msg_key = base .. "_timeout_msg"
+
+    local timeout_val = game.translate_string(timeout_key)
+    local timeout_secs = nil
+    if timeout_val ~= timeout_key then
+        timeout_secs = tonumber(timeout_val)
+    end
+    if not timeout_secs then
+        timeout_secs = math.random(CONV_TIMEOUT_DEFAULT_MIN, CONV_TIMEOUT_DEFAULT_MAX)
+    end
+
+    local timeout_msg = game.translate_string(timeout_msg_key)
+    if timeout_msg == timeout_msg_key then
+        timeout_msg = nil  -- Will use a generic fallback
+    end
+
+    return timeout_secs, timeout_msg
+end
+
+local GENERIC_TIMEOUT_MESSAGES = {
+    "You know what, forget it. I don't have time for this.",
+    "Still there? No? Fine, I'll find someone else.",
+    "Guess you're not interested. Signal lost.",
+    "I waited long enough. Don't bother replying.",
+    "Typical. Can't even get a straight answer in this place.",
+}
+
+function check_conversation_timeouts()
+    if not active_conversations then return end
+    local now = time_global()
+
+    local expired = {}
+    for name, conv in pairs(active_conversations) do
+        if conv.started_at and not conv.reply_pending then
+            local timeout_secs, timeout_msg = get_conv_timeout_config(
+                conv.prefix, conv.faction, conv.conv_id
+            )
+            -- time_global returns milliseconds
+            local elapsed_ms = now - conv.started_at
+            local elapsed_secs = elapsed_ms / 1000
+
+            if elapsed_secs >= timeout_secs then
+                table.insert(expired, { name = name, conv = conv, msg = timeout_msg })
+            end
+        end
+    end
+
+    for _, exp in ipairs(expired) do
+        local conv = exp.conv
+        local annoyed_msg = exp.msg
+            or GENERIC_TIMEOUT_MESSAGES[math.random(#GENERIC_TIMEOUT_MESSAGES)]
+
+        -- Substitute placeholders in the annoyed message
+        annoyed_msg = sub_placeholders(annoyed_msg, conv.npc_name, conv.faction)
+
+        -- Add the annoyed message to the chat log
+        pda_private_add_message(conv.npc_name, conv.npc_name, annoyed_msg, conv.npc_icon, false)
+
+        -- Remove from active conversations
+        active_conversations[exp.name] = nil
+        if CONV and CONV.npc_name == exp.name then CONV = nil end
+
+        -- Record cooldown
+        local composite_key = (conv.prefix or "task") .. "_" .. conv.faction .. "_" .. conv.conv_id
+        conv_last_played[composite_key] = game.get_game_time()
+
+        printf("Conversation with %s timed out after %.0f seconds", exp.name,
+            (now - conv.started_at) / 1000)
+    end
+
+    -- Refresh UI if any expired
+    if #expired > 0 and pda_private_tab and pda_private_tab.get_ui then
+        pda_private_tab.get_ui():Reset()
+    end
+end
+
+-- ============================================================
 -- MAIN TRIGGER & SCHEDULING
 -- ============================================================
 
 function try_trigger_interactive_conv()
-    if not PANDA.get_config("enabled") or CONV then 
-        printf("Trigger skipped: enabled=%s, CONV active=%s", tostring(PANDA.get_config("enabled")), tostring(CONV ~= nil))
-        return false 
+    if not PANDA.get_config("enabled") then
+        printf("Trigger skipped: disabled")
+        return false
+    end
+    -- Allow up to 3 simultaneous conversations (configurable)
+    local max_active = 3
+    if count_active_conversations() >= max_active then
+        printf("Trigger skipped: %d active conversations (max %d)", count_active_conversations(), max_active)
+        return false
     end
     if not db.actor then 
         printf("Trigger skipped: no actor")
@@ -1618,9 +1992,19 @@ local function schedule_next_trigger(interval_min)
     -- Convert in-game minutes to real seconds
     local delay = (interval_min * 60) / tf
     CreateTimeEvent("pda_ic_trigger", "tick", delay, function()
+        -- Check for timed-out conversations before triggering new ones
+        check_conversation_timeouts()
         try_trigger_interactive_conv()
         schedule_next_trigger(math.random(PANDA.get_config("trigger_min"), PANDA.get_config("trigger_max")))
         return true
+    end)
+end
+
+-- Also run timeout checks more frequently (every 10 real seconds)
+local function schedule_timeout_checker()
+    CreateTimeEvent("pda_ic_timeout", "check", 10, function()
+        check_conversation_timeouts()
+        return false  -- Keep repeating
     end)
 end
 
@@ -1643,6 +2027,17 @@ function save_state(m)
     m.pda_ic_npc_cooldowns = npc_last_used
     m.pda_private_log = pda_private_log -- SAVE TO FILE
     m.pda_private_blocked_contacts = pda_private_blocked_contacts
+    -- Save active conversations (strip non-serializable fields)
+    local save_convs = {}
+    for name, c in pairs(active_conversations) do
+        save_convs[name] = {
+            npc_id = c.npc_id, npc_name = c.npc_name, npc_icon = c.npc_icon,
+            faction = c.faction, prefix = c.prefix, conv_id = c.conv_id,
+            turn = c.turn, task_id = c.task_id, category = c.category,
+            applied_outcomes = c.applied_outcomes, started_at = c.started_at,
+        }
+    end
+    m.pda_active_conversations = save_convs
 end
 
 function load_state(m)
@@ -1667,6 +2062,22 @@ function load_state(m)
 
     if m.pda_private_blocked_contacts then
         pda_private_blocked_contacts = m.pda_private_blocked_contacts
+    end
+
+    -- Restore active conversations and rebuild their choices
+    if m.pda_active_conversations then
+        for name, saved in pairs(m.pda_active_conversations) do
+            local choices, num = load_choices_for_turn(
+                saved.prefix, saved.faction, saved.conv_id, saved.turn, saved.npc_name
+            )
+            if num > 0 then
+                saved.choices = choices
+                saved.num_choices = num
+                saved.reply_pending = false
+                active_conversations[name] = saved
+                CONV = saved  -- last one loaded becomes CONV for compat
+            end
+        end
     end
 end
 
@@ -1697,6 +2108,8 @@ function on_game_start()
 
     -- Schedule the first trigger
     schedule_next_trigger(1)
+    -- Schedule conversation timeout checker
+    schedule_timeout_checker()
 
     _callbacks_registered = true
 end

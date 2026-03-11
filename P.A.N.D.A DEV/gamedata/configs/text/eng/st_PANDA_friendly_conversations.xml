@@ -1851,7 +1851,7 @@ Some conversations should be purely beneficial, others can have risks (like the 
 <!-- 5 turns (deeply branching, lore-friendly, varying personalities and a bit rough language) -->
 
 <string id="st_pda_ic_friendly_loner_16_open">
-    <text>$player_name, got a weird one for you. Some fixer at the edge of town swore he has a locked crate with equipment—might be useful, might be cursed. He wants someone to grab it from a derelict outpost. I can pay you, or we can split the kit. Interested?</text>
+    <text>$player_name, got a weird one for you. Some fixer at the edge of town swore he has a locked crate with equipmentï¿½might be useful, might be cursed. He wants someone to grab it from a derelict outpost. I can pay you, or we can split the kit. Interested?</text>
 </string>
 
 <!-- Turn 1 choices -->
@@ -1866,7 +1866,7 @@ Some conversations should be purely beneficial, others can have risks (like the 
     <text>Fuck that. Too risky for a mystery box.</text>
 </string>
 <string id="st_pda_ic_friendly_loner_16_choice_4">
-    <text>I might do it — but I want an advance payment before I move.</text>
+    <text>I might do it ï¿½ but I want an advance payment before I move.</text>
 </string>
 
 <!-- Turn 1 replies -->
@@ -1875,7 +1875,7 @@ Some conversations should be purely beneficial, others can have risks (like the 
     <text>Good. It's near the old watchtower, north-west of $current_level. Avoid the broken bridge. I'll mark a rough pinpoint on your PDA.</text>
 </string>
 <string id="st_pda_ic_friendly_loner_16_reply_2">
-    <text>He says tools, a comms module, and maybe some sealed boxes. Could be legit gear, could be traps. He trusts you more than strangers—figure of speech, you know how the Zone is.</text>
+    <text>He says tools, a comms module, and maybe some sealed boxes. Could be legit gear, could be traps. He trusts you more than strangersï¿½figure of speech, you know how the Zone is.</text>
 </string>
 <string id="st_pda_ic_friendly_loner_16_reply_3">
     <text>Fair enough. Not everyone wants to crawl through rust and rot for a gamble. If you change your mind, ping me.</text>
@@ -1926,14 +1926,14 @@ Some conversations should be purely beneficial, others can have risks (like the 
     <text>I'm taking a buddy. Don't double-cross me.</text>
 </string>
 <string id="st_pda_ic_friendly_loner_16_t2_choice_4">
-    <text>You said split — what's my cut if the crate is good?</text>
+    <text>You said split ï¿½ what's my cut if the crate is good?</text>
 </string>
 
 <string id="st_pda_ic_friendly_loner_16_t2_reply_1">
     <text>Watch for mutated dogs and a few bandit patrols that like to loiter near the creek. Move quiet and use cover. The watchtower's interior is unstable.</text>
 </string>
 <string id="st_pda_ic_friendly_loner_16_t2_reply_2">
-    <text>Pin marked. Keep left of the birch line, the ground's safer there. Bring a crowbar or a lockpick — the crate's sealed.</text>
+    <text>Pin marked. Keep left of the birch line, the ground's safer there. Bring a crowbar or a lockpick ï¿½ the crate's sealed.</text>
 </string>
 <string id="st_pda_ic_friendly_loner_16_t2_reply_3">
     <text>Fine. I'll tell the runner not to interfere. But if your friend steals anything, you're on your own.</text>
@@ -1979,7 +1979,7 @@ Some conversations should be purely beneficial, others can have risks (like the 
     <text>The crate's gone, some scavvers took it. I can track them for a share.</text>
 </string>
 <string id="st_pda_ic_friendly_loner_16_t3_choice_3">
-    <text>Crate opened itself—there's a weird humming and a sealed device inside. I didn't touch it.</text>
+    <text>Crate opened itselfï¿½there's a weird humming and a sealed device inside. I didn't touch it.</text>
 </string>
 <string id="st_pda_ic_friendly_loner_16_t3_choice_4">
     <text>Ambushed by bandits. I'm pinned down and bleeding.</text>
@@ -1992,7 +1992,7 @@ Some conversations should be purely beneficial, others can have risks (like the 
     <text>Shit. Track them, but don't run into trouble. Offer them a trade or scare them off. If you get it back, I'll give you an extra 1000 RU for the hassle.</text>
 </string>
 <string id="st_pda_ic_friendly_loner_16_t3_reply_3">
-    <text>Do not bring that anywhere near electronics or your suit. Leave it sealed and come back. I'll contact a friend who knows weird crap. We might get paid well—or poisonous.</text>
+    <text>Do not bring that anywhere near electronics or your suit. Leave it sealed and come back. I'll contact a friend who knows weird crap. We might get paid wellï¿½or poisonous.</text>
 </string>
 <string id="st_pda_ic_friendly_loner_16_t3_reply_4">
     <text>Hold on. Try to find cover and bandage up. If you have a flare or smoke, use it now. I'm sending a runner with a medkit, but it might draw attention.</text>
@@ -2035,14 +2035,14 @@ Some conversations should be purely beneficial, others can have risks (like the 
     <text>I'm taking the crate straight to the fixer for the cash. No splits.</text>
 </string>
 <string id="st_pda_ic_friendly_loner_16_t4_choice_3">
-    <text>I want a bigger cut—give me 40% now or I walk.</text>
+    <text>I want a bigger cutï¿½give me 40% now or I walk.</text>
 </string>
 <string id="st_pda_ic_friendly_loner_16_t4_choice_4">
     <text>The crate hums. I'm leaving it and burning the rest. Not worth the risk.</text>
 </string>
 
 <string id="st_pda_ic_friendly_loner_16_t4_reply_1">
-    <text>Smart. We'll open it in public, fewer surprises. I'll be there—don't let anyone else find it.</text>
+    <text>Smart. We'll open it in public, fewer surprises. I'll be thereï¿½don't let anyone else find it.</text>
 </string>
 <string id="st_pda_ic_friendly_loner_16_t4_reply_2">
     <text>Coward's pay is quick and clean. Fine. Bring it and take your money. Expect the fixer to ask questions though.</text>
@@ -2085,13 +2085,13 @@ Some conversations should be purely beneficial, others can have risks (like the 
 <!-- ==================== TURN 5: RESOLUTION (OUTCOMES) ==================== -->
 
 <string id="st_pda_ic_friendly_loner_16_t5_choice_1">
-    <text>We opened it at the bar. It's gear—comm unit, scopes, and a sealed crate of strange tech. Split it.</text>
+    <text>We opened it at the bar. It's gearï¿½comm unit, scopes, and a sealed crate of strange tech. Split it.</text>
 </string>
 <string id="st_pda_ic_friendly_loner_16_t5_choice_2">
     <text>I took it to the fixer. He paid and then said someone tipped him off. I think I was set up.</text>
 </string>
 <string id="st_pda_ic_friendly_loner_16_t5_choice_3">
-    <text>The device inside pulsed and the sky went weird—I left it sealed and walked. Didn't touch it.</text>
+    <text>The device inside pulsed and the sky went weirdï¿½I left it sealed and walked. Didn't touch it.</text>
 </string>
 <string id="st_pda_ic_friendly_loner_16_t5_choice_4">
     <text>I tried to trade the crate for ammo but ended up in a shootout. Lost the crate and some friends.</text>
@@ -2125,7 +2125,7 @@ Some conversations should be purely beneficial, others can have risks (like the 
 
 
     <!-- ========================================================= -->
-    <!-- CONVERSATION 17 — FRIENDLY LONER (Information Tip)        -->
+    <!-- CONVERSATION 17 ï¿½ FRIENDLY LONER (Information Tip)        -->
     <!-- ========================================================= -->
 
     <string id="st_pda_ic_friendly_loner_17_open">
@@ -2186,7 +2186,7 @@ Some conversations should be purely beneficial, others can have risks (like the 
 	
 	
 	<!-- ========================================================= -->
-<!-- CONVERSATION 18 — FRIENDLY LONER (Artifact Rumor Chain)   -->
+<!-- CONVERSATION 18 ï¿½ FRIENDLY LONER (Artifact Rumor Chain)   -->
 <!-- ========================================================= -->
 
 <string id="st_pda_ic_friendly_loner_18_open">
@@ -2368,7 +2368,7 @@ Some conversations should be purely beneficial, others can have risks (like the 
 </string>
 
 <!-- ========================================================= -->
-<!-- CONVERSATION 19 — FRIENDLY LONER (Courier Deal)           -->
+<!-- CONVERSATION 19 ï¿½ FRIENDLY LONER (Courier Deal)           -->
 <!-- ========================================================= -->
 
 <string id="st_pda_ic_friendly_loner_19_open">
@@ -2567,7 +2567,7 @@ Some conversations should be purely beneficial, others can have risks (like the 
 </string>
 
 <!-- ========================================================= -->
-<!-- CONVERSATION 20 — FRIENDLY LONER (Suspicious Artifact Tip) -->
+<!-- CONVERSATION 20 ï¿½ FRIENDLY LONER (Suspicious Artifact Tip) -->
 <!-- Deep Branching Conversation                               -->
 <!-- ========================================================= -->
 
@@ -2797,6 +2797,462 @@ Some conversations should be purely beneficial, others can have risks (like the 
 </string>
 
 
+<!-- ============================================================ -->
+<!-- CONDITION-BACKED CONVERSATIONS (Immersion-focused) -->
+<!-- These conversations rely on real game conditions checked via  -->
+<!-- the precondition system. No imaginary locations or events.    -->
+<!-- ============================================================ -->
 
+<!-- ==================== F21: LOW ON CASH (Requires player has < 3000 RU) ==================== -->
+<!-- Precondition: player is broke -->
+<string id="st_pda_ic_friendly_loner_21_precond">
+    <text>req_money_max:3000</text>
+</string>
+<string id="st_pda_ic_friendly_loner_21_open">
+    <text>$player_name, it's $npc_name. Word around $current_level is you're running low on funds. I've been there. I can wire you some cash if you're willing to do a small favour later.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_21_choice_1">
+    <text>I appreciate it. What kind of favour?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_21_choice_2">
+    <text>I can handle my own finances, thanks.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_21_choice_3">
+    <text>How much are we talking?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_21_reply_1">
+    <text>Nothing major. Just keep an ear out for any artifact leads and pass them my way. Sending 2000 RU now.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_21_reply_2">
+    <text>Suit yourself. Offer stands if you change your mind.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_21_reply_3">
+    <text>2000 RU. Enough to restock your basics. Sending it now.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_21_outcome_1">
+    <text>reward_money:2000,reward_gw:5:stalker</text>
+</string>
+<string id="st_pda_ic_friendly_loner_21_outcome_2">
+    <text>reward_rep:5</text>
+</string>
+<string id="st_pda_ic_friendly_loner_21_outcome_3">
+    <text>reward_money:2000</text>
+</string>
+<!-- Timeout: NPC gets annoyed if player ignores -->
+<string id="st_pda_ic_friendly_loner_21_timeout">
+    <text>120</text>
+</string>
+<string id="st_pda_ic_friendly_loner_21_timeout_msg">
+    <text>Forget it then. I'll find someone who actually needs the help. $npc_faction sticks together, but not if you can't be bothered to reply.</text>
+</string>
+
+<!-- ==================== F22: VETERAN RESPECT (Requires veteran+ rank) ==================== -->
+<string id="st_pda_ic_friendly_loner_22_precond">
+    <text>req_rank:veteran</text>
+</string>
+<string id="st_pda_ic_friendly_loner_22_open">
+    <text>$player_name, $npc_name here. Your name keeps coming up in conversations around $current_level. A $player_rank like you doesn't go unnoticed. I've got a stash location I've been saving for the right person.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_22_choice_1">
+    <text>I'm listening. Where's this stash?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_22_choice_2">
+    <text>What's the catch? Nobody gives away stash coords for free.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_22_choice_3">
+    <text>Thanks, but I've got enough gear for now.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_22_reply_1">
+    <text>Marking it on your PDA now. Good hunting, $player_rank.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_22_reply_2">
+    <text>No catch. Consider it professional courtesy between experienced stalkers. Sending the coords.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_22_reply_3">
+    <text>Fair enough. The Zone provides for those who deserve it, I suppose.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_22_outcome_1">
+    <text>reward_stash,reward_gw:10:stalker</text>
+</string>
+<string id="st_pda_ic_friendly_loner_22_outcome_2">
+    <text>reward_stash,reward_rep:5</text>
+</string>
+<string id="st_pda_ic_friendly_loner_22_outcome_3">
+    <text>reward_rep:3</text>
+</string>
+<string id="st_pda_ic_friendly_loner_22_timeout">
+    <text>180</text>
+</string>
+<string id="st_pda_ic_friendly_loner_22_timeout_msg">
+    <text>Well, I expected more from someone of your rank. Guess reputation doesn't mean what it used to.</text>
+</string>
+
+<!-- ==================== F23: NIGHTTIME WARNING (Requires nighttime) ==================== -->
+<string id="st_pda_ic_friendly_loner_23_precond">
+    <text>req_time_night</text>
+</string>
+<string id="st_pda_ic_friendly_loner_23_open">
+    <text>$player_name, $npc_name. You're still out at this hour? Be careful around $current_level at night. I'm picking up movement on my scanner. Could be mutants, could be worse.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_23_choice_1">
+    <text>Thanks for the heads-up. I'll keep my eyes open.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_23_choice_2">
+    <text>I've handled worse. Send me the scanner data.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_23_choice_3">
+    <text>Can you send someone to watch my back?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_23_reply_1">
+    <text>Stay sharp out there. The Zone doesn't forgive mistakes after dark.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_23_reply_2">
+    <text>Confidence or stupidity, hard to tell in the Zone. Watch yourself.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_23_reply_3">
+    <text>I've got a guy nearby. He'll link up with your position shortly.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_23_outcome_1">
+    <text>reward_rep:3</text>
+</string>
+<string id="st_pda_ic_friendly_loner_23_outcome_2">
+    <text>chance:40:spawn_mutant:random:60</text>
+</string>
+<string id="st_pda_ic_friendly_loner_23_outcome_3">
+    <text>spawn_companion:stalker:45</text>
+</string>
+<string id="st_pda_ic_friendly_loner_23_timeout">
+    <text>90</text>
+</string>
+<string id="st_pda_ic_friendly_loner_23_timeout_msg">
+    <text>Hello? Signal must be dead. Hope the mutants didn't get you.</text>
+</string>
+
+<!-- ==================== F24: RICH PLAYER SHAKEDOWN (Requires 20000+ RU, 2 turns) ==================== -->
+<string id="st_pda_ic_friendly_loner_24_precond">
+    <text>req_money:20000</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_open">
+    <text>$player_name, $npc_name here. I heard you've been doing well for yourself. $player_money RU in the account, nice. Listen, I've got an investment opportunity. High risk, high reward. Interested?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_choice_1">
+    <text>What's the investment?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_choice_2">
+    <text>I didn't earn this money to gamble it away.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_choice_3">
+    <text>How much do you need?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_choice_4">
+    <text>Sounds like a scam. Pass.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_reply_1">
+    <text>An artifact cache. My contact found it but needs 5000 RU for the extraction gear. We split the profits three ways. Could be 15000+ RU each.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_reply_2">
+    <text>Smart. Most who gamble in the Zone end up dead or broke. Respect.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_reply_3">
+    <text>5000 RU upfront. If the extraction works, I'll triple your investment.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_reply_4">
+    <text>Your loss, but I get it. Trust is hard to come by here.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_outcome_1">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_cont_1">
+    <text>2</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_outcome_2">
+    <text>reward_rep:5</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_outcome_3">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_cont_3">
+    <text>2</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_outcome_4">
+    <text>none</text>
+</string>
+
+<!-- Turn 2: Player decides to invest or not -->
+<string id="st_pda_ic_friendly_loner_24_t2_choice_1">
+    <text>Alright, here's 5000. Don't make me regret this.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_t2_choice_2">
+    <text>I'll put in 5000, but I want a bigger cut. 60/40.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_t2_choice_3">
+    <text>On second thought, I'll pass. Keep your investment.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_t2_reply_1">
+    <text>You won't. I'll send word when the extraction is done. This'll pay off.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_t2_reply_2">
+    <text>Greedy, but fine. 60/40 it is. Results soon.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_t2_reply_3">
+    <text>Understood. Can't blame you for being cautious.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_t2_outcome_1">
+    <text>punish_money:5000,chance:60:reward_money:15000,chance:40:reward_stash</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_t2_outcome_2">
+    <text>punish_money:5000,chance:50:reward_money:18000,chance:50:reward_stash</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_t2_outcome_3">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_timeout">
+    <text>150</text>
+</string>
+<string id="st_pda_ic_friendly_loner_24_timeout_msg">
+    <text>I found another investor. Your loss. Next time reply when someone offers you money.</text>
+</string>
+
+<!-- ==================== F25: SOLO PLAYER (Requires 0 companions) ==================== -->
+<string id="st_pda_ic_friendly_loner_25_precond">
+    <text>req_companions_max:0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_25_open">
+    <text>$player_name, $npc_name. You're running solo out near $current_level? That's either brave or reckless. I know a guy looking for work, solid fighter. Want me to send him your way?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_25_choice_1">
+    <text>Yeah, I could use the backup. Send him over.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_25_choice_2">
+    <text>I work better alone. Thanks though.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_25_choice_3">
+    <text>How much is he going to cost me?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_25_reply_1">
+    <text>He's on his way. Tough son of a bitch, you'll like him.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_25_reply_2">
+    <text>Lone wolves don't last long in the Zone, but I respect it.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_25_reply_3">
+    <text>Free of charge. He owes me a favour, and I'm cashing it in for you.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_25_outcome_1">
+    <text>spawn_companion:stalker:40</text>
+</string>
+<string id="st_pda_ic_friendly_loner_25_outcome_2">
+    <text>reward_rep:3</text>
+</string>
+<string id="st_pda_ic_friendly_loner_25_outcome_3">
+    <text>spawn_companion:stalker:40</text>
+</string>
+<string id="st_pda_ic_friendly_loner_25_timeout">
+    <text>120</text>
+</string>
+<string id="st_pda_ic_friendly_loner_25_timeout_msg">
+    <text>Well, if you don't want help, that's on you. Don't come crying when things go south.</text>
+</string>
+
+<!-- ==================== F26: LOW HEALTH CHECK-IN (Requires health below 40%) ==================== -->
+<string id="st_pda_ic_friendly_loner_26_precond">
+    <text>req_health_max:0.4</text>
+</string>
+<string id="st_pda_ic_friendly_loner_26_open">
+    <text>$player_name, your PDA vitals don't look great. You hurt? I've got a medkit I can send your way via courier if you need it.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_26_choice_1">
+    <text>Yeah, I'm in rough shape. Send it.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_26_choice_2">
+    <text>I'll manage. Save it for someone who needs it more.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_26_choice_3">
+    <text>Got anything stronger than a basic medkit?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_26_reply_1">
+    <text>Courier's on the way. Hang in there.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_26_reply_2">
+    <text>Tough bastard. Don't die out there, the Zone needs people like you.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_26_reply_3">
+    <text>I've got a military medkit. Sending it now. Costs me, but you're worth it.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_26_outcome_1">
+    <text>courier_item:medkit,reward_gw:5:stalker</text>
+</string>
+<string id="st_pda_ic_friendly_loner_26_outcome_2">
+    <text>reward_rep:5,reward_gw:5:stalker</text>
+</string>
+<string id="st_pda_ic_friendly_loner_26_outcome_3">
+    <text>courier_item:medkit_army</text>
+</string>
+<string id="st_pda_ic_friendly_loner_26_timeout">
+    <text>60</text>
+</string>
+<string id="st_pda_ic_friendly_loner_26_timeout_msg">
+    <text>You there? Your vitals are still dropping. If you bled out while I was trying to help, that's on you.</text>
+</string>
+
+<!-- ==================== F27: BANDIT FACTION DARE (Requires bandit faction, 2 turns) ==================== -->
+<string id="st_pda_ic_friendly_loner_27_precond">
+    <text>req_faction:bandit</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_open">
+    <text>Yo $player_name, it's $npc_name. I got a dare for you, brat. There's a pack of mutants that've been scaring the rookies around $current_level. You take them out, and I'll make sure the boys hear about it. Plus I'll throw in some cash.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_choice_1">
+    <text>What kind of mutants are we talking?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_choice_2">
+    <text>How much cash?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_choice_3">
+    <text>I don't do dares. I do business.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_reply_1">
+    <text>Could be dogs, could be worse. That's part of the dare. You scared?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_reply_2">
+    <text>3000 if you bag them all. Call it a hunting bounty.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_reply_3">
+    <text>Fine, fine. 3000 RU for the cleanup. Business enough for you?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_outcome_1">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_cont_1">
+    <text>2</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_outcome_2">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_cont_2">
+    <text>2</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_outcome_3">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_cont_3">
+    <text>2</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_27_t2_choice_1">
+    <text>Alright, I'm in. Bring it on.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_t2_choice_2">
+    <text>Double it to 6000 and we have a deal.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_t2_choice_3">
+    <text>Nah, not worth my time. Find another sucker.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_t2_reply_1">
+    <text>That's the spirit! They should be heading your way soon. Don't die, it'd be embarrassing.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_t2_reply_2">
+    <text>You drive a hard bargain. Fine, 6000 if every last one of them is dead.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_t2_reply_3">
+    <text>Weak. I'll remember this.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_t2_outcome_1">
+    <text>spawn_mutant:random:60,reward_money:3000,reward_gw:10:bandit</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_t2_outcome_2">
+    <text>spawn_mutant:random:60,reward_money:6000,reward_gw:5:bandit</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_t2_outcome_3">
+    <text>punish_gw:10:bandit</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_timeout">
+    <text>100</text>
+</string>
+<string id="st_pda_ic_friendly_loner_27_timeout_msg">
+    <text>Typical. All bark, no bite. The boys are gonna hear about this, $player_name.</text>
+</string>
+
+<!-- ==================== F28: DUTY RECOGNITION (Requires Duty faction, 50+ kills) ==================== -->
+<string id="st_pda_ic_friendly_dolg_1_precond">
+    <text>req_faction:dolg,req_kills:50</text>
+</string>
+<string id="st_pda_ic_friendly_dolg_1_open">
+    <text>$player_name, this is $npc_name from $npc_faction. Your kill count has been noticed by command. Solid work out there around $current_level. The general wants to reward your dedication to the cause.</text>
+</string>
+<string id="st_pda_ic_friendly_dolg_1_choice_1">
+    <text>I'm just doing my duty. What's the reward?</text>
+</string>
+<string id="st_pda_ic_friendly_dolg_1_choice_2">
+    <text>About time someone noticed. What do I get?</text>
+</string>
+<string id="st_pda_ic_friendly_dolg_1_choice_3">
+    <text>I don't need rewards. The Zone being cleaner is reward enough.</text>
+</string>
+<string id="st_pda_ic_friendly_dolg_1_reply_1">
+    <text>A weapons upgrade package. Sending a courier with it now. Keep fighting the good fight.</text>
+</string>
+<string id="st_pda_ic_friendly_dolg_1_reply_2">
+    <text>Don't let it go to your head. Here's your package. A courier is en route.</text>
+</string>
+<string id="st_pda_ic_friendly_dolg_1_reply_3">
+    <text>That's the Duty spirit. But take the reward anyway, you've earned it. Courier inbound.</text>
+</string>
+<string id="st_pda_ic_friendly_dolg_1_outcome_1">
+    <text>courier_item:wpn_ak74m,reward_gw:15:dolg,reward_rep:10</text>
+</string>
+<string id="st_pda_ic_friendly_dolg_1_outcome_2">
+    <text>courier_item:wpn_ak74m,reward_gw:10:dolg</text>
+</string>
+<string id="st_pda_ic_friendly_dolg_1_outcome_3">
+    <text>courier_item:wpn_ak74m,reward_gw:20:dolg,reward_rep:15</text>
+</string>
+<string id="st_pda_ic_friendly_dolg_1_timeout">
+    <text>200</text>
+</string>
+<string id="st_pda_ic_friendly_dolg_1_timeout_msg">
+    <text>Command expected a prompt reply. Disappointing. The reward has been reassigned.</text>
+</string>
+
+<!-- ==================== F29: FREEDOM SUPPLY SHARE (Requires Freedom faction, daytime) ==================== -->
+<string id="st_pda_ic_friendly_freedom_1_precond">
+    <text>req_faction:freedom,req_time_day</text>
+</string>
+<string id="st_pda_ic_friendly_freedom_1_open">
+    <text>Yo $player_name, $npc_name here. Beautiful $time_of_day around $current_level, isn't it? Listen, we got a supply surplus at camp. I can send some your way, ammo and meds. You in?</text>
+</string>
+<string id="st_pda_ic_friendly_freedom_1_choice_1">
+    <text>Hell yeah, send it over. I'm running low.</text>
+</string>
+<string id="st_pda_ic_friendly_freedom_1_choice_2">
+    <text>What kind of ammo? I'm picky.</text>
+</string>
+<string id="st_pda_ic_friendly_freedom_1_choice_3">
+    <text>Nah, share it with the new guys. They need it more.</text>
+</string>
+<string id="st_pda_ic_friendly_freedom_1_reply_1">
+    <text>Runner's heading out now. Should reach you soon. Freedom provides!</text>
+</string>
+<string id="st_pda_ic_friendly_freedom_1_reply_2">
+    <text>5.56 and 5.45, plus some bandages. Take it or leave it.</text>
+</string>
+<string id="st_pda_ic_friendly_freedom_1_reply_3">
+    <text>Generous of you. I'll make sure the rookies get it. Respect.</text>
+</string>
+<string id="st_pda_ic_friendly_freedom_1_outcome_1">
+    <text>courier_item:ammo_5.56x45_fmj,give_item:medkit,reward_gw:5:freedom</text>
+</string>
+<string id="st_pda_ic_friendly_freedom_1_outcome_2">
+    <text>courier_item:ammo_5.56x45_fmj,give_item:ammo_5.45x39_fmj</text>
+</string>
+<string id="st_pda_ic_friendly_freedom_1_outcome_3">
+    <text>reward_gw:15:freedom,reward_rep:10</text>
+</string>
+<string id="st_pda_ic_friendly_freedom_1_timeout">
+    <text>150</text>
+</string>
+<string id="st_pda_ic_friendly_freedom_1_timeout_msg">
+    <text>Guess you're not interested. More for us then. Freedom out.</text>
+</string>
 
 </string_table>

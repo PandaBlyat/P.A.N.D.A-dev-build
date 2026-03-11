@@ -483,28 +483,43 @@ end
 
 function pda_private_tab:UpdateConversationPresenceState()
     local now_ms = time_global() or 0
-    local active_contact = nil
-    if pda_interactive_conv and pda_interactive_conv.CONV and pda_interactive_conv.CONV.npc_name then
-        active_contact = pda_interactive_conv.CONV.npc_name
+
+    -- Update presence for ALL active conversations
+    if pda_interactive_conv and pda_interactive_conv.active_conversations then
+        for contact_name, _ in pairs(pda_interactive_conv.active_conversations) do
+            self.contact_presence_until[contact_name] = now_ms
+        end
     end
 
-    local previous_contact = self.current_presence_contact
-    if active_contact then
-        self.contact_presence_until[active_contact] = now_ms
-    elseif previous_contact and previous_contact ~= active_contact then
-        local min_delay = self.presence_offline_delay_min_ms or 3000
-        local max_delay = self.presence_offline_delay_max_ms or 10000
-        local delay_ms = math.random(min_delay, max_delay)
-        self.contact_presence_until[previous_contact] = now_ms + delay_ms
+    -- Handle contacts that just went offline (had conversations that ended)
+    if self.active_presence_contacts then
+        for contact_name, _ in pairs(self.active_presence_contacts) do
+            local still_active = pda_interactive_conv.active_conversations
+                and pda_interactive_conv.active_conversations[contact_name]
+            if not still_active and not self.contact_presence_until[contact_name] then
+                local min_delay = self.presence_offline_delay_min_ms or 3000
+                local max_delay = self.presence_offline_delay_max_ms or 10000
+                local delay_ms = math.random(min_delay, max_delay)
+                self.contact_presence_until[contact_name] = now_ms + delay_ms
+            end
+        end
     end
 
-    self.current_presence_contact = active_contact
+    -- Snapshot current active contacts for next frame comparison
+    self.active_presence_contacts = {}
+    if pda_interactive_conv and pda_interactive_conv.active_conversations then
+        for contact_name, _ in pairs(pda_interactive_conv.active_conversations) do
+            self.active_presence_contacts[contact_name] = true
+        end
+    end
 end
 
 function pda_private_tab:IsContactConversationOnline(contact_name)
     if not contact_name or contact_name == "" then return false end
 
-    if pda_interactive_conv and pda_interactive_conv.CONV and pda_interactive_conv.CONV.npc_name == contact_name then
+    -- Check multi-conversation table
+    if pda_interactive_conv and pda_interactive_conv.active_conversations
+       and pda_interactive_conv.active_conversations[contact_name] then
         return true
     end
 
@@ -547,16 +562,16 @@ function pda_private_tab:Update()
     if self.pending_choice_idx then
         local idx = self.pending_choice_idx
         self.pending_choice_idx = nil
-        if pda_interactive_conv.CONV then
-            pda_interactive_conv.on_player_choice(idx)
-        end
+        local contact_name = self:GetSelectedContactName()
+        pda_interactive_conv.on_player_choice(idx, contact_name)
         return
     end
     
     local raw_log = pda_interactive_conv.pda_private_log or {}
     local log_size = #raw_log
-    local has_conv = pda_interactive_conv.CONV ~= nil
-    local conv_turn = has_conv and pda_interactive_conv.CONV.turn or 0
+    local selected_conv = self:GetActiveConvForSelected()
+    local has_conv = selected_conv ~= nil
+    local conv_turn = has_conv and selected_conv.turn or 0
 
     local last_delivery_state = ""
     local has_typing = false
@@ -610,16 +625,23 @@ function pda_private_tab:Update()
         self.typing_anim_phase = -1
     end
 
-    if not pda_interactive_conv.CONV and not pda_interactive_conv.pda_reply_pending then
+    -- Clean up orphan typing indicators: if no conversation is active for the contact
+    -- and no reply is pending globally, remove stale typing messages
+    if not pda_interactive_conv.pda_reply_pending then
         local log = pda_interactive_conv.pda_private_log or {}
         for i = 1, #log do
             local entry = log[i]
             if entry and entry.is_typing then
-                pda_interactive_conv.clear_npc_typing_message(entry.contact_name)
-                self.typing_text_wnd = nil
-                self.typing_entry_data = nil
-                self.choice_typewriter = nil
-                break
+                local contact_conv = pda_interactive_conv.active_conversations
+                    and pda_interactive_conv.active_conversations[entry.contact_name]
+                local is_reply_pending = contact_conv and contact_conv.reply_pending
+                if not contact_conv and not is_reply_pending then
+                    pda_interactive_conv.clear_npc_typing_message(entry.contact_name)
+                    self.typing_text_wnd = nil
+                    self.typing_entry_data = nil
+                    self.choice_typewriter = nil
+                    break
+                end
             end
         end
     end
@@ -638,10 +660,11 @@ function pda_private_tab:OnChoice4() self:OnChoiceClicked(4) end
 
 function pda_private_tab:OnChoiceClicked(idx)
     self:TriggerButtonFlash("choice_" .. tostring(idx), 140)
-    if not pda_interactive_conv.CONV then return end
+    local active_conv = self:GetActiveConvForSelected()
+    if not active_conv then return end
     if self.choice_typewriter then return end
 
-    local choice = pda_interactive_conv.CONV.choices and pda_interactive_conv.CONV.choices[idx] or nil
+    local choice = active_conv.choices and active_conv.choices[idx] or nil
     if not choice then return end
 
     self.selected_choice_idx = idx
@@ -724,7 +747,7 @@ function pda_private_tab:GetScrollBreathingMargin()
 
     local choice_stack_h = 0
     if self.choice_buttons_visible then
-        local active_conv = pda_interactive_conv.CONV
+        local active_conv = self:GetActiveConvForSelected()
         local count = 0
         if active_conv and active_conv.num_choices then
             count = math.min(4, math.max(0, tonumber(active_conv.num_choices) or 0))
@@ -757,6 +780,13 @@ end
 function pda_private_tab:ApplyAutoScrollTarget(content_bottom, breathing_margin)
     if not self.scrollbar then return end
 
+    -- Try the most reliable method first: ScrollToEnd places the viewport at
+    -- the very bottom of the content, which is exactly what we want.
+    if self.scrollbar.ScrollToEnd then
+        pcall(function() self.scrollbar:ScrollToEnd() end)
+        return
+    end
+
     local margin = math.max(0, tonumber(breathing_margin) or 0)
     local target = math.max(0, math.floor((tonumber(content_bottom) or 0) - margin))
 
@@ -770,16 +800,13 @@ function pda_private_tab:ApplyAutoScrollTarget(content_bottom, breathing_margin)
         if ok then return end
     end
 
+    -- Last resort: add a spacer to push content so the native scroll lands at bottom
     if margin > 0 then
         local spacer = CUIStatic()
         spacer:SetAutoDelete(false)
         spacer:SetWndSize(vector2():set(10, margin))
         self.scrollbar:AddWindow(spacer, false)
         table.insert(self.scroll_dynamic_windows, spacer)
-    end
-
-    if self.scrollbar.ScrollToEnd then
-        self.scrollbar:ScrollToEnd()
     end
 end
 
@@ -969,7 +996,7 @@ function pda_private_tab:ToggleQuickMenu()
 
     self.quick_menu_open = not self.quick_menu_open
     local is_blocked = pda_interactive_conv.is_contact_blocked and pda_interactive_conv.is_contact_blocked(contact_name)
-    local has_active_conv = pda_interactive_conv.CONV and pda_interactive_conv.CONV.npc_name == contact_name and self:HasDialogueChoices()
+    local has_active_conv = self:GetActiveConvForSelected() ~= nil and self:HasDialogueChoices()
 
     self.quick_btn_block_contact:Show(self.quick_menu_open and not is_blocked)
     if self.quick_btn_block_bg then self.quick_btn_block_bg:Show(self.quick_menu_open and not is_blocked) end
@@ -991,19 +1018,29 @@ function pda_private_tab:OnQuickIgnoreConversationClicked()
     local contact_name = self:GetSelectedContactName()
     if not contact_name then return end
 
-    local active_conv = pda_interactive_conv.CONV
-    if active_conv and active_conv.npc_name == contact_name then
+    -- Remove from multi-conversation table
+    if pda_interactive_conv.active_conversations then
+        local conv = pda_interactive_conv.active_conversations[contact_name]
+        if conv then
+            -- Cancel per-conversation time events
+            local ev_prefix = "pda_ic_" .. tostring(conv.npc_id)
+            if RemoveTimeEvent then
+                pcall(RemoveTimeEvent, ev_prefix, "delivery_ack")
+                pcall(RemoveTimeEvent, ev_prefix, "npc_read")
+                pcall(RemoveTimeEvent, ev_prefix, "npc_thinking")
+                pcall(RemoveTimeEvent, ev_prefix, "npc_reply")
+                pcall(RemoveTimeEvent, ev_prefix, "outcome")
+            end
+            pda_interactive_conv.active_conversations[contact_name] = nil
+        end
+    end
+    if pda_interactive_conv.CONV and pda_interactive_conv.CONV.npc_name == contact_name then
         pda_interactive_conv.CONV = nil
     end
 
     pda_interactive_conv.pda_reply_pending = false
     if pda_interactive_conv.clear_npc_typing_message then
         pda_interactive_conv.clear_npc_typing_message(contact_name)
-    end
-    if RemoveTimeEvent then
-        RemoveTimeEvent("pda_ic", "delivery_ack")
-        RemoveTimeEvent("pda_ic", "npc_typing_start")
-        RemoveTimeEvent("pda_ic", "npc_reply")
     end
     self.typing_text_wnd = nil
     self.typing_entry_data = nil
@@ -1051,8 +1088,22 @@ function pda_private_tab:UpdateReplyTriggerVisual()
     self.composer_input_field:SetText("Choose a reply...")
 end
 
+function pda_private_tab:GetActiveConvForSelected()
+    local item = self.npc_list and self.npc_list:GetSelectedItem() or nil
+    if not item or item.contact_id == "System" then return nil end
+    -- Check multi-conversation table first
+    if pda_interactive_conv.active_conversations then
+        local conv = pda_interactive_conv.active_conversations[item.contact_id]
+        if conv then return conv end
+    end
+    -- Fallback to global CONV if it matches
+    local global_conv = pda_interactive_conv.CONV
+    if global_conv and global_conv.npc_name == item.contact_id then return global_conv end
+    return nil
+end
+
 function pda_private_tab:HasDialogueChoices()
-    local active_conv = pda_interactive_conv.CONV
+    local active_conv = self:GetActiveConvForSelected()
     return active_conv ~= nil and active_conv.num_choices ~= nil and active_conv.num_choices > 0
 end
 
@@ -1553,8 +1604,8 @@ function pda_private_tab:OnSelectNPC()
 
 			local lane_max_w = is_player_lane
 				and math.floor(math.min(maxBubbleWidth - player_spawn_shift_x, lane_width * 0.46))
-				or math.floor(math.min(maxBubbleWidth, lane_width * 0.52))
-			lane_max_w = math.max(180, lane_max_w)
+				or math.floor(math.min(maxBubbleWidth, lane_width * 0.72))
+			lane_max_w = math.max(220, lane_max_w)
 
 			local body_text = tostring(entry.text or "")
 			if entry.is_typing then
@@ -1564,7 +1615,7 @@ function pda_private_tab:OnSelectNPC()
 			end
 			local header_sender = is_player_lane and "You" or tostring(entry.sender or "Unknown")
 			local header_line = string.format("%s [%s]", header_sender, tostring(relative_time or "Unknown"))
-			local wrap_chars = math.max(20, math.floor((lane_max_w - 30) / 7))
+			local wrap_chars = math.max(28, math.floor((lane_max_w - 24) / 5.5))
 			local wrapped_body = wrap_plain_text(body_text, wrap_chars)
 			local bubble_w = estimate_bubble_width(header_line, wrapped_body, 180, lane_max_w, 24)
 
@@ -1629,8 +1680,8 @@ function pda_private_tab:OnSelectNPC()
         end
     end
 
-    local active_conv = pda_interactive_conv.CONV
-    if active_conv and active_conv.npc_name == item.contact_id then
+    local active_conv = self:GetActiveConvForSelected()
+    if active_conv then
         local composer_y = self.composer_container and self.composer_container:GetWndPos().y or 564
         local chip_h = 28
         local chip_gap = 6
@@ -1689,8 +1740,11 @@ function pda_private_tab:OnSelectNPC()
 
     local post_refresh_metrics = self:GetScrollMetrics()
     local breathing_margin = self:GetScrollBreathingMargin()
-    local trigger_threshold = 110
-    if self:ShouldAutoScroll(pre_refresh_metrics, post_refresh_metrics.content_h, trigger_threshold) then
+
+    -- Always scroll to bottom: when new messages arrive the scrollbar is cleared
+    -- and rebuilt, so pre_refresh_metrics is stale.  Force-scrolling ensures the
+    -- user always sees the latest message without having to scroll manually.
+    if post_refresh_metrics.content_h > 0 then
         self:ApplyAutoScrollTarget(post_refresh_metrics.content_h, breathing_margin)
     end
     self:ShowStats(item.contact_id)
