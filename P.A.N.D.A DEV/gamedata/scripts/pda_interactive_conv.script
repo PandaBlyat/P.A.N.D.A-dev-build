@@ -122,6 +122,8 @@ function block_contact(contact_name)
     pda_private_blocked_contacts[contact_name] = true
     local removed = delete_contact_thread(contact_name)
 
+    local convo = active_conversations and active_conversations[contact_name]
+
     -- Remove from multi-conversation table
     if active_conversations[contact_name] then
         active_conversations[contact_name] = nil
@@ -132,9 +134,22 @@ function block_contact(contact_name)
 
     -- Cancel any pending message delivery timers
     pda_reply_pending = false
+    -- Legacy fallback timer group (older builds)
     safe_remove_time_event("pda_ic", "delivery_ack")
     safe_remove_time_event("pda_ic", "npc_typing_start")
     safe_remove_time_event("pda_ic", "npc_reply")
+
+    -- Current per-conversation timer group
+    if convo and convo.npc_id then
+        local ev_prefix = "pda_ic_" .. tostring(convo.npc_id)
+        safe_remove_time_event(ev_prefix, "delivery_ack")
+        safe_remove_time_event(ev_prefix, "npc_read")
+        safe_remove_time_event(ev_prefix, "npc_thinking")
+        safe_remove_time_event(ev_prefix, "npc_reply")
+        safe_remove_time_event(ev_prefix, "outcome")
+    end
+
+    clear_npc_typing_message(contact_name)
 
     return true, removed
 end
@@ -1991,6 +2006,8 @@ end
 
 local function schedule_next_trigger(interval_min)
     local tf = level.get_time_factor() or 10
+    if tf <= 0 then tf = 10 end
+    interval_min = math.max(1, tonumber(interval_min) or 1)
     -- Convert in-game minutes to real seconds
     local delay = (interval_min * 60) / tf
     CreateTimeEvent("pda_ic_trigger", "tick", delay, function()
