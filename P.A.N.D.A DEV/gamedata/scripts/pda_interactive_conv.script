@@ -858,6 +858,534 @@ local RANK_ORDER = {
     veteran=5, expert=6, master=7, legend=8
 }
 
+-- ============================================================
+-- SMART TERRAIN LEVEL TABLES
+-- Curated per-level lists of field smart terrains from vanilla
+-- st_smart_names.xml.  Excludes safezones, faction HQs and
+-- NPC hubs (Rookie Village, 100 Rads Bar, Yanov Station,
+-- Skadovsk, Freedom/Duty bases, Sakharov's Bunker, etc.).
+-- Usage in dialogue text:  %cordon_panda_st%  %garbage_panda_st%
+-- The placeholder resolver picks a random entry at runtime.
+-- ============================================================
+local SMART_TERRAIN_LEVEL_LISTS = {
+
+    -- CORDON (prefix: esc)
+    cordon = {
+        "st_esc_smart_terrain_4_13_name",       -- Tent Camp
+        "st_esc_smart_terrain_2_14_name",       -- Bonfire under a Tree
+        "st_esc_smart_terrain_4_11_name",       -- Trailer Camp
+        "st_esc_smart_terrain_1_11_name",       -- Secret Camp
+        "st_esc_smart_terrain_5_12_name",       -- Solitary Tent
+        "st_esc_smart_terrain_5_9_name",        -- Grain Elevator
+        "st_esc_smart_terrain_4_9_name",        -- Underpass
+        "st_esc_smart_terrain_6_8_name",        -- Collapsed Bridge
+        "st_esc_smart_terrain_8_10_name",       -- Hill Encampment
+        "st_esc_smart_terrain_8_9_name",        -- Bonfire in the Forest
+        "st_esc_smart_terrain_9_7_name",        -- Trackside Camp
+        "st_esc_smart_terrain_6_6_name",        -- Abandoned Houses
+        "st_esc_smart_terrain_5_7_name",        -- Old Farmstead
+        "st_esc_smart_terrain_3_7_name",        -- Bonfire near rocks
+        "st_esc_smart_terrain_5_6_name",        -- Bonfire in the Forest
+        "st_esc_smart_terrain_5_4_name",        -- Campfire near the Road
+        "st_esc_smart_terrain_5_2_name",        -- Northern Outpost
+        "st_esc_smart_terrain_9_10_name",       -- Bonfire near the Tunnel
+    },
+
+    -- DARKSCAPE (prefix: ds)
+    darkscape = {
+        "st_ds_ptr4_name",                      -- Derelict Truck
+        "st_ds2_lager_st_name",                 -- Cliffside Camp
+        "st_ds2_st_dogs_name",                  -- Forest Rally Point
+        "st_ds_grverfer2_name",                 -- Roadside Rally Point
+        "st_ds_ptr2_name",                      -- Resting Area
+        "st_ds_deb1_name",                      -- Road Block
+        "st_ds_kem2_name",                      -- Gas Station
+        "st_ds2_domik_st_name",                 -- Forest Hideout
+        "st_ds_boars_nest_name",                -- Cliffside Rally Point
+        "st_ds2_st_hoofs_name",                 -- Ambush Site
+        "st_ds_ptr_name",                       -- Wrecked Railway Bridge
+        "st_ds_ptr3_name",                      -- Radioactive Truck Stop
+        "st_ds_kem3_name",                      -- Small Bridge
+        "st_ds_kem1_name",                      -- Dark Valley Passing
+    },
+
+    -- GREAT SWAMP (prefix: mar)
+    swamp = {
+        "st_mar_smart_terrain_5_12_name",       -- Fishing Hamlet
+        "st_mar_smart_terrain_6_11_name",       -- Lookout Tower
+        "st_mar_smart_terrain_8_11_name",       -- Destroyed Church
+        "st_mar_smart_terrain_11_11_name",      -- Southern Village
+        "st_mar_smart_terrain_10_10_name",      -- Campfire near Pond
+        "st_mar_smart_terrain_8_9_name",        -- Road Edge Camp
+        "st_mar_smart_terrain_6_10_name",       -- Small Pond
+        "st_mar_smart_terrain_3_10_name",       -- Forward Post
+        "st_mar_smart_terrain_doc_2_name",      -- Solitary Lookout
+        "st_mar_smart_terrain_5_8_name",        -- Pumping Station
+        "st_mar_smart_terrain_6_8_name",        -- Boat Cementery
+        "st_mar_smart_terrain_8_8_name",        -- Burned Hamlet
+        "st_mar_smart_terrain_10_7_name",       -- Bonfire near Road
+        "st_mar_smart_terrain_3_7_name",        -- Campsite
+        "st_mar_smart_terrain_4_7_name",        -- Eery Bonfire
+        "st_mar_smart_terrain_6_7_name",        -- Pipe Barricades
+        "st_mar_smart_terrain_7_7_name",        -- Campfire in the Open
+        "st_mar_smart_terrain_10_5_name",       -- Machine Yard
+        "st_mar_smart_terrain_8_4_name",        -- Roadside Campfire
+        "st_mar_smart_terrain_6_4_name",        -- Makeshift Camp
+        "st_mar_smart_terrain_4_5_name",        -- Village Ruins
+        "st_mar_smart_terrain_3_3_name",        -- Fishing Docks
+        "st_mar_smart_terrain_doc_name",        -- Trench
+        "st_mar_smart_terrain_12_2_name",       -- Northern Village
+        "st_mar_smart_terrain_11_3_name",       -- Fire near Truck
+        "st_mar_smart_terrain_7_3_name",        -- Encampment near Trainwreck
+    },
+
+    -- GARBAGE (prefix: gar)
+    garbage = {
+        "st_gar_smart_terrain_3_7_name",        -- Vehicle Graveyard
+        "st_gar_smart_terrain_6_7_name",        -- Vantage Point
+        "st_gar_smart_terrain_5_6_name",        -- Fallen Crane
+        "st_gar_smart_terrain_6_6_name",        -- Forest Hideout
+        "st_gar_smart_terrain_1_7_name",        -- Makeshift Outpost
+        "st_gar_smart_terrain_3_5_name",        -- Train Depot
+        "st_gar_smart_terrain_2_4_name",        -- Hideout behind Pipes
+        "st_gar_smart_terrain_1_5_name",        -- Road Blockade
+        "st_gar_smart_terrain_4_5_name",        -- Bus Stop
+        "st_gar_smart_terrain_5_5_name",        -- Garbage Encampment
+        "st_gar_smart_terrain_7_4_name",        -- Small Outpost
+        "st_gar_smart_terrain_6_1_name",        -- Hidden Camp
+        "st_gar_smart_terrain_5_2_name",        -- Fortified Outpost
+        "st_gar_smart_terrain_4_2_name",        -- Gravel Pit
+        "st_gar_smart_terrain_5_4_name",        -- Roadside Post
+        "st_gar_smart_terrain_8_3_name",        -- Western Outpost
+        "st_gar_smart_terrain_8_5_name",        -- Backwood Camp
+        "st_gar_smart_terrain_5_8_name",        -- Crossing Point
+    },
+
+    -- AGROPROM (prefix: agr)
+    agroprom = {
+        "st_agr_smart_terrain_6_4_name",        -- Tunnel Lair
+        "st_agr_smart_terrain_5_3_name",        -- Fortified Train Wagon
+        "st_agr_smart_terrain_5_2_name",        -- Hilltop Encampment
+        "st_agr_smart_terrain_2_2_name",        -- Bonfire near Boulders
+        "st_agr_smart_terrain_1_2_name",        -- Swamp Camp
+        "st_agr_smart_terrain_1_3_name",        -- Radio Outpost
+        "st_agr_smart_terrain_4_6_name",        -- Road Checkpoint
+        "st_agr_smart_terrain_5_7_name",        -- Camp near Underground
+        "st_agr_smart_terrain_7_5_name",        -- Dangerous Bonfire
+        "st_agr_smart_terrain_4_4_name",        -- Factory Complex
+        "st_agr_smart_terrain_4_4_near_3_name", -- Factory Entrance
+        "st_agr_smart_terrain_4_4_2_name",      -- Backdoor Exit
+        "st_agr_smart_terrain_4_4_near_1_name", -- Loading Bay
+        "st_agr_smart_terrain_7_4_name",        -- Road to the Garbage
+        "st_agr_smart_terrain_5_4_name",        -- Fork in the Road
+        "st_agr_smart_terrain_6_6_name",        -- Makeshift Camp
+    },
+
+    -- DARK VALLEY (prefix: val)
+    dark_valley = {
+        "st_val_smart_terrain_7_4_name",        -- Northern Factory
+        "st_val_smart_terrain_7_3_name",        -- Factory Depot
+        "st_val_smart_terrain_9_4_name",        -- Haunted Building
+        "st_val_smart_terrain_7_5_name",        -- Administration Block
+        "st_val_smart_terrain_8_6_name",        -- Factory Forward Outpost
+        "st_val_smart_terrain_9_2_name",        -- Uprooted Tree
+        "st_val_smart_terrain_6_4_name",        -- Hill Outpost
+        "st_val_smart_terrain_6_5_name",        -- Camp in Ravine
+        "st_val_smart_terrain_8_7_name",        -- Trailer Camp
+        "st_val_smart_terrain_7_8_name",        -- Radio Island
+        "st_val_smart_terrain_8_9_name",        -- Lonesome Island
+        "st_val_smart_terrain_1_2_name",        -- Factory Backyard
+        "st_val_smart_terrain_9_6_name",        -- Camp near Factory
+        "st_val_smart_terrain_9_10_name",       -- Bonfire in a Slope
+        "st_val_smart_terrain_4_0_name",        -- Pig Farm
+        "st_val_smart_terrain_5_10_name",       -- Rally Point
+        "st_val_smart_terrain_3_0_name",        -- Improvised Camp
+        "st_val_smart_terrain_7_11_name",       -- Darkscape Passage
+        "st_val_smart_terrain_5_8_name",        -- Field Camp
+        "st_val_smart_terrain_5_7_name",        -- End Outpost
+    },
+
+    -- YANTAR (prefix: yan)  – excludes Sakharov's Bunker (safezone)
+    yantar = {
+        "st_yan_smart_terrain_3_6_name",        -- Lowlands
+        "st_yan_smart_terrain_4_5_name",        -- Substation
+        "st_yan_smart_terrain_2_5_name",        -- Factory Entrance
+        "st_yan_smart_terrain_1_6_name",        -- Anomaly Camp
+        "st_yan_smart_terrain_3_4_name",        -- Factory Shed
+        "st_yan_smart_terrain_zombi_spawn_name", -- Collapsed Factory Crane
+        "st_yan_smart_terrain_2_4_name",        -- Mysterious Factory
+        "st_yan_smart_terrain_5_5_name",        -- Drainage Entrance
+        "st_yan_smart_terrain_4_4_name",        -- Hilltop
+        "st_yan_smart_terrain_5_3_name",        -- Lake Yantar
+        "st_yan_smart_terrain_6_2_name",        -- Vantage Point
+        "st_yan_smart_terrain_4_2_name",        -- Bonfire Anomaly Camp
+        "st_yan_smart_terrain_snork_u_name",    -- Snork's Lair
+    },
+
+    -- WILD TERRITORY (prefix: ros)
+    wild_territory = {
+        "st_ros_smart_stalker_killers1_name",   -- Construction Site
+        "st_ros_smart_monster7_name",           -- Underpass
+        "st_ros_smart_snork1_name",             -- Radioactive Shed
+        "st_ros_smart_killers1_name",           -- Entrance
+        "st_ros_smart_stalker1_name",           -- Abandoned Construction Materials
+        "st_ros_smart_poltergeist2_name",       -- Rundown Train Station
+        "st_ros_smart_monster5_name",           -- Collapsed Tunnel
+        "st_ros_smart_monster4_name",           -- Coal Train
+    },
+
+    -- ROSTOK (prefix: bar) – excludes 100 Rads Bar and Duty HQ areas
+    rostok = {
+        "st_bar_zastava_2_name",                -- Western Outpost
+        "st_bar_zastava_dogs_lair_2_name",      -- Mutant Lair
+        "st_bar_zastava_name",                  -- Southern Outpost
+        "st_bar_zastava_dogs_lair_name",        -- Rostok Moat
+    },
+
+    -- TRUCK CEMETERY (prefix: trc)
+    truck_cemetery = {
+        "st_trc_sim_20_name",                   -- Eastern Checkpoint
+        "st_trc_sim_17_name",                   -- Camp behind Debris
+        "st_trc_sim_7_name",                    -- Forest Vantage Point
+        "st_trc_sim_21_name",                   -- Backwoods
+        "st_trc_sim_4_name",                    -- Hilltop near burned house
+        "st_trc_sim_18_name",                   -- Camp between Trucks
+        "st_trc_sim_1_name",                    -- Observation Post
+        "st_trc_sim_2_name",                    -- Camp near Containers
+        "st_trc_sim_3_name",                    -- Road Fork
+        "st_trc_sim_12_name",                   -- Forest Hideout
+        "st_trc_sim_10_name",                   -- Forest Nook
+        "st_trc_sim_11_name",                   -- Military Vehicles Scrapyard
+        "st_trc_sim_14_name",                   -- Fire Engine Scrapyard
+        "st_trc_sim_15_name",                   -- Helicopter Scrapyard
+        "st_trc_sim_6_name",                    -- Lookout Tower
+        "st_trc_sim_19_name",                   -- Truck Scrapyard
+        "st_trc_sim_5_name",                    -- Crossroad
+        "st_trc_sim_16_name",                   -- Scrapyard Outskirts
+        "st_trc_sim_9_name",                    -- Hilltop
+        "st_trc_sim_13_name",                   -- Gathering Spot near Ravine
+        "st_trc_sim_8_name",                    -- Tanker Truck Scrapyard
+    },
+
+    -- DEAD CITY (prefix: cit)
+    dead_city = {
+        "st_cit_bandits_2_name",                -- Isolated Houses
+        "st_cit_kanaliz1_name",                 -- City Vantage Point
+        "st_cit_bandits_name",                  -- Abandoned School
+        "st_cit_killers_name",                  -- Sports Center
+        "st_cit_killers_vs_bandits_name",       -- Derelict Monoblock
+        "st_cit_killers_2_name",                -- Destroyed Houses
+        "st_cit_kanaliz2_name",                 -- Terrain Depression
+        "st_zombie_smart_ds_mlr_1_name",        -- Dead Yard
+        "st_zombie_smart_ds_mlr_2_name",        -- Apartments
+    },
+
+    -- ARMY WAREHOUSES (prefix: mil) – excludes Freedom base & Duty checkpoint
+    army_warehouses = {
+        "st_mil_smart_terrain_7_4_name",        -- Abandoned Village
+        "st_mil_smart_terrain_8_3_name",        -- Hidden Shelter
+        "st_mil_smart_terrain_2_10_name",       -- Bloodsucker Village
+        "st_mil_smart_terrain_4_3_name",        -- Town Watchtower
+        "st_mil_smart_terrain_4_2_name",        -- Village Basic Services
+        "st_mil_smart_terrain_2_2_name",        -- Fortified Checkpoint
+        "st_mil_smart_terrain_2_4_name",        -- Abandoned Farmstead
+        "st_mil_smart_terrain_2_1_name",        -- Hideout
+        "st_mil_smart_terrain_2_6_name",        -- Fallen Helicopter
+        "st_mil_smart_terrain_3_8_name",        -- The Barrier
+        "st_mil_smart_terrain_4_8_name",        -- Barrier Lookout
+        "st_mil_smart_terrain_4_7_name",        -- Roadside Encampment
+        "st_mil_smart_terrain_7_10_name",       -- Destroyed Substation
+        "st_mil_smart_terrain_4_5_name",        -- Camp in the Open
+    },
+
+    -- RADAR (prefix: rad)
+    radar = {
+        "st_rad_entrance_name",                 -- Ruined Checkpoint
+        "st_rad_valley_name",                   -- Abandoned Tank
+        "st_rad_after_valley_name",             -- Vehicles Left Behind
+        "st_rad2_loner_0001_name",              -- Road Block
+        "st_rad_snork1_name",                   -- Eery Hideout
+        "st_rad_zombied1_name",                 -- Mutant Lair
+        "st_rad_snork2_name",                   -- Passage
+        "st_rad_pseudodogs_name",               -- Hideout near Helicopter
+        "st_rad_bloodsucker_name",              -- Rally Point by the Fence
+        "st_rad_zombied2_name",                 -- Lonesome Spot
+        "st_rad_antenna_camper_name",           -- Tunnel Entrance
+        "st_rad2_loner_0002_name",              -- Sandbags
+        "st_rad2_loner_0000_name",              -- Forward Post
+        "st_rad_prip_road_name",                -- Concrete Slabs
+        "st_rad_rusty_forest_center_name",      -- Dead Forest
+        "st_rad_freedom_vs_duty_name",          -- Road to Pripyat
+        "st_rad2_rad_prip_road_name",           -- Crossroad
+    },
+
+    -- RED FOREST (prefix: red)
+    red_forest = {
+        "st_red_smart_terrain_6_3_name",        -- Devilish Encampment
+        "st_red_smart_terrain_monsters_name",   -- Abandoned Tank
+        "st_red_smart_terrain_monsters_2_name", -- Mining Shaft
+        "st_red_smart_terrain_6_6_name",        -- Bonfire in the forest
+        "st_red_smart_terrain_bridge_name",     -- Limansk Bridge
+        "st_red_smart_terrain_5_5_name",        -- Hiding place near rocks
+        "st_red_smart_terrain_5_6_name",        -- Forest Glade
+        "st_red_smart_terrain_monsters_3_name", -- Known Den
+        "st_red_smart_terrain_4_5_name",        -- Old Forest Camp
+        "st_red_smart_terrain_4_3_name",        -- Clearing
+        "st_red_smart_terrain_3_3_name",        -- Gathering Spot
+        "st_red_smart_terrain_4_2_name",        -- Camp by the Entrance
+        "st_red_smart_terrain_3_1_name",        -- Abandoned Checkpoint
+        "st_red_smart_terrain_3_2_name",        -- Mine Barracks
+        "st_red_bridge_bandit_smart_skirmish_name", -- Limansk Tunnel
+    },
+
+    -- LIMANSK (prefix: lim)
+    limansk = {
+        "st_lim_smart_terrain_1_name",          -- Camp near destroyed house
+        "st_lim_smart_terrain_3_name",          -- Checkpoint
+        "st_lim_smart_terrain_4_name",          -- Anomaly barrier
+        "st_lim_smart_terrain_5_name",          -- Passage inside house
+        "st_lim_smart_terrain_6_name",          -- Abandoned Building
+        "st_lim_smart_terrain_7_name",          -- Destroyed Bridge
+        "st_lim_smart_terrain_8_name",          -- Substation near sheds
+        "st_lim_smart_terrain_9_name",          -- Old construction site
+        "st_lim_smart_terrain_10_name",         -- Run Down House
+    },
+
+    -- PRIPYAT (prefix: pri) – excludes Monolith base (Cultural Center)
+    pripyat = {
+        "st_pri_smart_neutral_stalker1_name",   -- Camp in Burned Pit
+        "st_pri_smart_monolith_stalker2_name",  -- Encampment near Monoblocks
+        "st_pri_smart_monster_lair1_name",       -- Guard Post near trailer
+        "st_pri_smart_monolith_stalker3_name",  -- Main Road
+        "st_pri_smart_controler_lair1_name",    -- Deserted Building
+        "st_pri_smart_monolith_stalker4_name",  -- Outpost near Statue
+        "st_pri_depot_name",                    -- Bus Station
+        "st_pri_smart_controler_lair2_name",    -- Camp near rusted buses
+        "st_pri_smart_snork_lair2_name",        -- Collapsed Lenin Statue
+        "st_pri_smart_tushkano_lair1_name",     -- Pripyat Hotel
+        "st_pri_smart_snork_lair1_name",        -- Camp near Radioactive Ruins
+        "st_pri_smart_monolith_stalker6_name",  -- Stadium Entrance
+        "st_pri_smart_pseudodog_lair1_name",    -- Lonesome Camp
+        "st_pri_smart_giant_lair1_name",        -- Stadium Arena
+        "st_pri_smart_bloodsucker_lair1_name",  -- Old Market
+        "st_hotel_poless_smart_alife_name",     -- Hotel Backyard
+        "st_monolith_snipers_smart_1_mlr_name", -- Damnation Alley
+    },
+
+    -- GENERATORS (prefix: gen)
+    generators = {
+        "st_gen_smart_terrain_cemetery_name",    -- Graveyard
+        "st_gen_smart_terrain_junk_name",        -- Collapsed Crane
+        "st_gen_smart_terrain_lab_entrance_2_name", -- Abandoned Substation
+        "st_gen_smart_terrain_lab_entrance_name", -- War Lab Surface
+        "st_gen_smart_terrain_forest_name",      -- Eery Forest Hideout
+        "st_gen_smart_terrain_urod_name",        -- Lookout
+        "st_gen_smart_terrain_military_name",    -- Abandoned Checkpoint
+    },
+
+    -- OUTSKIRTS (prefix: pri but different map)
+    outskirts = {
+        "st_pri_b36_smart_terrain_name",        -- River Port
+        "st_pri_sim_2_name",                    -- Dead End Road
+        "st_pri_a28_heli_name",                 -- Theater Courtyard
+        "st_pri_sim_1_name",                    -- Prometheus Movie Theater
+        "st_pri_b303_name",                     -- Old Service Center
+        "st_pri_a28_evac_name",                 -- Apartment Building Parking Lot
+        "st_pri_b302_name",                     -- Hideout
+        "st_pri_sim_6_name",                    -- Hospital back alley
+        "st_pri_b301_name",                     -- Destroyed School
+        "st_pri_a28_school_name",               -- School Gate
+        "st_pri_b306_name",                     -- Yubileiny Service Center
+        "st_pri_sim_10_name",                   -- Devilish Road
+        "st_pri_sim_12_name",                   -- Mutant Lair
+        "st_pri_a16_name",                      -- Laundromat
+        "st_pri_a28_base_name",                 -- Laundromat Frontyard
+        "st_pri_b35_military_name",             -- City Lookout
+        "st_pri_sim_5_name",                    -- Monoblock Passage
+        "st_pri_a28_shop_name",                 -- Derelict Store
+        "st_pri_a28_arch_name",                 -- Building Arch
+        "st_pri_a22_smart_terrain_name",        -- Camp between Apartments
+        "st_pri_sim_3_name",                    -- Kindergarten Gate
+        "st_pri_b307_name",                     -- Fire Park
+        "st_pri_sim_7_name",                    -- Lonely Corner
+        "st_pri_sim_9_name",                    -- Camp near Substation
+        "st_pri_a21_smart_terrain_name",        -- Grocery Store
+        "st_pri_sim_11_name",                   -- Open Camp
+        "st_pri_a18_smart_terrain_name",        -- Book Store
+        "st_pri_sim_4_name",                    -- Bus Station
+        "st_kbo_terrain_name",                  -- Service Center Entrance
+        "st_pri_a16_mlr_copy_name",             -- Laundromat Entrance
+    },
+
+    -- JUPITER (prefix: jup) – excludes Yanov Station (hub)
+    jupiter = {
+        "st_jup_a12_name",                      -- Container Warehouse
+        "st_jup_sim_10_name",                   -- Lair
+        "st_jup_a12_merc_name",                 -- Road Post near Car
+        "st_jup_sim__name",                     -- Collapsed Train Tunnel
+        "st_jup_b203_name",                     -- Ventilation Complex Underground
+        "st_jup_b212_name",                     -- Ventilation Complex
+        "st_jup_b32_name",                      -- Parking Lot
+        "st_jup_sim_1_name",                    -- Camp near tracks
+        "st_jup_b205_smart_terrain_name",       -- Volkhov AA Complex
+        "st_jup_sim_16_name",                   -- Camp near Lake
+        "st_jup_sim_9_name",                    -- Zombie Territory
+        "st_jup_b19_name",                      -- Kopachy Village
+        "st_jup_b6_anom_2_name",                -- Kopachy Lookout
+        "st_jup_b1_name",                       -- North-western Tunnel
+        "st_jup_b46_name",                      -- Cooling Tower
+        "st_jup_sim_21_name",                   -- Lonesome Hideout
+        "st_jup_sim_8_name",                    -- Marsh
+        "st_jup_sim_14_name",                   -- Mutant Lair
+        "st_jup_b202_name",                     -- Railway Station
+        "st_jup_b211_name",                     -- Camp near the Marsh
+        "st_jup_sim_20_name",                   -- Wrecked Bridge
+        "st_jup_b200_name",                     -- Jupiter Lookout
+        "st_jup_b200_tushkan_smart_terrain_name", -- Cement Factory
+        "st_jup_sim_7_name",                    -- Quarry Lookout
+        "st_jup_b25_name",                      -- Quarry
+        "st_jup_b207_name",                     -- Improvised Outpost
+        "st_jup_b207_depot_attack_name",        -- Open Plains
+        "st_jup_sim_15_name",                   -- Hilltop
+        "st_jup_b206_name",                     -- Roadside Camp
+        "st_jup_a10_smart_terrain_name",        -- Checkpoint
+        "st_jup_sim_6_name",                    -- Quarry Slope
+        "st_jup_b209_name",                     -- Bitumen Anomaly Entrance
+        "st_jup_sim_5_name",                    -- Road Fork
+        "st_jup_sim_4_name",                    -- Abandoned Engine
+        "st_jup_b204_name",                     -- Canal Outpost
+        "st_jup_sim_11_name",                   -- Backwoods
+        "st_jup_sim_12_name",                   -- Camp infront of Complex
+        "st_jup_sim_18_name",                   -- Jupiter Factory Depot
+        "st_jup_sim_17_name",                   -- Dry Canal
+        "st_jup_a9_name",                       -- Factory Entrance
+        "st_jup_b47_name",                      -- Inner Roads
+        "st_jup_sim_19_name",                   -- Factory Junkyard
+        "st_jup_b8_smart_terrain_name",         -- Fallen Helicopter
+        "st_jup_b219_name",                     -- Factory
+        "st_jup_b4_name",                       -- Hideout under Bridge
+        "st_jup_sim_3_name",                    -- Shallow Swamp
+        "st_jup_sim_13_name",                   -- Dangerous Camp
+        "st_jup_sim_2_name",                    -- Western Tunnel
+        "st_jup_b208_name",                     -- Eastern Tunnel
+    },
+
+    -- SOUTH CNPP (prefix: aes)
+    south_cnpp = {
+        "st_aes_smart_terrain_monolit_blockpost4_name", -- Power Station
+        "st_aes_smart_terrain_monolit_blockpost2_name", -- Oil Tankers
+        "st_aes_smart_terrain_monolit_blockpost_name",  -- Power Plant Entrance
+        "st_aes_smart_terrain_soldier2_name",           -- Office Complex
+        "st_aes_smart_terrain_monsters1_name",          -- Main Road
+        "st_aes_smart_terrain_monsters2_name",          -- Distant Camp
+        "st_aes_smart_terrain_monsters3_name",          -- Transmission Towers
+        "st_aes_smart_terran_soldier_name",             -- Outpost
+        "st_aes_smart_terrain_monsters4_name",          -- Lonely Camp
+    },
+
+    -- NORTH CNPP (prefix: aes2)
+    north_cnpp = {
+        "st_aes2_monolith_snipers_2_name",      -- Inner Camp
+        "st_aes2_monolith_snipers_1_name",      -- Rooftops
+        "st_aes2_monolith_camp1_name",          -- Big Encampment
+        "st_aes2_monolith_camp2_name",          -- Inner Lookout
+        "st_aes2_monsters2_name",               -- Landing Zone
+        "st_aes2_monolith_camp3_name",          -- Rooftop Camp
+        "st_aes2_monsters1_name",               -- Backdoor Exit
+        "st_aes2_monolith_snipers_3_name",      -- Power Plant Depot
+        "st_aes2_monolith_camp4_name",          -- Storage in Rooftop
+    },
+
+    -- ZATON (prefix: zat) – excludes Skadovsk (hub)
+    zaton = {
+        "st_zat_b40_smart_terrain_name",        -- Processing Station
+        "st_zat_sim_10_name",                   -- Devilish Backwoods
+        "st_zat_sim_14_name",                   -- Southern Plateau
+        "st_zat_b12_name",                      -- Preobrazhensky Bridge
+        "st_zat_sim_11_name",                   -- Makeshift Camp
+        "st_zat_b54_name",                      -- Scar Camp
+        "st_zat_sim_24_name",                   -- River Crossing
+        "st_zat_b5_smart_terrain_name",         -- Ranger Station
+        "st_zat_sim_28_name",                   -- Hideout near Bridge
+        "st_zat_sim_16_name",                   -- Mutant Lair
+        "st_zat_b14_smart_terrain_name",        -- Dredge Station
+        "st_zat_sim_18_name",                   -- Lonesome Hills
+        "st_zat_sim_1_name",                    -- Lair in the Hills
+        "st_zat_b53_name",                      -- Boiler Anomaly Camp
+        "st_zat_sim_29_name",                   -- Wooded Hill
+        "st_zat_a1_name",                       -- Remote Camping Place
+        "st_zat_sim_15_name",                   -- Northeastern River Vantage Point
+        "st_zat_b42_smart_terrain_name",        -- Old Pier
+        "st_zat_sim_2_name",                    -- Shore Camp
+        "st_zat_sim_30_name",                   -- Forgotten Hills
+        "st_zat_sim_3_name",                    -- North River Vantage Point
+        "st_zat_sim_19_name",                   -- Dangerous Hilltop
+        "st_zat_sim_4_name",                    -- Northern Road
+        "st_zat_b104_zombied_name",             -- Abandoned Sawmill
+        "st_zat_sim_5_name",                    -- Hideout behind Boulders
+        "st_zat_b101_name",                     -- Deadly Encampment
+        "st_zat_sim_6_name",                    -- Anomaly Swamp Lookout
+        "st_zat_b38_name",                      -- Krug Antenna Complex
+        "st_zat_sim_7_name",                    -- Complex Backwoods
+        "st_zat_sim_8_name",                    -- Mutant Den
+        "st_zat_sim_26_name",                   -- Old Forest Camp
+        "st_zat_b39_name",                      -- Oakpine Anomaly Camp
+        "st_zat_sim_25_name",                   -- Fueling Station
+        "st_zat_sim_13_name",                   -- Roadside Camp
+        "st_zat_b33_name",                      -- Snork Den
+        "st_zat_b55_name",                      -- Claw Anomaly Camp
+        "st_zat_b100_name",                     -- Iron Forest
+        "st_zat_a23_smart_terrain_name",        -- Crashed Helicopter
+        "st_zat_sim_9_name",                    -- Iron Forest Backwoods
+        "st_zat_b103_merc_smart_name",          -- Substation Workshops
+        "st_zat_b56_name",                      -- Circus Anomaly Camp
+        "st_zat_sim_20_name",                   -- Underground Entrance
+        "st_zat_b20_smart_terrain_name",        -- Burnt Farmstead
+        "st_zat_b28_name",                      -- Secret Cave
+        "st_zat_b106_smart_terrain_name",       -- Izumrudnoye
+        "st_zat_sim_17_name",                   -- Underground Secret Entrance
+        "st_zat_sim_21_name",                   -- Central Vantage Point
+        "st_zat_sim_27_name",                   -- Shallow River
+        "st_zat_b7_name",                       -- Shevchenko Shipwreck
+        "st_zat_sim_23_name",                   -- Swampy River
+        "st_zat_b18_name",                      -- Old Barge
+        "st_zat_b52_name",                      -- Dock Cranes
+        "st_zat_sim_12_name",                   -- Roadside Picnic
+        "st_zat_sim_22_name",                   -- Hill
+    },
+
+    -- MEADOW (prefix: pol)
+    meadow = {
+        "st_pol_sim_1_name",                    -- Factory Yard
+        "st_pol_smart_terrain_1_1_name",        -- Village
+        "st_pol_smart_terrain_1_2_name",        -- Canteen #14
+        "st_pol_smart_terrain_1_3_name",        -- Old Car Park
+        "st_pol_smart_terrain_2_1_name",        -- Factory Administration
+        "st_pol_smart_terrain_2_2_name",        -- Factory Workshops
+    },
+}
+
+-- Resolve a %<level>_panda_st% placeholder to a random smart terrain key from that level
+function resolve_level_smart_terrain(level_key)
+    local list = SMART_TERRAIN_LEVEL_LISTS[level_key]
+    if not list or #list == 0 then
+        printf("PANDA_IC: no smart terrain list for level key '%s'", tostring(level_key))
+        return nil
+    end
+    return list[math.random(#list)]
+end
+
+-- Get a translated name for a level smart terrain placeholder
+function resolve_level_smart_terrain_name(level_key)
+    local st_key = resolve_level_smart_terrain(level_key)
+    if not st_key then return nil end
+    local translated = game.translate_string(st_key)
+    if translated == st_key then
+        return nil, st_key -- translation missing, return raw key
+    end
+    return translated, st_key
+end
+
 local function build_substitution_table(npc_name, npc_faction)
     local act = db.actor
     local player_name = act and act:character_name() or "Stalker"
@@ -899,10 +1427,43 @@ local function build_substitution_table(npc_name, npc_faction)
     }
 end
 
+-- Cache of resolved smart terrain placeholders per-conversation to keep
+-- references consistent within a single conversation flow.
+local _st_resolve_cache = {}
+
+function clear_st_resolve_cache()
+    _st_resolve_cache = {}
+end
+
 local function sub_placeholders(str, npc_name, npc_faction)
     if not str or str == "" then return str end
+
+    -- First resolve any %<level>_panda_st% patterns.
+    -- Each unique level key gets resolved once per conversation (cached)
+    -- so that all turns referencing e.g. %cordon_panda_st% get the same location.
+    str = string.gsub(str, "%%(%w+)_panda_st%%", function(level_key)
+        if not _st_resolve_cache[level_key] then
+            local translated, raw_key = resolve_level_smart_terrain_name(level_key)
+            if translated then
+                _st_resolve_cache[level_key] = { name = translated, key = raw_key }
+            else
+                printf("PANDA_IC: failed to resolve %%"..level_key.."_panda_st%% placeholder")
+                return "%"..level_key.."_panda_st%"
+            end
+        end
+        return _st_resolve_cache[level_key].name
+    end)
+
+    -- Then do normal $placeholder substitutions
     local subs = build_substitution_table(npc_name, npc_faction)
     return utils_data.parse_string_keys(str, subs)
+end
+
+-- Resolve %<level>_panda_st_key% to the raw smart terrain key (for use in outcomes).
+-- Must be called AFTER sub_placeholders has resolved the cache for that level.
+function get_cached_st_key(level_key)
+    local cached = _st_resolve_cache[level_key]
+    return cached and cached.key or nil
 end
 
 local function get_rank_order_value(rank_name)
@@ -2241,6 +2802,9 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
 
     -- Block if this specific NPC already has an active conversation
     if active_conversations[name] then return false end
+
+    -- Clear smart terrain placeholder cache for fresh resolution this conversation
+    clear_st_resolve_cache()
 
     local key
     if prefix == "task" or not prefix then

@@ -2,155 +2,243 @@
 <string_table>
 
 <!-- ============================================================ -->
-<!-- P.A.N.D.A. FRIENDLY PDA CONVERSATIONS (NON‑TASK) -->
-<!-- Procedural Anomaly Narrative Dialogue Architecture -->
+<!-- P.A.N.D.A. FRIENDLY PDA CONVERSATIONS (NON-TASK)            -->
+<!-- Procedural Anomaly Narrative Dialogue Architecture           -->
 <!-- ============================================================ -->
 <!--
-HOW TO: IMMERSIVE FRIENDLY PDA CONVERSATIONS (LONER)
+==========================================================================
+HOW TO: WRITING IMMERSIVE FRIENDLY PDA CONVERSATIONS
+==========================================================================
 
-P.A.N.D.A conversations must be grounded in real game state and real consequences.
-No imaginary dialogue: every line should be supportable by trackable mechanics (money,
-reputation, goodwill, item transfer, spawned allies/threats, stash reveal, task handoff,
-location/time context, rank context, etc.).
+P.A.N.D.A. is a modular simulation framework for S.T.A.L.K.E.R. Anomaly that
+turns every PDA conversation into a real gameplay event. Nothing is cosmetic.
+If an NPC says "bandits are closing in", bandits actually spawn. If they say
+"I left supplies near the old bridge", a real location marker appears on the
+player's PDA map and a real stash or item reward triggers when they arrive.
+Every word in a conversation must be backed by a trackable mechanic.
 
-1) ID FORMAT + PICKING
-- Base key: st_pda_ic_friendly_loner_<id>_<field>
-- Turn key: st_pda_ic_friendly_loner_<id>_t<turn>_<field>
-- Non-task selection flow:
-  a) Script picks friendly/hostile pool.
-  b) Script evaluates each available NPC against conversation preconditions.
-  c) Conversation is selected with weighted cooldown logic.
-- If a precondition references NPC rank, only NPCs with matching rank can be selected.
+The goal: 100% simulated conversations that affect real gameplay and create
+interesting situations using real game state in real time.
 
-2) REQUIRED CORE FIELDS
-For each conversation ID:
-- _open                NPC opener text
-- _choice_1..4         Player choices (1..4, stop at first missing)
-- _reply_1..4          NPC replies to each choice
-- _outcome_1..4        Gameplay effects (or "none")
-- _cont_1..4           Optional next turn number (2,3,4...)
+==========================================================================
+PART 1 — WHAT THE SYSTEM CAN TRACK & SIMULATE
+==========================================================================
 
-For later turns:
-- _t2_choice_1, _t2_reply_1, _t2_outcome_1, _t2_cont_1
-- _t3_..., _t4_... etc.
+The engine reads the following live game state at conversation time:
 
-3) PLACEHOLDERS (SAFE + IMMERSIVE)
-Supported placeholders:
-- $player_name
-- $npc_name
-- $player_faction
-- $npc_faction
-- $current_level
-- $player_money
-- $player_rank
-- $player_reputation
-- $companion_count
-- $time_of_day
-- $game_hour
+  PLAYER STATE (available as placeholders in dialogue text):
+  - $player_name          Actor's name
+  - $npc_name             Conversation NPC's name
+  - $player_faction       Player's faction (translated)
+  - $npc_faction          NPC's faction (translated)
+  - $current_level        Current map name (translated)
+  - $player_money         Roubles on hand
+  - $player_rank          Rank title (novice -> legend)
+  - $player_reputation    Numeric reputation value
+  - $companion_count      Number of active companions
+  - $time_of_day          "morning" / "afternoon" / "evening" / "night"
+  - $game_hour            Current time as "HH:MM"
 
-Use placeholders to keep messages contextual without inventing fixed story facts.
+  SMART TERRAIN LEVEL PLACEHOLDERS (random location per level):
+  Use %<level_key>_panda_st% anywhere in dialogue text.
+  The system picks a random field smart terrain from that level and
+  substitutes the translated vanilla name at runtime. The same location
+  is used consistently across all turns of one conversation.
 
-4) PRECONDITIONS (_precond)
-Attach to conversation root ID:
-- st_pda_ic_friendly_loner_<id>_precond
-- Value is comma-separated commands.
+  Available level keys:
+    %cordon_panda_st%        %darkscape_panda_st%     %swamp_panda_st%
+    %garbage_panda_st%       %agroprom_panda_st%      %dark_valley_panda_st%
+    %yantar_panda_st%        %wild_territory_panda_st% %rostok_panda_st%
+    %truck_cemetery_panda_st% %dead_city_panda_st%     %army_warehouses_panda_st%
+    %radar_panda_st%         %red_forest_panda_st%    %limansk_panda_st%
+    %pripyat_panda_st%       %generators_panda_st%    %outskirts_panda_st%
+    %jupiter_panda_st%       %south_cnpp_panda_st%    %north_cnpp_panda_st%
+    %zaton_panda_st%         %meadow_panda_st%
 
-Core player checks:
-- req_money:<amount>, req_money_max:<amount>
-- req_rank:<rank>, req_rank_max:<rank>
-- req_rep:<amount>, req_rep_max:<amount>
-- req_kills:<count>, req_mutant_kills:<count>
-- req_faction:<fac>, req_not_faction:<fac>
-- req_level:<map>, req_not_level:<map>
-- req_companions:<n>, req_companions_max:<n>
-- req_goodwill:<amount>:<fac>, req_goodwill_max:<amount>:<fac>
-- req_has_item:<section>
-- req_equipped:<section>, req_equipped_slot:<slot>
-- req_achievement:<id>
-- req_time_day, req_time_night
-- req_health_min:<0..1>, req_health_max:<0..1>
+  These exclude safezones, faction HQs and NPC hubs (Rookie Village,
+  100 Rads Bar, Yanov Station, Skadovsk, Freedom/Duty bases, etc.) so
+  conversations always reference dangerous field locations.
 
-NPC suitability checks (new immersive gate):
-- req_npc_rank:<rank>         NPC rank must be >= rank
-- req_npc_rank_max:<rank>     NPC rank must be <= rank
+  Example text usage:
+    "I spotted movement near %cordon_panda_st%, be careful if you head that way."
+    "Heard there's gear stashed at %garbage_panda_st%. Worth checking out."
 
-Ranks: novice, trainee, experienced, professional, veteran, expert, master, legend.
+  PRECONDITIONS (checked before conversation fires):
+  The system can gate conversations on any combination of:
+  - Money:         req_money:<amount>, req_money_max:<amount>
+  - Rank:          req_rank:<rank>, req_rank_max:<rank>
+  - Reputation:    req_rep:<amount>, req_rep_max:<amount>
+  - Kills:         req_kills:<count>, req_mutant_kills:<count>
+  - Faction:       req_faction:<fac>, req_not_faction:<fac>
+  - Location:      req_level:<map>, req_not_level:<map>
+  - Companions:    req_companions:<n>, req_companions_max:<n>
+  - Goodwill:      req_goodwill:<amount>:<fac>, req_goodwill_max:<amount>:<fac>
+  - Inventory:     req_has_item:<section>
+  - Equipment:     req_equipped:<section>, req_equipped_slot:<slot>
+  - Achievements:  req_achievement:<id>
+  - Time of day:   req_time_day, req_time_night
+  - Health:        req_health_min:<0..1>, req_health_max:<0..1>
+  - NPC rank:      req_npc_rank:<rank>, req_npc_rank_max:<rank>
 
-5) OUTCOMES (_outcome_X)
-Comma-separated commands, executed after reply:
-- reward_money:<amount>, punish_money:<amount>
-- reward_rep:<amount>, punish_rep:<amount>
-- reward_gw:<amount>:<fac>, punish_gw:<amount>:<fac>
-- give_item:<section>
-- courier_item:<section>
-- reward_stash
-- spawn_companion:<fac>:<delay_s>
-- spawn_hostile:<fac>:<delay_s>
-- spawn_mutant:<type|random>:<delay_s>
-- give_task_cat:<category> (task conversations)
-- watch_location:<st_smart_name_key|smart_name>[:radius]
-- watch_location_trigger:<st_smart_name_key|smart_name>:<command>[:radius]
-- teleport_npc_to_smart:<st_smart_name_key|smart_name>[:delay_s]
-- teleport_npc_to_player[:delay_s]
-- recruit_companion[:no_dismiss]
+  Ranks (ascending): novice, trainee, experienced, professional,
+                     veteran, expert, master, legend.
 
-Chance wrapper:
-- chance:<percent>:<command>
-Example: chance:40:reward_stash
+  OUTCOMES (real gameplay effects executed after NPC reply):
+  - reward_money:<amount>                     Give roubles
+  - punish_money:<amount>                     Deduct roubles
+  - reward_rep:<amount>                       Increase reputation
+  - punish_rep:<amount>                       Decrease reputation
+  - reward_gw:<amount>:<faction>              Improve faction goodwill
+  - punish_gw:<amount>:<faction>              Decrease faction goodwill
+  - give_item:<section>                       Spawn item in player inventory
+  - courier_item:<section>                    Send courier NPC with item
+  - reward_stash                              Reveal a random stash
+  - spawn_companion:<faction>[:delay_s]       Spawn friendly squad nearby
+  - spawn_hostile:<faction>[:delay_s]         Spawn hostile squad nearby
+  - spawn_mutant:<type|random>[:delay_s]      Spawn mutant pack nearby
+  - watch_location:<st_key>[:radius]          Mark location on PDA map
+  - watch_location_trigger:<st_key>:<cmd>[:radius]  Mark + trigger on arrival
+  - teleport_npc_to_smart:<st_key>[:delay_s]  Move NPC to smart terrain
+  - teleport_npc_to_player[:delay_s]          Move NPC near player
+  - recruit_companion[:no_dismiss]            Recruit NPC as companion
+  - chance:<percent>:<command>                Probability wrapper
 
-Design rule: outcomes must match what dialogue promises. If the NPC says no payment,
-do not grant money; if they promise risk, use chance/spawn outcomes accordingly.
+  Spawn types for spawn_mutant:
+    dog, pseudodog, cat, boar, snork, bloodsucker, lurker, chimera,
+    controller, burer, fracture, psysucker, random
 
-6) TIMEOUTS (NEW)
-Each conversation can expire if ignored:
-- st_pda_ic_friendly_loner_<id>_timeout      (seconds, real-time)
-- st_pda_ic_friendly_loner_<id>_timeout_msg  (NPC annoyed closeout)
+==========================================================================
+PART 2 — CONVERSATION STRUCTURE & FORMAT
+==========================================================================
 
-If timeout key is absent, script uses a random fallback window.
-Use timeout lines that sound like PDA texting cutoffs, not face-to-face roleplay.
+  1) ID FORMAT
+  Base key:  st_pda_ic_friendly_loner_<id>_<field>
+  Turn key:  st_pda_ic_friendly_loner_<id>_t<turn>_<field>
 
-7) LOCATION REFERENCES (NEW)
-Use this when an NPC mentions a vanilla smart terrain from st_smart_names:
-- In text: mention vanilla key directly (example: st_agr_smart_terrain_4_6_name).
-- In outcomes:
-  * watch_location:st_agr_smart_terrain_4_6_name
-  * watch_location:st_agr_smart_terrain_4_6_name:100
-  * watch_location_trigger:st_agr_smart_terrain_4_6_name:spawn_mutant:dog:45
+  2) REQUIRED FIELDS PER CONVERSATION
+  For turn 1 (the opener):
+    _open               NPC's opening message
+    _precond            Comma-separated preconditions (optional but recommended)
+    _choice_1 .. _choice_4   Player response options (stop at first missing)
+    _reply_1  .. _reply_4    NPC reply to each choice
+    _outcome_1 .. _outcome_4 Gameplay effects per choice (or "none")
+    _cont_1   .. _cont_4     Next turn number (2, 3, 4...) or 0/absent = end
+    _timeout             Seconds before conversation expires (real-time)
+    _timeout_msg         NPC's annoyed closeout if player ignores
 
-Behavior:
-- watch_location creates a pending location reference AND places a PDA map marker on the
-  smart terrain so the player can navigate to it. The marker is removed when the player arrives.
-- When the actor enters the smart radius, the system sends: "$name mentioned this place ($location)."
-- watch_location_trigger does the same and then executes one outcome command when reached
-  (great for delayed spawns, rewards, penalties, etc.).
+  For turn 2+:
+    _t2_choice_1, _t2_reply_1, _t2_outcome_1, _t2_cont_1
+    _t3_choice_1, _t3_reply_1, _t3_outcome_1, _t3_cont_1
+    etc.
 
-10) NPC TELEPORT & RECRUIT COMMANDS (NEW)
-- teleport_npc_to_smart:<smart_ref>[:delay]  Teleport the conversation NPC (and squad) to a
-  smart terrain. Uses vanilla TeleportSquad approach. Assigns squad to the smart terrain.
-- teleport_npc_to_player[:delay]  Teleport the conversation NPC (and squad) near the player
-  (20-40m range). Clears smart terrain assignment so they stay put.
-- recruit_companion[:no_dismiss]  Converts the conversation NPC into a player companion using
-  the vanilla axr_companions system. Respects companion_limit. Optional "no_dismiss" flag
-  prevents the player from dismissing them. The NPC's entire squad joins.
+  3) SELECTION FLOW
+    a) Script determines friendly vs hostile pool based on NPC relation.
+    b) Iterates all conversations, evaluating preconditions against the
+       specific NPC and current game state.
+    c) Eligible conversations enter weighted random selection with
+       cooldown penalties to prevent repetition.
+    d) Per-NPC cooldown prevents the same stalker messaging twice in
+       quick succession.
 
-8) LORE / IMMERSION RULES
-- PDA remote-text tone only (short, practical, uncertain signal context).
-- No fixed canon assumptions the player may never have seen.
-- No impossible claims without matching mechanics.
-- Distinct personalities are good, but must remain plausible for radio/PDA chat.
-- Branches should represent meaningful stance: cooperative, cautious, greedy, dismissive.
+==========================================================================
+PART 3 — HOW TO WRITE REALISTIC IMMERSIVE CONVERSATIONS
+==========================================================================
 
-9) QUICK TEMPLATE
-st_pda_ic_friendly_loner_99_open
-st_pda_ic_friendly_loner_99_precond
-st_pda_ic_friendly_loner_99_choice_1
-st_pda_ic_friendly_loner_99_reply_1
-st_pda_ic_friendly_loner_99_outcome_1
-st_pda_ic_friendly_loner_99_cont_1
-... (repeat choice 2..4)
-... (add _t2/_t3 branches as needed)
-st_pda_ic_friendly_loner_99_timeout
-st_pda_ic_friendly_loner_99_timeout_msg
+  RULE 1: EVERYTHING MUST BE REAL
+  If the NPC claims something is happening, the outcome must simulate it.
+  "Bandits nearby" -> spawn_hostile:bandit.  "Found a stash" -> reward_stash.
+  "I owe you" -> reward_money. Never write dialogue that promises something
+  without a matching outcome. The player will SEE the result in-game.
+
+  RULE 2: USE PRECONDITIONS TO SET THE STAGE
+  Don't write a conversation about "your team" if the player has no companions.
+  Don't reference nighttime danger during the day. Use preconditions to ensure
+  conversations only trigger when the context makes sense:
+    - Night ambush scenario:  req_time_night
+    - Wealthy trader talk:    req_money:10000
+    - Veteran-to-veteran:     req_rank:veteran,req_npc_rank:veteran
+    - Zone-specific events:   req_level:l03_agroprom
+
+  The more specific the preconditions, the more immersive the result. Players
+  will only see conversations that match their exact situation.
+
+  RULE 3: BRANCHES = REAL CHOICES WITH REAL CONSEQUENCES
+  Each branch should represent a distinct player stance:
+    - Cooperative:  Help the NPC -> rewards, reputation, allies
+    - Cautious:     Ask questions, gather info -> moderate outcomes
+    - Greedy:       Demand payment -> money but reputation/goodwill cost
+    - Dismissive:   Refuse -> minor penalties, possibly missed opportunities
+
+  Every choice should have a tangible result. No "fluff" branches that do
+  nothing. Even declining should have consequences (goodwill loss, missed
+  stash info, etc.).
+
+  RULE 4: PDA TONE ONLY
+  All dialogue is remote PDA text communication. Write like someone texting
+  over a radio/PDA with bad signal in a dangerous environment:
+    - Short, practical sentences
+    - Signal/battery concerns
+    - Background noise references
+    - Urgency appropriate to the Zone
+    - No face-to-face narration or stage directions
+
+  RULE 5: LOCATION REFERENCES MUST BE ACTIONABLE
+  When mentioning a location, use %level_panda_st% for the text AND pair it
+  with watch_location or watch_location_trigger in the outcome. This places
+  a real marker on the player's PDA map. When they arrive, the system
+  acknowledges it and can trigger additional effects (spawns, rewards, etc.).
+
+  RULE 6: MULTI-TURN DEPTH
+  Use the _cont_X field to create branching conversation trees. A cautious
+  "tell me more" response on turn 1 leads to turn 2 with new information
+  and new choices. This creates natural conversation flow where the player
+  builds trust or suspicion over multiple exchanges. Each turn should
+  escalate or evolve the situation, not just repeat the same stakes.
+
+  RULE 7: MATCH THE ZONE
+  S.T.A.L.K.E.R. is harsh, unpredictable, and morally grey. Conversations
+  should reflect this:
+    - NPCs might be lying or exaggerating for personal gain
+    - Rewards might come with hidden dangers (chance:40:spawn_hostile)
+    - Helping someone might anger another faction (punish_gw)
+    - The Zone itself is a threat (spawn_mutant as environmental pressure)
+    - Nothing is free; everything has a cost
+
+  RULE 8: USE CHANCE FOR UNCERTAINTY
+  The Zone is unpredictable. Use chance:<percent>:<command> to create
+  situations where outcomes aren't guaranteed:
+    - chance:60:reward_stash       (stash info might be outdated)
+    - chance:30:spawn_hostile:bandit:90  (bandits might show up)
+    - chance:50:spawn_mutant:random:120  (mutant activity reported but unconfirmed)
+  This creates emergent gameplay where players can't predict exact results.
+
+==========================================================================
+PART 4 — QUICK TEMPLATE
+==========================================================================
+
+  st_pda_ic_friendly_loner_99_precond        req_time_day,req_rank:experienced
+  st_pda_ic_friendly_loner_99_open           NPC opener text with $placeholders
+  st_pda_ic_friendly_loner_99_choice_1       Cooperative response
+  st_pda_ic_friendly_loner_99_reply_1        NPC reply
+  st_pda_ic_friendly_loner_99_outcome_1      reward_money:2000,reward_gw:5:stalker
+  st_pda_ic_friendly_loner_99_cont_1         2  (continue to turn 2)
+  st_pda_ic_friendly_loner_99_choice_2       Cautious response
+  st_pda_ic_friendly_loner_99_reply_2        NPC reply
+  st_pda_ic_friendly_loner_99_outcome_2      none
+  st_pda_ic_friendly_loner_99_cont_2         2
+  st_pda_ic_friendly_loner_99_choice_3       Greedy response
+  st_pda_ic_friendly_loner_99_reply_3        NPC reply
+  st_pda_ic_friendly_loner_99_outcome_3      reward_money:5000,punish_gw:10:stalker
+  st_pda_ic_friendly_loner_99_cont_3         0  (conversation ends)
+  st_pda_ic_friendly_loner_99_choice_4       Dismissive response
+  st_pda_ic_friendly_loner_99_reply_4        NPC reply
+  st_pda_ic_friendly_loner_99_outcome_4      punish_gw:5:stalker
+  st_pda_ic_friendly_loner_99_cont_4         0
+  st_pda_ic_friendly_loner_99_timeout        90
+  st_pda_ic_friendly_loner_99_timeout_msg    "Guess you're busy. Out."
+
+  Turn 2: _t2_choice_1, _t2_reply_1, _t2_outcome_1, _t2_cont_1 ...
+  Turn 3: _t3_choice_1, _t3_reply_1, _t3_outcome_1, _t3_cont_1 ...
 -->
 
 <!-- ============================================================ -->
@@ -245,7 +333,7 @@ st_pda_ic_friendly_loner_99_timeout_msg
     <text>$name has joined your squad as a companion.</text>
 </string>
 <string id="st_pda_ic_outcome_recruit_limit">
-    <text>Cannot recruit — companion limit reached.</text>
+    <text>Cannot recruit - companion limit reached.</text>
 </string>
 
 <!-- Location Marker -->
@@ -254,11 +342,568 @@ st_pda_ic_friendly_loner_99_timeout_msg
 </string>
 
 <!-- ============================================================ -->
-<!--  CONVERSATIONS with same faction/allied factions , LONER FACTION (EXPANDED) -->
+<!-- CONVERSATIONS: LONER FACTION (FRIENDLY / ALLIED)             -->
 <!-- ============================================================ -->
 
 
+<!-- ==================== CONVERSATION 1 ==================== -->
+<!-- SCENARIO: Nighttime Stash Tip in Garbage                    -->
+<!-- An experienced stalker offers stash coordinates near the    -->
+<!-- Garbage, but warns of mutant activity. Player can push for  -->
+<!-- details, negotiate payment, investigate in person, or bail. -->
+<!-- 3 turns, heavy branching, location marker + triggered spawn -->
+<!-- Precond: nighttime, player is at least trainee rank         -->
+<!-- ========================================================== -->
 
+<string id="st_pda_ic_friendly_loner_1_precond">
+    <text>req_time_night,req_rank:trainee</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_timeout">
+    <text>120</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_timeout_msg">
+    <text>Signal's fading. Forget it, I'll find someone else.</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_open">
+    <text>$player_name, you awake? Found something interesting. I was poking around near %garbage_panda_st% earlier and spotted a stash someone tried to hide under debris. Problem is, there's fresh mutant tracks all around it. Dogs, maybe worse. I'm not equipped to deal with that right now. You want the coordinates? Could be worth your time.</text>
+</string>
+
+<!-- Turn 1 Choices -->
+<string id="st_pda_ic_friendly_loner_1_choice_1">
+    <text>Yeah, send me the location. I'll check it out.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_choice_2">
+    <text>What kind of stash are we talking about? Ammo? Meds? Artifacts?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_choice_3">
+    <text>Nothing's free in the Zone. What do you want for the info?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_choice_4">
+    <text>Not tonight. Too dark, too risky. Pass.</text>
+</string>
+
+<!-- Turn 1 Replies -->
+<string id="st_pda_ic_friendly_loner_1_reply_1">
+    <text>Sending coordinates now. Watch yourself out there, the tracks looked fresh. Probably a pack of dogs using the area as a feeding ground. If you make it, whatever's in there is yours. I just want to know what was inside, curiosity and all that.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_reply_2">
+    <text>Hard to say. Container was sealed tight, military-grade lock from what I could see through the debris. Could be anything. That's what makes it interesting, or dangerous. Someone went through real effort to hide it.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_reply_3">
+    <text>Come on, I'm not running a business here. Fine, call it 1500 RU for the exact coordinates. Or you could owe me a favor. Your call, $player_name.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_reply_4">
+    <text>Fair enough. Zone doesn't forgive mistakes in the dark. Stay safe out there.</text>
+</string>
+
+<!-- Turn 1 Outcomes -->
+<string id="st_pda_ic_friendly_loner_1_outcome_1">
+    <text>watch_location_trigger:st_gar_smart_terrain_3_7_name:spawn_mutant:dog:15:85,reward_stash,reward_gw:5:stalker</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_outcome_2">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_outcome_3">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_outcome_4">
+    <text>reward_gw:2:stalker</text>
+</string>
+
+<!-- Turn 1 Continuations -->
+<string id="st_pda_ic_friendly_loner_1_cont_1">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_cont_2">
+    <text>2</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_cont_3">
+    <text>3</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_cont_4">
+    <text>0</text>
+</string>
+
+<!-- ===== TURN 2: Player asked for details ===== -->
+<string id="st_pda_ic_friendly_loner_1_t2_choice_1">
+    <text>Military container? That's worth investigating. Send the location.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_choice_2">
+    <text>Could be someone's personal stash. Touching it might start problems.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_choice_3">
+    <text>Sealed container in mutant territory? Sounds like bait. I'll pass.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_choice_4">
+    <text>Tell me more about those mutant tracks. How many, how fresh?</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t2_reply_1">
+    <text>Coordinates sent. I marked it right near the vehicle graveyard. Kill whatever's guarding it, crack it open, keep what's inside. Good hunting, $player_name.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_reply_2">
+    <text>This deep in the Zone, "personal property" doesn't exist anymore. Everything belongs to whoever can hold it. But sure, your conscience, your call.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_reply_3">
+    <text>Paranoid, but I get it. Plenty of stalkers disappeared chasing "sure things." Your caution might keep you alive longer than most.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_reply_4">
+    <text>Four, maybe five sets of prints. Pseudodog-sized at least. Tracks were maybe a few hours old, hard to tell in the dark. They're circling the area, probably territorial. Not a casual stroll for sure.</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t2_outcome_1">
+    <text>watch_location_trigger:st_gar_smart_terrain_3_7_name:spawn_mutant:pseudodog:15:85,reward_stash,reward_gw:5:stalker</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_outcome_2">
+    <text>reward_gw:3:stalker</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_outcome_3">
+    <text>reward_rep:5</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_outcome_4">
+    <text>none</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t2_cont_1">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_cont_2">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_cont_3">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t2_cont_4">
+    <text>2</text>
+</string>
+
+<!-- ===== TURN 3: Player negotiated payment ===== -->
+<string id="st_pda_ic_friendly_loner_1_t3_choice_1">
+    <text>1500 is fine. Transfer the coordinates.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_choice_2">
+    <text>I'll owe you the favor instead. Send the location.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_choice_3">
+    <text>1500 for coordinates I can't verify? Make it 500.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_choice_4">
+    <text>Forget it. Not paying for a maybe.</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t3_reply_1">
+    <text>Transferring now. Pleasure doing business. Location marked, watch for the mutants. They were thick around the eastern side last I checked.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_reply_2">
+    <text>A favor from $player_name. I'll remember that. Coordinates incoming. Don't get killed before you can pay me back, yeah?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_reply_3">
+    <text>You're killing me. Fine, 500, just because I want to know what's in that damn box. Sending coordinates now.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_reply_4">
+    <text>Your loss, stalker. Someone else will take the deal. Out.</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t3_outcome_1">
+    <text>punish_money:1500,watch_location_trigger:st_gar_smart_terrain_3_7_name:spawn_mutant:dog:15:85,reward_stash</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_outcome_2">
+    <text>watch_location_trigger:st_gar_smart_terrain_3_7_name:spawn_mutant:dog:15:85,reward_stash,reward_gw:8:stalker</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_outcome_3">
+    <text>punish_money:500,watch_location_trigger:st_gar_smart_terrain_3_7_name:spawn_mutant:dog:15:85,reward_stash</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_outcome_4">
+    <text>punish_gw:5:stalker</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_1_t3_cont_1">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_cont_2">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_cont_3">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_1_t3_cont_4">
+    <text>0</text>
+</string>
+
+
+<!-- ==================== CONVERSATION 2 ==================== -->
+<!-- SCENARIO: Wounded Stalker Near Agroprom                    -->
+<!-- A fellow stalker is wounded and pinned near Agroprom.      -->
+<!-- Player can send a companion, go themselves, offer supplies -->
+<!-- via courier, or ignore the plea. Uses teleport, spawning,  -->
+<!-- courier, and location systems. 3 turns.                    -->
+<!-- Precond: daytime, player has at least 1 companion OR money -->
+<!-- ========================================================== -->
+
+<string id="st_pda_ic_friendly_loner_2_precond">
+    <text>req_time_day,req_rank:experienced</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_timeout">
+    <text>90</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_timeout_msg">
+    <text>*static* ...guess I'm on my own. Wouldn't be the first time.</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_2_open">
+    <text>$player_name, I need help. Took a bad hit near %agroprom_panda_st%, bleeding pretty good. Got a bandage on it but I'm low on meds and there's movement in the treeline. Can't tell if it's stalkers or mutants. My PDA's showing you're the closest friendly. Can you do anything?</text>
+</string>
+
+<!-- Turn 1 Choices -->
+<string id="st_pda_ic_friendly_loner_2_choice_1">
+    <text>Hold position, I'm coming to you. Sending you my approach vector now.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_choice_2">
+    <text>How bad is the wound? Can you move at all?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_choice_3">
+    <text>I can dispatch a courier with meds. That's the best I can do from here.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_choice_4">
+    <text>Sorry, I'm in a bad spot myself. Can't help right now.</text>
+</string>
+
+<!-- Turn 1 Replies -->
+<string id="st_pda_ic_friendly_loner_2_reply_1">
+    <text>Thank god. I'll hold here and try to stay quiet. PDA marker is active, you should see my position. Hurry, $player_name, the movement in the trees is getting closer.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_reply_2">
+    <text>Leg's torn up, hit something sharp going over a barricade. Can walk, but slow. If those are snorks in the trees I'm dead before I make fifty meters. I need options, not questions.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_reply_3">
+    <text>A courier? That'll take time I might not have. But medkits and bandages would keep me going. If you can't come yourself, I'll take what I can get.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_reply_4">
+    <text>Yeah... yeah, I get it. Zone doesn't wait for anyone. I'll try to crawl to cover. If I make it, I owe the Zone another day. If not... well. Good luck out there, $player_name.</text>
+</string>
+
+<!-- Turn 1 Outcomes -->
+<string id="st_pda_ic_friendly_loner_2_outcome_1">
+    <text>watch_location:st_agr_smart_terrain_5_7_name:100,chance:50:spawn_mutant:snork:120,reward_gw:10:stalker,reward_rep:10</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_outcome_2">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_outcome_3">
+    <text>courier_item:medkit,reward_gw:8:stalker,reward_rep:5</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_outcome_4">
+    <text>punish_rep:10,punish_gw:15:stalker</text>
+</string>
+
+<!-- Turn 1 Continuations -->
+<string id="st_pda_ic_friendly_loner_2_cont_1">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_cont_2">
+    <text>2</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_cont_3">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_cont_4">
+    <text>0</text>
+</string>
+
+<!-- ===== TURN 2: Player asked about the wound ===== -->
+<string id="st_pda_ic_friendly_loner_2_t2_choice_1">
+    <text>Alright, I'm heading your way. Mark your position and stay low.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t2_choice_2">
+    <text>Try to move toward the road. I'll send someone to meet you halfway.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t2_choice_3">
+    <text>I'll call in a friendly patrol. They might reach you before I can.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t2_choice_4">
+    <text>If you can walk, head north. There should be a camp up that way.</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_2_t2_reply_1">
+    <text>Position marked. I'm behind the concrete wall, east side. If something jumps me before you arrive, at least you'll know where to find what's left. Hurry.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t2_reply_2">
+    <text>The road? That's open ground. But if someone's coming to meet me... alright, I'll try. Give me a few minutes to stabilize and start moving. Don't let me down.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t2_reply_3">
+    <text>A patrol? That'd be a miracle right about now. If they show up, I'll make sure people know who sent them. You're a good one, $player_name.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t2_reply_4">
+    <text>North... right, the old camp near the underground entrance. Long walk on a bad leg, but better than sitting here waiting to die. Thanks for the tip at least.</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_2_t2_outcome_1">
+    <text>watch_location:st_agr_smart_terrain_5_7_name:100,chance:50:spawn_mutant:snork:120,reward_gw:15:stalker,reward_rep:10</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t2_outcome_2">
+    <text>spawn_companion:stalker:60,reward_gw:10:stalker,reward_rep:5</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t2_outcome_3">
+    <text>spawn_companion:stalker:45,reward_gw:12:stalker,reward_rep:8</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t2_outcome_4">
+    <text>reward_gw:3:stalker</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_2_t2_cont_1">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t2_cont_2">
+    <text>3</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t2_cont_3">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t2_cont_4">
+    <text>0</text>
+</string>
+
+<!-- ===== TURN 3: NPC is attempting to move ===== -->
+<string id="st_pda_ic_friendly_loner_2_t3_choice_1">
+    <text>Good, keep moving. I see the patrol heading your direction.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t3_choice_2">
+    <text>If you make it through this, come find me. I could use someone tough.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t3_choice_3">
+    <text>Watch your six. If those were snorks, they'll chase movement.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t3_choice_4">
+    <text>You've got this. Signal me when you're clear.</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_2_t3_reply_1">
+    <text>I see them! Two guys coming up the road. I think I'm going to make it. $player_name, I won't forget this. If you ever need backup, you know who to call.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t3_reply_2">
+    <text>Recruit me? After seeing how you handle things over PDA, yeah, I'd follow you. Let me heal up first. Give me a day and I'll find you. Count on it.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t3_reply_3">
+    <text>Noted. Moving low and quiet. I can hear something behind me but I'm not looking back. If this is it, at least someone tried to help. Thanks, stalker.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t3_reply_4">
+    <text>Almost to the road. Leg's screaming but the bleeding slowed. I'll ping you when I'm safe. Keep your PDA on. You earned a drink when we cross paths.</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_2_t3_outcome_1">
+    <text>reward_gw:5:stalker</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t3_outcome_2">
+    <text>teleport_npc_to_player:300,reward_gw:15:stalker</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t3_outcome_3">
+    <text>chance:40:spawn_mutant:snork:90</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t3_outcome_4">
+    <text>chance:60:reward_stash,reward_gw:5:stalker</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_2_t3_cont_1">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t3_cont_2">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t3_cont_3">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_2_t3_cont_4">
+    <text>0</text>
+</string>
+
+
+<!-- ==================== CONVERSATION 3 ==================== -->
+<!-- SCENARIO: Bandit Ambush Warning in Dark Valley              -->
+<!-- A veteran NPC warns the player about a bandit ambush being  -->
+<!-- set up near Dark Valley. Player can set a counter-ambush,   -->
+<!-- avoid the area, try to negotiate with the bandits through   -->
+<!-- the NPC, or use the info to lure the bandits into a mutant  -->
+<!-- hotspot. Uses spawn_hostile, location markers, faction       -->
+<!-- goodwill, and chance mechanics. 3 turns.                    -->
+<!-- Precond: player rank veteran+, not on Cordon                -->
+<!-- ========================================================== -->
+
+<string id="st_pda_ic_friendly_loner_3_precond">
+    <text>req_rank:veteran,req_not_level:l01_escape</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_timeout">
+    <text>100</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_timeout_msg">
+    <text>Window's closing, $player_name. Don't say I didn't warn you. Out.</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_3_open">
+    <text>$player_name, got intel you need to hear. One of my contacts saw a bandit squad setting up an ambush near %dark_valley_panda_st%. They're targeting anyone heading through the valley in the next few hours. Looked like 6-8 men, armed heavy. You're a $player_rank, so I'm giving you first crack at this info. What do you want to do with it?</text>
+</string>
+
+<!-- Turn 1 Choices -->
+<string id="st_pda_ic_friendly_loner_3_choice_1">
+    <text>Good intel. I'll set up a counter-ambush. Mark the location.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_choice_2">
+    <text>How reliable is your contact? I don't walk into traps on hearsay.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_choice_3">
+    <text>Any way to avoid the area entirely? What routes are clear?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_choice_4">
+    <text>Interesting. What if we could redirect them into mutant territory?</text>
+</string>
+
+<!-- Turn 1 Replies -->
+<string id="st_pda_ic_friendly_loner_3_reply_1">
+    <text>Marking now. They're dug in near the road, using the factory buildings for cover. If you hit them from the east ridge, you'll have elevation advantage. Be fast though, they'll scatter if they spot you early. I'll spread the word that the ambush got broken. Good for everyone's reputation.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_reply_2">
+    <text>My contact's solid. Ex-military, runs a trading route through the valley twice a week. He nearly walked into it himself, spotted the lookout just in time. This isn't secondhand gossip, $player_name. But I understand being careful. What else do you need?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_reply_3">
+    <text>The northern pass through the truck cemetery is clear last I heard, but it adds hours to any route south. The bandits picked their spot well, it's a natural chokepoint. If you're not looking for a fight, go wide and stay off the main roads.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_reply_4">
+    <text>Now that's creative. There's a known den not far from their position. If someone made enough noise in the right spot... the mutants might do the dirty work for us. Risky, but if it works, problem solved without wasting ammo. You'd have to get close though.</text>
+</string>
+
+<!-- Turn 1 Outcomes -->
+<string id="st_pda_ic_friendly_loner_3_outcome_1">
+    <text>watch_location_trigger:st_val_smart_terrain_8_6_name:spawn_hostile:bandit:10:100,reward_rep:15,reward_gw:10:stalker</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_outcome_2">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_outcome_3">
+    <text>reward_gw:5:stalker</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_outcome_4">
+    <text>none</text>
+</string>
+
+<!-- Turn 1 Continuations -->
+<string id="st_pda_ic_friendly_loner_3_cont_1">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_cont_2">
+    <text>2</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_cont_3">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_cont_4">
+    <text>2</text>
+</string>
+
+<!-- ===== TURN 2: Investigation / Mutant lure follow-up ===== -->
+<string id="st_pda_ic_friendly_loner_3_t2_choice_1">
+    <text>Alright, I believe you. Mark the ambush site, I'm going in.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t2_choice_2">
+    <text>Show me where the mutant den is. I like the redirect plan.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t2_choice_3">
+    <text>What's in it for you? Why share this for free?</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t2_choice_4">
+    <text>I'll handle it my way. Thanks for the warning.</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_3_t2_reply_1">
+    <text>Location sent. Good luck, $player_name. Hit them hard and fast. Every stalker who hears those bandits got cleaned out will sleep easier tonight. I'll owe you one after this.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t2_reply_2">
+    <text>Marking the den location now. It's southeast of their position, maybe 200 meters. Something nasty lives in there, I've heard dogs and worse at night. Fire a few shots near the entrance and run back toward the bandit position. Let nature take its course. Just... don't get caught in the middle.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t2_reply_3">
+    <text>Free? Nothing's free. I trade through that valley too. Those bandits shut down the route, I lose income. You clear them out, my supply line opens back up. Mutual benefit, $player_name. That's how the Zone works.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t2_reply_4">
+    <text>Your call, stalker. Just watch yourself out there. Those bandits aren't rookies if they're setting up organized ambushes. Stay sharp.</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_3_t2_outcome_1">
+    <text>watch_location_trigger:st_val_smart_terrain_8_6_name:spawn_hostile:bandit:10:100,reward_rep:15,reward_gw:10:stalker</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t2_outcome_2">
+    <text>watch_location_trigger:st_val_smart_terrain_9_4_name:spawn_mutant:pseudodog:20:120,chance:50:spawn_hostile:bandit:45,reward_rep:10</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t2_outcome_3">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t2_outcome_4">
+    <text>reward_gw:3:stalker</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_3_t2_cont_1">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t2_cont_2">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t2_cont_3">
+    <text>3</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t2_cont_4">
+    <text>0</text>
+</string>
+
+<!-- ===== TURN 3: Player questioned the NPC's motives ===== -->
+<string id="st_pda_ic_friendly_loner_3_t3_choice_1">
+    <text>Fair enough. Business is business. Mark the location, I'll handle it.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t3_choice_2">
+    <text>If your trade route matters that much, pay me to clear it. 3000 RU.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t3_choice_3">
+    <text>Mutual benefit sounds right. I'll take the intel and the mutant den location.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t3_choice_4">
+    <text>Nah, I don't do other people's dirty work. Deal with it yourself.</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_3_t3_reply_1">
+    <text>Respect, $player_name. Coordinates sent. Wipe them out and the whole valley benefits. I'll make sure people know who cleaned house.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t3_reply_2">
+    <text>3000? Steep, but if you actually clear that chokepoint... fine. Transferring now. Don't spend it all on vodka. Location marked.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t3_reply_3">
+    <text>Smart. Both locations marked. The ambush site and the den. However you play it, those bandits need to go. May the Zone favor the bold, $player_name.</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t3_reply_4">
+    <text>Dirty work? I call it survival. But fine, I'll find someone else. Don't come crying when those bandits are taxing every route in the valley. Out.</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_3_t3_outcome_1">
+    <text>watch_location_trigger:st_val_smart_terrain_8_6_name:spawn_hostile:bandit:10:100,reward_rep:15,reward_gw:12:stalker</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t3_outcome_2">
+    <text>reward_money:3000,watch_location_trigger:st_val_smart_terrain_8_6_name:spawn_hostile:bandit:10:100,reward_rep:10</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t3_outcome_3">
+    <text>watch_location:st_val_smart_terrain_8_6_name:100,watch_location_trigger:st_val_smart_terrain_9_4_name:spawn_mutant:pseudodog:20:120,reward_rep:10,reward_gw:8:stalker</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t3_outcome_4">
+    <text>punish_gw:10:stalker,punish_rep:5</text>
+</string>
+
+<string id="st_pda_ic_friendly_loner_3_t3_cont_1">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t3_cont_2">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t3_cont_3">
+    <text>0</text>
+</string>
+<string id="st_pda_ic_friendly_loner_3_t3_cont_4">
+    <text>0</text>
+</string>
 
 
 </string_table>
