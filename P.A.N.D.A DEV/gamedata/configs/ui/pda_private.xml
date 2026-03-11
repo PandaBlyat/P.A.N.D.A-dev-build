@@ -38,8 +38,51 @@
             <list_header x="10" y="10" width="220" height="25">
                 <text font="letterica18" r="200" g="200" b="200" a="255" align="l" vert_align="c">CONTACTS</text>
             </list_header>
+
+            <player_presence_container x="10" y="38" width="220" height="40" stretch="1">
+                <texture r="36" g="36" b="36" a="220">ui_inGame2_hint_wnd_main_window</texture>
+            </player_presence_container>
+
+            <player_presence_portrait x="14" y="42" width="32" height="32" stretch="1">
+                <texture>ui_inGame2_Neutral_1</texture>
+            </player_presence_portrait>
+
+            <player_presence_state_icon x="40" y="62" width="12" height="12" stretch="1">
+                <texture>ui_panda_on_icon</texture>
+            </player_presence_state_icon>
+
+            <player_presence_label x="56" y="45" width="150" height="24">
+                <text font="letterica16" r="215" g="225" b="235" a="255" align="l" vert_align="c">ONLINE</text>
+            </player_presence_label>
+
+            <player_presence_toggle_btn x="10" y="38" width="220" height="40" can_focus="1" stretch="1">
+                <texture_e a="0">ui_panda_box</texture_e>
+                <texture_h a="0">ui_panda_box</texture_h>
+                <texture_t a="0">ui_panda_box</texture_t>
+                <texture_d a="0">ui_panda_box</texture_d>
+            </player_presence_toggle_btn>
+
+            <player_presence_menu_bg x="10" y="80" width="220" height="54" stretch="1">
+                <texture r="24" g="24" b="24" a="235">ui_inGame2_hint_wnd_main_window</texture>
+            </player_presence_menu_bg>
+
+            <player_presence_online_btn x="14" y="84" width="212" height="22" can_focus="1" stretch="1">
+                <texture_e a="0">ui_panda_box</texture_e>
+                <texture_h a="0">ui_panda_box</texture_h>
+                <texture_t a="0">ui_panda_box</texture_t>
+                <texture_d a="0">ui_panda_box</texture_d>
+                <text font="letterica16" align="l" vert_align="c" x="8" y="0">Online</text>
+            </player_presence_online_btn>
+
+            <player_presence_offline_btn x="14" y="108" width="212" height="22" can_focus="1" stretch="1">
+                <texture_e a="0">ui_panda_box</texture_e>
+                <texture_h a="0">ui_panda_box</texture_h>
+                <texture_t a="0">ui_panda_box</texture_t>
+                <texture_d a="0">ui_panda_box</texture_d>
+                <text font="letterica16" align="l" vert_align="c" x="8" y="0">Offline</text>
+            </player_presence_offline_btn>
             
-            <message_list x="10" y="40" width="220" height="560" item_height="55" can_select="1"/>
+            <message_list x="10" y="138" width="220" height="462" item_height="55" can_select="1"/>
             
             <!-- RIGHT PANE: Chat area (720px wide - full remaining space) -->
             <description x="245" y="5" width="720" height="608">
