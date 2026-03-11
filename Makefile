@@ -1,5 +1,7 @@
 .PHONY: doctor doctor-strict lua-lint xml-lint check setup-tools
 
+export PATH := $(CURDIR)/tools/bin:$(PATH)
+
 setup-tools:
 	./tools/setup_modding_env.sh
 
