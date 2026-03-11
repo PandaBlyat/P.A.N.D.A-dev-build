@@ -257,6 +257,14 @@ function PANDA.get_config(key)
     return MCM_DEFAULTS[key]
 end
 
+function set_player_chat_online(is_online)
+    pda_player_chat_online = is_online ~= false
+end
+
+function is_player_chat_online()
+    return pda_player_chat_online ~= false
+end
+
 -- ============================================================
 -- CATEGORY ALIASES & TASK ID → CATEGORY LOOKUP
 -- ============================================================
@@ -285,6 +293,7 @@ local TASK_ID_TO_CAT = {
 CONV = nil  -- Legacy: kept as a reference to the most-recently-started conversation
 active_conversations = {}  -- Table keyed by npc_name → conversation data
 pda_reply_pending = false  -- True while the multi-stage reply timer chain is active
+pda_player_chat_online = true
 local conv_last_played, last_conv_npc_id, _callbacks_registered = {}, nil, false
 local npc_last_used = {}   -- store last used time per NPC
 local last_pda_warning_time = 0 
@@ -3123,6 +3132,10 @@ function try_trigger_interactive_conv()
         printf("Trigger skipped: disabled")
         return false
     end
+    if not is_player_chat_online() then
+        printf("Trigger skipped: player chat is offline")
+        return false
+    end
     -- Allow up to 3 simultaneous conversations (configurable)
     local max_active = 3
     if count_active_conversations() >= max_active then
@@ -3196,6 +3209,7 @@ function save_state(m)
     m.pda_ic_npc_cooldowns = npc_last_used
     m.pda_private_log = pda_private_log -- SAVE TO FILE
     m.pda_private_blocked_contacts = pda_private_blocked_contacts
+    m.pda_player_chat_online = pda_player_chat_online
     -- Save active conversations (strip non-serializable fields)
     local save_convs = {}
     for name, c in pairs(active_conversations) do
@@ -3233,6 +3247,10 @@ function load_state(m)
 
     if m.pda_private_blocked_contacts then
         pda_private_blocked_contacts = m.pda_private_blocked_contacts
+    end
+
+    if m.pda_player_chat_online ~= nil then
+        pda_player_chat_online = m.pda_player_chat_online
     end
 
     if m.pda_pending_location_refs then

@@ -224,6 +224,7 @@ function pda_private_tab:__init()
     self.button_flash_until = {}
     self.layout_cache_desc_w = -1
     self.layout_cache_desc_h = -1
+    self.player_presence_menu_open = false
 end
 
 function pda_private_tab:InitControls()
@@ -234,6 +235,20 @@ function pda_private_tab:InitControls()
     
     self.xml:InitStatic("private_pda:info:list_bg", self.dialog)
     self.xml:InitTextWnd("private_pda:info:list_header", self.dialog)
+
+    self.player_presence_container = self.xml:InitStatic("private_pda:info:player_presence_container", self.dialog)
+    self.player_presence_portrait = self.xml:InitStatic("private_pda:info:player_presence_portrait", self.dialog)
+    self.player_presence_state_icon = self.xml:InitStatic("private_pda:info:player_presence_state_icon", self.dialog)
+    self.player_presence_label = self.xml:InitTextWnd("private_pda:info:player_presence_label", self.dialog)
+    self.player_presence_toggle_btn = self.xml:Init3tButton("private_pda:info:player_presence_toggle_btn", self.dialog)
+    self.player_presence_menu_bg = self.xml:InitStatic("private_pda:info:player_presence_menu_bg", self.dialog)
+    self.player_presence_online_btn = self.xml:Init3tButton("private_pda:info:player_presence_online_btn", self.dialog)
+    self.player_presence_offline_btn = self.xml:Init3tButton("private_pda:info:player_presence_offline_btn", self.dialog)
+
+    apply_button_quad_style(self.player_presence_toggle_btn)
+    apply_button_quad_style(self.player_presence_online_btn)
+    apply_button_quad_style(self.player_presence_offline_btn)
+
     self.npc_list = self.xml:InitListBox("private_pda:info:message_list", self.dialog)
     self:Register(self.npc_list, "npc_list")
     
@@ -285,6 +300,7 @@ function pda_private_tab:InitControls()
 
     self.reply_trigger_btn_hint_until = 0
     self.quick_menu_open = false
+    self.player_presence_menu_open = false
     self:Register(self.composer_quick_1_btn, "composer_quick_1_btn")
     self:Register(self.composer_quick_2_btn, "composer_quick_2_btn")
     self:Register(self.composer_send_btn, "composer_send_btn")
@@ -365,6 +381,9 @@ function pda_private_tab:InitCallBacks()
     self:AddCallback("quick_btn_block_contact", ui_events.BUTTON_CLICKED, self.OnQuickBlockContactClicked, self)
     self:AddCallback("quick_btn_unblock_contact", ui_events.BUTTON_CLICKED, self.OnQuickUnblockContactClicked, self)
     self:AddCallback("quick_btn_ignore_conv", ui_events.BUTTON_CLICKED, self.OnQuickIgnoreConversationClicked, self)
+    self:AddCallback("player_presence_toggle_btn", ui_events.BUTTON_CLICKED, self.OnPlayerPresenceToggleClicked, self)
+    self:AddCallback("player_presence_online_btn", ui_events.BUTTON_CLICKED, self.OnPlayerPresenceOnlineClicked, self)
+    self:AddCallback("player_presence_offline_btn", ui_events.BUTTON_CLICKED, self.OnPlayerPresenceOfflineClicked, self)
 end
 
 function pda_private_tab:TriggerButtonFlash(key, duration_ms)
@@ -467,6 +486,73 @@ function pda_private_tab:UpdateHoverButtonTints()
 
 end
 
+function pda_private_tab:RefreshPlayerPresenceUI()
+    local conv_api = get_conv_api()
+    local is_online = true
+    if conv_api and conv_api.is_player_chat_online then
+        is_online = conv_api.is_player_chat_online()
+    end
+
+    if self.player_presence_portrait and db and db.actor then
+        local actor_icon = db.actor:character_icon()
+        if actor_icon and actor_icon ~= "" then
+            self.player_presence_portrait:InitTexture(actor_icon)
+        end
+    end
+
+    if self.player_presence_state_icon then
+        self.player_presence_state_icon:InitTexture(is_online and "ui_panda_on_icon" or "ui_panda_off_icon")
+        self.player_presence_state_icon:SetTextureColor(GetARGB(255, 255, 255, 255))
+    end
+
+    if self.player_presence_label then
+        self.player_presence_label:SetText(is_online and "ONLINE" or "OFFLINE")
+        self.player_presence_label:SetTextColor(is_online and GetARGB(255, 140, 235, 140) or GetARGB(255, 235, 140, 140))
+    end
+
+    local show_menu = self.player_presence_menu_open == true
+    if self.player_presence_menu_bg then self.player_presence_menu_bg:Show(show_menu) end
+    if self.player_presence_online_btn then self.player_presence_online_btn:Show(show_menu) end
+    if self.player_presence_offline_btn then self.player_presence_offline_btn:Show(show_menu) end
+
+    if self.player_presence_online_btn and self.player_presence_online_btn.TextControl then
+        local txt = self.player_presence_online_btn:TextControl()
+        if txt and txt.SetTextColor then
+            txt:SetTextColor(is_online and GetARGB(255, 140, 235, 140) or GetARGB(255, 210, 220, 230))
+        end
+    end
+
+    if self.player_presence_offline_btn and self.player_presence_offline_btn.TextControl then
+        local txt = self.player_presence_offline_btn:TextControl()
+        if txt and txt.SetTextColor then
+            txt:SetTextColor((not is_online) and GetARGB(255, 235, 140, 140) or GetARGB(255, 210, 220, 230))
+        end
+    end
+end
+
+function pda_private_tab:OnPlayerPresenceToggleClicked()
+    self.player_presence_menu_open = not self.player_presence_menu_open
+    self:RefreshPlayerPresenceUI()
+end
+
+function pda_private_tab:OnPlayerPresenceOnlineClicked()
+    local conv_api = get_conv_api()
+    if conv_api and conv_api.set_player_chat_online then
+        conv_api.set_player_chat_online(true)
+    end
+    self.player_presence_menu_open = false
+    self:RefreshPlayerPresenceUI()
+end
+
+function pda_private_tab:OnPlayerPresenceOfflineClicked()
+    local conv_api = get_conv_api()
+    if conv_api and conv_api.set_player_chat_online then
+        conv_api.set_player_chat_online(false)
+    end
+    self.player_presence_menu_open = false
+    self:RefreshPlayerPresenceUI()
+end
+
 function pda_private_tab:RefreshPresenceIndicators()
     if not self.npc_list then return end
 
@@ -561,6 +647,7 @@ function pda_private_tab:Update()
 
     self:UpdateConversationPresenceState()
     self:RefreshPresenceIndicators()
+    self:RefreshPlayerPresenceUI()
     self:UpdateHoverButtonTints()
 
     if self.choice_typewriter then
@@ -1308,12 +1395,14 @@ function pda_private_tab:Reset(target_contact_id)
     self.message_count:SetText("")
     self.reply_trigger_btn_hint_until = 0
     self.quick_menu_open = false
+    self.player_presence_menu_open = false
     self.typing_text_wnd = nil
     self.typing_entry_data = nil
     self.choice_typewriter = nil
     self:ClearChoiceButtons()
     self:UpdateReplyTriggerVisual()
     self:HideStats()
+    self:RefreshPlayerPresenceUI()
     
     local conv_api = get_conv_api()
     local log = conv_api.pda_private_log or {}
