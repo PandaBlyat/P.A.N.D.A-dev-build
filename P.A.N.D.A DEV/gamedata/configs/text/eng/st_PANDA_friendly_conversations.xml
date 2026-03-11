@@ -739,7 +739,7 @@ PART 4 — QUICK TEMPLATE
 </string>
 
 <string id="st_pda_ic_friendly_loner_3_open">
-    <text>$player_name, got intel you need to hear. One of my contacts saw a bandit squad setting up an ambush near %dark_valley_panda_st%. They're targeting anyone heading through the valley in the next few hours. Looked like 6-8 men, armed heavy. You're a $player_rank, so I'm giving you first crack at this info. What do you want to do with it?</text>
+    <text>Got intel you need to hear $player_name. One of my contacts saw a bandit squad setting up an ambush near %dark_valley_panda_st%. You're a $player_rank, so I'm giving you first crack at this info. What do you want to do with it?</text>
 </string>
 
 <!-- Turn 1 Choices -->
@@ -758,10 +758,10 @@ PART 4 — QUICK TEMPLATE
 
 <!-- Turn 1 Replies -->
 <string id="st_pda_ic_friendly_loner_3_reply_1">
-    <text>Marking now. They're dug in near the road, using the factory buildings for cover. If you hit them from the east ridge, you'll have elevation advantage. Be fast though, they'll scatter if they spot you early. I'll spread the word that the ambush got broken. Good for everyone's reputation.</text>
+    <text>Marking now. </text>
 </string>
 <string id="st_pda_ic_friendly_loner_3_reply_2">
-    <text>My contact's solid. Ex-military, runs a trading route through the valley twice a week. He nearly walked into it himself, spotted the lookout just in time. This isn't secondhand gossip, $player_name. But I understand being careful. What else do you need?</text>
+    <text>My contact's solid. Ex-military, runs a trading route through the valley twice a week. He nearly walked into it himself, spotted the lookout just in time. This isn't secondhand gossip $player_name. But I understand being careful. What else do you need?</text>
 </string>
 <string id="st_pda_ic_friendly_loner_3_reply_3">
     <text>The northern pass through the truck cemetery is clear last I heard, but it adds hours to any route south. The bandits picked their spot well, it's a natural chokepoint. If you're not looking for a fight, go wide and stay off the main roads.</text>
@@ -903,6 +903,8 @@ PART 4 — QUICK TEMPLATE
 <string id="st_pda_ic_friendly_loner_3_t3_cont_4">
     <text>0</text>
 </string>
+
+
 
 
 </string_table>
