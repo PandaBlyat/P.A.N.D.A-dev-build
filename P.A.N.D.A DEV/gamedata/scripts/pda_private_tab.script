@@ -1534,7 +1534,7 @@ function pda_private_tab:OnSelectNPC()
 	end
 
 	local right_inset = lane_insets.right + lane_insets.scrollbar_gutter
-	local player_spawn_shift_x = 70
+	local player_spawn_shift_x = 170
 	local maxBubbleWidth = math.max(220, lane_width - lane_insets.left - right_inset)
 
     local row_idx = 0
