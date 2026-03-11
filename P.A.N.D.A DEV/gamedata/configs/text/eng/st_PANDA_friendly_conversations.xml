@@ -90,6 +90,9 @@ Comma-separated commands, executed after reply:
 - give_task_cat:<category> (task conversations)
 - watch_location:<st_smart_name_key|smart_name>[:radius]
 - watch_location_trigger:<st_smart_name_key|smart_name>:<command>[:radius]
+- teleport_npc_to_smart:<st_smart_name_key|smart_name>[:delay_s]
+- teleport_npc_to_player[:delay_s]
+- recruit_companion[:no_dismiss]
 
 Chance wrapper:
 - chance:<percent>:<command>
@@ -115,10 +118,20 @@ Use this when an NPC mentions a vanilla smart terrain from st_smart_names:
   * watch_location_trigger:st_agr_smart_terrain_4_6_name:spawn_mutant:dog:45
 
 Behavior:
-- watch_location creates a pending location reference.
+- watch_location creates a pending location reference AND places a PDA map marker on the
+  smart terrain so the player can navigate to it. The marker is removed when the player arrives.
 - When the actor enters the smart radius, the system sends: "$name mentioned this place ($location)."
 - watch_location_trigger does the same and then executes one outcome command when reached
   (great for delayed spawns, rewards, penalties, etc.).
+
+10) NPC TELEPORT & RECRUIT COMMANDS (NEW)
+- teleport_npc_to_smart:<smart_ref>[:delay]  Teleport the conversation NPC (and squad) to a
+  smart terrain. Uses vanilla TeleportSquad approach. Assigns squad to the smart terrain.
+- teleport_npc_to_player[:delay]  Teleport the conversation NPC (and squad) near the player
+  (20-40m range). Clears smart terrain assignment so they stay put.
+- recruit_companion[:no_dismiss]  Converts the conversation NPC into a player companion using
+  the vanilla axr_companions system. Respects companion_limit. Optional "no_dismiss" flag
+  prevents the player from dismissing them. The NPC's entire squad joins.
 
 8) LORE / IMMERSION RULES
 - PDA remote-text tone only (short, practical, uncertain signal context).
@@ -217,6 +230,27 @@ st_pda_ic_friendly_loner_99_timeout_msg
 </string>
 <string id="st_pda_ic_pda_closed_warning">
     <text>You need to have your PDA open to make a choice.</text>
+</string>
+
+<!-- NPC Teleport Outcomes -->
+<string id="st_pda_ic_outcome_npc_teleport_smart">
+    <text>$name has relocated to $location.</text>
+</string>
+<string id="st_pda_ic_outcome_npc_teleport_player">
+    <text>$name has arrived near your position.</text>
+</string>
+
+<!-- Recruit Companion Outcomes -->
+<string id="st_pda_ic_outcome_recruit_success">
+    <text>$name has joined your squad as a companion.</text>
+</string>
+<string id="st_pda_ic_outcome_recruit_limit">
+    <text>Cannot recruit — companion limit reached.</text>
+</string>
+
+<!-- Location Marker -->
+<string id="st_pda_ic_location_marker_hint">
+    <text>$location\n(Marked by $name)</text>
 </string>
 
 <!-- ============================================================ -->
