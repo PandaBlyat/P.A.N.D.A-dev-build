@@ -736,6 +736,36 @@ function get_hostile_npcs()
     return limit_random_list(hostile, max)
 end
 
+-- Get ALL eligible NPCs regardless of relation (for merged conversation system).
+-- Preconditions on each conversation handle friendly/hostile filtering via goodwill.
+function get_all_eligible_npcs()
+    local npcs = {}
+    local online = db.OnlineStalkers or {}
+    local min_dist = PANDA.get_config("min_distance_for_call") or 30
+    local player_pos = db.actor:position()
+
+    for i = 1, #online do
+        local id = online[i]
+        local obj = level.object_by_id(id)
+        if obj and IsStalker(obj) and obj:alive() and not obj:is_talking()
+           and not obj:best_enemy() and id ~= last_conv_npc_id and not is_npc_on_cooldown(id) then
+            local comm = obj:character_community()
+            if comm and comm ~= "trader" and comm ~= "actor" and comm ~= "zombied" and comm ~= "monolith" then
+                local dist = player_pos:distance_to(obj:position())
+                if dist >= min_dist then
+                    local se = alife_object(id)
+                    if se and (not se.squad_id or se.squad_id ~= db.actor:squad_id()) then
+                        table.insert(npcs, se)
+                    end
+                end
+            end
+        end
+    end
+
+    local max = PANDA.get_config("max_npcs_per_trigger") or 20
+    return limit_random_list(npcs, max)
+end
+
 function get_eligible_npcs_for_community(player_comm)
     local eligible = {}
     local online = db.OnlineStalkers or {}
@@ -1602,6 +1632,55 @@ function check_preconditions_generic(precond_key, npc_se)
             local npc_fac = get_npc_faction(npc_se)
             local excluded_fac = normalize_faction(parts[2])
             if npc_fac and npc_fac == excluded_fac then return false end
+
+        -- ========== NPC RELATION (goodwill-based, dynamic) ==========
+        elseif cmd == "req_npc_friendly" then
+            -- req_npc_friendly — NPC's faction must have non-negative goodwill with player (friendly/neutral)
+            -- req_npc_friendly:dolg — NPC must be Duty AND goodwill with Duty >= 0
+            if not npc_se then return false end
+            local npc_fac = get_npc_faction(npc_se)
+            if not npc_fac then return false end
+            -- If a specific faction is required, NPC must belong to it
+            if parts[2] and parts[2] ~= "" then
+                local required_fac = normalize_faction(parts[2])
+                if npc_fac ~= required_fac then return false end
+            end
+            -- Check goodwill: NPC's faction must be non-hostile toward player
+            local gw = 0
+            if relation_registry and relation_registry.community_goodwill then
+                gw = relation_registry.community_goodwill(npc_fac, 0) or 0
+            end
+            -- Also check personal relation as fallback
+            local npc_obj = level.object_by_id(npc_se.id)
+            if npc_obj then
+                if npc_obj:relation(db.actor) == game_object.enemy then return false end
+            elseif gw < 0 then
+                return false
+            end
+
+        elseif cmd == "req_npc_hostile" then
+            -- req_npc_hostile — NPC's faction must have negative goodwill with player (hostile)
+            -- req_npc_hostile:bandit — NPC must be bandit AND goodwill with bandit < 0
+            if not npc_se then return false end
+            local npc_fac = get_npc_faction(npc_se)
+            if not npc_fac then return false end
+            -- If a specific faction is required, NPC must belong to it
+            if parts[2] and parts[2] ~= "" then
+                local required_fac = normalize_faction(parts[2])
+                if npc_fac ~= required_fac then return false end
+            end
+            -- Check goodwill: NPC's faction must be hostile toward player
+            local gw = 0
+            if relation_registry and relation_registry.community_goodwill then
+                gw = relation_registry.community_goodwill(npc_fac, 0) or 0
+            end
+            -- Also check personal relation as confirmation
+            local npc_obj = level.object_by_id(npc_se.id)
+            if npc_obj then
+                if npc_obj:relation(db.actor) ~= game_object.enemy then return false end
+            elseif gw >= 0 then
+                return false
+            end
 
         -- ========== LEVEL / LOCATION ==========
         elseif cmd == "req_level" then
@@ -2896,30 +2975,23 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
 end
 
 -- ============================================================
--- NON‑TASK CONVERSATION ATTEMPT (extracted for fallback)
+-- INTERACTIVE CONVERSATION ATTEMPT (merged system — no prefix)
+-- Preconditions on each conversation handle NPC filtering
+-- (friendly/hostile, faction, rank, etc.) via goodwill checks.
 -- ============================================================
-local function attempt_non_task_conversation()
-    printf("Attempting non‑task conversation")
-    local friendly_ratio = PANDA.get_config("friendly_hostile_ratio") or 50
-    local is_friendly = math.random(100) <= friendly_ratio
-    printf("friendly_ratio = %d, is_friendly = %s", friendly_ratio, tostring(is_friendly))
+local function attempt_interactive_conversation()
+    printf("Attempting interactive conversation (merged system)")
 
-    local npc_list
-    if is_friendly then
-        npc_list = get_friendly_npcs()
-    else
-        npc_list = get_hostile_npcs()
-    end
-    printf("Found %d %s NPCs", #npc_list, is_friendly and "friendly" or "hostile")
+    local npc_list = get_all_eligible_npcs()
+    printf("Found %d eligible NPCs", #npc_list)
 
     if #npc_list == 0 then
-        printf("No %s NPCs available for non‑task call.", is_friendly and "friendly" or "hostile")
+        printf("No eligible NPCs available for interactive conversation.")
         return false
     end
 
     local player_comm = get_actor_true_community() or "stalker"
     local xml_fac = (player_comm == "stalker") and "loner" or player_comm
-    local prefix = is_friendly and "friendly" or "hostile"
 
     local npc_se, conv_id
     local pool = {}
@@ -2928,20 +3000,21 @@ local function attempt_non_task_conversation()
     while #pool > 0 and not conv_id do
         local idx = math.random(#pool)
         local candidate = table.remove(pool, idx)
-        local candidate_conv = pick_random_conv_id_generic(prefix, xml_fac, nil, candidate)
+        -- No prefix: scans st_pda_ic_<faction>_<id>_* conversations
+        local candidate_conv = pick_random_conv_id_generic(nil, xml_fac, nil, candidate)
         if candidate_conv then
             npc_se, conv_id = candidate, candidate_conv
         end
     end
 
     if not conv_id then
-        printf("No %s conversation found for faction %s that matches available NPC preconditions.", prefix, xml_fac)
+        printf("No interactive conversation found for faction %s that matches available NPC preconditions.", xml_fac)
         return false
     end
     printf("Picked NPC: %s (ID %d)", npc_se:character_name(), npc_se.id)
     printf("Selected conv_id = %d", conv_id)
 
-    return start_interactive_conv(npc_se, conv_id, prefix, xml_fac, nil, nil)
+    return start_interactive_conv(npc_se, conv_id, nil, xml_fac, nil, nil)
 end
 
 -- ============================================================
@@ -3056,50 +3129,19 @@ function try_trigger_interactive_conv()
         printf("Trigger skipped: %d active conversations (max %d)", count_active_conversations(), max_active)
         return false
     end
-    if not db.actor then 
+    if not db.actor then
         printf("Trigger skipped: no actor")
-        return false 
+        return false
     end
     if PANDA.get_config("require_pda_equipped") and not db.actor:item_in_slot(8) then
         printf("Trigger skipped: PDA not equipped")
         return false
     end
 
-    local non_task_chance = PANDA.get_config("non_task_chance") or 50
-    local rand = math.random(100)
-    local is_non_task = rand <= non_task_chance
-    printf("non_task_chance = %d, rand = %d, is_non_task = %s", non_task_chance, rand, tostring(is_non_task))
-
-    if not is_non_task then
-        -- ---- TASK CONVERSATION ----
-        printf("Attempting task conversation")
-        local npc_se, task_id, task_category = find_npc_with_task()
-        if npc_se and task_id and task_category then
-            local player_comm = get_actor_true_community() or "stalker"
-            local xml_fac = (player_comm == "stalker") and "loner" or player_comm
-
-            local conv_id = pick_random_conv_id_generic("task", xml_fac, task_category, npc_se)
-
-            if conv_id then
-                printf("Found matching task conversation! NPC: %s, Category: %s, Conv ID: %s",
-                       npc_se:character_name(), task_category, conv_id)
-                return start_interactive_conv(npc_se, conv_id, "task", xml_fac, task_id, task_category)
-            else
-                printf("Found NPC with task, but no matching conversation for category %s. Falling back to non‑task.", task_category)
-                -- Fallback to non‑task
-                return attempt_non_task_conversation()
-            end
-        else
-            printf("No task NPC found. Falling back to non‑task.")
-            -- Fallback to non‑task
-            return attempt_non_task_conversation()
-        end
-    else
-        -- ---- NON‑TASK CONVERSATION ----
-        return attempt_non_task_conversation()
-    end
-
-    return false
+    -- Merged system: all conversations are interactive.
+    -- Preconditions on each conversation handle NPC filtering
+    -- (friendly/hostile via goodwill, faction, rank, etc.)
+    return attempt_interactive_conversation()
 end
 
 local function schedule_next_trigger(interval_min)
