@@ -22,6 +22,8 @@ local DIK_SPACE, DIK_0, DIK_1, DIK_2, DIK_3, DIK_4 = 57, 11, 2, 3, 4, 5
 local CHOICE_KEYS = { [DIK_1]=1, [DIK_2]=2, [DIK_3]=3, [DIK_4]=4 }
 local FALLBACK_NPC_ICON = "ui_inGame2_Neutral_1"
 
+local safe_remove_time_event
+
 -- Global used by engine overrides to simulate talking state
 fake_talking_npc_id = nil
 pda_private_tab_open = false
@@ -85,6 +87,8 @@ function pda_private_add_message(contact_name, sender_name, text, icon, is_playe
     if #pda_private_log > 100 then
         table.remove(pda_private_log)
     end
+
+    return true
 end
 
 function delete_contact_thread(contact_name)
@@ -128,11 +132,9 @@ function block_contact(contact_name)
 
     -- Cancel any pending message delivery timers
     pda_reply_pending = false
-    if RemoveTimeEvent then
-        RemoveTimeEvent("pda_ic", "delivery_ack")
-        RemoveTimeEvent("pda_ic", "npc_typing_start")
-        RemoveTimeEvent("pda_ic", "npc_reply")
-    end
+    safe_remove_time_event("pda_ic", "delivery_ack")
+    safe_remove_time_event("pda_ic", "npc_typing_start")
+    safe_remove_time_event("pda_ic", "npc_reply")
 
     return true, removed
 end
@@ -211,7 +213,7 @@ PANDA = PANDA or {}
 local MCM_DEFAULTS = {
     enabled=true, trigger_min=8, trigger_max=15, default_cooldown=60, cooldown_mode=2,
     cooldown_penalty=25, cooldown_hard_min=5, allow_cross_faction=false, require_pda_equipped=true,
-    debug_logging=true, debug_trigger=false, choice_tip_duration=10, pda_retry_delay=2, companion_limit=4,
+    debug_logging=false, debug_trigger=false, choice_tip_duration=10, pda_retry_delay=2, companion_limit=4,
     max_npcs_per_trigger=20, spawn_distance_min=30, spawn_distance_max=60, companion_spawn_min=20,
     companion_spawn_max=50, mutant_spawn_min=40, mutant_spawn_max=100, non_task_chance=50,
     friendly_hostile_ratio=50, min_distance_for_call=30, npc_cooldown=10,
@@ -301,7 +303,7 @@ function count_active_conversations()
 end
 
 -- Safe time‑event removal – prevents crash if the function doesn't exist
-local function safe_remove_time_event(id, name)
+safe_remove_time_event = function(id, name)
     if remove_time_event then
         pcall(remove_time_event, id, name)
     elseif RemoveTimeEvent then
