@@ -25,6 +25,22 @@ local SOS_offline_period = 60*4
 local SOS_warfare_cap_time
 local SOS_warfare_cap_period = 60*2
 local story_LL_trigger, story_MS_trigger = true, true
+local _callbacks_registered_dn = false
+
+local function clamp_positive_int(value, fallback, min_value)
+    local n = tonumber(value)
+    if not n then
+        return fallback
+    end
+
+    n = math.floor(n)
+    min_value = min_value or 1
+    if n < min_value then
+        return min_value
+    end
+
+    return n
+end
 
 function update_settings()
     -- Helper: use default if option not found
@@ -62,23 +78,23 @@ function update_settings()
     shw_companions      = get_opt("pda_interactive_conv/dynamic_news/dn_companions", true)
 
     -- Timing values for news (from dynamic_news group)
-    cycle_TickSpecial   = get_opt("pda_interactive_conv/dynamic_news/dn_cycle_special", 240)
-    cycle_TickTask      = get_opt("pda_interactive_conv/dynamic_news/dn_cycle_task", 300)
-    cycle_TickRandom    = get_opt("pda_interactive_conv/dynamic_news/dn_cycle_random", 240)
-    cycle_TickCompanion = get_opt("pda_interactive_conv/dynamic_news/dn_cycle_companion", 240)
-    msg_duration        = get_opt("pda_interactive_conv/dynamic_news/dn_msg_duration", 15)
+    cycle_TickSpecial   = clamp_positive_int(get_opt("pda_interactive_conv/dynamic_news/dn_cycle_special", 240), 240)
+    cycle_TickTask      = clamp_positive_int(get_opt("pda_interactive_conv/dynamic_news/dn_cycle_task", 300), 300)
+    cycle_TickRandom    = clamp_positive_int(get_opt("pda_interactive_conv/dynamic_news/dn_cycle_random", 240), 240)
+    cycle_TickCompanion = clamp_positive_int(get_opt("pda_interactive_conv/dynamic_news/dn_cycle_companion", 240), 240)
+    msg_duration        = clamp_positive_int(get_opt("pda_interactive_conv/dynamic_news/dn_msg_duration", 15), 15)
 
     -- NPC Conversation settings (from background group)
     npc_conv_enabled            = get_opt("pda_interactive_conv/background/npc_conv_enabled", true)
-    npc_conv_interval           = get_opt("pda_interactive_conv/background/npc_conv_interval", 240)
+    npc_conv_interval           = clamp_positive_int(get_opt("pda_interactive_conv/background/npc_conv_interval", 240), 240)
     npc_conv_chance             = get_opt("pda_interactive_conv/background/npc_conv_chance", 50)
-    npc_conv_topic_cooldown     = get_opt("pda_interactive_conv/background/npc_conv_topic_cooldown", 120)
+    npc_conv_topic_cooldown     = clamp_positive_int(get_opt("pda_interactive_conv/background/npc_conv_topic_cooldown", 120), 120)
     npc_conv_rep_gossip_chance  = get_opt("pda_interactive_conv/background/npc_conv_rep_gossip_chance", 10)
-    npc_conv_rep_gossip_interval= get_opt("pda_interactive_conv/background/npc_conv_rep_gossip_interval", 180)
+    npc_conv_rep_gossip_interval= clamp_positive_int(get_opt("pda_interactive_conv/background/npc_conv_rep_gossip_interval", 180), 180)
     npc_conv_group_chance       = get_opt("pda_interactive_conv/background/npc_conv_group_chance", 50)
     npc_conv_strict_cooldown    = get_opt("pda_interactive_conv/background/npc_conv_strict_cooldown", true)
     npc_conv_flex_penalty       = get_opt("pda_interactive_conv/background/npc_conv_flex_penalty", 25)
-    npc_conv_hard_min           = get_opt("pda_interactive_conv/background/npc_conv_hard_min", 5)
+    npc_conv_hard_min           = clamp_positive_int(get_opt("pda_interactive_conv/background/npc_conv_hard_min", 5), 5)
 
     -- Update DynamicNewsManager if it exists
     local inst = instance
@@ -151,7 +167,10 @@ function actor_on_update()
 end
 
 function on_game_start()
-	
+	if _callbacks_registered_dn then
+        return
+    end
+
 	destroy_dynamic_news()
 		
     local function on_game_load()
@@ -172,7 +191,9 @@ function on_game_start()
 
     RegisterScriptCallback("on_game_load", on_game_load)
     RegisterScriptCallback("on_option_change", update_settings)
-    RegisterScriptCallback("on_key_press", on_key_press)  -- now actually defined above
+    RegisterScriptCallback("on_key_press", on_key_press)
+
+    _callbacks_registered_dn = true
 end
 
 
@@ -3613,7 +3634,5 @@ function on_key_press(key)
     -- Route to interactive conv handler if it's loaded
     if pda_interactive_conv and pda_interactive_conv.on_key_press_cb then
         pda_interactive_conv.on_key_press_cb(key)
-    else
-        printf("[DynNews] on_key_press: pda_interactive_conv module not accessible")
     end
 end
