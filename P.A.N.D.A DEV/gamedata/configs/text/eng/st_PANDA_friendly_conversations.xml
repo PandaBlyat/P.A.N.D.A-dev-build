@@ -13,7 +13,7 @@ HOW TO: WRITING IMMERSIVE FRIENDLY PDA CONVERSATIONS
 P.A.N.D.A. is a modular simulation framework for S.T.A.L.K.E.R. Anomaly that
 turns every PDA conversation into a real gameplay event. Nothing is cosmetic.
 If an NPC says "bandits are closing in", bandits actually spawn. If they say
-"I left supplies near the old bridge", a real location marker appears on the
+"I left supplies at a stash (our system doesnt know where a stash is going to be spawned at till it spawns)", a real location marker appears on the
 player's PDA map and a real stash or item reward triggers when they arrive.
 Every word in a conversation must be backed by a trackable mechanic.
 
@@ -57,11 +57,10 @@ The engine reads the following live game state at conversation time:
 
   These exclude safezones, faction HQs and NPC hubs (Rookie Village,
   100 Rads Bar, Yanov Station, Skadovsk, Freedom/Duty bases, etc.) so
-  conversations always reference dangerous field locations.
+  conversations always reference potential dangerous field locations.
 
   Example text usage:
     "I spotted movement near %cordon_panda_st%, be careful if you head that way."
-    "Heard there's gear stashed at %garbage_panda_st%. Worth checking out."
 
   PRECONDITIONS (checked before conversation fires):
   The system can gate conversations on any combination of:
@@ -163,7 +162,8 @@ PART 3 — HOW TO WRITE REALISTIC IMMERSIVE CONVERSATIONS
   will only see conversations that match their exact situation.
 
   RULE 3: BRANCHES = REAL CHOICES WITH REAL CONSEQUENCES
-  Each branch should represent a distinct player stance:
+  Each branch should represent a distinct player stance that varies by conversation:
+   Example:
     - Cooperative:  Help the NPC -> rewards, reputation, allies
     - Cautious:     Ask questions, gather info -> moderate outcomes
     - Greedy:       Demand payment -> money but reputation/goodwill cost
@@ -175,10 +175,9 @@ PART 3 — HOW TO WRITE REALISTIC IMMERSIVE CONVERSATIONS
 
   RULE 4: PDA TONE ONLY
   All dialogue is remote PDA text communication. Write like someone texting
-  over a radio/PDA with bad signal in a dangerous environment:
+  over a PDA :
     - Short, practical sentences
     - Signal/battery concerns
-    - Background noise references
     - Urgency appropriate to the Zone
     - No face-to-face narration or stage directions
 
@@ -206,7 +205,7 @@ PART 3 — HOW TO WRITE REALISTIC IMMERSIVE CONVERSATIONS
 
   RULE 8: USE CHANCE FOR UNCERTAINTY
   The Zone is unpredictable. Use chance:<percent>:<command> to create
-  situations where outcomes aren't guaranteed:
+  situations where outcomes aren't guaranteed within reason:
     - chance:60:reward_stash       (stash info might be outdated)
     - chance:30:spawn_hostile:bandit:90  (bandits might show up)
     - chance:50:spawn_mutant:random:120  (mutant activity reported but unconfirmed)
