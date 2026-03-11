@@ -1484,6 +1484,28 @@ local function get_npc_rank_name(npc_se)
     return ranks.get_obj_rank_name(npc_obj)
 end
 
+local function get_npc_faction(npc_se)
+    if not npc_se then
+        return nil
+    end
+
+    local npc_obj = level.object_by_id(npc_se.id)
+    if npc_obj and npc_obj.character_community then
+        return normalize_faction(npc_obj:character_community())
+    end
+
+    -- Fallbacks for cases where only server entity data is available.
+    if npc_se.community then
+        return normalize_faction(npc_se.community)
+    end
+
+    if npc_se.m_community then
+        return normalize_faction(npc_se.m_community)
+    end
+
+    return nil
+end
+
 function check_preconditions_generic(precond_key, npc_se)
     local val = game.translate_string(precond_key)
     if val == precond_key then return true end
@@ -1568,6 +1590,18 @@ function check_preconditions_generic(precond_key, npc_se)
             local player_comm = get_actor_true_community() or "stalker"
             local excluded_fac = normalize_faction(parts[2])
             if player_comm == excluded_fac then return false end
+
+        elseif cmd == "req_npc_faction" then
+            -- req_npc_faction:dolg — conversation NPC must be part of Duty
+            local npc_fac = get_npc_faction(npc_se)
+            local required_fac = normalize_faction(parts[2])
+            if not npc_fac or npc_fac ~= required_fac then return false end
+
+        elseif cmd == "req_npc_not_faction" then
+            -- req_npc_not_faction:bandit — conversation NPC must NOT be bandit
+            local npc_fac = get_npc_faction(npc_se)
+            local excluded_fac = normalize_faction(parts[2])
+            if npc_fac and npc_fac == excluded_fac then return false end
 
         -- ========== LEVEL / LOCATION ==========
         elseif cmd == "req_level" then
