@@ -1659,12 +1659,11 @@ function check_preconditions_generic(precond_key, npc_se)
             if relation_registry and relation_registry.community_goodwill then
                 gw = relation_registry.community_goodwill(npc_fac, 0) or 0
             end
+            if gw < 0 then return false end
             -- Also check personal relation as fallback
             local npc_obj = level.object_by_id(npc_se.id)
             if npc_obj then
                 if npc_obj:relation(db.actor) == game_object.enemy then return false end
-            elseif gw < 0 then
-                return false
             end
 
         elseif cmd == "req_npc_hostile" then
@@ -1683,12 +1682,11 @@ function check_preconditions_generic(precond_key, npc_se)
             if relation_registry and relation_registry.community_goodwill then
                 gw = relation_registry.community_goodwill(npc_fac, 0) or 0
             end
+            if gw >= 0 then return false end
             -- Also check personal relation as confirmation
             local npc_obj = level.object_by_id(npc_se.id)
             if npc_obj then
                 if npc_obj:relation(db.actor) ~= game_object.enemy then return false end
-            elseif gw >= 0 then
-                return false
             end
 
         -- ========== LEVEL / LOCATION ==========
