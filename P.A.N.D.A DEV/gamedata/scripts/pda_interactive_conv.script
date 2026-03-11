@@ -916,11 +916,11 @@ function check_preconditions_generic(precond_key)
         -- ========== HEALTH ==========
         elseif cmd == "req_health_min" then
             -- req_health_min:0.5 — player health must be >= 50%
-            if act.health and act:health() < (tonumber(parts[2]) or 0) then return false end
+            if act.health < (tonumber(parts[2]) or 0) then return false end
 
         elseif cmd == "req_health_max" then
             -- req_health_max:0.3 — player health must be <= 30%
-            if act.health and act:health() > (tonumber(parts[2]) or 0) then return false end
+            if act.health > (tonumber(parts[2]) or 0) then return false end
 
         else
             printf("Unknown precondition command: %s", cmd)
