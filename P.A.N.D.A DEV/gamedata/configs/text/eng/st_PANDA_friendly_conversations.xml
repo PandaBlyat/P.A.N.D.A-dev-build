@@ -76,6 +76,7 @@ The engine reads the following live game state at conversation time:
   - Reputation:    req_rep:<amount>, req_rep_max:<amount>
   - Kills:         req_kills:<count>, req_mutant_kills:<count>
   - Faction:       req_faction:<fac>, req_not_faction:<fac>
+  - NPC faction:   req_npc_faction:<fac>, req_npc_not_faction:<fac>
   - Location:      req_level:<map>, req_not_level:<map>
   - Companions:    req_companions:<n>, req_companions_max:<n>
   - Goodwill:      req_goodwill:<amount>:<fac>, req_goodwill_max:<amount>:<fac>
