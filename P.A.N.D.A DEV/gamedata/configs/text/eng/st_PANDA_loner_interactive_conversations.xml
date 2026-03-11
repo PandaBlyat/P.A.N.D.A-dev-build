@@ -2,19 +2,783 @@
 <string_table>
 
 <!-- ============================================================ -->
-<!-- P.A.N.D.A. FRIENDLY PDA CONVERSATIONS (NON-TASK)            -->
-<!-- Procedural Anomaly Narrative Dialogue Architecture           -->
+<!-- P.A.N.D.A. INTERACTIVE PDA CONVERSATIONS - LONER FACTION     -->
+<!-- Procedural Anomaly Narrative Dialogue Architecture            -->
 <!-- ============================================================ -->
 <!--
-==========================================================================
-HOW TO: WRITING IMMERSIVE INTERACTIVE PDA CONVERSATIONS
-==========================================================================
+==================================================================================================
+HOW TO: WRITING INTERACTIVE PDA CONVERSATIONS FOR P.A.N.D.A.
+==================================================================================================
+
+TABLE OF CONTENTS
+=================
+  1. Overview
+  2. How the System Works
+  3. XML Key Format (Conversation Structure)
+  4. Preconditions Reference
+  5. Outcomes Reference
+  6. Dynamic Placeholders
+  7. Smart Terrain Location System
+  8. Multi-Turn Conversations
+  9. Conversation Timeouts
+  10. Writing Rules and Guidelines
+  11. Common Mistakes to Avoid
+  12. Full Example Conversations
 
 
+1. OVERVIEW
+===========
+P.A.N.D.A. (Procedural Anomaly Narrative Dialogue Architecture) is a modular interactive
+conversation system for S.T.A.L.K.E.R. Anomaly. Conversations are delivered as PDA text
+messages — think of them as long-distance radio/text exchanges between the player and NPCs
+who are physically present somewhere in the game world.
+
+ALL conversations happen over PDA text. The NPC is not standing in front of the player.
+They are messaging from wherever they are in the Zone. Write accordingly — no physical
+actions ("hands you a package"), no visual descriptions ("looks nervous"). Text messages only.
+
+Each faction has its own XML file containing conversations for players of that faction:
+  - st_PANDA_loner_interactive_conversations.xml  (this file — for loner players)
+  - st_PANDA_duty_interactive_conversations.xml   (for duty players — future)
+  - st_PANDA_freedom_interactive_conversations.xml (for freedom players — future)
+  - etc.
+
+The system is fully precondition-driven. There are no separate "friendly" or "hostile"
+conversation types. Every conversation defines its own preconditions that control exactly
+which NPC can trigger it and under what circumstances. This means:
+  - A conversation with "req_npc_friendly:stalker" will only trigger with a friendly loner NPC.
+  - A conversation with "req_npc_hostile:bandit" will only trigger with a hostile bandit NPC.
+  - Faction relations are checked via GOODWILL, which changes dynamically during gameplay.
+  - If the player starts friendly with Duty but relations deteriorate, conversations requiring
+    "req_npc_friendly:dolg" will stop triggering — and "req_npc_hostile:dolg" ones will start.
+
+This creates a living, reactive conversation system where the same faction can be friend or foe
+depending on the player's actions.
+
+
+2. HOW THE SYSTEM WORKS
+========================
+When a conversation triggers, the system does the following:
+
+  1. Finds all eligible NPCs in the game world (alive, not in combat, not on cooldown,
+     minimum distance from player, not a trader/zombified/monolith).
+
+  2. Scans through ALL conversations in the player's faction XML file (this file).
+     Conversations are numbered sequentially: 1, 2, 3, etc.
+
+  3. For each NPC candidate, checks every conversation's preconditions against that NPC.
+     ALL preconditions must pass for a conversation to be eligible (AND logic).
+
+  4. From all eligible conversation+NPC pairs, picks one at random (weighted by cooldown).
+
+  5. Sends the opening message to the player's PDA and presents response choices.
+
+This means the preconditions are the ONLY thing controlling who sends what. You have fine-grained
+control over exactly which NPCs can trigger each conversation and under what gameplay conditions.
+
+
+3. XML KEY FORMAT (CONVERSATION STRUCTURE)
+==========================================
+Every conversation is a set of XML string entries with a specific naming convention.
+The base format is:
+
+    st_pda_ic_<faction>_<id>_<suffix>
+
+Where:
+  - <faction> = player's faction (e.g., "loner", "dolg", "freedom", "bandit")
+  - <id>      = sequential conversation number (1, 2, 3, ...)
+  - <suffix>  = the component type (see below)
+
+REQUIRED COMPONENTS (every conversation needs these):
+  _precond    = Comma-separated precondition list (controls who/when this triggers)
+  _open       = Opening message from the NPC (first thing the player sees)
+  _choice_1   = Player's first response option (minimum 1, maximum 4)
+  _reply_1    = NPC's reply to choice 1
+  _outcome_1  = Outcome commands for choice 1 (use "none" for no outcome)
+
+OPTIONAL COMPONENTS:
+  _choice_2 through _choice_4  = Additional player response options (up to 4 total)
+  _reply_2 through _reply_4    = NPC replies for each additional choice
+  _outcome_2 through _outcome_4 = Outcomes for each additional choice
+  _cont_1 through _cont_4      = Next turn ID to continue the conversation (for branching)
+  _timeout                      = Custom timeout in seconds (default: random 90-300)
+  _timeout_msg                  = Custom annoyed message when player ignores NPC
+
+EXAMPLE (Conversation 1 for Loner faction):
+
+    st_pda_ic_loner_1_precond       = "req_npc_friendly:stalker,req_npc_rank:experienced"
+    st_pda_ic_loner_1_open          = "Hey $player_name, got a minute?"
+    st_pda_ic_loner_1_choice_1      = "What do you need?"
+    st_pda_ic_loner_1_reply_1       = "Just checking if you're still breathing."
+    st_pda_ic_loner_1_outcome_1     = "none"
+    st_pda_ic_loner_1_choice_2      = "Busy. Make it quick."
+    st_pda_ic_loner_1_reply_2       = "Forget it then."
+    st_pda_ic_loner_1_outcome_2     = "none"
+
+
+4. PRECONDITIONS REFERENCE
+===========================
+All preconditions are defined in the _precond string entry, separated by commas.
+ALL preconditions must pass for the conversation to trigger (AND logic).
+Format: command:param1:param2
+
+--- NPC RELATION (GOODWILL-BASED, DYNAMIC) ---
+
+  req_npc_friendly
+    NPC must be friendly/neutral toward the player. Uses goodwill — if faction relations
+    change during gameplay, this reflects it dynamically.
+    Example: req_npc_friendly
+    The NPC's faction goodwill must be non-negative AND the NPC's personal relation must
+    not be "enemy."
+
+  req_npc_friendly:<faction>
+    Same as above, but NPC must ALSO belong to a specific faction.
+    Example: req_npc_friendly:stalker    (friendly loner NPC only)
+    Example: req_npc_friendly:dolg       (friendly Duty NPC only)
+    Example: req_npc_friendly:freedom    (friendly Freedom NPC only)
+
+  req_npc_hostile
+    NPC must be hostile toward the player. Uses goodwill — dynamically reflects
+    changing faction relations.
+    Example: req_npc_hostile
+    The NPC's faction goodwill must be negative AND the NPC's personal relation must
+    be "enemy."
+
+  req_npc_hostile:<faction>
+    Same as above, but NPC must ALSO belong to a specific faction.
+    Example: req_npc_hostile:bandit      (hostile bandit NPC only)
+    Example: req_npc_hostile:army        (hostile military NPC only)
+
+    IMPORTANT: Goodwill changes over time based on player actions. A Duty member who
+    is friendly today may become hostile tomorrow if the player attacks Duty stalkers
+    or allies with their enemies. Your conversations will automatically adapt.
+
+--- NPC FACTION (HARD CHECK, ignores goodwill) ---
+
+  req_npc_faction:<faction>
+    NPC must belong to this faction, regardless of relation.
+    Example: req_npc_faction:dolg        (any Duty NPC, friendly or hostile)
+
+  req_npc_not_faction:<faction>
+    NPC must NOT belong to this faction.
+    Example: req_npc_not_faction:bandit   (anyone except bandits)
+
+--- PLAYER FACTION ---
+
+  req_faction:<faction>
+    Player must belong to this faction.
+    Example: req_faction:stalker
+
+  req_not_faction:<faction>
+    Player must NOT belong to this faction.
+    Example: req_not_faction:monolith
+
+--- NPC RANK ---
+
+  req_npc_rank:<rank>
+    NPC rank must be at LEAST this rank.
+    Ranks (lowest to highest): novice, trainee, experienced, professional, veteran,
+                                expert, master, legend
+    Example: req_npc_rank:veteran        (veteran or higher only)
+
+  req_npc_rank_max:<rank>
+    NPC rank must be at MOST this rank.
+    Example: req_npc_rank_max:trainee    (trainee or lower — rookies only)
+
+--- PLAYER RANK ---
+
+  req_rank:<rank>
+    Player rank must be at least this rank.
+    Example: req_rank:experienced
+
+  req_rank_max:<rank>
+    Player rank must be at most this rank.
+    Example: req_rank_max:novice         (new players only)
+
+--- MONEY ---
+
+  req_money:<amount>
+    Player must have at least this many RU.
+    Example: req_money:5000
+
+  req_money_max:<amount>
+    Player must have LESS than this many RU.
+    Example: req_money_max:500           (player is broke)
+
+--- REPUTATION ---
+
+  req_rep:<value>
+    Player reputation must be >= this value.
+    Example: req_rep:500
+
+  req_rep_max:<value>
+    Player reputation must be <= this value.
+    Example: req_rep_max:-100            (player has bad reputation)
+
+--- KILLS ---
+
+  req_kills:<count>
+    Player must have killed at least this many stalkers.
+    Example: req_kills:50
+
+  req_mutant_kills:<count>
+    Player must have killed at least this many mutants.
+    Example: req_mutant_kills:20
+
+--- FACTION GOODWILL (DIRECT VALUE CHECK) ---
+
+  req_goodwill:<amount>:<faction>
+    Player goodwill with a specific faction must be >= amount.
+    Example: req_goodwill:500:dolg       (at least 500 goodwill with Duty)
+
+  req_goodwill_max:<amount>:<faction>
+    Player goodwill with a specific faction must be <= amount.
+    Example: req_goodwill_max:-500:bandit (very hostile with bandits)
+
+--- LOCATION ---
+
+  req_level:<level_name>
+    Player must be on this specific map.
+    Example: req_level:l03_agroprom
+
+  req_not_level:<level_name>
+    Player must NOT be on this map.
+    Example: req_not_level:l01_escape
+
+--- COMPANIONS ---
+
+  req_companions:<count>
+    Player must have at least this many companions.
+    Example: req_companions:1            (player has at least 1 companion)
+
+  req_companions_max:<count>
+    Player must have at most this many companions.
+    Example: req_companions_max:0        (player is alone)
+
+--- INVENTORY ---
+
+  req_has_item:<section_name>
+    Player must have this item in inventory.
+    Example: req_has_item:wpn_ak74
+
+  req_equipped:<section_name>
+    Player must have this item equipped.
+    Example: req_equipped:wpn_svd
+
+  req_equipped_slot:<slot_number>
+    Player must have something in this equipment slot.
+    Example: req_equipped_slot:2         (has a weapon in slot 2)
+
+--- TIME OF DAY ---
+
+  req_time_day
+    Must be daytime (06:00 - 20:00).
+    Example: req_time_day
+
+  req_time_night
+    Must be nighttime (20:00 - 06:00).
+    Example: req_time_night
+
+--- HEALTH ---
+
+  req_health_min:<value>
+    Player health must be >= this value (0.0 to 1.0 scale).
+    Example: req_health_min:0.5          (at least 50% health)
+
+  req_health_max:<value>
+    Player health must be <= this value.
+    Example: req_health_max:0.3          (critically wounded)
+
+--- ACHIEVEMENTS ---
+
+  req_achievement:<achievement_name>
+    Player must have earned this achievement.
+    Example: req_achievement:ach_marked_by_zone
+
+--- COMBINING PRECONDITIONS ---
+
+  All preconditions are combined with AND logic. Comma-separate them:
+
+  Example: "req_npc_friendly:stalker,req_npc_rank:experienced,req_money:5000"
+    = Friendly loner NPC, at least experienced rank, player has 5000+ RU
+
+  Example: "req_npc_hostile:bandit,req_npc_rank_max:trainee,req_rank:veteran"
+    = Hostile bandit rookie, player is at least veteran rank
+
+  Example: "req_npc_friendly:dolg,req_time_night,req_level:l04_darkvalley"
+    = Friendly Duty member, nighttime, player is in Dark Valley
+
+  FACTION NAME LIST:
+    stalker (or loner) = Loners         dolg (or duty) = Duty
+    freedom = Freedom                   bandit = Bandits
+    army (or military) = Military       killer (or mercenary) = Mercenaries
+    ecolog (or scientist) = Ecologists  csky (or clear_sky) = Clear Sky
+    monolith = Monolith                 renegade = Renegades
+    greh = UNISG                        isg = ISG
+    zombied (or zombie) = Zombified
+
+
+5. OUTCOMES REFERENCE
+=====================
+Outcomes are actions that happen when the player picks a response. Defined in _outcome_N
+entries. Use "none" for no outcome. Multiple outcomes are comma-separated.
+Format: command:param1:param2
+
+--- MONEY ---
+
+  reward_money:<amount>
+    Give player money.
+    Example: reward_money:2000           (player receives 2000 RU)
+
+  punish_money:<amount>
+    Deduct money from player (capped at what they have).
+    Example: punish_money:1000           (player loses 1000 RU)
+
+--- REPUTATION ---
+
+  reward_rep:<amount>
+    Increase player reputation.
+    Example: reward_rep:50
+
+  punish_rep:<amount>
+    Decrease player reputation.
+    Example: punish_rep:25
+
+--- FACTION GOODWILL ---
+
+  reward_gw:<amount>:<faction>
+    Improve player's goodwill with a faction.
+    Example: reward_gw:100:dolg          (improve relations with Duty by 100)
+
+  punish_gw:<amount>:<faction>
+    Decrease player's goodwill with a faction.
+    Example: punish_gw:50:freedom        (worsen relations with Freedom by 50)
+
+    NOTE: Changing goodwill WILL affect which conversations trigger in the future.
+    If you punish_gw enough with a faction, conversations requiring req_npc_friendly
+    for that faction will stop triggering and req_npc_hostile ones will start.
+
+--- ITEMS ---
+
+  give_item:<section_name>
+    Spawn an item directly into player's inventory.
+    Example: give_item:medkit_army
+
+  courier_item:<section_name>
+    Spawn a courier NPC who delivers the item to the player.
+    Example: courier_item:wpn_ak74
+
+--- SPAWNING ---
+
+  spawn_hostile:<faction>:<distance>
+    Spawn a hostile squad near the player.
+    Example: spawn_hostile:bandit:90     (spawn bandits ~90m from player)
+
+  spawn_mutant:<type>:<distance>
+    Spawn a mutant squad. Type can be "random" or a specific mutant.
+    Example: spawn_mutant:random:90      (spawn random mutants ~90m away)
+    Example: spawn_mutant:bloodsucker:60
+
+  spawn_companion:<faction>:<distance>
+    Spawn a friendly squad that joins the player.
+    Example: spawn_companion:stalker:30  (spawn friendly loners ~30m away)
+
+--- STASH ---
+
+  reward_stash
+    Reveal a random stash location on the player's map.
+    Example: reward_stash
+
+    CRITICAL: The stash location is determined randomly by the game engine at runtime.
+    You have NO control over where it will be. NEVER write dialogue that specifies where
+    the stash is ("I hid it behind the old water tower"). The player will get map
+    coordinates — that is all you know. Write dialogue like: "I'll send you the
+    coordinates" or "Marking the location on your PDA."
+
+--- LOCATION MARKERS ---
+
+  watch_location:<smart_terrain_key>
+    Add a PDA map marker at a smart terrain and notify the player.
+    The smart terrain key must be a real vanilla smart terrain string ID.
+    Example: watch_location:st_esc_smart_terrain_4_13_name
+
+  watch_location:<smart_terrain_key>:<radius>
+    Same but with custom detection radius (default 85m).
+    Example: watch_location:st_gar_smart_terrain_3_5_name:100
+
+  watch_location_trigger:<smart_terrain_key>:<command>:<params>:<radius>
+    Place a marker AND trigger an outcome command when the player arrives.
+    Example: watch_location_trigger:st_gar_smart_terrain_3_5_name:spawn_hostile:bandit:90:100
+    = Mark a location, and when player gets within 100m, spawn hostile bandits.
+
+--- NPC TELEPORTATION ---
+
+  teleport_npc_to_smart:<smart_terrain_key>
+    Teleport the conversation NPC to a smart terrain location.
+    Example: teleport_npc_to_smart:st_esc_smart_terrain_4_13_name
+
+  teleport_npc_to_smart:<smart_terrain_key>:<delay_seconds>
+    Same but with a delay.
+    Example: teleport_npc_to_smart:st_gar_smart_terrain_3_5_name:5
+
+  teleport_npc_to_player
+    Teleport the conversation NPC near the player.
+    Example: teleport_npc_to_player
+
+  teleport_npc_to_player:<delay_seconds>
+    Same but with a delay.
+    Example: teleport_npc_to_player:10
+
+--- COMPANION RECRUITMENT ---
+
+  recruit_companion
+    Convert the conversation NPC into a player companion.
+    Example: recruit_companion
+
+  recruit_companion:no_dismiss
+    Same but the companion cannot be dismissed.
+    Example: recruit_companion:no_dismiss
+
+--- CHANCE MODIFIER ---
+
+  chance:<percent>:<command>
+    Roll a percentage chance before executing an outcome.
+    Example: chance:50:reward_money:1000     (50% chance to get 1000 RU)
+    Example: chance:25:spawn_hostile:bandit:90 (25% chance to spawn bandits)
+
+--- COMBINING OUTCOMES ---
+
+  Comma-separate multiple outcomes:
+    Example: "reward_money:2000,reward_rep:25,reward_gw:50:stalker"
+    = Give 2000 RU + 25 reputation + 50 loner goodwill
+
+
+6. DYNAMIC PLACEHOLDERS
+========================
+Use these in your dialogue text. They are replaced at runtime with real game data.
+
+  $player_name       = Player's character name
+  $npc_name          = Conversation NPC's name
+  $player_faction    = Player's faction display name (e.g., "Loners")
+  $npc_faction       = NPC's faction display name
+  $current_level     = Name of the map the player is currently on
+  $player_money      = Player's current RU balance
+  $player_rank       = Player's rank name (e.g., "veteran")
+  $player_reputation = Player's reputation value
+  $companion_count   = Number of player's companions
+  $time_of_day       = "morning", "afternoon", "evening", or "night"
+  $game_hour         = Current time in HH:MM format
+
+  SMART TERRAIN PLACEHOLDERS:
+  %<level>_panda_st%   = Resolves to a random real smart terrain name on that level.
+                          The same placeholder always resolves to the same location
+                          within one conversation (cached per conversation).
+    Example: %cordon_panda_st%       might resolve to "Rookie Village" or "Farm"
+    Example: %garbage_panda_st%      might resolve to "Flea Market" or "Hangar"
+    Example: %darkvalley_panda_st%   might resolve to "Bandit Base"
+
+  Available level keys:
+    cordon, darkscape, swamp, garbage, agroprom, darkvalley, yantar,
+    wildterritory, rostok, deadcity, truck_cemetery, meadow, radar,
+    red_forest, limansk, pripyat, generators, outskirts, jupiter,
+    south_cnpp, north_cnpp, zaton
+
+
+7. SMART TERRAIN LOCATION SYSTEM
+=================================
+The smart terrain system lets conversations reference REAL vanilla game locations.
+This is critical for immersion — every location mentioned in a conversation exists
+in the actual game world and uses the game's own name for that place.
+
+HOW IT WORKS:
+  - Use %<level>_panda_st% in dialogue text to automatically pick a random
+    real location on that map.
+  - The system caches the chosen location for the entire conversation, so if you
+    reference %cordon_panda_st% multiple times, it always resolves to the same place.
+  - You can then use watch_location in an outcome to mark that location on the PDA.
+
+EXAMPLE USAGE IN DIALOGUE:
+    "Heard there's good salvage near %garbage_panda_st%. Worth checking out."
+
+    The system resolves this to a real location like "Flea Market" or "Hangar" and
+    if you use watch_location in the outcome, it marks that exact spot on the player's map.
+
+RULES:
+  - ALWAYS use smart terrain placeholders or real smart terrain IDs for locations.
+  - NEVER invent fictional locations. No "the old watchtower," no "behind the fridge
+    in the abandoned cabin," no "the dead drop under the bridge." These places do not
+    exist in the game. The player cannot go there.
+  - NEVER describe specific details about a location's appearance that may not match
+    the actual game location. Keep location references vague: "the area," "that spot,"
+    "the place I mentioned."
+  - If you need to send someone to a location, use watch_location to mark a real
+    smart terrain. The game handles the rest.
+
+
+8. MULTI-TURN CONVERSATIONS
+============================
+Conversations can branch into multiple turns. Use the _cont_N suffix to specify which
+conversation turn follows a player choice.
+
+FORMAT:
+  Turn 1 (default):     st_pda_ic_<fac>_<id>_choice_1, _reply_1, _outcome_1, _cont_1
+  Turn 2:               st_pda_ic_<fac>_<id>_t2_choice_1, _t2_reply_1, _t2_outcome_1, _t2_cont_1
+  Turn 3:               st_pda_ic_<fac>_<id>_t3_choice_1, _t3_reply_1, ...
+  etc.
+
+HOW _cont_N WORKS:
+  - _cont_1 through _cont_4 specify the next turn number after that choice.
+  - If _cont_1 is "2", after the player picks choice 1 and receives reply 1,
+    the conversation continues with turn 2 choices.
+  - If _cont_N is absent or empty, the conversation ends after that reply.
+
+EXAMPLE (2-turn conversation):
+    Turn 1:
+      _open       = "Need a hand with something."
+      _choice_1   = "What is it?"          _reply_1   = "Quick job, interested?"  _cont_1 = "2"
+      _choice_2   = "Not interested."      _reply_2   = "Suit yourself."          (no _cont)
+
+    Turn 2 (only reached via choice 1):
+      _t2_choice_1 = "Sure, what's the pay?"   _t2_reply_1 = "2000 RU."   _t2_outcome_1 = "reward_money:2000"
+      _t2_choice_2 = "Changed my mind."        _t2_reply_2 = "Your loss."  _t2_outcome_2 = "none"
+
+
+9. CONVERSATION TIMEOUTS
+=========================
+If the player ignores a conversation (doesn't pick a response), the NPC will eventually
+get annoyed and end the conversation. This prevents conversations from hanging forever.
+
+  _timeout      = Timeout in seconds (real time). Default: random 90-300 seconds.
+  _timeout_msg  = Custom annoyed message. If not set, a random generic one is used.
+
+EXAMPLE:
+    st_pda_ic_loner_1_timeout     = "60"
+    st_pda_ic_loner_1_timeout_msg = "Fine, ignore me. See if I care."
+
+
+10. WRITING RULES AND GUIDELINES
+==================================
+
+--- IMMERSION AND TONE ---
+
+  a) THESE ARE TEXT MESSAGES. All conversations happen over long-distance PDA communication.
+     Write like someone texting on a rugged handheld device in a radioactive wasteland.
+     - DO: Short sentences. Abbreviations. Slang. Typos are fine for low-rank NPCs.
+     - DON'T: Long poetic monologues. Physical descriptions. Actions like *hands you a drink*.
+
+  b) NOT EVERYONE IS FRIENDLY. The Zone is full of desperate, paranoid, aggressive, shady,
+     and unhinged people. Vary personalities across conversations:
+     - Gruff veterans who don't waste words.
+     - Nervous rookies who overshare.
+     - Sarcastic traders who only care about profit.
+     - Hostile contacts who threaten before negotiating.
+     - Paranoid loners who trust nobody.
+     - Drunk stalkers rambling at 3 AM.
+     Not every NPC should sound like a polite quest-giver. Give them PERSONALITY.
+
+  c) STAY LORE-FRIENDLY. This is S.T.A.L.K.E.R. Anomaly. Reference the Zone, artifacts,
+     anomalies, mutants, factions, and real game locations. Don't invent lore that
+     contradicts the established universe.
+
+  d) USE REAL DATA. Every piece of information in a conversation should come from real
+     gameplay data via placeholders ($player_name, $npc_faction, %cordon_panda_st%, etc.)
+     or be vague enough that it could apply to any situation.
+
+--- LOCATIONS ---
+
+  e) NEVER reference fictional locations. No "the old cabin by the creek," no "behind
+     the fridge in watchtower 7," no "the dead drop in the sewer." If it doesn't exist
+     as a smart terrain in the game, don't mention it.
+
+  f) For location-based conversations, use %<level>_panda_st% placeholders. These resolve
+     to real vanilla smart terrain names that actually exist in the game world.
+
+  g) When writing about stashes: the system randomly assigns stash locations at runtime.
+     You do NOT know where a stash will be. NEVER describe the stash location in dialogue.
+     Write: "I'll send coordinates to your PDA" — NOT: "It's behind the rock near the bridge."
+
+--- OUTCOMES ---
+
+  h) Some outcomes are OUTSIDE your control as a writer. The system handles the specifics:
+     - reward_stash: You don't know where the stash will spawn. Don't describe its location.
+     - spawn_hostile/spawn_mutant: You don't know exact spawn position. Don't say "from the north."
+     - spawn_companion: The NPC spawns near the player. Don't specify where they come from.
+     - courier_item: A courier NPC is spawned and walks to the player. Don't describe the courier.
+     Write dialogue that references the CONCEPT ("I'll send someone with supplies") not the
+     SPECIFICS ("A guy in a brown jacket will meet you at the train tracks").
+
+  i) Match outcomes to dialogue context. If the NPC says "Here's some cash for your trouble,"
+     the outcome should include reward_money. If the NPC threatens to send trouble,
+     use spawn_hostile. Don't disconnect dialogue from outcomes.
+
+--- PRECONDITIONS AND CONTEXT ---
+
+  j) Every conversation MUST have a _precond entry. At minimum, use req_npc_friendly or
+     req_npc_hostile to control whether friendly or hostile NPCs trigger it. Without this,
+     any NPC could trigger any conversation, breaking immersion.
+
+  k) USE PRECONDITIONS FOR CONTEXT. If a conversation is about being a veteran, use
+     req_npc_rank:veteran. If it's about the player being broke, use req_money_max:500.
+     The preconditions create the context that makes the dialogue believable.
+
+  l) Write dialogue that MATCHES the preconditions. If you require req_npc_rank:veteran,
+     don't write dialogue where the NPC sounds like a clueless rookie. If you require
+     req_npc_hostile, don't write dialogue where the NPC is offering friendly help.
+
+  m) Use req_npc_friendly or req_npc_hostile with a faction parameter for conversations
+     specific to a particular faction's personality. Duty members speak differently than
+     Freedom members. Bandits speak differently than ecologists.
+
+--- GENERAL CRAFT ---
+
+  n) Keep conversations concise. This is a PDA text exchange, not a novel. Most messages
+     should be 1-3 sentences. Long walls of text break immersion.
+
+  o) Give meaningful choices. Don't offer 4 choices that all lead to the same outcome.
+     Choices should feel like they matter — different tones, different outcomes, different
+     consequences.
+
+  p) Use multi-turn conversations sparingly. Most exchanges should be 1-2 turns.
+     A 5-turn conversation over PDA text feels unrealistic.
+
+  q) Test your precondition combinations. If you require req_npc_friendly:bandit for a
+     loner player, that conversation will almost never trigger because loners are rarely
+     friendly with bandits. Make sure your preconditions create realistic scenarios.
+
+
+11. COMMON MISTAKES TO AVOID
+==============================
+  X  Using _friendly_ or _hostile_ in conversation IDs.
+     The old system is deprecated. Use st_pda_ic_loner_1_*, NOT st_pda_ic_friendly_loner_1_*.
+     Control friendly/hostile via preconditions instead.
+
+  X  Writing fictional locations.
+     "Meet me at the old windmill." — There is no old windmill. Use smart terrain placeholders.
+
+  X  Describing stash locations in dialogue.
+     "I left it under the stairs." — You don't know where the stash will spawn. Write vaguely.
+
+  X  Physical actions in text messages.
+     "*slides a medkit across the table*" — This is a PDA text conversation. They're not
+     physically there.
+
+  X  Every NPC sounding the same.
+     If every conversation reads like a polite, helpful assistant, you're doing it wrong.
+     Zone stalkers are rough, diverse, and unpredictable.
+
+  X  Missing preconditions.
+     A conversation without preconditions can trigger with any NPC. A hostile bandit
+     shouldn't be offering to share campfire stories.
+
+  X  Hardcoding NPC names.
+     Use $npc_name placeholder instead. The system picks a real NPC from the game world.
+
+  X  Not testing precondition feasibility.
+     "req_npc_friendly:monolith" for a loner player — Monolith is almost always hostile
+     to everyone. This conversation will never trigger.
+
+
+12. FULL EXAMPLE CONVERSATIONS
+================================
+
+EXAMPLE 1: Friendly loner veteran offers a stash tip
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  Preconditions: req_npc_friendly:stalker,req_npc_rank:veteran
+  (A friendly loner NPC who is at least veteran rank)
+
+  <string id="st_pda_ic_loner_1_precond">
+      <text>req_npc_friendly:stalker,req_npc_rank:veteran</text>
+  </string>
+  <string id="st_pda_ic_loner_1_open">
+      <text>$player_name. Still kicking? Got some coordinates I don't need anymore. Interested?</text>
+  </string>
+  <string id="st_pda_ic_loner_1_choice_1">
+      <text>Sure, send them over.</text>
+  </string>
+  <string id="st_pda_ic_loner_1_reply_1">
+      <text>Sending now. Don't expect anything fancy. Good luck out there.</text>
+  </string>
+  <string id="st_pda_ic_loner_1_outcome_1">
+      <text>reward_stash</text>
+  </string>
+  <string id="st_pda_ic_loner_1_choice_2">
+      <text>What's the catch?</text>
+  </string>
+  <string id="st_pda_ic_loner_1_reply_2">
+      <text>No catch. Heading south, won't need them. Take it or leave it.</text>
+  </string>
+  <string id="st_pda_ic_loner_1_outcome_2">
+      <text>reward_stash</text>
+  </string>
+  <string id="st_pda_ic_loner_1_choice_3">
+      <text>Not interested.</text>
+  </string>
+  <string id="st_pda_ic_loner_1_reply_3">
+      <text>Your loss.</text>
+  </string>
+  <string id="st_pda_ic_loner_1_outcome_3">
+      <text>none</text>
+  </string>
+
+
+EXAMPLE 2: Hostile bandit shakedown
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  Preconditions: req_npc_hostile:bandit,req_money:3000
+  (A hostile bandit NPC, player has at least 3000 RU to make the shakedown worthwhile)
+
+  <string id="st_pda_ic_loner_2_precond">
+      <text>req_npc_hostile:bandit,req_money:3000</text>
+  </string>
+  <string id="st_pda_ic_loner_2_open">
+      <text>Hey. Word is you've got RU to spare. Transfer 1500 and we pretend this never happened.</text>
+  </string>
+  <string id="st_pda_ic_loner_2_choice_1">
+      <text>Fine. Take it.</text>
+  </string>
+  <string id="st_pda_ic_loner_2_reply_1">
+      <text>Smart. Pleasure doing business.</text>
+  </string>
+  <string id="st_pda_ic_loner_2_outcome_1">
+      <text>punish_money:1500</text>
+  </string>
+  <string id="st_pda_ic_loner_2_choice_2">
+      <text>Come and get it yourself.</text>
+  </string>
+  <string id="st_pda_ic_loner_2_reply_2">
+      <text>Wrong answer. Boys are already on their way.</text>
+  </string>
+  <string id="st_pda_ic_loner_2_outcome_2">
+      <text>spawn_hostile:bandit:90</text>
+  </string>
+  <string id="st_pda_ic_loner_2_choice_3">
+      <text>[Ignore]</text>
+  </string>
+  <string id="st_pda_ic_loner_2_reply_3">
+      <text>Silent treatment? We'll remember that.</text>
+  </string>
+  <string id="st_pda_ic_loner_2_outcome_3">
+      <text>chance:40:spawn_hostile:bandit:90</text>
+  </string>
+
+
+EXAMPLE 3: Friendly Duty member with location-based job (multi-turn)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  Preconditions: req_npc_friendly:dolg,req_npc_rank:experienced,req_rank:trainee
+  (Friendly Duty NPC, at least experienced rank, player is at least trainee)
+
+  Turn 1: NPC mentions a location, player decides to help or not.
+  Turn 2: If player agrees, NPC gives details and marks the location.
+
+  NOTE: This example shows how to use smart terrain placeholders with watch_location_trigger
+  to create mini-jobs that send the player to a real location with real consequences.
+
+==================================================================================================
+END OF HOW TO GUIDE
+==================================================================================================
 -->
 
 <!-- ============================================================ -->
-<!-- SYSTEM STRINGS (reused from task file) -->
+<!-- SYSTEM STRINGS                                                -->
 <!-- ============================================================ -->
 <string id="st_pda_ic_header_prefix">
     <text>Incoming Transmission</text>
@@ -114,14 +878,87 @@ HOW TO: WRITING IMMERSIVE INTERACTIVE PDA CONVERSATIONS
 </string>
 
 <!-- ============================================================ -->
-<!-- INTERACTIVE CONVERSATIONS: LONER FACTION (player is a loner member)        -->
+<!-- INTERACTIVE CONVERSATIONS: LONER FACTION                      -->
+<!-- Player faction: Loner (stalker)                               -->
+<!-- All conversations use preconditions to control NPC selection. -->
+<!-- No _friendly_ or _hostile_ prefix. Just st_pda_ic_loner_N_*  -->
 <!-- ============================================================ -->
 
 
 <!-- ==================== CONVERSATION 1 ==================== -->
+<!-- Friendly loner veteran shares stash coordinates           -->
+
+<string id="st_pda_ic_loner_1_precond">
+    <text>req_npc_friendly:stalker,req_npc_rank:veteran</text>
+</string>
+<string id="st_pda_ic_loner_1_open">
+    <text>$player_name. Still kicking? Got some coordinates I don't need anymore. Interested?</text>
+</string>
+<string id="st_pda_ic_loner_1_choice_1">
+    <text>Sure, send them over.</text>
+</string>
+<string id="st_pda_ic_loner_1_reply_1">
+    <text>Sending now. Don't expect anything fancy. Good luck out there.</text>
+</string>
+<string id="st_pda_ic_loner_1_outcome_1">
+    <text>reward_stash</text>
+</string>
+<string id="st_pda_ic_loner_1_choice_2">
+    <text>What's the catch?</text>
+</string>
+<string id="st_pda_ic_loner_1_reply_2">
+    <text>No catch. Heading south, won't need them. Take it or leave it.</text>
+</string>
+<string id="st_pda_ic_loner_1_outcome_2">
+    <text>reward_stash</text>
+</string>
+<string id="st_pda_ic_loner_1_choice_3">
+    <text>Not interested.</text>
+</string>
+<string id="st_pda_ic_loner_1_reply_3">
+    <text>Your loss.</text>
+</string>
+<string id="st_pda_ic_loner_1_outcome_3">
+    <text>none</text>
+</string>
 
 
+<!-- ==================== CONVERSATION 2 ==================== -->
+<!-- Hostile bandit shakedown                                   -->
 
+<string id="st_pda_ic_loner_2_precond">
+    <text>req_npc_hostile:bandit,req_money:3000</text>
+</string>
+<string id="st_pda_ic_loner_2_open">
+    <text>Hey. Word is you've got RU to spare. Transfer 1500 and we pretend this never happened.</text>
+</string>
+<string id="st_pda_ic_loner_2_choice_1">
+    <text>Fine. Take it.</text>
+</string>
+<string id="st_pda_ic_loner_2_reply_1">
+    <text>Smart. Pleasure doing business.</text>
+</string>
+<string id="st_pda_ic_loner_2_outcome_1">
+    <text>punish_money:1500</text>
+</string>
+<string id="st_pda_ic_loner_2_choice_2">
+    <text>Come and get it yourself.</text>
+</string>
+<string id="st_pda_ic_loner_2_reply_2">
+    <text>Wrong answer. Boys are already on their way.</text>
+</string>
+<string id="st_pda_ic_loner_2_outcome_2">
+    <text>spawn_hostile:bandit:90</text>
+</string>
+<string id="st_pda_ic_loner_2_choice_3">
+    <text>[Ignore]</text>
+</string>
+<string id="st_pda_ic_loner_2_reply_3">
+    <text>Silent treatment? We'll remember that.</text>
+</string>
+<string id="st_pda_ic_loner_2_outcome_3">
+    <text>chance:40:spawn_hostile:bandit:90</text>
+</string>
 
 
 </string_table>
