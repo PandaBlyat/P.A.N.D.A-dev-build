@@ -356,6 +356,22 @@ local function register_location_reference(location_ref, sender_npc_name, sender
         printf("PANDA_IC: location reference queued but smart not yet resolved: %s", tostring(location_ref))
     end
 
+    -- Add a PDA map marker on the smart terrain so the player can find it
+    if smart then
+        local display_name = get_location_display_name(location_ref)
+        local marker_hint = utils_data.parse_string_keys(
+            game.translate_string("st_pda_ic_location_marker_hint"),
+            {
+                ["location"] = display_name,
+                ["name"] = sender_npc_name or "Unknown",
+            }
+        )
+        if level.map_has_object_spot(smart.id, "primary_object") == 0 then
+            level.map_add_object_spot_ser(smart.id, "primary_object", marker_hint)
+        end
+        entry.map_spot_id = smart.id
+    end
+
     local msg = utils_data.parse_string_keys(
         game.translate_string("st_pda_ic_location_watch_added"),
         { ["location"] = get_location_display_name(location_ref) }
@@ -382,6 +398,22 @@ function check_location_references()
     for id, entry in pairs(pending_location_refs) do
         local smart = entry.smart_name and SIMBOARD and SIMBOARD.get_smart_by_name and SIMBOARD:get_smart_by_name(entry.smart_name) or nil
         if smart and smart.position then
+            -- If the smart was resolved late, place the PDA marker now
+            if not entry.map_spot_id then
+                local display_name = get_location_display_name(entry.location_ref)
+                local marker_hint = utils_data.parse_string_keys(
+                    game.translate_string("st_pda_ic_location_marker_hint"),
+                    {
+                        ["location"] = display_name,
+                        ["name"] = entry.sender_name or "Unknown",
+                    }
+                )
+                if level.map_has_object_spot(smart.id, "primary_object") == 0 then
+                    level.map_add_object_spot_ser(smart.id, "primary_object", marker_hint)
+                end
+                entry.map_spot_id = smart.id
+            end
+
             local radius = tonumber(entry.radius) or (PANDA.get_config("location_watch_radius") or 85)
             if actor_pos:distance_to(smart:position()) <= radius then
                 reached[#reached + 1] = { id = id, entry = entry }
@@ -411,6 +443,13 @@ function check_location_references()
 
         for _, cmd in ipairs(entry.trigger_cmds or {}) do
             apply_outcome(cmd, entry.sender_name, nil, entry.sender_id, nil)
+        end
+
+        -- Remove the PDA map marker now that the player has arrived
+        if entry.map_spot_id then
+            if level.map_has_object_spot(entry.map_spot_id, "primary_object") ~= 0 then
+                level.map_remove_object_spot(entry.map_spot_id, "primary_object")
+            end
         end
 
         pending_location_refs[payload.id] = nil
@@ -1349,6 +1388,34 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                 printf("PANDA_IC: watch_location_trigger malformed in '%s'", tostring(cmd_str))
             end
 
+        -- ========== TELEPORT NPC (to smart terrain) ==========
+        elseif cmd == "teleport_npc_to_smart" then
+            local smart_ref = parts[2]
+            local delay = tonumber(parts[3]) or 0
+            if smart_ref and smart_ref ~= "" and sender_npc_id then
+                teleport_npc_to_smart_terrain(sender_npc_id, smart_ref, sender_npc_name, delay)
+            else
+                printf("PANDA_IC: teleport_npc_to_smart missing smart reference or npc_id in '%s'", tostring(cmd_str))
+            end
+
+        -- ========== TELEPORT NPC (near player) ==========
+        elseif cmd == "teleport_npc_to_player" then
+            local delay = tonumber(parts[2]) or 0
+            if sender_npc_id then
+                teleport_npc_near_player(sender_npc_id, sender_npc_name, delay)
+            else
+                printf("PANDA_IC: teleport_npc_to_player missing npc_id in '%s'", tostring(cmd_str))
+            end
+
+        -- ========== RECRUIT COMPANION (convert conversation NPC) ==========
+        elseif cmd == "recruit_companion" then
+            local cannot_dismiss = parts[2] == "no_dismiss"
+            if sender_npc_id then
+                recruit_npc_as_companion(sender_npc_id, sender_npc_name, cannot_dismiss)
+            else
+                printf("PANDA_IC: recruit_companion missing npc_id in '%s'", tostring(cmd_str))
+            end
+
         else
             printf("Unknown outcome command: %s", cmd_str)
         end
@@ -1780,6 +1847,234 @@ function spawn_native_courier(item_sec)
     end
 
     CreateTimeEvent("pda_ic_courier", "check_"..squad_id, check_interval, monitor_courier)
+end
+
+-- ============================================================
+-- TELEPORT NPC TO SMART TERRAIN
+-- ============================================================
+function teleport_npc_to_smart_terrain(npc_id, smart_ref, npc_name, delay)
+    delay = delay or 0
+    local sender = game.translate_string("st_pda_ic_outcome_sender")
+
+    local function do_teleport()
+        if not db.actor then return true end
+
+        local smart, smart_name = resolve_smart_from_reference(smart_ref)
+        if not smart then
+            printf("PANDA_IC: teleport_npc_to_smart failed — smart terrain '%s' not found", tostring(smart_ref))
+            return true
+        end
+
+        local se_npc = alife_object(npc_id)
+        if not se_npc then
+            printf("PANDA_IC: teleport_npc_to_smart — NPC %d no longer exists", npc_id)
+            return true
+        end
+
+        -- Get the smart terrain position and vertex data
+        local smart_pos = smart.position
+        local smart_gvid = smart.m_game_vertex_id
+        local smart_lvid = smart.m_level_vertex_id
+
+        -- Get the NPC's squad (if any) and teleport the whole squad
+        local squad = get_object_squad(se_npc)
+        if squad then
+            -- Use the vanilla TeleportSquad approach
+            local sim = alife()
+            sim:teleport_object(squad.id, smart_gvid, smart_lvid, smart_pos)
+            for k in squad:squad_members() do
+                if db.offline_objects[k.id] then
+                    db.offline_objects[k.id].level_vertex_id = nil
+                end
+                db.spawned_vertex_by_id[k.id] = nil
+                sim:teleport_object(k.id, smart_gvid, smart_lvid, smart_pos)
+            end
+
+            -- Assign the squad to the target smart terrain
+            if SIMBOARD and SIMBOARD.assign_squad_to_smart then
+                SIMBOARD:assign_squad_to_smart(squad, smart.id)
+            end
+        else
+            -- Solo NPC (no squad), teleport directly
+            local npc_obj = level.object_by_id(npc_id)
+            if npc_obj then
+                npc_obj:set_npc_position(smart_pos)
+            else
+                se_npc.position = smart_pos
+            end
+        end
+
+        local display_name = get_location_display_name(smart_ref)
+        local name = npc_name or (se_npc:character_name()) or "Unknown"
+
+        dynamic_news_helper.send_tip(
+            utils_data.parse_string_keys(
+                game.translate_string("st_pda_ic_outcome_npc_teleport_smart"),
+                { ["name"] = name, ["location"] = display_name }
+            ),
+            sender, 0, 10, "stalker", "beep_2", "npc"
+        )
+
+        return true
+    end
+
+    if delay > 0 then
+        CreateTimeEvent("pda_ic_tp", "tp_smart_" .. tostring(npc_id) .. "_" .. math.random(100000), delay, do_teleport)
+    else
+        do_teleport()
+    end
+end
+
+-- ============================================================
+-- TELEPORT NPC NEAR PLAYER
+-- ============================================================
+function teleport_npc_near_player(npc_id, npc_name, delay)
+    delay = delay or 0
+    local sender = game.translate_string("st_pda_ic_outcome_sender")
+
+    local function do_teleport()
+        if not db.actor then return true end
+
+        local se_npc = alife_object(npc_id)
+        if not se_npc then
+            printf("PANDA_IC: teleport_npc_to_player — NPC %d no longer exists", npc_id)
+            return true
+        end
+
+        -- Find a spawn point near the player (20-40m range)
+        local pos, lvid, gvid = find_spawn_point_near_player(20, 40)
+
+        -- Get the NPC's squad (if any) and teleport the whole squad
+        local squad = get_object_squad(se_npc)
+        if squad then
+            local sim = alife()
+            sim:teleport_object(squad.id, gvid, lvid, pos)
+            for k in squad:squad_members() do
+                if db.offline_objects[k.id] then
+                    db.offline_objects[k.id].level_vertex_id = nil
+                end
+                db.spawned_vertex_by_id[k.id] = nil
+                sim:teleport_object(k.id, gvid, lvid, pos)
+            end
+
+            -- Clear any smart terrain assignment so they stay where teleported
+            if SIMBOARD and SIMBOARD.assign_squad_to_smart then
+                SIMBOARD:assign_squad_to_smart(squad, nil)
+            end
+        else
+            -- Solo NPC
+            local npc_obj = level.object_by_id(npc_id)
+            if npc_obj then
+                npc_obj:set_npc_position(pos)
+            else
+                se_npc.position = pos
+            end
+        end
+
+        local name = npc_name or (se_npc:character_name()) or "Unknown"
+
+        dynamic_news_helper.send_tip(
+            utils_data.parse_string_keys(
+                game.translate_string("st_pda_ic_outcome_npc_teleport_player"),
+                { ["name"] = name }
+            ),
+            sender, 0, 10, "stalker", "beep_1", "npc"
+        )
+
+        return true
+    end
+
+    if delay > 0 then
+        CreateTimeEvent("pda_ic_tp", "tp_player_" .. tostring(npc_id) .. "_" .. math.random(100000), delay, do_teleport)
+    else
+        do_teleport()
+    end
+end
+
+-- ============================================================
+-- RECRUIT NPC AS COMPANION
+-- ============================================================
+function recruit_npc_as_companion(npc_id, npc_name, cannot_dismiss)
+    if not axr_companions then
+        printf("PANDA_IC: recruit_companion failed — axr_companions not available")
+        return
+    end
+
+    -- Check companion limit
+    local comps = 0
+    if axr_companions.companion_squads then
+        for _ in pairs(axr_companions.companion_squads) do
+            comps = comps + 1
+        end
+    end
+    local max_comps = PANDA.get_config("companion_limit") or 4
+    if comps >= max_comps then
+        printf("PANDA_IC: recruit_companion — companion limit reached (%d/%d)", comps, max_comps)
+        dynamic_news_helper.send_tip(
+            game.translate_string("st_pda_ic_outcome_recruit_limit"),
+            game.translate_string("st_pda_ic_outcome_sender"), 0, 8,
+            "stalker", "beep_1", "npc"
+        )
+        return
+    end
+
+    local npc_obj = level.object_by_id(npc_id)
+    if not npc_obj or not npc_obj:alive() then
+        printf("PANDA_IC: recruit_companion — NPC %d not online or dead", npc_id)
+        return
+    end
+
+    local se_npc = alife_object(npc_id)
+    if not se_npc then
+        printf("PANDA_IC: recruit_companion — server object for NPC %d not found", npc_id)
+        return
+    end
+
+    -- Get the NPC's squad
+    local squad = get_object_squad(npc_obj) or get_object_squad(se_npc)
+
+    if squad then
+        -- Register the squad as a companion squad (vanilla pattern from dialogs_axr_companion)
+        axr_companions.companion_squads[squad.id] = squad
+
+        -- Unassign from current smart terrain
+        if SIMBOARD and SIMBOARD.assign_squad_to_smart then
+            SIMBOARD:assign_squad_to_smart(squad, nil)
+        end
+
+        -- Set up each squad member as a companion
+        for k in squad:squad_members() do
+            local member = db.storage[k.id] and db.storage[k.id].object
+            if member and member:alive() then
+                se_save_var(k.id, member:name(), "companion", true)
+                if cannot_dismiss then
+                    se_save_var(k.id, member:name(), "companion_cannot_dismiss", true)
+                end
+                axr_companions.add_to_actor_squad(member)
+            end
+        end
+    else
+        -- Solo NPC without a squad — still mark and add as companion
+        se_save_var(npc_id, npc_obj:name(), "companion", true)
+        if cannot_dismiss then
+            se_save_var(npc_id, npc_obj:name(), "companion_cannot_dismiss", true)
+        end
+        axr_companions.add_to_actor_squad(npc_obj)
+    end
+
+    local name = npc_name or npc_obj:character_name() or "Unknown"
+    local icon = npc_obj:character_icon() or FALLBACK_NPC_ICON
+
+    if PANDA.get_config("show_companion_notifications") then
+        dynamic_news_helper.send_tip(
+            utils_data.parse_string_keys(
+                game.translate_string("st_pda_ic_outcome_recruit_success"),
+                { ["name"] = name }
+            ),
+            game.translate_string("st_pda_ic_outcome_sender"), 0, 10,
+            icon, "beep_2", "npc"
+        )
+    end
 end
 
 -- ============================================================
