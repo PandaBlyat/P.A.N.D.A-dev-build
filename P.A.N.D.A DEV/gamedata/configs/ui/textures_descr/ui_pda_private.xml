@@ -35,14 +35,6 @@
 
     <file name="ui\ui_panda_box">
         <texture id="ui_panda_box" x="0" y="0" width="20" height="60" />
-        <texture id="ui_panda_box_e" x="0" y="0" width="20" height="60" />
-        <texture id="ui_panda_box_h" x="0" y="0" width="20" height="60" />
-        <texture id="ui_panda_box_t" x="0" y="0" width="20" height="60" />
-        <texture id="ui_panda_box_d" x="0" y="0" width="20" height="60" />
-
-        <!-- Compatibility aliases expected by XML/UI script references -->
-        <texture id="ui_ingame2_hint_wnd_main_window" x="0" y="0" width="20" height="60" />
-        <texture id="ui_ingame2_neutral_1" x="0" y="0" width="20" height="60" />
     </file>
 
     <!-- Conversation Presence Icons (40x40) -->

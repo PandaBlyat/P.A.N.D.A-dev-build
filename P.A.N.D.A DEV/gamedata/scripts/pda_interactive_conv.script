@@ -265,29 +265,8 @@ local MCM_DEFAULTS = {
     show_courier_notifications=true
 }
 
-local MCM_UI_KEYS = {
-    enabled=true, trigger_min=true, trigger_max=true, default_cooldown=true, cooldown_mode=true,
-    cooldown_penalty=true, cooldown_hard_min=true, allow_cross_faction=true, require_pda_equipped=true,
-    debug_logging=true, debug_trigger=true, choice_tip_duration=true, pda_retry_delay=true, companion_limit=true,
-    max_npcs_per_trigger=true, spawn_distance_min=true, spawn_distance_max=true, companion_spawn_min=true,
-    companion_spawn_max=true, mutant_spawn_min=true, mutant_spawn_max=true, non_task_chance=true,
-    friendly_hostile_ratio=true, min_distance_for_call=true, npc_cooldown=true,
-    npc_reply_delay_min=true, npc_reply_delay_max=true,
-    outcome_delay_min=true, outcome_delay_max=true,
-    branch_delay_min=true, branch_delay_max=true,
-    intro_delay=true, no_intro_delay=true,
-    spawn_chance_mult=true,
-    poll_retries=true,
-    smart_spawn_min=true, smart_spawn_max=true,
-    location_watch_radius=true,
-    location_check_interval=true,
-    show_hunt_notifications=true,
-    show_companion_notifications=true,
-    show_courier_notifications=true
-}
-
 function PANDA.get_config(key)
-    if ui_mcm and MCM_UI_KEYS[key] then
+    if ui_mcm then
         -- Keys are stored under the "interactive" group inside the MCM tree
         local val = ui_mcm.get("pda_interactive_conv/interactive/" .. key)
         if val ~= nil then return val end
@@ -688,27 +667,7 @@ end
 
 function reveal_random_stash()
     if treasure_manager and treasure_manager.create_random_stash then
-        local original_printf = printf
-        printf = function(fmt, ...)
-            local msg = tostring(fmt or "")
-            if string.find(msg, "!WARNING treasure_manager.init_settings | item", 1, true) then
-                return
-            end
-
-            if original_printf then
-                return original_printf(fmt, ...)
-            end
-        end
-
-        local ok, err = pcall(function()
-            treasure_manager.create_random_stash(nil, nil, nil, true)
-        end)
-
-        printf = original_printf
-
-        if not ok and original_printf then
-            original_printf("WARNING: PANDA_IC: failed to create random stash: %s", tostring(err))
-        end
+        treasure_manager.create_random_stash(nil, nil, nil, true)
     else
         printf("WARNING: treasure_manager not found!")
     end
