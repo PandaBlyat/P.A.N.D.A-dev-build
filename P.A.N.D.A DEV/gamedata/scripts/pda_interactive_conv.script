@@ -688,7 +688,27 @@ end
 
 function reveal_random_stash()
     if treasure_manager and treasure_manager.create_random_stash then
-        treasure_manager.create_random_stash(nil, nil, nil, true)
+        local original_printf = printf
+        printf = function(fmt, ...)
+            local msg = tostring(fmt or "")
+            if string.find(msg, "!WARNING treasure_manager.init_settings | item", 1, true) then
+                return
+            end
+
+            if original_printf then
+                return original_printf(fmt, ...)
+            end
+        end
+
+        local ok, err = pcall(function()
+            treasure_manager.create_random_stash(nil, nil, nil, true)
+        end)
+
+        printf = original_printf
+
+        if not ok and original_printf then
+            original_printf("WARNING: PANDA_IC: failed to create random stash: %s", tostring(err))
+        end
     else
         printf("WARNING: treasure_manager not found!")
     end
