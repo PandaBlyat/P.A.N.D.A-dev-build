@@ -1569,6 +1569,47 @@ local function get_npc_faction(npc_se)
     return nil
 end
 
+local function get_manager_remaining_seconds(manager_module, getter_name, delta_key, last_time_key)
+    if not manager_module or not manager_module[getter_name] then
+        return nil
+    end
+
+    local manager = manager_module[getter_name]()
+    if not manager then
+        return nil
+    end
+
+    local delta = manager[delta_key]
+    local last_time = manager[last_time_key]
+    if not delta or not last_time then
+        return nil
+    end
+
+    local now = game.get_game_time()
+    if not now then
+        return nil
+    end
+
+    return math.floor(delta - now:diffSec(last_time))
+end
+
+local function is_weather_fx_active_now()
+    local active = false
+
+    if level_weathers and level_weathers.get_weather_manager then
+        local wm = level_weathers.get_weather_manager()
+        if wm and wm.weather_fx then
+            active = true
+        end
+    end
+
+    if not active and level and level.get_wfx_time then
+        active = (level.get_wfx_time() or 0) > 0
+    end
+
+    return active
+end
+
 function check_preconditions_generic(precond_key, npc_se)
     local val = game.translate_string(precond_key)
     if val == precond_key then return true end
@@ -1851,6 +1892,40 @@ function check_preconditions_generic(precond_key, npc_se)
             local Y, M, D, h = 0, 0, 0, 0
             Y, M, D, h = gt:get(Y, M, D, h, 0, 0, 0)
             if h >= 6 and h < 20 then return false end
+
+        -- ========== EVENT TIMING / WEATHER FX ==========
+        elseif cmd == "req_surge_soon" then
+            -- req_surge_soon:600 — next surge starts in <= 600 seconds
+            local threshold = tonumber(parts[2]) or 0
+            local remaining = get_manager_remaining_seconds(surge_manager, "get_surge_manager", "_delta", "last_surge_time")
+            printf("Precondition req_surge_soon: threshold=%s, remaining=%s", tostring(threshold), tostring(remaining))
+            if not remaining or remaining > threshold then return false end
+
+        elseif cmd == "req_not_surge_soon" then
+            -- req_not_surge_soon:1800 — next surge must be farther than 1800 seconds away
+            local threshold = tonumber(parts[2]) or 0
+            local remaining = get_manager_remaining_seconds(surge_manager, "get_surge_manager", "_delta", "last_surge_time")
+            printf("Precondition req_not_surge_soon: threshold=%s, remaining=%s", tostring(threshold), tostring(remaining))
+            if not remaining or remaining <= threshold then return false end
+
+        elseif cmd == "req_psi_storm_soon" then
+            -- req_psi_storm_soon:900 — next psi storm starts in <= 900 seconds
+            local threshold = tonumber(parts[2]) or 0
+            local remaining = get_manager_remaining_seconds(psi_storm_manager, "get_psi_storm_manager", "_delta", "last_psi_storm_time")
+            printf("Precondition req_psi_storm_soon: threshold=%s, remaining=%s", tostring(threshold), tostring(remaining))
+            if not remaining or remaining > threshold then return false end
+
+        elseif cmd == "req_weather_fx_active" then
+            -- req_weather_fx_active — a weather FX track is active right now
+            local active = is_weather_fx_active_now()
+            printf("Precondition req_weather_fx_active: active=%s", tostring(active))
+            if not active then return false end
+
+        elseif cmd == "req_weather_fx_not_active" then
+            -- req_weather_fx_not_active — no weather FX track should be active
+            local active = is_weather_fx_active_now()
+            printf("Precondition req_weather_fx_not_active: active=%s", tostring(active))
+            if active then return false end
 
         -- ========== HEALTH ==========
         elseif cmd == "req_health_min" then

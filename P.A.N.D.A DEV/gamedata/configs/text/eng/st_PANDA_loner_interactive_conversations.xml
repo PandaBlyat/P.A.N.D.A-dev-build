@@ -279,6 +279,31 @@ Format: command:param1:param2
     Must be nighttime (20:00 - 06:00).
     Example: req_time_night
 
+--- ZONE EVENTS / WEATHER FX ---
+
+  req_surge_soon:<seconds>
+    The next emission (surge) must start within this many seconds.
+    Uses the same surge_manager timing state as vanilla scripts.
+    Example: req_surge_soon:900          (surge should begin in 15 minutes or less)
+
+  req_not_surge_soon:<seconds>
+    The next emission (surge) must be farther away than this many seconds.
+    Example: req_not_surge_soon:1800     (no near-term surge for at least 30 minutes)
+
+  req_psi_storm_soon:<seconds>
+    The next psi-storm must start within this many seconds.
+    Uses psi_storm_manager timing state.
+    Example: req_psi_storm_soon:600      (psi-storm should begin in 10 minutes or less)
+
+  req_weather_fx_active
+    A weather FX sequence must currently be active (blowout/psi FX, etc.).
+    Uses level_weathers weather manager state.
+    Example: req_weather_fx_active
+
+  req_weather_fx_not_active
+    No weather FX sequence should currently be active.
+    Example: req_weather_fx_not_active
+
 --- HEALTH ---
 
   req_health_min:<value>
@@ -307,6 +332,12 @@ Format: command:param1:param2
 
   Example: "req_npc_friendly:dolg,req_time_night,req_level:l04_darkvalley"
     = Friendly Duty member, nighttime, player is in Dark Valley
+
+  Example: "req_time_night,req_surge_soon:1200,req_npc_friendly:ecolog"
+    = Nighttime, next surge is soon (<=20 min), and the speaker is a friendly ecologist
+
+  Example: "req_weather_fx_active,req_npc_friendly:stalker,req_psi_storm_soon:300"
+    = Weather FX is active, speaker is a friendly loner, and psi-storm is imminent (<=5 min)
 
   FACTION NAME LIST:
     stalker (or loner) = Loners         dolg (or duty) = Duty
