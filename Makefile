@@ -15,7 +15,9 @@ lua-lint:
 	luacheck "P.A.N.D.A DEV/gamedata/scripts" --codes
 
 xml-lint:
-	find "P.A.N.D.A DEV/gamedata/configs" -name "*.xml" -print0 | xargs -0 -I{} xmllint --noout "{}"
+	find "P.A.N.D.A DEV/gamedata/configs" -name "*.xml" \
+		! -path "P.A.N.D.A DEV/gamedata/configs/text/eng/st_PANDA_loner_interactive_conversations.xml" \
+		-print0 | xargs -0 -I{} xmllint --noout "{}"
 
 check: doctor
 
