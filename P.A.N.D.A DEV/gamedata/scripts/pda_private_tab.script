@@ -92,24 +92,22 @@ end
 local function resolve_actor_portrait_texture()
     local fallback_icon = "ui_inGame2_neutral_1"
 
-    if ui_options and ui_options.get and ui_options.get("gameplay/general/outfit_portrait") == true and db and db.actor and db.actor.item_in_slot then
-        local outfit = db.actor:item_in_slot(7)
-        if outfit and ini_sys and ini_sys.r_string_ex then
-            local icon = ini_sys:r_string_ex(outfit:section(), "character_portrait")
+    if db and db.actor then
+        if ui_options and ui_options.get and ui_options.get("gameplay/general/outfit_portrait") == true and db.actor.item_in_slot then
+            local outfit = db.actor:item_in_slot(7)
+            if outfit and ini_sys and ini_sys.r_string_ex then
+                local icon = ini_sys:r_string_ex(outfit:section(), "character_portrait")
+                if icon and icon ~= "" then
+                    return icon
+                end
+            end
+        end
+
+        if db.actor.character_icon then
+            local icon = db.actor:character_icon()
             if icon and icon ~= "" then
                 return icon
             end
-        end
-    end
-
-    if db and db.actor_binder and db.actor_binder.character_icon and db.actor_binder.character_icon ~= "" then
-        return db.actor_binder.character_icon
-    end
-
-    if db and db.actor and db.actor.character_icon then
-        local icon = db.actor:character_icon()
-        if icon and icon ~= "" then
-            return icon
         end
     end
 
