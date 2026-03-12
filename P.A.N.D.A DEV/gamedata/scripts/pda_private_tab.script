@@ -89,6 +89,29 @@ local function apply_button_hitbox_style(btn)
     end
 end
 
+local function resolve_actor_portrait_texture()
+    local fallback_icon = "ui_inGame2_Neutral_1"
+
+    if db and db.actor and db.actor.character_icon then
+        local icon = db.actor:character_icon()
+        if icon and icon ~= "" then
+            return icon
+        end
+    end
+
+    if db and db.actor and db.actor.id and alife_object then
+        local actor_se = alife_object(db.actor:id())
+        if actor_se and actor_se.character_icon then
+            local icon = actor_se:character_icon()
+            if icon and icon ~= "" then
+                return icon
+            end
+        end
+    end
+
+    return fallback_icon
+end
+
 local function is_button_hovered(btn)
     if not btn then
         return false
@@ -225,6 +248,7 @@ function pda_private_tab:__init()
     self.layout_cache_desc_w = -1
     self.layout_cache_desc_h = -1
     self.player_presence_menu_open = false
+    self.player_presence_portrait_tex = nil
 end
 
 function pda_private_tab:InitControls()
@@ -248,6 +272,10 @@ function pda_private_tab:InitControls()
     apply_button_quad_style(self.player_presence_toggle_btn)
     apply_button_quad_style(self.player_presence_online_btn)
     apply_button_quad_style(self.player_presence_offline_btn)
+
+    self:Register(self.player_presence_toggle_btn, "player_presence_toggle_btn")
+    self:Register(self.player_presence_online_btn, "player_presence_online_btn")
+    self:Register(self.player_presence_offline_btn, "player_presence_offline_btn")
 
     self.npc_list = self.xml:InitListBox("private_pda:info:message_list", self.dialog)
     self:Register(self.npc_list, "npc_list")
@@ -493,10 +521,11 @@ function pda_private_tab:RefreshPlayerPresenceUI()
         is_online = conv_api.is_player_chat_online()
     end
 
-    if self.player_presence_portrait and db and db.actor then
-        local actor_icon = db.actor:character_icon()
-        if actor_icon and actor_icon ~= "" then
+    if self.player_presence_portrait then
+        local actor_icon = resolve_actor_portrait_texture()
+        if actor_icon ~= self.player_presence_portrait_tex then
             self.player_presence_portrait:InitTexture(actor_icon)
+            self.player_presence_portrait_tex = actor_icon
         end
     end
 
