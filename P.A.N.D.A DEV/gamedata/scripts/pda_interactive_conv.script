@@ -1724,7 +1724,7 @@ function check_preconditions_generic(precond_key, npc_se)
             -- Also check personal relation as confirmation
             local npc_obj = level.object_by_id(npc_se.id)
             if npc_obj then
-                if npc_obj:relation(db.actor) ~= game_object.enemy then return false end
+                if npc_obj:relation(db.actor) < game_object.enemy then return false end
             end
 
         -- ========== LEVEL / LOCATION ==========
