@@ -1862,7 +1862,8 @@ function check_preconditions_generic(precond_key, npc_se)
             if act.health > (tonumber(parts[2]) or 0) then return false end
 
         else
-            printf("Unknown precondition command: %s", cmd)
+            printf("Unknown precondition command entry: %s", entry)
+            return false
         end
     end
     return true
