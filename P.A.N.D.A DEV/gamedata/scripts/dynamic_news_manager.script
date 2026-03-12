@@ -95,6 +95,11 @@ function update_settings()
     npc_conv_strict_cooldown    = get_opt("pda_interactive_conv/background/npc_conv_strict_cooldown", true)
     npc_conv_flex_penalty       = get_opt("pda_interactive_conv/background/npc_conv_flex_penalty", 25)
     npc_conv_hard_min           = clamp_positive_int(get_opt("pda_interactive_conv/background/npc_conv_hard_min", 5), 5)
+    npc_conv_rank_min           = clamp_positive_int(get_opt("pda_interactive_conv/background/npc_conv_rank_min", 1), 1)
+    npc_conv_rank_max           = clamp_positive_int(get_opt("pda_interactive_conv/background/npc_conv_rank_max", 3), 1)
+    npc_conv_faction_scope      = clamp_positive_int(get_opt("pda_interactive_conv/background/npc_conv_faction_scope", 1), 1)
+    npc_conv_exclude_combat     = get_opt("pda_interactive_conv/background/npc_conv_exclude_combat", true)
+    npc_conv_debug_rejections   = get_opt("pda_interactive_conv/background/npc_conv_debug_rejections", false)
 
     -- Update DynamicNewsManager if it exists
     local inst = instance
@@ -109,6 +114,11 @@ function update_settings()
         inst.conv_strict_cooldown   = npc_conv_strict_cooldown
         inst.conv_flex_penalty      = npc_conv_flex_penalty / 100
         inst.conv_hard_min          = npc_conv_hard_min
+        inst.conv_rank_min          = npc_conv_rank_min
+        inst.conv_rank_max          = npc_conv_rank_max
+        inst.conv_faction_scope     = npc_conv_faction_scope
+        inst.conv_exclude_combat    = npc_conv_exclude_combat ~= false
+        inst.conv_debug_rejections  = npc_conv_debug_rejections == true
 
         if level.present() then
             ResetTimeEvent("DynamicNewsManager", "TickConversation", inst.conv_timer)
@@ -286,6 +296,11 @@ function DynamicNewsManager:__init()
     self.conv_strict_cooldown   = npc_conv_strict_cooldown ~= false -- default true
     self.conv_flex_penalty      = (npc_conv_flex_penalty or 25) / 100
     self.conv_hard_min          = npc_conv_hard_min or 5
+    self.conv_rank_min          = npc_conv_rank_min or 1
+    self.conv_rank_max          = npc_conv_rank_max or 3
+    self.conv_faction_scope     = npc_conv_faction_scope or 1   -- 1=same faction, 2=all known channels, 3=weighted mixed
+    self.conv_exclude_combat    = npc_conv_exclude_combat ~= false
+    self.conv_debug_rejections  = npc_conv_debug_rejections == true
 
     -- Guard flag so overlapping conversations can't start
     self.conv_active = false
@@ -2986,6 +3001,95 @@ function get_story_npc_info(section)
 	return
 end
 
+function DynamicNewsManager:GetRankBand()
+    local min_rank = math.max(1, math.floor(tonumber(self.conv_rank_min) or 1))
+    local max_rank = math.max(1, math.floor(tonumber(self.conv_rank_max) or 3))
+    if max_rank < min_rank then
+        min_rank, max_rank = max_rank, min_rank
+    end
+    return min_rank, max_rank
+end
+
+function DynamicNewsManager:GetRankTier(se_obj)
+    local rank_name = ranks.get_obj_rank_name(se_obj)
+    local rank_tier = {
+        novice = 1,
+        trainee = 2,
+        experienced = 3,
+        professional = 4,
+        veteran = 5,
+        master = 6,
+    }
+
+    return rank_tier[rank_name] or 1
+end
+
+function DynamicNewsManager:GetFactionScopeMode()
+    local mode = math.floor(tonumber(self.conv_faction_scope) or 1)
+    if mode < 1 or mode > 3 then
+        mode = 1
+    end
+    return mode
+end
+
+function DynamicNewsManager:GetCommunityWeight(player_comm, npc_comm)
+    if npc_comm == player_comm then
+        return 1.5
+    end
+
+    if game_relations and game_relations.is_factions_enemies and game_relations.is_factions_enemies(player_comm, npc_comm) then
+        return 0.6
+    end
+
+    return 1.0
+end
+
+function DynamicNewsManager:PickCommunityForConversation(player_comm, channels)
+    local mode = self:GetFactionScopeMode()
+
+    if mode == 1 then
+        return player_comm
+    end
+
+    local available = {}
+    for comm, count in pairs(channels) do
+        if count > 0 then
+            available[#available + 1] = comm
+        end
+    end
+
+    if #available == 0 then
+        return player_comm
+    end
+
+    if mode == 2 then
+        return available[math.random(#available)]
+    end
+
+    local weighted = {}
+    local total = 0
+    for _, comm in ipairs(available) do
+        local w = self:GetCommunityWeight(player_comm, comm) * channels[comm]
+        if w > 0 then
+            total = total + w
+            weighted[#weighted + 1] = { comm = comm, cum = total }
+        end
+    end
+
+    if total <= 0 or #weighted == 0 then
+        return available[math.random(#available)]
+    end
+
+    local pick = math.random() * total
+    for _, entry in ipairs(weighted) do
+        if pick <= entry.cum then
+            return entry.comm
+        end
+    end
+
+    return weighted[#weighted].comm
+end
+
 --=========================================================================
 -- NPC Conversations Logic
 --=========================================================================
@@ -3022,9 +3126,13 @@ function DynamicNewsManager:TickConversation()
     local current_lvl  = level.name()
     local actor_pos    = db.actor:position()
     local MIN_DIST     = 150
+    local min_rank, max_rank = self:GetRankBand()
 
-    -- Build candidate pool (NPCs of same faction, far enough, not traders, not dead)
-    local candidates = {}
+    local reject = { rank = 0, distance = 0, channel = 0, cooldown = 0 }
+
+    -- Build candidate pool with configurable faction scope + rank band
+    local candidates_by_comm = {}
+    local channels = {}
     local sim = alife()
     local gg  = game_graph()
 
@@ -3033,37 +3141,62 @@ function DynamicNewsManager:TickConversation()
         if se_obj and se_obj.id ~= AC_ID
         and IsStalker(nil, se_obj:clsid())
         and se_obj:alive()
-        and se_obj:community() == player_comm
         and se_obj:community() ~= "trader"
         and se_obj.group_id ~= 65535 then
+            local npc_comm = se_obj:community()
 
-            local npc_rank = ranks.get_obj_rank_name(se_obj)
-            local is_valid_rank = (npc_rank == "novice") or (npc_rank == "trainee") or (npc_rank == "experienced")
+            if not self.channel_status[npc_comm] then
+                reject.channel = reject.channel + 1
+            else
+                local rank_num = self:GetRankTier(se_obj)
+                if rank_num < min_rank or rank_num > max_rank then
+                    reject.rank = reject.rank + 1
+                else
+                    local npc_lvl = sim:level_name(gg:vertex(se_obj.m_game_vertex_id):level_id())
+                    local is_far  = (npc_lvl ~= current_lvl)
+                    if (not is_far) and (se_obj.position:distance_to(actor_pos) >= MIN_DIST) then
+                        is_far = true
+                    end
 
-            if is_valid_rank then
-                local npc_lvl = sim:level_name(gg:vertex(se_obj.m_game_vertex_id):level_id())
-                local is_far  = false
-
-                if npc_lvl ~= current_lvl then
-                    is_far = true
-                elseif se_obj.position:distance_to(actor_pos) >= MIN_DIST then
-                    is_far = true
-                end
-
-                if is_far then
-                    local last_t   = self.last_speaker_time[se_obj.id]
-                    local idle_min = last_t and current_time:diffSec(last_t) / 60 or 9999
-                    table.insert(candidates, { se = se_obj, idle_time = idle_min })
+                    if not is_far then
+                        reject.distance = reject.distance + 1
+                    else
+                        local npc_obj = level.object_by_id(se_obj.id)
+                        if self.conv_exclude_combat and npc_obj and npc_obj:best_enemy() then
+                            reject.cooldown = reject.cooldown + 1
+                        else
+                            local last_t   = self.last_speaker_time[se_obj.id]
+                            local idle_min = last_t and current_time:diffSec(last_t) / 60 or 9999
+                            candidates_by_comm[npc_comm] = candidates_by_comm[npc_comm] or {}
+                            table.insert(candidates_by_comm[npc_comm], { se = se_obj, idle_time = idle_min })
+                            channels[npc_comm] = (channels[npc_comm] or 0) + 1
+                        end
+                    end
                 end
             end
         end
     end
 
-    if #candidates < 2 then return false end
+    local chosen_comm = self:PickCommunityForConversation(player_comm, channels)
+    local mode = self:GetFactionScopeMode()
+    local candidates = candidates_by_comm[chosen_comm] or {}
+
+    if mode ~= 1 and #candidates < 2 then
+        -- fallback to same faction if selected mode produced too few candidates
+        chosen_comm = player_comm
+        candidates = candidates_by_comm[chosen_comm] or {}
+    end
+
+    if #candidates < 2 then
+        if self.conv_debug_rejections then
+            printf("[DynNews][Conv] insufficient candidates=%d (rank=%d, distance=%d, channel=%d, cooldown=%d)", #candidates, reject.rank, reject.distance, reject.channel, reject.cooldown)
+        end
+        return false
+    end
 
     table.sort(candidates, function(a, b) return a.idle_time > b.idle_time end)
 
-    local xml_fac_name = (player_comm == "stalker") and "loner" or player_comm
+    local xml_fac_name = (chosen_comm == "stalker") and "loner" or chosen_comm
 
     -- Decide group vs classic dialog using configurable group_chance
     local try_group = (math.random(100) <= self.group_chance) and (#candidates >= 3)
@@ -3071,7 +3204,13 @@ function DynamicNewsManager:TickConversation()
     if try_group then
         local group_max = self:CountGroupConvs(xml_fac_name)
         if group_max > 0 then
-            return self:StartGroupConversation(xml_fac_name, candidates, group_max)
+            local group_ok = self:StartGroupConversation(xml_fac_name, candidates, group_max)
+            if group_ok then
+                return group_ok
+            end
+            if self.conv_debug_rejections then
+                printf("[DynNews][Conv] group fallback: faction=%s had %d candidates but no valid group conversation", tostring(xml_fac_name), #candidates)
+            end
         end
     end
 
@@ -3096,6 +3235,10 @@ function DynamicNewsManager:TickConversation()
     local se_2 = candidates[idx2].se
     self.last_speaker_time[se_1.id] = game.get_game_time()
     self.last_speaker_time[se_2.id] = game.get_game_time()
+
+    if self.conv_debug_rejections then
+        printf("[DynNews][Conv] selected faction=%s candidates=%d mode=%d (rank=%d, distance=%d, channel=%d, cooldown=%d)", tostring(chosen_comm), #candidates, mode, reject.rank, reject.distance, reject.channel, reject.cooldown)
+    end
 
     self.conv_active = true
     self:ProcessConversationTurn(xml_fac_name, conv_id, 1, se_1, se_2)

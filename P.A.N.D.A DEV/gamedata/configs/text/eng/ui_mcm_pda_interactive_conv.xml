@@ -458,6 +458,41 @@
 		<text>When a conversation is triggered, chance it will be a group chat (if enough NPCs).</text>
 	</string>
 
+	<string id="ui_mcm_pda_interactive_conv_background_npc_conv_rank_min">
+		<text>Minimum NPC Rank (1-6)</text>
+	</string>
+	<string id="ui_mcm_pda_interactive_conv_background_npc_conv_rank_min_desc">
+		<text>Lowest allowed rank in the candidate band for background conversations.</text>
+	</string>
+
+	<string id="ui_mcm_pda_interactive_conv_background_npc_conv_rank_max">
+		<text>Maximum NPC Rank (1-6)</text>
+	</string>
+	<string id="ui_mcm_pda_interactive_conv_background_npc_conv_rank_max_desc">
+		<text>Highest allowed rank in the candidate band for background conversations.</text>
+	</string>
+
+	<string id="ui_mcm_pda_interactive_conv_background_npc_conv_faction_scope">
+		<text>Faction Scope Mode (1=Same, 2=All Known, 3=Weighted Mixed)</text>
+	</string>
+	<string id="ui_mcm_pda_interactive_conv_background_npc_conv_faction_scope_desc">
+		<text>Selects whether candidates come from your faction only, any known radio channel, or weighted mixed channels.</text>
+	</string>
+
+	<string id="ui_mcm_pda_interactive_conv_background_npc_conv_exclude_combat">
+		<text>Exclude NPCs in Combat</text>
+	</string>
+	<string id="ui_mcm_pda_interactive_conv_background_npc_conv_exclude_combat_desc">
+		<text>If enabled, NPCs actively fighting are removed from the candidate pool.</text>
+	</string>
+
+	<string id="ui_mcm_pda_interactive_conv_background_npc_conv_debug_rejections">
+		<text>Debug Candidate Rejections</text>
+	</string>
+	<string id="ui_mcm_pda_interactive_conv_background_npc_conv_debug_rejections_desc">
+		<text>Prints reject counters (rank, distance, channel, cooldown) to the log when building conversation candidates.</text>
+	</string>
+
 	<string id="ui_mcm_pda_interactive_conv_background_npc_conv_strict_cooldown">
 		<text>Strict Topic Cooldown</text>
 	</string>
@@ -515,14 +550,14 @@
 		<text>Generic Death Reports</text>
 	</string>
 	<string id="ui_mcm_pda_interactive_conv_dynamic_news_dn_generic_death_desc">
-		<text>Enable generic death announcements (e.g., “Found dead…”).</text>
+		<text>Enable generic death announcements (e.g., Â“Found deadÂ…Â”).</text>
 	</string>
 
 	<string id="ui_mcm_pda_interactive_conv_dynamic_news_dn_death_report">
 		<text>Formal Death Reports</text>
 	</string>
 	<string id="ui_mcm_pda_interactive_conv_dynamic_news_dn_death_report_desc">
-		<text>Enable the “obituary-style” death summaries.</text>
+		<text>Enable the Â“obituary-styleÂ” death summaries.</text>
 	</string>
 
 	<string id="ui_mcm_pda_interactive_conv_dynamic_news_dn_kill_wounded">
@@ -625,7 +660,7 @@
 		<text>Found Dead Reports</text>
 	</string>
 	<string id="ui_mcm_pda_interactive_conv_dynamic_news_dn_found_dead_desc">
-		<text>Enable formal “dead body found” announcements.</text>
+		<text>Enable formal Â“dead body foundÂ” announcements.</text>
 	</string>
 
 	<string id="ui_mcm_pda_interactive_conv_dynamic_news_dn_surge">
