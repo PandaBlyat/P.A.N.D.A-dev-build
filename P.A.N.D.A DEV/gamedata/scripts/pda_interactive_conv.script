@@ -578,6 +578,25 @@ function count_active_conversations()
     return n
 end
 
+local tracked_panda_ic_events = {
+    pda_ic_spawn = {},
+    pda_ic_courier = {},
+    pda_ic_companion = {},
+    pda_ic_tp = {}
+}
+
+local function track_panda_ic_event(group, name)
+    if not group or not name or name == "" then
+        return
+    end
+
+    if not tracked_panda_ic_events[group] then
+        tracked_panda_ic_events[group] = {}
+    end
+
+    tracked_panda_ic_events[group][name] = true
+end
+
 -- Safe time‑event removal – prevents crash if the function doesn't exist
 safe_remove_time_event = function(id, name)
     if remove_time_event then
@@ -587,6 +606,59 @@ safe_remove_time_event = function(id, name)
     else
         -- No removal function available – do nothing
     end
+end
+
+function cleanup_panda_ic_events()
+    -- Repeating scheduler groups
+    safe_remove_time_event("pda_ic_trigger", "tick")
+    safe_remove_time_event("pda_ic_timeout", "check")
+    safe_remove_time_event("pda_ic_location", "check")
+
+    -- Legacy global event chain
+    safe_remove_time_event("pda_ic", "delivery_ack")
+    safe_remove_time_event("pda_ic", "npc_typing_start")
+    safe_remove_time_event("pda_ic", "npc_reply")
+
+    -- Outcome helper groups
+    for group, names in pairs(tracked_panda_ic_events) do
+        for name in pairs(names) do
+            safe_remove_time_event(group, name)
+        end
+        tracked_panda_ic_events[group] = {}
+    end
+
+    -- Per-conversation chains + typing indicators
+    if active_conversations then
+        for contact_id, convo in pairs(active_conversations) do
+            local npc_id = convo and convo.npc_id
+            if npc_id then
+                local ev_prefix = "pda_ic_" .. tostring(npc_id)
+                safe_remove_time_event(ev_prefix, "delivery_ack")
+                safe_remove_time_event(ev_prefix, "npc_read")
+                safe_remove_time_event(ev_prefix, "npc_thinking")
+                safe_remove_time_event(ev_prefix, "npc_reply")
+                safe_remove_time_event(ev_prefix, "outcome")
+            end
+            clear_npc_typing_message(contact_id)
+        end
+    end
+
+    -- Also clear any orphan typing entries that are no longer in active_conversations
+    for i = #pda_private_log, 1, -1 do
+        local entry = pda_private_log[i]
+        if entry and entry.is_typing then
+            table.remove(pda_private_log, i)
+        end
+    end
+
+    -- Conversation runtime state reset (idempotent)
+    active_conversations = {}
+    pda_reply_pending = false
+    CONV = nil
+end
+
+function on_game_shutdown_cb()
+    cleanup_panda_ic_events()
 end
 
 local function printf(fmt, ...)
@@ -2495,6 +2567,7 @@ function spawn_hunting_squad(fac, distance, is_mutant, delay)
         )
     end
 
+    track_panda_ic_event("pda_ic_spawn", key)
     CreateTimeEvent("pda_ic_spawn", key, delay, function()
         if not db.actor then return true end
 
@@ -2537,7 +2610,9 @@ function spawn_hunting_squad(fac, distance, is_mutant, delay)
             end
 
             -- Stage 2: Notify arrival
-            CreateTimeEvent("pda_ic_spawn", "arrival_"..squad_id, math.random(5, 10), function()
+            local arrival_event = "arrival_"..squad_id
+            track_panda_ic_event("pda_ic_spawn", arrival_event)
+            CreateTimeEvent("pda_ic_spawn", arrival_event, math.random(5, 10), function()
                 if not db.actor then return true end
                 local s = alife_object(squad_id)
                 if not s then return true end
@@ -2558,7 +2633,9 @@ function spawn_hunting_squad(fac, distance, is_mutant, delay)
 
             -- Stage 3: Monitor and timeout
             local start_time = game.get_game_time()
-            CreateTimeEvent("pda_ic_spawn", "monitor_"..squad_id, 30, function()
+            local monitor_event = "monitor_"..squad_id
+            track_panda_ic_event("pda_ic_spawn", monitor_event)
+            CreateTimeEvent("pda_ic_spawn", monitor_event, 30, function()
                 if not db.actor then return true end
                 local s = alife_object(squad_id)
                 if not s then return true end
@@ -2630,7 +2707,9 @@ function spawn_native_companion(fac, distance, delay)
         )
     end
 
-    CreateTimeEvent("pda_ic_spawn", "spawn_comp_"..math.random(100000), delay, function()
+    local spawn_comp_event = "spawn_comp_"..math.random(100000)
+    track_panda_ic_event("pda_ic_spawn", spawn_comp_event)
+    CreateTimeEvent("pda_ic_spawn", spawn_comp_event, delay, function()
         if not db.actor then return true end
 
         local min_dist, max_dist
@@ -2702,14 +2781,18 @@ function spawn_native_companion(fac, distance, delay)
             end
         end
 
-        CreateTimeEvent("pda_ic_companion", "arrival_"..squad_id, 2, check_arrival)
+        local companion_arrival_event = "arrival_"..squad_id
+        track_panda_ic_event("pda_ic_companion", companion_arrival_event)
+        CreateTimeEvent("pda_ic_companion", companion_arrival_event, 2, check_arrival)
 
         local function cleanup_companion()
             axr_companions.companion_squads[squad_id] = nil
             printf("Companion squad %d removed.", squad_id)
         end
 
-        CreateTimeEvent("pda_ic_companion", "monitor_"..squad_id, 10, function()
+        local companion_monitor_event = "monitor_"..squad_id
+        track_panda_ic_event("pda_ic_companion", companion_monitor_event)
+        CreateTimeEvent("pda_ic_companion", companion_monitor_event, 10, function()
             if not db.actor then return true end
             local s = alife_object(squad_id)
             if not s then
@@ -2798,7 +2881,9 @@ function spawn_native_courier(item_sec)
             end
 
             -- IMPROVEMENT 4: Guaranteed delivery once they arrive. No failing because the player stepped backward.
-            CreateTimeEvent("pda_ic_courier", "deliver_"..squad_id, 2, function()
+            local courier_deliver_event = "deliver_"..squad_id
+            track_panda_ic_event("pda_ic_courier", courier_deliver_event)
+            CreateTimeEvent("pda_ic_courier", courier_deliver_event, 2, function()
                 if not db.actor then return true end
                 
                 if ini_sys:section_exist(item_sec) then
@@ -2845,7 +2930,9 @@ function spawn_native_courier(item_sec)
         end
     end
 
-    CreateTimeEvent("pda_ic_courier", "check_"..squad_id, check_interval, monitor_courier)
+    local courier_check_event = "check_"..squad_id
+    track_panda_ic_event("pda_ic_courier", courier_check_event)
+    CreateTimeEvent("pda_ic_courier", courier_check_event, check_interval, monitor_courier)
 end
 
 -- ============================================================
@@ -2918,7 +3005,9 @@ function teleport_npc_to_smart_terrain(npc_id, smart_ref, npc_name, delay)
     end
 
     if delay > 0 then
-        CreateTimeEvent("pda_ic_tp", "tp_smart_" .. tostring(npc_id) .. "_" .. math.random(100000), delay, do_teleport)
+        local tp_smart_event = "tp_smart_" .. tostring(npc_id) .. "_" .. math.random(100000)
+        track_panda_ic_event("pda_ic_tp", tp_smart_event)
+        CreateTimeEvent("pda_ic_tp", tp_smart_event, delay, do_teleport)
     else
         do_teleport()
     end
@@ -2984,7 +3073,9 @@ function teleport_npc_near_player(npc_id, npc_name, delay)
     end
 
     if delay > 0 then
-        CreateTimeEvent("pda_ic_tp", "tp_player_" .. tostring(npc_id) .. "_" .. math.random(100000), delay, do_teleport)
+        local tp_player_event = "tp_player_" .. tostring(npc_id) .. "_" .. math.random(100000)
+        track_panda_ic_event("pda_ic_tp", tp_player_event)
+        CreateTimeEvent("pda_ic_tp", tp_player_event, delay, do_teleport)
     else
         do_teleport()
     end
@@ -3662,6 +3753,7 @@ function on_game_start()
     RegisterScriptCallback("on_key_press", on_key_press_cb)
     RegisterScriptCallback("save_state", save_state)
     RegisterScriptCallback("load_state", load_state)
+    RegisterScriptCallback("on_game_end", on_game_shutdown_cb)
 
     -- Schedule the first trigger
     schedule_next_trigger(1)
