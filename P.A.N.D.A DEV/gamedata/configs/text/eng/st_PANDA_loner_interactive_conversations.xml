@@ -245,6 +245,21 @@ Format: command:param1:param2
     Player must NOT be on this map.
     Example: req_not_level:l01_escape
 
+  req_actor_near_smart:<smart_key>:<meters>
+    Player must be within <meters> of the specified smart terrain.
+    Smart key format is the same as watch_location outcomes: either
+    translated string ID form (st_<...>_name) or raw smart name.
+    Example: req_actor_near_smart:st_esc_smart_terrain_4_13_name:120
+
+  req_npc_near_smart:<smart_key>:<meters>
+    Conversation NPC must be within <meters> of the specified smart terrain.
+    Uses the same smart key format as watch_location.
+    Example: req_npc_near_smart:esc_smart_terrain_4_13:120
+
+  req_actor_in_zone:<zone_name>
+    Player must be inside a level zone by its engine zone name.
+    Example: req_actor_in_zone:esc_sr_smart_terrain_4_13
+
 --- COMPANIONS ---
 
   req_companions:<count>
@@ -533,6 +548,19 @@ EXAMPLE USAGE IN DIALOGUE:
 
     The system resolves this to a real location like "Flea Market" or "Hangar" and
     if you use watch_location in the outcome, it marks that exact spot on the player's map.
+
+COMPLETE SMART-TERRAIN EXAMPLE (placeholder + outcome + preconditions):
+
+    st_pda_ic_loner_77_precond   = "req_npc_friendly:stalker,req_npc_near_smart:%garbage_panda_st_key%:200,req_actor_near_smart:%garbage_panda_st_key%:450"
+    st_pda_ic_loner_77_open      = "I'm near %garbage_panda_st% right now. Meet me in that area."
+    st_pda_ic_loner_77_choice_1  = "Send me the spot."
+    st_pda_ic_loner_77_reply_1   = "Marking %garbage_panda_st% on your PDA."
+    st_pda_ic_loner_77_outcome_1 = "watch_location:%garbage_panda_st_key%:120"
+
+    Notes:
+      - %garbage_panda_st% is for player-facing text (translated location name).
+      - %garbage_panda_st_key% is for command/precondition parameters.
+      - Both placeholders resolve to the same smart terrain within that conversation.
 
 RULES:
   - ALWAYS use smart terrain placeholders or real smart terrain IDs for locations.
