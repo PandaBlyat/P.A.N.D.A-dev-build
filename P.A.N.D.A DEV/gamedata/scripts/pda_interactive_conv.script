@@ -330,6 +330,64 @@ local function resolve_smart_from_reference(location_ref)
     return smart, smart_name
 end
 
+local function get_position_from_object(obj)
+    if not obj then
+        return nil
+    end
+
+    if type(obj.position) == "function" then
+        return obj:position()
+    end
+
+    return obj.position
+end
+
+local function resolve_smart_position_from_reference(location_ref)
+    local smart = nil
+    local smart_name = nil
+
+    smart, smart_name = resolve_smart_from_reference(location_ref)
+
+    if smart then
+        local smart_pos = get_position_from_object(smart)
+        if smart_pos then
+            return smart_pos, smart_name
+        end
+    end
+
+    if smart_name and SIMBOARD and SIMBOARD.smarts_by_names then
+        local by_name = SIMBOARD.smarts_by_names[smart_name]
+        local smart_pos = get_position_from_object(by_name)
+        if smart_pos then
+            return smart_pos, smart_name
+        end
+    end
+
+    return nil, smart_name
+end
+
+local function get_npc_position(npc_se)
+    if not npc_se then
+        return nil
+    end
+
+    local npc_obj = level.object_by_id(npc_se.id)
+    if npc_obj then
+        local npc_pos = get_position_from_object(npc_obj)
+        if npc_pos then
+            return npc_pos
+        end
+    end
+
+    local npc_alife = alife_object(npc_se.id)
+    local alife_pos = get_position_from_object(npc_alife)
+    if alife_pos then
+        return alife_pos
+    end
+
+    return get_position_from_object(npc_se)
+end
+
 local function get_location_display_name(location_ref)
     if not location_ref or location_ref == "" then
         return "Unknown location"
@@ -1517,6 +1575,20 @@ local function sub_placeholders(str, npc_name, npc_faction)
         return _st_resolve_cache[level_key].name
     end)
 
+    -- Resolve %<level>_panda_st_key% placeholders for outcome commands.
+    str = string.gsub(str, "%%(%w+)_panda_st_key%%", function(level_key)
+        if not _st_resolve_cache[level_key] then
+            local translated, raw_key = resolve_level_smart_terrain_name(level_key)
+            if translated then
+                _st_resolve_cache[level_key] = { name = translated, key = raw_key }
+            else
+                printf("PANDA_IC: failed to resolve %%"..level_key.."_panda_st_key%% placeholder")
+                return "%"..level_key.."_panda_st_key%"
+            end
+        end
+        return _st_resolve_cache[level_key].key
+    end)
+
     -- Then do normal $placeholder substitutions
     local subs = build_substitution_table(npc_name, npc_faction)
     return utils_data.parse_string_keys(str, subs)
@@ -1778,6 +1850,32 @@ function check_preconditions_generic(precond_key, npc_se)
             -- req_not_level:l01_escape — player must NOT be on this map
             local cur_level = level and level.name and level.name() or "unknown"
             if cur_level == parts[2] then return false end
+
+        elseif cmd == "req_actor_near_smart" then
+            -- req_actor_near_smart:<smart_key>:<meters> — actor must be near smart terrain (vanilla actor_near_smart style)
+            local smart_ref = parts[2]
+            if not smart_ref or smart_ref == "" then return false end
+            local dist = tonumber(parts[3]) or 50
+            local actor_pos = act:position()
+            local smart_pos = resolve_smart_position_from_reference(smart_ref)
+            if not smart_pos or actor_pos:distance_to(smart_pos) >= dist then return false end
+
+        elseif cmd == "req_npc_near_smart" then
+            -- req_npc_near_smart:<smart_key>:<meters> — conversation NPC must be near smart terrain
+            if not npc_se then return false end
+            local smart_ref = parts[2]
+            if not smart_ref or smart_ref == "" then return false end
+            local dist = tonumber(parts[3]) or 50
+            local npc_pos = get_npc_position(npc_se)
+            local smart_pos = resolve_smart_position_from_reference(smart_ref)
+            if not npc_pos or not smart_pos or npc_pos:distance_to(smart_pos) >= dist then return false end
+
+        elseif cmd == "req_actor_in_zone" then
+            -- req_actor_in_zone:<zone_name> — actor must be inside named zone (vanilla actor_in_zone style)
+            local zone_name = parts[2]
+            if not zone_name or zone_name == "" then return false end
+            local zone = db.zone_by_name and db.zone_by_name[zone_name] or nil
+            if not zone or not zone:inside(act:position()) then return false end
 
         -- ========== DISTANCE TO NPC ==========
         elseif cmd == "req_distance_max" then
