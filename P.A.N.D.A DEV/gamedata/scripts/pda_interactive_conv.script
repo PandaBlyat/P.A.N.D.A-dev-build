@@ -553,14 +553,38 @@ local function normalize_faction(fac)
     return FACTION_MAP[fac] or fac
 end
 
+local function resolve_actor_id_for_goodwill(context)
+    if AC_ID ~= nil then
+        return AC_ID
+    end
+
+    if db and db.actor and db.actor.id then
+        local ok, actor_id = pcall(function()
+            return db.actor:id()
+        end)
+        if ok and actor_id ~= nil then
+            return actor_id
+        end
+    end
+
+    printf("WARNING: PANDA_IC: unable to resolve actor id for goodwill API%s", context and (" (" .. tostring(context) .. ")") or "")
+    return nil
+end
+
 function change_faction_goodwill(faction, delta)
     local comm = normalize_faction(faction)
     if not comm then
         printf("Invalid faction for goodwill change: %s", faction)
         return
     end
+
+    local actor_id = resolve_actor_id_for_goodwill("change_faction_goodwill")
+    if actor_id == nil then
+        return
+    end
+
     if relation_registry and relation_registry.change_community_goodwill then
-        relation_registry.change_community_goodwill(comm, 0, delta)
+        relation_registry.change_community_goodwill(comm, actor_id, delta)
     else
         printf("WARNING: relation_registry not available")
     end
@@ -1550,6 +1574,16 @@ function check_preconditions_generic(precond_key, npc_se)
     if val == precond_key then return true end
     local act = db.actor
     if not act then return false end
+    local goodwill_actor_id = nil
+    local function get_goodwill_actor_id(context)
+        if goodwill_actor_id ~= nil then
+            return goodwill_actor_id
+        end
+
+        goodwill_actor_id = resolve_actor_id_for_goodwill(context)
+        return goodwill_actor_id
+    end
+
     for entry in string.gmatch(val, "([^,]+)") do
         entry = entry:match("^%s*(.-)%s*$")
         local parts = str_explode(entry, ":")
@@ -1655,9 +1689,11 @@ function check_preconditions_generic(precond_key, npc_se)
                 if npc_fac ~= required_fac then return false end
             end
             -- Check goodwill: NPC's faction must be non-hostile toward player
+            local actor_id = get_goodwill_actor_id("req_npc_friendly")
+            if actor_id == nil then return false end
             local gw = 0
             if relation_registry and relation_registry.community_goodwill then
-                gw = relation_registry.community_goodwill(npc_fac, 0) or 0
+                gw = relation_registry.community_goodwill(npc_fac, actor_id) or 0
             end
             if gw < 0 then return false end
             -- Also check personal relation as fallback
@@ -1678,9 +1714,11 @@ function check_preconditions_generic(precond_key, npc_se)
                 if npc_fac ~= required_fac then return false end
             end
             -- Check goodwill: NPC's faction must be hostile toward player
+            local actor_id = get_goodwill_actor_id("req_npc_hostile")
+            if actor_id == nil then return false end
             local gw = 0
             if relation_registry and relation_registry.community_goodwill then
-                gw = relation_registry.community_goodwill(npc_fac, 0) or 0
+                gw = relation_registry.community_goodwill(npc_fac, actor_id) or 0
             end
             if gw >= 0 then return false end
             -- Also check personal relation as confirmation
@@ -1735,9 +1773,11 @@ function check_preconditions_generic(precond_key, npc_se)
             -- req_goodwill:500:dolg — player must have >= 500 goodwill with Duty
             local amount = tonumber(parts[2]) or 0
             local fac = normalize_faction(parts[3] or "stalker")
+            local actor_id = get_goodwill_actor_id("req_goodwill")
+            if actor_id == nil then return false end
             local gw = 0
             if relation_registry and relation_registry.community_goodwill then
-                gw = relation_registry.community_goodwill(fac, 0) or 0
+                gw = relation_registry.community_goodwill(fac, actor_id) or 0
             end
             if gw < amount then return false end
 
@@ -1745,9 +1785,11 @@ function check_preconditions_generic(precond_key, npc_se)
             -- req_goodwill_max:-500:bandit — player goodwill with bandits must be <= -500
             local amount = tonumber(parts[2]) or 0
             local fac = normalize_faction(parts[3] or "stalker")
+            local actor_id = get_goodwill_actor_id("req_goodwill_max")
+            if actor_id == nil then return false end
             local gw = 0
             if relation_registry and relation_registry.community_goodwill then
-                gw = relation_registry.community_goodwill(fac, 0) or 0
+                gw = relation_registry.community_goodwill(fac, actor_id) or 0
             end
             if gw > amount then return false end
 
