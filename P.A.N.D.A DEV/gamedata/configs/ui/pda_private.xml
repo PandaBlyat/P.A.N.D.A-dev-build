@@ -44,7 +44,7 @@
             </player_presence_container>
 
             <player_presence_portrait x="14" y="42" width="32" height="32" stretch="1">
-                <texture>ui_inGame2_Neutral_1</texture>
+                <texture>ui_inGame2_neutral_1</texture>
             </player_presence_portrait>
 
             <player_presence_state_icon x="40" y="62" width="12" height="12" stretch="1">
@@ -109,7 +109,7 @@
                 <!-- NPC Portrait -->
                 <image_container x="5" y="3" width="64" height="64">
                     <image x="0" y="0" width="64" height="64" stretch="1">
-                        <texture>ui_inGame2_Neutral_1</texture>
+                        <texture>ui_inGame2_neutral_1</texture>
                     </image>
                 </image_container>
                 
@@ -125,7 +125,7 @@
                 
                 <!-- Faction patch icon -->
                 <faction_patch_icon x="75" y="30" width="22" height="22" stretch="1">
-                    <texture>ui_inGame2_Neutral_1</texture>
+                    <texture>ui_inGame2_neutral_1</texture>
                 </faction_patch_icon>
 
                 <!-- Faction badge -->

@@ -20,7 +20,7 @@
 -- ============================================================
 local DIK_SPACE, DIK_0, DIK_1, DIK_2, DIK_3, DIK_4 = 57, 11, 2, 3, 4, 5
 local CHOICE_KEYS = { [DIK_1]=1, [DIK_2]=2, [DIK_3]=3, [DIK_4]=4 }
-local FALLBACK_NPC_ICON = "ui_inGame2_Neutral_1"
+local FALLBACK_NPC_ICON = "ui_inGame2_neutral_1"
 
 local safe_remove_time_event
 
@@ -90,7 +90,7 @@ function pda_private_add_message(contact_id, contact_name, sender_name, text, ic
         contact_name = contact_name,   -- Display name for UI
         sender = sender_name,
         text = text,
-        sender_icon = icon or "ui_inGame2_Neutral_1",
+        sender_icon = icon or "ui_inGame2_neutral_1",
         timestamp = current_time,
         raw_time = raw_time,  -- NEW: Store raw time for calculations
         is_player = is_player or false,

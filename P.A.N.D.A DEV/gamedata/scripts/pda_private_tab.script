@@ -90,7 +90,7 @@ local function apply_button_hitbox_style(btn)
 end
 
 local function resolve_actor_portrait_texture()
-    local fallback_icon = "ui_inGame2_Neutral_1"
+    local fallback_icon = "ui_inGame2_neutral_1"
 
     if db and db.actor and db.actor.character_icon then
         local icon = db.actor:character_icon()
@@ -1366,7 +1366,7 @@ function get_npc_data(contact_name)
                     local player_comm = character_community(db.actor)
                     relation = relation_registry.community_relation(community, player_comm) or 0
                 end
-                local icon = obj:character_icon() or "ui_inGame2_Neutral_1"
+                local icon = obj:character_icon() or "ui_inGame2_neutral_1"
                 return { name = obj:character_name(), community = community, relation = relation, goodwill = goodwill, rank = rank_name, icon = icon, obj = obj, is_alive = true }
             end
         end
@@ -1387,7 +1387,7 @@ function get_npc_data(contact_name)
                         local player_comm = character_community(db.actor)
                         relation = relation_registry.community_relation(community, player_comm) or 0
                     end
-                    local icon = obj:character_icon() or "ui_inGame2_Neutral_1"
+                    local icon = obj:character_icon() or "ui_inGame2_neutral_1"
                     return { name = contact_name, community = community, relation = relation, goodwill = goodwill, rank = rank_name, icon = icon, obj = obj, is_alive = true }
                 end
             end
@@ -1490,7 +1490,7 @@ function pda_private_tab:Reset(target_contact_id)
             data.display_name or contact_id,
             clean_text,
             relative_time,
-            data.icon or "ui_inGame2_Neutral_1",
+            data.icon or "ui_inGame2_neutral_1",
             data.message_count,
             self:IsContactConversationOnline(contact_id)
         )
@@ -1655,8 +1655,8 @@ function pda_private_tab:OnSelectNPC()
         end
     end
 
-    portrait_icon = portrait_icon or "ui_inGame2_Neutral_1"
-    if not valid_texture_name(portrait_icon) then portrait_icon = "ui_inGame2_Neutral_1" end
+    portrait_icon = portrait_icon or "ui_inGame2_neutral_1"
+    if not valid_texture_name(portrait_icon) then portrait_icon = "ui_inGame2_neutral_1" end
 
     self.image:InitTexture(portrait_icon)
     self.image:SetStretchTexture(true) 
