@@ -90,25 +90,33 @@ local function apply_button_hitbox_style(btn)
 end
 
 local function resolve_actor_portrait_texture()
+    -- Mirror vanilla portrait resolution order from pda.script/coc_rankings_set_icon.
     local fallback_icon = "ui\\ui_noise"
 
-    if db and db.actor then
-        if ui_options and ui_options.get and ui_options.get("gameplay/general/outfit_portrait") == true and db.actor.item_in_slot then
-            local outfit = db.actor:item_in_slot(7)
-            if outfit and ini_sys and ini_sys.r_string_ex then
-                local icon = ini_sys:r_string_ex(outfit:section(), "character_portrait")
-                if icon and icon ~= "" then
-                    return icon
-                end
-            end
-        end
+    if not (db and db.actor) then
+        return fallback_icon
+    end
 
-        if db.actor.character_icon then
-            local icon = db.actor:character_icon()
+    if ui_options and ui_options.get and ui_options.get("gameplay/general/outfit_portrait") == true and db.actor.item_in_slot then
+        local outfit = db.actor:item_in_slot(7)
+        if outfit and ini_sys and ini_sys.r_string_ex then
+            local icon = ini_sys:r_string_ex(outfit:section(), "character_portrait")
             if icon and icon ~= "" then
                 return icon
             end
         end
+    end
+
+    if db.actor.character_icon then
+        local icon = db.actor:character_icon()
+        if icon and icon ~= "" then
+            return icon
+        end
+    end
+
+    -- bind_stalker_ext keeps the actor default portrait in db.actor_binder.character_icon.
+    if db.actor_binder and db.actor_binder.character_icon and db.actor_binder.character_icon ~= "" then
+        return db.actor_binder.character_icon
     end
 
     return fallback_icon
@@ -528,6 +536,12 @@ function pda_private_tab:RefreshPlayerPresenceUI()
         if actor_icon ~= self.player_presence_portrait_tex then
             self.player_presence_portrait:InitTexture(actor_icon)
             self.player_presence_portrait_tex = actor_icon
+        end
+        if self.player_presence_portrait.SetStretchTexture then
+            self.player_presence_portrait:SetStretchTexture(true)
+        end
+        if self.player_presence_portrait.SetTextureColor then
+            self.player_presence_portrait:SetTextureColor(GetARGB(255, 255, 255, 255))
         end
     end
 
