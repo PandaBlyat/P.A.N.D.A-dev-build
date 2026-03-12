@@ -269,7 +269,15 @@ function PANDA.get_config(key)
     if ui_mcm then
         -- Keys are stored under the "interactive" group inside the MCM tree
         local val = ui_mcm.get("pda_interactive_conv/interactive/" .. key)
-        if val ~= nil then return val end
+        if val ~= nil then
+            if key == "precond_unknown_policy" then
+                if val == 1 or val == "1" then return "strict" end
+                if val == 2 or val == "2" then return "warn-and-skip" end
+                if val == "strict" or val == "warn-and-skip" then return val end
+                return MCM_DEFAULTS.precond_unknown_policy
+            end
+            return val
+        end
     end
     return MCM_DEFAULTS[key]
 end

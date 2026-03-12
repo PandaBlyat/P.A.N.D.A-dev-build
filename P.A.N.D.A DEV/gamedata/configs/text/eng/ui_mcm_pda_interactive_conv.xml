@@ -386,6 +386,20 @@
 		<text>Maximum number of attempts to wait for squad members to become online before giving up.</text>
 	</string>
 
+	<string id="ui_mcm_pda_interactive_conv_interactive_precond_unknown_policy">
+		<text>Unknown Precondition Policy</text>
+	</string>
+	<string id="ui_mcm_pda_interactive_conv_interactive_precond_unknown_policy_desc">
+		<text>Controls how unknown or unsupported precondition tokens are handled. Strict fails evaluation. Warn-and-skip logs and treats unknown tokens as passed.</text>
+	</string>
+
+	<string id="ui_mcm_pda_interactive_conv_interactive_precond_verbose_debug">
+		<text>Verbose Precondition Debug</text>
+	</string>
+	<string id="ui_mcm_pda_interactive_conv_interactive_precond_verbose_debug_desc">
+		<text>Enable detailed precondition evaluation trace logging. Useful for diagnosing why conversation options pass or fail.</text>
+	</string>
+
 	<!-- Debug -->
 	<string id="ui_mcm_pda_interactive_conv_interactive_debug_logging">
 		<text>Debug Logging</text>
