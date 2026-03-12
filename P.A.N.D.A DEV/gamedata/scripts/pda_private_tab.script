@@ -91,7 +91,7 @@ end
 
 local function resolve_actor_portrait_texture()
     -- Mirror vanilla portrait resolution order from pda.script/coc_rankings_set_icon.
-    local fallback_icon = "ui\\ui_noise"
+    local fallback_icon = "ui_inGame2_neutral_1"
 
     if not (db and db.actor) then
         return fallback_icon
@@ -252,8 +252,9 @@ function pda_private_tab:__init()
     self.choice_typewriter = nil
     self.contact_presence_until = {}
     self.current_presence_contact = nil
-    self.presence_offline_delay_min_ms = 3000
-    self.presence_offline_delay_max_ms = 10000
+    self.presence_offline_delay_min_ms = 15000
+    self.presence_offline_delay_max_ms = 20000
+    self.presence_seen_entries = setmetatable({}, { __mode = "k" })
     self.button_flash_until = {}
     self.layout_cache_desc_w = -1
     self.layout_cache_desc_h = -1
@@ -533,8 +534,16 @@ function pda_private_tab:RefreshPlayerPresenceUI()
 
     if self.player_presence_portrait then
         local actor_icon = resolve_actor_portrait_texture()
+        if not actor_icon or actor_icon == "" then
+            actor_icon = "ui_inGame2_neutral_1"
+        end
+
         if actor_icon ~= self.player_presence_portrait_tex then
-            self.player_presence_portrait:InitTexture(actor_icon)
+            local init_ok = pcall(function() self.player_presence_portrait:InitTexture(actor_icon) end)
+            if not init_ok and actor_icon ~= "ui_inGame2_neutral_1" then
+                actor_icon = "ui_inGame2_neutral_1"
+                pcall(function() self.player_presence_portrait:InitTexture(actor_icon) end)
+            end
             self.player_presence_portrait_tex = actor_icon
         end
         if self.player_presence_portrait.SetStretchTexture then
@@ -622,33 +631,55 @@ end
 
 function pda_private_tab:UpdateConversationPresenceState()
     local now_ms = time_global() or 0
+    local hold_min = self.presence_offline_delay_min_ms or 15000
+    local hold_max = self.presence_offline_delay_max_ms or 20000
 
-    -- Update presence for ALL active conversations
-    if pda_interactive_conv and pda_interactive_conv.active_conversations then
-        for contact_name, _ in pairs(pda_interactive_conv.active_conversations) do
-            self.contact_presence_until[contact_name] = now_ms
+    local function extend_presence(contact_name, duration_ms)
+        if not contact_name or contact_name == "" or contact_name == "System" then
+            return
+        end
+
+        local candidate_until = now_ms + math.max(0, tonumber(duration_ms) or 0)
+        local current_until = self.contact_presence_until[contact_name] or 0
+        if candidate_until > current_until then
+            self.contact_presence_until[contact_name] = candidate_until
         end
     end
 
-    -- Handle contacts that just went offline (had conversations that ended)
-    if self.active_presence_contacts then
-        for contact_name, _ in pairs(self.active_presence_contacts) do
-            local still_active = pda_interactive_conv.active_conversations
-                and pda_interactive_conv.active_conversations[contact_name]
-            if not still_active and not self.contact_presence_until[contact_name] then
-                local min_delay = self.presence_offline_delay_min_ms or 3000
-                local max_delay = self.presence_offline_delay_max_ms or 10000
-                local delay_ms = math.random(min_delay, max_delay)
-                self.contact_presence_until[contact_name] = now_ms + delay_ms
+    -- Active conversation turns always keep the contact online while choices are available.
+    if pda_interactive_conv and pda_interactive_conv.active_conversations then
+        for contact_name, _ in pairs(pda_interactive_conv.active_conversations) do
+            extend_presence(contact_name, hold_max)
+        end
+    end
+
+    -- Parse newly inserted chat log entries once so online state follows message activity.
+    local conv_api = get_conv_api()
+    local log = conv_api and conv_api.pda_private_log or nil
+    if log then
+        if not self.presence_seen_entries then
+            self.presence_seen_entries = setmetatable({}, { __mode = "k" })
+        end
+
+        for i = #log, 1, -1 do
+            local entry = log[i]
+            if entry and not self.presence_seen_entries[entry] then
+                self.presence_seen_entries[entry] = true
+
+                local contact_name = entry.contact_id or entry.contact_name
+                if contact_name and contact_name ~= "System" then
+                    if entry.is_typing then
+                        -- Typing indicator means active engagement right now.
+                        extend_presence(contact_name, hold_max)
+                    elseif entry.is_player then
+                        -- Player replied before timeout => keep the contact online.
+                        extend_presence(contact_name, hold_max)
+                    else
+                        -- NPC has replied: remain online for 15-20s after the reply.
+                        extend_presence(contact_name, math.random(hold_min, hold_max))
+                    end
+                end
             end
-        end
-    end
-
-    -- Snapshot current active contacts for next frame comparison
-    self.active_presence_contacts = {}
-    if pda_interactive_conv and pda_interactive_conv.active_conversations then
-        for contact_name, _ in pairs(pda_interactive_conv.active_conversations) do
-            self.active_presence_contacts[contact_name] = true
         end
     end
 end
