@@ -90,7 +90,7 @@ local function apply_button_hitbox_style(btn)
 end
 
 local function resolve_actor_portrait_texture()
-    local fallback_icon = "ui_inGame2_neutral_1"
+    local fallback_icon = "ui\\ui_noise"
 
     if db and db.actor then
         if ui_options and ui_options.get and ui_options.get("gameplay/general/outfit_portrait") == true and db.actor.item_in_slot then
@@ -105,16 +105,6 @@ local function resolve_actor_portrait_texture()
 
         if db.actor.character_icon then
             local icon = db.actor:character_icon()
-            if icon and icon ~= "" then
-                return icon
-            end
-        end
-    end
-
-    if db and db.actor and db.actor.id and alife_object then
-        local actor_se = alife_object(db.actor:id())
-        if actor_se and actor_se.character_icon then
-            local icon = actor_se:character_icon()
             if icon and icon ~= "" then
                 return icon
             end
