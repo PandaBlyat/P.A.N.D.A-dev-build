@@ -1,4 +1,4 @@
-.PHONY: doctor doctor-strict lua-lint xml-lint check setup-tools
+.PHONY: doctor doctor-strict lua-lint xml-lint check setup-tools treasure-possible-items
 
 export PATH := $(CURDIR)/tools/bin:$(PATH)
 
@@ -18,3 +18,8 @@ xml-lint:
 	find "P.A.N.D.A DEV/gamedata/configs" -name "*.xml" -print0 | xargs -0 -I{} xmllint --noout "{}"
 
 check: doctor
+
+
+treasure-possible-items:
+	@echo "Usage: make treasure-possible-items ITEMS_ROOT=... TREASURE_LTX=... [OUT=possible_items_clean.ltx]"
+	python3 tools/build_treasure_possible_items.py --items-root "$(ITEMS_ROOT)" --treasure-ltx "$(TREASURE_LTX)" $(if $(OUT),--output "$(OUT)",)
