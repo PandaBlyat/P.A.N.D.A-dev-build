@@ -122,6 +122,29 @@ local function resolve_actor_portrait_texture()
     return fallback_icon
 end
 
+local function try_set_texture(static_wnd, primary_tex, fallback_tex)
+    if not static_wnd or not static_wnd.InitTexture then
+        return fallback_tex or primary_tex
+    end
+
+    local function set_tex(tex)
+        if not tex or tex == "" then
+            return false
+        end
+        return pcall(function() static_wnd:InitTexture(tex) end)
+    end
+
+    if set_tex(primary_tex) then
+        return primary_tex
+    end
+
+    if fallback_tex and fallback_tex ~= primary_tex and set_tex(fallback_tex) then
+        return fallback_tex
+    end
+
+    return fallback_tex or primary_tex
+end
+
 local function is_button_hovered(btn)
     if not btn then
         return false
@@ -272,10 +295,10 @@ function pda_private_tab:InitControls()
     self.xml:InitTextWnd("private_pda:info:list_header", self.dialog)
 
     self.player_presence_container = self.xml:InitStatic("private_pda:info:player_presence_container", self.dialog)
-    self.player_presence_portrait = self.xml:InitStatic("private_pda:info:player_presence_portrait", self.dialog)
-    self.player_presence_state_icon = self.xml:InitStatic("private_pda:info:player_presence_state_icon", self.dialog)
-    self.player_presence_label = self.xml:InitTextWnd("private_pda:info:player_presence_label", self.dialog)
-    self.player_presence_toggle_btn = self.xml:Init3tButton("private_pda:info:player_presence_toggle_btn", self.dialog)
+    self.player_presence_portrait = self.xml:InitStatic("private_pda:info:player_presence_portrait", self.player_presence_container)
+    self.player_presence_state_icon = self.xml:InitStatic("private_pda:info:player_presence_state_icon", self.player_presence_container)
+    self.player_presence_label = self.xml:InitTextWnd("private_pda:info:player_presence_label", self.player_presence_container)
+    self.player_presence_toggle_btn = self.xml:Init3tButton("private_pda:info:player_presence_toggle_btn", self.player_presence_container)
     self.player_presence_menu_bg = self.xml:InitStatic("private_pda:info:player_presence_menu_bg", self.dialog)
     self.player_presence_online_btn = self.xml:Init3tButton("private_pda:info:player_presence_online_btn", self.dialog)
     self.player_presence_offline_btn = self.xml:Init3tButton("private_pda:info:player_presence_offline_btn", self.dialog)
@@ -539,11 +562,7 @@ function pda_private_tab:RefreshPlayerPresenceUI()
         end
 
         if actor_icon ~= self.player_presence_portrait_tex then
-            local init_ok = pcall(function() self.player_presence_portrait:InitTexture(actor_icon) end)
-            if not init_ok and actor_icon ~= "ui_inGame2_neutral_1" then
-                actor_icon = "ui_inGame2_neutral_1"
-                pcall(function() self.player_presence_portrait:InitTexture(actor_icon) end)
-            end
+            actor_icon = try_set_texture(self.player_presence_portrait, actor_icon, "ui_inGame2_neutral_1")
             self.player_presence_portrait_tex = actor_icon
         end
         if self.player_presence_portrait.SetStretchTexture then
@@ -552,11 +571,20 @@ function pda_private_tab:RefreshPlayerPresenceUI()
         if self.player_presence_portrait.SetTextureColor then
             self.player_presence_portrait:SetTextureColor(GetARGB(255, 255, 255, 255))
         end
+        if self.player_presence_portrait.Show then
+            self.player_presence_portrait:Show(true)
+        end
     end
 
     if self.player_presence_state_icon then
-        self.player_presence_state_icon:InitTexture(is_online and "ui_panda_on_icon" or "ui_panda_off_icon")
+        try_set_texture(self.player_presence_state_icon, is_online and "ui_panda_on_icon" or "ui_panda_off_icon", "ui_panda_off_icon")
+        if self.player_presence_state_icon.SetStretchTexture then
+            self.player_presence_state_icon:SetStretchTexture(true)
+        end
         self.player_presence_state_icon:SetTextureColor(GetARGB(255, 255, 255, 255))
+        if self.player_presence_state_icon.Show then
+            self.player_presence_state_icon:Show(true)
+        end
     end
 
     if self.player_presence_label then
