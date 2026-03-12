@@ -34,6 +34,20 @@ end
 
 pda_private_log = {} -- Initialize the table
 pda_private_blocked_contacts = {}
+npc_relationship_scores = {} -- Per-NPC relationship scores, keyed by contact_id (-1000 to 1000)
+
+function make_contact_id(npc_se)
+    return tostring(npc_se.id)
+end
+
+function get_npc_relationship(contact_id)
+    return npc_relationship_scores[contact_id] or 0
+end
+
+function change_npc_relationship(contact_id, delta)
+    local current = npc_relationship_scores[contact_id] or 0
+    npc_relationship_scores[contact_id] = math.max(-1000, math.min(1000, current + delta))
+end
 
 local function get_delivery_time_marker()
     if time_global then
@@ -52,8 +66,8 @@ local function normalize_delivery_state(state)
 end
 
 -- Function to add messages to the log
-function pda_private_add_message(contact_name, sender_name, text, icon, is_player, delivery_state, delivery_timestamp)
-    if contact_name and pda_private_blocked_contacts[contact_name] then
+function pda_private_add_message(contact_id, contact_name, sender_name, text, icon, is_player, delivery_state, delivery_timestamp)
+    if contact_id and pda_private_blocked_contacts[contact_id] then
         return false
     end
 
@@ -61,22 +75,23 @@ function pda_private_add_message(contact_name, sender_name, text, icon, is_playe
     local game_time = game.get_game_time()
     local Y, M, D, h, m, s, ms = 0, 0, 0, 0, 0, 0, 0
     Y, M, D, h, m, s, ms = game_time:get(Y, M, D, h, m, s, ms)
-    
+
     -- Format it into a string (DD/MM/YYYY HH:MM) for display
     local current_time = string.format("%02d/%02d/%04d %02d:%02d", D, M, Y, h, m)
-    
+
     -- Store raw time data for accurate relative time calculations
     local raw_time = {
-        year = Y, month = M, day = D, 
+        year = Y, month = M, day = D,
         hour = h, minute = m, second = s
     }
 
     table.insert(pda_private_log, 1, { -- Insert at index 1 so newest are first
-        contact_name = contact_name,   -- Crucial for grouping threads!
+        contact_id = contact_id,       -- Unique NPC ID for grouping threads
+        contact_name = contact_name,   -- Display name for UI
         sender = sender_name,
         text = text,
         sender_icon = icon or "ui_inGame2_Neutral_1",
-        timestamp = current_time, 
+        timestamp = current_time,
         raw_time = raw_time,  -- NEW: Store raw time for calculations
         is_player = is_player or false,
         delivery_state = (is_player and normalize_delivery_state(delivery_state)) or nil,
@@ -91,8 +106,8 @@ function pda_private_add_message(contact_name, sender_name, text, icon, is_playe
     return true
 end
 
-function delete_contact_thread(contact_name)
-    if not contact_name then
+function delete_contact_thread(contact_id)
+    if not contact_id then
         return 0
     end
 
@@ -100,7 +115,7 @@ function delete_contact_thread(contact_name)
     local i = #pda_private_log
     while i >= 1 do
         local entry = pda_private_log[i]
-        if entry and entry.contact_name == contact_name then
+        if entry and entry.contact_id == contact_id then
             table.remove(pda_private_log, i)
             removed = removed + 1
         end
@@ -110,25 +125,25 @@ function delete_contact_thread(contact_name)
     return removed
 end
 
-function is_contact_blocked(contact_name)
-    return contact_name ~= nil and pda_private_blocked_contacts[contact_name] == true
+function is_contact_blocked(contact_id)
+    return contact_id ~= nil and pda_private_blocked_contacts[contact_id] == true
 end
 
-function block_contact(contact_name)
-    if not contact_name then
+function block_contact(contact_id)
+    if not contact_id then
         return false, 0
     end
 
-    pda_private_blocked_contacts[contact_name] = true
-    local removed = delete_contact_thread(contact_name)
+    pda_private_blocked_contacts[contact_id] = true
+    local removed = delete_contact_thread(contact_id)
 
-    local convo = active_conversations and active_conversations[contact_name]
+    local convo = active_conversations and active_conversations[contact_id]
 
     -- Remove from multi-conversation table
-    if active_conversations[contact_name] then
-        active_conversations[contact_name] = nil
+    if active_conversations[contact_id] then
+        active_conversations[contact_id] = nil
     end
-    if CONV and CONV.npc_name == contact_name then
+    if CONV and CONV.contact_id == contact_id then
         CONV = nil
     end
 
@@ -149,25 +164,25 @@ function block_contact(contact_name)
         safe_remove_time_event(ev_prefix, "outcome")
     end
 
-    clear_npc_typing_message(contact_name)
+    clear_npc_typing_message(contact_id)
 
     return true, removed
 end
 
-function unblock_contact(contact_name)
-    if not contact_name then
+function unblock_contact(contact_id)
+    if not contact_id then
         return false
     end
 
-    pda_private_blocked_contacts[contact_name] = nil
+    pda_private_blocked_contacts[contact_id] = nil
     return true
 end
 
-function set_last_player_message_state(contact_name, state)
+function set_last_player_message_state(contact_id, state)
     local normalized_state = normalize_delivery_state(state)
     for i = 1, #pda_private_log do
         local entry = pda_private_log[i]
-        if entry and entry.is_player and entry.contact_name == contact_name then
+        if entry and entry.is_player and entry.contact_id == contact_id then
             entry.delivery_state = normalized_state
             entry.delivery_timestamp = get_delivery_time_marker()
             return true
@@ -176,22 +191,22 @@ function set_last_player_message_state(contact_name, state)
 
     return false
 end
-function upsert_npc_typing_message(contact_name, sender_name, icon)
-    if not contact_name then
+function upsert_npc_typing_message(contact_id, sender_name, icon)
+    if not contact_id then
         return false
     end
 
     for i = 1, #pda_private_log do
         local entry = pda_private_log[i]
-        if entry and entry.contact_name == contact_name and entry.is_typing then
-            entry.sender = sender_name or contact_name
+        if entry and entry.contact_id == contact_id and entry.is_typing then
+            entry.sender = sender_name or entry.contact_name or "Unknown"
             entry.sender_icon = icon or entry.sender_icon or FALLBACK_NPC_ICON
             entry.timestamp = entry.timestamp or ""
             return true
         end
     end
 
-    pda_private_add_message(contact_name, sender_name or contact_name, "Typing...", icon or FALLBACK_NPC_ICON, false)
+    pda_private_add_message(contact_id, nil, sender_name or "Unknown", "Typing...", icon or FALLBACK_NPC_ICON, false)
     local latest = pda_private_log[1]
     if latest then
         latest.is_typing = true
@@ -200,8 +215,8 @@ function upsert_npc_typing_message(contact_name, sender_name, icon)
     return true
 end
 
-function clear_npc_typing_message(contact_name)
-    if not contact_name then
+function clear_npc_typing_message(contact_id)
+    if not contact_id then
         return false
     end
 
@@ -209,7 +224,7 @@ function clear_npc_typing_message(contact_name)
     local i = #pda_private_log
     while i >= 1 do
         local entry = pda_private_log[i]
-        if entry and entry.contact_name == contact_name and entry.is_typing then
+        if entry and entry.contact_id == contact_id and entry.is_typing then
             table.remove(pda_private_log, i)
             removed = true
         end
@@ -528,9 +543,9 @@ end
 -- ============================================================
 -- MULTI-CONVERSATION HELPERS
 -- ============================================================
-function get_active_conv(contact_name)
-    if not contact_name then return nil end
-    return active_conversations[contact_name]
+function get_active_conv(contact_id)
+    if not contact_id then return nil end
+    return active_conversations[contact_id]
 end
 
 function get_active_conv_for_selected()
@@ -2216,7 +2231,7 @@ end
 -- OUTCOME HANDLERS
 -- ============================================================
 
-function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_id, pre_found_task_id)
+function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_id, pre_found_task_id, sender_contact_id)
     if not outcome_str or outcome_str == "" or outcome_str == "none" then return false end
 
     local task_given = false
@@ -3057,7 +3072,7 @@ end
 -- CONVERSATION FLOW (State Machine)
 -- ============================================================
 
-function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name)
+function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact_id)
     local p
     if prefix == "task" or not prefix then
         p = "st_pda_ic_"..faction.."_"..tostring(conv_id)
@@ -3070,18 +3085,41 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name)
     end
     local choices, count = {}, 0
 
+    -- Get relationship score for reply variant selection
+    local rel = contact_id and get_npc_relationship(contact_id) or 0
+
     for i = 1, 4 do
         local key = p.."_choice_"..i
         local text = game.translate_string(key)
-        if text == key then break end 
+        if text == key then break end
+
+        local reply_key = p.."_reply_"..i
+        local reply_text = game.translate_string(reply_key)
+        if reply_text == reply_key then reply_text = "" end
+
+        -- Check for relationship-conditional reply variants
+        if reply_text ~= "" and contact_id then
+            if rel >= 300 then
+                local high_key = p.."_reply_"..i.."_rel_high"
+                local high_text = game.translate_string(high_key)
+                if high_text ~= high_key then
+                    reply_text = high_text
+                end
+            elseif rel <= -300 then
+                local low_key = p.."_reply_"..i.."_rel_low"
+                local low_text = game.translate_string(low_key)
+                if low_text ~= low_key then
+                    reply_text = low_text
+                end
+            end
+        end
 
         choices[i] = {
             text = sub_placeholders(text, npc_name, faction),
-            reply = sub_placeholders(game.translate_string(p.."_reply_"..i), npc_name, faction),
+            reply = sub_placeholders(reply_text, npc_name, faction),
             outcome = game.translate_string(p.."_outcome_"..i),
             next_turn = tonumber(game.translate_string(p.."_cont_"..i)) or nil
         }
-        if choices[i].reply == p.."_reply_"..i then choices[i].reply = "" end
         if choices[i].outcome == p.."_outcome_"..i then choices[i].outcome = "none" end
         count = i
     end
@@ -3090,11 +3128,11 @@ end
 
 
 
-function on_player_choice(idx, contact_name)
-    -- Resolve which conversation to act on: use contact_name if given, else fall back to CONV
+function on_player_choice(idx, contact_id)
+    -- Resolve which conversation to act on: use contact_id if given, else fall back to CONV
     local c
-    if contact_name and active_conversations[contact_name] then
-        c = active_conversations[contact_name]
+    if contact_id and active_conversations[contact_id] then
+        c = active_conversations[contact_id]
     elseif CONV then
         c = CONV
     end
@@ -3103,13 +3141,14 @@ function on_player_choice(idx, contact_name)
 
     local ch = c.choices[idx]
     local npc_name = c.npc_name
+    local cid = c.contact_id
 
     -- Add player choice to log, NO global tip
-    pda_private_add_message(npc_name, db.actor:character_name(), ch.text, db.actor:character_icon(), true, "sent")
+    pda_private_add_message(cid, npc_name, db.actor:character_name(), ch.text, db.actor:character_icon(), true, "sent")
 
     -- Remove from active table to prevent button-mashing abuse
-    active_conversations[npc_name] = nil
-    if CONV and CONV.npc_name == npc_name then CONV = nil end
+    active_conversations[cid] = nil
+    if CONV and CONV.contact_id == cid then CONV = nil end
 
     -- Check if outcome has already been triggered in this conversation
     local outcome_key = tostring(c.turn) .. "_" .. tostring(idx)
@@ -3141,22 +3180,22 @@ function on_player_choice(idx, contact_name)
     -- Stage 2: After a short delay, mark as "delivered" (message reaches NPC's PDA)
     local delivered_delay = math.random(1, 2)
     CreateTimeEvent(ev_prefix, "delivery_ack", delivered_delay, function()
-        set_last_player_message_state(npc_name, "delivered")
+        set_last_player_message_state(cid, "delivered")
 
         -- Stage 3: NPC reads the message
         local player_msg_len = string.len(ch.text or "")
         local read_delay = math.max(1, math.min(4, math.floor(player_msg_len / 30) + 1))
         CreateTimeEvent(ev_prefix, "npc_read", read_delay, function()
-            set_last_player_message_state(npc_name, "read")
+            set_last_player_message_state(cid, "read")
 
             -- Stage 4: NPC thinks before typing
             local think_delay = math.random(1, 3)
             CreateTimeEvent(ev_prefix, "npc_thinking", think_delay, function()
 
                 -- Stage 5: NPC starts typing
-                upsert_npc_typing_message(npc_name, npc_name, c.npc_icon)
+                upsert_npc_typing_message(cid, npc_name, c.npc_icon)
                 CreateTimeEvent(ev_prefix, "npc_reply", typing_duration, function()
-                    clear_npc_typing_message(npc_name)
+                    clear_npc_typing_message(cid)
 
                     if ch.reply and ch.reply ~= "" then
                         if is_private_tab_visible and is_private_tab_visible() then
@@ -3164,28 +3203,28 @@ function on_player_choice(idx, contact_name)
                         else
                             printf("Global alert: New message from %s", npc_name)
                         end
-                        pda_private_add_message(npc_name, npc_name, ch.reply, c.npc_icon, false)
-                        set_last_player_message_state(npc_name, "read")
+                        pda_private_add_message(cid, npc_name, npc_name, ch.reply, c.npc_icon, false)
+                        set_last_player_message_state(cid, "read")
                     end
 
                     if should_apply_outcome then
                         local outcome_delay_min = PANDA.get_config("outcome_delay_min") or 1
                         local outcome_delay_max = PANDA.get_config("outcome_delay_max") or 2
                         CreateTimeEvent(ev_prefix, "outcome", math.random(outcome_delay_min, outcome_delay_max), function()
-                            apply_outcome(ch.outcome, npc_name, c.faction, c.npc_id, c.task_id)
+                            apply_outcome(ch.outcome, npc_name, c.faction, c.npc_id, c.task_id, cid)
                             return true
                         end)
                     end
 
                     if ch.next_turn then
-                        local next_choices, num = load_choices_for_turn(c.prefix, c.faction, c.conv_id, ch.next_turn, npc_name)
+                        local next_choices, num = load_choices_for_turn(c.prefix, c.faction, c.conv_id, ch.next_turn, npc_name, cid)
                         if num > 0 then
                             c.turn = ch.next_turn
                             c.choices = next_choices
                             c.num_choices = num
                             c.reply_pending = false
                             -- Re-register in multi-conv table
-                            active_conversations[npc_name] = c
+                            active_conversations[cid] = c
                             CONV = c
                         end
                     end
@@ -3214,9 +3253,18 @@ end
 
 function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, category)
     local name = npc_se:character_name()
+    local contact_id = make_contact_id(npc_se)
 
     -- Block if this specific NPC already has an active conversation
-    if active_conversations[name] then return false end
+    if active_conversations[contact_id] then return false end
+
+    -- Initialize relationship score for hostile NPCs on first contact
+    if not npc_relationship_scores[contact_id] then
+        local npc_obj = level.object_by_id(npc_se.id)
+        if npc_obj and npc_obj:relation(db.actor) == game_object.enemy then
+            npc_relationship_scores[contact_id] = -200  -- Wary default for hostile NPCs
+        end
+    end
 
     -- Clear smart terrain placeholder cache for fresh resolution this conversation
     clear_st_resolve_cache()
@@ -3231,11 +3279,12 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
     local msg = game.translate_string(key)
     if msg == key then return false end
 
-    local choices, num = load_choices_for_turn(prefix, faction, conv_id, 1, name)
+    local choices, num = load_choices_for_turn(prefix, faction, conv_id, 1, name, contact_id)
     if num == 0 then return false end
 
     local conv_data = {
         npc_id = npc_se.id,
+        contact_id = contact_id,
         npc_name = name,
         npc_icon = npc_se:character_icon() or FALLBACK_NPC_ICON,
         faction = faction,
@@ -3251,8 +3300,8 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
         reply_pending = false,  -- Per-conversation reply pending flag
     }
 
-    -- Store in multi-conversation table
-    active_conversations[name] = conv_data
+    -- Store in multi-conversation table keyed by contact_id
+    active_conversations[contact_id] = conv_data
     -- Keep CONV pointing to the latest conversation for backward compatibility
     CONV = conv_data
 
@@ -3266,7 +3315,7 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
     )
 
     -- Add the actual message directly into the custom Private PDA Log
-    pda_private_add_message(name, name, sub_placeholders(msg, name, faction), conv_data.npc_icon, false)
+    pda_private_add_message(contact_id, name, name, sub_placeholders(msg, name, faction), conv_data.npc_icon, false)
 
     -- Force refresh of UI if PDA is actively open so the message pops up immediately
     if get_ui then
@@ -3372,7 +3421,7 @@ function check_conversation_timeouts()
     local now = time_global()
 
     local expired = {}
-    for name, conv in pairs(active_conversations) do
+    for cid, conv in pairs(active_conversations) do
         if conv.started_at and not conv.reply_pending then
             local timeout_secs, timeout_msg = get_conv_timeout_config(
                 conv.prefix, conv.faction, conv.conv_id
@@ -3382,7 +3431,7 @@ function check_conversation_timeouts()
             local elapsed_secs = elapsed_ms / 1000
 
             if elapsed_secs >= timeout_secs then
-                table.insert(expired, { name = name, conv = conv, msg = timeout_msg })
+                table.insert(expired, { contact_id = cid, conv = conv, msg = timeout_msg })
             end
         end
     end
@@ -3396,17 +3445,17 @@ function check_conversation_timeouts()
         annoyed_msg = sub_placeholders(annoyed_msg, conv.npc_name, conv.faction)
 
         -- Add the annoyed message to the chat log
-        pda_private_add_message(conv.npc_name, conv.npc_name, annoyed_msg, conv.npc_icon, false)
+        pda_private_add_message(exp.contact_id, conv.npc_name, conv.npc_name, annoyed_msg, conv.npc_icon, false)
 
         -- Remove from active conversations
-        active_conversations[exp.name] = nil
-        if CONV and CONV.npc_name == exp.name then CONV = nil end
+        active_conversations[exp.contact_id] = nil
+        if CONV and CONV.contact_id == exp.contact_id then CONV = nil end
 
         -- Record cooldown
         local composite_key = (conv.prefix or "task") .. "_" .. conv.faction .. "_" .. conv.conv_id
         conv_last_played[composite_key] = game.get_game_time()
 
-        printf("Conversation with %s timed out after %.0f seconds", exp.name,
+        printf("Conversation with %s timed out after %.0f seconds", conv.npc_name,
             (now - conv.started_at) / 1000)
     end
 
@@ -3503,11 +3552,13 @@ function save_state(m)
     m.pda_private_log = pda_private_log -- SAVE TO FILE
     m.pda_private_blocked_contacts = pda_private_blocked_contacts
     m.pda_player_chat_online = pda_player_chat_online
+    m.pda_npc_relationship_scores = npc_relationship_scores
     -- Save active conversations (strip non-serializable fields)
     local save_convs = {}
-    for name, c in pairs(active_conversations) do
-        save_convs[name] = {
-            npc_id = c.npc_id, npc_name = c.npc_name, npc_icon = c.npc_icon,
+    for cid, c in pairs(active_conversations) do
+        save_convs[cid] = {
+            npc_id = c.npc_id, contact_id = c.contact_id,
+            npc_name = c.npc_name, npc_icon = c.npc_icon,
             faction = c.faction, prefix = c.prefix, conv_id = c.conv_id,
             turn = c.turn, task_id = c.task_id, category = c.category,
             applied_outcomes = c.applied_outcomes, started_at = c.started_at,
@@ -3521,6 +3572,7 @@ end
 function load_state(m)
     if m.pda_ic_cooldowns then conv_last_played = m.pda_ic_cooldowns end
     if m.pda_ic_npc_cooldowns then npc_last_used = m.pda_ic_npc_cooldowns end
+    if m.pda_npc_relationship_scores then npc_relationship_scores = m.pda_npc_relationship_scores end
     if m.pda_private_log then
         pda_private_log = m.pda_private_log -- LOAD FROM FILE
         local i = #pda_private_log
@@ -3533,6 +3585,10 @@ function load_state(m)
                 if entry.delivery_timestamp == nil then
                     entry.delivery_timestamp = get_delivery_time_marker()
                 end
+            end
+            -- Migration: old saves have contact_name but no contact_id
+            if entry and not entry.contact_id then
+                entry.contact_id = entry.contact_name
             end
             i = i - 1
         end
@@ -3556,15 +3612,18 @@ function load_state(m)
 
     -- Restore active conversations and rebuild their choices
     if m.pda_active_conversations then
-        for name, saved in pairs(m.pda_active_conversations) do
+        for key, saved in pairs(m.pda_active_conversations) do
+            -- Migration: old saves keyed by npc_name; re-key using npc_id if available
+            local cid = saved.contact_id or (saved.npc_id and tostring(saved.npc_id)) or key
+            saved.contact_id = cid
             local choices, num = load_choices_for_turn(
-                saved.prefix, saved.faction, saved.conv_id, saved.turn, saved.npc_name
+                saved.prefix, saved.faction, saved.conv_id, saved.turn, saved.npc_name, cid
             )
             if num > 0 then
                 saved.choices = choices
                 saved.num_choices = num
                 saved.reply_pending = false
-                active_conversations[name] = saved
+                active_conversations[cid] = saved
                 CONV = saved  -- last one loaded becomes CONV for compat
             end
         end
