@@ -303,9 +303,9 @@ function pda_private_tab:InitControls()
     self.player_presence_online_btn = self.xml:Init3tButton("private_pda:info:player_presence_online_btn", self.dialog)
     self.player_presence_offline_btn = self.xml:Init3tButton("private_pda:info:player_presence_offline_btn", self.dialog)
 
-    -- Keep this as a pure hitbox: if we assign a textured quad here it draws above
-    -- the portrait + status icon, which is exactly the "blank bar" symptom.
-    apply_button_hitbox_style(self.player_presence_toggle_btn)
+    -- Give this button an explicit transparent base quad so it doesn't fall back
+    -- to the engine's default white button texture in normal state.
+    apply_button_quad_style(self.player_presence_toggle_btn)
     apply_button_quad_style(self.player_presence_online_btn)
     apply_button_quad_style(self.player_presence_offline_btn)
 
