@@ -203,6 +203,11 @@ function on_mcm_load()
                       precondition = { isInteractiveEnabled, {} } },
                     { id = "poll_retries", type = "track", val = 2, min = 5, max = 50, step = 1, def = 20,
                       precondition = { isInteractiveEnabled, {} } },
+                    { id = "precond_unknown_policy", type = "radio_h", val = 1, def = 1, no_str = true,
+                      content = { {1, "Strict (fail unknown preconditions)"}, {2, "Warn and skip unknown preconditions"} },
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "precond_verbose_debug", type = "check", val = 1, def = false,
+                      precondition = { isInteractiveEnabled, {} } },
                     { id = "line_technical_end", type = "line",
                       precondition = { isInteractiveEnabled, {} } },
 
