@@ -1819,8 +1819,8 @@ function pda_private_tab:OnSelectNPC()
 	end
 
 	local lane_insets = {
-		left = 16,
-		right = 16,
+		left = 6,
+		right = 4,
 		scrollbar_gutter = 16,
 	}
 

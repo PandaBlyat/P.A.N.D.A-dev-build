@@ -124,7 +124,7 @@
                 </chat_header_name>
                 
                 <!-- Faction patch icon -->
-                <faction_patch_icon x="75" y="30" width="22" height="22" stretch="1">
+                <faction_patch_icon x="75" y="32" width="22" height="22" stretch="1">
                     <texture>ui_inGame2_neutral_1</texture>
                 </faction_patch_icon>
 
@@ -176,8 +176,8 @@
                 </scrollbar>
 
                 <!-- Bottom composer: quick actions + disabled input look + send/expand -->
-                <composer_container x="0" y="606" width="470" height="34">
-                    <composer_bg x="0" y="0" width="470" height="34" stretch="1">
+                <composer_container x="0" y="606" width="468" height="34">
+                    <composer_bg x="0" y="0" width="468" height="34" stretch="1">
                         <texture r="32" g="36" b="40" a="220">ui_inGame2_hint_wnd_main_window</texture>
                     </composer_bg>
 
