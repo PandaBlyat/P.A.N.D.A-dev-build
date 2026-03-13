@@ -52,7 +52,7 @@
             </player_presence_state_icon>
 
             <player_presence_label x="46" y="7" width="150" height="24">
-                <text font="letterica16" r="215" g="225" b="235" a="255" align="l" vert_align="c">ONLINE</text>
+                <text font="letterica16" r="215" g="225" b="235" a="255" align="l" vert_align="c">Player</text>
             </player_presence_label>
 
             <player_presence_toggle_btn x="0" y="0" width="220" height="40" can_focus="1" stretch="1">

@@ -93,13 +93,10 @@ local function resolve_actor_portrait_texture()
     -- Mirror vanilla portrait resolution order from pda.script/coc_rankings_set_icon.
     if db and db.actor and ui_options and ui_options.get and ui_options.get("gameplay/general/outfit_portrait") == true and db.actor.item_in_slot then
         local outfit = db.actor:item_in_slot(7)
-        if outfit and ini_sys and ini_sys.line_exist and ini_sys.r_string then
-            local section = outfit:section()
-            if section and ini_sys:line_exist(section, "character_portrait") then
-                local icon = ini_sys:r_string(section, "character_portrait")
-                if icon and icon ~= "" then
-                    return icon
-                end
+        if outfit and ini_sys and ini_sys.r_string_ex then
+            local icon = ini_sys:r_string_ex(outfit:section(), "character_portrait")
+            if icon and icon ~= "" then
+                return icon
             end
         end
     end
@@ -118,6 +115,8 @@ local function resolve_actor_portrait_texture()
     return "ui_inGame2_neutral_1"
 end
 
+local try_set_texture
+
 local function apply_actor_portrait_texture(static_wnd, previous_tex)
     local resolved_tex = resolve_actor_portrait_texture()
     if resolved_tex ~= previous_tex then
@@ -126,7 +125,7 @@ local function apply_actor_portrait_texture(static_wnd, previous_tex)
     return resolved_tex
 end
 
-local function try_set_texture(static_wnd, primary_tex, fallback_tex)
+try_set_texture = function(static_wnd, primary_tex, fallback_tex)
     if not static_wnd or not static_wnd.InitTexture then
         return fallback_tex or primary_tex
     end
@@ -299,20 +298,20 @@ function pda_private_tab:InitControls()
     self.xml:InitTextWnd("private_pda:info:list_header", self.dialog)
 
     self.player_presence_container = self.xml:InitStatic("private_pda:info:player_presence_container", self.dialog)
-    -- Anchor the portrait row widgets to the container so local XML offsets are respected.
+    -- Create the full-row click target first so portrait/text render above it.
+    self.player_presence_toggle_btn = self.xml:Init3tButton("private_pda:info:player_presence_toggle_btn", self.player_presence_container)
+    -- Anchor portrait row widgets to the container so local XML offsets are respected.
     self.player_presence_portrait = self.xml:InitStatic("private_pda:info:player_presence_portrait", self.player_presence_container)
     self.player_presence_state_icon = self.xml:InitStatic("private_pda:info:player_presence_state_icon", self.player_presence_container)
     self.player_presence_label = self.xml:InitTextWnd("private_pda:info:player_presence_label", self.player_presence_container)
-    self.player_presence_toggle_btn = self.xml:Init3tButton("private_pda:info:player_presence_toggle_btn", self.player_presence_container)
     self.player_presence_menu_bg = self.xml:InitStatic("private_pda:info:player_presence_menu_bg", self.dialog)
     self.player_presence_online_btn = self.xml:Init3tButton("private_pda:info:player_presence_online_btn", self.dialog)
     self.player_presence_offline_btn = self.xml:Init3tButton("private_pda:info:player_presence_offline_btn", self.dialog)
 
-    -- Give this button an explicit transparent base quad so it doesn't fall back
-    -- to the engine's default white button texture in normal state.
-    apply_button_quad_style(self.player_presence_toggle_btn)
-    apply_button_quad_style(self.player_presence_online_btn)
-    apply_button_quad_style(self.player_presence_offline_btn)
+    -- Keep presence buttons as pure click hitboxes so they do not draw over the portrait row.
+    apply_button_hitbox_style(self.player_presence_toggle_btn)
+    apply_button_hitbox_style(self.player_presence_online_btn)
+    apply_button_hitbox_style(self.player_presence_offline_btn)
 
     self:Register(self.player_presence_toggle_btn, "player_presence_toggle_btn")
     self:Register(self.player_presence_online_btn, "player_presence_online_btn")
@@ -562,6 +561,10 @@ function pda_private_tab:RefreshPlayerPresenceUI()
         is_online = conv_api.is_player_chat_online()
     end
 
+    if self.player_presence_container and self.player_presence_container.SetTextureColor then
+        self.player_presence_container:SetTextureColor(GetARGB(220, 36, 36, 36))
+    end
+
     if self.player_presence_portrait then
         self.player_presence_portrait_tex = apply_actor_portrait_texture(self.player_presence_portrait, self.player_presence_portrait_tex)
         if self.player_presence_portrait.SetStretchTexture then
@@ -587,8 +590,10 @@ function pda_private_tab:RefreshPlayerPresenceUI()
     end
 
     if self.player_presence_label then
-        self.player_presence_label:SetText(is_online and "ONLINE" or "OFFLINE")
-        self.player_presence_label:SetTextColor(is_online and GetARGB(255, 140, 235, 140) or GetARGB(255, 235, 140, 140))
+        local player_name = (db and db.actor and db.actor.character_name and db.actor:character_name()) or "Player"
+        local state_suffix = is_online and "" or " (OFFLINE)"
+        self.player_presence_label:SetText(player_name .. state_suffix)
+        self.player_presence_label:SetTextColor(is_online and GetARGB(255, 215, 225, 235) or GetARGB(255, 235, 160, 160))
     end
 
     local show_menu = self.player_presence_menu_open == true
