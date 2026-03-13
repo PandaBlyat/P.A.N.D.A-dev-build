@@ -93,13 +93,10 @@ local function resolve_actor_portrait_texture()
     -- Mirror vanilla portrait resolution order from pda.script/coc_rankings_set_icon.
     if db and db.actor and ui_options and ui_options.get and ui_options.get("gameplay/general/outfit_portrait") == true and db.actor.item_in_slot then
         local outfit = db.actor:item_in_slot(7)
-        if outfit and ini_sys and ini_sys.line_exist and ini_sys.r_string then
-            local section = outfit:section()
-            if section and ini_sys:line_exist(section, "character_portrait") then
-                local icon = ini_sys:r_string(section, "character_portrait")
-                if icon and icon ~= "" then
-                    return icon
-                end
+        if outfit and ini_sys and ini_sys.r_string_ex then
+            local icon = ini_sys:r_string_ex(outfit:section(), "character_portrait")
+            if icon and icon ~= "" then
+                return icon
             end
         end
     end
@@ -115,18 +112,20 @@ local function resolve_actor_portrait_texture()
         return db.actor_binder.character_icon
     end
 
-    return "ui_inGame2_neutral_1"
+    return "ui\\ui_noise"
 end
+
+local try_set_texture
 
 local function apply_actor_portrait_texture(static_wnd, previous_tex)
     local resolved_tex = resolve_actor_portrait_texture()
     if resolved_tex ~= previous_tex then
-        resolved_tex = try_set_texture(static_wnd, resolved_tex, "ui_inGame2_neutral_1")
+        resolved_tex = try_set_texture(static_wnd, resolved_tex, "ui\\ui_noise")
     end
     return resolved_tex
 end
 
-local function try_set_texture(static_wnd, primary_tex, fallback_tex)
+try_set_texture = function(static_wnd, primary_tex, fallback_tex)
     if not static_wnd or not static_wnd.InitTexture then
         return fallback_tex or primary_tex
     end
