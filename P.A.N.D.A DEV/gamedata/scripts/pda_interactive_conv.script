@@ -66,7 +66,7 @@ local function normalize_delivery_state(state)
 end
 
 -- Function to add messages to the log
-function pda_private_add_message(contact_id, contact_name, sender_name, text, icon, is_player, delivery_state, delivery_timestamp)
+function pda_private_add_message(contact_id, contact_name, sender_name, text, icon, is_player, delivery_state, delivery_timestamp, notification_icon)
     if contact_id and pda_private_blocked_contacts[contact_id] then
         return false
     end
@@ -95,7 +95,8 @@ function pda_private_add_message(contact_id, contact_name, sender_name, text, ic
         raw_time = raw_time,  -- NEW: Store raw time for calculations
         is_player = is_player or false,
         delivery_state = (is_player and normalize_delivery_state(delivery_state)) or nil,
-        delivery_timestamp = (is_player and (delivery_timestamp or get_delivery_time_marker())) or nil
+        delivery_timestamp = (is_player and (delivery_timestamp or get_delivery_time_marker())) or nil,
+        notification_icon = notification_icon
     })
     
     -- Optional: Limit log to 100 messages to prevent save bloat (increased from 50)
