@@ -1963,7 +1963,7 @@ function pda_private_tab:OnSelectNPC()
 
         local usable_choices = math.min(4, active_conv.num_choices)
 
-        local composer_center_x = 350
+        local composer_center_x = math.floor(lane_width / 2)
 		local centered_x = math.floor(composer_center_x - chip_w / 2)
 		local min_x = content_left
 		local max_x = content_right - chip_w
