@@ -1827,7 +1827,7 @@ function pda_private_tab:OnSelectNPC()
 	end
 
 	local right_inset = lane_insets.right + lane_insets.scrollbar_gutter
-	local player_spawn_shift_x = 170
+	local player_spawn_shift_x = 10
 	local maxBubbleWidth = math.max(220, lane_width - lane_insets.left - right_inset)
 
     local row_idx = 0
@@ -1857,9 +1857,17 @@ function pda_private_tab:OnSelectNPC()
 			end
 			local header_sender = is_player_lane and "You" or tostring(entry.sender or "Unknown")
 			local header_line = string.format("%s [%s]", header_sender, tostring(relative_time or "Unknown"))
-			local wrap_chars = math.max(28, math.floor((lane_max_w - 24) / 5.5))
+			local wrap_chars = math.max(28, math.floor((lane_max_w - 28) / 5.0))
 			local wrapped_body = wrap_plain_text(body_text, wrap_chars)
-			local bubble_w = estimate_bubble_width(header_line, wrapped_body, 180, lane_max_w, 24)
+			local bubble_w = estimate_bubble_width(header_line, wrapped_body, 90, lane_max_w, 32)
+
+			if is_player_lane then
+				local raw_status_text, _ = get_delivery_indicator(entry)
+				local status_width = estimate_line_width(raw_status_text) + 32
+				if status_width > bubble_w then
+					bubble_w = math.floor(status_width)
+				end
+			end
 
             local display_text = ""
             if is_player_lane then
@@ -1883,17 +1891,17 @@ function pda_private_tab:OnSelectNPC()
 				lane_bg:SetWndPos(vector2():set(bubble_x, 0))
 				lane_bg:SetWndSize(vector2():set(bubble_w, lane_bg:GetHeight()))
 				text_wnd:SetWndPos(vector2():set(bubble_x + 14, 6))
-				text_wnd:SetWndSize(vector2():set(math.max(100, bubble_w - 28), text_wnd:GetHeight()))
+				text_wnd:SetWndSize(vector2():set(math.max(10, bubble_w - 28), text_wnd:GetHeight()))
 
 				if status_wnd then
 					status_wnd:SetWndPos(vector2():set(bubble_x + 14, 28))
-					status_wnd:SetWndSize(vector2():set(math.max(100, bubble_w - 28), status_wnd:GetHeight()))
+					status_wnd:SetWndSize(vector2():set(math.max(10, bubble_w - 28), status_wnd:GetHeight()))
 				end
 			else
 				lane_bg:SetWndPos(vector2():set(lane_insets.left, 0))
 				text_wnd:SetWndPos(vector2():set(lane_insets.left + 14, 6))
 				lane_bg:SetWndSize(vector2():set(bubble_w, lane_bg:GetHeight()))
-				text_wnd:SetWndSize(vector2():set(math.max(100, bubble_w - 28), text_wnd:GetHeight()))
+				text_wnd:SetWndSize(vector2():set(math.max(10, bubble_w - 28), text_wnd:GetHeight()))
 			end
             text_wnd:AdjustHeightToText()
 
