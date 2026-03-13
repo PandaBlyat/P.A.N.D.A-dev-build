@@ -4,42 +4,42 @@
         <state x="0" y="0" width="819" height="768"/>
         
         <!-- Main content area positioned to match PDA tabs -->
-        <info x="48" y="72" width="723" height="640">
+        <info x="68" y="90" width="683" height="592">
             <!-- Background for the entire info area -->
-            <background x="0" y="0" width="723" height="640" stretch="1">
+            <background x="0" y="0" width="683" height="592" stretch="1">
                 <texture r="20" g="20" b="20" a="200">ui_inGame2_hint_wnd_main_window</texture>
             </background>
             
             <!-- Border lines to frame the info area -->
-            <auto_frameline x="0" y="0" width="723" height="1" vertical="0">
+            <auto_frameline x="0" y="0" width="683" height="1" vertical="0">
                 <texture>ui_inGame2_pda_line_horizontal</texture>
             </auto_frameline>
-            <auto_frameline x="0" y="640" width="723" height="1" vertical="0">
+            <auto_frameline x="0" y="592" width="683" height="1" vertical="0">
                 <texture>ui_inGame2_pda_line_horizontal</texture>
             </auto_frameline>
-            <auto_frameline x="0" y="0" width="1" height="640" vertical="1">
+            <auto_frameline x="0" y="0" width="1" height="592" vertical="1">
                 <texture>ui_inGame2_pda_line_vertical</texture>
             </auto_frameline>
-            <auto_frameline x="722" y="0" width="1" height="640" vertical="1">
+            <auto_frameline x="682" y="0" width="1" height="592" vertical="1">
                 <texture>ui_inGame2_pda_line_vertical</texture>
             </auto_frameline>
             
             <!-- Vertical divider between left list and chat area -->
-            <auto_frameline x="228" y="1" width="1" height="640" vertical="1">
+            <auto_frameline x="260" y="1" width="1" height="592" vertical="1">
                 <texture>ui_inGame2_pda_line_vertical</texture>
             </auto_frameline>
             
             <!-- LEFT PANE: Contact list (240px wide) -->
-            <list_bg x="5" y="5" width="218" height="630" stretch="1">
+            <list_bg x="5" y="5" width="250" height="582" stretch="1">
                 <texture r="25" g="25" b="25" a="220">ui_inGame2_hint_wnd_main_window</texture>
             </list_bg>
             
             <!-- Contact list header -->
-            <list_header x="10" y="10" width="208" height="25">
+            <list_header x="10" y="10" width="240" height="25">
                 <text font="letterica18" r="200" g="200" b="200" a="255" align="l" vert_align="c">CONTACTS</text>
             </list_header>
 
-            <player_presence_container x="10" y="38" width="208" height="40" stretch="1">
+            <player_presence_container x="10" y="38" width="240" height="40" stretch="1">
                 <texture r="36" g="36" b="36" a="220">ui_inGame2_hint_wnd_main_window</texture>
             </player_presence_container>
 
@@ -47,7 +47,7 @@
                 <texture>ui\ui_noise</texture>
             </player_presence_portrait>
 
-            <player_presence_state_icon x="186" y="14" width="12" height="12" stretch="1">
+            <player_presence_state_icon x="218" y="14" width="12" height="12" stretch="1">
                 <texture>ui_panda_on_icon</texture>
             </player_presence_state_icon>
 
@@ -55,18 +55,18 @@
                 <text font="letterica16" r="215" g="225" b="235" a="255" align="l" vert_align="c">Player</text>
             </player_presence_label>
 
-            <player_presence_toggle_btn x="0" y="0" width="208" height="40" can_focus="1" stretch="1">
+            <player_presence_toggle_btn x="0" y="0" width="240" height="40" can_focus="1" stretch="1">
                 <texture_e a="0">ui_inGame2_hint_wnd_main_window</texture_e>
                 <texture_h a="0">ui_inGame2_hint_wnd_main_window</texture_h>
                 <texture_t a="0">ui_inGame2_hint_wnd_main_window</texture_t>
                 <texture_d a="0">ui_inGame2_hint_wnd_main_window</texture_d>
             </player_presence_toggle_btn>
 
-            <player_presence_menu_bg x="10" y="80" width="208" height="54" stretch="1">
+            <player_presence_menu_bg x="10" y="80" width="240" height="54" stretch="1">
                 <texture r="24" g="24" b="24" a="235">ui_inGame2_hint_wnd_main_window</texture>
             </player_presence_menu_bg>
 
-            <player_presence_online_btn x="14" y="84" width="200" height="22" can_focus="1" stretch="1">
+            <player_presence_online_btn x="14" y="84" width="232" height="22" can_focus="1" stretch="1">
                 <texture_e a="0">ui_inGame2_hint_wnd_main_window</texture_e>
                 <texture_h a="0">ui_inGame2_hint_wnd_main_window</texture_h>
                 <texture_t a="0">ui_inGame2_hint_wnd_main_window</texture_t>
@@ -74,7 +74,7 @@
                 <text font="letterica16" align="l" vert_align="c" x="8" y="0">Online</text>
             </player_presence_online_btn>
 
-            <player_presence_offline_btn x="14" y="108" width="200" height="22" can_focus="1" stretch="1">
+            <player_presence_offline_btn x="14" y="108" width="232" height="22" can_focus="1" stretch="1">
                 <texture_e a="0">ui_inGame2_hint_wnd_main_window</texture_e>
                 <texture_h a="0">ui_inGame2_hint_wnd_main_window</texture_h>
                 <texture_t a="0">ui_inGame2_hint_wnd_main_window</texture_t>
@@ -82,27 +82,27 @@
                 <text font="letterica16" align="l" vert_align="c" x="8" y="0">Offline</text>
             </player_presence_offline_btn>
             
-            <message_list x="10" y="138" width="208" height="492" item_height="55" can_select="1"/>
+            <message_list x="10" y="138" width="240" height="444" item_height="55" can_select="1"/>
             
             <!-- RIGHT PANE: Chat area remapped to vanilla 407px pane -->
-            <description x="228" y="0" width="495" height="640">
+            <description x="260" y="0" width="423" height="592">
                 <!-- Background for the chat area -->
-                <background x="0" y="0" width="495" height="640" stretch="1">
+                <background x="0" y="0" width="423" height="592" stretch="1">
                     <texture r="30" g="30" b="30" a="200">ui_inGame2_hint_wnd_main_window</texture>
                 </background>
                 
                 <!-- Empty state message -->
-                <empty_state x="0" y="286" width="495" height="30">
+                <empty_state x="0" y="262" width="423" height="30">
                     <text font="letterica25" r="100" g="100" b="100" a="255" align="c" vert_align="c">SELECT A CONTACT</text>
                 </empty_state>
 
                 <!-- EXPANDED HEADER with integrated stats (120px tall) -->
-                <header_bg x="0" y="0" width="495" height="120" stretch="1">
+                <header_bg x="0" y="0" width="423" height="120" stretch="1">
                     <texture r="40" g="40" b="40" a="220">ui_inGame2_hint_wnd_main_window</texture>
                 </header_bg>
                 
                 <!-- Separator line under header -->
-                <auto_frameline x="0" y="120" width="495" height="1" vertical="0">
+                <auto_frameline x="0" y="120" width="423" height="1" vertical="0">
                     <texture>ui_inGame2_pda_line_horizontal</texture>
                 </auto_frameline>
 
@@ -134,17 +134,17 @@
                 </faction_badge>
                 
                 <!-- Message count -->
-                <message_count x="343" y="8" width="145" height="20">
+                <message_count x="271" y="8" width="145" height="20">
                     <text font="letterica16" r="150" g="150" b="150" a="255" align="r" vert_align="c"/>
                 </message_count>
                 
                 <!-- Last contact time -->
-                <last_seen x="343" y="28" width="145" height="18">
+                <last_seen x="271" y="28" width="145" height="18">
                     <text font="letterica16" r="130" g="130" b="130" a="255" align="r" vert_align="c"/>
                 </last_seen>
                 
                 <!-- Divider between header and stats -->
-                <auto_frameline x="75" y="55" width="413" height="1" vertical="0">
+                <auto_frameline x="75" y="55" width="338" height="1" vertical="0">
                     <texture>ui_inGame2_pda_line_horizontal</texture>
                 </auto_frameline>
                 
@@ -171,13 +171,13 @@
                 </stat_rank_value>
                 
                 <!-- Scrollbar for messages -->
-                <scrollbar x="0" y="130" width="495" height="474" right_ident="0" left_ident="0" top_indent="0" bottom_indent="0" vert_interval="10" always_show_scroll="1">
+                <scrollbar x="0" y="130" width="423" height="424" right_ident="0" left_ident="0" top_indent="0" bottom_indent="0" vert_interval="10" always_show_scroll="1">
                     <texture>ui_inGame2_scroll_background</texture>
                 </scrollbar>
 
                 <!-- Bottom composer: quick actions + disabled input look + send/expand -->
-                <composer_container x="0" y="606" width="495" height="34">
-                    <composer_bg x="0" y="0" width="495" height="34" stretch="1">
+                <composer_container x="0" y="558" width="423" height="34">
+                    <composer_bg x="0" y="0" width="423" height="34" stretch="1">
                         <texture r="32" g="36" b="40" a="220">ui_inGame2_hint_wnd_main_window</texture>
                     </composer_bg>
 
@@ -214,17 +214,17 @@
                         </text_color>
                     </composer_quick_2_btn>
 
-                    <composer_input_shell x="70" y="4" width="381" height="26" stretch="1">
+                    <composer_input_shell x="70" y="4" width="309" height="26" stretch="1">
                         <texture r="20" g="22" b="25" a="230">ui_inGame2_hint_wnd_main_window</texture>
                     </composer_input_shell>
-                    <composer_input_field x="82" y="4" width="361" height="26">
+                    <composer_input_field x="82" y="4" width="289" height="26">
                         <text font="letterica16" r="120" g="132" b="145" a="255" align="l" vert_align="c">Choose a reply...</text>
                     </composer_input_field>
 
-                    <composer_send_bg x="457" y="2" width="36" height="30" stretch="1">
+                    <composer_send_bg x="385" y="2" width="36" height="30" stretch="1">
                         <texture>ui_panda_box</texture>
                     </composer_send_bg>
-                    <composer_send_btn x="457" y="2" width="36" height="30" can_focus="1" stretch="1">
+                    <composer_send_btn x="385" y="2" width="36" height="30" can_focus="1" stretch="1">
                         <texture_e a="0">ui_panda_box</texture_e>
                         <texture_h a="0">ui_panda_box</texture_h>
                         <texture_t a="0">ui_panda_box</texture_t>
@@ -238,7 +238,7 @@
                     </composer_send_btn>
                 </composer_container>
                 
-                <message_lane_npc x="0" y="0" width="495" height="50" stretch="1">
+                <message_lane_npc x="0" y="0" width="423" height="50" stretch="1">
                     <bubble_bg x="12" y="0" width="300" height="50" stretch="1">
                         <texture r="52" g="52" b="52" a="190">ui_inGame2_hint_wnd_main_window</texture>
                     </bubble_bg>
@@ -247,7 +247,7 @@
                     </text_box>
                 </message_lane_npc>
 
-                <message_lane_player x="0" y="0" width="495" height="50" stretch="1">
+                <message_lane_player x="0" y="0" width="423" height="50" stretch="1">
                     <bubble_bg x="140" y="0" width="255" height="50" stretch="1">
                         <texture r="45" g="70" b="45" a="180">ui_inGame2_hint_wnd_main_window</texture>
                     </bubble_bg>
