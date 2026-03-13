@@ -379,7 +379,11 @@ end
 function pda_private_tab:ReflowLayoutToContainer()
     if not self.desc_box then return end
 
-    local desc_w = (self.desc_box.GetWidth and self.desc_box:GetWidth()) or 720
+    local parent_w = (self and self.GetWidth and self:GetWidth()) or 0
+    local desc_w = (self.desc_box.GetWidth and self.desc_box:GetWidth()) or 0
+    if desc_w <= 0 then
+        desc_w = math.max(220, parent_w)
+    end
     local desc_h = (self.desc_box.GetHeight and self.desc_box:GetHeight()) or 608
     if desc_w <= 0 or desc_h <= 0 then return end
 
@@ -1820,15 +1824,18 @@ function pda_private_tab:OnSelectNPC()
 		scrollbar_gutter = 16,
 	}
 
+	local desc_w = (self.desc_box and self.desc_box.GetWidth and self.desc_box:GetWidth()) or 0
 	local lane_width = (self.scrollbar and self.scrollbar.GetWidth and self.scrollbar:GetWidth())
 	if not lane_width or lane_width <= 0 then
-		local description_width = (self.desc_box and self.desc_box.GetWidth and self.desc_box:GetWidth()) or 720
-		lane_width = math.max(220, description_width - (lane_insets.left + lane_insets.right))
+		lane_width = math.max(220, desc_w - (lane_insets.left + lane_insets.right))
 	end
+	lane_width = math.max(220, lane_width)
 
+	local content_left = lane_insets.left
 	local right_inset = lane_insets.right + lane_insets.scrollbar_gutter
+	local content_right = lane_width - right_inset
 	local player_spawn_shift_x = 10
-	local maxBubbleWidth = math.max(220, lane_width - lane_insets.left - right_inset)
+	local maxBubbleWidth = math.max(220, content_right - content_left)
 
     local row_idx = 0
 	    for i = #log, 1, -1 do
@@ -1845,7 +1852,7 @@ function pda_private_tab:OnSelectNPC()
             local relative_time = get_relative_time(entry.timestamp, current_game_time)
 
 			local lane_max_w = is_player_lane
-				and math.floor(math.min(maxBubbleWidth - player_spawn_shift_x, lane_width * 0.46))
+				and math.floor(math.min(maxBubbleWidth, lane_width * 0.46))
 				or math.floor(math.min(maxBubbleWidth, lane_width * 0.72))
 			lane_max_w = math.max(220, lane_max_w)
 
@@ -1885,8 +1892,8 @@ function pda_private_tab:OnSelectNPC()
 	            text_wnd:SetText(display_text)
 
 	            if is_player_lane then
-				local bubble_x = lane_width - (right_inset + player_spawn_shift_x) - bubble_w
-				bubble_x = math.max(lane_insets.left, bubble_x)
+				local bubble_x = content_right - bubble_w - player_spawn_shift_x
+				bubble_x = math.max(content_left, bubble_x)
 
 				lane_bg:SetWndPos(vector2():set(bubble_x, 0))
 				lane_bg:SetWndSize(vector2():set(bubble_w, lane_bg:GetHeight()))
@@ -1898,8 +1905,8 @@ function pda_private_tab:OnSelectNPC()
 					status_wnd:SetWndSize(vector2():set(math.max(10, bubble_w - 28), status_wnd:GetHeight()))
 				end
 			else
-				lane_bg:SetWndPos(vector2():set(lane_insets.left, 0))
-				text_wnd:SetWndPos(vector2():set(lane_insets.left + 14, 6))
+				lane_bg:SetWndPos(vector2():set(content_left, 0))
+				text_wnd:SetWndPos(vector2():set(content_left + 14, 6))
 				lane_bg:SetWndSize(vector2():set(bubble_w, lane_bg:GetHeight()))
 				text_wnd:SetWndSize(vector2():set(math.max(10, bubble_w - 28), text_wnd:GetHeight()))
 			end
@@ -1958,8 +1965,8 @@ function pda_private_tab:OnSelectNPC()
 
         local composer_center_x = 350
 		local centered_x = math.floor(composer_center_x - chip_w / 2)
-		local min_x = 16
-		local max_x = lane_width - right_inset - chip_w
+		local min_x = content_left
+		local max_x = content_right - chip_w
 		local shared_left_x = math.max(min_x, math.min(max_x, centered_x))
 
         self:EnsureChoiceButtonPool(usable_choices, chip_h)
