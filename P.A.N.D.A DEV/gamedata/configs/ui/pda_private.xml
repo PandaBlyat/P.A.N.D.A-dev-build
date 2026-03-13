@@ -239,6 +239,9 @@
                 </composer_container>
                 
                 <message_lane_npc x="0" y="0" width="470" height="50" stretch="1">
+                    <notification_icon x="12" y="14" width="18" height="18" stretch="1">
+                        <texture>ui\ui_noise</texture>
+                    </notification_icon>
                     <bubble_bg x="12" y="0" width="340" height="50" stretch="1">
                         <texture r="52" g="52" b="52" a="190">ui_inGame2_hint_wnd_main_window</texture>
                     </bubble_bg>

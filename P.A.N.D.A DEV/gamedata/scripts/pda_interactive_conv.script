@@ -66,7 +66,7 @@ local function normalize_delivery_state(state)
 end
 
 -- Function to add messages to the log
-function pda_private_add_message(contact_id, contact_name, sender_name, text, icon, is_player, delivery_state, delivery_timestamp)
+function pda_private_add_message(contact_id, contact_name, sender_name, text, icon, is_player, delivery_state, delivery_timestamp, notification_icon)
     if contact_id and pda_private_blocked_contacts[contact_id] then
         return false
     end
@@ -95,7 +95,8 @@ function pda_private_add_message(contact_id, contact_name, sender_name, text, ic
         raw_time = raw_time,  -- NEW: Store raw time for calculations
         is_player = is_player or false,
         delivery_state = (is_player and normalize_delivery_state(delivery_state)) or nil,
-        delivery_timestamp = (is_player and (delivery_timestamp or get_delivery_time_marker())) or nil
+        delivery_timestamp = (is_player and (delivery_timestamp or get_delivery_time_marker())) or nil,
+        notification_icon = notification_icon
     })
     
     -- Optional: Limit log to 100 messages to prevent save bloat (increased from 50)
@@ -2317,6 +2318,51 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
     local task_given = false
     local spawn_mult = (PANDA.get_config("spawn_chance_mult") or 100) / 100
 
+    local function format_money_value(amount)
+        local n = math.floor(math.abs(tonumber(amount) or 0))
+        local grouped = tostring(n)
+        while true do
+            local next_grouped, replaced = string.gsub(grouped, "^(%-?%d+)(%d%d%d)", "%1 %2")
+            grouped = next_grouped
+            if replaced == 0 then break end
+        end
+        return grouped
+    end
+
+    local function push_money_notification(amount_delta)
+        if not sender_contact_id then
+            return
+        end
+
+        local abs_amount = math.abs(tonumber(amount_delta) or 0)
+        if abs_amount <= 0 then
+            return
+        end
+
+        local is_gain = amount_delta > 0
+        local prefix = is_gain and "+" or "-"
+        local icon = is_gain and "ui\\green_ruble" or "ui\\red_ruble"
+        local text = string.format("Account %s%s RU", prefix, format_money_value(abs_amount))
+
+        local sender_icon = FALLBACK_NPC_ICON
+        local sender_obj = sender_npc_id and level.object_by_id(sender_npc_id) or nil
+        if sender_obj and sender_obj.character_icon and sender_obj:character_icon() ~= "" then
+            sender_icon = sender_obj:character_icon()
+        end
+
+        pda_private_add_message(
+            sender_contact_id,
+            sender_npc_name,
+            "System Notification",
+            text,
+            sender_icon,
+            false,
+            nil,
+            nil,
+            icon
+        )
+    end
+
     local function process_command(cmd_str)
         local chance_val, rest = string.match(cmd_str, "^chance:(%d+):(.+)$")
         if chance_val and rest then
@@ -2350,15 +2396,21 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
             end
 
         elseif cmd == "reward_money" then
-            db.actor:give_money(tonumber(parts[2]) or 0)
+            local reward = tonumber(parts[2]) or 0
+            db.actor:give_money(reward)
+            push_money_notification(reward)
 
         elseif cmd == "punish_money" then
             local amt = tonumber(parts[2]) or 0
+            local removed = 0
             if db.actor:money() >= amt then
                 db.actor:give_money(-amt)
+                removed = amt
             else
-                db.actor:give_money(-db.actor:money())
+                removed = db.actor:money()
+                db.actor:give_money(-removed)
             end
+            push_money_notification(-removed)
 
         -- Spawn commands now use: <cmd>:<faction_or_type>:<distance>[:<delay_seconds>]
         -- Examples:
