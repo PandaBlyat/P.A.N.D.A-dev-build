@@ -47,19 +47,19 @@
                 <texture>ui_inGame2_neutral_1</texture>
             </player_presence_portrait>
 
-            <player_presence_state_icon x="30" y="24" width="12" height="12" stretch="1">
+            <player_presence_state_icon x="38" y="24" width="12" height="12" stretch="1">
                 <texture>ui_panda_on_icon</texture>
             </player_presence_state_icon>
 
             <player_presence_label x="46" y="7" width="150" height="24">
-                <text font="letterica16" r="215" g="225" b="235" a="255" align="l" vert_align="c">ONLINE</text>
+                <text font="letterica16" r="215" g="225" b="235" a="255" align="l" vert_align="c">Player</text>
             </player_presence_label>
 
             <player_presence_toggle_btn x="0" y="0" width="220" height="40" can_focus="1" stretch="1">
-                <texture_e a="0">ui_panda_box</texture_e>
-                <texture_h a="0">ui_panda_box</texture_h>
-                <texture_t a="0">ui_panda_box</texture_t>
-                <texture_d a="0">ui_panda_box</texture_d>
+                <texture_e a="0">ui_inGame2_hint_wnd_main_window</texture_e>
+                <texture_h a="0">ui_inGame2_hint_wnd_main_window</texture_h>
+                <texture_t a="0">ui_inGame2_hint_wnd_main_window</texture_t>
+                <texture_d a="0">ui_inGame2_hint_wnd_main_window</texture_d>
             </player_presence_toggle_btn>
 
             <player_presence_menu_bg x="10" y="80" width="220" height="54" stretch="1">
@@ -67,18 +67,18 @@
             </player_presence_menu_bg>
 
             <player_presence_online_btn x="14" y="84" width="212" height="22" can_focus="1" stretch="1">
-                <texture_e a="0">ui_panda_box</texture_e>
-                <texture_h a="0">ui_panda_box</texture_h>
-                <texture_t a="0">ui_panda_box</texture_t>
-                <texture_d a="0">ui_panda_box</texture_d>
+                <texture_e a="0">ui_inGame2_hint_wnd_main_window</texture_e>
+                <texture_h a="0">ui_inGame2_hint_wnd_main_window</texture_h>
+                <texture_t a="0">ui_inGame2_hint_wnd_main_window</texture_t>
+                <texture_d a="0">ui_inGame2_hint_wnd_main_window</texture_d>
                 <text font="letterica16" align="l" vert_align="c" x="8" y="0">Online</text>
             </player_presence_online_btn>
 
             <player_presence_offline_btn x="14" y="108" width="212" height="22" can_focus="1" stretch="1">
-                <texture_e a="0">ui_panda_box</texture_e>
-                <texture_h a="0">ui_panda_box</texture_h>
-                <texture_t a="0">ui_panda_box</texture_t>
-                <texture_d a="0">ui_panda_box</texture_d>
+                <texture_e a="0">ui_inGame2_hint_wnd_main_window</texture_e>
+                <texture_h a="0">ui_inGame2_hint_wnd_main_window</texture_h>
+                <texture_t a="0">ui_inGame2_hint_wnd_main_window</texture_t>
+                <texture_d a="0">ui_inGame2_hint_wnd_main_window</texture_d>
                 <text font="letterica16" align="l" vert_align="c" x="8" y="0">Offline</text>
             </player_presence_offline_btn>
             
