@@ -2347,10 +2347,13 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
         pda_private_add_message(
             sender_contact_id,
             sender_npc_name,
-            sender_npc_name or "Unknown",
+            "System Notification",
             text,
-            icon,
-            false
+            level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon() or FALLBACK_NPC_ICON,
+            false,
+            nil,
+            nil,
+            icon
         )
     end
 
