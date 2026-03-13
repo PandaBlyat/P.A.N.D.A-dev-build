@@ -298,11 +298,12 @@ function pda_private_tab:InitControls()
     self.xml:InitTextWnd("private_pda:info:list_header", self.dialog)
 
     self.player_presence_container = self.xml:InitStatic("private_pda:info:player_presence_container", self.dialog)
-    -- Anchor the portrait row widgets to the container so local XML offsets are respected.
+    -- Create the full-row click target first so portrait/text render above it.
+    self.player_presence_toggle_btn = self.xml:Init3tButton("private_pda:info:player_presence_toggle_btn", self.player_presence_container)
+    -- Anchor portrait row widgets to the container so local XML offsets are respected.
     self.player_presence_portrait = self.xml:InitStatic("private_pda:info:player_presence_portrait", self.player_presence_container)
     self.player_presence_state_icon = self.xml:InitStatic("private_pda:info:player_presence_state_icon", self.player_presence_container)
     self.player_presence_label = self.xml:InitTextWnd("private_pda:info:player_presence_label", self.player_presence_container)
-    self.player_presence_toggle_btn = self.xml:Init3tButton("private_pda:info:player_presence_toggle_btn", self.player_presence_container)
     self.player_presence_menu_bg = self.xml:InitStatic("private_pda:info:player_presence_menu_bg", self.dialog)
     self.player_presence_online_btn = self.xml:Init3tButton("private_pda:info:player_presence_online_btn", self.dialog)
     self.player_presence_offline_btn = self.xml:Init3tButton("private_pda:info:player_presence_offline_btn", self.dialog)
@@ -558,6 +559,10 @@ function pda_private_tab:RefreshPlayerPresenceUI()
     local is_online = true
     if conv_api and conv_api.is_player_chat_online then
         is_online = conv_api.is_player_chat_online()
+    end
+
+    if self.player_presence_container and self.player_presence_container.SetTextureColor then
+        self.player_presence_container:SetTextureColor(GetARGB(220, 36, 36, 36))
     end
 
     if self.player_presence_portrait then
