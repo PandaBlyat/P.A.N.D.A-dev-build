@@ -472,7 +472,7 @@ local function register_location_reference(location_ref, sender_npc_name, sender
     dynamic_news_helper.send_tip(
         msg,
         sender_npc_name or game.translate_string("st_pda_ic_outcome_sender"), 0, 8,
-        sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon() or "stalker",
+        sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon() or FALLBACK_NPC_ICON,
         "beep_1", "npc"
     )
 
@@ -528,7 +528,7 @@ function check_location_references()
             game.translate_string("st_pda_ic_outcome_sender"),
             0,
             10,
-            "stalker",
+            FALLBACK_NPC_ICON,
             "beep_2",
             "npc"
         )
@@ -2404,7 +2404,7 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                     game.translate_string("st_pda_ic_outcome_item_gain"),
                     {["what"] = ui_item.get_sec_name(item_sec)}
                 )
-                dynamic_news_helper.send_tip(msg, "System", 0, 10, "stalker", "beep_1", "npc")
+                dynamic_news_helper.send_tip(msg, "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc")
             end
 
         elseif cmd == "courier_item" then
@@ -2563,7 +2563,7 @@ function spawn_hunting_squad(fac, distance, is_mutant, delay)
         local warn_msg = is_mutant and "st_pda_ic_outcome_mutant_warn" or "st_pda_ic_outcome_hostile_warn"
         dynamic_news_helper.send_tip(
             game.translate_string(warn_msg),
-            sender, 2, 10, "stalker", "danger", "gr"
+            sender, 2, 10, FALLBACK_NPC_ICON, "danger", "gr"
         )
     end
 
@@ -2623,7 +2623,7 @@ function spawn_hunting_squad(fac, distance, is_mutant, delay)
                         if PANDA.get_config("show_hunt_notifications") then
                             dynamic_news_helper.send_tip(
                                 game.translate_string(is_mutant and "st_pda_ic_outcome_mutant_arrive" or "st_pda_ic_outcome_hostile_arrive"),
-                                sender, 0, 10, "stalker", "danger", "gr"
+                                sender, 0, 10, FALLBACK_NPC_ICON, "danger", "gr"
                             )
                         end
                     end
@@ -2658,7 +2658,7 @@ function spawn_hunting_squad(fac, distance, is_mutant, delay)
                     if PANDA.get_config("show_hunt_notifications") then
                         dynamic_news_helper.send_tip(
                             game.translate_string("st_pda_ic_hunt_timeout"),
-                            sender, 0, 10, "stalker", "attention", "gr"
+                            sender, 0, 10, FALLBACK_NPC_ICON, "attention", "gr"
                         )
                     end
                     if alife() and alife().release then
@@ -2703,7 +2703,7 @@ function spawn_native_companion(fac, distance, delay)
     if PANDA.get_config("show_companion_notifications") then
         dynamic_news_helper.send_tip(
             game.translate_string("st_pda_ic_outcome_friendly_warn"),
-            sender, 2, 10, "stalker", "beep_1", "gr"
+            sender, 2, 10, FALLBACK_NPC_ICON, "beep_1", "gr"
         )
     end
 
@@ -2815,7 +2815,7 @@ function spawn_native_courier(item_sec)
     if PANDA.get_config("show_courier_notifications") then
         dynamic_news_helper.send_tip(
             game.translate_string("st_pda_ic_outcome_courier_warn"),
-            sender, 2, 10, "stalker", "beep_1", "gr"
+            sender, 2, 10, FALLBACK_NPC_ICON, "beep_1", "gr"
         )
     end
 
@@ -2860,7 +2860,7 @@ function spawn_native_courier(item_sec)
             if PANDA.get_config("show_courier_notifications") then
                 dynamic_news_helper.send_tip(
                     game.translate_string("st_pda_ic_courier_died") or "PDA signal lost... the courier didn't make it.", 
-                    "System", 0, 10, "stalker", "danger", "gr"
+                    "System", 0, 10, FALLBACK_NPC_ICON, "danger", "gr"
                 )
             end
             return true 
@@ -2919,7 +2919,7 @@ function spawn_native_courier(item_sec)
                 if PANDA.get_config("show_courier_notifications") then
                     dynamic_news_helper.send_tip(
                         game.translate_string("st_pda_ic_courier_timeout"),
-                        courier_title, 0, 10, "stalker", "attention", "gr"
+                        courier_title, 0, 10, FALLBACK_NPC_ICON, "attention", "gr"
                     )
                 end
                 -- Player ran too far away / ignored them. Release them to A-Life.
@@ -2998,7 +2998,7 @@ function teleport_npc_to_smart_terrain(npc_id, smart_ref, npc_name, delay)
                 game.translate_string("st_pda_ic_outcome_npc_teleport_smart"),
                 { ["name"] = name, ["location"] = display_name }
             ),
-            sender, 0, 10, "stalker", "beep_2", "npc"
+            sender, 0, 10, FALLBACK_NPC_ICON, "beep_2", "npc"
         )
 
         return true
@@ -3066,7 +3066,7 @@ function teleport_npc_near_player(npc_id, npc_name, delay)
                 game.translate_string("st_pda_ic_outcome_npc_teleport_player"),
                 { ["name"] = name }
             ),
-            sender, 0, 10, "stalker", "beep_1", "npc"
+            sender, 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc"
         )
 
         return true
@@ -3103,7 +3103,7 @@ function recruit_npc_as_companion(npc_id, npc_name, cannot_dismiss)
         dynamic_news_helper.send_tip(
             game.translate_string("st_pda_ic_outcome_recruit_limit"),
             game.translate_string("st_pda_ic_outcome_sender"), 0, 8,
-            "stalker", "beep_1", "npc"
+            FALLBACK_NPC_ICON, "beep_1", "npc"
         )
         return
     end
