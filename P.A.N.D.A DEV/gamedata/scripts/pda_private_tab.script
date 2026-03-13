@@ -295,12 +295,11 @@ function pda_private_tab:InitControls()
     self.xml:InitTextWnd("private_pda:info:list_header", self.dialog)
 
     self.player_presence_container = self.xml:InitStatic("private_pda:info:player_presence_container", self.dialog)
-    -- Keep child widgets attached to the dialog root; in this XML layout they are sibling nodes,
-    -- and parenting them to the container can leave them non-visible in-game.
-    self.player_presence_portrait = self.xml:InitStatic("private_pda:info:player_presence_portrait", self.dialog)
-    self.player_presence_state_icon = self.xml:InitStatic("private_pda:info:player_presence_state_icon", self.dialog)
-    self.player_presence_label = self.xml:InitTextWnd("private_pda:info:player_presence_label", self.dialog)
-    self.player_presence_toggle_btn = self.xml:Init3tButton("private_pda:info:player_presence_toggle_btn", self.dialog)
+    -- Anchor the portrait row widgets to the container so local XML offsets are respected.
+    self.player_presence_portrait = self.xml:InitStatic("private_pda:info:player_presence_portrait", self.player_presence_container)
+    self.player_presence_state_icon = self.xml:InitStatic("private_pda:info:player_presence_state_icon", self.player_presence_container)
+    self.player_presence_label = self.xml:InitTextWnd("private_pda:info:player_presence_label", self.player_presence_container)
+    self.player_presence_toggle_btn = self.xml:Init3tButton("private_pda:info:player_presence_toggle_btn", self.player_presence_container)
     self.player_presence_menu_bg = self.xml:InitStatic("private_pda:info:player_presence_menu_bg", self.dialog)
     self.player_presence_online_btn = self.xml:Init3tButton("private_pda:info:player_presence_online_btn", self.dialog)
     self.player_presence_offline_btn = self.xml:Init3tButton("private_pda:info:player_presence_offline_btn", self.dialog)
