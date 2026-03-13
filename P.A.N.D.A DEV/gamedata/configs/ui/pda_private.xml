@@ -47,7 +47,7 @@
                 <texture>ui\ui_noise</texture>
             </player_presence_portrait>
 
-            <player_presence_state_icon x="38" y="24" width="12" height="12" stretch="1">
+            <player_presence_state_icon x="200" y="14" width="12" height="12" stretch="1">
                 <texture>ui_panda_on_icon</texture>
             </player_presence_state_icon>
 
@@ -97,7 +97,7 @@
                 </empty_state>
 
                 <!-- EXPANDED HEADER with integrated stats (120px tall) -->
-                <header_bg x="0" y="0" width="460" height="120" stretch="1">
+                <header_bg x="0" y="0" width="510" height="120" stretch="1">
                     <texture r="40" g="40" b="40" a="220">ui_inGame2_hint_wnd_main_window</texture>
                 </header_bg>
                 
@@ -114,7 +114,7 @@
                 </image_container>
                 
                 <!-- Status indicator dot -->
-                <status_indicator x="30" y="95" width="20" height="20" stretch="1">
+                <status_indicator x="28" y="82" width="20" height="20" stretch="1">
                     <texture>ui_panda_off_icon</texture>
                 </status_indicator>
 
@@ -176,7 +176,7 @@
                 </scrollbar>
 
                 <!-- Bottom composer: quick actions + disabled input look + send/expand -->
-                <composer_container x="0" y="564" width="720" height="34">
+                <composer_container x="0" y="564" width="510" height="34">
                     <composer_bg x="0" y="0" width="720" height="34" stretch="1">
                         <texture r="32" g="36" b="40" a="220">ui_inGame2_hint_wnd_main_window</texture>
                     </composer_bg>
