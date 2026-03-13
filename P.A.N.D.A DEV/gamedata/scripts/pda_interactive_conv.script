@@ -2344,22 +2344,13 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
         local icon = is_gain and "ui\\green_ruble" or "ui\\red_ruble"
         local text = string.format("Account %s%s RU", prefix, format_money_value(abs_amount))
 
-        local sender_icon = FALLBACK_NPC_ICON
-        local sender_obj = sender_npc_id and level.object_by_id(sender_npc_id) or nil
-        if sender_obj and sender_obj.character_icon and sender_obj:character_icon() ~= "" then
-            sender_icon = sender_obj:character_icon()
-        end
-
         pda_private_add_message(
             sender_contact_id,
             sender_npc_name,
-            "System Notification",
+            sender_npc_name or "Unknown",
             text,
-            sender_icon,
-            false,
-            nil,
-            nil,
-            icon
+            icon,
+            false
         )
     end
 
