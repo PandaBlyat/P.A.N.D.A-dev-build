@@ -1010,7 +1010,7 @@ END OF HOW TO GUIDE
 </string>
 
 <string id="st_pda_ic_loner_1_outcome_1">
-    <text>watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%,spawn_mutant_at_smart:snork:%cordon_panda_st_key%:2</text>
+    <text>watch_location:%cordon_panda_st_key%,watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%,watch_location_trigger:%cordon_panda_st_key%:spawn_mutant_at_smart:snork:%cordon_panda_st_key%:2:700</text>
 </string>
 
 <string id="st_pda_ic_loner_1_choice_2">
@@ -1041,6 +1041,31 @@ END OF HOW TO GUIDE
     <text>none</text>
 </string>
 
+
+<string id="st_pda_ic_loner_1_mini_turnin_actor">
+    <text>The snork pack is down. Let's settle up.</text>
+</string>
+
+<string id="st_pda_ic_loner_1_mini_turnin_npc">
+    <text>Good push. You showed up, fought with me, and cleaned the nest. Here's your cut.</text>
+</string>
+
+<string id="st_pda_ic_loner_1_mini_success_msg">
+    <text>Good work. Snorks are gone from %cordon_panda_st%.</text>
+</string>
+
+<string id="st_pda_ic_loner_1_mini_success_outcome">
+    <text>reward_money:3500,reward_rep:10,reward_gw:75:stalker</text>
+</string>
+
+<string id="st_pda_ic_loner_1_mini_fail_msg">
+    <text>We lost the moment. They're scattered now.</text>
+</string>
+
+<string id="st_pda_ic_loner_1_mini_fail_outcome">
+    <text>punish_rep:5</text>
+</string>
+
 <string id="st_pda_ic_loner_1_timeout">
     <text>80</text>
 </string>
@@ -1059,7 +1084,7 @@ END OF HOW TO GUIDE
 </string>
 
 <string id="st_pda_ic_loner_1_t2_outcome_1">
-    <text>watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%,spawn_mutant:snork:70:110</text>
+    <text>watch_location:%cordon_panda_st_key%,watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%,watch_location_trigger:%cordon_panda_st_key%:spawn_mutant_at_smart:snork:%cordon_panda_st_key%:2:700</text>
 </string>
 
 <string id="st_pda_ic_loner_1_t2_choice_2">
