@@ -257,6 +257,7 @@ local MCM_DEFAULTS = {
     poll_retries=20,
     smart_spawn_min=40, smart_spawn_max=150,
     location_watch_radius=85,
+    location_watch_spot_type="primary_object",
     location_check_interval=5,
     precond_unknown_policy="strict",
     precond_verbose_debug=false,
@@ -276,6 +277,15 @@ function PANDA.get_config(key)
                 if val == 2 or val == "2" then return "warn-and-skip" end
                 if val == "strict" or val == "warn-and-skip" then return val end
                 return MCM_DEFAULTS.precond_unknown_policy
+            end
+            if key == "location_watch_spot_type" then
+                if val == 1 or val == "1" then return "primary_object" end
+                if val == 2 or val == "2" then return "secondary_task_location" end
+                if val == 3 or val == "3" then return "quest_npc" end
+                if val == "primary_object" or val == "secondary_task_location" or val == "quest_npc" then
+                    return val
+                end
+                return MCM_DEFAULTS.location_watch_spot_type or "primary_object"
             end
             return val
         end
@@ -2467,6 +2477,26 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
             local delay = tonumber(parts[4]) or 90
             spawn_hunting_squad(parts[2] or "random", distance, true, delay)
 
+        elseif cmd == "spawn_mutant_at_smart" then
+            local mutant_type = parts[2] or "random"
+            local smart_ref = parts[3]
+            local delay = tonumber(parts[4]) or 0
+            if smart_ref and smart_ref ~= "" then
+                spawn_squad_at_smart_terrain(mutant_type, smart_ref, true, delay)
+            else
+                printf("PANDA_IC: spawn_mutant_at_smart missing smart reference in '%s'", tostring(cmd_str))
+            end
+
+        elseif cmd == "spawn_hostile_at_smart" then
+            local hostile_faction = normalize_faction(parts[2] or "bandit")
+            local smart_ref = parts[3]
+            local delay = tonumber(parts[4]) or 0
+            if smart_ref and smart_ref ~= "" then
+                spawn_squad_at_smart_terrain(hostile_faction, smart_ref, false, delay)
+            else
+                printf("PANDA_IC: spawn_hostile_at_smart missing smart reference in '%s'", tostring(cmd_str))
+            end
+
         elseif cmd == "spawn_companion" then
             local distance = tonumber(parts[3])
             local delay = tonumber(parts[4]) or 30
@@ -2606,6 +2636,92 @@ function resolve_mutant_section(mutant_type)
         if string.find(s, mutant_type, 1, true) then return s end
     end
     return "simulation_bloodsucker_1_2" 
+end
+
+local function spawn_squad_at_smart_terrain(squad_key, smart_ref, is_mutant, delay)
+    delay = tonumber(delay) or 0
+    local sender = game.translate_string("st_pda_ic_outcome_sender")
+
+    local function do_spawn()
+        if not db.actor then
+            return true
+        end
+
+        local smart, smart_name = resolve_smart_from_reference(smart_ref)
+        if not smart then
+            printf("PANDA_IC: spawn at smart failed — smart terrain '%s' not found", tostring(smart_ref))
+            return true
+        end
+
+        local smart_pos = get_position_from_object(smart)
+        local smart_lvid = smart.m_level_vertex_id
+        local smart_gvid = smart.m_game_vertex_id
+        if not (smart_pos and smart_lvid and smart_gvid) then
+            printf("PANDA_IC: spawn at smart failed — smart terrain '%s' missing position or vertex info", tostring(smart_ref))
+            return true
+        end
+
+        local sec = is_mutant and resolve_mutant_section(squad_key) or find_squad_section(squad_key)
+        if not sec then
+            printf("PANDA_IC: spawn at smart failed — no section for '%s'", tostring(squad_key))
+            return true
+        end
+
+        local obj = create_squad_safely(sec, smart_pos, smart_lvid, smart_gvid)
+        if not obj or obj:clsid() ~= clsid.online_offline_group_s then
+            printf("PANDA_IC: spawn at smart failed — could not create squad '%s'", tostring(sec))
+            return true
+        end
+
+        obj.scripted_target = nil
+        obj.rush_to_target = false
+
+        if SIMBOARD and SIMBOARD.assign_squad_to_smart then
+            SIMBOARD:assign_squad_to_smart(obj, smart.id)
+        end
+
+        if is_mutant then
+            for k in obj:squad_members() do
+                local o = level.object_by_id(k.id)
+                if o then
+                    o:set_relation(game_object.enemy, db.actor)
+                end
+            end
+        else
+            obj:set_squad_relation("enemy")
+            for k in obj:squad_members() do
+                local o = level.object_by_id(k.id)
+                if o then
+                    o:set_relation(game_object.enemy, db.actor)
+                    o:force_set_goodwill(-5000, db.actor)
+                end
+            end
+        end
+
+        local loc_name = get_location_display_name(smart_ref)
+        local notify_key = is_mutant and "st_pda_ic_outcome_mutant_warn" or "st_pda_ic_outcome_hostile_warn"
+        local notify_msg = utils_data.parse_string_keys(
+            game.translate_string(notify_key),
+            {
+                ["location"] = loc_name,
+                ["smart"] = smart_name or tostring(smart_ref),
+            }
+        )
+
+        if PANDA.get_config("show_hunt_notifications") then
+            dynamic_news_helper.send_tip(notify_msg, sender, 0, 10, FALLBACK_NPC_ICON, "danger", "gr")
+        end
+
+        return true
+    end
+
+    if delay > 0 then
+        local event_name = "spawn_smart_" .. tostring(math.random(100000))
+        track_panda_ic_event("pda_ic_spawn", event_name)
+        CreateTimeEvent("pda_ic_spawn", event_name, delay, do_spawn)
+    else
+        do_spawn()
+    end
 end
 
 function find_spawn_point_near_player(min, max)

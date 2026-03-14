@@ -378,6 +378,20 @@
 		<text>When spawning mutants via smart terrain, only consider smarts at most this far from the player.</text>
 	</string>
 
+	<string id="ui_mcm_pda_interactive_conv_interactive_location_watch_radius">
+		<text>Location watch trigger radius (m)</text>
+	</string>
+	<string id="ui_mcm_pda_interactive_conv_interactive_location_watch_radius_desc">
+		<text>Default radius used by watch_location and watch_location_trigger when a custom radius is not provided.</text>
+	</string>
+
+	<string id="ui_mcm_pda_interactive_conv_interactive_location_watch_spot_type">
+		<text>Location watch marker icon</text>
+	</string>
+	<string id="ui_mcm_pda_interactive_conv_interactive_location_watch_spot_type_desc">
+		<text>Select which PDA map spot type is used for watch_location markers.</text>
+	</string>
+
 	<!-- Technical -->
 	<string id="ui_mcm_pda_interactive_conv_interactive_poll_retries">
 		<text>Poll retries (max)</text>
