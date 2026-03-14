@@ -381,6 +381,50 @@ local function get_position_from_object(obj)
     return obj.position
 end
 
+local function get_object_level_vertex_id(obj)
+    if not obj then
+        return nil
+    end
+
+    if type(obj.level_vertex_id) == "function" then
+        return obj:level_vertex_id()
+    end
+
+    return obj.m_level_vertex_id
+end
+
+local function get_object_game_vertex_id(obj)
+    if not obj then
+        return nil
+    end
+
+    if type(obj.game_vertex_id) == "function" then
+        return obj:game_vertex_id()
+    end
+
+    return obj.m_game_vertex_id
+end
+
+local function are_objects_on_same_level(a, b)
+    if not (a and b) then
+        return false
+    end
+
+    local a_lvid = get_object_level_vertex_id(a)
+    local b_lvid = get_object_level_vertex_id(b)
+    if a_lvid and b_lvid then
+        return a_lvid == b_lvid
+    end
+
+    local a_gvid = get_object_game_vertex_id(a)
+    local b_gvid = get_object_game_vertex_id(b)
+    if a_gvid and b_gvid then
+        return a_gvid == b_gvid
+    end
+
+    return true
+end
+
 local function resolve_smart_position_from_reference(location_ref)
     local smart = nil
     local smart_name = nil
@@ -1013,7 +1057,7 @@ function check_location_references()
             end
 
             local radius = tonumber(entry.radius) or (PANDA.get_config("location_watch_radius") or 85)
-            if actor_pos:distance_to(smart_pos) <= radius then
+            if are_objects_on_same_level(db.actor, smart) and actor_pos:distance_to(smart_pos) <= radius then
                 reached[#reached + 1] = { id = id, entry = entry }
             end
         end
