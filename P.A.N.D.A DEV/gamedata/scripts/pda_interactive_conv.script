@@ -405,21 +405,66 @@ local function get_object_game_vertex_id(obj)
     return obj.m_game_vertex_id
 end
 
+local function get_graph_level_id_from_game_vertex(gvid)
+    if not gvid then
+        return nil
+    end
+
+    if not game_graph then
+        return nil
+    end
+
+    local gg = game_graph()
+    if not gg or not gg.vertex then
+        return nil
+    end
+
+    local vertex = gg:vertex(gvid)
+    if not vertex or not vertex.level_id then
+        return nil
+    end
+
+    return vertex:level_id()
+end
+
+local function get_object_level_id(obj)
+    if not obj then
+        return nil
+    end
+
+    if type(obj.level_id) == "function" then
+        return obj:level_id()
+    end
+
+    if obj.m_level_id ~= nil then
+        return obj.m_level_id
+    end
+
+    local gvid = get_object_game_vertex_id(obj)
+    return get_graph_level_id_from_game_vertex(gvid)
+end
+
 local function are_objects_on_same_level(a, b)
     if not (a and b) then
         return false
     end
 
-    local a_lvid = get_object_level_vertex_id(a)
-    local b_lvid = get_object_level_vertex_id(b)
-    if a_lvid and b_lvid then
-        return a_lvid == b_lvid
+    local a_level_id = get_object_level_id(a)
+    local b_level_id = get_object_level_id(b)
+    if a_level_id ~= nil and b_level_id ~= nil then
+        return a_level_id == b_level_id
     end
 
     local a_gvid = get_object_game_vertex_id(a)
     local b_gvid = get_object_game_vertex_id(b)
     if a_gvid and b_gvid then
         return a_gvid == b_gvid
+    end
+
+    local a_lvid = get_object_level_vertex_id(a)
+    local b_lvid = get_object_level_vertex_id(b)
+    if a_lvid and b_lvid then
+        return a_lvid == b_lvid
     end
 
     return true
