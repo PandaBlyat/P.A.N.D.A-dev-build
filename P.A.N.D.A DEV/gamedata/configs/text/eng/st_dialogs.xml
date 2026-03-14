@@ -3241,4 +3241,10 @@
 	<string id="st_pda_ic_mini_turnin_npc_fallback">
 		<text>Good work. I'll mark that objective as complete.</text>
 	</string>
+	<string id="dm_sim_panda_pending_turnin.dialog">
+		<text>[Objective Turn-In]</text>
+	</string>
+	<string id="dm_sim_panda_pending_turnin_dialog.dialog">
+		<text>[Objective Turn-In]</text>
+	</string>
 </string_table>
