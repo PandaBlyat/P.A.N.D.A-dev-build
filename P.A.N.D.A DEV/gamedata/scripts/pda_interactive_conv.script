@@ -257,6 +257,7 @@ local MCM_DEFAULTS = {
     poll_retries=20,
     smart_spawn_min=40, smart_spawn_max=80,
     location_watch_radius=85,
+    turnin_face_to_face_max_dist=35,
     location_watch_spot_type="primary_object",
     location_check_interval=5,
     precond_unknown_policy="strict",
@@ -843,7 +844,58 @@ local function can_send_turnin_tip(entry)
         return false
     end
 
-    return actor_pos:distance_to(sender_pos) <= 35
+    local max_dist = tonumber(PANDA.get_config("turnin_face_to_face_max_dist")) or 35
+    return actor_pos:distance_to(sender_pos) <= max_dist
+end
+
+local function should_fallback_turnin_to_pda(entry)
+    if not entry or not db.actor or not entry.sender_id then
+        return true
+    end
+
+    local sender_obj = level.object_by_id(entry.sender_id)
+    if not sender_obj or not sender_obj.alive or not sender_obj:alive() then
+        return true
+    end
+
+    local actor_pos = db.actor:position()
+    local sender_pos = sender_obj:position()
+    if not actor_pos or not sender_pos then
+        return true
+    end
+
+    local max_dist = tonumber(PANDA.get_config("turnin_face_to_face_max_dist")) or 35
+    return actor_pos:distance_to(sender_pos) > max_dist
+end
+
+local function notify_spawn_objective_remote_debrief(entry)
+    if not entry or not entry.sender_contact_id then
+        return
+    end
+
+    local msg_key = "st_pda_ic_spawn_objective_remote_debrief"
+    local msg_text = game.translate_string(msg_key)
+    if msg_text == msg_key then
+        msg_text = "Signal is poor. Sending remote debrief now."
+    end
+
+    local text = utils_data.parse_string_keys(
+        msg_text,
+        {
+            ["name"] = entry.sender_name or "Unknown",
+            ["location"] = get_location_display_name(entry.location_ref),
+        }
+    )
+
+    local sender = entry.sender_name or game.translate_string("st_pda_ic_outcome_sender")
+    pda_private_add_message(
+        entry.sender_contact_id,
+        entry.sender_name,
+        sender,
+        text,
+        get_spawn_objective_sender_icon(entry.sender_id),
+        false
+    )
 end
 
 local function notify_spawn_objective_turnin_pending(entry)
@@ -929,6 +981,38 @@ local function normalize_spawn_objective_entry(entry)
     return entry
 end
 
+local pending_turnin_dialog_cache = {}
+
+local function pda_ic_finalize_pending_turnin(objective_id, entry, npc_id)
+    if not objective_id or not entry or entry.turned_in then
+        return false
+    end
+
+    local _, followup_outcome = get_objective_followup(entry, true)
+    if followup_outcome and followup_outcome ~= "" and followup_outcome ~= "none" then
+        apply_outcome(
+            followup_outcome,
+            entry.sender_name,
+            entry.sender_faction,
+            entry.sender_id,
+            nil,
+            entry.sender_contact_id,
+            entry.context
+        )
+    end
+
+    entry.turned_in = true
+    entry.pending_turnin = false
+    entry.turned_in_at = time_global()
+    active_spawn_objectives[objective_id] = nil
+
+    if npc_id then
+        pending_turnin_dialog_cache[npc_id] = nil
+    end
+
+    return true
+end
+
 function check_spawn_objectives()
     if not next(active_spawn_objectives) then
         return
@@ -983,6 +1067,8 @@ function check_spawn_objectives()
 
         if entry.pending_turnin and should_cleanup_pending_turnin(entry, now) then
             table.insert(resolved, { id = objective_id, cleanup_only = true, entry = entry })
+        elseif entry.pending_turnin and should_fallback_turnin_to_pda(entry) then
+            table.insert(resolved, { id = objective_id, remote_turnin = true, entry = entry })
         elseif all_dead then
             if not entry.pending_turnin then
                 if _G and _G.printf then
@@ -1013,14 +1099,17 @@ function check_spawn_objectives()
     end
 
     for _, payload in ipairs(resolved) do
-        if not payload.cleanup_only then
+        if payload.remote_turnin then
+            notify_spawn_objective_remote_debrief(payload.entry)
+            pda_ic_finalize_pending_turnin(payload.id, payload.entry)
+        elseif not payload.cleanup_only then
             notify_spawn_objective(payload.entry, payload.success)
+            active_spawn_objectives[payload.id] = nil
+        else
+            active_spawn_objectives[payload.id] = nil
         end
-        active_spawn_objectives[payload.id] = nil
     end
 end
-
-local pending_turnin_dialog_cache = {}
 
 local function resolve_dialog_actor_npc(a, b)
     local actor = db and db.actor or nil
@@ -1157,28 +1246,9 @@ function pda_ic_complete_pending_turnin(a, b)
         return
     end
 
-    local _, followup_outcome = get_objective_followup(entry, true)
-    if followup_outcome and followup_outcome ~= "" and followup_outcome ~= "none" then
-        apply_outcome(
-            followup_outcome,
-            entry.sender_name,
-            entry.sender_faction,
-            entry.sender_id,
-            nil,
-            entry.sender_contact_id,
-            entry.context
-        )
-    end
-
-    entry.turned_in = true
-    entry.pending_turnin = false
-    entry.turned_in_at = time_global()
-    active_spawn_objectives[objective_id] = nil
-
     local _, npc = resolve_dialog_actor_npc(a, b)
-    if npc and npc.id then
-        pending_turnin_dialog_cache[npc:id()] = nil
-    end
+    local npc_id = (npc and npc.id) and npc:id() or nil
+    pda_ic_finalize_pending_turnin(objective_id, entry, npc_id)
 end
 
 
