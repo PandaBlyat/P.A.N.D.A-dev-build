@@ -335,6 +335,8 @@ local npc_last_used = {}   -- store last used time per NPC
 local last_pda_warning_time = 0 
 local pending_location_refs = {}
 local next_location_ref_id = 1
+local active_spawn_objectives = {}
+local next_spawn_objective_id = 1
 
 local function normalize_smart_name_from_ref(location_ref)
     if not location_ref or location_ref == "" then
@@ -532,6 +534,175 @@ local function register_location_reference(location_ref, sender_npc_name, sender
     )
 
     return entry
+end
+
+local function register_spawn_objective(squad_id, objective)
+    if not squad_id or not objective then
+        return nil
+    end
+
+    local objective_id = next_spawn_objective_id
+    next_spawn_objective_id = next_spawn_objective_id + 1
+
+    objective.id = objective_id
+    objective.squad_id = squad_id
+    objective.started_at = objective.started_at or time_global()
+    objective.timeout_sec = tonumber(objective.timeout_sec) or 600
+    objective.success_msg = objective.success_msg or "st_pda_ic_spawn_objective_success"
+    objective.fail_msg = objective.fail_msg or "st_pda_ic_spawn_objective_fail"
+    objective.objective_type = objective.objective_type or "hostile"
+
+    active_spawn_objectives[objective_id] = objective
+    return objective_id
+end
+
+local function get_spawn_objective_sender_icon(npc_id)
+    local npc_obj = npc_id and level.object_by_id(npc_id) or nil
+    if npc_obj and npc_obj.character_icon then
+        return npc_obj:character_icon()
+    end
+    return FALLBACK_NPC_ICON
+end
+
+local function get_conv_string_base(prefix, faction, conv_id)
+    if not faction or not conv_id then
+        return nil
+    end
+
+    if prefix == "task" or not prefix then
+        return "st_pda_ic_" .. tostring(faction) .. "_" .. tostring(conv_id)
+    end
+
+    return "st_pda_ic_" .. tostring(prefix) .. "_" .. tostring(faction) .. "_" .. tostring(conv_id)
+end
+
+local function get_objective_followup(entry, success)
+    local base = get_conv_string_base(entry.conv_prefix, entry.conv_faction, entry.conv_id)
+    if not base then
+        return nil, nil
+    end
+
+    local msg_key = success and (base .. "_mini_success_msg") or (base .. "_mini_fail_msg")
+    local translated_msg = game.translate_string(msg_key)
+    if translated_msg == msg_key then
+        msg_key = nil
+    end
+
+    local outcome_key = success and (base .. "_mini_success_outcome") or (base .. "_mini_fail_outcome")
+    local translated_outcome = game.translate_string(outcome_key)
+    if translated_outcome == outcome_key then
+        translated_outcome = nil
+    end
+
+    return msg_key, translated_outcome
+end
+
+local function notify_spawn_objective(entry, success)
+    local default_msg_key = success and entry.success_msg or entry.fail_msg
+    local followup_msg_key, followup_outcome = get_objective_followup(entry, success)
+    local msg_key = followup_msg_key or default_msg_key
+    local text = utils_data.parse_string_keys(
+        game.translate_string(msg_key),
+        {
+            ["name"] = entry.sender_name or "Unknown",
+            ["location"] = get_location_display_name(entry.location_ref),
+        }
+    )
+
+    local sender = entry.sender_name or game.translate_string("st_pda_ic_outcome_sender")
+    local sender_icon = get_spawn_objective_sender_icon(entry.sender_id)
+
+    dynamic_news_helper.send_tip(
+        text,
+        sender,
+        0,
+        10,
+        sender_icon,
+        "beep_2",
+        "npc"
+    )
+
+    if entry.sender_contact_id then
+        pda_private_add_message(
+            entry.sender_contact_id,
+            entry.sender_name,
+            sender,
+            text,
+            sender_icon,
+            false
+        )
+    end
+
+    if followup_outcome and followup_outcome ~= "" and followup_outcome ~= "none" then
+        apply_outcome(
+            followup_outcome,
+            entry.sender_name,
+            entry.sender_faction,
+            entry.sender_id,
+            nil,
+            entry.sender_contact_id,
+            entry.context
+        )
+    end
+end
+
+function check_spawn_objectives()
+    if not next(active_spawn_objectives) then
+        return
+    end
+
+    local now = time_global()
+    local resolved = {}
+
+    for objective_id, entry in pairs(active_spawn_objectives) do
+        local squad = entry.squad_id and alife_object(entry.squad_id) or nil
+        local all_dead = false
+
+        if squad then
+            local alive_count = 0
+            local unknown_count = 0
+
+            for member in squad:squad_members() do
+                local member_id = member.id or (member.object and member.object.id)
+                local member_obj = member_id and level.object_by_id(member_id) or nil
+                local se_member = member_id and alife_object(member_id) or nil
+                local is_alive = false
+                local known_state = false
+
+                if member_obj and member_obj.alive then
+                    is_alive = member_obj:alive()
+                    known_state = true
+                elseif se_member and se_member.alive then
+                    is_alive = se_member:alive()
+                    known_state = true
+                end
+
+                if known_state then
+                    if is_alive then
+                        alive_count = alive_count + 1
+                    end
+                else
+                    unknown_count = unknown_count + 1
+                end
+            end
+
+            all_dead = alive_count == 0 and unknown_count == 0
+        end
+
+        if all_dead then
+            table.insert(resolved, { id = objective_id, success = true, entry = entry })
+        else
+            local elapsed_ms = now - (entry.started_at or now)
+            if elapsed_ms >= ((tonumber(entry.timeout_sec) or 600) * 1000) then
+                table.insert(resolved, { id = objective_id, success = false, entry = entry })
+            end
+        end
+    end
+
+    for _, payload in ipairs(resolved) do
+        notify_spawn_objective(payload.entry, payload.success)
+        active_spawn_objectives[payload.id] = nil
+    end
 end
 
 function check_location_references()
@@ -2391,7 +2562,7 @@ end
 
 local spawn_squad_at_smart_terrain
 
-function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_id, pre_found_task_id, sender_contact_id)
+function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_id, pre_found_task_id, sender_contact_id, conv_context)
     if not outcome_str or outcome_str == "" or outcome_str == "none" then return false end
 
     -- Resolve dynamic placeholders in outcome command strings (including smart terrain refs)
@@ -2508,8 +2679,17 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
             local mutant_type = parts[2] or "random"
             local smart_ref = parts[3]
             local delay = tonumber(parts[4]) or 0
+            local timeout_sec = tonumber(parts[5])
             if smart_ref and smart_ref ~= "" then
-                spawn_squad_at_smart_terrain(mutant_type, smart_ref, true, delay)
+                spawn_squad_at_smart_terrain(mutant_type, smart_ref, true, delay, {
+                    timeout_sec = timeout_sec,
+                    sender_name = sender_npc_name,
+                    sender_faction = sender_faction,
+                    sender_id = sender_npc_id,
+                    sender_contact_id = sender_contact_id,
+                    objective_type = "mutant",
+                    context = conv_context,
+                })
             else
                 printf("PANDA_IC: spawn_mutant_at_smart missing smart reference in '%s'", tostring(cmd_str))
             end
@@ -2518,8 +2698,17 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
             local hostile_faction = normalize_faction(parts[2] or "bandit")
             local smart_ref = parts[3]
             local delay = tonumber(parts[4]) or 0
+            local timeout_sec = tonumber(parts[5])
             if smart_ref and smart_ref ~= "" then
-                spawn_squad_at_smart_terrain(hostile_faction, smart_ref, false, delay)
+                spawn_squad_at_smart_terrain(hostile_faction, smart_ref, false, delay, {
+                    timeout_sec = timeout_sec,
+                    sender_name = sender_npc_name,
+                    sender_faction = sender_faction,
+                    sender_id = sender_npc_id,
+                    sender_contact_id = sender_contact_id,
+                    objective_type = "hostile",
+                    context = conv_context,
+                })
             else
                 printf("PANDA_IC: spawn_hostile_at_smart missing smart reference in '%s'", tostring(cmd_str))
             end
@@ -2665,8 +2854,9 @@ function resolve_mutant_section(mutant_type)
     return "simulation_bloodsucker_1_2" 
 end
 
-spawn_squad_at_smart_terrain = function(squad_key, smart_ref, is_mutant, delay)
+spawn_squad_at_smart_terrain = function(squad_key, smart_ref, is_mutant, delay, objective_opts)
     delay = tonumber(delay) or 0
+    objective_opts = objective_opts or {}
     local sender = game.translate_string("st_pda_ic_outcome_sender")
 
     local function do_spawn()
@@ -2738,6 +2928,20 @@ spawn_squad_at_smart_terrain = function(squad_key, smart_ref, is_mutant, delay)
         if PANDA.get_config("show_hunt_notifications") then
             dynamic_news_helper.send_tip(notify_msg, sender, 0, 10, FALLBACK_NPC_ICON, "danger", "gr")
         end
+
+        register_spawn_objective(obj.id, {
+            timeout_sec = objective_opts.timeout_sec,
+            sender_name = objective_opts.sender_name,
+            sender_faction = objective_opts.sender_faction,
+            sender_id = objective_opts.sender_id,
+            sender_contact_id = objective_opts.sender_contact_id,
+            location_ref = smart_ref,
+            objective_type = objective_opts.objective_type or (is_mutant and "mutant" or "hostile"),
+            conv_prefix = objective_opts.context and objective_opts.context.prefix,
+            conv_faction = objective_opts.context and objective_opts.context.faction,
+            conv_id = objective_opts.context and objective_opts.context.conv_id,
+            context = objective_opts.context,
+        })
 
         return true
     end
@@ -3545,7 +3749,13 @@ function on_player_choice(idx, contact_id)
                         local outcome_delay_min = PANDA.get_config("outcome_delay_min") or 1
                         local outcome_delay_max = PANDA.get_config("outcome_delay_max") or 2
                         CreateTimeEvent(ev_prefix, "outcome", math.random(outcome_delay_min, outcome_delay_max), function()
-                            apply_outcome(ch.outcome, npc_name, c.faction, c.npc_id, c.task_id, cid)
+                            apply_outcome(ch.outcome, npc_name, c.faction, c.npc_id, c.task_id, cid, {
+                                prefix = c.prefix,
+                                faction = c.faction,
+                                conv_id = c.conv_id,
+                                turn = c.turn,
+                                choice = idx,
+                            })
                             return true
                         end)
                     end
@@ -3866,6 +4076,13 @@ local function schedule_location_ref_checker()
     end)
 end
 
+local function schedule_spawn_objective_checker()
+    CreateTimeEvent("pda_ic_spawn_objectives", "check", 10, function()
+        check_spawn_objectives()
+        return false
+    end)
+end
+
 
 -- ============================================================
 -- KEYBOARD CALLBACKS
@@ -3901,6 +4118,8 @@ function save_state(m)
     m.pda_active_conversations = save_convs
     m.pda_pending_location_refs = pending_location_refs
     m.pda_next_location_ref_id = next_location_ref_id
+    m.pda_active_spawn_objectives = active_spawn_objectives
+    m.pda_next_spawn_objective_id = next_spawn_objective_id
 end
 
 function load_state(m)
@@ -3942,6 +4161,14 @@ function load_state(m)
 
     if m.pda_next_location_ref_id then
         next_location_ref_id = m.pda_next_location_ref_id
+    end
+
+    if m.pda_active_spawn_objectives then
+        active_spawn_objectives = m.pda_active_spawn_objectives
+    end
+
+    if m.pda_next_spawn_objective_id then
+        next_spawn_objective_id = m.pda_next_spawn_objective_id
     end
 
     -- Restore active conversations and rebuild their choices
@@ -3996,6 +4223,8 @@ function on_game_start()
     schedule_timeout_checker()
     -- Schedule smart-location reference checker
     schedule_location_ref_checker()
+    -- Schedule spawned objective checker (for smart-spawn kill/timeout tracking)
+    schedule_spawn_objective_checker()
 
     _callbacks_registered = true
 end
