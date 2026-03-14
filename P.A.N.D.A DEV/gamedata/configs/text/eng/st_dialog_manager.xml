@@ -5472,8 +5472,7 @@
 		<text>I guess that is what I should have expected from a rookie.</text>
 	</string>
 
-	<!-- Repair -->
-	<string id="st_inventory_upgrade_reply_1">
+
 
 	<!-- P.A.N.D.A. dynamic objective turn-in fallback strings -->
 	<string id="st_pda_ic_mini_turnin_actor_fallback">
@@ -5492,6 +5491,7 @@
 		<text>[Objective Turn-In]</text>
 	</string>
 
+	<string id="st_inventory_upgrade_reply_1">
 		<text>Your %s will be ready in %s minutes. Come back then.</text>
 	</string>
 	<string id="st_inventory_upgrade_reply_2">
