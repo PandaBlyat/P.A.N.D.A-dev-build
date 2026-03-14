@@ -337,6 +337,7 @@ local pending_location_refs = {}
 local next_location_ref_id = 1
 local active_spawn_objectives = {}
 local next_spawn_objective_id = 1
+local DEFAULT_PENDING_TURNIN_TIMEOUT_SEC = 1800
 
 local function normalize_smart_name_from_ref(location_ref)
     if not location_ref or location_ref == "" then
@@ -551,6 +552,7 @@ local function register_spawn_objective(squad_id, objective)
     objective.success_msg = objective.success_msg or "st_pda_ic_spawn_objective_success"
     objective.fail_msg = objective.fail_msg or "st_pda_ic_spawn_objective_fail"
     objective.objective_type = objective.objective_type or "hostile"
+    objective.smart_ref = objective.smart_ref or objective.location_ref
 
     active_spawn_objectives[objective_id] = objective
     return objective_id
@@ -646,6 +648,112 @@ local function notify_spawn_objective(entry, success)
     end
 end
 
+local function can_send_turnin_tip(entry)
+    if not entry or not entry.sender_id or not db.actor then
+        return false
+    end
+
+    local sender_obj = level.object_by_id(entry.sender_id)
+    if not sender_obj or not sender_obj.alive or not sender_obj:alive() then
+        return false
+    end
+
+    if sender_obj.best_enemy and sender_obj:best_enemy() then
+        return false
+    end
+
+    local actor_pos = db.actor:position()
+    local sender_pos = sender_obj:position()
+    if not actor_pos or not sender_pos then
+        return false
+    end
+
+    return actor_pos:distance_to(sender_pos) <= 35
+end
+
+local function notify_spawn_objective_turnin_pending(entry)
+    if not can_send_turnin_tip(entry) then
+        return
+    end
+
+    local tip_key = "st_pda_ic_spawn_objective_report_back"
+    local tip_text = game.translate_string(tip_key)
+    if tip_text == tip_key then
+        tip_text = "Report back in person"
+    end
+
+    local text = utils_data.parse_string_keys(
+        tip_text,
+        {
+            ["name"] = entry.sender_name or "Unknown",
+            ["location"] = get_location_display_name(entry.location_ref),
+        }
+    )
+
+    dynamic_news_helper.send_tip(
+        text,
+        entry.sender_name or game.translate_string("st_pda_ic_outcome_sender"),
+        0,
+        10,
+        get_spawn_objective_sender_icon(entry.sender_id),
+        "beep_2",
+        "npc"
+    )
+end
+
+local function should_cleanup_pending_turnin(entry, now)
+    if not entry or not entry.pending_turnin or entry.turned_in then
+        return false
+    end
+
+    local sender_se = entry.sender_id and alife_object(entry.sender_id) or nil
+    if sender_se and sender_se.alive and not sender_se:alive() then
+        return true
+    end
+
+    local turnin_started = tonumber(entry.success_at) or tonumber(entry.started_at) or now
+    local stale_timeout_sec = tonumber(entry.pending_turnin_timeout_sec) or math.max(tonumber(entry.timeout_sec) or 0, DEFAULT_PENDING_TURNIN_TIMEOUT_SEC)
+    if (now - turnin_started) >= (stale_timeout_sec * 1000) then
+        return true
+    end
+
+    if not entry.sender_id and not entry.sender_contact_id then
+        return true
+    end
+
+    return false
+end
+
+local function normalize_spawn_objective_entry(entry)
+    if not entry then
+        return nil
+    end
+
+    entry.timeout_sec = tonumber(entry.timeout_sec) or 600
+    entry.success_msg = entry.success_msg or "st_pda_ic_spawn_objective_success"
+    entry.fail_msg = entry.fail_msg or "st_pda_ic_spawn_objective_fail"
+    entry.objective_type = entry.objective_type or "hostile"
+    entry.smart_ref = entry.smart_ref or entry.location_ref
+
+    if entry.pending_turnin then
+        local success_at = tonumber(entry.success_at) or tonumber(entry.success_timestamp)
+        if success_at then
+            entry.success_at = success_at
+            entry.success_timestamp = success_at
+        else
+            entry.success_at = tonumber(entry.started_at) or time_global()
+            entry.success_timestamp = entry.success_at
+        end
+
+        if entry.turned_in == nil then
+            entry.turned_in = false
+        end
+        entry.pending_turnin_timeout_sec = tonumber(entry.pending_turnin_timeout_sec) or math.max(tonumber(entry.timeout_sec) or 0, DEFAULT_PENDING_TURNIN_TIMEOUT_SEC)
+    end
+
+    return entry
+end
+
 function check_spawn_objectives()
     if not next(active_spawn_objectives) then
         return
@@ -689,8 +797,19 @@ function check_spawn_objectives()
             all_dead = alive_count == 0 and unknown_count == 0
         end
 
-        if all_dead then
-            table.insert(resolved, { id = objective_id, success = true, entry = entry })
+        if entry.pending_turnin and should_cleanup_pending_turnin(entry, now) then
+            table.insert(resolved, { id = objective_id, cleanup_only = true, entry = entry })
+        elseif all_dead then
+            if not entry.pending_turnin then
+                entry.pending_turnin = true
+                entry.success_at = now
+                entry.success_timestamp = now
+                entry.turned_in = false
+                entry.pending_turnin_timeout_sec = tonumber(entry.pending_turnin_timeout_sec) or math.max(tonumber(entry.timeout_sec) or 0, DEFAULT_PENDING_TURNIN_TIMEOUT_SEC)
+                notify_spawn_objective_turnin_pending(entry)
+            elseif should_cleanup_pending_turnin(entry, now) then
+                table.insert(resolved, { id = objective_id, cleanup_only = true, entry = entry })
+            end
         else
             local elapsed_ms = now - (entry.started_at or now)
             if elapsed_ms >= ((tonumber(entry.timeout_sec) or 600) * 1000) then
@@ -700,7 +819,9 @@ function check_spawn_objectives()
     end
 
     for _, payload in ipairs(resolved) do
-        notify_spawn_objective(payload.entry, payload.success)
+        if not payload.cleanup_only then
+            notify_spawn_objective(payload.entry, payload.success)
+        end
         active_spawn_objectives[payload.id] = nil
     end
 end
@@ -4164,7 +4285,14 @@ function load_state(m)
     end
 
     if m.pda_active_spawn_objectives then
-        active_spawn_objectives = m.pda_active_spawn_objectives
+        local restored_spawn_objectives = {}
+        for key, entry in pairs(m.pda_active_spawn_objectives) do
+            local normalized = normalize_spawn_objective_entry(entry)
+            if normalized then
+                restored_spawn_objectives[key] = normalized
+            end
+        end
+        active_spawn_objectives = restored_spawn_objectives
     end
 
     if m.pda_next_spawn_objective_id then
