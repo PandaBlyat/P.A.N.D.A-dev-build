@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<game_dialogs>
+    <dialog id="dm_sim_panda_pending_turnin_dialog">
+        <precondition>pda_interactive_conv.pda_ic_can_turnin_pending_objective</precondition>
+        <init_func>pda_interactive_conv.dm_init_sim_pending_turnin_dialog</init_func>
+    </dialog>
+</game_dialogs>

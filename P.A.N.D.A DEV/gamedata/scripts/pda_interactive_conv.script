@@ -826,6 +826,165 @@ function check_spawn_objectives()
     end
 end
 
+local pending_turnin_dialog_cache = {}
+
+local function resolve_dialog_actor_npc(a, b)
+    local actor = db and db.actor or nil
+    if not actor then
+        return nil, nil
+    end
+
+    if a and a.id and a:id() == actor:id() then
+        return a, b
+    end
+
+    if b and b.id and b:id() == actor:id() then
+        return b, a
+    end
+
+    return actor, (a ~= actor and a) or b
+end
+
+local function is_object_near_smart_radius(obj, smart_ref, radius)
+    if not obj or not smart_ref then
+        return false
+    end
+
+    local smart = resolve_smart_from_reference(smart_ref)
+    local smart_pos = smart and get_position_from_object(smart) or nil
+    local obj_pos = obj.position and obj:position() or nil
+
+    if not smart_pos or not obj_pos then
+        return false
+    end
+
+    return obj_pos:distance_to(smart_pos) <= radius
+end
+
+local function find_pending_turnin_for_dialog(a, b)
+    local actor, npc = resolve_dialog_actor_npc(a, b)
+    if not actor or not npc or not npc.id then
+        return nil, nil
+    end
+
+    local npc_id = npc:id()
+    local cached_id = pending_turnin_dialog_cache[npc_id]
+    if cached_id and active_spawn_objectives[cached_id] then
+        local cached_entry = active_spawn_objectives[cached_id]
+        if cached_entry.pending_turnin and not cached_entry.turned_in then
+            return cached_id, cached_entry
+        end
+    end
+
+    for objective_id, entry in pairs(active_spawn_objectives) do
+        if entry and entry.pending_turnin and not entry.turned_in and entry.sender_id == npc_id then
+            local smart_ref = entry.smart_ref or entry.location_ref
+            local radius = tonumber(entry.turnin_radius) or tonumber(entry.radius) or (PANDA.get_config("location_watch_radius") or 85)
+            local actor_near = smart_ref and is_object_near_smart_radius(actor, smart_ref, radius)
+            local npc_near = smart_ref and is_object_near_smart_radius(npc, smart_ref, radius)
+
+            if actor_near and npc_near then
+                pending_turnin_dialog_cache[npc_id] = objective_id
+                return objective_id, entry
+            end
+        end
+    end
+
+    pending_turnin_dialog_cache[npc_id] = nil
+    return nil, nil
+end
+
+local function resolve_turnin_text_key(entry, suffix, fallback_suffix)
+    if not entry then
+        return nil
+    end
+
+    local base = get_conv_string_base(entry.conv_prefix, entry.conv_faction, entry.conv_id)
+    if not base then
+        return nil
+    end
+
+    local preferred = base .. suffix
+    if game.translate_string(preferred) ~= preferred then
+        return preferred
+    end
+
+    if fallback_suffix then
+        local fallback = base .. fallback_suffix
+        if game.translate_string(fallback) ~= fallback then
+            return fallback
+        end
+    end
+
+    return nil
+end
+
+function pda_ic_can_turnin_pending_objective(a, b)
+    local _, entry = find_pending_turnin_for_dialog(a, b)
+    return entry ~= nil
+end
+
+function pda_ic_mini_turnin_actor_text(a, b)
+    local _, entry = find_pending_turnin_for_dialog(a, b)
+    local key = resolve_turnin_text_key(entry, "_mini_turnin_actor", nil)
+    return game.translate_string(key or "st_pda_ic_mini_turnin_actor_fallback")
+end
+
+function pda_ic_mini_turnin_npc_text(a, b)
+    local _, entry = find_pending_turnin_for_dialog(a, b)
+    local key = resolve_turnin_text_key(entry, "_mini_turnin_npc", "_mini_success_msg")
+    return game.translate_string(key or "st_pda_ic_mini_turnin_npc_fallback")
+end
+
+function pda_ic_complete_pending_turnin(a, b)
+    local objective_id, entry = find_pending_turnin_for_dialog(a, b)
+    if not objective_id or not entry or entry.turned_in then
+        return
+    end
+
+    local _, followup_outcome = get_objective_followup(entry, true)
+    if followup_outcome and followup_outcome ~= "" and followup_outcome ~= "none" then
+        apply_outcome(
+            followup_outcome,
+            entry.sender_name,
+            entry.sender_faction,
+            entry.sender_id,
+            nil,
+            entry.sender_contact_id,
+            entry.context
+        )
+    end
+
+    entry.turned_in = true
+    entry.pending_turnin = false
+    entry.turned_in_at = time_global()
+    active_spawn_objectives[objective_id] = nil
+
+    local _, npc = resolve_dialog_actor_npc(a, b)
+    if npc and npc.id then
+        pending_turnin_dialog_cache[npc:id()] = nil
+    end
+end
+
+
+function dm_init_sim_pending_turnin_dialog(dialog)
+    if not add_script_dialog or not add_dialog then
+        return
+    end
+
+    add_script_dialog("", 0, "pda_interactive_conv.pda_ic_mini_turnin_actor_text", "pda_interactive_conv.pda_ic_can_turnin_pending_objective")
+
+    add_script_dialog(
+        0,
+        1,
+        "pda_interactive_conv.pda_ic_mini_turnin_npc_text",
+        "pda_interactive_conv.pda_ic_can_turnin_pending_objective",
+        "pda_interactive_conv.pda_ic_complete_pending_turnin"
+    )
+
+    add_dialog(1, 2, "dm_universal_actor_exit_thanks")
+end
+
 function check_location_references()
     if not db.actor then
         return
