@@ -428,6 +428,50 @@ local function get_location_display_name(location_ref)
     return smart_name or location_ref
 end
 
+local function get_location_watch_spot_type()
+    local spot = PANDA and PANDA.get_config and PANDA.get_config("location_watch_spot_type") or nil
+    if not spot or spot == "" then
+        return "primary_object"
+    end
+    return spot
+end
+
+local function add_map_spot_for_ref(location_ref, spot_type, hint)
+    local smart = nil
+    local smart_name = nil
+
+    smart, smart_name = resolve_smart_from_reference(location_ref)
+    if not (smart) and smart_name and SIMBOARD and SIMBOARD.smarts_by_names then
+        smart = SIMBOARD.smarts_by_names[smart_name]
+    end
+
+    if not (smart and smart.id) then
+        printf("PANDA_IC: add_map_spot_for_ref failed to resolve smart id for '%s' (normalized '%s')", tostring(location_ref), tostring(smart_name))
+        return nil
+    end
+
+    spot_type = (spot_type and spot_type ~= "") and spot_type or "primary_object"
+    hint = (hint and hint ~= "") and hint or "default"
+
+    if level.map_has_object_spot(smart.id, spot_type) == 0 then
+        level.map_add_object_spot_ser(smart.id, spot_type, hint)
+    end
+
+    return smart.id, smart_name
+end
+
+local function remove_map_spot_for_id(obj_id, spot_type)
+    if not obj_id then
+        return
+    end
+
+    spot_type = (spot_type and spot_type ~= "") and spot_type or "primary_object"
+    if level.map_has_object_spot(obj_id, spot_type) ~= 0 then
+        level.map_remove_object_spot(obj_id, spot_type)
+    end
+end
+
+
 local function register_location_reference(location_ref, sender_npc_name, sender_npc_id, radius)
     local smart, smart_name = resolve_smart_from_reference(location_ref)
     local watch_id = next_location_ref_id
@@ -459,10 +503,10 @@ local function register_location_reference(location_ref, sender_npc_name, sender
                 ["name"] = sender_npc_name or "Unknown",
             }
         )
-        if level.map_has_object_spot(smart.id, "primary_object") == 0 then
-            level.map_add_object_spot_ser(smart.id, "primary_object", marker_hint)
-        end
-        entry.map_spot_id = smart.id
+        local spot_type = get_location_watch_spot_type()
+        local spot_id = add_map_spot_for_ref(location_ref, spot_type, marker_hint)
+        entry.map_spot_id = spot_id
+        entry.map_spot_type = spot_type
     end
 
     local msg = utils_data.parse_string_keys(
@@ -490,7 +534,8 @@ function check_location_references()
 
     for id, entry in pairs(pending_location_refs) do
         local smart = entry.smart_name and SIMBOARD and SIMBOARD.get_smart_by_name and SIMBOARD:get_smart_by_name(entry.smart_name) or nil
-        if smart and smart.position then
+        local smart_pos = get_position_from_object(smart)
+        if smart and smart_pos then
             -- If the smart was resolved late, place the PDA marker now
             if not entry.map_spot_id then
                 local display_name = get_location_display_name(entry.location_ref)
@@ -501,14 +546,13 @@ function check_location_references()
                         ["name"] = entry.sender_name or "Unknown",
                     }
                 )
-                if level.map_has_object_spot(smart.id, "primary_object") == 0 then
-                    level.map_add_object_spot_ser(smart.id, "primary_object", marker_hint)
-                end
-                entry.map_spot_id = smart.id
+                local spot_type = entry.map_spot_type or get_location_watch_spot_type()
+                entry.map_spot_id = add_map_spot_for_ref(entry.location_ref, spot_type, marker_hint)
+                entry.map_spot_type = spot_type
             end
 
             local radius = tonumber(entry.radius) or (PANDA.get_config("location_watch_radius") or 85)
-            if actor_pos:distance_to(smart:position()) <= radius then
+            if actor_pos:distance_to(smart_pos) <= radius then
                 reached[#reached + 1] = { id = id, entry = entry }
             end
         end
@@ -540,9 +584,7 @@ function check_location_references()
 
         -- Remove the PDA map marker now that the player has arrived
         if entry.map_spot_id then
-            if level.map_has_object_spot(entry.map_spot_id, "primary_object") ~= 0 then
-                level.map_remove_object_spot(entry.map_spot_id, "primary_object")
-            end
+            remove_map_spot_for_id(entry.map_spot_id, entry.map_spot_type or get_location_watch_spot_type())
         end
 
         pending_location_refs[payload.id] = nil
@@ -2314,6 +2356,10 @@ end
 
 function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_id, pre_found_task_id, sender_contact_id)
     if not outcome_str or outcome_str == "" or outcome_str == "none" then return false end
+
+    -- Resolve dynamic placeholders in outcome command strings (including smart terrain refs)
+    -- so commands like watch_location_trigger:%cordon_panda_st_key% work at runtime.
+    outcome_str = sub_placeholders(outcome_str, sender_npc_name, sender_faction)
 
     local task_given = false
     local spawn_mult = (PANDA.get_config("spawn_chance_mult") or 100) / 100
