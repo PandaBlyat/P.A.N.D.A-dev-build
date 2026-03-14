@@ -421,9 +421,18 @@ Format: command:param1:param2
     Example: spawn_hostile:bandit:90     (spawn bandits ~90m from player)
 
   spawn_mutant:<type>:<distance>
-    Spawn a mutant squad. Type can be "random" or a specific mutant.
+    Spawn a mutant squad near the player. Type can be "random" or a specific mutant.
     Example: spawn_mutant:random:90      (spawn random mutants ~90m away)
     Example: spawn_mutant:bloodsucker:60
+
+  spawn_mutant_at_smart:<type>:<smart_terrain_key>[:delay_seconds]
+    Spawn a mutant squad at the referenced smart terrain instead of near the player.
+    Example: spawn_mutant_at_smart:snork:st_esc_smart_terrain_4_13_name
+    Example: spawn_mutant_at_smart:boar:st_gar_smart_terrain_3_5_name:10
+
+  spawn_hostile_at_smart:<faction>:<smart_terrain_key>[:delay_seconds]
+    Spawn a hostile human squad at the referenced smart terrain.
+    Example: spawn_hostile_at_smart:bandit:st_esc_smart_terrain_4_13_name
 
   spawn_companion:<faction>:<distance>
     Spawn a friendly squad that joins the player.
@@ -455,7 +464,8 @@ Format: command:param1:param2
   watch_location_trigger:<smart_terrain_key>:<command>:<params>:<radius>
     Place a marker AND trigger an outcome command when the player arrives.
     Example: watch_location_trigger:st_gar_smart_terrain_3_5_name:spawn_hostile:bandit:90:100
-    = Mark a location, and when player gets within 100m, spawn hostile bandits.
+    Example: watch_location_trigger:st_esc_smart_terrain_4_13_name:spawn_mutant_at_smart:snork:st_esc_smart_terrain_4_13_name:100
+    = Mark a location, and when player gets within 100m, run the specified command.
 
 --- NPC TELEPORTATION ---
 
