@@ -2364,6 +2364,8 @@ end
 -- OUTCOME HANDLERS
 -- ============================================================
 
+local spawn_squad_at_smart_terrain
+
 function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_id, pre_found_task_id, sender_contact_id)
     if not outcome_str or outcome_str == "" or outcome_str == "none" then return false end
 
@@ -2638,7 +2640,7 @@ function resolve_mutant_section(mutant_type)
     return "simulation_bloodsucker_1_2" 
 end
 
-local function spawn_squad_at_smart_terrain(squad_key, smart_ref, is_mutant, delay)
+spawn_squad_at_smart_terrain = function(squad_key, smart_ref, is_mutant, delay)
     delay = tonumber(delay) or 0
     local sender = game.translate_string("st_pda_ic_outcome_sender")
 
