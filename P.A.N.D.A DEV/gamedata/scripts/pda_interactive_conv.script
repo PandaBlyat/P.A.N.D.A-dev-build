@@ -1070,13 +1070,24 @@ local function find_pending_turnin_for_dialog(a, b)
         end
     end
 
+    -- Direct sender-id match means we're talking to the intended NPC right now.
+    -- Allow turn-in even if smart-radius checks fail (e.g., sender moved/teleported).
+    for objective_id, entry in pairs(active_spawn_objectives) do
+        if entry and entry.pending_turnin and not entry.turned_in and entry.sender_id == npc_id then
+            pending_turnin_dialog_cache[npc_id] = objective_id
+            return objective_id, entry
+        end
+    end
+
+    -- Fallback pass: preserve sender-name matching for re-instantiated NPCs,
+    -- but keep smart-radius gating to avoid unrelated NPCs offering turn-ins.
     for objective_id, entry in pairs(active_spawn_objectives) do
         if entry and entry.pending_turnin and not entry.turned_in then
-            local matches_sender = entry.sender_id == npc_id
+            local matches_sender = false
 
             -- Fallback for edge-cases where the sender got re-instantiated with a new object id
             -- but kept the same profile name.
-            if not matches_sender and entry.sender_name and npc.name then
+            if entry.sender_name and npc.name then
                 matches_sender = (entry.sender_name == npc:name())
             end
 
