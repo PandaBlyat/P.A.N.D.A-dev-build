@@ -5402,34 +5402,9 @@
 		<text>The job is done.</text>
 	</string>
 	<string id="st_ordered_task_not_given_task">
-		<text>What? I don't think you've finished what I've asked.</text>
 	</string>
-	<string id="st_ordered_task_accept">
-		<text>I'll do it.</text>
 	</string>
-	<string id="st_ordered_task_next">
-		<text>Have anything else?</text>
 	</string>
-	<string id="st_ordered_task_already">
-		<text>Finish the task I gave you first then we can talk.</text>
-	</string>
-	<string id="st_ordered_task_already_reply">
-		<text>Alright.</text>
-	</string>
-	<string id="st_accepted_task_1">
-		<text>Good! Talk to me again when it's done.</text>
-	</string>
-	<string id="st_accepted_task_2">
-		<text>Come through for me and I'll come through for you. Get back to me.</text>
-	</string>
-	<string id="st_accepted_task_3">
-		<text>Sorry I couldn't help.</text>
-	</string>
-
-	<string id="st_ordered_task_query_cancel">
-		<text>I couldn't complete the job.</text>
-	<string id="st_task_none_active">
-		<text>What job?</text>
 	</string>
 	<string id="st_ordered_task_query_cancel_next_job">
 		<text>No, I'm still working on that one.</text>
