@@ -351,6 +351,55 @@ local function normalize_smart_name_from_ref(location_ref)
     return location_ref
 end
 
+local WATCH_TRIGGER_CMD_MAX_ARGS = {
+    spawn_hostile = 3,
+    spawn_mutant = 3,
+    spawn_companion = 3,
+    spawn_mutant_at_smart = 4,
+    spawn_hostile_at_smart = 4,
+    teleport_npc_to_smart = 2,
+    teleport_npc_to_player = 1,
+    watch_location = 2,
+}
+
+local function parse_watch_location_trigger(parts)
+    local location_ref = parts[2]
+    local radius = PANDA.get_config("location_watch_radius") or 85
+    if not (location_ref and location_ref ~= "" and #parts >= 4) then
+        return location_ref, nil, radius
+    end
+
+    local cmd_start = 3
+    local cmd_end = #parts
+    local nested_cmd = parts[cmd_start]
+    local nested_args = #parts - cmd_start
+    local nested_max_args = nested_cmd and WATCH_TRIGGER_CMD_MAX_ARGS[nested_cmd] or nil
+    local last_num = tonumber(parts[#parts])
+
+    -- Avoid stealing numeric arguments that belong to the nested command
+    -- (e.g. spawn_mutant_at_smart:<type>:<smart>:<delay>:<timeout>). Radius is only
+    -- consumed from the tail when we have more args than that command supports.
+    if last_num and nested_max_args and nested_args > nested_max_args then
+        radius = last_num
+        cmd_end = #parts - 1
+    elseif last_num and not nested_max_args then
+        -- Backward compatibility for unknown nested commands.
+        radius = last_num
+        cmd_end = #parts - 1
+    end
+
+    if cmd_end < cmd_start then
+        return location_ref, nil, radius
+    end
+
+    local delayed_cmd = table.concat(parts, ":", cmd_start, cmd_end)
+    if delayed_cmd == "" then
+        delayed_cmd = nil
+    end
+
+    return location_ref, delayed_cmd, radius
+end
+
 local function resolve_smart_from_reference(location_ref)
     if not SIMBOARD or not SIMBOARD.get_smart_by_name then
         return nil, normalize_smart_name_from_ref(location_ref)
@@ -3167,22 +3216,7 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
             end
 
         elseif cmd == "watch_location_trigger" then
-            local location_ref = parts[2]
-            local delayed_cmd = nil
-            local radius = PANDA.get_config("location_watch_radius") or 85
-
-            if #parts >= 4 then
-                local maybe_radius = tonumber(parts[#parts])
-                local cmd_end = #parts
-                if maybe_radius then
-                    radius = maybe_radius
-                    cmd_end = #parts - 1
-                end
-
-                if cmd_end >= 3 then
-                    delayed_cmd = table.concat(parts, ":", 3, cmd_end)
-                end
-            end
+            local location_ref, delayed_cmd, radius = parse_watch_location_trigger(parts)
 
             if location_ref and location_ref ~= "" and delayed_cmd and delayed_cmd ~= "" then
                 local ref = register_location_reference(location_ref, sender_npc_name, sender_npc_id, radius)
