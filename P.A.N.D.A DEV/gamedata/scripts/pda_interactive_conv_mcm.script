@@ -196,6 +196,11 @@ function on_mcm_load()
                     { id = "location_watch_spot_type", type = "radio_h", val = 1, def = 1, no_str = true,
                       content = { {1, "Primary Object"}, {2, "Secondary Task Location"}, {3, "Quest NPC"} },
                       precondition = { isInteractiveEnabled, {} } },
+                    { id = "location_watch_radius", type = "track", val = 2, min = 10, max = 250, step = 5, def = 85,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "location_watch_spot_type", type = "radio_h", val = 1, def = 1, no_str = true,
+                      content = { {1, "Primary Object"}, {2, "Secondary Task Location"}, {3, "Quest NPC"} },
+                      precondition = { isInteractiveEnabled, {} } },
                     { id = "line_spawn_dist_end", type = "line",
                       precondition = { isInteractiveEnabled, {} } },
 

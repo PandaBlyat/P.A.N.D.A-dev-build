@@ -2638,11 +2638,9 @@ function resolve_mutant_section(mutant_type)
     return "simulation_bloodsucker_1_2" 
 end
 
-function spawn_squad_at_smart_terrain(squad_key, smart_ref, is_mutant, delay)
+local function spawn_squad_at_smart_terrain(squad_key, smart_ref, is_mutant, delay)
     delay = tonumber(delay) or 0
     local sender = game.translate_string("st_pda_ic_outcome_sender")
-    local attempt = 0
-    local max_attempts = 48
 
     local function do_spawn()
         if not db.actor then
@@ -2661,22 +2659,6 @@ function spawn_squad_at_smart_terrain(squad_key, smart_ref, is_mutant, delay)
         if not (smart_pos and smart_lvid and smart_gvid) then
             printf("PANDA_IC: spawn at smart failed — smart terrain '%s' missing position or vertex info", tostring(smart_ref))
             return true
-        end
-
-        local min_dist = tonumber(PANDA.get_config("smart_spawn_min")) or 40
-        local max_dist = tonumber(PANDA.get_config("smart_spawn_max")) or 80
-        if max_dist < min_dist then
-            max_dist = min_dist
-        end
-
-        local actor_dist = db.actor:position():distance_to(smart_pos)
-        if actor_dist < min_dist or actor_dist > max_dist then
-            attempt = attempt + 1
-            if attempt >= max_attempts then
-                printf("PANDA_IC: spawn at smart aborted after %d checks (distance %.1f, wanted %d-%d): %s", attempt, actor_dist, min_dist, max_dist, tostring(smart_ref))
-                return true
-            end
-            return false
         end
 
         local sec = is_mutant and resolve_mutant_section(squad_key) or find_squad_section(squad_key)
@@ -2738,9 +2720,7 @@ function spawn_squad_at_smart_terrain(squad_key, smart_ref, is_mutant, delay)
         track_panda_ic_event("pda_ic_spawn", event_name)
         CreateTimeEvent("pda_ic_spawn", event_name, delay, do_spawn)
     else
-        local event_name = "spawn_smart_" .. tostring(math.random(100000))
-        track_panda_ic_event("pda_ic_spawn", event_name)
-        CreateTimeEvent("pda_ic_spawn", event_name, 5, do_spawn)
+        do_spawn()
     end
 end
 
