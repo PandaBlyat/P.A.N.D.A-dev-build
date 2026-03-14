@@ -944,6 +944,9 @@ function check_spawn_objectives()
         if squad then
             local alive_count = 0
             local unknown_count = 0
+            local hostile_unknown_grace_sec = tonumber(entry.unknown_dead_grace_sec) or 30
+            local elapsed_ms = now - (entry.started_at or now)
+            local grace_elapsed = elapsed_ms >= (hostile_unknown_grace_sec * 1000)
 
             for member in squad:squad_members() do
                 local member_id = member.id or (member.object and member.object.id)
@@ -974,7 +977,7 @@ function check_spawn_objectives()
             if entry.objective_type == "mutant" then
                 all_dead = alive_count == 0
             else
-                all_dead = alive_count == 0 and unknown_count == 0
+                all_dead = alive_count == 0 and (unknown_count == 0 or grace_elapsed)
             end
         end
 
@@ -982,6 +985,16 @@ function check_spawn_objectives()
             table.insert(resolved, { id = objective_id, cleanup_only = true, entry = entry })
         elseif all_dead then
             if not entry.pending_turnin then
+                if _G and _G.printf then
+                    _G.printf(
+                        "PANDA_IC: objective %s transitioning to pending turn-in (type=%s, squad=%s, started_at=%s, now=%s)",
+                        tostring(objective_id),
+                        tostring(entry.objective_type),
+                        tostring(entry.squad_id),
+                        tostring(entry.started_at),
+                        tostring(now)
+                    )
+                end
                 entry.pending_turnin = true
                 entry.success_at = now
                 entry.success_timestamp = now
