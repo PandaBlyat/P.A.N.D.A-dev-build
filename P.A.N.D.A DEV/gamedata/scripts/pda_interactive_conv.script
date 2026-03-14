@@ -255,7 +255,7 @@ local MCM_DEFAULTS = {
     intro_delay=2, no_intro_delay=1,
     spawn_chance_mult=100,
     poll_retries=20,
-    smart_spawn_min=40, smart_spawn_max=150,
+    smart_spawn_min=40, smart_spawn_max=80,
     location_watch_radius=85,
     location_watch_spot_type="primary_object",
     location_check_interval=5,
