@@ -243,7 +243,7 @@ function on_mcm_load()
                     { id = "npc_conv_enabled", type = "check", val = 1, def = true },
 
                     -- All following options only visible when enabled
-                    { id = "npc_conv_interval", type = "track", val = 2, min = 2, max = 600, step = 10, def = 240,
+                    { id = "npc_conv_interval", type = "track", val = 2, min = 2, max = 20, step = 1, def = 240,
                       precondition = { isBackgroundEnabled, {} } },
                     { id = "npc_conv_chance", type = "track", val = 2, min = 0, max = 100, step = 5, def = 50,
                       precondition = { isBackgroundEnabled, {} } },

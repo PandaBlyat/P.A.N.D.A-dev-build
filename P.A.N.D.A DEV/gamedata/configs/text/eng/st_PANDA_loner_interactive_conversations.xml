@@ -3139,5 +3139,813 @@ END OF HOW TO GUIDE
     <text>spawn_hostile:isg:70</text>
 </string>
 
+<!-- ============================================================ -->
+<!-- Conversation ID: 66                                        -->
+<!-- Type: Friendly Loner Veteran, Broke                          -->
+<!-- Scenario: A veteran loner offers a stash location for cash.  -->
+<!-- ============================================================ -->
+<string id="st_pda_ic_loner_66_precond">
+    <text>req_npc_friendly:stalker,req_npc_rank:veteran,req_money:7500,req_rank:trainee</text>
+</string>
+<string id="st_pda_ic_loner_66_open">
+    <text>Hey, $player_name. Word on the net is you're doing alright for yourself. Can't say the same. The Zone's been a real miser lately.</text>
+</string>
+<string id="st_pda_ic_loner_66_choice_1">
+    <text>What's on your mind?</text>
+</string>
+<string id="st_pda_ic_loner_66_reply_1">
+    <text>I've got coordinates for a stash I can't get to myself right now. It's yours for 2000 RU. Just need to buy some ammo and food. Help a brother out?</text>
+</string>
+<string id="st_pda_ic_loner_66_outcome_1">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_loner_66_cont_1">
+    <text>2</text>
+</string>
+<string id="st_pda_ic_loner_66_choice_2">
+    <text>Sorry to hear that. I'm busy, though.</text>
+</string>
+<string id="st_pda_ic_loner_66_reply_2">
+    <text>Yeah, right. 'Busy'. I get it. Good hunting.</text>
+</string>
+<string id="st_pda_ic_loner_66_outcome_2">
+    <text>punish_rep:5</text>
+</string>
+
+<!-- Turn 2 for Conversation 66 -->
+<string id="st_pda_ic_loner_66_t2_choice_1">
+    <text>[Pay 2000 RU] Alright, deal. Sending the money.</text>
+</string>
+<string id="st_pda_ic_loner_66_t2_reply_1">
+    <text>Thanks, stalker. Knew I could count on you. Sending the location now. Watch yourself out there.</text>
+</string>
+<string id="st_pda_ic_loner_66_t2_outcome_1">
+    <text>punish_money:2000,reward_stash,reward_rep:15</text>
+</string>
+<string id="st_pda_ic_loner_66_t2_choice_2">
+    <text>2000 for a maybe? No thanks.</text>
+</string>
+<string id="st_pda_ic_loner_66_t2_reply_2">
+    <text>A maybe? It's good info. Fine, your loss. Don't come asking me for favors.</text>
+</string>
+<string id="st_pda_ic_loner_66_t2_outcome_2">
+    <text>punish_rep:10</text>
+</string>
+
+
+<!-- ============================================================ -->
+<!-- Conversation ID: 67                                        -->
+<!-- Type: Hostile Bandit Taunt                                   -->
+<!-- Scenario: A low-rank bandit tries to extort the player.      -->
+<!-- ============================================================ -->
+<string id="st_pda_ic_loner_67_precond">
+    <text>req_npc_hostile:bandit,req_npc_rank_max:experienced,req_rank:veteran,req_not_level:l01_escape</text>
+</string>
+<string id="st_pda_ic_loner_67_open">
+    <text>Oi, $player_name. Think you're a big shot, walking around here? This is our turf. Pay the tax or we'll collect it from your corpse.</text>
+</string>
+<string id="st_pda_ic_loner_67_timeout">
+    <text>120</text>
+</string>
+<string id="st_pda_ic_loner_67_timeout_msg">
+    <text>Ignoring me? Bad move. My boys are coming to find you.</text>
+</string>
+<string id="st_pda_ic_loner_67_choice_1">
+    <text>How much are we talking about?</text>
+</string>
+<string id="st_pda_ic_loner_67_reply_1">
+    <text>Heh, a smart one. 5000 RU and we'll *let* you breathe. For now. Transfer it.</text>
+</string>
+<string id="st_pda_ic_loner_67_outcome_1">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_loner_67_cont_1">
+    <text>2</text>
+</string>
+<string id="st_pda_ic_loner_67_choice_2">
+    <text>Get lost, bandit scum.</text>
+</string>
+<string id="st_pda_ic_loner_67_reply_2">
+    <text>Big words! You're gonna regret that! My boys are on their way to teach you some manners!</text>
+</string>
+<string id="st_pda_ic_loner_67_outcome_2">
+    <text>spawn_hostile:bandit:80,reward_rep:10</text>
+</string>
+<string id="st_pda_ic_loner_67_choice_3">
+    <text>...</text>
+</string>
+<string id="st_pda_ic_loner_67_reply_3">
+    <text>Silent treatment, huh? Fine. We'll make you scream.</text>
+</string>
+<string id="st_pda_ic_loner_67_outcome_3">
+    <text>chance:50:spawn_hostile:bandit:100</text>
+</string>
+
+<!-- Turn 2 for Conversation 67 -->
+<string id="st_pda_ic_loner_67_t2_precond">
+    <text>req_money:5000</text>
+</string>
+<string id="st_pda_ic_loner_67_t2_choice_1">
+    <text>[Pay 5000 RU] Fine. Take it and piss off.</text>
+</string>
+<string id="st_pda_ic_loner_67_t2_reply_1">
+    <text>Pleasure doing business with ya, sucker. We'll be watching.</text>
+</string>
+<string id="st_pda_ic_loner_67_t2_outcome_1">
+    <text>punish_money:5000,punish_rep:25</text>
+</string>
+<string id="st_pda_ic_loner_67_t2_choice_2">
+    <text>On second thought, I'd rather fight.</text>
+</string>
+<string id="st_pda_ic_loner_67_t2_reply_2">
+    <text>You had your chance to walk away! Get him, boys!</text>
+</string>
+<string id="st_pda_ic_loner_67_t2_outcome_2">
+    <text>spawn_hostile:bandit:80,reward_rep:5</text>
+</string>
+
+
+<!-- ============================================================ -->
+<!-- Conversation ID: 68                                        -->
+<!-- Type: Paranoid Loner at Night                              -->
+<!-- Scenario: A stalker thinks they are being followed at night. -->
+<!-- ============================================================ -->
+<string id="st_pda_ic_loner_68_precond">
+    <text>req_npc_friendly:stalker,req_time_night,req_companions_max:0,req_not_level:l08_rostok</text>
+</string>
+<string id="st_pda_ic_loner_68_open">
+    <text>$player_name? You there? Answer me. I think... I think I'm being followed. I keep hearing something in the dark.</text>
+</string>
+<string id="st_pda_ic_loner_68_choice_1">
+    <text>Stay calm. Where are you? Describe what you hear.</text>
+</string>
+<string id="st_pda_ic_loner_68_reply_1">
+    <text>I'm near %current_level_panda_st%. It's a... a wet, slapping sound. Oh god, it's getting closer. Wait... wait... false alarm. It was just a blind dog stuck in a puddle. Damn my nerves. Thanks for the talk-down, stalker. I owe you one.</text>
+</string>
+<string id="st_pda_ic_loner_68_outcome_1">
+    <text>chance:33:reward_money:1000,reward_rep:10</text>
+</string>
+<string id="st_pda_ic_loner_68_choice_2">
+    <text>It's probably just a psy-dog. Get a grip.</text>
+</string>
+<string id="st_pda_ic_loner_68_reply_2">
+    <text>A psy-dog?! Oh hell, that's worse! I can hear it... it's whispering my name! AAAAAGH- *[Signal lost]*</text>
+</string>
+<string id="st_pda_ic_loner_68_outcome_2">
+    <text>spawn_mutant:psi_dog:70</text>
+</string>
+<string id="st_pda_ic_loner_68_choice_3">
+    <text>You're on your own. I've got my own problems.</text>
+</string>
+<string id="st_pda_ic_loner_68_reply_3">
+    <text>What? No, wait, don't just-- *[Signal abruptly cuts out]*</text>
+</string>
+<string id="st_pda_ic_loner_68_outcome_3">
+    <text>punish_rep:10</text>
+</string>
+
+
+<!-- ============================================================ -->
+<!-- Conversation ID: 69                                        -->
+<!-- Type: Ecologist Field Request                              -->
+<!-- Scenario: Ecologist needs player to secure an area.          -->
+<!-- ============================================================ -->
+<string id="st_pda_ic_loner_69_precond">
+    <text>req_npc_friendly:ecolog,req_npc_rank:experienced,req_level:l07_yantar</text>
+</string>
+<string id="st_pda_ic_loner_69_open">
+    <text>Stalker, this is $npc_name. My field team was forced to make a tactical withdrawal from %yantar_panda_st% due to... aggressive local fauna. We left a data recorder behind. I need an independent contractor to secure the area. Can you assist?</text>
+</string>
+<string id="st_pda_ic_loner_69_choice_1">
+    <text>I can handle it. What's the compensation?</text>
+</string>
+<string id="st_pda_ic_loner_69_reply_1">
+    <text>Excellent. Standard contract fee is 7000 RU upon confirmation that the area is clear. I'm marking the location, %yantar_panda_st%, on your PDA. Be advised, hostiles are likely still present. Good luck.</text>
+</string>
+<string id="st_pda_ic_loner_69_outcome_1">
+    <text>watch_location_trigger:%yantar_panda_st_key%:reward_money:7000,reward_gw:50:ecolog,reward_rep:20:90</text>
+</string>
+<string id="st_pda_ic_loner_69_choice_2">
+    <text>Not my problem, professor. Find another gun for hire.</text>
+</string>
+<string id="st_pda_ic_loner_69_reply_2">
+    <text>Understood. The offer is rescinded. It is... unfortunate that your reputation for reliability was exaggerated. $npc_name out.</text>
+</string>
+<string id="st_pda_ic_loner_69_outcome_2">
+    <text>punish_gw:25:ecolog,punish_rep:10</text>
+</string>
+<string id="st_pda_ic_loner_69_choice_3">
+    <text>What kind of 'fauna' are we talking about?</text>
+</string>
+<string id="st_pda_ic_loner_69_reply_3">
+    <text>Our sensor readings were inconclusive before evacuation, but bio-signatures were consistent with a pack of snorks. Extremely dangerous. Are you still willing to proceed?</text>
+</string>
+<string id="st_pda_ic_loner_69_outcome_3">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_loner_69_cont_3">
+    <text>2</text>
+</string>
+
+<!-- Turn 2 for Conversation 69 -->
+<string id="st_pda_ic_loner_69_t2_choice_1">
+    <text>Snorks? No problem. I'll handle it.</text>
+</string>
+<string id="st_pda_ic_loner_69_t2_reply_1">
+    <text>Your confidence is noted. I am transmitting the coordinates for %yantar_panda_st% now. We await confirmation of mission success.</text>
+</string>
+<string id="st_pda_ic_loner_69_t2_outcome_1">
+    <text>watch_location_trigger:%yantar_panda_st_key%:reward_money:7000,reward_gw:50:ecolog,reward_rep:20:90</text>
+</string>
+<string id="st_pda_ic_loner_69_t2_choice_2">
+    <text>On second thought, I'll pass. That's too rich for my blood.</text>
+</string>
+<string id="st_pda_ic_loner_69_t2_reply_2">
+    <text>A wise decision if you are not equipped for the task. The offer is rescinded. $npc_name out.</text>
+</string>
+<string id="st_pda_ic_loner_69_t2_outcome_2">
+    <text>punish_gw:10:ecolog</text>
+</string>
+
+
+<!-- ============================================================ -->
+<!-- ID 70: The Bleeding Rookie (Friendly Loner)                  -->
+<!-- Context: A rookie is wounded and begging for meds over the   -->
+<!-- network. Player must have an army medkit to help.            -->
+<!-- ============================================================ -->
+    <string id="st_pda_ic_loner_70_precond">
+        <text>req_npc_friendly:stalker,req_npc_rank_max:trainee,req_has_item:medkit_army</text>
+    </string>
+    <string id="st_pda_ic_loner_70_open">
+        <text>Anyone reading this? Got chewed up by blind dogs. Bleeding bad. If anyone has a military medkit, I can trade stash coords for it. Please.</text>
+    </string>
+    <string id="st_pda_ic_loner_70_choice_1">
+        <text>Hang tight. I'm sending a courier with the medkit.</text>
+    </string>
+    <string id="st_pda_ic_loner_70_reply_1">
+        <text>Thank you, man. Seriously. Sending the stash coordinates to your PDA now. I owe you my life.</text>
+    </string>
+    <string id="st_pda_ic_loner_70_outcome_1">
+        <text>reward_rep:50,reward_gw:25:stalker,reward_stash</text>
+    </string>
+    <string id="st_pda_ic_loner_70_choice_2">
+        <text>Not a charity, kid. Patch yourself up or bleed out.</text>
+    </string>
+    <string id="st_pda_ic_loner_70_reply_2">
+        <text>Go to hell, $player_name...</text>
+    </string>
+    <string id="st_pda_ic_loner_70_outcome_2">
+        <text>punish_rep:20</text>
+    </string>
+    <string id="st_pda_ic_loner_70_timeout">
+        <text>120</text>
+    </string>
+    <string id="st_pda_ic_loner_70_timeout_msg">
+        <text>Forget it. Everything's going dark anyway...</text>
+    </string>
+
+<!-- ============================================================ -->
+<!-- ID 71: Bandit Network Extortion (Hostile Bandit)             -->
+<!-- Context: A hostile bandit sees the player is wealthy and     -->
+<!-- demands a digital transfer, threatening an ambush.           -->
+<!-- ============================================================ -->
+    <string id="st_pda_ic_loner_71_precond">
+        <text>req_npc_hostile:bandit,req_money:10000</text>
+    </string>
+    <string id="st_pda_ic_loner_71_open">
+        <text>Well well, $player_name. My boys see you pinging on the network. We know you're loaded. Transfer 5000 RU right now, or we're coming to carve it out of your hide.</text>
+    </string>
+    <string id="st_pda_ic_loner_71_choice_1">
+        <text>Fine. The money is transferred. Back off.</text>
+    </string>
+    <string id="st_pda_ic_loner_71_reply_1">
+        <text>Smart choice. Pleasure doing business with you, sucker.</text>
+    </string>
+    <string id="st_pda_ic_loner_71_outcome_1">
+        <text>punish_money:5000</text>
+    </string>
+    <string id="st_pda_ic_loner_71_choice_2">
+        <text>Come and get it, trash.</text>
+    </string>
+    <string id="st_pda_ic_loner_71_reply_2">
+        <text>You're dead meat.</text>
+    </string>
+    <string id="st_pda_ic_loner_71_outcome_2">
+        <text>spawn_hostile:bandit:80</text>
+    </string>
+    <string id="st_pda_ic_loner_71_choice_3">
+        <text>I just zeroed three of your squads yesterday. You sure you want to be next?</text>
+    </string>
+    <string id="st_pda_ic_loner_71_reply_3">
+        <text>We'll see about that...</text>
+    </string>
+    <string id="st_pda_ic_loner_71_outcome_3">
+        <text>chance:40:spawn_hostile:bandit:70</text>
+    </string>
+
+<!-- ============================================================ -->
+<!-- ID 72: Ecologist Surge Scramble (Friendly Ecolog)            -->
+<!-- Context: An emission is imminent. An ecologist promises cash -->
+<!-- if the player rushes to a smart terrain to secure data.      -->
+<!-- ============================================================ -->
+    <string id="st_pda_ic_loner_72_precond">
+        <text>req_npc_friendly:ecolog,req_surge_soon:1800</text>
+    </string>
+    <string id="st_pda_ic_loner_72_open">
+        <text>Stalker! The atmospheric scanners indicate an emission is building. I left crucial sensor equipment near %garbage_panda_st%. If you can get there and secure the area before the surge hits, Sakharov will authorize a massive payout.</text>
+    </string>
+    <string id="st_pda_ic_loner_72_choice_1">
+        <text>Send me the coordinates. I'm moving fast.</text>
+    </string>
+    <string id="st_pda_ic_loner_72_reply_1">
+        <text>Uploading coordinates for %garbage_panda_st%. Watch out, the mutants are already migrating from the pressure change!</text>
+    </string>
+    <string id="st_pda_ic_loner_72_outcome_1">
+        <text>watch_location_trigger:%garbage_panda_st_key%:spawn_mutant:random:50:85</text>
+    </string>
+    <string id="st_pda_ic_loner_72_choice_2">
+        <text>Not worth frying my brain for your science project. Find shelter.</text>
+    </string>
+    <string id="st_pda_ic_loner_72_reply_2">
+        <text>A shame. The data is lost.</text>
+    </string>
+    <string id="st_pda_ic_loner_72_outcome_2">
+        <text>none</text>
+    </string>
+
+<!-- ============================================================ -->
+<!-- ID 73: The Black Market Smuggler (Friendly Freedom - Multi-Turn)-->
+<!-- Context: A Freedom smuggler has rare gear but wants to       -->
+<!-- negotiate via PDA to arrange a courier.                      -->
+<!-- ============================================================ -->
+    <string id="st_pda_ic_loner_73_precond">
+        <text>req_npc_friendly:freedom,req_money:12000,req_npc_rank:veteran</text>
+    </string>
+    <string id="st_pda_ic_loner_73_open">
+        <text>Yo $player_name. My contacts just pushed a fresh crate of NATO supplies past the perimeter. I'm offering first dibs to the right people. You buying?</text>
+    </string>
+    <string id="st_pda_ic_loner_73_choice_1">
+        <text>I'm listening. What are you offering?</text>
+    </string>
+    <string id="st_pda_ic_loner_73_reply_1">
+        <text>Got a pristine LR-300. It's yours for 12,000 RU. I'll have a runner drop it off straight to your hands.</text>
+    </string>
+    <string id="st_pda_ic_loner_73_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_loner_73_cont_1">
+        <text>2</text>
+    </string>
+    <string id="st_pda_ic_loner_73_choice_2">
+        <text>I'm good on gear. Pass.</text>
+    </string>
+    <string id="st_pda_ic_loner_73_reply_2">
+        <text>Your funeral. Let me know if you change your mind.</text>
+    </string>
+    <string id="st_pda_ic_loner_73_outcome_2">
+        <text>none</text>
+    </string>
+
+    <!-- Turn 2 -->
+    <string id="st_pda_ic_loner_73_t2_choice_1">
+        <text>Deal. Sending the 12,000 RU now. Send the runner.</text>
+    </string>
+    <string id="st_pda_ic_loner_73_t2_reply_1">
+        <text>Funds confirmed. The courier is tracking your PDA signal now. Keep your eyes open.</text>
+    </string>
+    <string id="st_pda_ic_loner_73_t2_outcome_1">
+        <text>punish_money:12000,courier_item:wpn_lr300</text>
+    </string>
+    <string id="st_pda_ic_loner_73_t2_choice_2">
+        <text>Too rich for my blood. Never mind.</text>
+    </string>
+    <string id="st_pda_ic_loner_73_t2_reply_2">
+        <text>Suit yourself, man. Plenty of other buyers in the Zone.</text>
+    </string>
+    <string id="st_pda_ic_loner_73_t2_outcome_2">
+        <text>none</text>
+    </string>
+
+<!-- ============================================================ -->
+<!-- ID 74: Mercenary Hit Squad (Hostile Merc, High Rank Player)  -->
+<!-- Context: Mercs have been hired to take out the player.       -->
+<!-- ============================================================ -->
+    <string id="st_pda_ic_loner_74_precond">
+        <text>req_npc_hostile:killer,req_rank:veteran,req_time_night</text>
+    </string>
+    <string id="st_pda_ic_loner_74_open">
+        <text>$player_name. Someone with deep pockets just put a rather large bounty on your head. My team is currently tracking your PDA signal. Any last words?</text>
+    </string>
+    <string id="st_pda_ic_loner_74_choice_1">
+        <text>Tell your team to bring body bags.</text>
+    </string>
+    <string id="st_pda_ic_loner_74_reply_1">
+        <text>Cocky. I like it. Moving to engage.</text>
+    </string>
+    <string id="st_pda_ic_loner_74_outcome_1">
+        <text>spawn_hostile:killer:100</text>
+    </string>
+    <string id="st_pda_ic_loner_74_choice_2">
+        <text>Whatever they're paying you, I'll double it. 15,000 RU to walk away.</text>
+    </string>
+    <string id="st_pda_ic_loner_74_reply_2">
+        <text>Transfer accepted. Consider your contract canceled... for today. Don't make us come back.</text>
+    </string>
+    <string id="st_pda_ic_loner_74_outcome_2">
+        <text>punish_money:15000</text>
+    </string>
+
+<!-- ============================================================ -->
+<!-- ID 75: Paranoid Duty Vet (Friendly Duty, Nighttime)          -->
+<!-- Context: A friendly Duty veteran wants the player to clear   -->
+<!-- a mutant nest near a smart terrain.                          -->
+<!-- ============================================================ -->
+    <string id="st_pda_ic_loner_75_precond">
+        <text>req_npc_friendly:dolg,req_npc_rank:veteran,req_time_night</text>
+    </string>
+    <string id="st_pda_ic_loner_75_open">
+        <text>Stalker. I've been monitoring thermal signatures near %agroprom_panda_st%. We have a massive mutant pack breeding in that sector. Duty needs an independent contractor to cull the herd quietly. You available?</text>
+    </string>
+    <string id="st_pda_ic_loner_75_choice_1">
+        <text>Always happy to thin the herd. Mark the spot.</text>
+    </string>
+    <string id="st_pda_ic_loner_75_reply_1">
+        <text>Coordinates locked. Expect heavy resistance when you arrive at %agroprom_panda_st%. Good hunting.</text>
+    </string>
+    <string id="st_pda_ic_loner_75_outcome_1">
+        <text>watch_location_trigger:%agroprom_panda_st_key%:spawn_mutant:random:50:100</text>
+    </string>
+    <string id="st_pda_ic_loner_75_choice_2">
+        <text>Not my problem. Let Duty handle their own mess.</text>
+    </string>
+    <string id="st_pda_ic_loner_75_reply_2">
+        <text>Typical Loner apathy. We'll handle it ourselves.</text>
+    </string>
+    <string id="st_pda_ic_loner_75_outcome_2">
+        <text>none</text>
+    </string>
+
+<!-- ============================================================ -->
+<!-- ID 76: Desperate Recruitment (Friendly Loner, Needs Backup)  -->
+<!-- Context: A wounded stalker wants to team up with the player. -->
+<!-- Player must have room for a companion.                       -->
+<!-- ============================================================ -->
+    <string id="st_pda_ic_loner_76_precond">
+        <text>req_npc_friendly:stalker,req_companions_max:0</text>
+    </string>
+    <string id="st_pda_ic_loner_76_open">
+        <text>Hey. My squad got wiped out a few hours ago. I'm running solo and my nerves are shot. I see you're $player_rank rank. Could you use someone to watch your back?</text>
+    </string>
+    <string id="st_pda_ic_loner_76_choice_1">
+        <text>Alright, lock on to my PDA signal. Fall in when you get here.</text>
+    </string>
+    <string id="st_pda_ic_loner_76_reply_1">
+        <text>Copy that. I'm moving to your position now. Won't let you down.</text>
+    </string>
+    <string id="st_pda_ic_loner_76_outcome_1">
+        <text>teleport_npc_to_player:10,recruit_companion</text>
+    </string>
+    <string id="st_pda_ic_loner_76_choice_2">
+        <text>I work alone. Too risky having someone dragging me down.</text>
+    </string>
+    <string id="st_pda_ic_loner_76_reply_2">
+        <text>Yeah. I get it. Safe travels, man.</text>
+    </string>
+    <string id="st_pda_ic_loner_76_outcome_2">
+        <text>none</text>
+    </string>
+
+<!-- ============================================================ -->
+<!-- ID 77: The Storm Scavenger (Friendly Loner, Weather FX)      -->
+<!-- Context: A stalker is trapped during a blowout/psi-storm.    -->
+<!-- He offers to sell his stash coordinates to provide for his   -->
+<!-- family, just in case he doesn't survive the storm.           -->
+<!-- ============================================================ -->
+    <string id="st_pda_ic_loner_77_precond">
+        <text>req_npc_friendly:stalker,req_weather_fx_active,req_money:3000</text>
+    </string>
+    <string id="st_pda_ic_loner_77_open">
+        <text>PDA's barely getting a signal through this storm... Listen! My geiger counter is screaming and the sky is tearing open. I'm pinned down without good cover.</text>
+    </string>
+    <string id="st_pda_ic_loner_77_choice_1">
+        <text>Keep your head down. Need me to call for a rescue squad?</text>
+    </string>
+    <string id="st_pda_ic_loner_77_reply_1">
+        <text>No time for that! If my brain gets scrambled, I don't want my stash rotting in the dirt. Send 3000 RU to my family's account outside the Zone, and I'll ping you the coords. Quick!</text>
+    </string>
+    <string id="st_pda_ic_loner_77_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_loner_77_cont_1">
+        <text>2</text>
+    </string>
+    <string id="st_pda_ic_loner_77_choice_2">
+        <text>Can't help you, man. Find a deep hole and pray.</text>
+    </string>
+    <string id="st_pda_ic_loner_77_reply_2">
+        <text>God damn it... closing channel.</text>
+    </string>
+    <string id="st_pda_ic_loner_77_outcome_2">
+        <text>none</text>
+    </string>
+
+    <!-- Turn 2 -->
+    <string id="st_pda_ic_loner_77_t2_choice_1">
+        <text>Done. I'm transferring the funds right now. Good luck, stalker.</text>
+    </string>
+    <string id="st_pda_ic_loner_77_t2_reply_1">
+        <text>Received. You're a good man, $player_name. Uploading coordinates. If I make it through this, the drinks are on me.</text>
+    </string>
+    <string id="st_pda_ic_loner_77_t2_outcome_1">
+        <text>punish_money:3000,reward_stash,reward_rep:25</text>
+    </string>
+    <string id="st_pda_ic_loner_77_t2_choice_2">
+        <text>Not buying it. This sounds like a scam.</text>
+    </string>
+    <string id="st_pda_ic_loner_77_t2_reply_2">
+        <text>A scam?! I'm staring death in the face you paranoid bastard! To hell with you!</text>
+    </string>
+    <string id="st_pda_ic_loner_77_t2_outcome_2">
+        <text>punish_rep:10</text>
+    </string>
+
+<!-- ============================================================ -->
+<!-- ID 78: Monolith Eerie Broadcast (Hostile Monolith, Radar)    -->
+<!-- Context: Creepy, zealous threats from Monolith while the     -->
+<!-- player is navigating the Radar at night.                     -->
+<!-- ============================================================ -->
+    <string id="st_pda_ic_loner_78_precond">
+        <text>req_npc_hostile:monolith,req_level:l10_radar,req_time_night</text>
+    </string>
+    <string id="st_pda_ic_loner_78_open">
+        <text>We hear your footsteps in the dark, $player_name. The Holy Monolith sees the impurity in your heart. You wander, but His light will burn the rot from your flesh.</text>
+    </string>
+    <string id="st_pda_ic_loner_78_choice_1">
+        <text>Creepy rock-lickers. Come get some.</text>
+    </string>
+    <string id="st_pda_ic_loner_78_reply_1">
+        <text>Your blood will wash the sacred stones.</text>
+    </string>
+    <string id="st_pda_ic_loner_78_outcome_1">
+        <text>spawn_hostile:monolith:60</text>
+    </string>
+    <string id="st_pda_ic_loner_78_choice_2">
+        <text>Turning off my PDA radio. I don't have time for cultists.</text>
+    </string>
+    <string id="st_pda_ic_loner_78_reply_2">
+        <text>You cannot close your eyes to the truth...</text>
+    </string>
+    <string id="st_pda_ic_loner_78_outcome_2">
+        <text>none</text>
+    </string>
+
+<!-- ============================================================ -->
+<!-- ID 79: Mercenary Toll Extortion (Hostile Merc, Wild Territory)-->
+<!-- Context: Mercs lock down a smart terrain and extort the      -->
+<!-- player for passage. Long branching conversation.             -->
+<!-- ============================================================ -->
+    <string id="st_pda_ic_loner_79_precond">
+        <text>req_npc_hostile:killer,req_actor_near_smart:%wildterritory_panda_st_key%:200,req_money:5000</text>
+    </string>
+    <string id="st_pda_ic_loner_79_open">
+        <text>Hold your position, Loner. My squad has scopes trained on you near %wildterritory_panda_st%. This is a private transit corridor. You pay the toll, or you catch a bullet.</text>
+    </string>
+    <string id="st_pda_ic_loner_79_choice_1">
+        <text>I'm just passing through. How much is the toll?</text>
+    </string>
+    <string id="st_pda_ic_loner_79_reply_1">
+        <text>5000 RU. Standard corporate tariff. Wire it to this PDA address and we'll look the other way.</text>
+    </string>
+    <string id="st_pda_ic_loner_79_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_loner_79_cont_1">
+        <text>2</text>
+    </string>
+    <string id="st_pda_ic_loner_79_choice_2">
+        <text>I'm not paying you a damn thing. Pull the trigger!</text>
+    </string>
+    <string id="st_pda_ic_loner_79_reply_2">
+        <text>With pleasure. Weapons free, boys.</text>
+    </string>
+    <string id="st_pda_ic_loner_79_outcome_2">
+        <text>spawn_hostile:killer:90</text>
+    </string>
+
+    <!-- Turn 2 -->
+    <string id="st_pda_ic_loner_79_t2_choice_1">
+        <text>Transferred. 5000 RU. Now call off your dogs.</text>
+    </string>
+    <string id="st_pda_ic_loner_79_t2_reply_1">
+        <text>Payment confirmed. You're clear to proceed. Have a safe hike, stalker.</text>
+    </string>
+    <string id="st_pda_ic_loner_79_t2_outcome_1">
+        <text>punish_money:5000,reward_gw:40:killer</text>
+    </string>
+    <string id="st_pda_ic_loner_79_t2_choice_2">
+        <text>That's robbery. I'll take my chances.</text>
+    </string>
+    <string id="st_pda_ic_loner_79_t2_reply_2">
+        <text>Should've paid the fee. Engaging target.</text>
+    </string>
+    <string id="st_pda_ic_loner_79_t2_outcome_2">
+        <text>spawn_hostile:killer:90</text>
+    </string>
+
+<!-- ============================================================ -->
+<!-- ID 80: The Faded Freedomer (Friendly Freedom, Nighttime)     -->
+<!-- Context: A drunk/high Freedom member accidentally broadcasts -->
+<!-- his stash coordinates to the player.                         -->
+<!-- ============================================================ -->
+    <string id="st_pda_ic_loner_80_precond">
+        <text>req_npc_friendly:freedom,req_time_night,req_npc_rank_max:experienced</text>
+    </string>
+    <string id="st_pda_ic_loner_80_open">
+        <text>Brooo... $player_name. You up? I'm staring at the stars right now and... wait, are we underground? No, that's a tree. Whoa.</text>
+    </string>
+    <string id="st_pda_ic_loner_80_choice_1">
+        <text>I'm up. What's on your mind, stalker?</text>
+    </string>
+    <string id="st_pda_ic_loner_80_reply_1">
+        <text>Man, you're a real one. Everyone else tells me to shut up. Listen, I hid some gnarly loot earlier but I'm way too messed up to find it again. You want it? I'll ping your PDA.</text>
+    </string>
+    <string id="st_pda_ic_loner_80_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_loner_80_cont_1">
+        <text>2</text>
+    </string>
+    <string id="st_pda_ic_loner_80_choice_2">
+        <text>Are you high, drunk, or both? Get off the public channel.</text>
+    </string>
+    <string id="st_pda_ic_loner_80_reply_2">
+        <text>Harsh vibes, man. So harsh. I'm going to sleep.</text>
+    </string>
+    <string id="st_pda_ic_loner_80_outcome_2">
+        <text>none</text>
+    </string>
+
+    <!-- Turn 2 -->
+    <string id="st_pda_ic_loner_80_t2_choice_1">
+        <text>Appreciate it. Stay safe out there, try not to walk into an anomaly.</text>
+    </string>
+    <string id="st_pda_ic_loner_80_t2_reply_1">
+        <text>Sent! Enjoy the stash, bro. I'm gonna go hug this tree.</text>
+    </string>
+    <string id="st_pda_ic_loner_80_t2_outcome_1">
+        <text>reward_stash,reward_rep:10</text>
+    </string>
+    <string id="st_pda_ic_loner_80_t2_choice_2">
+        <text>Keep it. You'll need those supplies when you sober up.</text>
+    </string>
+    <string id="st_pda_ic_loner_80_t2_reply_2">
+        <text>Whoa... that's like, deeply considerate. Freedom loves you, man.</text>
+    </string>
+    <string id="st_pda_ic_loner_80_t2_outcome_2">
+        <text>reward_gw:30:freedom,reward_rep:20</text>
+    </string>
+
+<!-- ============================================================ -->
+<!-- ID 81: Opportunistic Medic (Friendly Loner, Low Health)      -->
+<!-- Context: Player is severely wounded. An opportunistic stalker-->
+<!-- demands a hefty fee for an emergency combat escort.          -->
+<!-- ============================================================ -->
+    <string id="st_pda_ic_loner_81_precond">
+        <text>req_npc_friendly:stalker,req_health_max:0.30,req_money:8000</text>
+    </string>
+    <string id="st_pda_ic_loner_81_open">
+        <text>Just picked up your biometrics on the local net, $player_name. You are bleeding out fast. I've got trauma kits and an escort squad nearby, but emergency extraction ain't cheap. 8000 RU.</text>
+    </string>
+    <string id="st_pda_ic_loner_81_choice_1">
+        <text>Take the money! Just get here before I die!</text>
+    </string>
+    <string id="st_pda_ic_loner_81_reply_1">
+        <text>Funds received. Popping a flare, we're moving to your coordinates now. Hold on and keep applying pressure to the wounds.</text>
+    </string>
+    <string id="st_pda_ic_loner_81_outcome_1">
+        <text>punish_money:8000,spawn_companion:stalker:30</text>
+    </string>
+    <string id="st_pda_ic_loner_81_choice_2">
+        <text>I'll manage. Keep your extortionate prices.</text>
+    </string>
+    <string id="st_pda_ic_loner_81_reply_2">
+        <text>It's a free market, friend. Hope you've got a will written out.</text>
+    </string>
+    <string id="st_pda_ic_loner_81_outcome_2">
+        <text>none</text>
+    </string>
+
+<!-- ============================================================ -->
+<!-- ID 82: Duty Mutant Purge (Friendly Duty, High Kills/Rank)    -->
+<!-- Context: Duty command recognizes the player's mutant kills   -->
+<!-- and offers a combined operation to clear a smart terrain.    -->
+<!-- ============================================================ -->
+    <string id="st_pda_ic_loner_82_precond">
+        <text>req_npc_friendly:dolg,req_rank:veteran,req_mutant_kills:40</text>
+    </string>
+    <string id="st_pda_ic_loner_82_open">
+        <text>Priority broadcast to $player_name. Duty command has noted your impressive mutant elimination record. We have a massive infestation localized at %garbage_panda_st%. We need a specialist to lead the purge.</text>
+    </string>
+    <string id="st_pda_ic_loner_82_choice_1">
+        <text>I'm listening. What kind of support are we talking about?</text>
+    </string>
+    <string id="st_pda_ic_loner_82_reply_1">
+        <text>We will dispatch a heavily armed support unit to your location immediately. Your objective is to proceed to %garbage_panda_st% and wipe them out. Do you accept?</text>
+    </string>
+    <string id="st_pda_ic_loner_82_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_loner_82_cont_1">
+        <text>2</text>
+    </string>
+    <string id="st_pda_ic_loner_82_choice_2">
+        <text>Not interested in doing Duty's heavy lifting.</text>
+    </string>
+    <string id="st_pda_ic_loner_82_reply_2">
+        <text>Disappointing. The Zone's corruption spreads while Loners count their pennies.</text>
+    </string>
+    <string id="st_pda_ic_loner_82_outcome_2">
+        <text>punish_gw:15:dolg</text>
+    </string>
+
+    <!-- Turn 2 -->
+    <string id="st_pda_ic_loner_82_t2_choice_1">
+        <text>Mark the location. Send the squad.</text>
+    </string>
+    <string id="st_pda_ic_loner_82_t2_reply_1">
+        <text>Coordinates locked. Our men are moving to reinforce you. Show those beasts no mercy.</text>
+    </string>
+    <string id="st_pda_ic_loner_82_t2_outcome_1">
+        <text>spawn_companion:dolg:15,watch_location_trigger:%garbage_panda_st_key%:spawn_mutant:random:50:100</text>
+    </string>
+    <string id="st_pda_ic_loner_82_t2_choice_2">
+        <text>Too busy right now. Find someone else.</text>
+    </string>
+    <string id="st_pda_ic_loner_82_t2_reply_2">
+        <text>Acknowledged. We will reassign the operation.</text>
+    </string>
+    <string id="st_pda_ic_loner_82_t2_outcome_2">
+        <text>none</text>
+    </string>
+
+<!-- ============================================================ -->
+<!-- ID 83: The Renegade Bait (Hostile Renegade, Swamps)          -->
+<!-- Context: A Renegade pretends to be a wounded Loner to bait   -->
+<!-- the player into an ambush. The player can call them out.     -->
+<!-- ============================================================ -->
+    <string id="st_pda_ic_loner_83_precond">
+        <text>req_npc_hostile:renegade,req_level:k00_marsh</text>
+    </string>
+    <string id="st_pda_ic_loner_83_open">
+        <text>Hey... any Loners near the swamp? I dropped my detector near the water and a pack of boars cornered me. Please, I need covering fire!</text>
+    </string>
+    <string id="st_pda_ic_loner_83_choice_1">
+        <text>Hold on, moving to assist!</text>
+    </string>
+    <string id="st_pda_ic_loner_83_reply_1">
+        <text>Heh. Hook, line, and sinker. Boys, light 'em up!</text>
+    </string>
+    <string id="st_pda_ic_loner_83_outcome_1">
+        <text>spawn_hostile:renegade:40</text>
+    </string>
+    <string id="st_pda_ic_loner_83_choice_2">
+        <text>Nice try, scum. Your PDA signature says Renegade.</text>
+    </string>
+    <string id="st_pda_ic_loner_83_reply_2">
+        <text>Smartass. Doesn't matter, we already tracked your signal. You're dead anyway!</text>
+    </string>
+    <string id="st_pda_ic_loner_83_outcome_2">
+        <text>spawn_hostile:renegade:70</text>
+    </string>
+
+<!-- ============================================================ -->
+<!-- ID 84: Clear Sky Field Research (Friendly CS, Broke Player)  -->
+<!-- Context: CS researchers notice the player is out of money    -->
+<!-- and offers an advance payment to investigate a smart terrain.-->
+<!-- ============================================================ -->
+    <string id="st_pda_ic_loner_84_precond">
+        <text>req_npc_friendly:csky,req_time_day,req_money_max:2000</text>
+    </string>
+    <string id="st_pda_ic_loner_84_open">
+        <text>Stalker, this is Clear Sky science division. Our sensors picked up anomalous readings near %swamp_panda_st%, but we lack the field manpower to investigate. Since your PDA indicates you are somewhat... short on funds, perhaps we could arrange a contract?</text>
+    </string>
+    <string id="st_pda_ic_loner_84_choice_1">
+        <text>I could use the cash. I'll go check it out.</text>
+    </string>
+    <string id="st_pda_ic_loner_84_reply_1">
+        <text>Excellent. I have wired a 1500 RU advance. Proceed to %swamp_panda_st% and secure the area. Be wary of radiation pockets.</text>
+    </string>
+    <string id="st_pda_ic_loner_84_outcome_1">
+        <text>reward_money:1500,watch_location:%swamp_panda_st_key%:100</text>
+    </string>
+    <string id="st_pda_ic_loner_84_choice_2">
+        <text>I'm broke, not suicidal. Pass.</text>
+    </string>
+    <string id="st_pda_ic_loner_84_reply_2">
+        <text>Very well. We will find another contractor.</text>
+    </string>
+    <string id="st_pda_ic_loner_84_outcome_2">
+        <text>none</text>
+    </string>
 
 </string_table>
