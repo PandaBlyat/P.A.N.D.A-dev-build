@@ -2356,6 +2356,10 @@ end
 function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_id, pre_found_task_id, sender_contact_id)
     if not outcome_str or outcome_str == "" or outcome_str == "none" then return false end
 
+    -- Resolve dynamic placeholders in outcome command strings (including smart terrain refs)
+    -- so commands like watch_location_trigger:%cordon_panda_st_key% work at runtime.
+    outcome_str = sub_placeholders(outcome_str, sender_npc_name, sender_faction)
+
     local task_given = false
     local spawn_mult = (PANDA.get_config("spawn_chance_mult") or 100) / 100
 
