@@ -381,6 +381,59 @@ local function get_position_from_object(obj)
     return obj.position
 end
 
+local function get_object_game_vertex_id(obj)
+    if not obj then
+        return nil
+    end
+
+    if type(obj.game_vertex_id) == "function" then
+        return obj:game_vertex_id()
+    end
+
+    return obj.m_game_vertex_id
+end
+
+local function get_object_level_id(obj)
+    if not obj then
+        return nil
+    end
+
+    if type(obj.level_id) == "function" then
+        return obj:level_id()
+    end
+
+    if obj.m_level_id then
+        return obj.m_level_id
+    end
+
+    local gvid = get_object_game_vertex_id(obj)
+    if gvid and game_graph then
+        local gg = game_graph()
+        if gg and gg.valid_vertex_id and gg:valid_vertex_id(gvid) then
+            local v = gg:vertex(gvid)
+            if v and v.level_id then
+                return v:level_id()
+            end
+        end
+    end
+
+    return nil
+end
+
+local function are_objects_on_same_level(a, b)
+    if not (a and b) then
+        return false
+    end
+
+    local a_level_id = get_object_level_id(a)
+    local b_level_id = get_object_level_id(b)
+    if a_level_id ~= nil and b_level_id ~= nil then
+        return a_level_id == b_level_id
+    end
+
+    return true
+end
+
 local function resolve_smart_position_from_reference(location_ref)
     local smart = nil
     local smart_name = nil
@@ -485,7 +538,44 @@ local function remove_map_spot_for_id(obj_id, spot_type)
 end
 
 
+local function find_pending_location_reference(location_ref, sender_npc_name, sender_npc_id)
+    local _, smart_name = resolve_smart_from_reference(location_ref)
+    local normalized_ref = smart_name or normalize_smart_name_from_ref(location_ref) or location_ref
+
+    for _, entry in pairs(pending_location_refs) do
+        local entry_ref = entry.smart_name or normalize_smart_name_from_ref(entry.location_ref) or entry.location_ref
+        if entry_ref == normalized_ref then
+            if sender_npc_id and entry.sender_id and sender_npc_id == entry.sender_id then
+                return entry
+            end
+            if (not sender_npc_id) and (not entry.sender_id) and sender_npc_name and entry.sender_name and sender_npc_name == entry.sender_name then
+                return entry
+            end
+        end
+    end
+
+    return nil
+end
+
 local function register_location_reference(location_ref, sender_npc_name, sender_npc_id, radius)
+    local existing = find_pending_location_reference(location_ref, sender_npc_name, sender_npc_id)
+    if existing then
+        local new_radius = tonumber(radius)
+        local old_radius = tonumber(existing.radius)
+        if new_radius and (not old_radius or new_radius > old_radius) then
+            existing.radius = new_radius
+        end
+
+        if sender_npc_name and sender_npc_name ~= "" then
+            existing.sender_name = existing.sender_name or sender_npc_name
+        end
+        if sender_npc_id then
+            existing.sender_id = existing.sender_id or sender_npc_id
+        end
+
+        return existing
+    end
+
     local smart, smart_name = resolve_smart_from_reference(location_ref)
     local watch_id = next_location_ref_id
     next_location_ref_id = next_location_ref_id + 1
@@ -1013,7 +1103,7 @@ function check_location_references()
             end
 
             local radius = tonumber(entry.radius) or (PANDA.get_config("location_watch_radius") or 85)
-            if actor_pos:distance_to(smart_pos) <= radius then
+            if are_objects_on_same_level(db.actor, smart) and actor_pos:distance_to(smart_pos) <= radius then
                 reached[#reached + 1] = { id = id, entry = entry }
             end
         end
