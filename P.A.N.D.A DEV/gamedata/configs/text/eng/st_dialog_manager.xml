@@ -5423,30 +5423,30 @@
 		<text>Come through for me and I'll come through for you. Get back to me.</text>
 	</string>
 	<string id="st_accepted_task_3">
-		<text>Glad you can be of assistance.</text>
-	</string>
-	<string id="st_default_task_finished_1">
-		<text>Thank you, stalker. Here is your reward.</text>
-	</string>
-	<string id="st_default_task_finished_2">
-		<text>I'm glad you came through. Here is what I've promised.</text>
-	</string>
-	<string id="st_default_task_finished_3">
-		<text>Okay, now for your payment.</text>
-	</string>
-	<string id="st_no_available_task">
-		<text>Sorry, don't have anything.</text>
-	</string>
-	<string id="st_about_fetch_task_default">
-		<text>I can't remember what I was going to say... Just go get it! You know what I want!</text>
-	</string>
-	<string id="st_return_for_reward">
-		<text>Return for your reward.</text>
-	</string>
-	<string id="st_nevermind">
-		<text>On second thought, never mind. Come back later.</text>
+		<text>Sorry I couldn't help.</text>
 	</string>
 
+	<string id="st_ordered_task_query_cancel">
+		<text>I couldn't complete the job.</text>
+	<string id="st_task_none_active">
+		<text>What job?</text>
+	</string>
+	<string id="st_ordered_task_query_cancel_next_job">
+		<text>No, I'm still working on that one.</text>
+	<string id="st_task_default_excuse_cancel_job">
+		<text>Yes, I'm busy with other work.</text>
+	<string id="st_default_task_cancel_1">
+		<text>I'm disappointed in you, stalker.</text>
+	</string>
+	<string id="st_default_task_cancel_2">
+		<text>What? I had thought better of you, stalker.</text>
+	</string>
+	<string id="st_default_task_cancel_3">
+		<text>I guess that is what I should have expected from a rookie.</text>
+	</string>
+
+	<!-- Repair -->
+	<string id="st_inventory_upgrade_reply_1">
 	<!-- Task cancelling -->
 	<string id="dm_universal_actor_exit_sorry">
 	<!-- P.A.N.D.A. dynamic objective turn-in fallback strings -->
