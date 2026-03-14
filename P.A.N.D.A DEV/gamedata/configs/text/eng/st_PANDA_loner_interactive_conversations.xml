@@ -953,6 +953,9 @@ END OF HOW TO GUIDE
 <string id="st_pda_ic_spawn_objective_fail">
     <text>You've missed the window. Contacts at $location slipped away.</text>
 </string>
+<string id="st_pda_ic_spawn_objective_remote_debrief">
+    <text>Can't make visual contact. Sending remote debrief for the action at $location.</text>
+</string>
 <string id="st_pda_ic_pda_closed_warning">
     <text>You need to have your PDA open to make a choice.</text>
 </string>
