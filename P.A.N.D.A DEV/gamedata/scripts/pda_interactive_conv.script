@@ -534,7 +534,8 @@ function check_location_references()
 
     for id, entry in pairs(pending_location_refs) do
         local smart = entry.smart_name and SIMBOARD and SIMBOARD.get_smart_by_name and SIMBOARD:get_smart_by_name(entry.smart_name) or nil
-        if smart and smart.position then
+        local smart_pos = get_position_from_object(smart)
+        if smart and smart_pos then
             -- If the smart was resolved late, place the PDA marker now
             if not entry.map_spot_id then
                 local display_name = get_location_display_name(entry.location_ref)
@@ -551,7 +552,7 @@ function check_location_references()
             end
 
             local radius = tonumber(entry.radius) or (PANDA.get_config("location_watch_radius") or 85)
-            if actor_pos:distance_to(smart:position()) <= radius then
+            if actor_pos:distance_to(smart_pos) <= radius then
                 reached[#reached + 1] = { id = id, entry = entry }
             end
         end
