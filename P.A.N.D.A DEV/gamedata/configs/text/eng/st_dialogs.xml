@@ -3244,6 +3244,9 @@
 	<string id="dm_sim_panda_pending_turnin.dialog">
 		<text>[Objective Turn-In]</text>
 	</string>
+	<string id="dm_sim_panda_pending_turnin_dialog">
+		<text>[Objective Turn-In]</text>
+	</string>
 	<string id="dm_sim_panda_pending_turnin_dialog.dialog">
 		<text>[Objective Turn-In]</text>
 	</string>
