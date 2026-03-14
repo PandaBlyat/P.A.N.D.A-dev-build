@@ -978,7 +978,7 @@ END OF HOW TO GUIDE
 </string>
 
 <string id="st_pda_ic_loner_1_outcome_1">
-    <text>watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%,spawn_mutant:snork:70:110</text>
+    <text>watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%,spawn_mutant_at_smart:snork:%cordon_panda_st_key%:2</text>
 </string>
 
 <string id="st_pda_ic_loner_1_choice_2">
