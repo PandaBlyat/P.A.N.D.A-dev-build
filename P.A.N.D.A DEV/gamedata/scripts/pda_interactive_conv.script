@@ -912,6 +912,31 @@ local function record_npc_use(npc_id)
     npc_last_used[npc_id] = game.get_game_time()
 end
 
+-- Vanilla patterns:
+--   * Story/important NPCs have a story id (get_object_story_id(id) ~= nil)
+--   * Simulated NPCs are spawned from sim_* sections (most commonly sim_default_*)
+-- We only want simulated stalkers for random PDA conversations.
+local function is_simulated_conversation_npc(npc_obj, npc_se, npc_id)
+    if not npc_id then return false end
+
+    if get_object_story_id(npc_id) then
+        return false
+    end
+
+    local section = nil
+    if npc_obj and type(npc_obj.section) == "function" then
+        section = npc_obj:section()
+    elseif npc_se and type(npc_se.section_name) == "function" then
+        section = npc_se:section_name()
+    end
+
+    if not section or section == "" then
+        return false
+    end
+
+    return string.find(section, "sim_default_") ~= nil or string.find(section, "sim_") ~= nil
+end
+
 -- ============================================================
 -- NPC FILTERING (with cooldown check)
 -- ============================================================
@@ -933,7 +958,7 @@ function get_friendly_npcs()
                     local dist = player_pos:distance_to(obj:position())
                     if dist >= min_dist then
                         local se = alife_object(id)
-                        if se and (not se.squad_id or se.squad_id ~= db.actor:squad_id()) then
+                        if se and (not se.squad_id or se.squad_id ~= db.actor:squad_id()) and is_simulated_conversation_npc(obj, se, id) then
                             table.insert(friendly, se)
                         end
                     end
@@ -964,7 +989,7 @@ function get_hostile_npcs()
                     local dist = player_pos:distance_to(obj:position())
                     if dist >= min_dist then
                         local se = alife_object(id)
-                        if se and (not se.squad_id or se.squad_id ~= db.actor:squad_id()) then
+                        if se and (not se.squad_id or se.squad_id ~= db.actor:squad_id()) and is_simulated_conversation_npc(obj, se, id) then
                             table.insert(hostile, se)
                         end
                     end
@@ -995,7 +1020,7 @@ function get_all_eligible_npcs()
                 local dist = player_pos:distance_to(obj:position())
                 if dist >= min_dist then
                     local se = alife_object(id)
-                    if se and (not se.squad_id or se.squad_id ~= db.actor:squad_id()) then
+                    if se and (not se.squad_id or se.squad_id ~= db.actor:squad_id()) and is_simulated_conversation_npc(obj, se, id) then
                         table.insert(npcs, se)
                     end
                 end
@@ -1019,7 +1044,7 @@ function get_eligible_npcs_for_community(player_comm)
             if comm and comm ~= "trader" and comm ~= "actor" and comm ~= "zombied" and comm ~= "monolith" then
                 if comm == player_comm or PANDA.get_config("allow_cross_faction") then
                     local se = alife_object(id)
-                    if se and (not se.squad_id or se.squad_id ~= db.actor:squad_id()) then
+                    if se and (not se.squad_id or se.squad_id ~= db.actor:squad_id()) and is_simulated_conversation_npc(obj, se, id) then
                         table.insert(eligible, se)
                     end
                 end
