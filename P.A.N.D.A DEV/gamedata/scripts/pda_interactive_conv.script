@@ -969,7 +969,13 @@ function check_spawn_objectives()
                 end
             end
 
-            all_dead = alive_count == 0 and unknown_count == 0
+            -- Mutant squads can partially despawn/go offline after combat cleanup.
+            -- For those objectives, treat unknown members as dead so turn-in can still progress.
+            if entry.objective_type == "mutant" then
+                all_dead = alive_count == 0
+            else
+                all_dead = alive_count == 0 and unknown_count == 0
+            end
         end
 
         if entry.pending_turnin and should_cleanup_pending_turnin(entry, now) then
@@ -1052,15 +1058,25 @@ local function find_pending_turnin_for_dialog(a, b)
     end
 
     for objective_id, entry in pairs(active_spawn_objectives) do
-        if entry and entry.pending_turnin and not entry.turned_in and entry.sender_id == npc_id then
-            local smart_ref = entry.smart_ref or entry.location_ref
-            local radius = tonumber(entry.turnin_radius) or tonumber(entry.radius) or (PANDA.get_config("location_watch_radius") or 85)
-            local actor_near = smart_ref and is_object_near_smart_radius(actor, smart_ref, radius)
-            local npc_near = smart_ref and is_object_near_smart_radius(npc, smart_ref, radius)
+        if entry and entry.pending_turnin and not entry.turned_in then
+            local matches_sender = entry.sender_id == npc_id
 
-            if actor_near and npc_near then
-                pending_turnin_dialog_cache[npc_id] = objective_id
-                return objective_id, entry
+            -- Fallback for edge-cases where the sender got re-instantiated with a new object id
+            -- but kept the same profile name.
+            if not matches_sender and entry.sender_name and npc.name then
+                matches_sender = (entry.sender_name == npc:name())
+            end
+
+            if matches_sender then
+                local smart_ref = entry.smart_ref or entry.location_ref
+                local radius = tonumber(entry.turnin_radius) or tonumber(entry.radius) or (PANDA.get_config("location_watch_radius") or 85)
+                local actor_near = smart_ref and is_object_near_smart_radius(actor, smart_ref, radius)
+                local npc_near = smart_ref and is_object_near_smart_radius(npc, smart_ref, radius)
+
+                if actor_near and npc_near then
+                    pending_turnin_dialog_cache[npc_id] = objective_id
+                    return objective_id, entry
+                end
             end
         end
     end
