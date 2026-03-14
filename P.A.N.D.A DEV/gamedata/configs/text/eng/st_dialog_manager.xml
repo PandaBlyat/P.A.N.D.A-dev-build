@@ -5449,24 +5449,23 @@
 
 	<!-- Task cancelling -->
 	<string id="dm_universal_actor_exit_sorry">
-		<text>Sorry I couldn't help.</text>
+	<!-- P.A.N.D.A. dynamic objective turn-in fallback strings -->
+	<string id="st_pda_ic_mini_turnin_actor_fallback">
+		<text>I dealt with that problem. Got a minute?</text>
 	</string>
-	<string id="st_ordered_task_query_cancel">
-		<text>I couldn't complete the job.</text>
+	<string id="st_pda_ic_mini_turnin_npc_fallback">
+		<text>Good work. I'll mark that objective as complete.</text>
 	</string>
-	<string id="st_task_none_active">
-		<text>What job?</text>
+	<string id="dm_sim_panda_pending_turnin.dialog">
+		<text>[Objective Turn-In]</text>
 	</string>
-	<string id="st_ordered_task_query_cancel_next_job">
-		<text>No, I'm still working on that one.</text>
+	<string id="dm_sim_panda_pending_turnin_dialog">
+		<text>[Objective Turn-In]</text>
 	</string>
-	<string id="st_task_default_excuse_cancel_job">
-		<text>Yes, I'm busy with other work.</text>
+	<string id="dm_sim_panda_pending_turnin_dialog.dialog">
+		<text>[Objective Turn-In]</text>
 	</string>
-	<string id="st_default_task_cancel_1">
-		<text>I'm disappointed in you, stalker.</text>
-	</string>
-	<string id="st_default_task_cancel_2">
+
 		<text>What? I had thought better of you, stalker.</text>
 	</string>
 	<string id="st_default_task_cancel_3">
