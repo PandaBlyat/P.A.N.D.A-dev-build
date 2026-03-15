@@ -1073,7 +1073,7 @@ END OF HOW TO GUIDE
 </string>
 
 <string id="st_pda_ic_loner_1_open">
-    <text>$player_name, you in Cordon? Need help. Been watching a pack of snorks hanging around %cordon_panda_st%. I can keep eyes on them, but I can't clear it alone.</text>
+    <text>$player_name, you in Cordon? Need help. Been watching a group of bandits hanging around %cordon_panda_st%. I can keep eyes on them, but I can't clear it alone.</text>
 </string>
 
 <!-- Choice 1: Player agrees immediately -->
@@ -1086,7 +1086,7 @@ END OF HOW TO GUIDE
 </string>
 
 <string id="st_pda_ic_loner_1_outcome_1">
-    <text>watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%+spawn_mutant_at_smart:snork:%cordon_panda_st_key%:120,pause_job:600:3:4</text>
+    <text>watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%+spawn_hostile_at_smart:bandit:%cordon_panda_st_key%:120,pause_job:600:3:4</text>
 </string>
 
 <!-- Choice 2: Player asks for details → continue to turn 2 -->
@@ -1137,7 +1137,7 @@ END OF HOW TO GUIDE
 </string>
 
 <string id="st_pda_ic_loner_1_t2_outcome_1">
-    <text>watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%+spawn_mutant_at_smart:snork:%cordon_panda_st_key%:120,pause_job:600:3:4</text>
+    <text>watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%+spawn_hostile_at_smart:bandit:%cordon_panda_st_key%:120,pause_job:600:3:4</text>
 </string>
 
 <string id="st_pda_ic_loner_1_t2_choice_2">
