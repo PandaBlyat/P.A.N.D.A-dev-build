@@ -1093,6 +1093,48 @@ function reveal_random_stash()
     end
 end
 
+local function queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sender_contact_id)
+    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
+
+    pda_private_add_message(
+        contact_id,
+        sender_npc_name,
+        sender_npc_name or game.translate_string("st_pda_ic_outcome_sender"),
+        "Map Coordinates:",
+        sender_icon,
+        false,
+        "delivered",
+        nil,
+        nil,
+        {
+            msg_type = "map_attachment",
+            attachment_action = "reward_stash",
+            attachment_label = "Stash Coordinates:",
+            location_name = game.translate_string("st_pda_ic_outcome_stash_attachment_file"),
+            attachment_claimed = false,
+        }
+    )
+end
+
+function process_map_attachment_action(entry)
+    if type(entry) ~= "table" then
+        return false
+    end
+
+    if entry.attachment_claimed then
+        return false
+    end
+
+    if entry.attachment_action == "reward_stash" then
+        reveal_random_stash()
+        entry.attachment_claimed = true
+        return true
+    end
+
+    return false
+end
+
 
 -- Helper to find NPC server object by character name
 function get_npc_by_name(name)
@@ -2847,7 +2889,7 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
             spawn_native_courier(parts[2] or "medkit_army")
 
         elseif cmd == "reward_stash" then
-            reveal_random_stash()
+            queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sender_contact_id)
 
         elseif cmd == "watch_location" then
             local location_ref = parts[2]

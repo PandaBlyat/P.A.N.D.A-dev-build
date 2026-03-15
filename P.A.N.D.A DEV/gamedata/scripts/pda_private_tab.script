@@ -1370,7 +1370,14 @@ end
 
 -- Opens the PDA map tab and highlights the location referenced by location_ref.
 -- Adds a temporary blink marker so the spot stands out on the map.
-function pda_private_tab:NavigateToMapMarker(location_ref, map_spot_id, map_spot_type)
+function pda_private_tab:NavigateToMapMarker(location_ref, map_spot_id, map_spot_type, attachment_entry)
+    -- Process any attachment-side action only when the player explicitly clicks it.
+    -- For stash attachments this delays reward_stash until the map/file is opened.
+    local conv_api = get_conv_api()
+    if conv_api and conv_api.process_map_attachment_action then
+        conv_api.process_map_attachment_action(attachment_entry)
+    end
+
     -- Resolve smart id at click-time so late-resolved smarts also work.
     local spot_id = map_spot_id
     if not spot_id then
@@ -1963,7 +1970,7 @@ function pda_private_tab:OnSelectNPC()
 
                 -- "Map Coordinates:" sub-label
                 local coord_label = self.xml:InitTextWnd(template_npc .. ":text_box", lane_root)
-                coord_label:SetText("Map Coordinates:")
+                coord_label:SetText(tostring(entry.attachment_label or "Map Coordinates:"))
                 coord_label:SetTextColor(GetARGB(255, 160, 210, 255))
                 coord_label:SetWndPos(vector2():set(content_left + 10, 8 + 16 + 4))
                 coord_label:SetWndSize(vector2():set(math.max(10, attach_bubble_w - 20), attach_label_h))
@@ -1990,7 +1997,7 @@ function pda_private_tab:OnSelectNPC()
                 local loc_text_x = content_left + 10 + attach_box_pad + attach_icon_size + 8
                 local loc_text_w = math.max(10, attach_box_w - attach_box_pad - attach_icon_size - 8 - attach_box_pad)
                 local loc_name_wnd = self.xml:InitTextWnd(template_npc .. ":text_box", lane_root)
-                loc_name_wnd:SetText(tostring(entry.location_name or "Unknown Location"))
+                loc_name_wnd:SetText(tostring(entry.location_name or game.translate_string("st_pda_ic_outcome_stash_attachment_file") or "Unknown Location"))
                 loc_name_wnd:SetTextColor(GetARGB(255, 220, 220, 220))
                 local loc_center_y = attach_box_y + attach_box_pad + math.floor((attach_icon_size - 14) * 0.5)
                 loc_name_wnd:SetWndPos(vector2():set(loc_text_x, loc_center_y))
@@ -2010,7 +2017,7 @@ function pda_private_tab:OnSelectNPC()
                 local cap_spot_id   = entry.map_spot_id
                 local cap_spot_type = entry.map_spot_type
                 self:AddCallback(btn_name, ui_events.BUTTON_CLICKED, function()
-                    self:NavigateToMapMarker(cap_loc_ref, cap_spot_id, cap_spot_type)
+                    self:NavigateToMapMarker(cap_loc_ref, cap_spot_id, cap_spot_type, entry)
                 end, self)
 
                 table.insert(self.map_attach_icon_bindings, {

@@ -885,37 +885,37 @@ EXAMPLE 2: Hostile bandit shakedown
   (A hostile bandit NPC, player has at least 3000 RU to make the shakedown worthwhile)
 
   <string id="st_pda_ic_loner_2_precond">
-      <text>req_npc_hostile:bandit,req_money:3000</text>
+      <text>req_npc_friendly:stalker,req_npc_rank:experienced</text>
   </string>
   <string id="st_pda_ic_loner_2_open">
-      <text>Hey. Word is you've got RU to spare. Transfer 1500 and we pretend this never happened.</text>
+      <text>$player_name, I found an old dead-drop list. I can forward one cache location to your PDA if you want it.</text>
   </string>
   <string id="st_pda_ic_loner_2_choice_1">
-      <text>Fine. Take it.</text>
+      <text>Send the file. I'll check it.</text>
   </string>
   <string id="st_pda_ic_loner_2_reply_1">
-      <text>Smart. Pleasure doing business.</text>
+      <text>Forwarding now. Open the attachment and it'll decode the stash coordinates.</text>
   </string>
   <string id="st_pda_ic_loner_2_outcome_1">
-      <text>punish_money:1500</text>
+      <text>reward_stash</text>
   </string>
   <string id="st_pda_ic_loner_2_choice_2">
-      <text>Come and get it yourself.</text>
+      <text>Can I trust this lead?</text>
   </string>
   <string id="st_pda_ic_loner_2_reply_2">
-      <text>Wrong answer. Boys are already on their way.</text>
+      <text>As much as anything in the Zone. It's real data, just old. Open the file when you're ready.</text>
   </string>
   <string id="st_pda_ic_loner_2_outcome_2">
-      <text>spawn_hostile:bandit:90</text>
+      <text>reward_stash</text>
   </string>
   <string id="st_pda_ic_loner_2_choice_3">
-      <text>[Ignore]</text>
+      <text>Keep it. I don't need another detour.</text>
   </string>
   <string id="st_pda_ic_loner_2_reply_3">
-      <text>Silent treatment? We'll remember that.</text>
+      <text>Your call. I'll pass it to someone else.</text>
   </string>
   <string id="st_pda_ic_loner_2_outcome_3">
-      <text>chance:40:spawn_hostile:bandit:90</text>
+      <text>none</text>
   </string>
 
 
@@ -993,6 +993,9 @@ END OF HOW TO GUIDE
 </string>
 <string id="st_pda_ic_outcome_stash">
     <text>Stash coordinates received. Check your map.</text>
+</string>
+<string id="st_pda_ic_outcome_stash_attachment_file">
+    <text>Encrypted Stash Coordinates</text>
 </string>
 <string id="st_pda_ic_outcome_no_money">
     <text>Insufficient funds for this transaction.</text>
