@@ -1378,6 +1378,31 @@ function pda_private_tab:NavigateToMapMarker(location_ref, map_spot_id, map_spot
         end
     end
 
+    -- Build/update a lightweight navigation task and make it active.
+    -- This uses vanilla CGameTask map APIs so opening the map centers onto
+    -- the referenced smart terrain instead of only switching tabs.
+    if spot_id and db.actor then
+        local nav_task_id = "panda_private_map_nav"
+        local nav_task = db.actor:get_task(nav_task_id, true)
+
+        if nav_task then
+            nav_task:change_map_location("secondary_task_location", spot_id)
+        else
+            nav_task = CGameTask()
+            nav_task:set_id(nav_task_id)
+            nav_task:set_title("PDA Attachment Marker")
+            nav_task:set_description("Temporary navigation marker from PDA attachment")
+            nav_task:set_icon_name("ui_inGame2_PDA")
+            nav_task:set_priority(0)
+            nav_task:set_type((task and task.insignificant) or (task and task.additional) or 2)
+            nav_task:set_map_location("secondary_task_location")
+            nav_task:set_map_object_id(spot_id)
+            db.actor:give_task(nav_task, 0, false, 0)
+        end
+
+        db.actor:set_active_task(nav_task)
+    end
+
     -- Switch PDA to the Tasks/Map tab.
     local pda_menu = ActorMenu and ActorMenu.get_pda_menu and ActorMenu.get_pda_menu()
     if not pda_menu then return end
