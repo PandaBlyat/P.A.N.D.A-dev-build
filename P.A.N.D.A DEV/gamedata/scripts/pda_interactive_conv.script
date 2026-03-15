@@ -1086,7 +1086,13 @@ function check_spawn_objectives()
                 entry.success_timestamp = now
                 entry.turned_in = false
                 entry.pending_turnin_timeout_sec = tonumber(entry.pending_turnin_timeout_sec) or math.max(tonumber(entry.timeout_sec) or 0, DEFAULT_PENDING_TURNIN_TIMEOUT_SEC)
-                notify_spawn_objective_turnin_pending(entry)
+
+                -- Immediate proximity check: if NPC is far away or dead, auto-complete via PDA
+                if should_fallback_turnin_to_pda(entry) then
+                    table.insert(resolved, { id = objective_id, remote_turnin = true, entry = entry })
+                else
+                    notify_spawn_objective_turnin_pending(entry)
+                end
             elseif should_cleanup_pending_turnin(entry, now) then
                 table.insert(resolved, { id = objective_id, cleanup_only = true, entry = entry })
             end
@@ -1253,13 +1259,14 @@ end
 
 
 function dm_init_sim_pending_turnin_dialog(dialog)
-    if not add_script_dialog or not add_dialog then
+    if not dialog_manager then
         return
     end
+    dialog_manager.saved_dialog = dialog
 
-    add_script_dialog("", 0, "pda_interactive_conv.pda_ic_mini_turnin_actor_text", "pda_interactive_conv.pda_ic_can_turnin_pending_objective")
+    dialog_manager.add_script_dialog("", 0, "pda_interactive_conv.pda_ic_mini_turnin_actor_text", "pda_interactive_conv.pda_ic_can_turnin_pending_objective")
 
-    add_script_dialog(
+    dialog_manager.add_script_dialog(
         0,
         1,
         "pda_interactive_conv.pda_ic_mini_turnin_npc_text",
@@ -1267,7 +1274,7 @@ function dm_init_sim_pending_turnin_dialog(dialog)
         "pda_interactive_conv.pda_ic_complete_pending_turnin"
     )
 
-    add_dialog(1, 2, "dm_universal_actor_exit_thanks")
+    dialog_manager.add_dialog(1, 2, "dm_universal_actor_exit_thanks")
 end
 
 function check_location_references()
