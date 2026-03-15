@@ -673,6 +673,7 @@ function create_pending_job(contact_id, npc_id, npc_name, faction, squad_ids, ti
     -- Use passed conv_data (from on_player_choice) or fall back to active_conversations
     local conv = conv_data or active_conversations[contact_id]
 
+    local has_squads = squad_ids and #squad_ids > 0
     local job = {
         id = next_job_id,
         contact_id = contact_id,
@@ -680,6 +681,7 @@ function create_pending_job(contact_id, npc_id, npc_name, faction, squad_ids, ti
         npc_name = npc_name,
         faction = faction,
         squad_ids = squad_ids or {},
+        squads_registered = has_squads,  -- false when spawns are deferred (e.g. watch_location_trigger)
         timeout = timeout or 600,
         success_turn = success_turn,
         fail_turn = fail_turn,
@@ -694,8 +696,8 @@ function create_pending_job(contact_id, npc_id, npc_name, faction, squad_ids, ti
     next_job_id = next_job_id + 1
     pending_jobs[contact_id] = job
 
-    printf("PANDA_IC: Created job #%d for %s — tracking %d squads, timeout %ds, success→t%s, fail→t%s",
-        job.id, tostring(npc_name), #squad_ids, timeout,
+    printf("PANDA_IC: Created job #%d for %s — tracking %d squads (registered=%s), timeout %ds, success→t%s, fail→t%s",
+        job.id, tostring(npc_name), #squad_ids, tostring(has_squads), timeout,
         tostring(success_turn), tostring(fail_turn))
 end
 
@@ -708,12 +710,20 @@ function job_register_squads(contact_id, new_squad_ids)
     for _, sid in ipairs(new_squad_ids) do
         table.insert(job.squad_ids, sid)
     end
+    job.squads_registered = true
     printf("PANDA_IC: Job #%d for %s — added %d more squads (total %d)",
         job.id, tostring(job.npc_name), #new_squad_ids, #job.squad_ids)
 end
 
 -- Check if all tracked squads in a job are dead.
 local function job_all_squads_dead(job)
+    -- If squads haven't been registered yet (deferred spawns via watch_location_trigger),
+    -- the job cannot succeed yet — we're still waiting for the player to reach the area
+    -- and trigger the actual spawns. The job will timeout if they never arrive.
+    if not job.squads_registered then
+        return false
+    end
+
     if not job.squad_ids or #job.squad_ids == 0 then
         return true -- No squads to track means instant success
     end
@@ -2740,7 +2750,7 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
             local smart_ref = parts[3]
             local delay = tonumber(parts[4]) or 0
             if smart_ref and smart_ref ~= "" then
-                spawn_squad_at_smart_terrain(mutant_type, smart_ref, true, delay)
+                spawn_squad_at_smart_terrain(mutant_type, smart_ref, true, delay, sender_contact_id)
             else
                 printf("PANDA_IC: spawn_mutant_at_smart missing smart reference in '%s'", tostring(cmd_str))
             end
@@ -2750,7 +2760,7 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
             local smart_ref = parts[3]
             local delay = tonumber(parts[4]) or 0
             if smart_ref and smart_ref ~= "" then
-                spawn_squad_at_smart_terrain(hostile_faction, smart_ref, false, delay)
+                spawn_squad_at_smart_terrain(hostile_faction, smart_ref, false, delay, sender_contact_id)
             else
                 printf("PANDA_IC: spawn_hostile_at_smart missing smart reference in '%s'", tostring(cmd_str))
             end
@@ -2951,7 +2961,7 @@ function resolve_mutant_section(mutant_type)
     return "simulation_bloodsucker_1_2" 
 end
 
-spawn_squad_at_smart_terrain = function(squad_key, smart_ref, is_mutant, delay)
+spawn_squad_at_smart_terrain = function(squad_key, smart_ref, is_mutant, delay, job_contact_id)
     delay = tonumber(delay) or 0
     local sender = game.translate_string("st_pda_ic_outcome_sender")
 
@@ -3009,6 +3019,11 @@ spawn_squad_at_smart_terrain = function(squad_key, smart_ref, is_mutant, delay)
                     o:force_set_goodwill(-5000, db.actor)
                 end
             end
+        end
+
+        -- Register delayed spawn with the pending job so kill tracking works
+        if job_contact_id and pending_jobs[job_contact_id] then
+            job_register_squads(job_contact_id, { obj.id })
         end
 
         local loc_name = get_location_display_name(smart_ref)
