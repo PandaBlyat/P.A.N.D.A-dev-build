@@ -2990,7 +2990,8 @@ spawn_squad_at_smart_terrain = function(squad_key, smart_ref, is_mutant, delay, 
             return true
         end
 
-        local obj = create_squad_safely(sec, smart_pos, smart_lvid, smart_gvid)
+        local spawn_pos, spawn_lvid, spawn_gvid = find_spawn_point_near_smart(10, 20, smart_pos, smart_lvid, smart_gvid)
+        local obj = create_squad_safely(sec, spawn_pos, spawn_lvid, spawn_gvid)
         if not obj or obj:clsid() ~= clsid.online_offline_group_s then
             printf("PANDA_IC: spawn at smart failed — could not create squad '%s'", tostring(sec))
             return true
@@ -3050,6 +3051,18 @@ spawn_squad_at_smart_terrain = function(squad_key, smart_ref, is_mutant, delay, 
     else
         do_spawn()
     end
+end
+
+function find_spawn_point_near_smart(min, max, smart_pos, smart_lvid, smart_gvid)
+    for _ = 1, 20 do
+        local d = math.random(min, max)
+        local dir = vector():set(math.random(-100,100), 0, math.random(-100,100)):normalize()
+        local n = level.vertex_in_direction(smart_lvid, dir, d)
+        if n and n < 4294967295 then
+            return level.vertex_position(n), n, smart_gvid
+        end
+    end
+    return smart_pos, smart_lvid, smart_gvid
 end
 
 function find_spawn_point_near_player(min, max)
