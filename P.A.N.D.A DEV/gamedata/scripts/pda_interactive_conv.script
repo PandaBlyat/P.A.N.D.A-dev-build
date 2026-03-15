@@ -336,6 +336,16 @@ local last_pda_warning_time = 0
 local pending_location_refs = {}
 local next_location_ref_id = 1
 
+-- ============================================================
+-- JOB SYSTEM: Pause conversations until spawned hostiles die
+-- ============================================================
+local pending_jobs = {}          -- keyed by contact_id
+local next_job_id = 1
+-- Temporary collector: when non-nil, create_squad_safely appends squad IDs here
+local _job_spawn_collector = nil
+-- Temporary storage for pause_job params within an outcome batch
+local _pending_job_params = nil
+
 local function normalize_smart_name_from_ref(location_ref)
     if not location_ref or location_ref == "" then
         return nil
@@ -482,7 +492,7 @@ local function remove_map_spot_for_id(obj_id, spot_type)
 end
 
 
-local function register_location_reference(location_ref, sender_npc_name, sender_npc_id, radius)
+local function register_location_reference(location_ref, sender_npc_name, sender_npc_id, radius, sender_contact_id)
     local smart, smart_name = resolve_smart_from_reference(location_ref)
     local watch_id = next_location_ref_id
     next_location_ref_id = next_location_ref_id + 1
@@ -493,6 +503,7 @@ local function register_location_reference(location_ref, sender_npc_name, sender
         smart_name = smart_name,
         sender_name = sender_npc_name,
         sender_id = sender_npc_id,
+        sender_contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id)),
         radius = radius,
         trigger_cmds = {},
     }
@@ -588,8 +599,26 @@ function check_location_references()
             "npc"
         )
 
+        -- Derive contact_id for job tracking
+        local trigger_contact_id = entry.sender_contact_id or (entry.sender_id and tostring(entry.sender_id)) or nil
+
+        -- If this contact has a pending job, enable the spawn collector
+        -- so any squads created by trigger commands get tracked
+        local had_job = trigger_contact_id and pending_jobs[trigger_contact_id]
+        if had_job then
+            _job_spawn_collector = {}
+        end
+
         for _, cmd in ipairs(entry.trigger_cmds or {}) do
-            apply_outcome(cmd, entry.sender_name, nil, entry.sender_id, nil)
+            apply_outcome(cmd, entry.sender_name, nil, entry.sender_id, nil, trigger_contact_id)
+        end
+
+        -- Register any collected squads with the pending job
+        if had_job and _job_spawn_collector and #_job_spawn_collector > 0 then
+            job_register_squads(trigger_contact_id, _job_spawn_collector)
+        end
+        if had_job then
+            _job_spawn_collector = nil
         end
 
         -- Remove the PDA map marker now that the player has arrived
@@ -631,6 +660,207 @@ function count_active_conversations()
     return n
 end
 
+-- ============================================================
+-- JOB SYSTEM: Track spawned hostiles and resume conversation
+-- ============================================================
+
+-- Create a pending job that monitors spawned squads.
+-- When all tracked squads are dead, resumes conversation at success_turn.
+-- On timeout, resumes at fail_turn.
+function create_pending_job(contact_id, npc_id, npc_name, faction, squad_ids, timeout, success_turn, fail_turn, conv_data)
+    if not contact_id then return end
+
+    -- Use passed conv_data (from on_player_choice) or fall back to active_conversations
+    local conv = conv_data or active_conversations[contact_id]
+
+    local job = {
+        id = next_job_id,
+        contact_id = contact_id,
+        npc_id = npc_id,
+        npc_name = npc_name,
+        faction = faction,
+        squad_ids = squad_ids or {},
+        timeout = timeout or 600,
+        success_turn = success_turn,
+        fail_turn = fail_turn,
+        started_at = time_global(),
+        -- Preserve conversation data for resumption
+        conv_prefix = conv and conv.prefix or nil,
+        conv_id = conv and conv.conv_id or nil,
+        conv_icon = conv and conv.npc_icon or FALLBACK_NPC_ICON,
+        applied_outcomes = conv and conv.applied_outcomes or {},
+    }
+
+    next_job_id = next_job_id + 1
+    pending_jobs[contact_id] = job
+
+    printf("PANDA_IC: Created job #%d for %s — tracking %d squads, timeout %ds, success→t%s, fail→t%s",
+        job.id, tostring(npc_name), #squad_ids, timeout,
+        tostring(success_turn), tostring(fail_turn))
+end
+
+-- Register additional squad IDs for a contact's active job.
+-- Called by watch_location_trigger deferred spawns when the collector is not active
+-- (e.g. spawns triggered by location arrival after the original outcome batch).
+function job_register_squads(contact_id, new_squad_ids)
+    local job = pending_jobs[contact_id]
+    if not job or not new_squad_ids then return end
+    for _, sid in ipairs(new_squad_ids) do
+        table.insert(job.squad_ids, sid)
+    end
+    printf("PANDA_IC: Job #%d for %s — added %d more squads (total %d)",
+        job.id, tostring(job.npc_name), #new_squad_ids, #job.squad_ids)
+end
+
+-- Check if all tracked squads in a job are dead.
+local function job_all_squads_dead(job)
+    if not job.squad_ids or #job.squad_ids == 0 then
+        return true -- No squads to track means instant success
+    end
+
+    for _, squad_id in ipairs(job.squad_ids) do
+        local squad = alife_object(squad_id)
+        if squad then
+            -- Check if any member is still alive
+            local any_alive = false
+            for k in squad:squad_members() do
+                local obj = level.object_by_id(k.id)
+                if obj and obj:alive() then
+                    any_alive = true
+                    break
+                end
+                -- If object is not online, check server object existence
+                if not obj then
+                    local se = alife_object(k.id)
+                    if se then
+                        any_alive = true
+                        break
+                    end
+                end
+            end
+            if any_alive then
+                return false
+            end
+        end
+        -- Squad doesn't exist anymore = dead
+    end
+
+    return true
+end
+
+-- Resume a paused conversation at the specified turn.
+local function job_resume_conversation(job, turn, is_success)
+    local cid = job.contact_id
+    local npc_name = job.npc_name
+    local faction = job.faction
+    local prefix = job.conv_prefix
+    local conv_id = job.conv_id
+    local npc_icon = job.conv_icon
+
+    if not conv_id then
+        printf("PANDA_IC: Cannot resume job #%d — no conv_id stored", job.id)
+        return
+    end
+
+    -- Load the choices for the target turn
+    local choices, num = load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, cid)
+    if num == 0 then
+        printf("PANDA_IC: Job #%d resume failed — no choices for turn %d", job.id, turn)
+        return
+    end
+
+    -- Create a fresh conversation entry in active_conversations
+    local conv_data = {
+        npc_id = job.npc_id,
+        contact_id = cid,
+        npc_name = npc_name,
+        npc_icon = npc_icon,
+        faction = faction,
+        prefix = prefix,
+        conv_id = conv_id,
+        turn = turn,
+        choices = choices,
+        num_choices = num,
+        task_id = nil,
+        category = nil,
+        applied_outcomes = job.applied_outcomes or {},
+        started_at = time_global(),
+        reply_pending = false,
+    }
+
+    active_conversations[cid] = conv_data
+    CONV = conv_data
+
+    printf("PANDA_IC: Job #%d resumed conversation at turn %d (%s)",
+        job.id, turn, is_success and "SUCCESS" or "FAIL/TIMEOUT")
+
+    -- Refresh UI
+    if get_ui then
+        get_ui():Reset()
+    end
+end
+
+-- Main job monitor — called periodically.
+function check_pending_jobs()
+    if not pending_jobs or not db.actor then return end
+
+    local now = time_global()
+    local completed = {}
+
+    for cid, job in pairs(pending_jobs) do
+        local elapsed_secs = (now - job.started_at) / 1000
+
+        if job_all_squads_dead(job) then
+            -- SUCCESS: All spawned hostiles are dead
+            table.insert(completed, { contact_id = cid, job = job, success = true })
+
+        elseif elapsed_secs >= job.timeout then
+            -- TIMEOUT: Job took too long
+            table.insert(completed, { contact_id = cid, job = job, success = false })
+        end
+    end
+
+    for _, result in ipairs(completed) do
+        local job = result.job
+        pending_jobs[result.contact_id] = nil
+
+        if result.success then
+            -- Send a system notification about job completion
+            local msg = game.translate_string("st_pda_ic_job_success")
+            pda_private_add_message(job.contact_id, job.npc_name, job.npc_name, msg, job.conv_icon, false)
+
+            -- Resume at success turn
+            if job.success_turn then
+                job_resume_conversation(job, job.success_turn, true)
+            end
+        else
+            -- Send timeout/failure notification
+            local msg = game.translate_string("st_pda_ic_job_fail")
+            pda_private_add_message(job.contact_id, job.npc_name, job.npc_name, msg, job.conv_icon, false)
+
+            -- Resume at fail turn (if provided)
+            if job.fail_turn then
+                job_resume_conversation(job, job.fail_turn, false)
+            end
+        end
+
+        printf("PANDA_IC: Job #%d for %s completed — %s (%.0fs elapsed)",
+            job.id, tostring(job.npc_name),
+            result.success and "SUCCESS" or "TIMEOUT",
+            (now - job.started_at) / 1000)
+    end
+
+    -- Refresh UI if any jobs completed
+    if #completed > 0 and pda_private_tab and pda_private_tab.get_ui then
+        pda_private_tab.get_ui():Reset()
+    end
+end
+
+-- Check if a contact has an active job (used by timeout checker to skip paused convos)
+function has_pending_job(contact_id)
+    return pending_jobs[contact_id] ~= nil
+end
+
 local tracked_panda_ic_events = {
     pda_ic_spawn = {},
     pda_ic_courier = {},
@@ -666,6 +896,7 @@ function cleanup_panda_ic_events()
     safe_remove_time_event("pda_ic_trigger", "tick")
     safe_remove_time_event("pda_ic_timeout", "check")
     safe_remove_time_event("pda_ic_location", "check")
+    safe_remove_time_event("pda_ic_jobs", "check")
 
     -- Legacy global event chain
     safe_remove_time_event("pda_ic", "delivery_ack")
@@ -2391,7 +2622,7 @@ end
 
 local spawn_squad_at_smart_terrain
 
-function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_id, pre_found_task_id, sender_contact_id)
+function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_id, pre_found_task_id, sender_contact_id, conv_data)
     if not outcome_str or outcome_str == "" or outcome_str == "none" then return false end
 
     -- Resolve dynamic placeholders in outcome command strings (including smart terrain refs)
@@ -2566,7 +2797,7 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
             local location_ref = parts[2]
             if location_ref and location_ref ~= "" then
                 local radius = tonumber(parts[3]) or (PANDA.get_config("location_watch_radius") or 85)
-                register_location_reference(location_ref, sender_npc_name, sender_npc_id, radius)
+                register_location_reference(location_ref, sender_npc_name, sender_npc_id, radius, sender_contact_id)
             else
                 printf("PANDA_IC: watch_location missing location reference in '%s'", tostring(cmd_str))
             end
@@ -2590,8 +2821,15 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
             end
 
             if location_ref and location_ref ~= "" and delayed_cmd and delayed_cmd ~= "" then
-                local ref = register_location_reference(location_ref, sender_npc_name, sender_npc_id, radius)
-                table.insert(ref.trigger_cmds, delayed_cmd)
+                local ref = register_location_reference(location_ref, sender_npc_name, sender_npc_id, radius, sender_contact_id)
+                -- Support multiple trigger commands separated by "+"
+                -- Example: teleport_npc_to_smart:loc+spawn_mutant_at_smart:snork:loc
+                for sub_cmd in string.gmatch(delayed_cmd, "([^+]+)") do
+                    sub_cmd = sub_cmd:match("^%s*(.-)%s*$")
+                    if sub_cmd ~= "" then
+                        table.insert(ref.trigger_cmds, sub_cmd)
+                    end
+                end
             else
                 printf("PANDA_IC: watch_location_trigger malformed in '%s'", tostring(cmd_str))
             end
@@ -2624,16 +2862,64 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                 printf("PANDA_IC: recruit_companion missing npc_id in '%s'", tostring(cmd_str))
             end
 
+        -- ========== PAUSE JOB (wait for spawned hostiles to die) ==========
+        -- Syntax: pause_job:<timeout_seconds>:<success_turn>:<fail_turn>
+        -- Must be in the same outcome string as spawn commands.
+        -- Pauses the conversation until all squads spawned in this outcome batch are dead.
+        elseif cmd == "pause_job" then
+            local timeout = tonumber(parts[2]) or 600
+            local success_turn = tonumber(parts[3])
+            local fail_turn = tonumber(parts[4])
+            if not success_turn then
+                printf("PANDA_IC: pause_job missing success_turn in '%s'", tostring(cmd_str))
+            else
+                -- Defer actual job creation to after all commands in this batch finish.
+                -- Store params so the post-batch handler can create the job.
+                _pending_job_params = {
+                    timeout = timeout,
+                    success_turn = success_turn,
+                    fail_turn = fail_turn,
+                    sender_npc_id = sender_npc_id,
+                    sender_npc_name = sender_npc_name,
+                    sender_contact_id = sender_contact_id,
+                    sender_faction = sender_faction,
+                    conv_data = conv_data,
+                }
+            end
+
         else
             printf("Unknown outcome command: %s", cmd_str)
         end
     end
+
+    -- Enable spawn collector so any squads created during this batch are tracked
+    local prev_collector = _job_spawn_collector
+    _job_spawn_collector = {}
+    _pending_job_params = nil
 
     for entry in string.gmatch(outcome_str, "([^,]+)") do
         entry = entry:match("^%s*(.-)%s*$")
         if entry ~= "" then
             process_command(entry)
         end
+    end
+
+    -- If pause_job was in this batch, create the job with collected squad IDs
+    local collected_squads = _job_spawn_collector
+    _job_spawn_collector = prev_collector
+
+    if _pending_job_params and collected_squads then
+        local jp = _pending_job_params
+        _pending_job_params = nil
+        local cid = jp.sender_contact_id
+        if cid then
+            create_pending_job(cid, jp.sender_npc_id, jp.sender_npc_name, jp.sender_faction,
+                collected_squads, jp.timeout, jp.success_turn, jp.fail_turn, jp.conv_data)
+        else
+            printf("PANDA_IC: pause_job has no contact_id, cannot create job")
+        end
+    else
+        _pending_job_params = nil
     end
 
     return task_given
@@ -2776,6 +3062,11 @@ function create_squad_safely(sec, pos, lvid, gvid)
             if se then
                 SIMBOARD:setup_squad_and_group(se)
             end
+        end
+        -- If a job spawn collector is active, register this squad for tracking
+        if _job_spawn_collector then
+            table.insert(_job_spawn_collector, obj.id)
+            printf("PANDA_IC: Job collector captured squad ID %d (%s)", obj.id, tostring(sec))
         end
     end
     return obj
@@ -3545,7 +3836,7 @@ function on_player_choice(idx, contact_id)
                         local outcome_delay_min = PANDA.get_config("outcome_delay_min") or 1
                         local outcome_delay_max = PANDA.get_config("outcome_delay_max") or 2
                         CreateTimeEvent(ev_prefix, "outcome", math.random(outcome_delay_min, outcome_delay_max), function()
-                            apply_outcome(ch.outcome, npc_name, c.faction, c.npc_id, c.task_id, cid)
+                            apply_outcome(ch.outcome, npc_name, c.faction, c.npc_id, c.task_id, cid, c)
                             return true
                         end)
                     end
@@ -3756,7 +4047,8 @@ function check_conversation_timeouts()
 
     local expired = {}
     for cid, conv in pairs(active_conversations) do
-        if conv.started_at and not conv.reply_pending then
+        -- Skip conversations that have a pending job (they are "paused")
+        if conv.started_at and not conv.reply_pending and not has_pending_job(cid) then
             local timeout_secs, timeout_msg = get_conv_timeout_config(
                 conv.prefix, conv.faction, conv.conv_id
             )
@@ -3866,6 +4158,13 @@ local function schedule_location_ref_checker()
     end)
 end
 
+local function schedule_job_checker()
+    CreateTimeEvent("pda_ic_jobs", "check", 5, function()
+        check_pending_jobs()
+        return false -- Keep repeating
+    end)
+end
+
 
 -- ============================================================
 -- KEYBOARD CALLBACKS
@@ -3901,6 +4200,8 @@ function save_state(m)
     m.pda_active_conversations = save_convs
     m.pda_pending_location_refs = pending_location_refs
     m.pda_next_location_ref_id = next_location_ref_id
+    m.pda_pending_jobs = pending_jobs
+    m.pda_next_job_id = next_job_id
 end
 
 function load_state(m)
@@ -3942,6 +4243,19 @@ function load_state(m)
 
     if m.pda_next_location_ref_id then
         next_location_ref_id = m.pda_next_location_ref_id
+    end
+
+    if m.pda_pending_jobs then
+        pending_jobs = m.pda_pending_jobs
+        -- Reset started_at to now so timeout counting restarts from load
+        -- (prevents instant timeout after load)
+        for _, job in pairs(pending_jobs) do
+            job.started_at = time_global()
+        end
+    end
+
+    if m.pda_next_job_id then
+        next_job_id = m.pda_next_job_id
     end
 
     -- Restore active conversations and rebuild their choices
@@ -3996,6 +4310,8 @@ function on_game_start()
     schedule_timeout_checker()
     -- Schedule smart-location reference checker
     schedule_location_ref_checker()
+    -- Schedule pending job checker (kill tracking)
+    schedule_job_checker()
 
     _callbacks_registered = true
 end

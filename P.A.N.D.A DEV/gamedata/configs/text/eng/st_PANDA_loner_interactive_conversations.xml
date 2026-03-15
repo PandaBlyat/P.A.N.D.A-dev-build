@@ -21,9 +21,10 @@ TABLE OF CONTENTS
   7. Smart Terrain Location System
   8. Multi-Turn Conversations
   9. Conversation Timeouts
-  10. Writing Rules and Guidelines
-  11. Common Mistakes to Avoid
-  12. Full Example Conversations
+  10. Job System (Kill Tracking / Mini-Jobs)
+  11. Writing Rules and Guidelines
+  12. Common Mistakes to Avoid
+  13. Full Example Conversations
 
 
 1. OVERVIEW
@@ -467,6 +468,12 @@ Format: command:param1:param2
     Example: watch_location_trigger:st_esc_smart_terrain_4_13_name:spawn_mutant_at_smart:snork:st_esc_smart_terrain_4_13_name:100
     = Mark a location, and when player gets within 100m, run the specified command.
 
+    MULTIPLE TRIGGER COMMANDS: Use "+" to chain multiple commands inside a single trigger.
+    Example: watch_location_trigger:st_esc_smart_terrain_4_13_name:teleport_npc_to_smart:st_esc_smart_terrain_4_13_name+spawn_mutant_at_smart:snork:st_esc_smart_terrain_4_13_name:100
+    = When player arrives: teleport NPC AND spawn snorks at the location.
+    NOTE: The "+" separator joins commands within the trigger. Commas still separate
+    top-level outcome commands. Use "+" inside the trigger, commas outside.
+
 --- NPC TELEPORTATION ---
 
   teleport_npc_to_smart:<smart_terrain_key>
@@ -494,6 +501,34 @@ Format: command:param1:param2
   recruit_companion:no_dismiss
     Same but the companion cannot be dismissed.
     Example: recruit_companion:no_dismiss
+
+--- JOB TRACKING (PAUSE UNTIL KILLS) ---
+
+  pause_job:&lt;timeout_seconds&gt;:&lt;success_turn&gt;:&lt;fail_turn&gt;
+    Pause the conversation and wait for all hostiles/mutants spawned in the same
+    outcome batch to be killed. When all tracked squads are dead, the conversation
+    resumes at &lt;success_turn&gt;. If the timeout expires first, it resumes at &lt;fail_turn&gt;.
+
+    MUST be in the same outcome string as spawn commands (spawn_mutant, spawn_hostile,
+    spawn_mutant_at_smart, spawn_hostile_at_smart). Also works with spawns triggered
+    by watch_location_trigger — any squads spawned by location trigger commands for
+    the same NPC will be automatically tracked.
+
+    Example: pause_job:600:3:4
+      = Pause conversation, track spawned squads, 600s timeout.
+        On success (all dead) → continue to turn 3.
+        On timeout → continue to turn 4.
+
+    Example (combined with spawn):
+      "spawn_mutant_at_smart:snork:st_esc_smart_terrain_4_13_name,pause_job:600:3:4"
+
+    Example (with watch_location_trigger for deferred spawns):
+      Outcome: "watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%+spawn_mutant_at_smart:snork:%cordon_panda_st_key%:120,pause_job:600:3:4"
+      = Mark location. When player arrives: teleport NPC + spawn snorks (both deferred
+        via "+" inside the trigger). pause_job is at the top level (after comma) and
+        creates the job tracker immediately. When the trigger fires and squads spawn,
+        they are automatically registered with the job. When all die → turn 3.
+        If 600s pass → turn 4.
 
 --- CHANCE MODIFIER ---
 
@@ -625,7 +660,57 @@ EXAMPLE:
     st_pda_ic_loner_1_timeout_msg = "Fine, ignore me. See if I care."
 
 
-10. WRITING RULES AND GUIDELINES
+10. JOB SYSTEM (KILL TRACKING / MINI-JOBS)
+=============================================
+The job system lets you create "mini-job" conversations where an NPC asks the player
+to go somewhere and kill hostiles/mutants. The conversation pauses while the player
+completes the job, then resumes with success or failure dialogue.
+
+HOW IT WORKS:
+  1. NPC sends a message asking for help (turn 1).
+  2. Player agrees → outcome sets up a location marker + spawns + pause_job.
+  3. Player travels to the marked location. Trigger fires: NPC teleports there,
+     mutants/hostiles spawn.
+  4. The system tracks all spawned squads. The conversation is "paused."
+  5. Player kills all spawned enemies → conversation resumes at the SUCCESS turn.
+     OR timeout expires → conversation resumes at the FAIL turn.
+  6. NPC sends a follow-up message (turn 3 or 4) thanking or berating the player,
+     with new choices and outcomes.
+
+KEY OUTCOME COMMAND:
+  pause_job:&lt;timeout_seconds&gt;:&lt;success_turn&gt;:&lt;fail_turn&gt;
+
+  This MUST appear in the same outcome string as spawn commands. It captures the
+  squad IDs of any hostiles/mutants spawned in that outcome batch and monitors them.
+
+FLOW EXAMPLE:
+  Turn 1: NPC asks for help. Player agrees.
+    Outcome: "watch_location_trigger:&lt;smart&gt;:teleport_npc_to_smart:&lt;smart&gt;+spawn_mutant_at_smart:snork:&lt;smart&gt;:120,pause_job:600:3:4"
+    (Note: "+" chains trigger commands; "," separates top-level outcomes)
+
+  (Player walks to location → trigger fires → NPC teleports, snorks spawn)
+  (System monitors: are all snorks dead?)
+
+  Turn 3 (success): NPC thanks the player, offers a reward.
+    _t3_choice_1: "No problem."   _t3_outcome_1: "reward_money:3000,reward_rep:25"
+    _t3_choice_2: "You owe me."   _t3_outcome_2: "reward_money:5000"
+
+  Turn 4 (fail/timeout): NPC is disappointed.
+    _t4_choice_1: "I got swarmed."   _t4_outcome_1: "none"
+    _t4_choice_2: "I'll try again."  _t4_outcome_2: "none"
+
+RULES:
+  - pause_job only tracks squads spawned in the SAME outcome string or by the
+    location trigger commands for the same NPC contact.
+  - The conversation stays "paused" in the background. Normal conversation timeouts
+    are suspended during a job. The job has its own timeout.
+  - After save/load, the job timeout resets (the system cannot track real elapsed
+    time across saves). Tracked squad IDs are preserved.
+  - success_turn and fail_turn point to multi-turn conversation turns (t3, t4, etc.)
+    that you define using the standard _tN_ key format.
+
+
+11. WRITING RULES AND GUIDELINES
 ==================================
 
 --- IMMERSION AND TONE ---
@@ -715,8 +800,12 @@ EXAMPLE:
      friendly with bandits. Make sure your preconditions create realistic scenarios.
 
 
-11. COMMON MISTAKES TO AVOID
+12. COMMON MISTAKES TO AVOID
 ==============================
+  X  Using pause_job without spawn commands in the same outcome.
+     pause_job tracks squads created in the same outcome batch. If there are no
+     spawn commands, the job completes instantly (no squads to track).
+
   X  Using _friendly_ or _hostile_ in conversation IDs.
      The old system is deprecated. Use st_pda_ic_loner_1_*, NOT st_pda_ic_friendly_loner_1_*.
      Control friendly/hostile via preconditions instead.
@@ -747,7 +836,7 @@ EXAMPLE:
      to everyone. This conversation will never trigger.
 
 
-12. FULL EXAMPLE CONVERSATIONS
+13. FULL EXAMPLE CONVERSATIONS
 ================================
 
 EXAMPLE 1: Friendly loner veteran offers a stash tip
@@ -830,16 +919,27 @@ EXAMPLE 2: Hostile bandit shakedown
   </string>
 
 
-EXAMPLE 3: Friendly Duty member with location-based job (multi-turn)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  Preconditions: req_npc_friendly:dolg,req_npc_rank:experienced,req_rank:trainee
-  (Friendly Duty NPC, at least experienced rank, player is at least trainee)
+EXAMPLE 3: Friendly loner asks for help clearing snorks (MINI-JOB with pause_job)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  Preconditions: req_npc_friendly:stalker
+  (Friendly loner NPC)
 
-  Turn 1: NPC mentions a location, player decides to help or not.
-  Turn 2: If player agrees, NPC gives details and marks the location.
+  This is a complete mini-job conversation using the job system:
+  - Turn 1: NPC asks for help. Player agrees, asks details, or refuses.
+  - Turn 2: Follow-up from "How bad?" → player can agree or decline.
+  - Turn 3 (SUCCESS): Triggered automatically when all spawned snorks are killed.
+  - Turn 4 (FAIL): Triggered automatically on job timeout.
 
-  NOTE: This example shows how to use smart terrain placeholders with watch_location_trigger
-  to create mini-jobs that send the player to a real location with real consequences.
+  KEY OUTCOME (Turn 1, Choice 1):
+    "watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%+spawn_mutant_at_smart:snork:%cordon_panda_st_key%:120,pause_job:600:3:4"
+
+  BREAKDOWN:
+    watch_location_trigger:...           → Marks location on PDA map
+      :teleport_npc_to_smart:...         → (Deferred) Teleport NPC when player arrives
+      +spawn_mutant_at_smart:snork:...:  → (Deferred) Spawn snorks when player arrives
+    ,pause_job:600:3:4                   → Create job: 600s timeout, success=t3, fail=t4
+
+  See Conversation 1 in this file for the full XML implementation.
 
 ==================================================================================================
 END OF HOW TO GUIDE
@@ -946,6 +1046,14 @@ END OF HOW TO GUIDE
     <text>$location\n(Marked by $name)</text>
 </string>
 
+<!-- Job System (Kill Tracking) -->
+<string id="st_pda_ic_job_success">
+    <text>Targets eliminated. Job complete.</text>
+</string>
+<string id="st_pda_ic_job_fail">
+    <text>Job timed out. Targets still active.</text>
+</string>
+
 <!-- ============================================================ -->
 <!-- INTERACTIVE CONVERSATIONS: LONER FACTION                      -->
 <!-- Player faction: Loner (stalker)                               -->
@@ -955,11 +1063,10 @@ END OF HOW TO GUIDE
 
 
 <!-- ==================== CONVERSATION 1 ==================== -->
-<!-- Friendly loner veteran shares stash coordinates           -->
-
-<!-- ==================== CONVERSATION 1 ==================== -->
-<!-- Rookie loner in Cordon asks for help clearing snorks     -->
-<!-- Player is in Cordon, NPC is a low-rank friendly loner    -->
+<!-- Friendly loner asks for help clearing snorks (MINI-JOB)  -->
+<!-- Uses the job system: pause_job tracks spawned mutants,    -->
+<!-- resumes conversation when all killed (turn 3) or on       -->
+<!-- timeout (turn 4). Full multi-turn with branching.         -->
 
 <string id="st_pda_ic_loner_1_precond">
     <text>req_npc_friendly:stalker</text>
@@ -969,6 +1076,7 @@ END OF HOW TO GUIDE
     <text>$player_name, you in Cordon? Need help. Been watching a pack of snorks hanging around %cordon_panda_st%. I can keep eyes on them, but I can't clear it alone.</text>
 </string>
 
+<!-- Choice 1: Player agrees immediately -->
 <string id="st_pda_ic_loner_1_choice_1">
     <text>Send the location. I'll help.</text>
 </string>
@@ -978,9 +1086,10 @@ END OF HOW TO GUIDE
 </string>
 
 <string id="st_pda_ic_loner_1_outcome_1">
-    <text>watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%,spawn_mutant_at_smart:snork:%cordon_panda_st_key%:2</text>
+    <text>watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%+spawn_mutant_at_smart:snork:%cordon_panda_st_key%:120,pause_job:600:3:4</text>
 </string>
 
+<!-- Choice 2: Player asks for details → continue to turn 2 -->
 <string id="st_pda_ic_loner_1_choice_2">
     <text>How bad is it?</text>
 </string>
@@ -997,6 +1106,7 @@ END OF HOW TO GUIDE
     <text>2</text>
 </string>
 
+<!-- Choice 3: Player refuses -->
 <string id="st_pda_ic_loner_1_choice_3">
     <text>Handle it yourself.</text>
 </string>
@@ -1017,7 +1127,7 @@ END OF HOW TO GUIDE
     <text>Forget it. Either they move on or they eat me first.</text>
 </string>
 
-<!-- Turn 2 -->
+<!-- ===== Turn 2: Player asked for details, now decides ===== -->
 <string id="st_pda_ic_loner_1_t2_choice_1">
     <text>Fine. Mark it.</text>
 </string>
@@ -1027,7 +1137,7 @@ END OF HOW TO GUIDE
 </string>
 
 <string id="st_pda_ic_loner_1_t2_outcome_1">
-    <text>watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%,spawn_mutant:snork:70:110</text>
+    <text>watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%+spawn_mutant_at_smart:snork:%cordon_panda_st_key%:120,pause_job:600:3:4</text>
 </string>
 
 <string id="st_pda_ic_loner_1_t2_choice_2">
@@ -1040,6 +1150,68 @@ END OF HOW TO GUIDE
 
 <string id="st_pda_ic_loner_1_t2_outcome_2">
     <text>none</text>
+</string>
+
+<!-- ===== Turn 3: SUCCESS — All snorks killed ===== -->
+<string id="st_pda_ic_loner_1_t3_choice_1">
+    <text>Done. Area's clear.</text>
+</string>
+
+<string id="st_pda_ic_loner_1_t3_reply_1">
+    <text>You're a lifesaver. Seriously. Thought I was done for when they started moving. Here — take this. Earned every ruble.</text>
+</string>
+
+<string id="st_pda_ic_loner_1_t3_outcome_1">
+    <text>reward_money:3000,reward_rep:25,reward_gw:50:stalker</text>
+</string>
+
+<string id="st_pda_ic_loner_1_t3_choice_2">
+    <text>You owe me for this.</text>
+</string>
+
+<string id="st_pda_ic_loner_1_t3_reply_2">
+    <text>Yeah yeah. Sending you what I've got. Don't spend it all on vodka.</text>
+</string>
+
+<string id="st_pda_ic_loner_1_t3_outcome_2">
+    <text>reward_money:5000</text>
+</string>
+
+<string id="st_pda_ic_loner_1_t3_choice_3">
+    <text>Don't mention it.</text>
+</string>
+
+<string id="st_pda_ic_loner_1_t3_reply_3">
+    <text>Good stalker. I'll remember this. Stay safe out there, $player_name.</text>
+</string>
+
+<string id="st_pda_ic_loner_1_t3_outcome_3">
+    <text>reward_rep:50,reward_gw:75:stalker</text>
+</string>
+
+<!-- ===== Turn 4: FAIL — Timeout, player didn't finish ===== -->
+<string id="st_pda_ic_loner_1_t4_choice_1">
+    <text>Got overwhelmed. Sorry.</text>
+</string>
+
+<string id="st_pda_ic_loner_1_t4_reply_1">
+    <text>Figures. At least you tried. More than most would do. I'll find another way to deal with it.</text>
+</string>
+
+<string id="st_pda_ic_loner_1_t4_outcome_1">
+    <text>none</text>
+</string>
+
+<string id="st_pda_ic_loner_1_t4_choice_2">
+    <text>Something came up.</text>
+</string>
+
+<string id="st_pda_ic_loner_1_t4_reply_2">
+    <text>Always does in the Zone. Whatever. I'll figure something out. Or I won't. Either way.</text>
+</string>
+
+<string id="st_pda_ic_loner_1_t4_outcome_2">
+    <text>punish_gw:25:stalker</text>
 </string>
 
 </string_table>
