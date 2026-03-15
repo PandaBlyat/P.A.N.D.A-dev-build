@@ -5417,7 +5417,10 @@
 		<text>On second thought, never mind. Come back later.</text>
 	</string>
 
+	<!-- Task cancelling -->
+	<string id="dm_universal_actor_exit_sorry">
 		<text>Sorry I couldn't help.</text>
+	</string>
 	<string id="st_ordered_task_query_cancel">
 		<text>I couldn't complete the job.</text>
 	</string>
@@ -5429,12 +5432,7 @@
 	</string>
 	<string id="st_task_default_excuse_cancel_job">
 		<text>Yes, I'm busy with other work.</text>
-	<string id="st_default_task_cancel_1">
-		<text>I'm disappointed in you, stalker.</text>
 	</string>
-	<string id="st_default_task_cancel_2">
-	<!-- Repair -->
-		<text>Hey, stal-oh, heck, I forgot I was repairing your equipment. Come back for your %s in an hour and %s minutes.</text>
 	<string id="st_default_task_cancel_1">
 		<text>I'm disappointed in you, stalker.</text>
 	</string>
@@ -5446,51 +5444,6 @@
 	</string>
 
 	<!-- Repair -->
-	<string id="st_inventory_upgrade_reply_1">
-	<!-- Task cancelling -->
-	<string id="dm_universal_actor_exit_sorry">
-	<!-- P.A.N.D.A. dynamic objective turn-in fallback strings -->
-	<string id="st_pda_ic_mini_turnin_actor_fallback">
-		<text>I dealt with that problem. Got a minute?</text>
-	</string>
-	<string id="st_pda_ic_mini_turnin_npc_fallback">
-		<text>Good work. I'll mark that objective as complete.</text>
-	</string>
-	<string id="dm_sim_panda_pending_turnin.dialog">
-		<text>[Objective Turn-In]</text>
-	</string>
-	<string id="dm_sim_panda_pending_turnin_dialog">
-		<text>[Objective Turn-In]</text>
-	</string>
-	<string id="dm_sim_panda_pending_turnin_dialog.dialog">
-		<text>[Objective Turn-In]</text>
-	</string>
-
-		<text>What? I had thought better of you, stalker.</text>
-	</string>
-	<string id="st_default_task_cancel_3">
-		<text>I guess that is what I should have expected from a rookie.</text>
-	</string>
-
-
-
-	<!-- P.A.N.D.A. dynamic objective turn-in fallback strings -->
-	<string id="st_pda_ic_mini_turnin_actor_fallback">
-		<text>I dealt with that problem. Got a minute?</text>
-	</string>
-	<string id="st_pda_ic_mini_turnin_npc_fallback">
-		<text>Good work. I'll mark that objective as complete.</text>
-	</string>
-	<string id="dm_sim_panda_pending_turnin.dialog">
-		<text>[Objective Turn-In]</text>
-	</string>
-	<string id="dm_sim_panda_pending_turnin_dialog">
-		<text>[Objective Turn-In]</text>
-	</string>
-	<string id="dm_sim_panda_pending_turnin_dialog.dialog">
-		<text>[Objective Turn-In]</text>
-	</string>
-
 	<string id="st_inventory_upgrade_reply_1">
 		<text>Your %s will be ready in %s minutes. Come back then.</text>
 	</string>
@@ -5507,7 +5460,7 @@
 		<text>It's not easy to repair something when you have the shakes... Come back in about an hour for your %s.</text>
 	</string>
 	<string id="st_inventory_upgrade_reply_6">
-		<text>Hey, staloh, heck, I forgot I was repairing your equipment. Come back for your %s in an hour and %s minutes.</text>
+		<text>Hey, staloh, heck, I forgot I was repairing your equipment. Come back for your %s in an hour and %s minutes.</text>
 	</string>
 	<string id="st_inventory_upgrade_reply_7">
 		<text>Your %s will be ready in an hour and %s, so come back then, okay?</text>
