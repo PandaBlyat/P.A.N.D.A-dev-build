@@ -269,6 +269,7 @@ function pda_private_tab:__init()
     self.cached_npc_data = {}
     self.choice_btns = {}
     self.scroll_dynamic_windows = {}
+    self.map_attach_btn_counter = 0
     self.selected_choice_idx = nil
     self.pending_choice_idx = nil
     self.choice_buttons_visible = false
@@ -1350,6 +1351,42 @@ function pda_private_tab:OnReplyTriggerClicked()
 end
 
 
+-- Opens the PDA map tab and highlights the location referenced by location_ref.
+-- Adds a temporary blink marker so the spot stands out on the map.
+function pda_private_tab:NavigateToMapMarker(location_ref, map_spot_id, map_spot_type)
+    -- Resolve smart id at click-time so late-resolved smarts also work.
+    local spot_id = map_spot_id
+    if not spot_id then
+        local conv_api = get_conv_api()
+        if conv_api.get_smart_id_for_location_ref then
+            spot_id = conv_api.get_smart_id_for_location_ref(location_ref)
+        end
+    end
+
+    -- Add a secondary blink to draw the player's eye on the map.
+    if spot_id then
+        local blink_type = "ui_secondary_task_blink"
+        if level.map_has_object_spot(spot_id, blink_type) == 0 then
+            level.map_add_object_spot(spot_id, blink_type, "")
+            -- Remove the blink after a short delay so it doesn't persist forever.
+            CreateTimeEvent(0, "panda_map_attach_blink_remove_" .. tostring(spot_id), 6, function()
+                if level.map_has_object_spot(spot_id, blink_type) ~= 0 then
+                    level.map_remove_object_spot(spot_id, blink_type)
+                end
+                return true
+            end)
+        end
+    end
+
+    -- Switch PDA to the Tasks/Map tab.
+    local pda_menu = ActorMenu and ActorMenu.get_pda_menu and ActorMenu.get_pda_menu()
+    if not pda_menu then return end
+    if not pda_menu:IsShown() then
+        pda_menu:ShowDialog(true)
+    end
+    pda_menu:SetActiveSubdialog("eptTasks")
+end
+
 function pda_private_tab:EnsureChoiceButtonPool(required_count, chip_h)
     local count = math.min(4, math.max(0, tonumber(required_count) or 0))
     local button_h = chip_h or 28
@@ -1704,6 +1741,7 @@ function pda_private_tab:OnSelectNPC()
 
     self.empty_state:Show(false)
     self.scroll_dynamic_windows = {}
+    self.map_attach_btn_counter = 0
     self.scrollbar:Clear()
     self.quick_menu_open = false
     self.typing_text_wnd = nil
@@ -1845,16 +1883,112 @@ function pda_private_tab:OnSelectNPC()
         local entry = log[i]
         if (entry.contact_id or entry.contact_name or "Unknown") == item.contact_id then
             row_idx = row_idx + 1
+
+            -- ===================================================================
+            -- MAP ATTACHMENT LANE: Discord/WhatsApp-style file attachment bubble.
+            -- Rendered for entries where msg_type == "map_attachment".
+            -- Clicking the file icon navigates the PDA to the map tab and
+            -- highlights the referenced smart terrain location.
+            -- ===================================================================
+            if entry.msg_type == "map_attachment" then
+                local attach_icon_size = 44
+                local attach_label_h   = 14
+                local attach_box_pad   = 8
+                local attach_bubble_w  = math.max(170, math.min(260, math.floor(maxBubbleWidth * 0.60)))
+                local attach_box_w     = attach_bubble_w - 20
+                local attach_box_h     = attach_icon_size + attach_box_pad * 2
+                -- lane layout: 8 top, 16 header, 4 gap, label, 4 gap, box, 8 bottom
+                local attach_lane_h    = 8 + 16 + 4 + attach_label_h + 4 + attach_box_h + 8
+
+                local template_npc = "private_pda:info:description:message_lane_npc"
+                local lane_root = CUIStatic()
+                lane_root:SetWndSize(vector2():set(lane_width, attach_lane_h))
+
+                local lane_bg = self.xml:InitStatic(template_npc .. ":bubble_bg", lane_root)
+                lane_bg:SetWndPos(vector2():set(content_left, 0))
+                lane_bg:SetWndSize(vector2():set(attach_bubble_w, attach_lane_h))
+
+                -- Header: sender name + timestamp
+                local attach_relative_time = get_relative_time(entry.timestamp, current_game_time)
+                local header_wnd = self.xml:InitTextWnd(template_npc .. ":text_box", lane_root)
+                local attach_header_text = string.format("%%c[255,255,200,50]%s %%c[255,100,100,100][%s]",
+                    tostring(entry.sender or "Unknown"), tostring(attach_relative_time or "Unknown"))
+                apply_colored_text(header_wnd, attach_header_text, GetARGB(255, 255, 255, 255))
+                header_wnd:SetWndPos(vector2():set(content_left + 10, 6))
+                header_wnd:SetWndSize(vector2():set(math.max(10, attach_bubble_w - 20), 16))
+
+                -- "Map Coordinates:" sub-label
+                local coord_label = self.xml:InitTextWnd(template_npc .. ":text_box", lane_root)
+                coord_label:SetText("Map Coordinates:")
+                coord_label:SetTextColor(GetARGB(255, 160, 210, 255))
+                coord_label:SetWndPos(vector2():set(content_left + 10, 8 + 16 + 4))
+                coord_label:SetWndSize(vector2():set(math.max(10, attach_bubble_w - 20), attach_label_h))
+
+                -- Attachment box: darker inset background
+                local attach_box_y = 8 + 16 + 4 + attach_label_h + 4
+                local attach_box_bg = CUIStatic()
+                attach_box_bg:SetWndPos(vector2():set(content_left + 10, attach_box_y))
+                attach_box_bg:SetWndSize(vector2():set(attach_box_w, attach_box_h))
+                if attach_box_bg.SetTextureColor then
+                    attach_box_bg:SetTextureColor(GetARGB(130, 15, 35, 55))
+                end
+                lane_root:AttachChild(attach_box_bg)
+
+                -- panda_file.dds icon
+                local icon_static = CUIStatic()
+                icon_static:SetWndPos(vector2():set(content_left + 10 + attach_box_pad, attach_box_y + attach_box_pad))
+                icon_static:SetWndSize(vector2():set(attach_icon_size, attach_icon_size))
+                try_set_texture(icon_static, "panda_file", "ui\\ui_noise")
+                icon_static:SetStretchTexture(true)
+                lane_root:AttachChild(icon_static)
+
+                -- Location name text to the right of the icon
+                local loc_text_x = content_left + 10 + attach_box_pad + attach_icon_size + 8
+                local loc_text_w = math.max(10, attach_box_w - attach_box_pad - attach_icon_size - 8 - attach_box_pad)
+                local loc_name_wnd = self.xml:InitTextWnd(template_npc .. ":text_box", lane_root)
+                loc_name_wnd:SetText(tostring(entry.location_name or "Unknown Location"))
+                loc_name_wnd:SetTextColor(GetARGB(255, 220, 220, 220))
+                local loc_center_y = attach_box_y + attach_box_pad + math.floor((attach_icon_size - 14) * 0.5)
+                loc_name_wnd:SetWndPos(vector2():set(loc_text_x, loc_center_y))
+                loc_name_wnd:SetWndSize(vector2():set(loc_text_w, 14))
+
+                -- Transparent click hitbox covering the attachment box area.
+                -- Registered with the SINGLETON so BUTTON_CLICKED fires correctly.
+                self.map_attach_btn_counter = self.map_attach_btn_counter + 1
+                local btn_name = "panda_map_btn_" .. self.map_attach_btn_counter
+                local map_btn = CUI3tButton()
+                map_btn:SetWndPos(vector2():set(content_left + 10, attach_box_y))
+                map_btn:SetWndSize(vector2():set(attach_box_w, attach_box_h))
+                if map_btn.SetTextureColor then map_btn:SetTextureColor(GetARGB(0, 0, 0, 0)) end
+                lane_root:AttachChild(map_btn)
+                self:Register(map_btn, btn_name)
+                local cap_loc_ref   = entry.location_ref
+                local cap_spot_id   = entry.map_spot_id
+                local cap_spot_type = entry.map_spot_type
+                self:AddCallback(btn_name, ui_events.BUTTON_CLICKED, function()
+                    self:NavigateToMapMarker(cap_loc_ref, cap_spot_id, cap_spot_type)
+                end, self)
+
+                style_message_lane(lane_root, lane_bg, false, row_idx)
+                lane_root:SetWndSize(vector2():set(lane_width, attach_lane_h))
+                lane_root:SetAutoDelete(false)
+                self.scrollbar:AddWindow(lane_root, false)
+                table.insert(self.scroll_dynamic_windows, lane_root)
+
+            else
+                -- ===================================================================
+                -- NORMAL MESSAGE LANE
+                -- ===================================================================
 	            local is_player_lane = is_player_sender(entry)
 	            local template = is_player_lane and "private_pda:info:description:message_lane_player" or "private_pda:info:description:message_lane_npc"
 	            local lane_root = CUIStatic()
 	            lane_root:SetWndSize(vector2():set(lane_width, 50))
 	            local lane_bg = self.xml:InitStatic(template .. ":bubble_bg", lane_root)
-            local text_wnd = self.xml:InitTextWnd(template .. ":text_box", lane_root)
-            local notif_icon_wnd = (not is_player_lane) and self.xml:InitStatic(template .. ":notification_icon", lane_root) or nil
-            local status_wnd = is_player_lane and self.xml:InitTextWnd(template .. ":delivery_status", lane_root) or nil
-            local relative_time = get_relative_time(entry.timestamp, current_game_time)
-            local has_notification_icon = (not is_player_lane) and notif_icon_wnd and type(entry.notification_icon) == "string" and entry.notification_icon ~= ""
+                local text_wnd = self.xml:InitTextWnd(template .. ":text_box", lane_root)
+                local notif_icon_wnd = (not is_player_lane) and self.xml:InitStatic(template .. ":notification_icon", lane_root) or nil
+                local status_wnd = is_player_lane and self.xml:InitTextWnd(template .. ":delivery_status", lane_root) or nil
+                local relative_time = get_relative_time(entry.timestamp, current_game_time)
+                local has_notification_icon = (not is_player_lane) and notif_icon_wnd and type(entry.notification_icon) == "string" and entry.notification_icon ~= ""
 
 			local lane_max_w = is_player_lane
 				and math.floor(math.min(maxBubbleWidth, lane_width * 0.46))
@@ -1881,18 +2015,18 @@ function pda_private_tab:OnSelectNPC()
 				end
 			end
 
-            local display_text = ""
-            if is_player_lane then
-                display_text = string.format("%%c[255,150,255,150]You %%c[255,100,100,100][%s]\\n%%c[default]%s",
-                    tostring(relative_time or "Unknown"), wrapped_body)
-            else
-                if entry.is_typing then
-                    self.typing_text_wnd = text_wnd
-                    self.typing_entry_data = { sender = entry.sender, timestamp = entry.timestamp }
+                local display_text = ""
+                if is_player_lane then
+                    display_text = string.format("%%c[255,150,255,150]You %%c[255,100,100,100][%s]\\n%%c[default]%s",
+                        tostring(relative_time or "Unknown"), wrapped_body)
+                else
+                    if entry.is_typing then
+                        self.typing_text_wnd = text_wnd
+                        self.typing_entry_data = { sender = entry.sender, timestamp = entry.timestamp }
+                    end
+                    display_text = string.format("%%c[255,255,200,50]%s %%c[255,100,100,100][%s]\\n%%c[default]%s",
+                        tostring(entry.sender or "Unknown"), tostring(relative_time or "Unknown"), wrapped_body)
                 end
-                display_text = string.format("%%c[255,255,200,50]%s %%c[255,100,100,100][%s]\\n%%c[default]%s",
-                    tostring(entry.sender or "Unknown"), tostring(relative_time or "Unknown"), wrapped_body)
-            end
 
 	            text_wnd:SetText(display_text)
 
@@ -1919,22 +2053,22 @@ function pda_private_tab:OnSelectNPC()
 				lane_bg:SetWndSize(vector2():set(bubble_w, lane_bg:GetHeight()))
 				text_wnd:SetWndSize(vector2():set(math.max(10, bubble_w - 28), text_wnd:GetHeight()))
 			end
-            text_wnd:AdjustHeightToText()
+                text_wnd:AdjustHeightToText()
 
-            local text_h = text_wnd:GetHeight()
-            local status_h = 0
-            if status_wnd then
-                local status_text, status_color = get_delivery_indicator(entry)
-                apply_colored_text(status_wnd, status_text, status_color)
-                status_wnd:AdjustHeightToText()
-                status_h = status_wnd:GetHeight()
+                local text_h = text_wnd:GetHeight()
+                local status_h = 0
+                if status_wnd then
+                    local status_text, status_color = get_delivery_indicator(entry)
+                    apply_colored_text(status_wnd, status_text, status_color)
+                    status_wnd:AdjustHeightToText()
+                    status_h = status_wnd:GetHeight()
 
-                local status_x = status_wnd:GetWndPos().x
-                local status_y = text_wnd:GetWndPos().y + text_h + 2
-                status_wnd:SetWndPos(vector2():set(status_x, status_y))
-            end
+                    local status_x = status_wnd:GetWndPos().x
+                    local status_y = text_wnd:GetWndPos().y + text_h + 2
+                    status_wnd:SetWndPos(vector2():set(status_x, status_y))
+                end
 
-            style_message_lane(lane_root, lane_bg, is_player_lane, row_idx)
+                style_message_lane(lane_root, lane_bg, is_player_lane, row_idx)
 
 	            local lane_h = text_h + status_h + 16
 	            lane_bg:SetWndSize(vector2():set(bubble_w, lane_h))
@@ -1949,11 +2083,12 @@ function pda_private_tab:OnSelectNPC()
 	                    notif_icon_wnd:Show(false)
 	                end
 	            end
-	            lane_root:SetWndSize(vector2():set(lane_width, lane_h)) 
+	            lane_root:SetWndSize(vector2():set(lane_width, lane_h))
 
-            lane_root:SetAutoDelete(false)
-            self.scrollbar:AddWindow(lane_root, false)
-            table.insert(self.scroll_dynamic_windows, lane_root)
+                lane_root:SetAutoDelete(false)
+                self.scrollbar:AddWindow(lane_root, false)
+                table.insert(self.scroll_dynamic_windows, lane_root)
+            end -- map_attachment check
         end
     end
 

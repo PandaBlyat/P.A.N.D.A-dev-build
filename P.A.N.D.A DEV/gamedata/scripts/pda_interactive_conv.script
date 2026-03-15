@@ -66,7 +66,7 @@ local function normalize_delivery_state(state)
 end
 
 -- Function to add messages to the log
-function pda_private_add_message(contact_id, contact_name, sender_name, text, icon, is_player, delivery_state, delivery_timestamp, notification_icon)
+function pda_private_add_message(contact_id, contact_name, sender_name, text, icon, is_player, delivery_state, delivery_timestamp, notification_icon, extra_fields)
     if contact_id and pda_private_blocked_contacts[contact_id] then
         return false
     end
@@ -85,26 +85,46 @@ function pda_private_add_message(contact_id, contact_name, sender_name, text, ic
         hour = h, minute = m, second = s
     }
 
-    table.insert(pda_private_log, 1, { -- Insert at index 1 so newest are first
+    local entry = {
         contact_id = contact_id,       -- Unique NPC ID for grouping threads
         contact_name = contact_name,   -- Display name for UI
         sender = sender_name,
         text = text,
         sender_icon = icon or "ui_inGame2_neutral_1",
         timestamp = current_time,
-        raw_time = raw_time,  -- NEW: Store raw time for calculations
+        raw_time = raw_time,  -- Store raw time for calculations
         is_player = is_player or false,
         delivery_state = (is_player and normalize_delivery_state(delivery_state)) or nil,
         delivery_timestamp = (is_player and (delivery_timestamp or get_delivery_time_marker())) or nil,
         notification_icon = notification_icon
-    })
-    
+    }
+
+    -- Merge any extra fields (e.g. msg_type, map_spot_id, location_ref for map attachments)
+    if type(extra_fields) == "table" then
+        for k, v in pairs(extra_fields) do
+            entry[k] = v
+        end
+    end
+
+    table.insert(pda_private_log, 1, entry) -- Insert at index 1 so newest are first
+
     -- Optional: Limit log to 100 messages to prevent save bloat (increased from 50)
     if #pda_private_log > 100 then
         table.remove(pda_private_log)
     end
 
     return true
+end
+
+-- Returns the server-side smart terrain ID for a location reference string.
+-- Used by pda_private_tab to resolve map navigation targets at click time.
+function get_smart_id_for_location_ref(location_ref)
+    if not location_ref then return nil end
+    local smart, smart_name = resolve_smart_from_reference(location_ref)
+    if not smart and smart_name and SIMBOARD and SIMBOARD.smarts_by_names then
+        smart = SIMBOARD.smarts_by_names[smart_name]
+    end
+    return smart and smart.id or nil
 end
 
 function delete_contact_thread(contact_id)
@@ -530,16 +550,27 @@ local function register_location_reference(location_ref, sender_npc_name, sender
         entry.map_spot_type = spot_type
     end
 
-    local msg = utils_data.parse_string_keys(
-        game.translate_string("st_pda_ic_location_watch_added"),
-        { ["location"] = get_location_display_name(location_ref) }
-    )
-
-    dynamic_news_helper.send_tip(
-        msg,
-        sender_npc_name or game.translate_string("st_pda_ic_outcome_sender"), 0, 8,
-        sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon() or FALLBACK_NPC_ICON,
-        "beep_1", "npc"
+    -- Send a map attachment message in the private chat instead of a global tip notification.
+    -- The renderer in pda_private_tab will display this as a clickable file-icon attachment.
+    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local contact_id = entry.sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
+    pda_private_add_message(
+        contact_id,
+        sender_npc_name,
+        sender_npc_name or game.translate_string("st_pda_ic_outcome_sender"),
+        "Map Coordinates:",
+        sender_icon,
+        false,
+        "delivered",
+        nil,
+        nil,
+        {
+            msg_type      = "map_attachment",
+            map_spot_id   = entry.map_spot_id,
+            map_spot_type = entry.map_spot_type,
+            location_ref  = location_ref,
+            location_name = get_location_display_name(location_ref),
+        }
     )
 
     return entry
@@ -570,6 +601,21 @@ function check_location_references()
                 local spot_type = entry.map_spot_type or get_location_watch_spot_type()
                 entry.map_spot_id = add_map_spot_for_ref(entry.location_ref, spot_type, marker_hint)
                 entry.map_spot_type = spot_type
+
+                -- Backfill map_spot_id into any existing map_attachment log entries for
+                -- this location reference so the chat icon becomes immediately navigable.
+                local contact_id = entry.sender_contact_id or (entry.sender_id and tostring(entry.sender_id))
+                if contact_id and entry.map_spot_id then
+                    for _, log_entry in ipairs(pda_private_log) do
+                        if log_entry.msg_type == "map_attachment"
+                        and (log_entry.contact_id == contact_id)
+                        and log_entry.location_ref == entry.location_ref
+                        and not log_entry.map_spot_id then
+                            log_entry.map_spot_id   = entry.map_spot_id
+                            log_entry.map_spot_type = entry.map_spot_type
+                        end
+                    end
+                end
             end
 
             local radius = tonumber(entry.radius) or (PANDA.get_config("location_watch_radius") or 85)
