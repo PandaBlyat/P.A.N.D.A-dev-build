@@ -1259,22 +1259,33 @@ end
 
 
 function dm_init_sim_pending_turnin_dialog(dialog)
-    if not dialog_manager then
+    if not dialog then
         return
     end
-    dialog_manager.saved_dialog = dialog
 
-    dialog_manager.add_script_dialog("", 0, "pda_interactive_conv.pda_ic_mini_turnin_actor_text", "pda_interactive_conv.pda_ic_can_turnin_pending_objective")
+    -- Use dialog:AddPhrase() directly because dialog_manager.saved_dialog is a
+    -- local variable inaccessible from external scripts. This mirrors what
+    -- add_dialog/add_script_dialog do internally (dialog_manager.script:45-103).
 
-    dialog_manager.add_script_dialog(
-        0,
-        1,
-        "pda_interactive_conv.pda_ic_mini_turnin_npc_text",
-        "pda_interactive_conv.pda_ic_can_turnin_pending_objective",
-        "pda_interactive_conv.pda_ic_complete_pending_turnin"
-    )
+    -- Phrase 0 (actor): script-generated text, gated by pending-objective precondition
+    local phrase_0 = dialog:AddPhrase("dm_sim_panda_pending_turnin_dialog", "0", "", -10000)
+    if phrase_0 then
+        local ps0 = phrase_0:GetPhraseScript()
+        ps0:SetScriptText("pda_interactive_conv.pda_ic_mini_turnin_actor_text")
+        ps0:AddPrecondition("pda_interactive_conv.pda_ic_can_turnin_pending_objective")
+    end
 
-    dialog_manager.add_dialog(1, 2, "dm_universal_actor_exit_thanks")
+    -- Phrase 1 (NPC reply): script-generated text, completes the turn-in on selection
+    local phrase_1 = dialog:AddPhrase("dm_sim_panda_pending_turnin_dialog", "1", "0", -10000)
+    if phrase_1 then
+        local ps1 = phrase_1:GetPhraseScript()
+        ps1:SetScriptText("pda_interactive_conv.pda_ic_mini_turnin_npc_text")
+        ps1:AddPrecondition("pda_interactive_conv.pda_ic_can_turnin_pending_objective")
+        ps1:AddAction("pda_interactive_conv.pda_ic_complete_pending_turnin")
+    end
+
+    -- Phrase 2 (actor exit): static string from the string table
+    dialog:AddPhrase("dm_universal_actor_exit_thanks", "2", "1", -10000)
 end
 
 function check_location_references()
