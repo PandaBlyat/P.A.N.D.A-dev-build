@@ -3114,6 +3114,13 @@ end
 function find_spawn_point_near_player(min, max)
     local a = db.actor
     local p, l, g = a:position(), a:level_vertex_id(), a:game_vertex_id()
+
+    min = tonumber(min) or 10
+    max = tonumber(max) or min
+    if min > max then
+        min, max = max, min
+    end
+
     for _ = 1, 20 do
         local d = math.random(min, max)
         local dir = vector():set(math.random(-100,100), 0, math.random(-100,100)):normalize()
@@ -3123,6 +3130,20 @@ function find_spawn_point_near_player(min, max)
         end
     end
     return p, l, g 
+end
+
+local function get_spawn_distance_range(min_key, max_key, default_min, default_max)
+    local min = tonumber(PANDA.get_config(min_key)) or default_min
+    local max = tonumber(PANDA.get_config(max_key)) or default_max
+
+    if min > max then
+        min, max = max, min
+    end
+
+    min = math.max(1, min)
+    max = math.max(min, max)
+
+    return min, max
 end
 
 function create_squad_safely(sec, pos, lvid, gvid)
@@ -3176,11 +3197,9 @@ function spawn_hunting_squad(fac, distance, is_mutant, delay)
         if dist and dist > 0 then
             min, max = dist, dist
         elseif is_mutant then
-            min = PANDA.get_config("mutant_spawn_min") or 40
-            max = PANDA.get_config("mutant_spawn_max") or 100
+            min, max = get_spawn_distance_range("mutant_spawn_min", "mutant_spawn_max", 40, 100)
         else
-            min = PANDA.get_config("spawn_distance_min") or 30
-            max = PANDA.get_config("spawn_distance_max") or 60
+            min, max = get_spawn_distance_range("spawn_distance_min", "spawn_distance_max", 30, 60)
         end
 
         local pos, l, g = find_spawn_point_near_player(min, max)
@@ -3317,8 +3336,7 @@ function spawn_native_companion(fac, distance, delay)
         if dist and dist > 0 then
             min_dist, max_dist = dist, dist
         else
-            min_dist = PANDA.get_config("companion_spawn_min") or 20
-            max_dist = PANDA.get_config("companion_spawn_max") or 50
+            min_dist, max_dist = get_spawn_distance_range("companion_spawn_min", "companion_spawn_max", 20, 50)
         end
         local pos, l, g = find_spawn_point_near_player(min_dist, max_dist)
 
@@ -3419,8 +3437,7 @@ function spawn_native_courier(item_sec)
         )
     end
 
-    local min = PANDA.get_config("companion_spawn_min") or 20
-    local max = PANDA.get_config("companion_spawn_max") or 50
+    local min, max = get_spawn_distance_range("companion_spawn_min", "companion_spawn_max", 20, 50)
     local pos, l, g = find_spawn_point_near_player(min, max)
 
     local sq = create_squad_safely(sec, pos, l, g)
@@ -3629,8 +3646,9 @@ function teleport_npc_near_player(npc_id, npc_name, delay)
             return true
         end
 
-        -- Find a spawn point near the player (20-40m range)
-        local pos, lvid, gvid = find_spawn_point_near_player(20, 40)
+        -- Respect MCM companion/courier spawn range settings.
+        local min_dist, max_dist = get_spawn_distance_range("companion_spawn_min", "companion_spawn_max", 20, 50)
+        local pos, lvid, gvid = find_spawn_point_near_player(min_dist, max_dist)
 
         -- Get the NPC's squad (if any) and teleport the whole squad
         local squad = get_object_squad(se_npc)
