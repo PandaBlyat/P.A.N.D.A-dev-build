@@ -270,6 +270,7 @@ function pda_private_tab:__init()
     self.choice_btns = {}
     self.scroll_dynamic_windows = {}
     self.map_attach_btn_counter = 0
+    self.map_attach_icon_bindings = {}
     self.selected_choice_idx = nil
     self.pending_choice_idx = nil
     self.choice_buttons_visible = false
@@ -556,6 +557,22 @@ function pda_private_tab:UpdateHoverButtonTints()
 			ignore_text:SetTextColor(ignore_hovered and GetARGB(255, 255, 255, 255) or GetARGB(255, 255, 190, 90))
 		end
 	end
+
+    -- Map attachment icon hover swap (default => hover texture)
+    if self.map_attach_icon_bindings then
+        for i = 1, #self.map_attach_icon_bindings do
+            local binding = self.map_attach_icon_bindings[i]
+            local icon = binding and binding.icon or nil
+            local btn = binding and binding.btn or nil
+            if icon and btn then
+                local target_tex = is_button_hovered(btn) and "panda_file_hover" or "panda_file"
+                if binding.current_tex ~= target_tex then
+                    local applied_tex = try_set_texture(icon, target_tex, "panda_file")
+                    binding.current_tex = applied_tex
+                end
+            end
+        end
+    end
 
 end
 
@@ -1583,6 +1600,7 @@ function pda_private_tab:Reset(target_contact_id)
     self:ReflowLayoutToContainer()
     self.npc_list:RemoveAll()
     self.scroll_dynamic_windows = {}
+    self.map_attach_icon_bindings = {}
     self.scrollbar:Clear()
     self.image_container:Show(false)
     self.header_name:SetText("")
@@ -1767,6 +1785,7 @@ function pda_private_tab:OnSelectNPC()
     self.empty_state:Show(false)
     self.scroll_dynamic_windows = {}
     self.map_attach_btn_counter = 0
+    self.map_attach_icon_bindings = {}
     self.scrollbar:Clear()
     self.quick_menu_open = false
     self.typing_text_wnd = nil
@@ -1993,6 +2012,12 @@ function pda_private_tab:OnSelectNPC()
                 self:AddCallback(btn_name, ui_events.BUTTON_CLICKED, function()
                     self:NavigateToMapMarker(cap_loc_ref, cap_spot_id, cap_spot_type)
                 end, self)
+
+                table.insert(self.map_attach_icon_bindings, {
+                    icon = icon_static,
+                    btn = map_btn,
+                    current_tex = "panda_file",
+                })
 
                 style_message_lane(lane_root, lane_bg, false, row_idx)
                 lane_root:SetWndSize(vector2():set(lane_width, attach_lane_h))

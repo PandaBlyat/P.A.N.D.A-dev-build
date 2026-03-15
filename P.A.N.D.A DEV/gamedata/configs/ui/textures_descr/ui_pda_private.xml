@@ -51,4 +51,9 @@
         <texture id="panda_file" x="0" y="0" width="300" height="300" />
     </file>
 
+    <!-- Map Attachment File Hover Icon (300x300) -->
+    <file name="ui\panda_file_hover">
+        <texture id="panda_file_hover" x="0" y="0" width="300" height="300" />
+    </file>
+
 </w>
