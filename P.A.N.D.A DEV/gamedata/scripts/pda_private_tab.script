@@ -1391,7 +1391,7 @@ function pda_private_tab:NavigateToMapMarker(location_ref, map_spot_id, map_spot
             nav_task = CGameTask()
             nav_task:set_id(nav_task_id)
             nav_task:set_title("PDA Attachment Marker")
-            nav_task:set_description("Temporary navigation marker from PDA attachment")
+            nav_task:set_description("Coordinates from PDA attachment")
             nav_task:set_icon_name("ui_inGame2_PDA")
             nav_task:set_priority(0)
             nav_task:set_type((task and task.insignificant) or (task and task.additional) or 2)
