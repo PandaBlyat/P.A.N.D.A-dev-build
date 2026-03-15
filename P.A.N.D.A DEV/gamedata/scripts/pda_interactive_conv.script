@@ -1230,7 +1230,7 @@ end
 function get_friendly_npcs()
     local friendly = {}
     local online = db.OnlineStalkers or {}
-    local min_dist = PANDA.get_config("min_distance_for_call") or 30
+    local min_dist = PANDA.get_config("min_distance_for_call") or 150
     local player_pos = db.actor:position()
     local player_comm = get_actor_true_community() or "stalker"
 
@@ -1254,14 +1254,14 @@ function get_friendly_npcs()
         end
     end
 
-    local max = PANDA.get_config("max_npcs_per_trigger") or 20
+    local max = PANDA.get_config("max_npcs_per_trigger") or 10
     return limit_random_list(friendly, max)
 end
 
 function get_hostile_npcs()
     local hostile = {}
     local online = db.OnlineStalkers or {}
-    local min_dist = PANDA.get_config("min_distance_for_call") or 30
+    local min_dist = PANDA.get_config("min_distance_for_call") or 100
     local player_pos = db.actor:position()
     local player_comm = get_actor_true_community() or "stalker"
 
@@ -1285,7 +1285,7 @@ function get_hostile_npcs()
         end
     end
 
-    local max = PANDA.get_config("max_npcs_per_trigger") or 20
+    local max = PANDA.get_config("max_npcs_per_trigger") or 10
     return limit_random_list(hostile, max)
 end
 
@@ -1294,7 +1294,7 @@ end
 function get_all_eligible_npcs()
     local npcs = {}
     local online = db.OnlineStalkers or {}
-    local min_dist = PANDA.get_config("min_distance_for_call") or 30
+    local min_dist = PANDA.get_config("min_distance_for_call") or 100
     local player_pos = db.actor:position()
 
     for i = 1, #online do
@@ -1315,7 +1315,7 @@ function get_all_eligible_npcs()
         end
     end
 
-    local max = PANDA.get_config("max_npcs_per_trigger") or 20
+    local max = PANDA.get_config("max_npcs_per_trigger") or 10
     return limit_random_list(npcs, max)
 end
 
@@ -1339,7 +1339,7 @@ function get_eligible_npcs_for_community(player_comm)
         end
     end
 
-    local max = PANDA.get_config("max_npcs_per_trigger") or 20
+    local max = PANDA.get_config("max_npcs_per_trigger") or 10
     return limit_random_list(eligible, max)
 end
 
