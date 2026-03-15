@@ -1555,7 +1555,7 @@ function pda_private_tab:Reset(target_contact_id)
         local contact_id = entry.contact_id or entry.contact_name or "Unknown"
         
         if not contacts[contact_id] then
-            contacts[contact_id] = { latest_text = entry.text, timestamp = entry.timestamp, icon = (not entry.is_player) and entry.sender_icon or nil, message_count = 1, display_name = entry.contact_name or contact_id }
+            contacts[contact_id] = { latest_text = entry.text or "", timestamp = entry.timestamp, icon = (not entry.is_player) and entry.sender_icon or nil, message_count = 1, display_name = entry.contact_name or contact_id }
             table.insert(contact_order, contact_id)
         else
             contacts[contact_id].message_count = contacts[contact_id].message_count + 1
@@ -1565,7 +1565,7 @@ function pda_private_tab:Reset(target_contact_id)
 
     for _, contact_id in ipairs(contact_order) do
         local data = contacts[contact_id]
-        local clean_text = string.gsub(data.latest_text, "%%c%[%d+,%d+,%d+,%d+%]", "")
+        local clean_text = string.gsub(data.latest_text or "", "%%c%[%d+,%d+,%d+,%d+%]", "")
         local relative_time = get_relative_time(data.timestamp, current_game_time)
         
         local item = pvt_contact_entry(
