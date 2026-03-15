@@ -430,35 +430,9 @@ Format: command:param1:param2
     Example: spawn_mutant_at_smart:snork:st_esc_smart_terrain_4_13_name
     Example: spawn_mutant_at_smart:boar:st_gar_smart_terrain_3_5_name:10
 
-  spawn_mutant_at_smart:<type>:<smart_terrain_key>:<delay_seconds>:<objective_timeout_seconds>
-    Same as above, but also tracks the spawned squad as a mini-objective.
-    If all spawned members are killed before timeout, player receives a success message.
-    If timeout expires first, player receives a failure message.
-    Example: spawn_mutant_at_smart:snork:st_esc_smart_terrain_4_13_name:3:600
-
   spawn_hostile_at_smart:<faction>:<smart_terrain_key>[:delay_seconds]
     Spawn a hostile human squad at the referenced smart terrain.
     Example: spawn_hostile_at_smart:bandit:st_esc_smart_terrain_4_13_name
-
-  spawn_hostile_at_smart:<faction>:<smart_terrain_key>:<delay_seconds>:<objective_timeout_seconds>
-    Same as above, but also tracks the spawned squad as a mini-objective.
-    If all spawned members are killed before timeout, player receives a success message.
-    If timeout expires first, player receives a failure message.
-    Example: spawn_hostile_at_smart:bandit:st_esc_smart_terrain_4_13_name:5:900
-
-  MINI-OBJECTIVE FOLLOW-UP (UNIQUE PER CONVERSATION):
-    If the spawn command uses objective timeout, you can define custom follow-up XML per conversation:
-      st_pda_ic_<fac>_<id>_mini_success_msg
-      st_pda_ic_<fac>_<id>_mini_fail_msg
-      st_pda_ic_<fac>_<id>_mini_success_outcome
-      st_pda_ic_<fac>_<id>_mini_fail_outcome
-
-    This lets each mini-job send unique NPC continuation text and apply unique rewards/punishments.
-    Example:
-      st_pda_ic_loner_90_mini_success_msg     = "Nice work. The camp is clear."
-      st_pda_ic_loner_90_mini_success_outcome = "reward_money:3500,reward_rep:10"
-      st_pda_ic_loner_90_mini_fail_msg        = "Too late. They moved out."
-      st_pda_ic_loner_90_mini_fail_outcome    = "punish_rep:5"
 
   spawn_companion:<faction>:<distance>
     Spawn a friendly squad that joins the player.
@@ -947,15 +921,6 @@ END OF HOW TO GUIDE
 <string id="st_pda_ic_outcome_courier_warn">
     <text>A courier is en route to your location.</text>
 </string>
-<string id="st_pda_ic_spawn_objective_success">
-    <text>Good work. Contacts at $location are neutralized.</text>
-</string>
-<string id="st_pda_ic_spawn_objective_fail">
-    <text>You've missed the window. Contacts at $location slipped away.</text>
-</string>
-<string id="st_pda_ic_spawn_objective_remote_debrief">
-    <text>Can't make visual contact. Sending remote debrief for the action at $location.</text>
-</string>
 <string id="st_pda_ic_pda_closed_warning">
     <text>You need to have your PDA open to make a choice.</text>
 </string>
@@ -1013,7 +978,7 @@ END OF HOW TO GUIDE
 </string>
 
 <string id="st_pda_ic_loner_1_outcome_1">
-    <text>watch_location:%cordon_panda_st_key%,watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%,watch_location_trigger:%cordon_panda_st_key%:spawn_mutant_at_smart:snork:%cordon_panda_st_key%:2:700</text>
+    <text>watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%,spawn_mutant_at_smart:snork:%cordon_panda_st_key%:2</text>
 </string>
 
 <string id="st_pda_ic_loner_1_choice_2">
@@ -1044,31 +1009,6 @@ END OF HOW TO GUIDE
     <text>none</text>
 </string>
 
-
-<string id="st_pda_ic_loner_1_mini_turnin_actor">
-    <text>The snork pack is down. Let's settle up.</text>
-</string>
-
-<string id="st_pda_ic_loner_1_mini_turnin_npc">
-    <text>Good push. You showed up, fought with me, and cleaned the nest. Here's your cut.</text>
-</string>
-
-<string id="st_pda_ic_loner_1_mini_success_msg">
-    <text>Good work. Snorks are gone from %cordon_panda_st%.</text>
-</string>
-
-<string id="st_pda_ic_loner_1_mini_success_outcome">
-    <text>reward_money:3500,reward_rep:10,reward_gw:75:stalker</text>
-</string>
-
-<string id="st_pda_ic_loner_1_mini_fail_msg">
-    <text>We lost the moment. They're scattered now.</text>
-</string>
-
-<string id="st_pda_ic_loner_1_mini_fail_outcome">
-    <text>punish_rep:5</text>
-</string>
-
 <string id="st_pda_ic_loner_1_timeout">
     <text>80</text>
 </string>
@@ -1087,7 +1027,7 @@ END OF HOW TO GUIDE
 </string>
 
 <string id="st_pda_ic_loner_1_t2_outcome_1">
-    <text>watch_location:%cordon_panda_st_key%,watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%,watch_location_trigger:%cordon_panda_st_key%:spawn_mutant_at_smart:snork:%cordon_panda_st_key%:2:700</text>
+    <text>watch_location_trigger:%cordon_panda_st_key%:teleport_npc_to_smart:%cordon_panda_st_key%,spawn_mutant:snork:70:110</text>
 </string>
 
 <string id="st_pda_ic_loner_1_t2_choice_2">

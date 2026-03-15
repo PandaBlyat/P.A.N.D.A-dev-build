@@ -385,13 +385,6 @@
 		<text>Default radius used by watch_location and watch_location_trigger when a custom radius is not provided.</text>
 	</string>
 
-	<string id="ui_mcm_pda_interactive_conv_interactive_turnin_face_to_face_max_dist">
-		<text>Turn-in face-to-face max distance (m)</text>
-	</string>
-	<string id="ui_mcm_pda_interactive_conv_interactive_turnin_face_to_face_max_dist_desc">
-		<text>Maximum distance to the sender for in-person spawn-objective turn-in before automatic PDA remote debrief fallback.</text>
-	</string>
-
 	<string id="ui_mcm_pda_interactive_conv_interactive_location_watch_spot_type">
 		<text>Location watch marker icon</text>
 	</string>
