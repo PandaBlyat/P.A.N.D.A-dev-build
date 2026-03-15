@@ -836,7 +836,7 @@ function check_pending_jobs()
 
         if result.success then
             -- Send a system notification about job completion
-            --local msg = game.translate_string("st_pda_ic_job_success")
+            local msg = game.translate_string("st_pda_ic_job_success")
             pda_private_add_message(job.contact_id, job.npc_name, job.npc_name, msg, job.conv_icon, false)
 
             -- Resume at success turn
@@ -845,7 +845,7 @@ function check_pending_jobs()
             end
         else
             -- Send timeout/failure notification
-            --local msg = game.translate_string("st_pda_ic_job_fail")
+            local msg = game.translate_string("st_pda_ic_job_fail")
             pda_private_add_message(job.contact_id, job.npc_name, job.npc_name, msg, job.conv_icon, false)
 
             -- Resume at fail turn (if provided)

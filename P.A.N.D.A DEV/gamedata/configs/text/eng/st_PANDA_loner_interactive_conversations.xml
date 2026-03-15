@@ -1048,10 +1048,10 @@ END OF HOW TO GUIDE
 
 <!-- Job System (Kill Tracking) -->
 <string id="st_pda_ic_job_success">
-    <text>Targets eliminated. Job complete.</text>
+    <text>Any news?</text>
 </string>
 <string id="st_pda_ic_job_fail">
-    <text>Job timed out. Targets still active.</text>
+    <text>Don't bother next time.</text>
 </string>
 
 <!-- ============================================================ -->
