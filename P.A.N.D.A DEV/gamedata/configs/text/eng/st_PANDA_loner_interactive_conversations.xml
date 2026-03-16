@@ -1217,4 +1217,136 @@ END OF HOW TO GUIDE
     <text>punish_gw:25:stalker</text>
 </string>
 
+
+<!-- ==================== CONVERSATION 2 ==================== -->
+<!-- Loner stash seller with haggling and branching dialogue  -->
+
+<string id="st_pda_ic_loner_2_precond">
+    <!-- Requires a friendly loner and the player must have at least 3000 RU to afford full price -->
+    <text>req_npc_friendly:stalker,req_money:3000</text>
+</string>
+
+<string id="st_pda_ic_loner_2_open">
+    <text>$player_name. Found a dead merc out here. PDA was cracked, but I managed to extract one set of stash coordinates before it sparked out. I need to pay for repairs, so I'm selling the spot for 3000 RU. You want first dibs?</text>
+</string>
+
+<!-- Choice 1: Buy outright -->
+<string id="st_pda_ic_loner_2_choice_1">
+    <text>3000 RU? Sounds fair. Transferring the funds.</text>
+</string>
+<string id="st_pda_ic_loner_2_reply_1">
+    <text>Got the transfer. Forwarding the encrypted attachment now. Hope it's got something good inside.</text>
+</string>
+<string id="st_pda_ic_loner_2_outcome_1">
+    <text>punish_money:3000,reward_stash</text>
+</string>
+
+<!-- Choice 2: Ask for details (Branches to Turn 2) -->
+<string id="st_pda_ic_loner_2_choice_2">
+    <text>How do I know it's actually a merc stash?</text>
+</string>
+<string id="st_pda_ic_loner_2_reply_2">
+    <text>Guy was wearing a blue eagle patch and carrying western gear. Definitely a merc. You buying or not?</text>
+</string>
+<string id="st_pda_ic_loner_2_outcome_2">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_loner_2_cont_2">
+    <text>2</text>
+</string>
+
+<!-- Choice 3: Haggle the price (Branches to Turn 3) -->
+<string id="st_pda_ic_loner_2_choice_3">
+    <text>3000 is steep for a blind box. I'll give you 2000 RU.</text>
+</string>
+<string id="st_pda_ic_loner_2_reply_3">
+    <text>Damn it, my suit is shredded and I really need the cash... Fine. 2000 RU. Send it over.</text>
+</string>
+<string id="st_pda_ic_loner_2_outcome_3">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_loner_2_cont_3">
+    <text>3</text>
+</string>
+
+<!-- Choice 4: Refuse -->
+<string id="st_pda_ic_loner_2_choice_4">
+    <text>Not paying for a mystery box. Pass.</text>
+</string>
+<string id="st_pda_ic_loner_2_reply_4">
+    <text>Suit yourself. I'll ask the boys at %garbage_panda_st% instead.</text>
+</string>
+<string id="st_pda_ic_loner_2_outcome_4">
+    <text>none</text>
+</string>
+
+<!-- Timeout -->
+<string id="st_pda_ic_loner_2_timeout">
+    <text>120</text>
+</string>
+<string id="st_pda_ic_loner_2_timeout_msg">
+    <text>Guess you're busy. I'm selling it to someone else.</text>
+</string>
+
+
+<!-- ===== Turn 2: Player asked for details ===== -->
+<string id="st_pda_ic_loner_2_t2_choice_1">
+    <text>Alright, I'll take the gamble. Sending 3000 RU.</text>
+</string>
+<string id="st_pda_ic_loner_2_t2_reply_1">
+    <text>Good doing business with you. Coordinates attached. Stay safe, $player_name.</text>
+</string>
+<string id="st_pda_ic_loner_2_t2_outcome_1">
+    <text>punish_money:3000,reward_stash</text>
+</string>
+
+<string id="st_pda_ic_loner_2_t2_choice_2">
+    <text>Still a gamble. 2000 RU and we have a deal.</text>
+</string>
+<string id="st_pda_ic_loner_2_t2_reply_2">
+    <text>You're killing me here. Fine... 2000. Send it before I change my mind.</text>
+</string>
+<string id="st_pda_ic_loner_2_t2_outcome_2">
+    <text>none</text>
+</string>
+<string id="st_pda_ic_loner_2_t2_cont_2">
+    <text>3</text>
+</string>
+
+<string id="st_pda_ic_loner_2_t2_choice_3">
+    <text>I'll pass.</text>
+</string>
+<string id="st_pda_ic_loner_2_t2_reply_3">
+    <text>Whatever. Your loss.</text>
+</string>
+<string id="st_pda_ic_loner_2_t2_outcome_3">
+    <text>none</text>
+</string>
+
+
+<!-- ===== Turn 3: Player haggled down to 2000 RU ===== -->
+<string id="st_pda_ic_loner_2_t3_choice_1">
+    <text>Transferring 2000 RU now.</text>
+</string>
+<string id="st_pda_ic_loner_2_t3_reply_1">
+    <text>Transfer confirmed. Stash location added to your map. Don't tell the others I let it go this cheap.</text>
+</string>
+<string id="st_pda_ic_loner_2_t3_outcome_1">
+    <text>punish_money:2000,reward_stash</text>
+</string>
+
+<string id="st_pda_ic_loner_2_t3_choice_2">
+    <text>Actually, I changed my mind. Keep it.</text>
+</string>
+<string id="st_pda_ic_loner_2_t3_reply_2">
+    <text>Are you serious? You haggled just to waste my time? Piss off.</text>
+</string>
+<string id="st_pda_ic_loner_2_t3_outcome_2">
+    <!-- Meaningful consequence: the player was a jerk and backed out of a negotiated deal -->
+    <text>punish_rep:10,punish_gw:15:stalker</text>
+</string>
+
+
+
+
 </string_table>
