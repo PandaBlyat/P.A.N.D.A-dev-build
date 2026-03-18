@@ -414,6 +414,35 @@
 		<text>Enable detailed precondition evaluation trace logging. Useful for diagnosing why conversation options pass or fail.</text>
 	</string>
 
+	<!-- NPC Typing Personality -->
+	<string id="ui_mcm_pda_interactive_conv_interactive_typing_personality_enabled">
+		<text>Enable Typing Personality</text>
+	</string>
+	<string id="ui_mcm_pda_interactive_conv_interactive_typing_personality_enabled_desc">
+		<text>Dynamically transform NPC message text based on faction and rank to simulate realistic typing habits. Bandits type sloppily with slang, Ecologists type perfectly, rookies make more mistakes than veterans, etc.</text>
+	</string>
+
+	<string id="ui_mcm_pda_interactive_conv_interactive_typing_intensity">
+		<text>Personality Intensity</text>
+	</string>
+	<string id="ui_mcm_pda_interactive_conv_interactive_typing_intensity_desc">
+		<text>Global intensity multiplier for all typing personality effects. 0 = disabled, 50 = subtle, 100 = full effect. Affects typo frequency, slang usage, punctuation errors, and all other personality traits.</text>
+	</string>
+
+	<string id="ui_mcm_pda_interactive_conv_interactive_typing_typos_enabled">
+		<text>Enable Typos</text>
+	</string>
+	<string id="ui_mcm_pda_interactive_conv_interactive_typing_typos_enabled_desc">
+		<text>When enabled, NPCs can make typing mistakes (key swaps, doubled/dropped letters, word corruption). Disable to keep slang and personality traits but remove actual typos.</text>
+	</string>
+
+	<string id="ui_mcm_pda_interactive_conv_interactive_typing_swearing_enabled">
+		<text>Enable Swearing</text>
+	</string>
+	<string id="ui_mcm_pda_interactive_conv_interactive_typing_swearing_enabled_desc">
+		<text>Toggle swearing and expletive insertions in NPC messages. When disabled, NPCs will not insert any profanity into their messages regardless of faction.</text>
+	</string>
+
 	<!-- Debug -->
 	<string id="ui_mcm_pda_interactive_conv_interactive_debug_logging">
 		<text>Debug Logging</text>
@@ -901,6 +930,9 @@
 	</string>
 	<string id="pda_interactive_conv_title_debug">
 		<text>Debug</text>
+	</string>
+	<string id="pda_interactive_conv_title_typing">
+		<text>NPC Typing Personality</text>
 	</string>
 
 	<!-- Dynamic News section titles -->

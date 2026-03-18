@@ -1,0 +1,760 @@
+-- ============================================================
+-- pda_typing_personality.script
+-- Dynamic NPC Typing Personality System for P.A.N.D.A.
+-- Transforms NPC message text based on faction + rank to
+-- simulate realistic typing habits (typos, slang, swearing,
+-- punctuation quirks, etc.) — all at runtime, no XML changes.
+-- ============================================================
+
+-- NPC metadata cache (faction + rank), keyed by contact_id string.
+-- Populated by pda_interactive_conv.start_interactive_conv().
+local npc_meta = {}
+
+function register_npc(contact_id, faction, rank_name)
+    if contact_id then
+        npc_meta[tostring(contact_id)] = {
+            faction = faction,
+            rank = rank_name or "experienced",
+        }
+    end
+end
+
+function get_npc_meta(contact_id)
+    return npc_meta[tostring(contact_id)]
+end
+
+-- ============================================================
+-- DETERMINISTIC PRNG (djb2 hash-seeded)
+-- Ensures same message + NPC always produces same typos.
+-- ============================================================
+
+local _seed = 0
+
+local function hash_seed(text, contact_id)
+    local h = 5381
+    local s = tostring(contact_id or "") .. "|" .. tostring(text or "")
+    for i = 1, #s do
+        h = ((h * 33) + string.byte(s, i)) % 2147483647
+    end
+    return h
+end
+
+local function seeded_random(max)
+    if max <= 0 then return 1 end
+    _seed = (_seed * 1103515245 + 12345) % 2147483648
+    return (_seed % max) + 1
+end
+
+local function seeded_chance(pct)
+    if pct <= 0 then return false end
+    if pct >= 100 then return true end
+    return seeded_random(100) <= pct
+end
+
+-- ============================================================
+-- FACTION PERSONALITY PROFILES
+-- Base probabilities (0-100) for each transformation type.
+-- ============================================================
+
+local PROFILES = {
+    -- --------------------------------------------------------
+    -- BANDITS — sloppy, vulgar, heavy slang, no grammar
+    -- --------------------------------------------------------
+    bandit = {
+        typo_chance         = 40,
+        lowercase_all       = true,
+        cap_after_period    = false,
+        punct_miss_chance   = 50,
+        exclaim_chance      = 20,
+        slang_chance        = 60,
+        swear_chance        = 30,
+        ellipsis_chance     = 15,
+        word_corrupt_chance = 10,
+        slang_table = {
+            ["you"]       = { "u", "ya" },
+            ["your"]      = { "ur", "yer" },
+            ["yours"]     = { "urs" },
+            ["are"]       = { "r" },
+            ["because"]   = { "cuz", "coz" },
+            ["what"]      = { "wat", "wut" },
+            ["going"]     = { "goin" },
+            ["something"] = { "smth", "somethin" },
+            ["though"]    = { "tho" },
+            ["about"]     = { "bout" },
+            ["brother"]   = { "bro", "brat" },
+            ["money"]     = { "dosh", "cash", "loot" },
+            ["please"]    = { "pls" },
+            ["probably"]  = { "prolly" },
+            ["want"]      = { "wan" },
+            ["have"]      = { "hav" },
+            ["with"]      = { "wit" },
+            ["them"]      = { "em" },
+            ["the"]       = { "da" },
+            ["nothing"]   = { "nothin" },
+            ["everything"]= { "everythin" },
+            ["okay"]      = { "ok", "k" },
+            ["yes"]       = { "ye", "yea" },
+            ["know"]      = { "kno" },
+            ["people"]    = { "ppl" },
+            ["before"]    = { "b4" },
+            ["tonight"]   = { "2nite" },
+            ["right"]     = { "rite" },
+            ["really"]    = { "rly" },
+        },
+        swear_insertions = { "blyat", "suka", "chert", "damn", "pizdets" },
+    },
+
+    -- --------------------------------------------------------
+    -- RENEGADES — same as bandits (alias set below)
+    -- --------------------------------------------------------
+    -- renegade = bandit (alias assigned after table)
+
+    -- --------------------------------------------------------
+    -- ECOLOGISTS — perfect grammar, zero mistakes, formal
+    -- --------------------------------------------------------
+    ecolog = {
+        typo_chance         = 0,
+        lowercase_all       = false,
+        cap_after_period    = true,
+        punct_miss_chance   = 0,
+        exclaim_chance      = 0,
+        slang_chance        = 0,
+        swear_chance        = 0,
+        ellipsis_chance     = 0,
+        word_corrupt_chance = 0,
+        slang_table = {},
+        swear_insertions = {},
+    },
+
+    -- --------------------------------------------------------
+    -- DUTY — military-formal, terse, proper but stiff
+    -- --------------------------------------------------------
+    dolg = {
+        typo_chance         = 5,
+        lowercase_all       = false,
+        cap_after_period    = true,
+        punct_miss_chance   = 5,
+        exclaim_chance      = 5,
+        slang_chance        = 5,
+        swear_chance        = 2,
+        ellipsis_chance     = 0,
+        word_corrupt_chance = 2,
+        slang_table = {
+            ["okay"]   = { "copy that", "roger" },
+            ["yes"]    = { "affirmative", "confirmed" },
+            ["no"]     = { "negative" },
+            ["thanks"] = { "acknowledged" },
+        },
+        swear_insertions = { "damn" },
+    },
+
+    -- --------------------------------------------------------
+    -- FREEDOM — casual, relaxed, some slang
+    -- --------------------------------------------------------
+    freedom = {
+        typo_chance         = 20,
+        lowercase_all       = false,
+        cap_after_period    = false,
+        punct_miss_chance   = 30,
+        exclaim_chance      = 15,
+        slang_chance        = 40,
+        swear_chance        = 10,
+        ellipsis_chance     = 25,
+        word_corrupt_chance = 5,
+        slang_table = {
+            ["you"]       = { "u", "ya" },
+            ["your"]      = { "ur" },
+            ["okay"]      = { "ok", "k" },
+            ["yes"]       = { "yeah", "yea" },
+            ["no"]        = { "nah", "nope" },
+            ["something"] = { "smth" },
+            ["though"]    = { "tho" },
+            ["probably"]  = { "prolly" },
+            ["because"]   = { "cuz" },
+            ["really"]    = { "rly" },
+            ["going"]     = { "goin" },
+            ["about"]     = { "bout" },
+        },
+        swear_insertions = { "man", "dude", "damn" },
+    },
+
+    -- --------------------------------------------------------
+    -- LONERS — average, moderate mistakes
+    -- --------------------------------------------------------
+    stalker = {
+        typo_chance         = 15,
+        lowercase_all       = false,
+        cap_after_period    = true,
+        punct_miss_chance   = 15,
+        exclaim_chance      = 10,
+        slang_chance        = 20,
+        swear_chance        = 5,
+        ellipsis_chance     = 10,
+        word_corrupt_chance = 5,
+        slang_table = {
+            ["you"]      = { "u" },
+            ["okay"]     = { "ok" },
+            ["yes"]      = { "yeah" },
+            ["something"]= { "smth" },
+            ["probably"] = { "prolly" },
+            ["because"]  = { "cuz" },
+        },
+        swear_insertions = { "damn", "hell" },
+    },
+
+    -- --------------------------------------------------------
+    -- MILITARY — formal, bureaucratic, few mistakes
+    -- --------------------------------------------------------
+    army = {
+        typo_chance         = 5,
+        lowercase_all       = false,
+        cap_after_period    = true,
+        punct_miss_chance   = 5,
+        exclaim_chance      = 3,
+        slang_chance        = 5,
+        swear_chance        = 2,
+        ellipsis_chance     = 0,
+        word_corrupt_chance = 2,
+        slang_table = {
+            ["okay"]   = { "copy", "roger" },
+            ["yes"]    = { "affirmative" },
+            ["no"]     = { "negative" },
+        },
+        swear_insertions = {},
+    },
+
+    -- --------------------------------------------------------
+    -- MERCENARIES — professional, brief, clean
+    -- --------------------------------------------------------
+    killer = {
+        typo_chance         = 5,
+        lowercase_all       = false,
+        cap_after_period    = true,
+        punct_miss_chance   = 10,
+        exclaim_chance      = 2,
+        slang_chance        = 5,
+        swear_chance        = 3,
+        ellipsis_chance     = 5,
+        word_corrupt_chance = 2,
+        slang_table = {
+            ["okay"] = { "copy" },
+        },
+        swear_insertions = { "damn" },
+    },
+
+    -- --------------------------------------------------------
+    -- CLEAR SKY — educated, casual
+    -- --------------------------------------------------------
+    csky = {
+        typo_chance         = 10,
+        lowercase_all       = false,
+        cap_after_period    = true,
+        punct_miss_chance   = 10,
+        exclaim_chance      = 5,
+        slang_chance        = 15,
+        swear_chance        = 3,
+        ellipsis_chance     = 10,
+        word_corrupt_chance = 3,
+        slang_table = {
+            ["you"]      = { "u" },
+            ["okay"]     = { "ok" },
+            ["yes"]      = { "yeah" },
+            ["probably"] = { "prolly" },
+        },
+        swear_insertions = { "damn" },
+    },
+
+    -- --------------------------------------------------------
+    -- MONOLITH — eerie, robotic, perfect (no transforms)
+    -- --------------------------------------------------------
+    monolith = {
+        typo_chance         = 0,
+        lowercase_all       = false,
+        cap_after_period    = true,
+        punct_miss_chance   = 0,
+        exclaim_chance      = 0,
+        slang_chance        = 0,
+        swear_chance        = 0,
+        ellipsis_chance     = 0,
+        word_corrupt_chance = 0,
+        slang_table = {},
+        swear_insertions = {},
+    },
+
+    -- --------------------------------------------------------
+    -- ISG — sloppy, unprofessional
+    -- --------------------------------------------------------
+    isg = {
+        typo_chance         = 30,
+        lowercase_all       = false,
+        cap_after_period    = false,
+        punct_miss_chance   = 35,
+        exclaim_chance      = 15,
+        slang_chance        = 30,
+        swear_chance        = 15,
+        ellipsis_chance     = 20,
+        word_corrupt_chance = 8,
+        slang_table = {
+            ["you"]       = { "u", "ya" },
+            ["your"]      = { "ur" },
+            ["are"]       = { "r" },
+            ["okay"]      = { "ok", "k" },
+            ["something"] = { "smth" },
+            ["because"]   = { "cuz" },
+            ["probably"]  = { "prolly" },
+            ["really"]    = { "rly" },
+        },
+        swear_insertions = { "damn", "crap", "hell" },
+    },
+
+    -- --------------------------------------------------------
+    -- SIN — dark, aggressive, poor grammar
+    -- --------------------------------------------------------
+    greh = {
+        typo_chance         = 25,
+        lowercase_all       = false,
+        cap_after_period    = false,
+        punct_miss_chance   = 30,
+        exclaim_chance      = 25,
+        slang_chance        = 20,
+        swear_chance        = 20,
+        ellipsis_chance     = 15,
+        word_corrupt_chance = 8,
+        slang_table = {
+            ["you"]      = { "u" },
+            ["your"]     = { "ur" },
+            ["because"]  = { "cuz" },
+            ["something"]= { "smth" },
+        },
+        swear_insertions = { "blyat", "chert", "damn", "suka" },
+    },
+
+    -- --------------------------------------------------------
+    -- ZOMBIFIED — heavily garbled, broken, eerie
+    -- --------------------------------------------------------
+    zombied = {
+        typo_chance         = 60,
+        lowercase_all       = true,
+        cap_after_period    = false,
+        punct_miss_chance   = 70,
+        exclaim_chance      = 5,
+        slang_chance        = 0,
+        swear_chance        = 0,
+        ellipsis_chance     = 40,
+        word_corrupt_chance = 40,
+        is_zombied          = true,
+        slang_table = {},
+        swear_insertions = {},
+    },
+}
+
+-- Alias: renegades type exactly like bandits
+PROFILES.renegade = PROFILES.bandit
+
+-- ============================================================
+-- RANK MULTIPLIERS
+-- Scales base profile probabilities by NPC rank.
+-- ============================================================
+
+local RANK_MULTIPLIERS = {
+    novice       = 1.5,
+    trainee      = 1.3,
+    rookie       = 1.2,
+    experienced  = 1.0,
+    professional = 0.8,
+    veteran      = 0.6,
+    expert       = 0.4,
+    master       = 0.3,
+    legend       = 0.2,
+}
+
+-- ============================================================
+-- SPECIAL TOKEN PROTECTION
+-- Preserve color codes and unresolved placeholders from mangling.
+-- ============================================================
+
+local function protect_special(text)
+    local protected = {}
+    local idx = 0
+
+    -- Protect color codes: %c[...] patterns
+    text = string.gsub(text, "(%%c%b[])", function(m)
+        idx = idx + 1
+        protected[idx] = m
+        return "\1\1_" .. idx .. "_\1\1"
+    end)
+
+    -- Protect any remaining $placeholder tokens
+    text = string.gsub(text, "(%$%w+)", function(m)
+        idx = idx + 1
+        protected[idx] = m
+        return "\1\1_" .. idx .. "_\1\1"
+    end)
+
+    -- Protect any remaining %word% placeholder tokens
+    text = string.gsub(text, "(%%%w+%%)", function(m)
+        idx = idx + 1
+        protected[idx] = m
+        return "\1\1_" .. idx .. "_\1\1"
+    end)
+
+    return text, protected
+end
+
+local function restore_special(text, protected)
+    return string.gsub(text, "\1\1_(%d+)_\1\1", function(n)
+        return protected[tonumber(n)] or ""
+    end)
+end
+
+-- Helper: check if a word is actually a sentinel token (skip transforms)
+local function is_sentinel(word)
+    return string.find(word, "\1\1") ~= nil
+end
+
+-- ============================================================
+-- ADJACENT KEY MAP (for typo simulation)
+-- ============================================================
+
+local ADJACENT_KEYS = {
+    a = "sq",  b = "vn",  c = "xv",  d = "sf",  e = "wr",  f = "dg",  g = "fh",
+    h = "gj",  i = "uo",  j = "hk",  k = "jl",  l = "k",   m = "n",   n = "bm",
+    o = "ip",  p = "o",   q = "wa",  r = "et",  s = "ad",  t = "ry",  u = "yi",
+    v = "cb",  w = "qe",  x = "zc",  y = "tu",  z = "x",
+}
+
+-- ============================================================
+-- TRANSFORMATION FUNCTIONS
+-- ============================================================
+
+-- 1. Slang substitution (word-level)
+local function apply_slang(text, profile, chance)
+    if not profile.slang_table or chance <= 0 then return text end
+
+    return string.gsub(text, "(%a+)", function(word)
+        if is_sentinel(word) then return word end
+        local lower = string.lower(word)
+        local alts = profile.slang_table[lower]
+        if alts and #alts > 0 and seeded_chance(chance) then
+            local pick = alts[seeded_random(#alts)]
+            -- Preserve original capitalization of first letter
+            if string.byte(word, 1) >= 65 and string.byte(word, 1) <= 90 then
+                pick = string.upper(string.sub(pick, 1, 1)) .. string.sub(pick, 2)
+            end
+            return pick
+        end
+        return word
+    end)
+end
+
+-- 2. Swearing insertion (between words, max once per ~5 words)
+local function apply_swearing(text, profile, chance)
+    if not profile.swear_insertions or #profile.swear_insertions == 0 or chance <= 0 then
+        return text
+    end
+
+    local words = {}
+    for w in string.gmatch(text, "%S+") do
+        table.insert(words, w)
+    end
+
+    if #words < 3 then return text end
+
+    local result = {}
+    local last_insert = 0
+    for i, w in ipairs(words) do
+        table.insert(result, w)
+        if i - last_insert > 4 and i < #words and seeded_chance(chance) then
+            local swear = profile.swear_insertions[seeded_random(#profile.swear_insertions)]
+            table.insert(result, swear .. ",")
+            last_insert = i
+        end
+    end
+    return table.concat(result, " ")
+end
+
+-- 3. Typo injection (per-word, 4+ chars only)
+local function apply_typo_to_word(word, chance)
+    if #word < 4 then return word end
+    if is_sentinel(word) then return word end
+
+    -- Longer words have proportionally higher chance (capped at 2x)
+    local len_bonus = math.min(2.0, #word / 6)
+    local effective = math.floor(chance * len_bonus)
+    if not seeded_chance(effective) then return word end
+
+    local chars = {}
+    for i = 1, #word do
+        chars[i] = string.sub(word, i, i)
+    end
+
+    local typo_type = seeded_random(3)
+    -- Avoid mangling the very first character (preserves readability)
+    local pos = seeded_random(math.max(1, #chars - 1))
+    if pos == 1 and #chars > 2 then pos = 2 end
+
+    if typo_type == 1 then
+        -- Adjacent key swap
+        local c = string.lower(chars[pos])
+        local adj = ADJACENT_KEYS[c]
+        if adj and #adj > 0 then
+            local pick_idx = seeded_random(#adj)
+            local pick = string.sub(adj, pick_idx, pick_idx)
+            chars[pos] = pick
+        end
+    elseif typo_type == 2 then
+        -- Double a letter
+        table.insert(chars, pos + 1, chars[pos])
+    else
+        -- Drop a letter (only if word stays 3+ chars)
+        if #chars > 3 then
+            table.remove(chars, pos)
+        end
+    end
+
+    return table.concat(chars)
+end
+
+-- 4. Word corruption (7+ chars: scramble middle, keep first/last)
+local function corrupt_word(word, chance)
+    if #word < 7 then return word end
+    if is_sentinel(word) then return word end
+    if not seeded_chance(chance) then return word end
+
+    local first = string.sub(word, 1, 1)
+    local last = string.sub(word, -1, -1)
+    local mid = {}
+    for i = 2, #word - 1 do
+        mid[#mid + 1] = string.sub(word, i, i)
+    end
+
+    -- Fisher-Yates shuffle on middle characters
+    for i = #mid, 2, -1 do
+        local j = seeded_random(i)
+        mid[i], mid[j] = mid[j], mid[i]
+    end
+
+    return first .. table.concat(mid) .. last
+end
+
+-- 5. Zombified garbling (heavy distortion: vowel repeats, truncation, fragments)
+local function garble_zombified(text)
+    local VOWELS = { a = true, e = true, i = true, o = true, u = true }
+
+    local words = {}
+    for w in string.gmatch(text, "%S+") do
+        table.insert(words, w)
+    end
+
+    local result = {}
+    for i, w in ipairs(words) do
+        if is_sentinel(w) then
+            table.insert(result, w)
+        else
+            -- 15% chance to drop a word entirely
+            if seeded_chance(15) and #words > 2 then
+                -- dropped
+            -- 25% chance to truncate mid-word
+            elseif seeded_chance(25) and #w > 3 then
+                local cut = seeded_random(math.max(1, #w - 2)) + 1
+                table.insert(result, string.sub(w, 1, cut) .. "...")
+            else
+                -- Repeat vowels in the word
+                local garbled = {}
+                for ci = 1, #w do
+                    local ch = string.sub(w, ci, ci)
+                    garbled[#garbled + 1] = ch
+                    if VOWELS[string.lower(ch)] and seeded_chance(40) then
+                        local reps = seeded_random(3) + 1
+                        for _ = 1, reps do
+                            garbled[#garbled + 1] = ch
+                        end
+                    end
+                end
+                table.insert(result, table.concat(garbled))
+            end
+
+            -- 20% chance to insert "..." between words
+            if seeded_chance(20) and i < #words then
+                table.insert(result, "...")
+            end
+        end
+    end
+
+    return table.concat(result, " ")
+end
+
+-- 6. Capitalization mangling
+local function apply_caps(text, profile)
+    if profile.lowercase_all then
+        -- Lowercase everything except sentinel tokens
+        text = string.gsub(text, "([^\1]+)", function(seg)
+            return string.lower(seg)
+        end)
+    elseif not profile.cap_after_period then
+        -- Remove capitalization after sentence-ending punctuation (50% of the time)
+        text = string.gsub(text, "([%.!?]%s+)(%u)", function(punct, letter)
+            if seeded_chance(50) then
+                return punct .. string.lower(letter)
+            end
+            return punct .. letter
+        end)
+    end
+    return text
+end
+
+-- 7. Punctuation mangling
+local function apply_punctuation(text, miss_chance, exclaim_chance)
+    -- Drop periods/commas
+    if miss_chance > 0 then
+        text = string.gsub(text, "([,%.])(%s)", function(p, sp)
+            if seeded_chance(miss_chance) then
+                return sp
+            end
+            return p .. sp
+        end)
+    end
+
+    -- Multiply exclamation marks
+    if exclaim_chance > 0 then
+        text = string.gsub(text, "!", function()
+            if seeded_chance(exclaim_chance) then
+                return string.rep("!", seeded_random(3) + 1)
+            end
+            return "!"
+        end)
+    end
+
+    return text
+end
+
+-- 8. Ellipsis insertion (replace commas/periods with "...")
+local function apply_ellipsis(text, chance)
+    if chance <= 0 then return text end
+
+    return string.gsub(text, "([,%.])(%s)", function(p, sp)
+        if seeded_chance(chance) then
+            return "..." .. sp
+        end
+        return p .. sp
+    end)
+end
+
+-- ============================================================
+-- MAIN TRANSFORM FUNCTION
+-- Entry point called from pda_interactive_conv.pda_private_add_message()
+-- ============================================================
+
+function transform(text, contact_id)
+    -- Early exits
+    if not text or text == "" or #text < 3 then return text end
+
+    -- Check master toggle via MCM
+    local get_config = pda_interactive_conv and pda_interactive_conv.PANDA and pda_interactive_conv.PANDA.get_config
+    if get_config then
+        local enabled = get_config("typing_personality_enabled")
+        if enabled == false then return text end
+    end
+
+    -- Look up NPC metadata
+    local cid = tostring(contact_id)
+    local meta = npc_meta[cid]
+    if not meta then return text end
+
+    local faction = meta.faction
+    local rank = meta.rank or "experienced"
+
+    -- Resolve profile (follow aliases)
+    local profile = PROFILES[faction]
+    if not profile then return text end
+
+    -- MCM settings
+    local global_intensity = (get_config and get_config("typing_intensity")) or 100
+    if global_intensity <= 0 then return text end
+
+    local typos_enabled = true
+    local swearing_enabled = true
+    if get_config then
+        local t = get_config("typing_typos_enabled")
+        if t == false then typos_enabled = false end
+        local s = get_config("typing_swearing_enabled")
+        if s == false then swearing_enabled = false end
+    end
+
+    -- Calculate rank multiplier
+    local rank_mult = RANK_MULTIPLIERS[tostring(rank):lower()] or 1.0
+    local scale = rank_mult * global_intensity / 100
+
+    -- Compute effective chances for each transform type
+    local eff = {}
+    local chance_keys = {
+        "typo_chance", "punct_miss_chance", "exclaim_chance",
+        "slang_chance", "swear_chance", "ellipsis_chance",
+        "word_corrupt_chance",
+    }
+    for _, k in ipairs(chance_keys) do
+        eff[k] = math.min(100, math.floor((profile[k] or 0) * scale))
+    end
+
+    -- MCM overrides
+    if not typos_enabled then
+        eff.typo_chance = 0
+        eff.word_corrupt_chance = 0
+    end
+    if not swearing_enabled then
+        eff.swear_chance = 0
+    end
+
+    -- Check if there's anything to do at all
+    local has_work = false
+    for _, k in ipairs(chance_keys) do
+        if eff[k] > 0 then has_work = true; break end
+    end
+    if not has_work and not profile.lowercase_all and not profile.is_zombied then
+        return text
+    end
+
+    -- Seed the deterministic PRNG
+    _seed = hash_seed(text, cid)
+
+    -- Protect color codes and unresolved placeholders
+    local ptext, protected = protect_special(text)
+
+    -- Apply transformation pipeline in order
+    -- 1. Slang substitution
+    ptext = apply_slang(ptext, profile, eff.slang_chance)
+
+    -- 2. Swearing insertion
+    if swearing_enabled then
+        ptext = apply_swearing(ptext, profile, eff.swear_chance)
+    end
+
+    -- 3+4. Typo injection + Word corruption (word-level pass)
+    if eff.typo_chance > 0 or eff.word_corrupt_chance > 0 then
+        ptext = string.gsub(ptext, "(%a+)", function(word)
+            if is_sentinel(word) then return word end
+            word = apply_typo_to_word(word, eff.typo_chance)
+            word = corrupt_word(word, eff.word_corrupt_chance)
+            return word
+        end)
+    end
+
+    -- 5. Zombified special garbling
+    if profile.is_zombied then
+        ptext = garble_zombified(ptext)
+    end
+
+    -- 6. Capitalization mangling
+    ptext = apply_caps(ptext, profile)
+
+    -- 7. Punctuation mangling
+    ptext = apply_punctuation(ptext, eff.punct_miss_chance, eff.exclaim_chance)
+
+    -- 8. Ellipsis insertion
+    ptext = apply_ellipsis(ptext, eff.ellipsis_chance)
+
+    -- Restore protected tokens
+    ptext = restore_special(ptext, protected)
+
+    return ptext
+end
