@@ -71,6 +71,14 @@ function pda_private_add_message(contact_id, contact_name, sender_name, text, ic
         return false
     end
 
+    -- Apply NPC typing personality transforms (faction/rank-based typos, slang, etc.)
+    if not is_player
+        and pda_typing_personality and pda_typing_personality.transform
+        and not (type(extra_fields) == "table" and extra_fields.skip_personality)
+    then
+        text = pda_typing_personality.transform(text, tostring(contact_id))
+    end
+
     -- Grab the current game time
     local game_time = game.get_game_time()
     local Y, M, D, h, m, s, ms = 0, 0, 0, 0, 0, 0, 0
@@ -227,7 +235,7 @@ function upsert_npc_typing_message(contact_id, sender_name, icon)
         end
     end
 
-    pda_private_add_message(contact_id, nil, sender_name or "Unknown", "Typing...", icon or FALLBACK_NPC_ICON, false)
+    pda_private_add_message(contact_id, nil, sender_name or "Unknown", "Typing...", icon or FALLBACK_NPC_ICON, false, nil, nil, nil, { skip_personality = true })
     local latest = pda_private_log[1]
     if latest then
         latest.is_typing = true
@@ -284,7 +292,12 @@ local MCM_DEFAULTS = {
     -- Notification toggles (default true)
     show_hunt_notifications=true,
     show_companion_notifications=true,
-    show_courier_notifications=true
+    show_courier_notifications=true,
+    -- Typing personality
+    typing_personality_enabled=true,
+    typing_intensity=100,
+    typing_typos_enabled=true,
+    typing_swearing_enabled=true
 }
 
 function PANDA.get_config(key)
@@ -565,11 +578,12 @@ local function register_location_reference(location_ref, sender_npc_name, sender
         nil,
         nil,
         {
-            msg_type      = "map_attachment",
-            map_spot_id   = entry.map_spot_id,
-            map_spot_type = entry.map_spot_type,
-            location_ref  = location_ref,
-            location_name = get_location_display_name(location_ref),
+            msg_type          = "map_attachment",
+            map_spot_id       = entry.map_spot_id,
+            map_spot_type     = entry.map_spot_type,
+            location_ref      = location_ref,
+            location_name     = get_location_display_name(location_ref),
+            skip_personality  = true,
         }
     )
 
@@ -1113,6 +1127,7 @@ local function queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sen
             attachment_label = "Stash Coordinates:",
             location_name = game.translate_string("st_pda_ic_outcome_stash_attachment_file"),
             attachment_claimed = false,
+            skip_personality = true,
         }
     )
 end
@@ -2765,7 +2780,8 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
             false,
             nil,
             nil,
-            icon
+            icon,
+            { skip_personality = true }
         )
     end
 
@@ -4066,6 +4082,12 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
 
     last_conv_npc_id = npc_se.id
     record_npc_use(npc_se.id)
+
+    -- Register NPC metadata for typing personality transforms
+    if pda_typing_personality and pda_typing_personality.register_npc then
+        local rank_name = get_npc_rank_name(npc_se) or "experienced"
+        pda_typing_personality.register_npc(contact_id, faction, rank_name)
+    end
 
     -- Send ONLY the Generic Global Chat Alert
     dynamic_news_helper.send_tip(

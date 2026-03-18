@@ -11,6 +11,7 @@ local function isStrictMode()         return ui_mcm.get(ROOT_ID.."/interactive/c
 local function isBackgroundEnabled()  return ui_mcm.get(ROOT_ID.."/background/npc_conv_enabled") end
 local function isBackgroundStrict()   return ui_mcm.get(ROOT_ID.."/background/npc_conv_strict_cooldown") end
 local function isDynamicNewsEnabled() return ui_mcm.get(ROOT_ID.."/dynamic_news/dn_enabled") end
+local function isTypingEnabled()      return ui_mcm.get(ROOT_ID.."/interactive/typing_personality_enabled") end
 
 -- ============================================================
 -- Main MCM options table
@@ -219,6 +220,24 @@ function on_mcm_load()
                     { id = "precond_verbose_debug", type = "check", val = 1, def = false,
                       precondition = { isInteractiveEnabled, {} } },
                     { id = "line_technical_end", type = "line",
+                      precondition = { isInteractiveEnabled, {} } },
+
+                    -- NPC TYPING PERSONALITY (only shown if enabled)
+                    { id = "title_typing", type = "title",
+                      text = "pda_interactive_conv_title_typing",
+                      clr = {255, 180, 160, 255},
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "line_typing", type = "line",
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "typing_personality_enabled", type = "check", val = 1, def = true,
+                      precondition = { isInteractiveEnabled, {} } },
+                    { id = "typing_intensity", type = "track", val = 2, min = 0, max = 100, step = 5, def = 100,
+                      precondition = { function() return isInteractiveEnabled() and isTypingEnabled() end, {} } },
+                    { id = "typing_typos_enabled", type = "check", val = 1, def = true,
+                      precondition = { function() return isInteractiveEnabled() and isTypingEnabled() end, {} } },
+                    { id = "typing_swearing_enabled", type = "check", val = 1, def = true,
+                      precondition = { function() return isInteractiveEnabled() and isTypingEnabled() end, {} } },
+                    { id = "line_typing_end", type = "line",
                       precondition = { isInteractiveEnabled, {} } },
 
                     -- DEBUG (always shown)
