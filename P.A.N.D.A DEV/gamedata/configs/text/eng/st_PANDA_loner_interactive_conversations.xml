@@ -1223,7 +1223,7 @@ END OF HOW TO GUIDE
 
 <string id="st_pda_ic_loner_2_precond">
     <!-- Requires a friendly loner and the player must have at least 3000 RU to afford full price -->
-    <text>req_npc_friendly:stalker,req_money:3000</text>
+    <text>req_npc_friendly:stalker,req_money:4000</text>
 </string>
 
 <string id="st_pda_ic_loner_2_open">
@@ -1232,13 +1232,13 @@ END OF HOW TO GUIDE
 
 <!-- Choice 1: Buy outright -->
 <string id="st_pda_ic_loner_2_choice_1">
-    <text>3000 RU? Sounds fair. Transferring the funds.</text>
+    <text>4000 RU? Sounds fair. Transferring the funds.</text>
 </string>
 <string id="st_pda_ic_loner_2_reply_1">
     <text>Got the transfer. Forwarding the encrypted attachment now. Hope it's got something good inside.</text>
 </string>
 <string id="st_pda_ic_loner_2_outcome_1">
-    <text>punish_money:3000,reward_stash</text>
+    <text>punish_money:4000,reward_stash</text>
 </string>
 
 <!-- Choice 2: Ask for details (Branches to Turn 2) -->
@@ -1257,10 +1257,10 @@ END OF HOW TO GUIDE
 
 <!-- Choice 3: Haggle the price (Branches to Turn 3) -->
 <string id="st_pda_ic_loner_2_choice_3">
-    <text>3000 is steep for a blind box. I'll give you 2000 RU.</text>
+    <text>4000 is steep for a blind box. I'll give you 3000 RU.</text>
 </string>
 <string id="st_pda_ic_loner_2_reply_3">
-    <text>Damn it, my suit is shredded and I really need the cash... Fine. 2000 RU. Send it over.</text>
+    <text>Damn it, my suit is shredded and I really need the cash... Fine. 3000 RU. Send it over.</text>
 </string>
 <string id="st_pda_ic_loner_2_outcome_3">
     <text>none</text>
@@ -1291,20 +1291,20 @@ END OF HOW TO GUIDE
 
 <!-- ===== Turn 2: Player asked for details ===== -->
 <string id="st_pda_ic_loner_2_t2_choice_1">
-    <text>Alright, I'll take the gamble. Sending 3000 RU.</text>
+    <text>Alright, I'll take the gamble. Sending 4000 RU.</text>
 </string>
 <string id="st_pda_ic_loner_2_t2_reply_1">
     <text>Good doing business with you. Coordinates attached. Stay safe, $player_name.</text>
 </string>
 <string id="st_pda_ic_loner_2_t2_outcome_1">
-    <text>punish_money:3000,reward_stash</text>
+    <text>punish_money:4000,reward_stash</text>
 </string>
 
 <string id="st_pda_ic_loner_2_t2_choice_2">
-    <text>Still a gamble. 2000 RU and we have a deal.</text>
+    <text>Still a gamble. 3000 RU and we have a deal.</text>
 </string>
 <string id="st_pda_ic_loner_2_t2_reply_2">
-    <text>You're killing me here. Fine... 2000. Send it before I change my mind.</text>
+    <text>You're killing me here. Fine... 3000. Send it before I change my mind.</text>
 </string>
 <string id="st_pda_ic_loner_2_t2_outcome_2">
     <text>none</text>
@@ -1326,13 +1326,13 @@ END OF HOW TO GUIDE
 
 <!-- ===== Turn 3: Player haggled down to 2000 RU ===== -->
 <string id="st_pda_ic_loner_2_t3_choice_1">
-    <text>Transferring 2000 RU now.</text>
+    <text>Transferring 3000 RU now.</text>
 </string>
 <string id="st_pda_ic_loner_2_t3_reply_1">
     <text>Transfer confirmed. Stash location added to your map. Don't tell the others I let it go this cheap.</text>
 </string>
 <string id="st_pda_ic_loner_2_t3_outcome_1">
-    <text>punish_money:2000,reward_stash</text>
+    <text>punish_money:3000,reward_stash</text>
 </string>
 
 <string id="st_pda_ic_loner_2_t3_choice_2">
@@ -1343,9 +1343,51 @@ END OF HOW TO GUIDE
 </string>
 <string id="st_pda_ic_loner_2_t3_outcome_2">
     <!-- Meaningful consequence: the player was a jerk and backed out of a negotiated deal -->
-    <text>punish_rep:10,punish_gw:15:stalker</text>
+    <text>punish_rep:10,punish_gw:50:stalker</text>
 </string>
 
+
+<!-- ============================================================ -->
+<!-- CONVERSATION 3: The Desperate Bribe                          -->
+<!-- Personality: Pragmatic, in a bind.                           -->
+<!-- Mechanics: Goodwill check, money exchange for goodwill.      -->
+<!-- ============================================================ -->
+<string id="st_pda_ic_loner_3_precond">
+    <text>req_npc_friendly:stalker,req_money:5000</text>
+</string>
+<string id="st_pda_ic_loner_3_open">
+    <text>Military is shaking me down at a checkpoint. Need 5000 RU flat to pass, and I'm short. Spot me the cash, I'll owe you one.</text>
+</string>
+
+<string id="st_pda_ic_loner_3_choice_1">
+    <text>Transferring 5000 RU. Stay safe.</text>
+</string>
+<string id="st_pda_ic_loner_3_reply_1">
+    <text>Got it. I won't forget this. Uploading a dead drop I found earlier to cover the debt.</text>
+</string>
+<string id="st_pda_ic_loner_3_outcome_1">
+    <text>punish_money:5000,reward_stash,reward_gw:75:stalker</text>
+</string>
+
+<string id="st_pda_ic_loner_3_choice_2">
+    <text>Sounds like your problem, not mine.</text>
+</string>
+<string id="st_pda_ic_loner_3_reply_2">
+    <text>Thanks for nothing. I'll remember this.</text>
+</string>
+<string id="st_pda_ic_loner_3_outcome_2">
+    <text>punish_gw:25:stalker</text>
+</string>
+
+<string id="st_pda_ic_loner_3_choice_3">
+    <text>Really? Begging dude?.</text>
+</string>
+<string id="st_pda_ic_loner_3_reply_3">
+    <text> You've never been down bad? Just thought a fellow loner would help me out. Thanks anyway.</text>
+</string>
+<string id="st_pda_ic_loner_3_outcome_3">
+    <text>punish_gw:25:stalker</text>
+</string>
 
 
 

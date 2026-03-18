@@ -3,7 +3,7 @@
     P.A.N.D.A by Panda 
     pda_interactive_conv.script
     
-    REFACTORED (V7) with fixes:
+    REFACTORED (v9.1) with fixes:
     - Fixed non‑task conversations falling back to task dialogue due to missing prefixes.
     - Fixed chance modifier string parsing error.
     - Fixed reward_stash outcome to correctly use treasure_manager.
