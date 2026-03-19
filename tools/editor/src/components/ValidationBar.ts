@@ -1,5 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Validation Bar
 
+import { requestFlowCenter } from '../lib/flow-navigation';
 import { store } from '../lib/state';
 import type { ValidationMessage } from '../lib/types';
 
@@ -97,6 +98,12 @@ function navigateToMessage(msg: ValidationMessage): void {
   if (msg.choiceIndex != null) {
     store.selectChoice(msg.choiceIndex);
   }
+
+  requestFlowCenter({
+    conversationId: msg.conversationId,
+    turnNumber: msg.turnNumber,
+    fit: msg.turnNumber == null,
+  });
   if (msg.propertiesTab) {
     store.setPropertiesTab(msg.propertiesTab);
   }
