@@ -10,7 +10,7 @@ export function renderToolbar(): HTMLElement {
   const toolbar = document.createElement('div');
   toolbar.className = 'toolbar';
 
-  toolbar.innerHTML = `<span class="toolbar-title">P.A.N.D.A. Editor</span>`;
+  toolbar.innerHTML = `<span class="toolbar-title">\u2622 P.A.N.D.A. Editor</span>`;
 
   // Faction selector
   const factionSelect = document.createElement('select');
@@ -27,39 +27,41 @@ export function renderToolbar(): HTMLElement {
 
   toolbar.appendChild(sep());
 
-  // Import buttons
-  const importXmlBtn = btn('Import XML', importFromXml, 'Import conversations from an existing game XML file');
-  const importJsonBtn = btn('Open Project', importFromJson, 'Open a previously saved .panda project file');
-  toolbar.appendChild(importXmlBtn);
-  toolbar.appendChild(importJsonBtn);
-
-  toolbar.appendChild(sep());
-
-  // Export buttons
-  const saveBtn = btn('Save Project', exportProjectJson, 'Save as .panda project file (preserves editor data)');
-  const exportXmlBtn = btn('Export XML', exportXml, 'Export as game-ready XML file for S.T.A.L.K.E.R. Anomaly');
+  // File group
+  const fileGroup = document.createElement('div');
+  fileGroup.className = 'toolbar-group';
+  fileGroup.appendChild(btn('\u{1F4C2} Open', importFromJson, 'Open a previously saved .panda project file'));
+  fileGroup.appendChild(btn('\u{1F4E5} Import XML', importFromXml, 'Import conversations from an existing game XML file'));
+  fileGroup.appendChild(btn('\u{1F4BE} Save', exportProjectJson, 'Save as .panda project file (preserves editor data)'));
+  const exportXmlBtn = btn('\u{1F4E4} Export XML', exportXml, 'Export as game-ready XML file for S.T.A.L.K.E.R. Anomaly');
   exportXmlBtn.classList.add('btn-primary');
-  toolbar.appendChild(saveBtn);
-  toolbar.appendChild(exportXmlBtn);
+  fileGroup.appendChild(exportXmlBtn);
+  toolbar.appendChild(fileGroup);
 
   toolbar.appendChild(sep());
 
-  // XML Preview toggle
-  const previewBtn = btn(
-    state.showXmlPreview ? 'Hide XML' : 'Show XML',
+  // View group
+  const viewGroup = document.createElement('div');
+  viewGroup.className = 'toolbar-group';
+  viewGroup.appendChild(btn(
+    state.showXmlPreview ? '\u{1F4DC} Hide XML' : '\u{1F4DC} Show XML',
     () => store.toggleXmlPreview(),
     'Toggle live XML preview at the bottom of the screen'
-  );
-  toolbar.appendChild(previewBtn);
+  ));
+  toolbar.appendChild(viewGroup);
 
-  // Undo/Redo
   toolbar.appendChild(sep());
-  const undoBtn = btn('Undo', () => store.undo(), 'Undo last change (Ctrl+Z)');
-  const redoBtn = btn('Redo', () => store.redo(), 'Redo last undone change (Ctrl+Y)');
+
+  // Undo/Redo group
+  const histGroup = document.createElement('div');
+  histGroup.className = 'toolbar-group';
+  const undoBtn = btn('\u21A9 Undo', () => store.undo(), 'Undo last change (Ctrl+Z)');
+  const redoBtn = btn('\u21AA Redo', () => store.redo(), 'Redo last undone change (Ctrl+Y)');
   if (state.undoStack.length === 0) undoBtn.style.opacity = '0.4';
   if (state.redoStack.length === 0) redoBtn.style.opacity = '0.4';
-  toolbar.appendChild(undoBtn);
-  toolbar.appendChild(redoBtn);
+  histGroup.appendChild(undoBtn);
+  histGroup.appendChild(redoBtn);
+  toolbar.appendChild(histGroup);
 
   // Spacer + status
   const spacer = document.createElement('div');
@@ -69,8 +71,12 @@ export function renderToolbar(): HTMLElement {
   const status = document.createElement('span');
   status.className = 'toolbar-status';
   const convCount = state.project.conversations.length;
-  status.textContent = `${convCount} conversation${convCount !== 1 ? 's' : ''}${state.dirty ? ' \u2022 unsaved' : ''}`;
-  if (state.dirty) status.style.color = 'var(--warning)';
+  if (state.dirty) {
+    status.innerHTML = `<span class="unsaved-dot"></span> ${convCount} conv${convCount !== 1 ? 's' : ''} \u2022 unsaved`;
+    status.style.color = 'var(--warning)';
+  } else {
+    status.textContent = `${convCount} conversation${convCount !== 1 ? 's' : ''}`;
+  }
   toolbar.appendChild(status);
 
   return toolbar;

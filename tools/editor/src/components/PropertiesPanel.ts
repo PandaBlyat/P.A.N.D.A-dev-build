@@ -8,6 +8,17 @@ import { PRECONDITION_SCHEMAS, OUTCOME_SCHEMAS, groupByCategory } from '../lib/s
 import type { CommandSchema } from '../lib/schema';
 import { FACTION_IDS, RANKS, MUTANT_TYPES, DYNAMIC_PLACEHOLDERS, LEVEL_DISPLAY_NAMES, SMART_TERRAIN_LEVELS } from '../lib/constants';
 
+// ─── Debounce helper ─────────────────────────────────────────────────────
+const debounceTimers = new Map<string, number>();
+function debounced(key: string, fn: () => void, delay = 300): void {
+  const prev = debounceTimers.get(key);
+  if (prev != null) clearTimeout(prev);
+  debounceTimers.set(key, window.setTimeout(() => {
+    debounceTimers.delete(key);
+    fn();
+  }, delay));
+}
+
 export function renderPropertiesPanel(container: HTMLElement): void {
   const state = store.get();
   const conv = store.getSelectedConversation();
@@ -152,7 +163,18 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
 function renderTurnProperties(container: HTMLElement, conv: Conversation, turn: Turn): void {
   const title = document.createElement('div');
   title.className = 'section-header';
-  title.innerHTML = `<span class="section-title">Turn ${turn.turnNumber}</span>`;
+  const titleSpan = document.createElement('span');
+  titleSpan.className = 'section-title';
+  titleSpan.textContent = `Turn ${turn.turnNumber}`;
+  title.appendChild(titleSpan);
+  if (turn.turnNumber > 1) {
+    const delTurnBtn = document.createElement('button');
+    delTurnBtn.className = 'btn-sm btn-danger';
+    delTurnBtn.textContent = 'Delete Turn';
+    delTurnBtn.title = 'Remove this turn from the conversation';
+    delTurnBtn.onclick = () => store.deleteTurn(conv.id, turn.turnNumber);
+    title.appendChild(delTurnBtn);
+  }
   container.appendChild(title);
 
   // Opening message (turn 1 only)
@@ -630,12 +652,20 @@ function renderParamEditors(schema: CommandSchema, currentParams: string[], onCh
     }
 
     input.style.flex = '1';
-    input.onchange = () => {
+    const paramKey = `param-${schema.name}-${i}`;
+    input.setAttribute('data-field-key', paramKey);
+    const handler = () => {
       const newParams = [...currentParams];
       while (newParams.length <= i) newParams.push('');
       newParams[i] = input.value;
       onChange(newParams);
     };
+    // Text inputs get debounced oninput; selects get immediate onchange
+    if (input instanceof HTMLSelectElement) {
+      input.onchange = handler;
+    } else {
+      input.oninput = () => debounced(paramKey, handler);
+    }
 
     field.appendChild(input);
     div.appendChild(field);
@@ -749,7 +779,15 @@ function renderPlaceholderPicker(container: HTMLElement): void {
     const btn = document.createElement('button');
     btn.className = 'placeholder-btn';
     btn.textContent = ph.key;
-    btn.title = ph.description + ' — click to copy to clipboard';
+    btn.title = ph.description + ' — drag to a text field or click to copy';
+    btn.draggable = true;
+    btn.addEventListener('dragstart', (e) => {
+      e.dataTransfer!.setData('text/plain', ph.key);
+      e.dataTransfer!.setData('application/x-panda-placeholder', ph.key);
+      e.dataTransfer!.effectAllowed = 'copy';
+      btn.classList.add('dragging');
+    });
+    btn.addEventListener('dragend', () => btn.classList.remove('dragging'));
     btn.onclick = (e) => {
       e.preventDefault();
       // Try to insert at cursor of the last focused textarea in the panel
@@ -757,7 +795,6 @@ function renderPlaceholderPicker(container: HTMLElement): void {
       const textareas = panel.querySelectorAll('textarea');
       let inserted = false;
 
-      // Find the most recently focused textarea
       for (const ta of textareas) {
         if (ta === document.activeElement) {
           const start = ta.selectionStart;
@@ -773,7 +810,6 @@ function renderPlaceholderPicker(container: HTMLElement): void {
       }
 
       if (!inserted) {
-        // Copy to clipboard as fallback
         navigator.clipboard.writeText(ph.key).then(() => {
           btn.textContent = 'Copied!';
           btn.style.color = 'var(--accent)';
@@ -793,6 +829,12 @@ function renderPlaceholderPicker(container: HTMLElement): void {
   stBtn.textContent = '%smart_terrain%';
   stBtn.title = 'Insert smart terrain placeholder — click to copy';
   stBtn.style.borderColor = 'var(--accent-dim)';
+  stBtn.draggable = true;
+  stBtn.addEventListener('dragstart', (e) => {
+    e.dataTransfer!.setData('text/plain', '%smart_terrain%');
+    e.dataTransfer!.setData('application/x-panda-placeholder', '%smart_terrain%');
+    e.dataTransfer!.effectAllowed = 'copy';
+  });
   stBtn.onclick = () => {
     // Show level picker
     const levelKeys = Object.keys(SMART_TERRAIN_LEVELS);
@@ -824,6 +866,7 @@ function renderPlaceholderPicker(container: HTMLElement): void {
 function createField(labelText: string, type: string, value: string, onChange: (val: string) => void, hint?: string): HTMLElement {
   const field = document.createElement('div');
   field.className = 'field';
+  const fieldKey = 'field-' + labelText.replace(/\s+/g, '-').toLowerCase();
 
   const label = document.createElement('label');
   label.textContent = labelText;
@@ -839,13 +882,51 @@ function createField(labelText: string, type: string, value: string, onChange: (
   if (type === 'textarea') {
     const textarea = document.createElement('textarea');
     textarea.value = value;
-    textarea.oninput = () => onChange(textarea.value);
+    textarea.setAttribute('data-field-key', fieldKey);
+    textarea.oninput = () => {
+      debounced(fieldKey, () => onChange(textarea.value));
+    };
+    // Drag-drop support for placeholders
+    textarea.addEventListener('dragover', (e) => {
+      if (e.dataTransfer?.types.includes('application/x-panda-placeholder')) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        textarea.classList.add('drag-over');
+      }
+    });
+    textarea.addEventListener('dragleave', () => textarea.classList.remove('drag-over'));
+    textarea.addEventListener('drop', (e) => {
+      textarea.classList.remove('drag-over');
+      const text = e.dataTransfer?.getData('text/plain');
+      if (!text) return;
+      e.preventDefault();
+      // Insert at drop position
+      let insertPos = textarea.value.length;
+      if (document.caretRangeFromPoint) {
+        const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+        if (range && textarea.contains(range.startContainer)) {
+          insertPos = range.startOffset;
+        }
+      }
+      // Fallback: insert at end of current value with a space if needed
+      const before = textarea.value.substring(0, insertPos);
+      const after = textarea.value.substring(insertPos);
+      const needsSpace = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n');
+      textarea.value = before + (needsSpace ? ' ' : '') + text + after;
+      textarea.focus();
+      const newPos = insertPos + (needsSpace ? 1 : 0) + text.length;
+      textarea.setSelectionRange(newPos, newPos);
+      onChange(textarea.value);
+    });
     field.appendChild(textarea);
   } else {
     const input = document.createElement('input');
     input.type = type;
     input.value = value;
-    input.oninput = () => onChange(input.value);
+    input.setAttribute('data-field-key', fieldKey);
+    input.oninput = () => {
+      debounced(fieldKey, () => onChange(input.value));
+    };
     field.appendChild(input);
   }
 

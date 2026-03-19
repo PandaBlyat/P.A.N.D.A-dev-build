@@ -8,32 +8,77 @@ import { renderApp } from './components/App';
 const app = document.getElementById('app')!;
 renderApp(app);
 
+// ─── Focus-safe rendering ────────────────────────────────────────────────
+// The app does full DOM rebuilds. We must preserve focus across renders.
+
+function isEditableElement(el: Element | null): el is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement {
+  return el instanceof HTMLInputElement ||
+         el instanceof HTMLTextAreaElement ||
+         el instanceof HTMLSelectElement;
+}
+
+interface FocusSnapshot {
+  key: string;
+  selectionStart: number | null;
+  selectionEnd: number | null;
+  scrollTop: number;
+}
+
+function captureFocus(): FocusSnapshot | null {
+  const active = document.activeElement;
+  if (!active || !app.contains(active) || !isEditableElement(active)) return null;
+  const key = active.getAttribute('data-field-key');
+  if (!key) return null;
+  return {
+    key,
+    selectionStart: 'selectionStart' in active ? active.selectionStart : null,
+    selectionEnd: 'selectionEnd' in active ? active.selectionEnd : null,
+    scrollTop: 'scrollTop' in active ? (active as HTMLElement).scrollTop : 0,
+  };
+}
+
+function restoreFocus(snap: FocusSnapshot | null): void {
+  if (!snap) return;
+  const el = app.querySelector(`[data-field-key="${CSS.escape(snap.key)}"]`) as HTMLInputElement | HTMLTextAreaElement | null;
+  if (!el) return;
+  el.focus();
+  if (snap.selectionStart != null && 'setSelectionRange' in el) {
+    try { el.setSelectionRange(snap.selectionStart, snap.selectionEnd ?? snap.selectionStart); } catch { /* select inputs throw */ }
+  }
+  if (snap.scrollTop) el.scrollTop = snap.scrollTop;
+}
+
+function safeRender(): void {
+  const snap = captureFocus();
+  renderApp(app);
+  restoreFocus(snap);
+}
+
 // Re-render on state changes, but skip while an input is focused to prevent
 // the DOM rebuild from stealing focus (the "tabs out after each keypress" bug).
 let renderPending = false;
 
 store.subscribe(() => {
-  const active = document.activeElement;
-  if (
-    active && app.contains(active) &&
-    (active instanceof HTMLInputElement ||
-     active instanceof HTMLTextAreaElement ||
-     active instanceof HTMLSelectElement)
-  ) {
+  if (isEditableElement(document.activeElement) && app.contains(document.activeElement)) {
     renderPending = true;
     return;
   }
   renderPending = false;
-  renderApp(app);
+  safeRender();
 });
 
-// When the user leaves an input, flush any deferred render.
+// When the user leaves an input, flush any deferred render —
+// but only if focus hasn't moved to ANOTHER editable element.
 document.addEventListener('focusout', () => {
-  if (renderPending) {
+  if (!renderPending) return;
+  requestAnimationFrame(() => {
+    // Re-check: if focus moved to another input, keep deferring.
+    if (isEditableElement(document.activeElement) && app.contains(document.activeElement)) {
+      return; // renderPending stays true
+    }
     renderPending = false;
-    // Use requestAnimationFrame so the blur fully completes first.
-    requestAnimationFrame(() => renderApp(app));
-  }
+    safeRender();
+  });
 });
 
 // Keyboard shortcuts
