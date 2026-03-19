@@ -8,8 +8,7 @@ import { renderConversationList } from './ConversationList';
 import { renderFlowEditor } from './FlowEditor';
 import { renderPropertiesPanel } from './PropertiesPanel';
 import { renderValidationBar } from './ValidationBar';
-import { renderXmlPreview } from './XmlPreview';
-import { renderSystemStringsPanel } from './SystemStringsPanel';
+import { renderBottomWorkspace } from './BottomWorkspace';
 import { setButtonContent } from './icons';
 
 export function renderApp(container: HTMLElement): void {
@@ -93,16 +92,9 @@ export function renderApp(container: HTMLElement): void {
   main.appendChild(right);
   container.appendChild(main);
 
-  // Bottom area: validation + optional drawers
+  // Bottom area: validation summary + shared workspace
   renderValidationBar(container);
-
-  if (state.showSystemStringsPanel) {
-    renderSystemStringsPanel(container);
-  }
-
-  if (state.showXmlPreview) {
-    renderXmlPreview(container);
-  }
+  renderBottomWorkspace(container);
 }
 
 /** Export project as .panda JSON file */

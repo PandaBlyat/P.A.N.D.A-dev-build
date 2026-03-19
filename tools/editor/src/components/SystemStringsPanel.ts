@@ -1,50 +1,16 @@
 import { store } from '../lib/state';
-import { createControlContent, createEmptyState, setButtonContent } from './icons';
+import { createEmptyState, setButtonContent } from './icons';
 
 export function renderSystemStringsPanel(container: HTMLElement): void {
+  container.appendChild(createSystemStringsPanelContent());
+}
+
+export function createSystemStringsPanelContent(): HTMLElement {
   const state = store.get();
   const entries = [...state.systemStrings.entries()].sort(([a], [b]) => a.localeCompare(b));
 
   const panel = document.createElement('section');
   panel.className = 'system-strings-panel';
-
-  const header = document.createElement('div');
-  header.className = 'system-strings-header';
-
-  const title = document.createElement('div');
-  title.className = 'drawer-header-copy';
-  const heading = document.createElement('strong');
-  heading.appendChild(createControlContent('strings', 'System Strings'));
-  const subtitle = document.createElement('span');
-  subtitle.textContent = 'Edit imported/exported shared string-table entries.';
-  title.append(heading, subtitle);
-
-  const actions = document.createElement('div');
-  actions.className = 'system-strings-actions';
-
-  const addBtn = document.createElement('button');
-  addBtn.type = 'button';
-  addBtn.className = 'btn-sm';
-  setButtonContent(addBtn, 'add', 'Add string');
-  addBtn.onclick = () => {
-    let nextIndex = state.systemStrings.size + 1;
-    let nextKey = `ui_custom_${nextIndex}`;
-    while (state.systemStrings.has(nextKey)) {
-      nextIndex += 1;
-      nextKey = `ui_custom_${nextIndex}`;
-    }
-    store.setSystemString(nextKey, '');
-  };
-
-  const closeBtn = document.createElement('button');
-  closeBtn.type = 'button';
-  closeBtn.className = 'btn-sm';
-  setButtonContent(closeBtn, 'close', 'Close');
-  closeBtn.onclick = () => store.toggleSystemStringsPanel();
-
-  actions.append(addBtn, closeBtn);
-  header.append(title, actions);
-  panel.appendChild(header);
 
   const toolbar = document.createElement('div');
   toolbar.className = 'system-strings-toolbar';
@@ -131,5 +97,5 @@ export function renderSystemStringsPanel(container: HTMLElement): void {
 
   search.oninput = () => renderList(search.value);
   renderList('');
-  container.appendChild(panel);
+  return panel;
 }

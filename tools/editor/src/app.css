@@ -1055,14 +1055,14 @@ label {
 /* ─── XML Preview ──────────────────────────────────────── */
 
 .xml-preview-panel {
-  border-top: 1px solid var(--border);
-  max-height: 300px;
+  min-height: 0;
+  height: 100%;
   overflow: auto;
-  background: var(--bg-darkest);
+  background: transparent;
 }
 
 .xml-preview-content {
-  padding: 12px;
+  padding: 14px 16px 18px;
   font-family: var(--font-mono);
   font-size: 11px;
   white-space: pre;
@@ -1511,19 +1511,49 @@ hr {
   font-size: 10px;
 }
 
-.system-strings-panel,
-.validation-drawer {
+.bottom-workspace {
+  --bottom-workspace-height: 280px;
+  position: relative;
+  display: grid;
+  grid-template-rows: 10px auto minmax(0, 1fr);
+  min-height: 180px;
+  height: min(520px, max(180px, var(--bottom-workspace-height)));
+  max-height: 60vh;
   border-top: 1px solid var(--border);
-  background: var(--bg-darkest);
+  background: linear-gradient(180deg, rgba(8, 10, 12, 0.98) 0%, rgba(16, 20, 26, 0.98) 100%);
+  box-shadow: 0 -12px 24px rgba(0,0,0,0.28);
 }
 
-.system-strings-header,
-.validation-drawer-header {
+.bottom-workspace-resize-handle {
+  position: relative;
+  cursor: ns-resize;
+}
+
+.bottom-workspace-resize-handle::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 72px;
+  height: 3px;
+  border-radius: 999px;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.14);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+.is-resizing-bottom-workspace,
+.is-resizing-bottom-workspace * {
+  cursor: ns-resize !important;
+  user-select: none !important;
+}
+
+.bottom-workspace-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 10px 12px 12px;
   border-bottom: 1px solid var(--border);
   background: rgba(255,255,255,0.02);
 }
@@ -1531,29 +1561,84 @@ hr {
 .drawer-header-copy {
   display: grid;
   gap: 4px;
+  min-width: 0;
 }
 
-.system-strings-header strong,
-.validation-drawer-header strong {
+.bottom-workspace-header strong {
   display: block;
   color: var(--text-bright);
 }
 
-.system-strings-header strong .ui-control-content,
-.validation-drawer-header strong .ui-control-content,
-.validation-drawer-title .ui-control-content {
+.bottom-workspace-header strong .ui-control-content,
+.validation-drawer-title .ui-control-content,
+.bottom-workspace-tab .ui-control-content {
   gap: 0.5rem;
 }
 
-.system-strings-header span,
-.validation-drawer-header span {
+.bottom-workspace-header span {
   display: block;
   color: var(--text-dim);
   font-size: 11px;
 }
 
+.bottom-workspace-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: min(100%, 320px);
+}
+
+.bottom-workspace-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.03);
+}
+
+.bottom-workspace-tab {
+  border-radius: 999px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-dim);
+  box-shadow: none;
+}
+
+.bottom-workspace-tab:hover {
+  border-color: rgba(255,255,255,0.08);
+  box-shadow: none;
+}
+
+.bottom-workspace-tab.is-active {
+  color: var(--text-bright);
+  background: rgba(94, 170, 58, 0.16);
+  border-color: rgba(94, 170, 58, 0.32);
+}
+
+.bottom-workspace-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bottom-workspace-body {
+  min-height: 0;
+  overflow: auto;
+}
+
+.system-strings-panel,
+.validation-drawer,
+.xml-preview-panel {
+  min-height: 0;
+  height: 100%;
+  background: transparent;
+}
+
 .system-strings-toolbar {
-  padding: 10px 12px 0;
+  padding: 12px 14px 0;
 }
 
 .system-strings-search {
@@ -1561,9 +1646,9 @@ hr {
 }
 
 .system-strings-list {
-  max-height: 280px;
+  min-height: 0;
   overflow: auto;
-  padding: 10px 12px 12px;
+  padding: 12px 14px 16px;
   display: grid;
   gap: 10px;
 }
@@ -1607,9 +1692,9 @@ hr {
 }
 
 .validation-drawer-body {
-  max-height: 300px;
+  min-height: 0;
   overflow: auto;
-  padding: 10px 12px 14px;
+  padding: 12px 14px 16px;
   display: grid;
   gap: 12px;
 }
