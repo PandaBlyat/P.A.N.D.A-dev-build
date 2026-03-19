@@ -3,6 +3,7 @@
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { store } from '../lib/state';
 import type { ValidationMessage } from '../lib/types';
+import { createBadge, createControlContent, setButtonContent } from './icons';
 
 export function renderValidationBar(container: HTMLElement): void {
   const state = store.get();
@@ -12,27 +13,18 @@ export function renderValidationBar(container: HTMLElement): void {
   bar.className = 'validation-bar';
 
   const summary = document.createElement('div');
-  summary.style.cssText = 'display:flex; align-items:center; gap:12px;';
+  summary.className = 'validation-summary';
   const errors = messages.filter(m => m.level === 'error').length;
   const warnings = messages.filter(m => m.level === 'warning').length;
 
   if (messages.length === 0) {
-    const ok = document.createElement('span');
-    ok.style.color = 'var(--accent)';
-    ok.textContent = '✓ No issues';
-    summary.appendChild(ok);
+    summary.appendChild(createBadge('success', 'Ready', 'success'));
   } else {
     if (errors > 0) {
-      const badge = document.createElement('span');
-      badge.style.cssText = 'color:var(--danger); font-weight:bold;';
-      badge.textContent = `${errors} error${errors !== 1 ? 's' : ''}`;
-      summary.appendChild(badge);
+      summary.appendChild(createBadge('error', `${errors} error${errors !== 1 ? 's' : ''}`, 'danger'));
     }
     if (warnings > 0) {
-      const badge = document.createElement('span');
-      badge.style.cssText = 'color:var(--warning);';
-      badge.textContent = `${warnings} warning${warnings !== 1 ? 's' : ''}`;
-      summary.appendChild(badge);
+      summary.appendChild(createBadge('warning', `${warnings} warning${warnings !== 1 ? 's' : ''}`, 'warning'));
     }
   }
   bar.appendChild(summary);
@@ -45,7 +37,8 @@ export function renderValidationBar(container: HTMLElement): void {
       const item = document.createElement('button');
       item.type = 'button';
       item.className = `validation-msg ${msg.level}`;
-      item.textContent = `${formatLocation(msg)} ${msg.message}`;
+      const leading = msg.level === 'error' ? 'Error' : 'Warning';
+      item.innerHTML = `<strong>${leading} · ${formatLocation(msg)}</strong><span>${escapeHtml(msg.message)}</span>`;
       item.title = buildTooltip(msg);
       item.onclick = () => navigateToMessage(msg);
       highlights.appendChild(item);
@@ -56,7 +49,7 @@ export function renderValidationBar(container: HTMLElement): void {
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'btn-sm';
-    toggle.textContent = state.showValidationPanel ? 'Hide issues' : `Open issues (${messages.length})`;
+    setButtonContent(toggle, state.showValidationPanel ? 'close' : 'warning', state.showValidationPanel ? 'Hide issues' : `Open issues (${messages.length})`);
     toggle.onclick = () => store.toggleValidationPanel();
     bar.appendChild(toggle);
   }
@@ -74,14 +67,21 @@ function renderValidationDrawer(messages: ValidationMessage[]): HTMLElement {
 
   const header = document.createElement('div');
   header.className = 'validation-drawer-header';
-  header.innerHTML = '<strong>Project issues</strong><span>Jump through the full list without losing context in the editor.</span>';
+
+  const title = document.createElement('div');
+  title.className = 'drawer-header-copy';
+  const heading = document.createElement('strong');
+  heading.appendChild(createControlContent('warning', 'Project issues'));
+  const subheading = document.createElement('span');
+  subheading.textContent = 'Jump through the full list without losing context in the editor.';
+  title.append(heading, subheading);
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'btn-sm';
-  closeBtn.textContent = 'Close';
+  setButtonContent(closeBtn, 'close', 'Close');
   closeBtn.onclick = () => store.toggleValidationPanel();
-  header.appendChild(closeBtn);
+  header.append(title, closeBtn);
   drawer.appendChild(header);
 
   const body = document.createElement('div');
@@ -96,7 +96,7 @@ function renderValidationDrawer(messages: ValidationMessage[]): HTMLElement {
 
     const title = document.createElement('div');
     title.className = 'validation-drawer-title';
-    title.textContent = `${level === 'error' ? 'Errors' : 'Warnings'} (${group.length})`;
+    title.appendChild(createControlContent(level === 'error' ? 'error' : 'warning', `${level === 'error' ? 'Errors' : 'Warnings'} (${group.length})`));
     section.appendChild(title);
 
     const list = document.createElement('div');

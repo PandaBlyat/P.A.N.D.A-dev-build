@@ -10,6 +10,7 @@ import { renderPropertiesPanel } from './PropertiesPanel';
 import { renderValidationBar } from './ValidationBar';
 import { renderXmlPreview } from './XmlPreview';
 import { renderSystemStringsPanel } from './SystemStringsPanel';
+import { setButtonContent } from './icons';
 
 export function renderApp(container: HTMLElement): void {
   const state = store.get();
@@ -32,7 +33,7 @@ export function renderApp(container: HTMLElement): void {
   leftHeader.innerHTML = `<span>Conversations</span>`;
   const addBtn = document.createElement('button');
   addBtn.className = 'btn-sm';
-  addBtn.textContent = '+ New';
+  setButtonContent(addBtn, 'add', 'New');
   addBtn.onclick = () => store.addConversation();
   leftHeader.appendChild(addBtn);
   left.appendChild(leftHeader);
@@ -53,13 +54,13 @@ export function renderApp(container: HTMLElement): void {
   if (conv) {
     const autoLayoutBtn = document.createElement('button');
     autoLayoutBtn.className = 'btn-sm';
-    autoLayoutBtn.textContent = 'Auto Layout';
+    setButtonContent(autoLayoutBtn, 'locate', 'Auto Layout');
     autoLayoutBtn.onclick = () => store.autoLayoutConversation(conv.id);
     centerHeader.appendChild(autoLayoutBtn);
 
     const addTurnBtn = document.createElement('button');
     addTurnBtn.className = 'btn-sm';
-    addTurnBtn.textContent = '+ Turn';
+    setButtonContent(addTurnBtn, 'add', 'Turn');
     addTurnBtn.onclick = () => store.addTurn(conv.id);
     centerHeader.appendChild(addTurnBtn);
   }
