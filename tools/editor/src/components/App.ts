@@ -9,6 +9,7 @@ import { renderFlowEditor } from './FlowEditor';
 import { renderPropertiesPanel } from './PropertiesPanel';
 import { renderValidationBar } from './ValidationBar';
 import { renderXmlPreview } from './XmlPreview';
+import { renderSystemStringsPanel } from './SystemStringsPanel';
 
 export function renderApp(container: HTMLElement): void {
   const state = store.get();
@@ -91,8 +92,12 @@ export function renderApp(container: HTMLElement): void {
   main.appendChild(right);
   container.appendChild(main);
 
-  // Bottom area: validation + optional XML preview
+  // Bottom area: validation + optional drawers
   renderValidationBar(container);
+
+  if (state.showSystemStringsPanel) {
+    renderSystemStringsPanel(container);
+  }
 
   if (state.showXmlPreview) {
     renderXmlPreview(container);

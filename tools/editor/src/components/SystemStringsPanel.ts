@@ -1,0 +1,123 @@
+import { store } from '../lib/state';
+
+export function renderSystemStringsPanel(container: HTMLElement): void {
+  const state = store.get();
+  const entries = [...state.systemStrings.entries()].sort(([a], [b]) => a.localeCompare(b));
+
+  const panel = document.createElement('section');
+  panel.className = 'system-strings-panel';
+
+  const header = document.createElement('div');
+  header.className = 'system-strings-header';
+
+  const title = document.createElement('div');
+  title.innerHTML = '<strong>System Strings</strong><span>Edit imported/exported shared string-table entries.</span>';
+
+  const actions = document.createElement('div');
+  actions.className = 'system-strings-actions';
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'btn-sm';
+  addBtn.textContent = '+ Add string';
+  addBtn.onclick = () => {
+    let nextIndex = state.systemStrings.size + 1;
+    let nextKey = `ui_custom_${nextIndex}`;
+    while (state.systemStrings.has(nextKey)) {
+      nextIndex += 1;
+      nextKey = `ui_custom_${nextIndex}`;
+    }
+    store.setSystemString(nextKey, '');
+  };
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'btn-sm';
+  closeBtn.textContent = 'Close';
+  closeBtn.onclick = () => store.toggleSystemStringsPanel();
+
+  actions.append(addBtn, closeBtn);
+  header.append(title, actions);
+  panel.appendChild(header);
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'system-strings-toolbar';
+
+  const search = document.createElement('input');
+  search.type = 'search';
+  search.placeholder = 'Filter by string id or text…';
+  search.className = 'system-strings-search';
+  toolbar.appendChild(search);
+  panel.appendChild(toolbar);
+
+  const list = document.createElement('div');
+  list.className = 'system-strings-list';
+  panel.appendChild(list);
+
+  const renderList = (filter: string): void => {
+    list.replaceChildren();
+    const normalized = filter.trim().toLowerCase();
+    const filtered = entries.filter(([key, value]) => normalized === ''
+      || key.toLowerCase().includes(normalized)
+      || value.toLowerCase().includes(normalized));
+
+    if (filtered.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-hint';
+      empty.textContent = normalized === ''
+        ? 'No system strings imported yet. Add entries here to manage shared XML strings without leaving the editor.'
+        : 'No string entries match the current filter.';
+      list.appendChild(empty);
+      return;
+    }
+
+    for (const [key, value] of filtered) {
+      const card = document.createElement('article');
+      card.className = 'system-string-card';
+
+      const keyRow = document.createElement('div');
+      keyRow.className = 'system-string-key-row';
+
+      const keyInput = document.createElement('input');
+      keyInput.type = 'text';
+      keyInput.value = key;
+      keyInput.className = 'system-string-key';
+      keyInput.setAttribute('data-field-key', `system-string-key:${key}`);
+      keyInput.title = 'String-table id';
+      keyInput.onchange = () => store.renameSystemString(key, keyInput.value);
+
+      const usage = document.createElement('span');
+      usage.className = 'system-string-meta';
+      usage.textContent = value.trim() === '' ? 'Empty value' : `${value.length} chars`;
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'btn-icon';
+      deleteBtn.textContent = '×';
+      deleteBtn.title = 'Delete string entry';
+      deleteBtn.style.color = 'var(--danger)';
+      deleteBtn.onclick = () => {
+        if (confirm(`Delete string entry "${key}"?`)) {
+          store.deleteSystemString(key);
+        }
+      };
+
+      keyRow.append(keyInput, usage, deleteBtn);
+
+      const valueInput = document.createElement('textarea');
+      valueInput.value = value;
+      valueInput.className = 'system-string-value';
+      valueInput.rows = 3;
+      valueInput.setAttribute('data-field-key', `system-string-value:${key}`);
+      valueInput.placeholder = 'String-table text…';
+      valueInput.onchange = () => store.setSystemString(keyInput.value || key, valueInput.value);
+
+      card.append(keyRow, valueInput);
+      list.appendChild(card);
+    }
+  };
+
+  search.oninput = () => renderList(search.value);
+  renderList('');
+  container.appendChild(panel);
+}

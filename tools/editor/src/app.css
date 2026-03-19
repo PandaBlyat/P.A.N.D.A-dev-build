@@ -1207,3 +1207,335 @@ hr {
   background: var(--accent-dim);
   color: var(--text-bright);
 }
+
+/* ─── Toolbar Search / Drawers ────────────────────────── */
+
+.toolbar-search {
+  position: relative;
+  min-width: 320px;
+}
+
+.toolbar-search-input,
+.toolbar-density-select {
+  min-width: 180px;
+}
+
+.toolbar-search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 360px;
+  max-height: 360px;
+  overflow: auto;
+  padding: 6px;
+  background: rgba(8, 10, 12, 0.98);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 20;
+}
+
+.toolbar-search-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  gap: 2px;
+  padding: 8px 10px;
+  margin-bottom: 4px;
+  text-align: left;
+  white-space: normal;
+}
+
+.toolbar-search-result:last-child {
+  margin-bottom: 0;
+}
+
+.toolbar-search-result strong {
+  color: var(--text-bright);
+  font-size: 12px;
+}
+
+.toolbar-search-result span {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.system-strings-panel,
+.validation-drawer {
+  border-top: 1px solid var(--border);
+  background: var(--bg-darkest);
+}
+
+.system-strings-header,
+.validation-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+}
+
+.system-strings-header strong,
+.validation-drawer-header strong {
+  display: block;
+  color: var(--text-bright);
+}
+
+.system-strings-header span,
+.validation-drawer-header span {
+  display: block;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.system-strings-toolbar {
+  padding: 10px 12px 0;
+}
+
+.system-strings-search {
+  width: 100%;
+}
+
+.system-strings-list {
+  max-height: 280px;
+  overflow: auto;
+  padding: 10px 12px 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.system-string-card {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: rgba(255,255,255,0.02);
+}
+
+.system-string-key-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.system-string-key {
+  flex: 1;
+  font-family: var(--font-mono);
+}
+
+.system-string-meta {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+.system-string-value {
+  width: 100%;
+  min-height: 76px;
+}
+
+.validation-highlights {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.validation-drawer-body {
+  max-height: 300px;
+  overflow: auto;
+  padding: 10px 12px 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.validation-drawer-title {
+  color: var(--text-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.validation-drawer-list {
+  display: grid;
+  gap: 6px;
+}
+
+.validation-drawer-item {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  white-space: normal;
+  justify-items: start;
+}
+
+.validation-drawer-item strong {
+  color: var(--text-bright);
+}
+
+.validation-drawer-item span {
+  color: var(--text);
+}
+
+.validation-drawer-item small {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+/* ─── Conversation List Search ────────────────────────── */
+
+.conv-list-toolbar {
+  margin-bottom: 8px;
+}
+
+/* ─── Enhanced Flow Nodes / Connectors ────────────────── */
+
+.flow-shell.density-compact .turn-node { font-size: 12px; }
+.flow-shell.density-detailed .turn-node { box-shadow: var(--shadow-md); }
+
+.turn-node {
+  min-height: 120px;
+  padding-left: 12px;
+}
+
+.turn-input-port,
+.choice-output-port {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: linear-gradient(180deg, rgba(94,170,58,0.8), rgba(46,90,30,0.95));
+  box-shadow: 0 0 0 2px rgba(8, 10, 12, 0.9), 0 0 10px rgba(94, 170, 58, 0.2);
+  z-index: 3;
+}
+
+.turn-input-port {
+  left: -8px;
+  top: 18px;
+}
+
+.choice-output-port {
+  position: relative;
+  flex: 0 0 auto;
+  left: auto;
+  top: auto;
+  width: 12px;
+  height: 12px;
+  margin-right: 2px;
+}
+
+.turn-node:hover .turn-input-port,
+.turn-node:hover .choice-output-port,
+.turn-node.selected .turn-input-port,
+.turn-node.selected .choice-output-port {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(8, 10, 12, 0.92), 0 0 14px rgba(94, 170, 58, 0.35);
+}
+
+.turn-header {
+  gap: 8px;
+}
+
+.turn-stats {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+.turn-body {
+  display: grid;
+  gap: 8px;
+}
+
+.turn-message {
+  max-height: none;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+.turn-choice-item {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+}
+
+.choice-preview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  line-height: 1.35;
+}
+
+.choice-meta {
+  grid-column: 3 / -1;
+  margin-left: 0;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+.flow-edges {
+  pointer-events: none;
+}
+
+.flow-edge {
+  pointer-events: none;
+}
+
+.flow-edge-path,
+.flow-edge-label {
+  pointer-events: auto;
+}
+
+.flow-edge-path {
+  stroke-width: 2.6;
+  opacity: 0.88;
+}
+
+.flow-edge-path.edge-preview {
+  stroke: rgba(94, 170, 58, 0.65);
+  fill: none;
+  stroke-dasharray: 8 6;
+}
+
+.flow-edge-path.edge-continue {
+  stroke: rgba(94, 170, 58, 0.9);
+}
+
+.flow-edge-path.edge-pause-success {
+  stroke-dasharray: 10 8;
+}
+
+.flow-edge-path.edge-pause-fail {
+  stroke-dasharray: 5 7;
+}
+
+.flow-edge-path:hover,
+.flow-edge-label:hover {
+  filter: drop-shadow(0 0 8px rgba(94, 170, 58, 0.4));
+}
+
+.flow-edge-label {
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.flow-shell.density-detailed .turn-message {
+  font-size: 12px;
+}
+
+.flow-shell.density-detailed .choice-preview {
+  font-size: 11px;
+}
