@@ -629,6 +629,9 @@ label {
   white-space: nowrap;
   transition: background 0.15s;
   animation: slideInMsg 0.3s ease;
+  border: 0;
+  background: transparent;
+  font: inherit;
 }
 .validation-msg:hover { background: var(--bg-hover); }
 

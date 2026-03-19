@@ -81,11 +81,23 @@ export interface Outcome {
   chancePercent?: number;
 }
 
+export type ValidationScope = 'project' | 'conversation' | 'turn' | 'choice' | 'precondition' | 'outcome';
+export type ValidationGroup = 'structure' | 'schema' | 'logic';
+
 export interface ValidationMessage {
   level: 'error' | 'warning';
+  code: string;
+  group: ValidationGroup;
+  scope: ValidationScope;
   conversationId: number;
   turnNumber?: number;
   choiceIndex?: number;
+  preconditionIndex?: number;
+  outcomeIndex?: number;
+  paramIndex?: number;
+  propertiesTab?: 'conversation' | 'selection';
+  fieldKey?: string;
+  fieldLabel?: string;
   message: string;
 }
 

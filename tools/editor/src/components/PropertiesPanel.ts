@@ -5,6 +5,16 @@ import type { PropertiesTab } from '../lib/state';
 import type { Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, SimplePrecondition, Outcome, FactionId } from '../lib/types';
 import { FACTION_DISPLAY_NAMES } from '../lib/types';
 import { PRECONDITION_SCHEMAS, OUTCOME_SCHEMAS, groupByCategory } from '../lib/schema';
+import {
+  getChoiceFieldKey,
+  getConversationFieldKey,
+  getOutcomeChanceFieldKey,
+  getOutcomeItemFieldKey,
+  getOutcomeParamFieldKey,
+  getPreconditionItemFieldKey,
+  getPreconditionParamFieldKey,
+  getTurnFieldKey,
+} from '../lib/validation';
 import type { CommandSchema } from '../lib/schema';
 import { FACTION_IDS, RANKS, MUTANT_TYPES, DYNAMIC_PLACEHOLDERS, LEVEL_DISPLAY_NAMES, SMART_TERRAIN_LEVELS } from '../lib/constants';
 
@@ -108,7 +118,7 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   // Label
   const labelField = createField('Label', 'text', conv.label, (val) => {
     store.updateConversation(conv.id, { label: val });
-  }, 'A short name for this conversation (only used in the editor)');
+  }, 'A short name for this conversation (only used in the editor)', getConversationFieldKey(conv.id, 'label'));
   container.appendChild(labelField);
 
   container.appendChild(document.createElement('hr'));
@@ -149,12 +159,12 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
 
   const timeoutField = createField('Timeout (seconds)', 'number', String(conv.timeout || ''), (val) => {
     store.updateConversation(conv.id, { timeout: val ? parseInt(val, 10) : undefined });
-  }, 'Auto-close conversation after this many seconds (leave empty for no timeout)');
+  }, 'Auto-close conversation after this many seconds (leave empty for no timeout)', getConversationFieldKey(conv.id, 'timeout'));
   container.appendChild(timeoutField);
 
   const timeoutMsgField = createField('Timeout Message', 'textarea', conv.timeoutMessage || '', (val) => {
     store.updateConversation(conv.id, { timeoutMessage: val || undefined });
-  }, 'Message shown when the conversation times out');
+  }, 'Message shown when the conversation times out', getConversationFieldKey(conv.id, 'timeout-message'));
   container.appendChild(timeoutMsgField);
 }
 
@@ -181,7 +191,7 @@ function renderTurnProperties(container: HTMLElement, conv: Conversation, turn: 
   if (turn.turnNumber === 1) {
     const msgField = createField('Opening Message', 'textarea', turn.openingMessage || '', (val) => {
       store.updateTurn(conv.id, turn.turnNumber, { openingMessage: val });
-    }, 'The first message the NPC sends when starting this conversation');
+    }, 'The first message the NPC sends when starting this conversation', getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'));
     container.appendChild(msgField);
 
     // Placeholder picker for opening message
@@ -269,13 +279,13 @@ function renderChoiceProperties(container: HTMLElement, conv: Conversation, turn
   // Choice text
   const textField = createField('Player Choice Text', 'textarea', choice.text, (val) => {
     store.updateChoice(conv.id, turn.turnNumber, choice.index, { text: val });
-  }, 'What the player says when choosing this option');
+  }, 'What the player says when choosing this option', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'text'));
   container.appendChild(textField);
 
   // NPC Reply
   const replyField = createField('NPC Reply', 'textarea', choice.reply, (val) => {
     store.updateChoice(conv.id, turn.turnNumber, choice.index, { reply: val });
-  }, 'The NPC\'s response to this choice');
+  }, 'The NPC\'s response to this choice', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply'));
   container.appendChild(replyField);
 
   // Placeholder picker
@@ -284,12 +294,12 @@ function renderChoiceProperties(container: HTMLElement, conv: Conversation, turn
   // Reply variants
   const relHighField = createField('Reply (High Relationship, \u2265300)', 'textarea', choice.replyRelHigh || '', (val) => {
     store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyRelHigh: val || undefined });
-  }, 'Alternative reply when relationship score is 300 or higher (optional)');
+  }, 'Alternative reply when relationship score is 300 or higher (optional)', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-rel-high'));
   container.appendChild(relHighField);
 
   const relLowField = createField('Reply (Low Relationship, \u2264-300)', 'textarea', choice.replyRelLow || '', (val) => {
     store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyRelLow: val || undefined });
-  }, 'Alternative reply when relationship score is -300 or lower (optional)');
+  }, 'Alternative reply when relationship score is -300 or lower (optional)', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-rel-low'));
   container.appendChild(relLowField);
 
   // Outcomes
@@ -331,6 +341,7 @@ function renderChoiceProperties(container: HTMLElement, conv: Conversation, turn
 
   const contSelect = document.createElement('select');
   contSelect.style.width = '100%';
+  contSelect.setAttribute('data-field-key', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'));
 
   const noneOpt = document.createElement('option');
   noneOpt.value = '';
@@ -436,8 +447,10 @@ function renderPreconditionList(container: HTMLElement, conv: Conversation): voi
   list.className = 'precond-list';
 
   conv.preconditions.forEach((entry, idx) => {
-    list.appendChild(renderPreconditionEditor(conv, entry, [idx], 0, true));
-  });
+    const item = document.createElement('li');
+    item.className = 'precond-item clickable';
+    item.tabIndex = -1;
+    item.setAttribute('data-field-key', getPreconditionItemFieldKey(conv.id, idx));
 
   container.appendChild(list);
 }
@@ -482,16 +495,17 @@ function renderPreconditionEditor(
 
   wrapper.appendChild(item);
 
-  if (entry.type === 'simple') {
-    const schema = PRECONDITION_SCHEMAS.find(s => s.name === entry.command);
-    if (schema && schema.params.length > 0) {
-      wrapper.appendChild(renderParamEditors(schema, entry.params, (newParams) => {
-        updatePreconditionAtPath(conv, path, (current) => {
-          if (current.type !== 'simple') return current;
-          return { ...current, params: newParams };
-        });
-      }));
-    }
+    // Editable params for simple preconditions — always visible
+    if (entry.type === 'simple') {
+      const schema = PRECONDITION_SCHEMAS.find(s => s.name === entry.command);
+      if (schema && schema.params.length > 0) {
+        const paramsDiv = renderParamEditors(schema, entry.params, (newParams) => {
+          const updated = [...conv.preconditions];
+          (updated[idx] as SimplePrecondition).params = newParams;
+          store.updateConversation(conv.id, { preconditions: updated });
+        }, (paramIndex) => getPreconditionParamFieldKey(conv.id, idx, paramIndex));
+        list.appendChild(paramsDiv);
+      }
 
     if (schema) {
       const desc = document.createElement('div');
@@ -610,6 +624,8 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
   choice.outcomes.forEach((outcome, idx) => {
     const item = document.createElement('li');
     item.className = 'outcome-item clickable';
+    item.tabIndex = -1;
+    item.setAttribute('data-field-key', getOutcomeItemFieldKey(conv.id, turn.turnNumber, choice.index, idx));
 
     const display = document.createElement('span');
     display.style.flex = '1';
@@ -666,7 +682,7 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
         const updated = [...choice.outcomes];
         updated[idx] = { ...updated[idx], params: newParams };
         store.updateChoice(conv.id, turn.turnNumber, choice.index, { outcomes: updated });
-      });
+      }, (paramIndex) => getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, idx, paramIndex));
       list.appendChild(paramsDiv);
     }
 
@@ -684,6 +700,7 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
     chanceInput.value = String(outcome.chancePercent || '');
     chanceInput.placeholder = '100';
     chanceInput.style.width = '60px';
+    chanceInput.setAttribute('data-field-key', getOutcomeChanceFieldKey(conv.id, turn.turnNumber, choice.index, idx));
     chanceInput.onchange = () => {
       const updated = [...choice.outcomes];
       const val = parseInt(chanceInput.value, 10);
@@ -700,7 +717,12 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
 
 // ─── Parameter Editors ────────────────────────────────────────────────────
 
-function renderParamEditors(schema: CommandSchema, currentParams: string[], onChange: (params: string[]) => void): HTMLElement {
+function renderParamEditors(
+  schema: CommandSchema,
+  currentParams: string[],
+  onChange: (params: string[]) => void,
+  getFieldKey: (paramIndex: number) => string,
+): HTMLElement {
   const div = document.createElement('div');
   div.style.cssText = 'padding: 4px 8px 8px; background: var(--bg-darkest); border-radius: var(--radius); margin-bottom: 4px;';
 
@@ -809,7 +831,7 @@ function renderParamEditors(schema: CommandSchema, currentParams: string[], onCh
     }
 
     input.style.flex = '1';
-    const paramKey = `param-${schema.name}-${i}`;
+    const paramKey = getFieldKey(i);
     input.setAttribute('data-field-key', paramKey);
     const handler = () => {
       const newParams = [...currentParams];
@@ -1020,10 +1042,10 @@ function renderPlaceholderPicker(container: HTMLElement): void {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
-function createField(labelText: string, type: string, value: string, onChange: (val: string) => void, hint?: string): HTMLElement {
+function createField(labelText: string, type: string, value: string, onChange: (val: string) => void, hint?: string, fieldKey?: string): HTMLElement {
   const field = document.createElement('div');
   field.className = 'field';
-  const fieldKey = 'field-' + labelText.replace(/\s+/g, '-').toLowerCase();
+  const resolvedFieldKey = fieldKey || 'field-' + labelText.replace(/\s+/g, '-').toLowerCase();
 
   const label = document.createElement('label');
   label.textContent = labelText;
@@ -1039,9 +1061,9 @@ function createField(labelText: string, type: string, value: string, onChange: (
   if (type === 'textarea') {
     const textarea = document.createElement('textarea');
     textarea.value = value;
-    textarea.setAttribute('data-field-key', fieldKey);
+    textarea.setAttribute('data-field-key', resolvedFieldKey);
     textarea.oninput = () => {
-      debounced(fieldKey, () => onChange(textarea.value));
+      debounced(resolvedFieldKey, () => onChange(textarea.value));
     };
     // Drag-drop support for placeholders
     textarea.addEventListener('dragover', (e) => {
@@ -1080,9 +1102,9 @@ function createField(labelText: string, type: string, value: string, onChange: (
     const input = document.createElement('input');
     input.type = type;
     input.value = value;
-    input.setAttribute('data-field-key', fieldKey);
+    input.setAttribute('data-field-key', resolvedFieldKey);
     input.oninput = () => {
-      debounced(fieldKey, () => onChange(input.value));
+      debounced(resolvedFieldKey, () => onChange(input.value));
     };
     field.appendChild(input);
   }
