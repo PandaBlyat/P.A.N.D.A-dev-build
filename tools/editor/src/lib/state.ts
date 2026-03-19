@@ -5,6 +5,7 @@ import { createEmptyProject, createConversation, createTurn, createChoice } from
 import { validate } from './validation';
 
 export type PropertiesTab = 'conversation' | 'selection';
+export type FlowDensity = 'compact' | 'standard' | 'detailed';
 
 export interface AppState {
   project: Project;
@@ -15,6 +16,9 @@ export interface AppState {
   propertiesTab: PropertiesTab;
   validationMessages: ValidationMessage[];
   showXmlPreview: boolean;
+  showSystemStringsPanel: boolean;
+  showValidationPanel: boolean;
+  flowDensity: FlowDensity;
   dirty: boolean;
   undoStack: string[];
   redoStack: string[];
@@ -41,6 +45,9 @@ class StateManager {
       propertiesTab: 'conversation',
       validationMessages: [],
       showXmlPreview: false,
+      showSystemStringsPanel: false,
+      showValidationPanel: false,
+      flowDensity: 'standard',
       dirty: false,
       undoStack: [],
       redoStack: [],
@@ -156,8 +163,6 @@ class StateManager {
     });
   }
 
-  // ─── Project ────────────────────────────────────────────────────────────
-
   loadProject(project: Project, systemStrings: Map<string, string>): void {
     this.state.project = project;
     this.state.systemStrings = systemStrings;
@@ -165,6 +170,8 @@ class StateManager {
     this.state.selectedTurnNumber = null;
     this.state.selectedChoiceIndex = null;
     this.state.propertiesTab = 'conversation';
+    this.state.showSystemStringsPanel = false;
+    this.state.showValidationPanel = false;
     this.state.dirty = false;
     this.state.undoStack = [];
     this.state.redoStack = [];
@@ -177,8 +184,6 @@ class StateManager {
     this.state.project.faction = faction;
     this.finishProjectMutation();
   }
-
-  // ─── Selection ──────────────────────────────────────────────────────────
 
   selectConversation(id: number | null): void {
     this.state.selectedConversationId = id;
@@ -211,7 +216,21 @@ class StateManager {
     this.notify();
   }
 
-  // ─── Conversation CRUD ──────────────────────────────────────────────────
+  toggleSystemStringsPanel(): void {
+    this.state.showSystemStringsPanel = !this.state.showSystemStringsPanel;
+    this.notify();
+  }
+
+  toggleValidationPanel(): void {
+    this.state.showValidationPanel = !this.state.showValidationPanel;
+    this.notify();
+  }
+
+  setFlowDensity(density: FlowDensity): void {
+    if (this.state.flowDensity === density) return;
+    this.state.flowDensity = density;
+    this.notify();
+  }
 
   getSelectedConversation(): Conversation | null {
     if (this.state.selectedConversationId == null) return null;
@@ -243,7 +262,6 @@ class StateManager {
   deleteConversation(id: number): void {
     this.pushUndo();
     this.state.project.conversations = this.state.project.conversations.filter(c => c.id !== id);
-    // Renumber to keep sequential
     this.state.project.conversations.forEach((c, i) => { c.id = i + 1; });
     if (this.state.selectedConversationId === id) {
       this.state.selectedConversationId = this.state.project.conversations.length > 0
@@ -268,9 +286,9 @@ class StateManager {
   }
 
   updateConversation(id: number, updates: Partial<Conversation>): void {
-    this.pushUndo();
     const conv = this.state.project.conversations.find(c => c.id === id);
     if (!conv) return;
+    this.pushUndo();
     Object.assign(conv, updates);
     this.finishProjectMutation();
   }
@@ -281,12 +299,10 @@ class StateManager {
     this.batchUpdateTurnPositions(conversationId, this.calculateAutoLayoutUpdates(conversation));
   }
 
-  // ─── Turn CRUD ──────────────────────────────────────────────────────────
-
   addTurn(conversationId: number): void {
-    this.pushUndo();
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
     if (!conv) return;
+    this.pushUndo();
     const maxTurn = conv.turns.reduce((m, t) => Math.max(m, t.turnNumber), 0);
     const turn = createTurn(maxTurn + 1);
     conv.turns.push(turn);
@@ -295,10 +311,10 @@ class StateManager {
   }
 
   deleteTurn(conversationId: number, turnNumber: number): void {
-    if (turnNumber === 1) return; // Can't delete turn 1
-    this.pushUndo();
+    if (turnNumber === 1) return;
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
     if (!conv) return;
+    this.pushUndo();
     conv.turns = conv.turns.filter(t => t.turnNumber !== turnNumber);
     if (this.state.selectedTurnNumber === turnNumber) {
       this.state.selectedTurnNumber = null;
@@ -308,11 +324,10 @@ class StateManager {
   }
 
   updateTurn(conversationId: number, turnNumber: number, updates: Partial<Turn>): void {
-    this.pushUndo();
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
-    if (!conv) return;
-    const turn = conv.turns.find(t => t.turnNumber === turnNumber);
+    const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
     if (!turn) return;
+    this.pushUndo();
     Object.assign(turn, updates);
     this.finishProjectMutation();
   }
@@ -357,27 +372,22 @@ class StateManager {
     this.finishProjectMutation({ revalidate: false });
   }
 
-  // ─── Choice CRUD ────────────────────────────────────────────────────────
-
   addChoice(conversationId: number, turnNumber: number): void {
-    this.pushUndo();
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
-    if (!conv) return;
-    const turn = conv.turns.find(t => t.turnNumber === turnNumber);
+    const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
     if (!turn || turn.choices.length >= 4) return;
+    this.pushUndo();
     const nextIndex = turn.choices.length + 1;
     turn.choices.push(createChoice(nextIndex));
     this.finishProjectMutation();
   }
 
   deleteChoice(conversationId: number, turnNumber: number, choiceIndex: number): void {
-    this.pushUndo();
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
-    if (!conv) return;
-    const turn = conv.turns.find(t => t.turnNumber === turnNumber);
+    const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
     if (!turn || turn.choices.length <= 1) return;
+    this.pushUndo();
     turn.choices = turn.choices.filter(c => c.index !== choiceIndex);
-    // Renumber
     turn.choices.forEach((c, i) => { c.index = i + 1; });
     if (this.state.selectedChoiceIndex === choiceIndex) {
       this.state.selectedChoiceIndex = null;
@@ -386,15 +396,63 @@ class StateManager {
   }
 
   updateChoice(conversationId: number, turnNumber: number, choiceIndex: number, updates: Partial<Choice>): void {
-    this.pushUndo();
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
-    if (!conv) return;
-    const turn = conv.turns.find(t => t.turnNumber === turnNumber);
-    if (!turn) return;
-    const choice = turn.choices.find(c => c.index === choiceIndex);
+    const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
+    const choice = turn?.choices.find(c => c.index === choiceIndex);
     if (!choice) return;
+    this.pushUndo();
     Object.assign(choice, updates);
     this.finishProjectMutation();
+  }
+
+  connectChoiceToTurn(conversationId: number, turnNumber: number, choiceIndex: number, targetTurnNumber: number): void {
+    if (turnNumber === targetTurnNumber) return;
+    const conv = this.state.project.conversations.find(c => c.id === conversationId);
+    const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
+    const target = conv?.turns.find(t => t.turnNumber === targetTurnNumber);
+    const choice = turn?.choices.find(c => c.index === choiceIndex);
+    if (!choice || !target) return;
+    this.pushUndo();
+    choice.continueTo = targetTurnNumber;
+    this.finishProjectMutation();
+  }
+
+  clearChoiceContinuation(conversationId: number, turnNumber: number, choiceIndex: number): void {
+    const conv = this.state.project.conversations.find(c => c.id === conversationId);
+    const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
+    const choice = turn?.choices.find(c => c.index === choiceIndex);
+    if (!choice || choice.continueTo == null) return;
+    this.pushUndo();
+    delete choice.continueTo;
+    this.finishProjectMutation();
+  }
+
+  setSystemString(key: string, value: string): void {
+    const normalized = key.trim();
+    if (!normalized) return;
+    this.pushUndo();
+    this.state.systemStrings.set(normalized, value);
+    this.finishProjectMutation({ revalidate: false });
+  }
+
+  renameSystemString(oldKey: string, nextKey: string): void {
+    const normalizedOld = oldKey.trim();
+    const normalizedNext = nextKey.trim();
+    if (!normalizedOld || !normalizedNext || normalizedOld === normalizedNext) return;
+    const value = this.state.systemStrings.get(normalizedOld);
+    if (value == null) return;
+    this.pushUndo();
+    this.state.systemStrings.delete(normalizedOld);
+    this.state.systemStrings.set(normalizedNext, value);
+    this.finishProjectMutation({ revalidate: false });
+  }
+
+  deleteSystemString(key: string): void {
+    const normalized = key.trim();
+    if (!normalized || !this.state.systemStrings.has(normalized)) return;
+    this.pushUndo();
+    this.state.systemStrings.delete(normalized);
+    this.finishProjectMutation({ revalidate: false });
   }
 }
 

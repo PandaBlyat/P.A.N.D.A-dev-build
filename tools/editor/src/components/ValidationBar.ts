@@ -11,71 +11,112 @@ export function renderValidationBar(container: HTMLElement): void {
   const bar = document.createElement('div');
   bar.className = 'validation-bar';
 
-  if (messages.length === 0) {
-    const ok = document.createElement('span');
-    ok.style.color = 'var(--accent)';
-    ok.textContent = '\u2713 No issues';
-    bar.appendChild(ok);
-    container.appendChild(bar);
-    return;
-  }
-
   const summary = document.createElement('div');
   summary.style.cssText = 'display:flex; align-items:center; gap:12px;';
   const errors = messages.filter(m => m.level === 'error').length;
   const warnings = messages.filter(m => m.level === 'warning').length;
 
-  if (errors > 0) {
-    const badge = document.createElement('span');
-    badge.style.cssText = 'color:var(--danger); font-weight:bold;';
-    badge.textContent = `${errors} error${errors !== 1 ? 's' : ''}`;
-    summary.appendChild(badge);
-  }
-  if (warnings > 0) {
-    const badge = document.createElement('span');
-    badge.style.cssText = 'color:var(--warning);';
-    badge.textContent = `${warnings} warning${warnings !== 1 ? 's' : ''}`;
-    summary.appendChild(badge);
+  if (messages.length === 0) {
+    const ok = document.createElement('span');
+    ok.style.color = 'var(--accent)';
+    ok.textContent = '✓ No issues';
+    summary.appendChild(ok);
+  } else {
+    if (errors > 0) {
+      const badge = document.createElement('span');
+      badge.style.cssText = 'color:var(--danger); font-weight:bold;';
+      badge.textContent = `${errors} error${errors !== 1 ? 's' : ''}`;
+      summary.appendChild(badge);
+    }
+    if (warnings > 0) {
+      const badge = document.createElement('span');
+      badge.style.cssText = 'color:var(--warning);';
+      badge.textContent = `${warnings} warning${warnings !== 1 ? 's' : ''}`;
+      summary.appendChild(badge);
+    }
   }
   bar.appendChild(summary);
 
-  const groups: Array<['error' | 'warning', ValidationMessage[]]> = [
-    ['error', messages.filter(msg => msg.level === 'error')],
-    ['warning', messages.filter(msg => msg.level === 'warning')],
-  ];
+  if (messages.length > 0) {
+    const highlights = document.createElement('div');
+    highlights.className = 'validation-highlights';
 
-  for (const [level, groupMessages] of groups) {
-    if (groupMessages.length === 0) continue;
-
-    const section = document.createElement('div');
-    section.style.cssText = 'display:flex; align-items:center; gap:6px; min-width:max-content;';
-
-    const label = document.createElement('span');
-    label.style.cssText = `font-weight:600; text-transform:uppercase; color:${level === 'error' ? 'var(--danger)' : 'var(--warning)'};`;
-    label.textContent = level === 'error' ? 'Errors' : 'Warnings';
-    section.appendChild(label);
-
-    for (const msg of groupMessages.slice(0, 6)) {
+    for (const msg of messages.slice(0, 8)) {
       const item = document.createElement('button');
       item.type = 'button';
       item.className = `validation-msg ${msg.level}`;
       item.textContent = `${formatLocation(msg)} ${msg.message}`;
       item.title = buildTooltip(msg);
       item.onclick = () => navigateToMessage(msg);
-      section.appendChild(item);
+      highlights.appendChild(item);
     }
 
-    if (groupMessages.length > 6) {
-      const more = document.createElement('span');
-      more.style.color = 'var(--text-dim)';
-      more.textContent = `+${groupMessages.length - 6} more`;
-      section.appendChild(more);
-    }
+    bar.appendChild(highlights);
 
-    bar.appendChild(section);
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'btn-sm';
+    toggle.textContent = state.showValidationPanel ? 'Hide issues' : `Open issues (${messages.length})`;
+    toggle.onclick = () => store.toggleValidationPanel();
+    bar.appendChild(toggle);
   }
 
   container.appendChild(bar);
+
+  if (state.showValidationPanel && messages.length > 0) {
+    container.appendChild(renderValidationDrawer(messages));
+  }
+}
+
+function renderValidationDrawer(messages: ValidationMessage[]): HTMLElement {
+  const drawer = document.createElement('section');
+  drawer.className = 'validation-drawer';
+
+  const header = document.createElement('div');
+  header.className = 'validation-drawer-header';
+  header.innerHTML = '<strong>Project issues</strong><span>Jump through the full list without losing context in the editor.</span>';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'btn-sm';
+  closeBtn.textContent = 'Close';
+  closeBtn.onclick = () => store.toggleValidationPanel();
+  header.appendChild(closeBtn);
+  drawer.appendChild(header);
+
+  const body = document.createElement('div');
+  body.className = 'validation-drawer-body';
+
+  for (const level of ['error', 'warning'] as const) {
+    const group = messages.filter((message) => message.level === level);
+    if (group.length === 0) continue;
+
+    const section = document.createElement('div');
+    section.className = 'validation-drawer-section';
+
+    const title = document.createElement('div');
+    title.className = 'validation-drawer-title';
+    title.textContent = `${level === 'error' ? 'Errors' : 'Warnings'} (${group.length})`;
+    section.appendChild(title);
+
+    const list = document.createElement('div');
+    list.className = 'validation-drawer-list';
+
+    for (const msg of group) {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = `validation-drawer-item ${msg.level}`;
+      item.innerHTML = `<strong>${formatLocation(msg)}</strong><span>${escapeHtml(msg.message)}</span><small>${escapeHtml(msg.code)}</small>`;
+      item.onclick = () => navigateToMessage(msg);
+      list.appendChild(item);
+    }
+
+    section.appendChild(list);
+    body.appendChild(section);
+  }
+
+  drawer.appendChild(body);
+  return drawer;
 }
 
 function formatLocation(msg: ValidationMessage): string {
@@ -117,6 +158,14 @@ function navigateToMessage(msg: ValidationMessage): void {
       field.focus();
     }
   });
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .split('&').join('&amp;')
+    .split('<').join('&lt;')
+    .split('>').join('&gt;')
+    .split('"').join('&quot;');
 }
 
 function isFocusable(el: HTMLElement): el is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | HTMLButtonElement | HTMLLIElement {

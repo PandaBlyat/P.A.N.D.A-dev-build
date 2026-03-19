@@ -91,4 +91,14 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     store.redo();
   }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+    e.preventDefault();
+    const search = document.querySelector('[data-global-search="true"]') as HTMLInputElement | null;
+    search?.focus();
+    search?.select();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
+    e.preventDefault();
+    store.toggleValidationPanel();
+  }
 });

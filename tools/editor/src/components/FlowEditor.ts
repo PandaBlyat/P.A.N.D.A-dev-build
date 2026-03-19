@@ -3,6 +3,7 @@
 import { store } from '../lib/state';
 import { setActiveFlowViewport, type FlowViewportApi } from '../lib/flow-navigation';
 import type { Choice, Conversation, Turn } from '../lib/types';
+import type { FlowDensity } from '../lib/state';
 
 type TurnPositionMap = Map<number, { x: number; y: number }>;
 type EdgeKind = 'continue' | 'pause-success' | 'pause-fail';
@@ -18,6 +19,7 @@ type EdgeDescriptor = {
   textClassName: string;
   offsetIndex: number;
   highlight: HighlightState;
+  kind: EdgeKind;
 };
 
 type ContentBounds = {
@@ -31,9 +33,25 @@ type ViewState = {
   zoom: number;
 };
 
-const NODE_WIDTH = 220;
-const NODE_HEIGHT = 160;
-const CONTENT_PADDING = 80;
+type ConnectionPreview = {
+  sourceTurnNumber: number;
+  sourceChoiceIndex: number;
+  cursor: { x: number; y: number };
+};
+
+type NodeLayout = {
+  width: number;
+  messageChars: number;
+  previewLines: number;
+  minHeight: number;
+};
+
+const NODE_LAYOUTS: Record<FlowDensity, NodeLayout> = {
+  compact: { width: 210, messageChars: 52, previewLines: 1, minHeight: 126 },
+  standard: { width: 240, messageChars: 90, previewLines: 1, minHeight: 152 },
+  detailed: { width: 300, messageChars: 160, previewLines: 2, minHeight: 186 },
+};
+const CONTENT_PADDING = 120;
 const MIN_ZOOM = 0.35;
 const MAX_ZOOM = 1.8;
 const DEFAULT_VIEW_STATE: ViewState = {
@@ -46,6 +64,8 @@ const viewStateByConversation = new Map<number, ViewState>();
 export function renderFlowEditor(container: HTMLElement): void {
   const conv = store.getSelectedConversation();
   const state = store.get();
+  const density = state.flowDensity;
+  const layout = NODE_LAYOUTS[density];
 
   if (!conv) {
     container.innerHTML = `
@@ -58,13 +78,15 @@ export function renderFlowEditor(container: HTMLElement): void {
     return;
   }
 
-  const existingView = viewStateByConversation.get(conv.id);
+  const conversationId = conv.id;
+  const existingView = viewStateByConversation.get(conversationId);
   const viewState: ViewState = existingView ? { ...existingView } : { ...DEFAULT_VIEW_STATE };
-  const bounds = calculateContentBounds(conv);
+  const bounds = calculateContentBounds(conv, density);
   const edges = buildEdgeDescriptors(conv, state.selectedTurnNumber, state.selectedChoiceIndex);
+  const nodeElements = new Map<number, HTMLElement>();
 
   const shell = document.createElement('div');
-  shell.className = 'flow-shell';
+  shell.className = `flow-shell density-${density}`;
 
   const canvas = document.createElement('div');
   canvas.className = 'flow-canvas';
@@ -78,8 +100,10 @@ export function renderFlowEditor(container: HTMLElement): void {
   svg.classList.add('flow-edges');
   svg.setAttribute('width', String(bounds.width));
   svg.setAttribute('height', String(bounds.height));
+  svg.appendChild(createMarkerDefs());
 
   let viewAdjusted = false;
+  let connectionPreview: ConnectionPreview | null = null;
 
   const zoomValue = document.createElement('span');
   zoomValue.className = 'flow-zoom-value';
@@ -90,18 +114,24 @@ export function renderFlowEditor(container: HTMLElement): void {
   const minimapNodes = document.createElement('div');
   minimapNodes.className = 'flow-minimap-nodes';
 
-  drawEdges(svg, conv, edges);
   content.appendChild(svg);
 
   for (const turn of conv.turns) {
-    const node = renderTurnNode(
+    const node = renderTurnNode({
       conv,
       turn,
-      state.selectedTurnNumber === turn.turnNumber,
-      svg,
-      viewState,
+      selected: state.selectedTurnNumber === turn.turnNumber,
       edges,
-    );
+      density,
+      viewState,
+      onPreviewPosition: (previewPositions) => draw(previewPositions),
+      onChoicePortDragStart: (choiceIndex, event) => {
+        store.selectTurn(turn.turnNumber);
+        store.selectChoice(choiceIndex);
+        startConnectionDrag(turn.turnNumber, choiceIndex, event);
+      },
+    });
+    nodeElements.set(turn.turnNumber, node);
     content.appendChild(node);
 
     const miniNode = document.createElement('button');
@@ -117,6 +147,17 @@ export function renderFlowEditor(container: HTMLElement): void {
     };
     minimapNodes.appendChild(miniNode);
   }
+
+  const draw = (positionOverrides?: TurnPositionMap): void => {
+    drawEdges({
+      svg,
+      conv,
+      edges,
+      nodeElements,
+      positionOverrides,
+      preview: connectionPreview,
+    });
+  };
 
   const controls = renderControls({
     zoomValue,
@@ -150,7 +191,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     content.style.transform = `translate(${viewState.panX}px, ${viewState.panY}px) scale(${viewState.zoom})`;
     zoomValue.textContent = `${Math.round(viewState.zoom * 100)}%`;
     updateMinimapViewport(bounds, canvas, viewState, minimapViewport);
-    viewStateByConversation.set(conv.id, { ...viewState });
+    viewStateByConversation.set(conversationId, { ...viewState });
   };
 
   const centerWorldPoint = (worldX: number, worldY: number, animate = true): void => {
@@ -173,7 +214,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     const targetTurn = conv.turns.find(item => item.turnNumber === turnNumber);
     if (!targetTurn) return;
 
-    centerWorldPoint(targetTurn.position.x + NODE_WIDTH / 2, targetTurn.position.y + NODE_HEIGHT / 2, animate);
+    centerWorldPoint(targetTurn.position.x + layout.width / 2, targetTurn.position.y + getNodeHeight(targetTurn, density) / 2, animate);
   };
 
   const fitContent = (animate = true): void => {
@@ -208,13 +249,53 @@ export function renderFlowEditor(container: HTMLElement): void {
     applyView();
   };
 
+  function startConnectionDrag(sourceTurnNumber: number, sourceChoiceIndex: number, event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    connectionPreview = {
+      sourceTurnNumber,
+      sourceChoiceIndex,
+      cursor: viewportToWorldPoint(canvas, viewState, event.clientX, event.clientY),
+    };
+    draw();
+
+    const onMove = (moveEvent: MouseEvent) => {
+      connectionPreview = {
+        sourceTurnNumber,
+        sourceChoiceIndex,
+        cursor: viewportToWorldPoint(canvas, viewState, moveEvent.clientX, moveEvent.clientY),
+      };
+      draw();
+    };
+
+    const onUp = (upEvent: MouseEvent) => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+
+      const targetNode = (upEvent.target as HTMLElement | null)?.closest('.turn-node') as HTMLElement | null;
+      if (targetNode) {
+        const targetTurn = Number(targetNode.dataset.turnNumber);
+        if (!Number.isNaN(targetTurn) && targetTurn !== sourceTurnNumber) {
+          store.connectChoiceToTurn(conversationId, sourceTurnNumber, sourceChoiceIndex, targetTurn);
+        }
+      }
+
+      connectionPreview = null;
+      draw();
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
+
   const viewportApi: FlowViewportApi = {
     centerTurn: (turnNumber, options) => centerTurn(turnNumber, options?.animate ?? true),
     fitContent: (options) => fitContent(options?.animate ?? true),
     resetView: (options) => resetView(options?.animate ?? true),
   };
 
-  setActiveFlowViewport(conv.id, viewportApi);
+  setActiveFlowViewport(conversationId, viewportApi);
 
   wireCanvasInteractions({
     canvas,
@@ -223,9 +304,11 @@ export function renderFlowEditor(container: HTMLElement): void {
     onBackgroundClick: () => store.selectTurn(null),
   });
 
+  draw();
   applyView();
 
   requestAnimationFrame(() => {
+    draw();
     if (!existingView && !viewAdjusted) {
       fitContent(false);
       return;
@@ -316,7 +399,9 @@ function renderMinimap(options: {
   return panel;
 }
 
-function calculateContentBounds(conv: Conversation): ContentBounds {
+function calculateContentBounds(conv: Conversation, density: FlowDensity): ContentBounds {
+  const layout = NODE_LAYOUTS[density];
+
   if (conv.turns.length === 0) {
     return {
       width: 400,
@@ -324,33 +409,33 @@ function calculateContentBounds(conv: Conversation): ContentBounds {
     };
   }
 
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
   let maxX = 0;
   let maxY = 0;
 
   for (const turn of conv.turns) {
-    minX = Math.min(minX, turn.position.x);
-    minY = Math.min(minY, turn.position.y);
-    maxX = Math.max(maxX, turn.position.x + NODE_WIDTH);
-    maxY = Math.max(maxY, turn.position.y + NODE_HEIGHT);
+    maxX = Math.max(maxX, turn.position.x + layout.width);
+    maxY = Math.max(maxY, turn.position.y + getNodeHeight(turn, density));
   }
 
   return {
-    width: Math.max(400, maxX + CONTENT_PADDING),
-    height: Math.max(300, maxY + CONTENT_PADDING),
+    width: Math.max(420, maxX + CONTENT_PADDING),
+    height: Math.max(320, maxY + CONTENT_PADDING),
   };
 }
 
-function renderTurnNode(
-  conv: Conversation,
-  turn: Turn,
-  selected: boolean,
-  edgeLayer: SVGSVGElement,
-  viewState: ViewState,
-  edges: EdgeDescriptor[],
-): HTMLElement {
+function renderTurnNode(options: {
+  conv: Conversation;
+  turn: Turn;
+  selected: boolean;
+  edges: EdgeDescriptor[];
+  density: FlowDensity;
+  viewState: ViewState;
+  onPreviewPosition: (positions?: TurnPositionMap) => void;
+  onChoicePortDragStart: (choiceIndex: number, event: MouseEvent) => void;
+}): HTMLElement {
+  const { conv, turn, selected, edges, density, viewState, onPreviewPosition, onChoicePortDragStart } = options;
   const state = store.get();
+  const layout = NODE_LAYOUTS[density];
   const hasWarning = turn.choices.some(c => !c.text && !c.reply);
   const isPathActive = edges.some(edge => edge.highlight === 'active' && (edge.sourceTurnNumber === turn.turnNumber || edge.targetTurnNumber === turn.turnNumber));
   const node = document.createElement('div');
@@ -358,8 +443,10 @@ function renderTurnNode(
     + (selected ? ' selected' : '')
     + (hasWarning ? ' has-warning' : '')
     + (isPathActive ? ' path-active' : '');
+  node.dataset.turnNumber = String(turn.turnNumber);
   node.style.left = `${turn.position.x}px`;
   node.style.top = `${turn.position.y}px`;
+  node.style.width = `${layout.width}px`;
   node.onclick = (e) => {
     e.stopPropagation();
     store.selectTurn(turn.turnNumber);
@@ -369,13 +456,13 @@ function renderTurnNode(
 
   node.onmousedown = (e) => {
     if (e.button !== 0) return;
-    if ((e.target as HTMLElement).closest('.turn-choice-item')) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('.turn-choice-item, .choice-output-port, .turn-input-port')) return;
 
     const startX = e.clientX;
     const startY = e.clientY;
     const origX = turn.position.x;
     const origY = turn.position.y;
-    const transientPositions: TurnPositionMap = new Map();
     e.preventDefault();
     e.stopPropagation();
 
@@ -384,18 +471,16 @@ function renderTurnNode(
         x: Math.max(0, origX + (ev.clientX - startX) / viewState.zoom),
         y: Math.max(0, origY + (ev.clientY - startY) / viewState.zoom),
       };
-
       dragPosition = nextPosition;
-      transientPositions.set(turn.turnNumber, nextPosition);
       node.style.left = `${nextPosition.x}px`;
       node.style.top = `${nextPosition.y}px`;
-      drawEdges(edgeLayer, conv, edges, transientPositions);
+      onPreviewPosition(new Map([[turn.turnNumber, nextPosition]]));
     };
 
     const onUp = () => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
-
+      onPreviewPosition();
       if (!dragPosition) return;
       store.updateTurnPosition(conv.id, turn.turnNumber, dragPosition);
       dragPosition = null;
@@ -405,6 +490,16 @@ function renderTurnNode(
     document.addEventListener('mouseup', onUp);
   };
 
+  const inputPort = document.createElement('button');
+  inputPort.type = 'button';
+  inputPort.className = 'turn-input-port';
+  inputPort.title = `Incoming connections for Turn ${turn.turnNumber}`;
+  inputPort.onclick = (event) => {
+    event.stopPropagation();
+    store.selectTurn(turn.turnNumber);
+  };
+  node.appendChild(inputPort);
+
   const header = document.createElement('div');
   header.className = 'turn-header';
   const label = document.createElement('span');
@@ -412,10 +507,16 @@ function renderTurnNode(
   label.textContent = `Turn ${turn.turnNumber}`;
   header.appendChild(label);
 
+  const stats = document.createElement('span');
+  stats.className = 'turn-stats';
+  const outgoingCount = turn.choices.filter(choice => choice.continueTo != null || hasPauseOutcome(choice)).length;
+  stats.textContent = `${turn.choices.length} choice${turn.choices.length !== 1 ? 's' : ''} · ${outgoingCount} link${outgoingCount !== 1 ? 's' : ''}`;
+  header.appendChild(stats);
+
   if (turn.turnNumber > 1) {
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-icon btn-sm';
-    delBtn.textContent = '\u00d7';
+    delBtn.textContent = '×';
     delBtn.title = 'Delete turn';
     delBtn.style.color = 'var(--danger)';
     delBtn.onclick = (e) => {
@@ -429,10 +530,11 @@ function renderTurnNode(
   const body = document.createElement('div');
   body.className = 'turn-body';
 
-  if (turn.turnNumber === 1 && turn.openingMessage) {
+  const messageText = turn.openingMessage || turn.choices.find(choice => choice.reply)?.reply;
+  if (messageText) {
     const msg = document.createElement('div');
     msg.className = 'turn-message';
-    msg.textContent = turn.openingMessage.substring(0, 80) + (turn.openingMessage.length > 80 ? '...' : '');
+    msg.textContent = truncate(messageText, layout.messageChars);
     body.appendChild(msg);
   }
 
@@ -448,15 +550,32 @@ function renderTurnNode(
       store.selectChoice(choice.index);
     };
 
+    const port = document.createElement('button');
+    port.type = 'button';
+    port.className = 'choice-output-port';
+    port.dataset.choicePort = String(choice.index);
+    port.title = choice.continueTo != null
+      ? `Drag to change destination for Choice ${choice.index}`
+      : `Drag to connect Choice ${choice.index} to another turn`;
+    port.onmousedown = (event) => onChoicePortDragStart(choice.index, event);
+
     const num = document.createElement('span');
     num.className = 'choice-number';
     num.textContent = String(choice.index);
 
     const preview = document.createElement('span');
     preview.className = 'choice-preview';
-    preview.textContent = choice.text || '(empty)';
+    preview.textContent = choice.text || choice.reply || '(empty)';
+    preview.style.setProperty('-webkit-line-clamp', String(layout.previewLines));
 
-    item.append(num, preview);
+    const meta = document.createElement('span');
+    meta.className = 'choice-meta';
+    const metaBits: string[] = [];
+    if (choice.continueTo != null) metaBits.push(`→ T${choice.continueTo}`);
+    if (choice.outcomes.length > 0) metaBits.push(`${choice.outcomes.length} outcome${choice.outcomes.length !== 1 ? 's' : ''}`);
+    meta.textContent = metaBits.join(' · ');
+
+    item.append(port, num, preview);
 
     if (choice.continueTo != null) {
       const badge = document.createElement('span');
@@ -472,6 +591,7 @@ function renderTurnNode(
       item.appendChild(pauseBadge);
     }
 
+    if (meta.textContent) item.appendChild(meta);
     choicesList.appendChild(item);
   }
   body.appendChild(choicesList);
@@ -480,49 +600,118 @@ function renderTurnNode(
   return node;
 }
 
-function getTurnPosition(turn: Turn, positionOverrides?: TurnPositionMap): { x: number; y: number } {
-  return positionOverrides?.get(turn.turnNumber) ?? turn.position;
-}
-
-function drawEdges(
-  svg: SVGSVGElement,
-  conv: Conversation,
-  edges: EdgeDescriptor[],
-  positionOverrides?: TurnPositionMap,
-): void {
+function drawEdges(options: {
+  svg: SVGSVGElement;
+  conv: Conversation;
+  edges: EdgeDescriptor[];
+  nodeElements: Map<number, HTMLElement>;
+  positionOverrides?: TurnPositionMap;
+  preview: ConnectionPreview | null;
+}): void {
+  const { svg, conv, edges, nodeElements, positionOverrides, preview } = options;
+  const defs = svg.querySelector('defs');
   svg.replaceChildren();
+  if (defs) svg.appendChild(defs);
 
   for (const edge of edges) {
     const sourceTurn = conv.turns.find(turn => turn.turnNumber === edge.sourceTurnNumber);
     const targetTurn = conv.turns.find(turn => turn.turnNumber === edge.targetTurnNumber);
     if (!sourceTurn || !targetTurn) continue;
 
-    const sourcePosition = getTurnPosition(sourceTurn, positionOverrides);
-    const targetPosition = getTurnPosition(targetTurn, positionOverrides);
-    const x1 = sourcePosition.x + NODE_WIDTH;
-    const y1 = sourcePosition.y + 40 + edge.sourceChoiceIndex * 25;
-    const x2 = targetPosition.x;
-    const y2 = targetPosition.y + 34;
-    const dx = x2 - x1;
-    const midX = x1 + dx / 2;
-    const verticalOffset = edge.offsetIndex * 18;
-    const controlX = midX;
-    const pathData = `M${x1},${y1} C${controlX},${y1 + verticalOffset} ${controlX},${y2 + verticalOffset} ${x2},${y2}`;
+    const sourceAnchor = getChoiceAnchor(edge.sourceTurnNumber, edge.sourceChoiceIndex, conv, nodeElements, positionOverrides);
+    const targetAnchor = getTurnInputAnchor(edge.targetTurnNumber, conv, nodeElements, positionOverrides);
+    if (!sourceAnchor || !targetAnchor) continue;
+
+    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    group.setAttribute('class', `flow-edge ${edge.highlight !== 'normal' ? `is-${edge.highlight}` : ''}`.trim());
 
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', pathData);
+    path.setAttribute('d', buildEdgePath(sourceAnchor, targetAnchor, edge.offsetIndex));
     path.setAttribute('stroke', edge.color);
     path.setAttribute('class', `flow-edge-path ${edge.pathClassName} ${edge.highlight !== 'normal' ? `is-${edge.highlight}` : ''}`.trim());
-    svg.appendChild(path);
+    path.setAttribute('marker-end', `url(#marker-${edge.kind})`);
+    path.dataset.sourceTurnNumber = String(edge.sourceTurnNumber);
+    path.dataset.sourceChoiceIndex = String(edge.sourceChoiceIndex);
+    path.dataset.targetTurnNumber = String(edge.targetTurnNumber);
+    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    title.textContent = edge.kind === 'continue'
+      ? `Choice ${edge.sourceChoiceIndex} → Turn ${edge.targetTurnNumber} (click to select, right-click to disconnect)`
+      : `Pause branch from Choice ${edge.sourceChoiceIndex} to Turn ${edge.targetTurnNumber}`;
+    path.appendChild(title);
+    path.onclick = (event) => {
+      event.stopPropagation();
+      store.selectTurn(edge.sourceTurnNumber);
+      store.selectChoice(edge.sourceChoiceIndex);
+    };
+    path.oncontextmenu = (event) => {
+      if (edge.kind !== 'continue') return;
+      event.preventDefault();
+      store.clearChoiceContinuation(conv.id, edge.sourceTurnNumber, edge.sourceChoiceIndex);
+    };
+    group.appendChild(path);
 
-    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    label.setAttribute('x', String(midX));
-    label.setAttribute('y', String((y1 + y2) / 2 + verticalOffset - 8));
-    label.setAttribute('text-anchor', 'middle');
-    label.setAttribute('class', `flow-edge-label ${edge.textClassName} ${edge.highlight !== 'normal' ? `is-${edge.highlight}` : ''}`.trim());
-    label.textContent = edge.label;
-    svg.appendChild(label);
+    const labelAnchor = getLabelAnchor(sourceAnchor, targetAnchor, edge.offsetIndex);
+    const labelButton = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    labelButton.setAttribute('x', String(labelAnchor.x));
+    labelButton.setAttribute('y', String(labelAnchor.y));
+    labelButton.setAttribute('text-anchor', 'middle');
+    labelButton.setAttribute('class', `flow-edge-label ${edge.textClassName} ${edge.highlight !== 'normal' ? `is-${edge.highlight}` : ''}`.trim());
+    labelButton.textContent = edge.label;
+    labelButton.onclick = (event) => {
+      event.stopPropagation();
+      store.selectTurn(edge.sourceTurnNumber);
+      store.selectChoice(edge.sourceChoiceIndex);
+    };
+    group.appendChild(labelButton);
+
+    svg.appendChild(group);
   }
+
+  if (preview) {
+    const sourceAnchor = getChoiceAnchor(preview.sourceTurnNumber, preview.sourceChoiceIndex, conv, nodeElements, positionOverrides);
+    if (sourceAnchor) {
+      const previewPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      previewPath.setAttribute('d', buildEdgePath(sourceAnchor, preview.cursor, 0));
+      previewPath.setAttribute('class', 'flow-edge-path edge-preview');
+      previewPath.setAttribute('marker-end', 'url(#marker-continue)');
+      svg.appendChild(previewPath);
+    }
+  }
+}
+
+function getChoiceAnchor(
+  turnNumber: number,
+  choiceIndex: number,
+  conv: Conversation,
+  nodeElements: Map<number, HTMLElement>,
+  positionOverrides?: TurnPositionMap,
+): { x: number; y: number } | null {
+  const turn = conv.turns.find(item => item.turnNumber === turnNumber);
+  const node = nodeElements.get(turnNumber);
+  const port = node?.querySelector(`[data-choice-port="${choiceIndex}"]`) as HTMLElement | null;
+  if (!turn || !node || !port) return null;
+  const position = positionOverrides?.get(turnNumber) ?? turn.position;
+  return {
+    x: position.x + port.offsetLeft + port.offsetWidth / 2,
+    y: position.y + port.offsetTop + port.offsetHeight / 2,
+  };
+}
+
+function getTurnInputAnchor(
+  turnNumber: number,
+  conv: Conversation,
+  nodeElements: Map<number, HTMLElement>,
+  positionOverrides?: TurnPositionMap,
+): { x: number; y: number } | null {
+  const turn = conv.turns.find(item => item.turnNumber === turnNumber);
+  const node = nodeElements.get(turnNumber);
+  const port = node?.querySelector('.turn-input-port') as HTMLElement | null;
+  if (!turn || !node || !port) return null;
+  const position = positionOverrides?.get(turnNumber) ?? turn.position;
+  return {
+    x: position.x + port.offsetLeft + port.offsetWidth / 2,
+    y: position.y + port.offsetTop + port.offsetHeight / 2,
+  };
 }
 
 function buildEdgeDescriptors(
@@ -537,7 +726,7 @@ function buildEdgeDescriptors(
     for (const choice of turn.choices) {
       const targets = getChoiceTargets(choice);
       for (const target of targets) {
-        const pairKey = `${turn.turnNumber}:${target.turnNumber}`;
+        const pairKey = `${turn.turnNumber}:${target.turnNumber}:${target.kind}`;
         const offsetIndex = pairCounts.get(pairKey) ?? 0;
         pairCounts.set(pairKey, offsetIndex + 1);
 
@@ -551,6 +740,7 @@ function buildEdgeDescriptors(
           textClassName: `edge-label-${target.kind}`,
           offsetIndex: spreadOffset(offsetIndex),
           highlight: getEdgeHighlightState(turn.turnNumber, choice.index, target.turnNumber, selectedTurnNumber, selectedChoiceIndex),
+          kind: target.kind,
         });
       }
     }
@@ -619,6 +809,78 @@ function hasPauseOutcome(choice: Choice): boolean {
   return choice.outcomes.some(outcome => outcome.command === 'pause_job');
 }
 
+function getNodeHeight(turn: Turn, density: FlowDensity): number {
+  const layout = NODE_LAYOUTS[density];
+  const messageBonus = turn.openingMessage || turn.choices.some(choice => choice.reply)
+    ? density === 'detailed' ? 50 : density === 'standard' ? 34 : 22
+    : 0;
+  return Math.max(layout.minHeight, 52 + turn.choices.length * 34 + messageBonus);
+}
+
+function buildEdgePath(source: { x: number; y: number }, target: { x: number; y: number }, laneOffset: number): string {
+  const horizontalGap = target.x - source.x;
+  const lane = laneOffset * 22;
+
+  if (horizontalGap >= 48) {
+    const cp1x = source.x + Math.max(42, horizontalGap * 0.32);
+    const cp2x = target.x - Math.max(42, horizontalGap * 0.32);
+    return `M${source.x},${source.y} C${cp1x},${source.y + lane} ${cp2x},${target.y + lane} ${target.x},${target.y}`;
+  }
+
+  const doglegX = Math.max(source.x, target.x) + 84 + Math.abs(lane);
+  const midY = source.y < target.y ? Math.min(source.y, target.y) - 30 - Math.abs(lane) : Math.max(source.y, target.y) + 30 + Math.abs(lane);
+  return [
+    `M${source.x},${source.y}`,
+    `C${source.x + 26},${source.y} ${doglegX},${source.y + lane} ${doglegX},${midY}`,
+    `S${doglegX},${target.y + lane} ${target.x - 26},${target.y}`,
+    `S${target.x - 12},${target.y} ${target.x},${target.y}`,
+  ].join(' ');
+}
+
+function getLabelAnchor(source: { x: number; y: number }, target: { x: number; y: number }, offsetIndex: number): { x: number; y: number } {
+  return {
+    x: source.x + (target.x - source.x) / 2,
+    y: source.y + (target.y - source.y) / 2 + offsetIndex * 14 - 10,
+  };
+}
+
+function createMarkerDefs(): SVGDefsElement {
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  defs.appendChild(createMarker('marker-continue', '#5eaa3a'));
+  defs.appendChild(createMarker('marker-pause-success', '#5eaa3a'));
+  defs.appendChild(createMarker('marker-pause-fail', '#c44040'));
+  return defs;
+}
+
+function createMarker(id: string, color: string): SVGMarkerElement {
+  const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+  marker.setAttribute('id', id);
+  marker.setAttribute('viewBox', '0 0 10 10');
+  marker.setAttribute('refX', '9');
+  marker.setAttribute('refY', '5');
+  marker.setAttribute('markerWidth', '7');
+  marker.setAttribute('markerHeight', '7');
+  marker.setAttribute('orient', 'auto-start-reverse');
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+  path.setAttribute('fill', color);
+  marker.appendChild(path);
+  return marker;
+}
+
+function viewportToWorldPoint(canvas: HTMLElement, viewState: ViewState, clientX: number, clientY: number): { x: number; y: number } {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (clientX - rect.left - viewState.panX) / viewState.zoom,
+    y: (clientY - rect.top - viewState.panY) / viewState.zoom,
+  };
+}
+
+function truncate(value: string, max: number): string {
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
 function wireCanvasInteractions(options: {
   canvas: HTMLElement;
   viewState: ViewState;
@@ -630,7 +892,7 @@ function wireCanvasInteractions(options: {
   canvas.onmousedown = (event) => {
     const target = event.target as HTMLElement;
     if (event.button !== 0 && event.button !== 1) return;
-    if (target.closest('.turn-node, .flow-controls, .flow-minimap')) return;
+    if (target.closest('.turn-node, .flow-controls, .flow-minimap, .flow-edge')) return;
 
     const startPanX = event.clientX;
     const startPanY = event.clientY;
