@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Validation Engine
 
-import type { Project, Conversation, ValidationMessage } from './types';
+import type { Project, Conversation, ValidationMessage, PreconditionEntry, AnyPreconditionOption } from './types';
 
 /** Validate the entire project and return all messages */
 export function validate(project: Project): ValidationMessage[] {
@@ -33,6 +33,10 @@ function validateConversation(conv: Conversation, messages: ValidationMessage[])
       level: 'error',
       conversationId: conv.id,
       message: 'Missing preconditions. Every conversation must have at least one precondition.',
+    });
+  } else {
+    conv.preconditions.forEach((entry, idx) => {
+      validatePrecondition(entry, conv.id, messages, `precondition ${idx + 1}`);
     });
   }
 
@@ -179,5 +183,64 @@ function validateConversation(conv: Conversation, messages: ValidationMessage[])
         });
       }
     }
+  }
+}
+
+
+function validateAnyOption(option: AnyPreconditionOption, conversationId: number, messages: ValidationMessage[], path: string): void {
+  if (option.type === 'all') {
+    if (option.entries.length === 0) {
+      messages.push({
+        level: 'error',
+        conversationId,
+        message: `Malformed ${path}: grouped any() branch is empty.`,
+      });
+      return;
+    }
+
+    option.entries.forEach((entry, idx) => {
+      validatePrecondition(entry, conversationId, messages, `${path} -> condition ${idx + 1}`);
+    });
+    return;
+  }
+
+  validatePrecondition(option, conversationId, messages, path);
+}
+
+function validatePrecondition(entry: PreconditionEntry, conversationId: number, messages: ValidationMessage[], path: string): void {
+  switch (entry.type) {
+    case 'simple':
+      if (!entry.command || entry.command.trim() === '') {
+        messages.push({
+          level: 'error',
+          conversationId,
+          message: `Malformed ${path}: missing precondition command name.`,
+        });
+      }
+      return;
+    case 'invalid':
+      messages.push({
+        level: 'error',
+        conversationId,
+        message: `Malformed ${path}: ${entry.error}`,
+      });
+      return;
+    case 'not':
+      validatePrecondition(entry.inner, conversationId, messages, `${path} -> not()`);
+      return;
+    case 'any':
+      if (entry.options.length === 0) {
+        messages.push({
+          level: 'error',
+          conversationId,
+          message: `Malformed ${path}: any() must contain at least one option.`,
+        });
+        return;
+      }
+
+      entry.options.forEach((option, idx) => {
+        validateAnyOption(option, conversationId, messages, `${path} -> any option ${idx + 1}`);
+      });
+      return;
   }
 }

@@ -2,7 +2,7 @@
 
 import { store } from '../lib/state';
 import type { PropertiesTab } from '../lib/state';
-import type { Conversation, Turn, Choice, PreconditionEntry, SimplePrecondition, Outcome, FactionId } from '../lib/types';
+import type { Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, SimplePrecondition, Outcome, FactionId } from '../lib/types';
 import { FACTION_DISPLAY_NAMES } from '../lib/types';
 import { PRECONDITION_SCHEMAS, OUTCOME_SCHEMAS, groupByCategory } from '../lib/schema';
 import type { CommandSchema } from '../lib/schema';
@@ -360,55 +360,208 @@ function renderChoiceProperties(container: HTMLElement, conv: Conversation, turn
 
 // ─── Precondition List ────────────────────────────────────────────────────
 
+type PreconditionPathSegment = number | 'inner' | 'options' | 'entries';
+type PreconditionPath = PreconditionPathSegment[];
+
+function clonePreconditions(entries: PreconditionEntry[]): PreconditionEntry[] {
+  return JSON.parse(JSON.stringify(entries)) as PreconditionEntry[];
+}
+
+function getPreconditionValueAtPath(root: PreconditionEntry[], path: PreconditionPath): unknown {
+  let current: unknown = root;
+  for (const segment of path) {
+    current = (current as any)[segment];
+  }
+  return current;
+}
+
+function normalizeAnyOption(option: AnyPreconditionOption): AnyPreconditionOption | null {
+  if (option.type !== 'all') return option;
+  if (option.entries.length === 0) return null;
+  if (option.entries.length === 1) return option.entries[0];
+  return option;
+}
+
+function normalizePrecondition(entry: PreconditionEntry): PreconditionEntry {
+  switch (entry.type) {
+    case 'simple':
+    case 'invalid':
+      return entry;
+    case 'not':
+      return { ...entry, inner: normalizePrecondition(entry.inner) };
+    case 'any': {
+      const options = entry.options
+        .map((option) => option.type === 'all'
+          ? normalizeAnyOption({
+            ...option,
+            entries: option.entries.map(normalizePrecondition),
+          })
+          : normalizePrecondition(option))
+        .filter((option): option is AnyPreconditionOption => option != null);
+      return { ...entry, options };
+    }
+  }
+}
+
+function updatePreconditionTree(conv: Conversation, mutate: (entries: PreconditionEntry[]) => void): void {
+  const updated = clonePreconditions(conv.preconditions);
+  mutate(updated);
+  store.updateConversation(conv.id, {
+    preconditions: updated.map(normalizePrecondition),
+  });
+}
+
+function removePreconditionAtPath(conv: Conversation, path: PreconditionPath): void {
+  updatePreconditionTree(conv, (entries) => {
+    const container = path.length === 1 ? entries : getPreconditionValueAtPath(entries, path.slice(0, -1));
+    const index = path[path.length - 1];
+    if (Array.isArray(container) && typeof index === 'number') {
+      container.splice(index, 1);
+    }
+  });
+}
+
+function updatePreconditionAtPath(conv: Conversation, path: PreconditionPath, updater: (entry: PreconditionEntry) => PreconditionEntry): void {
+  updatePreconditionTree(conv, (entries) => {
+    const container = path.length === 1 ? entries : getPreconditionValueAtPath(entries, path.slice(0, -1));
+    const index = path[path.length - 1];
+    if (Array.isArray(container) && typeof index === 'number') {
+      container[index] = updater(container[index] as PreconditionEntry);
+    }
+  });
+}
+
 function renderPreconditionList(container: HTMLElement, conv: Conversation): void {
-  const list = document.createElement('ul');
+  const list = document.createElement('div');
   list.className = 'precond-list';
 
   conv.preconditions.forEach((entry, idx) => {
-    const item = document.createElement('li');
-    item.className = 'precond-item clickable';
+    list.appendChild(renderPreconditionEditor(conv, entry, [idx], 0, true));
+  });
 
-    const display = renderPreconditionDisplay(entry);
-    item.appendChild(display);
+  container.appendChild(list);
+}
 
+function renderPreconditionEditor(
+  conv: Conversation,
+  entry: PreconditionEntry,
+  path: PreconditionPath,
+  depth: number,
+  removable: boolean,
+  branchLabel?: string,
+): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = `margin-left:${depth * 14}px; margin-bottom:8px;`;
+
+  if (branchLabel) {
+    const label = document.createElement('div');
+    label.style.cssText = 'font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; margin:0 0 4px 2px;';
+    label.textContent = branchLabel;
+    wrapper.appendChild(label);
+  }
+
+  const item = document.createElement('div');
+  item.className = 'precond-item clickable';
+  item.style.marginBottom = '4px';
+
+  const display = renderPreconditionDisplay(entry);
+  item.appendChild(display);
+
+  if (removable) {
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-icon btn-sm';
-    delBtn.textContent = '\u00d7';
+    delBtn.textContent = '×';
     delBtn.title = 'Remove this precondition';
     delBtn.style.color = 'var(--danger)';
     delBtn.onclick = (e) => {
       e.stopPropagation();
-      const updated = [...conv.preconditions];
-      updated.splice(idx, 1);
-      store.updateConversation(conv.id, { preconditions: updated });
+      removePreconditionAtPath(conv, path);
     };
     item.appendChild(delBtn);
+  }
 
-    list.appendChild(item);
+  wrapper.appendChild(item);
 
-    // Editable params for simple preconditions — always visible
-    if (entry.type === 'simple') {
-      const schema = PRECONDITION_SCHEMAS.find(s => s.name === entry.command);
-      if (schema && schema.params.length > 0) {
-        const paramsDiv = renderParamEditors(schema, entry.params, (newParams) => {
-          const updated = [...conv.preconditions];
-          (updated[idx] as SimplePrecondition).params = newParams;
-          store.updateConversation(conv.id, { preconditions: updated });
+  if (entry.type === 'simple') {
+    const schema = PRECONDITION_SCHEMAS.find(s => s.name === entry.command);
+    if (schema && schema.params.length > 0) {
+      wrapper.appendChild(renderParamEditors(schema, entry.params, (newParams) => {
+        updatePreconditionAtPath(conv, path, (current) => {
+          if (current.type !== 'simple') return current;
+          return { ...current, params: newParams };
         });
-        list.appendChild(paramsDiv);
-      }
-
-      // Show description from schema
-      if (schema) {
-        const desc = document.createElement('div');
-        desc.className = 'command-description';
-        desc.textContent = schema.description;
-        list.appendChild(desc);
-      }
+      }));
     }
+
+    if (schema) {
+      const desc = document.createElement('div');
+      desc.className = 'command-description';
+      desc.textContent = schema.description;
+      wrapper.appendChild(desc);
+    }
+
+    return wrapper;
+  }
+
+  if (entry.type === 'invalid') {
+    const error = document.createElement('div');
+    error.className = 'command-description';
+    error.style.color = 'var(--danger)';
+    error.textContent = entry.error;
+    wrapper.appendChild(error);
+    if (entry.raw) {
+      const raw = document.createElement('div');
+      raw.className = 'command-description';
+      raw.textContent = `Raw: ${entry.raw}`;
+      wrapper.appendChild(raw);
+    }
+    return wrapper;
+  }
+
+  if (entry.type === 'not') {
+    wrapper.appendChild(renderPreconditionEditor(conv, entry.inner, [...path, 'inner'], depth + 1, false, 'NOT branch'));
+    return wrapper;
+  }
+
+  entry.options.forEach((option, idx) => {
+    const optionPath: PreconditionPath = [...path, 'options', idx];
+    if (option.type === 'all') {
+      const groupWrap = document.createElement('div');
+      groupWrap.style.cssText = `margin-left:${(depth + 1) * 14}px; margin-bottom:8px;`;
+
+      const groupHeader = document.createElement('div');
+      groupHeader.className = 'precond-item clickable';
+      groupHeader.style.marginBottom = '4px';
+
+      const groupLabel = document.createElement('span');
+      groupLabel.style.flex = '1';
+      groupLabel.innerHTML = '<span style="color:var(--info)">Option ' + (idx + 1) + '</span><span class="precond-params"> · ALL (' + option.entries.length + ' conditions)</span>';
+      groupHeader.appendChild(groupLabel);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-icon btn-sm';
+      delBtn.textContent = '×';
+      delBtn.title = 'Remove this any() option';
+      delBtn.style.color = 'var(--danger)';
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        removePreconditionAtPath(conv, optionPath);
+      };
+      groupHeader.appendChild(delBtn);
+      groupWrap.appendChild(groupHeader);
+
+      option.entries.forEach((groupEntry, groupIdx) => {
+        groupWrap.appendChild(renderPreconditionEditor(conv, groupEntry, [...optionPath, 'entries', groupIdx], depth + 2, true, `Condition ${groupIdx + 1}`));
+      });
+
+      wrapper.appendChild(groupWrap);
+      return;
+    }
+
+    wrapper.appendChild(renderPreconditionEditor(conv, option, optionPath, depth + 1, true, `Option ${idx + 1}`));
   });
 
-  container.appendChild(list);
+  return wrapper;
 }
 
 function renderPreconditionDisplay(entry: PreconditionEntry): HTMLElement {
@@ -431,14 +584,18 @@ function renderPreconditionDisplay(entry: PreconditionEntry): HTMLElement {
   } else if (entry.type === 'not') {
     const notLabel = document.createElement('span');
     notLabel.style.color = 'var(--warning)';
-    notLabel.textContent = 'NOT ';
+    notLabel.textContent = 'NOT';
     span.appendChild(notLabel);
-    span.appendChild(renderPreconditionDisplay(entry.inner));
-  } else {
+  } else if (entry.type === 'any') {
     const anyLabel = document.createElement('span');
     anyLabel.style.color = 'var(--info)';
     anyLabel.textContent = `ANY (${entry.options.length} options)`;
     span.appendChild(anyLabel);
+  } else {
+    const invalidLabel = document.createElement('span');
+    invalidLabel.style.color = 'var(--danger)';
+    invalidLabel.textContent = 'INVALID PRECONDITION';
+    span.appendChild(invalidLabel);
   }
 
   return span;

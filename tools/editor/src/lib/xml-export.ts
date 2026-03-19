@@ -1,7 +1,7 @@
 // P.A.N.D.A. Conversation Editor — XML Export
 // Generates valid PANDA XML string table files from the editor data model.
 
-import type { Project, Conversation, Turn, Choice, PreconditionEntry, Outcome } from './types';
+import type { Project, Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, Outcome } from './types';
 import { FACTION_XML_KEYS } from './types';
 
 /** Escape special XML characters in text content */
@@ -11,6 +11,13 @@ function escapeXml(text: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function serializeAnyOption(option: AnyPreconditionOption): string {
+  if (option.type === 'all') {
+    return option.entries.map(serializePrecondition).join(',');
+  }
+  return serializePrecondition(option);
 }
 
 /** Serialize a precondition entry to the colon-delimited string format */
@@ -23,7 +30,9 @@ function serializePrecondition(entry: PreconditionEntry): string {
     case 'not':
       return `not(${serializePrecondition(entry.inner)})`;
     case 'any':
-      return `any(${entry.options.map(serializePrecondition).join('|')})`;
+      return `any(${entry.options.map(serializeAnyOption).join('|')})`;
+    case 'invalid':
+      return entry.raw;
   }
 }
 
