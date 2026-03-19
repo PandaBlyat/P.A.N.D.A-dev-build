@@ -1,4 +1,4 @@
-.PHONY: doctor doctor-strict lua-lint xml-lint check setup-tools treasure-possible-items
+.PHONY: doctor doctor-strict lua-lint xml-lint check setup-tools treasure-possible-items editor-dev editor-build
 
 export PATH := $(CURDIR)/tools/bin:$(PATH)
 
@@ -25,3 +25,9 @@ check: doctor
 treasure-possible-items:
 	@echo "Usage: make treasure-possible-items ITEMS_ROOT=... TREASURE_LTX=... [OUT=possible_items_clean.ltx]"
 	python3 tools/build_treasure_possible_items.py --items-root "$(ITEMS_ROOT)" --treasure-ltx "$(TREASURE_LTX)" $(if $(OUT),--output "$(OUT)",)
+
+editor-dev:
+	cd tools/editor && npm install && npx vite
+
+editor-build:
+	cd tools/editor && npm install && npx vite build

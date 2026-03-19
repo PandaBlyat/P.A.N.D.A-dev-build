@@ -1,0 +1,70 @@
+// P.A.N.D.A. Conversation Editor — Conversation List (Left Panel)
+
+import { store } from '../lib/state';
+
+export function renderConversationList(container: HTMLElement): void {
+  const state = store.get();
+  const convs = state.project.conversations;
+
+  if (convs.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-text">No conversations</div>
+        <div class="empty-state-hint">Click "+ New" to create one, or import an XML file.</div>
+      </div>
+    `;
+    return;
+  }
+
+  const list = document.createElement('ul');
+  list.className = 'conv-list';
+
+  for (const conv of convs) {
+    const item = document.createElement('li');
+    item.className = 'conv-item' + (conv.id === state.selectedConversationId ? ' selected' : '');
+    item.onclick = (e) => {
+      // Don't select if clicking action buttons
+      if ((e.target as HTMLElement).closest('.conv-actions')) return;
+      store.selectConversation(conv.id);
+    };
+
+    const id = document.createElement('span');
+    id.className = 'conv-id';
+    id.textContent = String(conv.id);
+
+    const label = document.createElement('span');
+    label.className = 'conv-label';
+    label.textContent = conv.label || `Conversation ${conv.id}`;
+
+    const actions = document.createElement('div');
+    actions.className = 'conv-actions';
+
+    const dupBtn = document.createElement('button');
+    dupBtn.className = 'btn-icon';
+    dupBtn.textContent = '\u2398'; // copy icon
+    dupBtn.title = 'Duplicate';
+    dupBtn.onclick = (e) => { e.stopPropagation(); store.duplicateConversation(conv.id); };
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-icon';
+    delBtn.textContent = '\u00d7'; // x icon
+    delBtn.title = 'Delete';
+    delBtn.style.color = 'var(--danger)';
+    delBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (confirm(`Delete conversation ${conv.id}: "${conv.label}"?`)) {
+        store.deleteConversation(conv.id);
+      }
+    };
+
+    actions.appendChild(dupBtn);
+    actions.appendChild(delBtn);
+
+    item.appendChild(id);
+    item.appendChild(label);
+    item.appendChild(actions);
+    list.appendChild(item);
+  }
+
+  container.appendChild(list);
+}
