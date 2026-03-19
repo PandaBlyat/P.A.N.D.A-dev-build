@@ -15,7 +15,7 @@ import {
   getPreconditionParamFieldKey,
   getTurnFieldKey,
 } from '../lib/validation';
-import type { CommandSchema } from '../lib/schema';
+import type { CommandSchema, ParamDef, ParamOption } from '../lib/schema';
 import { FACTION_IDS, RANKS, MUTANT_TYPES, DYNAMIC_PLACEHOLDERS, LEVEL_DISPLAY_NAMES, SMART_TERRAIN_LEVELS } from '../lib/constants';
 
 // ─── Debounce helper ─────────────────────────────────────────────────────
@@ -447,10 +447,8 @@ function renderPreconditionList(container: HTMLElement, conv: Conversation): voi
   list.className = 'precond-list';
 
   conv.preconditions.forEach((entry, idx) => {
-    const item = document.createElement('li');
-    item.className = 'precond-item clickable';
-    item.tabIndex = -1;
-    item.setAttribute('data-field-key', getPreconditionItemFieldKey(conv.id, idx));
+    list.appendChild(renderPreconditionEditor(conv, entry, [idx], 0, true));
+  });
 
   container.appendChild(list);
 }
@@ -476,6 +474,7 @@ function renderPreconditionEditor(
   const item = document.createElement('div');
   item.className = 'precond-item clickable';
   item.style.marginBottom = '4px';
+  item.setAttribute('data-field-key', getPreconditionItemFieldKey(conv.id, path[0] as number));
 
   const display = renderPreconditionDisplay(entry);
   item.appendChild(display);
@@ -495,25 +494,23 @@ function renderPreconditionEditor(
 
   wrapper.appendChild(item);
 
-    // Editable params for simple preconditions — always visible
-    if (entry.type === 'simple') {
-      const schema = PRECONDITION_SCHEMAS.find(s => s.name === entry.command);
-      if (schema && schema.params.length > 0) {
-        const paramsDiv = renderParamEditors(schema, entry.params, (newParams) => {
-          const updated = [...conv.preconditions];
-          (updated[idx] as SimplePrecondition).params = newParams;
-          store.updateConversation(conv.id, { preconditions: updated });
-        }, (paramIndex) => getPreconditionParamFieldKey(conv.id, idx, paramIndex));
-        list.appendChild(paramsDiv);
-      }
-
+  if (entry.type === 'simple') {
+    const schema = PRECONDITION_SCHEMAS.find((candidate) => candidate.name === entry.command);
     if (schema) {
       const desc = document.createElement('div');
       desc.className = 'command-description';
       desc.textContent = schema.description;
       wrapper.appendChild(desc);
-    }
 
+      if (schema.params.length > 0) {
+        const paramsDiv = renderParamEditors(schema, entry.params, (newParams) => {
+          updatePreconditionAtPath(conv, path, (current) => current.type === 'simple'
+            ? { ...current, params: newParams }
+            : current);
+        }, (paramIndex) => getPreconditionParamFieldKey(conv.id, path[0] as number, paramIndex), conv);
+        wrapper.appendChild(paramsDiv);
+      }
+    }
     return wrapper;
   }
 
@@ -682,7 +679,7 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
         const updated = [...choice.outcomes];
         updated[idx] = { ...updated[idx], params: newParams };
         store.updateChoice(conv.id, turn.turnNumber, choice.index, { outcomes: updated });
-      }, (paramIndex) => getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, idx, paramIndex));
+      }, (paramIndex) => getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, idx, paramIndex), conv);
       list.appendChild(paramsDiv);
     }
 
@@ -722,135 +719,529 @@ function renderParamEditors(
   currentParams: string[],
   onChange: (params: string[]) => void,
   getFieldKey: (paramIndex: number) => string,
+  conv?: Conversation,
 ): HTMLElement {
   const div = document.createElement('div');
   div.style.cssText = 'padding: 4px 8px 8px; background: var(--bg-darkest); border-radius: var(--radius); margin-bottom: 4px;';
 
+  if (schema.helpText || (schema.examples && schema.examples.length > 0)) {
+    div.appendChild(createInlineHelpBox(schema.helpText, schema.examples));
+  }
+
   schema.params.forEach((paramDef, i) => {
     const field = document.createElement('div');
-    field.style.cssText = 'display:flex; align-items:center; gap:4px; margin-bottom:4px;';
+    field.className = 'param-editor-field';
+    field.style.cssText = 'display:flex; flex-direction:column; align-items:stretch; gap:4px; margin-bottom:8px;';
 
     const label = document.createElement('label');
     label.textContent = paramDef.label;
-    label.style.cssText = 'min-width:90px; margin:0;';
+    label.style.cssText = 'margin:0;';
     if (paramDef.required) {
       label.textContent += ' *';
       label.title = 'Required';
     }
     field.appendChild(label);
 
-    let input: HTMLInputElement | HTMLSelectElement;
-
-    switch (paramDef.type) {
-      case 'faction': {
-        input = document.createElement('select');
-        const emptyOpt = document.createElement('option');
-        emptyOpt.value = '';
-        emptyOpt.textContent = paramDef.required ? '-- Select --' : '(any)';
-        input.appendChild(emptyOpt);
-        for (const fid of FACTION_IDS) {
-          const opt = document.createElement('option');
-          opt.value = fid;
-          opt.textContent = FACTION_DISPLAY_NAMES[fid];
-          opt.selected = currentParams[i] === fid;
-          input.appendChild(opt);
-        }
-        break;
-      }
-      case 'rank': {
-        input = document.createElement('select');
-        for (const rank of RANKS) {
-          const opt = document.createElement('option');
-          opt.value = rank;
-          opt.textContent = rank;
-          opt.selected = currentParams[i] === rank;
-          input.appendChild(opt);
-        }
-        break;
-      }
-      case 'level': {
-        input = document.createElement('select');
-        const emptyOpt = document.createElement('option');
-        emptyOpt.value = '';
-        emptyOpt.textContent = '-- Select Level --';
-        input.appendChild(emptyOpt);
-        for (const [key, name] of Object.entries(LEVEL_DISPLAY_NAMES)) {
-          const opt = document.createElement('option');
-          opt.value = key;
-          opt.textContent = name;
-          opt.selected = currentParams[i] === key;
-          input.appendChild(opt);
-        }
-        break;
-      }
-      case 'mutant_type': {
-        input = document.createElement('select');
-        for (const mt of MUTANT_TYPES) {
-          const opt = document.createElement('option');
-          opt.value = mt;
-          opt.textContent = mt;
-          opt.selected = currentParams[i] === mt;
-          input.appendChild(opt);
-        }
-        break;
-      }
-      case 'smart_terrain': {
-        input = document.createElement('input');
-        input.type = 'text';
-        input.value = currentParams[i] || '';
-        input.placeholder = '%level_panda_st_key%';
-        break;
-      }
-      case 'slot': {
-        input = document.createElement('select');
-        for (let s = 0; s <= 12; s++) {
-          const opt = document.createElement('option');
-          opt.value = String(s);
-          opt.textContent = `Slot ${s}`;
-          opt.selected = currentParams[i] === String(s);
-          input.appendChild(opt);
-        }
-        break;
-      }
-      case 'number': {
-        input = document.createElement('input');
-        input.type = 'number';
-        if (paramDef.min != null) input.min = String(paramDef.min);
-        if (paramDef.max != null) input.max = String(paramDef.max);
-        input.value = currentParams[i] || '';
-        input.placeholder = paramDef.placeholder || '';
-        break;
-      }
-      default: {
-        input = document.createElement('input');
-        input.type = 'text';
-        input.value = currentParams[i] || '';
-        input.placeholder = paramDef.placeholder || '';
-        break;
-      }
-    }
-
-    input.style.flex = '1';
     const paramKey = getFieldKey(i);
-    input.setAttribute('data-field-key', paramKey);
-    const handler = () => {
+    const updateParam = (value: string) => {
       const newParams = [...currentParams];
       while (newParams.length <= i) newParams.push('');
-      newParams[i] = input.value;
+      newParams[i] = value;
       onChange(newParams);
     };
-    // Text inputs get debounced oninput; selects get immediate onchange
-    if (input instanceof HTMLSelectElement) {
-      input.onchange = handler;
+
+    const richEditor = renderRichParamEditor(
+      schema,
+      paramDef,
+      currentParams[i] || '',
+      updateParam,
+      paramKey,
+      conv,
+    );
+
+    if (richEditor) {
+      field.appendChild(richEditor);
     } else {
-      input.oninput = () => debounced(paramKey, handler);
+      let input: HTMLInputElement | HTMLSelectElement;
+
+      switch (paramDef.type) {
+        case 'faction': {
+          input = document.createElement('select');
+          const emptyOpt = document.createElement('option');
+          emptyOpt.value = '';
+          emptyOpt.textContent = paramDef.required ? '-- Select --' : '(any)';
+          input.appendChild(emptyOpt);
+          for (const fid of FACTION_IDS) {
+            const opt = document.createElement('option');
+            opt.value = fid;
+            opt.textContent = FACTION_DISPLAY_NAMES[fid];
+            opt.selected = currentParams[i] === fid;
+            input.appendChild(opt);
+          }
+          break;
+        }
+        case 'rank': {
+          input = document.createElement('select');
+          for (const rank of RANKS) {
+            const opt = document.createElement('option');
+            opt.value = rank;
+            opt.textContent = rank;
+            opt.selected = currentParams[i] === rank;
+            input.appendChild(opt);
+          }
+          break;
+        }
+        case 'level': {
+          input = document.createElement('select');
+          const emptyOpt = document.createElement('option');
+          emptyOpt.value = '';
+          emptyOpt.textContent = '-- Select Level --';
+          input.appendChild(emptyOpt);
+          for (const [key, name] of Object.entries(LEVEL_DISPLAY_NAMES)) {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = name;
+            opt.selected = currentParams[i] === key;
+            input.appendChild(opt);
+          }
+          break;
+        }
+        case 'mutant_type': {
+          input = document.createElement('select');
+          for (const mt of MUTANT_TYPES) {
+            const opt = document.createElement('option');
+            opt.value = mt;
+            opt.textContent = mt;
+            opt.selected = currentParams[i] === mt;
+            input.appendChild(opt);
+          }
+          break;
+        }
+        case 'smart_terrain': {
+          input = document.createElement('input');
+          input.type = 'text';
+          input.value = currentParams[i] || '';
+          input.placeholder = '%level_panda_st_key%';
+          break;
+        }
+        case 'slot': {
+          input = document.createElement('select');
+          for (let s = 0; s <= 12; s++) {
+            const opt = document.createElement('option');
+            opt.value = String(s);
+            opt.textContent = `Slot ${s}`;
+            opt.selected = currentParams[i] === String(s);
+            input.appendChild(opt);
+          }
+          break;
+        }
+        case 'number': {
+          input = document.createElement('input');
+          input.type = 'number';
+          if (paramDef.min != null) input.min = String(paramDef.min);
+          if (paramDef.max != null) input.max = String(paramDef.max);
+          input.value = currentParams[i] || '';
+          input.placeholder = paramDef.placeholder || '';
+          break;
+        }
+        default: {
+          input = document.createElement('input');
+          input.type = 'text';
+          input.value = currentParams[i] || '';
+          input.placeholder = paramDef.placeholder || '';
+          break;
+        }
+      }
+
+      input.style.flex = '1';
+      input.setAttribute('data-field-key', paramKey);
+      const handler = () => updateParam(input.value);
+      if (input instanceof HTMLSelectElement) {
+        input.onchange = handler;
+      } else {
+        input.oninput = () => debounced(paramKey, handler);
+      }
+
+      field.appendChild(input);
     }
 
-    field.appendChild(input);
+    if (paramDef.helpText || (paramDef.examples && paramDef.examples.length > 0)) {
+      field.appendChild(createInlineHelpBox(paramDef.helpText, paramDef.examples));
+    }
+
     div.appendChild(field);
   });
 
   return div;
+}
+
+function renderRichParamEditor(
+  schema: CommandSchema,
+  paramDef: ParamDef,
+  currentValue: string,
+  onChange: (value: string) => void,
+  fieldKey: string,
+  conv?: Conversation,
+): HTMLElement | null {
+  const editor = paramDef.editor;
+  if (!editor) return null;
+
+  switch (editor.kind) {
+    case 'searchable_select':
+      return createSearchableSelectEditor(editor.options, currentValue, onChange, fieldKey, {
+        emptyLabel: editor.emptyLabel ?? (paramDef.required ? '-- Select --' : '(optional)'),
+        placeholder: paramDef.placeholder ?? `Search ${paramDef.label.toLowerCase()}...`,
+      });
+    case 'smart_terrain_picker':
+      return createSmartTerrainEditor(currentValue, onChange, fieldKey, {
+        allowPlaceholder: editor.allowPlaceholder ?? true,
+      });
+    case 'turn_reference':
+      return createTurnReferenceEditor(currentValue, onChange, fieldKey, conv, editor.emptyLabel);
+    case 'command_builder':
+      return createCommandBuilderEditor(schema, paramDef, currentValue, onChange, fieldKey, editor.suggestions, editor.chainSeparator ?? '+');
+  }
+}
+
+function createSearchableSelectEditor(
+  options: ParamOption[],
+  currentValue: string,
+  onChange: (value: string) => void,
+  fieldKey: string,
+  config: {
+    emptyLabel: string;
+    placeholder: string;
+  },
+): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'rich-editor rich-editor-searchable';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'rich-editor-input';
+  input.value = currentValue;
+  input.placeholder = config.placeholder;
+  input.setAttribute('data-field-key', fieldKey);
+
+  const listId = `${fieldKey}-options`;
+  input.setAttribute('list', listId);
+
+  const datalist = document.createElement('datalist');
+  datalist.id = listId;
+
+  if (config.emptyLabel) {
+    const emptyOption = document.createElement('option');
+    emptyOption.value = '';
+    emptyOption.label = config.emptyLabel;
+    datalist.appendChild(emptyOption);
+  }
+
+  for (const option of options) {
+    const item = document.createElement('option');
+    item.value = option.value;
+    item.label = `${option.label} (${option.value})`;
+    datalist.appendChild(item);
+  }
+
+  input.oninput = () => debounced(fieldKey, () => onChange(input.value));
+  input.onchange = () => onChange(input.value);
+
+  const summary = document.createElement('div');
+  summary.className = 'command-description';
+  summary.textContent = options.find((option) => option.value === currentValue)?.label
+    ?? 'Type to filter available options.';
+
+  input.addEventListener('input', () => {
+    const selected = options.find((option) => option.value === input.value);
+    summary.textContent = selected ? selected.label : 'Type to filter available options.';
+  });
+
+  wrapper.appendChild(input);
+  wrapper.appendChild(datalist);
+  wrapper.appendChild(summary);
+  return wrapper;
+}
+
+function createSmartTerrainEditor(
+  currentValue: string,
+  onChange: (value: string) => void,
+  fieldKey: string,
+  options: {
+    allowPlaceholder: boolean;
+  },
+): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'rich-editor rich-editor-smart-terrain';
+
+  const { level, terrain, usesPlaceholder } = parseSmartTerrainReference(currentValue);
+
+  const levelSelect = document.createElement('select');
+  levelSelect.className = 'rich-editor-input';
+  levelSelect.setAttribute('data-field-key', fieldKey);
+
+  const emptyLevel = document.createElement('option');
+  emptyLevel.value = '';
+  emptyLevel.textContent = '-- Select level --';
+  levelSelect.appendChild(emptyLevel);
+
+  for (const levelKey of Object.keys(SMART_TERRAIN_LEVELS)) {
+    const opt = document.createElement('option');
+    opt.value = levelKey;
+    opt.textContent = LEVEL_DISPLAY_NAMES[levelKey] || levelKey;
+    opt.selected = level === levelKey;
+    levelSelect.appendChild(opt);
+  }
+
+  const terrainSelect = document.createElement('select');
+  terrainSelect.className = 'rich-editor-input';
+
+  const syncTerrainOptions = (selectedLevel: string, selectedTerrain: string, placeholderMode: boolean) => {
+    terrainSelect.innerHTML = '';
+    const emptyTerrain = document.createElement('option');
+    emptyTerrain.value = '';
+    emptyTerrain.textContent = selectedLevel ? '-- Select terrain --' : 'Choose a level first';
+    terrainSelect.appendChild(emptyTerrain);
+
+    if (!selectedLevel) {
+      terrainSelect.disabled = true;
+      return;
+    }
+
+    terrainSelect.disabled = false;
+    if (options.allowPlaceholder) {
+      const placeholderOpt = document.createElement('option');
+      placeholderOpt.value = '__placeholder__';
+      placeholderOpt.textContent = `Dynamic placeholder (%${selectedLevel}_panda_st_key%)`;
+      placeholderOpt.selected = placeholderMode;
+      terrainSelect.appendChild(placeholderOpt);
+    }
+
+    for (const terrainKey of SMART_TERRAIN_LEVELS[selectedLevel] || []) {
+      const opt = document.createElement('option');
+      opt.value = terrainKey;
+      opt.textContent = terrainKey;
+      opt.selected = !placeholderMode && selectedTerrain === terrainKey;
+      terrainSelect.appendChild(opt);
+    }
+  };
+
+  const syncValue = () => {
+    const selectedLevel = levelSelect.value;
+    const selectedTerrain = terrainSelect.value;
+    if (!selectedLevel) {
+      onChange('');
+      return;
+    }
+    if (selectedTerrain === '__placeholder__') {
+      onChange(`%${selectedLevel}_panda_st_key%`);
+      return;
+    }
+    onChange(selectedTerrain);
+  };
+
+  syncTerrainOptions(level, terrain, usesPlaceholder);
+
+  const summary = document.createElement('div');
+  summary.className = 'command-description';
+  const updateSummary = () => {
+    if (!levelSelect.value) {
+      summary.textContent = 'Pick a level first, then choose either a specific vanilla smart terrain key or a dynamic %<level>_panda_st_key% placeholder.';
+      return;
+    }
+    if (terrainSelect.value === '__placeholder__') {
+      summary.textContent = `Using dynamic placeholder %${levelSelect.value}_panda_st_key% for ${LEVEL_DISPLAY_NAMES[levelSelect.value] || levelSelect.value}.`;
+      return;
+    }
+    summary.textContent = terrainSelect.value
+      ? `Using exact smart terrain key ${terrainSelect.value}.`
+      : 'Choose a smart terrain key for this level.';
+  };
+
+  levelSelect.onchange = () => {
+    syncTerrainOptions(levelSelect.value, '', options.allowPlaceholder);
+    if (options.allowPlaceholder && levelSelect.value) terrainSelect.value = '__placeholder__';
+    syncValue();
+    updateSummary();
+  };
+
+  terrainSelect.onchange = () => {
+    syncValue();
+    updateSummary();
+  };
+
+  updateSummary();
+  wrapper.appendChild(levelSelect);
+  wrapper.appendChild(terrainSelect);
+  wrapper.appendChild(summary);
+  return wrapper;
+}
+
+function createTurnReferenceEditor(
+  currentValue: string,
+  onChange: (value: string) => void,
+  fieldKey: string,
+  conv?: Conversation,
+  emptyLabel?: string,
+): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'rich-editor rich-editor-turn-ref';
+
+  const select = document.createElement('select');
+  select.className = 'rich-editor-input';
+  select.setAttribute('data-field-key', fieldKey);
+
+  const emptyOption = document.createElement('option');
+  emptyOption.value = '';
+  emptyOption.textContent = emptyLabel ?? '-- Select turn --';
+  select.appendChild(emptyOption);
+
+  for (const turn of conv?.turns ?? []) {
+    const opt = document.createElement('option');
+    opt.value = String(turn.turnNumber);
+    opt.textContent = `Turn ${turn.turnNumber}`;
+    opt.selected = currentValue === String(turn.turnNumber);
+    select.appendChild(opt);
+  }
+
+  select.onchange = () => onChange(select.value);
+  wrapper.appendChild(select);
+
+  const summary = document.createElement('div');
+  summary.className = 'command-description';
+  summary.textContent = currentValue
+    ? `Branches to Turn ${currentValue}.`
+    : 'Select one of the turns already defined in this conversation.';
+  select.addEventListener('change', () => {
+    summary.textContent = select.value
+      ? `Branches to Turn ${select.value}.`
+      : 'Select one of the turns already defined in this conversation.';
+  });
+  wrapper.appendChild(summary);
+  return wrapper;
+}
+
+function createCommandBuilderEditor(
+  schema: CommandSchema,
+  paramDef: ParamDef,
+  currentValue: string,
+  onChange: (value: string) => void,
+  fieldKey: string,
+  suggestions: ParamOption[],
+  chainSeparator: string,
+): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'rich-editor rich-editor-command-builder';
+
+  const textarea = document.createElement('textarea');
+  textarea.className = 'rich-editor-textarea';
+  textarea.rows = 3;
+  textarea.value = currentValue;
+  textarea.placeholder = paramDef.placeholder || 'teleport_npc_to_smart:%cordon_panda_st_key%+spawn_mutant_at_smart:snork:%cordon_panda_st_key%';
+  textarea.setAttribute('data-field-key', fieldKey);
+  textarea.oninput = () => debounced(fieldKey, () => onChange(textarea.value));
+  wrapper.appendChild(textarea);
+
+  const controls = document.createElement('div');
+  controls.className = 'rich-editor-toolbar';
+
+  const suggestionSelect = document.createElement('select');
+  suggestionSelect.className = 'rich-editor-input';
+  const emptySuggestion = document.createElement('option');
+  emptySuggestion.value = '';
+  emptySuggestion.textContent = 'Suggested trigger commands...';
+  suggestionSelect.appendChild(emptySuggestion);
+  for (const suggestion of suggestions) {
+    const opt = document.createElement('option');
+    opt.value = suggestion.value;
+    opt.textContent = suggestion.label;
+    suggestionSelect.appendChild(opt);
+  }
+  controls.appendChild(suggestionSelect);
+
+  const replaceBtn = document.createElement('button');
+  replaceBtn.className = 'btn-sm';
+  replaceBtn.textContent = 'Replace';
+  replaceBtn.onclick = () => {
+    if (!suggestionSelect.value) return;
+    textarea.value = suggestionSelect.value;
+    onChange(textarea.value);
+    textarea.focus();
+  };
+  controls.appendChild(replaceBtn);
+
+  const appendBtn = document.createElement('button');
+  appendBtn.className = 'btn-sm';
+  appendBtn.textContent = `Append ${chainSeparator}`;
+  appendBtn.onclick = () => {
+    if (!suggestionSelect.value) return;
+    textarea.value = textarea.value.trim()
+      ? `${textarea.value}${chainSeparator}${suggestionSelect.value}`
+      : suggestionSelect.value;
+    onChange(textarea.value);
+    textarea.focus();
+  };
+  controls.appendChild(appendBtn);
+
+  wrapper.appendChild(controls);
+
+  const builderHint = document.createElement('div');
+  builderHint.className = 'command-description';
+  builderHint.textContent = `${schema.label} accepts normal outcome commands here. Use ${chainSeparator} to chain multiple deferred actions.`;
+  wrapper.appendChild(builderHint);
+
+  return wrapper;
+}
+
+function createInlineHelpBox(helpText?: string, examples?: string[]): HTMLElement {
+  const box = document.createElement('div');
+  box.className = 'param-help-box';
+
+  if (helpText) {
+    const help = document.createElement('div');
+    help.className = 'field-hint';
+    help.textContent = helpText;
+    box.appendChild(help);
+  }
+
+  if (examples && examples.length > 0) {
+    const list = document.createElement('div');
+    list.className = 'param-help-examples';
+    list.textContent = 'Examples: ' + examples.join('  •  ');
+    box.appendChild(list);
+  }
+
+  return box;
+}
+
+function parseSmartTerrainReference(value: string): {
+  level: string;
+  terrain: string;
+  usesPlaceholder: boolean;
+} {
+  if (!value) {
+    return { level: '', terrain: '', usesPlaceholder: false };
+  }
+
+  const placeholderMatch = value.match(/^%([a-z_]+)_panda_st(?:_key)?%$/);
+  if (placeholderMatch) {
+    return {
+      level: placeholderMatch[1],
+      terrain: '',
+      usesPlaceholder: true,
+    };
+  }
+
+  for (const [levelKey, terrainKeys] of Object.entries(SMART_TERRAIN_LEVELS)) {
+    if (terrainKeys.includes(value)) {
+      return {
+        level: levelKey,
+        terrain: value,
+        usesPlaceholder: false,
+      };
+    }
+  }
+
+  return { level: '', terrain: value, usesPlaceholder: false };
 }
 
 // ─── Command Picker Dropdown ──────────────────────────────────────────────
@@ -969,75 +1360,175 @@ function renderPlaceholderPicker(container: HTMLElement): void {
     btn.addEventListener('dragend', () => btn.classList.remove('dragging'));
     btn.onclick = (e) => {
       e.preventDefault();
-      // Try to insert at cursor of the last focused textarea in the panel
-      const panel = container.closest('.panel-body') || container;
-      const textareas = panel.querySelectorAll('textarea');
-      let inserted = false;
-
-      for (const ta of textareas) {
-        if (ta === document.activeElement) {
-          const start = ta.selectionStart;
-          const end = ta.selectionEnd;
-          const text = ta.value;
-          ta.value = text.substring(0, start) + ph.key + text.substring(end);
-          ta.selectionStart = ta.selectionEnd = start + ph.key.length;
-          ta.dispatchEvent(new Event('input', { bubbles: true }));
-          ta.focus();
-          inserted = true;
-          break;
-        }
-      }
-
-      if (!inserted) {
-        navigator.clipboard.writeText(ph.key).then(() => {
-          btn.textContent = 'Copied!';
-          btn.style.color = 'var(--accent)';
-          setTimeout(() => {
-            btn.textContent = ph.key;
-            btn.style.color = '';
-          }, 1000);
-        });
-      }
+      insertOrCopyPlaceholder(container, ph.key, btn, ph.key);
     };
     picker.appendChild(btn);
   }
 
-  // Smart terrain placeholders
   const stBtn = document.createElement('button');
   stBtn.className = 'placeholder-btn';
   stBtn.textContent = '%smart_terrain%';
-  stBtn.title = 'Insert smart terrain placeholder — click to copy';
+  stBtn.title = 'Choose a level, then a real smart terrain key or level placeholder';
   stBtn.style.borderColor = 'var(--accent-dim)';
-  stBtn.draggable = true;
-  stBtn.addEventListener('dragstart', (e) => {
-    e.dataTransfer!.setData('text/plain', '%smart_terrain%');
-    e.dataTransfer!.setData('application/x-panda-placeholder', '%smart_terrain%');
-    e.dataTransfer!.effectAllowed = 'copy';
-  });
-  stBtn.onclick = () => {
-    // Show level picker
-    const levelKeys = Object.keys(SMART_TERRAIN_LEVELS);
-    const sel = prompt(
-      'Enter level key for smart terrain placeholder:\n\n' +
-      levelKeys.map(k => `  ${k} (${LEVEL_DISPLAY_NAMES[k]})`).join('\n') +
-      '\n\nThis will insert %<level>_panda_st% in text and %<level>_panda_st_key% for outcomes.'
-    );
-    if (sel && levelKeys.includes(sel)) {
-      const placeholder = `%${sel}_panda_st%`;
-      navigator.clipboard.writeText(placeholder).then(() => {
-        stBtn.textContent = 'Copied!';
-        stBtn.style.color = 'var(--accent)';
-        setTimeout(() => {
-          stBtn.textContent = '%smart_terrain%';
-          stBtn.style.color = '';
-        }, 1000);
-      });
+  stBtn.onclick = (e) => {
+    e.preventDefault();
+    const existing = wrapper.querySelector('.smart-terrain-placeholder-card');
+    if (existing) {
+      existing.remove();
+      stBtn.classList.remove('active');
+      return;
     }
+
+    stBtn.classList.add('active');
+    const editor = createPlaceholderSmartTerrainEditor(container, stBtn);
+    wrapper.appendChild(editor);
   };
   picker.appendChild(stBtn);
 
   wrapper.appendChild(picker);
   container.appendChild(wrapper);
+}
+
+function insertOrCopyPlaceholder(container: HTMLElement, value: string, button: HTMLButtonElement, idleLabel: string): void {
+  const inserted = insertIntoFocusedTextarea(container, value);
+  if (inserted) return;
+
+  navigator.clipboard.writeText(value).then(() => {
+    button.textContent = 'Copied!';
+    button.style.color = 'var(--accent)';
+    setTimeout(() => {
+      button.textContent = idleLabel;
+      button.style.color = '';
+    }, 1000);
+  });
+}
+
+function insertIntoFocusedTextarea(container: HTMLElement, text: string): boolean {
+  const panel = container.closest('.panel-body') || container;
+  const textareas = panel.querySelectorAll('textarea');
+
+  for (const ta of textareas) {
+    if (ta !== document.activeElement) continue;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const currentText = ta.value;
+    ta.value = currentText.substring(0, start) + text + currentText.substring(end);
+    ta.selectionStart = ta.selectionEnd = start + text.length;
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    ta.focus();
+    return true;
+  }
+
+  return false;
+}
+
+function createPlaceholderSmartTerrainEditor(container: HTMLElement, triggerButton: HTMLButtonElement): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'smart-terrain-placeholder-card';
+
+  const title = document.createElement('div');
+  title.className = 'field-hint';
+  title.textContent = 'Choose a level first, then pick either a dynamic placeholder or a specific smart terrain key.';
+  card.appendChild(title);
+
+  const controls = document.createElement('div');
+  controls.className = 'smart-terrain-placeholder-controls';
+
+  const levelSelect = document.createElement('select');
+  const emptyLevel = document.createElement('option');
+  emptyLevel.value = '';
+  emptyLevel.textContent = '-- Select level --';
+  levelSelect.appendChild(emptyLevel);
+  for (const levelKey of Object.keys(SMART_TERRAIN_LEVELS)) {
+    const option = document.createElement('option');
+    option.value = levelKey;
+    option.textContent = LEVEL_DISPLAY_NAMES[levelKey] || levelKey;
+    levelSelect.appendChild(option);
+  }
+
+  const terrainSelect = document.createElement('select');
+  terrainSelect.disabled = true;
+
+  const syncTerrainOptions = () => {
+    terrainSelect.innerHTML = '';
+    const emptyTerrain = document.createElement('option');
+    emptyTerrain.value = '';
+    emptyTerrain.textContent = levelSelect.value ? '-- Select terrain or placeholder --' : 'Choose a level first';
+    terrainSelect.appendChild(emptyTerrain);
+
+    if (!levelSelect.value) {
+      terrainSelect.disabled = true;
+      return;
+    }
+
+    terrainSelect.disabled = false;
+
+    const placeholderTextOpt = document.createElement('option');
+    placeholderTextOpt.value = `text:%${levelSelect.value}_panda_st%`;
+    placeholderTextOpt.textContent = `Text placeholder (%${levelSelect.value}_panda_st%)`;
+    terrainSelect.appendChild(placeholderTextOpt);
+
+    const placeholderKeyOpt = document.createElement('option');
+    placeholderKeyOpt.value = `key:%${levelSelect.value}_panda_st_key%`;
+    placeholderKeyOpt.textContent = `Command placeholder (%${levelSelect.value}_panda_st_key%)`;
+    terrainSelect.appendChild(placeholderKeyOpt);
+
+    for (const terrainKey of SMART_TERRAIN_LEVELS[levelSelect.value] || []) {
+      const option = document.createElement('option');
+      option.value = `exact:${terrainKey}`;
+      option.textContent = terrainKey;
+      terrainSelect.appendChild(option);
+    }
+  };
+
+  const preview = document.createElement('div');
+  preview.className = 'command-description';
+  const updatePreview = () => {
+    const selected = terrainSelect.value;
+    if (!selected) {
+      preview.textContent = 'Use the text placeholder inside dialogue, the _key placeholder inside command params, or choose a specific smart terrain key.';
+      return;
+    }
+
+    const [, value] = selected.split(':', 2);
+    preview.textContent = `Ready to insert or copy: ${value}`;
+  };
+
+  levelSelect.onchange = () => {
+    syncTerrainOptions();
+    updatePreview();
+  };
+  terrainSelect.onchange = updatePreview;
+
+  controls.appendChild(levelSelect);
+  controls.appendChild(terrainSelect);
+  card.appendChild(controls);
+
+  const actions = document.createElement('div');
+  actions.className = 'rich-editor-toolbar';
+
+  const insertBtn = document.createElement('button');
+  insertBtn.className = 'btn-sm';
+  insertBtn.textContent = 'Insert / Copy';
+  insertBtn.onclick = () => {
+    if (!terrainSelect.value) return;
+    const [, value] = terrainSelect.value.split(':', 2);
+    insertOrCopyPlaceholder(container, value, triggerButton, '%smart_terrain%');
+  };
+  actions.appendChild(insertBtn);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'btn-sm';
+  closeBtn.textContent = 'Close';
+  closeBtn.onclick = () => {
+    triggerButton.classList.remove('active');
+    card.remove();
+  };
+  actions.appendChild(closeBtn);
+
+  card.appendChild(actions);
+  updatePreview();
+  return card;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────

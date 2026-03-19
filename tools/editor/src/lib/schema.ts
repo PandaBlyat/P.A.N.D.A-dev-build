@@ -2,13 +2,121 @@
 // Defines all precondition and outcome commands with their parameter types,
 // so the UI can auto-generate appropriate input fields.
 
+import { FACTION_IDS, LEVEL_DISPLAY_NAMES, MUTANT_TYPES, RANKS } from './constants';
+import { FACTION_DISPLAY_NAMES } from './types';
+
 export interface CommandSchema {
   name: string;
   label: string;
   description: string;
   category: string;
   params: ParamDef[];
+  helpText?: string;
+  examples?: string[];
 }
+
+export interface ParamOption {
+  value: string;
+  label: string;
+  keywords?: string[];
+}
+
+export type ParamEditor =
+  | {
+    kind: 'searchable_select';
+    options: ParamOption[];
+    emptyLabel?: string;
+  }
+  | {
+    kind: 'smart_terrain_picker';
+    allowPlaceholder?: boolean;
+  }
+  | {
+    kind: 'turn_reference';
+    emptyLabel?: string;
+  }
+  | {
+    kind: 'command_builder';
+    suggestions: ParamOption[];
+    chainSeparator?: string;
+  };
+
+const FACTION_OPTIONS: ParamOption[] = FACTION_IDS.map((factionId) => ({
+  value: factionId,
+  label: FACTION_DISPLAY_NAMES[factionId],
+  keywords: [factionId, FACTION_DISPLAY_NAMES[factionId]],
+}));
+
+const LEVEL_OPTIONS: ParamOption[] = Object.entries(LEVEL_DISPLAY_NAMES).map(([levelKey, displayName]) => ({
+  value: levelKey,
+  label: displayName,
+  keywords: [levelKey, displayName],
+}));
+
+const RANK_OPTIONS: ParamOption[] = RANKS.map((rank) => ({
+  value: rank,
+  label: rank,
+  keywords: [rank],
+}));
+
+const MUTANT_OPTIONS: ParamOption[] = MUTANT_TYPES.map((mutantType) => ({
+  value: mutantType,
+  label: mutantType,
+  keywords: [mutantType],
+}));
+
+const SMART_TERRAIN_EDITOR: ParamEditor = {
+  kind: 'smart_terrain_picker',
+  allowPlaceholder: true,
+};
+
+const TURN_REFERENCE_EDITOR: ParamEditor = {
+  kind: 'turn_reference',
+};
+
+const WATCH_TRIGGER_SUGGESTIONS: ParamOption[] = [
+  {
+    value: 'teleport_npc_to_smart:%cordon_panda_st_key%',
+    label: 'Teleport NPC to the watched smart terrain',
+    keywords: ['teleport', 'npc', 'smart', 'location'],
+  },
+  {
+    value: 'teleport_npc_to_player',
+    label: 'Teleport NPC near the player',
+    keywords: ['teleport', 'npc', 'player'],
+  },
+  {
+    value: 'spawn_hostile:bandit:90',
+    label: 'Spawn a hostile squad near the player',
+    keywords: ['spawn', 'hostile', 'bandit'],
+  },
+  {
+    value: 'spawn_hostile_at_smart:bandit:%cordon_panda_st_key%',
+    label: 'Spawn hostiles at the watched smart terrain',
+    keywords: ['spawn', 'hostile', 'smart', 'bandit'],
+  },
+  {
+    value: 'spawn_mutant:snork:90',
+    label: 'Spawn mutants near the player',
+    keywords: ['spawn', 'mutant', 'snork'],
+  },
+  {
+    value: 'spawn_mutant_at_smart:snork:%cordon_panda_st_key%',
+    label: 'Spawn mutants at the watched smart terrain',
+    keywords: ['spawn', 'mutant', 'smart', 'snork'],
+  },
+  {
+    value: 'recruit_companion',
+    label: 'Recruit the current NPC as a companion',
+    keywords: ['recruit', 'companion'],
+  },
+];
+
+const WATCH_TRIGGER_EDITOR: ParamEditor = {
+  kind: 'command_builder',
+  suggestions: WATCH_TRIGGER_SUGGESTIONS,
+  chainSeparator: '+',
+};
 
 export interface ParamDef {
   name: string;
@@ -19,6 +127,9 @@ export interface ParamDef {
   placeholder?: string;
   min?: number;
   max?: number;
+  editor?: ParamEditor;
+  helpText?: string;
+  examples?: string[];
 }
 
 // ─── Precondition Schemas ───────────────────────────────────────────────────
@@ -51,7 +162,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     description: 'Player must belong to this faction',
     category: 'Faction',
     params: [
-      { name: 'faction', type: 'faction', required: true, label: 'Faction' },
+      { name: 'faction', type: 'faction', required: true, label: 'Faction', editor: { kind: 'searchable_select', options: FACTION_OPTIONS, emptyLabel: '-- Select faction --' } },
     ],
   },
   {
@@ -89,7 +200,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     description: 'Player rank must be >= specified rank',
     category: 'Rank',
     params: [
-      { name: 'rank', type: 'rank', required: true, label: 'Minimum Rank' },
+      { name: 'rank', type: 'rank', required: true, label: 'Minimum Rank', editor: { kind: 'searchable_select', options: RANK_OPTIONS } },
     ],
   },
   {
@@ -209,7 +320,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     description: 'Player must be on specified level',
     category: 'Location',
     params: [
-      { name: 'level', type: 'level', required: true, label: 'Level' },
+      { name: 'level', type: 'level', required: true, label: 'Level', editor: { kind: 'searchable_select', options: LEVEL_OPTIONS, emptyLabel: '-- Select level --' } },
     ],
   },
   {
@@ -218,7 +329,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     description: 'Player must NOT be on specified level',
     category: 'Location',
     params: [
-      { name: 'level', type: 'level', required: true, label: 'Level' },
+      { name: 'level', type: 'level', required: true, label: 'Level', editor: { kind: 'searchable_select', options: LEVEL_OPTIONS, emptyLabel: '-- Select level --' } },
     ],
   },
   {
@@ -227,7 +338,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     description: 'Player must be within distance of smart terrain',
     category: 'Location',
     params: [
-      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain' },
+      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
       { name: 'distance', type: 'number', required: false, label: 'Distance (m)', placeholder: '50', min: 1 },
     ],
   },
@@ -237,7 +348,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     description: 'NPC must be within distance of smart terrain',
     category: 'Location',
     params: [
-      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain' },
+      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
       { name: 'distance', type: 'number', required: false, label: 'Distance (m)', placeholder: '50', min: 1 },
     ],
   },
@@ -494,7 +605,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Spawn mutant squad near player',
     category: 'Spawning',
     params: [
-      { name: 'type', type: 'mutant_type', required: true, label: 'Mutant Type' },
+      { name: 'type', type: 'mutant_type', required: true, label: 'Mutant Type', editor: { kind: 'searchable_select', options: MUTANT_OPTIONS } },
       { name: 'distance', type: 'number', required: true, label: 'Distance (m)', min: 10 },
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '90', min: 0 },
     ],
@@ -506,7 +617,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     category: 'Spawning',
     params: [
       { name: 'faction', type: 'faction', required: true, label: 'Faction' },
-      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain' },
+      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
     ],
   },
@@ -516,8 +627,8 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Spawn mutant squad at smart terrain',
     category: 'Spawning',
     params: [
-      { name: 'type', type: 'mutant_type', required: true, label: 'Mutant Type' },
-      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain' },
+      { name: 'type', type: 'mutant_type', required: true, label: 'Mutant Type', editor: { kind: 'searchable_select', options: MUTANT_OPTIONS } },
+      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
     ],
   },
@@ -540,7 +651,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Mark location on map for tracking',
     category: 'Location',
     params: [
-      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain' },
+      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
       { name: 'radius', type: 'number', required: false, label: 'Radius (m)', placeholder: '85', min: 1 },
     ],
   },
@@ -549,9 +660,25 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     label: 'Watch Location + Trigger',
     description: 'Mark location and execute command when player arrives',
     category: 'Location',
+    helpText: 'Build one or more outcome commands that should fire when the player reaches the watched smart terrain. Chain multiple commands with + so they execute as one deferred batch.',
+    examples: [
+      'teleport_npc_to_smart:%cordon_panda_st_key%+spawn_mutant_at_smart:snork:%cordon_panda_st_key%',
+      'spawn_hostile:bandit:90',
+    ],
     params: [
-      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain' },
-      { name: 'trigger_command', type: 'string', required: true, label: 'Trigger Command (use + to chain)' },
+      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
+      {
+        name: 'trigger_command',
+        type: 'string',
+        required: true,
+        label: 'Trigger Command (use + to chain)',
+        editor: WATCH_TRIGGER_EDITOR,
+        helpText: 'Use normal outcome syntax here. The watched smart terrain can be referenced with a real key or a %<level>_panda_st_key% placeholder.',
+        examples: [
+          'teleport_npc_to_smart:%cordon_panda_st_key%+spawn_mutant_at_smart:snork:%cordon_panda_st_key%',
+          'spawn_hostile_at_smart:bandit:%cordon_panda_st_key%',
+        ],
+      },
       { name: 'radius', type: 'number', required: false, label: 'Radius (m)', placeholder: '85', min: 1 },
     ],
   },
@@ -563,7 +690,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Move NPC to smart terrain',
     category: 'NPC',
     params: [
-      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain' },
+      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
     ],
   },
@@ -592,10 +719,14 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     label: 'Job Timer',
     description: 'Wait for spawned squads to die, then branch to success/fail turn',
     category: 'Job System',
+    helpText: 'pause_job should usually live on the same choice as the spawn or watch_location_trigger command it is tracking.',
+    examples: [
+      'pause_job:600:3:4',
+    ],
     params: [
       { name: 'timeout', type: 'number', required: true, label: 'Timeout (s)', min: 1 },
-      { name: 'success_turn', type: 'number', required: true, label: 'Success Turn', min: 2 },
-      { name: 'fail_turn', type: 'number', required: true, label: 'Fail Turn', min: 2 },
+      { name: 'success_turn', type: 'number', required: true, label: 'Success Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
+      { name: 'fail_turn', type: 'number', required: true, label: 'Fail Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
     ],
   },
 
