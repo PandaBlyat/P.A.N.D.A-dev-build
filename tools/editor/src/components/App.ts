@@ -50,6 +50,12 @@ export function renderApp(container: HTMLElement): void {
   centerHeader.innerHTML = `<span>Flow Editor${conv ? ` — ${conv.label}` : ''}</span>`;
 
   if (conv) {
+    const autoLayoutBtn = document.createElement('button');
+    autoLayoutBtn.className = 'btn-sm';
+    autoLayoutBtn.textContent = 'Auto Layout';
+    autoLayoutBtn.onclick = () => store.autoLayoutConversation(conv.id);
+    centerHeader.appendChild(autoLayoutBtn);
+
     const addTurnBtn = document.createElement('button');
     addTurnBtn.className = 'btn-sm';
     addTurnBtn.textContent = '+ Turn';
