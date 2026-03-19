@@ -1032,6 +1032,66 @@ label {
   opacity: 0.8;
 }
 
+.param-help-box {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  border-radius: var(--radius);
+}
+
+.param-help-examples {
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  font-family: var(--font-mono);
+}
+
+.rich-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rich-editor-input,
+.rich-editor-textarea,
+.smart-terrain-placeholder-controls select {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 6px 8px;
+  font: inherit;
+}
+
+.rich-editor-textarea {
+  min-height: 66px;
+  resize: vertical;
+}
+
+.rich-editor-toolbar,
+.smart-terrain-placeholder-controls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rich-editor-toolbar > * {
+  flex: 1;
+}
+
+.rich-editor-toolbar > button {
+  flex: 0 0 auto;
+}
+
+.smart-terrain-placeholder-card {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(0,0,0,0.18);
+}
+
 /* ─── Empty Hints (inline) ────────────────────────────── */
 
 .empty-hint {

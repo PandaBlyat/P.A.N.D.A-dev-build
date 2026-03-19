@@ -144,7 +144,7 @@ function validateConversation(conv: Conversation, messages: ValidationMessage[])
     });
   } else {
     conv.preconditions.forEach((entry, idx) => {
-      validatePrecondition(entry, conv.id, messages, `precondition ${idx + 1}`);
+      validatePrecondition(entry, idx, conv.id, messages);
     });
   }
 
@@ -404,7 +404,13 @@ function validatePrecondition(entry: PreconditionEntry, preconditionIndex: numbe
     return;
   }
 
-  group.options.forEach(option => validatePrecondition(option, preconditionIndex, conversationId, messages));
+  group.options.forEach((option) => {
+    if (option.type === 'all') {
+      option.entries.forEach((entry) => validatePrecondition(entry, preconditionIndex, conversationId, messages));
+      return;
+    }
+    validatePrecondition(option, preconditionIndex, conversationId, messages);
+  });
 }
 
 function validateOutcome(
