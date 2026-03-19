@@ -5,6 +5,7 @@ import { store, type FlowDensity } from '../lib/state';
 import { FACTION_IDS } from '../lib/constants';
 import { FACTION_DISPLAY_NAMES } from '../lib/types';
 import { exportProjectJson, exportXml, importFromXml, importFromJson } from './App';
+import { createIcon, setButtonContent, type IconName } from './icons';
 
 type SearchResult = {
   label: string;
@@ -17,7 +18,10 @@ export function renderToolbar(): HTMLElement {
   const toolbar = document.createElement('div');
   toolbar.className = 'toolbar';
 
-  toolbar.innerHTML = `<span class="toolbar-title">☢ P.A.N.D.A. Editor</span>`;
+  const title = document.createElement('span');
+  title.className = 'toolbar-title';
+  title.append(createIcon('brand'), document.createTextNode('P.A.N.D.A. Editor'));
+  toolbar.appendChild(title);
 
   // Faction selector
   const factionSelect = document.createElement('select');
@@ -36,10 +40,10 @@ export function renderToolbar(): HTMLElement {
 
   const fileGroup = document.createElement('div');
   fileGroup.className = 'toolbar-group';
-  fileGroup.appendChild(btn('📂 Open', importFromJson, 'Open a saved .panda/.json project or import a PANDA XML file'));
-  fileGroup.appendChild(btn('📥 Import XML', importFromXml, 'Import conversations from an existing game XML file'));
-  fileGroup.appendChild(btn('💾 Save', exportProjectJson, 'Save as .panda project file (preserves editor data)'));
-  const exportXmlBtn = btn('📤 Export XML', exportXml, 'Export as game-ready XML file for S.T.A.L.K.E.R. Anomaly');
+  fileGroup.appendChild(btn('open', 'Open', importFromJson, 'Open a saved .panda/.json project or import a PANDA XML file'));
+  fileGroup.appendChild(btn('import', 'Import XML', importFromXml, 'Import conversations from an existing game XML file'));
+  fileGroup.appendChild(btn('save', 'Save', exportProjectJson, 'Save as .panda project file (preserves editor data)'));
+  const exportXmlBtn = btn('export', 'Export XML', exportXml, 'Export as game-ready XML file for S.T.A.L.K.E.R. Anomaly');
   exportXmlBtn.classList.add('btn-primary');
   fileGroup.appendChild(exportXmlBtn);
   toolbar.appendChild(fileGroup);
@@ -49,12 +53,14 @@ export function renderToolbar(): HTMLElement {
   const viewGroup = document.createElement('div');
   viewGroup.className = 'toolbar-group';
   viewGroup.appendChild(btn(
-    state.showXmlPreview ? '📜 Hide XML' : '📜 Show XML',
+    'xml',
+    state.showXmlPreview ? 'Hide XML' : 'Show XML',
     () => store.toggleXmlPreview(),
     'Toggle live XML preview at the bottom of the screen'
   ));
   viewGroup.appendChild(btn(
-    state.showSystemStringsPanel ? '🧵 Hide Strings' : '🧵 Strings',
+    'strings',
+    state.showSystemStringsPanel ? 'Hide Strings' : 'Strings',
     () => store.toggleSystemStringsPanel(),
     'Open the shared system strings manager'
   ));
@@ -83,10 +89,10 @@ export function renderToolbar(): HTMLElement {
 
   const histGroup = document.createElement('div');
   histGroup.className = 'toolbar-group';
-  const undoBtn = btn('↩ Undo', () => store.undo(), 'Undo last change (Ctrl+Z)');
-  const redoBtn = btn('↪ Redo', () => store.redo(), 'Redo last undone change (Ctrl+Y)');
-  if (state.undoStack.length === 0) undoBtn.style.opacity = '0.4';
-  if (state.redoStack.length === 0) redoBtn.style.opacity = '0.4';
+  const undoBtn = btn('undo', 'Undo', () => store.undo(), 'Undo last change (Ctrl+Z)');
+  const redoBtn = btn('redo', 'Redo', () => store.redo(), 'Redo last undone change (Ctrl+Y)');
+  undoBtn.disabled = state.undoStack.length === 0;
+  redoBtn.disabled = state.redoStack.length === 0;
   histGroup.appendChild(undoBtn);
   histGroup.appendChild(redoBtn);
   toolbar.appendChild(histGroup);
@@ -257,9 +263,9 @@ function escapeHtml(value: string): string {
     .split('"').join('&quot;');
 }
 
-function btn(text: string, onclick: () => void, tooltip?: string): HTMLButtonElement {
+function btn(icon: IconName, label: string, onclick: () => void, tooltip?: string): HTMLButtonElement {
   const b = document.createElement('button');
-  b.textContent = text;
+  setButtonContent(b, icon, label);
   b.onclick = onclick;
   if (tooltip) b.title = tooltip;
   return b;

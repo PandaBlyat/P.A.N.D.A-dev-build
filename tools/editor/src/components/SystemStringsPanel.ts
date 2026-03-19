@@ -1,4 +1,5 @@
 import { store } from '../lib/state';
+import { createControlContent, createEmptyState, setButtonContent } from './icons';
 
 export function renderSystemStringsPanel(container: HTMLElement): void {
   const state = store.get();
@@ -11,7 +12,12 @@ export function renderSystemStringsPanel(container: HTMLElement): void {
   header.className = 'system-strings-header';
 
   const title = document.createElement('div');
-  title.innerHTML = '<strong>System Strings</strong><span>Edit imported/exported shared string-table entries.</span>';
+  title.className = 'drawer-header-copy';
+  const heading = document.createElement('strong');
+  heading.appendChild(createControlContent('strings', 'System Strings'));
+  const subtitle = document.createElement('span');
+  subtitle.textContent = 'Edit imported/exported shared string-table entries.';
+  title.append(heading, subtitle);
 
   const actions = document.createElement('div');
   actions.className = 'system-strings-actions';
@@ -19,7 +25,7 @@ export function renderSystemStringsPanel(container: HTMLElement): void {
   const addBtn = document.createElement('button');
   addBtn.type = 'button';
   addBtn.className = 'btn-sm';
-  addBtn.textContent = '+ Add string';
+  setButtonContent(addBtn, 'add', 'Add string');
   addBtn.onclick = () => {
     let nextIndex = state.systemStrings.size + 1;
     let nextKey = `ui_custom_${nextIndex}`;
@@ -33,7 +39,7 @@ export function renderSystemStringsPanel(container: HTMLElement): void {
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'btn-sm';
-  closeBtn.textContent = 'Close';
+  setButtonContent(closeBtn, 'close', 'Close');
   closeBtn.onclick = () => store.toggleSystemStringsPanel();
 
   actions.append(addBtn, closeBtn);
@@ -62,12 +68,18 @@ export function renderSystemStringsPanel(container: HTMLElement): void {
       || value.toLowerCase().includes(normalized));
 
     if (filtered.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'empty-hint';
-      empty.textContent = normalized === ''
-        ? 'No system strings imported yet. Add entries here to manage shared XML strings without leaving the editor.'
-        : 'No string entries match the current filter.';
-      list.appendChild(empty);
+      if (normalized === '') {
+        list.appendChild(createEmptyState(
+          'strings',
+          'No system strings',
+          'Add entries here to manage shared XML strings without leaving the editor.'
+        ));
+      } else {
+        const empty = document.createElement('div');
+        empty.className = 'empty-hint';
+        empty.textContent = 'No string entries match the current filter.';
+        list.appendChild(empty);
+      }
       return;
     }
 
@@ -93,7 +105,7 @@ export function renderSystemStringsPanel(container: HTMLElement): void {
       const deleteBtn = document.createElement('button');
       deleteBtn.type = 'button';
       deleteBtn.className = 'btn-icon';
-      deleteBtn.textContent = '×';
+      setButtonContent(deleteBtn, 'delete', 'Delete');
       deleteBtn.title = 'Delete string entry';
       deleteBtn.style.color = 'var(--danger)';
       deleteBtn.onclick = () => {
