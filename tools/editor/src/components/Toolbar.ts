@@ -30,7 +30,7 @@ export function renderToolbar(): HTMLElement {
   // File group
   const fileGroup = document.createElement('div');
   fileGroup.className = 'toolbar-group';
-  fileGroup.appendChild(btn('\u{1F4C2} Open', importFromJson, 'Open a previously saved .panda project file'));
+  fileGroup.appendChild(btn('\u{1F4C2} Open', importFromJson, 'Open a saved .panda/.json project or import a PANDA XML file'));
   fileGroup.appendChild(btn('\u{1F4E5} Import XML', importFromXml, 'Import conversations from an existing game XML file'));
   fileGroup.appendChild(btn('\u{1F4BE} Save', exportProjectJson, 'Save as .panda project file (preserves editor data)'));
   const exportXmlBtn = btn('\u{1F4E4} Export XML', exportXml, 'Export as game-ready XML file for S.T.A.L.K.E.R. Anomaly');

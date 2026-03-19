@@ -119,19 +119,33 @@ export function exportXml(): void {
 
 /** Import from XML file */
 export function importFromXml(): void {
+  openProjectFile('.xml', ['xml']);
+}
+
+/** Import from .panda JSON file */
+export function importFromJson(): void {
+  openProjectFile('.panda,.json,.xml', ['panda', 'json', 'xml']);
+}
+
+function openProjectFile(accept: string, preferredExtensions: string[]): void {
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.xml';
+  input.accept = accept;
   input.onchange = () => {
     const file = input.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      const result = importXml(reader.result as string);
-      if (result) {
-        store.loadProject(result.project, result.systemStrings);
-      } else {
-        alert('Failed to parse XML file. Make sure it is a valid P.A.N.D.A. conversation file.');
+      const raw = reader.result as string;
+      const extension = getFileExtension(file.name);
+      const parseOrder = extension && preferredExtensions.includes(extension)
+        ? [extension, ...preferredExtensions.filter(ext => ext !== extension)]
+        : preferredExtensions;
+
+      const result = tryLoadProjectFile(raw, parseOrder);
+      if (!result) {
+        const expectedFormats = preferredExtensions.map(ext => `.${ext}`).join(', ');
+        alert(`Failed to parse project file. Supported formats: ${expectedFormats}.`);
       }
     };
     reader.readAsText(file);
@@ -139,28 +153,37 @@ export function importFromXml(): void {
   input.click();
 }
 
-/** Import from .panda JSON file */
-export function importFromJson(): void {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.panda,.json';
-  input.onchange = () => {
-    const file = input.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
+function tryLoadProjectFile(raw: string, parseOrder: string[]): boolean {
+  for (const format of parseOrder) {
+    if (format === 'xml') {
+      const result = importXml(raw);
+      if (result) {
+        store.loadProject(result.project, result.systemStrings);
+        return true;
+      }
+      continue;
+    }
+
+    if (format === 'json' || format === 'panda') {
       try {
-        const data = JSON.parse(reader.result as string);
+        const data = JSON.parse(raw);
         const systemStrings = new Map<string, string>(Object.entries(data.systemStrings || {}));
         delete data.systemStrings;
         store.loadProject(data, systemStrings);
+        return true;
       } catch {
-        alert('Failed to parse project file.');
+        continue;
       }
-    };
-    reader.readAsText(file);
-  };
-  input.click();
+    }
+  }
+
+  return false;
+}
+
+function getFileExtension(filename: string): string | null {
+  const lastDot = filename.lastIndexOf('.');
+  if (lastDot === -1) return null;
+  return filename.slice(lastDot + 1).toLowerCase();
 }
 
 function downloadFile(content: string, filename: string, mimeType: string): void {
