@@ -60,8 +60,21 @@ export function renderConversationList(container: HTMLElement): void {
     actions.appendChild(dupBtn);
     actions.appendChild(delBtn);
 
+    // Metadata line
+    const meta = document.createElement('div');
+    meta.className = 'conv-meta';
+    const totalChoices = conv.turns.reduce((sum, t) => sum + t.choices.length, 0);
+    meta.textContent = `${conv.turns.length} turn${conv.turns.length !== 1 ? 's' : ''} \u00b7 ${totalChoices} choice${totalChoices !== 1 ? 's' : ''}`;
+    if (conv.preconditions.length > 0) {
+      meta.textContent += ` \u00b7 ${conv.preconditions.length} cond`;
+    }
+
     item.appendChild(id);
-    item.appendChild(label);
+    const textWrap = document.createElement('div');
+    textWrap.style.cssText = 'flex:1; overflow:hidden; min-width:0;';
+    textWrap.appendChild(label);
+    textWrap.appendChild(meta);
+    item.appendChild(textWrap);
     item.appendChild(actions);
     list.appendChild(item);
   }

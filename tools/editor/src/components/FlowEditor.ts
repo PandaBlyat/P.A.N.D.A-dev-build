@@ -125,8 +125,9 @@ function autoLayout(conv: Conversation): void {
 
 function renderTurnNode(conv: Conversation, turn: Turn, selected: boolean): HTMLElement {
   const state = store.get();
+  const hasWarning = turn.choices.some(c => !c.text && !c.reply);
   const node = document.createElement('div');
-  node.className = 'turn-node' + (selected ? ' selected' : '');
+  node.className = 'turn-node' + (selected ? ' selected' : '') + (hasWarning ? ' has-warning' : '');
   node.style.left = turn.position.x + 'px';
   node.style.top = turn.position.y + 'px';
   node.onclick = (e) => {
