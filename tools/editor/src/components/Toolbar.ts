@@ -14,7 +14,7 @@ export function renderToolbar(): HTMLElement {
 
   // Faction selector
   const factionSelect = document.createElement('select');
-  factionSelect.title = 'Target Faction';
+  factionSelect.title = 'Select the faction these conversations belong to. Determines the XML file prefix.';
   for (const fid of FACTION_IDS) {
     const opt = document.createElement('option');
     opt.value = fid;
@@ -28,30 +28,36 @@ export function renderToolbar(): HTMLElement {
   toolbar.appendChild(sep());
 
   // Import buttons
-  const importXmlBtn = btn('Import XML', importFromXml);
-  const importJsonBtn = btn('Open Project', importFromJson);
+  const importXmlBtn = btn('Import XML', importFromXml, 'Import conversations from an existing game XML file');
+  const importJsonBtn = btn('Open Project', importFromJson, 'Open a previously saved .panda project file');
   toolbar.appendChild(importXmlBtn);
   toolbar.appendChild(importJsonBtn);
 
   toolbar.appendChild(sep());
 
   // Export buttons
-  const exportXmlBtn = btn('Export XML', exportXml);
+  const saveBtn = btn('Save Project', exportProjectJson, 'Save as .panda project file (preserves editor data)');
+  const exportXmlBtn = btn('Export XML', exportXml, 'Export as game-ready XML file for S.T.A.L.K.E.R. Anomaly');
   exportXmlBtn.classList.add('btn-primary');
-  const saveBtn = btn('Save Project', exportProjectJson);
   toolbar.appendChild(saveBtn);
   toolbar.appendChild(exportXmlBtn);
 
   toolbar.appendChild(sep());
 
   // XML Preview toggle
-  const previewBtn = btn(state.showXmlPreview ? 'Hide XML' : 'Show XML', () => store.toggleXmlPreview());
+  const previewBtn = btn(
+    state.showXmlPreview ? 'Hide XML' : 'Show XML',
+    () => store.toggleXmlPreview(),
+    'Toggle live XML preview at the bottom of the screen'
+  );
   toolbar.appendChild(previewBtn);
 
   // Undo/Redo
   toolbar.appendChild(sep());
-  const undoBtn = btn('Undo', () => store.undo());
-  const redoBtn = btn('Redo', () => store.redo());
+  const undoBtn = btn('Undo', () => store.undo(), 'Undo last change (Ctrl+Z)');
+  const redoBtn = btn('Redo', () => store.redo(), 'Redo last undone change (Ctrl+Y)');
+  if (state.undoStack.length === 0) undoBtn.style.opacity = '0.4';
+  if (state.redoStack.length === 0) redoBtn.style.opacity = '0.4';
   toolbar.appendChild(undoBtn);
   toolbar.appendChild(redoBtn);
 
@@ -63,16 +69,18 @@ export function renderToolbar(): HTMLElement {
   const status = document.createElement('span');
   status.className = 'toolbar-status';
   const convCount = state.project.conversations.length;
-  status.textContent = `${convCount} conversation${convCount !== 1 ? 's' : ''}${state.dirty ? ' (unsaved)' : ''}`;
+  status.textContent = `${convCount} conversation${convCount !== 1 ? 's' : ''}${state.dirty ? ' \u2022 unsaved' : ''}`;
+  if (state.dirty) status.style.color = 'var(--warning)';
   toolbar.appendChild(status);
 
   return toolbar;
 }
 
-function btn(text: string, onclick: () => void): HTMLButtonElement {
+function btn(text: string, onclick: () => void, tooltip?: string): HTMLButtonElement {
   const b = document.createElement('button');
   b.textContent = text;
   b.onclick = onclick;
+  if (tooltip) b.title = tooltip;
   return b;
 }
 

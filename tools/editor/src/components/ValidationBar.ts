@@ -39,10 +39,13 @@ export function renderValidationBar(container: HTMLElement): void {
       const item = document.createElement('span');
       item.className = `validation-msg ${msg.level}`;
       item.textContent = `[${msg.conversationId}${msg.turnNumber ? `:T${msg.turnNumber}` : ''}] ${msg.message}`;
+      item.title = 'Click to navigate to this issue';
       item.onclick = () => {
         store.selectConversation(msg.conversationId);
-        if (msg.turnNumber) store.selectTurn(msg.turnNumber);
-        if (msg.choiceIndex) store.selectChoice(msg.choiceIndex);
+        if (msg.turnNumber) {
+          store.selectTurn(msg.turnNumber);
+          if (msg.choiceIndex) store.selectChoice(msg.choiceIndex);
+        }
       };
       bar.appendChild(item);
     }

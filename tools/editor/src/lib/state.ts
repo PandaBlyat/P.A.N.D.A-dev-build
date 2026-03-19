@@ -4,12 +4,15 @@ import type { Project, Conversation, Turn, Choice, ValidationMessage } from './t
 import { createEmptyProject, createConversation, createTurn, createChoice } from './xml-export';
 import { validate } from './validation';
 
+export type PropertiesTab = 'conversation' | 'selection';
+
 export interface AppState {
   project: Project;
   systemStrings: Map<string, string>;
   selectedConversationId: number | null;
   selectedTurnNumber: number | null;
   selectedChoiceIndex: number | null;
+  propertiesTab: PropertiesTab;
   validationMessages: ValidationMessage[];
   showXmlPreview: boolean;
   dirty: boolean;
@@ -30,6 +33,7 @@ class StateManager {
       selectedConversationId: null,
       selectedTurnNumber: null,
       selectedChoiceIndex: null,
+      propertiesTab: 'conversation',
       validationMessages: [],
       showXmlPreview: false,
       dirty: false,
@@ -87,6 +91,7 @@ class StateManager {
     this.state.selectedConversationId = project.conversations.length > 0 ? project.conversations[0].id : null;
     this.state.selectedTurnNumber = null;
     this.state.selectedChoiceIndex = null;
+    this.state.propertiesTab = 'conversation';
     this.state.dirty = false;
     this.state.undoStack = [];
     this.state.redoStack = [];
@@ -108,17 +113,25 @@ class StateManager {
     this.state.selectedConversationId = id;
     this.state.selectedTurnNumber = null;
     this.state.selectedChoiceIndex = null;
+    this.state.propertiesTab = 'conversation';
     this.notify();
   }
 
   selectTurn(turnNumber: number | null): void {
     this.state.selectedTurnNumber = turnNumber;
     this.state.selectedChoiceIndex = null;
+    if (turnNumber != null) this.state.propertiesTab = 'selection';
     this.notify();
   }
 
   selectChoice(index: number | null): void {
     this.state.selectedChoiceIndex = index;
+    if (index != null) this.state.propertiesTab = 'selection';
+    this.notify();
+  }
+
+  setPropertiesTab(tab: PropertiesTab): void {
+    this.state.propertiesTab = tab;
     this.notify();
   }
 

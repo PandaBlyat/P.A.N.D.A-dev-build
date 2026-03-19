@@ -1,6 +1,7 @@
 // P.A.N.D.A. Conversation Editor — Properties Panel (Right Panel)
 
 import { store } from '../lib/state';
+import type { PropertiesTab } from '../lib/state';
 import type { Conversation, Turn, Choice, PreconditionEntry, SimplePrecondition, Outcome, FactionId } from '../lib/types';
 import { FACTION_DISPLAY_NAMES } from '../lib/types';
 import { PRECONDITION_SCHEMAS, OUTCOME_SCHEMAS, groupByCategory } from '../lib/schema';
@@ -14,8 +15,9 @@ export function renderPropertiesPanel(container: HTMLElement): void {
   if (!conv) {
     container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-state-text">No selection</div>
-        <div class="empty-state-hint">Select a conversation to edit its properties.</div>
+        <div class="empty-state-icon">&#9881;</div>
+        <div class="empty-state-text">No conversation selected</div>
+        <div class="empty-state-hint">Select or create a conversation from the list on the left to edit its properties, preconditions, and dialogue.</div>
       </div>
     `;
     return;
@@ -23,34 +25,86 @@ export function renderPropertiesPanel(container: HTMLElement): void {
 
   const turn = store.getSelectedTurn();
   const choice = store.getSelectedChoice();
+  const activeTab = state.propertiesTab;
 
-  // If a specific choice is selected, show choice editor
+  // ─── Tab Bar ─────────────────────────────────────────
+  const tabBar = document.createElement('div');
+  tabBar.className = 'tab-bar';
+
+  const convTab = document.createElement('button');
+  convTab.className = 'tab' + (activeTab === 'conversation' ? ' active' : '');
+  convTab.textContent = 'Conversation';
+  convTab.title = 'Edit conversation label, preconditions & settings';
+  convTab.onclick = () => store.setPropertiesTab('conversation');
+  tabBar.appendChild(convTab);
+
+  // Selection tab — show what's selected (turn/choice) or "Turn/Choice" if nothing
+  const selTab = document.createElement('button');
+  selTab.className = 'tab' + (activeTab === 'selection' ? ' active' : '');
   if (turn && choice) {
-    renderChoiceProperties(container, conv, turn, choice);
-    return;
+    selTab.textContent = `T${turn.turnNumber} / C${choice.index}`;
+  } else if (turn) {
+    selTab.textContent = `Turn ${turn.turnNumber}`;
+  } else {
+    selTab.textContent = 'Turn / Choice';
+  }
+  selTab.title = turn ? 'Edit selected turn or choice properties' : 'Select a turn in the flow editor';
+  selTab.onclick = () => {
+    if (turn) {
+      store.setPropertiesTab('selection');
+    }
+  };
+  if (!turn) {
+    selTab.style.opacity = '0.4';
+    selTab.style.cursor = 'default';
+  }
+  tabBar.appendChild(selTab);
+
+  container.appendChild(tabBar);
+
+  // ─── Tab Content ─────────────────────────────────────
+  const content = document.createElement('div');
+  content.style.cssText = 'padding: 10px 12px; overflow-y: auto; flex: 1;';
+
+  if (activeTab === 'conversation') {
+    renderConversationProperties(content, conv);
+  } else if (turn && choice) {
+    renderChoiceProperties(content, conv, turn, choice);
+  } else if (turn) {
+    renderTurnProperties(content, conv, turn);
+  } else {
+    // Nothing selected — show a hint
+    content.innerHTML = `
+      <div class="empty-state" style="height:auto; padding:20px;">
+        <div class="empty-state-text">No turn selected</div>
+        <div class="empty-state-hint">Click a turn node in the flow editor to edit its properties, or switch to the Conversation tab to edit preconditions.</div>
+      </div>
+    `;
   }
 
-  // If a turn is selected, show turn properties
-  if (turn) {
-    renderTurnProperties(container, conv, turn);
-    return;
-  }
-
-  // Otherwise show conversation properties
-  renderConversationProperties(container, conv);
+  container.appendChild(content);
 }
 
 // ─── Conversation Properties ──────────────────────────────────────────────
 
 function renderConversationProperties(container: HTMLElement, conv: Conversation): void {
+  // Section title
+  const sectionTitle = document.createElement('div');
+  sectionTitle.className = 'props-section-intro';
+  sectionTitle.innerHTML = `<span class="section-title">General</span>`;
+  container.appendChild(sectionTitle);
+
   // Label
   const labelField = createField('Label', 'text', conv.label, (val) => {
     store.updateConversation(conv.id, { label: val });
-  });
+  }, 'A short name for this conversation (only used in the editor)');
   container.appendChild(labelField);
 
-  // Preconditions
+  container.appendChild(document.createElement('hr'));
+
+  // Preconditions — always visible and prominent
   const precondSection = document.createElement('div');
+  precondSection.className = 'precond-section';
   precondSection.appendChild(sectionHeader('Preconditions', () => {
     showCommandPicker(precondSection, PRECONDITION_SCHEMAS, (schema) => {
       const newPrecond: SimplePrecondition = {
@@ -63,19 +117,33 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
       });
     });
   }));
-  renderPreconditionList(precondSection, conv);
+
+  if (conv.preconditions.length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'empty-hint';
+    hint.textContent = 'No preconditions set — this conversation will trigger for any NPC. Click "+ Add" to add conditions.';
+    precondSection.appendChild(hint);
+  } else {
+    renderPreconditionList(precondSection, conv);
+  }
   container.appendChild(precondSection);
 
-  // Timeout
   container.appendChild(document.createElement('hr'));
+
+  // Timeout
+  const timeoutTitle = document.createElement('div');
+  timeoutTitle.innerHTML = `<span class="section-title">Timeout</span>`;
+  timeoutTitle.style.marginBottom = '8px';
+  container.appendChild(timeoutTitle);
+
   const timeoutField = createField('Timeout (seconds)', 'number', String(conv.timeout || ''), (val) => {
     store.updateConversation(conv.id, { timeout: val ? parseInt(val, 10) : undefined });
-  });
+  }, 'Auto-close conversation after this many seconds (leave empty for no timeout)');
   container.appendChild(timeoutField);
 
   const timeoutMsgField = createField('Timeout Message', 'textarea', conv.timeoutMessage || '', (val) => {
     store.updateConversation(conv.id, { timeoutMessage: val || undefined });
-  });
+  }, 'Message shown when the conversation times out');
   container.appendChild(timeoutMsgField);
 }
 
@@ -91,7 +159,7 @@ function renderTurnProperties(container: HTMLElement, conv: Conversation, turn: 
   if (turn.turnNumber === 1) {
     const msgField = createField('Opening Message', 'textarea', turn.openingMessage || '', (val) => {
       store.updateTurn(conv.id, turn.turnNumber, { openingMessage: val });
-    });
+    }, 'The first message the NPC sends when starting this conversation');
     container.appendChild(msgField);
 
     // Placeholder picker for opening message
@@ -126,6 +194,7 @@ function renderTurnProperties(container: HTMLElement, conv: Conversation, turn: 
       const delBtn = document.createElement('button');
       delBtn.className = 'btn-icon btn-sm';
       delBtn.textContent = '\u00d7';
+      delBtn.title = 'Delete this choice';
       delBtn.style.color = 'var(--danger)';
       delBtn.onclick = (e) => {
         e.stopPropagation();
@@ -135,6 +204,14 @@ function renderTurnProperties(container: HTMLElement, conv: Conversation, turn: 
     }
 
     card.appendChild(header);
+
+    // Show outcome count badge
+    if (choice.outcomes.length > 0) {
+      const badge = document.createElement('div');
+      badge.style.cssText = 'padding:2px 10px; font-size:10px; color:var(--text-dim); font-family:var(--font-mono);';
+      badge.textContent = `${choice.outcomes.length} outcome${choice.outcomes.length !== 1 ? 's' : ''}`;
+      card.appendChild(badge);
+    }
 
     // Show continuation badge if set
     if (choice.continueTo != null) {
@@ -157,6 +234,7 @@ function renderChoiceProperties(container: HTMLElement, conv: Conversation, turn
   const backBtn = document.createElement('button');
   backBtn.className = 'btn-sm';
   backBtn.textContent = '\u2190 Back to Turn ' + turn.turnNumber;
+  backBtn.title = 'Return to turn overview';
   backBtn.onclick = () => store.selectChoice(null);
   backBtn.style.marginBottom = '10px';
   container.appendChild(backBtn);
@@ -169,13 +247,13 @@ function renderChoiceProperties(container: HTMLElement, conv: Conversation, turn
   // Choice text
   const textField = createField('Player Choice Text', 'textarea', choice.text, (val) => {
     store.updateChoice(conv.id, turn.turnNumber, choice.index, { text: val });
-  });
+  }, 'What the player says when choosing this option');
   container.appendChild(textField);
 
   // NPC Reply
   const replyField = createField('NPC Reply', 'textarea', choice.reply, (val) => {
     store.updateChoice(conv.id, turn.turnNumber, choice.index, { reply: val });
-  });
+  }, 'The NPC\'s response to this choice');
   container.appendChild(replyField);
 
   // Placeholder picker
@@ -184,12 +262,12 @@ function renderChoiceProperties(container: HTMLElement, conv: Conversation, turn
   // Reply variants
   const relHighField = createField('Reply (High Relationship, \u2265300)', 'textarea', choice.replyRelHigh || '', (val) => {
     store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyRelHigh: val || undefined });
-  });
+  }, 'Alternative reply when relationship score is 300 or higher (optional)');
   container.appendChild(relHighField);
 
   const relLowField = createField('Reply (Low Relationship, \u2264-300)', 'textarea', choice.replyRelLow || '', (val) => {
     store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyRelLow: val || undefined });
-  });
+  }, 'Alternative reply when relationship score is -300 or lower (optional)');
   container.appendChild(relLowField);
 
   // Outcomes
@@ -205,7 +283,15 @@ function renderChoiceProperties(container: HTMLElement, conv: Conversation, turn
       });
     });
   }));
-  renderOutcomeList(outcomeSection, conv, turn, choice);
+
+  if (choice.outcomes.length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'empty-hint';
+    hint.textContent = 'No outcomes — this choice is dialogue-only. Click "+ Add" to add rewards, spawns, or other effects.';
+    outcomeSection.appendChild(hint);
+  } else {
+    renderOutcomeList(outcomeSection, conv, turn, choice);
+  }
   container.appendChild(outcomeSection);
 
   // Continuation
@@ -215,6 +301,11 @@ function renderChoiceProperties(container: HTMLElement, conv: Conversation, turn
   const contLabel = document.createElement('label');
   contLabel.textContent = 'Continue To Turn';
   contField.appendChild(contLabel);
+
+  const contHint = document.createElement('div');
+  contHint.className = 'field-hint';
+  contHint.textContent = 'Link this choice to another turn for multi-step conversations';
+  contField.appendChild(contHint);
 
   const contSelect = document.createElement('select');
   contSelect.style.width = '100%';
@@ -253,7 +344,7 @@ function renderPreconditionList(container: HTMLElement, conv: Conversation): voi
 
   conv.preconditions.forEach((entry, idx) => {
     const item = document.createElement('li');
-    item.className = 'precond-item';
+    item.className = 'precond-item clickable';
 
     const display = renderPreconditionDisplay(entry);
     item.appendChild(display);
@@ -261,8 +352,10 @@ function renderPreconditionList(container: HTMLElement, conv: Conversation): voi
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-icon btn-sm';
     delBtn.textContent = '\u00d7';
+    delBtn.title = 'Remove this precondition';
     delBtn.style.color = 'var(--danger)';
-    delBtn.onclick = () => {
+    delBtn.onclick = (e) => {
+      e.stopPropagation();
       const updated = [...conv.preconditions];
       updated.splice(idx, 1);
       store.updateConversation(conv.id, { preconditions: updated });
@@ -271,7 +364,7 @@ function renderPreconditionList(container: HTMLElement, conv: Conversation): voi
 
     list.appendChild(item);
 
-    // Editable params for simple preconditions
+    // Editable params for simple preconditions — always visible
     if (entry.type === 'simple') {
       const schema = PRECONDITION_SCHEMAS.find(s => s.name === entry.command);
       if (schema && schema.params.length > 0) {
@@ -281,6 +374,14 @@ function renderPreconditionList(container: HTMLElement, conv: Conversation): voi
           store.updateConversation(conv.id, { preconditions: updated });
         });
         list.appendChild(paramsDiv);
+      }
+
+      // Show description from schema
+      if (schema) {
+        const desc = document.createElement('div');
+        desc.className = 'command-description';
+        desc.textContent = schema.description;
+        list.appendChild(desc);
       }
     }
   });
@@ -293,9 +394,11 @@ function renderPreconditionDisplay(entry: PreconditionEntry): HTMLElement {
   span.style.flex = '1';
 
   if (entry.type === 'simple') {
+    const schema = PRECONDITION_SCHEMAS.find(s => s.name === entry.command);
     const cmd = document.createElement('span');
     cmd.className = 'precond-cmd';
-    cmd.textContent = entry.command;
+    cmd.textContent = schema ? schema.label : entry.command;
+    cmd.title = entry.command;
     span.appendChild(cmd);
     if (entry.params.length > 0 && entry.params.some(p => p !== '')) {
       const params = document.createElement('span');
@@ -304,10 +407,16 @@ function renderPreconditionDisplay(entry: PreconditionEntry): HTMLElement {
       span.appendChild(params);
     }
   } else if (entry.type === 'not') {
-    span.innerHTML = `<span style="color:var(--warning)">NOT</span> `;
+    const notLabel = document.createElement('span');
+    notLabel.style.color = 'var(--warning)';
+    notLabel.textContent = 'NOT ';
+    span.appendChild(notLabel);
     span.appendChild(renderPreconditionDisplay(entry.inner));
   } else {
-    span.innerHTML = `<span style="color:var(--info)">ANY</span> (${entry.options.length} options)`;
+    const anyLabel = document.createElement('span');
+    anyLabel.style.color = 'var(--info)';
+    anyLabel.textContent = `ANY (${entry.options.length} options)`;
+    span.appendChild(anyLabel);
   }
 
   return span;
@@ -319,18 +428,9 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
   const list = document.createElement('ul');
   list.className = 'outcome-list';
 
-  if (choice.outcomes.length === 0) {
-    const empty = document.createElement('li');
-    empty.className = 'outcome-item';
-    empty.innerHTML = '<span class="outcome-cmd" style="color:var(--text-dim)">none</span>';
-    list.appendChild(empty);
-    container.appendChild(list);
-    return;
-  }
-
   choice.outcomes.forEach((outcome, idx) => {
     const item = document.createElement('li');
-    item.className = 'outcome-item';
+    item.className = 'outcome-item clickable';
 
     const display = document.createElement('span');
     display.style.flex = '1';
@@ -342,9 +442,11 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
       display.appendChild(chanceBadge);
     }
 
+    const schema = OUTCOME_SCHEMAS.find(s => s.name === outcome.command);
     const cmd = document.createElement('span');
     cmd.className = 'outcome-cmd';
-    cmd.textContent = outcome.command;
+    cmd.textContent = schema ? schema.label : outcome.command;
+    cmd.title = outcome.command;
     display.appendChild(cmd);
 
     if (outcome.params.length > 0 && outcome.params.some(p => p !== '')) {
@@ -359,8 +461,10 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-icon btn-sm';
     delBtn.textContent = '\u00d7';
+    delBtn.title = 'Remove this outcome';
     delBtn.style.color = 'var(--danger)';
-    delBtn.onclick = () => {
+    delBtn.onclick = (e) => {
+      e.stopPropagation();
       const updated = [...choice.outcomes];
       updated.splice(idx, 1);
       store.updateChoice(conv.id, turn.turnNumber, choice.index, { outcomes: updated });
@@ -369,8 +473,15 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
 
     list.appendChild(item);
 
-    // Editable params
-    const schema = OUTCOME_SCHEMAS.find(s => s.name === outcome.command);
+    // Description from schema
+    if (schema) {
+      const desc = document.createElement('div');
+      desc.className = 'command-description';
+      desc.textContent = schema.description;
+      list.appendChild(desc);
+    }
+
+    // Editable params — always visible
     if (schema && schema.params.length > 0) {
       const paramsDiv = renderParamEditors(schema, outcome.params, (newParams) => {
         const updated = [...choice.outcomes];
@@ -385,6 +496,7 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
     chanceDiv.style.cssText = 'padding:2px 8px; display:flex; align-items:center; gap:4px; font-size:11px;';
     const chanceLabel = document.createElement('label');
     chanceLabel.textContent = 'Chance %';
+    chanceLabel.title = 'Probability this outcome fires (1-100, default: always)';
     chanceLabel.style.cssText = 'margin:0; min-width: 60px;';
     const chanceInput = document.createElement('input');
     chanceInput.type = 'number';
@@ -420,6 +532,10 @@ function renderParamEditors(schema: CommandSchema, currentParams: string[], onCh
     const label = document.createElement('label');
     label.textContent = paramDef.label;
     label.style.cssText = 'min-width:90px; margin:0;';
+    if (paramDef.required) {
+      label.textContent += ' *';
+      label.title = 'Required';
+    }
     field.appendChild(label);
 
     let input: HTMLInputElement | HTMLSelectElement;
@@ -478,7 +594,6 @@ function renderParamEditors(schema: CommandSchema, currentParams: string[], onCh
         break;
       }
       case 'smart_terrain': {
-        // Smart terrain: show as text input with placeholder format hint
         input = document.createElement('input');
         input.type = 'text';
         input.value = currentParams[i] || '';
@@ -539,24 +654,61 @@ function showCommandPicker(parent: HTMLElement, schemas: CommandSchema[], onSele
   const menu = document.createElement('div');
   menu.className = 'dropdown-menu';
 
-  const groups = groupByCategory(schemas);
-  for (const [category, items] of groups) {
-    const catLabel = document.createElement('div');
-    catLabel.className = 'dropdown-category';
-    catLabel.textContent = category;
-    menu.appendChild(catLabel);
+  // Search filter
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.placeholder = 'Search commands...';
+  searchInput.className = 'dropdown-search';
+  searchInput.style.cssText = 'width:100%; margin-bottom:4px; padding:4px 8px; font-size:12px;';
+  menu.appendChild(searchInput);
 
-    for (const schema of items) {
-      const opt = document.createElement('button');
-      opt.className = 'dropdown-option';
-      opt.innerHTML = `${schema.label}<span class="dropdown-option-desc">${schema.description}</span>`;
-      opt.onclick = () => {
-        menu.remove();
-        onSelect(schema);
-      };
-      menu.appendChild(opt);
+  const listContainer = document.createElement('div');
+
+  function renderList(filter: string) {
+    listContainer.innerHTML = '';
+    const groups = groupByCategory(schemas);
+    let hasResults = false;
+
+    for (const [category, items] of groups) {
+      const filtered = items.filter(s =>
+        filter === '' ||
+        s.label.toLowerCase().includes(filter) ||
+        s.description.toLowerCase().includes(filter) ||
+        s.name.toLowerCase().includes(filter)
+      );
+      if (filtered.length === 0) continue;
+      hasResults = true;
+
+      const catLabel = document.createElement('div');
+      catLabel.className = 'dropdown-category';
+      catLabel.textContent = category;
+      listContainer.appendChild(catLabel);
+
+      for (const schema of filtered) {
+        const opt = document.createElement('button');
+        opt.className = 'dropdown-option';
+        opt.innerHTML = `${schema.label}<span class="dropdown-option-desc">${schema.description}</span>`;
+        opt.onclick = () => {
+          menu.remove();
+          wrapper.remove();
+          onSelect(schema);
+        };
+        listContainer.appendChild(opt);
+      }
+    }
+
+    if (!hasResults) {
+      const noResult = document.createElement('div');
+      noResult.style.cssText = 'padding:8px; color:var(--text-dim); font-size:11px; text-align:center;';
+      noResult.textContent = 'No matching commands';
+      listContainer.appendChild(noResult);
     }
   }
+
+  renderList('');
+  searchInput.oninput = () => renderList(searchInput.value.toLowerCase().trim());
+
+  menu.appendChild(listContainer);
 
   // Position near the add button
   const wrapper = document.createElement('div');
@@ -564,6 +716,9 @@ function showCommandPicker(parent: HTMLElement, schemas: CommandSchema[], onSele
   wrapper.style.position = 'relative';
   wrapper.appendChild(menu);
   parent.appendChild(wrapper);
+
+  // Focus the search input
+  requestAnimationFrame(() => searchInput.focus());
 
   // Close on outside click
   const closeHandler = (e: MouseEvent) => {
@@ -579,6 +734,14 @@ function showCommandPicker(parent: HTMLElement, schemas: CommandSchema[], onSele
 // ─── Placeholder Picker ──────────────────────────────────────────────────
 
 function renderPlaceholderPicker(container: HTMLElement): void {
+  const wrapper = document.createElement('div');
+  wrapper.style.marginBottom = '8px';
+
+  const header = document.createElement('div');
+  header.style.cssText = 'font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;';
+  header.textContent = 'Dynamic Placeholders (click to copy)';
+  wrapper.appendChild(header);
+
   const picker = document.createElement('div');
   picker.className = 'placeholder-picker';
 
@@ -586,21 +749,39 @@ function renderPlaceholderPicker(container: HTMLElement): void {
     const btn = document.createElement('button');
     btn.className = 'placeholder-btn';
     btn.textContent = ph.key;
-    btn.title = ph.description;
-    btn.onclick = () => {
-      // Insert at cursor of the last focused textarea
-      const activeEl = document.activeElement;
-      if (activeEl instanceof HTMLTextAreaElement) {
-        const start = activeEl.selectionStart;
-        const end = activeEl.selectionEnd;
-        const text = activeEl.value;
-        activeEl.value = text.substring(0, start) + ph.key + text.substring(end);
-        activeEl.selectionStart = activeEl.selectionEnd = start + ph.key.length;
-        activeEl.dispatchEvent(new Event('input', { bubbles: true }));
-        activeEl.focus();
-      } else {
+    btn.title = ph.description + ' — click to copy to clipboard';
+    btn.onclick = (e) => {
+      e.preventDefault();
+      // Try to insert at cursor of the last focused textarea in the panel
+      const panel = container.closest('.panel-body') || container;
+      const textareas = panel.querySelectorAll('textarea');
+      let inserted = false;
+
+      // Find the most recently focused textarea
+      for (const ta of textareas) {
+        if (ta === document.activeElement) {
+          const start = ta.selectionStart;
+          const end = ta.selectionEnd;
+          const text = ta.value;
+          ta.value = text.substring(0, start) + ph.key + text.substring(end);
+          ta.selectionStart = ta.selectionEnd = start + ph.key.length;
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+          ta.focus();
+          inserted = true;
+          break;
+        }
+      }
+
+      if (!inserted) {
         // Copy to clipboard as fallback
-        navigator.clipboard.writeText(ph.key);
+        navigator.clipboard.writeText(ph.key).then(() => {
+          btn.textContent = 'Copied!';
+          btn.style.color = 'var(--accent)';
+          setTimeout(() => {
+            btn.textContent = ph.key;
+            btn.style.color = '';
+          }, 1000);
+        });
       }
     };
     picker.appendChild(btn);
@@ -610,7 +791,7 @@ function renderPlaceholderPicker(container: HTMLElement): void {
   const stBtn = document.createElement('button');
   stBtn.className = 'placeholder-btn';
   stBtn.textContent = '%smart_terrain%';
-  stBtn.title = 'Insert smart terrain placeholder';
+  stBtn.title = 'Insert smart terrain placeholder — click to copy';
   stBtn.style.borderColor = 'var(--accent-dim)';
   stBtn.onclick = () => {
     // Show level picker
@@ -621,34 +802,39 @@ function renderPlaceholderPicker(container: HTMLElement): void {
       '\n\nThis will insert %<level>_panda_st% in text and %<level>_panda_st_key% for outcomes.'
     );
     if (sel && levelKeys.includes(sel)) {
-      const activeEl = document.activeElement;
       const placeholder = `%${sel}_panda_st%`;
-      if (activeEl instanceof HTMLTextAreaElement) {
-        const start = activeEl.selectionStart;
-        const text = activeEl.value;
-        activeEl.value = text.substring(0, start) + placeholder + text.substring(activeEl.selectionEnd);
-        activeEl.selectionStart = activeEl.selectionEnd = start + placeholder.length;
-        activeEl.dispatchEvent(new Event('input', { bubbles: true }));
-        activeEl.focus();
-      } else {
-        navigator.clipboard.writeText(placeholder);
-      }
+      navigator.clipboard.writeText(placeholder).then(() => {
+        stBtn.textContent = 'Copied!';
+        stBtn.style.color = 'var(--accent)';
+        setTimeout(() => {
+          stBtn.textContent = '%smart_terrain%';
+          stBtn.style.color = '';
+        }, 1000);
+      });
     }
   };
   picker.appendChild(stBtn);
 
-  container.appendChild(picker);
+  wrapper.appendChild(picker);
+  container.appendChild(wrapper);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
-function createField(labelText: string, type: string, value: string, onChange: (val: string) => void): HTMLElement {
+function createField(labelText: string, type: string, value: string, onChange: (val: string) => void, hint?: string): HTMLElement {
   const field = document.createElement('div');
   field.className = 'field';
 
   const label = document.createElement('label');
   label.textContent = labelText;
   field.appendChild(label);
+
+  if (hint) {
+    const hintEl = document.createElement('div');
+    hintEl.className = 'field-hint';
+    hintEl.textContent = hint;
+    field.appendChild(hintEl);
+  }
 
   if (type === 'textarea') {
     const textarea = document.createElement('textarea');
@@ -679,6 +865,7 @@ function sectionHeader(title: string, onAdd?: () => void): HTMLElement {
     const addBtn = document.createElement('button');
     addBtn.className = 'btn-sm';
     addBtn.textContent = '+ Add';
+    addBtn.title = `Add a new ${title.toLowerCase().replace(/\s*\(.*/, '')}`;
     addBtn.onclick = onAdd;
     header.appendChild(addBtn);
   }

@@ -74,6 +74,9 @@ export function renderApp(container: HTMLElement): void {
 
   const rightBody = document.createElement('div');
   rightBody.className = 'panel-body';
+  rightBody.style.padding = '0';
+  rightBody.style.display = 'flex';
+  rightBody.style.flexDirection = 'column';
   renderPropertiesPanel(rightBody);
   right.appendChild(rightBody);
 
