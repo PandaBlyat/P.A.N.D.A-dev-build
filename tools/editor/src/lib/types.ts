@@ -20,11 +20,21 @@ export interface Conversation {
   turns: Turn[];
 }
 
-/** Top-level precondition entry: can be a simple condition, a not() wrapper, or an any() group */
+/** A single precondition expression used at the top level or inside nested groups. */
 export type PreconditionEntry =
   | SimplePrecondition
   | NotPrecondition
-  | AnyPrecondition;
+  | AnyPrecondition
+  | InvalidPrecondition;
+
+/** An AND-group used for a single any() branch containing multiple conditions. */
+export interface AllPreconditionGroup {
+  type: 'all';
+  entries: PreconditionEntry[];
+}
+
+/** A single any() option can be one expression or an explicit AND-group. */
+export type AnyPreconditionOption = PreconditionEntry | AllPreconditionGroup;
 
 export interface SimplePrecondition {
   type: 'simple';
@@ -39,7 +49,13 @@ export interface NotPrecondition {
 
 export interface AnyPrecondition {
   type: 'any';
-  options: PreconditionEntry[];
+  options: AnyPreconditionOption[];
+}
+
+export interface InvalidPrecondition {
+  type: 'invalid';
+  raw: string;
+  error: string;
 }
 
 export interface Turn {

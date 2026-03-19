@@ -1,7 +1,7 @@
 // P.A.N.D.A. Conversation Editor — XML Import
 // Parses existing PANDA XML string table files into the editor data model.
 
-import type { Project, Conversation, Turn, Choice, PreconditionEntry, Outcome, FactionId } from './types';
+import type { Project, Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, Outcome, FactionId } from './types';
 import { FACTION_XML_KEYS } from './types';
 import { SYSTEM_STRING_IDS } from './constants';
 
@@ -61,39 +61,91 @@ function splitTopLevel(str: string, delimiter: string): string[] {
   return result;
 }
 
+function hasBalancedParentheses(str: string): boolean {
+  let depth = 0;
+  for (const ch of str) {
+    if (ch === '(') {
+      depth++;
+    } else if (ch === ')') {
+      depth--;
+      if (depth < 0) return false;
+    }
+  }
+  return depth === 0;
+}
+
+function createInvalidPrecondition(raw: string, error: string): PreconditionEntry {
+  return {
+    type: 'invalid',
+    raw,
+    error,
+  };
+}
+
+function parseAnyOption(token: string): AnyPreconditionOption {
+  const trimmed = token.trim();
+  if (trimmed === '') {
+    return createInvalidPrecondition(token, 'Empty any() option.');
+  }
+
+  const andParts = splitTopLevel(trimmed, ',');
+  if (andParts.length === 1) {
+    return parsePreconditionToken(andParts[0]);
+  }
+
+  return {
+    type: 'all',
+    entries: andParts.map(parsePreconditionToken),
+  };
+}
+
 /** Parse a single precondition token into a PreconditionEntry */
 function parsePreconditionToken(token: string): PreconditionEntry {
   token = token.trim();
 
+  if (token === '') {
+    return createInvalidPrecondition(token, 'Empty precondition token.');
+  }
+
+  if (!hasBalancedParentheses(token)) {
+    return createInvalidPrecondition(token, 'Unbalanced parentheses in precondition expression.');
+  }
+
   // Check for not() wrapper
   if (token.startsWith('not(') && token.endsWith(')')) {
-    const inner = token.slice(4, -1);
+    const inner = token.slice(4, -1).trim();
+    if (inner === '') {
+      return createInvalidPrecondition(token, 'not() requires an inner expression.');
+    }
+    if (splitTopLevel(inner, ',').length !== 1) {
+      return createInvalidPrecondition(token, 'not() cannot directly wrap multiple comma-separated conditions.');
+    }
     return { type: 'not', inner: parsePreconditionToken(inner) };
   }
 
   // Check for any() wrapper
   if (token.startsWith('any(') && token.endsWith(')')) {
     const inner = token.slice(4, -1);
+    if (inner.trim() === '') {
+      return createInvalidPrecondition(token, 'any() requires at least one option.');
+    }
     const options = splitTopLevel(inner, '|');
     return {
       type: 'any',
-      options: options.map(o => {
-        // Each option in any() can itself be comma-separated (AND group)
-        const andParts = splitTopLevel(o, ',');
-        if (andParts.length === 1) {
-          return parsePreconditionToken(andParts[0]);
-        }
-        // Multiple AND conditions within an any() option — represent as the first
-        // (the UI will handle this properly but for simplicity just parse first one)
-        // Actually, any() options separated by | can contain comma-separated AND groups
-        // We'll represent each as a simple precondition for now
-        return parsePreconditionToken(o);
-      }),
+      options: options.map(parseAnyOption),
     };
+  }
+
+  if (token.includes('(') || token.includes(')')) {
+    return createInvalidPrecondition(token, 'Unexpected parentheses in simple precondition.');
   }
 
   // Simple precondition: command:param1:param2
   const parts = token.split(':');
+  if (!parts[0]) {
+    return createInvalidPrecondition(token, 'Missing precondition command name.');
+  }
+
   return {
     type: 'simple',
     command: parts[0],

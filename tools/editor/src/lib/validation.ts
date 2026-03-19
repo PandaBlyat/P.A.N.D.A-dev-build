@@ -142,6 +142,10 @@ function validateConversation(conv: Conversation, messages: ValidationMessage[])
       fieldLabel: 'Preconditions',
       message: 'Missing preconditions. Every conversation must have at least one precondition.',
     });
+  } else {
+    conv.preconditions.forEach((entry, idx) => {
+      validatePrecondition(entry, conv.id, messages, `precondition ${idx + 1}`);
+    });
   }
 
   if (conv.timeout != null) {
