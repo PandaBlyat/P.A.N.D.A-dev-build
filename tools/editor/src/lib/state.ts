@@ -6,6 +6,7 @@ import { validate } from './validation';
 
 export type PropertiesTab = 'conversation' | 'selection';
 export type FlowDensity = 'compact' | 'standard' | 'detailed';
+export type BottomWorkspaceTab = 'validation' | 'strings' | 'xml';
 
 export interface AppState {
   project: Project;
@@ -18,6 +19,8 @@ export interface AppState {
   showXmlPreview: boolean;
   showSystemStringsPanel: boolean;
   showValidationPanel: boolean;
+  bottomWorkspaceTab: BottomWorkspaceTab | null;
+  bottomWorkspaceHeight: number;
   flowDensity: FlowDensity;
   dirty: boolean;
   undoStack: string[];
@@ -47,6 +50,8 @@ class StateManager {
       showXmlPreview: false,
       showSystemStringsPanel: false,
       showValidationPanel: false,
+      bottomWorkspaceTab: null,
+      bottomWorkspaceHeight: 280,
       flowDensity: 'standard',
       dirty: false,
       undoStack: [],
@@ -103,6 +108,30 @@ class StateManager {
 
   private revalidate(): void {
     this.state.validationMessages = validate(this.state.project);
+    if (this.state.validationMessages.length === 0) {
+      this.state.showValidationPanel = false;
+    }
+    this.syncBottomWorkspaceTab();
+  }
+
+  private getOpenBottomWorkspaceTabs(): BottomWorkspaceTab[] {
+    const tabs: BottomWorkspaceTab[] = [];
+    if (this.state.showValidationPanel && this.state.validationMessages.length > 0) tabs.push('validation');
+    if (this.state.showSystemStringsPanel) tabs.push('strings');
+    if (this.state.showXmlPreview) tabs.push('xml');
+    return tabs;
+  }
+
+  private syncBottomWorkspaceTab(preferred?: BottomWorkspaceTab): void {
+    const openTabs = this.getOpenBottomWorkspaceTabs();
+    if (preferred && openTabs.includes(preferred)) {
+      this.state.bottomWorkspaceTab = preferred;
+      return;
+    }
+    if (this.state.bottomWorkspaceTab && openTabs.includes(this.state.bottomWorkspaceTab)) {
+      return;
+    }
+    this.state.bottomWorkspaceTab = openTabs[0] ?? null;
   }
 
   private calculateAutoLayoutUpdates(conversation: Conversation): TurnPositionUpdate[] {
@@ -170,8 +199,11 @@ class StateManager {
     this.state.selectedTurnNumber = null;
     this.state.selectedChoiceIndex = null;
     this.state.propertiesTab = 'conversation';
+    this.state.showXmlPreview = false;
     this.state.showSystemStringsPanel = false;
     this.state.showValidationPanel = false;
+    this.state.bottomWorkspaceTab = null;
+    this.state.bottomWorkspaceHeight = 280;
     this.state.dirty = false;
     this.state.undoStack = [];
     this.state.redoStack = [];
@@ -213,16 +245,42 @@ class StateManager {
 
   toggleXmlPreview(): void {
     this.state.showXmlPreview = !this.state.showXmlPreview;
+    this.syncBottomWorkspaceTab(this.state.showXmlPreview ? 'xml' : undefined);
     this.notify();
   }
 
   toggleSystemStringsPanel(): void {
     this.state.showSystemStringsPanel = !this.state.showSystemStringsPanel;
+    this.syncBottomWorkspaceTab(this.state.showSystemStringsPanel ? 'strings' : undefined);
     this.notify();
   }
 
   toggleValidationPanel(): void {
+    if (!this.state.showValidationPanel && this.state.validationMessages.length === 0) return;
     this.state.showValidationPanel = !this.state.showValidationPanel;
+    this.syncBottomWorkspaceTab(this.state.showValidationPanel ? 'validation' : undefined);
+    this.notify();
+  }
+
+  setBottomWorkspaceTab(tab: BottomWorkspaceTab): void {
+    if (this.getOpenBottomWorkspaceTabs().includes(tab)) {
+      this.state.bottomWorkspaceTab = tab;
+      this.notify();
+    }
+  }
+
+  closeBottomWorkspaceTab(tab: BottomWorkspaceTab): void {
+    if (tab === 'validation') this.state.showValidationPanel = false;
+    if (tab === 'strings') this.state.showSystemStringsPanel = false;
+    if (tab === 'xml') this.state.showXmlPreview = false;
+    this.syncBottomWorkspaceTab();
+    this.notify();
+  }
+
+  setBottomWorkspaceHeight(height: number): void {
+    const next = Math.max(180, Math.min(520, Math.round(height)));
+    if (next === this.state.bottomWorkspaceHeight) return;
+    this.state.bottomWorkspaceHeight = next;
     this.notify();
   }
 

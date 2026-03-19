@@ -55,35 +55,9 @@ export function renderValidationBar(container: HTMLElement): void {
   }
 
   container.appendChild(bar);
-
-  if (state.showValidationPanel && messages.length > 0) {
-    container.appendChild(renderValidationDrawer(messages));
-  }
 }
 
-function renderValidationDrawer(messages: ValidationMessage[]): HTMLElement {
-  const drawer = document.createElement('section');
-  drawer.className = 'validation-drawer';
-
-  const header = document.createElement('div');
-  header.className = 'validation-drawer-header';
-
-  const title = document.createElement('div');
-  title.className = 'drawer-header-copy';
-  const heading = document.createElement('strong');
-  heading.appendChild(createControlContent('warning', 'Project issues'));
-  const subheading = document.createElement('span');
-  subheading.textContent = 'Jump through the full list without losing context in the editor.';
-  title.append(heading, subheading);
-
-  const closeBtn = document.createElement('button');
-  closeBtn.type = 'button';
-  closeBtn.className = 'btn-sm';
-  setButtonContent(closeBtn, 'close', 'Close');
-  closeBtn.onclick = () => store.toggleValidationPanel();
-  header.append(title, closeBtn);
-  drawer.appendChild(header);
-
+export function createValidationWorkspaceContent(messages: ValidationMessage[]): HTMLElement {
   const body = document.createElement('div');
   body.className = 'validation-drawer-body';
 
@@ -115,8 +89,7 @@ function renderValidationDrawer(messages: ValidationMessage[]): HTMLElement {
     body.appendChild(section);
   }
 
-  drawer.appendChild(body);
-  return drawer;
+  return body;
 }
 
 function formatLocation(msg: ValidationMessage): string {

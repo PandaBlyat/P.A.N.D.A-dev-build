@@ -4,6 +4,10 @@ import { store } from '../lib/state';
 import { generateXml } from '../lib/xml-export';
 
 export function renderXmlPreview(container: HTMLElement): void {
+  container.appendChild(createXmlPreviewContent());
+}
+
+export function createXmlPreviewContent(): HTMLElement {
   const state = store.get();
   const xml = generateXml(state.project, state.systemStrings);
 
@@ -17,7 +21,7 @@ export function renderXmlPreview(container: HTMLElement): void {
   content.innerHTML = highlightXml(xml);
 
   panel.appendChild(content);
-  container.appendChild(panel);
+  return panel;
 }
 
 function highlightXml(xml: string): string {
