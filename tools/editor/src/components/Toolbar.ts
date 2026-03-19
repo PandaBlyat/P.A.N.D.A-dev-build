@@ -13,18 +13,27 @@ type SearchResult = {
   onSelect: () => void;
 };
 
+type ToolbarButtonOptions = {
+  classes?: string[];
+  tooltip?: string;
+  ariaLabel?: string;
+};
+
 export function renderToolbar(): HTMLElement {
   const state = store.get();
   const toolbar = document.createElement('div');
   toolbar.className = 'toolbar';
 
+  const projectTier = document.createElement('div');
+  projectTier.className = 'toolbar-tier toolbar-tier-project';
+
   const title = document.createElement('span');
   title.className = 'toolbar-title';
   title.append(createIcon('brand'), document.createTextNode('P.A.N.D.A. Editor'));
-  toolbar.appendChild(title);
+  projectTier.appendChild(title);
 
-  // Faction selector
   const factionSelect = document.createElement('select');
+  factionSelect.className = 'toolbar-faction-select';
   factionSelect.title = 'Select the faction these conversations belong to. Determines the XML file prefix.';
   for (const fid of FACTION_IDS) {
     const opt = document.createElement('option');
@@ -34,72 +43,80 @@ export function renderToolbar(): HTMLElement {
     factionSelect.appendChild(opt);
   }
   factionSelect.onchange = () => store.setFaction(factionSelect.value as typeof FACTION_IDS[number]);
-  toolbar.appendChild(factionSelect);
-
-  toolbar.appendChild(sep());
 
   const fileGroup = document.createElement('div');
-  fileGroup.className = 'toolbar-group';
+  fileGroup.className = 'toolbar-group toolbar-group-project';
+  fileGroup.appendChild(factionSelect);
+  fileGroup.appendChild(sep());
   fileGroup.appendChild(btn('open', 'Open', importFromJson, 'Open a saved .panda/.json project or import a PANDA XML file'));
-  fileGroup.appendChild(btn('import', 'Import XML', importFromXml, 'Import conversations from an existing game XML file'));
+  fileGroup.appendChild(btn('import', 'Import', importFromXml, 'Import conversations from an existing game XML file'));
   fileGroup.appendChild(btn('save', 'Save', exportProjectJson, 'Save as .panda project file (preserves editor data)'));
-  const exportXmlBtn = btn('export', 'Export XML', exportXml, 'Export as game-ready XML file for S.T.A.L.K.E.R. Anomaly');
-  exportXmlBtn.classList.add('btn-primary');
+  const exportXmlBtn = btn('export', 'Export XML', exportXml, 'Export as game-ready XML file for S.T.A.L.K.E.R. Anomaly', {
+    classes: ['btn-primary', 'toolbar-button-primary'],
+  });
   fileGroup.appendChild(exportXmlBtn);
-  toolbar.appendChild(fileGroup);
+  projectTier.appendChild(fileGroup);
+  toolbar.appendChild(projectTier);
 
-  toolbar.appendChild(sep());
+  const editTier = document.createElement('div');
+  editTier.className = 'toolbar-tier toolbar-tier-edit';
 
-  const viewGroup = document.createElement('div');
-  viewGroup.className = 'toolbar-group';
-  viewGroup.appendChild(btn(
-    'xml',
-    state.showXmlPreview ? 'Hide XML' : 'Show XML',
-    () => store.toggleXmlPreview(),
-    'Toggle live XML preview at the bottom of the screen'
-  ));
-  viewGroup.appendChild(btn(
-    'strings',
-    state.showSystemStringsPanel ? 'Hide Strings' : 'Strings',
-    () => store.toggleSystemStringsPanel(),
-    'Open the shared system strings manager'
-  ));
+  const search = renderQuickSearch();
+  editTier.appendChild(search);
 
+  const editGroup = document.createElement('div');
+  editGroup.className = 'toolbar-group toolbar-group-edit';
   const densitySelect = document.createElement('select');
-  densitySelect.className = 'toolbar-density-select';
+  densitySelect.className = 'toolbar-density-select toolbar-select-quiet';
   densitySelect.title = 'Adjust how much information each turn card shows in the flow editor.';
   const densityOptions: FlowDensity[] = ['compact', 'standard', 'detailed'];
   for (const density of densityOptions) {
     const option = document.createElement('option');
     option.value = density;
-    option.textContent = `Nodes: ${density}`;
+    option.textContent = density[0].toUpperCase() + density.slice(1);
     option.selected = density === state.flowDensity;
     densitySelect.appendChild(option);
   }
   densitySelect.onchange = () => store.setFlowDensity(densitySelect.value as FlowDensity);
-  viewGroup.appendChild(densitySelect);
-  toolbar.appendChild(viewGroup);
-
-  toolbar.appendChild(sep());
-
-  const search = renderQuickSearch();
-  toolbar.appendChild(search);
-
-  toolbar.appendChild(sep());
+  editGroup.appendChild(densitySelect);
+  editGroup.appendChild(sep());
 
   const histGroup = document.createElement('div');
-  histGroup.className = 'toolbar-group';
-  const undoBtn = btn('undo', 'Undo', () => store.undo(), 'Undo last change (Ctrl+Z)');
-  const redoBtn = btn('redo', 'Redo', () => store.redo(), 'Redo last undone change (Ctrl+Y)');
+  histGroup.className = 'toolbar-group toolbar-group-compact';
+  const undoBtn = iconBtn('undo', () => store.undo(), 'Undo', 'Undo last change (Ctrl+Z)');
+  const redoBtn = iconBtn('redo', () => store.redo(), 'Redo', 'Redo last undone change (Ctrl+Y)');
   undoBtn.disabled = state.undoStack.length === 0;
   redoBtn.disabled = state.redoStack.length === 0;
   histGroup.appendChild(undoBtn);
   histGroup.appendChild(redoBtn);
-  toolbar.appendChild(histGroup);
+  editGroup.appendChild(histGroup);
+  editTier.appendChild(editGroup);
+  toolbar.appendChild(editTier);
 
   const spacer = document.createElement('div');
   spacer.className = 'toolbar-spacer';
   toolbar.appendChild(spacer);
+
+  const utilityTier = document.createElement('div');
+  utilityTier.className = 'toolbar-tier toolbar-tier-utility';
+
+  const utilityGroup = document.createElement('div');
+  utilityGroup.className = 'toolbar-group toolbar-group-segmented';
+  utilityGroup.appendChild(toggleBtn(
+    'xml',
+    'XML',
+    state.showXmlPreview,
+    () => store.toggleXmlPreview(),
+    state.showXmlPreview ? 'Hide the live XML preview panel' : 'Show the live XML preview panel',
+  ));
+  utilityGroup.appendChild(toggleBtn(
+    'strings',
+    'Strings',
+    state.showSystemStringsPanel,
+    () => store.toggleSystemStringsPanel(),
+    state.showSystemStringsPanel ? 'Hide the shared system strings manager' : 'Show the shared system strings manager',
+  ));
+  utilityTier.appendChild(utilityGroup);
 
   const status = document.createElement('span');
   status.className = 'toolbar-status';
@@ -111,7 +128,8 @@ export function renderToolbar(): HTMLElement {
   } else {
     status.textContent = `${convCount} conversation${convCount !== 1 ? 's' : ''} • ${stringCount} strings`;
   }
-  toolbar.appendChild(status);
+  utilityTier.appendChild(status);
+  toolbar.appendChild(utilityTier);
 
   return toolbar;
 }
@@ -123,7 +141,7 @@ function renderQuickSearch(): HTMLElement {
   const input = document.createElement('input');
   input.type = 'search';
   input.className = 'toolbar-search-input';
-  input.placeholder = 'Jump to conversation, turn, choice, command, string…';
+  input.placeholder = 'Jump to convo, turn, string…';
   input.title = 'Quick navigation across conversations, choices, commands, and system strings (Ctrl/Cmd+P)';
   input.setAttribute('data-global-search', 'true');
 
@@ -263,11 +281,48 @@ function escapeHtml(value: string): string {
     .split('"').join('&quot;');
 }
 
-function btn(icon: IconName, label: string, onclick: () => void, tooltip?: string): HTMLButtonElement {
+function btn(
+  icon: IconName,
+  label: string,
+  onclick: () => void,
+  tooltip?: string,
+  options: ToolbarButtonOptions = {},
+): HTMLButtonElement {
   const b = document.createElement('button');
+  b.type = 'button';
+  b.className = ['toolbar-button', ...(options.classes ?? [])].join(' ');
   setButtonContent(b, icon, label);
   b.onclick = onclick;
-  if (tooltip) b.title = tooltip;
+  b.title = options.tooltip ?? tooltip ?? label;
+  if (options.ariaLabel) b.setAttribute('aria-label', options.ariaLabel);
+  return b;
+}
+
+function iconBtn(icon: IconName, onclick: () => void, ariaLabel: string, tooltip?: string): HTMLButtonElement {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'toolbar-button toolbar-icon-button btn-icon';
+  b.appendChild(createIcon(icon));
+  b.onclick = onclick;
+  b.title = tooltip ?? ariaLabel;
+  b.setAttribute('aria-label', ariaLabel);
+  return b;
+}
+
+function toggleBtn(
+  icon: IconName,
+  label: string,
+  active: boolean,
+  onclick: () => void,
+  tooltip?: string,
+): HTMLButtonElement {
+  const b = btn(icon, label, onclick, tooltip, { classes: ['toolbar-toggle-button'] });
+  if (active) {
+    b.classList.add('is-active');
+    b.setAttribute('aria-pressed', 'true');
+  } else {
+    b.setAttribute('aria-pressed', 'false');
+  }
   return b;
 }
 
