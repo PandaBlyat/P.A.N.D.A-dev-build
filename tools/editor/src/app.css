@@ -371,20 +371,133 @@ label {
 
 /* ─── Flow Editor ──────────────────────────────────────── */
 
+.flow-shell {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
 .flow-canvas {
   width: 100%;
   height: 100%;
   position: relative;
-  overflow: auto;
+  overflow: hidden;
   background:
     radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0) 0 0 / 20px 20px;
+  cursor: grab;
+}
+
+.flow-canvas.is-panning {
+  cursor: grabbing;
 }
 
 .flow-content {
+  position: absolute;
+  inset: 0 auto auto 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.flow-content.animated-view {
+  transition: transform 0.18s ease;
+}
+
+.flow-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(8, 10, 12, 0.92);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(6px);
+  z-index: 4;
+}
+
+.flow-zoom-value {
+  min-width: 46px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.flow-minimap {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 210px;
+  padding: 8px;
+  background: rgba(8, 10, 12, 0.94);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  z-index: 4;
+}
+
+.flow-minimap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: var(--text-dim);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.flow-minimap-body {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.flow-minimap-frame {
   position: relative;
-  min-width: 100%;
-  min-height: 100%;
-  padding: 40px;
+  width: 100%;
+  max-height: 150px;
+  min-height: 96px;
+  background: linear-gradient(180deg, rgba(94, 170, 58, 0.05), rgba(0,0,0,0.08));
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.flow-minimap-nodes,
+.flow-minimap-viewport {
+  position: absolute;
+  inset: 0;
+}
+
+.flow-minimap-node {
+  position: absolute;
+  width: 10px;
+  height: 6px;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.25);
+  transform: translate(-50%, -50%);
+  box-shadow: none;
+}
+
+.flow-minimap-node.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.flow-minimap-viewport {
+  border: 1px solid var(--info);
+  background: rgba(64, 128, 196, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(64, 128, 196, 0.25);
 }
 
 .turn-node {
@@ -409,6 +522,10 @@ label {
   border-left-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-glow), var(--shadow-md);
   animation: node-glow 2s ease-in-out infinite;
+}
+.turn-node.path-active:not(.selected) {
+  border-color: rgba(94, 170, 58, 0.55);
+  box-shadow: 0 0 0 1px rgba(94, 170, 58, 0.18), var(--shadow-sm);
 }
 .turn-node.has-warning {
   border-left-color: var(--warning);
@@ -501,6 +618,16 @@ label {
   border: 1px solid var(--accent-dim);
 }
 
+.choice-branch-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--warning);
+  color: var(--warning);
+  background: rgba(196, 160, 64, 0.08);
+}
+
 /* ─── SVG Edges ────────────────────────────────────────── */
 
 .flow-edges {
@@ -509,27 +636,73 @@ label {
   left: 0;
   width: 100%;
   height: 100%;
+  overflow: visible;
   pointer-events: none;
 }
 
-.flow-edges path {
+.flow-edge-path {
   fill: none;
   stroke: var(--edge-color);
   stroke-width: 2;
-  opacity: 0.6;
+  opacity: 0.72;
+  stroke-linecap: round;
   stroke-dasharray: 1000;
   stroke-dashoffset: 1000;
   animation: draw-edge 0.8s ease forwards;
+  transition: opacity 0.18s ease, stroke-width 0.18s ease, filter 0.18s ease;
+}
+
+.flow-edge-path.edge-continue {
+  stroke-dasharray: 0;
+}
+
+.flow-edge-path.edge-pause-success {
+  stroke-dasharray: 9 7;
+}
+
+.flow-edge-path.edge-pause-fail {
+  stroke-dasharray: 4 7;
+}
+
+.flow-edge-path.is-active {
+  opacity: 1;
+  stroke-width: 3.2;
+  filter: drop-shadow(0 0 7px rgba(94, 170, 58, 0.35));
+}
+
+.flow-edge-path.is-muted {
+  opacity: 0.18;
 }
 
 @keyframes draw-edge {
   to { stroke-dashoffset: 0; }
 }
 
-.flow-edges text {
+.flow-edge-label {
   fill: var(--text-dim);
   font-size: 10px;
   font-family: var(--font-mono);
+  paint-order: stroke;
+  stroke: rgba(8, 10, 12, 0.92);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  transition: opacity 0.18s ease, fill 0.18s ease;
+}
+
+.flow-edge-label.edge-label-pause-success {
+  fill: var(--accent);
+}
+
+.flow-edge-label.edge-label-pause-fail {
+  fill: var(--danger);
+}
+
+.flow-edge-label.is-active {
+  fill: var(--text-bright);
+}
+
+.flow-edge-label.is-muted {
+  opacity: 0.22;
 }
 
 /* ─── Properties Panel ─────────────────────────────────── */

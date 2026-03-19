@@ -1,5 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Conversation List (Left Panel)
 
+import { requestFlowCenter } from '../lib/flow-navigation';
 import { store } from '../lib/state';
 
 export function renderConversationList(container: HTMLElement): void {
@@ -39,6 +40,21 @@ export function renderConversationList(container: HTMLElement): void {
     const actions = document.createElement('div');
     actions.className = 'conv-actions';
 
+    const locateBtn = document.createElement('button');
+    locateBtn.className = 'btn-icon';
+    locateBtn.textContent = '\u2316';
+    locateBtn.title = 'Center selection in flow editor';
+    locateBtn.onclick = (e) => {
+      e.stopPropagation();
+      store.selectConversation(conv.id);
+      const selectedTurn = state.selectedConversationId === conv.id ? state.selectedTurnNumber : null;
+      requestFlowCenter({
+        conversationId: conv.id,
+        turnNumber: selectedTurn,
+        fit: selectedTurn == null,
+      });
+    };
+
     const dupBtn = document.createElement('button');
     dupBtn.className = 'btn-icon';
     dupBtn.textContent = '\u2398'; // copy icon
@@ -57,6 +73,7 @@ export function renderConversationList(container: HTMLElement): void {
       }
     };
 
+    actions.appendChild(locateBtn);
     actions.appendChild(dupBtn);
     actions.appendChild(delBtn);
 
