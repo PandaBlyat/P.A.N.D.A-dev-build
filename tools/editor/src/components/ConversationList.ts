@@ -2,8 +2,34 @@
 
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { store } from '../lib/state';
-import { setButtonContent } from './icons';
 import { createOnboardingNudge } from './Onboarding';
+
+export function centerConversationSelection(conversationId: number): void {
+  const currentState = store.get();
+  const selectedTurnNumber = currentState.selectedConversationId === conversationId
+    ? currentState.selectedTurnNumber
+    : null;
+
+  store.selectConversation(conversationId);
+  requestFlowCenter({
+    conversationId,
+    turnNumber: selectedTurnNumber,
+    fit: selectedTurnNumber == null,
+  });
+}
+
+export function duplicateConversationSelection(conversationId: number): void {
+  store.duplicateConversation(conversationId);
+}
+
+export function deleteConversationSelection(conversationId: number): void {
+  const conversation = store.get().project.conversations.find((entry) => entry.id === conversationId);
+  if (!conversation) return;
+  const conversationLabel = conversation.label || `Conversation ${conversation.id}`;
+  if (confirm(`Delete conversation ${conversation.id}: "${conversationLabel}"?`)) {
+    store.deleteConversation(conversationId);
+  }
+}
 
 export function renderConversationList(container: HTMLElement): void {
   const state = store.get();
@@ -30,9 +56,7 @@ export function renderConversationList(container: HTMLElement): void {
     item.setAttribute('role', 'option');
     item.setAttribute('aria-selected', conv.id === state.selectedConversationId ? 'true' : 'false');
     item.setAttribute('aria-label', `${conversationLabel}, ${conv.turns.length} turns`);
-    item.onclick = (e) => {
-      // Don't select if clicking action buttons
-      if ((e.target as HTMLElement).closest('.conv-actions')) return;
+    item.onclick = () => {
       store.selectConversation(conv.id);
     };
     item.onkeydown = (event) => {
@@ -44,9 +68,7 @@ export function renderConversationList(container: HTMLElement): void {
 
       if ((event.key === 'Delete' || event.key === 'Backspace') && conv.id === store.get().selectedConversationId) {
         event.preventDefault();
-        if (confirm(`Delete conversation ${conv.id}: "${conversationLabel}"?`)) {
-          store.deleteConversation(conv.id);
-        }
+        deleteConversationSelection(conv.id);
       }
     };
 
@@ -58,49 +80,6 @@ export function renderConversationList(container: HTMLElement): void {
     label.className = 'conv-label';
     label.textContent = conversationLabel;
 
-    const actions = document.createElement('div');
-    actions.className = 'conv-actions';
-
-    const locateBtn = document.createElement('button');
-    locateBtn.className = 'btn-icon btn-icon-labeled';
-    setButtonContent(locateBtn, 'locate', 'Center');
-    locateBtn.title = 'Center selection in flow editor';
-    locateBtn.setAttribute('aria-label', `Center ${conversationLabel} in the flow editor`);
-    locateBtn.onclick = (e) => {
-      e.stopPropagation();
-      store.selectConversation(conv.id);
-      const selectedTurn = state.selectedConversationId === conv.id ? state.selectedTurnNumber : null;
-      requestFlowCenter({
-        conversationId: conv.id,
-        turnNumber: selectedTurn,
-        fit: selectedTurn == null,
-      });
-    };
-
-    const dupBtn = document.createElement('button');
-    dupBtn.className = 'btn-icon btn-icon-labeled';
-    setButtonContent(dupBtn, 'duplicate', 'Duplicate');
-    dupBtn.title = 'Duplicate';
-    dupBtn.setAttribute('aria-label', `Duplicate ${conversationLabel}`);
-    dupBtn.onclick = (e) => { e.stopPropagation(); store.duplicateConversation(conv.id); };
-
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn-icon btn-icon-labeled btn-danger';
-    setButtonContent(delBtn, 'delete', 'Delete');
-    delBtn.title = 'Delete';
-    delBtn.setAttribute('aria-label', `Delete ${conversationLabel}`);
-    delBtn.onclick = (e) => {
-      e.stopPropagation();
-      if (confirm(`Delete conversation ${conv.id}: "${conversationLabel}"?`)) {
-        store.deleteConversation(conv.id);
-      }
-    };
-
-    actions.appendChild(locateBtn);
-    actions.appendChild(dupBtn);
-    actions.appendChild(delBtn);
-
-    // Metadata line
     const meta = document.createElement('div');
     meta.className = 'conv-meta';
     const totalChoices = conv.turns.reduce((sum, t) => sum + t.choices.length, 0);
@@ -109,13 +88,11 @@ export function renderConversationList(container: HTMLElement): void {
       meta.textContent += ` · ${conv.preconditions.length} cond`;
     }
 
-    item.appendChild(id);
     const textWrap = document.createElement('div');
-    textWrap.style.cssText = 'flex:1; overflow:hidden; min-width:0;';
-    textWrap.appendChild(label);
-    textWrap.appendChild(meta);
-    item.appendChild(textWrap);
-    item.appendChild(actions);
+    textWrap.className = 'conv-text';
+    textWrap.append(label, meta);
+
+    item.append(id, textWrap);
     list.appendChild(item);
   }
 

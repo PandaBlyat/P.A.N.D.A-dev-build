@@ -2,7 +2,12 @@
 
 import { store, type BottomWorkspaceTab } from '../lib/state';
 import { renderToolbar } from './Toolbar';
-import { renderConversationList } from './ConversationList';
+import {
+  centerConversationSelection,
+  deleteConversationSelection,
+  duplicateConversationSelection,
+  renderConversationList,
+} from './ConversationList';
 import { renderFlowEditor } from './FlowEditor';
 import { renderPropertiesPanel } from './PropertiesPanel';
 import { renderValidationBar } from './ValidationBar';
@@ -195,11 +200,24 @@ function getAppShell(container: HTMLElement): AppShell {
 function renderLeftPanel(shell: AppShell): void {
   const isOverlay = layoutState.responsiveMode !== 'desktop';
   const isDrawerOpen = isOverlay && layoutState.activeDrawer === 'left';
+  const selectedConversationId = store.get().selectedConversationId;
 
   shell.leftPanel.className = `panel panel-left${layoutState.leftCollapsed && !isOverlay ? ' is-collapsed' : ''}${isDrawerOpen ? ' is-drawer-open' : ''}`;
   shell.leftPanel.dataset.drawerOpen = String(isDrawerOpen);
   shell.leftPanel.setAttribute('aria-hidden', String(isOverlay && !isDrawerOpen));
-  shell.leftActions.replaceChildren(createAddConversationButton(), createPanelToggleButton('left'));
+  shell.leftActions.replaceChildren(
+    createAddConversationButton(),
+    createSelectedConversationActionButton('locate', 'Center', 'Center selected conversation in the flow editor', () => {
+      if (selectedConversationId != null) centerConversationSelection(selectedConversationId);
+    }, selectedConversationId == null),
+    createSelectedConversationActionButton('duplicate', 'Duplicate', 'Duplicate selected conversation', () => {
+      if (selectedConversationId != null) duplicateConversationSelection(selectedConversationId);
+    }, selectedConversationId == null),
+    createSelectedConversationActionButton('delete', 'Delete', 'Delete selected conversation', () => {
+      if (selectedConversationId != null) deleteConversationSelection(selectedConversationId);
+    }, selectedConversationId == null, true),
+    createPanelToggleButton('left'),
+  );
   shell.leftBody.hidden = layoutState.leftCollapsed && !isOverlay;
   shell.leftBody.replaceChildren();
   renderConversationList(shell.leftBody);
@@ -318,6 +336,25 @@ function createAddConversationButton(): HTMLButtonElement {
   setButtonContent(addBtn, 'add', 'New');
   addBtn.onclick = () => createBlankProject();
   return addBtn;
+}
+
+function createSelectedConversationActionButton(
+  icon: Parameters<typeof setButtonContent>[1],
+  label: string,
+  title: string,
+  onClick: () => void,
+  disabled: boolean,
+  dangerous = false,
+): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `btn-sm${dangerous ? ' btn-danger' : ''}`;
+  setButtonContent(button, icon, label);
+  button.title = title;
+  button.setAttribute('aria-label', title);
+  button.disabled = disabled;
+  button.onclick = onClick;
+  return button;
 }
 
 function createPanelLauncherButton(side: 'left' | 'right', label: string): HTMLButtonElement {
