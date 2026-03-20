@@ -791,16 +791,26 @@ function drawEdges(options: {
   }
 }
 
-function getOffsetRelativeTo(element: HTMLElement, ancestor: HTMLElement): { left: number; top: number } {
-  let left = 0;
-  let top = 0;
-  let current: HTMLElement | null = element;
-  while (current && current !== ancestor) {
-    left += current.offsetLeft;
-    top += current.offsetTop;
-    current = current.offsetParent as HTMLElement | null;
-  }
-  return { left, top };
+/**
+ * Compute the offset of `element` relative to `ancestor` using getBoundingClientRect.
+ * This is more reliable than walking the offsetParent chain, which can misfire when
+ * CSS transforms, grid/flex layout, or nested positioning contexts are involved.
+ */
+function getPortOffsetInNode(port: HTMLElement, node: HTMLElement): { left: number; top: number; width: number; height: number } {
+  const nodeRect = node.getBoundingClientRect();
+  const portRect = port.getBoundingClientRect();
+
+  // Both rects are in screen pixels (scaled by any CSS transform).
+  // Dividing by the node's scale factor converts back to the node's own coordinate space.
+  const scaleX = nodeRect.width > 0 ? nodeRect.width / node.offsetWidth : 1;
+  const scaleY = nodeRect.height > 0 ? nodeRect.height / node.offsetHeight : 1;
+
+  return {
+    left: (portRect.left - nodeRect.left) / scaleX,
+    top: (portRect.top - nodeRect.top) / scaleY,
+    width: portRect.width / scaleX,
+    height: portRect.height / scaleY,
+  };
 }
 
 function getChoiceAnchor(
@@ -815,10 +825,10 @@ function getChoiceAnchor(
   const port = node?.querySelector(`[data-choice-port="${choiceIndex}"]`) as HTMLElement | null;
   if (!turn || !node || !port) return null;
   const position = positionOverrides?.get(turnNumber) ?? turn.position;
-  const offset = getOffsetRelativeTo(port, node);
+  const offset = getPortOffsetInNode(port, node);
   return {
-    x: position.x + offset.left + port.offsetWidth / 2,
-    y: position.y + offset.top + port.offsetHeight / 2,
+    x: position.x + offset.left + offset.width / 2,
+    y: position.y + offset.top + offset.height / 2,
   };
 }
 
@@ -833,10 +843,10 @@ function getTurnInputAnchor(
   const port = node?.querySelector('.turn-input-port') as HTMLElement | null;
   if (!turn || !node || !port) return null;
   const position = positionOverrides?.get(turnNumber) ?? turn.position;
-  const offset = getOffsetRelativeTo(port, node);
+  const offset = getPortOffsetInNode(port, node);
   return {
-    x: position.x + offset.left + port.offsetWidth / 2,
-    y: position.y + offset.top + port.offsetHeight / 2,
+    x: position.x + offset.left + offset.width / 2,
+    y: position.y + offset.top + offset.height / 2,
   };
 }
 

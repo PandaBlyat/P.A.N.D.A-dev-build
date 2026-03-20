@@ -3,6 +3,7 @@
 import './app.css';
 import { store } from './lib/state';
 import { renderApp } from './components/App';
+import { flushAllDebounced } from './components/PropertiesPanel';
 
 // Boot
 const app = document.getElementById('app')!;
@@ -83,16 +84,20 @@ document.addEventListener('focusout', () => {
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
-  // Enter key in an editable field: flush any pending render so the UI updates
-  if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+  // Enter key in an editable field: flush any pending render so the UI updates.
+  // In textareas: Enter = apply/refresh, Shift+Enter = newline.
+  if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
     const active = document.activeElement;
     if (active && isEditableElement(active) && app.contains(active)) {
-      // Don't intercept Enter in textareas (they need newlines)
-      if (active instanceof HTMLTextAreaElement) return;
-      if (renderPending) {
-        renderPending = false;
-        safeRender();
+      if (active instanceof HTMLTextAreaElement) {
+        if (e.shiftKey) return; // Shift+Enter inserts a newline as usual
+        // Plain Enter: flush all pending debounced changes and re-render
+        e.preventDefault();
+        active.blur(); // remove focus so the render isn't deferred
       }
+      flushAllDebounced();
+      renderPending = false;
+      safeRender();
       return;
     }
   }
