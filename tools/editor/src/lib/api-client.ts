@@ -46,9 +46,17 @@ export type CommunityConversation = {
 
 export type PublishPayload = Omit<CommunityConversation, 'id' | 'downloads' | 'upvotes' | 'created_at' | 'updated_at'>;
 
+export type CreatorSupportStats = {
+  id: string;
+  upvotes: number;
+  updated_at: string;
+};
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 const TABLE = 'community_conversations';
+const SUPPORT_TABLE = 'creator_support_metrics';
+const SUPPORT_ROW_ID = 'global';
 const LOCAL_PUBLISH_COOLDOWN_MS = 60_000;
 const LOCAL_PUBLISH_KEY = 'panda-community-last-publish-at';
 
@@ -212,5 +220,34 @@ export async function incrementUpvote(id: string): Promise<void> {
     });
   } catch {
     // Best-effort — ignore errors
+  }
+}
+export async function fetchCreatorSupportStats(): Promise<CreatorSupportStats> {
+  const params = new URLSearchParams({
+    select: 'id,upvotes,updated_at',
+    id: `eq.${SUPPORT_ROW_ID}`,
+    limit: '1',
+  });
+
+  const res = await fetch(`${sbEndpoint(SUPPORT_TABLE)}?${params}`, { headers: sbHeaders() });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message ?? body.error ?? `Failed to load creator support stats (${res.status})`);
+  }
+
+  const rows = await res.json() as CreatorSupportStats[];
+  return rows[0] ?? { id: SUPPORT_ROW_ID, upvotes: 0, updated_at: new Date(0).toISOString() };
+}
+
+export async function incrementCreatorSupportUpvote(): Promise<void> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_creator_support_upvote`, {
+    method: 'POST',
+    headers: sbHeaders(),
+    body: JSON.stringify({ support_id: SUPPORT_ROW_ID }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message ?? body.error ?? `Failed to upvote creator support (${res.status})`);
   }
 }

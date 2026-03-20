@@ -9,6 +9,8 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? 'http://localhost:5173';
 const TABLE = 'community_conversations';
+const SUPPORT_TABLE = 'creator_support_metrics';
+const SUPPORT_ROW_ID = 'global';
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error('ERROR: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in environment.');
@@ -50,6 +52,28 @@ app.get('/api/conversations', async (req, res) => {
       return;
     }
     res.json(await r.json());
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+
+app.get('/api/support/upvotes', async (_req, res) => {
+  try {
+    const params = new URLSearchParams({
+      select: 'id,upvotes,updated_at',
+      id: `eq.${SUPPORT_ROW_ID}`,
+      limit: '1',
+    });
+
+    const r = await fetch(`${sbEndpoint(SUPPORT_TABLE)}?${params}`, { headers: sbHeaders() });
+    if (!r.ok) {
+      res.status(r.status).json({ error: `Database error: ${r.status} ${r.statusText}` });
+      return;
+    }
+
+    const rows = await r.json() as Array<{ id: string; upvotes: number; updated_at: string }>;
+    res.json(rows[0] ?? { id: SUPPORT_ROW_ID, upvotes: 0, updated_at: new Date(0).toISOString() });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -127,6 +151,26 @@ app.patch('/api/conversations/:id/upvote', async (req, res) => {
     });
   } catch {
     // Best-effort — ignore errors
+  }
+  res.json({ ok: true });
+});
+
+
+app.patch('/api/support/upvote', async (_req, res) => {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_creator_support_upvote`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ support_id: SUPPORT_ROW_ID }),
+    });
+
+    if (!r.ok) {
+      res.status(r.status).json({ error: `Database error: ${r.status} ${r.statusText}` });
+      return;
+    }
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+    return;
   }
   res.json({ ok: true });
 });
