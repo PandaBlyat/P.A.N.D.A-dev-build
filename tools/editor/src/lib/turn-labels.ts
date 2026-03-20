@@ -11,7 +11,7 @@ type GraphEdge = {
 
 type TurnLabelInfo = {
   path: string | null;
-  display: string;
+  long: string;
   short: string;
 };
 
@@ -88,8 +88,8 @@ function buildTurnLabelMap(conversation: Conversation): TurnLabelMap {
   for (const turn of conversation.turns) {
     labels.set(turn.turnNumber, {
       path: null,
-      display: `Turn ${turn.turnNumber}`,
-      short: `T${turn.turnNumber}`,
+      long: `Branch ${turn.turnNumber}`,
+      short: `B${turn.turnNumber}`,
     });
   }
 
@@ -130,8 +130,8 @@ function buildTurnLabelMap(conversation: Conversation): TurnLabelMap {
 
   labels.set(1, {
     path: '1',
-    display: 'Turn 1',
-    short: 'T1',
+    long: 'Branch 1',
+    short: 'B1',
   });
 
   const assignPaths = (turnNumber: number, parentPath: string): void => {
@@ -140,8 +140,8 @@ function buildTurnLabelMap(conversation: Conversation): TurnLabelMap {
       const path = `${parentPath}.${index + 1}`;
       labels.set(edge.targetTurnNumber, {
         path,
-        display: `Turn ${path}`,
-        short: `T${path}`,
+        long: `Branch ${path}`,
+        short: `B${path}`,
       });
       assignPaths(edge.targetTurnNumber, path);
     });
@@ -152,14 +152,21 @@ function buildTurnLabelMap(conversation: Conversation): TurnLabelMap {
 }
 
 export function createTurnDisplayLabeler(conversation: Conversation): {
+  getLongLabel: (turnNumber: number) => string;
+  getCompactLabel: (turnNumber: number) => string;
   getDisplayLabel: (turnNumber: number) => string;
   getShortLabel: (turnNumber: number) => string;
   getPath: (turnNumber: number) => string | null;
 } {
   const labels = buildTurnLabelMap(conversation);
+  const getLongLabel = (turnNumber: number): string => labels.get(turnNumber)?.long ?? `Branch ${turnNumber}`;
+  const getCompactLabel = (turnNumber: number): string => labels.get(turnNumber)?.short ?? `B${turnNumber}`;
+
   return {
-    getDisplayLabel: (turnNumber) => labels.get(turnNumber)?.display ?? `Turn ${turnNumber}`,
-    getShortLabel: (turnNumber) => labels.get(turnNumber)?.short ?? `T${turnNumber}`,
+    getLongLabel,
+    getCompactLabel,
+    getDisplayLabel: getLongLabel,
+    getShortLabel: getCompactLabel,
     getPath: (turnNumber) => labels.get(turnNumber)?.path ?? null,
   };
 }

@@ -142,7 +142,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     miniNode.className = 'flow-minimap-node' + (state.selectedTurnNumber === turn.turnNumber ? ' selected' : '');
     miniNode.style.left = `${(turn.position.x / bounds.width) * 100}%`;
     miniNode.style.top = `${(turn.position.y / bounds.height) * 100}%`;
-    miniNode.title = `Center ${turnLabels.getDisplayLabel(turn.turnNumber)}`;
+    miniNode.title = `Center ${turnLabels.getLongLabel(turn.turnNumber)}`;
     miniNode.onclick = (e) => {
       e.stopPropagation();
       store.selectTurn(turn.turnNumber);
@@ -498,7 +498,7 @@ function renderTurnNode(options: {
   const inputPort = document.createElement('button');
   inputPort.type = 'button';
   inputPort.className = 'turn-input-port';
-  inputPort.title = `Incoming connections for ${turnLabels.getDisplayLabel(turn.turnNumber)}`;
+  inputPort.title = `Incoming connections for ${turnLabels.getLongLabel(turn.turnNumber)}`;
   inputPort.onclick = (event) => {
     event.stopPropagation();
     store.selectTurn(turn.turnNumber);
@@ -509,7 +509,7 @@ function renderTurnNode(options: {
   header.className = 'turn-header';
   const label = document.createElement('span');
   label.className = 'turn-label';
-  label.textContent = turnLabels.getDisplayLabel(turn.turnNumber);
+  label.textContent = turnLabels.getLongLabel(turn.turnNumber);
   header.appendChild(label);
 
   const stats = document.createElement('span');
@@ -576,7 +576,7 @@ function renderTurnNode(options: {
     const meta = document.createElement('span');
     meta.className = 'choice-meta';
     const metaBits: string[] = [];
-    if (choice.continueTo != null) metaBits.push(`→ ${turnLabels.getShortLabel(choice.continueTo)}`);
+    if (choice.continueTo != null) metaBits.push(`→ ${turnLabels.getCompactLabel(choice.continueTo)}`);
     if (choice.outcomes.length > 0) metaBits.push(`${choice.outcomes.length} outcome${choice.outcomes.length !== 1 ? 's' : ''}`);
     meta.textContent = metaBits.join(' · ');
 
@@ -585,7 +585,7 @@ function renderTurnNode(options: {
     if (choice.continueTo != null) {
       const badge = document.createElement('span');
       badge.className = 'choice-cont-badge';
-      badge.textContent = turnLabels.getShortLabel(choice.continueTo);
+      badge.textContent = turnLabels.getCompactLabel(choice.continueTo);
       item.appendChild(badge);
     }
 
@@ -641,8 +641,8 @@ function drawEdges(options: {
     path.dataset.targetTurnNumber = String(edge.targetTurnNumber);
     const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
     title.textContent = edge.kind === 'continue'
-      ? `Choice ${edge.sourceChoiceIndex} → ${turnLabels.getDisplayLabel(edge.targetTurnNumber)} (click to select, right-click to disconnect)`
-      : `Pause branch from Choice ${edge.sourceChoiceIndex} to ${turnLabels.getDisplayLabel(edge.targetTurnNumber)}`;
+      ? `Choice ${edge.sourceChoiceIndex} → ${turnLabels.getLongLabel(edge.targetTurnNumber)} (click to select, right-click to disconnect)`
+      : `Pause branch from Choice ${edge.sourceChoiceIndex} to ${turnLabels.getLongLabel(edge.targetTurnNumber)}`;
     path.appendChild(title);
     path.onclick = (event) => {
       event.stopPropagation();
