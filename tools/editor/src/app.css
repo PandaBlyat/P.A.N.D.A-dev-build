@@ -824,7 +824,6 @@ label {
   background: linear-gradient(180deg, rgba(10, 12, 16, 0.96) 0%, rgba(8, 10, 12, 0.98) 100%);
 }
 
-.app-validation-region,
 .app-workspace-region,
 .app-ticker-region {
   min-width: 0;
@@ -904,6 +903,19 @@ label {
 
 /* ─── Conversation List ────────────────────────────────── */
 
+.conversation-list-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  gap: 10px;
+}
+
+.conversation-list-region {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .conv-list { list-style: none; }
 
 .conv-item {
@@ -970,6 +982,31 @@ label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.conversation-issues-footer {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.conversation-issues-toggle {
+  width: 100%;
+  justify-content: center;
+}
+
+.conversation-issues-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: rgba(255,255,255,0.02);
+  overflow: hidden;
+  max-height: min(45vh, 320px);
+}
+
+.conversation-issues-panel .validation-drawer-body {
+  padding: 10px;
 }
 
 /* ─── Flow Editor ──────────────────────────────────────── */

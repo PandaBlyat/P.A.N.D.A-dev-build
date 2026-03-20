@@ -1,7 +1,6 @@
 import { store } from '../lib/state';
 import type { BottomWorkspaceTab } from '../lib/state';
 import { createSystemStringsPanelContent } from './SystemStringsPanel';
-import { createValidationWorkspaceContent } from './ValidationBar';
 import { createXmlPreviewContent } from './XmlPreview';
 import { createControlContent, setButtonContent } from './icons';
 
@@ -87,17 +86,6 @@ export function renderBottomWorkspace(container: HTMLElement): void {
 function getWorkspaceItems(): WorkspaceItem[] {
   const state = store.get();
   const items: WorkspaceItem[] = [];
-
-  if (state.showValidationPanel && state.validationMessages.length > 0) {
-    items.push({
-      key: 'validation',
-      label: 'Issues',
-      title: 'Project issues',
-      subtitle: 'Review every error and warning in one focused workspace.',
-      icon: 'warning',
-      render: () => createValidationWorkspaceContent(state.validationMessages),
-    });
-  }
 
   if (state.showSystemStringsPanel) {
     const addBtn = document.createElement('button');
