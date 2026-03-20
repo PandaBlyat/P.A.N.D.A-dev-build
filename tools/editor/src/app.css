@@ -3326,6 +3326,94 @@ hr {
     0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
+.support-highlight-upvote {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+}
+
+.support-highlight-upvote-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.support-highlight-upvote-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.support-upvote-count-box {
+  min-width: 184px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  background: rgba(9, 12, 17, 0.42);
+  text-align: right;
+}
+
+.support-upvote-count {
+  display: block;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--text-bright);
+}
+
+.support-upvote-count-label {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent) 58%, var(--text-dim));
+}
+
+.support-upvote-button {
+  min-width: 184px;
+  justify-content: center;
+}
+
+.support-upvote-status {
+  min-height: 18px;
+  max-width: 280px;
+  font-size: 12px;
+  text-align: right;
+  color: var(--text-dim);
+}
+
+.support-upvote-status[data-state='success'] {
+  color: color-mix(in srgb, var(--success, #8ec07c) 72%, white 12%);
+}
+
+.support-upvote-status[data-state='error'] {
+  color: color-mix(in srgb, #ff9f8f 82%, white 10%);
+}
+
+@media (max-width: 720px) {
+  .support-panel-highlights {
+    grid-template-columns: 1fr;
+  }
+
+  .support-highlight-upvote {
+    grid-template-columns: 1fr;
+  }
+
+  .support-highlight-upvote-actions {
+    align-items: stretch;
+  }
+
+  .support-upvote-count-box,
+  .support-upvote-button,
+  .support-upvote-status {
+    min-width: 0;
+    max-width: none;
+    text-align: left;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /* HELP MODAL                                                                  */
 /* ═══════════════════════════════════════════════════════════════════════════ */
