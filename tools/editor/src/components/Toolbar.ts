@@ -22,10 +22,22 @@ type ToolbarButtonOptions = {
   ariaLabel?: string;
 };
 
-export function renderToolbar(): HTMLElement {
+type ToolbarLayoutMode = 'desktop' | 'tablet' | 'mobile';
+
+type OverflowAction = {
+  icon: IconName;
+  label: string;
+  title?: string;
+  onclick: () => void;
+  disabled?: boolean;
+};
+
+export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLElement {
   const state = store.get();
+  const isCompact = layoutMode !== 'desktop';
+  const isMobile = layoutMode === 'mobile';
   const toolbar = document.createElement('div');
-  toolbar.className = 'toolbar';
+  toolbar.className = `toolbar toolbar-${layoutMode}`;
 
   const projectTier = document.createElement('div');
   projectTier.className = 'toolbar-tier toolbar-tier-project';
@@ -51,18 +63,42 @@ export function renderToolbar(): HTMLElement {
   fileGroup.className = 'toolbar-group toolbar-group-project';
   fileGroup.appendChild(factionSelect);
   fileGroup.appendChild(sep());
-  fileGroup.appendChild(btn('open', 'Open', importFromJson, 'Open a saved .panda/.json project or import a PANDA XML file'));
-  fileGroup.appendChild(btn('import', 'Import', importFromXml, 'Import conversations from an existing game XML file'));
-  fileGroup.appendChild(btn('save', 'Save', exportProjectJson, 'Save as .panda project file (preserves editor data)'));
+
+  const openBtn = btn('open', 'Open', importFromJson, 'Open a saved .panda/.json project or import a PANDA XML file');
+  const saveBtn = btn('save', 'Save', exportProjectJson, 'Save as .panda project file (preserves editor data)');
+  const importBtn = btn('import', 'Import', importFromXml, 'Import conversations from an existing game XML file');
   const exportXmlBtn = btn('export', 'Export XML', exportXml, 'Export as game-ready XML file for S.T.A.L.K.E.R. Anomaly', {
     classes: ['btn-primary', 'toolbar-button-primary'],
   });
-  fileGroup.appendChild(exportXmlBtn);
-  fileGroup.appendChild(sep());
-  fileGroup.appendChild(btn('share', 'Community', openSharePanel, 'Browse and import community conversations', {
+  const communityBtn = btn('share', 'Community', openSharePanel, 'Browse and import community conversations', {
     classes: ['btn-community'],
-  }));
-  fileGroup.appendChild(btn('help', 'Help', openHelpModal, 'How to write P.A.N.D.A. conversations — full reference guide'));
+  });
+  const helpBtn = btn('help', 'Help', openHelpModal, 'How to write P.A.N.D.A. conversations — full reference guide');
+
+  if (isCompact) {
+    const projectOverflowActions: OverflowAction[] = [];
+    if (isMobile) {
+      projectOverflowActions.push({ icon: 'save', label: 'Save', title: saveBtn.title, onclick: exportProjectJson });
+    }
+    projectOverflowActions.push(
+      { icon: 'import', label: 'Import XML', title: importBtn.title, onclick: importFromXml },
+      { icon: 'share', label: 'Community', title: communityBtn.title, onclick: openSharePanel },
+      { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
+    );
+
+    fileGroup.appendChild(openBtn);
+    if (!isMobile) fileGroup.appendChild(saveBtn);
+    fileGroup.appendChild(exportXmlBtn);
+    fileGroup.appendChild(createOverflowMenu(isMobile ? 'Project' : 'More', projectOverflowActions));
+  } else {
+    fileGroup.appendChild(openBtn);
+    fileGroup.appendChild(importBtn);
+    fileGroup.appendChild(saveBtn);
+    fileGroup.appendChild(exportXmlBtn);
+    fileGroup.appendChild(sep());
+    fileGroup.appendChild(communityBtn);
+    fileGroup.appendChild(helpBtn);
+  }
 
   projectTier.appendChild(fileGroup);
   toolbar.appendChild(projectTier);
@@ -87,19 +123,37 @@ export function renderToolbar(): HTMLElement {
     densitySelect.appendChild(option);
   }
   densitySelect.onchange = () => store.setFlowDensity(densitySelect.value as FlowDensity);
-  editGroup.appendChild(densitySelect);
-  editGroup.appendChild(sep());
 
-  const histGroup = document.createElement('div');
-  histGroup.className = 'toolbar-group toolbar-group-compact';
   const undoBtn = iconBtn('undo', () => store.undo(), 'Undo', 'Undo last change (Ctrl+Z)');
   const redoBtn = iconBtn('redo', () => store.redo(), 'Redo', 'Redo last undone change (Ctrl+Y)');
   undoBtn.disabled = state.undoStack.length === 0;
   redoBtn.disabled = state.redoStack.length === 0;
-  histGroup.appendChild(undoBtn);
-  histGroup.appendChild(redoBtn);
-  editGroup.appendChild(histGroup);
-  editTier.appendChild(editGroup);
+
+  if (isCompact) {
+    const quickActions = document.createElement('div');
+    quickActions.className = 'toolbar-group toolbar-group-compact toolbar-group-history';
+    quickActions.append(undoBtn, redoBtn);
+    editTier.appendChild(quickActions);
+    editTier.appendChild(createOverflowMenu('Editor', [
+      {
+        icon: 'locate',
+        label: `Density: ${state.flowDensity}`,
+        title: 'Cycle the amount of information shown on flow nodes',
+        onclick: () => store.setFlowDensity(nextDensity(state.flowDensity)),
+      },
+    ]));
+  } else {
+    editGroup.appendChild(densitySelect);
+    editGroup.appendChild(sep());
+
+    const histGroup = document.createElement('div');
+    histGroup.className = 'toolbar-group toolbar-group-compact';
+    histGroup.appendChild(undoBtn);
+    histGroup.appendChild(redoBtn);
+    editGroup.appendChild(histGroup);
+    editTier.appendChild(editGroup);
+  }
+
   toolbar.appendChild(editTier);
 
   const spacer = document.createElement('div');
@@ -109,33 +163,35 @@ export function renderToolbar(): HTMLElement {
   const utilityTier = document.createElement('div');
   utilityTier.className = 'toolbar-tier toolbar-tier-utility';
 
-  const utilityGroup = document.createElement('div');
-  utilityGroup.className = 'toolbar-group toolbar-group-segmented';
-  utilityGroup.appendChild(toggleBtn(
-    'xml',
-    'XML',
-    state.showXmlPreview,
-    () => store.toggleXmlPreview(),
-    state.showXmlPreview ? 'Hide the live XML preview panel' : 'Show the live XML preview panel',
-  ));
-  utilityGroup.appendChild(toggleBtn(
-    'strings',
-    'Strings',
-    state.showSystemStringsPanel,
-    () => store.toggleSystemStringsPanel(),
-    state.showSystemStringsPanel ? 'Hide the shared system strings manager' : 'Show the shared system strings manager',
-  ));
-  utilityTier.appendChild(utilityGroup);
+  if (!isCompact) {
+    const utilityGroup = document.createElement('div');
+    utilityGroup.className = 'toolbar-group toolbar-group-segmented';
+    utilityGroup.appendChild(toggleBtn(
+      'xml',
+      'XML',
+      state.showXmlPreview,
+      () => store.toggleXmlPreview(),
+      state.showXmlPreview ? 'Hide the live XML preview panel' : 'Show the live XML preview panel',
+    ));
+    utilityGroup.appendChild(toggleBtn(
+      'strings',
+      'Strings',
+      state.showSystemStringsPanel,
+      () => store.toggleSystemStringsPanel(),
+      state.showSystemStringsPanel ? 'Hide the shared system strings manager' : 'Show the shared system strings manager',
+    ));
+    utilityTier.appendChild(utilityGroup);
+  }
 
   const status = document.createElement('span');
   status.className = 'toolbar-status';
   const convCount = state.project.conversations.length;
   const stringCount = state.systemStrings.size;
   if (state.dirty) {
-    status.innerHTML = `<span class="unsaved-dot"></span> ${convCount} conv${convCount !== 1 ? 's' : ''} • ${stringCount} strings • unsaved`;
+    status.innerHTML = `<span class="unsaved-dot"></span> ${formatStatus(convCount, stringCount, isMobile, true)}`;
     status.style.color = 'var(--warning)';
   } else {
-    status.textContent = `${convCount} conversation${convCount !== 1 ? 's' : ''} • ${stringCount} strings`;
+    status.textContent = formatStatus(convCount, stringCount, isMobile, false);
   }
   utilityTier.appendChild(status);
   toolbar.appendChild(utilityTier);
@@ -277,6 +333,51 @@ function buildSearchResults(query: string): SearchResult[] {
   }
 
   return results;
+}
+
+function createOverflowMenu(label: string, actions: OverflowAction[]): HTMLElement {
+  const details = document.createElement('details');
+  details.className = 'toolbar-overflow';
+
+  const summary = document.createElement('summary');
+  summary.className = 'toolbar-button toolbar-overflow-toggle';
+  summary.textContent = label;
+  summary.setAttribute('role', 'button');
+  summary.setAttribute('aria-label', `${label} menu`);
+  details.appendChild(summary);
+
+  const menu = document.createElement('div');
+  menu.className = 'toolbar-overflow-menu';
+
+  for (const action of actions) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'toolbar-overflow-item';
+    setButtonContent(item, action.icon, action.label);
+    item.title = action.title ?? action.label;
+    item.disabled = Boolean(action.disabled);
+    item.onclick = () => {
+      details.open = false;
+      action.onclick();
+    };
+    menu.appendChild(item);
+  }
+
+  details.appendChild(menu);
+  return details;
+}
+
+function formatStatus(convCount: number, stringCount: number, compact: boolean, dirty: boolean): string {
+  if (compact) {
+    return `${convCount} conv • ${stringCount} strings${dirty ? ' • unsaved' : ''}`;
+  }
+  return `${convCount} conversation${convCount !== 1 ? 's' : ''} • ${stringCount} strings${dirty ? ' • unsaved' : ''}`;
+}
+
+function nextDensity(current: FlowDensity): FlowDensity {
+  const densityOptions: FlowDensity[] = ['compact', 'standard', 'detailed'];
+  const index = densityOptions.indexOf(current);
+  return densityOptions[(index + 1) % densityOptions.length];
 }
 
 function truncate(value: string, max: number): string {
