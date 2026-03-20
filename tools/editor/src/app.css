@@ -173,8 +173,8 @@ html, body {
 }
 
 .toolbar-group-project {
-  background: rgba(94, 170, 58, 0.06);
-  border-color: rgba(94, 170, 58, 0.18);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .toolbar-group-edit {
@@ -253,8 +253,8 @@ html, body {
 }
 
 .toolbar-overflow[open] .toolbar-overflow-toggle {
-  border-color: rgba(94, 170, 58, 0.35);
-  box-shadow: 0 0 0 1px rgba(94, 170, 58, 0.15);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .toolbar-overflow-item {
@@ -354,9 +354,9 @@ html, body {
 
 .toolbar-toggle-button.is-active {
   color: var(--text-bright);
-  background: rgba(94, 170, 58, 0.16);
-  border-color: rgba(94, 170, 58, 0.35);
-  box-shadow: inset 0 0 0 1px rgba(94, 170, 58, 0.12);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 button, .btn {
@@ -398,7 +398,7 @@ button:disabled:hover,
 }
 
 .btn-primary {
-  background: linear-gradient(180deg, var(--accent-dim) 0%, #2e5a1e 100%);
+  background: linear-gradient(180deg, var(--accent-dim) 0%, color-mix(in srgb, var(--accent-dim) 72%, #10141a) 100%);
   border-color: var(--accent);
   color: var(--text-bright);
   text-shadow: 0 1px 2px rgba(0,0,0,0.3);
@@ -496,7 +496,7 @@ textarea {
 textarea.drag-over {
   border-color: var(--accent-hover) !important;
   box-shadow: 0 0 0 2px var(--accent-glow-strong), inset 0 0 12px var(--accent-glow) !important;
-  background: rgba(94, 170, 58, 0.05);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
 }
 
 select {
@@ -669,7 +669,7 @@ label {
   width: 2px;
   transform: translateX(-50%);
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(94, 170, 58, 0.45), rgba(255,255,255,0.04));
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), color-mix(in srgb, var(--accent) 45%, transparent), rgba(255,255,255,0.04));
   opacity: 0.6;
   transition: opacity 0.15s ease, box-shadow 0.15s ease;
 }
@@ -714,7 +714,7 @@ label {
   min-height: 34px;
   padding: 8px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(94, 170, 58, 0.24);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
   background: rgba(16, 20, 26, 0.92);
   color: var(--text);
   box-shadow: var(--shadow-md);
@@ -722,7 +722,7 @@ label {
 }
 
 .utility-rail-button:hover:not(:disabled) {
-  border-color: rgba(94, 170, 58, 0.44);
+  border-color: color-mix(in srgb, var(--accent) 44%, transparent);
   box-shadow: 0 0 12px var(--accent-glow);
 }
 
@@ -741,7 +741,7 @@ label {
   min-width: 18px;
   padding: 0 6px;
   border-radius: 999px;
-  background: rgba(94, 170, 58, 0.18);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--accent-hover);
   font-size: 10px;
   font-weight: 700;
@@ -920,6 +920,12 @@ label {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
+.conv-item.selected .conv-id,
+.conv-item.selected .conv-label,
+.conv-item.selected .conv-meta {
+  color: #000;
+}
+
 .conv-id {
   flex: 0 0 auto;
   font-family: var(--font-mono);
@@ -970,8 +976,8 @@ label {
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(circle at 1px 1px, rgba(94,170,58,0.06) 1px, transparent 0) 0 0 / 24px 24px,
-    radial-gradient(circle at center, rgba(94,170,58,0.02) 0%, transparent 70%);
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--accent) 6%, transparent) 1px, transparent 0) 0 0 / 24px 24px,
+    radial-gradient(circle at center, color-mix(in srgb, var(--accent) 2%, transparent) 0%, transparent 70%);
   cursor: grab;
 }
 
@@ -1052,7 +1058,7 @@ label {
   width: 100%;
   max-height: 150px;
   min-height: 96px;
-  background: linear-gradient(180deg, rgba(94, 170, 58, 0.05), rgba(0,0,0,0.08));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 5%, transparent), rgba(0,0,0,0.08));
   border-radius: var(--radius);
   overflow: hidden;
 }
@@ -1510,8 +1516,8 @@ label {
 
 .ui-badge-success {
   color: var(--accent-hover);
-  border-color: rgba(94, 170, 58, 0.4);
-  background: rgba(94, 170, 58, 0.08);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .ui-badge-warning {
@@ -1712,7 +1718,7 @@ label {
 .tab.active {
   color: var(--accent);
   border-bottom-color: var(--accent);
-  background: rgba(94, 170, 58, 0.05);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
   box-shadow: none;
 }
 
@@ -2134,8 +2140,8 @@ hr {
 
 .bottom-workspace-tab.is-active {
   color: var(--text-bright);
-  background: rgba(94, 170, 58, 0.16);
-  border-color: rgba(94, 170, 58, 0.32);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
 }
 
 .bottom-workspace-actions {
@@ -2325,8 +2331,8 @@ hr {
   padding: 0;
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,0.15);
-  background: linear-gradient(180deg, rgba(94,170,58,0.8), rgba(46,90,30,0.95));
-  box-shadow: 0 0 0 2px rgba(8, 10, 12, 0.9), 0 0 10px rgba(94, 170, 58, 0.2);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 80%, transparent), color-mix(in srgb, var(--accent-dim) 72%, #10141a));
+  box-shadow: 0 0 0 2px rgba(8, 10, 12, 0.9), 0 0 10px color-mix(in srgb, var(--accent) 20%, transparent);
   z-index: 3;
 }
 
@@ -2351,7 +2357,7 @@ hr {
 .turn-node.selected .turn-input-port,
 .turn-node.selected .choice-output-port {
   border-color: var(--branch-color, var(--accent));
-  box-shadow: 0 0 0 2px rgba(8, 10, 12, 0.92), 0 0 14px var(--branch-glow, rgba(94, 170, 58, 0.35));
+  box-shadow: 0 0 0 2px rgba(8, 10, 12, 0.92), 0 0 14px var(--branch-glow, var(--accent-glow-strong));
 }
 
 .turn-header {
@@ -2414,13 +2420,13 @@ hr {
 }
 
 .flow-edge-path.edge-preview {
-  stroke: rgba(94, 170, 58, 0.65);
+  stroke: color-mix(in srgb, var(--accent) 65%, transparent);
   fill: none;
   stroke-dasharray: 8 6;
 }
 
 .flow-edge-path.edge-continue {
-  stroke: rgba(94, 170, 58, 0.9);
+  stroke: color-mix(in srgb, var(--accent) 90%, transparent);
 }
 
 .flow-edge-path.edge-pause-success {
@@ -3211,7 +3217,7 @@ hr {
   gap: 24px;
   padding: 28px;
   background:
-    radial-gradient(circle at top left, rgba(94, 170, 58, 0.12), transparent 40%),
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 12%, transparent), transparent 40%),
     radial-gradient(circle at right center, rgba(64, 128, 196, 0.12), transparent 38%),
     linear-gradient(180deg, rgba(8, 10, 12, 0.96), rgba(16, 20, 26, 0.96));
 }
@@ -3219,7 +3225,7 @@ hr {
 .first-run-hero {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(94, 170, 58, 0.18);
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
   border-radius: 18px;
   background: linear-gradient(180deg, rgba(22, 28, 34, 0.92), rgba(10, 12, 16, 0.96));
   box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.04);
@@ -3233,7 +3239,7 @@ hr {
   width: 280px;
   height: 280px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(94, 170, 58, 0.2), transparent 68%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 20%, transparent), transparent 68%);
   filter: blur(16px);
   animation: onboarding-drift 11s ease-in-out infinite;
 }
@@ -3304,7 +3310,7 @@ hr {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid rgba(94, 170, 58, 0.12);
+  border: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
   border-radius: 12px;
   background: rgba(255,255,255,0.03);
   animation: onboarding-rise 0.45s ease both;
@@ -3319,8 +3325,8 @@ hr {
   height: 22px;
   border-radius: 999px;
   color: var(--accent);
-  background: rgba(94, 170, 58, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(94, 170, 58, 0.22);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .first-run-check-icon .ui-icon {
@@ -3348,8 +3354,8 @@ hr {
 }
 
 .first-run-orbit-ring {
-  border: 1px solid rgba(94, 170, 58, 0.2);
-  box-shadow: 0 0 24px rgba(94, 170, 58, 0.08), inset 0 0 18px rgba(64, 128, 196, 0.05);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 8%, transparent), inset 0 0 18px rgba(64, 128, 196, 0.05);
 }
 
 .first-run-orbit-ring.ring-a {
@@ -3375,8 +3381,8 @@ hr {
 .first-run-orbit-core {
   width: 88px;
   height: 88px;
-  background: radial-gradient(circle at 35% 35%, rgba(232, 236, 240, 0.9), rgba(94, 170, 58, 0.75) 38%, rgba(18, 24, 30, 0.85) 72%);
-  box-shadow: 0 0 36px rgba(94, 170, 58, 0.28);
+  background: radial-gradient(circle at 35% 35%, rgba(232, 236, 240, 0.9), color-mix(in srgb, var(--accent) 75%, transparent) 38%, rgba(18, 24, 30, 0.85) 72%);
+  box-shadow: 0 0 36px color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .first-run-orbit-core::before,
@@ -3423,7 +3429,7 @@ hr {
   gap: 10px;
   padding: 16px;
   border-radius: 12px;
-  border: 1px solid rgba(94, 170, 58, 0.18);
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
   background: linear-gradient(180deg, rgba(28, 36, 48, 0.92), rgba(16, 20, 26, 0.96));
   box-shadow: var(--shadow-md);
 }

@@ -23,6 +23,10 @@ function isEditableElement(el: Element | null): el is HTMLInputElement | HTMLTex
          el instanceof HTMLSelectElement;
 }
 
+function shouldDeferRenderForActiveElement(el: Element | null): el is HTMLInputElement | HTMLTextAreaElement {
+  return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
+}
+
 interface FocusSnapshot {
   key: string;
   selectionStart: number | null;
@@ -73,7 +77,7 @@ store.subscribe(() => {
     persistDraft(state.project, state.systemStrings);
   }
 
-  if (isEditableElement(document.activeElement) && app.contains(document.activeElement)) {
+  if (shouldDeferRenderForActiveElement(document.activeElement) && app.contains(document.activeElement)) {
     renderPending = true;
     return;
   }
@@ -87,7 +91,7 @@ document.addEventListener('focusout', () => {
   if (!renderPending) return;
   requestAnimationFrame(() => {
     // Re-check: if focus moved to another input, keep deferring.
-    if (isEditableElement(document.activeElement) && app.contains(document.activeElement)) {
+    if (shouldDeferRenderForActiveElement(document.activeElement) && app.contains(document.activeElement)) {
       return; // renderPending stays true
     }
     renderPending = false;
