@@ -95,6 +95,10 @@ export function openSupportPanel(): void {
       <strong>What your support means</strong>
       <span>Bug fixes, feature updates, more writing tools, and continued upkeep for P.A.N.D.A. without turning the project into something bloated or intrusive.</span>
     </div>
+    <div class="support-highlight support-highlight-upvote">
+      <strong>You can also support by just leaving an upvote!</strong>
+      <span>Morale support! If you enjoy the editor or a community conversation, tossing it an upvote is a fast way to show appreciation and help surface the good stuff.</span>
+    </div>
   `;
 
   body.append(introCard, highlights);
