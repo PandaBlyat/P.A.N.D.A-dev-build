@@ -6,6 +6,7 @@ import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { FACTION_IDS } from '../lib/constants';
 import { FACTION_DISPLAY_NAMES } from '../lib/types';
 import { exportProjectJson, exportXml, importFromXml, importFromJson } from './App';
+import { openSharePanel } from './SharePanel';
 import { createIcon, setButtonContent, type IconName } from './icons';
 
 type SearchResult = {
@@ -56,6 +57,8 @@ export function renderToolbar(): HTMLElement {
     classes: ['btn-primary', 'toolbar-button-primary'],
   });
   fileGroup.appendChild(exportXmlBtn);
+  fileGroup.appendChild(sep());
+  fileGroup.appendChild(btn('share', 'Community', openSharePanel, 'Browse and share conversations with the community'));
   projectTier.appendChild(fileGroup);
   toolbar.appendChild(projectTier);
 

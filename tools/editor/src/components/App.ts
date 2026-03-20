@@ -298,7 +298,13 @@ function getFileExtension(filename: string): string | null {
   return filename.slice(lastDot + 1).toLowerCase();
 }
 
-function downloadFile(content: string, filename: string, mimeType: string): void {
+/** Merge conversations from the community library into the current project. */
+export function importConversations(conversations: import('../lib/types').Conversation[]): void {
+  store.mergeConversations(conversations);
+}
+
+/** Download a string as a file (shared helper used by SharePanel). */
+export function downloadFile(content: string, filename: string, mimeType: string): void {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
