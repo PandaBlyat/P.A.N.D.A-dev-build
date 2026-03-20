@@ -8,6 +8,7 @@ import { FACTION_DISPLAY_NAMES } from '../lib/types';
 import { exportProjectJson, exportXml, importFromXml, importFromJson } from '../lib/project-io';
 import { openSharePanel } from './SharePanel';
 import { openHelpModal } from './HelpModal';
+import { openSupportPanel } from './SupportPanel';
 import { createIcon, setButtonContent, type IconName } from './icons';
 import { clearDraft } from '../lib/draft-storage';
 import { createEmptyProject } from '../lib/xml-export';
@@ -44,10 +45,19 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   const projectTier = document.createElement('div');
   projectTier.className = 'toolbar-tier toolbar-tier-project';
 
+  const branding = document.createElement('div');
+  branding.className = 'toolbar-branding';
+
   const title = document.createElement('span');
   title.className = 'toolbar-title';
   title.append(createIcon('brand'), document.createTextNode('P.A.N.D.A. Editor'));
-  projectTier.appendChild(title);
+
+  const supportTrigger = btn('support', 'Support the Creator', openSupportPanel, 'Open the creator support panel', {
+    classes: ['toolbar-support-trigger'],
+  });
+
+  branding.append(title, supportTrigger);
+  projectTier.appendChild(branding);
 
   const factionSelect = document.createElement('select');
   factionSelect.className = 'toolbar-faction-select';
