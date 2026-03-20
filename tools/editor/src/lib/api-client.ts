@@ -52,6 +52,7 @@ export type CreatorSupportStats = {
   updated_at: string;
 };
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string | undefined;
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 const TABLE = 'community_conversations';
@@ -275,31 +276,9 @@ export async function incrementUpvote(id: string): Promise<void> {
   }
 }
 export async function fetchCreatorSupportStats(): Promise<CreatorSupportStats> {
-  const params = new URLSearchParams({
-    select: 'id,upvotes,updated_at',
-    id: `eq.${SUPPORT_ROW_ID}`,
-    limit: '1',
-  });
-
-  const res = await fetch(`${sbEndpoint(SUPPORT_TABLE)}?${params}`, { headers: sbHeaders() });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.message ?? body.error ?? `Failed to load creator support stats (${res.status})`);
-  }
-
-  const rows = await res.json() as CreatorSupportStats[];
-  return rows[0] ?? { id: SUPPORT_ROW_ID, upvotes: 0, updated_at: new Date(0).toISOString() };
+  return fetchFromApi<CreatorSupportStats>('/api/support/upvotes');
 }
 
 export async function incrementCreatorSupportUpvote(): Promise<void> {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_creator_support_upvote`, {
-    method: 'POST',
-    headers: sbHeaders(),
-    body: JSON.stringify({ support_id: SUPPORT_ROW_ID }),
-  });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.message ?? body.error ?? `Failed to upvote creator support (${res.status})`);
-  }
+  await sendToApi('/api/support/upvote', { method: 'PATCH' });
 }
