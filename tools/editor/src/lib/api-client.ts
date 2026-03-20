@@ -60,6 +60,58 @@ const SUPPORT_ROW_ID = 'global';
 const LOCAL_PUBLISH_COOLDOWN_MS = 60_000;
 const LOCAL_PUBLISH_KEY = 'panda-community-last-publish-at';
 
+
+function apiCandidates(path: string): string[] {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const candidates: string[] = [];
+
+  if (API_BASE_URL) candidates.push(`${API_BASE_URL}${normalizedPath}`);
+
+  if (typeof window !== 'undefined') {
+    const { hostname, origin, protocol } = window.location;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      candidates.push(`http://localhost:3001${normalizedPath}`);
+    }
+    if (protocol !== 'file:') {
+      candidates.push(`${origin}${normalizedPath}`);
+    }
+  }
+
+  return Array.from(new Set(candidates));
+}
+
+async function fetchFromApi<T>(path: string, init?: RequestInit): Promise<T> {
+  let lastError: unknown;
+
+  for (const url of apiCandidates(path)) {
+    try {
+      const res = await fetch(url, init);
+      if (!res.ok) throw new Error(`API request failed (${res.status})`);
+      return await res.json() as T;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(`Unable to reach API endpoint: ${path}`);
+}
+
+async function sendToApi(path: string, init?: RequestInit): Promise<void> {
+  let lastError: unknown;
+
+  for (const url of apiCandidates(path)) {
+    try {
+      const res = await fetch(url, init);
+      if (!res.ok) throw new Error(`API request failed (${res.status})`);
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(`Unable to reach API endpoint: ${path}`);
+}
+
 function sbHeaders(): Record<string, string> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     throw new Error('VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set in .env');
