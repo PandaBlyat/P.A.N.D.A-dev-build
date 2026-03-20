@@ -7,6 +7,7 @@ import { FACTION_IDS } from '../lib/constants';
 import { FACTION_DISPLAY_NAMES } from '../lib/types';
 import { exportProjectJson, exportXml, importFromXml, importFromJson } from './App';
 import { openSharePanel } from './SharePanel';
+import { openHelpModal } from './HelpModal';
 import { createIcon, setButtonContent, type IconName } from './icons';
 
 type SearchResult = {
@@ -61,6 +62,7 @@ export function renderToolbar(): HTMLElement {
   fileGroup.appendChild(btn('share', 'Community', openSharePanel, 'Browse and import community conversations', {
     classes: ['btn-community'],
   }));
+  fileGroup.appendChild(btn('help', 'Help', openHelpModal, 'How to write P.A.N.D.A. conversations — full reference guide'));
 
   projectTier.appendChild(fileGroup);
   toolbar.appendChild(projectTier);

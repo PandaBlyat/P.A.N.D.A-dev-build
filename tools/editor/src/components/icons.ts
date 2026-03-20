@@ -25,7 +25,8 @@ export type IconName =
   | 'add'
   | 'share'
   | 'download'
-  | 'database';
+  | 'database'
+  | 'help';
 
 const BASE_ICON_ATTRS = {
   fill: 'none',
@@ -184,6 +185,14 @@ const ICONS: Record<IconName, IconDef> = {
       { tag: 'ellipse', cx: '12', cy: '6', rx: '8', ry: '3' },
       { tag: 'path', d: 'M4 6v4c0 1.66 3.58 3 8 3s8-1.34 8-3V6' },
       { tag: 'path', d: 'M4 10v4c0 1.66 3.58 3 8 3s8-1.34 8-3v-4' },
+    ],
+  },
+  help: {
+    // Question mark in circle icon
+    paths: [
+      { tag: 'circle', cx: '12', cy: '12', r: '9' },
+      { tag: 'path', d: 'M9.5 9.5a2.5 2.5 0 0 1 4.6 1.3c0 1.7-2.6 2.2-2.6 2.2' },
+      { tag: 'circle', cx: '12', cy: '16.5', r: '0.8', fill: 'currentColor', stroke: 'none' },
     ],
   },
 };

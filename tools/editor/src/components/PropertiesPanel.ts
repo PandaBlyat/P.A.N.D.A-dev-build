@@ -21,13 +21,27 @@ import { FACTION_IDS, RANKS, MUTANT_TYPES, DYNAMIC_PLACEHOLDERS, LEVEL_DISPLAY_N
 
 // ─── Debounce helper ─────────────────────────────────────────────────────
 const debounceTimers = new Map<string, number>();
+const debounceFns = new Map<string, () => void>();
 function debounced(key: string, fn: () => void, delay = 300): void {
   const prev = debounceTimers.get(key);
   if (prev != null) clearTimeout(prev);
+  debounceFns.set(key, fn);
   debounceTimers.set(key, window.setTimeout(() => {
     debounceTimers.delete(key);
+    debounceFns.delete(key);
     fn();
   }, delay));
+}
+
+/** Immediately execute all pending debounced callbacks (used when Enter is pressed). */
+export function flushAllDebounced(): void {
+  for (const [key, timer] of debounceTimers) {
+    clearTimeout(timer);
+    const fn = debounceFns.get(key);
+    if (fn) fn();
+  }
+  debounceTimers.clear();
+  debounceFns.clear();
 }
 
 export function renderPropertiesPanel(container: HTMLElement): void {
