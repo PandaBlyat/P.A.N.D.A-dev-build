@@ -2,6 +2,7 @@
 
 import { store } from '../lib/state';
 import type { PropertiesTab } from '../lib/state';
+import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import type { Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, SimplePrecondition, Outcome, FactionId } from '../lib/types';
 import { FACTION_DISPLAY_NAMES } from '../lib/types';
 import { PRECONDITION_SCHEMAS, OUTCOME_SCHEMAS, groupByCategory } from '../lib/schema';
@@ -47,6 +48,7 @@ export function renderPropertiesPanel(container: HTMLElement): void {
   const turn = store.getSelectedTurn();
   const choice = store.getSelectedChoice();
   const activeTab = state.propertiesTab;
+  const turnLabels = createTurnDisplayLabeler(conv);
 
   // ─── Tab Bar ─────────────────────────────────────────
   const tabBar = document.createElement('div');
@@ -63,9 +65,9 @@ export function renderPropertiesPanel(container: HTMLElement): void {
   const selTab = document.createElement('button');
   selTab.className = 'tab' + (activeTab === 'selection' ? ' active' : '');
   if (turn && choice) {
-    selTab.textContent = `T${turn.turnNumber} / C${choice.index}`;
+    selTab.textContent = `${turnLabels.getShortLabel(turn.turnNumber)} / C${choice.index}`;
   } else if (turn) {
-    selTab.textContent = `Turn ${turn.turnNumber}`;
+    selTab.textContent = turnLabels.getDisplayLabel(turn.turnNumber);
   } else {
     selTab.textContent = 'Turn / Choice';
   }
@@ -90,9 +92,9 @@ export function renderPropertiesPanel(container: HTMLElement): void {
   if (activeTab === 'conversation') {
     renderConversationProperties(content, conv);
   } else if (turn && choice) {
-    renderChoiceProperties(content, conv, turn, choice);
+    renderChoiceProperties(content, conv, turn, choice, turnLabels);
   } else if (turn) {
-    renderTurnProperties(content, conv, turn);
+    renderTurnProperties(content, conv, turn, turnLabels);
   } else {
     // Nothing selected — show a hint
     content.innerHTML = `
@@ -170,12 +172,17 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
 
 // ─── Turn Properties ──────────────────────────────────────────────────────
 
-function renderTurnProperties(container: HTMLElement, conv: Conversation, turn: Turn): void {
+function renderTurnProperties(
+  container: HTMLElement,
+  conv: Conversation,
+  turn: Turn,
+  turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
+): void {
   const title = document.createElement('div');
   title.className = 'section-header';
   const titleSpan = document.createElement('span');
   titleSpan.className = 'section-title';
-  titleSpan.textContent = `Turn ${turn.turnNumber}`;
+  titleSpan.textContent = turnLabels.getDisplayLabel(turn.turnNumber);
   title.appendChild(titleSpan);
   if (turn.turnNumber > 1) {
     const delTurnBtn = document.createElement('button');
@@ -249,7 +256,7 @@ function renderTurnProperties(container: HTMLElement, conv: Conversation, turn: 
     if (choice.continueTo != null) {
       const badge = document.createElement('div');
       badge.style.cssText = 'padding:2px 10px; font-size:10px; color:var(--accent); font-family:var(--font-mono);';
-      badge.textContent = `\u2192 Continues to Turn ${choice.continueTo}`;
+      badge.textContent = `\u2192 Continues to ${turnLabels.getDisplayLabel(choice.continueTo)}`;
       card.appendChild(badge);
     }
 
@@ -261,11 +268,17 @@ function renderTurnProperties(container: HTMLElement, conv: Conversation, turn: 
 
 // ─── Choice Properties ────────────────────────────────────────────────────
 
-function renderChoiceProperties(container: HTMLElement, conv: Conversation, turn: Turn, choice: Choice): void {
+function renderChoiceProperties(
+  container: HTMLElement,
+  conv: Conversation,
+  turn: Turn,
+  choice: Choice,
+  turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
+): void {
   // Back button
   const backBtn = document.createElement('button');
   backBtn.className = 'btn-sm';
-  backBtn.textContent = '\u2190 Back to Turn ' + turn.turnNumber;
+  backBtn.textContent = `\u2190 Back to ${turnLabels.getDisplayLabel(turn.turnNumber)}`;
   backBtn.title = 'Return to turn overview';
   backBtn.onclick = () => store.selectChoice(null);
   backBtn.style.marginBottom = '10px';
@@ -273,7 +286,7 @@ function renderChoiceProperties(container: HTMLElement, conv: Conversation, turn
 
   const title = document.createElement('div');
   title.className = 'section-header';
-  title.innerHTML = `<span class="section-title">Turn ${turn.turnNumber} / Choice ${choice.index}</span>`;
+  title.innerHTML = `<span class="section-title">${turnLabels.getDisplayLabel(turn.turnNumber)} / Choice ${choice.index}</span>`;
   container.appendChild(title);
 
   // Choice text
@@ -353,7 +366,7 @@ function renderChoiceProperties(container: HTMLElement, conv: Conversation, turn
     if (t.turnNumber === turn.turnNumber) continue; // Can't continue to self
     const opt = document.createElement('option');
     opt.value = String(t.turnNumber);
-    opt.textContent = `Turn ${t.turnNumber}`;
+    opt.textContent = turnLabels.getDisplayLabel(t.turnNumber);
     opt.selected = choice.continueTo === t.turnNumber;
     contSelect.appendChild(opt);
   }

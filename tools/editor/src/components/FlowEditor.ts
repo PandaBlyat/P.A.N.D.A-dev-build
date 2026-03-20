@@ -2,6 +2,7 @@
 
 import { store } from '../lib/state';
 import { setActiveFlowViewport, type FlowViewportApi } from '../lib/flow-navigation';
+import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import type { Choice, Conversation, Turn } from '../lib/types';
 import type { FlowDensity } from '../lib/state';
 
@@ -79,6 +80,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   }
 
   const conversationId = conv.id;
+  const turnLabels = createTurnDisplayLabeler(conv);
   const existingView = viewStateByConversation.get(conversationId);
   const viewState: ViewState = existingView ? { ...existingView } : { ...DEFAULT_VIEW_STATE };
   const bounds = calculateContentBounds(conv, density);
@@ -124,6 +126,7 @@ export function renderFlowEditor(container: HTMLElement): void {
       edges,
       density,
       viewState,
+      turnLabels,
       onPreviewPosition: (previewPositions) => draw(previewPositions),
       onChoicePortDragStart: (choiceIndex, event) => {
         store.selectTurn(turn.turnNumber);
@@ -139,7 +142,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     miniNode.className = 'flow-minimap-node' + (state.selectedTurnNumber === turn.turnNumber ? ' selected' : '');
     miniNode.style.left = `${(turn.position.x / bounds.width) * 100}%`;
     miniNode.style.top = `${(turn.position.y / bounds.height) * 100}%`;
-    miniNode.title = `Center Turn ${turn.turnNumber}`;
+    miniNode.title = `Center ${turnLabels.getDisplayLabel(turn.turnNumber)}`;
     miniNode.onclick = (e) => {
       e.stopPropagation();
       store.selectTurn(turn.turnNumber);
@@ -156,6 +159,7 @@ export function renderFlowEditor(container: HTMLElement): void {
       nodeElements,
       positionOverrides,
       preview: connectionPreview,
+      turnLabels,
     });
   };
 
@@ -430,10 +434,11 @@ function renderTurnNode(options: {
   edges: EdgeDescriptor[];
   density: FlowDensity;
   viewState: ViewState;
+  turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
   onPreviewPosition: (positions?: TurnPositionMap) => void;
   onChoicePortDragStart: (choiceIndex: number, event: MouseEvent) => void;
 }): HTMLElement {
-  const { conv, turn, selected, edges, density, viewState, onPreviewPosition, onChoicePortDragStart } = options;
+  const { conv, turn, selected, edges, density, viewState, turnLabels, onPreviewPosition, onChoicePortDragStart } = options;
   const state = store.get();
   const layout = NODE_LAYOUTS[density];
   const hasWarning = turn.choices.some(c => !c.text && !c.reply);
@@ -493,7 +498,7 @@ function renderTurnNode(options: {
   const inputPort = document.createElement('button');
   inputPort.type = 'button';
   inputPort.className = 'turn-input-port';
-  inputPort.title = `Incoming connections for Turn ${turn.turnNumber}`;
+  inputPort.title = `Incoming connections for ${turnLabels.getDisplayLabel(turn.turnNumber)}`;
   inputPort.onclick = (event) => {
     event.stopPropagation();
     store.selectTurn(turn.turnNumber);
@@ -504,7 +509,7 @@ function renderTurnNode(options: {
   header.className = 'turn-header';
   const label = document.createElement('span');
   label.className = 'turn-label';
-  label.textContent = `Turn ${turn.turnNumber}`;
+  label.textContent = turnLabels.getDisplayLabel(turn.turnNumber);
   header.appendChild(label);
 
   const stats = document.createElement('span');
@@ -571,7 +576,7 @@ function renderTurnNode(options: {
     const meta = document.createElement('span');
     meta.className = 'choice-meta';
     const metaBits: string[] = [];
-    if (choice.continueTo != null) metaBits.push(`→ T${choice.continueTo}`);
+    if (choice.continueTo != null) metaBits.push(`→ ${turnLabels.getShortLabel(choice.continueTo)}`);
     if (choice.outcomes.length > 0) metaBits.push(`${choice.outcomes.length} outcome${choice.outcomes.length !== 1 ? 's' : ''}`);
     meta.textContent = metaBits.join(' · ');
 
@@ -580,7 +585,7 @@ function renderTurnNode(options: {
     if (choice.continueTo != null) {
       const badge = document.createElement('span');
       badge.className = 'choice-cont-badge';
-      badge.textContent = `T${choice.continueTo}`;
+      badge.textContent = turnLabels.getShortLabel(choice.continueTo);
       item.appendChild(badge);
     }
 
@@ -607,8 +612,9 @@ function drawEdges(options: {
   nodeElements: Map<number, HTMLElement>;
   positionOverrides?: TurnPositionMap;
   preview: ConnectionPreview | null;
+  turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
 }): void {
-  const { svg, conv, edges, nodeElements, positionOverrides, preview } = options;
+  const { svg, conv, edges, nodeElements, positionOverrides, preview, turnLabels } = options;
   const defs = svg.querySelector('defs');
   svg.replaceChildren();
   if (defs) svg.appendChild(defs);
@@ -635,8 +641,8 @@ function drawEdges(options: {
     path.dataset.targetTurnNumber = String(edge.targetTurnNumber);
     const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
     title.textContent = edge.kind === 'continue'
-      ? `Choice ${edge.sourceChoiceIndex} → Turn ${edge.targetTurnNumber} (click to select, right-click to disconnect)`
-      : `Pause branch from Choice ${edge.sourceChoiceIndex} to Turn ${edge.targetTurnNumber}`;
+      ? `Choice ${edge.sourceChoiceIndex} → ${turnLabels.getDisplayLabel(edge.targetTurnNumber)} (click to select, right-click to disconnect)`
+      : `Pause branch from Choice ${edge.sourceChoiceIndex} to ${turnLabels.getDisplayLabel(edge.targetTurnNumber)}`;
     path.appendChild(title);
     path.onclick = (event) => {
       event.stopPropagation();
