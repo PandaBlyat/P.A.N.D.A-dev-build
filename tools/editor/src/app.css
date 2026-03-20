@@ -913,7 +913,7 @@ label {
 }
 
 .motivation-ticker-track.is-animating {
-  animation: ticker-marquee 24s linear;
+  animation: ticker-marquee 24s linear infinite;
 }
 
 @keyframes ticker-marquee {
@@ -1204,7 +1204,6 @@ label {
   border-color: var(--branch-color);
   border-left-color: var(--branch-color);
   box-shadow: 0 0 0 2px var(--branch-glow), 0 0 20px var(--branch-glow), var(--shadow-md);
-  animation: node-glow 2.5s ease-in-out infinite;
 }
 .turn-node.path-active:not(.selected) {
   border-color: color-mix(in srgb, var(--branch-color) 55%, transparent);
@@ -1217,10 +1216,6 @@ label {
   border-left-color: var(--warning);
 }
 
-@keyframes node-glow {
-  0%, 100% { box-shadow: 0 0 0 2px var(--branch-glow), 0 0 14px var(--branch-glow), var(--shadow-md); }
-  50% { box-shadow: 0 0 0 2px var(--branch-glow), 0 0 20px var(--branch-glow), var(--shadow-md); }
-}
 
 .turn-header {
   display: flex;
