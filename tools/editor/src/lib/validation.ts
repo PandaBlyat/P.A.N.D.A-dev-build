@@ -2,6 +2,7 @@
 
 import { FACTION_ALIASES, FACTION_IDS, LEVEL_DISPLAY_NAMES, MUTANT_TYPES, RANKS, SMART_TERRAIN_LEVELS } from './constants';
 import { findSchema, OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from './schema';
+import { createTurnDisplayLabeler } from './turn-labels';
 import type { CommandSchema, ParamDef } from './schema';
 import type {
   AnyPrecondition,
@@ -204,7 +205,7 @@ function validateConversation(conv: Conversation, messages: ValidationMessage[])
       level: 'error',
       conversationId: conv.id,
       propertiesTab: 'conversation',
-      message: 'Missing Turn 1.',
+      message: 'Missing Branch 1.',
     });
     return;
   }
@@ -220,19 +221,20 @@ function validateConversation(conv: Conversation, messages: ValidationMessage[])
       propertiesTab: 'selection',
       fieldKey: getTurnFieldKey(conv.id, 1, 'opening-message'),
       fieldLabel: 'Opening Message',
-      message: 'Turn 1 is missing an opening message.',
+      message: 'Branch 1 is missing an opening message.',
     });
   }
 
   const turnNumbers = new Set(conv.turns.map(t => t.turnNumber));
   const highestTurnNumber = Math.max(...conv.turns.map(t => t.turnNumber));
+  const turnLabels = createTurnDisplayLabeler(conv);
 
   for (const turn of conv.turns) {
-    validateTurn(conv, turn, turnNumbers, highestTurnNumber, messages);
+    validateTurn(conv, turn, turnNumbers, highestTurnNumber, turnLabels, messages);
   }
 
   if (conv.turns.length > 1) {
-    validateReachability(conv, turnNumbers, messages);
+    validateReachability(conv, turnNumbers, turnLabels, messages);
   }
 }
 
@@ -241,6 +243,7 @@ function validateTurn(
   turn: Conversation['turns'][number],
   turnNumbers: Set<number>,
   highestTurnNumber: number,
+  turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
   messages: ValidationMessage[],
 ): void {
   if (turn.choices.length === 0) {
@@ -252,7 +255,7 @@ function validateTurn(
       conversationId: conv.id,
       turnNumber: turn.turnNumber,
       propertiesTab: 'selection',
-      message: `Turn ${turn.turnNumber} has no choices.`,
+      message: `${turnLabels.getLongLabel(turn.turnNumber)} has no choices.`,
     });
     return;
   }
@@ -272,7 +275,7 @@ function validateTurn(
         propertiesTab: 'selection',
         fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'text'),
         fieldLabel: 'Player Choice Text',
-        message: `Turn ${turn.turnNumber}, Choice ${choice.index}: Missing choice text.`,
+        message: `${turnLabels.getLongLabel(turn.turnNumber)}, Choice ${choice.index}: Missing choice text.`,
       });
     }
 
@@ -288,7 +291,7 @@ function validateTurn(
         propertiesTab: 'selection',
         fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply'),
         fieldLabel: 'NPC Reply',
-        message: `Turn ${turn.turnNumber}, Choice ${choice.index}: Missing reply text.`,
+        message: `${turnLabels.getLongLabel(turn.turnNumber)}, Choice ${choice.index}: Missing reply text.`,
       });
     }
 
@@ -306,7 +309,7 @@ function validateTurn(
           propertiesTab: 'selection',
           fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'),
           fieldLabel: 'Continue To Turn',
-          message: `Turn ${turn.turnNumber}, Choice ${choice.index}: Continues to itself.`,
+          message: `${turnLabels.getLongLabel(turn.turnNumber)}, Choice ${choice.index}: Continues to itself.`,
         });
       } else if (!turnNumbers.has(choice.continueTo)) {
         pushMessage(messages, {
@@ -320,13 +323,13 @@ function validateTurn(
           propertiesTab: 'selection',
           fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'),
           fieldLabel: 'Continue To Turn',
-          message: `Turn ${turn.turnNumber}, Choice ${choice.index}: Continues to Turn ${choice.continueTo} which does not exist.`,
+          message: `${turnLabels.getLongLabel(turn.turnNumber)}, Choice ${choice.index}: Continues to ${turnLabels.getLongLabel(choice.continueTo)} which does not exist.`,
         });
       }
     }
 
     choice.outcomes.forEach((outcome, outcomeIndex) => {
-      validateOutcome(conv, turn, choice, outcome, outcomeIndex, turnNumbers, messages);
+      validateOutcome(conv, turn, choice, outcome, outcomeIndex, turnNumbers, turnLabels, messages);
       if (outcome.command === 'pause_job') {
         turnHasContinuationIntent = true;
       }
@@ -344,7 +347,7 @@ function validateTurn(
         propertiesTab: 'selection',
         fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'),
         fieldLabel: 'Continue To Turn',
-        message: `Turn ${turn.turnNumber}, Choice ${choice.index}: Ends immediately with no continuation or branching outcome.`,
+        message: `${turnLabels.getLongLabel(turn.turnNumber)}, Choice ${choice.index}: Ends immediately with no continuation or branching outcome.`,
       });
     }
   }
@@ -358,7 +361,7 @@ function validateTurn(
       conversationId: conv.id,
       turnNumber: turn.turnNumber,
       propertiesTab: 'selection',
-      message: `Turn ${turn.turnNumber} has no continuation intent, but later turns exist in this conversation.`,
+      message: `${turnLabels.getLongLabel(turn.turnNumber)} has no continuation intent, but later turns exist in this conversation.`,
     });
   }
 }
@@ -420,6 +423,7 @@ function validateOutcome(
   outcome: Outcome,
   outcomeIndex: number,
   turnNumbers: Set<number>,
+  turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
   messages: ValidationMessage[],
 ): void {
   validateSimpleCommand({
@@ -478,7 +482,7 @@ function validateOutcome(
       propertiesTab: 'selection',
       fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, 1),
       fieldLabel: 'Success Turn',
-      message: `pause_job references success Turn ${successTurn} which does not exist.`,
+      message: `pause_job references success ${turnLabels.getLongLabel(successTurn)} which does not exist.`,
     });
   }
 
@@ -495,7 +499,7 @@ function validateOutcome(
       propertiesTab: 'selection',
       fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, 2),
       fieldLabel: 'Fail Turn',
-      message: `pause_job references fail Turn ${failTurn} which does not exist.`,
+      message: `pause_job references fail ${turnLabels.getLongLabel(failTurn)} which does not exist.`,
     });
   }
 
@@ -790,7 +794,12 @@ function validateConversationPreconditionLogic(conv: Conversation, messages: Val
   }
 }
 
-function validateReachability(conv: Conversation, turnNumbers: Set<number>, messages: ValidationMessage[]): void {
+function validateReachability(
+  conv: Conversation,
+  turnNumbers: Set<number>,
+  turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
+  messages: ValidationMessage[],
+): void {
   const reachable = new Set<number>([1]);
   const queue = [1];
 
@@ -831,7 +840,7 @@ function validateReachability(conv: Conversation, turnNumbers: Set<number>, mess
       conversationId: conv.id,
       turnNumber: turn.turnNumber,
       propertiesTab: 'selection',
-      message: `Turn ${turn.turnNumber} is unreachable from Turn 1.`,
+      message: `${turnLabels.getLongLabel(turn.turnNumber)} is unreachable from ${turnLabels.getLongLabel(1)}.`,
     });
   }
 }
