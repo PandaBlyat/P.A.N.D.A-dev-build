@@ -663,7 +663,8 @@ label {
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0) 0 0 / 20px 20px;
+    radial-gradient(circle at 1px 1px, rgba(94,170,58,0.06) 1px, transparent 0) 0 0 / 24px 24px,
+    radial-gradient(circle at center, rgba(94,170,58,0.02) 0%, transparent 70%);
   cursor: grab;
 }
 
@@ -780,31 +781,33 @@ label {
 }
 
 .turn-node {
+  --branch-color: var(--accent);
+  --branch-glow: var(--accent-glow);
   position: absolute;
   width: 220px;
-  background: var(--bg-card);
+  background: linear-gradient(180deg, var(--bg-card) 0%, rgba(16,20,26,0.95) 100%);
   border: 1px solid var(--node-border);
   border-radius: var(--radius-lg);
   cursor: pointer;
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.1s;
-  box-shadow: var(--shadow-sm);
-  /* Left accent bar */
-  border-left: 3px solid var(--accent-dim);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.03);
+  /* Left accent bar uses branch color */
+  border-left: 3px solid var(--branch-color);
 }
 .turn-node:hover {
-  border-color: var(--accent-dim);
-  box-shadow: var(--shadow-md);
+  border-color: color-mix(in srgb, var(--branch-color) 60%, transparent);
+  box-shadow: var(--shadow-md), 0 0 12px var(--branch-glow);
   transform: translateY(-1px);
 }
 .turn-node.selected {
-  border-color: var(--accent);
-  border-left-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-glow), var(--shadow-md);
-  animation: node-glow 2s ease-in-out infinite;
+  border-color: var(--branch-color);
+  border-left-color: var(--branch-color);
+  box-shadow: 0 0 0 2px var(--branch-glow), 0 0 20px var(--branch-glow), var(--shadow-md);
+  animation: node-glow 2.5s ease-in-out infinite;
 }
 .turn-node.path-active:not(.selected) {
-  border-color: rgba(94, 170, 58, 0.55);
-  box-shadow: 0 0 0 1px rgba(94, 170, 58, 0.18), var(--shadow-sm);
+  border-color: color-mix(in srgb, var(--branch-color) 55%, transparent);
+  box-shadow: 0 0 0 1px var(--branch-glow), var(--shadow-sm);
 }
 .turn-node.has-warning {
   border-left-color: var(--warning);
@@ -814,16 +817,16 @@ label {
 }
 
 @keyframes node-glow {
-  0%, 100% { box-shadow: 0 0 0 2px var(--accent-glow), var(--shadow-md); }
-  50% { box-shadow: 0 0 0 3px var(--accent-glow-strong), 0 0 16px var(--accent-glow), var(--shadow-md); }
+  0%, 100% { box-shadow: 0 0 0 2px var(--branch-glow), var(--shadow-md); }
+  50% { box-shadow: 0 0 0 3px var(--branch-glow), 0 0 20px var(--branch-glow), var(--shadow-md); }
 }
 
 .turn-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
   padding: 6px 10px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%);
+  background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%);
   border-radius: 0 var(--radius-lg) 0 0;
   border-bottom: 1px solid var(--border);
 }
@@ -832,8 +835,52 @@ label {
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: bold;
-  color: var(--accent);
-  text-shadow: 0 0 8px var(--accent-glow);
+  color: var(--branch-color, var(--accent));
+  text-shadow: 0 0 8px var(--branch-glow, var(--accent-glow));
+  cursor: pointer;
+  border-bottom: 1px dashed transparent;
+  transition: border-color 0.15s;
+}
+
+.turn-label:hover {
+  border-color: var(--branch-color, var(--accent));
+}
+
+.turn-label-input {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--branch-color, var(--accent));
+  background: var(--bg-input);
+  border: 1px solid var(--branch-color, var(--accent));
+  border-radius: var(--radius);
+  padding: 1px 6px;
+  width: 120px;
+  outline: none;
+  box-shadow: 0 0 8px var(--branch-glow);
+}
+
+.turn-color-input {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--border-light);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  overflow: hidden;
+}
+
+.turn-color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.turn-color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
 }
 
 .turn-body { padding: 8px 10px; }
@@ -841,15 +888,17 @@ label {
 .turn-message {
   font-size: 11px;
   color: var(--text-dim);
-  max-height: 40px;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 6px;
   font-style: italic;
-  padding: 4px 6px;
+  padding: 5px 8px;
   background: rgba(0,0,0,0.15);
   border-radius: var(--radius);
-  border-left: 2px solid var(--accent-dim);
+  border-left: 2px solid var(--branch-color, var(--accent-dim));
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .turn-choices-list { list-style: none; }
@@ -892,9 +941,9 @@ label {
   font-size: 9px;
   padding: 1px 5px;
   border-radius: 3px;
-  background: linear-gradient(135deg, var(--accent-dim), #2e5a1e);
+  background: color-mix(in srgb, var(--branch-color, var(--accent-dim)) 25%, transparent);
   color: var(--text-bright);
-  border: 1px solid var(--accent-dim);
+  border: 1px solid color-mix(in srgb, var(--branch-color, var(--accent-dim)) 50%, transparent);
 }
 
 .choice-branch-badge {
@@ -905,6 +954,77 @@ label {
   border: 1px solid var(--warning);
   color: var(--warning);
   background: rgba(196, 160, 64, 0.08);
+}
+
+.choice-outcome-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--info);
+  color: var(--info);
+  background: rgba(64, 128, 196, 0.08);
+}
+
+/* ─── NPC Reply in Flow Node ──────────────────────────── */
+
+.turn-npc-reply {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 3px 8px 3px 26px;
+  font-size: 10px;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: var(--radius);
+  transition: background 0.1s;
+}
+
+.turn-npc-reply:hover {
+  background: rgba(255,255,255,0.02);
+}
+
+.npc-reply-icon {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--info);
+  background: rgba(64, 128, 196, 0.12);
+  border: 1px solid rgba(64, 128, 196, 0.25);
+  border-radius: 2px;
+  padding: 0 4px;
+  line-height: 1.5;
+  flex-shrink: 0;
+}
+
+.npc-reply-text {
+  font-style: italic;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+
+.turn-npc-message {
+  border-left-color: var(--info) !important;
+  background: rgba(64, 128, 196, 0.06) !important;
+}
+
+/* ─── Turn Footer (detailed mode) ─────────────────────── */
+
+.turn-footer {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  padding: 5px 8px;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.1);
+  border-radius: 0 0 var(--radius-lg) 0;
+  opacity: 0.8;
 }
 
 /* ─── SVG Edges ────────────────────────────────────────── */
@@ -1845,11 +1965,53 @@ hr {
 
 /* ─── Enhanced Flow Nodes / Connectors ────────────────── */
 
-.flow-shell.density-compact .turn-node { font-size: 12px; }
-.flow-shell.density-detailed .turn-node { box-shadow: var(--shadow-md); }
+/* ─── Density-Specific Styles ─────────────────────────── */
+
+.flow-shell.density-compact .turn-node {
+  font-size: 11px;
+}
+
+.flow-shell.density-compact .turn-header {
+  padding: 4px 8px;
+}
+
+.flow-shell.density-compact .turn-body {
+  padding: 4px 8px;
+  gap: 4px;
+}
+
+.flow-shell.density-compact .turn-choice-item {
+  padding: 3px 6px;
+}
+
+.flow-shell.density-compact .turn-stats,
+.flow-shell.density-compact .turn-color-input {
+  display: none;
+}
+
+.flow-shell.density-standard .turn-node {
+  font-size: 12px;
+}
+
+.flow-shell.density-detailed .turn-node {
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.04);
+  font-size: 13px;
+}
+
+.flow-shell.density-detailed .turn-header {
+  padding: 8px 12px;
+}
+
+.flow-shell.density-detailed .turn-body {
+  padding: 10px 12px;
+}
+
+.flow-shell.density-detailed .npc-reply-text {
+  -webkit-line-clamp: 2;
+}
 
 .turn-node {
-  min-height: 120px;
+  min-height: 100px;
   padding-left: 12px;
 }
 
@@ -1885,12 +2047,12 @@ hr {
 .turn-node:hover .choice-output-port,
 .turn-node.selected .turn-input-port,
 .turn-node.selected .choice-output-port {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(8, 10, 12, 0.92), 0 0 14px rgba(94, 170, 58, 0.35);
+  border-color: var(--branch-color, var(--accent));
+  box-shadow: 0 0 0 2px rgba(8, 10, 12, 0.92), 0 0 14px var(--branch-glow, rgba(94, 170, 58, 0.35));
 }
 
 .turn-header {
-  gap: 8px;
+  gap: 6px;
 }
 
 .turn-stats {
@@ -1906,9 +2068,7 @@ hr {
 }
 
 .turn-message {
-  max-height: none;
   white-space: pre-wrap;
-  line-height: 1.4;
 }
 
 .turn-choice-item {

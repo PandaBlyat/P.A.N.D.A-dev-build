@@ -48,10 +48,22 @@ type NodeLayout = {
 };
 
 const NODE_LAYOUTS: Record<FlowDensity, NodeLayout> = {
-  compact: { width: 210, messageChars: 52, previewLines: 1, minHeight: 126 },
-  standard: { width: 240, messageChars: 90, previewLines: 1, minHeight: 152 },
-  detailed: { width: 300, messageChars: 160, previewLines: 2, minHeight: 186 },
+  compact: { width: 210, messageChars: 52, previewLines: 1, minHeight: 106 },
+  standard: { width: 260, messageChars: 100, previewLines: 1, minHeight: 140 },
+  detailed: { width: 320, messageChars: 180, previewLines: 3, minHeight: 200 },
 };
+
+/** Default branch color palette — automatically assigned by turn index. */
+const BRANCH_PALETTE = [
+  '#5eaa3a', // green (default accent)
+  '#4a90d9', // blue
+  '#d4783a', // orange
+  '#9b59b6', // purple
+  '#e0c040', // gold
+  '#3abfbf', // teal
+  '#d95b5b', // rose
+  '#7ec850', // lime
+];
 const CONTENT_PADDING = 120;
 const MIN_ZOOM = 0.35;
 const MAX_ZOOM = 1.8;
@@ -427,6 +439,10 @@ function calculateContentBounds(conv: Conversation, density: FlowDensity): Conte
   };
 }
 
+function getBranchColor(turn: Turn, turnIndex: number): string {
+  return turn.color || BRANCH_PALETTE[turnIndex % BRANCH_PALETTE.length];
+}
+
 function renderTurnNode(options: {
   conv: Conversation;
   turn: Turn;
@@ -443,6 +459,9 @@ function renderTurnNode(options: {
   const layout = NODE_LAYOUTS[density];
   const hasWarning = turn.choices.some(c => !c.text && !c.reply);
   const isPathActive = edges.some(edge => edge.highlight === 'active' && (edge.sourceTurnNumber === turn.turnNumber || edge.targetTurnNumber === turn.turnNumber));
+  const turnIndex = conv.turns.indexOf(turn);
+  const branchColor = getBranchColor(turn, turnIndex);
+
   const node = document.createElement('div');
   node.className = 'turn-node'
     + (selected ? ' selected' : '')
@@ -452,6 +471,8 @@ function renderTurnNode(options: {
   node.style.left = `${turn.position.x}px`;
   node.style.top = `${turn.position.y}px`;
   node.style.width = `${layout.width}px`;
+  node.style.setProperty('--branch-color', branchColor);
+  node.style.setProperty('--branch-glow', branchColor + '40');
   node.onclick = (e) => {
     e.stopPropagation();
     store.selectTurn(turn.turnNumber);
@@ -462,7 +483,7 @@ function renderTurnNode(options: {
   node.onmousedown = (e) => {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
-    if (target.closest('.turn-choice-item, .choice-output-port, .turn-input-port')) return;
+    if (target.closest('.turn-choice-item, .choice-output-port, .turn-input-port, .turn-label-input, .turn-color-input')) return;
 
     const startX = e.clientX;
     const startY = e.clientY;
@@ -499,23 +520,64 @@ function renderTurnNode(options: {
   inputPort.type = 'button';
   inputPort.className = 'turn-input-port';
   inputPort.title = `Incoming connections for ${turnLabels.getLongLabel(turn.turnNumber)}`;
+  inputPort.style.background = `linear-gradient(180deg, ${branchColor}cc, ${branchColor}99)`;
   inputPort.onclick = (event) => {
     event.stopPropagation();
     store.selectTurn(turn.turnNumber);
   };
   node.appendChild(inputPort);
 
+  // ── Header ──
   const header = document.createElement('div');
   header.className = 'turn-header';
-  const label = document.createElement('span');
-  label.className = 'turn-label';
-  label.textContent = turnLabels.getLongLabel(turn.turnNumber);
-  header.appendChild(label);
+
+  // Editable label: click to rename
+  const labelSpan = document.createElement('span');
+  labelSpan.className = 'turn-label';
+  labelSpan.textContent = turnLabels.getLongLabel(turn.turnNumber);
+  labelSpan.title = 'Click to rename this branch';
+  labelSpan.style.cursor = 'pointer';
+  labelSpan.onclick = (e) => {
+    e.stopPropagation();
+    labelSpan.style.display = 'none';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'turn-label-input';
+    input.value = turn.customLabel || '';
+    input.placeholder = `Branch ${turn.turnNumber}`;
+    input.maxLength = 32;
+    const commitEdit = () => {
+      store.setTurnCustomLabel(conv.id, turn.turnNumber, input.value);
+    };
+    input.onblur = commitEdit;
+    input.onkeydown = (ke) => {
+      if (ke.key === 'Enter') { commitEdit(); }
+      if (ke.key === 'Escape') { input.value = turn.customLabel || ''; input.blur(); }
+      ke.stopPropagation();
+    };
+    header.insertBefore(input, labelSpan.nextSibling);
+    input.focus();
+    input.select();
+  };
+  header.appendChild(labelSpan);
+
+  // Color picker (small dot, click to change branch color)
+  const colorDot = document.createElement('input');
+  colorDot.type = 'color';
+  colorDot.className = 'turn-color-input';
+  colorDot.value = branchColor;
+  colorDot.title = 'Change branch color';
+  colorDot.onchange = (e) => {
+    e.stopPropagation();
+    store.setTurnColor(conv.id, turn.turnNumber, colorDot.value);
+  };
+  colorDot.onclick = (e) => e.stopPropagation();
+  header.appendChild(colorDot);
 
   const stats = document.createElement('span');
   stats.className = 'turn-stats';
   const outgoingCount = turn.choices.filter(choice => choice.continueTo != null || hasPauseOutcome(choice)).length;
-  stats.textContent = `${turn.choices.length} choice${turn.choices.length !== 1 ? 's' : ''} · ${outgoingCount} link${outgoingCount !== 1 ? 's' : ''}`;
+  stats.textContent = `${turn.choices.length}C · ${outgoingCount}L`;
   header.appendChild(stats);
 
   if (turn.turnNumber > 1) {
@@ -532,17 +594,19 @@ function renderTurnNode(options: {
   }
   node.appendChild(header);
 
+  // ── Body ──
   const body = document.createElement('div');
   body.className = 'turn-body';
 
-  const messageText = turn.openingMessage || turn.choices.find(choice => choice.reply)?.reply;
-  if (messageText) {
+  // Opening message (NPC message)
+  if (turn.openingMessage && density !== 'compact') {
     const msg = document.createElement('div');
-    msg.className = 'turn-message';
-    msg.textContent = truncate(messageText, layout.messageChars);
+    msg.className = 'turn-message turn-npc-message';
+    msg.textContent = truncate(turn.openingMessage, layout.messageChars);
     body.appendChild(msg);
   }
 
+  // ── Choices ──
   const choicesList = document.createElement('ul');
   choicesList.className = 'turn-choices-list';
   for (const choice of turn.choices) {
@@ -562,26 +626,22 @@ function renderTurnNode(options: {
     port.title = choice.continueTo != null
       ? `Drag to change destination for Choice ${choice.index}`
       : `Drag to connect Choice ${choice.index} to another turn`;
+    port.style.background = `linear-gradient(180deg, ${branchColor}cc, ${branchColor}80)`;
     port.onmousedown = (event) => onChoicePortDragStart(choice.index, event);
 
     const num = document.createElement('span');
     num.className = 'choice-number';
     num.textContent = String(choice.index);
 
+    // Player dialogue text
     const preview = document.createElement('span');
     preview.className = 'choice-preview';
-    preview.textContent = choice.text || choice.reply || '(empty)';
+    preview.textContent = choice.text || '(empty)';
     preview.style.setProperty('-webkit-line-clamp', String(layout.previewLines));
-
-    const meta = document.createElement('span');
-    meta.className = 'choice-meta';
-    const metaBits: string[] = [];
-    if (choice.continueTo != null) metaBits.push(`→ ${turnLabels.getCompactLabel(choice.continueTo)}`);
-    if (choice.outcomes.length > 0) metaBits.push(`${choice.outcomes.length} outcome${choice.outcomes.length !== 1 ? 's' : ''}`);
-    meta.textContent = metaBits.join(' · ');
 
     item.append(port, num, preview);
 
+    // Badges
     if (choice.continueTo != null) {
       const badge = document.createElement('span');
       badge.className = 'choice-cont-badge';
@@ -596,10 +656,49 @@ function renderTurnNode(options: {
       item.appendChild(pauseBadge);
     }
 
-    if (meta.textContent) item.appendChild(meta);
+    // Outcomes count (standard/detailed only)
+    if (density !== 'compact' && choice.outcomes.length > 0) {
+      const outBadge = document.createElement('span');
+      outBadge.className = 'choice-outcome-badge';
+      outBadge.textContent = `${choice.outcomes.length} out`;
+      item.appendChild(outBadge);
+    }
+
     choicesList.appendChild(item);
+
+    // NPC Reply — show below player choice in standard/detailed modes
+    if (choice.reply && density !== 'compact') {
+      const replyRow = document.createElement('li');
+      replyRow.className = 'turn-npc-reply';
+      replyRow.onclick = (e) => {
+        e.stopPropagation();
+        store.selectTurn(turn.turnNumber);
+        store.selectChoice(choice.index);
+      };
+      const replyIcon = document.createElement('span');
+      replyIcon.className = 'npc-reply-icon';
+      replyIcon.textContent = 'NPC';
+      const replyText = document.createElement('span');
+      replyText.className = 'npc-reply-text';
+      replyText.textContent = truncate(choice.reply, density === 'detailed' ? layout.messageChars : 60);
+      replyRow.append(replyIcon, replyText);
+      choicesList.appendChild(replyRow);
+    }
   }
   body.appendChild(choicesList);
+
+  // ── Footer info (detailed mode) ──
+  if (density === 'detailed') {
+    const footer = document.createElement('div');
+    footer.className = 'turn-footer';
+    const precondCount = conv.preconditions.length;
+    const totalOutcomes = turn.choices.reduce((s, c) => s + c.outcomes.length, 0);
+    footer.textContent = `${turn.choices.length} choice${turn.choices.length !== 1 ? 's' : ''} · ${outgoingCount} link${outgoingCount !== 1 ? 's' : ''} · ${totalOutcomes} outcome${totalOutcomes !== 1 ? 's' : ''}`;
+    if (turn.turnNumber === 1 && precondCount > 0) {
+      footer.textContent += ` · ${precondCount} precond`;
+    }
+    body.appendChild(footer);
+  }
 
   node.appendChild(body);
   return node;
@@ -817,10 +916,26 @@ function hasPauseOutcome(choice: Choice): boolean {
 
 function getNodeHeight(turn: Turn, density: FlowDensity): number {
   const layout = NODE_LAYOUTS[density];
-  const messageBonus = turn.openingMessage || turn.choices.some(choice => choice.reply)
-    ? density === 'detailed' ? 50 : density === 'standard' ? 34 : 22
-    : 0;
-  return Math.max(layout.minHeight, 52 + turn.choices.length * 34 + messageBonus);
+  const choiceHeight = density === 'detailed' ? 38 : 34;
+  let height = 52 + turn.choices.length * choiceHeight;
+
+  // Opening message
+  if (turn.openingMessage && density !== 'compact') {
+    height += density === 'detailed' ? 50 : 34;
+  }
+
+  // NPC replies (shown in standard/detailed)
+  if (density !== 'compact') {
+    const repliesCount = turn.choices.filter(c => c.reply).length;
+    height += repliesCount * 24;
+  }
+
+  // Footer in detailed mode
+  if (density === 'detailed') {
+    height += 26;
+  }
+
+  return Math.max(layout.minHeight, height);
 }
 
 function buildEdgePath(source: { x: number; y: number }, target: { x: number; y: number }, laneOffset: number): string {

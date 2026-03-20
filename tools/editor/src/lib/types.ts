@@ -63,6 +63,10 @@ export interface Turn {
   openingMessage?: string;
   choices: Choice[];
   position: { x: number; y: number };
+  /** Optional custom display name for this branch node. */
+  customLabel?: string;
+  /** Optional CSS color for this branch node accent. */
+  color?: string;
 }
 
 export interface Choice {

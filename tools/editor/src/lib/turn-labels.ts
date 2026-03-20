@@ -159,8 +159,21 @@ export function createTurnDisplayLabeler(conversation: Conversation): {
   getPath: (turnNumber: number) => string | null;
 } {
   const labels = buildTurnLabelMap(conversation);
-  const getLongLabel = (turnNumber: number): string => labels.get(turnNumber)?.long ?? `Branch ${turnNumber}`;
-  const getCompactLabel = (turnNumber: number): string => labels.get(turnNumber)?.short ?? `B${turnNumber}`;
+  const customLabels = new Map<number, string>();
+  for (const turn of conversation.turns) {
+    if (turn.customLabel) customLabels.set(turn.turnNumber, turn.customLabel);
+  }
+
+  const getLongLabel = (turnNumber: number): string => {
+    const custom = customLabels.get(turnNumber);
+    if (custom) return custom;
+    return labels.get(turnNumber)?.long ?? `Branch ${turnNumber}`;
+  };
+  const getCompactLabel = (turnNumber: number): string => {
+    const custom = customLabels.get(turnNumber);
+    if (custom) return custom.length > 8 ? custom.slice(0, 7) + '…' : custom;
+    return labels.get(turnNumber)?.short ?? `B${turnNumber}`;
+  };
 
   return {
     getLongLabel,
