@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Root App Component
 
-import { store } from '../lib/state';
+import { store, type BottomWorkspaceTab } from '../lib/state';
 import { renderToolbar } from './Toolbar';
 import { renderConversationList } from './ConversationList';
 import { renderFlowEditor } from './FlowEditor';
@@ -14,21 +14,38 @@ import { setButtonContent } from './icons';
 const PANEL_MIN_WIDTH = 220;
 const PANEL_MAX_WIDTH = 520;
 const PANEL_COLLAPSED_WIDTH = 52;
+const TABLET_BREAKPOINT = 1180;
+const MOBILE_BREAKPOINT = 760;
+
+type ResponsiveLayoutMode = 'desktop' | 'tablet' | 'mobile';
+type DrawerSide = 'left' | 'right' | null;
+
+type LayoutDefaults = {
+  leftWidth: number;
+  rightWidth: number;
+  leftCollapsed: boolean;
+  rightCollapsed: boolean;
+};
 
 const layoutState = {
   leftWidth: 280,
   rightWidth: 360,
   leftCollapsed: false,
   rightCollapsed: false,
+  responsiveMode: 'desktop' as ResponsiveLayoutMode,
+  activeDrawer: null as DrawerSide,
 };
 
 type AppShell = {
   container: HTMLElement;
   toolbarRegion: HTMLDivElement;
   mainLayout: HTMLDivElement;
+  layoutScrim: HTMLButtonElement;
+  utilityRail: HTMLDivElement;
   leftPanel: HTMLDivElement;
   leftActions: HTMLDivElement;
   leftBody: HTMLDivElement;
+  centerPanel: HTMLDivElement;
   centerTitle: HTMLSpanElement;
   centerActions: HTMLDivElement;
   centerBody: HTMLDivElement;
@@ -41,20 +58,24 @@ type AppShell = {
 };
 
 let appShell: AppShell | null = null;
+let resizeListenerAttached = false;
 
 export function renderApp(container: HTMLElement): void {
   const shell = getAppShell(container);
+  ensureResponsiveListener(container);
+
   const state = store.get();
   const conv = store.getSelectedConversation();
   const firstRun = state.project.conversations.length === 0 && shouldShowFirstRunExperience();
 
-  shell.toolbarRegion.replaceChildren(renderToolbar());
-
   syncResponsiveLayout(shell.mainLayout);
+  shell.toolbarRegion.replaceChildren(renderToolbar(layoutState.responsiveMode));
   renderLeftPanel(shell);
   renderCenterPanel(shell, conv, firstRun);
   renderRightPanel(shell);
   renderBottomRegion(shell);
+  renderUtilityRail(shell);
+  updateOverlayState(shell);
 }
 
 function getAppShell(container: HTMLElement): AppShell {
@@ -63,6 +84,8 @@ function getAppShell(container: HTMLElement): AppShell {
   }
 
   const toolbarRegion = document.createElement('div');
+  toolbarRegion.className = 'app-toolbar-region';
+
   const mainLayout = document.createElement('div');
   mainLayout.className = 'main-layout';
 
@@ -109,11 +132,35 @@ function getAppShell(container: HTMLElement): AppShell {
   rightBody.style.flexDirection = 'column';
   rightPanel.appendChild(rightBody);
 
-  mainLayout.append(leftPanel, createSplitter('left', mainLayout), centerPanel, createSplitter('right', mainLayout), rightPanel);
+  const layoutScrim = document.createElement('button');
+  layoutScrim.type = 'button';
+  layoutScrim.className = 'layout-scrim';
+  layoutScrim.title = 'Close open panel';
+  layoutScrim.setAttribute('aria-label', 'Close open panel');
+  layoutScrim.onclick = () => {
+    layoutState.activeDrawer = null;
+    renderApp(container);
+  };
+
+  const utilityRail = document.createElement('div');
+  utilityRail.className = 'utility-rail';
+
+  mainLayout.append(
+    leftPanel,
+    createSplitter('left', mainLayout),
+    centerPanel,
+    createSplitter('right', mainLayout),
+    rightPanel,
+    layoutScrim,
+    utilityRail,
+  );
 
   const bottomRegion = document.createElement('div');
+  bottomRegion.className = 'app-bottom-region';
   const validationRegion = document.createElement('div');
+  validationRegion.className = 'app-validation-region';
   const workspaceRegion = document.createElement('div');
+  workspaceRegion.className = 'app-workspace-region';
   bottomRegion.append(validationRegion, workspaceRegion);
 
   container.replaceChildren(toolbarRegion, mainLayout, bottomRegion);
@@ -122,9 +169,12 @@ function getAppShell(container: HTMLElement): AppShell {
     container,
     toolbarRegion,
     mainLayout,
+    layoutScrim,
+    utilityRail,
     leftPanel,
     leftActions,
     leftBody,
+    centerPanel,
     centerTitle,
     centerActions,
     centerBody,
@@ -140,9 +190,14 @@ function getAppShell(container: HTMLElement): AppShell {
 }
 
 function renderLeftPanel(shell: AppShell): void {
-  shell.leftPanel.className = `panel panel-left${layoutState.leftCollapsed ? ' is-collapsed' : ''}`;
+  const isOverlay = layoutState.responsiveMode !== 'desktop';
+  const isDrawerOpen = isOverlay && layoutState.activeDrawer === 'left';
+
+  shell.leftPanel.className = `panel panel-left${layoutState.leftCollapsed && !isOverlay ? ' is-collapsed' : ''}${isDrawerOpen ? ' is-drawer-open' : ''}`;
+  shell.leftPanel.dataset.drawerOpen = String(isDrawerOpen);
+  shell.leftPanel.setAttribute('aria-hidden', String(isOverlay && !isDrawerOpen));
   shell.leftActions.replaceChildren(createAddConversationButton(), createPanelToggleButton('left'));
-  shell.leftBody.hidden = layoutState.leftCollapsed;
+  shell.leftBody.hidden = layoutState.leftCollapsed && !isOverlay;
   shell.leftBody.replaceChildren();
   renderConversationList(shell.leftBody);
 }
@@ -150,6 +205,13 @@ function renderLeftPanel(shell: AppShell): void {
 function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSelectedConversation>, firstRun: boolean): void {
   shell.centerTitle.textContent = `Flow Editor${conv ? ` — ${conv.label}` : ''}`;
   shell.centerActions.replaceChildren();
+
+  if (layoutState.responsiveMode !== 'desktop') {
+    shell.centerActions.append(
+      createPanelLauncherButton('left', 'Conversations'),
+      createPanelLauncherButton('right', 'Inspector'),
+    );
+  }
 
   if (conv) {
     const autoLayoutBtn = document.createElement('button');
@@ -174,18 +236,64 @@ function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSel
 }
 
 function renderRightPanel(shell: AppShell): void {
-  shell.rightPanel.className = `panel panel-right${layoutState.rightCollapsed ? ' is-collapsed' : ''}`;
+  const isOverlay = layoutState.responsiveMode !== 'desktop';
+  const isDrawerOpen = isOverlay && layoutState.activeDrawer === 'right';
+
+  shell.rightPanel.className = `panel panel-right${layoutState.rightCollapsed && !isOverlay ? ' is-collapsed' : ''}${isDrawerOpen ? ' is-drawer-open' : ''}`;
+  shell.rightPanel.dataset.drawerOpen = String(isDrawerOpen);
+  shell.rightPanel.setAttribute('aria-hidden', String(isOverlay && !isDrawerOpen));
   shell.rightActions.replaceChildren(createPanelToggleButton('right'));
-  shell.rightBody.hidden = layoutState.rightCollapsed;
+  shell.rightBody.hidden = layoutState.rightCollapsed && !isOverlay;
   shell.rightBody.replaceChildren();
   renderPropertiesPanel(shell.rightBody);
 }
 
 function renderBottomRegion(shell: AppShell): void {
+  shell.bottomRegion.dataset.layoutMode = layoutState.responsiveMode;
   shell.validationRegion.replaceChildren();
   renderValidationBar(shell.validationRegion);
   shell.workspaceRegion.replaceChildren();
   renderBottomWorkspace(shell.workspaceRegion);
+}
+
+function renderUtilityRail(shell: AppShell): void {
+  shell.utilityRail.replaceChildren();
+  const state = store.get();
+  const isCompact = layoutState.responsiveMode !== 'desktop';
+  shell.utilityRail.hidden = !isCompact;
+  if (!isCompact) return;
+
+  const issueCount = state.validationMessages.length;
+  const issueButton = createUtilityRailButton(
+    'Issues',
+    issueCount > 0 ? `${issueCount}` : undefined,
+    issueCount === 0,
+    () => activateWorkspaceTab('validation'),
+  );
+  issueButton.title = issueCount > 0 ? `Open issues (${issueCount})` : 'No project issues';
+
+  const stringsButton = createUtilityRailButton('Strings', undefined, false, () => activateWorkspaceTab('strings'));
+  stringsButton.title = state.showSystemStringsPanel ? 'Focus system strings workspace' : 'Open system strings workspace';
+
+  const xmlButton = createUtilityRailButton('XML', undefined, false, () => activateWorkspaceTab('xml'));
+  xmlButton.title = state.showXmlPreview ? 'Focus XML preview workspace' : 'Open XML preview workspace';
+
+  shell.utilityRail.append(
+    createUtilityRailButton('List', undefined, false, () => toggleDrawer('left')),
+    createUtilityRailButton('Inspector', undefined, false, () => toggleDrawer('right')),
+    issueButton,
+    stringsButton,
+    xmlButton,
+  );
+}
+
+function updateOverlayState(shell: AppShell): void {
+  const isOverlay = layoutState.responsiveMode !== 'desktop';
+  const drawerOpen = isOverlay && layoutState.activeDrawer !== null;
+  shell.mainLayout.dataset.layoutMode = layoutState.responsiveMode;
+  shell.mainLayout.dataset.drawerOpen = String(drawerOpen);
+  shell.mainLayout.classList.toggle('has-open-drawer', drawerOpen);
+  shell.layoutScrim.hidden = !drawerOpen;
 }
 
 function createAddConversationButton(): HTMLButtonElement {
@@ -196,15 +304,39 @@ function createAddConversationButton(): HTMLButtonElement {
   return addBtn;
 }
 
+function createPanelLauncherButton(side: 'left' | 'right', label: string): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn-sm panel-launcher-button';
+  button.textContent = label;
+  button.title = `Open ${label.toLowerCase()}`;
+  button.setAttribute('aria-label', button.title);
+  button.onclick = () => toggleDrawer(side);
+  return button;
+}
+
 function createPanelToggleButton(side: 'left' | 'right'): HTMLButtonElement {
   const button = document.createElement('button');
-  const collapsed = side === 'left' ? layoutState.leftCollapsed : layoutState.rightCollapsed;
   button.type = 'button';
   button.className = 'btn-sm btn-icon panel-toggle-button';
-  button.textContent = collapsed ? (side === 'left' ? '⟩' : '⟨') : (side === 'left' ? '⟨' : '⟩');
-  button.title = `${collapsed ? 'Expand' : 'Collapse'} ${side === 'left' ? 'conversation list' : 'properties panel'}`;
+
+  if (layoutState.responsiveMode !== 'desktop') {
+    const open = layoutState.activeDrawer === side;
+    button.textContent = open ? '✕' : '↗';
+    button.title = `${open ? 'Close' : 'Open'} ${side === 'left' ? 'conversation list' : 'properties panel'}`;
+  } else {
+    const collapsed = side === 'left' ? layoutState.leftCollapsed : layoutState.rightCollapsed;
+    button.textContent = collapsed ? (side === 'left' ? '⟩' : '⟨') : (side === 'left' ? '⟨' : '⟩');
+    button.title = `${collapsed ? 'Expand' : 'Collapse'} ${side === 'left' ? 'conversation list' : 'properties panel'}`;
+  }
+
   button.setAttribute('aria-label', button.title);
   button.onclick = () => {
+    if (layoutState.responsiveMode !== 'desktop') {
+      toggleDrawer(side);
+      return;
+    }
+
     if (side === 'left') {
       layoutState.leftCollapsed = !layoutState.leftCollapsed;
     } else {
@@ -220,16 +352,19 @@ function createSplitter(side: 'left' | 'right', main: HTMLElement): HTMLDivEleme
   splitter.className = 'panel-splitter';
   splitter.dataset.side = side;
   splitter.title = `Drag to resize the ${side === 'left' ? 'conversation list' : 'properties panel'}`;
-  splitter.onmousedown = (event) => startPanelResize(event, side, main);
+  splitter.onpointerdown = (event) => startPanelResize(event, side, main);
   return splitter;
 }
 
-function startPanelResize(event: MouseEvent, side: 'left' | 'right', main: HTMLElement): void {
+function startPanelResize(event: PointerEvent, side: 'left' | 'right', main: HTMLElement): void {
+  if (layoutState.responsiveMode !== 'desktop') return;
+
   event.preventDefault();
   const rect = main.getBoundingClientRect();
   const startWidth = side === 'left' ? layoutState.leftWidth : layoutState.rightWidth;
 
-  const onMove = (moveEvent: MouseEvent): void => {
+  const onMove = (moveEvent: PointerEvent): void => {
+    if (layoutState.responsiveMode !== 'desktop') return;
     const nextWidth = side === 'left'
       ? moveEvent.clientX - rect.left
       : rect.right - moveEvent.clientX;
@@ -245,8 +380,8 @@ function startPanelResize(event: MouseEvent, side: 'left' | 'right', main: HTMLE
   };
 
   const onUp = (): void => {
-    window.removeEventListener('mousemove', onMove);
-    window.removeEventListener('mouseup', onUp);
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
     document.body.classList.remove('is-resizing-panels');
     if (side === 'left' && layoutState.leftWidth !== startWidth) {
       renderApp(document.getElementById('app')!);
@@ -258,21 +393,158 @@ function startPanelResize(event: MouseEvent, side: 'left' | 'right', main: HTMLE
   };
 
   document.body.classList.add('is-resizing-panels');
-  window.addEventListener('mousemove', onMove);
-  window.addEventListener('mouseup', onUp, { once: true });
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp, { once: true });
 }
 
 function applyPanelLayout(main: HTMLElement): void {
-  main.style.setProperty('--panel-left-width', `${layoutState.leftCollapsed ? PANEL_COLLAPSED_WIDTH : layoutState.leftWidth}px`);
-  main.style.setProperty('--panel-right-width', `${layoutState.rightCollapsed ? PANEL_COLLAPSED_WIDTH : layoutState.rightWidth}px`);
+  const isDesktop = layoutState.responsiveMode === 'desktop';
+  const leftWidth = isDesktop
+    ? (layoutState.leftCollapsed ? PANEL_COLLAPSED_WIDTH : layoutState.leftWidth)
+    : layoutState.leftWidth;
+  const rightWidth = isDesktop
+    ? (layoutState.rightCollapsed ? PANEL_COLLAPSED_WIDTH : layoutState.rightWidth)
+    : layoutState.rightWidth;
+
+  main.style.setProperty('--panel-left-width', `${leftWidth}px`);
+  main.style.setProperty('--panel-right-width', `${rightWidth}px`);
+  main.style.setProperty('--panel-left-drawer-width', `${leftWidth}px`);
+  main.style.setProperty('--panel-right-drawer-width', `${rightWidth}px`);
   main.dataset.leftCollapsed = String(layoutState.leftCollapsed);
   main.dataset.rightCollapsed = String(layoutState.rightCollapsed);
+  main.dataset.layoutMode = layoutState.responsiveMode;
 }
 
 function syncResponsiveLayout(main: HTMLElement): void {
+  const nextMode = getResponsiveMode(window.innerWidth);
+  if (layoutState.responsiveMode !== nextMode) {
+    applyLayoutDefaults(nextMode);
+  }
+
   layoutState.leftWidth = clampWidth(layoutState.leftWidth);
   layoutState.rightWidth = clampWidth(layoutState.rightWidth);
   applyPanelLayout(main);
+}
+
+function getResponsiveMode(width: number): ResponsiveLayoutMode {
+  if (width <= MOBILE_BREAKPOINT) return 'mobile';
+  if (width <= TABLET_BREAKPOINT) return 'tablet';
+  return 'desktop';
+}
+
+function applyLayoutDefaults(mode: ResponsiveLayoutMode): void {
+  const defaults = getLayoutDefaults(mode, window.innerWidth);
+  layoutState.responsiveMode = mode;
+  layoutState.leftWidth = defaults.leftWidth;
+  layoutState.rightWidth = defaults.rightWidth;
+  layoutState.leftCollapsed = defaults.leftCollapsed;
+  layoutState.rightCollapsed = defaults.rightCollapsed;
+  layoutState.activeDrawer = null;
+}
+
+function getLayoutDefaults(mode: ResponsiveLayoutMode, viewportWidth: number): LayoutDefaults {
+  if (mode === 'mobile') {
+    const drawerWidth = Math.max(260, Math.min(360, Math.round(viewportWidth * 0.88)));
+    return {
+      leftWidth: drawerWidth,
+      rightWidth: drawerWidth,
+      leftCollapsed: true,
+      rightCollapsed: true,
+    };
+  }
+
+  if (mode === 'tablet') {
+    const drawerWidth = Math.max(280, Math.min(360, Math.round(viewportWidth * 0.34)));
+    return {
+      leftWidth: drawerWidth,
+      rightWidth: Math.max(300, Math.min(400, drawerWidth + 24)),
+      leftCollapsed: true,
+      rightCollapsed: true,
+    };
+  }
+
+  return {
+    leftWidth: 280,
+    rightWidth: 360,
+    leftCollapsed: false,
+    rightCollapsed: false,
+  };
+}
+
+function ensureResponsiveListener(container: HTMLElement): void {
+  if (resizeListenerAttached) return;
+  resizeListenerAttached = true;
+
+  let frame = 0;
+  window.addEventListener('resize', () => {
+    if (frame !== 0) cancelAnimationFrame(frame);
+    frame = window.requestAnimationFrame(() => {
+      frame = 0;
+      renderApp(container);
+    });
+  });
+}
+
+function activateWorkspaceTab(tab: BottomWorkspaceTab): void {
+  const state = store.get();
+
+  if (tab === 'validation') {
+    if (state.validationMessages.length === 0) return;
+    if (!state.showValidationPanel) {
+      store.toggleValidationPanel();
+      return;
+    }
+    store.setBottomWorkspaceTab('validation');
+    return;
+  }
+
+  if (tab === 'strings') {
+    if (!state.showSystemStringsPanel) {
+      store.toggleSystemStringsPanel();
+      return;
+    }
+    store.setBottomWorkspaceTab('strings');
+    return;
+  }
+
+  if (!state.showXmlPreview) {
+    store.toggleXmlPreview();
+    return;
+  }
+  store.setBottomWorkspaceTab('xml');
+}
+
+function createUtilityRailButton(
+  label: string,
+  badge: string | undefined,
+  disabled: boolean,
+  onclick: () => void,
+): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'utility-rail-button';
+  button.disabled = disabled;
+  button.onclick = onclick;
+
+  const labelEl = document.createElement('span');
+  labelEl.className = 'utility-rail-label';
+  labelEl.textContent = label;
+  button.appendChild(labelEl);
+
+  if (badge) {
+    const badgeEl = document.createElement('span');
+    badgeEl.className = 'utility-rail-badge';
+    badgeEl.textContent = badge;
+    button.appendChild(badgeEl);
+  }
+
+  return button;
+}
+
+function toggleDrawer(side: 'left' | 'right'): void {
+  if (layoutState.responsiveMode === 'desktop') return;
+  layoutState.activeDrawer = layoutState.activeDrawer === side ? null : side;
+  renderApp(document.getElementById('app')!);
 }
 
 function clampWidth(value: number): number {
@@ -283,4 +555,3 @@ function clampWidth(value: number): number {
 export function importConversations(conversations: import('../lib/types').Conversation[]): void {
   store.mergeConversations(conversations);
 }
-
