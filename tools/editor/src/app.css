@@ -806,6 +806,85 @@ label {
   display: none;
 }
 
+.app-bottom-region {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(10, 12, 16, 0.96) 0%, rgba(8, 10, 12, 0.98) 100%);
+}
+
+.app-validation-region,
+.app-workspace-region,
+.app-ticker-region {
+  min-width: 0;
+}
+
+.app-ticker-region:empty {
+  display: none;
+}
+
+.motivation-ticker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 32px;
+  padding: 6px 12px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  background: linear-gradient(180deg, rgba(18, 22, 28, 0.96) 0%, rgba(10, 12, 16, 0.98) 100%);
+  color: var(--text-dim);
+  overflow: hidden;
+}
+
+.motivation-ticker-label {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent) 50%, var(--text-dim));
+}
+
+.motivation-ticker-viewport {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent 0, black 3%, black 97%, transparent 100%);
+}
+
+.motivation-ticker-track {
+  display: inline-block;
+  max-width: none;
+  padding-left: 100%;
+  white-space: nowrap;
+  will-change: transform;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.28);
+}
+
+.motivation-ticker-track.is-animating {
+  animation: ticker-marquee 16s linear;
+}
+
+@keyframes ticker-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motivation-ticker-track,
+  .motivation-ticker-track.is-animating {
+    animation: none;
+    padding-left: 0;
+    transform: none;
+    white-space: normal;
+  }
+}
+
 .is-resizing-panels,
 .is-resizing-panels * {
   cursor: col-resize !important;

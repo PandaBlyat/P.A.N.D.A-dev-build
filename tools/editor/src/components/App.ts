@@ -12,6 +12,7 @@ import { renderFlowEditor } from './FlowEditor';
 import { renderPropertiesPanel } from './PropertiesPanel';
 import { renderValidationBar } from './ValidationBar';
 import { renderBottomWorkspace } from './BottomWorkspace';
+import { renderMotivationTicker } from './MotivationTicker';
 import { shouldShowFirstRunExperience, renderFirstRunExperience } from './Onboarding';
 import { createBlankProject } from '../lib/project-io';
 import { setButtonContent } from './icons';
@@ -61,6 +62,7 @@ type AppShell = {
   bottomRegion: HTMLDivElement;
   validationRegion: HTMLDivElement;
   workspaceRegion: HTMLDivElement;
+  tickerRegion: HTMLDivElement;
 };
 
 let appShell: AppShell | null = null;
@@ -169,7 +171,9 @@ function getAppShell(container: HTMLElement): AppShell {
   validationRegion.className = 'app-validation-region';
   const workspaceRegion = document.createElement('div');
   workspaceRegion.className = 'app-workspace-region';
-  bottomRegion.append(validationRegion, workspaceRegion);
+  const tickerRegion = document.createElement('div');
+  tickerRegion.className = 'app-ticker-region';
+  bottomRegion.append(validationRegion, workspaceRegion, tickerRegion);
 
   container.replaceChildren(toolbarRegion, mainLayout, bottomRegion);
 
@@ -192,6 +196,7 @@ function getAppShell(container: HTMLElement): AppShell {
     bottomRegion,
     validationRegion,
     workspaceRegion,
+    tickerRegion,
   };
 
   return appShell;
@@ -275,6 +280,8 @@ function renderBottomRegion(shell: AppShell): void {
   renderValidationBar(shell.validationRegion);
   shell.workspaceRegion.replaceChildren();
   renderBottomWorkspace(shell.workspaceRegion);
+  shell.tickerRegion.replaceChildren();
+  renderMotivationTicker(shell.tickerRegion);
 }
 
 function renderUtilityRail(shell: AppShell): void {
