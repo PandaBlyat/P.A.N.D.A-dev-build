@@ -24,7 +24,8 @@ export type IconName =
   | 'close'
   | 'add'
   | 'share'
-  | 'download';
+  | 'download'
+  | 'database';
 
 const BASE_ICON_ATTRS = {
   fill: 'none',
@@ -175,6 +176,14 @@ const ICONS: Record<IconName, IconDef> = {
       { tag: 'path', d: 'm9 13 3 3 3-3' },
       { tag: 'path', d: 'M6.5 17A4.5 4.5 0 0 1 4 13a5 5 0 0 1 5-5h.5' },
       { tag: 'path', d: 'M17.5 17A4.5 4.5 0 0 0 20 13a5 5 0 0 0-5-5h-.5' },
+    ],
+  },
+  database: {
+    // Cylinder stack (database) icon
+    paths: [
+      { tag: 'ellipse', cx: '12', cy: '6', rx: '8', ry: '3' },
+      { tag: 'path', d: 'M4 6v4c0 1.66 3.58 3 8 3s8-1.34 8-3V6' },
+      { tag: 'path', d: 'M4 10v4c0 1.66 3.58 3 8 3s8-1.34 8-3v-4' },
     ],
   },
 };

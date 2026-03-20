@@ -27,6 +27,17 @@ export function isConfigured(): boolean {
   return Boolean(SUPABASE_URL && SUPABASE_KEY);
 }
 
+/**
+ * Returns the URL to the Supabase table editor for the configured project,
+ * or null if not configured.
+ */
+export function getSupabaseDashboardUrl(): string | null {
+  if (!SUPABASE_URL) return null;
+  const match = SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/);
+  if (!match) return null;
+  return `https://supabase.com/dashboard/project/${match[1]}/editor`;
+}
+
 function headers(): Record<string, string> {
   return {
     'apikey': SUPABASE_KEY!,
