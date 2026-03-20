@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Community Library API Client
-// Communicates with a Supabase PostgREST backend.
-// Configure via VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.
+// All requests go through the local API server (/api/*).
+// Supabase credentials are kept server-side and never sent to the browser.
 
 import type { Conversation, FactionId } from './types';
 
@@ -18,51 +18,23 @@ export type CommunityConversation = {
 
 export type PublishPayload = Omit<CommunityConversation, 'id' | 'downloads' | 'created_at'>;
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-const TABLE = 'community_conversations';
-
-/** Returns true if Supabase env vars are configured. */
-export function isConfigured(): boolean {
-  return Boolean(SUPABASE_URL && SUPABASE_KEY);
-}
-
-/**
- * Returns the URL to the Supabase table editor for the configured project,
- * or null if not configured.
- */
-export function getSupabaseDashboardUrl(): string | null {
-  if (!SUPABASE_URL) return null;
-  const match = SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/);
-  if (!match) return null;
-  return `https://supabase.com/dashboard/project/${match[1]}/editor`;
-}
-
-function headers(): Record<string, string> {
-  return {
-    'apikey': SUPABASE_KEY!,
-    'Authorization': `Bearer ${SUPABASE_KEY!}`,
-    'Content-Type': 'application/json',
-  };
-}
-
-function endpoint(path: string): string {
-  return `${SUPABASE_URL}/rest/v1/${path}`;
-}
+// In production, set VITE_API_URL to your deployed API server URL (e.g. https://my-api.railway.app).
+// In dev, leave it unset — Vite proxies /api to localhost:3001 automatically.
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
 /**
  * Fetch community conversations, optionally filtered by faction.
  * Returns newest-first.
  */
 export async function fetchConversations(faction?: FactionId): Promise<CommunityConversation[]> {
-  if (!isConfigured()) return [];
+  const params = new URLSearchParams();
+  if (faction) params.set('faction', faction);
 
-  const params = new URLSearchParams({ select: '*', order: 'created_at.desc' });
-  if (faction) params.set('faction', `eq.${faction}`);
-
-  const res = await fetch(`${endpoint(TABLE)}?${params}`, { headers: headers() });
-  if (!res.ok) throw new Error(`Failed to fetch conversations: ${res.status} ${res.statusText}`);
-
+  const res = await fetch(`${API_BASE}/api/conversations?${params}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Failed to load conversations (${res.status})`);
+  }
   return res.json() as Promise<CommunityConversation[]>;
 }
 
@@ -70,14 +42,15 @@ export async function fetchConversations(faction?: FactionId): Promise<Community
  * Publish a conversation to the community library.
  */
 export async function publishConversation(payload: PublishPayload): Promise<void> {
-  if (!isConfigured()) throw new Error('Community Library is not configured.');
-
-  const res = await fetch(endpoint(TABLE), {
+  const res = await fetch(`${API_BASE}/api/conversations`, {
     method: 'POST',
-    headers: { ...headers(), 'Prefer': 'return=minimal' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`Failed to publish: ${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Failed to publish (${res.status})`);
+  }
 }
 
 /**
@@ -85,15 +58,8 @@ export async function publishConversation(payload: PublishPayload): Promise<void
  * Fails silently — download counter is best-effort.
  */
 export async function incrementDownload(id: string): Promise<void> {
-  if (!isConfigured()) return;
-
   try {
-    const params = new URLSearchParams({ id: `eq.${id}` });
-    await fetch(`${endpoint(TABLE)}?${params}`, {
-      method: 'PATCH',
-      headers: { ...headers(), 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ downloads: 'downloads + 1' }),
-    });
+    await fetch(`${API_BASE}/api/conversations/${id}/download`, { method: 'PATCH' });
   } catch {
     // Best-effort — ignore errors
   }

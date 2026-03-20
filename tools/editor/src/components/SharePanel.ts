@@ -1,5 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Community Library Panel
 // Full-screen modal for browsing, publishing, and importing shared conversations.
+// All data goes through the local API server — no Supabase URLs or keys in the browser.
 
 import { store } from '../lib/state';
 import { generateXml } from '../lib/xml-export';
@@ -8,7 +9,6 @@ import {
   fetchConversations,
   publishConversation,
   incrementDownload,
-  isConfigured,
   type CommunityConversation,
 } from '../lib/api-client';
 import { FACTION_IDS } from '../lib/constants';
@@ -66,10 +66,6 @@ export function closeSharePanel(): void {
 // ─── Data Loading ─────────────────────────────────────────────────────────────
 
 async function loadConversations(): Promise<void> {
-  if (!isConfigured()) {
-    renderContent();
-    return;
-  }
   isLoading = true;
   loadError = '';
   renderContent();
@@ -136,7 +132,7 @@ function buildOverlay(): HTMLElement {
   modal.appendChild(body);
 
   // Publish form (absolute overlay inside modal body)
-  const publishForm = buildPublishForm(modal);
+  const publishForm = buildPublishForm();
   modal.appendChild(publishForm);
 
   overlay.appendChild(modal);
@@ -218,8 +214,7 @@ function buildSidebarTab(label: string, faction: FactionId | null, active: boole
 function rebuildSidebar(): void {
   const sidebar = overlayEl?.querySelector('.share-sidebar');
   if (!sidebar) return;
-  const newSidebar = buildSidebar();
-  sidebar.replaceWith(newSidebar);
+  sidebar.replaceWith(buildSidebar());
 }
 
 // ─── Toolbar Row ──────────────────────────────────────────────────────────────
@@ -264,11 +259,6 @@ function renderContent(): void {
 
   wrap.innerHTML = '';
 
-  if (!isConfigured()) {
-    wrap.appendChild(buildNotConfiguredState());
-    return;
-  }
-
   if (isLoading) {
     wrap.appendChild(buildLoadingState());
     return;
@@ -303,7 +293,7 @@ function buildLoadingState(): HTMLElement {
 function buildEmptyState(): HTMLElement {
   const el = document.createElement('div');
   el.className = 'share-state-message';
-  el.innerHTML = activeFaction === 'all'
+  el.textContent = activeFaction === 'all'
     ? 'No conversations in the library yet. Be the first to publish!'
     : `No ${FACTION_DISPLAY_NAMES[activeFaction as FactionId]} conversations yet. Publish one!`;
   return el;
@@ -325,26 +315,12 @@ function buildErrorState(msg: string): HTMLElement {
   return el;
 }
 
-function buildNotConfiguredState(): HTMLElement {
-  const el = document.createElement('div');
-  el.className = 'share-state-message';
-  el.innerHTML = `
-    <strong>Community Library is not configured.</strong><br><br>
-    To enable it, create a <code>.env</code> file in <code>tools/editor/</code> with:<br><br>
-    <code>VITE_SUPABASE_URL=https://your-project.supabase.co</code><br>
-    <code>VITE_SUPABASE_ANON_KEY=your-anon-key</code><br><br>
-    See <code>supabase-setup.sql</code> and <code>.env.example</code> for setup instructions.
-  `;
-  return el;
-}
-
 // ─── Conversation Card ────────────────────────────────────────────────────────
 
 function buildCard(conv: CommunityConversation): HTMLElement {
   const card = document.createElement('div');
   card.className = 'share-card';
 
-  // Header row: dot + faction badge + title
   const cardHeader = document.createElement('div');
   cardHeader.className = 'share-card-header';
 
@@ -365,17 +341,13 @@ function buildCard(conv: CommunityConversation): HTMLElement {
   cardHeader.append(dot, badge, title);
   card.appendChild(cardHeader);
 
-  // Meta: author · date
   const meta = document.createElement('div');
   meta.className = 'share-card-meta';
   const date = new Date(conv.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
   meta.textContent = `${conv.author || 'Anonymous'} · ${date}`;
-  if (conv.downloads > 0) {
-    meta.textContent += ` · ↓ ${conv.downloads}`;
-  }
+  if (conv.downloads > 0) meta.textContent += ` · ↓ ${conv.downloads}`;
   card.appendChild(meta);
 
-  // Description
   if (conv.description) {
     const desc = document.createElement('div');
     desc.className = 'share-card-desc';
@@ -383,7 +355,6 @@ function buildCard(conv: CommunityConversation): HTMLElement {
     card.appendChild(desc);
   }
 
-  // Actions
   const actions = document.createElement('div');
   actions.className = 'share-card-actions';
 
@@ -411,7 +382,6 @@ async function handleImportCard(conv: CommunityConversation, btn: HTMLButtonElem
   importConversations(conversations);
   incrementDownload(conv.id);
 
-  // Visual feedback
   const original = btn.innerHTML;
   btn.disabled = true;
   setButtonContent(btn, 'success', 'Imported!');
@@ -435,7 +405,6 @@ async function handleDownloadAll(): Promise<void> {
       return;
     }
 
-    // Merge all conversations into a single project, re-numbering IDs
     const mergedProject = createEmptyProject(activeFaction);
     let nextId = 1;
     for (const entry of results) {
@@ -450,7 +419,6 @@ async function handleDownloadAll(): Promise<void> {
     const xml = generateXml(mergedProject);
     downloadFile(xml, `st_PANDA_${factionKey}_interactive_conversations.xml`, 'application/xml');
 
-    // Increment download counters for all entries (best-effort)
     results.forEach(r => incrementDownload(r.id));
   } catch (err) {
     alert(`Download failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -464,7 +432,7 @@ async function handleDownloadAll(): Promise<void> {
 
 // ─── Publish Form ─────────────────────────────────────────────────────────────
 
-function buildPublishForm(modal: HTMLElement): HTMLElement {
+function buildPublishForm(): HTMLElement {
   const form = document.createElement('div');
   form.className = 'share-publish-form';
   form.hidden = true;
@@ -479,12 +447,10 @@ function buildPublishForm(modal: HTMLElement): HTMLElement {
   subtitle.textContent = 'Publishing the currently selected conversation.';
   form.appendChild(subtitle);
 
-  // Fields
   const titleInput = makeFormField(form, 'Title', 'text', 'Conversation title (e.g. "Friendly Loner Job Offer")');
   const authorInput = makeFormField(form, 'Author', 'text', 'Your name or handle (optional)');
   const descInput = makeFormField(form, 'Description', 'textarea', 'Brief description of what this conversation does…');
 
-  // Faction display (read-only)
   const factionRow = document.createElement('div');
   factionRow.className = 'share-form-field';
   const factionLabel = document.createElement('label');
@@ -495,7 +461,6 @@ function buildPublishForm(modal: HTMLElement): HTMLElement {
   factionRow.append(factionLabel, factionValue);
   form.appendChild(factionRow);
 
-  // Buttons
   const btnRow = document.createElement('div');
   btnRow.className = 'share-publish-btn-row';
 
@@ -552,7 +517,6 @@ function buildPublishForm(modal: HTMLElement): HTMLElement {
       setTimeout(() => {
         form.hidden = true;
         statusMsg.textContent = '';
-        // Refresh the grid if viewing this faction
         if (activeFaction === 'all' || activeFaction === faction) {
           loadConversations();
         }
@@ -566,7 +530,6 @@ function buildPublishForm(modal: HTMLElement): HTMLElement {
     }
   };
 
-  // Pre-fill on show — wire up via showPublishForm calling modal reference
   (form as HTMLElement & { prefill?: () => void }).prefill = () => {
     const conv = store.getSelectedConversation();
     const faction = store.get().project.faction;
@@ -611,10 +574,6 @@ function makeFormField(
 }
 
 function showPublishForm(): void {
-  if (!isConfigured()) {
-    alert('Community Library is not configured. See .env.example for setup instructions.');
-    return;
-  }
   const conv = store.getSelectedConversation();
   if (!conv) {
     alert('Select a conversation in the left panel first, then click Publish.');
