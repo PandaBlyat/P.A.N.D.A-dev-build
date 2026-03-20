@@ -238,7 +238,13 @@ export function renderFlowEditor(container: HTMLElement): void {
   };
 
   const applyView = (): void => {
-    content.style.transform = `translate(${viewState.panX}px, ${viewState.panY}px) scale(${viewState.zoom})`;
+    // Snap pan to physical device pixels to prevent subpixel blurriness and
+    // jitter on GPU-composited layers (caused by fractional translate values
+    // produced by zoom math). Accounts for high-DPI screens via devicePixelRatio.
+    const dpr = window.devicePixelRatio || 1;
+    const snapX = Math.round(viewState.panX * dpr) / dpr;
+    const snapY = Math.round(viewState.panY * dpr) / dpr;
+    content.style.transform = `translate(${snapX}px, ${snapY}px) scale(${viewState.zoom})`;
     zoomValue.textContent = `${Math.round(viewState.zoom * 100)}%`;
     viewStateByConversation.set(conversationId, { ...viewState });
   };

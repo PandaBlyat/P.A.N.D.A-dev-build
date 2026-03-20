@@ -54,6 +54,7 @@ let tickerTrack: HTMLDivElement | null = null;
 let currentMessageIndex = Math.floor(Math.random() * narratorMessages.length);
 let renderedMessageIndex: number | null = null;
 let rotationTimer: number | null = null;
+let pendingAnimFrame: number | null = null;
 
 /**
  * Mount the ticker into its container exactly once. Safe to call again with
@@ -110,10 +111,26 @@ function updateTickerMessage(): void {
   }
 
   tickerTrack.textContent = narratorMessages[currentMessageIndex];
-  tickerTrack.classList.remove('is-animating');
-  void tickerTrack.offsetWidth;
-  tickerTrack.classList.add('is-animating');
   renderedMessageIndex = currentMessageIndex;
+
+  tickerTrack.classList.remove('is-animating');
+
+  // Cancel any in-flight frame from a previous update.
+  if (pendingAnimFrame != null) {
+    cancelAnimationFrame(pendingAnimFrame);
+  }
+
+  // Double-rAF: the first frame lets the browser commit the class removal;
+  // the second adds it back, guaranteeing the animation restarts cleanly on
+  // all browsers and GPU configurations (more reliable than void offsetWidth).
+  pendingAnimFrame = requestAnimationFrame(() => {
+    pendingAnimFrame = requestAnimationFrame(() => {
+      pendingAnimFrame = null;
+      if (tickerTrack) {
+        tickerTrack.classList.add('is-animating');
+      }
+    });
+  });
 }
 
 function ensureTickerTimer(): void {
