@@ -1,4 +1,4 @@
-const DEFAULT_TICKER_INTERVAL_MS = 12000;
+const DEFAULT_TICKER_INTERVAL_MS = 60000;
 
 export const narratorMessages = [
   'A calm voice notes that progress is still progress, even when accompanied by mild confusion and suspicious amounts of coffee.',
