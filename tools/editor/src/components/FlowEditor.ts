@@ -646,6 +646,13 @@ function renderTurnNode(options: {
       const badge = document.createElement('span');
       badge.className = 'choice-cont-badge';
       badge.textContent = turnLabels.getCompactLabel(choice.continueTo);
+      // Color the badge to match the destination branch
+      const targetTurn = conv.turns.find(t => t.turnNumber === choice.continueTo);
+      if (targetTurn) {
+        const targetIndex = conv.turns.indexOf(targetTurn);
+        const targetColor = getBranchColor(targetTurn, targetIndex);
+        badge.style.setProperty('--badge-branch-color', targetColor);
+      }
       item.appendChild(badge);
     }
 
@@ -784,6 +791,18 @@ function drawEdges(options: {
   }
 }
 
+function getOffsetRelativeTo(element: HTMLElement, ancestor: HTMLElement): { left: number; top: number } {
+  let left = 0;
+  let top = 0;
+  let current: HTMLElement | null = element;
+  while (current && current !== ancestor) {
+    left += current.offsetLeft;
+    top += current.offsetTop;
+    current = current.offsetParent as HTMLElement | null;
+  }
+  return { left, top };
+}
+
 function getChoiceAnchor(
   turnNumber: number,
   choiceIndex: number,
@@ -796,9 +815,10 @@ function getChoiceAnchor(
   const port = node?.querySelector(`[data-choice-port="${choiceIndex}"]`) as HTMLElement | null;
   if (!turn || !node || !port) return null;
   const position = positionOverrides?.get(turnNumber) ?? turn.position;
+  const offset = getOffsetRelativeTo(port, node);
   return {
-    x: position.x + port.offsetLeft + port.offsetWidth / 2,
-    y: position.y + port.offsetTop + port.offsetHeight / 2,
+    x: position.x + offset.left + port.offsetWidth / 2,
+    y: position.y + offset.top + port.offsetHeight / 2,
   };
 }
 
@@ -813,9 +833,10 @@ function getTurnInputAnchor(
   const port = node?.querySelector('.turn-input-port') as HTMLElement | null;
   if (!turn || !node || !port) return null;
   const position = positionOverrides?.get(turnNumber) ?? turn.position;
+  const offset = getOffsetRelativeTo(port, node);
   return {
-    x: position.x + port.offsetLeft + port.offsetWidth / 2,
-    y: position.y + port.offsetTop + port.offsetHeight / 2,
+    x: position.x + offset.left + port.offsetWidth / 2,
+    y: position.y + offset.top + port.offsetHeight / 2,
   };
 }
 
