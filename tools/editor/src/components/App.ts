@@ -12,7 +12,7 @@ import { renderFlowEditor } from './FlowEditor';
 import { renderPropertiesPanel } from './PropertiesPanel';
 import { renderValidationBar } from './ValidationBar';
 import { renderBottomWorkspace } from './BottomWorkspace';
-import { renderMotivationTicker } from './MotivationTicker';
+import { mountMotivationTicker } from './MotivationTicker';
 import { shouldShowFirstRunExperience, renderFirstRunExperience } from './Onboarding';
 import { createBlankProject } from '../lib/project-io';
 import { setButtonContent } from './icons';
@@ -177,6 +177,12 @@ function getAppShell(container: HTMLElement): AppShell {
 
   container.replaceChildren(toolbarRegion, mainLayout, bottomRegion);
 
+  // The ticker has entirely self-contained lifecycle logic (its own rotation
+  // timer and DOM state). Mount it once here so it is never touched by the
+  // regular render cycle. Faction theme colour reaches it via the inherited
+  // --accent CSS variable set on the container element.
+  mountMotivationTicker(tickerRegion);
+
   appShell = {
     container,
     toolbarRegion,
@@ -280,9 +286,6 @@ function renderBottomRegion(shell: AppShell): void {
   renderValidationBar(shell.validationRegion);
   shell.workspaceRegion.replaceChildren();
   renderBottomWorkspace(shell.workspaceRegion);
-  // Keep the ticker mounted across app refreshes so its marquee animation
-  // and current scroll position are not reset on every render.
-  renderMotivationTicker(shell.tickerRegion);
 }
 
 function renderUtilityRail(shell: AppShell): void {

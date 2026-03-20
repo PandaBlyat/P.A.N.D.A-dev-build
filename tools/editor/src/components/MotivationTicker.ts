@@ -55,9 +55,18 @@ let currentMessageIndex = Math.floor(Math.random() * narratorMessages.length);
 let renderedMessageIndex: number | null = null;
 let rotationTimer: number | null = null;
 
-export function renderMotivationTicker(container: HTMLElement): void {
+/**
+ * Mount the ticker into its container exactly once. Safe to call again with
+ * the same container — it becomes a no-op if the element is already present.
+ * The ticker manages its own rotation timer independently of the app render
+ * cycle; the only external influence on it is the --accent CSS variable
+ * (faction theme colour) inherited from a parent element.
+ */
+export function mountMotivationTicker(container: HTMLElement): void {
   const root = getTickerRoot();
-  container.appendChild(root);
+  if (!container.contains(root)) {
+    container.appendChild(root);
+  }
   ensureTickerTimer();
 }
 
