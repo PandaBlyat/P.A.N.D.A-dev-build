@@ -13,6 +13,7 @@ import {
 } from '../lib/api-client';
 import { FACTION_IDS } from '../lib/constants';
 import { FACTION_DISPLAY_NAMES, FACTION_XML_KEYS, type FactionId } from '../lib/types';
+import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon, setButtonContent } from './icons';
 import { importConversations, downloadFile } from './App';
 
@@ -36,6 +37,8 @@ const FACTION_COLORS: Record<FactionId, string> = {
 // ─── Panel State ──────────────────────────────────────────────────────────────
 
 let overlayEl: HTMLElement | null = null;
+let focusTrap: FocusTrapController | null = null;
+let restoreFocusEl: HTMLElement | null = null;
 let activeFaction: FactionId | 'all' = 'all';
 let allResults: CommunityConversation[] = [];
 let searchQuery = '';
@@ -46,6 +49,7 @@ let loadError = '';
 
 export function openSharePanel(): void {
   if (overlayEl) return;
+  restoreFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   activeFaction = 'all';
   allResults = [];
   searchQuery = '';
@@ -61,6 +65,9 @@ export function closeSharePanel(): void {
   if (!overlayEl) return;
   overlayEl.remove();
   overlayEl = null;
+  focusTrap?.release();
+  focusTrap = null;
+  restoreFocusEl = null;
 }
 
 // ─── Data Loading ─────────────────────────────────────────────────────────────
@@ -112,6 +119,9 @@ function buildOverlay(): HTMLElement {
 
   const modal = document.createElement('div');
   modal.className = 'share-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'share-modal-title');
   modal.onclick = (e) => e.stopPropagation();
 
   modal.appendChild(buildHeader());
@@ -136,6 +146,12 @@ function buildOverlay(): HTMLElement {
   modal.appendChild(publishForm);
 
   overlay.appendChild(modal);
+  const closeButton = modal.querySelector<HTMLButtonElement>('[data-share-close]');
+  focusTrap = trapFocus(modal, {
+    restoreFocus: restoreFocusEl,
+    initialFocus: closeButton,
+    onEscape: closeSharePanel,
+  });
   return overlay;
 }
 
@@ -147,6 +163,7 @@ function buildHeader(): HTMLElement {
 
   const titleWrap = document.createElement('div');
   titleWrap.className = 'share-modal-title';
+  titleWrap.id = 'share-modal-title';
   titleWrap.append(createIcon('share'), document.createTextNode('Community Library'));
   header.appendChild(titleWrap);
 
@@ -157,6 +174,7 @@ function buildHeader(): HTMLElement {
   const publishBtn = document.createElement('button');
   publishBtn.type = 'button';
   publishBtn.className = 'toolbar-button btn-primary';
+  publishBtn.dataset.sharePublish = 'true';
   setButtonContent(publishBtn, 'export', 'Publish');
   publishBtn.title = 'Publish the currently selected conversation to the Community Library';
   publishBtn.onclick = () => showPublishForm();
@@ -165,6 +183,7 @@ function buildHeader(): HTMLElement {
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'toolbar-button toolbar-icon-button btn-icon';
+  closeBtn.dataset.shareClose = 'true';
   closeBtn.appendChild(createIcon('close'));
   closeBtn.title = 'Close Community Library';
   closeBtn.onclick = closeSharePanel;
@@ -331,6 +350,8 @@ function buildErrorState(msg: string): HTMLElement {
 function buildCard(conv: CommunityConversation): HTMLElement {
   const card = document.createElement('div');
   card.className = 'share-card';
+  card.setAttribute('role', 'group');
+  card.setAttribute('aria-label', `${conv.label || 'Untitled'} by ${conv.author || 'Anonymous'}`);
 
   const cardHeader = document.createElement('div');
   cardHeader.className = 'share-card-header';
@@ -479,7 +500,7 @@ function buildPublishForm(): HTMLElement {
   cancelBtn.type = 'button';
   cancelBtn.className = 'toolbar-button';
   cancelBtn.textContent = 'Cancel';
-  cancelBtn.onclick = () => { form.hidden = true; };
+  cancelBtn.onclick = () => { form.hidden = true; showPublishTrigger(); };
 
   const submitBtn = document.createElement('button');
   submitBtn.type = 'button';
@@ -589,6 +610,10 @@ function makeFormField(
   return input;
 }
 
+function showPublishTrigger(): void {
+  overlayEl?.querySelector<HTMLButtonElement>('[data-share-publish]')?.focus();
+}
+
 function showPublishForm(): void {
   const conv = store.getSelectedConversation();
   if (!conv) {
@@ -599,4 +624,6 @@ function showPublishForm(): void {
   if (!form) return;
   form.prefill?.();
   form.hidden = false;
+  const firstField = form.querySelector<HTMLElement>('.share-form-input');
+  firstField?.focus();
 }

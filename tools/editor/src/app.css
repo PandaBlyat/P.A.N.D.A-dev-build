@@ -41,10 +41,43 @@
   --panel-left-width: 280px;
   --panel-right-width: 360px;
   --panel-collapsed-width: 52px;
+  --focus-ring: 0 0 0 2px rgba(8, 10, 12, 0.95), 0 0 0 4px rgba(94, 170, 58, 0.75), 0 0 18px rgba(94, 170, 58, 0.32);
 }
 
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
+
+:focus-visible {
+  outline: none;
+}
+
+.toolbar-button:focus-visible,
+button:focus-visible,
+.btn:focus-visible,
+.tab:focus-visible,
+.conv-item:focus-visible,
+.turn-node:focus-visible,
+.validation-msg:focus-visible,
+.validation-drawer-item:focus-visible,
+.choice-card-header:focus-visible,
+.flow-minimap-node:focus-visible,
+.flow-minimap-body:focus-visible,
+.share-sidebar-tab:focus-visible {
+  box-shadow: var(--focus-ring);
+  border-color: var(--accent);
+}
+
+.conv-item:focus-visible,
+.validation-msg:focus-visible,
+.validation-drawer-item:focus-visible,
+.choice-card-header:focus-visible,
+.share-sidebar-tab:focus-visible {
+  background: color-mix(in srgb, var(--bg-hover) 85%, transparent);
+}
+
+.turn-node:focus-visible {
+  border-color: var(--branch-color, var(--accent));
+}
 
 html, body {
   height: 100%;
@@ -660,7 +693,8 @@ label {
 }
 
 .conv-item:hover .conv-actions,
-.conv-item.selected .conv-actions {
+.conv-item.selected .conv-actions,
+.conv-item:focus-within .conv-actions {
   display: flex;
 }
 
@@ -1465,8 +1499,10 @@ label {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   padding: 6px 10px;
   background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%);
+  border: 0;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
   transition: background 0.15s;

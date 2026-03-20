@@ -12,6 +12,8 @@ export function renderValidationBar(container: HTMLElement): void {
 
   const bar = document.createElement('div');
   bar.className = 'validation-bar';
+  bar.setAttribute('role', 'region');
+  bar.setAttribute('aria-label', 'Validation summary');
 
   const summary = document.createElement('div');
   summary.className = 'validation-summary';
@@ -33,12 +35,15 @@ export function renderValidationBar(container: HTMLElement): void {
   if (messages.length > 0) {
     const highlights = document.createElement('div');
     highlights.className = 'validation-highlights';
+    highlights.setAttribute('role', 'list');
+    highlights.setAttribute('aria-label', 'Validation issues');
 
     for (const msg of messages.slice(0, 8)) {
       const item = document.createElement('button');
       item.type = 'button';
       item.className = `validation-msg ${msg.level}`;
       const leading = msg.level === 'error' ? 'Error' : 'Warning';
+      item.setAttribute('aria-label', `${leading} at ${formatLocation(msg)}. ${formatMessage(msg)}`);
       item.innerHTML = `<strong>${leading} · ${formatLocation(msg)}</strong><span>${escapeHtml(formatMessage(msg))}</span>`;
       item.title = buildTooltip(msg);
       item.onclick = () => navigateToMessage(msg);
@@ -76,11 +81,13 @@ export function createValidationWorkspaceContent(messages: ValidationMessage[]):
 
     const list = document.createElement('div');
     list.className = 'validation-drawer-list';
+    list.setAttribute('role', 'list');
 
     for (const msg of group) {
       const item = document.createElement('button');
       item.type = 'button';
       item.className = `validation-drawer-item ${msg.level}`;
+      item.setAttribute('aria-label', `${level === 'error' ? 'Error' : 'Warning'} at ${formatLocation(msg)}. ${formatMessage(msg)}`);
       item.innerHTML = `<strong>${formatLocation(msg)}</strong><span>${escapeHtml(formatMessage(msg))}</span><small>${escapeHtml(msg.code)}</small>`;
       item.onclick = () => navigateToMessage(msg);
       list.appendChild(item);
