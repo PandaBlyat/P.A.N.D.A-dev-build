@@ -22,7 +22,9 @@ export type IconName =
   | 'warning'
   | 'error'
   | 'close'
-  | 'add';
+  | 'add'
+  | 'share'
+  | 'download';
 
 const BASE_ICON_ATTRS = {
   fill: 'none',
@@ -154,6 +156,25 @@ const ICONS: Record<IconName, IconDef> = {
     paths: [
       { tag: 'path', d: 'M12 5v14' },
       { tag: 'path', d: 'M5 12h14' },
+    ],
+  },
+  share: {
+    // Cloud upload icon
+    paths: [
+      { tag: 'path', d: 'M12 15V8' },
+      { tag: 'path', d: 'm9 11 3-3 3 3' },
+      { tag: 'path', d: 'M6.5 17A4.5 4.5 0 0 1 4 13a5 5 0 0 1 5-5h.5' },
+      { tag: 'path', d: 'M17.5 17A4.5 4.5 0 0 0 20 13a5 5 0 0 0-5-5h-.5' },
+      { tag: 'path', d: 'M8.5 19h7' },
+    ],
+  },
+  download: {
+    // Cloud download icon
+    paths: [
+      { tag: 'path', d: 'M12 9v7' },
+      { tag: 'path', d: 'm9 13 3 3 3-3' },
+      { tag: 'path', d: 'M6.5 17A4.5 4.5 0 0 1 4 13a5 5 0 0 1 5-5h.5' },
+      { tag: 'path', d: 'M17.5 17A4.5 4.5 0 0 0 20 13a5 5 0 0 0-5-5h-.5' },
     ],
   },
 };
