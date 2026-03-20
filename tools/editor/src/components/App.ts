@@ -22,110 +22,172 @@ const layoutState = {
   rightCollapsed: false,
 };
 
+type AppShell = {
+  container: HTMLElement;
+  toolbarRegion: HTMLDivElement;
+  mainLayout: HTMLDivElement;
+  leftPanel: HTMLDivElement;
+  leftActions: HTMLDivElement;
+  leftBody: HTMLDivElement;
+  centerTitle: HTMLSpanElement;
+  centerActions: HTMLDivElement;
+  centerBody: HTMLDivElement;
+  rightPanel: HTMLDivElement;
+  rightActions: HTMLDivElement;
+  rightBody: HTMLDivElement;
+  bottomRegion: HTMLDivElement;
+  validationRegion: HTMLDivElement;
+  workspaceRegion: HTMLDivElement;
+};
+
+let appShell: AppShell | null = null;
+
 export function renderApp(container: HTMLElement): void {
-  const state = store.get();
+  const shell = getAppShell(container);
+  const conv = store.getSelectedConversation();
 
-  container.innerHTML = '';
+  shell.toolbarRegion.replaceChildren(renderToolbar());
 
-  // Toolbar
-  const toolbar = renderToolbar();
-  container.appendChild(toolbar);
+  syncResponsiveLayout(shell.mainLayout);
+  renderLeftPanel(shell);
+  renderCenterPanel(shell, conv);
+  renderRightPanel(shell);
+  renderBottomRegion(shell);
+}
 
-  // Main layout
-  const main = document.createElement('div');
-  main.className = 'main-layout';
-  syncResponsiveLayout(main);
-  applyPanelLayout(main);
+function getAppShell(container: HTMLElement): AppShell {
+  if (appShell?.container === container && container.contains(appShell.mainLayout)) {
+    return appShell;
+  }
 
-  // Left panel
-  const left = document.createElement('div');
-  left.className = `panel panel-left${layoutState.leftCollapsed ? ' is-collapsed' : ''}`;
+  const toolbarRegion = document.createElement('div');
+  const mainLayout = document.createElement('div');
+  mainLayout.className = 'main-layout';
+
+  const leftPanel = document.createElement('div');
   const leftHeader = document.createElement('div');
   leftHeader.className = 'panel-header';
   const leftTitle = document.createElement('span');
   leftTitle.textContent = 'Conversations';
-  const addBtn = document.createElement('button');
-  addBtn.className = 'btn-sm';
-  setButtonContent(addBtn, 'add', 'New');
-  addBtn.onclick = () => store.addConversation();
-
   const leftActions = document.createElement('div');
   leftActions.className = 'panel-header-actions';
-  leftActions.append(addBtn, createPanelToggleButton('left'));
   leftHeader.append(leftTitle, leftActions);
-  left.appendChild(leftHeader);
-
+  leftPanel.appendChild(leftHeader);
   const leftBody = document.createElement('div');
   leftBody.className = 'panel-body';
-  leftBody.hidden = layoutState.leftCollapsed;
-  renderConversationList(leftBody);
-  left.appendChild(leftBody);
+  leftPanel.appendChild(leftBody);
 
-  // Center panel
-  const center = document.createElement('div');
-  center.className = 'panel panel-center';
+  const centerPanel = document.createElement('div');
+  centerPanel.className = 'panel panel-center';
   const centerHeader = document.createElement('div');
   centerHeader.className = 'panel-header';
-  const conv = store.getSelectedConversation();
   const centerTitle = document.createElement('span');
-  centerTitle.textContent = `Flow Editor${conv ? ` — ${conv.label}` : ''}`;
-
   const centerActions = document.createElement('div');
   centerActions.className = 'panel-header-actions';
-  if (conv) {
-    const autoLayoutBtn = document.createElement('button');
-    autoLayoutBtn.className = 'btn-sm';
-    setButtonContent(autoLayoutBtn, 'locate', 'Auto Layout');
-    autoLayoutBtn.onclick = () => store.autoLayoutConversation(conv.id);
-    centerActions.appendChild(autoLayoutBtn);
-
-    const addTurnBtn = document.createElement('button');
-    addTurnBtn.className = 'btn-sm';
-    setButtonContent(addTurnBtn, 'add', 'Turn');
-    addTurnBtn.onclick = () => store.addTurn(conv.id);
-    centerActions.appendChild(addTurnBtn);
-  }
   centerHeader.append(centerTitle, centerActions);
-  center.appendChild(centerHeader);
-
+  centerPanel.appendChild(centerHeader);
   const centerBody = document.createElement('div');
   centerBody.className = 'panel-body';
   centerBody.style.padding = '0';
-  renderFlowEditor(centerBody);
-  center.appendChild(centerBody);
+  centerPanel.appendChild(centerBody);
 
-  // Right panel
-  const right = document.createElement('div');
-  right.className = `panel panel-right${layoutState.rightCollapsed ? ' is-collapsed' : ''}`;
+  const rightPanel = document.createElement('div');
   const rightHeader = document.createElement('div');
   rightHeader.className = 'panel-header';
   const rightTitle = document.createElement('span');
   rightTitle.textContent = 'Properties';
   const rightActions = document.createElement('div');
   rightActions.className = 'panel-header-actions';
-  rightActions.appendChild(createPanelToggleButton('right'));
   rightHeader.append(rightTitle, rightActions);
-  right.appendChild(rightHeader);
-
+  rightPanel.appendChild(rightHeader);
   const rightBody = document.createElement('div');
   rightBody.className = 'panel-body';
-  rightBody.hidden = layoutState.rightCollapsed;
   rightBody.style.padding = '0';
   rightBody.style.display = 'flex';
   rightBody.style.flexDirection = 'column';
-  renderPropertiesPanel(rightBody);
-  right.appendChild(rightBody);
+  rightPanel.appendChild(rightBody);
 
-  main.appendChild(left);
-  main.appendChild(createSplitter('left', main));
-  main.appendChild(center);
-  main.appendChild(createSplitter('right', main));
-  main.appendChild(right);
-  container.appendChild(main);
+  mainLayout.append(leftPanel, createSplitter('left', mainLayout), centerPanel, createSplitter('right', mainLayout), rightPanel);
 
-  // Bottom area: validation summary + shared workspace
-  renderValidationBar(container);
-  renderBottomWorkspace(container);
+  const bottomRegion = document.createElement('div');
+  const validationRegion = document.createElement('div');
+  const workspaceRegion = document.createElement('div');
+  bottomRegion.append(validationRegion, workspaceRegion);
+
+  container.replaceChildren(toolbarRegion, mainLayout, bottomRegion);
+
+  appShell = {
+    container,
+    toolbarRegion,
+    mainLayout,
+    leftPanel,
+    leftActions,
+    leftBody,
+    centerTitle,
+    centerActions,
+    centerBody,
+    rightPanel,
+    rightActions,
+    rightBody,
+    bottomRegion,
+    validationRegion,
+    workspaceRegion,
+  };
+
+  return appShell;
+}
+
+function renderLeftPanel(shell: AppShell): void {
+  shell.leftPanel.className = `panel panel-left${layoutState.leftCollapsed ? ' is-collapsed' : ''}`;
+  shell.leftActions.replaceChildren(createAddConversationButton(), createPanelToggleButton('left'));
+  shell.leftBody.hidden = layoutState.leftCollapsed;
+  shell.leftBody.replaceChildren();
+  renderConversationList(shell.leftBody);
+}
+
+function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSelectedConversation>): void {
+  shell.centerTitle.textContent = `Flow Editor${conv ? ` — ${conv.label}` : ''}`;
+  shell.centerActions.replaceChildren();
+
+  if (conv) {
+    const autoLayoutBtn = document.createElement('button');
+    autoLayoutBtn.className = 'btn-sm';
+    setButtonContent(autoLayoutBtn, 'locate', 'Auto Layout');
+    autoLayoutBtn.onclick = () => store.autoLayoutConversation(conv.id);
+
+    const addTurnBtn = document.createElement('button');
+    addTurnBtn.className = 'btn-sm';
+    setButtonContent(addTurnBtn, 'add', 'Turn');
+    addTurnBtn.onclick = () => store.addTurn(conv.id);
+
+    shell.centerActions.append(autoLayoutBtn, addTurnBtn);
+  }
+
+  shell.centerBody.replaceChildren();
+  renderFlowEditor(shell.centerBody);
+}
+
+function renderRightPanel(shell: AppShell): void {
+  shell.rightPanel.className = `panel panel-right${layoutState.rightCollapsed ? ' is-collapsed' : ''}`;
+  shell.rightActions.replaceChildren(createPanelToggleButton('right'));
+  shell.rightBody.hidden = layoutState.rightCollapsed;
+  shell.rightBody.replaceChildren();
+  renderPropertiesPanel(shell.rightBody);
+}
+
+function renderBottomRegion(shell: AppShell): void {
+  shell.validationRegion.replaceChildren();
+  renderValidationBar(shell.validationRegion);
+  shell.workspaceRegion.replaceChildren();
+  renderBottomWorkspace(shell.workspaceRegion);
+}
+
+function createAddConversationButton(): HTMLButtonElement {
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn-sm';
+  setButtonContent(addBtn, 'add', 'New');
+  addBtn.onclick = () => store.addConversation();
+  return addBtn;
 }
 
 function createPanelToggleButton(side: 'left' | 'right'): HTMLButtonElement {
