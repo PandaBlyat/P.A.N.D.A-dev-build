@@ -12,13 +12,4 @@ export default defineConfig({
     outDir: 'dist',
     target: 'es2020',
   },
-  server: {
-    proxy: {
-      // In dev, proxy /api to the local Express API server
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-      },
-    },
-  },
 });
