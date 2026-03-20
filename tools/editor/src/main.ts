@@ -2,11 +2,16 @@
 
 import './app.css';
 import { store } from './lib/state';
+import { clearDraft, persistDraft, readDraft } from './lib/draft-storage';
 import { renderApp } from './components/App';
 import { flushAllDebounced } from './components/PropertiesPanel';
 
 // Boot
 const app = document.getElementById('app')!;
+const restoredDraft = readDraft();
+if (restoredDraft) {
+  store.loadProject(restoredDraft.project, restoredDraft.systemStrings);
+}
 renderApp(app);
 
 // ─── Focus-safe rendering ────────────────────────────────────────────────
@@ -60,6 +65,14 @@ function safeRender(): void {
 let renderPending = false;
 
 store.subscribe(() => {
+  const state = store.get();
+  const isPristineEmptyState = state.project.conversations.length === 0 && state.systemStrings.size === 0 && !state.dirty;
+  if (isPristineEmptyState) {
+    clearDraft();
+  } else {
+    persistDraft(state.project, state.systemStrings);
+  }
+
   if (isEditableElement(document.activeElement) && app.contains(document.activeElement)) {
     renderPending = true;
     return;

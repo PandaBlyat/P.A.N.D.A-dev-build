@@ -3,6 +3,7 @@
 import { store } from '../lib/state';
 import { setActiveFlowViewport, type FlowViewportApi } from '../lib/flow-navigation';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
+import { createOnboardingNudge } from './Onboarding';
 import type { Choice, Conversation, Turn } from '../lib/types';
 import type { FlowDensity } from '../lib/state';
 
@@ -81,13 +82,10 @@ export function renderFlowEditor(container: HTMLElement): void {
   const layout = NODE_LAYOUTS[density];
 
   if (!conv) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">&#9655;</div>
-        <div class="empty-state-text">Select a conversation</div>
-        <div class="empty-state-hint">Choose from the list on the left, or create a new one.</div>
-      </div>
-    `;
+    container.replaceChildren(createOnboardingNudge({
+      title: 'No flow to render',
+      body: 'Start the onboarding flow to create a blank project, import XML, or open the sample conversation pack, then branches and links will appear here.',
+    }));
     return;
   }
 

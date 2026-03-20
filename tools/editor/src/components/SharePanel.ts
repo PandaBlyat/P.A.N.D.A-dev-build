@@ -15,7 +15,8 @@ import { FACTION_IDS } from '../lib/constants';
 import { FACTION_DISPLAY_NAMES, FACTION_XML_KEYS, type FactionId } from '../lib/types';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon, setButtonContent } from './icons';
-import { importConversations, downloadFile } from './App';
+import { importConversations } from './App';
+import { downloadFile } from '../lib/project-io';
 
 // Faction accent colors matching pda_private_tab.script
 const FACTION_COLORS: Record<FactionId, string> = {

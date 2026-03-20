@@ -5,7 +5,7 @@ import { store, type FlowDensity } from '../lib/state';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { FACTION_IDS } from '../lib/constants';
 import { FACTION_DISPLAY_NAMES } from '../lib/types';
-import { exportProjectJson, exportXml, importFromXml, importFromJson } from './App';
+import { exportProjectJson, exportXml, importFromXml, importFromJson } from '../lib/project-io';
 import { openSharePanel } from './SharePanel';
 import { openHelpModal } from './HelpModal';
 import { createIcon, setButtonContent, type IconName } from './icons';

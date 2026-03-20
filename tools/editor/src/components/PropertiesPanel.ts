@@ -18,6 +18,7 @@ import {
 } from '../lib/validation';
 import type { CommandSchema, ParamDef, ParamOption } from '../lib/schema';
 import { FACTION_IDS, RANKS, MUTANT_TYPES, DYNAMIC_PLACEHOLDERS, LEVEL_DISPLAY_NAMES, SMART_TERRAIN_LEVELS } from '../lib/constants';
+import { createOnboardingNudge } from './Onboarding';
 
 // ─── Debounce helper ─────────────────────────────────────────────────────
 const debounceTimers = new Map<string, number>();
@@ -49,13 +50,10 @@ export function renderPropertiesPanel(container: HTMLElement): void {
   const conv = store.getSelectedConversation();
 
   if (!conv) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">&#9881;</div>
-        <div class="empty-state-text">No conversation selected</div>
-        <div class="empty-state-hint">Select or create a conversation from the list on the left to edit its properties, preconditions, and dialogue.</div>
-      </div>
-    `;
+    container.replaceChildren(createOnboardingNudge({
+      title: 'No properties to edit yet',
+      body: 'Use the onboarding flow to start a blank project, import XML, or inspect the sample pack, then edit preconditions, replies, and branch data here.',
+    }));
     return;
   }
 
@@ -111,12 +109,11 @@ export function renderPropertiesPanel(container: HTMLElement): void {
     renderTurnProperties(content, conv, turn, turnLabels);
   } else {
     // Nothing selected — show a hint
-    content.innerHTML = `
-      <div class="empty-state" style="height:auto; padding:20px;">
-        <div class="empty-state-text">No turn selected</div>
-        <div class="empty-state-hint">Click a turn node in the flow editor to edit its properties, or switch to the Conversation tab to edit preconditions.</div>
-      </div>
-    `;
+    content.appendChild(createOnboardingNudge({
+      title: 'Pick a turn to tune',
+      body: 'Select a node in the flow editor to edit replies and outcomes, or stay on the Conversation tab to shape preconditions before you branch further.',
+      compact: true,
+    }));
   }
 
   container.appendChild(content);
