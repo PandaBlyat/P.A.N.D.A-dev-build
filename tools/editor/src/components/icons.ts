@@ -26,7 +26,8 @@ export type IconName =
   | 'share'
   | 'download'
   | 'database'
-  | 'help';
+  | 'help'
+  | 'support';
 
 const BASE_ICON_ATTRS = {
   fill: 'none',
@@ -193,6 +194,15 @@ const ICONS: Record<IconName, IconDef> = {
       { tag: 'circle', cx: '12', cy: '12', r: '9' },
       { tag: 'path', d: 'M9.5 9.5a2.5 2.5 0 0 1 4.6 1.3c0 1.7-2.6 2.2-2.6 2.2' },
       { tag: 'circle', cx: '12', cy: '16.5', r: '0.8', fill: 'currentColor', stroke: 'none' },
+    ],
+  },
+  support: {
+    // Heart with soft spark accents
+    paths: [
+      { tag: 'path', d: 'M12 19s-6.5-3.8-8.2-8.2C2.5 7.8 4.3 5 7.2 5c1.9 0 3.1 1 4 2.2C12.1 6 13.3 5 15.2 5c2.9 0 4.7 2.8 3.4 5.8C18.5 12.2 17.6 13.7 16 15' },
+      { tag: 'path', d: 'M18.4 4.8v3.2' },
+      { tag: 'path', d: 'M16.8 6.4h3.2' },
+      { tag: 'path', d: 'M6 3.8v2.6' },
     ],
   },
 };
