@@ -228,7 +228,7 @@ function buildSearchResults(query: string): SearchResult[] {
       const turnText = `turn ${turn.turnNumber} ${turn.openingMessage || ''}`.toLowerCase();
       if (turnText.includes(normalized)) {
         results.push({
-          label: `C${conv.id} · ${turnLabels.getDisplayLabel(turn.turnNumber)}`,
+          label: `C${conv.id} · ${turnLabels.getLongLabel(turn.turnNumber)}`,
           meta: truncate(turn.openingMessage || 'Select turn in flow editor', 72),
           onSelect: () => {
             store.selectConversation(conv.id);
@@ -243,7 +243,7 @@ function buildSearchResults(query: string): SearchResult[] {
         const haystack = `${choice.text} ${choice.reply} ${commandList} ${choice.continueTo ?? ''}`.toLowerCase();
         if (!haystack.includes(normalized)) continue;
         results.push({
-          label: `C${conv.id} · ${turnLabels.getShortLabel(turn.turnNumber)} · Choice ${choice.index}`,
+          label: `C${conv.id} · ${turnLabels.getCompactLabel(turn.turnNumber)} · Choice ${choice.index}`,
           meta: truncate(choice.text || choice.reply || commandList || '(empty choice)', 72),
           onSelect: () => {
             store.selectConversation(conv.id);

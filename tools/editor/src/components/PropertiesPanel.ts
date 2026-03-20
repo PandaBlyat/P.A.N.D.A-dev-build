@@ -65,9 +65,9 @@ export function renderPropertiesPanel(container: HTMLElement): void {
   const selTab = document.createElement('button');
   selTab.className = 'tab' + (activeTab === 'selection' ? ' active' : '');
   if (turn && choice) {
-    selTab.textContent = `${turnLabels.getShortLabel(turn.turnNumber)} / C${choice.index}`;
+    selTab.textContent = `${turnLabels.getCompactLabel(turn.turnNumber)} / C${choice.index}`;
   } else if (turn) {
-    selTab.textContent = turnLabels.getDisplayLabel(turn.turnNumber);
+    selTab.textContent = turnLabels.getLongLabel(turn.turnNumber);
   } else {
     selTab.textContent = 'Turn / Choice';
   }
@@ -182,7 +182,7 @@ function renderTurnProperties(
   title.className = 'section-header';
   const titleSpan = document.createElement('span');
   titleSpan.className = 'section-title';
-  titleSpan.textContent = turnLabels.getDisplayLabel(turn.turnNumber);
+  titleSpan.textContent = turnLabels.getLongLabel(turn.turnNumber);
   title.appendChild(titleSpan);
   if (turn.turnNumber > 1) {
     const delTurnBtn = document.createElement('button');
@@ -256,7 +256,7 @@ function renderTurnProperties(
     if (choice.continueTo != null) {
       const badge = document.createElement('div');
       badge.style.cssText = 'padding:2px 10px; font-size:10px; color:var(--accent); font-family:var(--font-mono);';
-      badge.textContent = `\u2192 Continues to ${turnLabels.getDisplayLabel(choice.continueTo)}`;
+      badge.textContent = `\u2192 Continues to ${turnLabels.getLongLabel(choice.continueTo)}`;
       card.appendChild(badge);
     }
 
@@ -278,7 +278,7 @@ function renderChoiceProperties(
   // Back button
   const backBtn = document.createElement('button');
   backBtn.className = 'btn-sm';
-  backBtn.textContent = `\u2190 Back to ${turnLabels.getDisplayLabel(turn.turnNumber)}`;
+  backBtn.textContent = `\u2190 Back to ${turnLabels.getLongLabel(turn.turnNumber)}`;
   backBtn.title = 'Return to turn overview';
   backBtn.onclick = () => store.selectChoice(null);
   backBtn.style.marginBottom = '10px';
@@ -286,7 +286,7 @@ function renderChoiceProperties(
 
   const title = document.createElement('div');
   title.className = 'section-header';
-  title.innerHTML = `<span class="section-title">${turnLabels.getDisplayLabel(turn.turnNumber)} / Choice ${choice.index}</span>`;
+  title.innerHTML = `<span class="section-title">${turnLabels.getLongLabel(turn.turnNumber)} / Choice ${choice.index}</span>`;
   container.appendChild(title);
 
   // Choice text
@@ -366,7 +366,7 @@ function renderChoiceProperties(
     if (t.turnNumber === turn.turnNumber) continue; // Can't continue to self
     const opt = document.createElement('option');
     opt.value = String(t.turnNumber);
-    opt.textContent = turnLabels.getDisplayLabel(t.turnNumber);
+    opt.textContent = turnLabels.getLongLabel(t.turnNumber);
     opt.selected = choice.continueTo === t.turnNumber;
     contSelect.appendChild(opt);
   }
@@ -1096,6 +1096,7 @@ function createTurnReferenceEditor(
   conv?: Conversation,
   emptyLabel?: string,
 ): HTMLElement {
+  const turnLabels = conv ? createTurnDisplayLabeler(conv) : null;
   const wrapper = document.createElement('div');
   wrapper.className = 'rich-editor rich-editor-turn-ref';
 
@@ -1111,7 +1112,7 @@ function createTurnReferenceEditor(
   for (const turn of conv?.turns ?? []) {
     const opt = document.createElement('option');
     opt.value = String(turn.turnNumber);
-    opt.textContent = `Turn ${turn.turnNumber}`;
+    opt.textContent = turnLabels?.getLongLabel(turn.turnNumber) ?? `Branch ${turn.turnNumber}`;
     opt.selected = currentValue === String(turn.turnNumber);
     select.appendChild(opt);
   }
@@ -1121,13 +1122,12 @@ function createTurnReferenceEditor(
 
   const summary = document.createElement('div');
   summary.className = 'command-description';
-  summary.textContent = currentValue
-    ? `Branches to Turn ${currentValue}.`
+  const getBranchSummary = (value: string): string => value
+    ? `Branches to ${turnLabels?.getLongLabel(Number(value)) ?? `Branch ${value}`}.`
     : 'Select one of the turns already defined in this conversation.';
+  summary.textContent = getBranchSummary(currentValue);
   select.addEventListener('change', () => {
-    summary.textContent = select.value
-      ? `Branches to Turn ${select.value}.`
-      : 'Select one of the turns already defined in this conversation.';
+    summary.textContent = getBranchSummary(select.value);
   });
   wrapper.appendChild(summary);
   return wrapper;

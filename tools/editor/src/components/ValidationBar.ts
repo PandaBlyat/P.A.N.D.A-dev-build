@@ -97,29 +97,13 @@ function formatLocation(msg: ValidationMessage): string {
   const parts = [`C${msg.conversationId}`];
   const conv = store.get().project.conversations.find(item => item.id === msg.conversationId);
   const turnLabels = conv ? createTurnDisplayLabeler(conv) : null;
-  if (msg.turnNumber != null) parts.push(turnLabels?.getShortLabel(msg.turnNumber) ?? `T${msg.turnNumber}`);
+  if (msg.turnNumber != null) parts.push(turnLabels?.getCompactLabel(msg.turnNumber) ?? `B${msg.turnNumber}`);
   if (msg.choiceIndex != null) parts.push(`C${msg.choiceIndex}`);
   return `[${parts.join(' / ')}]`;
 }
 
 function formatMessage(msg: ValidationMessage): string {
-  const conv = store.get().project.conversations.find(item => item.id === msg.conversationId);
-  if (!conv || msg.turnNumber == null) return msg.message;
-
-  const turnLabels = createTurnDisplayLabeler(conv);
-  const replacements = [msg.turnNumber, 1]
-    .filter((turnNumber, index, values) => values.indexOf(turnNumber) === index)
-    .sort((a, b) => String(b).length - String(a).length);
-
-  let formatted = msg.message;
-  for (const turnNumber of replacements) {
-    formatted = formatted.replace(
-      new RegExp(`Turn ${turnNumber}(?!\\d)`, 'g'),
-      turnLabels.getDisplayLabel(turnNumber),
-    );
-  }
-
-  return formatted;
+  return msg.message;
 }
 
 function buildTooltip(msg: ValidationMessage): string {
