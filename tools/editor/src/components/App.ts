@@ -612,7 +612,14 @@ function clampWidth(value: number): number {
   return Math.max(PANEL_MIN_WIDTH, Math.min(PANEL_MAX_WIDTH, value));
 }
 
-/** Merge conversations from the community library into the current project. */
-export function importConversations(conversations: import('../lib/types').Conversation[]): void {
-  store.mergeConversations(conversations);
+/** Merge conversations from the community library into the current project,
+ *  auto-selecting the first imported conversation afterward. */
+export function importConversations(conversations: import('../lib/types').Conversation[], faction?: import('../lib/types').FactionId): void {
+  const firstId = store.mergeConversations(conversations);
+  if (faction && faction !== store.get().project.faction) {
+    store.setFaction(faction);
+  }
+  if (firstId != null) {
+    store.selectConversation(firstId);
+  }
 }
