@@ -4,6 +4,7 @@ import { store } from '../lib/state';
 import { setActiveFlowViewport, type FlowViewportApi } from '../lib/flow-navigation';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { createOnboardingNudge } from './Onboarding';
+import { FACTION_COLORS } from '../lib/faction-colors';
 import type { Choice, Conversation, Turn } from '../lib/types';
 import type { FlowDensity } from '../lib/state';
 
@@ -94,7 +95,8 @@ export function renderFlowEditor(container: HTMLElement): void {
   const existingView = viewStateByConversation.get(conversationId);
   const viewState: ViewState = existingView ? { ...existingView } : { ...DEFAULT_VIEW_STATE };
   const bounds = calculateContentBounds(conv, density);
-  const edges = buildEdgeDescriptors(conv, state.selectedTurnNumber, state.selectedChoiceIndex);
+  const factionColor = FACTION_COLORS[state.project.faction];
+  const edges = buildEdgeDescriptors(conv, state.selectedTurnNumber, state.selectedChoiceIndex, factionColor);
   const nodeElements = new Map<number, HTMLElement>();
 
   const shell = document.createElement('div');
@@ -176,6 +178,7 @@ export function renderFlowEditor(container: HTMLElement): void {
       positionOverrides,
       preview: connectionPreview,
       turnLabels,
+      factionColor,
     });
   };
 
@@ -502,8 +505,10 @@ function calculateContentBounds(conv: Conversation, density: FlowDensity): Conte
   };
 }
 
-function getBranchColor(turn: Turn, turnIndex: number): string {
-  return turn.color || BRANCH_PALETTE[turnIndex % BRANCH_PALETTE.length];
+function getBranchColor(turn: Turn, turnIndex: number, factionColor?: string): string {
+  if (turn.color) return turn.color;
+  if (turnIndex === 0 && factionColor) return factionColor;
+  return BRANCH_PALETTE[turnIndex % BRANCH_PALETTE.length];
 }
 
 function renderTurnNode(options: {
@@ -525,7 +530,8 @@ function renderTurnNode(options: {
   const hasWarning = turn.choices.some(c => !c.text && !c.reply);
   const isPathActive = edges.some(edge => edge.highlight === 'active' && (edge.sourceTurnNumber === turn.turnNumber || edge.targetTurnNumber === turn.turnNumber));
   const turnIndex = conv.turns.indexOf(turn);
-  const branchColor = getBranchColor(turn, turnIndex);
+  const factionColor = FACTION_COLORS[store.get().project.faction];
+  const branchColor = getBranchColor(turn, turnIndex, factionColor);
 
   const node = document.createElement('div');
   node.className = 'turn-node'
@@ -775,7 +781,7 @@ function renderTurnNode(options: {
       const targetTurn = conv.turns.find(t => t.turnNumber === choice.continueTo);
       if (targetTurn) {
         const targetIndex = conv.turns.indexOf(targetTurn);
-        const targetColor = getBranchColor(targetTurn, targetIndex);
+        const targetColor = getBranchColor(targetTurn, targetIndex, factionColor);
         badge.style.setProperty('--badge-branch-color', targetColor);
       }
       item.appendChild(badge);
@@ -885,8 +891,9 @@ function drawEdges(options: {
   positionOverrides?: TurnPositionMap;
   preview: ConnectionPreview | null;
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
+  factionColor: string;
 }): void {
-  const { svg, conv, edges, nodeElements, positionOverrides, preview, turnLabels } = options;
+  const { svg, conv, edges, nodeElements, positionOverrides, preview, turnLabels, factionColor } = options;
   const defs = svg.querySelector('defs');
   svg.replaceChildren();
   if (defs) svg.appendChild(defs);
@@ -951,7 +958,7 @@ function drawEdges(options: {
   if (preview) {
     const sourceAnchor = getChoiceAnchor(preview.sourceTurnNumber, preview.sourceChoiceIndex, conv, nodeElements, positionOverrides);
     if (sourceAnchor) {
-      const previewColor = getTurnBranchColor(conv, preview.sourceTurnNumber) ?? BRANCH_PALETTE[0];
+      const previewColor = getTurnBranchColor(conv, preview.sourceTurnNumber, factionColor) ?? BRANCH_PALETTE[0];
       const previewPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       previewPath.setAttribute('d', buildEdgePath(sourceAnchor, preview.cursor, 0));
       previewPath.setAttribute('class', 'flow-edge-path edge-preview');
@@ -1026,11 +1033,14 @@ function buildEdgeDescriptors(
   conv: Conversation,
   selectedTurnNumber: number | null,
   selectedChoiceIndex: number | null,
+  factionColor: string,
 ): EdgeDescriptor[] {
   const edges: EdgeDescriptor[] = [];
   const pairCounts = new Map<string, number>();
 
   for (const turn of conv.turns) {
+    const sourceTurnIndex = conv.turns.indexOf(turn);
+    const sourceBranchColor = getBranchColor(turn, sourceTurnIndex, factionColor);
     for (const choice of turn.choices) {
       const targets = getChoiceTargets(choice, conv);
       for (const target of targets) {
@@ -1043,7 +1053,7 @@ function buildEdgeDescriptors(
           sourceChoiceIndex: choice.index,
           targetTurnNumber: target.turnNumber,
           label: target.label,
-          color: target.color,
+          color: sourceBranchColor,
           pathClassName: `edge-${target.kind}`,
           textClassName: `edge-label-${target.kind}`,
           offsetIndex: spreadOffset(offsetIndex),
@@ -1057,14 +1067,13 @@ function buildEdgeDescriptors(
   return edges;
 }
 
-function getChoiceTargets(choice: Choice, conv: Conversation): Array<{ turnNumber: number; label: string; color: string; kind: EdgeKind }> {
-  const targets: Array<{ turnNumber: number; label: string; color: string; kind: EdgeKind }> = [];
+function getChoiceTargets(choice: Choice, conv: Conversation): Array<{ turnNumber: number; label: string; kind: EdgeKind }> {
+  const targets: Array<{ turnNumber: number; label: string; kind: EdgeKind }> = [];
 
   if (choice.continueTo != null) {
     targets.push({
       turnNumber: choice.continueTo,
       label: `C${choice.index}`,
-      color: getTurnBranchColor(conv, choice.continueTo) ?? BRANCH_PALETTE[0],
       kind: 'continue',
     });
   }
@@ -1079,7 +1088,6 @@ function getChoiceTargets(choice: Choice, conv: Conversation): Array<{ turnNumbe
       targets.push({
         turnNumber: successTurn,
         label: 'ok',
-        color: getTurnBranchColor(conv, successTurn) ?? BRANCH_PALETTE[0],
         kind: 'pause-success',
       });
     }
@@ -1088,7 +1096,6 @@ function getChoiceTargets(choice: Choice, conv: Conversation): Array<{ turnNumbe
       targets.push({
         turnNumber: failTurn,
         label: 'fail',
-        color: getTurnBranchColor(conv, failTurn) ?? BRANCH_PALETTE[0],
         kind: 'pause-fail',
       });
     }
@@ -1195,11 +1202,11 @@ function createMarker(id: string, color: string): SVGMarkerElement {
   return marker;
 }
 
-function getTurnBranchColor(conv: Conversation, turnNumber: number): string | null {
+function getTurnBranchColor(conv: Conversation, turnNumber: number, factionColor?: string): string | null {
   const targetIndex = conv.turns.findIndex(turn => turn.turnNumber === turnNumber);
   if (targetIndex === -1) return null;
   const targetTurn = conv.turns[targetIndex];
-  return getBranchColor(targetTurn, targetIndex);
+  return getBranchColor(targetTurn, targetIndex, factionColor);
 }
 
 function ensureMarker(defs: SVGDefsElement | null, kind: EdgeKind, color: string): string {
