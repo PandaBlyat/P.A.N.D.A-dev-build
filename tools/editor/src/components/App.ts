@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Root App Component
 
-import { store, type BottomWorkspaceTab } from '../lib/state';
+import { store, type BottomWorkspaceTab, type AppState } from '../lib/state';
 import { renderToolbar } from './Toolbar';
 import {
   centerConversationSelection,
@@ -10,7 +10,6 @@ import {
 } from './ConversationList';
 import { renderFlowEditor } from './FlowEditor';
 import { renderPropertiesPanel } from './PropertiesPanel';
-import { renderValidationBar } from './ValidationBar';
 import { renderBottomWorkspace } from './BottomWorkspace';
 import { mountMotivationTicker } from './MotivationTicker';
 import { shouldShowFirstRunExperience, renderFirstRunExperience } from './Onboarding';
@@ -60,7 +59,6 @@ type AppShell = {
   rightActions: HTMLDivElement;
   rightBody: HTMLDivElement;
   bottomRegion: HTMLDivElement;
-  validationRegion: HTMLDivElement;
   workspaceRegion: HTMLDivElement;
   tickerRegion: HTMLDivElement;
 };
@@ -167,13 +165,11 @@ function getAppShell(container: HTMLElement): AppShell {
 
   const bottomRegion = document.createElement('div');
   bottomRegion.className = 'app-bottom-region';
-  const validationRegion = document.createElement('div');
-  validationRegion.className = 'app-validation-region';
   const workspaceRegion = document.createElement('div');
   workspaceRegion.className = 'app-workspace-region';
   const tickerRegion = document.createElement('div');
   tickerRegion.className = 'app-ticker-region';
-  bottomRegion.append(validationRegion, workspaceRegion, tickerRegion);
+  bottomRegion.append(workspaceRegion, tickerRegion);
 
   container.replaceChildren(toolbarRegion, mainLayout, bottomRegion);
 
@@ -200,7 +196,6 @@ function getAppShell(container: HTMLElement): AppShell {
     rightActions,
     rightBody,
     bottomRegion,
-    validationRegion,
     workspaceRegion,
     tickerRegion,
   };
@@ -282,8 +277,6 @@ function renderRightPanel(shell: AppShell): void {
 
 function renderBottomRegion(shell: AppShell): void {
   shell.bottomRegion.dataset.layoutMode = layoutState.responsiveMode;
-  shell.validationRegion.replaceChildren();
-  renderValidationBar(shell.validationRegion);
   shell.workspaceRegion.replaceChildren();
   renderBottomWorkspace(shell.workspaceRegion);
 }
@@ -300,7 +293,7 @@ function renderUtilityRail(shell: AppShell): void {
     'Issues',
     issueCount > 0 ? `${issueCount}` : undefined,
     issueCount === 0,
-    () => activateWorkspaceTab('validation'),
+    () => toggleConversationIssues(state),
   );
   issueButton.title = issueCount > 0 ? `Open issues (${issueCount})` : 'No project issues';
 
@@ -535,6 +528,16 @@ function getLayoutDefaults(mode: ResponsiveLayoutMode, viewportWidth: number): L
   };
 }
 
+function toggleConversationIssues(state: AppState = store.get()): void {
+  if (state.validationMessages.length === 0) return;
+
+  if (layoutState.responsiveMode !== 'desktop') {
+    layoutState.activeDrawer = 'left';
+  }
+
+  store.toggleValidationPanel();
+}
+
 function ensureResponsiveListener(container: HTMLElement): void {
   if (resizeListenerAttached) return;
   resizeListenerAttached = true;
@@ -551,16 +554,6 @@ function ensureResponsiveListener(container: HTMLElement): void {
 
 function activateWorkspaceTab(tab: BottomWorkspaceTab): void {
   const state = store.get();
-
-  if (tab === 'validation') {
-    if (state.validationMessages.length === 0) return;
-    if (!state.showValidationPanel) {
-      store.toggleValidationPanel();
-      return;
-    }
-    store.setBottomWorkspaceTab('validation');
-    return;
-  }
 
   if (tab === 'strings') {
     if (!state.showSystemStringsPanel) {

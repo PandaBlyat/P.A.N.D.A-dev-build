@@ -6,7 +6,7 @@ import { validate } from './validation';
 
 export type PropertiesTab = 'conversation' | 'selection';
 export type FlowDensity = 'compact' | 'standard' | 'detailed';
-export type BottomWorkspaceTab = 'validation' | 'strings' | 'xml';
+export type BottomWorkspaceTab = 'strings' | 'xml';
 
 export interface AppState {
   project: Project;
@@ -116,7 +116,6 @@ class StateManager {
 
   private getOpenBottomWorkspaceTabs(): BottomWorkspaceTab[] {
     const tabs: BottomWorkspaceTab[] = [];
-    if (this.state.showValidationPanel && this.state.validationMessages.length > 0) tabs.push('validation');
     if (this.state.showSystemStringsPanel) tabs.push('strings');
     if (this.state.showXmlPreview) tabs.push('xml');
     return tabs;
@@ -258,7 +257,7 @@ class StateManager {
   toggleValidationPanel(): void {
     if (!this.state.showValidationPanel && this.state.validationMessages.length === 0) return;
     this.state.showValidationPanel = !this.state.showValidationPanel;
-    this.syncBottomWorkspaceTab(this.state.showValidationPanel ? 'validation' : undefined);
+    this.syncBottomWorkspaceTab();
     this.notify();
   }
 
@@ -270,7 +269,6 @@ class StateManager {
   }
 
   closeBottomWorkspaceTab(tab: BottomWorkspaceTab): void {
-    if (tab === 'validation') this.state.showValidationPanel = false;
     if (tab === 'strings') this.state.showSystemStringsPanel = false;
     if (tab === 'xml') this.state.showXmlPreview = false;
     this.syncBottomWorkspaceTab();

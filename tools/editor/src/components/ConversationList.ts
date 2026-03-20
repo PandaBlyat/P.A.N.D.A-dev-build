@@ -2,7 +2,9 @@
 
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { store } from '../lib/state';
+import { createValidationWorkspaceContent } from './ValidationBar';
 import { createOnboardingNudge } from './Onboarding';
+import { setButtonContent } from './icons';
 
 export function centerConversationSelection(conversationId: number): void {
   const currentState = store.get();
@@ -42,6 +44,12 @@ export function renderConversationList(container: HTMLElement): void {
     }));
     return;
   }
+
+  const shell = document.createElement('div');
+  shell.className = 'conversation-list-shell';
+
+  const listRegion = document.createElement('div');
+  listRegion.className = 'conversation-list-region';
 
   const list = document.createElement('ul');
   list.className = 'conv-list';
@@ -96,5 +104,32 @@ export function renderConversationList(container: HTMLElement): void {
     list.appendChild(item);
   }
 
-  container.appendChild(list);
+  listRegion.appendChild(list);
+  shell.appendChild(listRegion);
+
+  const issuesFooter = document.createElement('div');
+  issuesFooter.className = 'conversation-issues-footer';
+
+  const issueCount = state.validationMessages.length;
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'btn-sm conversation-issues-toggle';
+  setButtonContent(toggle, state.showValidationPanel ? 'close' : 'warning', `Errors x${issueCount}`);
+  toggle.title = issueCount > 0
+    ? (state.showValidationPanel ? 'Hide current issues' : `Show current issues (${issueCount})`)
+    : 'No current issues';
+  toggle.disabled = issueCount === 0;
+  toggle.onclick = () => store.toggleValidationPanel();
+  issuesFooter.appendChild(toggle);
+
+  if (state.showValidationPanel && issueCount > 0) {
+    const issuesPanel = document.createElement('section');
+    issuesPanel.className = 'conversation-issues-panel validation-drawer';
+    issuesPanel.setAttribute('aria-label', 'Current issues');
+    issuesPanel.appendChild(createValidationWorkspaceContent(state.validationMessages));
+    issuesFooter.appendChild(issuesPanel);
+  }
+
+  shell.appendChild(issuesFooter);
+  container.appendChild(shell);
 }

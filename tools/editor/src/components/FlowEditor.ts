@@ -126,12 +126,6 @@ export function renderFlowEditor(container: HTMLElement): void {
   const zoomValue = document.createElement('span');
   zoomValue.className = 'flow-zoom-value';
 
-  const minimapViewport = document.createElement('div');
-  minimapViewport.className = 'flow-minimap-viewport';
-
-  const minimapNodes = document.createElement('div');
-  minimapNodes.className = 'flow-minimap-nodes';
-
   content.appendChild(svg);
 
   for (const turn of conv.turns) {
@@ -155,18 +149,6 @@ export function renderFlowEditor(container: HTMLElement): void {
     nodeElements.set(turn.turnNumber, node);
     content.appendChild(node);
 
-    const miniNode = document.createElement('button');
-    miniNode.type = 'button';
-    miniNode.className = 'flow-minimap-node' + (state.selectedTurnNumber === turn.turnNumber ? ' selected' : '');
-    miniNode.style.left = `${(turn.position.x / bounds.width) * 100}%`;
-    miniNode.style.top = `${(turn.position.y / bounds.height) * 100}%`;
-    miniNode.title = `Center ${turnLabels.getLongLabel(turn.turnNumber)}`;
-    miniNode.onclick = (e) => {
-      e.stopPropagation();
-      store.selectTurn(turn.turnNumber);
-      centerTurn(turn.turnNumber);
-    };
-    minimapNodes.appendChild(miniNode);
   }
 
   const draw = (positionOverrides?: TurnPositionMap): void => {
@@ -190,24 +172,10 @@ export function renderFlowEditor(container: HTMLElement): void {
     onReset: () => resetView(),
   });
 
-  const minimap = renderMinimap({
-    viewport: minimapViewport,
-    nodes: minimapNodes,
-    bounds,
-    onNavigate: (event) => {
-      const target = event.currentTarget as HTMLElement;
-      const rect = target.getBoundingClientRect();
-      const targetWorldX = ((event.clientX - rect.left) / rect.width) * bounds.width;
-      const targetWorldY = ((event.clientY - rect.top) / rect.height) * bounds.height;
-      centerWorldPoint(targetWorldX, targetWorldY);
-    },
-    onFit: () => fitContent(),
-  });
 
   canvas.appendChild(content);
   shell.appendChild(canvas);
   shell.appendChild(controls);
-  shell.appendChild(minimap);
   container.appendChild(shell);
 
   const focusTurn = (turnNumber: number, options: { center?: boolean } = {}): void => {
@@ -272,7 +240,6 @@ export function renderFlowEditor(container: HTMLElement): void {
   const applyView = (): void => {
     content.style.transform = `translate(${viewState.panX}px, ${viewState.panY}px) scale(${viewState.zoom})`;
     zoomValue.textContent = `${Math.round(viewState.zoom * 100)}%`;
-    updateMinimapViewport(bounds, canvas, viewState, minimapViewport);
     viewStateByConversation.set(conversationId, { ...viewState });
   };
 
@@ -439,46 +406,6 @@ function renderControls(options: {
 
   controls.append(zoomOut, options.zoomValue, zoomIn, fit, reset);
   return controls;
-}
-
-function renderMinimap(options: {
-  viewport: HTMLElement;
-  nodes: HTMLElement;
-  bounds: ContentBounds;
-  onNavigate: (event: MouseEvent) => void;
-  onFit: () => void;
-}): HTMLElement {
-  const panel = document.createElement('div');
-  panel.className = 'flow-minimap';
-
-  const header = document.createElement('div');
-  header.className = 'flow-minimap-header';
-
-  const title = document.createElement('span');
-  title.textContent = 'Overview';
-
-  const fitButton = document.createElement('button');
-  fitButton.type = 'button';
-  fitButton.className = 'btn-sm';
-  fitButton.textContent = 'Fit';
-  fitButton.title = 'Fit content to view';
-  fitButton.onclick = options.onFit;
-
-  header.append(title, fitButton);
-
-  const body = document.createElement('button');
-  body.type = 'button';
-  body.className = 'flow-minimap-body';
-  body.onclick = options.onNavigate;
-
-  const frame = document.createElement('div');
-  frame.className = 'flow-minimap-frame';
-  frame.style.aspectRatio = `${Math.max(options.bounds.width, 1)} / ${Math.max(options.bounds.height, 1)}`;
-  frame.append(options.nodes, options.viewport);
-  body.appendChild(frame);
-
-  panel.append(header, body);
-  return panel;
 }
 
 function calculateContentBounds(conv: Conversation, density: FlowDensity): ContentBounds {
@@ -1241,7 +1168,7 @@ function wireCanvasInteractions(options: {
   canvas.onmousedown = (event) => {
     const target = event.target as HTMLElement;
     if (event.button !== 0 && event.button !== 1) return;
-    if (target.closest('.turn-node, .flow-controls, .flow-minimap, .flow-edge')) return;
+    if (target.closest('.turn-node, .flow-controls, .flow-edge')) return;
 
     const startPanX = event.clientX;
     const startPanY = event.clientY;
@@ -1296,23 +1223,6 @@ function zoomAtViewportPoint(
   viewState.panX = offsetX - worldX * nextZoom;
   viewState.panY = offsetY - worldY * nextZoom;
   applyView();
-}
-
-function updateMinimapViewport(
-  bounds: ContentBounds,
-  canvas: HTMLElement,
-  viewState: ViewState,
-  minimapViewport: HTMLElement,
-): void {
-  const worldLeft = Math.max(0, -viewState.panX / viewState.zoom);
-  const worldTop = Math.max(0, -viewState.panY / viewState.zoom);
-  const worldWidth = Math.min(bounds.width, canvas.clientWidth / viewState.zoom);
-  const worldHeight = Math.min(bounds.height, canvas.clientHeight / viewState.zoom);
-
-  minimapViewport.style.left = `${(worldLeft / bounds.width) * 100}%`;
-  minimapViewport.style.top = `${(worldTop / bounds.height) * 100}%`;
-  minimapViewport.style.width = `${(worldWidth / bounds.width) * 100}%`;
-  minimapViewport.style.height = `${(worldHeight / bounds.height) * 100}%`;
 }
 
 function spreadOffset(index: number): number {
