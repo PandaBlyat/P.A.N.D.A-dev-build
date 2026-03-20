@@ -1,11 +1,16 @@
 // P.A.N.D.A. Conversation Editor — Community Library Panel
-// Full-screen modal for browsing and importing shared conversations.
-// Conversations are loaded from the static community-data.ts bundle — no external network access.
+// Full-screen modal for browsing, publishing, and importing shared conversations.
+// All data goes through the local API server — no Supabase URLs or keys in the browser.
 
+import { store } from '../lib/state';
 import { generateXml } from '../lib/xml-export';
 import { createEmptyProject } from '../lib/xml-export';
-import { type CommunityConversation } from '../lib/api-client';
-import { COMMUNITY_CONVERSATIONS } from '../lib/community-data';
+import {
+  fetchConversations,
+  publishConversation,
+  incrementDownload,
+  type CommunityConversation,
+} from '../lib/api-client';
 import { FACTION_IDS } from '../lib/constants';
 import { FACTION_DISPLAY_NAMES, FACTION_XML_KEYS, type FactionId } from '../lib/types';
 import { createIcon, setButtonContent } from './icons';
@@ -32,18 +37,24 @@ const FACTION_COLORS: Record<FactionId, string> = {
 
 let overlayEl: HTMLElement | null = null;
 let activeFaction: FactionId | 'all' = 'all';
+let allResults: CommunityConversation[] = [];
 let searchQuery = '';
+let isLoading = false;
+let loadError = '';
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export function openSharePanel(): void {
   if (overlayEl) return;
   activeFaction = 'all';
+  allResults = [];
   searchQuery = '';
+  isLoading = false;
+  loadError = '';
 
   overlayEl = buildOverlay();
   document.body.appendChild(overlayEl);
-  renderContent();
+  loadConversations();
 }
 
 export function closeSharePanel(): void {
@@ -52,16 +63,30 @@ export function closeSharePanel(): void {
   overlayEl = null;
 }
 
+// ─── Data Loading ─────────────────────────────────────────────────────────────
+
+async function loadConversations(): Promise<void> {
+  isLoading = true;
+  loadError = '';
+  renderContent();
+
+  try {
+    allResults = await fetchConversations(activeFaction === 'all' ? undefined : activeFaction);
+    loadError = '';
+  } catch (err) {
+    loadError = err instanceof Error ? err.message : 'Failed to load conversations.';
+  } finally {
+    isLoading = false;
+    renderContent();
+  }
+}
+
 // ─── Filtered Results ─────────────────────────────────────────────────────────
 
 function getFilteredResults(): CommunityConversation[] {
-  let results = COMMUNITY_CONVERSATIONS;
-  if (activeFaction !== 'all') {
-    results = results.filter(c => c.faction === activeFaction);
-  }
   const q = searchQuery.trim().toLowerCase();
-  if (!q) return results;
-  return results.filter(c =>
+  if (!q) return allResults;
+  return allResults.filter(c =>
     c.label.toLowerCase().includes(q) ||
     c.description.toLowerCase().includes(q) ||
     c.author.toLowerCase().includes(q),
@@ -106,6 +131,10 @@ function buildOverlay(): HTMLElement {
   body.appendChild(contentArea);
   modal.appendChild(body);
 
+  // Publish form (absolute overlay inside modal body)
+  const publishForm = buildPublishForm();
+  modal.appendChild(publishForm);
+
   overlay.appendChild(modal);
   return overlay;
 }
@@ -124,6 +153,14 @@ function buildHeader(): HTMLElement {
   const spacer = document.createElement('div');
   spacer.style.flex = '1';
   header.appendChild(spacer);
+
+  const publishBtn = document.createElement('button');
+  publishBtn.type = 'button';
+  publishBtn.className = 'toolbar-button btn-primary';
+  setButtonContent(publishBtn, 'export', 'Publish');
+  publishBtn.title = 'Publish the currently selected conversation to the Community Library';
+  publishBtn.onclick = () => showPublishForm();
+  header.appendChild(publishBtn);
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
@@ -165,10 +202,11 @@ function buildSidebarTab(label: string, faction: FactionId | null, active: boole
   tab.append(dot, document.createTextNode(label));
   tab.onclick = () => {
     activeFaction = faction ?? 'all';
+    allResults = [];
     searchQuery = '';
     rebuildSidebar();
     updateDownloadAllBtn();
-    renderContent();
+    loadConversations();
   };
   return tab;
 }
@@ -176,8 +214,7 @@ function buildSidebarTab(label: string, faction: FactionId | null, active: boole
 function rebuildSidebar(): void {
   const sidebar = overlayEl?.querySelector('.share-sidebar');
   if (!sidebar) return;
-  const newSidebar = buildSidebar();
-  sidebar.replaceWith(newSidebar);
+  sidebar.replaceWith(buildSidebar());
 }
 
 // ─── Toolbar Row ──────────────────────────────────────────────────────────────
@@ -222,6 +259,16 @@ function renderContent(): void {
 
   wrap.innerHTML = '';
 
+  if (isLoading) {
+    wrap.appendChild(buildLoadingState());
+    return;
+  }
+
+  if (loadError) {
+    wrap.appendChild(buildErrorState(loadError));
+    return;
+  }
+
   const results = getFilteredResults();
   if (results.length === 0) {
     wrap.appendChild(buildEmptyState());
@@ -236,12 +283,35 @@ function renderContent(): void {
 
 // ─── State Displays ───────────────────────────────────────────────────────────
 
+function buildLoadingState(): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'share-state-message';
+  el.textContent = 'Loading…';
+  return el;
+}
+
 function buildEmptyState(): HTMLElement {
   const el = document.createElement('div');
   el.className = 'share-state-message';
   el.textContent = activeFaction === 'all'
-    ? 'No conversations in the library yet.'
-    : `No ${FACTION_DISPLAY_NAMES[activeFaction as FactionId]} conversations yet.`;
+    ? 'No conversations in the library yet. Be the first to publish!'
+    : `No ${FACTION_DISPLAY_NAMES[activeFaction as FactionId]} conversations yet. Publish one!`;
+  return el;
+}
+
+function buildErrorState(msg: string): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'share-state-message share-state-error';
+  el.textContent = msg;
+
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.className = 'toolbar-button';
+  retry.textContent = 'Retry';
+  retry.style.marginTop = '10px';
+  retry.onclick = loadConversations;
+  el.appendChild(retry);
+
   return el;
 }
 
@@ -251,7 +321,6 @@ function buildCard(conv: CommunityConversation): HTMLElement {
   const card = document.createElement('div');
   card.className = 'share-card';
 
-  // Header row: dot + faction badge + title
   const cardHeader = document.createElement('div');
   cardHeader.className = 'share-card-header';
 
@@ -272,17 +341,13 @@ function buildCard(conv: CommunityConversation): HTMLElement {
   cardHeader.append(dot, badge, title);
   card.appendChild(cardHeader);
 
-  // Meta: author · date
   const meta = document.createElement('div');
   meta.className = 'share-card-meta';
   const date = new Date(conv.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
   meta.textContent = `${conv.author || 'Anonymous'} · ${date}`;
-  if (conv.downloads > 0) {
-    meta.textContent += ` · ↓ ${conv.downloads}`;
-  }
+  if (conv.downloads > 0) meta.textContent += ` · ↓ ${conv.downloads}`;
   card.appendChild(meta);
 
-  // Description
   if (conv.description) {
     const desc = document.createElement('div');
     desc.className = 'share-card-desc';
@@ -290,7 +355,6 @@ function buildCard(conv: CommunityConversation): HTMLElement {
     card.appendChild(desc);
   }
 
-  // Actions
   const actions = document.createElement('div');
   actions.className = 'share-card-actions';
 
@@ -308,7 +372,7 @@ function buildCard(conv: CommunityConversation): HTMLElement {
 
 // ─── Import Card ──────────────────────────────────────────────────────────────
 
-function handleImportCard(conv: CommunityConversation, btn: HTMLButtonElement): void {
+async function handleImportCard(conv: CommunityConversation, btn: HTMLButtonElement): Promise<void> {
   const conversations = conv.data?.conversations;
   if (!conversations || conversations.length === 0) {
     alert('This entry has no conversation data.');
@@ -316,8 +380,8 @@ function handleImportCard(conv: CommunityConversation, btn: HTMLButtonElement): 
   }
 
   importConversations(conversations);
+  incrementDownload(conv.id);
 
-  // Visual feedback
   const original = btn.innerHTML;
   btn.disabled = true;
   setButtonContent(btn, 'success', 'Imported!');
@@ -329,33 +393,194 @@ function handleImportCard(conv: CommunityConversation, btn: HTMLButtonElement): 
 
 // ─── Download All XML ─────────────────────────────────────────────────────────
 
-function handleDownloadAll(): void {
+async function handleDownloadAll(): Promise<void> {
   if (activeFaction === 'all') return;
   const btn = getDownloadAllBtn();
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
 
-  const results = COMMUNITY_CONVERSATIONS.filter(c => c.faction === activeFaction);
-  if (results.length === 0) {
-    alert(`No ${FACTION_DISPLAY_NAMES[activeFaction as FactionId]} conversations to download.`);
-    return;
-  }
+  try {
+    const results = await fetchConversations(activeFaction);
+    if (results.length === 0) {
+      alert(`No ${FACTION_DISPLAY_NAMES[activeFaction as FactionId]} conversations to download.`);
+      return;
+    }
 
-  // Merge all conversations into a single project, re-numbering IDs
-  const mergedProject = createEmptyProject(activeFaction);
-  let nextId = 1;
-  for (const entry of results) {
-    for (const conv of (entry.data?.conversations ?? [])) {
-      const c = JSON.parse(JSON.stringify(conv));
-      c.id = nextId++;
-      mergedProject.conversations.push(c);
+    const mergedProject = createEmptyProject(activeFaction);
+    let nextId = 1;
+    for (const entry of results) {
+      for (const conv of (entry.data?.conversations ?? [])) {
+        const c = JSON.parse(JSON.stringify(conv));
+        c.id = nextId++;
+        mergedProject.conversations.push(c);
+      }
+    }
+
+    const factionKey = FACTION_XML_KEYS[activeFaction];
+    const xml = generateXml(mergedProject);
+    downloadFile(xml, `st_PANDA_${factionKey}_interactive_conversations.xml`, 'application/xml');
+
+    results.forEach(r => incrementDownload(r.id));
+  } catch (err) {
+    alert(`Download failed: ${err instanceof Error ? err.message : String(err)}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      setButtonContent(btn, 'download', 'Download All XML');
     }
   }
+}
 
-  const factionKey = FACTION_XML_KEYS[activeFaction];
-  const xml = generateXml(mergedProject);
-  downloadFile(xml, `st_PANDA_${factionKey}_interactive_conversations.xml`, 'application/xml');
+// ─── Publish Form ─────────────────────────────────────────────────────────────
 
-  if (btn) {
-    btn.disabled = true;
-    setTimeout(() => { btn.disabled = false; }, 1000);
+function buildPublishForm(): HTMLElement {
+  const form = document.createElement('div');
+  form.className = 'share-publish-form';
+  form.hidden = true;
+
+  const formHeader = document.createElement('div');
+  formHeader.className = 'share-publish-form-header';
+  formHeader.textContent = 'Publish to Community Library';
+  form.appendChild(formHeader);
+
+  const subtitle = document.createElement('div');
+  subtitle.className = 'share-publish-form-subtitle';
+  subtitle.textContent = 'Publishing the currently selected conversation.';
+  form.appendChild(subtitle);
+
+  const titleInput = makeFormField(form, 'Title', 'text', 'Conversation title (e.g. "Friendly Loner Job Offer")');
+  const authorInput = makeFormField(form, 'Author', 'text', 'Your name or handle (optional)');
+  const descInput = makeFormField(form, 'Description', 'textarea', 'Brief description of what this conversation does…');
+
+  const factionRow = document.createElement('div');
+  factionRow.className = 'share-form-field';
+  const factionLabel = document.createElement('label');
+  factionLabel.className = 'share-form-label';
+  factionLabel.textContent = 'Faction';
+  const factionValue = document.createElement('div');
+  factionValue.className = 'share-form-faction-display';
+  factionRow.append(factionLabel, factionValue);
+  form.appendChild(factionRow);
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'share-publish-btn-row';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'toolbar-button';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.onclick = () => { form.hidden = true; };
+
+  const submitBtn = document.createElement('button');
+  submitBtn.type = 'button';
+  submitBtn.className = 'toolbar-button btn-primary';
+  setButtonContent(submitBtn, 'export', 'Publish →');
+
+  btnRow.append(cancelBtn, submitBtn);
+  form.appendChild(btnRow);
+
+  const statusMsg = document.createElement('div');
+  statusMsg.className = 'share-publish-status';
+  form.appendChild(statusMsg);
+
+  submitBtn.onclick = async () => {
+    const conv = store.getSelectedConversation();
+    if (!conv) {
+      statusMsg.textContent = 'No conversation selected. Select a conversation in the left panel first.';
+      statusMsg.style.color = 'var(--danger)';
+      return;
+    }
+
+    const label = (titleInput as HTMLInputElement).value.trim() || conv.label || 'Untitled';
+    const author = (authorInput as HTMLInputElement).value.trim() || 'Anonymous';
+    const description = (descInput as HTMLTextAreaElement).value.trim();
+    const faction = store.get().project.faction;
+
+    submitBtn.disabled = true;
+    cancelBtn.disabled = true;
+    statusMsg.textContent = 'Publishing…';
+    statusMsg.style.color = 'var(--text-dim)';
+
+    try {
+      await publishConversation({
+        faction,
+        label,
+        description,
+        author,
+        data: {
+          version: store.get().project.version,
+          faction,
+          conversations: [conv],
+        },
+      });
+      statusMsg.textContent = 'Published successfully!';
+      statusMsg.style.color = 'var(--accent)';
+      setTimeout(() => {
+        form.hidden = true;
+        statusMsg.textContent = '';
+        if (activeFaction === 'all' || activeFaction === faction) {
+          loadConversations();
+        }
+      }, 1500);
+    } catch (err) {
+      statusMsg.textContent = err instanceof Error ? err.message : 'Publish failed.';
+      statusMsg.style.color = 'var(--danger)';
+    } finally {
+      submitBtn.disabled = false;
+      cancelBtn.disabled = false;
+    }
+  };
+
+  (form as HTMLElement & { prefill?: () => void }).prefill = () => {
+    const conv = store.getSelectedConversation();
+    const faction = store.get().project.faction;
+    (titleInput as HTMLInputElement).value = conv?.label || '';
+    (authorInput as HTMLInputElement).value = '';
+    (descInput as HTMLTextAreaElement).value = '';
+    factionValue.textContent = FACTION_DISPLAY_NAMES[faction];
+    factionValue.style.color = FACTION_COLORS[faction];
+    statusMsg.textContent = '';
+  };
+
+  return form;
+}
+
+function makeFormField(
+  container: HTMLElement,
+  labelText: string,
+  type: 'text' | 'textarea',
+  placeholder: string,
+): HTMLInputElement | HTMLTextAreaElement {
+  const row = document.createElement('div');
+  row.className = 'share-form-field';
+
+  const label = document.createElement('label');
+  label.className = 'share-form-label';
+  label.textContent = labelText;
+
+  let input: HTMLInputElement | HTMLTextAreaElement;
+  if (type === 'textarea') {
+    input = document.createElement('textarea');
+    input.rows = 3;
+  } else {
+    input = document.createElement('input');
+    (input as HTMLInputElement).type = 'text';
   }
+  input.className = 'share-form-input';
+  input.placeholder = placeholder;
+
+  row.append(label, input);
+  container.appendChild(row);
+  return input;
+}
+
+function showPublishForm(): void {
+  const conv = store.getSelectedConversation();
+  if (!conv) {
+    alert('Select a conversation in the left panel first, then click Publish.');
+    return;
+  }
+  const form = overlayEl?.querySelector<HTMLElement & { prefill?: () => void }>('.share-publish-form');
+  if (!form) return;
+  form.prefill?.();
+  form.hidden = false;
 }

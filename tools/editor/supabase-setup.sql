@@ -32,3 +32,12 @@ CREATE POLICY "Download increment"
   ON community_conversations FOR UPDATE
   USING (true)
   WITH CHECK (true);
+
+-- RPC function for atomic download counter increment (called by the API server)
+CREATE OR REPLACE FUNCTION increment_download(conv_id UUID)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  UPDATE community_conversations SET downloads = downloads + 1 WHERE id = conv_id;
+$$;
