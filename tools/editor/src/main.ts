@@ -10,7 +10,7 @@ const app = document.getElementById('app')!;
 renderApp(app);
 
 // ─── Focus-safe rendering ────────────────────────────────────────────────
-// The app does full DOM rebuilds. We must preserve focus across renders.
+// The app keeps the outer shell mounted, but focus still needs to survive section re-renders.
 
 function isEditableElement(el: Element | null): el is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement {
   return el instanceof HTMLInputElement ||
@@ -55,8 +55,8 @@ function safeRender(): void {
   restoreFocus(snap);
 }
 
-// Re-render on state changes, but skip while an input is focused to prevent
-// the DOM rebuild from stealing focus (the "tabs out after each keypress" bug).
+// Re-render on state changes, but skip while an input is focused so section updates
+// do not interrupt active editing (the "tabs out after each keypress" bug).
 let renderPending = false;
 
 store.subscribe(() => {
