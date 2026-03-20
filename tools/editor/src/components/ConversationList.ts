@@ -2,18 +2,18 @@
 
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { store } from '../lib/state';
-import { createEmptyState, setButtonContent } from './icons';
+import { setButtonContent } from './icons';
+import { createOnboardingNudge } from './Onboarding';
 
 export function renderConversationList(container: HTMLElement): void {
   const state = store.get();
   const convs = state.project.conversations;
 
   if (convs.length === 0) {
-    container.replaceChildren(createEmptyState(
-      'open',
-      'No conversations',
-      'Use New to create one, or import an XML file to populate the editor.'
-    ));
+    container.replaceChildren(createOnboardingNudge({
+      title: 'No conversations yet',
+      body: 'Kick off the onboarding flow with a blank project, import existing XML, or open the bundled sample pack to explore a complete conversation.',
+    }));
     return;
   }
 

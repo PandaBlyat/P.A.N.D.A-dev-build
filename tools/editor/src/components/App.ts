@@ -1,14 +1,14 @@
 // P.A.N.D.A. Conversation Editor — Root App Component
 
 import { store } from '../lib/state';
-import { generateXml } from '../lib/xml-export';
-import { importXml } from '../lib/xml-import';
 import { renderToolbar } from './Toolbar';
 import { renderConversationList } from './ConversationList';
 import { renderFlowEditor } from './FlowEditor';
 import { renderPropertiesPanel } from './PropertiesPanel';
 import { renderValidationBar } from './ValidationBar';
 import { renderBottomWorkspace } from './BottomWorkspace';
+import { shouldShowFirstRunExperience, renderFirstRunExperience } from './Onboarding';
+import { createBlankProject } from '../lib/project-io';
 import { setButtonContent } from './icons';
 
 const PANEL_MIN_WIDTH = 220;
@@ -44,13 +44,15 @@ let appShell: AppShell | null = null;
 
 export function renderApp(container: HTMLElement): void {
   const shell = getAppShell(container);
+  const state = store.get();
   const conv = store.getSelectedConversation();
+  const firstRun = state.project.conversations.length === 0 && shouldShowFirstRunExperience();
 
   shell.toolbarRegion.replaceChildren(renderToolbar());
 
   syncResponsiveLayout(shell.mainLayout);
   renderLeftPanel(shell);
-  renderCenterPanel(shell, conv);
+  renderCenterPanel(shell, conv, firstRun);
   renderRightPanel(shell);
   renderBottomRegion(shell);
 }
@@ -145,7 +147,7 @@ function renderLeftPanel(shell: AppShell): void {
   renderConversationList(shell.leftBody);
 }
 
-function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSelectedConversation>): void {
+function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSelectedConversation>, firstRun: boolean): void {
   shell.centerTitle.textContent = `Flow Editor${conv ? ` — ${conv.label}` : ''}`;
   shell.centerActions.replaceChildren();
 
@@ -164,6 +166,10 @@ function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSel
   }
 
   shell.centerBody.replaceChildren();
+  if (firstRun) {
+    renderFirstRunExperience(shell.centerBody);
+    return;
+  }
   renderFlowEditor(shell.centerBody);
 }
 
@@ -186,7 +192,7 @@ function createAddConversationButton(): HTMLButtonElement {
   const addBtn = document.createElement('button');
   addBtn.className = 'btn-sm';
   setButtonContent(addBtn, 'add', 'New');
-  addBtn.onclick = () => store.addConversation();
+  addBtn.onclick = () => createBlankProject();
   return addBtn;
 }
 
@@ -273,105 +279,8 @@ function clampWidth(value: number): number {
   return Math.max(PANEL_MIN_WIDTH, Math.min(PANEL_MAX_WIDTH, value));
 }
 
-/** Export project as .panda JSON file */
-export function exportProjectJson(): void {
-  const state = store.get();
-  const data = JSON.stringify({
-    ...state.project,
-    systemStrings: Object.fromEntries(state.systemStrings),
-  }, null, 2);
-  downloadFile(data, `panda_${state.project.faction}_conversations.panda`, 'application/json');
-}
-
-/** Export as game-ready XML */
-export function exportXml(): void {
-  const state = store.get();
-  const xml = generateXml(state.project, state.systemStrings);
-  const faction = state.project.faction === 'stalker' ? 'loner' : state.project.faction;
-  downloadFile(xml, `st_PANDA_${faction}_interactive_conversations.xml`, 'application/xml');
-}
-
-/** Import from XML file */
-export function importFromXml(): void {
-  openProjectFile('.xml', ['xml']);
-}
-
-/** Import from .panda JSON file */
-export function importFromJson(): void {
-  openProjectFile('.panda,.json,.xml', ['panda', 'json', 'xml']);
-}
-
-function openProjectFile(accept: string, preferredExtensions: string[]): void {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = accept;
-  input.onchange = () => {
-    const file = input.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const raw = reader.result as string;
-      const extension = getFileExtension(file.name);
-      const parseOrder = extension && preferredExtensions.includes(extension)
-        ? [extension, ...preferredExtensions.filter(ext => ext !== extension)]
-        : preferredExtensions;
-
-      const result = tryLoadProjectFile(raw, parseOrder);
-      if (!result) {
-        const expectedFormats = preferredExtensions.map(ext => `.${ext}`).join(', ');
-        alert(`Failed to parse project file. Supported formats: ${expectedFormats}.`);
-      }
-    };
-    reader.readAsText(file);
-  };
-  input.click();
-}
-
-function tryLoadProjectFile(raw: string, parseOrder: string[]): boolean {
-  for (const format of parseOrder) {
-    if (format === 'xml') {
-      const result = importXml(raw);
-      if (result) {
-        store.loadProject(result.project, result.systemStrings);
-        return true;
-      }
-      continue;
-    }
-
-    if (format === 'json' || format === 'panda') {
-      try {
-        const data = JSON.parse(raw);
-        const systemStrings = new Map<string, string>(Object.entries(data.systemStrings || {}));
-        delete data.systemStrings;
-        store.loadProject(data, systemStrings);
-        return true;
-      } catch {
-        continue;
-      }
-    }
-  }
-
-  return false;
-}
-
-function getFileExtension(filename: string): string | null {
-  const lastDot = filename.lastIndexOf('.');
-  if (lastDot === -1) return null;
-  return filename.slice(lastDot + 1).toLowerCase();
-}
-
 /** Merge conversations from the community library into the current project. */
 export function importConversations(conversations: import('../lib/types').Conversation[]): void {
   store.mergeConversations(conversations);
 }
 
-/** Download a string as a file (shared helper used by SharePanel). */
-export function downloadFile(content: string, filename: string, mimeType: string): void {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
