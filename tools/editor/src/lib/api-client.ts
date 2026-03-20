@@ -60,9 +60,12 @@ const SUPPORT_ROW_ID = 'global';
 const LOCAL_PUBLISH_COOLDOWN_MS = 60_000;
 const LOCAL_PUBLISH_KEY = 'panda-community-last-publish-at';
 
+
 function apiCandidates(path: string): string[] {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const candidates: string[] = [];
+
+  if (API_BASE_URL) candidates.push(`${API_BASE_URL}${normalizedPath}`);
 
   if (typeof window !== 'undefined') {
     const { hostname, origin, protocol } = window.location;
@@ -272,44 +275,31 @@ export async function incrementUpvote(id: string): Promise<void> {
   }
 }
 export async function fetchCreatorSupportStats(): Promise<CreatorSupportStats> {
-  try {
-    return await fetchFromApi<CreatorSupportStats>('/api/support/upvotes');
-  } catch (apiError) {
-    const params = new URLSearchParams({
-      select: 'id,upvotes,updated_at',
-      id: `eq.${SUPPORT_ROW_ID}`,
-      limit: '1',
-    });
+  const params = new URLSearchParams({
+    select: 'id,upvotes,updated_at',
+    id: `eq.${SUPPORT_ROW_ID}`,
+    limit: '1',
+  });
 
-    try {
-      const res = await fetch(`${sbEndpoint(SUPPORT_TABLE)}?${params}`, { headers: sbHeaders() });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message ?? body.error ?? `Failed to load creator support stats (${res.status})`);
-      }
-
-      const rows = await res.json() as CreatorSupportStats[];
-      return rows[0] ?? { id: SUPPORT_ROW_ID, upvotes: 0, updated_at: new Date(0).toISOString() };
-    } catch (directError) {
-      throw directError instanceof Error ? directError : apiError;
-    }
+  const res = await fetch(`${sbEndpoint(SUPPORT_TABLE)}?${params}`, { headers: sbHeaders() });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message ?? body.error ?? `Failed to load creator support stats (${res.status})`);
   }
+
+  const rows = await res.json() as CreatorSupportStats[];
+  return rows[0] ?? { id: SUPPORT_ROW_ID, upvotes: 0, updated_at: new Date(0).toISOString() };
 }
 
 export async function incrementCreatorSupportUpvote(): Promise<void> {
-  try {
-    await sendToApi('/api/support/upvote', { method: 'PATCH' });
-    return;
-  } catch {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_creator_support_upvote`, {
-      method: 'POST',
-      headers: sbHeaders(),
-      body: JSON.stringify({ support_id: SUPPORT_ROW_ID }),
-    });
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_creator_support_upvote`, {
+    method: 'POST',
+    headers: sbHeaders(),
+    body: JSON.stringify({ support_id: SUPPORT_ROW_ID }),
+  });
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.message ?? body.error ?? `Failed to upvote creator support (${res.status})`);
-    }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message ?? body.error ?? `Failed to upvote creator support (${res.status})`);
   }
 }

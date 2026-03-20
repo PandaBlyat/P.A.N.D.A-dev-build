@@ -3388,10 +3388,6 @@ hr {
   color: color-mix(in srgb, var(--success, #8ec07c) 72%, white 12%);
 }
 
-.support-upvote-status[data-state='warning'] {
-  color: color-mix(in srgb, var(--accent) 72%, white 16%);
-}
-
 .support-upvote-status[data-state='error'] {
   color: color-mix(in srgb, #ff9f8f 82%, white 10%);
 }

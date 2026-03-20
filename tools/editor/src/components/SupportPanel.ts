@@ -18,8 +18,7 @@ const SUPPORT_PANEL_COPY = {
   upvoteCta: 'Leave an upvote',
   upvoteDone: 'Upvoted — thank you!',
   upvoteLoading: 'Loading support count…',
-  upvoteUnavailable: 'Counter unavailable right now, but you can still leave an upvote.',
-  upvoteError: 'Could not save your upvote right now.',
+  upvoteError: 'Could not reach the support counter right now.',
   upvoteThanks: 'Thanks for the morale boost. It genuinely helps.',
 };
 const SUPPORT_UPVOTE_KEY = 'panda-creator-support-upvote';
@@ -31,8 +30,7 @@ let supportUpvoteButtonEl: HTMLButtonElement | null = null;
 let supportUpvoteCountEl: HTMLElement | null = null;
 let supportUpvoteStatusEl: HTMLElement | null = null;
 let supportUpvoteCount = 0;
-let supportUpvoteReady = false;
-let supportUpvoteCountAvailable = false;
+let supportUpvoteLoaded = false;
 let supportUpvoteBusy = false;
 
 export function openSupportPanel(): void {
@@ -40,8 +38,7 @@ export function openSupportPanel(): void {
 
   restoreFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   supportUpvoteCount = 0;
-  supportUpvoteReady = false;
-  supportUpvoteCountAvailable = false;
+  supportUpvoteLoaded = false;
   supportUpvoteBusy = false;
 
   const overlay = document.createElement('div');
@@ -194,22 +191,20 @@ export function closeSupportPanel(): void {
   supportUpvoteCountEl = null;
   supportUpvoteStatusEl = null;
   supportUpvoteCount = 0;
-  supportUpvoteReady = false;
-  supportUpvoteCountAvailable = false;
+  supportUpvoteLoaded = false;
   supportUpvoteBusy = false;
 }
 
 function renderSupportUpvoteState(message?: string): void {
   const hasVoted = hasSupportUpvoted();
   const hasError = message === SUPPORT_PANEL_COPY.upvoteError;
-  const isUnavailable = message === SUPPORT_PANEL_COPY.upvoteUnavailable;
 
   if (supportUpvoteCountEl) {
-    supportUpvoteCountEl.textContent = supportUpvoteCountAvailable ? new Intl.NumberFormat().format(supportUpvoteCount) : '—';
+    supportUpvoteCountEl.textContent = supportUpvoteLoaded ? new Intl.NumberFormat().format(supportUpvoteCount) : '—';
   }
 
   if (supportUpvoteButtonEl) {
-    supportUpvoteButtonEl.disabled = supportUpvoteBusy || hasVoted || !supportUpvoteReady;
+    supportUpvoteButtonEl.disabled = supportUpvoteBusy || hasVoted || !supportUpvoteLoaded;
     setButtonContent(
       supportUpvoteButtonEl,
       'support',
@@ -218,14 +213,8 @@ function renderSupportUpvoteState(message?: string): void {
   }
 
   if (supportUpvoteStatusEl) {
-    supportUpvoteStatusEl.textContent = message ?? (!supportUpvoteReady
-      ? SUPPORT_PANEL_COPY.upvoteLoading
-      : hasVoted
-        ? SUPPORT_PANEL_COPY.upvoteThanks
-        : !supportUpvoteCountAvailable
-          ? SUPPORT_PANEL_COPY.upvoteUnavailable
-          : '');
-    supportUpvoteStatusEl.dataset.state = hasError ? 'error' : isUnavailable ? 'warning' : !supportUpvoteReady ? 'loading' : hasVoted ? 'success' : 'idle';
+    supportUpvoteStatusEl.textContent = message ?? (!supportUpvoteLoaded ? SUPPORT_PANEL_COPY.upvoteLoading : hasVoted ? SUPPORT_PANEL_COPY.upvoteThanks : '');
+    supportUpvoteStatusEl.dataset.state = hasError ? 'error' : !supportUpvoteLoaded ? 'loading' : hasVoted ? 'success' : 'idle';
   }
 }
 
@@ -235,17 +224,16 @@ async function loadSupportUpvoteCount(): Promise<void> {
   try {
     const stats = await fetchCreatorSupportStats();
     supportUpvoteCount = stats.upvotes ?? 0;
-    supportUpvoteCountAvailable = true;
+    supportUpvoteLoaded = true;
+    renderSupportUpvoteState();
   } catch {
-    supportUpvoteCountAvailable = false;
-  } finally {
-    supportUpvoteReady = true;
-    renderSupportUpvoteState(supportUpvoteCountAvailable ? undefined : SUPPORT_PANEL_COPY.upvoteUnavailable);
+    supportUpvoteLoaded = false;
+    renderSupportUpvoteState(SUPPORT_PANEL_COPY.upvoteError);
   }
 }
 
 async function handleSupportUpvote(): Promise<void> {
-  if (supportUpvoteBusy || !supportUpvoteReady || hasSupportUpvoted()) return;
+  if (supportUpvoteBusy || !supportUpvoteLoaded || hasSupportUpvoted()) return;
 
   supportUpvoteBusy = true;
   renderSupportUpvoteState();
@@ -253,27 +241,14 @@ async function handleSupportUpvote(): Promise<void> {
   try {
     await incrementCreatorSupportUpvote();
     rememberSupportUpvote();
-
-    try {
-      const stats = await fetchCreatorSupportStats();
-      supportUpvoteCount = stats.upvotes ?? supportUpvoteCount + 1;
-      supportUpvoteCountAvailable = true;
-    } catch {
-      if (supportUpvoteCountAvailable) {
-        supportUpvoteCount += 1;
-      }
-    }
-
+    supportUpvoteCount += 1;
+    supportUpvoteLoaded = true;
     renderSupportUpvoteState(SUPPORT_PANEL_COPY.upvoteThanks);
   } catch {
     renderSupportUpvoteState(SUPPORT_PANEL_COPY.upvoteError);
   } finally {
     supportUpvoteBusy = false;
-    renderSupportUpvoteState(supportUpvoteStatusEl?.dataset.state === 'error'
-      ? SUPPORT_PANEL_COPY.upvoteError
-      : supportUpvoteCountAvailable
-        ? undefined
-        : SUPPORT_PANEL_COPY.upvoteUnavailable);
+    renderSupportUpvoteState(supportUpvoteStatusEl?.dataset.state === 'error' ? SUPPORT_PANEL_COPY.upvoteError : undefined);
   }
 }
 
