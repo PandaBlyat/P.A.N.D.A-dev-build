@@ -58,7 +58,9 @@ export function renderToolbar(): HTMLElement {
   });
   fileGroup.appendChild(exportXmlBtn);
   fileGroup.appendChild(sep());
-  fileGroup.appendChild(btn('share', 'Community', openSharePanel, 'Browse and import community conversations'));
+  fileGroup.appendChild(btn('share', 'Community', openSharePanel, 'Browse and import community conversations', {
+    classes: ['btn-community'],
+  }));
 
   projectTier.appendChild(fileGroup);
   toolbar.appendChild(projectTier);

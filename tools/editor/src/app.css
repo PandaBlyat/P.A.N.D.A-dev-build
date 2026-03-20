@@ -341,6 +341,22 @@ button:disabled:hover,
   box-shadow: 0 0 8px var(--danger-glow);
 }
 
+.btn-community {
+  border-color: #c4a030;
+  color: #e0c040;
+  background: linear-gradient(180deg, rgba(196, 160, 48, 0.12) 0%, rgba(160, 120, 20, 0.08) 100%);
+  text-shadow: 0 0 8px rgba(224, 192, 64, 0.25);
+}
+.btn-community:hover {
+  background: linear-gradient(180deg, rgba(224, 192, 64, 0.22) 0%, rgba(196, 160, 48, 0.12) 100%);
+  border-color: #e0c040;
+  box-shadow: 0 0 12px rgba(224, 192, 64, 0.3);
+  color: #f0d860;
+}
+.btn-community .ui-icon svg {
+  color: #e0c040;
+}
+
 .btn-sm {
   padding: 2px 8px;
   font-size: 11px;
@@ -789,7 +805,7 @@ label {
   border: 1px solid var(--node-border);
   border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.1s;
+  transition: border-color 0.2s, box-shadow 0.2s;
   box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.03);
   /* Left accent bar uses branch color */
   border-left: 3px solid var(--branch-color);
@@ -797,7 +813,6 @@ label {
 .turn-node:hover {
   border-color: color-mix(in srgb, var(--branch-color) 60%, transparent);
   box-shadow: var(--shadow-md), 0 0 12px var(--branch-glow);
-  transform: translateY(-1px);
 }
 .turn-node.selected {
   border-color: var(--branch-color);
@@ -817,8 +832,8 @@ label {
 }
 
 @keyframes node-glow {
-  0%, 100% { box-shadow: 0 0 0 2px var(--branch-glow), var(--shadow-md); }
-  50% { box-shadow: 0 0 0 3px var(--branch-glow), 0 0 20px var(--branch-glow), var(--shadow-md); }
+  0%, 100% { box-shadow: 0 0 0 2px var(--branch-glow), 0 0 14px var(--branch-glow), var(--shadow-md); }
+  50% { box-shadow: 0 0 0 2px var(--branch-glow), 0 0 20px var(--branch-glow), var(--shadow-md); }
 }
 
 .turn-header {
@@ -941,9 +956,9 @@ label {
   font-size: 9px;
   padding: 1px 5px;
   border-radius: 3px;
-  background: color-mix(in srgb, var(--branch-color, var(--accent-dim)) 25%, transparent);
-  color: var(--text-bright);
-  border: 1px solid color-mix(in srgb, var(--branch-color, var(--accent-dim)) 50%, transparent);
+  background: color-mix(in srgb, var(--badge-branch-color, var(--branch-color, var(--accent-dim))) 25%, transparent);
+  color: var(--badge-branch-color, var(--text-bright));
+  border: 1px solid color-mix(in srgb, var(--badge-branch-color, var(--branch-color, var(--accent-dim))) 50%, transparent);
 }
 
 .choice-branch-badge {

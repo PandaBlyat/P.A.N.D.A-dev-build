@@ -83,6 +83,19 @@ document.addEventListener('focusout', () => {
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
+  // Enter key in an editable field: flush any pending render so the UI updates
+  if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+    const active = document.activeElement;
+    if (active && isEditableElement(active) && app.contains(active)) {
+      // Don't intercept Enter in textareas (they need newlines)
+      if (active instanceof HTMLTextAreaElement) return;
+      if (renderPending) {
+        renderPending = false;
+        safeRender();
+      }
+      return;
+    }
+  }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
     e.preventDefault();
     store.undo();
