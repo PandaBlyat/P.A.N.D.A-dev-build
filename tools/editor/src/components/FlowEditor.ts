@@ -764,7 +764,7 @@ function renderTurnNode(options: {
     preview.textContent = choice.text || '(empty)';
     preview.style.setProperty('-webkit-line-clamp', String(layout.previewLines));
 
-    item.append(port, num, preview);
+    item.append(num, preview);
 
     // Badges
     if (choice.continueTo != null) {
@@ -796,6 +796,7 @@ function renderTurnNode(options: {
       item.appendChild(outBadge);
     }
 
+    item.appendChild(port);
     choicesList.appendChild(item);
 
     // NPC Reply — show below player choice in standard/detailed modes
@@ -1150,12 +1151,18 @@ function buildEdgePath(source: { x: number; y: number }, target: { x: number; y:
     return `M${source.x},${source.y} C${cp1x},${source.y + lane} ${cp2x},${target.y + lane} ${target.x},${target.y}`;
   }
 
-  const doglegX = Math.max(source.x, target.x) + 84 + Math.abs(lane);
-  const midY = source.y < target.y ? Math.min(source.y, target.y) - 30 - Math.abs(lane) : Math.max(source.y, target.y) + 30 + Math.abs(lane);
+  const leadOut = 26 + Math.max(0, laneOffset * 4);
+  const leadIn = 26 + Math.max(0, -laneOffset * 4);
+  const doglegX = Math.max(source.x + leadOut + 40, target.x + leadIn + 44, source.x + 78 + Math.abs(lane));
+  const midY = source.y < target.y
+    ? Math.min(source.y, target.y) - 30 - Math.abs(lane)
+    : Math.max(source.y, target.y) + 30 + Math.abs(lane);
+
   return [
     `M${source.x},${source.y}`,
-    `C${source.x + 26},${source.y} ${doglegX},${source.y + lane} ${doglegX},${midY}`,
-    `S${doglegX},${target.y + lane} ${target.x - 26},${target.y}`,
+    `H${source.x + leadOut}`,
+    `C${doglegX},${source.y} ${doglegX},${source.y + lane} ${doglegX},${midY}`,
+    `S${doglegX},${target.y + lane} ${target.x - leadIn},${target.y}`,
     `S${target.x - 12},${target.y} ${target.x},${target.y}`,
   ].join(' ');
 }
