@@ -819,8 +819,9 @@ label {
 
 .conv-item {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
   padding: 8px 10px;
   border-radius: var(--radius-lg);
   cursor: pointer;
@@ -829,10 +830,12 @@ label {
   transition: all 0.15s ease;
   position: relative;
 }
+
 .conv-item:hover {
   background: var(--bg-hover);
   border-color: var(--border-light);
 }
+
 .conv-item.selected {
   background: var(--bg-selected);
   border-color: var(--bg-selected-border);
@@ -840,14 +843,22 @@ label {
 }
 
 .conv-id {
+  flex: 0 0 auto;
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--accent);
   min-width: 20px;
   font-weight: bold;
+  line-height: 1.45;
+}
+
+.conv-text {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .conv-label {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -856,6 +867,7 @@ label {
 }
 
 .conv-meta {
+  display: block;
   font-size: 10px;
   color: var(--text-dim);
   font-family: var(--font-mono);
@@ -863,18 +875,6 @@ label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.conv-actions {
-  display: none;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.conv-item:hover .conv-actions,
-.conv-item.selected .conv-actions,
-.conv-item:focus-within .conv-actions {
-  display: flex;
 }
 
 /* ─── Flow Editor ──────────────────────────────────────── */
