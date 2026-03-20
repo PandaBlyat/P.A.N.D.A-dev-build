@@ -276,9 +276,25 @@ export async function incrementUpvote(id: string): Promise<void> {
   }
 }
 export async function fetchCreatorSupportStats(): Promise<CreatorSupportStats> {
-  return fetchFromApi<CreatorSupportStats>('/api/support/upvotes');
+  const params = new URLSearchParams({
+    select: 'id,upvotes,updated_at',
+    id: `eq.${SUPPORT_ROW_ID}`,
+    limit: '1',
+  });
+  const res = await fetch(`${sbEndpoint(SUPPORT_TABLE)}?${params}`, { headers: sbHeaders() });
+  if (!res.ok) throw new Error(`Failed to load support stats (${res.status})`);
+  const rows = await res.json() as CreatorSupportStats[];
+  return rows[0] ?? { id: SUPPORT_ROW_ID, upvotes: 0, updated_at: new Date(0).toISOString() };
 }
 
 export async function incrementCreatorSupportUpvote(): Promise<void> {
-  await sendToApi('/api/support/upvote', { method: 'PATCH' });
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_creator_support_upvote`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ support_id: SUPPORT_ROW_ID }),
+    });
+  } catch {
+    // Best-effort — ignore errors
+  }
 }
