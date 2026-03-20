@@ -430,6 +430,32 @@ class StateManager {
     this.finishProjectMutation({ revalidate: false });
   }
 
+  setTurnCustomLabel(conversationId: number, turnNumber: number, label: string): void {
+    const conv = this.getConversationById(conversationId);
+    const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
+    if (!turn) return;
+    this.pushUndo();
+    if (label.trim() === '') {
+      delete turn.customLabel;
+    } else {
+      turn.customLabel = label.trim();
+    }
+    this.finishProjectMutation({ revalidate: false });
+  }
+
+  setTurnColor(conversationId: number, turnNumber: number, color: string): void {
+    const conv = this.getConversationById(conversationId);
+    const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
+    if (!turn) return;
+    this.pushUndo();
+    if (color === '') {
+      delete turn.color;
+    } else {
+      turn.color = color;
+    }
+    this.finishProjectMutation({ revalidate: false });
+  }
+
   addChoice(conversationId: number, turnNumber: number): void {
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
     const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
