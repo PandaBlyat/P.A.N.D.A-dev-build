@@ -9,6 +9,8 @@ import { exportProjectJson, exportXml, importFromXml, importFromJson } from '../
 import { openSharePanel } from './SharePanel';
 import { openHelpModal } from './HelpModal';
 import { createIcon, setButtonContent, type IconName } from './icons';
+import { clearDraft } from '../lib/draft-storage';
+import { createEmptyProject } from '../lib/xml-export';
 
 type SearchResult = {
   label: string;
@@ -194,6 +196,20 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
     status.textContent = formatStatus(convCount, stringCount, isMobile, false);
   }
   utilityTier.appendChild(status);
+
+  const resetBtn = document.createElement('button');
+  resetBtn.type = 'button';
+  resetBtn.className = 'toolbar-button toolbar-icon-button btn-icon toolbar-reset-btn';
+  resetBtn.appendChild(createIcon('brand'));
+  resetBtn.title = 'Clear workspace and show the intro sequence';
+  resetBtn.setAttribute('aria-label', 'Reset to intro');
+  resetBtn.onclick = () => {
+    if (state.dirty && !window.confirm('You have unsaved changes. Clear workspace and return to the intro?')) return;
+    clearDraft();
+    store.loadProject(createEmptyProject('stalker'), new Map());
+  };
+  utilityTier.appendChild(resetBtn);
+
   toolbar.appendChild(utilityTier);
 
   return toolbar;

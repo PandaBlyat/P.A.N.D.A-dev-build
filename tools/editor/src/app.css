@@ -220,6 +220,16 @@ html, body {
   background: rgba(255,255,255,0.025);
 }
 
+.toolbar-reset-btn {
+  opacity: 0.45;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.toolbar-reset-btn:hover {
+  opacity: 1;
+  color: var(--accent);
+}
+
 .toolbar-overflow {
   position: relative;
 }
