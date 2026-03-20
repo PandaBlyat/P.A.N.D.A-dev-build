@@ -280,7 +280,8 @@ function renderBottomRegion(shell: AppShell): void {
   renderValidationBar(shell.validationRegion);
   shell.workspaceRegion.replaceChildren();
   renderBottomWorkspace(shell.workspaceRegion);
-  shell.tickerRegion.replaceChildren();
+  // Keep the ticker mounted across app refreshes so its marquee animation
+  // and current scroll position are not reset on every render.
   renderMotivationTicker(shell.tickerRegion);
 }
 
