@@ -67,3 +67,47 @@ SECURITY DEFINER
 AS $$
   UPDATE community_conversations SET upvotes = upvotes + 1 WHERE id = conv_id;
 $$;
+
+CREATE TABLE creator_support_metrics (
+  id TEXT PRIMARY KEY CHECK (id = 'global'),
+  upvotes INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO creator_support_metrics (id)
+VALUES ('global')
+ON CONFLICT (id) DO NOTHING;
+
+CREATE TRIGGER trg_creator_support_metrics_updated_at
+BEFORE UPDATE ON creator_support_metrics
+FOR EACH ROW EXECUTE FUNCTION set_updated_at_timestamp();
+
+ALTER TABLE creator_support_metrics ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public support read"
+  ON creator_support_metrics FOR SELECT
+  USING (true);
+
+CREATE POLICY "Support metric insert"
+  ON creator_support_metrics FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY "Support metric update"
+  ON creator_support_metrics FOR UPDATE
+  USING (true)
+  WITH CHECK (true);
+
+CREATE OR REPLACE FUNCTION increment_creator_support_upvote(support_id TEXT DEFAULT 'global')
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  INSERT INTO creator_support_metrics (id, upvotes)
+  VALUES (coalesce(support_id, 'global'), 1)
+  ON CONFLICT (id)
+  DO UPDATE SET
+    upvotes = creator_support_metrics.upvotes + 1,
+    updated_at = now();
+$$;
+
