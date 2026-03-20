@@ -19,14 +19,35 @@ export function renderConversationList(container: HTMLElement): void {
 
   const list = document.createElement('ul');
   list.className = 'conv-list';
+  list.setAttribute('role', 'listbox');
+  list.setAttribute('aria-label', 'Conversations');
 
   for (const conv of convs) {
+    const conversationLabel = conv.label || `Conversation ${conv.id}`;
     const item = document.createElement('li');
     item.className = 'conv-item' + (conv.id === state.selectedConversationId ? ' selected' : '');
+    item.tabIndex = 0;
+    item.setAttribute('role', 'option');
+    item.setAttribute('aria-selected', conv.id === state.selectedConversationId ? 'true' : 'false');
+    item.setAttribute('aria-label', `${conversationLabel}, ${conv.turns.length} turns`);
     item.onclick = (e) => {
       // Don't select if clicking action buttons
       if ((e.target as HTMLElement).closest('.conv-actions')) return;
       store.selectConversation(conv.id);
+    };
+    item.onkeydown = (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        store.selectConversation(conv.id);
+        return;
+      }
+
+      if ((event.key === 'Delete' || event.key === 'Backspace') && conv.id === store.get().selectedConversationId) {
+        event.preventDefault();
+        if (confirm(`Delete conversation ${conv.id}: "${conversationLabel}"?`)) {
+          store.deleteConversation(conv.id);
+        }
+      }
     };
 
     const id = document.createElement('span');
@@ -35,7 +56,7 @@ export function renderConversationList(container: HTMLElement): void {
 
     const label = document.createElement('span');
     label.className = 'conv-label';
-    label.textContent = conv.label || `Conversation ${conv.id}`;
+    label.textContent = conversationLabel;
 
     const actions = document.createElement('div');
     actions.className = 'conv-actions';
@@ -44,6 +65,7 @@ export function renderConversationList(container: HTMLElement): void {
     locateBtn.className = 'btn-icon btn-icon-labeled';
     setButtonContent(locateBtn, 'locate', 'Center');
     locateBtn.title = 'Center selection in flow editor';
+    locateBtn.setAttribute('aria-label', `Center ${conversationLabel} in the flow editor`);
     locateBtn.onclick = (e) => {
       e.stopPropagation();
       store.selectConversation(conv.id);
@@ -59,15 +81,17 @@ export function renderConversationList(container: HTMLElement): void {
     dupBtn.className = 'btn-icon btn-icon-labeled';
     setButtonContent(dupBtn, 'duplicate', 'Duplicate');
     dupBtn.title = 'Duplicate';
+    dupBtn.setAttribute('aria-label', `Duplicate ${conversationLabel}`);
     dupBtn.onclick = (e) => { e.stopPropagation(); store.duplicateConversation(conv.id); };
 
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-icon btn-icon-labeled btn-danger';
     setButtonContent(delBtn, 'delete', 'Delete');
     delBtn.title = 'Delete';
+    delBtn.setAttribute('aria-label', `Delete ${conversationLabel}`);
     delBtn.onclick = (e) => {
       e.stopPropagation();
-      if (confirm(`Delete conversation ${conv.id}: "${conv.label}"?`)) {
+      if (confirm(`Delete conversation ${conv.id}: "${conversationLabel}"?`)) {
         store.deleteConversation(conv.id);
       }
     };

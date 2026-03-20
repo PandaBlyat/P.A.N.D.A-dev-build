@@ -104,9 +104,13 @@ export function renderFlowEditor(container: HTMLElement): void {
 
   const canvas = document.createElement('div');
   canvas.className = 'flow-canvas';
+  canvas.setAttribute('role', 'region');
+  canvas.setAttribute('aria-label', `Conversation ${conv.id} flow graph`);
 
   const content = document.createElement('div');
   content.className = 'flow-content';
+  content.setAttribute('role', 'list');
+  content.setAttribute('aria-label', 'Conversation turns');
   content.style.width = `${bounds.width}px`;
   content.style.height = `${bounds.height}px`;
 
@@ -145,6 +149,8 @@ export function renderFlowEditor(container: HTMLElement): void {
         store.selectChoice(choiceIndex);
         startConnectionDrag(turn.turnNumber, choiceIndex, event);
       },
+      onFocusTurn: (turnNumber) => focusTurn(turnNumber, { center: true }),
+      onKeyboardShortcut: (turnNumber, key) => handleTurnShortcut(turnNumber, key),
     });
     nodeElements.set(turn.turnNumber, node);
     content.appendChild(node);
@@ -202,6 +208,65 @@ export function renderFlowEditor(container: HTMLElement): void {
   shell.appendChild(controls);
   shell.appendChild(minimap);
   container.appendChild(shell);
+
+  const focusTurn = (turnNumber: number, options: { center?: boolean } = {}): void => {
+    const node = nodeElements.get(turnNumber);
+    if (!node) return;
+    node.focus();
+    if (options.center) centerTurn(turnNumber, false);
+  };
+
+  const handleTurnShortcut = (turnNumber: number, key: string): void => {
+    const currentState = store.get();
+    const focusedTurn = conv.turns.find(item => item.turnNumber === turnNumber);
+    if (!focusedTurn) return;
+
+    if (key === 'add-turn') {
+      store.addTurn(conversationId);
+      requestAnimationFrame(() => {
+        const createdTurn = store.getSelectedTurn();
+        if (createdTurn) focusTurn(createdTurn.turnNumber, { center: true });
+      });
+      return;
+    }
+
+    if (key === 'add-choice') {
+      store.addChoice(conversationId, turnNumber);
+      store.selectTurn(turnNumber);
+      const updatedTurn = store.getSelectedTurn() ?? focusedTurn;
+      if (updatedTurn.choices.length > 0) {
+        store.selectChoice(updatedTurn.choices[updatedTurn.choices.length - 1]?.index ?? null);
+      }
+      requestAnimationFrame(() => focusTurn(turnNumber));
+      return;
+    }
+
+    if (key === 'disconnect-branch') {
+      const choiceIndex = currentState.selectedTurnNumber === turnNumber
+        ? (currentState.selectedChoiceIndex ?? focusedTurn.choices[0]?.index ?? null)
+        : (focusedTurn.choices[0]?.index ?? null);
+      if (choiceIndex != null) {
+        store.clearChoiceContinuation(conversationId, turnNumber, choiceIndex);
+        store.selectTurn(turnNumber);
+        store.selectChoice(choiceIndex);
+        requestAnimationFrame(() => focusTurn(turnNumber));
+      }
+      return;
+    }
+
+    if (key === 'connect-branch'
+      && currentState.selectedTurnNumber != null
+      && currentState.selectedChoiceIndex != null
+      && currentState.selectedTurnNumber !== turnNumber) {
+      store.connectChoiceToTurn(
+        conversationId,
+        currentState.selectedTurnNumber,
+        currentState.selectedChoiceIndex,
+        turnNumber,
+      );
+      requestAnimationFrame(() => focusTurn(turnNumber));
+    }
+  };
 
   const applyView = (): void => {
     content.style.transform = `translate(${viewState.panX}px, ${viewState.panY}px) scale(${viewState.zoom})`;
@@ -453,8 +518,10 @@ function renderTurnNode(options: {
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
   onPreviewPosition: (positions?: TurnPositionMap) => void;
   onChoicePortDragStart: (choiceIndex: number, event: MouseEvent) => void;
+  onFocusTurn: (turnNumber: number) => void;
+  onKeyboardShortcut: (turnNumber: number, key: 'add-turn' | 'add-choice' | 'connect-branch' | 'disconnect-branch') => void;
 }): HTMLElement {
-  const { conv, turn, selected, edges, density, viewState, turnLabels, onPreviewPosition, onChoicePortDragStart } = options;
+  const { conv, turn, selected, edges, density, viewState, turnLabels, onPreviewPosition, onChoicePortDragStart, onFocusTurn, onKeyboardShortcut } = options;
   const state = store.get();
   const layout = NODE_LAYOUTS[density];
   const hasWarning = turn.choices.some(c => !c.text && !c.reply);
@@ -468,6 +535,10 @@ function renderTurnNode(options: {
     + (hasWarning ? ' has-warning' : '')
     + (isPathActive ? ' path-active' : '');
   node.dataset.turnNumber = String(turn.turnNumber);
+  node.tabIndex = 0;
+  node.setAttribute('role', 'button');
+  node.setAttribute('aria-label', buildTurnAriaLabel(turn, turnLabels));
+  node.setAttribute('aria-pressed', selected ? 'true' : 'false');
   node.style.left = `${turn.position.x}px`;
   node.style.top = `${turn.position.y}px`;
   node.style.width = `${layout.width}px`;
@@ -476,6 +547,58 @@ function renderTurnNode(options: {
   node.onclick = (e) => {
     e.stopPropagation();
     store.selectTurn(turn.turnNumber);
+  };
+  node.onkeydown = (event) => {
+    if (event.target !== node) return;
+
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      store.selectTurn(turn.turnNumber);
+      return;
+    }
+
+    if (event.key === 'Backspace' || event.key === 'Delete') {
+      event.preventDefault();
+      const currentState = store.get();
+      if (currentState.selectedTurnNumber === turn.turnNumber && currentState.selectedChoiceIndex != null && turn.choices.length > 1) {
+        store.deleteChoice(conv.id, turn.turnNumber, currentState.selectedChoiceIndex);
+      } else if (turn.turnNumber > 1) {
+        store.deleteTurn(conv.id, turn.turnNumber);
+      }
+      return;
+    }
+
+    if (event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      const shortcut = event.key.toLowerCase();
+      if (shortcut === 't') {
+        event.preventDefault();
+        onKeyboardShortcut(turn.turnNumber, 'add-turn');
+        return;
+      }
+      if (shortcut === 'c') {
+        event.preventDefault();
+        onKeyboardShortcut(turn.turnNumber, 'add-choice');
+        return;
+      }
+      if (shortcut === 'l') {
+        event.preventDefault();
+        onKeyboardShortcut(turn.turnNumber, 'connect-branch');
+        return;
+      }
+      if (shortcut === 'd') {
+        event.preventDefault();
+        onKeyboardShortcut(turn.turnNumber, 'disconnect-branch');
+        return;
+      }
+    }
+
+    const direction = getArrowDirection(event.key);
+    if (!direction) return;
+
+    const nextTurn = findNearestTurn(conv.turns, turn.turnNumber, direction);
+    if (!nextTurn) return;
+    event.preventDefault();
+    onFocusTurn(nextTurn.turnNumber);
   };
 
   let dragPosition: { x: number; y: number } | null = null;
@@ -520,6 +643,7 @@ function renderTurnNode(options: {
   inputPort.type = 'button';
   inputPort.className = 'turn-input-port';
   inputPort.title = `Incoming connections for ${turnLabels.getLongLabel(turn.turnNumber)}`;
+  inputPort.setAttribute('aria-label', `Incoming connections for ${turnLabels.getLongLabel(turn.turnNumber)}`);
   inputPort.style.background = `linear-gradient(180deg, ${branchColor}cc, ${branchColor}99)`;
   inputPort.onclick = (event) => {
     event.stopPropagation();
@@ -611,6 +735,8 @@ function renderTurnNode(options: {
   choicesList.className = 'turn-choices-list';
   for (const choice of turn.choices) {
     const item = document.createElement('li');
+    item.setAttribute('role', 'group');
+    item.setAttribute('aria-label', `Choice ${choice.index}`);
     const choiceActive = selected && state.selectedChoiceIndex === choice.index;
     item.className = 'turn-choice-item' + (choiceActive ? ' selected' : '');
     item.onclick = (e) => {
@@ -623,6 +749,7 @@ function renderTurnNode(options: {
     port.type = 'button';
     port.className = 'choice-output-port';
     port.dataset.choicePort = String(choice.index);
+    port.setAttribute('aria-label', `Output connection for choice ${choice.index}`);
     port.title = choice.continueTo != null
       ? `Drag to change destination for Choice ${choice.index}`
       : `Drag to connect Choice ${choice.index} to another turn`;
@@ -709,6 +836,46 @@ function renderTurnNode(options: {
 
   node.appendChild(body);
   return node;
+}
+
+function buildTurnAriaLabel(
+  turn: Turn,
+  turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
+): string {
+  const opening = turn.openingMessage ? ` Opening message: ${truncate(turn.openingMessage, 80)}.` : '';
+  return `${turnLabels.getLongLabel(turn.turnNumber)}. ${turn.choices.length} choice${turn.choices.length === 1 ? '' : 's'}.${opening} Shift+T adds a turn, Shift+C adds a choice, Shift+L connects the selected branch here, Shift+D disconnects the current branch.`;
+}
+
+type ArrowDirection = 'left' | 'right' | 'up' | 'down';
+
+function getArrowDirection(key: string): ArrowDirection | null {
+  if (key === 'ArrowLeft') return 'left';
+  if (key === 'ArrowRight') return 'right';
+  if (key === 'ArrowUp') return 'up';
+  if (key === 'ArrowDown') return 'down';
+  return null;
+}
+
+function findNearestTurn(turns: Turn[], currentTurnNumber: number, direction: ArrowDirection): Turn | null {
+  const currentTurn = turns.find((item) => item.turnNumber === currentTurnNumber);
+  if (!currentTurn) return null;
+
+  const candidates = turns
+    .filter((item) => item.turnNumber !== currentTurnNumber)
+    .map((item) => {
+      const dx = item.position.x - currentTurn.position.x;
+      const dy = item.position.y - currentTurn.position.y;
+      return { item, dx, dy, score: Math.hypot(dx, dy) + (direction === 'left' || direction === 'right' ? Math.abs(dy) * 0.45 : Math.abs(dx) * 0.45) };
+    })
+    .filter(({ dx, dy }) => {
+      if (direction === 'left') return dx < -8;
+      if (direction === 'right') return dx > 8;
+      if (direction === 'up') return dy < -8;
+      return dy > 8;
+    })
+    .sort((a, b) => a.score - b.score);
+
+  return candidates[0]?.item ?? null;
 }
 
 function drawEdges(options: {

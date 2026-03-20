@@ -1,11 +1,16 @@
 // P.A.N.D.A. Conversation Editor — Help Modal
 
+import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon } from './icons';
 
 let modalElement: HTMLElement | null = null;
+let focusTrap: FocusTrapController | null = null;
+let restoreFocusEl: HTMLElement | null = null;
 
 export function openHelpModal(): void {
   if (modalElement) return;
+
+  restoreFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
   const overlay = document.createElement('div');
   overlay.className = 'help-overlay';
@@ -15,6 +20,9 @@ export function openHelpModal(): void {
 
   const modal = document.createElement('div');
   modal.className = 'help-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'help-modal-title');
 
   // Header
   const header = document.createElement('div');
@@ -22,6 +30,7 @@ export function openHelpModal(): void {
 
   const title = document.createElement('div');
   title.className = 'help-modal-title';
+  title.id = 'help-modal-title';
   title.append(createIcon('help'), document.createTextNode('P.A.N.D.A. — How To Write Conversations'));
   header.appendChild(title);
 
@@ -44,22 +53,22 @@ export function openHelpModal(): void {
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
   modalElement = overlay;
-
-  // Close on Escape
-  const onKeydown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      closeHelpModal();
-      document.removeEventListener('keydown', onKeydown);
-    }
-  };
-  document.addEventListener('keydown', onKeydown);
+  focusTrap = trapFocus(modal, {
+    restoreFocus: restoreFocusEl,
+    initialFocus: closeBtn,
+    onEscape: closeHelpModal,
+  });
 }
+
 
 function closeHelpModal(): void {
   if (modalElement) {
     modalElement.remove();
     modalElement = null;
   }
+  focusTrap?.release();
+  focusTrap = null;
+  restoreFocusEl = null;
 }
 
 const HELP_CONTENT = `

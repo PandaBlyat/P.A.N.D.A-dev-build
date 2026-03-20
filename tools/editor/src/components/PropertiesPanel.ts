@@ -231,7 +231,16 @@ function renderTurnProperties(
     card.className = 'choice-card';
     const header = document.createElement('div');
     header.className = 'choice-card-header';
+    header.tabIndex = 0;
+    header.setAttribute('role', 'button');
+    header.setAttribute('aria-label', `Edit Choice ${choice.index}`);
     header.onclick = () => store.selectChoice(choice.index);
+    header.onkeydown = (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        store.selectChoice(choice.index);
+      }
+    };
 
     const cardTitle = document.createElement('span');
     cardTitle.className = 'choice-card-title';
@@ -292,6 +301,7 @@ function renderChoiceProperties(
   // Back button
   const backBtn = document.createElement('button');
   backBtn.className = 'btn-sm';
+  backBtn.setAttribute('aria-label', `Back to ${turnLabels.getLongLabel(turn.turnNumber)}`);
   backBtn.textContent = `\u2190 Back to ${turnLabels.getLongLabel(turn.turnNumber)}`;
   backBtn.title = 'Return to turn overview';
   backBtn.onclick = () => store.selectChoice(null);
@@ -1643,6 +1653,7 @@ function sectionHeader(title: string, onAdd?: () => void): HTMLElement {
     const addBtn = document.createElement('button');
     addBtn.className = 'btn-sm';
     addBtn.textContent = '+ Add';
+    addBtn.setAttribute('aria-label', `Add a new ${title.toLowerCase().replace(/\s*\(.*/, '')}`);
     addBtn.title = `Add a new ${title.toLowerCase().replace(/\s*\(.*/, '')}`;
     addBtn.onclick = onAdd;
     header.appendChild(addBtn);
