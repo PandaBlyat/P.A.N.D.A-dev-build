@@ -17,26 +17,11 @@ import {
 import { COMMUNITY_CONVERSATIONS } from '../lib/community-data';
 import { FACTION_IDS } from '../lib/constants';
 import { FACTION_DISPLAY_NAMES, FACTION_XML_KEYS, type Conversation, type FactionId } from '../lib/types';
+import { FACTION_COLORS } from '../lib/faction-colors';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon, setButtonContent } from './icons';
 import { importConversations } from './App';
 import { downloadFile } from '../lib/project-io';
-
-const FACTION_COLORS: Record<FactionId, string> = {
-  stalker: '#ffd700',
-  dolg: '#ff4040',
-  freedom: '#40c840',
-  csky: '#87ceeb',
-  ecolog: '#ffff40',
-  killer: '#8080c8',
-  army: '#406440',
-  bandit: '#a0a0a0',
-  monolith: '#ffffff',
-  zombied: '#808080',
-  isg: '#6496c8',
-  renegade: '#c89664',
-  greh: '#c8a478',
-};
 
 type SortMode = 'newest' | 'upvoted';
 type LengthFilter = 'all' | 'short' | 'long';

@@ -10,6 +10,7 @@ import { renderBottomWorkspace } from './BottomWorkspace';
 import { shouldShowFirstRunExperience, renderFirstRunExperience } from './Onboarding';
 import { createBlankProject } from '../lib/project-io';
 import { setButtonContent } from './icons';
+import { getFactionThemeVariables } from '../lib/faction-colors';
 
 const PANEL_MIN_WIDTH = 220;
 const PANEL_MAX_WIDTH = 520;
@@ -67,6 +68,8 @@ export function renderApp(container: HTMLElement): void {
   const state = store.get();
   const conv = store.getSelectedConversation();
   const firstRun = state.project.conversations.length === 0 && shouldShowFirstRunExperience();
+
+  applyFactionTheme(container, state.project.faction);
 
   syncResponsiveLayout(shell.mainLayout);
   shell.toolbarRegion.replaceChildren(renderToolbar(layoutState.responsiveMode));
@@ -294,6 +297,19 @@ function updateOverlayState(shell: AppShell): void {
   shell.mainLayout.dataset.drawerOpen = String(drawerOpen);
   shell.mainLayout.classList.toggle('has-open-drawer', drawerOpen);
   shell.layoutScrim.hidden = !drawerOpen;
+}
+
+function applyFactionTheme(container: HTMLElement, faction: ReturnType<typeof store.get>['project']['faction']): void {
+  const theme = getFactionThemeVariables(faction);
+  container.style.setProperty('--accent', theme.accent);
+  container.style.setProperty('--accent-hover', theme.accentHover);
+  container.style.setProperty('--accent-dim', theme.accentDim);
+  container.style.setProperty('--accent-glow', theme.accentGlow);
+  container.style.setProperty('--accent-glow-strong', theme.accentGlowStrong);
+  container.style.setProperty('--bg-selected', theme.bgSelected);
+  container.style.setProperty('--bg-selected-border', theme.bgSelectedBorder);
+  container.style.setProperty('--edge-color', theme.edgeColor);
+  container.style.setProperty('--focus-ring', theme.focusRing);
 }
 
 function createAddConversationButton(): HTMLButtonElement {
