@@ -905,8 +905,9 @@ function drawEdges(options: {
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', buildEdgePath(sourceAnchor, targetAnchor, edge.offsetIndex));
     path.setAttribute('stroke', edge.color);
+    path.style.setProperty('--flow-edge-color', edge.color);
     path.setAttribute('class', `flow-edge-path ${edge.pathClassName} ${edge.highlight !== 'normal' ? `is-${edge.highlight}` : ''}`.trim());
-    path.setAttribute('marker-end', `url(#marker-${edge.kind})`);
+    path.setAttribute('marker-end', `url(#${ensureMarker(defs, edge.kind, edge.color)})`);
     path.dataset.sourceTurnNumber = String(edge.sourceTurnNumber);
     path.dataset.sourceChoiceIndex = String(edge.sourceChoiceIndex);
     path.dataset.targetTurnNumber = String(edge.targetTurnNumber);
@@ -933,6 +934,8 @@ function drawEdges(options: {
     labelButton.setAttribute('y', String(labelAnchor.y));
     labelButton.setAttribute('text-anchor', 'middle');
     labelButton.setAttribute('class', `flow-edge-label ${edge.textClassName} ${edge.highlight !== 'normal' ? `is-${edge.highlight}` : ''}`.trim());
+    labelButton.style.setProperty('--flow-edge-color', edge.color);
+    labelButton.style.setProperty('--flow-edge-label-color', edge.color);
     labelButton.textContent = edge.label;
     labelButton.onclick = (event) => {
       event.stopPropagation();
@@ -947,10 +950,13 @@ function drawEdges(options: {
   if (preview) {
     const sourceAnchor = getChoiceAnchor(preview.sourceTurnNumber, preview.sourceChoiceIndex, conv, nodeElements, positionOverrides);
     if (sourceAnchor) {
+      const previewColor = getTurnBranchColor(conv, preview.sourceTurnNumber) ?? BRANCH_PALETTE[0];
       const previewPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       previewPath.setAttribute('d', buildEdgePath(sourceAnchor, preview.cursor, 0));
       previewPath.setAttribute('class', 'flow-edge-path edge-preview');
-      previewPath.setAttribute('marker-end', 'url(#marker-continue)');
+      previewPath.setAttribute('stroke', previewColor);
+      previewPath.style.setProperty('--flow-edge-color', previewColor);
+      previewPath.setAttribute('marker-end', `url(#${ensureMarker(defs, 'continue', previewColor)})`);
       svg.appendChild(previewPath);
     }
   }
@@ -1025,7 +1031,7 @@ function buildEdgeDescriptors(
 
   for (const turn of conv.turns) {
     for (const choice of turn.choices) {
-      const targets = getChoiceTargets(choice);
+      const targets = getChoiceTargets(choice, conv);
       for (const target of targets) {
         const pairKey = `${turn.turnNumber}:${target.turnNumber}:${target.kind}`;
         const offsetIndex = pairCounts.get(pairKey) ?? 0;
@@ -1050,14 +1056,14 @@ function buildEdgeDescriptors(
   return edges;
 }
 
-function getChoiceTargets(choice: Choice): Array<{ turnNumber: number; label: string; color: string; kind: EdgeKind }> {
+function getChoiceTargets(choice: Choice, conv: Conversation): Array<{ turnNumber: number; label: string; color: string; kind: EdgeKind }> {
   const targets: Array<{ turnNumber: number; label: string; color: string; kind: EdgeKind }> = [];
 
   if (choice.continueTo != null) {
     targets.push({
       turnNumber: choice.continueTo,
       label: `C${choice.index}`,
-      color: 'var(--edge-color)',
+      color: getTurnBranchColor(conv, choice.continueTo) ?? BRANCH_PALETTE[0],
       kind: 'continue',
     });
   }
@@ -1072,7 +1078,7 @@ function getChoiceTargets(choice: Choice): Array<{ turnNumber: number; label: st
       targets.push({
         turnNumber: successTurn,
         label: 'ok',
-        color: 'var(--accent)',
+        color: getTurnBranchColor(conv, successTurn) ?? BRANCH_PALETTE[0],
         kind: 'pause-success',
       });
     }
@@ -1081,7 +1087,7 @@ function getChoiceTargets(choice: Choice): Array<{ turnNumber: number; label: st
       targets.push({
         turnNumber: failTurn,
         label: 'fail',
-        color: 'var(--danger)',
+        color: getTurnBranchColor(conv, failTurn) ?? BRANCH_PALETTE[0],
         kind: 'pause-fail',
       });
     }
@@ -1162,11 +1168,7 @@ function getLabelAnchor(source: { x: number; y: number }, target: { x: number; y
 }
 
 function createMarkerDefs(): SVGDefsElement {
-  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-  defs.appendChild(createMarker('marker-continue', '#5eaa3a'));
-  defs.appendChild(createMarker('marker-pause-success', '#5eaa3a'));
-  defs.appendChild(createMarker('marker-pause-fail', '#c44040'));
-  return defs;
+  return document.createElementNS('http://www.w3.org/2000/svg', 'defs');
 }
 
 function createMarker(id: string, color: string): SVGMarkerElement {
@@ -1184,6 +1186,22 @@ function createMarker(id: string, color: string): SVGMarkerElement {
   path.setAttribute('fill', color);
   marker.appendChild(path);
   return marker;
+}
+
+function getTurnBranchColor(conv: Conversation, turnNumber: number): string | null {
+  const targetIndex = conv.turns.findIndex(turn => turn.turnNumber === turnNumber);
+  if (targetIndex === -1) return null;
+  const targetTurn = conv.turns[targetIndex];
+  return getBranchColor(targetTurn, targetIndex);
+}
+
+function ensureMarker(defs: SVGDefsElement | null, kind: EdgeKind, color: string): string {
+  const markerId = `marker-${kind}-${color.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  if (!defs) return markerId;
+  if (!defs.querySelector(`[id="${markerId}"]`)) {
+    defs.appendChild(createMarker(markerId, color));
+  }
+  return markerId;
 }
 
 function viewportToWorldPoint(canvas: HTMLElement, viewState: ViewState, clientX: number, clientY: number): { x: number; y: number } {
