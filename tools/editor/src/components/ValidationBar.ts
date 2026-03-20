@@ -2,6 +2,7 @@
 
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { store } from '../lib/state';
+import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import type { ValidationMessage } from '../lib/types';
 import { createBadge, createControlContent, setButtonContent } from './icons';
 
@@ -38,7 +39,7 @@ export function renderValidationBar(container: HTMLElement): void {
       item.type = 'button';
       item.className = `validation-msg ${msg.level}`;
       const leading = msg.level === 'error' ? 'Error' : 'Warning';
-      item.innerHTML = `<strong>${leading} · ${formatLocation(msg)}</strong><span>${escapeHtml(msg.message)}</span>`;
+      item.innerHTML = `<strong>${leading} · ${formatLocation(msg)}</strong><span>${escapeHtml(formatMessage(msg))}</span>`;
       item.title = buildTooltip(msg);
       item.onclick = () => navigateToMessage(msg);
       highlights.appendChild(item);
@@ -80,7 +81,7 @@ export function createValidationWorkspaceContent(messages: ValidationMessage[]):
       const item = document.createElement('button');
       item.type = 'button';
       item.className = `validation-drawer-item ${msg.level}`;
-      item.innerHTML = `<strong>${formatLocation(msg)}</strong><span>${escapeHtml(msg.message)}</span><small>${escapeHtml(msg.code)}</small>`;
+      item.innerHTML = `<strong>${formatLocation(msg)}</strong><span>${escapeHtml(formatMessage(msg))}</span><small>${escapeHtml(msg.code)}</small>`;
       item.onclick = () => navigateToMessage(msg);
       list.appendChild(item);
     }
@@ -94,9 +95,31 @@ export function createValidationWorkspaceContent(messages: ValidationMessage[]):
 
 function formatLocation(msg: ValidationMessage): string {
   const parts = [`C${msg.conversationId}`];
-  if (msg.turnNumber != null) parts.push(`T${msg.turnNumber}`);
+  const conv = store.get().project.conversations.find(item => item.id === msg.conversationId);
+  const turnLabels = conv ? createTurnDisplayLabeler(conv) : null;
+  if (msg.turnNumber != null) parts.push(turnLabels?.getShortLabel(msg.turnNumber) ?? `T${msg.turnNumber}`);
   if (msg.choiceIndex != null) parts.push(`C${msg.choiceIndex}`);
   return `[${parts.join(' / ')}]`;
+}
+
+function formatMessage(msg: ValidationMessage): string {
+  const conv = store.get().project.conversations.find(item => item.id === msg.conversationId);
+  if (!conv || msg.turnNumber == null) return msg.message;
+
+  const turnLabels = createTurnDisplayLabeler(conv);
+  const replacements = [msg.turnNumber, 1]
+    .filter((turnNumber, index, values) => values.indexOf(turnNumber) === index)
+    .sort((a, b) => String(b).length - String(a).length);
+
+  let formatted = msg.message;
+  for (const turnNumber of replacements) {
+    formatted = formatted.replace(
+      new RegExp(`Turn ${turnNumber}(?!\\d)`, 'g'),
+      turnLabels.getDisplayLabel(turnNumber),
+    );
+  }
+
+  return formatted;
 }
 
 function buildTooltip(msg: ValidationMessage): string {

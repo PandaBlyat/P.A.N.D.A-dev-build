@@ -2,6 +2,7 @@
 
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { store, type FlowDensity } from '../lib/state';
+import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { FACTION_IDS } from '../lib/constants';
 import { FACTION_DISPLAY_NAMES } from '../lib/types';
 import { exportProjectJson, exportXml, importFromXml, importFromJson } from './App';
@@ -210,6 +211,7 @@ function buildSearchResults(query: string): SearchResult[] {
   const results: SearchResult[] = [];
 
   for (const conv of project.conversations) {
+    const turnLabels = createTurnDisplayLabeler(conv);
     const conversationText = `${conv.id} ${conv.label}`.toLowerCase();
     if (conversationText.includes(normalized)) {
       results.push({
@@ -226,7 +228,7 @@ function buildSearchResults(query: string): SearchResult[] {
       const turnText = `turn ${turn.turnNumber} ${turn.openingMessage || ''}`.toLowerCase();
       if (turnText.includes(normalized)) {
         results.push({
-          label: `C${conv.id} · Turn ${turn.turnNumber}`,
+          label: `C${conv.id} · ${turnLabels.getDisplayLabel(turn.turnNumber)}`,
           meta: truncate(turn.openingMessage || 'Select turn in flow editor', 72),
           onSelect: () => {
             store.selectConversation(conv.id);
@@ -241,7 +243,7 @@ function buildSearchResults(query: string): SearchResult[] {
         const haystack = `${choice.text} ${choice.reply} ${commandList} ${choice.continueTo ?? ''}`.toLowerCase();
         if (!haystack.includes(normalized)) continue;
         results.push({
-          label: `C${conv.id} · T${turn.turnNumber} · Choice ${choice.index}`,
+          label: `C${conv.id} · ${turnLabels.getShortLabel(turn.turnNumber)} · Choice ${choice.index}`,
           meta: truncate(choice.text || choice.reply || commandList || '(empty choice)', 72),
           onSelect: () => {
             store.selectConversation(conv.id);
