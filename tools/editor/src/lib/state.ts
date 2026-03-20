@@ -514,18 +514,22 @@ class StateManager {
   /**
    * Appends conversations from an external source into the current project,
    * re-assigning IDs to avoid conflicts with existing conversations.
+   * Returns the ID of the first imported conversation so callers can select it.
    */
-  mergeConversations(incoming: Conversation[]): void {
-    if (incoming.length === 0) return;
+  mergeConversations(incoming: Conversation[]): number | null {
+    if (incoming.length === 0) return null;
     this.pushUndo();
     const maxId = this.state.project.conversations.reduce((m, c) => Math.max(m, c.id), 0);
     let nextId = maxId + 1;
+    let firstId: number | null = null;
     for (const conv of incoming) {
       const merged: Conversation = JSON.parse(JSON.stringify(conv));
       merged.id = nextId++;
+      if (firstId === null) firstId = merged.id;
       this.state.project.conversations.push(merged);
     }
     this.finishProjectMutation();
+    return firstId;
   }
 
   setSystemString(key: string, value: string): void {

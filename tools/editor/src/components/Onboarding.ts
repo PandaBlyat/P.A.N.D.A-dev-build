@@ -10,11 +10,20 @@ type OnboardingCardOptions = {
 
 const CHECKLIST_ITEMS = [
   'Create a conversation',
-  'Edit preconditions',
-  'Write a reply',
-  'Link branches',
-  'Validate',
-  'Export XML',
+  'Wire preconditions',
+  'Write replies & branches',
+  'Link turns together',
+  'Validate your logic',
+  'Export game-ready XML',
+];
+
+const NARRATOR_LINES = [
+  'In the beginning, the Zone was created.',
+  'This has made a lot of people very angry and been widely regarded as a bad move.',
+  'Fortunately, a developer known only as Panda — who is, by his own remarkably humble admission, the single greatest modder the Zone has ever produced — built you this editor.',
+  'It is a curious fact that Panda named his mod after himself. This is not, as lesser minds might suggest, narcissism. It is simply that no other name in any language could adequately convey the system\'s majesty.',
+  'The P.A.N.D.A. editor knows where your conversations are going even when you do not. Especially when you do not.',
+  'So: relax, click a button below, and remember the two most important words in the English language…',
 ];
 
 export function shouldShowFirstRunExperience(): boolean {
@@ -28,24 +37,33 @@ export function renderFirstRunExperience(container: HTMLElement): void {
   const hero = document.createElement('div');
   hero.className = 'first-run-hero';
 
-  const eyebrow = document.createElement('div');
-  eyebrow.className = 'first-run-eyebrow';
-  eyebrow.textContent = 'What this editor does';
+  // ── Typewriter narrator ──────────────────────────────────────────────────
+  const narratorBox = document.createElement('div');
+  narratorBox.className = 'first-run-narrator';
+  const narratorCursor = document.createElement('span');
+  narratorCursor.className = 'first-run-narrator-cursor';
+  narratorCursor.textContent = '▌';
 
+  // ── DON'T PANIC title (hidden until narrator finishes) ───────────────────
   const title = document.createElement('h2');
-  title.className = 'first-run-title';
-  title.innerHTML = `DON’T <span>PANIC</span>`;
+  title.className = 'first-run-title hidden';
+  title.innerHTML = `DON'T <span class="panic-word">PANIC</span>`;
+
+  const subtitle = document.createElement('p');
+  subtitle.className = 'first-run-subtitle hidden';
+  subtitle.textContent = 'The P.A.N.D.A. Conversation Editor';
 
   const intro = document.createElement('p');
-  intro.className = 'first-run-intro';
-  intro.textContent = 'This improbably useful little console helps you map branching dialogue, wire preconditions, tune replies, validate the logic, and export ready-to-ship PANDA XML without fumbling through string tables by hand.';
+  intro.className = 'first-run-intro hidden';
+  intro.textContent = 'This improbably useful console helps you map branching dialogue, wire preconditions, tune replies, validate the logic, and export ready-to-ship XML — all without fumbling through string tables by hand.';
 
   const subcopy = document.createElement('p');
-  subcopy.className = 'first-run-subcopy';
-  subcopy.textContent = 'Think of it as a hitchhiker’s guide to conversation packs: calm, illuminated, and only mildly radioactive.';
+  subcopy.className = 'first-run-subcopy hidden';
+  subcopy.textContent = 'It won\'t make you a towel, but it will make your conversation packs considerably less likely to implode.';
 
+  // ── CTA buttons ──────────────────────────────────────────────────────────
   const ctas = document.createElement('div');
-  ctas.className = 'first-run-cta-row';
+  ctas.className = 'first-run-cta-row hidden';
 
   const blankBtn = document.createElement('button');
   blankBtn.className = 'btn btn-primary';
@@ -64,8 +82,15 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   ctas.append(blankBtn, importBtn, sampleBtn);
 
+  // ── Skip button ──────────────────────────────────────────────────────────
+  const skipBtn = document.createElement('button');
+  skipBtn.type = 'button';
+  skipBtn.className = 'first-run-skip-btn';
+  skipBtn.textContent = 'Skip intro →';
+
+  // ── Checklist ────────────────────────────────────────────────────────────
   const checklistWrap = document.createElement('div');
-  checklistWrap.className = 'first-run-checklist';
+  checklistWrap.className = 'first-run-checklist hidden';
 
   const checklistTitle = document.createElement('div');
   checklistTitle.className = 'first-run-checklist-title';
@@ -87,8 +112,9 @@ export function renderFirstRunExperience(container: HTMLElement): void {
   });
   checklistWrap.appendChild(checklist);
 
-  hero.append(eyebrow, title, intro, subcopy, ctas, checklistWrap);
+  hero.append(narratorBox, title, subtitle, intro, subcopy, ctas, checklistWrap, skipBtn);
 
+  // ── Orbit visualisation ──────────────────────────────────────────────────
   const orbit = document.createElement('div');
   orbit.className = 'first-run-orbit';
   orbit.setAttribute('aria-hidden', 'true');
@@ -97,12 +123,80 @@ export function renderFirstRunExperience(container: HTMLElement): void {
     <div class="first-run-orbit-ring ring-b"></div>
     <div class="first-run-orbit-ring ring-c"></div>
     <div class="first-run-orbit-core"></div>
+    <div class="first-run-orbit-core-label">42</div>
     <div class="first-run-orbit-dust dust-a"></div>
     <div class="first-run-orbit-dust dust-b"></div>
+    <div class="first-run-orbit-dust dust-c"></div>
+    <div class="first-run-orbit-sigil">P.A.N.D.A.</div>
   `;
 
   shell.append(hero, orbit);
   container.replaceChildren(shell);
+
+  // ── Typewriter animation ─────────────────────────────────────────────────
+  let cancelled = false;
+
+  function revealContent(): void {
+    narratorBox.classList.add('narrator-done');
+    title.classList.remove('hidden');
+    title.classList.add('reveal');
+    subtitle.classList.remove('hidden');
+    subtitle.classList.add('reveal');
+    skipBtn.hidden = true;
+
+    setTimeout(() => {
+      if (cancelled) return;
+      intro.classList.remove('hidden');
+      intro.classList.add('reveal');
+      subcopy.classList.remove('hidden');
+      subcopy.classList.add('reveal');
+    }, 400);
+
+    setTimeout(() => {
+      if (cancelled) return;
+      ctas.classList.remove('hidden');
+      ctas.classList.add('reveal');
+      checklistWrap.classList.remove('hidden');
+      checklistWrap.classList.add('reveal');
+    }, 800);
+  }
+
+  skipBtn.onclick = () => {
+    cancelled = true;
+    narratorBox.textContent = '';
+    narratorBox.classList.add('narrator-done');
+    revealContent();
+  };
+
+  async function typewriterSequence(): Promise<void> {
+    for (const line of NARRATOR_LINES) {
+      if (cancelled) return;
+
+      const lineEl = document.createElement('p');
+      lineEl.className = 'first-run-narrator-line';
+      narratorBox.appendChild(lineEl);
+      narratorBox.appendChild(narratorCursor);
+
+      for (let i = 0; i < line.length; i++) {
+        if (cancelled) return;
+        lineEl.textContent = line.slice(0, i + 1);
+        await delay(22 + Math.random() * 18);
+      }
+
+      narratorCursor.remove();
+      await delay(900);
+    }
+
+    if (!cancelled) {
+      revealContent();
+    }
+  }
+
+  typewriterSequence();
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 export function createOnboardingNudge(options: OnboardingCardOptions): HTMLElement {

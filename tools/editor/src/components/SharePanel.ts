@@ -710,7 +710,7 @@ async function handleImportCard(conv: CommunityConversation, btn: HTMLButtonElem
     return;
   }
 
-  importConversations(conversations);
+  importConversations(conversations, conv.faction);
   incrementDownload(conv.id);
 
   const match = allResults.find(entry => entry.id === conv.id);
