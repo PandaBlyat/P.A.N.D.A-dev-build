@@ -234,6 +234,17 @@ function buildToolbarRow(): HTMLElement {
   };
   row.appendChild(searchInput);
 
+  const refreshBtn = document.createElement('button');
+  refreshBtn.type = 'button';
+  refreshBtn.className = 'toolbar-button toolbar-icon-button btn-icon';
+  refreshBtn.appendChild(createIcon('undo'));
+  refreshBtn.title = 'Refresh the conversation list';
+  refreshBtn.onclick = () => {
+    allResults = [];
+    loadConversations();
+  };
+  row.appendChild(refreshBtn);
+
   const downloadAllBtn = document.createElement('button');
   downloadAllBtn.type = 'button';
   downloadAllBtn.className = 'toolbar-button share-download-all-btn';
@@ -517,9 +528,14 @@ function buildPublishForm(): HTMLElement {
       setTimeout(() => {
         form.hidden = true;
         statusMsg.textContent = '';
-        if (activeFaction === 'all' || activeFaction === faction) {
-          loadConversations();
+        // Switch to the published faction's view (or all) and reload
+        if (activeFaction !== 'all' && activeFaction !== faction) {
+          activeFaction = faction;
+          rebuildSidebar();
+          updateDownloadAllBtn();
         }
+        allResults = [];
+        loadConversations();
       }, 1500);
     } catch (err) {
       statusMsg.textContent = err instanceof Error ? err.message : 'Publish failed.';
