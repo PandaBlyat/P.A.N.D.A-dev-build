@@ -26,7 +26,6 @@
   --warning-glow: rgba(196, 160, 64, 0.15);
   --info: #4080c4;
   --node-border: #2a3a2a;
-  --edge-color: #3a7a2a;
   --font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --radius: 4px;
@@ -1269,7 +1268,7 @@ label {
 
 .flow-edge-path {
   fill: none;
-  stroke: var(--edge-color);
+  stroke: var(--flow-edge-color, var(--accent));
   stroke-width: 2;
   opacity: 0.72;
   stroke-linecap: round;
@@ -1294,7 +1293,7 @@ label {
 .flow-edge-path.is-active {
   opacity: 1;
   stroke-width: 3.2;
-  filter: drop-shadow(0 0 7px rgba(94, 170, 58, 0.35));
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--flow-edge-color, var(--accent)) 35%, transparent));
 }
 
 .flow-edge-path.is-muted {
@@ -1306,7 +1305,7 @@ label {
 }
 
 .flow-edge-label {
-  fill: var(--text-dim);
+  fill: var(--flow-edge-label-color, var(--text-dim));
   font-size: 10px;
   font-family: var(--font-mono);
   paint-order: stroke;
@@ -1314,14 +1313,6 @@ label {
   stroke-width: 3px;
   stroke-linejoin: round;
   transition: opacity 0.18s ease, fill 0.18s ease;
-}
-
-.flow-edge-label.edge-label-pause-success {
-  fill: var(--accent);
-}
-
-.flow-edge-label.edge-label-pause-fail {
-  fill: var(--danger);
 }
 
 .flow-edge-label.is-active {
@@ -2363,7 +2354,7 @@ hr {
 
 .flow-edge-path:hover,
 .flow-edge-label:hover {
-  filter: drop-shadow(0 0 8px rgba(94, 170, 58, 0.4));
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--flow-edge-color, var(--accent)) 40%, transparent));
 }
 
 .flow-edge-label {
