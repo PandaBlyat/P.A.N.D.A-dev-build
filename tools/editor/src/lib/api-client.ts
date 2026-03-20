@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Community Library API Client
-// All requests go through the local API server (/api/*).
-// Supabase credentials are kept server-side and never sent to the browser.
+// Calls Supabase REST API directly from the browser using the publishable anon key.
+// Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.
 
 import type { Conversation, FactionId } from './types';
 
@@ -18,22 +18,38 @@ export type CommunityConversation = {
 
 export type PublishPayload = Omit<CommunityConversation, 'id' | 'downloads' | 'created_at'>;
 
-// In production, set VITE_API_URL to your deployed API server URL (e.g. https://my-api.railway.app).
-// In dev, leave it unset — Vite proxies /api to localhost:3001 automatically.
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const TABLE = 'community_conversations';
+
+function sbHeaders(): Record<string, string> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error('VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set in .env');
+  }
+  return {
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'Content-Type': 'application/json',
+  };
+}
+
+function sbEndpoint(path: string): string {
+  if (!SUPABASE_URL) throw new Error('VITE_SUPABASE_URL is not set');
+  return `${SUPABASE_URL}/rest/v1/${path}`;
+}
 
 /**
  * Fetch community conversations, optionally filtered by faction.
  * Returns newest-first.
  */
 export async function fetchConversations(faction?: FactionId): Promise<CommunityConversation[]> {
-  const params = new URLSearchParams();
-  if (faction) params.set('faction', faction);
+  const params = new URLSearchParams({ select: '*', order: 'created_at.desc' });
+  if (faction) params.set('faction', `eq.${faction}`);
 
-  const res = await fetch(`${API_BASE}/api/conversations?${params}`);
+  const res = await fetch(`${sbEndpoint(TABLE)}?${params}`, { headers: sbHeaders() });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `Failed to load conversations (${res.status})`);
+    throw new Error(body.message ?? body.error ?? `Failed to load conversations (${res.status})`);
   }
   return res.json() as Promise<CommunityConversation[]>;
 }
@@ -42,14 +58,14 @@ export async function fetchConversations(faction?: FactionId): Promise<Community
  * Publish a conversation to the community library.
  */
 export async function publishConversation(payload: PublishPayload): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/conversations`, {
+  const res = await fetch(sbEndpoint(TABLE), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...sbHeaders(), 'Prefer': 'return=minimal' },
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `Failed to publish (${res.status})`);
+    throw new Error(body.message ?? body.error ?? `Failed to publish (${res.status})`);
   }
 }
 
@@ -59,7 +75,11 @@ export async function publishConversation(payload: PublishPayload): Promise<void
  */
 export async function incrementDownload(id: string): Promise<void> {
   try {
-    await fetch(`${API_BASE}/api/conversations/${id}/download`, { method: 'PATCH' });
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_download`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ conv_id: id }),
+    });
   } catch {
     // Best-effort — ignore errors
   }
