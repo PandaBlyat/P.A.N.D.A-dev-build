@@ -7,11 +7,51 @@ export const narratorMessages = [
   'This is the sort of steady forward motion historians later describe as inevitable, mostly because they skip the awkward bits.',
   'The panel lights suggest confidence. This is not the same as confidence, but it photographs similarly.',
   'A reassuring voice from nowhere observes that the universe remains large, indifferent, and oddly supportive of good version control.',
+  'The Encyclopedia Galactica defines the word hubris as attempting to construct a fifty-node dialogue matrix without pressing save. The Guide simply defines it as amusing.',
+  'In many of the more relaxed civilizations of the Outer Eastern Rim, mapping out human conversation is considered a form of mild, socially acceptable torture.',
+  'You are attempting to simulate a rational conversation. A bold choice, considering most biological lifeforms have not quite figured out how to do this in real life yet.',
+  'Space is big. You just will not believe how vastly, hugely, mind-bogglingly big it is. Your current logic error, by comparison, is incredibly small, yet somehow infinitely more annoying.',
+  'The structural complexity of your current project has just surpassed that of a Vogon tax return. Please proceed with extreme caution and a towel.',
+  'Any sudden, inexplicable logic errors are likely the result of a localized improbability field, or possibly just a missing comma. The Universe makes no distinction.',
+  'It is a curious fact that no matter how carefully you design a branching narrative, someone will inevitably try to click an option that simply says Window.',
+  'You have successfully created an infinite dialogue loop. This is a perfectly symmetrical waste of time, widely celebrated in the poetry of the Betelgeuse system.',
+  'The interface is designed to be entirely user-friendly. In this context, friendly merely means it will not actively try to bite you, which is a staggering improvement over earlier versions.',
+  'Please remain calm. The large, friendly letters generally associated with this sort of thing are currently out for cleaning, but the sentiment remains firmly in place.',
+  'A sophisticated algorithm has determined that you are about to have a brilliant creative breakthrough. The algorithm is currently drunk, but it means well.',
+  'If you find yourself staring blankly at the screen, rest assured that this is a recognized meditative practice on Alpha Centauri, where it is known as Waiting for the Compiler.',
+  'The Guide notes that arranging little colored boxes with lines between them is currently the seventh most popular way to avoid thinking about the inevitable heat death of the universe.',
+  'The hyper-intelligent pan-dimensional beings who originally commissioned this software would like to apologize for the inconvenience.',
+  'You are currently making choices. This is largely considered a bad move in the broader galactic scheme, but you seem to be enjoying it, so carry on.',
+  'A gentle reminder from the shipboard computer that slamming your head against the keyboard generates a string of characters that is rarely compiled successfully.',
+  'The Sirius Cybernetics Corporation defines a successful user experience as one that ends with only minor sobbing.',
+  'Inserting a Babel fish into your audio port will not make your dialogue any better, but it will certainly confuse the fish.',
+  'If your logic branches cross over each other three more times, you will legally summon a minor deity of bureaucracy.',
+  'A supercomputer once spent seven and a half million years calculating the perfect dialogue response, only to output the word potato.',
+  'Time is an illusion. Software release deadlines are doubly so.',
+  'There is an art to creating dialogue trees. It consists of throwing your ideas at the screen and missing the ground entirely.',
+  'The editor is currently synthesizing a fluid that is almost, but not quite, entirely unlike productivity.',
+  'The official galactic assessment of your latest narrative update has been formally upgraded from Harmless to Mostly Harmless.',
+  'It is highly recommended that you do not think too hard about how the variable flags resolve, lest your brain quietly migrate to your left ear.',
+  'Remember to always know where your towel is, especially when attempting to debug a conditional logic gate.',
+  'The answer to the ultimate question of life, the universe, and this specific dialogue branch is currently throwing a null pointer exception.',
+  'In an infinite multiverse, there is theoretically a universe where this software works exactly as intended. We currently do not live in it.',
+  'The pan-dimensional mice observing your progress are generally unimpressed with your use of boolean operators.',
+  'Your latest conversation path is currently ranking just below Vogon poetry in terms of emotional damage caused to the reader.',
+  'Pushing buttons and hoping something wonderful happens is the foundation of all modern galactic engineering.',
+  'A nearby potted petunia was recently heard thinking, Oh no, not another infinite loop.',
+  'The Guide considers saving your work every five minutes to be a sign of weak moral character, but suggests you do it anyway.',
+  'At this exact moment, a small moon in the Pleiades system is collapsing. Your missing text string is entirely unrelated, but still unfortunate.',
+  'Anyone who is capable of getting themselves made President should on no account be allowed to write branching dialogue.',
+  'Please do not press that button again. The shipboard computer is getting a headache.',
+  'You may notice a slight humming noise. This is the sound of the software pretending it knows exactly what you are doing.',
+  'It is a well-known scientific fact that the exact moment you are perfectly satisfied with a dialogue tree is precisely three seconds before you realize you left out the main character.'
 ] as const;
 
 let tickerRoot: HTMLElement | null = null;
 let tickerTrack: HTMLDivElement | null = null;
-let currentMessageIndex = 0;
+
+// Starts on a random message instead of index 0
+let currentMessageIndex = Math.floor(Math.random() * narratorMessages.length);
 let renderedMessageIndex: number | null = null;
 let rotationTimer: number | null = null;
 
@@ -73,7 +113,14 @@ function ensureTickerTimer(): void {
   }
 
   rotationTimer = window.setInterval(() => {
-    currentMessageIndex = (currentMessageIndex + 1) % narratorMessages.length;
+    let randomIndex = Math.floor(Math.random() * narratorMessages.length);
+    
+    // Make sure we never show the exact same message twice in a row
+    while (randomIndex === currentMessageIndex) {
+      randomIndex = Math.floor(Math.random() * narratorMessages.length);
+    }
+    
+    currentMessageIndex = randomIndex;
     updateTickerMessage();
   }, DEFAULT_TICKER_INTERVAL_MS);
 }
