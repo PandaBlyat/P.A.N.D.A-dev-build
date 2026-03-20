@@ -2365,6 +2365,10 @@ hr {
   z-index: 10;
 }
 
+.share-publish-form[hidden] {
+  display: none;
+}
+
 .share-publish-form-header {
   font-size: 14px;
   font-weight: 600;
