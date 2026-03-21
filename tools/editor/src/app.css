@@ -225,13 +225,28 @@ html, body {
 }
 
 .toolbar-reset-btn {
-  opacity: 0.45;
-  transition: opacity 0.2s, color 0.2s;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 8px 10px;
+  opacity: 0.72;
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--warning) 22%, var(--border-light));
+  background: linear-gradient(180deg, rgba(44, 50, 62, 0.96) 0%, rgba(24, 30, 38, 0.96) 100%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 10%, transparent), 0 0 12px rgba(255, 196, 92, 0.12);
+  transition: opacity 0.2s, color 0.2s, transform 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .toolbar-reset-btn:hover {
   opacity: 1;
-  color: var(--accent);
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--border-light));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 24%, transparent), 0 0 18px rgba(255, 196, 92, 0.2);
+  transform: translateY(-1px);
+}
+
+.toolbar-reset-btn .ui-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .toolbar-overflow {
@@ -464,19 +479,63 @@ button:disabled:hover,
   color: var(--accent-hover);
 }
 
+@keyframes toolbar-support-heartbeat {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), 0 0 14px rgba(84, 214, 255, 0.24);
+  }
+  14% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent), 0 0 24px rgba(84, 214, 255, 0.34);
+  }
+  28% {
+    transform: scale(1);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), 0 0 14px rgba(84, 214, 255, 0.24);
+  }
+  42% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 56%, transparent), 0 0 28px rgba(84, 214, 255, 0.42);
+  }
+  56% {
+    transform: scale(1);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), 0 0 14px rgba(84, 214, 255, 0.24);
+  }
+}
+
 .toolbar-support-trigger {
+  min-width: 46px;
+  min-height: 46px;
+  padding: 9px 12px;
   color: var(--accent);
-  opacity: 0.7;
-  transition: opacity 0.2s, color 0.2s;
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--accent) 58%, white 6%);
+  background: radial-gradient(circle at 50% 20%, rgba(140, 236, 255, 0.3) 0%, rgba(36, 52, 68, 0.94) 42%, rgba(17, 24, 31, 0.98) 100%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), 0 0 14px rgba(84, 214, 255, 0.24), inset 0 0 18px rgba(132, 225, 255, 0.14);
+  animation: toolbar-support-heartbeat 1.9s ease-in-out infinite;
+  transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 
 .toolbar-support-trigger:hover {
-  opacity: 1;
   color: var(--accent-hover);
+  border-color: color-mix(in srgb, var(--accent-hover) 72%, white 10%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-hover) 34%, transparent), 0 0 22px rgba(120, 229, 255, 0.45), inset 0 0 22px rgba(152, 236, 255, 0.18);
+  filter: saturate(1.12) brightness(1.06);
+}
+
+.toolbar-support-trigger .ui-icon {
+  width: 20px;
+  height: 20px;
 }
 
 .toolbar-support-trigger .ui-icon svg {
-  color: var(--accent);
+  color: currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toolbar-support-trigger {
+    animation: none;
+  }
 }
 
 .btn-sm {
