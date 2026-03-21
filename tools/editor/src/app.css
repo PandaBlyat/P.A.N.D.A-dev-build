@@ -1056,6 +1056,7 @@ label {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
+  contain: layout paint;
   -webkit-mask-image: linear-gradient(90deg, transparent 0, black 3%, black 97%, transparent 100%);
   mask-image: linear-gradient(90deg, transparent 0, black 3%, black 97%, transparent 100%);
 }
@@ -1065,31 +1066,17 @@ label {
   max-width: none;
   white-space: nowrap;
   will-change: transform;
-  transform: translate3d(var(--ticker-start-x, 0px), 0, 0);
+  transform: translate3d(0, 0, 0);
   color: var(--accent);
-  text-shadow: 0 0 10px rgba(0, 0, 0, 0.28);
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.22);
   backface-visibility: hidden;
 }
 
-.motivation-ticker-track.is-animating {
-  animation: ticker-marquee var(--ticker-duration, 24000ms) linear infinite;
-}
-
-@keyframes ticker-marquee {
-  from {
-    transform: translate3d(var(--ticker-start-x, 0px), 0, 0);
-  }
-  to {
-    transform: translate3d(var(--ticker-end-x, 100%), 0, 0);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .motivation-ticker-track,
-  .motivation-ticker-track.is-animating {
-    animation: none;
+  .motivation-ticker-track {
     transform: none;
     white-space: normal;
+    will-change: auto;
   }
 }
 
