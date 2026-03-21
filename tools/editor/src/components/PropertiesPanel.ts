@@ -54,7 +54,7 @@ export function renderPropertiesPanel(container: HTMLElement): void {
   if (!conv) {
     container.replaceChildren(createOnboardingNudge({
       title: 'No properties to edit yet',
-      body: 'Use the onboarding flow to start a blank project, import XML, or inspect the sample pack, then edit preconditions, replies, and branch data here.',
+      body: 'Use the onboarding flow to start a blank project, import XML, or pull in a Community Library conversation, then edit preconditions, replies, and branch data here.',
     }));
     return;
   }
