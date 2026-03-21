@@ -1175,32 +1175,63 @@ label {
   cursor: pointer;
   border: 1px solid transparent;
   margin-bottom: 3px;
-  transition: all 0.15s ease;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
   position: relative;
+  overflow: hidden;
+  isolation: isolate;
 }
 
-.conv-item:hover {
-  background: var(--bg-hover);
-  border-color: var(--border-light);
-  box-shadow: inset 2px 0 0 var(--accent-dim);
+.conv-item::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: calc(var(--radius-lg) - 1px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.08) 24%, rgba(255, 255, 255, 0) 52%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.conv-item:hover:not(.selected) {
+  background: color-mix(in srgb, var(--bg-hover) 88%, var(--accent) 12%);
+  border-color: color-mix(in srgb, var(--border-light) 78%, var(--accent) 22%);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent-dim) 80%, transparent), 0 6px 14px rgba(0, 0, 0, 0.16);
+  transform: translateX(1px);
 }
 
 .conv-item.selected {
-  background: var(--bg-selected);
-  border-color: var(--bg-selected-border);
-  box-shadow: inset 3px 0 0 var(--accent), 0 0 8px var(--accent-glow);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-hover) 24%, #f7fafc 76%) 0%, color-mix(in srgb, var(--accent) 18%, #eef3f7 82%) 52%, color-mix(in srgb, var(--accent) 14%, #dde6ee 86%) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 62%);
+  border-color: color-mix(in srgb, var(--accent) 32%, #f4f8fc 68%);
+  box-shadow: 0 10px 22px rgba(4, 8, 12, 0.26), 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+.conv-item.selected::before {
+  opacity: 1;
+}
+
+.conv-item.selected::after {
+  content: '';
+  position: absolute;
+  inset: 1px auto 1px 0;
+  width: 4px;
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-hover) 58%, white 42%) 0%, var(--accent) 100%);
+  box-shadow: 0 0 12px var(--accent-glow);
+  pointer-events: none;
 }
 
 .conv-item.selected .conv-id {
-  background: color-mix(in srgb, var(--accent) 24%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 44%, transparent);
-  color: var(--accent-hover);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.34) 100%), color-mix(in srgb, var(--accent) 16%, #ffffff 84%);
+  border-color: color-mix(in srgb, var(--accent) 42%, #87919c 58%);
+  color: #11161d;
 }
 .conv-item.selected .conv-label {
-  color: var(--text-bright);
+  color: #090d12;
 }
 .conv-item.selected .conv-meta {
-  color: var(--text);
+  color: color-mix(in srgb, #11161d 76%, var(--accent) 24%);
 }
 
 .conv-id {
