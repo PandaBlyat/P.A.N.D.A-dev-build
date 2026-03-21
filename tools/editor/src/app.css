@@ -3649,14 +3649,16 @@ hr {
   text-align: center;
   gap: 1.5rem;
   padding: 2.5rem 1.5rem;
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
-  border-left: 3px solid var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  border-left: 3px solid color-mix(in srgb, var(--accent) 84%, white 10%);
   background:
+    radial-gradient(circle at top, color-mix(in srgb, var(--accent) 18%, transparent) 0%, transparent 58%),
     linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, rgba(28, 36, 48, 0.94)) 0%, rgba(18, 24, 32, 0.96) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
-    0 0 20px color-mix(in srgb, var(--accent) 8%, transparent);
+    0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 0 20px color-mix(in srgb, var(--accent) 10%, transparent),
+    0 0 42px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .support-highlight-upvote-copy {
@@ -3684,21 +3686,34 @@ hr {
 
 .support-upvote-count-box {
   min-width: 184px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
-  background: rgba(9, 12, 17, 0.42);
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  background:
+    radial-gradient(circle at 50% 24%, color-mix(in srgb, var(--accent) 22%, transparent) 0%, transparent 62%),
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, rgba(14, 18, 26, 0.92)) 0%, rgba(8, 11, 16, 0.82) 100%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 18%, transparent),
+    inset 0 -10px 24px color-mix(in srgb, rgba(0, 0, 0, 0.45) 75%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 0 28px color-mix(in srgb, var(--accent) 14%, transparent);
   text-align: center;
 }
 
 .support-upvote-count {
   display: block;
-  font-size: 3.5rem;
-  line-height: 1;
+  font-size: clamp(4rem, 8vw, 4.75rem);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
-  color: var(--accent);
-  text-shadow: 0 4px 24px color-mix(in srgb, var(--accent) 30%, transparent);
-  margin-bottom: 0.5rem;
+  color: color-mix(in srgb, var(--accent) 68%, #f6fbff 32%);
+  text-shadow:
+    0 0 6px color-mix(in srgb, #f6fbff 78%, var(--accent) 22%),
+    0 0 18px color-mix(in srgb, var(--accent) 52%, transparent),
+    0 0 38px color-mix(in srgb, var(--accent) 24%, transparent);
+  margin-bottom: 0.4rem;
+  overflow-wrap: anywhere;
 }
 
 .support-upvote-count-label {
@@ -3707,7 +3722,7 @@ hr {
   font-size: 0.85rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--accent) 58%, var(--text-dim));
+  color: color-mix(in srgb, var(--accent) 66%, var(--text-dim));
 }
 
 .support-upvote-button {
@@ -3739,11 +3754,12 @@ hr {
   }
 
   .support-highlight-upvote {
-    grid-template-columns: 1fr;
+    padding-inline: 1.25rem;
   }
 
   .support-highlight-upvote-actions {
     align-items: stretch;
+    gap: 1rem;
   }
 
   .support-upvote-count-box,
@@ -3751,7 +3767,21 @@ hr {
   .support-upvote-status {
     min-width: 0;
     max-width: none;
-    text-align: left;
+  }
+
+  .support-upvote-count-box {
+    min-height: 0;
+    padding: 16px 14px;
+    text-align: center;
+  }
+
+  .support-upvote-count {
+    font-size: clamp(3.4rem, 14vw, 4.25rem);
+  }
+
+  .support-upvote-button,
+  .support-upvote-status {
+    text-align: center;
   }
 }
 
