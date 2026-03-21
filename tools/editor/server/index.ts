@@ -38,7 +38,15 @@ function sbEndpoint(path: string): string {
 
 function isMissingSchemaColumnError(message: string, column: string): boolean {
   const normalized = message.toLowerCase();
-  return normalized.includes('schema cache') && normalized.includes(`'${column.toLowerCase()}'`);
+  const normalizedColumn = column.toLowerCase();
+  return (
+    (normalized.includes('schema cache') && normalized.includes(`'${normalizedColumn}'`))
+    || (normalized.includes('column') && normalized.includes('does not exist') && (
+      normalized.includes(`${TABLE.toLowerCase()}.${normalizedColumn}`)
+      || normalized.includes(`"${normalizedColumn}"`)
+      || normalized.includes(`'${normalizedColumn}'`)
+    ))
+  );
 }
 
 function isCommunitySchemaMismatchError(message: string): boolean {
