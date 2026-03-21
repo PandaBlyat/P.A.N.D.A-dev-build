@@ -5,7 +5,7 @@ import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon, setButtonContent } from './icons';
 
 // Replace this with your live Ko-fi, Patreon, or link hub URL before shipping.
-const SUPPORT_PAGE_URL = 'https://ko-fi.com/your-page';
+const SUPPORT_PAGE_URL = 'https://ko-fi.com/thepanda98';
 const SUPPORT_PANEL_COPY = {
   eyebrow: 'Support the project',
   title: 'Fuel future P.A.N.D.A. updates',
