@@ -1,5 +1,7 @@
 -- P.A.N.D.A. Community Library — Supabase Database Setup
 -- Run this in your Supabase project's SQL editor (https://supabase.com/dashboard)
+-- If PostgREST reports that branch_count or complexity is missing from the schema cache after applying this,
+-- verify you ran the migration against the same project your app points at and refresh the Supabase API schema cache.
 
 CREATE TABLE community_conversations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
