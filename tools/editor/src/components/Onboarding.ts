@@ -20,10 +20,9 @@ const CHECKLIST_ITEMS = [
 const NARRATOR_LINES = [
   'In the beginning, the Zone was created.',
   'This has made a lot of people very angry and been widely regarded as a bad move.',
-  'Fortunately, a developer known only as Panda — who is, by his own remarkably humble admission, the single greatest modder the Zone has ever produced — built you this editor.',
-  'It is a curious fact that Panda named his mod after himself. This is not, as lesser minds might suggest, narcissism. It is simply that no other name in any language could adequately convey the system\'s majesty.',
-  'The P.A.N.D.A. editor knows where your conversations are going even when you do not. Especially when you do not.',
-  'So: relax, click a button below, and remember the two most important words in the English language…',
+  'Fortunately, a developer known only as Panda, who is, by his own remarkably humble admission, one of the single greatest modders the Zone has ever produced. Built you this editor.',
+  'If you\'re here it\'s  because you want to help expand the community\'s database of interactive conversations and I just have one thing to say to you...you\'re one of the good ones ^^',
+  'So: start a new project below, relax, i believe in you. Oh! And remember the TWO MOST IMPORTANT WORDS in the English language..........',
 ];
 
 export function shouldShowFirstRunExperience(): boolean {
