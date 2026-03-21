@@ -1,4 +1,7 @@
 const DEFAULT_TICKER_INTERVAL_MS = 60000;
+const TICKER_SCROLL_SPEED_PX_PER_SECOND = 72;
+const TICKER_MIN_DURATION_MS = 12000;
+
 
 export const narratorMessages = [
   'A calm voice notes that progress is still progress, even when accompanied by mild confusion and suspicious amounts of coffee.',
@@ -48,7 +51,10 @@ export const narratorMessages = [
 ] as const;
 
 let tickerRoot: HTMLElement | null = null;
+let tickerViewport: HTMLDivElement | null = null;
 let tickerTrack: HTMLDivElement | null = null;
+let tickerResizeObserver: ResizeObserver | null = null;
+let tickerAnimation: Animation | null = null;
 
 // Starts on a random message instead of index 0
 let currentMessageIndex = Math.floor(Math.random() * narratorMessages.length);
@@ -96,7 +102,9 @@ function getTickerRoot(): HTMLElement {
   root.append(label, viewport);
 
   tickerRoot = root;
+  tickerViewport = viewport;
   tickerTrack = track;
+  observeTickerLayout();
   updateTickerMessage();
   return root;
 }
@@ -112,24 +120,70 @@ function updateTickerMessage(): void {
 
   tickerTrack.textContent = narratorMessages[currentMessageIndex];
   renderedMessageIndex = currentMessageIndex;
+  scheduleTickerAnimationRefresh();
+}
 
-  tickerTrack.classList.remove('is-animating');
+function observeTickerLayout(): void {
+  if (!tickerRoot || tickerResizeObserver) {
+    return;
+  }
 
-  // Cancel any in-flight frame from a previous update.
+  tickerResizeObserver = new ResizeObserver(() => {
+    scheduleTickerAnimationRefresh();
+  });
+
+  tickerResizeObserver.observe(tickerRoot);
+}
+
+function scheduleTickerAnimationRefresh(): void {
   if (pendingAnimFrame != null) {
     cancelAnimationFrame(pendingAnimFrame);
   }
 
-  // Double-rAF: the first frame lets the browser commit the class removal;
-  // the second adds it back, guaranteeing the animation restarts cleanly on
-  // all browsers and GPU configurations (more reliable than void offsetWidth).
   pendingAnimFrame = requestAnimationFrame(() => {
-    pendingAnimFrame = requestAnimationFrame(() => {
-      pendingAnimFrame = null;
-      if (tickerTrack) {
-        tickerTrack.classList.add('is-animating');
-      }
-    });
+    pendingAnimFrame = null;
+    refreshTickerAnimation();
+  });
+}
+
+function refreshTickerAnimation(): void {
+  if (!tickerTrack || !tickerViewport) {
+    return;
+  }
+
+  tickerAnimation?.cancel();
+  tickerAnimation = null;
+
+  const viewportWidth = tickerViewport.clientWidth;
+  const trackWidth = tickerTrack.scrollWidth;
+
+  if (viewportWidth <= 0 || trackWidth <= 0) {
+    tickerTrack.classList.remove('is-animating');
+    tickerTrack.style.removeProperty('--ticker-start-x');
+    tickerTrack.style.removeProperty('--ticker-end-x');
+    tickerTrack.style.removeProperty('--ticker-duration');
+    return;
+  }
+
+  const startX = -trackWidth;
+  const endX = viewportWidth;
+  const durationMs = Math.max(
+    TICKER_MIN_DURATION_MS,
+    Math.round(((trackWidth + viewportWidth) / TICKER_SCROLL_SPEED_PX_PER_SECOND) * 1000)
+  );
+
+  tickerTrack.style.setProperty('--ticker-start-x', `${startX}px`);
+  tickerTrack.style.setProperty('--ticker-end-x', `${endX}px`);
+  tickerTrack.style.setProperty('--ticker-duration', `${durationMs}ms`);
+  tickerTrack.classList.remove('is-animating');
+
+  requestAnimationFrame(() => {
+    if (!tickerTrack) {
+      return;
+    }
+
+    tickerTrack.classList.add('is-animating');
+    tickerAnimation = tickerTrack.getAnimations()[0] ?? null;
   });
 }
 
