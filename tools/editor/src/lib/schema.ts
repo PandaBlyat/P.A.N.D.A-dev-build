@@ -92,6 +92,16 @@ const WATCH_TRIGGER_SUGGESTIONS: ParamOption[] = [
     keywords: ['spawn', 'hostile', 'bandit'],
   },
   {
+    value: 'spawn_friendly:stalker:60',
+    label: 'Spawn a friendly squad near the player',
+    keywords: ['spawn', 'friendly', 'stalker'],
+  },
+  {
+    value: 'spawn_npc:dolg:45',
+    label: 'Spawn a faction squad near the player',
+    keywords: ['spawn', 'npc', 'duty', 'dolg'],
+  },
+  {
     value: 'spawn_hostile_at_smart:bandit:%cordon_panda_st_key%',
     label: 'Spawn hostiles at the watched smart terrain',
     keywords: ['spawn', 'hostile', 'smart', 'bandit'],
@@ -602,6 +612,28 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
       { name: 'faction', type: 'faction', required: true, label: 'Faction' },
       { name: 'distance', type: 'number', required: true, label: 'Distance (m)', min: 10 },
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '90', min: 0 },
+    ],
+  },
+  {
+    name: 'spawn_friendly',
+    label: 'Spawn Friendlies',
+    description: 'Spawn friendly squad near player',
+    category: 'Spawning',
+    params: [
+      { name: 'faction', type: 'faction', required: true, label: 'Faction' },
+      { name: 'distance', type: 'number', required: true, label: 'Distance (m)', min: 10 },
+      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '30', min: 0 },
+    ],
+  },
+  {
+    name: 'spawn_npc',
+    label: 'Spawn Faction Squad',
+    description: 'Spawn faction-default squad near player',
+    category: 'Spawning',
+    params: [
+      { name: 'faction', type: 'faction', required: true, label: 'Faction' },
+      { name: 'distance', type: 'number', required: true, label: 'Distance (m)', min: 10 },
+      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '30', min: 0 },
     ],
   },
   {

@@ -24,6 +24,8 @@ const KNOWN_SMART_TERRAINS = new Set(Object.values(SMART_TERRAIN_LEVELS).flat())
 const KNOWN_FACTIONS = new Set([...FACTION_IDS, ...Object.keys(FACTION_ALIASES)]);
 const SPAWN_JOB_OUTCOMES = new Set([
   'spawn_hostile',
+  'spawn_friendly',
+  'spawn_npc',
   'spawn_mutant',
   'spawn_hostile_at_smart',
   'spawn_mutant_at_smart',
