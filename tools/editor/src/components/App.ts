@@ -376,7 +376,7 @@ function applyFactionTheme(container: HTMLElement, faction: ReturnType<typeof st
 function createAddConversationButton(): HTMLButtonElement {
   const addBtn = document.createElement('button');
   addBtn.type = 'button';
-  addBtn.className = 'btn-sm btn-icon panel-action-add';
+  addBtn.className = 'btn-sm btn-icon conversation-panel-action panel-action-add';
   addBtn.appendChild(createIcon('add'));
   addBtn.title = 'New conversation';
   addBtn.setAttribute('aria-label', 'New conversation');
@@ -394,7 +394,7 @@ function createSelectedConversationActionButton(
 ): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = `btn-sm btn-icon${dangerous ? ' btn-danger' : ''}`;
+  button.className = `btn-sm btn-icon conversation-panel-action${dangerous ? ' btn-danger' : ''}`;
   button.appendChild(createIcon(icon));
   button.title = title;
   button.setAttribute('aria-label', title);
@@ -417,7 +417,7 @@ function createPanelLauncherButton(side: 'left' | 'right', label: string): HTMLB
 function createPanelToggleButton(side: 'left' | 'right'): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'btn-sm btn-icon panel-toggle-button';
+  button.className = `btn-sm btn-icon panel-toggle-button${side === 'left' ? ' conversation-panel-action' : ''}`;
 
   if (layoutState.responsiveMode !== 'desktop') {
     const open = layoutState.activeDrawer === side;
