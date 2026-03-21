@@ -147,45 +147,51 @@ html, body {
 }
 
 .toolbar-title .ui-icon {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   color: color-mix(in srgb, var(--accent) 82%, white 18%);
-  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 55%, transparent));
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--accent) 65%, transparent))
+          drop-shadow(0 0 24px color-mix(in srgb, var(--accent) 30%, transparent));
   flex-shrink: 0;
 }
 
 .toolbar-title-primary {
   display: inline-flex;
   align-items: baseline;
-  gap: 0.04em;
-  font-size: 18px;
+  gap: 0.02em;
+  font-size: 21px;
   line-height: 1;
   font-weight: 800;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.32em;
   text-transform: uppercase;
   color: var(--text-bright);
   text-shadow:
-    0 0 18px var(--accent-glow-strong),
-    0 0 36px color-mix(in srgb, var(--accent) 26%, transparent);
+    0 0 8px rgba(255, 255, 255, 0.15),
+    0 0 20px var(--accent-glow-strong),
+    0 0 40px color-mix(in srgb, var(--accent) 28%, transparent),
+    0 1px 0 rgba(0, 0, 0, 0.4);
 }
 
 .toolbar-title-accent {
-  color: var(--accent);
+  color: var(--accent-hover);
   text-shadow:
-    0 0 16px var(--accent-glow-strong),
-    0 0 34px color-mix(in srgb, var(--accent) 34%, transparent);
+    0 0 6px var(--accent),
+    0 0 18px var(--accent-glow-strong),
+    0 0 38px color-mix(in srgb, var(--accent) 40%, transparent);
+  filter: brightness(1.1);
 }
 
 .toolbar-subtitle {
-  padding-left: 28px;
+  padding-left: 34px;
   margin-top: 2px;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.38em;
   line-height: 1.2;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--text-dim) 82%, var(--accent) 18%);
+  color: color-mix(in srgb, var(--text-dim) 72%, var(--accent) 28%);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .toolbar-tier {
@@ -198,7 +204,7 @@ html, body {
 
 .toolbar-tier-project { flex: 0 1 auto; }
 
-.toolbar-tier-edit { flex: 1 1 340px; }
+.toolbar-tier-edit { flex: 0 1 auto; }
 
 .toolbar-tier-utility {
   margin-left: auto;
@@ -1108,11 +1114,11 @@ label {
   align-items: flex-start;
   gap: 10px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 9px 12px;
   border-radius: var(--radius-lg);
   cursor: pointer;
   border: 1px solid transparent;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
   transition: all 0.15s ease;
   position: relative;
 }
@@ -1120,17 +1126,22 @@ label {
 .conv-item:hover {
   background: var(--bg-hover);
   border-color: var(--border-light);
+  box-shadow: inset 2px 0 0 var(--accent-dim);
 }
 
 .conv-item.selected {
   background: var(--bg-selected);
   border-color: var(--bg-selected-border);
-  box-shadow: inset 3px 0 0 var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent), 0 0 8px var(--accent-glow);
 }
 
-.conv-item.selected .conv-id,
+.conv-item.selected .conv-id {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 44%, transparent);
+  color: var(--accent-hover);
+}
 .conv-item.selected .conv-label {
-  color: #000;
+  color: var(--text-bright);
 }
 .conv-item.selected .conv-meta {
   color: var(--text);
@@ -1139,11 +1150,17 @@ label {
 .conv-id {
   flex: 0 0 auto;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
   color: var(--accent);
-  min-width: 20px;
-  font-weight: bold;
-  line-height: 1.45;
+  min-width: 24px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 6px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: var(--radius);
+  text-align: center;
+  margin-top: 1px;
 }
 
 .conv-text {
@@ -1157,7 +1174,8 @@ label {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .conv-meta {
@@ -2275,8 +2293,8 @@ hr {
 .toolbar-search {
   position: relative;
   min-width: 180px;
-  flex: 1 1 320px;
-  max-width: 420px;
+  flex: 0 1 320px;
+  max-width: 380px;
 }
 
 .toolbar-search-input,
@@ -2757,13 +2775,13 @@ hr {
   }
 
   .toolbar-title-primary {
-    font-size: 16px;
-    letter-spacing: 0.24em;
+    font-size: 18px;
+    letter-spacing: 0.28em;
   }
 
   .toolbar-subtitle {
-    font-size: 8px;
-    letter-spacing: 0.26em;
+    font-size: 8.5px;
+    letter-spacing: 0.3em;
   }
 
   .toolbar-search {
@@ -2797,8 +2815,8 @@ hr {
   }
 
   .toolbar.toolbar-tablet .toolbar-title-primary {
-    font-size: 15px;
-    letter-spacing: 0.2em;
+    font-size: 17px;
+    letter-spacing: 0.24em;
   }
 
   .toolbar.toolbar-tablet .toolbar-subtitle {
@@ -3730,8 +3748,8 @@ hr {
 }
 
 .support-upvote-count-box {
-  min-width: 184px;
-  padding: 14px 16px;
+  min-width: 260px;
+  padding: 24px 28px;
   border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
   background:
@@ -3747,16 +3765,16 @@ hr {
 
 .support-upvote-count {
   display: block;
-  font-size: clamp(4rem, 8vw, 4.75rem);
+  font-size: clamp(6rem, 14vw, 9rem);
   font-weight: 800;
-  line-height: 0.9;
+  line-height: 0.85;
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
   color: color-mix(in srgb, var(--accent) 68%, #f6fbff 32%);
   text-shadow:
-    0 0 6px color-mix(in srgb, #f6fbff 78%, var(--accent) 22%),
-    0 0 18px color-mix(in srgb, var(--accent) 52%, transparent),
-    0 0 38px color-mix(in srgb, var(--accent) 24%, transparent);
+    0 0 10px color-mix(in srgb, #f6fbff 78%, var(--accent) 22%),
+    0 0 28px color-mix(in srgb, var(--accent) 52%, transparent),
+    0 0 56px color-mix(in srgb, var(--accent) 24%, transparent);
   margin-bottom: 0.4rem;
   overflow-wrap: anywhere;
 }
@@ -3821,7 +3839,7 @@ hr {
   }
 
   .support-upvote-count {
-    font-size: clamp(3.4rem, 14vw, 4.25rem);
+    font-size: clamp(4.5rem, 16vw, 7rem);
   }
 
   .support-upvote-button,
