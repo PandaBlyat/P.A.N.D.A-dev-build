@@ -165,8 +165,8 @@ function refreshTickerAnimation(): void {
     return;
   }
 
-  const startX = -trackWidth;
-  const endX = viewportWidth;
+  const startX = viewportWidth;
+  const endX = -trackWidth;
   const durationMs = Math.max(
     TICKER_MIN_DURATION_MS,
     Math.round(((trackWidth + viewportWidth) / TICKER_SCROLL_SPEED_PX_PER_SECOND) * 1000)
