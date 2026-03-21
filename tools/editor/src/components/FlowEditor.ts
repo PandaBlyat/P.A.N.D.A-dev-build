@@ -5,6 +5,7 @@ import { setActiveFlowViewport, type FlowViewportApi } from '../lib/flow-navigat
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { createOnboardingNudge } from './Onboarding';
 import { FACTION_COLORS } from '../lib/faction-colors';
+import { estimateFlowNodeHeight, getFlowNodeLayout } from '../lib/flow-layout';
 import type { Choice, Conversation, Turn } from '../lib/types';
 import type { FlowDensity } from '../lib/state';
 
@@ -42,19 +43,6 @@ type ConnectionPreview = {
   cursor: { x: number; y: number };
 };
 
-type NodeLayout = {
-  width: number;
-  messageChars: number;
-  previewLines: number;
-  minHeight: number;
-};
-
-const NODE_LAYOUTS: Record<FlowDensity, NodeLayout> = {
-  compact: { width: 210, messageChars: 52, previewLines: 1, minHeight: 106 },
-  standard: { width: 260, messageChars: 100, previewLines: 1, minHeight: 140 },
-  detailed: { width: 320, messageChars: 180, previewLines: 3, minHeight: 200 },
-};
-
 /** Default branch color palette — automatically assigned by turn index. */
 const BRANCH_PALETTE = [
   '#5eaa3a', // green (default accent)
@@ -80,7 +68,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   const conv = store.getSelectedConversation();
   const state = store.get();
   const density = state.flowDensity;
-  const layout = NODE_LAYOUTS[density];
+  const layout = getFlowNodeLayout(density);
 
   if (!conv) {
     container.replaceChildren(createOnboardingNudge({
@@ -269,7 +257,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     const targetTurn = conv.turns.find(item => item.turnNumber === turnNumber);
     if (!targetTurn) return;
 
-    centerWorldPoint(targetTurn.position.x + layout.width / 2, targetTurn.position.y + getNodeHeight(targetTurn, density) / 2, animate);
+    centerWorldPoint(targetTurn.position.x + layout.width / 2, targetTurn.position.y + estimateFlowNodeHeight(targetTurn, density) / 2, animate);
   };
 
   const fitContent = (animate = true): void => {
@@ -415,7 +403,7 @@ function renderControls(options: {
 }
 
 function calculateContentBounds(conv: Conversation, density: FlowDensity): ContentBounds {
-  const layout = NODE_LAYOUTS[density];
+  const layout = getFlowNodeLayout(density);
 
   if (conv.turns.length === 0) {
     return {
@@ -429,7 +417,7 @@ function calculateContentBounds(conv: Conversation, density: FlowDensity): Conte
 
   for (const turn of conv.turns) {
     maxX = Math.max(maxX, turn.position.x + layout.width);
-    maxY = Math.max(maxY, turn.position.y + getNodeHeight(turn, density));
+    maxY = Math.max(maxY, turn.position.y + estimateFlowNodeHeight(turn, density));
   }
 
   return {
@@ -471,7 +459,7 @@ function renderTurnNode(options: {
 }): HTMLElement {
   const { conv, turn, selected, edges, density, viewState, turnLabels, onPreviewPosition, onChoicePortDragStart, onFocusTurn, onKeyboardShortcut } = options;
   const state = store.get();
-  const layout = NODE_LAYOUTS[density];
+  const layout = getFlowNodeLayout(density);
   const hasWarning = turn.choices.some(c => !c.text && !c.reply);
   const isPathActive = edges.some(edge => edge.highlight === 'active' && (edge.sourceTurnNumber === turn.turnNumber || edge.targetTurnNumber === turn.turnNumber));
   const turnIndex = conv.turns.indexOf(turn);
@@ -1066,30 +1054,6 @@ function getEdgeHighlightState(
 
 function hasPauseOutcome(choice: Choice): boolean {
   return choice.outcomes.some(outcome => outcome.command === 'pause_job');
-}
-
-function getNodeHeight(turn: Turn, density: FlowDensity): number {
-  const layout = NODE_LAYOUTS[density];
-  const choiceHeight = density === 'detailed' ? 38 : 34;
-  let height = 52 + turn.choices.length * choiceHeight;
-
-  // Opening message
-  if (turn.openingMessage && density !== 'compact') {
-    height += density === 'detailed' ? 50 : 34;
-  }
-
-  // NPC replies (shown in standard/detailed)
-  if (density !== 'compact') {
-    const repliesCount = turn.choices.filter(c => c.reply).length;
-    height += repliesCount * 24;
-  }
-
-  // Footer in detailed mode
-  if (density === 'detailed') {
-    height += 26;
-  }
-
-  return Math.max(layout.minHeight, height);
 }
 
 function buildEdgePath(source: { x: number; y: number }, target: { x: number; y: number }, laneOffset: number): string {
