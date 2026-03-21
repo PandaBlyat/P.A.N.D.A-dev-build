@@ -1,7 +1,8 @@
 const DEFAULT_TICKER_INTERVAL_MS = 60000;
 const TICKER_SCROLL_SPEED_PX_PER_SECOND = 122;
 const TICKER_MIN_DURATION_MS = 12000;
-
+const TICKER_RESIZE_DEBOUNCE_MS = 140;
+const TICKER_RESIZE_REFRESH_THRESHOLD_PX = 8;
 
 export const narratorMessages = [
   'A calm voice notes that progress is still progress, even when accompanied by mild confusion and suspicious amounts of coffee.',
@@ -105,12 +106,16 @@ let tickerViewport: HTMLDivElement | null = null;
 let tickerTrack: HTMLDivElement | null = null;
 let tickerResizeObserver: ResizeObserver | null = null;
 let tickerAnimation: Animation | null = null;
+let tickerReducedMotionMediaQuery: MediaQueryList | null = null;
 
 // Starts on a random message instead of index 0
 let currentMessageIndex = Math.floor(Math.random() * narratorMessages.length);
 let renderedMessageIndex: number | null = null;
+let pendingMessageIndex: number | null = null;
 let rotationTimer: number | null = null;
-let pendingAnimFrame: number | null = null;
+let resizeDebounceTimer: number | null = null;
+let pendingLayoutRefresh = false;
+let lastMeasuredViewportWidth = 0;
 
 /**
  * Mount the ticker into its container exactly once. Safe to call again with
@@ -155,6 +160,7 @@ function getTickerRoot(): HTMLElement {
   tickerViewport = viewport;
   tickerTrack = track;
   observeTickerLayout();
+  observeReducedMotionPreference();
   updateTickerMessage();
   return root;
 }
@@ -164,54 +170,118 @@ function updateTickerMessage(): void {
     return;
   }
 
-  if (renderedMessageIndex === currentMessageIndex) {
+  if (renderedMessageIndex === currentMessageIndex && !pendingLayoutRefresh) {
     return;
   }
 
-  tickerTrack.textContent = narratorMessages[currentMessageIndex];
-  renderedMessageIndex = currentMessageIndex;
-  scheduleTickerAnimationRefresh();
+  if (shouldDeferTickerRefresh()) {
+    pendingMessageIndex = currentMessageIndex;
+    return;
+  }
+
+  applyTickerState(currentMessageIndex);
 }
 
 function observeTickerLayout(): void {
-  if (!tickerRoot || tickerResizeObserver) {
+  if (!tickerViewport || tickerResizeObserver) {
     return;
   }
 
-  tickerResizeObserver = new ResizeObserver(() => {
+  tickerResizeObserver = new ResizeObserver((entries) => {
+    const entry = entries[0];
+    if (!entry) {
+      return;
+    }
+
+    const nextWidth = Math.round(entry.contentRect.width);
+    if (Math.abs(nextWidth - lastMeasuredViewportWidth) < TICKER_RESIZE_REFRESH_THRESHOLD_PX) {
+      return;
+    }
+
+    lastMeasuredViewportWidth = nextWidth;
     scheduleTickerAnimationRefresh();
   });
 
-  tickerResizeObserver.observe(tickerRoot);
+  lastMeasuredViewportWidth = Math.round(tickerViewport.getBoundingClientRect().width);
+  tickerResizeObserver.observe(tickerViewport);
+}
+
+function observeReducedMotionPreference(): void {
+  if (tickerReducedMotionMediaQuery || typeof window.matchMedia !== 'function') {
+    return;
+  }
+
+  tickerReducedMotionMediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  tickerReducedMotionMediaQuery.addEventListener('change', handleReducedMotionChange);
+}
+
+function handleReducedMotionChange(): void {
+  if (prefersReducedMotion()) {
+    stopTickerAnimation();
+    if (tickerTrack) {
+      tickerTrack.style.transform = 'translate3d(0, 0, 0)';
+    }
+    if (pendingMessageIndex != null) {
+      applyTickerMessage(pendingMessageIndex);
+      pendingMessageIndex = null;
+    }
+    return;
+  }
+
+  pendingLayoutRefresh = true;
+  scheduleTickerAnimationRefresh();
 }
 
 function scheduleTickerAnimationRefresh(): void {
-  if (pendingAnimFrame != null) {
-    cancelAnimationFrame(pendingAnimFrame);
+  if (resizeDebounceTimer != null) {
+    window.clearTimeout(resizeDebounceTimer);
   }
 
-  pendingAnimFrame = requestAnimationFrame(() => {
-    pendingAnimFrame = null;
-    refreshTickerAnimation();
-  });
+  resizeDebounceTimer = window.setTimeout(() => {
+    resizeDebounceTimer = null;
+    pendingLayoutRefresh = true;
+
+    if (shouldDeferTickerRefresh()) {
+      return;
+    }
+
+    applyTickerState(pendingMessageIndex ?? currentMessageIndex);
+  }, TICKER_RESIZE_DEBOUNCE_MS);
 }
 
-function refreshTickerAnimation(): void {
+function shouldDeferTickerRefresh(): boolean {
+  return Boolean(tickerAnimation && tickerAnimation.playState === 'running' && !prefersReducedMotion());
+}
+
+function applyTickerState(messageIndex: number): void {
+  applyTickerMessage(messageIndex);
+  startTickerAnimation();
+}
+
+function applyTickerMessage(messageIndex: number): void {
+  if (!tickerTrack) {
+    return;
+  }
+
+  tickerTrack.textContent = narratorMessages[messageIndex];
+  renderedMessageIndex = messageIndex;
+  currentMessageIndex = messageIndex;
+}
+
+function startTickerAnimation(): void {
   if (!tickerTrack || !tickerViewport) {
     return;
   }
 
-  tickerAnimation?.cancel();
-  tickerAnimation = null;
+  stopTickerAnimation();
 
   const viewportWidth = tickerViewport.clientWidth;
   const trackWidth = tickerTrack.scrollWidth;
 
-  if (viewportWidth <= 0 || trackWidth <= 0) {
-    tickerTrack.classList.remove('is-animating');
-    tickerTrack.style.removeProperty('--ticker-start-x');
-    tickerTrack.style.removeProperty('--ticker-end-x');
-    tickerTrack.style.removeProperty('--ticker-duration');
+  if (viewportWidth <= 0 || trackWidth <= 0 || prefersReducedMotion()) {
+    tickerTrack.style.transform = 'translate3d(0, 0, 0)';
+    pendingLayoutRefresh = false;
+    pendingMessageIndex = null;
     return;
   }
 
@@ -222,19 +292,42 @@ function refreshTickerAnimation(): void {
     Math.round(((trackWidth + viewportWidth) / TICKER_SCROLL_SPEED_PX_PER_SECOND) * 1000)
   );
 
-  tickerTrack.style.setProperty('--ticker-start-x', `${startX}px`);
-  tickerTrack.style.setProperty('--ticker-end-x', `${endX}px`);
-  tickerTrack.style.setProperty('--ticker-duration', `${durationMs}ms`);
-  tickerTrack.classList.remove('is-animating');
-
-  requestAnimationFrame(() => {
-    if (!tickerTrack) {
-      return;
+  tickerTrack.style.transform = `translate3d(${startX}px, 0, 0)`;
+  tickerAnimation = tickerTrack.animate(
+    [
+      { transform: `translate3d(${startX}px, 0, 0)` },
+      { transform: `translate3d(${endX}px, 0, 0)` }
+    ],
+    {
+      duration: durationMs,
+      easing: 'linear',
+      fill: 'forwards'
     }
+  );
 
-    tickerTrack.classList.add('is-animating');
-    tickerAnimation = tickerTrack.getAnimations()[0] ?? null;
-  });
+  tickerAnimation.onfinish = () => {
+    tickerAnimation = null;
+    const nextMessageIndex = pendingMessageIndex ?? currentMessageIndex;
+    pendingMessageIndex = null;
+    pendingLayoutRefresh = false;
+    applyTickerState(nextMessageIndex);
+  };
+
+  pendingLayoutRefresh = false;
+}
+
+function stopTickerAnimation(): void {
+  if (!tickerAnimation) {
+    return;
+  }
+
+  tickerAnimation.onfinish = null;
+  tickerAnimation.cancel();
+  tickerAnimation = null;
+}
+
+function prefersReducedMotion(): boolean {
+  return tickerReducedMotionMediaQuery?.matches ?? false;
 }
 
 function ensureTickerTimer(): void {
@@ -244,12 +337,12 @@ function ensureTickerTimer(): void {
 
   rotationTimer = window.setInterval(() => {
     let randomIndex = Math.floor(Math.random() * narratorMessages.length);
-    
+
     // Make sure we never show the exact same message twice in a row
     while (randomIndex === currentMessageIndex) {
       randomIndex = Math.floor(Math.random() * narratorMessages.length);
     }
-    
+
     currentMessageIndex = randomIndex;
     updateTickerMessage();
   }, DEFAULT_TICKER_INTERVAL_MS);
