@@ -1,4 +1,4 @@
-const DEFAULT_TICKER_INTERVAL_MS = 60000;
+const DEFAULT_TICKER_COOLDOWN_MS = 120000;
 const TICKER_SCROLL_SPEED_PX_PER_SECOND = 122;
 const TICKER_MIN_DURATION_MS = 12000;
 const TICKER_RESIZE_DEBOUNCE_MS = 140;
@@ -107,15 +107,17 @@ let tickerTrack: HTMLDivElement | null = null;
 let tickerResizeObserver: ResizeObserver | null = null;
 let tickerAnimation: Animation | null = null;
 let tickerReducedMotionMediaQuery: MediaQueryList | null = null;
+let tickerAnimationFrame: number | null = null;
 
 // Starts on a random message instead of index 0
 let currentMessageIndex = Math.floor(Math.random() * narratorMessages.length);
 let renderedMessageIndex: number | null = null;
 let pendingMessageIndex: number | null = null;
-let rotationTimer: number | null = null;
+let cooldownTimer: number | null = null;
 let resizeDebounceTimer: number | null = null;
 let pendingLayoutRefresh = false;
 let lastMeasuredViewportWidth = 0;
+let tickerInCooldown = false;
 
 /**
  * Mount the ticker into its container exactly once. Safe to call again with
@@ -241,7 +243,7 @@ function scheduleTickerAnimationRefresh(): void {
     resizeDebounceTimer = null;
     pendingLayoutRefresh = true;
 
-    if (shouldDeferTickerRefresh()) {
+    if (shouldDeferTickerRefresh() || tickerInCooldown) {
       return;
     }
 
@@ -254,6 +256,8 @@ function shouldDeferTickerRefresh(): boolean {
 }
 
 function applyTickerState(messageIndex: number): void {
+  tickerInCooldown = false;
+  clearTickerCooldown();
   applyTickerMessage(messageIndex);
   startTickerAnimation();
 }
@@ -293,30 +297,53 @@ function startTickerAnimation(): void {
   );
 
   tickerTrack.style.transform = `translate3d(${startX}px, 0, 0)`;
-  tickerAnimation = tickerTrack.animate(
-    [
-      { transform: `translate3d(${startX}px, 0, 0)` },
-      { transform: `translate3d(${endX}px, 0, 0)` }
-    ],
-    {
-      duration: durationMs,
-      easing: 'linear',
-      fill: 'forwards'
-    }
-  );
+  if (tickerAnimationFrame != null) {
+    window.cancelAnimationFrame(tickerAnimationFrame);
+  }
 
-  tickerAnimation.onfinish = () => {
-    tickerAnimation = null;
-    const nextMessageIndex = pendingMessageIndex ?? currentMessageIndex;
-    pendingMessageIndex = null;
-    pendingLayoutRefresh = false;
-    applyTickerState(nextMessageIndex);
-  };
+  tickerAnimationFrame = window.requestAnimationFrame(() => {
+    tickerAnimationFrame = null;
+    if (!tickerTrack) {
+      return;
+    }
+
+    tickerAnimation = tickerTrack.animate(
+      [
+        { transform: `translate3d(${startX}px, 0, 0)` },
+        { transform: `translate3d(${endX}px, 0, 0)` }
+      ],
+      {
+        duration: durationMs,
+        easing: 'linear',
+        fill: 'forwards'
+      }
+    );
+
+    tickerAnimation.onfinish = () => {
+      tickerAnimation = null;
+      pendingLayoutRefresh = false;
+
+      if (pendingMessageIndex != null) {
+        const nextMessageIndex = pendingMessageIndex;
+        pendingMessageIndex = null;
+        applyTickerState(nextMessageIndex);
+        return;
+      }
+
+      tickerInCooldown = true;
+      scheduleNextTickerMessage();
+    };
+  });
 
   pendingLayoutRefresh = false;
 }
 
 function stopTickerAnimation(): void {
+  if (tickerAnimationFrame != null) {
+    window.cancelAnimationFrame(tickerAnimationFrame);
+    tickerAnimationFrame = null;
+  }
+
   if (!tickerAnimation) {
     return;
   }
@@ -331,19 +358,40 @@ function prefersReducedMotion(): boolean {
 }
 
 function ensureTickerTimer(): void {
-  if (rotationTimer != null || narratorMessages.length <= 1) {
+  if (renderedMessageIndex != null || narratorMessages.length <= 1) {
     return;
   }
 
-  rotationTimer = window.setInterval(() => {
-    let randomIndex = Math.floor(Math.random() * narratorMessages.length);
+  updateTickerMessage();
+}
 
-    // Make sure we never show the exact same message twice in a row
-    while (randomIndex === currentMessageIndex) {
-      randomIndex = Math.floor(Math.random() * narratorMessages.length);
-    }
-
-    currentMessageIndex = randomIndex;
+function scheduleNextTickerMessage(): void {
+  clearTickerCooldown();
+  cooldownTimer = window.setTimeout(() => {
+    cooldownTimer = null;
+    currentMessageIndex = getNextRandomMessageIndex();
     updateTickerMessage();
-  }, DEFAULT_TICKER_INTERVAL_MS);
+  }, DEFAULT_TICKER_COOLDOWN_MS);
+}
+
+function clearTickerCooldown(): void {
+  if (cooldownTimer == null) {
+    return;
+  }
+
+  window.clearTimeout(cooldownTimer);
+  cooldownTimer = null;
+}
+
+function getNextRandomMessageIndex(): number {
+  if (narratorMessages.length <= 1) {
+    return currentMessageIndex;
+  }
+
+  let randomIndex = Math.floor(Math.random() * narratorMessages.length);
+  while (randomIndex === currentMessageIndex) {
+    randomIndex = Math.floor(Math.random() * narratorMessages.length);
+  }
+
+  return randomIndex;
 }
