@@ -60,6 +60,8 @@ const SUPPORT_TABLE = 'creator_support_metrics';
 const SUPPORT_ROW_ID = 'global';
 const LOCAL_PUBLISH_COOLDOWN_MS = 60_000;
 const LOCAL_PUBLISH_KEY = 'panda-community-last-publish-at';
+const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
+const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'upvotes', 'updated_at'] as const;
 
 
 function apiCandidates(path: string): string[] {
@@ -134,6 +136,11 @@ function isMissingSchemaColumnError(message: string, column: string): boolean {
   return normalized.includes('schema cache') && normalized.includes(`'${column.toLowerCase()}'`);
 }
 
+function isCommunitySchemaMismatchError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return normalized.includes('schema cache') && normalized.includes(`'${TABLE.toLowerCase()}'`);
+}
+
 async function readErrorMessage(res: Response): Promise<string> {
   const body = await res.json().catch(() => ({}));
   return body.message ?? body.error ?? `Request failed (${res.status})`;
@@ -169,16 +176,51 @@ export function createSummaryFromConversation(conversation: Conversation): strin
   return 'Branching conversation ready to import into the editor.';
 }
 
+function normalizeConversationRow(row: Partial<CommunityConversation>): CommunityConversation {
+  return {
+    id: String(row.id ?? ''),
+    faction: row.faction as FactionId,
+    label: typeof row.label === 'string' ? row.label : '',
+    description: typeof row.description === 'string' ? row.description : '',
+    summary: typeof row.summary === 'string' ? row.summary : '',
+    author: typeof row.author === 'string' ? row.author : 'Anonymous',
+    tags: Array.isArray(row.tags) ? row.tags.filter((tag): tag is string => typeof tag === 'string') : [],
+    branch_count: typeof row.branch_count === 'number' ? row.branch_count : 0,
+    complexity: row.complexity,
+    downloads: typeof row.downloads === 'number' ? row.downloads : 0,
+    upvotes: typeof row.upvotes === 'number' ? row.upvotes : 0,
+    created_at: typeof row.created_at === 'string' ? row.created_at : new Date(0).toISOString(),
+    updated_at: typeof row.updated_at === 'string' ? row.updated_at : typeof row.created_at === 'string' ? row.created_at : new Date(0).toISOString(),
+    data: row.data as CommunityConversation['data'],
+  };
+}
+
 export async function fetchConversations(faction?: FactionId): Promise<CommunityConversation[]> {
-  const params = new URLSearchParams({ select: '*', order: 'created_at.desc' });
+  const params = new URLSearchParams({
+    select: [...COMMUNITY_REQUIRED_COLUMNS, ...COMMUNITY_OPTIONAL_COLUMNS].join(','),
+    order: 'updated_at.desc',
+  });
   if (faction) params.set('faction', `eq.${faction}`);
 
-  const res = await fetch(`${sbEndpoint(TABLE)}?${params}`, { headers: sbHeaders() });
+  let res = await fetch(`${sbEndpoint(TABLE)}?${params}`, { headers: sbHeaders() });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.message ?? body.error ?? `Failed to load conversations (${res.status})`);
+    const errorMessage = await readErrorMessage(res);
+    if (!isCommunitySchemaMismatchError(errorMessage)) {
+      throw new Error(errorMessage);
+    }
+
+    const fallbackParams = new URLSearchParams({
+      select: COMMUNITY_REQUIRED_COLUMNS.join(','),
+      order: 'created_at.desc',
+    });
+    if (faction) fallbackParams.set('faction', `eq.${faction}`);
+    res = await fetch(`${sbEndpoint(TABLE)}?${fallbackParams}`, { headers: sbHeaders() });
+    if (!res.ok) {
+      throw new Error(await readErrorMessage(res));
+    }
   }
-  return res.json() as Promise<CommunityConversation[]>;
+  const rows = await res.json() as Array<Partial<CommunityConversation>>;
+  return rows.map(normalizeConversationRow);
 }
 
 export async function conversationLabelExists(label: string): Promise<boolean> {
@@ -256,8 +298,20 @@ export async function publishConversation(payload: PublishPayload): Promise<void
 
   if (!res.ok) {
     const errorMessage = await readErrorMessage(res);
-    if (isMissingSchemaColumnError(errorMessage, 'branch_count') || isMissingSchemaColumnError(errorMessage, 'complexity')) {
-      const { branch_count: _branchCount, complexity: _complexity, ...fallbackBody } = publishBody;
+    if (
+      isMissingSchemaColumnError(errorMessage, 'branch_count')
+      || isMissingSchemaColumnError(errorMessage, 'complexity')
+      || isMissingSchemaColumnError(errorMessage, 'summary')
+      || isMissingSchemaColumnError(errorMessage, 'tags')
+      || isCommunitySchemaMismatchError(errorMessage)
+    ) {
+      const {
+        summary: _summary,
+        tags: _tags,
+        branch_count: _branchCount,
+        complexity: _complexity,
+        ...fallbackBody
+      } = publishBody;
       res = await fetch(sbEndpoint(TABLE), {
         method: 'POST',
         headers,
