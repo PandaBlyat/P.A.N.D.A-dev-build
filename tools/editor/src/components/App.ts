@@ -54,6 +54,7 @@ type AppShell = {
   leftBody: HTMLDivElement;
   leftSplitter: HTMLDivElement;
   centerPanel: HTMLDivElement;
+  centerHeader: HTMLDivElement;
   centerTitle: HTMLSpanElement;
   centerActions: HTMLDivElement;
   centerBody: HTMLDivElement;
@@ -88,6 +89,7 @@ export function renderApp(container: HTMLElement): void {
   }
 
   syncResponsiveLayout(shell.mainLayout);
+  shell.mainLayout.classList.toggle('main-layout-onboarding', firstRun);
   shell.toolbarRegion.replaceChildren(renderToolbar(layoutState.responsiveMode));
   shell.toolbarRegion.hidden = layoutState.toolbarHidden;
   shell.leftSplitter.hidden = firstRun;
@@ -208,6 +210,7 @@ function getAppShell(container: HTMLElement): AppShell {
     leftBody,
     leftSplitter,
     centerPanel,
+    centerHeader,
     centerTitle,
     centerActions,
     centerBody,
@@ -251,10 +254,12 @@ function renderLeftPanel(shell: AppShell, firstRun = false): void {
 }
 
 function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSelectedConversation>, firstRun: boolean): void {
+  shell.centerPanel.classList.toggle('panel-onboarding', firstRun);
+  shell.centerHeader.hidden = firstRun;
   shell.centerTitle.textContent = `Flow Editor${conv ? ` — ${conv.label}` : ''}`;
   shell.centerActions.replaceChildren();
 
-  if (layoutState.responsiveMode !== 'desktop') {
+  if (!firstRun && layoutState.responsiveMode !== 'desktop') {
     shell.centerActions.append(
       createPanelLauncherButton('left', 'Conversations'),
       createPanelLauncherButton('right', 'Inspector'),
