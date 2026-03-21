@@ -3584,6 +3584,15 @@ hr {
   box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 26%, transparent);
 }
 
+.support-panel-cta .ui-icon svg {
+  color: color-mix(in srgb, var(--accent-hover) 78%, white 10%);
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 30%, transparent));
+}
+
+.support-panel-cta:hover .ui-icon svg {
+  color: color-mix(in srgb, var(--accent-hover) 92%, white 10%);
+}
+
 .support-panel-body {
   display: flex;
   flex-direction: column;
