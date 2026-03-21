@@ -134,7 +134,7 @@ app.get('/api/conversations', async (req, res) => {
 app.get('/api/support/upvotes', async (_req, res) => {
   try {
     const params = new URLSearchParams({
-      select: 'id,upvotes,updated_at',
+      select: 'id,upvotes,visitors,updated_at',
       id: `eq.${SUPPORT_ROW_ID}`,
       limit: '1',
     });
