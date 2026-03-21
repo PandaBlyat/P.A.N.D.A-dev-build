@@ -28,7 +28,8 @@ export type IconName =
   | 'download'
   | 'database'
   | 'help'
-  | 'support';
+  | 'support'
+  | 'eye';
 
 const BASE_ICON_ATTRS = {
   fill: 'none',
@@ -210,6 +211,12 @@ const ICONS: Record<IconName, IconDef> = {
       { tag: 'path', d: 'M18.4 4.8v3.2' },
       { tag: 'path', d: 'M16.8 6.4h3.2' },
       { tag: 'path', d: 'M6 3.8v2.6' },
+    ],
+  },
+  eye: {
+    paths: [
+      { tag: 'path', d: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z' },
+      { tag: 'circle', cx: '12', cy: '12', r: '3' },
     ],
   },
 };

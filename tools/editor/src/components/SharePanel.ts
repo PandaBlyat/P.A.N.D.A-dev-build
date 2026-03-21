@@ -125,7 +125,7 @@ function normalizeCollection(entries: CommunityConversation[], source: LibrarySo
 
 function normalizeConversation(entry: CommunityConversation, source: LibrarySource): NormalizedConversation {
   const conversation = entry.data?.conversations?.[0];
-  const branchCount = entry.branch_count ?? getBranchCount(conversation);
+  const branchCount = entry.branch_count || getBranchCount(conversation);
   return {
     ...entry,
     label: (entry.label || conversation?.label || 'Untitled').trim(),

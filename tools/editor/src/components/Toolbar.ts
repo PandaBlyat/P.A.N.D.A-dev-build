@@ -218,6 +218,9 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
       { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },
     ]));
 
+    const visitorCounter = renderVisitorCounter();
+    if (visitorCounter) rightZone.appendChild(visitorCounter);
+
     toolbar.append(leftZone, centerZone, rightZone);
     return toolbar;
   }
@@ -351,6 +354,9 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
     { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
     { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },
   ]));
+
+  const visitorCounter = renderVisitorCounter(isMobile);
+  if (visitorCounter) utilityTier.appendChild(visitorCounter);
 
   toolbar.appendChild(utilityTier);
 
@@ -526,26 +532,28 @@ function createOverflowMenu(label: string, actions: OverflowAction[]): HTMLEleme
 }
 
 function formatStatus(convCount: number, stringCount: number, compact: boolean, dirty: boolean): string {
-  let visitorLabel = '';
-  try {
-    const { siteVisitorCount } = await_import_main();
-    if (siteVisitorCount > 0) {
-      visitorLabel = compact
-        ? `${new Intl.NumberFormat().format(siteVisitorCount)} visitors • `
-        : `${new Intl.NumberFormat().format(siteVisitorCount)} visitor${siteVisitorCount !== 1 ? 's' : ''} • `;
-    }
-  } catch { /* ignore */ }
-
   if (compact) {
-    return `${visitorLabel}${convCount} conv • ${stringCount} strings${dirty ? ' • unsaved' : ''}`;
+    return `${convCount} conv • ${stringCount} strings${dirty ? ' • unsaved' : ''}`;
   }
-  return `${visitorLabel}${convCount} conversation${convCount !== 1 ? 's' : ''} • ${stringCount} strings${dirty ? ' • unsaved' : ''}`;
+  return `${convCount} conversation${convCount !== 1 ? 's' : ''} • ${stringCount} strings${dirty ? ' • unsaved' : ''}`;
 }
 
-/** Lazily access the visitor count from main.ts to avoid circular imports */
-function await_import_main(): { siteVisitorCount: number } {
-  // Access the exported variable from main module via a global bridge
-  return { siteVisitorCount: (globalThis as any).__pandaVisitorCount ?? 0 };
+function renderVisitorCounter(compact?: boolean): HTMLElement | null {
+  const count = (globalThis as any).__pandaVisitorCount ?? 0;
+  if (count <= 0) return null;
+
+  const el = document.createElement('span');
+  el.className = 'toolbar-visitor-counter';
+  el.title = 'Total unique visitors to the P.A.N.D.A. editor';
+
+  const icon = createIcon('eye');
+  const label = document.createElement('span');
+  label.textContent = compact
+    ? new Intl.NumberFormat().format(count)
+    : `${new Intl.NumberFormat().format(count)} visitor${count !== 1 ? 's' : ''}`;
+
+  el.append(icon, label);
+  return el;
 }
 
 function nextDensity(current: FlowDensity): FlowDensity {
