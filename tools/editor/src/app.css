@@ -2411,9 +2411,9 @@ hr {
 
 .toolbar-search {
   position: relative;
-  min-width: 220px;
-  flex: 1 1 280px;
-  max-width: 420px;
+  min-width: 160px;
+  flex: 0 1 220px;
+  max-width: 280px;
 }
 
 .toolbar-search-input {
@@ -2905,8 +2905,8 @@ hr {
   }
 
   .toolbar-search {
-    flex-basis: 240px;
-    max-width: none;
+    flex-basis: 200px;
+    max-width: 240px;
   }
 
   .toolbar-zone-right {
