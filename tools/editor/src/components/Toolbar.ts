@@ -59,9 +59,20 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   branding.append(title, supportTrigger);
   projectTier.appendChild(branding);
 
+  const factionPicker = document.createElement('div');
+  factionPicker.className = 'toolbar-faction-picker';
+
+  const factionLabel = document.createElement('div');
+  factionLabel.className = 'toolbar-select-label';
+  factionLabel.textContent = 'Player faction';
+
+  const factionHelp = document.createElement('div');
+  factionHelp.className = 'toolbar-select-help';
+  factionHelp.textContent = 'Choose the faction the player belongs to for these conversations to trigger.';
+
   const factionSelect = document.createElement('select');
   factionSelect.className = 'toolbar-faction-select';
-  factionSelect.title = 'Select the faction these conversations belong to. Determines the XML file prefix.';
+  factionSelect.title = 'Choose the faction the player belongs to for these conversations to trigger. Also determines the XML file prefix.';
   for (const fid of FACTION_IDS) {
     const opt = document.createElement('option');
     opt.value = fid;
@@ -71,9 +82,11 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   }
   factionSelect.onchange = () => store.setFaction(factionSelect.value as typeof FACTION_IDS[number]);
 
+  factionPicker.append(factionLabel, factionHelp, factionSelect);
+
   const fileGroup = document.createElement('div');
   fileGroup.className = 'toolbar-group toolbar-group-project';
-  fileGroup.appendChild(factionSelect);
+  fileGroup.appendChild(factionPicker);
   fileGroup.appendChild(sep());
 
   const openBtn = btn('open', 'Open', importFromJson, 'Open a saved .panda/.json project or import a PANDA XML file');

@@ -13,6 +13,7 @@ export interface CommandSchema {
   params: ParamDef[];
   helpText?: string;
   examples?: string[];
+  pickerHidden?: boolean;
 }
 
 export interface ParamOption {
@@ -161,6 +162,8 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     label: 'Player Faction',
     description: 'Player must belong to this faction',
     category: 'Faction',
+    pickerHidden: true,
+    helpText: "New conversations are already scoped by the project\'s player faction, so you usually do not need to add this manually.",
     params: [
       { name: 'faction', type: 'faction', required: true, label: 'Faction', editor: { kind: 'searchable_select', options: FACTION_OPTIONS, emptyLabel: '-- Select faction --' } },
     ],
@@ -170,6 +173,8 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     label: 'Player Not Faction',
     description: 'Player must NOT belong to this faction',
     category: 'Faction',
+    pickerHidden: true,
+    helpText: "New conversations are already scoped by the project\'s player faction, so you usually do not need to add this manually.",
     params: [
       { name: 'faction', type: 'faction', required: true, label: 'Faction' },
     ],

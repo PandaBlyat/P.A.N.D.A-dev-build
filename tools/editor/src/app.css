@@ -551,6 +551,29 @@ select {
   cursor: pointer;
 }
 
+
+.toolbar-faction-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 220px;
+}
+
+.toolbar-select-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.toolbar-select-help {
+  max-width: 280px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--text-dim);
+}
+
 .toolbar-faction-select,
 .toolbar-select-quiet {
   min-height: 30px;
@@ -2648,6 +2671,11 @@ hr {
   .toolbar.toolbar-mobile .toolbar-button,
   .toolbar.toolbar-mobile .toolbar-overflow-toggle {
     flex: 1 1 calc(50% - 6px);
+    min-width: 0;
+  }
+
+  .toolbar-faction-picker {
+    flex: 1 1 100%;
     min-width: 0;
   }
 
