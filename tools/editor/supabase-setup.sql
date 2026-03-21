@@ -2,6 +2,8 @@
 -- Run this in your Supabase project's SQL editor (https://supabase.com/dashboard)
 -- If PostgREST reports that branch_count or complexity is missing from the schema cache after applying this,
 -- verify you ran the migration against the same project your app points at and refresh the Supabase API schema cache.
+-- If your Supabase table view does not show summary, tags, branch_count, complexity, upvotes, or updated_at,
+-- then this full migration has not been applied yet even if community_conversations already exists.
 
 CREATE TABLE community_conversations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -112,4 +114,3 @@ AS $$
     upvotes = creator_support_metrics.upvotes + 1,
     updated_at = now();
 $$;
-
