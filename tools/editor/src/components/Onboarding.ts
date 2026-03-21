@@ -40,8 +40,8 @@ const NARRATOR_PHASES: NarratorPhase[] = [
   {
     lines: [
       'It is an important and popular fact that things are not always what they seem.',
-      'For instance, on the planet Earth, a video game called S.T.A.L.K.E.R. Anomaly was long considered merely a game — when in fact, it was something altogether more dangerous.',
-      'It was a place where NPCs stood in the rain, staring at walls, saying absolutely nothing of consequence to anyone.',
+      'For instance, on the planet Earth, a video game called S.T.A.L.K.E.R. Anomaly was long considered merely a game, when in fact, it was something more altogether.',
+      'And for the longest time NPC-Player dialogues have been mostly task driven, or just general flavour dialogues.',
     ],
     holdAfter: 1200,
     shellClass: 'phase-opening',
@@ -49,8 +49,8 @@ const NARRATOR_PHASES: NarratorPhase[] = [
   {
     lines: [
       'This was, by any reasonable standard, a catastrophe.',
-      'Billions of simulated neural pathways — wasted. Entire factions with the conversational range of a damp teabag.',
-      'Modders tried to fix this, naturally. They dove into XML string tables by hand, wrestling with precondition tags and reply chains like a man trying to knit a sweater in zero gravity.',
+      'An entire A-life system at our dysposal for new non-combat gameplay opportunities wasted. Entire factions with the conversational range of a damp teabag.',
+      'Modders tried to fix this, naturally. By diving into XML string tables by hand and keeping track of multiple files at once.',
       'Most went quietly mad. Some were never heard from again.',
     ],
     holdAfter: 1400,
@@ -58,18 +58,17 @@ const NARRATOR_PHASES: NarratorPhase[] = [
   },
   {
     lines: [
-      'And then — and this is the really remarkable bit — a developer known only as Panda did something about it.',
-      'By which I mean: he built an entire visual conversation editor from scratch, which is considerably more useful than what most people do on a Wednesday.',
-      'It maps branching dialogue. It wires preconditions. It validates logic. It exports game-ready XML. It does everything short of making you a cup of tea, and even that is on the roadmap (it isn\'t).',
+      'Well..no more! Panda is here.',
+      'PANDA mod takes advantage of A-life systems into a framework we can use for full branching conversations. And this editor makes the process far easier. (hopefully)',
     ],
     holdAfter: 1200,
     shellClass: 'phase-solution',
   },
   {
     lines: [
-      'Now. If you are reading this, it means you are precisely the sort of wonderfully improbable person who wants to make the Zone a more talkative place.',
-      'This puts you in extremely exclusive company. Galactically speaking, you are rarer than a Bloodsucker with good manners.',
-      'So take a moment. Breathe. And remember, above all else, the two most important words in any language, on any planet, in any dimension...',
+      'Now. If you are reading this, it means you are precisely the sort of wonderfully improbable person who wants to make the Zone a more talkative/immersive place.',
+      'This puts you in extremely exclusive company. Galactically speaking, you are indeed a GOAT.',
+      'So take a moment. Breathe, take your time and remember, above all else, the two most important words in any language, on any planet, in any dimension.......',
     ],
     holdAfter: 2000,
     shellClass: 'phase-invite',
@@ -119,7 +118,7 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   const tagline = document.createElement('p');
   tagline.className = 'first-run-tagline hidden';
-  tagline.textContent = 'The most improbably useful dialogue editor this side of the Horsehead Nebula.';
+  tagline.textContent = 'The most improbably useful dialogue editor this side of the Horsehead Nebula. *NOW WITH DATABASE SUPPORT!';
 
   const intro = document.createElement('p');
   intro.className = 'first-run-intro hidden';
