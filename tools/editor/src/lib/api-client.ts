@@ -141,6 +141,10 @@ function isCommunitySchemaMismatchError(message: string): boolean {
   return normalized.includes('schema cache') && normalized.includes(`'${TABLE.toLowerCase()}'`);
 }
 
+function isMissingOptionalCommunityColumnError(message: string): boolean {
+  return COMMUNITY_OPTIONAL_COLUMNS.some(column => isMissingSchemaColumnError(message, column));
+}
+
 async function readErrorMessage(res: Response): Promise<string> {
   const body = await res.json().catch(() => ({}));
   return body.message ?? body.error ?? `Request failed (${res.status})`;
@@ -205,7 +209,7 @@ export async function fetchConversations(faction?: FactionId): Promise<Community
   let res = await fetch(`${sbEndpoint(TABLE)}?${params}`, { headers: sbHeaders() });
   if (!res.ok) {
     const errorMessage = await readErrorMessage(res);
-    if (!isCommunitySchemaMismatchError(errorMessage)) {
+    if (!isCommunitySchemaMismatchError(errorMessage) && !isMissingOptionalCommunityColumnError(errorMessage)) {
       throw new Error(errorMessage);
     }
 
