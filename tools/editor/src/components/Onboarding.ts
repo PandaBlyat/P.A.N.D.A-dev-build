@@ -20,19 +20,11 @@ const CHECKLIST_ITEMS = [
 /*
  * The intro is structured in narrative "phases", each containing lines
  * delivered in the typewriter, punctuated by dramatic pauses.
- *
- * Phase 1 – The Opening  (cosmic hook, sets the tone)
- * Phase 2 – The Problem   (why the Zone needs this)
- * Phase 3 – The Solution  (enter P.A.N.D.A.)
- * Phase 4 – The Invite    (you, specifically, are brilliant)
- * Phase 5 – The Payoff    (DON'T PANIC reveal)
  */
 
 type NarratorPhase = {
   lines: string[];
-  /** ms to hold after the last line before moving on */
   holdAfter?: number;
-  /** optional CSS class toggled on the shell during this phase */
   shellClass?: string;
 };
 
@@ -75,6 +67,8 @@ const NARRATOR_PHASES: NarratorPhase[] = [
   },
 ];
 
+const PHASE_LABELS = ['Chapter I — Genesis', 'Chapter II — The Problem', 'Chapter III — The Solution', 'Chapter IV — You'];
+
 export function shouldShowFirstRunExperience(): boolean {
   return !hasDraft();
 }
@@ -86,7 +80,6 @@ export function renderFirstRunExperience(container: HTMLElement): void {
   const hero = document.createElement('div');
   hero.className = 'first-run-hero';
 
-  // ── Phase indicator (subtle dots showing progress) ─────────────────────
   const phaseIndicator = document.createElement('div');
   phaseIndicator.className = 'first-run-phase-indicator';
   for (let i = 0; i < NARRATOR_PHASES.length + 1; i++) {
@@ -96,18 +89,15 @@ export function renderFirstRunExperience(container: HTMLElement): void {
     phaseIndicator.appendChild(dot);
   }
 
-  // ── Typewriter narrator ──────────────────────────────────────────────────
+  const chapterLabel = document.createElement('div');
+  chapterLabel.className = 'first-run-chapter-label';
+
   const narratorBox = document.createElement('div');
   narratorBox.className = 'first-run-narrator';
   const narratorCursor = document.createElement('span');
   narratorCursor.className = 'first-run-narrator-cursor';
   narratorCursor.textContent = '▌';
 
-  // ── Chapter label (shows phase name during narration) ──────────────────
-  const chapterLabel = document.createElement('div');
-  chapterLabel.className = 'first-run-chapter-label';
-
-  // ── DON'T PANIC title (hidden until narrator finishes) ───────────────────
   const title = document.createElement('h2');
   title.className = 'first-run-title hidden';
   title.innerHTML = `<span class="dont-word">DON'T</span> <span class="panic-word">PANIC</span>`;
@@ -126,19 +116,18 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   const subcopy = document.createElement('p');
   subcopy.className = 'first-run-subcopy hidden';
-  subcopy.textContent = 'It won\'t make you a towel, but it will make your conversation packs considerably less likely to implode. Which is, on balance, preferable.';
+  subcopy.textContent = 'It won\'t make you a towel, but it will get you straight into a blank project once you are ready to start. Which is, on balance, preferable.';
 
-  // ── CTA buttons ──────────────────────────────────────────────────────────
   const ctas = document.createElement('div');
   ctas.className = 'first-run-cta-row hidden';
 
   const ctaLabel = document.createElement('p');
   ctaLabel.className = 'first-run-cta-label';
-  ctaLabel.textContent = 'So — where shall we begin?';
+  ctaLabel.textContent = 'Ready to build? Start with a blank project, or pick another way in.';
 
   const blankBtn = document.createElement('button');
-  blankBtn.className = 'btn btn-primary';
-  setButtonContent(blankBtn, 'add', 'Blank Project');
+  blankBtn.className = 'btn btn-primary first-run-primary-cta';
+  setButtonContent(blankBtn, 'add', 'Start Blank Project');
   blankBtn.onclick = () => createBlankProject();
 
   const sampleBtn = document.createElement('button');
@@ -153,13 +142,11 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   ctas.append(ctaLabel, blankBtn, sampleBtn, importBtn);
 
-  // ── Skip button ──────────────────────────────────────────────────────────
   const skipBtn = document.createElement('button');
   skipBtn.type = 'button';
   skipBtn.className = 'first-run-skip-btn';
   skipBtn.textContent = 'Skip intro →';
 
-  // ── Checklist ────────────────────────────────────────────────────────────
   const checklistWrap = document.createElement('div');
   checklistWrap.className = 'first-run-checklist hidden';
 
@@ -184,96 +171,10 @@ export function renderFirstRunExperience(container: HTMLElement): void {
   checklistWrap.appendChild(checklist);
 
   hero.append(phaseIndicator, chapterLabel, narratorBox, title, subtitle, tagline, intro, subcopy, ctas, checklistWrap, skipBtn);
-
-  // ── PDA Terminal boot sequence ─────────────────────────────────────────────
-  const terminal = document.createElement('div');
-  terminal.className = 'first-run-terminal';
-  terminal.setAttribute('aria-hidden', 'true');
-
-  terminal.innerHTML = `
-    <div class="terminal-scanlines"></div>
-    <div class="terminal-header">
-      <span class="terminal-header-dot red"></span>
-      <span class="terminal-header-dot yellow"></span>
-      <span class="terminal-header-dot green"></span>
-      <span class="terminal-header-title">PDA v3.42 — SECURE CHANNEL</span>
-    </div>
-    <div class="terminal-body">
-      <div class="terminal-log"></div>
-    </div>
-    <div class="terminal-status-bar">
-      <span class="terminal-signal">
-        <span class="signal-bar bar-1"></span>
-        <span class="signal-bar bar-2"></span>
-        <span class="signal-bar bar-3"></span>
-        <span class="signal-bar bar-4"></span>
-      </span>
-      <span class="terminal-status-text">STANDBY</span>
-      <span class="terminal-status-freq">462.7 MHz</span>
-    </div>
-  `;
-
-  shell.append(hero, terminal);
+  shell.appendChild(hero);
   container.replaceChildren(shell);
 
-  const termLog = terminal.querySelector('.terminal-log') as HTMLElement;
-  const statusText = terminal.querySelector('.terminal-status-text') as HTMLElement;
-
-  // ── Boot sequence log lines per phase ──────────────────────────────────────
-  const BOOT_PHASES: string[][] = [
-    // Phase 0 — Opening: system coming alive
-    [
-      '> BIOS POST ............ OK',
-      '> PDA-OS v3.42.1 KERNEL LOADED',
-      '> INITIALIZING MEMORY .... 640K',
-      '> (that ought to be enough for anybody)',
-      '> SCANNING ZONE FREQUENCIES ...',
-      '> SIGNAL ACQUIRED: 462.7 MHz',
-      '> HANDSHAKE .... ESTABLISHED',
-      '> A-LIFE NETWORK DETECTED',
-      '> NPC ROSTER: 2,847 ACTIVE CONTACTS',
-    ],
-    // Phase 1 — Problem: diagnostics reveal issues
-    [
-      '> RUNNING DIALOGUE DIAGNOSTICS ...',
-      '> [WARN] NPC CONVERSATION DEPTH: SHALLOW',
-      '> [WARN] BRANCHING PATHS: MINIMAL',
-      '> [WARN] PLAYER AGENCY SCORE: 12%',
-      '> [ERR!] XML STRING TABLE CORRUPTION',
-      '> [ERR!] MANUAL EDITS DETECTED — SANITY LOSS IMMINENT',
-      '> [ERR!] MODDER BURNOUT INDEX: CRITICAL',
-      '> DIAGNOSIS: THE ZONE DESERVES BETTER.',
-    ],
-    // Phase 2 — Solution: P.A.N.D.A. initializes
-    [
-      '> LOADING MODULE: P.A.N.D.A.',
-      '> ┌─────────────────────────────────┐',
-      '> │  PROCEDURAL  ANOMALY  NARRATIVE │',
-      '> │    DIALOGUE   ARCHITECTURE      │',
-      '> └─────────────────────────────────┘',
-      '> PRECONDITION ENGINE .... ONLINE',
-      '> BRANCHING EDITOR ...... ONLINE',
-      '> OUTCOME SYSTEM ........ ONLINE',
-      '> XML EXPORT ............ ONLINE',
-      '> VALIDATION ............ ONLINE',
-      '> ALL SYSTEMS NOMINAL.',
-    ],
-    // Phase 3 — Invite: personal welcome
-    [
-      '> SCANNING OPERATOR CREDENTIALS ...',
-      '> CLEARANCE: LEVEL 42 — UNRESTRICTED',
-      '> STATUS: IMPROBABLY TALENTED MODDER',
-      '> RECOMMENDATION: DO NOT PANIC',
-      '> ...',
-      '> WELCOME ABOARD, STALKER.',
-      '> SYSTEM READY.',
-    ],
-  ];
-
-  // ── Typewriter animation ─────────────────────────────────────────────────
   let cancelled = false;
-
-  const PHASE_LABELS = ['Chapter I — Genesis', 'Chapter II — The Problem', 'Chapter III — The Solution', 'Chapter IV — You'];
 
   function setPhaseIndicator(index: number): void {
     phaseIndicator.querySelectorAll('.phase-dot').forEach((dot, i) => {
@@ -282,68 +183,11 @@ export function renderFirstRunExperience(container: HTMLElement): void {
     });
   }
 
-  async function printTerminalLine(text: string): Promise<void> {
-    if (cancelled) return;
-    const line = document.createElement('div');
-    line.className = 'terminal-line';
-
-    const isError = text.includes('[ERR!]');
-    const isWarn = text.includes('[WARN]');
-    const isBox = /[┌┐└┘│─]/.test(text);
-
-    if (isError) line.classList.add('line-error');
-    else if (isWarn) line.classList.add('line-warn');
-    else if (isBox) line.classList.add('line-box');
-
-    termLog.appendChild(line);
-    termLog.scrollTop = termLog.scrollHeight;
-
-    // Fast character-by-character print for that terminal feel
-    for (let i = 0; i < text.length; i++) {
-      if (cancelled) return;
-      line.textContent = text.slice(0, i + 1);
-      // Box-drawing chars print fast, dots print with pauses
-      const char = text[i];
-      if (char === '.') await delay(40 + Math.random() * 30);
-      else if (isBox) await delay(4);
-      else await delay(10 + Math.random() * 12);
-    }
-
-    // Blink effect on completion
-    line.classList.add('printed');
-    await delay(60);
-  }
-
-  async function runBootPhase(phaseIdx: number): Promise<void> {
-    if (cancelled) return;
-    const lines = BOOT_PHASES[phaseIdx];
-
-    // Update status bar per phase
-    const statuses = ['BOOTING', 'DIAGNOSING', 'LOADING P.A.N.D.A.', 'AUTHENTICATING'];
-    statusText.textContent = statuses[phaseIdx] || 'PROCESSING';
-
-    // Activate signal bars progressively
-    const bars = terminal.querySelectorAll('.signal-bar');
-    bars.forEach((bar, i) => bar.classList.toggle('active', i <= phaseIdx));
-
-    for (const text of lines) {
-      if (cancelled) return;
-      await printTerminalLine(text);
-      await delay(120 + Math.random() * 180);
-    }
-  }
-
   function revealContent(): void {
     narratorBox.classList.add('narrator-done');
     chapterLabel.classList.add('narrator-done');
     shell.classList.add('phase-finale');
 
-    // Terminal enters ready state
-    statusText.textContent = 'SYSTEM READY';
-    terminal.classList.add('terminal-ready');
-    terminal.querySelectorAll('.signal-bar').forEach(b => b.classList.add('active'));
-
-    // Dramatic staggered reveal
     title.classList.remove('hidden');
     title.classList.add('reveal');
     skipBtn.hidden = true;
@@ -356,19 +200,19 @@ export function renderFirstRunExperience(container: HTMLElement): void {
       subtitle.classList.add('reveal');
       tagline.classList.remove('hidden');
       tagline.classList.add('reveal');
-    }, 600);
+    }, 300);
 
     setTimeout(() => {
       if (cancelled) return;
       intro.classList.remove('hidden');
       intro.classList.add('reveal');
-    }, 1000);
+    }, 650);
 
     setTimeout(() => {
       if (cancelled) return;
       subcopy.classList.remove('hidden');
       subcopy.classList.add('reveal');
-    }, 1300);
+    }, 900);
 
     setTimeout(() => {
       if (cancelled) return;
@@ -376,7 +220,7 @@ export function renderFirstRunExperience(container: HTMLElement): void {
       ctas.classList.add('reveal');
       checklistWrap.classList.remove('hidden');
       checklistWrap.classList.add('reveal');
-    }, 1600);
+    }, 1150);
   }
 
   skipBtn.onclick = () => {
@@ -384,24 +228,9 @@ export function renderFirstRunExperience(container: HTMLElement): void {
     narratorBox.textContent = '';
     narratorBox.classList.add('narrator-done');
     chapterLabel.classList.add('narrator-done');
-    // Clear any phase classes
-    NARRATOR_PHASES.forEach(p => {
-      if (p.shellClass) shell.classList.remove(p.shellClass);
+    NARRATOR_PHASES.forEach(phase => {
+      if (phase.shellClass) shell.classList.remove(phase.shellClass);
     });
-
-    // Fill terminal with final state
-    termLog.innerHTML = '';
-    BOOT_PHASES.flat().forEach(text => {
-      const line = document.createElement('div');
-      line.className = 'terminal-line printed';
-      line.textContent = text;
-      if (text.includes('[ERR!]')) line.classList.add('line-error');
-      else if (text.includes('[WARN]')) line.classList.add('line-warn');
-      else if (/[┌┐└┘│─]/.test(text)) line.classList.add('line-box');
-      termLog.appendChild(line);
-    });
-    termLog.scrollTop = termLog.scrollHeight;
-
     revealContent();
   };
 
@@ -410,36 +239,27 @@ export function renderFirstRunExperience(container: HTMLElement): void {
       const phase = NARRATOR_PHASES[phaseIdx];
       if (cancelled) return;
 
-      // Phase transition: clear previous, set new phase
       if (phaseIdx > 0) {
         const prevPhase = NARRATOR_PHASES[phaseIdx - 1];
         if (prevPhase.shellClass) shell.classList.remove(prevPhase.shellClass);
 
-        // Fade out old lines
         narratorBox.classList.add('narrator-fading');
         await delay(500);
         if (cancelled) return;
 
-        // Clear old lines
         narratorBox.querySelectorAll('.first-run-narrator-line').forEach(el => el.remove());
         narratorBox.classList.remove('narrator-fading');
       }
 
-      // Activate new phase
       if (phase.shellClass) shell.classList.add(phase.shellClass);
       setPhaseIndicator(phaseIdx);
 
-      // Show chapter label
       chapterLabel.textContent = PHASE_LABELS[phaseIdx] || '';
       chapterLabel.classList.add('visible');
 
-      // Run terminal boot phase in parallel with narrator
-      runBootPhase(phaseIdx);
-
-      await delay(400);
+      await delay(250);
       if (cancelled) return;
 
-      // Type each line in this phase
       for (const line of phase.lines) {
         if (cancelled) return;
 
@@ -458,12 +278,10 @@ export function renderFirstRunExperience(container: HTMLElement): void {
         await delay(800);
       }
 
-      // Hold after phase
       if (phase.holdAfter) {
         await delay(phase.holdAfter);
       }
 
-      // Fade out chapter label between phases
       chapterLabel.classList.remove('visible');
       await delay(300);
     }

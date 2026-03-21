@@ -19,6 +19,7 @@ export type IconName =
   | 'duplicate'
   | 'delete'
   | 'success'
+  | 'check'
   | 'warning'
   | 'error'
   | 'close'
@@ -130,6 +131,12 @@ const ICONS: Record<IconName, IconDef> = {
     ],
   },
   success: {
+    paths: [
+      { tag: 'circle', cx: '12', cy: '12', r: '8' },
+      { tag: 'path', d: 'm8.5 12.3 2.2 2.2 4.8-5.1' },
+    ],
+  },
+  check: {
     paths: [
       { tag: 'circle', cx: '12', cy: '12', r: '8' },
       { tag: 'path', d: 'm8.5 12.3 2.2 2.2 4.8-5.1' },

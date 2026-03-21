@@ -621,6 +621,10 @@ label {
   background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.3) 100%);
 }
 
+.main-layout.main-layout-onboarding::before {
+  background: none;
+}
+
 .panel {
   display: flex;
   flex-direction: column;
@@ -698,6 +702,17 @@ label {
 .panel-center {
   flex: 1 1 auto;
   min-width: 320px;
+}
+
+.panel-center.panel-onboarding {
+  min-width: 0;
+  border-right: 0;
+  background: transparent;
+}
+
+.panel-center.panel-onboarding .panel-body {
+  padding: 0;
+  overflow: hidden;
 }
 
 .panel-right {
@@ -3551,10 +3566,10 @@ hr {
 
 .first-run-shell {
   min-height: 100%;
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.8fr);
-  gap: 24px;
-  padding: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(20px, 4vw, 40px);
   background:
     radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 12%, transparent), transparent 40%),
     radial-gradient(circle at right center, rgba(64, 128, 196, 0.12), transparent 38%),
@@ -3600,13 +3615,15 @@ hr {
 
 .first-run-hero {
   position: relative;
+  width: min(100%, 980px);
+  max-height: min(100%, 920px);
   overflow: hidden;
   overflow-y: auto;
   border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(22, 28, 34, 0.92), rgba(10, 12, 16, 0.96));
-  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.04);
-  padding: 28px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(22, 28, 34, 0.94), rgba(10, 12, 16, 0.98));
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 1px rgba(255,255,255,0.03);
+  padding: clamp(24px, 4vw, 44px);
 }
 
 .first-run-hero::before {
@@ -3627,7 +3644,8 @@ hr {
 .first-run-narrator {
   position: relative;
   min-height: 80px;
-  margin-bottom: 16px;
+  max-width: 68ch;
+  margin: 0 auto 16px;
   padding: 16px 18px;
   border-left: 3px solid var(--accent);
   border-radius: 0 12px 12px 0;
@@ -3636,6 +3654,7 @@ hr {
   font-size: 13px;
   line-height: 1.65;
   color: var(--text);
+  text-align: left;
   transition: opacity 0.6s ease, min-height 0.5s ease;
 }
 
@@ -3665,6 +3684,7 @@ hr {
 
 .first-run-phase-indicator {
   display: flex;
+  justify-content: center;
   gap: 8px;
   margin-bottom: 14px;
 }
@@ -3700,6 +3720,7 @@ hr {
   transition: opacity 0.5s ease, transform 0.5s ease;
   margin-bottom: 8px;
   min-height: 16px;
+  text-align: center;
 }
 
 .first-run-chapter-label.visible {
@@ -3793,10 +3814,12 @@ hr {
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--text-dim);
+  text-align: center;
 }
 
 .first-run-title {
   margin-top: 4px;
+  text-align: center;
   font-size: clamp(38px, 5.5vw, 72px);
   line-height: 0.95;
   letter-spacing: 0.08em;
@@ -3822,6 +3845,7 @@ hr {
 
 .first-run-subtitle {
   margin-top: 6px;
+  text-align: center;
   font-size: 12px;
   letter-spacing: 0.35em;
   text-transform: uppercase;
@@ -3830,8 +3854,9 @@ hr {
 }
 
 .first-run-tagline {
-  margin-top: 10px;
+  margin: 10px auto 0;
   max-width: 52ch;
+  text-align: center;
   font-size: 15px;
   line-height: 1.5;
   color: var(--text);
@@ -3842,7 +3867,8 @@ hr {
 .first-run-subcopy {
   position: relative;
   max-width: 58ch;
-  margin-top: 14px;
+  margin: 14px auto 0;
+  text-align: center;
   color: var(--text);
   font-size: 13.5px;
   line-height: 1.6;
@@ -3857,6 +3883,7 @@ hr {
 .first-run-cta-row {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   gap: 10px;
   margin-top: 20px;
@@ -3865,6 +3892,7 @@ hr {
 .first-run-cta-label {
   width: 100%;
   margin: 0 0 4px;
+  text-align: center;
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-dim);
@@ -3875,6 +3903,10 @@ hr {
   margin-top: 24px;
   padding-top: 18px;
   border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.first-run-primary-cta {
+  min-width: 220px;
 }
 
 .first-run-checklist-list {
@@ -3912,183 +3944,6 @@ hr {
 .first-run-check-icon .ui-icon {
   width: 0.9rem;
   height: 0.9rem;
-}
-
-/* ── PDA Terminal visualisation ─────────────────────────── */
-
-.first-run-terminal {
-  position: relative;
-  min-height: 360px;
-  display: flex;
-  flex-direction: column;
-  border-radius: 18px;
-  border: 1px solid rgba(64, 128, 196, 0.18);
-  background: linear-gradient(180deg, rgba(8, 12, 18, 0.97), rgba(4, 6, 10, 0.99));
-  overflow: hidden;
-  box-shadow:
-    var(--shadow-lg),
-    inset 0 0 80px rgba(0, 0, 0, 0.5),
-    0 0 40px rgba(64, 128, 196, 0.06);
-}
-
-/* CRT scanline overlay */
-.terminal-scanlines {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 2;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.15) 2px,
-    rgba(0, 0, 0, 0.15) 4px
-  );
-  animation: terminal-flicker 0.08s infinite alternate;
-  opacity: 0.4;
-}
-
-/* Top bar with window dots + title */
-.terminal-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(64, 128, 196, 0.12);
-  background: rgba(0, 0, 0, 0.3);
-  z-index: 1;
-}
-
-.terminal-header-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  opacity: 0.7;
-}
-.terminal-header-dot.red { background: #ff5f56; }
-.terminal-header-dot.yellow { background: #ffbd2e; }
-.terminal-header-dot.green { background: #27c93f; }
-
-.terminal-header-title {
-  margin-left: 8px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.15em;
-  color: rgba(232, 236, 240, 0.4);
-  text-transform: uppercase;
-}
-
-/* Scrollable log body */
-.terminal-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 14px;
-  z-index: 1;
-}
-
-.terminal-log {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-/* Individual log lines */
-.terminal-line {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  line-height: 1.55;
-  color: color-mix(in srgb, var(--accent) 75%, rgba(180, 210, 240, 1));
-  white-space: pre;
-  opacity: 0.7;
-  transform: translateX(-4px);
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.terminal-line.printed {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.terminal-line.line-error {
-  color: #ff6b6b;
-  text-shadow: 0 0 8px rgba(255, 80, 80, 0.3);
-}
-
-.terminal-line.line-warn {
-  color: #ffc145;
-  text-shadow: 0 0 6px rgba(255, 193, 69, 0.2);
-}
-
-.terminal-line.line-box {
-  color: var(--accent);
-  text-shadow: 0 0 10px var(--accent-glow-strong);
-  font-weight: 700;
-}
-
-/* Bottom status bar */
-.terminal-status-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  border-top: 1px solid rgba(64, 128, 196, 0.12);
-  background: rgba(0, 0, 0, 0.3);
-  z-index: 1;
-}
-
-.terminal-signal {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 14px;
-}
-
-.signal-bar {
-  width: 3px;
-  border-radius: 1px;
-  background: rgba(255, 255, 255, 0.12);
-  transition: background 0.4s ease, box-shadow 0.4s ease;
-}
-.signal-bar.bar-1 { height: 4px; }
-.signal-bar.bar-2 { height: 7px; }
-.signal-bar.bar-3 { height: 10px; }
-.signal-bar.bar-4 { height: 14px; }
-
-.signal-bar.active {
-  background: var(--accent);
-  box-shadow: 0 0 6px var(--accent-glow-strong);
-}
-
-.terminal-status-text {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: var(--accent);
-  text-shadow: 0 0 8px var(--accent-glow-strong);
-  transition: color 0.3s ease;
-}
-
-.terminal-status-freq {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: rgba(232, 236, 240, 0.3);
-  letter-spacing: 0.08em;
-}
-
-/* Ready state glow */
-.first-run-terminal.terminal-ready {
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-  box-shadow:
-    var(--shadow-lg),
-    inset 0 0 60px rgba(0, 0, 0, 0.4),
-    0 0 60px color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
-.first-run-terminal.terminal-ready .terminal-status-text {
-  color: #27c93f;
-  text-shadow: 0 0 8px rgba(39, 201, 63, 0.4);
 }
 
 /* ── Onboarding nudge (contextual) ─────────────────────── */
@@ -4145,22 +4000,43 @@ hr {
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes terminal-flicker {
-  0% { opacity: 0.35; }
-  100% { opacity: 0.45; }
+@media (max-width: 1100px) {
+  .first-run-hero {
+    width: min(100%, 840px);
+  }
 }
 
-@media (max-width: 1100px) {
-  .first-run-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .first-run-terminal {
-    min-height: 280px;
-  }
+.first-run-shell .btn {
+  min-height: 38px;
 }
 
 @media (max-width: 760px) {
+  .first-run-shell {
+    padding: 16px;
+  }
+
+  .first-run-hero {
+    border-radius: 20px;
+    padding: 20px;
+  }
+
+  .first-run-title {
+    font-size: clamp(32px, 11vw, 52px);
+  }
+
+  .first-run-narrator {
+    font-size: 12px;
+  }
+
+  .first-run-cta-row {
+    flex-direction: column;
+  }
+
+  .first-run-cta-row .btn,
+  .first-run-primary-cta {
+    width: 100%;
+  }
+
   .toolbar-branding {
     width: 100%;
     margin-right: 0;
