@@ -371,7 +371,7 @@ export async function fetchCreatorSupportStats(): Promise<CreatorSupportStats> {
     return await fetchFromApi<CreatorSupportStats>('/api/support/upvotes');
   } catch (apiError) {
     const params = new URLSearchParams({
-      select: 'id,upvotes,updated_at',
+      select: 'id,upvotes,visitors,updated_at',
       id: `eq.${SUPPORT_ROW_ID}`,
       limit: '1',
     });
