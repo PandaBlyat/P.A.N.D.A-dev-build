@@ -3531,6 +3531,43 @@ hr {
     radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 12%, transparent), transparent 40%),
     radial-gradient(circle at right center, rgba(64, 128, 196, 0.12), transparent 38%),
     linear-gradient(180deg, rgba(8, 10, 12, 0.96), rgba(16, 20, 26, 0.96));
+  transition: background 1.2s ease;
+}
+
+/* Phase-specific ambient shifts */
+.first-run-shell.phase-opening {
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 10%, transparent), transparent 40%),
+    radial-gradient(circle at bottom right, rgba(40, 80, 140, 0.08), transparent 50%),
+    linear-gradient(180deg, rgba(6, 8, 12, 0.97), rgba(12, 16, 22, 0.97));
+}
+
+.first-run-shell.phase-problem {
+  background:
+    radial-gradient(circle at center, rgba(180, 60, 40, 0.06), transparent 50%),
+    radial-gradient(circle at top left, rgba(64, 128, 196, 0.06), transparent 40%),
+    linear-gradient(180deg, rgba(10, 8, 8, 0.97), rgba(18, 14, 14, 0.97));
+}
+
+.first-run-shell.phase-solution {
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 14%, transparent), transparent 45%),
+    radial-gradient(circle at right center, rgba(64, 196, 128, 0.08), transparent 40%),
+    linear-gradient(180deg, rgba(8, 12, 10, 0.97), rgba(14, 20, 18, 0.97));
+}
+
+.first-run-shell.phase-invite {
+  background:
+    radial-gradient(circle at center, color-mix(in srgb, var(--accent) 10%, transparent), transparent 50%),
+    radial-gradient(circle at bottom left, rgba(196, 180, 64, 0.06), transparent 40%),
+    linear-gradient(180deg, rgba(10, 10, 8, 0.97), rgba(18, 18, 14, 0.97));
+}
+
+.first-run-shell.phase-finale {
+  background:
+    radial-gradient(circle at center, color-mix(in srgb, var(--accent) 16%, transparent), transparent 55%),
+    radial-gradient(circle at top left, rgba(64, 128, 196, 0.12), transparent 40%),
+    linear-gradient(180deg, rgba(8, 10, 14, 0.96), rgba(14, 18, 24, 0.96));
 }
 
 .first-run-hero {
@@ -3576,14 +3613,75 @@ hr {
 
 .first-run-narrator.narrator-done {
   min-height: 0;
-  opacity: 0.5;
-  max-height: 120px;
+  opacity: 0.35;
+  max-height: 80px;
   overflow: hidden;
   margin-bottom: 8px;
+  transition: opacity 0.8s ease, max-height 0.6s ease, min-height 0.6s ease;
+}
+
+.first-run-narrator.narrator-fading .first-run-narrator-line {
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
 .first-run-narrator-line {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.3s ease;
+}
+
+/* ── Phase indicator dots ──────────────────────────────── */
+
+.first-run-phase-indicator {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.phase-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  transition: background 0.5s ease, box-shadow 0.5s ease, transform 0.3s ease;
+}
+
+.phase-dot.active {
+  background: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.phase-dot.current {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow-strong);
+  transform: scale(1.3);
+}
+
+/* ── Chapter label ─────────────────────────────────────── */
+
+.first-run-chapter-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  margin-bottom: 8px;
+  min-height: 16px;
+}
+
+.first-run-chapter-label.visible {
+  opacity: 0.7;
+  transform: translateY(0);
+}
+
+.first-run-chapter-label.narrator-done {
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .first-run-narrator-cursor {
@@ -3625,17 +3723,22 @@ hr {
 
 .first-run-title.hidden,
 .first-run-subtitle.hidden,
+.first-run-tagline.hidden,
 .first-run-intro.hidden,
 .first-run-subcopy.hidden,
 .first-run-cta-row.hidden,
 .first-run-checklist.hidden {
   opacity: 0;
-  transform: translateY(12px);
+  transform: translateY(14px);
   pointer-events: none;
 }
 
-.first-run-title.reveal,
+.first-run-title.reveal {
+  animation: onboarding-title-reveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 .first-run-subtitle.reveal,
+.first-run-tagline.reveal,
 .first-run-intro.reveal,
 .first-run-subcopy.reveal,
 .first-run-cta-row.reveal,
@@ -3644,8 +3747,14 @@ hr {
 }
 
 @keyframes onboarding-reveal {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes onboarding-title-reveal {
+  0% { opacity: 0; transform: translateY(20px) scale(0.92); letter-spacing: 0.3em; }
+  60% { opacity: 1; transform: translateY(-2px) scale(1.01); }
+  100% { opacity: 1; transform: translateY(0) scale(1); letter-spacing: 0.08em; }
 }
 
 /* ── Title & subtitle ──────────────────────────────────── */
@@ -3668,12 +3777,18 @@ hr {
   text-shadow: 0 0 28px rgba(232, 236, 240, 0.08);
 }
 
+.first-run-title .dont-word {
+  display: inline-block;
+  color: var(--text-bright);
+}
+
 .first-run-title .panic-word {
   display: inline-block;
   color: var(--accent);
   text-shadow:
     0 0 24px var(--accent-glow-strong),
-    0 0 48px color-mix(in srgb, var(--accent) 30%, transparent);
+    0 0 48px color-mix(in srgb, var(--accent) 30%, transparent),
+    0 0 96px color-mix(in srgb, var(--accent) 12%, transparent);
   animation: onboarding-panic 3.8s ease-in-out infinite;
 }
 
@@ -3686,13 +3801,23 @@ hr {
   font-family: var(--font-mono);
 }
 
+.first-run-tagline {
+  margin-top: 10px;
+  max-width: 52ch;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  font-style: italic;
+}
+
 .first-run-intro,
 .first-run-subcopy {
   position: relative;
   max-width: 58ch;
   margin-top: 14px;
   color: var(--text);
-  font-size: 14px;
+  font-size: 13.5px;
+  line-height: 1.6;
 }
 
 .first-run-subcopy {
@@ -3704,8 +3829,18 @@ hr {
 .first-run-cta-row {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
   margin-top: 20px;
+}
+
+.first-run-cta-label {
+  width: 100%;
+  margin: 0 0 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
 }
 
 .first-run-checklist {
@@ -3876,6 +4011,28 @@ hr {
   color: color-mix(in srgb, var(--accent) 50%, transparent);
   animation: onboarding-sigil-breathe 5s ease-in-out infinite;
   pointer-events: none;
+}
+
+.first-run-orbit-quote {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+  white-space: pre-line;
+  color: rgba(232, 236, 240, 0.4);
+  font-style: italic;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+  max-width: 80%;
+}
+
+.first-run-orbit-quote.visible {
+  opacity: 1;
 }
 
 /* ── Onboarding nudge (contextual) ─────────────────────── */
