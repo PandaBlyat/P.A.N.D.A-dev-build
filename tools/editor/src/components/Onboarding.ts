@@ -67,8 +67,8 @@ const NARRATOR_PHASES: NarratorPhase[] = [
   {
     lines: [
       'Now. If you are reading this, it means you are precisely the sort of wonderfully improbable person who wants to make the Zone a more talkative/immersive place.',
-      'This puts you in extremely exclusive company. Galactically speaking, you are indeed a GOAT.',
-      'So take a moment. Breathe, take your time and remember, above all else, the two most important words in any language, on any planet, in any dimension.......',
+      'This puts you in extremely exclusive company. Galactically speaking, you are indeed one of the good ones and my favorite (dont tell the others).',
+      'So take a moment. Breathe... take your time and REMEMBER, above all else, the two most important words in the english language.......',
     ],
     holdAfter: 2000,
     shellClass: 'phase-invite',
