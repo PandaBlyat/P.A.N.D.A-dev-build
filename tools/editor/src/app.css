@@ -913,6 +913,7 @@ label {
 .motivation-ticker {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   min-height: 32px;
   padding: 6px 12px;

@@ -99,7 +99,7 @@ function getTickerRoot(): HTMLElement {
   track.className = 'motivation-ticker-track';
   viewport.appendChild(track);
 
-  root.append(label, viewport);
+  root.append(viewport, label);
 
   tickerRoot = root;
   tickerViewport = viewport;
