@@ -913,6 +913,7 @@ label {
 .motivation-ticker {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   min-height: 32px;
   padding: 6px 12px;
@@ -943,23 +944,24 @@ label {
 .motivation-ticker-track {
   display: inline-block;
   max-width: none;
-  padding-left: 100%;
   white-space: nowrap;
   will-change: transform;
+  transform: translate3d(var(--ticker-start-x, 0px), 0, 0);
   color: var(--accent);
   text-shadow: 0 0 10px rgba(0, 0, 0, 0.28);
+  backface-visibility: hidden;
 }
 
 .motivation-ticker-track.is-animating {
-  animation: ticker-marquee 24s linear infinite;
+  animation: ticker-marquee var(--ticker-duration, 24000ms) linear infinite;
 }
 
 @keyframes ticker-marquee {
   from {
-    transform: translateX(0);
+    transform: translate3d(var(--ticker-start-x, 0px), 0, 0);
   }
   to {
-    transform: translateX(-100%);
+    transform: translate3d(var(--ticker-end-x, 100%), 0, 0);
   }
 }
 
@@ -967,7 +969,6 @@ label {
   .motivation-ticker-track,
   .motivation-ticker-track.is-animating {
     animation: none;
-    padding-left: 0;
     transform: none;
     white-space: normal;
   }
