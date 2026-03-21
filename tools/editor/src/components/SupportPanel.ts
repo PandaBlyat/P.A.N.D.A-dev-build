@@ -9,12 +9,12 @@ const SUPPORT_PAGE_URL = 'https://ko-fi.com/your-page';
 const SUPPORT_PANEL_COPY = {
   eyebrow: 'Support the project',
   title: 'Fuel future P.A.N.D.A. updates',
-  intro: 'P.A.N.D.A. is my passion project that started as a very basic expansion to vanilla dynamic news dialogues with UDE. Over the years as I learnt xray scripting etc my scope grew far, far bigger.',
-  mod: 'Ive been working on PANDA for a long while and a lot of work and boring ass bugtesting has gone into making all of this possible. Mod will be released once it has enough conversations and meet polished standards.',
-  support: 'I have a lot of new features planned for PANDA in the future and there is a lot of room for growth mechanically gameplay-wise. If you want to tip me or whatever, the button above will take you straight to my Ko-fi.',
-  upvoteTitle: 'You can also give morale support by just leaving an upvote!',
-  upvoteBody: 'Morale support!.',
-  upvoteStatsLabel: 'total morale upvotes',
+  intro: 'P.A.N.D.A. is my passion project that started as a very basic expansion to vanilla dynamic news dialogues with UDE. Over the years as I learnt X-Ray scripting, my scope grew far, far bigger.',
+  mod: 'I\'ve been working on P.A.N.D.A. for a long while and a lot of work (and boring-ass bug testing) has gone into making all of this possible. The mod will be released once it has enough conversations and meets polished standards.',
+  support: 'I have a lot of new features planned for the future and there is a lot of room for mechanical growth gameplay-wise. If you want to tip me or show appreciation, the button above will take you straight to my Ko-fi.',
+  upvoteTitle: 'Give a Morale Boost!',
+  upvoteBody: 'It costs nothing, but it makes the dev happy.',
+  upvoteStatsLabel: 'Total morale upvotes',
   upvoteCta: 'Leave an upvote',
   upvoteDone: 'Upvoted — thank you!',
   upvoteLoading: 'Loading support count…',
@@ -112,26 +112,42 @@ export function openSupportPanel(): void {
     </div>
     <div class="support-highlight">
       <strong>What your support means</strong>
-      <span>It genuinely shows all the hours i spent havent been for nothing, which would you know, be a bit of a bummer.</span>
+      <span>It genuinely shows all the hours I spent haven't been for nothing, which would you know, be a bit of a bummer.</span>
     </div>
   `;
 
   const upvoteCard = document.createElement('div');
   upvoteCard.className = 'support-highlight support-highlight-upvote';
+  // STRUCTURAL OVERRIDES: Center everything and give it padding
+  upvoteCard.style.display = 'flex';
+  upvoteCard.style.flexDirection = 'column';
+  upvoteCard.style.alignItems = 'center';
+  upvoteCard.style.textAlign = 'center';
+  upvoteCard.style.gap = '1.5rem';
+  upvoteCard.style.padding = '2.5rem 1.5rem';
 
   const upvoteText = document.createElement('div');
   upvoteText.className = 'support-highlight-upvote-copy';
 
   const upvoteTitle = document.createElement('strong');
   upvoteTitle.textContent = SUPPORT_PANEL_COPY.upvoteTitle;
+  upvoteTitle.style.fontSize = '1.2rem';
 
   const upvoteBody = document.createElement('span');
   upvoteBody.textContent = SUPPORT_PANEL_COPY.upvoteBody;
+  upvoteBody.style.display = 'block';
+  upvoteBody.style.marginTop = '0.25rem';
 
   upvoteText.append(upvoteTitle, upvoteBody);
 
   const upvoteActions = document.createElement('div');
   upvoteActions.className = 'support-highlight-upvote-actions';
+  // STRUCTURAL OVERRIDES: Column layout for the button and big number
+  upvoteActions.style.display = 'flex';
+  upvoteActions.style.flexDirection = 'column';
+  upvoteActions.style.alignItems = 'center';
+  upvoteActions.style.gap = '1.25rem';
+  upvoteActions.style.width = '100%';
 
   const upvoteCountBox = document.createElement('div');
   upvoteCountBox.className = 'support-upvote-count-box';
@@ -139,16 +155,30 @@ export function openSupportPanel(): void {
   const upvoteCount = document.createElement('strong');
   upvoteCount.className = 'support-upvote-count';
   upvoteCount.textContent = '—';
+  // BIG NUMBER STYLING
+  upvoteCount.style.fontSize = '4.5rem';
+  upvoteCount.style.display = 'block';
+  upvoteCount.style.lineHeight = '1';
+  upvoteCount.style.color = 'var(--panda-accent-upvote, #10b981)';
+  upvoteCount.style.textShadow = '0 4px 24px rgba(16, 185, 129, 0.3)';
+  upvoteCount.style.marginBottom = '0.5rem';
+  upvoteCount.style.fontVariantNumeric = 'tabular-nums';
 
   const upvoteCountLabel = document.createElement('span');
   upvoteCountLabel.className = 'support-upvote-count-label';
   upvoteCountLabel.textContent = SUPPORT_PANEL_COPY.upvoteStatsLabel;
+  upvoteCountLabel.style.fontSize = '0.85rem';
+  upvoteCountLabel.style.textTransform = 'uppercase';
+  upvoteCountLabel.style.letterSpacing = '0.1em';
 
   upvoteCountBox.append(upvoteCount, upvoteCountLabel);
 
   const upvoteBtn = document.createElement('button');
   upvoteBtn.type = 'button';
   upvoteBtn.className = 'btn support-upvote-button';
+  // Make the button slightly larger to match the new layout
+  upvoteBtn.style.padding = '0.75rem 1.5rem';
+  upvoteBtn.style.fontSize = '1rem';
   upvoteBtn.onclick = () => {
     void handleSupportUpvote();
   };
@@ -156,6 +186,8 @@ export function openSupportPanel(): void {
   const upvoteStatus = document.createElement('div');
   upvoteStatus.className = 'support-upvote-status';
   upvoteStatus.setAttribute('aria-live', 'polite');
+  upvoteStatus.style.position = 'static'; // Remove absolute positioning if inherited
+  upvoteStatus.style.marginTop = '0';
 
   upvoteActions.append(upvoteCountBox, upvoteBtn, upvoteStatus);
   upvoteCard.append(upvoteText, upvoteActions);
@@ -205,9 +237,10 @@ function renderSupportUpvoteState(message?: string): void {
 
   if (supportUpvoteButtonEl) {
     supportUpvoteButtonEl.disabled = supportUpvoteBusy || hasVoted || !supportUpvoteLoaded;
+    if (hasVoted) supportUpvoteButtonEl.setAttribute('data-voted', 'true');
     setButtonContent(
       supportUpvoteButtonEl,
-      'support',
+      hasVoted ? 'check' : 'support',
       supportUpvoteBusy ? 'Saving…' : hasVoted ? SUPPORT_PANEL_COPY.upvoteDone : SUPPORT_PANEL_COPY.upvoteCta,
     );
   }
@@ -235,20 +268,31 @@ async function loadSupportUpvoteCount(): Promise<void> {
 async function handleSupportUpvote(): Promise<void> {
   if (supportUpvoteBusy || !supportUpvoteLoaded || hasSupportUpvoted()) return;
 
+  // --- OPTIMISTIC UI UPDATE ---
+  // Instantly update the UI so it feels lightning fast to the user
   supportUpvoteBusy = true;
-  renderSupportUpvoteState();
+  supportUpvoteCount += 1;
+  rememberSupportUpvote();
+  
+  if (supportUpvoteButtonEl) {
+    fireConfetti(supportUpvoteButtonEl); // Trigger explosion!
+  }
+  
+  // Render the success state immediately
+  renderSupportUpvoteState(SUPPORT_PANEL_COPY.upvoteThanks);
 
   try {
+    // Attempt the actual background API call
     await incrementCreatorSupportUpvote();
-    rememberSupportUpvote();
-    supportUpvoteCount += 1;
-    supportUpvoteLoaded = true;
-    renderSupportUpvoteState(SUPPORT_PANEL_COPY.upvoteThanks);
   } catch {
+    // If it fails, quietly roll back the UI changes
+    supportUpvoteCount -= 1;
+    if (typeof window !== 'undefined') window.localStorage.removeItem(SUPPORT_UPVOTE_KEY);
     renderSupportUpvoteState(SUPPORT_PANEL_COPY.upvoteError);
   } finally {
     supportUpvoteBusy = false;
-    renderSupportUpvoteState(supportUpvoteStatusEl?.dataset.state === 'error' ? SUPPORT_PANEL_COPY.upvoteError : undefined);
+    // Keep the thanks message if it succeeded, otherwise keep the error
+    renderSupportUpvoteState(supportUpvoteStatusEl?.dataset.state === 'error' ? SUPPORT_PANEL_COPY.upvoteError : SUPPORT_PANEL_COPY.upvoteThanks);
   }
 }
 
@@ -260,4 +304,61 @@ function hasSupportUpvoted(): boolean {
 function rememberSupportUpvote(): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(SUPPORT_UPVOTE_KEY, '1');
+}
+
+// --- PARTICLE / CONFETTI EXPLOSION SYSTEM ---
+function fireConfetti(buttonEl: HTMLElement) {
+  // Get the exact center coordinates of the button
+  const rect = buttonEl.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+
+  // A mix of S.T.A.L.K.E.R. PDA green, Ko-fi coral, and some golds/purples
+  const colors = ['#10b981', '#34d399', '#a78bfa', '#ff5e5b', '#fbbf24', '#ffffff'];
+  const particleCount = 45;
+
+  for (let i = 0; i < particleCount; i++) {
+    const particle = document.createElement('div');
+    document.body.appendChild(particle);
+
+    // Randomize particle size and shape
+    const size = Math.random() * 6 + 4;
+    particle.style.width = `${size}px`;
+    particle.style.height = `${size}px`;
+    particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+    particle.style.position = 'fixed';
+    particle.style.left = `${centerX}px`;
+    particle.style.top = `${centerY}px`;
+    particle.style.borderRadius = Math.random() > 0.4 ? '50%' : '2px'; // Mix of circles and squares
+    particle.style.pointerEvents = 'none';
+    particle.style.zIndex = '10000'; // Make sure it stays over the modal
+
+    // Physics calculations
+    const angle = Math.random() * Math.PI * 2;
+    // Push particles further outwards
+    const velocity = 60 + Math.random() * 120; 
+    const tx = Math.cos(angle) * velocity;
+    // Slight upward anti-gravity bias for a "burst" effect
+    const ty = Math.sin(angle) * velocity - 40; 
+    const rot = Math.random() * 360;
+
+    // Utilize Web Animations API for smooth, hardware-accelerated movement
+    const animation = particle.animate([
+      { 
+        transform: 'translate(-50%, -50%) scale(1) rotate(0deg)', 
+        opacity: 1 
+      },
+      { 
+        transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(0) rotate(${rot}deg)`, 
+        opacity: 0 
+      }
+    ], {
+      duration: 700 + Math.random() * 500, // Random duration between 0.7s and 1.2s
+      easing: 'cubic-bezier(0.25, 1, 0.3, 1)', // Nice deceleration curve
+      fill: 'forwards'
+    });
+
+    // Cleanup the DOM node when the animation finishes to prevent memory leaks
+    animation.onfinish = () => particle.remove();
+  }
 }
