@@ -425,6 +425,19 @@ button:disabled:hover,
   box-shadow: 0 0 12px var(--accent-glow-strong);
 }
 
+.btn-subtle {
+  background: linear-gradient(180deg, rgba(32, 40, 50, 0.92) 0%, rgba(18, 24, 30, 0.96) 100%);
+  border-color: color-mix(in srgb, var(--border-light) 85%, rgba(255, 255, 255, 0.06));
+  color: var(--text-dim);
+  box-shadow: none;
+}
+.btn-subtle:hover {
+  background: linear-gradient(180deg, rgba(42, 52, 64, 0.96) 0%, rgba(24, 31, 38, 0.98) 100%);
+  border-color: color-mix(in srgb, var(--accent-dim) 45%, var(--border-light));
+  color: var(--text);
+  box-shadow: 0 0 8px rgba(86, 130, 180, 0.16);
+}
+
 .btn-danger {
   border-color: var(--danger);
   color: var(--danger);
@@ -436,19 +449,32 @@ button:disabled:hover,
 }
 
 .btn-community {
-  border-color: #c4a030;
-  color: #e0c040;
-  background: linear-gradient(180deg, rgba(196, 160, 48, 0.12) 0%, rgba(160, 120, 20, 0.08) 100%);
-  text-shadow: 0 0 8px rgba(224, 192, 64, 0.25);
+  min-width: 132px;
+  font-weight: 700;
+  border-color: #f0c94f;
+  color: #fff2bf;
+  background:
+    radial-gradient(circle at top, rgba(255, 245, 190, 0.28) 0%, rgba(255, 245, 190, 0) 46%),
+    linear-gradient(180deg, rgba(245, 198, 76, 0.34) 0%, rgba(176, 122, 24, 0.3) 52%, rgba(92, 60, 12, 0.24) 100%);
+  text-shadow: 0 1px 10px rgba(255, 225, 120, 0.32);
+  box-shadow:
+    0 0 0 1px rgba(255, 225, 120, 0.14),
+    0 0 18px rgba(255, 208, 82, 0.22),
+    inset 0 0 14px rgba(255, 240, 170, 0.12);
 }
 .btn-community:hover {
-  background: linear-gradient(180deg, rgba(224, 192, 64, 0.22) 0%, rgba(196, 160, 48, 0.12) 100%);
-  border-color: #e0c040;
-  box-shadow: 0 0 12px rgba(224, 192, 64, 0.3);
-  color: #f0d860;
+  background:
+    radial-gradient(circle at top, rgba(255, 248, 205, 0.34) 0%, rgba(255, 248, 205, 0) 52%),
+    linear-gradient(180deg, rgba(255, 212, 92, 0.44) 0%, rgba(194, 138, 32, 0.38) 56%, rgba(104, 68, 14, 0.28) 100%);
+  border-color: #ffe27c;
+  box-shadow:
+    0 0 0 1px rgba(255, 232, 144, 0.2),
+    0 0 24px rgba(255, 214, 96, 0.32),
+    inset 0 0 18px rgba(255, 244, 186, 0.16);
+  color: #fff8d8;
 }
 .btn-community .ui-icon svg {
-  color: #e0c040;
+  color: #ffe07a;
 }
 
 .toolbar-support-trigger {
