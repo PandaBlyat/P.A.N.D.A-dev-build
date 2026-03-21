@@ -129,7 +129,7 @@ html, body {
 }
 
 .toolbar-zone-right {
-  flex: 1 1 420px;
+  flex: 1 1 auto;
   justify-content: flex-end;
   min-width: 0;
 }
@@ -154,8 +154,9 @@ html, body {
 
 .toolbar-brand-copy {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   min-width: 0;
 }
 
@@ -254,8 +255,8 @@ html, body {
 }
 
 .toolbar-group-edit {
-  padding-left: 4px;
-  padding-right: 4px;
+  padding-left: 2px;
+  padding-right: 2px;
 }
 
 .toolbar-group-compact,
@@ -544,6 +545,10 @@ button:disabled:hover,
   border-color: var(--accent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent), 0 0 16px var(--accent-glow-strong);
   color: var(--text-bright);
+}
+.btn-community .ui-icon {
+  width: 1.15rem;
+  height: 1.15rem;
 }
 .btn-community .ui-icon svg {
   color: var(--accent-hover);
@@ -2411,9 +2416,11 @@ hr {
   max-width: 420px;
 }
 
-.toolbar-search-input,
-.toolbar-density-select {
+.toolbar-search-input {
   min-width: 140px;
+}
+.toolbar-density-select {
+  min-width: 90px;
 }
 
 .toolbar-search-input {
@@ -3884,7 +3891,7 @@ hr {
   text-align: center;
 }
 
-.support-upvote-count {
+strong.support-upvote-count {
   display: block;
   font-size: clamp(7rem, 15vw, 10.5rem);
   font-weight: 800;
@@ -3959,7 +3966,7 @@ hr {
     text-align: center;
   }
 
-  .support-upvote-count {
+  strong.support-upvote-count {
     font-size: clamp(5.25rem, 18vw, 8rem);
   }
 
