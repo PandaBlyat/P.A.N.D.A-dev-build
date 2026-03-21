@@ -12,7 +12,7 @@ const SUPPORT_PANEL_COPY = {
   intro: 'P.A.N.D.A. is my passion project that started as a very basic expansion to vanilla dynamic news dialogues with UDE. Over the years as I learnt xray scripting etc my scope grew far, far bigger.',
   mod: 'Ive been working on PANDA for a long while and a lot of work and boring ass bugtesting has gone into making all of this possible. Mod will be released once it has enough conversations and meet polished standards.',
   support: 'I have a lot of new features planned for PANDA in the future and there is a lot of room for growth mechanically gameplay-wise. If you want to tip me or whatever, the button below will take you straight to my Ko-fi.',
-  upvoteTitle: 'You can also support by just leaving an upvote!',
+  upvoteTitle: 'You can also give morale support by just leaving an upvote!',
   upvoteBody: 'Morale support!.',
   upvoteStatsLabel: 'total morale upvotes',
   upvoteCta: 'Leave an upvote',
@@ -108,11 +108,11 @@ export function openSupportPanel(): void {
   highlights.innerHTML = `
     <div class="support-highlight">
       <strong>Why support helps</strong>
-      <span>It gives me more room to keep improving the editor, maintain the mod, and spend time on the weird little details that make the project feel good to use.</span>
+      <span>It gives me more room to keep adding new interesting features to anomaly, maintain the mod and improve the editor over time to support vanilla systems as well.</span>
     </div>
     <div class="support-highlight">
       <strong>What your support means</strong>
-      <span>Bug fixes, feature updates, more writing tools, and continued upkeep for P.A.N.D.A. without turning the project into something bloated or intrusive.</span>
+      <span>It genuinely shows all the hours i spent havent been for nothing, which would you know, be a bit of a bummer.</span>
     </div>
   `;
 
