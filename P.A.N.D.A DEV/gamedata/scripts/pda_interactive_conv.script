@@ -2837,12 +2837,24 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
         -- Spawn commands now use: <cmd>:<faction_or_type>:<distance>[:<delay_seconds>]
         -- Examples:
         --   spawn_hostile:bandit:80           (spawn ~80m away, default delay)
+        --   spawn_friendly:stalker:60:5       (spawn friendly squad ~60m away after 5s)
+        --   spawn_npc:dolg:45                 (spawn faction-default squad ~45m away)
         --   spawn_mutant:boar:120:10          (spawn ~120m away, 10s delay)
         --   spawn_companion:stalker:35:3      (spawn ~35m away, 3s delay)
         elseif cmd == "spawn_hostile" then
             local distance = tonumber(parts[3])
             local delay = tonumber(parts[4]) or 90
-            spawn_hunting_squad(parts[2] or "bandit", distance, false, delay)
+            spawn_hunting_squad(parts[2] or "bandit", distance, false, delay, "hostile")
+
+        elseif cmd == "spawn_friendly" then
+            local distance = tonumber(parts[3])
+            local delay = tonumber(parts[4]) or 30
+            spawn_hunting_squad(parts[2] or "stalker", distance, false, delay, "friendly")
+
+        elseif cmd == "spawn_npc" then
+            local distance = tonumber(parts[3])
+            local delay = tonumber(parts[4]) or 30
+            spawn_hunting_squad(parts[2] or "stalker", distance, false, delay, "default")
 
         elseif cmd == "spawn_mutant" then
             local distance = tonumber(parts[3])
@@ -2864,7 +2876,7 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
             local smart_ref = parts[3]
             local delay = tonumber(parts[4]) or 0
             if smart_ref and smart_ref ~= "" then
-                spawn_squad_at_smart_terrain(hostile_faction, smart_ref, false, delay, sender_contact_id)
+                spawn_squad_at_smart_terrain(hostile_faction, smart_ref, false, delay, sender_contact_id, "hostile")
             else
                 printf("PANDA_IC: spawn_hostile_at_smart missing smart reference in '%s'", tostring(cmd_str))
             end
@@ -3065,8 +3077,159 @@ function resolve_mutant_section(mutant_type)
     return "simulation_bloodsucker_1_2" 
 end
 
-spawn_squad_at_smart_terrain = function(squad_key, smart_ref, is_mutant, delay, job_contact_id)
+local function apply_spawned_faction_relation(obj, relation_mode)
+    if not obj or obj:clsid() ~= clsid.online_offline_group_s or not db.actor then
+        return
+    end
+
+    relation_mode = relation_mode or "default"
+    if relation_mode == "hostile" then
+        obj:set_squad_relation("enemy")
+    elseif relation_mode == "friendly" then
+        obj:set_squad_relation("friend")
+    else
+        return
+    end
+
+    local relation = relation_mode == "hostile" and game_object.enemy or game_object.friend
+    local goodwill = relation_mode == "hostile" and -5000 or 5000
+
+    for k in obj:squad_members() do
+        local o = level.object_by_id(k.id)
+        if o then
+            o:set_relation(relation, db.actor)
+            o:force_set_goodwill(goodwill, db.actor)
+        end
+    end
+end
+
+local function get_faction_spawn_notification_keys(relation_mode)
+    if relation_mode == "hostile" then
+        return "st_pda_ic_outcome_hostile_warn", "st_pda_ic_outcome_hostile_arrive"
+    elseif relation_mode == "friendly" then
+        return "st_pda_ic_outcome_friendly_warn", "st_pda_ic_outcome_friendly_arrive"
+    end
+
+    return nil, nil
+end
+
+local function spawn_faction_squad_near_player(fac, distance, delay, relation_mode)
+    delay = tonumber(delay) or 30
+    fac = normalize_faction(fac)
+    local sec = find_squad_section(fac)
+    if not sec then
+        printf("No squad section found for faction %s", tostring(fac))
+        return
+    end
+
+    local sender = game.translate_string("st_pda_ic_outcome_sender")
+    local warn_key, arrive_key = get_faction_spawn_notification_keys(relation_mode)
+
+    if warn_key and PANDA.get_config("show_hunt_notifications") then
+        dynamic_news_helper.send_tip(
+            game.translate_string(warn_key),
+            sender, 2, 10, FALLBACK_NPC_ICON, relation_mode == "hostile" and "danger" or "beep_1", "gr"
+        )
+    end
+
+    local key = "spawn_faction_" .. tostring(math.random(100000))
+    track_panda_ic_event("pda_ic_spawn", key)
+    CreateTimeEvent("pda_ic_spawn", key, delay, function()
+        if not db.actor then return true end
+
+        local min_dist, max_dist
+        local dist = tonumber(distance)
+        if dist and dist > 0 then
+            min_dist, max_dist = dist, dist
+        else
+            min_dist, max_dist = get_spawn_distance_range("spawn_distance_min", "spawn_distance_max", 30, 60)
+        end
+
+        local pos, l, g = find_spawn_point_near_player(min_dist, max_dist)
+        local obj = create_squad_safely(sec, pos, l, g)
+
+        if obj and obj:clsid() == clsid.online_offline_group_s then
+            local squad_id = obj.id
+            if relation_mode == "hostile" then
+                obj.scripted_target = "actor"
+                obj.rush_to_target = true
+            else
+                obj.scripted_target = nil
+                obj.rush_to_target = false
+            end
+
+            apply_spawned_faction_relation(obj, relation_mode)
+
+            if arrive_key then
+                local arrival_event = "arrival_" .. squad_id
+                track_panda_ic_event("pda_ic_spawn", arrival_event)
+                CreateTimeEvent("pda_ic_spawn", arrival_event, math.random(5, 10), function()
+                    if not db.actor then return true end
+                    local s = alife_object(squad_id)
+                    if not s then return true end
+                    local commander = level.object_by_id(s:commander_id())
+                    if commander and commander:alive() then
+                        local actor_dist = commander:position():distance_to(db.actor:position())
+                        if actor_dist < 150 and PANDA.get_config("show_hunt_notifications") then
+                            dynamic_news_helper.send_tip(
+                                game.translate_string(arrive_key),
+                                sender, 0, 10, FALLBACK_NPC_ICON,
+                                relation_mode == "hostile" and "danger" or "beep_1", "gr"
+                            )
+                        end
+                    end
+                    return true
+                end)
+            end
+
+            if relation_mode == "hostile" then
+                local start_time = game.get_game_time()
+                local monitor_event = "monitor_" .. squad_id
+                track_panda_ic_event("pda_ic_spawn", monitor_event)
+                CreateTimeEvent("pda_ic_spawn", monitor_event, 30, function()
+                    if not db.actor then return true end
+                    local s = alife_object(squad_id)
+                    if not s then return true end
+
+                    local any_alive = false
+                    for k in s:squad_members() do
+                        local o = level.object_by_id(k.id)
+                        if o and o:alive() then
+                            any_alive = true
+                            break
+                        end
+                    end
+
+                    if not any_alive then
+                        return true
+                    end
+
+                    local elapsed_min = game.get_game_time():diffSec(start_time) / 60
+                    if elapsed_min > 10 then
+                        if PANDA.get_config("show_hunt_notifications") then
+                            dynamic_news_helper.send_tip(
+                                game.translate_string("st_pda_ic_hunt_timeout"),
+                                sender, 0, 10, FALLBACK_NPC_ICON, "attention", "gr"
+                            )
+                        end
+                        if alife() and alife().release then
+                            alife():release(s, true)
+                        end
+                        return true
+                    end
+                    return false
+                end)
+            end
+        else
+            printf("Failed to create faction squad for relation mode '%s'.", tostring(relation_mode))
+        end
+        return true
+    end)
+end
+
+spawn_squad_at_smart_terrain = function(squad_key, smart_ref, is_mutant, delay, job_contact_id, relation_mode)
     delay = tonumber(delay) or 0
+    relation_mode = relation_mode or "default"
     local sender = game.translate_string("st_pda_ic_outcome_sender")
 
     local function do_spawn()
@@ -3116,14 +3279,7 @@ spawn_squad_at_smart_terrain = function(squad_key, smart_ref, is_mutant, delay, 
                 end
             end
         else
-            obj:set_squad_relation("enemy")
-            for k in obj:squad_members() do
-                local o = level.object_by_id(k.id)
-                if o then
-                    o:set_relation(game_object.enemy, db.actor)
-                    o:force_set_goodwill(-5000, db.actor)
-                end
-            end
+            apply_spawned_faction_relation(obj, relation_mode)
         end
 
         -- Register delayed spawn with the pending job so kill tracking works
@@ -3132,17 +3288,30 @@ spawn_squad_at_smart_terrain = function(squad_key, smart_ref, is_mutant, delay, 
         end
 
         local loc_name = get_location_display_name(smart_ref)
-        local notify_key = is_mutant and "st_pda_ic_outcome_mutant_warn" or "st_pda_ic_outcome_hostile_warn"
-        local notify_msg = utils_data.parse_string_keys(
-            game.translate_string(notify_key),
-            {
-                ["location"] = loc_name,
-                ["smart"] = smart_name or tostring(smart_ref),
-            }
-        )
+        local warn_key = nil
+        if is_mutant then
+            warn_key = "st_pda_ic_outcome_mutant_warn"
+        else
+            warn_key = get_faction_spawn_notification_keys(relation_mode)
+        end
 
-        if PANDA.get_config("show_hunt_notifications") then
-            dynamic_news_helper.send_tip(notify_msg, sender, 0, 10, FALLBACK_NPC_ICON, "danger", "gr")
+        if warn_key and PANDA.get_config("show_hunt_notifications") then
+            local notify_msg = utils_data.parse_string_keys(
+                game.translate_string(warn_key),
+                {
+                    ["location"] = loc_name,
+                    ["smart"] = smart_name or tostring(smart_ref),
+                }
+            )
+            dynamic_news_helper.send_tip(
+                notify_msg,
+                sender,
+                0,
+                10,
+                FALLBACK_NPC_ICON,
+                (is_mutant or relation_mode == "hostile") and "danger" or "beep_1",
+                "gr"
+            )
         end
 
         return true
@@ -3225,12 +3394,19 @@ function create_squad_safely(sec, pos, lvid, gvid)
     return obj
 end
 
-function spawn_hunting_squad(fac, distance, is_mutant, delay)
+function spawn_hunting_squad(fac, distance, is_mutant, delay, relation_mode)
+    relation_mode = relation_mode or "hostile"
+
+    if not is_mutant then
+        spawn_faction_squad_near_player(fac, distance, delay, relation_mode)
+        return
+    end
+
     delay = tonumber(delay) or 90
     fac = normalize_faction(fac)
-    local sec = is_mutant and resolve_mutant_section(fac) or find_squad_section(fac)
+    local sec = resolve_mutant_section(fac)
     if not sec then
-        printf("No squad section found for %s", is_mutant and "mutant" or "hostile")
+        printf("No squad section found for mutant")
         return
     end
 
@@ -3239,9 +3415,8 @@ function spawn_hunting_squad(fac, distance, is_mutant, delay)
 
     -- Stage 1: Initial warning
     if PANDA.get_config("show_hunt_notifications") then
-        local warn_msg = is_mutant and "st_pda_ic_outcome_mutant_warn" or "st_pda_ic_outcome_hostile_warn"
         dynamic_news_helper.send_tip(
-            game.translate_string(warn_msg),
+            game.translate_string("st_pda_ic_outcome_mutant_warn"),
             sender, 2, 10, FALLBACK_NPC_ICON, "danger", "gr"
         )
     end
@@ -3254,10 +3429,8 @@ function spawn_hunting_squad(fac, distance, is_mutant, delay)
         local dist = tonumber(distance)
         if dist and dist > 0 then
             min, max = dist, dist
-        elseif is_mutant then
-            min, max = get_spawn_distance_range("mutant_spawn_min", "mutant_spawn_max", 40, 100)
         else
-            min, max = get_spawn_distance_range("spawn_distance_min", "spawn_distance_max", 30, 60)
+            min, max = get_spawn_distance_range("mutant_spawn_min", "mutant_spawn_max", 40, 100)
         end
 
         local pos, l, g = find_spawn_point_near_player(min, max)
@@ -3268,21 +3441,10 @@ function spawn_hunting_squad(fac, distance, is_mutant, delay)
             obj.scripted_target = "actor"
             obj.rush_to_target = true
 
-            if not is_mutant then
-                obj:set_squad_relation("enemy")
-                for k in obj:squad_members() do
-                    local o = level.object_by_id(k.id)
-                    if o then
-                        o:set_relation(game_object.enemy, db.actor)
-                        o:force_set_goodwill(-5000, db.actor)
-                    end
-                end
-            else
-                for k in obj:squad_members() do
-                    local o = level.object_by_id(k.id)
-                    if o then
-                        o:set_relation(game_object.enemy, db.actor)
-                    end
+            for k in obj:squad_members() do
+                local o = level.object_by_id(k.id)
+                if o then
+                    o:set_relation(game_object.enemy, db.actor)
                 end
             end
 
@@ -3295,14 +3457,12 @@ function spawn_hunting_squad(fac, distance, is_mutant, delay)
                 if not s then return true end
                 local commander = level.object_by_id(s:commander_id())
                 if commander and commander:alive() then
-                    local dist = commander:position():distance_to(db.actor:position())
-                    if dist < 150 then
-                        if PANDA.get_config("show_hunt_notifications") then
-                            dynamic_news_helper.send_tip(
-                                game.translate_string(is_mutant and "st_pda_ic_outcome_mutant_arrive" or "st_pda_ic_outcome_hostile_arrive"),
-                                sender, 0, 10, FALLBACK_NPC_ICON, "danger", "gr"
-                            )
-                        end
+                    local actor_dist = commander:position():distance_to(db.actor:position())
+                    if actor_dist < 150 and PANDA.get_config("show_hunt_notifications") then
+                        dynamic_news_helper.send_tip(
+                            game.translate_string("st_pda_ic_outcome_mutant_arrive"),
+                            sender, 0, 10, FALLBACK_NPC_ICON, "danger", "gr"
+                        )
                     end
                 end
                 return true
