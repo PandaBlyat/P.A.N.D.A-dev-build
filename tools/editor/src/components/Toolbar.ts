@@ -93,10 +93,10 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   const saveBtn = btn('save', 'Save', exportProjectJson, 'Save as .panda project file (preserves editor data)');
   const importBtn = btn('import', 'Import', importFromXml, 'Import conversations from an existing game XML file');
   const exportXmlBtn = btn('export', 'Export XML', exportXml, 'Export as game-ready XML file for S.T.A.L.K.E.R. Anomaly', {
-    classes: ['btn-primary', 'toolbar-button-primary'],
+    classes: ['btn-subtle'],
   });
-  const communityBtn = btn('share', 'Community', openSharePanel, 'Browse and import community conversations', {
-    classes: ['btn-community'],
+  const communityBtn = btn('share', 'Community', openSharePanel, 'Browse, import, and publish community conversations', {
+    classes: ['btn-community', 'toolbar-button-primary'],
   });
   const helpBtn = btn('help', 'Help', openHelpModal, 'How to write P.A.N.D.A. conversations — full reference guide');
 
