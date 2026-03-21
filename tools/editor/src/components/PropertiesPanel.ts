@@ -20,6 +20,8 @@ import type { CommandSchema, ParamDef, ParamOption } from '../lib/schema';
 import { FACTION_IDS, RANKS, MUTANT_TYPES, DYNAMIC_PLACEHOLDERS, LEVEL_DISPLAY_NAMES, SMART_TERRAIN_LEVELS } from '../lib/constants';
 import { createOnboardingNudge } from './Onboarding';
 
+const ADDABLE_PRECONDITION_SCHEMAS = PRECONDITION_SCHEMAS.filter((schema) => !schema.pickerHidden);
+
 // ─── Debounce helper ─────────────────────────────────────────────────────
 const debounceTimers = new Map<string, number>();
 const debounceFns = new Map<string, () => void>();
@@ -140,7 +142,7 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   const precondSection = document.createElement('div');
   precondSection.className = 'precond-section';
   precondSection.appendChild(sectionHeader('Preconditions', () => {
-    showCommandPicker(precondSection, PRECONDITION_SCHEMAS, (schema) => {
+    showCommandPicker(precondSection, ADDABLE_PRECONDITION_SCHEMAS, (schema) => {
       const newPrecond: SimplePrecondition = {
         type: 'simple',
         command: schema.name,
