@@ -141,6 +141,9 @@ export function openSupportPanel(): void {
   const upvoteActions = document.createElement('div');
   upvoteActions.className = 'support-highlight-upvote-actions';
 
+  const upvoteControls = document.createElement('div');
+  upvoteControls.className = 'support-highlight-upvote-controls';
+
   const upvoteCountBox = document.createElement('div');
   upvoteCountBox.className = 'support-upvote-count-box';
 
@@ -165,7 +168,8 @@ export function openSupportPanel(): void {
   upvoteStatus.className = 'support-upvote-status';
   upvoteStatus.setAttribute('aria-live', 'polite');
 
-  upvoteActions.append(upvoteCountBox, upvoteBtn, upvoteStatus);
+  upvoteControls.append(upvoteBtn, upvoteStatus);
+  upvoteActions.append(upvoteControls, upvoteCountBox);
   upvoteCard.append(upvoteText, upvoteActions);
 
   body.append(introCard, highlights, upvoteCard);
