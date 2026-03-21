@@ -749,6 +749,9 @@ label {
 
 .main-layout[data-layout-mode="desktop"] .panel.is-collapsed .panel-header {
   padding-inline: 8px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
 }
 
 .main-layout[data-layout-mode="desktop"] .panel.is-collapsed .panel-header > span:first-child {
@@ -760,6 +763,8 @@ label {
 
 .main-layout[data-layout-mode="desktop"] .panel.is-collapsed .panel-header-actions {
   flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
 .panel-splitter {

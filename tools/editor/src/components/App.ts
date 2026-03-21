@@ -41,6 +41,7 @@ const layoutState = {
   responsiveMode: 'desktop' as ResponsiveLayoutMode,
   activeDrawer: null as DrawerSide,
   toolbarHidden: false,
+  wasFirstRun: false,
 };
 
 type AppShell = {
@@ -84,9 +85,10 @@ export function renderApp(container: HTMLElement): void {
   // When onboarding ends (project created), restore the toolbar.
   if (firstRun) {
     layoutState.toolbarHidden = true;
-  } else if (layoutState.toolbarHidden && state.project.conversations.length > 0) {
+  } else if (layoutState.wasFirstRun) {
     layoutState.toolbarHidden = false;
   }
+  layoutState.wasFirstRun = firstRun;
 
   syncResponsiveLayout(shell.mainLayout);
   shell.mainLayout.classList.toggle('main-layout-onboarding', firstRun);
@@ -235,7 +237,7 @@ function renderLeftPanel(shell: AppShell, firstRun = false): void {
   shell.leftPanel.className = `panel panel-left${layoutState.leftCollapsed && !isOverlay ? ' is-collapsed' : ''}${isDrawerOpen ? ' is-drawer-open' : ''}`;
   shell.leftPanel.dataset.drawerOpen = String(isDrawerOpen);
   shell.leftPanel.setAttribute('aria-hidden', String(isOverlay && !isDrawerOpen));
-  shell.leftActions.replaceChildren(
+  const leftPanelActions = [
     createAddConversationButton(),
     createSelectedConversationActionButton('locate', 'Center', 'Center selected conversation in the flow editor', () => {
       if (selectedConversationId != null) centerConversationSelection(selectedConversationId);
@@ -247,7 +249,9 @@ function renderLeftPanel(shell: AppShell, firstRun = false): void {
       if (selectedConversationId != null) deleteConversationSelection(selectedConversationId);
     }, selectedConversationId == null, true),
     createPanelToggleButton('left'),
-  );
+  ];
+  const collapsedDesktopLeftPanel = layoutState.leftCollapsed && !isOverlay;
+  shell.leftActions.replaceChildren(...(collapsedDesktopLeftPanel ? [leftPanelActions[leftPanelActions.length - 1]!] : leftPanelActions));
   shell.leftBody.hidden = layoutState.leftCollapsed && !isOverlay;
   shell.leftBody.replaceChildren();
   renderConversationList(shell.leftBody);
