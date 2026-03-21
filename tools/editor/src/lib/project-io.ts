@@ -2,6 +2,7 @@ import { store } from './state';
 import { generateXml } from './xml-export';
 import { importXml } from './xml-import';
 import { createSampleProjectBundle } from './sample-project';
+import { fetchConversationById } from './api-client';
 
 export function createBlankProject(): void {
   store.addConversation();
@@ -108,4 +109,25 @@ export function downloadFile(content: string, filename: string, mimeType: string
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+const ONBOARDING_SAMPLE_PACK_ID = '21f5bc31-cf62-454a-baba-62163e5b0202';
+
+export async function loadOnboardingSamplePack(): Promise<void> {
+  const remoteConversation = await fetchConversationById(ONBOARDING_SAMPLE_PACK_ID);
+  if (!remoteConversation) {
+    throw new Error(`Could not find template conversation ${ONBOARDING_SAMPLE_PACK_ID}.`);
+  }
+
+  if (!remoteConversation.data?.conversations?.length) {
+    throw new Error('The selected template conversation does not include editable conversation data.');
+  }
+
+  const project = {
+    version: remoteConversation.data.version || '1.0.0',
+    faction: remoteConversation.data.faction || remoteConversation.faction,
+    conversations: remoteConversation.data.conversations,
+  };
+
+  store.loadProject(project, new Map());
 }
