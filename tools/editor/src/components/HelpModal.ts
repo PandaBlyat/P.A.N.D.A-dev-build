@@ -185,6 +185,8 @@ const HELP_CONTENT = `
 <h3>Spawning</h3>
 <ul>
   <li><code>spawn_hostile:&lt;faction&gt;:&lt;distance&gt;</code></li>
+  <li><code>spawn_friendly:&lt;faction&gt;:&lt;distance&gt;[:delay]</code></li>
+  <li><code>spawn_npc:&lt;faction&gt;:&lt;distance&gt;[:delay]</code></li>
   <li><code>spawn_mutant:&lt;type&gt;:&lt;distance&gt;</code></li>
   <li><code>spawn_mutant_at_smart:&lt;type&gt;:&lt;smart_key&gt;[:delay]</code></li>
   <li><code>spawn_hostile_at_smart:&lt;faction&gt;:&lt;smart_key&gt;[:delay]</code></li>
