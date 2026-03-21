@@ -121,6 +121,9 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   const communityBtn = btn('share', 'Community', openSharePanel, 'Browse, import, and publish community conversations', {
     classes: ['btn-community', 'toolbar-button-primary'],
   });
+  const supportBtn = btn('support', 'Support', openSupportPanel, 'Support the Creator', {
+    classes: ['toolbar-support-trigger'],
+  });
   const helpBtn = btn('help', 'Help', openHelpModal, 'How to write P.A.N.D.A. conversations — full reference guide');
   const handleReset = (): void => {
     if (state.dirty && !window.confirm('You have unsaved changes. Clear workspace and return to the intro?')) return;
@@ -204,11 +207,10 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
     } else {
       status.textContent = formatStatus(convCount, stringCount, false, false);
     }
-    rightZone.appendChild(status);
+    rightZone.append(status, supportBtn);
 
     rightZone.appendChild(createOverflowMenu('More', [
       { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
-      { icon: 'support', label: 'Support', title: 'Support the Creator', onclick: openSupportPanel },
       { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },
     ]));
 
@@ -340,10 +342,9 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   } else {
     status.textContent = formatStatus(convCount, stringCount, isMobile, false);
   }
-  utilityTier.appendChild(status);
+  utilityTier.append(status, supportBtn);
   utilityTier.appendChild(createOverflowMenu('More', [
     { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
-    { icon: 'support', label: 'Support', title: 'Support the Creator', onclick: openSupportPanel },
     { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },
   ]));
 
