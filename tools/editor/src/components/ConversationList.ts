@@ -40,7 +40,7 @@ export function renderConversationList(container: HTMLElement): void {
   if (convs.length === 0) {
     container.replaceChildren(createOnboardingNudge({
       title: 'No conversations yet',
-      body: 'Kick off the onboarding flow with a blank project, import existing XML, or open the bundled sample pack to explore a complete conversation.',
+      body: 'Kick off the onboarding flow with a blank project, import existing XML, or publish and import shared conversations from the Community Library.',
     }));
     return;
   }

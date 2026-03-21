@@ -91,12 +91,13 @@ async function loadConversations(): Promise<void> {
     const remote = normalizeCollection(await fetchConversations(activeFaction === 'all' ? undefined : activeFaction), 'remote');
     allResults = mergeConversationLists(bundled, remote);
     loadNotice = bundled.length > 0
-      ? 'Showing curated bundled picks alongside community uploads.'
-      : '';
+      ? 'Showing bundled picks alongside community uploads.'
+      : 'Showing live community uploads.';
   } catch (err) {
     allResults = bundled;
     if (bundled.length > 0) {
-      loadNotice = `Remote community sync failed, so the curated offline pack is shown instead. ${err instanceof Error ? err.message : String(err)}`;
+      loadNotice = `Remote community sync failed, so bundled picks are shown instead. ${err instanceof Error ? err.message : String(err)}`;
+      loadError = '';
     } else {
       loadError = err instanceof Error ? err.message : 'Failed to load conversations.';
     }
@@ -254,11 +255,13 @@ function buildHeader(): HTMLElement {
   titleWrap.className = 'share-modal-title';
   titleWrap.id = 'share-modal-title';
   titleWrap.append(createIcon('share'), document.createTextNode('Community Library'));
-  header.appendChild(titleWrap);
+  const titleSlot = document.createElement('div');
+  titleSlot.className = 'share-modal-header-slot share-modal-header-slot-start';
+  titleSlot.appendChild(titleWrap);
+  header.appendChild(titleSlot);
 
-  const spacer = document.createElement('div');
-  spacer.style.flex = '1';
-  header.appendChild(spacer);
+  const publishSlot = document.createElement('div');
+  publishSlot.className = 'share-modal-header-slot share-modal-header-slot-center';
 
   const publishBtn = document.createElement('button');
   publishBtn.type = 'button';
@@ -267,7 +270,12 @@ function buildHeader(): HTMLElement {
   setButtonContent(publishBtn, 'export', 'Publish');
   publishBtn.title = 'Publish the currently selected conversation to the Community Library';
   publishBtn.onclick = () => showPublishForm();
-  header.appendChild(publishBtn);
+  publishBtn.classList.add('share-publish-cta');
+  publishSlot.appendChild(publishBtn);
+  header.appendChild(publishSlot);
+
+  const closeSlot = document.createElement('div');
+  closeSlot.className = 'share-modal-header-slot share-modal-header-slot-end';
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
@@ -276,7 +284,8 @@ function buildHeader(): HTMLElement {
   closeBtn.appendChild(createIcon('close'));
   closeBtn.title = 'Close Community Library';
   closeBtn.onclick = closeSharePanel;
-  header.appendChild(closeBtn);
+  closeSlot.appendChild(closeBtn);
+  header.appendChild(closeSlot);
 
   return header;
 }

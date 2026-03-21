@@ -2757,13 +2757,32 @@ hr {
 }
 
 .share-modal-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  background: var(--bg-dark);
+  background: linear-gradient(180deg, rgba(16, 20, 26, 0.98) 0%, rgba(11, 15, 20, 0.96) 100%);
+}
+
+.share-modal-header-slot {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.share-modal-header-slot-start {
+  justify-content: flex-start;
+}
+
+.share-modal-header-slot-center {
+  justify-content: center;
+}
+
+.share-modal-header-slot-end {
+  justify-content: flex-end;
 }
 
 .share-modal-title {
@@ -2773,6 +2792,38 @@ hr {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-bright);
+}
+
+.share-publish-cta {
+  min-width: 164px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border-color: color-mix(in srgb, var(--accent) 72%, white 8%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 54%, #27361d) 0%, color-mix(in srgb, var(--accent-dim) 78%, #10141a) 100%);
+  color: var(--text-bright);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 0 16px rgba(94, 170, 58, 0.22), 0 0 34px rgba(94, 170, 58, 0.16);
+  text-shadow: 0 0 12px rgba(94, 170, 58, 0.28);
+  position: relative;
+}
+
+.share-publish-cta::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(circle at 50% 50%, rgba(142, 232, 99, 0.28), transparent 72%);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.share-publish-cta:hover {
+  border-color: color-mix(in srgb, var(--accent) 88%, white 12%);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 0 20px rgba(94, 170, 58, 0.32), 0 0 42px rgba(94, 170, 58, 0.22);
+  transform: translateY(-1px);
+}
+
+.share-publish-cta:disabled:hover {
+  transform: none;
 }
 
 .share-modal-title .ui-icon svg {
@@ -3226,7 +3277,18 @@ hr {
   .share-toolbar-row {
     flex-wrap: wrap;
   }
+
+  .share-modal-header {
+    grid-template-columns: 1fr;
+  }
+
+  .share-modal-header-slot-start,
+  .share-modal-header-slot-center,
+  .share-modal-header-slot-end {
+    justify-content: center;
+  }
 }
+
 
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
