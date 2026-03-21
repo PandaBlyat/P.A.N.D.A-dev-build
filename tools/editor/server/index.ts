@@ -34,6 +34,16 @@ function sbEndpoint(path: string): string {
   return `${SUPABASE_URL}/rest/v1/${path}`;
 }
 
+function isMissingSchemaColumnError(message: string, column: string): boolean {
+  const normalized = message.toLowerCase();
+  return normalized.includes('schema cache') && normalized.includes(`'${column.toLowerCase()}'`);
+}
+
+async function readErrorMessage(res: Response): Promise<string> {
+  const body = await res.json().catch(() => ({}));
+  return body.message ?? body.error ?? `Database error: ${res.status} ${res.statusText}`;
+}
+
 function escapeIlike(value: string): string {
   return value.replace(/[%_,]/g, c => `\\${c}`);
 }
@@ -102,23 +112,38 @@ app.post('/api/conversations', async (req, res) => {
       }
     }
 
-    const r = await fetch(sbEndpoint(TABLE), {
+    const headers = { ...sbHeaders(), Prefer: 'return=minimal' };
+    const publishBody = {
+      faction,
+      label: normalizedLabel,
+      description: typeof description === 'string' ? description : '',
+      summary: typeof summary === 'string' ? summary : '',
+      author: typeof author === 'string' && author.trim() ? author.trim() : 'Anonymous',
+      tags: Array.isArray(tags) ? tags : [],
+      branch_count: typeof branch_count === 'number' ? branch_count : null,
+      complexity: typeof complexity === 'string' ? complexity : null,
+      data,
+    };
+
+    let r = await fetch(sbEndpoint(TABLE), {
       method: 'POST',
-      headers: { ...sbHeaders(), Prefer: 'return=minimal' },
-      body: JSON.stringify({
-        faction,
-        label: normalizedLabel,
-        description: typeof description === 'string' ? description : '',
-        summary: typeof summary === 'string' ? summary : '',
-        author: typeof author === 'string' && author.trim() ? author.trim() : 'Anonymous',
-        tags: Array.isArray(tags) ? tags : [],
-        branch_count: typeof branch_count === 'number' ? branch_count : null,
-        complexity: typeof complexity === 'string' ? complexity : null,
-        data,
-      }),
+      headers,
+      body: JSON.stringify(publishBody),
     });
     if (!r.ok) {
-      res.status(r.status).json({ error: `Database error: ${r.status} ${r.statusText}` });
+      const errorMessage = await readErrorMessage(r);
+      if (isMissingSchemaColumnError(errorMessage, 'branch_count') || isMissingSchemaColumnError(errorMessage, 'complexity')) {
+        const { branch_count: _branchCount, complexity: _complexity, ...fallbackBody } = publishBody;
+        r = await fetch(sbEndpoint(TABLE), {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(fallbackBody),
+        });
+      }
+    }
+
+    if (!r.ok) {
+      res.status(r.status).json({ error: await readErrorMessage(r) });
       return;
     }
     res.status(201).json({ ok: true });

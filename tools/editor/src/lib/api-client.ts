@@ -129,6 +129,16 @@ function sbEndpoint(path: string): string {
   return `${SUPABASE_URL}/rest/v1/${path}`;
 }
 
+function isMissingSchemaColumnError(message: string, column: string): boolean {
+  const normalized = message.toLowerCase();
+  return normalized.includes('schema cache') && normalized.includes(`'${column.toLowerCase()}'`);
+}
+
+async function readErrorMessage(res: Response): Promise<string> {
+  const body = await res.json().catch(() => ({}));
+  return body.message ?? body.error ?? `Request failed (${res.status})`;
+}
+
 function escapeIlike(value: string): string {
   return value.replace(/[%_,]/g, c => `\\${c}`);
 }
@@ -226,7 +236,7 @@ export async function publishConversation(payload: PublishPayload): Promise<void
     throw new PublishValidationError('A community conversation with this title already exists. Rename it before publishing.', 'duplicate-name');
   }
 
-  const body = {
+  const publishBody = {
     ...payload,
     label,
     author,
@@ -237,14 +247,28 @@ export async function publishConversation(payload: PublishPayload): Promise<void
     complexity: payload.complexity ?? deriveConversationComplexity(branchCount),
   };
 
-  const res = await fetch(sbEndpoint(TABLE), {
+  const headers = { ...sbHeaders(), Prefer: 'return=minimal' };
+  let res = await fetch(sbEndpoint(TABLE), {
     method: 'POST',
-    headers: { ...sbHeaders(), Prefer: 'return=minimal' },
-    body: JSON.stringify(body),
+    headers,
+    body: JSON.stringify(publishBody),
   });
+
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.message ?? body.error ?? `Failed to publish (${res.status})`);
+    const errorMessage = await readErrorMessage(res);
+    if (isMissingSchemaColumnError(errorMessage, 'branch_count') || isMissingSchemaColumnError(errorMessage, 'complexity')) {
+      const { branch_count: _branchCount, complexity: _complexity, ...fallbackBody } = publishBody;
+      res = await fetch(sbEndpoint(TABLE), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(fallbackBody),
+      });
+      if (!res.ok) {
+        throw new Error(await readErrorMessage(res));
+      }
+    } else {
+      throw new Error(errorMessage);
+    }
   }
 
   if (typeof window !== 'undefined') {
