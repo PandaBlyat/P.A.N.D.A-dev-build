@@ -103,7 +103,7 @@ html, body {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px 10px;
+  gap: 4px 8px;
   padding: 4px 10px;
   background: linear-gradient(180deg, #161c24 0%, #10141a 100%);
   border-bottom: 1px solid var(--border);
@@ -115,7 +115,7 @@ html, body {
 .toolbar-zone {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -162,9 +162,9 @@ html, body {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
   min-width: 0;
-  padding: 10px 16px 10px 12px;
+  padding: 6px 12px 6px 8px;
   border: 1px solid color-mix(in srgb, var(--accent) 22%, rgba(255, 255, 255, 0.08));
   border-radius: 16px;
   background:
@@ -191,9 +191,9 @@ html, body {
 .toolbar-title::after {
   content: '';
   position: absolute;
-  left: 46px;
-  right: 14px;
-  bottom: 8px;
+  left: 36px;
+  right: 10px;
+  bottom: 6px;
   height: 1px;
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 55%, transparent), transparent);
   opacity: 0.6;
@@ -203,9 +203,9 @@ html, body {
 .toolbar-title .ui-icon {
   position: relative;
   z-index: 1;
-  width: 22px;
-  height: 22px;
-  padding: 5px;
+  width: 18px;
+  height: 18px;
+  padding: 3px;
   border-radius: 999px;
   color: color-mix(in srgb, var(--accent) 82%, white 18%);
   background: radial-gradient(circle, rgba(255, 214, 0, 0.18), rgba(255, 214, 0, 0.02) 70%);
@@ -223,7 +223,7 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -232,10 +232,10 @@ html, body {
   align-items: baseline;
   justify-content: center;
   gap: 0.04em;
-  font-size: 17px;
+  font-size: 14px;
   line-height: 1;
   font-weight: 800;
-  letter-spacing: 0.24em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--text-bright);
   text-shadow:
@@ -260,9 +260,9 @@ html, body {
   justify-content: center;
   width: 100%;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
-  letter-spacing: 0.38em;
+  letter-spacing: 0.32em;
   line-height: 1;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--text-dim) 60%, var(--accent) 40%);
@@ -348,6 +348,33 @@ html, body {
   border: 1px solid rgba(255,255,255,0.05);
   border-radius: 999px;
   background: rgba(255,255,255,0.025);
+}
+
+.toolbar-visitor-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 3px 10px 3px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: color-mix(in srgb, var(--accent-hover) 80%, white 20%);
+  white-space: nowrap;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, rgba(255,255,255,0.08));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 8%, rgba(255,255,255,0.02));
+  box-shadow:
+    0 0 8px color-mix(in srgb, var(--accent) 12%, transparent),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.toolbar-visitor-counter .ui-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  opacity: 0.85;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 40%, transparent));
 }
 
 .toolbar-reset-btn {
@@ -649,9 +676,9 @@ button:disabled:hover,
 }
 
 .toolbar-support-trigger {
-  min-width: 92px;
-  min-height: 30px;
-  padding: 4px 11px;
+  min-width: 80px;
+  min-height: 28px;
+  padding: 4px 9px;
   color: color-mix(in srgb, var(--accent-hover) 70%, white 30%);
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -830,7 +857,7 @@ select {
 }
 
 .toolbar-faction-select {
-  min-width: 132px;
+  width: 140px;
 }
 
 .toolbar-faction-select option {
@@ -2947,12 +2974,12 @@ hr {
 
 @media (max-width: 1280px) {
   .toolbar {
-    gap: 8px;
+    gap: 4px 6px;
   }
 
   .toolbar-title-primary {
-    font-size: 16px;
-    letter-spacing: 0.2em;
+    font-size: 13px;
+    letter-spacing: 0.16em;
   }
 
   .toolbar-subtitle {
@@ -2997,8 +3024,8 @@ hr {
   }
 
   .toolbar.toolbar-tablet .toolbar-title-primary {
-    font-size: 17px;
-    letter-spacing: 0.24em;
+    font-size: 14px;
+    letter-spacing: 0.18em;
   }
 
   .toolbar.toolbar-tablet .toolbar-subtitle {
