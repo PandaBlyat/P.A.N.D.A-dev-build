@@ -2413,7 +2413,7 @@ hr {
   position: relative;
   min-width: 160px;
   flex: 0 1 220px;
-  max-width: 280px;
+  max-width: 200px;
 }
 
 .toolbar-search-input {
