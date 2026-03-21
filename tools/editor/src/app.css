@@ -302,6 +302,8 @@ html, body {
 
 .toolbar-group-meta {
   background: rgba(255,255,255,0.015);
+  flex: 0 0 250px;
+  min-width: 250px;
 }
 
 .toolbar-group-project {
@@ -334,6 +336,7 @@ html, body {
 
 .toolbar-status {
   min-height: 30px;
+  min-width: 235px;
   max-width: 100%;
   padding: 0 10px;
   font-size: 10px;
@@ -835,6 +838,7 @@ select {
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
   min-width: 0;
 }
 
@@ -857,7 +861,9 @@ select {
 }
 
 .toolbar-faction-select {
-  width: 140px;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
 }
 
 .toolbar-faction-select option {
@@ -3101,6 +3107,11 @@ hr {
 
   .toolbar.toolbar-mobile .toolbar-group-project {
     gap: 6px;
+  }
+
+  .toolbar-group-meta {
+    flex: 1 1 100%;
+    min-width: 0;
   }
 
   .toolbar.toolbar-mobile .toolbar-button,
