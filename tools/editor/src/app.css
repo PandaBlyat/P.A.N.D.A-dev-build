@@ -2943,8 +2943,8 @@ hr {
   border-color: color-mix(in srgb, var(--accent) 72%, white 8%);
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 54%, #27361d) 0%, color-mix(in srgb, var(--accent-dim) 78%, #10141a) 100%);
   color: var(--text-bright);
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 0 16px rgba(94, 170, 58, 0.22), 0 0 34px rgba(94, 170, 58, 0.16);
-  text-shadow: 0 0 12px rgba(94, 170, 58, 0.28);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 0 16px var(--accent-glow-strong), 0 0 34px var(--accent-glow);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 28%, transparent);
   position: relative;
 }
 
@@ -2953,14 +2953,14 @@ hr {
   position: absolute;
   inset: -1px;
   border-radius: inherit;
-  background: radial-gradient(circle at 50% 50%, rgba(142, 232, 99, 0.28), transparent 72%);
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent) 28%, transparent), transparent 72%);
   opacity: 0.8;
   pointer-events: none;
 }
 
 .share-publish-cta:hover {
   border-color: color-mix(in srgb, var(--accent) 88%, white 12%);
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 0 20px rgba(94, 170, 58, 0.32), 0 0 42px rgba(94, 170, 58, 0.22);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 0 20px var(--accent-glow-strong), 0 0 42px color-mix(in srgb, var(--accent) 22%, transparent);
   transform: translateY(-1px);
 }
 

@@ -39,6 +39,13 @@ type NormalizedConversation = CommunityConversation & {
 };
 
 const LOCAL_UPVOTE_KEY = 'panda-community-upvotes';
+const SHARE_PANEL_MOUNT_ID = 'app-modal-host';
+
+function getSharePanelMount(): HTMLElement {
+  return document.getElementById(SHARE_PANEL_MOUNT_ID)
+    ?? document.getElementById('app')
+    ?? document.body;
+}
 
 let overlayEl: HTMLElement | null = null;
 let focusTrap: FocusTrapController | null = null;
@@ -68,7 +75,7 @@ export function openSharePanel(): void {
   loadNotice = '';
 
   overlayEl = buildOverlay();
-  document.body.appendChild(overlayEl);
+  getSharePanelMount().appendChild(overlayEl);
   loadConversations();
 }
 
