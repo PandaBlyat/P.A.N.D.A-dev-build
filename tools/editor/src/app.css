@@ -127,26 +127,65 @@ html, body {
 .toolbar-branding {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-right: 6px;
+  margin-right: 8px;
+  min-width: 0;
+}
+
+.toolbar-brand-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .toolbar-title {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  min-width: 0;
   font-family: var(--font-mono);
-  font-size: 14px;
-  font-weight: bold;
-  color: var(--accent);
   white-space: nowrap;
-  text-shadow: 0 0 12px var(--accent-glow-strong);
-  letter-spacing: 0.5px;
 }
 
 .toolbar-title .ui-icon {
   width: 18px;
   height: 18px;
+  color: color-mix(in srgb, var(--accent) 82%, white 18%);
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 55%, transparent));
+  flex-shrink: 0;
+}
+
+.toolbar-title-primary {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.04em;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--text-bright);
+  text-shadow:
+    0 0 18px var(--accent-glow-strong),
+    0 0 36px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+.toolbar-title-accent {
+  color: var(--accent);
+  text-shadow:
+    0 0 16px var(--accent-glow-strong),
+    0 0 34px color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+.toolbar-subtitle {
+  padding-left: 28px;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text-dim) 82%, var(--accent) 18%);
 }
 
 .toolbar-tier {
@@ -2730,8 +2769,14 @@ hr {
     gap: 10px;
   }
 
-  .toolbar-title {
-    margin-right: 0;
+  .toolbar-title-primary {
+    font-size: 16px;
+    letter-spacing: 0.24em;
+  }
+
+  .toolbar-subtitle {
+    font-size: 8px;
+    letter-spacing: 0.26em;
   }
 
   .toolbar-search {
@@ -2758,6 +2803,19 @@ hr {
 
   .toolbar-tier-utility {
     margin-left: 0;
+  }
+
+  .toolbar.toolbar-tablet .toolbar-branding {
+    flex: 1 1 100%;
+  }
+
+  .toolbar.toolbar-tablet .toolbar-title-primary {
+    font-size: 15px;
+    letter-spacing: 0.2em;
+  }
+
+  .toolbar.toolbar-tablet .toolbar-subtitle {
+    padding-left: 28px;
   }
 
   .toolbar.toolbar-tablet .toolbar-group-project {
@@ -4654,6 +4712,26 @@ hr {
   .toolbar-branding {
     width: 100%;
     margin-right: 0;
+  }
+
+  .toolbar-title {
+    gap: 8px;
+  }
+
+  .toolbar-title .ui-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .toolbar-title-primary {
+    font-size: 14px;
+    letter-spacing: 0.16em;
+  }
+
+  .toolbar-subtitle {
+    padding-left: 24px;
+    font-size: 8px;
+    letter-spacing: 0.22em;
   }
 
   .toolbar-support-trigger {

@@ -36,6 +36,13 @@ type OverflowAction = {
   disabled?: boolean;
 };
 
+function accent(value: string): HTMLSpanElement {
+  const span = document.createElement('span');
+  span.className = 'toolbar-title-accent';
+  span.textContent = value;
+  return span;
+}
+
 export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLElement {
   const state = store.get();
   const isCompact = layoutMode !== 'desktop';
@@ -49,11 +56,36 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   const branding = document.createElement('div');
   branding.className = 'toolbar-branding';
 
-  const title = document.createElement('span');
-  title.className = 'toolbar-title';
-  title.append(createIcon('brand'), document.createTextNode('P.A.N.D.A. Editor'));
+  const brandIcon = createIcon('brand');
+  brandIcon.setAttribute('aria-hidden', 'true');
 
-  branding.appendChild(title);
+  const brandCopy = document.createElement('div');
+  brandCopy.className = 'toolbar-brand-copy';
+
+  const title = document.createElement('div');
+  title.className = 'toolbar-title';
+
+  const titlePrimary = document.createElement('span');
+  titlePrimary.className = 'toolbar-title-primary';
+  titlePrimary.append(
+    document.createTextNode('P'),
+    accent('.'),
+    document.createTextNode('A'),
+    accent('.'),
+    document.createTextNode('N'),
+    accent('.'),
+    document.createTextNode('D'),
+    accent('.'),
+    document.createTextNode('A'),
+  );
+
+  const subtitle = document.createElement('span');
+  subtitle.className = 'toolbar-subtitle';
+  subtitle.textContent = 'Editor';
+
+  title.append(brandIcon, titlePrimary);
+  brandCopy.append(title, subtitle);
+  branding.appendChild(brandCopy);
   projectTier.appendChild(branding);
 
   const factionPicker = document.createElement('div');
