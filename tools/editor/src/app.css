@@ -1358,6 +1358,8 @@ label {
 .turn-choices-list { list-style: none; }
 
 .turn-choice-item {
+  --choice-branch-color: var(--branch-color, var(--accent));
+  --choice-branch-glow: color-mix(in srgb, var(--choice-branch-color) 24%, transparent);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1367,17 +1369,24 @@ label {
   border-radius: var(--radius);
   font-size: 11px;
   cursor: pointer;
-  transition: background 0.1s;
+  border: 1px solid color-mix(in srgb, var(--choice-branch-color) 18%, transparent);
+  background: color-mix(in srgb, var(--choice-branch-color) 9%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--choice-branch-color) 8%, transparent);
+  transition: background 0.1s, border-color 0.1s, box-shadow 0.1s;
 }
-.turn-choice-item:hover { background: var(--bg-hover); }
+.turn-choice-item:hover {
+  background: color-mix(in srgb, var(--choice-branch-color) 15%, var(--bg-hover));
+  border-color: color-mix(in srgb, var(--choice-branch-color) 36%, transparent);
+}
 .turn-choice-item.selected {
-  background: var(--bg-selected);
-  box-shadow: inset 2px 0 0 var(--accent);
+  background: color-mix(in srgb, var(--choice-branch-color) 22%, var(--bg-selected));
+  border-color: color-mix(in srgb, var(--choice-branch-color) 52%, transparent);
+  box-shadow: inset 2px 0 0 var(--choice-branch-color), 0 0 0 1px var(--choice-branch-glow);
 }
 
 .choice-number {
   font-family: var(--font-mono);
-  color: var(--accent);
+  color: var(--choice-branch-color);
   font-size: 10px;
   min-width: 14px;
   font-weight: bold;
@@ -2562,13 +2571,13 @@ hr {
 }
 
 .flow-edge-path.edge-preview {
-  stroke: color-mix(in srgb, var(--accent) 65%, transparent);
+  stroke: var(--flow-edge-color, color-mix(in srgb, var(--accent) 65%, transparent));
   fill: none;
   stroke-dasharray: 8 6;
 }
 
 .flow-edge-path.edge-continue {
-  stroke: color-mix(in srgb, var(--accent) 90%, transparent);
+  stroke: var(--flow-edge-color, color-mix(in srgb, var(--accent) 90%, transparent));
 }
 
 .flow-edge-path.edge-pause-success {
