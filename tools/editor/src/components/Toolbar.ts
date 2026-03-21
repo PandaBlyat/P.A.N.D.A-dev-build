@@ -50,9 +50,6 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   const toolbar = document.createElement('div');
   toolbar.className = `toolbar toolbar-${layoutMode}`;
 
-  const projectTier = document.createElement('div');
-  projectTier.className = 'toolbar-tier toolbar-tier-project';
-
   const branding = document.createElement('div');
   branding.className = 'toolbar-branding';
 
@@ -86,7 +83,6 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   title.append(brandIcon, titlePrimary);
   brandCopy.append(title, subtitle);
   branding.appendChild(brandCopy);
-  projectTier.appendChild(branding);
 
   const factionPicker = document.createElement('div');
   factionPicker.className = 'toolbar-faction-picker';
@@ -116,11 +112,6 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
 
   factionPicker.append(factionLabel, factionSelect);
 
-  const fileGroup = document.createElement('div');
-  fileGroup.className = 'toolbar-group toolbar-group-project';
-  fileGroup.appendChild(factionPicker);
-  fileGroup.appendChild(sep());
-
   const openBtn = btn('open', 'Open', importFromJson, 'Open a saved .panda/.json project or import a PANDA XML file');
   const saveBtn = btn('save', 'Save', exportProjectJson, 'Save as .panda project file (preserves editor data)');
   const importBtn = btn('import', 'Import', importFromXml, 'Import conversations from an existing game XML file');
@@ -131,6 +122,108 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
     classes: ['btn-community', 'toolbar-button-primary'],
   });
   const helpBtn = btn('help', 'Help', openHelpModal, 'How to write P.A.N.D.A. conversations — full reference guide');
+  const handleReset = (): void => {
+    if (state.dirty && !window.confirm('You have unsaved changes. Clear workspace and return to the intro?')) return;
+    clearDraft();
+    store.loadProject(createEmptyProject('stalker'), new Map());
+  };
+
+  if (!isCompact) {
+    const leftZone = document.createElement('div');
+    leftZone.className = 'toolbar-zone toolbar-zone-left';
+    leftZone.appendChild(branding);
+
+    const factionGroup = document.createElement('div');
+    factionGroup.className = 'toolbar-group toolbar-group-meta';
+    factionGroup.appendChild(factionPicker);
+    leftZone.appendChild(factionGroup);
+
+    const centerZone = document.createElement('div');
+    centerZone.className = 'toolbar-zone toolbar-zone-center';
+
+    const projectGroup = document.createElement('div');
+    projectGroup.className = 'toolbar-group toolbar-group-project';
+    projectGroup.append(openBtn, importBtn, saveBtn, exportXmlBtn, communityBtn);
+    centerZone.appendChild(projectGroup);
+
+    const rightZone = document.createElement('div');
+    rightZone.className = 'toolbar-zone toolbar-zone-right';
+
+    const search = renderQuickSearch();
+    rightZone.appendChild(search);
+
+    const editorGroup = document.createElement('div');
+    editorGroup.className = 'toolbar-group toolbar-group-edit';
+    const densitySelect = document.createElement('select');
+    densitySelect.className = 'toolbar-density-select toolbar-select-quiet';
+    densitySelect.title = 'Adjust how much information each turn card shows in the flow editor.';
+    const densityOptions: FlowDensity[] = ['compact', 'standard', 'detailed'];
+    for (const density of densityOptions) {
+      const option = document.createElement('option');
+      option.value = density;
+      option.textContent = density[0].toUpperCase() + density.slice(1);
+      option.selected = density === state.flowDensity;
+      densitySelect.appendChild(option);
+    }
+    densitySelect.onchange = () => store.setFlowDensity(densitySelect.value as FlowDensity);
+    const undoBtn = iconBtn('undo', () => store.undo(), 'Undo', 'Undo last change (Ctrl+Z)');
+    const redoBtn = iconBtn('redo', () => store.redo(), 'Redo', 'Redo last undone change (Ctrl+Y)');
+    undoBtn.disabled = state.undoStack.length === 0;
+    redoBtn.disabled = state.redoStack.length === 0;
+    const historyGroup = document.createElement('div');
+    historyGroup.className = 'toolbar-group toolbar-group-compact toolbar-group-history';
+    historyGroup.append(undoBtn, redoBtn);
+    editorGroup.append(densitySelect, sep(), historyGroup);
+    rightZone.appendChild(editorGroup);
+
+    const viewGroup = document.createElement('div');
+    viewGroup.className = 'toolbar-group toolbar-group-segmented';
+    viewGroup.appendChild(toggleBtn(
+      'xml',
+      'XML',
+      state.showXmlPreview,
+      () => store.toggleXmlPreview(),
+      state.showXmlPreview ? 'Hide the live XML preview panel' : 'Show the live XML preview panel',
+    ));
+    viewGroup.appendChild(toggleBtn(
+      'strings',
+      'Strings',
+      state.showSystemStringsPanel,
+      () => store.toggleSystemStringsPanel(),
+      state.showSystemStringsPanel ? 'Hide the shared system strings manager' : 'Show the shared system strings manager',
+    ));
+    rightZone.appendChild(viewGroup);
+
+    const status = document.createElement('span');
+    status.className = 'toolbar-status';
+    const convCount = state.project.conversations.length;
+    const stringCount = state.systemStrings.size;
+    if (state.dirty) {
+      status.innerHTML = `<span class="unsaved-dot"></span> ${formatStatus(convCount, stringCount, false, true)}`;
+      status.style.color = 'var(--warning)';
+    } else {
+      status.textContent = formatStatus(convCount, stringCount, false, false);
+    }
+    rightZone.appendChild(status);
+
+    rightZone.appendChild(createOverflowMenu('More', [
+      { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
+      { icon: 'support', label: 'Support', title: 'Support the Creator', onclick: openSupportPanel },
+      { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },
+    ]));
+
+    toolbar.append(leftZone, centerZone, rightZone);
+    return toolbar;
+  }
+
+  const projectTier = document.createElement('div');
+  projectTier.className = 'toolbar-tier toolbar-tier-project';
+  projectTier.appendChild(branding);
+
+  const fileGroup = document.createElement('div');
+  fileGroup.className = 'toolbar-group toolbar-group-project';
+  fileGroup.appendChild(factionPicker);
+  fileGroup.appendChild(sep());
 
   if (isCompact) {
     const projectOverflowActions: OverflowAction[] = [];
@@ -248,23 +341,11 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
     status.textContent = formatStatus(convCount, stringCount, isMobile, false);
   }
   utilityTier.appendChild(status);
-
-  const supportTrigger = iconBtn('support', openSupportPanel, 'Support the Creator', 'Support the Creator');
-  supportTrigger.classList.add('toolbar-support-trigger');
-  utilityTier.appendChild(supportTrigger);
-
-  const resetBtn = document.createElement('button');
-  resetBtn.type = 'button';
-  resetBtn.className = 'toolbar-button toolbar-icon-button btn-icon toolbar-reset-btn';
-  resetBtn.appendChild(createIcon('brand'));
-  resetBtn.title = 'Clear workspace and show the intro sequence';
-  resetBtn.setAttribute('aria-label', 'Reset to intro');
-  resetBtn.onclick = () => {
-    if (state.dirty && !window.confirm('You have unsaved changes. Clear workspace and return to the intro?')) return;
-    clearDraft();
-    store.loadProject(createEmptyProject('stalker'), new Map());
-  };
-  utilityTier.appendChild(resetBtn);
+  utilityTier.appendChild(createOverflowMenu('More', [
+    { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
+    { icon: 'support', label: 'Support', title: 'Support the Creator', onclick: openSupportPanel },
+    { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },
+  ]));
 
   toolbar.appendChild(utilityTier);
 
