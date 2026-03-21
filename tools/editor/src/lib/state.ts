@@ -3,6 +3,7 @@
 import type { Project, Conversation, Turn, Choice, ValidationMessage } from './types';
 import { createEmptyProject, createConversation, createTurn, createChoice } from './xml-export';
 import { validate } from './validation';
+import { estimateFlowNodeHeight, getFlowAutoLayoutSpacing, getFlowNodeLayout } from './flow-layout';
 
 export type PropertiesTab = 'conversation' | 'selection';
 export type FlowDensity = 'compact' | 'standard' | 'detailed';
@@ -32,6 +33,15 @@ type Listener = () => void;
 type TurnPositionUpdate = {
   turnNumber: number;
   position: { x: number; y: number };
+};
+
+type AutoLayoutNodeMeta = {
+  turnNumber: number;
+  depth: number;
+  parentTurnNumber: number | null;
+  siblingIndex: number;
+  groupKey: string;
+  visitOrder: number;
 };
 
 class StateManager {
@@ -133,69 +143,168 @@ class StateManager {
     this.state.bottomWorkspaceTab = openTabs[0] ?? null;
   }
 
-  private static readonly DENSITY_SPACING: Record<FlowDensity, { colWidth: number; rowHeight: number }> = {
-    compact: { colWidth: 240, rowHeight: 140 },
-    standard: { colWidth: 300, rowHeight: 180 },
-    detailed: { colWidth: 360, rowHeight: 240 },
-  };
-
   private calculateAutoLayoutUpdates(conversation: Conversation, density: FlowDensity = 'standard'): TurnPositionUpdate[] {
-    const visited = new Set<number>();
-    const queue: { turnNumber: number; col: number; row: number }[] = [{ turnNumber: 1, col: 0, row: 0 }];
-    const positions = new Map<number, { col: number; row: number }>();
+    const turnsByNumber = new Map(conversation.turns.map(turn => [turn.turnNumber, turn]));
+    const metadata = new Map<number, AutoLayoutNodeMeta>();
+    const queue: AutoLayoutNodeMeta[] = [];
+    const enqueue = (meta: AutoLayoutNodeMeta): void => {
+      if (metadata.has(meta.turnNumber) || !turnsByNumber.has(meta.turnNumber)) return;
+      metadata.set(meta.turnNumber, meta);
+      queue.push(meta);
+    };
+
+    let visitOrder = 0;
+    if (turnsByNumber.has(1)) {
+      enqueue({
+        turnNumber: 1,
+        depth: 0,
+        parentTurnNumber: null,
+        siblingIndex: 0,
+        groupKey: 'root',
+        visitOrder: visitOrder++,
+      });
+    }
 
     while (queue.length > 0) {
       const current = queue.shift();
-      if (!current || visited.has(current.turnNumber)) continue;
+      if (!current) continue;
 
-      visited.add(current.turnNumber);
-      positions.set(current.turnNumber, { col: current.col, row: current.row });
-
-      const turn = conversation.turns.find(t => t.turnNumber === current.turnNumber);
+      const turn = turnsByNumber.get(current.turnNumber);
       if (!turn) continue;
 
-      let childRow = 0;
-      for (const choice of turn.choices) {
-        const targets: number[] = [];
-        if (choice.continueTo != null) targets.push(choice.continueTo);
+      let siblingIndex = 0;
+      for (const targetTurnNumber of this.getTurnTargetSequence(turn)) {
+        const groupKey = current.depth === 0
+          ? `branch-${siblingIndex}`
+          : current.groupKey;
+        enqueue({
+          turnNumber: targetTurnNumber,
+          depth: current.depth + 1,
+          parentTurnNumber: current.turnNumber,
+          siblingIndex,
+          groupKey,
+          visitOrder: visitOrder++,
+        });
+        siblingIndex += 1;
+      }
+    }
 
-        for (const outcome of choice.outcomes) {
-          if (outcome.command !== 'pause_job') continue;
-          const successTurn = parseInt(outcome.params[1], 10);
-          const failTurn = parseInt(outcome.params[2], 10);
-          if (!Number.isNaN(successTurn)) targets.push(successTurn);
-          if (!Number.isNaN(failTurn)) targets.push(failTurn);
+    let nextDepth = metadata.size > 0
+      ? Math.max(...[...metadata.values()].map(item => item.depth)) + 1
+      : 0;
+    let islandIndex = 0;
+    for (const turn of conversation.turns) {
+      if (metadata.has(turn.turnNumber)) continue;
+      metadata.set(turn.turnNumber, {
+        turnNumber: turn.turnNumber,
+        depth: nextDepth,
+        parentTurnNumber: null,
+        siblingIndex: 0,
+        groupKey: `island-${islandIndex}`,
+        visitOrder: visitOrder++,
+      });
+      nextDepth += 1;
+      islandIndex += 1;
+    }
+
+    const orderedColumns = new Map<number, AutoLayoutNodeMeta[]>();
+    for (const meta of metadata.values()) {
+      const column = orderedColumns.get(meta.depth) ?? [];
+      column.push(meta);
+      orderedColumns.set(meta.depth, column);
+    }
+
+    const orderedTurnNumbers = [...metadata.values()]
+      .sort((a, b) => a.visitOrder - b.visitOrder)
+      .map(item => item.turnNumber);
+    const orderIndexByTurn = new Map(orderedTurnNumbers.map((turnNumber, index) => [turnNumber, index]));
+
+    for (const column of orderedColumns.values()) {
+      column.sort((a, b) => {
+        const aParentOrder = a.parentTurnNumber == null ? -1 : (orderIndexByTurn.get(a.parentTurnNumber) ?? Number.MAX_SAFE_INTEGER);
+        const bParentOrder = b.parentTurnNumber == null ? -1 : (orderIndexByTurn.get(b.parentTurnNumber) ?? Number.MAX_SAFE_INTEGER);
+
+        return aParentOrder - bParentOrder
+          || a.siblingIndex - b.siblingIndex
+          || a.groupKey.localeCompare(b.groupKey)
+          || a.visitOrder - b.visitOrder
+          || a.turnNumber - b.turnNumber;
+      });
+    }
+
+    const layout = getFlowNodeLayout(density);
+    const spacing = getFlowAutoLayoutSpacing(density);
+    const positions = new Map<number, { x: number; y: number }>();
+
+    for (const [depth, column] of [...orderedColumns.entries()].sort((a, b) => a[0] - b[0])) {
+      const x = spacing.canvasPaddingX + depth * (layout.width + spacing.horizontalGutter);
+      let cursorY = spacing.canvasPaddingY;
+      let previousMeta: AutoLayoutNodeMeta | null = null;
+
+      for (const meta of column) {
+        if (previousMeta) {
+          const gap = this.getAutoLayoutVerticalGap(previousMeta, meta, spacing);
+          const previousTurn = turnsByNumber.get(previousMeta.turnNumber);
+          if (previousTurn) {
+            cursorY += estimateFlowNodeHeight(previousTurn, density) + gap;
+          }
         }
 
-        for (const targetTurnNumber of targets) {
-          if (visited.has(targetTurnNumber)) continue;
-          queue.push({ turnNumber: targetTurnNumber, col: current.col + 1, row: childRow });
-          childRow += 1;
+        positions.set(meta.turnNumber, { x, y: cursorY });
+        previousMeta = meta;
+      }
+    }
+
+    return conversation.turns.map(turn => ({
+      turnNumber: turn.turnNumber,
+      position: positions.get(turn.turnNumber) ?? {
+        x: spacing.canvasPaddingX,
+        y: spacing.canvasPaddingY,
+      },
+    }));
+  }
+
+  private getTurnTargetSequence(turn: Turn): number[] {
+    const targets: number[] = [];
+
+    for (const choice of turn.choices) {
+      if (choice.continueTo != null) {
+        targets.push(choice.continueTo);
+      }
+
+      for (const outcome of choice.outcomes) {
+        if (outcome.command !== 'pause_job') continue;
+
+        const successTurn = parseInt(outcome.params[1], 10);
+        const failTurn = parseInt(outcome.params[2], 10);
+
+        if (!Number.isNaN(successTurn)) {
+          targets.push(successTurn);
+        }
+
+        if (!Number.isNaN(failTurn)) {
+          targets.push(failTurn);
         }
       }
     }
 
-    let nextUnvisitedCol = positions.size > 0
-      ? Math.max(...[...positions.values()].map(position => position.col)) + 1
-      : 0;
+    return [...new Set(targets)];
+  }
 
-    for (const turn of conversation.turns) {
-      if (positions.has(turn.turnNumber)) continue;
-      positions.set(turn.turnNumber, { col: nextUnvisitedCol, row: 0 });
-      nextUnvisitedCol += 1;
+  private getAutoLayoutVerticalGap(
+    previous: AutoLayoutNodeMeta,
+    current: AutoLayoutNodeMeta,
+    spacing: ReturnType<typeof getFlowAutoLayoutSpacing>,
+  ): number {
+    if (previous.parentTurnNumber != null && previous.parentTurnNumber === current.parentTurnNumber) {
+      return spacing.siblingGap;
     }
 
-    const spacing = StateManager.DENSITY_SPACING[density];
-    return conversation.turns.map(turn => {
-      const position = positions.get(turn.turnNumber) ?? { col: 0, row: 0 };
-      return {
-        turnNumber: turn.turnNumber,
-        position: {
-          x: position.col * spacing.colWidth + 20,
-          y: position.row * spacing.rowHeight + 20,
-        },
-      };
-    });
+    if (previous.groupKey === current.groupKey) {
+      return spacing.siblingGap;
+    }
+
+    return spacing.branchGroupGap;
   }
 
   loadProject(project: Project, systemStrings: Map<string, string>): void {
