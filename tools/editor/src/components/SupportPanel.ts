@@ -11,7 +11,7 @@ const SUPPORT_PANEL_COPY = {
   title: 'Fuel future P.A.N.D.A. updates',
   intro: 'P.A.N.D.A. is my passion project that started as a very basic expansion to vanilla dynamic news dialogues with UDE. Over the years as I learnt xray scripting etc my scope grew far, far bigger.',
   mod: 'Ive been working on PANDA for a long while and a lot of work and boring ass bugtesting has gone into making all of this possible. Mod will be released once it has enough conversations and meet polished standards.',
-  support: 'I have a lot of new features planned for PANDA in the future and there is a lot of room for growth mechanically gameplay-wise. If you want to tip me or whatever, the button below will take you straight to my Ko-fi.',
+  support: 'I have a lot of new features planned for PANDA in the future and there is a lot of room for growth mechanically gameplay-wise. If you want to tip me or whatever, the button above will take you straight to my Ko-fi.',
   upvoteTitle: 'You can also give morale support by just leaving an upvote!',
   upvoteBody: 'Morale support!.',
   upvoteStatsLabel: 'total morale upvotes',
