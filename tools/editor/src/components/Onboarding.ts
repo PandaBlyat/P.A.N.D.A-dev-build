@@ -185,36 +185,95 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   hero.append(phaseIndicator, chapterLabel, narratorBox, title, subtitle, tagline, intro, subcopy, ctas, checklistWrap, skipBtn);
 
-  // ── Orbit visualisation ──────────────────────────────────────────────────
-  const orbit = document.createElement('div');
-  orbit.className = 'first-run-orbit';
-  orbit.setAttribute('aria-hidden', 'true');
-  orbit.innerHTML = `
-    <div class="first-run-orbit-ring ring-a"></div>
-    <div class="first-run-orbit-ring ring-b"></div>
-    <div class="first-run-orbit-ring ring-c"></div>
-    <div class="first-run-orbit-core"></div>
-    <div class="first-run-orbit-core-label">42</div>
-    <div class="first-run-orbit-dust dust-a"></div>
-    <div class="first-run-orbit-dust dust-b"></div>
-    <div class="first-run-orbit-dust dust-c"></div>
-    <div class="first-run-orbit-sigil">P.A.N.D.A.</div>
-    <div class="first-run-orbit-quote"></div>
+  // ── PDA Terminal boot sequence ─────────────────────────────────────────────
+  const terminal = document.createElement('div');
+  terminal.className = 'first-run-terminal';
+  terminal.setAttribute('aria-hidden', 'true');
+
+  terminal.innerHTML = `
+    <div class="terminal-scanlines"></div>
+    <div class="terminal-header">
+      <span class="terminal-header-dot red"></span>
+      <span class="terminal-header-dot yellow"></span>
+      <span class="terminal-header-dot green"></span>
+      <span class="terminal-header-title">PDA v3.42 — SECURE CHANNEL</span>
+    </div>
+    <div class="terminal-body">
+      <div class="terminal-log"></div>
+    </div>
+    <div class="terminal-status-bar">
+      <span class="terminal-signal">
+        <span class="signal-bar bar-1"></span>
+        <span class="signal-bar bar-2"></span>
+        <span class="signal-bar bar-3"></span>
+        <span class="signal-bar bar-4"></span>
+      </span>
+      <span class="terminal-status-text">STANDBY</span>
+      <span class="terminal-status-freq">462.7 MHz</span>
+    </div>
   `;
 
-  shell.append(hero, orbit);
+  shell.append(hero, terminal);
   container.replaceChildren(shell);
+
+  const termLog = terminal.querySelector('.terminal-log') as HTMLElement;
+  const statusText = terminal.querySelector('.terminal-status-text') as HTMLElement;
+
+  // ── Boot sequence log lines per phase ──────────────────────────────────────
+  const BOOT_PHASES: string[][] = [
+    // Phase 0 — Opening: system coming alive
+    [
+      '> BIOS POST ............ OK',
+      '> PDA-OS v3.42.1 KERNEL LOADED',
+      '> INITIALIZING MEMORY .... 640K',
+      '> (that ought to be enough for anybody)',
+      '> SCANNING ZONE FREQUENCIES ...',
+      '> SIGNAL ACQUIRED: 462.7 MHz',
+      '> HANDSHAKE .... ESTABLISHED',
+      '> A-LIFE NETWORK DETECTED',
+      '> NPC ROSTER: 2,847 ACTIVE CONTACTS',
+    ],
+    // Phase 1 — Problem: diagnostics reveal issues
+    [
+      '> RUNNING DIALOGUE DIAGNOSTICS ...',
+      '> [WARN] NPC CONVERSATION DEPTH: SHALLOW',
+      '> [WARN] BRANCHING PATHS: MINIMAL',
+      '> [WARN] PLAYER AGENCY SCORE: 12%',
+      '> [ERR!] XML STRING TABLE CORRUPTION',
+      '> [ERR!] MANUAL EDITS DETECTED — SANITY LOSS IMMINENT',
+      '> [ERR!] MODDER BURNOUT INDEX: CRITICAL',
+      '> DIAGNOSIS: THE ZONE DESERVES BETTER.',
+    ],
+    // Phase 2 — Solution: P.A.N.D.A. initializes
+    [
+      '> LOADING MODULE: P.A.N.D.A.',
+      '> ┌─────────────────────────────────┐',
+      '> │  PROCEDURAL  ANOMALY  NARRATIVE │',
+      '> │    DIALOGUE   ARCHITECTURE      │',
+      '> └─────────────────────────────────┘',
+      '> PRECONDITION ENGINE .... ONLINE',
+      '> BRANCHING EDITOR ...... ONLINE',
+      '> OUTCOME SYSTEM ........ ONLINE',
+      '> XML EXPORT ............ ONLINE',
+      '> VALIDATION ............ ONLINE',
+      '> ALL SYSTEMS NOMINAL.',
+    ],
+    // Phase 3 — Invite: personal welcome
+    [
+      '> SCANNING OPERATOR CREDENTIALS ...',
+      '> CLEARANCE: LEVEL 42 — UNRESTRICTED',
+      '> STATUS: IMPROBABLY TALENTED MODDER',
+      '> RECOMMENDATION: DO NOT PANIC',
+      '> ...',
+      '> WELCOME ABOARD, STALKER.',
+      '> SYSTEM READY.',
+    ],
+  ];
 
   // ── Typewriter animation ─────────────────────────────────────────────────
   let cancelled = false;
 
   const PHASE_LABELS = ['Chapter I — Genesis', 'Chapter II — The Problem', 'Chapter III — The Solution', 'Chapter IV — You'];
-  const ORBIT_QUOTES = [
-    'Space is big.',
-    'Really big.',
-    '"Time is an illusion.\nLunchtime doubly so."',
-    '',
-  ];
 
   function setPhaseIndicator(index: number): void {
     phaseIndicator.querySelectorAll('.phase-dot').forEach((dot, i) => {
@@ -223,16 +282,54 @@ export function renderFirstRunExperience(container: HTMLElement): void {
     });
   }
 
-  function setOrbitQuote(text: string): void {
-    const quoteEl = orbit.querySelector('.first-run-orbit-quote');
-    if (quoteEl) {
-      quoteEl.classList.remove('visible');
-      if (text) {
-        setTimeout(() => {
-          quoteEl.textContent = text;
-          quoteEl.classList.add('visible');
-        }, 300);
-      }
+  async function printTerminalLine(text: string): Promise<void> {
+    if (cancelled) return;
+    const line = document.createElement('div');
+    line.className = 'terminal-line';
+
+    const isError = text.includes('[ERR!]');
+    const isWarn = text.includes('[WARN]');
+    const isBox = /[┌┐└┘│─]/.test(text);
+
+    if (isError) line.classList.add('line-error');
+    else if (isWarn) line.classList.add('line-warn');
+    else if (isBox) line.classList.add('line-box');
+
+    termLog.appendChild(line);
+    termLog.scrollTop = termLog.scrollHeight;
+
+    // Fast character-by-character print for that terminal feel
+    for (let i = 0; i < text.length; i++) {
+      if (cancelled) return;
+      line.textContent = text.slice(0, i + 1);
+      // Box-drawing chars print fast, dots print with pauses
+      const char = text[i];
+      if (char === '.') await delay(40 + Math.random() * 30);
+      else if (isBox) await delay(4);
+      else await delay(10 + Math.random() * 12);
+    }
+
+    // Blink effect on completion
+    line.classList.add('printed');
+    await delay(60);
+  }
+
+  async function runBootPhase(phaseIdx: number): Promise<void> {
+    if (cancelled) return;
+    const lines = BOOT_PHASES[phaseIdx];
+
+    // Update status bar per phase
+    const statuses = ['BOOTING', 'DIAGNOSING', 'LOADING P.A.N.D.A.', 'AUTHENTICATING'];
+    statusText.textContent = statuses[phaseIdx] || 'PROCESSING';
+
+    // Activate signal bars progressively
+    const bars = terminal.querySelectorAll('.signal-bar');
+    bars.forEach((bar, i) => bar.classList.toggle('active', i <= phaseIdx));
+
+    for (const text of lines) {
+      if (cancelled) return;
+      await printTerminalLine(text);
+      await delay(120 + Math.random() * 180);
     }
   }
 
@@ -241,13 +338,17 @@ export function renderFirstRunExperience(container: HTMLElement): void {
     chapterLabel.classList.add('narrator-done');
     shell.classList.add('phase-finale');
 
+    // Terminal enters ready state
+    statusText.textContent = 'SYSTEM READY';
+    terminal.classList.add('terminal-ready');
+    terminal.querySelectorAll('.signal-bar').forEach(b => b.classList.add('active'));
+
     // Dramatic staggered reveal
     title.classList.remove('hidden');
     title.classList.add('reveal');
     skipBtn.hidden = true;
 
     setPhaseIndicator(NARRATOR_PHASES.length);
-    setOrbitQuote('');
 
     setTimeout(() => {
       if (cancelled) return;
@@ -287,6 +388,20 @@ export function renderFirstRunExperience(container: HTMLElement): void {
     NARRATOR_PHASES.forEach(p => {
       if (p.shellClass) shell.classList.remove(p.shellClass);
     });
+
+    // Fill terminal with final state
+    termLog.innerHTML = '';
+    BOOT_PHASES.flat().forEach(text => {
+      const line = document.createElement('div');
+      line.className = 'terminal-line printed';
+      line.textContent = text;
+      if (text.includes('[ERR!]')) line.classList.add('line-error');
+      else if (text.includes('[WARN]')) line.classList.add('line-warn');
+      else if (/[┌┐└┘│─]/.test(text)) line.classList.add('line-box');
+      termLog.appendChild(line);
+    });
+    termLog.scrollTop = termLog.scrollHeight;
+
     revealContent();
   };
 
@@ -318,8 +433,8 @@ export function renderFirstRunExperience(container: HTMLElement): void {
       chapterLabel.textContent = PHASE_LABELS[phaseIdx] || '';
       chapterLabel.classList.add('visible');
 
-      // Show orbit quote for this phase
-      setOrbitQuote(ORBIT_QUOTES[phaseIdx] || '');
+      // Run terminal boot phase in parallel with narrator
+      runBootPhase(phaseIdx);
 
       await delay(400);
       if (cancelled) return;
