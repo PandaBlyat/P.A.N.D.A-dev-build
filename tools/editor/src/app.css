@@ -3835,6 +3835,8 @@ hr {
 .support-highlight-upvote {
   grid-column: 1 / -1;
   display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.875rem;
@@ -3875,6 +3877,7 @@ hr {
   justify-content: flex-end;
   flex: 0 0 auto;
   gap: 0.875rem;
+  margin-left: auto;
 }
 
 .support-highlight-upvote-controls {
