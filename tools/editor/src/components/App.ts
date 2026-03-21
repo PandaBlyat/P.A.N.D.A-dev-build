@@ -40,6 +40,7 @@ const layoutState = {
   rightCollapsed: false,
   responsiveMode: 'desktop' as ResponsiveLayoutMode,
   activeDrawer: null as DrawerSide,
+  toolbarHidden: false,
 };
 
 type AppShell = {
@@ -51,6 +52,7 @@ type AppShell = {
   leftPanel: HTMLDivElement;
   leftActions: HTMLDivElement;
   leftBody: HTMLDivElement;
+  leftSplitter: HTMLDivElement;
   centerPanel: HTMLDivElement;
   centerTitle: HTMLSpanElement;
   centerActions: HTMLDivElement;
@@ -58,6 +60,7 @@ type AppShell = {
   rightPanel: HTMLDivElement;
   rightActions: HTMLDivElement;
   rightBody: HTMLDivElement;
+  rightSplitter: HTMLDivElement;
   bottomRegion: HTMLDivElement;
   workspaceRegion: HTMLDivElement;
   tickerRegion: HTMLDivElement;
@@ -76,13 +79,25 @@ export function renderApp(container: HTMLElement): void {
 
   applyFactionTheme(container, state.project.faction);
 
+  // During onboarding, hide toolbar and side panels for a cleaner experience.
+  // When onboarding ends (project created), restore the toolbar.
+  if (firstRun) {
+    layoutState.toolbarHidden = true;
+  } else if (layoutState.toolbarHidden && state.project.conversations.length > 0) {
+    layoutState.toolbarHidden = false;
+  }
+
   syncResponsiveLayout(shell.mainLayout);
   shell.toolbarRegion.replaceChildren(renderToolbar(layoutState.responsiveMode));
-  renderLeftPanel(shell);
+  shell.toolbarRegion.hidden = layoutState.toolbarHidden;
+  shell.leftSplitter.hidden = firstRun;
+  shell.rightSplitter.hidden = firstRun;
+  renderLeftPanel(shell, firstRun);
   renderCenterPanel(shell, conv, firstRun);
-  renderRightPanel(shell);
-  renderBottomRegion(shell);
-  renderUtilityRail(shell);
+  renderRightPanel(shell, firstRun);
+  renderBottomRegion(shell, firstRun);
+  renderUtilityRail(shell, firstRun);
+  renderToolbarToggle(shell);
   updateOverlayState(shell);
 }
 
@@ -153,11 +168,14 @@ function getAppShell(container: HTMLElement): AppShell {
   const utilityRail = document.createElement('div');
   utilityRail.className = 'utility-rail';
 
+  const leftSplitter = createSplitter('left', mainLayout);
+  const rightSplitter = createSplitter('right', mainLayout);
+
   mainLayout.append(
     leftPanel,
-    createSplitter('left', mainLayout),
+    leftSplitter,
     centerPanel,
-    createSplitter('right', mainLayout),
+    rightSplitter,
     rightPanel,
     layoutScrim,
     utilityRail,
@@ -188,6 +206,7 @@ function getAppShell(container: HTMLElement): AppShell {
     leftPanel,
     leftActions,
     leftBody,
+    leftSplitter,
     centerPanel,
     centerTitle,
     centerActions,
@@ -195,6 +214,7 @@ function getAppShell(container: HTMLElement): AppShell {
     rightPanel,
     rightActions,
     rightBody,
+    rightSplitter,
     bottomRegion,
     workspaceRegion,
     tickerRegion,
@@ -203,11 +223,12 @@ function getAppShell(container: HTMLElement): AppShell {
   return appShell;
 }
 
-function renderLeftPanel(shell: AppShell): void {
+function renderLeftPanel(shell: AppShell, firstRun = false): void {
   const isOverlay = layoutState.responsiveMode !== 'desktop';
   const isDrawerOpen = isOverlay && layoutState.activeDrawer === 'left';
   const selectedConversationId = store.get().selectedConversationId;
 
+  shell.leftPanel.hidden = firstRun;
   shell.leftPanel.className = `panel panel-left${layoutState.leftCollapsed && !isOverlay ? ' is-collapsed' : ''}${isDrawerOpen ? ' is-drawer-open' : ''}`;
   shell.leftPanel.dataset.drawerOpen = String(isDrawerOpen);
   shell.leftPanel.setAttribute('aria-hidden', String(isOverlay && !isDrawerOpen));
@@ -262,10 +283,11 @@ function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSel
   renderFlowEditor(shell.centerBody);
 }
 
-function renderRightPanel(shell: AppShell): void {
+function renderRightPanel(shell: AppShell, firstRun = false): void {
   const isOverlay = layoutState.responsiveMode !== 'desktop';
   const isDrawerOpen = isOverlay && layoutState.activeDrawer === 'right';
 
+  shell.rightPanel.hidden = firstRun;
   shell.rightPanel.className = `panel panel-right${layoutState.rightCollapsed && !isOverlay ? ' is-collapsed' : ''}${isDrawerOpen ? ' is-drawer-open' : ''}`;
   shell.rightPanel.dataset.drawerOpen = String(isDrawerOpen);
   shell.rightPanel.setAttribute('aria-hidden', String(isOverlay && !isDrawerOpen));
@@ -275,17 +297,18 @@ function renderRightPanel(shell: AppShell): void {
   renderPropertiesPanel(shell.rightBody);
 }
 
-function renderBottomRegion(shell: AppShell): void {
+function renderBottomRegion(shell: AppShell, firstRun = false): void {
+  shell.bottomRegion.hidden = firstRun;
   shell.bottomRegion.dataset.layoutMode = layoutState.responsiveMode;
   shell.workspaceRegion.replaceChildren();
   renderBottomWorkspace(shell.workspaceRegion);
 }
 
-function renderUtilityRail(shell: AppShell): void {
+function renderUtilityRail(shell: AppShell, firstRun = false): void {
   shell.utilityRail.replaceChildren();
   const state = store.get();
   const isCompact = layoutState.responsiveMode !== 'desktop';
-  shell.utilityRail.hidden = !isCompact;
+  shell.utilityRail.hidden = firstRun || !isCompact;
   if (!isCompact) return;
 
   const issueCount = state.validationMessages.length;
@@ -596,6 +619,23 @@ function createUtilityRailButton(
   }
 
   return button;
+}
+
+function renderToolbarToggle(shell: AppShell): void {
+  const existingToggle = shell.mainLayout.querySelector('.toolbar-visibility-toggle');
+  if (existingToggle) existingToggle.remove();
+
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'toolbar-visibility-toggle';
+  toggle.title = layoutState.toolbarHidden ? 'Show toolbar' : 'Hide toolbar';
+  toggle.setAttribute('aria-label', toggle.title);
+  toggle.textContent = layoutState.toolbarHidden ? '▼' : '▲';
+  toggle.onclick = () => {
+    layoutState.toolbarHidden = !layoutState.toolbarHidden;
+    renderApp(shell.container);
+  };
+  shell.mainLayout.appendChild(toggle);
 }
 
 function toggleDrawer(side: 'left' | 'right'): void {
