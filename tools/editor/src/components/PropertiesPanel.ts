@@ -24,8 +24,14 @@ const ADDABLE_PRECONDITION_SCHEMAS = PRECONDITION_SCHEMAS.filter((schema) => !sc
 
 // Track collapsed state of collapsible sections per key
 const collapsedSections = new Set<string>();
+let activeCommandPickerCleanup: (() => void) | null = null;
+let activeCommandPickerTrigger: HTMLElement | null = null;
 
-function createCollapsibleSection(key: string, title: string, addCallback?: () => void): { wrapper: HTMLElement; body: HTMLElement } {
+function createCollapsibleSection(
+  key: string,
+  title: string,
+  addCallback?: (trigger: HTMLButtonElement) => void,
+): { wrapper: HTMLElement; body: HTMLElement } {
   const wrapper = document.createElement('div');
   wrapper.className = `props-collapsible${collapsedSections.has(key) ? ' is-collapsed' : ''}`;
 
@@ -45,7 +51,7 @@ function createCollapsibleSection(key: string, title: string, addCallback?: () =
     addBtn.textContent = '+ Add';
     addBtn.onclick = (e) => {
       e.stopPropagation();
-      addCallback();
+      addCallback(addBtn);
     };
     actions.appendChild(addBtn);
   }
@@ -190,8 +196,8 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   const { wrapper: precondWrapper, body: precondBody } = createCollapsibleSection(
     `conv-${conv.id}-preconditions`,
     `Preconditions (${conv.preconditions.length})`,
-    () => {
-      showCommandPicker(precondWrapper, ADDABLE_PRECONDITION_SCHEMAS, (schema) => {
+    (trigger) => {
+      showCommandPicker(trigger, ADDABLE_PRECONDITION_SCHEMAS, (schema) => {
         const newPrecond: SimplePrecondition = {
           type: 'simple',
           command: schema.name,
@@ -391,8 +397,8 @@ function renderChoiceProperties(
   const { wrapper: outcomeWrapper, body: outcomeBody } = createCollapsibleSection(
     `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-outcomes`,
     `Outcomes (${choice.outcomes.length})`,
-    () => {
-      showCommandPicker(outcomeWrapper, OUTCOME_SCHEMAS, (schema) => {
+    (trigger) => {
+      showCommandPicker(trigger, OUTCOME_SCHEMAS, (schema) => {
         const newOutcome: Outcome = {
           command: schema.name,
           params: schema.params.map(p => p.placeholder || ''),
@@ -1413,13 +1419,18 @@ function parseSmartTerrainReference(value: string): {
 
 // ─── Command Picker Dropdown ──────────────────────────────────────────────
 
-function showCommandPicker(parent: HTMLElement, schemas: CommandSchema[], onSelect: (schema: CommandSchema) => void): void {
-  // Close any existing dropdown
-  const existing = parent.querySelector('.dropdown-menu');
-  if (existing) { existing.remove(); return; }
+function showCommandPicker(trigger: HTMLElement, schemas: CommandSchema[], onSelect: (schema: CommandSchema) => void): void {
+  if (activeCommandPickerCleanup) {
+    const shouldToggleClosed = activeCommandPickerTrigger === trigger;
+    activeCommandPickerCleanup();
+    if (shouldToggleClosed) return;
+  }
 
   const menu = document.createElement('div');
   menu.className = 'dropdown-menu';
+  menu.setAttribute('role', 'dialog');
+  menu.setAttribute('aria-label', 'Command picker');
+  menu.style.position = 'fixed';
 
   // Search filter
   const searchInput = document.createElement('input');
@@ -1456,8 +1467,7 @@ function showCommandPicker(parent: HTMLElement, schemas: CommandSchema[], onSele
         opt.className = 'dropdown-option';
         opt.innerHTML = `${schema.label}<span class="dropdown-option-desc">${schema.description}</span>`;
         opt.onclick = () => {
-          menu.remove();
-          wrapper.remove();
+          cleanup();
           onSelect(schema);
         };
         listContainer.appendChild(opt);
@@ -1476,26 +1486,78 @@ function showCommandPicker(parent: HTMLElement, schemas: CommandSchema[], onSele
   searchInput.oninput = () => renderList(searchInput.value.toLowerCase().trim());
 
   menu.appendChild(listContainer);
+  document.body.appendChild(menu);
 
-  // Position near the add button
-  const wrapper = document.createElement('div');
-  wrapper.className = 'dropdown-editor';
-  wrapper.style.position = 'relative';
-  wrapper.appendChild(menu);
-  parent.appendChild(wrapper);
+  const inspectorScrollContainer = trigger.closest('.panel-body');
+  const viewportGap = 8;
+  let isClosed = false;
 
-  // Focus the search input
-  requestAnimationFrame(() => searchInput.focus());
+  const positionMenu = () => {
+    if (isClosed || !trigger.isConnected || !menu.isConnected) {
+      cleanup();
+      return;
+    }
 
-  // Close on outside click
-  const closeHandler = (e: MouseEvent) => {
-    if (!menu.contains(e.target as Node)) {
-      menu.remove();
-      wrapper.remove();
-      document.removeEventListener('click', closeHandler);
+    const rect = trigger.getBoundingClientRect();
+    const menuWidth = menu.offsetWidth;
+    const menuHeight = menu.offsetHeight;
+
+    let left = rect.left;
+    let top = rect.bottom + 6;
+
+    if (left + menuWidth > window.innerWidth - viewportGap) {
+      left = Math.max(viewportGap, window.innerWidth - menuWidth - viewportGap);
+    }
+    if (top + menuHeight > window.innerHeight - viewportGap) {
+      top = Math.max(viewportGap, rect.top - menuHeight - 6);
+    }
+
+    menu.style.left = `${Math.max(viewportGap, left)}px`;
+    menu.style.top = `${top}px`;
+  };
+
+  const cleanup = () => {
+    if (isClosed) return;
+    isClosed = true;
+    menu.remove();
+    window.removeEventListener('resize', positionMenu);
+    inspectorScrollContainer?.removeEventListener('scroll', positionMenu);
+    document.removeEventListener('mousedown', handlePointerDown, true);
+    document.removeEventListener('keydown', handleKeyDown, true);
+    if (activeCommandPickerCleanup === cleanup) {
+      activeCommandPickerCleanup = null;
+      activeCommandPickerTrigger = null;
     }
   };
-  setTimeout(() => document.addEventListener('click', closeHandler), 0);
+
+  const handlePointerDown = (e: MouseEvent) => {
+    const target = e.target as Node | null;
+    if (target && (menu.contains(target) || trigger.contains(target))) return;
+    cleanup();
+  };
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    cleanup();
+    trigger.focus();
+  };
+
+  activeCommandPickerCleanup = cleanup;
+  activeCommandPickerTrigger = trigger;
+
+  positionMenu();
+  requestAnimationFrame(() => {
+    positionMenu();
+    searchInput.focus();
+  });
+
+  window.addEventListener('resize', positionMenu);
+  inspectorScrollContainer?.addEventListener('scroll', positionMenu, { passive: true });
+  setTimeout(() => {
+    document.addEventListener('mousedown', handlePointerDown, true);
+    document.addEventListener('keydown', handleKeyDown, true);
+  }, 0);
 }
 
 // ─── Placeholder Picker ──────────────────────────────────────────────────
