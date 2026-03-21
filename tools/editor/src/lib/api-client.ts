@@ -208,6 +208,35 @@ function normalizeConversationRow(row: Partial<CommunityConversation>): Communit
   };
 }
 
+export async function fetchConversationById(id: string): Promise<CommunityConversation | null> {
+  const params = new URLSearchParams({
+    select: [...COMMUNITY_REQUIRED_COLUMNS, ...COMMUNITY_OPTIONAL_COLUMNS].join(','),
+    id: `eq.${id}`,
+    limit: '1',
+  });
+
+  let res = await fetch(`${sbEndpoint(TABLE)}?${params}`, { headers: sbHeaders() });
+  if (!res.ok) {
+    const errorMessage = await readErrorMessage(res);
+    if (!isCommunitySchemaMismatchError(errorMessage) && !isMissingOptionalCommunityColumnError(errorMessage)) {
+      throw new Error(errorMessage);
+    }
+
+    const fallbackParams = new URLSearchParams({
+      select: COMMUNITY_REQUIRED_COLUMNS.join(','),
+      id: `eq.${id}`,
+      limit: '1',
+    });
+    res = await fetch(`${sbEndpoint(TABLE)}?${fallbackParams}`, { headers: sbHeaders() });
+    if (!res.ok) {
+      throw new Error(await readErrorMessage(res));
+    }
+  }
+
+  const rows = await res.json() as Array<Partial<CommunityConversation>>;
+  return rows[0] ? normalizeConversationRow(rows[0]) : null;
+}
+
 export async function fetchConversations(faction?: FactionId): Promise<CommunityConversation[]> {
   const params = new URLSearchParams({
     select: [...COMMUNITY_REQUIRED_COLUMNS, ...COMMUNITY_OPTIONAL_COLUMNS].join(','),

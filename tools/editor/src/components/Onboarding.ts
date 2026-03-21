@@ -1,5 +1,5 @@
 import { hasDraft } from '../lib/draft-storage';
-import { createBlankProject, importFromXml, loadSampleProject } from '../lib/project-io';
+import { createBlankProject, importFromXml, loadOnboardingSamplePack } from '../lib/project-io';
 import { createIcon, setButtonContent, type IconName } from './icons';
 
 type OnboardingCardOptions = {
@@ -42,7 +42,7 @@ const FIRST_RUN_CTAS: FirstRunCta[] = [
     icon: 'open',
     tone: 'sample',
     actionLabel: 'Open Sample Pack',
-    onClick: () => loadSampleProject(),
+    onClick: () => void handleSamplePackClick(),
   },
   {
     title: 'Import XML',
@@ -375,6 +375,25 @@ export function renderFirstRunExperience(container: HTMLElement): void {
   typewriterSequence();
 }
 
+async function handleSamplePackClick(button?: HTMLButtonElement): Promise<void> {
+  const originalMarkup = button?.innerHTML ?? null;
+  if (button) {
+    button.disabled = true;
+    setButtonContent(button, 'open', 'Loading Template…');
+  }
+
+  try {
+    await loadOnboardingSamplePack();
+  } catch (error) {
+    alert(error instanceof Error ? error.message : 'Failed to load the sample pack template conversation.');
+  } finally {
+    if (button) {
+      button.disabled = false;
+      if (originalMarkup) button.innerHTML = originalMarkup;
+    }
+  }
+}
+
 function createFirstRunCtaCard(options: FirstRunCta): HTMLElement {
   const card = document.createElement('button');
   card.type = 'button';
@@ -433,7 +452,7 @@ export function createOnboardingNudge(options: OnboardingCardOptions): HTMLEleme
   const sampleBtn = document.createElement('button');
   sampleBtn.className = 'btn btn-sm';
   setButtonContent(sampleBtn, 'open', 'Sample Pack');
-  sampleBtn.onclick = () => loadSampleProject();
+  sampleBtn.onclick = () => void handleSamplePackClick(sampleBtn);
 
   const importBtn = document.createElement('button');
   importBtn.className = 'btn btn-sm';
