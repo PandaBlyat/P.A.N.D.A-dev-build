@@ -5,6 +5,7 @@ import { store } from './lib/state';
 import { clearDraft, persistDraft, readDraft } from './lib/draft-storage';
 import { renderApp } from './components/App';
 import { flushAllDebounced } from './components/PropertiesPanel';
+import { trackSiteVisitor, fetchVisitorCount } from './lib/api-client';
 
 // Boot
 const app = document.getElementById('app')!;
@@ -13,6 +14,17 @@ if (restoredDraft) {
   store.loadProject(restoredDraft.project, restoredDraft.systemStrings);
 }
 renderApp(app);
+
+// Track site visitor (best-effort, fire-and-forget)
+void trackSiteVisitor();
+
+// Fetch visitor count and expose it for the toolbar via global bridge
+(globalThis as any).__pandaVisitorCount = 0;
+void fetchVisitorCount().then(count => {
+  (globalThis as any).__pandaVisitorCount = count;
+  // Re-render to update toolbar status with visitor count
+  safeRender();
+});
 
 // ─── Focus-safe rendering ────────────────────────────────────────────────
 // The app keeps the outer shell mounted, but focus still needs to survive section re-renders.

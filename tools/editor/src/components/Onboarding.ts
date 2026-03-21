@@ -304,7 +304,15 @@ export function renderFirstRunExperience(container: HTMLElement): void {
     NARRATOR_PHASES.forEach(phase => {
       if (phase.shellClass) shell.classList.remove(phase.shellClass);
     });
-    revealContent();
+    // Reveal everything immediately without timeouts (revealContent uses
+    // setTimeout callbacks gated by `cancelled`, so they'd all be skipped).
+    shell.classList.add('phase-finale');
+    setPhaseIndicator(NARRATOR_PHASES.length);
+    skipBtn.hidden = true;
+    for (const el of [brandPanel, title, subtitle, tagline, missionPanel, intro, subcopy, ctas, checklistWrap]) {
+      el.classList.remove('hidden');
+      el.classList.add('reveal');
+    }
   };
 
   async function typewriterSequence(): Promise<void> {

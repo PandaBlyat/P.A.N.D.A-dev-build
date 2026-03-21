@@ -275,6 +275,38 @@ app.patch('/api/support/upvote', async (_req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/visitor', async (_req, res) => {
+  try {
+    const params = new URLSearchParams({
+      select: 'visitors',
+      id: `eq.${SUPPORT_ROW_ID}`,
+      limit: '1',
+    });
+    const r = await fetch(`${sbEndpoint(SUPPORT_TABLE)}?${params}`, { headers: sbHeaders() });
+    if (!r.ok) {
+      res.status(r.status).json({ error: `Database error: ${r.status}` });
+      return;
+    }
+    const rows = await r.json() as Array<{ visitors?: number }>;
+    res.json({ visitors: rows[0]?.visitors ?? 0 });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/visitor', async (_req, res) => {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_site_visitor`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ support_id: SUPPORT_ROW_ID }),
+    });
+  } catch {
+    // Best-effort
+  }
+  res.json({ ok: true });
+});
+
 app.listen(PORT, () => {
   console.log(`P.A.N.D.A. API server → http://localhost:${PORT}`);
   console.log(`Supabase project: ${SUPABASE_URL}`);

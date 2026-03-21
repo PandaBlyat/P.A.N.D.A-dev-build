@@ -118,36 +118,20 @@ export function openSupportPanel(): void {
 
   const upvoteCard = document.createElement('div');
   upvoteCard.className = 'support-highlight support-highlight-upvote';
-  // STRUCTURAL OVERRIDES: Center everything and give it padding
-  upvoteCard.style.display = 'flex';
-  upvoteCard.style.flexDirection = 'column';
-  upvoteCard.style.alignItems = 'center';
-  upvoteCard.style.textAlign = 'center';
-  upvoteCard.style.gap = '1.5rem';
-  upvoteCard.style.padding = '2.5rem 1.5rem';
 
   const upvoteText = document.createElement('div');
   upvoteText.className = 'support-highlight-upvote-copy';
 
   const upvoteTitle = document.createElement('strong');
   upvoteTitle.textContent = SUPPORT_PANEL_COPY.upvoteTitle;
-  upvoteTitle.style.fontSize = '1.2rem';
 
   const upvoteBody = document.createElement('span');
   upvoteBody.textContent = SUPPORT_PANEL_COPY.upvoteBody;
-  upvoteBody.style.display = 'block';
-  upvoteBody.style.marginTop = '0.25rem';
 
   upvoteText.append(upvoteTitle, upvoteBody);
 
   const upvoteActions = document.createElement('div');
   upvoteActions.className = 'support-highlight-upvote-actions';
-  // STRUCTURAL OVERRIDES: Column layout for the button and big number
-  upvoteActions.style.display = 'flex';
-  upvoteActions.style.flexDirection = 'column';
-  upvoteActions.style.alignItems = 'center';
-  upvoteActions.style.gap = '1.25rem';
-  upvoteActions.style.width = '100%';
 
   const upvoteCountBox = document.createElement('div');
   upvoteCountBox.className = 'support-upvote-count-box';
@@ -155,30 +139,16 @@ export function openSupportPanel(): void {
   const upvoteCount = document.createElement('strong');
   upvoteCount.className = 'support-upvote-count';
   upvoteCount.textContent = '—';
-  // BIG NUMBER STYLING
-  upvoteCount.style.fontSize = '4.5rem';
-  upvoteCount.style.display = 'block';
-  upvoteCount.style.lineHeight = '1';
-  upvoteCount.style.color = 'var(--panda-accent-upvote, #10b981)';
-  upvoteCount.style.textShadow = '0 4px 24px rgba(16, 185, 129, 0.3)';
-  upvoteCount.style.marginBottom = '0.5rem';
-  upvoteCount.style.fontVariantNumeric = 'tabular-nums';
 
   const upvoteCountLabel = document.createElement('span');
   upvoteCountLabel.className = 'support-upvote-count-label';
   upvoteCountLabel.textContent = SUPPORT_PANEL_COPY.upvoteStatsLabel;
-  upvoteCountLabel.style.fontSize = '0.85rem';
-  upvoteCountLabel.style.textTransform = 'uppercase';
-  upvoteCountLabel.style.letterSpacing = '0.1em';
 
   upvoteCountBox.append(upvoteCount, upvoteCountLabel);
 
   const upvoteBtn = document.createElement('button');
   upvoteBtn.type = 'button';
   upvoteBtn.className = 'btn support-upvote-button';
-  // Make the button slightly larger to match the new layout
-  upvoteBtn.style.padding = '0.75rem 1.5rem';
-  upvoteBtn.style.fontSize = '1rem';
   upvoteBtn.onclick = () => {
     void handleSupportUpvote();
   };
@@ -186,8 +156,6 @@ export function openSupportPanel(): void {
   const upvoteStatus = document.createElement('div');
   upvoteStatus.className = 'support-upvote-status';
   upvoteStatus.setAttribute('aria-live', 'polite');
-  upvoteStatus.style.position = 'static'; // Remove absolute positioning if inherited
-  upvoteStatus.style.marginTop = '0';
 
   upvoteActions.append(upvoteCountBox, upvoteBtn, upvoteStatus);
   upvoteCard.append(upvoteText, upvoteActions);
