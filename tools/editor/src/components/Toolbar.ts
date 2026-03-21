@@ -62,6 +62,9 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   const title = document.createElement('div');
   title.className = 'toolbar-title';
 
+  const titleText = document.createElement('div');
+  titleText.className = 'toolbar-title-text';
+
   const titlePrimary = document.createElement('span');
   titlePrimary.className = 'toolbar-title-primary';
   titlePrimary.append(
@@ -80,8 +83,9 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   subtitle.className = 'toolbar-subtitle';
   subtitle.textContent = 'Editor';
 
-  title.append(brandIcon, titlePrimary);
-  brandCopy.append(title, subtitle);
+  titleText.append(titlePrimary, subtitle);
+  title.append(brandIcon, titleText);
+  brandCopy.append(title);
   branding.appendChild(brandCopy);
 
   const factionPicker = document.createElement('div');
