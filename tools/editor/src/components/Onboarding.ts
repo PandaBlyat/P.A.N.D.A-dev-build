@@ -1,6 +1,6 @@
 import { hasDraft } from '../lib/draft-storage';
 import { createBlankProject, importFromXml, loadSampleProject } from '../lib/project-io';
-import { createIcon, setButtonContent } from './icons';
+import { createIcon, setButtonContent, type IconName } from './icons';
 
 type OnboardingCardOptions = {
   title: string;
@@ -15,6 +15,43 @@ const CHECKLIST_ITEMS = [
   'Link turns together',
   'Validate your logic',
   'Export game-ready XML',
+];
+
+
+type FirstRunCta = {
+  title: string;
+  description: string;
+  icon: IconName;
+  tone: 'blank' | 'sample' | 'import';
+  actionLabel: string;
+  onClick: () => void;
+};
+
+const FIRST_RUN_CTAS: FirstRunCta[] = [
+  {
+    title: 'Start Blank Project',
+    description: 'Spin up a clean dialogue workspace and start sketching encounters, branches, and logic from zero.',
+    icon: 'add',
+    tone: 'blank',
+    actionLabel: 'Deploy Workspace',
+    onClick: () => createBlankProject(),
+  },
+  {
+    title: 'Sample Pack',
+    description: 'Load a ready-made conversation set to inspect structure, pacing, and branching patterns in the editor.',
+    icon: 'open',
+    tone: 'sample',
+    actionLabel: 'Open Sample Pack',
+    onClick: () => loadSampleProject(),
+  },
+  {
+    title: 'Import XML',
+    description: 'Bring existing conversation files aboard and convert them into an editable mission board immediately.',
+    icon: 'import',
+    tone: 'import',
+    actionLabel: 'Import Transmission',
+    onClick: () => importFromXml(),
+  },
 ];
 
 /*
@@ -98,17 +135,40 @@ export function renderFirstRunExperience(container: HTMLElement): void {
   narratorCursor.className = 'first-run-narrator-cursor';
   narratorCursor.textContent = '▌';
 
-  const title = document.createElement('h2');
-  title.className = 'first-run-title hidden';
-  title.innerHTML = `<span class="dont-word">DON'T</span> <span class="panic-word">PANIC</span>`;
+  const destination = document.createElement('div');
+  destination.className = 'first-run-destination';
+
+  const brandPanel = document.createElement('div');
+  brandPanel.className = 'first-run-brand-panel hidden';
+
+  const brandEmblem = document.createElement('div');
+  brandEmblem.className = 'first-run-brand-emblem';
+  brandEmblem.appendChild(createIcon('brand'));
+
+  const brandCopy = document.createElement('div');
+  brandCopy.className = 'first-run-brand-copy';
 
   const subtitle = document.createElement('p');
   subtitle.className = 'first-run-subtitle hidden';
   subtitle.textContent = 'The P.A.N.D.A. Conversation Editor';
 
+  const title = document.createElement('h2');
+  title.className = 'first-run-title hidden';
+  title.innerHTML = `<span class="dont-word">DON'T</span> <span class="panic-word">PANIC</span>`;
+
   const tagline = document.createElement('p');
   tagline.className = 'first-run-tagline hidden';
   tagline.textContent = 'The most improbably useful dialogue editor this side of the Horsehead Nebula. *NOW WITH DATABASE SUPPORT!';
+
+  brandCopy.append(subtitle, title, tagline);
+  brandPanel.append(brandEmblem, brandCopy);
+
+  const missionPanel = document.createElement('section');
+  missionPanel.className = 'first-run-mission-panel hidden';
+
+  const missionEyebrow = document.createElement('p');
+  missionEyebrow.className = 'first-run-panel-eyebrow';
+  missionEyebrow.textContent = 'Mission briefing';
 
   const intro = document.createElement('p');
   intro.className = 'first-run-intro hidden';
@@ -116,31 +176,27 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   const subcopy = document.createElement('p');
   subcopy.className = 'first-run-subcopy hidden';
-  subcopy.textContent = 'It won\'t make you a towel, but it will get you straight into a blank project once you are ready to start. Which is, on balance, preferable.';
+  subcopy.textContent = "It won't make you a towel, but it will get you straight into a blank project once you are ready to start. Which is, on balance, preferable.";
+
+  missionPanel.append(missionEyebrow, intro, subcopy);
 
   const ctas = document.createElement('div');
   ctas.className = 'first-run-cta-row hidden';
 
   const ctaLabel = document.createElement('p');
   ctaLabel.className = 'first-run-cta-label';
-  ctaLabel.textContent = 'Ready to build? Start with a blank project, or pick another way in.';
+  ctaLabel.textContent = 'Choose your insertion point';
 
-  const blankBtn = document.createElement('button');
-  blankBtn.className = 'btn btn-primary first-run-primary-cta';
-  setButtonContent(blankBtn, 'add', 'Start Blank Project');
-  blankBtn.onclick = () => createBlankProject();
+  const ctaDescription = document.createElement('p');
+  ctaDescription.className = 'first-run-cta-description';
+  ctaDescription.textContent = 'Ready to build? Start fresh, dissect an example, or uplink an existing XML payload.';
 
-  const sampleBtn = document.createElement('button');
-  sampleBtn.className = 'btn';
-  setButtonContent(sampleBtn, 'open', 'Sample Pack');
-  sampleBtn.onclick = () => loadSampleProject();
+  ctas.append(ctaLabel, ctaDescription);
+  FIRST_RUN_CTAS.forEach(card => {
+    ctas.appendChild(createFirstRunCtaCard(card));
+  });
 
-  const importBtn = document.createElement('button');
-  importBtn.className = 'btn';
-  setButtonContent(importBtn, 'import', 'Import XML');
-  importBtn.onclick = () => importFromXml();
-
-  ctas.append(ctaLabel, blankBtn, sampleBtn, importBtn);
+  destination.append(brandPanel, missionPanel, ctas);
 
   const skipBtn = document.createElement('button');
   skipBtn.type = 'button';
@@ -150,10 +206,19 @@ export function renderFirstRunExperience(container: HTMLElement): void {
   const checklistWrap = document.createElement('div');
   checklistWrap.className = 'first-run-checklist hidden';
 
+  const checklistBand = document.createElement('div');
+  checklistBand.className = 'first-run-checklist-band';
+
   const checklistTitle = document.createElement('div');
   checklistTitle.className = 'first-run-checklist-title';
-  checklistTitle.textContent = 'Core flight checklist';
-  checklistWrap.appendChild(checklistTitle);
+  checklistTitle.textContent = 'Zone uplink checklist';
+
+  const checklistLead = document.createElement('p');
+  checklistLead.className = 'first-run-checklist-lead';
+  checklistLead.textContent = 'Everything you need to go from first contact to export-ready branching dialogue, laid out as a final systems pass.';
+
+  checklistBand.append(checklistTitle, checklistLead);
+  checklistWrap.appendChild(checklistBand);
 
   const checklist = document.createElement('ul');
   checklist.className = 'first-run-checklist-list';
@@ -170,7 +235,7 @@ export function renderFirstRunExperience(container: HTMLElement): void {
   });
   checklistWrap.appendChild(checklist);
 
-  hero.append(phaseIndicator, chapterLabel, narratorBox, title, subtitle, tagline, intro, subcopy, ctas, checklistWrap, skipBtn);
+  hero.append(phaseIndicator, chapterLabel, narratorBox, destination, checklistWrap, skipBtn);
   shell.appendChild(hero);
   container.replaceChildren(shell);
 
@@ -188,6 +253,8 @@ export function renderFirstRunExperience(container: HTMLElement): void {
     chapterLabel.classList.add('narrator-done');
     shell.classList.add('phase-finale');
 
+    brandPanel.classList.remove('hidden');
+    brandPanel.classList.add('reveal');
     title.classList.remove('hidden');
     title.classList.add('reveal');
     skipBtn.hidden = true;
@@ -200,27 +267,33 @@ export function renderFirstRunExperience(container: HTMLElement): void {
       subtitle.classList.add('reveal');
       tagline.classList.remove('hidden');
       tagline.classList.add('reveal');
-    }, 300);
+    }, 250);
 
     setTimeout(() => {
       if (cancelled) return;
+      missionPanel.classList.remove('hidden');
+      missionPanel.classList.add('reveal');
       intro.classList.remove('hidden');
       intro.classList.add('reveal');
-    }, 650);
+    }, 520);
 
     setTimeout(() => {
       if (cancelled) return;
       subcopy.classList.remove('hidden');
       subcopy.classList.add('reveal');
-    }, 900);
+    }, 760);
 
     setTimeout(() => {
       if (cancelled) return;
       ctas.classList.remove('hidden');
       ctas.classList.add('reveal');
+    }, 980);
+
+    setTimeout(() => {
+      if (cancelled) return;
       checklistWrap.classList.remove('hidden');
       checklistWrap.classList.add('reveal');
-    }, 1150);
+    }, 1180);
   }
 
   skipBtn.onclick = () => {
@@ -292,6 +365,37 @@ export function renderFirstRunExperience(container: HTMLElement): void {
   }
 
   typewriterSequence();
+}
+
+function createFirstRunCtaCard(options: FirstRunCta): HTMLElement {
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = `first-run-cta-card first-run-cta-card-${options.tone}`;
+  card.onclick = options.onClick;
+
+  const iconWrap = document.createElement('span');
+  iconWrap.className = 'first-run-cta-card-icon';
+  iconWrap.appendChild(createIcon(options.icon));
+
+  const content = document.createElement('span');
+  content.className = 'first-run-cta-card-content';
+
+  const title = document.createElement('span');
+  title.className = 'first-run-cta-card-title';
+  title.textContent = options.title;
+
+  const description = document.createElement('span');
+  description.className = 'first-run-cta-card-description';
+  description.textContent = options.description;
+
+  const action = document.createElement('span');
+  action.className = 'first-run-cta-card-action';
+  action.textContent = options.actionLabel;
+
+  content.append(title, description, action);
+  card.append(iconWrap, content);
+
+  return card;
 }
 
 function delay(ms: number): Promise<void> {
