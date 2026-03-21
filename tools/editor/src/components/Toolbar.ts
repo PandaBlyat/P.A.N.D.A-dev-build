@@ -5,6 +5,7 @@ import { store, type FlowDensity } from '../lib/state';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { FACTION_IDS } from '../lib/constants';
 import { FACTION_DISPLAY_NAMES } from '../lib/types';
+import { FACTION_COLORS } from '../lib/faction-colors';
 import { exportProjectJson, exportXml, importFromXml, importFromJson } from '../lib/project-io';
 import { openSharePanel } from './SharePanel';
 import { openHelpModal } from './HelpModal';
@@ -60,15 +61,22 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
 
   const factionLabel = document.createElement('span');
   factionLabel.className = 'toolbar-select-label';
-  factionLabel.textContent = 'Faction';
+  factionLabel.textContent = 'Player Faction';
 
   const factionSelect = document.createElement('select');
   factionSelect.className = 'toolbar-faction-select';
-  factionSelect.title = 'Choose the faction the player belongs to for these conversations to trigger. Also determines the XML file prefix.';
+  factionSelect.title = 'Pick the player\'s faction — conversations will only trigger when the player belongs to this faction. Also determines the XML file prefix.';
+
+  const placeholderOpt = document.createElement('option');
+  placeholderOpt.disabled = true;
+  placeholderOpt.textContent = '— Player\'s faction for conversations —';
+  factionSelect.appendChild(placeholderOpt);
+
   for (const fid of FACTION_IDS) {
     const opt = document.createElement('option');
     opt.value = fid;
-    opt.textContent = FACTION_DISPLAY_NAMES[fid];
+    opt.textContent = `● ${FACTION_DISPLAY_NAMES[fid]}`;
+    opt.style.color = FACTION_COLORS[fid];
     opt.selected = fid === state.project.faction;
     factionSelect.appendChild(opt);
   }
@@ -400,10 +408,26 @@ function createOverflowMenu(label: string, actions: OverflowAction[]): HTMLEleme
 }
 
 function formatStatus(convCount: number, stringCount: number, compact: boolean, dirty: boolean): string {
+  let visitorLabel = '';
+  try {
+    const { siteVisitorCount } = await_import_main();
+    if (siteVisitorCount > 0) {
+      visitorLabel = compact
+        ? `${new Intl.NumberFormat().format(siteVisitorCount)} visitors • `
+        : `${new Intl.NumberFormat().format(siteVisitorCount)} visitor${siteVisitorCount !== 1 ? 's' : ''} • `;
+    }
+  } catch { /* ignore */ }
+
   if (compact) {
-    return `${convCount} conv • ${stringCount} strings${dirty ? ' • unsaved' : ''}`;
+    return `${visitorLabel}${convCount} conv • ${stringCount} strings${dirty ? ' • unsaved' : ''}`;
   }
-  return `${convCount} conversation${convCount !== 1 ? 's' : ''} • ${stringCount} strings${dirty ? ' • unsaved' : ''}`;
+  return `${visitorLabel}${convCount} conversation${convCount !== 1 ? 's' : ''} • ${stringCount} strings${dirty ? ' • unsaved' : ''}`;
+}
+
+/** Lazily access the visitor count from main.ts to avoid circular imports */
+function await_import_main(): { siteVisitorCount: number } {
+  // Access the exported variable from main module via a global bridge
+  return { siteVisitorCount: (globalThis as any).__pandaVisitorCount ?? 0 };
 }
 
 function nextDensity(current: FlowDensity): FlowDensity {

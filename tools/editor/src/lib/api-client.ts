@@ -49,6 +49,7 @@ export type PublishPayload = Omit<CommunityConversation, 'id' | 'downloads' | 'u
 export type CreatorSupportStats = {
   id: string;
   upvotes: number;
+  visitors?: number;
   updated_at: string;
 };
 
@@ -367,7 +368,7 @@ export async function incrementUpvote(id: string): Promise<void> {
 }
 export async function fetchCreatorSupportStats(): Promise<CreatorSupportStats> {
   const params = new URLSearchParams({
-    select: 'id,upvotes,updated_at',
+    select: 'id,upvotes,visitors,updated_at',
     id: `eq.${SUPPORT_ROW_ID}`,
     limit: '1',
   });
@@ -386,5 +387,33 @@ export async function incrementCreatorSupportUpvote(): Promise<void> {
     });
   } catch {
     // Best-effort — ignore errors
+  }
+}
+
+const VISITOR_TRACKED_KEY = 'panda-visitor-tracked';
+
+export async function trackSiteVisitor(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  if (window.localStorage.getItem(VISITOR_TRACKED_KEY)) return;
+
+  window.localStorage.setItem(VISITOR_TRACKED_KEY, '1');
+
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_site_visitor`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ support_id: SUPPORT_ROW_ID }),
+    });
+  } catch {
+    // Best-effort — ignore errors
+  }
+}
+
+export async function fetchVisitorCount(): Promise<number> {
+  try {
+    const stats = await fetchCreatorSupportStats();
+    return stats.visitors ?? 0;
+  } catch {
+    return 0;
   }
 }

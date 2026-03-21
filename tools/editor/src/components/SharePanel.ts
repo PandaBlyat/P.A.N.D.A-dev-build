@@ -26,6 +26,7 @@ import { downloadFile } from '../lib/project-io';
 type SortMode = 'newest' | 'upvoted';
 type LengthFilter = 'all' | 'short' | 'long';
 type LibrarySource = 'bundled' | 'remote';
+type ViewMode = 'gallery' | 'list';
 
 type NormalizedConversation = CommunityConversation & {
   tags: string[];
@@ -48,6 +49,7 @@ let selectedPreviewId: string | null = null;
 let searchQuery = '';
 let sortMode: SortMode = 'newest';
 let lengthFilter: LengthFilter = 'all';
+let viewMode: ViewMode = 'gallery';
 let isLoading = false;
 let loadError = '';
 let loadNotice = '';
@@ -391,12 +393,38 @@ function buildToolbarRow(): HTMLElement {
   downloadAllBtn.onclick = handleDownloadAll;
   row.appendChild(downloadAllBtn);
 
+  // View mode toggle (gallery / list)
+  const viewToggle = document.createElement('div');
+  viewToggle.className = 'share-view-toggle';
+
+  const galleryBtn = document.createElement('button');
+  galleryBtn.type = 'button';
+  galleryBtn.textContent = '▦';
+  galleryBtn.title = 'Gallery view';
+  galleryBtn.className = viewMode === 'gallery' ? 'is-active' : '';
+  galleryBtn.onclick = () => { viewMode = 'gallery'; renderContent(); rebuildToolbar(); };
+
+  const listBtn = document.createElement('button');
+  listBtn.type = 'button';
+  listBtn.textContent = '☰';
+  listBtn.title = 'List view';
+  listBtn.className = viewMode === 'list' ? 'is-active' : '';
+  listBtn.onclick = () => { viewMode = 'list'; renderContent(); rebuildToolbar(); };
+
+  viewToggle.append(galleryBtn, listBtn);
+  row.appendChild(viewToggle);
+
   return row;
 }
 
 function updateDownloadAllBtn(): void {
   const btn = getDownloadAllBtn();
   if (btn) btn.hidden = activeFaction === 'all';
+}
+
+function rebuildToolbar(): void {
+  const toolbar = overlayEl?.querySelector('.share-toolbar-row');
+  if (toolbar) toolbar.replaceWith(buildToolbarRow());
 }
 
 function renderContent(): void {
@@ -429,10 +457,17 @@ function renderContent(): void {
   cardsColumn.className = 'share-cards-column';
   if (loadNotice) cardsColumn.appendChild(buildNoticeState(loadNotice));
 
-  const grid = document.createElement('div');
-  grid.className = 'share-grid';
-  for (const conv of results) grid.appendChild(buildCard(conv));
-  cardsColumn.appendChild(grid);
+  if (viewMode === 'list') {
+    const list = document.createElement('div');
+    list.className = 'share-list';
+    for (const conv of results) list.appendChild(buildListRow(conv));
+    cardsColumn.appendChild(list);
+  } else {
+    const grid = document.createElement('div');
+    grid.className = 'share-grid';
+    for (const conv of results) grid.appendChild(buildCard(conv));
+    cardsColumn.appendChild(grid);
+  }
 
   layout.append(cardsColumn, buildPreviewDrawer(getSelectedPreview()));
   wrap.appendChild(layout);
@@ -573,6 +608,31 @@ function buildCard(conv: NormalizedConversation): HTMLElement {
 
   card.appendChild(actions);
   return card;
+}
+
+function buildListRow(conv: NormalizedConversation): HTMLElement {
+  const row = document.createElement('div');
+  row.className = `share-list-row${selectedPreviewId === conv.id ? ' is-selected' : ''}`;
+  row.onclick = () => {
+    selectedPreviewId = conv.id;
+    renderContent();
+  };
+
+  const dot = document.createElement('span');
+  dot.className = 'share-faction-dot';
+  dot.style.backgroundColor = FACTION_COLORS[conv.faction] ?? 'var(--text-dim)';
+
+  const title = document.createElement('span');
+  title.className = 'share-list-row-title';
+  title.textContent = conv.label || 'Untitled';
+  title.title = conv.label || 'Untitled';
+
+  const meta = document.createElement('span');
+  meta.className = 'share-list-row-meta';
+  meta.textContent = `${conv.author || 'Anonymous'} · ${conv.branch_count} branches · ↑${conv.upvotes} · ↓${conv.downloads}`;
+
+  row.append(dot, title, meta);
+  return row;
 }
 
 function buildPreviewDrawer(conv: NormalizedConversation | null): HTMLElement {

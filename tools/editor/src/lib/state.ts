@@ -133,7 +133,13 @@ class StateManager {
     this.state.bottomWorkspaceTab = openTabs[0] ?? null;
   }
 
-  private calculateAutoLayoutUpdates(conversation: Conversation): TurnPositionUpdate[] {
+  private static readonly DENSITY_SPACING: Record<FlowDensity, { colWidth: number; rowHeight: number }> = {
+    compact: { colWidth: 240, rowHeight: 140 },
+    standard: { colWidth: 300, rowHeight: 180 },
+    detailed: { colWidth: 360, rowHeight: 240 },
+  };
+
+  private calculateAutoLayoutUpdates(conversation: Conversation, density: FlowDensity = 'standard'): TurnPositionUpdate[] {
     const visited = new Set<number>();
     const queue: { turnNumber: number; col: number; row: number }[] = [{ turnNumber: 1, col: 0, row: 0 }];
     const positions = new Map<number, { col: number; row: number }>();
@@ -179,13 +185,14 @@ class StateManager {
       nextUnvisitedCol += 1;
     }
 
+    const spacing = StateManager.DENSITY_SPACING[density];
     return conversation.turns.map(turn => {
       const position = positions.get(turn.turnNumber) ?? { col: 0, row: 0 };
       return {
         turnNumber: turn.turnNumber,
         position: {
-          x: position.col * 280 + 20,
-          y: position.row * 200 + 20,
+          x: position.col * spacing.colWidth + 20,
+          y: position.row * spacing.rowHeight + 20,
         },
       };
     });
@@ -285,6 +292,13 @@ class StateManager {
   setFlowDensity(density: FlowDensity): void {
     if (this.state.flowDensity === density) return;
     this.state.flowDensity = density;
+    // Auto-relayout the selected conversation so nodes don't overlap at the new size
+    if (this.state.selectedConversationId != null) {
+      const conv = this.getConversationById(this.state.selectedConversationId);
+      if (conv) {
+        this.batchUpdateTurnPositions(this.state.selectedConversationId, this.calculateAutoLayoutUpdates(conv, density));
+      }
+    }
     this.notify();
   }
 
@@ -352,7 +366,7 @@ class StateManager {
   autoLayoutConversation(conversationId: number): void {
     const conversation = this.getConversationById(conversationId);
     if (!conversation) return;
-    this.batchUpdateTurnPositions(conversationId, this.calculateAutoLayoutUpdates(conversation));
+    this.batchUpdateTurnPositions(conversationId, this.calculateAutoLayoutUpdates(conversation, this.state.flowDensity));
   }
 
   addTurn(conversationId: number): void {

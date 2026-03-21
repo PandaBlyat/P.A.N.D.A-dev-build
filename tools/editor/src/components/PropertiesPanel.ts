@@ -22,6 +22,56 @@ import { createOnboardingNudge } from './Onboarding';
 
 const ADDABLE_PRECONDITION_SCHEMAS = PRECONDITION_SCHEMAS.filter((schema) => !schema.pickerHidden);
 
+// Track collapsed state of collapsible sections per key
+const collapsedSections = new Set<string>();
+
+function createCollapsibleSection(key: string, title: string, addCallback?: () => void): { wrapper: HTMLElement; body: HTMLElement } {
+  const wrapper = document.createElement('div');
+  wrapper.className = `props-collapsible${collapsedSections.has(key) ? ' is-collapsed' : ''}`;
+
+  const header = document.createElement('div');
+  header.className = 'props-collapsible-header';
+
+  const titleEl = document.createElement('span');
+  titleEl.className = 'section-title';
+  titleEl.textContent = title;
+
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display:flex; align-items:center; gap:6px;';
+
+  if (addCallback) {
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn-sm';
+    addBtn.textContent = '+ Add';
+    addBtn.onclick = (e) => {
+      e.stopPropagation();
+      addCallback();
+    };
+    actions.appendChild(addBtn);
+  }
+
+  const chevron = document.createElement('span');
+  chevron.className = 'props-collapsible-chevron';
+  chevron.textContent = '▼';
+  actions.appendChild(chevron);
+
+  header.append(titleEl, actions);
+  header.onclick = () => {
+    if (collapsedSections.has(key)) {
+      collapsedSections.delete(key);
+    } else {
+      collapsedSections.add(key);
+    }
+    wrapper.classList.toggle('is-collapsed');
+  };
+
+  const body = document.createElement('div');
+  body.className = 'props-collapsible-body';
+
+  wrapper.append(header, body);
+  return { wrapper, body };
+}
+
 // ─── Debounce helper ─────────────────────────────────────────────────────
 const debounceTimers = new Map<string, number>();
 const debounceFns = new Map<string, () => void>();
@@ -136,51 +186,50 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   }, 'A short name for this conversation (only used in the editor)', getConversationFieldKey(conv.id, 'label'));
   container.appendChild(labelField);
 
-  container.appendChild(document.createElement('hr'));
-
-  // Preconditions — always visible and prominent
-  const precondSection = document.createElement('div');
-  precondSection.className = 'precond-section';
-  precondSection.appendChild(sectionHeader('Preconditions', () => {
-    showCommandPicker(precondSection, ADDABLE_PRECONDITION_SCHEMAS, (schema) => {
-      const newPrecond: SimplePrecondition = {
-        type: 'simple',
-        command: schema.name,
-        params: schema.params.map(p => p.placeholder || ''),
-      };
-      store.updateConversation(conv.id, {
-        preconditions: [...conv.preconditions, newPrecond],
+  // Preconditions — collapsible section
+  const { wrapper: precondWrapper, body: precondBody } = createCollapsibleSection(
+    `conv-${conv.id}-preconditions`,
+    `Preconditions (${conv.preconditions.length})`,
+    () => {
+      showCommandPicker(precondWrapper, ADDABLE_PRECONDITION_SCHEMAS, (schema) => {
+        const newPrecond: SimplePrecondition = {
+          type: 'simple',
+          command: schema.name,
+          params: schema.params.map(p => p.placeholder || ''),
+        };
+        store.updateConversation(conv.id, {
+          preconditions: [...conv.preconditions, newPrecond],
+        });
       });
-    });
-  }));
+    },
+  );
 
   if (conv.preconditions.length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
     hint.textContent = 'No preconditions set — this conversation will trigger for any NPC. Click "+ Add" to add conditions.';
-    precondSection.appendChild(hint);
+    precondBody.appendChild(hint);
   } else {
-    renderPreconditionList(precondSection, conv);
+    renderPreconditionList(precondBody, conv);
   }
-  container.appendChild(precondSection);
+  container.appendChild(precondWrapper);
 
-  container.appendChild(document.createElement('hr'));
-
-  // Timeout
-  const timeoutTitle = document.createElement('div');
-  timeoutTitle.innerHTML = `<span class="section-title">Timeout</span>`;
-  timeoutTitle.style.marginBottom = '8px';
-  container.appendChild(timeoutTitle);
+  // Timeout — collapsible section
+  const { wrapper: timeoutWrapper, body: timeoutBody } = createCollapsibleSection(
+    `conv-${conv.id}-timeout`,
+    'Timeout',
+  );
 
   const timeoutField = createField('Timeout (seconds)', 'number', String(conv.timeout || ''), (val) => {
     store.updateConversation(conv.id, { timeout: val ? parseInt(val, 10) : undefined });
   }, 'Auto-close conversation after this many seconds (leave empty for no timeout)', getConversationFieldKey(conv.id, 'timeout'));
-  container.appendChild(timeoutField);
+  timeoutBody.appendChild(timeoutField);
 
   const timeoutMsgField = createField('Timeout Message', 'textarea', conv.timeoutMessage || '', (val) => {
     store.updateConversation(conv.id, { timeoutMessage: val || undefined });
   }, 'Message shown when the conversation times out', getConversationFieldKey(conv.id, 'timeout-message'));
-  container.appendChild(timeoutMsgField);
+  timeoutBody.appendChild(timeoutMsgField);
+  container.appendChild(timeoutWrapper);
 }
 
 // ─── Turn Properties ──────────────────────────────────────────────────────
@@ -338,29 +387,32 @@ function renderChoiceProperties(
   }, 'Alternative reply when relationship score is -300 or lower (optional)', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-rel-low'));
   container.appendChild(relLowField);
 
-  // Outcomes
-  const outcomeSection = document.createElement('div');
-  outcomeSection.appendChild(sectionHeader('Outcomes', () => {
-    showCommandPicker(outcomeSection, OUTCOME_SCHEMAS, (schema) => {
-      const newOutcome: Outcome = {
-        command: schema.name,
-        params: schema.params.map(p => p.placeholder || ''),
-      };
-      store.updateChoice(conv.id, turn.turnNumber, choice.index, {
-        outcomes: [...choice.outcomes, newOutcome],
+  // Outcomes — collapsible section
+  const { wrapper: outcomeWrapper, body: outcomeBody } = createCollapsibleSection(
+    `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-outcomes`,
+    `Outcomes (${choice.outcomes.length})`,
+    () => {
+      showCommandPicker(outcomeWrapper, OUTCOME_SCHEMAS, (schema) => {
+        const newOutcome: Outcome = {
+          command: schema.name,
+          params: schema.params.map(p => p.placeholder || ''),
+        };
+        store.updateChoice(conv.id, turn.turnNumber, choice.index, {
+          outcomes: [...choice.outcomes, newOutcome],
+        });
       });
-    });
-  }));
+    },
+  );
 
   if (choice.outcomes.length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
     hint.textContent = 'No outcomes — this choice is dialogue-only. Click "+ Add" to add rewards, spawns, or other effects.';
-    outcomeSection.appendChild(hint);
+    outcomeBody.appendChild(hint);
   } else {
-    renderOutcomeList(outcomeSection, conv, turn, choice);
+    renderOutcomeList(outcomeBody, conv, turn, choice);
   }
-  container.appendChild(outcomeSection);
+  container.appendChild(outcomeWrapper);
 
   // Continuation
   container.appendChild(document.createElement('hr'));
@@ -482,8 +534,50 @@ function renderPreconditionList(container: HTMLElement, conv: Conversation): voi
   const list = document.createElement('div');
   list.className = 'precond-list';
 
+  let dragSrcIdx: number | null = null;
+
   conv.preconditions.forEach((entry, idx) => {
-    list.appendChild(renderPreconditionEditor(conv, entry, [idx], 0, true));
+    const editorEl = renderPreconditionEditor(conv, entry, [idx], 0, true);
+
+    // Add drag handle to top-level preconditions
+    editorEl.draggable = true;
+    editorEl.dataset.precondIdx = String(idx);
+
+    const handle = document.createElement('span');
+    handle.className = 'drag-handle';
+    handle.textContent = '⠿';
+    handle.title = 'Drag to reorder';
+    const firstItem = editorEl.querySelector('.precond-item');
+    if (firstItem) firstItem.prepend(handle);
+
+    editorEl.ondragstart = (e) => {
+      dragSrcIdx = idx;
+      editorEl.classList.add('dragging');
+      e.dataTransfer?.setData('text/plain', String(idx));
+    };
+    editorEl.ondragend = () => {
+      dragSrcIdx = null;
+      editorEl.classList.remove('dragging');
+      list.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    };
+    editorEl.ondragover = (e) => {
+      e.preventDefault();
+      if (dragSrcIdx !== null && dragSrcIdx !== idx) {
+        editorEl.classList.add('drag-over');
+      }
+    };
+    editorEl.ondragleave = () => editorEl.classList.remove('drag-over');
+    editorEl.ondrop = (e) => {
+      e.preventDefault();
+      editorEl.classList.remove('drag-over');
+      if (dragSrcIdx === null || dragSrcIdx === idx) return;
+      const reordered = [...conv.preconditions];
+      const [moved] = reordered.splice(dragSrcIdx, 1);
+      reordered.splice(idx, 0, moved);
+      store.updateConversation(conv.id, { preconditions: reordered });
+    };
+
+    list.appendChild(editorEl);
   });
 
   container.appendChild(list);
@@ -654,11 +748,48 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
   const list = document.createElement('ul');
   list.className = 'outcome-list';
 
+  let dragSrcIdx: number | null = null;
+
   choice.outcomes.forEach((outcome, idx) => {
     const item = document.createElement('li');
     item.className = 'outcome-item clickable';
     item.tabIndex = -1;
+    item.draggable = true;
+    item.dataset.outcomeIdx = String(idx);
     item.setAttribute('data-field-key', getOutcomeItemFieldKey(conv.id, turn.turnNumber, choice.index, idx));
+
+    // Drag handle
+    const handle = document.createElement('span');
+    handle.className = 'drag-handle';
+    handle.textContent = '⠿';
+    handle.title = 'Drag to reorder';
+    item.appendChild(handle);
+
+    // Drag events
+    item.ondragstart = (e) => {
+      dragSrcIdx = idx;
+      item.classList.add('dragging');
+      e.dataTransfer?.setData('text/plain', String(idx));
+    };
+    item.ondragend = () => {
+      dragSrcIdx = null;
+      item.classList.remove('dragging');
+      list.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    };
+    item.ondragover = (e) => {
+      e.preventDefault();
+      if (dragSrcIdx !== null && dragSrcIdx !== idx) item.classList.add('drag-over');
+    };
+    item.ondragleave = () => item.classList.remove('drag-over');
+    item.ondrop = (e) => {
+      e.preventDefault();
+      item.classList.remove('drag-over');
+      if (dragSrcIdx === null || dragSrcIdx === idx) return;
+      const reordered = [...choice.outcomes];
+      const [moved] = reordered.splice(dragSrcIdx, 1);
+      reordered.splice(idx, 0, moved);
+      store.updateChoice(conv.id, turn.turnNumber, choice.index, { outcomes: reordered });
+    };
 
     const display = document.createElement('span');
     display.style.flex = '1';

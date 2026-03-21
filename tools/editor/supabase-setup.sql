@@ -268,3 +268,22 @@ AS $$
     upvotes = creator_support_metrics.upvotes + 1,
     updated_at = now();
 $$;
+
+-- Site visitor counter
+ALTER TABLE creator_support_metrics ADD COLUMN IF NOT EXISTS visitors INT;
+ALTER TABLE creator_support_metrics ALTER COLUMN visitors SET DEFAULT 0;
+UPDATE creator_support_metrics SET visitors = coalesce(visitors, 0);
+ALTER TABLE creator_support_metrics ALTER COLUMN visitors SET NOT NULL;
+
+CREATE OR REPLACE FUNCTION increment_site_visitor(support_id TEXT DEFAULT 'global')
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  INSERT INTO creator_support_metrics (id, visitors)
+  VALUES (coalesce(support_id, 'global'), 1)
+  ON CONFLICT (id)
+  DO UPDATE SET
+    visitors = creator_support_metrics.visitors + 1,
+    updated_at = now();
+$$;
