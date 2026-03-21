@@ -66,6 +66,7 @@ type AppShell = {
   bottomRegion: HTMLDivElement;
   workspaceRegion: HTMLDivElement;
   tickerRegion: HTMLDivElement;
+  modalHost: HTMLDivElement;
 };
 
 let appShell: AppShell | null = null;
@@ -193,7 +194,12 @@ function getAppShell(container: HTMLElement): AppShell {
   tickerRegion.className = 'app-ticker-region';
   bottomRegion.append(workspaceRegion, tickerRegion);
 
-  container.replaceChildren(toolbarRegion, mainLayout, bottomRegion);
+  const modalHost = document.createElement('div');
+  modalHost.className = 'app-modal-host';
+  modalHost.id = 'app-modal-host';
+  modalHost.setAttribute('aria-hidden', 'true');
+
+  container.replaceChildren(toolbarRegion, mainLayout, bottomRegion, modalHost);
 
   // The ticker has entirely self-contained lifecycle logic (its own rotation
   // timer and DOM state). Mount it once here so it is never touched by the
@@ -223,6 +229,7 @@ function getAppShell(container: HTMLElement): AppShell {
     bottomRegion,
     workspaceRegion,
     tickerRegion,
+    modalHost,
   };
 
   return appShell;

@@ -23,6 +23,14 @@ const SUPPORT_PANEL_COPY = {
 };
 const SUPPORT_UPVOTE_KEY = 'panda-creator-support-upvote';
 
+const SUPPORT_PANEL_MOUNT_ID = 'app-modal-host';
+
+function getSupportOverlayMount(): HTMLElement {
+  return document.getElementById(SUPPORT_PANEL_MOUNT_ID)
+    ?? document.getElementById('app')
+    ?? document.body;
+}
+
 let overlayEl: HTMLElement | null = null;
 let focusTrap: FocusTrapController | null = null;
 let restoreFocusEl: HTMLElement | null = null;
@@ -163,7 +171,7 @@ export function openSupportPanel(): void {
   body.append(introCard, highlights, upvoteCard);
   panel.append(header, body);
   overlay.appendChild(panel);
-  document.body.appendChild(overlay);
+  getSupportOverlayMount().appendChild(overlay);
 
   overlayEl = overlay;
   supportUpvoteButtonEl = upvoteBtn;
