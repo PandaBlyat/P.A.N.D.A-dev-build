@@ -1898,15 +1898,9 @@ label {
 
 /* ─── Dropdown Editor ──────────────────────────────────── */
 
-.dropdown-editor {
-  position: relative;
-}
-
 .dropdown-menu {
-  position: absolute;
-  z-index: 100;
-  top: 100%;
-  left: 0;
+  position: fixed;
+  z-index: 2400;
   width: 280px;
   max-height: 320px;
   overflow-y: auto;
