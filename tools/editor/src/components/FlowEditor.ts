@@ -444,6 +444,18 @@ function getBranchColor(turn: Turn, turnIndex: number, factionColor?: string): s
   return BRANCH_PALETTE[turnIndex % BRANCH_PALETTE.length];
 }
 
+function getChoiceBranchColor(
+  conv: Conversation,
+  choice: Choice,
+  parentBranchColor: string,
+  factionColor: string,
+): string {
+  const choiceTargets = getChoiceTargets(choice, conv);
+  const preferredTarget = choiceTargets.find(target => target.kind === 'continue') ?? choiceTargets[0];
+  if (!preferredTarget) return parentBranchColor;
+  return getTurnBranchColor(conv, preferredTarget.turnNumber, factionColor) ?? parentBranchColor;
+}
+
 function renderTurnNode(options: {
   conv: Conversation;
   turn: Turn;
@@ -671,11 +683,14 @@ function renderTurnNode(options: {
   const choicesList = document.createElement('ul');
   choicesList.className = 'turn-choices-list';
   for (const choice of turn.choices) {
+    const choiceBranchColor = getChoiceBranchColor(conv, choice, branchColor, factionColor);
     const item = document.createElement('li');
     item.setAttribute('role', 'group');
     item.setAttribute('aria-label', `Choice ${choice.index}`);
     const choiceActive = selected && state.selectedChoiceIndex === choice.index;
     item.className = 'turn-choice-item' + (choiceActive ? ' selected' : '');
+    item.style.setProperty('--choice-branch-color', choiceBranchColor);
+    item.style.setProperty('--choice-branch-glow', `${choiceBranchColor}40`);
     item.onclick = (e) => {
       e.stopPropagation();
       store.selectTurn(turn.turnNumber);
@@ -690,7 +705,7 @@ function renderTurnNode(options: {
     port.title = choice.continueTo != null
       ? `Drag to change destination for Choice ${choice.index}`
       : `Drag to connect Choice ${choice.index} to another turn`;
-    port.style.background = `linear-gradient(180deg, ${branchColor}cc, ${branchColor}80)`;
+    port.style.background = `linear-gradient(180deg, ${choiceBranchColor}cc, ${choiceBranchColor}80)`;
     port.onmousedown = (event) => onChoicePortDragStart(choice.index, event);
 
     const num = document.createElement('span');
@@ -710,13 +725,7 @@ function renderTurnNode(options: {
       const badge = document.createElement('span');
       badge.className = 'choice-cont-badge';
       badge.textContent = turnLabels.getCompactLabel(choice.continueTo);
-      // Color the badge to match the destination branch
-      const targetTurn = conv.turns.find(t => t.turnNumber === choice.continueTo);
-      if (targetTurn) {
-        const targetIndex = conv.turns.indexOf(targetTurn);
-        const targetColor = getBranchColor(targetTurn, targetIndex, factionColor);
-        badge.style.setProperty('--badge-branch-color', targetColor);
-      }
+      badge.style.setProperty('--badge-branch-color', choiceBranchColor);
       item.appendChild(badge);
     }
 
