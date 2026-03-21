@@ -552,45 +552,55 @@ button:disabled:hover,
 @keyframes toolbar-support-heartbeat {
   0%,
   100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), 0 0 8px var(--accent-glow);
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 1px color-mix(in srgb, #ff7aa8 26%, transparent), 0 0 12px rgba(255, 100, 150, 0.12), inset 0 0 14px rgba(255, 146, 184, 0.06);
   }
-  14% {
-    transform: scale(1.02);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 36%, transparent), 0 0 12px var(--accent-glow);
+  18% {
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: 0 0 0 1px color-mix(in srgb, #ff7aa8 34%, transparent), 0 0 16px rgba(255, 100, 150, 0.18), inset 0 0 16px rgba(255, 146, 184, 0.1);
   }
-  28% {
-    transform: scale(1);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), 0 0 8px var(--accent-glow);
+  38% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 1px color-mix(in srgb, #ff7aa8 26%, transparent), 0 0 12px rgba(255, 100, 150, 0.12), inset 0 0 14px rgba(255, 146, 184, 0.06);
   }
-  42% {
-    transform: scale(1.04);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent), 0 0 14px var(--accent-glow-strong);
+  52% {
+    transform: translateY(-1px) scale(1.035);
+    box-shadow: 0 0 0 1px color-mix(in srgb, #ff7aa8 42%, transparent), 0 0 18px rgba(255, 100, 150, 0.26), inset 0 0 18px rgba(255, 146, 184, 0.12);
   }
-  56% {
-    transform: scale(1);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), 0 0 8px var(--accent-glow);
+  72% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 1px color-mix(in srgb, #ff7aa8 26%, transparent), 0 0 12px rgba(255, 100, 150, 0.12), inset 0 0 14px rgba(255, 146, 184, 0.06);
   }
 }
 
 .toolbar-support-trigger {
-  min-width: 34px;
-  min-height: 34px;
-  padding: 6px 8px;
-  color: var(--accent);
+  min-width: 92px;
+  min-height: 30px;
+  padding: 4px 11px;
+  color: #ff9aba;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   opacity: 1;
-  border-color: color-mix(in srgb, var(--accent) 58%, white 6%);
-  background: radial-gradient(circle at 50% 20%, color-mix(in srgb, var(--accent) 22%, transparent) 0%, rgba(36, 52, 68, 0.94) 42%, rgba(17, 24, 31, 0.98) 100%);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), 0 0 8px var(--accent-glow), inset 0 0 12px color-mix(in srgb, var(--accent) 10%, transparent);
-  animation: toolbar-support-heartbeat 2.4s ease-in-out infinite;
-  transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  border-color: color-mix(in srgb, #ff7aa8 56%, white 8%);
+  background:
+    radial-gradient(circle at 18% 30%, rgba(255, 160, 196, 0.2) 0%, transparent 42%),
+    linear-gradient(180deg, rgba(56, 28, 44, 0.94) 0%, rgba(31, 18, 28, 0.98) 100%);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #ff7aa8 18%, transparent),
+    0 0 12px rgba(255, 100, 150, 0.12),
+    inset 0 0 14px rgba(255, 146, 184, 0.07);
+  animation: toolbar-support-heartbeat 2.6s ease-in-out infinite;
+  transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, transform 0.2s ease;
 }
 
 .toolbar-support-trigger:hover {
-  color: var(--accent-hover);
-  border-color: color-mix(in srgb, var(--accent-hover) 72%, white 10%);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-hover) 34%, transparent), 0 0 16px var(--accent-glow-strong), inset 0 0 16px color-mix(in srgb, var(--accent) 14%, transparent);
-  filter: saturate(1.12) brightness(1.06);
+  color: #ffc1d4;
+  border-color: color-mix(in srgb, #ff9aba 72%, white 12%);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #ff9aba 30%, transparent),
+    0 0 18px rgba(255, 120, 170, 0.24),
+    inset 0 0 18px rgba(255, 170, 204, 0.1);
+  filter: saturate(1.08) brightness(1.04);
 }
 
 .toolbar-support-trigger .ui-icon {
@@ -600,6 +610,7 @@ button:disabled:hover,
 
 .toolbar-support-trigger .ui-icon svg {
   color: currentColor;
+  filter: drop-shadow(0 0 6px rgba(255, 130, 176, 0.45));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3798,7 +3809,7 @@ hr {
 
 .support-upvote-count {
   display: block;
-  font-size: clamp(6rem, 14vw, 9rem);
+  font-size: clamp(7rem, 15vw, 10.5rem);
   font-weight: 800;
   line-height: 0.85;
   letter-spacing: -0.04em;
@@ -3872,7 +3883,7 @@ hr {
   }
 
   .support-upvote-count {
-    font-size: clamp(4.5rem, 16vw, 7rem);
+    font-size: clamp(5.25rem, 18vw, 8rem);
   }
 
   .support-upvote-button,
