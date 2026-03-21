@@ -681,6 +681,33 @@ button:disabled:hover,
   border-color: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
+.conversation-panel-action {
+  padding: 6px 10px;
+  border-radius: 999px;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.conversation-panel-action .ui-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.conversation-panel-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--bg-hover) 70%, rgba(255, 255, 255, 0.04));
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--border-light));
+  color: var(--text-bright);
+  transform: translateY(-1px);
+}
+
+.conversation-panel-action:disabled {
+  opacity: 0.5;
+}
+
+.conversation-panel-action.panel-toggle-button {
+  font-size: 15px;
+  min-width: 32px;
+}
+
 /* ─── Inputs ───────────────────────────────────────────── */
 
 input, select, textarea {
