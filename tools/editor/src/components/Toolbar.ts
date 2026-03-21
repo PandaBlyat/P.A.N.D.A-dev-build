@@ -52,23 +52,15 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   title.className = 'toolbar-title';
   title.append(createIcon('brand'), document.createTextNode('P.A.N.D.A. Editor'));
 
-  const supportTrigger = btn('support', 'Support the Creator', openSupportPanel, 'Open the creator support panel', {
-    classes: ['toolbar-support-trigger'],
-  });
-
-  branding.append(title, supportTrigger);
+  branding.appendChild(title);
   projectTier.appendChild(branding);
 
   const factionPicker = document.createElement('div');
   factionPicker.className = 'toolbar-faction-picker';
 
-  const factionLabel = document.createElement('div');
+  const factionLabel = document.createElement('span');
   factionLabel.className = 'toolbar-select-label';
-  factionLabel.textContent = 'Player faction';
-
-  const factionHelp = document.createElement('div');
-  factionHelp.className = 'toolbar-select-help';
-  factionHelp.textContent = 'Choose the faction the player belongs to for these conversations to trigger.';
+  factionLabel.textContent = 'Faction';
 
   const factionSelect = document.createElement('select');
   factionSelect.className = 'toolbar-faction-select';
@@ -82,7 +74,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   }
   factionSelect.onchange = () => store.setFaction(factionSelect.value as typeof FACTION_IDS[number]);
 
-  factionPicker.append(factionLabel, factionHelp, factionSelect);
+  factionPicker.append(factionLabel, factionSelect);
 
   const fileGroup = document.createElement('div');
   fileGroup.className = 'toolbar-group toolbar-group-project';
@@ -118,6 +110,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   } else {
     fileGroup.appendChild(openBtn);
     fileGroup.appendChild(importBtn);
+    fileGroup.appendChild(sep());
     fileGroup.appendChild(saveBtn);
     fileGroup.appendChild(exportXmlBtn);
     fileGroup.appendChild(sep());
@@ -181,10 +174,6 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
 
   toolbar.appendChild(editTier);
 
-  const spacer = document.createElement('div');
-  spacer.className = 'toolbar-spacer';
-  toolbar.appendChild(spacer);
-
   const utilityTier = document.createElement('div');
   utilityTier.className = 'toolbar-tier toolbar-tier-utility';
 
@@ -219,6 +208,10 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
     status.textContent = formatStatus(convCount, stringCount, isMobile, false);
   }
   utilityTier.appendChild(status);
+
+  const supportTrigger = iconBtn('support', openSupportPanel, 'Support the Creator', 'Support the Creator');
+  supportTrigger.classList.add('toolbar-support-trigger');
+  utilityTier.appendChild(supportTrigger);
 
   const resetBtn = document.createElement('button');
   resetBtn.type = 'button';

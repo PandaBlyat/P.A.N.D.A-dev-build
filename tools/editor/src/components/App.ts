@@ -14,7 +14,7 @@ import { renderBottomWorkspace } from './BottomWorkspace';
 import { mountMotivationTicker } from './MotivationTicker';
 import { shouldShowFirstRunExperience, renderFirstRunExperience } from './Onboarding';
 import { createBlankProject } from '../lib/project-io';
-import { setButtonContent } from './icons';
+import { setButtonContent, createIcon } from './icons';
 import { getFactionThemeVariables } from '../lib/faction-colors';
 
 const PANEL_MIN_WIDTH = 220;
@@ -368,15 +368,18 @@ function applyFactionTheme(container: HTMLElement, faction: ReturnType<typeof st
 
 function createAddConversationButton(): HTMLButtonElement {
   const addBtn = document.createElement('button');
-  addBtn.className = 'btn-sm';
-  setButtonContent(addBtn, 'add', 'New');
+  addBtn.type = 'button';
+  addBtn.className = 'btn-sm btn-icon panel-action-add';
+  addBtn.appendChild(createIcon('add'));
+  addBtn.title = 'New conversation';
+  addBtn.setAttribute('aria-label', 'New conversation');
   addBtn.onclick = () => createBlankProject();
   return addBtn;
 }
 
 function createSelectedConversationActionButton(
   icon: Parameters<typeof setButtonContent>[1],
-  label: string,
+  _label: string,
   title: string,
   onClick: () => void,
   disabled: boolean,
@@ -384,8 +387,8 @@ function createSelectedConversationActionButton(
 ): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = `btn-sm${dangerous ? ' btn-danger' : ''}`;
-  setButtonContent(button, icon, label);
+  button.className = `btn-sm btn-icon${dangerous ? ' btn-danger' : ''}`;
+  button.appendChild(createIcon(icon));
   button.title = title;
   button.setAttribute('aria-label', title);
   button.disabled = disabled;

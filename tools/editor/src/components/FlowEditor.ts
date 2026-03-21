@@ -972,8 +972,6 @@ function buildEdgeDescriptors(
   const pairCounts = new Map<string, number>();
 
   for (const turn of conv.turns) {
-    const sourceTurnIndex = conv.turns.indexOf(turn);
-    const sourceBranchColor = getBranchColor(turn, sourceTurnIndex, factionColor);
     for (const choice of turn.choices) {
       const targets = getChoiceTargets(choice, conv);
       for (const target of targets) {
@@ -981,12 +979,16 @@ function buildEdgeDescriptors(
         const offsetIndex = pairCounts.get(pairKey) ?? 0;
         pairCounts.set(pairKey, offsetIndex + 1);
 
+        const targetTurn = conv.turns.find(t => t.turnNumber === target.turnNumber);
+        const targetTurnIndex = targetTurn ? conv.turns.indexOf(targetTurn) : 0;
+        const targetBranchColor = targetTurn ? getBranchColor(targetTurn, targetTurnIndex, factionColor) : factionColor;
+
         edges.push({
           sourceTurnNumber: turn.turnNumber,
           sourceChoiceIndex: choice.index,
           targetTurnNumber: target.turnNumber,
           label: target.label,
-          color: sourceBranchColor,
+          color: targetBranchColor,
           pathClassName: `edge-${target.kind}`,
           textClassName: `edge-label-${target.kind}`,
           offsetIndex: spreadOffset(offsetIndex),
