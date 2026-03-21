@@ -12,6 +12,7 @@ const SUPPORT_PANEL_COPY = {
   intro: 'P.A.N.D.A. is my passion project that started as a very basic expansion to vanilla dynamic news dialogues with UDE. Over the years as I learnt X-Ray scripting, my scope grew far, far bigger.',
   mod: 'I\'ve been working on P.A.N.D.A. for a long while and a lot of work (and boring-ass bug testing) has gone into making all of this possible. The mod will be released once it has enough conversations and meets polished standards.',
   support: 'I have a lot of new features planned for the future and there is a lot of room for mechanical growth gameplay-wise. If you want to tip me or show appreciation, the button above will take you straight to my Ko-fi.',
+  upvoteEyebrow: 'Free way to support',
   upvoteTitle: 'Give a Morale Boost!',
   upvoteBody: 'It costs nothing, but it makes the dev happy.',
   upvoteStatsLabel: 'Total morale upvotes',
@@ -19,7 +20,7 @@ const SUPPORT_PANEL_COPY = {
   upvoteDone: 'Upvoted — thank you!',
   upvoteLoading: 'Loading support count…',
   upvoteError: 'Could not reach the support counter right now.',
-  upvoteThanks: 'Thanks for the morale boost. *Self-esteem UP* .',
+  upvoteThanks: 'Thanks for the morale boost. Self-esteem UP.',
 };
 const SUPPORT_UPVOTE_KEY = 'panda-creator-support-upvote';
 
@@ -130,13 +131,17 @@ export function openSupportPanel(): void {
   const upvoteText = document.createElement('div');
   upvoteText.className = 'support-highlight-upvote-copy';
 
+  const upvoteEyebrow = document.createElement('span');
+  upvoteEyebrow.className = 'support-upvote-eyebrow';
+  upvoteEyebrow.textContent = SUPPORT_PANEL_COPY.upvoteEyebrow;
+
   const upvoteTitle = document.createElement('strong');
   upvoteTitle.textContent = SUPPORT_PANEL_COPY.upvoteTitle;
 
   const upvoteBody = document.createElement('span');
   upvoteBody.textContent = SUPPORT_PANEL_COPY.upvoteBody;
 
-  upvoteText.append(upvoteTitle, upvoteBody);
+  upvoteText.append(upvoteEyebrow, upvoteTitle, upvoteBody);
 
   const upvoteActions = document.createElement('div');
   upvoteActions.className = 'support-highlight-upvote-actions';

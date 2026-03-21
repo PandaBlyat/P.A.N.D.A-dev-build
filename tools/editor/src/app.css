@@ -3834,111 +3834,139 @@ hr {
 
 .support-highlight-upvote {
   grid-column: 1 / -1;
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.875rem;
-  padding: 1.125rem 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  align-items: stretch;
+  gap: 1rem 1.25rem;
+  padding: 1.25rem;
   border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
   border-left: 3px solid color-mix(in srgb, var(--accent) 84%, white 10%);
   background:
-    radial-gradient(circle at top, color-mix(in srgb, var(--accent) 18%, transparent) 0%, transparent 58%),
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, rgba(28, 36, 48, 0.94)) 0%, rgba(18, 24, 32, 0.96) 100%);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 16%, transparent) 0%, transparent 52%),
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, rgba(28, 36, 48, 0.94)) 0%, rgba(18, 24, 32, 0.96) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent),
-    0 0 20px color-mix(in srgb, var(--accent) 10%, transparent),
-    0 0 42px color-mix(in srgb, var(--accent) 12%, transparent);
+    0 0 18px color-mix(in srgb, var(--accent) 9%, transparent),
+    0 0 34px color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .support-highlight-upvote-copy {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  flex: 1 1 260px;
+  justify-content: center;
+  gap: 0.45rem;
   min-width: 0;
   text-align: left;
 }
 
-.support-highlight-upvote-copy strong {
-  font-size: 1.1rem;
+.support-upvote-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: color-mix(in srgb, var(--accent) 68%, white 14%);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
-.support-highlight-upvote-copy span {
+.support-highlight-upvote-copy strong {
+  font-size: clamp(1.1rem, 1rem + 0.2vw, 1.25rem);
+  line-height: 1.2;
+}
+
+.support-highlight-upvote-copy span:last-child {
   display: block;
   margin-top: 0;
+  max-width: 44ch;
+  color: color-mix(in srgb, var(--text) 90%, white 8%);
 }
 
 .support-highlight-upvote-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(152px, 176px);
+  align-items: stretch;
   gap: 0.875rem;
-  margin-left: auto;
+  min-width: 0;
 }
 
 .support-highlight-upvote-controls {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.875rem;
+  justify-content: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.9rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  background: linear-gradient(180deg, rgba(20, 27, 36, 0.88) 0%, rgba(13, 18, 25, 0.94) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .support-upvote-count-box {
-  min-width: 168px;
-  padding: 12px 16px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0.95rem 0.85rem;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
   background:
-    radial-gradient(circle at 50% 24%, color-mix(in srgb, var(--accent) 22%, transparent) 0%, transparent 62%),
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, rgba(14, 18, 26, 0.92)) 0%, rgba(8, 11, 16, 0.82) 100%);
+    radial-gradient(circle at 50% 24%, color-mix(in srgb, var(--accent) 24%, transparent) 0%, transparent 62%),
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 11%, rgba(14, 18, 26, 0.94)) 0%, rgba(8, 11, 16, 0.9) 100%);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 18%, transparent),
-    inset 0 -10px 24px color-mix(in srgb, rgba(0, 0, 0, 0.45) 75%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent),
-    0 0 28px color-mix(in srgb, var(--accent) 14%, transparent);
+    inset 0 1px 0 color-mix(in srgb, white 16%, transparent),
+    inset 0 -10px 24px color-mix(in srgb, rgba(0, 0, 0, 0.4) 72%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
+    0 0 22px color-mix(in srgb, var(--accent) 12%, transparent);
   text-align: center;
 }
 
 strong.support-upvote-count {
   display: block;
-  font-size: clamp(3.25rem, 6vw, 4.5rem);
+  font-size: clamp(2.8rem, 5vw, 3.75rem);
   font-weight: 800;
-  line-height: 0.85;
+  line-height: 0.9;
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
   color: color-mix(in srgb, var(--accent) 68%, #f6fbff 32%);
   text-shadow:
     0 0 10px color-mix(in srgb, #f6fbff 78%, var(--accent) 22%),
-    0 0 28px color-mix(in srgb, var(--accent) 52%, transparent),
-    0 0 56px color-mix(in srgb, var(--accent) 24%, transparent);
-  margin-bottom: 0.4rem;
+    0 0 24px color-mix(in srgb, var(--accent) 46%, transparent),
+    0 0 48px color-mix(in srgb, var(--accent) 20%, transparent);
+  margin-bottom: 0.35rem;
   overflow-wrap: anywhere;
 }
 
 .support-upvote-count-label {
   display: block;
-  margin-top: 4px;
-  font-size: 0.78rem;
-  letter-spacing: 0.1em;
+  margin-top: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--accent) 66%, var(--text-dim));
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--accent) 62%, var(--text-dim));
 }
 
 .support-upvote-button {
-  min-width: 184px;
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.78rem 1rem;
+  font-size: 0.98rem;
   justify-content: center;
 }
 
 .support-upvote-status {
   min-height: 18px;
-  max-width: 280px;
+  min-width: 0;
   font-size: 12px;
+  line-height: 1.5;
   text-align: left;
   color: var(--text-dim);
 }
@@ -3957,19 +3985,22 @@ strong.support-upvote-count {
   }
 
   .support-highlight-upvote {
-    flex-direction: column;
-    gap: 0.875rem;
+    grid-template-columns: 1fr;
+    gap: 0.95rem;
     padding: 1.25rem 1rem;
-    align-items: stretch;
   }
 
   .support-highlight-upvote-copy {
     text-align: center;
+    align-items: center;
+  }
+
+  .support-highlight-upvote-copy span:last-child {
+    max-width: none;
   }
 
   .support-highlight-upvote-actions {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
     gap: 1rem;
   }
 
