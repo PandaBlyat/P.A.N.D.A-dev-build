@@ -533,7 +533,8 @@ function renderTurnNode(options: {
   node.className = 'turn-node'
     + (selected ? ' selected' : '')
     + (hasWarning ? ' has-warning' : '')
-    + (isPathActive ? ' path-active' : '');
+    + (isPathActive ? ' path-active' : '')
+    + (turn.turnNumber === 1 ? ' is-starter-turn' : '');
   node.dataset.turnNumber = String(turn.turnNumber);
   node.tabIndex = 0;
   node.setAttribute('role', 'button');
@@ -544,6 +545,8 @@ function renderTurnNode(options: {
   node.style.width = `${nodeWidth}px`;
   node.style.setProperty('--branch-color', branchColor);
   node.style.setProperty('--branch-glow', branchColor + '40');
+  node.style.setProperty('--starter-branch-color', factionColor);
+  node.style.setProperty('--starter-branch-glow', `${factionColor}40`);
   node.onclick = (e) => {
     e.stopPropagation();
     store.selectTurn(turn.turnNumber);

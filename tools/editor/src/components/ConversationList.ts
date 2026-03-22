@@ -96,7 +96,7 @@ export function renderConversationList(container: HTMLElement): void {
     const meta = document.createElement('div');
     meta.className = 'conv-meta';
     const totalChoices = conv.turns.reduce((sum, t) => sum + t.choices.length, 0);
-    meta.textContent = `${conv.turns.length} turn${conv.turns.length !== 1 ? 's' : ''} · ${totalChoices} choice${totalChoices !== 1 ? 's' : ''}`;
+    meta.textContent = `${conv.turns.length} turn${conv.turns.length !== 1 ? 's' : ''} · ${totalChoices} choice${totalChoices !== 1 ? 's' : ''} · ${FACTION_DISPLAY_NAMES[conversationFaction]}`;
     if (conv.preconditions.length > 0) {
       meta.textContent += ` · ${conv.preconditions.length} cond`;
     }
