@@ -44,7 +44,15 @@ export type CommunityConversation = {
   data: { version: string; faction: FactionId; conversations: Conversation[] };
 };
 
-export type PublishPayload = Omit<CommunityConversation, 'id' | 'downloads' | 'upvotes' | 'created_at' | 'updated_at'>;
+export type PublishPayload = Omit<CommunityConversation, 'id' | 'downloads' | 'upvotes' | 'created_at' | 'updated_at'> & {
+  publisher_id?: string;
+};
+
+export type CommunityLibraryStats = {
+  published_conversations: number;
+  published_publishers: number;
+  updated_at: string;
+};
 
 export type CreatorSupportStats = {
   id: string;
@@ -61,6 +69,7 @@ const SUPPORT_TABLE = 'creator_support_metrics';
 const SUPPORT_ROW_ID = 'global';
 const LOCAL_PUBLISH_COOLDOWN_MS = 60_000;
 const LOCAL_PUBLISH_KEY = 'panda-community-last-publish-at';
+const LOCAL_PUBLISHER_ID_KEY = 'panda-community-publisher-id';
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
 const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'upvotes', 'updated_at'] as const;
 
@@ -169,6 +178,20 @@ function hasSuspiciousLink(value: string): boolean {
 
 function getConversationBranchCount(conversation: Conversation): number {
   return conversation.turns.length;
+}
+
+function getPublisherId(): string {
+  if (typeof window === 'undefined') return 'server-publisher';
+
+  const existing = window.localStorage.getItem(LOCAL_PUBLISHER_ID_KEY)?.trim();
+  if (existing) return existing;
+
+  const generated = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `publisher-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+  window.localStorage.setItem(LOCAL_PUBLISHER_ID_KEY, generated);
+  return generated;
 }
 
 export function deriveConversationComplexity(branchCount: number): ConversationComplexity {
@@ -329,6 +352,7 @@ export async function publishConversation(payload: PublishPayload): Promise<void
     tags,
     branch_count: branchCount,
     complexity: payload.complexity ?? deriveConversationComplexity(branchCount),
+    publisher_id: payload.publisher_id?.trim() || getPublisherId(),
   };
 
   const headers = { ...sbHeaders(), Prefer: 'return=minimal' };
@@ -345,6 +369,7 @@ export async function publishConversation(payload: PublishPayload): Promise<void
       || isMissingSchemaColumnError(errorMessage, 'complexity')
       || isMissingSchemaColumnError(errorMessage, 'summary')
       || isMissingSchemaColumnError(errorMessage, 'tags')
+      || isMissingSchemaColumnError(errorMessage, 'publisher_id')
       || isCommunitySchemaMismatchError(errorMessage)
     ) {
       const {
@@ -352,6 +377,7 @@ export async function publishConversation(payload: PublishPayload): Promise<void
         tags: _tags,
         branch_count: _branchCount,
         complexity: _complexity,
+        publisher_id: _publisherId,
         ...fallbackBody
       } = publishBody;
       res = await fetch(sbEndpoint(TABLE), {
@@ -404,6 +430,30 @@ export async function incrementUpvote(id: string): Promise<void> {
     }
   }
 }
+export async function fetchCommunityLibraryStats(): Promise<CommunityLibraryStats> {
+  try {
+    return await fetchFromApi<CommunityLibraryStats>('/api/community/stats');
+  } catch (apiError) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_community_library_stats`, {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error(`Failed to load community stats (${res.status})`);
+      const rows = await res.json() as CommunityLibraryStats[] | CommunityLibraryStats;
+      const stats = Array.isArray(rows) ? rows[0] : rows;
+      return stats ?? {
+        published_conversations: 0,
+        published_publishers: 0,
+        updated_at: new Date(0).toISOString(),
+      };
+    } catch {
+      throw apiError instanceof Error ? apiError : new Error('Failed to load community stats.');
+    }
+  }
+}
+
 export async function fetchCreatorSupportStats(): Promise<CreatorSupportStats> {
   try {
     return await fetchFromApi<CreatorSupportStats>('/api/support/upvotes');

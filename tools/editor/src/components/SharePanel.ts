@@ -8,10 +8,12 @@ import {
   createSummaryFromConversation,
   deriveConversationComplexity,
   fetchConversations,
+  fetchCommunityLibraryStats,
   incrementDownload,
   incrementUpvote,
   publishConversation,
   type CommunityConversation,
+  type CommunityLibraryStats,
   type ConversationComplexity,
 } from '../lib/api-client';
 import { COMMUNITY_CONVERSATIONS } from '../lib/community-data';
@@ -60,6 +62,7 @@ let viewMode: ViewMode = 'gallery';
 let isLoading = false;
 let loadError = '';
 let loadNotice = '';
+let communityStats: CommunityLibraryStats | null = null;
 
 export function openSharePanel(): void {
   if (overlayEl) return;
@@ -73,6 +76,7 @@ export function openSharePanel(): void {
   isLoading = false;
   loadError = '';
   loadNotice = '';
+  communityStats = null;
 
   overlayEl = buildOverlay();
   getSharePanelMount().appendChild(overlayEl);
@@ -97,8 +101,13 @@ async function loadConversations(): Promise<void> {
   const bundled = normalizeCollection(COMMUNITY_CONVERSATIONS, 'bundled');
 
   try {
-    const remote = normalizeCollection(await fetchConversations(activeFaction === 'all' ? undefined : activeFaction), 'remote');
+    const [remoteRows, stats] = await Promise.all([
+      fetchConversations(activeFaction === 'all' ? undefined : activeFaction),
+      fetchCommunityLibraryStats().catch(() => null),
+    ]);
+    const remote = normalizeCollection(remoteRows, 'remote');
     allResults = mergeConversationLists(bundled, remote);
+    communityStats = stats;
     loadNotice = bundled.length > 0
       ? 'Showing bundled picks alongside community uploads.'
       : 'Showing live community uploads.';
@@ -453,6 +462,7 @@ function renderContent(): void {
   ensurePreviewSelection();
   const results = getFilteredResults();
   if (results.length === 0) {
+    if (communityStats) wrap.appendChild(buildCommunitySummary(0));
     wrap.appendChild(buildEmptyState());
     return;
   }
@@ -462,6 +472,7 @@ function renderContent(): void {
 
   const cardsColumn = document.createElement('div');
   cardsColumn.className = 'share-cards-column';
+  cardsColumn.appendChild(buildCommunitySummary(results.length));
   if (loadNotice) cardsColumn.appendChild(buildNoticeState(loadNotice));
 
   if (viewMode === 'list') {
@@ -500,6 +511,24 @@ function buildNoticeState(msg: string): HTMLElement {
   const el = document.createElement('div');
   el.className = 'share-state-banner';
   el.textContent = msg;
+  return el;
+}
+
+function buildCommunitySummary(visibleCount: number): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'share-state-banner';
+
+  const factionLabel = activeFaction === 'all'
+    ? 'all factions'
+    : FACTION_DISPLAY_NAMES[activeFaction as FactionId];
+  const visibleLabel = `${visibleCount} visible conversation${visibleCount !== 1 ? 's' : ''} in ${factionLabel}`;
+
+  if (!communityStats) {
+    el.textContent = visibleLabel;
+    return el;
+  }
+
+  el.textContent = `${visibleLabel} · ${communityStats.published_conversations} total published conversation${communityStats.published_conversations !== 1 ? 's' : ''} · ${communityStats.published_publishers} total publisher${communityStats.published_publishers !== 1 ? 's' : ''}`;
   return el;
 }
 

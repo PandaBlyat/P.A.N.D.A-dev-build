@@ -14,6 +14,12 @@ const SUPPORT_ROW_ID = 'global';
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
 const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'upvotes', 'updated_at'] as const;
 
+type CommunityLibraryStats = {
+  published_conversations: number;
+  published_publishers: number;
+  updated_at: string;
+};
+
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error('ERROR: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in environment.');
   console.error('Copy server/.env.example to server/.env and fill in your values.');
@@ -90,6 +96,31 @@ function normalizeConversationRow(row: Record<string, unknown>) {
   };
 }
 
+app.get('/api/community/stats', async (_req, res) => {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_community_library_stats`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({}),
+    });
+
+    if (!r.ok) {
+      res.status(r.status).json({ error: await readErrorMessage(r) });
+      return;
+    }
+
+    const payload = await r.json() as CommunityLibraryStats[] | CommunityLibraryStats | null;
+    const stats = Array.isArray(payload) ? payload[0] : payload;
+    res.json(stats ?? {
+      published_conversations: 0,
+      published_publishers: 0,
+      updated_at: new Date(0).toISOString(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 app.get('/api/conversations', async (req, res) => {
   try {
     const params = new URLSearchParams({
@@ -154,7 +185,7 @@ app.get('/api/support/upvotes', async (_req, res) => {
 
 app.post('/api/conversations', async (req, res) => {
   try {
-    const { faction, label, description, summary, author, data, tags, branch_count, complexity } = req.body ?? {};
+    const { faction, label, description, summary, author, data, tags, branch_count, complexity, publisher_id } = req.body ?? {};
     const normalizedLabel = typeof label === 'string' ? label.trim() : '';
     if (!faction || !data || !normalizedLabel) {
       res.status(400).json({ error: 'Missing required fields: faction, label, data' });
@@ -185,6 +216,7 @@ app.post('/api/conversations', async (req, res) => {
       tags: Array.isArray(tags) ? tags : [],
       branch_count: typeof branch_count === 'number' ? branch_count : null,
       complexity: typeof complexity === 'string' ? complexity : null,
+      publisher_id: typeof publisher_id === 'string' && publisher_id.trim() ? publisher_id.trim() : null,
       data,
     };
 
@@ -200,6 +232,7 @@ app.post('/api/conversations', async (req, res) => {
         || isMissingSchemaColumnError(errorMessage, 'complexity')
         || isMissingSchemaColumnError(errorMessage, 'summary')
         || isMissingSchemaColumnError(errorMessage, 'tags')
+        || isMissingSchemaColumnError(errorMessage, 'publisher_id')
         || isCommunitySchemaMismatchError(errorMessage)
       ) {
         const {
@@ -207,6 +240,7 @@ app.post('/api/conversations', async (req, res) => {
           tags: _tags,
           branch_count: _branchCount,
           complexity: _complexity,
+          publisher_id: _publisherId,
           ...fallbackBody
         } = publishBody;
         r = await fetch(sbEndpoint(TABLE), {
