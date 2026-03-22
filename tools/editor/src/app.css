@@ -839,8 +839,8 @@ button:disabled:hover,
 }
 
 .btn-icon.btn-danger:hover {
-  background: rgba(196, 64, 64, 0.12);
-  border-color: rgba(196, 64, 64, 0.25);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 25%, transparent);
 }
 
 .panel-action-add {
@@ -1781,8 +1781,8 @@ label {
 
 .flow-minimap-viewport {
   border: 1px solid var(--info);
-  background: rgba(64, 128, 196, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(64, 128, 196, 0.25);
+  background: color-mix(in srgb, var(--info) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--info) 25%, transparent);
 }
 
 .turn-node {
@@ -2627,6 +2627,18 @@ label {
   padding: 0 4px;
   border-bottom: 1px solid var(--border);
   background: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 80%, var(--bg-dark) 20%) 0%, var(--bg-dark) 100%);
+  position: relative;
+}
+
+.tab-bar::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--accent-dim) 40%, var(--accent-dim) 60%, transparent 100%);
+  opacity: 0.3;
 }
 
 .tab {
@@ -3595,6 +3607,26 @@ hr {
   gap: 4px;
   margin-left: auto;
   flex: 0 0 auto;
+}
+
+.turn-actions .btn-sm {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 6px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--border-light) 60%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 80%, transparent);
+  color: var(--text-dim);
+  transition: color 0.1s, border-color 0.1s, background 0.1s;
+}
+
+.turn-actions .btn-sm:hover {
+  color: var(--text-bright);
+  border-color: var(--border-light);
+  background: var(--bg-hover);
 }
 
 .turn-body {
