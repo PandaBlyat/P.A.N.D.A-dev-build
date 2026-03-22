@@ -3,6 +3,7 @@ import { generateXml } from './xml-export';
 import { importXml } from './xml-import';
 import { createSampleProjectBundle } from './sample-project';
 import { fetchConversationById } from './api-client';
+import type { Project } from './types';
 
 export function createBlankProject(): void {
   store.addConversation();
@@ -123,11 +124,25 @@ export async function loadOnboardingSamplePack(): Promise<void> {
     throw new Error('The selected template conversation does not include editable conversation data.');
   }
 
-  const project = {
+  const project = normalizeSequentialConversationIds({
     version: remoteConversation.data.version || '1.0.0',
     faction: remoteConversation.data.faction || remoteConversation.faction,
     conversations: remoteConversation.data.conversations,
-  };
+  });
 
   store.loadProject(project, new Map());
+}
+
+function normalizeSequentialConversationIds(project: Project): Project {
+  const normalizedConversations = [...project.conversations]
+    .sort((a, b) => a.id - b.id)
+    .map((conversation, index) => ({
+      ...structuredClone(conversation),
+      id: index + 1,
+    }));
+
+  return {
+    ...project,
+    conversations: normalizedConversations,
+  };
 }
