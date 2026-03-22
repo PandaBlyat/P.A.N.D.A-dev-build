@@ -35,8 +35,23 @@ function isEditableElement(el: Element | null): el is HTMLInputElement | HTMLTex
          el instanceof HTMLSelectElement;
 }
 
+function isTextEntryInput(input: HTMLInputElement): boolean {
+  if (input.dataset.allowImmediateRender === 'true') return false;
+  const type = (input.type || 'text').toLowerCase();
+  return type === 'text'
+    || type === 'search'
+    || type === 'url'
+    || type === 'tel'
+    || type === 'email'
+    || type === 'password'
+    || type === 'number';
+}
+
 function shouldDeferRenderForActiveElement(el: Element | null): el is HTMLInputElement | HTMLTextAreaElement {
-  return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
+  if (el instanceof HTMLTextAreaElement) {
+    return el.dataset.allowImmediateRender !== 'true';
+  }
+  return el instanceof HTMLInputElement && isTextEntryInput(el);
 }
 
 interface FocusSnapshot {
