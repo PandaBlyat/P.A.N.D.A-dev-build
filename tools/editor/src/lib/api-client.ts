@@ -386,13 +386,22 @@ export async function incrementDownload(id: string): Promise<void> {
 
 export async function incrementUpvote(id: string): Promise<void> {
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_upvote`, {
+    await sendToApi(`/api/conversations/${id}/upvote`, {
+      method: 'PATCH',
+    });
+    return;
+  } catch (apiError) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_upvote`, {
       method: 'POST',
       headers: sbHeaders(),
       body: JSON.stringify({ conv_id: id }),
     });
-  } catch {
-    // Best-effort — ignore errors
+
+    if (!res.ok) {
+      const fallbackError = await readErrorMessage(res).catch(() => `Failed to increment upvote (${res.status})`);
+      const apiMessage = apiError instanceof Error ? apiError.message : 'Unable to reach API endpoint';
+      throw new Error(`${fallbackError}. API fallback also failed: ${apiMessage}`);
+    }
   }
 }
 export async function fetchCreatorSupportStats(): Promise<CreatorSupportStats> {

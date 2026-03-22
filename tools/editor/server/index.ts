@@ -244,13 +244,19 @@ app.patch('/api/conversations/:id/download', async (req, res) => {
 app.patch('/api/conversations/:id/upvote', async (req, res) => {
   try {
     const { id } = req.params;
-    await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_upvote`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_upvote`, {
       method: 'POST',
       headers: sbHeaders(),
       body: JSON.stringify({ conv_id: id }),
     });
-  } catch {
-    // Best-effort — ignore errors
+
+    if (!r.ok) {
+      res.status(r.status).json({ error: await readErrorMessage(r) });
+      return;
+    }
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+    return;
   }
   res.json({ ok: true });
 });
