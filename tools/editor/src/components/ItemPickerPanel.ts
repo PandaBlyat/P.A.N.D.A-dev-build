@@ -1,57 +1,17 @@
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import {
+  CACHED_GAME_ITEM_CATALOG,
   GAME_ITEM_CATALOG,
   findGameItem,
   formatGameItemLabel,
   formatGameItemMeta,
-  getGameItemSearchText,
+  type CachedGameItemCatalogEntry,
   type GameItemCatalogEntry,
+  type GameItemCategoryGroup,
+  type GameItemPickerSubgroupId,
 } from '../lib/item-catalog';
 
-/* ── Category group mapping ──────────────────────────────── */
-
-const CATEGORY_GROUPS: Record<string, string> = {
-  weapons: 'Weapons & Attachments',
-  attachments: 'Weapons & Attachments',
-
-  medical: 'Medical & Drugs',
-  drugs: 'Medical & Drugs',
-
-  artefacts: 'Artefacts',
-  'artefacts junk': 'Artefacts',
-  'artefacts soc': 'Artefacts',
-
-  food: 'Food & Drink',
-  drink: 'Food & Drink',
-  cooking: 'Food & Drink',
-
-  outfits: 'Outfits & Gear',
-  patches: 'Outfits & Gear',
-
-  tools: 'Tools & Repair',
-  repair: 'Tools & Repair',
-  parts: 'Tools & Repair',
-  upgrades: 'Tools & Repair',
-
-  'container aac': 'Containers',
-  'container aam': 'Containers',
-  'container iam': 'Containers',
-  'container llmc': 'Containers',
-
-  quest: 'Quest & Letters',
-  letters: 'Quest & Letters',
-
-  explosives: 'Explosives',
-  'explosives new mines': 'Explosives',
-
-  devices: 'Other',
-  money: 'Other',
-  monster: 'Other',
-  trash: 'Other',
-  anim: 'Other',
-};
-
-const CATEGORY_GROUP_ORDER = [
+const CATEGORY_GROUP_ORDER: GameItemCategoryGroup[] = [
   'Weapons & Attachments',
   'Medical & Drugs',
   'Artefacts',
@@ -64,19 +24,14 @@ const CATEGORY_GROUP_ORDER = [
   'Other',
 ];
 
-function getCategoryGroup(category: string): string {
-  return CATEGORY_GROUPS[category] ?? 'Other';
-}
-
 type CategorySubgroup = {
-  id: string;
+  id: GameItemPickerSubgroupId;
   label: string;
 };
 
 type CategorySubgroupConfig = {
   allLabel: string;
   groups: CategorySubgroup[];
-  getItemSubgroup: (item: GameItemCatalogEntry) => string | null;
 };
 
 const WEAPON_SUBGROUPS: CategorySubgroup[] = [
@@ -91,34 +46,6 @@ const WEAPON_SUBGROUPS: CategorySubgroup[] = [
   { id: 'melee', label: 'Melee' },
   { id: 'misc', label: 'Misc' },
 ];
-
-function getWeaponSubgroup(item: GameItemCatalogEntry): string | null {
-  if (getCategoryGroup(item.category) !== 'Weapons & Attachments') return null;
-  if (item.category === 'attachments') return 'attachments';
-
-  switch (item.kind) {
-    case 'w_rifle':
-      return 'rifles';
-    case 'w_smg':
-      return 'smgs';
-    case 'w_pistol':
-      return 'pistols';
-    case 'w_shotgun':
-      return 'shotguns';
-    case 'w_sniper':
-      return 'snipers';
-    case 'w_ammo':
-      return 'ammo';
-    case 'w_explosive':
-      return 'explosives';
-    case 'w_melee':
-      return 'melee';
-    case 'w_misc':
-      return 'misc';
-    default:
-      return 'misc';
-  }
-}
 
 const OUTFIT_SUBGROUPS: CategorySubgroup[] = [
   { id: 'general', label: 'General Gear' },
@@ -136,140 +63,18 @@ const OUTFIT_SUBGROUPS: CategorySubgroup[] = [
   { id: 'unisg', label: 'UNISG' },
 ];
 
-function getOutfitFactionSubgroup(item: GameItemCatalogEntry): string | null {
-  if (getCategoryGroup(item.category) !== 'Outfits & Gear') return null;
-
-  const searchText = [
-    item.section,
-    item.displayName ?? '',
-    item.invName ?? '',
-    item.description ?? '',
-  ].join(' ').toLowerCase();
-
-  if (
-    searchText.includes('unisg')
-    || item.section.startsWith('isg_')
-    || item.section === 'isg_patch'
-  ) {
-    return 'unisg';
-  }
-  if (
-    searchText.includes('clear sky')
-    || item.section.startsWith('cs_')
-    || item.section === 'csky_patch'
-  ) {
-    return 'clear-sky';
-  }
-  if (
-    searchText.includes('mercenary')
-    || item.section.startsWith('merc_')
-    || item.section.includes('_merc_')
-    || item.section.startsWith('killer_')
-    || item.section.startsWith('banditmerc_')
-    || item.section.startsWith('renegademerc_')
-    || item.section.startsWith('exo_merc_')
-    || item.section === 'killer_patch'
-  ) {
-    return 'mercenaries';
-  }
-  if (
-    searchText.includes('ecologist')
-    || item.section.startsWith('ecolog_')
-    || item.section === 'ecolog_patch'
-  ) {
-    return 'ecologists';
-  }
-  if (
-    searchText.includes('freedom')
-    || item.section.startsWith('svoboda_')
-    || item.section.startsWith('freedom_')
-    || item.section.includes('_freedom_')
-    || item.section === 'freedom_patch'
-  ) {
-    return 'freedom';
-  }
-  if (
-    searchText.includes('military')
-    || item.section.startsWith('military_')
-    || item.section.startsWith('army_')
-    || item.section.includes('_voen_')
-    || item.section === 'army_patch'
-  ) {
-    return 'military';
-  }
-  if (
-    searchText.includes('monolith')
-    || item.section.startsWith('monolith_')
-    || item.section.includes('_monolit_')
-    || item.section.startsWith('light_monolit_')
-    || item.section === 'monolith_patch'
-  ) {
-    return 'monolith';
-  }
-  if (
-    searchText.includes('renegade')
-    || item.section.startsWith('renegade_')
-    || item.section.startsWith('renegademerc_')
-    || item.section === 'renegade_patch'
-  ) {
-    return 'renegades';
-  }
-  if (
-    searchText.includes('sin ')
-    || searchText.includes('sin faction')
-    || item.section.startsWith('greh_')
-    || item.section === 'greh_patch'
-  ) {
-    return 'sin';
-  }
-  if (
-    searchText.includes('bandit')
-    || item.section.startsWith('bandit_')
-    || item.section.startsWith('banditmerc_')
-    || item.section === 'bandit_patch'
-  ) {
-    return 'bandits';
-  }
-  if (
-    searchText.includes('duty')
-    || item.section.startsWith('dolg_')
-    || item.section.startsWith('exo_dolg_')
-    || item.section.startsWith('light_dolg_')
-    || item.section.startsWith('nbc_dolg_')
-    || item.section.startsWith('specops_dolg_')
-    || item.section.startsWith('trenchcoat_dolg_')
-    || item.section.startsWith('redline_')
-    || item.section === 'dolg_patch'
-  ) {
-    return 'duty';
-  }
-  if (
-    searchText.includes('loner')
-    || searchText.includes('stalker')
-    || item.section.startsWith('stalker_')
-    || item.section.startsWith('novice_')
-    || item.section === 'stalker_patch'
-  ) {
-    return 'loners';
-  }
-
-  return 'general';
-}
-
-const CATEGORY_SUBGROUPS: Partial<Record<string, CategorySubgroupConfig>> = {
+const CATEGORY_SUBGROUPS: Partial<Record<GameItemCategoryGroup, CategorySubgroupConfig>> = {
   'Weapons & Attachments': {
     allLabel: 'All weapon items',
     groups: WEAPON_SUBGROUPS,
-    getItemSubgroup: getWeaponSubgroup,
   },
   'Outfits & Gear': {
     allLabel: 'All outfits & gear',
     groups: OUTFIT_SUBGROUPS,
-    getItemSubgroup: getOutfitFactionSubgroup,
   },
 };
 
-function getSubgroupConfig(group: string | null): CategorySubgroupConfig | null {
+function getSubgroupConfig(group: GameItemCategoryGroup | null): CategorySubgroupConfig | null {
   return group ? CATEGORY_SUBGROUPS[group] ?? null : null;
 }
 
@@ -286,11 +91,6 @@ function getMount(): HTMLElement {
 
 function normalizeFilter(value: string): string {
   return value.trim().toLowerCase();
-}
-
-function matchesFilter(item: GameItemCatalogEntry, filter: string): boolean {
-  if (!filter) return true;
-  return getGameItemSearchText(item).includes(filter);
 }
 
 function getItemSummary(value: string, allowEmpty: boolean): string {
@@ -414,10 +214,10 @@ function openItemPickerPanel(options: {
   subchipBar.className = 'item-picker-chip-bar item-picker-subchip-bar';
   subchipBar.style.display = 'none';
 
-  let activeGroup: string | null = null;
-  let activeSubgroup: string | null = null;
-  const chipElements = new Map<string | null, HTMLButtonElement>();
-  const subchipElements = new Map<string | null, HTMLButtonElement>();
+  let activeGroup: GameItemCategoryGroup | null = null;
+  let activeSubgroup: GameItemPickerSubgroupId | null = null;
+  const chipElements = new Map<GameItemCategoryGroup | null, HTMLButtonElement>();
+  const subchipElements = new Map<GameItemPickerSubgroupId | null, HTMLButtonElement>();
 
   const allChip = document.createElement('button');
   allChip.type = 'button';
@@ -677,19 +477,21 @@ function openItemPickerPanel(options: {
     });
   };
 
-  const updateChipCounts = (textFilteredItems: GameItemCatalogEntry[]): void => {
-    const groupCounts = new Map<string, number>();
-    const subgroupCountsByGroup = new Map<string, Map<string, number>>();
-    for (const item of textFilteredItems) {
-      const g = getCategoryGroup(item.category);
-      groupCounts.set(g, (groupCounts.get(g) ?? 0) + 1);
+  const updateChipCounts = (textFilteredEntries: CachedGameItemCatalogEntry[]): void => {
+    const groupCounts = new Map<GameItemCategoryGroup, number>();
+    const subgroupCountsByGroup = new Map<
+      GameItemCategoryGroup,
+      Map<GameItemPickerSubgroupId, number>
+    >();
 
-      const subgroupConfig = getSubgroupConfig(g);
-      const subgroup = subgroupConfig?.getItemSubgroup(item);
-      if (subgroupConfig && subgroup) {
-        const subgroupCounts = subgroupCountsByGroup.get(g) ?? new Map<string, number>();
-        subgroupCounts.set(subgroup, (subgroupCounts.get(subgroup) ?? 0) + 1);
-        subgroupCountsByGroup.set(g, subgroupCounts);
+    for (const entry of textFilteredEntries) {
+      groupCounts.set(entry.categoryGroup, (groupCounts.get(entry.categoryGroup) ?? 0) + 1);
+
+      if (entry.subgroupId) {
+        const subgroupCounts = subgroupCountsByGroup.get(entry.categoryGroup)
+          ?? new Map<GameItemPickerSubgroupId, number>();
+        subgroupCounts.set(entry.subgroupId, (subgroupCounts.get(entry.subgroupId) ?? 0) + 1);
+        subgroupCountsByGroup.set(entry.categoryGroup, subgroupCounts);
       }
     }
 
@@ -697,7 +499,7 @@ function openItemPickerPanel(options: {
       const countEl = chip.querySelector('.item-picker-chip-count');
       if (!countEl) return;
       if (group === null) {
-        countEl.textContent = String(textFilteredItems.length);
+        countEl.textContent = String(textFilteredEntries.length);
       } else {
         const count = groupCounts.get(group) ?? 0;
         countEl.textContent = String(count);
@@ -724,51 +526,52 @@ function openItemPickerPanel(options: {
   const renderList = (filterValue: string): void => {
     const filter = normalizeFilter(filterValue);
 
-    // First pass: filter by text only (for chip counts)
-    const textFiltered = GAME_ITEM_CATALOG.filter((item) => matchesFilter(item, filter));
-    updateChipCounts(textFiltered);
+    const textFilteredEntries = filter
+      ? CACHED_GAME_ITEM_CATALOG.filter((entry) => entry.normalizedSearchText.includes(filter))
+      : CACHED_GAME_ITEM_CATALOG;
+    updateChipCounts(textFilteredEntries);
 
-    // Second pass: also filter by active group
-    const groupFiltered = activeGroup
-      ? textFiltered.filter((item) => getCategoryGroup(item.category) === activeGroup)
-      : textFiltered;
+    const groupFilteredEntries = activeGroup
+      ? textFilteredEntries.filter((entry) => entry.categoryGroup === activeGroup)
+      : textFilteredEntries;
 
     const subgroupConfig = getSubgroupConfig(activeGroup);
-    const subgroupFiltered = subgroupConfig && activeSubgroup
-      ? groupFiltered.filter((item) => subgroupConfig.getItemSubgroup(item) === activeSubgroup)
-      : groupFiltered;
+    const subgroupFilteredEntries = subgroupConfig && activeSubgroup
+      ? groupFilteredEntries.filter((entry) => entry.subgroupId === activeSubgroup)
+      : groupFilteredEntries;
 
-    // Build filteredItems in grouped order so indices match DOM
+    const orderedEntries: CachedGameItemCatalogEntry[] = [];
     filteredItems = [];
-    const orderedGroups: { name: string; items: GameItemCatalogEntry[] }[] = [];
+    const orderedGroups: { name: string; entries: CachedGameItemCatalogEntry[] }[] = [];
     if (subgroupConfig && !activeSubgroup) {
       for (const subgroup of subgroupConfig.groups) {
-        const items = subgroupFiltered.filter((item) => subgroupConfig.getItemSubgroup(item) === subgroup.id);
-        if (items.length > 0) {
-          orderedGroups.push({ name: subgroup.label, items });
-          filteredItems.push(...items);
+        const entries = subgroupFilteredEntries.filter((entry) => entry.subgroupId === subgroup.id);
+        if (entries.length > 0) {
+          orderedGroups.push({ name: subgroup.label, entries });
+          orderedEntries.push(...entries);
         }
       }
     } else if (subgroupConfig && activeSubgroup) {
       const subgroupLabel = subgroupConfig.groups.find((subgroup) => subgroup.id === activeSubgroup)?.label ?? activeGroup ?? 'Items';
-      orderedGroups.push({ name: subgroupLabel, items: subgroupFiltered });
-      filteredItems.push(...subgroupFiltered);
+      orderedGroups.push({ name: subgroupLabel, entries: subgroupFilteredEntries });
+      orderedEntries.push(...subgroupFilteredEntries);
     } else {
-      const grouped = new Map<string, GameItemCatalogEntry[]>();
-      for (const item of subgroupFiltered) {
-        const g = getCategoryGroup(item.category);
-        if (!grouped.has(g)) grouped.set(g, []);
-        grouped.get(g)!.push(item);
+      const grouped = new Map<GameItemCategoryGroup, CachedGameItemCatalogEntry[]>();
+      for (const entry of subgroupFilteredEntries) {
+        if (!grouped.has(entry.categoryGroup)) grouped.set(entry.categoryGroup, []);
+        grouped.get(entry.categoryGroup)!.push(entry);
       }
 
-      for (const g of CATEGORY_GROUP_ORDER) {
-        const items = grouped.get(g);
-        if (items && items.length > 0) {
-          orderedGroups.push({ name: g, items });
-          filteredItems.push(...items);
+      for (const group of CATEGORY_GROUP_ORDER) {
+        const entries = grouped.get(group);
+        if (entries && entries.length > 0) {
+          orderedGroups.push({ name: group, entries });
+          orderedEntries.push(...entries);
         }
       }
     }
+
+    filteredItems = orderedEntries.map((entry) => entry.item);
 
     if (filteredItems.length === 0) activeIndex = 0;
 
@@ -802,12 +605,12 @@ function openItemPickerPanel(options: {
           type: 'header',
           key: `header:${group.name}`,
           label: group.name,
-          count: group.items.length,
+          count: group.entries.length,
         });
         totalRowHeight += ITEM_PICKER_HEADER_ROW_HEIGHT;
       }
 
-      for (const item of group.items) {
+      for (const { item } of group.entries) {
         const index = flatIndex++;
         rowOffsets.push(totalRowHeight);
         rowModel.push({
