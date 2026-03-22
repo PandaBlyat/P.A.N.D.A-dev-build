@@ -19,6 +19,8 @@ import {
 import type { CommandSchema, ParamDef, ParamOption } from '../lib/schema';
 import { FACTION_IDS, RANKS, MUTANT_TYPES, DYNAMIC_PLACEHOLDERS, LEVEL_DISPLAY_NAMES, SMART_TERRAIN_LEVELS } from '../lib/constants';
 import { createOnboardingNudge } from './Onboarding';
+import { createItemPickerPanelEditor } from './ItemPickerPanel';
+import { formatGameItemLabel } from '../lib/item-catalog';
 
 const ADDABLE_PRECONDITION_SCHEMAS = PRECONDITION_SCHEMAS.filter((schema) => !schema.pickerHidden);
 
@@ -725,7 +727,7 @@ function renderPreconditionDisplay(entry: PreconditionEntry): HTMLElement {
     if (entry.params.length > 0 && entry.params.some(p => p !== '')) {
       const params = document.createElement('span');
       params.className = 'precond-params';
-      params.textContent = ' : ' + entry.params.filter(p => p !== '').join(' : ');
+      params.textContent = ' : ' + formatCommandParamsForDisplay(schema, entry.params).join(' : ');
       span.appendChild(params);
     }
   } else if (entry.type === 'not') {
@@ -817,7 +819,7 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
     if (outcome.params.length > 0 && outcome.params.some(p => p !== '')) {
       const params = document.createElement('span');
       params.className = 'outcome-params';
-      params.textContent = ' : ' + outcome.params.filter(p => p !== '').join(' : ');
+      params.textContent = ' : ' + formatCommandParamsForDisplay(schema, outcome.params).join(' : ');
       display.appendChild(params);
     }
 
@@ -1071,9 +1073,28 @@ function renderRichParamEditor(
       });
     case 'turn_reference':
       return createTurnReferenceEditor(currentValue, onChange, fieldKey, conv, editor.emptyLabel);
+    case 'item_picker_panel':
+      return createItemPickerPanelEditor(currentValue, onChange, fieldKey, {
+        allowEmpty: !paramDef.required,
+        placeholder: paramDef.placeholder ?? 'medkit_army',
+      });
     case 'command_builder':
       return createCommandBuilderEditor(schema, paramDef, currentValue, onChange, fieldKey, editor.suggestions, editor.chainSeparator ?? '+');
   }
+}
+
+function formatCommandParamsForDisplay(schema: CommandSchema | undefined, params: string[]): string[] {
+  return params
+    .map((value, index) => formatParamValueForDisplay(schema?.params[index], value))
+    .filter((value) => value !== '');
+}
+
+function formatParamValueForDisplay(paramDef: ParamDef | undefined, value: string): string {
+  if (!value) return '';
+  if (paramDef?.type === 'item_section') {
+    return formatGameItemLabel(value);
+  }
+  return value;
 }
 
 function createSearchableSelectEditor(
