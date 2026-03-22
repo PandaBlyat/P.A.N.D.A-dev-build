@@ -1008,7 +1008,7 @@ label {
 
 .panel-center.panel-onboarding .panel-body {
   padding: 0;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .panel-right {
@@ -1410,6 +1410,9 @@ label {
 }
 
 .conversation-issues-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: rgba(255,255,255,0.02);
@@ -1418,6 +1421,8 @@ label {
 }
 
 .conversation-issues-panel .validation-drawer-body {
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 10px;
 }
 
@@ -4236,8 +4241,9 @@ strong.support-upvote-count {
 .first-run-shell {
   min-height: 100%;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  overflow-y: auto;
   padding: clamp(20px, 4vw, 40px);
   background:
     radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 14%, transparent), transparent 34%),
@@ -4288,6 +4294,7 @@ strong.support-upvote-count {
   position: relative;
   width: min(100%, 1120px);
   max-height: min(100%, 940px);
+  margin: auto;
   display: grid;
   gap: 18px;
   overflow: hidden;
