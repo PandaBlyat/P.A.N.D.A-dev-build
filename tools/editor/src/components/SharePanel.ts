@@ -806,11 +806,17 @@ async function handleUpvote(conv: NormalizedConversation, btn: HTMLButtonElement
   if (hasUpvoted(conv.id)) return;
   btn.disabled = true;
   btn.textContent = 'Voting…';
-  await incrementUpvote(conv.id);
-  rememberUpvote(conv.id);
-  const match = allResults.find(entry => entry.id === conv.id);
-  if (match) match.upvotes += 1;
-  renderContent();
+  try {
+    await incrementUpvote(conv.id);
+    rememberUpvote(conv.id);
+    const match = allResults.find(entry => entry.id === conv.id);
+    if (match) match.upvotes += 1;
+    renderContent();
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = `Upvote ↑ ${conv.upvotes}`;
+    alert(`Upvote failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 function getUpvoteSet(): Set<string> {
