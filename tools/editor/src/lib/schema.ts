@@ -2,7 +2,12 @@
 // Defines all precondition and outcome commands with their parameter types,
 // so the UI can auto-generate appropriate input fields.
 
-import { FACTION_IDS, LEVEL_DISPLAY_NAMES, MUTANT_TYPES, RANKS } from './constants';
+import {
+  FACTION_IDS, LEVEL_DISPLAY_NAMES, MUTANT_TYPES, RANKS,
+  WEATHER_TYPES, WEATHER_DISPLAY_NAMES,
+  COMPANION_STATES, COMPANION_STATE_DISPLAY_NAMES,
+  MONTH_NAMES,
+} from './constants';
 import { FACTION_DISPLAY_NAMES } from './types';
 
 export interface CommandSchema {
@@ -112,6 +117,24 @@ const ITEM_TYPE_OPTIONS: ParamOption[] = [
   { value: 'explosive', label: 'Explosive', keywords: ['explosive', 'grenade'] },
 ];
 
+const WEATHER_OPTIONS: ParamOption[] = WEATHER_TYPES.map((w) => ({
+  value: w,
+  label: WEATHER_DISPLAY_NAMES[w] ?? w,
+  keywords: [w, WEATHER_DISPLAY_NAMES[w] ?? ''],
+}));
+
+const COMPANION_STATE_OPTIONS: ParamOption[] = COMPANION_STATES.map((s) => ({
+  value: s,
+  label: COMPANION_STATE_DISPLAY_NAMES[s] ?? s,
+  keywords: [s, COMPANION_STATE_DISPLAY_NAMES[s] ?? ''],
+}));
+
+const MONTH_OPTIONS: ParamOption[] = Array.from({ length: 12 }, (_, i) => ({
+  value: String(i + 1),
+  label: MONTH_NAMES[i + 1],
+  keywords: [String(i + 1), MONTH_NAMES[i + 1]],
+}));
+
 const SMART_TERRAIN_EDITOR: ParamEditor = {
   kind: 'smart_terrain_picker',
   allowPlaceholder: true,
@@ -200,6 +223,31 @@ const WATCH_TRIGGER_SUGGESTIONS: ParamOption[] = [
     value: 'kill_npc',
     label: 'Kill the conversation NPC',
     keywords: ['kill', 'npc', 'death'],
+  },
+  {
+    value: 'set_npc_neutral',
+    label: 'Make the NPC neutral to the player',
+    keywords: ['neutral', 'npc'],
+  },
+  {
+    value: 'ceasefire:100',
+    label: 'Ceasefire — make nearby NPCs non-hostile',
+    keywords: ['ceasefire', 'peace', 'neutral'],
+  },
+  {
+    value: 'set_weather:w_storm1',
+    label: 'Change weather to storm',
+    keywords: ['weather', 'storm'],
+  },
+  {
+    value: 'boost_speed:1.5:60',
+    label: 'Boost player speed for 60 seconds',
+    keywords: ['speed', 'boost', 'fast'],
+  },
+  {
+    value: 'equip_npc_item:medkit',
+    label: 'Give NPC an item',
+    keywords: ['equip', 'npc', 'item', 'give'],
   },
 ];
 
@@ -824,6 +872,188 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
       { name: 'level', type: 'level', required: true, label: 'Level', editor: { kind: 'searchable_select', options: LEVEL_OPTIONS, emptyLabel: '-- Select level --' } },
     ],
   },
+
+  // ─── NEW: Player Condition (expanded) ─────────────────────────────────────
+  {
+    name: 'req_satiety_min',
+    label: 'Satiety Min',
+    description: 'Player satiety (fullness) must be >= amount (0-100)',
+    category: 'Player Condition',
+    params: [
+      { name: 'amount', type: 'number', required: true, label: 'Minimum Satiety (%)', min: 0, max: 100 },
+    ],
+  },
+  {
+    name: 'req_satiety_max',
+    label: 'Satiety Max',
+    description: 'Player satiety (fullness) must be <= amount (0-100)',
+    category: 'Player Condition',
+    params: [
+      { name: 'amount', type: 'number', required: true, label: 'Maximum Satiety (%)', min: 0, max: 100 },
+    ],
+  },
+  {
+    name: 'req_thirsty',
+    label: 'Player Thirsty',
+    description: 'Player must be thirsty (low hydration)',
+    category: 'Player Condition',
+    params: [],
+  },
+  {
+    name: 'req_not_thirsty',
+    label: 'Player Not Thirsty',
+    description: 'Player must NOT be thirsty',
+    category: 'Player Condition',
+    params: [],
+  },
+
+  // ─── NEW: Equipment ───────────────────────────────────────────────────────
+  {
+    name: 'req_weapon_equipped',
+    label: 'Weapon Equipped',
+    description: 'Player must have a weapon in an active slot (pistol or rifle)',
+    category: 'Items',
+    params: [],
+  },
+  {
+    name: 'req_no_weapon_equipped',
+    label: 'No Weapon Equipped',
+    description: 'Player must NOT have a weapon in any active slot',
+    category: 'Items',
+    params: [],
+  },
+  {
+    name: 'req_outfit_equipped',
+    label: 'Outfit Equipped',
+    description: 'Player must have an outfit/armor equipped (slot 6)',
+    category: 'Items',
+    params: [],
+  },
+
+  // ─── NEW: World State ─────────────────────────────────────────────────────
+  {
+    name: 'req_surge_active',
+    label: 'Emission Active',
+    description: 'An emission/blowout must currently be in progress',
+    category: 'Time & Weather',
+    params: [],
+  },
+  {
+    name: 'req_not_surge_active',
+    label: 'No Emission Active',
+    description: 'No emission/blowout must be in progress',
+    category: 'Time & Weather',
+    params: [],
+  },
+  {
+    name: 'req_weather',
+    label: 'Weather Type',
+    description: 'Current weather must match specified type',
+    category: 'Time & Weather',
+    params: [
+      { name: 'weather', type: 'string', required: true, label: 'Weather Type',
+        editor: { kind: 'searchable_select', options: WEATHER_OPTIONS, emptyLabel: '-- Select weather --' } },
+    ],
+  },
+  {
+    name: 'req_game_hour_between',
+    label: 'Hour Between',
+    description: 'Current game hour must be between min and max (inclusive, wraps at midnight)',
+    category: 'Time & Weather',
+    helpText: 'Supports midnight wrapping: e.g. min=22, max=4 matches 22:00-04:59.',
+    params: [
+      { name: 'hour_min', type: 'number', required: true, label: 'Start Hour', min: 0, max: 23 },
+      { name: 'hour_max', type: 'number', required: true, label: 'End Hour', min: 0, max: 23 },
+    ],
+  },
+  {
+    name: 'req_game_month',
+    label: 'Game Month',
+    description: 'Current in-game month must match',
+    category: 'Time & Weather',
+    params: [
+      { name: 'month', type: 'number', required: true, label: 'Month',
+        editor: { kind: 'searchable_select', options: MONTH_OPTIONS, emptyLabel: '-- Select month --' } },
+    ],
+  },
+
+  // ─── NEW: Faction Relations ───────────────────────────────────────────────
+  {
+    name: 'req_factions_enemies',
+    label: 'Factions Are Enemies',
+    description: 'Two factions must currently be hostile to each other',
+    category: 'Faction',
+    params: [
+      { name: 'faction1', type: 'faction', required: true, label: 'Faction 1', editor: { kind: 'searchable_select', options: FACTION_OPTIONS, emptyLabel: '-- Select faction --' } },
+      { name: 'faction2', type: 'faction', required: true, label: 'Faction 2', editor: { kind: 'searchable_select', options: FACTION_OPTIONS, emptyLabel: '-- Select faction --' } },
+    ],
+  },
+  {
+    name: 'req_factions_friends',
+    label: 'Factions Are Friends',
+    description: 'Two factions must currently be allied',
+    category: 'Faction',
+    params: [
+      { name: 'faction1', type: 'faction', required: true, label: 'Faction 1', editor: { kind: 'searchable_select', options: FACTION_OPTIONS, emptyLabel: '-- Select faction --' } },
+      { name: 'faction2', type: 'faction', required: true, label: 'Faction 2', editor: { kind: 'searchable_select', options: FACTION_OPTIONS, emptyLabel: '-- Select faction --' } },
+    ],
+  },
+  {
+    name: 'req_npc_rank_name',
+    label: 'NPC Rank Name',
+    description: 'NPC rank name must match exactly (e.g. veteran, master)',
+    category: 'Rank',
+    params: [
+      { name: 'rank', type: 'rank', required: true, label: 'Rank Name', editor: { kind: 'searchable_select', options: RANK_OPTIONS } },
+    ],
+  },
+
+  // ─── NEW: Statistics / Weight ─────────────────────────────────────────────
+  {
+    name: 'req_total_weight_min',
+    label: 'Carry Weight Min',
+    description: 'Player must be carrying >= specified weight (kg)',
+    category: 'Statistics',
+    params: [
+      { name: 'weight', type: 'number', required: true, label: 'Minimum Weight (kg)', min: 0 },
+    ],
+  },
+  {
+    name: 'req_total_weight_max',
+    label: 'Carry Weight Max',
+    description: 'Player must be carrying <= specified weight (kg)',
+    category: 'Statistics',
+    params: [
+      { name: 'weight', type: 'number', required: true, label: 'Maximum Weight (kg)', min: 0 },
+    ],
+  },
+  {
+    name: 'req_visited_smart',
+    label: 'Visited Smart Terrain',
+    description: 'Player must have visited a specific smart terrain before',
+    category: 'Game Progress',
+    params: [
+      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
+    ],
+  },
+  {
+    name: 'req_distance_min',
+    label: 'Distance From NPC Min',
+    description: 'Player must be at least this far from the conversation NPC (meters)',
+    category: 'Location',
+    params: [
+      { name: 'distance', type: 'number', required: true, label: 'Minimum Distance (m)', min: 1 },
+    ],
+  },
+  {
+    name: 'req_distance_max',
+    label: 'Distance From NPC Max',
+    description: 'Player must be within this distance of the conversation NPC (meters)',
+    category: 'Location',
+    params: [
+      { name: 'distance', type: 'number', required: true, label: 'Maximum Distance (m)', min: 1 },
+    ],
+  },
 ];
 
 // ─── Outcome Schemas ────────────────────────────────────────────────────────
@@ -1245,6 +1475,208 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Queue random stash for discovery',
     category: 'Rewards',
     params: [],
+  },
+
+  // ─── NEW: Player Effects (expanded) ──────────────────────────────────────
+  {
+    name: 'give_hunger',
+    label: 'Give Hunger',
+    description: 'Reduce player satiety (make them hungry)',
+    category: 'Player Effects',
+    params: [
+      { name: 'amount', type: 'number', required: true, label: 'Amount (%)', min: 1, max: 100 },
+    ],
+  },
+  {
+    name: 'cure_hunger',
+    label: 'Cure Hunger',
+    description: 'Restore player satiety (feed them)',
+    category: 'Player Effects',
+    params: [
+      { name: 'amount', type: 'number', required: true, label: 'Amount (%)', min: 1, max: 100 },
+    ],
+  },
+  {
+    name: 'boost_speed',
+    label: 'Boost Speed',
+    description: 'Temporarily increase player movement speed',
+    category: 'Player Effects',
+    params: [
+      { name: 'multiplier', type: 'number', required: true, label: 'Multiplier (1.1-3.0)', min: 1.1, max: 3 },
+      { name: 'duration', type: 'number', required: true, label: 'Duration (s)', min: 1 },
+    ],
+  },
+  {
+    name: 'slow_speed',
+    label: 'Slow Speed',
+    description: 'Temporarily decrease player movement speed',
+    category: 'Player Effects',
+    params: [
+      { name: 'multiplier', type: 'number', required: true, label: 'Multiplier (0.1-0.9)', min: 0.1, max: 0.9 },
+      { name: 'duration', type: 'number', required: true, label: 'Duration (s)', min: 1 },
+    ],
+  },
+  {
+    name: 'change_rank',
+    label: 'Change Rank',
+    description: 'Modify player rank points (positive or negative)',
+    category: 'Player Effects',
+    params: [
+      { name: 'amount', type: 'number', required: true, label: 'Amount (can be negative)' },
+    ],
+  },
+  {
+    name: 'teleport_player_to_smart',
+    label: 'Teleport Player to Location',
+    description: 'Teleport the player to a smart terrain location',
+    category: 'Player Effects',
+    helpText: 'Warning: This is a dramatic action that relocates the player. Use with care in conversation context.',
+    params: [
+      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
+      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
+    ],
+  },
+
+  // ─── NEW: NPC Manipulation (expanded) ──────────────────────────────────
+  {
+    name: 'change_npc_rank',
+    label: 'Change NPC Rank',
+    description: 'Modify the conversation NPC rank points (positive or negative)',
+    category: 'NPC',
+    params: [
+      { name: 'amount', type: 'number', required: true, label: 'Amount (can be negative)' },
+    ],
+  },
+  {
+    name: 'equip_npc_item',
+    label: 'Give NPC Item',
+    description: 'Spawn an item into the conversation NPC inventory',
+    category: 'NPC',
+    params: [
+      { name: 'item', type: 'item_section', required: true, label: 'Item Section', editor: ITEM_PICKER_PANEL_EDITOR },
+    ],
+  },
+  {
+    name: 'set_companion_state',
+    label: 'Set Companion Behavior',
+    description: 'Set the conversation NPC companion behavior (must be a companion)',
+    category: 'NPC',
+    params: [
+      { name: 'state', type: 'string', required: true, label: 'Behavior State',
+        editor: { kind: 'searchable_select', options: COMPANION_STATE_OPTIONS, emptyLabel: '-- Select state --' } },
+    ],
+  },
+  {
+    name: 'set_npc_neutral',
+    label: 'Set NPC Neutral',
+    description: 'Make the conversation NPC neutral toward the player',
+    category: 'NPC',
+    params: [],
+  },
+  {
+    name: 'make_npc_invulnerable',
+    label: 'Make NPC Invulnerable',
+    description: 'Make the conversation NPC immune to damage for a duration',
+    category: 'NPC',
+    params: [
+      { name: 'duration', type: 'number', required: true, label: 'Duration (s)', min: 1 },
+    ],
+  },
+  {
+    name: 'spawn_squad_for_npc',
+    label: 'Spawn Backup for NPC',
+    description: 'Spawn additional faction members near the conversation NPC',
+    category: 'Spawning',
+    params: [
+      { name: 'faction', type: 'faction', required: true, label: 'Faction' },
+      { name: 'count', type: 'number', required: false, label: 'Squad Count (1-5)', placeholder: '1', min: 1, max: 5 },
+    ],
+  },
+
+  // ─── NEW: Faction & Relations ─────────────────────────────────────────
+  {
+    name: 'change_faction_relations',
+    label: 'Change Faction Relations',
+    description: 'Change how two factions feel about each other',
+    category: 'Goodwill',
+    helpText: 'Positive values improve relations, negative values worsen them. This affects the global faction diplomacy.',
+    params: [
+      { name: 'faction1', type: 'faction', required: true, label: 'Faction 1', editor: { kind: 'searchable_select', options: FACTION_OPTIONS, emptyLabel: '-- Select faction --' } },
+      { name: 'faction2', type: 'faction', required: true, label: 'Faction 2', editor: { kind: 'searchable_select', options: FACTION_OPTIONS, emptyLabel: '-- Select faction --' } },
+      { name: 'amount', type: 'number', required: true, label: 'Amount (-1000 to 1000)', min: -1000, max: 1000 },
+    ],
+  },
+  {
+    name: 'change_player_faction',
+    label: 'Change Player Faction',
+    description: 'Change the player character faction allegiance',
+    category: 'Player Effects',
+    helpText: 'Warning: This is a major game state change. The player will immediately switch factions, affecting all relations.',
+    params: [
+      { name: 'faction', type: 'faction', required: true, label: 'New Faction', editor: { kind: 'searchable_select', options: FACTION_OPTIONS, emptyLabel: '-- Select faction --' } },
+    ],
+  },
+  {
+    name: 'ceasefire',
+    label: 'Ceasefire',
+    description: 'Make all nearby NPCs temporarily non-hostile to the player',
+    category: 'NPC',
+    params: [
+      { name: 'radius', type: 'number', required: false, label: 'Radius (m)', placeholder: '100', min: 10 },
+    ],
+  },
+
+  // ─── NEW: World Effects ───────────────────────────────────────────────
+  {
+    name: 'set_weather',
+    label: 'Change Weather',
+    description: 'Force change the current weather',
+    category: 'World',
+    params: [
+      { name: 'weather', type: 'string', required: true, label: 'Weather Type',
+        editor: { kind: 'searchable_select', options: WEATHER_OPTIONS, emptyLabel: '-- Select weather --' } },
+    ],
+  },
+  {
+    name: 'give_game_news',
+    label: 'Show Game News',
+    description: 'Display an in-game news popup notification to the player',
+    category: 'World',
+    params: [
+      { name: 'title', type: 'string', required: true, label: 'Title', placeholder: 'Breaking News' },
+      { name: 'message', type: 'string', required: true, label: 'Message Text' },
+      { name: 'duration', type: 'number', required: false, label: 'Duration (s)', placeholder: '5', min: 1, max: 30 },
+    ],
+  },
+
+  // ─── NEW: Knowledge & Tasks ───────────────────────────────────────────
+  {
+    name: 'give_task',
+    label: 'Give Task',
+    description: 'Assign a game task/quest to the player',
+    category: 'Knowledge',
+    helpText: 'Task ID must match a valid task defined in the game task configs.',
+    params: [
+      { name: 'task_id', type: 'string', required: true, label: 'Task ID', placeholder: 'e.g. jup_b6_task' },
+    ],
+  },
+  {
+    name: 'complete_task',
+    label: 'Complete Task',
+    description: 'Mark a game task as completed',
+    category: 'Knowledge',
+    params: [
+      { name: 'task_id', type: 'string', required: true, label: 'Task ID' },
+    ],
+  },
+  {
+    name: 'fail_task',
+    label: 'Fail Task',
+    description: 'Mark a game task as failed',
+    category: 'Knowledge',
+    params: [
+      { name: 'task_id', type: 'string', required: true, label: 'Task ID' },
+    ],
   },
 
   // No outcome

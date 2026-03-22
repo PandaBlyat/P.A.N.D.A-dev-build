@@ -1015,6 +1015,16 @@ function on_game_shutdown_cb()
     cleanup_panda_ic_events()
 end
 
+-- NPC invulnerability check for make_npc_invulnerable outcome
+_panda_invulnerable_npcs = nil
+function panda_npc_invulnerability_check(npc, shit, bone_id, flags)
+    if _panda_invulnerable_npcs and npc and npc:id() then
+        if _panda_invulnerable_npcs[npc:id()] then
+            flags.ret_value = false
+        end
+    end
+end
+
 local function printf(fmt, ...)
     if PANDA.get_config("debug_logging") then
         _G.printf("PANDA_IC: "..fmt, ...)
@@ -2121,6 +2131,24 @@ local function build_substitution_table(npc_name, npc_faction, npc_se, contact_i
     -- Game days survived
     local game_days = level.get_time_days and level.get_time_days() or 0
 
+    -- Player satiety
+    local player_satiety = 100
+    if act and act.cast_Actor and act:cast_Actor() and act:cast_Actor().conditions then
+        local cond = act:cast_Actor():conditions()
+        if cond and cond.GetSatiety then
+            player_satiety = math.floor(cond:GetSatiety() * 100)
+        end
+    end
+
+    -- Player radiation
+    local player_radiation = act and math.floor((act.radiation or 0) * 100) or 0
+
+    -- Current weather
+    local weather_name = level.get_weather and tostring(level.get_weather()) or "unknown"
+
+    -- Total carry weight
+    local total_weight = act and act.get_total_weight and string.format("%.1f", act:get_total_weight()) or "0"
+
     return {
         ["player_name"] = player_name,
         ["npc_name"] = npc_name or "Stalker",
@@ -2139,6 +2167,13 @@ local function build_substitution_table(npc_name, npc_faction, npc_se, contact_i
         ["mutant_kills"] = tostring(mutant_kills),
         ["relationship_score"] = tostring(rel_score),
         ["game_days"] = tostring(game_days),
+        ["player_satiety"] = tostring(player_satiety),
+        ["player_radiation"] = tostring(player_radiation),
+        ["player_rank_name"] = rank_name,
+        ["npc_rank_name"] = npc_rank_name,
+        ["weather"] = weather_name,
+        ["total_weight"] = total_weight,
+        ["game_day_number"] = tostring(D),
     }
 end
 
@@ -2744,6 +2779,171 @@ local function evaluate_precondition_entry(entry, npc_se, act, get_goodwill_acto
             visited = game_statistics.has_actor_visited_level(lvl)
         end
         if visited then return false, "level already visited" end
+
+    -- ─── NEW PRECONDITIONS ──────────────────────────────────────────────────
+
+    -- Player Condition: satiety
+    elseif cmd == "req_satiety_min" then
+        local threshold = (tonumber(parts[2]) or 0) / 100
+        local satiety = 1
+        if act.cast_Actor and act:cast_Actor() and act:cast_Actor().conditions then
+            local cond = act:cast_Actor():conditions()
+            if cond and cond.GetSatiety then satiety = cond:GetSatiety() end
+        end
+        if satiety < threshold then return false, "satiety below minimum" end
+    elseif cmd == "req_satiety_max" then
+        local threshold = (tonumber(parts[2]) or 100) / 100
+        local satiety = 1
+        if act.cast_Actor and act:cast_Actor() and act:cast_Actor().conditions then
+            local cond = act:cast_Actor():conditions()
+            if cond and cond.GetSatiety then satiety = cond:GetSatiety() end
+        end
+        if satiety > threshold then return false, "satiety above maximum" end
+    elseif cmd == "req_thirsty" then
+        local thirsty = false
+        if act.cast_Actor and act:cast_Actor() and act:cast_Actor().conditions then
+            local cond = act:cast_Actor():conditions()
+            if cond and cond.GetThirsty then
+                thirsty = cond:GetThirsty() > 0
+            elseif cond and cond.GetSatiety then
+                thirsty = cond:GetSatiety() < 0.3
+            end
+        end
+        if not thirsty then return false, "player not thirsty" end
+    elseif cmd == "req_not_thirsty" then
+        local thirsty = false
+        if act.cast_Actor and act:cast_Actor() and act:cast_Actor().conditions then
+            local cond = act:cast_Actor():conditions()
+            if cond and cond.GetThirsty then
+                thirsty = cond:GetThirsty() > 0
+            elseif cond and cond.GetSatiety then
+                thirsty = cond:GetSatiety() < 0.3
+            end
+        end
+        if thirsty then return false, "player is thirsty" end
+
+    -- Equipment checks
+    elseif cmd == "req_weapon_equipped" then
+        local has_weapon = (act:item_in_slot(1) ~= nil) or (act:item_in_slot(2) ~= nil)
+        if not has_weapon then return false, "no weapon equipped" end
+    elseif cmd == "req_no_weapon_equipped" then
+        local has_weapon = (act:item_in_slot(1) ~= nil) or (act:item_in_slot(2) ~= nil)
+        if has_weapon then return false, "weapon is equipped" end
+    elseif cmd == "req_outfit_equipped" then
+        if act:item_in_slot(6) == nil then return false, "no outfit equipped" end
+
+    -- World state: emission active
+    elseif cmd == "req_surge_active" then
+        local active = false
+        if surge_manager and surge_manager.is_started then
+            active = surge_manager.is_started()
+        elseif xr_conditions and xr_conditions.is_surge_started then
+            active = xr_conditions.is_surge_started()
+        end
+        if not active then return false, "no emission active" end
+    elseif cmd == "req_not_surge_active" then
+        local active = false
+        if surge_manager and surge_manager.is_started then
+            active = surge_manager.is_started()
+        elseif xr_conditions and xr_conditions.is_surge_started then
+            active = xr_conditions.is_surge_started()
+        end
+        if active then return false, "emission is active" end
+
+    -- Weather check
+    elseif cmd == "req_weather" then
+        local required = parts[2]
+        if not required then return false, "missing weather type" end
+        local current = level.get_weather and level.get_weather() or ""
+        if tostring(current) ~= required then return false, "weather mismatch" end
+
+    -- Hour range with midnight wrap
+    elseif cmd == "req_game_hour_between" then
+        local h_min = tonumber(parts[2]) or 0
+        local h_max = tonumber(parts[3]) or 23
+        local cur_h = level.get_time_hours and level.get_time_hours() or 0
+        local in_range
+        if h_min <= h_max then
+            in_range = (cur_h >= h_min and cur_h <= h_max)
+        else
+            in_range = (cur_h >= h_min or cur_h <= h_max)
+        end
+        if not in_range then return false, "hour not in range" end
+
+    -- Game month
+    elseif cmd == "req_game_month" then
+        local req_month = tonumber(parts[2]) or 1
+        local gt = game.get_game_time()
+        local Y, M, D, h, mi = 0, 0, 0, 0, 0
+        Y, M, D, h, mi = gt:get(Y, M, D, h, mi, 0, 0)
+        if M ~= req_month then return false, "month mismatch" end
+
+    -- Faction relations
+    elseif cmd == "req_factions_enemies" then
+        local f1 = normalize_faction(parts[2] or "stalker")
+        local f2 = normalize_faction(parts[3] or "bandit")
+        local enemies = false
+        if game_relations and game_relations.is_factions_enemies then
+            enemies = game_relations.is_factions_enemies(f1, f2)
+        end
+        if not enemies then return false, "factions not enemies" end
+    elseif cmd == "req_factions_friends" then
+        local f1 = normalize_faction(parts[2] or "stalker")
+        local f2 = normalize_faction(parts[3] or "stalker")
+        local friends = false
+        if game_relations and game_relations.is_factions_friends then
+            friends = game_relations.is_factions_friends(f1, f2)
+        end
+        if not friends then return false, "factions not friends" end
+
+    -- NPC rank name match
+    elseif cmd == "req_npc_rank_name" then
+        local required_rank = parts[2]
+        if not required_rank then return false, "missing rank" end
+        if not npc_se then return false, "npc missing" end
+        local npc_obj = level.object_by_id(npc_se.id)
+        local npc_rank = "unknown"
+        if npc_obj and ranks and ranks.get_obj_rank_name then
+            npc_rank = ranks.get_obj_rank_name(npc_obj) or "unknown"
+        end
+        if npc_rank ~= required_rank then return false, "npc rank mismatch" end
+
+    -- Carry weight
+    elseif cmd == "req_total_weight_min" then
+        local w = act:get_total_weight() or 0
+        if w < (tonumber(parts[2]) or 0) then return false, "weight below minimum" end
+    elseif cmd == "req_total_weight_max" then
+        local w = act:get_total_weight() or 0
+        if w > (tonumber(parts[2]) or 9999) then return false, "weight above maximum" end
+
+    -- Visited smart terrain
+    elseif cmd == "req_visited_smart" then
+        local smart_name = parts[2]
+        if not smart_name then return false, "missing smart terrain" end
+        local visited = false
+        if game_statistics and game_statistics.has_actor_visited_smart then
+            visited = game_statistics.has_actor_visited_smart(smart_name)
+        end
+        if not visited then return false, "smart terrain not visited" end
+
+    -- Distance from NPC
+    elseif cmd == "req_distance_min" then
+        local min_dist = tonumber(parts[2]) or 0
+        if not npc_se then return false, "npc missing" end
+        local npc_obj = level.object_by_id(npc_se.id)
+        if npc_obj then
+            local dist = npc_obj:position():distance_to(act:position())
+            if dist < min_dist then return false, "too close to npc" end
+        end
+    elseif cmd == "req_distance_max" then
+        local max_dist = tonumber(parts[2]) or 9999
+        if not npc_se then return false, "npc missing" end
+        local npc_obj = level.object_by_id(npc_se.id)
+        if npc_obj then
+            local dist = npc_obj:position():distance_to(act:position())
+            if dist > max_dist then return false, "too far from npc" end
+        end
+
     else
         return nil, "unknown command"
     end
@@ -3445,6 +3645,227 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                 spawn_squad_at_smart_terrain(faction, smart_ref, false, delay, sender_contact_id, "companion")
             else
                 printf("PANDA_IC: spawn_companion_at_smart missing smart reference in '%s'", tostring(cmd_str))
+            end
+
+        -- ─── NEW OUTCOME HANDLERS ────────────────────────────────────────────
+
+        -- Player Effects: hunger
+        elseif cmd == "give_hunger" then
+            local amount = (tonumber(parts[2]) or 10) / 100
+            if act.cast_Actor and act:cast_Actor() and act:cast_Actor().conditions then
+                local cond = act:cast_Actor():conditions()
+                if cond and cond.ChangeSatiety then
+                    cond:ChangeSatiety(-amount)
+                end
+            end
+        elseif cmd == "cure_hunger" then
+            local amount = (tonumber(parts[2]) or 50) / 100
+            if act.cast_Actor and act:cast_Actor() and act:cast_Actor().conditions then
+                local cond = act:cast_Actor():conditions()
+                if cond and cond.ChangeSatiety then
+                    cond:ChangeSatiety(amount)
+                end
+            end
+
+        -- Player Effects: speed
+        elseif cmd == "boost_speed" then
+            local mult = tonumber(parts[2]) or 1.5
+            local dur = tonumber(parts[3]) or 60
+            act:set_actor_run_coef(mult)
+            act:set_actor_sprint_koef(mult)
+            CreateTimeEvent(0, "panda_speed_reset_" .. tostring(time_global()), dur, function()
+                if db.actor then
+                    db.actor:set_actor_run_coef(0)
+                    db.actor:set_actor_sprint_koef(0)
+                end
+                return true
+            end)
+        elseif cmd == "slow_speed" then
+            local mult = tonumber(parts[2]) or 0.5
+            local dur = tonumber(parts[3]) or 60
+            act:set_actor_run_coef(mult)
+            act:set_actor_sprint_koef(mult)
+            CreateTimeEvent(0, "panda_speed_reset_" .. tostring(time_global()), dur, function()
+                if db.actor then
+                    db.actor:set_actor_run_coef(0)
+                    db.actor:set_actor_sprint_koef(0)
+                end
+                return true
+            end)
+
+        -- Player Effects: rank
+        elseif cmd == "change_rank" then
+            local amount = tonumber(parts[2]) or 0
+            if game_statistics and game_statistics.increment_rank then
+                game_statistics.increment_rank(amount)
+            else
+                local cur = act:character_rank()
+                act:set_character_rank(cur + amount)
+            end
+
+        -- Player Effects: teleport player
+        elseif cmd == "teleport_player_to_smart" then
+            local smart_ref = parts[2]
+            local delay = tonumber(parts[3]) or 0
+            if smart_ref and smart_ref ~= "" then
+                local smart_pos = resolve_smart_position_from_reference(smart_ref)
+                if smart_pos then
+                    if delay > 0 then
+                        CreateTimeEvent(0, "panda_tp_player_" .. tostring(time_global()), delay, function()
+                            if db.actor then
+                                db.actor:set_actor_position(smart_pos)
+                            end
+                            return true
+                        end)
+                    else
+                        act:set_actor_position(smart_pos)
+                    end
+                end
+            end
+
+        -- NPC: change rank
+        elseif cmd == "change_npc_rank" then
+            local amount = tonumber(parts[2]) or 0
+            if sender_npc_id then
+                local npc_obj = level.object_by_id(sender_npc_id)
+                if npc_obj then
+                    local cur = npc_obj:character_rank()
+                    npc_obj:set_character_rank(cur + amount)
+                end
+            end
+
+        -- NPC: give item
+        elseif cmd == "equip_npc_item" then
+            local item_sec = parts[2]
+            if item_sec and sender_npc_id then
+                local se_npc = alife_object(sender_npc_id)
+                if se_npc and ini_sys:section_exist(item_sec) then
+                    alife_create_item(item_sec, se_npc)
+                end
+            end
+
+        -- NPC: companion behavior state
+        elseif cmd == "set_companion_state" then
+            local state = parts[2] or "follow"
+            if sender_npc_id and axr_companions then
+                local npc_obj = level.object_by_id(sender_npc_id)
+                if npc_obj then
+                    if state == "follow" and axr_companions.set_companion_to_follow_state then
+                        axr_companions.set_companion_to_follow_state(npc_obj)
+                    elseif state == "wait" and axr_companions.set_companion_to_wait_state then
+                        axr_companions.set_companion_to_wait_state(npc_obj)
+                    elseif state == "patrol" and axr_companions.set_companion_to_patrol_state then
+                        axr_companions.set_companion_to_patrol_state(npc_obj)
+                    elseif state == "attack" and axr_companions.set_companion_to_attack_state then
+                        axr_companions.set_companion_to_attack_state(npc_obj)
+                    elseif state == "stealth" and axr_companions.set_companion_to_stealth_substate then
+                        axr_companions.set_companion_to_stealth_substate(npc_obj)
+                    elseif state == "ignore_combat" and axr_companions.set_companion_to_ignore_combat_state then
+                        axr_companions.set_companion_to_ignore_combat_state(npc_obj)
+                    end
+                end
+            end
+
+        -- NPC: set neutral
+        elseif cmd == "set_npc_neutral" then
+            if sender_npc_id then
+                local npc_obj = level.object_by_id(sender_npc_id)
+                if npc_obj then
+                    npc_obj:set_relation(game_object.neutral, db.actor)
+                    npc_obj:force_set_goodwill(0, db.actor)
+                end
+            end
+
+        -- NPC: invulnerability
+        elseif cmd == "make_npc_invulnerable" then
+            local dur = tonumber(parts[2]) or 300
+            if sender_npc_id then
+                if not _panda_invulnerable_npcs then _panda_invulnerable_npcs = {} end
+                _panda_invulnerable_npcs[sender_npc_id] = true
+                CreateTimeEvent(0, "panda_invuln_" .. tostring(sender_npc_id), dur, function()
+                    if _panda_invulnerable_npcs then
+                        _panda_invulnerable_npcs[sender_npc_id] = nil
+                    end
+                    return true
+                end)
+            end
+
+        -- NPC: spawn backup near NPC
+        elseif cmd == "spawn_squad_for_npc" then
+            local faction = normalize_faction(parts[2] or "stalker")
+            local count = tonumber(parts[3]) or 1
+            if sender_npc_id then
+                local npc_obj = level.object_by_id(sender_npc_id)
+                if npc_obj then
+                    for i = 1, math.min(count, 5) do
+                        spawn_hunting_squad(faction, 30, false, i * 5, "default")
+                    end
+                end
+            end
+
+        -- Faction relations
+        elseif cmd == "change_faction_relations" then
+            local f1 = normalize_faction(parts[2] or "stalker")
+            local f2 = normalize_faction(parts[3] or "bandit")
+            local amount = tonumber(parts[4]) or 0
+            if game_relations and game_relations.change_faction_relations then
+                game_relations.change_faction_relations(f1, f2, amount, false)
+            end
+
+        -- Change player faction
+        elseif cmd == "change_player_faction" then
+            local new_fac = normalize_faction(parts[2] or "stalker")
+            if act.set_character_community then
+                act:set_character_community(new_fac, 0, 0)
+            end
+
+        -- Ceasefire
+        elseif cmd == "ceasefire" then
+            local radius = tonumber(parts[2]) or 100
+            local actor_pos = act:position()
+            for id = 1, 65535 do
+                local obj = level.object_by_id(id)
+                if obj and obj:alive() and IsStalker(obj) and obj:id() ~= act:id() then
+                    local dist = obj:position():distance_to(actor_pos)
+                    if dist <= radius then
+                        obj:set_relation(game_object.neutral, db.actor)
+                        obj:force_set_goodwill(0, db.actor)
+                    end
+                end
+            end
+
+        -- World: weather
+        elseif cmd == "set_weather" then
+            local weather = parts[2] or "w_clear1"
+            if level.set_weather then
+                level.set_weather(weather, true)
+            end
+
+        -- World: game news
+        elseif cmd == "give_game_news" then
+            local title = parts[2] or "News"
+            local message = parts[3] or ""
+            local dur = tonumber(parts[4]) or 5
+            act:give_game_news(title, message, "ui_inGame2_PDA", 0, dur * 1000)
+
+        -- Knowledge: tasks
+        elseif cmd == "give_task" then
+            local task_id = parts[2]
+            if task_id and task_manager and task_manager.get_task_manager then
+                local tm = task_manager.get_task_manager()
+                if tm and tm.give_task then
+                    tm:give_task(task_id)
+                end
+            end
+        elseif cmd == "complete_task" then
+            local task_id = parts[2]
+            if task_id and task_manager and task_manager.task_complete then
+                task_manager.task_complete(task_id)
+            end
+        elseif cmd == "fail_task" then
+            local task_id = parts[2]
+            if task_id and task_manager and task_manager.task_fail then
+                task_manager.task_fail(task_id)
             end
 
         else
@@ -5061,6 +5482,7 @@ function on_game_start()
     RegisterScriptCallback("save_state", save_state)
     RegisterScriptCallback("load_state", load_state)
     RegisterScriptCallback("on_game_end", on_game_shutdown_cb)
+    RegisterScriptCallback("npc_on_before_hit", panda_npc_invulnerability_check)
 
     -- Schedule the first trigger
     schedule_next_trigger(1)
