@@ -24,14 +24,13 @@ export function openHelpModal(): void {
   modal.setAttribute('aria-modal', 'true');
   modal.setAttribute('aria-labelledby', 'help-modal-title');
 
-  // Header
   const header = document.createElement('div');
   header.className = 'help-modal-header';
 
   const title = document.createElement('div');
   title.className = 'help-modal-title';
   title.id = 'help-modal-title';
-  title.append(createIcon('help'), document.createTextNode('P.A.N.D.A. — How To Write Conversations'));
+  title.append(createIcon('help'), document.createTextNode('P.A.N.D.A. — Quick Start & Framework Guide'));
   header.appendChild(title);
 
   const closeBtn = document.createElement('button');
@@ -44,7 +43,6 @@ export function openHelpModal(): void {
 
   modal.appendChild(header);
 
-  // Body
   const body = document.createElement('div');
   body.className = 'help-modal-body';
   body.innerHTML = HELP_CONTENT;
@@ -60,7 +58,6 @@ export function openHelpModal(): void {
   });
 }
 
-
 function closeHelpModal(): void {
   if (modalElement) {
     modalElement.remove();
@@ -72,69 +69,174 @@ function closeHelpModal(): void {
 }
 
 const HELP_CONTENT = `
-<h2>1. Overview</h2>
-<p>P.A.N.D.A. (Procedural Anomaly Narrative Dialogue Architecture) is a modular interactive conversation system for S.T.A.L.K.E.R. Anomaly. Conversations are delivered as PDA text messages — think of them as long-distance radio/text exchanges between the player and NPCs who are physically present somewhere in the game world.</p>
-<p><strong>ALL conversations happen over PDA text.</strong> The NPC is not standing in front of the player. They are messaging from wherever they are in the Zone. Write accordingly — no physical actions ("hands you a package"), no visual descriptions ("looks nervous"). Text messages only.</p>
-<p>Each faction has its own XML file containing conversations for players of that faction.</p>
+<section class="help-hero">
+  <span class="help-kicker">New here?</span>
+  <h2>Think of P.A.N.D.A. as: <em>who can message you</em> + <em>what they say</em> + <em>what your reply does next</em>.</h2>
+  <p>P.A.N.D.A. (Procedural Anomaly Narrative Dialogue Architecture) is a modular conversation framework for S.T.A.L.K.E.R. Anomaly. It can handle tiny one-off flavor exchanges, reactive faction chatter, branching multi-turn scenes, and even mini task-like interactions that spawn events, track progress, and continue later.</p>
+  <p>Everything still follows one easy mental model: a conversation becomes available when its <strong>preconditions</strong> match, the text can pull in live game data through <strong>dynamic references</strong>, and each player reply can fire <strong>outcomes</strong> that change the world or move the conversation forward.</p>
+</section>
 
-<h2>2. How the System Works</h2>
+<section class="help-callout">
+  <strong>Quick mental model</strong>
+  <ol class="help-flow-list">
+    <li><strong>Preconditions</strong> decide whether a conversation is allowed to trigger.</li>
+    <li><strong>Opening message</strong> is the NPC's PDA text to the player.</li>
+    <li><strong>Choices</strong> let the player answer in different tones or directions.</li>
+    <li><strong>Replies + continue targets</strong> create follow-up turns and branching paths.</li>
+    <li><strong>Outcomes</strong> reward, punish, spawn, mark, teleport, recruit, or otherwise react to the player's choice.</li>
+  </ol>
+</section>
+
+<h2>1. What are preconditions?</h2>
+<div class="help-grid">
+  <article class="help-card">
+    <h3>Simple explanation</h3>
+    <p>Preconditions are the conversation's filter rules. They answer: <em>"Should this NPC be allowed to send this conversation right now?"</em></p>
+    <p>If the rules do not match, the conversation is invisible. If they do match, it becomes eligible.</p>
+  </article>
+  <article class="help-card">
+    <h3>How they behave</h3>
+    <p>All top-level preconditions are checked before a conversation can trigger. In normal use, think of them as your context lock: faction, rank, goodwill, money, location, time of day, inventory, companions, and more.</p>
+    <p>Use them to make the conversation feel believable before the first line is even shown.</p>
+  </article>
+  <article class="help-card">
+    <h3>Good first-time example</h3>
+    <p><code>req_npc_friendly:stalker</code> + <code>req_rank:veteran</code> says: only friendly stalkers should send this, and only after the player has earned enough status for that exchange to make sense.</p>
+  </article>
+</div>
+<p class="help-note"><strong>Rule of thumb:</strong> if a conversation should only happen in a specific situation, express that in preconditions instead of trying to explain it awkwardly in the dialogue text.</p>
+
+<h2>2. What are dynamic references?</h2>
+<div class="help-grid">
+  <article class="help-card">
+    <h3>Simple explanation</h3>
+    <p>Dynamic references are live placeholders. You write a token such as <code>$player_name</code> or <code>%&lt;level&gt;_panda_st%</code>, and the framework replaces it with real runtime data.</p>
+  </article>
+  <article class="help-card">
+    <h3>Why they matter</h3>
+    <p>They let one conversation feel personal and reactive without hardcoding every line. The same XML can mention the current level, the player's faction, the NPC's name, current money, or a real smart terrain chosen by the system.</p>
+  </article>
+  <article class="help-card">
+    <h3>How to think about them</h3>
+    <p>Use them as reusable building blocks for flavor, context, and location hints. They make authored text feel dynamic while keeping the structure clean.</p>
+  </article>
+</div>
+<ul>
+  <li><code>$player_name</code> / <code>$npc_name</code> for personal names.</li>
+  <li><code>$player_faction</code>, <code>$player_rank</code>, <code>$player_money</code> for state-aware dialogue.</li>
+  <li><code>%&lt;level&gt;_panda_st%</code> for a real location name in dialogue text.</li>
+  <li><code>%&lt;level&gt;_panda_st_key%</code> for the matching smart-terrain key inside outcome parameters.</li>
+</ul>
+
+<h2>3. What are outcomes?</h2>
+<div class="help-grid">
+  <article class="help-card">
+    <h3>Simple explanation</h3>
+    <p>Outcomes are the effects that happen after the player picks a choice. If preconditions decide <em>whether</em> a conversation can happen, outcomes decide <em>what the choice actually causes</em>.</p>
+  </article>
+  <article class="help-card">
+    <h3>Common uses</h3>
+    <p>Rewards and penalties, spawning friendlies or hostiles, giving items, revealing stashes, marking locations, changing goodwill, teleporting NPCs, recruiting companions, and pausing into a task-like state.</p>
+  </article>
+  <article class="help-card">
+    <h3>Design guidance</h3>
+    <p>Match the effect to the fiction. If the NPC promises money, reward money. If they send the player to investigate a place, watch or trigger that location. If they call in trouble, spawn trouble.</p>
+  </article>
+</div>
+<p class="help-note"><strong>Simple framing:</strong> outcomes are where your dialogue stops being words and starts becoming gameplay.</p>
+
+<h2>4. How the framework scales from simple to advanced</h2>
+<div class="help-grid help-grid-wide">
+  <article class="help-card">
+    <h3>Level 1 — one-turn flavor chat</h3>
+    <p>A single opening message with one or two replies and no major consequences. Great for atmosphere, character voice, or lightweight worldbuilding.</p>
+  </article>
+  <article class="help-card">
+    <h3>Level 2 — reactive conversation</h3>
+    <p>Add sharper preconditions and better dynamic references so the same structure feels situational: a veteran, a bandit, a broke player, a night-time warning, a location-specific rumor.</p>
+  </article>
+  <article class="help-card">
+    <h3>Level 3 — branching scene</h3>
+    <p>Use multiple turns and <code>_cont_N</code> links so choices branch into follow-up messages, different tones, and different consequences.</p>
+  </article>
+  <article class="help-card">
+    <h3>Level 4 — mini task / gameplay sequence</h3>
+    <p>Use outcomes such as spawning squads, location watches, triggers, teleports, courier items, or <code>pause_job</code> to create custom mini tasks that begin as dialogue and continue as gameplay.</p>
+  </article>
+</div>
+<p>You do not need a different system for each of these. P.A.N.D.A. supports them all with the same core pieces: filters, text, choices, follow-up turns, and outcomes.</p>
+
+<h2>5. A beginner-friendly recipe</h2>
 <ol>
-  <li>Finds all eligible NPCs in the game world (alive, not in combat, not on cooldown, minimum distance from player, not a trader/zombified/monolith).</li>
-  <li>Scans through ALL conversations in the player's faction XML file.</li>
-  <li>For each NPC candidate, checks every conversation's preconditions against that NPC. ALL preconditions must pass (AND logic).</li>
-  <li>From all eligible conversation+NPC pairs, picks one at random (weighted by cooldown).</li>
-  <li>Sends the opening message to the player's PDA and presents response choices.</li>
+  <li><strong>Start with the situation.</strong> Example: "A friendly stalker wants to warn the player about activity near a smart terrain."</li>
+  <li><strong>Add only the preconditions needed to make that situation true.</strong></li>
+  <li><strong>Write one clear opening message.</strong> Keep it like a PDA text, not face-to-face dialogue.</li>
+  <li><strong>Create 1-3 reply choices.</strong> Helpful, dismissive, suspicious, curious, etc.</li>
+  <li><strong>Give each choice an outcome or follow-up turn.</strong> Even a small branch feels meaningful when it changes text, tone, or gameplay.</li>
+  <li><strong>Only add complexity when the simple version already works.</strong></li>
 </ol>
 
-<h2>3. XML Key Format</h2>
+<h2>6. Core system flow</h2>
+<ol>
+  <li>Finds all eligible NPCs in the game world.</li>
+  <li>Scans the player's faction conversation file.</li>
+  <li>Checks each conversation's preconditions against candidate NPCs.</li>
+  <li>Selects one eligible conversation + NPC pairing.</li>
+  <li>Sends the opening message and waits for the player's choice.</li>
+  <li>Applies replies, outcomes, and continuation turns.</li>
+</ol>
+
+<h2>7. PDA writing rule to remember</h2>
+<p><strong>All PANDA conversations are PDA messages.</strong> Write them like text/radio communication from an NPC somewhere else in the world. Avoid physical stage directions such as "hands you a package" or "leans closer."</p>
+
+<h2>8. XML key format</h2>
 <p>Base format: <code>st_pda_ic_&lt;faction&gt;_&lt;id&gt;_&lt;suffix&gt;</code></p>
-<h3>Required Components</h3>
+<h3>Required components</h3>
 <ul>
-  <li><code>_precond</code> — Comma-separated precondition list</li>
-  <li><code>_open</code> — Opening message from the NPC</li>
-  <li><code>_choice_1</code> — Player's first response option (min 1, max 4)</li>
-  <li><code>_reply_1</code> — NPC's reply to choice 1</li>
-  <li><code>_outcome_1</code> — Outcome commands for choice 1 (use "none" for no outcome)</li>
+  <li><code>_precond</code> — comma-separated precondition list</li>
+  <li><code>_open</code> — opening message from the NPC</li>
+  <li><code>_choice_1</code> — player's first response option</li>
+  <li><code>_reply_1</code> — NPC reply to choice 1</li>
+  <li><code>_outcome_1</code> — outcome commands for choice 1, or <code>none</code></li>
 </ul>
-<h3>Optional Components</h3>
+<h3>Optional components</h3>
 <ul>
-  <li><code>_choice_2</code> through <code>_choice_4</code> — Additional player choices</li>
-  <li><code>_reply_2</code> through <code>_reply_4</code> — NPC replies</li>
-  <li><code>_outcome_2</code> through <code>_outcome_4</code> — Outcomes</li>
-  <li><code>_cont_1</code> through <code>_cont_4</code> — Next turn ID for branching</li>
-  <li><code>_timeout</code> — Custom timeout in seconds</li>
-  <li><code>_timeout_msg</code> — Custom annoyed message when player ignores NPC</li>
+  <li><code>_choice_2</code> through <code>_choice_4</code></li>
+  <li><code>_reply_2</code> through <code>_reply_4</code></li>
+  <li><code>_outcome_2</code> through <code>_outcome_4</code></li>
+  <li><code>_cont_1</code> through <code>_cont_4</code> for follow-up turns</li>
+  <li><code>_timeout</code> and <code>_timeout_msg</code></li>
 </ul>
 
-<h2>4. Preconditions Reference</h2>
-<p>All preconditions are defined in the <code>_precond</code> string entry, comma-separated. ALL must pass (AND logic).</p>
-<h3>NPC Relation (Goodwill-Based)</h3>
+<h2>9. Preconditions reference</h2>
+<p>Preconditions live in the <code>_precond</code> string entry. Use them to gate who can trigger the conversation and under what circumstances.</p>
+<h3>NPC relation (goodwill-based)</h3>
 <ul>
-  <li><code>req_npc_friendly</code> / <code>req_npc_friendly:&lt;faction&gt;</code> — NPC must be friendly/neutral</li>
-  <li><code>req_npc_hostile</code> / <code>req_npc_hostile:&lt;faction&gt;</code> — NPC must be hostile</li>
+  <li><code>req_npc_friendly</code> / <code>req_npc_friendly:&lt;faction&gt;</code></li>
+  <li><code>req_npc_hostile</code> / <code>req_npc_hostile:&lt;faction&gt;</code></li>
 </ul>
-<h3>NPC Faction</h3>
+<h3>NPC faction</h3>
 <ul>
-  <li><code>req_npc_faction:&lt;faction&gt;</code> — NPC must belong to this faction</li>
-  <li><code>req_npc_not_faction:&lt;faction&gt;</code> — NPC must NOT belong to this faction</li>
+  <li><code>req_npc_faction:&lt;faction&gt;</code></li>
+  <li><code>req_npc_not_faction:&lt;faction&gt;</code></li>
 </ul>
 <h3>Rank</h3>
 <ul>
-  <li><code>req_npc_rank:&lt;rank&gt;</code> / <code>req_npc_rank_max:&lt;rank&gt;</code> — NPC rank min/max</li>
-  <li><code>req_rank:&lt;rank&gt;</code> / <code>req_rank_max:&lt;rank&gt;</code> — Player rank min/max</li>
+  <li><code>req_npc_rank:&lt;rank&gt;</code> / <code>req_npc_rank_max:&lt;rank&gt;</code></li>
+  <li><code>req_rank:&lt;rank&gt;</code> / <code>req_rank_max:&lt;rank&gt;</code></li>
   <li>Ranks: novice, trainee, experienced, professional, veteran, expert, master, legend</li>
 </ul>
-<h3>Money &amp; Reputation</h3>
+<h3>Money &amp; reputation</h3>
 <ul>
   <li><code>req_money:&lt;amount&gt;</code> / <code>req_money_max:&lt;amount&gt;</code></li>
   <li><code>req_rep:&lt;value&gt;</code> / <code>req_rep_max:&lt;value&gt;</code></li>
 </ul>
 <h3>Kills</h3>
 <ul>
-  <li><code>req_kills:&lt;count&gt;</code> — Stalker kills</li>
-  <li><code>req_mutant_kills:&lt;count&gt;</code> — Mutant kills</li>
+  <li><code>req_kills:&lt;count&gt;</code></li>
+  <li><code>req_mutant_kills:&lt;count&gt;</code></li>
 </ul>
-<h3>Faction Goodwill</h3>
+<h3>Faction goodwill</h3>
 <ul>
   <li><code>req_goodwill:&lt;amount&gt;:&lt;faction&gt;</code> / <code>req_goodwill_max:&lt;amount&gt;:&lt;faction&gt;</code></li>
 </ul>
@@ -145,42 +247,42 @@ const HELP_CONTENT = `
   <li><code>req_npc_near_smart:&lt;smart_key&gt;:&lt;meters&gt;</code></li>
   <li><code>req_actor_in_zone:&lt;zone_name&gt;</code></li>
 </ul>
-<h3>Companions &amp; Inventory</h3>
+<h3>Companions &amp; inventory</h3>
 <ul>
   <li><code>req_companions:&lt;count&gt;</code> / <code>req_companions_max:&lt;count&gt;</code></li>
   <li><code>req_has_item:&lt;section_name&gt;</code></li>
   <li><code>req_equipped:&lt;section_name&gt;</code> / <code>req_equipped_slot:&lt;slot&gt;</code></li>
 </ul>
-<h3>Time &amp; Weather</h3>
+<h3>Time &amp; weather</h3>
 <ul>
   <li><code>req_time_day</code> / <code>req_time_night</code></li>
   <li><code>req_surge_soon:&lt;seconds&gt;</code> / <code>req_not_surge_soon:&lt;seconds&gt;</code></li>
   <li><code>req_psi_storm_soon:&lt;seconds&gt;</code></li>
   <li><code>req_weather_fx_active</code> / <code>req_weather_fx_not_active</code></li>
 </ul>
-<h3>Health &amp; Achievements</h3>
+<h3>Health &amp; achievements</h3>
 <ul>
-  <li><code>req_health_min:&lt;value&gt;</code> / <code>req_health_max:&lt;value&gt;</code> — 0.0 to 1.0</li>
+  <li><code>req_health_min:&lt;value&gt;</code> / <code>req_health_max:&lt;value&gt;</code></li>
   <li><code>req_achievement:&lt;name&gt;</code></li>
 </ul>
-<h3>Faction Name List</h3>
+<h3>Faction aliases</h3>
 <p><code>stalker/loner</code>, <code>dolg/duty</code>, <code>freedom</code>, <code>bandit</code>, <code>army/military</code>, <code>killer/mercenary</code>, <code>ecolog/scientist</code>, <code>csky/clear_sky</code>, <code>monolith</code>, <code>renegade</code>, <code>greh</code>, <code>isg</code>, <code>zombied/zombie</code></p>
 
-<h2>5. Outcomes Reference</h2>
-<p>Actions that happen when the player picks a response. Use <code>none</code> for no outcome. Comma-separate multiple outcomes.</p>
-<h3>Money &amp; Reputation</h3>
+<h2>10. Outcomes reference</h2>
+<p>Outcomes are comma-separated actions that run after a player choice.</p>
+<h3>Money &amp; reputation</h3>
 <ul>
   <li><code>reward_money:&lt;amount&gt;</code> / <code>punish_money:&lt;amount&gt;</code></li>
   <li><code>reward_rep:&lt;amount&gt;</code> / <code>punish_rep:&lt;amount&gt;</code></li>
 </ul>
-<h3>Faction Goodwill</h3>
+<h3>Faction goodwill</h3>
 <ul>
   <li><code>reward_gw:&lt;amount&gt;:&lt;faction&gt;</code> / <code>punish_gw:&lt;amount&gt;:&lt;faction&gt;</code></li>
 </ul>
 <h3>Items</h3>
 <ul>
-  <li><code>give_item:&lt;section_name&gt;</code> — Spawn into inventory</li>
-  <li><code>courier_item:&lt;section_name&gt;</code> — Spawn courier NPC</li>
+  <li><code>give_item:&lt;section_name&gt;</code></li>
+  <li><code>courier_item:&lt;section_name&gt;</code></li>
 </ul>
 <h3>Spawning</h3>
 <ul>
@@ -192,94 +294,68 @@ const HELP_CONTENT = `
   <li><code>spawn_hostile_at_smart:&lt;faction&gt;:&lt;smart_key&gt;[:delay]</code></li>
   <li><code>spawn_companion:&lt;faction&gt;:&lt;distance&gt;</code></li>
 </ul>
-<h3>Stash &amp; Location Markers</h3>
+<h3>Stash &amp; location markers</h3>
 <ul>
-  <li><code>reward_stash</code> — Reveal a random stash location</li>
+  <li><code>reward_stash</code></li>
   <li><code>watch_location:&lt;smart_key&gt;[:radius]</code></li>
   <li><code>watch_location_trigger:&lt;smart_key&gt;:&lt;command&gt;:&lt;params&gt;:&lt;radius&gt;</code></li>
 </ul>
-<h3>NPC Teleportation &amp; Companion</h3>
+<h3>NPC teleportation &amp; companion</h3>
 <ul>
   <li><code>teleport_npc_to_smart:&lt;smart_key&gt;[:delay]</code></li>
   <li><code>teleport_npc_to_player[:delay]</code></li>
   <li><code>recruit_companion[:no_dismiss]</code></li>
 </ul>
-<h3>Job Tracking</h3>
+<h3>Job tracking</h3>
 <ul>
-  <li><code>pause_job:&lt;timeout_seconds&gt;:&lt;success_turn&gt;:&lt;fail_turn&gt;</code> — Must be in the same outcome as spawn commands</li>
+  <li><code>pause_job:&lt;timeout_seconds&gt;:&lt;success_turn&gt;:&lt;fail_turn&gt;</code></li>
 </ul>
-<h3>Chance Modifier</h3>
+<h3>Chance modifier</h3>
 <ul>
-  <li><code>chance:&lt;percent&gt;:&lt;command&gt;</code> — Roll a percentage chance before executing</li>
+  <li><code>chance:&lt;percent&gt;:&lt;command&gt;</code></li>
 </ul>
 
-<h2>6. Dynamic Placeholders</h2>
-<p>Use in dialogue text. Replaced at runtime with real game data:</p>
+<h2>11. Dynamic references reference</h2>
+<p>Use live placeholders in dialogue text so one authored conversation can adapt to the current game state.</p>
 <ul>
   <li><code>$player_name</code>, <code>$npc_name</code>, <code>$player_faction</code>, <code>$npc_faction</code></li>
   <li><code>$current_level</code>, <code>$player_money</code>, <code>$player_rank</code>, <code>$player_reputation</code></li>
   <li><code>$companion_count</code>, <code>$time_of_day</code>, <code>$game_hour</code></li>
-  <li><code>%&lt;level&gt;_panda_st%</code> — Random real smart terrain name (for dialogue text)</li>
-  <li><code>%&lt;level&gt;_panda_st_key%</code> — Same location's key (for command parameters)</li>
+  <li><code>%&lt;level&gt;_panda_st%</code> — random real smart terrain name for dialogue text</li>
+  <li><code>%&lt;level&gt;_panda_st_key%</code> — matching smart terrain key for outcome parameters</li>
 </ul>
 
-<h2>7. Smart Terrain Location System</h2>
-<p>Use <code>%&lt;level&gt;_panda_st%</code> in dialogue text to reference a random real vanilla game location. The system caches the chosen location for the entire conversation. Use <code>%&lt;level&gt;_panda_st_key%</code> in command parameters.</p>
+<h2>12. Smart terrain location system</h2>
+<p>Use <code>%&lt;level&gt;_panda_st%</code> in dialogue text to reference a random real vanilla location. The system caches the chosen location for the entire conversation. Use <code>%&lt;level&gt;_panda_st_key%</code> when outcomes need the matching smart-terrain key.</p>
 <p>Available level keys: cordon, darkscape, swamp, garbage, agroprom, darkvalley, yantar, wildterritory, rostok, deadcity, truck_cemetery, meadow, radar, red_forest, limansk, pripyat, generators, outskirts, jupiter, south_cnpp, north_cnpp, zaton</p>
 
-<h2>8. Multi-Turn Conversations</h2>
-<p>Use <code>_cont_N</code> suffix to specify the next turn. Turn 2 keys use <code>_t2_</code> prefix, Turn 3 uses <code>_t3_</code>, etc.</p>
-<p>If <code>_cont_1</code> is "2", after the player picks choice 1, the conversation continues with turn 2 choices. If absent, the conversation ends.</p>
+<h2>13. Multi-turn conversations</h2>
+<p>Use <code>_cont_N</code> to continue into another turn. Turn 2 keys use <code>_t2_</code>, turn 3 uses <code>_t3_</code>, and so on. This is how short exchanges grow into longer branches.</p>
 
-<h2>9. Conversation Timeouts</h2>
+<h2>14. Conversation timeouts</h2>
 <ul>
-  <li><code>_timeout</code> — Seconds before NPC gets annoyed (default: random 90-300)</li>
-  <li><code>_timeout_msg</code> — Custom annoyed message</li>
+  <li><code>_timeout</code> — seconds before the NPC gives up waiting</li>
+  <li><code>_timeout_msg</code> — custom annoyed follow-up line</li>
 </ul>
 
-<h2>10. Job System (Kill Tracking)</h2>
-<p><code>pause_job:&lt;timeout&gt;:&lt;success_turn&gt;:&lt;fail_turn&gt;</code> — Pause conversation and wait for all spawned squads to be killed. Must appear in the same outcome string as spawn commands.</p>
-<p>Use <code>+</code> to chain commands inside <code>watch_location_trigger</code>. Use <code>,</code> to separate top-level outcomes.</p>
-
-<h2>11. Writing Rules</h2>
-<h3>Immersion &amp; Tone</h3>
+<h2>15. Writing rules</h2>
+<h3>Immersion &amp; tone</h3>
 <ul>
-  <li>These are TEXT MESSAGES — short sentences, abbreviations, slang</li>
-  <li>Not everyone is friendly — vary personalities (gruff veterans, nervous rookies, sarcastic traders, hostile contacts)</li>
-  <li>Stay lore-friendly. Reference the Zone, artifacts, anomalies, mutants, factions</li>
-  <li>Use real data via placeholders (<code>$player_name</code>, <code>$npc_faction</code>, etc.)</li>
+  <li>These are text messages, so keep the language concise and PDA-friendly.</li>
+  <li>Let personalities vary: nervous rookies, bitter veterans, hostile bandits, dry scientists.</li>
+  <li>Stay lore-friendly and tie lines to the Zone, factions, anomalies, mutants, and survival.</li>
+  <li>Use placeholders so repeated content still feels specific.</li>
 </ul>
 <h3>Locations</h3>
 <ul>
-  <li>NEVER reference fictional locations</li>
-  <li>Use <code>%&lt;level&gt;_panda_st%</code> placeholders for locations</li>
-  <li>Never describe stash locations — system picks them randomly</li>
+  <li>Do not invent fake locations when the framework can provide real ones.</li>
+  <li>Use <code>%&lt;level&gt;_panda_st%</code> for location mentions in text.</li>
+  <li>Do not describe stash locations in prose; let the system choose and reveal them.</li>
 </ul>
 <h3>Outcomes</h3>
 <ul>
-  <li>Match outcomes to dialogue context</li>
-  <li>Some outcomes are outside your control (stash locations, spawn positions, courier appearance)</li>
-</ul>
-<h3>Preconditions</h3>
-<ul>
-  <li>Every conversation MUST have a <code>_precond</code> entry</li>
-  <li>Write dialogue that MATCHES the preconditions</li>
-</ul>
-<h3>General Craft</h3>
-<ul>
-  <li>Keep conversations concise (1-3 sentences per message)</li>
-  <li>Give meaningful choices with different outcomes</li>
-  <li>Use multi-turn sparingly (1-2 turns usually)</li>
-</ul>
-
-<h2>12. Common Mistakes</h2>
-<ul>
-  <li>Using <code>pause_job</code> without spawn commands in the same outcome</li>
-  <li>Writing fictional locations — use smart terrain placeholders instead</li>
-  <li>Describing stash locations in dialogue — write vaguely</li>
-  <li>Physical actions in text messages — this is PDA text, not in-person</li>
-  <li>Every NPC sounding the same — give them personality</li>
-  <li>Missing preconditions — always set at least friendly/hostile</li>
-  <li>Hardcoding NPC names — use <code>$npc_name</code> placeholder</li>
+  <li>Match outcomes to the dialogue context.</li>
+  <li>Let choices differ in tone, consequence, or follow-up.</li>
+  <li>Use preconditions to create believable setup, then outcomes to pay it off.</li>
 </ul>
 `;
