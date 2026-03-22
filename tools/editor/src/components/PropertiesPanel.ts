@@ -21,6 +21,7 @@ import { FACTION_IDS, RANKS, MUTANT_TYPES, DYNAMIC_PLACEHOLDERS, LEVEL_DISPLAY_N
 import { createOnboardingNudge } from './Onboarding';
 import { createItemPickerPanelEditor } from './ItemPickerPanel';
 import { formatGameItemLabel } from '../lib/item-catalog';
+import { requestFlowCenter } from '../lib/flow-navigation';
 
 const ADDABLE_PRECONDITION_SCHEMAS = PRECONDITION_SCHEMAS.filter((schema) => !schema.pickerHidden);
 
@@ -435,8 +436,11 @@ function renderChoiceProperties(
   contHint.textContent = 'Link this choice to another turn for multi-step conversations';
   contField.appendChild(contHint);
 
+  const contControls = document.createElement('div');
+  contControls.style.cssText = 'display:flex; gap:8px; align-items:center;';
+
   const contSelect = document.createElement('select');
-  contSelect.style.width = '100%';
+  contSelect.style.flex = '1 1 auto';
   contSelect.setAttribute('data-field-key', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'));
 
   const noneOpt = document.createElement('option');
@@ -461,7 +465,20 @@ function renderChoiceProperties(
     });
   };
 
-  contField.appendChild(contSelect);
+  const createBranchButton = document.createElement('button');
+  createBranchButton.type = 'button';
+  createBranchButton.className = 'btn-sm';
+  createBranchButton.textContent = 'Create New Branch';
+  createBranchButton.title = 'Create and connect a new turn to this choice';
+  createBranchButton.onclick = () => {
+    const createdTurnNumber = store.createConnectedTurn(conv.id, turn.turnNumber, choice.index);
+    if (createdTurnNumber != null) {
+      requestFlowCenter({ conversationId: conv.id, turnNumber: createdTurnNumber });
+    }
+  };
+
+  contControls.append(contSelect, createBranchButton);
+  contField.appendChild(contControls);
   container.appendChild(contField);
 }
 

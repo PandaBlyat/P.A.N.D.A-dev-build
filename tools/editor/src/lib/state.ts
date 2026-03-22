@@ -478,6 +478,60 @@ class StateManager {
     this.batchUpdateTurnPositions(conversationId, this.calculateAutoLayoutUpdates(conversation, this.state.flowDensity));
   }
 
+  createConnectedTurn(conversationId: number, sourceTurnNumber: number, choiceIndex: number): number | null {
+    const conversation = this.getConversationById(conversationId);
+    const sourceTurn = conversation?.turns.find(turn => turn.turnNumber === sourceTurnNumber);
+    const sourceChoice = sourceTurn?.choices.find(choice => choice.index === choiceIndex);
+    if (!conversation || !sourceTurn || !sourceChoice) return null;
+
+    this.pushUndo();
+
+    const nextTurnNumber = conversation.turns.reduce((max, turn) => Math.max(max, turn.turnNumber), 0) + 1;
+    const newTurn = createTurn(nextTurnNumber);
+    const autoLayoutConversation: Conversation = JSON.parse(JSON.stringify(conversation));
+    const autoLayoutSourceTurn = autoLayoutConversation.turns.find(turn => turn.turnNumber === sourceTurnNumber);
+    const autoLayoutSourceChoice = autoLayoutSourceTurn?.choices.find(choice => choice.index === choiceIndex);
+
+    if (autoLayoutSourceChoice) {
+      autoLayoutSourceChoice.continueTo = nextTurnNumber;
+    }
+    autoLayoutConversation.turns.push(newTurn);
+
+    const autoLayoutPositions = this.calculateAutoLayoutUpdates(autoLayoutConversation, this.state.flowDensity);
+    const autoLayoutSourcePosition = autoLayoutPositions.find(update => update.turnNumber === sourceTurnNumber)?.position;
+    const autoLayoutNewTurnPosition = autoLayoutPositions.find(update => update.turnNumber === nextTurnNumber)?.position;
+    const layout = getFlowNodeLayout(this.state.flowDensity);
+    const spacing = getFlowAutoLayoutSpacing(this.state.flowDensity);
+    const sourceHeight = estimateFlowNodeHeight(sourceTurn, this.state.flowDensity);
+    const newTurnHeight = estimateFlowNodeHeight(newTurn, this.state.flowDensity);
+    const fallbackPosition = {
+      x: sourceTurn.position.x + layout.width + spacing.horizontalGutter,
+      y: Math.max(
+        spacing.canvasPaddingY,
+        sourceTurn.position.y + (choiceIndex - 1) * (newTurnHeight + spacing.siblingGap) - Math.round((newTurnHeight - sourceHeight) / 2),
+      ),
+    };
+
+    newTurn.position = autoLayoutSourcePosition && autoLayoutNewTurnPosition
+      ? {
+          x: sourceTurn.position.x + (autoLayoutNewTurnPosition.x - autoLayoutSourcePosition.x),
+          y: Math.max(
+            spacing.canvasPaddingY,
+            sourceTurn.position.y + (autoLayoutNewTurnPosition.y - autoLayoutSourcePosition.y),
+          ),
+        }
+      : fallbackPosition;
+
+    sourceChoice.continueTo = nextTurnNumber;
+    conversation.turns.push(newTurn);
+    this.state.selectedConversationId = conversationId;
+    this.state.selectedTurnNumber = nextTurnNumber;
+    this.state.selectedChoiceIndex = null;
+    this.state.propertiesTab = 'selection';
+    this.finishProjectMutation();
+    return nextTurnNumber;
+  }
+
   addTurn(conversationId: number): void {
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
     if (!conv) return;
