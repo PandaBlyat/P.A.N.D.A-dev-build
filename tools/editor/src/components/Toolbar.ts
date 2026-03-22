@@ -3,9 +3,6 @@
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { store, type FlowDensity } from '../lib/state';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
-import { FACTION_IDS } from '../lib/constants';
-import { FACTION_DISPLAY_NAMES } from '../lib/types';
-import { FACTION_COLORS } from '../lib/faction-colors';
 import { exportProjectJson, exportXml, importFromXml, importFromJson } from '../lib/project-io';
 import { openSharePanel } from './SharePanel';
 import { openHelpModal } from './HelpModal';
@@ -88,34 +85,6 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   brandCopy.append(title);
   branding.appendChild(brandCopy);
 
-  const factionPicker = document.createElement('div');
-  factionPicker.className = 'toolbar-faction-picker';
-
-  const factionLabel = document.createElement('span');
-  factionLabel.className = 'toolbar-select-label';
-  factionLabel.textContent = 'Player Faction';
-
-  const factionSelect = document.createElement('select');
-  factionSelect.className = 'toolbar-faction-select';
-  factionSelect.title = 'Pick the player\'s faction — conversations will only trigger when the player belongs to this faction. Also determines the XML file prefix.';
-
-  const placeholderOpt = document.createElement('option');
-  placeholderOpt.disabled = true;
-  placeholderOpt.textContent = '— Player\'s faction for conversations —';
-  factionSelect.appendChild(placeholderOpt);
-
-  for (const fid of FACTION_IDS) {
-    const opt = document.createElement('option');
-    opt.value = fid;
-    opt.textContent = `● ${FACTION_DISPLAY_NAMES[fid]}`;
-    opt.style.color = FACTION_COLORS[fid];
-    opt.selected = fid === state.project.faction;
-    factionSelect.appendChild(opt);
-  }
-  factionSelect.onchange = () => store.setFaction(factionSelect.value as typeof FACTION_IDS[number]);
-
-  factionPicker.append(factionLabel, factionSelect);
-
   const openBtn = btn('open', 'Open', importFromJson, 'Open a saved .panda/.json project or import a PANDA XML file');
   const saveBtn = btn('save', 'Save', exportProjectJson, 'Save as .panda project file (preserves editor data)');
   const importBtn = btn('import', 'Import', importFromXml, 'Import conversations from an existing game XML file');
@@ -140,10 +109,6 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
     leftZone.className = 'toolbar-zone toolbar-zone-left';
     leftZone.appendChild(branding);
 
-    const factionGroup = document.createElement('div');
-    factionGroup.className = 'toolbar-group toolbar-group-meta';
-    factionGroup.appendChild(factionPicker);
-    leftZone.appendChild(factionGroup);
 
     const centerZone = document.createElement('div');
     centerZone.className = 'toolbar-zone toolbar-zone-center';
@@ -231,9 +196,6 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
 
   const fileGroup = document.createElement('div');
   fileGroup.className = 'toolbar-group toolbar-group-project';
-  fileGroup.appendChild(factionPicker);
-  fileGroup.appendChild(sep());
-
   if (isCompact) {
     const projectOverflowActions: OverflowAction[] = [];
     if (isMobile) {

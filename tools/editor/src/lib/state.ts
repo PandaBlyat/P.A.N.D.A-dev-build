@@ -1,6 +1,7 @@
 // P.A.N.D.A. Conversation Editor — Application State
 
 import type { Project, Conversation, Turn, Choice, ValidationMessage } from './types';
+import { getConversationFaction } from './types';
 import { createEmptyProject, createConversation, createTurn, createChoice } from './xml-export';
 import { validate } from './validation';
 import { estimateFlowNodeHeight, getFlowAutoLayoutSpacing, getFlowNodeLayout } from './flow-layout';
@@ -421,7 +422,13 @@ class StateManager {
   }
 
   loadProject(project: Project, systemStrings: Map<string, string>): void {
-    this.state.project = project;
+    this.state.project = {
+      ...project,
+      conversations: project.conversations.map((conversation) => ({
+        ...conversation,
+        faction: getConversationFaction(conversation, project.faction),
+      })),
+    };
     this.state.systemStrings = systemStrings;
     this.state.selectedConversationId = project.conversations.length > 0 ? project.conversations[0].id : null;
     this.state.selectedTurnNumber = null;
@@ -442,6 +449,14 @@ class StateManager {
   setFaction(faction: Project['faction']): void {
     this.pushUndo();
     this.state.project.faction = faction;
+    this.finishProjectMutation();
+  }
+
+  setConversationFaction(id: number, faction: Project['faction']): void {
+    const conv = this.state.project.conversations.find(c => c.id === id);
+    if (!conv || conv.faction === faction) return;
+    this.pushUndo();
+    conv.faction = faction;
     this.finishProjectMutation();
   }
 
@@ -544,6 +559,7 @@ class StateManager {
   addConversation(): void {
     this.pushUndo();
     const conv = createConversation(this.state.project);
+    conv.faction = getConversationFaction(this.getSelectedConversation(), this.state.project.faction);
     this.state.project.conversations.push(conv);
     this.state.selectedConversationId = conv.id;
     this.state.selectedTurnNumber = null;

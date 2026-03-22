@@ -14,6 +14,7 @@ export type FactionId =
 export interface Conversation {
   id: number;
   label: string;
+  faction?: FactionId;
   preconditions: PreconditionEntry[];
   timeout?: number;
   timeoutMessage?: string;
@@ -138,3 +139,7 @@ export const FACTION_XML_KEYS: Record<FactionId, string> = {
   renegade: 'renegade',
   greh: 'greh',
 };
+
+export function getConversationFaction(conversation: Pick<Conversation, 'faction'> | null | undefined, fallback: FactionId = 'stalker'): FactionId {
+  return conversation?.faction ?? fallback;
+}

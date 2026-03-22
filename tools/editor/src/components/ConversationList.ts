@@ -2,6 +2,9 @@
 
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { store } from '../lib/state';
+import { FACTION_IDS } from '../lib/constants';
+import { FACTION_COLORS } from '../lib/faction-colors';
+import { FACTION_DISPLAY_NAMES, getConversationFaction } from '../lib/types';
 import { createValidationWorkspaceContent } from './ValidationBar';
 import { createOnboardingNudge } from './Onboarding';
 import { setButtonContent } from './icons';
@@ -63,7 +66,8 @@ export function renderConversationList(container: HTMLElement): void {
     item.tabIndex = 0;
     item.setAttribute('role', 'option');
     item.setAttribute('aria-selected', conv.id === state.selectedConversationId ? 'true' : 'false');
-    item.setAttribute('aria-label', `${conversationLabel}, ${conv.turns.length} turns`);
+    const conversationFaction = getConversationFaction(conv, state.project.faction);
+    item.setAttribute('aria-label', `${conversationLabel}, ${FACTION_DISPLAY_NAMES[conversationFaction]}, ${conv.turns.length} turns`);
     item.onclick = () => {
       store.selectConversation(conv.id);
     };
@@ -100,7 +104,32 @@ export function renderConversationList(container: HTMLElement): void {
     textWrap.className = 'conv-text';
     textWrap.append(label, meta);
 
-    item.append(id, textWrap);
+    const controls = document.createElement('div');
+    controls.className = 'conv-controls';
+
+    const factionSelect = document.createElement('select');
+    factionSelect.className = 'conv-faction-select toolbar-select-quiet';
+    factionSelect.title = "Set this conversation's faction";
+    factionSelect.setAttribute('aria-label', `Set faction for ${conversationLabel}`);
+    for (const factionId of FACTION_IDS) {
+      const option = document.createElement('option');
+      option.value = factionId;
+      option.textContent = FACTION_DISPLAY_NAMES[factionId];
+      option.selected = factionId === conversationFaction;
+      factionSelect.appendChild(option);
+    }
+    factionSelect.style.color = FACTION_COLORS[conversationFaction];
+    factionSelect.onpointerdown = (event) => event.stopPropagation();
+    factionSelect.onclick = (event) => event.stopPropagation();
+    factionSelect.onchange = (event) => {
+      event.stopPropagation();
+      const nextFaction = factionSelect.value as typeof FACTION_IDS[number];
+      factionSelect.style.color = FACTION_COLORS[nextFaction];
+      store.setConversationFaction(conv.id, nextFaction);
+    };
+    controls.appendChild(factionSelect);
+
+    item.append(id, textWrap, controls);
     list.appendChild(item);
   }
 

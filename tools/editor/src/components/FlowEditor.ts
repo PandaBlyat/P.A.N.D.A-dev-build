@@ -7,6 +7,7 @@ import { createOnboardingNudge } from './Onboarding';
 import { FACTION_COLORS } from '../lib/faction-colors';
 import { estimateFlowNodeHeight, getFlowNodeLayout } from '../lib/flow-layout';
 import type { Choice, Conversation, Turn } from '../lib/types';
+import { getConversationFaction } from '../lib/types';
 import type { FlowDensity } from '../lib/state';
 
 type TurnPositionMap = Map<number, { x: number; y: number }>;
@@ -83,7 +84,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   const existingView = viewStateByConversation.get(conversationId);
   const viewState: ViewState = existingView ? { ...existingView } : { ...DEFAULT_VIEW_STATE };
   const bounds = calculateContentBounds(conv, density);
-  const factionColor = FACTION_COLORS[state.project.faction];
+  const factionColor = FACTION_COLORS[getConversationFaction(conv, state.project.faction)];
   const edges = buildEdgeDescriptors(conv, state.selectedTurnNumber, state.selectedChoiceIndex, factionColor);
   const nodeElements = new Map<number, HTMLElement>();
 
@@ -484,7 +485,7 @@ function renderTurnNode(options: {
   const hasWarning = turn.choices.some(c => !c.text && !c.reply);
   const isPathActive = edges.some(edge => edge.highlight === 'active' && (edge.sourceTurnNumber === turn.turnNumber || edge.targetTurnNumber === turn.turnNumber));
   const turnIndex = conv.turns.indexOf(turn);
-  const factionColor = FACTION_COLORS[store.get().project.faction];
+  const factionColor = FACTION_COLORS[getConversationFaction(conv, state.project.faction)];
   const branchColor = getBranchColor(turn, turnIndex, factionColor);
 
   const node = document.createElement('div');

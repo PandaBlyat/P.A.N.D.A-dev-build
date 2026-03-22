@@ -4,6 +4,7 @@ import { importXml } from './xml-import';
 import { createSampleProjectBundle } from './sample-project';
 import { fetchConversationById } from './api-client';
 import type { Project } from './types';
+import { FACTION_XML_KEYS, getConversationFaction } from './types';
 
 export function createBlankProject(): void {
   store.addConversation();
@@ -21,15 +22,25 @@ export function exportProjectJson(): void {
     ...state.project,
     systemStrings: Object.fromEntries(state.systemStrings),
   }, null, 2);
-  downloadFile(data, `panda_${state.project.faction}_conversations.panda`, 'application/json');
+  const factions = getProjectConversationFactions(state.project);
+  const filename = factions.length === 1
+    ? `panda_${factions[0]}_conversations.panda`
+    : 'panda_multi_faction_conversations.panda';
+  downloadFile(data, filename, 'application/json');
 }
 
 /** Export as game-ready XML */
 export function exportXml(): void {
   const state = store.get();
-  const xml = generateXml(state.project, state.systemStrings);
-  const faction = state.project.faction === 'stalker' ? 'loner' : state.project.faction;
-  downloadFile(xml, `st_PANDA_${faction}_interactive_conversations.xml`, 'application/xml');
+  const factions = getProjectConversationFactions(state.project);
+
+  factions.forEach((faction, index) => {
+    const xml = generateXml(state.project, state.systemStrings, faction);
+    const factionKey = FACTION_XML_KEYS[faction];
+    window.setTimeout(() => {
+      downloadFile(xml, `st_PANDA_${factionKey}_interactive_conversations.xml`, 'application/xml');
+    }, index * 150);
+  });
 }
 
 /** Import from XML file */
@@ -110,6 +121,20 @@ export function downloadFile(content: string, filename: string, mimeType: string
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function getProjectConversationFactions(project: Project): Project['faction'][] {
+  const factions = new Set<Project['faction']>();
+
+  if (project.conversations.length === 0) {
+    factions.add(project.faction);
+  }
+
+  for (const conversation of project.conversations) {
+    factions.add(getConversationFaction(conversation, project.faction));
+  }
+
+  return [...factions];
 }
 
 const ONBOARDING_SAMPLE_PACK_ID = '21f5bc31-cf62-454a-baba-62163e5b0202';
