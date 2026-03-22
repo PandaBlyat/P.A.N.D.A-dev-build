@@ -81,15 +81,21 @@ function buildGraphEdges(conversation: Conversation): GraphEdge[] {
   return edges.sort(compareEdges);
 }
 
+function getConversationRootLabel(conversation: Conversation): string {
+  const label = conversation.label.trim();
+  return label === '' ? `Conversation ${conversation.id}` : label;
+}
+
 function buildTurnLabelMap(conversation: Conversation): TurnLabelMap {
   const labels: TurnLabelMap = new Map();
   const turnsById = new Map(conversation.turns.map(turn => [turn.turnNumber, turn]));
+  const rootLabel = getConversationRootLabel(conversation);
 
   for (const turn of conversation.turns) {
     labels.set(turn.turnNumber, {
       path: null,
-      long: `Branch ${turn.turnNumber}`,
-      short: `B${turn.turnNumber}`,
+      long: turn.turnNumber === 1 ? rootLabel : `Branch ${turn.turnNumber}`,
+      short: turn.turnNumber === 1 ? rootLabel : `B${turn.turnNumber}`,
     });
   }
 
@@ -130,8 +136,8 @@ function buildTurnLabelMap(conversation: Conversation): TurnLabelMap {
 
   labels.set(1, {
     path: '1',
-    long: 'Branch 1',
-    short: 'B1',
+    long: rootLabel,
+    short: rootLabel,
   });
 
   const assignPaths = (turnNumber: number, parentPath: string): void => {
@@ -164,14 +170,18 @@ export function createTurnDisplayLabeler(conversation: Conversation): {
     if (turn.customLabel) customLabels.set(turn.turnNumber, turn.customLabel);
   }
 
+  const rootLabel = getConversationRootLabel(conversation);
+
   const getLongLabel = (turnNumber: number): string => {
     const custom = customLabels.get(turnNumber);
     if (custom) return custom;
+    if (turnNumber === 1) return rootLabel;
     return labels.get(turnNumber)?.long ?? `Branch ${turnNumber}`;
   };
   const getCompactLabel = (turnNumber: number): string => {
     const custom = customLabels.get(turnNumber);
     if (custom) return custom.length > 8 ? custom.slice(0, 7) + '…' : custom;
+    if (turnNumber === 1) return rootLabel.length > 8 ? rootLabel.slice(0, 7) + '…' : rootLabel;
     return labels.get(turnNumber)?.short ?? `B${turnNumber}`;
   };
 

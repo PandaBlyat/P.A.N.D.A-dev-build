@@ -596,7 +596,7 @@ function renderTurnNode(options: {
   const labelSpan = document.createElement('span');
   labelSpan.className = 'turn-label';
   labelSpan.textContent = turnLabels.getLongLabel(turn.turnNumber);
-  labelSpan.title = 'Click to rename this branch';
+  labelSpan.title = 'Click to rename this turn';
   labelSpan.style.cursor = 'pointer';
   labelSpan.onclick = (e) => {
     e.stopPropagation();
@@ -605,7 +605,9 @@ function renderTurnNode(options: {
     input.type = 'text';
     input.className = 'turn-label-input';
     input.value = turn.customLabel || '';
-    input.placeholder = `Branch ${turn.turnNumber}`;
+    input.placeholder = turn.turnNumber === 1
+      ? (conv.label.trim() || `Conversation ${conv.id}`)
+      : `Branch ${turn.turnNumber}`;
     input.maxLength = 32;
     const commitEdit = () => {
       store.setTurnCustomLabel(conv.id, turn.turnNumber, input.value);
