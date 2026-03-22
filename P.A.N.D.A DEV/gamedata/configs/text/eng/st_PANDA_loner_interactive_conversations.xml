@@ -1090,6 +1090,29 @@ END OF HOW TO GUIDE
     <text>Don't bother next time.</text>
 </string>
 
+<!-- Task System Notifications -->
+<string id="st_pda_ic_task_delivery_start">
+    <text>A courier is on the way with a package. Deliver it to the marked location.</text>
+</string>
+<string id="st_pda_ic_task_fetch_start">
+    <text>Find the items I need. I'll know when you have them.</text>
+</string>
+<string id="st_pda_ic_task_bounty_start">
+    <text>Target location marked on your PDA. Hunt them down.</text>
+</string>
+<string id="st_pda_ic_task_dead_drop_start">
+    <text>Drop location marked on your PDA. Leave the item there.</text>
+</string>
+<string id="st_pda_ic_task_escort_start">
+    <text>Stay close and lead the way to the marked destination.</text>
+</string>
+<string id="st_pda_ic_task_eliminate_start">
+    <text>Elimination zone marked on your PDA. Clear all hostiles in the area.</text>
+</string>
+<string id="st_pda_ic_task_escort_npc_died">
+    <text>The escort target has been killed. Task failed.</text>
+</string>
+
 <!-- ============================================================ -->
 <!-- INTERACTIVE CONVERSATIONS: LONER FACTION                      -->
 <!-- Player faction: Loner (stalker)                               -->
