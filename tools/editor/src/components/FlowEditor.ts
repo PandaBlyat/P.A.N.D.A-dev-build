@@ -6,6 +6,7 @@ import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { createOnboardingNudge } from './Onboarding';
 import { FACTION_COLORS } from '../lib/faction-colors';
 import { estimateFlowNodeHeight, getFlowNodeLayout } from '../lib/flow-layout';
+import { createIcon } from './icons';
 import type { Choice, Conversation, Turn } from '../lib/types';
 import type { FlowDensity } from '../lib/state';
 
@@ -201,6 +202,28 @@ export function renderFlowEditor(container: HTMLElement): void {
         store.selectChoice(updatedTurn.choices[updatedTurn.choices.length - 1]?.index ?? null);
       }
       requestAnimationFrame(() => focusTurn(turnNumber));
+      return;
+    }
+
+    if (key === 'duplicate-turn') {
+      const duplicatedTurnNumber = store.duplicateTurn(conversationId, turnNumber);
+      if (duplicatedTurnNumber != null) {
+        requestAnimationFrame(() => focusTurn(duplicatedTurnNumber, { center: true }));
+      }
+      return;
+    }
+
+    if (key === 'copy-turn') {
+      store.copyTurn(conversationId, turnNumber);
+      requestAnimationFrame(() => focusTurn(turnNumber));
+      return;
+    }
+
+    if (key === 'paste-turn') {
+      const pastedTurnNumber = store.pasteTurn(conversationId, turnNumber);
+      if (pastedTurnNumber != null) {
+        requestAnimationFrame(() => focusTurn(pastedTurnNumber, { center: true }));
+      }
       return;
     }
 
@@ -463,7 +486,7 @@ function renderTurnNode(options: {
   onChoicePortDragStart: (choiceIndex: number, event: MouseEvent) => void;
   onCreateConnectedTurn: (choiceIndex: number) => void;
   onFocusTurn: (turnNumber: number) => void;
-  onKeyboardShortcut: (turnNumber: number, key: 'add-turn' | 'add-choice' | 'connect-branch' | 'disconnect-branch') => void;
+  onKeyboardShortcut: (turnNumber: number, key: 'add-turn' | 'add-choice' | 'duplicate-turn' | 'copy-turn' | 'paste-turn' | 'connect-branch' | 'disconnect-branch') => void;
 }): HTMLElement {
   const {
     conv,
@@ -480,6 +503,7 @@ function renderTurnNode(options: {
     onKeyboardShortcut,
   } = options;
   const state = store.get();
+  const canPasteTurn = store.hasCopiedTurn(conv.id);
   const layout = getFlowNodeLayout(density);
   const hasWarning = turn.choices.some(c => !c.text && !c.reply);
   const isPathActive = edges.some(edge => edge.highlight === 'active' && (edge.sourceTurnNumber === turn.turnNumber || edge.targetTurnNumber === turn.turnNumber));
@@ -524,6 +548,25 @@ function renderTurnNode(options: {
         store.deleteTurn(conv.id, turn.turnNumber);
       }
       return;
+    }
+
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
+      const shortcut = event.key.toLowerCase();
+      if (shortcut === 'd') {
+        event.preventDefault();
+        onKeyboardShortcut(turn.turnNumber, 'duplicate-turn');
+        return;
+      }
+      if (shortcut === 'c') {
+        event.preventDefault();
+        onKeyboardShortcut(turn.turnNumber, 'copy-turn');
+        return;
+      }
+      if (shortcut === 'v') {
+        event.preventDefault();
+        onKeyboardShortcut(turn.turnNumber, 'paste-turn');
+        return;
+      }
     }
 
     if (event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey) {
@@ -679,6 +722,26 @@ function renderTurnNode(options: {
   stats.textContent = `${turn.choices.length}C · ${outgoingCount}L`;
   header.appendChild(stats);
 
+  const turnActions = document.createElement('div');
+  turnActions.style.cssText = 'display:flex; align-items:center; gap:4px;';
+
+  const duplicateBtn = createTurnActionButton('Duplicate turn', () => {
+    onKeyboardShortcut(turn.turnNumber, 'duplicate-turn');
+  });
+  duplicateBtn.appendChild(createIcon('duplicate'));
+  turnActions.appendChild(duplicateBtn);
+
+  const copyBtn = createTurnActionButton('Copy turn', () => {
+    onKeyboardShortcut(turn.turnNumber, 'copy-turn');
+  }, 'Copy');
+  turnActions.appendChild(copyBtn);
+
+  const pasteBtn = createTurnActionButton('Paste copied turn after this one', () => {
+    onKeyboardShortcut(turn.turnNumber, 'paste-turn');
+  }, 'Paste');
+  pasteBtn.disabled = !canPasteTurn;
+  turnActions.appendChild(pasteBtn);
+
   if (turn.turnNumber > 1) {
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-icon btn-sm';
@@ -689,8 +752,9 @@ function renderTurnNode(options: {
       e.stopPropagation();
       store.deleteTurn(conv.id, turn.turnNumber);
     };
-    header.appendChild(delBtn);
+    turnActions.appendChild(delBtn);
   }
+  header.appendChild(turnActions);
   node.appendChild(header);
 
   // ── Body ──
@@ -834,7 +898,21 @@ function buildTurnAriaLabel(
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
 ): string {
   const opening = turn.openingMessage ? ` Opening message: ${truncate(turn.openingMessage, 80)}.` : '';
-  return `${turnLabels.getLongLabel(turn.turnNumber)}. ${turn.choices.length} choice${turn.choices.length === 1 ? '' : 's'}.${opening} Shift+T adds a turn, Shift+C adds a choice, Shift+L connects the selected branch here, Shift+D disconnects the current branch.`;
+  return `${turnLabels.getLongLabel(turn.turnNumber)}. ${turn.choices.length} choice${turn.choices.length === 1 ? '' : 's'}.${opening} Shift+T adds a turn, Shift+C adds a choice, Shift+L connects the selected branch here, Shift+D disconnects the current branch. Control or Command+D duplicates this turn, Control or Command+C copies it, and Control or Command+V pastes the copied turn here.`;
+}
+
+function createTurnActionButton(title: string, onClick: () => void, label?: string): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = label ? 'btn-sm' : 'btn-icon btn-sm';
+  button.title = title;
+  button.setAttribute('aria-label', title);
+  if (label) button.textContent = label;
+  button.onclick = (event) => {
+    event.stopPropagation();
+    onClick();
+  };
+  return button;
 }
 
 type ArrowDirection = 'left' | 'right' | 'up' | 'down';

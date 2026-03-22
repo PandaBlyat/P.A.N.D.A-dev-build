@@ -26,6 +26,8 @@ export interface AppState {
   dirty: boolean;
   undoStack: string[];
   redoStack: string[];
+  copiedTurn: TurnClipboard | null;
+  copiedChoice: ChoiceClipboard | null;
 }
 
 type Listener = () => void;
@@ -42,6 +44,17 @@ type AutoLayoutNodeMeta = {
   siblingIndex: number;
   groupKey: string;
   visitOrder: number;
+};
+
+type TurnClipboard = {
+  conversationId: number;
+  turn: Turn;
+};
+
+type ChoiceClipboard = {
+  conversationId: number;
+  turnNumber: number;
+  choice: Choice;
 };
 
 class StateManager {
@@ -66,6 +79,8 @@ class StateManager {
       dirty: false,
       undoStack: [],
       redoStack: [],
+      copiedTurn: null,
+      copiedChoice: null,
     };
   }
 
@@ -420,6 +435,64 @@ class StateManager {
     return spacing.branchGroupGap;
   }
 
+  private cloneOutcomeList(outcomes: Choice['outcomes']): Choice['outcomes'] {
+    return JSON.parse(JSON.stringify(outcomes)) as Choice['outcomes'];
+  }
+
+  private remapContinuationTarget(
+    targetTurnNumber: number | undefined,
+    options: {
+      turnNumberMap?: ReadonlyMap<number, number>;
+      validTurnNumbers?: ReadonlySet<number>;
+    } = {},
+  ): number | undefined {
+    if (targetTurnNumber == null) return undefined;
+    if (options.turnNumberMap?.has(targetTurnNumber)) {
+      return options.turnNumberMap.get(targetTurnNumber);
+    }
+    if (options.validTurnNumbers?.has(targetTurnNumber)) {
+      return targetTurnNumber;
+    }
+    return undefined;
+  }
+
+  private cloneChoiceFromSource(
+    sourceChoice: Choice,
+    index: number,
+    options: {
+      turnNumberMap?: ReadonlyMap<number, number>;
+      validTurnNumbers?: ReadonlySet<number>;
+    } = {},
+  ): Choice {
+    const choice = createChoice(index);
+    choice.text = sourceChoice.text;
+    choice.reply = sourceChoice.reply;
+    if (sourceChoice.replyRelHigh != null) choice.replyRelHigh = sourceChoice.replyRelHigh;
+    if (sourceChoice.replyRelLow != null) choice.replyRelLow = sourceChoice.replyRelLow;
+    choice.outcomes = this.cloneOutcomeList(sourceChoice.outcomes);
+
+    const continueTo = this.remapContinuationTarget(sourceChoice.continueTo, options);
+    if (continueTo != null) choice.continueTo = continueTo;
+
+    return choice;
+  }
+
+  private cloneTurnFromSource(
+    sourceTurn: Turn,
+    turnNumber: number,
+    options: {
+      turnNumberMap?: ReadonlyMap<number, number>;
+      validTurnNumbers?: ReadonlySet<number>;
+    } = {},
+  ): Turn {
+    const turn = createTurn(turnNumber);
+    turn.openingMessage = sourceTurn.openingMessage;
+    turn.customLabel = sourceTurn.customLabel;
+    turn.color = sourceTurn.color;
+    turn.choices = sourceTurn.choices.map((choice, index) => this.cloneChoiceFromSource(choice, index + 1, options));
+    return turn;
+  }
+
   loadProject(project: Project, systemStrings: Map<string, string>): void {
     this.state.project = project;
     this.state.systemStrings = systemStrings;
@@ -435,6 +508,8 @@ class StateManager {
     this.state.dirty = false;
     this.state.undoStack = [];
     this.state.redoStack = [];
+    this.state.copiedTurn = null;
+    this.state.copiedChoice = null;
     this.revalidate();
     this.notify();
   }
@@ -541,6 +616,16 @@ class StateManager {
     return turn.choices.find(c => c.index === this.state.selectedChoiceIndex) || null;
   }
 
+  hasCopiedTurn(conversationId?: number | null): boolean {
+    if (!this.state.copiedTurn) return false;
+    return conversationId == null || this.state.copiedTurn.conversationId === conversationId;
+  }
+
+  hasCopiedChoice(conversationId?: number | null): boolean {
+    if (!this.state.copiedChoice) return false;
+    return conversationId == null || this.state.copiedChoice.conversationId === conversationId;
+  }
+
   addConversation(): void {
     this.pushUndo();
     const conv = createConversation(this.state.project);
@@ -621,6 +706,77 @@ class StateManager {
     this.state.propertiesTab = 'selection';
     this.finishProjectMutation();
     return nextTurnNumber;
+  }
+
+  duplicateTurn(conversationId: number, sourceTurnNumber: number): number | null {
+    const conversation = this.getConversationById(conversationId);
+    const sourceTurn = conversation?.turns.find(turn => turn.turnNumber === sourceTurnNumber);
+    if (!conversation || !sourceTurn) return null;
+
+    const nextTurnNumber = conversation.turns.reduce((max, turn) => Math.max(max, turn.turnNumber), 0) + 1;
+    const turnNumberMap = new Map([[sourceTurn.turnNumber, nextTurnNumber]]);
+    const validTurnNumbers = new Set(conversation.turns.map(turn => turn.turnNumber));
+    validTurnNumbers.add(nextTurnNumber);
+
+    this.pushUndo();
+
+    const duplicatedTurn = this.cloneTurnFromSource(sourceTurn, nextTurnNumber, {
+      turnNumberMap,
+      validTurnNumbers,
+    });
+    duplicatedTurn.position = this.getContextualTurnPlacement(conversation, duplicatedTurn, {
+      anchorTurnNumber: sourceTurnNumber,
+    });
+
+    conversation.turns.push(duplicatedTurn);
+    this.state.selectedConversationId = conversationId;
+    this.state.selectedTurnNumber = duplicatedTurn.turnNumber;
+    this.state.selectedChoiceIndex = null;
+    this.state.propertiesTab = 'selection';
+    this.finishProjectMutation();
+    return duplicatedTurn.turnNumber;
+  }
+
+  copyTurn(conversationId: number, turnNumber: number): boolean {
+    const conversation = this.getConversationById(conversationId);
+    const turn = conversation?.turns.find(item => item.turnNumber === turnNumber);
+    if (!turn) return false;
+
+    this.state.copiedTurn = {
+      conversationId,
+      turn: JSON.parse(JSON.stringify(turn)) as Turn,
+    };
+    this.notify();
+    return true;
+  }
+
+  pasteTurn(conversationId: number, anchorTurnNumber: number | null = null): number | null {
+    const conversation = this.getConversationById(conversationId);
+    const clipboard = this.state.copiedTurn;
+    if (!conversation || !clipboard || clipboard.conversationId !== conversationId) return null;
+
+    const nextTurnNumber = conversation.turns.reduce((max, turn) => Math.max(max, turn.turnNumber), 0) + 1;
+    const turnNumberMap = new Map([[clipboard.turn.turnNumber, nextTurnNumber]]);
+    const validTurnNumbers = new Set(conversation.turns.map(turn => turn.turnNumber));
+    validTurnNumbers.add(nextTurnNumber);
+
+    this.pushUndo();
+
+    const pastedTurn = this.cloneTurnFromSource(clipboard.turn, nextTurnNumber, {
+      turnNumberMap,
+      validTurnNumbers,
+    });
+    pastedTurn.position = this.getContextualTurnPlacement(conversation, pastedTurn, {
+      anchorTurnNumber,
+    });
+
+    conversation.turns.push(pastedTurn);
+    this.state.selectedConversationId = conversationId;
+    this.state.selectedTurnNumber = pastedTurn.turnNumber;
+    this.state.selectedChoiceIndex = null;
+    this.state.propertiesTab = 'selection';
+    this.finishProjectMutation();
+    return pastedTurn.turnNumber;
   }
 
   addTurn(conversationId: number): void {
@@ -736,6 +892,59 @@ class StateManager {
     const nextIndex = turn.choices.length + 1;
     turn.choices.push(createChoice(nextIndex));
     this.finishProjectMutation();
+  }
+
+  duplicateChoice(conversationId: number, turnNumber: number, choiceIndex: number): number | null {
+    const conv = this.getConversationById(conversationId);
+    const turn = conv?.turns.find(item => item.turnNumber === turnNumber);
+    const sourceChoice = turn?.choices.find(choice => choice.index === choiceIndex);
+    if (!conv || !turn || !sourceChoice || turn.choices.length >= 4) return null;
+
+    const validTurnNumbers = new Set(conv.turns.map(item => item.turnNumber));
+    const nextIndex = turn.choices.length + 1;
+
+    this.pushUndo();
+    turn.choices.push(this.cloneChoiceFromSource(sourceChoice, nextIndex, { validTurnNumbers }));
+    this.state.selectedConversationId = conversationId;
+    this.state.selectedTurnNumber = turnNumber;
+    this.state.selectedChoiceIndex = nextIndex;
+    this.state.propertiesTab = 'selection';
+    this.finishProjectMutation();
+    return nextIndex;
+  }
+
+  copyChoice(conversationId: number, turnNumber: number, choiceIndex: number): boolean {
+    const conv = this.getConversationById(conversationId);
+    const turn = conv?.turns.find(item => item.turnNumber === turnNumber);
+    const choice = turn?.choices.find(item => item.index === choiceIndex);
+    if (!choice) return false;
+
+    this.state.copiedChoice = {
+      conversationId,
+      turnNumber,
+      choice: JSON.parse(JSON.stringify(choice)) as Choice,
+    };
+    this.notify();
+    return true;
+  }
+
+  pasteChoice(conversationId: number, turnNumber: number): number | null {
+    const conv = this.getConversationById(conversationId);
+    const turn = conv?.turns.find(item => item.turnNumber === turnNumber);
+    const clipboard = this.state.copiedChoice;
+    if (!conv || !turn || !clipboard || clipboard.conversationId !== conversationId || turn.choices.length >= 4) return null;
+
+    const validTurnNumbers = new Set(conv.turns.map(item => item.turnNumber));
+    const nextIndex = turn.choices.length + 1;
+
+    this.pushUndo();
+    turn.choices.push(this.cloneChoiceFromSource(clipboard.choice, nextIndex, { validTurnNumbers }));
+    this.state.selectedConversationId = conversationId;
+    this.state.selectedTurnNumber = turnNumber;
+    this.state.selectedChoiceIndex = nextIndex;
+    this.state.propertiesTab = 'selection';
+    this.finishProjectMutation();
+    return nextIndex;
   }
 
   deleteChoice(conversationId: number, turnNumber: number, choiceIndex: number): void {
