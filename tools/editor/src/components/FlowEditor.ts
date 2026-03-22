@@ -1,7 +1,7 @@
 // P.A.N.D.A. Conversation Editor — Visual Flow Editor (Center Panel)
 
 import { store } from '../lib/state';
-import { setActiveFlowViewport, type FlowViewportApi } from '../lib/flow-navigation';
+import { requestFlowCenter, setActiveFlowViewport, type FlowViewportApi } from '../lib/flow-navigation';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { createOnboardingNudge } from './Onboarding';
 import { FACTION_COLORS } from '../lib/faction-colors';
@@ -130,6 +130,12 @@ export function renderFlowEditor(container: HTMLElement): void {
         store.selectTurn(turn.turnNumber);
         store.selectChoice(choiceIndex);
         startConnectionDrag(turn.turnNumber, choiceIndex, event);
+      },
+      onCreateConnectedTurn: (choiceIndex) => {
+        const createdTurnNumber = store.createConnectedTurn(conversationId, turn.turnNumber, choiceIndex);
+        if (createdTurnNumber != null) {
+          requestFlowCenter({ conversationId, turnNumber: createdTurnNumber });
+        }
       },
       onFocusTurn: (turnNumber) => focusTurn(turnNumber, { center: true }),
       onKeyboardShortcut: (turnNumber, key) => handleTurnShortcut(turnNumber, key),
@@ -455,10 +461,24 @@ function renderTurnNode(options: {
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
   onPreviewPosition: (positions?: TurnPositionMap) => void;
   onChoicePortDragStart: (choiceIndex: number, event: MouseEvent) => void;
+  onCreateConnectedTurn: (choiceIndex: number) => void;
   onFocusTurn: (turnNumber: number) => void;
   onKeyboardShortcut: (turnNumber: number, key: 'add-turn' | 'add-choice' | 'connect-branch' | 'disconnect-branch') => void;
 }): HTMLElement {
-  const { conv, turn, selected, edges, density, viewState, turnLabels, onPreviewPosition, onChoicePortDragStart, onFocusTurn, onKeyboardShortcut } = options;
+  const {
+    conv,
+    turn,
+    selected,
+    edges,
+    density,
+    viewState,
+    turnLabels,
+    onPreviewPosition,
+    onChoicePortDragStart,
+    onCreateConnectedTurn,
+    onFocusTurn,
+    onKeyboardShortcut,
+  } = options;
   const state = store.get();
   const layout = getFlowNodeLayout(density);
   const hasWarning = turn.choices.some(c => !c.text && !c.reply);
@@ -713,6 +733,11 @@ function renderTurnNode(options: {
       : `Drag to connect Choice ${choice.index} to another turn`;
     port.style.background = `linear-gradient(180deg, ${choiceBranchColor}cc, ${choiceBranchColor}80)`;
     port.onmousedown = (event) => onChoicePortDragStart(choice.index, event);
+    port.ondblclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onCreateConnectedTurn(choice.index);
+    };
 
     const num = document.createElement('span');
     num.className = 'choice-number';
@@ -749,6 +774,19 @@ function renderTurnNode(options: {
       outBadge.textContent = `${choice.outcomes.length} out`;
       item.appendChild(outBadge);
     }
+
+    const branchButton = document.createElement('button');
+    branchButton.type = 'button';
+    branchButton.className = 'btn-icon btn-sm';
+    branchButton.textContent = '+';
+    branchButton.title = `Create a new turn for Choice ${choice.index}`;
+    branchButton.setAttribute('aria-label', `Create a new branch turn for choice ${choice.index}`);
+    branchButton.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onCreateConnectedTurn(choice.index);
+    };
+    item.appendChild(branchButton);
 
     item.appendChild(port);
     choicesList.appendChild(item);
