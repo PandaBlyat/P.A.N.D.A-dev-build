@@ -3,6 +3,7 @@ import {
   GAME_ITEM_CATALOG,
   findGameItem,
   formatGameItemLabel,
+  formatGameItemMeta,
   getGameItemSearchText,
   type GameItemCatalogEntry,
 } from '../lib/item-catalog';
@@ -38,12 +39,12 @@ function getItemSummary(value: string, allowEmpty: boolean): string {
   }
 
   return item.displayName
-    ? `Selected ${item.displayName} (${item.sectionId}). The raw section id remains editable below.`
-    : `Selected ${item.sectionId}. This vanilla item has no separate display string in the bundled catalog.`;
+    ? `Selected ${item.displayName} (${item.section}). The raw section id remains editable below.`
+    : `Selected ${item.section}. This vanilla item has no separate display string in the bundled catalog.`;
 }
 
 function buildItemOptionLabel(item: GameItemCatalogEntry): string {
-  return item.displayName ? `${item.displayName} (${item.sectionId})` : item.sectionId;
+  return item.displayName ? `${item.displayName} (${item.section})` : item.section;
 }
 
 function openItemPickerPanel(options: {
@@ -87,7 +88,7 @@ function openItemPickerPanel(options: {
 
   const subtitle = document.createElement('div');
   subtitle.className = 'item-picker-subtitle';
-  subtitle.textContent = 'Search by display name or raw section id. Pick a vanilla item, or keep typing a custom section id inline.';
+  subtitle.textContent = 'Search by display name, raw section id, kind, or category/path hints. Pick a vanilla item, or keep typing a custom section id inline.';
   titleWrap.appendChild(subtitle);
 
   const closeButton = document.createElement('button');
@@ -102,7 +103,7 @@ function openItemPickerPanel(options: {
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
   searchInput.className = 'dropdown-search item-picker-search';
-  searchInput.placeholder = 'Search item name or section id...';
+  searchInput.placeholder = 'Search item name, section id, kind, or category...';
   searchInput.autocomplete = 'off';
   panel.appendChild(searchInput);
 
@@ -145,7 +146,7 @@ function openItemPickerPanel(options: {
   let activeIndex = 0;
 
   const setActiveIndexFromValue = (value: string): void => {
-    const matchIndex = filteredItems.findIndex((item) => item.sectionId === value);
+    const matchIndex = filteredItems.findIndex((item) => item.section === value);
     activeIndex = matchIndex >= 0 ? matchIndex : 0;
   };
 
@@ -179,17 +180,15 @@ function openItemPickerPanel(options: {
 
       const primary = document.createElement('span');
       primary.className = 'item-picker-option-title';
-      primary.textContent = item.displayName || item.sectionId;
+      primary.textContent = item.displayName || item.section;
       option.appendChild(primary);
 
-      if (item.displayName) {
-        const secondary = document.createElement('span');
-        secondary.className = 'item-picker-option-meta';
-        secondary.textContent = item.sectionId;
-        option.appendChild(secondary);
-      }
+      const secondary = document.createElement('span');
+      secondary.className = 'item-picker-option-meta';
+      secondary.textContent = formatGameItemMeta(item);
+      option.appendChild(secondary);
 
-      option.onclick = () => selectItem(item.sectionId);
+      option.onclick = () => selectItem(item.section);
       option.onmouseenter = () => {
         activeIndex = index;
         updateActiveOption();
@@ -231,7 +230,7 @@ function openItemPickerPanel(options: {
     }
     if (event.key === 'Enter' && filteredItems[activeIndex]) {
       event.preventDefault();
-      selectItem(filteredItems[activeIndex].sectionId);
+      selectItem(filteredItems[activeIndex].section);
     }
   };
 
