@@ -68,6 +68,211 @@ function getCategoryGroup(category: string): string {
   return CATEGORY_GROUPS[category] ?? 'Other';
 }
 
+type CategorySubgroup = {
+  id: string;
+  label: string;
+};
+
+type CategorySubgroupConfig = {
+  allLabel: string;
+  groups: CategorySubgroup[];
+  getItemSubgroup: (item: GameItemCatalogEntry) => string | null;
+};
+
+const WEAPON_SUBGROUPS: CategorySubgroup[] = [
+  { id: 'attachments', label: 'Attachments' },
+  { id: 'rifles', label: 'Rifles' },
+  { id: 'smgs', label: 'SMGs' },
+  { id: 'pistols', label: 'Pistols' },
+  { id: 'shotguns', label: 'Shotguns' },
+  { id: 'snipers', label: 'Snipers' },
+  { id: 'ammo', label: 'Ammo' },
+  { id: 'explosives', label: 'Explosives' },
+  { id: 'melee', label: 'Melee' },
+  { id: 'misc', label: 'Misc' },
+];
+
+function getWeaponSubgroup(item: GameItemCatalogEntry): string | null {
+  if (getCategoryGroup(item.category) !== 'Weapons & Attachments') return null;
+  if (item.category === 'attachments') return 'attachments';
+
+  switch (item.kind) {
+    case 'w_rifle':
+      return 'rifles';
+    case 'w_smg':
+      return 'smgs';
+    case 'w_pistol':
+      return 'pistols';
+    case 'w_shotgun':
+      return 'shotguns';
+    case 'w_sniper':
+      return 'snipers';
+    case 'w_ammo':
+      return 'ammo';
+    case 'w_explosive':
+      return 'explosives';
+    case 'w_melee':
+      return 'melee';
+    case 'w_misc':
+      return 'misc';
+    default:
+      return 'misc';
+  }
+}
+
+const OUTFIT_SUBGROUPS: CategorySubgroup[] = [
+  { id: 'general', label: 'General Gear' },
+  { id: 'loners', label: 'Loners' },
+  { id: 'bandits', label: 'Bandits' },
+  { id: 'clear-sky', label: 'Clear Sky' },
+  { id: 'duty', label: 'Duty' },
+  { id: 'ecologists', label: 'Ecologists' },
+  { id: 'freedom', label: 'Freedom' },
+  { id: 'military', label: 'Military' },
+  { id: 'mercenaries', label: 'Mercenaries' },
+  { id: 'monolith', label: 'Monolith' },
+  { id: 'renegades', label: 'Renegades' },
+  { id: 'sin', label: 'Sin' },
+  { id: 'unisg', label: 'UNISG' },
+];
+
+function getOutfitFactionSubgroup(item: GameItemCatalogEntry): string | null {
+  if (getCategoryGroup(item.category) !== 'Outfits & Gear') return null;
+
+  const searchText = [
+    item.section,
+    item.displayName ?? '',
+    item.invName ?? '',
+    item.description ?? '',
+  ].join(' ').toLowerCase();
+
+  if (
+    searchText.includes('unisg')
+    || item.section.startsWith('isg_')
+    || item.section === 'isg_patch'
+  ) {
+    return 'unisg';
+  }
+  if (
+    searchText.includes('clear sky')
+    || item.section.startsWith('cs_')
+    || item.section === 'csky_patch'
+  ) {
+    return 'clear-sky';
+  }
+  if (
+    searchText.includes('mercenary')
+    || item.section.startsWith('merc_')
+    || item.section.includes('_merc_')
+    || item.section.startsWith('killer_')
+    || item.section.startsWith('banditmerc_')
+    || item.section.startsWith('renegademerc_')
+    || item.section.startsWith('exo_merc_')
+    || item.section === 'killer_patch'
+  ) {
+    return 'mercenaries';
+  }
+  if (
+    searchText.includes('ecologist')
+    || item.section.startsWith('ecolog_')
+    || item.section === 'ecolog_patch'
+  ) {
+    return 'ecologists';
+  }
+  if (
+    searchText.includes('freedom')
+    || item.section.startsWith('svoboda_')
+    || item.section.startsWith('freedom_')
+    || item.section.includes('_freedom_')
+    || item.section === 'freedom_patch'
+  ) {
+    return 'freedom';
+  }
+  if (
+    searchText.includes('military')
+    || item.section.startsWith('military_')
+    || item.section.startsWith('army_')
+    || item.section.includes('_voen_')
+    || item.section === 'army_patch'
+  ) {
+    return 'military';
+  }
+  if (
+    searchText.includes('monolith')
+    || item.section.startsWith('monolith_')
+    || item.section.includes('_monolit_')
+    || item.section.startsWith('light_monolit_')
+    || item.section === 'monolith_patch'
+  ) {
+    return 'monolith';
+  }
+  if (
+    searchText.includes('renegade')
+    || item.section.startsWith('renegade_')
+    || item.section.startsWith('renegademerc_')
+    || item.section === 'renegade_patch'
+  ) {
+    return 'renegades';
+  }
+  if (
+    searchText.includes('sin ')
+    || searchText.includes('sin faction')
+    || item.section.startsWith('greh_')
+    || item.section === 'greh_patch'
+  ) {
+    return 'sin';
+  }
+  if (
+    searchText.includes('bandit')
+    || item.section.startsWith('bandit_')
+    || item.section.startsWith('banditmerc_')
+    || item.section === 'bandit_patch'
+  ) {
+    return 'bandits';
+  }
+  if (
+    searchText.includes('duty')
+    || item.section.startsWith('dolg_')
+    || item.section.startsWith('exo_dolg_')
+    || item.section.startsWith('light_dolg_')
+    || item.section.startsWith('nbc_dolg_')
+    || item.section.startsWith('specops_dolg_')
+    || item.section.startsWith('trenchcoat_dolg_')
+    || item.section.startsWith('redline_')
+    || item.section === 'dolg_patch'
+  ) {
+    return 'duty';
+  }
+  if (
+    searchText.includes('loner')
+    || searchText.includes('stalker')
+    || item.section.startsWith('stalker_')
+    || item.section.startsWith('novice_')
+    || item.section === 'stalker_patch'
+  ) {
+    return 'loners';
+  }
+
+  return 'general';
+}
+
+const CATEGORY_SUBGROUPS: Partial<Record<string, CategorySubgroupConfig>> = {
+  'Weapons & Attachments': {
+    allLabel: 'All weapon items',
+    groups: WEAPON_SUBGROUPS,
+    getItemSubgroup: getWeaponSubgroup,
+  },
+  'Outfits & Gear': {
+    allLabel: 'All outfits & gear',
+    groups: OUTFIT_SUBGROUPS,
+    getItemSubgroup: getOutfitFactionSubgroup,
+  },
+};
+
+function getSubgroupConfig(group: string | null): CategorySubgroupConfig | null {
+  return group ? CATEGORY_SUBGROUPS[group] ?? null : null;
+}
+
 /* ── Shared helpers ──────────────────────────────────────── */
 
 const ITEM_PICKER_MOUNT_ID = 'app-modal-host';
@@ -187,8 +392,14 @@ function openItemPickerPanel(options: {
   const chipBar = document.createElement('div');
   chipBar.className = 'item-picker-chip-bar';
 
+  const subchipBar = document.createElement('div');
+  subchipBar.className = 'item-picker-chip-bar item-picker-subchip-bar';
+  subchipBar.style.display = 'none';
+
   let activeGroup: string | null = null;
+  let activeSubgroup: string | null = null;
   const chipElements = new Map<string | null, HTMLButtonElement>();
+  const subchipElements = new Map<string | null, HTMLButtonElement>();
 
   const allChip = document.createElement('button');
   allChip.type = 'button';
@@ -207,6 +418,7 @@ function openItemPickerPanel(options: {
   }
 
   panel.appendChild(chipBar);
+  panel.appendChild(subchipBar);
 
   /* ── Selection summary + actions ── */
   const selectedSummary = document.createElement('div');
@@ -265,11 +477,74 @@ function openItemPickerPanel(options: {
     });
   };
 
+  const rebuildSubchips = (): void => {
+    subchipBar.replaceChildren();
+    subchipElements.clear();
+
+    const subgroupConfig = getSubgroupConfig(activeGroup);
+    if (!subgroupConfig) return;
+
+    const allSubchip = document.createElement('button');
+    allSubchip.type = 'button';
+    allSubchip.className = 'item-picker-chip item-picker-subchip';
+    allSubchip.innerHTML = `${subgroupConfig.allLabel} <span class="item-picker-chip-count"></span>`;
+    allSubchip.onclick = () => {
+      if (activeSubgroup === null) return;
+      activeSubgroup = null;
+      updateSubchipStates();
+      renderList(searchInput.value);
+      setActiveIndexFromValue(options.currentValue);
+      updateActiveOption();
+    };
+    subchipElements.set(null, allSubchip);
+    subchipBar.appendChild(allSubchip);
+
+    for (const subgroup of subgroupConfig.groups) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'item-picker-chip item-picker-subchip';
+      chip.innerHTML = `${subgroup.label} <span class="item-picker-chip-count"></span>`;
+      chip.onclick = () => {
+        if (activeSubgroup === subgroup.id) return;
+        activeSubgroup = subgroup.id;
+        updateSubchipStates();
+        renderList(searchInput.value);
+        setActiveIndexFromValue(options.currentValue);
+        updateActiveOption();
+      };
+      subchipElements.set(subgroup.id, chip);
+      subchipBar.appendChild(chip);
+    }
+  };
+
+  const updateSubchipVisibility = (): void => {
+    const subgroupConfig = getSubgroupConfig(activeGroup);
+    subchipBar.style.display = subgroupConfig ? '' : 'none';
+    if (!subgroupConfig && activeSubgroup !== null) {
+      activeSubgroup = null;
+    }
+  };
+
+  const updateSubchipStates = (): void => {
+    subchipElements.forEach((chip, subgroup) => {
+      chip.classList.toggle('is-active', subgroup === activeSubgroup);
+    });
+  };
+
   const updateChipCounts = (textFilteredItems: GameItemCatalogEntry[]): void => {
     const groupCounts = new Map<string, number>();
+    const subgroupCountsByGroup = new Map<string, Map<string, number>>();
     for (const item of textFilteredItems) {
       const g = getCategoryGroup(item.category);
       groupCounts.set(g, (groupCounts.get(g) ?? 0) + 1);
+
+      const subgroupConfig = getSubgroupConfig(g);
+      const subgroup = subgroupConfig?.getItemSubgroup(item);
+      if (subgroupConfig && subgroup) {
+        const subgroupCounts = subgroupCountsByGroup.get(g) ?? new Map<string, number>();
+        subgroupCounts.set(subgroup, (subgroupCounts.get(subgroup) ?? 0) + 1);
+        subgroupCountsByGroup.set(g, subgroupCounts);
+      }
     }
 
     chipElements.forEach((chip, group) => {
@@ -282,6 +557,20 @@ function openItemPickerPanel(options: {
         countEl.textContent = String(count);
         chip.style.display = count === 0 ? 'none' : '';
       }
+    });
+
+    subchipElements.forEach((chip, subgroup) => {
+      const countEl = chip.querySelector('.item-picker-chip-count');
+      if (!countEl) return;
+      const subgroupCounts = activeGroup ? subgroupCountsByGroup.get(activeGroup) : null;
+      if (subgroup === null) {
+        countEl.textContent = String(activeGroup ? (groupCounts.get(activeGroup) ?? 0) : 0);
+        return;
+      }
+
+      const count = subgroupCounts?.get(subgroup) ?? 0;
+      countEl.textContent = String(count);
+      chip.style.display = count === 0 ? 'none' : '';
     });
   };
 
@@ -298,22 +587,40 @@ function openItemPickerPanel(options: {
       ? textFiltered.filter((item) => getCategoryGroup(item.category) === activeGroup)
       : textFiltered;
 
-    // Group items by category group in order, then flatten
-    const grouped = new Map<string, GameItemCatalogEntry[]>();
-    for (const item of groupFiltered) {
-      const g = getCategoryGroup(item.category);
-      if (!grouped.has(g)) grouped.set(g, []);
-      grouped.get(g)!.push(item);
-    }
+    const subgroupConfig = getSubgroupConfig(activeGroup);
+    const subgroupFiltered = subgroupConfig && activeSubgroup
+      ? groupFiltered.filter((item) => subgroupConfig.getItemSubgroup(item) === activeSubgroup)
+      : groupFiltered;
 
     // Build filteredItems in grouped order so indices match DOM
     filteredItems = [];
     const orderedGroups: { name: string; items: GameItemCatalogEntry[] }[] = [];
-    for (const g of CATEGORY_GROUP_ORDER) {
-      const items = grouped.get(g);
-      if (items && items.length > 0) {
-        orderedGroups.push({ name: g, items });
-        filteredItems.push(...items);
+    if (subgroupConfig && !activeSubgroup) {
+      for (const subgroup of subgroupConfig.groups) {
+        const items = subgroupFiltered.filter((item) => subgroupConfig.getItemSubgroup(item) === subgroup.id);
+        if (items.length > 0) {
+          orderedGroups.push({ name: subgroup.label, items });
+          filteredItems.push(...items);
+        }
+      }
+    } else if (subgroupConfig && activeSubgroup) {
+      const subgroupLabel = subgroupConfig.groups.find((subgroup) => subgroup.id === activeSubgroup)?.label ?? activeGroup ?? 'Items';
+      orderedGroups.push({ name: subgroupLabel, items: subgroupFiltered });
+      filteredItems.push(...subgroupFiltered);
+    } else {
+      const grouped = new Map<string, GameItemCatalogEntry[]>();
+      for (const item of subgroupFiltered) {
+        const g = getCategoryGroup(item.category);
+        if (!grouped.has(g)) grouped.set(g, []);
+        grouped.get(g)!.push(item);
+      }
+
+      for (const g of CATEGORY_GROUP_ORDER) {
+        const items = grouped.get(g);
+        if (items && items.length > 0) {
+          orderedGroups.push({ name: g, items });
+          filteredItems.push(...items);
+        }
       }
     }
 
@@ -331,7 +638,7 @@ function openItemPickerPanel(options: {
     }
 
     let flatIndex = 0;
-    const showHeaders = !activeGroup && orderedGroups.length > 1;
+    const showHeaders = (!activeGroup || (subgroupConfig && !activeSubgroup)) && orderedGroups.length > 1;
 
     for (const group of orderedGroups) {
       if (showHeaders) {
@@ -427,7 +734,11 @@ function openItemPickerPanel(options: {
     chip.onclick = () => {
       if (activeGroup === group) return;
       activeGroup = group;
+      activeSubgroup = null;
+      rebuildSubchips();
       updateChipStates();
+      updateSubchipVisibility();
+      updateSubchipStates();
       renderList(searchInput.value);
       setActiveIndexFromValue(options.currentValue);
       updateActiveOption();
@@ -443,6 +754,9 @@ function openItemPickerPanel(options: {
   searchInput.addEventListener('keydown', handleKeyDown);
 
   /* ── Initial render ── */
+  rebuildSubchips();
+  updateSubchipVisibility();
+  updateSubchipStates();
   renderList('');
   setActiveIndexFromValue(options.currentValue);
   updateActiveOption();
