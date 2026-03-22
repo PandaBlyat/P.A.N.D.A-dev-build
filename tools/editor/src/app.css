@@ -37,10 +37,10 @@
   --control-icon-size-sm: 0.9rem;
   --control-label-gap: 0.45rem;
   --control-disabled-opacity: 0.42;
-  --panel-left-width: 280px;
+  --panel-left-width: 320px;
   --panel-right-width: 360px;
   --panel-collapsed-width: 52px;
-  --panel-left-drawer-width: 320px;
+  --panel-left-drawer-width: 360px;
   --panel-right-drawer-width: 360px;
   --utility-rail-offset: 16px;
   --focus-ring: 0 0 0 2px rgba(8, 10, 12, 0.95), 0 0 0 4px rgba(94, 170, 58, 0.75), 0 0 18px rgba(94, 170, 58, 0.32);
@@ -736,6 +736,23 @@ button:disabled:hover,
 .btn-sm .ui-icon {
   width: var(--control-icon-size-sm);
   height: var(--control-icon-size-sm);
+}
+
+.flow-add-turn-button {
+  font-weight: 700;
+  padding-inline: 10px 12px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 0 12px color-mix(in srgb, var(--accent-glow) 72%, transparent);
+}
+
+.flow-add-turn-button .ui-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.flow-add-turn-button:hover {
+  transform: translateY(-1px);
 }
 
 .btn-icon {

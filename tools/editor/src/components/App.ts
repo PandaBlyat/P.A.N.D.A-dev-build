@@ -34,7 +34,7 @@ type LayoutDefaults = {
 };
 
 const layoutState = {
-  leftWidth: 280,
+  leftWidth: 320,
   rightWidth: 360,
   leftCollapsed: false,
   rightCollapsed: false,
@@ -284,8 +284,10 @@ function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSel
     autoLayoutBtn.onclick = () => store.autoLayoutConversation(conv.id);
 
     const addTurnBtn = document.createElement('button');
-    addTurnBtn.className = 'btn-sm';
-    setButtonContent(addTurnBtn, 'add', 'Turn');
+    addTurnBtn.className = 'btn-sm btn-primary flow-add-turn-button';
+    setButtonContent(addTurnBtn, 'add', '+ Turn');
+    addTurnBtn.title = 'Add a new turn to create another branch';
+    addTurnBtn.setAttribute('aria-label', addTurnBtn.title);
     addTurnBtn.onclick = () => store.addTurn(conv.id);
 
     shell.centerActions.append(autoLayoutBtn, addTurnBtn);
@@ -563,7 +565,7 @@ function getLayoutDefaults(mode: ResponsiveLayoutMode, viewportWidth: number): L
   }
 
   return {
-    leftWidth: 280,
+    leftWidth: 320,
     rightWidth: 360,
     leftCollapsed: false,
     rightCollapsed: false,
