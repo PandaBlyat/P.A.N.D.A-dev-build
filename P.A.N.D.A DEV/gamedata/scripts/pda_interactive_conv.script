@@ -1132,6 +1132,32 @@ local function queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sen
     )
 end
 
+local function queue_stash_attachment_reward_custom(sender_npc_name, sender_npc_id, sender_contact_id, custom_items)
+    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
+
+    pda_private_add_message(
+        contact_id,
+        sender_npc_name,
+        sender_npc_name or game.translate_string("st_pda_ic_outcome_sender"),
+        "Map Coordinates:",
+        sender_icon,
+        false,
+        "delivered",
+        nil,
+        nil,
+        {
+            msg_type = "map_attachment",
+            attachment_action = "reward_stash_custom",
+            attachment_label = "Stash Coordinates:",
+            location_name = game.translate_string("st_pda_ic_outcome_stash_attachment_file"),
+            attachment_claimed = false,
+            custom_items = custom_items,
+            skip_personality = true,
+        }
+    )
+end
+
 function process_map_attachment_action(entry)
     if type(entry) ~= "table" then
         return false
@@ -1143,6 +1169,15 @@ function process_map_attachment_action(entry)
 
     if entry.attachment_action == "reward_stash" then
         reveal_random_stash()
+        entry.attachment_claimed = true
+        return true
+    end
+
+    if entry.attachment_action == "reward_stash_custom" then
+        local bonus = entry.custom_items or {}
+        if treasure_manager and treasure_manager.create_random_stash then
+            treasure_manager.create_random_stash(nil, nil, bonus, true)
+        end
         entry.attachment_claimed = true
         return true
     end
@@ -2026,7 +2061,7 @@ function resolve_level_smart_terrain_name(level_key)
     return translated, st_key
 end
 
-local function build_substitution_table(npc_name, npc_faction)
+local function build_substitution_table(npc_name, npc_faction, npc_se, contact_id)
     local act = db.actor
     local player_name = act and act:character_name() or "Stalker"
     local player_comm = get_actor_true_community() or "stalker"
@@ -2052,6 +2087,40 @@ local function build_substitution_table(npc_name, npc_faction)
     Y, M, D, h, mi = gt:get(Y, M, D, h, mi, 0, 0)
     local time_of_day = (h >= 6 and h < 12) and "morning" or (h >= 12 and h < 18) and "afternoon" or (h >= 18 and h < 22) and "evening" or "night"
 
+    -- NPC rank
+    local npc_rank_name = "unknown"
+    if npc_se and ranks and ranks.get_obj_rank_name then
+        local npc_obj = level.object_by_id(npc_se.id)
+        if npc_obj then
+            npc_rank_name = ranks.get_obj_rank_name(npc_obj) or "unknown"
+        end
+    end
+
+    -- Player health percentage
+    local player_health = act and math.floor((act.health or 0) * 100) or 0
+
+    -- Kill statistics
+    local stalker_kills = 0
+    local mutant_kills = 0
+    if act_statistic and act_statistic.get_stat then
+        stalker_kills = act_statistic.get_stat("killed_stalkers") or 0
+        mutant_kills = act_statistic.get_stat("killed_monsters") or 0
+    elseif game_stats and game_stats.get_actor_stat then
+        stalker_kills = game_stats.get_actor_stat("killed_stalkers") or 0
+        mutant_kills = game_stats.get_actor_stat("killed_monsters") or 0
+    end
+
+    -- Relationship score
+    local rel_score = 0
+    if contact_id and relationship_scores then
+        rel_score = relationship_scores[contact_id] or 0
+    elseif npc_se and relationship_scores then
+        rel_score = relationship_scores[npc_se.id] or 0
+    end
+
+    -- Game days survived
+    local game_days = level.get_time_days and level.get_time_days() or 0
+
     return {
         ["player_name"] = player_name,
         ["npc_name"] = npc_name or "Stalker",
@@ -2064,6 +2133,12 @@ local function build_substitution_table(npc_name, npc_faction)
         ["companion_count"] = tostring(comp_count),
         ["time_of_day"] = time_of_day,
         ["game_hour"] = string.format("%02d:%02d", h, mi),
+        ["npc_rank"] = npc_rank_name,
+        ["player_health"] = tostring(player_health),
+        ["stalker_kills"] = tostring(stalker_kills),
+        ["mutant_kills"] = tostring(mutant_kills),
+        ["relationship_score"] = tostring(rel_score),
+        ["game_days"] = tostring(game_days),
     }
 end
 
@@ -2075,7 +2150,7 @@ function clear_st_resolve_cache()
     _st_resolve_cache = {}
 end
 
-local function sub_placeholders(str, npc_name, npc_faction)
+local function sub_placeholders(str, npc_name, npc_faction, npc_se, contact_id)
     if not str or str == "" then return str end
 
     -- First resolve any %<level>_panda_st% patterns.
@@ -2109,7 +2184,7 @@ local function sub_placeholders(str, npc_name, npc_faction)
     end)
 
     -- Then do normal $placeholder substitutions
-    local subs = build_substitution_table(npc_name, npc_faction)
+    local subs = build_substitution_table(npc_name, npc_faction, npc_se, contact_id)
     return utils_data.parse_string_keys(str, subs)
 end
 
@@ -2503,6 +2578,172 @@ local function evaluate_precondition_entry(entry, npc_se, act, get_goodwill_acto
         if act.health < (tonumber(parts[2]) or 0) then return false, "health below minimum" end
     elseif cmd == "req_health_max" then
         if act.health > (tonumber(parts[2]) or 0) then return false, "health above max" end
+
+    -- ========== PLAYER CONDITION ==========
+    elseif cmd == "req_radiation_min" then
+        local rad = act:get_radiation() * 100
+        if rad < (tonumber(parts[2]) or 0) then return false, "radiation below minimum" end
+    elseif cmd == "req_radiation_max" then
+        local rad = act:get_radiation() * 100
+        if rad > (tonumber(parts[2]) or 0) then return false, "radiation above max" end
+    elseif cmd == "req_hunger" then
+        local satiety = 1
+        if actor_status and actor_status.get_satienty then
+            satiety = actor_status.get_satienty()
+        end
+        if satiety < 2 then return false, "player not hungry" end
+    elseif cmd == "req_not_hungry" then
+        local satiety = 1
+        if actor_status and actor_status.get_satienty then
+            satiety = actor_status.get_satienty()
+        end
+        if satiety >= 2 then return false, "player hungry" end
+    elseif cmd == "req_bleeding" then
+        if act.bleeding <= 0 then return false, "player not bleeding" end
+    elseif cmd == "req_overweight" then
+        local max_weight = (db.actor:get_actor_max_weight and db.actor:get_actor_max_weight()) or 60
+        local cur_weight = (db.actor.get_total_weight and db.actor:get_total_weight()) or 0
+        if cur_weight <= max_weight then return false, "player not overweight" end
+
+    -- ========== HAS ITEM TYPE ==========
+    elseif cmd == "req_has_item_type" then
+        local item_type = parts[2]
+        if not item_type then return false, "missing item type" end
+        local TYPE_CHECKERS = {
+            weapon = IsWeapon, outfit = IsOutfit, artefact = IsArtefact,
+            headgear = IsHeadgear, pistol = IsPistol, rifle = IsRifle,
+            shotgun = IsShotgun, sniper = IsSniper, melee = IsMelee,
+            explosive = IsExplosive,
+        }
+        local checker = TYPE_CHECKERS[item_type:lower()]
+        if not checker then return false, "unknown item type: " .. tostring(item_type) end
+        local found = false
+        act:iterate_inventory(function(owner, item)
+            if not found and checker(item) then found = true end
+        end, act)
+        if not found then return false, "no item of type " .. item_type end
+
+    -- ========== ARTEFACTS / FACTION KILLS ==========
+    elseif cmd == "req_artefacts_found" then
+        local found = 0
+        if act_statistic and act_statistic.get_stat then
+            found = act_statistic.get_stat("artefacts_found") or 0
+        elseif game_stats and game_stats.get_actor_stat then
+            found = game_stats.get_actor_stat("artefacts_found") or 0
+        end
+        if found < (tonumber(parts[2]) or 0) then return false, "artefacts found below minimum" end
+    elseif cmd == "req_faction_kills" then
+        local required_count = tonumber(parts[2]) or 0
+        local target_faction = normalize_faction(parts[3] or "bandit")
+        local kills = 0
+        if act_statistic and act_statistic.get_stat then
+            kills = act_statistic.get_stat("killed_" .. target_faction) or 0
+        elseif game_stats and game_stats.get_actor_stat then
+            kills = game_stats.get_actor_stat("killed_" .. target_faction) or 0
+        end
+        if kills < required_count then return false, "faction kills below minimum" end
+    elseif cmd == "req_enemy_kills" then
+        local required_count = tonumber(parts[2]) or 0
+        local kills = 0
+        if act_statistic and act_statistic.get_stat then
+            kills = act_statistic.get_stat("killed_stalkers_e") or act_statistic.get_stat("killed_stalkers") or 0
+        elseif game_stats and game_stats.get_actor_stat then
+            kills = game_stats.get_actor_stat("killed_stalkers_e") or game_stats.get_actor_stat("killed_stalkers") or 0
+        end
+        if kills < required_count then return false, "enemy kills below minimum" end
+
+    -- ========== NOT HAS ITEM / ITEM COUNT ==========
+    elseif cmd == "req_not_has_item" then
+        local item_sec = parts[2]
+        if not item_sec then return false, "missing item section" end
+        local found = false
+        act:iterate_inventory(function(owner, item)
+            if item:section() == item_sec then found = true end
+        end, act)
+        if found then return false, "item present (should not be)" end
+    elseif cmd == "req_has_item_count" then
+        local item_sec = parts[2]
+        local required = tonumber(parts[3]) or 1
+        if not item_sec then return false, "missing item section" end
+        local count = 0
+        act:iterate_inventory(function(owner, item)
+            if item:section() == item_sec then count = count + 1 end
+        end, act)
+        if count < required then return false, "item count below minimum" end
+
+    -- ========== KNOWLEDGE / INFO PORTIONS ==========
+    elseif cmd == "req_has_info" then
+        local info_id = parts[2]
+        if not info_id or info_id == "" then return false, "missing info id" end
+        if not has_alife_info(info_id) then return false, "info portion missing" end
+    elseif cmd == "req_not_has_info" then
+        local info_id = parts[2]
+        if not info_id or info_id == "" then return false, "missing info id" end
+        if has_alife_info(info_id) then return false, "info portion present (should not be)" end
+
+    -- ========== RELATIONSHIP SCORE ==========
+    elseif cmd == "req_relationship_min" then
+        local min_score = tonumber(parts[2]) or 0
+        local rel_score = 0
+        if npc_se and relationship_scores then
+            rel_score = relationship_scores[npc_se.id] or 0
+        end
+        if rel_score < min_score then return false, "relationship below minimum" end
+    elseif cmd == "req_relationship_max" then
+        local max_score = tonumber(parts[2]) or 0
+        local rel_score = 0
+        if npc_se and relationship_scores then
+            rel_score = relationship_scores[npc_se.id] or 0
+        end
+        if rel_score > max_score then return false, "relationship above max" end
+
+    -- ========== TIME HOUR ==========
+    elseif cmd == "req_time_hour_min" then
+        local gt = game.get_game_time()
+        local Y, M, D, h = 0, 0, 0, 0
+        Y, M, D, h = gt:get(Y, M, D, h, 0, 0, 0)
+        if h < (tonumber(parts[2]) or 0) then return false, "hour below minimum" end
+    elseif cmd == "req_time_hour_max" then
+        local gt = game.get_game_time()
+        local Y, M, D, h = 0, 0, 0, 0
+        Y, M, D, h = gt:get(Y, M, D, h, 0, 0, 0)
+        if h > (tonumber(parts[2]) or 23) then return false, "hour above max" end
+
+    -- ========== NPC STATE ==========
+    elseif cmd == "req_npc_alive" then
+        if not npc_se then return false, "npc missing" end
+        local se_obj = alife_object(npc_se.id)
+        if not se_obj then return false, "npc dead or released" end
+    elseif cmd == "req_npc_on_level" then
+        if not npc_se then return false, "npc missing" end
+        local required_level = parts[2]
+        if not required_level then return false, "missing level" end
+        local npc_level = alife():level_name(game_graph():vertex(npc_se.m_game_vertex_id):level_id())
+        if npc_level ~= required_level then return false, "npc on wrong level" end
+
+    -- ========== GAME PROGRESS ==========
+    elseif cmd == "req_game_days_min" then
+        local days = level.get_time_days and level.get_time_days() or 0
+        if days < (tonumber(parts[2]) or 0) then return false, "game days below minimum" end
+    elseif cmd == "req_game_days_max" then
+        local days = level.get_time_days and level.get_time_days() or 0
+        if days > (tonumber(parts[2]) or 9999) then return false, "game days above max" end
+    elseif cmd == "req_visited_level" then
+        local lvl = parts[2]
+        if not lvl then return false, "missing level" end
+        local visited = false
+        if game_statistics and game_statistics.has_actor_visited_level then
+            visited = game_statistics.has_actor_visited_level(lvl)
+        end
+        if not visited then return false, "level not visited" end
+    elseif cmd == "req_not_visited_level" then
+        local lvl = parts[2]
+        if not lvl then return false, "missing level" end
+        local visited = false
+        if game_statistics and game_statistics.has_actor_visited_level then
+            visited = game_statistics.has_actor_visited_level(lvl)
+        end
+        if visited then return false, "level already visited" end
     else
         return nil, "unknown command"
     end
@@ -2740,7 +2981,8 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
 
     -- Resolve dynamic placeholders in outcome command strings (including smart terrain refs)
     -- so commands like watch_location_trigger:%cordon_panda_st_key% work at runtime.
-    outcome_str = sub_placeholders(outcome_str, sender_npc_name, sender_faction)
+    local sender_se = sender_npc_id and alife_object(sender_npc_id) or nil
+    outcome_str = sub_placeholders(outcome_str, sender_npc_name, sender_faction, sender_se, sender_contact_id)
 
     local task_given = false
     local spawn_mult = (PANDA.get_config("spawn_chance_mult") or 100) / 100
@@ -3013,6 +3255,198 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                 }
             end
 
+        -- ========== TAKE ITEM ==========
+        elseif cmd == "take_item" then
+            local item_sec = parts[2]
+            if item_sec then
+                local found_obj = nil
+                act:iterate_inventory(function(owner, item)
+                    if not found_obj and item:section() == item_sec then found_obj = item end
+                end, act)
+                if found_obj then
+                    alife_release(alife():object(found_obj:id()))
+                    local msg = utils_data.parse_string_keys(
+                        game.translate_string("st_pda_ic_outcome_item_taken"),
+                        {["what"] = ui_item.get_sec_name(item_sec)}
+                    )
+                    dynamic_news_helper.send_tip(msg, "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc")
+                end
+            end
+
+        -- ========== GIVE ITEM COUNT ==========
+        elseif cmd == "give_item_count" then
+            local item_sec = parts[2]
+            local count = tonumber(parts[3]) or 1
+            if item_sec and ini_sys:section_exist(item_sec) then
+                for i = 1, count do
+                    alife_create_item(item_sec, db.actor)
+                end
+                local msg = string.format(
+                    game.translate_string("st_pda_ic_outcome_items_given"),
+                    count, ui_item.get_sec_name(item_sec)
+                )
+                dynamic_news_helper.send_tip(msg, "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc")
+            end
+
+        -- ========== REWARD STASH WITH SPECIFIC ITEMS ==========
+        elseif cmd == "reward_stash_items" then
+            local items_str = parts[2]
+            if items_str and items_str ~= "" then
+                local bonus_items = {}
+                for item_sec in string.gmatch(items_str, "([^+]+)") do
+                    item_sec = item_sec:match("^%s*(.-)%s*$")
+                    if item_sec ~= "" and ini_sys:section_exist(item_sec) then
+                        table.insert(bonus_items, item_sec)
+                    end
+                end
+                if #bonus_items > 0 then
+                    queue_stash_attachment_reward_custom(sender_npc_name, sender_npc_id, sender_contact_id, bonus_items)
+                else
+                    queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sender_contact_id)
+                end
+            else
+                queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sender_contact_id)
+            end
+
+        -- ========== KNOWLEDGE / INFO PORTIONS ==========
+        elseif cmd == "give_info" then
+            local info_id = parts[2]
+            if info_id and info_id ~= "" then
+                give_info(info_id)
+                dynamic_news_helper.send_tip(
+                    game.translate_string("st_pda_ic_outcome_info_gained"),
+                    "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc"
+                )
+            end
+        elseif cmd == "disable_info" then
+            local info_id = parts[2]
+            if info_id and info_id ~= "" then
+                disable_info(info_id)
+                dynamic_news_helper.send_tip(
+                    game.translate_string("st_pda_ic_outcome_info_removed"),
+                    "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc"
+                )
+            end
+
+        -- ========== PLAYER EFFECTS ==========
+        elseif cmd == "heal_player" then
+            local amount = (tonumber(parts[2]) or 0) / 100
+            amount = math.max(0, math.min(1, amount))
+            db.actor.health = amount
+        elseif cmd == "damage_player" then
+            local amount = (tonumber(parts[2]) or 0) / 100
+            amount = math.max(0, math.min(0.99, amount))
+            db.actor.health = -amount
+        elseif cmd == "give_radiation" then
+            local amount = (tonumber(parts[2]) or 0) / 100
+            amount = math.max(0, math.min(1, amount))
+            db.actor:change_radiation(amount)
+        elseif cmd == "cure_radiation" then
+            local cur_rad = db.actor:get_radiation()
+            if cur_rad > 0 then
+                db.actor:change_radiation(-cur_rad)
+            end
+
+        -- ========== NPC RELATION CHANGES ==========
+        elseif cmd == "dismiss_companion" then
+            if sender_npc_id then
+                local npc_obj = level.object_by_id(sender_npc_id)
+                if npc_obj and axr_companions then
+                    axr_companions.dismiss_companion(npc_obj)
+                    dynamic_news_helper.send_tip(
+                        game.translate_string("st_pda_ic_outcome_npc_dismissed"),
+                        sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc"
+                    )
+                end
+            end
+        elseif cmd == "set_npc_hostile" then
+            if sender_npc_id then
+                local npc_obj = level.object_by_id(sender_npc_id)
+                if npc_obj then
+                    npc_obj:set_relation(game_object.enemy, db.actor)
+                    npc_obj:force_set_goodwill(-5000, db.actor)
+                    dynamic_news_helper.send_tip(
+                        game.translate_string("st_pda_ic_outcome_npc_hostile"),
+                        sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "danger", "npc"
+                    )
+                end
+            end
+        elseif cmd == "set_npc_friendly" then
+            if sender_npc_id then
+                local npc_obj = level.object_by_id(sender_npc_id)
+                if npc_obj then
+                    npc_obj:set_relation(game_object.friend, db.actor)
+                    npc_obj:force_set_goodwill(5000, db.actor)
+                    dynamic_news_helper.send_tip(
+                        game.translate_string("st_pda_ic_outcome_npc_friendly"),
+                        sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc"
+                    )
+                end
+            end
+        elseif cmd == "kill_npc" then
+            if sender_npc_id then
+                local npc_obj = level.object_by_id(sender_npc_id)
+                if npc_obj and npc_obj.alive and npc_obj:alive() then
+                    npc_obj:kill(npc_obj)
+                else
+                    local se_obj = alife_object(sender_npc_id)
+                    if se_obj then
+                        alife_release(se_obj)
+                    end
+                end
+                dynamic_news_helper.send_tip(
+                    game.translate_string("st_pda_ic_outcome_npc_killed"),
+                    sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "danger", "npc"
+                )
+            end
+
+        elseif cmd == "change_npc_faction" then
+            local new_faction = normalize_faction(parts[2] or "stalker")
+            if sender_npc_id then
+                local se_npc = alife_object(sender_npc_id)
+                if se_npc then
+                    if SIMBOARD and SIMBOARD.change_faction then
+                        SIMBOARD:change_faction(se_npc, new_faction)
+                    elseif se_npc.community then
+                        se_npc:community(new_faction)
+                    end
+                    dynamic_news_helper.send_tip(
+                        game.translate_string("st_pda_ic_outcome_npc_faction_change"),
+                        sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc"
+                    )
+                end
+            end
+
+        -- ========== SPAWN AT SMART (friendly / neutral) ==========
+        elseif cmd == "spawn_friendly_at_smart" then
+            local friendly_faction = normalize_faction(parts[2] or "stalker")
+            local smart_ref = parts[3]
+            local delay = tonumber(parts[4]) or 0
+            if smart_ref and smart_ref ~= "" then
+                spawn_squad_at_smart_terrain(friendly_faction, smart_ref, false, delay, sender_contact_id, "friendly")
+            else
+                printf("PANDA_IC: spawn_friendly_at_smart missing smart reference in '%s'", tostring(cmd_str))
+            end
+        elseif cmd == "spawn_squad_at_smart" then
+            local faction = normalize_faction(parts[2] or "stalker")
+            local smart_ref = parts[3]
+            local delay = tonumber(parts[4]) or 0
+            if smart_ref and smart_ref ~= "" then
+                spawn_squad_at_smart_terrain(faction, smart_ref, false, delay, sender_contact_id, "default")
+            else
+                printf("PANDA_IC: spawn_squad_at_smart missing smart reference in '%s'", tostring(cmd_str))
+            end
+
+        elseif cmd == "spawn_companion_at_smart" then
+            local faction = normalize_faction(parts[2] or "stalker")
+            local smart_ref = parts[3]
+            local delay = tonumber(parts[4]) or 0
+            if smart_ref and smart_ref ~= "" then
+                spawn_squad_at_smart_terrain(faction, smart_ref, false, delay, sender_contact_id, "companion")
+            else
+                printf("PANDA_IC: spawn_companion_at_smart missing smart reference in '%s'", tostring(cmd_str))
+            end
+
         else
             printf("Unknown outcome command: %s", cmd_str)
         end
@@ -3277,6 +3711,14 @@ spawn_squad_at_smart_terrain = function(squad_key, smart_ref, is_mutant, delay, 
                 if o then
                     o:set_relation(game_object.enemy, db.actor)
                 end
+            end
+        elseif relation_mode == "companion" then
+            apply_spawned_faction_relation(obj, "friendly")
+            -- Recruit the spawned squad into companion system
+            if axr_companions and axr_companions.add_companion_squad then
+                axr_companions.add_companion_squad(obj.id)
+            elseif axr_companions and axr_companions.companion_squads then
+                axr_companions.companion_squads[obj.id] = true
             end
         else
             apply_spawned_faction_relation(obj, relation_mode)
@@ -4007,7 +4449,7 @@ end
 -- CONVERSATION FLOW (State Machine)
 -- ============================================================
 
-function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact_id)
+function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact_id, npc_se)
     local p
     if prefix == "task" or not prefix then
         p = "st_pda_ic_"..faction.."_"..tostring(conv_id)
@@ -4050,8 +4492,8 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact
         end
 
         choices[i] = {
-            text = sub_placeholders(text, npc_name, faction),
-            reply = sub_placeholders(reply_text, npc_name, faction),
+            text = sub_placeholders(text, npc_name, faction, npc_se, contact_id),
+            reply = sub_placeholders(reply_text, npc_name, faction, npc_se, contact_id),
             outcome = game.translate_string(p.."_outcome_"..i),
             next_turn = tonumber(game.translate_string(p.."_cont_"..i)) or nil
         }
@@ -4214,7 +4656,7 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
     local msg = game.translate_string(key)
     if msg == key then return false end
 
-    local choices, num = load_choices_for_turn(prefix, faction, conv_id, 1, name, contact_id)
+    local choices, num = load_choices_for_turn(prefix, faction, conv_id, 1, name, contact_id, npc_se)
     if num == 0 then return false end
 
     local conv_data = {
@@ -4256,7 +4698,7 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
     )
 
     -- Add the actual message directly into the custom Private PDA Log
-    pda_private_add_message(contact_id, name, name, sub_placeholders(msg, name, faction), conv_data.npc_icon, false)
+    pda_private_add_message(contact_id, name, name, sub_placeholders(msg, name, faction, npc_se, contact_id), conv_data.npc_icon, false)
 
     -- Force refresh of UI if PDA is actively open so the message pops up immediately
     if get_ui then
@@ -4384,7 +4826,7 @@ function check_conversation_timeouts()
             or GENERIC_TIMEOUT_MESSAGES[math.random(#GENERIC_TIMEOUT_MESSAGES)]
 
         -- Substitute placeholders in the annoyed message
-        annoyed_msg = sub_placeholders(annoyed_msg, conv.npc_name, conv.faction)
+        annoyed_msg = sub_placeholders(annoyed_msg, conv.npc_name, conv.faction, conv.npc_id and alife_object(conv.npc_id) or nil, exp.contact_id)
 
         -- Add the annoyed message to the chat log
         pda_private_add_message(exp.contact_id, conv.npc_name, conv.npc_name, annoyed_msg, conv.npc_icon, false)

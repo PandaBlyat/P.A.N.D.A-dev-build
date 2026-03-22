@@ -95,6 +95,19 @@ const ACHIEVEMENT_OPTIONS: ParamOption[] = [
   { value: 'invictus', label: 'Invictus — The ultimate achievement for surviving ironman mode.', keywords: ['invictus', 'ironman', 'screenshot'] },
 ];
 
+const ITEM_TYPE_OPTIONS: ParamOption[] = [
+  { value: 'weapon', label: 'Weapon', keywords: ['weapon', 'gun'] },
+  { value: 'outfit', label: 'Outfit/Armor', keywords: ['outfit', 'armor'] },
+  { value: 'artefact', label: 'Artefact', keywords: ['artefact', 'artifact'] },
+  { value: 'headgear', label: 'Headgear/Helmet', keywords: ['headgear', 'helmet'] },
+  { value: 'pistol', label: 'Pistol', keywords: ['pistol', 'handgun'] },
+  { value: 'rifle', label: 'Rifle', keywords: ['rifle'] },
+  { value: 'shotgun', label: 'Shotgun', keywords: ['shotgun'] },
+  { value: 'sniper', label: 'Sniper Rifle', keywords: ['sniper'] },
+  { value: 'melee', label: 'Melee Weapon', keywords: ['melee', 'knife'] },
+  { value: 'explosive', label: 'Explosive', keywords: ['explosive', 'grenade'] },
+];
+
 const SMART_TERRAIN_EDITOR: ParamEditor = {
   kind: 'smart_terrain_picker',
   allowPlaceholder: true,
@@ -153,6 +166,31 @@ const WATCH_TRIGGER_SUGGESTIONS: ParamOption[] = [
     value: 'recruit_companion',
     label: 'Recruit the current NPC as a companion',
     keywords: ['recruit', 'companion'],
+  },
+  {
+    value: 'spawn_friendly_at_smart:stalker:%cordon_panda_st_key%',
+    label: 'Spawn friendlies at the watched smart terrain',
+    keywords: ['spawn', 'friendly', 'smart', 'stalker'],
+  },
+  {
+    value: 'spawn_companion_at_smart:stalker:%cordon_panda_st_key%',
+    label: 'Spawn companion at the watched smart terrain',
+    keywords: ['spawn', 'companion', 'smart'],
+  },
+  {
+    value: 'set_npc_hostile',
+    label: 'Make the NPC hostile to the player',
+    keywords: ['hostile', 'npc', 'enemy'],
+  },
+  {
+    value: 'set_npc_friendly',
+    label: 'Make the NPC friendly to the player',
+    keywords: ['friendly', 'npc'],
+  },
+  {
+    value: 'kill_npc',
+    label: 'Kill the conversation NPC',
+    keywords: ['kill', 'npc', 'death'],
   },
 ];
 
@@ -548,6 +586,235 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
       { name: 'achievement', type: 'achievement', required: true, label: 'Achievement Name', editor: { kind: 'searchable_select', options: ACHIEVEMENT_OPTIONS, emptyLabel: '-- Select achievement --' } },
     ],
   },
+
+  // Player Condition
+  {
+    name: 'req_radiation_min',
+    label: 'Radiation Min',
+    description: 'Player radiation level must be >= amount (0-100)',
+    category: 'Player Condition',
+    params: [
+      { name: 'amount', type: 'number', required: true, label: 'Minimum Radiation', min: 0, max: 100 },
+    ],
+  },
+  {
+    name: 'req_radiation_max',
+    label: 'Radiation Max',
+    description: 'Player radiation level must be <= amount (0-100)',
+    category: 'Player Condition',
+    params: [
+      { name: 'amount', type: 'number', required: true, label: 'Maximum Radiation', min: 0, max: 100 },
+    ],
+  },
+  {
+    name: 'req_hunger',
+    label: 'Player Hungry',
+    description: 'Player must be hungry (satiety level 2+)',
+    category: 'Player Condition',
+    params: [],
+  },
+  {
+    name: 'req_not_hungry',
+    label: 'Player Not Hungry',
+    description: 'Player must not be hungry',
+    category: 'Player Condition',
+    params: [],
+  },
+  {
+    name: 'req_bleeding',
+    label: 'Player Bleeding',
+    description: 'Player must be bleeding',
+    category: 'Player Condition',
+    params: [],
+  },
+  {
+    name: 'req_overweight',
+    label: 'Player Overweight',
+    description: 'Player must be overburdened (carrying more than max weight)',
+    category: 'Player Condition',
+    params: [],
+  },
+
+  // Items (expanded)
+  {
+    name: 'req_has_item_type',
+    label: 'Has Item Type',
+    description: 'Player must have any item of specified type in inventory',
+    category: 'Items',
+    params: [
+      { name: 'type', type: 'string', required: true, label: 'Item Type',
+        editor: { kind: 'searchable_select', options: ITEM_TYPE_OPTIONS, emptyLabel: '-- Select type --' } },
+    ],
+  },
+
+  // Statistics (expanded)
+  {
+    name: 'req_artefacts_found',
+    label: 'Artefacts Found',
+    description: 'Player must have found >= count artefacts total',
+    category: 'Statistics',
+    params: [
+      { name: 'count', type: 'number', required: true, label: 'Minimum Artefacts', min: 0 },
+    ],
+  },
+  {
+    name: 'req_faction_kills',
+    label: 'Faction Kills',
+    description: 'Player must have killed >= count members of a specific faction',
+    category: 'Statistics',
+    params: [
+      { name: 'count', type: 'number', required: true, label: 'Minimum Kills', min: 0 },
+      { name: 'faction', type: 'faction', required: true, label: 'Faction', editor: { kind: 'searchable_select', options: FACTION_OPTIONS, emptyLabel: '-- Select faction --' } },
+    ],
+  },
+  {
+    name: 'req_enemy_kills',
+    label: 'Enemy Kills',
+    description: 'Player must have killed >= count hostile stalkers',
+    category: 'Statistics',
+    params: [
+      { name: 'count', type: 'number', required: true, label: 'Minimum Kills', min: 0 },
+    ],
+  },
+
+  // Items (expanded)
+  {
+    name: 'req_not_has_item',
+    label: 'Does Not Have Item',
+    description: 'Player must NOT have item in inventory',
+    category: 'Items',
+    params: [
+      { name: 'item', type: 'item_section', required: true, label: 'Item Section', editor: ITEM_PICKER_PANEL_EDITOR },
+    ],
+  },
+  {
+    name: 'req_has_item_count',
+    label: 'Has Item Count',
+    description: 'Player must have >= count of a specific item',
+    category: 'Items',
+    params: [
+      { name: 'item', type: 'item_section', required: true, label: 'Item Section', editor: ITEM_PICKER_PANEL_EDITOR },
+      { name: 'count', type: 'number', required: true, label: 'Minimum Count', min: 1 },
+    ],
+  },
+
+  // Knowledge
+  {
+    name: 'req_has_info',
+    label: 'Has Info Portion',
+    description: 'Player must have a specific info portion (knowledge/lore gate)',
+    category: 'Knowledge',
+    helpText: 'Info portions are game knowledge flags. Check vanilla game files for available info IDs.',
+    params: [
+      { name: 'info_id', type: 'string', required: true, label: 'Info Portion ID', placeholder: 'e.g. bar_deactivate_radar_done' },
+    ],
+  },
+  {
+    name: 'req_not_has_info',
+    label: 'Missing Info Portion',
+    description: 'Player must NOT have a specific info portion',
+    category: 'Knowledge',
+    params: [
+      { name: 'info_id', type: 'string', required: true, label: 'Info Portion ID', placeholder: 'e.g. bar_deactivate_radar_done' },
+    ],
+  },
+
+  // Relationship
+  {
+    name: 'req_relationship_min',
+    label: 'Relationship Min',
+    description: 'NPC relationship score with player must be >= value (-1000 to 1000)',
+    category: 'Relationship',
+    helpText: 'Uses P.A.N.D.A.\'s built-in per-NPC relationship score system.',
+    params: [
+      { name: 'score', type: 'number', required: true, label: 'Minimum Score', min: -1000, max: 1000 },
+    ],
+  },
+  {
+    name: 'req_relationship_max',
+    label: 'Relationship Max',
+    description: 'NPC relationship score with player must be <= value (-1000 to 1000)',
+    category: 'Relationship',
+    params: [
+      { name: 'score', type: 'number', required: true, label: 'Maximum Score', min: -1000, max: 1000 },
+    ],
+  },
+
+  // Time (expanded)
+  {
+    name: 'req_time_hour_min',
+    label: 'Hour Min',
+    description: 'Current game hour must be >= value (0-23)',
+    category: 'Time & Weather',
+    params: [
+      { name: 'hour', type: 'number', required: true, label: 'Minimum Hour', min: 0, max: 23 },
+    ],
+  },
+  {
+    name: 'req_time_hour_max',
+    label: 'Hour Max',
+    description: 'Current game hour must be <= value (0-23)',
+    category: 'Time & Weather',
+    params: [
+      { name: 'hour', type: 'number', required: true, label: 'Maximum Hour', min: 0, max: 23 },
+    ],
+  },
+
+  // NPC State
+  {
+    name: 'req_npc_alive',
+    label: 'NPC Alive',
+    description: 'The conversation NPC must still be alive in the simulation',
+    category: 'NPC State',
+    params: [],
+  },
+  {
+    name: 'req_npc_on_level',
+    label: 'NPC On Level',
+    description: 'NPC must be on specified level',
+    category: 'NPC State',
+    params: [
+      { name: 'level', type: 'level', required: true, label: 'Level', editor: { kind: 'searchable_select', options: LEVEL_OPTIONS, emptyLabel: '-- Select level --' } },
+    ],
+  },
+
+  // Game Progress
+  {
+    name: 'req_game_days_min',
+    label: 'Days Survived Min',
+    description: 'Player must have survived >= N in-game days',
+    category: 'Game Progress',
+    params: [
+      { name: 'days', type: 'number', required: true, label: 'Minimum Days', min: 0 },
+    ],
+  },
+  {
+    name: 'req_game_days_max',
+    label: 'Days Survived Max',
+    description: 'Player must have survived < N in-game days',
+    category: 'Game Progress',
+    params: [
+      { name: 'days', type: 'number', required: true, label: 'Maximum Days', min: 0 },
+    ],
+  },
+  {
+    name: 'req_visited_level',
+    label: 'Visited Level',
+    description: 'Player must have visited this level before',
+    category: 'Game Progress',
+    params: [
+      { name: 'level', type: 'level', required: true, label: 'Level', editor: { kind: 'searchable_select', options: LEVEL_OPTIONS, emptyLabel: '-- Select level --' } },
+    ],
+  },
+  {
+    name: 'req_not_visited_level',
+    label: 'Not Visited Level',
+    description: 'Player must NOT have visited this level',
+    category: 'Game Progress',
+    params: [
+      { name: 'level', type: 'level', required: true, label: 'Level', editor: { kind: 'searchable_select', options: LEVEL_OPTIONS, emptyLabel: '-- Select level --' } },
+    ],
+  },
 ];
 
 // ─── Outcome Schemas ────────────────────────────────────────────────────────
@@ -635,6 +902,97 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     ],
   },
 
+  // Items (expanded)
+  {
+    name: 'take_item',
+    label: 'Take Item',
+    description: 'Remove specific item from player inventory',
+    category: 'Items',
+    params: [
+      { name: 'item', type: 'item_section', required: true, label: 'Item Section', editor: ITEM_PICKER_PANEL_EDITOR },
+    ],
+  },
+  {
+    name: 'give_item_count',
+    label: 'Give Item (Multiple)',
+    description: 'Give multiple copies of an item to the player',
+    category: 'Items',
+    params: [
+      { name: 'item', type: 'item_section', required: true, label: 'Item Section', editor: ITEM_PICKER_PANEL_EDITOR },
+      { name: 'count', type: 'number', required: true, label: 'Count', min: 1 },
+    ],
+  },
+
+  // Stash (expanded)
+  {
+    name: 'reward_stash_items',
+    label: 'Give Stash (Specific Items)',
+    description: 'Create stash containing specific bonus items',
+    category: 'Rewards',
+    helpText: 'Items are added as bonus items to the stash. Separate items with +.',
+    params: [
+      { name: 'items', type: 'string', required: true, label: 'Items (+-separated)',
+        helpText: 'Item sections separated by +. Example: medkit+bandage+vodka' },
+    ],
+  },
+
+  // Knowledge
+  {
+    name: 'give_info',
+    label: 'Give Info Portion',
+    description: 'Give player an info portion (knowledge unlock)',
+    category: 'Knowledge',
+    params: [
+      { name: 'info_id', type: 'string', required: true, label: 'Info Portion ID',
+        helpText: 'The info portion ID from configs/gameplay/info_portions.xml' },
+    ],
+  },
+  {
+    name: 'disable_info',
+    label: 'Remove Info Portion',
+    description: 'Remove info portion from player',
+    category: 'Knowledge',
+    params: [
+      { name: 'info_id', type: 'string', required: true, label: 'Info Portion ID' },
+    ],
+  },
+
+  // Player Effects
+  {
+    name: 'heal_player',
+    label: 'Heal Player',
+    description: 'Restore player health by percentage',
+    category: 'Player Effects',
+    params: [
+      { name: 'amount', type: 'number', required: true, label: 'Amount (%)', min: 1, max: 100 },
+    ],
+  },
+  {
+    name: 'damage_player',
+    label: 'Damage Player',
+    description: 'Reduce player health by percentage (will not kill)',
+    category: 'Player Effects',
+    params: [
+      { name: 'amount', type: 'number', required: true, label: 'Amount (%)', min: 1, max: 99 },
+    ],
+  },
+  {
+    name: 'give_radiation',
+    label: 'Give Radiation',
+    description: 'Apply radiation to player',
+    category: 'Player Effects',
+    params: [
+      { name: 'amount', type: 'number', required: true, label: 'Amount (%)', min: 1, max: 100 },
+    ],
+  },
+  {
+    name: 'cure_radiation',
+    label: 'Cure Radiation',
+    description: 'Remove all radiation from player',
+    category: 'Player Effects',
+    params: [],
+  },
+
   // Spawning
   {
     name: 'spawn_hostile',
@@ -714,6 +1072,40 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     ],
   },
 
+  {
+    name: 'spawn_friendly_at_smart',
+    label: 'Spawn Friendlies at Location',
+    description: 'Spawn friendly squad at smart terrain',
+    category: 'Spawning',
+    params: [
+      { name: 'faction', type: 'faction', required: true, label: 'Faction' },
+      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
+      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
+    ],
+  },
+  {
+    name: 'spawn_squad_at_smart',
+    label: 'Spawn Squad at Location',
+    description: 'Spawn neutral faction squad at smart terrain',
+    category: 'Spawning',
+    params: [
+      { name: 'faction', type: 'faction', required: true, label: 'Faction' },
+      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
+      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
+    ],
+  },
+  {
+    name: 'spawn_companion_at_smart',
+    label: 'Spawn Companion at Location',
+    description: 'Spawn companion squad at smart terrain',
+    category: 'Spawning',
+    params: [
+      { name: 'faction', type: 'faction', required: true, label: 'Faction' },
+      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
+      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
+    ],
+  },
+
   // Location
   {
     name: 'watch_location',
@@ -780,6 +1172,43 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     category: 'NPC',
     params: [
       { name: 'no_dismiss', type: 'string', required: false, label: 'Prevent Dismissal', placeholder: 'no_dismiss' },
+    ],
+  },
+  {
+    name: 'dismiss_companion',
+    label: 'Dismiss Companion',
+    description: 'Dismiss the conversation NPC from companion squad',
+    category: 'NPC',
+    params: [],
+  },
+  {
+    name: 'kill_npc',
+    label: 'Kill NPC',
+    description: 'Kill or release the conversation NPC from the simulation',
+    category: 'NPC',
+    params: [],
+  },
+  {
+    name: 'set_npc_hostile',
+    label: 'Set NPC Hostile',
+    description: 'Make the conversation NPC hostile to the player',
+    category: 'NPC',
+    params: [],
+  },
+  {
+    name: 'set_npc_friendly',
+    label: 'Set NPC Friendly',
+    description: 'Make the conversation NPC friendly to the player',
+    category: 'NPC',
+    params: [],
+  },
+  {
+    name: 'change_npc_faction',
+    label: 'Change NPC Faction',
+    description: 'Change the conversation NPC to a different faction',
+    category: 'NPC',
+    params: [
+      { name: 'faction', type: 'faction', required: true, label: 'New Faction', editor: { kind: 'searchable_select', options: FACTION_OPTIONS, emptyLabel: '-- Select faction --' } },
     ],
   },
 

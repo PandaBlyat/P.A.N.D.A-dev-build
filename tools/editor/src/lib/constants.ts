@@ -55,6 +55,12 @@ export const DYNAMIC_PLACEHOLDERS = [
   { key: '$companion_count', description: 'Active companion count' },
   { key: '$time_of_day', description: 'morning/afternoon/evening/night' },
   { key: '$game_hour', description: 'Current time (HH:MM)' },
+  { key: '$npc_rank', description: 'NPC rank name' },
+  { key: '$player_health', description: 'Player health percentage (0-100)' },
+  { key: '$stalker_kills', description: 'Total stalker kills count' },
+  { key: '$mutant_kills', description: 'Total mutant kills count' },
+  { key: '$relationship_score', description: 'NPC relationship score with player (-1000 to 1000)' },
+  { key: '$game_days', description: 'Days survived in the Zone' },
 ] as const;
 
 /** Smart terrain lists by level, extracted from SMART_TERRAIN_LEVEL_LISTS in pda_interactive_conv.script */
