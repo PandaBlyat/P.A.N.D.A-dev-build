@@ -226,13 +226,14 @@ export function renderFlowEditor(container: HTMLElement): void {
   };
 
   const applyView = (): void => {
-    // Snap pan to physical device pixels to prevent subpixel blurriness and
-    // jitter on GPU-composited layers (caused by fractional translate values
-    // produced by zoom math). Accounts for high-DPI screens via devicePixelRatio.
+    // Snap pan to physical device pixels to prevent subpixel blurriness.
+    // Keep zoom separate from translate so Chromium can rasterize branch text
+    // at the final zoom level instead of blurring it inside a transformed layer.
     const dpr = window.devicePixelRatio || 1;
     const snapX = Math.round(viewState.panX * dpr) / dpr;
     const snapY = Math.round(viewState.panY * dpr) / dpr;
-    content.style.transform = `translate(${snapX}px, ${snapY}px) scale(${viewState.zoom})`;
+    content.style.transform = `translate(${snapX}px, ${snapY}px)`;
+    content.style.zoom = String(viewState.zoom);
     zoomValue.textContent = `${Math.round(viewState.zoom * 100)}%`;
     viewStateByConversation.set(conversationId, { ...viewState });
   };
