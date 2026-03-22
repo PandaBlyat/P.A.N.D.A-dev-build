@@ -101,9 +101,25 @@ export function renderConversationList(container: HTMLElement): void {
       meta.textContent += ` · ${conv.preconditions.length} cond`;
     }
 
+    const badges = document.createElement('div');
+    badges.className = 'conv-badges';
+
+    const factionBadge = document.createElement('span');
+    factionBadge.className = 'conv-faction-pill';
+    factionBadge.textContent = FACTION_DISPLAY_NAMES[conversationFaction];
+    factionBadge.style.setProperty('--conversation-faction-color', FACTION_COLORS[conversationFaction]);
+    badges.appendChild(factionBadge);
+
+    if (conv.turns.length > 0) {
+      const starterBadge = document.createElement('span');
+      starterBadge.className = 'conv-subtle-pill';
+      starterBadge.textContent = 'Starter branch';
+      badges.appendChild(starterBadge);
+    }
+
     const textWrap = document.createElement('div');
     textWrap.className = 'conv-text';
-    textWrap.append(label, meta);
+    textWrap.append(label, meta, badges);
 
     const controls = document.createElement('div');
     controls.className = 'conv-controls';
