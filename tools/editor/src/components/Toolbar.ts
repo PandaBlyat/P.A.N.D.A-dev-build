@@ -21,6 +21,7 @@ type ToolbarButtonOptions = {
   classes?: string[];
   tooltip?: string;
   ariaLabel?: string;
+  icon?: IconName | null;
 };
 
 type ToolbarLayoutMode = 'desktop' | 'tablet' | 'mobile';
@@ -97,7 +98,11 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   const supportBtn = btn('support', 'Support', openSupportPanel, 'Support the Creator', {
     classes: ['toolbar-support-trigger'],
   });
-  const helpBtn = btn('help', 'Help', openHelpModal, 'How to write P.A.N.D.A. conversations — full reference guide');
+  const helpBtn = btn('help', '?', openHelpModal, 'New here? Open the quick-start guide to preconditions, dynamic references, outcomes, and conversation design.', {
+    classes: ['toolbar-help-trigger'],
+    ariaLabel: 'Open P.A.N.D.A. quick-start guide',
+    icon: null,
+  });
   const handleReset = (): void => {
     if (state.dirty && !window.confirm('You have unsaved changes. Clear workspace and return to the intro?')) return;
     clearDraft();
@@ -115,7 +120,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
 
     const projectGroup = document.createElement('div');
     projectGroup.className = 'toolbar-group toolbar-group-project';
-    projectGroup.append(openBtn, importBtn, saveBtn, exportXmlBtn, communityBtn);
+    projectGroup.append(openBtn, importBtn, saveBtn, exportXmlBtn, communityBtn, helpBtn);
     centerZone.appendChild(projectGroup);
 
     const rightZone = document.createElement('div');
@@ -204,12 +209,12 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
     projectOverflowActions.push(
       { icon: 'import', label: 'Import XML', title: importBtn.title, onclick: importFromXml },
       { icon: 'share', label: 'Community', title: communityBtn.title, onclick: openSharePanel },
-      { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
     );
 
     fileGroup.appendChild(openBtn);
     if (!isMobile) fileGroup.appendChild(saveBtn);
     fileGroup.appendChild(exportXmlBtn);
+    fileGroup.appendChild(helpBtn);
     fileGroup.appendChild(createOverflowMenu(isMobile ? 'Project' : 'More', projectOverflowActions));
   } else {
     fileGroup.appendChild(openBtn);
@@ -546,7 +551,11 @@ function btn(
   const b = document.createElement('button');
   b.type = 'button';
   b.className = ['toolbar-button', ...(options.classes ?? [])].join(' ');
-  setButtonContent(b, icon, label);
+  if (options.icon === null) {
+    b.textContent = label;
+  } else {
+    setButtonContent(b, options.icon ?? icon, label);
+  }
   b.onclick = onclick;
   b.title = options.tooltip ?? tooltip ?? label;
   if (options.ariaLabel) b.setAttribute('aria-label', options.ariaLabel);
