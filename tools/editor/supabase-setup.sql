@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS community_conversations (
   description TEXT NOT NULL DEFAULT '',
   summary TEXT NOT NULL DEFAULT '',
   author TEXT NOT NULL DEFAULT 'Anonymous',
+  publisher_id TEXT,
   tags JSONB NOT NULL DEFAULT '[]'::jsonb,
   branch_count INT,
   complexity TEXT,
@@ -22,6 +23,7 @@ CREATE TABLE IF NOT EXISTS community_conversations (
 
 ALTER TABLE community_conversations
   ADD COLUMN IF NOT EXISTS summary TEXT,
+  ADD COLUMN IF NOT EXISTS publisher_id TEXT,
   ADD COLUMN IF NOT EXISTS tags JSONB,
   ADD COLUMN IF NOT EXISTS branch_count INT,
   ADD COLUMN IF NOT EXISTS complexity TEXT,
@@ -45,6 +47,10 @@ SET
   description = coalesce(description, ''),
   summary = coalesce(summary, ''),
   author = coalesce(author, 'Anonymous'),
+  publisher_id = coalesce(
+    nullif(btrim(publisher_id), ''),
+    'legacy:' || md5(lower(trim(coalesce(nullif(author, ''), 'Anonymous'))))
+  ),
   tags = coalesce(tags, '[]'::jsonb),
   downloads = coalesce(downloads, 0),
   upvotes = coalesce(upvotes, 0),
@@ -66,6 +72,7 @@ ALTER TABLE community_conversations
 CREATE INDEX IF NOT EXISTS idx_community_conv_faction ON community_conversations (faction);
 CREATE INDEX IF NOT EXISTS idx_community_conv_created ON community_conversations (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_community_conv_updated ON community_conversations (updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_community_conv_publisher_id ON community_conversations (publisher_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_community_conv_label_unique ON community_conversations (lower(label));
 
 CREATE OR REPLACE FUNCTION set_updated_at_timestamp()
@@ -157,6 +164,25 @@ LANGUAGE sql
 SECURITY DEFINER
 AS $$
   UPDATE community_conversations SET upvotes = upvotes + 1 WHERE id = conv_id;
+$$;
+
+CREATE OR REPLACE FUNCTION get_community_library_stats()
+RETURNS TABLE (
+  published_conversations BIGINT,
+  published_publishers BIGINT,
+  updated_at TIMESTAMPTZ
+)
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT
+    count(*)::BIGINT AS published_conversations,
+    count(DISTINCT coalesce(
+      nullif(btrim(publisher_id), ''),
+      'legacy:' || md5(lower(trim(coalesce(nullif(author, ''), 'Anonymous'))))
+    ))::BIGINT AS published_publishers,
+    coalesce(max(updated_at), max(created_at), now()) AS updated_at
+  FROM community_conversations;
 $$;
 
 CREATE TABLE IF NOT EXISTS creator_support_metrics (
