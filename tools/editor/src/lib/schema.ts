@@ -69,6 +69,32 @@ const MUTANT_OPTIONS: ParamOption[] = MUTANT_TYPES.map((mutantType) => ({
   keywords: [mutantType],
 }));
 
+const ACHIEVEMENT_OPTIONS: ParamOption[] = [
+  { value: 'completionist', label: 'Completionist — All available achievements have been unlocked.', keywords: ['completionist'] },
+  { value: 'down_to_earth', label: 'Down to Earth — Mi-2 helicopters will appear in place of Mi-24s.', keywords: ['down_to_earth'] },
+  { value: 'duga_free', label: 'Duga Free — Stalkers are more likely to move through Yantar and Radar.', keywords: ['duga_free', 'yantar', 'radar'] },
+  { value: 'geologist', label: 'Geologist — Increased chance of finding artefacts after an emission.', keywords: ['geologist', 'artefact'] },
+  { value: 'heavy_pockets', label: 'Heavy Pockets — Traders sell higher tier gear regardless of goodwill.', keywords: ['heavy_pockets', 'trader', 'gear'] },
+  { value: 'infopreneur', label: 'Infopreneur — Brokers pay a small bonus for PDAs you deliver.', keywords: ['infopreneur', 'pda', 'broker'] },
+  { value: 'mechanized_warfare', label: 'Mechanized Warfare — Bonus items used in repairs are more effective.', keywords: ['mechanized_warfare', 'repair'] },
+  { value: 'patriarch', label: 'Folk Hero — Recruit larger groups of followers as companions.', keywords: ['patriarch', 'folk hero', 'companion', 'recruit'] },
+  { value: 'radiotherapy', label: 'Radiotherapy — Chance to survive emissions/psy-storms without cover.', keywords: ['radiotherapy', 'emission', 'psy-storm'] },
+  { value: 'rag_and_bone', label: 'Rag and Bone — Occasionally find more loot in stashes.', keywords: ['rag_and_bone', 'stash', 'loot'] },
+  { value: 'silver_or_lead', label: 'Silver or Lead — Surrendering stalkers may reveal a second stash.', keywords: ['silver_or_lead', 'surrender', 'stash'] },
+  { value: 'tourist', label: 'Tourist — Deduce the whereabouts of the Zone\'s best stashes.', keywords: ['tourist', 'explore', 'stash'] },
+  { value: 'well_dressed', label: 'Well Dressed — Skin mutants much faster than normal.', keywords: ['well_dressed', 'mutant', 'skin'] },
+  { value: 'wishful_thinking', label: 'Wishful Thinking — Unlocks "Renegades" as a playable faction.', keywords: ['wishful_thinking', 'renegade', 'faction'] },
+  { value: 'infantile_pleasure', label: 'Infantile Pleasure — Recover more loot from destroyed boxes.', keywords: ['infantile_pleasure', 'box', 'loot'] },
+  { value: 'recycler', label: 'Vigilant Recycler — Chance to recover additional material during disassembly.', keywords: ['recycler', 'disassembly', 'material'] },
+  { value: 'artificer_eagerness', label: 'Artificer Eagerness — Crafting requires fewer components.', keywords: ['artificer_eagerness', 'craft', 'component'] },
+  { value: 'unforeseen_guest', label: 'Unforeseen Guest — Less likely to be discovered while disguised.', keywords: ['unforeseen_guest', 'disguise'] },
+  { value: 'absolver', label: 'Absolver — Unlocks "Sin" as a playable faction.', keywords: ['absolver', 'sin', 'faction'] },
+  { value: 'collaborator', label: 'Collaborator — Unlocks "UNISG" as a playable faction.', keywords: ['collaborator', 'unisg', 'faction'] },
+  { value: 'iron_curtain', label: 'Iron Curtain — Awarded 50,000 RU bonus for the faction war effort.', keywords: ['iron_curtain', 'warfare', 'money'] },
+  { value: 'murky_spirit', label: 'Murky Spirit — Your rank has been greatly increased.', keywords: ['murky_spirit', 'rank', 'ironman'] },
+  { value: 'invictus', label: 'Invictus — The ultimate achievement for surviving ironman mode.', keywords: ['invictus', 'ironman', 'screenshot'] },
+];
+
 const SMART_TERRAIN_EDITOR: ParamEditor = {
   kind: 'smart_terrain_picker',
   allowPlaceholder: true,
@@ -519,7 +545,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     description: 'Player must have achievement',
     category: 'Achievement',
     params: [
-      { name: 'achievement', type: 'achievement', required: true, label: 'Achievement Name' },
+      { name: 'achievement', type: 'achievement', required: true, label: 'Achievement Name', editor: { kind: 'searchable_select', options: ACHIEVEMENT_OPTIONS, emptyLabel: '-- Select achievement --' } },
     ],
   },
 ];
