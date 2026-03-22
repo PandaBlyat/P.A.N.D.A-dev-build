@@ -729,7 +729,6 @@ function renderTurnNode(options: {
     event.stopPropagation();
     store.setTurnColor(conv.id, turn.turnNumber, colorDot.value);
   };
-  colorDot.oninput = applyTurnColor;
   colorDot.onchange = applyTurnColor;
   colorDot.onclick = (e) => e.stopPropagation();
   header.appendChild(colorDot);

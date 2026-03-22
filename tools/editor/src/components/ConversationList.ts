@@ -67,6 +67,7 @@ export function renderConversationList(container: HTMLElement): void {
     item.setAttribute('role', 'option');
     item.setAttribute('aria-selected', conv.id === state.selectedConversationId ? 'true' : 'false');
     const conversationFaction = getConversationFaction(conv, state.project.faction);
+    item.style.setProperty('--conversation-faction-color', FACTION_COLORS[conversationFaction]);
     item.setAttribute('aria-label', `${conversationLabel}, ${FACTION_DISPLAY_NAMES[conversationFaction]}, ${conv.turns.length} turns`);
     item.onclick = () => {
       store.selectConversation(conv.id);

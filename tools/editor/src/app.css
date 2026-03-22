@@ -1379,9 +1379,12 @@ label {
 }
 
 .conv-item.selected .conv-id {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.34) 100%), color-mix(in srgb, var(--accent) 16%, #ffffff 84%);
-  border-color: color-mix(in srgb, var(--accent) 42%, #87919c 58%);
-  color: #11161d;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.18) 100%),
+    color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 14%, #ffffff 86%);
+  border-color: color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 55%, #87919c 45%);
+  color: var(--conversation-faction-color, var(--accent));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 14%, transparent);
 }
 .conv-item.selected .conv-label {
   color: #090d12;
@@ -1394,13 +1397,13 @@ label {
   flex: 0 0 auto;
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--accent);
+  color: var(--conversation-faction-color, var(--accent));
   min-width: 24px;
   font-weight: 700;
   line-height: 1;
   padding: 3px 6px;
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  background: color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 22%, transparent);
   border-radius: var(--radius);
   text-align: center;
   margin-top: 1px;
