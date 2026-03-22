@@ -264,6 +264,119 @@ class StateManager {
     }));
   }
 
+  private getDefaultTurnPlacement(turnNumber: number): { x: number; y: number } {
+    return {
+      x: Math.max(0, (turnNumber - 1) * 300),
+      y: 0,
+    };
+  }
+
+  private getBranchTurnPlacement(sourceTurn: Turn, sourceChoiceIndex: number, newTurn: Turn): { x: number; y: number } {
+    const layout = getFlowNodeLayout(this.state.flowDensity);
+    const spacing = getFlowAutoLayoutSpacing(this.state.flowDensity);
+    const sourceHeight = estimateFlowNodeHeight(sourceTurn, this.state.flowDensity);
+    const newTurnHeight = estimateFlowNodeHeight(newTurn, this.state.flowDensity);
+
+    return {
+      x: sourceTurn.position.x + layout.width + spacing.horizontalGutter,
+      y: Math.max(
+        spacing.canvasPaddingY,
+        sourceTurn.position.y + (sourceChoiceIndex - 1) * (newTurnHeight + spacing.siblingGap) - Math.round((newTurnHeight - sourceHeight) / 2),
+      ),
+    };
+  }
+
+  private getContextualTurnPlacement(
+    conversation: Conversation,
+    newTurn: Turn,
+    options: {
+      sourceTurnNumber?: number;
+      sourceChoiceIndex?: number;
+      anchorTurnNumber?: number | null;
+    } = {},
+  ): { x: number; y: number } {
+    if (options.sourceTurnNumber != null && options.sourceChoiceIndex != null) {
+      const sourceTurn = conversation.turns.find(turn => turn.turnNumber === options.sourceTurnNumber);
+      if (sourceTurn) {
+        return this.getBranchTurnPlacement(sourceTurn, options.sourceChoiceIndex, newTurn);
+      }
+    }
+
+    if (options.anchorTurnNumber != null) {
+      const anchorTurn = conversation.turns.find(turn => turn.turnNumber === options.anchorTurnNumber);
+      if (anchorTurn) {
+        const spacing = getFlowAutoLayoutSpacing(this.state.flowDensity);
+        const anchorHeight = estimateFlowNodeHeight(anchorTurn, this.state.flowDensity);
+        return {
+          x: Math.max(0, anchorTurn.position.x + Math.round(spacing.horizontalGutter / 2)),
+          y: Math.max(spacing.canvasPaddingY, anchorTurn.position.y + anchorHeight + spacing.siblingGap),
+        };
+      }
+    }
+
+    return this.getDefaultTurnPlacement(newTurn.turnNumber);
+  }
+
+  private collectReachableTurnNumbers(conversation: Conversation, rootTurnNumber: number): Set<number> {
+    const turnsByNumber = new Map(conversation.turns.map(turn => [turn.turnNumber, turn]));
+    const reachable = new Set<number>();
+    const queue = [rootTurnNumber];
+
+    while (queue.length > 0) {
+      const turnNumber = queue.shift();
+      if (turnNumber == null || reachable.has(turnNumber) || !turnsByNumber.has(turnNumber)) continue;
+      reachable.add(turnNumber);
+
+      const turn = turnsByNumber.get(turnNumber);
+      if (!turn) continue;
+
+      for (const targetTurnNumber of this.getTurnTargetSequence(turn)) {
+        if (!reachable.has(targetTurnNumber)) queue.push(targetTurnNumber);
+      }
+    }
+
+    return reachable;
+  }
+
+  private calculatePartialAutoLayoutUpdates(
+    conversation: Conversation,
+    anchorTurnNumber: number,
+    subtreeRootTurnNumber: number,
+  ): TurnPositionUpdate[] {
+    const anchorTurn = conversation.turns.find(turn => turn.turnNumber === anchorTurnNumber);
+    if (!anchorTurn) return [];
+
+    const autoLayoutPositions = this.calculateAutoLayoutUpdates(conversation, this.state.flowDensity);
+    const autoLayoutPositionByTurnNumber = new Map(autoLayoutPositions.map(update => [update.turnNumber, update.position]));
+    const anchorAutoPosition = autoLayoutPositionByTurnNumber.get(anchorTurnNumber);
+    if (!anchorAutoPosition) return [];
+
+    const affectedTurnNumbers = this.collectReachableTurnNumbers(conversation, subtreeRootTurnNumber);
+    affectedTurnNumbers.delete(anchorTurnNumber);
+
+    return [...affectedTurnNumbers].map(turnNumber => {
+      const autoPosition = autoLayoutPositionByTurnNumber.get(turnNumber);
+      if (!autoPosition) {
+        const turn = conversation.turns.find(item => item.turnNumber === turnNumber);
+        return {
+          turnNumber,
+          position: turn?.position ?? this.getDefaultTurnPlacement(turnNumber),
+        };
+      }
+
+      return {
+        turnNumber,
+        position: {
+          x: anchorTurn.position.x + (autoPosition.x - anchorAutoPosition.x),
+          y: Math.max(
+            getFlowAutoLayoutSpacing(this.state.flowDensity).canvasPaddingY,
+            anchorTurn.position.y + (autoPosition.y - anchorAutoPosition.y),
+          ),
+        },
+      };
+    });
+  }
+
   private getTurnTargetSequence(turn: Turn): number[] {
     const targets: number[] = [];
 
@@ -488,42 +601,20 @@ class StateManager {
 
     const nextTurnNumber = conversation.turns.reduce((max, turn) => Math.max(max, turn.turnNumber), 0) + 1;
     const newTurn = createTurn(nextTurnNumber);
-    const autoLayoutConversation: Conversation = JSON.parse(JSON.stringify(conversation));
-    const autoLayoutSourceTurn = autoLayoutConversation.turns.find(turn => turn.turnNumber === sourceTurnNumber);
-    const autoLayoutSourceChoice = autoLayoutSourceTurn?.choices.find(choice => choice.index === choiceIndex);
-
-    if (autoLayoutSourceChoice) {
-      autoLayoutSourceChoice.continueTo = nextTurnNumber;
-    }
-    autoLayoutConversation.turns.push(newTurn);
-
-    const autoLayoutPositions = this.calculateAutoLayoutUpdates(autoLayoutConversation, this.state.flowDensity);
-    const autoLayoutSourcePosition = autoLayoutPositions.find(update => update.turnNumber === sourceTurnNumber)?.position;
-    const autoLayoutNewTurnPosition = autoLayoutPositions.find(update => update.turnNumber === nextTurnNumber)?.position;
-    const layout = getFlowNodeLayout(this.state.flowDensity);
-    const spacing = getFlowAutoLayoutSpacing(this.state.flowDensity);
-    const sourceHeight = estimateFlowNodeHeight(sourceTurn, this.state.flowDensity);
-    const newTurnHeight = estimateFlowNodeHeight(newTurn, this.state.flowDensity);
-    const fallbackPosition = {
-      x: sourceTurn.position.x + layout.width + spacing.horizontalGutter,
-      y: Math.max(
-        spacing.canvasPaddingY,
-        sourceTurn.position.y + (choiceIndex - 1) * (newTurnHeight + spacing.siblingGap) - Math.round((newTurnHeight - sourceHeight) / 2),
-      ),
-    };
-
-    newTurn.position = autoLayoutSourcePosition && autoLayoutNewTurnPosition
-      ? {
-          x: sourceTurn.position.x + (autoLayoutNewTurnPosition.x - autoLayoutSourcePosition.x),
-          y: Math.max(
-            spacing.canvasPaddingY,
-            sourceTurn.position.y + (autoLayoutNewTurnPosition.y - autoLayoutSourcePosition.y),
-          ),
-        }
-      : fallbackPosition;
+    newTurn.position = this.getContextualTurnPlacement(conversation, newTurn, {
+      sourceTurnNumber,
+      sourceChoiceIndex: choiceIndex,
+    });
 
     sourceChoice.continueTo = nextTurnNumber;
     conversation.turns.push(newTurn);
+    const partialUpdates = this.calculatePartialAutoLayoutUpdates(conversation, sourceTurnNumber, sourceTurnNumber);
+    for (const update of partialUpdates) {
+      const turn = conversation.turns.find(item => item.turnNumber === update.turnNumber);
+      if (!turn) continue;
+      turn.position.x = Math.max(0, Math.round(update.position.x));
+      turn.position.y = Math.max(0, Math.round(update.position.y));
+    }
     this.state.selectedConversationId = conversationId;
     this.state.selectedTurnNumber = nextTurnNumber;
     this.state.selectedChoiceIndex = null;
@@ -538,8 +629,14 @@ class StateManager {
     this.pushUndo();
     const maxTurn = conv.turns.reduce((m, t) => Math.max(m, t.turnNumber), 0);
     const turn = createTurn(maxTurn + 1);
+    turn.position = this.getContextualTurnPlacement(conv, turn, {
+      anchorTurnNumber: this.state.selectedConversationId === conversationId ? this.state.selectedTurnNumber : null,
+    });
     conv.turns.push(turn);
+    this.state.selectedConversationId = conversationId;
     this.state.selectedTurnNumber = turn.turnNumber;
+    this.state.selectedChoiceIndex = null;
+    this.state.propertiesTab = 'selection';
     this.finishProjectMutation();
   }
 
