@@ -249,20 +249,30 @@ function renderTurnProperties(
   turn: Turn,
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
 ): void {
+  const canPasteChoice = store.hasCopiedChoice(conv.id) && turn.choices.length < 4;
   const title = document.createElement('div');
   title.className = 'section-header';
   const titleSpan = document.createElement('span');
   titleSpan.className = 'section-title';
   titleSpan.textContent = turnLabels.getLongLabel(turn.turnNumber);
   title.appendChild(titleSpan);
+
+  const titleActions = document.createElement('div');
+  titleActions.style.cssText = 'display:flex; align-items:center; gap:8px;';
+  const pasteChoiceBtn = createActionButton('Paste Choice', 'Paste a copied choice into this turn', () => {
+    store.pasteChoice(conv.id, turn.turnNumber);
+  });
+  pasteChoiceBtn.disabled = !canPasteChoice;
+  titleActions.appendChild(pasteChoiceBtn);
   if (turn.turnNumber > 1) {
     const delTurnBtn = document.createElement('button');
     delTurnBtn.className = 'btn-sm btn-danger';
     delTurnBtn.textContent = 'Delete Turn';
     delTurnBtn.title = 'Remove this turn from the conversation';
     delTurnBtn.onclick = () => store.deleteTurn(conv.id, turn.turnNumber);
-    title.appendChild(delTurnBtn);
+    titleActions.appendChild(delTurnBtn);
   }
+  title.appendChild(titleActions);
   container.appendChild(title);
 
   // Opening message (turn 1 only)
@@ -309,6 +319,20 @@ function renderTurnProperties(
     previewText.textContent = choice.text || '(empty)';
     header.appendChild(previewText);
 
+    const actionGroup = document.createElement('div');
+    actionGroup.style.cssText = 'display:flex; align-items:center; gap:6px;';
+
+    const duplicateBtn = createActionButton('Duplicate', 'Duplicate this choice', () => {
+      store.duplicateChoice(conv.id, turn.turnNumber, choice.index);
+    });
+    duplicateBtn.disabled = turn.choices.length >= 4;
+    actionGroup.appendChild(duplicateBtn);
+
+    const copyBtn = createActionButton('Copy', 'Copy this choice to paste into another turn in this conversation', () => {
+      store.copyChoice(conv.id, turn.turnNumber, choice.index);
+    });
+    actionGroup.appendChild(copyBtn);
+
     if (turn.choices.length > 1) {
       const delBtn = document.createElement('button');
       delBtn.className = 'btn-icon btn-sm';
@@ -319,8 +343,10 @@ function renderTurnProperties(
         e.stopPropagation();
         store.deleteChoice(conv.id, turn.turnNumber, choice.index);
       };
-      header.appendChild(delBtn);
+      actionGroup.appendChild(delBtn);
     }
+
+    header.appendChild(actionGroup);
 
     card.appendChild(header);
 
@@ -355,6 +381,8 @@ function renderChoiceProperties(
   choice: Choice,
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
 ): void {
+  const canDuplicateChoice = turn.choices.length < 4;
+  const canPasteChoice = store.hasCopiedChoice(conv.id) && turn.choices.length < 4;
   // Back button
   const backBtn = document.createElement('button');
   backBtn.className = 'btn-sm';
@@ -367,7 +395,32 @@ function renderChoiceProperties(
 
   const title = document.createElement('div');
   title.className = 'section-header';
-  title.innerHTML = `<span class="section-title">${turnLabels.getLongLabel(turn.turnNumber)} / Choice ${choice.index}</span>`;
+  const titleText = document.createElement('span');
+  titleText.className = 'section-title';
+  titleText.textContent = `${turnLabels.getLongLabel(turn.turnNumber)} / Choice ${choice.index}`;
+  title.appendChild(titleText);
+
+  const titleActions = document.createElement('div');
+  titleActions.style.cssText = 'display:flex; align-items:center; gap:8px;';
+
+  const duplicateBtn = createActionButton('Duplicate', 'Duplicate this choice', () => {
+    store.duplicateChoice(conv.id, turn.turnNumber, choice.index);
+  });
+  duplicateBtn.disabled = !canDuplicateChoice;
+  titleActions.appendChild(duplicateBtn);
+
+  const copyBtn = createActionButton('Copy', 'Copy this choice', () => {
+    store.copyChoice(conv.id, turn.turnNumber, choice.index);
+  });
+  titleActions.appendChild(copyBtn);
+
+  const pasteBtn = createActionButton('Paste', 'Paste the copied choice into this turn', () => {
+    store.pasteChoice(conv.id, turn.turnNumber);
+  });
+  pasteBtn.disabled = !canPasteChoice;
+  titleActions.appendChild(pasteBtn);
+
+  title.appendChild(titleActions);
   container.appendChild(title);
 
   // Choice text
@@ -1890,4 +1943,17 @@ function sectionHeader(title: string, onAdd?: () => void): HTMLElement {
   }
 
   return header;
+}
+
+function createActionButton(label: string, title: string, onClick: () => void): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn-sm';
+  button.textContent = label;
+  button.title = title;
+  button.onclick = (event) => {
+    event.stopPropagation();
+    onClick();
+  };
+  return button;
 }
