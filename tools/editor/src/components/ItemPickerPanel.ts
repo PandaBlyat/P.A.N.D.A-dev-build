@@ -314,6 +314,24 @@ function buildItemOptionLabel(item: GameItemCatalogEntry): string {
   return item.displayName ? `${item.displayName} (${item.section})` : item.section;
 }
 
+type ItemPickerRow =
+  | {
+    type: 'header';
+    key: string;
+    label: string;
+    count: number;
+  }
+  | {
+    type: 'item';
+    key: string;
+    index: number;
+    item: GameItemCatalogEntry;
+  };
+
+const ITEM_PICKER_OVERSCAN_ROWS = 6;
+const ITEM_PICKER_HEADER_ROW_HEIGHT = 32;
+const ITEM_PICKER_OPTION_ROW_HEIGHT = 58;
+
 /* ── Modal picker panel ──────────────────────────────────── */
 
 function openItemPickerPanel(options: {
@@ -450,6 +468,13 @@ function openItemPickerPanel(options: {
   /* ── Results list ── */
   const list = document.createElement('div');
   list.className = 'item-picker-list';
+  const listContent = document.createElement('div');
+  listContent.className = 'item-picker-list-content';
+  const emptyState = document.createElement('div');
+  emptyState.className = 'item-picker-empty';
+  emptyState.hidden = true;
+  emptyState.textContent = 'No matching vanilla items. Keep typing the section id inline to target custom or modded content.';
+  list.append(listContent, emptyState);
   panel.appendChild(list);
 
   overlay.appendChild(panel);
@@ -461,6 +486,11 @@ function openItemPickerPanel(options: {
   let activeIndex = 0;
   let activeOptionEl: HTMLButtonElement | null = null;
   let optionElementsByIndex = new Map<number, HTMLButtonElement>();
+  let rowModel: ItemPickerRow[] = [];
+  let rowOffsets: number[] = [];
+  let totalRowHeight = 0;
+  let itemRowIndices: number[] = [];
+  let renderedRowRange = { start: -1, end: -1 };
 
   const setActiveIndexFromValue = (value: string): void => {
     const matchIndex = filteredItems.findIndex((item) => item.section === value);
@@ -482,6 +512,108 @@ function openItemPickerPanel(options: {
     const listRect = list.getBoundingClientRect();
     const optionRect = option.getBoundingClientRect();
     return optionRect.top < listRect.top || optionRect.bottom > listRect.bottom;
+  };
+
+  const getRowHeight = (row: ItemPickerRow): number => (
+    row.type === 'header' ? ITEM_PICKER_HEADER_ROW_HEIGHT : ITEM_PICKER_OPTION_ROW_HEIGHT
+  );
+
+  const getRowIndexForOffset = (offset: number): number => {
+    if (rowOffsets.length === 0) return 0;
+
+    let low = 0;
+    let high = rowOffsets.length - 1;
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const rowTop = rowOffsets[mid]!;
+      const rowBottom = rowTop + getRowHeight(rowModel[mid]!);
+      if (offset < rowTop) {
+        high = mid - 1;
+      } else if (offset >= rowBottom) {
+        low = mid + 1;
+      } else {
+        return mid;
+      }
+    }
+
+    return Math.max(0, Math.min(rowOffsets.length - 1, low));
+  };
+
+  const renderVisibleRows = (): void => {
+    if (rowModel.length === 0) {
+      renderedRowRange = { start: -1, end: -1 };
+      listContent.replaceChildren();
+      return;
+    }
+
+    const viewportHeight = list.clientHeight || 1;
+    const visibleStart = Math.max(0, list.scrollTop);
+    const visibleEnd = visibleStart + viewportHeight;
+    const startRow = Math.max(0, getRowIndexForOffset(visibleStart) - ITEM_PICKER_OVERSCAN_ROWS);
+    const endRow = Math.min(
+      rowModel.length - 1,
+      getRowIndexForOffset(Math.max(0, visibleEnd - 1)) + ITEM_PICKER_OVERSCAN_ROWS,
+    );
+
+    if (renderedRowRange.start === startRow && renderedRowRange.end === endRow) {
+      const nextActiveOption = optionElementsByIndex.get(activeIndex) ?? null;
+      if (activeOptionEl !== nextActiveOption) {
+        setOptionActiveState(activeOptionEl, false);
+        setOptionActiveState(nextActiveOption, true);
+        activeOptionEl = nextActiveOption;
+      }
+      return;
+    }
+
+    renderedRowRange = { start: startRow, end: endRow };
+    optionElementsByIndex = new Map();
+    activeOptionEl = null;
+
+    const fragment = document.createDocumentFragment();
+    for (let rowIndex = startRow; rowIndex <= endRow; rowIndex += 1) {
+      const row = rowModel[rowIndex]!;
+      if (row.type === 'header') {
+        const headerEl = document.createElement('div');
+        headerEl.className = 'item-picker-group-header';
+        headerEl.textContent = `${row.label} (${row.count})`;
+        headerEl.style.top = `${rowOffsets[rowIndex]}px`;
+        fragment.appendChild(headerEl);
+        continue;
+      }
+
+      const option = document.createElement('button');
+      option.type = 'button';
+      let cls = 'item-picker-option';
+      if (row.index === activeIndex) cls += ' is-active';
+      if (row.item.section === options.currentValue) cls += ' is-selected';
+      option.className = cls;
+      option.setAttribute('aria-selected', row.index === activeIndex ? 'true' : 'false');
+      option.dataset.index = String(row.index);
+      option.style.top = `${rowOffsets[rowIndex]}px`;
+      optionElementsByIndex.set(row.index, option);
+      if (row.index === activeIndex) activeOptionEl = option;
+
+      const primary = document.createElement('span');
+      primary.className = 'item-picker-option-title';
+      primary.textContent = row.item.displayName || row.item.section;
+      option.appendChild(primary);
+
+      const secondary = document.createElement('span');
+      secondary.className = 'item-picker-option-meta';
+      secondary.textContent = formatGameItemMeta(row.item);
+      option.appendChild(secondary);
+
+      option.onclick = () => selectItem(row.item.section);
+      option.onmouseenter = () => {
+        if (activeIndex === row.index) return;
+        activeIndex = row.index;
+        updateActiveOption({ source: 'pointer' });
+      };
+      fragment.appendChild(option);
+    }
+
+    listContent.replaceChildren(fragment);
   };
 
   /* ── Chip state management ── */
@@ -641,17 +773,20 @@ function openItemPickerPanel(options: {
     if (filteredItems.length === 0) activeIndex = 0;
 
     totalLabel.textContent = `${filteredItems.length} / ${GAME_ITEM_CATALOG.length} items`;
-    list.replaceChildren();
-    activeOptionEl = null;
-    optionElementsByIndex = new Map();
+    rowModel = [];
+    rowOffsets = [];
+    itemRowIndices = [];
+    totalRowHeight = 0;
+    renderedRowRange = { start: -1, end: -1 };
 
     if (filteredItems.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'item-picker-empty';
-      empty.textContent = 'No matching vanilla items. Keep typing the section id inline to target custom or modded content.';
-      list.appendChild(empty);
+      listContent.style.height = '0px';
+      listContent.replaceChildren();
+      emptyState.hidden = false;
       return;
     }
+
+    emptyState.hidden = true;
 
     if (activeIndex >= filteredItems.length) {
       activeIndex = filteredItems.length - 1;
@@ -662,51 +797,56 @@ function openItemPickerPanel(options: {
 
     for (const group of orderedGroups) {
       if (showHeaders) {
-        const headerEl = document.createElement('div');
-        headerEl.className = 'item-picker-group-header';
-        headerEl.textContent = `${group.name} (${group.items.length})`;
-        list.appendChild(headerEl);
+        rowOffsets.push(totalRowHeight);
+        rowModel.push({
+          type: 'header',
+          key: `header:${group.name}`,
+          label: group.name,
+          count: group.items.length,
+        });
+        totalRowHeight += ITEM_PICKER_HEADER_ROW_HEIGHT;
       }
 
       for (const item of group.items) {
         const index = flatIndex++;
-        const option = document.createElement('button');
-        option.type = 'button';
-        let cls = 'item-picker-option';
-        if (index === activeIndex) cls += ' is-active';
-        if (item.section === options.currentValue) cls += ' is-selected';
-        option.className = cls;
-        option.setAttribute('aria-selected', index === activeIndex ? 'true' : 'false');
-        option.dataset.index = String(index);
-        optionElementsByIndex.set(index, option);
-        if (index === activeIndex) activeOptionEl = option;
-
-        const primary = document.createElement('span');
-        primary.className = 'item-picker-option-title';
-        primary.textContent = item.displayName || item.section;
-        option.appendChild(primary);
-
-        const secondary = document.createElement('span');
-        secondary.className = 'item-picker-option-meta';
-        secondary.textContent = formatGameItemMeta(item);
-        option.appendChild(secondary);
-
-        option.onclick = () => selectItem(item.section);
-        option.onmouseenter = () => {
-          if (activeIndex === index) return;
-          activeIndex = index;
-          updateActiveOption({ source: 'pointer' });
-        };
-        list.appendChild(option);
+        rowOffsets.push(totalRowHeight);
+        rowModel.push({
+          type: 'item',
+          key: `item:${item.section}`,
+          index,
+          item,
+        });
+        itemRowIndices[index] = rowModel.length - 1;
+        totalRowHeight += ITEM_PICKER_OPTION_ROW_HEIGHT;
       }
     }
 
+    listContent.style.height = `${totalRowHeight}px`;
+    renderVisibleRows();
     updateActiveOption();
   };
 
   const updateActiveOption = (
     { source = 'render' }: { source?: 'keyboard' | 'pointer' | 'render' } = {},
   ): void => {
+    const activeRowIndex = itemRowIndices[activeIndex];
+    if (activeRowIndex != null) {
+      const rowTop = rowOffsets[activeRowIndex] ?? 0;
+      const rowBottom = rowTop + ITEM_PICKER_OPTION_ROW_HEIGHT;
+      const viewportTop = list.scrollTop;
+      const viewportBottom = viewportTop + list.clientHeight;
+
+      if (source === 'keyboard' || rowTop < viewportTop || rowBottom > viewportBottom) {
+        const nextScrollTop = rowTop < viewportTop
+          ? rowTop
+          : Math.max(0, rowBottom - list.clientHeight);
+        if (nextScrollTop !== list.scrollTop) {
+          list.scrollTop = nextScrollTop;
+        }
+      }
+    }
+
+    renderVisibleRows();
     const nextActiveOption = optionElementsByIndex.get(activeIndex) ?? null;
     if (activeOptionEl !== nextActiveOption) {
       setOptionActiveState(activeOptionEl, false);
@@ -749,6 +889,7 @@ function openItemPickerPanel(options: {
     if (isClosed) return;
     isClosed = true;
     searchInput.removeEventListener('keydown', handleKeyDown);
+    list.removeEventListener('scroll', renderVisibleRows);
     options.onClose?.();
     focusTrapController?.release();
     overlay.remove();
@@ -781,6 +922,7 @@ function openItemPickerPanel(options: {
     updateActiveOption();
   });
   searchInput.addEventListener('keydown', handleKeyDown);
+  list.addEventListener('scroll', renderVisibleRows, { passive: true });
 
   /* ── Initial render ── */
   rebuildSubchips();
