@@ -727,7 +727,7 @@ end
 -- Create a pending job that monitors spawned squads.
 -- When all tracked squads are dead, resumes conversation at success_turn.
 -- On timeout, resumes at fail_turn.
-function create_pending_job(contact_id, npc_id, npc_name, faction, squad_ids, timeout, success_turn, fail_turn, conv_data)
+function create_pending_job(contact_id, npc_id, npc_name, faction, squad_ids, timeout, success_turn, fail_turn, conv_data, extra)
     if not contact_id then return end
 
     -- Use passed conv_data (from on_player_choice) or fall back to active_conversations
@@ -753,11 +753,18 @@ function create_pending_job(contact_id, npc_id, npc_name, faction, squad_ids, ti
         applied_outcomes = conv and conv.applied_outcomes or {},
     }
 
+    -- Merge task-specific extra fields (job_type, task_item, task_destination, etc.)
+    if extra then
+        for k, v in pairs(extra) do
+            job[k] = v
+        end
+    end
+
     next_job_id = next_job_id + 1
     pending_jobs[contact_id] = job
 
-    printf("PANDA_IC: Created job #%d for %s — tracking %d squads (registered=%s), timeout %ds, success→t%s, fail→t%s",
-        job.id, tostring(npc_name), #squad_ids, tostring(has_squads), timeout,
+    printf("PANDA_IC: Created job #%d (%s) for %s — tracking %d squads (registered=%s), timeout %ds, success→t%s, fail→t%s",
+        job.id, tostring(job.job_type or "kill"), tostring(npc_name), #squad_ids, tostring(has_squads), timeout,
         tostring(success_turn), tostring(fail_turn))
 end
 
@@ -816,6 +823,55 @@ local function job_all_squads_dead(job)
     end
 
     return true
+end
+
+-- ============================================================
+-- TASK HELPERS: Completion checks for custom task types
+-- ============================================================
+
+-- Check if player has >= count of an item in inventory.
+local function job_player_has_items(item_section, count)
+    if not db.actor then return false end
+    local found = 0
+    db.actor:iterate_inventory(function(owner, item)
+        if item:section() == item_section then found = found + 1 end
+    end, db.actor)
+    return found >= (count or 1)
+end
+
+-- Check if player is within radius of a smart terrain.
+local function job_player_near_smart(smart_ref, radius)
+    if not db.actor or not smart_ref then return false end
+    local pos = resolve_smart_position_from_reference(smart_ref)
+    if not pos then return false end
+    return db.actor:position():distance_to(pos) <= (radius or 50)
+end
+
+-- Check if a specific NPC (by server ID) is dead.
+local function job_npc_dead(npc_id)
+    if not npc_id then return false end
+    local se = alife_object(npc_id)
+    if not se then return true end -- server object gone = dead
+    local obj = level.object_by_id(npc_id)
+    if obj and not obj:alive() then return true end
+    return false
+end
+
+-- Remove items from player inventory (used on task completion).
+local function job_take_player_items(item_section, count)
+    if not db.actor or not item_section then return end
+    local taken = 0
+    local to_remove = {}
+    db.actor:iterate_inventory(function(owner, item)
+        if taken < count and item:section() == item_section then
+            table.insert(to_remove, item:id())
+            taken = taken + 1
+        end
+    end, db.actor)
+    for _, id in ipairs(to_remove) do
+        local se = alife_object(id)
+        if se then alife_release(se) end
+    end
 end
 
 -- Resume a paused conversation at the specified turn.
@@ -879,13 +935,66 @@ function check_pending_jobs()
 
     for cid, job in pairs(pending_jobs) do
         local elapsed_secs = (now - job.started_at) / 1000
+        local job_type = job.job_type or "kill"
+        local is_complete = false
+        local is_failed = false
 
-        if job_all_squads_dead(job) then
-            -- SUCCESS: All spawned hostiles are dead
+        -- Type-dispatched completion checks
+        if job_type == "kill" or job_type == "eliminate" then
+            -- Default: all tracked squads must be dead
+            is_complete = job_all_squads_dead(job)
+
+        elseif job_type == "delivery" or job_type == "dead_drop" then
+            -- Player must be at destination AND have the item
+            if job_player_near_smart(job.task_destination, job.task_radius or 50)
+               and job_player_has_items(job.task_item, 1) then
+                job_take_player_items(job.task_item, 1)
+                is_complete = true
+            end
+
+        elseif job_type == "fetch" then
+            -- Player must have required items in inventory
+            if job_player_has_items(job.task_item, job.task_item_count or 1) then
+                job_take_player_items(job.task_item, job.task_item_count or 1)
+                is_complete = true
+            end
+
+        elseif job_type == "bounty" then
+            -- Target NPC must be dead
+            if job.task_target_id and job_npc_dead(job.task_target_id) then
+                is_complete = true
+            end
+
+        elseif job_type == "escort" then
+            -- NPC must reach destination alive; NPC death = failure
+            if job.task_target_id then
+                if job_npc_dead(job.task_target_id) then
+                    is_failed = true
+                    local msg = game.translate_string("st_pda_ic_task_escort_npc_died")
+                    pda_private_add_message(job.contact_id, job.npc_name, job.npc_name, msg, job.conv_icon, false)
+                elseif job_player_near_smart(job.task_destination, job.task_radius or 50) then
+                    -- Dismiss companion on arrival
+                    local npc_obj = level.object_by_id(job.task_target_id)
+                    if npc_obj then
+                        local squad = get_object_squad(npc_obj)
+                        if squad and axr_companions and axr_companions.companion_squads then
+                            axr_companions.companion_squads[squad.id] = nil
+                            axr_companions.remove_from_actor_squad(squad)
+                        end
+                    end
+                    is_complete = true
+                end
+            end
+        end
+
+        -- Timeout check (unless already determined)
+        if not is_complete and not is_failed and elapsed_secs >= job.timeout then
+            is_failed = true
+        end
+
+        if is_complete then
             table.insert(completed, { contact_id = cid, job = job, success = true })
-
-        elseif elapsed_secs >= job.timeout then
-            -- TIMEOUT: Job took too long
+        elseif is_failed then
             table.insert(completed, { contact_id = cid, job = job, success = false })
         end
     end
@@ -914,9 +1023,9 @@ function check_pending_jobs()
             end
         end
 
-        printf("PANDA_IC: Job #%d for %s completed — %s (%.0fs elapsed)",
-            job.id, tostring(job.npc_name),
-            result.success and "SUCCESS" or "TIMEOUT",
+        printf("PANDA_IC: Job #%d (%s) for %s completed — %s (%.0fs elapsed)",
+            job.id, tostring(job.job_type or "kill"), tostring(job.npc_name),
+            result.success and "SUCCESS" or "TIMEOUT/FAIL",
             (now - job.started_at) / 1000)
     end
 
@@ -3868,6 +3977,214 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                 task_manager.task_fail(task_id)
             end
 
+        -- ========== CUSTOM TASKS ==========
+        -- Each panda_task_* command sets up its scenario and creates a pending job
+        -- with a job_type field for type-specific completion checks.
+
+        -- Delivery: courier spawns with item, player delivers to destination
+        -- Syntax: panda_task_delivery:<item_section>:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
+        elseif cmd == "panda_task_delivery" then
+            local item_sec = parts[2]
+            local dest_smart = parts[3]
+            local timeout = tonumber(parts[4]) or 600
+            local s_turn = tonumber(parts[5])
+            local f_turn = tonumber(parts[6])
+            if not item_sec or not dest_smart or not s_turn then
+                printf("PANDA_IC: panda_task_delivery missing params in '%s'", tostring(cmd_str))
+            else
+                -- Spawn courier with the item
+                spawn_native_courier(item_sec)
+                -- Mark destination on PDA map
+                local radius = PANDA.get_config("location_watch_radius") or 50
+                register_location_reference(dest_smart, sender_npc_name, sender_npc_id, radius, sender_contact_id)
+                -- Notify player
+                local msg = game.translate_string("st_pda_ic_task_delivery_start")
+                pda_private_add_message(sender_contact_id, sender_npc_name, sender_npc_name, msg,
+                    conv_data and conv_data.npc_icon or FALLBACK_NPC_ICON, false)
+                -- Create job
+                create_pending_job(sender_contact_id, sender_npc_id, sender_npc_name, sender_faction,
+                    {}, timeout, s_turn, f_turn, conv_data, {
+                        job_type = "delivery",
+                        task_item = item_sec,
+                        task_destination = dest_smart,
+                        task_radius = radius,
+                        squads_registered = true,
+                    })
+            end
+
+        -- Fetch: player must find/collect items (periodic inventory check)
+        -- Syntax: panda_task_fetch:<item_section>:<count>:<timeout>:<success_turn>:<fail_turn>
+        elseif cmd == "panda_task_fetch" then
+            local item_sec = parts[2]
+            local count = tonumber(parts[3]) or 1
+            local timeout = tonumber(parts[4]) or 600
+            local s_turn = tonumber(parts[5])
+            local f_turn = tonumber(parts[6])
+            if not item_sec or not s_turn then
+                printf("PANDA_IC: panda_task_fetch missing params in '%s'", tostring(cmd_str))
+            else
+                -- Notify player
+                local msg = game.translate_string("st_pda_ic_task_fetch_start")
+                pda_private_add_message(sender_contact_id, sender_npc_name, sender_npc_name, msg,
+                    conv_data and conv_data.npc_icon or FALLBACK_NPC_ICON, false)
+                -- Create job (no squads, inventory-based check)
+                create_pending_job(sender_contact_id, sender_npc_id, sender_npc_name, sender_faction,
+                    {}, timeout, s_turn, f_turn, conv_data, {
+                        job_type = "fetch",
+                        task_item = item_sec,
+                        task_item_count = count,
+                        squads_registered = true,
+                    })
+            end
+
+        -- Bounty: spawn target NPC at location, track kill
+        -- Syntax: panda_task_bounty:<faction>:<rank>:<smart_terrain>:<timeout>:<success_turn>:<fail_turn>
+        elseif cmd == "panda_task_bounty" then
+            local target_fac = parts[2]
+            local target_rank = parts[3]
+            local smart_ref = parts[4]
+            local timeout = tonumber(parts[5]) or 900
+            local s_turn = tonumber(parts[6])
+            local f_turn = tonumber(parts[7])
+            if not target_fac or not smart_ref or not s_turn then
+                printf("PANDA_IC: panda_task_bounty missing params in '%s'", tostring(cmd_str))
+            else
+                -- Spawn target at smart terrain
+                local target_id = nil
+                local sec = find_squad_section(target_fac)
+                if sec then
+                    local smart = resolve_smart_from_reference(smart_ref)
+                    if smart then
+                        local spos = get_position_from_object(smart)
+                        local slvid = smart.m_level_vertex_id
+                        local sgvid = smart.m_game_vertex_id
+                        if spos then
+                            local sp, sl, sg = find_spawn_point_near_smart(10, 20, spos, slvid, sgvid)
+                            local sq = create_squad_safely(sec, sp or spos, sl or slvid, sg or sgvid)
+                            if sq then
+                                -- Set hostile
+                                sq.scripted_target = smart:name()
+                                for k in sq:squad_members() do
+                                    if not target_id then target_id = k.id end
+                                end
+                            end
+                        end
+                    end
+                end
+                -- Mark location on PDA map
+                local radius = PANDA.get_config("location_watch_radius") or 85
+                register_location_reference(smart_ref, sender_npc_name, sender_npc_id, radius, sender_contact_id)
+                -- Notify player
+                local msg = game.translate_string("st_pda_ic_task_bounty_start")
+                pda_private_add_message(sender_contact_id, sender_npc_name, sender_npc_name, msg,
+                    conv_data and conv_data.npc_icon or FALLBACK_NPC_ICON, false)
+                -- Create job
+                create_pending_job(sender_contact_id, sender_npc_id, sender_npc_name, sender_faction,
+                    {}, timeout, s_turn, f_turn, conv_data, {
+                        job_type = "bounty",
+                        task_target_id = target_id,
+                        squads_registered = true,
+                    })
+            end
+
+        -- Dead Drop: deposit item at marked stash location
+        -- Syntax: panda_task_dead_drop:<item_section>:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
+        elseif cmd == "panda_task_dead_drop" then
+            local item_sec = parts[2]
+            local dest_smart = parts[3]
+            local timeout = tonumber(parts[4]) or 600
+            local s_turn = tonumber(parts[5])
+            local f_turn = tonumber(parts[6])
+            if not item_sec or not dest_smart or not s_turn then
+                printf("PANDA_IC: panda_task_dead_drop missing params in '%s'", tostring(cmd_str))
+            else
+                -- Mark destination on PDA map
+                local radius = PANDA.get_config("location_watch_radius") or 50
+                register_location_reference(dest_smart, sender_npc_name, sender_npc_id, radius, sender_contact_id)
+                -- Notify player
+                local msg = game.translate_string("st_pda_ic_task_dead_drop_start")
+                pda_private_add_message(sender_contact_id, sender_npc_name, sender_npc_name, msg,
+                    conv_data and conv_data.npc_icon or FALLBACK_NPC_ICON, false)
+                -- Create job
+                create_pending_job(sender_contact_id, sender_npc_id, sender_npc_name, sender_faction,
+                    {}, timeout, s_turn, f_turn, conv_data, {
+                        job_type = "dead_drop",
+                        task_item = item_sec,
+                        task_destination = dest_smart,
+                        task_radius = radius,
+                        squads_registered = true,
+                    })
+            end
+
+        -- Escort: NPC becomes companion, escort to destination
+        -- Syntax: panda_task_escort:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
+        elseif cmd == "panda_task_escort" then
+            local dest_smart = parts[2]
+            local timeout = tonumber(parts[3]) or 900
+            local s_turn = tonumber(parts[4])
+            local f_turn = tonumber(parts[5])
+            if not dest_smart or not s_turn then
+                printf("PANDA_IC: panda_task_escort missing params in '%s'", tostring(cmd_str))
+            else
+                -- Recruit conversation NPC as companion
+                if sender_npc_id then
+                    recruit_npc_as_companion(sender_npc_id, sender_npc_name, true)
+                end
+                -- Mark destination on PDA map
+                local radius = PANDA.get_config("location_watch_radius") or 50
+                register_location_reference(dest_smart, sender_npc_name, sender_npc_id, radius, sender_contact_id)
+                -- Notify player
+                local msg = game.translate_string("st_pda_ic_task_escort_start")
+                pda_private_add_message(sender_contact_id, sender_npc_name, sender_npc_name, msg,
+                    conv_data and conv_data.npc_icon or FALLBACK_NPC_ICON, false)
+                -- Create job
+                create_pending_job(sender_contact_id, sender_npc_id, sender_npc_name, sender_faction,
+                    {}, timeout, s_turn, f_turn, conv_data, {
+                        job_type = "escort",
+                        task_target_id = sender_npc_id,
+                        task_destination = dest_smart,
+                        task_radius = radius,
+                        squads_registered = true,
+                    })
+            end
+
+        -- Elimination: spawn enemies at location, player clears them
+        -- Syntax: panda_task_eliminate:<target_type>:<smart_terrain>:<radius>:<timeout>:<success_turn>:<fail_turn>
+        elseif cmd == "panda_task_eliminate" then
+            local target_type = parts[2]
+            local smart_ref = parts[3]
+            local spawn_radius = tonumber(parts[4]) or 100
+            local timeout = tonumber(parts[5]) or 900
+            local s_turn = tonumber(parts[6])
+            local f_turn = tonumber(parts[7])
+            if not target_type or not smart_ref or not s_turn then
+                printf("PANDA_IC: panda_task_eliminate missing params in '%s'", tostring(cmd_str))
+            else
+                -- Determine if target is mutant or faction
+                local is_mutant = resolve_mutant_section(target_type) ~= nil
+                -- Spawn enemies at smart terrain (uses collector for squad tracking)
+                spawn_squad_at_smart_terrain(target_type, smart_ref, is_mutant, 0, sender_contact_id, "hostile")
+                -- Mark location on PDA map
+                register_location_reference(smart_ref, sender_npc_name, sender_npc_id, spawn_radius, sender_contact_id)
+                -- Notify player
+                local msg = game.translate_string("st_pda_ic_task_eliminate_start")
+                pda_private_add_message(sender_contact_id, sender_npc_name, sender_npc_name, msg,
+                    conv_data and conv_data.npc_icon or FALLBACK_NPC_ICON, false)
+                -- Note: For eliminate, we use the _job_spawn_collector pattern.
+                -- Store params so post-batch handler creates the job with collected squads.
+                _pending_job_params = {
+                    timeout = timeout,
+                    success_turn = s_turn,
+                    fail_turn = f_turn,
+                    sender_npc_id = sender_npc_id,
+                    sender_npc_name = sender_npc_name,
+                    sender_contact_id = sender_contact_id,
+                    sender_faction = sender_faction,
+                    conv_data = conv_data,
+                    extra = { job_type = "eliminate" },
+                }
+            end
+
         else
             printf("Unknown outcome command: %s", cmd_str)
         end
@@ -3895,7 +4212,7 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
         local cid = jp.sender_contact_id
         if cid then
             create_pending_job(cid, jp.sender_npc_id, jp.sender_npc_name, jp.sender_faction,
-                collected_squads, jp.timeout, jp.success_turn, jp.fail_turn, jp.conv_data)
+                collected_squads, jp.timeout, jp.success_turn, jp.fail_turn, jp.conv_data, jp.extra)
         else
             printf("PANDA_IC: pause_job has no contact_id, cannot create job")
         end

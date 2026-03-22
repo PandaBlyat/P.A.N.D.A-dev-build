@@ -31,6 +31,17 @@ const SPAWN_JOB_OUTCOMES = new Set([
   'spawn_mutant_at_smart',
   'spawn_companion',
 ]);
+
+/** Task outcome commands that have success_turn and fail_turn params (value = [successParamIndex, failParamIndex, timeoutParamIndex]). */
+const TASK_OUTCOME_TURN_INDICES: Record<string, [number, number, number]> = {
+  'panda_task_delivery':  [3, 4, 2],
+  'panda_task_fetch':     [3, 4, 2],
+  'panda_task_bounty':    [4, 5, 3],
+  'panda_task_dead_drop': [3, 4, 2],
+  'panda_task_escort':    [2, 3, 1],
+  'panda_task_eliminate': [4, 5, 3],
+};
+const TASK_OUTCOME_COMMANDS = new Set(Object.keys(TASK_OUTCOME_TURN_INDICES));
 const PRECONDITION_RANGE_PAIRS: Array<{ minCommand: string; maxCommand: string; label: string; rankBased?: boolean }> = [
   { minCommand: 'req_money', maxCommand: 'req_money_max', label: 'money' },
   { minCommand: 'req_rep', maxCommand: 'req_rep_max', label: 'reputation' },
@@ -426,17 +437,29 @@ function validateOutcome(
     });
   }
 
-  if (outcome.command !== 'pause_job') {
+  // ── Validate pause_job and panda_task_* turn references & timeout ──
+
+  const taskIndices = TASK_OUTCOME_TURN_INDICES[outcome.command];
+  const isPauseJob = outcome.command === 'pause_job';
+  const isTask = taskIndices != null;
+
+  if (!isPauseJob && !isTask) {
     return;
   }
 
-  const timeout = parseStrictNumber(outcome.params[0]);
-  const successTurn = parseStrictInteger(outcome.params[1]);
-  const failTurn = parseStrictInteger(outcome.params[2]);
+  // Resolve param indices for success_turn, fail_turn, timeout
+  const successIdx = isPauseJob ? 1 : taskIndices![0];
+  const failIdx    = isPauseJob ? 2 : taskIndices![1];
+  const timeoutIdx = isPauseJob ? 0 : taskIndices![2];
+  const cmdLabel = outcome.command;
+
+  const timeout = parseStrictNumber(outcome.params[timeoutIdx]);
+  const successTurn = parseStrictInteger(outcome.params[successIdx]);
+  const failTurn = parseStrictInteger(outcome.params[failIdx]);
 
   if (successTurn != null && !turnNumbers.has(successTurn)) {
     pushMessage(messages, {
-      code: 'pause-job-missing-success-turn',
+      code: 'job-missing-success-turn',
       group: 'structure',
       scope: 'outcome',
       level: 'error',
@@ -445,15 +468,15 @@ function validateOutcome(
       choiceIndex: choice.index,
       outcomeIndex,
       propertiesTab: 'selection',
-      fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, 1),
+      fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, successIdx),
       fieldLabel: 'Success Turn',
-      message: `pause_job references success ${turnLabels.getLongLabel(successTurn)} which does not exist.`,
+      message: `${cmdLabel} references success ${turnLabels.getLongLabel(successTurn)} which does not exist.`,
     });
   }
 
   if (failTurn != null && !turnNumbers.has(failTurn)) {
     pushMessage(messages, {
-      code: 'pause-job-missing-fail-turn',
+      code: 'job-missing-fail-turn',
       group: 'structure',
       scope: 'outcome',
       level: 'error',
@@ -462,15 +485,15 @@ function validateOutcome(
       choiceIndex: choice.index,
       outcomeIndex,
       propertiesTab: 'selection',
-      fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, 2),
+      fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, failIdx),
       fieldLabel: 'Fail Turn',
-      message: `pause_job references fail ${turnLabels.getLongLabel(failTurn)} which does not exist.`,
+      message: `${cmdLabel} references fail ${turnLabels.getLongLabel(failTurn)} which does not exist.`,
     });
   }
 
   if (successTurn != null && failTurn != null && successTurn === failTurn) {
     pushMessage(messages, {
-      code: 'pause-job-identical-branches',
+      code: 'job-identical-branches',
       group: 'logic',
       scope: 'outcome',
       level: 'warning',
@@ -480,13 +503,13 @@ function validateOutcome(
       outcomeIndex,
       propertiesTab: 'selection',
       fieldKey: getOutcomeItemFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex),
-      message: 'pause_job sends both success and fail to the same turn, which is probably not intended.',
+      message: `${cmdLabel} sends both success and fail to the same turn, which is probably not intended.`,
     });
   }
 
   if (timeout != null && timeout < 5) {
     pushMessage(messages, {
-      code: 'pause-job-short-timeout',
+      code: 'job-short-timeout',
       group: 'logic',
       scope: 'outcome',
       level: 'warning',
@@ -495,43 +518,66 @@ function validateOutcome(
       choiceIndex: choice.index,
       outcomeIndex,
       propertiesTab: 'selection',
-      fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, 0),
+      fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, timeoutIdx),
       fieldLabel: 'Timeout (s)',
-      message: 'pause_job timeout is very short and may fire before spawned squads meaningfully engage.',
+      message: `${cmdLabel} timeout is very short and may complete before the player can act.`,
     });
   }
 
-  const pauseJobsInChoice = choice.outcomes.filter(item => item.command === 'pause_job').length;
-  if (pauseJobsInChoice > 1) {
-    pushMessage(messages, {
-      code: 'pause-job-multiple',
-      group: 'logic',
-      scope: 'outcome',
-      level: 'warning',
-      conversationId: conv.id,
-      turnNumber: turn.turnNumber,
-      choiceIndex: choice.index,
-      outcomeIndex,
-      propertiesTab: 'selection',
-      fieldKey: getOutcomeItemFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex),
-      message: 'Multiple pause_job outcomes exist on this choice; only one job timer is usually expected.',
-    });
+  // pause_job-specific checks
+  if (isPauseJob) {
+    const pauseJobsInChoice = choice.outcomes.filter(item => item.command === 'pause_job').length;
+    if (pauseJobsInChoice > 1) {
+      pushMessage(messages, {
+        code: 'pause-job-multiple',
+        group: 'logic',
+        scope: 'outcome',
+        level: 'warning',
+        conversationId: conv.id,
+        turnNumber: turn.turnNumber,
+        choiceIndex: choice.index,
+        outcomeIndex,
+        propertiesTab: 'selection',
+        fieldKey: getOutcomeItemFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex),
+        message: 'Multiple pause_job outcomes exist on this choice; only one job timer is usually expected.',
+      });
+    }
+
+    if (!choice.outcomes.some(item => SPAWN_JOB_OUTCOMES.has(item.command))) {
+      pushMessage(messages, {
+        code: 'pause-job-without-spawn',
+        group: 'logic',
+        scope: 'outcome',
+        level: 'warning',
+        conversationId: conv.id,
+        turnNumber: turn.turnNumber,
+        choiceIndex: choice.index,
+        outcomeIndex,
+        propertiesTab: 'selection',
+        fieldKey: getOutcomeItemFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex),
+        message: 'pause_job is present without a squad-spawning outcome on the same choice, which is suspicious.',
+      });
+    }
   }
 
-  if (!choice.outcomes.some(item => SPAWN_JOB_OUTCOMES.has(item.command))) {
-    pushMessage(messages, {
-      code: 'pause-job-without-spawn',
-      group: 'logic',
-      scope: 'outcome',
-      level: 'warning',
-      conversationId: conv.id,
-      turnNumber: turn.turnNumber,
-      choiceIndex: choice.index,
-      outcomeIndex,
-      propertiesTab: 'selection',
-      fieldKey: getOutcomeItemFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex),
-      message: 'pause_job is present without a squad-spawning outcome on the same choice, which is suspicious.',
-    });
+  // Task-specific: warn if multiple task outcomes on same choice
+  if (isTask) {
+    const taskCount = choice.outcomes.filter(item => TASK_OUTCOME_COMMANDS.has(item.command)).length;
+    if (taskCount > 1) {
+      pushMessage(messages, {
+        code: 'task-multiple',
+        group: 'logic',
+        scope: 'outcome',
+        level: 'warning',
+        conversationId: conv.id,
+        turnNumber: turn.turnNumber,
+        choiceIndex: choice.index,
+        outcomeIndex,
+        propertiesTab: 'selection',
+        fieldKey: getOutcomeItemFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex),
+        message: 'Multiple task outcomes exist on this choice; only one task per choice is expected.',
+      });
+    }
   }
 }
 
@@ -780,9 +826,23 @@ function validateReachability(
       }
 
       for (const outcome of choice.outcomes) {
-        if (outcome.command !== 'pause_job') continue;
-        const successTurn = parseStrictInteger(outcome.params[1]);
-        const failTurn = parseStrictInteger(outcome.params[2]);
+        // Resolve success/fail turn indices for pause_job and panda_task_* commands
+        let sIdx: number | undefined;
+        let fIdx: number | undefined;
+        if (outcome.command === 'pause_job') {
+          sIdx = 1;
+          fIdx = 2;
+        } else {
+          const ti = TASK_OUTCOME_TURN_INDICES[outcome.command];
+          if (ti) {
+            sIdx = ti[0];
+            fIdx = ti[1];
+          }
+        }
+        if (sIdx == null) continue;
+
+        const successTurn = parseStrictInteger(outcome.params[sIdx]);
+        const failTurn = parseStrictInteger(outcome.params[fIdx!]);
         if (successTurn != null && turnNumbers.has(successTurn) && !reachable.has(successTurn)) {
           reachable.add(successTurn);
           queue.push(successTurn);
