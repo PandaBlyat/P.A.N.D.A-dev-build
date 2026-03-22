@@ -37,6 +37,9 @@ export type ParamEditor =
     emptyLabel?: string;
   }
   | {
+    kind: 'item_picker_panel';
+  }
+  | {
     kind: 'command_builder';
     suggestions: ParamOption[];
     chainSeparator?: string;
@@ -73,6 +76,10 @@ const SMART_TERRAIN_EDITOR: ParamEditor = {
 
 const TURN_REFERENCE_EDITOR: ParamEditor = {
   kind: 'turn_reference',
+};
+
+const ITEM_PICKER_PANEL_EDITOR: ParamEditor = {
+  kind: 'item_picker_panel',
 };
 
 const WATCH_TRIGGER_SUGGESTIONS: ParamOption[] = [
@@ -404,7 +411,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     description: 'Player must have item in inventory',
     category: 'Items',
     params: [
-      { name: 'item', type: 'item_section', required: true, label: 'Item Section' },
+      { name: 'item', type: 'item_section', required: true, label: 'Item Section', editor: ITEM_PICKER_PANEL_EDITOR },
     ],
   },
   {
@@ -413,7 +420,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     description: 'Player must have item equipped',
     category: 'Items',
     params: [
-      { name: 'item', type: 'item_section', required: true, label: 'Item Section' },
+      { name: 'item', type: 'item_section', required: true, label: 'Item Section', editor: ITEM_PICKER_PANEL_EDITOR },
     ],
   },
   {
@@ -589,7 +596,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Spawn item in player inventory',
     category: 'Items',
     params: [
-      { name: 'item', type: 'item_section', required: true, label: 'Item Section' },
+      { name: 'item', type: 'item_section', required: true, label: 'Item Section', editor: ITEM_PICKER_PANEL_EDITOR },
     ],
   },
   {
@@ -598,7 +605,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Spawn NPC courier to deliver item',
     category: 'Items',
     params: [
-      { name: 'item', type: 'item_section', required: false, label: 'Item Section', placeholder: 'medkit_army' },
+      { name: 'item', type: 'item_section', required: false, label: 'Item Section', placeholder: 'medkit_army', editor: ITEM_PICKER_PANEL_EDITOR },
     ],
   },
 

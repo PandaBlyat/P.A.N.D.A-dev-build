@@ -2400,6 +2400,133 @@ label {
   flex: 0 0 auto;
 }
 
+.item-picker-toolbar {
+  align-items: stretch;
+}
+
+.item-picker-launcher {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-start;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(4, 8, 16, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.item-picker-panel {
+  width: min(720px, 100%);
+  max-height: min(78vh, 860px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0,0,0,0.35);
+}
+
+.item-picker-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.item-picker-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.item-picker-subtitle,
+.item-picker-selection-summary,
+.item-picker-total,
+.item-picker-empty {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
+.item-picker-search {
+  width: 100%;
+}
+
+.item-picker-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.item-picker-total {
+  margin-left: auto;
+}
+
+.item-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 180px;
+  max-height: 48vh;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.item-picker-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.item-picker-option:hover,
+.item-picker-option.is-active {
+  background: var(--bg-hover);
+  border-color: var(--border-light);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.item-picker-option-title {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.item-picker-option-meta {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+}
+
+.item-picker-empty {
+  padding: 18px 10px;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: rgba(255,255,255,0.02);
+}
+
 .smart-terrain-placeholder-card {
   margin-top: 8px;
   padding: 8px;
