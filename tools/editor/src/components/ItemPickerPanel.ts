@@ -835,4 +835,138 @@ export function createItemPickerPanelEditor(
   return wrapper;
 }
 
+function parseItemChain(value: string, separator: string): string[] {
+  return value
+    .split(separator)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+}
+
+function formatItemChainSummary(items: string[]): string {
+  if (items.length === 0) {
+    return 'No stash bonus items selected yet. Use Browse/Add to pick vanilla items, or type raw section ids for modded content.';
+  }
+
+  const labels = items.slice(0, 3).map((item) => formatGameItemLabel(item));
+  const suffix = items.length > 3 ? ` +${items.length - 3} more` : '';
+  return `Stash will include ${labels.join(', ')}${suffix}.`;
+}
+
+export function createItemChainPickerPanelEditor(
+  currentValue: string,
+  onChange: (value: string) => void,
+  fieldKey: string,
+  options: {
+    placeholder: string;
+    chainSeparator: string;
+  },
+): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'rich-editor rich-editor-item-picker';
+
+  const controls = document.createElement('div');
+  controls.className = 'rich-editor-toolbar item-picker-toolbar';
+
+  const addButton = document.createElement('button');
+  addButton.type = 'button';
+  addButton.className = 'item-picker-launcher';
+
+  const clearButton = document.createElement('button');
+  clearButton.type = 'button';
+  clearButton.className = 'btn-sm';
+  clearButton.textContent = 'Clear';
+
+  const rawInput = document.createElement('input');
+  rawInput.type = 'text';
+  rawInput.className = 'rich-editor-input';
+  rawInput.value = currentValue;
+  rawInput.placeholder = options.placeholder;
+  rawInput.setAttribute('data-field-key', fieldKey);
+
+  const chipList = document.createElement('div');
+  chipList.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;';
+
+  const summary = document.createElement('div');
+  summary.className = 'command-description';
+
+  const syncUi = (value: string): void => {
+    const items = parseItemChain(value, options.chainSeparator);
+    rawInput.value = items.join(options.chainSeparator);
+
+    addButton.textContent = '';
+    const label = document.createElement('span');
+    label.className = 'item-picker-launcher-label';
+    label.textContent = items.length > 0
+      ? `Browse/Add items (${items.length})`
+      : 'Browse items…';
+    const icon = document.createElement('span');
+    icon.className = 'item-picker-launcher-icon';
+    icon.textContent = '\u25be';
+    addButton.append(label, icon);
+
+    chipList.replaceChildren();
+    items.forEach((item, index) => {
+      const chip = document.createElement('span');
+      chip.style.cssText = 'display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; background:var(--bg-elev-2); border:1px solid var(--border); font-size:11px;';
+
+      const chipLabel = document.createElement('span');
+      chipLabel.textContent = formatGameItemLabel(item);
+      chip.appendChild(chipLabel);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'btn-icon btn-sm';
+      removeBtn.textContent = '×';
+      removeBtn.title = `Remove ${item}`;
+      removeBtn.onclick = () => {
+        const nextItems = [...items];
+        nextItems.splice(index, 1);
+        const nextValue = nextItems.join(options.chainSeparator);
+        syncUi(nextValue);
+        onChange(nextValue);
+      };
+      chip.appendChild(removeBtn);
+
+      chipList.appendChild(chip);
+    });
+
+    summary.textContent = formatItemChainSummary(items);
+    clearButton.disabled = items.length === 0;
+  };
+
+  addButton.onclick = () => {
+    openItemPickerPanel({
+      trigger: addButton,
+      currentValue: '',
+      allowEmpty: false,
+      onSelect: (value) => {
+        const items = parseItemChain(rawInput.value, options.chainSeparator);
+        const nextItems = items.includes(value) ? items : [...items, value];
+        const nextValue = nextItems.join(options.chainSeparator);
+        syncUi(nextValue);
+        onChange(nextValue);
+      },
+    });
+  };
+
+  clearButton.onclick = () => {
+    syncUi('');
+    onChange('');
+    rawInput.focus();
+  };
+
+  rawInput.oninput = () => onChange(rawInput.value);
+  rawInput.onchange = () => {
+    syncUi(rawInput.value);
+    onChange(rawInput.value);
+  };
+  rawInput.addEventListener('input', () => syncUi(rawInput.value));
+
+  controls.append(addButton, clearButton);
+  wrapper.append(controls, rawInput, chipList, summary);
+
+  syncUi(currentValue);
+  return wrapper;
+}
+
 export { buildItemOptionLabel };

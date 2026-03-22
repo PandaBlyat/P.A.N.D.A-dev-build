@@ -19,7 +19,7 @@ import {
 import type { CommandSchema, ParamDef, ParamOption } from '../lib/schema';
 import { FACTION_IDS, RANKS, MUTANT_TYPES, DYNAMIC_PLACEHOLDERS, LEVEL_DISPLAY_NAMES, SMART_TERRAIN_LEVELS } from '../lib/constants';
 import { createOnboardingNudge } from './Onboarding';
-import { createItemPickerPanelEditor } from './ItemPickerPanel';
+import { createItemChainPickerPanelEditor, createItemPickerPanelEditor } from './ItemPickerPanel';
 import { formatGameItemLabel } from '../lib/item-catalog';
 import { requestFlowCenter } from '../lib/flow-navigation';
 
@@ -1148,6 +1148,11 @@ function renderRichParamEditor(
         allowEmpty: !paramDef.required,
         placeholder: paramDef.placeholder ?? 'medkit_army',
       });
+    case 'item_chain_picker_panel':
+      return createItemChainPickerPanelEditor(currentValue, onChange, fieldKey, {
+        placeholder: paramDef.placeholder ?? 'medkit+bandage+vodka',
+        chainSeparator: editor.chainSeparator ?? '+',
+      });
     case 'command_builder':
       return createCommandBuilderEditor(schema, paramDef, currentValue, onChange, fieldKey, editor.suggestions, editor.chainSeparator ?? '+');
   }
@@ -1163,6 +1168,14 @@ function formatParamValueForDisplay(paramDef: ParamDef | undefined, value: strin
   if (!value) return '';
   if (paramDef?.type === 'item_section') {
     return formatGameItemLabel(value);
+  }
+  if (paramDef?.editor?.kind === 'item_chain_picker_panel') {
+    return value
+      .split(paramDef.editor.chainSeparator ?? '+')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0)
+      .map((item) => formatGameItemLabel(item))
+      .join(' + ');
   }
   return value;
 }
