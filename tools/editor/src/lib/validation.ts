@@ -228,11 +228,10 @@ function validateConversation(conv: Conversation, messages: ValidationMessage[])
   }
 
   const turnNumbers = new Set(conv.turns.map(t => t.turnNumber));
-  const highestTurnNumber = Math.max(...conv.turns.map(t => t.turnNumber));
   const turnLabels = createTurnDisplayLabeler(conv);
 
   for (const turn of conv.turns) {
-    validateTurn(conv, turn, turnNumbers, highestTurnNumber, turnLabels, messages);
+    validateTurn(conv, turn, turnNumbers, turnLabels, messages);
   }
 
   if (conv.turns.length > 1) {
@@ -244,7 +243,6 @@ function validateTurn(
   conv: Conversation,
   turn: Conversation['turns'][number],
   turnNumbers: Set<number>,
-  highestTurnNumber: number,
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
   messages: ValidationMessage[],
 ): void {
@@ -261,8 +259,6 @@ function validateTurn(
     });
     return;
   }
-
-  let turnHasContinuationIntent = false;
 
   for (const choice of turn.choices) {
     if (!choice.text || choice.text.trim() === '') {
@@ -298,7 +294,6 @@ function validateTurn(
     }
 
     if (choice.continueTo != null) {
-      turnHasContinuationIntent = true;
       if (choice.continueTo === turn.turnNumber) {
         pushMessage(messages, {
           code: 'self-loop-continuation',
@@ -332,38 +327,6 @@ function validateTurn(
 
     choice.outcomes.forEach((outcome, outcomeIndex) => {
       validateOutcome(conv, turn, choice, outcome, outcomeIndex, turnNumbers, turnLabels, messages);
-      if (outcome.command === 'pause_job') {
-        turnHasContinuationIntent = true;
-      }
-    });
-
-    if (choice.outcomes.length === 0 && choice.continueTo == null && highestTurnNumber > turn.turnNumber) {
-      pushMessage(messages, {
-        code: 'choice-dead-end',
-        group: 'logic',
-        scope: 'choice',
-        level: 'warning',
-        conversationId: conv.id,
-        turnNumber: turn.turnNumber,
-        choiceIndex: choice.index,
-        propertiesTab: 'selection',
-        fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'),
-        fieldLabel: 'Continue To Turn',
-        message: `${turnLabels.getLongLabel(turn.turnNumber)}, Choice ${choice.index}: Ends immediately with no continuation or branching outcome.`,
-      });
-    }
-  }
-
-  if (!turnHasContinuationIntent && highestTurnNumber > turn.turnNumber) {
-    pushMessage(messages, {
-      code: 'turn-dead-end',
-      group: 'logic',
-      scope: 'turn',
-      level: 'warning',
-      conversationId: conv.id,
-      turnNumber: turn.turnNumber,
-      propertiesTab: 'selection',
-      message: `${turnLabels.getLongLabel(turn.turnNumber)} has no continuation intent, but later turns exist in this conversation.`,
     });
   }
 }
