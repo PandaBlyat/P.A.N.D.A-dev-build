@@ -459,6 +459,8 @@ function openItemPickerPanel(options: {
   let focusTrapController: FocusTrapController | null = null;
   let filteredItems: GameItemCatalogEntry[] = [];
   let activeIndex = 0;
+  let activeOptionEl: HTMLButtonElement | null = null;
+  let optionElementsByIndex = new Map<number, HTMLButtonElement>();
 
   const setActiveIndexFromValue = (value: string): void => {
     const matchIndex = filteredItems.findIndex((item) => item.section === value);
@@ -468,6 +470,18 @@ function openItemPickerPanel(options: {
   const selectItem = (value: string) => {
     options.onSelect(value);
     cleanup();
+  };
+
+  const setOptionActiveState = (option: HTMLButtonElement | null, isActive: boolean): void => {
+    if (!option) return;
+    option.classList.toggle('is-active', isActive);
+    option.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  };
+
+  const isOptionOutsideViewport = (option: HTMLElement): boolean => {
+    const listRect = list.getBoundingClientRect();
+    const optionRect = option.getBoundingClientRect();
+    return optionRect.top < listRect.top || optionRect.bottom > listRect.bottom;
   };
 
   /* ── Chip state management ── */
@@ -628,6 +642,8 @@ function openItemPickerPanel(options: {
 
     totalLabel.textContent = `${filteredItems.length} / ${GAME_ITEM_CATALOG.length} items`;
     list.replaceChildren();
+    activeOptionEl = null;
+    optionElementsByIndex = new Map();
 
     if (filteredItems.length === 0) {
       const empty = document.createElement('div');
@@ -635,6 +651,10 @@ function openItemPickerPanel(options: {
       empty.textContent = 'No matching vanilla items. Keep typing the section id inline to target custom or modded content.';
       list.appendChild(empty);
       return;
+    }
+
+    if (activeIndex >= filteredItems.length) {
+      activeIndex = filteredItems.length - 1;
     }
 
     let flatIndex = 0;
@@ -658,6 +678,8 @@ function openItemPickerPanel(options: {
         option.className = cls;
         option.setAttribute('aria-selected', index === activeIndex ? 'true' : 'false');
         option.dataset.index = String(index);
+        optionElementsByIndex.set(index, option);
+        if (index === activeIndex) activeOptionEl = option;
 
         const primary = document.createElement('span');
         primary.className = 'item-picker-option-title';
@@ -671,8 +693,9 @@ function openItemPickerPanel(options: {
 
         option.onclick = () => selectItem(item.section);
         option.onmouseenter = () => {
+          if (activeIndex === index) return;
           activeIndex = index;
-          updateActiveOption();
+          updateActiveOption({ source: 'pointer' });
         };
         list.appendChild(option);
       }
@@ -681,22 +704,28 @@ function openItemPickerPanel(options: {
     updateActiveOption();
   };
 
-  const updateActiveOption = (): void => {
-    const optionEls = [...list.querySelectorAll<HTMLElement>('.item-picker-option')];
-    optionEls.forEach((option, index) => {
-      const isActive = index === activeIndex;
-      option.classList.toggle('is-active', isActive);
-      option.setAttribute('aria-selected', isActive ? 'true' : 'false');
-    });
+  const updateActiveOption = (
+    { source = 'render' }: { source?: 'keyboard' | 'pointer' | 'render' } = {},
+  ): void => {
+    const nextActiveOption = optionElementsByIndex.get(activeIndex) ?? null;
+    if (activeOptionEl !== nextActiveOption) {
+      setOptionActiveState(activeOptionEl, false);
+      setOptionActiveState(nextActiveOption, true);
+      activeOptionEl = nextActiveOption;
+    } else {
+      setOptionActiveState(activeOptionEl, true);
+    }
 
-    const activeOption = optionEls[activeIndex];
-    activeOption?.scrollIntoView({ block: 'nearest' });
+    if (!activeOptionEl) return;
+    if (source === 'keyboard' || isOptionOutsideViewport(activeOptionEl)) {
+      activeOptionEl.scrollIntoView({ block: 'nearest' });
+    }
   };
 
   const moveActive = (delta: number): void => {
     if (filteredItems.length === 0) return;
     activeIndex = (activeIndex + delta + filteredItems.length) % filteredItems.length;
-    updateActiveOption();
+    updateActiveOption({ source: 'keyboard' });
   };
 
   const handleKeyDown = (event: KeyboardEvent): void => {
