@@ -119,11 +119,12 @@ function getAppShell(container: HTMLElement): AppShell {
 
   const leftPanel = document.createElement('div');
   const leftHeader = document.createElement('div');
-  leftHeader.className = 'panel-header';
+  leftHeader.className = 'panel-header panel-header-conversations';
   const leftTitle = document.createElement('span');
+  leftTitle.className = 'panel-header-title panel-header-title-conversations';
   leftTitle.textContent = 'Conversations';
   const leftActions = document.createElement('div');
-  leftActions.className = 'panel-header-actions';
+  leftActions.className = 'panel-header-actions panel-header-actions-conversations';
   leftHeader.append(leftTitle, leftActions);
   leftPanel.appendChild(leftHeader);
   const leftBody = document.createElement('div');

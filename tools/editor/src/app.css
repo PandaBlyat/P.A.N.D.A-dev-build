@@ -972,6 +972,25 @@ label {
   white-space: nowrap;
 }
 
+.panel-header-title {
+  min-width: 0;
+}
+
+.panel-header-conversations {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  row-gap: 6px;
+}
+
+.panel-header-title-conversations {
+  flex: 1 1 100%;
+}
+
+.panel-header-actions-conversations {
+  width: 100%;
+  justify-content: flex-end;
+}
+
 .panel-header-actions {
   display: inline-flex;
   align-items: center;
