@@ -610,13 +610,26 @@ function renderTurnNode(options: {
       ? (conv.label.trim() || `Conversation ${conv.id}`)
       : `Branch ${turn.turnNumber}`;
     input.maxLength = 32;
-    const commitEdit = () => {
+    let hasCommitted = false;
+    const commitEdit = (options: { immediate?: boolean } = {}) => {
+      if (hasCommitted) return;
+      hasCommitted = true;
+      if (options.immediate) {
+        input.dataset.allowImmediateRender = 'true';
+      }
       store.setTurnCustomLabel(conv.id, turn.turnNumber, input.value);
     };
-    input.onblur = commitEdit;
+    input.onblur = () => commitEdit();
     input.onkeydown = (ke) => {
-      if (ke.key === 'Enter') { commitEdit(); }
-      if (ke.key === 'Escape') { input.value = turn.customLabel || ''; input.blur(); }
+      if (ke.key === 'Enter') {
+        ke.preventDefault();
+        commitEdit({ immediate: true });
+        input.blur();
+      }
+      if (ke.key === 'Escape') {
+        input.value = turn.customLabel || '';
+        input.blur();
+      }
       ke.stopPropagation();
     };
     header.insertBefore(input, labelSpan.nextSibling);
@@ -631,10 +644,12 @@ function renderTurnNode(options: {
   colorDot.className = 'turn-color-input';
   colorDot.value = branchColor;
   colorDot.title = 'Change branch color';
-  colorDot.onchange = (e) => {
-    e.stopPropagation();
+  const applyTurnColor = (event: Event) => {
+    event.stopPropagation();
     store.setTurnColor(conv.id, turn.turnNumber, colorDot.value);
   };
+  colorDot.oninput = applyTurnColor;
+  colorDot.onchange = applyTurnColor;
   colorDot.onclick = (e) => e.stopPropagation();
   header.appendChild(colorDot);
 
