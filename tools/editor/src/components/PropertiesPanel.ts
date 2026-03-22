@@ -209,6 +209,10 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
         store.updateConversation(conv.id, {
           preconditions: [...conv.preconditions, newPrecond],
         });
+      }, {
+        title: 'Add precondition',
+        searchPlaceholder: 'Search preconditions...',
+        emptyMessage: 'No matching preconditions',
       });
     },
   );
@@ -462,6 +466,10 @@ function renderChoiceProperties(
         store.updateChoice(conv.id, turn.turnNumber, choice.index, {
           outcomes: [...choice.outcomes, newOutcome],
         });
+      }, {
+        title: 'Add outcome',
+        searchPlaceholder: 'Search outcomes...',
+        emptyMessage: 'No matching outcomes',
       });
     },
   );
@@ -1523,109 +1531,200 @@ function parseSmartTerrainReference(value: string): {
 
 // ─── Command Picker Dropdown ──────────────────────────────────────────────
 
-function showCommandPicker(trigger: HTMLElement, schemas: CommandSchema[], onSelect: (schema: CommandSchema) => void): void {
+function showCommandPicker(
+  trigger: HTMLElement,
+  schemas: CommandSchema[],
+  onSelect: (schema: CommandSchema) => void,
+  options: {
+    title?: string;
+    searchPlaceholder?: string;
+    emptyMessage?: string;
+  } = {},
+): void {
   if (activeCommandPickerCleanup) {
     const shouldToggleClosed = activeCommandPickerTrigger === trigger;
     activeCommandPickerCleanup();
     if (shouldToggleClosed) return;
   }
 
-  const menu = document.createElement('div');
-  menu.className = 'dropdown-menu';
-  menu.setAttribute('role', 'dialog');
-  menu.setAttribute('aria-label', 'Command picker');
-  menu.style.position = 'fixed';
+  const groups = Array.from(groupByCategory(schemas).entries());
+  const panel = document.createElement('div');
+  panel.className = 'command-picker-panel';
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-label', options.title ?? 'Command picker');
+  panel.style.position = 'fixed';
 
-  // Search filter
+  const header = document.createElement('div');
+  header.className = 'command-picker-header';
+
+  const titleWrap = document.createElement('div');
+  titleWrap.className = 'command-picker-title-wrap';
+
+  const title = document.createElement('div');
+  title.className = 'command-picker-title';
+  title.textContent = options.title ?? 'Add command';
+  titleWrap.appendChild(title);
+
+  const subtitle = document.createElement('div');
+  subtitle.className = 'command-picker-subtitle';
+  subtitle.textContent = 'Browse by category or search to narrow the list.';
+  titleWrap.appendChild(subtitle);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'command-picker-close btn-icon btn-sm';
+  closeBtn.textContent = '×';
+  closeBtn.title = 'Close picker';
+
+  header.append(titleWrap, closeBtn);
+  panel.appendChild(header);
+
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
-  searchInput.placeholder = 'Search commands...';
-  searchInput.className = 'dropdown-search';
-  searchInput.style.cssText = 'width:100%; margin-bottom:4px; padding:4px 8px; font-size:12px;';
-  menu.appendChild(searchInput);
+  searchInput.placeholder = options.searchPlaceholder ?? 'Search commands...';
+  searchInput.className = 'dropdown-search command-picker-search';
+  panel.appendChild(searchInput);
 
-  const listContainer = document.createElement('div');
+  const content = document.createElement('div');
+  content.className = 'command-picker-content';
 
-  function renderList(filter: string) {
-    listContainer.innerHTML = '';
-    const groups = groupByCategory(schemas);
-    let hasResults = false;
+  const categoryNav = document.createElement('div');
+  categoryNav.className = 'command-picker-categories';
 
-    for (const [category, items] of groups) {
-      const filtered = items.filter(s =>
-        filter === '' ||
-        s.label.toLowerCase().includes(filter) ||
-        s.description.toLowerCase().includes(filter) ||
-        s.name.toLowerCase().includes(filter)
-      );
-      if (filtered.length === 0) continue;
-      hasResults = true;
+  const resultPane = document.createElement('div');
+  resultPane.className = 'command-picker-results';
 
-      const catLabel = document.createElement('div');
-      catLabel.className = 'dropdown-category';
-      catLabel.textContent = category;
-      listContainer.appendChild(catLabel);
-
-      for (const schema of filtered) {
-        const opt = document.createElement('button');
-        opt.className = 'dropdown-option';
-        opt.innerHTML = `${schema.label}<span class="dropdown-option-desc">${schema.description}</span>`;
-        opt.onclick = () => {
-          cleanup();
-          onSelect(schema);
-        };
-        listContainer.appendChild(opt);
-      }
-    }
-
-    if (!hasResults) {
-      const noResult = document.createElement('div');
-      noResult.style.cssText = 'padding:8px; color:var(--text-dim); font-size:11px; text-align:center;';
-      noResult.textContent = 'No matching commands';
-      listContainer.appendChild(noResult);
-    }
-  }
-
-  renderList('');
-  searchInput.oninput = () => renderList(searchInput.value.toLowerCase().trim());
-
-  menu.appendChild(listContainer);
-  document.body.appendChild(menu);
+  content.append(categoryNav, resultPane);
+  panel.appendChild(content);
+  document.body.appendChild(panel);
 
   const inspectorScrollContainer = trigger.closest('.panel-body');
-  const viewportGap = 8;
+  const viewportGap = 12;
   let isClosed = false;
+  let activeCategory = groups[0]?.[0] ?? '';
 
-  const positionMenu = () => {
-    if (isClosed || !trigger.isConnected || !menu.isConnected) {
+  const matchesFilter = (schema: CommandSchema, filter: string) => {
+    if (!filter) return true;
+    return schema.label.toLowerCase().includes(filter)
+      || schema.description.toLowerCase().includes(filter)
+      || schema.name.toLowerCase().includes(filter)
+      || schema.category.toLowerCase().includes(filter);
+  };
+
+  const visibleGroups = (filter: string) => groups
+    .map(([category, items]) => [category, items.filter((schema) => matchesFilter(schema, filter))] as const)
+    .filter(([, items]) => items.length > 0);
+
+  const renderCategories = (filter: string) => {
+    const filteredGroups = visibleGroups(filter);
+    if (filteredGroups.length > 0 && !filteredGroups.some(([category]) => category === activeCategory)) {
+      activeCategory = filteredGroups[0][0];
+    }
+
+    categoryNav.innerHTML = '';
+    for (const [category, items] of filteredGroups) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `command-picker-category${category === activeCategory ? ' is-active' : ''}`;
+      button.innerHTML = `<span>${category}</span><span class="command-picker-category-count">${items.length}</span>`;
+      button.onclick = () => {
+        activeCategory = category;
+        renderPicker(filter);
+      };
+      categoryNav.appendChild(button);
+    }
+  };
+
+  const renderResults = (filter: string) => {
+    resultPane.innerHTML = '';
+    const filteredGroups = visibleGroups(filter);
+    const currentGroup = filteredGroups.find(([category]) => category === activeCategory) ?? filteredGroups[0];
+    if (!currentGroup) {
+      const empty = document.createElement('div');
+      empty.className = 'command-picker-empty';
+      empty.textContent = options.emptyMessage ?? 'No matching commands';
+      resultPane.appendChild(empty);
+      return;
+    }
+
+    const [category, items] = currentGroup;
+    const groupHeader = document.createElement('div');
+    groupHeader.className = 'command-picker-results-header';
+
+    const groupTitle = document.createElement('div');
+    groupTitle.className = 'command-picker-results-title';
+    groupTitle.textContent = category;
+
+    const groupMeta = document.createElement('div');
+    groupMeta.className = 'command-picker-results-meta';
+    groupMeta.textContent = `${items.length} command${items.length === 1 ? '' : 's'}`;
+
+    groupHeader.append(groupTitle, groupMeta);
+    resultPane.appendChild(groupHeader);
+
+    const cards = document.createElement('div');
+    cards.className = 'command-picker-grid';
+
+    for (const schema of items) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'command-picker-card';
+      const paramsSummary = schema.params.length > 0
+        ? `${schema.params.length} param${schema.params.length === 1 ? '' : 's'}`
+        : 'No params';
+      card.innerHTML = `
+        <span class="command-picker-card-title-row">
+          <span class="command-picker-card-title">${schema.label}</span>
+          <span class="command-picker-card-pill">${paramsSummary}</span>
+        </span>
+        <span class="command-picker-card-name">${schema.name}</span>
+        <span class="command-picker-card-desc">${schema.description}</span>
+      `;
+      card.onclick = () => {
+        cleanup();
+        onSelect(schema);
+      };
+      cards.appendChild(card);
+    }
+
+    resultPane.appendChild(cards);
+  };
+
+  const renderPicker = (filter: string) => {
+    renderCategories(filter);
+    renderResults(filter);
+  };
+
+  const positionPanel = () => {
+    if (isClosed || !trigger.isConnected || !panel.isConnected) {
       cleanup();
       return;
     }
 
     const rect = trigger.getBoundingClientRect();
-    const menuWidth = menu.offsetWidth;
-    const menuHeight = menu.offsetHeight;
+    const panelWidth = panel.offsetWidth;
+    const panelHeight = panel.offsetHeight;
 
     let left = rect.left;
-    let top = rect.bottom + 6;
+    let top = rect.bottom + 8;
 
-    if (left + menuWidth > window.innerWidth - viewportGap) {
-      left = Math.max(viewportGap, window.innerWidth - menuWidth - viewportGap);
+    if (left + panelWidth > window.innerWidth - viewportGap) {
+      left = Math.max(viewportGap, window.innerWidth - panelWidth - viewportGap);
     }
-    if (top + menuHeight > window.innerHeight - viewportGap) {
-      top = Math.max(viewportGap, rect.top - menuHeight - 6);
+    if (top + panelHeight > window.innerHeight - viewportGap) {
+      top = Math.max(viewportGap, rect.top - panelHeight - 8);
     }
 
-    menu.style.left = `${Math.max(viewportGap, left)}px`;
-    menu.style.top = `${top}px`;
+    panel.style.left = `${Math.max(viewportGap, left)}px`;
+    panel.style.top = `${top}px`;
   };
 
   const cleanup = () => {
     if (isClosed) return;
     isClosed = true;
-    menu.remove();
-    window.removeEventListener('resize', positionMenu);
-    inspectorScrollContainer?.removeEventListener('scroll', positionMenu);
+    panel.remove();
+    window.removeEventListener('resize', positionPanel);
+    inspectorScrollContainer?.removeEventListener('scroll', positionPanel);
     document.removeEventListener('mousedown', handlePointerDown, true);
     document.removeEventListener('keydown', handleKeyDown, true);
     if (activeCommandPickerCleanup === cleanup) {
@@ -1636,7 +1735,7 @@ function showCommandPicker(trigger: HTMLElement, schemas: CommandSchema[], onSel
 
   const handlePointerDown = (e: MouseEvent) => {
     const target = e.target as Node | null;
-    if (target && (menu.contains(target) || trigger.contains(target))) return;
+    if (target && (panel.contains(target) || trigger.contains(target))) return;
     cleanup();
   };
 
@@ -1647,17 +1746,24 @@ function showCommandPicker(trigger: HTMLElement, schemas: CommandSchema[], onSel
     trigger.focus();
   };
 
+  closeBtn.onclick = () => {
+    cleanup();
+    trigger.focus();
+  };
+  searchInput.oninput = () => renderPicker(searchInput.value.toLowerCase().trim());
+
   activeCommandPickerCleanup = cleanup;
   activeCommandPickerTrigger = trigger;
 
-  positionMenu();
+  renderPicker('');
+  positionPanel();
   requestAnimationFrame(() => {
-    positionMenu();
+    positionPanel();
     searchInput.focus();
   });
 
-  window.addEventListener('resize', positionMenu);
-  inspectorScrollContainer?.addEventListener('scroll', positionMenu, { passive: true });
+  window.addEventListener('resize', positionPanel);
+  inspectorScrollContainer?.addEventListener('scroll', positionPanel, { passive: true });
   setTimeout(() => {
     document.addEventListener('mousedown', handlePointerDown, true);
     document.addEventListener('keydown', handleKeyDown, true);

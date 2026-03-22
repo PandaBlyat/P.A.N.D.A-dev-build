@@ -2393,19 +2393,21 @@ label {
   border-radius: 2px;
 }
 
-/* ─── Dropdown Editor ──────────────────────────────────── */
+/* ─── Command Picker Panel ─────────────────────────────── */
 
-.dropdown-menu {
+.command-picker-panel {
   position: fixed;
   z-index: 2400;
-  width: 280px;
-  max-height: 320px;
-  overflow-y: auto;
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0,0,0,0.2);
-  padding: 4px;
+  width: min(720px, calc(100vw - 24px));
+  max-height: min(72vh, 640px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(28, 36, 48, 0.98) 0%, rgba(15, 20, 28, 0.98) 100%);
+  border: 1px solid color-mix(in srgb, var(--border-light) 88%, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0, 0, 0, 0.28), 0 18px 42px rgba(0, 0, 0, 0.42);
   animation: dropdownIn 0.15s ease;
 }
 
@@ -2414,40 +2416,193 @@ label {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.dropdown-category {
-  padding: 6px 8px 2px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--accent-dim);
-  border-top: 1px solid var(--border);
-  margin-top: 4px;
+.command-picker-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
-.dropdown-category:first-child { border-top: none; margin-top: 0; }
 
-.dropdown-option {
-  display: block;
+.command-picker-title-wrap {
+  min-width: 0;
+}
+
+.command-picker-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.command-picker-subtitle {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.command-picker-close {
+  flex: 0 0 auto;
+}
+
+.command-picker-search {
   width: 100%;
-  padding: 5px 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.command-picker-content {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  gap: 12px;
+  flex: 1 1 auto;
+}
+
+.command-picker-categories,
+.command-picker-results {
+  min-height: 0;
+  overflow: auto;
+}
+
+.command-picker-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+}
+
+.command-picker-category {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 10px;
   text-align: left;
   font-size: 12px;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
-  border-radius: var(--radius);
-  transition: background 0.1s;
-}
-.dropdown-option:hover {
-  background: var(--bg-hover);
-  box-shadow: inset 2px 0 0 var(--accent);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--bg-dark) 84%, transparent);
 }
 
-.dropdown-option-desc {
-  display: block;
+.command-picker-category.is-active {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border-light));
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-dark));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent), 0 0 18px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.command-picker-category-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-dim);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+.command-picker-results {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.command-picker-results-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.command-picker-results-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--accent) 82%, white 18%);
+}
+
+.command-picker-results-meta {
   font-size: 10px;
   color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+.command-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.command-picker-card {
+  width: 100%;
+  min-height: 116px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 12px;
+  text-align: left;
+  white-space: normal;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(10, 14, 20, 0.22) 100%), var(--bg-dark);
+}
+
+.command-picker-card:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent), 0 16px 24px rgba(0, 0, 0, 0.24), 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.command-picker-card-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.command-picker-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.command-picker-card-pill {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--info) 16%, transparent);
+  color: color-mix(in srgb, var(--info) 78%, white 22%);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+.command-picker-card-name {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  word-break: break-word;
+}
+
+.command-picker-card-desc {
+  font-size: 11px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.command-picker-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  padding: 20px;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: var(--text-dim);
+  text-align: center;
 }
 
 /* ─── Tabs ─────────────────────────────────────────────── */
@@ -2906,6 +3061,34 @@ label {
 .dropdown-search:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+@media (max-width: 760px) {
+  .command-picker-panel {
+    width: min(calc(100vw - 16px), 640px);
+    max-height: min(80vh, 720px);
+    padding: 10px;
+  }
+
+  .command-picker-content {
+    grid-template-columns: 1fr;
+  }
+
+  .command-picker-categories {
+    flex-direction: row;
+    flex-wrap: wrap;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .command-picker-category {
+    width: auto;
+    flex: 1 1 160px;
+  }
+
+  .command-picker-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ─── HR Improvements ─────────────────────────────────── */
