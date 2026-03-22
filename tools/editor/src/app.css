@@ -1347,8 +1347,6 @@ label {
     color-mix(in srgb, var(--bg-card) 92%, #0b1117 8%);
   transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   position: relative;
-  overflow: hidden;
-  isolation: isolate;
 }
 
 .conv-item::before {
@@ -1406,11 +1404,10 @@ label {
 
 .conv-item.selected .conv-id {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.18) 100%),
-    color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 14%, #ffffff 86%);
-  border-color: color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 55%, #87919c 45%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.36) 0%, rgba(255, 255, 255, 0.16) 100%),
+    color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 12%, #ffffff 88%);
+  border-color: color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 46%, #87919c 54%);
   color: var(--conversation-faction-color, var(--accent));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 14%, transparent);
 }
 
 .conv-item.selected .conv-label {
@@ -1418,7 +1415,7 @@ label {
 }
 
 .conv-item.selected .conv-meta {
-  color: color-mix(in srgb, #11161d 76%, var(--accent) 24%);
+  color: color-mix(in srgb, #11161d 72%, var(--accent) 28%);
 }
 
 .conv-item.selected .conv-subtle-pill {

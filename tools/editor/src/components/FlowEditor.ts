@@ -545,6 +545,8 @@ function renderTurnNode(options: {
   node.style.width = `${nodeWidth}px`;
   node.style.setProperty('--branch-color', branchColor);
   node.style.setProperty('--branch-glow', branchColor + '40');
+  node.style.setProperty('--starter-branch-color', factionColor);
+  node.style.setProperty('--starter-branch-glow', `${factionColor}40`);
   node.onclick = (e) => {
     e.stopPropagation();
     store.selectTurn(turn.turnNumber);
