@@ -116,6 +116,8 @@ export function renderConversationList(container: HTMLElement): void {
       option.value = factionId;
       option.textContent = FACTION_DISPLAY_NAMES[factionId];
       option.selected = factionId === conversationFaction;
+      option.style.color = FACTION_COLORS[factionId];
+      option.style.backgroundColor = 'var(--bg-darkest)';
       factionSelect.appendChild(option);
     }
     factionSelect.style.color = FACTION_COLORS[conversationFaction];
