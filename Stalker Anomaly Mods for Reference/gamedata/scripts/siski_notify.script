@@ -1,0 +1,257 @@
+siski = siski or {}
+
+local type = _G.type
+local pcall = _G.pcall
+local require = _G.require
+local setmetatable = _G.setmetatable
+local tonumber = _G.tonumber
+local tostring = _G.tostring
+local time_global = _G.time_global
+
+local function ensure_class()
+    local type = type
+    if type(siski.class) == "function" then
+        local ok, probe = pcall(siski.class, "_probe")
+        if ok and type(probe) == "table" then
+            return
+        end
+    end
+
+    if require then
+        pcall(require, "siski_oop")
+    end
+
+    local function define()
+        function siski.class(name)
+            local cls = {}
+            cls.__index = cls
+            cls.__name = name or "class"
+            function cls.new(...)
+                local self = setmetatable({}, cls)
+                if self.__init then
+                    self:__init(...)
+                end
+                return self
+            end
+            return cls
+        end
+    end
+
+    if type(siski.class) ~= "function" then
+        define()
+        return
+    end
+
+    local ok2, probe2 = pcall(siski.class, "_probe")
+    if not (ok2 and type(probe2) == "table") then
+        define()
+    end
+end
+
+ensure_class()
+
+local Notify = siski.class("Notify")
+Notify.__index = Notify
+
+local function tg()
+    return (time_global and time_global()) or 0
+end
+
+local function get_commander_id(se_squad)
+    if not se_squad then return nil end
+    local ok, res = pcall(function() return se_squad:commander_id() end)
+    if ok and tonumber(res) then return tonumber(res) end
+    if type(se_squad.commander_id) == "number" then return se_squad.commander_id end
+    return nil
+end
+
+local function ensure_utils_data()
+    local type = type
+    if type(utils_data) == "table" and type(utils_data.collect_translations) == "function" then
+        return true
+    end
+    if require then
+        pcall(require, "utils_data")
+    end
+    return type(utils_data) == "table" and type(utils_data.collect_translations) == "function"
+end
+
+local function is_literal(s)
+    if type(s) ~= "string" then return false end
+    local string_find = string.find
+    if string_find(s, "%s") then return true end
+    if string_find(s, "[^%w_%-]") then return true end
+    return false
+end
+
+local function translate(id)
+    if type(id) ~= "string" then return "" end
+    if is_literal(id) then return id end
+    if not (game and game.translate_string) then return id end
+    local ok, res = pcall(function() return game.translate_string(id) end)
+    if ok and type(res) == "string" and res ~= "" then
+        return res
+    end
+    return id
+end
+
+local function ensure_dynamic_news()
+    local type = type
+    if type(dynamic_news_manager) == "table" and type(dynamic_news_manager.get_dynamic_news) == "function" then
+        local ok, inst = pcall(dynamic_news_manager.get_dynamic_news)
+        if ok and inst then return inst end
+        return nil
+    end
+    if require then
+        pcall(require, "dynamic_news_manager")
+    end
+    if type(dynamic_news_manager) == "table" and type(dynamic_news_manager.get_dynamic_news) == "function" then
+        local ok, inst = pcall(dynamic_news_manager.get_dynamic_news)
+        if ok and inst then return inst end
+    end
+    return nil
+end
+
+local function pick_random(arr)
+    local math_random = math.random
+    local n = arr and #arr or 0
+    if n <= 0 then return nil end
+    return arr[math_random(n)]
+end
+
+local function collect_messages(prefixes)
+    if not ensure_utils_data() then return nil end
+    local out = {}
+    local n = 0
+    for i = 1, (prefixes and #prefixes or 0) do
+        local pref = prefixes[i]
+        if type(pref) == "string" then
+            local ok, tbl = pcall(function() return utils_data.collect_translations(pref, true) end)
+            if ok and type(tbl) == "table" then
+                for j = 1, #tbl do
+                    local s = tbl[j]
+                    if type(s) == "string" and s ~= "" then
+                        n = n + 1
+                        out[n] = s
+                    end
+                end
+            end
+        end
+    end
+    if n == 0 then return nil end
+    return out
+end
+
+local function get_caption_id(key)
+    local string_find = string.find
+    if type(key) ~= "string" then return "st_tip" end
+    if string_find(key, "TRADE_", 1, true) then return "st_tip" end
+    if string_find(key, "_start", 1, true) then return "general_new_task" end
+    if string_find(key, "_end", 1, true) or string_find(key, "_found", 1, true) then return "general_complete_task" end
+    return "st_tip"
+end
+
+local function get_prefixes(key)
+    if key == "ARTEFACT_start" then
+        return { "st_dyn_news_gossip_arte_", "st_dyn_news_spam_" }
+    end
+    if key == "ARTEFACT_found" or key == "ARTEFACT_end" then
+        return { "st_dyn_news_res_artefact_", "st_dyn_news_gossip_arte_" }
+    end
+    if key == "EXPLORE_start" or key == "EXPLORE_end" then
+        return { "st_dyn_news_spam_" }
+    end
+    if key == "REST_1H_start" or key == "REST_1H_end" then
+        return { "st_dyn_news_spam_" }
+    end
+    if key == "TRADE_end" then
+        return { "st_dyn_news_gossip_buy_", "st_dyn_news_res_trade_" }
+    end
+    return { "st_dyn_news_spam_" }
+end
+
+local function send_pda_news(caption_id, msg_id, icon, delay_ms, show_ms)
+    if not (db and db.actor and db.actor.give_game_news) then return end
+    local caption = translate(caption_id or "st_tip")
+    local msg = translate(msg_id or "")
+    if msg == "" then return end
+    icon = icon or "ui_iconsTotal_grouping"
+    delay_ms = tonumber(delay_ms) or 0
+    show_ms = tonumber(show_ms) or 5000
+    local ok = pcall(function() db.actor:give_game_news(caption, msg, icon, delay_ms, show_ms) end)
+    if not ok then
+        local actor_id = nil
+        pcall(function() actor_id = db.actor:id() end)
+        if actor_id then
+            pcall(function() db.actor:give_game_news(caption, msg, icon, delay_ms, show_ms, actor_id) end)
+        end
+    end
+end
+
+local function send_pda_chat(sender, msg, ty)
+    local dn = ensure_dynamic_news()
+    if not (dn and dn.PushToChannel) then return false end
+    if not (sender and msg and msg ~= "") then return false end
+    local se = nil
+    local ic = nil
+    pcall(function() se = sender:character_name() end)
+    pcall(function() ic = sender:character_icon() end)
+    local t = { Mg = msg, Ic = ic or "common", Snd = "news", Se = se or "unknown", It = "npc", Ty = ty or "trade", Id = sender }
+    local ok = pcall(function() dn:PushToChannel("general", t) end)
+    return ok == true
+end
+
+function Notify:__init()
+    self.RUNTIME = { last_tg_by_commander = {} }
+    self.cooldown_ms = 20000
+end
+
+function Notify:_emit_task_event(se_squad, key, vars, sender)
+    if not (siski.config and siski.config.get) then return end
+    if siski.config.get("notify_enabled", true) == false then return end
+
+    local commander_id = get_commander_id(se_squad)
+    if not commander_id then return end
+
+    local now = tg()
+    local last = self.RUNTIME.last_tg_by_commander[commander_id] or 0
+    if now < (last + self.cooldown_ms) then return end
+
+    local prefixes = get_prefixes(key)
+    local msgs = collect_messages(prefixes)
+    local msg = pick_random(msgs)
+    if not msg then return end
+
+    local caption_id = get_caption_id(key)
+
+    self.RUNTIME.last_tg_by_commander[commander_id] = now
+    if vars and type(vars) == "table" and ensure_utils_data() and type(utils_data.parse_string_keys) == "function" then
+        local okp, parsed = pcall(function() return utils_data.parse_string_keys(msg, vars, "%$") end)
+        if okp and type(parsed) == "string" and parsed ~= "" then
+            msg = parsed
+        end
+    end
+    if key == "TRADE_end" and sender then
+        if send_pda_chat(sender, msg, "trade") then
+            return
+        end
+    end
+    send_pda_news(caption_id, msg, "ui_iconsTotal_grouping", 0, 5000)
+end
+
+function Notify:_on_update_light()
+end
+
+function Notify:_on_update()
+end
+
+local inst = Notify.new and Notify.new() or setmetatable({}, Notify)
+if not inst.RUNTIME then
+    Notify.__init(inst)
+end
+
+inst.emit_task_event = function(se_squad, key, vars, sender) return inst:_emit_task_event(se_squad, key, vars, sender) end
+inst.on_update_light = function() return inst:_on_update_light() end
+inst.on_update = function() return inst:_on_update() end
+
+siski.notify = inst

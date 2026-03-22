@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<string_table>
+
+    <!-- PARANOIAQUES : « on me chasse » -->
+    <string id="st_paranoid_hunt_1">
+        <text>Quelqu’un d’autre a l’impression que des equipes de tueurs avancent avec lui ? Toujours les memes tronches et les memes fusils qui reviennent.</text>
+    </string>
+    <string id="st_paranoid_hunt_2">
+        <text>De la Decharge jusqu’a l’Agroprom, le meme groupe me suivait. D’autres tetes, mais les memes ecussons. On dirait qu’il y a une prime sur moi.</text>
+    </string>
+    <string id="st_paranoid_hunt_3">
+        <text>Deux fois aujourd’hui, les conversations radio se sont coupees net des que je suis passe sur la frequence. J’appelle pas ca une coincidence.</text>
+    </string>
+    <string id="st_paranoid_hunt_4">
+        <text>A chaque fois que je change d’itineraire, quelqu’un garde deja la route. On dirait que quelqu’un lit mon PDA avant moi.</text>
+    </string>
+    <string id="st_paranoid_hunt_5">
+        <text>Qui que ce soit qui paie pour « juste me faire peur », il gaspille son fric. Ces types-la ne se contentent plus de faire peur depuis longtemps.</text>
+    </string>
+    <string id="st_paranoid_hunt_6">
+        <text>Je suis le seul pour qui tous les « petits planques faciles » recus d’expediteurs anonymes se terminent avec quelqu’un qui le vise de dos ?</text>
+    </string>
+    <string id="st_paranoid_hunt_7">
+        <text>Trois fois en une semaine que je change de camp, et les traces autour de mon sac de couchage restent fraiches. Quelqu’un marche dans mes pas.</text>
+    </string>
+    <string id="st_paranoid_hunt_8">
+        <text>Au bar, j’ai entendu parler d’une « cible de valeur » decrite un peu trop comme moi. On dirait que mon dossier tourne deja dans la Zone.</text>
+    </string>
+    <string id="st_paranoid_hunt_9">
+        <text>Quelqu’un sait comment effacer les donnees de primes dans les PDA ? Je demande pour quelqu’un qui ne veut pas se faire egorger en dormant.</text>
+    </string>
+    <string id="st_paranoid_hunt_10">
+        <text>Les marchands savent tout a coup beaucoup trop bien ou je suis passe et avec quoi je suis revenu. Soit les murs ont des oreilles, soit un chasseur parle trop.</text>
+    </string>
+    <string id="st_paranoid_hunt_11">
+        <text>J’ai deja entendu ma description deux fois a la radio, avec des voix differentes. Ce ne sont plus de simples histoires de campement.</text>
+    </string>
+    <string id="st_paranoid_hunt_12">
+        <text>Dans chaque camp, on me regarde comme si on calculait en silence combien on paierait pour ma tete.</text>
+    </string>
+
+    <!-- REPONSES CALMES / RATIONNELLES -->
+    <string id="st_paranoid_reply_calm_1">
+        <text>Calme-toi, stalkeur. Les chasseurs de primes ne perdent pas leur temps avec tout le monde. S’ils viennent pour toi, c’est qu’il y a une raison.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_2">
+        <text>La Zone retourne deja assez la tete. Dors, mange, et ensuite regarde si tes « suiveurs » sont encore la.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_3">
+        <text>La plupart des « escouades de chasseurs » sont juste des bleus affames en vestes identiques. Ne les transforme pas en legende trop vite.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_4">
+        <text>Si on voulait vraiment t’effacer, tu n’aurais pas le temps de pleurnicher la-dessus dans le canal general.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_5">
+        <text>Chaque rumeur au bar n’est pas un contrat sur ta tete. La Zone devore les faibles bien plus vite que les mercenaires.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_6">
+        <text>Les primes vont et viennent. Marche discretement une journee et un autre veinard prendra ta place sur le tableau.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_7">
+        <text>Chaque groupe derriere toi ne court pas forcement apres toi. Parfois, tout le monde prend juste la meme route.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_8">
+        <text>Les traces autour du camp peuvent appartenir a n’importe qui : mutants, stalkeurs, ou meme toi, tournant en rond en panique.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_9">
+        <text>Si ton nom etait vraiment sur la liste, tu l’entendrais d’abord chuchote au bar, pas dans ta tete.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_10">
+        <text>A force de tout le temps regarder derriere soi, on finit par rater le vrai danger. Regarde aussi ou tu mets les pieds.</text>
+    </string>
+
+    <!-- SOUTIEN / CONSEILS -->
+    <string id="st_paranoid_reply_support_1">
+        <text>Reste un moment pres des bases amies. Les chasseurs detestent les temoins presque autant qu’ils aiment les cibles faciles.</text>
+    </string>
+    <string id="st_paranoid_reply_support_2">
+        <text>Ne marche pas seul, pars en groupe. Meme les cingles comptent les fusils avant de se lancer.</text>
+    </string>
+    <string id="st_paranoid_reply_support_3">
+        <text>Si tu es sur qu’on te suit, change d’armure, de chemins habituels et d’heure de sortie. Fais-les transpirer pour leur pognon.</text>
+    </string>
+    <string id="st_paranoid_reply_support_4">
+        <text>Passe au bar et parle au barman. Si la prime est reelle, la rumeur arrivera chez lui bien avant chez toi.</text>
+    </string>
+    <string id="st_paranoid_reply_support_5">
+        <text>Cache ton butin la ou meme toi tu n’as pas envie de retourner. Les chasseurs n’aiment pas s’enfoncer loin sans benefice garanti.</text>
+    </string>
+    <string id="st_paranoid_reply_support_6">
+        <text>Choisis les mauvais chemins, loin des routes degagees. Les chasseurs aiment les terrains ouverts, pas les marecages ni les foyers d’anomalies.</text>
+    </string>
+    <string id="st_paranoid_reply_support_7">
+        <text>Si tu as des amis « qui pesent lourd », c’est le moment de leur rappeler que tu es encore en vie et que tu comptes le rester.</text>
+    </string>
+    <string id="st_paranoid_reply_support_8">
+        <text>Parle moins a la radio. Noms, itineraires et taille du butin, c’est avec ca qu’on fabrique de bons contrats.</text>
+    </string>
+
+    <!-- REPONSES MOQUEUSES / SARCASTIQUES -->
+    <string id="st_paranoid_reply_mock_1">
+        <text>Du calme, heros. Les chasseurs courent apres les proies juteuses, pas apres celui qui a a peine rampe depuis la Decharge.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_2">
+        <text>Si on a vraiment mis une prime sur toi, le commanditaire a clairement paye trop cher. Mauvais placement.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_3">
+        <text>Tes « traces autour du camp » sont surement les tiennes, a force de tourner en rond en murmurant qu’on te chasse.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_4">
+        <text>Tu es sur que ce sont des mercenaires qui te suivent, et pas une meute de chiens qui a senti la peur et la vodka frelatee ?</text>
+    </string>
+    <string id="st_paranoid_reply_mock_5">
+        <text>La prochaine fois que tu vois « les memes flingues », verifie d’abord qu’ils ne sont pas juste accroches dans ton imagination.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_6">
+        <text>La Zone a deja assez de soucis sans toi. Pas besoin de jouer le heros principal de chaque histoire d’horreur au coin du feu.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_7">
+        <text>Balance tes coordonnees si tu es si sur qu’on te suit. On viendra tous pour verifier.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_8">
+        <text>Pour l’instant, la seule « prime sur ta tete » est dans ta tete. Le tableau des annonces ne t’a jamais vu.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_9">
+        <text>He-he, envoie les coordonnees ou on te « poursuit ». On viendra en groupe voir s’il y a des chasseurs ou juste tes hallucinations.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_10">
+        <text>Si on te poursuit vraiment, pourquoi es-tu encore en vie ? Peut-etre qu’ils t’aiment bien et n’osent pas t’aborder.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_11">
+        <text>Prends une photo de ces « chasseurs » et poste-la dans le canal. On verra si ce ne sont pas juste des touristes egares.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_12">
+        <text>Combien ils paient pour ta tete ? Donne un chiffre, que je voie si ca vaut le coup de venir verifier moi-meme.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_13">
+        <text>« On me surveille, il y a des traces partout, les radios se taisent ! » — on dirait le scenario d’un mauvais film. Va dormir.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_14">
+        <text>Donne rendez-vous a tes « chasseurs » au Bar 100 Rads. On viendra, on rira un coup et on boira a tes nerfs.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_15">
+        <text>Tu sais pourquoi on paie vraiment les chasseurs ? Pour qu’ils se taisent. Toi, tu jacasses comme une pie. Personne ne paiera si cher pour toi.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_16">
+        <text>Va sur un terrain decouvert et attends une heure. Si personne ne vient, va te faire soigner. Si quelqu’un vient, tu prouveras au moins que tu n’es pas parano.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_17">
+        <text>Tes « poursuivants » doivent deja en avoir marre de tourner en rond derriere toi. Donne-leur les coordonnees, qu’ils puissent se reposer.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_18">
+        <text>Si tu es si precieux qu’une escouade entiere court apres toi, allons nous voir — je veux contempler une legende vivante.</text>
+    </string>
+
+    <!-- FRANCHES MENACES / HOSTILES -->
+    <string id="st_paranoid_reply_threat_1">
+        <text>Si tu continues a geindre dans le canal general, les chasseurs n’auront meme plus besoin d’etre payes — quelqu’un te fera taire gratuitement.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_2">
+        <text>Les voix qui reviennent trop souvent a la radio restent rarement longtemps dans la Zone. Continue comme ca.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_3">
+        <text>Si personne n’a encore mis de prime sur toi, cette discussion est une excellente raison pour que quelqu’un corrige ca.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_4">
+        <text>Continue de hurler qu’« on te chasse ». Ceux qui savent vraiment suivre une piste finiront par t’entendre.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_5">
+        <text>Les chasseurs adorent les cibles qui annoncent leurs itineraires a la radio. Tu leur as deja donne de l’avance.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_6">
+        <text>Tellement sur d’etre dans la ligne de mire ? Promene-toi seul, lentement. Quelqu’un voudra forcement verifier.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_7">
+        <text>La Zone n’a pas besoin d’affiches « recherche » quand quelqu’un fait autant de bruit a l’antenne. Ce genre de probleme se regle vite.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_8">
+        <text>Parle plus fort, stalkeur. Quand ils viendront enfin te voir, tout le monde voudra entendre la fin de l’histoire.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_9">
+        <text>Si tu as si peur qu’on te suit, on peut arranger ca. Envoie ton itineraire, on testera ta theorie sur le terrain.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_10">
+        <text>Continue a crier aux chasseurs. On retiendra ta voix pour le jour ou on decidera de verifier si tu avais raison.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_11">
+        <text>Tu veux que quelqu’un te suive vraiment ? Continue a te plaindre a la radio — il y en aura bien un pour voir si tu as quelque chose de precieux.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_12">
+        <text>Balance les coordonnees si tu as si peur. On viendra verifier que ces « chasseurs » ne sont pas juste nous.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_13">
+        <text>Les cibles aussi bruyantes que toi ne vivent pas longtemps. Pas parce qu’on les chasse, mais parce qu’elles ne savent jamais se taire a temps.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_14">
+        <text>Tu comprends qu’apres ce genre de discours, quelqu’un va forcement s’y interesser ? Ne serait-ce que par curiosite — qui a si peur de mourir.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_15">
+        <text>Dis-nous ou on te « pourchasse », et on te dira ou on te retrouvera. Un echange d’infos honnete, non ?</text>
+    </string>
+
+</string_table>

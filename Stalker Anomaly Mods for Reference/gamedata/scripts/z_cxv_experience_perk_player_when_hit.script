@@ -1,0 +1,220 @@
+local berserker_resist = {[0] = 0, [1] = 0.10, [2] = 0.20, [3] = 0.30, [4] = 0.40, [5] = 0.50}
+
+local lightweight_dodge_chance = 0
+
+local floor = math.floor
+local weaponCat = x_cxv_perks_data.sortK_of
+local string_find   = string.find
+
+local wick_inclusions = {
+	"vz61",
+	"kiparis",
+}
+
+local difficulty_multiplier_enemy = {
+	[1]  = 0.65,
+	[2]  = 0.8,
+	[3]  = 1.0,
+	[4]  = 1.2,
+}
+
+local mutant_list = {
+	[14] = true,
+    [108] = true,
+    [15] = true,
+    [109] = true,
+    [16] = true,
+    [110] = true,
+    [17] = true,
+    [111] = true,
+    [29] = true,
+    [112] = true,
+    [18] = true,
+    [113] = true,
+	[20] = true,
+    [23] = true,
+    [116] = true,
+	[24] = true,
+    [25] = true,
+    [117] = true,
+    [26] = true,
+    [119] = true,
+	[27] = true,
+    [121] = true,
+    [22] = true,
+    [115] = true,
+    [33] = true,
+    [122] = true,
+	[37] = true,
+    [123] = true,
+	[38] = true,
+    [124] = true
+}
+
+local allowed_hit_types = {
+    [5] = true,
+    [6] = true,
+    [7] = true,
+    [8] = true
+}
+
+local get_time_hours = level.get_time_hours
+
+function update_dodge_chance()
+	if (x_cxv_perks_data.perks["perk_lightweight_dodge"] < 1) then
+		lightweight_dodge_chance = 0
+		-- printf("[RPG] LW Dodge Chance: %s %",lightweight_dodge_chance)
+		return
+	end
+	
+	local outfit_weight = 0
+	local outfit = db.actor:item_in_slot(7)
+	if (outfit) then
+		local outfit_weight_upgraded = floor(outfit:weight()) or 12
+		local outfit_weight_base = floor(ini_sys:r_float_ex(outfit:section(), "inv_weight")) or 12
+		if outfit_weight_upgraded > 12 and outfit_weight_base > 12 then
+			outfit_weight = 12
+		elseif outfit_weight_upgraded < outfit_weight_base then
+			outfit_weight = outfit_weight_upgraded
+		else
+			outfit_weight = outfit_weight_base
+		end
+	end
+	
+	lightweight_dodge_chance = ((12 - outfit_weight) * 0.5) * x_cxv_perks_data.perks["perk_lightweight_dodge"]
+	printf("[RPG - Player When Hit] LW Dodge Chance: %s %",lightweight_dodge_chance)
+end
+	
+--------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------
+local GActor_OnBeforeHitCallback = _G.CActor__BeforeHitCallback
+_G.CActor__BeforeHitCallback = function(actor, shit, bone_id)
+	rpg_damage_reduction(shit, bone_id)
+	return GActor_OnBeforeHitCallback(actor, shit, bone_id)
+end
+
+function rpg_damage_reduction(shit, bone_id)
+	
+	local hitter = shit.draftsman
+------------------------------------------------------------> Wick Mode
+	local player_weapon = db.actor:active_item()
+	if shit.type == hit.fire_wound and ((x_cxv_perks_data.perks["perk_wick_mode"] > 0) or (x_cxv_perks_data.perks["perk_lightweight_dodge"] > 0)) then
+		local dodge_chance = lightweight_dodge_chance * 10
+		if z_cxv_experience_perk_weapon_reload_hit_effects and player_weapon then
+			if (weaponCat(player_weapon) == "pistol") then
+				dodge_chance = dodge_chance + 150
+			elseif z_cxv_experience_perk_weapon_reload_hit_effects and (weaponCat(player_weapon) == "smg") then
+				local is_exception = false
+				for i=1,#wick_inclusions do
+					if (string_find(player_weapon:section(), wick_inclusions[i])) and not is_exception then
+						is_exception = true
+						dodge_chance = dodge_chance + 150
+					end
+				end
+			end
+		end
+		
+		if math.random(1000) < dodge_chance then
+			printf("///////////   RPG System: Damage reduction in progress  //////////////////")
+			printf("[RPG - Player When Hit] Original Base Hit: %s of type %s", shit.power, shit.type)
+			shit.power = shit.power * 0
+			printf("[RPG - Player When Hit] Dodged hit!")
+			return
+		end
+	end
+	
+	-- if shit.type == hit.telepatic then return end
+    local base_power = shit.power
+    local damage_mult = 1
+    base_power = shit.power
+    shit_type = shit.type
+	local is_elemental = (((shit_type == hit.shock) or (shit_type == hit.burn) or (shit_type == hit.light_burn) or (shit_type == hit.chemical_burn)
+	or string.find(hitter:section(),"field") or string.find(hitter:section(),"zone_mine")) and ((shit_type ~= hit.radiation) or (shit_type ~= hit.telepatic))) or false
+	
+------------------------------------------------------------> "The End": 15% less damage when ADS with a bolt-action sniper (base RPM must be < 60)
+	if x_cxv_perks_data.perks["perk_the_end"] > 0 then
+		if (weaponCat(player_weapon) == "sniper") and not string_find(player_weapon:section(), "_gauss") then
+			local weapon_rpm = ini_sys:r_u32(player_weapon:section(), "ammo_mag_size") or 60
+			if weapon_rpm < 60 and axr_main.weapon_is_zoomed then
+				damage_mult = damage_mult * (1 - 0.15)
+			end
+		end
+	end
+	
+------------------------------------------------------------> Anomaly Defense
+    if x_cxv_perks_data.perks["perk_anomaly_defense"] > 0 and ((IsAnomaly(hitter) and shit.type ~= hit.radiation) or is_elemental) then
+		damage_mult = damage_mult * (1 - (x_cxv_perks_data.perks["perk_anomaly_defense"] * 0.09))
+		--printf("[RPG - Player When Hit] Anomaly Defense %s% damage reduction!", (x_cxv_perks_data.perks["perk_anomaly_defense"] * 0.09))
+    end
+
+------------------------------------------------------------> Berserker
+	if hitter and (x_cxv_perks_data.perks["perk_berserker"] > 0) and not IsAnomaly(hitter) then
+		if player_weapon and IsMelee(player_weapon) then
+			damage_mult = damage_mult * (1 - (berserker_resist[x_cxv_perks_data.perks["perk_berserker"]]))
+			--printf("[RPG - Player When Hit] Berserker %s% damage reduction!", berserker_resist[x_cxv_perks_data.perks["perk_berserker"]])
+		end
+	end
+
+------------------------------------------------------------> Spiked
+    if hitter and (hitter:id() ~= db.actor:id()) and (x_cxv_perks_data.perks["perk_spiked"] > 0) and not IsAnomaly(hitter) then
+		
+		local spike = base_power * (x_cxv_perks_data.perks["perk_spiked"] * 0.05)
+		
+		shit.power = spike
+		hitter:hit(shit)
+			
+		-- Make sure to return hit back to normal values for the true damage reduction
+		shit.power = base_power
+		
+		--printf("[RPG - Player When Hit] Spiked %s% damage reflection (no damage reduction)!", (x_cxv_perks_data.perks["perk_spiked"] * 0.05))
+    end
+	
+------------------------------------------------------------> Thick Skin	
+	if hitter and x_cxv_perks_data.perks["perk_mutant_slayer"] > 0 then
+		if mutant_list[hitter:clsid()] and allowed_hit_types[shit_type] then
+		
+			local night_mult = 1
+			if x_cxv_perks_data.perks["perk_mutant_slayer"] >= 3 then
+				local hours = get_time_hours()
+				if hours >= 21 or hours <= 5 then
+					night_mult = 1.50
+				end
+			end
+			
+			damage_mult = damage_mult * (1 - ((x_cxv_perks_data.perks["perk_mutant_slayer"] * 0.05) * night_mult))
+			--printf("[RPG - Player When Hit] Thick Skin %s% damage reduction!", (x_cxv_perks_data.perks["perk_mutant_slayer"] * 0.05 * night_mult))
+		end
+    end
+	
+------------------------------------------------------------> Jump Man/Acrobatics
+	if hitter and (hitter:id() == db.actor:id()) and (shit_type ~= hit.explosion) and 
+	(shit_type ~= hit.radiation) and (x_cxv_perks_data.perks["perk_jump_man"] > 0) then
+		if shit.power < (x_cxv_perks_data.perks["perk_jump_man"] * 0.15) then
+			damage_mult = 0
+			--printf("[RPG - Player When Hit] Jump Man negating all fall damage!")
+		elseif x_cxv_perks_data.perks["perk_jump_man"] == 3 then	-- take half damage if over threshold at max rank
+			damage_mult = damage_mult * 0.5
+			--printf("[RPG - Player When Hit] Jump Man negating 50% of the fall damage!")
+		end
+	end
+	
+------------------------------------------------------------> Explosive Personality (Damage Reduction)
+	if hitter and x_cxv_perks_data.perks["perk_demo_expert"] > 0 and shit_type == hit.explosion then
+		damage_mult = damage_mult * (1 - (x_cxv_perks_data.perks["perk_demo_expert"] * 0.10))
+		--printf("[RPG - Player When Hit] Explosive Personality %s% damage reduction!", (x_cxv_perks_data.perks["perk_demo_expert"] * 0.10))
+	end
+	
+	if damage_mult < 1 then
+		--printf("///////////   RPG System: Damage reduction in progress  //////////////////")
+		--printf("[RPG - Player When Hit] Original Base Hit: %s of type %s (Is Elemental? %s)", shit.power, shit.type, is_elemental)
+		shit.power = shit.power * damage_mult
+		display_reduction = tonumber(100 - (damage_mult * 100))
+		--printf("[RPG - Player When Hit] New Base Hit: %s | Damage Reduction: %s%", shit.power, display_reduction)
+	end
+	
+end
+
+function on_game_start()
+	RegisterScriptCallback("actor_on_first_update", update_dodge_chance)
+	RegisterScriptCallback("actor_item_to_slot", update_dodge_chance)
+end

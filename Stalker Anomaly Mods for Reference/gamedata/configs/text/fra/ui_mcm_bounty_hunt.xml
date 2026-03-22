@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<string_table>
+    <string id="ui_mcm_menu_bounty_hunt">
+        <text>Chasse à prime (Bounty Hunt)</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_title">
+        <text>Paramètres de la Chasse à prime</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_cooldown">
+        <text>Recharge de l’événement (heures)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_cooldown_desc">
+        <text>Nombre d’heures en jeu qui doivent passer entre deux attaques de mercenaires.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_chance">
+        <text>Chances de chasse (%)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_chance_desc">
+        <text>Probabilité que l’événement se déclenche une fois la recharge terminée.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_warning_chance">
+        <text>Chances d’alerte par SMS (%)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_warning_desc">
+        <text>Probabilité qu’un stalkeur allié vous prévienne de la prime avant l’attaque.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_mystery_delay">
+        <text>Délai du SMS mystérieux (min)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_mystery_desc">
+        <text>Au bout de combien de minutes en jeu après la victoire vous recevez un message d’un expéditeur inconnu.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_safe_time">
+        <text>Temps sécurisé (heures)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_safe_time_desc">
+        <text>Nombre minimal d’heures en jeu après le début d’une nouvelle partie pendant lesquelles aucune chasse ne peut commencer.</text>
+    </string>
+
+    <!-- Chasse ISG -->
+    <string id="ui_mcm_bounty_hunt_isg_chance">
+        <text>Chances de chasse ISG (%)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_isg_chance_desc">
+        <text>Probabilité qu’à haut rang la chasse soit menée par des escouades ISG, quelle que soit votre faction (sur les zones du nord).</text>
+    </string>
+
+    <!-- Onglet principal -->
+    <string id="ui_mcm_bounty_hunt_title_main">
+        <text>Chasse principale</text>
+    </string>
+
+    <!-- Trash Talk -->
+    <string id="ui_mcm_bounty_hunt_title_trash">
+        <text>Rumeurs et menaces</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_trash_enable">
+        <text>Activer les messages aléatoires</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_trash_chance">
+        <text>Chances de message (%)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_trash_chance_desc">
+        <text>Probabilité qu’un stalkeur poste un message dans le chat global.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_trash_delay">
+        <text>Intervalle des messages (heures)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_trash_delay_desc">
+        <text>Fréquence (en heures de jeu) à laquelle le script tente d’envoyer un nouveau message.</text>
+    </string>
+
+    <!-- Paranoïaques et chasseurs -->
+    <string id="ui_mcm_bounty_hunt_title_paranoid">
+        <text>Paranoïaques et chasseurs</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_paranoid_enable">
+        <text>Activer les fils paranoïaques</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_paranoid_chance">
+        <text>Chances de fil paranoïaque (%)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_paranoid_chance_desc">
+        <text>Probabilité qu’au déclenchement du minuteur un fil commence avec un paranoïaque et des réponses d’autres stalkeurs.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_paranoid_delay">
+        <text>Intervalle entre les fils (heures)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_paranoid_delay_desc">
+        <text>Fréquence (en heures de jeu) à laquelle le script tente de lancer un nouveau fil paranoïaque.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_paranoid_replies">
+        <text>Réponses maximum par fil</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_paranoid_replies_desc">
+        <text>Nombre maximum de réponses dans un même fil après le premier message du paranoïaque.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_paranoid_hostile_weight">
+        <text>Priorité des factions hostiles (%)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_paranoid_hostile_weight_desc">
+        <text>Chances que le paranoïaque reçoive une réponse d’une faction hostile (moqueries ou menaces) plutôt que de neutres.</text>
+    </string>
+</string_table>

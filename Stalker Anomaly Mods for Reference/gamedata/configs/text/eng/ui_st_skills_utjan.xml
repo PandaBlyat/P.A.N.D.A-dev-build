@@ -1,0 +1,53 @@
+<string_table>
+	<string id="st_player_skills_medicine">
+		<text>Medicine</text>
+	</string>
+	<string id="st_new_level_medicine">
+		<text>$clr_red• $clr_whiteMedical item restoration boost improved</text>
+	</string>
+	
+	<string id="st_player_skills_insanity">
+		<text>Insanity</text>
+	</string>
+	<string id="st_new_level_insanity">
+		<text>$clr_purple• $clr_whiteLosing more of your sanity..\n$clr_purple• $clr_whitePsy regen improved\n$clr_purple• $clr_whitePsy resistance improved</text>
+	</string>
+	
+	<string id="st_player_skills_tinkering">
+		<text>Tinkering</text>
+	</string>
+	<string id="st_new_level_tinkering">
+		<text>$clr_cyan• $clr_whiteRepair kit usage improved</text>
+	</string>
+	<string id="st_tinkering_refund">
+		<text>You repaired the item without spending a use of the repair kit.</text>
+	</string>
+	
+	<string id="st_player_skills_bartering">
+		<text>Bartering</text>
+	</string>
+	<string id="st_new_level_bartering">
+		<text>$clr_yellow• $clr_whiteTrading prices improved\n$clr_yellow• $clr_whiteTask money rewards improved</text>
+	</string>
+	
+	<string id="st_player_skills_magloading">
+		<text>Mag Loading</text>
+	</string>
+	<string id="st_new_level_magloading">
+		<text>$clr_white• $clr_whiteMagazine loading and unloading speed improved</text>
+	</string>
+	
+	<string id="st_player_skills_lockpicking">
+		<text>Lockpicking</text>
+	</string>
+	<string id="st_new_level_lockpicking">
+		<text>$clr_white• $clr_whiteLootbox lock difficulty decreased</text>
+	</string>
+	
+	<string id="st_player_skills_reloading">
+		<text>Weapon Handling</text>
+	</string>
+	<string id="st_new_level_reloading">
+		<text>$clr_white• $clr_whiteReloading speed and gun raise/holster speed improved</text>
+	</string>
+</string_table>

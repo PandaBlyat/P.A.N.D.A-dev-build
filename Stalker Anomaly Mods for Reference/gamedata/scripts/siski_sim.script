@@ -1,0 +1,240 @@
+siski = siski or {}
+
+local type = _G.type
+local pcall = _G.pcall
+local require = _G.require
+local setmetatable = _G.setmetatable
+local tonumber = _G.tonumber
+local tostring = _G.tostring
+local pairs = _G.pairs
+local time_global = _G.time_global
+local alife = _G.alife
+
+local function ensure_class()
+    local type = type
+    if type(siski.class) == "function" then
+        local ok, probe = pcall(siski.class, "_probe")
+        if ok and type(probe) == "table" then
+            return
+        end
+    end
+
+    if require then
+        pcall(require, "siski_oop")
+    end
+
+    local function define()
+        function siski.class(name)
+            local cls = {}
+            cls.__index = cls
+            cls.__name = name or "class"
+            function cls.new(...)
+                local self = setmetatable({}, cls)
+                if self.__init then
+                    self:__init(...)
+                end
+                return self
+            end
+            return cls
+        end
+    end
+
+    if type(siski.class) ~= "function" then
+        define()
+        return
+    end
+
+    local ok2, probe2 = pcall(siski.class, "_probe")
+    if not (ok2 and type(probe2) == "table") then
+        define()
+    end
+end
+
+ensure_class()
+
+local Sim = siski.class("Sim")
+Sim.__index = Sim
+
+local function tg()
+    return (time_global and time_global()) or 0
+end
+
+local function get_board()
+    if SIMBOARD then return SIMBOARD end
+    if sim_board and sim_board.get_sim_board then
+        local ok, b = pcall(function() return sim_board.get_sim_board() end)
+        if ok then return b end
+    end
+    return nil
+end
+
+local function should_manage_squad(se_squad)
+    if siski.memory and siski.memory.should_manage_squad then
+        return siski.memory.should_manage_squad(se_squad) == true
+    end
+    return false
+end
+
+local function is_protected_squad(se_squad, sid)
+    if siski.memory and siski.memory.is_protected_squad then
+        return siski.memory.is_protected_squad(se_squad) == true
+    end
+    local companions = axr_companions and axr_companions.companion_squads or nil
+    if type(companions) == "table" then
+        return companions[sid] ~= nil or companions[tostring(sid)] ~= nil
+    end
+    return false
+end
+
+local function mark_missed(squad_id, source, reason)
+    if siski.memory and siski.memory.mark_squad_missed then
+        siski.memory.mark_squad_missed(squad_id, source, reason)
+    end
+end
+
+local function purge_entry(squad_id, reason, source)
+    if siski.memory and siski.memory.purge_squad_entry then
+        return siski.memory.purge_squad_entry(squad_id, reason, source) == true
+    end
+    return false
+end
+
+local function validate_live(se_squad, source)
+    if siski.memory and siski.memory.validate_live_squad then
+        return siski.memory.validate_live_squad(se_squad, source)
+    end
+    local sid = tonumber(se_squad and se_squad.id)
+    if se_squad and sid then
+        return true, sid, nil, nil
+    end
+    return false, sid, "validate_unavailable", "soft"
+end
+
+local function should_force_rest_recovery(squad_id, now)
+    if siski.memory and siski.memory.should_force_rest_recovery then
+        return siski.memory.should_force_rest_recovery(squad_id, now) == true
+    end
+    return false
+end
+
+function Sim:__init()
+    self.RUNTIME = { scan_ids = {}, scan_cursor = 1, last_rebuild_tg = 0 }
+end
+
+function Sim:_rebuild_scan_list()
+    local board = get_board()
+    if not (board and board.squads) then
+        self.RUNTIME.scan_ids = {}
+        self.RUNTIME.scan_cursor = 1
+        return
+    end
+
+    local ids = {}
+    local n = 0
+    for id in pairs(board.squads) do
+        local sid = tonumber(id)
+        if sid then
+            n = n + 1
+            ids[n] = sid
+        end
+    end
+    self.RUNTIME.scan_ids = ids
+    self.RUNTIME.scan_cursor = 1
+end
+
+function Sim:_on_first_update()
+    self:_rebuild_scan_list()
+    self.RUNTIME.last_rebuild_tg = tg()
+end
+
+function Sim:_on_update()
+    local now = tg()
+    if now > (self.RUNTIME.last_rebuild_tg + 30000) then
+        self:_rebuild_scan_list()
+        self.RUNTIME.last_rebuild_tg = now
+    end
+
+    local budget = 12
+    if siski.config and siski.config.get then
+        local v = siski.config.get("sim_scan_budget_per_tick", budget)
+        if tonumber(v) then budget = tonumber(v) end
+    end
+
+    local sim_obj = alife and alife() or nil
+    if not sim_obj then return end
+
+    local ids = self.RUNTIME.scan_ids
+    local size = #ids
+    if size == 0 then return end
+
+    local adaptive = siski.adaptive
+    if adaptive and adaptive.get_module_budget then
+        budget = adaptive.get_module_budget("sim", budget, 1, 100, size)
+    end
+    if adaptive and adaptive.stage_begin then
+        adaptive.stage_begin("sim.scan", now)
+    end
+
+    local processed = 0
+    while processed < budget do
+        local idx = self.RUNTIME.scan_cursor
+        if idx > size then
+            self.RUNTIME.scan_cursor = 1
+            break
+        end
+
+        local sid = ids[idx]
+        self.RUNTIME.scan_cursor = idx + 1
+        processed = processed + 1
+
+        local se_squad = sid and sim_obj:object(sid) or nil
+        if not se_squad then
+            if not purge_entry(sid, "object_nil", "sim") then
+                mark_missed(sid, "sim", "object_nil")
+            end
+        else
+            local ok_live, valid_sid, reason, severity = validate_live(se_squad, "sim")
+            if not ok_live then
+                if severity == "hard" then
+                    if not purge_entry(valid_sid or sid, reason or "invalid_live", "sim") then
+                        mark_missed(valid_sid or sid, "sim", reason or "invalid_live")
+                    end
+                else
+                    mark_missed(valid_sid or sid, "sim", reason or "invalid_live")
+                end
+            elseif is_protected_squad(se_squad, sid) then
+                mark_missed(sid, "sim", "protected")
+            elseif should_manage_squad(se_squad) then
+                if siski.memory and siski.memory.update_squad_snapshot then
+                    siski.memory.update_squad_snapshot(se_squad)
+                end
+                if siski.operator and siski.operator.enqueue_squad then
+                    siski.operator.enqueue_squad(sid)
+                end
+            elseif (not is_protected_squad(se_squad, sid)) and should_force_rest_recovery(sid, now) then
+                if siski.memory and siski.memory.update_squad_snapshot then
+                    siski.memory.update_squad_snapshot(se_squad)
+                end
+                if siski.operator and siski.operator.enqueue_squad then
+                    siski.operator.enqueue_squad(sid)
+                end
+            else
+                mark_missed(sid, "sim", "identity_fail")
+            end
+        end
+    end
+
+    if adaptive and adaptive.stage_end then
+        adaptive.stage_end("sim.scan", tg())
+    end
+end
+
+local inst = Sim.new and Sim.new() or setmetatable({}, Sim)
+if not inst.RUNTIME then
+    Sim.__init(inst)
+end
+
+inst.on_first_update = function() return inst:_on_first_update() end
+inst.on_update = function() return inst:_on_update() end
+
+siski.sim = inst

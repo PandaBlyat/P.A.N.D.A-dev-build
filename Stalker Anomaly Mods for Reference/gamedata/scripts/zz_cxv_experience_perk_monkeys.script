@@ -1,0 +1,163 @@
+---------------------------------------------------------------------------------------------------------------------------------
+-- experience_ui.script (2.X.X) -------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------
+if experience_ui and experience_potions then 	-- (2.X.X)
+	
+	experience_ui.UIExperienceMenu.Close = function(self)
+		if self:IsShown() then
+			self:UnregisterCallBacks()
+			self:StopMenuMusic()
+			self:HideDialog()
+			self:Show(false)
+			Unregister_UI("UIExperienceMenu")
+			exec_console_cmd("main_menu off")
+			SendScriptCallback("main_menu_on_quit",self)
+		end
+	end
+	
+end
+
+---------------------------------------------------------------------------------------------------------------------------------
+-- return_menu_music.script (2.X.X)-----------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------
+if return_menu_music and experience_potions then -- (2.X.X)
+
+	if return_menu_music.main_menu_on_init then	-- in case it isn't instantiated due to EGUI
+		base_menu_music = return_menu_music.main_menu_on_init
+		function return_menu_music.main_menu_on_init()
+			if (experience_ui.ui_is_opening) then return end	-- "ui_is_opening" gets set to false after Exp Menu is built, so Main Menu music no longer plays there incorrectly
+			base_menu_music()
+		end
+	end
+	
+end
+
+---------------------------------------------------------------------------------------------------------------------------------
+-- zzzzzz_mm_music.script - EGUI (2.X.X)-----------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------
+if zzzzzz_mm_music and experience_potions then -- (2.X.X)
+
+	if zzzzzz_mm_music.main_menu_on_init then
+		base_egui_music = zzzzzz_mm_music.main_menu_on_init
+		function zzzzzz_mm_music.main_menu_on_init()
+			if (experience_ui.ui_is_opening) then return end	-- "ui_is_opening" gets set to false after Exp Menu is built, so Main Menu music no longer plays there incorrectly
+			base_egui_music()
+		end
+	end
+	
+end
+
+---------------------------------------------------------------------------------------------------------------------------------
+-- experience_core.script (1.X.X) OR experience_actions.script (2.X.X) ----------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------
+if experience_potions then 	-- (2.X.X)
+	function experience_actions.actor_on_item_before_pickup(obj, flags)
+		if not IsArtefact(obj) then return end
+		
+		-- Hack to prevent player from exploting Artefacts Containers (gaining rank by recieving artefacts)
+		if _G.ARTY_FROM_CONT then
+			_G.ARTY_FROM_CONT = nil
+			return
+		end
+		
+		local artefact = obj:get_artefact()
+		-- Artefacts found counter incrementation.
+		-- Checks to make sure artefact id hasn't already been logged.
+		if (artefact) then
+			artefact:FollowByPath("NULL", 0, vector():set(500,500,500))
+			if not (game_statistics.actor_artefacts[obj:id()]) then
+				-- game_statistics.actor_artefacts[obj:id()] = true
+				local af_rank = SYS_GetParam(2, obj:section(), "af_rank") or 0
+				experience_actions.GetArtefactXP(af_rank)
+			end
+		end
+	end
+else					 	-- (1.X.X)
+	function experience_core.actor_on_item_before_pickup(obj, flags)
+		if not IsArtefact(obj) then return end
+		
+		-- Hack to prevent player from exploting Artefacts Containers (gaining rank by recieving artefacts)
+		if _G.ARTY_FROM_CONT then
+			_G.ARTY_FROM_CONT = nil
+			return
+		end
+		
+		local artefact = obj:get_artefact()
+		-- Artefacts found counter incrementation.
+		-- Checks to make sure artefact id hasn't already been logged.
+		if (artefact) then
+			artefact:FollowByPath("NULL", 0, vector():set(500,500,500))
+			if not (game_statistics.actor_artefacts[obj:id()]) then
+				-- game_statistics.actor_artefacts[obj:id()] = true
+				local af_rank = SYS_GetParam(2, obj:section(), "af_rank") or 0
+				experience_core.give_actor_experience_by_artefact(af_rank)
+				if experience_core.get_daily_manager then
+					experience_core.get_daily_manager():SendEvent("find_artefacts", 1)
+				end
+			else
+				return
+			end
+		end
+	end
+end
+
+---------------------------------------------------------------------------------------------------------------------------------
+-- zzzz_arti_jamming_repairs.script ---------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------
+if zzzz_arti_jamming_repairs then
+	local BaseReplacePart = zzzz_arti_jamming_repairs.replace_part
+	function zzzz_arti_jamming_repairs.replace_part(id, part, kit_name, clean)	
+		local add_cond
+		local parts = se_load_var(id, nil, "parts")
+		if parts and parts[part] then
+			add_cond = 99 - parts[part]
+		end
+		BaseReplacePart(id, part, kit_name, clean)
+		
+		if experience_potions then	
+			experience_actions.GetRepairItemXP(add_cond)
+		else
+			experience_core.give_actor_experience_by_repair_items(add_cond)
+		end
+	end
+end
+
+---------------------------------------------------------------------------------------------------------------------------------
+-- experience_actions.script ----------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------
+if experience_actions then
+	local baseStalkerXP = experience_actions.GetStalkerXP
+	function experience_actions.GetStalkerXP(faction, rank, killer_type, victim_id)
+		if faction == "arena_enemy" then faction = "stalker" end
+		baseStalkerXP(faction, rank, killer_type, victim_id)
+	end
+end
+
+---------------------------------------------------------------------------------------------------------------------------------
+-- ammo_maker.script ------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------
+if ammo_maker then
+	if ammo_maker.breakdown then
+		local base_breakdown = ammo_maker.breakdown
+		function ammo_maker.breakdown(ammo, tool, batch)
+			local sec = ammo and ammo:section() or nil
+			base_breakdown(ammo, tool, batch)
+			if sec then
+				if experience_actions then
+					experience_actions.GetDisassemblyItemsXP(ammo)
+				else
+					experience_core.give_actor_experience_by_disassembly_items(ammo)
+				end
+			end
+		end
+	end
+end
+
+---------------------------------------------------------------------------------------------------------------------------------
+-- experience_utils.script - Increase XP based on Prestige ----------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------
+local base_XP_gain = experience_utils.IncreaseExperience
+function experience_utils.IncreaseExperience(amount, action_key, ignore_multipliers)
+	local actor_prestige = experience_utils.GetActorPrestige() or 0
+	base_XP_gain(math.floor(amount * (1 + (0.1 * actor_prestige)) + 0.5), action_key, ignore_multipliers)
+end

@@ -1,0 +1,97 @@
+-- RELOADING SKILL CODE
+show_anims = {
+	anm_show = true,
+	anm_show_0 = true,
+	anm_show_1 = true,
+	anm_show_2 = true,
+	anm_show_empty = true,
+	anm_show_g = true,
+	anm_show_w_gl = true,
+}
+
+hide_anims = {
+	anm_hide = true,
+	anm_hide_0 = true,
+	anm_hide_1 = true,
+	anm_hide_2 = true,
+	anm_hide_empty = true,
+	anm_hide_g = true,
+	anm_hide_w_gl = true,	
+}
+
+reload_anims = {
+	anm_reload = true,
+	anm_reload_1 = true,
+	anm_reload_2 = true,
+	anm_reload_empty = true,
+	anm_add_cartridge = true,
+	anm_close = true,
+	anm_open = true,
+	anm_reload_g = true,
+	anm_reload_w_gl = true,
+}
+
+big_xp_reload = {
+	anm_reload = true,
+	anm_reload_1 = true,
+	anm_reload_2 = true,
+	anm_reload_empty = true,
+	anm_reload_g = true,
+	anm_reload_w_gl = true,
+}
+
+disable_mixin_reloads = {
+	anm_add_cartridge = true,
+	anm_reload_1 = true,
+	anm_reload_2 = true,
+}
+
+bloodlust_handling_bonus = 0
+
+function actor_on_hud_animation_play(anim_table, obj)
+	--for key, value in pairs(anim_table) do
+	--	printf("Key: " .. tostring(key) .. " Value: " .. tostring(value))
+	--end
+	
+	if not IsWeapon(obj) or not haru_skills.skills_stats["reloading"] then return end
+	local kind = SYS_GetParam(0, obj:section(), "kind")
+	
+	local anm_speed = anim_table.anm_speed
+	
+	if show_anims[anim_table.anm_name] or hide_anims[anim_table.anm_name] then
+		if kind == "w_smg" or kind == "w_pistol" or kind == "w_shotgun" or kind == "w_sniper" or kind == "w_rifle" then
+			anim_table.anm_speed = anm_speed * (1 + haru_skills.skills_stats["reloading"].equip_speed) * (1 + bloodlust_handling_bonus)
+			--printf("Weapon Handling Show/Hide")
+			haru_skills.increase_skill("reloading", 4)
+		end		
+	end
+	
+	if reload_anims[anim_table.anm_name] then
+		anim_table.anm_speed = anm_speed * (1 + haru_skills.skills_stats["reloading"].reload_speed) * (1 + bloodlust_handling_bonus)
+		--printf("Weapon Handling Reload")
+		if anim_table.anm_name == "anm_add_cartridge" and haru_skills.skills_levels["reloading"].experience < get_reloading_xp_cap() then
+			haru_skills.increase_skill("reloading", 15)
+			--printf("Shell XP")
+		elseif big_xp_reload[anim_table.anm_name] and haru_skills.skills_levels["reloading"].experience < get_reloading_xp_cap() then
+			--printf("Mag XP")
+			haru_skills.increase_skill("reloading", 40)
+		end
+	end
+	
+	if disable_mixin_reloads[anim_table.anm_name] then
+		anim_table["anm_mixin"] = false
+		anim_table["anm_mixin2"] = false
+		--printf("Shotgun reload mix disable")
+	end
+end
+
+function get_reloading_xp_cap()
+	local xp_1 = haru_skills.skills_levels["survival"].experience
+	local xp_2 = haru_skills.skills_levels["endurance"].experience
+	return math.max(xp_1 + xp_2, 751)
+end
+-- RELOADING SKILL CODE END
+
+function on_game_start()
+	RegisterScriptCallback("actor_on_hud_animation_play", actor_on_hud_animation_play)
+end

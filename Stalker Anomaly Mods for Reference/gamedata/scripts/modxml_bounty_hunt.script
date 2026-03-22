@@ -1,0 +1,118 @@
+-- modxml_bounty_hunt.script
+-- DXML-скрипт, который навешивает bounty-диалоги на нужных NPC
+-- через колбэк on_specific_character_dialog_list.
+
+local npc_bounty_dialogs = {
+    ----------------------------------------------------------------
+    -- Базовые торговцы / квестовые NPC
+    ----------------------------------------------------------------
+
+    -- Сидорович (Кордона)
+    esc_2_12_stalker_trader = {
+        "bounty_check_sidor",
+    },
+
+    -- Vector (наёмник‑торговец, база на Затоне)
+    zat_stancia_trader_merc = {
+        "bounty_check_vector",
+    },
+
+    -- Owl / Сыч (торговец на Ледоколе, Затон)
+    zat_b30_owl_stalker_trader = {
+        "bounty_check_owl",
+    },
+
+    -- Professor Sakharov (учёный‑торговец, Янтарь)
+    yan_stalker_sakharov = {
+        "bounty_check_sakharov",
+    },
+
+    -- Stribog (торговец Греха, Рыжий Лес)
+    red_greh_trader = {
+        "bounty_check_stribog",
+    },
+
+    -- Rabbit (монолитовский торговец в ДК, Припять)
+    pri_monolith_monolith_trader_stalker = {
+        "bounty_check_rabbit",
+    },
+
+    -- Skinflint / Скряга (торговец Свободы, Армейские склады)
+    mil_smart_terrain_7_10_freedom_trader_stalker = {
+        "bounty_check_skin",
+    },
+
+    ----------------------------------------------------------------
+    -- Clear Sky база (Болота)
+    ----------------------------------------------------------------
+
+    -- Spore / Спора (торговец Чистого Неба, база на Болотах)
+    mar_base_owl_stalker_trader = {
+        "bounty_check_spore",
+    },
+
+    ----------------------------------------------------------------
+    -- ISG / Lost to the Zone
+    ----------------------------------------------------------------
+
+    -- Major Hernandez (лидер ISG, база в Даркскейпе)
+    ds_domik_isg_leader = {
+        "bounty_check_hernandez",
+    },
+
+    -- Major Hernandez (лидер ISG, депо на Юпитере)
+    jup_depo_isg_leader = {
+        "bounty_check_hernandez",
+    },
+
+    ----------------------------------------------------------------
+    -- Mercenary база (Мёртвый Город)
+    ----------------------------------------------------------------
+
+    -- Dushman (главный торговец наёмников, Мёртвый Город)
+    cit_killers_merc_trader_stalker = {
+        "bounty_check_dialog",
+    },
+
+    -- Olivius (торговец бандитов, база в Тёмной долине)
+    val_smart_terrain_7_4_bandit_trader_stalker = {
+        "bounty_check_olivius",
+    },
+
+    ----------------------------------------------------------------
+    -- Бар 100 Рентген
+    ----------------------------------------------------------------
+
+    -- Snitch / Стукач (информатор в Баре)
+    bar_informator_mlr = {
+        "bounty_check_snitch",
+    },
+
+    ----------------------------------------------------------------
+    -- Военные (Агропром)
+    ----------------------------------------------------------------
+
+    -- Sergeant Spooner (военный торговец, Агропром)
+    agr_smart_terrain_1_6_army_trader_stalker = {
+        "bounty_check_spooner",
+    },
+}
+
+-- Колбэк DXML: модифицирует список диалогов при инициализации specific_character.
+function on_game_start()
+    RegisterScriptCallback("on_specific_character_dialog_list",
+        function(character_id, dialog_list)
+            local extra = npc_bounty_dialogs[character_id]
+            if not extra then
+                return
+            end
+
+            for _, dlg_id in ipairs(extra) do
+                -- Не добавляем повторно, если уже есть в списке
+                if not dialog_list:has(dlg_id) then
+                    dialog_list:add(dlg_id)
+                end
+            end
+        end
+    )
+end

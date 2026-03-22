@@ -1,0 +1,11 @@
+-- Do nothing if they don't own the script
+if not grok_remove_belt_duplicates then return end
+
+base_belt_dupe_slot = grok_remove_belt_duplicates.set_on_slot
+function grok_remove_belt_duplicates.set_on_slot(slot_item)
+	if x_cxv_perks_data.perks["perk_fun_allowed"] > 0 then
+		return
+	else
+		base_belt_dupe_slot(slot_item)
+	end
+end

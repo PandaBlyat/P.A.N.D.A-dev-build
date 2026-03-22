@@ -1,0 +1,81 @@
+[medicine]
+restore_boost = medicine_restore_boost
+
+[medicine_restore_boost]
+magnitude = 100
+positive_str = st_skills_stats_restore_boost_positive, >=, 0
+negative_str = st_skills_stats_restore_boost_negative, <, 0
+
+[insanity]
+psy_regen = 1_insanity_psy_regen
+psy_hit_resistance = 2_insanity_psy_hit_resistance
+
+[1_insanity_psy_regen]
+magnitude = 100
+positive_str = st_skills_stats_psy_regen_positive, >=, 0
+
+[2_insanity_psy_hit_resistance]
+magnitude = 100
+abs = true
+positive_str = st_skills_stats_psy_hit_resistance_positive, >=, 0
+negative_str = st_skills_stats_psy_hit_resistance_negative, <, 0
+
+[tinkering]
+refund_chance = tinkering_refund_chance
+
+[tinkering_refund_chance]
+magnitude = 100
+positive_str = st_skills_stats_refund_chance_positive, >=, 0
+
+[bartering]
+discount = 1_bartering_discount
+sell_bonus = 2_bartering_sell_bonus
+task_bonus = 3_bartering_task_bonus
+
+[1_bartering_discount]
+magnitude = 100
+abs = true
+positive_str = st_skills_stats_discount_positive, >=, 0
+negative_str = st_skills_stats_discount_negative, <, 0
+
+[2_bartering_sell_bonus]
+magnitude = 100
+abs = true
+positive_str = st_skills_stats_sell_bonus_positive, >=, 0
+negative_str = st_skills_stats_sell_bonus_negative, <, 0
+
+[3_bartering_task_bonus]
+magnitude = 100
+positive_str = st_skills_stats_task_bonus_positive, >=, 0
+negative_str = st_skills_stats_task_bonus_negative, <, 0
+
+[reloading]
+reload_speed = 1_reloading_reload_speed
+equip_speed = 2_reloading_equip_speed
+
+[1_reloading_reload_speed]
+magnitude = 100
+positive_str = st_skills_stats_reload_speed_positive, >=, 0
+negative_str = st_skills_stats_reload_speed_negative, <, 0
+
+[2_reloading_equip_speed]
+magnitude = 100
+positive_str = st_skills_stats_equip_speed_positive, >=, 0
+negative_str = st_skills_stats_equip_speed_negative, <, 0
+
+[magloading]
+loadspeed = magloading_loadspeed
+
+[magloading_loadspeed]
+magnitude = 100
+abs = true
+positive_str = st_skills_stats_loadspeed_positive, >=, 0
+negative_str = st_skills_stats_loadspeed_negative, <, 0
+
+[lockpicking]
+lockpick_diff_reduc = lockpicking_lockpick_diff_reduc
+
+[lockpicking_lockpick_diff_reduc]
+magnitude = 100
+positive_str = st_skills_stats_lockpick_diff_reduc_positive, >=, 0
+negative_str = st_skills_stats_lockpick_diff_reduc_negative, <, 0

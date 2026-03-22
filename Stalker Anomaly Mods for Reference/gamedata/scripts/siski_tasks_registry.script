@@ -1,0 +1,4533 @@
+siski = siski or {}
+siski.tasks = siski.tasks or {}
+
+local tasks = siski.tasks
+
+local tonumber  = _G.tonumber
+local tostring  = _G.tostring
+local type      = _G.type
+local pairs     = _G.pairs
+local next      = _G.next
+local pcall     = _G.pcall
+local time_global = _G.time_global
+local alife      = _G.alife
+local game_graph = _G.game_graph
+
+local RUNTIME = {
+    smarts_by_level = {},
+    smarts_rebuild_tg = 0,
+    smarts_build = {
+        active = false,
+        last_key = nil,
+        temp = nil,
+        gvid_level_cache = nil,
+        started_tg = 0,
+    },
+    beh_ini = nil,
+    task_err_once = {},
+    smart_enemy_cache = {},
+    smart_trade_slot_cache = {},
+    smart_tech_slot_cache = {},
+    smart_kamp_slot_cache = {},
+    target_arrived_state_cache = {},
+    surge_cache_active = false,
+    surge_cache_next_tg = 0,
+    cache_prune_next_tg = 0,
+    perf_warn_next_tg = {},
+    smart_enemy_fallback_cache = {},
+    adaptive_trade_target_cache = {},
+    cap_index_by_level = {},
+    cap_index_rebuild_tg = 0,
+    faction_quota = {
+        next_tg = 0,
+        by_level_faction = {},
+    },
+    intel = {
+        by_level_faction = {},
+        next_cleanup_tg = 0,
+    },
+    incidents = {
+        by_id = {},
+        by_key = {},
+        next_tg = 0,
+        next_id = 1,
+    },
+    stats = {
+        watchdog_rebuild_count = 0,
+        forced_faction_assignments = 0,
+        forced_faction_releases = 0,
+        force_resync_count = 0,
+    },
+}
+
+local WATCHDOG_SCAN_INTERVAL_MS = 5000
+local WATCHDOG_CHECK_INTERVAL = 3
+local TARGET_REVALIDATE_INTERVAL_MS = 5000
+local COMMUNITY_REFRESH_TTL_MS = 15000
+local COMMUNITY_RETRY_TTL_MS = 1000
+local LOGIC_MAX_AGE_MS = 90000
+local DIRTY_ENEMY_TTL_MS = 5000
+local DIRTY_TRADE_PICK_TTL_MS = 3000
+local DIRTY_REVALIDATE_TTL_MS = 5000
+local INTEL_TTL_MS = 300000
+local INCIDENT_TTL_MS = 180000
+local FACTION_QUOTA_UPDATE_MS = 3000
+
+local ADAPTIVE_FORCE_WATCHDOG_MS = 10000
+local ADAPTIVE_FORCE_REVALIDATE_MS = 30000
+local ADAPTIVE_FORCE_TRADE_TICK_MS = 2000
+local ADAPTIVE_FORCE_TRADE_PICK_MS = 5000
+-- REMOVED: ADAPTIVE_FORCE_ENEMY_NEAR_SMART_MS - enemy scan optimized, no longer needs adaptive throttling
+-- REMOVED: ADAPTIVE_FORCE_ENEMY_FALLBACK_SCAN_MS - enemy scan optimized, no longer needs adaptive throttling
+local ADAPTIVE_FORCE_REBUILD_ENSURE_MS = 1500
+local ADAPTIVE_FORCE_SMARTS_STEP_MS = 2000
+local ADAPTIVE_FORCE_FACTION_PREEMPT_MS = 5000
+local FACTION_PREEMPT_CHECK_INTERVAL = 3
+
+local function tg()
+    return (time_global and time_global()) or 0
+end
+
+local function cfg_num(key, default, min_v)
+    local v = tonumber(default) or 0
+    if siski.config and siski.config.get then
+        local x = siski.config.get(key, default)
+        if tonumber(x) then
+            v = tonumber(x)
+        end
+    end
+    if min_v ~= nil and v < min_v then
+        v = min_v
+    end
+    return v
+end
+
+local function adaptive_mod()
+    local ad = siski and siski.adaptive or nil
+    if not (ad and ad.enabled and ad.enabled()) then
+        return nil
+    end
+    return ad
+end
+
+local function adaptive_should_run(lane, now, base_interval_ms, force_max_delay_ms)
+    local ad = adaptive_mod()
+    if not (ad and ad.should_run) then
+        return true
+    end
+    return ad.should_run(lane, now, base_interval_ms, force_max_delay_ms) == true
+end
+
+local function adaptive_note_defer(lane, now, reason)
+    local ad = adaptive_mod()
+    if ad and ad.note_defer then
+        ad.note_defer(lane, now, reason)
+    end
+end
+
+local function iter_logic_squads(max_age_ms)
+    local mem = siski.memory
+    if mem and mem.iter_squads_for_logic then
+        return mem.iter_squads_for_logic(max_age_ms or LOGIC_MAX_AGE_MS)
+    end
+    if mem and mem.get_state then
+        local st = mem.get_state()
+        local squads = st and st.squads or {}
+        local function iter(tbl, last_key)
+            return next(tbl, last_key)
+        end
+        return iter, squads, nil
+    end
+    local function iter_empty()
+        return nil
+    end
+    return iter_empty, {}, nil
+end
+
+local function mark_entry_dirty(entry, key)
+    if not (entry and entry.squad_id and siski.memory and siski.memory.mark_dirty) then return end
+    siski.memory.mark_dirty(entry.squad_id, key)
+end
+
+local function consume_entry_dirty(entry, key)
+    if not (entry and siski.memory and siski.memory.consume_dirty) then
+        return false
+    end
+    return siski.memory.consume_dirty(entry, key) == true
+end
+
+local function get_faction_task_enabled()
+    if not (siski.config and siski.config.get) then return true end
+    return siski.config.get("faction_task_enabled", true) ~= false
+end
+
+local function get_intel_sharing_enabled()
+    if not (siski.config and siski.config.get) then return true end
+    return siski.config.get("intel_sharing_enabled", true) ~= false
+end
+
+local function get_home_region_enabled()
+    if not (siski.config and siski.config.get) then return true end
+    return siski.config.get("home_region_attachment_enabled", true) ~= false
+end
+
+local function get_incident_chains_enabled()
+    if not (siski.config and siski.config.get) then return true end
+    return siski.config.get("incident_chains_enabled", true) ~= false
+end
+
+local function get_faction_task_share_percent()
+    local v = cfg_num("faction_task_share_percent", 30, 0)
+    if v > 100 then v = 100 end
+    return math.floor((v + 5) / 10) * 10
+end
+
+-- Forward declaration: used by enemy/trade helpers declared above the full intel block.
+local record_intel
+
+local function perf_warn_once(key, fmt, ...)
+    if not (siski.log and siski.log.warn) then return end
+    local now = tg()
+    local interval = cfg_num("perf_warn_interval_ms", 10000, 1000)
+    local next_tg = tonumber(RUNTIME.perf_warn_next_tg[key]) or 0
+    if now < next_tg then return end
+    RUNTIME.perf_warn_next_tg[key] = now + interval
+    siski.log.warn("PERF", fmt, ...)
+end
+
+local function table_size(t)
+    local n = 0
+    if type(t) ~= "table" then
+        return 0
+    end
+    for _ in pairs(t) do
+        n = n + 1
+    end
+    return n
+end
+
+local function trim_cache_to_max(cache, max_entries, stamp_key)
+    if type(cache) ~= "table" then return end
+    local size = table_size(cache)
+    if size <= max_entries then return end
+
+    while size > max_entries do
+        local oldest_k = nil
+        local oldest_t = nil
+        for k, v in pairs(cache) do
+            local ts = nil
+            if type(v) == "table" then
+                ts = tonumber(v[stamp_key]) or tonumber(v.tg) or tonumber(v.next_tg) or 0
+            else
+                ts = 0
+            end
+            if oldest_t == nil or ts < oldest_t then
+                oldest_t = ts
+                oldest_k = k
+            end
+        end
+        if oldest_k == nil then break end
+        cache[oldest_k] = nil
+        size = size - 1
+    end
+end
+
+local function prune_runtime_caches(now)
+    if now < (tonumber(RUNTIME.cache_prune_next_tg) or 0) then
+        return
+    end
+    RUNTIME.cache_prune_next_tg = now + 1000
+
+    local enemy_ttl = cfg_num("smart_enemy_cache_ttl_ms", 5000, 250)
+    for k, v in pairs(RUNTIME.smart_enemy_cache) do
+        local ts = type(v) == "table" and tonumber(v.tg) or nil
+        if (not ts) or now > (ts + enemy_ttl * 4) then
+            RUNTIME.smart_enemy_cache[k] = nil
+        end
+    end
+
+    for k, v in pairs(RUNTIME.smart_trade_slot_cache) do
+        local ts = type(v) == "table" and tonumber(v.tg) or nil
+        if (not ts) or now > (ts + 180000) then
+            RUNTIME.smart_trade_slot_cache[k] = nil
+        end
+    end
+    for k, v in pairs(RUNTIME.smart_tech_slot_cache) do
+        local ts = type(v) == "table" and tonumber(v.tg) or nil
+        if (not ts) or now > (ts + 180000) then
+            RUNTIME.smart_tech_slot_cache[k] = nil
+        end
+    end
+    for k, v in pairs(RUNTIME.smart_kamp_slot_cache) do
+        local ts = type(v) == "table" and tonumber(v.tg) or nil
+        if (not ts) or now > (ts + 180000) then
+            RUNTIME.smart_kamp_slot_cache[k] = nil
+        end
+    end
+    for k, v in pairs(RUNTIME.target_arrived_state_cache) do
+        local ts = type(v) == "table" and tonumber(v.next_tg) or nil
+        if (not ts) or now > (ts + 15000) then
+            RUNTIME.target_arrived_state_cache[k] = nil
+        end
+    end
+    for k, v in pairs(RUNTIME.smart_enemy_fallback_cache) do
+        local ts = type(v) == "table" and tonumber(v.tg) or nil
+        if (not ts) or now > (ts + enemy_ttl * 4) then
+            RUNTIME.smart_enemy_fallback_cache[k] = nil
+        end
+    end
+    for k, v in pairs(RUNTIME.adaptive_trade_target_cache) do
+        local ts = type(v) == "table" and tonumber(v.tg) or nil
+        if (not ts) or now > (ts + 180000) then
+            RUNTIME.adaptive_trade_target_cache[k] = nil
+        end
+    end
+
+    trim_cache_to_max(RUNTIME.smart_enemy_cache, cfg_num("smart_enemy_cache_max_entries", 2048, 128), "tg")
+    trim_cache_to_max(RUNTIME.smart_trade_slot_cache, cfg_num("smart_slot_cache_max_entries", 1024, 64), "tg")
+    trim_cache_to_max(RUNTIME.smart_tech_slot_cache, cfg_num("smart_slot_cache_max_entries", 1024, 64), "tg")
+    trim_cache_to_max(RUNTIME.smart_kamp_slot_cache, cfg_num("smart_slot_cache_max_entries", 1024, 64), "tg")
+    trim_cache_to_max(RUNTIME.target_arrived_state_cache, cfg_num("target_arrived_cache_max_entries", 512, 64), "next_tg")
+    trim_cache_to_max(RUNTIME.smart_enemy_fallback_cache, cfg_num("smart_enemy_cache_max_entries", 2048, 128), "tg")
+    trim_cache_to_max(RUNTIME.adaptive_trade_target_cache, cfg_num("smart_slot_cache_max_entries", 1024, 64), "tg")
+end
+
+local function has_game_time()
+    return game and game.get_game_time and game.CTime
+end
+
+local function ctime_to_table(ct)
+    if not (ct and ct.get) then return nil end
+    local ok, Y, M, D, h, m, s, ms = pcall(function()
+        return ct:get(0, 0, 0, 0, 0, 0, 0)
+    end)
+    if not ok then return nil end
+    return { Y = Y, M = M, D = D, h = h, m = m, s = s, ms = ms }
+end
+
+local function ctime_from_table(t)
+    if not (has_game_time() and t and type(t) == "table") then return nil end
+    local ok_new, ct = pcall(function() return game.CTime() end)
+    if not (ok_new and ct and ct.set) then return nil end
+    local ok_set = pcall(function()
+        ct:set(t.Y, t.M, t.D, t.h, t.m, t.s, t.ms)
+    end)
+    if not ok_set then return nil end
+    return ct
+end
+
+local function game_time_now()
+    if not has_game_time() then return nil end
+    local ok, ct = pcall(function() return game.get_game_time() end)
+    return ok and ct or nil
+end
+
+local function is_night_now()
+    local ct = game_time_now()
+    if not (ct and ct.get) then
+        return false
+    end
+    local t = ctime_to_table(ct)
+    local h = t and tonumber(t.h) or nil
+    if h == nil then
+        return false
+    end
+    return h >= 22 or h < 6
+end
+
+local function game_time_diff_sec(start_ct)
+    local now = game_time_now()
+    if not (now and now.diffSec and start_ct) then return nil end
+    local ok, sec = pcall(function() return now:diffSec(start_ct) end)
+    sec = ok and tonumber(sec) or nil
+    return sec
+end
+
+local function now_level_name_by_gvid(gvid)
+    if not (gvid and alife and game_graph) then return nil end
+    local ok, res = pcall(function()
+        local gv = game_graph():vertex(gvid)
+        if not gv then return nil end
+        return alife():level_name(gv:level_id())
+    end)
+    return ok and res or nil
+end
+
+local function get_board()
+    if SIMBOARD then return SIMBOARD end
+    if sim_board and sim_board.get_sim_board then
+        local ok, b = pcall(function() return sim_board.get_sim_board() end)
+        if ok then return b end
+    end
+    return nil
+end
+
+local function safe_obj_by_id(id)
+    id = tonumber(id)
+    if not id then return nil end
+    if level and level.object_by_id then
+        local ok, obj = pcall(function() return level.object_by_id(id) end)
+        if ok and obj then return obj end
+    end
+    if db and db.storage and db.storage[id] then
+        local obj = db.storage[id].object
+        if obj then return obj end
+    end
+    return nil
+end
+
+local function is_alive_obj(obj)
+    if not obj then return false end
+    if obj.alive then
+        local ok, a = pcall(function() return obj:alive() end)
+        if ok then return a == true end
+    end
+    return true
+end
+
+local function surge_active_uncached()
+    local xc = _G.xr_conditions
+    local xf = xc and xc.surge_started or nil
+    if type(xf) == "function" then
+        local ok, res = pcall(xf)
+        if ok and res == true then return true, false end
+        if ok and res == false then return false, false end
+    end
+
+    local fallback_used = false
+
+    local f = _G.surge_started
+    if type(f) == "function" then
+        fallback_used = true
+        local ok, res = pcall(f)
+        if ok and res == true then return true, fallback_used end
+        if ok and res == false then return false, fallback_used end
+    end
+
+    local psm = _G.psi_storm_manager
+    if psm and type(psm.is_loaded) == "function" and type(psm.is_started) == "function" then
+        fallback_used = true
+        local okL, loaded = pcall(function() return psm.is_loaded() end)
+        if okL and loaded == true then
+            local okS, started = pcall(function() return psm.is_started() end)
+            if okS and started == true then return true, fallback_used end
+        end
+    end
+
+    local sm = _G.surge_manager
+    if sm and type(sm.is_loaded) == "function" and type(sm.is_started) == "function" then
+        fallback_used = true
+        local okL, loaded = pcall(function() return sm.is_loaded() end)
+        if okL and loaded == true then
+            local okS, started = pcall(function() return sm.is_started() end)
+            if okS and started == true then return true, fallback_used end
+        end
+    end
+
+    if _G.level and type(_G.level.is_surge) == "function" then
+        fallback_used = true
+        local ok, res = pcall(function() return _G.level.is_surge() end)
+        if ok and res == true then return true, fallback_used end
+    end
+
+    return false, fallback_used
+end
+
+local function is_surge_active(force_refresh)
+    local now = tg()
+    if force_refresh ~= true and now < (tonumber(RUNTIME.surge_cache_next_tg) or 0) then
+        return RUNTIME.surge_cache_active == true
+    end
+
+    local active, fallback_used = surge_active_uncached()
+    local cache_ms = cfg_num("surge_check_cache_ms", 250, 0)
+    RUNTIME.surge_cache_active = active == true
+    RUNTIME.surge_cache_next_tg = now + cache_ms
+
+    if fallback_used then
+        perf_warn_once("PERF_SURGE_CHECK_FALLBACK_TASKS", "PERF_SURGE_CHECK_FALLBACK source=tasks")
+    end
+    return active == true
+end
+
+local function start_smarts_build()
+    if RUNTIME.smarts_build.active then return end
+    RUNTIME.smarts_build.active = true
+    RUNTIME.smarts_build.last_key = nil
+    RUNTIME.smarts_build.temp = {}
+    RUNTIME.smarts_build.gvid_level_cache = {}
+    RUNTIME.smarts_build.started_tg = tg()
+end
+
+local function step_smarts_build(budget)
+    local board = get_board()
+    if not (board and board.smarts_by_names) then
+        RUNTIME.smarts_by_level = {}
+        RUNTIME.cap_index_by_level = {}
+        RUNTIME.cap_index_rebuild_tg = 0
+        RUNTIME.smarts_rebuild_tg = tg()
+        RUNTIME.smarts_build.active = false
+        RUNTIME.smarts_build.last_key = nil
+        RUNTIME.smarts_build.temp = nil
+        RUNTIME.smarts_build.gvid_level_cache = nil
+        return
+    end
+
+    local build = RUNTIME.smarts_build
+    if not build.active then return end
+
+    local temp = build.temp or {}
+    local gvid_cache = build.gvid_level_cache or {}
+    local last = build.last_key
+
+    for _ = 1, budget do
+        local name, sm = next(board.smarts_by_names, last)
+        last = name
+        if name == nil then
+            RUNTIME.smarts_by_level = temp
+            RUNTIME.cap_index_rebuild_tg = 0
+            RUNTIME.smarts_rebuild_tg = tg()
+            build.active = false
+            build.last_key = nil
+            build.temp = nil
+            build.gvid_level_cache = nil
+            return
+        end
+
+        if sm and sm.m_game_vertex_id then
+            local gvid = sm.m_game_vertex_id
+            local lvl = gvid_cache[gvid]
+            if lvl == nil then
+                lvl = now_level_name_by_gvid(gvid)
+                gvid_cache[gvid] = lvl or false
+            end
+            if lvl and lvl ~= false then
+                local arr = temp[lvl]
+                if not arr then
+                    arr = {}
+                    temp[lvl] = arr
+                end
+                arr[#arr + 1] = name
+            end
+        end
+    end
+
+    build.last_key = last
+    build.temp = temp
+    build.gvid_level_cache = gvid_cache
+end
+
+local function smart_blacklists_global_set()
+    local cfg = siski.config
+    if cfg and cfg.get_smart_blacklists_global_set then
+        local res = cfg.get_smart_blacklists_global_set()
+        if type(res) == "table" then
+            return res
+        end
+    end
+    return nil
+end
+
+local function smart_blacklists_rule(level_name)
+    local cfg = siski.config
+    if cfg and cfg.get_smart_blacklists_rule then
+        local res = cfg.get_smart_blacklists_rule(level_name)
+        if type(res) == "table" then
+            return res
+        end
+    end
+    return nil
+end
+
+local function normalize_community_key(name)
+    if type(name) ~= "string" then return nil end
+    local key = string.lower((string.gsub(name, "^%s*(.-)%s*$", "%1")))
+    if key == "" then return nil end
+    local cfg = siski.config
+    if cfg and cfg.get_faction_alias then
+        local alias = cfg.get_faction_alias(key)
+        if type(alias) == "string" and alias ~= "" then
+            alias = string.lower((string.gsub(alias, "^%s*(.-)%s*$", "%1")))
+            if alias ~= "" then
+                key = alias
+            end
+        end
+    end
+    return key
+end
+
+local function normalize_section_key(name)
+    if type(name) ~= "string" then return nil end
+    local key = string.lower((string.gsub(name, "^%s*(.-)%s*$", "%1")))
+    if key == "" then return nil end
+    return key
+end
+
+local function faction_level_blacklists_rule(community)
+    local cfg = siski.config
+    if not (cfg and cfg.get_faction_level_blacklist_rule) then
+        return nil
+    end
+    local key = normalize_community_key(community)
+    if not key then return nil end
+    local res = cfg.get_faction_level_blacklist_rule(key)
+    if type(res) == "table" then
+        return res
+    end
+    return nil
+end
+
+local function faction_smart_blacklists_rule(community)
+    local cfg = siski.config
+    if not (cfg and cfg.get_faction_smart_blacklist_rule) then
+        return nil
+    end
+    local key = normalize_community_key(community)
+    if not key then return nil end
+    local res = cfg.get_faction_smart_blacklist_rule(key)
+    if type(res) == "table" then
+        return res
+    end
+    return nil
+end
+
+local function section_level_blacklists_rule(section_name)
+    local cfg = siski.config
+    if not (cfg and cfg.get_section_level_blacklist_rule) then
+        return nil
+    end
+    local key = normalize_section_key(section_name)
+    if not key then return nil end
+    local res = cfg.get_section_level_blacklist_rule(key)
+    if type(res) == "table" then
+        return res
+    end
+    return nil
+end
+
+local function section_smart_blacklists_rule(section_name)
+    local cfg = siski.config
+    if not (cfg and cfg.get_section_smart_blacklist_rule) then
+        return nil
+    end
+    local key = normalize_section_key(section_name)
+    if not key then return nil end
+    local res = cfg.get_section_smart_blacklist_rule(key)
+    if type(res) == "table" then
+        return res
+    end
+    return nil
+end
+
+local function is_level_blacklisted_for_faction(level_name, community, section_name)
+    if type(level_name) ~= "string" or level_name == "" then
+        return false
+    end
+    local rule = faction_level_blacklists_rule(community)
+    if rule and rule.all == true then
+        if siski.log and siski.log.debug then
+            siski.log.debug("TASKS", "FACTION_LEVEL_BLACKLIST_HIT community=%s level=%s reason=all", tostring(community or "-"), tostring(level_name))
+        end
+        return true
+    end
+    local set = rule and rule.set or nil
+    if set and set[level_name] then
+        if siski.log and siski.log.debug then
+            siski.log.debug("TASKS", "FACTION_LEVEL_BLACKLIST_HIT community=%s level=%s reason=list", tostring(community or "-"), tostring(level_name))
+        end
+        return true
+    end
+
+    local s_rule = section_level_blacklists_rule(section_name)
+    if s_rule and s_rule.all == true then
+        if siski.log and siski.log.debug then
+            siski.log.debug("TASKS", "SECTION_LEVEL_BLACKLIST_HIT section=%s level=%s reason=all", tostring(section_name or "-"), tostring(level_name))
+        end
+        return true
+    end
+    local s_set = s_rule and s_rule.set or nil
+    if s_set and s_set[level_name] then
+        if siski.log and siski.log.debug then
+            siski.log.debug("TASKS", "SECTION_LEVEL_BLACKLIST_HIT section=%s level=%s reason=list", tostring(section_name or "-"), tostring(level_name))
+        end
+        return true
+    end
+    return false
+end
+
+local function is_smart_blacklisted_for_faction(smart_name, community, level_name, section_name)
+    if type(smart_name) ~= "string" or smart_name == "" then
+        return false
+    end
+    if is_level_blacklisted_for_faction(level_name, community, section_name) then
+        return true
+    end
+    local rule = faction_smart_blacklists_rule(community)
+    if rule and rule.all == true then
+        if siski.log and siski.log.debug then
+            siski.log.debug("TASKS", "FACTION_SMART_BLACKLIST_HIT community=%s smart=%s reason=all", tostring(community or "-"), tostring(smart_name))
+        end
+        return true
+    end
+    local set = rule and rule.set or nil
+    if set and set[smart_name] then
+        if siski.log and siski.log.debug then
+            siski.log.debug("TASKS", "FACTION_SMART_BLACKLIST_HIT community=%s smart=%s reason=list", tostring(community or "-"), tostring(smart_name))
+        end
+        return true
+    end
+
+    local s_rule = section_smart_blacklists_rule(section_name)
+    if s_rule and s_rule.all == true then
+        if siski.log and siski.log.debug then
+            siski.log.debug("TASKS", "SECTION_SMART_BLACKLIST_HIT section=%s smart=%s reason=all", tostring(section_name or "-"), tostring(smart_name))
+        end
+        return true
+    end
+    local s_set = s_rule and s_rule.set or nil
+    if s_set and s_set[smart_name] then
+        if siski.log and siski.log.debug then
+            siski.log.debug("TASKS", "SECTION_SMART_BLACKLIST_HIT section=%s smart=%s reason=list", tostring(section_name or "-"), tostring(smart_name))
+        end
+        return true
+    end
+    return false
+end
+
+local function smart_is_blacklisted_by_obj(sm, smart_name, community, section_name)
+    if type(smart_name) ~= "string" or smart_name == "" then
+        return false
+    end
+
+    local gset = smart_blacklists_global_set()
+    if gset and gset[smart_name] then
+        return true
+    end
+
+    local lvl = nil
+    if sm and sm.m_game_vertex_id then
+        lvl = now_level_name_by_gvid(sm.m_game_vertex_id)
+        local rule = lvl and smart_blacklists_rule(lvl) or nil
+        if rule and rule.all == true then
+            return true
+        end
+        local set = rule and rule.set or nil
+        if set and set[smart_name] then
+            return true
+        end
+    end
+
+    if is_smart_blacklisted_for_faction(smart_name, community, lvl, section_name) then
+        return true
+    end
+
+    return false
+end
+
+local function smart_is_blacklisted_for_level(level_name, smart_name, community, section_name)
+    if type(smart_name) ~= "string" or smart_name == "" then
+        return false
+    end
+
+    local gset = smart_blacklists_global_set()
+    if gset and gset[smart_name] then
+        return true
+    end
+
+    local rule = level_name and smart_blacklists_rule(level_name) or nil
+    if rule and rule.all == true then
+        return true
+    end
+
+    local set = rule and rule.set or nil
+    if set and set[smart_name] then
+        return true
+    end
+
+    if is_smart_blacklisted_for_faction(smart_name, community, level_name, section_name) then
+        return true
+    end
+
+    return false
+end
+
+local function get_smarts_for_level(level_name, community, section_name)
+    local rule = level_name and smart_blacklists_rule(level_name) or nil
+    if rule and rule.all == true then
+        return {}
+    end
+    if is_level_blacklisted_for_faction(level_name, community, section_name) then
+        return {}
+    end
+
+    local function filter(list)
+        local n = list and #list or 0
+        if n <= 0 then return list end
+        local out = {}
+        local out_n = 0
+        for i = 1, n do
+            local name = list[i]
+            if name and (not smart_is_blacklisted_for_level(level_name, name, community, section_name)) then
+                out_n = out_n + 1
+                out[out_n] = name
+            end
+        end
+        return out
+    end
+
+    local cfg_list = nil
+    if siski.config and siski.config.get_level_smarts then
+        local list = siski.config.get_level_smarts(level_name)
+        if list and #list > 0 then
+            cfg_list = list
+        end
+    end
+    if cfg_list and siski.config and siski.config.get and siski.config.get("level_smarts_override", false) == true then
+        return filter(cfg_list)
+    end
+
+    local now = tg()
+    if (RUNTIME.smarts_rebuild_tg == 0 or now > (RUNTIME.smarts_rebuild_tg + 60000)) and not RUNTIME.smarts_build.active then
+        start_smarts_build()
+    end
+    local runtime_list = RUNTIME.smarts_by_level[level_name] or {}
+    if not cfg_list then
+        return filter(runtime_list)
+    end
+    if not runtime_list or #runtime_list == 0 then
+        return filter(cfg_list)
+    end
+    local merged = {}
+    local seen = {}
+    for i = 1, #cfg_list do
+        local name = cfg_list[i]
+        if name and not seen[name] then
+            seen[name] = true
+            merged[#merged + 1] = name
+        end
+    end
+    for i = 1, #runtime_list do
+        local name = runtime_list[i]
+        if name and not seen[name] then
+            seen[name] = true
+            merged[#merged + 1] = name
+        end
+    end
+    return filter(merged)
+end
+
+local function pick_random(arr)
+    local n = arr and #arr or 0
+    if n <= 0 then return nil end
+    return arr[math.random(n)]
+end
+
+local function pick_random_valid(arr, community, level_name, section_name)
+    local n = arr and #arr or 0
+    if n <= 0 then return nil end
+
+    local board = get_board()
+    if not (board and board.smarts_by_names) then
+        for _ = 1, math.min(8, n) do
+            local name = arr[math.random(n)]
+            if name and (not smart_is_blacklisted_for_level(level_name, name, community, section_name)) then
+                return name
+            end
+        end
+        for i = 1, n do
+            local name = arr[i]
+            if name and (not smart_is_blacklisted_for_level(level_name, name, community, section_name)) then
+                return name
+            end
+        end
+        return nil
+    end
+
+    local by_name = board.smarts_by_names
+    for _ = 1, math.min(8, n) do
+        local name = arr[math.random(n)]
+        local sm = name and by_name[name] or nil
+        if sm and (not smart_is_blacklisted_by_obj(sm, name, community, section_name)) then
+            return name
+        end
+    end
+
+    for i = 1, n do
+        local name = arr[i]
+        local sm = name and by_name[name] or nil
+        if sm and (not smart_is_blacklisted_by_obj(sm, name, community, section_name)) then
+            return name
+        end
+    end
+
+    return nil
+end
+
+local function diag_key(stage, squad_id, task)
+    local tid = task and task.id or "-"
+    return tostring(stage or "-") .. "|" .. tostring(squad_id or "-") .. "|" .. tostring(tid)
+end
+
+local function log_task_error(stage, entry, task, err)
+    local tostring = tostring
+    if not (siski.log and siski.log.error) then return end
+    local key = diag_key(stage, entry and entry.squad_id, task)
+    if RUNTIME.task_err_once[key] then return end
+    RUNTIME.task_err_once[key] = true
+
+    local t = task and task.type or "-"
+    local tgt = task and task.target or "-"
+    local e = tostring(err or "")
+    local tb = (debug and debug.traceback) and debug.traceback("", 2) or ""
+    siski.log.error("TASKS", "Task error stage=%s sid=%s type=%s target=%s err=%s %s",
+        tostring(stage or "-"),
+        tostring(entry and entry.squad_id or "-"),
+        tostring(t),
+        tostring(tgt),
+        tostring(e),
+        tostring(tb)
+    )
+end
+
+local function get_squad_community(entry, se_squad)
+    local now = tg()
+    if entry and entry.community and now < (tonumber(entry.community_next_tg) or 0) then
+        return entry.community
+    end
+    if not (siski.safe and siski.safe.safe_squad_community) then
+        return entry and entry.community or nil
+    end
+    local community = siski.safe.safe_squad_community(se_squad)
+    if community and siski.config and siski.config.get_faction_alias then
+        local alias = siski.config.get_faction_alias(community)
+        if alias then community = alias end
+    end
+    if entry then
+        if community then
+            entry.community = community
+            entry.community_verified_tg = now
+            entry.community_next_tg = now + COMMUNITY_REFRESH_TTL_MS
+        else
+            entry.community_next_tg = now + COMMUNITY_RETRY_TTL_MS
+        end
+        return entry.community
+    end
+    return community
+end
+
+local function get_squad_section(entry, se_squad)
+    local section = entry and entry.section or nil
+    section = normalize_section_key(section)
+    if section then
+        if entry then
+            entry.section = section
+        end
+        return section
+    end
+
+    if not (siski.safe and siski.safe.safe_section) then
+        return nil
+    end
+    local live = normalize_section_key(siski.safe.safe_section(se_squad))
+    if live and entry then
+        entry.section = live
+    end
+    return live
+end
+
+local function resolve_entry_level(entry, se_squad)
+    if not entry then
+        if not se_squad then return nil end
+        local gvid = tonumber(se_squad.m_game_vertex_id) or nil
+        return gvid and now_level_name_by_gvid(gvid) or nil
+    end
+
+    local cached = entry.level
+    if not se_squad then
+        return cached
+    end
+
+    local gvid = tonumber(se_squad.m_game_vertex_id) or nil
+    if not gvid then
+        return cached
+    end
+
+    local cached_gvid = tonumber(entry.level_gvid) or nil
+    if cached and cached_gvid and cached_gvid == gvid then
+        return cached
+    end
+
+    local resolved = now_level_name_by_gvid(gvid)
+    if resolved then
+        entry.level_gvid = gvid
+        entry.level_verified_tg = tg()
+        entry.level = resolved
+        return resolved
+    end
+    return cached
+end
+
+local function reset_task_hotpath_timers(task)
+    if not task then return end
+    task.params = task.params or {}
+    task.params.watchdog_next_scan_tg = 0
+    task.params.target_revalidate_next_tg = 0
+end
+
+local function make_task(task_type, target, params, priority)
+    return {
+        id = tostring(task_type) .. "_" .. tostring(tg()),
+        type = task_type,
+        target = target,
+        params = params or {},
+        created_at_tg = tg(),
+        priority = priority or 0,
+    }
+end
+
+local function get_smart_by_name(smart_name)
+    if not smart_name then return nil end
+    local board = get_board()
+    if not (board and board.smarts_by_names) then return nil end
+    return board.smarts_by_names[smart_name]
+end
+
+local function is_task_taken_on_level(task_type, level_name, community, exclude_squad_id)
+    if not (task_type and level_name and community) then return false end
+    local ex = tonumber(exclude_squad_id)
+    for sid, e in iter_logic_squads(LOGIC_MAX_AGE_MS) do
+        local id = tonumber(sid)
+        if not (ex and id and id == ex) then
+            local cur = e and e.tasks and e.tasks.current or nil
+            if cur and cur.type == task_type and e.level == level_name and e.community == community then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function is_ally_faction(a, b)
+    if not (a and b) then return false end
+    if a == b then return true end
+    if game_relations and game_relations.is_factions_enemies then
+        local ok, enemies = pcall(function() return game_relations.is_factions_enemies(a, b) end)
+        if ok then
+            return enemies == false
+        end
+    end
+    return false
+end
+
+local function try_game_graph_distance(sgvid, tgvid)
+    sgvid = tonumber(sgvid)
+    tgvid = tonumber(tgvid)
+    if not (sgvid and tgvid and game_graph) then return nil end
+    local ok, d = pcall(function()
+        local gg = game_graph()
+        if not gg then return nil end
+        local res = gg:distance(sgvid, tgvid)
+        return res
+    end)
+    d = ok and tonumber(d) or nil
+    if d ~= nil then
+        return d
+    end
+    return nil
+end
+
+local function get_beh_ini()
+    if RUNTIME.beh_ini ~= nil then
+        return RUNTIME.beh_ini or nil
+    end
+    RUNTIME.beh_ini = false
+    if ini_file then
+        local paths = {
+            "configs\\beh_gulag_jobs.ltx",
+            "configs/beh_gulag_jobs.ltx",
+            "configs\\misc\\beh_gulag_jobs.ltx",
+            "configs/misc/beh_gulag_jobs.ltx",
+        }
+        for i = 1, #paths do
+            local ok, ini = pcall(ini_file, paths[i])
+            if ok and ini and ini.section_exist then
+                RUNTIME.beh_ini = ini
+                break
+            end
+        end
+    end
+    if RUNTIME.beh_ini == false and not RUNTIME.beh_ini_warned then
+        RUNTIME.beh_ini_warned = true
+        if siski.log and siski.log.warn then
+            siski.log.warn("TRADE", "beh_gulag_jobs.ltx not found; trader-slot detection disabled")
+        end
+    end
+    return RUNTIME.beh_ini or nil
+end
+
+local function smart_has_trader_slot_ltx(smart_name)
+    local ini = get_beh_ini()
+    if not (ini and ini.section_exist and smart_name) then
+        return false
+    end
+    local ok, res = pcall(function()
+        local base = tostring(smart_name)
+        return ini:section_exist(base .. "_beh_trade_1")
+            or ini:section_exist(base .. "_beh_trade_2")
+            or ini:section_exist(base .. "_beh_trade_3")
+    end)
+    return ok and res == true
+end
+
+local function smart_has_trader_slot_runtime(sm)
+    if not (sm and sm.stalker_jobs) then
+        return false
+    end
+    local jobs = sm.stalker_jobs
+    if type(jobs) ~= "table" then return false end
+    for i = 1, #jobs do
+        local job = jobs[i]
+        local sec = job and job.section or nil
+        if type(sec) == "string" then
+            if string.find(sec, "_beh_trade_job_", 1, true) ~= nil then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function smart_has_tech_slot_runtime(sm)
+    if not (sm and sm.stalker_jobs) then
+        return false
+    end
+    local jobs = sm.stalker_jobs
+    if type(jobs) ~= "table" then return false end
+    for i = 1, #jobs do
+        local job = jobs[i]
+        local sec = job and job.section or nil
+        if type(sec) == "string" then
+            if string.find(sec, "_beh_tech_job_", 1, true) ~= nil then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function smart_has_tech_slot(smart_name, sm)
+    if sm and smart_name then
+        local cache = RUNTIME.smart_tech_slot_cache
+        local c = cache and cache[smart_name]
+        local now = tg()
+        if c and c.tg and c.ttl_ms and (now < (c.tg + c.ttl_ms)) and c.has ~= nil then
+            return c.has == true
+        end
+        local has = smart_has_tech_slot_runtime(sm) == true
+        if not cache then
+            RUNTIME.smart_tech_slot_cache = {}
+        end
+        RUNTIME.smart_tech_slot_cache[smart_name] = { tg = now, ttl_ms = (has and 60000 or 5000), has = has == true }
+        return has == true
+    end
+    return false
+end
+
+local function smart_has_trader_slot(smart_name, sm)
+    if smart_name and smart_has_trader_slot_ltx(smart_name) then
+        return true
+    end
+
+    if sm and smart_name then
+        local cache = RUNTIME.smart_trade_slot_cache
+        local c = cache[smart_name]
+        local now = tg()
+        if c and c.tg and c.ttl_ms and (now < (c.tg + c.ttl_ms)) and c.has ~= nil then
+            return c.has == true
+        end
+        local has = smart_has_trader_slot_runtime(sm) == true
+        cache[smart_name] = { tg = now, ttl_ms = (has and 60000 or 5000), has = has == true }
+        return has == true
+    end
+
+    return false
+end
+
+local function smart_has_real_trader(sm)
+    if not (sm and sm.npc_info and IsStalker) then
+        return false
+    end
+    for _, info in pairs(sm.npc_info) do
+        local se = info and info.se_obj or nil
+        if se and se.clsid and IsStalker(nil, se:clsid()) then
+            local ok_c, c = pcall(function() return se:community() end)
+            if ok_c and c == "trader" then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- OPTIMIZED: Removed heavy iter_logic_squads + game_graph():distance() scan
+-- Now only checks: sm:check_alarm(), sm.faction_war_in_progress, sm.npc_info
+-- Returns: bool (true = hostile enemy present, false = safe)
+local function smart_has_enemy_for_faction(sm, community)
+    if not (sm and community) then return false end
+
+    local now = tg()
+    local cache_ttl = cfg_num("smart_enemy_cache_ttl_ms", 5000, 250)
+    local cache_key = tostring(tonumber(sm.id) or tonumber(sm.m_game_vertex_id) or tostring(sm)) .. "|" .. tostring(community)
+    local smart_level = now_level_name_by_gvid(tonumber(sm.m_game_vertex_id) or 0)
+    if not smart_level and level and level.name then
+        local ok_lvl, res_lvl = pcall(function() return level.name() end)
+        if ok_lvl and type(res_lvl) == "string" then
+            smart_level = res_lvl
+        end
+    end
+    local cached = RUNTIME.smart_enemy_fallback_cache[cache_key]
+    if type(cached) == "table" and (now - (tonumber(cached.tg) or 0)) <= cache_ttl and cached.hostile ~= nil then
+        return cached.hostile == true
+    end
+
+    -- Fast check: alarm state on smart
+    if sm.check_alarm then
+        local ok_alarm, alarm = pcall(function() return sm:check_alarm() end)
+        if ok_alarm and alarm == true then
+            RUNTIME.smart_enemy_fallback_cache[cache_key] = { tg = now, hostile = true }
+            record_intel(smart_level, community, tostring(sm.name or sm.id or "-"), 1, "enemy_alarm")
+            return true
+        end
+    end
+
+    -- Fast check: faction war in progress
+    local ok_war, war = pcall(function() return sm.faction_war_in_progress end)
+    if ok_war and war == true then
+        RUNTIME.smart_enemy_fallback_cache[cache_key] = { tg = now, hostile = true }
+        record_intel(smart_level, community, tostring(sm.name or sm.id or "-"), 1, "enemy_war")
+        return true
+    end
+
+    -- Check registered NPCs on smart
+    if not (sm.npc_info and game_relations and game_relations.is_factions_enemies and IsStalker) then
+        RUNTIME.smart_enemy_fallback_cache[cache_key] = { tg = now, hostile = false }
+        return false
+    end
+
+    for _, info in pairs(sm.npc_info) do
+        local se = info and info.se_obj or nil
+        if se and se.clsid and IsStalker(nil, se:clsid()) then
+            local ok_c, c = pcall(function() return se:community() end)
+            if ok_c and c and game_relations.is_factions_enemies(community, c) then
+                RUNTIME.smart_enemy_fallback_cache[cache_key] = { tg = now, hostile = true }
+                record_intel(smart_level, community, tostring(sm.name or sm.id or "-"), 1, "enemy_npc")
+                return true
+            end
+        end
+    end
+
+    -- No enemy found
+    RUNTIME.smart_enemy_fallback_cache[cache_key] = { tg = now, hostile = false }
+    record_intel(smart_level, community, tostring(sm.name or sm.id or "-"), -0.25, "enemy_clear")
+    return false
+end
+
+local function obj_community_name(obj)
+    if not obj then return nil end
+    if character_community then
+        local ok, res = pcall(character_community, obj)
+        if ok and res and res ~= "" then return res end
+    end
+    if obj.community then
+        local ok, res = pcall(function() return obj:community() end)
+        if ok and res and res ~= "" then return res end
+    end
+    if obj.character_community then
+        local ok, res = pcall(function() return obj:character_community() end)
+        if ok and res and res ~= "" then return res end
+    end
+    return nil
+end
+
+-- OPTIMIZED: Uses sm.npc_info instead of level.iterate_nearest
+-- Checks only NPCs registered on the smart, not all objects in radius
+-- Returns: bool (true = hostile enemy present, false = safe)
+local function has_enemy_stalker_near_smart(smart_name, community, radius_m, cur_level_name)
+    if not (smart_name and community) then
+        return false
+    end
+
+    local sm = get_smart_by_name(smart_name)
+    if not sm then
+        return false
+    end
+
+    -- Delegate to unified enemy check
+    return smart_has_enemy_for_faction(sm, community) == true
+end
+
+local function loaded_level_name()
+    if not (level and level.name) then return nil end
+    local ok, res = pcall(function() return level.name() end)
+    return ok and res or nil
+end
+
+local function is_roam_smart_allowed(smart_name, community)
+    if not (smart_name and community) then return true end
+    return has_enemy_stalker_near_smart(smart_name, community, 50, loaded_level_name()) == false
+end
+
+local function pick_random_valid_safe(arr, community, allowed_by_name, level_name, section_name)
+    local n = arr and #arr or 0
+    if n <= 0 then return nil end
+
+    local board = get_board()
+    if not (board and board.smarts_by_names) then
+        for _ = 1, math.min(8, n) do
+            local name = arr[math.random(n)]
+            if name and (not smart_is_blacklisted_for_level(level_name, name, community, section_name)) then
+                return name
+            end
+        end
+        for i = 1, n do
+            local name = arr[i]
+            if name and (not smart_is_blacklisted_for_level(level_name, name, community, section_name)) then
+                return name
+            end
+        end
+        return nil
+    end
+
+    local by_name = board.smarts_by_names
+    local allowed_cache = allowed_by_name or {}
+    local function is_allowed(name)
+        if not name then return false end
+        if allowed_cache[name] == nil then
+            allowed_cache[name] = is_roam_smart_allowed(name, community) == true
+        end
+        return allowed_cache[name] == true
+    end
+    for _ = 1, math.min(8, n) do
+        local name = arr[math.random(n)]
+        local sm = name and by_name[name] or nil
+        if sm and (not smart_is_blacklisted_by_obj(sm, name, community, section_name)) and is_allowed(name) then
+            return name
+        end
+    end
+
+    for i = 1, n do
+        local name = arr[i]
+        local sm = name and by_name[name] or nil
+        if sm and (not smart_is_blacklisted_by_obj(sm, name, community, section_name)) and is_allowed(name) then
+            return name
+        end
+    end
+
+    return nil
+end
+
+local function shuffle_in_place(arr)
+    if type(arr) ~= "table" then return end
+    for i = #arr, 2, -1 do
+        local j = math.random(i)
+        arr[i], arr[j] = arr[j], arr[i]
+    end
+end
+
+local function smart_has_campfires(smart_name)
+    if not (smart_name and db and db.campfire_table_by_smart_names) then
+        return false
+    end
+    local t = db.campfire_table_by_smart_names[smart_name]
+    if type(t) ~= "table" then return false end
+    for _ in pairs(t) do
+        return true
+    end
+    return false
+end
+
+local function smart_has_kamp_slot_ltx(smart_name)
+    local ini = get_beh_ini()
+    if not (ini and ini.section_exist and smart_name) then
+        return false
+    end
+    local ok, res = pcall(function()
+        local base = tostring(smart_name)
+        return ini:section_exist(base .. "_beh_kamp_1")
+            or ini:section_exist(base .. "_beh_kamp_2")
+            or ini:section_exist(base .. "_beh_kamp_3")
+            or ini:section_exist(base .. "_beh_kamp_4")
+    end)
+    return ok and res == true
+end
+
+local function smart_has_kamp_slot_runtime(sm)
+    if not (sm and sm.stalker_jobs) then
+        return false
+    end
+    local jobs = sm.stalker_jobs
+    if type(jobs) ~= "table" then return false end
+    for i = 1, #jobs do
+        local job = jobs[i]
+        local sec = job and job.section or nil
+        if type(sec) == "string" then
+            if string.find(sec, "_beh_kamp_job_", 1, true) ~= nil then
+                return true
+            end
+            if string.find(sec, "_beh_kamp_", 1, true) ~= nil then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function smart_has_kamp_slot(smart_name, sm)
+    if smart_name and smart_has_kamp_slot_ltx(smart_name) then
+        return true
+    end
+    if sm and smart_name then
+        local cache = RUNTIME.smart_kamp_slot_cache
+        if cache then
+            local c = cache[smart_name]
+            local now = tg()
+            if c and c.tg and c.ttl_ms and (now < (c.tg + c.ttl_ms)) and c.has ~= nil then
+                return c.has == true
+            end
+            local has = smart_has_kamp_slot_runtime(sm) == true
+            cache[smart_name] = { tg = now, ttl_ms = (has and 60000 or 5000), has = has == true }
+            return has == true
+        end
+    end
+    if smart_name and smart_has_campfires(smart_name) then
+        return true
+    end
+    return false
+end
+
+local function smart_is_safe_for_faction(smart_name, community, cur_level)
+    if not (smart_name and community) then
+        return true
+    end
+    if not (game_relations and game_relations.is_factions_enemies and IsStalker) then
+        return true
+    end
+    local ok, hostile = pcall(has_enemy_stalker_near_smart, smart_name, community, 50, cur_level)
+    if ok then
+        return hostile ~= true
+    end
+    return true
+end
+
+local function rebuild_capability_index()
+    local by_level = RUNTIME.smarts_by_level or {}
+    local board = get_board()
+    local by_name = board and board.smarts_by_names or nil
+    local out = {}
+
+    for lvl, smarts in pairs(by_level) do
+        local idx = {
+            trade_slot = {},
+            trader = {},
+            tech_slot = {},
+            anomaly = {},
+            kamp = {},
+            base = {},
+            safe = {},
+        }
+        local anomaly_set = {}
+        local base_set = {}
+        if siski.config and siski.config.get_anomaly_smarts then
+            local a = siski.config.get_anomaly_smarts(lvl) or {}
+            for i = 1, #a do anomaly_set[a[i]] = true end
+        end
+        if siski.config and siski.config.get_level_bases then
+            local b = siski.config.get_level_bases(lvl) or {}
+            for i = 1, #b do base_set[b[i]] = true end
+        end
+
+        for i = 1, (smarts and #smarts or 0) do
+            local name = smarts[i]
+            local sm = by_name and name and by_name[name] or nil
+            if name and sm then
+                idx.safe[#idx.safe + 1] = name
+                if smart_has_trader_slot(name, sm) then
+                    idx.trade_slot[#idx.trade_slot + 1] = name
+                end
+                if smart_has_real_trader(sm) then
+                    idx.trader[#idx.trader + 1] = name
+                end
+                if smart_has_tech_slot(name, sm) then
+                    idx.tech_slot[#idx.tech_slot + 1] = name
+                end
+                if smart_has_kamp_slot(name, sm) then
+                    idx.kamp[#idx.kamp + 1] = name
+                end
+                if anomaly_set[name] == true then
+                    idx.anomaly[#idx.anomaly + 1] = name
+                end
+                if base_set[name] == true then
+                    idx.base[#idx.base + 1] = name
+                end
+            end
+        end
+        out[lvl] = idx
+    end
+
+    RUNTIME.cap_index_by_level = out
+    RUNTIME.cap_index_rebuild_tg = tg()
+end
+
+local function get_cap_bucket(level_name, bucket, community)
+    if type(level_name) ~= "string" or level_name == "" then
+        return nil
+    end
+    if type(RUNTIME.cap_index_by_level) ~= "table" or next(RUNTIME.cap_index_by_level) == nil then
+        rebuild_capability_index()
+    end
+    local idx = RUNTIME.cap_index_by_level[level_name]
+    if type(idx) ~= "table" then
+        return nil
+    end
+    local arr = idx[bucket]
+    if type(arr) ~= "table" then
+        return nil
+    end
+    if bucket ~= "safe" or not community then
+        return arr
+    end
+    local filtered = {}
+    for i = 1, #arr do
+        local name = arr[i]
+        if smart_is_safe_for_faction(name, community, level_name) then
+            filtered[#filtered + 1] = name
+        end
+    end
+    return filtered
+end
+
+local function pick_base_camping_target_smart(level_name, community, section_name)
+    if not level_name then return nil end
+    local smarts = get_smarts_for_level(level_name, community, section_name)
+    local n = smarts and #smarts or 0
+    if n <= 0 then return nil end
+
+    local cap_base = get_cap_bucket(level_name, "base", community)
+    if cap_base and #cap_base > 0 then
+        local picked = pick_random_valid_safe(cap_base, community, nil, level_name, section_name)
+        if picked then
+            return picked
+        end
+    end
+
+    local cap_kamp = get_cap_bucket(level_name, "kamp", community)
+    if cap_kamp and #cap_kamp > 0 then
+        local picked = pick_random_valid_safe(cap_kamp, community, nil, level_name, section_name)
+        if picked then
+            return picked
+        end
+    end
+
+    local board = get_board()
+    local by_name = board and board.smarts_by_names or nil
+
+    local cfg = siski.config and siski.config.get_level_bases and siski.config.get_level_bases(level_name) or {}
+    local cfg_n = cfg and #cfg or 0
+    if cfg_n > 0 then
+        local bases = {}
+        local bn = 0
+        for i = 1, cfg_n do
+            local name = cfg[i]
+            local sm = by_name and name and by_name[name] or nil
+            if name and sm and (not smart_is_blacklisted_for_level(level_name, name, community, section_name)) then
+                local safe = smart_is_safe_for_faction(name, community, level_name)
+                if safe then
+                    bn = bn + 1
+                    bases[bn] = name
+                end
+            end
+        end
+        local picked = pick_random_valid(bases, community, level_name, section_name)
+        if picked then
+            return picked
+        end
+    end
+
+    local kamp = {}
+    local kamp_n = 0
+    local safe_any = {}
+    local safe_n = 0
+
+    for i = 1, n do
+        local name = smarts[i]
+        local sm = by_name and name and by_name[name] or nil
+        if name and sm and (not smart_is_blacklisted_for_level(level_name, name, community, section_name)) then
+            local safe = smart_is_safe_for_faction(name, community, level_name)
+            if safe then
+                safe_n = safe_n + 1
+                safe_any[safe_n] = name
+
+                if smart_has_kamp_slot(name, sm) then
+                    kamp_n = kamp_n + 1
+                    kamp[kamp_n] = name
+                end
+            end
+        end
+    end
+
+    return pick_random_valid(kamp, community, level_name, section_name)
+        or pick_random_valid(safe_any, community, level_name, section_name)
+        or pick_random_valid(smarts, community, level_name, section_name)
+end
+
+local function ensure_patrol_order(task, level_name, community, section_name)
+    if not (task and task.params and level_name) then return nil end
+    local p = task.params
+    local order = p.order
+    if type(order) == "table" and #order > 0 then
+        return order
+    end
+
+    local src = get_smarts_for_level(level_name, community, section_name)
+    local list = {}
+    local board = get_board()
+    local by_name = board and board.smarts_by_names or nil
+    for i = 1, (src and #src or 0) do
+        local name = src[i]
+        if name and ((not by_name) or by_name[name]) then
+            local allowed = true
+            if community then
+                allowed = is_roam_smart_allowed(name, community) == true
+            end
+            if allowed then
+                list[#list + 1] = name
+            end
+        end
+    end
+    if #list > 0 then
+        shuffle_in_place(list)
+        p.order = list
+        p.visited = {}
+        p.visited_count = 0
+        p.idx = 1
+        return list
+    end
+    p.order = {}
+    p.visited = {}
+    p.visited_count = 0
+    p.idx = 1
+    return {}
+end
+
+local function pick_next_patrol_target(task, level_name, community, section_name)
+    if not (task and task.params and level_name) then return nil end
+    local p = task.params
+    local order = ensure_patrol_order(task, level_name, community, section_name)
+    local n = order and #order or 0
+    if n <= 0 then return nil end
+
+    p.visited = p.visited or {}
+    p.visited_count = tonumber(p.visited_count) or 0
+    p.idx = tonumber(p.idx) or 1
+
+    if p.visited_count >= n then
+        p.order = nil
+        return pick_next_patrol_target(task, level_name, community, section_name)
+    end
+
+    local visited = p.visited
+    local start = p.idx
+    if start < 1 or start > n then start = 1 end
+
+    for step = 0, n - 1 do
+        local i = start + step
+        if i > n then i = i - n end
+        local name = order[i]
+        if name and not visited[name] then
+            p.idx = i + 1
+            if p.idx > n then p.idx = 1 end
+            return name
+        end
+    end
+
+    p.order = nil
+    return pick_next_patrol_target(task, level_name, community, section_name)
+end
+
+local function get_arrive_dist_cap_m()
+    if not (siski.config and siski.config.get) then return 5 end
+    local v = siski.config.get("task_arrive_dist_cap_m", 5)
+    v = tonumber(v)
+    if not v then return 5 end
+    if v < 0 then v = 0 end
+    return v
+end
+
+local function vanilla_am_i_reached(se_squad, sm)
+    if not (se_squad and sm) then return false end
+
+    local ok_sgvid, sgvid = pcall(function() return se_squad.m_game_vertex_id end)
+    local ok_tgvid, tgvid = pcall(function() return sm.m_game_vertex_id end)
+    sgvid = ok_sgvid and sgvid or nil
+    tgvid = ok_tgvid and tgvid or nil
+    if sgvid and tgvid and sgvid == tgvid then
+        return true
+    end
+
+    if sgvid and tgvid and game_graph then
+        local ok_lvl, same_level = pcall(function()
+            return game_graph():vertex(sgvid):level_id() == game_graph():vertex(tgvid):level_id()
+        end)
+        if ok_lvl and same_level == false then
+            return false
+        end
+    end
+
+    local cap_m = get_arrive_dist_cap_m()
+    if cap_m <= 0 then
+        return false
+    end
+
+    local pos_s = siski.safe and siski.safe.safe_position and siski.safe.safe_position(se_squad) or nil
+    local pos_t = sm.position
+    if not (pos_s and pos_t and pos_s.distance_to_sqr) then
+        return false
+    end
+
+    local ok_arr, arrive_dist = pcall(function() return sm.arrive_dist end)
+    arrive_dist = ok_arr and tonumber(arrive_dist) or nil
+    if not arrive_dist then
+        arrive_dist = cap_m
+    else
+        arrive_dist = math.min(arrive_dist, cap_m)
+    end
+
+    local ok_alw, alw = pcall(function() return se_squad.always_arrived end)
+    if ok_alw and alw == true then
+        return true
+    end
+
+    local ok_d2, d2 = pcall(function() return pos_s:distance_to_sqr(pos_t) end)
+    d2 = ok_d2 and tonumber(d2) or nil
+    if not d2 then return false end
+    return d2 <= (arrive_dist * arrive_dist)
+end
+
+local function is_squad_arrived_to_smart(se_squad, smart_name)
+    local sm = get_smart_by_name(smart_name)
+    if not (se_squad and sm) then return false end
+
+    local ok_ca, ca = pcall(function() return se_squad.current_action end)
+    local ok_at, at = pcall(function() return se_squad.assigned_target_id end)
+    local ok_ct, ct = pcall(function() return se_squad.current_target_id end)
+    local ok_ss, ss = pcall(function() return se_squad.smart_id end)
+    local ok_id, sid = pcall(function() return sm.id end)
+    ca = ok_ca and tonumber(ca) or nil
+    at = ok_at and tonumber(at) or nil
+    ct = ok_ct and tonumber(ct) or nil
+    ss = ok_ss and tonumber(ss) or nil
+    sid = ok_id and tonumber(sid) or nil
+
+    local function log_state(arrived, source)
+        if not (siski.log and siski.log.debug) then return end
+        local sqid = tonumber(se_squad.id)
+        if not sqid then return end
+        local now = tg()
+        local c = RUNTIME.target_arrived_state_cache[sqid]
+        if c and c.arrived == arrived and now < (tonumber(c.next_tg) or 0) then
+            return
+        end
+        RUNTIME.target_arrived_state_cache[sqid] = { arrived = arrived, next_tg = now + 5000 }
+        siski.log.debug("TASKS", "target_arrived_state sid=%s target=%s arrived=%s source=%s ca=%s at=%s ct=%s smart_id=%s",
+            tostring(sqid),
+            tostring(smart_name or "-"),
+            tostring(arrived == true),
+            tostring(source or "-"),
+            tostring(ca or "-"),
+            tostring(at or "-"),
+            tostring(ct or "-"),
+            tostring(ss or "-")
+        )
+    end
+
+    if ca == 1 and sid and ((ct and ct == sid) or (ss and ss == sid)) then
+        log_state(true, "fast_current")
+        return true
+    end
+
+    if sm.am_i_reached then
+        local ok, res = pcall(function() return sm:am_i_reached(se_squad) end)
+        if ok and res then
+            log_state(true, "smart_am_i_reached")
+            return true
+        end
+    end
+
+    local arrived = vanilla_am_i_reached(se_squad, sm)
+    log_state(arrived, "vanilla_fallback")
+    return arrived
+end
+
+local TARGET_TASK_TYPES = {
+    EXPLORE = true,
+    ARTEFACT = true,
+    BASE_CAMPING = true,
+    PATROL = true,
+    POPULATE = true,
+    TRADE = true,
+    NIGHT_REST = true,
+    FACTION_TASK = true,
+}
+
+local ROAM_LIKE_TYPES = {
+    REST_1H = true,
+    EXPLORE = true,
+    ARTEFACT = true,
+    BASE_CAMPING = true,
+    PATROL = true,
+    POPULATE = true,
+    NIGHT_REST = true,
+}
+
+local function is_target_task(task)
+    if not (task and TARGET_TASK_TYPES[task.type]) then return false end
+    return type(task.target) == "string" and task.target ~= ""
+end
+
+local function get_target_sync_enabled()
+    if not (siski.config and siski.config.get) then return true end
+    return siski.config.get("target_sync_enabled", true) ~= false
+end
+
+local function get_target_unstuck_enabled()
+    if not (siski.config and siski.config.get) then return true end
+    return siski.config.get("target_unstuck_enabled", true) ~= false
+end
+
+local function get_online_intent_enforce_enabled()
+    if not (siski.config and siski.config.get) then return true end
+    return siski.config.get("online_intent_enforce_enabled", true) ~= false
+end
+
+local function get_target_num_cfg(key, default, min_v)
+    return cfg_num(key, default, min_v)
+end
+
+local function resolve_target_smart_id(smart_name)
+    if type(smart_name) ~= "string" or smart_name == "" then
+        return nil, nil
+    end
+    local board = get_board()
+    local sm = board and board.smarts_by_names and board.smarts_by_names[smart_name] or nil
+    local sid = sm and tonumber(sm.id) or nil
+    return sid, sm
+end
+
+local function set_scripted_target(se_squad, smart_name, params, opts)
+    if not se_squad then return false end
+    se_squad.scripted_target = smart_name
+
+    if not get_target_sync_enabled() then
+        return true
+    end
+    if type(smart_name) ~= "string" or smart_name == "" then
+        return true
+    end
+
+    params = type(params) == "table" and params or nil
+    local now = tg()
+    local sid = nil
+    sid = resolve_target_smart_id(smart_name)
+    local force_sync = opts and opts.force_sync == true
+
+    local changed = false
+    if params then
+        changed = params.target_sync_name ~= smart_name
+        params.target_sync_name = smart_name
+        if sid then
+            params.target_sync_smart_id = sid
+        else
+            params.target_sync_smart_id = nil
+        end
+        if changed then
+            params.target_sync_started_tg = now
+            params.target_last_progress_tg = now
+            params.target_last_gvid = tonumber(se_squad.m_game_vertex_id) or nil
+            params.target_last_assigned_id = tonumber(se_squad.assigned_target_id) or nil
+            params.target_last_current_id = tonumber(se_squad.current_target_id) or nil
+            params.target_last_action = tonumber(se_squad.current_action) or nil
+        end
+    end
+
+    if changed or force_sync then
+        se_squad.current_action = 0
+        se_squad.current_target_id = nil
+        if sid then
+            se_squad.assigned_target_id = sid
+        end
+        se_squad.stay_time = nil
+        se_squad.arrive_time = nil
+
+        if params then
+            params.target_last_progress_tg = now
+            params.target_last_gvid = tonumber(se_squad.m_game_vertex_id) or nil
+            params.target_last_assigned_id = tonumber(se_squad.assigned_target_id) or nil
+            params.target_last_current_id = tonumber(se_squad.current_target_id) or nil
+            params.target_last_action = tonumber(se_squad.current_action) or nil
+        end
+
+        if siski.log and siski.log.info then
+            siski.log.info("TASKS", "target_sync sid=%s target=%s smart_id=%s reason=%s changed=%s",
+                tostring(se_squad.id or "-"),
+                tostring(smart_name),
+                tostring(sid or "-"),
+                tostring(opts and opts.reason or "set"),
+                tostring(changed)
+            )
+        end
+    end
+
+    return true
+end
+
+local function is_online_squad(se_squad)
+    if not se_squad then return false end
+    local ok, online = pcall(function() return se_squad.online end)
+    return ok and online == true
+end
+
+local function smart_distance_to_target_m(se_squad, smart_name)
+    if not (se_squad and type(smart_name) == "string" and smart_name ~= "") then return nil end
+    local sm = get_smart_by_name(smart_name)
+    if not sm then return nil end
+    local p1 = siski.safe and siski.safe.safe_position and siski.safe.safe_position(se_squad) or nil
+    local p2 = sm.position
+    if not (p1 and p2 and p1.distance_to) then return nil end
+    local ok, d = pcall(function() return p1:distance_to(p2) end)
+    d = ok and tonumber(d) or nil
+    return d
+end
+
+local function pick_alt_target_for_task(task, cur_level, community, section_name, prefer_current_level)
+    if not (task and type(cur_level) == "string" and cur_level ~= "") then return nil end
+    local current = task.target
+    local target_level = task.params and task.params.target_level or cur_level
+
+    local function pick_from_list(list, list_level)
+        if not list or #list <= 0 then return nil end
+
+        for _ = 1, math.min(12, #list) do
+            local c = community and pick_random_valid_safe(list, community, nil, list_level, section_name) or pick_random_valid(list, community, list_level, section_name)
+            if c and c ~= current then
+                local sm = get_smart_by_name(c)
+                if sm and (not smart_is_blacklisted_by_obj(sm, c, community, section_name)) and ((not community) or is_roam_smart_allowed(c, community)) then
+                    return c
+                end
+            end
+        end
+
+        for i = 1, #list do
+            local c = list[i]
+            if c and c ~= current then
+                local sm = get_smart_by_name(c)
+                if sm and (not smart_is_blacklisted_by_obj(sm, c, community, section_name)) and ((not community) or is_roam_smart_allowed(c, community)) then
+                    return c
+                end
+            end
+        end
+        return nil
+    end
+
+    if prefer_current_level == true then
+        local c1 = pick_from_list(get_smarts_for_level(cur_level, community, section_name), cur_level)
+        if c1 then return c1 end
+        local c2 = pick_from_list(get_smarts_for_level(target_level, community, section_name), target_level)
+        if c2 then return c2 end
+    else
+        local c1 = pick_from_list(get_smarts_for_level(target_level, community, section_name), target_level)
+        if c1 then return c1 end
+        local c2 = pick_from_list(get_smarts_for_level(cur_level, community, section_name), cur_level)
+        if c2 then return c2 end
+    end
+
+    return nil
+end
+
+local function enforce_online_task_intent(se_squad, entry, task)
+    if not get_online_intent_enforce_enabled() then return end
+    if not (se_squad and entry and is_target_task(task)) then return end
+    if not is_online_squad(se_squad) then return end
+
+    local sid = resolve_target_smart_id(task.target)
+    local stgt = se_squad.scripted_target
+    local at = tonumber(se_squad.assigned_target_id) or nil
+    local ca = tonumber(se_squad.current_action) or nil
+    local mismatch = false
+
+    if stgt ~= task.target then mismatch = true end
+    if sid and at and at ~= sid then mismatch = true end
+    if ca == nil then mismatch = true end
+
+    if mismatch then
+        set_scripted_target(se_squad, task.target, task.params, { force_sync = true, reason = "online_intent_enforce" })
+        if siski.log and siski.log.warn then
+            siski.log.warn("TASKS", "ONLINE_WANDER_DETECTED sid=%s task=%s target=%s cur_level=%s gvid=%s",
+                tostring(entry and entry.squad_id or "-"),
+                tostring(task and task.type or "-"),
+                tostring(task and task.target or "-"),
+                tostring(entry and entry.level or "-"),
+                tostring(se_squad and se_squad.m_game_vertex_id or "-")
+            )
+        end
+    end
+end
+
+local function run_target_watchdog(se_squad, entry, task)
+    if not (se_squad and is_target_task(task)) then return end
+    if not get_target_unstuck_enabled() then return end
+    if not get_online_intent_enforce_enabled() then return end
+    if not is_online_squad(se_squad) then return end
+
+    local p = task.params or {}
+    task.params = p
+    if entry and p.online_force_rebuild == true then
+        return { force_rebuild = true }
+    end
+
+    local now = tg()
+    local grace_ms = get_target_num_cfg("target_retarget_grace_ms", 5000, 0)
+    local soft_ms = get_target_num_cfg("online_move_soft_timeout_ms", 45000, 1000)
+    local hard_ms = get_target_num_cfg("online_move_hard_timeout_ms", 120000, soft_ms)
+    if hard_ms < soft_ms then hard_ms = soft_ms end
+    local cooldown_ms = get_target_num_cfg("online_move_cooldown_ms", 10000, 0)
+    local rush_window_ms = get_target_num_cfg("online_rush_window_ms", 15000, 0)
+    local dist_eps = get_target_num_cfg("online_dist_progress_eps_m", 5, 0)
+    local max_retargets = get_target_num_cfg("online_retarget_max_per_task", 2, 0)
+    local medium_ms = soft_ms + math.max(5000, math.floor((hard_ms - soft_ms) * 0.5))
+    if medium_ms >= hard_ms then medium_ms = hard_ms - 1 end
+
+    local sync_started = tonumber(p.target_sync_started_tg) or now
+    if now < (sync_started + grace_ms) then
+        return
+    end
+
+    if p.online_rush_until_tg and now >= tonumber(p.online_rush_until_tg) then
+        se_squad.rush_to_target = nil
+        p.online_rush_until_tg = nil
+    end
+
+    local gvid = tonumber(se_squad.m_game_vertex_id) or nil
+    local at = tonumber(se_squad.assigned_target_id) or nil
+    local ct = tonumber(se_squad.current_target_id) or nil
+    local ca = tonumber(se_squad.current_action) or nil
+    local dist = smart_distance_to_target_m(se_squad, task.target)
+
+    local last_gvid = tonumber(p.online_last_gvid) or tonumber(p.target_last_gvid) or nil
+    local last_at = tonumber(p.target_last_assigned_id) or nil
+    local last_ct = tonumber(p.target_last_current_id) or nil
+    local last_ca = tonumber(p.target_last_action) or nil
+    local last_dist = tonumber(p.online_last_dist_to_target_m) or nil
+
+    if p.online_last_progress_tg == nil then
+        p.online_last_progress_tg = now
+        p.online_last_gvid = gvid
+        p.online_last_dist_to_target_m = dist
+        p.target_last_assigned_id = at
+        p.target_last_current_id = ct
+        p.target_last_action = ca
+        p.online_stall_started_tg = nil
+        return
+    end
+
+    local dist_progress = false
+    if dist and last_dist then
+        dist_progress = (last_dist - dist) >= dist_eps
+    end
+    local progressed = (gvid ~= last_gvid) or dist_progress or (at ~= last_at) or (ct ~= last_ct) or (ca ~= last_ca)
+    if progressed then
+        p.online_last_progress_tg = now
+        p.online_last_gvid = gvid
+        p.online_last_dist_to_target_m = dist
+        p.target_last_assigned_id = at
+        p.target_last_current_id = ct
+        p.target_last_action = ca
+        p.online_nudge_stage = 0
+        p.online_stall_started_tg = nil
+        p.online_force_rebuild = nil
+        if siski.log and siski.log.info then
+            siski.log.info("TASKS", "target_progress sid=%s target=%s gvid=%s dist=%s at=%s ct=%s ca=%s",
+                tostring(entry and entry.squad_id or "-"),
+                tostring(task.target or "-"),
+                tostring(gvid or "-"),
+                tostring(dist or "-"),
+                tostring(at or "-"),
+                tostring(ct or "-"),
+                tostring(ca or "-")
+            )
+        end
+        return
+    end
+
+    if p.online_stall_started_tg == nil then
+        p.online_stall_started_tg = now
+    end
+    local elapsed = now - (tonumber(p.online_stall_started_tg) or now)
+    local next_allowed = tonumber(p.online_nudge_next_tg) or tonumber(p.target_unstuck_next_tg) or 0
+    if now < next_allowed then
+        return
+    end
+
+    local cur_level = entry and entry.level or now_level_name_by_gvid(se_squad.m_game_vertex_id)
+    local community = get_squad_community(entry, se_squad)
+    local section_name = get_squad_section(entry, se_squad)
+    local task_name = tostring(task and task.type or "-")
+    local target_name = tostring(task and task.target or "-")
+
+    local route_deadlock = (dist == nil and gvid == last_gvid)
+    if route_deadlock and elapsed >= soft_ms and ((tonumber(p.online_route_deadlock_last_tg) or 0) + 15000 <= now) then
+        p.online_route_deadlock_last_tg = now
+        if siski.log and siski.log.warn then
+            siski.log.warn("TASKS", "ONLINE_ROUTE_DEADLOCK sid=%s task=%s target=%s cur_level=%s target_level=%s gvid=%s dist=%s stage=%s elapsed_ms=%s",
+                tostring(entry and entry.squad_id or "-"),
+                task_name,
+                target_name,
+                tostring(cur_level or "-"),
+                tostring(task.params and task.params.target_level or cur_level or "-"),
+                tostring(gvid or "-"),
+                tostring(dist or "-"),
+                tostring(p.online_nudge_stage or 0),
+                tostring(elapsed)
+            )
+        end
+    end
+
+    if elapsed >= soft_ms and (tonumber(p.online_wander_last_tg) or 0) + 15000 <= now then
+        p.online_wander_last_tg = now
+        if siski.log and siski.log.warn then
+            siski.log.warn("TASKS", "ONLINE_WANDER_DETECTED sid=%s task=%s target=%s cur_level=%s target_level=%s gvid=%s dist=%s stage=%s elapsed_ms=%s",
+                tostring(entry and entry.squad_id or "-"),
+                task_name,
+                target_name,
+                tostring(cur_level or "-"),
+                tostring(task.params and task.params.target_level or cur_level or "-"),
+                tostring(gvid or "-"),
+                tostring(dist or "-"),
+                tostring(p.online_nudge_stage or 0),
+                tostring(elapsed)
+            )
+        end
+    end
+
+    if elapsed >= hard_ms then
+        -- Hard steering reset for long online deadlock.
+        se_squad.scripted_target = nil
+        se_squad.assigned_target_id = nil
+        se_squad.current_target_id = nil
+        se_squad.current_action = 0
+        se_squad.stay_time = nil
+        se_squad.arrive_time = nil
+        if SIMBOARD and SIMBOARD.assign_squad_to_smart then
+            pcall(function() SIMBOARD:assign_squad_to_smart(se_squad, nil) end)
+        end
+
+        local ret = tonumber(p.online_retarget_count) or 0
+        if ret < max_retargets then
+            local new_target = pick_alt_target_for_task(task, cur_level, community, section_name, true)
+            if not new_target then
+                new_target = pick_alt_target_for_task(task, cur_level, community, section_name, false)
+            end
+            if new_target and new_target ~= task.target then
+                task.target = new_target
+                reset_task_hotpath_timers(task)
+                p.online_retarget_count = ret + 1
+                p.online_nudge_stage = 3
+                p.online_nudge_next_tg = now + cooldown_ms
+                p.online_stall_started_tg = nil
+                p.online_last_progress_tg = now
+                p.online_last_gvid = gvid
+                p.online_last_dist_to_target_m = nil
+                p._applied = nil
+                set_scripted_target(se_squad, task.target, p, { force_sync = true, reason = "online_hard_reroll" })
+                if siski.log and siski.log.warn then
+                    siski.log.warn("TASKS", "ONLINE_STALL_HARD_RETARGET sid=%s task=%s target=%s cur_level=%s target_level=%s gvid=%s dist=%s stage=%s elapsed_ms=%s retarget_count=%s",
+                        tostring(entry and entry.squad_id or "-"),
+                        task_name,
+                        tostring(task.target or "-"),
+                        tostring(cur_level or "-"),
+                        tostring(task.params and task.params.target_level or cur_level or "-"),
+                        tostring(gvid or "-"),
+                        tostring(dist or "-"),
+                        tostring(p.online_nudge_stage or "-"),
+                        tostring(elapsed),
+                        tostring(p.online_retarget_count or 0)
+                    )
+                end
+                return
+            end
+        end
+
+        p.online_nudge_stage = 4
+        p.online_nudge_next_tg = now + cooldown_ms
+        p.online_stall_started_tg = nil
+        p.online_force_rebuild = true
+        p._applied = nil
+        if siski.log and siski.log.warn then
+            siski.log.warn("TASKS", "ONLINE_STALL_FALLBACK sid=%s task=%s target=%s cur_level=%s target_level=%s gvid=%s dist=%s stage=%s elapsed_ms=%s",
+                tostring(entry and entry.squad_id or "-"),
+                task_name,
+                target_name,
+                tostring(cur_level or "-"),
+                tostring(task.params and task.params.target_level or cur_level or "-"),
+                tostring(gvid or "-"),
+                tostring(dist or "-"),
+                tostring(p.online_nudge_stage or "-"),
+                tostring(elapsed)
+            )
+        end
+        return { force_rebuild = true }
+    end
+
+    if elapsed >= medium_ms and (tonumber(p.online_nudge_stage) or 0) < 2 then
+        p.online_nudge_stage = 2
+        p.online_nudge_next_tg = now + cooldown_ms
+        se_squad.rush_to_target = true
+        p.online_rush_until_tg = now + rush_window_ms
+        set_scripted_target(se_squad, task.target, p, { force_sync = true, reason = "online_medium_rush" })
+        if siski.log and siski.log.warn then
+            siski.log.warn("TASKS", "ONLINE_STALL_MEDIUM_RUSH sid=%s task=%s target=%s cur_level=%s target_level=%s gvid=%s dist=%s stage=%s elapsed_ms=%s",
+                tostring(entry and entry.squad_id or "-"),
+                task_name,
+                target_name,
+                tostring(cur_level or "-"),
+                tostring(task.params and task.params.target_level or cur_level or "-"),
+                tostring(gvid or "-"),
+                tostring(dist or "-"),
+                tostring(p.online_nudge_stage or "-"),
+                tostring(elapsed)
+            )
+        end
+        return
+    end
+
+    if elapsed >= soft_ms and (tonumber(p.online_nudge_stage) or 0) < 1 then
+        p.online_nudge_stage = 1
+        p.online_nudge_next_tg = now + cooldown_ms
+        set_scripted_target(se_squad, task.target, p, { force_sync = true, reason = "online_soft" })
+        if siski.log and siski.log.warn then
+            siski.log.warn("TASKS", "ONLINE_STALL_SOFT sid=%s task=%s target=%s cur_level=%s target_level=%s gvid=%s dist=%s stage=%s elapsed_ms=%s",
+                tostring(entry and entry.squad_id or "-"),
+                task_name,
+                target_name,
+                tostring(cur_level or "-"),
+                tostring(task.params and task.params.target_level or cur_level or "-"),
+                tostring(gvid or "-"),
+                tostring(dist or "-"),
+                tostring(p.online_nudge_stage or "-"),
+                tostring(elapsed)
+            )
+        end
+        return
+    end
+end
+
+local function should_run_watchdog(task, now, entry)
+    if not task then return false end
+    task.params = task.params or {}
+    local dirty = false
+    if entry then
+        dirty = consume_entry_dirty(entry, "task") or consume_entry_dirty(entry, "smart") or consume_entry_dirty(entry, "identity")
+    end
+    local next_tg = tonumber(task.params.watchdog_next_scan_tg) or 0
+    if (not dirty) and now < next_tg then
+        return false
+    end
+    if not adaptive_should_run("tasks.watchdog", now, WATCHDOG_SCAN_INTERVAL_MS, ADAPTIVE_FORCE_WATCHDOG_MS) then
+        adaptive_note_defer("tasks.watchdog", now, "lane_pressure")
+        return false
+    end
+    local interval = WATCHDOG_SCAN_INTERVAL_MS
+    if dirty then
+        interval = math.min(interval, DIRTY_REVALIDATE_TTL_MS)
+    end
+    task.params.watchdog_next_scan_tg = now + interval
+    return true
+end
+
+local function should_revalidate_target(task, now, force, entry)
+    if not task then return false end
+    task.params = task.params or {}
+    local dirty = false
+    if entry then
+        dirty = consume_entry_dirty(entry, "task") or consume_entry_dirty(entry, "level") or consume_entry_dirty(entry, "community") or consume_entry_dirty(entry, "identity")
+    end
+    if force == true then
+        task.params.target_revalidate_next_tg = now + math.min(TARGET_REVALIDATE_INTERVAL_MS, DIRTY_REVALIDATE_TTL_MS)
+        return true
+    end
+    if dirty then
+        task.params.target_revalidate_next_tg = now + DIRTY_REVALIDATE_TTL_MS
+        return true
+    end
+    local next_tg = tonumber(task.params.target_revalidate_next_tg) or 0
+    if now < next_tg then
+        return false
+    end
+    if not adaptive_should_run("tasks.revalidate", now, TARGET_REVALIDATE_INTERVAL_MS, ADAPTIVE_FORCE_REVALIDATE_MS) then
+        adaptive_note_defer("tasks.revalidate", now, "lane_pressure")
+        return false
+    end
+    task.params.target_revalidate_next_tg = now + TARGET_REVALIDATE_INTERVAL_MS
+    return true
+end
+
+local function is_task_target_valid(task, community, section_name)
+    if not (task and task.target and type(task.target) == "string") then
+        return true
+    end
+    local sm = get_smart_by_name(task.target)
+    if sm and smart_is_blacklisted_by_obj(sm, task.target, community, section_name) then
+        return false
+    end
+    local target_level = task.params and task.params.target_level or nil
+    if (not sm) and smart_is_blacklisted_for_level(target_level, task.target, community, section_name) then
+        return false
+    end
+    return sm ~= nil
+end
+
+local function build_rest_task(se_squad)
+    local tonumber = tonumber
+    local rest_hours = 1
+    if siski.config and siski.config.get then
+        local v = siski.config.get("rest_duration_game_hours", rest_hours)
+        if tonumber(v) then rest_hours = tonumber(v) end
+    end
+    if rest_hours <= 0 then rest_hours = 1 end
+    local duration_game_sec = math.floor(rest_hours * 3600)
+    if duration_game_sec < 1 then duration_game_sec = 1 end
+    do
+        local min_s = 0
+        local max_s = 0
+        if siski.config and siski.config.get then
+            local vmin = siski.config.get("rest_fallback_stay_min_sec", 900)
+            local vmax = siski.config.get("rest_fallback_stay_max_sec", 1800)
+            min_s = tonumber(vmin) or 0
+            max_s = tonumber(vmax) or 0
+        end
+        if min_s < 0 then min_s = 0 end
+        if max_s < 0 then max_s = 0 end
+        if max_s > 0 and min_s > 0 and max_s < min_s then
+            max_s = min_s
+        end
+        if min_s > 0 and duration_game_sec < min_s then
+            duration_game_sec = max_s > 0 and math.random(min_s, max_s) or min_s
+        elseif max_s > 0 and duration_game_sec > max_s then
+            duration_game_sec = max_s
+        end
+        if duration_game_sec < 1 then duration_game_sec = 1 end
+    end
+
+    local started_gt = nil
+    local now_gt = game_time_now()
+    if now_gt then
+        started_gt = ctime_to_table(now_gt)
+    end
+
+    local tf = (level and level.get_time_factor and level.get_time_factor()) or 10
+    if tf <= 0 then tf = 10 end
+    local duration_ms = math.floor((duration_game_sec * 1000) / tf)
+    if duration_ms < 1000 then duration_ms = 1000 end
+
+    return make_task("REST_1H", nil, {
+        started_at_gt = started_gt,
+        duration_game_sec = duration_game_sec,
+        started_at_tg = tg(),
+        duration_ms = duration_ms
+    }, 0)
+end
+
+local function build_explore_task(se_squad, cur_level, community, section_name)
+    local neighbors = {}
+    if siski.config and siski.config.get_neighbors then
+        neighbors = siski.config.get_neighbors(cur_level)
+    end
+    local levels = {}
+    local seen = {}
+    local function add_level(name)
+        if type(name) ~= "string" or name == "" then return end
+        if seen[name] then return end
+        if is_level_blacklisted_for_faction(name, community, section_name) then return end
+        seen[name] = true
+        levels[#levels + 1] = name
+    end
+    for i = 1, (neighbors and #neighbors or 0) do
+        add_level(neighbors[i])
+    end
+    add_level(cur_level)
+
+    local target_level = pick_random(levels)
+    if not target_level then return nil end
+
+    local smarts = get_smarts_for_level(target_level, community, section_name)
+    local smart_name = nil
+    if community then
+        smart_name = pick_random_valid_safe(smarts, community, nil, target_level, section_name)
+            or pick_random_valid_safe(get_smarts_for_level(cur_level, community, section_name), community, nil, cur_level, section_name)
+    else
+        smart_name = pick_random_valid(smarts, community, target_level, section_name)
+            or pick_random_valid(get_smarts_for_level(cur_level, community, section_name), community, cur_level, section_name)
+    end
+    if not smart_name then return nil end
+    return make_task("EXPLORE", smart_name, { started_at_tg = tg(), target_level = target_level }, 0)
+end
+
+local function build_force_exit_task(se_squad, entry, cur_level, community, section_name)
+    if not (cur_level and community) then return nil end
+
+    local neighbors = {}
+    if siski.config and siski.config.get_neighbors then
+        neighbors = siski.config.get_neighbors(cur_level)
+    end
+
+    local candidate_levels = {}
+    local seen = {}
+    for i = 1, (neighbors and #neighbors or 0) do
+        local lvl = neighbors[i]
+        if type(lvl) == "string" and lvl ~= "" and lvl ~= cur_level and (not seen[lvl]) then
+            seen[lvl] = true
+            if not is_level_blacklisted_for_faction(lvl, community, section_name) then
+                candidate_levels[#candidate_levels + 1] = lvl
+            end
+        end
+    end
+
+    local sid = (entry and entry.squad_id) or (se_squad and se_squad.id) or "-"
+
+    if #candidate_levels <= 0 then
+        if siski.log and siski.log.info then
+            siski.log.info("TASKS", "FORCE_EXIT_NO_ROUTE sid=%s community=%s from_level=%s reason=no_allowed_neighbor_levels",
+                tostring(sid), tostring(community), tostring(cur_level))
+        end
+        return nil
+    end
+
+    shuffle_in_place(candidate_levels)
+    for i = 1, #candidate_levels do
+        local target_level = candidate_levels[i]
+        local smarts = get_smarts_for_level(target_level, community, section_name)
+        local target = pick_random_valid_safe(smarts, community, nil, target_level, section_name)
+        if target then
+            if siski.log and siski.log.info then
+                siski.log.info("TASKS", "FORCE_EXIT_ASSIGNED sid=%s community=%s from_level=%s to_level=%s target=%s",
+                    tostring(sid), tostring(community), tostring(cur_level), tostring(target_level), tostring(target))
+            end
+            return make_task("EXPLORE", target, {
+                started_at_tg = tg(),
+                target_level = target_level,
+                from_level = cur_level,
+                force_exit = true,
+            }, 0)
+        end
+    end
+
+    if siski.log and siski.log.info then
+        siski.log.info("TASKS", "FORCE_EXIT_NO_ROUTE sid=%s community=%s from_level=%s reason=no_allowed_smarts",
+            tostring(sid), tostring(community), tostring(cur_level))
+    end
+    return nil
+end
+
+local function pick_populate_target_smart(se_squad, cur_level, community, section_name)
+    if not (se_squad and cur_level and community) then
+        return nil
+    end
+    if not (siski.memory and (siski.memory.iter_squads_for_logic or siski.memory.get_state)) then
+        return nil
+    end
+
+    local ok_sgvid, sgvid = pcall(function() return se_squad.m_game_vertex_id end)
+    sgvid = ok_sgvid and sgvid or nil
+
+    local best_roam_name = nil
+    local best_roam_dist = nil
+    local roam_list = {}
+    local roam_n = 0
+
+    for _, e in iter_logic_squads(LOGIC_MAX_AGE_MS) do
+        local cur = e and e.tasks and e.tasks.current or nil
+        if cur and type(cur.target) == "string" then
+            local other_level = e.level
+            local other_comm = e.community
+            if other_level and other_level ~= cur_level and other_comm and is_ally_faction(community, other_comm) then
+                local is_roam = cur.type == "EXPLORE"
+                    or cur.type == "ARTEFACT"
+                    or cur.type == "PATROL"
+                    or cur.type == "POPULATE"
+                    or cur.type == "TRADE"
+                    or cur.type == "BASE_CAMPING"
+                    local sm = get_smart_by_name(cur.target)
+                if is_roam and sm and (not smart_is_blacklisted_by_obj(sm, cur.target, community, section_name)) and is_roam_smart_allowed(cur.target, community) then
+                    local ok_gvid, tgvid = pcall(function() return sm and sm.m_game_vertex_id end)
+                    tgvid = ok_gvid and tgvid or nil
+                    local target_level = tgvid and now_level_name_by_gvid(tgvid) or nil
+                    if target_level and target_level ~= cur_level then
+                        local d = (not sgvid) and 0 or try_game_graph_distance(sgvid, tgvid)
+                        if d then
+                            roam_n = roam_n + 1
+                            roam_list[roam_n] = cur.target
+                            if not best_roam_dist or d < best_roam_dist then
+                                best_roam_dist = d
+                                best_roam_name = cur.target
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if best_roam_name then
+        return best_roam_name
+    end
+    return pick_random_valid_safe(roam_list, community, nil, nil, section_name)
+end
+
+local function build_populate_task(se_squad, entry, cur_level, community, section_name)
+    if not (cur_level and community) then return nil end
+    local smart_name = pick_populate_target_smart(se_squad, cur_level, community, section_name)
+    if not smart_name then return nil end
+    return make_task("POPULATE", smart_name, { started_at_tg = tg(), from_level = cur_level }, 0)
+end
+
+local function find_nearby_artifact(pos, radius)
+    if not (level and level.iterate_nearest and pos and radius) then return nil end
+    local found = nil
+    level.iterate_nearest(pos, radius, function(obj)
+        if not obj then return false end
+        local sec = siski.safe and siski.safe.safe_section and siski.safe.safe_section(obj) or nil
+        if sec and string.sub(sec, 1, 3) == "af_" then
+            found = sec
+            return true
+        end
+        return false
+    end)
+    return found
+end
+
+local function build_artefact_task(se_squad, cur_level, community, section_name)
+    local list = get_cap_bucket(cur_level, "anomaly", community)
+    if not list or #list == 0 then
+        list = siski.config and siski.config.get_anomaly_smarts and siski.config.get_anomaly_smarts(cur_level) or {}
+    end
+    local smart_name = community and pick_random_valid_safe(list, community, nil, cur_level, section_name) or pick_random_valid(list, community, cur_level, section_name)
+    if not smart_name then return nil end
+    return make_task("ARTEFACT", smart_name, { started_at_tg = tg(), check_cd_tg = 0, hops = 0 }, 0)
+end
+
+local build_base_camping_task
+local build_patrol_task
+local build_night_rest_task
+
+local build_trade_task
+
+local function build_roam_task(se_squad, entry, cur_level, community, section_name, trade_enabled, artefact_enabled, explore_enabled, populate_enabled, base_camping_enabled, patrol_enabled)
+    if is_level_blacklisted_for_faction(cur_level, community, section_name) then
+        local forced = build_force_exit_task(se_squad, entry, cur_level, community, section_name)
+        if forced then
+            return forced
+        end
+    end
+
+    local candidates = {}
+    local n = 0
+
+    if artefact_enabled then
+        local t = build_artefact_task(se_squad, cur_level, community, section_name)
+        if t then
+            n = n + 1
+            candidates[n] = t
+        end
+    end
+
+    if trade_enabled and siski.trade and siski.trade.can_trade_now then
+        local ok_can, can_trade = pcall(siski.trade.can_trade_now, se_squad)
+        if ok_can and can_trade == true and build_trade_task then
+            local t = build_trade_task(se_squad, entry, cur_level, community, section_name)
+            if t then
+                n = n + 1
+                candidates[n] = t
+            end
+        end
+    end
+
+    if populate_enabled and community then
+        local t = build_populate_task(se_squad, entry, cur_level, community, section_name)
+        if t then
+            n = n + 1
+            candidates[n] = t
+        end
+    end
+
+    if explore_enabled then
+        local t = build_explore_task(se_squad, cur_level, community, section_name)
+        if t then
+            n = n + 1
+            candidates[n] = t
+        end
+    end
+    
+    if base_camping_enabled then
+        local t = build_base_camping_task(se_squad, entry, cur_level, community, section_name)
+        if t then
+            n = n + 1
+            candidates[n] = t
+        end
+    end
+
+    if patrol_enabled then
+        local t = build_patrol_task(se_squad, entry, cur_level, community, section_name)
+        if t then
+            n = n + 1
+            candidates[n] = t
+        end
+    end
+
+    return pick_random(candidates)
+end
+
+build_base_camping_task = function(se_squad, entry, cur_level, community, section_name)
+    if not cur_level then return nil end
+    local smart_name = pick_base_camping_target_smart(cur_level, community, section_name)
+    if not smart_name then return nil end
+
+    local camp_hours = 2
+    if siski.config and siski.config.get then
+        local v = siski.config.get("base_camping_duration_game_hours", camp_hours)
+        if tonumber(v) then camp_hours = tonumber(v) end
+    end
+    if camp_hours <= 0 then camp_hours = 1 end
+
+    local duration_game_sec = math.floor(camp_hours * 3600)
+    if duration_game_sec < 1 then duration_game_sec = 1 end
+
+    local tf = (level and level.get_time_factor and level.get_time_factor()) or 10
+    if tf <= 0 then tf = 10 end
+    local duration_ms = math.floor((camp_hours * 3600 * 1000) / tf)
+    if duration_ms < 1000 then duration_ms = 1000 end
+
+    return make_task("BASE_CAMPING", smart_name, {
+        duration_game_sec = duration_game_sec,
+        duration_ms = duration_ms,
+        arrived_at_gt = nil,
+        arrived_at_tg = nil,
+    }, 0)
+end
+
+build_patrol_task = function(se_squad, entry, cur_level, community, section_name)
+    if not cur_level then return nil end
+    local task = make_task("PATROL", nil, {}, 0)
+    task.params.started_at_tg = tg()
+    do
+        local now_gt = game_time_now()
+        if now_gt then
+            task.params.started_at_gt = ctime_to_table(now_gt)
+        end
+    end
+    task.params.duration_game_sec = 7200
+    do
+        local tf = (level and level.get_time_factor and level.get_time_factor()) or 10
+        if tf <= 0 then tf = 10 end
+        task.params.duration_ms = math.floor((task.params.duration_game_sec * 1000) / tf)
+        if task.params.duration_ms < 1000 then task.params.duration_ms = 1000 end
+    end
+    local target = pick_next_patrol_target(task, cur_level, community, section_name)
+    if not target then return nil end
+    task.target = target
+    reset_task_hotpath_timers(task)
+    return task
+end
+
+build_night_rest_task = function(se_squad, entry, cur_level, community, section_name)
+    if not cur_level then return nil end
+    local smart_name = pick_base_camping_target_smart(cur_level, community, section_name)
+    if not smart_name then return nil end
+    local p = { started_at_tg = tg(), arrived_at_gt = nil, arrived_at_tg = nil }
+    local now_gt = game_time_now()
+    if now_gt then
+        p.started_at_gt = ctime_to_table(now_gt)
+    end
+    return make_task("NIGHT_REST", smart_name, p, 0)
+end
+
+local FACTION_ROLES = {
+    "REINFORCE_ALLY",
+    "CHOKEPOINT_GUARD",
+    "SUPPLY_RUN",
+    "CASUALTY_RECOVERY",
+    "MUTANT_CULL",
+    "ROUTE_INTERCEPT",
+    "RESCUE_FRIENDLY",
+    "RAID_SMART",
+    "FORTIFY_SMART",
+    "BORDER_RECON",
+}
+
+local FACTION_ROLE_HOLD_MS = {
+    REINFORCE_ALLY = 180000,
+    CHOKEPOINT_GUARD = 360000,
+    SUPPLY_RUN = 120000,
+    CASUALTY_RECOVERY = 240000,
+    MUTANT_CULL = 240000,
+    ROUTE_INTERCEPT = 240000,
+    RESCUE_FRIENDLY = 180000,
+    RAID_SMART = 180000,
+    FORTIFY_SMART = 600000,
+    BORDER_RECON = 180000,
+}
+
+local function quota_key(level_name, community)
+    return tostring(level_name or "-") .. "|" .. tostring(community or "-")
+end
+
+local function intel_bucket(level_name, community)
+    local key = quota_key(level_name, community)
+    local intel = RUNTIME.intel.by_level_faction
+    local b = intel[key]
+    if type(b) ~= "table" then
+        b = {}
+        intel[key] = b
+    end
+    return b
+end
+
+function record_intel(level_name, community, smart_name, score, source)
+    if not get_intel_sharing_enabled() then return end
+    if type(level_name) ~= "string" or level_name == "" then return end
+    if type(community) ~= "string" or community == "" then return end
+    if type(smart_name) ~= "string" or smart_name == "" then return end
+
+    local now = tg()
+    local b = intel_bucket(level_name, community)
+    local cur = b[smart_name]
+    if type(cur) ~= "table" then
+        cur = { score = 0, tg = now, source = source }
+        b[smart_name] = cur
+    end
+    cur.score = (tonumber(cur.score) or 0) + (tonumber(score) or 0)
+    if cur.score > 5 then cur.score = 5 end
+    if cur.score < -5 then cur.score = -5 end
+    cur.tg = now
+    cur.source = source
+end
+
+local function get_intel_score(level_name, community, smart_name)
+    if not get_intel_sharing_enabled() then return 0 end
+    local b = RUNTIME.intel.by_level_faction[quota_key(level_name, community)]
+    local e = type(b) == "table" and b[smart_name] or nil
+    if type(e) ~= "table" then return 0 end
+    local now = tg()
+    if now - (tonumber(e.tg) or 0) > INTEL_TTL_MS then
+        b[smart_name] = nil
+        return 0
+    end
+    return tonumber(e.score) or 0
+end
+
+local function cleanup_intel(now)
+    if now < (tonumber(RUNTIME.intel.next_cleanup_tg) or 0) then
+        return
+    end
+    RUNTIME.intel.next_cleanup_tg = now + 30000
+    for _, b in pairs(RUNTIME.intel.by_level_faction) do
+        if type(b) == "table" then
+            for smart_name, e in pairs(b) do
+                if type(e) ~= "table" or now - (tonumber(e.tg) or 0) > INTEL_TTL_MS then
+                    b[smart_name] = nil
+                end
+            end
+        end
+    end
+end
+
+local function refresh_faction_quota(now)
+    now = tonumber(now) or tg()
+    local q = RUNTIME.faction_quota
+    if now < (tonumber(q.next_tg) or 0) then
+        return q.by_level_faction
+    end
+    q.next_tg = now + FACTION_QUOTA_UPDATE_MS
+    q.by_level_faction = {}
+
+    local share = get_faction_task_share_percent()
+    for _, e in iter_logic_squads(LOGIC_MAX_AGE_MS) do
+        local level_name = e and e.level
+        local community = e and e.community
+        if type(level_name) == "string" and level_name ~= "" and type(community) == "string" and community ~= "" then
+            local key = quota_key(level_name, community)
+            local row = q.by_level_faction[key]
+            if not row then
+                row = { level = level_name, community = community, total = 0, assigned = 0, desired = 0 }
+                q.by_level_faction[key] = row
+            end
+            row.total = row.total + 1
+            local cur = e.tasks and e.tasks.current or nil
+            if cur and cur.type == "FACTION_TASK" then
+                row.assigned = row.assigned + 1
+            end
+        end
+    end
+
+    for _, row in pairs(q.by_level_faction) do
+        local desired = math.floor((row.total * share / 100) + 0.5)
+        if desired < 0 then desired = 0 end
+        if desired > row.total then desired = row.total end
+        row.desired = desired
+    end
+    return q.by_level_faction
+end
+
+local function get_quota_row(level_name, community, now)
+    local map = refresh_faction_quota(now)
+    local row = map and map[quota_key(level_name, community)] or nil
+    if row then return row end
+    return { level = level_name, community = community, total = 0, assigned = 0, desired = 0 }
+end
+
+local function update_incidents(now)
+    if not get_incident_chains_enabled() then
+        RUNTIME.incidents.by_id = {}
+        RUNTIME.incidents.by_key = {}
+        return
+    end
+    now = tonumber(now) or tg()
+    local inc = RUNTIME.incidents
+    if now < (tonumber(inc.next_tg) or 0) then
+        return
+    end
+    inc.next_tg = now + 10000
+
+    local map = refresh_faction_quota(now)
+    for key, row in pairs(map) do
+        local delta = (tonumber(row.desired) or 0) - (tonumber(row.assigned) or 0)
+        local iid = inc.by_key[key]
+        local cur = iid and inc.by_id[iid] or nil
+        if delta > 0 then
+            if not cur then
+                local nid = tonumber(inc.next_id) or 1
+                inc.next_id = nid + 1
+                cur = {
+                    id = nid,
+                    level = row.level,
+                    community = row.community,
+                    state = "OPEN",
+                    created_tg = now,
+                    updated_tg = now,
+                    expires_tg = now + INCIDENT_TTL_MS,
+                    role = "REINFORCE_ALLY",
+                }
+                inc.by_id[nid] = cur
+                inc.by_key[key] = nid
+            else
+                if cur.state == "OPEN" and now >= (tonumber(cur.created_tg) or now) + 10000 then
+                    cur.state = "ACTIVE"
+                end
+                cur.updated_tg = now
+                cur.expires_tg = now + INCIDENT_TTL_MS
+            end
+        elseif cur and (cur.state == "OPEN" or cur.state == "ACTIVE") then
+            cur.state = "RESOLVED"
+            cur.updated_tg = now
+            cur.expires_tg = now + 30000
+            inc.by_key[key] = nil
+        end
+    end
+
+    for id, cur in pairs(inc.by_id) do
+        if type(cur) ~= "table" then
+            inc.by_id[id] = nil
+        else
+            local exp = tonumber(cur.expires_tg) or 0
+            if exp > 0 and now >= exp then
+                inc.by_id[id] = nil
+            end
+        end
+    end
+end
+
+local function get_incident_for(level_name, community)
+    local key = quota_key(level_name, community)
+    local iid = RUNTIME.incidents.by_key[key]
+    local cur = iid and RUNTIME.incidents.by_id[iid] or nil
+    if type(cur) == "table" and (cur.state == "OPEN" or cur.state == "ACTIVE") then
+        return cur
+    end
+    return nil
+end
+
+local function pick_from_weighted_intel(list, level_name, community)
+    if type(list) ~= "table" or #list <= 0 then return nil end
+    local best = nil
+    local best_score = nil
+    for i = 1, #list do
+        local name = list[i]
+        local score = get_intel_score(level_name, community, name)
+        if best_score == nil or score > best_score then
+            best_score = score
+            best = name
+        end
+    end
+    return best or list[math.random(#list)]
+end
+
+local function pick_faction_role(se_squad, entry, cur_level, community)
+    local incident = get_incident_for(cur_level, community)
+    if incident and incident.role then
+        return incident.role, incident.id
+    end
+    local sid = tonumber((entry and entry.squad_id) or (se_squad and se_squad.id) or 0) or 0
+    local idx = ((sid + math.floor(tg() / 30000)) % #FACTION_ROLES) + 1
+    return FACTION_ROLES[idx], nil
+end
+
+local function pick_faction_target_for_role(role, cur_level, community, section_name)
+    local list = nil
+    if role == "MUTANT_CULL" then
+        list = get_cap_bucket(cur_level, "anomaly", community)
+    elseif role == "CHOKEPOINT_GUARD" or role == "FORTIFY_SMART" or role == "REINFORCE_ALLY" or role == "CASUALTY_RECOVERY" or role == "SUPPLY_RUN" then
+        list = get_cap_bucket(cur_level, "base", community)
+        if not list or #list == 0 then
+            list = get_cap_bucket(cur_level, "kamp", community)
+        end
+    elseif role == "BORDER_RECON" then
+        list = get_cap_bucket(cur_level, "safe", community)
+    else
+        list = get_smarts_for_level(cur_level, community, section_name)
+    end
+    if not list or #list == 0 then
+        list = get_smarts_for_level(cur_level, community, section_name)
+    end
+    if not list or #list == 0 then return nil end
+
+    local target = pick_from_weighted_intel(list, cur_level, community)
+    if target and community then
+        target = pick_random_valid_safe({ target }, community, nil, cur_level, section_name) or target
+    end
+    return target
+end
+
+local function build_faction_task(se_squad, entry, cur_level, community, section_name, forced_role)
+    if not get_faction_task_enabled() then return nil end
+    if not (cur_level and community) then return nil end
+
+    local role, incident_id = forced_role, nil
+    if not role then
+        role, incident_id = pick_faction_role(se_squad, entry, cur_level, community)
+    end
+    if not role then return nil end
+
+    if get_home_region_enabled() and entry and entry.home_level and entry.home_level ~= cur_level then
+        if role ~= "RAID_SMART" and role ~= "RESCUE_FRIENDLY" then
+            role = "SUPPLY_RUN"
+        end
+    end
+
+    local target = pick_faction_target_for_role(role, cur_level, community, section_name)
+    if not target then return nil end
+
+    local params = {
+        faction_role = role,
+        role_started_tg = tg(),
+        hold_started_tg = nil,
+        hold_duration_ms = FACTION_ROLE_HOLD_MS[role] or 180000,
+        phase = "ACTIVE",
+        incident_id = incident_id,
+        home_return = (entry and entry.home_level and entry.home_level ~= cur_level) and true or false,
+        waypoints = nil,
+        waypoint_idx = nil,
+    }
+
+    if role == "SUPPLY_RUN" then
+        params.phase = "TO_SUPPLY"
+        local home_level = entry and entry.home_level or cur_level
+        local home_bases = get_cap_bucket(home_level, "base", community) or get_smarts_for_level(home_level, community, section_name)
+        local return_target = home_bases and home_bases[1] or nil
+        params.return_target = return_target
+    elseif role == "BORDER_RECON" then
+        local safe = get_cap_bucket(cur_level, "safe", community) or {}
+        if #safe > 1 then
+            local tmp = {}
+            for i = 1, #safe do tmp[i] = safe[i] end
+            shuffle_in_place(tmp)
+            local w = { tmp[1], tmp[2], tmp[3] }
+            params.waypoints = {}
+            for i = 1, #w do
+                if w[i] then params.waypoints[#params.waypoints + 1] = w[i] end
+            end
+            params.waypoint_idx = 1
+            target = params.waypoints[1] or target
+        end
+    end
+
+    return make_task("FACTION_TASK", target, params, 10)
+end
+
+local function should_assign_faction_task(entry, cur_level, community, now, reserve_slot)
+    if not get_faction_task_enabled() then return false end
+    local row = get_quota_row(cur_level, community, now)
+    if row.assigned < row.desired then
+        if reserve_slot ~= false then
+            row.assigned = row.assigned + 1
+            RUNTIME.stats.forced_faction_assignments = (tonumber(RUNTIME.stats.forced_faction_assignments) or 0) + 1
+        end
+        return true
+    end
+    return false
+end
+
+local function should_release_faction_task(entry, task, cur_level, community, now)
+    if not (task and task.type == "FACTION_TASK") then return false end
+    if not get_faction_task_enabled() then return true end
+    local row = get_quota_row(cur_level, community, now)
+    if row.assigned > row.desired then
+        row.assigned = row.assigned - 1
+        RUNTIME.stats.forced_faction_releases = (tonumber(RUNTIME.stats.forced_faction_releases) or 0) + 1
+        return true
+    end
+    return false
+end
+
+local function trade_target_cache_key(se_squad, cur_level, community, section_name)
+    local sid = nil
+    if se_squad and se_squad.id then
+        sid = tonumber(se_squad.id)
+    end
+    return tostring(sid or "-") .. "|" .. tostring(cur_level or "-") .. "|" .. tostring(community or "-") .. "|" .. tostring(section_name or "-")
+end
+
+local function get_cached_trade_target(se_squad, cur_level, community, section_name, max_age_ms)
+    local key = trade_target_cache_key(se_squad, cur_level, community, section_name)
+    local c = RUNTIME.adaptive_trade_target_cache[key]
+    if type(c) ~= "table" then
+        return nil
+    end
+
+    local now = tg()
+    local age = now - (tonumber(c.tg) or 0)
+    local ttl = tonumber(max_age_ms) or 30000
+    if age > ttl then
+        return nil
+    end
+
+    local target = c.target
+    if not (target and type(target) == "string") then
+        return nil
+    end
+
+    local sm = get_smart_by_name(target)
+    if sm and smart_is_blacklisted_by_obj(sm, target, community, section_name) then
+        return nil
+    end
+    if (not sm) and smart_is_blacklisted_for_level(cur_level, target, community, section_name) then
+        return nil
+    end
+    return target
+end
+
+local function set_cached_trade_target(se_squad, cur_level, community, section_name, target)
+    if not (target and type(target) == "string") then return end
+    local key = trade_target_cache_key(se_squad, cur_level, community, section_name)
+    RUNTIME.adaptive_trade_target_cache[key] = {
+        tg = tg(),
+        target = target,
+    }
+end
+
+local function pick_trade_target_smart(se_squad, cur_level, community, section_name, lane_granted, entry)
+    local tostring = tostring
+    if not (se_squad and cur_level and community) then return nil end
+
+    local smarts = nil
+    do
+        local cap_slots = get_cap_bucket(cur_level, "trade_slot", community) or {}
+        local cap_traders = get_cap_bucket(cur_level, "trader", community) or {}
+        local cap_tech = get_cap_bucket(cur_level, "tech_slot", community) or {}
+        if #cap_slots > 0 or #cap_traders > 0 or #cap_tech > 0 then
+            local seen = {}
+            smarts = {}
+            for i = 1, #cap_slots do
+                local name = cap_slots[i]
+                if name and not seen[name] then
+                    seen[name] = true
+                    smarts[#smarts + 1] = name
+                end
+            end
+            for i = 1, #cap_traders do
+                local name = cap_traders[i]
+                if name and not seen[name] then
+                    seen[name] = true
+                    smarts[#smarts + 1] = name
+                end
+            end
+            for i = 1, #cap_tech do
+                local name = cap_tech[i]
+                if name and not seen[name] then
+                    seen[name] = true
+                    smarts[#smarts + 1] = name
+                end
+            end
+        end
+    end
+    if not smarts or #smarts == 0 then
+        smarts = get_smarts_for_level(cur_level, community, section_name)
+    end
+    local n = smarts and #smarts or 0
+    if n <= 0 then return nil end
+
+    local now = tg()
+    local dirty = false
+    if entry then
+        dirty = consume_entry_dirty(entry, "task") or consume_entry_dirty(entry, "community") or consume_entry_dirty(entry, "identity")
+    end
+    if lane_granted ~= true and (not dirty) and (not adaptive_should_run("trade.pick_target", now, 500, ADAPTIVE_FORCE_TRADE_PICK_MS)) then
+        adaptive_note_defer("trade.pick_target", now, "lane_pressure")
+        local cached_target = get_cached_trade_target(se_squad, cur_level, community, section_name, DIRTY_TRADE_PICK_TTL_MS)
+        if cached_target then
+            return cached_target
+        end
+
+        local board_quick = get_board()
+        local by_name_quick = board_quick and board_quick.smarts_by_names or nil
+        local limit = math.min(6, n)
+        for i = 1, limit do
+            local candidate = smarts[i]
+            local sm = by_name_quick and candidate and by_name_quick[candidate] or nil
+            local blacklisted = false
+            if sm then
+                blacklisted = smart_is_blacklisted_by_obj(sm, candidate, community, section_name)
+            else
+                blacklisted = smart_is_blacklisted_for_level(cur_level, candidate, community, section_name)
+            end
+            if candidate and not blacklisted then
+                set_cached_trade_target(se_squad, cur_level, community, section_name, candidate)
+                return candidate
+            end
+        end
+        return nil
+    end
+
+    local board = get_board()
+    local by_name = board and board.smarts_by_names or nil
+
+    local ok_sgvid, sgvid = pcall(function() return se_squad.m_game_vertex_id end)
+    sgvid = ok_sgvid and sgvid or nil
+
+    local ok_sid, sid = pcall(function() return se_squad.id end)
+    sid = ok_sid and tonumber(sid) or nil
+
+    local max_per_smart = 1
+    if siski.config and siski.config.get then
+        local v = siski.config.get("trade_max_squads_per_smart", max_per_smart)
+        if tonumber(v) then max_per_smart = tonumber(v) end
+    end
+    if max_per_smart < 0 then max_per_smart = 0 end
+
+    local taken = nil
+    if max_per_smart > 0 and siski.memory and (siski.memory.iter_squads_for_logic or siski.memory.get_state) then
+        taken = {}
+        for osid, e in iter_logic_squads(LOGIC_MAX_AGE_MS) do
+            local oid = tonumber(osid)
+            if not (sid and oid and oid == sid) then
+                local cur = e and e.tasks and e.tasks.current or nil
+                local tgt = cur and cur.type == "TRADE" and cur.target or nil
+                if tgt and e.level == cur_level then
+                    taken[tgt] = (tonumber(taken[tgt]) or 0) + 1
+                end
+            end
+        end
+    end
+
+    local best_slot = nil
+    local best_slot_dist = nil
+    local best_trader = nil
+    local best_trader_dist = nil
+
+    local fallback_slot = {}
+    local fb_slot_n = 0
+    local fallback_trader = {}
+    local fb_trader_n = 0
+    local slot_n = 0
+    local trader_only_n = 0
+    local excluded_cap = 0
+    local excluded_unsafe = 0
+    local slot_any = 0
+    local trader_any = 0
+    local allowed_by_name = {}
+    local function is_allowed(name)
+        if not name then return false end
+        if allowed_by_name[name] == nil then
+            allowed_by_name[name] = is_roam_smart_allowed(name, community) == true
+        end
+        return allowed_by_name[name] == true
+    end
+
+    for i = 1, n do
+        local name = smarts[i]
+        local used = taken and name and (tonumber(taken[name]) or 0) or 0
+        if max_per_smart > 0 and used >= max_per_smart then
+            excluded_cap = excluded_cap + 1
+        else
+        local sm = by_name and name and by_name[name] or nil
+        local has_slot = name and smart_has_trader_slot(name, sm) or false
+        local has_trader = (sm and smart_has_real_trader(sm)) or false
+        local ok_allowed = name and is_allowed(name)
+        if has_slot then slot_any = slot_any + 1 end
+        if has_trader then trader_any = trader_any + 1 end
+        if ok_allowed ~= true then
+            excluded_unsafe = excluded_unsafe + 1
+        end
+        if ok_allowed and has_slot then
+            slot_n = slot_n + 1
+            local ok_gvid, tgvid = pcall(function() return sm and sm.m_game_vertex_id end)
+            tgvid = ok_gvid and tgvid or nil
+            local d = try_game_graph_distance(sgvid, tgvid)
+            if d then
+                if not best_slot_dist or d < best_slot_dist then
+                    best_slot_dist = d
+                    best_slot = name
+                end
+            else
+                fb_slot_n = fb_slot_n + 1
+                fallback_slot[fb_slot_n] = name
+            end
+        elseif ok_allowed and has_trader then
+            trader_only_n = trader_only_n + 1
+            local ok_gvid, tgvid = pcall(function() return sm and sm.m_game_vertex_id end)
+            tgvid = ok_gvid and tgvid or nil
+            local d = try_game_graph_distance(sgvid, tgvid)
+            if d then
+                if not best_trader_dist or d < best_trader_dist then
+                    best_trader_dist = d
+                    best_trader = name
+                end
+            else
+                fb_trader_n = fb_trader_n + 1
+                fallback_trader[fb_trader_n] = name
+            end
+        end
+        end
+    end
+
+    local picked = nil
+    local reason = nil
+    if slot_n > 0 then
+        picked = best_slot or pick_random_valid_safe(fallback_slot, community, allowed_by_name, cur_level, section_name)
+        reason = "slot"
+    else
+        picked = best_trader or pick_random_valid_safe(fallback_trader, community, allowed_by_name, cur_level, section_name)
+        reason = "trader_fallback"
+    end
+    if siski.log and siski.log.debug then
+        siski.log.debug("TRADE", "pick_trade_target level=%s community=%s slot_smarts=%s/%s trader_only_smarts=%s/%s excluded_unsafe=%s excluded_cap=%s best=%s best_dist=%s picked=%s reason=%s",
+            tostring(cur_level or "-"),
+            tostring(community or "-"),
+            tostring(slot_n or 0),
+            tostring(slot_any or 0),
+            tostring(trader_only_n or 0),
+            tostring(trader_any or 0),
+            tostring(excluded_unsafe or 0),
+            tostring(excluded_cap or 0),
+            tostring((slot_n > 0 and best_slot) or best_trader or "-"),
+            tostring((slot_n > 0 and best_slot_dist) or best_trader_dist or "-"),
+            tostring(picked or "-"),
+            tostring(reason or "-")
+        )
+    end
+    if picked then
+        set_cached_trade_target(se_squad, cur_level, community, section_name, picked)
+        record_intel(cur_level, community, picked, 0.5, "trade_pick")
+    end
+    return picked
+end
+
+build_trade_task = function(se_squad, entry, cur_level, community, section_name)
+    local tostring = tostring
+    if not (cur_level and community) then return nil end
+    local smart_name = pick_trade_target_smart(se_squad, cur_level, community, section_name, false, entry)
+    if not smart_name then return nil end
+    local task = make_task("TRADE", smart_name, { started_at_tg = tg(), trade_offline_duration_game_sec = 7200 }, 0)
+    if siski.log and siski.log.info then
+        siski.log.info("TRADE", "build_trade_task sid=%s level=%s community=%s target=%s",
+            tostring(entry and entry.squad_id or "-"),
+            tostring(cur_level or "-"),
+            tostring(community or "-"),
+            tostring(smart_name or "-")
+        )
+    end
+    return task
+end
+
+local function rebuild_task(se_squad, entry, task)
+    if not (se_squad and entry and task and task.type) then return nil end
+    
+    -- Fast trading trigger: force TRADE task
+    if task.params and task.params.fast_trade_trigger == true then
+        task.params.fast_trade_trigger = nil
+        local cur_level_fast = now_level_name_by_gvid(se_squad.m_game_vertex_id) or entry.level
+        local community_fast = get_squad_community(entry, se_squad)
+        local section_fast = get_squad_section(entry, se_squad)
+        if siski.log and siski.log.info then
+            siski.log.info("FAST_TRADE", "rebuild_to_trade sid=%s prev_type=%s",
+                tostring(entry.squad_id or "-"),
+                tostring(task.type or "-")
+            )
+        end
+        local trade_task = build_trade_task(se_squad, entry, cur_level_fast, community_fast, section_fast)
+        if trade_task and trade_task.params then
+            trade_task.params.fast_trade_triggered = true
+        end
+        return trade_task
+    end
+    
+    local now = tg()
+    if not adaptive_should_run("tasks.rebuild_ensure", now, 1000, ADAPTIVE_FORCE_REBUILD_ENSURE_MS) then
+        adaptive_note_defer("tasks.rebuild_ensure", now, "rebuild")
+        return task
+    end
+    local cur_level = now_level_name_by_gvid(se_squad.m_game_vertex_id) or entry.level
+    entry.level = cur_level
+    local community = get_squad_community(entry, se_squad)
+    local section_name = get_squad_section(entry, se_squad)
+    if is_level_blacklisted_for_faction(cur_level, community, section_name) then
+        local forced = build_force_exit_task(se_squad, entry, cur_level, community, section_name)
+        if forced then
+            return forced
+        end
+    end
+    local night_rest_enabled = siski.config and siski.config.get and siski.config.get("night_rest_enabled", false) ~= false
+    if night_rest_enabled and is_night_now() then
+        return build_night_rest_task(se_squad, entry, cur_level, community, section_name)
+    end
+    if task.type == "EXPLORE" then
+        return build_explore_task(se_squad, cur_level, community, section_name)
+    end
+    if task.type == "ARTEFACT" then
+        return build_artefact_task(se_squad, cur_level, community, section_name)
+    end
+    if task.type == "REST_1H" then
+        return build_rest_task(se_squad)
+    end
+    if task.type == "BASE_CAMPING" then
+        return build_base_camping_task(se_squad, entry, cur_level, community, section_name)
+    end
+    if task.type == "PATROL" then
+        return build_patrol_task(se_squad, entry, cur_level, community, section_name)
+    end
+    if task.type == "NIGHT_REST" then
+        return build_night_rest_task(se_squad, entry, cur_level, community, section_name)
+    end
+    if task.type == "FACTION_TASK" then
+        return build_faction_task(se_squad, entry, cur_level, community, section_name, task.params and task.params.faction_role or nil)
+    end
+    if task.type == "POPULATE" then
+        return build_populate_task(se_squad, entry, cur_level, community, section_name)
+    end
+    if task.type == "TRADE" then
+        return build_trade_task(se_squad, entry, cur_level, community, section_name)
+    end
+    return nil
+end
+
+local function ensure_current_task(se_squad, entry)
+    if entry.tasks and entry.tasks.current then return entry.tasks.current end
+    local now = tg()
+    local allow_expensive = adaptive_should_run("tasks.rebuild_ensure", now, 1000, ADAPTIVE_FORCE_REBUILD_ENSURE_MS)
+    if not allow_expensive then
+        adaptive_note_defer("tasks.rebuild_ensure", now, "ensure")
+    end
+
+    local cur_level = now_level_name_by_gvid(se_squad.m_game_vertex_id) or entry.level
+    entry.level = cur_level
+    local community = get_squad_community(entry, se_squad)
+    local section_name = get_squad_section(entry, se_squad)
+
+    local task = nil
+    if is_level_blacklisted_for_faction(cur_level, community, section_name) then
+        task = build_force_exit_task(se_squad, entry, cur_level, community, section_name)
+        if task then
+            return task
+        end
+    end
+
+    local night_rest_enabled = siski.config and siski.config.get and siski.config.get("night_rest_enabled", false) ~= false
+    if night_rest_enabled and is_night_now() then
+        task = build_night_rest_task(se_squad, entry, cur_level, community, section_name)
+    end
+    refresh_faction_quota(now)
+    update_incidents(now)
+    cleanup_intel(now)
+    local trade_enabled = siski.config and siski.config.get and siski.config.get("trade_enabled", false) ~= false
+    local artefact_enabled = siski.config and siski.config.get and siski.config.get("artefact_enabled", true) ~= false
+    local explore_enabled = siski.config and siski.config.get and siski.config.get("explore_enabled", true) ~= false
+    local populate_enabled = siski.config and siski.config.get and siski.config.get("populate_enabled", true) ~= false
+    local base_camping_enabled = siski.config and siski.config.get and siski.config.get("base_camping_enabled", true) ~= false
+    local patrol_enabled = siski.config and siski.config.get and siski.config.get("patrol_enabled", true) ~= false
+
+    if not task and allow_expensive and should_assign_faction_task(entry, cur_level, community, now, false) then
+        local faction_task = build_faction_task(se_squad, entry, cur_level, community, section_name, nil)
+        if faction_task and should_assign_faction_task(entry, cur_level, community, now, true) then
+            task = faction_task
+        end
+    end
+    if not task and allow_expensive then
+        task = build_roam_task(se_squad, entry, cur_level, community, section_name, trade_enabled, artefact_enabled, explore_enabled, populate_enabled, base_camping_enabled, patrol_enabled)
+    end
+    if not task and (entry.tasks and entry.tasks.prev) then
+        task = entry.tasks.prev
+    end
+    if not task then
+        task = build_rest_task(se_squad)
+    end
+    return task
+end
+
+local function rotate_task_on_complete(se_squad, entry, surge_active)
+    local tostring = tostring
+    local prev = entry.tasks and entry.tasks.current or nil
+    local cur_level = now_level_name_by_gvid(se_squad.m_game_vertex_id) or entry.level
+    entry.level = cur_level
+    local community = get_squad_community(entry, se_squad)
+    local section_name = get_squad_section(entry, se_squad)
+    local now = tg()
+    refresh_faction_quota(now)
+    update_incidents(now)
+    cleanup_intel(now)
+
+    if is_level_blacklisted_for_faction(cur_level, community, section_name) then
+        local forced = build_force_exit_task(se_squad, entry, cur_level, community, section_name)
+        if forced then
+            siski.memory.set_task_current(entry.squad_id, forced)
+            return
+        end
+    end
+
+    local night_rest_enabled = siski.config and siski.config.get and siski.config.get("night_rest_enabled", false) ~= false
+    if night_rest_enabled and is_night_now() then
+        local next_task = build_night_rest_task(se_squad, entry, cur_level, community, section_name) or build_rest_task(se_squad)
+        siski.memory.set_task_current(entry.squad_id, next_task)
+        return
+    end
+
+    if surge_active == nil then
+        surge_active = is_surge_active()
+    end
+    if surge_active then
+        local next_task = build_rest_task(se_squad)
+        siski.memory.set_task_current(entry.squad_id, next_task)
+        return
+    end
+
+    local base_camping_enabled = siski.config and siski.config.get and siski.config.get("base_camping_enabled", true) ~= false
+    local patrol_enabled = siski.config and siski.config.get and siski.config.get("patrol_enabled", true) ~= false
+    local trade_enabled = siski.config and siski.config.get and siski.config.get("trade_enabled", false) ~= false
+
+    local next_task = nil
+    if should_assign_faction_task(entry, cur_level, community, now, false) then
+        local faction_task = build_faction_task(se_squad, entry, cur_level, community, section_name, nil)
+        if faction_task and should_assign_faction_task(entry, cur_level, community, now, true) then
+            next_task = faction_task
+        end
+    end
+    if (not next_task) and prev and prev.type == "REST_1H" then
+        local artefact_enabled = siski.config and siski.config.get and siski.config.get("artefact_enabled", true) ~= false
+        local explore_enabled = siski.config and siski.config.get and siski.config.get("explore_enabled", true) ~= false
+        local populate_enabled = siski.config and siski.config.get and siski.config.get("populate_enabled", true) ~= false
+        next_task = build_roam_task(se_squad, entry, cur_level, community, section_name, trade_enabled, artefact_enabled, explore_enabled, populate_enabled, base_camping_enabled, patrol_enabled)
+    end
+
+    if not next_task and prev and prev.type == "TRADE" then
+        if not next_task then
+            local artefact_enabled = siski.config and siski.config.get and siski.config.get("artefact_enabled", true) ~= false
+            local explore_enabled = siski.config and siski.config.get and siski.config.get("explore_enabled", true) ~= false
+            local populate_enabled = siski.config and siski.config.get and siski.config.get("populate_enabled", true) ~= false
+            next_task = build_roam_task(se_squad, entry, cur_level, community, section_name, trade_enabled, artefact_enabled, explore_enabled, populate_enabled, base_camping_enabled, patrol_enabled)
+        end
+        if not next_task then
+            next_task = build_explore_task(se_squad, cur_level, community, section_name)
+        end
+    end
+
+    if prev and prev.type == "TRADE" then
+        next_task = next_task or build_explore_task(se_squad, cur_level, community, section_name)
+    else
+        next_task = next_task or build_rest_task(se_squad)
+    end
+    siski.memory.set_task_current(entry.squad_id, next_task)
+end
+
+local apply_task
+
+local function is_rest_timer_zero(task, now)
+    if not (task and task.type == "REST_1H") then
+        return false
+    end
+    local p = task.params or {}
+    now = tonumber(now) or tg()
+
+    local started_gt = ctime_from_table(p.started_at_gt)
+    local dur_gs = tonumber(p.duration_game_sec)
+    if started_gt and dur_gs then
+        if dur_gs <= 0 then
+            return true
+        end
+        local elapsed = game_time_diff_sec(started_gt)
+        if elapsed and elapsed >= dur_gs then
+            return true
+        end
+    end
+
+    local started = tonumber(p.started_at_tg) or 0
+    local dur = tonumber(p.duration_ms) or 0
+    if dur <= 0 then
+        return true
+    end
+    return now >= (started + dur)
+end
+
+local function try_rest_zero_recovery(se_squad, entry, current, surge_active, community, now)
+    if not is_rest_timer_zero(current, now) then
+        return false
+    end
+
+    local p = current.params or {}
+    current.params = p
+    local next_recover_tg = tonumber(p.rest_zero_recovery_next_tg) or 0
+    if now < next_recover_tg then
+        return false
+    end
+    p.rest_zero_recovery_next_tg = now + 3000
+
+    if siski.memory and siski.memory.update_squad_snapshot then
+        pcall(siski.memory.update_squad_snapshot, se_squad)
+    end
+
+    local cur_level = resolve_entry_level(entry, se_squad) or entry.level
+    if cur_level then
+        entry.level = cur_level
+    end
+    community = get_squad_community(entry, se_squad) or community
+    local section_name = get_squad_section(entry, se_squad)
+    entry.smart_id = se_squad.smart_id
+    entry.scripted_target = se_squad.scripted_target
+
+    local ok_rot, err_rot = pcall(rotate_task_on_complete, se_squad, entry, surge_active)
+    if not ok_rot then
+        log_task_error("rest_zero_recover_rotate", entry, current, err_rot)
+        siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+        return true
+    end
+
+    if not (entry.tasks and entry.tasks.current) then
+        local ok_new, new_or_err = pcall(ensure_current_task, se_squad, entry)
+        if ok_new and new_or_err then
+            siski.memory.set_task_current(entry.squad_id, new_or_err)
+        else
+            log_task_error("rest_zero_recover_ensure", entry, current, new_or_err)
+            siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+        end
+    end
+
+    local next_task = entry.tasks and entry.tasks.current or nil
+    reset_task_hotpath_timers(next_task)
+    local ok_apply, err_apply = pcall(apply_task, se_squad, next_task, surge_active, community, section_name)
+    if not ok_apply then
+        log_task_error("rest_zero_recover_apply", entry, next_task, err_apply)
+        siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+    elseif siski.log and siski.log.warn then
+        siski.log.warn(
+            "TASKS",
+            "REST_ZERO_RECOVERY sid=%s level=%s smart=%s",
+            tostring(entry and entry.squad_id or "-"),
+            tostring(entry and entry.level or "-"),
+            tostring(entry and entry.smart_id or "-")
+        )
+    end
+    return true
+end
+
+local function is_task_completed(se_squad, entry, task)
+    local tonumber = tonumber
+    local tostring = tostring
+    if not task or not task.type then return true end
+
+    if task.type == "REST_1H" then
+        local p = task.params or {}
+        local started_gt = ctime_from_table(p.started_at_gt)
+        local dur_gs = tonumber(p.duration_game_sec)
+        if started_gt and dur_gs and dur_gs > 0 then
+            local elapsed = game_time_diff_sec(started_gt) or 0
+            local done = elapsed >= dur_gs
+            if done and not p.rest_dbg_done and siski.log and siski.log.info then
+                p.rest_dbg_done = true
+                siski.log.info("TASKS", "rest_done sid=%s", tostring(entry and entry.squad_id or "-"))
+            end
+            return done
+        end
+        local started = tonumber(p.started_at_tg) or 0
+        local dur = tonumber(p.duration_ms) or 0
+        local done = tg() >= (started + dur)
+        if done and not p.rest_dbg_done and siski.log and siski.log.info then
+            p.rest_dbg_done = true
+            siski.log.info("TASKS", "rest_done sid=%s", tostring(entry and entry.squad_id or "-"))
+        end
+        return done
+    end
+
+    if task.type == "NIGHT_REST" then
+        return is_night_now() == false
+    end
+
+    if task.type == "FACTION_TASK" then
+        local p = task.params or {}
+        task.params = p
+        local role = p.faction_role
+        local now = tg()
+        local cur_level = resolve_entry_level(entry, se_squad) or entry.level
+        local community = get_squad_community(entry, se_squad)
+
+        if should_release_faction_task(entry, task, cur_level, community, now) then
+            p.release_due_quota = true
+            return true
+        end
+
+        if role == "BORDER_RECON" then
+            local waypoints = type(p.waypoints) == "table" and p.waypoints or nil
+            local idx = tonumber(p.waypoint_idx) or 1
+            if waypoints and waypoints[idx] and task.target ~= waypoints[idx] then
+                task.target = waypoints[idx]
+                reset_task_hotpath_timers(task)
+                p._applied = nil
+                return false
+            end
+            if task.target and is_squad_arrived_to_smart(se_squad, task.target) then
+                if waypoints and waypoints[idx + 1] then
+                    p.waypoint_idx = idx + 1
+                    task.target = waypoints[idx + 1]
+                    reset_task_hotpath_timers(task)
+                    p._applied = nil
+                    return false
+                end
+                if not p.hold_started_tg then
+                    p.hold_started_tg = now
+                    return false
+                end
+                return now >= ((tonumber(p.hold_started_tg) or now) + (tonumber(p.hold_duration_ms) or 180000))
+            end
+            return false
+        end
+
+        if role == "SUPPLY_RUN" then
+            if p.phase == "TO_SUPPLY" then
+                if task.target and is_squad_arrived_to_smart(se_squad, task.target) then
+                    local ret = p.return_target
+                    if type(ret) == "string" and ret ~= "" and ret ~= task.target then
+                        p.phase = "RETURN"
+                        task.target = ret
+                        reset_task_hotpath_timers(task)
+                        p._applied = nil
+                        return false
+                    end
+                    if not p.hold_started_tg then
+                        p.hold_started_tg = now
+                        return false
+                    end
+                    return now >= ((tonumber(p.hold_started_tg) or now) + (tonumber(p.hold_duration_ms) or 120000))
+                end
+                return false
+            end
+            if task.target and is_squad_arrived_to_smart(se_squad, task.target) then
+                if not p.hold_started_tg then
+                    p.hold_started_tg = now
+                    return false
+                end
+                return now >= ((tonumber(p.hold_started_tg) or now) + (tonumber(p.hold_duration_ms) or 120000))
+            end
+            return false
+        end
+
+        if task.target and is_squad_arrived_to_smart(se_squad, task.target) then
+            if not p.hold_started_tg then
+                p.hold_started_tg = now
+                return false
+            end
+            local hold = tonumber(p.hold_duration_ms) or 180000
+            return now >= ((tonumber(p.hold_started_tg) or now) + hold)
+        end
+        return false
+    end
+
+    if task.type == "TRADE" then
+        local target = task.target
+        if not target then return true end
+        if not is_squad_arrived_to_smart(se_squad, target) then
+            local p = task.params or {}
+            task.params = p
+            local now = tg()
+            local cd = tonumber(p.trade_dbg_cd_ms) or 8000
+            if siski.log and siski.log.debug and now >= (tonumber(p.trade_dbg_next_tg) or 0) then
+                p.trade_dbg_next_tg = now + cd
+                siski.log.debug("TRADE", "tick sid=%s level=%s state=TRAVEL target=%s",
+                    tostring(entry and entry.squad_id or "-"),
+                    tostring(entry and entry.level or "-"),
+                    tostring(target or "-")
+                )
+            end
+            local travel_ms = 600000
+            if siski.config and siski.config.get then
+                local v = siski.config.get("trade_travel_timeout_ms", travel_ms)
+                if tonumber(v) then travel_ms = tonumber(v) end
+            end
+            if travel_ms < 30000 then travel_ms = 30000 end
+            local started = tonumber(p.started_at_tg) or now
+            if started > now then started = now end
+            if now >= (started + travel_ms) then
+                local rerolls = tonumber(p.trade_travel_reroll_count) or 0
+                if rerolls < 2 then
+                    local cur_level = resolve_entry_level(entry, se_squad)
+                    local community = get_squad_community(entry, se_squad)
+                    local section_name = get_squad_section(entry, se_squad)
+                    local can_pick = adaptive_should_run("trade.pick_target", now, 500, ADAPTIVE_FORCE_TRADE_PICK_MS)
+                    local next_target = nil
+                    if can_pick then
+                        next_target = pick_trade_target_smart(se_squad, cur_level, community, section_name, true, entry)
+                    else
+                        adaptive_note_defer("trade.pick_target", now, "travel_timeout")
+                        next_target = get_cached_trade_target(se_squad, cur_level, community, section_name, 60000)
+                    end
+                    if next_target and next_target ~= target then
+                        p.trade_travel_reroll_count = rerolls + 1
+                        task.target = next_target
+                        reset_task_hotpath_timers(task)
+                        p.started_at_tg = now
+                        p.trade_last_target = nil
+                        p.trade_flags_cd_ms = nil
+                        p.trade_flags_next_tg = nil
+                        p.trade_flags_applied_tg = nil
+                        p.trade_flags_sellable = nil
+                        p.trade_flags_wants_buy = nil
+                        p.trade_flags_should_trade = nil
+                        p.trade_flags_items = nil
+                        p.trade_flags_logged = nil
+                        p.trade_entered_job_logged = nil
+                        p.trade_started_tg = nil
+                        p.trade_started_idle = nil
+                        p.trade_surge_was_active = nil
+                        p.trade_offline_started_gt = nil
+                        p.trade_offline_started_tg = nil
+                        p.trade_offline_duration_ms = nil
+                        p.trade_dbg_last_state = nil
+                        if siski.log and siski.log.warn then
+                            siski.log.warn("TRADE", "travel_timeout_reroll sid=%s old_target=%s new_target=%s",
+                                tostring(entry and entry.squad_id or "-"),
+                                tostring(target or "-"),
+                                tostring(next_target or "-")
+                            )
+                        end
+                        return false
+                    end
+                    if not can_pick then
+                        return false
+                    end
+                end
+                if siski.log and siski.log.warn then
+                    siski.log.warn("TRADE", "travel_timeout_giveup sid=%s target=%s",
+                        tostring(entry and entry.squad_id or "-"),
+                        tostring(target or "-")
+                    )
+                end
+                return true
+            end
+            return false
+        end
+
+        local p = task.params or {}
+        task.params = p
+        local dur_gs = tonumber(p.trade_offline_duration_game_sec) or 7200
+        if dur_gs < 1 then dur_gs = 7200 end
+
+        local st = nil
+        local trade_tick_deferred = false
+        local now_tick = tg()
+        if adaptive_should_run("trade.tick", now_tick, 250, ADAPTIVE_FORCE_TRADE_TICK_MS) then
+            local ad = siski.adaptive
+            if ad and ad.stage_begin then
+                ad.stage_begin("tasks.trade_tick", now_tick)
+            end
+            if siski.trade and siski.trade.tick then
+                local ok_tick, res = pcall(siski.trade.tick, se_squad, entry, task)
+                if ok_tick then
+                    st = res
+                else
+                    if siski.log and siski.log.error then
+                        siski.log.error("TRADE", "tick sid=%s state=ERROR err=%s",
+                            tostring(entry and entry.squad_id or "-"),
+                            tostring(res or "-")
+                        )
+                    end
+                end
+            end
+            if ad and ad.stage_end then
+                ad.stage_end("tasks.trade_tick", tg())
+            end
+        else
+            trade_tick_deferred = true
+            adaptive_note_defer("trade.tick", now_tick, "lane_pressure")
+            st = p.trade_dbg_last_state
+        end
+
+        do
+            local now = tg()
+            local cd = tonumber(p.trade_dbg_cd_ms) or 8000
+            local last = p.trade_dbg_last_state
+            local changed = st and st ~= last
+            if (changed or (now >= (tonumber(p.trade_dbg_next_tg) or 0))) and siski.log and siski.log.debug then
+                p.trade_dbg_next_tg = now + cd
+                if st ~= nil then
+                    p.trade_dbg_last_state = st
+                end
+                siski.log.debug("TRADE", "tick sid=%s level=%s state=%s target=%s",
+                    tostring(entry and entry.squad_id or "-"),
+                    tostring(entry and entry.level or "-"),
+                    tostring(st or "nil"),
+                    tostring(target or "-")
+                )
+            end
+        end
+
+        if trade_tick_deferred and st == nil then
+            return false
+        end
+
+        if st and st ~= "OFFLINE" then
+            p.trade_offline_started_gt = nil
+            p.trade_offline_started_tg = nil
+            p.trade_offline_duration_ms = nil
+        end
+
+        if st == "DONE" then
+            record_intel(entry and entry.level or nil, entry and entry.community or nil, target, 1, "trade_done")
+            if siski.log and siski.log.info then
+                siski.log.info("TRADE", "done sid=%s target=%s sell_items=%s sell_ru=%s buy_items=%s buy_ru=%s",
+                    tostring(entry and entry.squad_id or "-"),
+                    tostring(target or "-"),
+                    tostring(p.trade_sell_items or 0),
+                    tostring(p.trade_sell_total_value or 0),
+                    tostring(p.trade_buy_items or 0),
+                    tostring(p.trade_buy_total_value or 0)
+                )
+            end
+            return true
+        end
+        if st == "MEETING" or st == "TRADING" then
+            return false
+        end
+        if st == "NO_TRADER" then
+            record_intel(entry and entry.level or nil, entry and entry.community or nil, target, -1, "trade_no_trader")
+            if siski.log and siski.log.warn then
+                siski.log.warn("TRADE", "no_trader sid=%s target=%s reroll=%s",
+                    tostring(entry and entry.squad_id or "-"),
+                    tostring(target or "-"),
+                    tostring(p.trade_reroll_count or 0)
+                )
+            end
+            local rerolls = tonumber(p.trade_reroll_count) or 0
+            if rerolls < 3 then
+                local cur_level = resolve_entry_level(entry, se_squad)
+                local community = get_squad_community(entry, se_squad)
+                local section_name = get_squad_section(entry, se_squad)
+                local now = tg()
+                local can_pick = adaptive_should_run("trade.pick_target", now, 500, ADAPTIVE_FORCE_TRADE_PICK_MS)
+                local next_target = nil
+                if can_pick then
+                    next_target = pick_trade_target_smart(se_squad, cur_level, community, section_name, true, entry)
+                else
+                    adaptive_note_defer("trade.pick_target", now, "no_trader")
+                    next_target = get_cached_trade_target(se_squad, cur_level, community, section_name, 60000)
+                end
+                if next_target and next_target ~= target then
+                    p.trade_reroll_count = rerolls + 1
+                    task.target = next_target
+                    reset_task_hotpath_timers(task)
+                    p.trade_last_target = nil
+                    p.trade_flags_cd_ms = nil
+                    p.trade_flags_next_tg = nil
+                    p.trade_flags_applied_tg = nil
+                    p.trade_flags_sellable = nil
+                    p.trade_flags_wants_buy = nil
+                    p.trade_flags_should_trade = nil
+                    p.trade_flags_items = nil
+                    p.trade_flags_logged = nil
+                    p.trade_entered_job_logged = nil
+                    p.trade_started_tg = nil
+                    p.trade_started_idle = nil
+                    p.trade_surge_was_active = nil
+                    p.trade_offline_started_gt = nil
+                    p.trade_offline_started_tg = nil
+                    p.trade_offline_duration_ms = nil
+                    p.trade_dbg_last_state = nil
+                    p.trade_travel_reroll_count = nil
+                    if siski.log and siski.log.info then
+                        siski.log.info("TRADE", "reroll sid=%s old_target=%s new_target=%s",
+                            tostring(entry and entry.squad_id or "-"),
+                            tostring(target or "-"),
+                            tostring(next_target or "-")
+                        )
+                    end
+                end
+                if not can_pick and not next_target then
+                    return false
+                end
+                return false
+            end
+            return true
+        end
+        if st == "FAILED" then
+            p.trade_failed = true
+            if siski.log and siski.log.warn then
+                siski.log.warn("TRADE", "failed sid=%s target=%s", tostring(entry and entry.squad_id or "-"), tostring(target or "-"))
+            end
+            return true
+        end
+
+        if not p.trade_offline_started_gt and not p.trade_offline_started_tg then
+            local now_gt = game_time_now()
+            if now_gt then
+                p.trade_offline_started_gt = ctime_to_table(now_gt)
+            end
+            p.trade_offline_started_tg = tg()
+            local tf = (level and level.get_time_factor and level.get_time_factor()) or 10
+            if tf <= 0 then tf = 10 end
+            local ms = math.floor((dur_gs * 1000) / tf)
+            if ms < 1000 then ms = 1000 end
+            p.trade_offline_duration_ms = ms
+            if siski.log and siski.log.info then
+                siski.log.info("TRADE", "offline_start sid=%s target=%s dur_game_sec=%s",
+                    tostring(entry and entry.squad_id or "-"),
+                    tostring(target or "-"),
+                    tostring(dur_gs)
+                )
+            end
+        end
+
+        local started_gt = ctime_from_table(p.trade_offline_started_gt)
+        if started_gt and dur_gs and dur_gs > 0 then
+            local elapsed = game_time_diff_sec(started_gt) or 0
+            if siski.log and siski.log.debug then
+                local now = tg()
+                local cd = tonumber(p.trade_dbg_cd_ms) or 8000
+                if now >= (tonumber(p.trade_dbg_next_tg) or 0) then
+                    p.trade_dbg_next_tg = now + cd
+                    siski.log.debug("TRADE", "offline_wait sid=%s target=%s elapsed=%s/%s",
+                        tostring(entry and entry.squad_id or "-"),
+                        tostring(target or "-"),
+                        tostring(elapsed),
+                        tostring(dur_gs)
+                    )
+                end
+            end
+            return elapsed >= dur_gs
+        end
+
+        local started = tonumber(p.trade_offline_started_tg) or 0
+        local dur = tonumber(p.trade_offline_duration_ms) or 0
+        return tg() >= (started + dur)
+    end
+
+    if task.type == "BASE_CAMPING" then
+        local target = task.target
+        if not target then
+            return true
+        end
+        if not is_squad_arrived_to_smart(se_squad, target) then
+            return false
+        end
+
+        local p = task.params or {}
+        if not p.arrived_at_tg then
+            p.arrived_at_tg = tg()
+            local now_gt = game_time_now()
+            if now_gt then
+                p.arrived_at_gt = ctime_to_table(now_gt)
+            end
+            return false
+        end
+
+        local started_gt = ctime_from_table(p.arrived_at_gt)
+        local dur_gs = tonumber(p.duration_game_sec)
+        if started_gt and dur_gs and dur_gs > 0 then
+            local elapsed = game_time_diff_sec(started_gt) or 0
+            return elapsed >= dur_gs
+        end
+
+        local started = tonumber(p.arrived_at_tg) or 0
+        local dur = tonumber(p.duration_ms) or 0
+        return tg() >= (started + dur)
+    end
+
+    if task.type == "PATROL" then
+        local p = task.params or {}
+        task.params = p
+
+        if not p.started_at_tg then
+            p.started_at_tg = tg()
+            local now_gt = game_time_now()
+            if now_gt then
+                p.started_at_gt = ctime_to_table(now_gt)
+            end
+        end
+        if not tonumber(p.duration_game_sec) then
+            p.duration_game_sec = 7200
+        end
+        if not tonumber(p.duration_ms) then
+            local tf = (level and level.get_time_factor and level.get_time_factor()) or 10
+            if tf <= 0 then tf = 10 end
+            p.duration_ms = math.floor((tonumber(p.duration_game_sec) * 1000) / tf)
+            if p.duration_ms < 1000 then p.duration_ms = 1000 end
+        end
+
+        do
+            local started_gt = ctime_from_table(p.started_at_gt)
+            local dur_gs = tonumber(p.duration_game_sec)
+            if started_gt and dur_gs and dur_gs > 0 then
+                local elapsed = game_time_diff_sec(started_gt) or 0
+                if elapsed >= dur_gs then
+                    return true
+                end
+            else
+                local started = tonumber(p.started_at_tg) or 0
+                local dur = tonumber(p.duration_ms) or 0
+                if tg() >= (started + dur) then
+                    return true
+                end
+            end
+        end
+
+        local target = task.target
+        local cur_level = entry and entry.level or nil
+        local community = get_squad_community(entry, se_squad)
+        local section_name = get_squad_section(entry, se_squad)
+        if not cur_level then
+            cur_level = resolve_entry_level(entry, se_squad) or loaded_level_name()
+            if entry and cur_level then entry.level = cur_level end
+        end
+
+        if not target then
+            local next_target = cur_level and pick_next_patrol_target(task, cur_level, community, section_name) or nil
+            if not next_target then
+                return true
+            end
+            task.target = next_target
+            reset_task_hotpath_timers(task)
+            p._applied = nil
+            return false
+        end
+
+        if is_squad_arrived_to_smart(se_squad, target) then
+            p.visited = p.visited or {}
+            if not p.visited[target] then
+                p.visited[target] = true
+                p.visited_count = (tonumber(p.visited_count) or 0) + 1
+            end
+
+            local next_target = cur_level and pick_next_patrol_target(task, cur_level, community, section_name) or nil
+            if next_target and next_target ~= target then
+                task.target = next_target
+                reset_task_hotpath_timers(task)
+                p._applied = nil
+            end
+            return false
+        end
+
+        return false
+    end
+
+    if task.type == "POPULATE" then
+        local target = task.target
+        if not target then return true end
+        return is_squad_arrived_to_smart(se_squad, target) == true
+    end
+
+    if task.type == "EXPLORE" then
+        local target = task.target
+        if target and is_squad_arrived_to_smart(se_squad, target) then
+            return true
+        end
+        return false
+    end
+
+    if task.type == "ARTEFACT" then
+        local target = task.target
+        if target and is_squad_arrived_to_smart(se_squad, target) then
+            local cd = tonumber(task.params and task.params.check_cd_tg) or 0
+            local now = tg()
+            if now >= cd then
+                task.params.check_cd_tg = now + 5000
+                local board = get_board()
+                local sm = board and board.smarts_by_names and board.smarts_by_names[target] or nil
+                local pos = sm and sm.position or nil
+                local artifact = pos and find_nearby_artifact(pos, 35) or nil
+                if artifact then
+                    return true
+                end
+                local hops = tonumber(task.params and task.params.hops) or 0
+                if hops < 3 then
+                    task.params.hops = hops + 1
+                    local cur_level = resolve_entry_level(entry, se_squad)
+                    local community = get_squad_community(entry, se_squad)
+                    local section_name = get_squad_section(entry, se_squad)
+                    local list = siski.config and siski.config.get_anomaly_smarts and siski.config.get_anomaly_smarts(cur_level) or {}
+                    local next_smart = community and pick_random_valid_safe(list, community, nil, cur_level, section_name) or pick_random_valid(list, community, cur_level, section_name)
+                    if next_smart and next_smart ~= target then
+                        task.target = next_smart
+                        reset_task_hotpath_timers(task)
+                        task.params.started_at_tg = now
+                        task.params.check_cd_tg = 0
+                        task.params._applied = nil
+                        return false
+                    end
+                end
+                return true
+            end
+            return false
+        end
+        return false
+    end
+
+    return false
+end
+
+function apply_task(se_squad, task, surge_active, community, section_name)
+    if not task then return end
+    task.params = task.params or {}
+
+    if task.type == "REST_1H" then
+        set_scripted_target(se_squad, nil)
+        return
+    end
+
+    if task.params._applied then
+        return
+    end
+
+    if surge_active == nil then
+        surge_active = is_surge_active()
+    end
+    if surge_active then
+        return
+    end
+
+    if task.target and type(task.target) == "string" then
+        local board = get_board()
+        local sm = board and board.smarts_by_names and board.smarts_by_names[task.target] or nil
+        if smart_is_blacklisted_by_obj(sm, task.target, community, section_name) then
+            set_scripted_target(se_squad, nil)
+            return
+        end
+        if set_scripted_target(se_squad, task.target, task.params, { force_sync = true, reason = "apply" }) then
+            task.params._applied = true
+            local now = tg()
+            if should_run_watchdog(task, now, nil) then
+                pcall(run_target_watchdog, se_squad, nil, task)
+            end
+        end
+    end
+end
+
+function tasks.update_squad_tasks(se_squad)
+    if not (siski.memory and (siski.memory.touch_squad_validated or siski.memory.touch_squad)) then return end
+    if siski.memory.is_protected_squad and siski.memory.is_protected_squad(se_squad) then
+        if siski.memory.mark_squad_missed and se_squad and se_squad.id then
+            siski.memory.mark_squad_missed(se_squad.id, "tasks", "protected")
+        end
+        return
+    end
+
+    local entry = nil
+    if siski.memory.touch_squad_validated then
+        entry = siski.memory.touch_squad_validated(se_squad, false, "tasks")
+    else
+        entry = siski.memory.touch_squad(se_squad.id)
+    end
+    if not entry then return end
+    local now = tg()
+
+    local surge_active = is_surge_active()
+    local surge_locked = siski.memory.get_surge_lock(se_squad.id)
+    if surge_active then
+        if not surge_locked then
+            local rest = build_rest_task(se_squad)
+            siski.memory.set_task_current(entry.squad_id, rest)
+            if siski.memory.set_task_next then
+                siski.memory.set_task_next(entry.squad_id, nil)
+            end
+            set_scripted_target(se_squad, nil)
+            siski.memory.set_surge_lock(se_squad.id, true)
+        else
+            set_scripted_target(se_squad, nil)
+        end
+        return
+    end
+
+    if surge_locked then
+        siski.memory.set_surge_lock(se_squad.id, false)
+    end
+
+    local cur_level = resolve_entry_level(entry, se_squad) or entry.level
+    local community = get_squad_community(entry, se_squad)
+    local section_name = get_squad_section(entry, se_squad)
+    entry.smart_id = se_squad.smart_id
+    entry.scripted_target = se_squad.scripted_target
+
+    entry.tasks = entry.tasks or { prev = nil, current = nil, next = nil }
+    local current = entry.tasks.current
+
+    if is_level_blacklisted_for_faction(cur_level, community, section_name) then
+        local force_exit_active = current
+            and current.type == "EXPLORE"
+            and current.params
+            and current.params.force_exit == true
+        if not force_exit_active then
+            local forced = build_force_exit_task(se_squad, entry, cur_level, community, section_name)
+            if forced then
+                siski.memory.set_task_current(entry.squad_id, forced)
+                current = entry.tasks and entry.tasks.current or forced
+            else
+                siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+                current = entry.tasks and entry.tasks.current or nil
+            end
+        end
+    end
+
+    -- Fast trading: check trigger and force rebuild
+    if current and current.params and current.params.fast_trade_trigger == true then
+        local ok_rebuild, rebuilt_or_err = pcall(rebuild_task, se_squad, entry, current)
+        if ok_rebuild and rebuilt_or_err then
+            siski.memory.set_task_current(entry.squad_id, rebuilt_or_err)
+            current = entry.tasks and entry.tasks.current or rebuilt_or_err
+            reset_task_hotpath_timers(current)
+        end
+    end
+
+    if not current then
+        local ok_new, new_task = pcall(ensure_current_task, se_squad, entry)
+        if not ok_new then
+            log_task_error("ensure", entry, nil, new_task)
+            new_task = build_rest_task(se_squad)
+        end
+        if not new_task then
+            log_task_error("ensure_nil", entry, nil, "ensure_current_task returned nil")
+            new_task = build_rest_task(se_squad)
+        end
+        siski.memory.set_task_current(entry.squad_id, new_task)
+        current = entry.tasks.current
+        if not current then
+            siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+            current = entry.tasks.current
+        end
+        reset_task_hotpath_timers(current)
+        local valid_or_err = true
+        local ok_valid = true
+        local err_or_valid = true
+        if should_revalidate_target(current, now, true, entry) then
+            ok_valid, err_or_valid = pcall(is_task_target_valid, current, community, section_name)
+            if not ok_valid then
+                log_task_error("target_valid", entry, current, err_or_valid)
+                siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+                return
+            end
+            valid_or_err = err_or_valid
+        end
+        if valid_or_err == false then
+            local ok_rebuild, rebuilt_or_err = pcall(rebuild_task, se_squad, entry, current)
+            if not ok_rebuild then
+                log_task_error("rebuild", entry, current, rebuilt_or_err)
+                siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+                return
+            end
+            local rebuilt = rebuilt_or_err
+            if rebuilt then
+                siski.memory.set_task_current(entry.squad_id, rebuilt)
+                current = entry.tasks.current
+            end
+            if not current then
+                siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+                current = entry.tasks.current
+            end
+            reset_task_hotpath_timers(current)
+        end
+        local ok_apply, err_apply = pcall(apply_task, se_squad, current, surge_active, community, section_name)
+        if not ok_apply then
+            log_task_error("apply", entry, current, err_apply)
+            siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+        end
+        return
+    end
+
+    if current.type ~= "REST_1H" then
+        local ok_enf, err_enf = pcall(enforce_online_task_intent, se_squad, entry, current)
+        if not ok_enf then
+            log_task_error("intent_enforce", entry, current, err_enf)
+        end
+
+        local stgt = nil
+        local ok_stgt, res_stgt = pcall(function() return se_squad.scripted_target end)
+        if ok_stgt then stgt = res_stgt end
+
+        if current.target and type(current.target) == "string" then
+            if stgt ~= current.target then
+                current.params = current.params or {}
+                current.params._applied = nil
+                local ok_apply, err_apply = pcall(apply_task, se_squad, current, surge_active, community, section_name)
+                if not ok_apply then
+                    log_task_error("apply_reassert", entry, current, err_apply)
+                    siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+                    return
+                end
+            end
+        end
+
+        -- Tick throttle for watchdog - only check every Nth tick
+        local wd_res = nil
+        RUNTIME.watchdog_tick = (RUNTIME.watchdog_tick or 0) + 1
+        if (RUNTIME.watchdog_tick % WATCHDOG_CHECK_INTERVAL) == 0 and should_run_watchdog(current, now, entry) then
+            local ok_wd, err_or_res_wd = pcall(run_target_watchdog, se_squad, entry, current)
+            if not ok_wd then
+                log_task_error("watchdog", entry, current, err_or_res_wd)
+            else
+                wd_res = err_or_res_wd
+            end
+        end
+
+        if type(wd_res) == "table" and wd_res.force_rebuild == true then
+            RUNTIME.stats.watchdog_rebuild_count = (tonumber(RUNTIME.stats.watchdog_rebuild_count) or 0) + 1
+            if current and current.params then
+                current.params.online_force_rebuild = nil
+            end
+
+            local ok_rebuild, rebuilt_or_err = pcall(rebuild_task, se_squad, entry, current)
+            if not ok_rebuild then
+                log_task_error("watchdog_rebuild", entry, current, rebuilt_or_err)
+            else
+                local rebuilt = rebuilt_or_err
+                if rebuilt then
+                    siski.memory.set_task_current(entry.squad_id, rebuilt)
+                    current = entry.tasks and entry.tasks.current or rebuilt
+                    reset_task_hotpath_timers(current)
+                    local ok_apply, err_apply = pcall(apply_task, se_squad, current, surge_active, community, section_name)
+                    if not ok_apply then
+                        log_task_error("watchdog_apply_rebuild", entry, current, err_apply)
+                        siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+                    end
+                    return
+                end
+            end
+
+            local cur_level = resolve_entry_level(entry, se_squad) or entry.level
+            entry.level = cur_level
+            local fallback = build_base_camping_task(se_squad, entry, cur_level, community, section_name) or build_rest_task(se_squad)
+            siski.memory.set_task_current(entry.squad_id, fallback)
+            current = entry.tasks and entry.tasks.current or fallback
+            reset_task_hotpath_timers(current)
+            local ok_apply, err_apply = pcall(apply_task, se_squad, current, surge_active, community, section_name)
+            if not ok_apply then
+                log_task_error("watchdog_apply_fallback", entry, current, err_apply)
+                siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+            end
+            return
+        end
+    end
+
+    local valid_or_err = true
+    if should_revalidate_target(current, now, false, entry) then
+        local ok_valid, err_or_valid = pcall(is_task_target_valid, current, community, section_name)
+        if not ok_valid then
+            log_task_error("target_valid", entry, current, err_or_valid)
+            siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+            return
+        end
+        valid_or_err = err_or_valid
+    end
+
+    if valid_or_err == false then
+        local ok_rebuild, rebuilt_or_err = pcall(rebuild_task, se_squad, entry, current)
+        if not ok_rebuild then
+            log_task_error("rebuild", entry, current, rebuilt_or_err)
+            siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+            return
+        end
+        local rebuilt = rebuilt_or_err
+        if rebuilt then
+            siski.memory.set_task_current(entry.squad_id, rebuilt)
+            if not entry.tasks.current then
+                siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+            end
+            reset_task_hotpath_timers(entry.tasks.current)
+            local ok_apply, err_apply = pcall(apply_task, se_squad, entry.tasks.current, surge_active, community, section_name)
+            if not ok_apply then
+                log_task_error("apply_rebuild", entry, entry.tasks.current, err_apply)
+                siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+            end
+            return
+        end
+    end
+
+    if current.type == "REST_1H" then
+        local ok_recover, recovered_or_err = pcall(try_rest_zero_recovery, se_squad, entry, current, surge_active, community, now)
+        if not ok_recover then
+            log_task_error("rest_zero_recover", entry, current, recovered_or_err)
+        elseif recovered_or_err == true then
+            return
+        end
+    end
+
+    if current and current.type ~= "FACTION_TASK" and ROAM_LIKE_TYPES[current.type] then
+        -- C: Tick throttle - check only every Nth tick
+        RUNTIME.faction_preempt_tick = (RUNTIME.faction_preempt_tick or 0) + 1
+        if (RUNTIME.faction_preempt_tick % FACTION_PREEMPT_CHECK_INTERVAL) ~= 0 then
+            goto skip_faction_preempt
+        end
+        
+        -- A: Dedicated lane for faction preemption with gentler intervals
+        if not adaptive_should_run("tasks.faction_preempt", now, 2000, ADAPTIVE_FORCE_FACTION_PREEMPT_MS) then
+            adaptive_note_defer("tasks.faction_preempt", now, "preempt")
+            goto skip_faction_preempt
+        end
+        
+        if should_assign_faction_task(entry, cur_level, community, now, false) then
+            local faction_task = build_faction_task(se_squad, entry, cur_level, community, section_name, nil)
+            if faction_task and should_assign_faction_task(entry, cur_level, community, now, true) then
+                siski.memory.set_task_current(entry.squad_id, faction_task)
+                current = entry.tasks and entry.tasks.current or faction_task
+                reset_task_hotpath_timers(current)
+                local ok_apply, err_apply = pcall(apply_task, se_squad, current, surge_active, community, section_name)
+                if not ok_apply then
+                    log_task_error("faction_preempt_apply", entry, current, err_apply)
+                    siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+                end
+                return
+            end
+        end
+    end
+    
+    ::skip_faction_preempt::
+
+    local ok_done, done_or_err = pcall(is_task_completed, se_squad, entry, current)
+    if not ok_done then
+        log_task_error("completed", entry, current, done_or_err)
+        siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+        return
+    end
+
+    if done_or_err == true then
+        local ok_rot, err_rot = pcall(rotate_task_on_complete, se_squad, entry, surge_active)
+        if not ok_rot then
+            log_task_error("rotate", entry, current, err_rot)
+            siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+        end
+        if not (entry.tasks and entry.tasks.current) then
+            if current and current.type == "TRADE" then
+                local cur_level = resolve_entry_level(entry, se_squad) or entry.level
+                entry.level = cur_level
+                local community = get_squad_community(entry, se_squad)
+                local section_local = get_squad_section(entry, se_squad)
+                siski.memory.set_task_current(entry.squad_id, build_explore_task(se_squad, cur_level, community, section_local) or build_rest_task(se_squad))
+            else
+                siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+            end
+        end
+        reset_task_hotpath_timers(entry.tasks and entry.tasks.current or nil)
+        local ok_apply, err_apply = pcall(apply_task, se_squad, entry.tasks.current, surge_active, community, section_name)
+        if not ok_apply then
+            log_task_error("apply_next", entry, entry.tasks.current, err_apply)
+            siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+        end
+        return
+    end
+
+    if current.type ~= "REST_1H" then
+        local ok_apply, err_apply = pcall(apply_task, se_squad, current, surge_active, community, section_name)
+        if not ok_apply then
+            log_task_error("apply", entry, current, err_apply)
+            siski.memory.set_task_current(entry.squad_id, build_rest_task(se_squad))
+        end
+    end
+end
+
+function tasks.force_resync(reason)
+    RUNTIME.smarts_rebuild_tg = 0
+    RUNTIME.smarts_by_level = {}
+    RUNTIME.cap_index_by_level = {}
+    RUNTIME.cap_index_rebuild_tg = 0
+    RUNTIME.smart_enemy_cache = {}
+    RUNTIME.smart_trade_slot_cache = {}
+    RUNTIME.smart_tech_slot_cache = {}
+    RUNTIME.smart_kamp_slot_cache = {}
+    RUNTIME.target_arrived_state_cache = {}
+    RUNTIME.smart_enemy_fallback_cache = {}
+    RUNTIME.adaptive_trade_target_cache = {}
+    RUNTIME.faction_quota = { next_tg = 0, by_level_faction = {} }
+    RUNTIME.intel = { by_level_faction = {}, next_cleanup_tg = 0 }
+    RUNTIME.incidents = { by_id = {}, by_key = {}, next_tg = 0, next_id = 1 }
+    RUNTIME.stats.force_resync_count = (tonumber(RUNTIME.stats.force_resync_count) or 0) + 1
+    if siski.log and siski.log.warn then
+        siski.log.warn("TASKS", "force_resync reason=%s", tostring(reason or "-"))
+    end
+end
+
+function tasks.get_runtime_stats()
+    return {
+        watchdog_rebuild_count = tonumber(RUNTIME.stats.watchdog_rebuild_count) or 0,
+        forced_faction_assignments = tonumber(RUNTIME.stats.forced_faction_assignments) or 0,
+        forced_faction_releases = tonumber(RUNTIME.stats.forced_faction_releases) or 0,
+        force_resync_count = tonumber(RUNTIME.stats.force_resync_count) or 0,
+    }
+end
+
+function tasks.on_update()
+    local now = tg()
+    prune_runtime_caches(now)
+    refresh_faction_quota(now)
+    update_incidents(now)
+    cleanup_intel(now)
+
+    if not RUNTIME.smarts_build.active then
+        if RUNTIME.smarts_rebuild_tg == 0 then
+            start_smarts_build()
+        else
+            return
+        end
+    end
+    local budget = 64
+    if siski.config and siski.config.get then
+        local v = siski.config.get("smarts_index_budget_per_tick", budget)
+        if tonumber(v) then budget = tonumber(v) end
+    end
+    local adaptive = siski.adaptive
+    if adaptive and adaptive.get_module_budget then
+        budget = adaptive.get_module_budget("tasks_index", budget, 1, 512, 0)
+    end
+    if budget < 1 then budget = 1 end
+    if not adaptive_should_run("tasks.smarts_index_step", now, 250, ADAPTIVE_FORCE_SMARTS_STEP_MS) then
+        adaptive_note_defer("tasks.smarts_index_step", now, "lane_pressure")
+        return
+    end
+    if adaptive and adaptive.stage_begin then
+        adaptive.stage_begin("tasks.smarts_index_step", now)
+    end
+    step_smarts_build(budget)
+    if adaptive and adaptive.stage_end then
+        adaptive.stage_end("tasks.smarts_index_step", tg())
+    end
+    if not RUNTIME.smarts_build.active and (RUNTIME.cap_index_rebuild_tg == 0 or now > (RUNTIME.cap_index_rebuild_tg + 60000)) then
+        rebuild_capability_index()
+    end
+end

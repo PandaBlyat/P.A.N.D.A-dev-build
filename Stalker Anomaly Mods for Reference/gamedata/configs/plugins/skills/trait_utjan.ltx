@@ -1,0 +1,123 @@
+[strong_back]
+carry_weight = 4
+functor = utjan_traits.update_strong_back
+
+[pack_mule]
+carry_weight = 8
+sprint_penalty_mult = 0.96
+functor = utjan_traits.update_pack_mule
+trait_req = strong_back
+
+[faction_cashback_self]
+bonus = 0.05
+functor = utjan_traits.update_cashback_self
+
+[faction_cashback_other]
+bonus = 0.05
+functor = utjan_traits.update_cashback_other
+
+[tinkering_armor]
+bonus = 0.15
+functor = utjan_traits.update_tinkering_armor
+
+[tinkering_weapon]
+bonus = 0.15
+functor = utjan_traits.update_tinkering_weapon
+
+[psy_resist_controller]
+multiplier = 0.75
+
+[strider]
+bonus = 0.06
+carry_weight_penalty = -1
+functor = utjan_traits.update_strider
+
+[sprinter]
+bonus = 0.08
+carry_weight_penalty = -2
+functor = utjan_traits.update_sprinter
+trait_req = strider
+
+[mutant_resist]
+multiplier = 0.90 ; multiply damage taken from mutants by this
+
+[melee_mutant]
+multiplier = 1.15 ; multiply damage dealt to mutants by this
+
+[medicine_boost]
+bonus = 0.10
+functor = utjan_traits.update_medicine_boost
+
+[mag_loading_bonus]
+bonus = 0.25
+functor = utjan_traits.update_mag_loading_bonus
+script_required = utjan_mag_skill
+trait_req = mag_unloading_bonus
+
+[mag_unloading_bonus]
+bonus = 0.30
+functor = utjan_traits.update_mag_unloading_bonus
+script_required = utjan_mag_skill
+
+[lockpicking_bonus]
+bonus = 0.10
+functor = utjan_traits.update_lockpicking_bonus
+script_required = as_utjan_lockpicking_skill
+
+[melee_defense]
+multiplier = 0.80 ; multiply physical damage taken by this when using melee weapon
+trait_req = melee_mutant
+
+[lone_stalker]
+carry_weight = 5
+dmg_resist_mult = 0.90
+functor = utjan_traits.update_lone_stalker
+
+[squad_leader]
+squad_dmg_resist_mult = 0.75
+squad_dmg_dealt_mult = 1.15
+
+[small_guns_reload]
+reload_bonus = 0.25
+script_required = utjan_whandling_skill
+
+[big_guns_reload]
+reload_bonus = 0.15
+script_required = utjan_whandling_skill
+
+[sidearm_quickdraw]
+pistol_draw_bonus = 0.5 ; Percentage increase of pistol draw animation speed
+non_pistol_holster_bonus = 0.25 ; Percentage increase of non-pistol holster animation speed
+trait_req = small_guns_reload
+script_required = utjan_whandling_skill
+
+[butcher]
+bonus_part_chance = 50 ; 50 = 50%
+
+[tinkering_parts]
+bonus = 0.25
+functor = utjan_traits.update_tinkering_parts
+
+[pain_rush]
+bonus_limit = 0.25 ; % maximum movement speed bonus
+stack_duration = 10000 ; duration of each stack in miliseconds
+
+[pain_train]
+stack_duration_bonus = 5000 ; duration bonus to pain rush
+stamina_regen_limit = 0.05 ; % stamina regenerated per second
+trait_req = pain_rush
+
+[predator]
+bonus_limit = 0.005 ; maximum % bleed reduced per second from stacks
+stack_duration = 10000 ; duration of each stack in miliseconds
+health_to_stack_mult = 0.0025 ; percentage of health of enemy killed converted to bleed regen stack. Stalkers usually have 1 health.
+
+[bloodlust]
+bonus_limit = 0.25 ; % weapon handling bonus
+trait_req = predator
+script_required = utjan_whandling_skill
+
+[thick_skull]
+head_resist_mult = 0.9
+price_penalty = 0.03
+functor = utjan_traits.update_thick_skull

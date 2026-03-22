@@ -1,0 +1,559 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+<game_dialogs>
+
+    <!-- ============================================================ -->
+    <!-- СТАНДАРТНЫЙ ДИАЛОГ (Душман и др.)                            -->
+    <!-- ============================================================ -->
+    <dialog id="bounty_check_dialog">
+        <dont_has_info>actor_is_enemy_to_trader</dont_has_info>
+        
+        <phrase_list>
+            <!-- ГГ спрашивает -->
+            <phrase id="0">
+                <text>st_bounty_ask_check</text>
+                <next>1</next>
+            </phrase>
+            
+            <!-- Торговец называет цену -->
+            <phrase id="1">
+                <text>st_bounty_trader_cost</text>
+                <next>2</next>
+                <next>3</next>
+            </phrase>
+            
+            <!-- ГГ платит -->
+            <phrase id="2">
+                <text>st_bounty_pay</text>
+                <precondition>bounty_hunt.check_cost_cond</precondition>
+                <action>bounty_hunt.pay_money_action</action>
+                <next>4</next>
+                <next>5</next>
+            </phrase>
+            
+            <!-- ГГ отказывается -->
+            <phrase id="3">
+                <text>st_bounty_cancel</text>
+                <action>dialogs.break_dialog</action>
+            </phrase>
+            
+            <!-- Ответ: ЗАКАЗАН -->
+            <phrase id="4">
+                <text>st_bounty_result_yes</text>
+                <precondition>bounty_hunt.is_player_hunted</precondition>
+            </phrase>
+            
+            <!-- Ответ: ЧИСТО -->
+            <phrase id="5">
+                <text>st_bounty_result_no</text>
+                <precondition>bounty_hunt.is_player_safe</precondition>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+
+    <!-- ============================================================ -->
+    <!-- ДИАЛОГ СИДОРОВИЧА (Уникальный стиль)                         -->
+    <!-- ============================================================ -->
+    <dialog id="bounty_check_sidor">
+        <dont_has_info>actor_is_enemy_to_trader</dont_has_info>
+
+        <phrase_list>
+            <!-- ГГ: "Сид, тут слушок прошел..." -->
+            <phrase id="0">
+                <text>st_bounty_ask_sidor</text>
+                <next>1</next>
+            </phrase>
+            
+            <!-- Сидор: "Хех, слушок... Гони 10000" -->
+            <phrase id="1">
+                <text>st_bounty_cost_sidor</text>
+                <next>2</next>
+                <next>3</next>
+            </phrase>
+            
+            <!-- ГГ: "Подавись. Говори." -->
+            <phrase id="2">
+                <text>st_bounty_pay_sidor</text>
+                <precondition>bounty_hunt.check_cost_cond</precondition>
+                <action>bounty_hunt.pay_money_action</action>
+                <next>4</next>
+                <next>5</next>
+            </phrase>
+            
+            <!-- ГГ: "Десять кусков? Обойдусь." -->
+            <phrase id="3">
+                <text>st_bounty_cancel_sidor</text>
+                <action>dialogs.break_dialog</action>
+            </phrase>
+            
+            <!-- Сидор: "Дела дрянь..." -->
+            <phrase id="4">
+                <text>st_bounty_result_yes_sidor</text>
+                <precondition>bounty_hunt.is_player_hunted</precondition>
+            </phrase>
+            
+            <!-- Сидор: "Выдыхай, Меченый..." -->
+            <phrase id="5">
+                <text>st_bounty_result_no_sidor</text>
+                <precondition>bounty_hunt.is_player_safe</precondition>
+            </phrase>
+        </phrase_list>
+    </dialog>
+	
+    <!-- ============================================================ -->
+    <!-- ДИАЛОГ ОСВЕДОМИТЕЛЯ (В Баре)                                 -->
+    <!-- ============================================================ -->
+    <dialog id="bounty_check_snitch">
+        <dont_has_info>actor_is_enemy_to_trader</dont_has_info>
+
+        <phrase_list>
+            <phrase id="0">
+                <text>st_bounty_ask_snitch</text>
+                <next>1</next>
+            </phrase>
+            
+            <phrase id="1">
+                <text>st_bounty_cost_snitch</text>
+                <next>2</next>
+                <next>3</next>
+            </phrase>
+            
+            <phrase id="2">
+                <text>st_bounty_pay_snitch</text>
+                <precondition>bounty_hunt.check_cost_cond</precondition>
+                <action>bounty_hunt.pay_money_action</action>
+                <next>4</next>
+                <next>5</next>
+            </phrase>
+            
+            <phrase id="3">
+                <text>st_bounty_cancel_snitch</text>
+                <action>dialogs.break_dialog</action>
+            </phrase>
+            
+            <phrase id="4">
+                <text>st_bounty_result_yes_snitch</text>
+                <precondition>bounty_hunt.is_player_hunted</precondition>
+            </phrase>
+            
+            <phrase id="5">
+                <text>st_bounty_result_no_snitch</text>
+                <precondition>bounty_hunt.is_player_safe</precondition>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <!-- ============================================================ -->
+    <!-- ДИАЛОГ СКРЯГИ (Свобода)                                      -->
+    <!-- ============================================================ -->
+    <dialog id="bounty_check_skin">
+        <dont_has_info>actor_is_enemy_to_trader</dont_has_info>
+
+        <phrase_list>
+            <phrase id="0">
+                <text>st_bounty_ask_skin</text>
+                <next>1</next>
+            </phrase>
+            
+            <phrase id="1">
+                <text>st_bounty_cost_skin</text>
+                <next>2</next>
+                <next>3</next>
+            </phrase>
+            
+            <phrase id="2">
+                <text>st_bounty_pay_skin</text>
+                <precondition>bounty_hunt.check_cost_cond</precondition>
+                <action>bounty_hunt.pay_money_action</action>
+                <next>4</next>
+                <next>5</next>
+            </phrase>
+            
+            <phrase id="3">
+                <text>st_bounty_cancel_skin</text>
+                <action>dialogs.break_dialog</action>
+            </phrase>
+            
+            <phrase id="4">
+                <text>st_bounty_result_yes_skin</text>
+                <precondition>bounty_hunt.is_player_hunted</precondition>
+            </phrase>
+            
+            <phrase id="5">
+                <text>st_bounty_result_no_skin</text>
+                <precondition>bounty_hunt.is_player_safe</precondition>
+            </phrase>
+        </phrase_list>
+    </dialog>
+	
+	    <!-- ДИАЛОГ МАСЛИНЫ (Бандиты) -->
+    <dialog id="bounty_check_olivius">
+        <dont_has_info>actor_is_enemy_to_trader</dont_has_info>
+
+        <phrase_list>
+            <phrase id="0">
+                <text>st_bounty_ask_olivius</text>
+                <next>1</next>
+            </phrase>
+            
+            <phrase id="1">
+                <text>st_bounty_cost_olivius</text>
+                <next>2</next>
+                <next>3</next>
+            </phrase>
+            
+            <phrase id="2">
+                <text>st_bounty_pay_olivius</text>
+                <precondition>bounty_hunt.check_cost_cond</precondition>
+                <action>bounty_hunt.pay_money_action</action>
+                <next>4</next>
+                <next>5</next>
+            </phrase>
+            
+            <phrase id="3">
+                <text>st_bounty_cancel_olivius</text>
+                <action>dialogs.break_dialog</action>
+            </phrase>
+            
+            <phrase id="4">
+                <text>st_bounty_result_yes_olivius</text>
+                <precondition>bounty_hunt.is_player_hunted</precondition>
+            </phrase>
+            
+            <phrase id="5">
+                <text>st_bounty_result_no_olivius</text>
+                <precondition>bounty_hunt.is_player_safe</precondition>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <!-- ДИАЛОГ САХАРОВА (Ученые) -->
+    <dialog id="bounty_check_sakharov">
+        <dont_has_info>actor_is_enemy_to_trader</dont_has_info>
+
+        <phrase_list>
+            <phrase id="0">
+                <text>st_bounty_ask_sakharov</text>
+                <next>1</next>
+            </phrase>
+            
+            <phrase id="1">
+                <text>st_bounty_cost_sakharov</text>
+                <next>2</next>
+                <next>3</next>
+            </phrase>
+            
+            <phrase id="2">
+                <text>st_bounty_pay_sakharov</text>
+                <precondition>bounty_hunt.check_cost_cond</precondition>
+                <action>bounty_hunt.pay_money_action</action>
+                <next>4</next>
+                <next>5</next>
+            </phrase>
+            
+            <phrase id="3">
+                <text>st_bounty_cancel_sakharov</text>
+                <action>dialogs.break_dialog</action>
+            </phrase>
+            
+            <phrase id="4">
+                <text>st_bounty_result_yes_sakharov</text>
+                <precondition>bounty_hunt.is_player_hunted</precondition>
+            </phrase>
+            
+            <phrase id="5">
+                <text>st_bounty_result_no_sakharov</text>
+                <precondition>bounty_hunt.is_player_safe</precondition>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <!-- ДИАЛОГ СПУНЕРА (Военные) -->
+    <dialog id="bounty_check_spooner">
+        <dont_has_info>actor_is_enemy_to_trader</dont_has_info>
+
+        <phrase_list>
+            <phrase id="0">
+                <text>st_bounty_ask_spooner</text>
+                <next>1</next>
+            </phrase>
+            
+            <phrase id="1">
+                <text>st_bounty_cost_spooner</text>
+                <next>2</next>
+                <next>3</next>
+            </phrase>
+            
+            <phrase id="2">
+                <text>st_bounty_pay_spooner</text>
+                <precondition>bounty_hunt.check_cost_cond</precondition>
+                <action>bounty_hunt.pay_money_action</action>
+                <next>4</next>
+                <next>5</next>
+            </phrase>
+            
+            <phrase id="3">
+                <text>st_bounty_cancel_spooner</text>
+                <action>dialogs.break_dialog</action>
+            </phrase>
+            
+            <phrase id="4">
+                <text>st_bounty_result_yes_spooner</text>
+                <precondition>bounty_hunt.is_player_hunted</precondition>
+            </phrase>
+            
+            <phrase id="5">
+                <text>st_bounty_result_no_spooner</text>
+                <precondition>bounty_hunt.is_player_safe</precondition>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <!-- ДИАЛОГ КРОЛИКА (Монолит) -->
+    <dialog id="bounty_check_rabbit">
+        <dont_has_info>actor_is_enemy_to_trader</dont_has_info>
+
+        <phrase_list>
+            <phrase id="0">
+                <text>st_bounty_ask_rabbit</text>
+                <next>1</next>
+            </phrase>
+            
+            <phrase id="1">
+                <text>st_bounty_cost_rabbit</text>
+                <next>2</next>
+                <next>3</next>
+            </phrase>
+            
+            <phrase id="2">
+                <text>st_bounty_pay_rabbit</text>
+                <precondition>bounty_hunt.check_cost_cond</precondition>
+                <action>bounty_hunt.pay_money_action</action>
+                <next>4</next>
+                <next>5</next>
+            </phrase>
+            
+            <phrase id="3">
+                <text>st_bounty_cancel_rabbit</text>
+                <action>dialogs.break_dialog</action>
+            </phrase>
+            
+            <phrase id="4">
+                <text>st_bounty_result_yes_rabbit</text>
+                <precondition>bounty_hunt.is_player_hunted</precondition>
+            </phrase>
+            
+            <phrase id="5">
+                <text>st_bounty_result_no_rabbit</text>
+                <precondition>bounty_hunt.is_player_safe</precondition>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <!-- ДИАЛОГ СТРИБОГА (Грех) -->
+    <dialog id="bounty_check_stribog">
+        <dont_has_info>actor_is_enemy_to_trader</dont_has_info>
+
+        <phrase_list>
+            <phrase id="0">
+                <text>st_bounty_ask_stribog</text>
+                <next>1</next>
+            </phrase>
+            
+            <phrase id="1">
+                <text>st_bounty_cost_stribog</text>
+                <next>2</next>
+                <next>3</next>
+            </phrase>
+            
+            <phrase id="2">
+                <text>st_bounty_pay_stribog</text>
+                <precondition>bounty_hunt.check_cost_cond</precondition>
+                <action>bounty_hunt.pay_money_action</action>
+                <next>4</next>
+                <next>5</next>
+            </phrase>
+            
+            <phrase id="3">
+                <text>st_bounty_cancel_stribog</text>
+                <action>dialogs.break_dialog</action>
+            </phrase>
+            
+            <phrase id="4">
+                <text>st_bounty_result_yes_stribog</text>
+                <precondition>bounty_hunt.is_player_hunted</precondition>
+            </phrase>
+            
+            <phrase id="5">
+                <text>st_bounty_result_no_stribog</text>
+                <precondition>bounty_hunt.is_player_safe</precondition>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <!-- ДИАЛОГ СПОРЫ (Чистое Небо) -->
+    <dialog id="bounty_check_spore">
+        <dont_has_info>actor_is_enemy_to_trader</dont_has_info>
+
+        <phrase_list>
+            <phrase id="0">
+                <text>st_bounty_ask_spore</text>
+                <next>1</next>
+            </phrase>
+            
+            <phrase id="1">
+                <text>st_bounty_cost_spore</text>
+                <next>2</next>
+                <next>3</next>
+            </phrase>
+            
+            <phrase id="2">
+                <text>st_bounty_pay_spore</text>
+                <precondition>bounty_hunt.check_cost_cond</precondition>
+                <action>bounty_hunt.pay_money_action</action>
+                <next>4</next>
+                <next>5</next>
+            </phrase>
+            
+            <phrase id="3">
+                <text>st_bounty_cancel_spore</text>
+                <action>dialogs.break_dialog</action>
+            </phrase>
+            
+            <phrase id="4">
+                <text>st_bounty_result_yes_spore</text>
+                <precondition>bounty_hunt.is_player_hunted</precondition>
+            </phrase>
+            
+            <phrase id="5">
+                <text>st_bounty_result_no_spore</text>
+                <precondition>bounty_hunt.is_player_safe</precondition>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <!-- ДИАЛОГ ВЕКТОРА (Наемники, Затон) -->
+    <dialog id="bounty_check_vector">
+        <dont_has_info>actor_is_enemy_to_trader</dont_has_info>
+
+        <phrase_list>
+            <phrase id="0">
+                <text>st_bounty_ask_vector</text>
+                <next>1</next>
+            </phrase>
+            
+            <phrase id="1">
+                <text>st_bounty_cost_vector</text>
+                <next>2</next>
+                <next>3</next>
+            </phrase>
+            
+            <phrase id="2">
+                <text>st_bounty_pay_vector</text>
+                <precondition>bounty_hunt.check_cost_cond</precondition>
+                <action>bounty_hunt.pay_money_action</action>
+                <next>4</next>
+                <next>5</next>
+            </phrase>
+            
+            <phrase id="3">
+                <text>st_bounty_cancel_vector</text>
+                <action>dialogs.break_dialog</action>
+            </phrase>
+            
+            <phrase id="4">
+                <text>st_bounty_result_yes_vector</text>
+                <precondition>bounty_hunt.is_player_hunted</precondition>
+            </phrase>
+            
+            <phrase id="5">
+                <text>st_bounty_result_no_vector</text>
+                <precondition>bounty_hunt.is_player_safe</precondition>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <!-- ДИАЛОГ СЫЧА (Затон) -->
+    <dialog id="bounty_check_owl">
+        <dont_has_info>actor_is_enemy_to_trader</dont_has_info>
+
+        <phrase_list>
+            <phrase id="0">
+                <text>st_bounty_ask_owl</text>
+                <next>1</next>
+            </phrase>
+            
+            <phrase id="1">
+                <text>st_bounty_cost_owl</text>
+                <next>2</next>
+                <next>3</next>
+            </phrase>
+            
+            <phrase id="2">
+                <text>st_bounty_pay_owl</text>
+                <precondition>bounty_hunt.check_cost_cond</precondition>
+                <action>bounty_hunt.pay_money_action</action>
+                <next>4</next>
+                <next>5</next>
+            </phrase>
+            
+            <phrase id="3">
+                <text>st_bounty_cancel_owl</text>
+                <action>dialogs.break_dialog</action>
+            </phrase>
+            
+            <phrase id="4">
+                <text>st_bounty_result_yes_owl</text>
+                <precondition>bounty_hunt.is_player_hunted</precondition>
+            </phrase>
+            
+            <phrase id="5">
+                <text>st_bounty_result_no_owl</text>
+                <precondition>bounty_hunt.is_player_safe</precondition>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <!-- ДИАЛОГ ЭРНАНДЕСА (ISG) -->
+    <dialog id="bounty_check_hernandez">
+        <dont_has_info>actor_is_enemy_to_trader</dont_has_info>
+
+        <phrase_list>
+            <phrase id="0">
+                <text>st_bounty_ask_hernandez</text>
+                <next>1</next>
+            </phrase>
+            
+            <phrase id="1">
+                <text>st_bounty_cost_hernandez</text>
+                <next>2</next>
+                <next>3</next>
+            </phrase>
+            
+            <phrase id="2">
+                <text>st_bounty_pay_hernandez</text>
+                <precondition>bounty_hunt.check_cost_cond</precondition>
+                <action>bounty_hunt.pay_money_action</action>
+                <next>4</next>
+                <next>5</next>
+            </phrase>
+            
+            <phrase id="3">
+                <text>st_bounty_cancel_hernandez</text>
+                <action>dialogs.break_dialog</action>
+            </phrase>
+            
+            <phrase id="4">
+                <text>st_bounty_result_yes_hernandez</text>
+                <precondition>bounty_hunt.is_player_hunted</precondition>
+            </phrase>
+            
+            <phrase id="5">
+                <text>st_bounty_result_no_hernandez</text>
+                <precondition>bounty_hunt.is_player_safe</precondition>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+
+</game_dialogs>

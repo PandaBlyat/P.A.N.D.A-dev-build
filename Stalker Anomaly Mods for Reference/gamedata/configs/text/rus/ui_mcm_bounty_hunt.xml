@@ -1,0 +1,79 @@
+<string_table>
+    <string id="ui_mcm_menu_bounty_hunt">
+        <text>Охота за головами (Bounty Hunt)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_title">
+        <text>Настройки Охоты за Головами</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_cooldown">
+        <text>Кулдаун события (Часы)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_cooldown_desc">
+        <text>Сколько часов игрового времени должно пройти между атаками наемников.</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_chance">
+        <text>Шанс начала охоты (%)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_chance_desc">
+        <text>Вероятность того, что событие сработает после кулдауна.</text>
+    </string>
+    
+    <!-- ВОТ ТУТ БЫЛО ИЗМЕНЕНО (добавлено _chance) -->
+    <string id="ui_mcm_bounty_hunt_warning_chance">
+        <text>Шанс предупреждения по СМС (%)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_warning_desc">
+        <text>Вероятность того, что дружественный сталкер предупредит вас о заказе перед атакой.</text>
+    </string>
+    
+    <!-- ВОТ ТУТ БЫЛО ИЗМЕНЕНО (добавлено _delay) -->
+    <string id="ui_mcm_bounty_hunt_mystery_delay">
+        <text>Задержка неизвестного СМС (Мин)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_mystery_desc">
+        <text>Через сколько игровых минут после победы придет сообщение от неизвестного.</text>
+    </string>
+	
+    <!-- ... Старые строки ... -->
+
+    <string id="ui_mcm_bounty_hunt_safe_time">
+        <text>Безопасное время (Часы)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_safe_time_desc">
+        <text>Минимальное количество игровых часов с начала новой игры, в течение которых охота не может начаться.</text>
+    </string>
+
+    <!-- Шанс выезда ИИГ -->
+    <string id="ui_mcm_bounty_hunt_isg_chance">
+        <text>Шанс охоты ИИГ (%)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_isg_chance_desc">
+        <text>Вероятность того, что при высоком рейтинге охота будет организована бойцами ИИГ, независимо от вашей группировки (на северных локациях).</text>
+    </string>
+
+    <!-- Новые строки для Trash Talk -->
+    <string id="ui_mcm_bounty_hunt_title_main">
+        <text>Основная Охота</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_title_trash">
+        <text>Слухи и Угрозы</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_trash_enable">
+        <text>Включить случайные сообщения</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_trash_chance">
+        <text>Шанс появления сообщения (%)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_trash_chance_desc">
+        <text>Вероятность того, что сталкер напишет сообщение в общий чат.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_trash_delay">
+        <text>Интервал сообщений (Часы)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_trash_delay_desc">
+        <text>Как часто (в игровых часах) скрипт пытается отправить сообщение.</text>
+    </string>
+</string_table>

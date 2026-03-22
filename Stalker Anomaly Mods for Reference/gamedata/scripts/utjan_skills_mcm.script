@@ -1,0 +1,71 @@
+function on_mcm_load()
+    op = { id= "ut_skill_system", sh=true ,gr =
+			{
+				{ id = "title"						, type = "slide"    , link = "ui_options_slider_gameplay_diff", text = "ui_mcm_ut_skill_system_title", size = {512,50}, spacing = 20 },
+                { id = "line"	     			    , type = "line" },
+                { id = "exp_multiplier_medicine"  	, type = "track"    , val = 2, min = 0, max = 3, step = 0.1, def = 1},
+                { id = "exp_multiplier_insanity"  	, type = "track"    , val = 2, min = 0, max = 3, step = 0.1, def = 1},
+                { id = "exp_multiplier_tinkering"  , type = "track"    , val = 2, min = 0, max = 3, step = 0.1, def = 1},
+                { id = "exp_multiplier_bartering"  	, type = "track"    , val = 2, min = 0, max = 3, step = 0.1, def = 1},
+				{ id = "exp_multiplier_reloading"  	, type = "track"    , val = 2, min = 0, max = 3, step = 0.1, def = 1},
+				{ id = "exp_multiplier_magloading"  , type = "track"    , val = 2, min = 0, max = 3, step = 0.1, def = 1},
+				{ id = "exp_multiplier_lockpicking"  	, type = "track"    , val = 2, min = 0, max = 3, step = 0.1, def = 1},
+				{ id = "traits_gain_mult"  	, type = "track"    , val = 2, min = 0, max = 3, step = 0.1, def = 1},
+				{ id = "traits_keybind"                 , type = "key_bind" , val = 2, def = DIK_keys.DIK_J },
+				{ id = "modifier"                   , type = ui_mcm.kb_mod_radio, val = 2, def = 0, hint = "mcm_kb_modifier" , 
+                content = { 
+                    {0,"mcm_kb_mod_none"} , 
+                    {1,"mcm_kb_mod_shift"} , 
+                    {2,"mcm_kb_mod_ctrl"},
+                    {3,"mcm_kb_mod_alt"}
+                }},
+				{ id = "line"	     			    , type = "line" },
+				{ id = "purge_ut_skills"               , type = "check", val = 1, def = false}
+			}
+		 }
+	 
+	--[[
+	if utjan_mag_skill then
+		table.insert(op.gr, { id = "exp_multiplier_magloading"  , type = "track"    , val = 2, min = 0, max = 3, step = 0.1, def = 1})
+	end
+	if as_utjan_lockpicking_skill then
+		table.insert(op.gr, { id = "exp_multiplier_lockpicking"  	, type = "track"    , val = 2, min = 0, max = 3, step = 0.1, def = 1})
+	end
+	if a_utjan_searching_skill then
+		table.insert(op.gr, { id = "exp_multiplier_searching"  	, type = "track"    , val = 2, min = 0, max = 3, step = 0.1, def = 1})
+	end
+	if utjan_traits then
+		table.insert(op.gr, { id = "traits_keybind"                 , type = "key_bind" , val = 2, def = DIK_keys.DIK_J })
+		table.insert(op.gr,  { id = "modifier"                   , type = ui_mcm.kb_mod_radio, val = 2, def = 0, hint = "mcm_kb_modifier" , 
+                content = { 
+                    {0,"mcm_kb_mod_none"} , 
+                    {1,"mcm_kb_mod_shift"} , 
+                    {2,"mcm_kb_mod_ctrl"},
+                    {3,"mcm_kb_mod_alt"}
+                }})
+	end
+	
+	table.insert(op.gr, { id = "line"	     			    , type = "line" })
+	table.insert(op.gr, { id = "purge_ut_skills"               , type = "check", val = 1, def = false})
+	]]--
+	
+    return op
+end
+
+local defaults = {
+	["exp_multiplier_medicine"]     = 1,
+    ["exp_multiplier_insanity"]    = 1,
+	["exp_multiplier_tinkering"]   = 1,
+	["exp_multiplier_bartering"]     = 1,
+	["exp_multiplier_reloading"]     = 1,
+	["exp_multiplier_magloading"]    = 1,
+	["exp_multiplier_lockpicking"]   = 1,
+	["traits_gain_mult"]   = 1,
+	["traits_keybind"]                  = DIK_keys.DIK_J
+}
+
+
+function get_config(key)
+    local opt = ui_mcm and ui_mcm.get("ut_skill_system/"..key) 
+    if opt ~= nil then return opt else return defaults[key] end
+ end

@@ -1,0 +1,38 @@
+<w>
+	<file name ="ui\ui_buttons_ut_traits">
+		<texture id="ui_ut_traits_listbtn_d" x="0" y="192" width="256" height="64" />
+		<texture id="ui_ut_traits_listbtn_e" x="0" y="0" width="256" height="64" />
+		<texture id="ui_ut_traits_listbtn_check" x="258" y="2" width="60" height="60" />
+		<texture id="ui_ut_traits_listbtn_lock" x="258" y="66" width="60" height="60" />
+	</file>
+	<file name="ui\ui_icons_ut_traits">
+		<texture id="ui_traits_icon_strider" x="0" y="0" width="156" height="156" />
+		<texture id="ui_traits_icon_sprinter" x="0" y="0" width="156" height="156" />
+		<texture id="ui_traits_icon_strong_back" x="312" y="0" width="156" height="156" />
+		<texture id="ui_traits_icon_pack_mule" x="312" y="0" width="156" height="156" />
+		<texture id="ui_traits_icon_melee_mutant" x="468" y="0" width="156" height="156" />
+		<texture id="ui_traits_icon_mutant_resist" x="156" y="156" width="156" height="156" />
+		<texture id="ui_traits_icon_faction_cashback_self" x="156" y="0" width="156" height="156" />
+		<texture id="ui_traits_icon_faction_cashback_other" x="156" y="0" width="156" height="156" />
+		<texture id="ui_traits_icon_psy_resist_controller" x="468" y="156" width="156" height="156" />
+		<texture id="ui_traits_icon_tinkering_armor" x="312" y="156" width="156" height="156" />
+		<texture id="ui_traits_icon_tinkering_weapon" x="0" y="312" width="156" height="156" />
+		<texture id="ui_traits_icon_medicine_boost" x="156" y="312" width="156" height="156" />
+		<texture id="ui_traits_icon_mag_loading_bonus" x="468" y="312" width="156" height="156" />
+		<texture id="ui_traits_icon_mag_unloading_bonus" x="468" y="312" width="156" height="156" />
+		<texture id="ui_traits_icon_lockpicking_bonus" x="312" y="312" width="156" height="156" />
+		<texture id="ui_traits_icon_melee_defense" x="0" y="468" width="156" height="156" />
+		<texture id="ui_traits_icon_lone_stalker" x="312" y="468" width="156" height="156" />
+		<texture id="ui_traits_icon_squad_leader" x="156" y="468" width="156" height="156" />
+		<texture id="ui_traits_icon_small_guns_reload" x="468" y="468" width="156" height="156" />
+		<texture id="ui_traits_icon_big_guns_reload" x="0" y="624" width="156" height="156" />
+		<texture id="ui_traits_icon_sidearm_quickdraw" x="156" y="624" width="156" height="156" />
+		<texture id="ui_traits_icon_butcher" x="312" y="624" width="156" height="156" />
+		<texture id="ui_traits_icon_tinkering_parts" x="468" y="624" width="156" height="156" />
+		<texture id="ui_traits_icon_pain_rush" x="0" y="780" width="156" height="156" />
+		<texture id="ui_traits_icon_pain_train" x="156" y="780" width="156" height="156" />
+		<texture id="ui_traits_icon_predator" x="312" y="780" width="156" height="156" />
+		<texture id="ui_traits_icon_bloodlust" x="468" y="780" width="156" height="156" />
+		<texture id="ui_traits_icon_thick_skull" x="624" y="0" width="156" height="156" />
+	</file>
+</w>

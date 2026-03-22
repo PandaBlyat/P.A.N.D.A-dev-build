@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="windows-1252"?>
+
+<string_table>
+
+<!--
+F.R.I.T.E.S | Thundard
+Dernière révision: 02 décembre 2025
+-->
+
+    <!-- ============================================================ -->
+    <!-- DUSHMAN DIALOG (Style: Professional, PMC)                    -->
+    <!-- ============================================================ -->
+	
+<string id="st_bounty_ask_check">
+    <text>J'ai besoin d'informations. Je soupçonne que mon nom a fini sur une liste de cibles. Tu peux vérifier dans la base de données du Syndicat ?</text>
+</string>
+<string id="st_bounty_trader_cost">
+    <text>L'accès au registre des contrats actifs n'est pas un service pour tout le monde. Je peux lancer une requête, mais ça te coûtera 10.000. Tu payes, tu as les données. Aussi simple que ça.</text>
+</string>
+<string id="st_bounty_pay">
+    <text>Je transfère les fonds. Lance la requête.</text>
+</string>
+<string id="st_bounty_cancel">
+    <text>Trop cher pour une simple vérification de base de données. Je me débrouillerai.</text>
+</string>
+
+<string id="st_bounty_result_yes">
+    <text>La situation est mauvaise. Ton indicatif est marqué "Priorité active". Le client a posé une grosse somme, donc des spécialistes ont déjà été envoyés à tes trousses. Mon conseil: disparais des radars ou prépare-toi à la guerre.</text>
+</string>
+<string id="st_bounty_result_no">
+    <text>Tu n'es pas dans le registre des contrats actifs. Tu n'intéresses personne... pour l'instant. Dors tranquille, si ta conscience te le permet.</text>
+</string>
+
+    <!-- ============================================================ -->
+    <!-- SIDOROVICH DIALOG (Style: Greedy Trader, Godfather)          -->
+    <!-- ============================================================ -->
+	
+<string id="st_bounty_ask_sidor">
+    <text>Ecoute, une rumeur tourne comme quoi on me chasse. T'as rien entendu ? Quelqu'un voudrait ma tête ?</text>
+</string>
+<string id="st_bounty_cost_sidor">
+    <text>Hé hé, une "rumeur". Tous les clébards de la Zone aboient ton nom. Mais les détails, ça se paye. Mes filières ne bossent pas gratis. Crache 10.000, et je te dirai si tu dois commander une caisse en pin.</text>
+</string>
+<string id="st_bounty_pay_sidor">
+    <text>Etouffe-toi avec. Dis-moi ce que tu sais.</text>
+</string>
+<string id="st_bounty_cancel_sidor">
+    <text>Dix mille pour des ragots ? Sans moi.</text>
+</string>
+
+<string id="st_bounty_result_yes_sidor">
+    <text>Tes affaires sont mal barrées. Il y a un contrat actif sur toi chez les Mercenaires. Et vu la somme, ils n'enverront pas des bleus avec des sciés. Mon conseil: fais le plein de munitions chez moi et ne dépasse pas. Ou planque-toi dans les marais.</text>
+</string>
+<string id="st_bounty_result_no_sidor">
+    <text>Relaxe. C'est clean. Personne ne te veut pour l'instant, à part les mutants. Circule tranquille, mais n'oublie pas le butin.</text>
+</string>
+	
+    <!-- ============================================================ -->
+    <!-- SNITCH DIALOG (Style: Spy, Mystery)                          -->
+    <!-- ============================================================ -->
+	
+<string id="st_bounty_ask_snitch">
+    <text>J'ai besoin de renseignements. Il circule des rumeurs sur mon statut auprès des Mercenaires ?</text>
+</string>
+<string id="st_bounty_cost_snitch">
+    <text>Les rumeurs, c'est de la camelote. Je vends des faits. Mes gars ont intercepté plusieurs chiffrés du Syndicat. Tu veux savoir si ton nom est dedans ? Le prix, c'est 10.000. Précision garantie.</text>
+</string>
+<string id="st_bounty_pay_snitch">
+    <text>Voilà l'oseille. Qu'est-ce qu'il y a dans ces chiffrés ?</text>
+</string>
+<string id="st_bounty_cancel_snitch">
+    <text>Trop cher pour un chat dans un sac.</text>
+</string>
+
+<string id="st_bounty_result_yes_snitch">
+    <text>Mauvaises nouvelles. Dans la dernière mise à jour de la base du Syndicat, ton indicatif est marqué d'un repère rouge. C'est un contrat d'élimination haute priorité. Ils sont déjà en train de te chercher, et ces types-là ne laissent pas de témoins.</text>
+</string>
+<string id="st_bounty_result_no_snitch">
+    <text>Ton nom n'apparaît pas dans les rapports interceptés. Tu es clean pour l'instant. Mais souviens-toi: dans la Zone, il suffit d'une seule erreur pour te retrouver estampillé "cible".</text>
+</string>
+
+    <!-- ============================================================ -->
+    <!-- SKINFLINT DIALOG (Style: Freedom, Relaxed)                   -->
+    <!-- ============================================================ -->
+	
+<string id="st_bounty_ask_skin">
+    <text>Skinflint, ça donne quoi sur les ondes ? Mon nom a pop quelque part ? J'ai des soupçons.</text>
+</string>
+<string id="st_bounty_cost_skin">
+    <text>Oh, mec, les ondes sont bien crades en ce moment, plein de parasites. Mais nos scanners enregistrent tout. Tu veux que je fouille les logs ? C'est du boulot, donc c'est 10.000 pour le développement de la base. Marché conclu ?</text>
+</string>
+<string id="st_bounty_pay_skin">
+    <text>Tiens. J'espère que les nouvelles sont bonnes.</text>
+</string>
+<string id="st_bounty_cancel_skin">
+    <text>Non, mec, c'est du vol. Je laisse tomber.</text>
+</string>
+
+<string id="st_bounty_result_yes_skin">
+    <text>La tuile, mec, mauvaises nouvelles. Grosse poisse. Ton ID clignote sur la liste rouge des mandats. Ça veut dire qu'il y a une prime sur ta tête. Mon conseil: fais profil bas et garde ton flingue prêt.</text>
+</string>
+<string id="st_bounty_result_no_skin">
+    <text>Relaxe, frérot. Tout roule. Personne ne te piste, les ondes sont silencieuses. Tu peux partir en virée tranquille, y a personne pour te souffler dans la nuque.</text>
+</string>
+
+<!-- DIALOGUE OLIVIUS (Style: Bandit, Voyou) -->
+<string id="st_bounty_ask_olivius">
+    <text>Hé, Olivius. Y a moyen de savoir si quelqu'un a posé un contrat sur ma tronche ? J'ai un mauvais pressentiment.</text>
+</string>
+<string id="st_bounty_cost_olivius">
+    <text>Oho, tu commences à flipper, mon gars ? Si t'as marché sur les pieds de gros bonnets, t'as merdé. J'ai un plan pour savoir qui te met dans sa ligne de mire. Balance 10.000 dans la caisse commune et on en parle.</text>
+</string>
+<string id="st_bounty_pay_olivius">
+    <text>Voilà le fric. Me fais pas poireauter.</text>
+</string>
+<string id="st_bounty_cancel_olivius">
+    <text>T'as craqué ou quoi ? Pour ce prix-là, je me démerderai tout seul. A plus.</text>
+</string>
+
+<string id="st_bounty_result_yes_olivius">
+    <text>Eh ben frérot, t'es dans la merde jusqu'au cou. Ton blaze est sur la liste noire. Quelqu'un de bien remonté a lâché une escouade de mercenaires à tes trousses. Alors surveille ton dos, sinon tu vas ramasser une bastos... mais pas de moi, hé hé.</text>
+</string>
+<string id="st_bounty_result_no_olivius">
+    <text>Détends tes fesses. Personne ne te cherche. Tu ne vaux rien pour tout le monde, sauf si tu fais toi-même une connerie. Profite pendant que t'es encore jeune.</text>
+</string>
+
+<!-- DIALOGUE SAKHAROV (Style: Scientifique, Posé) -->
+<string id="st_bounty_ask_sakharov">
+    <text>Professeur, j'ai une question délicate. Serait-il possible de scanner les ondes radio pour y chercher des mentions de mon indicatif ? Je crains un intérêt des mercenaires.</text>
+</string>
+<string id="st_bounty_cost_sakharov">
+    <text>Hmm, intéressant. Nos scanners d'émissions PSI enregistrent aussi, de façon incidente, le trafic militaire chiffré. Je peux lancer un algorithme de recherche par mots-clés, mais cela demandera une puissance de calcul significative. La compensation des coûts sera de 10.000. Acceptez-vous ?</text>
+</string>
+<string id="st_bounty_pay_sakharov">
+    <text>D'accord. Lancez l'algorithme.</text>
+</string>
+<string id="st_bounty_cancel_sakharov">
+    <text>C'est trop cher pour une simple curiosité. Annulez.</text>
+</string>
+
+<string id="st_bounty_result_yes_sakharov">
+    <text>Collègue, les données sont préoccupantes. L'analyse de trafic montre une activité anormalement élevée mentionnant votre identifiant dans les réseaux fermés du Syndicat. La probabilité de votre élimination physique dans les 48 prochaines heures est estimée à 94%. Je recommande de prendre des précautions.</text>
+</string>
+<string id="st_bounty_result_no_sakharov">
+    <text>Analyse terminée. Votre identifiant n'a pas été trouvé dans les listes de cibles prioritaires. Le niveau de bruit informationnel reste dans les limites normales. Vous pouvez poursuivre vos recherches de terrain sans crainte... du moins vis-à-vis des mercenaires.</text>
+</string>
+
+<!-- DIALOGUE SPOONER (Style: Militaire, Formel) -->
+<string id="st_bounty_ask_spooner">
+    <text>Camarde Sergent, demande de parole. Des infos circulent comme quoi les mercenaires seraient sur mon dos. Vous avez accès aux rapports de renseignement ?</text>
+</string>
+<string id="st_bounty_cost_spooner">
+    <text>L'accès aux canaux fermés du SBU et du GRU est une violation du règlement, stalker. Mais je peux "fermer les yeux" sur ta requête... contre un soutien matériel pour l'unité. 10.000, et je contacte le QG.</text>
+</string>
+<string id="st_bounty_pay_spooner">
+    <text>Affirmatif. Voici les fonds pour les besoins de l'unité.</text>
+</string>
+<string id="st_bounty_cancel_spooner">
+    <text>Négatif. Un peu cher payé pour de la débrouille d'armée. Annule.</text>
+</string>
+
+<string id="st_bounty_result_yes_spooner">
+    <text>Mauvaise affaire. Une note de signalement a été diffusée sur les canaux d'interception. Ton statut est "Cible prioritaire" pour des sociétés militaires privées. Des groupes d'élimination sont déjà dans le secteur. Je recommande d'augmenter ta vigilance et de contrôler ton équipement.</text>
+</string>
+<string id="st_bounty_result_no_spooner">
+    <text>Rapport du QG négatif. Ton indicatif n'apparaît pas dans les synthèses opérationnelles. Le secteur est propre. Rompez, vous pouvez disposer.</text>
+</string>
+
+<!-- DIALOGUE RABBIT (Style: Monolithe, Fanatique) -->
+<string id="st_bounty_ask_rabbit">
+    <text>Frère, de vagues présages me tourmentent. La sensation d'un regard étranger dans mon dos. Que dit le Monolithe de mon destin ?</text>
+</string>
+<string id="st_bounty_cost_rabbit">
+    <text>Le Monolithe voit tout, mais ses révélations exigent un sacrifice. Contribue à l'oeuvre de purification de la Zone - 10.000, et j'élèverai une prière pour savoir si ton aura est marquée du sceau de la mort par la main des infidèles.</text>
+</string>
+<string id="st_bounty_pay_rabbit">
+    <text>Accepte ce don pour la gloire du Monolithe. Parle.</text>
+</string>
+<string id="st_bounty_cancel_rabbit">
+    <text>Ma foi est forte, mais mon porte-monnaie est vide. Je me débrouillerai seul.</text>
+</string>
+
+<string id="st_bounty_result_yes_rabbit">
+    <text>Les ombres se rassemblent sur toi, frère. Les ennemis de la foi t'ont désigné comme cible. Des mercenaires hérétiques, aveuglés par la cupidité, sont déjà sur ta piste. Prépare-toi à défendre la terre sacrée avec ton sang.</text>
+</string>
+<string id="st_bounty_result_no_rabbit">
+    <text>Réjouis-toi ! Le cristal brille de pureté. Ton chemin est libre de toute ombre de persécution. Aucun mercenaire n'osera lever la main sur toi à présent. Va et accomplis Sa volonté.</text>
+</string>
+
+<!-- DIALOGUE STRIBOG (Style: Péché, Occulte) -->
+<string id="st_bounty_ask_stribog">
+    <text>Stribog, les ombres s'épaississent. Je sens le regard de la mort dans ma nuque. Peux-tu plonger dans l'Abîme et voir s'ils me traquent ?</text>
+</string>
+<string id="st_bounty_cost_stribog">
+    <text>L'Abîme répond à ceux qui le nourrissent. Les Ténèbres savent tout, mais leur murmure a un prix. Sacrifie 10.000, et je demanderai aux esprits si ton âme porte le sceau du chasseur.</text>
+</string>
+<string id="st_bounty_pay_stribog%">
+    <text>Voici le sacrifice. Que l'Abîme prononce son verdict.</text>
+</string>
+<string id="st_bounty_cancel_stribog">
+    <text>Le prix est trop élevé, même pour un tel savoir. J'entrerai moi-même dans les ténèbres.</text>
+</string>
+
+<string id="st_bounty_result_yes_stribog">
+    <text>Les Ténèbres s'agitent, stalker. Les esprits murmurent ton nom avec soif de sang. Des mercenaires, chiens du veau d'or, ont trouvé ta piste. Ta vie ne tient plus qu'à un fil au-dessus du gouffre. Prépare-toi à accueillir les faucheurs.</text>
+</string>
+<string id="st_bounty_result_no_stribog">
+    <text>L'Abîme reste muet. Ton nom ne résonne pas dans les chants de mort. Tu es invisible aux yeux des chasseurs. Va, tant que les Ténèbres te sont encore favorables.</text>
+</string>
+
+<!-- DIALOGUE SPORE (Style: Firmament, Chercheur) -->
+<string id="st_bounty_ask_spore">
+    <text>Spore, voilà le topo... On dirait que des coupe-gorge s'intéressent à moi. Le Firmament a des infos sur leurs mouvements de groupe ?</text>
+</string>
+<string id="st_bounty_cost_spore">
+    <text>Des chasseurs de têtes dans les Marais, c'est plutôt rare, mais nos observateurs surveillent tous les accès. Je peux vérifier les relevés des postes d'observation et les interceptions radio. Pour 10.000 afin d'entretenir le matériel, je saurai s'ils te traquent.</text>
+</string>
+<string id="st_bounty_pay_spore">
+    <text>Tiens. J'ai besoin d'en être sûr.</text>
+</string>
+<string id="st_bounty_cancel_spore">
+    <text>Trop cher pour une simple vérification de registres. Je m'en vais.</text>
+</string>
+
+<string id="st_bounty_result_yes_spore">
+    <text>Mauvaises nouvelles, ami. Nos éclaireurs ont repéré l'activité d'un groupe de recherche du Syndicat. Ils ratissent carré par carré, et ton indicatif revient souvent sur leurs ondes. Tu ferais mieux de te tasser dans les roseaux.</text>
+</string>
+<string id="st_bounty_result_no_spore">
+    <text>Tout est calme dans les Marais. La vase est tranquille et aucun étranger en vue. Ton nom ne figure pas comme cible dans nos rapports. Tu peux souffler un peu et faire sécher tes bandes molletières.</text>
+</string>
+
+<!-- DIALOGUE VECTOR (Style: Mercenaire, Tacticien) -->
+<string id="st_bounty_ask_vector">
+    <text>Vector, j'ai besoin de connaître la situation. Il paraît qu'un contrat a été posé sur moi. Tu peux vérifier via ton réseau ?</text>
+</string>
+<string id="st_bounty_cost_vector">
+    <text>L'accès au réseau tactique du Syndicat n'est pas pour les étrangers. Mais pour 10.000, je peux consulter la liste des cibles actives dans ce secteur. Intéressé ?</text>
+</string>
+<string id="st_bounty_pay_vector">
+    <text>Fais-le. Voilà l'argent.</text>
+</string>
+<string id="st_bounty_cancel_vector">
+    <text>Trop cher pour une simple requête. Laisse tomber.</text>
+</string>
+
+<string id="st_bounty_result_yes_vector">
+    <text>La merde, ça arrive. Ton ID est tout en haut de la liste. Le contrat est juteux, donc ce ne seront pas des bleus, mais une escouade d'élimination qui viendra te cueillir. Mon conseil: change de secteur ou prépare ton testament.</text>
+</string>
+<string id="st_bounty_result_no_vector">
+    <text>Notre sous-réseau est clean. Les contrats en cours ne te concernent pas. Mais ne te relâche pas, dans la Zone le statut change plus vite que le temps.</text>
+</string>
+
+<!-- DIALOGUE HIBOU (Style: Receleur, Indic) -->
+<string id="st_bounty_ask_owl">
+    <text>Hibou, toi tu es toujours au courant de tout. Des infos comme quoi une chasse aurait été ouverte sur moi ? Les mercenaires se sont activés.</text>
+</string>
+<string id="st_bounty_cost_owl">
+    <text>L'information est la marchandise la plus demandée. J'ai surpris des conversations sur les ondes d'une oreille, mais ma mémoire est courte sans "stimulation". 10.000, et je me rappellerai si ton nom était dedans. Décide vite, il y a la queue.</text>
+</string>
+<string id="st_bounty_pay_owl">
+    <text>D'accord, rafraîchis-toi la mémoire. Voilà l'argent.</text>
+</string>
+<string id="st_bounty_cancel_owl">
+    <text>Je paierai pas pour des ragots. Ta mémoire est trop chère.</text>
+</string>
+
+<string id="st_bounty_result_yes_owl">
+    <text>Sales nouvelles. Ton profil est affiché sur le "mur d'honneur" du Syndicat. Le mandat est tout frais, la prime est généreuse. Si tu veux pas finir en trophée, je te conseille d'éviter de trop te montrer hors de Skadovsk. Ou barre-toi au Cordon, là-bas c'est plus calme.</text>
+</string>
+<string id="st_bounty_result_no_owl">
+    <text>Panique pour rien. Tu n'es pas sur les listes d'élimination. Apparemment, t'as encore énervé personne au point de payer pour ta tête. Réjouis-toi et va bosser, ne bloque pas le comptoir.</text>
+</string>
+
+<!-- DIALOGUE HERNANDEZ (Style: UNISG, Forces spéciales) -->
+<string id="st_bounty_ask_hernandez">
+    <text>Major, j'ai un problème de sécurité. Je soupçonne une fuite de ma position vers les mercenaires. Vos canaux peuvent confirmer ça ?</text>
+</string>
+<string id="st_bounty_cost_hernandez">
+    <text>Nous surveillons tout le trafic de la région. Notre constellation de satellites suit tous les contrats haute priorité. Je peux te donner accès au rapport de sécurité, mais il faudra ponctionner les fonds opérationnels. 10.000 crédits.</text>
+</string>
+<string id="st_bounty_pay_hernandez">
+    <text>Transaction confirmée. J'ai besoin de ce rapport.</text>
+</string>
+<string id="st_bounty_cancel_hernandez">
+    <text>Annule. Je gérerai ça moi-même.</text>
+</string>
+
+<string id="st_bounty_result_yes_hernandez">
+    <text>Attention. Signal d'activation du protocole "Chasse" intercepté. Ton indicatif est identifié comme cible de classe Alpha. Les mercenaires ont déjà déployé des groupes de recherche. Je recommande de changer immédiatement de position et de passer en mode silence radio.</text>
+</string>
+<string id="st_bounty_result_no_hernandez">
+    <text>Les systèmes de surveillance indiquent un niveau de menace au vert. Ton profil est clean. Aucun contrat d'élimination actif détecté. Tu peux poursuivre la mission.</text>
+</string>
+
+    <!-- ============================================================ -->
+    <!-- SMS MESSAGES (Expanded)                                      -->
+    <!-- ============================================================ -->
+    
+<!-- Ancien (1-3) -->
+<string id="st_bounty_msg_1">
+    <text>%s, une info est arrivée par canal sécurisé. Un mandat a été émis pour ta tête. Ils vont s'employer.</text>
+</string>
+<string id="st_bounty_msg_2">
+    <text>%s, mes sources ont détecté un groupe d'élimination dans ton secteur. On dirait qu'ils viennent chercher ton âme.</text>
+</string>
+<string id="st_bounty_msg_3">
+    <text>%s, ton statut a été mis à jour en "Fugitif". Le prix est élevé, attends-toi à de la visite.</text>
+</string>
+
+<!-- Interceptions radio -->
+<string id="st_bounty_msg_4">
+    <text>%s, écoute les ondes ! Les mercenaires viennent de coordonner un quadrillage de recherche. La description de la cible colle avec la tienne. Reste dans l'ombre.</text>
+</string>
+<string id="st_bounty_msg_5">
+    <text>%s, interception d'un chiffré du Syndicat. Statut du contrat: "Actif". Priorité: "Élimination". Ne reste pas au même endroit.</text>
+</string>
+<string id="st_bounty_msg_6">
+    <text>Attention, %s ! Tes coordonnées ont fuité sur le réseau général. Des chasseurs de têtes sont déjà en route. Cours.</text>
+</string>
+
+<!-- Observations de stalkers -->
+<string id="st_bounty_msg_7">
+    <text>%s, j'ai vu un groupe de spécialistes louches. Sérieusement équipés, pas très bavards. Ils ont demandé la direction pour te trouver. A ta place, je préparerais mon arme.</text>
+</string>
+<string id="st_bounty_msg_8">
+    <text>%s, les petits oiseaux chantent qu'un détachement punitif est parti pour ta tête. Mieux vaut éviter les chemins fréquentés.</text>
+</string>
+<string id="st_bounty_msg_9">
+    <text>%s, frangin, fais gaffe à ta caboche. Il paraît qu'un sniper a été mandaté pour toi. Une erreur - et tu finis en cadavre.</text>
+</string>
+
+<!-- Ragots et menaces -->
+<string id="st_bounty_msg_10">
+    <text>%s, félicitations, t'es une star maintenant. On prend des paris au Bar pour savoir si tu tiendras jusqu'au matin. Le client est très sérieux.</text>
+</string>
+<string id="st_bounty_msg_11">
+    <text>%s, rien de personnel, juste les affaires. Mais ton nom vaut maintenant un paquet de fric. Surveille ton dos, même des potes pourraient te balancer.</text>
+</string>
+<string id="st_bounty_msg_12">
+    <text>%s, tu as vraiment marché sur les pieds de quelqu'un. T'as vu le nouveau tarif des mercenaires ? Ta tête est tout en haut. Bonne chance, tu vas en avoir besoin.</text>
+</string>
+
+<!-- Panique -->
+<string id="st_bounty_msg_13">
+    <text>%s ! Tire-toi de là tout de suite ! Je les ai vus encercler le secteur !</text>
+</string>
+<string id="st_bounty_msg_14">
+    <text>%s, c'est une embuscade ! Ils savent où tu es !</text>
+</string>
+<string id="st_bounty_msg_15">
+    <text>%s, si tu veux vivre - lâche le butin et cours. Des pros arrivent pour toi.</text>
+</string>
+
+</string_table>

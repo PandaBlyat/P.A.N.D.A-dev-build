@@ -1,0 +1,603 @@
+-- SETTINGS
+local intel_expire_time
+local debug_mode
+
+-- CONSTANTS
+local PAID_INTEL_COST = 200
+local NEARBY_SMART_RADIUS = 75
+
+
+local comm_intel_behavior = {
+    ["trader"]   = { paid_chance = 70, free_chance = 30, refuse_chance = 0 },
+    ["bandit"]   = { paid_chance = 60, free_chance = 20, refuse_chance = 20 },
+    ["stalker"]  = { paid_chance = 30, free_chance = 60, refuse_chance = 10 },
+    ["army"]     = { paid_chance = 50, free_chance = 10, refuse_chance = 40 },
+    ["dolg"]     = { paid_chance = 40, free_chance = 20, refuse_chance = 40 },
+    ["freedom"]  = { paid_chance = 20, free_chance = 70, refuse_chance = 10 },
+    ["csky"]     = { paid_chance = 40, free_chance = 50, refuse_chance = 10 },
+    ["ecolog"]   = { paid_chance = 30, free_chance = 50, refuse_chance = 20 },
+    ["killer"]   = { paid_chance = 75, free_chance = 10, refuse_chance = 15 },
+    ["renegade"] = { paid_chance = 20, free_chance = 10, refuse_chance = 70 },
+    ["greh"]     = { paid_chance = 10, free_chance = 10, refuse_chance = 80 },
+    ["isg"]      = { paid_chance = 30, free_chance = 40, refuse_chance = 30 },
+    ["monolith"] = { paid_chance = 00, free_chance = 80, refuse_chance = 20 },
+}
+
+local rank_intel_accuracy = {
+    ["novice"] = 30,
+    ["trainee"] = 40,
+    ["experienced"] = 50,
+    ["professional"] = 60,
+    ["veteran"] = 70,
+    ["expert"] = 80,
+    ["master"] = 90,
+    ["legend"] = 100,
+}
+
+local rank_intel_cap = {
+    ["novice"] = 1,
+    ["trainee"] = 1,
+    ["experienced"] = 2,
+    ["professional"] = 2,
+    ["veteran"] = 3,
+    ["expert"] = 3,
+    ["master"] = 4,
+    ["legend"] = 4,
+}
+
+local rank_order = {
+    ["novice"] = 1,
+    ["trainee"] = 2,
+    ["experienced"] = 3,
+    ["professional"] = 4,
+    ["veteran"] = 5,
+    ["expert"] = 6,
+    ["master"] = 7,
+    ["legend"] = 8,
+}
+
+local intel_npcs = {}
+
+-- CONFIG
+local notable_smarts_ini = ini_file("misc\\aflimod_notable_smarts.ltx")
+
+local function get_smarts_for_level(level_name)
+    if not notable_smarts_ini:section_exist(level_name) then return nil end
+    local smarts = {}
+    local count = notable_smarts_ini:line_count(level_name)
+    for i = 0, count - 1 do
+        local result, key, value = notable_smarts_ini:r_line(level_name, i, "", "")
+        if key and key ~= "" then
+            smarts[#smarts + 1] = key
+        end
+    end
+    return smarts
+end
+
+
+function add_my_dialog(character_id, dialog_list)
+    dialog_list:add("grounded_ask_for_intel")
+end
+
+function on_game_load()
+    load_aflimod_settings()
+end
+
+function on_option_change()
+    load_aflimod_settings()
+end
+
+function actor_on_first_update()
+    load_aflimod_settings()
+end
+
+function load_aflimod_settings()
+    intel_expire_time = aflimod_mcm.get_config("intel_expiration_time")
+    debug_mode = aflimod_mcm.get_config("debug_mode")
+end
+
+local function print_dbg(...)
+    if not debug_mode then return end
+    local header = "[AFLIMOD]"
+    local msg = string.format(...)
+    printf(header .. " " .. msg)
+end
+
+local reset_timer = 0
+function actor_on_update()
+    if db.actor:is_talking() then
+        local npc = db.actor:get_talking_npc()
+        if not npc then return end
+        init_npc_intel(npc)
+    end
+
+    local tg = time_global()
+    if tg < reset_timer or db.actor:is_talking() then return end
+    reset_timer = tg + 1000
+
+    local current_time = game.get_game_time()
+    for npc_id, data in pairs(intel_npcs) do
+        if data.generated_at then
+            local time_passed = current_time:diffSec(data.generated_at)
+            if time_passed > intel_expire_time then
+                intel_npcs[npc_id] = nil  -- force refresh
+            end
+        end
+    end 
+end
+
+local function count_smart_squads(smart_id)
+    local count = 0
+    local squads = SIMBOARD.smarts[smart_id] and SIMBOARD.smarts[smart_id].squads
+    if not squads then return 0 end
+    for squad_id, _ in pairs(squads) do
+        local squad = alife_object(squad_id)
+        if squad and not is_squad_monster[squad.player_id] then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+function get_current_level_intel()
+    local sim = alife()
+    if not sim then return nil end
+    local level_name = sim:level_name(game_graph():vertex(sim:actor().m_game_vertex_id):level_id())
+    local smarts_for_level = get_smarts_for_level(level_name)
+    if not smarts_for_level then return end
+
+    local function get_current_tracked_smart()
+        local actor_pos = db.actor:position()
+        for _, smart_name in ipairs(smarts_for_level) do
+            local smart = SIMBOARD:get_smart_by_name(smart_name)
+            if smart and actor_pos:distance_to(smart.position) < NEARBY_SMART_RADIUS then
+                return smart_name
+            end
+        end
+        return nil
+    end
+
+    local current_smart_name = get_current_tracked_smart()
+
+    local results = {}
+    for _, smart_name in ipairs(smarts_for_level) do
+        if smart_name ~= current_smart_name then
+            local smart = SIMBOARD:get_smart_by_name(smart_name)
+            if smart then
+                results[smart_name] = {
+                    population = count_smart_squads(smart.id),
+                    faction    = smart.faction or smart.default_faction,
+                    contested  = smart.faction_war_in_progress or false,
+                }
+            end
+        end
+    end
+    return results
+end
+
+function get_current_level_dynamic_squads_intel()
+    local sim = alife()
+    if not sim then return nil end
+    local gg = game_graph()
+
+    local level_name = sim:level_name(gg:vertex(sim:actor().m_game_vertex_id):level_id())
+    
+    local sightings = {}
+
+    local tracked_smarts = get_smarts_for_level(level_name)
+
+    -- build a set of smart IDs we already cover with static intel
+    local excluded_ids = {}
+    if tracked_smarts then
+        for _, smart_name in ipairs(tracked_smarts) do
+            local smart = SIMBOARD:get_smart_by_name(smart_name)
+            if smart then
+                excluded_ids[smart.id] = true
+            end
+        end
+    end
+    
+    local actor_pos = db.actor:position()
+    for name, v in pairs(SIMBOARD.smarts_by_names) do
+        if not excluded_ids[v.id] and level_name == sim:level_name(gg:vertex(v.m_game_vertex_id):level_id()) then
+            if actor_pos:distance_to(v.position) >= NEARBY_SMART_RADIUS then  -- exclude smarts near the player
+                local smrt = SIMBOARD.smarts[v.id]
+                if smrt and smrt.squads then
+                    for squad_id, _ in pairs(smrt.squads) do
+                        local squad = alife_object(squad_id)
+                        if squad and squad.player_id then
+                            sightings[#sightings + 1] = {
+                                location   = aflimod_point_desc.get_point_description_no_level(v),
+                                player_id  = squad.player_id,
+                            }
+                            break -- one sighting per smart is enough
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return sightings
+end
+
+function init_npc_intel(npc)
+
+    --local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+    if not npc then return end
+    local npc_id = npc:id()
+
+    -- already initialized for this NPC
+    if intel_npcs[npc_id] then return end
+
+    local comm = npc:character_community()
+    local profile = comm_intel_behavior[comm]
+
+    local behavior = "free"
+    if profile then
+        local npc_rank = rank_order[ranks.get_obj_rank_name(npc)] or 3
+        local actor_rank = rank_order[ranks.get_obj_rank_name(db.actor)] or 3
+        local rank_delta = actor_rank - npc_rank
+
+        local npc_goodwill = db.actor:community_goodwill(comm)
+        local goodwill_modifier = math.floor(npc_goodwill / 500)
+        local free_bonus = (rank_delta * 5) + goodwill_modifier
+
+        local adjusted = {
+            free_chance   = math.max(0, profile.free_chance + free_bonus),
+            paid_chance   = math.max(0, profile.paid_chance - free_bonus),
+            refuse_chance = profile.refuse_chance,
+        }
+        local total_chance = adjusted.free_chance + adjusted.paid_chance + adjusted.refuse_chance
+        if total_chance > 0 then
+            adjusted.free_chance   = math.floor(adjusted.free_chance   / total_chance * 100)
+            adjusted.paid_chance   = math.floor(adjusted.paid_chance   / total_chance * 100)
+            adjusted.refuse_chance = 100 - adjusted.free_chance - adjusted.paid_chance
+        end
+
+        print_dbg("Free chance %s, Paid chance %s, Refuse chance %s", adjusted.free_chance, adjusted.paid_chance, adjusted.refuse_chance)
+
+        local roll = math.random(100)
+        if roll <= adjusted.refuse_chance then
+            behavior = "refuse"
+        elseif roll <= adjusted.refuse_chance + adjusted.paid_chance then
+            behavior = "paid"
+        else
+            behavior = "free"
+        end
+    end
+
+    local paid_accuracy_offset = 0
+    if behavior == "paid" then
+        paid_accuracy_offset = 40
+    end
+    local paid_cap_offset = 0
+    if behavior == "paid" then
+        paid_cap_offset = 2
+    end
+
+    local intel
+    local dynamic_intel
+    local rank_name = ranks.get_obj_rank_name(npc) or "experienced"
+    local accuracy = (rank_intel_accuracy[rank_name] or 50) + paid_accuracy_offset
+    local intel_cap = (rank_intel_cap[rank_name] or 2) + paid_cap_offset
+
+    local intel_count = 0
+
+    if behavior ~= "refuse" then
+        -- generate intel
+        intel = get_current_level_intel()
+        if intel then
+            local trimmed = {}
+            for smart_name, data in pairs(intel) do
+                if math.random(100) <= accuracy and intel_count < intel_cap then
+                    trimmed[smart_name] = data
+                    intel_count = intel_count + 1
+                end
+            end
+            intel = trimmed
+        end
+
+        dynamic_intel = get_current_level_dynamic_squads_intel()
+        if dynamic_intel then
+            shuffle_table(dynamic_intel)
+            local trimmed = {}
+            for _, sighting in ipairs(dynamic_intel) do
+                if math.random(100) <= accuracy and intel_count < intel_cap then
+                    trimmed[#trimmed + 1] = sighting
+                    intel_count = intel_count + 1
+                end
+            end
+            dynamic_intel = trimmed
+        end
+        
+    end
+
+    intel_npcs[npc_id] = {
+        behavior = behavior,
+        intel = intel,
+        dynamic_intel = dynamic_intel,
+        generated_at = game.get_game_time(),
+    }
+
+    print_dbg("Added npc %s to intel_npcs. Behavior=%s, Accuracy=%s", npc_id, behavior, accuracy)
+
+end
+
+local function count_table(t)
+    local count = 0
+    for _ in pairs(t) do
+        count = count + 1
+    end
+    return count
+end
+
+function get_paid_intel_total_cost(npc_id)
+    if not intel_npcs[npc_id] then return 0 end
+    local intel = intel_npcs[npc_id].intel or {}
+    local dynamic_intel = intel_npcs[npc_id].dynamic_intel or {}
+    local intel_amount = count_table(intel) + #dynamic_intel
+    return intel_amount * PAID_INTEL_COST
+end
+
+--================== DIALOGS ==================--
+
+-- PRECONDITIONS
+
+function is_actor_same_community(first_speaker, second_speaker)
+    local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+    local npc_community = character_community(npc)
+    local actor_community = get_actor_true_community()
+    if not npc_community then
+        return false
+    end
+    if npc_community == "trader" or npc_community == "monster" then return true end
+    if actor_community == npc_community then
+        return true
+    else
+        return false
+    end
+end
+
+function is_npc_paid_intel(first_speaker, second_speaker)
+    local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+    if not npc then return false end
+    local entry = intel_npcs[npc:id()]
+    return entry and entry.behavior == "paid"
+end
+
+function has_actor_not_paid_for_intel(first_speaker, second_speaker)
+    local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+    if not npc then return false end
+    local entry = intel_npcs[npc:id()]
+    return entry and not entry.paid_for_intel
+end
+
+function is_npc_free_intel(first_speaker, second_speaker)
+    local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+    if not npc then return false end
+    local entry = intel_npcs[npc:id()]
+    return entry and entry.behavior == "free"
+end
+
+function is_npc_refuse_intel(first_speaker, second_speaker)
+    local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+    if not npc then return false end
+    local entry = intel_npcs[npc:id()]
+    return entry and entry.behavior == "refuse"
+end
+
+function can_actor_afford_intel(first_speaker, second_speaker)
+    local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+    if not npc then return false end
+    local intel_cost = get_paid_intel_total_cost(npc:id())
+    return db.actor:money() >= intel_cost
+end
+
+function is_npc_free_intel_or_already_paid(first_speaker, second_speaker)
+    local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+    if not npc then return false end
+    local entry = intel_npcs[npc:id()]
+    return entry and (entry.behavior == "free" or entry.paid_for_intel)
+end
+
+-- ACTIONS
+
+function actor_pay_intel(first_speaker, second_speaker)
+    local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+    if not npc then return end
+    local npc_id = npc:id()
+    if not intel_npcs[npc_id] then return end
+    intel_npcs[npc_id].paid_for_intel = true
+    dialogs.relocate_money_from_actor(first_speaker, second_speaker, get_paid_intel_total_cost(npc_id))
+end
+
+local function capitalize_first(s)
+    return string.upper(string.sub(s, 1, 1)) .. string.sub(s, 2)
+end
+
+local function capitalize_sentences(s)
+    s = capitalize_first(s)
+    s = string.gsub(s, "%.([ ]*\\?n?[ ]*)(%a)", function(sep, c) 
+        return "." .. sep .. string.upper(c) 
+    end)
+    return s
+end
+
+function build_pay_intel_string()
+    local npc = db.actor:get_talking_npc()
+    local actual_cost = get_paid_intel_total_cost(npc:id())
+    return game.translate_string("st_aflimod_actor_pay_intel") .. "%c[d_orange]" .. " [" .. actual_cost .. " RU]"
+end
+
+function build_refuse_intel_string()
+    local npc = db.actor:get_talking_npc()
+    local comm = npc:character_community()
+    local refuse_line = "st_aflimod_refuse_intel_" .. comm
+    -- fall back to generic if community has no specific line
+    if not game.translate_string(refuse_line) then
+        refuse_line = "st_aflimod_refuse_intel"
+    end
+    return game.translate_string(refuse_line)
+end
+
+function build_intel_string()
+    local npc = db.actor:get_talking_npc()
+    if not npc then return "" end
+    local entry = intel_npcs[npc:id()]
+    if not entry then return "" end
+
+    local intel = entry.intel
+    local dynamic_intel = entry.dynamic_intel
+
+    local has_static_intel = intel and not is_empty(intel)
+    local has_dynamic_intel = dynamic_intel and #dynamic_intel > 0
+
+    if not has_static_intel and not has_dynamic_intel then
+        return game.translate_string("st_aflimod_no_intel")
+    end
+
+    -- Step 1: group smarts by faction
+    local by_faction = {}
+    local empty_smarts = {}
+    local contested_smarts = {}
+
+    if has_static_intel then
+        for smart_name, data in pairs(intel) do
+            local display = game.translate_string("st_afli_smarts_article") .. " " .. (game.translate_string(smart_name) or smart_name)
+            if data.population == 0 then
+                empty_smarts[#empty_smarts + 1] = display
+            elseif data.contested then
+                contested_smarts[#contested_smarts + 1] = display
+            else
+                local faction = data.faction
+                if faction and faction ~= "trader" then
+                    if not by_faction[faction] then
+                        by_faction[faction] = {}
+                    end
+                    by_faction[faction][#by_faction[faction] + 1] = display
+                end
+            end
+        end
+    end
+
+    -- Step 2: group dynamic sightings by type (stalker factions vs monsters)
+    local by_dynamic_faction = {}  -- { player_id -> { location, ... } }
+    local monster_locations = {}
+
+    if has_dynamic_intel then
+        for _, sighting in ipairs(dynamic_intel) do
+            if is_squad_monster[sighting.player_id] then
+                monster_locations[#monster_locations + 1] = sighting.location
+            else
+                if not by_dynamic_faction[sighting.player_id] then
+                    by_dynamic_faction[sighting.player_id] = {}
+                end
+                by_dynamic_faction[sighting.player_id][#by_dynamic_faction[sighting.player_id] + 1] = sighting.location
+            end
+        end
+    end
+
+    -- Step 3: helper to join a list naturally: "A, B and C"
+    local function join_list(t)
+        if #t == 1 then return t[1] end
+        local all_but_last = table.concat(t, ", ", 1, #t - 1)
+        return all_but_last .. " and " .. t[#t]
+    end
+
+    -- Step 4: build static sentences
+    local faction_parts = {}
+    local other_parts = {}
+
+    local player_faction = get_actor_true_community()
+    local npc_faction = npc:character_community() or "unknown"
+
+    for faction, smarts in pairs(by_faction) do
+        local faction_display = game.translate_string("intel_" .. faction) or faction
+        if faction == player_faction and player_faction == npc_faction then
+            faction_display = game.translate_string("intel_actor_faction")
+        end
+        faction_parts[#faction_parts + 1] = faction_display .. " " .. game.translate_string("st_aflimod_faction_control_" .. math.random(3)) .. " " .. join_list(smarts)
+    end
+
+    for _, smart in ipairs(contested_smarts) do
+        other_parts[#other_parts + 1] = game.translate_string("st_aflimod_contested_1") .. " " .. smart
+    end
+
+    if #empty_smarts > 0 then
+        local empty_variant = #empty_smarts > 1 and "st_aflimod_empty_plural_" or "st_aflimod_empty_"
+        other_parts[#other_parts + 1] = join_list(empty_smarts) .. " " .. game.translate_string(empty_variant .. math.random(5))
+    end
+
+    -- Step 5: build dynamic sentences
+    local has_static_content = #faction_parts > 0 or #other_parts > 0
+    local suffix = has_static_content and "" or "_standalone"
+    local dynamic_parts = {}
+
+    for player_id, locations in pairs(by_dynamic_faction) do
+        local faction_display = game.translate_string("intel_" .. player_id) or player_id
+        if player_id == player_faction and player_faction == npc_faction then
+            faction_display = game.translate_string("dynamic_intel_actor_faction")
+        end
+        local str = string.format(game.translate_string("st_aflimod_dynamic_stalker" .. suffix .. "_" .. math.random(2)), faction_display)
+        dynamic_parts[#dynamic_parts + 1] = str .. " " .. join_list(locations)
+    end
+
+    if #monster_locations > 0 then
+        local str = game.translate_string("st_aflimod_dynamic_monster" .. suffix .. "_" .. math.random(2))
+        dynamic_parts[#dynamic_parts + 1] = str .. " " .. join_list(monster_locations)
+    end
+
+    -- Step 6: early exit if everything is empty
+    if #faction_parts == 0 and #other_parts == 0 and #dynamic_parts == 0 then
+        return game.translate_string("st_aflimod_no_intel")
+    end
+
+    -- Step 7: join sentences, opener only on first faction sentence
+    local result = ""
+
+    if #faction_parts > 0 then
+        result = game.translate_string("st_aflimod_opener_" .. math.random(5)) .. " " .. faction_parts[1]
+        for i = 2, #faction_parts do
+            result = result .. ". \\n" .. faction_parts[i]
+        end
+        for _, part in ipairs(other_parts) do
+            result = result .. ". \\n" .. part
+        end
+    elseif #other_parts > 0 then
+        result = other_parts[1]
+        for i = 2, #other_parts do
+            result = result .. ". \\n" .. other_parts[i]
+        end
+    end
+
+    for _, part in ipairs(dynamic_parts) do
+        if result ~= "" then
+            result = result .. ". \\n" .. part
+        else
+            result = part
+        end
+    end
+
+    return capitalize_sentences(result .. ".")
+end
+
+function save_state(m_data)
+	m_data.intel_npcs = intel_npcs
+end
+
+function load_state(m_data)
+	intel_npcs = m_data.intel_npcs or intel_npcs
+end
+
+--================== CALLBACKS REGISTRATION ===================--
+
+function on_game_start()
+    RegisterScriptCallback("on_specific_character_dialog_list", add_my_dialog)
+    RegisterScriptCallback("actor_on_update", actor_on_update)
+    RegisterScriptCallback("actor_on_first_update", actor_on_first_update)
+    RegisterScriptCallback("on_game_load", on_game_load)
+    RegisterScriptCallback("on_option_change", on_option_change)
+    RegisterScriptCallback("save_state", save_state)
+	RegisterScriptCallback("load_state", load_state)
+end

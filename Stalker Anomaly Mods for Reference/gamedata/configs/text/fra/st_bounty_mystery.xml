@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="windows-1252"?>
+
+<string_table>
+
+<!--
+F.R.I.T.E.S | Thundard
+Dernière révision: 02 décembre 2025
+-->
+
+<!-- Messages mystérieux de "???" -->
+    
+<string id="st_mystery_up_1">
+    <text>...Le premier sang a coulé, mais la bête n'est pas rassasiée. Les chiffres à côté de ton nom ont été mis à jour dans les canaux obscurs. Désormais ton âme vaut tellement que même tes amis vont commencer à surveiller ton dos...</text>
+</string>
+
+<string id="st_mystery_up_2">
+    <text>...Tu as gagné un peu de temps, mais perdu ta tranquillité. Le client a ouvert le "fonds noir". Maintenant, ce sont des loups qu'on enverra à tes trousses, pas des chiens. Le silence est trompeur, stalker. Garde un oeil dans ton dos...</text>
+</string>
+
+<string id="st_mystery_up_3">
+    <text>...Le vacarme de la bataille s'est éteint, mais son écho a atteint ceux qui vivent dans l'ombre. Ton statut a changé. Tu n'es plus seulement une cible, tu es devenu un défi. Et les professionnels adorent les défis grassement payés...</text>
+</string>
+
+<string id="st_mystery_up_4">
+    <text>...Ne te réjouis pas d'avoir survécu. Ce n'était qu'une reconnaissance en force. Les curateurs ont fait grimper les enjeux au ciel. Bientôt, la Zone sera trop petite pour toi, et chaque ombre te paraîtra celle d'un assassin...</text>
+</string>
+
+<string id="st_mystery_up_5">
+    <text>...Echec de l'exécution du contrat. Protocole mis à jour: "Éliminer à tout prix". Budget illimité. Tu es devenu un jouet bien trop cher pour qu'on te laisse filer. Cours...</text>
+</string>
+
+</string_table>

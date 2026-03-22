@@ -1,0 +1,41 @@
+siski = siski or {}
+
+siski.version = "0.9.1"
+
+local function safe_require(name)
+    local ok = pcall(require, name)
+    return ok
+end
+
+function siski.on_game_start()
+    safe_require("siski_oop")
+    safe_require("siski_switches")
+    safe_require("siski_core")
+    safe_require("siski_safe")
+    safe_require("siski_log")
+    safe_require("siski_config")
+    safe_require("siski_adaptive")
+    safe_require("siski_memory")
+    safe_require("siski_sim")
+    safe_require("siski_trade")
+    safe_require("siski_tasks_registry")
+    safe_require("siski_mutants")
+    safe_require("siski_operator")
+    safe_require("siski_notify")
+    safe_require("siski_loot")
+    safe_require("siski_loot_patch")
+    safe_require("siski_fast_trading")
+    safe_require("siski_debug_hud")
+
+    if siski.loot and siski.loot.on_game_start then
+        siski.loot.on_game_start()
+    end
+
+    if siski.fast_trading and siski.fast_trading.on_game_start then
+        siski.fast_trading.on_game_start()
+    end
+
+    if siski.core and siski.core.on_game_start then
+        siski.core.on_game_start()
+    end
+end

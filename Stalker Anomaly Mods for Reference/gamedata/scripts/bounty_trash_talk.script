@@ -1,0 +1,203 @@
+--[[
+    Bounty Trash Talk & Fake News
+    Generates fake threats, rumors, and toxic chat messages.
+]]--
+
+-------------------------------------------------
+-- НАСТРОЙКИ ПО УМОЛЧАНИЮ (переопределяются через MCM)
+-------------------------------------------------
+local settings = {
+    enabled       = true,       -- вкл/выкл скрипт
+    delay_minutes = 24 * 60,    -- раз в игровые сутки по умолчанию
+    chance        = 60,         -- % шанса при срабатывании таймера
+}
+
+-------------------------------------------------
+-- ЗАГРУЗКА НАСТРОЕК ИЗ MCM (mod_id = "bounty_hunt")
+-------------------------------------------------
+local function load_settings()
+    if not ui_mcm then
+        return
+    end
+
+    -- Включен ли мод (check: trash_enable)
+    local v = ui_mcm.get("bounty_hunt/trash_enable")
+    if v ~= nil then
+        -- MCM может вернуть bool или 0/1
+        settings.enabled = (v == true or v == 1 or v == "true")
+    end
+
+    -- Шанс сообщения (%)
+    v = ui_mcm.get("bounty_hunt/trash_chance")
+    if v ~= nil then
+        v = tonumber(v)
+        if v and v >= 0 and v <= 100 then
+            settings.chance = v
+        end
+    end
+
+    -- Частота сообщений (в часах) -> переводим в минуты
+    v = ui_mcm.get("bounty_hunt/trash_delay")
+    if v ~= nil then
+        v = tonumber(v)
+        if v and v > 0 then
+            settings.delay_minutes = v * 60
+        end
+    end
+end
+
+-------------------------------------------------
+-- КОЛБЭК MCM ПРИ ИЗМЕНЕНИИ ОПЦИЙ
+-------------------------------------------------
+local function on_option_change(mcm)
+    if not mcm then
+        return
+    end
+    load_settings()
+end
+
+-------------------------------------------------
+-- КОНСТАНТЫ ПО ФРАКЦИЯМ
+-------------------------------------------------
+
+-- Игнорируемые (вообще не шлют сообщения)
+local IGNORE_FACTIONS = {
+    ["monolith"] = true,
+    ["sin"]      = true,
+    ["isg"]      = true,
+    ["zombied"]  = true,
+    ["trader"]   = true,
+    ["monster"]  = true,
+}
+
+-- Агрессоры (только угрозы, никаких слухов)
+local AGGRESSIVE_FACTIONS = {
+    ["army"]     = true,   -- Военные
+    ["bandit"]   = true,   -- Бандиты
+    ["killer"]   = true,   -- Наёмники
+    ["renegade"] = true,   -- Ренегаты
+    ["dolg"]     = true,   -- Долг
+}
+
+-------------------------------------------------
+-- СОСТОЯНИЕ
+-------------------------------------------------
+local next_msg_time = nil
+
+-------------------------------------------------
+-- ИНИЦИАЛИЗАЦИЯ
+-------------------------------------------------
+function on_game_start()
+    -- Подхватываем значения из MCM при старте
+    load_settings()
+
+    RegisterScriptCallback("actor_on_update", actor_on_update)
+
+    -- Регистрируем колбэк изменения опций, если MCM доступен
+    if ui_mcm then
+        RegisterScriptCallback("mcm_option_change", on_option_change)
+    end
+end
+
+-------------------------------------------------
+-- ГЛАВНЫЙ АПДЕЙТ
+-------------------------------------------------
+function actor_on_update()
+    if not db.actor then
+        return
+    end
+
+    -- Если мод выключен галочкой — вообще ничего не делаем
+    if not settings.enabled then
+        return
+    end
+
+    if not next_msg_time then
+        set_next_timer()
+        return
+    end
+
+    local current_time = game.get_game_time()
+    if current_time:diffSec(next_msg_time) >= 0 then
+        -- Шанс берём из настроек MCM
+        if math.random(100) <= settings.chance then
+            send_fake_message()
+        end
+        set_next_timer()
+    end
+end
+
+-------------------------------------------------
+-- УСТАНОВКА СЛЕДУЮЩЕГО ТАЙМЕРА
+-------------------------------------------------
+function set_next_timer()
+    -- В MCM одна ручка "trash_delay" (в часах), поэтому используем фиксированную задержку
+    local delay = settings.delay_minutes
+    if delay <= 0 then
+        -- Защита от нуля / некорректных значений
+        delay = 60
+    end
+
+    local time_offset = game.CTime()
+    -- delay минут, секунд 0
+    time_offset:setHMS(0, delay, 0)
+    next_msg_time = game.get_game_time() + time_offset
+end
+
+-------------------------------------------------
+-- ОТПРАВКА ЛОЖНОГО СООБЩЕНИЯ
+-------------------------------------------------
+function send_fake_message()
+    if not db.storage then
+        return
+    end
+
+    local candidates = {}
+
+    for id, data in pairs(db.storage) do
+        local npc = data and data.object
+        if npc and IsStalker(npc) and npc:alive() and npc:id() ~= db.actor:id() then
+            local comm = npc:character_community()
+            if not IGNORE_FACTIONS[comm] then
+                table.insert(candidates, npc)
+            end
+        end
+    end
+
+    if #candidates == 0 then
+        return
+    end
+
+    local sender      = candidates[math.random(#candidates)]
+    local sender_comm = sender:character_community()
+    local sender_name = sender:character_name()
+    local sender_icon = sender:character_icon()
+    if not sender_icon or sender_icon == "" then
+        sender_icon = "ui_inGame2_Neutral_1"
+    end
+
+    -- ЛОГИКА ВЫБОРА ТИПА СООБЩЕНИЯ
+    local msg_type = "rumor"
+
+    -- Если это враг ГГ или агрессивная фракция -> ТОЛЬКО УГРОЗЫ
+    if AGGRESSIVE_FACTIONS[sender_comm] or sender:relation(db.actor) == game_object.enemy then
+        msg_type = "threat"
+    end
+
+    local text_key
+    if msg_type == "threat" then
+        text_key = "st_trash_threat_" .. math.random(1, 15)
+    else
+        text_key = "st_trash_fake_" .. math.random(1, 15)
+    end
+
+    local message    = game.translate_string(text_key)
+    local actor_name = db.actor:character_name()
+
+    if string.find(message, "%%s") then
+        message = message:gsub("%%s", actor_name)
+    end
+
+    db.actor:give_game_news(sender_name, message, sender_icon, 0, 5000)
+    xr_sound.set_sound_play(db.actor:id(), "pda_tips")
+end

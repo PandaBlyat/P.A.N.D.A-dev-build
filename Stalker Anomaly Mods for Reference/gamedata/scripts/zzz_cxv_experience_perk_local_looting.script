@@ -1,0 +1,16 @@
+-- Task Amt. Reduction for Rare Stashes is handled in x_cxv_perks_data.script
+
+if grok_stashes_on_corpses then
+	grok_stash_base = grok_stashes_on_corpses.npc_on_use
+	function grok_stashes_on_corpses.npc_on_use(npc)
+		if x_cxv_perks_data.perks["perk_local_looting"] == 0 then
+			grok_stash_base(npc)
+		else
+			if npc:alive() then return end
+			if grok_stashes_on_corpses._used_corpses[npc:id()] then return end
+			grok_stashes_on_corpses._used_corpses[npc:id()] = true
+			if math.random() > grok_stashes_on_corpses.SETTINGS.chance then return end
+			treasure_manager.create_random_stash(nil, nil, nil, math.random() > (0.75 - (x_cxv_perks_data.perks["perk_local_looting"] * 0.075)))
+		end
+	end
+end

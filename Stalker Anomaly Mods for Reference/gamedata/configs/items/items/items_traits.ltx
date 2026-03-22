@@ -1,0 +1,23 @@
+[itm_trait_respec]:identity_immunities
+description                                        = st_itm_desc_trait_respec
+inv_name                                           = st_itm_name_trait_respec
+inv_name_short                                     = st_itm_name_trait_respec
+class											   = II_ATTCH
+can_trade                                          = true
+quest_item                                         = false
+cost                                               = 10000
+inv_weight                                         = 1.25
+icons_texture							           = ui\ui_icons_traits_itms
+visual                                             = dynamics\devices\dev_beer\dev_beer.ogf
+inv_grid_width				                       = 1
+inv_grid_height				                       = 2
+inv_grid_x					                       = 0
+inv_grid_y					                       = 0
+break_particles				                       = destroy_fx\destroy_bottle
+break_sound					                       = material\bottle\collide\bottle_break_1
+use1_functor                             		   = utjan_traits.respec_item_use_str
+use1_action_functor                      		   = utjan_traits.respec_item_use
+remove_after_use                                   = true
+use_sound					                       = interface\inv_drink_flask_beer
+snd_on_take								 		   = bottle
+kind			                               	   = i_drink

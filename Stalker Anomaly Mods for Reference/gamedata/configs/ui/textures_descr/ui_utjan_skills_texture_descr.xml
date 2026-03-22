@@ -1,0 +1,11 @@
+<w>
+	<file name ="ui\ui_icons_ut_skills">
+		<texture id = "ui_skills_icon_tinkering" x="123" y="0" width="123" height="87" />
+		<texture id = "ui_skills_icon_insanity" x="123" y="87" width="123" height="87" />
+		<texture id = "ui_skills_icon_medicine" x="0" y="0" width="123" height="87" />
+		<texture id = "ui_skills_icon_bartering" x="0" y="87" width="123" height="87" />
+		<texture id = "ui_skills_icon_magloading" x="0" y="174" width="123" height="87" />
+		<texture id = "ui_skills_icon_lockpicking" x="123" y="174" width="123" height="87" />
+		<texture id = "ui_skills_icon_reloading" x="0" y="261" width="123" height="87" />
+	</file>
+</w>

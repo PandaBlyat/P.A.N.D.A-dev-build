@@ -1,0 +1,1436 @@
+<?xml version="1.0" encoding="windows-1251"?>
+
+<string_table>
+	
+	<!-- Skills Category in menu -->
+	<string id="ui_st_gamma_rpg_system_skills_category">
+        <text>РПГ Система</text>
+    </string>
+	<!-- Options preset name -->
+	<string id="ui_exp_prst_gamma_rpg_system_default">
+        <text>Пресет РПГ системы</text>
+    </string>
+
+	<string id="st_perk_fast_hands">
+        <text>Быстрые Руки</text>
+    </string>
+	<string id="st_perk_fast_hands_desc">
+        <text>Увеличивает скорость доставания/убирания оружия</text>
+    </string>
+	<string id="st_perk_fast_hands_desc_1">
+        <text>Увеличивает скорость доставания/убирания оружия. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличивает скорость доставания/убирания оружия на %c[d_green]15%
+		</text>
+    </string>
+	<string id="st_perk_fast_hands_desc_2">
+        <text>Увеличивает скорость доставания/убирания оружия. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличивает скорость доставания/убирания оружия на %c[d_green]30%
+		</text>
+    </string>
+	<string id="st_perk_fast_hands_desc_3">
+        <text>Увеличивает скорость доставания/убирания оружия. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличивает скорость доставания/убирания оружия на %c[d_green]70%
+		</text>
+    </string>
+
+	<string id="st_perk_rapid_reload">
+        <text>Быстрая перезарядка</text>
+    </string>
+	<string id="st_perk_rapid_reload_desc">
+        <text>Скорость - ключ к успеху в пылу битвы. %c[d_red]ВАЖНО! Скорость перезарядки оружия перестанет совпадать со звуком перезарядки (неисправимый движковый баг). \n \n
+		</text>
+    </string>
+	<string id="st_perk_rapid_reload_desc_1">
+        <text>Скорость - ключ к успеху в пылу битвы. \n \n
+		%c[d_red]ВАЖНО! Скорость перезарядки оружия перестанет совпадать со звуком перезарядки (неисправимый движковый баг). \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Ваша скорость перезарядки увеличивается на %c[d_green]15%
+		</text>
+    </string>
+	<string id="st_perk_rapid_reload_desc_2">
+        <text>Скорость - ключ к успеху в пылу битвы. \n \n
+		%c[d_red]ВАЖНО! Скорость перезарядки оружия перестанет совпадать со звуком перезарядки (неисправимый движковый баг). \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Ваша скорость перезарядки увеличивается на %c[d_green]40%
+		</text>
+    </string>
+	<string id="st_perk_rapid_reload_desc_3">
+        <text>Скорость - ключ к успеху в пылу битвы. \n \n
+		%c[d_red]ВАЖНО! Скорость перезарядки оружия перестанет совпадать со звуком перезарядки (неисправимый движковый баг). \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Ваша скорость перезарядки увеличивается на %c[d_green]75%
+		</text>
+    </string>
+	
+    <string id="st_perk_gunslinger">
+        <text>Ковбой</text>
+    </string>
+	<string id="st_perk_gunslinger_desc">
+        <text>Вам всегда нравились пистолеты и пистолеты-пулеметы, а так же прочее компактное огнестрельное оружие. Возможно, вы даже фанат фильма Эквилибриум. Теперь при стрельбе из пистолетов ваши враги получат больше урона.</text>
+    </string>
+	<string id="st_perk_gunslinger_desc_1">
+        <text>Мастерство обращение с компактным огнестрельным оружием не прошло даром, теперь вы наносите повышенный урон при использовании пистолетов и пистолетов-пулеметов. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение урона на %c[d_green]5% %c[ui_gray_2] для %c[yellow]Пистолетов и Пистолетов-пулеметов
+		</text>
+    </string>
+	<string id="st_perk_gunslinger_desc_2">
+        <text>Мастерство обращение с компактным огнестрельным оружием не прошло даром, теперь вы наносите повышенный урон при использовании пистолетов и пистолетов-пулеметов. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение урона на %c[d_green]10% %c[ui_gray_2] для %c[yellow]Пистолетов и Пистолетов-пулеметов
+		</text>
+    </string>
+	<string id="st_perk_gunslinger_desc_3">
+        <text>Мастерство обращение с компактным огнестрельным оружием не прошло даром, теперь вы наносите повышенный урон при использовании пистолетов и пистолетов-пулеметов. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение урона на %c[d_green]15% %c[ui_gray_2] для %c[yellow]Пистолетов и Пистолетов-пулеметов
+		</text>
+    </string>
+
+	<string id="st_perk_gunslinger_desc_4">
+        <text>Мастерство обращение с компактным огнестрельным оружием не прошло даром, теперь вы наносите повышенный урон при использовании пистолетов и пистолетов-пулеметов. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение урона на %c[d_green]20% %c[ui_gray_2] для %c[yellow]Пистолетов и Пистолетов-пулеметов
+		</text>
+    </string>
+	<string id="st_perk_gunslinger_desc_5">
+        <text>Мастерство обращение с компактным огнестрельным оружием не прошло даром, теперь вы наносите повышенный урон при использовании пистолетов и пистолетов-пулеметов. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение урона на %c[d_green]25% %c[ui_gray_2] для %c[yellow]Пистолетов и Пистолетов-пулеметов
+		</text>
+    </string>
+
+	
+	<string id="st_perk_rifleman">
+        <text>Стрелок</text>
+    </string>
+	<string id="st_perk_rifleman_desc">
+        <text>Вас уже начинают сравнивать с легендарным сталкером. Ваши навыки стрельбы из штурмовых винтовок поражают многих. Теперь ваши выстрелы из винтовок подобного типа так же будут наносить повышенный урон!</text>
+    </string>
+	<string id="st_perk_rifleman_desc_1">
+        <text>Вы стали экспертом в классе штурмовых винтовок и карабинов. Урон при стрельбе из них увеличен. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ::\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение урона на %c[d_green]5% %c[ui_gray_2] для %c[yellow]Штурмовых винтовок и Пулеметов
+		</text>
+    </string>
+	<string id="st_perk_rifleman_desc_2">
+        <text>Вы стали экспертом в классе штурмовых винтовок и карабинов. Урон при стрельбе из них увеличен.  \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ::\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение урона на %c[d_green]10% %c[ui_gray_2] для %c[yellow]Штурмовых винтовок и Пулеметов
+		</text>
+    </string>
+	<string id="st_perk_rifleman_desc_3">
+        <text>Вы стали экспертом в классе штурмовых винтовок и карабинов. Урон при стрельбе из них увеличен.  \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ::\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение урона на %c[d_green]15% %c[ui_gray_2] для %c[yellow]Штурмовых винтовок и Пулеметов
+		</text>
+    </string>
+	<string id="st_perk_rifleman_desc_4">
+        <text>Вы стали экспертом в классе штурмовых винтовок и карабинов. Урон при стрельбе из них увеличен.  \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение урона на %c[d_green]20% %c[ui_gray_2] для %c[yellow]Штурмовых винтовок и Пулеметов
+		</text>
+    </string>
+	<string id="st_perk_rifleman_desc_5">
+        <text>Вы стали экспертом в классе штурмовых винтовок и карабинов. Урон при стрельбе из них увеличен.  \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение урона на %c[d_green]25% %c[ui_gray_2] для %c[yellow]Штурмовых винтовок и Пулеметов
+		</text>
+    </string>
+	
+	<string id="st_perk_heavy_gunner">
+        <text>Танк</text>
+    </string>
+	<string id="st_perk_heavy_gunner_desc">
+        <text>Вам всегда нравились большие пушки. Неважно, какие: снайперские винтовки, дробовики или даже гранатометы. Теперь в ваших руках они стали еще более смертоносным оружием!</text>
+    </string>
+	<string id="st_perk_heavy_gunner_desc_1">
+        <text>Вы стали чаще использовать более специализированное оружие в Зоне, и это пошло вам на пользу. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение урона на %c[d_green]5% %c[ui_gray_2] для %c[yellow]Дробовиков, Снайперский винтовок и Взрывчатки
+		</text>
+    </string>
+	<string id="st_perk_heavy_gunner_desc_2">
+        <text>Вы стали чаще использовать более специализированное оружие в Зоне, и это пошло вам на пользу. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение урона на %c[d_green]10% %c[ui_gray_2] для %c[yellow]Дробовиков, Снайперский винтовок и Взрывчатки
+		</text>
+    </string>
+	<string id="st_perk_heavy_gunner_desc_3">
+        <text>Вы стали чаще использовать более специализированное оружие в Зоне, и это пошло вам на пользу. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение урона на %c[d_green]15% %c[ui_gray_2] для %c[yellow]Дробовиков, Снайперский винтовок и Взрывчатки
+		</text>
+    </string>
+	<string id="st_perk_heavy_gunner_desc_4">
+        <text>Вы стали чаще использовать более специализированное оружие в Зоне, и это пошло вам на пользу. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение урона на %c[d_green]20% %c[ui_gray_2] для %c[yellow]Дробовиков, Снайперский винтовок и Взрывчатки\n
+		%c[d_red] - %c[ui_gray_2] Не затгаривает бросаемые гранаты.
+		</text>
+    </string>
+	<string id="st_perk_heavy_gunner_desc_5">
+        <text>Вы стали чаще использовать более специализированное оружие в Зоне, и это пошло вам на пользу. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение урона на %c[d_green]25% %c[ui_gray_2] для %c[yellow]Дробовиков, Снайперский винтовок и Взрывчатки\n
+		%c[d_red] - %c[ui_gray_2] Не затгаривает бросаемые гранаты.
+		</text>
+    </string>
+	
+	
+    <string id="st_perk_berserker">
+        <text>Берсерк</text>
+    </string>
+	<string id="st_perk_berserker_desc">
+        <text>Вы наносите больше урона и получаете меньше повреждения при использовании оружия ближнего боя.</text>
+    </string>
+	<string id="st_perk_berserker_desc_1">
+        <text>Пока другие оттачивали свою меткость, вы упражнялись в рукопашном бое. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на  %c[d_green]5% %c[ui_gray_2]меньше повреждений при использовании оружия ближнего боя.
+		%c[d_blue] - %c[ui_gray_2] Скорость атаки в ближнем бою увеличивается на %c[d_green]10%
+		</text>
+    </string>
+	<string id="st_perk_berserker_desc_2">
+        <text>Пока другие оттачивали свою меткость, вы упражнялись в рукопашном бое. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на  %c[d_green]10% %c[ui_gray_2]меньше повреждений при использовании оружия ближнего боя.
+		%c[d_blue] - %c[ui_gray_2] Скорость атаки в ближнем бою увеличивается на %c[d_green]20%
+		</text>
+    </string>
+	<string id="st_perk_berserker_desc_3">
+        <text>Пока другие оттачивали свою меткость, вы упражнялись в рукопашном бое. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на  %c[d_green]15% %c[ui_gray_2]меньше повреждений при использовании оружия ближнего боя.
+		%c[d_blue] - %c[ui_gray_2] Скорость атаки в ближнем бою увеличивается на %c[d_green]30%
+		</text>
+    </string>
+	<string id="st_perk_berserker_desc_4">
+        <text>Пока другие оттачивали свою меткость, вы упражнялись в рукопашном бое. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на  %c[d_green]20% %c[ui_gray_2]меньше повреждений при использовании оружия ближнего боя.
+		%c[d_blue] - %c[ui_gray_2] Скорость атаки в ближнем бою увеличивается на %c[d_green]50%
+		</text>
+    </string>
+	<string id="st_perk_berserker_desc_5">
+        <text>Пока другие оттачивали свою меткость, вы упражнялись в рукопашном бое. \n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на  %c[d_green]25% %c[ui_gray_2]меньше повреждений при использовании оружия ближнего боя.
+		%c[d_blue] - %c[ui_gray_2] Скорость атаки в ближнем бою увеличивается на %c[d_green]75%
+		</text>
+    </string>							   
+	<string id="st_perk_jamming_shot">
+        <text>Клинящий выстрел</text>
+    </string>
+	<string id="st_perk_jamming_shot_desc">
+        <text>Шанс заклинить оружие противника при попадании ему в руку.</text>
+    </string>
+	<string id="st_perk_jamming_shot_desc_1">
+        <text>Вы становитесь ощутимой помехой любому Сталкеру, который встречается у вас на пути.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] У вас появляется %c[d_green]шанс заклинить оружие противника %c[ui_gray_2]при попадании ему %c[yellow]в руку
+		%c[d_red] - %c[ui_gray_2] Вы можете заклинить оружие противника только один раз каждые %c[d_red]5 секунд.
+		</text>
+    </string>
+	
+	
+    <string id="st_perk_disarming_shot">
+        <text>Обезоруживающий Выстрел</text>
+    </string>
+	<string id="st_perk_disarming_shot_desc">
+        <text>При попадании по оружию противника есть 15% шанс, что он его выронит.</text>
+    </string>
+	<string id="st_perk_disarming_shot_desc_1">
+        <text>Вы научились ловкому трюку, чтобы обезоружить врага: выстрелить в его пушку.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При попадании по оружию противника есть %c[d_green]15% %c[ui_gray_2]шанс, что он его выронит
+		%c[d_red] - %c[ui_gray_2] Вы можете разоружать врагов только раз в %c[d_red]10 секунд\n
+		</text>
+    </string>
+	
+    <string id="st_perk_scavenger">
+        <text>Мародёр</text>
+    </string>
+	<string id="st_perk_scavenger_desc">
+        <text>При обыске тела есть небольшой шанс найти разборные предметы и материалы для крафта.</text>
+    </string>
+	<string id="st_perk_scavenger_desc_1">
+        <text>От вашего зоркого взгляда не "ускользнёт" даже самый спрятанный предмет на теле врага.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела есть %c[d_green]1.5% %c[ui_gray_2]шанс найти \n%c[d_red]разборные предметы и материалы для крафта
+		</text>
+    </string>
+	<string id="st_perk_scavenger_desc_2">
+        <text>От вашего зоркого взгляда не "ускользнёт" даже самый спрятанный предмет на теле врага.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела есть %c[d_green]3% %c[ui_gray_2]шанс найти \n%c[d_red]разборные предметы и материалы для крафта\n
+		</text>
+    </string>
+	<string id="st_perk_scavenger_desc_3">
+        <text>От вашего зоркого взгляда не "ускользнёт" даже самый спрятанный предмет на теле врага.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела есть %c[d_green]4.5% %c[ui_gray_2]шанс найти \n%c[d_red]разборные предметы и материалы для крафта\n
+		</text>
+    </string>
+	<string id="st_perk_scavenger_desc_4">
+        <text>От вашего зоркого взгляда не "ускользнёт" даже самый спрятанный предмет на теле врага.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела есть %c[d_green]6% %c[ui_gray_2]шанс найти \n%c[d_red]разборные предметы и материалы для крафта\n
+		</text>
+    </string>
+	<string id="st_perk_scavenger_desc_5">
+        <text>От вашего зоркого взгляда не "ускользнёт" даже самый спрятанный предмет на теле врага.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела есть %c[d_green]7.5% %c[ui_gray_2]шанс найти \n%c[d_red]разборные предметы и материалы для крафта\n
+		</text>
+    </string>
+	
+    <string id="st_perk_careful_handler">
+        <text>Бережливость</text>
+    </string>
+	<string id="st_perk_careful_handler_desc">
+        <text>Минимальное состояние брони и оружия, которое можно найти, составит 15%.</text>
+    </string>
+	<string id="st_perk_careful_handler_desc_1">
+        <text>"Что для одного - мусор, для другого - сокровище."\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Минимальное состояние брони и оружия, которое можно найти при обыске ящика или тела врага, составит %c[d_green]3%
+		%c[d_blue] - %c[ui_gray_2] Состояние предметов, добытых у сталкеров и в тайниках, улучшится на %c[d_green]3%.
+		</text>
+    </string>
+	<string id="st_perk_careful_handler_desc_2">
+        <text>"Что для одного - мусор, для другого - сокровище."\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Минимальное состояние брони и оружия, которое можно найти при обыске ящика или тела врага, составит %c[d_green]6%
+		%c[d_blue] - %c[ui_gray_2] Состояние предметов, добытых у сталкеров и в тайниках, улучшится на %c[d_green]6%.
+		</text>
+    </string>
+	<string id="st_perk_careful_handler_desc_3">
+        <text>"Что для одного - мусор, для другого - сокровище."\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Минимальное состояние брони и оружия, которое можно найти при обыске ящика или тела врага, составит %c[d_green]9%
+		%c[d_blue] - %c[ui_gray_2] Состояние предметов, добытых у сталкеров и в тайниках, улучшится на %c[d_green]9%.
+		</text>
+    </string>
+	<string id="st_perk_careful_handler_desc_4">
+        <text>"Что для одного - мусор, для другого - сокровище."\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Минимальное состояние брони и оружия, которое можно найти при обыске ящика или тела врага, составит %c[d_green]12%
+		%c[d_blue] - %c[ui_gray_2] Состояние предметов, добытых у сталкеров и в тайниках, улучшится на %c[d_green]12%.
+		</text>
+    </string>
+	<string id="st_perk_careful_handler_desc_5">
+        <text>"Что для одного - мусор, для другого - сокровище."\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Минимальное состояние брони и оружия, которое можно найти при обыске ящика или тела врага, составит %c[d_green]15%
+		%c[d_blue] - %c[ui_gray_2] Состояние предметов, добытых у сталкеров и в тайниках, улучшится на %c[d_green]15%.
+		</text>
+    </string>
+    
+	<string id="st_perk_master_craftsman">
+        <text>Кузнец</text>
+    </string>
+	<string id="st_perk_master_craftsman_desc">
+        <text>При изготовлении предметов или при готовки пищи есть 10% шанс произвести 2 предмета вместо 1.</text>
+    </string>	
+	<string id="st_perk_master_craftsman_desc_1">
+        <text>Ваши инструменты как будто бы стали частью вас.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При изготовлении предметов есть %c[d_green]20% %c[ui_gray_2]шанс произвести ещё один\n
+		%c[d_blue] - %c[ui_gray_2] При готовке пищи есть  %c[d_green]20% %c[ui_gray_2]шанс приготовить вторую порцию
+		</text>
+    </string>	
+
+    <string id="st_perk_cybermedic">
+        <text>Кибер-Медик</text>
+    </string>
+	<string id="st_perk_cybermedic_desc">
+        <text>Вам вживили имплантат, который помогает медленно останавливать кровотечение.</text>
+    </string>
+	<string id="st_perk_cybermedic_desc_1">
+        <text>Вам вживили имплантат, который помогает медленно останавливать кровотечение.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Бонус к заживлению ран %c[d_orange]медленный\n
+		%c[d_blue] - %c[ui_gray_2] Каждые 25 секунд 
+		%c[d_blue] - %c[ui_gray_2] Сила действия равна %c[d_green]бинту
+		</text>
+    </string>
+	<string id="st_perk_cybermedic_desc_2">
+        <text>Вам вживили имплантат, который помогает медленно останавливать кровотечение.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Бонус к заживлению ран %c[d_orange]средний\n
+		%c[d_blue] - %c[ui_gray_2] Каждые 16 секунд 
+		%c[d_blue] - %c[ui_gray_2] Сила действия равна %c[d_green]бинту
+		</text>
+    </string>
+	<string id="st_perk_cybermedic_desc_3">
+        <text>Вам вживили имплантат, который помогает медленно останавливать кровотечение.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Бонус к заживлению ран %c[d_orange]быстрый\n
+		%c[d_blue] - %c[ui_gray_2] Каждые 8 секунд 
+		%c[d_blue] - %c[ui_gray_2] Сила действия равна %c[d_green]бинту
+		</text>
+    </string>
+
+    <string id="st_perk_comfort_food">
+        <text>Гурман</text>
+    </string>
+	<!-- IIITypmaH -->
+	<string id="st_perk_comfort_food_desc">
+        <text>Вы едите более эффективно.</text>
+    </string>
+	<string id="st_perk_comfort_food_desc_1">
+        <text>Ваше тело привыкло питаться одним хлебом в Зоне.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Во время еды или питья вы получаете дополнительный эффект утоления голода или жажды, соответственно\n
+		%c[d_blue] - %c[ui_gray_2] Восстановление здоровья будет зависеть от %c[d_green]НАИБОЛЬШЕГО %c[ui_gray_2]эффекта (утоление голода или утоления жажды).
+		</text>
+    </string>
+	
+    <string id="st_perk_ammo_finder">
+        <text>Патронник</text>
+    </string>
+	<string id="st_perk_ammo_finder_desc">
+        <text>При обыске тела вы находите больше патронов.</text>
+    </string>
+	<string id="st_perk_ammo_finder_desc_1">
+        <text>Ваша угрожающая аура заставила сталкеров в Зоне носить с собой больше боеприпасов на случай, если они окажутся у вас на мушке.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела вы находите на %c[d_green]2% \n%c[ui_gray_2]больше патронов
+		</text>
+    </string>
+	<string id="st_perk_ammo_finder_desc_2">
+        <text>Ваша угрожающая аура заставила сталкеров в Зоне носить с собой больше боеприпасов на случай, если они окажутся у вас на мушке.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела вы находите на %c[d_green]4% \n%c[ui_gray_2]больше патронов
+		</text>
+    </string>
+	<string id="st_perk_ammo_finder_desc_3">
+        <text>Ваша угрожающая аура заставила сталкеров в Зоне носить с собой больше боеприпасов на случай, если они окажутся у вас на мушке.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела вы находите на %c[d_green]6% \n%c[ui_gray_2]больше патронов
+		%c[d_blue] - %c[ui_gray_2] У вас есть %c[yellow]1% шанс %c[ui_gray_2] найти двойное количество боеприпасов в трупах
+		</text>
+    </string>
+	<string id="st_perk_ammo_finder_desc_4">
+        <text>Ваша угрожающая аура заставила сталкеров в Зоне носить с собой больше боеприпасов на случай, если они окажутся у вас на мушке.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела вы находите на %c[d_green]8% \n%c[ui_gray_2]больше патронов
+		%c[d_blue] - %c[ui_gray_2] У вас есть %c[yellow]3% шанс %c[ui_gray_2] найти двойное количество боеприпасов в трупах
+		</text>
+    </string>
+	<string id="st_perk_ammo_finder_desc_5">
+        <text>Ваша угрожающая аура заставила сталкеров в Зоне носить с собой больше боеприпасов на случай, если они окажутся у вас на мушке.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела вы находите на %c[d_green]10% \n%c[ui_gray_2]больше патронов
+		%c[d_blue] - %c[ui_gray_2] У вас есть %c[yellow]5% шанс %c[ui_gray_2] найти двойное количество боеприпасов в трупах
+		</text>
+    </string>
+	
+	<string id="st_perk_medicine_man">
+        <text>Санитар</text>
+    </string>
+	<string id="st_perk_medicine_man_desc">
+        <text>При обыске тела у вас есть шанс найти дополнительный медицинский предмет. Качество предмета увеличивается при повышении уровня навыка.</text>
+    </string>
+	<string id="st_perk_medicine_man_desc_1">
+        <text>Слухи о вашей силе заставили сталкеров носить с собой дополнительные медикаменты.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела у вас есть %c[d_green]2% %c[ui_gray_2]шанс найти дополнительный %c[d_red] медицинский предмет
+		</text>
+    </string>
+	<string id="st_perk_medicine_man_desc_2">
+        <text>Слухи о вашей силе заставили сталкеров носить с собой дополнительные медикаменты.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела у вас есть %c[d_green]4% %c[ui_gray_2]шанс найти дополнительный %c[d_red] медицинский предмет
+		</text>
+    </string>
+	<string id="st_perk_medicine_man_desc_3">
+        <text>Слухи о вашей силе заставили сталкеров носить с собой дополнительные медикаменты.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела у вас есть %c[d_green]6% %c[ui_gray_2]шанс найти дополнительный %c[d_red] медицинский предмет\n
+		%c[d_blue] - %c[ui_gray_2] При успехе, если нет предметов медицинского назначения, которые можно было бы удвоить, вместо них вам будет выдан случайный предмет медицинского назначения
+		</text>
+    </string>
+	<string id="st_perk_medicine_man_desc_4">
+        <text>Слухи о вашей силе заставили сталкеров носить с собой дополнительные медикаменты.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела у вас есть %c[d_green]8% %c[ui_gray_2]шанс найти дополнительный %c[d_red] медицинский предмет\n
+		%c[d_blue] - %c[ui_gray_2] При успехе, если нет предметов медицинского назначения, которые можно было бы удвоить, вместо них вам будет выдан случайный предмет медицинского назначения\n
+		</text>
+    </string>
+	<string id="st_perk_medicine_man_desc_5">
+        <text>Слухи о вашей силе заставили сталкеров носить с собой дополнительные медикаменты.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела у вас есть %c[d_green]10% %c[ui_gray_2]шанс найти дополнительный %c[d_red] медицинский предмет\n
+		%c[d_blue] - %c[ui_gray_2] При успехе, если нет предметов медицинского назначения, которые можно было бы удвоить, вместо них вам будет выдан случайный предмет медицинского назначения\n
+		</text>
+    </string>
+	
+	<string id="st_perk_artefinder">
+        <text>Арте-фактор</text>
+    </string>
+	<string id="st_perk_artefinder_desc">
+        <text>При обыске тела у вас есть шанс найти артефакт, который обычно находится в текущей области. Кроме того, любой артефакт, который вы найдете, теперь будет иметь более высокую эффективность.</text>
+    </string>
+	<string id="st_perk_artefinder_desc_1">
+        <text>Артефакты теперь самые популярные товары на рынке! К счастью для вас, это означает, что открылся новый путь охоты за артефактами.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела у вас есть %c[d_green]1% %c[ui_gray_2]шанс найти артефакт, который обычно находится в текущей области\n
+		%c[d_blue] - %c[ui_gray_2] Увеличивает шанс спавна артефактов на %c[d_green]3%\n
+		%c[d_blue] - %c[ui_gray_2] Любой артефакт, который вы найдете, теперь будет иметь более высокую эффективность (%c[yellow] до 11 - 24%%c[ui_gray_2])
+		</text>
+    </string>
+	<string id="st_perk_artefinder_desc_2">
+        <text>Артефакты теперь самые популярные товары на рынке! К счастью для вас, это означает, что открылся новый путь охоты за артефактами..\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела у вас есть %c[d_green]2% %c[ui_gray_2]шанс найти артефакт, который обычно находится в текущей области\n
+		%c[d_blue] - %c[ui_gray_2] Увеличивает шанс спавна артефактов на %c[d_green]6%\n
+		%c[d_blue] - %c[ui_gray_2] Любой артефакт, который вы найдете, теперь будет иметь более высокую эффективность (%c[yellow] до 13 - 26%%c[ui_gray_2])
+		</text>
+	</string>
+	<string id="st_perk_artefinder_desc_3">
+        <text>Артефакты теперь самые популярные товары на рынке! К счастью для вас, это означает, что открылся новый путь охоты за артефактами..\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела у вас есть %c[d_green]3% %c[ui_gray_2]шанс найти артефакт, который обычно находится в текущей области\n
+		%c[d_blue] - %c[ui_gray_2] Увеличивает шанс спавна артефактов на %c[d_green]9%\n
+		%c[d_blue] - %c[ui_gray_2] Любой артефакт, который вы найдете, теперь будет иметь более высокую эффективность (%c[yellow] до 17 - 30%%c[ui_gray_2])
+		</text>
+    </string>
+	<string id="st_perk_artefinder_desc_4">
+        <text>Артефакты теперь самые популярные товары на рынке! К счастью для вас, это означает, что открылся новый путь охоты за артефактами..\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела у вас есть %c[d_green]4% %c[ui_gray_2]шанс найти артефакт, который обычно находится в текущей области\n
+		%c[d_blue] - %c[ui_gray_2] Увеличивает шанс спавна артефактов на %c[d_green]12%\n
+		%c[d_blue] - %c[ui_gray_2] Любой артефакт, который вы найдете, теперь будет иметь более высокую эффективность (%c[yellow] до 22 - 35%%c[ui_gray_2])
+		</text>
+    </string>
+	<string id="st_perk_artefinder_desc_5">
+        <text>Артефакты теперь самые популярные товары на рынке! К счастью для вас, это означает, что открылся новый путь охоты за артефактами..\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела у вас есть %c[d_green]5% %c[ui_gray_2]шанс найти артефакт, который обычно находится в текущей области\n
+		%c[d_blue] - %c[ui_gray_2] Увеличивает шанс спавна артефактов на %c[d_green]15%\n
+		%c[d_blue] - %c[ui_gray_2] Любой артефакт, который вы найдете, теперь будет иметь более высокую эффективность (%c[yellow] до 28 - 41%%c[ui_gray_2])\n
+		%c[d_blue] - %c[ui_gray_2] При обыске мутантов есть %c[d_green]1% %c[ui_gray_2] шанс найти артефакт, который может появится в текущей местности.\n
+		</text>
+    </string>
+	
+	<string id="st_perk_midas_touch">
+        <text>Прикосновение Мидаса</text>
+    </string>
+	<string id="st_perk_midas_touch_desc">
+        <text>При обыске тела вы находите больше денег.</text>
+    </string>
+	<string id="st_perk_midas_touch_desc_1">
+        <text>Опасности Зоны подарили вам странную мутацию. Любые деньги, которые вы найдете, умножаются в ваших руках!\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела вы получаете на %c[d_green]5% больше денег\n
+		%c[d_blue] - %c[ui_gray_2] Получите %c[d_green]5% бонусных денег %c[ui_gray_2]при выполнении заданий
+		</text>
+    </string>
+	<string id="st_perk_midas_touch_desc_2">
+        <text>Опасности Зоны подарили вам странную мутацию. Любые деньги, которые вы найдете, умножаются в ваших руках!\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела вы получаете на %c[d_green]10% больше денег
+		%c[d_blue] - %c[ui_gray_2] Получите %c[d_green]10% бонусных денег %c[ui_gray_2]при выполнении заданий
+		</text>
+    </string>
+	<string id="st_perk_midas_touch_desc_3">
+        <text>Опасности Зоны подарили вам странную мутацию. Любые деньги, которые вы найдете, умножаются в ваших руках!\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела вы получаете на %c[d_green]15% больше денег
+		%c[d_blue] - %c[ui_gray_2] Получите %c[d_green]15% бонусных денег %c[ui_gray_2]при выполнении заданий
+		</text>
+    </string>
+	<string id="st_perk_midas_touch_desc_4">
+        <text>Опасности Зоны подарили вам странную мутацию. Любые деньги, которые вы найдете, умножаются в ваших руках!\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела вы получаете на %c[d_green]20% больше денег
+		%c[d_blue] - %c[ui_gray_2] Получите %c[d_green]20% бонусных денег %c[ui_gray_2]при выполнении заданий
+		</text>
+    </string>
+	<string id="st_perk_midas_touch_desc_5">
+        <text>Опасности Зоны подарили вам странную мутацию. Любые деньги, которые вы найдете, умножаются в ваших руках!\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При обыске тела вы получаете на %c[d_green]25% больше денег
+		%c[d_blue] - %c[ui_gray_2] Получите %c[d_green]25% бонусных денег %c[ui_gray_2]при выполнении заданий
+		</text>
+    </string>
+	
+	<string id="st_perk_master_zone">
+        <text>Легенда Зоны</text>
+    </string>
+	<string id="st_perk_master_zone_desc">
+        <text>Вы смогли выведать ещё одну тайну Зоны и смогли подключиться к ноосфере. Такая связь позволяет медленно восстанавливать состояние артефактов у вас на поясе.</text>
+    </string>
+	<string id="st_perk_master_zone_desc_1">
+        <text>Вы стали единым целым с Зоной. Ноосфера теперь является вездесущей силой для вашего аномального снаряжения.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Любые артефакты или приспособления, прикрепленные к вашему ремню, будут \n%c[d_green]медленно чинить себя %c[ui_gray_2]с течением времени
+		%c[d_blue] - %c[ui_gray_2] Артефакт %c[yellow]"Люцифер" %c[ui_gray_2]будет отремонтирован только %c[d_green]до 51% %c[ui_gray_2], чтобы избежать его негативных эффектов, если он установлен на вашем поясе.
+		%c[d_blue] - %c[ui_gray_2] Артефакт %c[yellow]"Люцифер" %c[ui_gray_2]будет восстановлен %c[yellow], если его состояние ниже 51%.
+		</text>
+    </string>	
+    
+    
+    
+    <string id="st_perk_spiked">
+        <text>Ёж</text>
+    </string>
+	<string id="st_perk_spiked_desc">
+        <text>При получении урона ваш враг также получает часть этого урона.</text>
+    </string>
+	<string id="st_perk_spiked_desc_1">
+        <text>Каждое действие сопровождается противодействием. Однако эта реакция не равнозначна.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При получении урона ваш враг также получает %c[d_green]5% %c[ui_gray_2]этого урона\n
+		%c[d_red] - %c[ui_gray_2] Не уменьшает получаемый урон
+		</text>
+    </string>
+	<string id="st_perk_spiked_desc_2">
+        <text>Каждое действие сопровождается противодействием. Однако эта реакция не равнозначна.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При получении урона ваш враг также получает %c[d_green]10% %c[ui_gray_2]этого урона\n
+		%c[d_red] - %c[ui_gray_2] Не уменьшает получаемый урон
+		</text>
+    </string>
+	<string id="st_perk_spiked_desc_3">
+        <text>Каждое действие сопровождается противодействием. Однако эта реакция не равнозначна.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При получении урона ваш враг также получает %c[d_green]15% %c[ui_gray_2]этого урона\n
+		%c[d_red] - %c[ui_gray_2] Не уменьшает получаемый урон
+		</text>
+    </string>
+	<string id="st_perk_spiked_desc_4">
+        <text>Каждое действие сопровождается противодействием. Однако эта реакция не равнозначна.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При получении урона ваш враг также получает %c[d_green]20% %c[ui_gray_2]этого урона\n
+		%c[d_red] - %c[ui_gray_2] Не уменьшает получаемый урон
+		</text>
+    </string>
+	<string id="st_perk_spiked_desc_5">
+        <text>Каждое действие сопровождается противодействием. Однако эта реакция не равнозначна.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При получении урона ваш враг также получает %c[d_green]25% %c[ui_gray_2]этого урона\n
+		%c[d_red] - %c[ui_gray_2] Не уменьшает получаемый урон
+		</text>
+    </string>
+
+	<string id="st_perk_anomaly_defense">
+        <text>Рождённый в Аномалии</text>
+    </string>
+	<string id="st_perk_anomaly_defense_desc">
+        <text>Аномалии будут наносить меньше урона.</text>
+    </string>
+	<string id="st_perk_anomaly_defense_desc_1">
+        <text>Аномалии начинают становиться менее опасными. Скорее, они становятся все более разрдражающими.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Аномалии будут наносить на %c[d_green]9% %c[ui_gray_2]меньше урона
+		</text>
+    </string>
+	<string id="st_perk_anomaly_defense_desc_2">
+        <text>Аномалии начинают становиться менее опасными. Скорее, они становятся все более разрдражающими.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Аномалии будут наносить на %c[d_green]18% %c[ui_gray_2]меньше урона
+		</text>
+    </string>
+	<string id="st_perk_anomaly_defense_desc_3">
+        <text>Аномалии начинают становиться менее опасными. Скорее, они становятся все более разрдражающими.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Аномалии будут наносить на %c[d_green]27% %c[ui_gray_2]меньше урона
+		</text>
+    </string>
+<!---
+	<string id="st_perk_anomaly_defense_desc_4">
+        <text>Anomlies are starting to become less of a threat. Rather, they are becoming more of a nuisance.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Anomalies deal %c[d_green]20% %c[ui_gray_2]less damage
+		</text>
+    </string>
+	<string id="st_perk_anomaly_defense_desc_5">
+        <text>Аномалии начинают становиться менее опасными. Скорее, они становятся все более разрдражающими.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Аномалии будут наносить на %c[d_green]25% %c[ui_gray_2]меньше урона
+		</text>
+    </string>
+-->
+
+	<string id="st_perk_iron_resolve">
+        <text>Железная решимость</text>
+    </string>
+	<string id="st_perk_iron_resolve_desc">
+        <text>Теперь вы будете быстрее восстанавливаться после любых эффектов головокружения или опьянения.</text>
+    </string>
+	<string id="st_perk_iron_resolve_desc_1">
+        <text>Благодаря вашей чистой воле вы меньше подвержены любым эффектам головокружения или опьянения.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы немного быстрее восстанавливаетесь после любых эффектов %c[d_orange]головокружения или опьянения
+		</text>
+    </string>
+	<string id="st_perk_iron_resolve_desc_2">
+        <text>Благодаря вашей чистой воле вы меньше подвержены любым эффектам головокружения или опьянения.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы ещё быстрее восстанавливаетесь после любых эффектов %c[d_orange]головокружения или опьянения
+		</text>
+    </string>
+	<string id="st_perk_iron_resolve_desc_3">
+        <text>Благодаря вашей чистой воле вы меньше подвержены любым эффектам головокружения или опьянения.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы намного быстрее восстанавливаетесь после любых эффектов %c[d_orange]головокружения или опьянения
+		</text>
+    </string>
+    
+	<string id="st_perk_silver_tongued">
+        <text>Красноречие</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc">
+        <text>Вы получаете более выгодные цены при покупке или продажи.</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_1">
+        <text>Ваша харизма и обаяние не имеют себе равных в Зоне.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на %c[d_green]5% %c[ui_gray_2]более выгодные цены при покупке или продажи
+		</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_2">
+        <text>Ваша харизма и обаяние не имеют себе равных в Зоне.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на %c[d_green]10% %c[ui_gray_2]более выгодные цены при покупке или продажи
+		</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_3">
+        <text>Ваша харизма и обаяние не имеют себе равных в Зоне.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на %c[d_green]15% %c[ui_gray_2]более выгодные цены при покупке или продажи
+		</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_4">
+        <text>Ваша харизма и обаяние не имеют себе равных в Зоне.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на %c[d_green]20% %c[ui_gray_2]более выгодные цены при покупке или продажи
+		</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_5">
+        <text>Ваша харизма и обаяние не имеют себе равных в Зоне.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на %c[d_green]25% %c[ui_gray_2]более выгодные цены при покупке или продажи
+		</text>
+    </string>
+	
+	<string id="st_perk_mutant_slayer">
+        <text>Толстая кожа</text>
+    </string>
+	<string id="st_perk_mutant_slayer_desc">
+        <text>Вы получаете меньше урона от мутантов.</text>
+    </string>
+	<string id="st_perk_mutant_slayer_desc_1">
+        <text>Многочисленные стычки с мутантами покрыло ваше тело мозолями.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на %c[d_green]5% %c[ui_gray_2]меньше урона от%c[yellow]мутантов
+		</text>
+    </string>
+	<string id="st_perk_mutant_slayer_desc_2">
+        <text>Многочисленные стычки с мутантами покрыло ваше тело мозолями.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на %c[d_green]10% %c[ui_gray_2]меньше урона от%c[yellow]мутантов
+		</text>
+    </string>
+	<string id="st_perk_mutant_slayer_desc_3">
+        <text>Многочисленные стычки с мутантами покрыло ваше тело мозолями.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на %c[d_green]15% %c[ui_gray_2]меньше урона от%c[yellow]мутантов
+		%c[d_blue] - %c[ui_gray_2] Эффективность увеличивается до %c[d_green]22.5% %c[ui_gray_2]ночью.
+		</text>
+    </string>
+	<string id="st_perk_mutant_slayer_desc_4">
+        <text>Многочисленные стычки с мутантами покрыло ваше тело мозолями.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на %c[d_green]20% %c[ui_gray_2]меньше урона от%c[yellow]мутантов
+		%c[d_blue] - %c[ui_gray_2] Эффективность увеличивается до %c[d_green]30% %c[ui_gray_2]ночью.
+		</text>
+    </string>
+	<string id="st_perk_mutant_slayer_desc_5">
+        <text>Многочисленные стычки с мутантами покрыло ваше тело мозолями.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на %c[d_green]25% %c[ui_gray_2]меньше урона от%c[yellow]мутантов
+		%c[d_blue] - %c[ui_gray_2] Эффективность увеличивается до %c[d_green]37.5% %c[ui_gray_2]ночью.
+		</text>
+    </string>
+	
+	<string id="st_perk_vampirism">
+        <text>Вампир</text>
+    </string>
+	<string id="st_perk_vampirism_desc">
+        <text>При убийстве врага вы получаете небольшое количество Здоровья и Выносливости.</text>
+    </string>
+	<string id="st_perk_vampirism_desc_1">
+        <text>Многочисленные стычки с кровососами дало вам удивительно полезную мутацию.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При убийстве врага вы получаете %c[d_green]2.5% %c[ui_gray_2]здоровья и выносливости
+		</text>
+    </string>
+	<string id="st_perk_vampirism_desc_2">
+        <text>Многочисленные стычки с кровососами дало вам удивительно полезную мутацию.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При убийстве врага вы получаете %c[d_green]5% %c[ui_gray_2]здоровья и выносливости
+		</text>
+    </string>
+	<string id="st_perk_vampirism_desc_3">
+        <text>Многочисленные стычки с кровососами дало вам удивительно полезную мутацию.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При убийстве врага вы получаете %c[d_green]7.5% %c[ui_gray_2]здоровья и выносливости
+		</text>
+    </string>
+	
+	<string id="st_perk_deadeye">
+        <text>Меткий Глаз</text>
+    </string>
+	<string id="st_perk_deadeye_desc">
+        <text>У вас есть маленький шанс нанести огромный урон.</text>
+    </string>
+	<string id="st_perk_deadeye_desc_1">
+        <text>Во время многочисленных перестрелок в Зоне, вы узнали слабые места различной брони.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_orange] - %c[ui_gray_2] У вас есть %c[d_orange]0.1% %c[ui_gray_2]шанс нанести критический урон\n
+		%c[d_blue] - %c[ui_gray_2] Урон увеличивается на %c[d_green]25%\n
+		%c[d_red] - %c[ui_gray_2] Навык "Меткий Выстрел" повышает шанс критического урона
+		</text>
+    </string>
+	<string id="st_perk_deadeye_desc_2">
+        <text>Во время многочисленных перестрелок в Зоне, вы узнали слабые места различной брони.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_orange] - %c[ui_gray_2] У вас есть %c[d_orange]0.1% %c[ui_gray_2]шанс нанести критический урон\n
+		%c[d_blue] - %c[ui_gray_2] Урон увеличивается на %c[d_green]50%\n
+		%c[d_red] - %c[ui_gray_2] Навык "Меткий Выстрел" повышает шанс критического урона
+		</text>
+    </string>
+	<string id="st_perk_deadeye_desc_3">
+        <text>Во время многочисленных перестрелок в Зоне, вы узнали слабые места различной брони.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_orange] - %c[ui_gray_2] У вас есть %c[d_orange]0.1% %c[ui_gray_2]шанс нанести критический урон\n
+		%c[d_blue] - %c[ui_gray_2] Урон увеличивается на %c[d_green]75%\n
+		%c[d_red] - %c[ui_gray_2] Навык "Меткий Выстрел" повышает шанс критического урона
+		</text>
+    </string>
+	<string id="st_perk_deadeye_desc_4">
+        <text>Во время многочисленных перестрелок в Зоне, вы узнали слабые места различной брони.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_orange] - %c[ui_gray_2] У вас есть %c[d_orange]0.1% %c[ui_gray_2]шанс нанести критический урон\n
+		%c[d_blue] - %c[ui_gray_2] Урон увеличивается на %c[d_green]100%\n
+		%c[d_red] - %c[ui_gray_2] Навык "Меткий Выстрел" повышает шанс критического урона
+		</text>
+    </string>
+	<string id="st_perk_deadeye_desc_5">
+        <text>Во время многочисленных перестрелок в Зоне, вы узнали слабые места различной брони.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_orange] - %c[ui_gray_2] У вас есть %c[d_orange]0.1% %c[ui_gray_2]шанс нанести критический урон\n
+		%c[d_blue] - %c[ui_gray_2] Урон увеличивается на %c[d_green]125%\n
+		%c[d_red] - %c[ui_gray_2] Навык "Меткий Выстрел" повышает шанс критического урона
+		</text>
+    </string>
+	
+	<string id="st_perk_lucky_strike">
+        <text>Меткий Выстрел</text>
+    </string>
+	<string id="st_perk_lucky_strike_desc">
+        <text>У вас повышается шанс нанести критический урон.</text>
+    </string>
+	<string id="st_perk_lucky_strike_desc_1">
+        <text>Иногда удачный выстрел - это все, что вам нужно.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] У вас есть %c[d_green]1% %c[ui_gray_2]шанс нанести критический урон\n
+		%c[d_blue] - %c[ui_gray_2] Выстрел в голову увеличивает данный шанс до %c[d_green]1.5%\n
+		%c[d_orange] - %c[ui_gray_2] Критические урон составляет %c[d_orange]110%\n
+		%c[d_red] - %c[ui_gray_2] Навык "Меткий Глаз" дополнительно повысит величину критического урона
+		</text>
+    </string>
+	<string id="st_perk_lucky_strike_desc_2">
+        <text>Иногда удачный выстрел - это все, что вам нужно.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] У вас есть %c[d_green]4% %c[ui_gray_2]шанс нанести критический урон\n
+		%c[d_blue] - %c[ui_gray_2] Выстрел в голову увеличивает данный шанс до %c[d_green]1.5%\n
+		%c[d_orange] - %c[ui_gray_2] Критические урон составляет %c[d_orange]110%\n
+		%c[d_red] - %c[ui_gray_2] Навык "Меткий Глаз" дополнительно повысит величину критического урона
+		</text>
+	</string>
+	<string id="st_perk_lucky_strike_desc_3">
+        <text>Иногда удачный выстрел - это все, что вам нужно.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] У вас есть %c[d_green]9% %c[ui_gray_2]шанс нанести критический урон\n
+		%c[d_blue] - %c[ui_gray_2] Выстрел в голову увеличивает данный шанс до %c[d_green]1.5%\n
+		%c[d_orange] - %c[ui_gray_2] Критические урон составляет %c[d_orange]110%\n
+		%c[d_red] - %c[ui_gray_2] Навык "Меткий Глаз" дополнительно повысит величину критического урона
+		</text>
+	</string>
+	<string id="st_perk_lucky_strike_desc_4">
+        <text>Иногда удачный выстрел - это все, что вам нужно.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] У вас есть %c[d_green]16% %c[ui_gray_2]шанс нанести критический урон\n
+		%c[d_blue] - %c[ui_gray_2] Выстрел в голову увеличивает данный шанс до %c[d_green]1.5%\n
+		%c[d_orange] - %c[ui_gray_2] Критические урон составляет %c[d_orange]110%\n
+		%c[d_red] - %c[ui_gray_2] Навык "Меткий Глаз" дополнительно повысит величину критического урона
+		</text>
+	</string>
+	<string id="st_perk_lucky_strike_desc_5">
+        <text>Иногда удачный выстрел - это все, что вам нужно.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] У вас есть %c[d_green]25% %c[ui_gray_2]шанс нанести критический урон\n
+		%c[d_blue] - %c[ui_gray_2] Выстрел в голову увеличивает данный шанс до %c[d_green]1.5%\n
+		%c[d_orange] - %c[ui_gray_2] Критические урон составляет %c[d_orange]110%\n
+		%c[d_red] - %c[ui_gray_2] Навык "Меткий Глаз" дополнительно повысит величину критического урона
+		</text>
+	</string>
+	
+	<string id="st_perk_strong_back">
+        <text>Вьючный Мул</text>
+    </string>
+	<string id="st_perk_strong_back_desc">
+        <text>Увеличивает ваш переносимый вес.</text>
+    </string>
+	<string id="st_perk_strong_back_desc_1">
+        <text>Ваши путешествия по Зоне укрепили вашу спину.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение переносимого веса на %c[d_green]5 кг
+		</text>
+    </string>
+	<string id="st_perk_strong_back_desc_2">
+        <text>Ваши путешествия по Зоне укрепили вашу спину.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение переносимого веса на %c[d_green]10 кг
+		</text>
+    </string>
+	<string id="st_perk_strong_back_desc_3">
+        <text>Ваши путешествия по Зоне укрепили вашу спину.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение переносимого веса на %c[d_green]15 кг\n
+		</text>
+    </string>
+	<string id="st_perk_strong_back_desc_4">
+        <text>Ваши путешествия по Зоне укрепили вашу спину.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение переносимого веса на %c[d_green]25 кг\n
+		</text>
+    </string>
+	<string id="st_perk_strong_back_desc_5">
+        <text>Ваши путешествия по Зоне укрепили вашу спину.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение переносимого веса на %c[d_green]40 кг\n
+		</text>
+    </string>
+	
+	<string id="st_perk_slow_metabolism">
+        <text>Медленный метаболизм</text>
+    </string>
+	<string id="st_perk_slow_metabolism_desc">
+        <text>Голод наступает медленнее при употрблении мед. препаратов.</text>
+    </string>
+	<string id="st_perk_slow_metabolism_desc_1">
+	    <text>Ваше тело адаптировалось к приему лекарственных препаратов и наркотиков.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Теперь голод наступает на %c[d_green]18% медленнее %c[ui_gray_2]при потреблении любого предмета, который его вызывает\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на %c[d_green]18% меньше радиации %c[ui_gray_2] при употреблении пищи
+		</text>
+	</string>
+	<string id="st_perk_slow_metabolism_desc_2">
+	    <text>Ваше тело адаптировалось к приему лекарственных препаратов и наркотиков.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Теперь голод наступает на %c[d_green]36% медленнее %c[ui_gray_2]при потреблении любого предмета, который его вызывает\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на %c[d_green]36% меньше радиации %c[ui_gray_2] при употреблении пищи
+		</text>
+    </string>
+	<string id="st_perk_slow_metabolism_desc_3">
+	    <text>Ваше тело адаптировалось к приему лекарственных препаратов и наркотиков.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Теперь голод наступает на %c[d_green]54% медленнее %c[ui_gray_2]при потреблении любого предмета, который его вызывает\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на %c[d_green]54% меньше радиации %c[ui_gray_2] при употреблении пищи
+		</text>
+    </string>
+	<string id="st_perk_slow_metabolism_desc_4">
+	    <text>Ваше тело адаптировалось к приему лекарственных препаратов и наркотиков.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Теперь голод наступает на %c[d_green]72% медленнее %c[ui_gray_2]при потреблении любого предмета, который его вызывает\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на %c[d_green]72% меньше радиации %c[ui_gray_2] при употреблении пищи
+		</text>
+    </string>
+	<string id="st_perk_slow_metabolism_desc_5">
+	    <text>Ваше тело адаптировалось к приему лекарственных препаратов и наркотиков.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Теперь голод наступает на %c[d_green]90% медленнее %c[ui_gray_2]при потреблении любого предмета, который его вызывает\n
+		%c[d_blue] - %c[ui_gray_2] Вы получаете на %c[d_green]90% меньше радиации %c[ui_gray_2] при употреблении пищи\n
+        %c[d_blue] - %c[ui_gray_2] Кроме того, предметы, утоляющие голод, дополнительно вызывает чувство сытости в течение %c[yellow]1 минуты %c[d_green](эффект равен половине значению утоления голода)
+		</text>
+	</string>
+	
+	<string id="st_perk_zone_gunsmith">
+        <text>Металлист</text>
+    </string>
+	<string id="st_perk_zone_gunsmith_desc">
+        <text>Теперь вы можете использовать металлолом для починки любого предмета, кроме артефактов.</text>
+    </string>
+	<string id="st_perk_zone_gunsmith_desc_1">
+        <text>Занимаясь починкой в течение долгого времени вы в результате научились использовать обычный лом в качестве ремонтного материала.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Теперь вы можете использовать \n%c[yellow]металлолом %c[ui_gray_2]в качестве бонусного предмета при ремонте любого предмета\n
+		%c[d_blue] - %c[ui_gray_2] Бонус составляет %c[d_green]+3%\n
+		%c[d_red] - %c[ui_gray_2] Металлолом не может быть использован для повышения эффективности артефактов
+		</text>
+    </string>
+	<string id="st_perk_zone_gunsmith_desc_2">
+        <text>Занимаясь починкой в течение долгого времени вы в результате научились использовать обычный лом в качестве ремонтного материала.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Теперь вы можете использовать \n%c[yellow]металлолом %c[ui_gray_2]в качестве бонусного предмета при ремонте любого предмета\n
+		%c[d_blue] - %c[ui_gray_2] Бонус составляет %c[d_green]+4%\n
+		%c[d_red] - %c[ui_gray_2] Металлолом не может быть использован для повышения эффективности артефактов
+		</text>
+    </string>
+	<string id="st_perk_zone_gunsmith_desc_3">
+        <text>Занимаясь починкой в течение долгого времени вы в результате научились использовать обычный лом в качестве ремонтного материала.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Теперь вы можете использовать \n%c[yellow]металлолом %c[ui_gray_2]в качестве бонусного предмета при ремонте любого предмета\n
+		%c[d_blue] - %c[ui_gray_2] Бонус составляет %c[d_green]+5%\n
+		%c[d_blue] - %c[ui_gray_2] Есть %c[d_green]10% %c[ui_gray_2]шанс сохранить металлолом при использовании\n
+		%c[d_red] - %c[ui_gray_2] Металлолом не может быть использован для повышения эффективности артефактов
+		</text>
+    </string>
+	<string id="st_perk_zone_gunsmith_desc_4">
+        <text>Занимаясь починкой в течение долгого времени вы в результате научились использовать обычный лом в качестве ремонтного материала.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Теперь вы можете использовать \n%c[yellow]металлолом %c[ui_gray_2]в качестве бонусного предмета при ремонте любого предмета\n
+		%c[d_blue] - %c[ui_gray_2] Бонус составляет %c[d_green]+6%\n
+		%c[d_blue] - %c[ui_gray_2] Есть %c[d_green]20% %c[ui_gray_2]шанс сохранить металлолом при использовании\n
+		%c[d_red] - %c[ui_gray_2] Металлолом не может быть использован для повышения эффективности артефактов
+		</text>
+    </string>
+	<string id="st_perk_zone_gunsmith_desc_5">
+        <text>Занимаясь починкой в течение долгого времени вы в результате научились использовать обычный лом в качестве ремонтного материала.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Теперь вы можете использовать \n%c[yellow]металлолом %c[ui_gray_2]в качестве бонусного предмета при ремонте любого предмета\n
+		%c[d_blue] - %c[ui_gray_2] Бонус составляет %c[d_green]+7%\n
+		%c[d_blue] - %c[ui_gray_2] Есть %c[d_green]30% %c[ui_gray_2]шанс сохранить металлолом при использовании\n
+		%c[d_red] - %c[ui_gray_2] Металлолом не может быть использован для повышения эффективности артефактов
+		</text>																																																																																								 
+    </string>
+	
+	<string id="st_perk_the_exalted">
+        <text>Свой в доску</text>
+    </string>
+	<string id="st_perk_the_exalted_desc">
+        <text>Ваша известность среди дружественных фракций приносит новые плоды! Теперь если у вас отношения с дружественной группировкой, к которой вы не принадлежите, выше 1000, вам предлагают обменять снаряжение другой группировки на аналогичное снаряжение этой грппировки. Кроме того, вам могут быть доступны любые варианты диалогов и квестов, которые обычно открыты только для членов данной группировки.</text>
+    </string>
+	<string id="st_perk_the_exalted_desc_1">
+		<text>Ваша известность среди дружественных фракций приносит новые плоды.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ::\n
+		%c[d_blue] - %c[ui_gray_2] Можно обменять броню у %c[d_green]любой дружественной группировки\n
+		%c[d_blue] - %c[ui_gray_2] Вам становятся доступны любые варианты диалогов и квестов у %c[d_green]любой дружественной группировки%c[ui_gray_2], а не только вашей\n
+		%c[d_red] - %c[ui_gray_2] Дружественная группировка = отношение не меньше %c[d_green]1000 %c[ui_gray_2]у данной группировки
+		%c[d_red] - %c[ui_gray_2] Большинство особых диалогов, привязанных к фракции, таких как сюжетные квесты, недоступные изначально для вашей фракции, заблокированы за %c[d_cyan]1500 отношений.
+		</text>
+    </string>
+
+	<string id="st_perk_zone_slayer">
+        <text>Охотник</text>
+    </string>
+	<string id="st_perk_zone_slayer_desc">
+        <text>Ваша любовь к двуствольным ружьям пробудила в вас скрытую силу...</text>
+    </string>
+	<string id="st_perk_zone_slayer_desc_1">
+		<text>Ваша любовь к двуствольным ружьям пробудила в вас скрытую силу...\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Увеличивает скорость перезарядки %c[yellow]двуствольных оружий %c[ui_gray_2] на %c[d_green]15%\n
+		%c[d_green] - Сочетается с другими бонусами скорости перезарядки\n		
+		%c[d_blue] - %c[ui_gray_2] Из сталкеров выпадают %c[d_green]2 случайных патрона %c[ui_gray_2]для одного из ваших %c[yellow]двуствольных дробовиков, которые в данный момент находятся в слоте оружия
+		</text>
+    </string>
+	
+	<string id="st_perk_battle_runner">
+        <text>Садист</text>
+    </string>
+	<string id="st_perk_battle_runner_desc">
+        <text>Вам нравится убивать...</text>
+    </string>
+	<string id="st_perk_battle_runner_desc_1">
+        <text>Вам нравится убивать...\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Даёт бонус %c[d_green]10% к скорости передвижения %c[ui_gray_2]на 10 секунд после убийства сталкера или мутанта\n
+		%c[d_blue] - %c[ui_gray_2] При убийстве %c[d_green]таймер продлевается
+		</text>
+    </string>
+	<string id="st_perk_battle_runner_desc_2">
+        <text>Вам нравится убивать...\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Даёт бонус %c[d_green]20% к скорости передвижения %c[ui_gray_2]на 10 секунд после убийства сталкера или мутанта\n
+		%c[d_blue] - %c[ui_gray_2] При убийстве %c[d_green]таймер продлевается
+		</text>
+    </string>
+	<string id="st_perk_battle_runner_desc_3">
+        <text>Вам нравится убивать...\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Даёт бонус %c[d_green]30% к скорости передвижения %c[ui_gray_2]на 10 секунд после убийства сталкера или мутанта\n
+		%c[d_blue] - %c[ui_gray_2] При убийстве %c[d_green]таймер продлевается
+		</text>
+    </string>
+	
+	<string id="st_perk_fourth_times">
+        <text>Попытка - не пытка</text>
+    </string>
+	<string id="st_perk_fourth_times_desc">
+        <text>Вы знаете, что они говорят...</text>
+    </string>
+	<string id="st_perk_fourth_times_desc_1">
+        <text>Вы знаете, что они говорят...\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При нанесении 4 критических ударов за короткий промежуток времени %c[d_green]возвращает 1 патрон в рюкзак\n
+		%c[d_blue] - %c[ui_gray_2] Попадания из дробовика считаются по количеству дробинок. Если 4 дробинки нанесли некритический удар, тогда счётчик сбрасывается\n
+		%c[d_blue] - %c[ui_gray_2] Нанесение некритического удара, смена оружия или отсутствие попадания в течение 5 секунд приведет к сбросу счетчика попаданий.
+		%c[d_red] - %c[ui_gray_2] Смена оружия или отсутствие попадания в течение 6 секунд приведет к сбросу счетчика попаданий.
+		</text>
+    </string>
+	<string id="st_perk_fourth_times_desc_2">
+        <text>Вы знаете, что они говорят...\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При нанесении 4 критических ударов за короткий промежуток времени %c[d_green]возвращает 2 патрон в рюкзак\n
+		%c[d_blue] - %c[ui_gray_2] Попадания из дробовика считаются по количеству дробинок. Если 4 дробинки нанесли некритический удар, тогда счётчик сбрасывается\n
+		%c[d_blue] - %c[ui_gray_2] Нанесение некритического удара, смена оружия или отсутствие попадания в течение 5 секунд приведет к сбросу счетчика попаданий.
+		%c[d_red] - %c[ui_gray_2] Смена оружия или отсутствие попадания в течение 6.5 секунд приведет к сбросу счетчика попаданий.
+		</text>
+    </string>
+	<string id="st_perk_fourth_times_desc_3">
+        <text>Вы знаете, что они говорят...\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При нанесении 4 критических ударов за короткий промежуток времени %c[d_green]возвращает 3 патрон в рюкзак\n
+		%c[d_blue] - %c[ui_gray_2] Попадания из дробовика считаются по количеству дробинок. Если 4 дробинки нанесли некритический удар, тогда счётчик сбрасывается\n
+		%c[d_blue] - %c[ui_gray_2] Нанесение некритического удара, смена оружия или отсутствие попадания в течение 5 секунд приведет к сбросу счетчика попаданий.																					 
+		%c[d_red] - %c[ui_gray_2] Смена оружия или отсутствие попадания в течение 7 секунд приведет к сбросу счетчика попаданий.
+		</text>
+    </string>
+	<string id="st_perk_glass_cannon">
+        <text>Стеклобой</text>
+    </string>
+	<string id="st_perk_glass_cannon_desc">
+        <text>Нет боли - нет выгоды.</text>
+    </string>
+	<string id="st_perk_glass_cannon_desc_1">
+        <text>Нет боли - нет выгоды.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2]Пока общее здоровье %c[d_red]ниже 80% %c[ui_gray_2], вы получаете увеличение урона по мере уменьшения здоровья.\n
+		%c[d_blue] - %c[ui_gray_2] Даёт %c[d_green]от 16.7% %c[ui_gray_2](при 80% HP) до %c[d_green] 60%c[ui_gray_2](при 1% HP) %c[d_green] дополнительного урона %c[ui_gray_2] 
+		</text>
+    </string>
+	<string id="st_perk_glass_cannon_desc_2">
+        <text>Нет боли - нет выгоды.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2]Пока общее здоровье %c[d_red]ниже 80% %c[ui_gray_2], вы получаете увеличение урона по мере уменьшения здоровья.\n
+		%c[d_blue] - %c[ui_gray_2] Даёт %c[d_green]от 22.2% %c[ui_gray_2](при 80% HP) до %c[d_green] 113%c[ui_gray_2](при 1% HP) %c[d_green] дополнительного урона %c[ui_gray_2]  
+		</text>
+    </string>
+	<string id="st_perk_glass_cannon_desc_3">
+        <text>Нет боли - нет выгоды.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2]Пока общее здоровье %c[d_red]ниже 80% %c[ui_gray_2], вы получаете увеличение урона по мере уменьшения здоровья.\n
+		%c[d_blue] - %c[ui_gray_2] Даёт %c[d_green]от 27.9% %c[ui_gray_2](при 80% HP) до %c[d_green] 153%c[ui_gray_2](при 1% HP) %c[d_green] дополнительного урона %c[ui_gray_2]  
+		</text>
+    </string>
+	
+	<string id="st_perk_well_rested">
+        <text>Отдохнувший</text>
+    </string>
+	<string id="st_perk_well_rested_desc">
+        <text>Вы научитесь ценить хороший ночной сон.</text>
+    </string>
+	<string id="st_perk_well_rested_desc_1">
+        <text>Вы научитесь ценить хороший ночной сон.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] После полного сна вы будете "Хорошо отдохнувшим", получая %c[d_green]2,5% скорости передвижения %c[ui_gray_2] и %c[d_green]10% бонусного перенос. веса\n
+		%c[d_blue] - %c[ui_gray_2] Эффект исчезает, когда ваш счетчик сна опускается ниже %c[d_orange]80%
+		</text>
+    </string>
+	<string id="st_perk_well_rested_desc_2">
+       <text>Вы научитесь ценить хороший ночной сон.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] После полного сна вы будете "Хорошо отдохнувшим", получая %c[d_green]5% скорости передвижения %c[ui_gray_2] и %c[d_green]25% бонусного перенос. веса\n
+		%c[d_blue] - %c[ui_gray_2] Эффект исчезает, когда ваш счетчик сна опускается ниже %c[yellow]75%
+		</text>
+    </string>
+	<string id="st_perk_well_rested_desc_3">
+        <text>Вы научитесь ценить хороший ночной сон.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] После полного сна вы будете "Хорошо отдохнувшим", получая %c[d_green]7,5% скорости передвижения %c[ui_gray_2] и %c[d_green]40% бонусного перенос. веса\n
+		%c[d_blue] - %c[ui_gray_2] Эффект исчезает, когда ваш счетчик сна опускается ниже %c[d_green]70%
+		%c[d_blue] - %c[ui_gray_2] После полноценного сна вы проснетесь и получите завтрак в постель: %c[d_green] одно случайное очищенное блюдо из матунта  и один случайный увлажняющий напиток.
+		</text>
+    </string>
+	
+	<string id="st_perk_fun_allowed">
+        <text>Нарушитель правил</text>
+    </string>
+	<string id="st_perk_fun_allowed_desc">
+        <text>Вы научились ключевому навыку, на который не способны другие: экипировать более одного приспособления.</text>
+    </string>
+	<string id="st_perk_fun_allowed_desc_1">
+        <text>Вы научились ключевому навыку, на который не способны другие: экипировать более одного приспособления.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Снимает ограничение на размещение артефактов и аксессуаров на поясе\n
+		%c[d_blue] - %c[ui_gray_2] Другими словами, теперь вы можете размещать на поясе идентичные артефакты или приспособления.
+		</text>
+    </string>
+	
+	<string id="st_perk_wick_mode">
+        <text>Режим Уика</text>
+    </string>
+	<string id="st_perk_wick_mode_desc">
+        <text>Не становитесь бугименом. Станьте тем, кого послали убить бугимена.</text>
+    </string>
+	<string id="st_perk_wick_mode_desc_1">
+        <text>Не становитесь бугименом. Станьте тем, кого послали %c[d_red]убить бугимена.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Имея в руках пистолет, у вас есть %c[d_green]15% шанс "увернуться" от входящего %c[yellow]пулевого урона\n
+		%c[d_blue] - %c[ui_gray_2] Увеличение скорости перезарядки на %c[d_green]15% %c[ui_gray_2]для %c[yellow]всех пистолетов\n
+		%c[d_green] - %c[ui_gray_2] Этот бонус к урону применяется только против %c[yellow] Сталкеров
+		</text>
+    </string>
+	
+	<string id="st_perk_lightweight_dodge">
+        <text>Лёгкий</text>
+    </string>
+	<string id="st_perk_lightweight_dodge_desc">
+        <text>Легкая броня теперь позволяет вашим рефлексам быть намного быстрее.</text>
+    </string>
+	<string id="st_perk_lightweight_dodge_desc_1">
+        <text>Легкая броня теперь позволяет вашим рефлексам быть намного быстрее.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] В костюме %c[yellow]весом менее 12 кг%c[ui_gray_2] у вас есть шанс %c[d_green]"уклониться" от входящего %c[yellow]пулевого урона \n
+		%c[d_blue] - %c[ui_gray_2] За каждый 1 кг веса менее 12 кг вы получаете %c[d_orange]+0.5% шанс уклонения\n
+		%c[yellow] - %c[ui_gray_2] Отсутствие одежды дает шанс уклонения %c[d_orange]+6%\n
+		%c[d_green] - %c[ui_gray_2] Вероятность уклонения суммируется с другими бонусами уклонения\n
+		%c[d_red] ПРИМЕЧАНИЕ. Вес брони основан на базовом весе или весе после улучшений (в зависимости от того, что легче)
+		</text>
+    </string>
+	<string id="st_perk_lightweight_dodge_desc_2">
+        <text>Легкая броня теперь позволяет вашим рефлексам быть намного быстрее.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] В костюме %c[yellow]весом менее 12 кг%c[ui_gray_2] у вас есть шанс %c[d_green]"уклониться" от входящего %c[yellow]пулевого урона \n
+		%c[d_blue] - %c[ui_gray_2] За каждый 1 кг веса менее 12 кг вы получаете шанс уклонения %c[yellow]+1%\n
+		%c[yellow] - %c[ui_gray_2] Отсутствие одежды дает шанс уклонения %c[yellow]+12%\n
+		%c[d_green] - %c[ui_gray_2] Вероятность уклонения суммируется с другими бонусами уклонения\n
+		%c[d_red] ПРИМЕЧАНИЕ. Вес брони основан на базовом весе или весе после улучшений (в зависимости от того, что легче)
+		</text>
+    </string>
+	<string id="st_perk_lightweight_dodge_desc_3">
+		<text>Легкая броня теперь позволяет вашим рефлексам быть намного быстрее.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] В костюме %c[yellow]весом менее 12 кг%c[ui_gray_2] у вас есть шанс %c[d_green]"уклониться" от входящего %c[yellow]пулевого урона \n
+		%c[d_blue] - %c[ui_gray_2] За каждый 1 кг веса менее 12 кг вы получаете %c[d_green]+1.5% шанс уклонения\n
+		%c[yellow] - %c[ui_gray_2] Отсутствие одежды дает шанс уклонения %c[d_green]+18%\n
+		%c[d_green] - %c[ui_gray_2] Вероятность уклонения суммируется с другими бонусами уклонения\n
+		%c[d_red] ПРИМЕЧАНИЕ. Вес брони основан на базовом весе или весе после улучшений (в зависимости от того, что легче)
+		</text>
+    </string>
+	<string id="st_perk_lightweight_dodge_desc_4">
+        <text>Легкая броня теперь позволяет вашим рефлексам быть намного быстрее.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] В костюме %c[yellow]весом менее 12 кг%c[ui_gray_2] у вас есть шанс %c[d_green]"уклониться" от входящего %c[yellow]пулевого урона \n
+		%c[d_blue] - %c[ui_gray_2] За каждый 1 кг веса менее 12 кг вы получаете %c[d_cyan]+2% шанса уклониться\n
+		%c[yellow] - %c[ui_gray_2] Отсутствие одежды дает шанс уклонения %c[d_cyan]+24%\n
+		%c[d_green] - %c[ui_gray_2] Вероятность уклонения суммируется с другими бонусами уклонения\n
+		%c[d_red] ПРИМЕЧАНИЕ. Вес брони основан на базовом весе или весе после улучшений (в зависимости от того, что легче)
+		</text>
+    </string>
+	
+	<string id="st_perk_local_looting">
+         <text>Локальный лутинг</text>
+     </string>
+<string id="st_perk_local_looting_desc">
+         <text>Мародерство в Зоне уже давно вошло у всех в привычку.</text>
+     </string>
+<string id="st_perk_local_looting_desc_1">
+         <text>Мародерство в Зоне уже давно вошло у всех в привычку.\n \n
+%c[ui_gray_3]ЭФФЕКТЫ:\n
+%c[d_blue] - %c[ui_gray_2] Полученные тайники имеют %c[d_green]32,5% шанс%c[ui_gray_2] оказаться %c[yellow]ближе к вашему текущему местоположению.
+</text>
+     </string>
+<string id="st_perk_local_looting_desc_2">
+         <text>Мародерство в Зоне уже давно вошло у всех в привычку.\n \n
+%c[ui_gray_3]ЭФФЕКТЫ:\n
+%c[d_blue] - %c[ui_gray_2] Полученные тайники имеют %c[d_green]40% шанс%c[ui_gray_2] оказаться %c[yellow]ближе к вашему текущему местоположению.
+</text>
+     </string>
+<string id="st_perk_local_looting_desc_3">
+<text>Мародерство в Зоне уже давно вошло у всех в привычку.\n \n
+%c[ui_gray_3]ЭФФЕКТЫ:\n
+%c[d_blue] - %c[ui_gray_2] Полученные тайники имеют %c[d_green]47,5% шанс %c[ui_gray_2] оказаться %c[yellow]ближе к вашему текущему местоположению.
+%c[d_blue] - %c[ui_gray_2] Для обнаружения редкого тайника теперь требуется %c[d_green] выполнить 7 заданий%c[ui_gray_2] вместо 8
+</text>
+     </string>
+<string id="st_perk_local_looting_desc_4">
+         <text>Мародерство в Зоне уже давно вошло у всех в привычку.\n \n
+%c[ui_gray_3]ЭФФЕКТЫ:\n
+%c[d_blue] - %c[ui_gray_2] Полученные тайники имеют %c[d_green]55% шанс%c[ui_gray_2] оказаться %c[yellow]ближе к вашему текущему местоположению.
+%c[d_blue] - %c[ui_gray_2] Для обнаружения редкого тайника теперь требуется %c[d_green] выполнить 7 заданий%c[ui_gray_2] вместо 8
+</text>
+     </string>
+<string id="st_perk_local_looting_desc_5">
+         <text>Мародерство в Зоне уже давно вошло у всех в привычку.\n \n
+%c[ui_gray_3]ЭФФЕКТЫ:\n
+%c[d_blue] - %c[ui_gray_2] Полученные тайники имеют %c[d_green]62,5% шанс%c[ui_gray_2] оказаться %c[yellow]ближе к вашему текущему местоположению.
+%c[d_blue] - %c[ui_gray_2] Для обнаружения редкого тайника теперь требуется %c[d_green] выполнить 6 заданий%c[ui_gray_2] вместо 8
+</text>
+     </string>
+
+<string id="st_perk_jump_man">
+         <text>Прыгающий человек</text>
+     </string>
+<string id="st_perk_jump_man_desc">
+         <text>Ваши походы по Зоне сделали ваши ноги сильнее, что позволяет лучше передвигаться.</text>
+     </string>
+<string id="st_perk_jump_man_desc_1">
+         <text>Ваши походы по Зоне сделали ваши ноги сильнее, что позволяет лучше передвигаться.\n \n
+%c[ui_gray_3]ЭФФЕКТЫ:\n
+%c[d_blue] - %c[ui_gray_2]Теперь вы можете прыгнуть на %c[d_green]5% выше
+%c[d_blue] - %c[ui_gray_2]Игнорируется весь урон от падения, который меньше %c[d_green]15% от вашего максимального запаса здоровья.
+</text>
+     </string>
+<string id="st_perk_jump_man_desc_2">
+         <text>Ваши походы по Зоне сделали ваши ноги сильнее, что позволяет лучше передвигаться.\n \n
+%c[ui_gray_3]ЭФФЕКТЫ:\n
+%c[d_blue] - %c[ui_gray_2]Теперь вы можете прыгнуть на %c[d_green]на 10% выше
+%c[d_blue] - %c[ui_gray_2]Игнорируется весь урон от падения, который меньше %c[d_green]30% от вашего максимального запаса здоровья.
+</text>
+     </string>
+<string id="st_perk_jump_man_desc_3">
+<text>Ваши походы по Зоне сделали ваши ноги сильнее, что позволяет лучше передвигаться.\n \n
+%c[ui_gray_3]ЭФФЕКТЫ:\n
+%c[d_blue] - %c[ui_gray_2]Теперь вы можете прыгнуть на %c[d_green]на 15% выше.
+%c[d_blue] - %c[ui_gray_2]Игнорируется весь урон от падения, который меньше %c[d_green]45% от вашего максимального здоровья\n
+%c[d_blue] - %c[ui_gray_2]Любой полученный урон от падения будет уменьшен на %c[d_green]50%, если он не проигнорирован.
+
+</text>
+     </string>
+<!--
+<string id="st_perk_jump_man_desc_4">
+         <text>Ваши походы по Зоне сделали ваши ноги сильнее, что позволяет лучше передвигаться.\n \n
+%c[ui_gray_3]ЭФФЕКТЫ:\n
+%c[d_blue] - %c[ui_gray_2]Теперь вы можете прыгнуть на %c[d_green]на 12% выше.
+</text>
+     </string>
+<string id="st_perk_jump_man_desc_5">
+         <text>Ваши походы по Зоне сделали ваши ноги сильнее, что позволяет лучше передвигаться.\n \n
+%c[ui_gray_3]ЭФФЕКТЫ:\n
+%c[d_blue] - %c[ui_gray_2]Теперь вы можете прыгнуть на %c[d_green]на 15% выше.
+</text>
+     </string>
+
+<string id="st_perk_sturdy_legs">
+         <text>Крепкие ноги</text>
+     </string>
+<string id="st_perk_sturdy_legs_desc">
+         <text>После достаточно высоких падений ваше тело стало более устойчивым к ударам.</text>
+     </string>
+<string id="st_perk_sturdy_legs_desc_1">
+         <text>После достаточно высоких падений ваше тело стало более устойчивым к ударам.\n \n
+%c[ui_gray_3]ЭФФЕКТЫ:\n
+%c[d_blue] - %c[ui_gray_2] Урон от падения теперь уменьшен на %c[d_green]75%.
+</text>
+     </string>
+-->	
+	<string id="st_perk_demo_expert">
+        <text>Взрывная личность</text>
+    </string>
+	<string id="st_perk_demo_expert_desc">
+        <text>Зону наводнили взрывчаткой, чтобы вас искоренить. К счастью, в своих путешествиях вы нашли запасной бронежилет.</text>
+    </string>
+	<string id="st_perk_demo_expert_desc_1">
+        <text>Зону наводнили взрывчаткой, чтобы вас искоренить. К счастью, в своих путешествиях вы нашли запасной бронежилет.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Сталкеры теперь имеют шанс %c[yellow]до 5% %c[ui_gray_2] иметь при себе хотя бы одну гранату\n
+		%c[d_blue] - %c[ui_gray_2] Теперь вы получаете %c[d_orange]на 5% меньше урона %c[ui_gray_2]от взрывов\n
+		%c[d_red] ПРИМЕЧАНИЕ. Взрывчатка — это не просто предметы, которые можно добыть. Они будут использовать их против вас и других сталкеров. Убейте их достаточно быстро, чтобы получить свой приз. ДЕЙСТВУЙТЕ С ОСТОРОЖНОСТЬЮ!
+		</text>
+    </string>
+	<string id="st_perk_demo_expert_desc_2">
+        <text>Зону наводнили взрывчаткой, чтобы вас искоренить. К счастью, в своих путешествиях вы нашли запасной бронежилет.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Сталкеры теперь имеют шанс %c[yellow]до 10% %c[ui_gray_2] иметь при себе хотя бы одну гранату\n
+		%c[d_blue] - %c[ui_gray_2] Теперь вы получаете %c[d_orange]на 10% меньше урона %c[ui_gray_2]от взрывов\n
+		%c[d_red] ПРИМЕЧАНИЕ. Взрывчатка — это не просто предметы, которые можно добыть. Они будут использовать их против вас и других сталкеров. Убейте их достаточно быстро, чтобы получить свой приз. ДЕЙСТВУЙТЕ С ОСТОРОЖНОСТЬЮ!
+		</text>
+    </string>
+	<string id="st_perk_demo_expert_desc_3">
+		<text>Зона была наводнена взрывчаткой, чтобы вас искоренить. К счастью, в своих путешествиях вы нашли запасной бронежилет.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Сталкеры теперь имеют шанс %c[yellow]до 15% %c[ui_gray_2] иметь при себе хотя бы одну гранату\n
+		%c[d_blue] - %c[ui_gray_2] Теперь вы получаете %c[d_green]на 15% меньше урона %c[ui_gray_2]от взрывов\n
+		%c[d_blue] - %c[ui_gray_2] Сталкеры теперь имеют %c[d_red]0,01% шанс %c[ui_gray_2] появиться с различными РПГ \n
+		%c[d_red] ПРИМЕЧАНИЕ. Взрывчатка — это не просто предметы, которые можно добыть. Они будут использовать их против вас и других сталкеров. Убейте их достаточно быстро, чтобы получить свой приз. ДЕЙСТВУЙТЕ С ОСТОРОЖНОСТЬЮ!
+		</text>
+    </string>
+	
+	<string id="st_perk_jewelcrafter">
+        <text>Ювелир</text>
+    </string>
+	<string id="st_perk_jewelcrafter_desc">
+        <text>Теперь вы можете более успешно совершенствовать драгоценные камни-характеристики.</text>
+    </string>
+	<string id="st_perk_jewelcrafter_desc_1">
+        <text>Вы отточили свои навыки изготовления ювелирных изделий, что повышает шансы на успех при обновлении драгоценных камней-характеристик.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Теперь вы получите %c[d_green]+1% %c[ui_gray_2]к шансу улучшения драгоценного камня характеристик.
+		</text>
+    </string>
+	<string id="st_perk_jewelcrafter_desc_2">
+        <text>Вы отточили свои навыки изготовления ювелирных изделий, что повышает шансы на успех при обновлении драгоценных камней-характеристик.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Теперь вы получите %c[d_green]+2% %c[ui_gray_2]к шансу улучшения драгоценного камня характеристик.
+		</text>
+    </string>
+	<string id="st_perk_jewelcrafter_desc_3">
+        <text>Вы отточили свои навыки изготовления ювелирных изделий, что повышает шансы на успех при обновлении драгоценных камней-характеристик.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Теперь вы получите %c[d_green]+3% %c[ui_gray_2]к шансу улучшения драгоценного камня характеристик.
+		</text>
+    </string>
+	<string id="st_perk_jewelcrafter_desc_4">
+        <text>Вы отточили свои навыки изготовления ювелирных изделий, что повышает шансы на успех при обновлении драгоценных камней-характеристик.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Теперь вы получите %c[d_green]+5% %c[ui_gray_2]к шансу улучшения драгоценного камня характеристик.
+		</text>
+    </string>
+	<string id="st_perk_jewelcrafter_desc_5">
+        <text>Вы отточили свои навыки изготовления ювелирных изделий, что повышает шансы на успех при обновлении драгоценных камней-характеристик.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Теперь вы получите %c[d_green]+8% %c[ui_gray_2]к шансу улучшения драгоценного камня характеристик.
+		</text>
+    </string>
+	
+	<string id="st_perk_the_end">
+        <text>Завершение</text>
+    </string>
+	<string id="st_perk_the_end_desc">
+        <text>"Я - Конец, я здесь, чтобы привести тебя к твоей окончательной судьбе."</text>
+    </string>
+	<string id="st_perk_the_end_desc_1">
+        <text>"Я - Конец, я здесь, чтобы привести тебя к твоей окончательной судьбе."\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] При наведении прицела вниз с помощью %c[yellow]болтовых снайперских винтовок%c[ui_gray_2], вы получаете на %c[d_green]15% меньший урон от всех источников урона.\n
+		%c[d_blue] - %c[ui_gray_2] При стрельбе от бедра с %c[yellow]болтовых снайперских винтовок %c[ui_gray_2], вы наносите на %c[d_green]30% больше урона по всем сталкерам и мутантам.
+		</text>
+    </string>
+	
+    <string id="st_perk_plus_one">
+        <text>Плюс Один</text>
+    </string>
+	<string id="st_perk_plus_one_desc">
+        <text>Даже когда вы думаете, что у вас всё кончилось, вы всегда находите еще одно.</text>
+    </string>
+	<string id="st_perk_plus_one_desc_1">
+        <text>Даже когда вы думаете, что у вас всё кончилось, вы всегда находите еще одно.\n \n
+		%c[ui_gray_3]ЭФФЕКТЫ:\n
+		%c[d_blue] - %c[ui_gray_2] Занимаясь мародерством, вы всегда найдете как минимум %c[d_green]одну пулю для одного из ваших видов оружия \n
+		%c[d_blue] - %c[ui_gray_2] У тайников есть %c[d_green]1% шанс%c[ui_gray_2] получить %c[d_green] всю коробку нужных боеприпасов%c[ui_gray_2] при нахождении
+		</text>
+    </string>
+	
+</string_table>

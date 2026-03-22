@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<string_table>
+	<string id="ui_mcm_menu_rpg_redux">
+		<text>RPG Redux</text>
+	</string>
+	<string id="ui_mcm_rpg_redux_title">
+		<text>RPG Redux Perk Options</text>
+	</string>
+	
+	<string id="ui_mcm_rpg_redux_wick_slayer_reload">
+		<text>Wick Mode/Zone Slayer Reload Bonuses?</text>
+	</string>
+	<string id="ui_mcm_rpg_redux_wick_slayer_reload_desc">
+		<text>
+			Turning this on will allow "Wick Mode" and "Zone Slayer" to grant their old 30% reload speed bonuses to their appropriate weapons in addition to their current effects.\n
+			\nTurning this off will not give those reload bonuses for those perks ("Rapid Reload" will be unaffected).
+		</text>
+	</string>
+	<string id="ui_mcm_rpg_redux_perk_sfx_enable">
+		<text>Enable Perk SFX?</text>
+	</string>
+	<string id="ui_mcm_rpg_redux_perk_sfx_enable_desc">
+		<text>
+			Turning this on will allow perks that have activated or timed effects to play a sound to let the player know their current state.\n
+			Turning this off will turn off all perk sounds effects.\n
+			\nSounds effects from perks will be modified base on your standard Master/Sound Effects setting.
+		</text>
+	</string>
+	<string id="ui_mcm_rpg_redux_prestige_point_extra_enable">
+		<text>Enable Progressive Prestige Points?</text>
+	</string>
+	<string id="ui_mcm_rpg_redux_prestige_point_extra_enable_desc">
+		<text>
+			Enabling this will allow you to start earning an additional perk point to spend every few levels based on your Prestige Level.\n
+			Disabling this off will have you earn the normal amount of perk points, regardless of your Prestige Level.\n
+			\nPrestige Brackets: \n
+			%c[d_orange]Prestige 1-3: +1 additional Perk Point every 4 earned Levels \n
+			%c[yellow]Prestige 4-7: +1 additional Perk Point every 3 earned Levels \n
+			%c[d_green]Prestige 8-10: +1 additional Perk Point every 2 earned Levels
+		</text>
+	</string>
+	
+	
+	
+	
+	
+	
+	<string id="st_refund_1">
+		<text>Repair item refunded!</text>
+	</string>
+	<string id="st_refund_2">
+		<text>Bonus item refunded!</text>
+	</string>
+	<string id="st_craft_bonus">
+		<text>Extra item crafted!</text>
+	</string>
+	<string id="st_rested_1">
+		<text>You are now Well-Rested!</text>
+	</string>
+	<string id="st_rested_2">
+		<text>You are no longer Well-Rested!</text>
+	</string>
+	<string id="st_critical_hit_1">
+		<text>Critical hit for </text>
+	</string>
+	<string id="st_critical_hit_2">
+		<text>x damage!</text>
+	</string>
+</string_table>

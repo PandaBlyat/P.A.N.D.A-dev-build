@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<string_table>
+
+    <!-- PARANOIDS: "they're hunting me" -->
+    <string id="st_paranoid_hunt_1">
+        <text>Anyone else feel like hit squads are moving along with them? Same familiar faces and rifles keep showing up.</text>
+    </string>
+    <string id="st_paranoid_hunt_2">
+        <text>From the Garbage to Agroprom the same group was on my tail. Different faces, same patches. Feels like there’s a price on my head.</text>
+    </string>
+    <string id="st_paranoid_hunt_3">
+        <text>Twice today I heard radio chatter cut off the moment I went on air. Don’t believe that’s just a coincidence.</text>
+    </string>
+    <string id="st_paranoid_hunt_4">
+        <text>Every time I change my route, someone’s already watching that road. Feels like my PDA is being read before I even touch it.</text>
+    </string>
+    <string id="st_paranoid_hunt_5">
+        <text>Whoever’s paying to “just scare me a little” is wasting money. These guys stopped at “just scare” a long time ago.</text>
+    </string>
+    <string id="st_paranoid_hunt_6">
+        <text>Am I the only one whose “easy stashes” from anonymous messages always end with someone looking down iron sights at their back?</text>
+    </string>
+    <string id="st_paranoid_hunt_7">
+        <text>Three times in a week I changed camps, and the tracks around my sleeping bag are still fresh. Someone’s walking in my footsteps.</text>
+    </string>
+    <string id="st_paranoid_hunt_8">
+        <text>Heard talk in the bar about a “valuable target” described a bit too much like me. Guess my dossier is already circling the Zone.</text>
+    </string>
+    <string id="st_paranoid_hunt_9">
+        <text>Anyone know how to wipe bounty data from PDAs? Asking for a man who doesn’t want to get his throat cut in his sleep.</text>
+    </string>
+    <string id="st_paranoid_hunt_10">
+        <text>Traders suddenly know way too much about where I’ve been and what I brought back. Either the walls have ears or some hunter talks too much.</text>
+    </string>
+    <string id="st_paranoid_hunt_11">
+        <text>Heard my description on the radio twice already, from different voices. That’s more than just campfire gossip.</text>
+    </string>
+    <string id="st_paranoid_hunt_12">
+        <text>In every camp they look at me like they’re quietly counting how much my head goes for these days.</text>
+    </string>
+
+    <!-- CALM / RATIONAL REPLIES -->
+    <string id="st_paranoid_reply_calm_1">
+        <text>Relax, stalker. Bounty hunters don’t waste time on every passerby. If they came for you, someone had their reasons.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_2">
+        <text>The Zone already twists your mind enough. Sleep, eat, and then check whether those “tails” of yours are still there.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_3">
+        <text>Most “hunter squads” are just hungry rookies in the same jackets. Don’t turn them into legends too early.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_4">
+        <text>If they really wanted you gone, you wouldn’t have time to whine about it in the public channel.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_5">
+        <text>Not every rumor at the bar is a contract on your head. The Zone eats the weak much faster than the mercs do.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_6">
+        <text>Bounties come and go. Walk quietly for a day and there’ll be another lucky guy on the board.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_7">
+        <text>Not every squad behind you is after you. Sometimes everyone just happens to take the same road.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_8">
+        <text>Tracks around a camp can belong to anyone – mutants, stalkers, or even you, running in circles in a panic.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_9">
+        <text>If your name really was on the list, you’d hear the whispers at the bar before the voices in your head.</text>
+    </string>
+    <string id="st_paranoid_reply_calm_10">
+        <text>Those who keep looking over their shoulder stop noticing the real danger. Watch your step, not just your back.</text>
+    </string>
+
+    <!-- SUPPORT / ADVICE -->
+    <string id="st_paranoid_reply_support_1">
+        <text>Stick closer to friendly bases for a while. Hunters hate witnesses almost as much as they love easy prey.</text>
+    </string>
+    <string id="st_paranoid_reply_support_2">
+        <text>Don’t walk alone, move with a group. Even psychos count guns before they jump into a fight.</text>
+    </string>
+    <string id="st_paranoid_reply_support_3">
+        <text>If you’re sure they’re on you, change your armor, your usual paths and the time you head out. Make them work for their money.</text>
+    </string>
+    <string id="st_paranoid_reply_support_4">
+        <text>Hit the bar and talk to the barman. If the bounty is real, the rumor will reach him long before it reaches you.</text>
+    </string>
+    <string id="st_paranoid_reply_support_5">
+        <text>Hide your stash somewhere even you don’t want to go often. Hunters don’t like going far with no guaranteed payoff.</text>
+    </string>
+    <string id="st_paranoid_reply_support_6">
+        <text>Pick the worse roads, away from open paths. Hunters like clear fields, not swamps and anomaly clusters.</text>
+    </string>
+    <string id="st_paranoid_reply_support_7">
+        <text>If you’ve got friends with “weight”, now’s the time to remind them you’re still alive and plan to stay that way.</text>
+    </string>
+    <string id="st_paranoid_reply_support_8">
+        <text>Keep radio chatter to a minimum. Names, routes and loot size – that’s what good contracts are made from.</text>
+    </string>
+
+    <!-- MOCKING / SARCASTIC REPLIES -->
+    <string id="st_paranoid_reply_mock_1">
+        <text>Calm down, hero. Hunters go after fat prey, not someone who barely crawled in from the Garbage.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_2">
+        <text>If there really is a bounty on you, the client overpaid. That’s a bad investment.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_3">
+        <text>Those “tracks around your camp” are probably just you, pacing in circles and whispering about hunters.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_4">
+        <text>Sure those following you are mercs and not a pack of dogs that smelled fear and cheap booze?</text>
+    </string>
+    <string id="st_paranoid_reply_mock_5">
+        <text>Next time you see the “same guns”, check first if they’re not just hanging in your imagination.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_6">
+        <text>The Zone has enough problems without you. You don’t have to play the main character in every campfire horror story.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_7">
+        <text>Drop your coordinates if you’re so sure you’re being followed. We’ll all come over and check.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_8">
+        <text>The only “bounty on your head” is in your head. The bulletin board sure hasn’t seen you.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_9">
+        <text>Heh, send the coordinates of where they “chase you”. We’ll come with the whole squad and see if there are hunters or just your delusions.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_10">
+        <text>If they’re really after you, why are you still alive? Maybe they just like you and are too shy to say hello.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_11">
+        <text>Take a picture of these “hunters” and share it in the channel. Let’s see if they’re not just lost tourists.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_12">
+        <text>How much are they paying for your head? Name a number, maybe I’ll come see if you’re worth it myself.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_13">
+        <text>“They’re watching me, tracks everywhere, radios go silent!” — sounds like a bad movie script. Sleep it off.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_14">
+        <text>Set up a meeting with those “hunters” at the 100 Rads Bar. We’ll come, laugh a bit and drink to your nerves.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_15">
+        <text>You know what hunters really get paid for? Keeping quiet. And here you are chattering like a magpie. No one will pay that much for you.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_16">
+        <text>Walk into an open field and wait an hour. If no one shows up, go get treatment. If they do, at least you’ll prove you’re not a paranoiac.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_17">
+        <text>Your “pursuers” are probably tired of running in circles after you. Give them the coordinates so they can rest.</text>
+    </string>
+    <string id="st_paranoid_reply_mock_18">
+        <text>If you’re so valuable that a whole squad is chasing you, let’s meet up — I want to see a living legend.</text>
+    </string>
+
+    <!-- OPENLY HOSTILE / THREATS -->
+    <string id="st_paranoid_reply_threat_1">
+        <text>Keep whining in the public channel and hunters won’t even need to be paid – someone will shut you up for free.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_2">
+        <text>Voices that pop up too often on the radio usually don’t last long in the Zone. Keep it up.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_3">
+        <text>If no one’s put a price on you yet, this thread is a good reason for someone to fix that mistake.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_4">
+        <text>Keep screaming about how “they’re hunting you”. Eventually the ones who really know how to track will hear it.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_5">
+        <text>Hunters love targets that broadcast their routes over the radio. You’ve already given them a head start.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_6">
+        <text>So sure you’re under the gun? Take a slow walk alone. Someone will definitely want to test that theory.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_7">
+        <text>The Zone doesn’t need “wanted” posters when someone makes too much noise on the air. Those problems get solved fast.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_8">
+        <text>Speak up, stalker. When they finally come for you, everyone will want to hear how this story ends.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_9">
+        <text>If you’re scared someone’s on your trail, we can arrange that. Drop your route and we’ll test your theory.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_10">
+        <text>Keep yelling about hunters. We’ll remember your voice when we decide to check how right you were.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_11">
+        <text>You want someone really on your tail? Keep whining on the air – people will get curious if you’ve got anything worth taking.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_12">
+        <text>Drop the coordinates if you’re that scared. We’ll come and make sure those “hunters” aren’t just us.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_13">
+        <text>Loud targets like you don’t live long. Not because they’re hunted, but because they never shut up in time.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_14">
+        <text>You do realize that after talks like this someone will take an interest? Just out of curiosity — who’s that scared of dying.</text>
+    </string>
+    <string id="st_paranoid_reply_threat_15">
+        <text>Tell us where they “hunt” you and we’ll tell you where we’ll find you. Fair trade of information, isn’t it?</text>
+    </string>
+
+</string_table>

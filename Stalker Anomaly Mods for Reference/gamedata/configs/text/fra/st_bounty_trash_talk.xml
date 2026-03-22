@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="windows-1252"?>
+
+<string_table>
+
+<!--
+F.R.I.T.E.S | Thundard
+Dernière révision: 02 décembre 2025
+-->
+
+ <!-- MENACES DIRECTES (Bandits, Armée, Mercenaires) -->
+<string id="st_trash_threat_1">
+    <text>%s, la Zone est petite. Tôt ou tard, nos chemins vont se croiser. Et ce jour-là, ce sera ta fin.</text>
+</string>
+<string id="st_trash_threat_2">
+    <text>Empoche bien ton butin, %s, empoche-le. Tu n'es qu'un porteur. Bientôt, je prendrai tout.</text>
+</string>
+<string id="st_trash_threat_3">
+    <text>Hé %s ! Ton lacet est défait... ou c'est un fil-piège ? Haha, regarde où tu mets les pieds.</text>
+</string>
+<string id="st_trash_threat_4">
+    <text>J'ai le nez pour la chair fraîche. %s, je sens que tu n'es pas loin. Ne te détends pas.</text>
+</string>
+<string id="st_trash_threat_5">
+    <text>Les gars, dites à %s que sa dette augmente. Les intérêts tournent.</text>
+</string>
+<string id="st_trash_threat_6">
+    <text>Je regarde dans la lunette... On dirait un homme, mais ça sent le %s. Gâchis de balle, laissez les mutants s'en charger.</text>
+</string>
+<string id="st_trash_threat_7">
+    <text>Ecoute, %s, tu piétines trop fort. Tout le monde sait où tu es. Nous aussi.</text>
+</string>
+<string id="st_trash_threat_8">
+    <text>%s, ne va pas dans les coins sombres. L'obscurité est l'amie des jeunes, mais l'ennemie des déchets dans ton genre.</text>
+</string>
+<string id="st_trash_threat_9">
+    <text>On dit que %s est immortel ? Vérifions ça. J'ai quelques balles perforantes qui traînent.</text>
+</string>
+<string id="st_trash_threat_10">
+    <text>Oh, %s est de nouveau sur le réseau. Tu aurais dû la fermer, tu vivrais plus longtemps.</text>
+</string>
+<string id="st_trash_threat_11">
+    <text>Une cible bien grasse, ce %s. Dommage que je sois loin. Mais la Zone est ronde.</text>
+</string>
+<string id="st_trash_threat_12">
+    <text>Quiconque croise %s - faites-lui passer le bonjour avec du 5.45. Il comprendra.</text>
+</string>
+<string id="st_trash_threat_13">
+    <text>%s, tu crois que tu es le chasseur ? Non, mon gars, tu es le gibier.</text>
+</string>
+<string id="st_trash_threat_14">
+    <text>Tu es trop sûr de toi, %s. La Zone n'aime pas ça. On va arranger ça.</text>
+</string>
+<string id="st_trash_threat_15">
+    <text>J'ai vu ton profil sur le PDA, %s. Sale photo. Celle prise à l'autopsie sera meilleure.</text>
+</string>
+
+<!-- FAUSSES RUMEURS (Indépendants, Liberté, Ecologistes) -->
+<string id="st_trash_fake_1">
+    <text>Les gars, vous avez entendu la nouvelle ? Il paraît que quelqu'un a posé un énorme pari sur %s. Des gens sérieux se renseignent.</text>
+</string>
+<string id="st_trash_fake_2">
+    <text>Bizarre... J'ai vu un groupe de mercenaires poser des questions sur %s. C'est quoi le délire ?</text>
+</string>
+<string id="st_trash_fake_3">
+    <text>%s, t'es encore en vie ? Au bar ils disaient que tu avais été donné en pâture aux Snorks.</text>
+</string>
+<string id="st_trash_fake_4">
+    <text>Quelqu'un sait si %s a encore toute sa tête ? Il se balade en marmonnant, en fixant les gens. Type louche.</text>
+</string>
+<string id="st_trash_fake_5">
+    <text>Faites pas affaire avec %s. Il paraît qu'il fait fuir la chance. Ceux qui partent avec lui ne reviennent pas.</text>
+</string>
+<string id="st_trash_fake_6">
+    <text>Attention ! Un contrat bidon sur %s circule sur le réseau. Ou peut-être pas si bidon... dur à dire avec ces cryptages.</text>
+</string>
+<string id="st_trash_fake_7">
+    <text>La rumeur dit que %s a trouvé quelque chose de précieux et se cache maintenant. Il faut partager, stalker.</text>
+</string>
+<string id="st_trash_fake_8">
+    <text>Je parie une bouteille de vodka que %s ne tiendra pas jusqu'à la prochaine Emission. Il fait trop de bruit.</text>
+</string>
+<string id="st_trash_fake_9">
+    <text>Hé %s, c'est ton PDA qui bug ou tu spammes les géotags exprès ? Coupe ça, tu te grilles tout seul.</text>
+</string>
+<string id="st_trash_fake_10">
+    <text>Les gars, c'est qui ce %s au juste ? Toute la radio ne parle que de lui.</text>
+</string>
+<string id="st_trash_fake_11">
+    <text>On dit que la prime sur %s a augmenté. Je me demande pourquoi. T'as mis qui en rogne ?</text>
+</string>
+<string id="st_trash_fake_12">
+    <text>%s, tu devrais vérifier ton matos. Au cas où ça s'enraye au mauvais moment. Hé hé.</text>
+</string>
+<string id="st_trash_fake_13">
+    <text>J'ai vu un stalker qui ressemblait à %s courir devant des sangliers en hurlant comme une gamine. Ou alors je me trompais ?</text>
+</string>
+<string id="st_trash_fake_14">
+    <text>Des infos sur %s ? Un client est intéressé. Il paye en artefacts.</text>
+</string>
+<string id="st_trash_fake_15">
+    <text>%s, il paraît que tu es un "double agent". Tu bosses pour les deux camps. Fais gaffe, tu vas te brûler.</text>
+</string>
+
+</string_table>

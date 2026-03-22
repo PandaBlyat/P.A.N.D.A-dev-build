@@ -1,0 +1,30 @@
+local gc = game.translate_string
+add_lockpick_diff_reduc = 0
+
+-- ensure this fires when you actually pick open a box
+base_open_lootbox = arti_lootboxes.open_lootbox
+function arti_lootboxes.open_lootbox(box, tool)
+    if tool:section() == "lockpick" then
+    	haru_skills.increase_skill("lockpicking", 200 * math.min(SYS_GetParam(2, box:section(), "difficulty"), 40))
+	end
+    base_open_lootbox(box, tool)
+end
+
+req_picks = arti_lootboxes.get_difficulty
+function arti_lootboxes.get_difficulty(box, tool)
+    difficulty = req_picks(box, tool)
+    return math.ceil( difficulty * (1 - haru_skills.skills_stats["lockpicking"].lockpick_diff_reduc - add_lockpick_diff_reduc) )
+end
+
+base_build_diff = arti_lootboxes.build_diff
+function arti_lootboxes.build_diff(box_sec)
+    local old_diff = SYS_GetParam(2, box_sec, "difficulty") * 10
+    local difficulty = arti_lootboxes.get_difficulty(box_sec) * 10
+    if old_diff == difficulty then
+        return base_build_diff(box_sec)
+    end
+    local clr = utils_xml.get_color_con(100 - tonumber(difficulty))
+    local gray1 = utils_xml.get_color("ui_gray_1")
+    local gray2 = utils_xml.get_color("ui_gray_2")
+    return clr .. " " .. gc("st_dot").. " " .. gray1 .. gc("st_box_difficulty") .. " " .. clr .. tostring(difficulty) .. "% " .. gray1 .. "(" .. gray2 .. old_diff .. "%" .. gray1 .. ")" .. "\\n \\n" .. utils_xml.get_color("ui_gray_1")   
+end

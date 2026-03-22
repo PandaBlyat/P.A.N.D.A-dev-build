@@ -1,0 +1,259 @@
+<string_table>
+
+	<string id="st_perk_surgical_precision">
+        <text>Surgical Precision</text>
+    </string>
+	<string id="st_perk_surgical_precision_desc">
+        <text>You are a professional with a scalpel. When using any medical item, you are granted a portion of its radiation and HP healing as an additional boost over time.\n \n \nMax Perk Level: 5</text>
+    </string>
+	<string id="st_perk_surgical_precision_desc_1">
+        <text>You are a professional with a scalpel.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]6% of its total HP healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]6% of its total radiation healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]6% of its total bleed healing %c[ui_gray_2]instantly as extra healing
+		</text>
+    </string>
+	<string id="st_perk_surgical_precision_desc_2">
+        <text>You are a professional with a scalpel.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]12% of its total HP healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]12% of its total radiation healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]12% of its total bleed healing %c[ui_gray_2]instantly as extra healing
+		</text>
+    </string>
+	<string id="st_perk_surgical_precision_desc_3">
+        <text>You are a professional with a scalpel.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]18% of its total HP healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]18% of its total radiation healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]18% of its total bleed healing %c[ui_gray_2]instantly as extra healing
+		</text>
+    </string>
+	<string id="st_perk_surgical_precision_desc_4">
+        <text>You are a professional with a scalpel.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]24% of its total HP healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]24% of its total radiation healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]24% of its total bleed healing %c[ui_gray_2]instantly as extra healing
+		</text>
+    </string>
+	<string id="st_perk_surgical_precision_desc_5">
+        <text>You are a professional with a scalpel.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]30% of its total HP healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]30% of its total radiation healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]30% of its total bleed healing %c[ui_gray_2]instantly as extra healing
+		</text>
+    </string>
+	
+	
+    <string id="st_perk_calm_mind">
+        <text>Calm Mind</text>
+    </string>
+	<string id="st_perk_calm_mind_desc">
+        <text>Through meditation and continued exposure to the Zone, your mind has become stronger against its horrors. You are now more resistant to psy damage, and regenerate psy health faster. Regeneration is multiplied when near a campfire.\n \n \nMax Perk Level: 5</text>
+    </string>
+	<string id="st_perk_calm_mind_desc_1">
+        <text>Through meditation and continued exposure to the Zone, your mind has become stronger against its horrors.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Reduce psy damage by %c[d_green]5%\n
+		%c[d_blue] - %c[ui_gray_2] Regenerate psy health %c[d_green]20% faster\n
+		%c[d_blue] - %c[ui_gray_2] Regeneration is multiplied by %c[d_green]20% %c[ui_gray_2]when near a campfire
+		</text>
+    </string>
+	<string id="st_perk_calm_mind_desc_2">
+        <text>Through meditation and continued exposure to the Zone, your mind has become stronger against its horrors.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Reduce psy damage by %c[d_green]10%\n
+		%c[d_blue] - %c[ui_gray_2] Regenerate psy health %c[d_green]40% faster\n
+		%c[d_blue] - %c[ui_gray_2] Regeneration is multiplied by %c[d_green]40% %c[ui_gray_2]when near a campfire
+		</text>
+    </string>
+	<string id="st_perk_calm_mind_desc_3">
+        <text>Through meditation and continued exposure to the Zone, your mind has become stronger against its horrors.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Reduce psy damage by %c[d_green]15%\n
+		%c[d_blue] - %c[ui_gray_2] Regenerate psy health %c[d_green]60% faster\n
+		%c[d_blue] - %c[ui_gray_2] Regeneration is multiplied by %c[d_green]60% %c[ui_gray_2]when near a campfire
+		</text>
+    </string>
+	<string id="st_perk_calm_mind_desc_4">
+        <text>Through meditation and continued exposure to the Zone, your mind has become stronger against its horrors.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Reduce psy damage by %c[d_green]20%\n
+		%c[d_blue] - %c[ui_gray_2] Regenerate psy health %c[d_green]80% faster\n
+		%c[d_blue] - %c[ui_gray_2] Regeneration is multiplied by %c[d_green]80% %c[ui_gray_2]when near a campfire
+		</text>
+    </string>
+	<string id="st_perk_calm_mind_desc_5">
+        <text>Through meditation and continued exposure to the Zone, your mind has become stronger against its horrors.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Reduce psy damage by %c[d_green]25%\n
+		%c[d_blue] - %c[ui_gray_2] Regenerate psy health %c[d_green]100% faster\n
+		%c[d_blue] - %c[ui_gray_2] Regeneration is multiplied by %c[d_green]100% %c[ui_gray_2]when near a campfire
+		</text>
+    </string>
+	
+	
+    <string id="st_perk_repair_junkie">
+        <text>Repair Junkie</text>
+    </string>
+	<string id="st_perk_repair_junkie_desc">
+        <text>Keeping your gear in good condition has taught you to be more efficient with your tools. You now have a chance to not consume a repair item when repairing or cleaning any item.\n \n \nMax Perk Level: 5</text>
+    </string>
+	<string id="st_perk_repair_junkie_desc_1">
+        <text>Keeping your gear in good condition has taught you to be more efficient with your tools.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Repairing or cleaning has a %c[d_green]5% %c[ui_gray_2]chance to not consume the used repair item
+		</text>
+    </string>
+	<string id="st_perk_repair_junkie_desc_2">
+        <text>Keeping your gear in good condition has taught you to be more efficient with your tools.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Repairing or cleaning has a %c[d_green]10% %c[ui_gray_2]chance to not consume the used repair item
+		</text>
+    </string>
+	<string id="st_perk_repair_junkie_desc_3">
+        <text>Keeping your gear in good condition has taught you to be more efficient with your tools.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Repairing or cleaning has a %c[d_green]20% %c[ui_gray_2]chance to not consume the used repair item
+		</text>
+    </string>
+	<string id="st_perk_repair_junkie_desc_4">
+        <text>Keeping your gear in good condition has taught you to be more efficient with your tools.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Repairing or cleaning has a %c[d_green]40% %c[ui_gray_2]chance to not consume the used repair item
+		</text>
+    </string>
+	<string id="st_perk_repair_junkie_desc_5">
+        <text>Keeping your gear in good condition has taught you to be more efficient with your tools.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Repairing or cleaning has a %c[d_green]75% %c[ui_gray_2]chance to not consume the used repair item
+		</text>
+    </string>
+	
+	
+	<string id="st_perk_lockpick_mastery">
+        <text>Lockpick Mastery</text>
+    </string>
+	<string id="st_perk_lockpick_mastery_desc">
+        <text>After finding a locksmithing guide, you are now more careful when picking the locks of locked containers. Locked containers are now easier to open.\n \n \nMax Perk Level: 5\n \n \n%c[d_red]REQUIRES ANOMALY LOOTBOXES MOD IN ORDER TO HAVE ANY EFFECT!!!</text>
+    </string>
+	<string id="st_perk_lockpick_mastery_desc_1">
+        <text>After finding a locksmithing guide, you are now more careful when picking the locks of locked containers.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Locked containers have %c[d_green]10% %c[ui_gray_2]of their base difficulty reduced\n 
+		%c[d_red] - REQUIRES ANOMALY LOOTBOXES OR A MODIFACTION OF THE MOD IN ORDER TO HAVE ANY EFFECT
+		</text>
+    </string>
+	<string id="st_perk_lockpick_mastery_desc_2">
+        <text>After finding a locksmithing guide, you are now more careful when picking the locks of locked containers.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Locked containers have %c[d_green]20% %c[ui_gray_2]of their base difficulty reduced\n 
+		%c[d_red] - REQUIRES ANOMALY LOOTBOXES OR A MODIFACTION OF THE MOD IN ORDER TO HAVE ANY EFFECT
+		</text>
+    </string>
+	<string id="st_perk_lockpick_mastery_desc_3">
+        <text>After finding a locksmithing guide, you are now more careful when picking the locks of locked containers.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Locked containers have %c[d_green]30% %c[ui_gray_2]of their base difficulty reduced\n 
+		%c[d_red] - REQUIRES ANOMALY LOOTBOXES OR A MODIFACTION OF THE MOD IN ORDER TO HAVE ANY EFFECT
+		</text>
+    </string>
+	<string id="st_perk_lockpick_mastery_desc_4">
+        <text>After finding a locksmithing guide, you are now more careful when picking the locks of locked containers.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Locked containers have %c[d_green]50% %c[ui_gray_2]of their base difficulty reduced\n 
+		%c[d_red] - REQUIRES ANOMALY LOOTBOXES OR A MODIFACTION OF THE MOD IN ORDER TO HAVE ANY EFFECT
+		</text>
+    </string>
+	<string id="st_perk_lockpick_mastery_desc_5">
+        <text>After finding a locksmithing guide, you are now more careful when picking the locks of locked containers.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Locked containers have %c[d_green]80% %c[ui_gray_2]of their base difficulty reduced\n 
+		%c[d_red] - REQUIRES ANOMALY LOOTBOXES OR A MODIFACTION OF THE MOD IN ORDER TO HAVE ANY EFFECT
+		</text>
+    </string>
+	
+	
+	<string id="st_perk_silver_tongued">
+        <text>Silver-Tongued</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc">
+        <text>When bartering, you receive better prices when buying or selling.</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_1">
+        <text>Your charisma and charm are unmatched within the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]5% %c[ui_gray_2]better prices when buying or selling
+		</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_2">
+        <text>Your charisma and charm are unmatched within the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]10% %c[ui_gray_2]better prices when buying or selling
+		</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_3">
+        <text>Your charisma and charm are unmatched within the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]15% %c[ui_gray_2]better prices when buying or selling
+		</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_4">
+        <text>Your charisma and charm are unmatched within the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]20% %c[ui_gray_2]better prices when buying or selling
+		</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_5">
+        <text>Your charisma and charm are unmatched within the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]25% c%c[ui_gray_2]better prices when buying or selling
+		</text>
+    </string>
+	
+	<string id="st_perk_mag_loader">
+        <text>Mag Loader</text>
+    </string>
+	<string id="st_perk_mag_loader_desc">
+        <text>Loading ammo is a pain. So, you decided to just get better at it. You now load ammo into weapon magazines much faster.</text>
+    </string>
+	<string id="st_perk_mag_loader_desc_1">
+        <text>Loading ammo is a pain. So, you decided to just get better at it.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Load and unload weapon magazines %c[d_green]20% faster\n 
+		%c[d_red] - REQUIRES MAGS REDUX OR A MODIFACTION OF THE MOD IN ORDER TO HAVE ANY EFFECT
+		</text>
+    </string>
+	<string id="st_perk_mag_loader_desc_2">
+        <text>Loading ammo is a pain. So, you decided to just get better at it.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Load and unload weapon magazines %c[d_green]40% faster\n 
+		%c[d_red] - REQUIRES MAGS REDUX OR A MODIFACTION OF THE MOD IN ORDER TO HAVE ANY EFFECT
+		</text>
+     </string>
+	<string id="st_perk_mag_loader_desc_3">
+        <text>Loading ammo is a pain. So, you decided to just get better at it.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Load and unload weapon magazines %c[d_green]60% faster\n 
+		%c[d_red] - REQUIRES MAGS REDUX OR A MODIFACTION OF THE MOD IN ORDER TO HAVE ANY EFFECT
+		</text>
+     </string>
+	<string id="st_perk_mag_loader_desc_4">
+        <text>Loading ammo is a pain. So, you decided to just get better at it.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Load and unload weapon magazines %c[d_green]80% faster\n 
+		%c[d_red] - REQUIRES MAGS REDUX OR A MODIFACTION OF THE MOD IN ORDER TO HAVE ANY EFFECT
+		</text>
+     </string>
+	<string id="st_perk_mag_loader_desc_5">
+        <text>Loading ammo is a pain. So, you decided to just get better at it.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Load and unload weapon magazines %c[d_green]100% faster\n 
+		%c[d_red] - REQUIRES MAGS REDUX OR A MODIFACTION OF THE MOD IN ORDER TO HAVE ANY EFFECT
+		</text>
+     </string>
+	
+</string_table>

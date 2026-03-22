@@ -1,0 +1,450 @@
+siski = siski or {}
+
+local type = _G.type
+local pcall = _G.pcall
+local require = _G.require
+local setmetatable = _G.setmetatable
+local tonumber = _G.tonumber
+local tostring = _G.tostring
+local time_global = _G.time_global
+
+local function ensure_class()
+    local type = type
+    if type(siski.class) == "function" then
+        local ok, probe = pcall(siski.class, "_probe")
+        if ok and type(probe) == "table" then
+            return
+        end
+    end
+
+    if require then
+        pcall(require, "siski_oop")
+    end
+
+    local function define()
+        function siski.class(name)
+            local cls = {}
+            cls.__index = cls
+            cls.__name = name or "class"
+            function cls.new(...)
+                local self = setmetatable({}, cls)
+                if self.__init then
+                    self:__init(...)
+                end
+                return self
+            end
+            return cls
+        end
+    end
+
+    if type(siski.class) ~= "function" then
+        define()
+        return
+    end
+
+    local ok2, probe2 = pcall(siski.class, "_probe")
+    if not (ok2 and type(probe2) == "table") then
+        define()
+    end
+end
+
+ensure_class()
+
+local Core = siski.class("Core")
+Core.__index = Core
+
+local function can_run(name)
+    local sw = siski.switches
+    if not sw then return false end
+    if sw.core ~= true then return false end
+    if name == nil then return true end
+    return sw[name] == true
+end
+
+local function safe_call(tag, fn, ...)
+    local safe = siski.safe
+    if safe and safe.safe_call then
+        return safe.safe_call(tag, fn, ...)
+    end
+    local ok, res = pcall(fn, ...)
+    return ok, res
+end
+
+local function notify_enabled()
+    if not (siski.config and siski.config.get) then return true end
+    local ok, enabled = safe_call("siski.config.get(notify_enabled)", siski.config.get, "notify_enabled", true)
+    if ok then return enabled ~= false end
+    return true
+end
+
+local function debug_hud_enabled()
+    if not (siski.config and siski.config.get) then return false end
+    local ok, enabled = safe_call("siski.config.get(debug_hud_enabled)", siski.config.get, "debug_hud_enabled", false)
+    if ok then return enabled == true end
+    return false
+end
+
+local PRESET_KEYS = {
+    "update_interval_ms",
+    "operator_budget_per_tick",
+    "sim_scan_budget_per_tick",
+    "smarts_index_budget_per_tick",
+    "memory_sweep_budget_per_tick",
+    "debug_hud_budget_per_tick",
+    "loot_cleanup_budget_per_tick",
+}
+
+local PRESET_VALUES = {
+    [1] = {
+        update_interval_ms = 450,
+        operator_budget_per_tick = 2,
+        sim_scan_budget_per_tick = 4,
+        smarts_index_budget_per_tick = 16,
+        memory_sweep_budget_per_tick = 64,
+        debug_hud_budget_per_tick = 32,
+        loot_cleanup_budget_per_tick = 128,
+    },
+    [2] = {
+        update_interval_ms = 300,
+        operator_budget_per_tick = 4,
+        sim_scan_budget_per_tick = 6,
+        smarts_index_budget_per_tick = 30,
+        memory_sweep_budget_per_tick = 128,
+        debug_hud_budget_per_tick = 64,
+        loot_cleanup_budget_per_tick = 256,
+    },
+    [3] = {
+        update_interval_ms = 200,
+        operator_budget_per_tick = 8,
+        sim_scan_budget_per_tick = 10,
+        smarts_index_budget_per_tick = 48,
+        memory_sweep_budget_per_tick = 192,
+        debug_hud_budget_per_tick = 96,
+        loot_cleanup_budget_per_tick = 384,
+    },
+    [4] = {
+        update_interval_ms = 300,
+        operator_budget_per_tick = 4,
+        sim_scan_budget_per_tick = 6,
+        smarts_index_budget_per_tick = 30,
+        memory_sweep_budget_per_tick = 128,
+        debug_hud_budget_per_tick = 96,
+        loot_cleanup_budget_per_tick = 256,
+    },
+}
+
+local function normalize_perf_preset_mode(value)
+    local mode = tonumber(value)
+    if mode ~= nil then
+        mode = math.floor(mode + 0.5)
+        if mode < 0 then mode = 0 end
+        if mode > 4 then mode = 4 end
+        return mode
+    end
+    if type(value) == "string" then
+        local s = string.lower(value)
+        if string.find(s, "safe", 1, true) then return 1 end
+        if string.find(s, "balanced", 1, true) then return 2 end
+        if string.find(s, "aggressive", 1, true) then return 3 end
+        if string.find(s, "debug", 1, true) then return 4 end
+        if string.find(s, "custom", 1, true) then return 0 end
+    end
+    return 0
+end
+
+local function mcm_set(key, value)
+    if not key then return false end
+    if ui_mcm and ui_mcm.set then
+        local ok = pcall(function() ui_mcm.set("siski/" .. tostring(key), value) end)
+        if ok then
+            return true
+        end
+    end
+    return false
+end
+
+function Core:__init()
+    self.last_update_tg = 0
+    self.update_interval_ms = 250
+    self.last_perf_preset_mode = nil
+    self.debug_resync_latch_tg = 0
+    self.debug_resync_seen_true = false
+end
+
+function Core:_apply_perf_preset(mode)
+    mode = normalize_perf_preset_mode(mode)
+    if mode <= 0 then
+        return
+    end
+    local preset = PRESET_VALUES[mode]
+    if type(preset) ~= "table" then
+        return
+    end
+
+    local used_mcm_set = false
+    local cfg = siski.config
+    for i = 1, #PRESET_KEYS do
+        local key = PRESET_KEYS[i]
+        local value = preset[key]
+        if value ~= nil then
+            local ok_set = mcm_set(key, value)
+            if ok_set then
+                used_mcm_set = true
+                if cfg and cfg.clear_runtime_override then
+                    cfg.clear_runtime_override(key)
+                end
+            else
+                if cfg and cfg.set_runtime_override then
+                    cfg.set_runtime_override(key, value)
+                end
+            end
+            if key == "update_interval_ms" then
+                self.update_interval_ms = tonumber(value) or self.update_interval_ms
+            end
+        end
+    end
+
+    if cfg and cfg.clear_mcm_cache then
+        cfg.clear_mcm_cache()
+    end
+    if siski.log and siski.log.info then
+        siski.log.info(
+            "CORE",
+            "PERF_PRESET_APPLIED mode=%s source=%s",
+            tostring(mode),
+            used_mcm_set and "mcm_set" or "runtime_override"
+        )
+    end
+    if (not used_mcm_set) and siski.log and siski.log.warn then
+        siski.log.warn("CORE", "MCM_SET_FALLBACK preset=%s", tostring(mode))
+    end
+end
+
+function Core:_run_debug_resync(now, reason)
+    if now < (tonumber(self.debug_resync_latch_tg) or 0) then
+        return
+    end
+    self.debug_resync_latch_tg = now + 2000
+
+    if siski.tasks and siski.tasks.force_resync then
+        safe_call("siski.tasks.force_resync", siski.tasks.force_resync, reason or "debug_resync")
+    end
+    if siski.adaptive and siski.adaptive.reset_runtime then
+        safe_call("siski.adaptive.reset_runtime", siski.adaptive.reset_runtime, reason or "debug_resync")
+    end
+    if siski.memory and siski.memory.get_state and siski.memory.mark_dirty then
+        local st = siski.memory.get_state()
+        local squads = st and st.squads or {}
+        for sid in pairs(squads) do
+            siski.memory.mark_dirty(sid, "identity")
+        end
+    end
+
+    mcm_set("debug_resync_now", false)
+    if siski.config and siski.config.clear_mcm_cache then
+        siski.config.clear_mcm_cache()
+    end
+    if siski.log and siski.log.warn then
+        siski.log.warn("CORE", "DEBUG_RESYNC_APPLIED reason=%s", tostring(reason or "manual"))
+    end
+end
+
+local function apply_runtime_fixes()
+    if smart_terrain and smart_terrain.smart_terrain and smart_terrain.smart_terrain.smart_terrain_squad_count then
+        local original_count_func = smart_terrain.smart_terrain.smart_terrain_squad_count
+
+        smart_terrain.smart_terrain.smart_terrain_squad_count = function(self, squad)
+            if not squad then return 0 end
+            if not squad.get_script_target then
+                return 0
+            end
+            return original_count_func(self, squad)
+        end
+        if siski.log and siski.log.info then
+            siski.log.info("CORE", "Applied runtime patch: smart_terrain_squad_count (Safety Wrapper)")
+        end
+    end
+end
+
+function Core:_on_game_start()
+    if not can_run("core") then return end
+
+    if RegisterScriptCallback then
+        RegisterScriptCallback("actor_on_first_update", siski.core.on_first_update)
+        RegisterScriptCallback("actor_on_update", siski.core.on_update)
+        RegisterScriptCallback("save_state", siski.core.save_state)
+        RegisterScriptCallback("load_state", siski.core.load_state)
+        RegisterScriptCallback("squad_on_npc_death", siski.core.on_squad_npc_death)
+    end
+end
+
+function Core:_on_first_update()
+    local tonumber = tonumber
+    if not can_run("core") then return end
+
+    if can_run("config") and siski.config and siski.config.get then
+        local ok, interval = safe_call("siski.config.get(update_interval_ms)", siski.config.get, "update_interval_ms", self.update_interval_ms)
+        if ok and tonumber(interval) then
+            self.update_interval_ms = tonumber(interval)
+        end
+        if siski.log and siski.log.set_level then
+            local ok_lvl, lvl = safe_call("siski.config.get(log_level)", siski.config.get, "log_level", siski.log.LEVEL_OFF)
+            if ok_lvl and tonumber(lvl) then
+                siski.log.set_level(tonumber(lvl))
+            end
+        end
+    end
+
+    if siski.log and siski.log.info then
+        siski.log.info("CORE", "SISKI %s started", tostring(siski.version))
+    end
+
+    apply_runtime_fixes()
+
+    if siski.sim and siski.sim.on_first_update then
+        safe_call("siski.sim.on_first_update", siski.sim.on_first_update)
+    end
+    if siski.operator and siski.operator.on_first_update then
+        safe_call("siski.operator.on_first_update", siski.operator.on_first_update)
+    end
+    if siski.loot_patch and siski.loot_patch.apply then
+        safe_call("siski.loot_patch.apply", siski.loot_patch.apply)
+    end
+end
+
+function Core:_on_update()
+    if not can_run("core") then return end
+
+    local now = time_global and time_global() or 0
+    if now < (self.last_update_tg + self.update_interval_ms) then
+        if can_run("notify") and notify_enabled() and siski.notify and siski.notify.on_update_light then
+            safe_call("siski.notify.on_update_light", siski.notify.on_update_light)
+        end
+        return
+    end
+    self.last_update_tg = now
+
+    local adaptive = siski.adaptive
+    local adaptive_started = false
+    if adaptive and adaptive.tick_begin then
+        adaptive.tick_begin("core", now)
+        adaptive_started = true
+    end
+    local function adaptive_end()
+        if adaptive_started and adaptive and adaptive.tick_end then
+            adaptive.tick_end("core", (time_global and time_global()) or now)
+        end
+    end
+
+    if can_run("config") and siski.config and siski.config.get then
+        local ok_en, enabled = safe_call("siski.config.get(enabled)", siski.config.get, "enabled", true)
+        if ok_en and enabled == false then
+            if can_run("config") and siski.config and siski.config.on_update then
+                safe_call("siski.config.on_update", siski.config.on_update)
+            end
+            adaptive_end()
+            return
+        end
+    end
+
+    if can_run("config") and siski.config and siski.config.on_update then
+        safe_call("siski.config.on_update", siski.config.on_update)
+    end
+    if can_run("config") and siski.config and siski.config.get and siski.log and siski.log.set_level then
+        local ok_lvl, lvl = safe_call("siski.config.get(log_level)", siski.config.get, "log_level", siski.log.LEVEL_OFF)
+        if ok_lvl and tonumber(lvl) then
+            siski.log.set_level(tonumber(lvl))
+        end
+    end
+    if can_run("config") and siski.config and siski.config.get then
+        local mode = normalize_perf_preset_mode(siski.config.get("perf_preset_mode", 0))
+        if mode ~= self.last_perf_preset_mode then
+            if mode == 0 and siski.config and siski.config.clear_runtime_override then
+                for i = 1, #PRESET_KEYS do
+                    siski.config.clear_runtime_override(PRESET_KEYS[i])
+                end
+            else
+                self:_apply_perf_preset(mode)
+            end
+            self.last_perf_preset_mode = mode
+        end
+
+        local resync_now = siski.config.get("debug_resync_now", false) == true
+        if resync_now and (not self.debug_resync_seen_true) then
+            self:_run_debug_resync(now, "mcm")
+            self.debug_resync_seen_true = true
+        elseif not resync_now then
+            self.debug_resync_seen_true = false
+        end
+    end
+    if can_run("memory") and siski.memory and siski.memory.on_update then
+        safe_call("siski.memory.on_update", siski.memory.on_update)
+    end
+    if can_run("sim") and siski.sim and siski.sim.on_update then
+        safe_call("siski.sim.on_update", siski.sim.on_update)
+    end
+    if can_run("operator") and siski.operator and siski.operator.on_update then
+        safe_call("siski.operator.on_update", siski.operator.on_update)
+    end
+    if can_run("tasks") and siski.tasks and siski.tasks.on_update then
+        safe_call("siski.tasks.on_update", siski.tasks.on_update)
+    end
+    if can_run("mutants") and siski.mutants and siski.mutants.on_update then
+        safe_call("siski.mutants.on_update", siski.mutants.on_update)
+    end
+    if can_run("notify") and notify_enabled() and siski.notify and siski.notify.on_update then
+        safe_call("siski.notify.on_update", siski.notify.on_update)
+    end
+    if can_run("debug_hud") and siski.debug_hud and siski.debug_hud.on_update then
+        safe_call("siski.debug_hud.on_update", siski.debug_hud.on_update)
+    end
+    if siski.fast_trading and siski.fast_trading.on_update then
+        safe_call("siski.fast_trading.on_update", siski.fast_trading.on_update)
+    end
+    adaptive_end()
+end
+
+function Core:_save_state(m_data)
+    if can_run("debug_hud") and debug_hud_enabled() and siski.debug_hud and siski.debug_hud.on_save_state then
+        safe_call("siski.debug_hud.on_save_state", siski.debug_hud.on_save_state)
+    end
+    if can_run("memory") and siski.memory and siski.memory.save_state then
+        safe_call("siski.memory.save_state", siski.memory.save_state, m_data)
+    end
+end
+
+function Core:_load_state(m_data)
+    if can_run("config") and siski.config and siski.config.get and siski.log and siski.log.set_level then
+        local ok_lvl, lvl = safe_call("siski.config.get(log_level)", siski.config.get, "log_level", siski.log.LEVEL_OFF)
+        if ok_lvl and tonumber(lvl) then
+            siski.log.set_level(tonumber(lvl))
+        end
+    end
+    if can_run("memory") and siski.memory and siski.memory.load_state then
+        safe_call("siski.memory.load_state", siski.memory.load_state, m_data)
+    end
+    if can_run("debug_hud") and debug_hud_enabled() and siski.debug_hud and siski.debug_hud.on_load_state then
+        safe_call("siski.debug_hud.on_load_state", siski.debug_hud.on_load_state)
+    end
+end
+
+function Core:_on_squad_npc_death(squad, npc, killer_npc, killer_squad)
+    if can_run("operator") and siski.operator and siski.operator.on_squad_npc_death then
+        safe_call("siski.operator.on_squad_npc_death", siski.operator.on_squad_npc_death, squad, npc, killer_npc, killer_squad)
+    end
+end
+
+local inst = Core.new and Core.new() or setmetatable({}, Core)
+if not inst.update_interval_ms then
+    Core.__init(inst)
+end
+
+inst.can_run = can_run
+inst.on_game_start = function() return inst:_on_game_start() end
+inst.on_first_update = function() return inst:_on_first_update() end
+inst.on_update = function() return inst:_on_update() end
+inst.save_state = function(m_data) return inst:_save_state(m_data) end
+inst.load_state = function(m_data) return inst:_load_state(m_data) end
+inst.on_squad_npc_death = function(squad, npc, killer_npc, killer_squad) return inst:_on_squad_npc_death(squad, npc, killer_npc, killer_squad) end
+
+siski.core = inst

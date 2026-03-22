@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="windows-1251"?>
+
+<string_table>
+	<string id="st_traits_use_respec">
+		<text>drink</text>
+	</string>
+	<string id="st_itm_desc_trait_respec">
+		<text>"Sunset Sarsaparilla is a root-beer-type carbonated beverage.\n
+		The Sunset Sarsaparilla Company was founded in 1918, since becoming known across the former United States for its sarsaparilla flavored soft drink."
+		\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] � %c[ui_gray_2] drink\n
+		%c[d_blue] � %c[ui_gray_2] imported\n
+		%c[d_blue] � %c[ui_gray_2] high quality\n
+		%c[d_red] � %c[ui_gray_2] may cause kidney failure\n
+		\n \n
+		%c[ui_gray_3]Drink this to reset your traits</text>
+	</string>
+	<string id="st_itm_name_trait_respec">
+		<text>Sunset Sarsaparilla</text>
+	</string>
+
+	<string id="st_btn_enable">
+		<text>Enable</text>
+	</string>
+	<string id="st_btn_disable">
+		<text>Disable</text>
+	</string>
+	
+	<string id="st_btn_learn">
+		<text>Learn Trait</text>
+	</string>
+	<string id="st_btn_learn_learned">
+		<text>Learned</text>
+	</string>
+	<string id="st_btn_learn_locked">
+		<text>Locked</text>
+	</string>
+	
+	<string id="st_requires_trait">
+		<text>Requires Trait</text>
+	</string>
+	
+	<string id="st_traits_reminder">
+		<text>You have unspent trait points!</text>
+	</string>
+	
+	<string id="st_traits_title">
+		<text>Character Traits</text>
+	</string>
+	
+	<string id="st_traits_total_level">
+		<text>Total Traits Level</text>
+	</string>
+	
+	<string id="st_traits_avail_txt">
+		<text>Trait Points: </text>
+	</string>
+	
+	<string id="st_trait_name_strong_back">
+		<text>Strong Back</text>
+	</string>
+	<string id="st_trait_desc_strong_back">
+		<text>"Your back is extra strong from carrying rookies"\n \nIncreases your carry weight by +4kg</text>
+	</string>
+	
+	<string id="st_trait_name_pack_mule">
+		<text>Pack Mule</text>
+	</string>
+	<string id="st_trait_desc_pack_mule">
+		<text>"You really don't have to pick up every single piece of loot.."\n \nIncreases your carry weight by +8kg\nReduces your sprint speed by 4%</text>
+	</string>
+
+	<string id="st_trait_name_strider">
+		<text>Strider</text>
+	</string>
+	<string id="st_trait_desc_strider">
+		<text>"Gotta walk fast..\nDon't want to be late for that meeting"\n \nIncreases your movement speed by 6%\nReduces carry weight by 1kg</text>
+	</string>
+	
+	<string id="st_trait_name_sprinter">
+		<text>Sprinter</text>
+	</string>
+	<string id="st_trait_desc_sprinter">
+		<text>"Gotta run fast..\nDon't want to get caught out in an emission"\n \nIncreases your sprint speed by 8%\nReduces carry weight by 2kg</text>
+	</string>
+	
+	<string id="st_trait_name_mutant_resist">
+		<text>Tough Skin</text>
+	</string>
+	<string id="st_trait_desc_mutant_resist">
+		<text>"Your skin has hardened from wrestling mutants"\n \nYou take 10% less damage from mutant hits</text>
+	</string>
+	
+	<string id="st_trait_name_melee_mutant">
+		<text>Mutant Hunter</text>
+	</string>
+	<string id="st_trait_desc_melee_mutant">
+		<text>"Why waste bullets when you can just stab?"\n \nYou deal 15% more melee damage to mutants</text>
+	</string>
+	
+	<string id="st_trait_name_faction_cashback_self">
+		<text>Friendly Face</text>
+	</string>
+	<string id="st_trait_desc_faction_cashback_self">
+		<text>"The traders of your faction are always happy to see you"\n \nYou get +5% better prices at traders of your own faction</text>
+	</string>
+	
+	<string id="st_trait_name_faction_cashback_other">
+		<text>Wandering Merchant</text>
+	</string>
+	<string id="st_trait_desc_faction_cashback_other">
+		<text>"You know how to haggle with strangers"\n \nYou get +5% better prices at traders that are not your of your faction</text>
+	</string>
+	
+	<string id="st_trait_name_psy_resist_controller">
+		<text>Jaded Mind</text>
+	</string>
+	<string id="st_trait_desc_psy_resist_controller">
+		<text>"Your mind isn't quite the same as when you first entered the zone.."\n \nYou take 25% less damage from controllers' psy attacks</text>
+	</string>
+	
+	<string id="st_trait_name_tinkering_armor">
+		<text>Armourer</text>
+	</string>
+	<string id="st_trait_desc_tinkering_armor">
+		<text>"You wouldn't have to fix your armour so often if you just don't get hit"\n \nYou have +15% higher chance to not spend a use of your repair kit when repairing body armour and helmets</text>
+	</string>
+	
+	<string id="st_trait_name_tinkering_weapon">
+		<text>Gunsmith</text>
+	</string>
+	<string id="st_trait_desc_tinkering_weapon">
+		<text>"Killing tushkanos on full auto takes it's toll on a weapon"\n \nYou have +15% higher chance to not spend a use of your repair kit when repairing weapons</text>
+	</string>
+	
+	<string id="st_trait_name_medicine_boost">
+		<text>Medic</text>
+	</string>
+	<string id="st_trait_desc_medicine_boost">
+		<text>"Congratulations, you found the cure for bullet holes"\n \nWhen using a medical item you gain +10% of the total health and radiation restored as a quick boost</text>
+	</string>
+	
+	<string id="st_trait_name_mag_loading_bonus">
+		<text>Fast Loader</text>
+	</string>
+	<string id="st_trait_desc_mag_loading_bonus">
+		<text>"Grab a handful of bullets and just shove them in there"\n \nLoading bullets into a magazine goes +25% faster</text>
+	</string>
+	
+	<string id="st_trait_name_mag_unloading_bonus">
+		<text>Bullet Hoarder</text>
+	</string>
+	<string id="st_trait_desc_mag_unloading_bonus">
+		<text>"Compulsively unloading every magazine you find seems like a good idea to you"\n \nUnloading bullets from magazines goes +30% faster</text>
+	</string>
+
+	<string id="st_trait_name_lockpicking_bonus">
+		<text>Locksmith</text>
+	</string>
+	<string id="st_trait_desc_lockpicking_bonus">
+		<text>"What's in the box?"\n \nLock difficulty on lootboxes is reduced by 10%</text>
+	</string>
+	
+	<string id="st_trait_name_melee_defense">
+		<text>Defensive Melee</text>
+	</string>
+	<string id="st_trait_desc_melee_defense">
+		<text>"Pulling out your knife somehow makes even explosions hurt less"\n \nYou take 20% less damage from physical hits while you are holding a melee weapon</text>
+	</string>
+	
+	<string id="st_trait_name_lone_stalker">
+		<text>Lone Stalker</text>
+	</string>
+	<string id="st_trait_desc_lone_stalker">
+		<text>"Who needs friends anyway?"\n \nWhen you don't have any companions, your carry weight is increased by 5kg and you take 10% less damage</text>
+	</string>
+	
+	<string id="st_trait_name_squad_leader">
+		<text>Squad Leader</text>
+	</string>
+	<string id="st_trait_desc_squad_leader">
+		<text>"Exploring the zone is safer when you have cannon fod-.. squad members!"\n \nYour companions deal 15% more damage and take 25% less damage</text>
+	</string>
+	
+	<string id="st_trait_name_small_guns_reload">
+		<text>Gunslinger</text>
+	</string>
+	<string id="st_trait_desc_small_guns_reload">
+		<text>"You sling guns.. and magazines"\n \nYou reload pistols and sub-machine guns +25% faster</text>
+	</string>
+	
+	<string id="st_trait_name_big_guns_reload">
+		<text>Long Gun Adept</text>
+	</string>
+	<string id="st_trait_desc_big_guns_reload">
+		<text>"You really don't have to reload mid combat after firing only 2 bullets from a 30 round magazine.."\n \nYou reload rifles, snipers and shotguns +15% faster</text>
+	</string>
+	
+	<string id="st_trait_name_sidearm_quickdraw">
+		<text>Sidearm Quickdraw</text>
+	</string>
+	<string id="st_trait_desc_sidearm_quickdraw">
+		<text>"Remember, switching to your pistol is always faster than reloading"\n \nYou holster non-pistols +25% faster and equip pistols +50% faster</text>
+	</string>
+	
+	<string id="st_trait_name_butcher">
+		<text>Butcher</text>
+	</string>
+	<string id="st_trait_desc_butcher">
+		<text>"Carefully cutting the mutant corpse to get the most use of it"\n \nYou have 50% chance to get an additional mutant part when skinning</text>
+	</string>
+	
+	<string id="st_trait_name_tinkering_parts">
+		<text>Part Restorer</text>
+	</string>
+	<string id="st_trait_desc_tinkering_parts">
+		<text>"Stalkers envy your pristinely kept equipment"\n \nYou have +25% higher chance to not spend a use of your repair kit when repairing parts and tools</text>
+	</string>
+	
+	<string id="st_trait_name_pain_rush">
+		<text>Pain Rush</text>
+	</string>
+	<string id="st_trait_desc_pain_rush">
+		<text>"AAAAAAAHHH!"\n \nYou gain faster movement for 10 seconds when taking damage\nUp to +25% faster</text>
+	</string>
+	
+	<string id="st_trait_name_pain_train">
+		<text>Pain Train</text>
+	</string>
+	<string id="st_trait_desc_pain_train">
+		<text>"AAAAAAAAAAAHHHHHHHHHH!!!"\n \nThe Pain Rush buff also grants up to 5% stamina regen per second\nPain Rush lasts 5 seconds longer</text>
+	</string>
+	
+	<string id="st_trait_name_predator">
+		<text>Predator</text>
+	</string>
+	<string id="st_trait_desc_predator">
+		<text>"I ain't got time to bleed"\n \nKilling stalkers and mutants reduces bleeding by up to 5% over 10 seconds</text>
+	</string>
+	
+	<string id="st_trait_name_bloodlust">
+		<text>Bloodlust</text>
+	</string>
+	<string id="st_trait_desc_bloodlust">
+		<text>"If it bleeds, we can kill it"\n \nThe Predator buff also grants improved Weapon Handling\nUp to +25% faster reload and raise/holster</text>
+	</string>
+	
+	<string id="st_trait_name_thick_skull">
+		<text>Thick Skull</text>
+	</string>
+	<string id="st_trait_desc_thick_skull">
+		<text>"Maybe it's the radiation or just the zone, but your skull has grown thicker..."\n \nYou take 10% less damage from hits to your head\nTrading prices are 3% worse</text>
+	</string>
+</string_table>

@@ -1,0 +1,652 @@
+siski = siski or {}
+
+local LootPatch = {
+    RUNTIME = {
+        patched = false,
+        corpse_detection_patched = false,
+        gather_items_patched = false,
+        corpse_cursor = 1,
+        near_corpse_cursor = 1,
+        item_cursor = 1,
+        perf_warn_next_tg = {},
+    }
+}
+
+local function cfg(key, def)
+    if not (siski.config and siski.config.get) then return def end
+    local ok, v = pcall(siski.config.get, key, def)
+    if ok then return v end
+    return def
+end
+
+local function cfg_num(key, def, min_v)
+    local v = tonumber(cfg(key, def)) or tonumber(def) or 0
+    if min_v ~= nil and v < min_v then
+        v = min_v
+    end
+    return v
+end
+
+local function tg()
+    return (time_global and time_global()) or 0
+end
+
+local function perf_warn_once(key, fmt, ...)
+    if not (siski.log and siski.log.warn) then return end
+    local now = tg()
+    local interval = cfg_num("perf_warn_interval_ms", 10000, 1000)
+    local next_tg = tonumber(LootPatch.RUNTIME.perf_warn_next_tg[key]) or 0
+    if now < next_tg then return end
+    LootPatch.RUNTIME.perf_warn_next_tg[key] = now + interval
+    siski.log.warn("PERF", fmt, ...)
+end
+
+local function should_skip_event_scan(loot)
+    if not loot then return true end
+    if type(loot.should_skip_event_scan) == "function" then
+        local ok, res = pcall(loot.should_skip_event_scan)
+        if ok and res == true then
+            return true
+        end
+    end
+    return false
+end
+
+local function patch_xr_corpse_detection()
+    if LootPatch.RUNTIME.corpse_detection_patched == true then return true end
+
+    local tonumber = tonumber
+
+    local xr = rawget(_G, "xr_corpse_detection")
+    local cls = rawget(_G, "evaluator_corpse")
+    if not (xr and cls and cls.find_valid_target) then return false end
+    if cls.__siski_loot_patched == true then
+        LootPatch.RUNTIME.corpse_detection_patched = true
+        return true
+    end
+
+    local orig_find = cls.find_valid_target
+    local ini = ini_file and ini_file("ai_tweaks\\xr_corpse_detection.ltx") or nil
+    local state_walk = ini and ini:r_string_ex("settings", "state_walk") or "patrol"
+    local state_run = ini and ini:r_string_ex("settings", "state_run") or "rush"
+    local mutant_comms = (ini and utils_data and utils_data.collect_section and utils_data.collect_section(ini, "loot_mutant_communities", true)) or {}
+
+    local function near_actor(obj)
+        if not (ui_options and ui_options.get and db and db.actor and db.actor.position and obj and obj.position) then
+            return false
+        end
+        local dist = tonumber(ui_options.get("gameplay/general/npc_loot_distance"))
+        if dist and dist > 0 then
+            return db.actor:position():distance_to(obj:position()) < dist
+        end
+        return false
+    end
+
+    local function has_valuable(obj)
+        if xr and xr.has_valuable_loot then
+            local ok, res = pcall(xr.has_valuable_loot, obj)
+            if ok then return res == true end
+        end
+        return true
+    end
+
+    cls.find_valid_target = function(self)
+        local use_patch = cfg("loot_enabled", true) ~= false
+        if not use_patch then
+            return orig_find(self)
+        end
+
+        local loot = siski.loot
+        if not (loot and loot.get_corpse_event_ids) then
+            return orig_find(self)
+        end
+        if should_skip_event_scan(loot) then
+            return orig_find(self)
+        end
+
+        if (self.a.cstackprevent) then
+            return false
+        end
+
+        if (self.a.selected_corpse_id) then
+            local corpse = db and db.storage and db.storage[self.a.selected_corpse_id] and db.storage[self.a.selected_corpse_id].object
+                or level and level.object_by_id and level.object_by_id(self.a.selected_corpse_id)
+            if (corpse and has_valuable(corpse)) and not near_actor(corpse) then
+                return true
+            end
+            if (db and db.storage and db.storage[self.a.selected_corpse_id]) then
+                db.storage[self.a.selected_corpse_id].corpse_already_selected = nil
+            end
+        end
+
+        local now = tg()
+        local scan_cd = tonumber(cfg("loot_scan_cd_ms", 250)) or 250
+        if scan_cd < 50 then scan_cd = 50 end
+        self.a.__dtimer = not self.a.__dtimer and now + scan_cd or self.a.__dtimer
+        if (now < self.a.__dtimer) then
+            return false
+        end
+        self.a.__dtimer = nil
+
+        if not (self.a.index) then
+            self.a.index = 1
+        end
+
+        if not (self.a.memory) then
+            self.a.memory = {}
+        end
+
+        local npc = self.object
+        local max_memory = cfg_num("loot_patch_max_memory_size", 48, 8)
+        local size = #self.a.memory
+        if size > max_memory then
+            for i = size, max_memory + 1, -1 do
+                self.a.memory[i] = nil
+            end
+            size = max_memory
+        end
+
+        if (size == 0) then
+            self.a.cstackprevent = true
+
+            for o in npc:memory_visible_objects() do
+                local obj = o and o:object()
+                if (obj and (IsStalker(obj) or IsMonster(obj)) and obj:alive() ~= true and not near_actor(obj)) then
+                    size = size + 1
+                    self.a.memory[size] = obj:id()
+                    if size >= max_memory then
+                        break
+                    end
+                end
+            end
+
+            local seen = {}
+            for i = 1, #self.a.memory do
+                seen[self.a.memory[i]] = true
+            end
+
+            local scan_md = tonumber(cfg("loot_scan_radius_m", 35)) or 35
+            if scan_md < 0 then scan_md = 0 end
+            local scan_sqr = scan_md * scan_md
+
+            local corpse_ids = loot.get_corpse_event_ids and loot.get_corpse_event_ids() or nil
+            local pool_n = corpse_ids and #corpse_ids or 0
+            local scan_budget = cfg_num("loot_patch_corpse_scan_budget", 16, 1)
+            if pool_n > 0 and size < max_memory then
+                local cursor = tonumber(self.a.__siski_rr_cursor) or tonumber(LootPatch.RUNTIME.corpse_cursor) or 1
+                if cursor < 1 or cursor > pool_n then cursor = 1 end
+                local scanned = 0
+                while scanned < scan_budget and scanned < pool_n and size < max_memory do
+                    local id = corpse_ids[cursor]
+                    cursor = cursor + 1
+                    if cursor > pool_n then cursor = 1 end
+                    scanned = scanned + 1
+                    if id and not seen[id] then
+                        local corpse = db and db.storage and db.storage[id] and db.storage[id].object
+                        if corpse and corpse:alive() ~= true and not near_actor(corpse) then
+                            local add = true
+                            if scan_sqr > 0 and npc and npc.position and corpse.position then
+                                local okd, d2 = pcall(function() return npc:position():distance_to_sqr(corpse:position()) end)
+                                d2 = okd and tonumber(d2) or nil
+                                if d2 and d2 > scan_sqr then
+                                    add = false
+                                end
+                            end
+                            if add then
+                                size = size + 1
+                                self.a.memory[size] = id
+                                seen[id] = true
+                            end
+                        end
+                    end
+                end
+                self.a.__siski_rr_cursor = cursor
+                LootPatch.RUNTIME.corpse_cursor = cursor
+                if pool_n > scan_budget and scanned >= scan_budget then
+                    perf_warn_once(
+                        "PERF_LOOT_SCAN_BUDGET_HIT_CORPSE",
+                        "PERF_LOOT_SCAN_BUDGET_HIT kind=corpse scanned=%s budget=%s pool=%s",
+                        tostring(scanned),
+                        tostring(scan_budget),
+                        tostring(pool_n)
+                    )
+                end
+            end
+
+            self.a.cstackprevent = nil
+        end
+
+        local md = tonumber(cfg("loot_corpse_detect_dist_m", 35)) or 35
+        if md < 0 then md = 0 end
+        local max_dist_sqr = md * md
+
+        if (size == 0 or self.a.index > size) then
+            if (self.a.nearest_id and db and db.storage and db.storage[self.a.nearest_id] and db.storage[self.a.nearest_id].corpse_already_selected == nil) then
+                local corpse = db.storage[self.a.nearest_id] and db.storage[self.a.nearest_id].object
+                if corpse and has_valuable(corpse) then
+                    if (self.a.selected_corpse_id and db.storage[self.a.selected_corpse_id]) then
+                        db.storage[self.a.selected_corpse_id].corpse_already_selected = nil
+                    end
+                    self.a.vertex_id = self.a.nearest_corpse_vertex
+                    self.a.vertex_position = self.a.nearest_corpse_position
+                    self.a.selected_corpse_id = self.a.nearest_id
+                    self.a.state = self.a.nearest_state
+                    db.storage[self.a.selected_corpse_id].corpse_already_selected = npc:id()
+
+                    self.a.index = 1
+                    self.a.nearest_corpse_dist = nil
+                    self.a.nearest_corpse_vertex = nil
+                    self.a.nearest_corpse_position = nil
+                    self.a.nearest_id = nil
+                    return true
+                end
+            end
+
+            self.a.index = 1
+            self.a.nearest_corpse_dist = nil
+            self.a.nearest_corpse_vertex = nil
+            self.a.nearest_corpse_position = nil
+            self.a.nearest_id = nil
+            if empty_table then
+                empty_table(self.a.memory)
+            else
+                self.a.memory = {}
+            end
+            return false
+        end
+
+        local id = self.a.memory[self.a.index]
+        local corpse_npc = id and db and db.storage and db.storage[id] and db.storage[id].object
+
+        if (corpse_npc and corpse_npc:alive() ~= true and has_valuable(corpse_npc) and db.storage[id] and db.storage[id].corpse_already_selected == nil) then
+            local is_stalker = IsStalker(corpse_npc)
+            local can_loot_mutants = not is_stalker and (self.a.analse_mode == "true" or (self.a.enabled == "true" and mutant_comms[character_community(npc)]))
+
+            if (self.a.enabled == "true" and is_stalker or can_loot_mutants) then
+                local corpse_pos = utils_obj and utils_obj.safe_bone_pos and utils_obj.safe_bone_pos(corpse_npc, "bip01_spine") or corpse_npc:position()
+                local dist = npc:position():distance_to_sqr(corpse_pos)
+
+                if (dist < max_dist_sqr) and (self.a.nearest_corpse_dist == nil or dist <= self.a.nearest_corpse_dist) then
+                    local corpse_vertex = level.vertex_id(corpse_pos)
+                    if level.vertex_position(corpse_vertex):distance_to_sqr(corpse_pos) > 16 then
+                        corpse_vertex = corpse_npc:level_vertex_id()
+                    end
+                    if (npc:accessible(corpse_vertex) and level.vertex_position(corpse_vertex):distance_to_sqr(corpse_pos) <= 15) then
+                        self.a.nearest_corpse_dist = dist
+                        self.a.nearest_corpse_vertex = corpse_vertex
+                        self.a.nearest_corpse_position = corpse_pos
+                        self.a.nearest_id = id
+                        self.a.nearest_state = dist < math.random(5, 30) and state_walk or state_run
+                    end
+                end
+            end
+        end
+
+        self.a.index = self.a.index + 1
+        return false
+    end
+
+    cls.__siski_loot_patched = true
+    LootPatch.RUNTIME.corpse_detection_patched = true
+    return true
+end
+
+local function patch_xr_gather_items()
+    if LootPatch.RUNTIME.gather_items_patched == true then return true end
+
+    local tonumber = tonumber
+
+    local cls = rawget(_G, "eva_gather_itm")
+    if not (cls and cls.find_valid_item) then return false end
+    if cls.__siski_loot_patched == true then
+        LootPatch.RUNTIME.gather_items_patched = true
+        return true
+    end
+
+    local orig_find = cls.find_valid_item
+
+    cls.find_valid_item = function(self)
+        if cfg("loot_items_enabled", false) ~= true then
+            return orig_find(self)
+        end
+        return orig_find(self)
+    end
+
+    if debug and debug.getupvalue then
+        local uv = {}
+        for i = 1, 80 do
+            local name, val = debug.getupvalue(orig_find, i)
+            if not name then break end
+            uv[name] = val
+        end
+
+        local function near_actor(obj)
+            if not (ui_options and ui_options.get and db and db.actor and db.actor.position and obj and obj.position) then
+                return false
+            end
+            local dist = tonumber(ui_options.get("gameplay/general/npc_loot_distance"))
+            if dist and dist > 0 then
+                return db.actor:position():distance_to(obj:position()) < dist
+            end
+            return false
+        end
+
+        cls.find_valid_item = function(self)
+            if cfg("loot_items_enabled", false) ~= true then
+                return orig_find(self)
+            end
+            local loot = siski.loot
+            if not (loot and loot.get_item_event_ids and loot.get_corpse_event_ids and loot.is_recent_item_id) then
+                return orig_find(self)
+            end
+            if should_skip_event_scan(loot) then
+                return orig_find(self)
+            end
+
+            if (self.st.cstackprevent) then
+                return false
+            end
+
+            if (self.st.selected_id) then
+                local se_itm = self.st.selected_id ~= 0 and self.st.selected_id ~= 65535 and alife_object(self.st.selected_id)
+                if (se_itm and se_itm.parent_id == 65535) then
+                    local itm = level.object_by_id(se_itm.id)
+                    if (itm and not near_actor(itm)) then
+                        return true
+                    end
+                end
+                if uv.Items then
+                    uv.Items[self.st.selected_id] = nil
+                end
+                self.st.selected_id = nil
+            end
+
+            local now = tg()
+            local scan_cd = tonumber(cfg("loot_scan_cd_ms", 250)) or 250
+            if scan_cd < 50 then scan_cd = 50 end
+            self.st.__dtimer = not self.st.__dtimer and now + scan_cd or self.st.__dtimer
+            if (now < self.st.__dtimer) then
+                return false
+            end
+            self.st.__dtimer = nil
+
+            local loot_table = uv.UseCorpseLootTable ~= true and uv.LootTable or (rawget(_G, "xr_corpse_detection") and _G.xr_corpse_detection.lootable_table)
+            if not (loot_table) then
+                return false
+            end
+
+            if not (self.st.index) then
+                self.st.index = 1
+            end
+
+            if not (self.st.memory) then
+                self.st.memory = {}
+            end
+
+            local npc = self.object
+            local max_memory = cfg_num("loot_patch_max_memory_size", 48, 8)
+            local size = #self.st.memory
+            if size > max_memory then
+                for i = size, max_memory + 1, -1 do
+                    self.st.memory[i] = nil
+                end
+                size = max_memory
+            end
+
+            if (size == 0) then
+                local obj_id
+                self.st.cstackprevent = true
+
+                for o in npc:memory_visible_objects() do
+                    local obj = o and o:object()
+                    if (obj) then
+                        obj_id = obj:id()
+                        if (loot_table[obj:section()] ~= nil and not near_actor(obj)) then
+                            size = size + 1
+                            self.st.memory[#self.st.memory + 1] = obj_id
+                            if size >= max_memory then
+                                break
+                            end
+                        end
+                    end
+                end
+
+                local md = tonumber(cfg("loot_items_detect_dist_m", 35)) or 35
+                if md < 0 then md = 0 end
+                local max_item_dist_sqr = md * md
+
+                local max_items = max_memory - #self.st.memory
+                if max_items < 0 then max_items = 0 end
+                local added = 0
+                local seen = {}
+                for i = 1, #self.st.memory do
+                    seen[self.st.memory[i]] = true
+                end
+
+                local corpse_md = tonumber(cfg("loot_corpse_detect_dist_m", 35)) or 35
+                if corpse_md < 0 then corpse_md = 0 end
+                local max_corpse_sqr = corpse_md * corpse_md
+                local has_near_corpse = false
+                local corpse_ids = loot.get_corpse_event_ids and loot.get_corpse_event_ids() or nil
+                local corpse_pool_n = corpse_ids and #corpse_ids or 0
+                local near_corpse_budget = cfg_num("loot_patch_near_corpse_scan_budget", 12, 1)
+                if corpse_pool_n > 0 then
+                    local cursor = tonumber(self.st.__siski_near_corpse_rr_cursor) or tonumber(LootPatch.RUNTIME.near_corpse_cursor) or 1
+                    if cursor < 1 or cursor > corpse_pool_n then cursor = 1 end
+                    local scanned = 0
+                    while scanned < near_corpse_budget and scanned < corpse_pool_n do
+                        local corpse_id = corpse_ids[cursor]
+                        cursor = cursor + 1
+                        if cursor > corpse_pool_n then cursor = 1 end
+                        scanned = scanned + 1
+                        local corpse = corpse_id and db and db.storage and db.storage[corpse_id] and db.storage[corpse_id].object
+                        if corpse and corpse:alive() ~= true then
+                            if npc:position():distance_to_sqr(corpse:position()) < max_corpse_sqr then
+                                has_near_corpse = true
+                                break
+                            end
+                        end
+                    end
+                    self.st.__siski_near_corpse_rr_cursor = cursor
+                    LootPatch.RUNTIME.near_corpse_cursor = cursor
+                    if (not has_near_corpse) and corpse_pool_n > near_corpse_budget and scanned >= near_corpse_budget then
+                        perf_warn_once(
+                            "PERF_LOOT_SCAN_BUDGET_HIT_NEAR_CORPSE",
+                            "PERF_LOOT_SCAN_BUDGET_HIT kind=near_corpse scanned=%s budget=%s pool=%s",
+                            tostring(scanned),
+                            tostring(near_corpse_budget),
+                            tostring(corpse_pool_n)
+                        )
+                    end
+                end
+
+                if not has_near_corpse then
+                    local scan_md = tonumber(cfg("loot_scan_radius_m", 35)) or 35
+                    if scan_md < 0 then scan_md = 0 end
+                    local scan_sqr = scan_md * scan_md
+                    local item_ids = loot.get_item_event_ids and loot.get_item_event_ids() or nil
+                    local item_pool_n = item_ids and #item_ids or 0
+                    local item_budget = cfg_num("loot_patch_item_scan_budget", 20, 1)
+                    if item_pool_n > 0 and max_items > 0 then
+                        local cursor = tonumber(self.st.__siski_item_rr_cursor) or tonumber(LootPatch.RUNTIME.item_cursor) or 1
+                        if cursor < 1 or cursor > item_pool_n then cursor = 1 end
+                        local scanned = 0
+                        while scanned < item_budget and scanned < item_pool_n and added < max_items do
+                            local id = item_ids[cursor]
+                            cursor = cursor + 1
+                            if cursor > item_pool_n then cursor = 1 end
+                            scanned = scanned + 1
+                            if id and not seen[id] then
+                                local se_itm = alife_object and alife_object(id) or nil
+                                if se_itm and se_itm.parent_id == 65535 then
+                                    local itm = level.object_by_id(id)
+                                    if itm then
+                                        local ok_sect, sect = pcall(function() return itm:section() end)
+                                        if ok_sect and sect and loot_table[sect] ~= nil and not near_actor(itm) then
+                                            local dist = npc:position():distance_to_sqr(itm:position())
+                                            local limit_sqr = scan_sqr > 0 and scan_sqr or max_item_dist_sqr
+                                            if dist < limit_sqr then
+                                                self.st.memory[#self.st.memory + 1] = id
+                                                seen[id] = true
+                                                added = added + 1
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                        self.st.__siski_item_rr_cursor = cursor
+                        LootPatch.RUNTIME.item_cursor = cursor
+                        if item_pool_n > item_budget and scanned >= item_budget then
+                            perf_warn_once(
+                                "PERF_LOOT_SCAN_BUDGET_HIT_ITEM",
+                                "PERF_LOOT_SCAN_BUDGET_HIT kind=item scanned=%s budget=%s pool=%s",
+                                tostring(scanned),
+                                tostring(item_budget),
+                                tostring(item_pool_n)
+                            )
+                        end
+                    end
+                end
+
+                self.st.cstackprevent = nil
+
+                size = #self.st.memory
+                if (size == 0) then
+                    return false
+                end
+            end
+
+            if (size == 0 or self.st.index > size) then
+                if (self.st.nearest_id and uv.Items and uv.Items[self.st.nearest_id] == nil and (not game_setup.is_world_item(self.st.nearest_id))) then
+                    if (self.st.selected_id and uv.Items[self.st.selected_id]) then
+                        uv.Items[self.st.selected_id] = nil
+                    end
+                    self.st.selected_id = self.st.nearest_id
+                    self.st.vid = self.st.nearest_vid
+                    self.st.vid_pos = self.st.nearest_pos
+                    uv.Items[self.st.selected_id] = npc:id()
+                    self.st.stage = 1
+
+                    self.st.nearest_dist = nil
+                    self.st.nearest_vid = nil
+                    self.st.nearest_pos = nil
+                    self.st.nearest_id = nil
+
+                    self.st.index = 1
+
+                    local be = npc:best_enemy()
+                    local dist = npc:position():distance_to(self.st.vid_pos)
+                    if (be or dist < uv.RunDist) then
+                        self.st.state = uv.StateWalk
+                    else
+                        self.st.state = uv.StateRun
+                    end
+                    return true
+                end
+
+                self.st.index = 1
+                self.st.nearest_dist = nil
+                self.st.nearest_vid = nil
+                self.st.nearest_pos = nil
+                self.st.nearest_id = nil
+                if empty_table then
+                    empty_table(self.st.memory)
+                else
+                    self.st.memory = {}
+                end
+                return false
+            end
+
+            local itm_id = self.st.memory[self.st.index]
+            self.st.index = self.st.index + 1
+
+            local itm = itm_id and itm_id ~= 0 and itm_id ~= 65535 and level.object_by_id(itm_id)
+            local se_itm = itm and loot_table[itm:section()] and uv.Items and uv.Items[itm_id] == nil and alife_object(itm_id)
+
+            if not (se_itm and se_itm.parent_id == 65535) then
+                return false
+            end
+
+            if (get_object_story_id(itm_id)) then
+                return false
+            end
+
+            if (npc:best_enemy()) then
+                if not (IsWeapon(itm)) then
+                    return false
+                end
+                if (IsWeapon(npc:active_item())) then
+                    return false
+                end
+            end
+
+            if (IsArtefact(nil, se_itm:clsid())) then
+                if not (uv.ArtifactDectection) then
+                    return false
+                end
+
+                if (xr_logic.pick_section_from_condlist(db.actor, npc, self.st.gather_artefact_items_enabled) == "false") then
+                    return false
+                end
+
+                local squad = get_object_squad(npc)
+                local squad_community = squad and squad.player_id or character_community(npc)
+
+                if not (uv.ArtifactCommunities and uv.ArtifactCommunities[squad_community]) then
+                    return false
+                end
+            else
+                if not (npc:see(itm)) then
+                    if cfg("loot_items_allow_unseen", false) ~= true then
+                        return false
+                    end
+                    if not loot.is_recent_item_id(itm_id) then
+                        return false
+                    end
+                end
+            end
+
+            local itm_pos = itm:position()
+            local dist = npc:position():distance_to_sqr(itm_pos)
+
+            local md = tonumber(cfg("loot_items_detect_dist_m", 35)) or 35
+            if md < 0 then md = 0 end
+            local max_item_dist_sqr = md * md
+            local max_detect_sqr = uv.MaxDetectDistance or max_item_dist_sqr
+            if max_item_dist_sqr > 0 then
+                max_detect_sqr = math.min(max_detect_sqr, max_item_dist_sqr)
+            end
+
+            if (self.st.nearest_dist == nil or dist < self.st.nearest_dist) and (dist < max_detect_sqr) then
+                local vid = level.vertex_id(itm_pos)
+                if (level.vertex_position(vid):distance_to_sqr(itm_pos) > 16) then
+                    vid = itm:level_vertex_id()
+                end
+
+                if (npc:accessible(vid) and level.vertex_position(vid):distance_to_sqr(itm_pos) <= 15) then
+                    self.st.nearest_dist = dist
+                    self.st.nearest_vid = vid
+                    self.st.nearest_pos = itm_pos
+                    self.st.nearest_id = itm_id
+                end
+            end
+
+            return false
+        end
+    end
+
+    cls.__siski_loot_patched = true
+    LootPatch.RUNTIME.gather_items_patched = true
+    return true
+end
+
+function LootPatch.apply()
+    if LootPatch.RUNTIME.patched == true then return true end
+    patch_xr_corpse_detection()
+    patch_xr_gather_items()
+    LootPatch.RUNTIME.patched = true
+    return true
+end
+
+siski.loot_patch = LootPatch

@@ -1,0 +1,10 @@
+<w>
+	<file name = "ui\ui_traits_interface">
+		<texture id = "ui_uttraits_background"	x="0"	y="0"		width="568" height="568" />
+		<texture id = "ui_uttraits_background2"	x="0"	y="636"		width="219" height="388" />
+		<texture id = "ui_uttraits_background3"	x="220"	y="798"		width="289" height="226" />
+		<texture id = "ui_ut_traits_listbtn_h"	x="888"	y="3"		width="136" height="23" />
+		<texture id = "ui_ut_traits_listbtn_t"	x="888"	y="26"		width="136" height="23" />
+		<texture id = "ui_uttraits_progbar_bg"	x="604"	y="1004"	width="420" height="20" />
+	</file>
+</w>

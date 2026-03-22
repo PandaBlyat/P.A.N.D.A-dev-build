@@ -1,0 +1,261 @@
+-- Credit to HarukaSai who wrote the UI script for Anomaly Skill System that I learned from and used code from
+
+local translate_string = game.translate_string
+local string_format = string.format
+local menu_key = DIK_keys.DIK_J
+local math_floor = math.floor
+local parse_keys = utils_data.parse_string_keys
+local get_config = utjan_skills_mcm.get_config
+local mcm_keybinds = ui_mcm and ui_mcm.key_hold
+local modifier = 0
+
+local K_Timer   = false
+function keybind_pass()
+	if (K_Timer and (time_global() > K_Timer + 200)) or (not K_Timer) then
+		K_Timer = time_global()
+		return true
+	end
+	return false
+end
+
+GUI = nil
+function on_key_release(key)
+    if key ~= menu_key then return end
+    if not mcm_keybinds then
+        start()
+        return
+    end
+    if ui_mcm.get_mod_key(modifier) then
+        start()
+    end
+end
+
+function start()
+    hide_hud_inventory()
+
+    if (not GUI) then
+        GUI = UIUtjanTraits()
+    end
+
+    if (GUI) and (not GUI:IsShown()) and keybind_pass() then
+        GUI:ShowDialog(true)
+		GUI:Reset()
+		_GUIs_keyfree["UIUtjanTraits"] = true
+        Register_UI("UIUtjanTraits", "ui_utjan_traits", GUI)
+    end
+end
+
+class "UIUtjanTraits" (CUIScriptWnd)
+
+function UIUtjanTraits:__init() super()
+    self:InitControls()
+	self:InitCallbacks()
+end
+
+function UIUtjanTraits:__finalize()
+end
+
+local languages = {
+	["eng"] = true,
+	["rus"] = true
+}
+
+function UIUtjanTraits:InitControls()
+    self:SetAutoDelete(true)
+	self:SetWndRect(Frect():set(0,0,1024,768)) -- Credits: Utjan
+    self.xml = CScriptXmlInit()
+    local xml = self.xml
+    xml:ParseFile("ui_utjan_traits.xml")
+    self.dialog = xml:InitStatic("traits", self)
+    local background = xml:InitStatic("traits:background", self.dialog)
+	xml:InitStatic("traits:listbg", self.dialog)
+	xml:InitStatic("traits:infobg", self.dialog)
+	self.trait_icon = xml:InitStatic("traits:trait_icon", self.dialog)
+	self.trait_desc = xml:InitStatic("traits:trait_desc", self.dialog)
+	self.btn_learn = xml:Init3tButton("traits:btn_learn", self.dialog)
+	self:Register(self.btn_learn, "btn_learn")
+	
+	--self.btn_enable = xml:Init3tButton("traits:btn_enable", self.dialog)
+	--self:Register(self.btn_enable, "btn_enable")
+	--self.btn_disable = xml:Init3tButton("traits:btn_disable", self.dialog)
+	--self:Register(self.btn_disable, "btn_disable")
+	xml:InitStatic("traits:title", self.dialog)
+	self.trait_title = xml:InitStatic("traits:trait_title", self.dialog)
+	xml:InitStatic("traits:tlvl_title", self.dialog)
+	xml:InitStatic("traits:exp_bar_back", self.dialog)
+	self.exp_bar = xml:InitProgressBar("traits:exp_bar", self.dialog)
+	self.trait_pts_text = xml:InitStatic("traits:trait_pts", self.dialog)
+	self.tlvl_cur_text = xml:InitStatic("traits:tlvl_cur", self.dialog)
+	self.tlvl_next_text = xml:InitStatic("traits:tlvl_next", self.dialog)
+	
+	
+	local lang = ui_options.curr_localization()
+	lang = languages[lang] and lang or "eng"
+    self.scroll = xml:InitScrollView("traits:scroll", self.dialog)
+    self.scroll:Clear()
+	self.traits = {}
+    local traits_list = utjan_traits.traits_list
+    for trait, v in spairs(traits_list, function(t,a,b) return translate_string("st_trait_name_" .. tostring(a)) < translate_string("st_trait_name_" .. tostring(b)) end) do
+        local _st = xml:InitStatic("traits:st", nil)
+		self.traits[trait] = {}
+		self.traits[trait].listbtn = xml:InitCheck("traits:listbtn", _st)
+		self.traits[trait].listbtn:SetCheck(false)
+		self.traits[trait].name = xml:InitStatic("traits:name", _st)
+		self.traits[trait].name:TextControl():SetText(translate_string("st_trait_name_" .. tostring(trait)))
+		self.traits[trait].listbtn_icon = xml:InitStatic("traits:listbtn_icon", _st)
+		self.traits[trait].listbtn_icon:Show(false);
+		
+		local trait_path = tostring(trait)
+		self:Register(self.traits[trait].listbtn, ("trait_" .. trait_path))
+		local _wrapper = function(handler)
+			self:TraitClicked(trait, traits_list)
+		end
+		self:AddCallback(("trait_" .. trait_path), ui_events.BUTTON_CLICKED, _wrapper, self)
+		
+        self.scroll:AddWindow(_st, true)
+        _st:SetAutoDelete(true)
+    end
+	
+	self:Reset()
+	self:AllowMovement(true)
+end
+
+function UIUtjanTraits:TraitClicked(clickedtrait, traits_list)
+	self.trait_selected = clickedtrait
+	
+	for trait, v in spairs(traits_list) do
+		if trait ~= clickedtrait and (self.traits[trait].listbtn:GetCheck() == true) then
+			self.traits[trait].listbtn:SetCheck(false)
+		end
+	end
+	
+	local req_str = ""
+	if utjan_traits.traits_stats[clickedtrait].trait_req then
+		req_str = "[" .. translate_string("st_requires_trait") .. ": " .. translate_string("st_trait_name_" .. utjan_traits.traits_stats[clickedtrait].trait_req) ..  "]\\n\\n"
+	end
+	
+	self.trait_icon:InitTexture("ui_traits_icon_" .. tostring(clickedtrait))
+	self.trait_desc:TextControl():SetText(req_str .. translate_string("st_trait_desc_" .. tostring(clickedtrait)))
+	self.trait_title:TextControl():SetText(translate_string("st_trait_name_" .. tostring(clickedtrait)))
+	
+	self:ResetLearnButton()
+end
+
+function UIUtjanTraits:OnButtonEnable()
+	local trait_req = nil
+	if self.trait_selected then
+		trait_req = utjan_traits.traits_stats[self.trait_selected].trait_req
+	end
+	
+	if self.plvl_cur > self.traits_enabled then
+		if (trait_req and utjan_traits.traits_list[trait_req].enabled) or not trait_req then
+			utjan_traits.traits_list[self.trait_selected].enabled = true
+			utjan_traits.update_trait(self.trait_selected)
+			self:Reset()
+		end
+	end
+end
+
+function UIUtjanTraits:OnButtonDisable()
+	utjan_traits.traits_list[self.trait_selected].enabled = false
+	self:Reset()
+end
+
+function UIUtjanTraits:Reset()
+	local traits_list = utjan_traits.traits_list
+	local traits_stats = utjan_traits.traits_stats
+	self.traits_enabled = 0
+	for trait in pairs(traits_list) do
+		if traits_list[trait].enabled then 
+			self.traits_enabled = self.traits_enabled + 1
+			self.traits[trait].listbtn_icon:InitTexture("ui_ut_traits_listbtn_check")
+			self.traits[trait].listbtn_icon:Show(true)
+		elseif traits_stats[trait].trait_req and not traits_list[traits_stats[trait].trait_req].enabled then
+			self.traits[trait].listbtn_icon:InitTexture("ui_ut_traits_listbtn_lock")
+			self.traits[trait].listbtn_icon:Show(true)
+		else
+			self.traits[trait].listbtn_icon:Show(false)
+		end
+	end
+	
+	local total_skill_levels = 0
+	local skill_count = 0
+	for skill, stat in pairs(haru_skills.skills_levels) do
+		total_skill_levels = total_skill_levels + haru_skills.skills_levels[skill].current_level
+		skill_count = skill_count + 1
+	end
+	
+	mcm_trait_multiplier = utjan_skills_mcm.get_config("traits_gain_mult")
+	
+	adjusted_total_levels = total_skill_levels * mcm_trait_multiplier
+	
+	self.plvl_cur = math.floor(adjusted_total_levels / (skill_count))
+	local progress = (adjusted_total_levels / (skill_count)) - self.plvl_cur 
+	
+	self.exp_bar:SetProgressPos(progress)
+	
+	local plvl_next = math.ceil(total_skill_levels / (skill_count))
+	if self.plvl_cur == plvl_next then plvl_next = plvl_next + 1 end
+	
+	self.trait_pts_text:TextControl():SetText(translate_string("st_traits_avail_txt") .. " " .. (self.plvl_cur - self.traits_enabled))
+	self.tlvl_cur_text:TextControl():SetText(self.plvl_cur)
+	self.tlvl_next_text:TextControl():SetText(plvl_next)
+	self:ResetLearnButton()
+end
+
+function UIUtjanTraits:ResetLearnButton()
+	local trait_req = nil
+	if self.trait_selected then
+		trait_req = utjan_traits.traits_stats[self.trait_selected].trait_req
+	end
+	
+	if self.trait_selected and utjan_traits.traits_list[self.trait_selected].enabled then
+		self.btn_learn:TextControl():SetText(translate_string("st_btn_learn_learned"))
+	elseif trait_req and not utjan_traits.traits_list[trait_req].enabled then
+		self.btn_learn:TextControl():SetText(translate_string("st_btn_learn_locked"))
+	else
+		self.btn_learn:TextControl():SetText(translate_string("st_btn_learn"))
+	end
+end
+
+function UIUtjanTraits:OnKeyboard(dik, keyboard_action)
+	local res = CUIScriptWnd.OnKeyboard(self,dik,keyboard_action)
+	if (res == false) then
+		local bind = dik_to_bind(dik)
+		if keyboard_action == ui_events.WINDOW_KEY_PRESSED then
+			if dik == menu_key then
+				if keybind_pass() then
+					self:Close()
+				end
+			elseif bind == key_bindings.kQUIT then
+				self:Close()
+			end
+		end
+	end
+	return res
+end
+
+function UIUtjanTraits:InitCallbacks()
+	self:AddCallback("btn_learn", ui_events.BUTTON_CLICKED, self.OnButtonEnable, self)
+	self:AddCallback("btn_enable", ui_events.BUTTON_CLICKED, self.OnButtonEnable, self)
+	self:AddCallback("btn_disable", ui_events.BUTTON_CLICKED, self.OnButtonDisable, self)
+end
+
+function UIUtjanTraits:Close()
+	self:HideDialog()
+	self:Show(false)
+	Unregister_UI("UIUtjanTraits")
+end
+
+function on_option_change(mcm)
+    if mcm then
+        menu_key = get_config("traits_keybind")
+        modifier = get_config("modifier")
+    end
+end
+
+function on_game_start()
+	RegisterScriptCallback("on_key_release",on_key_release)
+    RegisterScriptCallback("on_option_change", on_option_change)
+    on_option_change(mcm_keybinds)
+end

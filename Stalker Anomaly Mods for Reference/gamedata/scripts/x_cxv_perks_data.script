@@ -1,0 +1,460 @@
+perks = {
+	["perk_ammo_finder"] = 0,
+	["perk_anomaly_defense"] = 0,
+	["perk_artefinder"] = 0,
+	["perk_battleforged"] = 0,
+	["perk_battle_runner"] = 0,
+	["perk_berserker"] = 0,
+	["perk_calm_mind"] = 0,
+	["perk_careful_handler"] = 0,
+	["perk_comfort_food"] = 0,
+	["perk_cybermedic"] = 0,
+	["perk_deadeye"] = 0,
+	["perk_demo_expert"] = 0,
+	["perk_disarming_shot"] = 0,
+	["perk_fast_hands"] = 0,
+	["perk_fetch_finder"] = 0,
+	["perk_fourth_times"] = 0,
+	["perk_fun_allowed"] = 0,
+	["perk_glass_cannon"] = 0,
+	["perk_gunslinger"] = 0,
+	["perk_hells_kitchen"] = 0,
+	["perk_heavy_gunner"] = 0,
+	["perk_iron_resolve"] = 0,
+	["perk_jamming_shot"] = 0,
+	["perk_jewelcrafter"] = 0,
+	["perk_jump_man"] = 0,
+	["perk_keen_eye"] = 0,
+	["perk_lightweight_dodge"] = 0,
+	["perk_local_looting"] = 0,
+	["perk_lockpick_mastery"] = 0,
+	["perk_lucky_strike"] = 0,
+	["perk_mag_loader"] = 0,
+	["perk_master_craftsman"] = 0,
+	["perk_master_zone"] = 0,
+	["perk_medicine_man"] = 0,
+	["perk_midas_touch"] = 0,
+	["perk_mono_mind"] = 0,
+	["perk_mtn_climber"] = 0,
+	["perk_mutant_slayer"] = 0,
+	["perk_perkifact_power"] = 0,
+	["perk_plus_one"] = 0,
+	["perk_rapid_reload"] = 0,
+	["perk_repair_junkie"] = 0,
+	["perk_rifleman"] = 0,
+	["perk_samaritan"] = 0,
+	["perk_scavenger"] = 0,
+	["perk_silver_tongued"] = 0,
+	["perk_slow_metabolism"] = 0,
+	["perk_spiked"] = 0,
+	["perk_strong_back"] = 0,
+	["perk_surgical_precision"] = 0,
+	["perk_the_exalted"] = 0,
+	["perk_the_end"] = 0,
+	["perk_vampirism"] = 0,
+	["perk_well_rested"] = 0,
+	["perk_wick_mode"] = 0,
+	["perk_zone_gunsmith"] = 0,
+	["perk_zone_slayer"] = 0,
+}
+
+local minCondition = 0
+local maxCondition = 0
+-- local artefinder_bonus = {[0] = 0, [1] = 1, [2] = 3, [3] = 7, [4] = 12, [5] = 18 }
+
+original_map_chances = {
+	["k00_marsh"] = 20,
+	["l01_escape"] = 20,
+	["l02_garbage"] = 20,
+	["y04_pole"] = 28,
+	["l05_bar"] = 0,
+	["l03_agroprom"] = 20,
+	["k01_darkscape"] = 20,
+	["l04_darkvalley"] = 20,
+	["k02_trucks_cemetery"] = 28,
+	["l06_rostok"] = 25,
+	["l07_military"] = 20,
+	["l09_deadcity"] = 20,
+	["l08_yantar"] = 20,
+	["l03u_agr_underground"] = 20,
+	["jupiter"] = 20,
+	["zaton"] = 20,
+	["l10_limansk"] = 30,
+	["l04u_labx18"] = 30,
+	["l10_red_forest"] = 35,
+	["l08u_brainlab"] = 30,
+	["l10_radar"] = 35,
+	["l10u_bunker"] = 30,
+	["l11_hospital"] = 30,
+	["l12_stancia"] = 30,
+	["l12_stancia_2"] = 30,
+	["l12u_control_monolith"] = 30,
+	["l12u_sarcofag"] = 30,
+	["l13_generators"] = 30,
+	["l13u_warlab"] = 30,
+	["labx8"] = 30,
+	["pripyat"] = 30,
+	["l11_pripyat"] = 30,
+}
+
+-- Local Looting vars
+looting_stash_reduc = { [0] = 0, [1] = -1, [2] = -2, [3] = -2, [4] = -2, [5] = -3 }
+base_task_num = 0
+
+-- Disarming/Jamming Shot
+can_jam = false
+can_disarm = false
+
+-- Jump Man
+local jump_man_boost = 0.05
+local add_jump = jump.add_jump
+local remove_jump = jump.remove_jump
+
+-- Lists for Zone Slayer/Plus One ammo looting
+shotgun_list = {}
+weapon_list = {}
+
+-- Well Rested
+local remove_speed = speed.remove_speed
+local remove_weight = weight.remove_weight
+has_slept = false
+
+-- Battle Runner
+local last_runner_level = 0
+
+wp_table = {
+	["w_explosive"] = "explosive",
+	["w_misc"] = "misc",
+	["w_melee"] = "melee",
+	["w_smg"] = "smg",
+	["w_pistol"] = "pistol",
+	["w_rifle"] = "rifle",
+	["w_sniper"] = "sniper",
+	["w_shotgun"] = "shotgun",
+	["w_heavy"] = "heavy",
+}
+
+function sortK_of(weapon)
+    if not weapon then return "empty hands" end
+	if shotgun_list[weapon:id()] then return "shotgun" end
+	local sec = weapon:section()
+	if not sec then return end
+	
+    local kind = SYS_GetParam(0, sec, "kind") or nil
+	if not kind then return end
+	if kind == "w_explosive" then
+		local slot = SYS_GetParam(2, sec, "slot")
+		if slot ~= 3 then
+			local class = SYS_GetParam(0, sec, "weapon_class")
+			if not class then return end
+			if class == "heavy_weapon" then
+				kind = "w_heavy"
+			end	
+		end
+	end
+	if wp_table[kind] then
+		return wp_table[kind]
+	else
+		return nil
+	end
+end
+
+function get_weapon_perk_class(sec)
+    if not sec then return end
+    local kind = SYS_GetParam(0, sec, "kind") or nil
+	if not kind then return end
+	
+	if kind == "w_explosive" then
+		local slot = SYS_GetParam(2, sec, "slot")
+		if slot ~= 3 then
+			local class = SYS_GetParam(0, sec, "weapon_class") or nil
+			if not class then return end
+			if class == "heavy_weapon" then
+				kind = "w_heavy"
+			end	
+		end
+	end
+    if wp_table[kind] then
+		return wp_table[kind]
+	else
+		return nil
+	end
+end
+
+local function IsValidMelee(obj)
+	if not obj then return false end
+	local o_sec = obj:section()
+	local get_slot = SYS_GetParam(2, o_sec, "animation_slot") or 0
+    return (SYS_GetParam(0, o_sec, "kind") == "w_melee") and (get_slot ~= 13)
+end
+
+local function experience_skill_on_update(perk_id, perk_data)
+	if perks[perk_id] then
+		perks[perk_id] = perk_data["curr_level"]
+	end
+	
+	-- Battle Runner (refresh outfit speeds)
+	if perk_id == "perk_battle_runner" then
+		if perks[perk_id] > 0 and (last_carbon_level == 0 or last_runner_level ~= perks[perk_id]) then
+			outfit_speed_mcm.last_outfit = nil
+			outfit_speed_mcm.manage_outfit_speed()
+			last_runner_level = perks[perk_id]
+		end
+	end
+	
+	-- Careful Handler affecting artefact condition
+	if perk_id == "perk_careful_handler" then
+		if zz_item_artefact then
+			if zz_item_artefact.cond_t then
+				if minCondition == 0 then
+					minCondition = zz_item_artefact.arti_min_eff or 29
+				end
+				zz_item_artefact.arti_min_eff = minCondition + (perks["perk_careful_handler"] * 3)		-- artefinder_bonus[ perks["perk_artefinder"] ]
+				if maxCondition == 0 then
+					maxCondition = zz_item_artefact.arti_max_eff or 37
+				end
+				zz_item_artefact.arti_max_eff = maxCondition + (perks["perk_careful_handler"] * 3)		-- artefinder_bonus[ perks["perk_artefinder"] ]
+				printf('Old Arte. Min: %s | New Arte. Min %s | Old Arte. Max: %s | New Arte. Max %s', minCondition, zz_item_artefact.arti_min_eff, maxCondition, zz_item_artefact.arti_max_eff)
+			end
+		end
+	end
+	
+	-- Artefinder affecting artefact map chances
+	if perk_id == "perk_artefinder" then
+		if drx_da_main_artefacts then
+			if drx_da_main_artefacts.artefacts_map_chances then
+				for k,v in pairs(drx_da_main_artefacts.artefacts_map_chances) do
+					if original_map_chances[k] and original_map_chances[k] >= 0 then
+						drx_da_main_artefacts.artefacts_map_chances[k] = original_map_chances[k] + ( perks["perk_artefinder"] * 3 )
+						printf("[Artefinder Monkeys] Adjusting DRX value: %s | New value: %s", original_map_chances[k], drx_da_main_artefacts.artefacts_map_chances[k])
+					else
+						original_map_chances[k] = drx_da_main_artefacts.artefacts_map_chances[k]
+						drx_da_main_artefacts.artefacts_map_chances[k] = original_map_chances[k] + ( perks["perk_artefinder"] * 3 )
+						printf("[Artefinder Monkeys] Level added to Orig List: %s | Original value: %s | New value: %s", k, original_map_chances[k], drx_da_main_artefacts.artefacts_map_chances[k])
+					end
+				end
+				for k,v in pairs(original_map_chances) do
+					if not drx_da_main_artefacts.artefacts_map_chances[k] then
+						drx_da_main_artefacts.artefacts_map_chances[k] = original_map_chances[k] + ( perks["perk_artefinder"] * 3 )
+						printf("[Artefinder Monkeys] Level added to DRX List: %s | Original value: %s | New value: %s", original_map_chances[k], drx_da_main_artefacts.artefacts_map_chances[k])
+					end
+				end
+			end
+		end
+		if grok_artefacts_random_spawner then
+			grok_artefacts_random_spawner.regular_fields_chance = 40 + (perks["perk_artefinder"] * 3)
+			grok_artefacts_random_spawner.dynamic_fields_chance = 22 + (perks["perk_artefinder"] * 3)
+			grok_artefacts_random_spawner.per_field_probability = 35 + (perks["perk_artefinder"] * 3)
+		end
+	end
+	
+	-- Local Looting
+	if perk_id == "perk_local_looting" then
+		if base_task_num == 0 then
+			base_task_num = treasure_manager.stash_rare.task_num or 7
+		end
+		treasure_manager.stash_rare.task_num = base_task_num + looting_stash_reduc[ perks[perk_id] ]
+		printf("New Base Rare Stash Task Amt: %s", treasure_manager.stash_rare.task_num)
+	end
+	
+	-- Disarming/Jamming Shot
+	if perk_id == "perk_jamming_shot" and perks["perk_jamming_shot"] > 0 then
+		can_jam = true
+	end
+	if perk_id == "perk_disarming_shot" and perks["perk_disarming_shot"] > 0 then
+		can_disarm = true
+	end
+	
+	-- Jump Man
+	if perk_id == "perk_jump_man" then
+		if perks["perk_jump_man"] > 0 then
+			add_jump("cxv_jump_man", 1 + (jump_man_boost * perks[perk_id]), true)
+		else
+			remove_jump("cxv_jump_man")
+		end
+	end
+	
+	-- Plus One
+	if perk_id == "perk_plus_one" and (perks[perk_id] > 0) and (#weapon_list < 1) then
+		build_weapon_list()
+	end
+	
+	-- Well Rested
+	if perk_id == "perk_well_rested" then
+		if perks["perk_well_rested"] == 0 then 
+			remove_speed("perk_well_rested")
+			remove_weight("perk_well_rested")
+			has_slept = false
+		end
+	end
+	
+	-- Zone Slayer
+	if perk_id == "perk_zone_slayer" and (perks["perk_zone_slayer"] > 0) and (#shotgun_list < 1) or (#weapon_list < 1) then
+		build_weapon_list()
+	end
+	
+	-- Monolithian Mind
+	if perk_id == "perk_mono_mind" then
+		if gameplay_disguise.blacklisted_factions then
+			if (perks[perk_id] > 0) then
+				gameplay_disguise.blacklisted_factions["monolith"] = false
+			else
+				gameplay_disguise.blacklisted_factions["monolith"] = true
+			end
+		end
+	end
+
+end
+
+local shotgun_ammo_check = {
+	["ammo_12x70_buck"] = true,
+	["ammo_12x76_zhekan"] = true,
+	["ammo_12x76_dart"] = true,
+	["ammo_23x75_shrapnel"] = true,
+	["ammo_23x75_barrikada"] = true,
+	["ammo_23_eco"] = true,
+	["ammo_20x70_buck"] = true,
+	["ammo_20x70_devastator"] = true,
+	["ammo_20x70_star"] = true,
+	
+	-- For those of you who gave yourself the Bull shotgun
+	["ammo_12x76_bull"] = true,
+	
+	-- WTF Tasks Compat. (though why are you using this for any sort of combat lol)
+	["ammo_23_igi_eco"] = true,
+}
+
+-- checks if valid "Zone Slayer" shotguns are actually using shotgun ammo (check first available ammo type)
+function shotgun_ammo_validity_check(wpn_sec, wpn_id)
+	
+	-- this allows accurate ammo checking
+	local ammo_table = utils_item.get_ammo(wpn_sec, wpn_id)
+
+	if ammo_table and ammo_table[1] and shotgun_ammo_check[ammo_table[1]] then
+		return true
+	end
+	
+	return false
+end
+
+function zone_slayer_validity_check(wpn_sec, wpn_id)
+	
+	if not wpn_sec then return end
+	if not wpn_id then return end
+	
+	if perks["perk_zone_slayer"] == 0 then return end
+	
+	-- if the weapon is not using shotgun ammo, return
+	if shotgun_ammo_validity_check(wpn_sec, wpn_id) == false then return end
+	
+	-- check if clip size is small enough (double-/single-barrel or that one bolt-action TOZ)
+	local clip = ini_sys:r_float_ex(wpn_sec, "ammo_mag_size") or 3
+	if clip <= 2 then
+		shotgun_list[#shotgun_list + 1] = wpn_id
+		return
+	end
+	
+	-- check if tube-fed pump-action/single-round-fed-reloaded shotgun
+	if perks["perk_zone_slayer"] < 2 then return end
+	
+	-- need to use SYS_GetParam so that it can return nil (r_string just crashes if said variable doesn't exist)
+	local tri_state = SYS_GetParam(0, wpn_sec, "tri_state_reload") or "off"
+	if tri_state and tri_state == "on" then
+		
+		-- Rank 3: All shotguns that reload one shell at a time are valid
+		if perks["perk_zone_slayer"] > 2 then
+			shotgun_list[#shotgun_list + 1] = wpn_id
+			return
+		end
+		
+		local rpm = ini_sys:r_float_ex(wpn_sec, "rpm")
+		if rpm and rpm <= 120 then	-- 120 is a generous value
+			local fire_mode_list = parse_list(ini_sys,wpn_sec,"fire_modes")
+			if fire_mode_list then
+				for i = 1, #fire_mode_list do
+					if fire_mode_list[i] == "-1" then
+						return	-- completely exit since we found full-auto (pumps shouldn't have full-auto)
+					end
+				end
+			end
+			
+			-- finally, add to list if valid
+			shotgun_list[#shotgun_list + 1] = wpn_id
+			return
+		end
+	end
+	
+end
+
+function build_weapon_list()
+
+	weapon_list = {}
+	shotgun_list = {}
+	
+	if (perks["perk_zone_slayer"] < 1) and (perks["perk_plus_one"] < 1) then return end
+	local w1, w2, w3, w4 = db.actor:item_in_slot(3), db.actor:item_in_slot(2), db.actor:item_in_slot(1), db.actor:item_in_slot(5)
+		
+	if (IsWeapon(w1) and (not IsItem("fake_ammo_wpn",w1:section()))) then
+		weapon_list[#weapon_list + 1] = w1:id() 
+		printf('Weapon 1: %s', w1:section())
+		zone_slayer_validity_check(w1:section(), w1:id())
+	end
+
+	if (IsWeapon(w2) and (not IsItem("fake_ammo_wpn",w2:section()))) then
+		weapon_list[#weapon_list + 1] = w2:id() 
+		printf('Weapon 2: %s', w2:section())
+		zone_slayer_validity_check(w2:section(), w2:id())
+	end
+
+	if (IsWeapon(w3) and (not IsItem("fake_ammo_wpn",w3:section()))) then
+		weapon_list[#weapon_list + 1] = w3:id() 
+		printf('Weapon 3: %s', w3:section())
+		zone_slayer_validity_check(w3:section(), w3:id())
+	end
+	
+	if (IsWeapon(w4) and (not IsItem("fake_ammo_wpn",w4:section()))) then
+		weapon_list[#weapon_list + 1] = w4:id() 
+		printf('Weapon 4: %s', w4:section())
+		zone_slayer_validity_check(w4:section(), w4:id())
+	end
+end
+
+function check_weapon_list_ruck(item)
+	if (perks["perk_zone_slayer"] < 1) and (perks["perk_plus_one"] < 1) then return end
+	if not IsValidMelee(item) and IsWeapon(item) then build_weapon_list() end
+end
+
+get_safe_sound_object = xr_sound.get_safe_sound_object
+function play_sound_on_actor(snd, volume, frequency)
+	if not snd then
+		-- trace("snd is nil")
+		return
+	end
+	
+	local perk_sfx_enable = x_cxv_perks_mcm.get_config("perk_sfx_enable") or false
+	if not perk_sfx_enable then return end
+	
+	local actor = db.actor
+	local snd = get_safe_sound_object(snd)
+	if snd then
+		local player_volume = ui_options.get("sound/general/master_volume") or 1
+		local sound_vol = volume or 1
+		sound_vol = sound_vol * player_volume
+		snd:play(actor, 0, sound_object.s2d)
+		snd.volume = sound_vol
+		snd.frequency = frequency or 1
+		return snd
+	end
+end
+
+function on_game_start()
+	if experience_potions then
+		RegisterScriptCallback("experience_skill_on_update", experience_skill_on_update)
+	else
+		RegisterScriptCallback("experience_perk_on_update", experience_skill_on_update)
+	end
+	
+	RegisterScriptCallback("actor_on_first_update",			build_weapon_list)
+	RegisterScriptCallback("actor_item_to_ruck",			check_weapon_list_ruck)
+	RegisterScriptCallback("actor_item_to_slot",			build_weapon_list)
+end

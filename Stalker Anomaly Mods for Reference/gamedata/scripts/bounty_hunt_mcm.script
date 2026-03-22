@@ -1,0 +1,69 @@
+-- ID мода: bounty_hunt
+
+local op = {
+    id = "bounty_hunt", sh = true, gr = {
+        
+        -- === Вкладка 1: Основные настройки (охота) ===
+        { id = "main_settings", type = "slide", link = "ui_options_slider_player", text = "ui_mcm_bounty_hunt_title_main", size = {512, 50}, spacing = 20 },
+        
+        {id = "cooldown", type = "track", val = 2, min = 1, max = 120, step = 1, def = 48},
+        {id = "desc_cooldown", type = "desc", text = "ui_mcm_bounty_hunt_cooldown_desc"},
+
+        -- Безопасное время до первой охоты (в часах)
+        {id = "safe_time", type = "track", val = 2, min = 0, max = 240, step = 1, def = 48},
+        {id = "desc_safe_time", type = "desc", text = "ui_mcm_bounty_hunt_safe_time_desc"},
+        
+        {id = "chance", type = "track", val = 2, min = 1, max = 100, step = 1, def = 40},
+        {id = "desc_chance", type = "desc", text = "ui_mcm_bounty_hunt_chance_desc"},
+
+        {id = "warning_chance", type = "track", val = 2, min = 0, max = 100, step = 1, def = 30},
+        {id = "desc_warning", type = "desc", text = "ui_mcm_bounty_hunt_warning_desc"},
+
+        {id = "mystery_delay", type = "track", val = 2, min = 1, max = 30, step = 1, def = 5},
+        {id = "desc_mystery", type = "desc", text = "ui_mcm_bounty_hunt_mystery_desc"},
+
+        -- Шанс, что охота превратится в выезд ИИГ (при высоком рейтинге)
+        {id = "isg_chance", type = "track", val = 2, min = 0, max = 100, step = 5, def = 35},
+        {id = "desc_isg_chance", type = "desc", text = "ui_mcm_bounty_hunt_isg_chance_desc"},
+
+
+        -- === Вкладка 2: Слухи и угрозы (Trash Talk) ===
+        { id = "trash_title", type = "slide", link = "ui_options_slider_player", text = "ui_mcm_bounty_hunt_title_trash", size = {512, 50}, spacing = 20 },
+
+        -- Вкл/выкл скрипта
+        {id = "trash_enable", type = "check", val = 1, def = true},
+        -- Шанс сообщения (%)
+        {id = "trash_chance", type = "track", val = 2, min = 1, max = 100, step = 1, def = 50},
+        {id = "desc_trash_chance", type = "desc", text = "ui_mcm_bounty_hunt_trash_chance_desc"},
+        -- Частота сообщений (в часах)
+        {id = "trash_delay", type = "track", val = 2, min = 1, max = 48, step = 1, def = 5},
+        {id = "desc_trash_delay", type = "desc", text = "ui_mcm_bounty_hunt_trash_delay_desc"},
+
+
+        -- === Вкладка 3: Параноики и охотники (Paranoid Chat) ===
+        { id = "paranoid_title", type = "slide", link = "ui_options_slider_player", text = "ui_mcm_bounty_hunt_title_paranoid", size = {512, 50}, spacing = 20 },
+
+        -- Вкл/выкл параноидальных тредов
+        {id = "paranoid_enable", type = "check", val = 1, def = true},
+
+        -- Шанс запуска треда при срабатывании таймера (%)
+        {id = "paranoid_chance", type = "track", val = 2, min = 0, max = 100, step = 5, def = 40},
+        {id = "desc_paranoid_chance", type = "desc", text = "ui_mcm_bounty_hunt_paranoid_chance_desc"},
+
+        -- Период между попытками запустить новый тред (в часах)
+        {id = "paranoid_delay", type = "track", val = 2, min = 1, max = 24, step = 1, def = 6},
+        {id = "desc_paranoid_delay", type = "desc", text = "ui_mcm_bounty_hunt_paranoid_delay_desc"},
+
+        -- Максимальное количество ответов в одном треде
+        {id = "paranoid_replies", type = "track", val = 2, min = 0, max = 5, step = 1, def = 3},
+        {id = "desc_paranoid_replies", type = "desc", text = "ui_mcm_bounty_hunt_paranoid_replies_desc"},
+
+        -- Приоритет враждебных фракций среди отвечающих (%)
+        {id = "paranoid_hostile_weight", type = "track", val = 2, min = 0, max = 100, step = 5, def = 70},
+        {id = "desc_paranoid_hostile_weight", type = "desc", text = "ui_mcm_bounty_hunt_paranoid_hostile_weight_desc"},
+    }
+}
+
+function on_mcm_load()
+    return op
+end

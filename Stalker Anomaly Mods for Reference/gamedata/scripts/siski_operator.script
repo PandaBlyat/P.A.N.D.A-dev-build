@@ -1,0 +1,367 @@
+siski = siski or {}
+
+local tonumber = _G.tonumber
+local type     = _G.type
+local pcall    = _G.pcall
+local next     = _G.next
+local alife    = _G.alife
+local time_global = _G.time_global
+local level = _G.level
+
+local OPERATOR_TIME_BUDGET_MS = 10
+local REST_RECOVERY_SCAN_BUDGET = 12
+local REST_RECOVERY_APPLY_BUDGET = 1
+
+local function ensure_class()
+    local type = type
+    if type(siski.class) == "function" then
+        local ok, probe = pcall(siski.class, "_probe")
+        if ok and type(probe) == "table" then
+            return
+        end
+    end
+
+    if require then
+        pcall(require, "siski_oop")
+    end
+
+    local function define()
+        function siski.class(name)
+            local cls = {}
+            cls.__index = cls
+            cls.__name = name or "class"
+            function cls.new(...)
+                local self = setmetatable({}, cls)
+                if self.__init then
+                    self:__init(...)
+                end
+                return self
+            end
+            return cls
+        end
+    end
+
+    if type(siski.class) ~= "function" then
+        define()
+        return
+    end
+
+    local ok2, probe2 = pcall(siski.class, "_probe")
+    if not (ok2 and type(probe2) == "table") then
+        define()
+    end
+end
+
+ensure_class()
+
+local Operator = siski.class("Operator")
+Operator.__index = Operator
+
+local function should_manage_squad(se_squad)
+    if siski.memory and siski.memory.should_manage_squad then
+        return siski.memory.should_manage_squad(se_squad) == true
+    end
+    return false
+end
+
+local function is_protected_squad(se_squad, sid)
+    if siski.memory and siski.memory.is_protected_squad then
+        return siski.memory.is_protected_squad(se_squad) == true
+    end
+    local companions = axr_companions and axr_companions.companion_squads or nil
+    if type(companions) == "table" then
+        return companions[sid] ~= nil or companions[tostring(sid)] ~= nil
+    end
+    return false
+end
+
+local function mark_missed(squad_id, source, reason)
+    if siski.memory and siski.memory.mark_squad_missed then
+        siski.memory.mark_squad_missed(squad_id, source, reason)
+    end
+end
+
+local function purge_entry(squad_id, reason, source)
+    if siski.memory and siski.memory.purge_squad_entry then
+        return siski.memory.purge_squad_entry(squad_id, reason, source) == true
+    end
+    return false
+end
+
+local function validate_live(se_squad, source)
+    if siski.memory and siski.memory.validate_live_squad then
+        return siski.memory.validate_live_squad(se_squad, source)
+    end
+    local sid = tonumber(se_squad and se_squad.id)
+    if se_squad and sid then
+        return true, sid, nil, nil
+    end
+    return false, sid, "validate_unavailable", "soft"
+end
+
+local function should_force_rest_recovery(squad_id, now)
+    if siski.memory and siski.memory.should_force_rest_recovery then
+        return siski.memory.should_force_rest_recovery(squad_id, now) == true
+    end
+    return false
+end
+
+local function get_entry_kind(sid)
+    if siski.memory and siski.memory.get_squad_entry then
+        local e = siski.memory.get_squad_entry(sid)
+        if type(e) == "table" then
+            return e.npc_kind
+        end
+    end
+    return nil
+end
+
+local function process_squad_modules(se_squad, sid)
+    local kind = get_entry_kind(sid)
+    if kind == "mutant" then
+        if siski.mutants and siski.mutants.update_squad_tasks then
+            siski.mutants.update_squad_tasks(se_squad)
+        elseif siski.tasks and siski.tasks.update_squad_tasks then
+            siski.tasks.update_squad_tasks(se_squad)
+        end
+        return
+    end
+
+    if siski.tasks and siski.tasks.update_squad_tasks then
+        siski.tasks.update_squad_tasks(se_squad)
+    end
+
+    if siski.loot and siski.loot.update_squad then
+        siski.loot.update_squad(se_squad)
+    end
+end
+
+function Operator:__init()
+    self.RUNTIME = {
+        queue = {},
+        in_queue = {},
+        cursor = 1,
+        rest_recovery_cursor = nil,
+    }
+end
+
+function Operator:_enqueue_squad(squad_id)
+    local id = tonumber(squad_id)
+    if not id then return end
+    if self.RUNTIME.in_queue[id] then return end
+    self.RUNTIME.in_queue[id] = true
+    self.RUNTIME.queue[#self.RUNTIME.queue + 1] = id
+end
+
+function Operator:_dequeue_next()
+    local q = self.RUNTIME.queue
+    local size = #q
+    if size == 0 then return nil end
+
+    local idx = self.RUNTIME.cursor
+    if idx > size then idx = 1 end
+
+    local id = q[idx]
+    q[idx] = q[size]
+    q[size] = nil
+    self.RUNTIME.cursor = idx
+    if id then
+        self.RUNTIME.in_queue[id] = nil
+    end
+    return id
+end
+
+function Operator:_on_first_update()
+    self.RUNTIME.queue = {}
+    self.RUNTIME.in_queue = {}
+    self.RUNTIME.cursor = 1
+    self.RUNTIME.rest_recovery_cursor = nil
+end
+
+function Operator:_on_update()
+    if not (siski.config and siski.config.get) then return end
+    local enabled = siski.config.get("enabled", true)
+    if enabled == false then return end
+
+    local budget = siski.config.get("operator_budget_per_tick", 6)
+    budget = tonumber(budget) or 6
+    if budget < 1 then return end
+
+    local sim_obj = alife and alife() or nil
+    if not sim_obj then return end
+
+    local adaptive = siski.adaptive
+    if adaptive and adaptive.get_module_budget then
+        budget = adaptive.get_module_budget("operator", budget, 1, 50, #(self.RUNTIME.queue or {}))
+    end
+    local started_tg = (time_global and time_global()) or 0
+    local adaptive_started = false
+    if adaptive and adaptive.tick_begin then
+        adaptive.tick_begin("operator", started_tg)
+        adaptive_started = true
+    end
+
+    local budget_ms = OPERATOR_TIME_BUDGET_MS
+    if adaptive and adaptive.get_operator_time_budget_ms then
+        budget_ms = tonumber(adaptive.get_operator_time_budget_ms(OPERATOR_TIME_BUDGET_MS, #(self.RUNTIME.queue or {}))) or OPERATOR_TIME_BUDGET_MS
+    end
+    if budget_ms < 1 then budget_ms = 1 end
+
+    local function finish(now_tg)
+        if adaptive_started and adaptive and adaptive.tick_end then
+            adaptive.tick_end("operator", now_tg or ((time_global and time_global()) or started_tg))
+        end
+    end
+
+    if adaptive and adaptive.stage_begin then
+        adaptive.stage_begin("operator.loop", started_tg)
+    end
+
+    for _ = 1, budget do
+        local now = (time_global and time_global()) or started_tg
+        if now >= (started_tg + budget_ms) then
+            if adaptive and adaptive.note_defer then
+                adaptive.note_defer("operator.slice", now, "time_budget")
+            end
+            break
+        end
+
+        local sid = self:_dequeue_next()
+        if not sid then break end
+
+        local se_squad = sim_obj:object(sid)
+        if not se_squad then
+            if not purge_entry(sid, "object_nil", "operator") then
+                mark_missed(sid, "operator", "object_nil")
+            end
+        else
+            local ok_live, valid_sid, reason, severity = validate_live(se_squad, "operator")
+            sid = valid_sid or sid
+            if not ok_live then
+                if severity == "hard" then
+                    if not purge_entry(sid, reason or "invalid_live", "operator") then
+                        mark_missed(sid, "operator", reason or "invalid_live")
+                    end
+                else
+                    mark_missed(sid, "operator", reason or "invalid_live")
+                end
+            elseif is_protected_squad(se_squad, sid) then
+                mark_missed(sid, "operator", "protected")
+            elseif should_manage_squad(se_squad) then
+                if siski.memory and siski.memory.update_squad_snapshot then
+                    siski.memory.update_squad_snapshot(se_squad)
+                end
+
+                process_squad_modules(se_squad, sid)
+            elseif (not is_protected_squad(se_squad, sid)) and should_force_rest_recovery(sid, now) then
+                if siski.memory and siski.memory.update_squad_snapshot then
+                    siski.memory.update_squad_snapshot(se_squad)
+                end
+                process_squad_modules(se_squad, sid)
+                if siski.log and siski.log.warn then
+                    siski.log.warn("OPERATOR", "FORCE_REST_RECOVERY sid=%s reason=identity_fail", tostring(sid))
+                end
+            else
+                mark_missed(sid, "operator", "identity_fail")
+            end
+        end
+    end
+
+    if adaptive and adaptive.stage_end then
+        adaptive.stage_end("operator.loop", (time_global and time_global()) or started_tg)
+    end
+
+    if siski.memory and siski.memory.get_state and siski.memory.should_force_rest_recovery and siski.tasks and siski.tasks.update_squad_tasks then
+        if adaptive and adaptive.stage_begin then
+            adaptive.stage_begin("operator.recovery_scan", (time_global and time_global()) or started_tg)
+        end
+        local st = siski.memory.get_state()
+        local squads = st and st.squads or nil
+        if type(squads) == "table" then
+            local scanned = 0
+            local applied = 0
+            local cursor = self.RUNTIME.rest_recovery_cursor
+
+            while scanned < REST_RECOVERY_SCAN_BUDGET and applied < REST_RECOVERY_APPLY_BUDGET do
+                local sid, entry = next(squads, cursor)
+                cursor = sid
+                if sid == nil then
+                    cursor = nil
+                    break
+                end
+                scanned = scanned + 1
+
+                local now = (time_global and time_global()) or started_tg
+                if siski.memory.should_force_rest_recovery(sid, now) == true then
+                    local se_squad = sim_obj:object(sid)
+                    if se_squad then
+                        local ok_live, valid_sid, reason, severity = validate_live(se_squad, "operator.recovery")
+                        sid = valid_sid or sid
+                        if not ok_live then
+                            if severity == "hard" then
+                                if not purge_entry(sid, reason or "invalid_live", "operator.recovery") then
+                                    mark_missed(sid, "operator", reason or "recovery_invalid_live")
+                                end
+                            else
+                                mark_missed(sid, "operator", reason or "recovery_invalid_live")
+                            end
+                        elseif is_protected_squad(se_squad, sid) then
+                            mark_missed(sid, "operator", "recovery_protected")
+                        else
+                            if siski.memory.update_squad_snapshot then
+                                siski.memory.update_squad_snapshot(se_squad)
+                            end
+                            process_squad_modules(se_squad, sid)
+                            applied = applied + 1
+                            if siski.log and siski.log.warn then
+                                local cur_level = "-"
+                                if level and level.name then
+                                    local ok_lvl, res_lvl = pcall(function() return level.name() end)
+                                    if ok_lvl and res_lvl then
+                                        cur_level = tostring(res_lvl)
+                                    end
+                                end
+                                siski.log.warn(
+                                    "OPERATOR",
+                                    "FORCE_REST_RECOVERY sid=%s cur_level=%s level=%s reason=memory_scan",
+                                    tostring(sid),
+                                    tostring(cur_level),
+                                    tostring(entry and entry.level or "-")
+                                )
+                            end
+                        end
+                    else
+                        if not purge_entry(sid, "recovery_object_nil", "operator.recovery") then
+                            mark_missed(sid, "operator", "recovery_object_nil")
+                        end
+                    end
+                end
+            end
+
+            self.RUNTIME.rest_recovery_cursor = cursor
+        end
+        if adaptive and adaptive.stage_end then
+            adaptive.stage_end("operator.recovery_scan", (time_global and time_global()) or started_tg)
+        end
+    end
+
+    finish((time_global and time_global()) or started_tg)
+end
+
+function Operator:_on_squad_npc_death(squad, npc, killer_npc, killer_squad)
+    if siski.memory and siski.memory.on_squad_npc_death then
+        siski.memory.on_squad_npc_death(squad)
+    end
+end
+
+local inst = Operator.new and Operator.new() or setmetatable({}, Operator)
+if not inst.RUNTIME then
+    Operator.__init(inst)
+end
+
+inst.enqueue_squad = function(squad_id) return inst:_enqueue_squad(squad_id) end
+inst.on_first_update = function() return inst:_on_first_update() end
+inst.on_update = function() return inst:_on_update() end
+inst.on_squad_npc_death = function(...) return inst:_on_squad_npc_death(...) end
+
+siski.operator = inst

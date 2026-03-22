@@ -1,0 +1,487 @@
+siski = siski or {}
+siski.fast_trading = siski.fast_trading or {}
+
+local fast_trading = siski.fast_trading
+
+local _G = _G
+local pcall = _G.pcall
+local tonumber = _G.tonumber
+local tostring = _G.tostring
+local type = _G.type
+local pairs = _G.pairs
+local next = _G.next
+local time_global = _G.time_global
+
+local function tg()
+    return (time_global and time_global()) or 0
+end
+
+local function cfg_get(key, default)
+    if not (siski.config and siski.config.get) then return default end
+    local ok, v = pcall(siski.config.get, key, default)
+    if ok then return v end
+    return default
+end
+
+local function cfg_num(key, default, min_v)
+    local v = tonumber(cfg_get(key, default)) or tonumber(default) or 0
+    if min_v ~= nil and v < min_v then
+        v = min_v
+    end
+    return v
+end
+
+local function cfg_bool(key, default)
+    local v = cfg_get(key, default)
+    if v == true or v == false then
+        return v
+    end
+    if tonumber(v) ~= nil then
+        return tonumber(v) ~= 0
+    end
+    if type(v) == "string" then
+        if v == "true" then return true end
+        if v == "false" then return false end
+    end
+    return default == true
+end
+
+local function is_enabled()
+    return cfg_bool("fast_trading_enabled", true)
+end
+
+local function get_delay_ms()
+    return cfg_num("fast_trading_delay_ms", 500, 0)
+end
+
+local function get_cooldown_ms()
+    return cfg_num("fast_trading_cooldown_ms", 60000, 0)
+end
+
+-- Cache for trigger prefixes
+local trigger_prefixes_cache = nil
+local trigger_prefixes_cache_tg = 0
+local TRIGGER_CACHE_TTL = 5000 -- 5 seconds
+
+local function get_trigger_prefixes()
+    local now = tg()
+    if trigger_prefixes_cache and (now - trigger_prefixes_cache_tg) < TRIGGER_CACHE_TTL then
+        return trigger_prefixes_cache
+    end
+    
+    trigger_prefixes_cache = {}
+    trigger_prefixes_cache_tg = now
+    
+    -- Try to get section from config
+    if siski.config and siski.config.get_section_set then
+        local ok, set = pcall(siski.config.get_section_set, "fast_trade_triggers")
+        if ok and type(set) == "table" then
+            for prefix, v in pairs(set) do
+                if v == true or v == "true" or tonumber(v) == 1 then
+                    trigger_prefixes_cache[#trigger_prefixes_cache + 1] = prefix
+                end
+            end
+        end
+    end
+    
+    -- Fallback: default to af_ if empty
+    if #trigger_prefixes_cache == 0 then
+        trigger_prefixes_cache = { "af_" }
+    end
+    
+    return trigger_prefixes_cache
+end
+
+local function matches_trigger_prefix(section)
+    if type(section) ~= "string" then return false end
+    local prefixes = get_trigger_prefixes()
+    for i = 1, #prefixes do
+        local prefix = prefixes[i]
+        if string.sub(section, 1, #prefix) == prefix then
+            return true
+        end
+    end
+    return false
+end
+
+local function get_squad_by_npc_id(npc_id)
+    npc_id = tonumber(npc_id) or 0
+    if npc_id <= 0 then return nil end
+    
+    local alife = _G.alife and _G.alife()
+    if not alife then return nil end
+    
+    local ok_obj, se_npc = pcall(function() return alife:object(npc_id) end)
+    if not (ok_obj and se_npc) then return nil end
+    
+    local ok_sid, squad_id = pcall(function() return se_npc.group_id end)
+    if not (ok_sid and tonumber(squad_id)) then return nil end
+    
+    local ok_squad, se_squad = pcall(function() return alife:object(tonumber(squad_id)) end)
+    if not (ok_squad and se_squad) then return nil end
+    
+    return se_squad, tonumber(squad_id)
+end
+
+local function is_squad_under_siski(se_squad, squad_id)
+    if not (siski.memory and siski.memory.get_squad_entry) then return false end
+    local entry = siski.memory.get_squad_entry(squad_id)
+    return entry ~= nil
+end
+
+local function is_surge_active()
+    local xc = _G.xr_conditions
+    local xf = xc and xc.surge_started or nil
+    if not xf then
+        local ok, result = pcall(function()
+            local ss = _G.surge_manager and _G.surge_manager.get_surge()
+            return ss and ss.started == true
+        end)
+        return ok and result == true
+    end
+    local ok, result = pcall(xf)
+    return ok and result == true
+end
+
+local function get_surge_lock(squad_id)
+    if siski.memory and siski.memory.get_surge_lock then
+        return siski.memory.get_surge_lock(squad_id) == true
+    end
+    return false
+end
+
+local function has_sellable_items(npc_obj, npc_id)
+    if not npc_obj then return false end
+    
+    -- First check vanilla/SISKI storage flag (set by prepare_trade_flags)
+    local st = _G.db and _G.db.storage and _G.db.storage[npc_id] or nil
+    if st and st.has_items_to_sell == true then
+        return true
+    end
+    
+    -- Fallback: check trade_items table
+    if st and type(st.trade_items) == "table" and next(st.trade_items) ~= nil then
+        return true
+    end
+    
+    -- Direct inventory check using trigger prefixes from config
+    local ok_inv, inv = pcall(function() return npc_obj:inventory() end)
+    if ok_inv and inv then
+        local ok_count, count = pcall(function() return inv:count() end)
+        if ok_count and tonumber(count) and count > 0 then
+            for i = 0, count - 1 do
+                local ok_item, item = pcall(function() return inv:item(i) end)
+                if ok_item and item then
+                    local ok_sec, sec = pcall(function() return item:section() end)
+                    if ok_sec and type(sec) == "string" then
+                        -- Check against configured trigger prefixes
+                        if matches_trigger_prefix(sec) then
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return false
+end
+
+local function deep_copy(t)
+    if type(t) ~= "table" then return t end
+    local copy = {}
+    for k, v in pairs(t) do
+        copy[k] = deep_copy(v)
+    end
+    return copy
+end
+
+local function save_current_task(entry)
+    if not entry then return false end
+    
+    -- Ensure tasks table exists
+    entry.tasks = entry.tasks or {}
+    
+    local current = entry.tasks.current
+    if current then
+        entry.tasks.prev_before_fast_trade = {
+            id = current.id,
+            type = current.type,
+            target = current.target,
+            params = deep_copy(current.params or {})
+        }
+    else
+        -- Mark that there was no previous task
+        entry.tasks.prev_before_fast_trade = {
+            type = "NONE",
+            no_prev_task = true
+        }
+    end
+    
+    return true
+end
+
+local function restore_previous_task(entry)
+    if not entry then return nil end
+    local saved = entry.tasks and entry.tasks.prev_before_fast_trade
+    if not saved then return nil end
+    
+    entry.tasks.prev_before_fast_trade = nil
+    
+    -- If there was no previous task, return nil to trigger normal task build
+    if saved.no_prev_task == true then
+        return nil
+    end
+    
+    return saved
+end
+
+local function trigger_fast_trade(se_squad, squad_id, npc_id, item_section)
+    if not (se_squad and squad_id) then return false end
+    
+    local entry = siski.memory and siski.memory.get_squad_entry(squad_id)
+    if not entry then return false end
+    
+    local current = entry.tasks and entry.tasks.current
+    if current and current.type == "TRADE" then
+        if siski.log and siski.log.warn then
+            siski.log.warn("FAST_TRADE", "already_in_trade sid=%s", tostring(squad_id))
+        end
+        return false
+    end
+    
+    if not save_current_task(entry) then
+        if siski.log and siski.log.warn then
+            siski.log.warn("FAST_TRADE", "save_failed sid=%s", tostring(squad_id))
+        end
+        return false
+    end
+    
+    if siski.log and siski.log.info then
+        siski.log.info("FAST_TRADE", "trigger sid=%s npc_id=%s item=%s prev_task=%s",
+            tostring(squad_id),
+            tostring(npc_id),
+            tostring(item_section or "-"),
+            tostring(current and current.type or "-")
+        )
+    end
+    
+    if current and current.params then
+        current.params.fast_trade_trigger = true
+        current.params.online_force_rebuild = true
+    end
+    
+    if siski.memory and siski.memory.mark_dirty then
+        siski.memory.mark_dirty(squad_id, "task")
+    end
+    
+    fast_trading.RUNTIME.active_trades[squad_id] = {
+        prev_task_type = current and current.type or nil,
+        started_tg = tg()
+    }
+    
+    return true
+end
+
+fast_trading.RUNTIME = {
+    pending_checks = {},
+    active_trades = {},
+    cooldowns = {},
+    last_cleanup_tg = 0,
+}
+
+function fast_trading.on_update()
+    if not is_enabled() then return end
+    
+    local now = tg()
+    local delay_ms = get_delay_ms()
+    
+    local pending = fast_trading.RUNTIME.pending_checks
+    local to_process = {}
+    
+    for npc_id, data in pairs(pending) do
+        if now >= (data.scheduled_tg or 0) then
+            to_process[#to_process + 1] = { npc_id = npc_id, data = data }
+            pending[npc_id] = nil
+        end
+    end
+    
+    for i = 1, #to_process do
+        local check = to_process[i]
+        fast_trading.process_check(check.npc_id, check.data)
+    end
+    
+    if now - fast_trading.RUNTIME.last_cleanup_tg > 60000 then
+        fast_trading.RUNTIME.last_cleanup_tg = now
+        
+        local cooldowns = fast_trading.RUNTIME.cooldowns
+        for sid, cd_tg in pairs(cooldowns) do
+            if now >= cd_tg then
+                cooldowns[sid] = nil
+            end
+        end
+    end
+end
+
+function fast_trading.process_check(npc_id, data)
+    if not (npc_id and data) then return end
+    
+    local se_squad, squad_id = get_squad_by_npc_id(npc_id)
+    if not (se_squad and squad_id) then
+        if siski.log and siski.log.debug then
+            siski.log.debug("FAST_TRADE", "validation_skip npc_id=%s reason=%s",
+                tostring(npc_id), "squad_not_found")
+        end
+        return
+    end
+    
+    if not is_squad_under_siski(se_squad, squad_id) then
+        if siski.log and siski.log.debug then
+            siski.log.debug("FAST_TRADE", "validation_skip sid=%s reason=%s",
+                tostring(squad_id), "not_under_siski")
+        end
+        return
+    end
+    
+    if is_surge_active() then
+        if siski.log and siski.log.debug then
+            siski.log.debug("FAST_TRADE", "validation_skip sid=%s reason=%s",
+                tostring(squad_id), "surge")
+        end
+        return
+    end
+    
+    if get_surge_lock(squad_id) then
+        if siski.log and siski.log.debug then
+            siski.log.debug("FAST_TRADE", "validation_skip sid=%s reason=%s",
+                tostring(squad_id), "surge_lock")
+        end
+        return
+    end
+    
+    local now = tg()
+    local cooldowns = fast_trading.RUNTIME.cooldowns
+    local cd_tg = tonumber(cooldowns[squad_id]) or 0
+    if now < cd_tg then
+        if siski.log and siski.log.debug then
+            siski.log.debug("FAST_TRADE", "validation_skip sid=%s reason=%s",
+                tostring(squad_id), "cooldown")
+        end
+        return
+    end
+    
+    local ok_level, npc_obj = pcall(function()
+        return _G.level and _G.level.object_by_id and _G.level.object_by_id(npc_id)
+    end)
+    if not (ok_level and npc_obj) then
+        if siski.log and siski.log.debug then
+            siski.log.debug("FAST_TRADE", "validation_skip sid=%s reason=%s",
+                tostring(squad_id), "npc_offline")
+        end
+        return
+    end
+    
+    if not has_sellable_items(npc_obj, npc_id) then
+        if siski.log and siski.log.debug then
+            siski.log.debug("FAST_TRADE", "validation_skip sid=%s reason=%s",
+                tostring(squad_id), "no_sellable")
+        end
+        return
+    end
+    
+    if trigger_fast_trade(se_squad, squad_id, npc_id, data.item_section) then
+        cooldowns[squad_id] = now + get_cooldown_ms()
+    end
+end
+
+function fast_trading.on_npc_item_take(npc, item)
+    if not is_enabled() then return end
+    if not (npc and item) then return end
+    
+    local ok_id, npc_id = pcall(function() return npc:id() end)
+    if not (ok_id and tonumber(npc_id)) then return end
+    
+    local ok_sec, item_section = pcall(function() return item:section() end)
+    item_section = ok_sec and item_section or nil
+    
+    -- Early filter: only register if item matches trigger prefixes
+    if item_section and not matches_trigger_prefix(item_section) then
+        return
+    end
+    
+    local now = tg()
+    local delay_ms = get_delay_ms()
+    
+    fast_trading.RUNTIME.pending_checks[npc_id] = {
+        scheduled_tg = now + delay_ms,
+        item_section = item_section,
+        added_tg = now
+    }
+end
+
+function fast_trading.on_trade_completed(squad_id, result)
+    if not is_enabled() then return end
+    squad_id = tonumber(squad_id)
+    if not squad_id then return end
+    
+    local active = fast_trading.RUNTIME.active_trades[squad_id]
+    if not active then return end
+    
+    fast_trading.RUNTIME.active_trades[squad_id] = nil
+    
+    local entry = siski.memory and siski.memory.get_squad_entry(squad_id)
+    if not entry then
+        if siski.log and siski.log.warn then
+            siski.log.warn("FAST_TRADE", "restore_failed sid=%s reason=%s",
+                tostring(squad_id), "entry_not_found")
+        end
+        return
+    end
+    
+    local saved = restore_previous_task(entry)
+    
+    if siski.log and siski.log.info then
+        siski.log.info("FAST_TRADE", "restore sid=%s prev_task=%s trade_result=%s",
+            tostring(squad_id),
+            tostring(saved and saved.type or "rebuild"),
+            tostring(result)
+        )
+    end
+    
+    -- If there was a previous task, restore it; otherwise trigger rebuild
+    if saved then
+        if siski.memory and siski.memory.set_task_current then
+            siski.memory.set_task_current(squad_id, saved)
+        end
+    end
+    
+    -- Always mark dirty to trigger task rebuild/reevaluation
+    if siski.memory and siski.memory.mark_dirty then
+        siski.memory.mark_dirty(squad_id, "task")
+    end
+    
+    -- Clear current task to force rebuild if no saved task
+    if not saved and entry.tasks then
+        entry.tasks.current = nil
+    end
+end
+
+function fast_trading.on_game_start()
+    if _G.RegisterScriptCallback then
+        _G.RegisterScriptCallback("npc_on_item_take", fast_trading.on_npc_item_take)
+    end
+end
+
+function fast_trading.get_runtime_stats()
+    return {
+        pending_count = next(fast_trading.RUNTIME.pending_checks) ~= nil and #fast_trading.RUNTIME.pending_checks or 0,
+        active_trades = next(fast_trading.RUNTIME.active_trades) ~= nil and #fast_trading.RUNTIME.active_trades or 0,
+        cooldown_count = next(fast_trading.RUNTIME.cooldowns) ~= nil and #fast_trading.RUNTIME.cooldowns or 0,
+        trigger_prefixes = get_trigger_prefixes(),
+    }
+end
+
+function fast_trading.reset_cache()
+    trigger_prefixes_cache = nil
+    trigger_prefixes_cache_tg = 0
+end

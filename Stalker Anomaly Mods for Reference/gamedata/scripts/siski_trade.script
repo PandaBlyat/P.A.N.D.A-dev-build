@@ -1,0 +1,1288 @@
+siski = siski or {}
+siski.trade = siski.trade or {}
+
+local trade = siski.trade
+
+local _G = _G
+local pcall = _G.pcall
+local next = _G.next
+local math = _G.math
+local math_floor = math and math.floor or nil
+local tonumber = _G.tonumber
+local tostring = _G.tostring
+local type = _G.type
+local pairs = _G.pairs
+local string = _G.string
+local time_global = _G.time_global
+
+local function tg()
+    return (time_global and time_global()) or 0
+end
+
+local function cfg_num(key, default, min_v)
+    local v = tonumber(default) or 0
+    if siski.config and siski.config.get then
+        local x = siski.config.get(key, default)
+        if tonumber(x) then
+            v = tonumber(x)
+        end
+    end
+    if min_v ~= nil and v < min_v then
+        v = min_v
+    end
+    return v
+end
+
+local function get_board()
+    if _G.SIMBOARD then return _G.SIMBOARD end
+    if _G.sim_board and _G.sim_board.get_sim_board then
+        local ok, b = pcall(function() return _G.sim_board.get_sim_board() end)
+        if ok then return b end
+    end
+    return nil
+end
+
+local function safe_obj_by_id(id)
+    if not id then return nil end
+    if _G.level and _G.level.object_by_id then
+        local ok, obj = pcall(function() return _G.level.object_by_id(id) end)
+        if ok and obj then return obj end
+    end
+    local st = _G.db and _G.db.storage and _G.db.storage[id]
+    return st and st.object or nil
+end
+
+local function split_csv(s)
+    if type(s) ~= "string" or s == "" then return {} end
+    local t = {}
+    local n = 0
+    for part in string.gmatch(s, "([^,]+)") do
+        n = n + 1
+        t[n] = string.gsub(part, "^%s*(.-)%s*$", "%1")
+    end
+    return t
+end
+
+local no_trade_comm = {
+    zombied = true,
+    army = true,
+    monolith = true,
+    greh = true,
+    isg = true,
+}
+
+local RUNTIME = {
+    ini = nil,
+    ini_next_retry_tg = 0,
+    ini_retry_ms = 30000,
+    ini_sys = nil,
+    buy_sell_line = {},
+    buy_sell_params = {},
+    valid_buy_sell = nil,
+    valid_buy_sell_next_retry_tg = 0,
+    surge_cache_active = false,
+    surge_cache_next_tg = 0,
+    perf_warn_next_tg = {},
+}
+
+local function perf_warn_once(key, fmt, ...)
+    if not (siski.log and siski.log.warn) then return end
+    local now = tg()
+    local interval = cfg_num("perf_warn_interval_ms", 10000, 1000)
+    local next_tg = tonumber(RUNTIME.perf_warn_next_tg[key]) or 0
+    if now < next_tg then return end
+    RUNTIME.perf_warn_next_tg[key] = now + interval
+    siski.log.warn("PERF", fmt, ...)
+end
+
+local function surge_started_uncached()
+    local xc = _G.xr_conditions
+    local xf = xc and xc.surge_started or nil
+    if type(xf) == "function" then
+        local ok, res = pcall(xf)
+        if ok and res == true then return true, false end
+        if ok and res == false then return false, false end
+    end
+
+    local fallback_used = false
+
+    local f = _G.surge_started
+    if type(f) == "function" then
+        fallback_used = true
+        local ok, res = pcall(f)
+        if ok and res == true then return true, fallback_used end
+        if ok and res == false then return false, fallback_used end
+    end
+
+    local psm = _G.psi_storm_manager
+    if psm and type(psm.is_loaded) == "function" and type(psm.is_started) == "function" then
+        fallback_used = true
+        local okL, loaded = pcall(function() return psm.is_loaded() end)
+        if okL and loaded == true then
+            local okS, started = pcall(function() return psm.is_started() end)
+            if okS and started == true then return true, fallback_used end
+        end
+    end
+
+    local sm = _G.surge_manager
+    if sm and type(sm.is_loaded) == "function" and type(sm.is_started) == "function" then
+        fallback_used = true
+        local okL, loaded = pcall(function() return sm.is_loaded() end)
+        if okL and loaded == true then
+            local okS, started = pcall(function() return sm.is_started() end)
+            if okS and started == true then return true, fallback_used end
+        end
+    end
+
+    if _G.level and type(_G.level.is_surge) == "function" then
+        fallback_used = true
+        local ok, res = pcall(function() return _G.level.is_surge() end)
+        if ok and res == true then return true, fallback_used end
+    end
+    return false, fallback_used
+end
+
+local function is_surge_started(force_refresh)
+    local now = tg()
+    if force_refresh ~= true and now < (tonumber(RUNTIME.surge_cache_next_tg) or 0) then
+        return RUNTIME.surge_cache_active == true
+    end
+
+    local active, fallback_used = surge_started_uncached()
+    local cache_ms = cfg_num("surge_check_cache_ms", 250, 0)
+    RUNTIME.surge_cache_active = active == true
+    RUNTIME.surge_cache_next_tg = now + cache_ms
+
+    if fallback_used then
+        perf_warn_once("PERF_SURGE_CHECK_FALLBACK_TRADE", "PERF_SURGE_CHECK_FALLBACK source=trade")
+    end
+    return active == true
+end
+
+local function get_trade_ini()
+    if RUNTIME.ini then return RUNTIME.ini end
+    if tg() < (RUNTIME.ini_next_retry_tg or 0) then return nil end
+    if not _G.ini_file then
+        RUNTIME.ini_next_retry_tg = tg() + RUNTIME.ini_retry_ms
+        return nil
+    end
+    local ok, ini = pcall(function() return _G.ini_file("items\\trade\\gulag_job_trade_buy_sell.ltx") end)
+    if ok and ini then
+        RUNTIME.ini = ini
+        return ini
+    end
+    RUNTIME.ini_next_retry_tg = tg() + RUNTIME.ini_retry_ms
+    return nil
+end
+
+local function get_ini_sys()
+    if RUNTIME.ini_sys then return RUNTIME.ini_sys end
+    if type(_G.ini_sys) == "userdata" or type(_G.ini_sys) == "table" then
+        RUNTIME.ini_sys = _G.ini_sys
+        return RUNTIME.ini_sys
+    end
+    if type(_G.system_ini) == "function" then
+        local ok, ini = pcall(_G.system_ini)
+        if ok and ini then
+            RUNTIME.ini_sys = ini
+            return ini
+        end
+    end
+    return nil
+end
+
+local function ensure_utils_data()
+    if type(_G.utils_data) == "table" and type(_G.utils_data.collect_section) == "function" then
+        return true
+    end
+    local req = _G.require
+    if type(req) == "function" then
+        pcall(req, "utils_data")
+    end
+    return type(_G.utils_data) == "table" and type(_G.utils_data.collect_section) == "function"
+end
+
+local function get_valid_buy_sell_fallback(ini)
+    if not (ini and ini.section_exist and ini.line_count and ini.r_line) then
+        return nil
+    end
+    local ok_sec, exist = pcall(function() return ini:section_exist("buy_sell") end)
+    if not (ok_sec and exist) then return nil end
+    local ok_cnt, cnt = pcall(function() return ini:line_count("buy_sell") end)
+    cnt = ok_cnt and tonumber(cnt) or nil
+    if not cnt or cnt <= 0 then return nil end
+    local out = {}
+    for idx = 0, cnt - 1 do
+        local ok_line, k, _ = pcall(function() return ini:r_line("buy_sell", idx) end)
+        if ok_line and type(k) == "string" and k ~= "" and string.sub(k, 1, 1) ~= ";" then
+            out[k] = true
+        end
+    end
+    return next(out) ~= nil and out or nil
+end
+
+local function get_valid_buy_sell(ini)
+    if RUNTIME.valid_buy_sell then return RUNTIME.valid_buy_sell end
+    local now = tg()
+    if now < (tonumber(RUNTIME.valid_buy_sell_next_retry_tg) or 0) then
+        return nil
+    end
+    local tbl = nil
+    if ensure_utils_data() then
+        local ok, res = pcall(function() return _G.utils_data.collect_section(ini, "buy_sell", true) end)
+        if ok and type(res) == "table" then
+            tbl = res
+        end
+    end
+    if not tbl then
+        tbl = get_valid_buy_sell_fallback(ini)
+    end
+    if type(tbl) == "table" then
+        RUNTIME.valid_buy_sell = tbl
+        return tbl
+    end
+    RUNTIME.valid_buy_sell_next_retry_tg = now + 30000
+    return nil
+end
+
+local function get_buy_sell_params(ini, sec)
+    if not (ini and sec) then return nil end
+    local cached = RUNTIME.buy_sell_params[sec]
+    if cached ~= nil and cached ~= false then
+        return cached
+    end
+    local ok_bs, bs = pcall(function() return ini:r_string_ex("buy_sell", sec) end)
+    if not (ok_bs and type(bs) == "string" and bs ~= "") then
+        RUNTIME.buy_sell_params[sec] = nil
+        return nil
+    end
+    local a = split_csv(bs)
+    local out = {
+        sell_keep = tonumber(a[1]) or 0,
+        sell_thr = tonumber(a[2]) or 999999,
+        buy_target = tonumber(a[3]) or 0,
+        sell_mult = tonumber(a[4]) or 1,
+        buy_mult = tonumber(a[5]) or 1,
+    }
+    RUNTIME.buy_sell_params[sec] = out
+    return out
+end
+
+local function should_track_section(ini, sec)
+    if not (ini and sec) then return false end
+    local cached = RUNTIME.buy_sell_line[sec]
+    if cached == true then
+        return true
+    end
+    local ok_bs, bs = pcall(function() return ini:r_string_ex("buy_sell", sec) end)
+    local v = ok_bs and type(bs) == "string" and bs ~= ""
+    if v then
+        RUNTIME.buy_sell_line[sec] = true
+        return true
+    end
+    return false
+end
+
+local function parse_list(s)
+    if type(s) ~= "string" or s == "" then return nil end
+    local out = {}
+    local n = 0
+    for part in string.gmatch(s, "([^,%s]+)") do
+        n = n + 1
+        out[n] = part
+    end
+    return n > 0 and out or nil
+end
+
+local function get_force_buy_sections()
+    if siski.config and siski.config.get_section_list then
+        local ok, list = pcall(function() return siski.config.get_section_list("trade_force_buy_sections") end)
+        if ok and type(list) == "table" and #list > 0 then
+            return list
+        end
+    end
+    return { "bandage", "medkit", "medkit_army", "medkit_scientic", "antirad", "bread", "kolbasa", "conserva", "vodka" }
+end
+
+local function make_set(list)
+    local set = {}
+    for i = 1, (list and #list or 0) do
+        local v = list[i]
+        if type(v) == "string" and v ~= "" then
+            set[v] = true
+        end
+    end
+    return set
+end
+
+local function count_inventory_sections(npc, wanted_set)
+    if not (npc and wanted_set and npc.iterate_inventory) then return nil end
+    local out = {}
+    local function itr(_, itm)
+        if not itm then return end
+        local ok_sec, sec = pcall(function() return itm:section() end)
+        if not (ok_sec and sec and wanted_set[sec]) then return end
+        out[sec] = (tonumber(out[sec]) or 0) + 1
+    end
+    local ok = pcall(function() npc:iterate_inventory(itr, npc) end)
+    return ok and out or nil
+end
+
+local function pick_trader_id_from_smart(smart)
+    return infer_seller_id_from_smart(smart)
+end
+
+local function get_item_cost_ru(ini_sys, trade_ini, sec)
+    if not (ini_sys and sec) then return nil end
+    local ok_cost, base_cost = pcall(function() return ini_sys:r_float_ex(sec, "cost") end)
+    base_cost = ok_cost and (tonumber(base_cost) or 30) or 30
+    local mult = 1
+    if trade_ini then
+        local pbs = get_buy_sell_params(trade_ini, sec)
+        if pbs and tonumber(pbs.buy_mult) then
+            mult = tonumber(pbs.buy_mult)
+        end
+    end
+    local total = math_floor and math_floor(base_cost * mult) or tonumber(base_cost * mult)
+    total = tonumber(total) or nil
+    if total and total > 0 then return total end
+    return nil
+end
+
+local function try_extra_buy(leader, leader_id, entry, smart, job, params)
+    if not (leader and leader_id and smart and params and siski and siski.config and siski.config.get) then return end
+
+    if siski.config.get("trade_extra_buy_enabled", false) ~= true then
+        return
+    end
+
+    local now = tg()
+    local cd = tonumber(params.trade_extra_buy_cd_ms) or 0
+    if cd <= 0 then
+        local v = siski.config.get("trade_extra_buy_cd_ms", 5000)
+        cd = tonumber(v) or 5000
+        if cd < 500 then cd = 500 end
+        params.trade_extra_buy_cd_ms = cd
+    end
+    if now < (tonumber(params.trade_extra_buy_next_tg) or 0) then return end
+    params.trade_extra_buy_next_tg = now + cd
+
+    local ok_m, m = pcall(function() return leader:money() end)
+    local money = ok_m and (tonumber(m) or 0) or 0
+    local min_money = tonumber(siski.config.get("trade_extra_buy_min_money", 300)) or 300
+    if min_money < 0 then min_money = 0 end
+    if money < min_money then
+        if siski.log and siski.log.debug and not params.trade_extra_buy_dbg_low_money then
+            params.trade_extra_buy_dbg_low_money = true
+            siski.log.debug("TRADE", "extra_buy skip: low_money sid=%s level=%s target=%s money=%s min=%s",
+                tostring(entry and entry.squad_id or "-"),
+                tostring(entry and entry.level or "-"),
+                tostring(params.trade_last_target or "-"),
+                tostring(money),
+                tostring(min_money)
+            )
+        end
+        return
+    end
+
+    local seller_id = job and (tonumber(job.seller_id) or tonumber(job.seller)) or nil
+    if not seller_id then
+        seller_id = tonumber(params.trade_extra_buy_trader_id)
+    end
+    if not seller_id then
+        seller_id = pick_trader_id_from_smart(smart)
+    end
+    params.trade_extra_buy_trader_id = seller_id
+    if not seller_id then
+        if siski.log and siski.log.debug and not params.trade_extra_buy_dbg_no_seller_id then
+            params.trade_extra_buy_dbg_no_seller_id = true
+            siski.log.debug("TRADE", "extra_buy skip: no_seller_id sid=%s level=%s target=%s",
+                tostring(entry and entry.squad_id or "-"),
+                tostring(entry and entry.level or "-"),
+                tostring(params.trade_last_target or "-")
+            )
+        end
+        return
+    end
+
+    local seller = safe_obj_by_id(seller_id)
+    if not seller then
+        if siski.log and siski.log.debug and not params.trade_extra_buy_dbg_no_seller_obj then
+            params.trade_extra_buy_dbg_no_seller_obj = true
+            siski.log.debug("TRADE", "extra_buy skip: seller_offline sid=%s level=%s target=%s seller_id=%s",
+                tostring(entry and entry.squad_id or "-"),
+                tostring(entry and entry.level or "-"),
+                tostring(params.trade_last_target or "-"),
+                tostring(seller_id)
+            )
+        end
+        return
+    end
+
+    local budget = tonumber(siski.config.get("trade_extra_buy_budget_per_tick", 4)) or 4
+    if budget < 1 then return end
+    if budget > 24 then budget = 24 end
+
+    local ini_sys = get_ini_sys()
+    if not ini_sys then return end
+    local trade_ini = get_trade_ini()
+
+    local bw_sec = nil
+    local ok_bw, bw = pcall(function() return leader:best_weapon() or leader:active_item() end)
+    if ok_bw and bw then
+        local ok_bwsec, s = pcall(function() return bw:section() end)
+        bw_sec = ok_bwsec and s or nil
+    end
+
+    local ammo_target = tonumber(siski.config.get("trade_extra_buy_ammo_target", 10)) or 10
+    if ammo_target < 1 then ammo_target = 1 end
+    local item_target = tonumber(siski.config.get("trade_extra_buy_item_target", 3)) or 3
+    if item_target < 1 then item_target = 1 end
+
+    local ammo_list = nil
+    if bw_sec and ini_sys and ini_sys.r_string_ex then
+        local ok_am, am = pcall(function() return ini_sys:r_string_ex(bw_sec, "ammo_class") end)
+        if ok_am and type(am) == "string" and am ~= "" then
+            ammo_list = parse_list(am)
+        end
+    end
+
+    local force_list = get_force_buy_sections()
+    local wanted = {}
+    if ammo_list then
+        for i = 1, #ammo_list do
+            wanted[ammo_list[i]] = true
+        end
+    end
+    local force_set = make_set(force_list)
+    for k in pairs(force_set) do
+        wanted[k] = true
+    end
+
+    local inv = count_inventory_sections(leader, wanted)
+    if not inv then
+        if siski.log and siski.log.debug and not params.trade_extra_buy_dbg_no_inv then
+            params.trade_extra_buy_dbg_no_inv = true
+            siski.log.debug("TRADE", "extra_buy skip: no_inv sid=%s level=%s target=%s",
+                tostring(entry and entry.squad_id or "-"),
+                tostring(entry and entry.level or "-"),
+                tostring(params.trade_last_target or "-")
+            )
+        end
+        return
+    end
+
+    local alife_create_item = _G.alife_create_item
+    if type(alife_create_item) ~= "function" then return end
+
+    local bought_items = 0
+    local bought_ru = 0
+
+    local function buy_one(sec)
+        if not sec then return false end
+        local cost = get_item_cost_ru(ini_sys, trade_ini, sec)
+        if not cost or money < cost then return false end
+        local ok_create, se_item = pcall(function() return alife_create_item(sec, leader) end)
+        if not (ok_create and se_item) then
+            if siski.log and siski.log.debug and not params.trade_extra_buy_dbg_create_fail then
+                params.trade_extra_buy_dbg_create_fail = true
+                siski.log.debug("TRADE", "extra_buy fail: create sid=%s level=%s target=%s sec=%s",
+                    tostring(entry and entry.squad_id or "-"),
+                    tostring(entry and entry.level or "-"),
+                    tostring(params.trade_last_target or "-"),
+                    tostring(sec)
+                )
+            end
+            return false
+        end
+        local ok_pay = pcall(function() return leader:transfer_money(cost, seller) end)
+        if not ok_pay then
+            local rel = _G.alife_release_id
+            if type(rel) == "function" then
+                local ok_i, iid = pcall(function() return se_item:id() end)
+                iid = ok_i and tonumber(iid) or nil
+                if iid then
+                    pcall(rel, iid)
+                end
+            end
+            if siski.log and siski.log.debug and not params.trade_extra_buy_dbg_pay_fail then
+                params.trade_extra_buy_dbg_pay_fail = true
+                siski.log.debug("TRADE", "extra_buy fail: pay sid=%s level=%s target=%s sec=%s cost=%s seller_id=%s",
+                    tostring(entry and entry.squad_id or "-"),
+                    tostring(entry and entry.level or "-"),
+                    tostring(params.trade_last_target or "-"),
+                    tostring(sec),
+                    tostring(cost),
+                    tostring(seller_id)
+                )
+            end
+            return false
+        end
+        money = money - cost
+        bought_items = bought_items + 1
+        bought_ru = bought_ru + cost
+        inv[sec] = (tonumber(inv[sec]) or 0) + 1
+        return true
+    end
+
+    local need_extra = false
+    for i = 1, (force_list and #force_list or 0) do
+        local sec = force_list[i]
+        if sec and (tonumber(inv[sec]) or 0) < item_target then
+            need_extra = true
+            break
+        end
+    end
+    local items_budget = need_extra and math.max(1, math.floor(budget / 2)) or 0
+
+    if items_budget > 0 then
+        for i = 1, (force_list and #force_list or 0) do
+            local sec = force_list[i]
+            while bought_items < items_budget and sec and (tonumber(inv[sec]) or 0) < item_target do
+                if not buy_one(sec) then break end
+            end
+            if bought_items >= items_budget then break end
+        end
+    end
+
+    if ammo_list and bought_items < budget then
+        for i = 1, #ammo_list do
+            local asec = ammo_list[i]
+            while bought_items < budget and asec and (tonumber(inv[asec]) or 0) < ammo_target do
+                if not buy_one(asec) then break end
+            end
+            if bought_items >= budget then break end
+        end
+    end
+
+    if bought_items < budget then
+        for i = 1, (force_list and #force_list or 0) do
+            local sec = force_list[i]
+            while bought_items < budget and sec and (tonumber(inv[sec]) or 0) < item_target do
+                if not buy_one(sec) then break end
+            end
+            if bought_items >= budget then break end
+        end
+    end
+
+    if bought_items > 0 then
+        params.trade_buy_items = (tonumber(params.trade_buy_items) or 0) + bought_items
+        params.trade_buy_total_value = (tonumber(params.trade_buy_total_value) or 0) + bought_ru
+        if siski.log and siski.log.debug then
+            siski.log.debug("TRADE", "extra_buy ok sid=%s level=%s target=%s bought_items=%s bought_ru=%s",
+                tostring(entry and entry.squad_id or "-"),
+                tostring(entry and entry.level or "-"),
+                tostring(params.trade_last_target or "-"),
+                tostring(bought_items),
+                tostring(bought_ru)
+            )
+        end
+    elseif siski.log and siski.log.debug and not params.trade_extra_buy_dbg_nothing then
+        params.trade_extra_buy_dbg_nothing = true
+        siski.log.debug("TRADE", "extra_buy none sid=%s level=%s target=%s money=%s bw=%s ammo_target=%s item_target=%s",
+            tostring(entry and entry.squad_id or "-"),
+            tostring(entry and entry.level or "-"),
+            tostring(params.trade_last_target or "-"),
+            tostring(money),
+            tostring(bw_sec or "-"),
+            tostring(ammo_target),
+            tostring(item_target)
+        )
+    end
+end
+
+local function infer_seller_id_from_smart(smart)
+    if not smart then return nil end
+
+    local by_job = smart.npc_by_job_section
+    if type(by_job) == "table" then
+        local best = nil
+        for sec, nid in pairs(by_job) do
+            if type(sec) == "string" then
+                local s = string.lower(sec)
+                if string.find(s, "barman", 1, true) ~= nil then
+                    return tonumber(nid) or nil
+                end
+                if best == nil and (string.find(s, "trader", 1, true) ~= nil or string.find(s, "_trade_", 1, true) ~= nil) then
+                    best = tonumber(nid) or best
+                end
+            end
+        end
+        if best then return best end
+    end
+
+    local npc_info = smart.npc_info
+    if type(npc_info) == "table" then
+        local best = nil
+        for nid, info in pairs(npc_info) do
+            local se = info and info.se_obj or nil
+            if se and se.name then
+                local ok_n, nm = pcall(function() return se:name() end)
+                if ok_n and type(nm) == "string" then
+                    local s = string.lower(nm)
+                    if string.find(s, "_barman", 1, true) ~= nil then
+                        return tonumber(nid) or nil
+                    end
+                    if best == nil and string.find(s, "_trader", 1, true) ~= nil then
+                        best = tonumber(nid) or best
+                    end
+                end
+            end
+        end
+        if best then return best end
+    end
+
+    return nil
+end
+
+local function get_seller_for_buyer(npc)
+    if not (npc and _G.xr_gulag and type(_G.xr_gulag.get_npc_smart) == "function") then return nil end
+    local ok_id, id = pcall(function() return npc:id() end)
+    id = ok_id and tonumber(id) or nil
+    if not id then return nil end
+    local ok_sm, smart = pcall(function() return _G.xr_gulag.get_npc_smart(npc) end)
+    smart = ok_sm and smart or nil
+    local npc_info = smart and smart.npc_info and smart.npc_info[id] or nil
+    local job = npc_info and npc_info.job or nil
+    local seller_id = job and tonumber(job.seller_id) or nil
+    if not seller_id then
+        seller_id = infer_seller_id_from_smart(smart)
+        if seller_id and job then
+            job.seller_id = seller_id
+        end
+    end
+    if not seller_id then return nil end
+    return safe_obj_by_id(seller_id)
+end
+
+local function buy_all_from_buy_sell(npc, seller, ini, ini_sys, budget, skip_ammo)
+    if not (npc and seller and ini and ini_sys and budget and budget > 0) then return 0, 0 end
+
+    local ok_money, m = pcall(function() return npc:money() end)
+    local money = ok_money and (tonumber(m) or 0) or 0
+    if money <= 0 then return 0, 0 end
+
+    local valid = get_valid_buy_sell(ini)
+    if type(valid) ~= "table" then return 0, 0 end
+
+    local item_list = {}
+    local function itr(_, itm)
+        if not itm then return end
+        local ok_sec, sec = pcall(function() return itm:section() end)
+        if ok_sec and sec and valid[sec] then
+            item_list[sec] = (tonumber(item_list[sec]) or 0) + 1
+        end
+    end
+    if npc.iterate_inventory then
+        pcall(function() npc:iterate_inventory(itr, npc) end)
+    end
+
+    local bw_sec = nil
+    local ok_bw, bw = pcall(function() return npc:best_weapon() end)
+    if ok_bw and bw then
+        local ok_s, s = pcall(function() return bw:section() end)
+        bw_sec = ok_s and s or nil
+    end
+
+    local bw_ammos = nil
+    if bw_sec and ini_sys and ini_sys.r_string_ex then
+        local ok_am, am = pcall(function() return ini_sys:r_string_ex(bw_sec, "ammo_class") end)
+        if ok_am and type(am) == "string" and am ~= "" then
+            local list = parse_list(am)
+            if list then
+                bw_ammos = {}
+                for i = 1, #list do
+                    bw_ammos[list[i]] = true
+                end
+            end
+        end
+    end
+
+    local IsItem = _G.IsItem
+    local alife_create_item = _G.alife_create_item
+    if type(alife_create_item) ~= "function" then return 0, 0 end
+
+    local bought = 0
+    local spent = 0
+
+    for sec in pairs(valid) do
+        if bought >= budget or money <= 0 then break end
+
+        if skip_ammo then
+            local is_ammo = false
+            if type(IsItem) == "function" then
+                local ok_ai, r = pcall(IsItem, "ammo", sec)
+                is_ammo = ok_ai and r == true
+            end
+            if is_ammo or (bw_ammos and bw_ammos[sec]) then
+                goto continue
+            end
+        end
+
+        local pbs = get_buy_sell_params(ini, sec)
+        local target = pbs and (tonumber(pbs.buy_target) or 0) or 0
+        if target <= 0 then
+            goto continue
+        end
+
+        local have = tonumber(item_list[sec]) or 0
+        if have >= target then
+            goto continue
+        end
+
+        local ok_cost, base_cost = pcall(function() return ini_sys:r_float_ex(sec, "cost") end)
+        base_cost = ok_cost and (tonumber(base_cost) or 30) or 30
+        local total_cost = math_floor and math_floor(base_cost * (pbs.buy_mult or 1)) or tonumber(base_cost * (pbs.buy_mult or 1))
+        total_cost = tonumber(total_cost) or 0
+        if total_cost <= 0 then
+            goto continue
+        end
+
+        local need = target - have
+        for _ = 1, need do
+            if bought >= budget or money < total_cost then break end
+            local ok_create = pcall(function() return alife_create_item(sec, npc) end)
+            if not ok_create then break end
+            local ok_pay = pcall(function() return npc:transfer_money(total_cost, seller) end)
+            if not ok_pay then break end
+            bought = bought + 1
+            spent = spent + total_cost
+            money = money - total_cost
+            item_list[sec] = (tonumber(item_list[sec]) or 0) + 1
+        end
+
+        ::continue::
+    end
+
+    return bought, spent
+end
+
+local function install_buy_all_patch()
+    if _G._siski_trade_buy_all_patched then return end
+    if not (siski and siski.config and siski.config.get) then return end
+    local ok_en, enabled = pcall(siski.config.get, "trade_buy_all_enabled", false)
+    if not (ok_en and enabled == true) then return end
+
+    local f = _G.npc_trade_buy_sell
+    if type(f) ~= "function" then return end
+
+    _G._siski_trade_buy_all_patched = true
+    local orig = f
+
+    _G.npc_trade_buy_sell = function(npc)
+        local ok = pcall(orig, npc)
+        if not ok then return end
+
+        local ok_s, seller = pcall(get_seller_for_buyer, npc)
+        seller = ok_s and seller or nil
+        if not seller then return end
+
+        local ini = get_trade_ini()
+        local ini_sys = get_ini_sys()
+        if not (ini and ini_sys) then return end
+
+        local budget = tonumber(siski.config.get("trade_buy_all_budget_per_visit", 12)) or 12
+        if budget < 1 then return end
+        if budget > 128 then budget = 128 end
+        local skip_ammo = siski.config.get("trade_buy_all_skip_ammo", true) ~= false
+
+        pcall(buy_all_from_buy_sell, npc, seller, ini, ini_sys, budget, skip_ammo)
+    end
+end
+
+local function is_equipped_or_best(npc, item, bw_id)
+    if not (npc and item) then return true end
+    local ok_id, id = pcall(function() return item:id() end)
+    if not ok_id then return true end
+    if bw_id and id == bw_id then
+        return true
+    end
+    for i = 1, 12 do
+        local ok_slot, slot = pcall(function() return npc:item_in_slot(i) end)
+        if ok_slot and slot then
+            local ok_sid, sid = pcall(function() return slot:id() end)
+            if ok_sid and sid == id then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function ensure_storage(npc_id, npc_obj)
+    if not (_G.db and _G.db.storage and npc_id) then return nil end
+    local st = _G.db.storage[npc_id]
+    if type(st) ~= "table" then
+        st = {}
+        _G.db.storage[npc_id] = st
+    end
+    if st.object == nil and npc_obj then
+        st.object = npc_obj
+    end
+    return st
+end
+
+local function prepare_trade_flags(leader_obj, params)
+    if not (leader_obj and params) then return false end
+    local ok_id, leader_id = pcall(function() return leader_obj:id() end)
+    leader_id = ok_id and tonumber(leader_id) or nil
+    if not leader_id then return false end
+
+    local now = tg()
+    local cd = tonumber(params.trade_flags_cd_ms) or 20000
+    if cd < 2000 then cd = 2000 end
+    if now < (tonumber(params.trade_flags_next_tg) or 0) then
+        return params.trade_flags_should_trade == true
+    end
+    params.trade_flags_next_tg = now + cd
+
+    local ini = get_trade_ini()
+    if not ini then return nil end
+
+    local st = ensure_storage(leader_id, leader_obj)
+    if not st then return nil end
+
+    local money = 0
+    if leader_obj.money then
+        local ok_m, m = pcall(function() return leader_obj:money() end)
+        money = ok_m and (tonumber(m) or 0) or 0
+    end
+
+    local bw_id = nil
+    local bw_sec = nil
+    do
+        local ok_bw, bw = pcall(function() return leader_obj:best_weapon() or leader_obj:active_item() end)
+        if ok_bw and bw then
+            local ok_bwid, v = pcall(function() return bw:id() end)
+            bw_id = ok_bwid and v or nil
+            local ok_bwsec, s = pcall(function() return bw:section() end)
+            bw_sec = ok_bwsec and s or nil
+        end
+    end
+
+    local counts = {}
+    local function itr(_, itm)
+        if not itm then return end
+        local ok_sec, sec = pcall(function() return itm:section() end)
+        if not (ok_sec and sec) then return end
+        if not should_track_section(ini, sec) then return end
+        if is_equipped_or_best(leader_obj, itm, bw_id) then return end
+        counts[sec] = (tonumber(counts[sec]) or 0) + 1
+    end
+
+    if leader_obj.iterate_inventory then
+        pcall(function() leader_obj:iterate_inventory(itr, leader_obj) end)
+    else
+        return nil
+    end
+
+    st.trade_items = counts
+
+    local sellable = false
+    local wants_buy = false
+    local items = 0
+    for sec, count in pairs(counts) do
+        local c = tonumber(count) or 0
+        items = items + c
+        local pbs = get_buy_sell_params(ini, sec)
+        local keep = pbs and (tonumber(pbs.sell_keep) or 0) or 0
+        if pbs and c >= (pbs.sell_thr or 999999) and c > keep then
+            sellable = true
+        end
+    end
+
+    if money > 0 then
+        local ini_sys = get_ini_sys()
+        local is_item = _G.IsItem
+        local valid = get_valid_buy_sell(ini)
+        if ini_sys and ini_sys.r_float_ex and type(valid) == "table" then
+            for sec in pairs(valid) do
+                local pbs = get_buy_sell_params(ini, sec)
+                local bt = pbs and (tonumber(pbs.buy_target) or 0) or 0
+                if bt > 0 then
+                    local ammo = false
+                    if type(is_item) == "function" then
+                        local ok_ammo, res_ammo = pcall(function() return is_item("ammo", sec) end)
+                        ammo = ok_ammo and res_ammo == true
+                    else
+                        ammo = type(sec) == "string" and string.sub(sec, 1, 5) == "ammo_"
+                    end
+                    if ammo then
+                        local have = tonumber(counts[sec]) or 0
+                        if have < bt then
+                            local ok_cost, base_cost = pcall(function() return ini_sys:r_float_ex(sec, "cost") end)
+                            base_cost = ok_cost and (tonumber(base_cost) or 30) or 30
+                            local mult = pbs and (tonumber(pbs.buy_mult) or 1) or 1
+                            local total_cost = math_floor and math_floor(base_cost * mult) or tonumber(base_cost * mult)
+                            total_cost = tonumber(total_cost) or 0
+                            if total_cost > 0 and money >= total_cost then
+                                wants_buy = true
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        elseif bw_sec and ini_sys and ini_sys.r_string_ex then
+            local ok_am, am = pcall(function() return ini_sys:r_string_ex(bw_sec, "ammo_class") end)
+            if ok_am and type(am) == "string" and am ~= "" then
+                local ammo_list = parse_list(am)
+                for i = 1, (ammo_list and #ammo_list or 0) do
+                    local asec = ammo_list[i]
+                    local pbs = asec and get_buy_sell_params(ini, asec) or nil
+                    local bt = pbs and (tonumber(pbs.buy_target) or 0) or 0
+                    if bt > 0 then
+                        local have = tonumber(counts[asec]) or 0
+                        if have < bt then
+                            wants_buy = true
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local force_buy = false
+    local force_reason = nil
+    if wants_buy ~= true and siski.config and siski.config.get then
+        local enabled = false
+        local ok_en, v_en = pcall(siski.config.get, "trade_force_buy_enabled", false)
+        enabled = ok_en and v_en == true
+        if enabled and money > 0 then
+            local min_money = 300
+            local ok_mm, v_mm = pcall(siski.config.get, "trade_force_buy_min_money", min_money)
+            if ok_mm and tonumber(v_mm) then min_money = tonumber(v_mm) end
+            if money >= min_money then
+                local ammo_target = 2
+                local ok_at, v_at = pcall(siski.config.get, "trade_force_buy_ammo_target", ammo_target)
+                if ok_at and tonumber(v_at) then ammo_target = tonumber(v_at) end
+                if ammo_target < 1 then ammo_target = 1 end
+
+                local item_target = 1
+                local ok_it, v_it = pcall(siski.config.get, "trade_force_buy_item_target", item_target)
+                if ok_it and tonumber(v_it) then item_target = tonumber(v_it) end
+                if item_target < 1 then item_target = 1 end
+
+                local ini_sys = get_ini_sys()
+                local ammo_list = nil
+                if bw_sec and ini_sys and ini_sys.r_string_ex then
+                    local ok_am, am = pcall(function() return ini_sys:r_string_ex(bw_sec, "ammo_class") end)
+                    if ok_am and type(am) == "string" and am ~= "" then
+                        ammo_list = parse_list(am)
+                    end
+                end
+
+                local force_list = get_force_buy_sections()
+                local wanted = {}
+                if ammo_list then
+                    for i = 1, #ammo_list do
+                        wanted[ammo_list[i]] = true
+                    end
+                end
+                local force_set = make_set(force_list)
+                for k in pairs(force_set) do
+                    wanted[k] = true
+                end
+
+                local inv = count_inventory_sections(leader_obj, wanted)
+                if inv then
+                    if ammo_list then
+                        for i = 1, #ammo_list do
+                            local asec = ammo_list[i]
+                            if asec and (tonumber(inv[asec]) or 0) < ammo_target then
+                                force_buy = true
+                                force_reason = "ammo"
+                                break
+                            end
+                        end
+                    end
+                    if not force_buy and force_list then
+                        for i = 1, #force_list do
+                            local sec = force_list[i]
+                            if sec and (tonumber(inv[sec]) or 0) < item_target then
+                                force_buy = true
+                                force_reason = "items"
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if force_buy then
+        wants_buy = true
+    end
+
+    if wants_buy ~= true and siski.config and siski.config.get then
+        local ok_ex, ex_enabled = pcall(siski.config.get, "trade_extra_buy_enabled", false)
+        if ok_ex and ex_enabled == true and money > 0 then
+            local min_money = tonumber(siski.config.get("trade_extra_buy_min_money", 300)) or 300
+            if min_money < 0 then min_money = 0 end
+            if money >= min_money then
+                local ammo_target = tonumber(siski.config.get("trade_extra_buy_ammo_target", 10)) or 10
+                if ammo_target < 1 then ammo_target = 1 end
+                local item_target = tonumber(siski.config.get("trade_extra_buy_item_target", 3)) or 3
+                if item_target < 1 then item_target = 1 end
+
+                local ini_sys = get_ini_sys()
+                local ammo_list = nil
+                if bw_sec and ini_sys and ini_sys.r_string_ex then
+                    local ok_am, am = pcall(function() return ini_sys:r_string_ex(bw_sec, "ammo_class") end)
+                    if ok_am and type(am) == "string" and am ~= "" then
+                        ammo_list = parse_list(am)
+                    end
+                end
+
+                local force_list = get_force_buy_sections()
+                local wanted = {}
+                if ammo_list then
+                    for i = 1, #ammo_list do
+                        wanted[ammo_list[i]] = true
+                    end
+                end
+                local force_set = make_set(force_list)
+                for k in pairs(force_set) do
+                    wanted[k] = true
+                end
+
+                local inv = count_inventory_sections(leader_obj, wanted)
+                if inv then
+                    if ammo_list then
+                        for i = 1, #ammo_list do
+                            local asec = ammo_list[i]
+                            if asec and (tonumber(inv[asec]) or 0) < ammo_target then
+                                wants_buy = true
+                                break
+                            end
+                        end
+                    end
+                    if wants_buy ~= true and force_list then
+                        for i = 1, #force_list do
+                            local sec = force_list[i]
+                            if sec and (tonumber(inv[sec]) or 0) < item_target then
+                                wants_buy = true
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local should_trade = sellable == true or wants_buy == true
+    st.has_items_to_sell = should_trade == true
+    params.trade_flags_sellable = sellable == true
+    params.trade_flags_wants_buy = wants_buy == true
+    params.trade_flags_should_trade = should_trade == true
+    params.trade_flags_items = items
+    params.trade_flags_force_buy = force_buy == true
+    params.trade_flags_force_buy_reason = force_reason
+    params.trade_flags_applied_tg = params.trade_flags_applied_tg or now
+
+    local force_buy_once = false
+    if params.trade_flags_force_buy == true then
+        force_buy_once = true
+        params.trade_flags_force_buy = false
+    end
+
+    if siski.log and siski.log.info and not params.trade_flags_logged then
+        params.trade_flags_logged = true
+        siski.log.info("TRADE", "flags_applied level=%s leader=%s money=%s bw=%s sellable=%s wants_buy=%s force_buy=%s force_reason=%s force_buy_once=%s items=%s",
+            tostring(params and params._siski_level or "-"),
+            tostring(leader_id),
+            tostring(money or 0),
+            tostring(bw_sec or "-"),
+            tostring(sellable),
+            tostring(wants_buy),
+            tostring(force_buy),
+            tostring(force_reason or "-"),
+            tostring(force_buy_once),
+            tostring(items)
+        )
+    end
+
+    return should_trade == true
+end
+
+local function is_trade_job(job)
+    if not (job and job.section) then return false end
+    local s = tostring(job.section)
+    if string.find(s, "_beh_trade_job_", 1, true) ~= nil then return true end
+    if string.find(s, "_beh_trade_", 1, true) ~= nil then return true end
+    if string.find(s, "_beh_tech_job_", 1, true) ~= nil then return true end
+    return false
+end
+
+function trade.can_trade_now(se_squad)
+    if not se_squad then return false end
+    local comm = nil
+    if siski.safe and siski.safe.safe_squad_community then
+        comm = siski.safe.safe_squad_community(se_squad)
+    elseif _G.alife and se_squad.commander_id then
+        local ok_cid, cid = pcall(function() return se_squad:commander_id() end)
+        cid = ok_cid and tonumber(cid) or nil
+        if cid then
+            local ok_obj, se_commander = pcall(function() return _G.alife():object(cid) end)
+            if ok_obj and se_commander and se_commander.community then
+                local ok_c, c = pcall(function() return se_commander:community() end)
+                comm = ok_c and c or nil
+            end
+        end
+    end
+    if comm and no_trade_comm[tostring(comm)] then
+        return false
+    end
+    local ok, cid = pcall(function() return se_squad:commander_id() end)
+    return ok and tonumber(cid) ~= nil
+end
+
+function trade.tick(se_squad, entry, task)
+    if not (se_squad and entry and task and task.target) then
+        if siski.fast_trading and siski.fast_trading.on_trade_completed and entry and entry.squad_id then
+            siski.fast_trading.on_trade_completed(entry.squad_id, "FAILED")
+        end
+        return "FAILED"
+    end
+    install_buy_all_patch()
+    local p = task.params or {}
+    task.params = p
+
+    local target = task.target
+    if p.trade_last_target ~= target then
+        p.trade_last_target = target
+        p.trade_flags_next_tg = nil
+        p.trade_flags_applied_tg = nil
+        p.trade_flags_sellable = nil
+        p.trade_flags_wants_buy = nil
+        p.trade_flags_should_trade = nil
+        p.trade_flags_items = nil
+        p.trade_flags_logged = nil
+        p.trade_entered_job_logged = nil
+        p.trade_started_tg = nil
+        p.trade_started_idle = nil
+        p.trade_surge_was_active = nil
+        p.trade_extra_buy_next_tg = nil
+        p.trade_extra_buy_trader_id = nil
+        p.trade_extra_buy_cd_ms = nil
+    end
+
+    local board = get_board()
+    local smart = board and board.smarts_by_names and board.smarts_by_names[target] or nil
+    if not smart then return "NO_TRADER" end
+
+    local ok_cid, leader_id = pcall(function() return se_squad:commander_id() end)
+    leader_id = ok_cid and tonumber(leader_id) or nil
+    if not leader_id then return "OFFLINE" end
+
+    local leader = safe_obj_by_id(leader_id)
+    if not (leader and siski.safe and siski.safe.is_alive and siski.safe.is_alive(leader)) then
+        return "OFFLINE"
+    end
+
+    local info = smart.npc_info and smart.npc_info[leader_id] or nil
+    local job = info and info.job or nil
+    local now = tg()
+
+    local surge = is_surge_started()
+    if surge then
+        p.trade_surge_was_active = true
+        return is_trade_job(job) and "TRADING" or "MEETING"
+    end
+    if p.trade_surge_was_active then
+        p.trade_surge_was_active = nil
+        p.trade_flags_applied_tg = now
+        p.trade_flags_next_tg = nil
+        p.trade_flags_logged = nil
+    end
+
+    p._siski_level = entry and entry.level or nil
+    local in_trade_job = is_trade_job(job)
+    local fast_trade_triggered = task and task.params and task.params.fast_trade_triggered == true
+    if not in_trade_job then
+        local should_trade = prepare_trade_flags(leader, p)
+        if should_trade == nil then
+            return "MEETING"
+        end
+        -- For fast_trade_triggered, skip the sellable check and allow NPC to reach smart
+        if should_trade == false and not fast_trade_triggered then
+            if siski.fast_trading and siski.fast_trading.on_trade_completed then
+                siski.fast_trading.on_trade_completed(entry.squad_id, "DONE")
+            end
+            return "DONE"
+        end
+        if should_trade == false and fast_trade_triggered then
+            if siski.log and siski.log.debug then
+                siski.log.debug("TRADE", "fast_trade_skip_sellable sid=%s", tostring(entry and entry.squad_id or "-"))
+            end
+        end
+
+        local since = tonumber(p.trade_flags_applied_tg) or now
+        local wait_ms = tonumber(p.trade_wait_job_ms) or 90000
+        if wait_ms < 10000 then wait_ms = 10000 end
+        if now >= (since + wait_ms) then
+            if siski.log and siski.log.warn then
+                siski.log.warn("TRADE", "no_trade_job_timeout sid=%s level=%s target=%s", tostring(entry and entry.squad_id or "-"), tostring(entry and entry.level or "-"), tostring(target))
+            end
+            return "NO_TRADER"
+        end
+        return "MEETING"
+    end
+
+    if job and job.seller_id == nil then
+        local seller_id = infer_seller_id_from_smart(smart)
+        if seller_id then
+            job.seller_id = seller_id
+        end
+    end
+
+    if siski.log and siski.log.info and not p.trade_entered_job_logged then
+        p.trade_entered_job_logged = true
+        siski.log.info("TRADE", "entered_trade_job sid=%s level=%s target=%s job=%s", tostring(entry and entry.squad_id or "-"), tostring(entry and entry.level or "-"), tostring(target), tostring(job and job.section or "-"))
+    end
+    
+    -- Clear fast_trade_triggered flag when entering trade job
+    if fast_trade_triggered and task and task.params then
+        task.params.fast_trade_triggered = nil
+    end
+
+    local idle = job and job.idle or nil
+    if idle and idle > now and not p.trade_started_tg then
+        p.trade_started_tg = now
+        p.trade_started_idle = tonumber(idle)
+    end
+
+    try_extra_buy(leader, leader_id, entry, smart, job, p)
+
+    local st = _G.db and _G.db.storage and _G.db.storage[leader_id] or nil
+    local cleared = false
+    if type(st) == "table" then
+        local ti = st.trade_items
+        local empty_items = ti == nil or (type(ti) == "table" and next(ti) == nil)
+        cleared = (st.has_items_to_sell ~= true) and empty_items
+    end
+
+    if p.trade_started_tg then
+        local grace_ms = tonumber(p.trade_done_grace_ms) or 2000
+        if grace_ms < 0 then grace_ms = 0 end
+        if cleared and now >= (tonumber(p.trade_started_tg) + grace_ms) then
+            if siski.fast_trading and siski.fast_trading.on_trade_completed then
+                siski.fast_trading.on_trade_completed(entry.squad_id, "DONE")
+            end
+            return "DONE"
+        end
+        local max_ms = tonumber(p.trade_max_duration_ms) or 60000
+        if max_ms < 5000 then max_ms = 5000 end
+        if now >= (tonumber(p.trade_started_tg) + max_ms) then
+            if siski.log and siski.log.warn then
+                siski.log.warn("TRADE", "trade_duration_timeout sid=%s level=%s target=%s", tostring(entry and entry.squad_id or "-"), tostring(entry and entry.level or "-"), tostring(target))
+            end
+            return "NO_TRADER"
+        end
+    end
+
+    return "TRADING"
+end

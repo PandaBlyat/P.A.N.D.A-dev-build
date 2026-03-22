@@ -1,0 +1,579 @@
+--[[
+    Bounty Hunting Script for S.T.A.L.K.E.R. GAMMA
+    Version: 5.6.0 (GAMMA Ranks + Anti-Recipe/Exo Loot)
+]]--
+
+-- === НАСТРОЙКИ (По умолчанию) ===
+local settings = {
+    cooldown = 48,        -- часы между попытками охоты
+    chance = 40,          -- % шанса запуска охоты
+    warning_chance = 30,  -- % шанса предупредительного СМС
+    mystery_delay = 1,    -- минуты до сообщения от Неизвестного
+    safe_time = 48,       -- безопасное время с начала сейва (часы)
+    isg_chance = 35,      -- % шанса, что охота станет выездом ИИГ (при высоком рейтинге)
+}
+
+-- === MCM ЗАГРУЗЧИК ===
+function load_settings()
+    if ui_mcm then
+        for k, v in pairs(settings) do
+            settings[k] = ui_mcm.get("bounty_hunt/" .. k) or v
+        end
+    end
+    return settings
+end
+
+-- Загружаем настройки при старте скрипта
+load_settings()
+
+-- === КОЛБЭК НА ИЗМЕНЕНИЕ НАСТРОЕК ===
+function on_option_change(mcm)
+    if mcm then
+        load_settings()
+    end
+end
+
+-- === ПЕРЕМЕННЫЕ СКРИПТА ===
+local CHECK_COST = 10000
+local SMS_DELAY = 30
+local ATTACK_DELAY_MIN = 120
+local ATTACK_DELAY_MAX = 300
+local HUNT_MAX_DURATION = 4 * 3600
+local SPAWN_DIST_MIN = 60
+local SPAWN_DIST_MAX = 120
+local BASE_SAFE_DIST = 75
+local IGNORED_FACTIONS = { ["zombied"] = true, ["renegade"] = true, ["spectator"] = true }
+local spawned_ids = {}
+local STAGES = {
+    [1] = {min = 1, max = 3},
+    [2] = {min = 3, max = 4},
+    [3] = {min = 4, max = 5}
+}
+local current_stage = 1
+
+local BANNED_LOOT_PATTERNS = {
+    "recipe_",
+    "exo",
+    "outfit_exo",
+    "exoskeleton"
+}
+
+local UNDERGROUND_LEVELS = {
+    ["jupiter_underground"]   = true,
+    ["l03u_agr_underground"]  = true,
+    ["l04u_labx18"]           = true,
+    ["l08u_brainlab"]         = true,
+    ["l10u_bunker"]           = true,
+    ["l12u_control_monolith"] = true,
+    ["l12u_sarcofag"]         = true,
+    ["l13u_warlab"]           = true,
+    ["labx8"]                 = true,
+}
+
+local function is_player_in_underground()
+    if not db.actor or not level or not level.name then
+        return false
+    end
+    local lvl = level.name()
+    return UNDERGROUND_LEVELS[lvl] == true
+end
+
+-- === ИИГ ДЛЯ ВЫСОКОГО РЕЙТИНГА ===
+local HIGH_RANK_ISG_RATING = 24000  -- порог рейтинга
+
+-- Карты, где ИИГ может охотиться
+-- (начиная с армейских складов и севернее + CoP-локации)
+local ISG_ALLOWED_LEVELS = {
+    -- SoC / Anomaly севернее свалки
+    ["l07_military"]          = true, -- Армейские склады
+    ["l08_yantar"]            = true,
+    ["l08u_brainlab"]         = true,
+    ["l09_deadcity"]          = true,
+    ["l10_limansk"]           = true,
+    ["l10_radar"]             = true,
+    ["l10_red_forest"]        = true,
+    ["l10u_bunker"]           = true,
+    ["l11_hospital"]          = true,
+    ["l11_pripyat"]           = true,
+    ["l12_stancia"]           = true,
+    ["l12_stancia_2"]         = true,
+    ["l12u_control_monolith"] = true,
+    ["l12u_sarcofag"]         = true,
+    ["l13_generators"]        = true,
+    ["l13u_warlab"]           = true,
+    ["labx8"]                 = true,
+
+    -- CoP / GAMMA локации
+    ["zaton"]                 = true,
+    ["jupiter"]               = true,
+    ["jupiter_underground"]   = true,
+    ["pripyat"]               = true,
+    ["y04_pole"]              = true,
+}
+
+local function is_isg_level_allowed()
+    if not level or not level.name then
+        return false
+    end
+    return ISG_ALLOWED_LEVELS[level.name()] == true
+end
+
+-- СОСТОЯНИЯ
+local HUNT_STATE_NONE = 0
+local HUNT_STATE_SMS_WAITING = 1
+local HUNT_STATE_ATTACK_WAITING = 2
+local HUNT_STATE_SPAWNED = 3
+local HUNT_STATE_MYSTERY_WAITING = 4
+local hunt_status = HUNT_STATE_NONE
+
+-- Таймеры
+local last_hunt_time = nil
+local sms_trigger_time = nil
+local attack_trigger_time = nil
+local hunt_expire_time = nil
+local mystery_trigger_time = nil
+local should_send_sms = false
+
+-- Время старта сейва (для безопасного периода)
+local game_start_time = nil
+
+-- === ИНИЦИАЛИЗАЦИЯ ===
+function on_game_start()
+    RegisterScriptCallback("actor_on_update", actor_on_update)
+    RegisterScriptCallback("save_state", save_state)
+    RegisterScriptCallback("load_state", load_state)
+    RegisterScriptCallback("npc_on_death_callback", on_bounty_hunter_death)
+    if ui_mcm then
+        RegisterScriptCallback("mcm_option_change", on_option_change)
+    end
+end
+
+local last_update_tg = 0
+
+function actor_on_update()
+    local tg = time_global()
+    if #spawned_ids > 0 and tg > last_update_tg + 1000 then
+        check_spawned_enemies()
+    end
+
+    if tg < last_update_tg + 2000 then return end
+    last_update_tg = tg
+
+    local current_time = game.get_game_time()
+
+    if hunt_status == HUNT_STATE_NONE then
+        try_start_hunt()
+    elseif hunt_status == HUNT_STATE_SMS_WAITING then
+        if sms_trigger_time and current_time:diffSec(sms_trigger_time) >= 0 then
+            if should_send_sms then
+                send_warning_sms()
+            end
+            hunt_status = HUNT_STATE_ATTACK_WAITING
+            sms_trigger_time = nil
+        end
+    elseif hunt_status == HUNT_STATE_ATTACK_WAITING then
+        if attack_trigger_time and current_time:diffSec(attack_trigger_time) >= 0 then
+            local success = spawn_mercs_event()
+            if success then
+                hunt_status = HUNT_STATE_SPAWNED
+                attack_trigger_time = nil
+                local expire_offset = game.CTime()
+                expire_offset:setHMS(4, 0, 0)
+                hunt_expire_time = game.get_game_time() + expire_offset
+            else
+                local retry_offset = game.CTime()
+                retry_offset:setHMS(0, 10, 0)
+                attack_trigger_time = game.get_game_time() + retry_offset
+            end
+        end
+    elseif hunt_status == HUNT_STATE_SPAWNED then
+        if #spawned_ids == 0 then
+            start_mystery_timer()
+        elseif hunt_expire_time and current_time:diffSec(hunt_expire_time) >= 0 then
+            cleanup_enemies()
+            start_mystery_timer()
+        end
+    elseif hunt_status == HUNT_STATE_MYSTERY_WAITING then
+        if mystery_trigger_time and current_time:diffSec(mystery_trigger_time) >= 0 then
+            increase_stage()
+            reset_to_none()
+        end
+    end
+end
+
+-- === ОБРАБОТЧИК СМЕРТИ ОХОТНИКОВ (удаление рецептов и экзоскелетов) ===
+function is_banned_item(section)
+    if not section then return false end
+    for _, pattern in ipairs(BANNED_LOOT_PATTERNS) do
+        if string.find(section, pattern) then
+            return true
+        end
+    end
+    return false
+end
+
+function on_bounty_hunter_death(npc, killer)
+    if not npc then return end
+
+    local is_our_hunter = false
+    for i, id in ipairs(spawned_ids) do
+        if npc:id() == id then
+            is_our_hunter = true
+            break
+        end
+    end
+
+    if not is_our_hunter then return end
+
+    local items_to_remove = {}
+    npc:iterate_inventory(function(owner, item)
+        if item then
+            local section = item:section()
+            if is_banned_item(section) then
+                table.insert(items_to_remove, item:id())
+            end
+        end
+    end, npc)
+
+    for _, item_id in ipairs(items_to_remove) do
+        local se_item = alife_object(item_id)
+        if se_item then
+            alife():release(se_item, true)
+        end
+    end
+end
+
+function start_mystery_timer()
+    hunt_status = HUNT_STATE_MYSTERY_WAITING
+    local delay = game.CTime()
+    delay:setHMS(0, settings.mystery_delay, 0)
+    mystery_trigger_time = game.get_game_time() + delay
+end
+
+function reset_to_none()
+    hunt_status = HUNT_STATE_NONE
+    should_send_sms = false
+    hunt_expire_time = nil
+    mystery_trigger_time = nil
+    last_hunt_time = game.get_game_time()
+end
+
+function cleanup_enemies()
+    for i = #spawned_ids, 1, -1 do
+        local se_obj = alife_object(spawned_ids[i])
+        if se_obj then alife():release(se_obj, true) end
+    end
+    spawned_ids = {}
+end
+
+function increase_stage()
+    if current_stage < 3 then
+        current_stage = current_stage + 1
+        if _G["bounty_mystery_msg"] and bounty_mystery_msg.send_mystery_message then
+            bounty_mystery_msg.send_mystery_message()
+        end
+    else
+        current_stage = 1
+    end
+end
+
+function try_start_hunt()
+    local comm = db.actor:character_community()
+    if IGNORED_FACTIONS[comm] then return end
+
+    if is_player_in_underground() then
+        return
+    end
+
+    local current_time = game.get_game_time()
+
+    -- Безопасное время с начала сейва
+    if game_start_time and settings.safe_time and settings.safe_time > 0 then
+        if current_time:diffSec(game_start_time) < (settings.safe_time * 3600) then
+            return
+        end
+    end
+
+    -- Кулдаун между попытками охоты
+    if last_hunt_time then
+        if current_time:diffSec(last_hunt_time) < (settings.cooldown * 3600) then
+            return
+        end
+    end
+
+    if math.random(100) <= settings.chance then
+        hunt_status = HUNT_STATE_SMS_WAITING
+        should_send_sms = (math.random(100) <= settings.warning_chance)
+
+        local sms_offset = game.CTime()
+        sms_offset:setHMS(0, 0, SMS_DELAY)
+        sms_trigger_time = game.get_game_time() + sms_offset
+
+        local attack_delay_sec = math.random(ATTACK_DELAY_MIN, ATTACK_DELAY_MAX)
+        local attack_offset = game.CTime()
+        attack_offset:setHMS(0, 0, attack_delay_sec)
+        attack_trigger_time = game.get_game_time() + attack_offset
+    else
+        last_hunt_time = game.get_game_time()
+    end
+end
+
+function send_warning_sms()
+    local sender_obj = nil
+    local function check_npc(obj)
+        if not obj or not IsStalker(obj) or not obj:alive() then return end
+        if obj:id() == db.actor:id() then return end
+        if obj:relation(db.actor) == game_object.enemy then return end
+        return true
+    end
+    if db.storage then
+        local candidates = {}
+        for id, data in pairs(db.storage) do
+            local npc = data and data.object
+            if npc and check_npc(npc) then table.insert(candidates, npc) end
+        end
+        if #candidates > 0 then sender_obj = candidates[math.random(#candidates)] end
+    end
+    if not sender_obj then return false end
+
+    local msg_count = 15
+    local text_key = "st_bounty_msg_" .. math.random(1, msg_count)
+
+    local actor_name = db.actor:character_name()
+    local message = game.translate_string(text_key)
+    if string.find(message, "%%s") then
+        message = message:gsub("%%s", actor_name)
+    end
+    local sender_name = sender_obj:character_name()
+    local sender_icon = sender_obj:character_icon()
+    if not sender_icon or sender_icon == "" then sender_icon = "ui_inGame2_Neutral_1" end
+    db.actor:give_game_news(sender_name, message, sender_icon, 0, 5000)
+    xr_sound.set_sound_play(db.actor:id(), "pda_news")
+    return true
+end
+
+-- === ИСПРАВЛЕННАЯ СИСТЕМА ПОДБОРА РАНГОВ ДЛЯ GAMMA ===
+function get_enemy_tier()
+    local rank = db.actor:character_rank()
+
+    if rank < 3999 then return "_0"
+    elseif rank < 5999 then return "_0"
+    elseif rank < 9999 then return "_1"
+    elseif rank < 15999 then return "_2"
+    elseif rank < 23999 then return "_2"
+    elseif rank < 34999 then return "_3"
+    elseif rank < 49999 then return "_4"
+    else return "_4"
+    end
+end
+
+function spawn_mercs_event()
+    if is_player_in_underground() then
+        return false
+    end
+
+    if not is_safe_area() then return false end
+    local comm = db.actor:character_community()
+    local tier_suffix = get_enemy_tier()
+    local hunter_faction = nil
+
+    if comm == "freedom" or comm == "actor_freedom" then
+        hunter_faction = "duty"
+    elseif comm == "dolg" or comm == "actor_dolg" or comm == "duty" then
+        hunter_faction = (math.random(100) <= 50) and "freedom" or "killer"
+    elseif comm == "monolith" or comm == "actor_monolith" then
+        hunter_faction = "isg"
+    elseif comm == "sin" or comm == "actor_sin" then
+        hunter_faction = "isg"
+    elseif comm == "stalker" or comm == "actor" or comm == "actor_stalker" then
+        hunter_faction = (math.random(100) <= 50) and "killer" or "bandit"
+    elseif comm == "army" or comm == "actor_army" or comm == "military" then
+        hunter_faction = "killer"
+    elseif comm == "ecolog" or comm == "actor_ecolog" or comm == "csky" or comm == "actor_csky" then
+        hunter_faction = "bandit"
+    elseif comm == "bandit" or comm == "actor_bandit" then
+        hunter_faction = "stalker"
+    elseif comm == "killer" or comm == "actor_killer" or comm == "merc" then
+        hunter_faction = "army"
+    end
+
+    -- Высокий рейтинг: с шансом из MCM выезжает ИИГ независимо от группировки,
+    -- но только на разрешённых северных/CoP-локациях
+    local rank = db.actor:character_rank()
+    local isg_chance = tonumber(settings.isg_chance) or 0
+    if rank >= HIGH_RANK_ISG_RATING and isg_chance > 0 and is_isg_level_allowed() then
+        if math.random(100) <= isg_chance then
+            hunter_faction = "isg"
+        end
+    end
+
+    if not hunter_faction then return false end
+
+    local prefix = "sim_default_" .. hunter_faction
+    if hunter_faction == "army" and not system_ini():section_exist("sim_default_army_0") then
+        if system_ini():section_exist("sim_default_military_0") then prefix = "sim_default_military" end
+    end
+    local enemy_section = prefix .. tier_suffix
+
+    if not system_ini():section_exist(enemy_section) then
+        local found = false
+        local tiers_down = {"_3", "_2", "_1", "_0"}
+
+        for _, suffix in ipairs(tiers_down) do
+            if system_ini():section_exist(prefix .. suffix) then
+                enemy_section = prefix .. suffix
+                found = true
+                break
+            end
+        end
+
+        if not found then
+            for _, suffix in ipairs(tiers_down) do
+                if system_ini():section_exist("sim_default_killer" .. suffix) then
+                    enemy_section = "sim_default_killer" .. suffix
+                    found = true
+                    break
+                end
+            end
+        end
+
+        if not found then return false end
+    end
+
+    local final_point = nil
+    local final_lvid, final_gvid
+    local actor_pos = db.actor:position()
+    local actor_lvid = db.actor:level_vertex_id()
+
+    for i = 1, 20 do
+        local dist = math.random(SPAWN_DIST_MIN, SPAWN_DIST_MAX)
+        local rnd_dir = vector():set(math.random(-100,100), 0, math.random(-100,100)):normalize()
+        local node = level.vertex_in_direction(actor_lvid, rnd_dir, dist)
+        if node and node < 4294967295 then
+            local pos = level.vertex_position(node)
+            local real_dist = pos:distance_to(actor_pos)
+            if real_dist >= SPAWN_DIST_MIN then
+                final_point = pos
+                final_lvid = node
+                final_gvid = db.actor:game_vertex_id()
+                break
+            end
+        end
+    end
+
+    if not final_point then return false end
+
+    local min_c = STAGES[current_stage].min
+    local max_c = STAGES[current_stage].max
+    local count = math.random(min_c, max_c)
+
+    for i = 1, count do
+        local se_obj = alife():create(enemy_section, final_point, final_lvid, final_gvid)
+        if se_obj then table.insert(spawned_ids, se_obj.id) end
+    end
+
+    return true
+end
+
+function check_spawned_enemies()
+    local actor_pos = db.actor:position()
+    local actor_lvid = db.actor:level_vertex_id()
+    for i = #spawned_ids, 1, -1 do
+        local id = spawned_ids[i]
+        local npc = level.object_by_id(id)
+        local se_obj = alife_object(id)
+        if not se_obj then
+            table.remove(spawned_ids, i)
+        elseif npc then
+            if not npc:alive() then
+                table.remove(spawned_ids, i)
+            else
+                if npc:relation(db.actor) ~= game_object.enemy then
+                    npc:set_relation(game_object.enemy, db.actor)
+                end
+                local dist_sq = npc:position():distance_to_sqr(actor_pos)
+                if dist_sq > 900 then
+                    npc:set_dest_level_vertex_id(actor_lvid)
+                    npc:set_path_type(game_object.level_path)
+                    npc:set_movement_type(move.run)
+                end
+            end
+        end
+    end
+end
+
+function is_safe_area()
+    for name, obj in pairs(db.zone_by_name) do
+        if obj:inside(db.actor:position()) then
+            local sect = obj:section()
+            if string.find(sect, "no_weapon") or string.find(sect, "no_assault") then return false end
+        end
+    end
+    if smart_terrain and smart_terrain.nearest_to_actor_smart then
+        local smart_info = smart_terrain.nearest_to_actor_smart
+        if smart_info.dist < BASE_SAFE_DIST then
+            local smart = alife():object(smart_info.id)
+            if smart and smart.props and smart.props["base"] and smart.props["base"] > 0 then return false end
+        end
+    end
+    return true
+end
+
+function check_cost_cond(a, b) return db.actor:money() >= CHECK_COST end
+function pay_money_action(a, b) dialogs.relocate_money_from_actor(a, b, CHECK_COST) end
+function is_player_hunted(a, b) return hunt_status ~= HUNT_STATE_NONE end
+function is_player_safe(a, b) return hunt_status == HUNT_STATE_NONE end
+
+function save_state(m_data)
+    m_data.hunt_status = hunt_status
+    m_data.spawned_ids = spawned_ids
+    m_data.should_send_sms = should_send_sms
+    m_data.current_stage = current_stage
+
+    if game_start_time then
+        local y, m, d, h, min, sec, ms = game_start_time:get()
+        m_data.game_start_time_arr = {y, m, d, h, min, sec, ms}
+    end
+
+    if last_hunt_time then local y, m, d, h, min, sec, ms = last_hunt_time:get(); m_data.last_hunt_time_arr = {y, m, d, h, min, sec, ms} end
+    if sms_trigger_time then local y, m, d, h, min, sec, ms = sms_trigger_time:get(); m_data.sms_trigger_time_arr = {y, m, d, h, min, sec, ms} end
+    if attack_trigger_time then local y, m, d, h, min, sec, ms = attack_trigger_time:get(); m_data.attack_trigger_time_arr = {y, m, d, h, min, sec, ms} end
+    if hunt_expire_time then local y, m, d, h, min, sec, ms = hunt_expire_time:get(); m_data.hunt_expire_time_arr = {y, m, d, h, min, sec, ms} end
+    if mystery_trigger_time then local y, m, d, h, min, sec, ms = mystery_trigger_time:get(); m_data.mystery_trigger_time_arr = {y, m, d, h, min, sec, ms} end
+end
+
+function load_state(m_data)
+    hunt_status = m_data.hunt_status or HUNT_STATE_NONE
+    spawned_ids = m_data.spawned_ids or {}
+    should_send_sms = m_data.should_send_sms or false
+    current_stage = m_data.current_stage or 1
+
+    -- время старта сейва
+    if m_data.game_start_time_arr then
+        local t = m_data.game_start_time_arr
+        game_start_time = game.get_game_time()
+        game_start_time:set(t[1], t[2], t[3], t[4], t[5], t[6], t[7])
+    else
+        game_start_time = game.get_game_time()
+    end
+
+    -- время последней охоты / попытки
+    if m_data.last_hunt_time_arr then
+        local t = m_data.last_hunt_time_arr
+        last_hunt_time = game.get_game_time()
+        last_hunt_time:set(t[1], t[2], t[3], t[4], t[5], t[6], t[7])
+    else
+        -- если safe_time > 0 — первая попытка не раньше, чем через cooldown часов
+        -- если safe_time = 0 — позволяем крутить шанс сразу (last_hunt_time = nil)
+        if settings.safe_time and settings.safe_time > 0 then
+            last_hunt_time = game.get_game_time()
+        else
+            last_hunt_time = nil
+        end
+    end
+
+    if m_data.sms_trigger_time_arr then local t = m_data.sms_trigger_time_arr; sms_trigger_time = game.get_game_time(); sms_trigger_time:set(t[1], t[2], t[3], t[4], t[5], t[6], t[7]) else sms_trigger_time = nil end
+    if m_data.attack_trigger_time_arr then local t = m_data.attack_trigger_time_arr; attack_trigger_time = game.get_game_time(); attack_trigger_time:set(t[1], t[2], t[3], t[4], t[5], t[6], t[7]) else attack_trigger_time = nil end
+    if m_data.hunt_expire_time_arr then local t = m_data.hunt_expire_time_arr; hunt_expire_time = game.get_game_time(); hunt_expire_time:set(t[1], t[2], t[3], t[4], t[5], t[6], t[7]) else hunt_expire_time = nil end
+    if m_data.mystery_trigger_time_arr then local t = m_data.mystery_trigger_time_arr; mystery_trigger_time = game.get_game_time(); mystery_trigger_time:set(t[1], t[2], t[3], t[4], t[5], t[6], t[7]) else mystery_trigger_time = nil end
+end

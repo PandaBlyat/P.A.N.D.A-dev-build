@@ -1,0 +1,26 @@
+--[[
+    Bounty Mystery Messenger
+    Отправляет загадочные сообщения при повышении уровня угрозы.
+]]--
+
+function send_mystery_message()
+    -- Выбираем случайный текст из 5 вариантов
+    local msg_id = math.random(1, 5)
+    local text_key = "st_mystery_up_" .. msg_id
+    
+    -- Переводим текст
+    local message = game.translate_string(text_key)
+    
+    -- Настройки отправителя
+    local sender_name = "???"
+    
+    -- ИКОНКА: Берем из твоего списка.
+    -- ui_inGame2_no_data = Силуэт "Нет данных". Идеально для анонима.
+    local sender_icon = "ui_inGame2_no_data" 
+    
+    -- Отправка сообщения в ПДА (0 задержка, 6000 мс длительность)
+    db.actor:give_game_news(sender_name, message, sender_icon, 0, 6000)
+    
+    -- Звуковой эффект входящего сообщения
+    xr_sound.set_sound_play(db.actor:id(), "pda_tips")
+end

@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<string_table>
+    <string id="ui_mcm_menu_bounty_hunt">
+        <text>Bounty Hunt</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_title">
+        <text>Bounty Hunt Settings</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_cooldown">
+        <text>Event cooldown (hours)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_cooldown_desc">
+        <text>How many in-game hours must pass between mercenary attacks.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_chance">
+        <text>Hunt chance (%)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_chance_desc">
+        <text>Probability that the event will trigger after the cooldown ends.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_warning_chance">
+        <text>Warning SMS chance (%)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_warning_desc">
+        <text>Chance that a friendly stalker will warn you about the bounty before the attack.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_mystery_delay">
+        <text>Mystery SMS delay (min)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_mystery_desc">
+        <text>After how many in-game minutes following victory you receive a message from an unknown sender.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_safe_time">
+        <text>Safe time (hours)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_safe_time_desc">
+        <text>Minimum in-game hours from a new game start during which no hunts can begin.</text>
+    </string>
+
+    <!-- ISG hunt -->
+    <string id="ui_mcm_bounty_hunt_isg_chance">
+        <text>ISG hunt chance (%)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_isg_chance_desc">
+        <text>Chance that at high rank the hunt will be carried out by ISG squads regardless of your faction (on northern locations).</text>
+    </string>
+
+    <!-- Main tab -->
+    <string id="ui_mcm_bounty_hunt_title_main">
+        <text>Main Hunt</text>
+    </string>
+
+    <!-- Trash Talk -->
+    <string id="ui_mcm_bounty_hunt_title_trash">
+        <text>Rumors and Threats</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_trash_enable">
+        <text>Enable random messages</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_trash_chance">
+        <text>Message chance (%)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_trash_chance_desc">
+        <text>Probability that a stalker will post a message in the global chat.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_trash_delay">
+        <text>Message interval (hours)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_trash_delay_desc">
+        <text>How often (in in-game hours) the script will try to send a new message.</text>
+    </string>
+
+    <!-- Paranoid & hunters -->
+    <string id="ui_mcm_bounty_hunt_title_paranoid">
+        <text>Paranoids and Hunters</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_paranoid_enable">
+        <text>Enable paranoid threads</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_paranoid_chance">
+        <text>Paranoid thread chance (%)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_paranoid_chance_desc">
+        <text>Probability that, when the timer fires, a thread will start with a paranoid stalker and replies from others.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_paranoid_delay">
+        <text>Interval between threads (hours)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_paranoid_delay_desc">
+        <text>How often (in in-game hours) the script will try to start a new paranoid thread.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_paranoid_replies">
+        <text>Maximum replies per thread</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_paranoid_replies_desc">
+        <text>Maximum number of reply messages in a single thread after the paranoid's first post.</text>
+    </string>
+
+    <string id="ui_mcm_bounty_hunt_paranoid_hostile_weight">
+        <text>Hostile factions priority (%)</text>
+    </string>
+    <string id="ui_mcm_bounty_hunt_paranoid_hostile_weight_desc">
+        <text>Chance that the paranoid will be answered by a hostile faction (with mockery or threats) instead of neutral stalkers.</text>
+    </string>
+</string_table>

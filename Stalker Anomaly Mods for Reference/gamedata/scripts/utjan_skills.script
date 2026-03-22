@@ -1,0 +1,476 @@
+local translate_string = game.translate_string
+local parse_keys = utils_data.parse_string_keys
+
+trait_tinkering_weapon_bonus = 0
+trait_tinkering_armor_bonus = 0
+trait_tinkering_parts_bonus = 0
+
+function on_game_start()
+	RegisterScriptCallback("actor_on_item_use", actor_on_item_use)
+	RegisterScriptCallback("ActorMenu_on_trade_started", ActorMenu_on_trade_started)
+	RegisterScriptCallback("ActorMenu_on_trade_closed", ActorMenu_on_trade_closed)
+	--RegisterScriptCallback("actor_on_before_hit", actor_on_before_hit)
+	--RegisterScriptCallback("actor_on_hud_animation_play", actor_on_hud_animation_play)
+	RegisterScriptCallback("actor_on_first_update", actor_on_first_update) 
+	RegisterScriptCallback("actor_on_update", actor_on_update) 
+	RegisterScriptCallback("on_option_change", on_option_change)
+	RegisterScriptCallback("on_get_item_cost", on_get_item_cost)
+	on_option_change()
+	
+	-- monkey patch for the Tinkering skill
+	local originalOnRepair = item_repair.UIRepair.OnRepair
+	item_repair.UIRepair.OnRepair = function (self)
+		local repairkit = nil
+		local supportitemid = 0
+		local kitremaininguses = 0
+		local waslastuse = false
+		local degrade_factor = item_repair.degrade_factor or 0.2
+		if not zz_item_repair_keep_crafting_window_open then
+			repairkit = self.obj
+		elseif self.isMultiUse and self.multiUseItemsObj[1] then -- Compatibility code for "Keep Crafting Windows Open"
+			local repair_item = nil
+			self:CollectValidItems(self.obj, self.section)
+			for id, amount in pairs(self.multiUseItemsObj[1]) do
+				repair_item = get_object_by_id(id)
+				if (repair_item) then
+					repairkit = repair_item
+				end 
+			end
+		else
+			repairkit = self.obj
+		end
+		
+		if self.CC[2]:GetCell_Selected(true) then
+			supportitemid = self.CC[2]:GetCell_Selected(true):id()
+		end
+		
+		local xpmult = 1
+		
+		local item_kind = SYS_GetParam(0, self.CC[1]:GetCell_Selected(true):section(), "kind")
+		local trait_bonus = 0
+		if item_kind == "o_light" or item_kind == "o_medium" or item_kind == "o_heavy" or item_kind == "o_sci" or item_kind == "o_helmet" then
+			trait_bonus = trait_tinkering_armor_bonus
+		elseif item_kind == "w_sniper" or item_kind == "w_rifle" or item_kind == "w_smg" or item_kind == "w_shotgun" or item_kind == "w_pistol" or item_kind == "w_melee" then
+			trait_bonus = trait_tinkering_weapon_bonus
+			if zzzz_arti_jamming_repairs then
+				xpmult = xpmult * 0.34
+			end
+		elseif item_kind == "i_part" or item_kind == "i_tool" then
+			trait_bonus = trait_tinkering_parts_bonus
+		end
+		
+		if repairkit then
+			if item_kind ==  "w_melee" or item_kind == "i_tool" then --repairkit:section() == "sharpening_stones" then
+				xpmult = xpmult * 0.25
+			elseif item_kind == "i_part" then --repairkit:section() == "rasp_tool" or repairkit:section() == "ramrod_tool" or repairkit:section() == "leatherman_tool" or repairkit:section() == "sewing_thread" or repairkit:section() == "heavy_sewing_thread" or repairkit:section() == "partskit_tool" then
+				xpmult = xpmult * 0.125
+			end
+			local conditiongained = self.con_val[2] + self.con_val[3]
+			
+			haru_skills.increase_skill("tinkering", conditiongained * 35 * xpmult) -- xp gain based on condition repaired
+			
+			if IsItem("multiuse", repairkit:section()) then
+				kitremaininguses = repairkit:get_remaining_uses()
+				if kitremaininguses == 1 then
+					waslastuse = true
+					local seed = repairkit:id() + kitremaininguses + supportitemid + self.con_val[1]
+					math.randomseed(seed)
+					
+					local refundbool = math.random() < (haru_skills.skills_stats["tinkering"].refund_chance + trait_bonus)
+					
+					if refundbool then
+						TinkerNews()
+					
+						repairkit:set_remaining_uses(repairkit:get_remaining_uses() + 1)
+					end
+				end
+			elseif utils_item.is_degradable(repairkit) and repairkit:condition() <= degrade_factor then
+				waslastuse = true
+				local seed = repairkit:id() + repairkit:condition() + supportitemid + self.con_val[1]
+				math.randomseed(seed)
+				
+				local refundbool = math.random() < (haru_skills.skills_stats["tinkering"].refund_chance + trait_bonus)
+				
+				if refundbool then
+					TinkerNews()
+					repairkit:set_condition(math.min(repairkit:condition() + degrade_factor,1))
+				end
+			end
+		end
+		
+		originalOnRepair(self)
+		
+		if repairkit then
+			if not waslastuse and IsItem("multiuse", repairkit:section()) then
+				local seed = repairkit:id() + kitremaininguses + supportitemid + self.con_val[1]
+				math.randomseed(seed)
+				local refundbool = math.random() < (haru_skills.skills_stats["tinkering"].refund_chance + trait_bonus)
+				
+				if refundbool then
+					TinkerNews()
+					repairkit:set_remaining_uses(repairkit:get_remaining_uses() + 1)
+				end
+			elseif not waslastuse and utils_item.is_degradable(repairkit) then
+				local seed = repairkit:id() + repairkit:condition() + supportitemid + self.con_val[1]
+				math.randomseed(seed)
+				
+				local refundbool = math.random() < (haru_skills.skills_stats["tinkering"].refund_chance + trait_bonus)
+				
+				if refundbool then
+					TinkerNews()
+					repairkit:set_condition(math.min(repairkit:condition() + degrade_factor,1))
+				end
+			end
+		end
+	end
+	-- monkey patch end
+	
+	-- WPO patch
+	if zzzz_arti_jamming_repairs then
+		local BaseReplacePart = zzzz_arti_jamming_repairs.replace_part
+		function zzzz_arti_jamming_repairs.replace_part(id, part, kit_name, clean)
+			local parts = se_load_var(id, nil, "parts")
+			local part_cond = parts and parts[part]
+			if not part_cond then 
+				BaseReplacePart(id, part, kit_name, clean)
+				return
+			end
+
+			local wpn = level.object_by_id(id)
+			local wpn_cond = wpn:condition()
+
+			local repairkit = db.actor:object(kit_name)
+			local last_kit_use = false
+			local remaining_uses = repairkit:get_remaining_uses()
+
+			local seed = repairkit:id() + remaining_uses + id + part_cond + wpn_cond
+			math.randomseed(seed)
+
+			local refund_chance = haru_skills.skills_stats["tinkering"].refund_chance + trait_tinkering_weapon_bonus
+			local refundbool = math.random() < refund_chance
+
+			if remaining_uses == 1 then
+				last_kit_use = true
+				if refundbool then
+					TinkerNews()
+					repairkit:set_remaining_uses(remaining_uses + 1)
+				end
+			end
+			
+			BaseReplacePart(id, part, kit_name, clean)
+			
+			if refundbool and not last_kit_use then
+				TinkerNews()
+				repairkit:set_remaining_uses(remaining_uses + 1)
+			end
+
+			parts = se_load_var(id, nil, "parts")
+			local clean_mult = clean and 0.5
+			local part_xp = (parts[part] - part_cond) * 12 * clean_mult -- Part repair xp
+			local wpn_xp = (wpn:condition() - wpn_cond) * 12 * 100 -- Weapon repair xp. x100 is to convert from percentage
+			haru_skills.increase_skill("tinkering", part_xp + wpn_xp)
+		end
+	end
+	-- WPO patch end
+
+	-- Barter task reward bonus patches
+	local base_relocate_money = dialogs.relocate_money
+	function dialogs.relocate_money(victim, num, type)
+		if type ~= "in" then
+			base_relocate_money(victim, num, type)
+			return
+		end
+		haru_skills.increase_skill("bartering", num / 50)
+		num = num + math.floor(num * haru_skills.skills_stats["bartering"].task_bonus)
+		base_relocate_money(victim, num, type)
+	end
+
+	local base_relocate_money_to_actor = dialogs.relocate_money_to_actor
+	function dialogs.relocate_money_to_actor(first_speaker, second_speaker, num)
+		haru_skills.increase_skill("bartering", num / 50)
+		num = num + math.floor(num * haru_skills.skills_stats["bartering"].task_bonus)
+		base_relocate_money_to_actor(first_speaker, second_speaker, num)
+	end	
+	-- Barter patches end
+end
+
+function TinkerNews()
+	local header = translate_string("st_player_skills_tinkering")
+	local msg = translate_string("st_tinkering_refund")
+	db.actor:give_game_news(header, msg, "ui_skills_icon_tinkering", 0, 10000)
+end
+
+function actor_on_first_update()
+	RemoveTimeEvent("utrecurInsanity", "recurInsanity") -- I don't know if this does anything. Maybe it fixes a bug
+end
+
+local get_config = utjan_skills_mcm.get_config
+
+function on_option_change()
+	if get_config("purge_ut_skills") and haru_skills.skills_levels and level.present() and db.actor then
+		haru_skills.skills_levels.medicine = nil
+		haru_skills.skills_levels.insanity = nil
+		haru_skills.skills_levels.tinkering = nil
+		haru_skills.skills_levels.bartering = nil
+		if haru_skills.skills_levels.reloading then haru_skills.skills_levels.reloading = nil end
+		if haru_skills.skills_levels.magloading then haru_skills.skills_levels.magloading = nil end
+		if haru_skills.skills_levels.lockpicking then haru_skills.skills_levels.lockpicking = nil end
+		ui_mcm.set("ut_skill_system/purge_ut_skills", false)
+		exec_console_cmd("save purged_skills_expansion")
+	else
+		haru_skills.options["exp_multiplier_medicine"] = get_config("exp_multiplier_medicine")
+		haru_skills.options["exp_multiplier_insanity"] = get_config("exp_multiplier_insanity")
+		haru_skills.options["exp_multiplier_tinkering"] = get_config("exp_multiplier_tinkering")
+		haru_skills.options["exp_multiplier_bartering"] = get_config("exp_multiplier_bartering")
+		haru_skills.options["exp_multiplier_magloading"] = get_config("exp_multiplier_magloading")
+		haru_skills.options["exp_multiplier_lockpicking"] = get_config("exp_multiplier_lockpicking")
+		haru_skills.options["exp_multiplier_reloading"] = get_config("exp_multiplier_reloading")
+	end
+end
+
+-- MEDICINE SKILL CODE
+local heal_timeofuse = nil
+local radheal_timeofuse = nil
+local heal_timeoflasttick = nil
+local radheal_timeoflasttick = nil
+local heal_item_boost_time = 0
+local radheal_item_boost_time = 0
+local heal_per_sec = 0
+local radheal_per_sec = 0
+
+medicine_boost_addition = 0
+
+local last_psy_health = 0
+
+function actor_on_update()
+	if arszi_psy.get_psy_health() < last_psy_health then
+		haru_skills.increase_skill("insanity", (last_psy_health - arszi_psy.get_psy_health()) * 1000)
+	end
+	last_psy_health = arszi_psy.get_psy_health()
+	
+	if haru_skills.skills_stats["medicine"] and haru_skills.skills_stats["medicine"].restore_boost and haru_skills.skills_stats["medicine"].restore_boost > 0 then -- extra checks to catch a reported crash maybe
+		if heal_timeofuse then
+			local healoftick = 0
+			if time_global() <= heal_timeofuse + (heal_item_boost_time * 100) then -- duration = 10% of item boost time
+				if time_global() >= heal_timeoflasttick + 200 then -- Tick restores every 200 ms
+					healoftick = heal_per_sec * 10 * (haru_skills.skills_stats["medicine"].restore_boost + medicine_boost_addition) * ((time_global() - heal_timeoflasttick) / 1000) -- account for time since last tick
+					db.actor:change_health(healoftick)
+					heal_timeoflasttick = time_global()
+				end
+			else
+				healoftick = heal_per_sec * 10 * (haru_skills.skills_stats["medicine"].restore_boost + medicine_boost_addition) * ((time_global() - heal_timeoflasttick) / 1000) -- account for time since last tick
+				db.actor:change_health(healoftick)
+				heal_timeofuse = nil
+			end
+		end
+		
+		if radheal_timeofuse then
+			local radhealoftick = 0
+			if time_global() <= radheal_timeofuse + (radheal_item_boost_time * 100) then -- duration = 10% of item boost time
+				if time_global() >= radheal_timeoflasttick + 200 then -- Tick restores every 200 ms
+					radhealoftick = radheal_per_sec * 10 * (haru_skills.skills_stats["medicine"].restore_boost + medicine_boost_addition) * ((time_global() - radheal_timeoflasttick) / 1000) -- account for time since last tick
+					db.actor:change_radiation(-radhealoftick)
+					radheal_timeoflasttick = time_global()
+				end
+			else
+				radhealoftick = radheal_per_sec * 10 * (haru_skills.skills_stats["medicine"].restore_boost + medicine_boost_addition) * ((time_global() - radheal_timeoflasttick) / 1000) -- account for time since last tick
+				db.actor:change_radiation(-radhealoftick)
+				radheal_timeofuse = nil
+			end
+		end
+	end
+end
+
+function actor_on_item_use(obj, string)
+	if SYS_GetParam(0, obj:section(), "kind") == "i_medical" then
+		local cost = obj:cost()
+		
+		if IsItem("multiuse", obj:section()) then
+			haru_skills.increase_skill("medicine", (cost / obj:get_max_uses()) * 0.15)
+		else
+			haru_skills.increase_skill("medicine", cost * 0.15)
+		end
+		
+		if SYS_GetParam(2, obj:section(), "boost_health_restore") and SYS_GetParam(2, obj:section(), "boost_health_restore") > 0 then
+			heal_item_boost_time = SYS_GetParam(2, obj:section(), "boost_time")
+			heal_per_sec = SYS_GetParam(2, obj:section(), "boost_health_restore") * 6
+			heal_timeofuse = time_global()
+			heal_timeoflasttick = heal_timeofuse
+		end
+		if SYS_GetParam(2, obj:section(), "boost_radiation_restore") and SYS_GetParam(2, obj:section(), "boost_radiation_restore") > 0 then
+			radheal_item_boost_time = SYS_GetParam(2, obj:section(), "boost_time")
+			radheal_per_sec = SYS_GetParam(2, obj:section(), "boost_radiation_restore") * 6
+			radheal_timeofuse = time_global()
+			radheal_timeoflasttick = radheal_timeofuse
+		end
+	end
+end
+-- MEDICINE SKILL CODE END
+
+-- INSANITY SKILL CODE
+local musicTimeRemaining = 0
+
+function update_insanity() -- happens once per second
+	local psyregenmult = 1
+	if musicTimeRemaining > 0 then psyregenmult = 2 end
+	local regen_amount = haru_skills.skills_stats["insanity"].psy_regen * psyregenmult
+	if arszi_psy.get_psy_health() < (1 - regen_amount) then
+		local newpsyhealth = arszi_psy.get_psy_health() + regen_amount
+		arszi_psy.set_psy_health(newpsyhealth)
+	else
+		arszi_psy.set_psy_health(1)
+	end
+	--change_psy_health(haru_skills.skills_stats["insanity"].psy_regen * psyregenmult)
+end
+
+
+psy_enemy_list = {
+	[21] = true,
+    [114] = true,
+    [18] = true,
+	[113] = true,
+	[30] = true,
+	[125] = true -- While testing the controller did this damage type with their psy attack. I don't know why
+}
+
+local base_arszi_on_before_hit = arszi_psy.actor_on_before_hit
+function arszi_psy.actor_on_before_hit(s_hit)
+    if s_hit.power > 0 and s_hit.type == 4 then
+		s_hit.power = s_hit.power * (1 - haru_skills.skills_stats["insanity"].psy_hit_resistance)
+	end
+	base_arszi_on_before_hit(s_hit)
+end
+
+function itms_manager.use_guitar(obj)
+	local n = math.random(28)
+	local snd = sound_object("music\\guitar_" .. tostring(n))
+	if (not snd) then return end
+	local period = snd:length()
+	snd:play_no_feedback(db.actor, 0, 0, db.actor:position(), 1.0, 1.0)
+	actor_effects.play_continuous_effect(period)
+	
+	musicTimeRemaining = period/1000
+	CreateTimeEvent("utrecurInsanity", "recurInsanity", 1, recurInsanityTimeFunc)
+end
+
+local harmsongcount = 5
+if more_harmonica_sounds then harmsongcount = 18 end
+function itms_manager.use_harmonica(obj)
+	local n = math.random(harmsongcount)
+	local snd = sound_object("music\\harmonica_" .. tostring(n))
+	if (not snd) then return end
+	local period = snd:length()
+	snd:play_no_feedback(db.actor, 0, 0, db.actor:position(), 1.0, 1.0)
+	actor_effects.play_continuous_effect(period)
+	
+	musicTimeRemaining = period/1000
+	CreateTimeEvent("utrecurInsanity", "recurInsanity", 1, recurInsanityTimeFunc)
+end
+
+function recurInsanityTimeFunc()
+	if musicTimeRemaining >= 1 then
+		ResetTimeEvent("utrecurInsanity", "recurInsanity", 1)
+	else
+		RemoveTimeEvent("utrecurInsanity", "recurInsanity")
+	end
+	
+	if is_not_empty(xr_combat_ignore.fighting_with_actor_npcs) then
+		haru_skills.increase_skill("insanity", 10)
+	end
+	musicTimeRemaining = musicTimeRemaining - 1
+
+	return false
+end
+-- INSANITY SKILL CODE END
+
+-- TRADE SKILL CODE
+community_bonus_self = 0
+community_bonus_other = 0
+thick_skull_penalty = 0
+local community_bonus = 0
+local skill_sell_bonus = 0
+local skill_discount = 0
+local item_costs = {}
+
+function on_get_item_cost(kind, obj, profile, calculated_cost, ret)
+	if profile.mode == 1 then -- when selling
+		ret.new_cost = math.floor((ret.new_cost or calculated_cost) * (1 + skill_sell_bonus + community_bonus - thick_skull_penalty))
+	elseif profile.mode == 2 then -- when buying
+		ret.new_cost = math.ceil((ret.new_cost or calculated_cost) * (1 - skill_discount - community_bonus + thick_skull_penalty))
+	end
+	item_costs[obj:id()] = ret.new_cost or calculated_cost
+end
+
+local cost_to_xp = 0
+
+function ActorMenu_on_trade_started()
+	RegisterScriptCallback("actor_on_item_take", actor_on_item_buy)
+	RegisterScriptCallback("actor_on_item_drop", actor_on_item_sell)
+	trader = mob_trade.GetTalkingNpc()
+	
+	local actor_faction = str_explode(character_community(db.actor), "_")[2]
+    local trader_faction = get_real_community(trader) or actor_faction
+
+	if actor_faction == trader_faction then
+		community_bonus = community_bonus_self
+	else
+		community_bonus = community_bonus_other
+	end
+	
+	skill_sell_bonus = haru_skills.skills_stats["bartering"].sell_bonus
+	skill_discount = haru_skills.skills_stats["bartering"].discount
+end
+
+function ActorMenu_on_trade_closed()
+	UnregisterScriptCallback("actor_on_item_take", actor_on_item_buy)
+	UnregisterScriptCallback("actor_on_item_drop", actor_on_item_sell)
+	haru_skills.increase_skill("bartering", cost_to_xp/30)
+	cost_to_xp = 0
+	item_costs = {}
+end
+
+function actor_on_item_buy(obj)
+	cost = item_costs[obj:id()]
+
+	if type(cost) == "number" then
+		cost_to_xp = cost_to_xp + (cost * 0.8)
+	end
+end
+
+function actor_on_item_sell(obj)
+	cost = item_costs[obj:id()]
+	
+	if type(cost) == "number" then -- When donating the cost can be a boolean, which crashes the game if this isn't checked...
+		cost_to_xp = cost_to_xp + (cost * 1.2)
+	end
+end
+
+local furniture = {
+    ["esc_m_trader"] = true,
+    ["red_m_lesnik"] = true
+}
+
+local blacklisted_comms = {
+    ["trader"] = true,
+    ["monster"] = true
+}
+
+-- used to get the real community of the NPC by checking spawn id
+-- author: HarukaSai
+function get_real_community(npc, default)
+
+	if furniture[npc:name()] then
+		return "stalker"
+	end
+	local community = character_community(npc)
+	if not blacklisted_comms[community] then
+		return community
+	end
+	local squad_community = get_object_squad(npc):get_squad_community()
+	if not blacklisted_comms[squad_community] then
+		return squad_community
+	else
+		return default
+	end
+end
+-- TRADE SKILL CODE END

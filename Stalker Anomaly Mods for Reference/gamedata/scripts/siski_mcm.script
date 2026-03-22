@@ -1,0 +1,247 @@
+local PERF_PRESET_KEYS = {
+    "update_interval_ms",
+    "operator_budget_per_tick",
+    "sim_scan_budget_per_tick",
+    "smarts_index_budget_per_tick",
+    "memory_sweep_budget_per_tick",
+    "debug_hud_budget_per_tick",
+    "loot_cleanup_budget_per_tick",
+}
+
+local PERF_PRESET_VALUES = {
+    [1] = {
+        update_interval_ms = 450,
+        operator_budget_per_tick = 2,
+        sim_scan_budget_per_tick = 4,
+        smarts_index_budget_per_tick = 16,
+        memory_sweep_budget_per_tick = 64,
+        debug_hud_budget_per_tick = 32,
+        loot_cleanup_budget_per_tick = 128,
+    },
+    [2] = {
+        update_interval_ms = 300,
+        operator_budget_per_tick = 4,
+        sim_scan_budget_per_tick = 6,
+        smarts_index_budget_per_tick = 30,
+        memory_sweep_budget_per_tick = 128,
+        debug_hud_budget_per_tick = 64,
+        loot_cleanup_budget_per_tick = 256,
+    },
+    [3] = {
+        update_interval_ms = 200,
+        operator_budget_per_tick = 8,
+        sim_scan_budget_per_tick = 10,
+        smarts_index_budget_per_tick = 48,
+        memory_sweep_budget_per_tick = 192,
+        debug_hud_budget_per_tick = 96,
+        loot_cleanup_budget_per_tick = 384,
+    },
+    [4] = {
+        update_interval_ms = 300,
+        operator_budget_per_tick = 4,
+        sim_scan_budget_per_tick = 6,
+        smarts_index_budget_per_tick = 30,
+        memory_sweep_budget_per_tick = 128,
+        debug_hud_budget_per_tick = 96,
+        loot_cleanup_budget_per_tick = 256,
+    },
+}
+
+local function normalize_perf_preset_mode(value)
+    local mode = tonumber(value)
+    if mode ~= nil then
+        mode = math.floor(mode + 0.5)
+        if mode < 0 then mode = 0 end
+        if mode > 4 then mode = 4 end
+        return mode
+    end
+    if type(value) == "string" then
+        local s = string.lower(value)
+        if string.find(s, "safe", 1, true) then return 1 end
+        if string.find(s, "balanced", 1, true) then return 2 end
+        if string.find(s, "aggressive", 1, true) then return 3 end
+        if string.find(s, "debug", 1, true) then return 4 end
+        if string.find(s, "custom", 1, true) then return 0 end
+    end
+    return 0
+end
+
+function siski_mcm_apply_perf_preset(mode)
+    local root = (type(siski) == "table") and siski or nil
+    mode = normalize_perf_preset_mode(mode)
+    if mode <= 0 then
+        if root and type(root.config) == "table" and type(root.config.clear_runtime_override) == "function" then
+            for i = 1, #PERF_PRESET_KEYS do
+                root.config.clear_runtime_override(PERF_PRESET_KEYS[i])
+            end
+            if type(root.config.clear_mcm_cache) == "function" then
+                root.config.clear_mcm_cache()
+            end
+        end
+        return mode
+    end
+
+    local preset = PERF_PRESET_VALUES[mode]
+    if type(preset) ~= "table" then
+        return mode
+    end
+
+    local used_mcm_set = false
+    for i = 1, #PERF_PRESET_KEYS do
+        local key = PERF_PRESET_KEYS[i]
+        local value = preset[key]
+        if value ~= nil and ui_mcm and ui_mcm.set then
+            local ok_set = pcall(function()
+                ui_mcm.set("siski/" .. tostring(key), value)
+            end)
+            if ok_set then
+                used_mcm_set = true
+            elseif root and type(root.config) == "table" and type(root.config.set_runtime_override) == "function" then
+                root.config.set_runtime_override(key, value)
+            end
+        elseif value ~= nil and root and type(root.config) == "table" and type(root.config.set_runtime_override) == "function" then
+            root.config.set_runtime_override(key, value)
+        end
+    end
+
+    if root and type(root.config) == "table" and type(root.config.clear_mcm_cache) == "function" then
+        root.config.clear_mcm_cache()
+    end
+    if root and type(root.core) == "table" and preset.update_interval_ms then
+        root.core.update_interval_ms = tonumber(preset.update_interval_ms) or root.core.update_interval_ms
+    end
+    if root and type(root.log) == "table" and type(root.log.info) == "function" then
+        root.log.info("CORE", "PERF_PRESET_APPLIED mode=%s source=%s", tostring(mode), used_mcm_set and "mcm_functor" or "runtime_override")
+    end
+    return mode
+end
+
+function on_mcm_load()
+    local op = {
+        id = "siski",
+        sh = true,
+        gr = {
+            { id = "title", type = "slide", link = "ui_options_slider_player", text = "ui_mcm_siski_title", size = { 512, 50 }, spacing = 20 },
+
+            { id = "enabled", type = "check", val = 1, def = true },
+            { id = "debug_hud_enabled", type = "check", val = 1, def = false },
+            { id = "debug_resync_now", type = "check", val = 1, def = false },
+            { id = "perf_preset_mode", type = "list", val = 2, def = 0, content = {
+                { 0, "siski_perf_preset_custom" },
+                { 1, "siski_perf_preset_safe" },
+                { 2, "siski_perf_preset_balanced" },
+                { 3, "siski_perf_preset_aggressive" },
+                { 4, "siski_perf_preset_debugperf" },
+            }, functor = { siski_mcm_apply_perf_preset } },
+            { id = "notify_enabled", type = "check", val = 1, def = true },
+            { id = "explore_enabled", type = "check", val = 1, def = true },
+            { id = "mutant_sim_enabled", type = "check", val = 1, def = true },
+            { id = "mutant_explore_enabled", type = "check", val = 1, def = true },
+            { id = "mutant_hunt_enabled", type = "check", val = 1, def = true },
+            { id = "artefact_enabled", type = "check", val = 1, def = true },
+            { id = "populate_enabled", type = "check", val = 1, def = true },
+            { id = "base_camping_enabled", type = "check", val = 1, def = true },
+            { id = "base_camping_duration_game_hours", type = "track", val = 2, min = 0.25, max = 12, step = 0.25, def = 1 },
+            { id = "task_arrive_dist_cap_m", type = "track", val = 2, min = 1, max = 50, step = 1, def = 5 },
+            { id = "target_sync_enabled", type = "check", val = 1, def = true },
+            { id = "target_unstuck_enabled", type = "check", val = 1, def = true },
+            { id = "target_unstuck_timeout_ms", type = "track", val = 2, min = 5000, max = 600000, step = 1000, def = 90000 },
+            { id = "target_hard_unstuck_timeout_ms", type = "track", val = 2, min = 10000, max = 900000, step = 1000, def = 180000 },
+            { id = "target_unstuck_cooldown_ms", type = "track", val = 2, min = 0, max = 120000, step = 1000, def = 15000 },
+            { id = "target_retarget_grace_ms", type = "track", val = 2, min = 0, max = 60000, step = 500, def = 5000 },
+            { id = "online_intent_enforce_enabled", type = "check", val = 1, def = true },
+            { id = "online_move_soft_timeout_ms", type = "track", val = 2, min = 5000, max = 300000, step = 1000, def = 45000 },
+            { id = "online_move_hard_timeout_ms", type = "track", val = 2, min = 10000, max = 600000, step = 1000, def = 120000 },
+            { id = "online_move_cooldown_ms", type = "track", val = 2, min = 0, max = 120000, step = 500, def = 10000 },
+            { id = "online_rush_window_ms", type = "track", val = 2, min = 0, max = 120000, step = 500, def = 15000 },
+            { id = "online_dist_progress_eps_m", type = "track", val = 2, min = 0, max = 100, step = 1, def = 5 },
+            { id = "online_retarget_max_per_task", type = "track", val = 2, min = 0, max = 10, step = 1, def = 2 },
+            { id = "patrol_enabled", type = "check", val = 1, def = true },
+            { id = "mutant_patrol_enabled", type = "check", val = 1, def = true },
+            { id = "trade_enabled", type = "check", val = 1, def = true },
+            { id = "faction_task_enabled", type = "check", val = 1, def = true },
+            { id = "faction_task_share_percent", type = "track", val = 2, min = 0, max = 100, step = 10, def = 30 },
+            { id = "intel_sharing_enabled", type = "check", val = 1, def = true },
+            { id = "home_region_attachment_enabled", type = "check", val = 1, def = true },
+            { id = "incident_chains_enabled", type = "check", val = 1, def = true },
+            { id = "loot_enabled", type = "check", val = 1, def = true },
+
+            { id = "divider", type = "line" },
+
+            { id = "log_level", type = "track", val = 2, min = 0, max = 5, step = 1, def = 0 },
+            { id = "log_filter_active_level_only", type = "check", val = 1, def = true },
+            { id = "log_filter_active_level_drop_unknown", type = "check", val = 1, def = false },
+            { id = "update_interval_ms", type = "track", val = 2, min = 50, max = 2000, step = 50, def = 300 },
+            { id = "adaptive_throttle_enabled", type = "check", val = 1, def = true },
+            { id = "operator_budget_per_tick", type = "track", val = 2, min = 1, max = 50, step = 1, def = 4 },
+            { id = "sim_scan_budget_per_tick", type = "track", val = 2, min = 1, max = 100, step = 1, def = 6 },
+            { id = "smarts_index_budget_per_tick", type = "track", val = 2, min = 1, max = 512, step = 1, def = 30 },
+            { id = "memory_sweep_budget_per_tick", type = "track", val = 2, min = 1, max = 512, step = 1, def = 128 },
+            { id = "busyhands_warn_ms", type = "track", val = 2, min = 0, max = 2000, step = 50, def = 350 },
+            { id = "debug_hud_budget_per_tick", type = "track", val = 2, min = 1, max = 256, step = 1, def = 64 },
+            { id = "surge_check_cache_ms", type = "track", val = 2, min = 0, max = 2000, step = 10, def = 250 },
+            { id = "perf_warn_interval_ms", type = "track", val = 2, min = 1000, max = 120000, step = 500, def = 10000 },
+            { id = "smart_enemy_cache_ttl_ms", type = "track", val = 2, min = 250, max = 120000, step = 250, def = 5000 },
+            { id = "smart_enemy_cache_max_entries", type = "track", val = 2, min = 128, max = 16384, step = 64, def = 2048 },
+            { id = "smart_slot_cache_max_entries", type = "track", val = 2, min = 64, max = 8192, step = 64, def = 1024 },
+            { id = "target_arrived_cache_max_entries", type = "track", val = 2, min = 64, max = 4096, step = 32, def = 512 },
+
+            { id = "divider2", type = "line" },
+
+            { id = "loot_scan_radius_m", type = "track", val = 2, min = 5, max = 150, step = 1, def = 35 },
+            { id = "loot_scan_cd_ms", type = "track", val = 2, min = 250, max = 10000, step = 250, def = 1500 },
+            { id = "loot_corpse_detect_dist_m", type = "track", val = 2, min = 5, max = 150, step = 1, def = 35 },
+            { id = "loot_event_ttl_s", type = "track", val = 2, min = 10, max = 600, step = 10, def = 180 },
+            { id = "loot_event_cap_total", type = "track", val = 2, min = 100, max = 10000, step = 50, def = 1200 },
+            { id = "loot_event_cap_corpses", type = "track", val = 2, min = 50, max = 10000, step = 50, def = 800 },
+            { id = "loot_event_cap_items", type = "track", val = 2, min = 50, max = 10000, step = 50, def = 800 },
+            { id = "loot_cleanup_interval_ms", type = "track", val = 2, min = 50, max = 10000, step = 50, def = 1000 },
+            { id = "loot_cleanup_budget_per_tick", type = "track", val = 2, min = 1, max = 2048, step = 1, def = 256 },
+            { id = "loot_collect_during_surge", type = "check", val = 1, def = false },
+            { id = "loot_collect_after_surge_grace_ms", type = "track", val = 2, min = 0, max = 600000, step = 1000, def = 120000 },
+            { id = "loot_patch_corpse_scan_budget", type = "track", val = 2, min = 1, max = 128, step = 1, def = 16 },
+            { id = "loot_patch_item_scan_budget", type = "track", val = 2, min = 1, max = 128, step = 1, def = 20 },
+            { id = "loot_patch_near_corpse_scan_budget", type = "track", val = 2, min = 1, max = 128, step = 1, def = 12 },
+            { id = "loot_patch_max_memory_size", type = "track", val = 2, min = 8, max = 256, step = 1, def = 48 },
+            { id = "loot_disable_near_actor_limit", type = "check", val = 1, def = true },
+            { id = "loot_unlock_corpses", type = "check", val = 1, def = true },
+            { id = "loot_items_enabled", type = "check", val = 1, def = false },
+            { id = "loot_items_detect_dist_m", type = "track", val = 2, min = 5, max = 150, step = 1, def = 35 },
+            { id = "loot_items_allow_unseen", type = "check", val = 1, def = false },
+
+            { id = "rest_duration_game_hours", type = "track", val = 2, min = 0.25, max = 6, step = 0.25, def = 0.25 },
+            { id = "mutant_rest_duration_game_hours", type = "track", val = 2, min = 0.25, max = 6, step = 0.25, def = 0.25 },
+            { id = "mutant_patrol_duration_game_hours", type = "track", val = 2, min = 0.25, max = 6, step = 0.25, def = 1.0 },
+            { id = "rest_fallback_stay_min_sec", type = "track", val = 2, min = 0, max = 7200, step = 60, def = 900 },
+            { id = "rest_fallback_stay_max_sec", type = "track", val = 2, min = 0, max = 7200, step = 60, def = 1800 },
+            { id = "night_rest_enabled", type = "check", val = 1, def = true },
+
+            { id = "divider3", type = "line" },
+
+            { id = "trade_max_squads_per_smart", type = "track", val = 2, min = 1, max = 12, step = 1, def = 3 },
+            { id = "trade_travel_timeout_ms", type = "track", val = 2, min = 60000, max = 3600000, step = 60000, def = 600000 },
+            { id = "trade_force_buy_enabled", type = "check", val = 1, def = true },
+            { id = "trade_force_buy_min_money", type = "track", val = 2, min = 0, max = 50000, step = 50, def = 300 },
+            { id = "trade_force_buy_ammo_target", type = "track", val = 2, min = 1, max = 200, step = 1, def = 2 },
+            { id = "trade_force_buy_item_target", type = "track", val = 2, min = 1, max = 50, step = 1, def = 1 },
+            { id = "trade_extra_buy_enabled", type = "check", val = 1, def = true },
+            { id = "trade_extra_buy_min_money", type = "track", val = 2, min = 0, max = 50000, step = 50, def = 300 },
+            { id = "trade_extra_buy_cd_ms", type = "track", val = 2, min = 250, max = 60000, step = 250, def = 5000 },
+            { id = "trade_extra_buy_budget_per_tick", type = "track", val = 2, min = 1, max = 64, step = 1, def = 4 },
+            { id = "trade_extra_buy_ammo_target", type = "track", val = 2, min = 1, max = 500, step = 1, def = 10 },
+            { id = "trade_extra_buy_item_target", type = "track", val = 2, min = 1, max = 50, step = 1, def = 3 },
+            { id = "trade_buy_all_enabled", type = "check", val = 1, def = false },
+            { id = "trade_buy_all_budget_per_visit", type = "track", val = 2, min = 1, max = 256, step = 1, def = 12 },
+            { id = "trade_buy_all_skip_ammo", type = "check", val = 1, def = true },
+
+            { id = "fast_trading_enabled", type = "check", val = 1, def = true },
+            { id = "fast_trading_delay_ms", type = "track", val = 2, min = 0, max = 5000, step = 100, def = 500 },
+            { id = "fast_trading_cooldown_ms", type = "track", val = 2, min = 0, max = 300000, step = 5000, def = 60000 },
+
+            { id = "divider4", type = "line" },
+
+            { id = "level_smarts_override", type = "check", val = 1, def = false },
+        }
+    }
+    return op
+end

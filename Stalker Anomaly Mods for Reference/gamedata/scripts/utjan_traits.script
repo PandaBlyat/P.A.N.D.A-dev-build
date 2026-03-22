@@ -1,0 +1,554 @@
+-- Credits to HarukaSai. I learned from code in Anomaly Skill System's haru_skills script for this script
+
+traits_ini = ini_file_ex("plugins\\skills\\traits_base.ltx")
+traits_list = {}
+traits_stats = {}
+
+function update_strong_back()
+	if traits_list["strong_back"].enabled == true then
+		local trait_weight_base = traits_stats["strong_back"].carry_weight
+		weight.add_weight("trait_strong_back_bonus", trait_weight_base, false)
+	else
+		weight.remove_weight("trait_strong_back_bonus")
+	end
+end
+
+function update_pack_mule()
+	if traits_list["pack_mule"].enabled == true then
+		local weight_bonus = traits_stats["pack_mule"].carry_weight
+		weight.add_weight("trait_pack_mule_bonus", weight_bonus, false)
+		local speed_modifier = traits_stats["pack_mule"].sprint_penalty_mult
+		speed.add_speed("trait_pack_mule_penalty", speed_modifier, true, false)
+	else
+		weight.remove_weight("trait_pack_mule_bonus")
+		speed.remove_speed("trait_pack_mule_penalty")
+	end
+end
+
+function update_strider()
+	if traits_list["strider"].enabled == true then
+		local speed_modifier = traits_stats["strider"].bonus + 1
+		speed.add_speed("trait_strider_modifier_walk", speed_modifier, false, false)
+		local weight_penalty = traits_stats["strider"].carry_weight_penalty
+		weight.add_weight("trait_strider_penalty", weight_penalty, false)
+	else
+		speed.remove_speed("trait_strider_modifier_walk")
+		weight.remove_weight("trait_strider_penalty")
+	end
+end
+
+function update_sprinter()
+	if traits_list["sprinter"].enabled == true then
+		local speed_modifier = traits_stats["sprinter"].bonus + 1
+		speed.add_speed("trait_sprinter_modifier_walk", speed_modifier, true, false)
+		local weight_penalty = traits_stats["sprinter"].carry_weight_penalty
+		weight.add_weight("trait_sprinter_penalty", weight_penalty, false)
+	else
+		speed.remove_speed("trait_sprinter_modifier_walk")
+		weight.remove_weight("trait_sprinter_penalty")
+	end
+end
+
+function update_cashback_self()
+	if traits_list["faction_cashback_self"].enabled == true then
+		utjan_skills.community_bonus_self = traits_stats["faction_cashback_self"].bonus
+	else
+		utjan_skills.community_bonus_self = 0
+	end
+end
+
+function update_cashback_other()
+	if traits_list["faction_cashback_other"].enabled == true then
+		utjan_skills.community_bonus_other = traits_stats["faction_cashback_other"].bonus
+	else
+		utjan_skills.community_bonus_other = 0
+	end
+end
+
+function update_thick_skull()
+	if traits_list["thick_skull"].enabled then
+		utjan_skills.thick_skull_penalty = traits_stats["thick_skull"].price_penalty
+	else
+		utjan_skills.thick_skull_penalty = 0
+	end
+end
+
+function update_tinkering_weapon()
+	if traits_list["tinkering_weapon"].enabled == true then
+		utjan_skills.trait_tinkering_weapon_bonus = traits_stats["tinkering_weapon"].bonus
+	else
+		utjan_skills.trait_tinkering_weapon_bonus = 0
+	end
+end
+
+function update_tinkering_parts()
+	if traits_list["tinkering_parts"].enabled == true then
+		utjan_skills.trait_tinkering_parts_bonus = traits_stats["tinkering_parts"].bonus
+	else
+		utjan_skills.trait_tinkering_parts_bonus = 0
+	end
+end
+
+function update_tinkering_armor()
+	if traits_list["tinkering_armor"].enabled == true then
+		utjan_skills.trait_tinkering_armor_bonus = traits_stats["tinkering_armor"].bonus
+	else
+		utjan_skills.trait_tinkering_armor_bonus = 0
+	end
+end
+
+function update_medicine_boost()
+	if traits_list["medicine_boost"].enabled == true then
+		utjan_skills.medicine_boost_addition = traits_stats["medicine_boost"].bonus
+	else
+		utjan_skills.medicine_boost_addition = 0
+	end
+end
+
+function update_mag_loading_bonus()
+	if traits_list["mag_loading_bonus"].enabled == true then
+		utjan_mag_skill.mag_loading_bonus = traits_stats["mag_loading_bonus"].bonus
+	else
+		utjan_mag_skill.mag_loading_bonus = 0
+	end
+end
+
+function update_mag_unloading_bonus()
+	if traits_list["mag_unloading_bonus"].enabled == true then
+		utjan_mag_skill.mag_unloading_bonus = traits_stats["mag_unloading_bonus"].bonus
+	else
+		utjan_mag_skill.mag_unloading_bonus = 0
+	end
+end
+
+function update_lockpicking_bonus()
+	if traits_list["lockpicking_bonus"].enabled == true then
+		as_utjan_lockpicking_skill.add_lockpick_diff_reduc = traits_stats["lockpicking_bonus"].bonus
+	else
+		as_utjan_lockpicking_skill.add_lockpick_diff_reduc = 0
+	end
+end
+
+function update_lone_stalker()
+	if traits_list["lone_stalker"].enabled == true and size_table(axr_companions.list_actor_squad_by_id()) == 0 then
+		local trait_weight_base = traits_stats["lone_stalker"].carry_weight
+		weight.add_weight("trait_lone_stalker_modifier_base", trait_weight_base, false)
+	else
+		weight.remove_weight("trait_lone_stalker_modifier_base")
+	end
+end
+
+function actor_on_hud_animation_play(anim_table, obj)
+	if not utjan_whandling_skill or not IsWeapon(obj) then return end
+	local kind = SYS_GetParam(0, obj:section(), "kind")
+	
+	local anm_speed = anim_table.anm_speed
+	
+	if utjan_whandling_skill.reload_anims[anim_table.anm_name] then
+		if traits_list["small_guns_reload"].enabled and (kind == "w_smg" or kind == "w_pistol") then
+			anim_table.anm_speed = anm_speed * (1 + traits_stats["small_guns_reload"].reload_bonus)
+			--printf("small_guns_reload")
+		elseif traits_list["big_guns_reload"].enabled and (kind == "w_shotgun" or kind == "w_sniper" or kind == "w_rifle") then
+			--printf("small_guns_reload")
+			anim_table.anm_speed = anm_speed * (1 + traits_stats["big_guns_reload"].reload_bonus)
+		end
+	end
+	if traits_list["sidearm_quickdraw"].enabled then
+		if utjan_whandling_skill.show_anims[anim_table.anm_name] and kind == "w_pistol"then
+			anim_table.anm_speed = anm_speed * (1 + traits_stats["sidearm_quickdraw"].pistol_draw_bonus)
+			--printf("sidearm_quickdraw_pistol")
+		end
+		if utjan_whandling_skill.hide_anims[anim_table.anm_name] then
+			if kind == "w_smg" or kind == "w_shotgun" or kind == "w_sniper" or kind == "w_rifle" then
+				anim_table.anm_speed = anm_speed * (1 + traits_stats["sidearm_quickdraw"].non_pistol_holster_bonus)
+				--printf("sidearm_quickdraw_non_pistol")
+			end		
+		end
+	end
+end
+
+function monster_on_loot_init(victim, loot_table)
+	if is_empty(loot_table) then 
+        return 
+    end
+    if traits_list["butcher"].enabled then
+        if traits_stats["butcher"].bonus_part_chance > math.random(100) then
+			local part = random_key_table(loot_table)
+			--printf("Butcher procced")
+            loot_table[part].count = loot_table[part].count + 1
+        end
+	end
+end
+
+local mutant_list = {
+	[14] = true,
+    [108] = true,
+    [15] = true,
+    [109] = true,
+    [16] = true,
+    [110] = true,
+    [17] = true,
+    [111] = true,
+    [29] = true,
+    [112] = true,
+    [18] = true,
+    [113] = true,
+	[20] = true,
+    [23] = true,
+    [116] = true,
+	[24] = true,
+    [25] = true,
+    [117] = true,
+    [26] = true,
+    [119] = true,
+	[27] = true,
+    [121] = true,
+    [22] = true,
+    [115] = true,
+    [33] = true,
+    [122] = true,
+	[37] = true,
+    [123] = true,
+	[38] = true,
+    [124] = true
+}
+
+local allowed_hit_types = {
+    [5] = true,
+    [6] = true,
+    [7] = true,
+    [8] = true
+}
+
+head_bones={
+	[14] = {"bip01_neck", "neck"}, 
+	[15] = {"bip01_head", "head"}, 
+	[16] = {"eye_left", "left_eye"}, 
+	[17] = {"eye_right", "right_eye"}, 
+	[18] = {"eyelid_1", "head"},
+	[19] = {"jaw_1", "jaw"}, 
+}
+
+function actor_on_before_hit(s_hit, bone_id, flags)
+	if not (s_hit.power > 0) then return end
+
+	if  traits_list["mutant_resist"].enabled and s_hit.draftsman and mutant_list[s_hit.draftsman:clsid()] and allowed_hit_types[s_hit.type] then 
+		s_hit.power = s_hit.power * traits_stats["mutant_resist"].multiplier
+    end
+	
+	if traits_list["thick_skull"].enabled and head_bones[bone_id] then
+		s_hit.power = s_hit.power * traits_stats["thick_skull"].head_resist_mult
+	end
+
+	if traits_list["lone_stalker"].enabled and size_table(axr_companions.companion_squads) == 0 then
+		s_hit.power = s_hit.power * traits_stats["lone_stalker"].dmg_resist_mult
+	end
+
+	local wpn = db.actor:active_item()
+    if traits_list["melee_defense"].enabled and wpn and IsWeapon(wpn) and (IsItem("fake_ammo_wpn",wpn:section())) and allowed_hit_types[s_hit.type] then
+		s_hit.power = s_hit.power * traits_stats["melee_defense"].multiplier
+    end
+end
+
+local base_arszi_on_before_hit = arszi_psy.actor_on_before_hit
+function arszi_psy.actor_on_before_hit(s_hit)
+	if (s_hit.draftsman and s_hit.draftsman:clsid() == clsid.controller_s and s_hit.power > 0 and s_hit.type == 4 and traits_list["psy_resist_controller"].enabled) then 
+		s_hit.power = s_hit.power * traits_stats["psy_resist_controller"].multiplier
+    end
+	base_arszi_on_before_hit(s_hit)
+end
+
+function creature_on_before_hit(npc, s_hit, bone_id, flags)
+    if not (s_hit.draftsman and s_hit.draftsman:id() == AC_ID) then
+		return 
+	end
+    local wpn = db.actor:active_item()
+    if not wpn then return end
+    if IsWeapon(wpn) and (IsItem("fake_ammo_wpn",wpn:section())) and mutant_list[s_hit.draftsman:clsid()] then
+		if traits_list["melee_mutant"].enabled then
+			s_hit.power = s_hit.power * traits_stats["melee_mutant"].multiplier
+		end
+    end
+end
+
+function npc_on_before_hit(npc, s_hit, bone_id)
+    if traits_list["squad_leader"].enabled and npc:has_info("npcx_is_companion") then
+		s_hit.power = s_hit.power * traits_stats["squad_leader"].squad_dmg_resist_mult
+    end
+	if traits_list["squad_leader"].enabled and s_hit.draftsman:has_info("npcx_is_companion") then
+		s_hit.power = s_hit.power * traits_stats["squad_leader"].squad_dmg_dealt_mult
+	end
+end
+
+-- Pain Rush + Pain Train
+local previous_health = 0
+local pain_rush_stacks = {}
+local pain_train_dur_bonus = 0
+local prev_time_g = 0
+
+function update_pain_rush()
+	if not traits_list["pain_rush"].enabled then return end
+	time_g = time_global()
+	pain_rush_cap = traits_stats["pain_rush"].bonus_limit
+	stack_duration = traits_stats["pain_rush"].stack_duration
+	
+	if traits_list["pain_train"].enabled then
+		pain_train_dur_bonus = traits_stats["pain_train"].stack_duration_bonus
+	end
+	
+	stacks_changed = false
+	if db.actor.health < previous_health and (previous_health - db.actor.health) > 0.01 then
+		stack_bonus = { (previous_health - db.actor.health) * 2 * pain_rush_cap, time_g }
+		table.insert(pain_rush_stacks, stack_bonus)
+		stacks_changed = true
+		--printf("Pain rush stack bonus: " .. stack_bonus[1])
+		--db.actor:change_power(-stack_bonus[1] * 2) -- DEBUG, REMOVE
+		--db.actor:cast_Actor():conditions():AddWound(previous_health - db.actor.health, 6, "bip01_spine")
+	end
+	
+	total_pr_bonus = 0
+	for k, stack_bonus in pairs(pain_rush_stacks) do
+		if stack_bonus[2] < (time_g - stack_duration - pain_train_dur_bonus) then
+			pain_rush_stacks[k] = nil
+			stacks_changed = true
+			--printf("Pain rush stack removed")
+		else
+			total_pr_bonus = math.min((total_pr_bonus + stack_bonus[1]), pain_rush_cap)
+		end
+	end
+	
+	if total_pr_bonus > 0 and traits_list["pain_train"].enabled and prev_time_g ~= 0 then
+		stam_regen = (traits_stats["pain_train"].stamina_regen_limit * (total_pr_bonus / pain_rush_cap)) * ((time_g - prev_time_g) / 1000)
+		db.actor:change_power(stam_regen)
+		--printf("Stam pain regen: " .. stam_regen)
+	end
+	
+	if total_pr_bonus > 0 and stacks_changed then
+		speed.add_speed("trait_pain_rush_modifier", total_pr_bonus + 1, false, false)
+	elseif stacks_changed then
+		speed.remove_speed("trait_pain_rush_modifier")
+	end
+	
+	prev_time_g = time_g
+	previous_health = db.actor.health
+end
+-- Pain Rush end
+
+-- Predator
+local predator_stacks = {}
+local prev_pred_time = 0
+
+function npc_on_death_callback(victim, who)
+	if not (who and who.id) then return end
+	if who:id() ~= AC_ID or traits_list["predator"].enabled ~= true then return end
+	stack_bonus = {1 * traits_stats["predator"].health_to_stack_mult, time_global()}
+	table.insert(predator_stacks, stack_bonus)
+end
+
+function monster_on_death_callback(victim, who)
+	if not (who and who.id) then return end
+	if who:id() ~= AC_ID or traits_list["predator"].enabled ~= true then return end
+	health = SYS_GetParam(0, victim:section(), "Health")
+	if not health then return end
+	--printf("Health of mutant kill: " .. health)
+	bleed_bonus = (math.max(health, 334 * (math.min(health, 100) / 100)) / 500) * traits_stats["predator"].health_to_stack_mult
+	--printf("Bleed bonus: " .. (math.max(health, 334 * (math.min(health, 100) / 100)) / 500))
+	stack_bonus = {bleed_bonus, time_global()}
+	table.insert(predator_stacks, stack_bonus)
+end
+
+function update_predator()
+	if not traits_list["predator"].enabled then return end
+	time_g = time_global()
+	predator_cap = traits_stats["predator"].bonus_limit
+	stack_duration = traits_stats["predator"].stack_duration
+	
+	total_stack_bonus = 0
+	for k, stack_bonus in pairs(predator_stacks) do
+		if stack_bonus[2] < (time_g - stack_duration) then
+			predator_stacks[k] = nil
+			--printf("Predator rush stack removed")
+		else
+			total_stack_bonus = math.min((total_stack_bonus + stack_bonus[1]), predator_cap)
+		end
+	end
+	
+	if prev_pred_time ~= 0 and total_stack_bonus > 0 then
+		time_delta = time_g - prev_pred_time
+		db.actor.bleeding = total_stack_bonus * (time_delta / 1000)
+		--printf("Bleed regen from stacks: " .. total_stack_bonus)
+	end
+	
+	if traits_list["bloodlust"] and traits_list["bloodlust"].enabled then
+		if total_stack_bonus > 0 then
+			utjan_whandling_skill.bloodlust_handling_bonus = (total_stack_bonus / predator_cap) * traits_stats["bloodlust"].bonus_limit
+		else
+			utjan_whandling_skill.bloodlust_handling_bonus = 0
+		end
+	end
+	
+	prev_pred_time = time_g
+end
+-- Predator end
+
+function respec_item_use(obj)
+	for trait, _ in pairs(traits_list) do
+		traits_list[trait].enabled = false
+    end
+	
+	speed.remove_speed("trait_pain_rush_modifier") -- Remove speed bonus from Pain Rush
+	if traits_list["bloodlust"] and utjan_whandling_skill then
+		utjan_whandling_skill.bloodlust_handling_bonus = 0
+	end
+	
+	for trait, stats in pairs(traits_stats) do
+        if stats.functor then
+            exec(stats.functor)
+			--printf(tostring(stats.functor))
+        end
+    end
+	
+	local item_usage_snd = sound_object("interface\\inv_drink_flask_beer")
+	item_usage_snd:play(db.actor, 0, sound_object.s2d)
+	
+	alife_release(obj)
+end
+
+function respec_item_use_str(obj)
+	if (obj:section(itm_trait_respec)) then 
+		return game.translate_string("st_traits_use_respec")
+	end
+end
+
+local updated = 0
+local interval = 1000
+last_trait_noti = 0
+trait_noti_interval = 300000
+
+local prev_health = 0 -- DEBUG
+
+function actor_on_update()
+	update_pain_rush()
+	update_predator()
+
+    if time_global() < updated then return end
+    updated = time_global() + interval
+	
+	update_lone_stalker() -- The function checks companion count too, so gotta rerun it in case squad size changes.
+	
+	if time_global() < last_trait_noti then return end
+	local cur_traits = get_available_trait_pts()
+	if cur_traits > 0 then
+		last_trait_noti = time_global() + trait_noti_interval
+		news_manager.send_tip(db.actor, game.translate_string("st_traits_reminder"), nil, "ui_skills_icon_insanity", 6000)
+	end
+end
+
+function get_available_trait_pts()
+	local traits_enabled = 0
+	for trait in pairs(traits_list) do
+		if traits_list[trait].enabled then 
+			traits_enabled = traits_enabled + 1
+		end
+	end
+	local total_skill_levels = 0
+	local skill_count = 0
+	for skill, stat in pairs(haru_skills.skills_levels) do
+		total_skill_levels = total_skill_levels + haru_skills.skills_levels[skill].current_level
+		skill_count = skill_count + 1
+	end
+	mcm_trait_multiplier = utjan_skills_mcm.get_config("traits_gain_mult")
+	local current_traits_level = math.floor((total_skill_levels * mcm_trait_multiplier) / (skill_count))
+	return (current_traits_level - traits_enabled)
+end
+
+function update_trait(trait)
+	if traits_stats[trait]["functor"] then
+		exec(traits_stats[trait]["functor"])
+		--printf("Executed: " .. tostring(traits_stats[trait]["functor"]))
+	end
+end
+
+function exec(str)
+    if str then
+		str = str_explode(str,"%.")
+		if str[1] and str[2] and _G[ str[1] ] and _G[ str[1] ][ str[2] ] then
+			_G[ str[1] ][ str[2] ]()
+		else
+			printf("Could not exec function %s", str)
+		end
+	end
+end
+
+function on_game_load()
+	last_trait_noti = 0
+
+	local traits_sections = traits_ini:get_sections(true)
+	
+	for trait, _ in pairs(traits_sections) do
+        local traits_info = traits_ini:collect_section(trait)
+		local trait_has_req = true
+        for k, v in pairs(traits_info) do
+			if k ~= "functor" and k ~= "script_required" and k ~= "trait_req" then
+                traits_info[k] = tonumber(traits_info[k])
+            elseif k == "script_required" and not _G[v] then -- if the required script isn't found
+				--printf("trait didn't have req: " .. tostring(trait))
+				trait_has_req = false
+			end
+        end
+        if not traits_list[trait] and trait_has_req then
+            traits_list[trait] = traits_info
+            traits_list[trait].enabled = false
+			--printf("Loaded trait: " .. trait)
+		elseif not trait_has_req then
+			traits_list[trait] = nil -- removes trait if it longer has the required script
+        end
+		
+		if trait_has_req then
+			traits_stats[trait] = {}
+			for stat, val in pairs(traits_info) do
+				traits_stats[trait][stat] = val
+				--printf(val)
+			end
+		end
+    end
+	
+	for trait, v in pairs(traits_list) do
+		if not traits_stats[trait] then
+			traits_list[trait] = nil
+		end
+	end
+	
+	for trait, stats in pairs(traits_stats) do
+        if stats.functor then
+            exec(stats.functor)
+			--printf(tostring(stats.functor))
+        end
+    end
+end
+
+function on_game_start()
+    RegisterScriptCallback("actor_on_before_hit", actor_on_before_hit)
+    RegisterScriptCallback("monster_on_before_hit", creature_on_before_hit)
+    RegisterScriptCallback("save_state", save_state)
+    RegisterScriptCallback("load_state", load_state)
+    RegisterScriptCallback("actor_on_update", actor_on_update)
+    RegisterScriptCallback("on_game_load", on_game_load)
+	RegisterScriptCallback("npc_on_before_hit", npc_on_before_hit)
+	RegisterScriptCallback("actor_on_hud_animation_play", actor_on_hud_animation_play)
+	RegisterScriptCallback("monster_on_loot_init", monster_on_loot_init)
+	RegisterScriptCallback("npc_on_death_callback", npc_on_death_callback)
+	RegisterScriptCallback("monster_on_death_callback", monster_on_death_callback)
+end
+
+function save_state(m_data)
+    m_data.traits_list = traits_list
+	m_data.predator_stacks = predator_stacks
+	m_data.pain_rush_stacks = pain_rush_stacks
+end
+
+function load_state(m_data)
+    traits_list = m_data.traits_list or {}
+	predator_stacks = m_data.predator_stacks or {}
+	pain_rush_stacks = m_data.pain_rush_stacks or {}
+end

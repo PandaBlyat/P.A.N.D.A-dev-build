@@ -1,0 +1,38 @@
+[medicine]
+max_level = 15
+base_requirement = 750
+
+[medicine_stats]
+restore_boost = 0 ; Restore_boost is multiplied with a medical item's total hp/rads restored and the resulting amount is given over a tenth of the item's duration as extra restoration.
+restore_boost_increment = 0.01 ; Extra boost per medicine level
+
+[insanity]
+max_level = 15
+base_requirement = 750
+
+[insanity_stats]
+psy_regen = 0 ; base regen 0.003, happens about once per second. Setting this to a negative number causes issues
+psy_regen_increment = 0.0002
+psy_hit_resistance = -0.05 ; psy damage taken reduced by this, -0.05 means you take 5% more damage
+psy_hit_resistance_increment = 0.02
+functor = utjan_skills.update_insanity
+
+[tinkering]
+max_level = 15
+base_requirement = 750
+
+[tinkering_stats]
+refund_chance = 0
+refund_chance_increment = 0.01
+
+[bartering]
+max_level = 15
+base_requirement = 750
+
+[bartering_stats]
+discount = -0.02 ; Buy prices reduced by this percentage
+discount_increment = 0.008
+sell_bonus = -0.02 ; Sell prices increased by this percentage
+sell_bonus_increment = 0.008
+task_bonus = 0
+task_bonus_increment = 0.01

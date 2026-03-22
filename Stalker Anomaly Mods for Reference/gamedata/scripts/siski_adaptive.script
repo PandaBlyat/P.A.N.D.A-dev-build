@@ -1,0 +1,579 @@
+siski = siski or {}
+siski.adaptive = siski.adaptive or {}
+
+local adaptive = siski.adaptive
+
+local type = _G.type
+local pairs = _G.pairs
+local ipairs = _G.ipairs
+local tonumber = _G.tonumber
+local tostring = _G.tostring
+local time_global = _G.time_global
+local math = _G.math
+local table = _G.table
+local string = _G.string
+
+local math_floor = math.floor
+local math_max = math.max
+local math_min = math.min
+local table_insert = table.insert
+local table_sort = table.sort
+local table_concat = table.concat
+local string_format = string.format
+
+local TARGET_TICK_MS = 25
+local PRESSURE_INC_BASE = 0.08
+local PRESSURE_DEC_BASE = 0.06
+local MULT_MAX = 4
+local STAGE_EWMA_ALPHA = 0.25
+local BROKER_MIN_FACTOR = 0.35
+local BROKER_MAX_FACTOR = 1.40
+local BROKER_DEBT_GAIN = 0.12
+local BROKER_DEBT_DECAY = 0.06
+
+local ENABLED_CACHE_MS = 500
+local LANE_WINDOW_MS = 6000
+local STATE_LOG_COOLDOWN_MS = 3000
+local LANE_SUMMARY_COOLDOWN_MS = 15000
+local FORCE_LOG_COOLDOWN_MS = 2000
+
+local STATE_NORMAL = "NORMAL"
+local STATE_PRESSURE = "PRESSURE"
+local STATE_SATURATED = "SATURATED"
+
+local function tg()
+    return (time_global and time_global()) or 0
+end
+
+local function clamp01(v)
+    v = tonumber(v) or 0
+    if v < 0 then return 0 end
+    if v > 1 then return 1 end
+    return v
+end
+
+local function as_bool(v, default)
+    if v == true then return true end
+    if v == false then return false end
+    if tonumber(v) ~= nil then
+        return tonumber(v) ~= 0
+    end
+    if type(v) == "string" then
+        if v == "true" then return true end
+        if v == "false" then return false end
+    end
+    return default == true
+end
+
+local function state_for_pressure(p)
+    p = clamp01(p)
+    if p < 0.45 then
+        return STATE_NORMAL
+    end
+    if p < 0.85 then
+        return STATE_PRESSURE
+    end
+    return STATE_SATURATED
+end
+
+adaptive.RUNTIME = adaptive.RUNTIME or {
+    pressure = 0,
+    state = STATE_NORMAL,
+    last_update_tg = 0,
+    lanes = {},
+    ticks = {},
+    last_elapsed_ms = {},
+    last_queue_len = 0,
+    enabled_cache = true,
+    enabled_cache_next_tg = 0,
+    state_log_next_tg = 0,
+    lane_summary_next_tg = 0,
+    force_log_next_tg = 0,
+    stage_started = {},
+    stage_last_ms = {},
+    stage_ewma_ms = {},
+    module_debt = {},
+    module_budget_last = {},
+}
+
+local function ensure_runtime_tables()
+    local rt = adaptive.RUNTIME
+    rt.stage_started = type(rt.stage_started) == "table" and rt.stage_started or {}
+    rt.stage_last_ms = type(rt.stage_last_ms) == "table" and rt.stage_last_ms or {}
+    rt.stage_ewma_ms = type(rt.stage_ewma_ms) == "table" and rt.stage_ewma_ms or {}
+    rt.module_debt = type(rt.module_debt) == "table" and rt.module_debt or {}
+    rt.module_budget_last = type(rt.module_budget_last) == "table" and rt.module_budget_last or {}
+    rt.lanes = type(rt.lanes) == "table" and rt.lanes or {}
+    rt.ticks = type(rt.ticks) == "table" and rt.ticks or {}
+    rt.last_elapsed_ms = type(rt.last_elapsed_ms) == "table" and rt.last_elapsed_ms or {}
+end
+
+local function is_enabled(now)
+    ensure_runtime_tables()
+    local rt = adaptive.RUNTIME
+    now = tonumber(now) or tg()
+    if now < (tonumber(rt.enabled_cache_next_tg) or 0) then
+        return rt.enabled_cache == true
+    end
+
+    local enabled = true
+    if siski.config and siski.config.get then
+        enabled = as_bool(siski.config.get("adaptive_throttle_enabled", true), true)
+    end
+
+    rt.enabled_cache = enabled == true
+    rt.enabled_cache_next_tg = now + ENABLED_CACHE_MS
+    return rt.enabled_cache == true
+end
+
+local function update_state(now)
+    local rt = adaptive.RUNTIME
+    local prev = rt.state
+    local next_state = state_for_pressure(rt.pressure)
+    rt.state = next_state
+
+    if prev == next_state then
+        return
+    end
+
+    if siski.log and siski.log.info and now >= (tonumber(rt.state_log_next_tg) or 0) then
+        rt.state_log_next_tg = now + STATE_LOG_COOLDOWN_MS
+        siski.log.info("ADAPTIVE", "state=%s pressure=%.2f", tostring(next_state), tonumber(rt.pressure) or 0)
+    end
+end
+
+local function add_pressure(now, delta)
+    local rt = adaptive.RUNTIME
+    rt.pressure = clamp01((tonumber(rt.pressure) or 0) + (tonumber(delta) or 0))
+    rt.last_update_tg = now
+    update_state(now)
+end
+
+local function ensure_lane(name, now)
+    ensure_runtime_tables()
+    local lanes = adaptive.RUNTIME.lanes
+    local lane = lanes[name]
+    if not lane then
+        lane = {
+            next_tg = 0,
+            last_run_tg = 0,
+            last_defer_tg = 0,
+            run_count_window = 0,
+            defer_count_window = 0,
+            run_count_total = 0,
+            defer_count_total = 0,
+            forced_count_total = 0,
+            window_started_tg = now,
+            last_result_cache = nil,
+            last_reason = nil,
+        }
+        lanes[name] = lane
+        return lane
+    end
+
+    if now >= ((tonumber(lane.window_started_tg) or 0) + LANE_WINDOW_MS) then
+        lane.run_count_window = 0
+        lane.defer_count_window = 0
+        lane.window_started_tg = now
+    end
+    return lane
+end
+
+local function multiplier_by_pressure()
+    local p = clamp01(adaptive.RUNTIME.pressure)
+    local m = 1 + math_floor(p * (MULT_MAX - 1) + 0.5)
+    if m < 1 then m = 1 end
+    if m > MULT_MAX then m = MULT_MAX end
+    return m
+end
+
+local function log_pressure_breakdown(now)
+    -- Log detailed lane breakdown when pressure is at maximum
+    local rt = adaptive.RUNTIME
+    if not (siski.log and siski.log.warn) then return end
+
+    -- Collect all lanes with their stats
+    local lane_list = {}
+    for lane, st in pairs(rt.lanes) do
+        local run = tonumber(st.run_count_window) or 0
+        local defer = tonumber(st.defer_count_window) or 0
+        local total = run + defer
+        if total > 0 then
+            table_insert(lane_list, {
+                name = lane,
+                run = run,
+                defer = defer,
+                total = total,
+                ratio = defer / total
+            })
+        end
+    end
+
+    -- Sort by defer count (descending)
+    table_sort(lane_list, function(a, b) return a.defer > b.defer end)
+
+    -- Build output string
+    local lines = {}
+    table_insert(lines, string_format("PRESSURE_MAX pressure=%.2f state=%s queue=%s lanes=%d",
+        tonumber(rt.pressure) or 0,
+        tostring(rt.state or STATE_NORMAL),
+        tostring(rt.last_queue_len or 0),
+        #lane_list
+    ))
+
+    for i, lane in ipairs(lane_list) do
+        if i <= 10 then -- Top 10 lanes
+            table_insert(lines, string_format("  %s[defer=%d run=%d ratio=%.2f]",
+                lane.name, lane.defer, lane.run, lane.ratio))
+        end
+    end
+
+    siski.log.warn("ADAPTIVE", table_concat(lines, "\n"))
+end
+
+local function maybe_log_lane_summary(now)
+    local rt = adaptive.RUNTIME
+    if now < (tonumber(rt.lane_summary_next_tg) or 0) then
+        return
+    end
+    rt.lane_summary_next_tg = now + LANE_SUMMARY_COOLDOWN_MS
+
+    if not (siski.log and siski.log.info) then
+        return
+    end
+
+    -- Extended logging when pressure is at maximum
+    local pressure = tonumber(rt.pressure) or 0
+    if pressure >= 0.95 then
+        log_pressure_breakdown(now)
+        return -- Skip normal summary, breakdown is more useful
+    end
+
+    local best_lane = nil
+    local best_ratio = -1
+    local best_defer = 0
+    for lane, st in pairs(rt.lanes) do
+        local run = tonumber(st.run_count_window) or 0
+        local defer = tonumber(st.defer_count_window) or 0
+        local total = run + defer
+        if total > 0 then
+            local ratio = defer / total
+            if ratio > best_ratio then
+                best_ratio = ratio
+                best_lane = lane
+                best_defer = defer
+            end
+        end
+    end
+
+    if best_lane then
+        siski.log.info(
+            "ADAPTIVE",
+            "pressure=%.2f state=%s top_defer_lane=%s defer=%s ratio=%.2f queue=%s",
+            tonumber(rt.pressure) or 0,
+            tostring(rt.state or STATE_NORMAL),
+            tostring(best_lane),
+            tostring(best_defer),
+            tonumber(best_ratio) or 0,
+            tostring(rt.last_queue_len or 0)
+        )
+    end
+end
+
+function adaptive.enabled()
+    return is_enabled(tg())
+end
+
+function adaptive.tick_begin(tag, now)
+    now = tonumber(now) or tg()
+    if not is_enabled(now) then return end
+    adaptive.RUNTIME.ticks[tostring(tag or "tick")] = now
+end
+
+function adaptive.tick_end(tag, now)
+    now = tonumber(now) or tg()
+    if not is_enabled(now) then return end
+
+    local key = tostring(tag or "tick")
+    local started = tonumber(adaptive.RUNTIME.ticks[key]) or 0
+    adaptive.RUNTIME.ticks[key] = nil
+    if started <= 0 then
+        return
+    end
+
+    local elapsed = now - started
+    if elapsed < 0 then elapsed = 0 end
+    adaptive.RUNTIME.last_elapsed_ms[key] = elapsed
+
+    if elapsed > TARGET_TICK_MS then
+        local overload = (elapsed - TARGET_TICK_MS) / TARGET_TICK_MS
+        add_pressure(now, PRESSURE_INC_BASE * math_min(3, overload))
+    else
+        local relief = (TARGET_TICK_MS - elapsed) / TARGET_TICK_MS
+        add_pressure(now, -PRESSURE_DEC_BASE * math_min(2, relief))
+    end
+
+    maybe_log_lane_summary(now)
+end
+
+function adaptive.stage_begin(stage_name, now)
+    now = tonumber(now) or tg()
+    if not is_enabled(now) then return end
+    ensure_runtime_tables()
+    local key = tostring(stage_name or "stage")
+    adaptive.RUNTIME.stage_started[key] = now
+end
+
+function adaptive.stage_end(stage_name, now)
+    now = tonumber(now) or tg()
+    if not is_enabled(now) then return nil end
+    ensure_runtime_tables()
+
+    local key = tostring(stage_name or "stage")
+    local started = tonumber(adaptive.RUNTIME.stage_started[key]) or 0
+    adaptive.RUNTIME.stage_started[key] = nil
+    if started <= 0 then return nil end
+
+    local elapsed = now - started
+    if elapsed < 0 then elapsed = 0 end
+    adaptive.RUNTIME.stage_last_ms[key] = elapsed
+
+    local prev = tonumber(adaptive.RUNTIME.stage_ewma_ms[key])
+    if prev == nil then
+        adaptive.RUNTIME.stage_ewma_ms[key] = elapsed
+    else
+        adaptive.RUNTIME.stage_ewma_ms[key] = (prev * (1 - STAGE_EWMA_ALPHA)) + (elapsed * STAGE_EWMA_ALPHA)
+    end
+
+    local ewma = tonumber(adaptive.RUNTIME.stage_ewma_ms[key]) or elapsed
+    if ewma > TARGET_TICK_MS then
+        local overload = (ewma - TARGET_TICK_MS) / TARGET_TICK_MS
+        add_pressure(now, PRESSURE_INC_BASE * 0.10 * math_min(3, overload))
+        adaptive.note_defer("stage." .. key, now, "ewma_over_target")
+    else
+        local relief = (TARGET_TICK_MS - ewma) / TARGET_TICK_MS
+        add_pressure(now, -PRESSURE_DEC_BASE * 0.20 * math_min(2, relief))
+    end
+    return elapsed
+end
+
+function adaptive.note_defer(lane, now, reason)
+    now = tonumber(now) or tg()
+    if not is_enabled(now) then return end
+
+    local name = tostring(lane or "unknown")
+    local st = ensure_lane(name, now)
+    st.last_defer_tg = now
+    st.defer_count_window = (tonumber(st.defer_count_window) or 0) + 1
+    st.defer_count_total = (tonumber(st.defer_count_total) or 0) + 1
+    st.last_reason = reason
+
+    add_pressure(now, PRESSURE_INC_BASE * 0.05)
+end
+
+function adaptive.should_run(lane, now, base_interval_ms, force_max_delay_ms)
+    now = tonumber(now) or tg()
+    if not is_enabled(now) then return true end
+
+    local name = tostring(lane or "unknown")
+    local base_interval = tonumber(base_interval_ms) or 0
+    if base_interval < 0 then base_interval = 0 end
+    local force_delay = tonumber(force_max_delay_ms) or 0
+    if force_delay < 0 then force_delay = 0 end
+
+    local st = ensure_lane(name, now)
+    local last_run = tonumber(st.last_run_tg) or 0
+    if force_delay > 0 and last_run > 0 and now >= (last_run + force_delay) then
+        st.last_run_tg = now
+        st.run_count_window = (tonumber(st.run_count_window) or 0) + 1
+        st.run_count_total = (tonumber(st.run_count_total) or 0) + 1
+        st.forced_count_total = (tonumber(st.forced_count_total) or 0) + 1
+        st.next_tg = now + base_interval
+
+        local rt = adaptive.RUNTIME
+        if siski.log and siski.log.info and now >= (tonumber(rt.force_log_next_tg) or 0) then
+            rt.force_log_next_tg = now + FORCE_LOG_COOLDOWN_MS
+            siski.log.info("ADAPTIVE", "force_run lane=%s pressure=%.2f", tostring(name), tonumber(rt.pressure) or 0)
+        end
+        return true
+    end
+
+    local next_tg = tonumber(st.next_tg) or 0
+    if now < next_tg then
+        adaptive.note_defer(name, now, "interval")
+        return false
+    end
+
+    local effective_interval = base_interval
+    if base_interval > 0 then
+        effective_interval = base_interval * multiplier_by_pressure()
+    end
+
+    st.last_run_tg = now
+    st.run_count_window = (tonumber(st.run_count_window) or 0) + 1
+    st.run_count_total = (tonumber(st.run_count_total) or 0) + 1
+    st.next_tg = now + effective_interval
+    return true
+end
+
+function adaptive.get_operator_time_budget_ms(base_ms, queue_len)
+    local now = tg()
+    local base = tonumber(base_ms) or 0
+    if base < 1 then base = 1 end
+    if not is_enabled(now) then return base end
+
+    local q = tonumber(queue_len) or 0
+    if q < 0 then q = 0 end
+    adaptive.RUNTIME.last_queue_len = q
+
+    if q > 0 then
+        local norm = q / math_max(1, base * 3)
+        if norm > 1 then norm = 1 end
+        add_pressure(now, PRESSURE_INC_BASE * 0.08 * norm)
+    end
+
+    local p = clamp01(adaptive.RUNTIME.pressure)
+    local budget = base
+    if p >= 0.75 then
+        budget = math_max(4, math_floor(base * 0.60))
+    elseif p >= 0.35 then
+        budget = math_max(6, math_floor(base * 0.85))
+    else
+        if q >= 24 then
+            budget = base + 2
+        elseif q >= 12 then
+            budget = base + 1
+        end
+    end
+
+    if budget < 1 then budget = 1 end
+    return budget
+end
+
+function adaptive.get_module_budget(module_name, base_budget, min_budget, max_budget, queue_len)
+    local now = tg()
+    local base = tonumber(base_budget) or 0
+    if base < 1 then base = 1 end
+    local min_b = tonumber(min_budget) or 1
+    local max_b = tonumber(max_budget) or math_max(min_b, base * 2)
+    if min_b < 1 then min_b = 1 end
+    if max_b < min_b then max_b = min_b end
+    local module = tostring(module_name or "module")
+
+    if not is_enabled(now) then
+        local out = math_floor(base + 0.5)
+        if out < min_b then out = min_b end
+        if out > max_b then out = max_b end
+        adaptive.RUNTIME.module_budget_last[module] = out
+        return out
+    end
+
+    ensure_runtime_tables()
+    local rt = adaptive.RUNTIME
+    local debt = tonumber(rt.module_debt[module]) or 0
+    debt = debt * (1 - BROKER_DEBT_DECAY)
+
+    local q = tonumber(queue_len) or 0
+    if q < 0 then q = 0 end
+    if q > 0 then
+        local q_norm = q / math_max(1, base * 3)
+        if q_norm > 1 then q_norm = 1 end
+        debt = debt + (BROKER_DEBT_GAIN * 0.5 * q_norm)
+    end
+
+    local p = clamp01(rt.pressure)
+    local factor = 1 - (p * 0.65) + debt
+    if factor < BROKER_MIN_FACTOR then factor = BROKER_MIN_FACTOR end
+    if factor > BROKER_MAX_FACTOR then factor = BROKER_MAX_FACTOR end
+
+    local out = math_floor((base * factor) + 0.5)
+    if out < min_b then out = min_b end
+    if out > max_b then out = max_b end
+
+    rt.module_debt[module] = debt
+    rt.module_budget_last[module] = out
+    return out
+end
+
+function adaptive.get_stage_snapshot()
+    ensure_runtime_tables()
+    local out = {
+        stage_last_ms = {},
+        stage_ewma_ms = {},
+        module_debt = {},
+        module_budget_last = {},
+    }
+    for k, v in pairs(adaptive.RUNTIME.stage_last_ms) do
+        out.stage_last_ms[k] = tonumber(v) or 0
+    end
+    for k, v in pairs(adaptive.RUNTIME.stage_ewma_ms) do
+        out.stage_ewma_ms[k] = tonumber(v) or 0
+    end
+    for k, v in pairs(adaptive.RUNTIME.module_debt) do
+        out.module_debt[k] = tonumber(v) or 0
+    end
+    for k, v in pairs(adaptive.RUNTIME.module_budget_last) do
+        out.module_budget_last[k] = tonumber(v) or 0
+    end
+    return out
+end
+
+function adaptive.reset_runtime(reason)
+    ensure_runtime_tables()
+    local rt = adaptive.RUNTIME
+    rt.stage_started = {}
+    rt.stage_last_ms = {}
+    rt.stage_ewma_ms = {}
+    rt.module_debt = {}
+    rt.module_budget_last = {}
+    rt.lanes = {}
+    rt.ticks = {}
+    if siski.log and siski.log.info then
+        siski.log.info("ADAPTIVE", "runtime_reset reason=%s", tostring(reason or "-"))
+    end
+end
+
+function adaptive.get_state_snapshot()
+    ensure_runtime_tables()
+    local rt = adaptive.RUNTIME
+    local out = {
+        enabled = adaptive.enabled(),
+        pressure = tonumber(rt.pressure) or 0,
+        state = tostring(rt.state or STATE_NORMAL),
+        last_update_tg = tonumber(rt.last_update_tg) or 0,
+        last_queue_len = tonumber(rt.last_queue_len) or 0,
+        lanes = {},
+        stage_last_ms = {},
+        stage_ewma_ms = {},
+        module_debt = {},
+        module_budget_last = {},
+    }
+
+    for name, lane in pairs(rt.lanes) do
+        out.lanes[name] = {
+            next_tg = tonumber(lane.next_tg) or 0,
+            last_run_tg = tonumber(lane.last_run_tg) or 0,
+            last_defer_tg = tonumber(lane.last_defer_tg) or 0,
+            run_count_window = tonumber(lane.run_count_window) or 0,
+            defer_count_window = tonumber(lane.defer_count_window) or 0,
+            run_count_total = tonumber(lane.run_count_total) or 0,
+            defer_count_total = tonumber(lane.defer_count_total) or 0,
+            forced_count_total = tonumber(lane.forced_count_total) or 0,
+            last_reason = lane.last_reason,
+            last_result_cache = lane.last_result_cache,
+        }
+    end
+    for k, v in pairs(rt.stage_last_ms) do
+        out.stage_last_ms[k] = tonumber(v) or 0
+    end
+    for k, v in pairs(rt.stage_ewma_ms) do
+        out.stage_ewma_ms[k] = tonumber(v) or 0
+    end
+    for k, v in pairs(rt.module_debt) do
+        out.module_debt[k] = tonumber(v) or 0
+    end
+    for k, v in pairs(rt.module_budget_last) do
+        out.module_budget_last[k] = tonumber(v) or 0
+    end
+    return out
+end

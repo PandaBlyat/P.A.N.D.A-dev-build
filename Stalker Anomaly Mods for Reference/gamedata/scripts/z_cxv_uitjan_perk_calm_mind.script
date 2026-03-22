@@ -1,0 +1,39 @@
+function get_nearby_lit_campfire(dist)
+	local pos = db.actor:position()
+	for id,binder in pairs(bind_campfire.campfires_all) do
+		if (binder and binder.campfire and binder.campfire:is_on()) then
+			if (pos:distance_to_sqr(binder.object:position()) <= dist) then
+				return true
+			end
+		end 
+	end 
+	return false
+end
+
+base_psy_regen_getter = arszi_psy.get_psy_health_regeneration
+function arszi_psy.get_psy_health_regeneration() -- happens once per second
+	local psyregenmult = base_psy_regen_getter()
+	if psyregenmult < 0 then
+		local temp_regen = psyregenmult
+		temp_regen = (1 + (0.2 * x_cxv_perks_data.perks["perk_calm_mind"])) * temp_regen			-- Calm Mind: 20% of base psy regen per rank (should double base psy regen at max rank)
+		if get_nearby_lit_campfire(10.0) then
+			temp_regen = temp_regen * (1 + (0.2 * x_cxv_perks_data.perks["perk_calm_mind"]))							-- Calm Mind: Multiply psy regen by 20% per rank when near a campfire (doubles psy regen at max rank)
+		end
+		psyregenmult = psyregenmult + (psyregenmult - temp_regen)
+		return psyregenmult
+	else
+		psyregenmult = (1 + (0.2 * x_cxv_perks_data.perks["perk_calm_mind"])) * psyregenmult			-- Calm Mind: 20% of base psy regen per rank (should double base psy regen at max rank)
+		if get_nearby_lit_campfire(10.0) then
+			psyregenmult = psyregenmult * (1 + (0.2 * x_cxv_perks_data.perks["perk_calm_mind"]))							-- Calm Mind: Multiply psy regen by 20% per rank when near a campfire (doubles psy regen at max rank)
+		end
+		return psyregenmult
+	end
+end
+
+local base_arszi_on_before_hit = arszi_psy.actor_on_before_hit
+function arszi_psy.actor_on_before_hit(s_hit)
+    if s_hit.power > 0 and s_hit.type == 4 then
+		s_hit.power = s_hit.power * (1 - (0.05 * x_cxv_perks_data.perks["perk_calm_mind"]))			-- Calm Mind: 5% psy resistance (total to 25% when max rank)	
+	end
+	base_arszi_on_before_hit(s_hit)
+end

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+<string_table>
+    <!-- Mystery messages from "???" -->
+    
+    <string id="st_mystery_up_1">
+        <text>...First blood is spilled, but the beast is not sated. The numbers next to your name have been updated in the dark channels. Now your soul is worth so much that even friends will start eyeing your back...</text>
+    </string>
+    
+    <string id="st_mystery_up_2">
+        <text>...You bought some time, but lost your peace. The client opened the "black fund". Now they will send wolves, not hounds, after you. Silence is deceptive, stalker. Watch your six...</text>
+    </string>
+    
+    <string id="st_mystery_up_3">
+        <text>...The noise of battle has faded, but the echo reached those in the shadows. Your status has changed. You are no longer just a target, you are a challenge. And professionals love well-paid challenges...</text>
+    </string>
+    
+    <string id="st_mystery_up_4">
+        <text>...Don't rejoice that you survived. That was just a reconnaissance in force. The curators raised the stakes to the sky. Soon the Zone will become too small for you, and every shadow will look like an assassin...</text>
+    </string>
+    
+    <string id="st_mystery_up_5">
+        <text>...Contract execution failure. Protocol updated: "Eliminate at all costs". Budget unlimited. You have become too expensive of a toy to just let go. Run...</text>
+    </string>
+    
+</string_table>

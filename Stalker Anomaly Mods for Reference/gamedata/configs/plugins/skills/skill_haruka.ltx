@@ -1,0 +1,44 @@
+[endurance]
+max_level = 15
+base_requirement = 750
+
+[endurance_stats]
+speed_modifier = 0.9
+speed_modifier_increment = 0.0135
+power_loss = 1.15 ; multiplier to base power_loss_bias. Higher = worse. Base power_loss_bias per difficulty: 0.2, 0.3, 0.4
+power_loss_increment = -0.03
+functor = haru_skills.update_endurance
+
+[strength]
+max_level = 15
+base_requirement = 750
+
+[strength_stats]
+weight_modifier = 0.95
+weight_modifier_increment = 0.01
+base_weight = 0
+base_weight_increment = 0.5
+melee_damage = 0.85
+melee_damage_increment = 0.02
+functor = haru_skills.update_strength
+
+[survival]
+max_level = 15
+base_requirement = 750
+
+[survival_stats]
+resistance = 1.075 ; damage multiplier
+resistance_increment = -0.01
+bleed_restore = 0
+bleed_restore_increment = 0.00005
+hunting_skill = -5
+hunting_skill_increment = 1.35
+functor = haru_skills.update_survival
+
+[scavenging]
+max_level = 15
+base_requirement = 750
+
+[scavenging_stats]
+scavenging_skill = -5
+scavenging_skill_increment = 1.35

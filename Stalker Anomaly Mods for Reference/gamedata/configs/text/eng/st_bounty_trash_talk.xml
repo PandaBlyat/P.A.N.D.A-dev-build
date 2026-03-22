@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+<string_table>
+
+    <!-- DIRECT THREATS (Bandits, Army, Mercs) -->
+    <string id="st_trash_threat_1">
+        <text>%s, the Zone is small. Sooner or later our paths will cross. And that will be your end.</text>
+    </string>
+    <string id="st_trash_threat_2">
+        <text>Save up that loot, %s, save it up. You are just a porter. Soon I will take it all.</text>
+    </string>
+    <string id="st_trash_threat_3">
+        <text>Hey %s! Your shoelace is untied... or is that a tripwire? Haha, watch your step.</text>
+    </string>
+    <string id="st_trash_threat_4">
+        <text>I have a nose for fresh meat. %s, I feel you are nearby. Don't relax.</text>
+    </string>
+    <string id="st_trash_threat_5">
+        <text>Boys, tell %s his debt is growing. Interest is ticking.</text>
+    </string>
+    <string id="st_trash_threat_6">
+        <text>Looking through the scope... Looks like a man, but smells like %s. Waste of a bullet, let the mutants eat him.</text>
+    </string>
+    <string id="st_trash_threat_7">
+        <text>Listen, %s, you stomp too loud. Everyone knows where you are. We know too.</text>
+    </string>
+    <string id="st_trash_threat_8">
+        <text>%s, don't go into dark corners. Darkness is a friend to youth, but an enemy to trash like you.</text>
+    </string>
+    <string id="st_trash_threat_9">
+        <text>They say %s is immortal? Let's check. I have some AP rounds lying around.</text>
+    </string>
+    <string id="st_trash_threat_10">
+        <text>Oh, %s is on the network again. You should have stayed silent, you'd live longer.</text>
+    </string>
+    <string id="st_trash_threat_11">
+        <text>Such a fat target, this %s. Too bad I'm far away. But the Zone is round.</text>
+    </string>
+    <string id="st_trash_threat_12">
+        <text>Whoever sees %s — send him "regards" with 5.45 caliber. He will understand.</text>
+    </string>
+    <string id="st_trash_threat_13">
+        <text>%s, you think you are the hunter? No, brother, you are the prey.</text>
+    </string>
+    <string id="st_trash_threat_14">
+        <text>You are too cocky, %s. The Zone doesn't like that. We will fix it.</text>
+    </string>
+    <string id="st_trash_threat_15">
+        <text>Saw your profile on the PDA, %s. Bad photo. The post-mortem one will be better.</text>
+    </string>
+
+    <!-- FAKE RUMORS (Loners, Freedom, Ecologists) -->
+    <string id="st_trash_fake_1">
+        <text>Guys, heard the news? They say someone placed a huge bet on %s. Serious people are looking.</text>
+    </string>
+    <string id="st_trash_fake_2">
+        <text>Weird stuff... Saw a group of mercs, asking about %s. What's that about?</text>
+    </string>
+    <string id="st_trash_fake_3">
+        <text>%s, are you still alive? People at the bar said you were fed to Snorks.</text>
+    </string>
+    <string id="st_trash_fake_4">
+        <text>Does anyone know if %s is sane? Walks around mumbling, staring at people. Shady guy.</text>
+    </string>
+    <string id="st_trash_fake_5">
+        <text>Don't do business with %s. They say he scares away luck. Whoever goes with him doesn't come back.</text>
+    </string>
+    <string id="st_trash_fake_6">
+        <text>Attention! A fake contract on %s is circulating in the network. Or maybe not fake... hard to tell with these encryptions.</text>
+    </string>
+    <string id="st_trash_fake_7">
+        <text>Rumor has it %s found something valuable and is hiding now. You gotta share, stalker.</text>
+    </string>
+    <string id="st_trash_fake_8">
+        <text>Betting a bottle of vodka that %s won't make it to the next Emission. Too much noise from him.</text>
+    </string>
+    <string id="st_trash_fake_9">
+        <text>Hey %s, is your PDA glitching or are you spamming geotags on purpose? Turn it off, you're exposing yourself.</text>
+    </string>
+    <string id="st_trash_fake_10">
+        <text>Folks, who is this %s anyway? The whole radio is buzzing about him.</text>
+    </string>
+    <string id="st_trash_fake_11">
+        <text>They say the bounty on %s has increased. Wonder why? Pissed someone off?</text>
+    </string>
+    <string id="st_trash_fake_12">
+        <text>%s, you should check your gear. Just in case it jams at the wrong moment. Heh.</text>
+    </string>
+    <string id="st_trash_fake_13">
+        <text>Saw a stalker looking like %s, running from boars screaming like a girl. Or maybe I was mistaken?</text>
+    </string>
+    <string id="st_trash_fake_14">
+        <text>Any info on %s? A client is interested. Pays in artifacts.</text>
+    </string>
+    <string id="st_trash_fake_15">
+        <text>%s, they say you are a "double agent". Working for both sides. Watch out, you'll get burned.</text>
+    </string>
+
+</string_table>

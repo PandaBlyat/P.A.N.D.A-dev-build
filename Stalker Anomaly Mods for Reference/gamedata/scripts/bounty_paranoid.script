@@ -1,0 +1,419 @@
+-- bounty_paranoid.script
+-- Параноидальные ПДА-треды про охотников
+-- Требуются строки st_paranoid_hunt_*, st_paranoid_reply_*
+
+-------------------------------------------------
+-- НАСТРОЙКИ ПО УМОЛЧАНИЮ (МЕНЯЮТСЯ ЧЕРЕЗ MCM)
+-------------------------------------------------
+local settings = {
+    enabled             = true,    -- общий выключатель
+    base_delay_minutes  = 6 * 60,  -- раз в 6 игровых часов попытка запустить новый тред
+    chance_start        = 40,      -- % шанса начать тред при срабатывании таймера
+    reply_interval_min  = 30,      -- мин. задержка между сообщениями в треде (сек)
+    reply_interval_max  = 120,     -- макс. задержка между сообщениями в треде (сек)
+    max_replies         = 3,       -- максимум ответов после стартового сообщения
+    hostile_weight      = 70,      -- % шанса взять отвечающего из враждебных фракций
+}
+
+-------------------------------------------------
+-- ЗАГРУЗКА НАСТРОЕК ИЗ MCM (mod_id = "bounty_hunt")
+--  bounty_hunt/paranoid_enable        (check, bool)
+--  bounty_hunt/paranoid_chance        (track, 0..100, %)
+--  bounty_hunt/paranoid_delay         (track, часы между тредами)
+--  bounty_hunt/paranoid_replies       (track, 0..5)
+--  bounty_hunt/paranoid_hostile_weight(track, 0..100, %)
+-------------------------------------------------
+local function load_settings()
+    if not ui_mcm then
+        return
+    end
+
+    local v
+
+    v = ui_mcm.get("bounty_hunt/paranoid_enable")
+    if v ~= nil then
+        settings.enabled = (v == true or v == 1 or v == "true")
+    end
+
+    v = ui_mcm.get("bounty_hunt/paranoid_chance")
+    if v ~= nil then
+        v = tonumber(v)
+        if v and v >= 0 and v <= 100 then
+            settings.chance_start = v
+        end
+    end
+
+    v = ui_mcm.get("bounty_hunt/paranoid_delay")
+    if v ~= nil then
+        v = tonumber(v)
+        if v and v > 0 then
+            settings.base_delay_minutes = v * 60
+        end
+    end
+
+    v = ui_mcm.get("bounty_hunt/paranoid_replies")
+    if v ~= nil then
+        v = tonumber(v)
+        if v and v >= 0 and v <= 5 then
+            settings.max_replies = v
+        end
+    end
+
+    v = ui_mcm.get("bounty_hunt/paranoid_hostile_weight")
+    if v ~= nil then
+        v = tonumber(v)
+        if v and v >= 0 and v <= 100 then
+            settings.hostile_weight = v
+        end
+    end
+
+    -- Простая защита от мусорных значений
+    if settings.reply_interval_max < settings.reply_interval_min then
+        settings.reply_interval_max = settings.reply_interval_min
+    end
+end
+
+local function on_option_change(mcm)
+    if not mcm then return end
+    load_settings()
+end
+
+-------------------------------------------------
+-- КОНСТАНТЫ ПО КОЛИЧЕСТВУ СТРОК
+-------------------------------------------------
+local PARANOID_HUNT_MAX     = 12  -- st_paranoid_hunt_1..12
+local REPLY_CALM_MAX        = 10  -- st_paranoid_reply_calm_1..10
+local REPLY_SUPPORT_MAX     = 8   -- st_paranoid_reply_support_1..8
+local REPLY_MOCK_MAX        = 18  -- st_paranoid_reply_mock_1..18
+local REPLY_THREAT_MAX      = 15  -- st_paranoid_reply_threat_1..15
+
+-------------------------------------------------
+-- ФРАКЦИИ
+-------------------------------------------------
+
+local IGNORE_FACTIONS = {
+    ["monolith"] = true,
+    ["sin"]      = true,
+    ["isg"]      = true,
+    ["zombied"]  = true,
+    ["trader"]   = true,
+    ["monster"]  = true,
+    ["spectator"]= true,
+}
+
+local FACTION_ENEMIES = {
+    freedom = { dolg = true, army = true, killer = true, bandit = true },
+    dolg    = { freedom = true, bandit = true, killer = true },
+    stalker = { bandit = true, killer = true },
+    bandit  = { stalker = true, freedom = true, dolg = true },
+    army    = { freedom = true, stalker = true, bandit = true },
+    killer  = { everyone = true },
+    renegade= { stalker = true, csky = true },
+    csky    = { bandit = true, renegade = true },
+}
+
+local function normalize_comm(comm)
+    if not comm then return nil end
+    if comm == "actor" then return "stalker" end
+    if comm == "actor_stalker" then return "stalker" end
+    if comm == "actor_freedom" then return "freedom" end
+    if comm == "actor_dolg" or comm == "actor_duty" then return "dolg" end
+    if comm == "actor_bandit" then return "bandit" end
+    if comm == "actor_killer" or comm == "merc" then return "killer" end
+    if comm == "actor_csky" then return "csky" end
+    if comm == "actor_army" or comm == "military" then return "army" end
+    if comm == "actor_ecolog" then return "ecolog" end
+    return comm
+end
+
+local function is_hostile_faction(comm_a, comm_b)
+    comm_a = normalize_comm(comm_a)
+    comm_b = normalize_comm(comm_b)
+    if not comm_a or not comm_b or comm_a == comm_b then
+        return false
+    end
+    local list = FACTION_ENEMIES[comm_a]
+    if not list then return false end
+    if list.everyone then return true end
+    return list[comm_b] == true
+end
+
+-------------------------------------------------
+-- СОСТОЯНИЕ ТРЕДА
+-------------------------------------------------
+local THREAD_STATE_NONE        = 0
+local THREAD_STATE_WAIT_REPLY  = 1
+
+local next_thread_time = nil
+
+local current_thread = {
+    state          = THREAD_STATE_NONE,
+    starter_id     = nil,
+    starter_comm   = nil,
+    replies_done   = 0,
+    max_replies    = 0,
+    next_reply_ct  = nil,
+}
+
+-------------------------------------------------
+-- УТИЛИТЫ
+-------------------------------------------------
+local function rand_range(min_v, max_v)
+    if max_v <= min_v then return min_v end
+    return math.random(min_v, max_v)
+end
+
+local function schedule_next_thread()
+    local delay_min = settings.base_delay_minutes
+    if delay_min <= 0 then delay_min = 60 end
+    local offset = game.CTime()
+    offset:setHMS(0, delay_min, 0)
+    next_thread_time = game.get_game_time() + offset
+end
+
+-------------------------------------------------
+-- ВЫБОР ПАРАНОИКА
+-------------------------------------------------
+local function pick_paranoid_npc()
+    if not db.storage then return nil end
+    local candidates = {}
+
+    for id, data in pairs(db.storage) do
+        local npc = data and data.object
+        if npc and IsStalker(npc) and npc:alive() and npc:id() ~= db.actor:id() then
+            local comm = normalize_comm(npc:character_community())
+            if comm and not IGNORE_FACTIONS[comm] then
+                table.insert(candidates, npc)
+            end
+        end
+    end
+
+    if #candidates == 0 then
+        return nil
+    end
+    return candidates[math.random(#candidates)]
+end
+
+local function start_paranoid_thread()
+    local paranoid = pick_paranoid_npc()
+    if not paranoid then
+        return false
+    end
+
+    local comm        = normalize_comm(paranoid:character_community())
+    local sender_name = paranoid:character_name()
+    local sender_icon = paranoid:character_icon()
+    if not sender_icon or sender_icon == "" then
+        sender_icon = "ui_inGame2_Neutral_1"
+    end
+
+    local idx      = math.random(1, PARANOID_HUNT_MAX)
+    local text_key = "st_paranoid_hunt_" .. tostring(idx)
+    local message  = game.translate_string(text_key)
+
+    db.actor:give_game_news(sender_name, message, sender_icon, 0, 5000)
+    xr_sound.set_sound_play(db.actor:id(), "pda_tips")
+
+    current_thread.starter_id   = paranoid:id()
+    current_thread.starter_comm = comm
+    current_thread.replies_done = 0
+
+    -- Случайное количество ответов от 0 до максимума из настроек
+    local max_cfg = math.max(0, settings.max_replies or 0)
+    current_thread.max_replies  = math.random(0, max_cfg)
+
+    -- Если выпало 0 — только сообщение параноика, без ответов
+    if current_thread.max_replies <= 0 then
+        current_thread.state         = THREAD_STATE_NONE
+        current_thread.next_reply_ct = nil
+        return true
+    end
+
+
+    current_thread.state = THREAD_STATE_WAIT_REPLY
+
+    local now = game.get_game_time()
+    local off = game.CTime()
+    off:setHMS(0, 0, rand_range(settings.reply_interval_min, settings.reply_interval_max))
+    current_thread.next_reply_ct = now + off
+
+    return true
+end
+
+-------------------------------------------------
+-- ВЫБОР ОТВЕТА
+-------------------------------------------------
+local function pick_responder_and_type()
+    if not db.storage then return nil, nil, nil end
+
+    if not current_thread.starter_id then
+        return nil, nil, nil
+    end
+
+    local starter_obj = level.object_by_id(current_thread.starter_id)
+    if not starter_obj or not starter_obj:alive() then
+        -- Стартовый НПС оффлайн или мёртв — тред логично заглох
+        return nil, nil, nil
+    end
+
+    local starter_comm = current_thread.starter_comm
+    local hostiles = {}
+    local neutrals = {}
+
+    for id, data in pairs(db.storage) do
+        local npc = data and data.object
+        if npc and IsStalker(npc) and npc:alive()
+            and npc:id() ~= db.actor:id()
+            and npc:id() ~= current_thread.starter_id
+        then
+            local comm = normalize_comm(npc:character_community())
+            if comm and not IGNORE_FACTIONS[comm] then
+                if is_hostile_faction(comm, starter_comm) then
+                    table.insert(hostiles, npc)
+                else
+                    table.insert(neutrals, npc)
+                end
+            end
+        end
+    end
+
+    if #hostiles == 0 and #neutrals == 0 then
+        return nil, nil, nil
+    end
+
+    local responder
+    local bucket -- "hostile"/"neutral"
+
+    if #hostiles > 0 and math.random(100) <= settings.hostile_weight then
+        responder = hostiles[math.random(#hostiles)]
+        bucket    = "hostile"
+    elseif #neutrals > 0 then
+        responder = neutrals[math.random(#neutrals)]
+        bucket    = "neutral"
+    else
+        responder = hostiles[math.random(#hostiles)]
+        bucket    = "hostile"
+    end
+
+    if not responder then
+        return nil, nil, nil
+    end
+
+    local msg_type
+    if bucket == "hostile" then
+        -- Враждебные: в основном насмешки и угрозы
+        if math.random(100) <= 60 then
+            msg_type = "mock"
+        else
+            msg_type = "threat"
+        end
+    else
+        -- Нейтралы: спокойные ответы или поддержка
+        if math.random(100) <= 50 then
+            msg_type = "calm"
+        else
+            msg_type = "support"
+        end
+    end
+
+    return responder, bucket, msg_type
+end
+
+local function build_reply_key(msg_type)
+    if msg_type == "calm" then
+        return "st_paranoid_reply_calm_" .. tostring(math.random(1, REPLY_CALM_MAX))
+    elseif msg_type == "support" then
+        return "st_paranoid_reply_support_" .. tostring(math.random(1, REPLY_SUPPORT_MAX))
+    elseif msg_type == "mock" then
+        return "st_paranoid_reply_mock_" .. tostring(math.random(1, REPLY_MOCK_MAX))
+    elseif msg_type == "threat" then
+        return "st_paranoid_reply_threat_" .. tostring(math.random(1, REPLY_THREAT_MAX))
+    end
+    return nil
+end
+
+local function send_paranoid_reply()
+    local responder, bucket, msg_type = pick_responder_and_type()
+    if not responder or not msg_type then
+        current_thread.state         = THREAD_STATE_NONE
+        current_thread.next_reply_ct = nil
+        return
+    end
+
+    local sender_name = responder:character_name()
+    local sender_icon = responder:character_icon()
+    if not sender_icon or sender_icon == "" then
+        sender_icon = "ui_inGame2_Neutral_1"
+    end
+
+    local key = build_reply_key(msg_type)
+    if not key then
+        current_thread.state         = THREAD_STATE_NONE
+        current_thread.next_reply_ct = nil
+        return
+    end
+
+    local message = game.translate_string(key)
+    db.actor:give_game_news(sender_name, message, sender_icon, 0, 5000)
+    xr_sound.set_sound_play(db.actor:id(), "pda_tips")
+
+    current_thread.replies_done = current_thread.replies_done + 1
+
+    if current_thread.replies_done >= current_thread.max_replies then
+        current_thread.state         = THREAD_STATE_NONE
+        current_thread.next_reply_ct = nil
+        return
+    end
+
+    local now = game.get_game_time()
+    local off = game.CTime()
+    off:setHMS(0, 0, rand_range(settings.reply_interval_min, settings.reply_interval_max))
+    current_thread.next_reply_ct = now + off
+end
+
+-------------------------------------------------
+-- ОСНОВНОЙ АПДЕЙТ
+-------------------------------------------------
+function actor_on_update()
+    if not db.actor or not settings.enabled then
+        return
+    end
+
+    local now = game.get_game_time()
+
+    -- Активный тред: ждём времени следующего ответа
+    if current_thread.state == THREAD_STATE_WAIT_REPLY and current_thread.next_reply_ct then
+        if now:diffSec(current_thread.next_reply_ct) >= 0 then
+            send_paranoid_reply()
+        end
+    end
+
+    -- Новый тред запускаем только когда текущий завершён
+    if current_thread.state == THREAD_STATE_NONE then
+        if not next_thread_time then
+            -- Первый запуск: просто ставим таймер
+            schedule_next_thread()
+        else
+            if now:diffSec(next_thread_time) >= 0 then
+                -- Таймер истёк: пробуем запустить тред по шансу
+                if math.random(100) <= settings.chance_start then
+                    start_paranoid_thread()
+                end
+                -- В любом случае переносим таймер вперёд,
+                -- чтобы не было спама тредов один за другим
+                schedule_next_thread()
+            end
+        end
+    end
+end
+
+-------------------------------------------------
+-- ИНИЦИАЛИЗАЦИЯ
+-------------------------------------------------
+function on_game_start()
+    load_settings()
+    RegisterScriptCallback("actor_on_update", actor_on_update)
+    if ui_mcm then
+        RegisterScriptCallback("mcm_option_change", on_option_change)
+    end
+end

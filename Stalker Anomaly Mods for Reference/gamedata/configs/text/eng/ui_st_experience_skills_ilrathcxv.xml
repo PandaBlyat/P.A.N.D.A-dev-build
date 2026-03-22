@@ -1,0 +1,1721 @@
+<?xml version="1.0" encoding="windows-1251"?>
+
+<string_table>
+
+	<!-- Skills Category in menu -->
+	<string id="ui_st_gamma_rpg_system_skills_category">
+        <text>GAMMA RPG System</text>
+    </string>
+	<!-- Options preset name -->
+	<string id="ui_exp_prst_gamma_rpg_system_default">
+        <text>GAMMA RPG System Preset</text>
+    </string>
+
+	<string id="st_perk_fast_hands">
+        <text>Fast Hands</text>
+    </string>
+	<string id="st_perk_fast_hands_desc">
+        <text>You have learned to handle your weapons more effectively.</text>
+    </string>
+	<string id="st_perk_fast_hands_desc_1">
+        <text>You have learned to handle your items more effectively. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increases your stow and draw speed by %c[d_green]15%
+		</text>
+    </string>
+	<string id="st_perk_fast_hands_desc_2">
+        <text>You have learned to handle your items more effectively. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increases your stow and draw speed by %c[d_green]30%
+		</text>
+    </string>
+	<string id="st_perk_fast_hands_desc_3">
+        <text>You have learned to handle your items more effectively. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increases your stow and draw speed by %c[d_green]70%
+		</text>
+    </string>
+<!--
+	<string id="st_perk_fast_hands_desc_4">
+        <text>You have learned to handle your items more effectively. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increases your stow and draw speed by %c[d_green]60%
+		</text>
+    </string>
+	<string id="st_perk_fast_hands_desc_5">
+        <text>You have learned to handle your items more effectively. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increases your stow and draw speed by %c[d_green]75%
+		</text>
+    </string>
+-->
+
+	<string id="st_perk_rapid_reload">
+        <text>Rapid Reload</text>
+    </string>
+	<string id="st_perk_rapid_reload_desc">
+        <text>Speed is key in the heat of battle.</text>
+    </string>
+	<string id="st_perk_rapid_reload_desc_1">
+        <text>Speed is key in the heat of battle. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Your reload speed is increased by %c[d_green]10%\n
+		%c[d_red] -  This perk will cause your reload animations to become de-synced with the reload sounds (engine limitation)
+		</text>
+    </string>
+	<string id="st_perk_rapid_reload_desc_2">
+        <text>Speed is key in the heat of battle. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Your reload speed is increased by %c[d_green]20%\n
+		%c[d_red] -  This perk will cause your reload animations to become de-synced with the reload sounds (engine limitation)
+		</text>
+    </string>
+	<string id="st_perk_rapid_reload_desc_3">
+        <text>Speed is key in the heat of battle. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Your reload speed is increased by %c[d_green]35%\n
+		%c[d_red] -  This perk will cause your reload animations to become de-synced with the reload sounds (engine limitation)
+		</text>
+    </string>
+	<string id="st_perk_rapid_reload_desc_4">
+        <text>Speed is key in the heat of battle. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Your reload speed is increased by %c[d_green]50%\n
+		%c[d_red] -  This perk will cause your reload animations to become de-synced with the reload sounds (engine limitation)
+		</text>
+    </string>
+	<string id="st_perk_rapid_reload_desc_5">
+        <text>Speed is key in the heat of battle. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Your reload speed is increased by %c[d_green]75%\n
+		%c[d_red] -  This perk will cause your reload animations to become de-synced with the reload sounds (engine limitation)
+		</text>
+    </string>
+	
+    <string id="st_perk_gunslinger">
+        <text>Gunslinger</text>
+    </string>
+	<string id="st_perk_gunslinger_desc">
+        <text>You have mastered your skills with using small arms.</text>
+    </string>
+	<string id="st_perk_gunslinger_desc_1">
+        <text>You have mastered your skills with using small arms. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage to %c[yellow]mutants %c[ui_gray_2]by %c[d_green]5% %c[ui_gray_2]with %c[yellow]Pistols and SMGs\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+2 %c[ui_gray_2]for %c[yellow]Pistols and SMGs
+		</text>
+    </string>
+	<string id="st_perk_gunslinger_desc_2">
+        <text>You have mastered your skills with using small arms. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage to %c[yellow]mutants %c[ui_gray_2]by %c[d_green]10% %c[ui_gray_2]with %c[yellow]Pistols and SMGs\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+4 %c[ui_gray_2]for %c[yellow]Pistols and SMGs
+		</text>
+    </string>
+	<string id="st_perk_gunslinger_desc_3">
+        <text>You have mastered your skills with using small arms. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage to %c[yellow]mutants %c[ui_gray_2]by %c[d_green]15% %c[ui_gray_2]with %c[yellow]Pistols and SMGs\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+6 %c[ui_gray_2]for %c[yellow]Pistols and SMGs
+		</text>
+    </string>
+
+	<string id="st_perk_gunslinger_desc_4">
+        <text>You have mastered your skills with using small arms. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage to %c[yellow]mutants %c[ui_gray_2]by %c[d_green]20% %c[ui_gray_2]with %c[yellow]Pistols and SMGs\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+8 %c[ui_gray_2]for %c[yellow]Pistols and SMGs
+		</text>
+    </string>
+	<string id="st_perk_gunslinger_desc_5">
+        <text>You have mastered your skills with using small arms. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage to %c[yellow]mutants %c[ui_gray_2]by %c[d_green]25% %c[ui_gray_2]with %c[yellow]Pistols and SMGs\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+10 %c[ui_gray_2]for %c[yellow]Pistols and SMGs
+		</text>
+    </string>
+
+	
+	<string id="st_perk_rifleman">
+        <text>Rifleman</text>
+    </string>
+	<string id="st_perk_rifleman_desc">
+        <text>You have become an expert with rifle-styled platforms.</text>
+    </string>
+	<string id="st_perk_rifleman_desc_1">
+        <text>You have become an expert with rifle-styled platforms. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage to %c[yellow]mutants %c[ui_gray_2]by %c[d_green]5% %c[ui_gray_2]with %c[yellow]Assault Rifles and LMGs\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+2 %c[ui_gray_2]for %c[yellow]Assault Rifles and most LMGs
+		</text>
+    </string>
+	<string id="st_perk_rifleman_desc_2">
+        <text>You have become an expert with rifle-styled platforms. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage to %c[yellow]mutants %c[ui_gray_2]by %c[d_green]10% %c[ui_gray_2]with %c[yellow]Assault Rifles and LMGs\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+4 %c[ui_gray_2]for %c[yellow]Assault Rifles and most LMGs
+		</text>
+    </string>
+	<string id="st_perk_rifleman_desc_3">
+        <text>You have become an expert with rifle-styled platforms. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage to %c[yellow]mutants %c[ui_gray_2]by %c[d_green]15% %c[ui_gray_2]with %c[yellow]Assault Rifles and LMGs\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+6 %c[ui_gray_2]for %c[yellow]Assault Rifles and most LMGs
+		</text>
+    </string>
+	<string id="st_perk_rifleman_desc_4">
+        <text>You have become an expert with rifle-styled platforms. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage to %c[yellow]mutants %c[ui_gray_2]by %c[d_green]20% %c[ui_gray_2]with %c[yellow]Assault Rifles and LMGs\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+8 %c[ui_gray_2]for %c[yellow]Assault Rifles and most LMGs
+		</text>
+    </string>
+	<string id="st_perk_rifleman_desc_5">
+        <text>You have become an expert with rifle-styled platforms. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage to %c[yellow]mutants %c[ui_gray_2]by %c[d_green]25% %c[ui_gray_2]with %c[yellow]Assault Rifles and LMGs\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+10 %c[ui_gray_2]for %c[yellow]Assault Rifles and most LMGs
+		</text>
+    </string>
+	
+	<string id="st_perk_heavy_gunner">
+        <text>Heavy Gunner</text>
+    </string>
+	<string id="st_perk_heavy_gunner_desc">
+        <text>You now deal increased damage with Shotguns, Snipers, and Heavy Weapons (excludes grenades).</text>
+    </string>
+	<string id="st_perk_heavy_gunner_desc_1">
+        <text>You have taken to the more specialized weapons in the Zone. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage to %c[yellow]mutants %c[ui_gray_2]by %c[d_green]5% %c[ui_gray_2]with %c[yellow]Shotguns, Snipers, and Heavy Weapons\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+2 %c[ui_gray_2]for %c[yellow]Snipers and Heavy Weapons\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]5% %c[ui_gray_2]for %c[yellow]Shotguns\n
+		%c[d_red] - %c[ui_gray_2] Does not affect thrown grenades
+		</text>
+    </string>
+	<string id="st_perk_heavy_gunner_desc_2">
+        <text>You have taken to the more specialized weapons in the Zone. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage to %c[yellow]mutants %c[ui_gray_2]by %c[d_green]10% %c[ui_gray_2]with %c[yellow]Shotguns, Snipers, and Heavy Weapons\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+4 %c[ui_gray_2]for %c[yellow]Snipers and Heavy Weapons\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]10% %c[ui_gray_2]for %c[yellow]Shotguns\n
+		%c[d_red] - %c[ui_gray_2] Does not affect thrown grenades
+		</text>
+    </string>
+	<string id="st_perk_heavy_gunner_desc_3">
+        <text>You have taken to the more specialized weapons in the Zone. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage to %c[yellow]mutants %c[ui_gray_2]by %c[d_green]15% %c[ui_gray_2]with %c[yellow]Shotguns, Snipers, and Heavy Weapons\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+6 %c[ui_gray_2]for %c[yellow]Snipers and Heavy Weapons\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]15% %c[ui_gray_2]for %c[yellow]Shotguns\n
+		%c[d_red] - %c[ui_gray_2] Does not affect thrown grenades
+		</text>
+    </string>
+	<string id="st_perk_heavy_gunner_desc_4">
+        <text>You have taken to the more specialized weapons in the Zone. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage to %c[yellow]mutants %c[ui_gray_2]by %c[d_green]20% %c[ui_gray_2]with %c[yellow]Shotguns, Snipers, and Heavy Weapons\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+8 %c[ui_gray_2]for %c[yellow]Snipers and Heavy Weapons\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]20% %c[ui_gray_2]for %c[yellow]Shotguns\n
+		%c[d_red] - %c[ui_gray_2] Does not affect thrown grenades
+		</text>
+    </string>
+	<string id="st_perk_heavy_gunner_desc_5">
+        <text>You have taken to the more specialized weapons in the Zone. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage to %c[yellow]mutants %c[ui_gray_2]by %c[d_green]25% %c[ui_gray_2]with %c[yellow]Shotguns, Snipers, and Heavy Weapons\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+10 %c[ui_gray_2]for %c[yellow]Snipers and Heavy Weapons\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]25% %c[ui_gray_2]for %c[yellow]Shotguns\n
+		%c[d_red] - %c[ui_gray_2] Does not affect thrown grenades
+		</text>
+    </string>
+	
+	
+    <string id="st_perk_berserker">
+        <text>Berserker</text>
+    </string>
+	<string id="st_perk_berserker_desc">
+        <text>You now deal increased melee damage and take reduced damage when you have a melee weapon in your hand.</text>
+    </string>
+	<string id="st_perk_berserker_desc_1">
+        <text>While others honed their marksmanship, you studied the blade in its many shapes and forms. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]10% %c[ui_gray_2]reduced damage when you have a melee weapon in your hand\n
+		%c[d_blue] - %c[ui_gray_2] Melee attack speed is increased by %c[d_green]10%\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of your melee weapon by %c[d_green]+2
+		</text>
+    </string>
+	<string id="st_perk_berserker_desc_2">
+        <text>While others honed their marksmanship, you studied the blade in its many shapes and forms. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]20% %c[ui_gray_2]reduced damage when you have a melee weapon in your hand\n
+		%c[d_blue] - %c[ui_gray_2] Melee attack speed is increased by %c[d_green]20%\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of your melee weapon by %c[d_green]+4
+		</text>
+    </string>
+	<string id="st_perk_berserker_desc_3">
+        <text>While others honed their marksmanship, you studied the blade in its many shapes and forms. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]30% %c[ui_gray_2]reduced damage when you have a melee weapon in your hand\n
+		%c[d_blue] - %c[ui_gray_2] Melee attack speed is increased by %c[d_green]30%\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of your melee weapon by %c[d_green]+6
+		</text>
+    </string>
+	<string id="st_perk_berserker_desc_4">
+        <text>While others honed their marksmanship, you studied the blade in its many shapes and forms. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]40% %c[ui_gray_2]reduced damage when you have a melee weapon in your hand\n
+		%c[d_blue] - %c[ui_gray_2] Melee attack speed is increased by %c[d_green]50%\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of your melee weapon by %c[d_green]+8
+		</text>
+    </string>
+	<string id="st_perk_berserker_desc_5">
+        <text>While others honed their marksmanship, you studied the blade in its many shapes and forms. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]50% %c[ui_gray_2]reduced damage when you have a melee weapon in your hand\n
+		%c[d_blue] - %c[ui_gray_2] Melee attack speed is increased by %c[d_green]75%\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of your melee weapon by %c[d_green]+10
+		</text>
+    </string>
+	
+	
+	<string id="st_perk_jamming_shot">
+        <text>Jamming Shot</text>
+    </string>
+	<string id="st_perk_jamming_shot_desc">
+        <text>You can now jam an enemy's weapon when shooting them in the arm.</text>
+    </string>
+	<string id="st_perk_jamming_shot_desc_1">
+        <text>You are a nuisance to any Stalker that comes in your path.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Can %c[d_green]jam enemy weapons %c[ui_gray_2]by shooting them %c[yellow]in their arms\n
+		%c[d_red] - %c[ui_gray_2] You can only jam enemies once every %c[d_red]5 seconds\n
+		</text>
+    </string>
+	
+	
+    <string id="st_perk_disarming_shot">
+        <text>Disarming Shot</text>
+    </string>
+	<string id="st_perk_disarming_shot_desc">
+        <text>Shooting an enemy's weapon has a 30% chance for them to drop it on the ground.</text>
+    </string>
+	<string id="st_perk_disarming_shot_desc_1">
+        <text>You've learned a neat trick to disable enemies: shooting their shooter.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Shooting an enemy's hands has a %c[d_green]30% %c[ui_gray_2]chance for them to drop it on the ground\n
+		%c[d_red] - %c[ui_gray_2] You can only disarm enemies once every %c[d_red]10 seconds\n
+		</text>
+    </string>
+	
+
+    <string id="st_perk_scavenger">
+        <text>Scavenger</text>
+    </string>
+	<string id="st_perk_scavenger_desc">
+        <text>When looting an enemy, you have a small chance of finding salvage and crafting materials.</text>
+    </string>
+	<string id="st_perk_scavenger_desc_1">
+        <text>You have developed a keen eye for finding scrap and materials when looting around the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Looting dead bodies and stashes has a %c[d_green]1.5% %c[ui_gray_2]chance of finding %c[d_red]salvage and crafting materials \n
+		%c[d_blue] - %c[ui_gray_2] Loot from breakable small metal containers and wooden crates will have its %c[d_green]drop rate increased by +0.5%
+		</text>
+    </string>
+	<string id="st_perk_scavenger_desc_2">
+		<text>You have developed a keen eye for finding scrap and materials when looting around the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Looting dead bodies and stashes has a %c[d_green]3% %c[ui_gray_2]chance of finding %c[d_orange]slightly better salvage and crafting materials \n
+		%c[d_blue] - %c[ui_gray_2] Loot from breakable small metal containers and wooden crates will have its %c[d_green]drop rate increased by +1%
+		</text>   
+	</string>
+	<string id="st_perk_scavenger_desc_3">
+		<text>You have developed a keen eye for finding scrap and materials when looting around the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Looting dead bodies and stashes has a %c[d_green]4.5% %c[ui_gray_2]chance of finding %c[yellow]better salvage and crafting materials \n
+		%c[d_blue] - %c[ui_gray_2] Loot from breakable small metal containers and wooden crates will have its %c[d_green]drop rate increased by +1.5%
+		</text>
+	</string>
+	<string id="st_perk_scavenger_desc_4">
+        <text>You have developed a keen eye for finding scrap and materials when looting around the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Looting dead bodies and stashes has a %c[d_green]6% %c[ui_gray_2]chance of finding %c[d_green]much better salvage and crafting materials \n
+		%c[d_blue] - %c[ui_gray_2] Loot from breakable small metal containers and wooden crates will have its %c[d_green]drop rate increased by +2%
+		</text>
+    </string>
+	<string id="st_perk_scavenger_desc_5">
+        <text>You have developed a keen eye for finding scrap and materials when looting around the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Looting dead bodies and stashes has a %c[d_green]7.5% %c[ui_gray_2]chance of finding %c[d_green]better and high-quality salvage and crafting materials \n
+		%c[d_blue] - %c[ui_gray_2] Loot from breakable small metal containers and wooden crates will have its %c[d_green]drop rate increased by +2.5%
+		</text>
+    </string>
+	
+	
+    <string id="st_perk_careful_handler">
+        <text>Careful Handler</text>
+    </string>
+	<string id="st_perk_careful_handler_desc">
+        <text>As they always say: one man's trash is another man's treasure.</text>
+    </string>
+	<string id="st_perk_careful_handler_desc_1">
+		<text>As they always say: one man's trash is another man's treasure.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Armor and weapons you find will have their condition improved by %c[d_green]3% \n
+		%c[d_blue] - %c[ui_gray_2] Looted and created artefacts will have their base condition improved by %c[d_green]3%\n
+		%c[d_blue] - %c[ui_gray_2] Degradable items looted from stalkers and in stashes will have their condition improved by %c[d_green]3%
+		</text>
+    </string>
+	<string id="st_perk_careful_handler_desc_2">
+		<text>As they always say: one man's trash is another man's treasure.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Armor and weapons you find will have their condition improved by %c[d_green]6% \n
+		%c[d_blue] - %c[ui_gray_2] Looted and created artefacts will have their base condition improved by %c[d_green]6%\n
+		%c[d_blue] - %c[ui_gray_2] Degradable items looted from stalkers and in stashes will have their condition improved by %c[d_green]6%
+		</text>
+    </string>
+	<string id="st_perk_careful_handler_desc_3">
+		<text>As they always say: one man's trash is another man's treasure.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Armor and weapons you find will have their condition improved by %c[d_green]9% \n
+		%c[d_blue] - %c[ui_gray_2] Looted and created artefacts will have their base condition improved by %c[d_green]9%\n
+		%c[d_blue] - %c[ui_gray_2] Degradable items looted from stalkers and in stashes will have their condition improved by %c[d_green]9%
+		</text>
+    </string>
+	<string id="st_perk_careful_handler_desc_4">
+		<text>As they always say: one man's trash is another man's treasure.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Armor and weapons you find will have their condition improved by %c[d_green]12% \n
+		%c[d_blue] - %c[ui_gray_2] Looted and created artefacts will have their base condition improved by %c[d_green]12%\n
+		%c[d_blue] - %c[ui_gray_2] Degradable items looted from stalkers and in stashes will have their condition improved by %c[d_green]12%
+		</text>
+    </string>
+	<string id="st_perk_careful_handler_desc_5">
+		<text>As they always say: one man's trash is another man's treasure.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Armor and weapons you find will have their condition improved by %c[d_green]15% \n
+		%c[d_blue] - %c[ui_gray_2] Looted and created artefacts will have their base condition improved by %c[d_green]15%\n
+		%c[d_blue] - %c[ui_gray_2] Degradable items looted from stalkers and in stashes will have their condition improved by %c[d_green]15%
+		</text>
+    </string>
+    
+	
+	<string id="st_perk_master_craftsman">
+        <text>Master Craftsman</text>
+    </string>
+	<string id="st_perk_master_craftsman_desc">
+        <text>Your tools have become an extension of yorself.</text>
+    </string>	
+	<string id="st_perk_master_craftsman_desc_1">
+        <text>Your tools have become an extension of yorself.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Crafting an item has a %c[d_green]20% chance %c[ui_gray_2]to grant a duplicate of said crafted item\n
+		%c[d_blue] - %c[ui_gray_2] Cooking has a %c[d_green]20% chance %c[ui_gray_2]to grant a duplicate of whatever item you cooked
+		</text>
+    </string>	
+	
+
+    <string id="st_perk_cybermedic">
+        <text>Cyber-Medic</text>
+    </string>
+	<string id="st_perk_cybermedic_desc">
+        <text>You have become outfitted with an implant that helps to slowly stop bleeding wounds.</text>
+    </string>
+	<string id="st_perk_cybermedic_desc_1">
+        <text>You have become outfitted with an implant that helps to slowly stop bleeding wounds.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Heal bleeding wounds over time at a %c[d_orange]slow rate\n
+		%c[d_blue] - %c[ui_gray_2] Your base bleed recovery's magnitude is %c[d_orange]35% of one Bandage tick\n
+		%c[d_blue] - %c[ui_gray_2] This equates roughly to %c[d_orange]0.7% %c[ui_gray_2]bleed recovery per second\n \n
+		%c[d_red] NOTE: Recovery per second is based off of GAMMA 0.9.3's Bandage bleed recovery numbers
+		</text>
+    </string>
+	<string id="st_perk_cybermedic_desc_2">
+        <text>You have become outfitted with an implant that helps to slowly stop bleeding wounds.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Heal bleeding wounds over time at a %c[yellow]faster rate\n
+		%c[d_blue] - %c[ui_gray_2] Your base bleed recovery's magnitude is %c[yellow]46% of one Bandage tick\n
+		%c[d_blue] - %c[ui_gray_2] This equates roughly to %c[yellow]1.11% %c[ui_gray_2]bleed recovery per second\n \n
+		%c[d_red] NOTE: Recovery per second is based off of GAMMA 0.9.3's Bandage bleed recovery numbers 
+		</text>
+    </string>
+	<string id="st_perk_cybermedic_desc_3">
+        <text>You have become outfitted with an implant that helps to slowly stop bleeding wounds.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Heal bleeding wounds over time at a %c[d_green]faster rate\n
+		%c[d_blue] - %c[ui_gray_2] Your base bleed recovery's magnitude is %c[d_green]85% of one Bandage tick\n
+		%c[d_blue] - %c[ui_gray_2] This equates roughly to %c[d_green]2.03% %c[ui_gray_2]bleed recovery per second\n \n
+		%c[d_red] NOTE: Recovery per second is based off of GAMMA 0.9.3's Bandage bleed recovery numbers
+		</text>
+    </string>
+	
+	
+    <string id="st_perk_comfort_food">
+        <text>Comfort Food</text>
+    </string>
+	<string id="st_perk_comfort_food_desc">
+        <text>When eating or drinking, you will receive a health bonus equal to a portion of their thirst or hunger restore (whichever restore is highest).</text>
+    </string>
+	<string id="st_perk_comfort_food_desc_1">
+        <text>Your body has learned to survive on the "bread" of the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] When eating or drinking, you will receive health equal to %c[d_green]30%%c[ui_gray_2] of their thirst and hunger restore\n
+		%c[d_blue] - %c[ui_gray_2] Health restore will be a combination of both their %c[yellow]positive%c[ui_gray_2] thirst and hunger restore
+		</text>
+    </string>
+	
+
+    <string id="st_perk_ammo_finder">
+        <text>Ammo Finder</text>
+    </string>
+	<string id="st_perk_ammo_finder_desc">
+        <text>Increases the amount of ammo found when looting a body.</text>
+    </string>
+	<string id="st_perk_ammo_finder_desc_1">
+        <text>Your threatening aura has caused stalkers in the Zone to carry more ammo and ammo supplies in the event that they cross your path.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[d_red]2% chance %c[ui_gray_2]to find or loot more %c[d_red]low-tier ammo parts
+		</text>
+    </string>
+	<string id="st_perk_ammo_finder_desc_2">
+        <text>Your threatening aura has caused stalkers in the Zone to carry more ammo and ammo supplies in the event that they cross your path.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[d_orange]4% chance %c[ui_gray_2]to find or loot more %c[d_orange]mostly low-tier ammo parts OR medium-tier ammo parts if otherwise
+		</text>
+    </string>
+	<string id="st_perk_ammo_finder_desc_3">
+        <text>Your threatening aura has caused stalkers in the Zone to carry more ammo and ammo supplies in the event that they cross your path.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[yellow]6% chance %c[ui_gray_2]to find or loot more %c[yellow]mostly medium-tier ammo parts OR low-tier ammo parts if otherwise\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[yellow]1% chance %c[ui_gray_2]to find double the ammo on looted bodies and breakable containers
+		</text>
+	</string>
+	<string id="st_perk_ammo_finder_desc_4">
+        <text>Your threatening aura has caused stalkers in the Zone to carry more ammo and ammo supplies in the event that they cross your path.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[d_green]8% chance %c[ui_gray_2]to find or loot more %c[d_green]mostly medium-tier ammo parts OR low-tier/high-tier ammo parts if otherwise\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[d_green]3% chance %c[ui_gray_2]to find double the ammo on looted bodies and breakable containers
+		</text>
+    </string>
+	<string id="st_perk_ammo_finder_desc_5">
+        <text>Your threatening aura has caused stalkers in the Zone to carry more ammo and ammo supplies in the event that they cross your path.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[d_cyan]10% chance %c[ui_gray_2]to find or loot more %c[d_cyan]mostly medium-tier ammo parts OR high-tier ammo parts if otherwise\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[d_cyan]5% chance %c[ui_gray_2]to find double the ammo on looted bodies and breakable containers
+		</text>
+    </string>
+	
+	
+	<string id="st_perk_medicine_man">
+        <text>Medicine Man</text>
+    </string>
+	<string id="st_perk_medicine_man_desc">
+        <text>When looting an enemy, you have a chance of finding a medical item. Item quality increases with this perk's level.</text>
+    </string>
+	<string id="st_perk_medicine_man_desc_1">
+        <text>Rumors of your strength has caused stalkers to carry extra supplies with them in the field.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[d_green]2% chance %c[ui_gray_2]to find double the amount of medical items when looting stalkers and stashes
+		</text>
+    </string>
+	<string id="st_perk_medicine_man_desc_2">
+        <text>Rumors of your strength has caused stalkers to carry extra supplies with them in the field.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[d_green]4% chance %c[ui_gray_2]to find double the amount of medical items when looting stalkers and stashes
+		</text>
+    </string>
+	<string id="st_perk_medicine_man_desc_3">
+        <text>Rumors of your strength has caused stalkers to carry extra supplies with them in the field.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[d_green]6% chance %c[ui_gray_2]to find double the amount of medical items when looting stalkers and stashes\n 
+		%c[d_blue] - %c[ui_gray_2] If there are no medical items to double on a successful roll, you will be given a random medical item instead
+		</text>
+    </string>
+	<string id="st_perk_medicine_man_desc_4">
+        <text>Rumors of your strength has caused stalkers to carry extra supplies with them in the field.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[d_green]8% chance %c[ui_gray_2]to find double the amount of medical items when looting stalkers and stashes\n 
+		%c[d_blue] - %c[ui_gray_2] If there are no medical items to double on a successful roll, you will be given a random medical item instead
+		</text>
+    </string>
+	<string id="st_perk_medicine_man_desc_5">
+        <text>Rumors of your strength has caused stalkers to carry extra supplies with them in the field.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[d_green]10% chance %c[ui_gray_2]to find double the amount of medical items when looting stalkers and stashes\n 
+		%c[d_blue] - %c[ui_gray_2] If there are no medical items to double on a successful roll, you will be given a random medical item instead
+		</text>
+    </string>
+	
+	
+	<string id="st_perk_artefinder">
+        <text>Arte-finder</text>
+    </string>
+	<string id="st_perk_artefinder_desc">
+        <text>When looting an enemy, you have a small chance of finding an artefact native to your current location. Additionaly, any artefact you find will now have higher-than-normal efficiency.</text>
+    </string>
+	<string id="st_perk_artefinder_desc_1">
+        <text>Artefacts are now the hottest items on the market! Lucky for you, this means that a new avenue of artefact hunting has opened up...\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Looting dead bodies and stashes has a %c[d_green]1% %c[ui_gray_2]chance of finding an artefact native to your current location\n
+		%c[d_blue] - %c[ui_gray_2] Increase artefact spawn chance by %c[d_green]3%
+		</text>
+    </string>
+	<string id="st_perk_artefinder_desc_2">
+        <text>Artefacts are now the hottest items on the market! Lucky for you, this means that a new avenue of artefact hunting has opened up...\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Looting dead bodies and stashes has a %c[d_green]2% %c[ui_gray_2]chance of finding an artefact native to your current location\n
+		%c[d_blue] - %c[ui_gray_2] Increase artefact spawn chance by %c[d_green]6%
+		</text>
+    </string>
+	<string id="st_perk_artefinder_desc_3">
+        <text>Artefacts are now the hottest items on the market! Lucky for you, this means that a new avenue of artefact hunting has opened up...\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Looting dead bodies and stashes has a %c[d_green]3% %c[ui_gray_2]chance of finding an artefact native to your current location\n
+		%c[d_blue] - %c[ui_gray_2] Increase artefact spawn chance by %c[d_green]9%
+		</text>
+    </string>
+	<string id="st_perk_artefinder_desc_4">
+        <text>Artefacts are now the hottest items on the market! Lucky for you, this means that a new avenue of artefact hunting has opened up...\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Looting dead bodies and stashes has a %c[d_green]4% %c[ui_gray_2]chance of finding an artefact native to your current location\n
+		%c[d_blue] - %c[ui_gray_2] Increase artefact spawn chance by %c[d_green]12%
+		</text>
+    </string>
+	<string id="st_perk_artefinder_desc_5">
+        <text>Artefacts are now the hottest items on the market! Lucky for you, this means that a new avenue of artefact hunting has opened up...\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Looting dead bodies and stashes has a %c[d_green]5% %c[ui_gray_2]chance of finding an artefact native to your current location\n
+		%c[d_blue] - %c[ui_gray_2] Looting mutants has a %c[d_green]1% %c[ui_gray_2]chance of finding an artefact native to your current location\n
+		%c[d_blue] - %c[ui_gray_2] Increase artefact spawn chance by %c[d_green]15%
+		</text>
+    </string>
+	
+	
+	<string id="st_perk_midas_touch">
+        <text>Midas' Touch</text>
+    </string>
+	<string id="st_perk_midas_touch_desc">
+        <text>You will receive bonus cash when looting it from dead enemies.</text>
+    </string>
+	<string id="st_perk_midas_touch_desc_1">
+        <text>The dangers of the Zone has granted you a strange mutation. Any money you find seems to multiply in your hands!\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]15% bonus cash %c[ui_gray_2]when looting it from dead enemies\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]5% bonus cash %c[ui_gray_2]when completing tasks
+		</text>
+    </string>
+	<string id="st_perk_midas_touch_desc_2">
+        <text>The dangers of the Zone has granted you a strange mutation. Any money you find seems to multiply in your hands!\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]30% bonus cash %c[ui_gray_2]when looting it from dead enemies\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]10% bonus cash %c[ui_gray_2]when completing tasks
+		</text>
+    </string>
+	<string id="st_perk_midas_touch_desc_3">
+        <text>The dangers of the Zone has granted you a strange mutation. Any money you find seems to multiply in your hands!\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]45% bonus cash %c[ui_gray_2]when looting it from dead enemies\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]15% bonus cash %c[ui_gray_2]when completing tasks
+		</text>
+    </string>
+	<string id="st_perk_midas_touch_desc_4">
+        <text>The dangers of the Zone has granted you a strange mutation. Any money you find seems to multiply in your hands!\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]60% bonus cash %c[ui_gray_2]when looting it from dead enemies\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]20% bonus cash %c[ui_gray_2]when completing tasks
+		</text>
+    </string>
+	<string id="st_perk_midas_touch_desc_5">
+        <text>The dangers of the Zone has granted you a strange mutation. Any money you find seems to multiply in your hands!\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]75% bonus cash %c[ui_gray_2]when looting it from dead enemies\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]25% bonus cash %c[ui_gray_2]when completing tasks
+		</text>
+    </string>
+	
+	<string id="st_perk_master_zone">
+        <text>Master of the Zone</text>
+    </string>
+	<string id="st_perk_master_zone_desc">
+        <text>You have learned the tricks of the Zone and how to tap into the Noosphere. With this power, any artefacts attached to your belt will slowly begin to repair themselves.</text>
+    </string>
+	<string id="st_perk_master_zone_desc_1">
+        <text>You have become one with the Zone. The Noosphere is now an ever-present force for your anomalous equipment.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Any artefacts or attachments equipped to your belt will %c[d_green]slowly repair themselves %c[ui_gray_2]over time\n
+		%c[d_blue] - %c[ui_gray_2] The %c[yellow]"Lucifer" %c[ui_gray_2]artefact will only be repaired %c[yellow]if it is equipped on your belt\n
+		%c[d_blue] - %c[ui_gray_2] The %c[yellow]"Lucifer" %c[ui_gray_2]artefact will be repaired %c[yellow] if below 51% condition
+		</text>
+    </string>
+	
+	<string id="st_perk_spiked">
+        <text>Spiked</text>
+    </string>
+	<string id="st_perk_spiked_desc">
+        <text>When taking damage, your enemy is also hurt for a portion of said damage.</text>
+    </string>
+	<string id="st_perk_spiked_desc_1">
+        <text>Wtih every action comes with it an opposite reaction. However, this reaction is not equal.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Any incoming damage has %c[d_green]5% %c[ui_gray_2]of it reflected back at your attacker\n
+		%c[d_red] - %c[ui_gray_2] Does not reduce incoming damage
+		</text>
+    </string>
+	<string id="st_perk_spiked_desc_2">
+        <text>Wtih every action comes with it an opposite reaction. However, this reaction is not equal.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Any incoming damage has %c[d_green]10% %c[ui_gray_2]of it reflected back at your attacker\n
+		%c[d_red] - %c[ui_gray_2] Does not reduce incoming damage
+		</text>
+    </string>
+	<string id="st_perk_spiked_desc_3">
+        <text>Wtih every action comes with it an opposite reaction. However, this reaction is not equal.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Any incoming damage has %c[d_green]15% %c[ui_gray_2]of it reflected back at your attacker\n
+		%c[d_red] - %c[ui_gray_2] Does not reduce incoming damage
+		</text>
+    </string>
+	<string id="st_perk_spiked_desc_4">
+        <text>Wtih every action comes with it an opposite reaction. However, this reaction is not equal.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Any incoming damage has %c[d_green]20% %c[ui_gray_2]of it reflected back at your attacker\n
+		%c[d_red] - %c[ui_gray_2] Does not reduce incoming damage
+		</text>
+    </string>
+	<string id="st_perk_spiked_desc_5">
+        <text>Wtih every action comes with it an opposite reaction. However, this reaction is not equal.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Any incoming damage has %c[d_green]25% %c[ui_gray_2]of it reflected back at your attacker\n
+		%c[d_red] - %c[ui_gray_2] Does not reduce incoming damage
+		</text>
+    </string>
+	
+	
+	<string id="st_perk_anomaly_defense">
+        <text>Anomaly Defense</text>
+    </string>
+	<string id="st_perk_anomaly_defense_desc">
+        <text>Anomalies will deal reduced damage to you.</text>
+    </string>
+	<string id="st_perk_anomaly_defense_desc_1">
+        <text>Anomalies are starting to become less of a threat. Rather, they are becoming more of a nuisance.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Anomalies deal %c[d_green]9% %c[ui_gray_2]less damage
+		</text>
+    </string>
+	<string id="st_perk_anomaly_defense_desc_2">
+        <text>Anomalies are starting to become less of a threat. Rather, they are becoming more of a nuisance.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Anomalies deal %c[d_green]18% %c[ui_gray_2]less damage
+		</text>
+    </string>
+	<string id="st_perk_anomaly_defense_desc_3">
+        <text>Anomalies are starting to become less of a threat. Rather, they are becoming more of a nuisance.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Anomalies deal %c[d_green]27% %c[ui_gray_2]less damage
+		</text>
+    </string>
+<!---
+	<string id="st_perk_anomaly_defense_desc_4">
+        <text>Anomlies are starting to become less of a threat. Rather, they are becoming more of a nuisance.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Anomalies deal %c[d_green]20% %c[ui_gray_2]less damage
+		</text>
+    </string>
+	<string id="st_perk_anomaly_defense_desc_5">
+        <text>Anomlies are starting to become less of a threat. Rather, they are becoming more of a nuisance.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Anomalies deal %c[d_green]25% %c[ui_gray_2]less damage
+		</text>
+    </string>
+-->
+
+	<string id="st_perk_iron_resolve">
+        <text>Iron Resolve</text>
+    </string>
+	<string id="st_perk_iron_resolve_desc">
+        <text>You will now recover faster from any dizziness or drunkeness effects.</text>
+    </string>
+	<string id="st_perk_iron_resolve_desc_1">
+        <text>Due to your sheer will, you are less affected by any incapacitating effects.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Recover slightly faster from any %c[d_orange]dizziness or drunkeness effects %c[ui_gray_2]over time
+		</text>
+    </string>
+	<string id="st_perk_iron_resolve_desc_2">
+        <text>Due to your sheer will, you are less affected by any incapacitating effects.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Recover faster from any %c[yellow]dizziness or drunkeness effects %c[ui_gray_2]over time
+		</text>
+    </string>
+	<string id="st_perk_iron_resolve_desc_3">
+        <text>Due to your sheer will, you are less affected by any incapacitating effects.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Recover much faster from any %c[d_green]dizziness or drunkeness effects %c[ui_gray_2]over time
+		</text>
+    </string>
+    
+	
+	<string id="st_perk_silver_tongued">
+        <text>Silver-Tongued</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc">
+        <text>When bartering, you receive better prices when buying or selling.</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_1">
+        <text>Your charisma and charm is unmatched within the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] > %c[ui_gray_2] Receive %c[d_green]5% %c[ui_gray_2]better prices when buying or selling
+		</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_2">
+        <text>Your charisma and charm is unmatched within the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]10% %c[ui_gray_2]better prices when buying or selling
+		</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_3">
+        <text>Your charisma and charm is unmatched within the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]15% %c[ui_gray_2]better prices when buying or selling
+		</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_4">
+        <text>Your charisma and charm is unmatched within the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]20% %c[ui_gray_2]better prices when buying or selling
+		</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_5">
+        <text>Your charisma and charm is unmatched within the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]25% %c[ui_gray_2]better prices when buying or selling
+		</text>
+    </string>
+	
+	<!-- Now named Thick Skin: damage resistance from mutant attacks !-->
+	<string id="st_perk_mutant_slayer">
+        <text>Thick Skin</text>
+    </string>
+	<string id="st_perk_mutant_slayer_desc">
+        <text>You now take less damage from mutants.</text>
+    </string>
+	<string id="st_perk_mutant_slayer_desc_1">
+        <text>Repeated mutant attacks have made your skin thick with calluses.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You now take %c[d_green]5% %c[ui_gray_2]less damage from %c[yellow]mutants
+		</text>
+    </string>
+	<string id="st_perk_mutant_slayer_desc_2">
+        <text>Repeated mutant attacks have made your skin thick with calluses.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You now take %c[d_green]10% %c[ui_gray_2]less damage from %c[yellow]mutants
+		</text>
+    </string>
+	<string id="st_perk_mutant_slayer_desc_3">
+        <text>Repeated mutant attacks have made your skin thick with calluses.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You now take %c[d_green]15% %c[ui_gray_2]less damage from %c[yellow]mutants\n
+		%c[d_blue] - %c[ui_gray_2] Potency increases to %c[d_green]22.5% %c[ui_gray_2]at night
+		</text>
+    </string>
+	<string id="st_perk_mutant_slayer_desc_4">
+        <text>Repeated mutant attacks have made your skin thick with calluses.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You now take %c[d_green]20% %c[ui_gray_2]less damage from %c[yellow]mutants\n
+		%c[d_blue] - %c[ui_gray_2] Potency increases to %c[d_green]30% %c[ui_gray_2]at night
+		</text>
+    </string>
+	<string id="st_perk_mutant_slayer_desc_5">
+        <text>Repeated mutant attacks have made your skin thick with calluses.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You now take %c[d_green]25% %c[ui_gray_2]less damage from %c[yellow]mutants\n
+		%c[d_blue] - %c[ui_gray_2] Potency increases to %c[d_green]37.5% %c[ui_gray_2]at night
+		</text>
+    </string>
+	
+	<string id="st_perk_vampirism">
+        <text>Life-Steal</text>
+    </string>
+	<string id="st_perk_vampirism_desc">
+        <text>Vampirism - When killing an enemy, you are granted a small amount of Health and Stamina.</text>
+    </string>
+	<string id="st_perk_vampirism_desc_1">
+        <text>Exposure to bloodsuckers has given you a surprisingly useful mutation.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Grants %c[d_green]2.5% %c[ui_gray_2]Health and Stamina when killing an enemy
+		</text>
+    </string>
+	<string id="st_perk_vampirism_desc_2">
+        <text>Exposure to bloodsuckers has given you a surprisingly useful mutation.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Grants %c[d_green]5% %c[ui_gray_2]Health and Stamina when killing an enemy
+		</text>
+    </string>
+	<string id="st_perk_vampirism_desc_3">
+        <text>Exposure to bloodsuckers has given you a surprisingly useful mutation.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Grants %c[d_green]7.5% %c[ui_gray_2]Health and Stamina when killing an enemy
+		</text>
+    </string>
+
+	
+	<string id="st_perk_deadeye">
+        <text>Deadeye</text>
+    </string>
+	<string id="st_perk_deadeye_desc">
+        <text>You randomly will deal a critical hit that deals more damage.</text>
+    </string>
+	<string id="st_perk_deadeye_desc_1">
+        <text>You have learned the weak points of various armors in the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_orange] - %c[ui_gray_2] You have a %c[d_orange]0.1% base chance %c[ui_gray_2]to deal a critical hit\n
+		%c[d_blue] - %c[ui_gray_2] Critical hits multiply your damage by %c[d_green]25%\n
+		%c[d_red] - %c[ui_gray_2] Points into Lucky Strike will override this perk's critical hit chance
+		</text>
+    </string>
+	<string id="st_perk_deadeye_desc_2">
+        <text>You have learned the weak points of various armors in the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_orange] - %c[ui_gray_2] You have a %c[d_orange]0.1% base chance %c[ui_gray_2]to deal a critical hit\n
+		%c[d_blue] - %c[ui_gray_2] Critical hits multiply your damage by %c[d_green]50%\n
+		%c[d_red] - %c[ui_gray_2] Points into Lucky Strike will override this perk's critical hit chance
+		</text>
+    </string>
+	<string id="st_perk_deadeye_desc_3">
+        <text>You have learned the weak points of various armors in the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_orange] - %c[ui_gray_2] You have a %c[d_orange]0.1% base chance %c[ui_gray_2]to deal a critical hit\n
+		%c[d_blue] - %c[ui_gray_2] Critical hits multiply your damage by %c[d_green]75%\n
+		%c[d_red] - %c[ui_gray_2] Points into Lucky Strike will override this perk's critical hit chance
+		</text>
+    </string>
+	<string id="st_perk_deadeye_desc_4">
+        <text>You have learned the weak points of various armors in the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_orange] - %c[ui_gray_2] You have a %c[d_orange]0.1% base chance %c[ui_gray_2]to deal a critical hit\n
+		%c[d_blue] - %c[ui_gray_2] Critical hits multiply your damage by %c[d_green]100%\n
+		%c[d_red] - %c[ui_gray_2] Points into Lucky Strike will override this perk's critical hit chance
+		</text>
+    </string>
+	<string id="st_perk_deadeye_desc_5">
+        <text>You have learned the weak points of various armors in the Zone.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_orange] - %c[ui_gray_2] You have a %c[d_orange]0.1% base chance %c[ui_gray_2]to deal a critical hit\n
+		%c[d_blue] - %c[ui_gray_2] Critical hits multiply your damage by %c[d_green]125%\n
+		%c[d_red] - %c[ui_gray_2] Points into Lucky Strike will override this perk's critical hit chance
+		</text>
+    </string>
+	
+	<string id="st_perk_lucky_strike">
+        <text>Lucky Strike</text>
+    </string>
+	<string id="st_perk_lucky_strike_desc">
+        <text>You have a higher chance of landing critical hits.</text>
+    </string>
+	<string id="st_perk_lucky_strike_desc_1">
+        <text>Sometimes, a lucky shot is all you need.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[d_green]1% base chance %c[ui_gray_2]to deal a critical hit\n
+		%c[d_blue] - %c[ui_gray_2] Critical hit chance increases to %c[d_green]1.5% when landing a headshot\n
+		%c[d_orange] - %c[ui_gray_2] Critical hits multiply your damage by %c[d_orange]10%\n
+		%c[d_red] - %c[ui_gray_2] Points into Deadeye will override this perk's critical hit damage multiplier
+		</text>
+    </string>
+	<string id="st_perk_lucky_strike_desc_2">
+		<text>Sometimes, a lucky shot is all you need.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[d_green]4% base chance %c[ui_gray_2]to deal a critical hit\n
+		%c[d_blue] - %c[ui_gray_2] Critical hit chance increases to %c[d_green]6% when landing a headshot\n
+		%c[d_orange] - %c[ui_gray_2] Critical hits multiply your damage by %c[d_orange]10%\n
+		%c[d_red] - %c[ui_gray_2] Points into Deadeye will override this perk's critical hit damage multiplier
+		</text>
+    </string>
+	<string id="st_perk_lucky_strike_desc_3">
+		<text>Sometimes, a lucky shot is all you need.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[d_green]9% base chance %c[ui_gray_2]to deal a critical hit\n
+		%c[d_blue] - %c[ui_gray_2] Critical hit chance increases to %c[d_green]13.5% when landing a headshot\n
+		%c[d_orange] - %c[ui_gray_2] Critical hits multiply your damage by %c[d_orange]10%\n
+		%c[d_red] - %c[ui_gray_2] Points into Deadeye will override this perk's critical hit damage multiplier
+		</text>
+    </string>
+	<string id="st_perk_lucky_strike_desc_4">
+		<text>Sometimes, a lucky shot is all you need.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[d_green]16% base chance %c[ui_gray_2]to deal a critical hit\n
+		%c[d_blue] - %c[ui_gray_2] Critical hit chance increases to %c[d_green]24% when landing a headshot\n
+		%c[d_orange] - %c[ui_gray_2] Critical hits multiply your damage by %c[d_orange]10%\n
+		%c[d_red] - %c[ui_gray_2] Points into Deadeye will override this perk's critical hit damage multiplier
+		</text>
+    </string>
+	<string id="st_perk_lucky_strike_desc_5">
+		<text>Sometimes, a lucky shot is all you need.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You have a %c[d_green]25% base chance %c[ui_gray_2]to deal a critical hit\n
+		%c[d_blue] - %c[ui_gray_2] Critical hit chance increases to %c[d_green]37.5% when landing a headshot\n
+		%c[d_orange] - %c[ui_gray_2] Critical hits multiply your damage by %c[d_orange]10%\n
+		%c[d_red] - %c[ui_gray_2] Points into Deadeye will override this perk's critical hit damage multiplier
+		</text>
+    </string>
+	
+	<string id="st_perk_strong_back">
+        <text>Strong Back</text>
+    </string>
+	<string id="st_perk_strong_back_desc">
+        <text>Increase your carry weight with each rank.</text>
+    </string>
+	<string id="st_perk_strong_back_desc_1">
+        <text>Your travels through the Zone have strengthed your body.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase Carry Weight by a total of %c[d_green]5kg
+		</text>
+    </string>
+	<string id="st_perk_strong_back_desc_2">
+        <text>Your travels through the Zone have strengthed your body.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase Carry Weight by a total of %c[d_green]10kg
+		</text>
+    </string>
+	<string id="st_perk_strong_back_desc_3">
+        <text>Your travels through the Zone have strengthed your body.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase Carry Weight by a total of %c[d_green]15kg
+		</text>
+    </string>
+	<string id="st_perk_strong_back_desc_4">
+        <text>Your travels through the Zone have strengthed your body.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase Carry Weight by a total of %c[d_green]25kg
+		</text>
+    </string>
+	<string id="st_perk_strong_back_desc_5">
+        <text>Your travels through the Zone have strengthed your body.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Increase Carry Weight by a total of %c[d_green]40kg
+		</text>
+    </string>
+	
+	<string id="st_perk_slow_metabolism">
+        <text>Lead Belly</text>
+    </string>
+	<string id="st_perk_slow_metabolism_desc">
+        <text>Reduce the amount of satiety you lose and radiation taken from consuming items.</text>
+    </string>
+	<string id="st_perk_slow_metabolism_desc_1">
+        <text>Your stomach has become more resistant to the harmful effects of ingested medicines and irradiated foods.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Lose %c[d_green]18% less satiety %c[ui_gray_2]when consuming any item that drains it\n
+		%c[d_blue] - %c[ui_gray_2] Lose %c[d_green]18% less HP %c[ui_gray_2]when consuming any item that drains it\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]18% less radiation %c[ui_gray_2] from consumed items
+		</text>
+    </string>
+	<string id="st_perk_slow_metabolism_desc_2">
+        <text>Your stomach has become more resistant to the harmful effects of ingested medicines and irradiated foods.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Lose %c[d_green]36% less satiety %c[ui_gray_2]when consuming any item that drains it\n
+		%c[d_blue] - %c[ui_gray_2] Lose %c[d_green]36% less HP %c[ui_gray_2]when consuming any item that drains it\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]36% less radiation %c[ui_gray_2] from consumed items
+		</text>
+    </string>
+	<string id="st_perk_slow_metabolism_desc_3">
+        <text>Your stomach has become more resistant to the harmful effects of ingested medicines and irradiated foods.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Lose %c[d_green]54% less satiety %c[ui_gray_2]when consuming any item that drains it\n
+		%c[d_blue] - %c[ui_gray_2] Lose %c[d_green]54% less HP %c[ui_gray_2]when consuming any item that drains it\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]54% less radiation %c[ui_gray_2] from consumed items
+		</text>
+    </string>
+	<string id="st_perk_slow_metabolism_desc_4">
+        <text>Your stomach has become more resistant to the harmful effects of ingested medicines and irradiated foods.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Lose %c[d_green]72% less satiety %c[ui_gray_2]when consuming any item that drains it\n
+		%c[d_blue] - %c[ui_gray_2] Lose %c[d_green]72% less HP %c[ui_gray_2]when consuming any item that drains it\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]72% less radiation %c[ui_gray_2] from consumed items
+		</text>
+    </string>
+	<string id="st_perk_slow_metabolism_desc_5">
+		<text>Your body has adapted to your medication and drug use.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Lose %c[d_green]90% less satiety %c[ui_gray_2]when consuming any item that drains it\n
+		%c[d_blue] - %c[ui_gray_2] Lose %c[d_green]90% less HP %c[ui_gray_2]when consuming any item that drains it\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]90% less radiation %c[ui_gray_2] from consumed items\n
+        %c[d_blue] - %c[ui_gray_2] Consumables that restore satiety give %c[d_green]half of its satiety %c[ui_gray_2]as an additional boost over %c[yellow]1 minute
+		</text>
+    </string>
+	
+	<string id="st_perk_zone_gunsmith">
+        <text>Jury Rigging</text>
+    </string>
+	<string id="st_perk_zone_gunsmith_desc">
+        <text>You can now use Metallic Scraps to repair any item (excluding artefacts).</text>
+    </string>
+	<string id="st_perk_zone_gunsmith_desc_1">
+        <text>Experimenting with your repairs has led to learning to use basic scrap as repair material.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Can use %c[yellow]Metallic Scraps %c[ui_gray_2]as a bonus item during any repair\n
+		%c[d_blue] - %c[ui_gray_2] Scraps will have a %c[d_green]+3% %c[ui_gray_2]repair bonus\n
+		%c[d_red] - %c[ui_gray_2] Metallic Scraps CANNOT be used for artefact empowering
+		</text>
+    </string>
+	<string id="st_perk_zone_gunsmith_desc_2">
+        <text>Experimenting with your repairs has led to learning to use basic scrap as repair material.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Can use %c[yellow]Metallic Scraps %c[ui_gray_2]as a bonus item during any repair\n
+		%c[d_blue] - %c[ui_gray_2] Scraps will have a %c[d_green]+4% %c[ui_gray_2]repair bonus\n
+		%c[d_red] - %c[ui_gray_2] Metallic Scraps CANNOT be used for artefact empowering
+		</text>
+    </string>
+	<string id="st_perk_zone_gunsmith_desc_3">
+		<text>Experimenting with your repairs has led to learning to use basic scrap as repair material.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Can use %c[yellow]Metallic Scraps %c[ui_gray_2]as a bonus item during any repair\n
+		%c[d_blue] - %c[ui_gray_2] Scraps will have a %c[d_green]+5% %c[ui_gray_2]repair bonus\n
+		%c[d_blue] - %c[ui_gray_2] Bonus repair items have a %c[d_green]10% %c[ui_gray_2]chance to not be consumed\n
+		%c[d_red] - %c[ui_gray_2] Metallic Scraps CANNOT be used for artefact empowering
+		</text>
+    </string>
+	<string id="st_perk_zone_gunsmith_desc_4">
+        <text>Experimenting with your repairs has led to learning to use basic scrap as repair material.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Can use %c[yellow]Metallic Scraps %c[ui_gray_2]as a bonus item during any repair\n
+		%c[d_blue] - %c[ui_gray_2] Scraps will have a %c[d_green]+6% %c[ui_gray_2]repair bonus\n
+		%c[d_blue] - %c[ui_gray_2] Bonus repair items have a %c[d_green]30% %c[ui_gray_2]chance to not be consumed\n
+		%c[d_red] - %c[ui_gray_2] Metallic Scraps CANNOT be used for artefact empowering
+		</text>
+    </string>
+	<string id="st_perk_zone_gunsmith_desc_5">
+        <text>Experimenting with your repairs has led to learning to use basic scrap as repair material.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Can use %c[yellow]Metallic Scraps %c[ui_gray_2]as a bonus item during any repair\n
+		%c[d_blue] - %c[ui_gray_2] Scraps will have a %c[d_green]+7% %c[ui_gray_2]repair bonus\n
+		%c[d_blue] - %c[ui_gray_2] Bonus repair items have a %c[d_green]60% %c[ui_gray_2]chance to not be consumed\n
+		%c[d_red] - %c[ui_gray_2] Metallic Scraps CANNOT be used for artefact empowering
+		</text>
+    </string>
+	
+	<string id="st_perk_the_exalted">
+        <text>The Exalted</text>
+    </string>
+	<string id="st_perk_the_exalted_desc">
+        <text>Your influence among factions comes with new benefits. Befriend any faction to a certain point, and you can become an honorary member of said faction, unlocking special tasks and dialogue only meant for members of those factions.</text>
+    </string>
+	<string id="st_perk_the_exalted_desc_1">
+		<text>Your influence among friendly factions comes with new benefits.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Can now exchange armor at %c[d_green]any friendly faction\n
+		%c[d_blue] - %c[ui_gray_2] Most faction-locked tasks and dialogue options (such as armor trading in GAMMA) from other %c[d_green]any friendly faction %c[ui_gray_2]are available to you\n
+		%c[d_red] - %c[ui_gray_2] Friendly faction = having at least %c[d_green]1000 Goodwill %c[ui_gray_2]with a faction\n
+		%c[d_red] - %c[ui_gray_2] Dialogue hidden because your faction is enemies with the NPC's faction is available at %c[d_cyan]1500 Goodwill
+		%c[d_blue] - %c[ui_gray_2] Players who %c[yellow]start as Military, Renegade, or Bandit%c[ui_gray_2] will unlock access to the "Lost to the Zone" main questline upon reaching %c[d_cyan]1500 Goodwill %c[ui_gray_2]with any faction that has access to the questline\n
+		%c[d_blue] - %c[ui_gray_2] Players who seek to do tasks unlocked by having %c[d_cyan]1500 Goodwill %c[ui_gray_2]with factions may need %c[yellow]to use disguises in some scenarios%c[ui_gray_2] to avoid softlocks and/or buggy behaviour\n
+		%c[d_red] - %c[ui_gray_2] The factions that you can reach %c[d_cyan]1500 Goodwill%c[ui_gray_2] to unlock access to the main storyline are:%c[yellow] Clear Sky, Duty, Ecologists, Freedom, Loners, Mercenaries\n
+		%c[d_red] - %c[ui_gray_2] The first story faction that you reach %c[d_cyan]1500 Goodwill%c[ui_gray_2] with will be your %c[yellow]main story faction%c[ui_gray_2] - talk with their usual starting quest NPC to start the questline\n
+		%c[d_red] - %c[ui_gray_2] Monolith/Sin/UNISG players %c[d_red]CANNOT unlock the "Lost to the Zone" questline%c[ui_gray_2] due to various possible softlocks and buggy behavior
+		</text>
+    </string>
+	
+	<string id="st_perk_zone_slayer">
+        <text>The Zone Slayer</text>
+    </string>
+	<string id="st_perk_zone_slayer_desc">
+        <text>Your affinity for certain shotguns has awakened a hidden power within you...</text>
+    </string>
+	<string id="st_perk_zone_slayer_desc_1">
+		<text>Your affinity for certain shotguns has awakened a hidden power within you...\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] The following bonuses are applied to %c[yellow]shotguns with an ammo capacity of 2 or less\n
+		%c[d_blue] - %c[ui_gray_2] Any weapon using %c[yellow]any type of shotgun ammo (12-gauge, 20-gauge, 23x75)%c[ui_gray_2] will be counted as a shotgun\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage by an additional %c[d_green]5% against mutants\n
+		%c[d_blue] - %c[ui_gray_2] Stalkers killed by %c[yellow]valid shotguns%c[ui_gray_2] will drop 1 random shotgun shell\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+5 %c[ui_gray_2]for %c[yellow]valid shotguns\n
+		%c[d_green] - %c[ui_gray_2] The final AP of said ammo will be affected by the AP multiplier from "Heavy Gunner"
+		</text>
+    </string>
+	<string id="st_perk_zone_slayer_desc_2">
+		<text>Your affinity for certain shotguns has awakened a hidden power within you...\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] The following bonuses are applied to %c[yellow]shotguns with an ammo capacity of 2 or less %c[d_green]AND tube-fed pump-action shotguns\n
+		%c[d_blue] - %c[ui_gray_2] Any weapon using %c[yellow]any type of shotgun ammo (12-gauge, 20-gauge, 23x75)%c[ui_gray_2] will be counted as a shotgun\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage by an additional %c[d_green]5% against mutants\n
+		%c[d_blue] - %c[ui_gray_2] Stalkers killed by %c[yellow]valid shotguns%c[ui_gray_2] will drop 1 random shotgun shell\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+5 %c[ui_gray_2]for %c[yellow]valid shotguns\n
+		%c[d_green] - %c[ui_gray_2] The final AP of said ammo will be affected by the AP multiplier from "Heavy Gunner"
+		</text>
+    </string>
+	<string id="st_perk_zone_slayer_desc_3">
+		<text>Your affinity for certain shotguns has awakened a hidden power within you...\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] The following bonuses are applied to %c[yellow]shotguns with an ammo capacity of 2 or less, %c[d_green]tube-fed pump-action shotguns,%c[d_cyan] AND any shotgun that reloads one round at a time\n
+		%c[d_blue] - %c[ui_gray_2] Any weapon using %c[yellow]any type of shotgun ammo (12-gauge, 20-gauge, 23x75)%c[ui_gray_2] will be counted as a shotgun\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage by an additional %c[d_green]5% against mutants\n
+		%c[d_blue] - %c[ui_gray_2] Stalkers killed by %c[yellow]valid shotguns%c[ui_gray_2] will drop 1 random shotgun shell\n
+		%c[d_blue] - %c[ui_gray_2] Increase AP of ammo used by %c[d_green]+5 %c[ui_gray_2]for %c[yellow]valid shotguns\n
+		%c[d_green] - %c[ui_gray_2] The final AP of said ammo will be affected by the AP multiplier from "Heavy Gunner"
+		</text>
+    </string>
+	
+	<string id="st_perk_battle_runner">
+        <text>Battle Runner</text>
+    </string>
+	<string id="st_perk_battle_runner_desc">
+        <text>You enjoy the thrill of the kill...</text>
+    </string>
+	<string id="st_perk_battle_runner_desc_1">
+        <text>You enjoy the thrill of the kill...\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Grants %c[d_green]10% movement speed bonus %c[ui_gray_2]for 10 seconds upon killing a stalker or mutant\n
+		%c[d_blue] - %c[ui_gray_2] Outfits receive a %c[d_green]+5% sprint speed bonus at all times\n
+		%c[d_blue] - %c[ui_gray_2] Kills while Battle Runner is active %c[d_green]resets the timer
+		</text>
+    </string>
+	<string id="st_perk_battle_runner_desc_2">
+        <text>You enjoy the thrill of the kill...\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Grants %c[d_green]20% movement speed bonus %c[ui_gray_2]for 10 seconds upon killing a stalker or mutant\n
+		%c[d_blue] - %c[ui_gray_2] Outfits receive a %c[d_green]+10% sprint speed bonus at all times\n
+		%c[d_blue] - %c[ui_gray_2] Kills while Battle Runner is active %c[d_green]resets the timer
+		</text>
+    </string>
+	<string id="st_perk_battle_runner_desc_3">
+        <text>You enjoy the thrill of the kill...\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Grants %c[d_green]35% movement speed bonus %c[ui_gray_2]for 10 seconds upon killing a stalker or mutant\n
+		%c[d_blue] - %c[ui_gray_2] Outfits receive a %c[d_green]+15% sprint speed bonus at all times\n
+		%c[d_blue] - %c[ui_gray_2] Kills while Battle Runner is active %c[d_green]resets the timer
+		</text>
+    </string>
+	
+	<string id="st_perk_fourth_times">
+        <text>On Your Mark</text>
+    </string>
+	<string id="st_perk_fourth_times_desc">
+        <text>The Zone will now reward you for your exceptional marksmanship.</text>
+    </string>
+	<string id="st_perk_fourth_times_desc_1">
+        <text>The Zone will now reward you for your exceptional marksmanship.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Landing 8 successful hits in a short time %c[d_green]refunds 1 ammo to your weapon or backpack\n
+		%c[d_blue] - %c[ui_gray_2] Landing a headshot or a critical hit via %c[yellow]Lucky Strike %c[ui_gray_2]or %c[yellow]Deadeye %c[ui_gray_2]will count as %c[d_green]2 hits\n
+		%c[d_blue] - %c[ui_gray_2] Shotgun hits are divided by their pellet count\n
+		%c[d_red] - %c[ui_gray_2] Swapping weapons or not landing a hit within 6 seconds will reset the hit counter
+		</text>
+    </string>
+	<string id="st_perk_fourth_times_desc_2">
+        <text>The Zone will now reward you for your exceptional marksmanship.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Landing 8 successful hits in a short time %c[d_green]refunds 2 ammo to your weapon or backpack\n
+		%c[d_blue] - %c[ui_gray_2] Landing a headshot or a critical hit via %c[yellow]Lucky Strike %c[ui_gray_2]or %c[yellow]Deadeye %c[ui_gray_2]will count as %c[d_green]2 hits\n
+		%c[d_blue] - %c[ui_gray_2] Shotgun hits are divided by their pellet count\n
+		%c[d_red] - %c[ui_gray_2] Swapping weapons or not landing a hit within 6.5 seconds will reset the hit counter
+		</text>
+    </string>
+	<string id="st_perk_fourth_times_desc_3">
+        <text>The Zone will now reward you for your exceptional marksmanship.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Landing 8 successful hits in a short time %c[d_green]refunds 3 ammo to your weapon or backpack\n
+		%c[d_blue] - %c[ui_gray_2] Landing a headshot or a critical hit via %c[yellow]Lucky Strike %c[ui_gray_2]or %c[yellow]Deadeye %c[ui_gray_2]will count as %c[d_green]2 hits\n
+		%c[d_blue] - %c[ui_gray_2] Shotgun hits are divided by their pellet count\n
+		%c[d_red] - %c[ui_gray_2] Swapping weapons or not landing a hit within 7 seconds will reset the hit counter
+		</text>
+    </string>
+	
+	<string id="st_perk_glass_cannon">
+        <text>Glass Cannon</text>
+    </string>
+	<string id="st_perk_glass_cannon_desc">
+        <text>No pain, no gain.</text>
+    </string>
+	<string id="st_perk_glass_cannon_desc_1">
+        <text>No pain, no gain.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] While %c[d_red]under 80% total health%c[ui_gray_2], you gain an exponential damage boost the lower your health is\n
+		%c[d_blue] - %c[ui_gray_2] Grants %c[d_green]16.7% %c[ui_gray_2](@ 80% HP) to %c[d_green]60% %c[ui_gray_2](@ 1% HP) %c[d_green]bonus damage %c[ui_gray_2]
+		</text>
+    </string>
+	<string id="st_perk_glass_cannon_desc_2">
+        <text>No pain, no gain.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] While %c[d_red]under 80% total health%c[ui_gray_2], you gain an exponential damage boost the lower your health is\n
+		%c[d_blue] - %c[ui_gray_2] Grants %c[d_green]22.2% %c[ui_gray_2](@ 80% HP) to %c[d_green]113% %c[ui_gray_2](@ 1% HP) %c[d_green]bonus damage %c[ui_gray_2]
+		</text>
+    </string>
+	<string id="st_perk_glass_cannon_desc_3">
+        <text>No pain, no gain.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] While %c[d_red]under 80% total health%c[ui_gray_2], you gain an exponential damage boost the lower your health is\n
+		%c[d_blue] - %c[ui_gray_2] Grants %c[d_green]27.9% %c[ui_gray_2](@ 80% HP) to %c[d_green]153% %c[ui_gray_2](@ 1% HP) %c[d_green]bonus damage %c[ui_gray_2]
+		</text>
+    </string>
+	
+	<string id="st_perk_well_rested">
+        <text>Well-Rested</text>
+    </string>
+	<string id="st_perk_well_rested_desc">
+        <text>You learn to appreciate a good-night's sleep.</text>
+    </string>
+	<string id="st_perk_well_rested_desc_1">
+        <text>You learn to appreciate a good-night's sleep.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] After a full sleep, you will be "Well-Rested", gaining %c[d_green]2.5% movement speed %c[ui_gray_2] and %c[d_green]10% bonus carry weight\n
+		%c[d_blue] - %c[ui_gray_2] Effect goes away when your sleep meter goes below %c[d_orange]80%
+		</text>
+    </string>
+	<string id="st_perk_well_rested_desc_2">
+       <text>You learn to appreciate a good-night's sleep.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] After a full sleep, you will be "Well-Rested", gaining %c[d_green]5% movement speed %c[ui_gray_2] and %c[d_green]20% bonus carry weight\n
+		%c[d_blue] - %c[ui_gray_2] Effect goes away when your sleep meter goes below %c[yellow]75%
+		</text>
+    </string>
+	<string id="st_perk_well_rested_desc_3">
+        <text>You learn to appreciate a good-night's sleep.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] After a full sleep, you will be "Well-Rested", gaining %c[d_green]10% movement speed %c[ui_gray_2]and %c[d_green]40% bonus carry weight\n
+		%c[d_blue] - %c[ui_gray_2] Effect goes away when your sleep meter goes below %c[d_green]70%\n
+		%c[d_blue] - %c[ui_gray_2] After a full sleep, you will wake up to breakfast in bed: %c[d_green]one random purified mutant meal and one random hydrating drink
+		</text>
+    </string>
+	
+	<string id="st_perk_fun_allowed">
+        <text>Rule Breaker</text>
+    </string>
+	<string id="st_perk_fun_allowed_desc">
+        <text>You learned a key skill that others seem unable to do: equip more than one of an attachment.</text>
+    </string>
+	<string id="st_perk_fun_allowed_desc_1">
+        <text>You learned a key skill that others seem unable to do: equip more than one of an attachment.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Removes the restriction of stacking of artefacts and attachments on your belt\n
+		%c[d_blue] - %c[ui_gray_2] In other words, you can now stack idential artefacts or attachemnts on your belt\n
+		%c[d_blue] - %c[ui_gray_2] Additionally, you can now wear multiple types of mutant pelts - no longer restricted to only one type of mutant pelt
+		</text>
+    </string>
+	
+	<string id="st_perk_wick_mode">
+        <text>Wick Mode</text>
+    </string>
+	<string id="st_perk_wick_mode_desc">
+        <text>Don't just become the boogeyman. Become the one sent to kill the boogeyman.</text>
+    </string>
+	<string id="st_perk_wick_mode_desc_1">
+        <text>Don't just become the boogeyman. Become the one sent to %c[d_red]kill the boogeyman.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] While having a pistol (or any non-explosive gun that can be one-handed) in your hands, you have a %c[d_green]15% chance to "dodge" incoming %c[yellow]bullet damage\n
+		%c[d_blue] - %c[ui_gray_2] Increase damage by %c[d_green]5% %c[ui_gray_2]with %c[yellow]all pistols\n
+		%c[d_green] - %c[ui_gray_2] This damage bonus only applies against %c[yellow]Stalkers
+		</text>
+    </string>
+	
+	<string id="st_perk_lightweight_dodge">
+        <text>Lightweight</text>
+    </string>
+	<string id="st_perk_lightweight_dodge_desc">
+        <text>Lightweight armor now allows your reflexes to be much faster.</text>
+    </string>
+	<string id="st_perk_lightweight_dodge_desc_1">
+        <text>Lightweight armor now allows your reflexes to be much faster.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] While wearing an outfit %c[yellow]weighing under 12kg%c[ui_gray_2], you have a chance to %c[d_green]"dodge" incoming %c[yellow]bullet damage\n
+		%c[d_blue] - %c[ui_gray_2] For every 1kg under 12kg, you gain about %c[d_orange]+0.5% dodge chance\n
+		%c[yellow] - %c[ui_gray_2] Wearing no outfit yields about a %c[d_orange]+6% dodge chance\n
+		%c[d_green] - %c[ui_gray_2] Dodge chance stacks additively with other dodge bonuses\n
+		%c[d_red] NOTE: Armor weight is based on either base weight or weight after upgrades (whichever is lighter)
+		</text>
+    </string>
+	<string id="st_perk_lightweight_dodge_desc_2">
+        <text>Lightweight armor now allows your reflexes to be much faster.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] While wearing an outfit %c[yellow]weighing under 12kg%c[ui_gray_2], you have a chance to %c[d_green]"dodge" incoming %c[yellow]bullet damage\n
+		%c[d_blue] - %c[ui_gray_2] For every 1kg under 12kg, you gain about %c[yellow]+1% dodge chance\n
+		%c[yellow] - %c[ui_gray_2] Wearing no outfit yields about a %c[yellow]+12% dodge chance\n
+		%c[d_green] - %c[ui_gray_2] Dodge chance stacks additively with other dodge bonuses\n
+		%c[d_red] NOTE: Armor weight is based on either base weight or weight after upgrades (whichever is lighter)
+		</text>
+    </string>
+	<string id="st_perk_lightweight_dodge_desc_3">
+		<text>Lightweight armor now allows your reflexes to be much faster.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] While wearing an outfit %c[yellow]weighing under 12kg%c[ui_gray_2], you have a chance to %c[d_green]"dodge" incoming %c[yellow]bullet damage\n
+		%c[d_blue] - %c[ui_gray_2] For every 1kg under 12kg, you gain about a %c[d_green]+1.5% dodge chance\n
+		%c[yellow] - %c[ui_gray_2] Wearing no outfit yields about a %c[d_green]+18% dodge chance\n
+		%c[d_green] - %c[ui_gray_2] Dodge chance stacks additively with other dodge bonuses\n
+		%c[d_red] NOTE: Armor weight is based on either base weight or weight after upgrades (whichever is lighter)
+		</text>
+    </string>
+	<string id="st_perk_lightweight_dodge_desc_4">
+        <text>Lightweight armor now allows your reflexes to be much faster.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] While wearing an outfit %c[yellow]weighing under 12kg%c[ui_gray_2], you have a chance to %c[d_green]"dodge" incoming %c[yellow]bullet damage\n
+		%c[d_blue] - %c[ui_gray_2] For every 1kg under 12kg, you gain about a%c[d_cyan]+2% dodge chance\n
+		%c[yellow] - %c[ui_gray_2] Wearing no outfit yields about a %c[d_cyan]+24% dodge chance\n
+		%c[d_green] - %c[ui_gray_2] Dodge chance stacks additively with other dodge bonuses\n
+		%c[d_red] NOTE: Armor weight is based on either base weight or weight after upgrades (whichever is lighter)
+		</text>
+    </string>
+	
+	<string id="st_perk_local_looting">
+        <text>Local Looting</text>
+    </string>
+	<string id="st_perk_local_looting_desc">
+        <text>It's a good practice to "shop" around your local community.</text>
+    </string>
+	<string id="st_perk_local_looting_desc_1">
+        <text>It's a good practice to "shop" around your local community.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Looted stash locations have a %c[d_green]32.5% chance%c[ui_gray_2] to be %c[yellow]closer to your current location\n
+		%c[d_blue] - %c[ui_gray_2] Discovering a rare stash now requires %c[d_green]6 completed tasks%c[ui_gray_2] instead of 7
+		</text>
+    </string>
+	<string id="st_perk_local_looting_desc_2">
+        <text>It's a good practice to "shop" around your local community.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Looted stash locations have a %c[d_green]40% chance%c[ui_gray_2] to be %c[yellow]closer to your current location\n
+		%c[d_blue] - %c[ui_gray_2] Discovering a rare stash now requires %c[d_green]6 completed tasks%c[ui_gray_2] instead of 7
+		</text>
+    </string>
+	<string id="st_perk_local_looting_desc_3">
+		<text>It's a good practice to "shop" around your local community.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Looted stash locations have a %c[d_green]47.5% chance%c[ui_gray_2] to be %c[yellow]closer to your current location\n
+		%c[d_blue] - %c[ui_gray_2] Discovering a rare stash now requires %c[d_green]5 completed tasks%c[ui_gray_2] instead of 7
+		</text>
+    </string>
+	<string id="st_perk_local_looting_desc_4">
+        <text>It's a good practice to "shop" around your local community.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Looted stash locations have a %c[d_green]55% chance%c[ui_gray_2] to be %c[yellow]closer to your current location\n
+		%c[d_blue] - %c[ui_gray_2] Discovering a rare stash now requires %c[d_green]5 completed tasks%c[ui_gray_2] instead of 7
+		</text>
+    </string>
+	<string id="st_perk_local_looting_desc_5">
+        <text>It's a good practice to "shop" around your local community.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Looted stash locations have a %c[d_green]62.5% chance%c[ui_gray_2] to be %c[yellow]closer to your current location\n
+		%c[d_blue] - %c[ui_gray_2] Discovering a rare stash now requires %c[d_green]4 completed tasks%c[ui_gray_2] instead of 7
+		</text>
+    </string>
+	
+	<string id="st_perk_jump_man">
+        <text>Jump Man</text>
+    </string>
+	<string id="st_perk_jump_man_desc">
+        <text>Your treks in the Zone have made your legs stronger, allowing for better traversal.</text>
+    </string>
+	<string id="st_perk_jump_man_desc_1">
+        <text>Your treks in the Zone have made your legs stronger, allowing for better traversal.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2]You can now jump %c[d_green]5% higher\n
+		%c[d_blue] - %c[ui_gray_2]Ignore fall damage if total damage is less than %c[d_green]15% of your max HP
+		</text>
+    </string>
+	<string id="st_perk_jump_man_desc_2">
+        <text>Your treks in the Zone have made your legs stronger, allowing for better traversal.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2]You can now jump %c[d_green]10% higher\n
+		%c[d_blue] - %c[ui_gray_2]Ignore fall damage if total damage is less than %c[d_green]30% of your max HP
+		</text>
+    </string>
+	<string id="st_perk_jump_man_desc_3">
+		<text>Your treks in the Zone have made your legs stronger, allowing for better traversal.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2]You can now jump %c[d_green]15% higher\n
+		%c[d_blue] - %c[ui_gray_2]Ignore fall damage if total damage is less than %c[d_green]45% of your max HP\n
+		%c[d_blue] - %c[ui_gray_2]If fall damage is not ignored, it will be reduced by %c[d_green]50% %c[ui_gray_2]instead
+		</text>
+    </string>
+
+	<string id="st_perk_demo_expert">
+        <text>Explosive Personality</text>
+    </string>
+	<string id="st_perk_demo_expert_desc">
+        <text>The Zone has been flooded with explosives in an effort to erradicate you. Thankfully, you've found a spare flak jacket in your travels.</text>
+    </string>
+	<string id="st_perk_demo_expert_desc_1">
+        <text>The Zone has been flooded with explosives in an effort to erradicate you. Thankfully, you've found a spare flak jacket in your travels.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Stalkers now have a %c[yellow]up to a 10% chance %c[ui_gray_2]to have at least one grenade on their person\n
+		%c[d_blue] - %c[ui_gray_2] You now receive %c[d_orange]10% less damage %c[ui_gray_2]from Explosive damage\n
+		%c[d_red] NOTE: Explosives are not just items to loot. They will use them against you and other stalkers. Kill them fast enough to claim your prize. PROCEED WITH CAUTION!
+		</text>
+    </string>
+	<string id="st_perk_demo_expert_desc_2">
+        <text>The Zone has been flooded with explosives in an effort to erradicate you. Thankfully, you've found a spare flak jacket in your travels.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Stalkers now have a %c[d_orange]up to a 20% chance %c[ui_gray_2]to have at least one grenade on their person\n
+		%c[d_blue] - %c[ui_gray_2] You now receive %c[yellow]20% less damage %c[ui_gray_2]from Explosive damage\n
+		%c[d_red] NOTE: Explosives are not just items to loot. They will use them against you and other stalkers. Kill them fast enough to claim your prize. PROCEED WITH CAUTION!
+		</text>
+    </string>
+	<string id="st_perk_demo_expert_desc_3">
+        <text>The Zone has been flooded with explosives in an effort to erradicate you. Thankfully, you've found a spare flak jacket in your travels.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Stalkers now have a %c[d_red]up to a 30% chance %c[ui_gray_2]to have at least one grenade on their person\n
+		%c[d_blue] - %c[ui_gray_2] You now receive %c[d_green]30% less damage %c[ui_gray_2]from Explosive damage\n
+		%c[d_blue] - %c[ui_gray_2] Stalkers now have a %c[d_red]0.01% chance %c[ui_gray_2]to spawn with an explosive weapon\n
+		%c[d_red] NOTE: Explosives are not just items to loot. They will use them against you and other stalkers. Kill them fast enough to claim your prize. PROCEED WITH CAUTION!
+		</text>
+    </string>
+	
+	<string id="st_perk_jewelcrafter">
+        <text>Jewelcrafter</text>
+    </string>
+	<string id="st_perk_jewelcrafter_desc">
+        <text>You can now refine Trait gems more successfully.</text>
+    </string>
+	<string id="st_perk_jewelcrafter_desc_1">
+        <text>You have honed your jewelcrafting skills, resulting in a higher chance of success when upgrading Trait gems.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You will now gain %c[d_green]+1% %c[ui_gray_2]chance when attempting to upgrade a Trait gem
+		</text>
+    </string>
+	<string id="st_perk_jewelcrafter_desc_2">
+        <text>You have honed your jewelcrafting skills, resulting in a higher chance of success when upgrading Trait gems.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You will now gain %c[d_green]+2% %c[ui_gray_2]chance when attempting to upgrade a Trait gem
+		</text>
+    </string>
+	<string id="st_perk_jewelcrafter_desc_3">
+        <text>You have honed your jewelcrafting skills, resulting in a higher chance of success when upgrading Trait gems.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You will now gain %c[d_green]+3% %c[ui_gray_2]chance when attempting to upgrade a Trait gem
+		</text>
+    </string>
+	<string id="st_perk_jewelcrafter_desc_4">
+        <text>You have honed your jewelcrafting skills, resulting in a higher chance of success when upgrading Trait gems.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You will now gain %c[d_green]+5% %c[ui_gray_2]chance when attempting to upgrade a Trait gem
+		</text>
+    </string>
+	<string id="st_perk_jewelcrafter_desc_5">
+        <text>You have honed your jewelcrafting skills, resulting in a higher chance of success when upgrading Trait gems.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You will now gain %c[d_green]+8% %c[ui_gray_2]chance when attempting to upgrade a Trait gem
+		</text>
+    </string>
+	
+	<string id="st_perk_the_end">
+        <text>The End</text>
+    </string>
+	<string id="st_perk_the_end_desc">
+        <text>"I am The End, I am here to bring you to your ultimate fate."</text>
+    </string>
+	<string id="st_perk_the_end_desc_1">
+        <text>"I am The End, I am here to bring you to your ultimate fate."\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] When aiming down sights with %c[yellow]bolt-action sniper-class weapons%c[ui_gray_2], you receive %c[d_green]15% less damage from all sources\n
+		%c[d_blue] - %c[ui_gray_2] When firing from the hip with %c[yellow]bolt-action sniper-class weapons%c[ui_gray_2],you deal %c[d_green]30% more damage against all Stalkers and mutants
+		</text>
+    </string>
+	
+	<string id="st_perk_the_end">
+        <text>The End</text>
+    </string>
+	<string id="st_perk_the_end_desc">
+        <text>"I am The End, I am here to bring you to your ultimate fate."</text>
+    </string>
+	<string id="st_perk_the_end_desc_1">
+        <text>"I am The End, I am here to bring you to your ultimate fate."\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] When aiming down sights with %c[yellow]bolt-action sniper-class weapons%c[ui_gray_2], you receive %c[d_green]15% less damage from all sources\n
+		%c[d_blue] - %c[ui_gray_2] When firing from the hip with %c[yellow]bolt-action sniper-class weapons%c[ui_gray_2],you deal %c[d_green]30% more damage against all Stalkers and mutants
+		</text>
+    </string>
+	
+	<string id="st_perk_plus_one">
+        <text>Plus One</text>
+    </string>
+	<string id="st_perk_plus_one_desc">
+        <text>Even when you think you have run empty, you always find one more.</text>
+    </string>
+	<string id="st_perk_plus_one_desc_1">
+        <text>Even when you think you have run empty, you always find one more.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] When looting, you will always find at least %c[d_green]one bullet for one of your weapons\n
+		%c[d_blue] - %c[ui_gray_2] Stashes have a %c[d_green]1% chance%c[ui_gray_2] to grant an %c[d_green]entire box of said ammo%c[ui_gray_2] when looting \n
+		%c[d_blue] - %c[ui_gray_2] Breakable containers will have a %c[d_green]0.1% chance%c[ui_gray_2] to have an ammo drop %c[d_green]turn into ammo for one of your currently equipped weapons
+		</text>
+    </string>
+	
+	<string id="st_perk_battleforged">
+        <text>Battle-forged Armory</text>
+    </string>
+	<string id="st_perk_battleforged_desc">
+        <text>Your weapon's parts might be damaged, but they won't fail on you.</text>
+    </string>
+	<string id="st_perk_battleforged_desc_1">
+        <text>Your weapon's parts might be damaged, but they won't fail on you.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2]Weapon parts%c[yellow] under 70% condition%c[ui_gray_2] will %c[d_green]no longer take damage from firing\n 
+		%c[d_blue] - %c[ui_gray_2]This effectively means that these parts should not fall under their current condition
+		</text>
+    </string>
+	
+	<string id="st_perk_keen_eye">
+        <text>Keen Eye</text>
+    </string>
+	<string id="st_perk_keen_eye_desc">
+        <text>Your eyes are much better without any fancy zoom.</text>
+    </string>
+	<string id="st_perk_keen_eye_desc_1">
+        <text>Your eyes are much better without any fancy zoom.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Using %c[yellow]iron sights or non-hybrid 1x magnification sights%c[ui_gray_2] will %c[d_green]increase headshot damage by 10%
+		</text>
+    </string>
+	<string id="st_perk_keen_eye_desc_2">
+        <text>Your eyes are much better without any fancy zoom.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Using %c[yellow]iron sights or non-hybrid 1x magnification sights%c[ui_gray_2] will %c[d_green]increase headshot damage by 20%
+		</text>
+    </string>
+	<string id="st_perk_keen_eye_desc_3">
+        <text>Your eyes are much better without any fancy zoom.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Using %c[yellow]iron sights or non-hybrid 1x magnification sights%c[ui_gray_2] will %c[d_green]increase headshot damage by 30%
+		</text>
+    </string>
+	
+	<string id="st_perk_mtn_climber">
+        <text>Mountain Climber</text>
+    </string>
+	<string id="st_perk_mtn_climber_desc">
+        <text>There may be no mountains, but you sure can climb.</text>
+    </string>
+	<string id="st_perk_mtn_climber_desc_1">
+        <text>There may be no mountains, but you sure can climb.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Stamina and hunger drain from climbing is %c[d_orange]reduced by 10%\n
+		%c[d_blue] - %c[ui_gray_2] Climbing speed is %c[d_orange]increased by 10%
+		</text>
+    </string>
+	<string id="st_perk_mtn_climber_desc_2">
+        <text>There may be no mountains, but you sure can climb.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Stamina and hunger drain from climbing is %c[yellow]reduced by 25%\n
+		%c[d_blue] - %c[ui_gray_2] Climbing speed is %c[yellow]increased by 25%
+		</text>
+    </string>
+	<string id="st_perk_mtn_climber_desc_3">
+        <text>There may be no mountains, but you sure can climb.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Stamina and hunger drain from climbing is %c[d_green]reduced by 40%\n
+		%c[d_blue] - %c[ui_gray_2] Climbing speed is %c[d_green]increased by 40%
+		</text>
+    </string>
+	
+	<string id="st_perk_samaritan">
+        <text>Good Samaritan</text>
+    </string>
+	<string id="st_perk_samaritan_desc">
+        <text>You always seek to help others. Even conflicting actions are understood.</text>
+    </string>
+	<string id="st_perk_samaritan_desc_1">
+        <text>You always seek to help others. Even conflicting actions are understood.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Goodwill gains from completing tasks are %c[d_orange]increased by 10%\n
+		%c[d_blue] - %c[ui_gray_2] Goodwill losses from completing tasks are %c[d_orange]reduced by 25%
+		</text>
+    </string>
+	<string id="st_perk_samaritan_desc_2">
+        <text>You always seek to help others. Even conflicting actions are understood.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Goodwill gains from completing tasks are %c[yellow]increased by 20%\n
+		%c[d_blue] - %c[ui_gray_2] Goodwill losses from completing tasks are %c[yellow]reduced by 50%
+		</text>
+    </string>
+	<string id="st_perk_samaritan_desc_3">
+        <text>You always seek to help others. Even conflicting actions are understood.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Goodwill gains from completing tasks are %c[d_green]increased by 30%\n
+		%c[d_blue] - %c[ui_gray_2] Goodwill losses from completing tasks are %c[d_green]reduced by 75%
+		</text>
+    </string>
+	
+	<string id="st_perk_fetch_finder">
+        <text>Fetch Finder</text>
+    </string>
+	<string id="st_perk_fetch_finder_desc">
+        <text>The job market is very tight in the Zone. Time to downsize the competition.</text>
+    </string>
+	<string id="st_perk_fetch_finder_desc_1">
+        <text>The job market is very tight in the Zone. Time to downsize the competition. \n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Items needed for Fetch tasks have a %c[d_green]3% chance%c[ui_gray_2] to be found when looting stalkers\n
+		%c[d_blue] - %c[ui_gray_2] Items needed for Fetch tasks have a %c[d_green]6.7% chance%c[ui_gray_2] to be found when looting stashes\n
+		%c[d_blue] - %c[ui_gray_2] Chances to find items are slightly better if multiple fetch quests require them\n
+		%c[d_red] - %c[ui_gray_2] T2 and T3 devices (i.e. better detectors and PDAs) and unique quest items (i.e. Tracking Devices and stash PDAs) will not be included in		</text>
+    </string>
+	
+	<string id="st_perk_perkifact_power">
+        <text>Perkifact Power</text>
+    </string>
+	<string id="st_perk_perkifact_power_desc">
+        <text>The Zone grows tired of Stalkers using the same artefacts. It has empowered you when using perk-based artefacts.</text>
+    </string>
+	<string id="st_perk_perkifact_power_desc_1">
+        <text>The Zone grows tired of Stalkers using the same artefacts. It has empowered you when using perk-based artefacts.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] When wearing perk-based artefacts (perkifacts), their effects will behave as if you are wearing %c[d_orange]one additional copy\n
+		%c[d_blue] - %c[ui_gray_2] For instance, wearing a 1 "Signet" will result in its effects acting as if you are wearing %c[d_orange]2 "Signets"
+		</text>
+    </string>
+	<string id="st_perk_perkifact_power_desc_2">
+        <text>The Zone grows tired of Stalkers using the same artefacts. It has empowered you when using perk-based artefacts.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] When wearing perk-based artefacts (perkifacts), their effects will behave as if you are wearing %c[yellow]two additional copies\n
+		%c[d_blue] - %c[ui_gray_2] For instance, wearing a 1 "Signet" will result in its effects acting as if you are wearing %c[yellow]3 "Signets"
+		</text>
+    </string>
+	<string id="st_perk_perkifact_power_desc_3">
+        <text>The Zone grows tired of Stalkers using the same artefacts. It has empowered you when using perk-based artefacts.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] When wearing perk-based artefacts (perkifacts), their effects will behave as if you are wearing %c[d_green]three additional copies\n
+		%c[d_blue] - %c[ui_gray_2] For instance, wearing a 1 "Signet" will result in its effects acting as if you are wearing %c[d_green]4 "Signets"
+		</text>
+    </string>
+	
+	<string id="st_perk_hells_kitchen">
+        <text>Hell's Kitchen</text>
+    </string>
+	<string id="st_perk_hells_kitchen_desc">
+        <text>Knowledge of your culinary skills have made its way through the Zone. Everyone is itching to watch and taste your talent.</text>
+    </string>
+	<string id="st_perk_hells_kitchen_desc_1">
+        <text>Knowledge of your culinary skills have made its way through the Zone. Everyone is itching to watch and taste your talent.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Buying cooking fuel is now %c[d_orange]15% cheaper\n
+		%c[d_blue] - %c[ui_gray_2] Selling cooked mutant meat (%c[d_cyan]Zone-produced/Stewed/Purified%c[ui_gray_2]) is now %c[d_orange]20% more profitable
+		</text>
+    </string>
+	<string id="st_perk_hells_kitchen_desc_2">
+        <text>Knowledge of your culinary skills have made its way through the Zone. Everyone is itching to watch and taste your talent.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Buying cooking fuel is now %c[yellow]40% cheaper\n
+		%c[d_blue] - %c[ui_gray_2] Selling cooked mutant meat (%c[d_cyan]Zone-produced/Stewed/Purified%c[ui_gray_2]) is now %c[yellow]45% more profitable
+		</text>
+    </string>
+	<string id="st_perk_hells_kitchen_desc_3">
+        <text>Knowledge of your culinary skills have made its way through the Zone. Everyone is itching to watch and taste your talent.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Buying cooking fuel is now %c[d_green]70% cheaper\n
+		%c[d_blue] - %c[ui_gray_2] Selling cooked mutant meat (%c[d_cyan]Zone-produced/Stewed/Purified%c[ui_gray_2]) is now %c[d_green]80% more profitable
+		</text>
+    </string>
+	
+	
+	<string id="st_perk_mono_mind">
+        <text>Monolithian Mind</text>
+    </string>
+	<string id="st_perk_mono_mind_desc">
+        <text>Through your exposure to psy-waves and studying psi-emitters, you have discovered a way into tricking the Zone into believing you are one of its chosen.</text>
+    </string>
+	<string id="st_perk_mono_mind_desc_1">
+        <text>Through your exposure to psy-waves and studying psi-emitters, you have discovered a way into tricking the Zone into believing you are one of its chosen.\n \n
+		%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] You can now %c[d_green]disguise as a Monolith member%c[ui_gray_2] when wearing their armor with their patch attached\n
+		%c[d_blue] - %c[ui_gray_2] You have become %c[d_green]immune%c[ui_gray_2] to %c[yellow]emissions and psy-storms\n
+		%c[d_red] - %c[ui_gray_2] This %c[d_red]does NOT make you immune%c[ui_gray_2] to %c[yellow]Pulse anomalies%c[ui_gray_2] that trigger during psy-storms as they are Shock damage
+		</text>
+    </string>
+</string_table>
