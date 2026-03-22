@@ -66,11 +66,22 @@ const DEFAULT_VIEW_STATE: ViewState = {
 };
 const viewStateByConversation = new Map<number, ViewState>();
 
+function getFlowNodeWidthForLabel(label: string, density: FlowDensity): number {
+  const layout = getFlowNodeLayout(density);
+  const normalizedLength = label.trim().length;
+  if (normalizedLength === 0) return layout.width;
+
+  const freeCharacters = density === 'compact' ? 14 : density === 'standard' ? 18 : 22;
+  const characterWidth = density === 'compact' ? 5.8 : density === 'standard' ? 6.6 : 7.2;
+  const maxExtraWidth = density === 'compact' ? 120 : density === 'standard' ? 180 : 220;
+  const extraWidth = Math.max(0, normalizedLength - freeCharacters) * characterWidth;
+  return Math.round(layout.width + Math.min(maxExtraWidth, extraWidth));
+}
+
 export function renderFlowEditor(container: HTMLElement): void {
   const conv = store.getSelectedConversation();
   const state = store.get();
   const density = state.flowDensity;
-  const layout = getFlowNodeLayout(density);
 
   if (!conv) {
     container.replaceChildren(createOnboardingNudge({
@@ -287,8 +298,12 @@ export function renderFlowEditor(container: HTMLElement): void {
   const centerTurn = (turnNumber: number, animate = true): void => {
     const targetTurn = conv.turns.find(item => item.turnNumber === turnNumber);
     if (!targetTurn) return;
-
-    centerWorldPoint(targetTurn.position.x + layout.width / 2, targetTurn.position.y + estimateFlowNodeHeight(targetTurn, density) / 2, animate);
+    const targetLabel = turnLabels.getLongLabel(targetTurn.turnNumber);
+    centerWorldPoint(
+      targetTurn.position.x + getFlowNodeWidthForLabel(targetLabel, density) / 2,
+      targetTurn.position.y + estimateFlowNodeHeight(targetTurn, density) / 2,
+      animate,
+    );
   };
 
   const fitContent = (animate = true): void => {
@@ -434,7 +449,7 @@ function renderControls(options: {
 }
 
 function calculateContentBounds(conv: Conversation, density: FlowDensity): ContentBounds {
-  const layout = getFlowNodeLayout(density);
+  const turnLabels = createTurnDisplayLabeler(conv);
 
   if (conv.turns.length === 0) {
     return {
@@ -447,7 +462,8 @@ function calculateContentBounds(conv: Conversation, density: FlowDensity): Conte
   let maxY = 0;
 
   for (const turn of conv.turns) {
-    maxX = Math.max(maxX, turn.position.x + layout.width);
+    const turnWidth = getFlowNodeWidthForLabel(turnLabels.getLongLabel(turn.turnNumber), density);
+    maxX = Math.max(maxX, turn.position.x + turnWidth);
     maxY = Math.max(maxY, turn.position.y + estimateFlowNodeHeight(turn, density));
   }
 
@@ -511,6 +527,7 @@ function renderTurnNode(options: {
   const turnIndex = conv.turns.indexOf(turn);
   const factionColor = FACTION_COLORS[getConversationFaction(conv, state.project.faction)];
   const branchColor = getBranchColor(turn, turnIndex, factionColor);
+  const nodeWidth = getFlowNodeWidthForLabel(turnLabels.getLongLabel(turn.turnNumber), density);
 
   const node = document.createElement('div');
   node.className = 'turn-node'
@@ -524,7 +541,7 @@ function renderTurnNode(options: {
   node.setAttribute('aria-pressed', selected ? 'true' : 'false');
   node.style.left = `${turn.position.x}px`;
   node.style.top = `${turn.position.y}px`;
-  node.style.width = `${layout.width}px`;
+  node.style.width = `${nodeWidth}px`;
   node.style.setProperty('--branch-color', branchColor);
   node.style.setProperty('--branch-glow', branchColor + '40');
   node.onclick = (e) => {
@@ -724,7 +741,7 @@ function renderTurnNode(options: {
   header.appendChild(stats);
 
   const turnActions = document.createElement('div');
-  turnActions.style.cssText = 'display:flex; align-items:center; gap:4px;';
+  turnActions.className = 'turn-actions';
 
   const duplicateBtn = createTurnActionButton('Duplicate turn', () => {
     onKeyboardShortcut(turn.turnNumber, 'duplicate-turn');
