@@ -16,6 +16,7 @@ import { shouldShowFirstRunExperience, renderFirstRunExperience } from './Onboar
 import { createBlankProject } from '../lib/project-io';
 import { setButtonContent, createIcon } from './icons';
 import { getFactionThemeVariables } from '../lib/faction-colors';
+import { getConversationFaction } from '../lib/types';
 
 const PANEL_MIN_WIDTH = 220;
 const PANEL_MAX_WIDTH = 520;
@@ -80,7 +81,7 @@ export function renderApp(container: HTMLElement): void {
   const conv = store.getSelectedConversation();
   const firstRun = state.project.conversations.length === 0 && shouldShowFirstRunExperience();
 
-  applyFactionTheme(container, state.project.faction);
+  applyFactionTheme(container, getConversationFaction(conv, state.project.faction));
 
   // During onboarding, hide toolbar and side panels for a cleaner experience.
   // When onboarding ends (project created), restore the toolbar.
@@ -673,10 +674,11 @@ function clampWidth(value: number): number {
 /** Merge conversations from the community library into the current project,
  *  auto-selecting the first imported conversation afterward. */
 export function importConversations(conversations: import('../lib/types').Conversation[], faction?: import('../lib/types').FactionId): void {
-  const firstId = store.mergeConversations(conversations);
-  if (faction && faction !== store.get().project.faction) {
-    store.setFaction(faction);
-  }
+  const normalizedConversations = conversations.map((conversation) => ({
+    ...conversation,
+    faction: getConversationFaction(conversation, faction ?? store.get().project.faction),
+  }));
+  const firstId = store.mergeConversations(normalizedConversations);
   if (firstId != null) {
     store.selectConversation(firstId);
   }

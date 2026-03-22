@@ -1411,6 +1411,20 @@ label {
   min-width: 0;
 }
 
+.conv-controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  margin-left: auto;
+}
+
+.conv-faction-select {
+  min-width: 112px;
+  max-width: 132px;
+  font-size: 10px;
+  padding: 5px 24px 5px 8px;
+}
+
 .conv-label {
   display: block;
   overflow: hidden;

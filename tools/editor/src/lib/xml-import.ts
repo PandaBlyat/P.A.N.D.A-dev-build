@@ -229,6 +229,7 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
     const conv: Conversation = {
       id: convId,
       label: `Conversation ${convId}`,
+      faction: factionId,
       preconditions: [],
       turns: [],
     };

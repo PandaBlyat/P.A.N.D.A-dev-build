@@ -18,7 +18,7 @@ import {
 } from '../lib/api-client';
 import { COMMUNITY_CONVERSATIONS } from '../lib/community-data';
 import { FACTION_IDS } from '../lib/constants';
-import { FACTION_DISPLAY_NAMES, FACTION_XML_KEYS, type Conversation, type FactionId } from '../lib/types';
+import { FACTION_DISPLAY_NAMES, FACTION_XML_KEYS, getConversationFaction, type Conversation, type FactionId } from '../lib/types';
 import { FACTION_COLORS } from '../lib/faction-colors';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon, setButtonContent } from './icons';
@@ -1006,7 +1006,7 @@ function buildPublishForm(): HTMLElement {
     const description = descInput.value.trim();
     const summary = summaryInput.value.trim() || createSummaryFromConversation(conv);
     const tags = tagsInput.value.split(',').map(tag => tag.trim()).filter(Boolean);
-    const faction = store.get().project.faction;
+    const faction = getConversationFaction(conv, store.get().project.faction);
     const branchCount = getBranchCount(conv);
     const duplicateLocal = allResults.some(entry => normalizeKey(entry.label) === normalizeKey(label));
     if (duplicateLocal) {
@@ -1057,7 +1057,7 @@ function buildPublishForm(): HTMLElement {
 
   (form as HTMLElement & { prefill?: () => void }).prefill = () => {
     const conv = store.getSelectedConversation();
-    const faction = store.get().project.faction;
+    const faction = getConversationFaction(conv, store.get().project.faction);
     const branchCount = getBranchCount(conv ?? undefined);
     titleInput.value = conv?.label || '';
     authorInput.value = '';

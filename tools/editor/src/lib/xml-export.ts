@@ -1,8 +1,8 @@
 // P.A.N.D.A. Conversation Editor — XML Export
 // Generates valid PANDA XML string table files from the editor data model.
 
-import type { Project, Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, Outcome } from './types';
-import { FACTION_XML_KEYS } from './types';
+import type { Project, Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, Outcome, FactionId } from './types';
+import { FACTION_XML_KEYS, getConversationFaction } from './types';
 
 /** Escape special XML characters in text content */
 function escapeXml(text: string): string {
@@ -73,12 +73,12 @@ function generateSystemStrings(systemStrings: Map<string, string>): string {
 }
 
 /** Generate XML for a single conversation */
-function generateConversation(conv: Conversation, factionKey: string): string {
-  const prefix = `st_pda_ic_${factionKey}_${conv.id}`;
+function generateConversation(conv: Conversation, factionKey: string, exportId: number): string {
+  const prefix = `st_pda_ic_${factionKey}_${exportId}`;
   const lines: string[] = [];
 
   lines.push(`\n    <!-- ═══════════════════════════════════════════════════════════ -->`);
-  lines.push(`    <!-- CONVERSATION ${conv.id}: ${conv.label || 'Untitled'} -->`);
+  lines.push(`    <!-- CONVERSATION ${exportId}: ${conv.label || 'Untitled'} -->`);
   lines.push(`    <!-- ═══════════════════════════════════════════════════════════ -->`);
 
   // Preconditions
@@ -131,8 +131,7 @@ function generateConversation(conv: Conversation, factionKey: string): string {
 }
 
 /** Generate the complete XML file content */
-export function generateXml(project: Project, systemStrings?: Map<string, string>): string {
-  const factionKey = FACTION_XML_KEYS[project.faction];
+export function generateXml(project: Project, systemStrings?: Map<string, string>, factionFilter?: FactionId): string {
   const lines: string[] = [];
 
   lines.push('<?xml version="1.0" encoding="utf-8"?>');
@@ -146,9 +145,15 @@ export function generateXml(project: Project, systemStrings?: Map<string, string
   }
 
   // Conversations (sorted by ID to maintain sequential order)
-  const sorted = [...project.conversations].sort((a, b) => a.id - b.id);
+  const sorted = [...project.conversations]
+    .filter((conv) => factionFilter == null || getConversationFaction(conv, project.faction) === factionFilter)
+    .sort((a, b) => a.id - b.id);
+  const exportCounts = new Map<FactionId, number>();
   for (const conv of sorted) {
-    lines.push(generateConversation(conv, factionKey));
+    const faction = getConversationFaction(conv, project.faction);
+    const exportId = (exportCounts.get(faction) ?? 0) + 1;
+    exportCounts.set(faction, exportId);
+    lines.push(generateConversation(conv, FACTION_XML_KEYS[faction], exportId));
     lines.push('');
   }
 
@@ -172,6 +177,7 @@ export function createConversation(project: Project): Conversation {
   return {
     id: maxId + 1,
     label: `Conversation ${maxId + 1}`,
+    faction: project.faction,
     preconditions: [],
     turns: [createTurn(1)],
   };
