@@ -28,8 +28,17 @@
   --node-border: #2a3a2a;
   --font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --info-glow: rgba(64, 128, 196, 0.15);
+  --warning-bg: color-mix(in srgb, var(--warning) 8%, transparent);
+  --warning-border: color-mix(in srgb, var(--warning) 35%, transparent);
+  --info-bg: color-mix(in srgb, var(--info) 8%, transparent);
+  --info-border: color-mix(in srgb, var(--info) 35%, transparent);
+  --danger-bg: color-mix(in srgb, var(--danger) 8%, transparent);
+  --danger-border: color-mix(in srgb, var(--danger) 35%, transparent);
   --radius: 4px;
+  --radius-md: 8px;
   --radius-lg: 6px;
+  --radius-xl: 12px;
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
   --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
@@ -852,8 +861,8 @@ button:disabled:hover,
 }
 
 .btn-icon.btn-danger:hover {
-  background: rgba(196, 64, 64, 0.12);
-  border-color: rgba(196, 64, 64, 0.25);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 25%, transparent);
 }
 
 .panel-action-add {
@@ -1794,8 +1803,8 @@ label {
 
 .flow-minimap-viewport {
   border: 1px solid var(--info);
-  background: rgba(64, 128, 196, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(64, 128, 196, 0.25);
+  background: color-mix(in srgb, var(--info) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--info) 25%, transparent);
 }
 
 .turn-node {
@@ -1983,7 +1992,7 @@ label {
   font-family: var(--font-mono);
   font-size: 9px;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius);
   background: color-mix(in srgb, var(--badge-branch-color, var(--branch-color, var(--accent-dim))) 25%, transparent);
   color: var(--badge-branch-color, var(--text-bright));
   border: 1px solid color-mix(in srgb, var(--badge-branch-color, var(--branch-color, var(--accent-dim))) 50%, transparent);
@@ -1993,20 +2002,20 @@ label {
   font-family: var(--font-mono);
   font-size: 9px;
   padding: 1px 5px;
-  border-radius: 3px;
-  border: 1px solid var(--warning);
+  border-radius: var(--radius);
+  border: 1px solid var(--warning-border);
   color: var(--warning);
-  background: rgba(196, 160, 64, 0.08);
+  background: var(--warning-bg);
 }
 
 .choice-outcome-badge {
   font-family: var(--font-mono);
   font-size: 9px;
   padding: 1px 5px;
-  border-radius: 3px;
-  border: 1px solid var(--info);
+  border-radius: var(--radius);
+  border: 1px solid var(--info-border);
   color: var(--info);
-  background: rgba(64, 128, 196, 0.08);
+  background: var(--info-bg);
 }
 
 /* ─── NPC Reply in Flow Node ──────────────────────────── */
@@ -2034,8 +2043,8 @@ label {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--info);
-  background: rgba(64, 128, 196, 0.12);
-  border: 1px solid rgba(64, 128, 196, 0.25);
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
   border-radius: 2px;
   padding: 0 4px;
   line-height: 1.5;
@@ -2054,7 +2063,7 @@ label {
 
 .turn-npc-message {
   border-left-color: var(--info) !important;
-  background: rgba(64, 128, 196, 0.06) !important;
+  background: color-mix(in srgb, var(--info) 6%, transparent) !important;
 }
 
 /* ─── Turn Footer (detailed mode) ─────────────────────── */
@@ -2163,6 +2172,8 @@ label {
 
 .precond-item:hover, .outcome-item:hover {
   border-color: var(--border-light);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 3%, var(--bg-input)) 0%, var(--bg-input) 100%);
+  box-shadow: inset 2px 0 6px -3px var(--accent-glow);
 }
 
 /* Drag-to-reorder */
@@ -2196,6 +2207,8 @@ label {
   margin-bottom: 10px;
   background: color-mix(in srgb, var(--accent) 2%, var(--bg-card));
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s;
 }
 .props-collapsible-header {
   display: flex;
@@ -2204,11 +2217,12 @@ label {
   padding: 8px 10px;
   cursor: pointer;
   user-select: none;
-  background: color-mix(in srgb, var(--accent) 4%, var(--bg-dark));
-  transition: background 0.15s;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, var(--bg-dark)) 0%, color-mix(in srgb, var(--accent) 2%, var(--bg-dark)) 100%);
+  transition: background 0.15s, box-shadow 0.15s;
 }
 .props-collapsible-header:hover {
   background: color-mix(in srgb, var(--accent) 8%, var(--bg-dark));
+  box-shadow: inset 3px 0 8px -4px var(--accent-glow);
 }
 .props-collapsible-chevron {
   font-size: 10px;
@@ -2250,7 +2264,7 @@ label {
   font-family: var(--font-mono);
   font-size: 10px;
   padding: 3px 7px;
-  border-radius: 3px;
+  border-radius: var(--radius);
   background: var(--bg-card);
   border: 1px solid var(--border);
   color: var(--text-dim);
@@ -2311,14 +2325,14 @@ label {
 
 .ui-badge-warning {
   color: var(--warning);
-  border-color: rgba(196, 160, 64, 0.35);
-  background: rgba(196, 160, 64, 0.08);
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
 }
 
 .ui-badge-danger {
-  color: #e07b7b;
-  border-color: rgba(196, 64, 64, 0.35);
-  background: rgba(196, 64, 64, 0.08);
+  color: color-mix(in srgb, var(--danger) 70%, white 30%);
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
 }
 
 .validation-msg {
@@ -2352,13 +2366,13 @@ label {
 }
 
 .validation-msg.error {
-  border-color: rgba(196, 64, 64, 0.18);
-  background: rgba(196, 64, 64, 0.05);
+  border-color: color-mix(in srgb, var(--danger) 18%, transparent);
+  background: color-mix(in srgb, var(--danger) 5%, transparent);
 }
 
 .validation-msg.warning {
-  border-color: rgba(196, 160, 64, 0.18);
-  background: rgba(196, 160, 64, 0.05);
+  border-color: color-mix(in srgb, var(--warning) 18%, transparent);
+  background: color-mix(in srgb, var(--warning) 5%, transparent);
 }
 
 /* ─── XML Preview ──────────────────────────────────────── */
@@ -2428,7 +2442,7 @@ label {
   padding: 12px;
   background: linear-gradient(180deg, rgba(28, 36, 48, 0.98) 0%, rgba(15, 20, 28, 0.98) 100%);
   border: 1px solid color-mix(in srgb, var(--border-light) 88%, rgba(255, 255, 255, 0.08));
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0, 0, 0, 0.28), 0 18px 42px rgba(0, 0, 0, 0.42);
   animation: dropdownIn 0.15s ease;
 }
@@ -2501,7 +2515,7 @@ label {
   padding: 9px 10px;
   text-align: left;
   font-size: 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid rgba(255, 255, 255, 0.05);
   background: color-mix(in srgb, var(--bg-dark) 84%, transparent);
 }
@@ -2570,7 +2584,7 @@ label {
   padding: 12px;
   text-align: left;
   white-space: normal;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(10, 14, 20, 0.22) 100%), var(--bg-dark);
 }
@@ -2622,7 +2636,7 @@ label {
   min-height: 180px;
   padding: 20px;
   border: 1px dashed rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: var(--text-dim);
   text-align: center;
 }
@@ -2632,32 +2646,45 @@ label {
 .tab-bar {
   display: flex;
   gap: 0;
+  padding: 0 4px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-dark);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 80%, var(--bg-dark) 20%) 0%, var(--bg-dark) 100%);
+  position: relative;
+}
+
+.tab-bar::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--accent-dim) 40%, var(--accent-dim) 60%, transparent 100%);
+  opacity: 0.3;
 }
 
 .tab {
-  padding: 7px 14px;
+  padding: 8px 16px;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-dim);
   border: none;
   border-bottom: 2px solid transparent;
-  border-radius: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
   background: transparent;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition: color 0.15s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 .tab:hover {
   color: var(--text);
-  background: rgba(255,255,255,0.02);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
   box-shadow: none;
 }
 .tab.active {
   color: var(--accent);
   border-bottom-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
-  box-shadow: none;
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-card));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 /* ─── Scrollbar ────────────────────────────────────────── */
@@ -2673,21 +2700,23 @@ label {
 /* ─── Choice Card in Properties ────────────────────────── */
 
 .choice-card {
-  background: var(--bg-card);
+  background: linear-gradient(180deg, var(--bg-card) 0%, color-mix(in srgb, var(--bg-card) 90%, var(--bg-dark) 10%) 100%);
   border: 1px solid var(--border);
   border-left: 3px solid var(--accent-dim);
   border-radius: var(--radius-lg);
   margin-bottom: 8px;
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
   transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
 }
 .choice-card:hover {
   border-color: var(--border-light);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
 }
 .choice-card.selected {
   border-color: var(--accent);
   border-left-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-glow), 0 0 12px var(--accent-glow), var(--shadow-sm);
 }
 
 .choice-card-header {
@@ -2703,7 +2732,7 @@ label {
   transition: background 0.15s;
 }
 
-.choice-card-header:hover { background: var(--bg-hover); }
+.choice-card-header:hover { background: color-mix(in srgb, var(--accent) 4%, var(--bg-hover)); }
 
 .choice-card-title {
   font-family: var(--font-mono);
@@ -3600,6 +3629,26 @@ hr {
   gap: 4px;
   margin-left: auto;
   flex: 0 0 auto;
+}
+
+.turn-actions .btn-sm {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 6px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--border-light) 60%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 80%, transparent);
+  color: var(--text-dim);
+  transition: color 0.1s, border-color 0.1s, background 0.1s;
+}
+
+.turn-actions .btn-sm:hover {
+  color: var(--text-bright);
+  border-color: var(--border-light);
+  background: var(--bg-hover);
 }
 
 .turn-body {
@@ -5680,15 +5729,25 @@ strong.support-upvote-count {
   flex-direction: column;
   gap: 10px;
   padding: 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
   background: linear-gradient(180deg, rgba(28, 36, 48, 0.92), rgba(16, 20, 26, 0.96));
   box-shadow: var(--shadow-md);
 }
 
 .onboarding-nudge.compact {
-  padding: 14px;
+  padding: 20px 16px;
   box-shadow: none;
+  text-align: center;
+  border-top: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.onboarding-nudge.compact .onboarding-nudge-title {
+  font-size: 14px;
+}
+
+.onboarding-nudge.compact .onboarding-nudge-body {
+  font-size: 12px;
 }
 
 .onboarding-nudge-title {
