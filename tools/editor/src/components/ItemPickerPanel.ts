@@ -8,6 +8,68 @@ import {
   type GameItemCatalogEntry,
 } from '../lib/item-catalog';
 
+/* ── Category group mapping ──────────────────────────────── */
+
+const CATEGORY_GROUPS: Record<string, string> = {
+  weapons: 'Weapons & Attachments',
+  attachments: 'Weapons & Attachments',
+
+  medical: 'Medical & Drugs',
+  drugs: 'Medical & Drugs',
+
+  artefacts: 'Artefacts',
+  'artefacts junk': 'Artefacts',
+  'artefacts soc': 'Artefacts',
+
+  food: 'Food & Drink',
+  drink: 'Food & Drink',
+  cooking: 'Food & Drink',
+
+  outfits: 'Outfits & Gear',
+  patches: 'Outfits & Gear',
+
+  tools: 'Tools & Repair',
+  repair: 'Tools & Repair',
+  parts: 'Tools & Repair',
+  upgrades: 'Tools & Repair',
+
+  'container aac': 'Containers',
+  'container aam': 'Containers',
+  'container iam': 'Containers',
+  'container llmc': 'Containers',
+
+  quest: 'Quest & Letters',
+  letters: 'Quest & Letters',
+
+  explosives: 'Explosives',
+  'explosives new mines': 'Explosives',
+
+  devices: 'Other',
+  money: 'Other',
+  monster: 'Other',
+  trash: 'Other',
+  anim: 'Other',
+};
+
+const CATEGORY_GROUP_ORDER = [
+  'Weapons & Attachments',
+  'Medical & Drugs',
+  'Artefacts',
+  'Food & Drink',
+  'Outfits & Gear',
+  'Tools & Repair',
+  'Containers',
+  'Quest & Letters',
+  'Explosives',
+  'Other',
+];
+
+function getCategoryGroup(category: string): string {
+  return CATEGORY_GROUPS[category] ?? 'Other';
+}
+
+/* ── Shared helpers ──────────────────────────────────────── */
+
 const ITEM_PICKER_MOUNT_ID = 'app-modal-host';
 
 let activeCleanup: (() => void) | null = null;
@@ -47,6 +109,8 @@ function buildItemOptionLabel(item: GameItemCatalogEntry): string {
   return item.displayName ? `${item.displayName} (${item.section})` : item.section;
 }
 
+/* ── Modal picker panel ──────────────────────────────────── */
+
 function openItemPickerPanel(options: {
   trigger: HTMLElement;
   currentValue: string;
@@ -74,6 +138,7 @@ function openItemPickerPanel(options: {
   panel.setAttribute('aria-labelledby', 'item-picker-title');
   panel.onclick = (event) => event.stopPropagation();
 
+  /* ── Header ── */
   const header = document.createElement('div');
   header.className = 'item-picker-header';
 
@@ -88,25 +153,62 @@ function openItemPickerPanel(options: {
 
   const subtitle = document.createElement('div');
   subtitle.className = 'item-picker-subtitle';
-  subtitle.textContent = 'Search by display name, raw section id, kind, or category/path hints. Pick a vanilla item, or keep typing a custom section id inline.';
+  subtitle.textContent = 'Search by display name, raw section id, kind, or category. Pick a vanilla item, or type a custom section id inline.';
   titleWrap.appendChild(subtitle);
 
   const closeButton = document.createElement('button');
   closeButton.className = 'btn-icon btn-sm';
-  closeButton.textContent = '×';
+  closeButton.textContent = '\u00d7';
   closeButton.title = 'Close item picker';
   closeButton.onclick = () => cleanup();
 
   header.append(titleWrap, closeButton);
   panel.appendChild(header);
 
+  /* ── Search input with icon ── */
+  const searchWrap = document.createElement('div');
+  searchWrap.className = 'item-picker-search-wrap';
+
+  const searchIcon = document.createElement('span');
+  searchIcon.className = 'item-picker-search-icon';
+  searchIcon.textContent = '\u2315';
+  searchIcon.setAttribute('aria-hidden', 'true');
+
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
   searchInput.className = 'dropdown-search item-picker-search';
   searchInput.placeholder = 'Search item name, section id, kind, or category...';
   searchInput.autocomplete = 'off';
-  panel.appendChild(searchInput);
 
+  searchWrap.append(searchIcon, searchInput);
+  panel.appendChild(searchWrap);
+
+  /* ── Category chip bar ── */
+  const chipBar = document.createElement('div');
+  chipBar.className = 'item-picker-chip-bar';
+
+  let activeGroup: string | null = null;
+  const chipElements = new Map<string | null, HTMLButtonElement>();
+
+  const allChip = document.createElement('button');
+  allChip.type = 'button';
+  allChip.className = 'item-picker-chip is-active';
+  allChip.innerHTML = 'All <span class="item-picker-chip-count"></span>';
+  chipElements.set(null, allChip);
+  chipBar.appendChild(allChip);
+
+  for (const group of CATEGORY_GROUP_ORDER) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'item-picker-chip';
+    chip.innerHTML = `${group} <span class="item-picker-chip-count"></span>`;
+    chipElements.set(group, chip);
+    chipBar.appendChild(chip);
+  }
+
+  panel.appendChild(chipBar);
+
+  /* ── Selection summary + actions ── */
   const selectedSummary = document.createElement('div');
   selectedSummary.className = 'item-picker-selection-summary';
   selectedSummary.textContent = options.currentValue
@@ -133,6 +235,7 @@ function openItemPickerPanel(options: {
   actions.appendChild(totalLabel);
   panel.appendChild(actions);
 
+  /* ── Results list ── */
   const list = document.createElement('div');
   list.className = 'item-picker-list';
   panel.appendChild(list);
@@ -155,9 +258,65 @@ function openItemPickerPanel(options: {
     cleanup();
   };
 
+  /* ── Chip state management ── */
+  const updateChipStates = (): void => {
+    chipElements.forEach((chip, group) => {
+      chip.classList.toggle('is-active', group === activeGroup);
+    });
+  };
+
+  const updateChipCounts = (textFilteredItems: GameItemCatalogEntry[]): void => {
+    const groupCounts = new Map<string, number>();
+    for (const item of textFilteredItems) {
+      const g = getCategoryGroup(item.category);
+      groupCounts.set(g, (groupCounts.get(g) ?? 0) + 1);
+    }
+
+    chipElements.forEach((chip, group) => {
+      const countEl = chip.querySelector('.item-picker-chip-count');
+      if (!countEl) return;
+      if (group === null) {
+        countEl.textContent = String(textFilteredItems.length);
+      } else {
+        const count = groupCounts.get(group) ?? 0;
+        countEl.textContent = String(count);
+        chip.style.display = count === 0 ? 'none' : '';
+      }
+    });
+  };
+
+  /* ── Render the item list ── */
   const renderList = (filterValue: string): void => {
     const filter = normalizeFilter(filterValue);
-    filteredItems = GAME_ITEM_CATALOG.filter((item) => matchesFilter(item, filter));
+
+    // First pass: filter by text only (for chip counts)
+    const textFiltered = GAME_ITEM_CATALOG.filter((item) => matchesFilter(item, filter));
+    updateChipCounts(textFiltered);
+
+    // Second pass: also filter by active group
+    const groupFiltered = activeGroup
+      ? textFiltered.filter((item) => getCategoryGroup(item.category) === activeGroup)
+      : textFiltered;
+
+    // Group items by category group in order, then flatten
+    const grouped = new Map<string, GameItemCatalogEntry[]>();
+    for (const item of groupFiltered) {
+      const g = getCategoryGroup(item.category);
+      if (!grouped.has(g)) grouped.set(g, []);
+      grouped.get(g)!.push(item);
+    }
+
+    // Build filteredItems in grouped order so indices match DOM
+    filteredItems = [];
+    const orderedGroups: { name: string; items: GameItemCatalogEntry[] }[] = [];
+    for (const g of CATEGORY_GROUP_ORDER) {
+      const items = grouped.get(g);
+      if (items && items.length > 0) {
+        orderedGroups.push({ name: g, items });
+        filteredItems.push(...items);
+      }
+    }
+
     if (filteredItems.length === 0) activeIndex = 0;
 
     totalLabel.textContent = `${filteredItems.length} / ${GAME_ITEM_CATALOG.length} items`;
@@ -171,30 +330,46 @@ function openItemPickerPanel(options: {
       return;
     }
 
-    filteredItems.forEach((item, index) => {
-      const option = document.createElement('button');
-      option.type = 'button';
-      option.className = `item-picker-option${index === activeIndex ? ' is-active' : ''}`;
-      option.setAttribute('aria-selected', index === activeIndex ? 'true' : 'false');
-      option.dataset.index = String(index);
+    let flatIndex = 0;
+    const showHeaders = !activeGroup && orderedGroups.length > 1;
 
-      const primary = document.createElement('span');
-      primary.className = 'item-picker-option-title';
-      primary.textContent = item.displayName || item.section;
-      option.appendChild(primary);
+    for (const group of orderedGroups) {
+      if (showHeaders) {
+        const headerEl = document.createElement('div');
+        headerEl.className = 'item-picker-group-header';
+        headerEl.textContent = `${group.name} (${group.items.length})`;
+        list.appendChild(headerEl);
+      }
 
-      const secondary = document.createElement('span');
-      secondary.className = 'item-picker-option-meta';
-      secondary.textContent = formatGameItemMeta(item);
-      option.appendChild(secondary);
+      for (const item of group.items) {
+        const index = flatIndex++;
+        const option = document.createElement('button');
+        option.type = 'button';
+        let cls = 'item-picker-option';
+        if (index === activeIndex) cls += ' is-active';
+        if (item.section === options.currentValue) cls += ' is-selected';
+        option.className = cls;
+        option.setAttribute('aria-selected', index === activeIndex ? 'true' : 'false');
+        option.dataset.index = String(index);
 
-      option.onclick = () => selectItem(item.section);
-      option.onmouseenter = () => {
-        activeIndex = index;
-        updateActiveOption();
-      };
-      list.appendChild(option);
-    });
+        const primary = document.createElement('span');
+        primary.className = 'item-picker-option-title';
+        primary.textContent = item.displayName || item.section;
+        option.appendChild(primary);
+
+        const secondary = document.createElement('span');
+        secondary.className = 'item-picker-option-meta';
+        secondary.textContent = formatGameItemMeta(item);
+        option.appendChild(secondary);
+
+        option.onclick = () => selectItem(item.section);
+        option.onmouseenter = () => {
+          activeIndex = index;
+          updateActiveOption();
+        };
+        list.appendChild(option);
+      }
+    }
 
     updateActiveOption();
   };
@@ -247,6 +422,19 @@ function openItemPickerPanel(options: {
     }
   };
 
+  /* ── Wire up chip clicks ── */
+  chipElements.forEach((chip, group) => {
+    chip.onclick = () => {
+      if (activeGroup === group) return;
+      activeGroup = group;
+      updateChipStates();
+      renderList(searchInput.value);
+      setActiveIndexFromValue(options.currentValue);
+      updateActiveOption();
+    };
+  });
+
+  /* ── Wire up search input ── */
   searchInput.addEventListener('input', () => {
     renderList(searchInput.value);
     setActiveIndexFromValue(options.currentValue);
@@ -254,6 +442,7 @@ function openItemPickerPanel(options: {
   });
   searchInput.addEventListener('keydown', handleKeyDown);
 
+  /* ── Initial render ── */
   renderList('');
   setActiveIndexFromValue(options.currentValue);
   updateActiveOption();
@@ -267,6 +456,8 @@ function openItemPickerPanel(options: {
   activeTrigger = options.trigger;
 }
 
+/* ── Launcher widget (inline editor) ─────────────────────── */
+
 export function createItemPickerPanelEditor(
   currentValue: string,
   onChange: (value: string) => void,
@@ -278,7 +469,6 @@ export function createItemPickerPanelEditor(
 ): HTMLElement {
   const wrapper = document.createElement('div');
   wrapper.className = 'rich-editor rich-editor-item-picker';
-  let suppressNextLauncherFocus = false;
 
   const launcherRow = document.createElement('div');
   launcherRow.className = 'rich-editor-toolbar item-picker-toolbar';
@@ -286,11 +476,6 @@ export function createItemPickerPanelEditor(
   const selectedButton = document.createElement('button');
   selectedButton.type = 'button';
   selectedButton.className = 'item-picker-launcher';
-
-  const browseButton = document.createElement('button');
-  browseButton.type = 'button';
-  browseButton.className = 'btn-sm';
-  browseButton.textContent = 'Browse items';
 
   const maybeClearButton = options.allowEmpty ? document.createElement('button') : null;
   if (maybeClearButton) {
@@ -311,7 +496,16 @@ export function createItemPickerPanelEditor(
 
   const syncUi = (value: string): void => {
     rawInput.value = value;
-    selectedButton.textContent = value ? formatGameItemLabel(value) : 'Choose an item section…';
+
+    selectedButton.textContent = '';
+    const label = document.createElement('span');
+    label.className = 'item-picker-launcher-label';
+    label.textContent = value ? formatGameItemLabel(value) : 'Browse items\u2026';
+    const icon = document.createElement('span');
+    icon.className = 'item-picker-launcher-icon';
+    icon.textContent = '\u25be';
+    selectedButton.append(label, icon);
+
     summary.textContent = getItemSummary(value, options.allowEmpty);
     if (maybeClearButton) maybeClearButton.disabled = value.length === 0;
   };
@@ -321,9 +515,6 @@ export function createItemPickerPanelEditor(
       trigger: selectedButton,
       currentValue: rawInput.value,
       allowEmpty: options.allowEmpty,
-      onClose: () => {
-        suppressNextLauncherFocus = true;
-      },
       onSelect: (value) => {
         syncUi(value);
         onChange(value);
@@ -332,14 +523,6 @@ export function createItemPickerPanelEditor(
   };
 
   selectedButton.onclick = openPanel;
-  selectedButton.onfocus = () => {
-    if (suppressNextLauncherFocus) {
-      suppressNextLauncherFocus = false;
-      return;
-    }
-    if (document.activeElement === selectedButton) openPanel();
-  };
-  browseButton.onclick = openPanel;
 
   if (maybeClearButton) {
     maybeClearButton.onclick = () => {
@@ -356,7 +539,7 @@ export function createItemPickerPanelEditor(
   };
   rawInput.addEventListener('input', () => syncUi(rawInput.value));
 
-  launcherRow.append(selectedButton, browseButton);
+  launcherRow.append(selectedButton);
   if (maybeClearButton) launcherRow.appendChild(maybeClearButton);
   wrapper.append(launcherRow, rawInput, summary);
 
