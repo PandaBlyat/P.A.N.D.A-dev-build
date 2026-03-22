@@ -4160,8 +4160,8 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
             if not target_type or not smart_ref or not s_turn then
                 printf("PANDA_IC: panda_task_eliminate missing params in '%s'", tostring(cmd_str))
             else
-                -- Determine if target is mutant or faction
-                local is_mutant = resolve_mutant_section(target_type) ~= nil
+                -- Determine if target is an explicit mutant squad or an NPC squad/faction alias
+                local is_mutant = is_mutant_squad_key(target_type)
                 -- Spawn enemies at smart terrain (uses collector for squad tracking)
                 spawn_squad_at_smart_terrain(target_type, smart_ref, is_mutant, 0, sender_contact_id, "hostile")
                 -- Mark location on PDA map
@@ -4224,6 +4224,9 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
 end
 
 function find_squad_section(faction)
+    if faction and faction ~= "" and ini_sys:section_exist(faction) then
+        return faction
+    end
     local tiers = { "_advanced", "_novice", "_veteran", "_alpha" }
     for _, t in ipairs(tiers) do
         local s = faction .. "_sim_squad" .. t
@@ -4240,6 +4243,9 @@ local MUTANT_SQUADS = {
 }
 
 function resolve_mutant_section(mutant_type)
+    if mutant_type and mutant_type ~= "" and ini_sys:section_exist(mutant_type) then
+        return mutant_type
+    end
     if mutant_type == "random" then
         return MUTANT_SQUADS[math.random(#MUTANT_SQUADS)]
     end
@@ -4247,6 +4253,31 @@ function resolve_mutant_section(mutant_type)
         if string.find(s, mutant_type, 1, true) then return s end
     end
     return "simulation_bloodsucker_1_2" 
+end
+
+local function is_mutant_squad_key(target)
+    if not target or target == "" then
+        return false
+    end
+
+    if target == "random" then
+        return true
+    end
+
+    if ini_sys:section_exist(target) then
+        local faction = ini_sys:r_string_ex(target, "faction") or ""
+        return faction == "monster"
+            or faction == "zombied"
+            or string.find(faction, "monster_", 1, true) ~= nil
+    end
+
+    for _, s in ipairs(MUTANT_SQUADS) do
+        if string.find(s, target, 1, true) then
+            return true
+        end
+    end
+
+    return false
 end
 
 local function apply_spawned_faction_relation(obj, relation_mode)
