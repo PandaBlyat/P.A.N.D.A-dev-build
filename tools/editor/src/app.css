@@ -1646,7 +1646,8 @@ label {
 
 .turn-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 6px 10px;
   background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%);
@@ -1655,6 +1656,8 @@ label {
 }
 
 .turn-label {
+  flex: 1 1 120px;
+  min-width: 0;
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: bold;
@@ -1663,6 +1666,7 @@ label {
   cursor: pointer;
   border-bottom: 1px dashed transparent;
   transition: border-color 0.15s;
+  overflow-wrap: anywhere;
 }
 
 .turn-label:hover {
@@ -1670,6 +1674,8 @@ label {
 }
 
 .turn-label-input {
+  flex: 1 1 140px;
+  min-width: 0;
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: bold;
@@ -1678,7 +1684,7 @@ label {
   border: 1px solid var(--branch-color, var(--accent));
   border-radius: var(--radius);
   padding: 1px 6px;
-  width: 120px;
+  width: auto;
   outline: none;
   box-shadow: 0 0 8px var(--branch-glow);
 }
@@ -3197,10 +3203,17 @@ hr {
 }
 
 .turn-stats {
-  margin-left: auto;
   color: var(--text-dim);
   font-size: 10px;
   font-family: var(--font-mono);
+}
+
+.turn-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex: 0 0 auto;
 }
 
 .turn-body {
