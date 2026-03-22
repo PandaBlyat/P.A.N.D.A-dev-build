@@ -183,7 +183,7 @@ export function createTurn(turnNumber: number): Turn {
     turnNumber,
     openingMessage: turnNumber === 1 ? '' : undefined,
     choices: [createChoice(1)],
-    position: { x: (turnNumber - 1) * 300, y: 0 },
+    position: { x: 0, y: 0 },
   };
 }
 
