@@ -9,6 +9,7 @@ import {
   MONTH_NAMES,
 } from './constants';
 import { FACTION_DISPLAY_NAMES } from './types';
+import { ALL_SQUAD_OPTIONS, MUTANT_SQUAD_OPTIONS, NPC_SQUAD_OPTIONS } from './generated/squad-catalog';
 
 export interface CommandSchema {
   name: string;
@@ -1258,10 +1259,17 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   {
     name: 'spawn_npc',
     label: 'Spawn Faction Squad',
-    description: 'Spawn faction-default squad near player',
+    description: 'Spawn a specific NPC squad near player',
     category: 'Spawning',
     params: [
-      { name: 'faction', type: 'faction', required: true, label: 'Faction' },
+      {
+        name: 'squad_section',
+        type: 'string',
+        required: true,
+        label: 'NPC Squad',
+        editor: { kind: 'searchable_select', options: NPC_SQUAD_OPTIONS, emptyLabel: '-- Select NPC squad --' },
+        helpText: 'Pick the exact NPC squad section to spawn.',
+      },
       { name: 'distance', type: 'number', required: true, label: 'Distance (m)', min: 10 },
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '30', min: 0 },
     ],
@@ -1269,10 +1277,17 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   {
     name: 'spawn_mutant',
     label: 'Spawn Mutants',
-    description: 'Spawn mutant squad near player',
+    description: 'Spawn a specific mutant squad near player',
     category: 'Spawning',
     params: [
-      { name: 'type', type: 'mutant_type', required: true, label: 'Mutant Type', editor: { kind: 'searchable_select', options: MUTANT_OPTIONS } },
+      {
+        name: 'squad_section',
+        type: 'string',
+        required: true,
+        label: 'Mutant Squad',
+        editor: { kind: 'searchable_select', options: MUTANT_SQUAD_OPTIONS, emptyLabel: '-- Select mutant squad --' },
+        helpText: 'Pick the exact mutant squad section to spawn.',
+      },
       { name: 'distance', type: 'number', required: true, label: 'Distance (m)', min: 10 },
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '90', min: 0 },
     ],
@@ -1291,10 +1306,17 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   {
     name: 'spawn_mutant_at_smart',
     label: 'Spawn Mutants at Location',
-    description: 'Spawn mutant squad at smart terrain',
+    description: 'Spawn a specific mutant squad at smart terrain',
     category: 'Spawning',
     params: [
-      { name: 'type', type: 'mutant_type', required: true, label: 'Mutant Type', editor: { kind: 'searchable_select', options: MUTANT_OPTIONS } },
+      {
+        name: 'squad_section',
+        type: 'string',
+        required: true,
+        label: 'Mutant Squad',
+        editor: { kind: 'searchable_select', options: MUTANT_SQUAD_OPTIONS, emptyLabel: '-- Select mutant squad --' },
+        helpText: 'Pick the exact mutant squad section to spawn at the selected smart terrain.',
+      },
       { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
     ],
@@ -1761,14 +1783,20 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     label: 'Task: Elimination',
     description: 'Spawn enemies at location; player must eliminate all',
     category: 'Tasks',
-    helpText: 'Spawns a hostile squad (faction or mutant type) at the smart terrain and marks it on the PDA map. The player must kill all spawned enemies. Works like pause_job but with automatic spawning and map marker setup.',
+    helpText: 'Spawns a specific NPC or mutant squad at the smart terrain and marks it on the PDA map. The player must kill all spawned enemies. Works like pause_job but with automatic spawning and map marker setup.',
     examples: [
       'panda_task_eliminate:bandit:st_gar_smart_terrain_3_5_name:100:900:3:4',
       'panda_task_eliminate:snork:st_yan_smart_terrain_6_4_name:80:600:3:4',
     ],
     params: [
-      { name: 'target_type', type: 'string', required: true, label: 'Target (faction or mutant)',
-        helpText: 'Faction name (bandit, dolg, etc.) or mutant type (snork, bloodsucker, etc.)' },
+      {
+        name: 'target_type',
+        type: 'string',
+        required: true,
+        label: 'Target Squad',
+        editor: { kind: 'searchable_select', options: ALL_SQUAD_OPTIONS, emptyLabel: '-- Select NPC or mutant squad --' },
+        helpText: 'Pick the exact squad section that should be spawned for the elimination objective.',
+      },
       { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Location', editor: SMART_TERRAIN_EDITOR },
       { name: 'radius', type: 'number', required: false, label: 'Map Marker Radius (m)', placeholder: '100', min: 10 },
       { name: 'timeout', type: 'number', required: true, label: 'Timeout (s)', min: 30 },
