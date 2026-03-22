@@ -43,6 +43,45 @@ export const MUTANT_TYPES = [
   'snork', 'tushkano', 'cat', 'lurker',
 ] as const;
 
+export const WEATHER_TYPES = [
+  'w_clear1', 'w_clear2', 'w_cloudy1', 'w_cloudy2_dark',
+  'w_rain1', 'w_rain2', 'w_rain3', 'w_storm1', 'w_storm2',
+  'w_foggy1', 'w_foggy2', 'w_partly1', 'w_partly2',
+] as const;
+
+export const WEATHER_DISPLAY_NAMES: Record<string, string> = {
+  w_clear1: 'Clear', w_clear2: 'Clear (variant)',
+  w_cloudy1: 'Cloudy', w_cloudy2_dark: 'Cloudy Dark',
+  w_rain1: 'Light Rain', w_rain2: 'Rain', w_rain3: 'Heavy Rain',
+  w_storm1: 'Storm', w_storm2: 'Heavy Storm',
+  w_foggy1: 'Foggy', w_foggy2: 'Dense Fog',
+  w_partly1: 'Partly Cloudy', w_partly2: 'Partly Cloudy (variant)',
+};
+
+export const COMPANION_STATES = [
+  'follow', 'wait', 'patrol', 'attack', 'stealth', 'ignore_combat',
+] as const;
+
+export const COMPANION_STATE_DISPLAY_NAMES: Record<string, string> = {
+  follow: 'Follow Player',
+  wait: 'Wait in Place',
+  patrol: 'Patrol Area',
+  attack: 'Attack Mode',
+  stealth: 'Stealth Mode',
+  ignore_combat: 'Ignore Combat',
+};
+
+export const INDOOR_LEVELS = [
+  'agroprom_underground', 'jupiter_underground', 'labx8',
+  'labx18', 'labx16', 'labx10', 'fake_start',
+] as const;
+
+export const MONTH_NAMES: Record<number, string> = {
+  1: 'January', 2: 'February', 3: 'March', 4: 'April',
+  5: 'May', 6: 'June', 7: 'July', 8: 'August',
+  9: 'September', 10: 'October', 11: 'November', 12: 'December',
+};
+
 export const DYNAMIC_PLACEHOLDERS = [
   { key: '$player_name', description: 'Player character name' },
   { key: '$npc_name', description: 'NPC character name' },
@@ -61,6 +100,13 @@ export const DYNAMIC_PLACEHOLDERS = [
   { key: '$mutant_kills', description: 'Total mutant kills count' },
   { key: '$relationship_score', description: 'NPC relationship score with player (-1000 to 1000)' },
   { key: '$game_days', description: 'Days survived in the Zone' },
+  { key: '$player_satiety', description: 'Player satiety/hunger percentage (0-100)' },
+  { key: '$player_radiation', description: 'Player radiation level (0-100)' },
+  { key: '$player_rank_name', description: 'Player rank as display name (e.g. Experienced)' },
+  { key: '$npc_rank_name', description: 'NPC rank as display name (e.g. Veteran)' },
+  { key: '$weather', description: 'Current weather type identifier' },
+  { key: '$total_weight', description: 'Player carried weight in kg' },
+  { key: '$game_day_number', description: 'Current in-game day number' },
 ] as const;
 
 /** Smart terrain lists by level, extracted from SMART_TERRAIN_LEVEL_LISTS in pda_interactive_conv.script */
