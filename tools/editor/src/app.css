@@ -2407,11 +2407,26 @@ label {
 .item-picker-launcher {
   flex: 1 1 auto;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   justify-content: flex-start;
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.item-picker-launcher-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-picker-launcher-icon {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-dim);
+  flex-shrink: 0;
 }
 
 .item-picker-overlay {
@@ -2427,7 +2442,7 @@ label {
 }
 
 .item-picker-panel {
-  width: min(720px, 100%);
+  width: min(800px, 100%);
   max-height: min(78vh, 860px);
   display: flex;
   flex-direction: column;
@@ -2461,8 +2476,26 @@ label {
   line-height: 1.45;
 }
 
+.item-picker-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.item-picker-search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--text-dim);
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 1;
+}
+
 .item-picker-search {
   width: 100%;
+  padding-left: 32px !important;
+  font-size: 14px;
+  padding-block: 8px;
 }
 
 .item-picker-actions {
@@ -2525,6 +2558,82 @@ label {
   border: 1px dashed var(--border);
   border-radius: var(--radius);
   background: rgba(255,255,255,0.02);
+}
+
+/* ─── Category chip bar ─────────────────────────────────── */
+
+.item-picker-chip-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 2px 0;
+}
+
+.item-picker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-family: var(--font-sans);
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.item-picker-chip:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+  border-color: var(--border-light);
+}
+
+.item-picker-chip.is-active {
+  color: var(--accent);
+  background: rgba(94, 170, 58, 0.12);
+  border-color: rgba(94, 170, 58, 0.5);
+  font-weight: 600;
+}
+
+.item-picker-chip-count {
+  font-size: 9px;
+  opacity: 0.6;
+}
+
+.item-picker-chip.is-active .item-picker-chip-count {
+  opacity: 0.8;
+}
+
+/* ─── Group headers in results ──────────────────────────── */
+
+.item-picker-group-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 10px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-dim);
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ─── Selected item highlight ───────────────────────────── */
+
+.item-picker-option.is-selected {
+  background: rgba(94, 170, 58, 0.08);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.item-picker-option.is-selected .item-picker-option-title::after {
+  content: ' \2713';
+  color: var(--accent);
+  font-size: 10px;
 }
 
 .smart-terrain-placeholder-card {
