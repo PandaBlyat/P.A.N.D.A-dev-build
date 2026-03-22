@@ -1044,6 +1044,39 @@ END OF HOW TO GUIDE
     <text>Cannot recruit - companion limit reached.</text>
 </string>
 
+<!-- Item Take/Give -->
+<string id="st_pda_ic_outcome_item_taken">
+    <text>Lost: $what</text>
+</string>
+<string id="st_pda_ic_outcome_items_given">
+    <text>Received: %d x %s</text>
+</string>
+
+<!-- Knowledge -->
+<string id="st_pda_ic_outcome_info_gained">
+    <text>New intel acquired.</text>
+</string>
+<string id="st_pda_ic_outcome_info_removed">
+    <text>Intel removed.</text>
+</string>
+
+<!-- NPC Relations -->
+<string id="st_pda_ic_outcome_npc_dismissed">
+    <text>Companion dismissed.</text>
+</string>
+<string id="st_pda_ic_outcome_npc_killed">
+    <text>Contact lost.</text>
+</string>
+<string id="st_pda_ic_outcome_npc_hostile">
+    <text>Relations deteriorated — NPC is now hostile.</text>
+</string>
+<string id="st_pda_ic_outcome_npc_friendly">
+    <text>Relations improved — NPC is now friendly.</text>
+</string>
+<string id="st_pda_ic_outcome_npc_faction_change">
+    <text>NPC has changed allegiance.</text>
+</string>
+
 <!-- Location Marker -->
 <string id="st_pda_ic_location_marker_hint">
     <text>$location\n(Marked by $name)</text>
