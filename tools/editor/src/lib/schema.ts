@@ -40,6 +40,10 @@ export type ParamEditor =
     kind: 'item_picker_panel';
   }
   | {
+    kind: 'item_chain_picker_panel';
+    chainSeparator?: string;
+  }
+  | {
     kind: 'command_builder';
     suggestions: ParamOption[];
     chainSeparator?: string;
@@ -119,6 +123,11 @@ const TURN_REFERENCE_EDITOR: ParamEditor = {
 
 const ITEM_PICKER_PANEL_EDITOR: ParamEditor = {
   kind: 'item_picker_panel',
+};
+
+const ITEM_CHAIN_PICKER_PANEL_EDITOR: ParamEditor = {
+  kind: 'item_chain_picker_panel',
+  chainSeparator: '+',
 };
 
 const WATCH_TRIGGER_SUGGESTIONS: ParamOption[] = [
@@ -931,7 +940,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     category: 'Rewards',
     helpText: 'Items are added as bonus items to the stash. Separate items with +.',
     params: [
-      { name: 'items', type: 'string', required: true, label: 'Items (+-separated)',
+      { name: 'items', type: 'string', required: true, label: 'Items (+-separated)', editor: ITEM_CHAIN_PICKER_PANEL_EDITOR,
         helpText: 'Item sections separated by +. Example: medkit+bandage+vodka' },
     ],
   },
