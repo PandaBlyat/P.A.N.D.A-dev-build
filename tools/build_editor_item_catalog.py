@@ -1,0 +1,180 @@
+#!/usr/bin/env python3
+"""Generate the editor's bundled vanilla item catalog.
+
+Refresh with:
+    python tools/build_editor_item_catalog.py
+
+This reuses the shared LTX parsing helpers from build_treasure_possible_items.py so the
+editor's catalog follows the same inheritance and merge rules as the other Anomaly tools.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+import html
+import re
+
+from build_treasure_possible_items import (
+    collect_sections_from_root,
+    parse_ltx_sections,
+    resolve_key,
+)
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+VANILLA_ROOT = REPO_ROOT / "Stalker Anomaly Vanilla Resources(FOR REFERENCE ONLY)" / "vanilla configs (for reference only)"
+ITEMS_ROOT = VANILLA_ROOT / "items"
+TEXT_ROOT = VANILLA_ROOT / "text" / "eng"
+OUTPUT_PATH = REPO_ROOT / "tools" / "editor" / "src" / "lib" / "generated" / "item-catalog.ts"
+STRING_ID_RE = re.compile(r"^[a-z0-9_@.-]+$", re.IGNORECASE)
+
+
+def normalize_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    text = " ".join(value.replace("\xa0", " ").split())
+    return text or None
+
+
+def clean_ltx_value(value: str | None) -> str | None:
+    text = normalize_text(value)
+    if text is None:
+        return None
+    return text.strip().strip('"') or None
+
+
+STRING_NODE_RE = re.compile(r'<string\s+id="([^"]+)">(.+?)</string>', re.DOTALL)
+TEXT_NODE_RE = re.compile(r'<text>(.*?)</text>', re.DOTALL)
+
+
+def load_string_table(text_root: Path) -> dict[str, str]:
+    strings: dict[str, str] = {}
+    for path in sorted(text_root.glob("st_items*.xml")):
+        content = path.read_text(encoding='cp1251', errors='ignore')
+        for string_id, body in STRING_NODE_RE.findall(content):
+            match = TEXT_NODE_RE.search(body)
+            if not match:
+                continue
+            text_value = normalize_text(html.unescape(match.group(1)))
+            if text_value:
+                strings[string_id] = text_value
+    return strings
+
+
+def collect_section_sources(root: Path) -> dict[str, str]:
+    sources: dict[str, str] = {}
+    for path in sorted(root.rglob('*.ltx')):
+        relative_path = path.relative_to(root).as_posix()
+        for section in parse_ltx_sections(path):
+            sources[section] = relative_path
+    return sources
+
+
+def derive_category(source_path: str) -> str:
+    path = Path(source_path)
+    parts = path.parts
+    stem = path.stem.lower()
+
+    if not parts:
+        return 'items'
+    if parts[0] == 'weapons':
+        return 'weapons'
+    if parts[0] == 'outfits':
+        return 'outfits'
+    if parts[0] == 'trade':
+        return 'trade'
+    if parts[0] == 'settings':
+        return 'settings'
+    if parts[0] == 'items':
+        if stem.startswith('items_'):
+            return stem.removeprefix('items_').replace('_', ' ')
+        if stem.endswith('_base') or stem == 'base':
+            return 'items'
+        return 'items'
+    return parts[0].replace('_', ' ')
+
+
+def resolve_display_name(inv_name: str | None, strings: dict[str, str]) -> str | None:
+    value = clean_ltx_value(inv_name)
+    if value is None:
+        return None
+    if value in strings:
+        return strings[value]
+    if not STRING_ID_RE.match(value) or value.startswith('ui_'):
+        return value
+    return None
+
+
+def should_include(sections: dict[str, dict[str, str | list[str]]], section: str) -> bool:
+    inv_name = clean_ltx_value(resolve_key(sections, section, 'inv_name'))
+    if not inv_name:
+        return False
+
+    source_hint = section_sources.get(section, '')
+    if source_hint.startswith(('trade/', 'settings/')):
+        return False
+    if section.startswith(('up_', 'scope_', 'ammo_class_')):
+        return False
+    return True
+
+
+sections = collect_sections_from_root(ITEMS_ROOT)
+section_sources = collect_section_sources(ITEMS_ROOT)
+strings = load_string_table(TEXT_ROOT)
+
+entries: list[dict[str, str]] = []
+for section in sorted(sections):
+    if not should_include(sections, section):
+        continue
+
+    source_path = section_sources.get(section)
+    if not source_path:
+        continue
+
+    inv_name = clean_ltx_value(resolve_key(sections, section, 'inv_name'))
+    description = clean_ltx_value(resolve_key(sections, section, 'description'))
+    kind = clean_ltx_value(resolve_key(sections, section, 'kind'))
+    category = derive_category(source_path)
+    display_name = resolve_display_name(inv_name, strings)
+
+    row: dict[str, str] = {
+        'section': section,
+        'category': category,
+        'sourcePath': source_path,
+    }
+    if inv_name:
+        row['invName'] = inv_name
+    if description:
+        row['description'] = description
+    if kind:
+        row['kind'] = kind
+    if display_name:
+        row['displayName'] = display_name
+    entries.append(row)
+
+header = """// P.A.N.D.A. Conversation Editor — Vanilla item catalog
+// Generated by tools/build_editor_item_catalog.py from bundled Anomaly reference files.
+// Do not edit by hand; refresh with `python tools/build_editor_item_catalog.py`.
+
+export interface GameItemCatalogEntry {
+  section: string;
+  category: string;
+  sourcePath: string;
+  invName?: string;
+  description?: string;
+  kind?: string;
+  displayName?: string;
+}
+
+export const GAME_ITEM_CATALOG: GameItemCatalogEntry[] = [
+"""
+
+lines = [header]
+for entry in entries:
+    fields = [f"section: {entry['section']!r}"]
+    for key in ('displayName', 'invName', 'description', 'kind', 'category', 'sourcePath'):
+        if key in entry:
+            fields.append(f"{key}: {entry[key]!r}")
+    lines.append(f"  {{ {', '.join(fields)} }},")
+lines.append("];")
+lines.append("")
+OUTPUT_PATH.write_text('\n'.join(lines), encoding='utf-8')
+print(f"Wrote {len(entries)} catalog entries to {OUTPUT_PATH.relative_to(REPO_ROOT)}")
