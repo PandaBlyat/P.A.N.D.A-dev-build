@@ -86,10 +86,6 @@ export function renderConversationList(container: HTMLElement): void {
       }
     };
 
-    const id = document.createElement('span');
-    id.className = 'conv-id';
-    id.textContent = String(conv.id);
-
     const label = document.createElement('span');
     label.className = 'conv-label';
     label.textContent = conversationLabel;
@@ -156,7 +152,7 @@ export function renderConversationList(container: HTMLElement): void {
     };
     controls.appendChild(factionSelect);
 
-    item.append(id, textWrap, controls);
+    item.append(textWrap, controls);
     list.appendChild(item);
   }
 

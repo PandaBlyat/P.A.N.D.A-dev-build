@@ -1527,14 +1527,6 @@ label {
   box-shadow: 0 0 14px color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 40%, transparent);
 }
 
-.conv-item.selected .conv-id {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.02) 100%),
-    color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 14%, rgba(8, 12, 17, 0.96) 86%);
-  border-color: color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 38%, rgba(160, 173, 187, 0.3) 62%);
-  color: color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 92%, #f4f7fa 8%);
-}
-
 .conv-item.selected .conv-label {
   color: color-mix(in srgb, #f3f7fb 90%, var(--conversation-faction-color, var(--accent)) 10%);
 }
