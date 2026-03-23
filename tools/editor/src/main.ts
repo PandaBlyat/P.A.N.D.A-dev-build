@@ -1,9 +1,23 @@
 // P.A.N.D.A. Conversation Editor — Main Entry Point
 
 import './app.css';
-import { store } from './lib/state';
+import {
+  store,
+  FULL_APP_RENDER,
+  createStateChange,
+  type RenderTarget,
+  type StateChange,
+} from './lib/state';
 import { clearDraft, persistDraft, readDraft } from './lib/draft-storage';
-import { renderApp } from './components/App';
+import {
+  getRenderRoot,
+  renderApp,
+  renderBottomWorkspace,
+  renderConversationList,
+  renderFlowEditor,
+  renderPropertiesPanel,
+  renderToolbar,
+} from './components/App';
 import { flushAllDebounced } from './components/PropertiesPanel';
 import { trackSiteVisitor, fetchVisitorCount } from './lib/api-client';
 
@@ -22,8 +36,7 @@ void trackSiteVisitor();
 (globalThis as any).__pandaVisitorCount = 0;
 void fetchVisitorCount().then(count => {
   (globalThis as any).__pandaVisitorCount = count;
-  // Re-render to update toolbar status with visitor count
-  safeRender();
+  renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
 });
 
 // ─── Focus-safe rendering ────────────────────────────────────────────────
@@ -73,9 +86,9 @@ interface FocusSnapshot {
   scrollTop: number;
 }
 
-function captureFocus(): FocusSnapshot | null {
+function captureFocus(root: HTMLElement): FocusSnapshot | null {
   const active = document.activeElement;
-  if (!active || !app.contains(active) || !isEditableElement(active)) return null;
+  if (!active || !root.contains(active) || !isEditableElement(active)) return null;
   const key = active.getAttribute('data-field-key');
   if (!key) return null;
   return {
@@ -86,9 +99,9 @@ function captureFocus(): FocusSnapshot | null {
   };
 }
 
-function restoreFocus(snap: FocusSnapshot | null): void {
+function restoreFocus(root: HTMLElement, snap: FocusSnapshot | null): void {
   if (!snap) return;
-  const el = app.querySelector(`[data-field-key="${CSS.escape(snap.key)}"]`) as HTMLInputElement | HTMLTextAreaElement | null;
+  const el = root.querySelector(`[data-field-key="${CSS.escape(snap.key)}"]`) as HTMLInputElement | HTMLTextAreaElement | null;
   if (!el) return;
   el.focus();
   if (snap.selectionStart != null && 'setSelectionRange' in el) {
@@ -97,17 +110,56 @@ function restoreFocus(snap: FocusSnapshot | null): void {
   if (snap.scrollTop) el.scrollTop = snap.scrollTop;
 }
 
-function safeRender(): void {
-  const snap = captureFocus();
-  renderApp(app);
-  restoreFocus(snap);
+function renderWithFocusPreserved(root: HTMLElement, render: () => void): void {
+  const snap = captureFocus(root);
+  render();
+  restoreFocus(root, snap);
+}
+
+function mergeStateChanges(current: StateChange | null, incoming: StateChange): StateChange {
+  if (!current) return incoming;
+  if (current.targets.includes('appShell') || incoming.targets.includes('appShell')) {
+    return FULL_APP_RENDER;
+  }
+  return createStateChange(...current.targets, ...incoming.targets);
+}
+
+function renderTarget(target: RenderTarget): void {
+  const root = target === 'appShell' ? app : getRenderRoot(app, target);
+  if (!root) return;
+
+  const renderers: Record<Exclude<RenderTarget, 'appShell'>, () => void> = {
+    conversationList: () => renderConversationList(app),
+    flowEditor: () => renderFlowEditor(app),
+    propertiesPanel: () => renderPropertiesPanel(app),
+    bottomWorkspace: () => renderBottomWorkspace(app),
+    toolbar: () => renderToolbar(app),
+  };
+
+  if (target === 'appShell') {
+    renderWithFocusPreserved(root, () => renderApp(app));
+    return;
+  }
+
+  renderWithFocusPreserved(root, renderers[target]);
+}
+
+function flushRender(change: StateChange): void {
+  if (change.targets.includes('appShell')) {
+    renderTarget('appShell');
+    return;
+  }
+
+  for (const target of change.targets) {
+    renderTarget(target);
+  }
 }
 
 // Re-render on state changes, but skip while an input is focused so section updates
 // do not interrupt active editing (the "tabs out after each keypress" bug).
-let renderPending = false;
+let pendingChange: StateChange | null = null;
 
-store.subscribe(() => {
+store.subscribe((change) => {
   const state = store.get();
   const isPristineEmptyState = state.project.conversations.length === 0 && state.systemStrings.size === 0 && !state.dirty;
   if (isPristineEmptyState) {
@@ -117,24 +169,25 @@ store.subscribe(() => {
   }
 
   if (shouldDeferRenderForActiveElement(document.activeElement) && app.contains(document.activeElement)) {
-    renderPending = true;
+    pendingChange = mergeStateChanges(pendingChange, change);
     return;
   }
-  renderPending = false;
-  safeRender();
+  pendingChange = null;
+  flushRender(change);
 });
 
 // When the user leaves an input, flush any deferred render —
 // but only if focus hasn't moved to ANOTHER editable element.
 document.addEventListener('focusout', () => {
-  if (!renderPending) return;
+  if (!pendingChange) return;
   requestAnimationFrame(() => {
     // Re-check: if focus moved to another input, keep deferring.
     if (shouldDeferRenderForActiveElement(document.activeElement) && app.contains(document.activeElement)) {
-      return; // renderPending stays true
+      return; // pendingChange stays queued
     }
-    renderPending = false;
-    safeRender();
+    const change = pendingChange;
+    pendingChange = null;
+    if (change) flushRender(change);
   });
 });
 
@@ -152,8 +205,9 @@ document.addEventListener('keydown', (e) => {
         active.blur(); // remove focus so the render isn't deferred
       }
       flushAllDebounced();
-      renderPending = false;
-      safeRender();
+      const change = pendingChange ?? FULL_APP_RENDER;
+      pendingChange = null;
+      flushRender(change);
       return;
     }
   }
