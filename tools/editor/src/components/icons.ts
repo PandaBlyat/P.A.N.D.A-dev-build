@@ -31,7 +31,8 @@ export type IconName =
   | 'support'
   | 'eye'
   | 'play'
-  | 'restart';
+  | 'restart'
+  | 'clock';
 
 const BASE_ICON_ATTRS = {
   fill: 'none',
@@ -232,6 +233,12 @@ const ICONS: Record<IconName, IconDef> = {
       { tag: 'path', d: 'M21 12a9 9 0 0 1-15 6.7V21' },
       { tag: 'path', d: 'M18 5.3h-3.5v-3' },
       { tag: 'path', d: 'M6 18.7h3.5v3' },
+    ],
+  },
+  clock: {
+    paths: [
+      { tag: 'circle', cx: '12', cy: '12', r: '9' },
+      { tag: 'path', d: 'M12 7v5l3 3' },
     ],
   },
 };
