@@ -54,6 +54,18 @@ function shouldDeferRenderForActiveElement(el: Element | null): el is HTMLInputE
   return el instanceof HTMLInputElement && isTextEntryInput(el);
 }
 
+function isInteractiveTextTarget(el: EventTarget | null): boolean {
+  if (!(el instanceof Element)) return false;
+  if (el instanceof HTMLTextAreaElement) return true;
+  if (el instanceof HTMLInputElement) return isTextEntryInput(el) || el.type === 'file';
+  if (el instanceof HTMLSelectElement) return true;
+  return el instanceof HTMLElement && el.isContentEditable;
+}
+
+function hasBlockingDialogOrPicker(): boolean {
+  return document.querySelector('[aria-modal="true"], .command-picker-panel') != null;
+}
+
 interface FocusSnapshot {
   key: string;
   selectionStart: number | null;
@@ -162,5 +174,17 @@ document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
     e.preventDefault();
     store.toggleValidationPanel();
+    return;
+  }
+  if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.key === 'Escape') {
+    if (isInteractiveTextTarget(e.target) || hasBlockingDialogOrPicker()) {
+      return;
+    }
+    const state = store.get();
+    if (state.selectedTurnNumber == null && state.selectedChoiceIndex == null && state.propertiesTab !== 'selection') {
+      return;
+    }
+    e.preventDefault();
+    store.clearSelection();
   }
 });

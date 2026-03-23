@@ -504,9 +504,7 @@ class StateManager {
     };
     this.state.systemStrings = systemStrings;
     this.state.selectedConversationId = project.conversations.length > 0 ? project.conversations[0].id : null;
-    this.state.selectedTurnNumber = null;
-    this.state.selectedChoiceIndex = null;
-    this.state.propertiesTab = 'conversation';
+    this.clearSelection({ notify: false });
     this.state.showXmlPreview = false;
     this.state.showSystemStringsPanel = false;
     this.state.showValidationPanel = false;
@@ -535,18 +533,23 @@ class StateManager {
     this.finishProjectMutation();
   }
 
-  selectConversation(id: number | null): void {
-    this.state.selectedConversationId = id;
+  clearSelection(options: { notify?: boolean } = {}): void {
     this.state.selectedTurnNumber = null;
     this.state.selectedChoiceIndex = null;
     this.state.propertiesTab = 'conversation';
+    if (options.notify ?? true) this.notify();
+  }
+
+  selectConversation(id: number | null): void {
+    this.state.selectedConversationId = id;
+    this.clearSelection({ notify: false });
     this.notify();
   }
 
-  selectTurn(turnNumber: number | null): void {
+  selectTurn(turnNumber: number): void {
     this.state.selectedTurnNumber = turnNumber;
     this.state.selectedChoiceIndex = null;
-    if (turnNumber != null) this.state.propertiesTab = 'selection';
+    this.state.propertiesTab = 'selection';
     this.notify();
   }
 
@@ -647,8 +650,7 @@ class StateManager {
     conv.faction = getConversationFaction(this.getSelectedConversation(), this.state.project.faction);
     this.state.project.conversations.push(conv);
     this.state.selectedConversationId = conv.id;
-    this.state.selectedTurnNumber = null;
-    this.state.selectedChoiceIndex = null;
+    this.clearSelection({ notify: false });
     this.finishProjectMutation();
   }
 
@@ -659,8 +661,7 @@ class StateManager {
     if (this.state.selectedConversationId === id) {
       this.state.selectedConversationId = this.state.project.conversations.length > 0
         ? this.state.project.conversations[0].id : null;
-      this.state.selectedTurnNumber = null;
-      this.state.selectedChoiceIndex = null;
+      this.clearSelection({ notify: false });
     }
     this.finishProjectMutation();
   }
@@ -675,6 +676,7 @@ class StateManager {
     dup.label = source.label + ' (copy)';
     this.state.project.conversations.push(dup);
     this.state.selectedConversationId = dup.id;
+    this.clearSelection({ notify: false });
     this.finishProjectMutation();
   }
 
@@ -819,8 +821,7 @@ class StateManager {
     this.pushUndo();
     conv.turns = conv.turns.filter(t => t.turnNumber !== turnNumber);
     if (this.state.selectedTurnNumber === turnNumber) {
-      this.state.selectedTurnNumber = null;
-      this.state.selectedChoiceIndex = null;
+      this.clearSelection({ notify: false });
     }
     this.finishProjectMutation();
   }

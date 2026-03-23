@@ -390,7 +390,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     canvas,
     viewState,
     applyView,
-    onBackgroundClick: () => store.selectTurn(null),
+    onBackgroundClick: () => store.clearSelection(),
   });
 
   draw();
