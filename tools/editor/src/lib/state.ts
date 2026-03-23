@@ -31,7 +31,26 @@ export interface AppState {
   copiedChoice: ChoiceClipboard | null;
 }
 
-type Listener = () => void;
+export type RenderTarget =
+  | 'appShell'
+  | 'conversationList'
+  | 'flowEditor'
+  | 'propertiesPanel'
+  | 'bottomWorkspace'
+  | 'toolbar';
+
+export interface StateChange {
+  targets: readonly RenderTarget[];
+}
+
+type Listener = (change: StateChange) => void;
+
+export function createStateChange(...targets: RenderTarget[]): StateChange {
+  return { targets: [...new Set(targets)] };
+}
+
+export const FULL_APP_RENDER = createStateChange('appShell');
+export const SELECTION_RENDER = createStateChange('flowEditor', 'propertiesPanel');
 
 type TurnPositionUpdate = {
   turnNumber: number;
@@ -94,8 +113,8 @@ class StateManager {
     return () => this.listeners.delete(fn);
   }
 
-  private notify(): void {
-    for (const fn of this.listeners) fn();
+  private notify(change: StateChange = FULL_APP_RENDER): void {
+    for (const fn of this.listeners) fn(change);
   }
 
   private pushUndo(): void {
@@ -108,10 +127,13 @@ class StateManager {
     return this.state.project.conversations.find(c => c.id === conversationId) || null;
   }
 
-  private finishProjectMutation({ revalidate = true }: { revalidate?: boolean } = {}): void {
+  private finishProjectMutation({
+    revalidate = true,
+    change = FULL_APP_RENDER,
+  }: { revalidate?: boolean; change?: StateChange } = {}): void {
     this.state.dirty = true;
     if (revalidate) this.revalidate();
-    this.notify();
+    this.notify(change);
   }
 
   undo(): void {
@@ -120,7 +142,7 @@ class StateManager {
     this.state.redoStack.push(JSON.stringify(this.state.project));
     this.state.project = JSON.parse(prev);
     this.revalidate();
-    this.notify();
+    this.notify(FULL_APP_RENDER);
   }
 
   redo(): void {
@@ -129,7 +151,7 @@ class StateManager {
     this.state.undoStack.push(JSON.stringify(this.state.project));
     this.state.project = JSON.parse(next);
     this.revalidate();
-    this.notify();
+    this.notify(FULL_APP_RENDER);
   }
 
   private revalidate(): void {
@@ -537,56 +559,56 @@ class StateManager {
     this.state.selectedTurnNumber = null;
     this.state.selectedChoiceIndex = null;
     this.state.propertiesTab = 'conversation';
-    if (options.notify ?? true) this.notify();
+    if (options.notify ?? true) this.notify(SELECTION_RENDER);
   }
 
   selectConversation(id: number | null): void {
     this.state.selectedConversationId = id;
     this.clearSelection({ notify: false });
-    this.notify();
+    this.notify(FULL_APP_RENDER);
   }
 
   selectTurn(turnNumber: number): void {
     this.state.selectedTurnNumber = turnNumber;
     this.state.selectedChoiceIndex = null;
     this.state.propertiesTab = 'selection';
-    this.notify();
+    this.notify(SELECTION_RENDER);
   }
 
   selectChoice(index: number | null): void {
     this.state.selectedChoiceIndex = index;
     if (index != null) this.state.propertiesTab = 'selection';
-    this.notify();
+    this.notify(SELECTION_RENDER);
   }
 
   setPropertiesTab(tab: PropertiesTab): void {
     this.state.propertiesTab = tab;
-    this.notify();
+    this.notify(SELECTION_RENDER);
   }
 
   toggleXmlPreview(): void {
     this.state.showXmlPreview = !this.state.showXmlPreview;
     this.syncBottomWorkspaceTab(this.state.showXmlPreview ? 'xml' : undefined);
-    this.notify();
+    this.notify(FULL_APP_RENDER);
   }
 
   toggleSystemStringsPanel(): void {
     this.state.showSystemStringsPanel = !this.state.showSystemStringsPanel;
     this.syncBottomWorkspaceTab(this.state.showSystemStringsPanel ? 'strings' : undefined);
-    this.notify();
+    this.notify(FULL_APP_RENDER);
   }
 
   toggleValidationPanel(): void {
     if (!this.state.showValidationPanel && this.state.validationMessages.length === 0) return;
     this.state.showValidationPanel = !this.state.showValidationPanel;
     this.syncBottomWorkspaceTab();
-    this.notify();
+    this.notify(FULL_APP_RENDER);
   }
 
   setBottomWorkspaceTab(tab: BottomWorkspaceTab): void {
     if (this.getOpenBottomWorkspaceTabs().includes(tab)) {
       this.state.bottomWorkspaceTab = tab;
-      this.notify();
+      this.notify(FULL_APP_RENDER);
     }
   }
 
@@ -594,14 +616,14 @@ class StateManager {
     if (tab === 'strings') this.state.showSystemStringsPanel = false;
     if (tab === 'xml') this.state.showXmlPreview = false;
     this.syncBottomWorkspaceTab();
-    this.notify();
+    this.notify(FULL_APP_RENDER);
   }
 
   setBottomWorkspaceHeight(height: number): void {
     const next = Math.max(180, Math.min(520, Math.round(height)));
     if (next === this.state.bottomWorkspaceHeight) return;
     this.state.bottomWorkspaceHeight = next;
-    this.notify();
+    this.notify(FULL_APP_RENDER);
   }
 
   setFlowDensity(density: FlowDensity): void {
@@ -629,7 +651,7 @@ class StateManager {
         if (hasPositionChanges) return;
       }
     }
-    this.notify();
+    this.notify(FULL_APP_RENDER);
   }
 
   getSelectedConversation(): Conversation | null {

@@ -1,16 +1,16 @@
 // P.A.N.D.A. Conversation Editor — Root App Component
 
-import { store, type BottomWorkspaceTab, type AppState } from '../lib/state';
-import { renderToolbar } from './Toolbar';
+import { store, type BottomWorkspaceTab, type AppState, type RenderTarget } from '../lib/state';
+import { renderToolbar as renderToolbarContent } from './Toolbar';
 import {
   centerConversationSelection,
   deleteConversationSelection,
   duplicateConversationSelection,
-  renderConversationList,
+  renderConversationList as renderConversationListContent,
 } from './ConversationList';
-import { renderFlowEditor } from './FlowEditor';
-import { renderPropertiesPanel } from './PropertiesPanel';
-import { renderBottomWorkspace } from './BottomWorkspace';
+import { renderFlowEditor as renderFlowEditorContent } from './FlowEditor';
+import { renderPropertiesPanel as renderPropertiesPanelContent } from './PropertiesPanel';
+import { renderBottomWorkspace as renderBottomWorkspaceContent } from './BottomWorkspace';
 import { mountMotivationTicker } from './MotivationTicker';
 import { shouldShowFirstRunExperience, renderFirstRunExperience } from './Onboarding';
 import { createBlankProject } from '../lib/project-io';
@@ -73,7 +73,71 @@ type AppShell = {
 let appShell: AppShell | null = null;
 let resizeListenerAttached = false;
 
+type AppRenderContext = {
+  shell: AppShell;
+  conv: ReturnType<typeof store.getSelectedConversation>;
+  firstRun: boolean;
+};
+
 export function renderApp(container: HTMLElement): void {
+  const context = getRenderContext(container);
+  const { shell, firstRun } = context;
+
+  renderToolbar(container);
+  shell.leftSplitter.hidden = firstRun;
+  shell.rightSplitter.hidden = firstRun;
+  renderConversationList(container);
+  renderFlowEditor(container);
+  renderPropertiesPanel(container);
+  renderBottomWorkspace(container);
+  renderUtilityRail(shell, firstRun);
+  renderToolbarToggle(shell);
+  updateOverlayState(shell);
+}
+
+export function renderToolbar(container: HTMLElement): void {
+  const { shell } = getRenderContext(container);
+  shell.toolbarRegion.replaceChildren(renderToolbarContent(layoutState.responsiveMode));
+  shell.toolbarRegion.hidden = layoutState.toolbarHidden;
+}
+
+export function renderConversationList(container: HTMLElement): void {
+  const { shell, firstRun } = getRenderContext(container);
+  renderLeftPanel(shell, firstRun);
+}
+
+export function renderFlowEditor(container: HTMLElement): void {
+  const { shell, conv, firstRun } = getRenderContext(container);
+  renderCenterPanel(shell, conv, firstRun);
+}
+
+export function renderPropertiesPanel(container: HTMLElement): void {
+  const { shell, firstRun } = getRenderContext(container);
+  renderRightPanel(shell, firstRun);
+}
+
+export function renderBottomWorkspace(container: HTMLElement): void {
+  const { shell, firstRun } = getRenderContext(container);
+  renderBottomRegion(shell, firstRun);
+}
+
+export function getRenderRoot(container: HTMLElement, target: Exclude<RenderTarget, 'appShell'>): HTMLElement | null {
+  const shell = getAppShell(container);
+  switch (target) {
+    case 'conversationList':
+      return shell.leftPanel;
+    case 'flowEditor':
+      return shell.centerPanel;
+    case 'propertiesPanel':
+      return shell.rightPanel;
+    case 'bottomWorkspace':
+      return shell.bottomRegion;
+    case 'toolbar':
+      return shell.toolbarRegion;
+  }
+}
+
+function getRenderContext(container: HTMLElement): AppRenderContext {
   const shell = getAppShell(container);
   ensureResponsiveListener(container);
 
@@ -83,8 +147,6 @@ export function renderApp(container: HTMLElement): void {
 
   applyFactionTheme(container, getConversationFaction(conv, state.project.faction));
 
-  // During onboarding, hide toolbar and side panels for a cleaner experience.
-  // When onboarding ends (project created), restore the toolbar.
   if (firstRun) {
     layoutState.toolbarHidden = true;
   } else if (layoutState.wasFirstRun) {
@@ -94,17 +156,8 @@ export function renderApp(container: HTMLElement): void {
 
   syncResponsiveLayout(shell.mainLayout);
   shell.mainLayout.classList.toggle('main-layout-onboarding', firstRun);
-  shell.toolbarRegion.replaceChildren(renderToolbar(layoutState.responsiveMode));
-  shell.toolbarRegion.hidden = layoutState.toolbarHidden;
-  shell.leftSplitter.hidden = firstRun;
-  shell.rightSplitter.hidden = firstRun;
-  renderLeftPanel(shell, firstRun);
-  renderCenterPanel(shell, conv, firstRun);
-  renderRightPanel(shell, firstRun);
-  renderBottomRegion(shell, firstRun);
-  renderUtilityRail(shell, firstRun);
-  renderToolbarToggle(shell);
-  updateOverlayState(shell);
+
+  return { shell, conv, firstRun };
 }
 
 function getAppShell(container: HTMLElement): AppShell {
@@ -263,7 +316,7 @@ function renderLeftPanel(shell: AppShell, firstRun = false): void {
   shell.leftActions.replaceChildren(...(collapsedDesktopLeftPanel ? [leftPanelActions[leftPanelActions.length - 1]!] : leftPanelActions));
   shell.leftBody.hidden = layoutState.leftCollapsed && !isOverlay;
   shell.leftBody.replaceChildren();
-  renderConversationList(shell.leftBody);
+  renderConversationListContent(shell.leftBody);
 }
 
 function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSelectedConversation>, firstRun: boolean): void {
@@ -300,7 +353,7 @@ function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSel
     renderFirstRunExperience(shell.centerBody);
     return;
   }
-  renderFlowEditor(shell.centerBody);
+  renderFlowEditorContent(shell.centerBody);
 }
 
 function renderRightPanel(shell: AppShell, firstRun = false): void {
@@ -314,14 +367,14 @@ function renderRightPanel(shell: AppShell, firstRun = false): void {
   shell.rightActions.replaceChildren(createPanelToggleButton('right'));
   shell.rightBody.hidden = layoutState.rightCollapsed && !isOverlay;
   shell.rightBody.replaceChildren();
-  renderPropertiesPanel(shell.rightBody);
+  renderPropertiesPanelContent(shell.rightBody);
 }
 
 function renderBottomRegion(shell: AppShell, firstRun = false): void {
   shell.bottomRegion.hidden = firstRun;
   shell.bottomRegion.dataset.layoutMode = layoutState.responsiveMode;
   shell.workspaceRegion.replaceChildren();
-  renderBottomWorkspace(shell.workspaceRegion);
+  renderBottomWorkspaceContent(shell.workspaceRegion);
 }
 
 function renderUtilityRail(shell: AppShell, firstRun = false): void {
