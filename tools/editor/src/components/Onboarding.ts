@@ -106,6 +106,14 @@ const NARRATOR_PHASES: NarratorPhase[] = [
 
 const PHASE_LABELS = ['Chapter I — Genesis', 'Chapter II — The Problem', 'Chapter III — The Solution', 'Chapter IV — You'];
 
+const NARRATOR_PHASE_START_DELAY_MS = 120;
+const NARRATOR_CHARACTER_DELAY_MS = 9;
+const NARRATOR_CHARACTER_JITTER_MS = 7;
+const NARRATOR_LINE_PAUSE_MS = 260;
+const NARRATOR_PHASE_TRANSITION_MS = 140;
+const NARRATOR_REVEAL_GROUP_DELAY_MS = 120;
+const NARRATOR_HOLD_AFTER_SCALE = 0.35;
+
 export function shouldShowFirstRunExperience(): boolean {
   return !hasDraft();
 }
@@ -270,7 +278,7 @@ export function renderFirstRunExperience(container: HTMLElement): void {
         el.classList.remove('hidden');
         el.classList.add('reveal');
       }
-      await delay(220);
+      await delay(NARRATOR_REVEAL_GROUP_DELAY_MS);
     }
   }
 
@@ -316,7 +324,7 @@ export function renderFirstRunExperience(container: HTMLElement): void {
       chapterLabel.textContent = PHASE_LABELS[phaseIdx] || '';
       chapterLabel.classList.add('visible');
 
-      await delay(250);
+      await delay(NARRATOR_PHASE_START_DELAY_MS);
       if (cancelled) return;
 
       for (const line of phase.lines) {
@@ -330,19 +338,19 @@ export function renderFirstRunExperience(container: HTMLElement): void {
         for (let i = 0; i < line.length; i++) {
           if (cancelled) return;
           lineEl.textContent = line.slice(0, i + 1);
-          await delay(18 + Math.random() * 16);
+          await delay(NARRATOR_CHARACTER_DELAY_MS + Math.random() * NARRATOR_CHARACTER_JITTER_MS);
         }
 
         narratorCursor.remove();
-        await delay(800);
+        await delay(NARRATOR_LINE_PAUSE_MS);
       }
 
       if (phase.holdAfter) {
-        await delay(phase.holdAfter);
+        await delay(Math.round(phase.holdAfter * NARRATOR_HOLD_AFTER_SCALE));
       }
 
       chapterLabel.classList.remove('visible');
-      await delay(300);
+      await delay(NARRATOR_PHASE_TRANSITION_MS);
     }
 
     if (!cancelled) {
