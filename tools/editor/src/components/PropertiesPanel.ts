@@ -27,29 +27,54 @@ const ADDABLE_PRECONDITION_SCHEMAS = PRECONDITION_SCHEMAS.filter((schema) => !sc
 
 // Track collapsed state of collapsible sections per key
 const collapsedSections = new Set<string>();
+const initializedCollapsibleSections = new Set<string>();
 let activeCommandPickerCleanup: (() => void) | null = null;
 let activeCommandPickerTrigger: HTMLElement | null = null;
+let collapsibleSectionId = 0;
 
 function createCollapsibleSection(
   key: string,
   title: string,
   addCallback?: (trigger: HTMLButtonElement) => void,
+  options?: { defaultCollapsed?: boolean },
 ): { wrapper: HTMLElement; body: HTMLElement } {
+  if (!initializedCollapsibleSections.has(key)) {
+    if (options?.defaultCollapsed) {
+      collapsedSections.add(key);
+    } else {
+      collapsedSections.delete(key);
+    }
+    initializedCollapsibleSections.add(key);
+  }
+
+  const isCollapsed = collapsedSections.has(key);
   const wrapper = document.createElement('div');
-  wrapper.className = `props-collapsible${collapsedSections.has(key) ? ' is-collapsed' : ''}`;
+  wrapper.className = `props-collapsible${isCollapsed ? ' is-collapsed' : ''}`;
 
   const header = document.createElement('div');
   header.className = 'props-collapsible-header';
 
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'props-collapsible-toggle';
+  toggle.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:8px; flex:1 1 auto; min-width:0; background:none; border:none; padding:0; color:inherit; font:inherit; text-align:left; cursor:pointer;';
+
   const titleEl = document.createElement('span');
   titleEl.className = 'section-title';
   titleEl.textContent = title;
+
+  const chevron = document.createElement('span');
+  chevron.className = 'props-collapsible-chevron';
+  chevron.textContent = '▼';
+
+  toggle.append(titleEl, chevron);
 
   const actions = document.createElement('div');
   actions.style.cssText = 'display:flex; align-items:center; gap:6px;';
 
   if (addCallback) {
     const addBtn = document.createElement('button');
+    addBtn.type = 'button';
     addBtn.className = 'btn-sm';
     addBtn.textContent = '+ Add';
     addBtn.onclick = (e) => {
@@ -59,23 +84,34 @@ function createCollapsibleSection(
     actions.appendChild(addBtn);
   }
 
-  const chevron = document.createElement('span');
-  chevron.className = 'props-collapsible-chevron';
-  chevron.textContent = '▼';
-  actions.appendChild(chevron);
-
-  header.append(titleEl, actions);
-  header.onclick = () => {
-    if (collapsedSections.has(key)) {
-      collapsedSections.delete(key);
-    } else {
-      collapsedSections.add(key);
-    }
-    wrapper.classList.toggle('is-collapsed');
-  };
-
   const body = document.createElement('div');
   body.className = 'props-collapsible-body';
+  body.id = `props-collapsible-body-${++collapsibleSectionId}`;
+
+  const setCollapsedState = (nextCollapsed: boolean) => {
+    if (nextCollapsed) {
+      collapsedSections.add(key);
+    } else {
+      collapsedSections.delete(key);
+    }
+    wrapper.classList.toggle('is-collapsed', nextCollapsed);
+    toggle.setAttribute('aria-expanded', String(!nextCollapsed));
+  };
+
+  toggle.setAttribute('aria-controls', body.id);
+  toggle.setAttribute('aria-expanded', String(!isCollapsed));
+  toggle.onclick = () => {
+    const nextCollapsed = !collapsedSections.has(key);
+    setCollapsedState(nextCollapsed);
+  };
+
+  header.append(toggle, actions);
+  header.onclick = (event) => {
+    if (event.target instanceof HTMLElement && event.target.closest('button')) {
+      return;
+    }
+    setCollapsedState(!collapsedSections.has(key));
+  };
 
   wrapper.append(header, body);
   return { wrapper, body };
@@ -215,6 +251,7 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
         emptyMessage: 'No matching preconditions',
       });
     },
+    { defaultCollapsed: true },
   );
 
   if (conv.preconditions.length === 0) {
@@ -231,6 +268,8 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   const { wrapper: timeoutWrapper, body: timeoutBody } = createCollapsibleSection(
     `conv-${conv.id}-timeout`,
     'Timeout',
+    undefined,
+    { defaultCollapsed: true },
   );
 
   const timeoutField = createField('Timeout (seconds)', 'number', String(conv.timeout || ''), (val) => {
@@ -260,23 +299,6 @@ function renderTurnProperties(
   titleSpan.className = 'section-title';
   titleSpan.textContent = turnLabels.getLongLabel(turn.turnNumber);
   title.appendChild(titleSpan);
-
-  const titleActions = document.createElement('div');
-  titleActions.style.cssText = 'display:flex; align-items:center; gap:8px;';
-  const pasteChoiceBtn = createActionButton('Paste Choice', 'Paste a copied choice into this turn', () => {
-    store.pasteChoice(conv.id, turn.turnNumber);
-  });
-  pasteChoiceBtn.disabled = !canPasteChoice;
-  titleActions.appendChild(pasteChoiceBtn);
-  if (turn.turnNumber > 1) {
-    const delTurnBtn = document.createElement('button');
-    delTurnBtn.className = 'btn-sm btn-danger';
-    delTurnBtn.textContent = 'Delete Turn';
-    delTurnBtn.title = 'Remove this turn from the conversation';
-    delTurnBtn.onclick = () => store.deleteTurn(conv.id, turn.turnNumber);
-    titleActions.appendChild(delTurnBtn);
-  }
-  title.appendChild(titleActions);
   container.appendChild(title);
 
   // Opening message (turn 1 only)
@@ -286,16 +308,58 @@ function renderTurnProperties(
     }, 'The first message the NPC sends when starting this conversation', getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'));
     container.appendChild(msgField);
 
-    // Placeholder picker for opening message
-    renderPlaceholderPicker(container);
+    const { wrapper: placeholderWrapper, body: placeholderBody } = createCollapsibleSection(
+      `conv-${conv.id}-turn-${turn.turnNumber}-dynamic-placeholders`,
+      'Dynamic Placeholders',
+      undefined,
+      { defaultCollapsed: true },
+    );
+    renderPlaceholderPicker(placeholderBody);
+    container.appendChild(placeholderWrapper);
   }
 
+  const { wrapper: turnActionsWrapper, body: turnActionsBody } = createCollapsibleSection(
+    `conv-${conv.id}-turn-${turn.turnNumber}-actions`,
+    'Turn Actions',
+    undefined,
+    { defaultCollapsed: true },
+  );
+  const turnActionsRow = document.createElement('div');
+  turnActionsRow.style.cssText = 'display:flex; flex-wrap:wrap; gap:8px;';
+
+  const pasteChoiceBtn = createActionButton('Paste Choice', 'Paste a copied choice into this turn', () => {
+    store.pasteChoice(conv.id, turn.turnNumber);
+  });
+  pasteChoiceBtn.disabled = !canPasteChoice;
+  turnActionsRow.appendChild(pasteChoiceBtn);
+
+  if (turn.turnNumber > 1) {
+    const delTurnBtn = document.createElement('button');
+    delTurnBtn.type = 'button';
+    delTurnBtn.className = 'btn-sm btn-danger';
+    delTurnBtn.textContent = 'Delete Turn';
+    delTurnBtn.title = 'Remove this turn from the conversation';
+    delTurnBtn.onclick = () => store.deleteTurn(conv.id, turn.turnNumber);
+    turnActionsRow.appendChild(delTurnBtn);
+  }
+
+  turnActionsBody.appendChild(turnActionsRow);
+  container.appendChild(turnActionsWrapper);
+
   // Choices section
-  const choicesSection = document.createElement('div');
-  choicesSection.appendChild(sectionHeader(
+  const { wrapper: choicesWrapper, body: choicesBody } = createCollapsibleSection(
+    `conv-${conv.id}-turn-${turn.turnNumber}-choices`,
     `Choices (${turn.choices.length}/4)`,
     turn.choices.length < 4 ? () => store.addChoice(conv.id, turn.turnNumber) : undefined,
-  ));
+    { defaultCollapsed: true },
+  );
+
+  if (turn.choices.length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'empty-hint';
+    hint.textContent = 'No choices yet. Use "+ Add" to create a response branch from this turn.';
+    choicesBody.appendChild(hint);
+  }
 
   for (const choice of turn.choices) {
     const card = document.createElement('div');
@@ -370,10 +434,10 @@ function renderTurnProperties(
       card.appendChild(badge);
     }
 
-    choicesSection.appendChild(card);
+    choicesBody.appendChild(card);
   }
 
-  container.appendChild(choicesSection);
+  container.appendChild(choicesWrapper);
 }
 
 // ─── Choice Properties ────────────────────────────────────────────────────
@@ -439,19 +503,32 @@ function renderChoiceProperties(
   }, 'The NPC\'s response to this choice', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply'));
   container.appendChild(replyField);
 
-  // Placeholder picker
-  renderPlaceholderPicker(container);
+  const { wrapper: placeholderWrapper, body: placeholderBody } = createCollapsibleSection(
+    `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-dynamic-placeholders`,
+    'Dynamic Placeholders',
+    undefined,
+    { defaultCollapsed: true },
+  );
+  renderPlaceholderPicker(placeholderBody);
+  container.appendChild(placeholderWrapper);
 
-  // Reply variants
+  const { wrapper: replyVariantsWrapper, body: replyVariantsBody } = createCollapsibleSection(
+    `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-relationship-variants`,
+    'Relationship Variant Replies',
+    undefined,
+    { defaultCollapsed: true },
+  );
+
   const relHighField = createField('Reply (High Relationship, \u2265300)', 'textarea', choice.replyRelHigh || '', (val) => {
     store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyRelHigh: val || undefined });
   }, 'Alternative reply when relationship score is 300 or higher (optional)', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-rel-high'));
-  container.appendChild(relHighField);
+  replyVariantsBody.appendChild(relHighField);
 
   const relLowField = createField('Reply (Low Relationship, \u2264-300)', 'textarea', choice.replyRelLow || '', (val) => {
     store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyRelLow: val || undefined });
   }, 'Alternative reply when relationship score is -300 or lower (optional)', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-rel-low'));
-  container.appendChild(relLowField);
+  replyVariantsBody.appendChild(relLowField);
+  container.appendChild(replyVariantsWrapper);
 
   // Outcomes — collapsible section
   const { wrapper: outcomeWrapper, body: outcomeBody } = createCollapsibleSection(
@@ -472,6 +549,7 @@ function renderChoiceProperties(
         emptyMessage: 'No matching outcomes',
       });
     },
+    { defaultCollapsed: true },
   );
 
   if (choice.outcomes.length === 0) {
@@ -484,8 +562,14 @@ function renderChoiceProperties(
   }
   container.appendChild(outcomeWrapper);
 
+  const { wrapper: continuationWrapper, body: continuationBody } = createCollapsibleSection(
+    `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-continuation`,
+    'Continuation / Branching',
+    undefined,
+    { defaultCollapsed: true },
+  );
+
   // Continuation
-  container.appendChild(document.createElement('hr'));
   const contField = document.createElement('div');
   contField.className = 'field';
   const contLabel = document.createElement('label');
@@ -540,7 +624,8 @@ function renderChoiceProperties(
 
   contControls.append(contSelect, createBranchButton);
   contField.appendChild(contControls);
-  container.appendChild(contField);
+  continuationBody.appendChild(contField);
+  container.appendChild(continuationWrapper);
 }
 
 // ─── Precondition List ────────────────────────────────────────────────────
