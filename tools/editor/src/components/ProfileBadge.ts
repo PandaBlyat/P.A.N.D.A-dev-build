@@ -853,11 +853,11 @@ function buildSelfProfileContent(profile: UserProfile): HTMLElement {
 
   const main = document.createElement('div');
   main.className = 'profile-popover-main';
-  main.append(buildAchievementsSection(profile), buildStreakChallengeSection(profile));
+  main.append(buildAchievementsSection(profile));
 
   const side = document.createElement('aside');
   side.className = 'profile-popover-side';
-  side.append(buildStatsSection(profile), buildXpBreakdownSection(), buildLeaderboardSection());
+  side.append(buildStatsSection(profile), buildXpBreakdownSection(), buildLeaderboardSection(), buildStreakChallengeSection(profile));
 
   body.append(main, side);
   shell.append(hero, body);

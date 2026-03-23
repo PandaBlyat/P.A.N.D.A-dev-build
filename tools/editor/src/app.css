@@ -7007,8 +7007,8 @@ strong.support-upvote-count {
 .profile-popover-hero {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 16px 12px;
+  gap: 8px;
+  padding: 12px 14px 10px;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--profile-accent) 16%, transparent) 0%, transparent 36%),
     linear-gradient(135deg, color-mix(in srgb, var(--profile-accent) 12%, rgba(255,255,255,0.04)) 0%, transparent 60%),
@@ -7018,7 +7018,7 @@ strong.support-upvote-count {
 
 .profile-popover-body {
   display: grid;
-  grid-template-columns: minmax(0, 1.92fr) minmax(250px, 0.74fr);
+  grid-template-columns: minmax(0, 1.72fr) minmax(300px, 0.92fr);
   gap: 0;
   min-width: 0;
   min-height: 0;
@@ -7065,7 +7065,7 @@ strong.support-upvote-count {
 .profile-popover-header {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -7079,13 +7079,13 @@ strong.support-upvote-count {
 .profile-popover-identity {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
 .profile-popover-avatar-circle {
-  width: 52px;
-  height: 52px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   background: linear-gradient(135deg,
     var(--tier-color, #5eaa3a),
@@ -7102,7 +7102,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-avatar-initial {
-  font-size: 1.25rem;
+  font-size: 1.08rem;
   font-weight: 800;
   color: rgba(0,0,0,0.75);
   line-height: 1;
@@ -7113,12 +7113,12 @@ strong.support-upvote-count {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 3px;
   flex: 1;
 }
 
 .profile-popover-name {
-  font-size: 1.08rem;
+  font-size: 1rem;
   font-weight: 800;
   color: var(--fg, #eee);
   overflow: hidden;
@@ -7128,7 +7128,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-title {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: color-mix(in srgb, var(--accent, #f59e0b) 84%, white 16%);
   font-weight: 700;
 }
@@ -7136,15 +7136,15 @@ strong.support-upvote-count {
 .profile-popover-meta-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
 }
 
 .profile-popover-meta-pill {
-  min-height: 1.5rem;
+  min-height: 1.35rem;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 0.58rem;
+  gap: 4px;
+  font-size: 0.54rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--fg, #eee);
@@ -7175,7 +7175,7 @@ strong.support-upvote-count {
 .profile-popover-progress {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 4px 10px;
+  gap: 3px 10px;
   min-width: 0;
 }
 
@@ -7189,7 +7189,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-level-label {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
   line-height: 1.3;
   color: var(--fg, #eee);
@@ -7197,7 +7197,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-bar-label {
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   color: var(--fg-dim, #9aa4b2);
   min-width: 0;
   text-align: right;
@@ -7205,7 +7205,7 @@ strong.support-upvote-count {
 
 .profile-popover-bar-track {
   width: 100%;
-  height: 6px;
+  height: 5px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--bg, #111) 78%, black 22%);
   border: 1px solid color-mix(in srgb, var(--border, #333) 68%, transparent);
@@ -7222,7 +7222,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-next {
-  font-size: 0.61rem;
+  font-size: 0.58rem;
   color: var(--fg-dim, #8f98a8);
   text-align: right;
 }
@@ -7231,24 +7231,24 @@ strong.support-upvote-count {
 .profile-popover-stats {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: 6px;
+  padding: 9px 10px;
 }
 
 .profile-popover-stats-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: 5px;
 }
 
 .profile-stat-card {
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 7px;
   min-width: 0;
   min-height: 0;
-  padding: 8px 9px;
+  padding: 7px 8px;
   text-align: left;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.04),
@@ -7271,7 +7271,7 @@ strong.support-upvote-count {
 .profile-stat-value {
   max-width: 100%;
   min-width: 0;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 800;
   color: var(--fg, #eee);
   line-height: 1.35;
@@ -7283,7 +7283,7 @@ strong.support-upvote-count {
 .profile-stat-label {
   max-width: 100%;
   min-width: 0;
-  font-size: 0.54rem;
+  font-size: 0.5rem;
   line-height: 1.35;
   color: var(--fg-dim, #777);
   text-transform: uppercase;
@@ -7294,7 +7294,7 @@ strong.support-upvote-count {
 
 /* XP Breakdown */
 .profile-popover-xp-breakdown {
-  padding: 10px 12px;
+  padding: 9px 10px;
 }
 
 .profile-popover-xp-breakdown > summary {
@@ -7335,7 +7335,7 @@ strong.support-upvote-count {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--fg, #eee);
   margin-bottom: 4px;
@@ -7351,40 +7351,40 @@ strong.support-upvote-count {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .profile-popover-xp-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 5px 0;
+  padding: 4px 0;
 }
 
 .profile-popover-xp-row-label {
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   color: var(--fg-dim, #888);
 }
 
 .profile-popover-xp-row-value {
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   color: var(--accent, #f59e0b);
   font-weight: 600;
 }
 
 /* Leaderboard */
 .profile-popover-leaderboard {
-  padding: 10px 12px 12px;
+  padding: 9px 10px 10px;
 }
 
 .profile-popover-lb-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--fg, #eee);
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 
 .profile-popover-lb-header .ui-icon svg {
@@ -7402,8 +7402,8 @@ strong.support-upvote-count {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: 7px;
+  padding: 5px 7px;
   color: inherit;
   font: inherit;
   text-align: left;
@@ -7998,17 +7998,17 @@ strong.support-upvote-count {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .profile-popover-achievements {
-  padding: 10px 12px;
+  padding: 9px 10px 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .profile-achievement-summary-row,
 .public-profile-summary-stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .profile-achievement-summary-pill,
@@ -8023,7 +8023,7 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-mini-header {
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -8031,7 +8031,7 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-summary-line {
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   color: var(--fg-dim, #aab3c3);
   line-height: 1.3;
 }
@@ -8076,8 +8076,8 @@ strong.support-upvote-count {
 .profile-achievement-next {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 2px;
+  gap: 4px;
+  margin-top: 1px;
 }
 
 .profile-achievement-next > summary {
@@ -8092,8 +8092,8 @@ strong.support-upvote-count {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 6px 8px;
   cursor: pointer;
 }
 
@@ -8124,16 +8124,16 @@ strong.support-upvote-count {
 
 .profile-achievement-next-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 5px;
-  margin-top: 2px;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 4px;
+  margin-top: 1px;
 }
 
 .profile-achievement-next-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px;
+  gap: 3px;
+  padding: 6px 7px;
 }
 
 .profile-achievement-next-card-bronze { border-color: color-mix(in srgb, #b87333 32%, transparent); }
@@ -8183,8 +8183,8 @@ strong.support-upvote-count {
 .profile-achievement-category {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 6px 0 0;
+  gap: 3px;
+  padding: 5px 0 0;
   border-top: 1px solid color-mix(in srgb, var(--profile-accent) 10%, var(--border, #333));
 }
 
@@ -8224,7 +8224,7 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-category-text {
-  font-size: 0.66rem;
+  font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -8239,7 +8239,7 @@ strong.support-upvote-count {
 
 .profile-achievement-category-count {
   flex-shrink: 0;
-  font-size: 0.58rem;
+  font-size: 0.54rem;
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -8252,7 +8252,8 @@ strong.support-upvote-count {
 
 .profile-popover-achievement-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(38px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(34px, 40px));
+  justify-content: start;
   gap: 4px;
 }
 
@@ -8266,8 +8267,9 @@ strong.support-upvote-count {
   display: flex;
   align-items: stretch;
   justify-content: center;
+  width: 40px;
   min-width: 0;
-  min-height: 42px;
+  min-height: 36px;
   padding: 0;
   border: 0;
   border-radius: 10px;
@@ -8281,13 +8283,13 @@ strong.support-upvote-count {
 .profile-achievement-badge {
   width: 100%;
   min-width: 0;
-  min-height: 42px;
+  min-height: 36px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0;
-  padding: 4px;
+  padding: 0;
   border-radius: inherit;
   border: 1px solid color-mix(in srgb, var(--achievement-accent) 44%, var(--border, #333));
   background:
@@ -8381,11 +8383,11 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-hidden.profile-achievement-locked .profile-achievement-emoji {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
 }
 
 .profile-achievement-emoji {
-  font-size: 1rem;
+  font-size: 0.88rem;
   line-height: 1;
   color: var(--achievement-icon-color);
   text-shadow: 0 0 12px color-mix(in srgb, var(--achievement-glow) 26%, transparent);
@@ -8476,10 +8478,10 @@ strong.support-upvote-count {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .profile-popover-streak-challenge {
-  padding: 0 12px 12px;
+  padding: 9px 10px 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .profile-popover-streak-row {
@@ -8527,8 +8529,8 @@ strong.support-upvote-count {
 .profile-mission-panel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px;
+  gap: 6px;
+  padding: 8px;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.04),
     0 12px 28px rgba(0, 0, 0, 0.14);
@@ -8536,33 +8538,48 @@ strong.support-upvote-count {
 
 .profile-mission-panel-header {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
-  gap: 8px;
+  gap: 7px;
 }
 
 .profile-mission-title-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
 }
 
 .profile-mission-header-meta {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 4px;
+  justify-content: flex-start;
+  gap: 3px;
   min-width: 0;
+  grid-column: 1 / -1;
+  padding-left: 22px;
 }
 
 .profile-mission-header-pill {
-  font-size: 0.56rem;
-  letter-spacing: 0.04em;
+  font-size: 0.53rem;
+  letter-spacing: 0.03em;
 }
 
 .profile-mission-header-pill-active {
   color: color-mix(in srgb, #60a5fa 82%, white 18%);
+}
+
+.profile-popover-side .profile-mission-panel {
+  min-width: 0;
+}
+
+.profile-popover-side .profile-challenge-desc {
+  font-size: 0.58rem;
+  line-height: 1.35;
+}
+
+.profile-popover-side .profile-challenge-header {
+  font-size: 0.8rem;
 }
 
 .profile-mission-panel-copy {
@@ -8579,13 +8596,13 @@ strong.support-upvote-count {
 
 .profile-mission-list {
   display: grid;
-  gap: 5px;
+  gap: 4px;
 }
 
 .profile-mission-card {
   display: grid;
-  gap: 5px;
-  padding: 8px 9px;
+  gap: 4px;
+  padding: 7px 8px;
 }
 
 .profile-mission-card-complete {
@@ -8601,19 +8618,19 @@ strong.support-upvote-count {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .profile-mission-bottom-row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
 }
 
 .profile-mission-slot {
   align-self: center;
-  font-size: 0.56rem;
+  font-size: 0.52rem;
   text-transform: uppercase;
   color: var(--fg, #eee);
 }
@@ -8624,14 +8641,14 @@ strong.support-upvote-count {
 .profile-mission-slot-weekly { background: color-mix(in srgb, #3b82f6 18%, var(--bg, #111)); }
 
 .profile-mission-title {
-  font-size: 0.71rem;
+  font-size: 0.67rem;
   font-weight: 700;
   color: var(--fg, #eee);
   overflow-wrap: anywhere;
 }
 
 .profile-mission-reward {
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 700;
   color: var(--accent, #f59e0b);
   white-space: nowrap;
@@ -8642,7 +8659,7 @@ strong.support-upvote-count {
 }
 
 .profile-mission-desc {
-  font-size: 0.61rem;
+  font-size: 0.58rem;
   color: var(--fg-dim, #888);
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -8650,13 +8667,13 @@ strong.support-upvote-count {
 
 .profile-mission-progress-meta,
 .profile-mission-reset {
-  font-size: 0.6rem;
+  font-size: 0.56rem;
   color: var(--fg-dim, #7f8694);
 }
 
 .profile-mission-progress-bar {
   width: 100%;
-  height: 5px;
+  height: 4px;
   border-radius: 999px;
   overflow: hidden;
   background: color-mix(in srgb, var(--bg, #111) 78%, var(--border, #333));
@@ -8744,7 +8761,7 @@ strong.support-upvote-count {
   }
 
   .profile-popover-achievement-grid {
-    grid-template-columns: repeat(auto-fit, minmax(36px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(32px, 36px));
   }
 
   .profile-mission-panel-header,
@@ -8759,6 +8776,7 @@ strong.support-upvote-count {
 
   .profile-mission-header-meta {
     justify-content: flex-start;
+    padding-left: 0;
   }
 }
 
