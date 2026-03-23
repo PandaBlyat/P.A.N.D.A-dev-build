@@ -35,6 +35,11 @@ type OverflowAction = {
   disabled?: boolean;
 };
 
+function getLoginAction(): (() => void) | null {
+  const candidate = (globalThis as typeof globalThis & { __pandaOpenLoginModal?: unknown }).__pandaOpenLoginModal;
+  return typeof candidate === 'function' ? candidate as () => void : null;
+}
+
 function accent(value: string): HTMLSpanElement {
   const span = document.createElement('span');
   span.className = 'toolbar-title-accent';
@@ -104,6 +109,12 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
     ariaLabel: 'Open P.A.N.D.A. quick-start guide',
     icon: null,
   });
+  const loginAction = getLoginAction();
+  const loginBtn = loginAction
+    ? btn('user', 'Log In', loginAction, 'Log in or create a callsign to track your XP and level in the Zone.', {
+      classes: ['btn-community', 'toolbar-button-primary'],
+    })
+    : null;
   const handleReset = (): void => {
     if (state.dirty && !window.confirm('You have unsaved changes. Clear workspace and return to the intro?')) return;
     clearDraft();
@@ -190,7 +201,11 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
     ]));
 
     const profileBadge = renderProfileBadge();
-    if (profileBadge) rightZone.appendChild(profileBadge);
+    if (profileBadge) {
+      rightZone.appendChild(profileBadge);
+    } else if (loginBtn) {
+      rightZone.appendChild(loginBtn);
+    }
 
     const visitorCounter = renderVisitorCounter();
     if (visitorCounter) rightZone.appendChild(visitorCounter);
@@ -327,7 +342,11 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   ]));
 
   const profileBadgeCompact = renderProfileBadge();
-  if (profileBadgeCompact) utilityTier.appendChild(profileBadgeCompact);
+  if (profileBadgeCompact) {
+    utilityTier.appendChild(profileBadgeCompact);
+  } else if (loginBtn) {
+    utilityTier.appendChild(loginBtn);
+  }
 
   const visitorCounter = renderVisitorCounter(isMobile);
   if (visitorCounter) utilityTier.appendChild(visitorCounter);

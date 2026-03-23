@@ -21,7 +21,14 @@ import {
   tryFastFlowUpdate,
 } from './components/App';
 import { flushAllDebounced } from './components/PropertiesPanel';
-import { trackSiteVisitor, fetchVisitorCount, fetchUserProfile, getStoredUsername, type UserProfile } from './lib/api-client';
+import {
+  trackSiteVisitor,
+  fetchVisitorCount,
+  fetchUserProfile,
+  getStoredUsername,
+  clearStoredUsername,
+  type UserProfile,
+} from './lib/api-client';
 import { setProfileForBadge } from './components/ProfileBadge';
 import { openUsernameModal, isUsernameModalOpen } from './components/UsernameModal';
 
@@ -72,25 +79,36 @@ function refreshToolbarProfile(): void {
 const publisherId = getPublisherId();
 const storedUsername = getStoredUsername();
 
+function handleProfileRegistered(profile: UserProfile): void {
+  (globalThis as any).__pandaUserProfile = profile;
+  refreshToolbarProfile();
+}
+
+function openLoginModal(): void {
+  if (isUsernameModalOpen()) return;
+  openUsernameModal({
+    publisherId,
+    onRegistered: handleProfileRegistered,
+  });
+}
+
+(globalThis as any).__pandaOpenLoginModal = openLoginModal;
+
 if (storedUsername) {
   // Already registered — fetch profile
   void fetchUserProfile(publisherId).then(profile => {
     if (profile) {
-      (globalThis as any).__pandaUserProfile = profile;
-      refreshToolbarProfile();
+      handleProfileRegistered(profile);
+      return;
     }
+    clearStoredUsername();
+    (globalThis as any).__pandaUserProfile = null;
+    refreshToolbarProfile();
   });
 } else {
   // First visit — show username modal after a short delay so the app settles
   setTimeout(() => {
-    if (isUsernameModalOpen()) return;
-    openUsernameModal({
-      publisherId,
-      onRegistered: (profile) => {
-        (globalThis as any).__pandaUserProfile = profile;
-        refreshToolbarProfile();
-      },
-    });
+    openLoginModal();
   }, 1500);
 }
 

@@ -612,6 +612,11 @@ export function setStoredUsername(username: string): void {
   window.localStorage.setItem(LOCAL_USERNAME_KEY, username.trim());
 }
 
+export function clearStoredUsername(): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(LOCAL_USERNAME_KEY);
+}
+
 export async function registerUsername(publisherId: string, username: string): Promise<UserProfile> {
   try {
     const profile = await fetchFromApi<UserProfile>('/api/profile/register', {
