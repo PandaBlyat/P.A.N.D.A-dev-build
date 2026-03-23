@@ -90,10 +90,22 @@ type ChoiceClipboard = {
   choice: Choice;
 };
 
+function mergeChanges(a: StateChange, b: StateChange): StateChange {
+  const merged = a.targets.includes('appShell') || b.targets.includes('appShell')
+    ? { ...FULL_APP_RENDER }
+    : createStateChange(...a.targets, ...b.targets);
+  merged.projectChanged = a.projectChanged || b.projectChanged;
+  merged.systemStringsChanged = a.systemStringsChanged || b.systemStringsChanged;
+  merged.validationChanged = a.validationChanged || b.validationChanged;
+  return merged;
+}
+
 class StateManager {
   private state: AppState;
   private listeners: Set<Listener> = new Set();
   private validationTimer: ReturnType<typeof setTimeout> | null = null;
+  private batchDepth = 0;
+  private batchedChange: StateChange | null = null;
 
   constructor() {
     this.state = {
@@ -131,7 +143,25 @@ class StateManager {
   }
 
   private notify(change: StateChange = FULL_APP_RENDER): void {
+    if (this.batchDepth > 0) {
+      this.batchedChange = this.batchedChange ? mergeChanges(this.batchedChange, change) : { ...change };
+      return;
+    }
     for (const fn of this.listeners) fn(change);
+  }
+
+  batch(fn: () => void): void {
+    this.batchDepth += 1;
+    try {
+      fn();
+    } finally {
+      this.batchDepth -= 1;
+      if (this.batchDepth === 0 && this.batchedChange) {
+        const change = this.batchedChange;
+        this.batchedChange = null;
+        this.notify(change);
+      }
+    }
   }
 
   private markProjectChanged(): void {
