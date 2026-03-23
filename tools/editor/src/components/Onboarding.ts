@@ -107,7 +107,7 @@ const NARRATOR_PHASES: NarratorPhase[] = [
 const PHASE_LABELS = ['Chapter I — Genesis', 'Chapter II — The Problem', 'Chapter III — The Solution', 'Chapter IV — You'];
 
 const NARRATOR_PHASE_START_DELAY_MS = 120;
-const NARRATOR_CHARACTER_DELAY_MS = 9;
+const NARRATOR_CHARACTER_DELAY_MS = 4;
 const NARRATOR_CHARACTER_JITTER_MS = 7;
 const NARRATOR_LINE_PAUSE_MS = 260;
 const NARRATOR_PHASE_TRANSITION_MS = 140;
