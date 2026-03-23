@@ -82,31 +82,47 @@ export const MONTH_NAMES: Record<number, string> = {
   9: 'September', 10: 'October', 11: 'November', 12: 'December',
 };
 
-export const DYNAMIC_PLACEHOLDERS = [
-  { key: '$player_name', description: 'Player character name' },
-  { key: '$npc_name', description: 'NPC character name' },
-  { key: '$player_faction', description: 'Player faction (translated)' },
-  { key: '$npc_faction', description: 'NPC faction (translated)' },
-  { key: '$current_level', description: 'Current map name (translated)' },
-  { key: '$player_money', description: 'Player money (RU)' },
-  { key: '$player_rank', description: 'Player rank name' },
-  { key: '$player_reputation', description: 'Player reputation value' },
-  { key: '$companion_count', description: 'Active companion count' },
-  { key: '$time_of_day', description: 'morning/afternoon/evening/night' },
-  { key: '$game_hour', description: 'Current time (HH:MM)' },
-  { key: '$npc_rank', description: 'NPC rank name' },
-  { key: '$player_health', description: 'Player health percentage (0-100)' },
-  { key: '$stalker_kills', description: 'Total stalker kills count' },
-  { key: '$mutant_kills', description: 'Total mutant kills count' },
-  { key: '$relationship_score', description: 'NPC relationship score with player (-1000 to 1000)' },
-  { key: '$game_days', description: 'Days survived in the Zone' },
-  { key: '$player_satiety', description: 'Player satiety/hunger percentage (0-100)' },
-  { key: '$player_radiation', description: 'Player radiation level (0-100)' },
-  { key: '$player_rank_name', description: 'Player rank as display name (e.g. Experienced)' },
-  { key: '$npc_rank_name', description: 'NPC rank as display name (e.g. Veteran)' },
-  { key: '$weather', description: 'Current weather type identifier' },
-  { key: '$total_weight', description: 'Player carried weight in kg' },
-  { key: '$game_day_number', description: 'Current in-game day number' },
+export type DynamicPlaceholderCategory =
+  | 'Identity'
+  | 'Faction / reputation'
+  | 'World / location'
+  | 'Time / weather'
+  | 'Player stats'
+  | 'Progress / counters';
+
+export type DynamicPlaceholder = {
+  key: string;
+  description: string;
+  category: DynamicPlaceholderCategory;
+  kind?: 'smart_terrain_picker';
+};
+
+export const DYNAMIC_PLACEHOLDERS: readonly DynamicPlaceholder[] = [
+  { key: '$player_name', description: 'Player character name', category: 'Identity' },
+  { key: '$npc_name', description: 'NPC character name', category: 'Identity' },
+  { key: '$player_rank', description: 'Player rank name', category: 'Identity' },
+  { key: '$npc_rank', description: 'NPC rank name', category: 'Identity' },
+  { key: '$player_rank_name', description: 'Player rank as display name (e.g. Experienced)', category: 'Identity' },
+  { key: '$npc_rank_name', description: 'NPC rank as display name (e.g. Veteran)', category: 'Identity' },
+  { key: '$player_faction', description: 'Player faction (translated)', category: 'Faction / reputation' },
+  { key: '$npc_faction', description: 'NPC faction (translated)', category: 'Faction / reputation' },
+  { key: '$player_reputation', description: 'Player reputation value', category: 'Faction / reputation' },
+  { key: '$relationship_score', description: 'NPC relationship score with player (-1000 to 1000)', category: 'Faction / reputation' },
+  { key: '$current_level', description: 'Current map name (translated)', category: 'World / location' },
+  { key: '%smart_terrain%', description: 'Choose a level-aware smart terrain text placeholder, command-key placeholder, or exact smart terrain id', category: 'World / location', kind: 'smart_terrain_picker' },
+  { key: '$time_of_day', description: 'morning/afternoon/evening/night', category: 'Time / weather' },
+  { key: '$game_hour', description: 'Current time (HH:MM)', category: 'Time / weather' },
+  { key: '$weather', description: 'Current weather type identifier', category: 'Time / weather' },
+  { key: '$player_health', description: 'Player health percentage (0-100)', category: 'Player stats' },
+  { key: '$player_satiety', description: 'Player satiety/hunger percentage (0-100)', category: 'Player stats' },
+  { key: '$player_radiation', description: 'Player radiation level (0-100)', category: 'Player stats' },
+  { key: '$player_money', description: 'Player money (RU)', category: 'Player stats' },
+  { key: '$total_weight', description: 'Player carried weight in kg', category: 'Player stats' },
+  { key: '$companion_count', description: 'Active companion count', category: 'Progress / counters' },
+  { key: '$stalker_kills', description: 'Total stalker kills count', category: 'Progress / counters' },
+  { key: '$mutant_kills', description: 'Total mutant kills count', category: 'Progress / counters' },
+  { key: '$game_days', description: 'Days survived in the Zone', category: 'Progress / counters' },
+  { key: '$game_day_number', description: 'Current in-game day number', category: 'Progress / counters' },
 ] as const;
 
 /** Smart terrain lists by level, extracted from SMART_TERRAIN_LEVEL_LISTS in pda_interactive_conv.script */
