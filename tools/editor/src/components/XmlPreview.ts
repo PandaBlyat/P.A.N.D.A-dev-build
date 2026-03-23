@@ -3,25 +3,56 @@
 import { store } from '../lib/state';
 import { generateXml } from '../lib/xml-export';
 
+const xmlPreviewCache = {
+  projectRevision: -1,
+  systemStringsRevision: -1,
+  xml: '',
+  highlightedXml: '',
+};
+
 export function renderXmlPreview(container: HTMLElement): void {
   container.appendChild(createXmlPreviewContent());
 }
 
 export function createXmlPreviewContent(): HTMLElement {
-  const state = store.get();
-  const xml = generateXml(state.project, state.systemStrings);
-
   const panel = document.createElement('div');
   panel.className = 'xml-preview-panel';
 
   const content = document.createElement('pre');
   content.className = 'xml-preview-content';
-
-  // Simple syntax highlighting
-  content.innerHTML = highlightXml(xml);
-
   panel.appendChild(content);
+
+  updateXmlPreviewContent(content);
   return panel;
+}
+
+export function updateXmlPreviewContent(content: HTMLElement): void {
+  const { xml, highlightedXml } = getCachedXmlPreview();
+  if (content.dataset.xmlText === xml) return;
+  content.dataset.xmlText = xml;
+  content.innerHTML = highlightedXml;
+}
+
+function getCachedXmlPreview(): { xml: string; highlightedXml: string } {
+  const state = store.get();
+  if (
+    xmlPreviewCache.projectRevision !== state.projectRevision
+    || xmlPreviewCache.systemStringsRevision !== state.systemStringsRevision
+  ) {
+    const xml = generateXml(state.project, state.systemStrings);
+    xmlPreviewCache.projectRevision = state.projectRevision;
+    xmlPreviewCache.systemStringsRevision = state.systemStringsRevision;
+
+    if (xmlPreviewCache.xml !== xml) {
+      xmlPreviewCache.xml = xml;
+      xmlPreviewCache.highlightedXml = highlightXml(xml);
+    }
+  }
+
+  return {
+    xml: xmlPreviewCache.xml,
+    highlightedXml: xmlPreviewCache.highlightedXml,
+  };
 }
 
 function highlightXml(xml: string): string {

@@ -9,6 +9,7 @@ import {
   type StateChange,
 } from './lib/state';
 import { clearDraft, persistDraft, readDraft } from './lib/draft-storage';
+
 import {
   getRenderRoot,
   renderApp,
@@ -20,6 +21,11 @@ import {
 } from './components/App';
 import { flushAllDebounced } from './components/PropertiesPanel';
 import { trackSiteVisitor, fetchVisitorCount } from './lib/api-client';
+
+type IdleCallbackHandle = number;
+type IdleCallbackDeadline = { didTimeout: boolean; timeRemaining: () => number };
+type IdleCallbackScheduler = (callback: (deadline: IdleCallbackDeadline) => void, options?: { timeout?: number }) => IdleCallbackHandle;
+type IdleCallbackCanceller = (handle: IdleCallbackHandle) => void;
 
 // Boot
 const app = document.getElementById('app')!;
@@ -37,6 +43,69 @@ void trackSiteVisitor();
 void fetchVisitorCount().then(count => {
   (globalThis as any).__pandaVisitorCount = count;
   renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
+});
+
+const requestIdle = ((globalThis as typeof globalThis & { requestIdleCallback?: IdleCallbackScheduler }).requestIdleCallback
+  ?? ((callback: (deadline: IdleCallbackDeadline) => void) => window.setTimeout(() => callback({ didTimeout: false, timeRemaining: () => 0 }), 150))) as IdleCallbackScheduler;
+const cancelIdle = ((globalThis as typeof globalThis & { cancelIdleCallback?: IdleCallbackCanceller }).cancelIdleCallback
+  ?? ((handle: IdleCallbackHandle) => window.clearTimeout(handle))) as IdleCallbackCanceller;
+
+const AUTOSAVE_DEBOUNCE_MS = 300;
+let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+let autosaveIdleHandle: IdleCallbackHandle | null = null;
+let queuedAutosave: { projectRevision: number; systemStringsRevision: number } | null = null;
+let lastPersistedProjectRevision = restoredDraft ? store.get().projectRevision : -1;
+let lastPersistedSystemStringsRevision = restoredDraft ? store.get().systemStringsRevision : -1;
+
+function flushAutosave(): void {
+  if (autosaveTimer != null) {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = null;
+  }
+  if (autosaveIdleHandle != null) {
+    cancelIdle(autosaveIdleHandle);
+    autosaveIdleHandle = null;
+  }
+  if (!queuedAutosave) return;
+
+  const state = store.get();
+  const isPristineEmptyState = state.project.conversations.length === 0 && state.systemStrings.size === 0 && !state.dirty;
+  if (isPristineEmptyState) {
+    clearDraft();
+  } else {
+    persistDraft(state.project, state.systemStrings);
+  }
+
+  lastPersistedProjectRevision = queuedAutosave.projectRevision;
+  lastPersistedSystemStringsRevision = queuedAutosave.systemStringsRevision;
+  queuedAutosave = null;
+}
+
+function scheduleAutosave(): void {
+  const state = store.get();
+  if (state.projectRevision === lastPersistedProjectRevision && state.systemStringsRevision === lastPersistedSystemStringsRevision) {
+    return;
+  }
+
+  queuedAutosave = {
+    projectRevision: state.projectRevision,
+    systemStringsRevision: state.systemStringsRevision,
+  };
+
+  if (autosaveTimer != null) clearTimeout(autosaveTimer);
+  if (autosaveIdleHandle != null) cancelIdle(autosaveIdleHandle);
+
+  autosaveTimer = setTimeout(() => {
+    autosaveTimer = null;
+    autosaveIdleHandle = requestIdle(() => {
+      autosaveIdleHandle = null;
+      flushAutosave();
+    }, { timeout: 500 });
+  }, AUTOSAVE_DEBOUNCE_MS);
+}
+
+window.addEventListener('beforeunload', () => {
+  flushAutosave();
 });
 
 // ─── Focus-safe rendering ────────────────────────────────────────────────
@@ -117,11 +186,16 @@ function renderWithFocusPreserved(root: HTMLElement, render: () => void): void {
 }
 
 function mergeStateChanges(current: StateChange | null, incoming: StateChange): StateChange {
-  if (!current) return incoming;
-  if (current.targets.includes('appShell') || incoming.targets.includes('appShell')) {
-    return FULL_APP_RENDER;
-  }
-  return createStateChange(...current.targets, ...incoming.targets);
+  if (!current) return { ...incoming };
+
+  const merged = current.targets.includes('appShell') || incoming.targets.includes('appShell')
+    ? { ...FULL_APP_RENDER }
+    : createStateChange(...current.targets, ...incoming.targets);
+
+  merged.projectChanged = current.projectChanged || incoming.projectChanged;
+  merged.systemStringsChanged = current.systemStringsChanged || incoming.systemStringsChanged;
+  merged.validationChanged = current.validationChanged || incoming.validationChanged;
+  return merged;
 }
 
 function renderTarget(target: RenderTarget): void {
@@ -160,12 +234,8 @@ function flushRender(change: StateChange): void {
 let pendingChange: StateChange | null = null;
 
 store.subscribe((change) => {
-  const state = store.get();
-  const isPristineEmptyState = state.project.conversations.length === 0 && state.systemStrings.size === 0 && !state.dirty;
-  if (isPristineEmptyState) {
-    clearDraft();
-  } else {
-    persistDraft(state.project, state.systemStrings);
+  if (change.projectChanged || change.systemStringsChanged) {
+    scheduleAutosave();
   }
 
   if (shouldDeferRenderForActiveElement(document.activeElement) && app.contains(document.activeElement)) {

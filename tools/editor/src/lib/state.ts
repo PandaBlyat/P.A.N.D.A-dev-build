@@ -29,6 +29,9 @@ export interface AppState {
   redoStack: string[];
   copiedTurn: TurnClipboard | null;
   copiedChoice: ChoiceClipboard | null;
+  projectRevision: number;
+  systemStringsRevision: number;
+  validationRevision: number;
 }
 
 export type RenderTarget =
@@ -41,16 +44,26 @@ export type RenderTarget =
 
 export interface StateChange {
   targets: readonly RenderTarget[];
+  projectChanged: boolean;
+  systemStringsChanged: boolean;
+  validationChanged: boolean;
 }
 
 type Listener = (change: StateChange) => void;
 
 export function createStateChange(...targets: RenderTarget[]): StateChange {
-  return { targets: [...new Set(targets)] };
+  return {
+    targets: [...new Set(targets)],
+    projectChanged: false,
+    systemStringsChanged: false,
+    validationChanged: false,
+  };
 }
 
 export const FULL_APP_RENDER = createStateChange('appShell');
 export const SELECTION_RENDER = createStateChange('flowEditor', 'propertiesPanel');
+
+const VALIDATION_DEBOUNCE_MS = 120;
 
 type TurnPositionUpdate = {
   turnNumber: number;
@@ -80,6 +93,7 @@ type ChoiceClipboard = {
 class StateManager {
   private state: AppState;
   private listeners: Set<Listener> = new Set();
+  private validationTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.state = {
@@ -101,6 +115,9 @@ class StateManager {
       redoStack: [],
       copiedTurn: null,
       copiedChoice: null,
+      projectRevision: 0,
+      systemStringsRevision: 0,
+      validationRevision: 0,
     };
   }
 
@@ -117,6 +134,14 @@ class StateManager {
     for (const fn of this.listeners) fn(change);
   }
 
+  private markProjectChanged(): void {
+    this.state.projectRevision += 1;
+  }
+
+  private markSystemStringsChanged(): void {
+    this.state.systemStringsRevision += 1;
+  }
+
   private pushUndo(): void {
     this.state.undoStack.push(JSON.stringify(this.state.project));
     if (this.state.undoStack.length > 50) this.state.undoStack.shift();
@@ -130,10 +155,19 @@ class StateManager {
   private finishProjectMutation({
     revalidate = true,
     change = FULL_APP_RENDER,
-  }: { revalidate?: boolean; change?: StateChange } = {}): void {
+    projectChanged = true,
+    systemStringsChanged = false,
+  }: {
+    revalidate?: boolean;
+    change?: StateChange;
+    projectChanged?: boolean;
+    systemStringsChanged?: boolean;
+  } = {}): void {
     this.state.dirty = true;
-    if (revalidate) this.revalidate();
-    this.notify(change);
+    if (projectChanged) this.markProjectChanged();
+    if (systemStringsChanged) this.markSystemStringsChanged();
+    if (revalidate) this.scheduleValidation(change);
+    this.notify({ ...change, projectChanged, systemStringsChanged });
   }
 
   undo(): void {
@@ -141,8 +175,9 @@ class StateManager {
     if (!prev) return;
     this.state.redoStack.push(JSON.stringify(this.state.project));
     this.state.project = JSON.parse(prev);
+    this.markProjectChanged();
     this.revalidate();
-    this.notify(FULL_APP_RENDER);
+    this.notify({ ...FULL_APP_RENDER, projectChanged: true });
   }
 
   redo(): void {
@@ -150,16 +185,41 @@ class StateManager {
     if (!next) return;
     this.state.undoStack.push(JSON.stringify(this.state.project));
     this.state.project = JSON.parse(next);
+    this.markProjectChanged();
     this.revalidate();
-    this.notify(FULL_APP_RENDER);
+    this.notify({ ...FULL_APP_RENDER, projectChanged: true });
   }
 
-  private revalidate(): void {
+  private scheduleValidation(change: StateChange = FULL_APP_RENDER): void {
+    if (this.validationTimer != null) {
+      clearTimeout(this.validationTimer);
+    }
+    this.validationTimer = setTimeout(() => {
+      this.validationTimer = null;
+      this.revalidate(change);
+    }, VALIDATION_DEBOUNCE_MS);
+  }
+
+  private revalidate(change: StateChange = FULL_APP_RENDER): void {
+    const previousMessages = JSON.stringify(this.state.validationMessages);
+    const previousShowValidationPanel = this.state.showValidationPanel;
+    const previousBottomWorkspaceTab = this.state.bottomWorkspaceTab;
+
     this.state.validationMessages = validate(this.state.project);
     if (this.state.validationMessages.length === 0) {
       this.state.showValidationPanel = false;
     }
     this.syncBottomWorkspaceTab();
+
+    const nextMessages = JSON.stringify(this.state.validationMessages);
+    const validationChanged = previousMessages !== nextMessages
+      || previousShowValidationPanel !== this.state.showValidationPanel
+      || previousBottomWorkspaceTab !== this.state.bottomWorkspaceTab;
+
+    if (!validationChanged) return;
+
+    this.state.validationRevision += 1;
+    this.notify({ ...change, validationChanged: true });
   }
 
   private getOpenBottomWorkspaceTabs(): BottomWorkspaceTab[] {
@@ -537,8 +597,10 @@ class StateManager {
     this.state.redoStack = [];
     this.state.copiedTurn = null;
     this.state.copiedChoice = null;
+    this.markProjectChanged();
+    this.markSystemStringsChanged();
     this.revalidate();
-    this.notify();
+    this.notify({ ...FULL_APP_RENDER, projectChanged: true, systemStringsChanged: true });
   }
 
   setFaction(faction: Project['faction']): void {
@@ -1072,7 +1134,7 @@ class StateManager {
     if (!normalized) return;
     this.pushUndo();
     this.state.systemStrings.set(normalized, value);
-    this.finishProjectMutation({ revalidate: false });
+    this.finishProjectMutation({ revalidate: false, projectChanged: false, systemStringsChanged: true });
   }
 
   renameSystemString(oldKey: string, nextKey: string): void {
@@ -1084,7 +1146,7 @@ class StateManager {
     this.pushUndo();
     this.state.systemStrings.delete(normalizedOld);
     this.state.systemStrings.set(normalizedNext, value);
-    this.finishProjectMutation({ revalidate: false });
+    this.finishProjectMutation({ revalidate: false, projectChanged: false, systemStringsChanged: true });
   }
 
   deleteSystemString(key: string): void {
@@ -1092,7 +1154,7 @@ class StateManager {
     if (!normalized || !this.state.systemStrings.has(normalized)) return;
     this.pushUndo();
     this.state.systemStrings.delete(normalized);
-    this.finishProjectMutation({ revalidate: false });
+    this.finishProjectMutation({ revalidate: false, projectChanged: false, systemStringsChanged: true });
   }
 }
 
