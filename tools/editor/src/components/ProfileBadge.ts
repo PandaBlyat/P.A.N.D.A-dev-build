@@ -187,16 +187,27 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   const highlights = document.createElement('div');
   highlights.className = 'profile-popover-highlights';
 
-  const highlightDefs: Array<{ label: string; value: string; tone?: 'accent' | 'rare' }> = [
-    { label: 'Career XP', value: profile.xp.toLocaleString(), tone: 'accent' },
-    { label: 'Badges', value: `${unlocked.length}/${ACHIEVEMENTS.length}` },
-    { label: 'Rare', value: `${rareUnlocked}`, tone: rareUnlocked > 0 ? 'rare' : undefined },
-    { label: 'Streak', value: `${publishStreak}w` },
+  const highlightDefs: Array<{
+    icon: IconName;
+    label: string;
+    value: string;
+    tone?: 'accent' | 'rare';
+  }> = [
+    { icon: 'star', label: 'XP', value: profile.xp.toLocaleString(), tone: 'accent' },
+    { icon: 'medal', label: 'Badges', value: `${unlocked.length}/${ACHIEVEMENTS.length}` },
+    { icon: 'sparkle', label: 'Rare', value: `${rareUnlocked}`, tone: rareUnlocked > 0 ? 'rare' : undefined },
+    { icon: 'flame', label: 'Streak', value: `${publishStreak}w` },
   ];
 
   highlightDefs.forEach((item) => {
     const card = document.createElement('div');
     card.className = `profile-popover-highlight${item.tone ? ` profile-popover-highlight-${item.tone}` : ''}`;
+
+    const icon = createIcon(item.icon);
+    icon.classList.add('profile-popover-highlight-icon');
+
+    const content = document.createElement('span');
+    content.className = 'profile-popover-highlight-content';
 
     const value = document.createElement('span');
     value.className = 'profile-popover-highlight-value';
@@ -206,7 +217,8 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
     label.className = 'profile-popover-highlight-label';
     label.textContent = item.label;
 
-    card.append(value, label);
+    content.append(value, label);
+    card.append(icon, content);
     highlights.appendChild(card);
   });
 
