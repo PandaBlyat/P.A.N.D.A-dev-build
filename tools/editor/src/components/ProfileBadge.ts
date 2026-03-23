@@ -174,7 +174,7 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
 
   const memberPill = document.createElement('span');
   memberPill.className = 'profile-popover-meta-pill profile-popover-meta-pill-muted';
-  memberPill.textContent = `Member since ${formatMemberSince(profile.created_at)}`;
+  memberPill.textContent = `Since ${formatMemberSince(profile.created_at)}`;
 
   metaRow.append(levelPill, xpPill, memberPill);
   info.append(nameEl, titleEl, metaRow);
@@ -265,9 +265,17 @@ function buildStatsSection(profile: UserProfile): HTMLElement {
   const statsGrid = document.createElement('div');
   statsGrid.className = 'profile-popover-stats-grid';
 
+  const levelStat = buildStatCard('trophy', `Lv. ${profile.level}`, 'Current level');
+  const xpStat = buildStatCard('star', profile.xp.toLocaleString(), 'Career XP');
+  const joinedStat = buildStatCard('clock', formatMemberSince(profile.created_at), 'Joined');
   const publishStat = buildStatCard('export', '...', 'Published');
 
-  statsGrid.appendChild(publishStat);
+  const joinedValue = joinedStat.querySelector('.profile-stat-value');
+  if (joinedValue) {
+    joinedValue.setAttribute('title', new Date(profile.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }));
+  }
+
+  statsGrid.append(levelStat, xpStat, joinedStat, publishStat);
   statsSection.append(header, statsGrid);
 
   if (profile.publisher_id === cachedProfile?.publisher_id && publishCountCache !== null) {
