@@ -25,8 +25,15 @@ import { createIcon, setButtonContent } from './icons';
 import { importConversations } from './App';
 import { downloadFile } from '../lib/project-io';
 import { showXpToast, showLevelUpToast } from './XpToast';
-import { awardXp, getPublishXp, getStoredUsername, type UserProfile } from '../lib/api-client';
+import { awardXp, getPublishXp, getStoredUsername, fetchUserPublishCount, type UserProfile } from '../lib/api-client';
 import { setProfileForBadge, invalidateLeaderboardCache } from './ProfileBadge';
+import {
+  evaluatePublishGamification,
+  calculateQualityScore,
+  getQualityMultiplier,
+  getTodayChallenge,
+} from '../lib/gamification';
+import { showAchievementToasts, showGamificationToast } from './AchievementToast';
 
 type SortMode = 'newest' | 'upvoted';
 type LengthFilter = 'all' | 'short' | 'medium' | 'long';
@@ -167,6 +174,10 @@ function getBranchCount(conversation?: Conversation): number {
 
 function normalizeKey(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function getTodayChallengeDesc(): string {
+  return getTodayChallenge().description;
 }
 
 function mergeConversationLists(bundled: NormalizedConversation[], remote: NormalizedConversation[]): NormalizedConversation[] {
@@ -1048,19 +1059,73 @@ function buildPublishForm(): HTMLElement {
       });
       setStatus('Published successfully. Refreshing the library with your new community entry…', 'success');
 
-      // Award XP for publishing
-      const publishXp = getPublishXp(deriveConversationComplexity(branchCount));
+      // Award XP for publishing + gamification bonuses
+      const complexity = deriveConversationComplexity(branchCount);
+      const basePublishXp = getPublishXp(complexity);
       const currentProfile = (globalThis as any).__pandaUserProfile as UserProfile | null;
       if (currentProfile) {
+        // Evaluate gamification triggers (achievements, streaks, challenges)
+        const publishCount = await fetchUserPublishCount(currentProfile.publisher_id).catch(() => 1);
+        // Gather faction info from published conversations
+        const publishedFactions = [faction];
+        try {
+          const allConvs = await fetchConversations();
+          const userConvs = allConvs.filter(c => c.author === currentProfile.username);
+          for (const c of userConvs) {
+            if (!publishedFactions.includes(c.faction as FactionId)) publishedFactions.push(c.faction as FactionId);
+          }
+        } catch { /* best-effort */ }
+
+        const totalDownloads = 0; // will be checked server-side for achievements later
+        const totalUpvotes = 0;
+
+        const gamResult = evaluatePublishGamification(conv, publishCount, totalDownloads, totalUpvotes, publishedFactions);
+
+        // Apply quality multiplier to base XP
+        const qualityScore = calculateQualityScore(conv);
+        const qualityMult = getQualityMultiplier(qualityScore.totalStars);
+        const adjustedPublishXp = Math.round(basePublishXp * qualityMult);
+        const totalXp = adjustedPublishXp + gamResult.totalBonusXp;
+
         const oldLevel = currentProfile.level;
-        void awardXp(currentProfile.publisher_id, publishXp).then(updated => {
+        void awardXp(currentProfile.publisher_id, totalXp).then(updated => {
           if (updated) {
             (globalThis as any).__pandaUserProfile = updated;
             setProfileForBadge(updated);
             invalidateLeaderboardCache();
-            showXpToast(publishXp, 'Conversation published!');
+
+            // Show base publish XP toast
+            if (qualityMult > 1) {
+              showXpToast(adjustedPublishXp, `Published! (${qualityScore.totalStars}\u2605 quality \u00D7${qualityMult})`);
+            } else {
+              showXpToast(adjustedPublishXp, 'Conversation published!');
+            }
+
+            // Show level up
             if (updated.level > oldLevel) {
               setTimeout(() => showLevelUpToast(updated.level, updated.title), 600);
+            }
+
+            // Show achievement toasts (staggered)
+            if (gamResult.achievementsUnlocked.length > 0) {
+              setTimeout(() => showAchievementToasts(gamResult.achievementsUnlocked), 1200);
+            }
+
+            // Show streak toast
+            if (gamResult.streakInfo.streakChanged && gamResult.streakInfo.newStreak > 1) {
+              const delay = 1200 + gamResult.achievementsUnlocked.length * 800;
+              setTimeout(() => {
+                const shieldNote = gamResult.streakInfo.shieldUsed ? ' (Shield used!)' : '';
+                showGamificationToast('\u{1F525}', `${gamResult.streakInfo.newStreak}-Week Streak!`, `Keep publishing weekly to grow your streak${shieldNote}`);
+              }, delay);
+            }
+
+            // Show daily challenge toast
+            if (gamResult.challengeXp > 0) {
+              const delay = 1200 + gamResult.achievementsUnlocked.length * 800 + (gamResult.streakInfo.streakChanged ? 800 : 0);
+              setTimeout(() => {
+                showGamificationToast('\u{1F3AF}', 'Daily Challenge Complete!', getTodayChallengeDesc(), gamResult.challengeXp);
+              }, delay);
             }
           }
         });
