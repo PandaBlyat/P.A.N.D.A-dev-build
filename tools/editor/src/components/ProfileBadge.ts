@@ -485,12 +485,23 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
   header.append(medalIcon, title);
   section.appendChild(header);
 
-  const summaryLine = document.createElement('div');
-  summaryLine.className = 'profile-achievement-summary-line';
   const visibleGoalCount = getVisibleAchievementCatalog().length;
   const hiddenGoalCount = ACHIEVEMENTS.filter(achievement => achievement.hidden).length;
   const rareUnlockedCount = getRareAchievementCount(unlocked);
-  summaryLine.textContent = `${unlocked.length} earned • ${rareUnlockedCount} rare • ${visibleGoalCount} visible • ${hiddenGoalCount} surprise`;
+
+  const summaryRow = document.createElement('div');
+  summaryRow.className = 'profile-achievement-summary-row';
+  summaryRow.append(
+    createMetaChip('Earned', String(unlocked.length)),
+    createMetaChip('Rare', String(rareUnlockedCount), rareUnlockedCount > 0 ? 'accent' : 'default'),
+    createMetaChip('Visible', String(visibleGoalCount), 'muted'),
+    createMetaChip('Surprise', String(hiddenGoalCount), 'muted'),
+  );
+  section.appendChild(summaryRow);
+
+  const summaryLine = document.createElement('div');
+  summaryLine.className = 'profile-achievement-summary-line';
+  summaryLine.textContent = 'Scan each track left to right and hover any badge to preview what unlocks next.';
   section.appendChild(summaryLine);
 
   const featuredStrip = buildFeaturedBadgeStrip(unlocked);
@@ -844,23 +855,19 @@ function buildSelfProfileContent(profile: UserProfile): HTMLElement {
   const shell = document.createElement('div');
   shell.className = 'profile-popover-shell';
 
-  const hero = document.createElement('section');
-  hero.className = 'profile-popover-hero';
-  hero.append(buildProfileHeader(profile));
-
   const body = document.createElement('div');
   body.className = 'profile-popover-body';
 
   const main = document.createElement('div');
   main.className = 'profile-popover-main';
-  main.append(buildAchievementsSection(profile));
+  main.append(buildProfileHeader(profile), buildAchievementsSection(profile));
 
   const side = document.createElement('aside');
   side.className = 'profile-popover-side';
-  side.append(buildStatsSection(profile), buildXpBreakdownSection(), buildLeaderboardSection(), buildStreakChallengeSection(profile));
+  side.append(buildStatsSection(profile), buildStreakChallengeSection(profile), buildLeaderboardSection(), buildXpBreakdownSection());
 
   body.append(main, side);
-  shell.append(hero, body);
+  shell.append(body);
   return shell;
 }
 
