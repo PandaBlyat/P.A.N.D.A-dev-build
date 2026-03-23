@@ -1385,9 +1385,15 @@ label {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
-  contain: layout paint;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, black 3%, black 97%, transparent 100%);
-  mask-image: linear-gradient(90deg, transparent 0, black 3%, black 97%, transparent 100%);
+  contain: layout;
+}
+
+.motivation-ticker-viewport::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(10, 12, 16, 0.92) 0, rgba(10, 12, 16, 0.92) 10px, rgba(10, 12, 16, 0) 24px, rgba(10, 12, 16, 0) calc(100% - 24px), rgba(10, 12, 16, 0.92) calc(100% - 10px), rgba(10, 12, 16, 0.92) 100%);
 }
 
 .motivation-ticker-track {
@@ -1396,8 +1402,10 @@ label {
   max-width: none;
   white-space: nowrap;
   color: var(--accent);
-  text-shadow: 0 0 6px rgba(0, 0, 0, 0.22);
+  text-shadow: none;
   backface-visibility: hidden;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .motivation-ticker-copy {
