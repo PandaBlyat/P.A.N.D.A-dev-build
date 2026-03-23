@@ -6896,10 +6896,9 @@ strong.support-upvote-count {
 }
 
 .profile-popover-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.85fr);
-  gap: 16px;
-  align-items: end;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   padding: 16px 18px 14px;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--accent, #5eaa3a) 18%, transparent) 0%, transparent 36%),
@@ -6955,10 +6954,9 @@ strong.support-upvote-count {
 }
 
 .profile-popover-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.72fr);
+  display: flex;
   align-items: center;
-  gap: 16px;
+  min-width: 0;
 }
 
 .profile-popover-identity {
@@ -6969,8 +6967,8 @@ strong.support-upvote-count {
 }
 
 .profile-popover-avatar-circle {
-  width: 56px;
-  height: 56px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   background: linear-gradient(135deg,
     var(--tier-color, #5eaa3a),
@@ -6994,110 +6992,11 @@ strong.support-upvote-count {
   text-shadow: 0 1px 2px rgba(255,255,255,0.15);
 }
 
-.profile-popover-avatar-badge {
-  position: absolute;
-  bottom: -3px;
-  right: -3px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--tier-color, #5eaa3a);
-  border: 2px solid var(--bg-panel, #161c22);
-  color: #000;
-  font-size: 0.58rem;
-  font-weight: 800;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-}
-
 .profile-popover-info {
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-
-.profile-popover-highlights {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.profile-popover-highlight {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex: 0 1 auto;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border, #333) 76%, transparent);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%),
-    color-mix(in srgb, var(--bg-elevated, #171d28) 86%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
-}
-
-.profile-popover-highlight-content {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 0;
-  gap: 1px;
-}
-
-.profile-popover-highlight-icon {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  color: color-mix(in srgb, var(--fg-dim, #8f98a8) 72%, white 28%);
-}
-
-.profile-popover-highlight-accent {
-  border-color: color-mix(in srgb, var(--accent, #f59e0b) 32%, transparent);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.015) 100%),
-    color-mix(in srgb, var(--accent, #f59e0b) 10%, var(--bg-elevated, #171d28));
-}
-
-.profile-popover-highlight-accent .profile-popover-highlight-icon,
-.profile-popover-highlight-accent .profile-popover-highlight-value {
-  color: color-mix(in srgb, var(--accent, #f59e0b) 82%, white 18%);
-}
-
-.profile-popover-highlight-rare {
-  border-color: color-mix(in srgb, #facc15 36%, transparent);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.015) 100%),
-    color-mix(in srgb, #facc15 9%, var(--bg-elevated, #171d28));
-}
-
-.profile-popover-highlight-rare .profile-popover-highlight-icon,
-.profile-popover-highlight-rare .profile-popover-highlight-value {
-  color: color-mix(in srgb, #facc15 72%, white 28%);
-}
-
-.profile-popover-highlight-value {
-  display: block;
-  font-size: 0.9rem;
-  font-weight: 800;
-  color: var(--fg, #f4f6f8);
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.profile-popover-highlight-label {
-  display: block;
-  font-size: 0.55rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--fg-dim, #8f98a8);
-  line-height: 1.1;
-  white-space: nowrap;
 }
 
 .profile-popover-name {
@@ -7142,10 +7041,14 @@ strong.support-upvote-count {
 
 /* XP Progress */
 .profile-popover-progress {
-  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 18%, transparent);
+  background: linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.015) 100%), color-mix(in srgb, var(--bg-panel, #161c22) 82%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
 .profile-popover-bar-header {
@@ -7156,8 +7059,8 @@ strong.support-upvote-count {
 }
 
 .profile-popover-level-label {
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 0.82rem;
+  font-weight: 700;
   color: var(--fg, #eee);
 }
 
@@ -7190,17 +7093,23 @@ strong.support-upvote-count {
 
 /* Stats Grid */
 .profile-popover-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.profile-popover-stats-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 8px;
-  padding: 14px;
 }
 
 .profile-stat-card {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  gap: 6px;
   background:
     linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%),
     color-mix(in srgb, var(--bg, #111) 66%, transparent);
@@ -8509,7 +8418,6 @@ strong.support-upvote-count {
 
   .profile-popover-hero,
   .profile-popover-header {
-    grid-template-columns: 1fr;
     align-items: stretch;
   }
 
@@ -8544,7 +8452,6 @@ strong.support-upvote-count {
     padding-right: 12px;
   }
 
-  .profile-popover-header,
   .profile-mission-card-header,
   .profile-achievement-category-header,
   .profile-popover-bar-header {
@@ -8556,11 +8463,7 @@ strong.support-upvote-count {
     align-items: flex-start;
   }
 
-  .profile-popover-highlights {
-    width: 100%;
-  }
-
-  .profile-popover-stats {
+  .profile-popover-stats-grid {
     grid-template-columns: 1fr;
   }
 
