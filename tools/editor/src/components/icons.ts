@@ -35,7 +35,12 @@ export type IconName =
   | 'clock'
   | 'user'
   | 'star'
-  | 'trophy';
+  | 'trophy'
+  | 'flame'
+  | 'shield'
+  | 'target'
+  | 'medal'
+  | 'sparkle';
 
 const BASE_ICON_ATTRS = {
   fill: 'none',
@@ -263,6 +268,39 @@ const ICONS: Record<IconName, IconDef> = {
       { tag: 'path', d: 'M12 14v3' },
       { tag: 'path', d: 'M8 20h8' },
       { tag: 'path', d: 'M10 17h4' },
+    ],
+  },
+  flame: {
+    paths: [
+      { tag: 'path', d: 'M12 2c0 4-4 6-4 10a4 4 0 0 0 8 0c0-4-4-6-4-10z', fill: 'currentColor', 'stroke-width': '0' },
+      { tag: 'path', d: 'M12 22a6 6 0 0 1-6-6c0-3 2-5 3-7 1 2 3 3 3 5a3 3 0 0 0 6 0c0-2-1-3-2-5 1 2 2 4 2 7a6 6 0 0 1-6 6z' },
+    ],
+  },
+  shield: {
+    paths: [
+      { tag: 'path', d: 'M12 3 4 7v5c0 4.4 3.4 8.5 8 9.5 4.6-1 8-5.1 8-9.5V7z' },
+      { tag: 'path', d: 'm9 12 2 2 4-4' },
+    ],
+  },
+  target: {
+    paths: [
+      { tag: 'circle', cx: '12', cy: '12', r: '9' },
+      { tag: 'circle', cx: '12', cy: '12', r: '5' },
+      { tag: 'circle', cx: '12', cy: '12', r: '1.5', fill: 'currentColor', stroke: 'none' },
+    ],
+  },
+  medal: {
+    paths: [
+      { tag: 'path', d: 'M8.5 3h7l-2 6h-3z' },
+      { tag: 'circle', cx: '12', cy: '14', r: '5' },
+      { tag: 'path', d: 'm10 13 1.2 1.2 2.8-2.8' },
+    ],
+  },
+  sparkle: {
+    paths: [
+      { tag: 'path', d: 'M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5z', fill: 'currentColor', 'stroke-width': '0' },
+      { tag: 'path', d: 'M18 14l1 2.5 2.5 1-2.5 1-1 2.5-1-2.5L14.5 17l2.5-1z', fill: 'currentColor', 'stroke-width': '0' },
+      { tag: 'path', d: 'M4 16l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z', fill: 'currentColor', 'stroke-width': '0' },
     ],
   },
 };

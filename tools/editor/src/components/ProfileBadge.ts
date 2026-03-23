@@ -14,6 +14,15 @@ import {
   XP_DOWNLOAD_RECEIVED,
   XP_UPVOTE_RECEIVED,
 } from '../lib/api-client';
+import {
+  ACHIEVEMENTS,
+  getUnlockedAchievements,
+  getStreakData,
+  getLoginStreak,
+  getTodayChallenge,
+  isDailyChallengeCompleted,
+  type Achievement,
+} from '../lib/gamification';
 import { createIcon } from './icons';
 
 let cachedProfile: UserProfile | null = null;
@@ -235,6 +244,12 @@ function openPopover(anchor: HTMLElement): void {
 
   xpBreakdownSection.append(xpBreakdownHeader, xpRows);
 
+  // ── Achievements section ─────────────────────────────────────────
+  const achievementsSection = buildAchievementsSection();
+
+  // ── Streak & Challenge section ──────────────────────────────────
+  const streakChallengeSection = buildStreakChallengeSection();
+
   // ── Leaderboard section ────────────────────────────────────────────
   const leaderboardSection = document.createElement('div');
   leaderboardSection.className = 'profile-popover-leaderboard';
@@ -262,7 +277,7 @@ function openPopover(anchor: HTMLElement): void {
     });
   }
 
-  popover.append(header, progressSection, statsSection, xpBreakdownSection, leaderboardSection);
+  popover.append(header, progressSection, statsSection, achievementsSection, streakChallengeSection, xpBreakdownSection, leaderboardSection);
   anchor.appendChild(popover);
   popoverOpen = true;
 
@@ -328,6 +343,125 @@ function renderLeaderboardList(container: HTMLElement, entries: LeaderboardEntry
     row.append(rank, name, xp);
     container.appendChild(row);
   }
+}
+
+function buildAchievementsSection(): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'profile-popover-achievements';
+
+  const header = document.createElement('div');
+  header.className = 'profile-popover-section-header';
+  const medalIcon = createIcon('medal');
+  const title = document.createElement('span');
+  const unlocked = getUnlockedAchievements();
+  title.textContent = `Achievements (${unlocked.length}/${ACHIEVEMENTS.length})`;
+  header.append(medalIcon, title);
+
+  const grid = document.createElement('div');
+  grid.className = 'profile-popover-achievement-grid';
+
+  for (const achievement of ACHIEVEMENTS) {
+    const isUnlocked = unlocked.includes(achievement.id);
+    const cell = document.createElement('div');
+    cell.className = `profile-achievement-cell${isUnlocked ? '' : ' profile-achievement-locked'}`;
+    cell.title = isUnlocked
+      ? `${achievement.name} — ${achievement.description} (+${achievement.xp} XP)`
+      : `??? — ${achievement.description}`;
+
+    const emoji = document.createElement('span');
+    emoji.className = 'profile-achievement-emoji';
+    emoji.textContent = isUnlocked ? achievement.icon : '\u{1F512}';
+
+    const tierDot = document.createElement('span');
+    tierDot.className = `profile-achievement-tier profile-achievement-tier-${achievement.tier}`;
+
+    cell.append(emoji, tierDot);
+    grid.appendChild(cell);
+  }
+
+  section.append(header, grid);
+  return section;
+}
+
+function buildStreakChallengeSection(): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'profile-popover-streak-challenge';
+
+  // Publish streak
+  const streak = getStreakData();
+  const loginStreak = getLoginStreak();
+
+  const streakRow = document.createElement('div');
+  streakRow.className = 'profile-popover-streak-row';
+
+  const flameIcon = createIcon('flame');
+  flameIcon.classList.add('profile-streak-icon');
+
+  const streakLabel = document.createElement('span');
+  streakLabel.className = 'profile-streak-label';
+  streakLabel.textContent = 'Publish Streak';
+
+  const streakValue = document.createElement('span');
+  streakValue.className = 'profile-streak-value';
+  streakValue.textContent = `${streak.currentStreak} week${streak.currentStreak !== 1 ? 's' : ''}`;
+
+  const shieldBadge = document.createElement('span');
+  shieldBadge.className = `profile-streak-shield${streak.shieldAvailable ? ' profile-streak-shield-active' : ''}`;
+  shieldBadge.title = streak.shieldAvailable
+    ? 'Streak Shield available — miss one week without losing your streak'
+    : 'Streak Shield used this month';
+  const shieldIcon = createIcon('shield');
+  shieldBadge.appendChild(shieldIcon);
+
+  streakRow.append(flameIcon, streakLabel, streakValue, shieldBadge);
+
+  // Login streak
+  const loginRow = document.createElement('div');
+  loginRow.className = 'profile-popover-streak-row';
+
+  const clockIcon = createIcon('clock');
+  clockIcon.classList.add('profile-streak-icon');
+
+  const loginLabel = document.createElement('span');
+  loginLabel.className = 'profile-streak-label';
+  loginLabel.textContent = 'Daily Login';
+
+  const loginValue = document.createElement('span');
+  loginValue.className = 'profile-streak-value';
+  loginValue.textContent = `${loginStreak.currentStreak} day${loginStreak.currentStreak !== 1 ? 's' : ''}`;
+
+  loginRow.append(clockIcon, loginLabel, loginValue);
+
+  // Daily challenge
+  const challenge = getTodayChallenge();
+  const completed = isDailyChallengeCompleted();
+
+  const challengeRow = document.createElement('div');
+  challengeRow.className = `profile-popover-challenge${completed ? ' profile-popover-challenge-done' : ''}`;
+
+  const targetIcon = createIcon('target');
+  targetIcon.classList.add('profile-challenge-icon');
+
+  const challengeBody = document.createElement('div');
+  challengeBody.className = 'profile-challenge-body';
+
+  const challengeHeader = document.createElement('div');
+  challengeHeader.className = 'profile-challenge-header';
+  challengeHeader.textContent = completed ? 'Daily Challenge Complete!' : "Today's Challenge";
+
+  const challengeDesc = document.createElement('div');
+  challengeDesc.className = 'profile-challenge-desc';
+  challengeDesc.textContent = challenge.description;
+
+  const challengeXp = document.createElement('span');
+  challengeXp.className = 'profile-challenge-xp';
+  challengeXp.textContent = completed ? 'Done' : `+${challenge.xp} XP`;
+
+  challengeBody.append(challengeHeader, challengeDesc);
+  challengeRow.append(targetIcon, challengeBody, challengeXp);
+
+  section.append(streakRow, loginRow, challengeRow);
+  return section;
 }
 
 function closePopover(): void {

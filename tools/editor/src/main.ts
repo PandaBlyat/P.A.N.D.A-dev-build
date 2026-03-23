@@ -27,10 +27,14 @@ import {
   fetchUserProfile,
   getStoredUsername,
   clearStoredUsername,
+  awardXp,
   type UserProfile,
 } from './lib/api-client';
 import { setProfileForBadge } from './components/ProfileBadge';
 import { openUsernameModal, isUsernameModalOpen } from './components/UsernameModal';
+import { recordDailyLogin } from './lib/gamification';
+import { showXpToast } from './components/XpToast';
+import { showGamificationToast } from './components/AchievementToast';
 
 type IdleCallbackHandle = number;
 type IdleCallbackDeadline = { didTimeout: boolean; timeRemaining: () => number };
@@ -82,6 +86,23 @@ const storedUsername = getStoredUsername();
 function handleProfileRegistered(profile: UserProfile): void {
   (globalThis as any).__pandaUserProfile = profile;
   refreshToolbarProfile();
+
+  // Record daily login and award streak XP
+  const loginResult = recordDailyLogin();
+  if (loginResult.isNew && loginResult.xp > 0) {
+    void awardXp(profile.publisher_id, loginResult.xp).then(updated => {
+      if (updated) {
+        (globalThis as any).__pandaUserProfile = updated;
+        refreshToolbarProfile();
+        showXpToast(loginResult.xp, `Daily login (${loginResult.streak}-day streak)`);
+        if (loginResult.streak >= 7 && loginResult.streak % 7 === 0) {
+          setTimeout(() => {
+            showGamificationToast('\u{1F525}', `${loginResult.streak}-Day Login Streak!`, 'Keep opening the editor daily!');
+          }, 800);
+        }
+      }
+    });
+  }
 }
 
 function openLoginModal(): void {

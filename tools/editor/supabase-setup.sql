@@ -525,3 +525,217 @@ AS $$
   ORDER BY xp DESC, created_at ASC
   LIMIT p_limit;
 $$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Gamification: Achievements & Streaks
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Per-user achievement tracking (server-side truth, prevents abuse via device switching)
+CREATE TABLE IF NOT EXISTS user_achievements (
+  publisher_id    TEXT NOT NULL,
+  achievement_id  TEXT NOT NULL,
+  unlocked_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (publisher_id, achievement_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_achievements_publisher ON user_achievements (publisher_id);
+
+ALTER TABLE user_achievements ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'user_achievements' AND policyname = 'Public achievement read'
+  ) THEN
+    CREATE POLICY "Public achievement read"
+      ON user_achievements FOR SELECT USING (true);
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'user_achievements' AND policyname = 'Public achievement insert'
+  ) THEN
+    CREATE POLICY "Public achievement insert"
+      ON user_achievements FOR INSERT WITH CHECK (true);
+  END IF;
+END;
+$$;
+
+-- Unlock an achievement (idempotent — does nothing if already unlocked)
+CREATE OR REPLACE FUNCTION unlock_achievement(p_publisher_id TEXT, p_achievement_id TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  was_new BOOLEAN;
+BEGIN
+  INSERT INTO user_achievements (publisher_id, achievement_id)
+  VALUES (p_publisher_id, p_achievement_id)
+  ON CONFLICT (publisher_id, achievement_id) DO NOTHING;
+
+  GET DIAGNOSTICS was_new = ROW_COUNT;
+  RETURN was_new > 0;
+END;
+$$;
+
+-- Get all achievements for a user
+CREATE OR REPLACE FUNCTION get_user_achievements(p_publisher_id TEXT)
+RETURNS TABLE(achievement_id TEXT, unlocked_at TIMESTAMPTZ)
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT achievement_id, unlocked_at
+  FROM user_achievements
+  WHERE publisher_id = p_publisher_id
+  ORDER BY unlocked_at ASC;
+$$;
+
+-- Per-user streak tracking (server-side backup)
+CREATE TABLE IF NOT EXISTS user_streaks (
+  publisher_id      TEXT PRIMARY KEY,
+  publish_streak    INT NOT NULL DEFAULT 0,
+  longest_streak    INT NOT NULL DEFAULT 0,
+  last_publish_week TEXT NOT NULL DEFAULT '',
+  login_streak      INT NOT NULL DEFAULT 0,
+  last_login_date   TEXT NOT NULL DEFAULT '',
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_streaks_publisher ON user_streaks (publisher_id);
+
+ALTER TABLE user_streaks ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'user_streaks' AND policyname = 'Public streak read'
+  ) THEN
+    CREATE POLICY "Public streak read"
+      ON user_streaks FOR SELECT USING (true);
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'user_streaks' AND policyname = 'Public streak upsert'
+  ) THEN
+    CREATE POLICY "Public streak upsert"
+      ON user_streaks FOR INSERT WITH CHECK (true);
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'user_streaks' AND policyname = 'Public streak update'
+  ) THEN
+    CREATE POLICY "Public streak update"
+      ON user_streaks FOR UPDATE USING (true) WITH CHECK (true);
+  END IF;
+END;
+$$;
+
+-- Upsert streak data
+CREATE OR REPLACE FUNCTION update_user_streak(
+  p_publisher_id TEXT,
+  p_publish_streak INT,
+  p_longest_streak INT,
+  p_last_publish_week TEXT,
+  p_login_streak INT,
+  p_last_login_date TEXT
+)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  INSERT INTO user_streaks (publisher_id, publish_streak, longest_streak, last_publish_week, login_streak, last_login_date)
+  VALUES (p_publisher_id, p_publish_streak, p_longest_streak, p_last_publish_week, p_login_streak, p_last_login_date)
+  ON CONFLICT (publisher_id)
+  DO UPDATE SET
+    publish_streak = GREATEST(user_streaks.publish_streak, p_publish_streak),
+    longest_streak = GREATEST(user_streaks.longest_streak, p_longest_streak),
+    last_publish_week = p_last_publish_week,
+    login_streak = GREATEST(user_streaks.login_streak, p_login_streak),
+    last_login_date = p_last_login_date,
+    updated_at = now();
+$$;
+
+-- Add daily_xp_earned to user_profiles for server-side daily cap enforcement
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS daily_xp_earned INT;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS daily_xp_date TEXT;
+
+ALTER TABLE user_profiles
+  ALTER COLUMN daily_xp_earned SET DEFAULT 0,
+  ALTER COLUMN daily_xp_date SET DEFAULT '';
+
+UPDATE user_profiles SET
+  daily_xp_earned = coalesce(daily_xp_earned, 0),
+  daily_xp_date = coalesce(daily_xp_date, '');
+
+-- Server-enforced XP award with daily cap for gamification bonuses
+CREATE OR REPLACE FUNCTION award_xp_capped(p_publisher_id TEXT, p_amount INT, p_daily_cap INT DEFAULT 500)
+RETURNS TABLE(publisher_id TEXT, username TEXT, xp INT, level INT, title TEXT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  today_str TEXT := to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD');
+  current_daily INT;
+  actual_amount INT;
+  new_xp INT;
+  computed RECORD;
+BEGIN
+  -- Reset daily counter if new day
+  UPDATE user_profiles
+  SET daily_xp_earned = 0, daily_xp_date = today_str
+  WHERE user_profiles.publisher_id = p_publisher_id
+    AND (user_profiles.daily_xp_date IS DISTINCT FROM today_str);
+
+  -- Read current daily earned
+  SELECT coalesce(user_profiles.daily_xp_earned, 0) INTO current_daily
+  FROM user_profiles
+  WHERE user_profiles.publisher_id = p_publisher_id;
+
+  IF NOT FOUND THEN RETURN; END IF;
+
+  -- Clamp to daily cap
+  actual_amount := LEAST(p_amount, GREATEST(0, p_daily_cap - current_daily));
+  IF actual_amount <= 0 THEN
+    -- Still return the profile
+    RETURN QUERY
+    SELECT up.publisher_id, up.username, up.xp, up.level, up.title, up.created_at, up.updated_at
+    FROM user_profiles up WHERE up.publisher_id = p_publisher_id;
+    RETURN;
+  END IF;
+
+  -- Award and update daily counter
+  UPDATE user_profiles
+  SET xp = user_profiles.xp + actual_amount,
+      daily_xp_earned = coalesce(user_profiles.daily_xp_earned, 0) + actual_amount
+  WHERE user_profiles.publisher_id = p_publisher_id
+  RETURNING user_profiles.xp INTO new_xp;
+
+  SELECT * INTO computed FROM compute_level_and_title(new_xp);
+
+  UPDATE user_profiles
+  SET level = computed.new_level, title = computed.new_title
+  WHERE user_profiles.publisher_id = p_publisher_id;
+
+  RETURN QUERY
+  SELECT up.publisher_id, up.username, up.xp, up.level, up.title, up.created_at, up.updated_at
+  FROM user_profiles up
+  WHERE up.publisher_id = p_publisher_id;
+END;
+$$;
