@@ -33,7 +33,7 @@ import {
   type ActiveMission,
 } from '../lib/gamification';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
-import { createIcon } from './icons';
+import { createIcon, type IconName } from './icons';
 import { renderPublicProfileView } from './PublicProfileView';
 
 const PROFILE_MODAL_MOUNT_ID = 'app-modal-host';
@@ -46,6 +46,14 @@ let publicProfileOverlay: HTMLElement | null = null;
 let publicProfileFocusTrap: FocusTrapController | null = null;
 let activePublicProfilePublisherId: string | null = null;
 let activeLeaderboardRow: HTMLButtonElement | null = null;
+
+const ACHIEVEMENT_CATEGORY_ICONS: Record<AchievementCategory, IconName> = {
+  onboarding: 'sparkle',
+  social: 'user',
+  discovery: 'target',
+  mastery: 'trophy',
+  collection: 'database',
+};
 
 function getLevelTierColor(level: number): string {
   if (level >= 91) return '#c4a040'; // gold — Monolith / Tier IV apex
@@ -484,7 +492,12 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
 
     const categoryTitle = document.createElement('div');
     categoryTitle.className = 'profile-achievement-category-title';
-    categoryTitle.textContent = ACHIEVEMENT_CATEGORY_LABELS[category];
+    categoryTitle.title = ACHIEVEMENT_CATEGORY_LABELS[category];
+    categoryTitle.setAttribute('aria-label', ACHIEVEMENT_CATEGORY_LABELS[category]);
+
+    const categoryIcon = createIcon(ACHIEVEMENT_CATEGORY_ICONS[category]);
+    categoryIcon.classList.add('profile-achievement-category-icon');
+    categoryTitle.appendChild(categoryIcon);
 
     const categoryCount = document.createElement('div');
     categoryCount.className = 'profile-achievement-category-count';

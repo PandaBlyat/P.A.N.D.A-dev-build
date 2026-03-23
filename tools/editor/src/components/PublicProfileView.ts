@@ -119,6 +119,27 @@ function buildHeader(data: PublicProfileData): HTMLElement {
   memberSince.className = 'public-profile-member-since';
   memberSince.textContent = `In the Zone since ${formatDate(profile.created_at)}`;
 
+  const spotlight = document.createElement('div');
+  spotlight.className = 'public-profile-summary-stats';
+
+  const spotlightItems = [
+    { text: `${getUnlockedAchievements(data).length} badges` },
+    { text: `${getRareBadgeCount(data)} rare unlock${getRareBadgeCount(data) === 1 ? '' : 's'}`, rare: true },
+    { text: `${data.profile.streaks?.publish_streak ?? 0} week streak` },
+  ];
+
+  if (publish_count > 0) {
+    spotlightItems.unshift({ text: `${publish_count} publish${publish_count === 1 ? '' : 'es'}` });
+  }
+
+  spotlightItems.slice(0, 4).forEach((item) => {
+    const pill = document.createElement('span');
+    pill.className = 'public-profile-summary-pill';
+    if (item.rare) pill.classList.add('public-profile-summary-pill-rare');
+    pill.textContent = item.text;
+    spotlight.appendChild(pill);
+  });
+
   const progressWrap = document.createElement('div');
   progressWrap.className = 'public-profile-progress';
 
@@ -136,7 +157,7 @@ function buildHeader(data: PublicProfileData): HTMLElement {
   progressTrack.appendChild(progressFill);
   progressWrap.append(progressMeta, progressTrack);
 
-  copy.append(eyebrow, title, subtitle, memberSince, progressWrap);
+  copy.append(eyebrow, title, subtitle, memberSince, spotlight, progressWrap);
   identity.append(avatar, copy);
 
   const stats = document.createElement('div');
@@ -239,6 +260,23 @@ function buildAchievementsSection(data: PublicProfileData): HTMLElement {
   const featured = getFeaturedAchievements(data);
   const badges = document.createElement('div');
   badges.className = 'public-profile-badge-grid';
+
+  const summary = document.createElement('div');
+  summary.className = 'public-profile-summary-stats';
+
+  [
+    `${getUnlockedAchievements(data).length}/${ACHIEVEMENTS.length} unlocked`,
+    `${featured.length} spotlight badge${featured.length === 1 ? '' : 's'}`,
+    `${getRareBadgeCount(data)} rare`,
+  ].forEach((item, index) => {
+    const pill = document.createElement('span');
+    pill.className = 'public-profile-summary-pill';
+    if (index === 2) pill.classList.add('public-profile-summary-pill-rare');
+    pill.textContent = item;
+    summary.appendChild(pill);
+  });
+
+  section.appendChild(summary);
 
   if (featured.length === 0) {
     const empty = document.createElement('div');
