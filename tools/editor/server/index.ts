@@ -10,6 +10,7 @@ const PORT = parseInt(process.env.PORT ?? '3001', 10);
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? 'http://localhost:5173';
 const TABLE = 'community_conversations';
 const SUPPORT_TABLE = 'creator_support_metrics';
+const PROFILES_TABLE = 'user_profiles';
 const SUPPORT_ROW_ID = 'global';
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
 const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'upvotes', 'updated_at'] as const;
@@ -261,39 +262,7 @@ app.post('/api/conversations', async (req, res) => {
   }
 });
 
-app.patch('/api/conversations/:id/download', async (req, res) => {
-  try {
-    const { id } = req.params;
-    await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_download`, {
-      method: 'POST',
-      headers: sbHeaders(),
-      body: JSON.stringify({ conv_id: id }),
-    });
-  } catch {
-    // Best-effort — ignore errors
-  }
-  res.json({ ok: true });
-});
-
-app.patch('/api/conversations/:id/upvote', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_upvote`, {
-      method: 'POST',
-      headers: sbHeaders(),
-      body: JSON.stringify({ conv_id: id }),
-    });
-
-    if (!r.ok) {
-      res.status(r.status).json({ error: await readErrorMessage(r) });
-      return;
-    }
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-    return;
-  }
-  res.json({ ok: true });
-});
+// Download and upvote handlers moved below with XP-awarding versions.
 
 
 app.patch('/api/support/upvote', async (_req, res) => {
@@ -343,6 +312,180 @@ app.post('/api/visitor', async (_req, res) => {
     });
   } catch {
     // Best-effort
+  }
+  res.json({ ok: true });
+});
+
+// ─── User Profiles & Gamification ────────────────────────────────────────
+
+app.post('/api/profile/register', async (req, res) => {
+  try {
+    const { publisher_id, username } = req.body ?? {};
+    if (!publisher_id || !username) {
+      res.status(400).json({ error: 'Missing required fields: publisher_id, username' });
+      return;
+    }
+
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/register_username`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ p_publisher_id: publisher_id, p_username: username }),
+    });
+
+    if (!r.ok) {
+      const msg = await readErrorMessage(r);
+      res.status(r.status).json({ error: msg });
+      return;
+    }
+
+    const rows = await r.json();
+    const profile = Array.isArray(rows) ? rows[0] : rows;
+    res.json(profile ?? null);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/profile/:publisherId', async (req, res) => {
+  try {
+    const { publisherId } = req.params;
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_user_profile`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ p_publisher_id: publisherId }),
+    });
+
+    if (!r.ok) {
+      res.status(r.status).json({ error: await readErrorMessage(r) });
+      return;
+    }
+
+    const rows = await r.json();
+    const profile = Array.isArray(rows) ? rows[0] : rows;
+    res.json(profile ?? null);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/profile/award-xp', async (req, res) => {
+  try {
+    const { publisher_id, amount } = req.body ?? {};
+    if (!publisher_id || typeof amount !== 'number' || amount <= 0) {
+      res.status(400).json({ error: 'Missing or invalid fields: publisher_id, amount (positive int)' });
+      return;
+    }
+
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ p_publisher_id: publisher_id, p_amount: amount }),
+    });
+
+    if (!r.ok) {
+      res.status(r.status).json({ error: await readErrorMessage(r) });
+      return;
+    }
+
+    const rows = await r.json();
+    const profile = Array.isArray(rows) ? rows[0] : rows;
+    res.json(profile ?? null);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/leaderboard', async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? '10'), 10) || 10, 1), 50);
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_leaderboard`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ p_limit: limit }),
+    });
+
+    if (!r.ok) {
+      res.status(r.status).json({ error: await readErrorMessage(r) });
+      return;
+    }
+
+    res.json(await r.json());
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// Award XP to publisher when their conversation gets downloaded
+app.patch('/api/conversations/:id/download', async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Increment download counter
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_download`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ conv_id: id }),
+    });
+
+    // Look up publisher_id and award XP
+    const lookupParams = new URLSearchParams({
+      select: 'publisher_id',
+      id: `eq.${id}`,
+      limit: '1',
+    });
+    const lookup = await fetch(`${sbEndpoint(TABLE)}?${lookupParams}`, { headers: sbHeaders() });
+    if (lookup.ok) {
+      const rows = await lookup.json() as Array<{ publisher_id?: string }>;
+      const pubId = rows[0]?.publisher_id;
+      if (pubId) {
+        await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp`, {
+          method: 'POST',
+          headers: sbHeaders(),
+          body: JSON.stringify({ p_publisher_id: pubId, p_amount: 5 }),
+        });
+      }
+    }
+  } catch {
+    // Best-effort
+  }
+  res.json({ ok: true });
+});
+
+// Award XP to publisher when their conversation gets upvoted
+app.patch('/api/conversations/:id/upvote', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_upvote`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ conv_id: id }),
+    });
+
+    if (!r.ok) {
+      res.status(r.status).json({ error: await readErrorMessage(r) });
+      return;
+    }
+
+    // Look up publisher_id and award XP
+    const lookupParams = new URLSearchParams({
+      select: 'publisher_id',
+      id: `eq.${id}`,
+      limit: '1',
+    });
+    const lookup = await fetch(`${sbEndpoint(TABLE)}?${lookupParams}`, { headers: sbHeaders() });
+    if (lookup.ok) {
+      const rows = await lookup.json() as Array<{ publisher_id?: string }>;
+      const pubId = rows[0]?.publisher_id;
+      if (pubId) {
+        await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp`, {
+          method: 'POST',
+          headers: sbHeaders(),
+          body: JSON.stringify({ p_publisher_id: pubId, p_amount: 10 }),
+        });
+      }
+    }
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+    return;
   }
   res.json({ ok: true });
 });

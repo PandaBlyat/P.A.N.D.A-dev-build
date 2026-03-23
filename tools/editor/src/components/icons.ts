@@ -32,7 +32,10 @@ export type IconName =
   | 'eye'
   | 'play'
   | 'restart'
-  | 'clock';
+  | 'clock'
+  | 'user'
+  | 'star'
+  | 'trophy';
 
 const BASE_ICON_ATTRS = {
   fill: 'none',
@@ -239,6 +242,27 @@ const ICONS: Record<IconName, IconDef> = {
     paths: [
       { tag: 'circle', cx: '12', cy: '12', r: '9' },
       { tag: 'path', d: 'M12 7v5l3 3' },
+    ],
+  },
+  user: {
+    paths: [
+      { tag: 'circle', cx: '12', cy: '8', r: '4' },
+      { tag: 'path', d: 'M4 20c0-4 3.6-7 8-7s8 3 8 7' },
+    ],
+  },
+  star: {
+    paths: [
+      { tag: 'path', d: 'M12 3l2.5 5.5L20 9.5l-4 4 1 5.5L12 16.5 7 19l1-5.5-4-4 5.5-1z', fill: 'currentColor', 'stroke-width': '0' },
+    ],
+  },
+  trophy: {
+    paths: [
+      { tag: 'path', d: 'M8 4h8v6a4 4 0 0 1-8 0z' },
+      { tag: 'path', d: 'M16 6h2a2 2 0 0 1 0 4h-2' },
+      { tag: 'path', d: 'M8 6H6a2 2 0 0 0 0 4h2' },
+      { tag: 'path', d: 'M12 14v3' },
+      { tag: 'path', d: 'M8 20h8' },
+      { tag: 'path', d: 'M10 17h4' },
     ],
   },
 };

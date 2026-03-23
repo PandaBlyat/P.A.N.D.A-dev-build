@@ -10,6 +10,7 @@ import { openSupportPanel } from './SupportPanel';
 import { createIcon, setButtonContent, type IconName } from './icons';
 import { clearDraft } from '../lib/draft-storage';
 import { createEmptyProject } from '../lib/xml-export';
+import { renderProfileBadge } from './ProfileBadge';
 
 type SearchResult = {
   label: string;
@@ -188,6 +189,9 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
       { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },
     ]));
 
+    const profileBadge = renderProfileBadge();
+    if (profileBadge) rightZone.appendChild(profileBadge);
+
     const visitorCounter = renderVisitorCounter();
     if (visitorCounter) rightZone.appendChild(visitorCounter);
 
@@ -321,6 +325,9 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
     { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
     { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },
   ]));
+
+  const profileBadgeCompact = renderProfileBadge();
+  if (profileBadgeCompact) utilityTier.appendChild(profileBadgeCompact);
 
   const visitorCounter = renderVisitorCounter(isMobile);
   if (visitorCounter) utilityTier.appendChild(visitorCounter);

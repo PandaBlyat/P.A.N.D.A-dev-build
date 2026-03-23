@@ -313,3 +313,212 @@ AS $$
     visitors = creator_support_metrics.visitors + 1,
     updated_at = now();
 $$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- User Profiles & Gamification (XP / Levels)
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS user_profiles (
+  publisher_id TEXT PRIMARY KEY,
+  username     TEXT NOT NULL,
+  xp           INT NOT NULL DEFAULT 0,
+  level        INT NOT NULL DEFAULT 1,
+  title        TEXT NOT NULL DEFAULT 'Rookie Stalker',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE user_profiles
+  ADD COLUMN IF NOT EXISTS xp INT,
+  ADD COLUMN IF NOT EXISTS level INT,
+  ADD COLUMN IF NOT EXISTS title TEXT,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+
+ALTER TABLE user_profiles
+  ALTER COLUMN xp SET DEFAULT 0,
+  ALTER COLUMN level SET DEFAULT 1,
+  ALTER COLUMN title SET DEFAULT 'Rookie Stalker',
+  ALTER COLUMN created_at SET DEFAULT now(),
+  ALTER COLUMN updated_at SET DEFAULT now();
+
+UPDATE user_profiles SET
+  xp = coalesce(xp, 0),
+  level = coalesce(level, 1),
+  title = coalesce(title, 'Rookie Stalker'),
+  created_at = coalesce(created_at, now()),
+  updated_at = coalesce(updated_at, created_at, now());
+
+ALTER TABLE user_profiles
+  ALTER COLUMN xp SET NOT NULL,
+  ALTER COLUMN level SET NOT NULL,
+  ALTER COLUMN title SET NOT NULL,
+  ALTER COLUMN created_at SET NOT NULL,
+  ALTER COLUMN updated_at SET NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_profiles_username ON user_profiles (lower(username));
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'trg_user_profiles_updated_at'
+  ) THEN
+    CREATE TRIGGER trg_user_profiles_updated_at
+    BEFORE UPDATE ON user_profiles
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at_timestamp();
+  END IF;
+END;
+$$;
+
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'user_profiles' AND policyname = 'Public profile read'
+  ) THEN
+    CREATE POLICY "Public profile read"
+      ON user_profiles FOR SELECT USING (true);
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'user_profiles' AND policyname = 'Public profile insert'
+  ) THEN
+    CREATE POLICY "Public profile insert"
+      ON user_profiles FOR INSERT WITH CHECK (true);
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'user_profiles' AND policyname = 'Public profile update'
+  ) THEN
+    CREATE POLICY "Public profile update"
+      ON user_profiles FOR UPDATE USING (true) WITH CHECK (true);
+  END IF;
+END;
+$$;
+
+-- Level thresholds: { level: xpRequired, title }
+-- 1:0 Rookie Stalker, 2:50 Novice Scribe, 3:150 Zone Correspondent,
+-- 4:350 Seasoned Storyteller, 5:600 Veteran Narrator, 6:1000 Master Archivist,
+-- 7:1500 Zone Legend, 8:2500 Monolith Wordsmith, 9:4000 Wish Granter,
+-- 10:6000 Emissary of the Noosphere
+
+CREATE OR REPLACE FUNCTION compute_level_and_title(total_xp INT)
+RETURNS TABLE(new_level INT, new_title TEXT)
+LANGUAGE sql IMMUTABLE
+AS $$
+  SELECT
+    CASE
+      WHEN total_xp >= 6000 THEN 10
+      WHEN total_xp >= 4000 THEN 9
+      WHEN total_xp >= 2500 THEN 8
+      WHEN total_xp >= 1500 THEN 7
+      WHEN total_xp >= 1000 THEN 6
+      WHEN total_xp >= 600  THEN 5
+      WHEN total_xp >= 350  THEN 4
+      WHEN total_xp >= 150  THEN 3
+      WHEN total_xp >= 50   THEN 2
+      ELSE 1
+    END,
+    CASE
+      WHEN total_xp >= 6000 THEN 'Emissary of the Noosphere'
+      WHEN total_xp >= 4000 THEN 'Wish Granter'
+      WHEN total_xp >= 2500 THEN 'Monolith Wordsmith'
+      WHEN total_xp >= 1500 THEN 'Zone Legend'
+      WHEN total_xp >= 1000 THEN 'Master Archivist'
+      WHEN total_xp >= 600  THEN 'Veteran Narrator'
+      WHEN total_xp >= 350  THEN 'Seasoned Storyteller'
+      WHEN total_xp >= 150  THEN 'Zone Correspondent'
+      WHEN total_xp >= 50   THEN 'Novice Scribe'
+      ELSE 'Rookie Stalker'
+    END;
+$$;
+
+CREATE OR REPLACE FUNCTION register_username(p_publisher_id TEXT, p_username TEXT)
+RETURNS TABLE(publisher_id TEXT, username TEXT, xp INT, level INT, title TEXT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  clean_name TEXT := btrim(p_username);
+BEGIN
+  IF length(clean_name) < 3 OR length(clean_name) > 20 THEN
+    RAISE EXCEPTION 'Username must be 3–20 characters.';
+  END IF;
+  IF clean_name !~ '^[A-Za-z0-9_\-\.]+$' THEN
+    RAISE EXCEPTION 'Username may only contain letters, numbers, underscores, hyphens, and dots.';
+  END IF;
+
+  RETURN QUERY
+  INSERT INTO user_profiles (publisher_id, username)
+  VALUES (p_publisher_id, clean_name)
+  ON CONFLICT (publisher_id)
+  DO UPDATE SET username = clean_name, updated_at = now()
+  RETURNING user_profiles.*;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_user_profile(p_publisher_id TEXT)
+RETURNS TABLE(publisher_id TEXT, username TEXT, xp INT, level INT, title TEXT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ)
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT publisher_id, username, xp, level, title, created_at, updated_at
+  FROM user_profiles
+  WHERE user_profiles.publisher_id = p_publisher_id
+  LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION award_xp(p_publisher_id TEXT, p_amount INT)
+RETURNS TABLE(publisher_id TEXT, username TEXT, xp INT, level INT, title TEXT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  new_xp INT;
+  computed RECORD;
+BEGIN
+  UPDATE user_profiles
+  SET xp = user_profiles.xp + p_amount
+  WHERE user_profiles.publisher_id = p_publisher_id
+  RETURNING user_profiles.xp INTO new_xp;
+
+  IF NOT FOUND THEN
+    RETURN;
+  END IF;
+
+  SELECT * INTO computed FROM compute_level_and_title(new_xp);
+
+  UPDATE user_profiles
+  SET level = computed.new_level, title = computed.new_title
+  WHERE user_profiles.publisher_id = p_publisher_id;
+
+  RETURN QUERY
+  SELECT up.publisher_id, up.username, up.xp, up.level, up.title, up.created_at, up.updated_at
+  FROM user_profiles up
+  WHERE up.publisher_id = p_publisher_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_leaderboard(p_limit INT DEFAULT 10)
+RETURNS TABLE(username TEXT, xp INT, level INT, title TEXT)
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT username, xp, level, title
+  FROM user_profiles
+  WHERE xp > 0
+  ORDER BY xp DESC, created_at ASC
+  LIMIT p_limit;
+$$;

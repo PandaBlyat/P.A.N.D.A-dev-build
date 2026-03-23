@@ -24,6 +24,9 @@ import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon, setButtonContent } from './icons';
 import { importConversations } from './App';
 import { downloadFile } from '../lib/project-io';
+import { showXpToast, showLevelUpToast } from './XpToast';
+import { awardXp, getPublishXp, type UserProfile } from '../lib/api-client';
+import { setProfileForBadge, invalidateLeaderboardCache } from './ProfileBadge';
 
 type SortMode = 'newest' | 'upvoted';
 type LengthFilter = 'all' | 'short' | 'long';
@@ -1035,6 +1038,25 @@ function buildPublishForm(): HTMLElement {
         },
       });
       setStatus('Published successfully. Refreshing the library with your new community entry…', 'success');
+
+      // Award XP for publishing
+      const publishXp = getPublishXp(deriveConversationComplexity(branchCount));
+      const currentProfile = (globalThis as any).__pandaUserProfile as UserProfile | null;
+      if (currentProfile) {
+        const oldLevel = currentProfile.level;
+        void awardXp(currentProfile.publisher_id, publishXp).then(updated => {
+          if (updated) {
+            (globalThis as any).__pandaUserProfile = updated;
+            setProfileForBadge(updated);
+            invalidateLeaderboardCache();
+            showXpToast(publishXp, 'Conversation published!');
+            if (updated.level > oldLevel) {
+              setTimeout(() => showLevelUpToast(updated.level, updated.title), 600);
+            }
+          }
+        });
+      }
+
       setTimeout(() => {
         form.hidden = true;
         setStatus('');
