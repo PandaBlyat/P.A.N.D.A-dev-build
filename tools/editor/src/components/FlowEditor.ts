@@ -1050,13 +1050,6 @@ function renderTurnNode(options: {
 
     // Badges
     if (choice.continueTo != null) {
-      const badge = document.createElement('span');
-      badge.className = 'choice-cont-badge';
-      badge.textContent = turnLabels.getCompactLabel(choice.continueTo);
-      badge.style.setProperty('--badge-branch-color', choiceBranchColor);
-      badge.title = `Connected to ${turnLabels.getLongLabel(choice.continueTo)}.`;
-      item.appendChild(badge);
-
       const unlinkButton = document.createElement('button');
       unlinkButton.type = 'button';
       unlinkButton.className = 'choice-unlink-btn';

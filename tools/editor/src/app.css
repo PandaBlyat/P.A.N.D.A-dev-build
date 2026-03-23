@@ -2045,16 +2045,6 @@ label {
   color: var(--text-dim);
 }
 
-.choice-cont-badge {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  padding: 1px 5px;
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--badge-branch-color, var(--branch-color, var(--accent-dim))) 25%, transparent);
-  color: var(--badge-branch-color, var(--text-bright));
-  border: 1px solid color-mix(in srgb, var(--badge-branch-color, var(--branch-color, var(--accent-dim))) 50%, transparent);
-}
-
 .choice-unlink-btn {
   flex: 0 0 auto;
   padding: 1px 6px;
