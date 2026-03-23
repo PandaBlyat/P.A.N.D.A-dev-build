@@ -136,6 +136,9 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   header.className = 'profile-popover-header';
 
   const tierColor = getLevelTierColor(profile.level);
+  const unlocked = getUnlockedAchievementIdsForProfile(profile);
+  const rareUnlocked = getRareAchievementCount(unlocked);
+  const publishStreak = profile.streaks?.publish_streak ?? (profile.publisher_id === cachedProfile?.publisher_id ? getStreakData().currentStreak : 0);
 
   const avatarCircle = document.createElement('div');
   avatarCircle.className = 'profile-popover-avatar-circle';
@@ -151,6 +154,9 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   avatarLevelBadge.style.background = tierColor;
 
   avatarCircle.append(avatarInitial, avatarLevelBadge);
+
+  const identity = document.createElement('div');
+  identity.className = 'profile-popover-identity';
 
   const info = document.createElement('div');
   info.className = 'profile-popover-info';
@@ -176,8 +182,35 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
 
   metaRow.append(levelPill, memberPill);
   info.append(nameEl, titleEl, metaRow);
-  header.append(avatarCircle, info);
+  identity.append(avatarCircle, info);
 
+  const highlights = document.createElement('div');
+  highlights.className = 'profile-popover-highlights';
+
+  const highlightDefs: Array<{ label: string; value: string; tone?: 'accent' | 'rare' }> = [
+    { label: 'Career XP', value: profile.xp.toLocaleString(), tone: 'accent' },
+    { label: 'Badges', value: `${unlocked.length}/${ACHIEVEMENTS.length}` },
+    { label: 'Rare', value: `${rareUnlocked}`, tone: rareUnlocked > 0 ? 'rare' : undefined },
+    { label: 'Streak', value: `${publishStreak}w` },
+  ];
+
+  highlightDefs.forEach((item) => {
+    const card = document.createElement('div');
+    card.className = `profile-popover-highlight${item.tone ? ` profile-popover-highlight-${item.tone}` : ''}`;
+
+    const value = document.createElement('span');
+    value.className = 'profile-popover-highlight-value';
+    value.textContent = item.value;
+
+    const label = document.createElement('span');
+    label.className = 'profile-popover-highlight-label';
+    label.textContent = item.label;
+
+    card.append(value, label);
+    highlights.appendChild(card);
+  });
+
+  header.append(identity, highlights);
   return header;
 }
 
@@ -507,9 +540,17 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
     categoryTitle.title = ACHIEVEMENT_CATEGORY_LABELS[category];
     categoryTitle.setAttribute('aria-label', ACHIEVEMENT_CATEGORY_LABELS[category]);
 
+    const categoryIconWrap = document.createElement('span');
+    categoryIconWrap.className = 'profile-achievement-category-icon-wrap';
     const categoryIcon = createIcon(ACHIEVEMENT_CATEGORY_ICONS[category]);
     categoryIcon.classList.add('profile-achievement-category-icon');
-    categoryTitle.appendChild(categoryIcon);
+    categoryIconWrap.appendChild(categoryIcon);
+
+    const categoryText = document.createElement('span');
+    categoryText.className = 'profile-achievement-category-text';
+    categoryText.textContent = ACHIEVEMENT_CATEGORY_LABELS[category];
+
+    categoryTitle.append(categoryIconWrap, categoryText);
 
     const categoryCount = document.createElement('div');
     categoryCount.className = 'profile-achievement-category-count';
@@ -531,17 +572,21 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
           ? 'Hidden achievement — keep exploring the Zone.'
           : `${achievement.name} — ${achievement.description}`;
 
+      const iconPanel = document.createElement('span');
+      iconPanel.className = 'profile-achievement-icon-panel';
+
       const emoji = document.createElement('span');
       emoji.className = 'profile-achievement-emoji';
       emoji.textContent = isUnlocked ? achievement.icon : (isHiddenLocked ? '\u{2753}' : '\u{1F512}');
       emoji.setAttribute('aria-hidden', 'true');
+      iconPanel.appendChild(emoji);
 
       cell.setAttribute('aria-label', isUnlocked || !achievement.hidden ? achievement.name : 'Surprise achievement');
 
       const tierDot = document.createElement('span');
       tierDot.className = `profile-achievement-tier profile-achievement-tier-${achievement.tier}`;
 
-      cell.append(emoji, tierDot);
+      cell.append(iconPanel, tierDot);
       grid.appendChild(cell);
     });
 
