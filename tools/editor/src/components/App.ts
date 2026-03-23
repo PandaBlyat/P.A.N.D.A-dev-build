@@ -373,7 +373,10 @@ function renderRightPanel(shell: AppShell, firstRun = false): void {
 function renderBottomRegion(shell: AppShell, firstRun = false): void {
   shell.bottomRegion.hidden = firstRun;
   shell.bottomRegion.dataset.layoutMode = layoutState.responsiveMode;
-  shell.workspaceRegion.replaceChildren();
+  if (firstRun) {
+    shell.workspaceRegion.replaceChildren();
+    return;
+  }
   renderBottomWorkspaceContent(shell.workspaceRegion);
 }
 
