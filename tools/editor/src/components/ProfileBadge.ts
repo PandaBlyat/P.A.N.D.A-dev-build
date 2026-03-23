@@ -22,10 +22,10 @@ let leaderboardCache: LeaderboardEntry[] | null = null;
 let publishCountCache: number | null = null;
 
 function getLevelTierColor(level: number): string {
-  if (level >= 10) return '#c4a040'; // gold — Emissary
-  if (level >= 7)  return '#8a5eaa'; // purple — Legend
-  if (level >= 4)  return '#3aaa8a'; // teal — Seasoned
-  return '#5eaa3a';                   // green — Rookie
+  if (level >= 91) return '#c4a040'; // gold — Monolith / Tier IV apex
+  if (level >= 71) return '#8a5eaa'; // purple — Duty & Freedom / Tier III
+  if (level >= 51) return '#3aaa8a'; // teal — Clear Sky & Ecologists / Tier II
+  return '#5eaa3a';                  // green — early Zone factions / Tier I
 }
 
 function getUserInitial(username: string): string {

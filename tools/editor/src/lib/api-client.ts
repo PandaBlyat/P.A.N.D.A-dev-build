@@ -551,18 +551,49 @@ export const XP_UPVOTE_RECEIVED = 10;
 
 export type LevelThreshold = { level: number; xp: number; title: string };
 
-export const LEVEL_THRESHOLDS: LevelThreshold[] = [
-  { level: 1, xp: 0, title: 'Rookie Stalker' },
-  { level: 2, xp: 50, title: 'Novice Scribe' },
-  { level: 3, xp: 150, title: 'Zone Correspondent' },
-  { level: 4, xp: 350, title: 'Seasoned Storyteller' },
-  { level: 5, xp: 600, title: 'Veteran Narrator' },
-  { level: 6, xp: 1000, title: 'Master Archivist' },
-  { level: 7, xp: 1500, title: 'Zone Legend' },
-  { level: 8, xp: 2500, title: 'Monolith Wordsmith' },
-  { level: 9, xp: 4000, title: 'Wish Granter' },
-  { level: 10, xp: 6000, title: 'Emissary of the Noosphere' },
-];
+const LEVEL_RANKS = [
+  'Novice',
+  'Scavenger',
+  'Drifter',
+  'Tracker',
+  'Hunter',
+  'Skirmisher',
+  'Veteran',
+  'Elite',
+  'Master',
+  'Legend',
+] as const;
+
+const LEVEL_FACTIONS = [
+  'Zombified',
+  'Renegade',
+  'Bandit',
+  'Loner',
+  'Sin',
+  'Clear Sky',
+  'Ecologist',
+  'Duty',
+  'Freedom',
+  'Monolith',
+] as const;
+
+export const LEVEL_THRESHOLDS: LevelThreshold[] = (() => {
+  let xp = 0;
+
+  return LEVEL_FACTIONS.flatMap((faction, factionIndex) =>
+    LEVEL_RANKS.map((rank, rankIndex) => {
+      const level = factionIndex * LEVEL_RANKS.length + rankIndex + 1;
+      const threshold: LevelThreshold = {
+        level,
+        xp,
+        title: `${faction} ${rank}`,
+      };
+
+      xp += 100 + factionIndex * 75 + rankIndex * 30;
+      return threshold;
+    }),
+  );
+})();
 
 export function getNextLevelThreshold(currentXp: number): LevelThreshold | null {
   for (const t of LEVEL_THRESHOLDS) {
