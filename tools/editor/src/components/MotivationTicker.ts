@@ -103,10 +103,7 @@ let tickerViewport: HTMLDivElement | null = null;
 let tickerTrack: HTMLDivElement | null = null;
 let tickerCopy: HTMLSpanElement | null = null;
 let tickerReducedMotionMediaQuery: MediaQueryList | null = null;
-let tickerAnimationFrame: number | null = null;
-let lastAnimationTimestamp: number | null = null;
-let tickerOffsetPx = 0;
-let tickerMessageWidthPx = 0;
+let tickerAnimation: Animation | null = null;
 
 let currentMessageIndex = Math.floor(Math.random() * narratorMessages.length);
 let renderedMessageIndex: number | null = null;
@@ -164,7 +161,6 @@ function getTickerRoot(): HTMLElement {
 
 function updateTickerMessage(messageIndex = currentMessageIndex): void {
   applyTickerMessage(messageIndex);
-  resetTickerPosition();
   startTickerAnimation();
 }
 
@@ -178,7 +174,6 @@ function observeReducedMotionPreference(): void {
 }
 
 function handleReducedMotionChange(): void {
-  resetTickerPosition();
   startTickerAnimation();
 }
 
@@ -192,69 +187,52 @@ function applyTickerMessage(messageIndex: number): void {
   currentMessageIndex = messageIndex;
 }
 
-function resetTickerPosition(): void {
-  if (!tickerTrack || !tickerViewport || !tickerCopy) {
-    return;
-  }
-
-  tickerMessageWidthPx = tickerCopy.getBoundingClientRect().width;
-  tickerOffsetPx = prefersReducedMotion() ? 0 : tickerViewport.clientWidth;
-  tickerTrack.style.transform = `translate3d(${tickerOffsetPx}px, 0, 0)`;
-}
-
 function startTickerAnimation(): void {
   stopTickerAnimation();
 
-  if (!tickerTrack || prefersReducedMotion()) {
+  if (!tickerTrack || !tickerViewport || !tickerCopy || prefersReducedMotion()) {
     if (tickerTrack) {
       tickerTrack.style.transform = 'translate3d(0, 0, 0)';
     }
     return;
   }
 
-  if (tickerMessageWidthPx <= 0) {
-    resetTickerPosition();
-  }
+  const messageWidthPx = tickerCopy.getBoundingClientRect().width;
+  const viewportWidthPx = tickerViewport.clientWidth;
 
-  if (tickerMessageWidthPx <= 0) {
+  if (messageWidthPx <= 0 || viewportWidthPx <= 0) {
     return;
   }
 
-  const tick = (timestamp: number): void => {
-    if (!tickerTrack) {
-      tickerAnimationFrame = null;
-      return;
-    }
+  const totalDistancePx = viewportWidthPx + messageWidthPx + TICKER_RESTART_GAP_PX;
+  const durationMs = (totalDistancePx / TICKER_SCROLL_SPEED_PX_PER_SECOND) * 1000;
 
-    if (lastAnimationTimestamp == null) {
-      lastAnimationTimestamp = timestamp;
-    }
+  const startX = viewportWidthPx;
+  const endX = -(messageWidthPx + TICKER_RESTART_GAP_PX);
 
-    const elapsedMs = timestamp - lastAnimationTimestamp;
-    lastAnimationTimestamp = timestamp;
-    tickerOffsetPx -= (TICKER_SCROLL_SPEED_PX_PER_SECOND * elapsedMs) / 1000;
+  tickerAnimation = tickerTrack.animate(
+    [
+      { transform: `translate3d(${startX}px, 0, 0)` },
+      { transform: `translate3d(${endX}px, 0, 0)` },
+    ],
+    { duration: durationMs, easing: 'linear', fill: 'forwards' },
+  );
 
-    if (tickerOffsetPx + tickerMessageWidthPx <= -TICKER_RESTART_GAP_PX) {
-      const nextMessageIndex = getNextRandomMessageIndex();
-      applyTickerMessage(nextMessageIndex);
-      resetTickerPosition();
-      lastAnimationTimestamp = timestamp;
-    } else {
-      tickerTrack.style.transform = `translate3d(${tickerOffsetPx}px, 0, 0)`;
-    }
-
-    tickerAnimationFrame = window.requestAnimationFrame(tick);
-  };
-
-  tickerAnimationFrame = window.requestAnimationFrame(tick);
+  tickerAnimation.finished.then(() => {
+    if (!tickerTrack) return;
+    const nextMessageIndex = getNextRandomMessageIndex();
+    applyTickerMessage(nextMessageIndex);
+    startTickerAnimation();
+  }).catch(() => {
+    // Animation was cancelled — nothing to do.
+  });
 }
 
 function stopTickerAnimation(): void {
-  if (tickerAnimationFrame != null) {
-    window.cancelAnimationFrame(tickerAnimationFrame);
-    tickerAnimationFrame = null;
+  if (tickerAnimation) {
+    tickerAnimation.cancel();
+    tickerAnimation = null;
   }
-  lastAnimationTimestamp = null;
 }
 
 function prefersReducedMotion(): boolean {
@@ -267,7 +245,7 @@ function ensureTickerAnimation(): void {
     return;
   }
 
-  if (tickerAnimationFrame == null) {
+  if (!tickerAnimation || tickerAnimation.playState === 'finished') {
     startTickerAnimation();
   }
 }
