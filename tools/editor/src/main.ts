@@ -27,8 +27,10 @@ import {
   fetchUserProfile,
   getStoredUsername,
   clearStoredUsername,
-  awardXp,
+  awardXpCapped,
+  updateUserStreak,
   type UserProfile,
+  type UserStreakState,
 } from './lib/api-client';
 import { setProfileForBadge } from './components/ProfileBadge';
 import { openUsernameModal, isUsernameModalOpen } from './components/UsernameModal';
@@ -83,26 +85,51 @@ function refreshToolbarProfile(): void {
 const publisherId = getPublisherId();
 const storedUsername = getStoredUsername();
 
-function handleProfileRegistered(profile: UserProfile): void {
+function setCurrentProfile(profile: UserProfile | null): void {
   (globalThis as any).__pandaUserProfile = profile;
   refreshToolbarProfile();
+}
 
-  // Record daily login and award streak XP
+function buildSyncedStreakPayload(profile: UserProfile, loginResult: ReturnType<typeof recordDailyLogin>): UserStreakState {
+  return {
+    publish_streak: profile.streaks?.publish_streak ?? 0,
+    longest_streak: profile.streaks?.longest_streak ?? 0,
+    last_publish_week: profile.streaks?.last_publish_week ?? '',
+    login_streak: loginResult.loginStreakData.currentStreak,
+    last_login_date: loginResult.loginStreakData.lastLoginDate,
+  };
+}
+
+function handleProfileRegistered(profile: UserProfile): void {
+  setCurrentProfile(profile);
+
   const loginResult = recordDailyLogin();
-  if (loginResult.isNew && loginResult.xp > 0) {
-    void awardXp(profile.publisher_id, loginResult.xp).then(updated => {
-      if (updated) {
-        (globalThis as any).__pandaUserProfile = updated;
-        refreshToolbarProfile();
-        showXpToast(loginResult.xp, `Daily login (${loginResult.streak}-day streak)`);
-        if (loginResult.streak >= 7 && loginResult.streak % 7 === 0) {
-          setTimeout(() => {
-            showGamificationToast('\u{1F525}', `${loginResult.streak}-Day Login Streak!`, 'Keep opening the editor daily!');
-          }, 800);
-        }
+  if (!loginResult.isNew) return;
+
+  void (async () => {
+    try {
+      await updateUserStreak(profile.publisher_id, buildSyncedStreakPayload(profile, loginResult));
+      if (loginResult.xp > 0) {
+        await awardXpCapped(profile.publisher_id, loginResult.xp);
       }
-    });
-  }
+
+      const refreshed = await fetchUserProfile(profile.publisher_id);
+      if (refreshed) {
+        setCurrentProfile(refreshed);
+      }
+
+      if (loginResult.xp > 0) {
+        showXpToast(loginResult.xp, `Daily login (${loginResult.streak}-day streak)`);
+      }
+      if (loginResult.streak >= 7 && loginResult.streak % 7 === 0) {
+        setTimeout(() => {
+          showGamificationToast('\u{1F525}', `${loginResult.streak}-Day Login Streak!`, 'Keep opening the editor daily!');
+        }, 800);
+      }
+    } catch {
+      // Keep the cached local streak as a fallback if sync fails.
+    }
+  })();
 }
 
 function openLoginModal(): void {
@@ -123,8 +150,7 @@ if (storedUsername) {
       return;
     }
     clearStoredUsername();
-    (globalThis as any).__pandaUserProfile = null;
-    refreshToolbarProfile();
+    setCurrentProfile(null);
   });
 } else {
   // First visit — show username modal after a short delay so the app settles

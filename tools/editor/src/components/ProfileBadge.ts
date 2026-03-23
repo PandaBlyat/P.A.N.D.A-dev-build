@@ -21,6 +21,7 @@ import {
   getLoginStreak,
   getTodayChallenge,
   isDailyChallengeCompleted,
+  setSyncedGamificationState,
   type Achievement,
 } from '../lib/gamification';
 import { createIcon } from './icons';
@@ -43,6 +44,10 @@ function getUserInitial(username: string): string {
 
 export function setProfileForBadge(profile: UserProfile | null): void {
   cachedProfile = profile;
+  setSyncedGamificationState(profile ? {
+    achievements: profile.achievements ?? [],
+    streaks: profile.streaks ?? null,
+  } : null);
   publishCountCache = null; // invalidate on profile update
 }
 
@@ -353,7 +358,7 @@ function buildAchievementsSection(): HTMLElement {
   header.className = 'profile-popover-section-header';
   const medalIcon = createIcon('medal');
   const title = document.createElement('span');
-  const unlocked = getUnlockedAchievements();
+  const unlocked = cachedProfile?.achievements ?? getUnlockedAchievements();
   title.textContent = `Achievements (${unlocked.length}/${ACHIEVEMENTS.length})`;
   header.append(medalIcon, title);
 
@@ -388,8 +393,21 @@ function buildStreakChallengeSection(): HTMLElement {
   section.className = 'profile-popover-streak-challenge';
 
   // Publish streak
-  const streak = getStreakData();
-  const loginStreak = getLoginStreak();
+  const streak = cachedProfile?.streaks
+    ? {
+        currentStreak: cachedProfile.streaks.publish_streak,
+        longestStreak: cachedProfile.streaks.longest_streak,
+        lastPublishWeek: cachedProfile.streaks.last_publish_week,
+        shieldAvailable: getStreakData().shieldAvailable,
+        shieldMonth: getStreakData().shieldMonth,
+      }
+    : getStreakData();
+  const loginStreak = cachedProfile?.streaks
+    ? {
+        currentStreak: cachedProfile.streaks.login_streak,
+        lastLoginDate: cachedProfile.streaks.last_login_date,
+      }
+    : getLoginStreak();
 
   const streakRow = document.createElement('div');
   streakRow.className = 'profile-popover-streak-row';
