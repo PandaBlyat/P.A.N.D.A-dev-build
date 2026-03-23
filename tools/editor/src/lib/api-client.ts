@@ -42,6 +42,7 @@ export class PublishValidationError extends Error {
 }
 
 export type CommunityConversation = {
+  publisher_id?: string;
   id: string;
   faction: FactionId;
   label: string;
@@ -96,6 +97,12 @@ export type LeaderboardEntry = {
   xp: number;
   level: number;
   title: string;
+};
+
+export type PublicProfileData = {
+  profile: UserProfile;
+  publish_count: number;
+  authored_conversations: CommunityConversation[];
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string | undefined;
@@ -270,6 +277,7 @@ export function createSummaryFromConversation(conversation: Conversation): strin
 
 function normalizeConversationRow(row: Partial<CommunityConversation>): CommunityConversation {
   return {
+    publisher_id: typeof row.publisher_id === 'string' ? row.publisher_id : '',
     id: String(row.id ?? ''),
     faction: row.faction as FactionId,
     label: typeof row.label === 'string' ? row.label : '',
@@ -681,6 +689,55 @@ export async function registerUsername(publisherId: string, username: string): P
     if (!profile) throw new Error('Registration failed.');
     setStoredUsername(username);
     return profile;
+  }
+}
+
+
+export async function fetchAuthoredCommunityConversations(publisherId: string): Promise<CommunityConversation[]> {
+  try {
+    return await fetchFromApi<CommunityConversation[]>(`/api/profile/${encodeURIComponent(publisherId)}/conversations`);
+  } catch {
+    try {
+      const params = new URLSearchParams({
+        select: ['publisher_id', ...COMMUNITY_REQUIRED_COLUMNS, ...COMMUNITY_OPTIONAL_COLUMNS].join(','),
+        publisher_id: `eq.${publisherId}`,
+        order: 'created_at.desc',
+      });
+      const res = await fetch(`${sbEndpoint(TABLE)}?${params}`, { headers: sbHeaders() });
+      if (!res.ok) {
+        const errorMessage = await readErrorMessage(res);
+        if (isMissingSchemaColumnError(errorMessage, 'publisher_id')) return [];
+        if (!isCommunitySchemaMismatchError(errorMessage) && !isMissingOptionalCommunityColumnError(errorMessage)) {
+          throw new Error(errorMessage);
+        }
+
+        return [];
+      }
+
+      const rows = await res.json() as Array<Partial<CommunityConversation>>;
+      return rows.map(normalizeConversationRow);
+    } catch {
+      return [];
+    }
+  }
+}
+
+export async function fetchPublicProfileData(publisherId: string): Promise<PublicProfileData | null> {
+  try {
+    return await fetchFromApi<PublicProfileData | null>(`/api/profile/${encodeURIComponent(publisherId)}/public`);
+  } catch {
+    const [profile, publishCount, authoredConversations] = await Promise.all([
+      fetchUserProfile(publisherId),
+      fetchUserPublishCount(publisherId),
+      fetchAuthoredCommunityConversations(publisherId),
+    ]);
+
+    if (!profile) return null;
+    return {
+      profile,
+      publish_count: publishCount,
+      authored_conversations: authoredConversations,
+    };
   }
 }
 
