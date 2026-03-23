@@ -414,10 +414,19 @@ function buildFeaturedBadgeStrip(unlockedIds: string[]): HTMLElement | null {
   const strip = document.createElement('div');
   strip.className = 'profile-achievement-featured-strip';
 
+  const labelRow = document.createElement('div');
+  labelRow.className = 'profile-achievement-featured-label-row';
+
   const label = document.createElement('div');
   label.className = 'profile-achievement-mini-header';
   label.textContent = 'Featured badges';
-  strip.appendChild(label);
+
+  const count = document.createElement('span');
+  count.className = 'profile-achievement-featured-count';
+  count.textContent = `${featured.length} shown`;
+
+  labelRow.append(label, count);
+  strip.appendChild(labelRow);
 
   const badges = document.createElement('div');
   badges.className = 'profile-achievement-featured-badges';
@@ -456,35 +465,38 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
   header.append(medalIcon, title);
   section.appendChild(header);
 
-  const summaryRow = document.createElement('div');
-  summaryRow.className = 'profile-achievement-summary-row';
-
-  const visibleCount = document.createElement('div');
-  visibleCount.className = 'profile-achievement-summary-pill';
-  visibleCount.textContent = `${getVisibleAchievementCatalog().length} visible goals`;
-
-  const hiddenCount = document.createElement('div');
-  hiddenCount.className = 'profile-achievement-summary-pill';
-  hiddenCount.textContent = `${ACHIEVEMENTS.filter(achievement => achievement.hidden).length} surprise badge${ACHIEVEMENTS.filter(achievement => achievement.hidden).length === 1 ? '' : 's'}`;
-
-  const rareCount = document.createElement('div');
-  rareCount.className = 'profile-achievement-summary-pill profile-achievement-summary-pill-rare';
-  rareCount.textContent = `${getRareAchievementCount(unlocked)} rare unlocked`;
-
-  summaryRow.append(visibleCount, hiddenCount, rareCount);
-  section.appendChild(summaryRow);
+  const summaryLine = document.createElement('div');
+  summaryLine.className = 'profile-achievement-summary-line';
+  const visibleGoalCount = getVisibleAchievementCatalog().length;
+  const hiddenGoalCount = ACHIEVEMENTS.filter(achievement => achievement.hidden).length;
+  const rareUnlockedCount = getRareAchievementCount(unlocked);
+  summaryLine.textContent = `${unlocked.length} earned • ${rareUnlockedCount} rare • ${visibleGoalCount} visible goals • ${hiddenGoalCount} surprise badge${hiddenGoalCount === 1 ? '' : 's'}`;
+  section.appendChild(summaryLine);
 
   const featuredStrip = buildFeaturedBadgeStrip(unlocked);
   if (featuredStrip) section.appendChild(featuredStrip);
 
   const nextTargets = getNextAchievementTargets(profile, unlocked);
   if (nextTargets.length > 0) {
-    const nextSection = document.createElement('div');
+    const nextSection = document.createElement('details');
     nextSection.className = 'profile-achievement-next';
 
-    const nextHeader = document.createElement('div');
-    nextHeader.className = 'profile-achievement-mini-header';
-    nextHeader.textContent = 'Next achievable';
+    const nextHeader = document.createElement('summary');
+    nextHeader.className = 'profile-achievement-next-summary';
+
+    const nextHeaderCopy = document.createElement('div');
+    nextHeaderCopy.className = 'profile-achievement-next-summary-copy';
+
+    const nextHeaderTitle = document.createElement('span');
+    nextHeaderTitle.className = 'profile-achievement-mini-header';
+    nextHeaderTitle.textContent = 'Next goals';
+
+    const nextHeaderMeta = document.createElement('span');
+    nextHeaderMeta.className = 'profile-achievement-next-summary-meta';
+    nextHeaderMeta.textContent = `${nextTargets.length} suggested`;
+
+    nextHeaderCopy.append(nextHeaderTitle, nextHeaderMeta);
+    nextHeader.appendChild(nextHeaderCopy);
     nextSection.appendChild(nextHeader);
 
     const nextList = document.createElement('div');
@@ -529,6 +541,7 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
 
   ACHIEVEMENT_CATEGORY_ORDER.forEach((category: AchievementCategory) => {
     const categoryAchievements = getAchievementsByCategory(category);
+    const unlockedCount = categoryAchievements.filter(achievement => unlocked.includes(achievement.id)).length;
     const categorySection = document.createElement('div');
     categorySection.className = 'profile-achievement-category';
 
@@ -554,7 +567,7 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
 
     const categoryCount = document.createElement('div');
     categoryCount.className = 'profile-achievement-category-count';
-    categoryCount.textContent = `${categoryAchievements.filter(achievement => unlocked.includes(achievement.id)).length}/${categoryAchievements.length}`;
+    categoryCount.textContent = `${unlockedCount}/${categoryAchievements.length}`;
 
     categoryHeader.append(categoryTitle, categoryCount);
 
@@ -586,7 +599,11 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
       const tierDot = document.createElement('span');
       tierDot.className = `profile-achievement-tier profile-achievement-tier-${achievement.tier}`;
 
-      cell.append(iconPanel, tierDot);
+      const shortLabel = document.createElement('span');
+      shortLabel.className = 'profile-achievement-cell-label';
+      shortLabel.textContent = isUnlocked || !achievement.hidden ? achievement.name : 'Surprise';
+
+      cell.append(iconPanel, tierDot, shortLabel);
       grid.appendChild(cell);
     });
 
