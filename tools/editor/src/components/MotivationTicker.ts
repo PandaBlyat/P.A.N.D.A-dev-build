@@ -1,7 +1,5 @@
-const DEFAULT_TICKER_COOLDOWN_MS = 120000;
 const TICKER_SCROLL_SPEED_PX_PER_SECOND = 122;
-const TICKER_MIN_DURATION_MS = 12000;
-const TICKER_GAP_PX = 48;
+const TICKER_RESTART_GAP_PX = 48;
 
 export const narratorMessages = [
   'A calm voice notes that progress is still progress, even when accompanied by mild confusion and suspicious amounts of coffee.',
@@ -103,20 +101,21 @@ export const narratorMessages = [
 let tickerRoot: HTMLElement | null = null;
 let tickerViewport: HTMLDivElement | null = null;
 let tickerTrack: HTMLDivElement | null = null;
-let tickerPrimaryCopy: HTMLSpanElement | null = null;
-let tickerSecondaryCopy: HTMLSpanElement | null = null;
+let tickerCopy: HTMLSpanElement | null = null;
 let tickerReducedMotionMediaQuery: MediaQueryList | null = null;
+let tickerAnimationFrame: number | null = null;
+let lastAnimationTimestamp: number | null = null;
+let tickerOffsetPx = 0;
+let tickerMessageWidthPx = 0;
 
-// Starts on a random message instead of index 0
 let currentMessageIndex = Math.floor(Math.random() * narratorMessages.length);
 let renderedMessageIndex: number | null = null;
-let cooldownTimer: number | null = null;
 
 /**
  * Mount the ticker into its container exactly once. Safe to call again with
  * the same container — it becomes a no-op if the element is already present.
- * The ticker manages its own rotation timer independently of the app render
- * cycle; the only external influence on it is the --accent CSS variable
+ * The ticker manages its own animation lifecycle independently of the app
+ * render cycle; the only external influence on it is the --accent CSS variable
  * (faction theme colour) inherited from a parent element.
  */
 export function mountMotivationTicker(container: HTMLElement): void {
@@ -124,7 +123,7 @@ export function mountMotivationTicker(container: HTMLElement): void {
   if (!container.contains(root)) {
     container.appendChild(root);
   }
-  ensureTickerTimer();
+  ensureTickerAnimation();
 }
 
 function getTickerRoot(): HTMLElement {
@@ -148,38 +147,23 @@ function getTickerRoot(): HTMLElement {
   const track = document.createElement('div');
   track.className = 'motivation-ticker-track';
 
-  const primaryCopy = document.createElement('span');
-  primaryCopy.className = 'motivation-ticker-copy';
+  const copy = document.createElement('span');
+  copy.className = 'motivation-ticker-copy';
 
-  const secondaryCopy = document.createElement('span');
-  secondaryCopy.className = 'motivation-ticker-copy';
-  secondaryCopy.setAttribute('aria-hidden', 'true');
-
-  track.append(primaryCopy, secondaryCopy);
+  track.appendChild(copy);
   viewport.appendChild(track);
   root.append(viewport, label);
 
   tickerRoot = root;
   tickerViewport = viewport;
   tickerTrack = track;
-  tickerPrimaryCopy = primaryCopy;
-  tickerSecondaryCopy = secondaryCopy;
+  tickerCopy = copy;
   observeReducedMotionPreference();
   return root;
 }
 
-function updateTickerMessage(): void {
-  applyTickerMessage(currentMessageIndex);
-  startTickerAnimation();
-}
-
-function updateTickerMessage(): void {
-  if (!tickerTrack) {
-    return;
-  }
-
-  tickerTrack.textContent = narratorMessages[currentMessageIndex];
-  renderedMessageIndex = currentMessageIndex;
+function updateTickerMessage(messageIndex = currentMessageIndex): void {
+  applyTickerMessage(messageIndex);
   resetTickerPosition();
   startTickerAnimation();
 }
@@ -194,90 +178,98 @@ function observeReducedMotionPreference(): void {
 }
 
 function handleReducedMotionChange(): void {
+  resetTickerPosition();
   startTickerAnimation();
 }
 
 function applyTickerMessage(messageIndex: number): void {
-  const message = narratorMessages[messageIndex];
-  if (!tickerPrimaryCopy || !tickerSecondaryCopy) {
+  if (!tickerCopy) {
     return;
   }
 
-  tickerPrimaryCopy.textContent = message;
-  tickerSecondaryCopy.textContent = message;
+  tickerCopy.textContent = narratorMessages[messageIndex];
   renderedMessageIndex = messageIndex;
   currentMessageIndex = messageIndex;
 }
 
+function resetTickerPosition(): void {
+  if (!tickerTrack || !tickerViewport || !tickerCopy) {
+    return;
+  }
+
+  tickerMessageWidthPx = tickerCopy.getBoundingClientRect().width;
+  tickerOffsetPx = prefersReducedMotion() ? 0 : tickerViewport.clientWidth;
+  tickerTrack.style.transform = `translate3d(${tickerOffsetPx}px, 0, 0)`;
+}
+
 function startTickerAnimation(): void {
-  if (!tickerTrack || !tickerPrimaryCopy) {
+  stopTickerAnimation();
+
+  if (!tickerTrack || prefersReducedMotion()) {
+    if (tickerTrack) {
+      tickerTrack.style.transform = 'translate3d(0, 0, 0)';
+    }
     return;
   }
 
-  tickerTrack.classList.remove('is-animated');
-  tickerTrack.style.removeProperty('--ticker-duration');
-  tickerTrack.style.removeProperty('--ticker-distance');
+  if (tickerMessageWidthPx <= 0) {
+    resetTickerPosition();
+  }
 
-  if (prefersReducedMotion()) {
-    tickerTrack.style.transform = 'translate3d(0, 0, 0)';
+  if (tickerMessageWidthPx <= 0) {
     return;
   }
 
-  const messageWidth = tickerPrimaryCopy.getBoundingClientRect().width;
-  if (messageWidth <= 0) {
-    tickerTrack.style.transform = 'translate3d(0, 0, 0)';
-    return;
+  const tick = (timestamp: number): void => {
+    if (!tickerTrack) {
+      tickerAnimationFrame = null;
+      return;
+    }
+
+    if (lastAnimationTimestamp == null) {
+      lastAnimationTimestamp = timestamp;
+    }
+
+    const elapsedMs = timestamp - lastAnimationTimestamp;
+    lastAnimationTimestamp = timestamp;
+    tickerOffsetPx -= (TICKER_SCROLL_SPEED_PX_PER_SECOND * elapsedMs) / 1000;
+
+    if (tickerOffsetPx + tickerMessageWidthPx <= -TICKER_RESTART_GAP_PX) {
+      const nextMessageIndex = getNextRandomMessageIndex();
+      applyTickerMessage(nextMessageIndex);
+      resetTickerPosition();
+      lastAnimationTimestamp = timestamp;
+    } else {
+      tickerTrack.style.transform = `translate3d(${tickerOffsetPx}px, 0, 0)`;
+    }
+
+    tickerAnimationFrame = window.requestAnimationFrame(tick);
+  };
+
+  tickerAnimationFrame = window.requestAnimationFrame(tick);
+}
+
+function stopTickerAnimation(): void {
+  if (tickerAnimationFrame != null) {
+    window.cancelAnimationFrame(tickerAnimationFrame);
+    tickerAnimationFrame = null;
   }
-
-  const distance = Math.max(1, Math.round(messageWidth + TICKER_GAP_PX));
-  const durationMs = Math.max(
-    TICKER_MIN_DURATION_MS,
-    Math.round((distance / TICKER_SCROLL_SPEED_PX_PER_SECOND) * 1000)
-  );
-
-  tickerTrack.style.setProperty('--ticker-distance', `${distance}px`);
-  tickerTrack.style.setProperty('--ticker-duration', `${durationMs}ms`);
-  tickerTrack.style.transform = 'translate3d(0, 0, 0)';
-
-  void tickerTrack.offsetWidth;
-  tickerTrack.classList.add('is-animated');
+  lastAnimationTimestamp = null;
 }
 
 function prefersReducedMotion(): boolean {
   return tickerReducedMotionMediaQuery?.matches ?? false;
 }
 
-function ensureTickerTimer(): void {
-  if (narratorMessages.length <= 1) {
-    return;
-  }
-
+function ensureTickerAnimation(): void {
   if (renderedMessageIndex == null) {
-    updateTickerMessage();
-  }
-
-  if (cooldownTimer == null) {
-    scheduleNextTickerMessage();
-  }
-}
-
-function scheduleNextTickerMessage(): void {
-  clearTickerCooldown();
-  cooldownTimer = window.setTimeout(() => {
-    cooldownTimer = null;
-    currentMessageIndex = getNextRandomMessageIndex();
-    updateTickerMessage();
-    scheduleNextTickerMessage();
-  }, DEFAULT_TICKER_COOLDOWN_MS);
-}
-
-function clearTickerCooldown(): void {
-  if (cooldownTimer == null) {
+    updateTickerMessage(currentMessageIndex);
     return;
   }
 
-  window.clearTimeout(cooldownTimer);
-  cooldownTimer = null;
+  if (tickerAnimationFrame == null) {
+    startTickerAnimation();
+  }
 }
 
 function getNextRandomMessageIndex(): number {
