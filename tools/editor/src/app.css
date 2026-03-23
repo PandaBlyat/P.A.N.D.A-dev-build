@@ -6955,20 +6955,21 @@ strong.support-upvote-count {
 
 .profile-popover-header {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 10px;
   min-width: 0;
 }
 
 .profile-popover-identity {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
 }
 
 .profile-popover-avatar-circle {
-  width: 60px;
-  height: 60px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: linear-gradient(135deg,
     var(--tier-color, #5eaa3a),
@@ -6981,11 +6982,11 @@ strong.support-upvote-count {
   box-shadow:
     0 0 0 2px var(--bg-panel, #161c22),
     0 0 0 3px var(--tier-color, #5eaa3a),
-    0 0 16px color-mix(in srgb, var(--tier-color, #5eaa3a) 35%, transparent);
+    0 0 14px color-mix(in srgb, var(--tier-color, #5eaa3a) 30%, transparent);
 }
 
 .profile-popover-avatar-initial {
-  font-size: 1.4rem;
+  font-size: 1.25rem;
   font-weight: 800;
   color: rgba(0,0,0,0.75);
   line-height: 1;
@@ -6996,11 +6997,12 @@ strong.support-upvote-count {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
+  flex: 1;
 }
 
 .profile-popover-name {
-  font-size: 1.18rem;
+  font-size: 1.08rem;
   font-weight: 800;
   color: var(--fg, #eee);
   overflow: hidden;
@@ -7010,7 +7012,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-title {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: color-mix(in srgb, var(--accent, #f59e0b) 84%, white 16%);
   font-weight: 600;
 }
@@ -7018,7 +7020,7 @@ strong.support-upvote-count {
 .profile-popover-meta-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
 }
 
 .profile-popover-meta-pill {
@@ -7029,11 +7031,9 @@ strong.support-upvote-count {
   max-width: 100%;
   padding: 4px 8px;
   border-radius: 999px;
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 1.35;
-  text-align: center;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -7048,64 +7048,58 @@ strong.support-upvote-count {
 
 /* XP Progress */
 .profile-popover-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 18%, transparent);
-  background: linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.015) 100%), color-mix(in srgb, var(--bg-panel, #161c22) 82%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px 10px;
+  min-width: 0;
 }
 
 .profile-popover-bar-header {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  align-items: baseline;
-  gap: 8px 12px;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .profile-popover-level-label {
-  flex: 0 1 auto;
-  min-width: 0;
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   font-weight: 700;
   line-height: 1.3;
   color: var(--fg, #eee);
+  white-space: nowrap;
 }
 
 .profile-popover-bar-label {
-  flex: 1 1 11rem;
-  min-width: min(100%, 11rem);
-  font-size: 0.74rem;
-  line-height: 1.35;
-  text-align: right;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  font-size: 0.68rem;
   color: var(--fg-dim, #9aa4b2);
+  min-width: 0;
+  text-align: right;
 }
 
 .profile-popover-bar-track {
   width: 100%;
-  height: 8px;
+  height: 6px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--bg, #111) 82%, black 18%);
-  border: 1px solid color-mix(in srgb, var(--border, #333) 76%, transparent);
+  background: color-mix(in srgb, var(--bg, #111) 78%, black 22%);
+  border: 1px solid color-mix(in srgb, var(--border, #333) 68%, transparent);
   overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.35);
 }
 
 .profile-popover-bar-fill {
   height: 100%;
-  border-radius: 4px;
+  border-radius: 999px;
   background: linear-gradient(90deg, var(--accent, #f59e0b), color-mix(in srgb, var(--accent, #f59e0b) 70%, #e74c3c));
   transition: width 0.4s ease;
   min-width: 2px;
 }
 
 .profile-popover-next {
-  font-size: 0.7rem;
+  font-size: 0.64rem;
   color: var(--fg-dim, #8f98a8);
+  text-align: right;
 }
 
 /* Stats Grid */
@@ -8073,64 +8067,71 @@ strong.support-upvote-count {
 .profile-achievement-category {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 10px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--bg, #111) 52%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border, #333) 60%, transparent);
+  gap: 4px;
+  padding: 6px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--border, #333) 52%, transparent);
+}
+
+.profile-achievement-category:first-of-type {
+  padding-top: 2px;
+  border-top: 0;
 }
 
 .profile-achievement-category-header {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
+  padding: 0 2px;
 }
 
 .profile-achievement-category-title {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
   color: var(--fg, #eee);
 }
 
 .profile-achievement-category-icon-wrap {
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--bg-elevated, #171d28) 88%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border, #333) 76%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  border-radius: 999px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
   flex-shrink: 0;
+  color: color-mix(in srgb, var(--accent, #f59e0b) 74%, white 26%);
 }
 
 .profile-achievement-category-text {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--fg, #eef2f7);
 }
 
 .profile-achievement-category-icon svg {
-  width: 11px;
-  height: 11px;
-  color: color-mix(in srgb, var(--accent, #f59e0b) 80%, white 20%);
+  width: 10px;
+  height: 10px;
+  color: currentColor;
 }
 
 .profile-achievement-category-count {
   flex-shrink: 0;
-  padding: 2px 6px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border, #333) 75%, transparent);
-  background: color-mix(in srgb, var(--bg-elevated, #171d28) 88%, transparent);
-  font-size: 0.62rem;
-  font-weight: 700;
-  color: var(--fg-dim, #8993a3);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--fg-dim, #8993a3) 88%, transparent);
+}
+
+.profile-achievement-category-rail {
+  margin-top: 1px;
 }
 
 .profile-popover-achievement-grid {
