@@ -1450,9 +1450,11 @@ label {
 }
 
 .conv-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: flex-start;
-  gap: 12px;
+  column-gap: 12px;
+  row-gap: 8px;
   width: 100%;
   padding: 13px 14px 13px 16px;
   border-radius: calc(var(--radius-lg) + 4px);
@@ -1464,6 +1466,7 @@ label {
   transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease;
   position: relative;
   overflow: hidden;
+  container-type: inline-size;
 }
 
 .conv-item::before {
@@ -1547,6 +1550,7 @@ label {
 }
 
 .conv-id {
+  grid-column: 1;
   flex: 0 0 auto;
   align-self: center;
   font-family: var(--font-mono);
@@ -1565,6 +1569,7 @@ label {
 }
 
 .conv-text {
+  grid-column: 2;
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
@@ -1573,6 +1578,7 @@ label {
 }
 
 .conv-controls {
+  grid-column: 3;
   display: flex;
   flex: 0 0 auto;
   align-items: flex-start;
@@ -1616,6 +1622,63 @@ label {
   flex-wrap: wrap;
   gap: 6px;
   min-width: 0;
+}
+
+@container (max-width: 360px) {
+  .conv-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .conv-controls {
+    grid-column: 1 / -1;
+    margin-left: 0;
+    padding-top: 2px;
+    padding-left: 42px;
+    width: 100%;
+  }
+
+  .conv-faction-select {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+@container (max-width: 280px) {
+  .conv-item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .conv-id,
+  .conv-text,
+  .conv-controls {
+    grid-column: 1;
+  }
+
+  .conv-id {
+    align-self: flex-start;
+    justify-self: flex-start;
+    margin-top: 0;
+  }
+
+  .conv-text {
+    gap: 6px;
+  }
+
+  .conv-controls {
+    padding-left: 0;
+  }
+
+  .conv-label,
+  .conv-meta {
+    overflow: visible;
+    text-overflow: unset;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .conv-badges {
+    gap: 4px;
+  }
 }
 
 .conv-faction-pill,
