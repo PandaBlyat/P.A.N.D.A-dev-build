@@ -460,12 +460,15 @@ BEGIN
     RAISE EXCEPTION 'Username may only contain letters, numbers, underscores, hyphens, and dots.';
   END IF;
 
-  RETURN QUERY
   INSERT INTO user_profiles (publisher_id, username)
   VALUES (p_publisher_id, clean_name)
   ON CONFLICT (publisher_id)
-  DO UPDATE SET username = clean_name, updated_at = now()
-  RETURNING user_profiles.*;
+  DO UPDATE SET username = clean_name, updated_at = now();
+
+  RETURN QUERY
+  SELECT up.publisher_id, up.username, up.xp, up.level, up.title, up.created_at, up.updated_at
+  FROM user_profiles up
+  WHERE up.publisher_id = p_publisher_id;
 END;
 $$;
 
@@ -474,9 +477,9 @@ RETURNS TABLE(publisher_id TEXT, username TEXT, xp INT, level INT, title TEXT, c
 LANGUAGE sql
 SECURITY DEFINER
 AS $$
-  SELECT publisher_id, username, xp, level, title, created_at, updated_at
-  FROM user_profiles
-  WHERE user_profiles.publisher_id = p_publisher_id
+  SELECT up.publisher_id, up.username, up.xp, up.level, up.title, up.created_at, up.updated_at
+  FROM user_profiles up
+  WHERE up.publisher_id = p_publisher_id
   LIMIT 1;
 $$;
 
