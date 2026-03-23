@@ -136,9 +136,6 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   header.className = 'profile-popover-header';
 
   const tierColor = getLevelTierColor(profile.level);
-  const unlocked = getUnlockedAchievementIdsForProfile(profile);
-  const rareUnlocked = getRareAchievementCount(unlocked);
-  const publishStreak = profile.streaks?.publish_streak ?? (profile.publisher_id === cachedProfile?.publisher_id ? getStreakData().currentStreak : 0);
 
   const avatarCircle = document.createElement('div');
   avatarCircle.className = 'profile-popover-avatar-circle';
@@ -148,12 +145,7 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   avatarInitial.className = 'profile-popover-avatar-initial';
   avatarInitial.textContent = getUserInitial(profile.username);
 
-  const avatarLevelBadge = document.createElement('span');
-  avatarLevelBadge.className = 'profile-popover-avatar-badge';
-  avatarLevelBadge.textContent = String(profile.level);
-  avatarLevelBadge.style.background = tierColor;
-
-  avatarCircle.append(avatarInitial, avatarLevelBadge);
+  avatarCircle.appendChild(avatarInitial);
 
   const identity = document.createElement('div');
   identity.className = 'profile-popover-identity';
@@ -172,57 +164,15 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   const metaRow = document.createElement('div');
   metaRow.className = 'profile-popover-meta-row';
 
-  const levelPill = document.createElement('span');
-  levelPill.className = 'profile-popover-meta-pill';
-  levelPill.textContent = `Lv.${profile.level}`;
-
   const memberPill = document.createElement('span');
   memberPill.className = 'profile-popover-meta-pill profile-popover-meta-pill-muted';
-  memberPill.textContent = `Joined ${formatMemberSince(profile.created_at)}`;
+  memberPill.textContent = `Member since ${formatMemberSince(profile.created_at)}`;
 
-  metaRow.append(levelPill, memberPill);
+  metaRow.append(memberPill);
   info.append(nameEl, titleEl, metaRow);
   identity.append(avatarCircle, info);
 
-  const highlights = document.createElement('div');
-  highlights.className = 'profile-popover-highlights';
-
-  const highlightDefs: Array<{
-    icon: IconName;
-    label: string;
-    value: string;
-    tone?: 'accent' | 'rare';
-  }> = [
-    { icon: 'star', label: 'XP', value: profile.xp.toLocaleString(), tone: 'accent' },
-    { icon: 'medal', label: 'Badges', value: `${unlocked.length}/${ACHIEVEMENTS.length}` },
-    { icon: 'sparkle', label: 'Rare', value: `${rareUnlocked}`, tone: rareUnlocked > 0 ? 'rare' : undefined },
-    { icon: 'flame', label: 'Streak', value: `${publishStreak}w` },
-  ];
-
-  highlightDefs.forEach((item) => {
-    const card = document.createElement('div');
-    card.className = `profile-popover-highlight${item.tone ? ` profile-popover-highlight-${item.tone}` : ''}`;
-
-    const icon = createIcon(item.icon);
-    icon.classList.add('profile-popover-highlight-icon');
-
-    const content = document.createElement('span');
-    content.className = 'profile-popover-highlight-content';
-
-    const value = document.createElement('span');
-    value.className = 'profile-popover-highlight-value';
-    value.textContent = item.value;
-
-    const label = document.createElement('span');
-    label.className = 'profile-popover-highlight-label';
-    label.textContent = item.label;
-
-    content.append(value, label);
-    card.append(icon, content);
-    highlights.appendChild(card);
-  });
-
-  header.append(identity, highlights);
+  header.appendChild(identity);
   return header;
 }
 
@@ -247,9 +197,9 @@ function buildProgressSection(profile: UserProfile): HTMLElement {
   const xpNumbers = document.createElement('span');
   xpNumbers.className = 'profile-popover-bar-label';
   if (next) {
-    xpNumbers.textContent = `${profile.xp} / ${next.xp} XP`;
+    xpNumbers.textContent = `${profile.xp.toLocaleString()} / ${next.xp.toLocaleString()} XP`;
   } else {
-    xpNumbers.textContent = `${profile.xp} XP — MAX LEVEL`;
+    xpNumbers.textContent = `${profile.xp.toLocaleString()} XP — MAX LEVEL`;
   }
 
   barHeader.append(levelLabel, xpNumbers);
@@ -293,15 +243,23 @@ function buildStatCard(iconName: Parameters<typeof createIcon>[0], value: string
 }
 
 function buildStatsSection(profile: UserProfile): HTMLElement {
-  const statsSection = document.createElement('div');
+  const statsSection = document.createElement('section');
   statsSection.className = 'profile-popover-stats';
 
-  const totalXpStat = buildStatCard('star', `${profile.xp}`, 'Total XP');
-  const levelStat = buildStatCard('trophy', `${profile.level}`, 'Level');
-  const publishStat = buildStatCard('export', '...', 'Published');
-  const memberStat = buildStatCard('clock', formatMemberSince(profile.created_at), 'Member Since');
+  const header = document.createElement('div');
+  header.className = 'profile-popover-section-header';
+  const statsIcon = createIcon('database');
+  const title = document.createElement('span');
+  title.textContent = 'Supporting Stats';
+  header.append(statsIcon, title);
 
-  statsSection.append(totalXpStat, levelStat, publishStat, memberStat);
+  const statsGrid = document.createElement('div');
+  statsGrid.className = 'profile-popover-stats-grid';
+
+  const publishStat = buildStatCard('export', '...', 'Published');
+
+  statsGrid.appendChild(publishStat);
+  statsSection.append(header, statsGrid);
 
   if (profile.publisher_id === cachedProfile?.publisher_id && publishCountCache !== null) {
     const valEl = publishStat.querySelector('.profile-stat-value');
