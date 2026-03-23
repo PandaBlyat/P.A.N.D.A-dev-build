@@ -514,6 +514,10 @@ BEGIN
 END;
 $$;
 
+-- `CREATE OR REPLACE FUNCTION` cannot change a function's OUT parameter row type,
+-- so drop any legacy `get_leaderboard(integer)` definition before recreating it.
+DROP FUNCTION IF EXISTS get_leaderboard(INT);
+
 CREATE OR REPLACE FUNCTION get_leaderboard(p_limit INT DEFAULT 10)
 RETURNS TABLE(publisher_id TEXT, username TEXT, xp INT, level INT, title TEXT)
 LANGUAGE sql
