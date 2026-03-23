@@ -308,14 +308,7 @@ function renderTurnProperties(
     }, 'The first message the NPC sends when starting this conversation', getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'));
     container.appendChild(msgField);
 
-    const { wrapper: placeholderWrapper, body: placeholderBody } = createCollapsibleSection(
-      `conv-${conv.id}-turn-${turn.turnNumber}-dynamic-placeholders`,
-      'Dynamic Placeholders',
-      undefined,
-      { defaultCollapsed: true },
-    );
-    renderPlaceholderPicker(placeholderBody);
-    container.appendChild(placeholderWrapper);
+    renderPlaceholderPicker(container, `conv-${conv.id}-turn-${turn.turnNumber}-dynamic-placeholders`);
   }
 
   const { wrapper: turnActionsWrapper, body: turnActionsBody } = createCollapsibleSection(
@@ -503,14 +496,7 @@ function renderChoiceProperties(
   }, 'The NPC\'s response to this choice', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply'));
   container.appendChild(replyField);
 
-  const { wrapper: placeholderWrapper, body: placeholderBody } = createCollapsibleSection(
-    `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-dynamic-placeholders`,
-    'Dynamic Placeholders',
-    undefined,
-    { defaultCollapsed: true },
-  );
-  renderPlaceholderPicker(placeholderBody);
-  container.appendChild(placeholderWrapper);
+  renderPlaceholderPicker(container, `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-dynamic-placeholders`);
 
   const { wrapper: replyVariantsWrapper, body: replyVariantsBody } = createCollapsibleSection(
     `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-relationship-variants`,
@@ -1857,59 +1843,77 @@ function showCommandPicker(
 
 // ─── Placeholder Picker ──────────────────────────────────────────────────
 
-function renderPlaceholderPicker(container: HTMLElement): void {
-  const wrapper = document.createElement('div');
-  wrapper.style.marginBottom = '8px';
+function renderPlaceholderPicker(container: HTMLElement, collapseKey: string): void {
+  const { wrapper, body } = createCollapsibleSection(
+    collapseKey,
+    'Dynamic Placeholders',
+    undefined,
+    { defaultCollapsed: true },
+  );
 
-  const header = document.createElement('div');
-  header.style.cssText = 'font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;';
-  header.textContent = 'Dynamic Placeholders (click to copy)';
-  wrapper.appendChild(header);
+  const helperCopy = document.createElement('div');
+  helperCopy.className = 'placeholder-helper-copy';
+  helperCopy.innerHTML = 'Text placeholders resolve into readable dialogue values. Command-key placeholders resolve into engine ids for command params — use <code>%&lt;level&gt;_panda_st%</code> in text, but <code>%&lt;level&gt;_panda_st_key%</code> in smart-terrain command fields.';
+  body.appendChild(helperCopy);
 
-  const picker = document.createElement('div');
-  picker.className = 'placeholder-picker';
+  const categoryOrder = Array.from(new Set(DYNAMIC_PLACEHOLDERS.map((placeholder) => placeholder.category)));
+  for (const category of categoryOrder) {
+    const group = document.createElement('section');
+    group.className = 'placeholder-category-group';
 
-  for (const ph of DYNAMIC_PLACEHOLDERS) {
-    const btn = document.createElement('button');
-    btn.className = 'placeholder-btn';
-    btn.textContent = ph.key;
-    btn.title = ph.description + ' — drag to a text field or click to copy';
-    btn.draggable = true;
-    btn.addEventListener('dragstart', (e) => {
-      e.dataTransfer!.setData('text/plain', ph.key);
-      e.dataTransfer!.setData('application/x-panda-placeholder', ph.key);
-      e.dataTransfer!.effectAllowed = 'copy';
-      btn.classList.add('dragging');
-    });
-    btn.addEventListener('dragend', () => btn.classList.remove('dragging'));
-    btn.onclick = (e) => {
-      e.preventDefault();
-      insertOrCopyPlaceholder(container, ph.key, btn, ph.key);
-    };
-    picker.appendChild(btn);
-  }
+    const groupHeader = document.createElement('div');
+    groupHeader.className = 'placeholder-category-title';
+    groupHeader.textContent = category;
+    group.appendChild(groupHeader);
 
-  const stBtn = document.createElement('button');
-  stBtn.className = 'placeholder-btn';
-  stBtn.textContent = '%smart_terrain%';
-  stBtn.title = 'Choose a level, then a real smart terrain key or level placeholder';
-  stBtn.style.borderColor = 'var(--accent-dim)';
-  stBtn.onclick = (e) => {
-    e.preventDefault();
-    const existing = wrapper.querySelector('.smart-terrain-placeholder-card');
-    if (existing) {
-      existing.remove();
-      stBtn.classList.remove('active');
-      return;
+    const picker = document.createElement('div');
+    picker.className = 'placeholder-picker';
+
+    for (const ph of DYNAMIC_PLACEHOLDERS.filter((placeholder) => placeholder.category === category)) {
+      const btn = document.createElement('button');
+      btn.className = 'placeholder-btn';
+      btn.textContent = ph.key;
+      btn.title = ph.description + (ph.kind === 'smart_terrain_picker'
+        ? ' — choose a level-aware placeholder or exact key'
+        : ' — drag to a text field or click to copy');
+
+      if (ph.kind === 'smart_terrain_picker') {
+        btn.style.borderColor = 'var(--accent-dim)';
+        btn.onclick = (e) => {
+          e.preventDefault();
+          const existing = group.querySelector('.smart-terrain-placeholder-card');
+          if (existing) {
+            existing.remove();
+            btn.classList.remove('active');
+            return;
+          }
+
+          btn.classList.add('active');
+          const editor = createPlaceholderSmartTerrainEditor(container, btn);
+          group.appendChild(editor);
+        };
+      } else {
+        btn.draggable = true;
+        btn.addEventListener('dragstart', (e) => {
+          e.dataTransfer!.setData('text/plain', ph.key);
+          e.dataTransfer!.setData('application/x-panda-placeholder', ph.key);
+          e.dataTransfer!.effectAllowed = 'copy';
+          btn.classList.add('dragging');
+        });
+        btn.addEventListener('dragend', () => btn.classList.remove('dragging'));
+        btn.onclick = (e) => {
+          e.preventDefault();
+          insertOrCopyPlaceholder(container, ph.key, btn, ph.key);
+        };
+      }
+
+      picker.appendChild(btn);
     }
 
-    stBtn.classList.add('active');
-    const editor = createPlaceholderSmartTerrainEditor(container, stBtn);
-    wrapper.appendChild(editor);
-  };
-  picker.appendChild(stBtn);
+    group.appendChild(picker);
+    body.appendChild(group);
+  }
 
-  wrapper.appendChild(picker);
   container.appendChild(wrapper);
 }
 
