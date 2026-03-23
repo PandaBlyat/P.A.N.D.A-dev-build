@@ -526,7 +526,7 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
   ACHIEVEMENT_CATEGORY_ORDER.forEach((category: AchievementCategory) => {
     const categoryAchievements = getAchievementsByCategory(category);
     const unlockedCount = categoryAchievements.filter(achievement => unlocked.includes(achievement.id)).length;
-    const categorySection = document.createElement('div');
+    const categorySection = document.createElement('section');
     categorySection.className = 'profile-achievement-category';
 
     const categoryHeader = document.createElement('div');
@@ -549,14 +549,14 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
 
     categoryTitle.append(categoryIconWrap, categoryText);
 
-    const categoryCount = document.createElement('div');
+    const categoryCount = document.createElement('span');
     categoryCount.className = 'profile-achievement-category-count';
-    categoryCount.textContent = `${unlockedCount}/${categoryAchievements.length}`;
+    categoryCount.textContent = `${unlockedCount}/${categoryAchievements.length} unlocked`;
 
     categoryHeader.append(categoryTitle, categoryCount);
 
     const grid = document.createElement('div');
-    grid.className = 'profile-popover-achievement-grid';
+    grid.className = 'profile-popover-achievement-grid profile-achievement-category-rail';
 
     categoryAchievements.forEach((achievement) => {
       const isUnlocked = unlocked.includes(achievement.id);
