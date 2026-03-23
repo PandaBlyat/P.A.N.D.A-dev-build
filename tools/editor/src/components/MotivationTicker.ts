@@ -1,5 +1,5 @@
-const TICKER_SCROLL_SPEED_PX_PER_SECOND = 122;
-const TICKER_GAP_PX = 48;
+const MESSAGE_INTERVAL_MS = 120_000;
+const MESSAGE_VISIBLE_MS = 15_000;
 
 export const narratorMessages = [
   'A calm voice notes that progress is still progress, even when accompanied by mild confusion and suspicious amounts of coffee.',
@@ -64,14 +64,14 @@ export const narratorMessages = [
   'A quiet voice observes that deleting everything and starting again is always an option, though rarely the correct one.',
   'The structural integrity of your logic is holding, which places it comfortably above average for the known universe.',
   'Somewhere, a machine designed to solve all problems has encountered your code and decided to take a short break instead.',
-  'Your current level of focus has been upgraded to \u201csuspiciously competent,\u201d a state known to last approximately twelve minutes.',
+  'Your current level of focus has been upgraded to “suspiciously competent,” a state known to last approximately twelve minutes.',
   'The software notes that everything is behaving exactly as expected, which is to say, unpredictably.',
   'A passing satellite briefly picked up your signal and classified it as art.',
   'The Guide reassures you that confusion is merely understanding waiting for better documentation.',
   'There is a growing sense that you might actually know what you are doing. This feeling will pass.',
   'A minor fluctuation in reality suggests that your latest fix may have worked. Further observation is recommended before celebrating.',
   'The system logs indicate steady progress, interspersed with moments of existential reconsideration.',
-  'Somewhere in deep space, an ancient archive has recorded your current efforts under \u201cambitious.\u201d',
+  'Somewhere in deep space, an ancient archive has recorded your current efforts under “ambitious.”',
   'The panel displays remain calm, which is statistically unlikely given your recent decisions.',
   'A soft tone indicates that something important has happened. Identifying what it was is left as an exercise.',
   'Your workflow has achieved a delicate balance between structure and improvisation, much like most successful accidents.',
@@ -84,7 +84,7 @@ export const narratorMessages = [
   'The Guide considers your current effort to be a bold experiment in applied persistence.',
   'A brief moment of clarity has been detected. Please enjoy it before it becomes context-dependent.',
   'The system is pleased to report that nothing has catastrophically failed in the last few minutes. We shall see what happens within next few.',
-  'Somewhere, a highly advanced intelligence has reviewed your approach and described it as \u201cMeh.\u201d',
+  'Somewhere, a highly advanced intelligence has reviewed your approach and described it as “Meh.”',
   'The interface continues to cooperate, largely out of curiosity about what you will try next.',
   'A quiet notification reminds you that progress is often just failure that has been reorganized more convincingly.',
   'The Guide observes that every complex system eventually becomes a story you tell yourself to stay calm.',
@@ -100,11 +100,9 @@ export const narratorMessages = [
 
 let tickerRoot: HTMLElement | null = null;
 let tickerViewport: HTMLDivElement | null = null;
-let tickerTrack: HTMLDivElement | null = null;
-let tickerCopyA: HTMLSpanElement | null = null;
-let tickerCopyB: HTMLSpanElement | null = null;
-let tickerReducedMotionMediaQuery: MediaQueryList | null = null;
-let tickerResizeObserver: ResizeObserver | null = null;
+let tickerMessage: HTMLSpanElement | null = null;
+let messageCycleIntervalId: number | null = null;
+let messageHideTimeoutId: number | null = null;
 
 let currentMessageIndex = Math.floor(Math.random() * narratorMessages.length);
 let renderedMessageIndex: number | null = null;
@@ -112,8 +110,8 @@ let renderedMessageIndex: number | null = null;
 /**
  * Mount the ticker into its container exactly once. Safe to call again with
  * the same container — it becomes a no-op if the element is already present.
- * The ticker manages its own animation lifecycle independently of the app
- * render cycle; the only external influence on it is the --accent CSS variable
+ * The ticker manages its own display lifecycle independently of the app render
+ * cycle; the only external influence on it is the --accent CSS variable
  * (faction theme colour) inherited from a parent element.
  */
 export function mountMotivationTicker(container: HTMLElement): void {
@@ -131,7 +129,7 @@ function getTickerRoot(): HTMLElement {
 
   const root = document.createElement('section');
   root.className = 'motivation-ticker';
-  root.setAttribute('aria-label', 'Narrator ticker');
+  root.setAttribute('aria-label', 'Narrator motivation');
 
   const label = document.createElement('span');
   label.className = 'motivation-ticker-label';
@@ -142,115 +140,62 @@ function getTickerRoot(): HTMLElement {
   viewport.setAttribute('aria-live', 'polite');
   viewport.setAttribute('aria-atomic', 'true');
 
-  const track = document.createElement('div');
-  track.className = 'motivation-ticker-track';
+  const message = document.createElement('span');
+  message.className = 'motivation-ticker-message';
 
-  const copyA = document.createElement('span');
-  copyA.className = 'motivation-ticker-copy';
-
-  const copyB = document.createElement('span');
-  copyB.className = 'motivation-ticker-copy';
-
-  track.append(copyA, copyB);
-  viewport.appendChild(track);
+  viewport.appendChild(message);
   root.append(viewport, label);
 
   tickerRoot = root;
   tickerViewport = viewport;
-  tickerTrack = track;
-  tickerCopyA = copyA;
-  tickerCopyB = copyB;
+  tickerMessage = message;
 
-  observeReducedMotionPreference();
-  observeViewportResize();
-
-  track.addEventListener('animationiteration', handleAnimationIteration);
 
   return root;
 }
 
-function observeViewportResize(): void {
-  if (tickerResizeObserver || !tickerViewport) {
-    return;
+function ensureTickerRunning(): void {
+  if (renderedMessageIndex == null) {
+    showRandomMessage();
   }
-  tickerResizeObserver = new ResizeObserver(() => {
-    applyTickerDimensions();
-  });
-  tickerResizeObserver.observe(tickerViewport);
+
+  if (messageCycleIntervalId == null) {
+    messageCycleIntervalId = window.setInterval(showRandomMessage, MESSAGE_INTERVAL_MS);
+  }
 }
 
-function handleAnimationIteration(): void {
-  const nextIndex = getNextRandomMessageIndex();
+function showRandomMessage(): void {
+  const nextIndex = renderedMessageIndex == null ? currentMessageIndex : getNextRandomMessageIndex();
   applyTickerMessage(nextIndex);
-  applyTickerDimensions();
+  setTickerVisibility(true);
+  scheduleTickerHide();
 }
 
 function applyTickerMessage(messageIndex: number): void {
   const text = narratorMessages[messageIndex];
-  if (tickerCopyA) tickerCopyA.textContent = text;
-  if (tickerCopyB) tickerCopyB.textContent = text;
+  if (tickerMessage) {
+    tickerMessage.textContent = text;
+  }
   renderedMessageIndex = messageIndex;
   currentMessageIndex = messageIndex;
 }
 
-function applyTickerDimensions(): void {
-  if (!tickerTrack || !tickerViewport || !tickerCopyA || prefersReducedMotion()) {
+function scheduleTickerHide(): void {
+  if (messageHideTimeoutId != null) {
+    window.clearTimeout(messageHideTimeoutId);
+  }
+
+  messageHideTimeoutId = window.setTimeout(() => {
+    setTickerVisibility(false);
+  }, MESSAGE_VISIBLE_MS);
+}
+
+function setTickerVisibility(isVisible: boolean): void {
+  if (!tickerViewport) {
     return;
   }
 
-  const copyWidth = tickerCopyA.getBoundingClientRect().width;
-  if (copyWidth <= 0) {
-    return;
-  }
-
-  const oneSetWidth = copyWidth + TICKER_GAP_PX;
-  const durationSeconds = oneSetWidth / TICKER_SCROLL_SPEED_PX_PER_SECOND;
-
-  tickerTrack.style.setProperty('--ticker-offset', `${-oneSetWidth}px`);
-  tickerTrack.style.setProperty('--ticker-duration', `${durationSeconds}s`);
-}
-
-function startTickerAnimation(): void {
-  if (!tickerTrack) {
-    return;
-  }
-
-  if (prefersReducedMotion()) {
-    tickerTrack.style.animation = 'none';
-    tickerTrack.style.transform = 'translate3d(0, 0, 0)';
-    return;
-  }
-
-  applyTickerDimensions();
-
-  tickerTrack.style.animation = 'none';
-  // Force a reflow so the browser registers the reset before reapplying.
-  void tickerTrack.offsetWidth;
-  tickerTrack.style.animation = '';
-}
-
-function ensureTickerRunning(): void {
-  if (renderedMessageIndex == null) {
-    applyTickerMessage(currentMessageIndex);
-  }
-  startTickerAnimation();
-}
-
-function observeReducedMotionPreference(): void {
-  if (tickerReducedMotionMediaQuery || typeof window.matchMedia !== 'function') {
-    return;
-  }
-
-  tickerReducedMotionMediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-  tickerReducedMotionMediaQuery.addEventListener('change', handleReducedMotionChange);
-}
-
-function handleReducedMotionChange(): void {
-  startTickerAnimation();
-}
-
-function prefersReducedMotion(): boolean {
-  return tickerReducedMotionMediaQuery?.matches ?? false;
+  tickerViewport.dataset.visible = isVisible ? 'true' : 'false';
 }
 
 function getNextRandomMessageIndex(): number {

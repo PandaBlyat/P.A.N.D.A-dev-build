@@ -1381,49 +1381,27 @@ label {
 }
 
 .motivation-ticker-viewport {
-  position: relative;
   flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
-  contain: layout;
-}
-
-.motivation-ticker-viewport::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(90deg, rgba(10, 12, 16, 0.92) 0, rgba(10, 12, 16, 0.92) 10px, rgba(10, 12, 16, 0) 24px, rgba(10, 12, 16, 0) calc(100% - 24px), rgba(10, 12, 16, 0.92) calc(100% - 10px), rgba(10, 12, 16, 0.92) 100%);
-}
-
-@keyframes ticker-scroll {
-  from { transform: translate3d(0, 0, 0); }
-  to   { transform: translate3d(var(--ticker-offset), 0, 0); }
-}
-
-.motivation-ticker-track {
-  display: flex;
-  gap: 48px;
-  width: max-content;
-  max-width: none;
-  white-space: nowrap;
   color: var(--accent);
-  text-shadow: none;
-  backface-visibility: hidden;
-  will-change: transform;
-  animation: ticker-scroll var(--ticker-duration, 10s) linear infinite;
+  opacity: 0;
+  transition: opacity 480ms ease;
 }
 
-.motivation-ticker-copy {
-  display: inline-block;
-  flex: 0 0 auto;
+.motivation-ticker-viewport[data-visible="true"] {
+  opacity: 1;
+}
+
+.motivation-ticker-message {
+  display: block;
+  min-width: 0;
+  line-height: 1.4;
+  color: var(--accent);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .motivation-ticker-track {
-    animation: none;
-    transform: none;
-    white-space: normal;
+  .motivation-ticker-viewport {
+    transition: none;
   }
 }
 
