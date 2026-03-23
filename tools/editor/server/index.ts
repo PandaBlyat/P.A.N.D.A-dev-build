@@ -12,6 +12,7 @@ const TABLE = 'community_conversations';
 const SUPPORT_TABLE = 'creator_support_metrics';
 const PROFILES_TABLE = 'user_profiles';
 const STREAKS_TABLE = 'user_streaks';
+const MISSIONS_TABLE = 'user_mission_progress';
 const SUPPORT_ROW_ID = 'global';
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
 const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'upvotes', 'updated_at'] as const;
@@ -42,6 +43,34 @@ type LeaderboardEntry = {
   xp: number;
   level: number;
   title: string;
+};
+
+type MissionSlot = 'daily_easy' | 'daily_medium' | 'daily_hard' | 'weekly';
+type MissionCadence = 'daily' | 'weekly';
+type MissionCategory = 'publishing' | 'faction' | 'outcomes' | 'preconditions' | 'community';
+type MissionEventType = 'upvote_received' | 'download_milestone_reached';
+
+type UserMissionProgressRecord = {
+  mission_id: string;
+  mission_slot: MissionSlot;
+  cadence: MissionCadence;
+  category: MissionCategory;
+  progress: number;
+  goal: number;
+  period_key: string;
+  completed_at: string | null;
+  meta?: Record<string, unknown> | null;
+  updated_at?: string;
+};
+
+type MissionDefinition = {
+  id: string;
+  slot: MissionSlot;
+  cadence: MissionCadence;
+  category: MissionCategory;
+  goal: number;
+  xp: number;
+  evaluateProgress: (event: { type: MissionEventType; total: number }, state: UserMissionProgressRecord) => number;
 };
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -132,6 +161,154 @@ function normalizeUserStreak(row: Record<string, unknown> | null | undefined): U
   };
 }
 
+function getTodayDateString(date = new Date()): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function getIsoWeek(date: Date): string {
+  const d = new Date(date.getTime());
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const week1 = new Date(d.getFullYear(), 0, 4);
+  const weekNum = 1 + Math.round(((d.getTime() - week1.getTime()) / 86_400_000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+  return `${d.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+}
+
+function normalizeMissionRow(row: Record<string, unknown>): UserMissionProgressRecord {
+  return {
+    mission_id: typeof row.mission_id === 'string' ? row.mission_id : '',
+    mission_slot: (typeof row.mission_slot === 'string' ? row.mission_slot : 'daily_easy') as MissionSlot,
+    cadence: (typeof row.cadence === 'string' ? row.cadence : 'daily') as MissionCadence,
+    category: (typeof row.category === 'string' ? row.category : 'community') as MissionCategory,
+    progress: typeof row.progress === 'number' ? row.progress : 0,
+    goal: typeof row.goal === 'number' ? row.goal : 1,
+    period_key: typeof row.period_key === 'string' ? row.period_key : '',
+    completed_at: typeof row.completed_at === 'string' ? row.completed_at : null,
+    meta: row.meta && typeof row.meta === 'object' ? row.meta as Record<string, unknown> : {},
+    updated_at: typeof row.updated_at === 'string' ? row.updated_at : undefined,
+  };
+}
+
+function createCommunityMission(slot: MissionSlot, goal: number, xp: number, type: MissionEventType): MissionDefinition {
+  return {
+    id: `${slot}-${type === 'upvote_received' ? 'upvotes' : 'downloads'}-${goal}`,
+    slot,
+    cadence: slot === 'weekly' ? 'weekly' : 'daily',
+    category: 'community',
+    goal,
+    xp,
+    evaluateProgress: (event, state) => {
+      if (event.type !== type) return 0;
+      const absolute = Math.min(event.total, goal);
+      return Math.max(0, absolute - state.progress);
+    },
+  };
+}
+
+const SERVER_MISSION_POOLS: Record<MissionSlot, MissionDefinition[]> = {
+  daily_easy: [
+    createCommunityMission('daily_easy', 1, 20, 'upvote_received'),
+    createCommunityMission('daily_easy', 5, 20, 'download_milestone_reached'),
+  ],
+  daily_medium: [
+    createCommunityMission('daily_medium', 10, 35, 'download_milestone_reached'),
+  ],
+  daily_hard: [],
+  weekly: [
+    createCommunityMission('weekly', 25, 100, 'download_milestone_reached'),
+    createCommunityMission('weekly', 5, 100, 'upvote_received'),
+  ],
+};
+
+function getMissionSeed(periodKey: string, slot: MissionSlot): number {
+  const seedSource = `${periodKey}:${slot}`;
+  let seed = 0;
+  for (let i = 0; i < seedSource.length; i += 1) {
+    seed += seedSource.charCodeAt(i) * (i + 1);
+  }
+  return seed;
+}
+
+function getActiveMissionDefinitions(date = new Date()): MissionDefinition[] {
+  return (Object.keys(SERVER_MISSION_POOLS) as MissionSlot[])
+    .map((slot) => {
+      const pool = SERVER_MISSION_POOLS[slot];
+      if (pool.length === 0) return null;
+      const periodKey = slot === 'weekly' ? getIsoWeek(date) : getTodayDateString(date);
+      return pool[getMissionSeed(periodKey, slot) % pool.length];
+    })
+    .filter((mission): mission is MissionDefinition => Boolean(mission));
+}
+
+async function fetchUserMissionProgress(publisherId: string): Promise<UserMissionProgressRecord[]> {
+  const periodKeys = [getTodayDateString(), getIsoWeek(new Date())];
+  const params = new URLSearchParams({
+    select: 'mission_id,mission_slot,cadence,category,progress,goal,period_key,completed_at,meta,updated_at',
+    publisher_id: `eq.${publisherId}`,
+    order: 'updated_at.desc',
+  });
+  params.set('period_key', `in.(${periodKeys.map(key => `"${key}"`).join(',')})`);
+  const r = await fetch(`${sbEndpoint(MISSIONS_TABLE)}?${params}`, { headers: sbHeaders() });
+  if (!r.ok) {
+    throw new Error(await readErrorMessage(r));
+  }
+  const rows = await r.json() as Array<Record<string, unknown>>;
+  return rows.map(normalizeMissionRow);
+}
+
+async function upsertMissionProgress(records: Array<UserMissionProgressRecord & { publisher_id: string }>): Promise<void> {
+  if (records.length === 0) return;
+  const r = await fetch(sbEndpoint(MISSIONS_TABLE), {
+    method: 'POST',
+    headers: { ...sbHeaders(), Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(records.map(record => ({
+      ...record,
+      meta: record.meta ?? {},
+    }))),
+  });
+  if (!r.ok) {
+    throw new Error(await readErrorMessage(r));
+  }
+}
+
+async function advanceCommunityMissionProgress(publisherId: string, event: { type: MissionEventType; total: number }): Promise<void> {
+  const activeMissions = getActiveMissionDefinitions();
+  if (activeMissions.length === 0) return;
+
+  const existingRecords = await fetchUserMissionProgress(publisherId).catch((): UserMissionProgressRecord[] => []);
+  const existingMap = new Map<string, UserMissionProgressRecord>(existingRecords.map((record): [string, UserMissionProgressRecord] => [`${record.mission_id}:${record.period_key}`, record]));
+  const changed: Array<UserMissionProgressRecord & { publisher_id: string }> = [];
+
+  for (const mission of activeMissions) {
+    const periodKey = mission.cadence === 'weekly' ? getIsoWeek(new Date()) : getTodayDateString();
+    const current: UserMissionProgressRecord = existingMap.get(`${mission.id}:${periodKey}`) ?? {
+      mission_id: mission.id,
+      mission_slot: mission.slot,
+      cadence: mission.cadence,
+      category: mission.category,
+      progress: 0,
+      goal: mission.goal,
+      period_key: periodKey,
+      completed_at: null,
+      meta: {},
+    };
+    const increment = mission.evaluateProgress(event, current);
+    if (increment <= 0) continue;
+
+    const nextProgress = Math.min(mission.goal, current.progress + increment);
+    changed.push({
+      publisher_id: publisherId,
+      ...current,
+      progress: nextProgress,
+      goal: mission.goal,
+      completed_at: current.completed_at ?? (nextProgress >= mission.goal ? new Date().toISOString() : null),
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  await upsertMissionProgress(changed);
+}
+
 async function fetchUserAchievements(publisherId: string): Promise<UserAchievement[]> {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_user_achievements`, {
     method: 'POST',
@@ -159,7 +336,7 @@ async function fetchUserStreakState(publisherId: string): Promise<UserStreakStat
 }
 
 async function fetchHydratedUserProfile(publisherId: string) {
-  const [profileResponse, achievements, streaks] = await Promise.all([
+  const [profileResponse, achievements, streaks, missions] = await Promise.all([
     fetch(`${SUPABASE_URL}/rest/v1/rpc/get_user_profile`, {
       method: 'POST',
       headers: sbHeaders(),
@@ -167,6 +344,7 @@ async function fetchHydratedUserProfile(publisherId: string) {
     }),
     fetchUserAchievements(publisherId).catch(() => []),
     fetchUserStreakState(publisherId).catch(() => null),
+    fetchUserMissionProgress(publisherId).catch(() => []),
   ]);
 
   if (!profileResponse.ok) {
@@ -182,6 +360,7 @@ async function fetchHydratedUserProfile(publisherId: string) {
     achievement_records: achievements,
     achievements: achievements.map(record => record.achievement_id),
     streaks,
+    missions,
   };
 }
 
@@ -451,6 +630,42 @@ app.get('/api/profile/:publisherId/achievements', async (req, res) => {
   }
 });
 
+app.get('/api/profile/:publisherId/missions', async (req, res) => {
+  try {
+    res.json(await fetchUserMissionProgress(req.params.publisherId));
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/profile/missions', async (req, res) => {
+  try {
+    const missions = Array.isArray(req.body?.missions) ? req.body.missions : [];
+    const normalized = missions.filter((mission): mission is Record<string, unknown> => Boolean(mission) && typeof mission === 'object').map((mission) => ({
+      publisher_id: typeof mission.publisher_id === 'string' ? mission.publisher_id : '',
+      mission_id: typeof mission.mission_id === 'string' ? mission.mission_id : '',
+      mission_slot: typeof mission.mission_slot === 'string' ? mission.mission_slot : 'daily_easy',
+      cadence: typeof mission.cadence === 'string' ? mission.cadence : 'daily',
+      category: typeof mission.category === 'string' ? mission.category : 'publishing',
+      progress: typeof mission.progress === 'number' ? mission.progress : 0,
+      goal: typeof mission.goal === 'number' ? mission.goal : 1,
+      period_key: typeof mission.period_key === 'string' ? mission.period_key : '',
+      completed_at: typeof mission.completed_at === 'string' ? mission.completed_at : null,
+      meta: mission.meta && typeof mission.meta === 'object' ? mission.meta : {},
+    })).filter(mission => mission.publisher_id && mission.mission_id && mission.period_key);
+
+    if (normalized.length === 0) {
+      res.status(400).json({ error: 'Missing or invalid mission progress payload.' });
+      return;
+    }
+
+    await upsertMissionProgress(normalized);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 app.post('/api/profile/:publisherId/achievements/unlock', async (req, res) => {
   try {
     const { achievement_id } = req.body ?? {};
@@ -642,6 +857,20 @@ app.patch('/api/conversations/:id/download', async (req, res) => {
           headers: sbHeaders(),
           body: JSON.stringify({ p_publisher_id: pubId, p_amount: 5 }),
         });
+
+        const totalsParams = new URLSearchParams({
+          select: 'downloads',
+          id: `eq.${id}`,
+          limit: '1',
+        });
+        const totalsLookup = await fetch(`${sbEndpoint(TABLE)}?${totalsParams}`, { headers: sbHeaders() });
+        if (totalsLookup.ok) {
+          const totalsRows = await totalsLookup.json() as Array<{ downloads?: number }>;
+          await advanceCommunityMissionProgress(pubId, {
+            type: 'download_milestone_reached',
+            total: totalsRows[0]?.downloads ?? 0,
+          }).catch(() => undefined);
+        }
       }
     }
   } catch {
@@ -681,6 +910,20 @@ app.patch('/api/conversations/:id/upvote', async (req, res) => {
           headers: sbHeaders(),
           body: JSON.stringify({ p_publisher_id: pubId, p_amount: 10 }),
         });
+
+        const totalsParams = new URLSearchParams({
+          select: 'upvotes',
+          id: `eq.${id}`,
+          limit: '1',
+        });
+        const totalsLookup = await fetch(`${sbEndpoint(TABLE)}?${totalsParams}`, { headers: sbHeaders() });
+        if (totalsLookup.ok) {
+          const totalsRows = await totalsLookup.json() as Array<{ upvotes?: number }>;
+          await advanceCommunityMissionProgress(pubId, {
+            type: 'upvote_received',
+            total: totalsRows[0]?.upvotes ?? 0,
+          }).catch(() => undefined);
+        }
       }
     }
   } catch (err) {

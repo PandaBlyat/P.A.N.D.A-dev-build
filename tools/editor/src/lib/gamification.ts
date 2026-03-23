@@ -61,6 +61,19 @@ export function getAchievementById(id: AchievementId): Achievement | undefined {
 
 const LOCAL_ACHIEVEMENTS_KEY = 'panda-gf-achievements';
 
+export type UserMissionProgressRecord = {
+  mission_id: string;
+  mission_slot: MissionSlot;
+  cadence: MissionCadence;
+  category: MissionCategory;
+  progress: number;
+  goal: number;
+  period_key: string;
+  completed_at: string | null;
+  meta?: Record<string, unknown> | null;
+  updated_at?: string;
+};
+
 type SyncedGamificationState = {
   achievements: AchievementId[];
   streaks: {
@@ -70,6 +83,7 @@ type SyncedGamificationState = {
     login_streak: number;
     last_login_date: string;
   } | null;
+  missions: UserMissionProgressRecord[];
 };
 
 let syncedGamificationState: SyncedGamificationState | null = null;
@@ -103,6 +117,7 @@ export function setSyncedGamificationState(state: {
     login_streak: number;
     last_login_date: string;
   } | null;
+  missions?: UserMissionProgressRecord[] | null;
 } | null): void {
   if (!state) {
     syncedGamificationState = null;
@@ -113,9 +128,11 @@ export function setSyncedGamificationState(state: {
   syncedGamificationState = {
     achievements,
     streaks: state.streaks ?? null,
+    missions: state.missions ?? [],
   };
 
   writeCachedAchievements(achievements);
+  writeCachedMissionRecords(state.missions ?? []);
 
   if (state.streaks) {
     saveStreakData({
@@ -287,97 +304,407 @@ export function recordPublishForStreak(): { streakChanged: boolean; newStreak: n
   return { streakChanged: true, newStreak: data.currentStreak, shieldUsed };
 }
 
-// ─── Daily Challenges ────────────────────────────────────────────────────────
+// ─── Missions: Daily + Weekly Progression ────────────────────────────────────
 
-export type DailyChallenge = {
-  id: string;
-  description: string;
-  xp: number;
-  check: (context: ChallengeContext) => boolean;
-};
+export type MissionSlot = 'daily_easy' | 'daily_medium' | 'daily_hard' | 'weekly';
+export type MissionCadence = 'daily' | 'weekly';
+export type MissionCategory = 'publishing' | 'faction' | 'outcomes' | 'preconditions' | 'community';
+export type MissionEventType =
+  | 'publish_created'
+  | 'faction_published'
+  | 'outcome_type_used'
+  | 'precondition_count_reached'
+  | 'upvote_received'
+  | 'download_milestone_reached';
 
-export type ChallengeContext = {
-  conversation?: Conversation;
-  branchCount?: number;
+export type MissionEvent = {
+  type: MissionEventType;
+  count?: number;
   faction?: string;
   outcomeTypes?: string[];
-  publishCount?: number;
+  preconditionCount?: number;
+  totalUpvotes?: number;
+  totalDownloads?: number;
 };
 
-const CHALLENGE_POOL: DailyChallenge[] = [
-  { id: 'use_reward_money', description: 'Publish a conversation using reward_money outcome', xp: 25,
-    check: (ctx) => (ctx.outcomeTypes ?? []).includes('reward_money') },
-  { id: 'three_branches', description: 'Publish a conversation with 3+ branches', xp: 20,
-    check: (ctx) => (ctx.branchCount ?? 0) >= 3 },
-  { id: 'five_branches', description: 'Publish a conversation with 5+ branches', xp: 30,
-    check: (ctx) => (ctx.branchCount ?? 0) >= 5 },
-  { id: 'use_rep_outcome', description: 'Publish a conversation with a reputation outcome', xp: 25,
-    check: (ctx) => (ctx.outcomeTypes ?? []).some(t => t.includes('rep') || t.includes('goodwill')) },
-  { id: 'long_conversation', description: 'Publish a conversation with 8+ turns', xp: 35,
-    check: (ctx) => (ctx.conversation?.turns.length ?? 0) >= 8 },
-  { id: 'use_precondition', description: 'Publish a conversation with at least one precondition', xp: 20,
-    check: (ctx) => (ctx.conversation?.preconditions.length ?? 0) > 0 },
-  { id: 'multi_outcome', description: 'Publish a conversation using 3+ different outcome types', xp: 30,
-    check: (ctx) => new Set(ctx.outcomeTypes ?? []).size >= 3 },
-  { id: 'short_and_sweet', description: 'Publish a short conversation (3 or fewer branches)', xp: 15,
-    check: (ctx) => (ctx.branchCount ?? 0) <= 3 && (ctx.branchCount ?? 0) >= 1 },
+export type MissionDefinition = {
+  id: string;
+  name: string;
+  description: string;
+  xp: number;
+  slot: MissionSlot;
+  cadence: MissionCadence;
+  goal: number;
+  category: MissionCategory;
+  rewardLabel?: string;
+  evaluateProgress: (event: MissionEvent, state: UserMissionProgressRecord, nextState: UserMissionProgressRecord) => number;
+};
+
+export type ActiveMission = MissionDefinition & {
+  progress: number;
+  completed: boolean;
+  progressRatio: number;
+  periodKey: string;
+  completedAt: string | null;
+  meta: Record<string, unknown>;
+};
+
+export type MissionResetInfo = {
+  dailyLabel: string;
+  weeklyLabel: string;
+  dailyHoursRemaining: number;
+};
+
+const LOCAL_MISSION_PROGRESS_KEY = 'panda-gf-mission-progress';
+
+function getTodayDateString(date = new Date()): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function startOfNextUtcDay(from = new Date()): Date {
+  const next = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate() + 1, 0, 0, 0, 0));
+  return next;
+}
+
+function getCurrentUtcWeekKey(date = new Date()): string {
+  return getIsoWeek(date);
+}
+
+function getMissionPeriodKey(cadence: MissionCadence, date = new Date()): string {
+  return cadence === 'weekly' ? getCurrentUtcWeekKey(date) : getTodayDateString(date);
+}
+
+function ensureMissionMeta(meta: Record<string, unknown> | null | undefined): Record<string, unknown> {
+  return meta && typeof meta === 'object' ? { ...meta } : {};
+}
+
+function readCachedMissionRecords(): UserMissionProgressRecord[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(LOCAL_MISSION_PROGRESS_KEY);
+    return raw ? JSON.parse(raw) as UserMissionProgressRecord[] : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCachedMissionRecords(records: UserMissionProgressRecord[]): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(LOCAL_MISSION_PROGRESS_KEY, JSON.stringify(records));
+}
+
+function getMissionRecords(): UserMissionProgressRecord[] {
+  if (syncedGamificationState) return syncedGamificationState.missions;
+  return readCachedMissionRecords();
+}
+
+function saveMissionRecords(records: UserMissionProgressRecord[]): void {
+  writeCachedMissionRecords(records);
+  if (syncedGamificationState) {
+    syncedGamificationState = {
+      ...syncedGamificationState,
+      missions: records,
+    };
+  }
+}
+
+function updateMissionRecord(record: UserMissionProgressRecord): void {
+  const records = getMissionRecords();
+  const idx = records.findIndex(entry => entry.mission_id === record.mission_id && entry.period_key === record.period_key);
+  const next = [...records];
+  if (idx >= 0) next[idx] = record;
+  else next.push(record);
+  saveMissionRecords(next);
+}
+
+function createPublishIncrementer(slot: MissionSlot, name: string, description: string, xp: number, goal: number): MissionDefinition {
+  return {
+    id: `${slot}-publish-${goal}`,
+    slot,
+    cadence: slot === 'weekly' ? 'weekly' : 'daily',
+    name,
+    description,
+    xp,
+    goal,
+    category: 'publishing',
+    rewardLabel: `+${xp} XP`,
+    evaluateProgress: (event) => event.type === 'publish_created' ? Math.max(event.count ?? 1, 0) : 0,
+  };
+}
+
+function createUniqueFactionMission(slot: MissionSlot, name: string, description: string, xp: number, goal: number): MissionDefinition {
+  return {
+    id: `${slot}-faction-${goal}`,
+    slot,
+    cadence: slot === 'weekly' ? 'weekly' : 'daily',
+    name,
+    description,
+    xp,
+    goal,
+    category: 'faction',
+    rewardLabel: `+${xp} XP`,
+    evaluateProgress: (event, state, nextState) => {
+      if (event.type !== 'faction_published' || !event.faction) return 0;
+      const seen = new Set(Array.isArray(state.meta?.seen) ? state.meta.seen.filter((value): value is string => typeof value === 'string') : []);
+      if (seen.has(event.faction)) return 0;
+      seen.add(event.faction);
+      nextState.meta = { ...ensureMissionMeta(nextState.meta), seen: Array.from(seen) };
+      return 1;
+    },
+  };
+}
+
+function createUniqueOutcomeMission(slot: MissionSlot, name: string, description: string, xp: number, goal: number): MissionDefinition {
+  return {
+    id: `${slot}-outcomes-${goal}`,
+    slot,
+    cadence: slot === 'weekly' ? 'weekly' : 'daily',
+    name,
+    description,
+    xp,
+    goal,
+    category: 'outcomes',
+    rewardLabel: `+${xp} XP`,
+    evaluateProgress: (event, state, nextState) => {
+      if (event.type !== 'outcome_type_used') return 0;
+      const seen = new Set(Array.isArray(state.meta?.seen) ? state.meta.seen.filter((value): value is string => typeof value === 'string') : []);
+      let added = 0;
+      for (const outcomeType of event.outcomeTypes ?? []) {
+        if (!seen.has(outcomeType)) {
+          seen.add(outcomeType);
+          added += 1;
+        }
+      }
+      if (added > 0) {
+        nextState.meta = { ...ensureMissionMeta(nextState.meta), seen: Array.from(seen) };
+      }
+      return added;
+    },
+  };
+}
+
+function createPreconditionMission(slot: MissionSlot, name: string, description: string, xp: number, goal: number): MissionDefinition {
+  return {
+    id: `${slot}-preconditions-${goal}`,
+    slot,
+    cadence: slot === 'weekly' ? 'weekly' : 'daily',
+    name,
+    description,
+    xp,
+    goal,
+    category: 'preconditions',
+    rewardLabel: `+${xp} XP`,
+    evaluateProgress: (event, state) => {
+      if (event.type !== 'precondition_count_reached') return 0;
+      const absolute = Math.min(event.preconditionCount ?? 0, goal);
+      return Math.max(0, absolute - state.progress);
+    },
+  };
+}
+
+function createMilestoneMission(slot: MissionSlot, name: string, description: string, xp: number, goal: number, type: 'upvote_received' | 'download_milestone_reached'): MissionDefinition {
+  return {
+    id: `${slot}-${type === 'upvote_received' ? 'upvotes' : 'downloads'}-${goal}`,
+    slot,
+    cadence: slot === 'weekly' ? 'weekly' : 'daily',
+    name,
+    description,
+    xp,
+    goal,
+    category: 'community',
+    rewardLabel: `+${xp} XP`,
+    evaluateProgress: (event, state) => {
+      if (event.type !== type) return 0;
+      const total = type === 'upvote_received' ? (event.totalUpvotes ?? 0) : (event.totalDownloads ?? 0);
+      const absolute = Math.min(total, goal);
+      return Math.max(0, absolute - state.progress);
+    },
+  };
+}
+
+const DAILY_EASY_MISSIONS: MissionDefinition[] = [
+  createPublishIncrementer('daily_easy', 'Warm-Up Publish', 'Publish 1 conversation today.', 15, 1),
+  createPreconditionMission('daily_easy', 'Light Setup', 'Use at least 1 precondition in a published conversation today.', 15, 1),
+  createMilestoneMission('daily_easy', 'First Signal', 'Receive 1 upvote on your published work today.', 20, 1, 'upvote_received'),
+  createMilestoneMission('daily_easy', 'Field Intel', 'Reach 5 total downloads on your published work today.', 20, 5, 'download_milestone_reached'),
 ];
 
-const LOCAL_DAILY_CHALLENGE_KEY = 'panda-gf-daily-challenge';
-const LOCAL_DAILY_COMPLETED_KEY = 'panda-gf-daily-completed';
+const DAILY_MEDIUM_MISSIONS: MissionDefinition[] = [
+  createPublishIncrementer('daily_medium', 'Active Patrol', 'Publish 2 conversations today.', 30, 2),
+  createUniqueFactionMission('daily_medium', 'Cross-Faction Contact', 'Publish conversations for 2 different factions today.', 35, 2),
+  createUniqueOutcomeMission('daily_medium', 'Outcome Variety', 'Use 2 different outcome types across your published conversations today.', 35, 2),
+  createMilestoneMission('daily_medium', 'Audience Pickup', 'Reach 10 total downloads on your published work today.', 35, 10, 'download_milestone_reached'),
+];
 
-function getTodayDateString(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+const DAILY_HARD_MISSIONS: MissionDefinition[] = [
+  createPublishIncrementer('daily_hard', 'Deep Run', 'Publish 3 conversations today.', 50, 3),
+  createUniqueFactionMission('daily_hard', 'Zone Tour', 'Publish conversations for 3 different factions today.', 55, 3),
+  createUniqueOutcomeMission('daily_hard', 'Systems Engineer', 'Use 4 different outcome types across your published conversations today.', 55, 4),
+  createPreconditionMission('daily_hard', 'Condition Stack', 'Hit 5 preconditions in a published conversation today.', 55, 5),
+];
 
-/** Deterministically pick today's challenge using date as seed. */
-export function getTodayChallenge(): DailyChallenge {
-  const today = getTodayDateString();
-  const stored = typeof window !== 'undefined' ? window.localStorage.getItem(LOCAL_DAILY_CHALLENGE_KEY) : null;
+const WEEKLY_MISSIONS: MissionDefinition[] = [
+  createPublishIncrementer('weekly', 'Weekly Output', 'Publish 5 conversations this week.', 90, 5),
+  createUniqueFactionMission('weekly', 'Multi-Front Campaign', 'Publish conversations for 4 different factions this week.', 100, 4),
+  createUniqueOutcomeMission('weekly', 'Outcome Arsenal', 'Use 6 different outcome types across your published conversations this week.', 100, 6),
+  createMilestoneMission('weekly', 'Community Momentum', 'Reach 25 total downloads on your published work this week.', 100, 25, 'download_milestone_reached'),
+  createMilestoneMission('weekly', 'Community Favorite Push', 'Reach 5 total upvotes on your published work this week.', 100, 5, 'upvote_received'),
+];
 
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored) as { date: string; id: string };
-      if (parsed.date === today) {
-        const challenge = CHALLENGE_POOL.find(c => c.id === parsed.id);
-        if (challenge) return challenge;
-      }
-    } catch { /* regenerate */ }
-  }
+const MISSION_POOLS: Record<MissionSlot, MissionDefinition[]> = {
+  daily_easy: DAILY_EASY_MISSIONS,
+  daily_medium: DAILY_MEDIUM_MISSIONS,
+  daily_hard: DAILY_HARD_MISSIONS,
+  weekly: WEEKLY_MISSIONS,
+};
 
-  // Seed-based selection: sum char codes of date string
+function getMissionSeed(periodKey: string, slot: MissionSlot): number {
+  const seedSource = `${periodKey}:${slot}`;
   let seed = 0;
-  for (let i = 0; i < today.length; i++) seed += today.charCodeAt(i) * (i + 1);
-  const index = seed % CHALLENGE_POOL.length;
-  const challenge = CHALLENGE_POOL[index];
-
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(LOCAL_DAILY_CHALLENGE_KEY, JSON.stringify({ date: today, id: challenge.id }));
+  for (let i = 0; i < seedSource.length; i += 1) {
+    seed += seedSource.charCodeAt(i) * (i + 1);
   }
-
-  return challenge;
+  return seed;
 }
 
-export function isDailyChallengeCompleted(): boolean {
-  if (typeof window === 'undefined') return false;
-  const raw = window.localStorage.getItem(LOCAL_DAILY_COMPLETED_KEY);
-  if (!raw) return false;
-  try {
-    const parsed = JSON.parse(raw) as { date: string };
-    return parsed.date === getTodayDateString();
-  } catch {
-    return false;
-  }
+export function getMissionDefinition(slot: MissionSlot, date = new Date()): MissionDefinition {
+  const pool = MISSION_POOLS[slot];
+  const periodKey = getMissionPeriodKey(slot === 'weekly' ? 'weekly' : 'daily', date);
+  return pool[getMissionSeed(periodKey, slot) % pool.length];
 }
 
-/** Mark today's challenge as completed. Returns XP to award (0 if already completed). */
-export function completeDailyChallenge(): number {
-  if (isDailyChallengeCompleted()) return 0;
-  const challenge = getTodayChallenge();
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(LOCAL_DAILY_COMPLETED_KEY, JSON.stringify({ date: getTodayDateString() }));
+function buildMissionRecord(definition: MissionDefinition, existing?: UserMissionProgressRecord | null, date = new Date()): UserMissionProgressRecord {
+  const periodKey = getMissionPeriodKey(definition.cadence, date);
+  return {
+    mission_id: definition.id,
+    mission_slot: definition.slot,
+    cadence: definition.cadence,
+    category: definition.category,
+    progress: Math.min(existing?.progress ?? 0, definition.goal),
+    goal: definition.goal,
+    period_key: periodKey,
+    completed_at: existing?.completed_at ?? null,
+    meta: ensureMissionMeta(existing?.meta),
+    updated_at: existing?.updated_at,
+  };
+}
+
+export function getActiveMissions(date = new Date()): ActiveMission[] {
+  const records = getMissionRecords();
+  return (Object.keys(MISSION_POOLS) as MissionSlot[]).map((slot) => {
+    const definition = getMissionDefinition(slot, date);
+    const periodKey = getMissionPeriodKey(definition.cadence, date);
+    const existing = records.find(record => record.mission_id === definition.id && record.period_key === periodKey) ?? null;
+    const state = buildMissionRecord(definition, existing, date);
+    return {
+      ...definition,
+      progress: state.progress,
+      completed: state.progress >= state.goal || Boolean(state.completed_at),
+      progressRatio: Math.min(state.progress / Math.max(state.goal, 1), 1),
+      periodKey,
+      completedAt: state.completed_at,
+      meta: ensureMissionMeta(state.meta),
+    };
+  });
+}
+
+export function getMissionResetInfo(now = new Date()): MissionResetInfo {
+  const nextDailyReset = startOfNextUtcDay(now);
+  const dailyMs = Math.max(nextDailyReset.getTime() - now.getTime(), 0);
+  const dailyHours = Math.ceil(dailyMs / 3_600_000);
+  const nextWeeklyDate = (() => {
+    const cursor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const day = cursor.getUTCDay();
+    const daysUntilMonday = (8 - (day === 0 ? 7 : day)) % 7 || 7;
+    cursor.setUTCDate(cursor.getUTCDate() + daysUntilMonday);
+    return cursor;
+  })();
+
+  return {
+    dailyLabel: `New daily missions in ${dailyHours}h`,
+    weeklyLabel: `Weekly reset ${nextWeeklyDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+    dailyHoursRemaining: dailyHours,
+  };
+}
+
+export function isAnyDailyMissionCompleted(): boolean {
+  return getActiveMissions().some(mission => mission.cadence === 'daily' && mission.completed);
+}
+
+export type MissionProgressResult = {
+  activeMissions: ActiveMission[];
+  changedMissions: UserMissionProgressRecord[];
+  completedMissions: ActiveMission[];
+  xpAwarded: number;
+};
+
+export function evaluateMissionProgress(event: MissionEvent, date = new Date()): MissionProgressResult {
+  const activeMissions = getActiveMissions(date);
+  const changedMissions: UserMissionProgressRecord[] = [];
+  const completedMissions: ActiveMission[] = [];
+  let xpAwarded = 0;
+
+  for (const mission of activeMissions) {
+    const baseline = buildMissionRecord(mission, {
+      mission_id: mission.id,
+      mission_slot: mission.slot,
+      cadence: mission.cadence,
+      category: mission.category,
+      progress: mission.progress,
+      goal: mission.goal,
+      period_key: mission.periodKey,
+      completed_at: mission.completedAt,
+      meta: mission.meta,
+    }, date);
+    const nextState = buildMissionRecord(mission, baseline, date);
+    const increment = mission.evaluateProgress(event, baseline, nextState);
+    if (increment <= 0) continue;
+
+    nextState.progress = Math.min(mission.goal, baseline.progress + increment);
+    nextState.updated_at = new Date().toISOString();
+
+    const wasCompleted = baseline.progress >= baseline.goal || Boolean(baseline.completed_at);
+    const isCompleted = nextState.progress >= mission.goal;
+    if (!wasCompleted && isCompleted) {
+      nextState.completed_at = nextState.updated_at;
+      xpAwarded += mission.xp;
+      completedMissions.push({
+        ...mission,
+        progress: nextState.progress,
+        completed: true,
+        progressRatio: 1,
+        completedAt: nextState.completed_at,
+        meta: ensureMissionMeta(nextState.meta),
+      });
+    }
+
+    updateMissionRecord(nextState);
+    changedMissions.push(nextState);
   }
-  return challenge.xp;
+
+  return {
+    activeMissions: getActiveMissions(date),
+    changedMissions,
+    completedMissions,
+    xpAwarded,
+  };
+}
+
+export function buildMissionEventsFromPublish(conversation: Conversation): MissionEvent[] {
+  const allChoices = conversation.turns.flatMap(turn => turn.choices);
+  const outcomeTypes = Array.from(new Set(allChoices.flatMap(choice => choice.outcomes).map(outcome => outcome.command).filter(Boolean)));
+  return [
+    { type: 'publish_created', count: 1 },
+    { type: 'faction_published', faction: conversation.faction },
+    { type: 'outcome_type_used', outcomeTypes },
+    { type: 'precondition_count_reached', preconditionCount: conversation.preconditions.length },
+  ];
+}
+
+export function getMissionCompletionHeadline(completedMissions: ActiveMission[]): string {
+  if (completedMissions.length === 0) return 'Mission Complete!';
+  if (completedMissions.length === 1) return completedMissions[0].name;
+  return `${completedMissions.length} missions completed`;
 }
 
 // ─── Quality Score ───────────────────────────────────────────────────────────
@@ -488,7 +815,10 @@ export function setCooldown(actionKey: string): void {
 export type GamificationResult = {
   achievementsUnlocked: Achievement[];
   streakData: StreakData;
-  challengeXp: number;
+  missionXp: number;
+  completedMissions: ActiveMission[];
+  activeMissions: ActiveMission[];
+  changedMissionRecords: UserMissionProgressRecord[];
   qualityStars: number;
   qualityMultiplier: number;
   streakInfo: { streakChanged: boolean; newStreak: number; shieldUsed: boolean };
@@ -568,29 +898,40 @@ export function evaluatePublishGamification(
     }
   }
 
-  // ── Daily Challenge ──
-  let challengeXp = 0;
-  if (!isDailyChallengeCompleted()) {
-    const challenge = getTodayChallenge();
-    const ctx: ChallengeContext = {
-      conversation,
-      branchCount,
-      faction: conversation.faction,
-      outcomeTypes,
-      publishCount,
-    };
-    if (challenge.check(ctx)) {
-      challengeXp = completeDailyChallenge();
-      rawBonusXp += challengeXp;
+  // ── Mission Progress ──
+  const missionResults = buildMissionEventsFromPublish(conversation).reduce<MissionProgressResult>((aggregate, event) => {
+    const result = evaluateMissionProgress(event);
+    const changedByKey = new Map<string, UserMissionProgressRecord>();
+    for (const record of [...aggregate.changedMissions, ...result.changedMissions]) {
+      changedByKey.set(`${record.mission_id}:${record.period_key}`, record);
     }
-  }
+    const completedByKey = new Map<string, ActiveMission>();
+    for (const mission of [...aggregate.completedMissions, ...result.completedMissions]) {
+      completedByKey.set(`${mission.id}:${mission.periodKey}`, mission);
+    }
+    return {
+      activeMissions: result.activeMissions,
+      changedMissions: Array.from(changedByKey.values()),
+      completedMissions: Array.from(completedByKey.values()),
+      xpAwarded: aggregate.xpAwarded + result.xpAwarded,
+    };
+  }, {
+    activeMissions: getActiveMissions(),
+    changedMissions: [],
+    completedMissions: [],
+    xpAwarded: 0,
+  });
+  rawBonusXp += missionResults.xpAwarded;
 
   // ── Quality Score ──
   const qualityMultiplier = getQualityMultiplier(quality.totalStars);
 
   return {
     achievementsUnlocked,
-    challengeXp,
+    missionXp: missionResults.xpAwarded,
+    completedMissions: missionResults.completedMissions,
+    activeMissions: missionResults.activeMissions,
+    changedMissionRecords: missionResults.changedMissions,
     qualityStars: quality.totalStars,
     qualityMultiplier,
     streakInfo,
