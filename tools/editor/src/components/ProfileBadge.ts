@@ -164,15 +164,23 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   const metaRow = document.createElement('div');
   metaRow.className = 'profile-popover-meta-row';
 
+  const levelPill = document.createElement('span');
+  levelPill.className = 'profile-popover-meta-pill';
+  levelPill.textContent = `Level ${profile.level}`;
+
+  const xpPill = document.createElement('span');
+  xpPill.className = 'profile-popover-meta-pill';
+  xpPill.textContent = `${profile.xp.toLocaleString()} XP`;
+
   const memberPill = document.createElement('span');
   memberPill.className = 'profile-popover-meta-pill profile-popover-meta-pill-muted';
   memberPill.textContent = `Member since ${formatMemberSince(profile.created_at)}`;
 
-  metaRow.append(memberPill);
+  metaRow.append(levelPill, xpPill, memberPill);
   info.append(nameEl, titleEl, metaRow);
   identity.append(avatarCircle, info);
 
-  header.appendChild(identity);
+  header.append(identity, buildProgressSection(profile));
   return header;
 }
 
@@ -186,20 +194,21 @@ function buildProgressSection(profile: UserProfile): HTMLElement {
   const nextXp = next?.xp ?? currentMin;
   const range = Math.max(nextXp - currentMin, 1);
   const progress = Math.min((profile.xp - currentMin) / range, 1);
+  const progressPercent = Math.round(progress * 100);
 
   const barHeader = document.createElement('div');
   barHeader.className = 'profile-popover-bar-header';
 
   const levelLabel = document.createElement('span');
   levelLabel.className = 'profile-popover-level-label';
-  levelLabel.textContent = `Level ${profile.level}`;
+  levelLabel.textContent = next ? `${progressPercent}% to Lv.${next.level}` : 'Max level reached';
 
   const xpNumbers = document.createElement('span');
   xpNumbers.className = 'profile-popover-bar-label';
   if (next) {
     xpNumbers.textContent = `${profile.xp.toLocaleString()} / ${next.xp.toLocaleString()} XP`;
   } else {
-    xpNumbers.textContent = `${profile.xp.toLocaleString()} XP — MAX LEVEL`;
+    xpNumbers.textContent = `${profile.xp.toLocaleString()} XP`;
   }
 
   barHeader.append(levelLabel, xpNumbers);
@@ -208,17 +217,17 @@ function buildProgressSection(profile: UserProfile): HTMLElement {
   barTrack.className = 'profile-popover-bar-track';
   const barFill = document.createElement('div');
   barFill.className = 'profile-popover-bar-fill';
-  barFill.style.width = `${Math.round(progress * 100)}%`;
+  barFill.style.width = `${progressPercent}%`;
   barTrack.appendChild(barFill);
 
   progressSection.append(barHeader, barTrack);
 
-  if (next) {
-    const nextLabel = document.createElement('div');
-    nextLabel.className = 'profile-popover-next';
-    nextLabel.textContent = `Next: Lv.${next.level} ${next.title}`;
-    progressSection.appendChild(nextLabel);
-  }
+  const nextLabel = document.createElement('div');
+  nextLabel.className = 'profile-popover-next';
+  nextLabel.textContent = next
+    ? `Next title: Lv.${next.level} ${next.title}`
+    : 'All level rewards unlocked';
+  progressSection.appendChild(nextLabel);
 
   return progressSection;
 }
@@ -811,7 +820,7 @@ function buildSelfProfileContent(profile: UserProfile): HTMLElement {
 
   const hero = document.createElement('section');
   hero.className = 'profile-popover-hero';
-  hero.append(buildProfileHeader(profile), buildProgressSection(profile));
+  hero.append(buildProfileHeader(profile));
 
   const body = document.createElement('div');
   body.className = 'profile-popover-body';
