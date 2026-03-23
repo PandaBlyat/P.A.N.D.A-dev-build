@@ -61,6 +61,23 @@ export type CreatorSupportStats = {
   updated_at: string;
 };
 
+export type UserProfile = {
+  publisher_id: string;
+  username: string;
+  xp: number;
+  level: number;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type LeaderboardEntry = {
+  username: string;
+  xp: number;
+  level: number;
+  title: string;
+};
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string | undefined;
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -519,5 +536,145 @@ export async function fetchVisitorCount(): Promise<number> {
     return stats.visitors ?? 0;
   } catch {
     return 0;
+  }
+}
+
+// ─── User Profiles & Gamification ─────────────────────────────────────────
+
+const LOCAL_USERNAME_KEY = 'panda-community-username';
+
+export const XP_PUBLISH_SHORT = 50;
+export const XP_PUBLISH_MEDIUM = 75;
+export const XP_PUBLISH_LONG = 100;
+export const XP_DOWNLOAD_RECEIVED = 5;
+export const XP_UPVOTE_RECEIVED = 10;
+
+export type LevelThreshold = { level: number; xp: number; title: string };
+
+export const LEVEL_THRESHOLDS: LevelThreshold[] = [
+  { level: 1, xp: 0, title: 'Rookie Stalker' },
+  { level: 2, xp: 50, title: 'Novice Scribe' },
+  { level: 3, xp: 150, title: 'Zone Correspondent' },
+  { level: 4, xp: 350, title: 'Seasoned Storyteller' },
+  { level: 5, xp: 600, title: 'Veteran Narrator' },
+  { level: 6, xp: 1000, title: 'Master Archivist' },
+  { level: 7, xp: 1500, title: 'Zone Legend' },
+  { level: 8, xp: 2500, title: 'Monolith Wordsmith' },
+  { level: 9, xp: 4000, title: 'Wish Granter' },
+  { level: 10, xp: 6000, title: 'Emissary of the Noosphere' },
+];
+
+export function getNextLevelThreshold(currentXp: number): LevelThreshold | null {
+  for (const t of LEVEL_THRESHOLDS) {
+    if (t.xp > currentXp) return t;
+  }
+  return null;
+}
+
+export function getStoredUsername(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(LOCAL_USERNAME_KEY)?.trim() || null;
+}
+
+export function setStoredUsername(username: string): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(LOCAL_USERNAME_KEY, username.trim());
+}
+
+export async function registerUsername(publisherId: string, username: string): Promise<UserProfile> {
+  try {
+    const profile = await fetchFromApi<UserProfile>('/api/profile/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publisher_id: publisherId, username }),
+    });
+    setStoredUsername(username);
+    return profile;
+  } catch (apiError) {
+    // Fallback to direct Supabase RPC
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/register_username`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ p_publisher_id: publisherId, p_username: username }),
+    });
+    if (!res.ok) {
+      const msg = await readErrorMessage(res);
+      throw new Error(msg);
+    }
+    const rows = await res.json() as UserProfile[] | UserProfile;
+    const profile = Array.isArray(rows) ? rows[0] : rows;
+    if (!profile) throw new Error('Registration failed.');
+    setStoredUsername(username);
+    return profile;
+  }
+}
+
+export async function fetchUserProfile(publisherId: string): Promise<UserProfile | null> {
+  try {
+    return await fetchFromApi<UserProfile | null>(`/api/profile/${encodeURIComponent(publisherId)}`);
+  } catch {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_user_profile`, {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({ p_publisher_id: publisherId }),
+      });
+      if (!res.ok) return null;
+      const rows = await res.json() as UserProfile[] | UserProfile | null;
+      if (!rows) return null;
+      return Array.isArray(rows) ? rows[0] ?? null : rows;
+    } catch {
+      return null;
+    }
+  }
+}
+
+export async function awardXp(publisherId: string, amount: number): Promise<UserProfile | null> {
+  try {
+    return await fetchFromApi<UserProfile | null>('/api/profile/award-xp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publisher_id: publisherId, amount }),
+    });
+  } catch {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp`, {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({ p_publisher_id: publisherId, p_amount: amount }),
+      });
+      if (!res.ok) return null;
+      const rows = await res.json() as UserProfile[] | UserProfile | null;
+      if (!rows) return null;
+      return Array.isArray(rows) ? rows[0] ?? null : rows;
+    } catch {
+      return null;
+    }
+  }
+}
+
+export async function fetchLeaderboard(limit = 10): Promise<LeaderboardEntry[]> {
+  try {
+    return await fetchFromApi<LeaderboardEntry[]>(`/api/leaderboard?limit=${limit}`);
+  } catch {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_leaderboard`, {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({ p_limit: limit }),
+      });
+      if (!res.ok) return [];
+      return await res.json() as LeaderboardEntry[];
+    } catch {
+      return [];
+    }
+  }
+}
+
+export function getPublishXp(complexity: ConversationComplexity): number {
+  switch (complexity) {
+    case 'long': return XP_PUBLISH_LONG;
+    case 'medium': return XP_PUBLISH_MEDIUM;
+    default: return XP_PUBLISH_SHORT;
   }
 }

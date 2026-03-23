@@ -21,7 +21,9 @@ import {
   tryFastFlowUpdate,
 } from './components/App';
 import { flushAllDebounced } from './components/PropertiesPanel';
-import { trackSiteVisitor, fetchVisitorCount } from './lib/api-client';
+import { trackSiteVisitor, fetchVisitorCount, fetchUserProfile, getStoredUsername, type UserProfile } from './lib/api-client';
+import { setProfileForBadge } from './components/ProfileBadge';
+import { openUsernameModal, isUsernameModalOpen } from './components/UsernameModal';
 
 type IdleCallbackHandle = number;
 type IdleCallbackDeadline = { didTimeout: boolean; timeRemaining: () => number };
@@ -45,6 +47,52 @@ void fetchVisitorCount().then(count => {
   (globalThis as any).__pandaVisitorCount = count;
   renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
 });
+
+// ─── User Profile / Gamification Bootstrap ─────────────────────────────────
+const LOCAL_PUBLISHER_ID_KEY = 'panda-community-publisher-id';
+
+function getPublisherId(): string {
+  if (typeof window === 'undefined') return 'server-publisher';
+  const existing = window.localStorage.getItem(LOCAL_PUBLISHER_ID_KEY)?.trim();
+  if (existing) return existing;
+  const generated = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `publisher-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  window.localStorage.setItem(LOCAL_PUBLISHER_ID_KEY, generated);
+  return generated;
+}
+
+(globalThis as any).__pandaUserProfile = null as UserProfile | null;
+
+function refreshToolbarProfile(): void {
+  setProfileForBadge((globalThis as any).__pandaUserProfile);
+  renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
+}
+
+const publisherId = getPublisherId();
+const storedUsername = getStoredUsername();
+
+if (storedUsername) {
+  // Already registered — fetch profile
+  void fetchUserProfile(publisherId).then(profile => {
+    if (profile) {
+      (globalThis as any).__pandaUserProfile = profile;
+      refreshToolbarProfile();
+    }
+  });
+} else {
+  // First visit — show username modal after a short delay so the app settles
+  setTimeout(() => {
+    if (isUsernameModalOpen()) return;
+    openUsernameModal({
+      publisherId,
+      onRegistered: (profile) => {
+        (globalThis as any).__pandaUserProfile = profile;
+        refreshToolbarProfile();
+      },
+    });
+  }, 1500);
+}
 
 const requestIdle = ((globalThis as typeof globalThis & { requestIdleCallback?: IdleCallbackScheduler }).requestIdleCallback
   ?? ((callback: (deadline: IdleCallbackDeadline) => void) => window.setTimeout(() => callback({ didTimeout: false, timeRemaining: () => 0 }), 150))) as IdleCallbackScheduler;
