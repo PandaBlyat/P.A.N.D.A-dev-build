@@ -89,6 +89,7 @@ export type UserProfile = {
 };
 
 export type LeaderboardEntry = {
+  publisher_id: string;
   username: string;
   xp: number;
   level: number;

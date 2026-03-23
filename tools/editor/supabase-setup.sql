@@ -515,11 +515,11 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION get_leaderboard(p_limit INT DEFAULT 10)
-RETURNS TABLE(username TEXT, xp INT, level INT, title TEXT)
+RETURNS TABLE(publisher_id TEXT, username TEXT, xp INT, level INT, title TEXT)
 LANGUAGE sql
 SECURITY DEFINER
 AS $$
-  SELECT username, xp, level, title
+  SELECT publisher_id, username, xp, level, title
   FROM user_profiles
   WHERE xp > 0
   ORDER BY xp DESC, created_at ASC

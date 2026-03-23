@@ -36,6 +36,14 @@ type UserStreakState = {
   updated_at?: string;
 };
 
+type LeaderboardEntry = {
+  publisher_id: string;
+  username: string;
+  xp: number;
+  level: number;
+  title: string;
+};
+
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error('ERROR: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in environment.');
   console.error('Copy server/.env.example to server/.env and fill in your values.');
@@ -592,7 +600,16 @@ app.get('/api/leaderboard', async (req, res) => {
       return;
     }
 
-    res.json(await r.json());
+    const rows = await r.json() as Array<Record<string, unknown>>;
+    const leaderboard: LeaderboardEntry[] = rows.map((row) => ({
+      publisher_id: typeof row.publisher_id === 'string' ? row.publisher_id : '',
+      username: typeof row.username === 'string' ? row.username : 'Unknown',
+      xp: typeof row.xp === 'number' ? row.xp : 0,
+      level: typeof row.level === 'number' ? row.level : 0,
+      title: typeof row.title === 'string' ? row.title : '',
+    }));
+
+    res.json(leaderboard);
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
