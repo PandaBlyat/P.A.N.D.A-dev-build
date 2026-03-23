@@ -20,9 +20,10 @@ import {
   getUnlockedAchievements,
   getStreakData,
   getLoginStreak,
-  getTodayChallenge,
-  isDailyChallengeCompleted,
+  getActiveMissions,
+  getMissionResetInfo,
   setSyncedGamificationState,
+  type ActiveMission,
 } from '../lib/gamification';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon } from './icons';
@@ -58,6 +59,7 @@ export function setProfileForBadge(profile: UserProfile | null): void {
   setSyncedGamificationState(profile ? {
     achievements: profile.achievements ?? [],
     streaks: profile.streaks ?? null,
+    missions: profile.missions ?? [],
   } : null);
   publishCountCache = null; // invalidate on profile update
 }
@@ -321,6 +323,75 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
   return section;
 }
 
+function getProfileMissions(profile: UserProfile, isSelfProfile: boolean): ActiveMission[] {
+  const active = getActiveMissions();
+  if (isSelfProfile) return active;
+
+  const progressByKey = new Map((profile.missions ?? []).map(mission => [`${mission.mission_id}:${mission.period_key}`, mission]));
+  return active.map((mission) => {
+    const state = progressByKey.get(`${mission.id}:${mission.periodKey}`);
+    const progress = Math.min(state?.progress ?? 0, mission.goal);
+    return {
+      ...mission,
+      progress,
+      completed: progress >= mission.goal || Boolean(state?.completed_at),
+      completedAt: state?.completed_at ?? mission.completedAt,
+      progressRatio: Math.min(progress / Math.max(mission.goal, 1), 1),
+    };
+  });
+}
+
+function buildMissionCard(mission: ActiveMission, isSelfProfile: boolean): HTMLElement {
+  const card = document.createElement('div');
+  card.className = `profile-mission-card${mission.completed ? ' profile-mission-card-complete' : ''}${isSelfProfile ? '' : ' profile-mission-card-public'}`;
+
+  const header = document.createElement('div');
+  header.className = 'profile-mission-card-header';
+
+  const titleWrap = document.createElement('div');
+  titleWrap.className = 'profile-mission-title-wrap';
+
+  const slot = document.createElement('span');
+  slot.className = `profile-mission-slot profile-mission-slot-${mission.slot}`;
+  slot.textContent = mission.slot === 'weekly'
+    ? 'Weekly'
+    : mission.slot === 'daily_easy'
+      ? 'Daily · Easy'
+      : mission.slot === 'daily_medium'
+        ? 'Daily · Medium'
+        : 'Daily · Hard';
+
+  const title = document.createElement('div');
+  title.className = 'profile-mission-title';
+  title.textContent = mission.name;
+
+  titleWrap.append(slot, title);
+
+  const reward = document.createElement('span');
+  reward.className = 'profile-mission-reward';
+  reward.textContent = mission.completed ? 'Complete' : (mission.rewardLabel ?? `+${mission.xp} XP`);
+
+  header.append(titleWrap, reward);
+
+  const desc = document.createElement('div');
+  desc.className = 'profile-mission-desc';
+  desc.textContent = mission.description;
+
+  const progressMeta = document.createElement('div');
+  progressMeta.className = 'profile-mission-progress-meta';
+  progressMeta.textContent = `${mission.progress} / ${mission.goal} · ${mission.category}`;
+
+  const bar = document.createElement('div');
+  bar.className = 'profile-mission-progress-bar';
+  const fill = document.createElement('div');
+  fill.className = 'profile-mission-progress-fill';
+  fill.style.width = `${Math.round(mission.progressRatio * 100)}%`;
+  bar.appendChild(fill);
+
+  card.append(header, desc, progressMeta, bar);
+  return card;
+}
+
 function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTMLElement {
   const section = document.createElement('div');
   section.className = 'profile-popover-streak-challenge';
@@ -393,39 +464,39 @@ function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTM
 
   loginRow.append(clockIcon, loginLabel, loginValue);
 
-  const challengeRow = document.createElement('div');
-  challengeRow.className = isSelfProfile
-    ? `profile-popover-challenge${isDailyChallengeCompleted() ? ' profile-popover-challenge-done' : ''}`
-    : 'profile-popover-challenge profile-popover-challenge-public';
+  const missionPanel = document.createElement('div');
+  missionPanel.className = 'profile-mission-panel';
 
+  const missionHeader = document.createElement('div');
+  missionHeader.className = 'profile-mission-panel-header';
   const targetIcon = createIcon('target');
   targetIcon.classList.add('profile-challenge-icon');
+  const headerText = document.createElement('div');
+  headerText.className = 'profile-mission-panel-copy';
+  const missionTitle = document.createElement('div');
+  missionTitle.className = 'profile-challenge-header';
+  missionTitle.textContent = isSelfProfile ? 'Mission Board' : 'Mission Snapshot';
+  const missionSub = document.createElement('div');
+  missionSub.className = 'profile-challenge-desc';
+  missionSub.textContent = isSelfProfile
+    ? 'Daily easy / medium / hard plus one weekly mission.'
+    : 'Latest visible mission progress captured for this stalker.';
+  headerText.append(missionTitle, missionSub);
+  missionHeader.append(targetIcon, headerText);
 
-  const challengeBody = document.createElement('div');
-  challengeBody.className = 'profile-challenge-body';
+  const missionList = document.createElement('div');
+  missionList.className = 'profile-mission-list';
+  const missions = getProfileMissions(profile, isSelfProfile);
+  missions.forEach(mission => missionList.appendChild(buildMissionCard(mission, isSelfProfile)));
 
-  const challengeHeader = document.createElement('div');
-  challengeHeader.className = 'profile-challenge-header';
-  challengeHeader.textContent = isSelfProfile
-    ? (isDailyChallengeCompleted() ? 'Daily Challenge Complete!' : "Today's Challenge")
-    : 'Public Profile';
+  const cadence = document.createElement('div');
+  cadence.className = 'profile-mission-reset';
+  const resetInfo = getMissionResetInfo();
+  cadence.textContent = `${resetInfo.dailyLabel} · ${resetInfo.weeklyLabel}`;
 
-  const challengeDesc = document.createElement('div');
-  challengeDesc.className = 'profile-challenge-desc';
-  challengeDesc.textContent = profile.publisher_id === cachedProfile?.publisher_id
-    ? getTodayChallenge().description
-    : 'Viewing this stalker\'s public progression snapshot.';
+  missionPanel.append(missionHeader, missionList, cadence);
 
-  const challengeXp = document.createElement('span');
-  challengeXp.className = 'profile-challenge-xp';
-  challengeXp.textContent = isSelfProfile
-    ? (isDailyChallengeCompleted() ? 'Done' : `+${getTodayChallenge().xp} XP`)
-    : 'Public';
-
-  challengeBody.append(challengeHeader, challengeDesc);
-  challengeRow.append(targetIcon, challengeBody, challengeXp);
-
-  section.append(streakRow, loginRow, challengeRow);
+  section.append(streakRow, loginRow, missionPanel);
   return section;
 }
 

@@ -7472,20 +7472,26 @@ strong.support-upvote-count {
   color: #3b82f6;
 }
 
-/* Daily challenge */
-.profile-popover-challenge {
+/* Mission board */
+.profile-mission-panel {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 10px;
   padding: 10px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg, #111) 60%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent, #f59e0b) 15%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg, #111) 68%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #f59e0b) 12%, transparent);
 }
 
-.profile-popover-challenge-done {
-  border-color: color-mix(in srgb, #22c55e 30%, transparent);
-  background: color-mix(in srgb, #22c55e 5%, var(--bg, #111));
+.profile-mission-panel-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.profile-mission-panel-copy {
+  flex: 1;
+  min-width: 0;
 }
 
 .profile-challenge-icon svg {
@@ -7495,39 +7501,106 @@ strong.support-upvote-count {
   flex-shrink: 0;
 }
 
-.profile-popover-challenge-done .profile-challenge-icon svg {
-  color: #22c55e;
+.profile-mission-list {
+  display: grid;
+  gap: 8px;
 }
 
-.profile-challenge-body {
-  flex: 1;
+.profile-mission-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--border, #333) 85%, transparent);
+  background: color-mix(in srgb, var(--bg-elevated, #171d28) 88%, transparent);
+}
+
+.profile-mission-card-complete {
+  border-color: color-mix(in srgb, #22c55e 30%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #22c55e 18%, transparent);
+}
+
+.profile-mission-card-public {
+  opacity: 0.92;
+}
+
+.profile-mission-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.profile-mission-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   min-width: 0;
 }
 
-.profile-challenge-header {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--fg, #eee);
+.profile-mission-slot {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  color: var(--fg, #eee);
+  background: color-mix(in srgb, var(--bg, #111) 35%, transparent);
 }
 
-.profile-challenge-desc {
-  font-size: 0.72rem;
-  color: var(--fg-dim, #888);
-  margin-top: 1px;
+.profile-mission-slot-daily_easy { background: color-mix(in srgb, #22c55e 18%, var(--bg, #111)); }
+.profile-mission-slot-daily_medium { background: color-mix(in srgb, #f59e0b 18%, var(--bg, #111)); }
+.profile-mission-slot-daily_hard { background: color-mix(in srgb, #ef4444 18%, var(--bg, #111)); }
+.profile-mission-slot-weekly { background: color-mix(in srgb, #3b82f6 18%, var(--bg, #111)); }
+
+.profile-mission-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--fg, #eee);
 }
 
-.profile-challenge-xp {
+.profile-mission-reward {
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--accent, #f59e0b);
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
-.profile-popover-challenge-done .profile-challenge-xp {
+.profile-mission-card-complete .profile-mission-reward {
   color: #22c55e;
+}
+
+.profile-mission-desc {
+  font-size: 0.72rem;
+  color: var(--fg-dim, #888);
+}
+
+.profile-mission-progress-meta,
+.profile-mission-reset {
+  font-size: 0.68rem;
+  color: var(--fg-dim, #7f8694);
+}
+
+.profile-mission-progress-bar {
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bg, #111) 78%, var(--border, #333));
+}
+
+.profile-mission-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f59e0b, #f97316);
+}
+
+.profile-mission-card-complete .profile-mission-progress-fill {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

@@ -1,4 +1,5 @@
 import type { Conversation, FactionId } from './types';
+import type { UserMissionProgressRecord } from './gamification';
 
 export type UserAchievement = {
   achievement_id: string;
@@ -86,6 +87,7 @@ export type UserProfile = {
   achievements?: string[];
   achievement_records?: UserAchievement[];
   streaks?: UserStreakState | null;
+  missions?: UserMissionProgressRecord[];
 };
 
 export type LeaderboardEntry = {
@@ -102,6 +104,7 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | und
 const TABLE = 'community_conversations';
 const SUPPORT_TABLE = 'creator_support_metrics';
 const STREAKS_TABLE = 'user_streaks';
+const MISSIONS_TABLE = 'user_mission_progress';
 const SUPPORT_ROW_ID = 'global';
 const LOCAL_PUBLISH_COOLDOWN_MS = 60_000;
 const LOCAL_PUBLISH_KEY = 'panda-community-last-publish-at';
@@ -214,6 +217,23 @@ function hasSuspiciousLink(value: string): boolean {
 
 function getConversationBranchCount(conversation: Conversation): number {
   return conversation.turns.length;
+}
+
+function getTodayDateString(date = new Date()): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function getIsoWeek(date: Date): string {
+  const d = new Date(date.getTime());
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const week1 = new Date(d.getFullYear(), 0, 4);
+  const weekNum = 1 + Math.round(((d.getTime() - week1.getTime()) / 86_400_000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+  return `${d.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+}
+
+function getActiveMissionPeriodKeys(date = new Date()): string[] {
+  return [getTodayDateString(date), getIsoWeek(date)];
 }
 
 function getPublisherId(): string {
@@ -669,7 +689,7 @@ export async function fetchUserProfile(publisherId: string): Promise<UserProfile
     return await fetchFromApi<UserProfile | null>(`/api/profile/${encodeURIComponent(publisherId)}`);
   } catch {
     try {
-      const [profileRes, achievementRecords, streaks] = await Promise.all([
+      const [profileRes, achievementRecords, streaks, missions] = await Promise.all([
         fetch(`${SUPABASE_URL}/rest/v1/rpc/get_user_profile`, {
           method: 'POST',
           headers: sbHeaders(),
@@ -677,6 +697,7 @@ export async function fetchUserProfile(publisherId: string): Promise<UserProfile
         }),
         fetchUserAchievements(publisherId),
         fetchUserStreakState(publisherId),
+        fetchUserMissionProgress(publisherId),
       ]);
       if (!profileRes.ok) return null;
       const rows = await profileRes.json() as UserProfile[] | UserProfile | null;
@@ -688,6 +709,7 @@ export async function fetchUserProfile(publisherId: string): Promise<UserProfile
         achievement_records: achievementRecords,
         achievements: achievementRecords.map(record => record.achievement_id),
         streaks,
+        missions,
       };
     } catch {
       return null;
@@ -753,6 +775,65 @@ export async function fetchUserStreakState(publisherId: string): Promise<UserStr
       return rows[0] ?? null;
     } catch {
       return null;
+    }
+  }
+}
+
+export async function fetchUserMissionProgress(publisherId: string): Promise<UserMissionProgressRecord[]> {
+  try {
+    return await fetchFromApi<UserMissionProgressRecord[]>(`/api/profile/${encodeURIComponent(publisherId)}/missions`);
+  } catch {
+    try {
+      const periodKeys = getActiveMissionPeriodKeys();
+      const params = new URLSearchParams({
+        select: 'mission_id,mission_slot,cadence,category,progress,goal,period_key,completed_at,meta,updated_at',
+        publisher_id: `eq.${publisherId}`,
+        order: 'updated_at.desc',
+      });
+      params.set('period_key', `in.(${periodKeys.map(key => `"${key}"`).join(',')})`);
+      const res = await fetch(`${sbEndpoint(MISSIONS_TABLE)}?${params}`, { headers: sbHeaders() });
+      if (!res.ok) return [];
+      return await res.json() as UserMissionProgressRecord[];
+    } catch {
+      return [];
+    }
+  }
+}
+
+export async function syncUserMissionProgress(
+  publisherId: string,
+  missions: UserMissionProgressRecord[],
+): Promise<void> {
+  if (missions.length === 0) return;
+
+  const body = missions.map((mission) => ({
+    publisher_id: publisherId,
+    mission_id: mission.mission_id,
+    mission_slot: mission.mission_slot,
+    cadence: mission.cadence,
+    category: mission.category,
+    progress: mission.progress,
+    goal: mission.goal,
+    period_key: mission.period_key,
+    completed_at: mission.completed_at,
+    meta: mission.meta ?? {},
+  }));
+
+  try {
+    await sendToApi('/api/profile/missions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ missions: body }),
+    });
+    return;
+  } catch {
+    const res = await fetch(sbEndpoint(MISSIONS_TABLE), {
+      method: 'POST',
+      headers: { ...sbHeaders(), Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new Error(await readErrorMessage(res));
     }
   }
 }

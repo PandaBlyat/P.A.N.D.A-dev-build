@@ -32,6 +32,7 @@ import {
   fetchUserPublishCount,
   getPublishXp,
   getStoredUsername,
+  syncUserMissionProgress,
   unlockAchievement,
   updateUserStreak,
   type UserProfile,
@@ -40,8 +41,8 @@ import { setProfileForBadge, invalidateLeaderboardCache } from './ProfileBadge';
 import {
   evaluatePublishGamification,
   calculateQualityScore,
+  getMissionCompletionHeadline,
   getQualityMultiplier,
-  getTodayChallenge,
   setCooldown,
   unlockAchievementLocally,
 } from '../lib/gamification';
@@ -186,10 +187,6 @@ function getBranchCount(conversation?: Conversation): number {
 
 function normalizeKey(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-function getTodayChallengeDesc(): string {
-  return getTodayChallenge().description;
 }
 
 function mergeConversationLists(bundled: NormalizedConversation[], remote: NormalizedConversation[]): NormalizedConversation[] {
@@ -1100,6 +1097,10 @@ function buildPublishForm(): HTMLElement {
           }
         }
 
+        if (gamResult.changedMissionRecords.length > 0) {
+          await syncUserMissionProgress(currentProfile.publisher_id, gamResult.changedMissionRecords);
+        }
+
         const currentStreakState = currentProfile.streaks ?? {
           publish_streak: 0,
           longest_streak: 0,
@@ -1118,7 +1119,7 @@ function buildPublishForm(): HTMLElement {
         const qualityScore = calculateQualityScore(conv);
         const qualityMult = getQualityMultiplier(qualityScore.totalStars);
         const adjustedPublishXp = Math.round(basePublishXp * qualityMult);
-        const persistedBonusXp = persistedAchievements.reduce((total, achievement) => total + achievement.xp, 0) + gamResult.challengeXp;
+        const persistedBonusXp = persistedAchievements.reduce((total, achievement) => total + achievement.xp, 0) + gamResult.missionXp;
         const oldLevel = currentProfile.level;
 
         if (adjustedPublishXp > 0) {
@@ -1158,10 +1159,13 @@ function buildPublishForm(): HTMLElement {
           }, delay);
         }
 
-        if (gamResult.challengeXp > 0) {
+        if (gamResult.missionXp > 0 && gamResult.completedMissions.length > 0) {
           const delay = 1200 + persistedAchievements.length * 800 + (gamResult.streakInfo.streakChanged ? 800 : 0);
           setTimeout(() => {
-            showGamificationToast('\u{1F3AF}', 'Daily Challenge Complete!', getTodayChallengeDesc(), gamResult.challengeXp);
+            const missionSummary = gamResult.completedMissions.length === 1
+              ? gamResult.completedMissions[0].description
+              : gamResult.completedMissions.map(mission => mission.name).join(' · ');
+            showGamificationToast('\u{1F3AF}', getMissionCompletionHeadline(gamResult.completedMissions), missionSummary, gamResult.missionXp);
           }, delay);
         }
       }

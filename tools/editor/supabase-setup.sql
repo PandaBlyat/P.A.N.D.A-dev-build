@@ -672,6 +672,63 @@ AS $$
     updated_at = now();
 $$;
 
+-- Per-user mission progress tracking (daily + weekly mission loop)
+CREATE TABLE IF NOT EXISTS user_mission_progress (
+  publisher_id  TEXT NOT NULL,
+  mission_id    TEXT NOT NULL,
+  mission_slot  TEXT NOT NULL,
+  cadence       TEXT NOT NULL,
+  category      TEXT NOT NULL,
+  progress      INT NOT NULL DEFAULT 0,
+  goal          INT NOT NULL DEFAULT 1,
+  period_key    TEXT NOT NULL,
+  completed_at  TIMESTAMPTZ NULL,
+  meta          JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (publisher_id, mission_id, period_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_mission_progress_publisher ON user_mission_progress (publisher_id);
+CREATE INDEX IF NOT EXISTS idx_user_mission_progress_period ON user_mission_progress (period_key);
+
+ALTER TABLE user_mission_progress ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'user_mission_progress' AND policyname = 'Public mission read'
+  ) THEN
+    CREATE POLICY "Public mission read"
+      ON user_mission_progress FOR SELECT USING (true);
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'user_mission_progress' AND policyname = 'Public mission upsert'
+  ) THEN
+    CREATE POLICY "Public mission upsert"
+      ON user_mission_progress FOR INSERT WITH CHECK (true);
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'user_mission_progress' AND policyname = 'Public mission update'
+  ) THEN
+    CREATE POLICY "Public mission update"
+      ON user_mission_progress FOR UPDATE USING (true) WITH CHECK (true);
+  END IF;
+END;
+$$;
+
 -- Add daily_xp_earned to user_profiles for server-side daily cap enforcement
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS daily_xp_earned INT;
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS daily_xp_date TEXT;
