@@ -133,7 +133,7 @@ function formatMemberSince(isoDate: string): string {
 
 function buildProfileHeader(profile: UserProfile): HTMLElement {
   const header = document.createElement('div');
-  header.className = 'profile-popover-header';
+  header.className = 'profile-popover-header profile-surface-section';
 
   const tierColor = getLevelTierColor(profile.level);
 
@@ -165,15 +165,15 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   metaRow.className = 'profile-popover-meta-row';
 
   const levelPill = document.createElement('span');
-  levelPill.className = 'profile-popover-meta-pill';
+  levelPill.className = 'profile-popover-meta-pill profile-surface-token';
   levelPill.textContent = `Level ${profile.level}`;
 
   const xpPill = document.createElement('span');
-  xpPill.className = 'profile-popover-meta-pill';
+  xpPill.className = 'profile-popover-meta-pill profile-surface-token';
   xpPill.textContent = `${profile.xp.toLocaleString()} XP`;
 
   const memberPill = document.createElement('span');
-  memberPill.className = 'profile-popover-meta-pill profile-popover-meta-pill-muted';
+  memberPill.className = 'profile-popover-meta-pill profile-surface-token profile-popover-meta-pill-muted';
   memberPill.textContent = `Since ${formatMemberSince(profile.created_at)}`;
 
   metaRow.append(levelPill, xpPill, memberPill);
@@ -234,7 +234,7 @@ function buildProgressSection(profile: UserProfile): HTMLElement {
 
 function buildStatCard(iconName: Parameters<typeof createIcon>[0], value: string, label: string): HTMLElement {
   const card = document.createElement('div');
-  card.className = 'profile-stat-card';
+  card.className = 'profile-stat-card profile-surface-card';
 
   const icon = createIcon(iconName);
   icon.classList.add('profile-stat-icon');
@@ -253,7 +253,7 @@ function buildStatCard(iconName: Parameters<typeof createIcon>[0], value: string
 
 function buildStatsSection(profile: UserProfile): HTMLElement {
   const statsSection = document.createElement('section');
-  statsSection.className = 'profile-popover-stats';
+  statsSection.className = 'profile-popover-stats profile-surface-section';
 
   const header = document.createElement('div');
   header.className = 'profile-popover-section-header';
@@ -296,7 +296,7 @@ function buildStatsSection(profile: UserProfile): HTMLElement {
 
 function buildXpBreakdownSection(): HTMLElement {
   const xpBreakdownSection = document.createElement('div');
-  xpBreakdownSection.className = 'profile-popover-xp-breakdown';
+  xpBreakdownSection.className = 'profile-popover-xp-breakdown profile-surface-section';
 
   const xpBreakdownHeader = document.createElement('div');
   xpBreakdownHeader.className = 'profile-popover-section-header';
@@ -318,7 +318,7 @@ function buildXpBreakdownSection(): HTMLElement {
 
   for (const [label, amount] of xpItems) {
     const row = document.createElement('div');
-    row.className = 'profile-popover-xp-row';
+    row.className = 'profile-popover-xp-row profile-surface-row';
     const rowLabel = document.createElement('span');
     rowLabel.className = 'profile-popover-xp-row-label';
     rowLabel.textContent = label;
@@ -413,7 +413,7 @@ function buildFeaturedBadgeStrip(unlockedIds: string[]): HTMLElement | null {
   if (featured.length === 0) return null;
 
   const strip = document.createElement('div');
-  strip.className = 'profile-achievement-featured-strip';
+  strip.className = 'profile-achievement-featured-strip profile-surface-section';
 
   const labelRow = document.createElement('div');
   labelRow.className = 'profile-achievement-featured-label-row';
@@ -434,7 +434,7 @@ function buildFeaturedBadgeStrip(unlockedIds: string[]): HTMLElement | null {
 
   featured.forEach((achievement) => {
     const badge = document.createElement('div');
-    badge.className = `profile-achievement-featured-badge profile-achievement-featured-badge-${achievement.tier}`;
+    badge.className = `profile-achievement-featured-badge profile-surface-token profile-achievement-featured-badge-${achievement.tier}`;
     badge.title = `${achievement.name} — ${achievement.description}`;
 
     const icon = document.createElement('span');
@@ -455,7 +455,7 @@ function buildFeaturedBadgeStrip(unlockedIds: string[]): HTMLElement | null {
 
 function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLElement {
   const section = document.createElement('div');
-  section.className = 'profile-popover-achievements';
+  section.className = 'profile-popover-achievements profile-surface-section';
 
   const header = document.createElement('div');
   header.className = 'profile-popover-section-header';
@@ -483,7 +483,7 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
     nextSection.className = 'profile-achievement-next';
 
     const nextHeader = document.createElement('summary');
-    nextHeader.className = 'profile-achievement-next-summary';
+    nextHeader.className = 'profile-achievement-next-summary profile-surface-row';
 
     const nextHeaderCopy = document.createElement('div');
     nextHeaderCopy.className = 'profile-achievement-next-summary-copy';
@@ -505,7 +505,7 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
 
     nextTargets.forEach(({ achievement, reason }) => {
       const card = document.createElement('div');
-      card.className = `profile-achievement-next-card profile-achievement-next-card-${achievement.tier}`;
+      card.className = `profile-achievement-next-card profile-surface-card profile-achievement-next-card-${achievement.tier}`;
       card.title = `${achievement.name} — ${achievement.description}`;
 
       const topRow = document.createElement('div');
@@ -636,7 +636,7 @@ function getProfileMissions(profile: UserProfile, isSelfProfile: boolean): Activ
 
 function buildMissionCard(mission: ActiveMission, isSelfProfile: boolean): HTMLElement {
   const card = document.createElement('div');
-  card.className = `profile-mission-card${mission.completed ? ' profile-mission-card-complete' : ''}${isSelfProfile ? '' : ' profile-mission-card-public'}`;
+  card.className = `profile-mission-card profile-surface-card${mission.completed ? ' profile-mission-card-complete' : ''}${isSelfProfile ? '' : ' profile-mission-card-public'}`;
 
   const header = document.createElement('div');
   header.className = 'profile-mission-card-header';
@@ -645,7 +645,7 @@ function buildMissionCard(mission: ActiveMission, isSelfProfile: boolean): HTMLE
   titleWrap.className = 'profile-mission-title-wrap';
 
   const slot = document.createElement('span');
-  slot.className = `profile-mission-slot profile-mission-slot-${mission.slot}`;
+  slot.className = `profile-mission-slot profile-surface-token profile-mission-slot-${mission.slot}`;
   slot.textContent = mission.slot === 'weekly'
     ? 'Weekly'
     : mission.slot === 'daily_easy'
@@ -687,7 +687,7 @@ function buildMissionCard(mission: ActiveMission, isSelfProfile: boolean): HTMLE
 
 function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTMLElement {
   const section = document.createElement('div');
-  section.className = 'profile-popover-streak-challenge';
+  section.className = 'profile-popover-streak-challenge profile-surface-section';
   const isSelfProfile = profile.publisher_id === cachedProfile?.publisher_id;
 
   const streak = profile.streaks
@@ -758,7 +758,7 @@ function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTM
   loginRow.append(clockIcon, loginLabel, loginValue);
 
   const missionPanel = document.createElement('div');
-  missionPanel.className = 'profile-mission-panel';
+  missionPanel.className = 'profile-mission-panel profile-surface-card';
 
   const missionHeader = document.createElement('div');
   missionHeader.className = 'profile-mission-panel-header';
@@ -795,7 +795,7 @@ function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTM
 
 function buildLeaderboardSection(): HTMLElement {
   const leaderboardSection = document.createElement('div');
-  leaderboardSection.className = 'profile-popover-leaderboard';
+  leaderboardSection.className = 'profile-popover-leaderboard profile-surface-section';
 
   const lbHeader = document.createElement('div');
   lbHeader.className = 'profile-popover-lb-header';
@@ -877,7 +877,7 @@ function renderLeaderboardList(container: HTMLElement, entries: LeaderboardEntry
     const entry = entries[i];
     const row = document.createElement('button');
     row.type = 'button';
-    row.className = 'profile-popover-lb-row';
+    row.className = 'profile-popover-lb-row profile-surface-row';
     row.setAttribute('aria-label', `View ${entry.username}\'s public profile`);
     if (entry.publisher_id === cachedProfile?.publisher_id) {
       row.classList.add('profile-popover-lb-row-self');
