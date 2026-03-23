@@ -1396,8 +1396,14 @@ label {
   background: linear-gradient(90deg, rgba(10, 12, 16, 0.92) 0, rgba(10, 12, 16, 0.92) 10px, rgba(10, 12, 16, 0) 24px, rgba(10, 12, 16, 0) calc(100% - 24px), rgba(10, 12, 16, 0.92) calc(100% - 10px), rgba(10, 12, 16, 0.92) 100%);
 }
 
+@keyframes ticker-scroll {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(var(--ticker-offset), 0, 0); }
+}
+
 .motivation-ticker-track {
-  display: inline-block;
+  display: flex;
+  gap: 48px;
   width: max-content;
   max-width: none;
   white-space: nowrap;
@@ -1405,15 +1411,17 @@ label {
   text-shadow: none;
   backface-visibility: hidden;
   will-change: transform;
-  transform: translateZ(0);
+  animation: ticker-scroll var(--ticker-duration, 10s) linear infinite;
 }
 
 .motivation-ticker-copy {
   display: inline-block;
+  flex: 0 0 auto;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .motivation-ticker-track {
+    animation: none;
     transform: none;
     white-space: normal;
   }
