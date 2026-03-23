@@ -106,13 +106,14 @@ const NARRATOR_PHASES: NarratorPhase[] = [
 
 const PHASE_LABELS = ['Chapter I — Genesis', 'Chapter II — The Problem', 'Chapter III — The Solution', 'Chapter IV — You'];
 
-const NARRATOR_PHASE_START_DELAY_MS = 60;
-const NARRATOR_CHARACTER_DELAY_MS = 1;
-const NARRATOR_CHARACTER_JITTER_MS = 1;
-const NARRATOR_LINE_PAUSE_MS = 130;
-const NARRATOR_PHASE_TRANSITION_MS = 140;
-const NARRATOR_REVEAL_GROUP_DELAY_MS = 120;
-const NARRATOR_HOLD_AFTER_SCALE = 0.35;
+const NARRATOR_PHASE_START_DELAY_MS = 10;
+const NARRATOR_CHARACTERS_PER_TICK = 4;
+const NARRATOR_CHARACTER_DELAY_MS = 0;
+const NARRATOR_CHARACTER_JITTER_MS = 0;
+const NARRATOR_LINE_PAUSE_MS = 18;
+const NARRATOR_PHASE_TRANSITION_MS = 32;
+const NARRATOR_REVEAL_GROUP_DELAY_MS = 28;
+const NARRATOR_HOLD_AFTER_SCALE = 0.08;
 
 export function shouldShowFirstRunExperience(): boolean {
   return !hasDraft();
@@ -335,9 +336,9 @@ export function renderFirstRunExperience(container: HTMLElement): void {
         narratorBox.appendChild(lineEl);
         narratorBox.appendChild(narratorCursor);
 
-        for (let i = 0; i < line.length; i++) {
+        for (let i = 0; i < line.length; i += NARRATOR_CHARACTERS_PER_TICK) {
           if (cancelled) return;
-          lineEl.textContent = line.slice(0, i + 1);
+          lineEl.textContent = line.slice(0, Math.min(line.length, i + NARRATOR_CHARACTERS_PER_TICK));
           await delay(NARRATOR_CHARACTER_DELAY_MS + Math.random() * NARRATOR_CHARACTER_JITTER_MS);
         }
 
