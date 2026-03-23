@@ -377,11 +377,9 @@ function buildStatsSection(profile: UserProfile): HTMLElement {
 }
 
 function buildXpBreakdownSection(): HTMLElement {
-  const xpBreakdownSection = document.createElement('details');
+  const xpBreakdownSection = document.createElement('section');
   xpBreakdownSection.className = 'profile-popover-xp-breakdown profile-surface-section';
 
-  const xpBreakdownHeader = document.createElement('summary');
-  xpBreakdownHeader.className = 'profile-popover-xp-summary';
   const xpBreakdownHeaderCopy = document.createElement('div');
   xpBreakdownHeaderCopy.className = 'profile-popover-section-header';
   const starIcon = createIcon('star');
@@ -391,7 +389,6 @@ function buildXpBreakdownSection(): HTMLElement {
   xpBreakdownMeta.className = 'profile-popover-summary-meta';
   xpBreakdownMeta.textContent = '5 quick sources';
   xpBreakdownHeaderCopy.append(starIcon, xpBreakdownTitle, xpBreakdownMeta);
-  xpBreakdownHeader.appendChild(xpBreakdownHeaderCopy);
 
   const xpRows = document.createElement('div');
   xpRows.className = 'profile-popover-xp-rows';
@@ -417,7 +414,7 @@ function buildXpBreakdownSection(): HTMLElement {
     xpRows.appendChild(row);
   }
 
-  xpBreakdownSection.append(xpBreakdownHeader, xpRows);
+  xpBreakdownSection.append(xpBreakdownHeaderCopy, xpRows);
   return xpBreakdownSection;
 }
 
@@ -1015,11 +1012,8 @@ function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTM
 }
 
 function buildLeaderboardSection(profile: UserProfile): HTMLElement {
-  const leaderboardSection = document.createElement('details');
+  const leaderboardSection = document.createElement('section');
   leaderboardSection.className = 'profile-popover-leaderboard profile-surface-section';
-
-  const summary = document.createElement('summary');
-  summary.className = 'profile-popover-lb-summary';
 
   const lbHeader = document.createElement('div');
   lbHeader.className = 'profile-popover-lb-header';
@@ -1030,13 +1024,12 @@ function buildLeaderboardSection(profile: UserProfile): HTMLElement {
   lbMeta.className = 'profile-popover-summary-meta';
   lbMeta.textContent = 'Loading your rank…';
   lbHeader.append(trophyIcon, lbTitle, lbMeta);
-  summary.appendChild(lbHeader);
 
   const lbList = document.createElement('div');
   lbList.className = 'profile-popover-lb-list';
   lbList.textContent = 'Loading…';
 
-  leaderboardSection.append(summary, lbList);
+  leaderboardSection.append(lbHeader, lbList);
 
   const renderSnapshot = (entries: LeaderboardEntry[]) => {
     const rank = entries.findIndex(entry => entry.publisher_id === profile.publisher_id);
@@ -1091,6 +1084,7 @@ function openPopover(anchor: HTMLElement): void {
 
   const popover = document.createElement('div');
   popover.className = 'profile-popover';
+  popover.onclick = (e: MouseEvent) => e.stopPropagation();
   popover.appendChild(buildSelfProfileContent(cachedProfile));
 
   anchor.appendChild(popover);
