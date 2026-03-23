@@ -7285,6 +7285,345 @@ strong.support-upvote-count {
   color: var(--text, #c8cdd2);
 }
 
+
+.public-profile-view {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
+
+.public-profile-hero,
+.public-profile-section {
+  border: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 16%, var(--border, #333));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-card, #1c2430) 92%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.public-profile-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(220px, 0.9fr);
+  gap: 16px;
+  padding: 18px;
+}
+
+.public-profile-identity {
+  display: flex;
+  gap: 14px;
+  min-width: 0;
+}
+
+.public-profile-avatar {
+  --tier-color: var(--accent, #5eaa3a);
+  position: relative;
+  width: 88px;
+  height: 88px;
+  border-radius: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 800;
+  color: white;
+  background: radial-gradient(circle at top, color-mix(in srgb, var(--tier-color) 62%, white 38%), var(--tier-color));
+  box-shadow: 0 16px 30px color-mix(in srgb, var(--tier-color) 18%, transparent);
+}
+
+.public-profile-avatar-level {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--tier-color) 35%, transparent);
+  background: color-mix(in srgb, var(--bg-panel, #161c22) 88%, transparent);
+  color: var(--text-bright, #f3f6f8);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.public-profile-identity-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.public-profile-eyebrow,
+.public-profile-section-subtitle {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim, #8b97a3);
+}
+
+.public-profile-name,
+.public-profile-section-title {
+  margin: 0;
+  color: var(--text-bright, #f3f6f8);
+}
+
+.public-profile-name {
+  font-size: 1.45rem;
+}
+
+.public-profile-title {
+  color: var(--text, #c8cdd2);
+  font-size: 0.94rem;
+}
+
+.public-profile-member-since,
+.public-profile-progress-meta,
+.public-profile-recent-meta,
+.public-profile-footprint-label,
+.public-profile-streak-label,
+.public-profile-prestige-label,
+.public-profile-stat-label,
+.public-profile-badge-meta {
+  color: var(--text-dim, #8b97a3);
+  font-size: 0.76rem;
+}
+
+.public-profile-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.public-profile-progress-track,
+.public-profile-faction-bar {
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bg-panel, #161c22) 92%, black 8%);
+  border: 1px solid color-mix(in srgb, var(--border, #333) 75%, transparent);
+}
+
+.public-profile-progress-fill,
+.public-profile-faction-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent, #5eaa3a) 78%, white 22%), var(--accent, #5eaa3a));
+}
+
+.public-profile-hero-stats,
+.public-profile-prestige-grid,
+.public-profile-streak-grid,
+.public-profile-footprint-strip,
+.public-profile-badge-grid,
+.public-profile-recent-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.public-profile-hero-stats,
+.public-profile-prestige-grid,
+.public-profile-streak-grid,
+.public-profile-footprint-strip {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.public-profile-badge-grid,
+.public-profile-recent-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.public-profile-stat-card,
+.public-profile-prestige-card,
+.public-profile-streak-card,
+.public-profile-footprint-card,
+.public-profile-badge-card,
+.public-profile-recent-card {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border, #333) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-panel, #161c22) 90%, transparent);
+}
+
+.public-profile-stat-card,
+.public-profile-prestige-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.public-profile-stat-icon svg,
+.public-profile-prestige-icon svg,
+.public-profile-section-title-row .ui-icon svg {
+  width: 15px;
+  height: 15px;
+  color: var(--accent, #5eaa3a);
+}
+
+.public-profile-stat-value,
+.public-profile-prestige-value,
+.public-profile-streak-value,
+.public-profile-footprint-value {
+  color: var(--text-bright, #f3f6f8);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.public-profile-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.public-profile-section-header,
+.public-profile-section-title-wrap,
+.public-profile-section-title-row,
+.public-profile-faction-row,
+.public-profile-badge-top,
+.public-profile-recent-top,
+.public-profile-recent-footer {
+  display: flex;
+}
+
+.public-profile-section-title-wrap {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.public-profile-section-title-row,
+.public-profile-badge-top,
+.public-profile-recent-top,
+.public-profile-recent-footer {
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.public-profile-badge-card,
+.public-profile-recent-card,
+.public-profile-faction-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.public-profile-badge-card-bronze { border-color: color-mix(in srgb, #b87333 34%, transparent); }
+.public-profile-badge-card-silver { border-color: color-mix(in srgb, #c0cad7 34%, transparent); }
+.public-profile-badge-card-gold { border-color: color-mix(in srgb, #e0b74b 38%, transparent); }
+
+.public-profile-badge-icon {
+  font-size: 1.2rem;
+}
+
+.public-profile-badge-name,
+.public-profile-recent-title,
+.public-profile-faction-label,
+.public-profile-recent-faction {
+  color: var(--text-bright, #f3f6f8);
+  font-weight: 700;
+}
+
+.public-profile-badge-tier,
+.public-profile-recent-tag,
+.public-profile-recent-published {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--border, #333) 75%, transparent);
+  background: color-mix(in srgb, var(--bg-elevated, #171d28) 88%, transparent);
+  color: var(--text-dim, #8b97a3);
+  text-transform: capitalize;
+}
+
+.public-profile-badge-desc,
+.public-profile-recent-summary,
+.public-profile-section-subtitle {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.public-profile-faction-list {
+  gap: 12px;
+}
+
+.public-profile-faction-row {
+  flex-direction: column;
+  gap: 8px;
+}
+
+.public-profile-faction-label-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.public-profile-faction-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 12px color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.public-profile-faction-meta,
+.public-profile-recent-date {
+  color: var(--text-dim, #8b97a3);
+  font-size: 0.74rem;
+}
+
+.public-profile-recent-faction {
+  padding-left: 10px;
+  position: relative;
+}
+
+.public-profile-recent-faction::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  transform: translateY(-50%);
+  background: var(--faction-color, var(--accent, #5eaa3a));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--faction-color, var(--accent, #5eaa3a)) 30%, transparent);
+}
+
+.public-profile-recent-title {
+  margin: 0;
+  font-size: 0.96rem;
+}
+
+.public-profile-recent-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@media (max-width: 720px) {
+  .public-profile-modal {
+    width: min(100%, 100vw - 16px);
+    max-height: calc(100vh - 16px);
+  }
+
+  .public-profile-view {
+    padding: 12px;
+  }
+
+  .public-profile-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .public-profile-identity {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .public-profile-hero-stats,
+  .public-profile-prestige-grid,
+  .public-profile-streak-grid,
+  .public-profile-footprint-strip {
+    grid-template-columns: 1fr;
+  }
+}
+
 .profile-popover-challenge-public {
   border-color: color-mix(in srgb, var(--info, #4080c4) 22%, transparent);
   background: color-mix(in srgb, var(--info, #4080c4) 10%, transparent);

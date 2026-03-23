@@ -45,6 +45,12 @@ type LeaderboardEntry = {
   title: string;
 };
 
+type PublicProfileData = {
+  profile: Record<string, unknown>;
+  publish_count: number;
+  authored_conversations: ReturnType<typeof normalizeConversationRow>[];
+};
+
 type MissionSlot = 'daily_easy' | 'daily_medium' | 'daily_hard' | 'weekly';
 type MissionCadence = 'daily' | 'weekly';
 type MissionCategory = 'publishing' | 'faction' | 'outcomes' | 'preconditions' | 'community';
@@ -128,6 +134,7 @@ function escapeIlike(value: string): string {
 
 function normalizeConversationRow(row: Record<string, unknown>) {
   return {
+    publisher_id: typeof row.publisher_id === 'string' ? row.publisher_id : '',
     id: typeof row.id === 'string' ? row.id : '',
     faction: typeof row.faction === 'string' ? row.faction : '',
     label: typeof row.label === 'string' ? row.label : '',
@@ -333,6 +340,68 @@ async function fetchUserStreakState(publisherId: string): Promise<UserStreakStat
   }
   const rows = await r.json() as Array<Record<string, unknown>>;
   return normalizeUserStreak(rows[0]);
+}
+
+async function fetchUserPublishCount(publisherId: string): Promise<number> {
+  const params = new URLSearchParams({
+    select: 'id',
+    publisher_id: `eq.${publisherId}`,
+  });
+
+  const headResponse = await fetch(`${sbEndpoint(TABLE)}?${params}`, {
+    headers: { ...sbHeaders(), Prefer: 'count=exact' },
+    method: 'HEAD',
+  });
+
+  if (headResponse.ok) {
+    const contentRange = headResponse.headers.get('content-range');
+    const match = contentRange?.match(/\/(\d+)/);
+    if (match) return parseInt(match[1], 10);
+  }
+
+  const fallbackResponse = await fetch(`${sbEndpoint(TABLE)}?${params}`, { headers: sbHeaders() });
+  if (!fallbackResponse.ok) {
+    throw new Error(await readErrorMessage(fallbackResponse));
+  }
+
+  const rows = await fallbackResponse.json() as Array<Record<string, unknown>>;
+  return rows.length;
+}
+
+async function fetchAuthoredConversations(publisherId: string) {
+  const params = new URLSearchParams({
+    select: ['publisher_id', ...COMMUNITY_REQUIRED_COLUMNS, ...COMMUNITY_OPTIONAL_COLUMNS].join(','),
+    publisher_id: `eq.${publisherId}`,
+    order: 'created_at.desc',
+  });
+
+  const response = await fetch(`${sbEndpoint(TABLE)}?${params}`, { headers: sbHeaders() });
+  if (!response.ok) {
+    const errorMessage = await readErrorMessage(response);
+    if (isMissingSchemaColumnError(errorMessage, 'publisher_id')) {
+      return [];
+    }
+    throw new Error(errorMessage);
+  }
+
+  const rows = await response.json() as Array<Record<string, unknown>>;
+  return rows.map(normalizeConversationRow);
+}
+
+async function fetchPublicProfileData(publisherId: string): Promise<PublicProfileData | null> {
+  const [profile, publishCount, authoredConversations] = await Promise.all([
+    fetchHydratedUserProfile(publisherId),
+    fetchUserPublishCount(publisherId).catch(() => 0),
+    fetchAuthoredConversations(publisherId).catch(() => []),
+  ]);
+
+  if (!profile) return null;
+
+  return {
+    profile,
+    publish_count: publishCount,
+    authored_conversations: authoredConversations,
+  };
 }
 
 async function fetchHydratedUserProfile(publisherId: string) {
@@ -608,6 +677,22 @@ app.post('/api/profile/register', async (req, res) => {
     const rows = await r.json();
     const profile = Array.isArray(rows) ? rows[0] : rows;
     res.json(profile ?? null);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/profile/:publisherId/public', async (req, res) => {
+  try {
+    res.json(await fetchPublicProfileData(req.params.publisherId));
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/profile/:publisherId/conversations', async (req, res) => {
+  try {
+    res.json(await fetchAuthoredConversations(req.params.publisherId));
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

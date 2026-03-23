@@ -7,7 +7,7 @@ import {
   LEVEL_THRESHOLDS,
   getNextLevelThreshold,
   fetchLeaderboard,
-  fetchUserProfile,
+  fetchPublicProfileData,
   fetchUserPublishCount,
   XP_PUBLISH_SHORT,
   XP_PUBLISH_MEDIUM,
@@ -34,6 +34,7 @@ import {
 } from '../lib/gamification';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon } from './icons';
+import { renderPublicProfileView } from './PublicProfileView';
 
 const PROFILE_MODAL_MOUNT_ID = 'app-modal-host';
 
@@ -745,49 +746,6 @@ function buildSelfProfileContent(profile: UserProfile): HTMLElement[] {
   ];
 }
 
-function buildPublicProfileContent(profile: UserProfile): HTMLElement[] {
-  const summary = document.createElement('div');
-  summary.className = 'public-profile-summary';
-  const unlocked = getUnlockedAchievementIdsForProfile(profile);
-
-  const summaryTitle = document.createElement('div');
-  summaryTitle.className = 'public-profile-summary-title';
-  summaryTitle.textContent = 'Zone reputation';
-
-  const summaryCopy = document.createElement('div');
-  summaryCopy.className = 'public-profile-summary-copy';
-  summaryCopy.textContent = `${profile.username} is a level ${profile.level} stalker with ${profile.xp} XP.`;
-
-  const summaryStats = document.createElement('div');
-  summaryStats.className = 'public-profile-summary-stats';
-
-  const rareStat = document.createElement('div');
-  rareStat.className = 'public-profile-summary-pill';
-  rareStat.textContent = `${getRareAchievementCount(unlocked)} rare badge${getRareAchievementCount(unlocked) === 1 ? '' : 's'}`;
-
-  const totalStat = document.createElement('div');
-  totalStat.className = 'public-profile-summary-pill';
-  totalStat.textContent = `${unlocked.length} unlocked total`;
-
-  summaryStats.append(rareStat, totalStat);
-  summary.append(summaryTitle, summaryCopy, summaryStats);
-
-  const featuredStrip = buildFeaturedBadgeStrip(unlocked);
-  if (featuredStrip) {
-    featuredStrip.classList.add('public-profile-featured-strip');
-    summary.appendChild(featuredStrip);
-  }
-
-  return [
-    buildProfileHeader(profile),
-    summary,
-    buildProgressSection(profile),
-    buildStatsSection(profile),
-    buildAchievementsSection(profile),
-    buildStreakChallengeSection(profile),
-  ];
-}
-
 function openPopover(anchor: HTMLElement): void {
   closePopover();
   if (!cachedProfile) return;
@@ -828,7 +786,7 @@ function renderLeaderboardList(container: HTMLElement, entries: LeaderboardEntry
 
     row.onclick = (event) => {
       event.stopPropagation();
-      void handleLeaderboardProfileSelection(entry, row);
+      void handleLeaderboardProfileSelection(entry, row, i + 1);
     };
 
     const rank = document.createElement('span');
@@ -850,7 +808,7 @@ function renderLeaderboardList(container: HTMLElement, entries: LeaderboardEntry
   }
 }
 
-async function handleLeaderboardProfileSelection(entry: LeaderboardEntry, trigger: HTMLButtonElement): Promise<void> {
+async function handleLeaderboardProfileSelection(entry: LeaderboardEntry, trigger: HTMLButtonElement, leaderboardRank?: number): Promise<void> {
   if (!cachedProfile) return;
 
   if (entry.publisher_id === cachedProfile.publisher_id) {
@@ -864,13 +822,13 @@ async function handleLeaderboardProfileSelection(entry: LeaderboardEntry, trigge
   activeLeaderboardRow.classList.add('is-loading');
   activeLeaderboardRow.setAttribute('aria-busy', 'true');
 
-  await openPublicProfileOverlay(entry.publisher_id, trigger);
+  await openPublicProfileOverlay(entry.publisher_id, trigger, leaderboardRank);
 
   activeLeaderboardRow.classList.remove('is-loading');
   activeLeaderboardRow.removeAttribute('aria-busy');
 }
 
-async function openPublicProfileOverlay(publisherId: string, trigger: HTMLButtonElement): Promise<void> {
+async function openPublicProfileOverlay(publisherId: string, trigger: HTMLButtonElement, leaderboardRank?: number): Promise<void> {
   closePublicProfileOverlay();
   activePublicProfilePublisherId = publisherId;
 
@@ -929,13 +887,13 @@ async function openPublicProfileOverlay(publisherId: string, trigger: HTMLButton
   });
 
   try {
-    const profile = await fetchUserProfile(publisherId);
+    const publicProfile = await fetchPublicProfileData(publisherId);
     if (activePublicProfilePublisherId !== publisherId || publicProfileOverlay !== overlay) {
       return;
     }
 
     body.textContent = '';
-    if (!profile) {
+    if (!publicProfile) {
       subtitle.textContent = 'Profile unavailable';
       const emptyState = document.createElement('div');
       emptyState.className = 'public-profile-empty';
@@ -944,6 +902,8 @@ async function openPublicProfileOverlay(publisherId: string, trigger: HTMLButton
       return;
     }
 
+    const { profile } = publicProfile;
+
     if (cachedProfile && profile.publisher_id === cachedProfile.publisher_id) {
       subtitle.textContent = 'This is you';
       body.append(...buildSelfProfileContent(profile));
@@ -951,7 +911,7 @@ async function openPublicProfileOverlay(publisherId: string, trigger: HTMLButton
     }
 
     subtitle.textContent = `${profile.username} · ${profile.title}`;
-    body.append(...buildPublicProfileContent(profile));
+    body.appendChild(renderPublicProfileView({ data: publicProfile, leaderboardRank }));
   } catch {
     if (activePublicProfilePublisherId !== publisherId || publicProfileOverlay !== overlay) {
       return;
