@@ -43,6 +43,7 @@ type ConnectionPreview = {
   sourceTurnNumber: number;
   sourceChoiceIndex: number;
   cursor: { x: number; y: number };
+  hoveredTargetTurnNumber: number | null;
 };
 
 /** Default branch color palette — automatically assigned by turn index. */
@@ -124,6 +125,17 @@ export function renderFlowEditor(container: HTMLElement): void {
   let viewAdjusted = false;
   let connectionPreview: ConnectionPreview | null = null;
 
+  const updateConnectionTargetHighlights = (): void => {
+    for (const [turnNumber, node] of nodeElements) {
+      const isSource = connectionPreview?.sourceTurnNumber === turnNumber;
+      const isValidTarget = connectionPreview != null && !isSource;
+      const isHoveredTarget = connectionPreview?.hoveredTargetTurnNumber === turnNumber;
+      node.classList.toggle('connection-source', Boolean(isSource));
+      node.classList.toggle('connection-target', isValidTarget);
+      node.classList.toggle('connection-target-active', isHoveredTarget);
+    }
+  };
+
   const zoomValue = document.createElement('span');
   zoomValue.className = 'flow-zoom-value';
 
@@ -159,6 +171,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   }
 
   const draw = (positionOverrides?: TurnPositionMap): void => {
+    updateConnectionTargetHighlights();
     drawEdges({
       svg,
       conv,
@@ -342,40 +355,58 @@ export function renderFlowEditor(container: HTMLElement): void {
     event.preventDefault();
     event.stopPropagation();
 
-    connectionPreview = {
-      sourceTurnNumber,
-      sourceChoiceIndex,
-      cursor: viewportToWorldPoint(canvas, viewState, event.clientX, event.clientY),
+    const getHoveredTargetTurnNumber = (clientX: number, clientY: number): number | null => {
+      const hoveredNode = document.elementFromPoint(clientX, clientY)?.closest('.turn-node') as HTMLElement | null;
+      if (!hoveredNode) return null;
+      const targetTurn = Number(hoveredNode.dataset.turnNumber);
+      if (Number.isNaN(targetTurn) || targetTurn === sourceTurnNumber) return null;
+      return targetTurn;
     };
-    draw();
 
-    const onMove = (moveEvent: MouseEvent) => {
+    const updatePreview = (clientX: number, clientY: number): void => {
       connectionPreview = {
         sourceTurnNumber,
         sourceChoiceIndex,
-        cursor: viewportToWorldPoint(canvas, viewState, moveEvent.clientX, moveEvent.clientY),
+        cursor: viewportToWorldPoint(canvas, viewState, clientX, clientY),
+        hoveredTargetTurnNumber: getHoveredTargetTurnNumber(clientX, clientY),
       };
       draw();
     };
 
-    const onUp = (upEvent: MouseEvent) => {
+    const finishConnectionDrag = (targetTurnNumber: number | null = null): void => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('keydown', onKeyDown, true);
 
-      const targetNode = (upEvent.target as HTMLElement | null)?.closest('.turn-node') as HTMLElement | null;
-      if (targetNode) {
-        const targetTurn = Number(targetNode.dataset.turnNumber);
-        if (!Number.isNaN(targetTurn) && targetTurn !== sourceTurnNumber) {
-          store.connectChoiceToTurn(conversationId, sourceTurnNumber, sourceChoiceIndex, targetTurn);
-        }
+      if (targetTurnNumber != null) {
+        store.connectChoiceToTurn(conversationId, sourceTurnNumber, sourceChoiceIndex, targetTurnNumber);
       }
 
       connectionPreview = null;
       draw();
     };
 
+    const onMove = (moveEvent: MouseEvent) => {
+      updatePreview(moveEvent.clientX, moveEvent.clientY);
+    };
+
+    const onUp = (upEvent: MouseEvent) => {
+      const targetTurnNumber = connectionPreview?.hoveredTargetTurnNumber
+        ?? getHoveredTargetTurnNumber(upEvent.clientX, upEvent.clientY);
+      finishConnectionDrag(targetTurnNumber);
+    };
+
+    const onKeyDown = (keyEvent: KeyboardEvent) => {
+      if (keyEvent.key !== 'Escape') return;
+      keyEvent.preventDefault();
+      keyEvent.stopPropagation();
+      finishConnectionDrag();
+    };
+
+    updatePreview(event.clientX, event.clientY);
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+    document.addEventListener('keydown', onKeyDown, true);
   }
 
   const viewportApi: FlowViewportApi = {
@@ -530,6 +561,7 @@ function renderTurnNode(options: {
   const nodeWidth = getFlowNodeWidthForLabel(turnLabels.getLongLabel(turn.turnNumber), density);
 
   const node = document.createElement('div');
+
   node.className = 'turn-node'
     + (selected ? ' selected' : '')
     + (hasWarning ? ' has-warning' : '')
@@ -664,8 +696,8 @@ function renderTurnNode(options: {
   const inputPort = document.createElement('button');
   inputPort.type = 'button';
   inputPort.className = 'turn-input-port';
-  inputPort.title = `Incoming connections for ${turnLabels.getLongLabel(turn.turnNumber)}`;
-  inputPort.setAttribute('aria-label', `Incoming connections for ${turnLabels.getLongLabel(turn.turnNumber)}`);
+  inputPort.title = `Incoming connections for ${turnLabels.getLongLabel(turn.turnNumber)}. Drop a dragged choice here to connect it, or press Escape to cancel the drag.`;
+  inputPort.setAttribute('aria-label', `Incoming connections for ${turnLabels.getLongLabel(turn.turnNumber)}. Drag a choice connector here to link it, then release to connect or press Escape to cancel.`);
   inputPort.style.background = `linear-gradient(180deg, ${branchColor}cc, ${branchColor}99)`;
   inputPort.onclick = (event) => {
     event.stopPropagation();
@@ -811,10 +843,12 @@ function renderTurnNode(options: {
     port.type = 'button';
     port.className = 'choice-output-port';
     port.dataset.choicePort = String(choice.index);
-    port.setAttribute('aria-label', `Output connection for choice ${choice.index}`);
+    port.setAttribute('aria-label', choice.continueTo != null
+      ? `Connection handle for choice ${choice.index}. Drag to retarget this link, double-click to create a new connected turn, or use the unlink button to disconnect.`
+      : `Connection handle for choice ${choice.index}. Drag to connect it to another turn, or double-click to create a new connected turn.`);
     port.title = choice.continueTo != null
-      ? `Drag to change destination for Choice ${choice.index}`
-      : `Drag to connect Choice ${choice.index} to another turn`;
+      ? `Drag to change the destination for Choice ${choice.index}. Double-click to create a new connected turn, or use Unlink to disconnect. Press Escape to cancel a drag.`
+      : `Drag to connect Choice ${choice.index} to another turn. Double-click to create a new connected turn. Press Escape to cancel a drag.`;
     port.style.background = `linear-gradient(180deg, ${choiceBranchColor}cc, ${choiceBranchColor}80)`;
     port.onmousedown = (event) => onChoicePortDragStart(choice.index, event);
     port.ondblclick = (event) => {
@@ -841,7 +875,23 @@ function renderTurnNode(options: {
       badge.className = 'choice-cont-badge';
       badge.textContent = turnLabels.getCompactLabel(choice.continueTo);
       badge.style.setProperty('--badge-branch-color', choiceBranchColor);
+      badge.title = `Connected to ${turnLabels.getLongLabel(choice.continueTo)}.`;
       item.appendChild(badge);
+
+      const unlinkButton = document.createElement('button');
+      unlinkButton.type = 'button';
+      unlinkButton.className = 'choice-unlink-btn';
+      unlinkButton.textContent = 'Unlink';
+      unlinkButton.title = `Disconnect Choice ${choice.index} from ${turnLabels.getLongLabel(choice.continueTo)}`;
+      unlinkButton.setAttribute('aria-label', `Disconnect choice ${choice.index} from ${turnLabels.getLongLabel(choice.continueTo)}`);
+      unlinkButton.onclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        store.clearChoiceContinuation(conv.id, turn.turnNumber, choice.index);
+        store.selectTurn(turn.turnNumber);
+        store.selectChoice(choice.index);
+      };
+      item.appendChild(unlinkButton);
     }
 
     if (hasPauseOutcome(choice)) {
@@ -918,7 +968,8 @@ function buildTurnAriaLabel(
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
 ): string {
   const opening = turn.openingMessage ? ` Opening message: ${truncate(turn.openingMessage, 80)}.` : '';
-  return `${turnLabels.getLongLabel(turn.turnNumber)}. ${turn.choices.length} choice${turn.choices.length === 1 ? '' : 's'}.${opening} Shift+T adds a turn, Shift+C adds a choice, Shift+L connects the selected branch here, Shift+D disconnects the current branch. Control or Command+D duplicates this turn, Control or Command+C copies it, and Control or Command+V pastes the copied turn here.`;
+  const connectionHint = ' Drag a choice connector onto this turn to link it here, or press Escape while dragging to cancel.';
+  return `${turnLabels.getLongLabel(turn.turnNumber)}. ${turn.choices.length} choice${turn.choices.length === 1 ? '' : 's'}.${opening}${connectionHint} Shift+T adds a turn, Shift+C adds a choice, Shift+L connects the selected branch here, Shift+D disconnects the current branch. Control or Command+D duplicates this turn, Control or Command+C copies it, and Control or Command+V pastes the copied turn here.`;
 }
 
 function createTurnActionButton(title: string, onClick: () => void, label?: string): HTMLButtonElement {
