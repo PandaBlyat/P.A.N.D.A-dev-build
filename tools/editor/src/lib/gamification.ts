@@ -61,14 +61,79 @@ export function getAchievementById(id: AchievementId): Achievement | undefined {
 
 const LOCAL_ACHIEVEMENTS_KEY = 'panda-gf-achievements';
 
-export function getUnlockedAchievements(): AchievementId[] {
+type SyncedGamificationState = {
+  achievements: AchievementId[];
+  streaks: {
+    publish_streak: number;
+    longest_streak: number;
+    last_publish_week: string;
+    login_streak: number;
+    last_login_date: string;
+  } | null;
+};
+
+let syncedGamificationState: SyncedGamificationState | null = null;
+
+function isAchievementId(value: string): value is AchievementId {
+  return ACHIEVEMENTS.some(achievement => achievement.id === value);
+}
+
+function readCachedAchievements(): AchievementId[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = window.localStorage.getItem(LOCAL_ACHIEVEMENTS_KEY);
-    return raw ? JSON.parse(raw) as AchievementId[] : [];
+    const parsed = raw ? JSON.parse(raw) as string[] : [];
+    return parsed.filter(isAchievementId);
   } catch {
     return [];
   }
+}
+
+function writeCachedAchievements(ids: AchievementId[]): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(LOCAL_ACHIEVEMENTS_KEY, JSON.stringify(Array.from(new Set(ids))));
+}
+
+export function setSyncedGamificationState(state: {
+  achievements?: string[] | null;
+  streaks?: {
+    publish_streak: number;
+    longest_streak: number;
+    last_publish_week: string;
+    login_streak: number;
+    last_login_date: string;
+  } | null;
+} | null): void {
+  if (!state) {
+    syncedGamificationState = null;
+    return;
+  }
+
+  const achievements = (state.achievements ?? []).filter(isAchievementId);
+  syncedGamificationState = {
+    achievements,
+    streaks: state.streaks ?? null,
+  };
+
+  writeCachedAchievements(achievements);
+
+  if (state.streaks) {
+    saveStreakData({
+      ...getStreakData(),
+      currentStreak: state.streaks.publish_streak,
+      longestStreak: state.streaks.longest_streak,
+      lastPublishWeek: state.streaks.last_publish_week,
+    });
+    saveLoginStreak({
+      currentStreak: state.streaks.login_streak,
+      lastLoginDate: state.streaks.last_login_date,
+    });
+  }
+}
+
+export function getUnlockedAchievements(): AchievementId[] {
+  if (syncedGamificationState) return syncedGamificationState.achievements;
+  return readCachedAchievements();
 }
 
 export function isAchievementUnlocked(id: AchievementId): boolean {
@@ -79,8 +144,14 @@ export function isAchievementUnlocked(id: AchievementId): boolean {
 export function unlockAchievementLocally(id: AchievementId): boolean {
   const current = getUnlockedAchievements();
   if (current.includes(id)) return false;
-  current.push(id);
-  window.localStorage.setItem(LOCAL_ACHIEVEMENTS_KEY, JSON.stringify(current));
+  const updated = [...current, id];
+  writeCachedAchievements(updated);
+  if (syncedGamificationState) {
+    syncedGamificationState = {
+      ...syncedGamificationState,
+      achievements: updated,
+    };
+  }
   return true;
 }
 
@@ -124,21 +195,46 @@ function weekDifference(a: string, b: string): number {
 }
 
 export function getStreakData(): StreakData {
-  if (typeof window === 'undefined') {
-    return { currentStreak: 0, lastPublishWeek: '', longestStreak: 0, shieldAvailable: true, shieldMonth: '' };
-  }
-  try {
-    const raw = window.localStorage.getItem(LOCAL_STREAK_KEY);
-    if (!raw) return { currentStreak: 0, lastPublishWeek: '', longestStreak: 0, shieldAvailable: true, shieldMonth: '' };
-    return JSON.parse(raw) as StreakData;
-  } catch {
-    return { currentStreak: 0, lastPublishWeek: '', longestStreak: 0, shieldAvailable: true, shieldMonth: '' };
-  }
+  const fallback = (() => {
+    if (typeof window === 'undefined') {
+      return { currentStreak: 0, lastPublishWeek: '', longestStreak: 0, shieldAvailable: true, shieldMonth: '' };
+    }
+    try {
+      const raw = window.localStorage.getItem(LOCAL_STREAK_KEY);
+      if (!raw) return { currentStreak: 0, lastPublishWeek: '', longestStreak: 0, shieldAvailable: true, shieldMonth: '' };
+      return JSON.parse(raw) as StreakData;
+    } catch {
+      return { currentStreak: 0, lastPublishWeek: '', longestStreak: 0, shieldAvailable: true, shieldMonth: '' };
+    }
+  })();
+
+  if (!syncedGamificationState?.streaks) return fallback;
+
+  return {
+    currentStreak: syncedGamificationState.streaks.publish_streak,
+    longestStreak: syncedGamificationState.streaks.longest_streak,
+    lastPublishWeek: syncedGamificationState.streaks.last_publish_week,
+    shieldAvailable: fallback.shieldAvailable,
+    shieldMonth: fallback.shieldMonth,
+  };
 }
 
 function saveStreakData(data: StreakData): void {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(LOCAL_STREAK_KEY, JSON.stringify(data));
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(LOCAL_STREAK_KEY, JSON.stringify(data));
+  }
+  if (syncedGamificationState) {
+    syncedGamificationState = {
+      ...syncedGamificationState,
+      streaks: {
+        publish_streak: data.currentStreak,
+        longest_streak: data.longestStreak,
+        last_publish_week: data.lastPublishWeek,
+        login_streak: syncedGamificationState.streaks?.login_streak ?? getLoginStreak().currentStreak,
+        last_login_date: syncedGamificationState.streaks?.last_login_date ?? getLoginStreak().lastLoginDate,
+      },
+    };
+  }
 }
 
 /**
@@ -391,6 +487,7 @@ export function setCooldown(actionKey: string): void {
 
 export type GamificationResult = {
   achievementsUnlocked: Achievement[];
+  streakData: StreakData;
   challengeXp: number;
   qualityStars: number;
   qualityMultiplier: number;
@@ -443,13 +540,10 @@ export function evaluatePublishGamification(
 
   for (const { id, condition } of checks) {
     if (condition && !isAchievementUnlocked(id) && !isOnCooldown(`ach-${id}`)) {
-      if (unlockAchievementLocally(id)) {
-        const achievement = getAchievementById(id);
-        if (achievement) {
-          achievementsUnlocked.push(achievement);
-          rawBonusXp += achievement.xp;
-          setCooldown(`ach-${id}`);
-        }
+      const achievement = getAchievementById(id);
+      if (achievement) {
+        achievementsUnlocked.push(achievement);
+        rawBonusXp += achievement.xp;
       }
     }
   }
@@ -460,15 +554,15 @@ export function evaluatePublishGamification(
 
   // Check streak achievements
   if (streak.currentStreak >= 3 && !isAchievementUnlocked('streak_3')) {
-    if (unlockAchievementLocally('streak_3')) {
-      const a = getAchievementById('streak_3')!;
+    const a = getAchievementById('streak_3');
+    if (a) {
       achievementsUnlocked.push(a);
       rawBonusXp += a.xp;
     }
   }
   if (streak.currentStreak >= 10 && !isAchievementUnlocked('streak_10')) {
-    if (unlockAchievementLocally('streak_10')) {
-      const a = getAchievementById('streak_10')!;
+    const a = getAchievementById('streak_10');
+    if (a) {
       achievementsUnlocked.push(a);
       rawBonusXp += a.xp;
     }
@@ -494,16 +588,14 @@ export function evaluatePublishGamification(
   // ── Quality Score ──
   const qualityMultiplier = getQualityMultiplier(quality.totalStars);
 
-  // ── Clamp total bonus XP by daily cap ──
-  const totalBonusXp = clampBonusXp(rawBonusXp);
-
   return {
     achievementsUnlocked,
     challengeXp,
     qualityStars: quality.totalStars,
     qualityMultiplier,
     streakInfo,
-    totalBonusXp,
+    streakData: streak,
+    totalBonusXp: rawBonusXp,
   };
 }
 
@@ -517,13 +609,40 @@ export type LoginStreakData = {
 };
 
 export function getLoginStreak(): LoginStreakData {
-  if (typeof window === 'undefined') return { currentStreak: 0, lastLoginDate: '' };
-  try {
-    const raw = window.localStorage.getItem(LOCAL_LOGIN_STREAK_KEY);
-    if (!raw) return { currentStreak: 0, lastLoginDate: '' };
-    return JSON.parse(raw) as LoginStreakData;
-  } catch {
-    return { currentStreak: 0, lastLoginDate: '' };
+  const fallback = (() => {
+    if (typeof window === 'undefined') return { currentStreak: 0, lastLoginDate: '' };
+    try {
+      const raw = window.localStorage.getItem(LOCAL_LOGIN_STREAK_KEY);
+      if (!raw) return { currentStreak: 0, lastLoginDate: '' };
+      return JSON.parse(raw) as LoginStreakData;
+    } catch {
+      return { currentStreak: 0, lastLoginDate: '' };
+    }
+  })();
+
+  if (!syncedGamificationState?.streaks) return fallback;
+
+  return {
+    currentStreak: syncedGamificationState.streaks.login_streak,
+    lastLoginDate: syncedGamificationState.streaks.last_login_date,
+  };
+}
+
+function saveLoginStreak(data: LoginStreakData): void {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(LOCAL_LOGIN_STREAK_KEY, JSON.stringify(data));
+  }
+  if (syncedGamificationState) {
+    syncedGamificationState = {
+      ...syncedGamificationState,
+      streaks: {
+        publish_streak: syncedGamificationState.streaks?.publish_streak ?? getStreakData().currentStreak,
+        longest_streak: syncedGamificationState.streaks?.longest_streak ?? getStreakData().longestStreak,
+        last_publish_week: syncedGamificationState.streaks?.last_publish_week ?? getStreakData().lastPublishWeek,
+        login_streak: data.currentStreak,
+        last_login_date: data.lastLoginDate,
+      },
+    };
   }
 }
 
@@ -531,12 +650,12 @@ export function getLoginStreak(): LoginStreakData {
  * Record a daily login. Returns bonus XP (0 if already logged in today).
  * XP scales: 5, 10, 15, 20... capped at 50 per day.
  */
-export function recordDailyLogin(): { xp: number; streak: number; isNew: boolean } {
+export function recordDailyLogin(): { xp: number; streak: number; isNew: boolean; loginStreakData: LoginStreakData } {
   const today = getTodayDateString();
   const data = getLoginStreak();
 
   if (data.lastLoginDate === today) {
-    return { xp: 0, streak: data.currentStreak, isNew: false };
+    return { xp: 0, streak: data.currentStreak, isNew: false, loginStreakData: data };
   }
 
   // Check if yesterday — consecutive day
@@ -551,11 +670,8 @@ export function recordDailyLogin(): { xp: number; streak: number; isNew: boolean
   }
   data.lastLoginDate = today;
 
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(LOCAL_LOGIN_STREAK_KEY, JSON.stringify(data));
-  }
+  saveLoginStreak(data);
 
-  const rawXp = Math.min(data.currentStreak * 5, 50);
-  const xp = clampBonusXp(rawXp);
-  return { xp, streak: data.currentStreak, isNew: true };
+  const xp = Math.min(data.currentStreak * 5, 50);
+  return { xp, streak: data.currentStreak, isNew: true, loginStreakData: data };
 }

@@ -11,6 +11,7 @@ const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? 'http://localhost:5173';
 const TABLE = 'community_conversations';
 const SUPPORT_TABLE = 'creator_support_metrics';
 const PROFILES_TABLE = 'user_profiles';
+const STREAKS_TABLE = 'user_streaks';
 const SUPPORT_ROW_ID = 'global';
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
 const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'upvotes', 'updated_at'] as const;
@@ -19,6 +20,20 @@ type CommunityLibraryStats = {
   published_conversations: number;
   published_publishers: number;
   updated_at: string;
+};
+
+type UserAchievement = {
+  achievement_id: string;
+  unlocked_at: string;
+};
+
+type UserStreakState = {
+  publish_streak: number;
+  longest_streak: number;
+  last_publish_week: string;
+  login_streak: number;
+  last_login_date: string;
+  updated_at?: string;
 };
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -94,6 +109,71 @@ function normalizeConversationRow(row: Record<string, unknown>) {
         ? row.created_at
         : new Date(0).toISOString(),
     data: row.data ?? null,
+  };
+}
+
+function normalizeUserStreak(row: Record<string, unknown> | null | undefined): UserStreakState | null {
+  if (!row) return null;
+  return {
+    publish_streak: typeof row.publish_streak === 'number' ? row.publish_streak : 0,
+    longest_streak: typeof row.longest_streak === 'number' ? row.longest_streak : 0,
+    last_publish_week: typeof row.last_publish_week === 'string' ? row.last_publish_week : '',
+    login_streak: typeof row.login_streak === 'number' ? row.login_streak : 0,
+    last_login_date: typeof row.last_login_date === 'string' ? row.last_login_date : '',
+    updated_at: typeof row.updated_at === 'string' ? row.updated_at : undefined,
+  };
+}
+
+async function fetchUserAchievements(publisherId: string): Promise<UserAchievement[]> {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_user_achievements`, {
+    method: 'POST',
+    headers: sbHeaders(),
+    body: JSON.stringify({ p_publisher_id: publisherId }),
+  });
+  if (!r.ok) {
+    throw new Error(await readErrorMessage(r));
+  }
+  return await r.json() as UserAchievement[];
+}
+
+async function fetchUserStreakState(publisherId: string): Promise<UserStreakState | null> {
+  const params = new URLSearchParams({
+    select: 'publish_streak,longest_streak,last_publish_week,login_streak,last_login_date,updated_at',
+    publisher_id: `eq.${publisherId}`,
+    limit: '1',
+  });
+  const r = await fetch(`${sbEndpoint(STREAKS_TABLE)}?${params}`, { headers: sbHeaders() });
+  if (!r.ok) {
+    throw new Error(await readErrorMessage(r));
+  }
+  const rows = await r.json() as Array<Record<string, unknown>>;
+  return normalizeUserStreak(rows[0]);
+}
+
+async function fetchHydratedUserProfile(publisherId: string) {
+  const [profileResponse, achievements, streaks] = await Promise.all([
+    fetch(`${SUPABASE_URL}/rest/v1/rpc/get_user_profile`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ p_publisher_id: publisherId }),
+    }),
+    fetchUserAchievements(publisherId).catch(() => []),
+    fetchUserStreakState(publisherId).catch(() => null),
+  ]);
+
+  if (!profileResponse.ok) {
+    throw new Error(await readErrorMessage(profileResponse));
+  }
+
+  const rows = await profileResponse.json();
+  const profile = Array.isArray(rows) ? rows[0] : rows;
+  if (!profile) return null;
+
+  return {
+    ...profile,
+    achievement_records: achievements,
+    achievements: achievements.map(record => record.achievement_id),
+    streaks,
   };
 }
 
@@ -349,10 +429,35 @@ app.post('/api/profile/register', async (req, res) => {
 app.get('/api/profile/:publisherId', async (req, res) => {
   try {
     const { publisherId } = req.params;
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_user_profile`, {
+    res.json(await fetchHydratedUserProfile(publisherId));
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/profile/:publisherId/achievements', async (req, res) => {
+  try {
+    res.json(await fetchUserAchievements(req.params.publisherId));
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/profile/:publisherId/achievements/unlock', async (req, res) => {
+  try {
+    const { achievement_id } = req.body ?? {};
+    if (typeof achievement_id !== 'string' || !achievement_id.trim()) {
+      res.status(400).json({ error: 'Missing required field: achievement_id' });
+      return;
+    }
+
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/unlock_achievement`, {
       method: 'POST',
       headers: sbHeaders(),
-      body: JSON.stringify({ p_publisher_id: publisherId }),
+      body: JSON.stringify({
+        p_publisher_id: req.params.publisherId,
+        p_achievement_id: achievement_id.trim(),
+      }),
     });
 
     if (!r.ok) {
@@ -360,9 +465,56 @@ app.get('/api/profile/:publisherId', async (req, res) => {
       return;
     }
 
-    const rows = await r.json();
-    const profile = Array.isArray(rows) ? rows[0] : rows;
-    res.json(profile ?? null);
+    const payload = await r.json() as boolean | boolean[];
+    const unlocked = Array.isArray(payload) ? Boolean(payload[0]) : Boolean(payload);
+    res.json({ unlocked });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/profile/:publisherId/streak', async (req, res) => {
+  try {
+    res.json(await fetchUserStreakState(req.params.publisherId));
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/profile/streak', async (req, res) => {
+  try {
+    const { publisher_id, publish_streak, longest_streak, last_publish_week, login_streak, last_login_date } = req.body ?? {};
+    if (
+      typeof publisher_id !== 'string'
+      || typeof publish_streak !== 'number'
+      || typeof longest_streak !== 'number'
+      || typeof last_publish_week !== 'string'
+      || typeof login_streak !== 'number'
+      || typeof last_login_date !== 'string'
+    ) {
+      res.status(400).json({ error: 'Missing or invalid streak fields.' });
+      return;
+    }
+
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/update_user_streak`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({
+        p_publisher_id: publisher_id,
+        p_publish_streak: publish_streak,
+        p_longest_streak: longest_streak,
+        p_last_publish_week: last_publish_week,
+        p_login_streak: login_streak,
+        p_last_login_date: last_login_date,
+      }),
+    });
+
+    if (!r.ok) {
+      res.status(r.status).json({ error: await readErrorMessage(r) });
+      return;
+    }
+
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -380,6 +532,37 @@ app.post('/api/profile/award-xp', async (req, res) => {
       method: 'POST',
       headers: sbHeaders(),
       body: JSON.stringify({ p_publisher_id: publisher_id, p_amount: amount }),
+    });
+
+    if (!r.ok) {
+      res.status(r.status).json({ error: await readErrorMessage(r) });
+      return;
+    }
+
+    const rows = await r.json();
+    const profile = Array.isArray(rows) ? rows[0] : rows;
+    res.json(profile ?? null);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/profile/award-xp-capped', async (req, res) => {
+  try {
+    const { publisher_id, amount, daily_cap } = req.body ?? {};
+    if (!publisher_id || typeof amount !== 'number' || amount <= 0) {
+      res.status(400).json({ error: 'Missing or invalid fields: publisher_id, amount (positive int)' });
+      return;
+    }
+
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp_capped`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({
+        p_publisher_id: publisher_id,
+        p_amount: amount,
+        p_daily_cap: typeof daily_cap === 'number' ? daily_cap : 500,
+      }),
     });
 
     if (!r.ok) {

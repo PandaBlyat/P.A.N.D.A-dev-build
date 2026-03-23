@@ -1,5 +1,19 @@
 import type { Conversation, FactionId } from './types';
 
+export type UserAchievement = {
+  achievement_id: string;
+  unlocked_at: string;
+};
+
+export type UserStreakState = {
+  publish_streak: number;
+  longest_streak: number;
+  last_publish_week: string;
+  login_streak: number;
+  last_login_date: string;
+  updated_at?: string;
+};
+
 export type ConversationComplexity = 'short' | 'medium' | 'long';
 
 export type PublishValidationErrorCode =
@@ -69,6 +83,9 @@ export type UserProfile = {
   title: string;
   created_at: string;
   updated_at: string;
+  achievements?: string[];
+  achievement_records?: UserAchievement[];
+  streaks?: UserStreakState | null;
 };
 
 export type LeaderboardEntry = {
@@ -83,6 +100,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 const TABLE = 'community_conversations';
 const SUPPORT_TABLE = 'creator_support_metrics';
+const STREAKS_TABLE = 'user_streaks';
 const SUPPORT_ROW_ID = 'global';
 const LOCAL_PUBLISH_COOLDOWN_MS = 60_000;
 const LOCAL_PUBLISH_KEY = 'panda-community-last-publish-at';
@@ -650,17 +668,129 @@ export async function fetchUserProfile(publisherId: string): Promise<UserProfile
     return await fetchFromApi<UserProfile | null>(`/api/profile/${encodeURIComponent(publisherId)}`);
   } catch {
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_user_profile`, {
+      const [profileRes, achievementRecords, streaks] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/rpc/get_user_profile`, {
+          method: 'POST',
+          headers: sbHeaders(),
+          body: JSON.stringify({ p_publisher_id: publisherId }),
+        }),
+        fetchUserAchievements(publisherId),
+        fetchUserStreakState(publisherId),
+      ]);
+      if (!profileRes.ok) return null;
+      const rows = await profileRes.json() as UserProfile[] | UserProfile | null;
+      if (!rows) return null;
+      const profile = Array.isArray(rows) ? rows[0] ?? null : rows;
+      if (!profile) return null;
+      return {
+        ...profile,
+        achievement_records: achievementRecords,
+        achievements: achievementRecords.map(record => record.achievement_id),
+        streaks,
+      };
+    } catch {
+      return null;
+    }
+  }
+}
+
+export async function fetchUserAchievements(publisherId: string): Promise<UserAchievement[]> {
+  try {
+    return await fetchFromApi<UserAchievement[]>(`/api/profile/${encodeURIComponent(publisherId)}/achievements`);
+  } catch {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_user_achievements`, {
         method: 'POST',
         headers: sbHeaders(),
         body: JSON.stringify({ p_publisher_id: publisherId }),
       });
+      if (!res.ok) return [];
+      return await res.json() as UserAchievement[];
+    } catch {
+      return [];
+    }
+  }
+}
+
+export async function unlockAchievement(publisherId: string, achievementId: string): Promise<boolean> {
+  try {
+    const response = await fetchFromApi<{ unlocked: boolean }>(`/api/profile/${encodeURIComponent(publisherId)}/achievements/unlock`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ achievement_id: achievementId }),
+    });
+    return response.unlocked;
+  } catch {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/unlock_achievement`, {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({ p_publisher_id: publisherId, p_achievement_id: achievementId }),
+      });
+      if (!res.ok) return false;
+      const payload = await res.json() as boolean | boolean[];
+      return Array.isArray(payload) ? Boolean(payload[0]) : Boolean(payload);
+    } catch {
+      return false;
+    }
+  }
+}
+
+export async function fetchUserStreakState(publisherId: string): Promise<UserStreakState | null> {
+  try {
+    return await fetchFromApi<UserStreakState | null>(`/api/profile/${encodeURIComponent(publisherId)}/streak`);
+  } catch {
+    try {
+      const params = new URLSearchParams({
+        select: 'publish_streak,longest_streak,last_publish_week,login_streak,last_login_date,updated_at',
+        publisher_id: `eq.${publisherId}`,
+        limit: '1',
+      });
+      const res = await fetch(`${sbEndpoint(STREAKS_TABLE)}?${params}`, { headers: sbHeaders() });
       if (!res.ok) return null;
-      const rows = await res.json() as UserProfile[] | UserProfile | null;
-      if (!rows) return null;
-      return Array.isArray(rows) ? rows[0] ?? null : rows;
+      const rows = await res.json() as UserStreakState[];
+      return rows[0] ?? null;
     } catch {
       return null;
+    }
+  }
+}
+
+export async function updateUserStreak(
+  publisherId: string,
+  streak: UserStreakState,
+): Promise<void> {
+  const body = {
+    publisher_id: publisherId,
+    publish_streak: streak.publish_streak,
+    longest_streak: streak.longest_streak,
+    last_publish_week: streak.last_publish_week,
+    login_streak: streak.login_streak,
+    last_login_date: streak.last_login_date,
+  };
+
+  try {
+    await sendToApi('/api/profile/streak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return;
+  } catch {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/update_user_streak`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({
+        p_publisher_id: publisherId,
+        p_publish_streak: streak.publish_streak,
+        p_longest_streak: streak.longest_streak,
+        p_last_publish_week: streak.last_publish_week,
+        p_login_streak: streak.login_streak,
+        p_last_login_date: streak.last_login_date,
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(await readErrorMessage(res));
     }
   }
 }
@@ -678,6 +808,30 @@ export async function awardXp(publisherId: string, amount: number): Promise<User
         method: 'POST',
         headers: sbHeaders(),
         body: JSON.stringify({ p_publisher_id: publisherId, p_amount: amount }),
+      });
+      if (!res.ok) return null;
+      const rows = await res.json() as UserProfile[] | UserProfile | null;
+      if (!rows) return null;
+      return Array.isArray(rows) ? rows[0] ?? null : rows;
+    } catch {
+      return null;
+    }
+  }
+}
+
+export async function awardXpCapped(publisherId: string, amount: number, dailyCap = 500): Promise<UserProfile | null> {
+  try {
+    return await fetchFromApi<UserProfile | null>('/api/profile/award-xp-capped', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publisher_id: publisherId, amount, daily_cap: dailyCap }),
+    });
+  } catch {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp_capped`, {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({ p_publisher_id: publisherId, p_amount: amount, p_daily_cap: dailyCap }),
       });
       if (!res.ok) return null;
       const rows = await res.json() as UserProfile[] | UserProfile | null;
