@@ -67,6 +67,116 @@ const DEFAULT_VIEW_STATE: ViewState = {
 };
 const viewStateByConversation = new Map<number, ViewState>();
 
+// ── Live flow editor state for incremental updates ──
+type LiveFlowState = {
+  conversationId: number;
+  projectRevision: number;
+  nodeElements: Map<number, HTMLElement>;
+  edgeElements: Map<string, SVGGElement>;
+  edges: EdgeDescriptor[];
+  svg: SVGSVGElement;
+  selectedTurnNumber: number | null;
+  selectedChoiceIndex: number | null;
+  conv: Conversation;
+  factionColor: string;
+  turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
+  portOffsetCache: Map<string, { left: number; top: number; width: number; height: number }>;
+};
+let liveFlow: LiveFlowState | null = null;
+
+/**
+ * Fast-path: update only selection-related visuals without rebuilding DOM.
+ * Returns true if the fast path was taken, false if a full render is needed.
+ */
+export function updateFlowSelection(): boolean {
+  if (!liveFlow) return false;
+  const state = store.get();
+  const conv = store.getSelectedConversation();
+  if (!conv || conv.id !== liveFlow.conversationId) return false;
+
+  // If structure changed, we need a full rebuild
+  if (state.projectRevision !== liveFlow.projectRevision) return false;
+
+  const prevSelected = liveFlow.selectedTurnNumber;
+  const prevChoiceIndex = liveFlow.selectedChoiceIndex;
+  const nextSelected = state.selectedTurnNumber;
+  const nextChoiceIndex = state.selectedChoiceIndex;
+
+  liveFlow.selectedTurnNumber = nextSelected;
+  liveFlow.selectedChoiceIndex = nextChoiceIndex;
+
+  // Update turn node classes
+  for (const [turnNumber, node] of liveFlow.nodeElements) {
+    const isSelected = turnNumber === nextSelected;
+    node.classList.toggle('selected', isSelected);
+    node.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+
+    // Update choice item selection
+    const choiceItems = node.querySelectorAll('.turn-choice-item');
+    for (const item of choiceItems) {
+      const choiceIndex = parseInt((item as HTMLElement).querySelector('.choice-number')?.textContent ?? '-1', 10);
+      (item as HTMLElement).classList.toggle('selected', isSelected && choiceIndex === nextChoiceIndex);
+    }
+  }
+
+  // Update edge highlights
+  for (const edge of liveFlow.edges) {
+    const newHighlight = getEdgeHighlightState(
+      edge.sourceTurnNumber, edge.sourceChoiceIndex, edge.targetTurnNumber,
+      nextSelected, nextChoiceIndex,
+    );
+    const key = edgeKey(edge);
+    const group = liveFlow.edgeElements.get(key);
+    if (group) {
+      group.classList.toggle('is-active', newHighlight === 'active');
+      group.classList.toggle('is-muted', newHighlight === 'muted');
+      const path = group.querySelector('.flow-edge-path');
+      if (path) {
+        path.classList.toggle('is-active', newHighlight === 'active');
+        path.classList.toggle('is-muted', newHighlight === 'muted');
+      }
+      const label = group.querySelector('.flow-edge-label');
+      if (label) {
+        label.classList.toggle('is-active', newHighlight === 'active');
+        label.classList.toggle('is-muted', newHighlight === 'muted');
+      }
+    }
+    edge.highlight = newHighlight;
+  }
+
+  // Update path-active on turn nodes
+  for (const [turnNumber, node] of liveFlow.nodeElements) {
+    const isPathActive = liveFlow.edges.some(
+      edge => edge.highlight === 'active' && (edge.sourceTurnNumber === turnNumber || edge.targetTurnNumber === turnNumber),
+    );
+    node.classList.toggle('path-active', isPathActive);
+  }
+
+  return true;
+}
+
+function edgeKey(edge: EdgeDescriptor): string {
+  return `${edge.sourceTurnNumber}:${edge.sourceChoiceIndex}:${edge.targetTurnNumber}:${edge.kind}`;
+}
+
+function indexEdgeElements(svg: SVGSVGElement, map: Map<string, SVGGElement>): void {
+  map.clear();
+  for (const group of svg.querySelectorAll('.flow-edge')) {
+    const path = group.querySelector('.flow-edge-path') as SVGPathElement | null;
+    if (!path) continue;
+    const src = path.dataset.sourceTurnNumber;
+    const ci = path.dataset.sourceChoiceIndex;
+    const tgt = path.dataset.targetTurnNumber;
+    const kind = path.classList.contains('edge-continue') ? 'continue'
+      : path.classList.contains('edge-pause-success') ? 'pause-success'
+      : path.classList.contains('edge-pause-fail') ? 'pause-fail'
+      : 'continue';
+    if (src && ci && tgt) {
+      map.set(`${src}:${ci}:${tgt}:${kind}`, group as SVGGElement);
+    }
+  }
+}
+
 function getFlowNodeWidthForLabel(label: string, density: FlowDensity): number {
   const layout = getFlowNodeLayout(density);
   const normalizedLength = label.trim().length;
@@ -79,12 +189,25 @@ function getFlowNodeWidthForLabel(label: string, density: FlowDensity): number {
   return Math.round(layout.width + Math.min(maxExtraWidth, extraWidth));
 }
 
+// ── Memoization caches ──
+let memoEdges: { key: string; edges: EdgeDescriptor[] } | null = null;
+let memoBounds: { key: string; bounds: ContentBounds } | null = null;
+let memoLabeler: { key: string; labeler: ReturnType<typeof createTurnDisplayLabeler> } | null = null;
+
+function memoKey(convId: number, projectRevision: number, density: FlowDensity): string {
+  return `${convId}:${projectRevision}:${density}`;
+}
+
 export function renderFlowEditor(container: HTMLElement): void {
   const conv = store.getSelectedConversation();
   const state = store.get();
   const density = state.flowDensity;
 
+  // Full rebuild invalidates cached port offsets
+  invalidatePortOffsetCache();
+
   if (!conv) {
+    liveFlow = null;
     container.replaceChildren(createOnboardingNudge({
       title: 'No flow to render',
       body: 'Start the onboarding flow to create a blank project, import XML, or open the sample conversation pack, then branches and links will appear here.',
@@ -93,12 +216,30 @@ export function renderFlowEditor(container: HTMLElement): void {
   }
 
   const conversationId = conv.id;
-  const turnLabels = createTurnDisplayLabeler(conv);
+  const mk = memoKey(conversationId, state.projectRevision, density);
+
+  const turnLabels = memoLabeler?.key === mk ? memoLabeler.labeler : createTurnDisplayLabeler(conv);
+  memoLabeler = { key: mk, labeler: turnLabels };
+
   const existingView = viewStateByConversation.get(conversationId);
   const viewState: ViewState = existingView ? { ...existingView } : { ...DEFAULT_VIEW_STATE };
-  const bounds = calculateContentBounds(conv, density);
+
+  const bounds = memoBounds?.key === mk ? memoBounds.bounds : calculateContentBounds(conv, density);
+  memoBounds = { key: mk, bounds };
+
   const factionColor = FACTION_COLORS[getConversationFaction(conv, state.project.faction)];
-  const edges = buildEdgeDescriptors(conv, state.selectedTurnNumber, state.selectedChoiceIndex, factionColor);
+
+  // Reuse cached structural edges; only recompute highlight state
+  let edges: EdgeDescriptor[];
+  if (memoEdges?.key === mk) {
+    edges = memoEdges.edges;
+    for (const edge of edges) {
+      edge.highlight = getEdgeHighlightState(edge.sourceTurnNumber, edge.sourceChoiceIndex, edge.targetTurnNumber, state.selectedTurnNumber, state.selectedChoiceIndex);
+    }
+  } else {
+    edges = buildEdgeDescriptors(conv, state.selectedTurnNumber, state.selectedChoiceIndex, factionColor);
+    memoEdges = { key: mk, edges };
+  }
   const nodeElements = new Map<number, HTMLElement>();
 
   const shell = document.createElement('div');
@@ -152,8 +293,10 @@ export function renderFlowEditor(container: HTMLElement): void {
       turnLabels,
       onPreviewPosition: (previewPositions) => draw(previewPositions),
       onChoicePortDragStart: (choiceIndex, event) => {
-        store.selectTurn(turn.turnNumber);
-        store.selectChoice(choiceIndex);
+        store.batch(() => {
+          store.selectTurn(turn.turnNumber);
+          store.selectChoice(choiceIndex);
+        });
         startConnectionDrag(turn.turnNumber, choiceIndex, event);
       },
       onCreateConnectedTurn: (choiceIndex) => {
@@ -230,12 +373,14 @@ export function renderFlowEditor(container: HTMLElement): void {
     }
 
     if (key === 'add-choice') {
-      store.addChoice(conversationId, turnNumber);
-      store.selectTurn(turnNumber);
-      const updatedTurn = store.getSelectedTurn() ?? focusedTurn;
-      if (updatedTurn.choices.length > 0) {
-        store.selectChoice(updatedTurn.choices[updatedTurn.choices.length - 1]?.index ?? null);
-      }
+      store.batch(() => {
+        store.addChoice(conversationId, turnNumber);
+        store.selectTurn(turnNumber);
+        const updatedTurn = store.getSelectedTurn() ?? focusedTurn;
+        if (updatedTurn.choices.length > 0) {
+          store.selectChoice(updatedTurn.choices[updatedTurn.choices.length - 1]?.index ?? null);
+        }
+      });
       requestAnimationFrame(() => focusTurn(turnNumber));
       return;
     }
@@ -267,9 +412,11 @@ export function renderFlowEditor(container: HTMLElement): void {
         ? (currentState.selectedChoiceIndex ?? focusedTurn.choices[0]?.index ?? null)
         : (focusedTurn.choices[0]?.index ?? null);
       if (choiceIndex != null) {
-        store.clearChoiceContinuation(conversationId, turnNumber, choiceIndex);
-        store.selectTurn(turnNumber);
-        store.selectChoice(choiceIndex);
+        store.batch(() => {
+          store.clearChoiceContinuation(conversationId, turnNumber, choiceIndex);
+          store.selectTurn(turnNumber);
+          store.selectChoice(choiceIndex);
+        });
         requestAnimationFrame(() => focusTurn(turnNumber));
       }
       return;
@@ -437,8 +584,28 @@ export function renderFlowEditor(container: HTMLElement): void {
   runDraw();
   applyView();
 
+  // Populate live flow state for incremental selection updates
+  liveFlow = {
+    conversationId,
+    projectRevision: state.projectRevision,
+    nodeElements,
+    edgeElements: new Map(),
+    edges,
+    svg,
+    selectedTurnNumber: state.selectedTurnNumber,
+    selectedChoiceIndex: state.selectedChoiceIndex,
+    conv,
+    factionColor,
+    turnLabels,
+    portOffsetCache: new Map(),
+  };
+
   requestAnimationFrame(() => {
     runDraw();
+    // Populate edge element references after first draw
+    if (liveFlow?.conversationId === conversationId) {
+      indexEdgeElements(svg, liveFlow.edgeElements);
+    }
     if (!existingView && !viewAdjusted) {
       fitContent(false);
       return;
@@ -845,8 +1012,10 @@ function renderTurnNode(options: {
     item.style.setProperty('--choice-branch-glow', `${choiceBranchColor}40`);
     item.onclick = (e) => {
       e.stopPropagation();
-      store.selectTurn(turn.turnNumber);
-      store.selectChoice(choice.index);
+      store.batch(() => {
+        store.selectTurn(turn.turnNumber);
+        store.selectChoice(choice.index);
+      });
     };
 
     const port = document.createElement('button');
@@ -897,9 +1066,11 @@ function renderTurnNode(options: {
       unlinkButton.onclick = (event) => {
         event.preventDefault();
         event.stopPropagation();
-        store.clearChoiceContinuation(conv.id, turn.turnNumber, choice.index);
-        store.selectTurn(turn.turnNumber);
-        store.selectChoice(choice.index);
+        store.batch(() => {
+          store.clearChoiceContinuation(conv.id, turn.turnNumber, choice.index);
+          store.selectTurn(turn.turnNumber);
+          store.selectChoice(choice.index);
+        });
       };
       item.appendChild(unlinkButton);
     }
@@ -941,8 +1112,10 @@ function renderTurnNode(options: {
       replyRow.className = 'turn-npc-reply';
       replyRow.onclick = (e) => {
         e.stopPropagation();
-        store.selectTurn(turn.turnNumber);
-        store.selectChoice(choice.index);
+        store.batch(() => {
+          store.selectTurn(turn.turnNumber);
+          store.selectChoice(choice.index);
+        });
       };
       const replyIcon = document.createElement('span');
       replyIcon.className = 'npc-reply-icon';
@@ -1059,8 +1232,17 @@ function drawEdges(options: {
     return anchor;
   };
 
-  const fragment = document.createDocumentFragment();
-  if (defs) fragment.appendChild(defs);
+  // Build a set of current edge keys and update/create edge groups incrementally
+  const currentEdgeKeys = new Set<string>();
+  const existingGroups = new Map<string, SVGGElement>();
+  for (const group of svg.querySelectorAll<SVGGElement>('g.flow-edge')) {
+    const p = group.querySelector('.flow-edge-path') as SVGPathElement | null;
+    if (p?.dataset.sourceTurnNumber && p.dataset.sourceChoiceIndex && p.dataset.targetTurnNumber) {
+      const kind = p.classList.contains('edge-pause-success') ? 'pause-success'
+        : p.classList.contains('edge-pause-fail') ? 'pause-fail' : 'continue';
+      existingGroups.set(`${p.dataset.sourceTurnNumber}:${p.dataset.sourceChoiceIndex}:${p.dataset.targetTurnNumber}:${kind}`, group);
+    }
+  }
 
   for (const edge of edges) {
     const sourceTurn = turnsByNumber.get(edge.sourceTurnNumber);
@@ -1071,54 +1253,90 @@ function drawEdges(options: {
     const targetAnchor = getCachedTurnInputAnchor(edge.targetTurnNumber);
     if (!sourceAnchor || !targetAnchor) continue;
 
-    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    group.setAttribute('class', `flow-edge ${edge.highlight !== 'normal' ? `is-${edge.highlight}` : ''}`.trim());
-
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', buildEdgePath(sourceAnchor, targetAnchor, edge.offsetIndex));
-    path.setAttribute('stroke', edge.color);
-    path.style.setProperty('--flow-edge-color', edge.color);
-    path.setAttribute('class', `flow-edge-path ${edge.pathClassName} ${edge.highlight !== 'normal' ? `is-${edge.highlight}` : ''}`.trim());
-    path.setAttribute('marker-end', `url(#${ensureMarker(defs, edge.kind, edge.color)})`);
-    path.dataset.sourceTurnNumber = String(edge.sourceTurnNumber);
-    path.dataset.sourceChoiceIndex = String(edge.sourceChoiceIndex);
-    path.dataset.targetTurnNumber = String(edge.targetTurnNumber);
-    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-    title.textContent = edge.kind === 'continue'
-      ? `Choice ${edge.sourceChoiceIndex} → ${turnLabels.getLongLabel(edge.targetTurnNumber)} (click to select, right-click to disconnect)`
-      : `Pause branch from Choice ${edge.sourceChoiceIndex} to ${turnLabels.getLongLabel(edge.targetTurnNumber)}`;
-    path.appendChild(title);
-    path.onclick = (event) => {
-      event.stopPropagation();
-      store.selectTurn(edge.sourceTurnNumber);
-      store.selectChoice(edge.sourceChoiceIndex);
-    };
-    path.oncontextmenu = (event) => {
-      if (edge.kind !== 'continue') return;
-      event.preventDefault();
-      store.clearChoiceContinuation(conv.id, edge.sourceTurnNumber, edge.sourceChoiceIndex);
-    };
-    group.appendChild(path);
-
+    const key = edgeKey(edge);
+    currentEdgeKeys.add(key);
+    const pathD = buildEdgePath(sourceAnchor, targetAnchor, edge.offsetIndex);
     const labelAnchor = getLabelAnchor(sourceAnchor, targetAnchor, edge.offsetIndex);
-    const labelButton = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    labelButton.setAttribute('x', String(labelAnchor.x));
-    labelButton.setAttribute('y', String(labelAnchor.y));
-    labelButton.setAttribute('text-anchor', 'middle');
-    labelButton.setAttribute('class', `flow-edge-label ${edge.textClassName} ${edge.highlight !== 'normal' ? `is-${edge.highlight}` : ''}`.trim());
-    labelButton.style.setProperty('--flow-edge-color', edge.color);
-    labelButton.style.setProperty('--flow-edge-label-color', edge.color);
-    labelButton.textContent = edge.label;
-    labelButton.onclick = (event) => {
-      event.stopPropagation();
-      store.selectTurn(edge.sourceTurnNumber);
-      store.selectChoice(edge.sourceChoiceIndex);
-    };
-    group.appendChild(labelButton);
+    const highlightSuffix = edge.highlight !== 'normal' ? ` is-${edge.highlight}` : '';
 
-    fragment.appendChild(group);
+    const existing = existingGroups.get(key);
+    if (existing) {
+      // Update existing group in-place (path + label position + highlight)
+      existing.setAttribute('class', `flow-edge${highlightSuffix}`);
+      const path = existing.querySelector('.flow-edge-path') as SVGPathElement | null;
+      if (path) {
+        path.setAttribute('d', pathD);
+        path.setAttribute('class', `flow-edge-path ${edge.pathClassName}${highlightSuffix}`);
+      }
+      const label = existing.querySelector('.flow-edge-label') as SVGTextElement | null;
+      if (label) {
+        label.setAttribute('x', String(labelAnchor.x));
+        label.setAttribute('y', String(labelAnchor.y));
+        label.setAttribute('class', `flow-edge-label ${edge.textClassName}${highlightSuffix}`);
+      }
+    } else {
+      // Create new edge group
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      group.setAttribute('class', `flow-edge${highlightSuffix}`);
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', pathD);
+      path.setAttribute('stroke', edge.color);
+      path.style.setProperty('--flow-edge-color', edge.color);
+      path.setAttribute('class', `flow-edge-path ${edge.pathClassName}${highlightSuffix}`);
+      path.setAttribute('marker-end', `url(#${ensureMarker(defs, edge.kind, edge.color)})`);
+      path.dataset.sourceTurnNumber = String(edge.sourceTurnNumber);
+      path.dataset.sourceChoiceIndex = String(edge.sourceChoiceIndex);
+      path.dataset.targetTurnNumber = String(edge.targetTurnNumber);
+      const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+      title.textContent = edge.kind === 'continue'
+        ? `Choice ${edge.sourceChoiceIndex} → ${turnLabels.getLongLabel(edge.targetTurnNumber)} (click to select, right-click to disconnect)`
+        : `Pause branch from Choice ${edge.sourceChoiceIndex} to ${turnLabels.getLongLabel(edge.targetTurnNumber)}`;
+      path.appendChild(title);
+      path.onclick = (event) => {
+        event.stopPropagation();
+        store.batch(() => {
+          store.selectTurn(edge.sourceTurnNumber);
+          store.selectChoice(edge.sourceChoiceIndex);
+        });
+      };
+      path.oncontextmenu = (event) => {
+        if (edge.kind !== 'continue') return;
+        event.preventDefault();
+        store.clearChoiceContinuation(conv.id, edge.sourceTurnNumber, edge.sourceChoiceIndex);
+      };
+      group.appendChild(path);
+
+      const labelButton = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      labelButton.setAttribute('x', String(labelAnchor.x));
+      labelButton.setAttribute('y', String(labelAnchor.y));
+      labelButton.setAttribute('text-anchor', 'middle');
+      labelButton.setAttribute('class', `flow-edge-label ${edge.textClassName}${highlightSuffix}`);
+      labelButton.style.setProperty('--flow-edge-color', edge.color);
+      labelButton.style.setProperty('--flow-edge-label-color', edge.color);
+      labelButton.textContent = edge.label;
+      labelButton.onclick = (event) => {
+        event.stopPropagation();
+        store.batch(() => {
+          store.selectTurn(edge.sourceTurnNumber);
+          store.selectChoice(edge.sourceChoiceIndex);
+        });
+      };
+      group.appendChild(labelButton);
+
+      svg.appendChild(group);
+    }
   }
 
+  // Remove stale edge groups
+  for (const [key, group] of existingGroups) {
+    if (!currentEdgeKeys.has(key)) {
+      group.remove();
+    }
+  }
+
+  // Remove old preview path and add new one if needed
+  svg.querySelector('.edge-preview')?.remove();
   if (preview) {
     const sourceAnchor = getCachedChoiceAnchor(preview.sourceTurnNumber, preview.sourceChoiceIndex);
     if (sourceAnchor) {
@@ -1129,11 +1347,9 @@ function drawEdges(options: {
       previewPath.setAttribute('stroke', previewColor);
       previewPath.style.setProperty('--flow-edge-color', previewColor);
       previewPath.setAttribute('marker-end', `url(#${ensureMarker(defs, 'continue', previewColor)})`);
-      fragment.appendChild(previewPath);
+      svg.appendChild(previewPath);
     }
   }
-
-  svg.replaceChildren(fragment);
 }
 
 /**
@@ -1141,7 +1357,15 @@ function drawEdges(options: {
  * This is more reliable than walking the offsetParent chain, which can misfire when
  * CSS transforms, grid/flex layout, or nested positioning contexts are involved.
  */
-function getPortOffsetInNode(port: HTMLElement, node: HTMLElement): { left: number; top: number; width: number; height: number } {
+// Port offset cache — offsets within a node don't change unless node content is rebuilt
+const portOffsetCache = new Map<string, { left: number; top: number; width: number; height: number }>();
+
+function getPortOffsetInNode(port: HTMLElement, node: HTMLElement, cacheKey?: string): { left: number; top: number; width: number; height: number } {
+  if (cacheKey) {
+    const cached = portOffsetCache.get(cacheKey);
+    if (cached) return cached;
+  }
+
   const nodeRect = node.getBoundingClientRect();
   const portRect = port.getBoundingClientRect();
 
@@ -1150,12 +1374,21 @@ function getPortOffsetInNode(port: HTMLElement, node: HTMLElement): { left: numb
   const scaleX = nodeRect.width > 0 ? nodeRect.width / node.offsetWidth : 1;
   const scaleY = nodeRect.height > 0 ? nodeRect.height / node.offsetHeight : 1;
 
-  return {
+  const result = {
     left: (portRect.left - nodeRect.left) / scaleX,
     top: (portRect.top - nodeRect.top) / scaleY,
     width: portRect.width / scaleX,
     height: portRect.height / scaleY,
   };
+
+  if (cacheKey) {
+    portOffsetCache.set(cacheKey, result);
+  }
+  return result;
+}
+
+function invalidatePortOffsetCache(): void {
+  portOffsetCache.clear();
 }
 
 function getChoiceAnchor(
@@ -1171,7 +1404,7 @@ function getChoiceAnchor(
   const port = node?.querySelector(`[data-choice-port="${choiceIndex}"]`) as HTMLElement | null;
   if (!turn || !node || !port) return null;
   const position = positionOverrides?.get(turnNumber) ?? turn.position;
-  const offset = getPortOffsetInNode(port, node);
+  const offset = getPortOffsetInNode(port, node, `choice:${turnNumber}:${choiceIndex}`);
   return {
     x: position.x + offset.left + offset.width / 2,
     y: position.y + offset.top + offset.height / 2,
@@ -1190,7 +1423,7 @@ function getTurnInputAnchor(
   const port = node?.querySelector('.turn-input-port') as HTMLElement | null;
   if (!turn || !node || !port) return null;
   const position = positionOverrides?.get(turnNumber) ?? turn.position;
-  const offset = getPortOffsetInNode(port, node);
+  const offset = getPortOffsetInNode(port, node, `input:${turnNumber}`);
   return {
     x: position.x + offset.left + offset.width / 2,
     y: position.y + offset.top + offset.height / 2,

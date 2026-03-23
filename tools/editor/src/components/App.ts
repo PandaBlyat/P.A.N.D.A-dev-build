@@ -8,7 +8,7 @@ import {
   duplicateConversationSelection,
   renderConversationList as renderConversationListContent,
 } from './ConversationList';
-import { renderFlowEditor as renderFlowEditorContent } from './FlowEditor';
+import { renderFlowEditor as renderFlowEditorContent, updateFlowSelection } from './FlowEditor';
 import { renderPropertiesPanel as renderPropertiesPanelContent } from './PropertiesPanel';
 import { renderBottomWorkspace as renderBottomWorkspaceContent } from './BottomWorkspace';
 import { mountMotivationTicker } from './MotivationTicker';
@@ -109,6 +109,14 @@ export function renderConversationList(container: HTMLElement): void {
 export function renderFlowEditor(container: HTMLElement): void {
   const { shell, conv, firstRun } = getRenderContext(container);
   renderCenterPanel(shell, conv, firstRun);
+}
+
+/**
+ * Attempt a fast selection-only update of the flow editor.
+ * Returns true if the fast path was taken, false if a full render is needed.
+ */
+export function tryFastFlowUpdate(): boolean {
+  return updateFlowSelection();
 }
 
 export function renderPropertiesPanel(container: HTMLElement): void {

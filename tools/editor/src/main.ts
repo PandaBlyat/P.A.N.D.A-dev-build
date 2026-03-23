@@ -18,6 +18,7 @@ import {
   renderFlowEditor,
   renderPropertiesPanel,
   renderToolbar,
+  tryFastFlowUpdate,
 } from './components/App';
 import { flushAllDebounced } from './components/PropertiesPanel';
 import { trackSiteVisitor, fetchVisitorCount } from './lib/api-client';
@@ -218,13 +219,28 @@ function renderTarget(target: RenderTarget): void {
   renderWithFocusPreserved(root, renderers[target]);
 }
 
+function isSelectionOnlyChange(change: StateChange): boolean {
+  return !change.projectChanged
+    && !change.systemStringsChanged
+    && !change.validationChanged
+    && change.targets.includes('flowEditor')
+    && !change.targets.includes('appShell');
+}
+
 function flushRender(change: StateChange): void {
   if (change.targets.includes('appShell')) {
     renderTarget('appShell');
     return;
   }
 
+  // Fast path: selection-only changes can update flow editor incrementally
+  let flowHandled = false;
+  if (isSelectionOnlyChange(change)) {
+    flowHandled = tryFastFlowUpdate();
+  }
+
   for (const target of change.targets) {
+    if (flowHandled && target === 'flowEditor') continue;
     renderTarget(target);
   }
 }
