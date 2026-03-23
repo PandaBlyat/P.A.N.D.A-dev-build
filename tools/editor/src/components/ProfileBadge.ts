@@ -17,12 +17,19 @@ import {
 } from '../lib/api-client';
 import {
   ACHIEVEMENTS,
+  ACHIEVEMENT_CATEGORY_LABELS,
+  ACHIEVEMENT_CATEGORY_ORDER,
+  getAchievementsByCategory,
   getUnlockedAchievements,
   getStreakData,
   getLoginStreak,
   getActiveMissions,
   getMissionResetInfo,
+  getVisibleAchievementCatalog,
+  isAchievementRare,
   setSyncedGamificationState,
+  type Achievement,
+  type AchievementCategory,
   type ActiveMission,
 } from '../lib/gamification';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
@@ -285,6 +292,103 @@ function buildXpBreakdownSection(): HTMLElement {
   return xpBreakdownSection;
 }
 
+type AchievementTarget = {
+  achievement: Achievement;
+  reason: string;
+};
+
+function getUnlockedAchievementIdsForProfile(profile: UserProfile): string[] {
+  return profile.achievements ?? (profile.publisher_id === cachedProfile?.publisher_id ? getUnlockedAchievements() : []);
+}
+
+function getAchievementTierRank(achievement: Achievement): number {
+  return achievement.tier === 'gold' ? 3 : achievement.tier === 'silver' ? 2 : 1;
+}
+
+function getFeaturedAchievements(unlockedIds: string[]): Achievement[] {
+  return ACHIEVEMENTS
+    .filter(achievement => unlockedIds.includes(achievement.id) && (achievement.featured || isAchievementRare(achievement)))
+    .sort((a, b) => getAchievementTierRank(b) - getAchievementTierRank(a) || b.xp - a.xp)
+    .slice(0, 3);
+}
+
+function getRareAchievementCount(unlockedIds: string[]): number {
+  return ACHIEVEMENTS.filter(achievement => unlockedIds.includes(achievement.id) && isAchievementRare(achievement)).length;
+}
+
+function getNextAchievementTargets(profile: UserProfile, unlockedIds: string[]): AchievementTarget[] {
+  const loginStreak = profile.streaks?.login_streak ?? (profile.publisher_id === cachedProfile?.publisher_id ? getLoginStreak().currentStreak : 0);
+  const publishStreak = profile.streaks?.publish_streak ?? (profile.publisher_id === cachedProfile?.publisher_id ? getStreakData().currentStreak : 0);
+  const publishCount = profile.publisher_id === cachedProfile?.publisher_id ? (publishCountCache ?? 0) : 0;
+  const lockedVisible = getVisibleAchievementCatalog().filter(achievement => !unlockedIds.includes(achievement.id));
+
+  const hints = new Map<string, { score: number; reason: string }>([
+    ['profile_seeded', { score: 100, reason: 'One-time setup win that anchors the onboarding track.' }],
+    ['login_streak_1', { score: loginStreak > 0 ? 96 : 82, reason: loginStreak > 0 ? `You already have a ${loginStreak}-day login streak going.` : 'A quick streak milestone is one return visit away.' }],
+    ['challenge_apprentice', { score: 95, reason: 'Mission board completions are meant to be an early momentum builder.' }],
+    ['first_upvote_received', { score: 88, reason: 'A single community reaction unlocks your first social badge.' }],
+    ['profile_spotlight', { score: 78, reason: 'Featured badges and activity make profile milestones easier to hit.' }],
+    ['first_publish', { score: publishCount === 0 ? 99 : 15, reason: publishCount === 0 ? 'Your first publish unlocks discovery progression immediately.' : 'Already cleared once you publish.' }],
+    ['branching_out', { score: 90, reason: 'A five-branch conversation is the fastest visible discovery target.' }],
+    ['new_faction_scout', { score: publishCount > 0 ? 92 : 72, reason: publishCount > 0 ? 'Publishing in a fresh faction broadens your discovery set.' : 'After your first publish, try a second faction for quick breadth.' }],
+    ['faction_diplomat', { score: publishCount >= 2 ? 84 : 60, reason: 'Three factions is a clear medium-term route into collection badges.' }],
+    ['uncommon_operator', { score: 83, reason: 'Trying one uncommon command type opens a more expressive discovery lane.' }],
+    ['outcome_engineer', { score: 89, reason: 'Mixing four outcome types is an approachable mastery target.' }],
+    ['precondition_master', { score: 86, reason: 'Adding layered preconditions strengthens systemic depth.' }],
+    ['quality_crafter', { score: 80, reason: 'A polished five-star publish is a strong mastery milestone.' }],
+    ['systems_polymath', { score: 74, reason: 'Outcome and precondition variety together unlock a rare mastery badge.' }],
+    ['streak_3', { score: publishStreak > 0 ? 87 : 68, reason: publishStreak > 0 ? `Your ${publishStreak}-week publish streak can grow into this badge.` : 'Weekly consistency opens the streak ladder.' }],
+    ['prolific_writer', { score: publishCount > 0 ? 70 : 42, reason: 'This remains a long-term milestone, but now it sits beside broader goals.' }],
+    ['bronze_complete', { score: unlockedIds.length >= 4 ? 79 : 36, reason: 'Bronze cleanup is a natural collection target after a few early wins.' }],
+  ]);
+
+  return lockedVisible
+    .map((achievement) => ({
+      achievement,
+      score: hints.get(achievement.id)?.score ?? (achievement.category === 'onboarding' ? 50 : achievement.category === 'collection' ? 35 : 45),
+      reason: hints.get(achievement.id)?.reason ?? 'A visible next step that broadens your badge mix.',
+    }))
+    .sort((a, b) => b.score - a.score || getAchievementTierRank(a.achievement) - getAchievementTierRank(b.achievement) || a.achievement.xp - b.achievement.xp)
+    .slice(0, 3)
+    .map(({ achievement, reason }) => ({ achievement, reason }));
+}
+
+function buildFeaturedBadgeStrip(unlockedIds: string[]): HTMLElement | null {
+  const featured = getFeaturedAchievements(unlockedIds);
+  if (featured.length === 0) return null;
+
+  const strip = document.createElement('div');
+  strip.className = 'profile-achievement-featured-strip';
+
+  const label = document.createElement('div');
+  label.className = 'profile-achievement-mini-header';
+  label.textContent = 'Featured badges';
+  strip.appendChild(label);
+
+  const badges = document.createElement('div');
+  badges.className = 'profile-achievement-featured-badges';
+
+  featured.forEach((achievement) => {
+    const badge = document.createElement('div');
+    badge.className = `profile-achievement-featured-badge profile-achievement-featured-badge-${achievement.tier}`;
+    badge.title = `${achievement.name} — ${achievement.description}`;
+
+    const icon = document.createElement('span');
+    icon.className = 'profile-achievement-featured-icon';
+    icon.textContent = achievement.icon;
+
+    const text = document.createElement('span');
+    text.className = 'profile-achievement-featured-name';
+    text.textContent = achievement.name;
+
+    badge.append(icon, text);
+    badges.appendChild(badge);
+  });
+
+  strip.appendChild(badges);
+  return strip;
+}
+
 function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLElement {
   const section = document.createElement('div');
   section.className = 'profile-popover-achievements';
@@ -293,33 +397,133 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
   header.className = 'profile-popover-section-header';
   const medalIcon = createIcon('medal');
   const title = document.createElement('span');
-  const unlocked = profile.achievements ?? (profile.publisher_id === cachedProfile?.publisher_id ? getUnlockedAchievements() : []);
+  const unlocked = getUnlockedAchievementIdsForProfile(profile);
   title.textContent = `Achievements (${unlocked.length}/${ACHIEVEMENTS.length})`;
   header.append(medalIcon, title);
+  section.appendChild(header);
 
-  const grid = document.createElement('div');
-  grid.className = 'profile-popover-achievement-grid';
+  const summaryRow = document.createElement('div');
+  summaryRow.className = 'profile-achievement-summary-row';
 
-  for (const achievement of ACHIEVEMENTS) {
-    const isUnlocked = unlocked.includes(achievement.id);
-    const cell = document.createElement('div');
-    cell.className = `profile-achievement-cell${isUnlocked ? '' : ' profile-achievement-locked'}`;
-    cell.title = isUnlocked
-      ? `${achievement.name} — ${achievement.description} (+${achievement.xp} XP)`
-      : `??? — ${achievement.description}`;
+  const visibleCount = document.createElement('div');
+  visibleCount.className = 'profile-achievement-summary-pill';
+  visibleCount.textContent = `${getVisibleAchievementCatalog().length} visible goals`;
 
-    const emoji = document.createElement('span');
-    emoji.className = 'profile-achievement-emoji';
-    emoji.textContent = isUnlocked ? achievement.icon : '\u{1F512}';
+  const hiddenCount = document.createElement('div');
+  hiddenCount.className = 'profile-achievement-summary-pill';
+  hiddenCount.textContent = `${ACHIEVEMENTS.filter(achievement => achievement.hidden).length} surprise badge${ACHIEVEMENTS.filter(achievement => achievement.hidden).length === 1 ? '' : 's'}`;
 
-    const tierDot = document.createElement('span');
-    tierDot.className = `profile-achievement-tier profile-achievement-tier-${achievement.tier}`;
+  const rareCount = document.createElement('div');
+  rareCount.className = 'profile-achievement-summary-pill profile-achievement-summary-pill-rare';
+  rareCount.textContent = `${getRareAchievementCount(unlocked)} rare unlocked`;
 
-    cell.append(emoji, tierDot);
-    grid.appendChild(cell);
+  summaryRow.append(visibleCount, hiddenCount, rareCount);
+  section.appendChild(summaryRow);
+
+  const featuredStrip = buildFeaturedBadgeStrip(unlocked);
+  if (featuredStrip) section.appendChild(featuredStrip);
+
+  const nextTargets = getNextAchievementTargets(profile, unlocked);
+  if (nextTargets.length > 0) {
+    const nextSection = document.createElement('div');
+    nextSection.className = 'profile-achievement-next';
+
+    const nextHeader = document.createElement('div');
+    nextHeader.className = 'profile-achievement-mini-header';
+    nextHeader.textContent = 'Next achievable';
+    nextSection.appendChild(nextHeader);
+
+    const nextList = document.createElement('div');
+    nextList.className = 'profile-achievement-next-list';
+
+    nextTargets.forEach(({ achievement, reason }) => {
+      const card = document.createElement('div');
+      card.className = `profile-achievement-next-card profile-achievement-next-card-${achievement.tier}`;
+      card.title = `${achievement.name} — ${achievement.description}`;
+
+      const topRow = document.createElement('div');
+      topRow.className = 'profile-achievement-next-top';
+
+      const icon = document.createElement('span');
+      icon.className = 'profile-achievement-next-icon';
+      icon.textContent = achievement.icon;
+
+      const copy = document.createElement('div');
+      copy.className = 'profile-achievement-next-copy';
+
+      const name = document.createElement('div');
+      name.className = 'profile-achievement-next-name';
+      name.textContent = achievement.name;
+
+      const meta = document.createElement('div');
+      meta.className = 'profile-achievement-next-meta';
+      meta.textContent = `${ACHIEVEMENT_CATEGORY_LABELS[achievement.category]} · ${achievement.tier} · +${achievement.xp} XP`;
+
+      const desc = document.createElement('div');
+      desc.className = 'profile-achievement-next-desc';
+      desc.textContent = reason;
+
+      copy.append(name, meta, desc);
+      topRow.append(icon, copy);
+      card.appendChild(topRow);
+      nextList.appendChild(card);
+    });
+
+    nextSection.appendChild(nextList);
+    section.appendChild(nextSection);
   }
 
-  section.append(header, grid);
+  ACHIEVEMENT_CATEGORY_ORDER.forEach((category: AchievementCategory) => {
+    const categoryAchievements = getAchievementsByCategory(category);
+    const categorySection = document.createElement('div');
+    categorySection.className = 'profile-achievement-category';
+
+    const categoryHeader = document.createElement('div');
+    categoryHeader.className = 'profile-achievement-category-header';
+
+    const categoryTitle = document.createElement('div');
+    categoryTitle.className = 'profile-achievement-category-title';
+    categoryTitle.textContent = ACHIEVEMENT_CATEGORY_LABELS[category];
+
+    const categoryCount = document.createElement('div');
+    categoryCount.className = 'profile-achievement-category-count';
+    categoryCount.textContent = `${categoryAchievements.filter(achievement => unlocked.includes(achievement.id)).length}/${categoryAchievements.length}`;
+
+    categoryHeader.append(categoryTitle, categoryCount);
+
+    const grid = document.createElement('div');
+    grid.className = 'profile-popover-achievement-grid';
+
+    categoryAchievements.forEach((achievement) => {
+      const isUnlocked = unlocked.includes(achievement.id);
+      const isHiddenLocked = achievement.hidden && !isUnlocked;
+      const cell = document.createElement('div');
+      cell.className = `profile-achievement-cell${isUnlocked ? '' : ' profile-achievement-locked'}${achievement.hidden ? ' profile-achievement-hidden' : ''}`;
+      cell.title = isUnlocked
+        ? `${achievement.name} — ${achievement.description} (+${achievement.xp} XP)`
+        : isHiddenLocked
+          ? 'Hidden achievement — keep exploring the Zone.'
+          : `${achievement.name} — ${achievement.description}`;
+
+      const emoji = document.createElement('span');
+      emoji.className = 'profile-achievement-emoji';
+      emoji.textContent = isUnlocked ? achievement.icon : (isHiddenLocked ? '\u{2753}' : '\u{1F512}');
+
+      const name = document.createElement('span');
+      name.className = 'profile-achievement-name';
+      name.textContent = isUnlocked || !achievement.hidden ? achievement.name : 'Surprise';
+
+      const tierDot = document.createElement('span');
+      tierDot.className = `profile-achievement-tier profile-achievement-tier-${achievement.tier}`;
+
+      cell.append(emoji, name, tierDot);
+      grid.appendChild(cell);
+    });
+
+    categorySection.append(categoryHeader, grid);
+    section.appendChild(categorySection);
+  });
+
   return section;
 }
 
@@ -544,6 +748,7 @@ function buildSelfProfileContent(profile: UserProfile): HTMLElement[] {
 function buildPublicProfileContent(profile: UserProfile): HTMLElement[] {
   const summary = document.createElement('div');
   summary.className = 'public-profile-summary';
+  const unlocked = getUnlockedAchievementIdsForProfile(profile);
 
   const summaryTitle = document.createElement('div');
   summaryTitle.className = 'public-profile-summary-title';
@@ -553,7 +758,25 @@ function buildPublicProfileContent(profile: UserProfile): HTMLElement[] {
   summaryCopy.className = 'public-profile-summary-copy';
   summaryCopy.textContent = `${profile.username} is a level ${profile.level} stalker with ${profile.xp} XP.`;
 
-  summary.append(summaryTitle, summaryCopy);
+  const summaryStats = document.createElement('div');
+  summaryStats.className = 'public-profile-summary-stats';
+
+  const rareStat = document.createElement('div');
+  rareStat.className = 'public-profile-summary-pill';
+  rareStat.textContent = `${getRareAchievementCount(unlocked)} rare badge${getRareAchievementCount(unlocked) === 1 ? '' : 's'}`;
+
+  const totalStat = document.createElement('div');
+  totalStat.className = 'public-profile-summary-pill';
+  totalStat.textContent = `${unlocked.length} unlocked total`;
+
+  summaryStats.append(rareStat, totalStat);
+  summary.append(summaryTitle, summaryCopy, summaryStats);
+
+  const featuredStrip = buildFeaturedBadgeStrip(unlocked);
+  if (featuredStrip) {
+    featuredStrip.classList.add('public-profile-featured-strip');
+    summary.appendChild(featuredStrip);
+  }
 
   return [
     buildProfileHeader(profile),
