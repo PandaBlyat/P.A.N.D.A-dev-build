@@ -340,6 +340,20 @@ function getRareAchievementCount(unlockedIds: string[]): number {
   return ACHIEVEMENTS.filter(achievement => unlockedIds.includes(achievement.id) && isAchievementRare(achievement)).length;
 }
 
+function getAchievementBadgeLabel(achievement: Achievement, isHiddenLocked: boolean): string | null {
+  if (isHiddenLocked) return null;
+
+  const words = achievement.name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return null;
+
+  if (achievement.name.length <= 12) return achievement.name;
+  if (words.length === 1) return words[0].slice(0, 10);
+  if (words.length === 2 && words.every(word => word.length <= 7)) return words[0];
+
+  const initials = words.slice(0, 3).map(word => word.charAt(0).toUpperCase()).join('');
+  return initials.length >= 2 ? initials : words[0].slice(0, 8);
+}
+
 function getNextAchievementTargets(profile: UserProfile, unlockedIds: string[]): AchievementTarget[] {
   const loginStreak = profile.streaks?.login_streak ?? (profile.publisher_id === cachedProfile?.publisher_id ? getLoginStreak().currentStreak : 0);
   const publishStreak = profile.streaks?.publish_streak ?? (profile.publisher_id === cachedProfile?.publisher_id ? getStreakData().currentStreak : 0);
@@ -547,33 +561,34 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
     categoryAchievements.forEach((achievement) => {
       const isUnlocked = unlocked.includes(achievement.id);
       const isHiddenLocked = achievement.hidden && !isUnlocked;
+      const badgeLabel = getAchievementBadgeLabel(achievement, Boolean(isHiddenLocked));
       const cell = document.createElement('div');
-      cell.className = `profile-achievement-cell${isUnlocked ? '' : ' profile-achievement-locked'}${achievement.hidden ? ' profile-achievement-hidden' : ''}`;
+      cell.className = `profile-achievement-cell profile-achievement-cell-${achievement.tier}${isUnlocked ? ' profile-achievement-unlocked' : ' profile-achievement-locked'}${achievement.hidden ? ' profile-achievement-hidden' : ''}${badgeLabel ? ' profile-achievement-has-label' : ''}`;
       cell.title = isUnlocked
         ? `${achievement.name} — ${achievement.description} (+${achievement.xp} XP)`
         : isHiddenLocked
           ? 'Hidden achievement — keep exploring the Zone.'
           : `${achievement.name} — ${achievement.description}`;
 
-      const iconPanel = document.createElement('span');
-      iconPanel.className = 'profile-achievement-icon-panel';
+      cell.setAttribute('aria-label', isUnlocked || !achievement.hidden ? achievement.name : 'Surprise achievement');
+
+      const identity = document.createElement('span');
+      identity.className = 'profile-achievement-badge';
 
       const emoji = document.createElement('span');
       emoji.className = 'profile-achievement-emoji';
       emoji.textContent = isUnlocked ? achievement.icon : (isHiddenLocked ? '\u{2753}' : '\u{1F512}');
       emoji.setAttribute('aria-hidden', 'true');
-      iconPanel.appendChild(emoji);
+      identity.appendChild(emoji);
 
-      cell.setAttribute('aria-label', isUnlocked || !achievement.hidden ? achievement.name : 'Surprise achievement');
+      if (badgeLabel) {
+        const shortLabel = document.createElement('span');
+        shortLabel.className = 'profile-achievement-cell-label';
+        shortLabel.textContent = badgeLabel;
+        identity.appendChild(shortLabel);
+      }
 
-      const tierDot = document.createElement('span');
-      tierDot.className = `profile-achievement-tier profile-achievement-tier-${achievement.tier}`;
-
-      const shortLabel = document.createElement('span');
-      shortLabel.className = 'profile-achievement-cell-label';
-      shortLabel.textContent = isUnlocked || !achievement.hidden ? achievement.name : 'Surprise';
-
-      cell.append(iconPanel, tierDot, shortLabel);
+      cell.appendChild(identity);
       grid.appendChild(cell);
     });
 
