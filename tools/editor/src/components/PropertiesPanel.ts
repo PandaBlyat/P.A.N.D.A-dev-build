@@ -22,6 +22,7 @@ import { createOnboardingNudge } from './Onboarding';
 import { createItemChainPickerPanelEditor, createItemPickerPanelEditor } from './ItemPickerPanel';
 import { formatGameItemLabel } from '../lib/item-catalog';
 import { requestFlowCenter } from '../lib/flow-navigation';
+import { createIcon, setButtonContent } from './icons';
 
 const ADDABLE_PRECONDITION_SCHEMAS = PRECONDITION_SCHEMAS.filter((schema) => !schema.pickerHidden);
 
@@ -57,7 +58,6 @@ function createCollapsibleSection(
   const toggle = document.createElement('button');
   toggle.type = 'button';
   toggle.className = 'props-collapsible-toggle';
-  toggle.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:8px; flex:1 1 auto; min-width:0; background:none; border:none; padding:0; color:inherit; font:inherit; text-align:left; cursor:pointer;';
 
   const titleEl = document.createElement('span');
   titleEl.className = 'section-title';
@@ -65,18 +65,17 @@ function createCollapsibleSection(
 
   const chevron = document.createElement('span');
   chevron.className = 'props-collapsible-chevron';
-  chevron.textContent = '▼';
+  chevron.appendChild(createIcon('play'));
 
   toggle.append(titleEl, chevron);
 
   const actions = document.createElement('div');
-  actions.style.cssText = 'display:flex; align-items:center; gap:6px;';
+  actions.className = 'props-collapsible-actions inspector-action-row';
 
   if (addCallback) {
-    const addBtn = document.createElement('button');
-    addBtn.type = 'button';
-    addBtn.className = 'btn-sm';
-    addBtn.textContent = '+ Add';
+    const addBtn = createActionButton('Add', 'Add a new item to this section', () => {
+      addCallback(addBtn);
+    }, 'add');
     addBtn.onclick = (e) => {
       e.stopPropagation();
       addCallback(addBtn);
@@ -318,21 +317,18 @@ function renderTurnProperties(
     { defaultCollapsed: true },
   );
   const turnActionsRow = document.createElement('div');
-  turnActionsRow.style.cssText = 'display:flex; flex-wrap:wrap; gap:8px;';
+  turnActionsRow.className = 'inspector-action-row inspector-action-row-wrap';
 
   const pasteChoiceBtn = createActionButton('Paste Choice', 'Paste a copied choice into this turn', () => {
     store.pasteChoice(conv.id, turn.turnNumber);
-  });
+  }, 'add');
   pasteChoiceBtn.disabled = !canPasteChoice;
   turnActionsRow.appendChild(pasteChoiceBtn);
 
   if (turn.turnNumber > 1) {
-    const delTurnBtn = document.createElement('button');
-    delTurnBtn.type = 'button';
-    delTurnBtn.className = 'btn-sm btn-danger';
-    delTurnBtn.textContent = 'Delete Turn';
-    delTurnBtn.title = 'Remove this turn from the conversation';
-    delTurnBtn.onclick = () => store.deleteTurn(conv.id, turn.turnNumber);
+    const delTurnBtn = createActionButton('Delete Turn', 'Remove this turn from the conversation', () => {
+      store.deleteTurn(conv.id, turn.turnNumber);
+    }, 'delete', 'danger');
     turnActionsRow.appendChild(delTurnBtn);
   }
 
@@ -381,29 +377,23 @@ function renderTurnProperties(
     header.appendChild(previewText);
 
     const actionGroup = document.createElement('div');
-    actionGroup.style.cssText = 'display:flex; align-items:center; gap:6px;';
+    actionGroup.className = 'inspector-action-row';
 
     const duplicateBtn = createActionButton('Duplicate', 'Duplicate this choice', () => {
       store.duplicateChoice(conv.id, turn.turnNumber, choice.index);
-    });
+    }, 'duplicate');
     duplicateBtn.disabled = turn.choices.length >= 4;
     actionGroup.appendChild(duplicateBtn);
 
     const copyBtn = createActionButton('Copy', 'Copy this choice to paste into another turn in this conversation', () => {
       store.copyChoice(conv.id, turn.turnNumber, choice.index);
-    });
+    }, 'share');
     actionGroup.appendChild(copyBtn);
 
     if (turn.choices.length > 1) {
-      const delBtn = document.createElement('button');
-      delBtn.className = 'btn-icon btn-sm';
-      delBtn.textContent = '\u00d7';
-      delBtn.title = 'Delete this choice';
-      delBtn.style.color = 'var(--danger)';
-      delBtn.onclick = (e) => {
-        e.stopPropagation();
+      const delBtn = createActionButton('Delete', 'Delete this choice', () => {
         store.deleteChoice(conv.id, turn.turnNumber, choice.index);
-      };
+      }, 'delete', 'danger');
       actionGroup.appendChild(delBtn);
     }
 
@@ -462,22 +452,22 @@ function renderChoiceProperties(
   title.appendChild(titleText);
 
   const titleActions = document.createElement('div');
-  titleActions.style.cssText = 'display:flex; align-items:center; gap:8px;';
+  titleActions.className = 'inspector-action-row inspector-action-row-wrap';
 
   const duplicateBtn = createActionButton('Duplicate', 'Duplicate this choice', () => {
     store.duplicateChoice(conv.id, turn.turnNumber, choice.index);
-  });
+  }, 'duplicate');
   duplicateBtn.disabled = !canDuplicateChoice;
   titleActions.appendChild(duplicateBtn);
 
   const copyBtn = createActionButton('Copy', 'Copy this choice', () => {
     store.copyChoice(conv.id, turn.turnNumber, choice.index);
-  });
+  }, 'share');
   titleActions.appendChild(copyBtn);
 
   const pasteBtn = createActionButton('Paste', 'Paste the copied choice into this turn', () => {
     store.pasteChoice(conv.id, turn.turnNumber);
-  });
+  }, 'add');
   pasteBtn.disabled = !canPasteChoice;
   titleActions.appendChild(pasteBtn);
 
@@ -598,8 +588,8 @@ function renderChoiceProperties(
 
   const createBranchButton = document.createElement('button');
   createBranchButton.type = 'button';
-  createBranchButton.className = 'btn-sm';
-  createBranchButton.textContent = 'Create New Branch';
+  createBranchButton.className = 'btn-sm inspector-action-btn';
+  setButtonContent(createBranchButton, 'add', 'Create New Branch');
   createBranchButton.title = 'Create and connect a new turn to this choice';
   createBranchButton.onclick = () => {
     const createdTurnNumber = store.createConnectedTurn(conv.id, turn.turnNumber, choice.index);
@@ -2141,23 +2131,25 @@ function sectionHeader(title: string, onAdd?: () => void): HTMLElement {
   header.appendChild(titleSpan);
 
   if (onAdd) {
-    const addBtn = document.createElement('button');
-    addBtn.className = 'btn-sm';
-    addBtn.textContent = '+ Add';
+    const addBtn = createActionButton('Add', `Add a new ${title.toLowerCase().replace(/\s*\(.*/, '')}`, onAdd, 'add');
     addBtn.setAttribute('aria-label', `Add a new ${title.toLowerCase().replace(/\s*\(.*/, '')}`);
-    addBtn.title = `Add a new ${title.toLowerCase().replace(/\s*\(.*/, '')}`;
-    addBtn.onclick = onAdd;
     header.appendChild(addBtn);
   }
 
   return header;
 }
 
-function createActionButton(label: string, title: string, onClick: () => void): HTMLButtonElement {
+function createActionButton(
+  label: string,
+  title: string,
+  onClick: () => void,
+  icon: 'add' | 'duplicate' | 'share' | 'delete' = 'add',
+  tone: 'default' | 'danger' = 'default',
+): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'btn-sm';
-  button.textContent = label;
+  button.className = `btn-sm inspector-action-btn${tone === 'danger' ? ' inspector-action-btn-danger' : ''}`;
+  setButtonContent(button, icon, label);
   button.title = title;
   button.onclick = (event) => {
     event.stopPropagation();
