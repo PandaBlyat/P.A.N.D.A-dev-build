@@ -222,6 +222,7 @@ function handleReducedMotionChange(): void {
     stopTickerAnimation();
     if (tickerTrack) {
       tickerTrack.style.transform = 'translate3d(0, 0, 0)';
+      tickerTrack.style.visibility = 'visible';
     }
     if (pendingMessageIndex != null) {
       applyTickerMessage(pendingMessageIndex);
@@ -284,6 +285,7 @@ function startTickerAnimation(): void {
 
   if (viewportWidth <= 0 || trackWidth <= 0 || prefersReducedMotion()) {
     tickerTrack.style.transform = 'translate3d(0, 0, 0)';
+    tickerTrack.style.visibility = 'visible';
     pendingLayoutRefresh = false;
     pendingMessageIndex = null;
     return;
@@ -297,6 +299,7 @@ function startTickerAnimation(): void {
   );
 
   tickerTrack.style.transform = `translate3d(${startX}px, 0, 0)`;
+  tickerTrack.style.visibility = 'visible';
   if (tickerAnimationFrame != null) {
     window.cancelAnimationFrame(tickerAnimationFrame);
   }
@@ -346,6 +349,13 @@ function stopTickerAnimation(): void {
 
   if (!tickerAnimation) {
     return;
+  }
+
+  // Hide the track BEFORE cancel() to prevent the snap-to-origin flash.
+  // cancel() instantly removes the fill-forward effect, which would briefly
+  // show the element at its CSS-default transform (0,0,0).
+  if (tickerTrack) {
+    tickerTrack.style.visibility = 'hidden';
   }
 
   tickerAnimation.onfinish = null;

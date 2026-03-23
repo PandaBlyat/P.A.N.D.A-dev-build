@@ -1059,8 +1059,8 @@ function drawEdges(options: {
     return anchor;
   };
 
-  svg.replaceChildren();
-  if (defs) svg.appendChild(defs);
+  const fragment = document.createDocumentFragment();
+  if (defs) fragment.appendChild(defs);
 
   for (const edge of edges) {
     const sourceTurn = turnsByNumber.get(edge.sourceTurnNumber);
@@ -1116,7 +1116,7 @@ function drawEdges(options: {
     };
     group.appendChild(labelButton);
 
-    svg.appendChild(group);
+    fragment.appendChild(group);
   }
 
   if (preview) {
@@ -1129,9 +1129,11 @@ function drawEdges(options: {
       previewPath.setAttribute('stroke', previewColor);
       previewPath.style.setProperty('--flow-edge-color', previewColor);
       previewPath.setAttribute('marker-end', `url(#${ensureMarker(defs, 'continue', previewColor)})`);
-      svg.appendChild(previewPath);
+      fragment.appendChild(previewPath);
     }
   }
+
+  svg.replaceChildren(fragment);
 }
 
 /**
@@ -1396,16 +1398,28 @@ function wireCanvasInteractions(options: {
     canvas.classList.add('is-panning');
     event.preventDefault();
 
+    let panFrame = 0;
+
     const onMove = (moveEvent: MouseEvent) => {
       moved = true;
       viewState.panX = originPanX + (moveEvent.clientX - startPanX);
       viewState.panY = originPanY + (moveEvent.clientY - startPanY);
-      applyView();
+      if (panFrame === 0) {
+        panFrame = requestAnimationFrame(() => {
+          panFrame = 0;
+          applyView();
+        });
+      }
     };
 
     const onUp = () => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      if (panFrame !== 0) {
+        cancelAnimationFrame(panFrame);
+        panFrame = 0;
+      }
+      applyView();
       canvas.classList.remove('is-panning');
       if (!moved) onBackgroundClick();
     };
@@ -1414,11 +1428,21 @@ function wireCanvasInteractions(options: {
     document.addEventListener('mouseup', onUp);
   };
 
+  let wheelFrame = 0;
   canvas.onwheel = (event) => {
     event.preventDefault();
     const factor = event.deltaY > 0 ? 1 / 1.1 : 1.1;
     const rect = canvas.getBoundingClientRect();
-    zoomAtViewportPoint(canvas, viewState, factor, event.clientX - rect.left, event.clientY - rect.top, applyView);
+    const ox = event.clientX - rect.left;
+    const oy = event.clientY - rect.top;
+    zoomAtViewportPoint(canvas, viewState, factor, ox, oy, () => {
+      if (wheelFrame === 0) {
+        wheelFrame = requestAnimationFrame(() => {
+          wheelFrame = 0;
+          applyView();
+        });
+      }
+    });
   };
 }
 

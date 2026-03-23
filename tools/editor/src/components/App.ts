@@ -542,12 +542,12 @@ function startPanelResize(event: PointerEvent, side: 'left' | 'right', main: HTM
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     document.body.classList.remove('is-resizing-panels');
-    if (side === 'left' && layoutState.leftWidth !== startWidth) {
-      renderApp(document.getElementById('app')!);
-      return;
-    }
-    if (side === 'right' && layoutState.rightWidth !== startWidth) {
-      renderApp(document.getElementById('app')!);
+    const widthChanged = side === 'left'
+      ? layoutState.leftWidth !== startWidth
+      : layoutState.rightWidth !== startWidth;
+    if (widthChanged) {
+      const container = document.getElementById('app')!;
+      renderFlowEditor(container);
     }
   };
 
@@ -649,7 +649,12 @@ function ensureResponsiveListener(container: HTMLElement): void {
     if (frame !== 0) cancelAnimationFrame(frame);
     frame = window.requestAnimationFrame(() => {
       frame = 0;
-      renderApp(container);
+      const nextMode = getResponsiveMode(window.innerWidth);
+      if (nextMode !== layoutState.responsiveMode) {
+        renderApp(container);
+      } else if (appShell) {
+        applyPanelLayout(appShell.mainLayout);
+      }
     });
   });
 }

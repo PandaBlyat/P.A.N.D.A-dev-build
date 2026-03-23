@@ -248,52 +248,30 @@ export function renderFirstRunExperience(container: HTMLElement): void {
     });
   }
 
-  function revealContent(): void {
+  async function revealContent(): Promise<void> {
     narratorBox.classList.add('narrator-done');
     chapterLabel.classList.add('narrator-done');
     shell.classList.add('phase-finale');
-
-    brandPanel.classList.remove('hidden');
-    brandPanel.classList.add('reveal');
-    title.classList.remove('hidden');
-    title.classList.add('reveal');
     skipBtn.hidden = true;
-
     setPhaseIndicator(NARRATOR_PHASES.length);
 
-    setTimeout(() => {
-      if (cancelled) return;
-      subtitle.classList.remove('hidden');
-      subtitle.classList.add('reveal');
-      tagline.classList.remove('hidden');
-      tagline.classList.add('reveal');
-    }, 250);
+    const revealGroups: HTMLElement[][] = [
+      [brandPanel, title],
+      [subtitle, tagline],
+      [missionPanel, intro],
+      [subcopy],
+      [ctas],
+      [checklistWrap],
+    ];
 
-    setTimeout(() => {
+    for (const group of revealGroups) {
       if (cancelled) return;
-      missionPanel.classList.remove('hidden');
-      missionPanel.classList.add('reveal');
-      intro.classList.remove('hidden');
-      intro.classList.add('reveal');
-    }, 520);
-
-    setTimeout(() => {
-      if (cancelled) return;
-      subcopy.classList.remove('hidden');
-      subcopy.classList.add('reveal');
-    }, 760);
-
-    setTimeout(() => {
-      if (cancelled) return;
-      ctas.classList.remove('hidden');
-      ctas.classList.add('reveal');
-    }, 980);
-
-    setTimeout(() => {
-      if (cancelled) return;
-      checklistWrap.classList.remove('hidden');
-      checklistWrap.classList.add('reveal');
-    }, 1180);
+      for (const el of group) {
+        el.classList.remove('hidden');
+        el.classList.add('reveal');
+      }
+      await delay(220);
+    }
   }
 
   skipBtn.onclick = () => {
@@ -325,7 +303,7 @@ export function renderFirstRunExperience(container: HTMLElement): void {
         if (prevPhase.shellClass) shell.classList.remove(prevPhase.shellClass);
 
         narratorBox.classList.add('narrator-fading');
-        await delay(500);
+        await awaitTransitionEnd(narratorBox.querySelector('.first-run-narrator-line'), 600);
         if (cancelled) return;
 
         narratorBox.querySelectorAll('.first-run-narrator-line').forEach(el => el.remove());
@@ -425,8 +403,28 @@ function createFirstRunCtaCard(options: FirstRunCta): HTMLElement {
   return card;
 }
 
+function awaitTransitionEnd(el: Element | null, fallbackMs: number): Promise<void> {
+  return new Promise(resolve => {
+    if (!el) { resolve(); return; }
+    const timer = setTimeout(resolve, fallbackMs);
+    el.addEventListener('transitionend', () => { clearTimeout(timer); resolve(); }, { once: true });
+  });
+}
+
 function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise(resolve => {
+    if (ms <= 0) { resolve(); return; }
+    let start = 0;
+    function tick(now: number): void {
+      if (start === 0) start = now;
+      if (now - start >= ms) {
+        resolve();
+      } else {
+        requestAnimationFrame(tick);
+      }
+    }
+    requestAnimationFrame(tick);
+  });
 }
 
 export function createOnboardingNudge(options: OnboardingCardOptions): HTMLElement {
