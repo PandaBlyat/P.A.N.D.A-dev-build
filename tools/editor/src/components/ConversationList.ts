@@ -7,7 +7,8 @@ import { FACTION_COLORS } from '../lib/faction-colors';
 import { FACTION_DISPLAY_NAMES, getConversationFaction } from '../lib/types';
 import { createValidationWorkspaceContent } from './ValidationBar';
 import { createOnboardingNudge } from './Onboarding';
-import { setButtonContent } from './icons';
+import { createIcon, setButtonContent } from './icons';
+import { openPlayPanel } from './PlayPanel';
 
 export function centerConversationSelection(conversationId: number): void {
   const currentState = store.get();
@@ -111,10 +112,17 @@ export function renderConversationList(container: HTMLElement): void {
     badges.appendChild(factionBadge);
 
     if (conv.turns.length > 0) {
-      const starterBadge = document.createElement('span');
-      starterBadge.className = 'conv-subtle-pill';
-      starterBadge.textContent = 'Starter branch';
-      badges.appendChild(starterBadge);
+      const playBtn = document.createElement('button');
+      playBtn.type = 'button';
+      playBtn.className = 'conv-play-btn';
+      playBtn.title = 'Preview conversation';
+      playBtn.append(createIcon('play'), document.createTextNode('Play'));
+      playBtn.onpointerdown = (e) => e.stopPropagation();
+      playBtn.onclick = (e) => {
+        e.stopPropagation();
+        openPlayPanel(conv);
+      };
+      badges.appendChild(playBtn);
     }
 
     const textWrap = document.createElement('div');

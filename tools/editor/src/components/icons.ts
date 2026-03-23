@@ -29,7 +29,9 @@ export type IconName =
   | 'database'
   | 'help'
   | 'support'
-  | 'eye';
+  | 'eye'
+  | 'play'
+  | 'restart';
 
 const BASE_ICON_ATTRS = {
   fill: 'none',
@@ -217,6 +219,19 @@ const ICONS: Record<IconName, IconDef> = {
     paths: [
       { tag: 'path', d: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z' },
       { tag: 'circle', cx: '12', cy: '12', r: '3' },
+    ],
+  },
+  play: {
+    paths: [
+      { tag: 'path', d: 'M7 5v14l11-7z', fill: 'currentColor', stroke: 'none' },
+    ],
+  },
+  restart: {
+    paths: [
+      { tag: 'path', d: 'M3 12a9 9 0 0 1 15-6.7V3' },
+      { tag: 'path', d: 'M21 12a9 9 0 0 1-15 6.7V21' },
+      { tag: 'path', d: 'M18 5.3h-3.5v-3' },
+      { tag: 'path', d: 'M6 18.7h3.5v3' },
     ],
   },
 };
