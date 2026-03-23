@@ -25,7 +25,7 @@ import { createIcon, setButtonContent } from './icons';
 import { importConversations } from './App';
 import { downloadFile } from '../lib/project-io';
 import { showXpToast, showLevelUpToast } from './XpToast';
-import { awardXp, getPublishXp, type UserProfile } from '../lib/api-client';
+import { awardXp, getPublishXp, getStoredUsername, type UserProfile } from '../lib/api-client';
 import { setProfileForBadge, invalidateLeaderboardCache } from './ProfileBadge';
 
 type SortMode = 'newest' | 'upvoted';
@@ -932,8 +932,16 @@ function buildPublishForm(): HTMLElement {
   const titleInput = makeFormField(form, 'Title', 'text', 'Conversation title (unique community title required)') as HTMLInputElement;
   titleInput.maxLength = 70;
 
-  const authorInput = makeFormField(form, 'Author', 'text', 'Your name or handle (optional)') as HTMLInputElement;
+  const storedName = getStoredUsername();
+  const authorInput = makeFormField(form, 'Author', 'text',
+    storedName ? storedName : 'Anonymous (set a username via your profile)') as HTMLInputElement;
   authorInput.maxLength = 32;
+  if (storedName) {
+    authorInput.value = storedName;
+    authorInput.readOnly = true;
+    authorInput.style.opacity = '0.7';
+    authorInput.title = 'Author name is your profile username. Change it in your profile.';
+  }
 
   const descInput = makeFormField(form, 'Description', 'textarea', 'Brief description of what this conversation does…') as HTMLTextAreaElement;
   descInput.maxLength = 280;
@@ -1082,14 +1090,20 @@ function buildPublishForm(): HTMLElement {
     const faction = getConversationFaction(conv, store.get().project.faction);
     const branchCount = getBranchCount(conv ?? undefined);
     titleInput.value = conv?.label || '';
-    authorInput.value = '';
+    const currentUsername = getStoredUsername();
+    authorInput.value = currentUsername || '';
+    authorInput.readOnly = !!currentUsername;
+    authorInput.style.opacity = currentUsername ? '0.7' : '1';
+    authorInput.placeholder = currentUsername ? currentUsername : 'Anonymous (set a username via your profile)';
     descInput.value = '';
     summaryInput.value = conv ? createSummaryFromConversation(conv) : '';
     tagsInput.value = branchCount <= 3 ? 'short, starter' : 'branching, story';
     factionValue.textContent = `${FACTION_DISPLAY_NAMES[faction]} · ${branchCount} branches · ${labelForComplexity(deriveConversationComplexity(branchCount))}`;
     factionValue.style.color = FACTION_COLORS[faction];
     consentInput.checked = false;
-    setStatus('Anonymous publishes are visible to everyone and duplicate titles are rejected.');
+    setStatus(currentUsername
+      ? `Publishing as ${currentUsername}. Duplicate titles are rejected.`
+      : 'Anonymous publishes are visible to everyone and duplicate titles are rejected.');
   };
 
   return form;

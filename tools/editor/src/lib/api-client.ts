@@ -671,6 +671,31 @@ export async function fetchLeaderboard(limit = 10): Promise<LeaderboardEntry[]> 
   }
 }
 
+export async function fetchUserPublishCount(publisherId: string): Promise<number> {
+  try {
+    const params = new URLSearchParams({
+      select: 'id',
+      publisher_id: `eq.${publisherId}`,
+    });
+    const res = await fetch(`${sbEndpoint(TABLE)}?${params}`, {
+      headers: { ...sbHeaders(), Prefer: 'count=exact' },
+      method: 'HEAD',
+    });
+    const count = res.headers.get('content-range');
+    if (count) {
+      const match = count.match(/\/(\d+)/);
+      if (match) return parseInt(match[1], 10);
+    }
+    // Fallback: do a GET and count rows
+    const getRes = await fetch(`${sbEndpoint(TABLE)}?${params}`, { headers: sbHeaders() });
+    if (!getRes.ok) return 0;
+    const rows = await getRes.json() as Array<{ id: string }>;
+    return rows.length;
+  } catch {
+    return 0;
+  }
+}
+
 export function getPublishXp(complexity: ConversationComplexity): number {
   switch (complexity) {
     case 'long': return XP_PUBLISH_LONG;
