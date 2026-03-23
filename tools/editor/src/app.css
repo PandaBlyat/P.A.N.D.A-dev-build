@@ -6865,28 +6865,64 @@ strong.support-upvote-count {
 /* Profile Popover */
 .profile-popover {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 10px);
   right: 0;
   z-index: 9000;
-  width: 320px;
-  background: var(--bg-panel, #161c22);
-  border: 1px solid var(--border-light, #33404e);
-  border-radius: 12px;
+  width: min(760px, calc(100vw - 28px));
+  max-width: calc(100vw - 28px);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent, #5eaa3a) 12%, transparent) 0%, transparent 36%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel, #161c22) 96%, black 4%), color-mix(in srgb, #0b1117 92%, black 8%));
+  border: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 16%, var(--border-light, #33404e));
+  border-radius: 20px;
   padding: 0;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255,255,255,0.03);
-  animation: fade-in 0.15s ease;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.62),
+    0 0 0 1px rgba(255,255,255,0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: fade-in 0.18s ease;
   overflow: hidden;
+  backdrop-filter: blur(14px);
+}
+
+.profile-popover-shell {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-popover-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 22px 18px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent, #5eaa3a) 15%, rgba(255,255,255,0.04)) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 12%, var(--border, #222c38));
+}
+
+.profile-popover-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(250px, 0.9fr);
+  gap: 0;
+  min-width: 0;
+}
+
+.profile-popover-main,
+.profile-popover-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.profile-popover-main {
+  border-right: 1px solid color-mix(in srgb, var(--border, #333) 78%, transparent);
 }
 
 .profile-popover-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px 16px 14px;
-  background: linear-gradient(135deg,
-    color-mix(in srgb, var(--accent, #5eaa3a) 10%, transparent),
-    transparent 65%);
-  border-bottom: 1px solid var(--border, #222c38);
+  gap: 14px;
 }
 
 .profile-popover-avatar-circle {
@@ -6935,34 +6971,40 @@ strong.support-upvote-count {
 
 .profile-popover-info {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .profile-popover-name {
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 1.15rem;
+  font-weight: 800;
   color: var(--fg, #eee);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 .profile-popover-title {
-  font-size: 0.75rem;
-  color: var(--accent, #f59e0b);
-  font-weight: 500;
-  margin-top: 1px;
+  font-size: 0.82rem;
+  color: color-mix(in srgb, var(--accent, #f59e0b) 84%, white 16%);
+  font-weight: 600;
 }
 
 /* XP Progress */
 .profile-popover-progress {
-  padding: 0 16px 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .profile-popover-bar-header {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 5px;
+  gap: 12px;
 }
 
 .profile-popover-level-label {
@@ -6972,15 +7014,16 @@ strong.support-upvote-count {
 }
 
 .profile-popover-bar-label {
-  font-size: 0.68rem;
-  color: var(--fg-dim, #888);
+  font-size: 0.74rem;
+  color: var(--fg-dim, #9aa4b2);
 }
 
 .profile-popover-bar-track {
   width: 100%;
-  height: 7px;
-  border-radius: 4px;
-  background: var(--bg, #111);
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg, #111) 82%, black 18%);
+  border: 1px solid color-mix(in srgb, var(--border, #333) 76%, transparent);
   overflow: hidden;
 }
 
@@ -6993,25 +7036,27 @@ strong.support-upvote-count {
 }
 
 .profile-popover-next {
-  font-size: 0.68rem;
-  color: var(--fg-dim, #666);
-  margin-top: 4px;
+  font-size: 0.74rem;
+  color: var(--fg-dim, #8f98a8);
 }
 
 /* Stats Grid */
 .profile-popover-stats {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  padding: 0 16px 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 18px;
 }
 
 .profile-stat-card {
-  background: color-mix(in srgb, var(--bg, #111) 60%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border, #333) 50%, transparent);
-  border-radius: 8px;
-  padding: 10px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%),
+    color-mix(in srgb, var(--bg, #111) 66%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border, #333) 60%, transparent);
+  border-radius: 14px;
+  padding: 12px 10px;
   text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
 .profile-stat-icon svg {
@@ -7037,8 +7082,8 @@ strong.support-upvote-count {
 
 /* XP Breakdown */
 .profile-popover-xp-breakdown {
-  padding: 10px 16px;
-  border-top: 1px solid var(--border, #333);
+  padding: 18px;
+  border-top: 1px solid color-mix(in srgb, var(--border, #333) 78%, transparent);
 }
 
 .profile-popover-section-header {
@@ -7083,8 +7128,8 @@ strong.support-upvote-count {
 
 /* Leaderboard */
 .profile-popover-leaderboard {
-  border-top: 1px solid var(--border, #333);
-  padding: 10px 16px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--border, #333) 78%, transparent);
+  padding: 18px 18px 20px;
 }
 
 .profile-popover-lb-header {
@@ -7702,11 +7747,11 @@ strong.support-upvote-count {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .profile-popover-achievements {
-  padding: 10px 16px;
-  border-top: 1px solid var(--border, #333);
+  padding: 18px 20px;
+  border-top: 1px solid color-mix(in srgb, var(--border, #333) 78%, transparent);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .profile-achievement-summary-row,
@@ -7935,11 +7980,11 @@ strong.support-upvote-count {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .profile-popover-streak-challenge {
-  padding: 10px 16px;
-  border-top: 1px solid var(--border, #333);
+  padding: 18px 20px 20px;
+  border-top: 1px solid color-mix(in srgb, var(--border, #333) 78%, transparent);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .profile-popover-streak-row {
@@ -7987,11 +8032,14 @@ strong.support-upvote-count {
 .profile-mission-panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 10px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--bg, #111) 68%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent, #f59e0b) 12%, transparent);
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.01) 100%),
+    color-mix(in srgb, var(--bg, #111) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #f59e0b) 14%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
 .profile-mission-panel-header {
@@ -8112,6 +8160,69 @@ strong.support-upvote-count {
 
 .profile-mission-card-complete .profile-mission-progress-fill {
   background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+
+.profile-achievement-featured-badges,
+.profile-achievement-summary-row,
+.profile-achievement-next-list,
+.profile-popover-achievement-grid,
+.profile-mission-list {
+  min-width: 0;
+}
+
+@media (max-width: 860px) {
+  .profile-popover {
+    width: min(680px, calc(100vw - 20px));
+    max-width: calc(100vw - 20px);
+  }
+
+  .profile-popover-body {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-popover-main {
+    border-right: 0;
+  }
+
+  .profile-popover-side {
+    border-top: 1px solid color-mix(in srgb, var(--border, #333) 78%, transparent);
+  }
+}
+
+@media (max-width: 640px) {
+  .profile-popover {
+    width: min(100vw - 16px, 100vw - 16px);
+    right: -6px;
+    border-radius: 16px;
+  }
+
+  .profile-popover-hero,
+  .profile-popover-achievements,
+  .profile-popover-streak-challenge,
+  .profile-popover-stats,
+  .profile-popover-xp-breakdown,
+  .profile-popover-leaderboard {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .profile-popover-header,
+  .profile-mission-card-header,
+  .profile-achievement-category-header,
+  .profile-popover-bar-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .profile-popover-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-achievement-next-list,
+  .profile-popover-achievement-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

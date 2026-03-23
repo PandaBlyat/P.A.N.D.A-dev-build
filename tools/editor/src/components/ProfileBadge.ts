@@ -734,16 +734,28 @@ function buildLeaderboardSection(): HTMLElement {
   return leaderboardSection;
 }
 
-function buildSelfProfileContent(profile: UserProfile): HTMLElement[] {
-  return [
-    buildProfileHeader(profile),
-    buildProgressSection(profile),
-    buildStatsSection(profile),
-    buildAchievementsSection(profile),
-    buildStreakChallengeSection(profile),
-    buildXpBreakdownSection(),
-    buildLeaderboardSection(),
-  ];
+function buildSelfProfileContent(profile: UserProfile): HTMLElement {
+  const shell = document.createElement('div');
+  shell.className = 'profile-popover-shell';
+
+  const hero = document.createElement('section');
+  hero.className = 'profile-popover-hero';
+  hero.append(buildProfileHeader(profile), buildProgressSection(profile));
+
+  const body = document.createElement('div');
+  body.className = 'profile-popover-body';
+
+  const main = document.createElement('div');
+  main.className = 'profile-popover-main';
+  main.append(buildAchievementsSection(profile), buildStreakChallengeSection(profile));
+
+  const side = document.createElement('aside');
+  side.className = 'profile-popover-side';
+  side.append(buildStatsSection(profile), buildXpBreakdownSection(), buildLeaderboardSection());
+
+  body.append(main, side);
+  shell.append(hero, body);
+  return shell;
 }
 
 function openPopover(anchor: HTMLElement): void {
@@ -752,7 +764,7 @@ function openPopover(anchor: HTMLElement): void {
 
   const popover = document.createElement('div');
   popover.className = 'profile-popover';
-  popover.append(...buildSelfProfileContent(cachedProfile));
+  popover.appendChild(buildSelfProfileContent(cachedProfile));
 
   anchor.appendChild(popover);
   popoverOpen = true;
@@ -906,7 +918,7 @@ async function openPublicProfileOverlay(publisherId: string, trigger: HTMLButton
 
     if (cachedProfile && profile.publisher_id === cachedProfile.publisher_id) {
       subtitle.textContent = 'This is you';
-      body.append(...buildSelfProfileContent(profile));
+      body.appendChild(buildSelfProfileContent(profile));
       return;
     }
 
