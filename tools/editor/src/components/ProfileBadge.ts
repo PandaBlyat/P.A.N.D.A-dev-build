@@ -163,7 +163,19 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   titleEl.className = 'profile-popover-title';
   titleEl.textContent = profile.title;
 
-  info.append(nameEl, titleEl);
+  const metaRow = document.createElement('div');
+  metaRow.className = 'profile-popover-meta-row';
+
+  const levelPill = document.createElement('span');
+  levelPill.className = 'profile-popover-meta-pill';
+  levelPill.textContent = `Lv.${profile.level}`;
+
+  const memberPill = document.createElement('span');
+  memberPill.className = 'profile-popover-meta-pill profile-popover-meta-pill-muted';
+  memberPill.textContent = `Joined ${formatMemberSince(profile.created_at)}`;
+
+  metaRow.append(levelPill, memberPill);
+  info.append(nameEl, titleEl, metaRow);
   header.append(avatarCircle, info);
 
   return header;
@@ -522,15 +534,14 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
       const emoji = document.createElement('span');
       emoji.className = 'profile-achievement-emoji';
       emoji.textContent = isUnlocked ? achievement.icon : (isHiddenLocked ? '\u{2753}' : '\u{1F512}');
+      emoji.setAttribute('aria-hidden', 'true');
 
-      const name = document.createElement('span');
-      name.className = 'profile-achievement-name';
-      name.textContent = isUnlocked || !achievement.hidden ? achievement.name : 'Surprise';
+      cell.setAttribute('aria-label', isUnlocked || !achievement.hidden ? achievement.name : 'Surprise achievement');
 
       const tierDot = document.createElement('span');
       tierDot.className = `profile-achievement-tier profile-achievement-tier-${achievement.tier}`;
 
-      cell.append(emoji, name, tierDot);
+      cell.append(emoji, tierDot);
       grid.appendChild(cell);
     });
 

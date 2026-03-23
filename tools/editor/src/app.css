@@ -6898,8 +6898,8 @@ strong.support-upvote-count {
 .profile-popover-hero {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 22px 24px 20px;
+  gap: 14px;
+  padding: 18px 20px 16px;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--accent, #5eaa3a) 18%, transparent) 0%, transparent 36%),
     linear-gradient(135deg, color-mix(in srgb, var(--accent, #5eaa3a) 15%, rgba(255,255,255,0.04)) 0%, transparent 60%),
@@ -6909,7 +6909,7 @@ strong.support-upvote-count {
 
 .profile-popover-body {
   display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(300px, 1fr);
+  grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.9fr);
   gap: 0;
   min-width: 0;
   min-height: 0;
@@ -6956,12 +6956,12 @@ strong.support-upvote-count {
 .profile-popover-header {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .profile-popover-avatar-circle {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: linear-gradient(135deg,
     var(--tier-color, #5eaa3a),
@@ -6978,7 +6978,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-avatar-initial {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 800;
   color: rgba(0,0,0,0.75);
   line-height: 1;
@@ -6989,8 +6989,8 @@ strong.support-upvote-count {
   position: absolute;
   bottom: -2px;
   right: -2px;
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   border-radius: 50%;
   background: var(--tier-color, #5eaa3a);
   border: 2px solid var(--bg-panel, #161c22);
@@ -7007,11 +7007,11 @@ strong.support-upvote-count {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .profile-popover-name {
-  font-size: 1.15rem;
+  font-size: 1.08rem;
   font-weight: 800;
   color: var(--fg, #eee);
   overflow: hidden;
@@ -7021,9 +7021,33 @@ strong.support-upvote-count {
 }
 
 .profile-popover-title {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: color-mix(in srgb, var(--accent, #f59e0b) 84%, white 16%);
   font-weight: 600;
+}
+
+.profile-popover-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.profile-popover-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg, #eee);
+  background: color-mix(in srgb, var(--bg-elevated, #171d28) 84%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border, #333) 72%, transparent);
+}
+
+.profile-popover-meta-pill-muted {
+  color: var(--fg-dim, #96a0af);
 }
 
 /* XP Progress */
@@ -7031,7 +7055,7 @@ strong.support-upvote-count {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .profile-popover-bar-header {
@@ -7054,7 +7078,7 @@ strong.support-upvote-count {
 
 .profile-popover-bar-track {
   width: 100%;
-  height: 10px;
+  height: 8px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--bg, #111) 82%, black 18%);
   border: 1px solid color-mix(in srgb, var(--border, #333) 76%, transparent);
@@ -7070,7 +7094,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-next {
-  font-size: 0.74rem;
+  font-size: 0.7rem;
   color: var(--fg-dim, #8f98a8);
 }
 
@@ -7078,8 +7102,8 @@ strong.support-upvote-count {
 .profile-popover-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  padding: 20px;
+  gap: 8px;
+  padding: 16px;
 }
 
 .profile-stat-card {
@@ -7087,8 +7111,8 @@ strong.support-upvote-count {
     linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%),
     color-mix(in srgb, var(--bg, #111) 66%, transparent);
   border: 1px solid color-mix(in srgb, var(--border, #333) 60%, transparent);
-  border-radius: 16px;
-  padding: 14px 12px;
+  border-radius: 14px;
+  padding: 12px 10px;
   text-align: center;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.04),
@@ -7103,10 +7127,11 @@ strong.support-upvote-count {
 }
 
 .profile-stat-value {
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   font-weight: 700;
   color: var(--fg, #eee);
-  line-height: 1.3;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .profile-stat-label {
@@ -7118,7 +7143,7 @@ strong.support-upvote-count {
 
 /* XP Breakdown */
 .profile-popover-xp-breakdown {
-  padding: 20px;
+  padding: 16px;
   border-top: 1px solid color-mix(in srgb, var(--border, #333) 78%, transparent);
 }
 
@@ -7165,7 +7190,7 @@ strong.support-upvote-count {
 /* Leaderboard */
 .profile-popover-leaderboard {
   border-top: 1px solid color-mix(in srgb, var(--border, #333) 78%, transparent);
-  padding: 20px;
+  padding: 16px;
 }
 
 .profile-popover-lb-header {
@@ -7808,11 +7833,11 @@ strong.support-upvote-count {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .profile-popover-achievements {
-  padding: 20px 22px;
+  padding: 16px 18px;
   border-top: 1px solid color-mix(in srgb, var(--border, #333) 78%, transparent);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .profile-achievement-summary-row,
@@ -7890,15 +7915,15 @@ strong.support-upvote-count {
 
 .profile-achievement-next-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
 }
 
 .profile-achievement-next-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px;
+  gap: 5px;
+  padding: 10px;
   border-radius: 12px;
   background: color-mix(in srgb, var(--bg-elevated, #171d28) 90%, transparent);
   border: 1px solid color-mix(in srgb, var(--border, #333) 75%, transparent);
@@ -7916,7 +7941,7 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-next-icon {
-  font-size: 1rem;
+  font-size: 0.92rem;
   line-height: 1;
 }
 
@@ -7928,26 +7953,31 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-next-name {
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   font-weight: 700;
   color: var(--fg, #eee);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .profile-achievement-next-meta {
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   color: var(--fg-dim, #8f98a8);
   text-transform: capitalize;
+  overflow-wrap: anywhere;
 }
 
 .profile-achievement-next-desc {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: var(--fg-dim, #a2abba);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .profile-achievement-category {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .profile-achievement-category-header {
@@ -7958,8 +7988,8 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-category-title {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -7971,8 +8001,8 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-category-icon svg {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   color: color-mix(in srgb, var(--accent, #f59e0b) 80%, white 20%);
 }
 
@@ -7984,24 +8014,23 @@ strong.support-upvote-count {
 
 .profile-popover-achievement-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 6px;
 }
 
 .profile-achievement-cell {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px 8px;
-  border-radius: 12px;
+  gap: 5px;
+  padding: 8px 6px;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--bg, #111) 60%, transparent);
   border: 1px solid color-mix(in srgb, var(--border, #333) 40%, transparent);
   cursor: default;
   position: relative;
   transition: border-color 0.2s, background 0.2s, opacity 0.2s, transform 0.2s ease;
-  min-height: 76px;
+  min-height: 54px;
   text-align: center;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
 }
@@ -8027,42 +8056,25 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-hidden.profile-achievement-locked {
-  min-height: 58px;
-  padding: 6px 6px;
+  min-height: 48px;
+  padding: 6px;
   gap: 3px;
   background: color-mix(in srgb, var(--bg, #111) 42%, transparent);
 }
 
 .profile-achievement-emoji {
-  font-size: 0.94rem;
+  font-size: 0.8rem;
   line-height: 1;
 }
 
-.profile-achievement-name {
-  overflow: visible;
-  font-size: 0.66rem;
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--fg, #d7dde8);
-  text-wrap: balance;
-  overflow-wrap: anywhere;
-}
-
 .profile-achievement-hidden.profile-achievement-locked .profile-achievement-emoji {
-  font-size: 0.78rem;
-}
-
-.profile-achievement-hidden.profile-achievement-locked .profile-achievement-name {
-  font-size: 0.56rem;
-  line-height: 1.05;
-  -webkit-line-clamp: 1;
+  font-size: 0.72rem;
 }
 
 .profile-achievement-tier {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  margin-top: 2px;
 }
 
 .profile-achievement-tier-bronze { background: #b87333; }
@@ -8078,11 +8090,11 @@ strong.support-upvote-count {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .profile-popover-streak-challenge {
-  padding: 20px 22px 22px;
+  padding: 16px 18px 18px;
   border-top: 1px solid color-mix(in srgb, var(--border, #333) 78%, transparent);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .profile-popover-streak-row {
@@ -8130,8 +8142,8 @@ strong.support-upvote-count {
 .profile-mission-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
+  gap: 10px;
+  padding: 14px;
   border-radius: 16px;
   background:
     linear-gradient(180deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.01) 100%),
@@ -8162,14 +8174,14 @@ strong.support-upvote-count {
 
 .profile-mission-list {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .profile-mission-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px;
+  gap: 5px;
+  padding: 9px;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--border, #333) 85%, transparent);
   background: color-mix(in srgb, var(--bg-elevated, #171d28) 88%, transparent);
@@ -8217,9 +8229,10 @@ strong.support-upvote-count {
 .profile-mission-slot-weekly { background: color-mix(in srgb, #3b82f6 18%, var(--bg, #111)); }
 
 .profile-mission-title {
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   font-weight: 700;
   color: var(--fg, #eee);
+  overflow-wrap: anywhere;
 }
 
 .profile-mission-reward {
@@ -8234,8 +8247,10 @@ strong.support-upvote-count {
 }
 
 .profile-mission-desc {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: var(--fg-dim, #888);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .profile-mission-progress-meta,
@@ -8305,8 +8320,8 @@ strong.support-upvote-count {
   .profile-popover-stats,
   .profile-popover-xp-breakdown,
   .profile-popover-leaderboard {
-    padding-left: 14px;
-    padding-right: 14px;
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
   .profile-popover-header,
