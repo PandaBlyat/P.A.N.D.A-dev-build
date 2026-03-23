@@ -131,11 +131,37 @@ function formatMemberSince(isoDate: string): string {
   }
 }
 
+function createMetaChip(label: string, value: string, tone: 'default' | 'muted' | 'accent' = 'default'): HTMLElement {
+  const chip = document.createElement('span');
+  chip.className = `profile-popover-meta-pill profile-surface-token${tone === 'muted' ? ' profile-popover-meta-pill-muted' : ''}${tone === 'accent' ? ' profile-popover-meta-pill-accent' : ''}`;
+
+  const chipLabel = document.createElement('span');
+  chipLabel.className = 'profile-popover-meta-pill-label';
+  chipLabel.textContent = label;
+
+  const chipValue = document.createElement('span');
+  chipValue.className = 'profile-popover-meta-pill-value';
+  chipValue.textContent = value;
+
+  chip.append(chipLabel, chipValue);
+  return chip;
+}
+
 function buildProfileHeader(profile: UserProfile): HTMLElement {
   const header = document.createElement('div');
   header.className = 'profile-popover-header profile-surface-section';
 
   const tierColor = getLevelTierColor(profile.level);
+  const isSelfProfile = profile.publisher_id === cachedProfile?.publisher_id;
+  const streak = profile.streaks
+    ? {
+        publish: profile.streaks.publish_streak,
+        login: profile.streaks.login_streak,
+      }
+    : {
+        publish: isSelfProfile ? getStreakData().currentStreak : 0,
+        login: isSelfProfile ? getLoginStreak().currentStreak : 0,
+      };
 
   const avatarCircle = document.createElement('div');
   avatarCircle.className = 'profile-popover-avatar-circle';
@@ -153,6 +179,9 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   const info = document.createElement('div');
   info.className = 'profile-popover-info';
 
+  const nameRow = document.createElement('div');
+  nameRow.className = 'profile-popover-name-row';
+
   const nameEl = document.createElement('div');
   nameEl.className = 'profile-popover-name';
   nameEl.textContent = profile.username;
@@ -161,23 +190,19 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   titleEl.className = 'profile-popover-title';
   titleEl.textContent = profile.title;
 
+  nameRow.append(nameEl, titleEl);
+
   const metaRow = document.createElement('div');
   metaRow.className = 'profile-popover-meta-row';
+  metaRow.append(
+    createMetaChip('Level', String(profile.level), 'accent'),
+    createMetaChip('XP', profile.xp.toLocaleString()),
+    createMetaChip('Publish streak', `${streak.publish}w`),
+    createMetaChip('Daily login', `${streak.login}d`),
+    createMetaChip('Joined', formatMemberSince(profile.created_at), 'muted'),
+  );
 
-  const levelPill = document.createElement('span');
-  levelPill.className = 'profile-popover-meta-pill profile-surface-token';
-  levelPill.textContent = `Level ${profile.level}`;
-
-  const xpPill = document.createElement('span');
-  xpPill.className = 'profile-popover-meta-pill profile-surface-token';
-  xpPill.textContent = `${profile.xp.toLocaleString()} XP`;
-
-  const memberPill = document.createElement('span');
-  memberPill.className = 'profile-popover-meta-pill profile-surface-token profile-popover-meta-pill-muted';
-  memberPill.textContent = `Since ${formatMemberSince(profile.created_at)}`;
-
-  metaRow.append(levelPill, xpPill, memberPill);
-  info.append(nameEl, titleEl, metaRow);
+  info.append(nameRow, metaRow);
   identity.append(avatarCircle, info);
 
   header.append(identity, buildProgressSection(profile));
@@ -239,21 +264,28 @@ function buildStatCard(iconName: Parameters<typeof createIcon>[0], value: string
   const icon = createIcon(iconName);
   icon.classList.add('profile-stat-icon');
 
-  const valEl = document.createElement('div');
-  valEl.className = 'profile-stat-value';
-  valEl.textContent = value;
+  const copy = document.createElement('div');
+  copy.className = 'profile-stat-copy';
 
   const labelEl = document.createElement('div');
   labelEl.className = 'profile-stat-label';
   labelEl.textContent = label;
 
-  card.append(icon, valEl, labelEl);
+  const valEl = document.createElement('div');
+  valEl.className = 'profile-stat-value';
+  valEl.textContent = value;
+
+  copy.append(labelEl, valEl);
+  card.append(icon, copy);
   return card;
 }
 
 function buildStatsSection(profile: UserProfile): HTMLElement {
   const statsSection = document.createElement('section');
   statsSection.className = 'profile-popover-stats profile-surface-section';
+  const unlocked = getUnlockedAchievementIdsForProfile(profile);
+  const rareUnlockedCount = getRareAchievementCount(unlocked);
+  const longestStreak = profile.streaks?.longest_streak ?? (profile.publisher_id === cachedProfile?.publisher_id ? getStreakData().longestStreak : 0);
 
   const header = document.createElement('div');
   header.className = 'profile-popover-section-header';
@@ -265,17 +297,12 @@ function buildStatsSection(profile: UserProfile): HTMLElement {
   const statsGrid = document.createElement('div');
   statsGrid.className = 'profile-popover-stats-grid';
 
-  const levelStat = buildStatCard('trophy', `Lv. ${profile.level}`, 'Current level');
-  const xpStat = buildStatCard('star', profile.xp.toLocaleString(), 'Career XP');
-  const joinedStat = buildStatCard('clock', formatMemberSince(profile.created_at), 'Joined');
   const publishStat = buildStatCard('export', '...', 'Published');
+  const badgesStat = buildStatCard('medal', `${unlocked.length}/${ACHIEVEMENTS.length}`, 'Badges');
+  const rareStat = buildStatCard('sparkle', String(rareUnlockedCount), 'Rare');
+  const longestStat = buildStatCard('flame', `${longestStreak}w`, 'Best streak');
 
-  const joinedValue = joinedStat.querySelector('.profile-stat-value');
-  if (joinedValue) {
-    joinedValue.setAttribute('title', new Date(profile.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }));
-  }
-
-  statsGrid.append(levelStat, xpStat, joinedStat, publishStat);
+  statsGrid.append(publishStat, badgesStat, rareStat, longestStat);
   statsSection.append(header, statsGrid);
 
   if (profile.publisher_id === cachedProfile?.publisher_id && publishCountCache !== null) {
@@ -295,23 +322,29 @@ function buildStatsSection(profile: UserProfile): HTMLElement {
 }
 
 function buildXpBreakdownSection(): HTMLElement {
-  const xpBreakdownSection = document.createElement('div');
+  const xpBreakdownSection = document.createElement('details');
   xpBreakdownSection.className = 'profile-popover-xp-breakdown profile-surface-section';
 
-  const xpBreakdownHeader = document.createElement('div');
-  xpBreakdownHeader.className = 'profile-popover-section-header';
+  const xpBreakdownHeader = document.createElement('summary');
+  xpBreakdownHeader.className = 'profile-popover-xp-summary';
+  const xpBreakdownHeaderCopy = document.createElement('div');
+  xpBreakdownHeaderCopy.className = 'profile-popover-section-header';
   const starIcon = createIcon('star');
   const xpBreakdownTitle = document.createElement('span');
   xpBreakdownTitle.textContent = 'How to Earn XP';
-  xpBreakdownHeader.append(starIcon, xpBreakdownTitle);
+  const xpBreakdownMeta = document.createElement('span');
+  xpBreakdownMeta.className = 'profile-popover-summary-meta';
+  xpBreakdownMeta.textContent = '5 quick sources';
+  xpBreakdownHeaderCopy.append(starIcon, xpBreakdownTitle, xpBreakdownMeta);
+  xpBreakdownHeader.appendChild(xpBreakdownHeaderCopy);
 
   const xpRows = document.createElement('div');
   xpRows.className = 'profile-popover-xp-rows';
 
   const xpItems: [string, number][] = [
-    ['Publish (short)', XP_PUBLISH_SHORT],
-    ['Publish (medium)', XP_PUBLISH_MEDIUM],
-    ['Publish (long)', XP_PUBLISH_LONG],
+    ['Publish · Short', XP_PUBLISH_SHORT],
+    ['Publish · Medium', XP_PUBLISH_MEDIUM],
+    ['Publish · Long', XP_PUBLISH_LONG],
     ['Download received', XP_DOWNLOAD_RECEIVED],
     ['Upvote received', XP_UPVOTE_RECEIVED],
   ];
@@ -355,20 +388,6 @@ function getFeaturedAchievements(unlockedIds: string[]): Achievement[] {
 
 function getRareAchievementCount(unlockedIds: string[]): number {
   return ACHIEVEMENTS.filter(achievement => unlockedIds.includes(achievement.id) && isAchievementRare(achievement)).length;
-}
-
-function getAchievementBadgeLabel(achievement: Achievement, isHiddenLocked: boolean): string | null {
-  if (isHiddenLocked) return null;
-
-  const words = achievement.name.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return null;
-
-  if (achievement.name.length <= 12) return achievement.name;
-  if (words.length === 1) return words[0].slice(0, 10);
-  if (words.length === 2 && words.every(word => word.length <= 7)) return words[0];
-
-  const initials = words.slice(0, 3).map(word => word.charAt(0).toUpperCase()).join('');
-  return initials.length >= 2 ? initials : words[0].slice(0, 8);
 }
 
 function getNextAchievementTargets(profile: UserProfile, unlockedIds: string[]): AchievementTarget[] {
@@ -471,7 +490,7 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
   const visibleGoalCount = getVisibleAchievementCatalog().length;
   const hiddenGoalCount = ACHIEVEMENTS.filter(achievement => achievement.hidden).length;
   const rareUnlockedCount = getRareAchievementCount(unlocked);
-  summaryLine.textContent = `${unlocked.length} earned • ${rareUnlockedCount} rare • ${visibleGoalCount} visible goals • ${hiddenGoalCount} surprise badge${hiddenGoalCount === 1 ? '' : 's'}`;
+  summaryLine.textContent = `${unlocked.length} earned • ${rareUnlockedCount} rare • ${visibleGoalCount} visible • ${hiddenGoalCount} surprise`;
   section.appendChild(summaryLine);
 
   const featuredStrip = buildFeaturedBadgeStrip(unlocked);
@@ -578,9 +597,9 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
     categoryAchievements.forEach((achievement) => {
       const isUnlocked = unlocked.includes(achievement.id);
       const isHiddenLocked = achievement.hidden && !isUnlocked;
-      const badgeLabel = getAchievementBadgeLabel(achievement, Boolean(isHiddenLocked));
-      const cell = document.createElement('div');
-      cell.className = `profile-achievement-cell profile-achievement-cell-${achievement.tier}${isUnlocked ? ' profile-achievement-unlocked' : ' profile-achievement-locked'}${achievement.hidden ? ' profile-achievement-hidden' : ''}${badgeLabel ? ' profile-achievement-has-label' : ''}`;
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = `profile-achievement-cell profile-achievement-cell-${achievement.tier}${isUnlocked ? ' profile-achievement-unlocked' : ' profile-achievement-locked'}${achievement.hidden ? ' profile-achievement-hidden' : ''}`;
       cell.title = isUnlocked
         ? `${achievement.name} — ${achievement.description} (+${achievement.xp} XP)`
         : isHiddenLocked
@@ -598,14 +617,28 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
       emoji.setAttribute('aria-hidden', 'true');
       identity.appendChild(emoji);
 
-      if (badgeLabel) {
-        const shortLabel = document.createElement('span');
-        shortLabel.className = 'profile-achievement-cell-label';
-        shortLabel.textContent = badgeLabel;
-        identity.appendChild(shortLabel);
-      }
+      const tooltip = document.createElement('span');
+      tooltip.className = 'profile-achievement-tooltip';
+      tooltip.setAttribute('role', 'tooltip');
 
-      cell.appendChild(identity);
+      const tooltipName = document.createElement('span');
+      tooltipName.className = 'profile-achievement-tooltip-name';
+      tooltipName.textContent = isUnlocked || !achievement.hidden ? achievement.name : 'Surprise achievement';
+
+      const tooltipMeta = document.createElement('span');
+      tooltipMeta.className = 'profile-achievement-tooltip-meta';
+      tooltipMeta.textContent = isUnlocked
+        ? `${ACHIEVEMENT_CATEGORY_LABELS[achievement.category]} · ${achievement.tier} · +${achievement.xp} XP`
+        : isHiddenLocked
+          ? 'Hidden achievement · keep exploring'
+          : `${ACHIEVEMENT_CATEGORY_LABELS[achievement.category]} · ${achievement.tier}`;
+
+      const tooltipDesc = document.createElement('span');
+      tooltipDesc.className = 'profile-achievement-tooltip-desc';
+      tooltipDesc.textContent = isHiddenLocked ? 'A hidden badge is still waiting in the Zone.' : achievement.description;
+
+      tooltip.append(tooltipName, tooltipMeta, tooltipDesc);
+      cell.append(identity, tooltip);
       grid.appendChild(cell);
     });
 
@@ -638,33 +671,31 @@ function buildMissionCard(mission: ActiveMission, isSelfProfile: boolean): HTMLE
   const card = document.createElement('div');
   card.className = `profile-mission-card profile-surface-card${mission.completed ? ' profile-mission-card-complete' : ''}${isSelfProfile ? '' : ' profile-mission-card-public'}`;
 
-  const header = document.createElement('div');
-  header.className = 'profile-mission-card-header';
-
-  const titleWrap = document.createElement('div');
-  titleWrap.className = 'profile-mission-title-wrap';
+  const topRow = document.createElement('div');
+  topRow.className = 'profile-mission-card-header';
 
   const slot = document.createElement('span');
   slot.className = `profile-mission-slot profile-surface-token profile-mission-slot-${mission.slot}`;
   slot.textContent = mission.slot === 'weekly'
     ? 'Weekly'
     : mission.slot === 'daily_easy'
-      ? 'Daily · Easy'
+      ? 'Easy'
       : mission.slot === 'daily_medium'
-        ? 'Daily · Medium'
-        : 'Daily · Hard';
+        ? 'Medium'
+        : 'Hard';
 
   const title = document.createElement('div');
   title.className = 'profile-mission-title';
   title.textContent = mission.name;
 
-  titleWrap.append(slot, title);
-
   const reward = document.createElement('span');
   reward.className = 'profile-mission-reward';
   reward.textContent = mission.completed ? 'Complete' : (mission.rewardLabel ?? `+${mission.xp} XP`);
 
-  header.append(titleWrap, reward);
+  topRow.append(slot, title, reward);
+
+  const bottomRow = document.createElement('div');
+  bottomRow.className = 'profile-mission-bottom-row';
 
   const desc = document.createElement('div');
   desc.className = 'profile-mission-desc';
@@ -672,16 +703,21 @@ function buildMissionCard(mission: ActiveMission, isSelfProfile: boolean): HTMLE
 
   const progressMeta = document.createElement('div');
   progressMeta.className = 'profile-mission-progress-meta';
-  progressMeta.textContent = `${mission.progress} / ${mission.goal} · ${mission.category}`;
+  progressMeta.textContent = `${mission.progress}/${mission.goal} · ${mission.category}`;
 
-  const bar = document.createElement('div');
-  bar.className = 'profile-mission-progress-bar';
-  const fill = document.createElement('div');
-  fill.className = 'profile-mission-progress-fill';
-  fill.style.width = `${Math.round(mission.progressRatio * 100)}%`;
-  bar.appendChild(fill);
+  bottomRow.append(desc, progressMeta);
+  card.append(topRow, bottomRow);
 
-  card.append(header, desc, progressMeta, bar);
+  if (mission.goal > 1 || mission.progress > 0) {
+    const bar = document.createElement('div');
+    bar.className = 'profile-mission-progress-bar';
+    const fill = document.createElement('div');
+    fill.className = 'profile-mission-progress-fill';
+    fill.style.width = `${Math.round(mission.progressRatio * 100)}%`;
+    bar.appendChild(fill);
+    card.appendChild(bar);
+  }
+
   return card;
 }
 
@@ -715,50 +751,30 @@ function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTM
         lastLoginDate: '',
       });
 
-  const streakRow = document.createElement('div');
-  streakRow.className = 'profile-popover-streak-row';
+  const missionPanel = document.createElement('div');
+  missionPanel.className = 'profile-mission-panel profile-surface-card';
 
-  const flameIcon = createIcon('flame');
-  flameIcon.classList.add('profile-streak-icon');
+  const streakMeta = document.createElement('div');
+  streakMeta.className = 'profile-mission-header-meta';
 
-  const streakLabel = document.createElement('span');
-  streakLabel.className = 'profile-streak-label';
-  streakLabel.textContent = 'Publish Streak';
-
-  const streakValue = document.createElement('span');
-  streakValue.className = 'profile-streak-value';
-  streakValue.textContent = `${streak.currentStreak} week${streak.currentStreak !== 1 ? 's' : ''}`;
+  const streakSummary = document.createElement('span');
+  streakSummary.className = 'profile-mission-header-pill profile-surface-token';
+  streakSummary.textContent = `Best streak ${streak.longestStreak}w`;
 
   const shieldBadge = document.createElement('span');
-  shieldBadge.className = `profile-streak-shield${streak.shieldAvailable ? ' profile-streak-shield-active' : ''}`;
+  shieldBadge.className = `profile-mission-header-pill profile-surface-token${streak.shieldAvailable ? ' profile-mission-header-pill-active' : ''}`;
   shieldBadge.title = streak.shieldAvailable
     ? 'Streak Shield available — miss one week without losing your streak'
     : isSelfProfile
       ? 'Streak Shield used this month'
       : 'Streak Shield unavailable for public profiles';
-  const shieldIcon = createIcon('shield');
-  shieldBadge.appendChild(shieldIcon);
+  shieldBadge.textContent = streak.shieldAvailable ? 'Shield ready' : 'Shield spent';
 
-  streakRow.append(flameIcon, streakLabel, streakValue, shieldBadge);
+  const loginSummary = document.createElement('span');
+  loginSummary.className = 'profile-mission-header-pill profile-surface-token';
+  loginSummary.textContent = `Login ${loginStreak.currentStreak}d`;
 
-  const loginRow = document.createElement('div');
-  loginRow.className = 'profile-popover-streak-row';
-
-  const clockIcon = createIcon('clock');
-  clockIcon.classList.add('profile-streak-icon');
-
-  const loginLabel = document.createElement('span');
-  loginLabel.className = 'profile-streak-label';
-  loginLabel.textContent = 'Daily Login';
-
-  const loginValue = document.createElement('span');
-  loginValue.className = 'profile-streak-value';
-  loginValue.textContent = `${loginStreak.currentStreak} day${loginStreak.currentStreak !== 1 ? 's' : ''}`;
-
-  loginRow.append(clockIcon, loginLabel, loginValue);
-
-  const missionPanel = document.createElement('div');
-  missionPanel.className = 'profile-mission-panel profile-surface-card';
+  streakMeta.append(streakSummary, shieldBadge, loginSummary);
 
   const missionHeader = document.createElement('div');
   missionHeader.className = 'profile-mission-panel-header';
@@ -766,30 +782,32 @@ function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTM
   targetIcon.classList.add('profile-challenge-icon');
   const headerText = document.createElement('div');
   headerText.className = 'profile-mission-panel-copy';
+  const missionTitleRow = document.createElement('div');
+  missionTitleRow.className = 'profile-mission-title-row';
   const missionTitle = document.createElement('div');
   missionTitle.className = 'profile-challenge-header';
   missionTitle.textContent = isSelfProfile ? 'Mission Board' : 'Mission Snapshot';
+  const resetInfo = getMissionResetInfo();
+  const cadence = document.createElement('span');
+  cadence.className = 'profile-mission-reset';
+  cadence.textContent = `${resetInfo.dailyLabel} · ${resetInfo.weeklyLabel}`;
+  missionTitleRow.append(missionTitle, cadence);
   const missionSub = document.createElement('div');
   missionSub.className = 'profile-challenge-desc';
   missionSub.textContent = isSelfProfile
-    ? 'Daily easy / medium / hard plus one weekly mission.'
+    ? 'Daily + weekly objectives in one compact board.'
     : 'Latest visible mission progress captured for this stalker.';
-  headerText.append(missionTitle, missionSub);
-  missionHeader.append(targetIcon, headerText);
+  headerText.append(missionTitleRow, missionSub);
+  missionHeader.append(targetIcon, headerText, streakMeta);
 
   const missionList = document.createElement('div');
   missionList.className = 'profile-mission-list';
   const missions = getProfileMissions(profile, isSelfProfile);
   missions.forEach(mission => missionList.appendChild(buildMissionCard(mission, isSelfProfile)));
 
-  const cadence = document.createElement('div');
-  cadence.className = 'profile-mission-reset';
-  const resetInfo = getMissionResetInfo();
-  cadence.textContent = `${resetInfo.dailyLabel} · ${resetInfo.weeklyLabel}`;
+  missionPanel.append(missionHeader, missionList);
 
-  missionPanel.append(missionHeader, missionList, cadence);
-
-  section.append(streakRow, loginRow, missionPanel);
+  section.append(missionPanel);
   return section;
 }
 

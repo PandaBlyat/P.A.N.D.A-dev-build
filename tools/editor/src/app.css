@@ -6977,9 +6977,9 @@ strong.support-upvote-count {
   top: calc(100% + 10px);
   right: 0;
   z-index: 9000;
-  width: min(980px, calc(100vw - 28px));
-  max-width: calc(100vw - 28px);
-  max-height: min(calc(100vh - 72px), 760px);
+  width: min(1040px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  max-height: min(calc(100vh - 56px), 720px);
   display: flex;
   flex-direction: column;
   background:
@@ -7007,8 +7007,8 @@ strong.support-upvote-count {
 .profile-popover-hero {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px 18px 14px;
+  gap: 10px;
+  padding: 14px 16px 12px;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--profile-accent) 16%, transparent) 0%, transparent 36%),
     linear-gradient(135deg, color-mix(in srgb, var(--profile-accent) 12%, rgba(255,255,255,0.04)) 0%, transparent 60%),
@@ -7018,7 +7018,7 @@ strong.support-upvote-count {
 
 .profile-popover-body {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(270px, 0.82fr);
+  grid-template-columns: minmax(0, 1.92fr) minmax(250px, 0.74fr);
   gap: 0;
   min-width: 0;
   min-height: 0;
@@ -7065,8 +7065,15 @@ strong.support-upvote-count {
 .profile-popover-header {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
+}
+
+.profile-popover-name-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .profile-popover-identity {
@@ -7106,7 +7113,7 @@ strong.support-upvote-count {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 5px;
   flex: 1;
 }
 
@@ -7121,23 +7128,43 @@ strong.support-upvote-count {
 }
 
 .profile-popover-title {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: color-mix(in srgb, var(--accent, #f59e0b) 84%, white 16%);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .profile-popover-meta-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
 }
 
 .profile-popover-meta-pill {
-  min-height: 1.7rem;
-  font-size: 0.6rem;
-  letter-spacing: 0.06em;
+  min-height: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.58rem;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--fg, #eee);
+}
+
+.profile-popover-meta-pill-label {
+  color: var(--fg-dim, #94a0b0);
+}
+
+.profile-popover-meta-pill-value {
+  color: var(--fg, #eef2f7);
+  letter-spacing: 0.02em;
+}
+
+.profile-popover-meta-pill-muted .profile-popover-meta-pill-value {
+  color: var(--fg-dim, #a0acbb);
+}
+
+.profile-popover-meta-pill-accent .profile-popover-meta-pill-value {
+  color: color-mix(in srgb, var(--accent, #f59e0b) 86%, white 14%);
 }
 
 .profile-popover-meta-pill-muted {
@@ -7148,7 +7175,7 @@ strong.support-upvote-count {
 .profile-popover-progress {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 5px 10px;
+  gap: 4px 10px;
   min-width: 0;
 }
 
@@ -7195,7 +7222,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-next {
-  font-size: 0.64rem;
+  font-size: 0.61rem;
   color: var(--fg-dim, #8f98a8);
   text-align: right;
 }
@@ -7204,25 +7231,24 @@ strong.support-upvote-count {
 .profile-popover-stats {
   display: flex;
   flex-direction: column;
-  gap: var(--profile-section-gap);
-  padding: 14px 16px;
+  gap: 8px;
+  padding: 10px 12px;
 }
 
 .profile-popover-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .profile-stat-card {
   display: flex;
-  flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
-  min-height: 5.25rem;
-  padding: 10px 10px 9px;
+  min-height: 0;
+  padding: 8px 9px;
   text-align: left;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.04),
@@ -7235,11 +7261,18 @@ strong.support-upvote-count {
   color: var(--profile-accent);
 }
 
+.profile-stat-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .profile-stat-value {
   max-width: 100%;
   min-width: 0;
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.88rem;
+  font-weight: 800;
   color: var(--fg, #eee);
   line-height: 1.35;
   white-space: normal;
@@ -7250,7 +7283,7 @@ strong.support-upvote-count {
 .profile-stat-label {
   max-width: 100%;
   min-width: 0;
-  font-size: 0.58rem;
+  font-size: 0.54rem;
   line-height: 1.35;
   color: var(--fg-dim, #777);
   text-transform: uppercase;
@@ -7261,17 +7294,51 @@ strong.support-upvote-count {
 
 /* XP Breakdown */
 .profile-popover-xp-breakdown {
-  padding: 16px;
+  padding: 10px 12px;
+}
+
+.profile-popover-xp-breakdown > summary {
+  list-style: none;
+}
+
+.profile-popover-xp-breakdown > summary::-webkit-details-marker {
+  display: none;
+}
+
+.profile-popover-xp-summary {
+  cursor: pointer;
+}
+
+.profile-popover-summary-meta {
+  margin-left: auto;
+  font-size: 0.62rem;
+  color: var(--fg-dim, #8f98a8);
+}
+
+.profile-popover-xp-summary .profile-popover-section-header {
+  margin-bottom: 0;
+}
+
+.profile-popover-xp-summary .profile-popover-section-header::after {
+  content: '▾';
+  margin-left: 6px;
+  font-size: 0.78rem;
+  color: var(--fg-dim, #8f98a8);
+  transition: transform 0.2s ease;
+}
+
+.profile-popover-xp-breakdown[open] .profile-popover-section-header::after {
+  transform: rotate(180deg);
 }
 
 .profile-popover-section-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-size: 0.74rem;
+  font-weight: 700;
   color: var(--fg, #eee);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .profile-popover-section-header .ui-icon svg {
@@ -7283,14 +7350,15 @@ strong.support-upvote-count {
 .profile-popover-xp-rows {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
+  margin-top: 6px;
 }
 
 .profile-popover-xp-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 2px 0;
+  padding: 5px 0;
 }
 
 .profile-popover-xp-row-label {
@@ -7306,17 +7374,17 @@ strong.support-upvote-count {
 
 /* Leaderboard */
 .profile-popover-leaderboard {
-  padding: 16px;
+  padding: 10px 12px 12px;
 }
 
 .profile-popover-lb-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-size: 0.74rem;
+  font-weight: 700;
   color: var(--fg, #eee);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .profile-popover-lb-header .ui-icon svg {
@@ -7335,7 +7403,7 @@ strong.support-upvote-count {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   color: inherit;
   font: inherit;
   text-align: left;
@@ -7930,10 +7998,10 @@ strong.support-upvote-count {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .profile-popover-achievements {
-  padding: 10px 14px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: var(--profile-section-gap);
+  gap: 8px;
 }
 
 .profile-achievement-summary-row,
@@ -7963,15 +8031,15 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-summary-line {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: var(--fg-dim, #aab3c3);
-  line-height: 1.35;
+  line-height: 1.3;
 }
 
 .profile-achievement-featured-strip {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .profile-achievement-featured-label-row {
@@ -8056,16 +8124,16 @@ strong.support-upvote-count {
 
 .profile-achievement-next-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 6px;
-  margin-top: 4px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 5px;
+  margin-top: 2px;
 }
 
 .profile-achievement-next-card {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 10px;
+  padding: 8px;
 }
 
 .profile-achievement-next-card-bronze { border-color: color-mix(in srgb, #b87333 32%, transparent); }
@@ -8115,8 +8183,8 @@ strong.support-upvote-count {
 .profile-achievement-category {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 0 0;
+  gap: 4px;
+  padding: 6px 0 0;
   border-top: 1px solid color-mix(in srgb, var(--profile-accent) 10%, var(--border, #333));
 }
 
@@ -8127,10 +8195,10 @@ strong.support-upvote-count {
 
 .profile-achievement-category-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 0 2px;
+  padding: 0 1px;
 }
 
 .profile-achievement-category-title {
@@ -8184,8 +8252,8 @@ strong.support-upvote-count {
 
 .profile-popover-achievement-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(54px, 1fr));
-  gap: 5px;
+  grid-template-columns: repeat(auto-fit, minmax(38px, 1fr));
+  gap: 4px;
 }
 
 .profile-achievement-cell {
@@ -8194,14 +8262,17 @@ strong.support-upvote-count {
   --achievement-surface: color-mix(in srgb, var(--bg, #111) 74%, transparent);
   --achievement-surface-strong: color-mix(in srgb, var(--bg-elevated, #171d28) 90%, transparent);
   --achievement-icon-color: color-mix(in srgb, var(--text, #c8cdd2) 86%, white 14%);
-  --achievement-label-color: var(--fg-dim, #8f98a8);
+  appearance: none;
   display: flex;
   align-items: stretch;
   justify-content: center;
   min-width: 0;
-  min-height: 54px;
-  border-radius: 9px;
-  cursor: default;
+  min-height: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
   position: relative;
   text-align: center;
   transition: border-color 0.2s, background 0.2s, opacity 0.2s, transform 0.2s ease, box-shadow 0.2s ease;
@@ -8210,13 +8281,13 @@ strong.support-upvote-count {
 .profile-achievement-badge {
   width: 100%;
   min-width: 0;
-  min-height: 54px;
+  min-height: 42px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: 5px 4px 4px;
+  gap: 0;
+  padding: 4px;
   border-radius: inherit;
   border: 1px solid color-mix(in srgb, var(--achievement-accent) 44%, var(--border, #333));
   background:
@@ -8228,7 +8299,8 @@ strong.support-upvote-count {
     0 0 0 1px rgba(255,255,255,0.015);
 }
 
-.profile-achievement-cell:hover .profile-achievement-badge {
+.profile-achievement-cell:hover .profile-achievement-badge,
+.profile-achievement-cell:focus-visible .profile-achievement-badge {
   border-color: color-mix(in srgb, var(--achievement-accent) 72%, var(--accent, #5eaa3a) 28%);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--achievement-glow) 26%, rgba(255,255,255,0.06)) 0%, transparent 100%),
@@ -8239,16 +8311,14 @@ strong.support-upvote-count {
     0 8px 16px color-mix(in srgb, var(--achievement-glow) 16%, transparent);
 }
 
-.profile-achievement-cell:hover {
+.profile-achievement-cell:hover,
+.profile-achievement-cell:focus-visible {
   transform: translateY(-1px);
 }
 
-.profile-achievement-cell:not(.profile-achievement-has-label) .profile-achievement-badge {
-  gap: 0;
-}
-
-.profile-achievement-cell:not(.profile-achievement-has-label) .profile-achievement-emoji {
-  font-size: 1rem;
+.profile-achievement-cell:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--achievement-accent) 72%, white 28%);
+  outline-offset: 2px;
 }
 
 .profile-achievement-cell-bronze {
@@ -8315,7 +8385,7 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-emoji {
-  font-size: 0.9rem;
+  font-size: 1rem;
   line-height: 1;
   color: var(--achievement-icon-color);
   text-shadow: 0 0 12px color-mix(in srgb, var(--achievement-glow) 26%, transparent);
@@ -8334,6 +8404,69 @@ strong.support-upvote-count {
   text-overflow: ellipsis;
 }
 
+.profile-achievement-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  z-index: 4;
+  width: max-content;
+  min-width: 140px;
+  max-width: min(220px, 38vw);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--achievement-accent) 30%, var(--border, #333));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-panel, #161c22) 96%, black 4%);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.34);
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 6px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.profile-achievement-tooltip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 8px;
+  height: 8px;
+  border-right: 1px solid color-mix(in srgb, var(--achievement-accent) 30%, var(--border, #333));
+  border-bottom: 1px solid color-mix(in srgb, var(--achievement-accent) 30%, var(--border, #333));
+  background: inherit;
+  transform: translate(-50%, -4px) rotate(45deg);
+}
+
+.profile-achievement-cell:hover .profile-achievement-tooltip,
+.profile-achievement-cell:focus-visible .profile-achievement-tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.profile-achievement-tooltip-name {
+  color: var(--fg, #f3f6f8);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.profile-achievement-tooltip-meta,
+.profile-achievement-tooltip-desc {
+  font-size: 0.6rem;
+  line-height: 1.35;
+}
+
+.profile-achievement-tooltip-meta {
+  color: var(--fg-dim, #9aa4b2);
+  text-transform: capitalize;
+}
+
+.profile-achievement-tooltip-desc {
+  color: var(--fg, #d4dae4);
+}
+
 .public-profile-featured-strip {
   margin-top: 10px;
 }
@@ -8343,10 +8476,10 @@ strong.support-upvote-count {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .profile-popover-streak-challenge {
-  padding: 14px 16px 16px;
+  padding: 0 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: var(--profile-section-gap);
+  gap: 8px;
 }
 
 .profile-popover-streak-row {
@@ -8394,17 +8527,42 @@ strong.support-upvote-count {
 .profile-mission-panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.04),
     0 12px 28px rgba(0, 0, 0, 0.14);
 }
 
 .profile-mission-panel-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+}
+
+.profile-mission-title-row {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.profile-mission-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+
+.profile-mission-header-pill {
+  font-size: 0.56rem;
+  letter-spacing: 0.04em;
+}
+
+.profile-mission-header-pill-active {
+  color: color-mix(in srgb, #60a5fa 82%, white 18%);
 }
 
 .profile-mission-panel-copy {
@@ -8421,14 +8579,13 @@ strong.support-upvote-count {
 
 .profile-mission-list {
   display: grid;
-  gap: 6px;
+  gap: 5px;
 }
 
 .profile-mission-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px;
+  display: grid;
+  gap: 5px;
+  padding: 8px 9px;
 }
 
 .profile-mission-card-complete {
@@ -8441,22 +8598,22 @@ strong.support-upvote-count {
 }
 
 .profile-mission-card-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-mission-bottom-row {
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
   justify-content: space-between;
   gap: 8px;
 }
 
-.profile-mission-title-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
 .profile-mission-slot {
-  align-self: flex-start;
-  font-size: 0.62rem;
+  align-self: center;
+  font-size: 0.56rem;
   text-transform: uppercase;
   color: var(--fg, #eee);
 }
@@ -8467,14 +8624,14 @@ strong.support-upvote-count {
 .profile-mission-slot-weekly { background: color-mix(in srgb, #3b82f6 18%, var(--bg, #111)); }
 
 .profile-mission-title {
-  font-size: 0.72rem;
+  font-size: 0.71rem;
   font-weight: 700;
   color: var(--fg, #eee);
   overflow-wrap: anywhere;
 }
 
 .profile-mission-reward {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
   color: var(--accent, #f59e0b);
   white-space: nowrap;
@@ -8485,7 +8642,7 @@ strong.support-upvote-count {
 }
 
 .profile-mission-desc {
-  font-size: 0.64rem;
+  font-size: 0.61rem;
   color: var(--fg-dim, #888);
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -8493,13 +8650,13 @@ strong.support-upvote-count {
 
 .profile-mission-progress-meta,
 .profile-mission-reset {
-  font-size: 0.64rem;
+  font-size: 0.6rem;
   color: var(--fg-dim, #7f8694);
 }
 
 .profile-mission-progress-bar {
   width: 100%;
-  height: 7px;
+  height: 5px;
   border-radius: 999px;
   overflow: hidden;
   background: color-mix(in srgb, var(--bg, #111) 78%, var(--border, #333));
@@ -8587,7 +8744,21 @@ strong.support-upvote-count {
   }
 
   .profile-popover-achievement-grid {
-    grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(36px, 1fr));
+  }
+
+  .profile-mission-panel-header,
+  .profile-mission-card-header,
+  .profile-mission-bottom-row,
+  .profile-mission-title-row {
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .profile-mission-header-meta {
+    justify-content: flex-start;
   }
 }
 
