@@ -11,21 +11,63 @@ const MILESTONE_COOLDOWN_MS = 5_000; // Min gap between milestone XP awards
 
 // ─── Achievement Definitions ─────────────────────────────────────────────────
 
+export type AchievementCategory =
+  | 'onboarding'
+  | 'social'
+  | 'discovery'
+  | 'mastery'
+  | 'collection';
+
+export type AchievementTier = 'bronze' | 'silver' | 'gold';
+
+export const ACHIEVEMENT_CATEGORY_ORDER: AchievementCategory[] = [
+  'onboarding',
+  'social',
+  'discovery',
+  'mastery',
+  'collection',
+];
+
+export const ACHIEVEMENT_CATEGORY_LABELS: Record<AchievementCategory, string> = {
+  onboarding: 'Onboarding',
+  social: 'Social',
+  discovery: 'Discovery',
+  mastery: 'Mastery',
+  collection: 'Collection',
+};
+
 export type AchievementId =
+  | 'profile_seeded'
+  | 'login_streak_1'
+  | 'challenge_apprentice'
   | 'first_publish'
   | 'branching_out'
   | 'web_of_lies'
+  | 'new_faction_scout'
   | 'faction_diplomat'
   | 'zone_encyclopedist'
+  | 'flow_restorer'
+  | 'uncommon_operator'
   | 'popular_stalker'
+  | 'first_upvote_received'
   | 'community_favorite'
+  | 'upvote_wave'
+  | 'profile_spotlight'
   | 'outcome_engineer'
   | 'precondition_master'
+  | 'quality_crafter'
+  | 'systems_polymath'
+  | 'clean_publish_streak'
+  | 'four_star_streak'
   | 'prolific_writer'
   | 'zone_veteran'
   | 'streak_3'
   | 'streak_10'
-  | 'quality_crafter';
+  | 'bronze_complete'
+  | 'silver_complete'
+  | 'faction_complete'
+  | 'night_shift'
+  | 'zone_whisperer';
 
 export type Achievement = {
   id: AchievementId;
@@ -33,28 +75,65 @@ export type Achievement = {
   description: string;
   xp: number;
   icon: string; // emoji for now, simple and universal
-  tier: 'bronze' | 'silver' | 'gold';
+  tier: AchievementTier;
+  category: AchievementCategory;
+  hidden?: boolean;
+  featured?: boolean;
 };
 
 export const ACHIEVEMENTS: Achievement[] = [
-  { id: 'first_publish', name: 'First Steps', description: 'Publish your first conversation', xp: 25, icon: '\u{1F4AC}', tier: 'bronze' },
-  { id: 'branching_out', name: 'Branching Out', description: 'Publish a conversation with 5+ branches', xp: 30, icon: '\u{1F333}', tier: 'bronze' },
-  { id: 'web_of_lies', name: 'Web of Lies', description: 'Publish a conversation with 10+ turns', xp: 40, icon: '\u{1F578}', tier: 'silver' },
-  { id: 'faction_diplomat', name: 'Faction Diplomat', description: 'Publish conversations for 3 different factions', xp: 75, icon: '\u{1F91D}', tier: 'silver' },
-  { id: 'zone_encyclopedist', name: 'Zone Encyclopedist', description: 'Publish conversations for all factions', xp: 200, icon: '\u{1F4DA}', tier: 'gold' },
-  { id: 'popular_stalker', name: 'Popular Stalker', description: 'Receive 50 total downloads', xp: 100, icon: '\u{1F4E5}', tier: 'silver' },
-  { id: 'community_favorite', name: 'Community Favorite', description: 'Receive 25 total upvotes', xp: 100, icon: '\u{2B50}', tier: 'silver' },
-  { id: 'outcome_engineer', name: 'Outcome Engineer', description: 'Use 4+ different outcome types in one conversation', xp: 50, icon: '\u{2699}', tier: 'silver' },
-  { id: 'precondition_master', name: 'Precondition Master', description: 'Use 5+ preconditions in one conversation', xp: 50, icon: '\u{1F512}', tier: 'silver' },
-  { id: 'prolific_writer', name: 'Prolific Writer', description: 'Publish 10 conversations', xp: 150, icon: '\u{270D}', tier: 'silver' },
-  { id: 'zone_veteran', name: 'Zone Veteran', description: 'Publish 50 conversations', xp: 500, icon: '\u{1F396}', tier: 'gold' },
-  { id: 'streak_3', name: 'On a Roll', description: 'Maintain a 3-week publish streak', xp: 100, icon: '\u{1F525}', tier: 'bronze' },
-  { id: 'streak_10', name: 'Zone Regular', description: 'Maintain a 10-week publish streak', xp: 500, icon: '\u{1F31F}', tier: 'gold' },
-  { id: 'quality_crafter', name: 'Quality Crafter', description: 'Publish a 5-star quality conversation', xp: 75, icon: '\u{1F48E}', tier: 'silver' },
+  { id: 'profile_seeded', name: 'Profile Seeded', description: 'Create your stalker profile', xp: 15, icon: '\u{1F9ED}', tier: 'bronze', category: 'onboarding', featured: true },
+  { id: 'login_streak_1', name: 'Checking the PDA', description: 'Hit your first daily login streak milestone', xp: 20, icon: '\u{1F4F1}', tier: 'bronze', category: 'onboarding' },
+  { id: 'challenge_apprentice', name: 'Challenge Accepted', description: 'Complete your first mission board challenge', xp: 30, icon: '\u{1F3AF}', tier: 'bronze', category: 'onboarding', featured: true },
+
+  { id: 'first_upvote_received', name: 'Signal Received', description: 'Earn your first community upvote', xp: 20, icon: '\u{1F44D}', tier: 'bronze', category: 'social' },
+  { id: 'upvote_wave', name: 'Signal Boost', description: 'Collect 10 upvotes in a single week', xp: 60, icon: '\u{1F4E1}', tier: 'silver', category: 'social' },
+  { id: 'profile_spotlight', name: 'Eyes on You', description: 'Reach your first profile view milestone', xp: 45, icon: '\u{1F441}', tier: 'silver', category: 'social' },
+  { id: 'popular_stalker', name: 'Popular Stalker', description: 'Receive 50 total downloads', xp: 100, icon: '\u{1F4E5}', tier: 'silver', category: 'social' },
+  { id: 'community_favorite', name: 'Community Favorite', description: 'Receive 25 total upvotes', xp: 100, icon: '\u{2B50}', tier: 'silver', category: 'social', featured: true },
+
+  { id: 'first_publish', name: 'First Steps', description: 'Publish your first conversation', xp: 25, icon: '\u{1F4AC}', tier: 'bronze', category: 'discovery', featured: true },
+  { id: 'branching_out', name: 'Branching Out', description: 'Publish a conversation with 5+ branches', xp: 30, icon: '\u{1F333}', tier: 'bronze', category: 'discovery' },
+  { id: 'web_of_lies', name: 'Web of Lies', description: 'Publish a conversation with 10+ turns', xp: 40, icon: '\u{1F578}', tier: 'silver', category: 'discovery' },
+  { id: 'new_faction_scout', name: 'New Ground', description: 'Publish in a new faction for the first time', xp: 35, icon: '\u{1F9ED}', tier: 'bronze', category: 'discovery' },
+  { id: 'faction_diplomat', name: 'Faction Diplomat', description: 'Publish conversations for 3 different factions', xp: 75, icon: '\u{1F91D}', tier: 'silver', category: 'discovery', featured: true },
+  { id: 'zone_encyclopedist', name: 'Zone Encyclopedist', description: 'Publish conversations for all factions', xp: 200, icon: '\u{1F4DA}', tier: 'gold', category: 'discovery', featured: true },
+  { id: 'flow_restorer', name: 'Flow Restorer', description: 'Import a flow and improve it into something publishable', xp: 55, icon: '\u{1F527}', tier: 'silver', category: 'discovery' },
+  { id: 'uncommon_operator', name: 'Odd Operator', description: 'Publish using uncommon command types', xp: 60, icon: '\u{1F9EA}', tier: 'silver', category: 'discovery' },
+
+  { id: 'outcome_engineer', name: 'Outcome Engineer', description: 'Use 4+ different outcome types in one conversation', xp: 50, icon: '\u{2699}', tier: 'silver', category: 'mastery' },
+  { id: 'precondition_master', name: 'Precondition Master', description: 'Use 5+ preconditions in one conversation', xp: 50, icon: '\u{1F512}', tier: 'silver', category: 'mastery' },
+  { id: 'quality_crafter', name: 'Quality Crafter', description: 'Publish a 5-star quality conversation', xp: 75, icon: '\u{1F48E}', tier: 'silver', category: 'mastery', featured: true },
+  { id: 'systems_polymath', name: 'Systems Polymath', description: 'Show strong variety across outcomes and preconditions in one publish', xp: 85, icon: '\u{1F9E0}', tier: 'gold', category: 'mastery' },
+  { id: 'clean_publish_streak', name: 'Clean Hands', description: 'Chain together validation-clean publishes', xp: 90, icon: '\u{1F9FC}', tier: 'gold', category: 'mastery' },
+  { id: 'four_star_streak', name: 'Reliable Signal', description: 'Publish consecutive 4-star-or-better conversations', xp: 90, icon: '\u{1F4F6}', tier: 'gold', category: 'mastery' },
+  { id: 'prolific_writer', name: 'Prolific Writer', description: 'Publish 10 conversations', xp: 150, icon: '\u{270D}', tier: 'silver', category: 'mastery' },
+  { id: 'zone_veteran', name: 'Zone Veteran', description: 'Publish 50 conversations', xp: 500, icon: '\u{1F396}', tier: 'gold', category: 'mastery', featured: true },
+  { id: 'streak_3', name: 'On a Roll', description: 'Maintain a 3-week publish streak', xp: 100, icon: '\u{1F525}', tier: 'bronze', category: 'mastery' },
+  { id: 'streak_10', name: 'Zone Regular', description: 'Maintain a 10-week publish streak', xp: 500, icon: '\u{1F31F}', tier: 'gold', category: 'mastery', featured: true },
+
+  { id: 'bronze_complete', name: 'Bronze Circuit', description: 'Unlock every bronze achievement', xp: 120, icon: '\u{1F9F1}', tier: 'silver', category: 'collection' },
+  { id: 'silver_complete', name: 'Silver Circuit', description: 'Unlock every silver achievement', xp: 220, icon: '\u{1F48D}', tier: 'gold', category: 'collection', featured: true },
+  { id: 'faction_complete', name: 'Faction Cabinet', description: 'Unlock every faction-focused achievement', xp: 180, icon: '\u{1F5C3}', tier: 'gold', category: 'collection' },
+
+  { id: 'night_shift', name: 'Night Shift', description: 'Publish when the Zone should be asleep', xp: 45, icon: '\u{1F319}', tier: 'silver', category: 'discovery', hidden: true },
+  { id: 'zone_whisperer', name: 'Zone Whisperer', description: 'Uncover one of the Zone\'s stranger secrets', xp: 125, icon: '\u{1F47B}', tier: 'gold', category: 'collection', hidden: true },
 ];
 
 export function getAchievementById(id: AchievementId): Achievement | undefined {
   return ACHIEVEMENTS.find(a => a.id === id);
+}
+
+export function getAchievementsByCategory(category: AchievementCategory): Achievement[] {
+  return ACHIEVEMENTS.filter(achievement => achievement.category === category);
+}
+
+export function isAchievementRare(achievement: Achievement): boolean {
+  return achievement.tier === 'gold' || Boolean(achievement.hidden);
+}
+
+export function getVisibleAchievementCatalog(): Achievement[] {
+  return ACHIEVEMENTS.filter(achievement => !achievement.hidden);
 }
 
 // ─── Local Achievement Storage (anti-abuse: tracked locally + server) ────────
@@ -852,17 +931,34 @@ export function evaluatePublishGamification(
   const allOutcomes = allChoices.flatMap(c => c.outcomes);
   const outcomeTypes = [...new Set(allOutcomes.map(o => o.command))];
   const quality = calculateQualityScore(conversation);
+  const uniqueFactionCount = new Set(publishedFactions).size;
+  const uncommonOutcomeTypes = new Set([
+    'spawn_squad_at_smart',
+    'spawn_companion_at_smart',
+    'teleport_npc_to_smart',
+    'teleport_player_to_smart',
+    'set_weather',
+    'give_game_news',
+    'give_task',
+    'spawn_squad_for_npc',
+  ]);
+  const currentHour = new Date().getHours();
 
   const checks: Array<{ id: AchievementId; condition: boolean }> = [
     { id: 'first_publish', condition: publishCount >= 1 },
     { id: 'branching_out', condition: branchCount >= 5 },
     { id: 'web_of_lies', condition: branchCount >= 10 },
-    { id: 'faction_diplomat', condition: new Set(publishedFactions).size >= 3 },
-    { id: 'zone_encyclopedist', condition: new Set(publishedFactions).size >= 13 },
+    { id: 'new_faction_scout', condition: uniqueFactionCount >= 2 },
+    { id: 'faction_diplomat', condition: uniqueFactionCount >= 3 },
+    { id: 'zone_encyclopedist', condition: uniqueFactionCount >= 13 },
+    { id: 'night_shift', condition: currentHour <= 4 },
     { id: 'popular_stalker', condition: totalDownloads >= 50 },
+    { id: 'first_upvote_received', condition: totalUpvotes >= 1 },
     { id: 'community_favorite', condition: totalUpvotes >= 25 },
     { id: 'outcome_engineer', condition: outcomeTypes.length >= 4 },
+    { id: 'uncommon_operator', condition: outcomeTypes.some(type => uncommonOutcomeTypes.has(type)) },
     { id: 'precondition_master', condition: conversation.preconditions.length >= 5 },
+    { id: 'systems_polymath', condition: outcomeTypes.length >= 4 && conversation.preconditions.length >= 3 },
     { id: 'prolific_writer', condition: publishCount >= 10 },
     { id: 'zone_veteran', condition: publishCount >= 50 },
     { id: 'quality_crafter', condition: quality.totalStars >= 5 },
@@ -897,6 +993,25 @@ export function evaluatePublishGamification(
       rawBonusXp += a.xp;
     }
   }
+
+  const unlockedAfterChecks = new Set<AchievementId>([
+    ...getUnlockedAchievements(),
+    ...achievementsUnlocked.map(achievement => achievement.id),
+  ]);
+  const queueCollectionAchievement = (id: AchievementId, predicate: boolean) => {
+    if (!predicate || unlockedAfterChecks.has(id) || isOnCooldown(`ach-${id}`)) return;
+    const achievement = getAchievementById(id);
+    if (!achievement) return;
+    achievementsUnlocked.push(achievement);
+    rawBonusXp += achievement.xp;
+    unlockedAfterChecks.add(id);
+  };
+  const visibleBronzeIds = ACHIEVEMENTS.filter(achievement => achievement.tier === 'bronze' && !achievement.hidden).map(achievement => achievement.id);
+  const visibleSilverIds = ACHIEVEMENTS.filter(achievement => achievement.tier === 'silver' && !achievement.hidden).map(achievement => achievement.id);
+  const factionAchievementIds: AchievementId[] = ['new_faction_scout', 'faction_diplomat', 'zone_encyclopedist'];
+  queueCollectionAchievement('bronze_complete', visibleBronzeIds.every(id => unlockedAfterChecks.has(id)));
+  queueCollectionAchievement('silver_complete', visibleSilverIds.every(id => unlockedAfterChecks.has(id)));
+  queueCollectionAchievement('faction_complete', factionAchievementIds.every(id => unlockedAfterChecks.has(id)));
 
   // ── Mission Progress ──
   const missionResults = buildMissionEventsFromPublish(conversation).reduce<MissionProgressResult>((aggregate, event) => {
