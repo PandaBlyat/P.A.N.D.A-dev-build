@@ -173,6 +173,17 @@ function updateTickerMessage(): void {
   startTickerAnimation();
 }
 
+function updateTickerMessage(): void {
+  if (!tickerTrack) {
+    return;
+  }
+
+  tickerTrack.textContent = narratorMessages[currentMessageIndex];
+  renderedMessageIndex = currentMessageIndex;
+  resetTickerPosition();
+  startTickerAnimation();
+}
+
 function observeReducedMotionPreference(): void {
   if (tickerReducedMotionMediaQuery || typeof window.matchMedia !== 'function') {
     return;
