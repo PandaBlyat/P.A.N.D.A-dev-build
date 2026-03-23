@@ -7109,16 +7109,31 @@ strong.support-upvote-count {
 }
 
 .profile-popover-lb-row {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 4px;
-  border-radius: 4px;
-  transition: background 0.1s;
+  padding: 5px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .profile-popover-lb-row:hover {
-  background: color-mix(in srgb, var(--accent, #f59e0b) 6%, transparent);
+  background: color-mix(in srgb, var(--accent, #f59e0b) 8%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #f59e0b) 22%, transparent);
+}
+
+.profile-popover-lb-row:active,
+.profile-popover-lb-row.is-loading {
+  background: color-mix(in srgb, var(--accent, #f59e0b) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #f59e0b) 32%, transparent);
+  transform: translateY(1px);
 }
 
 .profile-popover-lb-row-self {
@@ -7154,6 +7169,125 @@ strong.support-upvote-count {
 .profile-popover-lb-xp {
   color: var(--fg-dim, #777);
   flex-shrink: 0;
+}
+
+.public-profile-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(4, 7, 12, 0.78);
+  backdrop-filter: blur(8px);
+}
+
+.public-profile-modal {
+  width: min(720px, 100%);
+  max-height: min(86vh, 860px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 22%, var(--border, #333));
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel, #161c22) 95%, black 5%), color-mix(in srgb, var(--bg-dark, #10141a) 92%, black 8%));
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+
+.public-profile-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 18%, var(--border, #333));
+}
+
+.public-profile-modal-title-wrap {
+  min-width: 0;
+}
+
+.public-profile-modal-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-bright, #f3f6f8);
+}
+
+.public-profile-modal-subtitle {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: var(--text-dim, #8b97a3);
+}
+
+.public-profile-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border, #333);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-card, #1c2430) 88%, transparent);
+  color: var(--text, #c8cdd2);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+}
+
+.public-profile-modal-close:hover {
+  background: color-mix(in srgb, var(--bg-hover, #242e3a) 92%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #5eaa3a) 25%, var(--border, #333));
+}
+
+.public-profile-modal-close:active {
+  transform: translateY(1px);
+}
+
+.public-profile-modal-close .ui-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.public-profile-modal-body {
+  overflow: auto;
+  padding-bottom: 6px;
+}
+
+.public-profile-summary {
+  margin: 0 16px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 14%, var(--border, #333));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-card, #1c2430) 86%, transparent);
+}
+
+.public-profile-summary-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent, #5eaa3a);
+}
+
+.public-profile-summary-copy {
+  margin-top: 4px;
+  color: var(--text, #c8cdd2);
+}
+
+.public-profile-empty {
+  margin: 16px 20px 20px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--warning, #c4a040) 18%, var(--border, #333));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--warning, #c4a040) 10%, transparent);
+  color: var(--text, #c8cdd2);
+}
+
+.profile-popover-challenge-public {
+  border-color: color-mix(in srgb, var(--info, #4080c4) 22%, transparent);
+  background: color-mix(in srgb, var(--info, #4080c4) 10%, transparent);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

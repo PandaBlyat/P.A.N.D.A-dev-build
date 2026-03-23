@@ -7,6 +7,7 @@ import {
   LEVEL_THRESHOLDS,
   getNextLevelThreshold,
   fetchLeaderboard,
+  fetchUserProfile,
   fetchUserPublishCount,
   XP_PUBLISH_SHORT,
   XP_PUBLISH_MEDIUM,
@@ -22,14 +23,20 @@ import {
   getTodayChallenge,
   isDailyChallengeCompleted,
   setSyncedGamificationState,
-  type Achievement,
 } from '../lib/gamification';
+import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon } from './icons';
+
+const PROFILE_MODAL_MOUNT_ID = 'app-modal-host';
 
 let cachedProfile: UserProfile | null = null;
 let popoverOpen = false;
 let leaderboardCache: LeaderboardEntry[] | null = null;
 let publishCountCache: number | null = null;
+let publicProfileOverlay: HTMLElement | null = null;
+let publicProfileFocusTrap: FocusTrapController | null = null;
+let activePublicProfilePublisherId: string | null = null;
+let activeLeaderboardRow: HTMLButtonElement | null = null;
 
 function getLevelTierColor(level: number): string {
   if (level >= 91) return '#c4a040'; // gold — Monolith / Tier IV apex
@@ -40,6 +47,10 @@ function getLevelTierColor(level: number): string {
 
 function getUserInitial(username: string): string {
   return username.trim().charAt(0).toUpperCase() || '?';
+}
+
+function getProfileModalMount(): HTMLElement {
+  return document.getElementById(PROFILE_MODAL_MOUNT_ID) ?? document.body;
 }
 
 export function setProfileForBadge(profile: UserProfile | null): void {
@@ -102,18 +113,11 @@ function formatMemberSince(isoDate: string): string {
   }
 }
 
-function openPopover(anchor: HTMLElement): void {
-  closePopover();
-  if (!cachedProfile) return;
-
-  const popover = document.createElement('div');
-  popover.className = 'profile-popover';
-
-  // ── Header with avatar circle ──────────────────────────────────────
+function buildProfileHeader(profile: UserProfile): HTMLElement {
   const header = document.createElement('div');
   header.className = 'profile-popover-header';
 
-  const tierColor = getLevelTierColor(cachedProfile.level);
+  const tierColor = getLevelTierColor(profile.level);
 
   const avatarCircle = document.createElement('div');
   avatarCircle.className = 'profile-popover-avatar-circle';
@@ -121,11 +125,11 @@ function openPopover(anchor: HTMLElement): void {
 
   const avatarInitial = document.createElement('span');
   avatarInitial.className = 'profile-popover-avatar-initial';
-  avatarInitial.textContent = getUserInitial(cachedProfile.username);
+  avatarInitial.textContent = getUserInitial(profile.username);
 
   const avatarLevelBadge = document.createElement('span');
   avatarLevelBadge.className = 'profile-popover-avatar-badge';
-  avatarLevelBadge.textContent = String(cachedProfile.level);
+  avatarLevelBadge.textContent = String(profile.level);
   avatarLevelBadge.style.background = tierColor;
 
   avatarCircle.append(avatarInitial, avatarLevelBadge);
@@ -135,39 +139,42 @@ function openPopover(anchor: HTMLElement): void {
 
   const nameEl = document.createElement('div');
   nameEl.className = 'profile-popover-name';
-  nameEl.textContent = cachedProfile.username;
+  nameEl.textContent = profile.username;
 
   const titleEl = document.createElement('div');
   titleEl.className = 'profile-popover-title';
-  titleEl.textContent = cachedProfile.title;
+  titleEl.textContent = profile.title;
 
   info.append(nameEl, titleEl);
   header.append(avatarCircle, info);
 
-  // ── XP progress bar ────────────────────────────────────────────────
+  return header;
+}
+
+function buildProgressSection(profile: UserProfile): HTMLElement {
   const progressSection = document.createElement('div');
   progressSection.className = 'profile-popover-progress';
 
-  const next = getNextLevelThreshold(cachedProfile.xp);
-  const currentThreshold = LEVEL_THRESHOLDS.find(t => t.level === cachedProfile!.level);
+  const next = getNextLevelThreshold(profile.xp);
+  const currentThreshold = LEVEL_THRESHOLDS.find(t => t.level === profile.level);
   const currentMin = currentThreshold?.xp ?? 0;
   const nextXp = next?.xp ?? currentMin;
   const range = Math.max(nextXp - currentMin, 1);
-  const progress = Math.min((cachedProfile.xp - currentMin) / range, 1);
+  const progress = Math.min((profile.xp - currentMin) / range, 1);
 
   const barHeader = document.createElement('div');
   barHeader.className = 'profile-popover-bar-header';
 
   const levelLabel = document.createElement('span');
   levelLabel.className = 'profile-popover-level-label';
-  levelLabel.textContent = `Level ${cachedProfile.level}`;
+  levelLabel.textContent = `Level ${profile.level}`;
 
   const xpNumbers = document.createElement('span');
   xpNumbers.className = 'profile-popover-bar-label';
   if (next) {
-    xpNumbers.textContent = `${cachedProfile.xp} / ${next.xp} XP`;
+    xpNumbers.textContent = `${profile.xp} / ${next.xp} XP`;
   } else {
-    xpNumbers.textContent = `${cachedProfile.xp} XP — MAX LEVEL`;
+    xpNumbers.textContent = `${profile.xp} XP — MAX LEVEL`;
   }
 
   barHeader.append(levelLabel, xpNumbers);
@@ -188,31 +195,56 @@ function openPopover(anchor: HTMLElement): void {
     progressSection.appendChild(nextLabel);
   }
 
-  // ── Stats grid ─────────────────────────────────────────────────────
+  return progressSection;
+}
+
+function buildStatCard(iconName: Parameters<typeof createIcon>[0], value: string, label: string): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'profile-stat-card';
+
+  const icon = createIcon(iconName);
+  icon.classList.add('profile-stat-icon');
+
+  const valEl = document.createElement('div');
+  valEl.className = 'profile-stat-value';
+  valEl.textContent = value;
+
+  const labelEl = document.createElement('div');
+  labelEl.className = 'profile-stat-label';
+  labelEl.textContent = label;
+
+  card.append(icon, valEl, labelEl);
+  return card;
+}
+
+function buildStatsSection(profile: UserProfile): HTMLElement {
   const statsSection = document.createElement('div');
   statsSection.className = 'profile-popover-stats';
 
-  const totalXpStat = buildStatCard('star', `${cachedProfile.xp}`, 'Total XP');
-  const levelStat = buildStatCard('trophy', `${cachedProfile.level}`, 'Level');
-
+  const totalXpStat = buildStatCard('star', `${profile.xp}`, 'Total XP');
+  const levelStat = buildStatCard('trophy', `${profile.level}`, 'Level');
   const publishStat = buildStatCard('export', '...', 'Published');
-  const memberStat = buildStatCard('clock', formatMemberSince(cachedProfile.created_at), 'Member Since');
+  const memberStat = buildStatCard('clock', formatMemberSince(profile.created_at), 'Member Since');
 
   statsSection.append(totalXpStat, levelStat, publishStat, memberStat);
 
-  // Load publish count async
-  if (publishCountCache !== null) {
+  if (profile.publisher_id === cachedProfile?.publisher_id && publishCountCache !== null) {
     const valEl = publishStat.querySelector('.profile-stat-value');
     if (valEl) valEl.textContent = String(publishCountCache);
   } else {
-    void fetchUserPublishCount(cachedProfile.publisher_id).then(count => {
-      publishCountCache = count;
+    void fetchUserPublishCount(profile.publisher_id).then(count => {
+      if (profile.publisher_id === cachedProfile?.publisher_id) {
+        publishCountCache = count;
+      }
       const valEl = publishStat.querySelector('.profile-stat-value');
       if (valEl) valEl.textContent = String(count);
     });
   }
 
-  // ── XP breakdown ───────────────────────────────────────────────────
+  return statsSection;
+}
+
+function buildXpBreakdownSection(): HTMLElement {
   const xpBreakdownSection = document.createElement('div');
   xpBreakdownSection.className = 'profile-popover-xp-breakdown';
 
@@ -248,109 +280,10 @@ function openPopover(anchor: HTMLElement): void {
   }
 
   xpBreakdownSection.append(xpBreakdownHeader, xpRows);
-
-  // ── Achievements section ─────────────────────────────────────────
-  const achievementsSection = buildAchievementsSection();
-
-  // ── Streak & Challenge section ──────────────────────────────────
-  const streakChallengeSection = buildStreakChallengeSection();
-
-  // ── Leaderboard section ────────────────────────────────────────────
-  const leaderboardSection = document.createElement('div');
-  leaderboardSection.className = 'profile-popover-leaderboard';
-
-  const lbHeader = document.createElement('div');
-  lbHeader.className = 'profile-popover-lb-header';
-  const trophyIcon = createIcon('trophy');
-  const lbTitle = document.createElement('span');
-  lbTitle.textContent = 'Top Stalkers';
-  lbHeader.append(trophyIcon, lbTitle);
-
-  const lbList = document.createElement('div');
-  lbList.className = 'profile-popover-lb-list';
-  lbList.textContent = 'Loading…';
-
-  leaderboardSection.append(lbHeader, lbList);
-
-  // Load leaderboard
-  if (leaderboardCache) {
-    renderLeaderboardList(lbList, leaderboardCache);
-  } else {
-    void fetchLeaderboard(5).then((entries) => {
-      leaderboardCache = entries;
-      renderLeaderboardList(lbList, entries);
-    });
-  }
-
-  popover.append(header, progressSection, statsSection, achievementsSection, streakChallengeSection, xpBreakdownSection, leaderboardSection);
-  anchor.appendChild(popover);
-  popoverOpen = true;
-
-  // Close on outside click
-  const close = (e: MouseEvent) => {
-    if (!anchor.contains(e.target as Node)) {
-      closePopover();
-      document.removeEventListener('click', close);
-    }
-  };
-  setTimeout(() => document.addEventListener('click', close), 0);
+  return xpBreakdownSection;
 }
 
-function buildStatCard(iconName: Parameters<typeof createIcon>[0], value: string, label: string): HTMLElement {
-  const card = document.createElement('div');
-  card.className = 'profile-stat-card';
-
-  const icon = createIcon(iconName);
-  icon.classList.add('profile-stat-icon');
-
-  const valEl = document.createElement('div');
-  valEl.className = 'profile-stat-value';
-  valEl.textContent = value;
-
-  const labelEl = document.createElement('div');
-  labelEl.className = 'profile-stat-label';
-  labelEl.textContent = label;
-
-  card.append(icon, valEl, labelEl);
-  return card;
-}
-
-function renderLeaderboardList(container: HTMLElement, entries: LeaderboardEntry[]): void {
-  container.textContent = '';
-  if (entries.length === 0) {
-    container.textContent = 'No stalkers ranked yet.';
-    return;
-  }
-
-  const currentUsername = cachedProfile?.username;
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
-    const row = document.createElement('div');
-    row.className = 'profile-popover-lb-row';
-    if (entry.username === currentUsername) {
-      row.classList.add('profile-popover-lb-row-self');
-    }
-
-    const rank = document.createElement('span');
-    rank.className = 'profile-popover-lb-rank';
-    const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}']; // 🥇🥈🥉
-    rank.textContent = i < 3 ? medals[i] : `#${i + 1}`;
-    if (i < 3) rank.classList.add(`profile-popover-lb-rank-medal-${i + 1}`);
-
-    const name = document.createElement('span');
-    name.className = 'profile-popover-lb-name';
-    name.textContent = entry.username;
-
-    const xp = document.createElement('span');
-    xp.className = 'profile-popover-lb-xp';
-    xp.textContent = `Lv.${entry.level} · ${entry.xp} XP`;
-
-    row.append(rank, name, xp);
-    container.appendChild(row);
-  }
-}
-
-function buildAchievementsSection(): HTMLElement {
+function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLElement {
   const section = document.createElement('div');
   section.className = 'profile-popover-achievements';
 
@@ -358,7 +291,7 @@ function buildAchievementsSection(): HTMLElement {
   header.className = 'profile-popover-section-header';
   const medalIcon = createIcon('medal');
   const title = document.createElement('span');
-  const unlocked = cachedProfile?.achievements ?? getUnlockedAchievements();
+  const unlocked = profile.achievements ?? (profile.publisher_id === cachedProfile?.publisher_id ? getUnlockedAchievements() : []);
   title.textContent = `Achievements (${unlocked.length}/${ACHIEVEMENTS.length})`;
   header.append(medalIcon, title);
 
@@ -388,26 +321,35 @@ function buildAchievementsSection(): HTMLElement {
   return section;
 }
 
-function buildStreakChallengeSection(): HTMLElement {
+function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTMLElement {
   const section = document.createElement('div');
   section.className = 'profile-popover-streak-challenge';
+  const isSelfProfile = profile.publisher_id === cachedProfile?.publisher_id;
 
-  // Publish streak
-  const streak = cachedProfile?.streaks
+  const streak = profile.streaks
     ? {
-        currentStreak: cachedProfile.streaks.publish_streak,
-        longestStreak: cachedProfile.streaks.longest_streak,
-        lastPublishWeek: cachedProfile.streaks.last_publish_week,
-        shieldAvailable: getStreakData().shieldAvailable,
-        shieldMonth: getStreakData().shieldMonth,
+        currentStreak: profile.streaks.publish_streak,
+        longestStreak: profile.streaks.longest_streak,
+        lastPublishWeek: profile.streaks.last_publish_week,
+        shieldAvailable: isSelfProfile ? getStreakData().shieldAvailable : false,
+        shieldMonth: isSelfProfile ? getStreakData().shieldMonth : '',
       }
-    : getStreakData();
-  const loginStreak = cachedProfile?.streaks
+    : (isSelfProfile ? getStreakData() : {
+        currentStreak: 0,
+        longestStreak: 0,
+        lastPublishWeek: '',
+        shieldAvailable: false,
+        shieldMonth: '',
+      });
+  const loginStreak = profile.streaks
     ? {
-        currentStreak: cachedProfile.streaks.login_streak,
-        lastLoginDate: cachedProfile.streaks.last_login_date,
+        currentStreak: profile.streaks.login_streak,
+        lastLoginDate: profile.streaks.last_login_date,
       }
-    : getLoginStreak();
+    : (isSelfProfile ? getLoginStreak() : {
+        currentStreak: 0,
+        lastLoginDate: '',
+      });
 
   const streakRow = document.createElement('div');
   streakRow.className = 'profile-popover-streak-row';
@@ -427,13 +369,14 @@ function buildStreakChallengeSection(): HTMLElement {
   shieldBadge.className = `profile-streak-shield${streak.shieldAvailable ? ' profile-streak-shield-active' : ''}`;
   shieldBadge.title = streak.shieldAvailable
     ? 'Streak Shield available — miss one week without losing your streak'
-    : 'Streak Shield used this month';
+    : isSelfProfile
+      ? 'Streak Shield used this month'
+      : 'Streak Shield unavailable for public profiles';
   const shieldIcon = createIcon('shield');
   shieldBadge.appendChild(shieldIcon);
 
   streakRow.append(flameIcon, streakLabel, streakValue, shieldBadge);
 
-  // Login streak
   const loginRow = document.createElement('div');
   loginRow.className = 'profile-popover-streak-row';
 
@@ -450,12 +393,10 @@ function buildStreakChallengeSection(): HTMLElement {
 
   loginRow.append(clockIcon, loginLabel, loginValue);
 
-  // Daily challenge
-  const challenge = getTodayChallenge();
-  const completed = isDailyChallengeCompleted();
-
   const challengeRow = document.createElement('div');
-  challengeRow.className = `profile-popover-challenge${completed ? ' profile-popover-challenge-done' : ''}`;
+  challengeRow.className = isSelfProfile
+    ? `profile-popover-challenge${isDailyChallengeCompleted() ? ' profile-popover-challenge-done' : ''}`
+    : 'profile-popover-challenge profile-popover-challenge-public';
 
   const targetIcon = createIcon('target');
   targetIcon.classList.add('profile-challenge-icon');
@@ -465,15 +406,21 @@ function buildStreakChallengeSection(): HTMLElement {
 
   const challengeHeader = document.createElement('div');
   challengeHeader.className = 'profile-challenge-header';
-  challengeHeader.textContent = completed ? 'Daily Challenge Complete!' : "Today's Challenge";
+  challengeHeader.textContent = isSelfProfile
+    ? (isDailyChallengeCompleted() ? 'Daily Challenge Complete!' : "Today's Challenge")
+    : 'Public Profile';
 
   const challengeDesc = document.createElement('div');
   challengeDesc.className = 'profile-challenge-desc';
-  challengeDesc.textContent = challenge.description;
+  challengeDesc.textContent = profile.publisher_id === cachedProfile?.publisher_id
+    ? getTodayChallenge().description
+    : 'Viewing this stalker\'s public progression snapshot.';
 
   const challengeXp = document.createElement('span');
   challengeXp.className = 'profile-challenge-xp';
-  challengeXp.textContent = completed ? 'Done' : `+${challenge.xp} XP`;
+  challengeXp.textContent = isSelfProfile
+    ? (isDailyChallengeCompleted() ? 'Done' : `+${getTodayChallenge().xp} XP`)
+    : 'Public';
 
   challengeBody.append(challengeHeader, challengeDesc);
   challengeRow.append(targetIcon, challengeBody, challengeXp);
@@ -482,9 +429,259 @@ function buildStreakChallengeSection(): HTMLElement {
   return section;
 }
 
+function buildLeaderboardSection(): HTMLElement {
+  const leaderboardSection = document.createElement('div');
+  leaderboardSection.className = 'profile-popover-leaderboard';
+
+  const lbHeader = document.createElement('div');
+  lbHeader.className = 'profile-popover-lb-header';
+  const trophyIcon = createIcon('trophy');
+  const lbTitle = document.createElement('span');
+  lbTitle.textContent = 'Top Stalkers';
+  lbHeader.append(trophyIcon, lbTitle);
+
+  const lbList = document.createElement('div');
+  lbList.className = 'profile-popover-lb-list';
+  lbList.textContent = 'Loading…';
+
+  leaderboardSection.append(lbHeader, lbList);
+
+  if (leaderboardCache) {
+    renderLeaderboardList(lbList, leaderboardCache);
+  } else {
+    void fetchLeaderboard(5).then((entries) => {
+      leaderboardCache = entries;
+      renderLeaderboardList(lbList, entries);
+    });
+  }
+
+  return leaderboardSection;
+}
+
+function buildSelfProfileContent(profile: UserProfile): HTMLElement[] {
+  return [
+    buildProfileHeader(profile),
+    buildProgressSection(profile),
+    buildStatsSection(profile),
+    buildAchievementsSection(profile),
+    buildStreakChallengeSection(profile),
+    buildXpBreakdownSection(),
+    buildLeaderboardSection(),
+  ];
+}
+
+function buildPublicProfileContent(profile: UserProfile): HTMLElement[] {
+  const summary = document.createElement('div');
+  summary.className = 'public-profile-summary';
+
+  const summaryTitle = document.createElement('div');
+  summaryTitle.className = 'public-profile-summary-title';
+  summaryTitle.textContent = 'Zone reputation';
+
+  const summaryCopy = document.createElement('div');
+  summaryCopy.className = 'public-profile-summary-copy';
+  summaryCopy.textContent = `${profile.username} is a level ${profile.level} stalker with ${profile.xp} XP.`;
+
+  summary.append(summaryTitle, summaryCopy);
+
+  return [
+    buildProfileHeader(profile),
+    summary,
+    buildProgressSection(profile),
+    buildStatsSection(profile),
+    buildAchievementsSection(profile),
+    buildStreakChallengeSection(profile),
+  ];
+}
+
+function openPopover(anchor: HTMLElement): void {
+  closePopover();
+  if (!cachedProfile) return;
+
+  const popover = document.createElement('div');
+  popover.className = 'profile-popover';
+  popover.append(...buildSelfProfileContent(cachedProfile));
+
+  anchor.appendChild(popover);
+  popoverOpen = true;
+
+  const close = (e: MouseEvent) => {
+    if (!anchor.contains(e.target as Node)) {
+      closePopover();
+      document.removeEventListener('click', close);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', close), 0);
+}
+
+function renderLeaderboardList(container: HTMLElement, entries: LeaderboardEntry[]): void {
+  container.textContent = '';
+  if (entries.length === 0) {
+    container.textContent = 'No stalkers ranked yet.';
+    return;
+  }
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'profile-popover-lb-row';
+    row.setAttribute('aria-label', `View ${entry.username}\'s public profile`);
+    if (entry.publisher_id === cachedProfile?.publisher_id) {
+      row.classList.add('profile-popover-lb-row-self');
+      row.setAttribute('aria-label', `View your profile, ${entry.username}`);
+    }
+
+    row.onclick = (event) => {
+      event.stopPropagation();
+      void handleLeaderboardProfileSelection(entry, row);
+    };
+
+    const rank = document.createElement('span');
+    rank.className = 'profile-popover-lb-rank';
+    const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
+    rank.textContent = i < 3 ? medals[i] : `#${i + 1}`;
+    if (i < 3) rank.classList.add(`profile-popover-lb-rank-medal-${i + 1}`);
+
+    const name = document.createElement('span');
+    name.className = 'profile-popover-lb-name';
+    name.textContent = entry.username;
+
+    const xp = document.createElement('span');
+    xp.className = 'profile-popover-lb-xp';
+    xp.textContent = `Lv.${entry.level} · ${entry.xp} XP`;
+
+    row.append(rank, name, xp);
+    container.appendChild(row);
+  }
+}
+
+async function handleLeaderboardProfileSelection(entry: LeaderboardEntry, trigger: HTMLButtonElement): Promise<void> {
+  if (!cachedProfile) return;
+
+  if (entry.publisher_id === cachedProfile.publisher_id) {
+    closePublicProfileOverlay();
+    trigger.blur();
+    return;
+  }
+
+  activeLeaderboardRow?.classList.remove('is-loading');
+  activeLeaderboardRow = trigger;
+  activeLeaderboardRow.classList.add('is-loading');
+  activeLeaderboardRow.setAttribute('aria-busy', 'true');
+
+  await openPublicProfileOverlay(entry.publisher_id, trigger);
+
+  activeLeaderboardRow.classList.remove('is-loading');
+  activeLeaderboardRow.removeAttribute('aria-busy');
+}
+
+async function openPublicProfileOverlay(publisherId: string, trigger: HTMLButtonElement): Promise<void> {
+  closePublicProfileOverlay();
+  activePublicProfilePublisherId = publisherId;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'public-profile-overlay';
+  overlay.setAttribute('role', 'presentation');
+  overlay.onclick = (event) => {
+    if (event.target === overlay) {
+      closePublicProfileOverlay();
+    }
+  };
+
+  const modal = document.createElement('section');
+  modal.className = 'public-profile-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'public-profile-title');
+  modal.onclick = event => event.stopPropagation();
+
+  const header = document.createElement('div');
+  header.className = 'public-profile-modal-header';
+
+  const titleWrap = document.createElement('div');
+  titleWrap.className = 'public-profile-modal-title-wrap';
+  const title = document.createElement('h2');
+  title.className = 'public-profile-modal-title';
+  title.id = 'public-profile-title';
+  title.textContent = 'Stalker profile';
+  const subtitle = document.createElement('p');
+  subtitle.className = 'public-profile-modal-subtitle';
+  subtitle.textContent = 'Loading public profile…';
+  titleWrap.append(title, subtitle);
+
+  const closeButton = document.createElement('button');
+  closeButton.type = 'button';
+  closeButton.className = 'public-profile-modal-close';
+  closeButton.setAttribute('aria-label', 'Close public profile');
+  closeButton.appendChild(createIcon('close'));
+  closeButton.onclick = () => closePublicProfileOverlay();
+
+  header.append(titleWrap, closeButton);
+
+  const body = document.createElement('div');
+  body.className = 'public-profile-modal-body';
+  body.textContent = 'Fetching the latest signal from the Zone…';
+
+  modal.append(header, body);
+  overlay.appendChild(modal);
+  getProfileModalMount().appendChild(overlay);
+
+  publicProfileOverlay = overlay;
+  publicProfileFocusTrap = trapFocus(modal, {
+    restoreFocus: trigger,
+    initialFocus: closeButton,
+    onEscape: () => closePublicProfileOverlay(),
+  });
+
+  try {
+    const profile = await fetchUserProfile(publisherId);
+    if (activePublicProfilePublisherId !== publisherId || publicProfileOverlay !== overlay) {
+      return;
+    }
+
+    body.textContent = '';
+    if (!profile) {
+      subtitle.textContent = 'Profile unavailable';
+      const emptyState = document.createElement('div');
+      emptyState.className = 'public-profile-empty';
+      emptyState.textContent = 'Unable to retrieve this stalker\'s public profile right now.';
+      body.appendChild(emptyState);
+      return;
+    }
+
+    if (cachedProfile && profile.publisher_id === cachedProfile.publisher_id) {
+      subtitle.textContent = 'This is you';
+      body.append(...buildSelfProfileContent(profile));
+      return;
+    }
+
+    subtitle.textContent = `${profile.username} · ${profile.title}`;
+    body.append(...buildPublicProfileContent(profile));
+  } catch {
+    if (activePublicProfilePublisherId !== publisherId || publicProfileOverlay !== overlay) {
+      return;
+    }
+    subtitle.textContent = 'Profile unavailable';
+    body.textContent = 'The Zone went quiet before this profile could be fetched.';
+  }
+}
+
+function closePublicProfileOverlay(): void {
+  activePublicProfilePublisherId = null;
+  publicProfileFocusTrap?.release();
+  publicProfileFocusTrap = null;
+  publicProfileOverlay?.remove();
+  publicProfileOverlay = null;
+  activeLeaderboardRow?.classList.remove('is-loading');
+  activeLeaderboardRow?.removeAttribute('aria-busy');
+  activeLeaderboardRow = null;
+}
+
 function closePopover(): void {
   const existing = document.querySelector('.profile-popover');
   if (existing) existing.remove();
+  closePublicProfileOverlay();
   popoverOpen = false;
 }
 
