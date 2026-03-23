@@ -335,9 +335,9 @@ export function renderFirstRunExperience(container: HTMLElement): void {
         narratorBox.appendChild(lineEl);
         narratorBox.appendChild(narratorCursor);
 
-        for (let i = 0; i < line.length; i++) {
+        for (let i = 0; i < line.length; i += NARRATOR_CHARACTERS_PER_TICK) {
           if (cancelled) return;
-          lineEl.textContent = line.slice(0, i + 1);
+          lineEl.textContent = line.slice(0, Math.min(line.length, i + NARRATOR_CHARACTERS_PER_TICK));
           await delay(NARRATOR_CHARACTER_DELAY_MS + Math.random() * NARRATOR_CHARACTER_JITTER_MS);
         }
 
