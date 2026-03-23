@@ -144,7 +144,7 @@ function getTickerRoot(): HTMLElement {
   message.className = 'motivation-ticker-message';
 
   viewport.appendChild(message);
-  root.append(viewport, label);
+  root.append(label, viewport);
 
   tickerRoot = root;
   tickerViewport = viewport;
