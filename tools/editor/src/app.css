@@ -1450,9 +1450,11 @@ label {
 }
 
 .conv-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: flex-start;
-  gap: 12px;
+  column-gap: 12px;
+  row-gap: 8px;
   width: 100%;
   padding: 13px 14px 13px 16px;
   border-radius: calc(var(--radius-lg) + 4px);
@@ -1464,6 +1466,7 @@ label {
   transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease;
   position: relative;
   overflow: hidden;
+  container-type: inline-size;
 }
 
 .conv-item::before {
@@ -1524,14 +1527,6 @@ label {
   box-shadow: 0 0 14px color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 40%, transparent);
 }
 
-.conv-item.selected .conv-id {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.02) 100%),
-    color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 14%, rgba(8, 12, 17, 0.96) 86%);
-  border-color: color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 38%, rgba(160, 173, 187, 0.3) 62%);
-  color: color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 92%, #f4f7fa 8%);
-}
-
 .conv-item.selected .conv-label {
   color: color-mix(in srgb, #f3f7fb 90%, var(--conversation-faction-color, var(--accent)) 10%);
 }
@@ -1546,25 +1541,8 @@ label {
   background: color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 8%, transparent);
 }
 
-.conv-id {
-  flex: 0 0 auto;
-  align-self: center;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--conversation-faction-color, var(--accent));
-  min-width: 30px;
-  font-weight: 800;
-  line-height: 1;
-  padding: 7px 6px;
-  background: color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 22%, transparent);
-  border-radius: calc(var(--radius) + 2px);
-  text-align: center;
-  margin-top: 1px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
 .conv-text {
+  grid-column: 1;
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
@@ -1573,6 +1551,7 @@ label {
 }
 
 .conv-controls {
+  grid-column: 2;
   display: flex;
   flex: 0 0 auto;
   align-items: flex-start;
@@ -1616,6 +1595,51 @@ label {
   flex-wrap: wrap;
   gap: 6px;
   min-width: 0;
+}
+
+@container (max-width: 360px) {
+  .conv-item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .conv-controls {
+    grid-column: 1;
+    margin-left: 0;
+    padding-top: 2px;
+    width: 100%;
+  }
+
+  .conv-faction-select {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+@container (max-width: 280px) {
+  .conv-text,
+  .conv-controls {
+    grid-column: 1;
+  }
+
+  .conv-text {
+    gap: 6px;
+  }
+
+  .conv-controls {
+    padding-left: 0;
+  }
+
+  .conv-label,
+  .conv-meta {
+    overflow: visible;
+    text-overflow: unset;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .conv-badges {
+    gap: 4px;
+  }
 }
 
 .conv-faction-pill,
