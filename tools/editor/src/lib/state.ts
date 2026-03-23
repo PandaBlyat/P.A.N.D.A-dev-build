@@ -607,11 +607,26 @@ class StateManager {
   setFlowDensity(density: FlowDensity): void {
     if (this.state.flowDensity === density) return;
     this.state.flowDensity = density;
-    // Auto-relayout the selected conversation so nodes don't overlap at the new size
+    // Auto-relayout the selected conversation so nodes don't overlap at the new size.
+    // batchUpdateTurnPositions() already triggers a single notify when positions change,
+    // so avoid immediately issuing a second full-app render here.
     if (this.state.selectedConversationId != null) {
       const conv = this.getConversationById(this.state.selectedConversationId);
       if (conv) {
-        this.batchUpdateTurnPositions(this.state.selectedConversationId, this.calculateAutoLayoutUpdates(conv, density));
+        const updates = this.calculateAutoLayoutUpdates(conv, density);
+        let hasPositionChanges = false;
+        for (const update of updates) {
+          const turn = conv.turns.find(item => item.turnNumber === update.turnNumber);
+          if (!turn) continue;
+          const nextX = Math.max(0, Math.round(update.position.x));
+          const nextY = Math.max(0, Math.round(update.position.y));
+          if (turn.position.x !== nextX || turn.position.y !== nextY) {
+            hasPositionChanges = true;
+            break;
+          }
+        }
+        this.batchUpdateTurnPositions(this.state.selectedConversationId, updates);
+        if (hasPositionChanges) return;
       }
     }
     this.notify();

@@ -191,9 +191,6 @@ function validateConversation(conv: Conversation, messages: ValidationMessage[])
     }
   }
 
-  conv.preconditions.forEach((entry, index) => {
-    validatePrecondition(entry, index, conv.id, messages);
-  });
   validateConversationPreconditionLogic(conv, messages);
 
   if (conv.turns.length === 0) {

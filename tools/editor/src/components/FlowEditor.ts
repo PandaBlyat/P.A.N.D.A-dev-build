@@ -170,18 +170,28 @@ export function renderFlowEditor(container: HTMLElement): void {
 
   }
 
-  const draw = (positionOverrides?: TurnPositionMap): void => {
+  let drawFrame = 0;
+  let pendingPositionOverrides: TurnPositionMap | undefined;
+
+  const runDraw = (): void => {
+    drawFrame = 0;
     updateConnectionTargetHighlights();
     drawEdges({
       svg,
       conv,
       edges,
       nodeElements,
-      positionOverrides,
+      positionOverrides: pendingPositionOverrides,
       preview: connectionPreview,
       turnLabels,
       factionColor,
     });
+  };
+
+  const draw = (positionOverrides?: TurnPositionMap): void => {
+    pendingPositionOverrides = positionOverrides;
+    if (drawFrame !== 0) return;
+    drawFrame = window.requestAnimationFrame(runDraw);
   };
 
   const controls = renderControls({
@@ -424,11 +434,11 @@ export function renderFlowEditor(container: HTMLElement): void {
     onBackgroundClick: () => store.clearSelection(),
   });
 
-  draw();
+  runDraw();
   applyView();
 
   requestAnimationFrame(() => {
-    draw();
+    runDraw();
     if (!existingView && !viewAdjusted) {
       fitContent(false);
       return;
@@ -1030,16 +1040,35 @@ function drawEdges(options: {
 }): void {
   const { svg, conv, edges, nodeElements, positionOverrides, preview, turnLabels, factionColor } = options;
   const defs = svg.querySelector('defs');
+  const turnsByNumber = new Map(conv.turns.map(turn => [turn.turnNumber, turn]));
+  const choiceAnchorCache = new Map<string, { x: number; y: number } | null>();
+  const turnInputAnchorCache = new Map<number, { x: number; y: number } | null>();
+
+  const getCachedChoiceAnchor = (turnNumber: number, choiceIndex: number): { x: number; y: number } | null => {
+    const key = `${turnNumber}:${choiceIndex}`;
+    if (choiceAnchorCache.has(key)) return choiceAnchorCache.get(key) ?? null;
+    const anchor = getChoiceAnchor(turnNumber, choiceIndex, conv, nodeElements, positionOverrides, turnsByNumber);
+    choiceAnchorCache.set(key, anchor);
+    return anchor;
+  };
+
+  const getCachedTurnInputAnchor = (turnNumber: number): { x: number; y: number } | null => {
+    if (turnInputAnchorCache.has(turnNumber)) return turnInputAnchorCache.get(turnNumber) ?? null;
+    const anchor = getTurnInputAnchor(turnNumber, conv, nodeElements, positionOverrides, turnsByNumber);
+    turnInputAnchorCache.set(turnNumber, anchor);
+    return anchor;
+  };
+
   svg.replaceChildren();
   if (defs) svg.appendChild(defs);
 
   for (const edge of edges) {
-    const sourceTurn = conv.turns.find(turn => turn.turnNumber === edge.sourceTurnNumber);
-    const targetTurn = conv.turns.find(turn => turn.turnNumber === edge.targetTurnNumber);
+    const sourceTurn = turnsByNumber.get(edge.sourceTurnNumber);
+    const targetTurn = turnsByNumber.get(edge.targetTurnNumber);
     if (!sourceTurn || !targetTurn) continue;
 
-    const sourceAnchor = getChoiceAnchor(edge.sourceTurnNumber, edge.sourceChoiceIndex, conv, nodeElements, positionOverrides);
-    const targetAnchor = getTurnInputAnchor(edge.targetTurnNumber, conv, nodeElements, positionOverrides);
+    const sourceAnchor = getCachedChoiceAnchor(edge.sourceTurnNumber, edge.sourceChoiceIndex);
+    const targetAnchor = getCachedTurnInputAnchor(edge.targetTurnNumber);
     if (!sourceAnchor || !targetAnchor) continue;
 
     const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -1091,7 +1120,7 @@ function drawEdges(options: {
   }
 
   if (preview) {
-    const sourceAnchor = getChoiceAnchor(preview.sourceTurnNumber, preview.sourceChoiceIndex, conv, nodeElements, positionOverrides);
+    const sourceAnchor = getCachedChoiceAnchor(preview.sourceTurnNumber, preview.sourceChoiceIndex);
     if (sourceAnchor) {
       const previewColor = getTurnBranchColor(conv, preview.sourceTurnNumber, factionColor) ?? BRANCH_PALETTE[0];
       const previewPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -1133,8 +1162,9 @@ function getChoiceAnchor(
   conv: Conversation,
   nodeElements: Map<number, HTMLElement>,
   positionOverrides?: TurnPositionMap,
+  turnsByNumber?: ReadonlyMap<number, Turn>,
 ): { x: number; y: number } | null {
-  const turn = conv.turns.find(item => item.turnNumber === turnNumber);
+  const turn = turnsByNumber?.get(turnNumber) ?? conv.turns.find(item => item.turnNumber === turnNumber);
   const node = nodeElements.get(turnNumber);
   const port = node?.querySelector(`[data-choice-port="${choiceIndex}"]`) as HTMLElement | null;
   if (!turn || !node || !port) return null;
@@ -1151,8 +1181,9 @@ function getTurnInputAnchor(
   conv: Conversation,
   nodeElements: Map<number, HTMLElement>,
   positionOverrides?: TurnPositionMap,
+  turnsByNumber?: ReadonlyMap<number, Turn>,
 ): { x: number; y: number } | null {
-  const turn = conv.turns.find(item => item.turnNumber === turnNumber);
+  const turn = turnsByNumber?.get(turnNumber) ?? conv.turns.find(item => item.turnNumber === turnNumber);
   const node = nodeElements.get(turnNumber);
   const port = node?.querySelector('.turn-input-port') as HTMLElement | null;
   if (!turn || !node || !port) return null;
