@@ -462,7 +462,7 @@ BEGIN
 
   INSERT INTO user_profiles (publisher_id, username)
   VALUES (p_publisher_id, clean_name)
-  ON CONFLICT (publisher_id)
+  ON CONFLICT ON CONSTRAINT user_profiles_pkey
   DO UPDATE SET username = clean_name, updated_at = now();
 
   RETURN QUERY
