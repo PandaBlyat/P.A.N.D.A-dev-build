@@ -1,5 +1,5 @@
 const TICKER_SCROLL_SPEED_PX_PER_SECOND = 122;
-const TICKER_RESTART_GAP_PX = 48;
+const TICKER_GAP_PX = 48;
 
 export const narratorMessages = [
   'A calm voice notes that progress is still progress, even when accompanied by mild confusion and suspicious amounts of coffee.',
@@ -64,14 +64,14 @@ export const narratorMessages = [
   'A quiet voice observes that deleting everything and starting again is always an option, though rarely the correct one.',
   'The structural integrity of your logic is holding, which places it comfortably above average for the known universe.',
   'Somewhere, a machine designed to solve all problems has encountered your code and decided to take a short break instead.',
-  'Your current level of focus has been upgraded to “suspiciously competent,” a state known to last approximately twelve minutes.',
+  'Your current level of focus has been upgraded to \u201csuspiciously competent,\u201d a state known to last approximately twelve minutes.',
   'The software notes that everything is behaving exactly as expected, which is to say, unpredictably.',
   'A passing satellite briefly picked up your signal and classified it as art.',
   'The Guide reassures you that confusion is merely understanding waiting for better documentation.',
   'There is a growing sense that you might actually know what you are doing. This feeling will pass.',
   'A minor fluctuation in reality suggests that your latest fix may have worked. Further observation is recommended before celebrating.',
   'The system logs indicate steady progress, interspersed with moments of existential reconsideration.',
-  'Somewhere in deep space, an ancient archive has recorded your current efforts under “ambitious.”',
+  'Somewhere in deep space, an ancient archive has recorded your current efforts under \u201cambitious.\u201d',
   'The panel displays remain calm, which is statistically unlikely given your recent decisions.',
   'A soft tone indicates that something important has happened. Identifying what it was is left as an exercise.',
   'Your workflow has achieved a delicate balance between structure and improvisation, much like most successful accidents.',
@@ -84,7 +84,7 @@ export const narratorMessages = [
   'The Guide considers your current effort to be a bold experiment in applied persistence.',
   'A brief moment of clarity has been detected. Please enjoy it before it becomes context-dependent.',
   'The system is pleased to report that nothing has catastrophically failed in the last few minutes. We shall see what happens within next few.',
-  'Somewhere, a highly advanced intelligence has reviewed your approach and described it as “Meh.”',
+  'Somewhere, a highly advanced intelligence has reviewed your approach and described it as \u201cMeh.\u201d',
   'The interface continues to cooperate, largely out of curiosity about what you will try next.',
   'A quiet notification reminds you that progress is often just failure that has been reorganized more convincingly.',
   'The Guide observes that every complex system eventually becomes a story you tell yourself to stay calm.',
@@ -101,9 +101,10 @@ export const narratorMessages = [
 let tickerRoot: HTMLElement | null = null;
 let tickerViewport: HTMLDivElement | null = null;
 let tickerTrack: HTMLDivElement | null = null;
-let tickerCopy: HTMLSpanElement | null = null;
+let tickerCopyA: HTMLSpanElement | null = null;
+let tickerCopyB: HTMLSpanElement | null = null;
 let tickerReducedMotionMediaQuery: MediaQueryList | null = null;
-let tickerAnimation: Animation | null = null;
+let tickerResizeObserver: ResizeObserver | null = null;
 
 let currentMessageIndex = Math.floor(Math.random() * narratorMessages.length);
 let renderedMessageIndex: number | null = null;
@@ -120,7 +121,7 @@ export function mountMotivationTicker(container: HTMLElement): void {
   if (!container.contains(root)) {
     container.appendChild(root);
   }
-  ensureTickerAnimation();
+  ensureTickerRunning();
 }
 
 function getTickerRoot(): HTMLElement {
@@ -144,23 +145,94 @@ function getTickerRoot(): HTMLElement {
   const track = document.createElement('div');
   track.className = 'motivation-ticker-track';
 
-  const copy = document.createElement('span');
-  copy.className = 'motivation-ticker-copy';
+  const copyA = document.createElement('span');
+  copyA.className = 'motivation-ticker-copy';
 
-  track.appendChild(copy);
+  const copyB = document.createElement('span');
+  copyB.className = 'motivation-ticker-copy';
+
+  track.append(copyA, copyB);
   viewport.appendChild(track);
   root.append(viewport, label);
 
   tickerRoot = root;
   tickerViewport = viewport;
   tickerTrack = track;
-  tickerCopy = copy;
+  tickerCopyA = copyA;
+  tickerCopyB = copyB;
+
   observeReducedMotionPreference();
+  observeViewportResize();
+
+  track.addEventListener('animationiteration', handleAnimationIteration);
+
   return root;
 }
 
-function updateTickerMessage(messageIndex = currentMessageIndex): void {
-  applyTickerMessage(messageIndex);
+function observeViewportResize(): void {
+  if (tickerResizeObserver || !tickerViewport) {
+    return;
+  }
+  tickerResizeObserver = new ResizeObserver(() => {
+    applyTickerDimensions();
+  });
+  tickerResizeObserver.observe(tickerViewport);
+}
+
+function handleAnimationIteration(): void {
+  const nextIndex = getNextRandomMessageIndex();
+  applyTickerMessage(nextIndex);
+  applyTickerDimensions();
+}
+
+function applyTickerMessage(messageIndex: number): void {
+  const text = narratorMessages[messageIndex];
+  if (tickerCopyA) tickerCopyA.textContent = text;
+  if (tickerCopyB) tickerCopyB.textContent = text;
+  renderedMessageIndex = messageIndex;
+  currentMessageIndex = messageIndex;
+}
+
+function applyTickerDimensions(): void {
+  if (!tickerTrack || !tickerViewport || !tickerCopyA || prefersReducedMotion()) {
+    return;
+  }
+
+  const copyWidth = tickerCopyA.getBoundingClientRect().width;
+  if (copyWidth <= 0) {
+    return;
+  }
+
+  const oneSetWidth = copyWidth + TICKER_GAP_PX;
+  const durationSeconds = oneSetWidth / TICKER_SCROLL_SPEED_PX_PER_SECOND;
+
+  tickerTrack.style.setProperty('--ticker-offset', `${-oneSetWidth}px`);
+  tickerTrack.style.setProperty('--ticker-duration', `${durationSeconds}s`);
+}
+
+function startTickerAnimation(): void {
+  if (!tickerTrack) {
+    return;
+  }
+
+  if (prefersReducedMotion()) {
+    tickerTrack.style.animation = 'none';
+    tickerTrack.style.transform = 'translate3d(0, 0, 0)';
+    return;
+  }
+
+  applyTickerDimensions();
+
+  tickerTrack.style.animation = 'none';
+  // Force a reflow so the browser registers the reset before reapplying.
+  void tickerTrack.offsetWidth;
+  tickerTrack.style.animation = '';
+}
+
+function ensureTickerRunning(): void {
+  if (renderedMessageIndex == null) {
+    applyTickerMessage(currentMessageIndex);
+  }
   startTickerAnimation();
 }
 
@@ -177,77 +249,8 @@ function handleReducedMotionChange(): void {
   startTickerAnimation();
 }
 
-function applyTickerMessage(messageIndex: number): void {
-  if (!tickerCopy) {
-    return;
-  }
-
-  tickerCopy.textContent = narratorMessages[messageIndex];
-  renderedMessageIndex = messageIndex;
-  currentMessageIndex = messageIndex;
-}
-
-function startTickerAnimation(): void {
-  stopTickerAnimation();
-
-  if (!tickerTrack || !tickerViewport || !tickerCopy || prefersReducedMotion()) {
-    if (tickerTrack) {
-      tickerTrack.style.transform = 'translate3d(0, 0, 0)';
-    }
-    return;
-  }
-
-  const messageWidthPx = tickerCopy.getBoundingClientRect().width;
-  const viewportWidthPx = tickerViewport.clientWidth;
-
-  if (messageWidthPx <= 0 || viewportWidthPx <= 0) {
-    return;
-  }
-
-  const totalDistancePx = viewportWidthPx + messageWidthPx + TICKER_RESTART_GAP_PX;
-  const durationMs = (totalDistancePx / TICKER_SCROLL_SPEED_PX_PER_SECOND) * 1000;
-
-  const startX = viewportWidthPx;
-  const endX = -(messageWidthPx + TICKER_RESTART_GAP_PX);
-
-  tickerAnimation = tickerTrack.animate(
-    [
-      { transform: `translate3d(${startX}px, 0, 0)` },
-      { transform: `translate3d(${endX}px, 0, 0)` },
-    ],
-    { duration: durationMs, easing: 'linear', fill: 'forwards' },
-  );
-
-  tickerAnimation.finished.then(() => {
-    if (!tickerTrack) return;
-    const nextMessageIndex = getNextRandomMessageIndex();
-    applyTickerMessage(nextMessageIndex);
-    startTickerAnimation();
-  }).catch(() => {
-    // Animation was cancelled — nothing to do.
-  });
-}
-
-function stopTickerAnimation(): void {
-  if (tickerAnimation) {
-    tickerAnimation.cancel();
-    tickerAnimation = null;
-  }
-}
-
 function prefersReducedMotion(): boolean {
   return tickerReducedMotionMediaQuery?.matches ?? false;
-}
-
-function ensureTickerAnimation(): void {
-  if (renderedMessageIndex == null) {
-    updateTickerMessage(currentMessageIndex);
-    return;
-  }
-
-  if (!tickerAnimation || tickerAnimation.playState === 'finished') {
-    startTickerAnimation();
-  }
 }
 
 function getNextRandomMessageIndex(): number {
