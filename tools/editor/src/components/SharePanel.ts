@@ -29,7 +29,7 @@ import { awardXp, getPublishXp, getStoredUsername, type UserProfile } from '../l
 import { setProfileForBadge, invalidateLeaderboardCache } from './ProfileBadge';
 
 type SortMode = 'newest' | 'upvoted';
-type LengthFilter = 'all' | 'short' | 'long';
+type LengthFilter = 'all' | 'short' | 'medium' | 'long';
 type LibrarySource = 'bundled' | 'remote';
 type ViewMode = 'gallery' | 'list';
 
@@ -184,7 +184,8 @@ function getFilteredResults(): NormalizedConversation[] {
   const q = searchQuery.trim().toLowerCase();
   const filtered = allResults.filter(conv => {
     if (lengthFilter === 'short' && conv.branch_count > 3) return false;
-    if (lengthFilter === 'long' && conv.branch_count < 4) return false;
+    if (lengthFilter === 'medium' && (conv.branch_count < 4 || conv.branch_count > 6)) return false;
+    if (lengthFilter === 'long' && conv.branch_count < 7) return false;
     if (!q) return true;
     return [
       conv.label,
@@ -383,7 +384,7 @@ function buildToolbarRow(): HTMLElement {
 
   const lengthSelect = document.createElement('select');
   lengthSelect.className = 'share-select';
-  lengthSelect.innerHTML = '<option value="all">All lengths</option><option value="short">Short (1-3 branches)</option><option value="long">Long (4+ branches)</option>';
+  lengthSelect.innerHTML = '<option value="all">All lengths</option><option value="short">Short (1–3 branches)</option><option value="medium">Medium (4–6 branches)</option><option value="long">Long (7+ branches)</option>';
   lengthSelect.value = lengthFilter;
   lengthSelect.onchange = () => {
     lengthFilter = lengthSelect.value as LengthFilter;

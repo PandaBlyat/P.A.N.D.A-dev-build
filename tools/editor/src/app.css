@@ -6821,14 +6821,33 @@ strong.support-upvote-count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: var(--accent, #f59e0b);
+  background: var(--accent, #5eaa3a);
   color: #000;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
   flex-shrink: 0;
+  position: relative;
+}
+
+.profile-badge-level-num {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--bg-darkest, #080a0c);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 0.5rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .profile-badge-name {
@@ -6849,12 +6868,12 @@ strong.support-upvote-count {
   top: calc(100% + 8px);
   right: 0;
   z-index: 9000;
-  width: 310px;
-  background: var(--bg-secondary, #1a1a2e);
-  border: 1px solid var(--border, #333);
+  width: 320px;
+  background: var(--bg-panel, #161c22);
+  border: 1px solid var(--border-light, #33404e);
   border-radius: 12px;
   padding: 0;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255,255,255,0.03);
   animation: fade-in 0.15s ease;
   overflow: hidden;
 }
@@ -6863,28 +6882,54 @@ strong.support-upvote-count {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 16px 12px;
+  padding: 16px 16px 14px;
   background: linear-gradient(135deg,
-    color-mix(in srgb, var(--accent, #f59e0b) 12%, transparent),
-    transparent 70%);
+    color-mix(in srgb, var(--accent, #5eaa3a) 10%, transparent),
+    transparent 65%);
+  border-bottom: 1px solid var(--border, #222c38);
 }
 
 .profile-popover-avatar-circle {
-  width: 42px;
-  height: 42px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent, #f59e0b), color-mix(in srgb, var(--accent, #f59e0b) 60%, #e74c3c));
+  background: linear-gradient(135deg,
+    var(--tier-color, #5eaa3a),
+    color-mix(in srgb, var(--tier-color, #5eaa3a) 55%, #000));
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 0 0 2px var(--bg-secondary, #1a1a2e), 0 0 12px color-mix(in srgb, var(--accent, #f59e0b) 30%, transparent);
+  position: relative;
+  box-shadow:
+    0 0 0 2px var(--bg-panel, #161c22),
+    0 0 0 3px var(--tier-color, #5eaa3a),
+    0 0 16px color-mix(in srgb, var(--tier-color, #5eaa3a) 35%, transparent);
 }
 
-.profile-popover-avatar-level {
-  font-size: 1.05rem;
+.profile-popover-avatar-initial {
+  font-size: 1.25rem;
   font-weight: 800;
+  color: rgba(0,0,0,0.75);
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(255,255,255,0.15);
+}
+
+.profile-popover-avatar-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--tier-color, #5eaa3a);
+  border: 2px solid var(--bg-panel, #161c22);
   color: #000;
+  font-size: 0.58rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
 }
 
@@ -7055,7 +7100,7 @@ strong.support-upvote-count {
 .profile-popover-lb-header .ui-icon svg {
   width: 13px;
   height: 13px;
-  color: var(--accent, #f59e0b);
+  color: var(--accent, #5eaa3a);
 }
 
 .profile-popover-lb-list {
@@ -7082,11 +7127,16 @@ strong.support-upvote-count {
 
 .profile-popover-lb-rank {
   width: 24px;
-  color: var(--accent, #f59e0b);
+  color: var(--text-dim, #888);
   font-weight: 600;
   flex-shrink: 0;
   text-align: center;
+  font-size: 0.78rem;
 }
+
+.profile-popover-lb-rank-medal-1 { font-size: 0.9rem; }
+.profile-popover-lb-rank-medal-2 { font-size: 0.9rem; }
+.profile-popover-lb-rank-medal-3 { font-size: 0.9rem; }
 
 .profile-popover-lb-name {
   flex: 1;
@@ -7127,9 +7177,9 @@ strong.support-upvote-count {
   gap: 8px;
   padding: 10px 16px;
   border-radius: 8px;
-  background: var(--bg-secondary, #1a1a2e);
-  border: 1px solid color-mix(in srgb, var(--accent, #f59e0b) 30%, transparent);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  background: var(--bg-card, #1c2430);
+  border: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 30%, transparent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   pointer-events: auto;
   opacity: 0;
   transform: translateY(12px) scale(0.95);
@@ -7147,8 +7197,9 @@ strong.support-upvote-count {
 }
 
 .xp-toast-levelup {
-  border-color: var(--accent, #f59e0b);
-  background: color-mix(in srgb, var(--accent, #f59e0b) 12%, var(--bg-secondary, #1a1a2e));
+  border-color: var(--accent, #5eaa3a);
+  background: color-mix(in srgb, var(--accent, #5eaa3a) 10%, var(--bg-card, #1c2430));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 16px color-mix(in srgb, var(--accent, #5eaa3a) 20%, transparent);
 }
 
 .xp-toast-icon svg {

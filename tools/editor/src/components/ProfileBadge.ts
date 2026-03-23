@@ -21,6 +21,17 @@ let popoverOpen = false;
 let leaderboardCache: LeaderboardEntry[] | null = null;
 let publishCountCache: number | null = null;
 
+function getLevelTierColor(level: number): string {
+  if (level >= 10) return '#c4a040'; // gold — Emissary
+  if (level >= 7)  return '#8a5eaa'; // purple — Legend
+  if (level >= 4)  return '#3aaa8a'; // teal — Seasoned
+  return '#5eaa3a';                   // green — Rookie
+}
+
+function getUserInitial(username: string): string {
+  return username.trim().charAt(0).toUpperCase() || '?';
+}
+
 export function setProfileForBadge(profile: UserProfile | null): void {
   cachedProfile = profile;
   publishCountCache = null; // invalidate on profile update
@@ -33,9 +44,17 @@ export function renderProfileBadge(): HTMLElement | null {
   wrapper.className = 'profile-badge';
   wrapper.title = `${cachedProfile.title} — ${cachedProfile.xp} XP`;
 
+  const tierColor = getLevelTierColor(cachedProfile.level);
+
   const levelIcon = document.createElement('span');
   levelIcon.className = 'profile-badge-level';
-  levelIcon.textContent = String(cachedProfile.level);
+  levelIcon.textContent = getUserInitial(cachedProfile.username);
+  levelIcon.style.background = tierColor;
+
+  const levelBadge = document.createElement('span');
+  levelBadge.className = 'profile-badge-level-num';
+  levelBadge.textContent = String(cachedProfile.level);
+  levelIcon.appendChild(levelBadge);
 
   const name = document.createElement('span');
   name.className = 'profile-badge-name';
@@ -80,12 +99,22 @@ function openPopover(anchor: HTMLElement): void {
   const header = document.createElement('div');
   header.className = 'profile-popover-header';
 
+  const tierColor = getLevelTierColor(cachedProfile.level);
+
   const avatarCircle = document.createElement('div');
   avatarCircle.className = 'profile-popover-avatar-circle';
-  const avatarLevel = document.createElement('span');
-  avatarLevel.className = 'profile-popover-avatar-level';
-  avatarLevel.textContent = String(cachedProfile.level);
-  avatarCircle.appendChild(avatarLevel);
+  avatarCircle.style.setProperty('--tier-color', tierColor);
+
+  const avatarInitial = document.createElement('span');
+  avatarInitial.className = 'profile-popover-avatar-initial';
+  avatarInitial.textContent = getUserInitial(cachedProfile.username);
+
+  const avatarLevelBadge = document.createElement('span');
+  avatarLevelBadge.className = 'profile-popover-avatar-badge';
+  avatarLevelBadge.textContent = String(cachedProfile.level);
+  avatarLevelBadge.style.background = tierColor;
+
+  avatarCircle.append(avatarInitial, avatarLevelBadge);
 
   const info = document.createElement('div');
   info.className = 'profile-popover-info';
@@ -284,7 +313,9 @@ function renderLeaderboardList(container: HTMLElement, entries: LeaderboardEntry
 
     const rank = document.createElement('span');
     rank.className = 'profile-popover-lb-rank';
-    rank.textContent = i === 0 ? '\u{1F451}' : `#${i + 1}`;
+    const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}']; // 🥇🥈🥉
+    rank.textContent = i < 3 ? medals[i] : `#${i + 1}`;
+    if (i < 3) rank.classList.add(`profile-popover-lb-rank-medal-${i + 1}`);
 
     const name = document.createElement('span');
     name.className = 'profile-popover-lb-name';
