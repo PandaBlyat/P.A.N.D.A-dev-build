@@ -9231,9 +9231,9 @@ strong.support-upvote-count {
 }
 
 .profile-focus-goal-cards {
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.28fr);
   align-items: stretch;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -9302,7 +9302,7 @@ strong.support-upvote-count {
 .profile-focus-goal-queue {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 8px;
+  gap: 7px;
   align-content: start;
   min-width: 0;
 }
@@ -9312,8 +9312,8 @@ strong.support-upvote-count {
   cursor: pointer;
   min-height: auto;
   overflow: hidden;
-  gap: 5px;
-  padding: 8px 10px;
+  gap: 4px;
+  padding: 7px 9px;
   border-width: 1px;
   transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
@@ -9466,6 +9466,7 @@ strong.support-upvote-count {
   margin-top: 0;
   display: grid;
   gap: 5px;
+  min-width: 0;
   padding: 7px 9px;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 36%, transparent);
@@ -9492,10 +9493,13 @@ strong.support-upvote-count {
 
 .profile-focus-goal-action-body {
   margin: 0;
+  max-width: 100%;
+  min-width: 0;
   font-size: 0.80rem;
   font-weight: 600;
   line-height: 1.45;
   color: var(--fg, #e9f6ec);
+  white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
