@@ -166,13 +166,84 @@ function refreshPrimaryPublishCta(): void {
   if (useUpdateMode) {
     setButtonContent(publishBtn, 'export', 'Update');
     publishBtn.title = 'Update your existing community conversation';
-    publishBtn.onclick = () => showPublishForm();
+    publishBtn.onclick = () => { void handlePrimaryPublishAction(publishBtn); };
     return;
   }
 
   setButtonContent(publishBtn, 'export', 'Publish');
   publishBtn.title = 'Publish the currently selected conversation to the Community Library';
-  publishBtn.onclick = () => showPublishForm();
+  publishBtn.onclick = () => { void handlePrimaryPublishAction(publishBtn); };
+}
+
+async function handlePrimaryPublishAction(triggerBtn?: HTMLButtonElement): Promise<void> {
+  updateReplacementIntentState();
+  if (!getPrimaryPublishReplacementMode()) {
+    showPublishForm();
+    return;
+  }
+
+  const conv = store.getSelectedConversation();
+  const sourceMetadata = store.getSelectedConversationSourceMetadata();
+  const sourceCommunityId = sourceMetadata?.sourceCommunityId?.trim();
+  const sourcePublisherId = sourceMetadata?.sourcePublisherId?.trim();
+  const faction = getConversationFaction(conv, store.get().project.faction);
+  if (!conv || !sourceCommunityId || !sourcePublisherId) {
+    showPublishForm({ replacementContext: true });
+    return;
+  }
+
+  if (!getCurrentPublisherIds().includes(sourcePublisherId)) {
+    alert('You can only update conversations published by your current publisher identity.');
+    showPublishForm({ replacementContext: true });
+    return;
+  }
+
+  const libraryMatch = allResults.find(entry => entry.id === sourceCommunityId);
+  const label = conv.label?.trim() || libraryMatch?.label?.trim() || '';
+  if (!label) {
+    alert('This conversation is missing a title. Open Update form to set one before replacing.');
+    showPublishForm({ replacementContext: true });
+    return;
+  }
+
+  const originalContent = triggerBtn?.innerHTML;
+  if (triggerBtn) {
+    triggerBtn.disabled = true;
+    setButtonContent(triggerBtn, 'export', 'Updating…');
+  }
+
+  try {
+    await publishConversation({
+      faction,
+      label,
+      description: libraryMatch?.description || '',
+      summary: createSummaryFromConversation(conv),
+      author: getStoredUsername() || libraryMatch?.author || 'Anonymous',
+      tags: libraryMatch?.tags ?? [],
+      branch_count: getBranchCount(conv),
+      complexity: deriveConversationComplexity(getBranchCount(conv)),
+      data: {
+        version: store.get().project.version,
+        faction,
+        conversations: [conv],
+      },
+      replace_id: sourceCommunityId,
+      publisher_id: sourcePublisherId,
+    });
+    loadNotice = 'Updated existing community conversation. Refreshing library…';
+    loadError = '';
+    renderContent();
+    await loadConversations();
+  } catch (err) {
+    alert(`Quick update failed: ${err instanceof Error ? err.message : String(err)}`);
+    showPublishForm({ replacementContext: true });
+  } finally {
+    if (triggerBtn && originalContent) {
+      triggerBtn.disabled = false;
+      triggerBtn.innerHTML = originalContent;
+      refreshPrimaryPublishCta();
+    }
+  }
 }
 
 export function openSharePanel(): void {
