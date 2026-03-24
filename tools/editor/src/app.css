@@ -6985,7 +6985,7 @@ strong.support-upvote-count {
   top: calc(100% + 10px);
   right: 0;
   z-index: 9000;
-  width: min(1100px, calc(100vw - 24px));
+  width: min(1280px, calc(100vw - 24px));
   max-width: calc(100vw - 24px);
   max-height: calc(100vh - 56px);
   display: flex;
@@ -8897,7 +8897,7 @@ strong.support-upvote-count {
 /* L2 — Action row: equal halves */
 .profile-popover-action-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.85fr) minmax(0, 1.05fr);
   gap: 8px;
   align-items: start;
 }

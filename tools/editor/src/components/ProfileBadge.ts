@@ -1031,13 +1031,17 @@ function buildSelfProfileContent(profile: UserProfile): HTMLElement {
 
   const actionRow = document.createElement('div');
   actionRow.className = 'profile-popover-action-row';
-  actionRow.append(buildStreakChallengeSection(profile), buildStatsSection(profile));
+  actionRow.append(
+    buildStreakChallengeSection(profile),
+    buildStatsSection(profile),
+    buildAchievementsSection(profile),
+  );
 
   const footerRow = document.createElement('div');
   footerRow.className = 'profile-popover-footer-row';
   footerRow.append(buildLeaderboardSection(profile), buildXpBreakdownSection());
 
-  body.append(heroRow, actionRow, buildAchievementsSection(profile), footerRow);
+  body.append(heroRow, actionRow, footerRow);
   shell.append(body);
   return shell;
 }
