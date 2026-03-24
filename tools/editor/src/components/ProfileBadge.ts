@@ -214,12 +214,6 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   titleEl.className = 'profile-popover-title';
   titleEl.textContent = profile.title;
 
-  const summary = document.createElement('p');
-  summary.className = 'profile-popover-summary';
-  summary.textContent = isSelfProfile
-    ? 'Your command profile, progression track, and next recommended objectives in one place.'
-    : "This stalker's current identity, progression snapshot, and visible momentum.";
-
   const metaRow = document.createElement('div');
   metaRow.className = 'profile-popover-meta-row';
   metaRow.append(
@@ -229,7 +223,7 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
     createHeroMetaStat('Joined', formatMemberSince(profile.created_at)),
   );
 
-  info.append(eyebrow, nameEl, titleEl, summary, metaRow);
+  info.append(eyebrow, nameEl, titleEl, metaRow);
   identity.append(avatarCircle, info);
 
   header.append(identity, buildProgressSection(profile));
@@ -342,10 +336,6 @@ function buildStatsSection(profile: UserProfile): HTMLElement {
   title.textContent = 'Progress highlights';
   header.append(statsIcon, title);
 
-  const summary = document.createElement('p');
-  summary.className = 'profile-section-summary';
-  summary.textContent = 'Meaningful supporting metrics, separated from your primary progression and next actions.';
-
   const statsGrid = document.createElement('div');
   statsGrid.className = 'profile-popover-stats-grid';
 
@@ -357,7 +347,7 @@ function buildStatsSection(profile: UserProfile): HTMLElement {
 
   statsGrid.append(publishStat, badgesStat, rareStat, longestStat);
   statsSection.append(headerBlock);
-  headerBlock.append(header, summary);
+  headerBlock.append(header);
   statsSection.append(statsGrid);
 
   if (profile.publisher_id === cachedProfile?.publisher_id && publishCountCache !== null) {
@@ -454,10 +444,7 @@ function buildProfileFocusSection(profile: UserProfile): HTMLElement {
   const title = document.createElement('div');
   title.className = 'profile-popover-section-header profile-focus-title';
   title.append(targetIcon, document.createTextNode('Recommended next move'));
-  const subtitle = document.createElement('div');
-  subtitle.className = 'profile-focus-subtitle';
-  subtitle.textContent = 'A purposeful right rail: your next action, badge in reach, and rank snapshot.';
-  titleWrap.append(title, subtitle);
+  titleWrap.append(title);
   header.appendChild(titleWrap);
 
   const isSelfProfile = profile.publisher_id === cachedProfile?.publisher_id;
@@ -483,10 +470,7 @@ function buildProfileFocusSection(profile: UserProfile): HTMLElement {
   actionMeta.textContent = featuredMission
     ? `${featuredMission.rewardLabel ?? `+${featuredMission.xp} XP`} · ${featuredMission.progress}/${featuredMission.goal} complete`
     : 'Open the mission board when new assignments appear.';
-  const actionDesc = document.createElement('p');
-  actionDesc.className = 'profile-focus-card-desc';
-  actionDesc.textContent = featuredMission?.description ?? 'Fresh objectives will land here automatically.';
-  actionCard.append(actionLabel, actionTitle, actionMeta, actionDesc);
+  actionCard.append(actionLabel, actionTitle, actionMeta);
 
   const badgeCard = document.createElement('div');
   badgeCard.className = 'profile-focus-card profile-surface-card';
@@ -503,10 +487,7 @@ function buildProfileFocusSection(profile: UserProfile): HTMLElement {
     : nextTarget
       ? `${ACHIEVEMENT_CATEGORY_LABELS[nextTarget.achievement.category]} · ${nextTarget.achievement.tier} · +${nextTarget.achievement.xp} XP`
       : 'Keep exploring the Zone.';
-  const badgeDesc = document.createElement('p');
-  badgeDesc.className = 'profile-focus-card-desc';
-  badgeDesc.textContent = featuredBadge?.description ?? nextTarget?.reason ?? 'Visible badge opportunities will be surfaced here.';
-  badgeCard.append(badgeLabel, badgeTitle, badgeMeta, badgeDesc);
+  badgeCard.append(badgeLabel, badgeTitle, badgeMeta);
 
   const rankCard = document.createElement('div');
   rankCard.className = 'profile-focus-card profile-surface-card';
@@ -519,10 +500,7 @@ function buildProfileFocusSection(profile: UserProfile): HTMLElement {
   const rankMeta = document.createElement('div');
   rankMeta.className = 'profile-focus-card-meta';
   rankMeta.textContent = 'Fetching leaderboard snapshot';
-  const rankDesc = document.createElement('p');
-  rankDesc.className = 'profile-focus-card-desc';
-  rankDesc.textContent = 'Your current leaderboard context will appear here so the rail always has a purpose.';
-  rankCard.append(rankLabel, rankTitle, rankMeta, rankDesc);
+  rankCard.append(rankLabel, rankTitle, rankMeta);
 
   const updateRankCard = (entries: LeaderboardEntry[]) => {
     const rank = entries.findIndex(entry => entry.publisher_id === profile.publisher_id);
@@ -531,11 +509,6 @@ function buildProfileFocusSection(profile: UserProfile): HTMLElement {
     rankMeta.textContent = rank >= 0
       ? `${profile.xp.toLocaleString()} XP${nearestAbove ? ` · ${Math.max(nearestAbove.xp - profile.xp, 0).toLocaleString()} XP to pass ${nearestAbove.username}` : ' · holding the top spot'}`
       : `${profile.xp.toLocaleString()} XP · publish and earn reactions to climb`;
-    rankDesc.textContent = rank >= 0
-      ? nearestAbove
-        ? `You are chasing ${nearestAbove.username}, who currently sits one slot ahead.`
-        : 'You are currently setting the pace for everyone else.'
-      : 'This profile has not entered the fetched leaderboard slice yet, so missions and publishes matter most.';
   };
 
   if (leaderboardCache) {
@@ -660,11 +633,6 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
     createMetaChip('Surprise', String(hiddenGoalCount), 'muted'),
   );
   section.appendChild(summaryRow);
-
-  const summaryLine = document.createElement('div');
-  summaryLine.className = 'profile-achievement-summary-line';
-  summaryLine.textContent = 'Unlocked, locked, and surprise badges now read differently so you can scan progress instead of parsing a wall of repeats.';
-  section.appendChild(summaryLine);
 
   const featuredStrip = buildFeaturedBadgeStrip(unlocked);
   if (featuredStrip) section.appendChild(featuredStrip);
@@ -881,19 +849,11 @@ function buildMissionCard(mission: ActiveMission, isSelfProfile: boolean): HTMLE
 
   topRow.append(slot, title, reward);
 
-  const bottomRow = document.createElement('div');
-  bottomRow.className = 'profile-mission-bottom-row';
-
-  const desc = document.createElement('div');
-  desc.className = 'profile-mission-desc';
-  desc.textContent = mission.description;
-
   const progressMeta = document.createElement('div');
   progressMeta.className = 'profile-mission-progress-meta';
   progressMeta.textContent = `${mission.progress}/${mission.goal} · ${mission.category}`;
 
-  bottomRow.append(desc, progressMeta);
-  card.append(topRow, bottomRow);
+  card.append(topRow, progressMeta);
 
   if (mission.goal > 1 || mission.progress > 0) {
     const bar = document.createElement('div');
@@ -946,12 +906,7 @@ function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTM
   const headingTitle = document.createElement('span');
   headingTitle.textContent = isSelfProfile ? 'Mission board' : 'Mission snapshot';
   heading.append(headingIcon, headingTitle);
-  const headingSummary = document.createElement('p');
-  headingSummary.className = 'profile-section-summary';
-  headingSummary.textContent = isSelfProfile
-    ? 'Your highest-value actions are pulled close to the header so “what do I do next?” is obvious.'
-    : 'Visible mission progress for this stalker, prioritized ahead of secondary analytics.';
-  sectionHeading.append(heading, headingSummary);
+  sectionHeading.append(heading);
 
   const missionPanel = document.createElement('div');
   missionPanel.className = 'profile-mission-panel profile-surface-card';
@@ -992,12 +947,7 @@ function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTM
   cadence.className = 'profile-mission-reset';
   cadence.textContent = `${resetInfo.dailyLabel} · ${resetInfo.weeklyLabel}`;
   missionTitleRow.append(missionTitle, cadence);
-  const missionSub = document.createElement('div');
-  missionSub.className = 'profile-challenge-desc';
-  missionSub.textContent = isSelfProfile
-    ? 'Focus on the top cards first to earn momentum fastest.'
-    : 'Latest visible mission progress captured for this stalker.';
-  headerText.append(missionTitleRow, missionSub);
+  headerText.append(missionTitleRow);
   missionHeader.append(headerText, streakMeta);
 
   const missionList = document.createElement('div');
