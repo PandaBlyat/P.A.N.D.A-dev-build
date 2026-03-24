@@ -322,6 +322,7 @@ function buildStatCard(iconName: Parameters<typeof createIcon>[0], value: string
 function buildStatsSection(profile: UserProfile): HTMLElement {
   const statsSection = document.createElement('section');
   statsSection.className = 'profile-popover-stats profile-surface-section';
+  statsSection.classList.add('profile-dashboard-card', 'profile-dashboard-progress-highlights');
   const unlocked = getUnlockedAchievementIdsForProfile(profile);
   const rareUnlockedCount = getRareAchievementCount(unlocked);
   const longestStreak = profile.streaks?.longest_streak ?? (profile.publisher_id === cachedProfile?.publisher_id ? getStreakData().longestStreak : 0);
@@ -369,6 +370,7 @@ function buildStatsSection(profile: UserProfile): HTMLElement {
 function buildXpBreakdownSection(): HTMLElement {
   const xpBreakdownSection = document.createElement('section');
   xpBreakdownSection.className = 'profile-popover-xp-breakdown profile-surface-section';
+  xpBreakdownSection.classList.add('profile-dashboard-card', 'profile-dashboard-how-to-earn-xp');
 
   const xpBreakdownHeaderCopy = document.createElement('div');
   xpBreakdownHeaderCopy.className = 'profile-popover-section-header';
@@ -377,16 +379,14 @@ function buildXpBreakdownSection(): HTMLElement {
   xpBreakdownTitle.textContent = 'How to Earn XP';
   const xpBreakdownMeta = document.createElement('span');
   xpBreakdownMeta.className = 'profile-popover-summary-meta';
-  xpBreakdownMeta.textContent = '5 quick sources';
+  xpBreakdownMeta.textContent = '3 quick sources';
   xpBreakdownHeaderCopy.append(starIcon, xpBreakdownTitle, xpBreakdownMeta);
 
   const xpRows = document.createElement('div');
   xpRows.className = 'profile-popover-xp-rows';
 
-  const xpItems: [string, number][] = [
-    ['Publish · Short', XP_PUBLISH_SHORT],
-    ['Publish · Medium', XP_PUBLISH_MEDIUM],
-    ['Publish · Long', XP_PUBLISH_LONG],
+  const xpItems: [string, string | number][] = [
+    ['Publish conversations', `+${XP_PUBLISH_SHORT} to +${XP_PUBLISH_LONG} XP`],
     ['Download received', XP_DOWNLOAD_RECEIVED],
     ['Upvote received', XP_UPVOTE_RECEIVED],
   ];
@@ -399,7 +399,7 @@ function buildXpBreakdownSection(): HTMLElement {
     rowLabel.textContent = label;
     const rowValue = document.createElement('span');
     rowValue.className = 'profile-popover-xp-row-value';
-    rowValue.textContent = `+${amount} XP`;
+    rowValue.textContent = typeof amount === 'number' ? `+${amount} XP` : amount;
     row.append(rowLabel, rowValue);
     xpRows.appendChild(row);
   }
@@ -610,6 +610,7 @@ function buildFeaturedBadgeStrip(unlockedIds: string[]): HTMLElement | null {
 function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLElement {
   const section = document.createElement('div');
   section.className = 'profile-popover-achievements profile-surface-section';
+  section.classList.add('profile-dashboard-card', 'profile-dashboard-achievements');
 
   const header = document.createElement('div');
   header.className = 'profile-popover-section-header';
@@ -881,6 +882,7 @@ function buildMissionCard(mission: ActiveMission, isSelfProfile: boolean): HTMLE
 function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTMLElement {
   const section = document.createElement('section');
   section.className = 'profile-popover-streak-challenge profile-surface-section';
+  section.classList.add('profile-dashboard-card', 'profile-dashboard-streak-challenge');
   const isSelfProfile = profile.publisher_id === cachedProfile?.publisher_id;
 
   const streak = profile.streaks
@@ -978,6 +980,7 @@ function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTM
 function buildLeaderboardSection(profile: UserProfile): HTMLElement {
   const leaderboardSection = document.createElement('section');
   leaderboardSection.className = 'profile-popover-leaderboard profile-surface-section';
+  leaderboardSection.classList.add('profile-dashboard-card', 'profile-dashboard-leaderboard-snapshot');
 
   const lbHeader = document.createElement('div');
   lbHeader.className = 'profile-popover-lb-header';
@@ -1030,18 +1033,16 @@ function buildSelfProfileContent(profile: UserProfile): HTMLElement {
   heroRow.append(buildProfileHeader(profile), buildProfileFocusSection(profile));
 
   const actionRow = document.createElement('div');
-  actionRow.className = 'profile-popover-action-row';
+  actionRow.className = 'profile-popover-dashboard-grid';
   actionRow.append(
     buildStreakChallengeSection(profile),
-    buildStatsSection(profile),
     buildAchievementsSection(profile),
+    buildLeaderboardSection(profile),
+    buildStatsSection(profile),
+    buildXpBreakdownSection(),
   );
 
-  const footerRow = document.createElement('div');
-  footerRow.className = 'profile-popover-footer-row';
-  footerRow.append(buildLeaderboardSection(profile), buildXpBreakdownSection());
-
-  body.append(heroRow, actionRow, footerRow);
+  body.append(heroRow, actionRow);
   shell.append(body);
   return shell;
 }
