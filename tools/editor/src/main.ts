@@ -24,6 +24,8 @@ import { flushAllDebounced } from './components/PropertiesPanel';
 import {
   trackSiteVisitor,
   fetchVisitorCount,
+  fetchActiveEditorUserCount,
+  startActiveEditorPresenceTracking,
   fetchUserProfile,
   getStoredUsername,
   clearStoredUsername,
@@ -60,6 +62,20 @@ void fetchVisitorCount().then(count => {
   (globalThis as any).__pandaVisitorCount = count;
   renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
 });
+
+(globalThis as any).__pandaActiveUserCount = 0;
+void fetchActiveEditorUserCount().then(count => {
+  (globalThis as any).__pandaActiveUserCount = count;
+  renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
+});
+
+const stopPresenceTracking = startActiveEditorPresenceTracking((count) => {
+  (globalThis as any).__pandaActiveUserCount = count;
+  renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
+});
+window.addEventListener('pagehide', () => {
+  stopPresenceTracking();
+}, { once: true });
 
 // ─── User Profile / Gamification Bootstrap ─────────────────────────────────
 const LOCAL_PUBLISHER_ID_KEY = 'panda-community-publisher-id';

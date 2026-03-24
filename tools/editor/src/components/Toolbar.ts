@@ -209,6 +209,8 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
 
     const visitorCounter = renderVisitorCounter();
     if (visitorCounter) rightZone.appendChild(visitorCounter);
+    const activeUserCounter = renderActiveUserCounter();
+    if (activeUserCounter) rightZone.appendChild(activeUserCounter);
 
     toolbar.append(leftZone, centerZone, rightZone);
     return toolbar;
@@ -350,6 +352,8 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
 
   const visitorCounter = renderVisitorCounter(isMobile);
   if (visitorCounter) utilityTier.appendChild(visitorCounter);
+  const activeUserCounter = renderActiveUserCounter(isMobile);
+  if (activeUserCounter) utilityTier.appendChild(activeUserCounter);
 
   toolbar.appendChild(utilityTier);
 
@@ -544,6 +548,24 @@ function renderVisitorCounter(compact?: boolean): HTMLElement | null {
   label.textContent = compact
     ? new Intl.NumberFormat().format(count)
     : `${new Intl.NumberFormat().format(count)} visitor${count !== 1 ? 's' : ''}`;
+
+  el.append(icon, label);
+  return el;
+}
+
+function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
+  const count = (globalThis as any).__pandaActiveUserCount ?? 0;
+  if (count <= 0) return null;
+
+  const el = document.createElement('span');
+  el.className = 'toolbar-visitor-counter toolbar-active-user-counter';
+  el.title = 'Current active users in the P.A.N.D.A. editor';
+
+  const icon = createIcon('user');
+  const label = document.createElement('span');
+  label.textContent = compact
+    ? new Intl.NumberFormat().format(count)
+    : `${new Intl.NumberFormat().format(count)} active`;
 
   el.append(icon, label);
   return el;

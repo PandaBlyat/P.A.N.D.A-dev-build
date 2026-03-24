@@ -389,6 +389,12 @@ html, body {
   filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 40%, transparent));
 }
 
+.toolbar-active-user-counter {
+  color: color-mix(in srgb, #7ce2ff 78%, white 22%);
+  border-color: color-mix(in srgb, #50c7f2 30%, rgba(255,255,255,0.08));
+  background: color-mix(in srgb, #50c7f2 10%, rgba(255,255,255,0.02));
+}
+
 .toolbar-reset-btn {
   min-width: 32px;
   min-height: 32px;

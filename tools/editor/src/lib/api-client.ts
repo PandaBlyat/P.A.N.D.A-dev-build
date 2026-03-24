@@ -75,6 +75,7 @@ export type CreatorSupportStats = {
   id: string;
   upvotes: number;
   visitors?: number;
+  active_users?: number;
   updated_at: string;
 };
 
@@ -669,6 +670,9 @@ export async function incrementCreatorSupportUpvote(): Promise<void> {
 }
 
 const VISITOR_TRACKED_KEY = 'panda-visitor-tracked';
+const ACTIVE_EDITOR_USER_ID_KEY = 'panda-active-editor-user-id';
+const ACTIVE_EDITOR_PING_MS = 45_000;
+const ACTIVE_EDITOR_STALE_SECONDS = 120;
 
 export async function trackSiteVisitor(): Promise<void> {
   if (typeof window === 'undefined') return;
@@ -694,6 +698,85 @@ export async function fetchVisitorCount(): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+function getOrCreateActiveEditorUserId(): string {
+  if (typeof window === 'undefined') return 'server-active-user';
+  const existing = window.localStorage.getItem(ACTIVE_EDITOR_USER_ID_KEY)?.trim();
+  if (existing) return existing;
+
+  const generated = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `active-user-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+  window.localStorage.setItem(ACTIVE_EDITOR_USER_ID_KEY, generated);
+  return generated;
+}
+
+export async function touchActiveEditorUser(): Promise<number> {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/touch_creator_active_user`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({
+        active_user_id: getOrCreateActiveEditorUserId(),
+        stale_after_seconds: ACTIVE_EDITOR_STALE_SECONDS,
+      }),
+    });
+    if (!res.ok) throw new Error(`Failed to update active editor presence (${res.status})`);
+    const count = await res.json() as number | null;
+    return typeof count === 'number' ? count : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export async function fetchActiveEditorUserCount(): Promise<number> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_active_creator_user_count`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({
+        stale_after_seconds: ACTIVE_EDITOR_STALE_SECONDS,
+      }),
+    });
+    if (!res.ok) throw new Error(`Failed to fetch active editor users (${res.status})`);
+    const count = await res.json() as number | null;
+    return typeof count === 'number' ? count : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function startActiveEditorPresenceTracking(onUpdate: (count: number) => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+
+  let stopped = false;
+  let timer: number | null = null;
+
+  const ping = async (): Promise<void> => {
+    const count = await touchActiveEditorUser();
+    if (!stopped) onUpdate(count);
+  };
+
+  void ping();
+  timer = window.setInterval(() => {
+    void ping();
+  }, ACTIVE_EDITOR_PING_MS);
+
+  const handleVisibility = (): void => {
+    if (document.visibilityState === 'visible') {
+      void ping();
+    }
+  };
+  document.addEventListener('visibilitychange', handleVisibility);
+
+  return () => {
+    stopped = true;
+    if (timer != null) window.clearInterval(timer);
+    document.removeEventListener('visibilitychange', handleVisibility);
+  };
 }
 
 // ─── User Profiles & Gamification ─────────────────────────────────────────
