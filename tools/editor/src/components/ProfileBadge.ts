@@ -850,6 +850,10 @@ function buildMissionCard(mission: ActiveMission, isSelfProfile: boolean): HTMLE
         ? 'Medium'
         : 'Hard';
 
+  const metaLeft = document.createElement('div');
+  metaLeft.className = 'profile-mission-meta-left';
+  metaLeft.appendChild(slot);
+
   const title = document.createElement('div');
   title.className = 'profile-mission-title';
   title.textContent = mission.name;
@@ -858,13 +862,20 @@ function buildMissionCard(mission: ActiveMission, isSelfProfile: boolean): HTMLE
   reward.className = 'profile-mission-reward';
   reward.textContent = mission.completed ? 'Complete' : (mission.rewardLabel ?? `+${mission.xp} XP`);
 
-  topRow.append(slot, title, reward);
+  const infoRow = document.createElement('div');
+  infoRow.className = 'profile-mission-info-row';
+  const description = document.createElement('div');
+  description.className = 'profile-mission-desc';
+  description.textContent = mission.description;
 
   const progressMeta = document.createElement('div');
   progressMeta.className = 'profile-mission-progress-meta';
   progressMeta.textContent = `${mission.progress}/${mission.goal} · ${mission.category}`;
 
-  card.append(topRow, progressMeta);
+  topRow.append(metaLeft, title, reward);
+  infoRow.append(description, progressMeta);
+
+  card.append(topRow, infoRow);
 
   if (mission.goal > 1 || mission.progress > 0) {
     const bar = document.createElement('div');
