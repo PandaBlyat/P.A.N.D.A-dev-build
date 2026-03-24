@@ -8949,43 +8949,61 @@ strong.support-upvote-count {
 }
 
 .profile-popover-header {
-  gap: 6px;
-  padding: 8px 10px;
+  --profile-type-title: clamp(1.28rem, 1.1rem + 0.5vw, 1.5rem);
+  --profile-type-body: clamp(0.98rem, 0.9rem + 0.2vw, 1.08rem);
+  --profile-type-meta: clamp(0.72rem, 0.68rem + 0.12vw, 0.78rem);
+  gap: 12px;
+  padding: 12px;
   align-self: stretch;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--accent, #5eaa3a) 14%, transparent), transparent 55%),
     color-mix(in srgb, var(--profile-surface-fill) 92%, transparent);
+  animation: profileHeaderFadeLift 160ms ease-out both;
 }
 
 .profile-popover-identity {
-  align-items: flex-start;
-  gap: 8px;
+  align-items: start;
+  gap: 12px;
 }
 
 .profile-popover-avatar-circle {
-  width: 38px;
-  height: 38px;
+  width: 46px;
+  height: 46px;
+  position: relative;
+  flex-shrink: 0;
 }
 
 .profile-popover-avatar-initial {
-  font-size: 0.92rem;
+  font-size: 1.04rem;
+  font-weight: 800;
+}
+
+.profile-popover-avatar-status-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 2px solid color-mix(in srgb, var(--tier-color, var(--accent, #5eaa3a)) 72%, #ffffff 28%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg, #0f1520) 82%, transparent), 0 0 12px color-mix(in srgb, var(--tier-color, var(--accent, #5eaa3a)) 30%, transparent);
+  pointer-events: none;
+  animation: profileAvatarPulse 2.2s ease-in-out infinite;
 }
 
 .profile-popover-info {
-  gap: 4px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .profile-popover-info-top,
 .profile-popover-info-bottom {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+  align-items: baseline;
+  gap: 8px;
   min-width: 0;
 }
 
 .profile-popover-eyebrow {
-  font-size: 0.80rem;
+  font-size: var(--profile-type-meta);
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -8993,14 +9011,19 @@ strong.support-upvote-count {
 }
 
 .profile-popover-name {
-  font-size: 1.18rem;
+  font-size: var(--profile-type-title);
+  font-weight: 800;
   line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .profile-popover-name-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
   min-width: 0;
 }
@@ -9029,13 +9052,18 @@ strong.support-upvote-count {
 .profile-popover-name-badge-gold { border-color: color-mix(in srgb, #c4a040 58%, transparent); }
 
 .profile-popover-title {
-  font-size: 0.84rem;
+  font-size: var(--profile-type-body);
+  font-weight: 650;
+  color: color-mix(in srgb, var(--fg, #dbe4f0) 88%, white 12%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .profile-popover-header-highlights {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 8px;
 }
 
 .profile-popover-summary {
@@ -9047,19 +9075,32 @@ strong.support-upvote-count {
 }
 
 .profile-popover-meta-row {
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .profile-hero-meta-stat {
   min-width: 0;
-  min-height: auto;
+  min-height: 48px;
   display: grid;
-  gap: 2px;
-  padding: 3px 6px;
+  gap: 4px;
+  padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--border-light, #33404e) 72%, transparent);
   background: color-mix(in srgb, var(--bg-elevated, #171d28) 88%, transparent);
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.profile-hero-meta-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profile-hero-meta-icon {
+  width: 13px;
+  height: 13px;
+  color: color-mix(in srgb, var(--accent, #f59e0b) 72%, var(--fg-dim, #9aa6b6) 28%);
 }
 
 .profile-hero-meta-stat-accent {
@@ -9068,21 +9109,22 @@ strong.support-upvote-count {
 }
 
 .profile-hero-meta-label {
-  font-size: 0.68rem;
+  font-size: var(--profile-type-meta);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--fg-dim, #a0aab8);
+  letter-spacing: 0.07em;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--fg-dim, #a0aab8) 70%, #ffffff 30%);
 }
 
 .profile-hero-meta-value {
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: var(--profile-type-body);
+  font-weight: 800;
   color: var(--fg, #eef2f7);
 }
 
 .profile-popover-progress {
-  gap: 4px;
-  padding: 4px 6px;
+  gap: 8px;
+  padding: 10px;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--accent, #f59e0b) 18%, var(--border-light, #33404e));
   background:
@@ -9115,7 +9157,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-progress-kicker {
-  font-size: 0.76rem;
+  font-size: var(--profile-type-meta);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -9123,25 +9165,52 @@ strong.support-upvote-count {
 }
 
 .profile-popover-level-label {
-  font-size: 0.92rem;
+  font-size: var(--profile-type-body);
   white-space: normal;
 }
 
 .profile-popover-bar-label {
-  font-size: 0.78rem;
+  font-size: var(--profile-type-meta);
   text-align: left;
   color: var(--fg, #dbe4f0);
 }
 
 .profile-popover-bar-track {
-  height: 6px;
+  height: 10px;
+  position: relative;
+  overflow: visible;
   border: 1px solid color-mix(in srgb, var(--accent, #f59e0b) 22%, var(--border, #333));
   background: color-mix(in srgb, #151b24 82%, black 18%);
 }
 
 .profile-popover-bar-fill {
+  position: relative;
   background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 45%, #f97316 100%);
   box-shadow: 0 0 16px color-mix(in srgb, #f59e0b 35%, transparent);
+  transition: width 340ms ease;
+}
+
+.profile-popover-bar-notch {
+  position: absolute;
+  top: -3px;
+  left: min(var(--progress-width, 0%), 98%);
+  width: 2px;
+  height: 16px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #fff 72%, var(--accent, #f59e0b) 28%);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent, #f59e0b) 38%, transparent);
+}
+
+.profile-popover-bar-markers {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: var(--profile-type-meta);
+  color: var(--fg-dim, #9aa6b6);
+}
+
+.profile-popover-bar-marker {
+  white-space: nowrap;
 }
 
 .profile-popover-progress-footer {
@@ -9154,7 +9223,7 @@ strong.support-upvote-count {
 
 .profile-popover-next,
 .profile-popover-progress-target {
-  font-size: 0.76rem;
+  font-size: var(--profile-type-meta);
 }
 
 .profile-popover-next {
@@ -9190,6 +9259,39 @@ strong.support-upvote-count {
     radial-gradient(circle at top right, color-mix(in srgb, var(--accent, #5eaa3a) 10%, transparent), transparent 50%),
     color-mix(in srgb, var(--bg-elevated, #171d28) 94%, transparent);
   padding: 10px;
+}
+
+.profile-popover-filter-pill {
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.profile-popover-filter-pill:hover,
+.profile-popover-filter-pill:focus-visible,
+.profile-hero-meta-stat:hover {
+  border-color: color-mix(in srgb, var(--accent, #f59e0b) 48%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent, #f59e0b) 28%, transparent);
+}
+
+.profile-popover-filter-pill:hover,
+.profile-hero-meta-stat:hover {
+  transform: translateY(-1px);
+}
+
+.profile-popover-filter-pill.is-active {
+  border-color: color-mix(in srgb, var(--accent, #f59e0b) 58%, transparent);
+  background: color-mix(in srgb, var(--accent, #f59e0b) 16%, var(--bg-elevated, #171d28));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent, #f59e0b) 30%, transparent);
+}
+
+@keyframes profileAvatarPulse {
+  0%, 100% { opacity: 0.9; transform: scale(1); }
+  50% { opacity: 0.65; transform: scale(1.045); }
+}
+
+@keyframes profileHeaderFadeLift {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .profile-focus-header,
@@ -9942,6 +10044,28 @@ strong.support-upvote-count {
     flex-direction: column;
   }
 
+  .profile-popover-header {
+    --profile-type-title: clamp(1.12rem, 1.02rem + 0.45vw, 1.22rem);
+    --profile-type-body: clamp(0.92rem, 0.86rem + 0.25vw, 0.98rem);
+    --profile-type-meta: clamp(0.68rem, 0.64rem + 0.15vw, 0.74rem);
+    gap: 8px;
+  }
+
+  .profile-popover-name-row,
+  .profile-popover-header-highlights,
+  .profile-popover-meta-row {
+    gap: 6px;
+  }
+
+  .profile-popover-name,
+  .profile-popover-title {
+    max-width: min(100%, 240px);
+  }
+
+  .profile-popover-filter-pill {
+    max-width: 100%;
+  }
+
   .profile-popover-achievement-grid {
     grid-template-columns: repeat(auto-fit, minmax(36px, 44px));
   }
@@ -9952,5 +10076,16 @@ strong.support-upvote-count {
 
   .profile-focus-goal-cards {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-popover-header,
+  .profile-popover-avatar-status-ring,
+  .profile-popover-bar-fill,
+  .profile-popover-filter-pill,
+  .profile-hero-meta-stat {
+    animation: none !important;
+    transition-duration: 1ms !important;
   }
 }

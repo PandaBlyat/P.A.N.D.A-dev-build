@@ -155,9 +155,20 @@ function createMetaChip(label: string, value: string, tone: 'default' | 'muted' 
   return chip;
 }
 
-function createHeroMetaStat(label: string, value: string, tone: 'default' | 'accent' = 'default'): HTMLElement {
+function createHeroMetaStat(
+  iconName: Parameters<typeof createIcon>[0],
+  label: string,
+  value: string,
+  tone: 'default' | 'accent' = 'default',
+): HTMLElement {
   const stat = document.createElement('div');
   stat.className = `profile-hero-meta-stat${tone === 'accent' ? ' profile-hero-meta-stat-accent' : ''}`;
+
+  const icon = createIcon(iconName);
+  icon.classList.add('profile-hero-meta-icon');
+
+  const head = document.createElement('div');
+  head.className = 'profile-hero-meta-head';
 
   const statLabel = document.createElement('span');
   statLabel.className = 'profile-hero-meta-label';
@@ -167,7 +178,8 @@ function createHeroMetaStat(label: string, value: string, tone: 'default' | 'acc
   statValue.className = 'profile-hero-meta-value';
   statValue.textContent = value;
 
-  stat.append(statLabel, statValue);
+  head.append(icon, statLabel);
+  stat.append(head, statValue);
   return stat;
 }
 
@@ -193,11 +205,17 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   const avatarCircle = document.createElement('div');
   avatarCircle.className = 'profile-popover-avatar-circle';
   avatarCircle.style.setProperty('--tier-color', tierColor);
+  avatarCircle.title = isSelfProfile ? 'Profile completion ring' : 'Operative status';
 
   const avatarInitial = document.createElement('span');
   avatarInitial.className = 'profile-popover-avatar-initial';
   avatarInitial.textContent = getUserInitial(profile.username);
   avatarCircle.appendChild(avatarInitial);
+
+  const statusRing = document.createElement('span');
+  statusRing.className = 'profile-popover-avatar-status-ring';
+  statusRing.setAttribute('aria-hidden', 'true');
+  avatarCircle.appendChild(statusRing);
 
   const info = document.createElement('div');
   info.className = 'profile-popover-info';
@@ -234,19 +252,46 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   const rareUnlockedCount = getRareAchievementCount(unlocked);
   const headerHighlights = document.createElement('div');
   headerHighlights.className = 'profile-popover-header-highlights';
-  headerHighlights.append(
+  const highlightPills: HTMLElement[] = [
     createMetaChip('Badges', `${unlocked.length}/${ACHIEVEMENTS.length}`),
     createMetaChip('Rare', String(rareUnlockedCount), rareUnlockedCount > 0 ? 'accent' : 'muted'),
     createMetaChip('Title', `Lv.${profile.level}`, 'accent'),
-  );
+  ];
+
+  let activePillIndex = -1;
+  highlightPills.forEach((pill, idx) => {
+    pill.classList.add('profile-popover-filter-pill');
+    pill.setAttribute('role', 'button');
+    pill.tabIndex = 0;
+    pill.title = idx === 0
+      ? 'Shows unlocked badge progress'
+      : idx === 1
+        ? 'Shows rare badge unlock progress'
+        : 'Shows current title tier';
+    const toggle = () => {
+      const shouldActivate = activePillIndex !== idx;
+      highlightPills.forEach((node, nodeIndex) => {
+        node.classList.toggle('is-active', shouldActivate && nodeIndex === idx);
+      });
+      activePillIndex = shouldActivate ? idx : -1;
+    };
+    pill.addEventListener('click', toggle);
+    pill.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        toggle();
+      }
+    });
+    headerHighlights.appendChild(pill);
+  });
 
   const metaRow = document.createElement('div');
   metaRow.className = 'profile-popover-meta-row';
   metaRow.append(
-    createHeroMetaStat('XP total', profile.xp.toLocaleString(), 'accent'),
-    createHeroMetaStat('Publish streak', `${streak.publish} weeks`),
-    createHeroMetaStat('Daily login', `${streak.login} days`),
-    createHeroMetaStat('Joined', formatMemberSince(profile.created_at)),
+    createHeroMetaStat('star', 'XP total', profile.xp.toLocaleString(), 'accent'),
+    createHeroMetaStat('flame', 'Publish streak', `${streak.publish} weeks`),
+    createHeroMetaStat('user', 'Daily login', `${streak.login} days`),
+    createHeroMetaStat('clock', 'Joined', formatMemberSince(profile.created_at)),
   );
 
   const infoTop = document.createElement('div');
@@ -306,10 +351,27 @@ function buildProgressSection(profile: UserProfile): HTMLElement {
 
   const barTrack = document.createElement('div');
   barTrack.className = 'profile-popover-bar-track';
+  barTrack.title = next
+    ? `${xpToGo.toLocaleString()} XP needed for Level ${next.level}`
+    : 'Max level reached';
   const barFill = document.createElement('div');
   barFill.className = 'profile-popover-bar-fill';
   barFill.style.width = `${progressPercent}%`;
-  barTrack.appendChild(barFill);
+  barFill.style.setProperty('--progress-width', `${progressPercent}%`);
+  const milestoneNotch = document.createElement('span');
+  milestoneNotch.className = 'profile-popover-bar-notch';
+  milestoneNotch.setAttribute('aria-hidden', 'true');
+  barTrack.append(barFill, milestoneNotch);
+
+  const barMarkers = document.createElement('div');
+  barMarkers.className = 'profile-popover-bar-markers';
+  const leftMarker = document.createElement('span');
+  leftMarker.className = 'profile-popover-bar-marker';
+  leftMarker.textContent = `${currentMin.toLocaleString()} XP`;
+  const rightMarker = document.createElement('span');
+  rightMarker.className = 'profile-popover-bar-marker';
+  rightMarker.textContent = `${nextXp.toLocaleString()} XP`;
+  barMarkers.append(leftMarker, rightMarker);
 
   const progressFooter = document.createElement('div');
   progressFooter.className = 'profile-popover-progress-footer';
@@ -325,7 +387,7 @@ function buildProgressSection(profile: UserProfile): HTMLElement {
   progressTarget.textContent = next ? `${xpToGo.toLocaleString()} XP to go` : 'Legend status achieved';
 
   progressFooter.append(nextLabel, progressTarget);
-  progressSection.append(progressTop, barTrack, progressFooter);
+  progressSection.append(progressTop, barTrack, barMarkers, progressFooter);
 
   return progressSection;
 }
