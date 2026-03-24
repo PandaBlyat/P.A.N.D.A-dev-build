@@ -6802,11 +6802,11 @@ strong.support-upvote-count {
 .public-profile-view {
   --profile-accent: var(--accent, #5eaa3a);
   --profile-surface-radius: 8px;
-  --profile-section-gap: 6px;
-  --profile-card-gap: 5px;
-  --profile-card-padding: 8px;
-  --profile-token-padding-block: 4px;
-  --profile-token-padding-inline: 8px;
+  --profile-section-gap: 10px;
+  --profile-card-gap: 8px;
+  --profile-card-padding: 12px;
+  --profile-token-padding-block: 5px;
+  --profile-token-padding-inline: 10px;
   --profile-icon-size: 20px;
   --profile-icon-size-sm: 16px;
   --profile-surface-border: color-mix(in srgb, var(--profile-accent) 14%, var(--border, #333));
@@ -7014,10 +7014,10 @@ strong.support-upvote-count {
 .profile-popover-body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 14px;
   min-width: 0;
   min-height: 0;
-  padding: 10px;
+  padding: 14px;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -7067,7 +7067,7 @@ strong.support-upvote-count {
   flex-direction: column;
   gap: 8px;
   min-width: 0;
-  align-self: flex-start;
+  align-self: stretch;
   max-width: min(100%, 720px);
 }
 
@@ -7267,7 +7267,7 @@ strong.support-upvote-count {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .profile-stat-value {
@@ -7297,14 +7297,14 @@ strong.support-upvote-count {
 
 /* XP Breakdown */
 .profile-popover-xp-breakdown {
-  padding: 10px;
+  padding: 12px 14px;
 }
 
 /* XP breakdown is now always visible (no longer a <details>) */
 
 .profile-popover-summary-meta {
   margin-left: auto;
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   color: var(--fg-dim, #8f98a8);
 }
 
@@ -7314,10 +7314,10 @@ strong.support-upvote-count {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   font-weight: 700;
   color: var(--fg, #eee);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .profile-popover-section-header .ui-icon svg {
@@ -7329,7 +7329,7 @@ strong.support-upvote-count {
 .profile-popover-xp-rows {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   margin-top: 4px;
 }
 
@@ -7337,7 +7337,7 @@ strong.support-upvote-count {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 0;
+  padding: 8px 10px;
 }
 
 .profile-popover-xp-row-label {
@@ -7353,7 +7353,7 @@ strong.support-upvote-count {
 
 /* Leaderboard */
 .profile-popover-leaderboard {
-  padding: 10px;
+  padding: 12px 14px;
 }
 
 .profile-popover-lb-header {
@@ -7363,7 +7363,7 @@ strong.support-upvote-count {
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--fg, #eee);
-  margin-bottom: 5px;
+  margin-bottom: 8px;
 }
 
 .profile-popover-lb-header .ui-icon svg {
@@ -7980,18 +7980,18 @@ strong.support-upvote-count {
   padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 10px;
 }
 
 .profile-achievement-summary-row,
 .public-profile-summary-stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .profile-achievement-summary-row .profile-popover-meta-pill {
-  min-height: 1.5rem;
+  min-height: 1.75rem;
   font-size: 0.56rem;
 }
 
@@ -8007,7 +8007,7 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-mini-header {
-  font-size: 0.64rem;
+  font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -8152,14 +8152,14 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-next-meta {
-  font-size: 0.61rem;
+  font-size: 0.68rem;
   color: var(--fg-dim, #8f98a8);
   text-transform: capitalize;
   overflow-wrap: anywhere;
 }
 
 .profile-achievement-next-desc {
-  font-size: 0.64rem;
+  font-size: 0.7rem;
   color: var(--fg-dim, #a2abba);
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -8168,7 +8168,7 @@ strong.support-upvote-count {
 .profile-achievement-category {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   padding: 6px 0 0;
   border-top: 1px solid color-mix(in srgb, var(--profile-accent) 10%, var(--border, #333));
 }
@@ -8380,7 +8380,7 @@ strong.support-upvote-count {
 
 .profile-achievement-cell-label {
   max-width: 100%;
-  font-size: 0.48rem;
+  font-size: 0.54rem;
   line-height: 1.05;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -8548,7 +8548,7 @@ strong.support-upvote-count {
 }
 
 .profile-mission-header-pill {
-  font-size: 0.53rem;
+  font-size: 0.68rem;
   letter-spacing: 0.03em;
 }
 
@@ -8583,13 +8583,13 @@ strong.support-upvote-count {
 
 .profile-mission-list {
   display: grid;
-  gap: 4px;
+  gap: 10px;
 }
 
 .profile-mission-card {
   display: grid;
   gap: 4px;
-  padding: 7px 8px;
+  padding: 10px 12px;
 }
 
 .profile-mission-card-complete {
@@ -8617,7 +8617,7 @@ strong.support-upvote-count {
 
 .profile-mission-slot {
   align-self: center;
-  font-size: 0.52rem;
+  font-size: 0.64rem;
   text-transform: uppercase;
   color: var(--fg, #eee);
 }
@@ -8646,7 +8646,7 @@ strong.support-upvote-count {
 }
 
 .profile-mission-desc {
-  font-size: 0.58rem;
+  font-size: 0.72rem;
   color: var(--fg-dim, #888);
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -8654,7 +8654,7 @@ strong.support-upvote-count {
 
 .profile-mission-progress-meta,
 .profile-mission-reset {
-  font-size: 0.56rem;
+  font-size: 0.64rem;
   color: var(--fg-dim, #7f8694);
 }
 
@@ -8859,14 +8859,14 @@ strong.support-upvote-count {
      L3 (footer/extra) — subtle border, minimal shadow
    Spacing tokens consolidated:
      --profile-section-gap: 10px (between rows)
-     --profile-card-gap:    6px  (within rows)
-     --profile-card-padding: 8px (card inner)
+     --profile-card-gap:    8px  (within rows)
+     --profile-card-padding: 12px (card inner)
 */
 
 .profile-popover-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
   min-width: 0;
   min-height: 0;
   padding: 14px;
@@ -8890,24 +8890,24 @@ strong.support-upvote-count {
 /* L1 — Hero row: asymmetric 55/45 split, identity left, actions right */
 .profile-popover-hero-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-  gap: 10px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 12px;
 }
 
 /* L2 — Action row: equal halves */
 .profile-popover-action-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.85fr) minmax(0, 1.05fr);
-  gap: 8px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 12px;
+  align-items: stretch;
 }
 
 /* L3 — Footer row: equal halves, subdued */
 .profile-popover-footer-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 8px;
-  align-items: start;
+  gap: 12px;
+  align-items: stretch;
 }
 
 .profile-popover-header,
@@ -8937,7 +8937,7 @@ strong.support-upvote-count {
 
 .profile-popover-header {
   gap: 8px;
-  padding: 10px 12px;
+  padding: 14px 16px;
   align-self: stretch;
 }
 
@@ -8960,7 +8960,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-eyebrow {
-  font-size: 0.58rem;
+  font-size: 0.64rem;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -8985,14 +8985,14 @@ strong.support-upvote-count {
 }
 
 .profile-popover-meta-row {
-  gap: 4px;
+  gap: 6px;
 }
 
 .profile-hero-meta-stat {
   min-width: 80px;
   display: grid;
-  gap: 1px;
-  padding: 6px 8px;
+  gap: 3px;
+  padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--border-light, #33404e) 72%, transparent);
   background: color-mix(in srgb, var(--bg-elevated, #171d28) 88%, transparent);
@@ -9004,7 +9004,7 @@ strong.support-upvote-count {
 }
 
 .profile-hero-meta-label {
-  font-size: 0.6rem;
+  font-size: 0.66rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--fg-dim, #a0aab8);
@@ -9051,7 +9051,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-progress-kicker {
-  font-size: 0.64rem;
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -9070,7 +9070,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-bar-track {
-  height: 8px;
+  height: 10px;
   border: 1px solid color-mix(in srgb, var(--accent, #f59e0b) 22%, var(--border, #333));
   background: color-mix(in srgb, #151b24 82%, black 18%);
 }
@@ -9106,23 +9106,26 @@ strong.support-upvote-count {
 
 .profile-focus-panel,
 .profile-popover-streak-challenge,
-.profile-popover-stats,
-.profile-popover-xp-breakdown,
-.profile-popover-leaderboard {
+.profile-popover-stats {
   padding: 10px;
 }
 
+.profile-popover-xp-breakdown,
+.profile-popover-leaderboard {
+  padding: 12px 14px;
+}
+
 .profile-popover-achievements {
-  padding: 8px 10px;
+  padding: 12px 14px;
 }
 
 .profile-focus-panel {
   display: grid;
-  gap: 4px;
+  gap: 8px;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--accent, #5eaa3a) 10%, transparent), transparent 50%),
     color-mix(in srgb, var(--bg-elevated, #171d28) 94%, transparent);
-  padding: 8px;
+  padding: 12px;
 }
 
 .profile-focus-header,
@@ -9151,13 +9154,13 @@ strong.support-upvote-count {
 .profile-focus-cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 5px;
+  gap: 8px;
 }
 
 .profile-focus-card {
   display: grid;
   gap: 3px;
-  padding: 7px 8px;
+  padding: 10px 12px;
 }
 
 .profile-focus-card-primary {
@@ -9166,7 +9169,7 @@ strong.support-upvote-count {
 }
 
 .profile-focus-card-label {
-  font-size: 0.58rem;
+  font-size: 0.64rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -9195,12 +9198,12 @@ strong.support-upvote-count {
 
 .profile-popover-stats-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 
 .profile-stat-card {
   min-height: auto;
-  padding: 8px;
+  padding: 10px 12px;
   border-color: color-mix(in srgb, var(--border-light, #33404e) 76%, transparent);
 }
 
@@ -9210,17 +9213,17 @@ strong.support-upvote-count {
 }
 
 .profile-stat-label {
-  font-size: 0.7rem;
+  font-size: 0.74rem;
   color: var(--fg-dim, #aab4c2);
 }
 
 .profile-stat-value {
-  font-size: 0.96rem;
+  font-size: 1rem;
 }
 
 .profile-mission-panel {
   gap: 6px;
-  padding: 8px;
+  padding: 10px 12px;
   border-color: color-mix(in srgb, var(--accent, #5eaa3a) 24%, transparent);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--accent, #5eaa3a) 8%, transparent) 0%, transparent 100%),
@@ -9259,19 +9262,19 @@ strong.support-upvote-count {
 .profile-mission-header-pill,
 .profile-mission-slot,
 .profile-achievement-summary-row .profile-popover-meta-pill {
-  min-height: 1.6rem;
-  font-size: 0.64rem;
+  min-height: 1.8rem;
+  font-size: 0.68rem;
   padding: 2px 6px;
   border-color: color-mix(in srgb, var(--profile-accent) 10%, var(--border, #333));
 }
 
 .profile-mission-list {
-  gap: 8px;
+  gap: 10px;
 }
 
 .profile-mission-card {
   gap: 4px;
-  padding: 8px;
+  padding: 10px 12px;
 }
 
 .profile-mission-title {
@@ -9285,7 +9288,7 @@ strong.support-upvote-count {
 .profile-mission-desc,
 .profile-mission-progress-meta,
 .profile-mission-reset {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   color: var(--fg-dim, #9aa4b2);
 }
 
@@ -9295,15 +9298,15 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-summary-row {
-  gap: 5px;
+  gap: 8px;
 }
 
 .profile-achievement-summary-row .profile-popover-meta-pill {
-  font-size: 0.58rem;
+  font-size: 0.66rem;
 }
 
 .profile-achievement-summary-line {
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   line-height: 1.55;
 }
 
@@ -9323,7 +9326,7 @@ strong.support-upvote-count {
 .profile-achievement-category-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 
 /* Collapsible achievement categories */
@@ -9365,7 +9368,7 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-category {
-  gap: 3px;
+  gap: 6px;
   padding-top: 4px;
   border-top-color: color-mix(in srgb, var(--category-accent, var(--profile-accent)) 32%, transparent);
 }
@@ -9382,7 +9385,7 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-category-text {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
 }
 
 .profile-achievement-category-icon svg {
@@ -9397,7 +9400,7 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-category-count {
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   text-align: right;
   color: var(--fg-dim, #aab3c3);
 }
@@ -9442,7 +9445,7 @@ strong.support-upvote-count {
 /* Leaderboard is now always visible (no longer a <details>) */
 
 .profile-popover-lb-header {
-  margin-bottom: 0;
+  margin-bottom: 8px;
 }
 
 .profile-popover-leaderboard .profile-popover-summary-meta {
@@ -9460,6 +9463,24 @@ strong.support-upvote-count {
 }
 
 @media (max-width: 720px) {
+  .profile-popover-body {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .profile-popover-header,
+  .profile-focus-panel,
+  .profile-popover-streak-challenge,
+  .profile-popover-stats,
+  .profile-popover-achievements,
+  .profile-popover-xp-breakdown,
+  .profile-popover-leaderboard,
+  .profile-mission-panel,
+  .profile-mission-card,
+  .profile-focus-card {
+    padding: 10px;
+  }
+
   .profile-popover-hero-row {
     grid-template-columns: 1fr;
   }
