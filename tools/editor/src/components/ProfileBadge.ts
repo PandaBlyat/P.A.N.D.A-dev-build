@@ -500,10 +500,76 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
     empty.append(emptyLabel, emptyTitle, emptyDesc);
     cards.appendChild(empty);
   } else {
-    nextTargets.slice(0, 3).forEach(({ achievement, reason }) => {
-      const goalCard = document.createElement('div');
-      goalCard.className = `profile-focus-card profile-surface-card profile-focus-goal-card profile-focus-goal-card-${achievement.tier}`;
-      goalCard.title = `${achievement.name} — ${achievement.description}`;
+    const visibleTargets = nextTargets.slice(0, 5);
+
+    const queue = document.createElement('div');
+    queue.className = 'profile-focus-goal-queue';
+    queue.setAttribute('role', 'tablist');
+    queue.setAttribute('aria-label', 'Next goals queue');
+
+    const detailCard = document.createElement('article');
+    detailCard.className = 'profile-focus-card profile-surface-card profile-focus-goal-detail';
+    detailCard.setAttribute('role', 'tabpanel');
+
+    const detailHeader = document.createElement('div');
+    detailHeader.className = 'profile-focus-goal-detail-head';
+    const detailTop = document.createElement('div');
+    detailTop.className = 'profile-focus-goal-top';
+    const detailIcon = document.createElement('span');
+    detailIcon.className = 'profile-focus-goal-icon profile-focus-goal-icon-large';
+    const detailTitle = document.createElement('div');
+    detailTitle.className = 'profile-focus-card-title';
+    detailTop.append(detailIcon, detailTitle);
+
+    const detailPill = document.createElement('div');
+    detailPill.className = 'profile-focus-goal-detail-pill';
+    detailHeader.append(detailTop, detailPill);
+
+    const detailDesc = document.createElement('p');
+    detailDesc.className = 'profile-focus-card-desc profile-focus-goal-detail-desc';
+
+    const detailReason = document.createElement('p');
+    detailReason.className = 'profile-focus-goal-insight';
+
+    const detailAction = document.createElement('div');
+    detailAction.className = 'profile-focus-goal-action';
+
+    detailCard.append(detailHeader, detailDesc, detailReason, detailAction);
+
+    const tabs: HTMLButtonElement[] = [];
+    let activeIndex = 0;
+
+    const renderActiveTarget = (index: number) => {
+      const normalized = Math.max(0, Math.min(index, visibleTargets.length - 1));
+      activeIndex = normalized;
+      const { achievement, reason } = visibleTargets[normalized];
+      detailCard.classList.remove('profile-focus-goal-card-bronze', 'profile-focus-goal-card-silver', 'profile-focus-goal-card-gold');
+      detailCard.classList.add(`profile-focus-goal-card-${achievement.tier}`);
+      detailCard.id = `profile-goal-panel-${profile.publisher_id}-${normalized}`;
+      detailPill.textContent = `${ACHIEVEMENT_CATEGORY_LABELS[achievement.category]} · ${achievement.tier} · +${achievement.xp} XP`;
+      detailIcon.textContent = achievement.icon;
+      detailTitle.textContent = achievement.name;
+      detailDesc.textContent = achievement.description;
+      detailReason.textContent = reason;
+      detailAction.textContent = getGoalActionHint(achievement.id, profile);
+
+      tabs.forEach((tab, tabIndex) => {
+        const isActive = tabIndex === normalized;
+        tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        tab.tabIndex = isActive ? 0 : -1;
+        tab.classList.toggle('is-active', isActive);
+      });
+    };
+
+    visibleTargets.forEach(({ achievement, reason }, index) => {
+      const goalTab = document.createElement('button');
+      goalTab.type = 'button';
+      goalTab.className = `profile-focus-card profile-surface-card profile-focus-goal-card profile-focus-goal-card-${achievement.tier} profile-focus-goal-queue-item`;
+      goalTab.title = `${achievement.name} — ${achievement.description}`;
+      goalTab.setAttribute('role', 'tab');
+      goalTab.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
+      goalTab.setAttribute('aria-controls', `profile-goal-panel-${profile.publisher_id}-${index}`);
+      goalTab.tabIndex = index === 0 ? 0 : -1;
 
       const goalTop = document.createElement('div');
       goalTop.className = 'profile-focus-goal-top';
@@ -517,19 +583,54 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
 
       const goalMeta = document.createElement('div');
       goalMeta.className = 'profile-focus-card-meta';
-      goalMeta.textContent = `${ACHIEVEMENT_CATEGORY_LABELS[achievement.category]} · ${achievement.tier} · +${achievement.xp} XP`;
+      goalMeta.textContent = `${ACHIEVEMENT_CATEGORY_LABELS[achievement.category]} · +${achievement.xp} XP`;
 
       const goalDesc = document.createElement('p');
       goalDesc.className = 'profile-focus-card-desc';
       goalDesc.textContent = reason;
 
-      goalCard.append(goalTop, goalMeta, goalDesc);
-      cards.appendChild(goalCard);
+      goalTab.append(goalTop, goalMeta, goalDesc);
+      goalTab.addEventListener('click', () => renderActiveTarget(index));
+      goalTab.addEventListener('focus', () => renderActiveTarget(index));
+      goalTab.addEventListener('keydown', (event) => {
+        if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft' && event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+        event.preventDefault();
+        const dir = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
+        const next = (activeIndex + dir + visibleTargets.length) % visibleTargets.length;
+        renderActiveTarget(next);
+        tabs[next]?.focus();
+      });
+
+      tabs.push(goalTab);
+      queue.appendChild(goalTab);
     });
+
+    renderActiveTarget(0);
+    cards.append(queue, detailCard);
   }
 
   section.append(header, cards);
   return section;
+}
+
+function getGoalActionHint(achievementId: Achievement['id'], profile: UserProfile): string {
+  const publishCount = profile.publisher_id === cachedProfile?.publisher_id ? (publishCountCache ?? 0) : 0;
+  const loginStreak = profile.streaks?.login_streak ?? (profile.publisher_id === cachedProfile?.publisher_id ? getLoginStreak().currentStreak : 0);
+  const publishStreak = profile.streaks?.publish_streak ?? (profile.publisher_id === cachedProfile?.publisher_id ? getStreakData().currentStreak : 0);
+  const unlockedCount = getUnlockedAchievementIdsForProfile(profile).length;
+
+  switch (achievementId) {
+    case 'first_publish':
+      return publishCount > 0 ? 'Momentum check: you already published — keep stacking discovery goals.' : 'Action: publish one conversation to unlock this immediately.';
+    case 'login_streak_1':
+      return loginStreak > 0 ? `Momentum check: ${loginStreak}-day login streak already active.` : 'Action: return tomorrow to kick off your streak.';
+    case 'streak_3':
+      return publishStreak > 0 ? `Momentum check: currently on a ${publishStreak}-week publish streak.` : 'Action: publish weekly to start your streak ladder.';
+    case 'bronze_complete':
+      return `Action: focus on bronze goals first (${unlockedCount} total achievements unlocked so far).`;
+    default:
+      return 'Action: complete the requirement shown above, then return for the next recommendation.';
+  }
 }
 
 function getNextAchievementTargets(profile: UserProfile, unlockedIds: string[]): AchievementTarget[] {
