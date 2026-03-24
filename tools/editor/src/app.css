@@ -4595,9 +4595,15 @@ hr {
 .share-preview-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 4px 6px;
   margin-top: 2px;
+}
+
+.share-card-actions .toolbar-button,
+.share-preview-actions .toolbar-button {
+  white-space: nowrap;
 }
 
 .share-preview-drawer {

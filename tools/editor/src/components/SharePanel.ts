@@ -64,7 +64,26 @@ type NormalizedConversation = CommunityConversation & {
 };
 
 const LOCAL_UPVOTE_KEY = 'panda-community-upvotes';
+const LOCAL_PUBLISHER_ID_KEY = 'panda-community-publisher-id';
 const SHARE_PANEL_MOUNT_ID = 'app-modal-host';
+
+function getCurrentPublisherIds(): string[] {
+  const ids = new Set<string>();
+  const currentProfile = (globalThis as any).__pandaUserProfile as UserProfile | null;
+  const profilePublisherId = currentProfile?.publisher_id?.trim();
+  if (profilePublisherId) ids.add(profilePublisherId);
+  if (typeof window !== 'undefined') {
+    const localPublisherId = window.localStorage.getItem(LOCAL_PUBLISHER_ID_KEY)?.trim();
+    if (localPublisherId) ids.add(localPublisherId);
+  }
+  return Array.from(ids);
+}
+
+function userOwnsConversation(conv: CommunityConversation): boolean {
+  const publisherId = conv.publisher_id?.trim();
+  if (!publisherId) return false;
+  return getCurrentPublisherIds().includes(publisherId);
+}
 
 function getSharePanelMount(): HTMLElement {
   return document.getElementById(SHARE_PANEL_MOUNT_ID)
@@ -573,6 +592,7 @@ function buildErrorState(msg: string): HTMLElement {
 }
 
 function buildCard(conv: NormalizedConversation): HTMLElement {
+  const isOwner = userOwnsConversation(conv);
   const card = document.createElement('div');
   card.className = `share-card${selectedPreviewId === conv.id ? ' is-selected' : ''}`;
   card.setAttribute('role', 'group');
@@ -666,6 +686,19 @@ function buildCard(conv: NormalizedConversation): HTMLElement {
   };
   actions.appendChild(importBtn);
 
+  if (isOwner) {
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'toolbar-button btn-sm';
+    setButtonContent(editBtn, 'duplicate', 'Edit');
+    editBtn.title = 'Import and edit your published conversation';
+    editBtn.onclick = async (event) => {
+      event.stopPropagation();
+      await handleImportCard(conv, editBtn);
+    };
+    actions.appendChild(editBtn);
+  }
+
   card.appendChild(actions);
   return card;
 }
@@ -754,6 +787,7 @@ function buildPreviewDrawer(conv: NormalizedConversation | null): HTMLElement {
 
   const actionRow = document.createElement('div');
   actionRow.className = 'share-preview-actions';
+  const isOwner = userOwnsConversation(conv);
 
   const upvoteBtn = document.createElement('button');
   upvoteBtn.type = 'button';
@@ -769,6 +803,15 @@ function buildPreviewDrawer(conv: NormalizedConversation | null): HTMLElement {
   importBtn.onclick = async () => handleImportCard(conv, importBtn);
 
   actionRow.append(upvoteBtn, importBtn);
+  if (isOwner) {
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'toolbar-button btn-primary';
+    setButtonContent(editBtn, 'duplicate', 'Edit');
+    editBtn.title = 'Import and edit your published conversation';
+    editBtn.onclick = async () => handleImportCard(conv, editBtn);
+    actionRow.appendChild(editBtn);
+  }
   drawer.appendChild(actionRow);
 
   const outline = document.createElement('div');
