@@ -954,7 +954,6 @@ async function handleEditImport(conv: CommunityConversation, btn: HTMLButtonElem
     btn.innerHTML = original;
     renderContent();
   }, 1500);
-  showPublishForm({ replacementContext: true });
 }
 
 async function handleUpvote(conv: NormalizedConversation, btn: HTMLButtonElement): Promise<void> {
