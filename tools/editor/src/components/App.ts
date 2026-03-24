@@ -742,7 +742,10 @@ function clampWidth(value: number): number {
 
 /** Merge conversations from the community library into the current project,
  *  auto-selecting the first imported conversation afterward. */
-export function importConversations(conversations: import('../lib/types').Conversation[], faction?: import('../lib/types').FactionId): void {
+export function importConversations(
+  conversations: import('../lib/types').Conversation[],
+  faction?: import('../lib/types').FactionId,
+): number | null {
   const normalizedConversations = conversations.map((conversation) => ({
     ...conversation,
     faction: getConversationFaction(conversation, faction ?? store.get().project.faction),
@@ -751,4 +754,5 @@ export function importConversations(conversations: import('../lib/types').Conver
   if (firstId != null) {
     store.selectConversation(firstId);
   }
+  return firstId;
 }
