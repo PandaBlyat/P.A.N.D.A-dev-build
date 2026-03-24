@@ -9211,8 +9211,9 @@ strong.support-upvote-count {
 }
 
 .profile-focus-goal-cards {
-  grid-template-columns: minmax(220px, 0.9fr) minmax(280px, 1.1fr);
+  grid-template-columns: minmax(260px, 0.92fr) minmax(300px, 1.08fr);
   align-items: stretch;
+  gap: 12px;
 }
 
 .profile-focus-card {
@@ -9279,42 +9280,73 @@ strong.support-upvote-count {
 .profile-focus-goal-queue {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 8px;
+  gap: 10px;
   align-content: start;
 }
 
 .profile-focus-goal-queue-item {
   text-align: left;
   cursor: pointer;
-  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  min-height: auto;
+  overflow: visible;
+  gap: 7px;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.profile-focus-goal-queue-item .profile-focus-card-title,
+.profile-focus-goal-detail .profile-focus-card-title {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.profile-focus-goal-queue-item .profile-focus-card-meta {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .profile-focus-goal-queue-item:hover,
 .profile-focus-goal-queue-item:focus-visible {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent, #5eaa3a) 36%, var(--border-light, #33404e));
-  background: color-mix(in srgb, var(--accent, #5eaa3a) 10%, var(--bg-elevated, #171d28));
+  border-color: color-mix(in srgb, var(--accent, #5eaa3a) 42%, var(--border-light, #33404e));
+  background: color-mix(in srgb, var(--accent, #5eaa3a) 11%, var(--bg-elevated, #171d28));
+  box-shadow: 0 10px 22px rgba(8, 12, 20, 0.36);
 }
 
 .profile-focus-goal-queue-item.is-active {
-  border-color: color-mix(in srgb, var(--accent, #5eaa3a) 46%, var(--border-light, #33404e));
-  background: color-mix(in srgb, var(--accent, #5eaa3a) 14%, var(--bg-elevated, #171d28));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent, #5eaa3a) 25%, transparent) inset;
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent, #5eaa3a) 60%, var(--border-light, #33404e));
+  background: linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--accent, #5eaa3a) 18%, transparent) 0%,
+      color-mix(in srgb, var(--bg-elevated, #171d28) 94%, transparent) 100%
+    );
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent, #5eaa3a) 36%, transparent) inset,
+    0 14px 28px rgba(5, 10, 16, 0.45);
 }
 
 .profile-focus-goal-detail {
   align-content: start;
-  gap: 8px;
+  min-height: auto;
+  overflow: visible;
+  gap: 12px;
+  padding: 12px 14px;
+  border-color: color-mix(in srgb, var(--accent, #5eaa3a) 32%, var(--border-light, #33404e));
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--accent, #5eaa3a) 12%, transparent), transparent 58%),
-    color-mix(in srgb, var(--bg-elevated, #171d28) 95%, transparent);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent, #5eaa3a) 20%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-elevated, #171d28) 96%, transparent) 0%, color-mix(in srgb, #0d1320 90%, transparent) 100%);
+  box-shadow: 0 12px 30px rgba(5, 8, 14, 0.38);
 }
 
 .profile-focus-goal-detail-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: 8px;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 20%, var(--border-light, #33404e));
 }
 
 .profile-focus-goal-icon-large {
@@ -9346,15 +9378,51 @@ strong.support-upvote-count {
 }
 
 .profile-focus-goal-action {
-  margin-top: 2px;
-  padding: 7px 9px;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 28%, transparent);
-  background: color-mix(in srgb, var(--accent, #5eaa3a) 9%, transparent);
+  margin-top: 4px;
+  display: grid;
+  gap: 5px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 36%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent, #5eaa3a) 16%, transparent) 0%, color-mix(in srgb, #12211b 62%, transparent) 100%);
   color: color-mix(in srgb, var(--accent, #5eaa3a) 84%, white 16%);
-  font-size: 0.76rem;
+}
+
+.profile-focus-goal-action-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.69rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--accent, #5eaa3a) 90%, white 10%);
+}
+
+.profile-focus-goal-action-label-icon {
+  width: 11px;
+  height: 11px;
+}
+
+.profile-focus-goal-action-body {
+  margin: 0;
+  font-size: 0.77rem;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.4;
+  color: var(--fg, #e9f6ec);
+  overflow-wrap: anywhere;
+}
+
+.profile-focus-goal-cards .profile-focus-card {
+  min-height: auto;
+  overflow: visible;
+}
+
+@media (max-width: 980px) {
+  .profile-focus-goal-cards {
+    grid-template-columns: 1fr;
+  }
 }
 
 .profile-popover-stats-grid {
@@ -9731,7 +9799,7 @@ strong.support-upvote-count {
   }
 
   .profile-focus-cards {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .profile-focus-goal-cards {
