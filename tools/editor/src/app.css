@@ -9312,7 +9312,8 @@ strong.support-upvote-count {
   cursor: pointer;
   min-height: auto;
   overflow: hidden;
-  gap: 7px;
+  gap: 5px;
+  padding: 8px 10px;
   border-width: 1px;
   transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
@@ -9465,7 +9466,7 @@ strong.support-upvote-count {
   margin-top: 0;
   display: grid;
   gap: 5px;
-  padding: 6px 8px;
+  padding: 7px 9px;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 36%, transparent);
   background:
@@ -9496,10 +9497,7 @@ strong.support-upvote-count {
   line-height: 1.45;
   color: var(--fg, #e9f6ec);
   overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  word-break: break-word;
 }
 
 @media (max-width: 1440px) {
@@ -9563,7 +9561,6 @@ strong.support-upvote-count {
 
 .profile-focus-goal-cards .profile-focus-card {
   min-height: auto;
-  overflow: hidden;
 }
 
 @media (max-width: 980px) {
