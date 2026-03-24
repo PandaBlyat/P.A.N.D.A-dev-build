@@ -8987,6 +8987,37 @@ strong.support-upvote-count {
   line-height: 1.15;
 }
 
+.profile-popover-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.profile-popover-name-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.profile-popover-name-badge {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border, #33404e) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-elevated, #171d28) 90%, transparent);
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
+.profile-popover-name-badge-bronze { border-color: color-mix(in srgb, #b87333 48%, transparent); }
+.profile-popover-name-badge-silver { border-color: color-mix(in srgb, #a0a8b8 48%, transparent); }
+.profile-popover-name-badge-gold { border-color: color-mix(in srgb, #c4a040 58%, transparent); }
+
 .profile-popover-title {
   font-size: 0.82rem;
 }
@@ -9179,11 +9210,32 @@ strong.support-upvote-count {
   gap: 8px;
 }
 
+.profile-focus-goal-cards {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .profile-focus-card {
   display: grid;
   gap: 6px;
   padding: 10px 12px;
   min-height: 104px;
+}
+
+.profile-focus-goal-card-bronze { border-color: color-mix(in srgb, #b87333 32%, transparent); }
+.profile-focus-goal-card-silver { border-color: color-mix(in srgb, #a0a8b8 32%, transparent); }
+.profile-focus-goal-card-gold { border-color: color-mix(in srgb, #c4a040 42%, transparent); }
+
+.profile-focus-goal-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.profile-focus-goal-icon {
+  flex-shrink: 0;
+  font-size: 0.92rem;
+  line-height: 1;
 }
 
 .profile-focus-card-primary {
@@ -9444,20 +9496,21 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-category-status {
-  min-width: 132px;
+  min-width: 100%;
   display: grid;
   gap: 6px;
-  justify-items: end;
+  justify-items: center;
+  margin-top: 6px;
 }
 
 .profile-achievement-category-count {
   font-size: 0.76rem;
-  text-align: right;
+  text-align: center;
   color: var(--fg-dim, #aab3c3);
 }
 
 .profile-achievement-category-progress {
-  width: 100%;
+  width: min(100%, 180px);
   height: 6px;
   border-radius: 999px;
   overflow: hidden;

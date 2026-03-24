@@ -206,15 +206,31 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   eyebrow.className = 'profile-popover-eyebrow';
   eyebrow.textContent = `Level ${profile.level} operative`;
 
-  const nameEl = document.createElement('div');
-  nameEl.className = 'profile-popover-name';
-  nameEl.textContent = profile.username;
-
   const titleEl = document.createElement('div');
   titleEl.className = 'profile-popover-title';
   titleEl.textContent = profile.title;
 
   const unlocked = getUnlockedAchievementIdsForProfile(profile);
+  const featuredBadges = getFeaturedAchievements(unlocked);
+  const nameRow = document.createElement('div');
+  nameRow.className = 'profile-popover-name-row';
+  const nameEl = document.createElement('div');
+  nameEl.className = 'profile-popover-name';
+  nameEl.textContent = profile.username;
+  nameRow.appendChild(nameEl);
+  if (featuredBadges.length > 0) {
+    const unlockedBadgeStrip = document.createElement('div');
+    unlockedBadgeStrip.className = 'profile-popover-name-badges';
+    featuredBadges.forEach((achievement) => {
+      const badge = document.createElement('span');
+      badge.className = `profile-popover-name-badge profile-popover-name-badge-${achievement.tier}`;
+      badge.title = `${achievement.name} · ${achievement.tier}`;
+      badge.textContent = achievement.icon;
+      unlockedBadgeStrip.appendChild(badge);
+    });
+    nameRow.appendChild(unlockedBadgeStrip);
+  }
+
   const rareUnlockedCount = getRareAchievementCount(unlocked);
   const headerHighlights = document.createElement('div');
   headerHighlights.className = 'profile-popover-header-highlights';
@@ -233,7 +249,7 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
     createHeroMetaStat('Joined', formatMemberSince(profile.created_at)),
   );
 
-  info.append(eyebrow, nameEl, titleEl, headerHighlights, metaRow);
+  info.append(eyebrow, nameRow, titleEl, headerHighlights, metaRow);
   identity.append(avatarCircle, info);
 
   header.append(identity, buildProgressSection(profile));
@@ -442,7 +458,7 @@ function getRareAchievementCount(unlockedIds: string[]): number {
   return ACHIEVEMENTS.filter(achievement => unlockedIds.includes(achievement.id) && isAchievementRare(achievement)).length;
 }
 
-function buildProfileFocusSection(profile: UserProfile): HTMLElement {
+function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
   const section = document.createElement('section');
   section.className = 'profile-focus-panel profile-surface-section';
 
@@ -453,104 +469,65 @@ function buildProfileFocusSection(profile: UserProfile): HTMLElement {
   titleWrap.className = 'profile-focus-title-wrap';
   const title = document.createElement('div');
   title.className = 'profile-popover-section-header profile-focus-title';
-  title.append(targetIcon, document.createTextNode('Recommended next move'));
+  title.append(targetIcon, document.createTextNode('Next goals'));
+
+  const unlockedIds = getUnlockedAchievementIdsForProfile(profile);
+  const nextTargets = getNextAchievementTargets(profile, unlockedIds);
+
   const subtitle = document.createElement('p');
   subtitle.className = 'profile-focus-subtitle';
+  subtitle.textContent = nextTargets.length > 0
+    ? `Suggested achievement unlocks based on your current progression (${nextTargets.length} in queue).`
+    : 'No suggested goals right now — new achievements will appear as you progress.';
   titleWrap.append(title, subtitle);
   header.appendChild(titleWrap);
 
-  const isSelfProfile = profile.publisher_id === cachedProfile?.publisher_id;
-  const missions = getProfileMissions(profile, isSelfProfile);
-  const featuredMission = missions.find(mission => !mission.completed) ?? missions[0] ?? null;
-  const completedMissions = missions.filter(mission => mission.completed).length;
-  const missionCompletionPct = missions.length > 0 ? Math.round((completedMissions / missions.length) * 100) : 0;
-  const unlockedIds = getUnlockedAchievementIdsForProfile(profile);
-  const nextTarget = getNextAchievementTargets(profile, unlockedIds)[0] ?? null;
-  const featuredBadge = getFeaturedAchievements(unlockedIds)[0] ?? null;
-  subtitle.textContent = featuredMission
-    ? `Focus now: ${featuredMission.name} · ${missionCompletionPct}% of active missions complete`
-    : 'No active objectives right now — check back after your next publish.';
-
   const cards = document.createElement('div');
-  cards.className = 'profile-focus-cards';
+  cards.className = 'profile-focus-cards profile-focus-goal-cards';
 
-  const actionCard = document.createElement('div');
-  actionCard.className = 'profile-focus-card profile-surface-card profile-focus-card-primary';
-  const actionLabel = document.createElement('div');
-  actionLabel.className = 'profile-focus-card-label';
-  actionLabel.textContent = 'Do next';
-  const actionTitle = document.createElement('div');
-  actionTitle.className = 'profile-focus-card-title';
-  actionTitle.textContent = featuredMission?.name ?? 'No missions queued';
-  const actionMeta = document.createElement('div');
-  actionMeta.className = 'profile-focus-card-meta';
-  actionMeta.textContent = featuredMission
-    ? `${featuredMission.rewardLabel ?? `+${featuredMission.xp} XP`} · ${featuredMission.progress}/${featuredMission.goal} complete`
-    : 'Open the mission board when new assignments appear.';
-  const actionDesc = document.createElement('p');
-  actionDesc.className = 'profile-focus-card-desc';
-  actionDesc.textContent = featuredMission
-    ? `${featuredMission.category} objective · ${featuredMission.slot.replace('_', ' ')} cadence`
-    : 'Mission board completions are still the fastest repeatable XP source.';
-  actionCard.append(actionLabel, actionTitle, actionMeta, actionDesc);
-
-  const badgeCard = document.createElement('div');
-  badgeCard.className = 'profile-focus-card profile-surface-card';
-  const badgeLabel = document.createElement('div');
-  badgeLabel.className = 'profile-focus-card-label';
-  badgeLabel.textContent = featuredBadge ? 'Showcase badge' : 'Badge in reach';
-  const badgeTitle = document.createElement('div');
-  badgeTitle.className = 'profile-focus-card-title';
-  badgeTitle.textContent = featuredBadge?.name ?? nextTarget?.achievement.name ?? 'More achievements soon';
-  const badgeMeta = document.createElement('div');
-  badgeMeta.className = 'profile-focus-card-meta';
-  badgeMeta.textContent = featuredBadge
-    ? `Unlocked · ${featuredBadge.tier} · +${featuredBadge.xp} XP`
-    : nextTarget
-      ? `${ACHIEVEMENT_CATEGORY_LABELS[nextTarget.achievement.category]} · ${nextTarget.achievement.tier} · +${nextTarget.achievement.xp} XP`
-      : 'Keep exploring the Zone.';
-  const badgeDesc = document.createElement('p');
-  badgeDesc.className = 'profile-focus-card-desc';
-  badgeDesc.textContent = featuredBadge
-    ? featuredBadge.description
-    : nextTarget?.reason ?? 'Keep publishing to surface new recommended achievements.';
-  badgeCard.append(badgeLabel, badgeTitle, badgeMeta, badgeDesc);
-
-  const rankCard = document.createElement('div');
-  rankCard.className = 'profile-focus-card profile-surface-card';
-  const rankLabel = document.createElement('div');
-  rankLabel.className = 'profile-focus-card-label';
-  rankLabel.textContent = 'Community standing';
-  const rankTitle = document.createElement('div');
-  rankTitle.className = 'profile-focus-card-title';
-  rankTitle.textContent = 'Loading rank…';
-  const rankMeta = document.createElement('div');
-  rankMeta.className = 'profile-focus-card-meta';
-  rankMeta.textContent = 'Fetching leaderboard snapshot';
-  const rankDesc = document.createElement('p');
-  rankDesc.className = 'profile-focus-card-desc';
-  rankDesc.textContent = 'Weekly consistency and reactions are the main rank drivers.';
-  rankCard.append(rankLabel, rankTitle, rankMeta, rankDesc);
-
-  const updateRankCard = (entries: LeaderboardEntry[]) => {
-    const rank = entries.findIndex(entry => entry.publisher_id === profile.publisher_id);
-    const nearestAbove = rank > 0 ? entries[rank - 1] : null;
-    rankTitle.textContent = rank >= 0 ? `#${rank + 1} in the Zone` : 'Unranked for now';
-    rankMeta.textContent = rank >= 0
-      ? `${profile.xp.toLocaleString()} XP${nearestAbove ? ` · ${Math.max(nearestAbove.xp - profile.xp, 0).toLocaleString()} XP to pass ${nearestAbove.username}` : ' · holding the top spot'}`
-      : `${profile.xp.toLocaleString()} XP · publish and earn reactions to climb`;
-  };
-
-  if (leaderboardCache) {
-    updateRankCard(leaderboardCache);
+  if (nextTargets.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'profile-focus-card profile-surface-card';
+    const emptyLabel = document.createElement('div');
+    emptyLabel.className = 'profile-focus-card-label';
+    emptyLabel.textContent = 'No goals queued';
+    const emptyTitle = document.createElement('div');
+    emptyTitle.className = 'profile-focus-card-title';
+    emptyTitle.textContent = 'You are caught up';
+    const emptyDesc = document.createElement('p');
+    emptyDesc.className = 'profile-focus-card-desc';
+    emptyDesc.textContent = 'Publish, complete missions, or keep your streak alive to surface fresh targets.';
+    empty.append(emptyLabel, emptyTitle, emptyDesc);
+    cards.appendChild(empty);
   } else {
-    void fetchLeaderboard(10).then((entries) => {
-      leaderboardCache = entries;
-      updateRankCard(entries);
+    nextTargets.slice(0, 3).forEach(({ achievement, reason }) => {
+      const goalCard = document.createElement('div');
+      goalCard.className = `profile-focus-card profile-surface-card profile-focus-goal-card profile-focus-goal-card-${achievement.tier}`;
+      goalCard.title = `${achievement.name} — ${achievement.description}`;
+
+      const goalTop = document.createElement('div');
+      goalTop.className = 'profile-focus-goal-top';
+      const goalIcon = document.createElement('span');
+      goalIcon.className = 'profile-focus-goal-icon';
+      goalIcon.textContent = achievement.icon;
+      const goalTitle = document.createElement('div');
+      goalTitle.className = 'profile-focus-card-title';
+      goalTitle.textContent = achievement.name;
+      goalTop.append(goalIcon, goalTitle);
+
+      const goalMeta = document.createElement('div');
+      goalMeta.className = 'profile-focus-card-meta';
+      goalMeta.textContent = `${ACHIEVEMENT_CATEGORY_LABELS[achievement.category]} · ${achievement.tier} · +${achievement.xp} XP`;
+
+      const goalDesc = document.createElement('p');
+      goalDesc.className = 'profile-focus-card-desc';
+      goalDesc.textContent = reason;
+
+      goalCard.append(goalTop, goalMeta, goalDesc);
+      cards.appendChild(goalCard);
     });
   }
 
-  cards.append(actionCard, badgeCard, rankCard);
   section.append(header, cards);
   return section;
 }
@@ -671,87 +648,6 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
   const featuredStrip = buildFeaturedBadgeStrip(unlocked);
   if (featuredStrip) section.appendChild(featuredStrip);
 
-  const nextTargets = getNextAchievementTargets(profile, unlocked);
-  if (nextTargets.length > 0) {
-    const nextSection = document.createElement('details');
-    nextSection.className = 'profile-achievement-next';
-
-    const nextHeader = document.createElement('summary');
-    nextHeader.className = 'profile-achievement-next-summary profile-surface-row';
-
-    const nextHeaderCopy = document.createElement('div');
-    nextHeaderCopy.className = 'profile-achievement-next-summary-copy';
-
-    const nextHeaderTitle = document.createElement('span');
-    nextHeaderTitle.className = 'profile-achievement-mini-header';
-    nextHeaderTitle.textContent = 'Next goals';
-
-    const nextHeaderMeta = document.createElement('span');
-    nextHeaderMeta.className = 'profile-achievement-next-summary-meta';
-    nextHeaderMeta.textContent = `${nextTargets.length} suggested`;
-
-    nextHeaderCopy.append(nextHeaderTitle, nextHeaderMeta);
-    nextHeader.appendChild(nextHeaderCopy);
-    nextSection.appendChild(nextHeader);
-
-    const nextList = document.createElement('div');
-    nextList.className = 'profile-achievement-next-list';
-
-    nextTargets.forEach(({ achievement, reason }) => {
-      const card = document.createElement('div');
-      card.className = `profile-achievement-next-card profile-surface-card profile-achievement-next-card-${achievement.tier}`;
-      card.title = `${achievement.name} — ${achievement.description}`;
-
-      const topRow = document.createElement('div');
-      topRow.className = 'profile-achievement-next-top';
-
-      const icon = document.createElement('span');
-      icon.className = 'profile-achievement-next-icon';
-      icon.textContent = achievement.icon;
-
-      const copy = document.createElement('div');
-      copy.className = 'profile-achievement-next-copy';
-
-      const name = document.createElement('div');
-      name.className = 'profile-achievement-next-name';
-      name.textContent = achievement.name;
-
-      const meta = document.createElement('div');
-      meta.className = 'profile-achievement-next-meta';
-      meta.textContent = `${ACHIEVEMENT_CATEGORY_LABELS[achievement.category]} · ${achievement.tier} · +${achievement.xp} XP`;
-
-      const desc = document.createElement('div');
-      desc.className = 'profile-achievement-next-desc';
-      desc.textContent = reason;
-
-      copy.append(name, meta, desc);
-      topRow.append(icon, copy);
-      card.appendChild(topRow);
-      nextList.appendChild(card);
-    });
-
-    nextSection.appendChild(nextList);
-    section.appendChild(nextSection);
-  }
-
-  const categoryOverview = document.createElement('div');
-  categoryOverview.className = 'profile-achievement-overview-grid';
-  ACHIEVEMENT_CATEGORY_ORDER.forEach((category: AchievementCategory) => {
-    const categoryAchievements = getAchievementsByCategory(category);
-    const unlockedCount = categoryAchievements.filter(achievement => unlocked.includes(achievement.id)).length;
-    const card = document.createElement('div');
-    card.className = 'profile-achievement-overview-card profile-surface-row';
-    const label = document.createElement('span');
-    label.className = 'profile-achievement-overview-label';
-    label.textContent = ACHIEVEMENT_CATEGORY_LABELS[category];
-    const value = document.createElement('span');
-    value.className = 'profile-achievement-overview-value';
-    value.textContent = `${unlockedCount}/${categoryAchievements.length}`;
-    card.append(label, value);
-    categoryOverview.appendChild(card);
-  });
-  section.appendChild(categoryOverview);
-
   const categoryGrid = document.createElement('div');
   categoryGrid.className = 'profile-achievement-category-grid';
 
@@ -803,8 +699,8 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
     categoryProgress.appendChild(categoryProgressFill);
     categoryStatus.append(categoryProgress, categoryCount);
 
-    categoryHeader.append(categoryTitle, categoryStatus);
-    categorySummary.appendChild(categoryHeader);
+    categoryHeader.appendChild(categoryTitle);
+    categorySummary.append(categoryHeader, categoryStatus);
     categoryDetails.appendChild(categorySummary);
     categoryDetails.open = unlockedCount > 0;
 
@@ -1090,7 +986,7 @@ function buildSelfProfileContent(profile: UserProfile): HTMLElement {
 
   const heroRow = document.createElement('div');
   heroRow.className = 'profile-popover-hero-row';
-  heroRow.append(buildProfileHeader(profile), buildProfileFocusSection(profile));
+  heroRow.append(buildProfileHeader(profile), buildNextGoalsPanel(profile));
 
   const actionRow = document.createElement('div');
   actionRow.className = 'profile-popover-dashboard-grid';
