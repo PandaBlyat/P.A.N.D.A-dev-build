@@ -9204,6 +9204,11 @@ strong.support-upvote-count {
   color: var(--fg-dim, #aab3c3);
 }
 
+.profile-focus-subtitle-hint {
+  color: color-mix(in srgb, var(--accent, #5eaa3a) 72%, white 28%);
+  font-weight: 600;
+}
+
 .profile-focus-cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -9290,6 +9295,7 @@ strong.support-upvote-count {
   min-height: auto;
   overflow: visible;
   gap: 7px;
+  border-width: 1px;
   transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 
@@ -9301,9 +9307,17 @@ strong.support-upvote-count {
 }
 
 .profile-focus-goal-queue-item .profile-focus-card-meta {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.profile-focus-goal-queue-hint {
+  margin-top: 2px;
+  font-size: 0.69rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent, #5eaa3a) 74%, white 26%);
+  font-weight: 700;
 }
 
 .profile-focus-goal-queue-item:hover,
@@ -9377,6 +9391,47 @@ strong.support-upvote-count {
   color: var(--fg-dim, #bcc6d4);
 }
 
+.profile-focus-goal-progress {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.profile-focus-goal-progress-label,
+.profile-focus-goal-progress-value {
+  font-size: 0.69rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--fg-dim, #b7c0ce) 84%, white 16%);
+}
+
+.profile-focus-goal-progress-value {
+  justify-self: end;
+  color: color-mix(in srgb, var(--accent, #5eaa3a) 84%, white 16%);
+}
+
+.profile-focus-goal-progress-track {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-elevated, #171d28) 76%, #0a0f16 24%);
+  border: 1px solid color-mix(in srgb, var(--border-light, #33404e) 78%, transparent);
+  overflow: hidden;
+}
+
+.profile-focus-goal-progress-bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent, #5eaa3a) 84%, #2de28f 16%), color-mix(in srgb, var(--accent, #5eaa3a) 58%, #6fffb0 42%));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent, #5eaa3a) 56%, transparent);
+  transition: width 180ms ease;
+}
+
 .profile-focus-goal-action {
   margin-top: 4px;
   display: grid;
@@ -9412,6 +9467,59 @@ strong.support-upvote-count {
   line-height: 1.4;
   color: var(--fg, #e9f6ec);
   overflow-wrap: anywhere;
+}
+
+.profile-focus-goal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.profile-focus-goal-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--border-light, #33404e) 88%, transparent);
+  background: color-mix(in srgb, var(--bg-elevated, #171d28) 90%, transparent);
+  color: var(--fg, #dbe4f0);
+  font-size: 0.71rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+
+.profile-focus-goal-nav-btn svg {
+  width: 11px;
+  height: 11px;
+}
+
+.profile-focus-goal-nav-btn:hover,
+.profile-focus-goal-nav-btn:focus-visible {
+  border-color: color-mix(in srgb, var(--accent, #5eaa3a) 54%, var(--border-light, #33404e));
+  background: color-mix(in srgb, var(--accent, #5eaa3a) 14%, var(--bg-elevated, #171d28));
+  transform: translateY(-1px);
+}
+
+.profile-focus-goal-nav-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+}
+
+.profile-focus-goal-nav-counter {
+  flex: 1;
+  text-align: center;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--fg-dim, #aab3c3) 90%, white 10%);
+  font-weight: 700;
 }
 
 .profile-focus-goal-cards .profile-focus-card {
