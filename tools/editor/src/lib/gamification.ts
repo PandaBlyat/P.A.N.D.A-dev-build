@@ -37,11 +37,13 @@ export const ACHIEVEMENT_CATEGORY_LABELS: Record<AchievementCategory, string> = 
 };
 
 export type AchievementId =
-  | 'profile_seeded'
+  | 'first_patrol'
   | 'login_streak_1'
   | 'challenge_apprentice'
+  | 'mission_apprentice'
   | 'first_publish'
   | 'branching_out'
+  | 'story_weaver'
   | 'web_of_lies'
   | 'new_faction_scout'
   | 'faction_diplomat'
@@ -50,6 +52,7 @@ export type AchievementId =
   | 'uncommon_operator'
   | 'popular_stalker'
   | 'first_upvote_received'
+  | 'rising_signal'
   | 'community_favorite'
   | 'crowd_pleaser'
   | 'upvote_wave'
@@ -58,6 +61,7 @@ export type AchievementId =
   | 'outcome_engineer'
   | 'branch_architect'
   | 'precondition_master'
+  | 'precondition_tactician'
   | 'quality_crafter'
   | 'systems_polymath'
   | 'clean_publish_streak'
@@ -67,6 +71,7 @@ export type AchievementId =
   | 'streak_3'
   | 'streak_10'
   | 'bronze_complete'
+  | 'onboarding_complete'
   | 'silver_complete'
   | 'faction_complete'
   | 'night_shift'
@@ -85,11 +90,13 @@ export type Achievement = {
 };
 
 export const ACHIEVEMENTS: Achievement[] = [
-  { id: 'profile_seeded', name: 'Profile Seeded', description: 'Create your stalker profile', xp: 15, icon: '\u{1F9ED}', tier: 'bronze', category: 'onboarding', featured: true },
+  { id: 'first_patrol', name: 'First Patrol', description: 'Publish 2 conversations to establish your workflow', xp: 20, icon: '\u{1F6B6}', tier: 'bronze', category: 'onboarding', featured: true },
   { id: 'login_streak_1', name: 'Checking the PDA', description: 'Hit your first daily login streak milestone', xp: 20, icon: '\u{1F4F1}', tier: 'bronze', category: 'onboarding' },
   { id: 'challenge_apprentice', name: 'Challenge Accepted', description: 'Complete your first mission board challenge', xp: 30, icon: '\u{1F3AF}', tier: 'bronze', category: 'onboarding', featured: true },
+  { id: 'mission_apprentice', name: 'Mission Cadet', description: 'Complete 3 mission board challenges', xp: 45, icon: '\u{1F9ED}', tier: 'silver', category: 'onboarding' },
 
   { id: 'first_upvote_received', name: 'Signal Received', description: 'Earn your first community upvote', xp: 20, icon: '\u{1F44D}', tier: 'bronze', category: 'social' },
+  { id: 'rising_signal', name: 'Rising Signal', description: 'Receive 10 total upvotes', xp: 45, icon: '\u{1F4E3}', tier: 'bronze', category: 'social' },
   { id: 'upvote_wave', name: 'Signal Boost', description: 'Collect 10 upvotes in a single week', xp: 60, icon: '\u{1F4E1}', tier: 'silver', category: 'social' },
   { id: 'profile_spotlight', name: 'Eyes on You', description: 'Reach your first profile view milestone', xp: 45, icon: '\u{1F441}', tier: 'silver', category: 'social' },
   { id: 'popular_stalker', name: 'Popular Stalker', description: 'Receive 50 total downloads', xp: 100, icon: '\u{1F4E5}', tier: 'silver', category: 'social' },
@@ -98,6 +105,7 @@ export const ACHIEVEMENTS: Achievement[] = [
 
   { id: 'first_publish', name: 'First Steps', description: 'Publish your first conversation', xp: 25, icon: '\u{1F4AC}', tier: 'bronze', category: 'discovery', featured: true },
   { id: 'branching_out', name: 'Branching Out', description: 'Publish a conversation with 5+ branches', xp: 30, icon: '\u{1F333}', tier: 'bronze', category: 'discovery' },
+  { id: 'story_weaver', name: 'Story Weaver', description: 'Publish a conversation with 15+ turns', xp: 70, icon: '\u{1F9F5}', tier: 'gold', category: 'discovery' },
   { id: 'cartographer', name: 'Cartographer', description: 'Publish 5 conversations', xp: 65, icon: '\u{1F5FA}', tier: 'silver', category: 'discovery' },
   { id: 'web_of_lies', name: 'Web of Lies', description: 'Publish a conversation with 10+ turns', xp: 40, icon: '\u{1F578}', tier: 'silver', category: 'discovery' },
   { id: 'new_faction_scout', name: 'New Ground', description: 'Publish in a new faction for the first time', xp: 35, icon: '\u{1F9ED}', tier: 'bronze', category: 'discovery' },
@@ -109,6 +117,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'outcome_engineer', name: 'Outcome Engineer', description: 'Use 4+ different outcome types in one conversation', xp: 50, icon: '\u{2699}', tier: 'silver', category: 'mastery' },
   { id: 'branch_architect', name: 'Branch Architect', description: 'Publish a conversation with 8+ branches', xp: 70, icon: '\u{1F332}', tier: 'silver', category: 'mastery' },
   { id: 'precondition_master', name: 'Precondition Master', description: 'Use 5+ preconditions in one conversation', xp: 50, icon: '\u{1F512}', tier: 'silver', category: 'mastery' },
+  { id: 'precondition_tactician', name: 'Condition Tactician', description: 'Use 8+ preconditions in one conversation', xp: 95, icon: '\u{1F3AF}', tier: 'gold', category: 'mastery' },
   { id: 'quality_crafter', name: 'Quality Crafter', description: 'Publish a 5-star quality conversation', xp: 75, icon: '\u{1F48E}', tier: 'silver', category: 'mastery', featured: true },
   { id: 'systems_polymath', name: 'Systems Polymath', description: 'Show strong variety across outcomes and preconditions in one publish', xp: 85, icon: '\u{1F9E0}', tier: 'gold', category: 'mastery' },
   { id: 'clean_publish_streak', name: 'Clean Hands', description: 'Chain together validation-clean publishes', xp: 90, icon: '\u{1F9FC}', tier: 'gold', category: 'mastery' },
@@ -119,6 +128,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'streak_10', name: 'Zone Regular', description: 'Maintain a 10-week publish streak', xp: 500, icon: '\u{1F31F}', tier: 'gold', category: 'mastery', featured: true },
 
   { id: 'bronze_complete', name: 'Bronze Circuit', description: 'Unlock every bronze achievement', xp: 120, icon: '\u{1F9F1}', tier: 'silver', category: 'collection' },
+  { id: 'onboarding_complete', name: 'Onboarding Circuit', description: 'Unlock every onboarding achievement', xp: 140, icon: '\u{1F6E0}', tier: 'silver', category: 'collection' },
   { id: 'silver_complete', name: 'Silver Circuit', description: 'Unlock every silver achievement', xp: 220, icon: '\u{1F48D}', tier: 'gold', category: 'collection', featured: true },
   { id: 'faction_complete', name: 'Faction Cabinet', description: 'Unlock every faction-focused achievement', xp: 180, icon: '\u{1F5C3}', tier: 'gold', category: 'collection' },
 
@@ -610,6 +620,7 @@ function createMilestoneMission(slot: MissionSlot, name: string, description: st
 const DAILY_EASY_MISSIONS: MissionDefinition[] = [
   createPublishIncrementer('daily_easy', 'Warm-Up Publish', 'Publish 1 conversation today.', 15, 1),
   createPreconditionMission('daily_easy', 'Light Setup', 'Use at least 1 precondition in a published conversation today.', 15, 1),
+  createUniqueOutcomeMission('daily_easy', 'Quick Mix', 'Use 1 outcome type in a published conversation today.', 15, 1),
   createMilestoneMission('daily_easy', 'First Signal', 'Receive 1 upvote on your published work today.', 20, 1, 'upvote_received'),
   createMilestoneMission('daily_easy', 'Field Intel', 'Reach 5 total downloads on your published work today.', 20, 5, 'download_milestone_reached'),
 ];
@@ -618,6 +629,7 @@ const DAILY_MEDIUM_MISSIONS: MissionDefinition[] = [
   createPublishIncrementer('daily_medium', 'Active Patrol', 'Publish 2 conversations today.', 30, 2),
   createUniqueFactionMission('daily_medium', 'Cross-Faction Contact', 'Publish conversations for 2 different factions today.', 35, 2),
   createUniqueOutcomeMission('daily_medium', 'Outcome Variety', 'Use 2 different outcome types across your published conversations today.', 35, 2),
+  createPreconditionMission('daily_medium', 'Prepared Route', 'Use 3 preconditions across your published conversations today.', 35, 3),
   createMilestoneMission('daily_medium', 'Audience Pickup', 'Reach 10 total downloads on your published work today.', 35, 10, 'download_milestone_reached'),
 ];
 
@@ -626,12 +638,15 @@ const DAILY_HARD_MISSIONS: MissionDefinition[] = [
   createUniqueFactionMission('daily_hard', 'Zone Tour', 'Publish conversations for 3 different factions today.', 55, 3),
   createUniqueOutcomeMission('daily_hard', 'Systems Engineer', 'Use 4 different outcome types across your published conversations today.', 55, 4),
   createPreconditionMission('daily_hard', 'Condition Stack', 'Hit 5 preconditions in a published conversation today.', 55, 5),
+  createMilestoneMission('daily_hard', 'Crowd Checkpoint', 'Reach 3 total upvotes on your published work today.', 60, 3, 'upvote_received'),
 ];
 
 const WEEKLY_MISSIONS: MissionDefinition[] = [
   createPublishIncrementer('weekly', 'Weekly Output', 'Publish 5 conversations this week.', 90, 5),
+  createPublishIncrementer('weekly', 'Weekly Surge', 'Publish 8 conversations this week.', 120, 8),
   createUniqueFactionMission('weekly', 'Multi-Front Campaign', 'Publish conversations for 4 different factions this week.', 100, 4),
   createUniqueOutcomeMission('weekly', 'Outcome Arsenal', 'Use 6 different outcome types across your published conversations this week.', 100, 6),
+  createPreconditionMission('weekly', 'Preparation Doctrine', 'Reach 12 total preconditions across your published conversations this week.', 110, 12),
   createMilestoneMission('weekly', 'Community Momentum', 'Reach 25 total downloads on your published work this week.', 100, 25, 'download_milestone_reached'),
   createMilestoneMission('weekly', 'Community Favorite Push', 'Reach 5 total upvotes on your published work this week.', 100, 5, 'upvote_received'),
 ];
@@ -938,6 +953,7 @@ export function evaluatePublishGamification(
   const outcomeTypes = [...new Set(allOutcomes.map(o => o.command))];
   const quality = calculateQualityScore(conversation);
   const uniqueFactionCount = new Set(publishedFactions).size;
+  const loginStreak = getLoginStreak().currentStreak;
   const uncommonOutcomeTypes = new Set([
     'spawn_squad_at_smart',
     'spawn_companion_at_smart',
@@ -951,8 +967,11 @@ export function evaluatePublishGamification(
   const currentHour = new Date().getHours();
 
   const checks: Array<{ id: AchievementId; condition: boolean }> = [
+    { id: 'first_patrol', condition: publishCount >= 2 },
+    { id: 'login_streak_1', condition: loginStreak >= 1 },
     { id: 'first_publish', condition: publishCount >= 1 },
     { id: 'branching_out', condition: branchCount >= 5 },
+    { id: 'story_weaver', condition: branchCount >= 15 },
     { id: 'web_of_lies', condition: branchCount >= 10 },
     { id: 'new_faction_scout', condition: uniqueFactionCount >= 2 },
     { id: 'faction_diplomat', condition: uniqueFactionCount >= 3 },
@@ -960,12 +979,14 @@ export function evaluatePublishGamification(
     { id: 'night_shift', condition: currentHour <= 4 },
     { id: 'popular_stalker', condition: totalDownloads >= 50 },
     { id: 'first_upvote_received', condition: totalUpvotes >= 1 },
+    { id: 'rising_signal', condition: totalUpvotes >= 10 },
     { id: 'community_favorite', condition: totalUpvotes >= 25 },
     { id: 'crowd_pleaser', condition: totalUpvotes >= 75 },
     { id: 'outcome_engineer', condition: outcomeTypes.length >= 4 },
     { id: 'branch_architect', condition: branchCount >= 8 },
     { id: 'uncommon_operator', condition: outcomeTypes.some(type => uncommonOutcomeTypes.has(type)) },
     { id: 'precondition_master', condition: conversation.preconditions.length >= 5 },
+    { id: 'precondition_tactician', condition: conversation.preconditions.length >= 8 },
     { id: 'systems_polymath', condition: outcomeTypes.length >= 4 && conversation.preconditions.length >= 3 },
     { id: 'cartographer', condition: publishCount >= 5 },
     { id: 'prolific_writer', condition: publishCount >= 10 },
@@ -1015,13 +1036,6 @@ export function evaluatePublishGamification(
     rawBonusXp += achievement.xp;
     unlockedAfterChecks.add(id);
   };
-  const visibleBronzeIds = ACHIEVEMENTS.filter(achievement => achievement.tier === 'bronze' && !achievement.hidden).map(achievement => achievement.id);
-  const visibleSilverIds = ACHIEVEMENTS.filter(achievement => achievement.tier === 'silver' && !achievement.hidden).map(achievement => achievement.id);
-  const factionAchievementIds: AchievementId[] = ['new_faction_scout', 'faction_diplomat', 'zone_encyclopedist'];
-  queueCollectionAchievement('bronze_complete', visibleBronzeIds.every(id => unlockedAfterChecks.has(id)));
-  queueCollectionAchievement('silver_complete', visibleSilverIds.every(id => unlockedAfterChecks.has(id)));
-  queueCollectionAchievement('faction_complete', factionAchievementIds.every(id => unlockedAfterChecks.has(id)));
-
   // ── Mission Progress ──
   const missionResults = buildMissionEventsFromPublish(conversation).reduce<MissionProgressResult>((aggregate, event) => {
     const result = evaluateMissionProgress(event);
@@ -1046,6 +1060,19 @@ export function evaluatePublishGamification(
     xpAwarded: 0,
   });
   rawBonusXp += missionResults.xpAwarded;
+
+  const completedMissionCount = getMissionRecords().filter((record) => Boolean(record.completed_at)).length;
+  queueCollectionAchievement('challenge_apprentice', completedMissionCount >= 1);
+  queueCollectionAchievement('mission_apprentice', completedMissionCount >= 3);
+
+  const visibleBronzeIds = ACHIEVEMENTS.filter(achievement => achievement.tier === 'bronze' && !achievement.hidden).map(achievement => achievement.id);
+  const visibleSilverIds = ACHIEVEMENTS.filter(achievement => achievement.tier === 'silver' && !achievement.hidden).map(achievement => achievement.id);
+  const factionAchievementIds: AchievementId[] = ['new_faction_scout', 'faction_diplomat', 'zone_encyclopedist'];
+  const onboardingAchievementIds: AchievementId[] = ['first_patrol', 'login_streak_1', 'challenge_apprentice', 'mission_apprentice'];
+  queueCollectionAchievement('bronze_complete', visibleBronzeIds.every(id => unlockedAfterChecks.has(id)));
+  queueCollectionAchievement('onboarding_complete', onboardingAchievementIds.every(id => unlockedAfterChecks.has(id)));
+  queueCollectionAchievement('silver_complete', visibleSilverIds.every(id => unlockedAfterChecks.has(id)));
+  queueCollectionAchievement('faction_complete', factionAchievementIds.every(id => unlockedAfterChecks.has(id)));
 
   // ── Quality Score ──
   const qualityMultiplier = getQualityMultiplier(quality.totalStars);

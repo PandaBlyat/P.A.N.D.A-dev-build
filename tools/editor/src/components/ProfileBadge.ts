@@ -520,10 +520,12 @@ type AchievementProgress = {
 
 function getAchievementIconName(achievementId: Achievement['id']): IconName {
   switch (achievementId) {
-    case 'profile_seeded': return 'user';
+    case 'first_patrol': return 'export';
     case 'login_streak_1': return 'clock';
     case 'challenge_apprentice': return 'target';
+    case 'mission_apprentice': return 'target';
     case 'first_upvote_received': return 'sparkle';
+    case 'rising_signal': return 'share';
     case 'upvote_wave': return 'share';
     case 'profile_spotlight': return 'eye';
     case 'popular_stalker': return 'download';
@@ -531,6 +533,7 @@ function getAchievementIconName(achievementId: Achievement['id']): IconName {
     case 'crowd_pleaser': return 'trophy';
     case 'first_publish': return 'export';
     case 'branching_out': return 'target';
+    case 'story_weaver': return 'brand';
     case 'cartographer': return 'locate';
     case 'web_of_lies': return 'share';
     case 'new_faction_scout': return 'sparkle';
@@ -541,6 +544,7 @@ function getAchievementIconName(achievementId: Achievement['id']): IconName {
     case 'outcome_engineer': return 'support';
     case 'branch_architect': return 'brand';
     case 'precondition_master': return 'shield';
+    case 'precondition_tactician': return 'shield';
     case 'quality_crafter': return 'medal';
     case 'systems_polymath': return 'database';
     case 'clean_publish_streak': return 'check';
@@ -550,6 +554,7 @@ function getAchievementIconName(achievementId: Achievement['id']): IconName {
     case 'streak_3': return 'flame';
     case 'streak_10': return 'flame';
     case 'bronze_complete': return 'medal';
+    case 'onboarding_complete': return 'medal';
     case 'silver_complete': return 'medal';
     case 'faction_complete': return 'database';
     case 'night_shift': return 'clock';
@@ -568,6 +573,7 @@ function getAchievementProgress(profile: UserProfile, unlockedIds: string[], ach
   const publishCount = profile.publisher_id === cachedProfile?.publisher_id ? (publishCountCache ?? 0) : 0;
   const loginStreak = profile.streaks?.login_streak ?? (profile.publisher_id === cachedProfile?.publisher_id ? getLoginStreak().currentStreak : 0);
   const publishStreak = profile.streaks?.publish_streak ?? (profile.publisher_id === cachedProfile?.publisher_id ? getStreakData().currentStreak : 0);
+  const completedMissionCount = (profile.missions ?? []).filter((mission) => Boolean(mission.completed_at)).length;
   const unlockedCount = unlockedIds.length;
 
   const completion = (current: number, goal: number): AchievementProgress => ({
@@ -577,11 +583,15 @@ function getAchievementProgress(profile: UserProfile, unlockedIds: string[], ach
   });
 
   switch (achievementId) {
+    case 'first_patrol': return completion(publishCount, 2);
     case 'first_publish': return completion(publishCount, 1);
+    case 'story_weaver': return completion(0, 1);
     case 'cartographer': return completion(publishCount, 5);
     case 'prolific_writer': return completion(publishCount, 10);
     case 'zone_veteran': return completion(publishCount, 50);
     case 'login_streak_1': return completion(loginStreak, 1);
+    case 'challenge_apprentice': return completion(completedMissionCount, 1);
+    case 'mission_apprentice': return completion(completedMissionCount, 3);
     case 'streak_3': return completion(publishStreak, 3);
     case 'streak_10': return completion(publishStreak, 10);
     case 'bronze_complete': {
@@ -600,6 +610,11 @@ function getAchievementProgress(profile: UserProfile, unlockedIds: string[], ach
         .filter((id) => unlockedIds.includes(id))
         .length;
       return completion(factionUnlocked, factionTotal);
+    }
+    case 'onboarding_complete': {
+      const onboardingIds = ['first_patrol', 'login_streak_1', 'challenge_apprentice', 'mission_apprentice'];
+      const onboardingUnlocked = onboardingIds.filter((id) => unlockedIds.includes(id)).length;
+      return completion(onboardingUnlocked, onboardingIds.length);
     }
     default:
       return {
@@ -872,12 +887,18 @@ function getGoalActionHint(achievementId: Achievement['id'], profile: UserProfil
   const unlockedCount = getUnlockedAchievementIdsForProfile(profile).length;
 
   switch (achievementId) {
+    case 'first_patrol':
+      return publishCount >= 2 ? 'Momentum check: your publishing cadence already clears this goal.' : 'Action: publish two conversations to lock in your onboarding momentum.';
     case 'first_publish':
       return publishCount > 0 ? 'Momentum check: you already published — keep stacking discovery goals.' : 'Action: publish one conversation to unlock this immediately.';
     case 'login_streak_1':
       return loginStreak > 0 ? `Momentum check: ${loginStreak}-day login streak already active.` : 'Action: return tomorrow to kick off your streak.';
     case 'streak_3':
       return publishStreak > 0 ? `Momentum check: currently on a ${publishStreak}-week publish streak.` : 'Action: publish weekly to start your streak ladder.';
+    case 'challenge_apprentice':
+      return 'Action: finish any active mission board card to unlock this onboarding milestone.';
+    case 'mission_apprentice':
+      return 'Action: complete three mission cards (daily or weekly) to finish this tier.';
     case 'bronze_complete':
       return `Action: focus on bronze goals first (${unlockedCount} total achievements unlocked so far).`;
     default:
@@ -891,12 +912,16 @@ function getNextAchievementTargets(profile: UserProfile, unlockedIds: string[]):
   const publishCount = profile.publisher_id === cachedProfile?.publisher_id ? (publishCountCache ?? 0) : 0;
   const lockedVisible = getVisibleAchievementCatalog().filter((achievement) => !unlockedIds.includes(achievement.id));
   const isLikelyAlreadyDone = (achievementId: Achievement['id']): boolean => {
+    const completedMissionCount = (profile.missions ?? []).filter((mission) => Boolean(mission.completed_at)).length;
     switch (achievementId) {
+      case 'first_patrol': return publishCount >= 2;
       case 'first_publish': return publishCount >= 1;
       case 'cartographer': return publishCount >= 5;
       case 'prolific_writer': return publishCount >= 10;
       case 'zone_veteran': return publishCount >= 50;
       case 'login_streak_1': return loginStreak >= 1;
+      case 'challenge_apprentice': return completedMissionCount >= 1;
+      case 'mission_apprentice': return completedMissionCount >= 3;
       case 'streak_3': return publishStreak >= 3;
       case 'streak_10': return publishStreak >= 10;
       default: return false;
@@ -904,14 +929,17 @@ function getNextAchievementTargets(profile: UserProfile, unlockedIds: string[]):
   };
 
   const hints = new Map<string, { score: number; reason: string }>([
-    ['profile_seeded', { score: 100, reason: 'One-time setup win that anchors the onboarding track.' }],
+    ['first_patrol', { score: publishCount >= 1 ? 97 : 84, reason: publishCount >= 1 ? 'One more publish secures a strong onboarding foothold.' : 'Two publishes establish your baseline operating rhythm.' }],
     ['login_streak_1', { score: loginStreak > 0 ? 96 : 82, reason: loginStreak > 0 ? `You already have a ${loginStreak}-day login streak going.` : 'A quick streak milestone is one return visit away.' }],
     ['challenge_apprentice', { score: 95, reason: 'Mission board completions are meant to be an early momentum builder.' }],
+    ['mission_apprentice', { score: 90, reason: 'Stacking three mission clears gives reliable XP and unlock pacing.' }],
     ['first_upvote_received', { score: 88, reason: 'A single community reaction unlocks your first social badge.' }],
+    ['rising_signal', { score: 84, reason: 'Ten upvotes is a realistic social step before higher-tier crowd goals.' }],
     ['profile_spotlight', { score: 78, reason: 'Featured badges and activity make profile milestones easier to hit.' }],
     ['crowd_pleaser', { score: 72, reason: 'Sustained upvotes lock in one of the strongest social badges.' }],
     ['first_publish', { score: publishCount === 0 ? 99 : 5, reason: publishCount === 0 ? 'Your first publish unlocks discovery progression immediately.' : 'Already completed in your publish history.' }],
     ['branching_out', { score: 90, reason: 'A five-branch conversation is the fastest visible discovery target.' }],
+    ['story_weaver', { score: 76, reason: 'A deep 15-turn conversation unlocks a standout discovery milestone.' }],
     ['cartographer', { score: publishCount >= 2 ? 88 : 58, reason: 'Five publishes gives you durable catalog momentum and unlocks discovery progression.' }],
     ['new_faction_scout', { score: publishCount > 0 ? 92 : 72, reason: publishCount > 0 ? 'Publishing in a fresh faction broadens your discovery set.' : 'After your first publish, try a second faction for quick breadth.' }],
     ['faction_diplomat', { score: publishCount >= 2 ? 84 : 60, reason: 'Three factions is a clear medium-term route into collection badges.' }],
@@ -919,6 +947,7 @@ function getNextAchievementTargets(profile: UserProfile, unlockedIds: string[]):
     ['outcome_engineer', { score: 89, reason: 'Mixing four outcome types is an approachable mastery target.' }],
     ['branch_architect', { score: 84, reason: 'An eight-branch structure is a clean midpoint between basic and expert conversation depth.' }],
     ['precondition_master', { score: 86, reason: 'Adding layered preconditions strengthens systemic depth.' }],
+    ['precondition_tactician', { score: 77, reason: 'Pushing to eight preconditions sharpens complex scenario control.' }],
     ['quality_crafter', { score: 80, reason: 'A polished five-star publish is a strong mastery milestone.' }],
     ['systems_polymath', { score: 74, reason: 'Outcome and precondition variety together unlock a rare mastery badge.' }],
     ['streak_3', { score: publishStreak > 0 ? 87 : 68, reason: publishStreak > 0 ? `Your ${publishStreak}-week publish streak can grow into this badge.` : 'Weekly consistency opens the streak ladder.' }],
@@ -942,7 +971,8 @@ function getNextAchievementTargets(profile: UserProfile, unlockedIds: string[]):
         progressLabel: progress.label,
       };
     })
-    .filter((target) => !unlockedIds.includes(target.achievement.id));
+    .filter((target) => !unlockedIds.includes(target.achievement.id))
+    .filter((target) => target.progressCurrent < target.progressGoal);
 
   const buckets = new Map<AchievementCategory, typeof scored>();
   for (const target of scored) {

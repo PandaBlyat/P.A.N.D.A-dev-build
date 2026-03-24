@@ -6807,8 +6807,8 @@ strong.support-upvote-count {
   --profile-card-padding: 12px;
   --profile-token-padding-block: 5px;
   --profile-token-padding-inline: 10px;
-  --profile-icon-size: 20px;
-  --profile-icon-size-sm: 16px;
+  --profile-icon-size: 30px;
+  --profile-icon-size-sm: 24px;
   --profile-surface-border: color-mix(in srgb, var(--profile-accent) 14%, var(--border, #333));
   --profile-surface-border-strong: color-mix(in srgb, var(--profile-accent) 22%, var(--border, #333));
   --profile-surface-fill: color-mix(in srgb, var(--bg-card, #1c2430) 92%, transparent);
@@ -9059,8 +9059,8 @@ strong.support-upvote-count {
 .profile-popover-name-badge-silver { border-color: color-mix(in srgb, #a0a8b8 48%, transparent); }
 .profile-popover-name-badge-gold { border-color: color-mix(in srgb, #c4a040 58%, transparent); }
 .profile-achievement-inline-icon.ui-icon {
-  width: 0.9rem;
-  height: 0.9rem;
+  width: 1.35rem;
+  height: 1.35rem;
 }
 
 .profile-popover-title {
@@ -9377,8 +9377,8 @@ strong.support-upvote-count {
   line-height: 1;
 }
 .profile-focus-goal-icon .profile-achievement-inline-icon.ui-icon {
-  width: 0.92rem;
-  height: 0.92rem;
+  width: 1.38rem;
+  height: 1.38rem;
 }
 
 .profile-focus-card-primary {
@@ -9506,8 +9506,8 @@ strong.support-upvote-count {
   font-size: 1.15rem;
 }
 .profile-focus-goal-icon-large .profile-achievement-inline-icon.ui-icon {
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1.725rem;
+  height: 1.725rem;
 }
 
 .profile-focus-goal-detail-pill {
