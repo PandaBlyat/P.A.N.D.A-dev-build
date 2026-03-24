@@ -438,12 +438,21 @@ export async function publishConversation(payload: PublishPayload): Promise<void
         });
 
         if (res.status === 405) {
-          const replaceUrl = `${url}/replace`;
-          res = await fetch(replaceUrl, {
+          // Some edge/proxy deployments block PATCH but still allow POST.
+          // Try POST on the same URL first, then fall back to explicit /replace endpoint.
+          res = await fetch(url, {
             method: 'POST',
             headers,
             body: JSON.stringify(replacePayload),
           });
+          if (res.status === 405) {
+            const replaceUrl = `${url}/replace`;
+            res = await fetch(replaceUrl, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(replacePayload),
+            });
+          }
         }
 
         if (!res.ok) {
