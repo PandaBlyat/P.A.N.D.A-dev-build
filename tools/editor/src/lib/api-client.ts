@@ -428,6 +428,9 @@ export async function publishConversation(payload: PublishPayload): Promise<void
       publisher_id: publishBody.publisher_id || getPublisherId(),
     };
     let lastError: unknown;
+    let proxySucceeded = false;
+
+    // Try the proxy server first (handles ownership checks server-side).
     for (const url of apiCandidates(`/api/conversations/${encodeURIComponent(replaceId)}`)) {
       try {
         const headers = { 'Content-Type': 'application/json' };
@@ -438,8 +441,6 @@ export async function publishConversation(payload: PublishPayload): Promise<void
         });
 
         if (res.status === 405) {
-          // Some edge/proxy deployments block PATCH but still allow POST.
-          // Try POST on the same URL first, then fall back to explicit /replace endpoint.
           res = await fetch(url, {
             method: 'POST',
             headers,
@@ -455,6 +456,12 @@ export async function publishConversation(payload: PublishPayload): Promise<void
           }
         }
 
+        // If still 405, the proxy isn't available — skip to direct Supabase fallback.
+        if (res.status === 405) {
+          lastError = new Error(`Request failed (${res.status})`);
+          continue;
+        }
+
         if (!res.ok) {
           const msg = await readErrorMessage(res).catch(() => `API request failed (${res.status})`);
           if (res.status === 403) throw new Error('You can only update conversations published by your current publisher identity.');
@@ -462,6 +469,7 @@ export async function publishConversation(payload: PublishPayload): Promise<void
           if (res.status === 409) throw new PublishValidationError('A different conversation already uses this title.', 'duplicate-name');
           throw new Error(msg);
         }
+        proxySucceeded = true;
         if (typeof window !== 'undefined') {
           window.localStorage.setItem(LOCAL_PUBLISH_KEY, String(Date.now()));
         }
@@ -470,6 +478,54 @@ export async function publishConversation(payload: PublishPayload): Promise<void
         lastError = error;
       }
     }
+
+    // Direct Supabase fallback when no proxy server is reachable (e.g. GitHub Pages).
+    if (!proxySucceeded) {
+      const headers = { ...sbHeaders(), Prefer: 'return=minimal' };
+      const updateBody: Record<string, unknown> = {
+        label: replacePayload.label,
+        description: replacePayload.description,
+        summary: replacePayload.summary,
+        tags: replacePayload.tags,
+        branch_count: replacePayload.branch_count,
+        complexity: replacePayload.complexity,
+        data: replacePayload.data,
+        author: replacePayload.author,
+      };
+
+      let res = await fetch(`${sbEndpoint(TABLE)}?id=eq.${encodeURIComponent(replaceId)}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(updateBody),
+      });
+
+      if (!res.ok) {
+        const errorMessage = await readErrorMessage(res);
+        if (
+          isMissingSchemaColumnError(errorMessage, 'branch_count')
+          || isMissingSchemaColumnError(errorMessage, 'complexity')
+          || isMissingSchemaColumnError(errorMessage, 'summary')
+          || isMissingSchemaColumnError(errorMessage, 'tags')
+          || isCommunitySchemaMismatchError(errorMessage)
+        ) {
+          const { summary: _s, tags: _t, branch_count: _b, complexity: _c, ...fallbackBody } = updateBody;
+          res = await fetch(`${sbEndpoint(TABLE)}?id=eq.${encodeURIComponent(replaceId)}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(fallbackBody),
+          });
+        }
+        if (!res.ok) {
+          throw new Error(await readErrorMessage(res).catch(() => `Update failed (${res.status})`));
+        }
+      }
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(LOCAL_PUBLISH_KEY, String(Date.now()));
+      }
+      return;
+    }
+
     throw lastError instanceof Error ? lastError : new Error('Failed to replace community conversation.');
   } else {
     const headers = { ...sbHeaders(), Prefer: 'return=minimal' };
