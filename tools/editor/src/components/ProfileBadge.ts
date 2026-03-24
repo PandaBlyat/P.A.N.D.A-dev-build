@@ -214,6 +214,16 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   titleEl.className = 'profile-popover-title';
   titleEl.textContent = profile.title;
 
+  const unlocked = getUnlockedAchievementIdsForProfile(profile);
+  const rareUnlockedCount = getRareAchievementCount(unlocked);
+  const headerHighlights = document.createElement('div');
+  headerHighlights.className = 'profile-popover-header-highlights';
+  headerHighlights.append(
+    createMetaChip('Badges', `${unlocked.length}/${ACHIEVEMENTS.length}`),
+    createMetaChip('Rare', String(rareUnlockedCount), rareUnlockedCount > 0 ? 'accent' : 'muted'),
+    createMetaChip('Title', `Lv.${profile.level}`, 'accent'),
+  );
+
   const metaRow = document.createElement('div');
   metaRow.className = 'profile-popover-meta-row';
   metaRow.append(
@@ -223,7 +233,7 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
     createHeroMetaStat('Joined', formatMemberSince(profile.created_at)),
   );
 
-  info.append(eyebrow, nameEl, titleEl, metaRow);
+  info.append(eyebrow, nameEl, titleEl, headerHighlights, metaRow);
   identity.append(avatarCircle, info);
 
   header.append(identity, buildProgressSection(profile));
@@ -444,15 +454,22 @@ function buildProfileFocusSection(profile: UserProfile): HTMLElement {
   const title = document.createElement('div');
   title.className = 'profile-popover-section-header profile-focus-title';
   title.append(targetIcon, document.createTextNode('Recommended next move'));
-  titleWrap.append(title);
+  const subtitle = document.createElement('p');
+  subtitle.className = 'profile-focus-subtitle';
+  titleWrap.append(title, subtitle);
   header.appendChild(titleWrap);
 
   const isSelfProfile = profile.publisher_id === cachedProfile?.publisher_id;
   const missions = getProfileMissions(profile, isSelfProfile);
   const featuredMission = missions.find(mission => !mission.completed) ?? missions[0] ?? null;
+  const completedMissions = missions.filter(mission => mission.completed).length;
+  const missionCompletionPct = missions.length > 0 ? Math.round((completedMissions / missions.length) * 100) : 0;
   const unlockedIds = getUnlockedAchievementIdsForProfile(profile);
   const nextTarget = getNextAchievementTargets(profile, unlockedIds)[0] ?? null;
   const featuredBadge = getFeaturedAchievements(unlockedIds)[0] ?? null;
+  subtitle.textContent = featuredMission
+    ? `Focus now: ${featuredMission.name} · ${missionCompletionPct}% of active missions complete`
+    : 'No active objectives right now — check back after your next publish.';
 
   const cards = document.createElement('div');
   cards.className = 'profile-focus-cards';
@@ -470,7 +487,12 @@ function buildProfileFocusSection(profile: UserProfile): HTMLElement {
   actionMeta.textContent = featuredMission
     ? `${featuredMission.rewardLabel ?? `+${featuredMission.xp} XP`} · ${featuredMission.progress}/${featuredMission.goal} complete`
     : 'Open the mission board when new assignments appear.';
-  actionCard.append(actionLabel, actionTitle, actionMeta);
+  const actionDesc = document.createElement('p');
+  actionDesc.className = 'profile-focus-card-desc';
+  actionDesc.textContent = featuredMission
+    ? `${featuredMission.category} objective · ${featuredMission.slot.replace('_', ' ')} cadence`
+    : 'Mission board completions are still the fastest repeatable XP source.';
+  actionCard.append(actionLabel, actionTitle, actionMeta, actionDesc);
 
   const badgeCard = document.createElement('div');
   badgeCard.className = 'profile-focus-card profile-surface-card';
@@ -487,7 +509,12 @@ function buildProfileFocusSection(profile: UserProfile): HTMLElement {
     : nextTarget
       ? `${ACHIEVEMENT_CATEGORY_LABELS[nextTarget.achievement.category]} · ${nextTarget.achievement.tier} · +${nextTarget.achievement.xp} XP`
       : 'Keep exploring the Zone.';
-  badgeCard.append(badgeLabel, badgeTitle, badgeMeta);
+  const badgeDesc = document.createElement('p');
+  badgeDesc.className = 'profile-focus-card-desc';
+  badgeDesc.textContent = featuredBadge
+    ? featuredBadge.description
+    : nextTarget?.reason ?? 'Keep publishing to surface new recommended achievements.';
+  badgeCard.append(badgeLabel, badgeTitle, badgeMeta, badgeDesc);
 
   const rankCard = document.createElement('div');
   rankCard.className = 'profile-focus-card profile-surface-card';
@@ -500,7 +527,10 @@ function buildProfileFocusSection(profile: UserProfile): HTMLElement {
   const rankMeta = document.createElement('div');
   rankMeta.className = 'profile-focus-card-meta';
   rankMeta.textContent = 'Fetching leaderboard snapshot';
-  rankCard.append(rankLabel, rankTitle, rankMeta);
+  const rankDesc = document.createElement('p');
+  rankDesc.className = 'profile-focus-card-desc';
+  rankDesc.textContent = 'Weekly consistency and reactions are the main rank drivers.';
+  rankCard.append(rankLabel, rankTitle, rankMeta, rankDesc);
 
   const updateRankCard = (entries: LeaderboardEntry[]) => {
     const rank = entries.findIndex(entry => entry.publisher_id === profile.publisher_id);
@@ -537,12 +567,15 @@ function getNextAchievementTargets(profile: UserProfile, unlockedIds: string[]):
     ['challenge_apprentice', { score: 95, reason: 'Mission board completions are meant to be an early momentum builder.' }],
     ['first_upvote_received', { score: 88, reason: 'A single community reaction unlocks your first social badge.' }],
     ['profile_spotlight', { score: 78, reason: 'Featured badges and activity make profile milestones easier to hit.' }],
+    ['crowd_pleaser', { score: 72, reason: 'Sustained upvotes lock in one of the strongest social badges.' }],
     ['first_publish', { score: publishCount === 0 ? 99 : 15, reason: publishCount === 0 ? 'Your first publish unlocks discovery progression immediately.' : 'Already cleared once you publish.' }],
     ['branching_out', { score: 90, reason: 'A five-branch conversation is the fastest visible discovery target.' }],
+    ['cartographer', { score: publishCount >= 2 ? 88 : 58, reason: 'Five publishes gives you durable catalog momentum and unlocks discovery progression.' }],
     ['new_faction_scout', { score: publishCount > 0 ? 92 : 72, reason: publishCount > 0 ? 'Publishing in a fresh faction broadens your discovery set.' : 'After your first publish, try a second faction for quick breadth.' }],
     ['faction_diplomat', { score: publishCount >= 2 ? 84 : 60, reason: 'Three factions is a clear medium-term route into collection badges.' }],
     ['uncommon_operator', { score: 83, reason: 'Trying one uncommon command type opens a more expressive discovery lane.' }],
     ['outcome_engineer', { score: 89, reason: 'Mixing four outcome types is an approachable mastery target.' }],
+    ['branch_architect', { score: 84, reason: 'An eight-branch structure is a clean midpoint between basic and expert conversation depth.' }],
     ['precondition_master', { score: 86, reason: 'Adding layered preconditions strengthens systemic depth.' }],
     ['quality_crafter', { score: 80, reason: 'A polished five-star publish is a strong mastery milestone.' }],
     ['systems_polymath', { score: 74, reason: 'Outcome and precondition variety together unlock a rare mastery badge.' }],
@@ -558,7 +591,7 @@ function getNextAchievementTargets(profile: UserProfile, unlockedIds: string[]):
       reason: hints.get(achievement.id)?.reason ?? 'A visible next step that broadens your badge mix.',
     }))
     .sort((a, b) => b.score - a.score || getAchievementTierRank(a.achievement) - getAchievementTierRank(b.achievement) || a.achievement.xp - b.achievement.xp)
-    .slice(0, 3)
+    .slice(0, 5)
     .map(({ achievement, reason }) => ({ achievement, reason }));
 }
 
@@ -701,6 +734,24 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
     section.appendChild(nextSection);
   }
 
+  const categoryOverview = document.createElement('div');
+  categoryOverview.className = 'profile-achievement-overview-grid';
+  ACHIEVEMENT_CATEGORY_ORDER.forEach((category: AchievementCategory) => {
+    const categoryAchievements = getAchievementsByCategory(category);
+    const unlockedCount = categoryAchievements.filter(achievement => unlocked.includes(achievement.id)).length;
+    const card = document.createElement('div');
+    card.className = 'profile-achievement-overview-card profile-surface-row';
+    const label = document.createElement('span');
+    label.className = 'profile-achievement-overview-label';
+    label.textContent = ACHIEVEMENT_CATEGORY_LABELS[category];
+    const value = document.createElement('span');
+    value.className = 'profile-achievement-overview-value';
+    value.textContent = `${unlockedCount}/${categoryAchievements.length}`;
+    card.append(label, value);
+    categoryOverview.appendChild(card);
+  });
+  section.appendChild(categoryOverview);
+
   const categoryGrid = document.createElement('div');
   categoryGrid.className = 'profile-achievement-category-grid';
 
@@ -750,11 +801,12 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
     categoryProgressFill.style.width = `${Math.round((unlockedCount / Math.max(categoryAchievements.length, 1)) * 100)}%`;
 
     categoryProgress.appendChild(categoryProgressFill);
-    categoryStatus.append(categoryCount, categoryProgress);
+    categoryStatus.append(categoryProgress, categoryCount);
 
     categoryHeader.append(categoryTitle, categoryStatus);
     categorySummary.appendChild(categoryHeader);
     categoryDetails.appendChild(categorySummary);
+    categoryDetails.open = unlockedCount > 0;
 
     const grid = document.createElement('div');
     grid.className = 'profile-popover-achievement-grid profile-achievement-category-rail';
@@ -1011,13 +1063,10 @@ function buildLeaderboardSection(profile: UserProfile): HTMLElement {
 
   const renderSnapshot = (entries: LeaderboardEntry[]) => {
     const rank = entries.findIndex(entry => entry.publisher_id === profile.publisher_id);
-    lbMeta.textContent = rank >= 0 ? `You are #${rank + 1}` : 'Top 3 + your standing';
-
-    const topEntries = entries.slice(0, 3);
-    const selfEntry = rank >= 3 ? entries[rank] : null;
-    const snapshot = [...topEntries];
-    if (selfEntry) snapshot.push(selfEntry);
-    renderLeaderboardList(lbList, snapshot);
+    lbMeta.textContent = rank >= 0
+      ? (rank < 10 ? `You are #${rank + 1}` : `You are #${rank + 1} · top 10 shown`)
+      : 'Top 10 snapshot';
+    renderLeaderboardList(lbList, entries.slice(0, 10));
   };
 
   if (leaderboardCache) {

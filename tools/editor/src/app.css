@@ -8949,8 +8949,11 @@ strong.support-upvote-count {
 
 .profile-popover-header {
   gap: 8px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   align-self: stretch;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent, #5eaa3a) 14%, transparent), transparent 55%),
+    color-mix(in srgb, var(--profile-surface-fill) 92%, transparent);
 }
 
 .profile-popover-identity {
@@ -8959,12 +8962,12 @@ strong.support-upvote-count {
 }
 
 .profile-popover-avatar-circle {
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
 }
 
 .profile-popover-avatar-initial {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
 }
 
 .profile-popover-info {
@@ -8972,7 +8975,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-eyebrow {
-  font-size: 0.64rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -8980,12 +8983,18 @@ strong.support-upvote-count {
 }
 
 .profile-popover-name {
-  font-size: 1.1rem;
+  font-size: 1.24rem;
   line-height: 1.15;
 }
 
 .profile-popover-title {
-  font-size: 0.72rem;
+  font-size: 0.82rem;
+}
+
+.profile-popover-header-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .profile-popover-summary {
@@ -9017,14 +9026,14 @@ strong.support-upvote-count {
 }
 
 .profile-hero-meta-label {
-  font-size: 0.66rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--fg-dim, #a0aab8);
 }
 
 .profile-hero-meta-value {
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   font-weight: 700;
   color: var(--fg, #eef2f7);
 }
@@ -9064,7 +9073,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-progress-kicker {
-  font-size: 0.68rem;
+  font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -9072,12 +9081,12 @@ strong.support-upvote-count {
 }
 
 .profile-popover-level-label {
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   white-space: normal;
 }
 
 .profile-popover-bar-label {
-  font-size: 0.68rem;
+  font-size: 0.74rem;
   text-align: left;
   color: var(--fg, #dbe4f0);
 }
@@ -9103,7 +9112,7 @@ strong.support-upvote-count {
 
 .profile-popover-next,
 .profile-popover-progress-target {
-  font-size: 0.68rem;
+  font-size: 0.74rem;
 }
 
 .profile-popover-next {
@@ -9159,7 +9168,7 @@ strong.support-upvote-count {
 .profile-focus-subtitle,
 .profile-section-summary {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.86rem;
   line-height: 1.5;
   color: var(--fg-dim, #aab3c3);
 }
@@ -9172,8 +9181,9 @@ strong.support-upvote-count {
 
 .profile-focus-card {
   display: grid;
-  gap: 3px;
-  padding: 8px 10px;
+  gap: 6px;
+  padding: 10px 12px;
+  min-height: 104px;
 }
 
 .profile-focus-card-primary {
@@ -9182,7 +9192,7 @@ strong.support-upvote-count {
 }
 
 .profile-focus-card-label {
-  font-size: 0.64rem;
+  font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -9190,21 +9200,21 @@ strong.support-upvote-count {
 }
 
 .profile-focus-card-title {
-  font-size: 0.84rem;
+  font-size: 0.94rem;
   font-weight: 800;
   color: var(--fg, #f3f6f8);
   line-height: 1.2;
 }
 
 .profile-focus-card-meta {
-  font-size: 0.68rem;
+  font-size: 0.76rem;
   color: color-mix(in srgb, var(--accent, #f59e0b) 78%, white 22%);
   line-height: 1.35;
 }
 
 .profile-focus-card-desc {
   margin: 0;
-  font-size: 0.76rem;
+  font-size: 0.8rem;
   line-height: 1.5;
   color: var(--fg-dim, #c0c8d4);
 }
@@ -9226,12 +9236,12 @@ strong.support-upvote-count {
 }
 
 .profile-stat-label {
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   color: var(--fg-dim, #aab4c2);
 }
 
 .profile-stat-value {
-  font-size: 1rem;
+  font-size: 1.08rem;
 }
 
 .profile-mission-panel {
@@ -9253,13 +9263,13 @@ strong.support-upvote-count {
 }
 
 .profile-challenge-header {
-  font-size: 0.86rem;
+  font-size: 0.94rem;
   font-weight: 800;
   color: var(--fg, #f3f6f8);
 }
 
 .profile-challenge-desc {
-  font-size: 0.8rem;
+  font-size: 0.86rem;
   color: var(--fg-dim, #c0c8d4);
   line-height: 1.5;
 }
@@ -9380,6 +9390,33 @@ strong.support-upvote-count {
   padding: 4px 8px 8px;
 }
 
+.profile-achievement-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.profile-achievement-overview-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+}
+
+.profile-achievement-overview-label {
+  font-size: 0.72rem;
+  color: var(--fg-dim, #9aa4b2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.profile-achievement-overview-value {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--fg, #eef2f7);
+}
+
 .profile-achievement-category {
   gap: 6px;
   padding-top: 4px;
@@ -9410,6 +9447,7 @@ strong.support-upvote-count {
   min-width: 132px;
   display: grid;
   gap: 6px;
+  justify-items: end;
 }
 
 .profile-achievement-category-count {
@@ -9459,6 +9497,15 @@ strong.support-upvote-count {
 
 .profile-popover-lb-header {
   margin-bottom: 6px;
+}
+
+.profile-popover-lb-list {
+  display: grid;
+  gap: 4px;
+}
+
+.profile-popover-lb-row {
+  padding: 7px 9px;
 }
 
 .profile-popover-leaderboard .profile-popover-summary-meta {
