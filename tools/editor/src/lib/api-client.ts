@@ -430,11 +430,22 @@ export async function publishConversation(payload: PublishPayload): Promise<void
     let lastError: unknown;
     for (const url of apiCandidates(`/api/conversations/${encodeURIComponent(replaceId)}`)) {
       try {
-        const res = await fetch(url, {
+        const headers = { 'Content-Type': 'application/json' };
+        let res = await fetch(url, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify(replacePayload),
         });
+
+        if (res.status === 405) {
+          const replaceUrl = `${url}/replace`;
+          res = await fetch(replaceUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(replacePayload),
+          });
+        }
+
         if (!res.ok) {
           const msg = await readErrorMessage(res).catch(() => `API request failed (${res.status})`);
           if (res.status === 403) throw new Error('You can only update conversations published by your current publisher identity.');
