@@ -9211,7 +9211,8 @@ strong.support-upvote-count {
 }
 
 .profile-focus-goal-cards {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(220px, 0.9fr) minmax(280px, 1.1fr);
+  align-items: stretch;
 }
 
 .profile-focus-card {
@@ -9219,6 +9220,8 @@ strong.support-upvote-count {
   gap: 6px;
   padding: 10px 12px;
   min-height: 104px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .profile-focus-goal-card-bronze { border-color: color-mix(in srgb, #b87333 32%, transparent); }
@@ -9256,6 +9259,7 @@ strong.support-upvote-count {
   font-weight: 800;
   color: var(--fg, #f3f6f8);
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .profile-focus-card-meta {
@@ -9269,6 +9273,88 @@ strong.support-upvote-count {
   font-size: 0.8rem;
   line-height: 1.5;
   color: var(--fg-dim, #c0c8d4);
+  overflow-wrap: anywhere;
+}
+
+.profile-focus-goal-queue {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  align-content: start;
+}
+
+.profile-focus-goal-queue-item {
+  text-align: left;
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.profile-focus-goal-queue-item:hover,
+.profile-focus-goal-queue-item:focus-visible {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent, #5eaa3a) 36%, var(--border-light, #33404e));
+  background: color-mix(in srgb, var(--accent, #5eaa3a) 10%, var(--bg-elevated, #171d28));
+}
+
+.profile-focus-goal-queue-item.is-active {
+  border-color: color-mix(in srgb, var(--accent, #5eaa3a) 46%, var(--border-light, #33404e));
+  background: color-mix(in srgb, var(--accent, #5eaa3a) 14%, var(--bg-elevated, #171d28));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent, #5eaa3a) 25%, transparent) inset;
+}
+
+.profile-focus-goal-detail {
+  align-content: start;
+  gap: 8px;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent, #5eaa3a) 12%, transparent), transparent 58%),
+    color-mix(in srgb, var(--bg-elevated, #171d28) 95%, transparent);
+}
+
+.profile-focus-goal-detail-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+}
+
+.profile-focus-goal-icon-large {
+  font-size: 1.15rem;
+}
+
+.profile-focus-goal-detail-pill {
+  justify-self: end;
+  border: 1px solid color-mix(in srgb, var(--border-light, #33404e) 85%, transparent);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+  color: color-mix(in srgb, var(--accent, #5eaa3a) 80%, white 20%);
+  background: color-mix(in srgb, var(--bg-elevated, #171d28) 88%, transparent);
+  white-space: nowrap;
+}
+
+.profile-focus-goal-detail-desc {
+  font-size: 0.82rem;
+  color: var(--fg, #dbe4f0);
+}
+
+.profile-focus-goal-insight {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--fg-dim, #bcc6d4);
+}
+
+.profile-focus-goal-action {
+  margin-top: 2px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 28%, transparent);
+  background: color-mix(in srgb, var(--accent, #5eaa3a) 9%, transparent);
+  color: color-mix(in srgb, var(--accent, #5eaa3a) 84%, white 16%);
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .profile-popover-stats-grid {
@@ -9616,6 +9702,15 @@ strong.support-upvote-count {
     grid-template-columns: 1fr;
   }
 
+  .profile-focus-goal-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-focus-goal-detail-pill {
+    justify-self: start;
+    white-space: normal;
+  }
+
   .profile-achievement-category-details > summary {
     padding: 5px 6px;
   }
@@ -9637,5 +9732,9 @@ strong.support-upvote-count {
 
   .profile-focus-cards {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .profile-focus-goal-cards {
+    grid-template-columns: 1fr;
   }
 }
