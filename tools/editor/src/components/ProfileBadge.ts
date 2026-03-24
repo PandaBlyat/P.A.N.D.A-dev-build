@@ -501,15 +501,18 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
     cards.appendChild(empty);
   } else {
     const visibleTargets = nextTargets.slice(0, 5);
+    const panelId = `profile-goal-panel-${profile.publisher_id}`;
 
     const queue = document.createElement('div');
     queue.className = 'profile-focus-goal-queue';
     queue.setAttribute('role', 'tablist');
     queue.setAttribute('aria-label', 'Next goals queue');
+    queue.setAttribute('aria-orientation', 'vertical');
 
     const detailCard = document.createElement('article');
     detailCard.className = 'profile-focus-card profile-surface-card profile-focus-goal-detail';
     detailCard.setAttribute('role', 'tabpanel');
+    detailCard.id = panelId;
 
     const detailHeader = document.createElement('div');
     detailHeader.className = 'profile-focus-goal-detail-head';
@@ -533,7 +536,15 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
 
     const detailAction = document.createElement('div');
     detailAction.className = 'profile-focus-goal-action';
+    const detailActionLabel = document.createElement('div');
+    detailActionLabel.className = 'profile-focus-goal-action-label';
+    const detailActionLabelIcon = createIcon('sparkle');
+    detailActionLabelIcon.classList.add('profile-focus-goal-action-label-icon');
+    detailActionLabel.append(detailActionLabelIcon, document.createTextNode('Next step'));
+    const detailActionBody = document.createElement('p');
+    detailActionBody.className = 'profile-focus-goal-action-body';
 
+    detailAction.append(detailActionLabel, detailActionBody);
     detailCard.append(detailHeader, detailDesc, detailReason, detailAction);
 
     const tabs: HTMLButtonElement[] = [];
@@ -543,15 +554,18 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
       const normalized = Math.max(0, Math.min(index, visibleTargets.length - 1));
       activeIndex = normalized;
       const { achievement, reason } = visibleTargets[normalized];
+      const activeTab = tabs[normalized];
       detailCard.classList.remove('profile-focus-goal-card-bronze', 'profile-focus-goal-card-silver', 'profile-focus-goal-card-gold');
       detailCard.classList.add(`profile-focus-goal-card-${achievement.tier}`);
-      detailCard.id = `profile-goal-panel-${profile.publisher_id}-${normalized}`;
+      if (activeTab) {
+        detailCard.setAttribute('aria-labelledby', activeTab.id);
+      }
       detailPill.textContent = `${ACHIEVEMENT_CATEGORY_LABELS[achievement.category]} · ${achievement.tier} · +${achievement.xp} XP`;
       detailIcon.textContent = achievement.icon;
       detailTitle.textContent = achievement.name;
       detailDesc.textContent = achievement.description;
       detailReason.textContent = reason;
-      detailAction.textContent = getGoalActionHint(achievement.id, profile);
+      detailActionBody.textContent = getGoalActionHint(achievement.id, profile);
 
       tabs.forEach((tab, tabIndex) => {
         const isActive = tabIndex === normalized;
@@ -567,8 +581,9 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
       goalTab.className = `profile-focus-card profile-surface-card profile-focus-goal-card profile-focus-goal-card-${achievement.tier} profile-focus-goal-queue-item`;
       goalTab.title = `${achievement.name} — ${achievement.description}`;
       goalTab.setAttribute('role', 'tab');
+      goalTab.id = `profile-goal-tab-${profile.publisher_id}-${achievement.id}`;
       goalTab.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
-      goalTab.setAttribute('aria-controls', `profile-goal-panel-${profile.publisher_id}-${index}`);
+      goalTab.setAttribute('aria-controls', panelId);
       goalTab.tabIndex = index === 0 ? 0 : -1;
 
       const goalTop = document.createElement('div');
@@ -593,10 +608,24 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
       goalTab.addEventListener('click', () => renderActiveTarget(index));
       goalTab.addEventListener('focus', () => renderActiveTarget(index));
       goalTab.addEventListener('keydown', (event) => {
-        if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft' && event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+        if (
+          event.key !== 'ArrowRight'
+          && event.key !== 'ArrowLeft'
+          && event.key !== 'ArrowDown'
+          && event.key !== 'ArrowUp'
+          && event.key !== 'Home'
+          && event.key !== 'End'
+        ) return;
         event.preventDefault();
-        const dir = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
-        const next = (activeIndex + dir + visibleTargets.length) % visibleTargets.length;
+        let next = activeIndex;
+        if (event.key === 'Home') {
+          next = 0;
+        } else if (event.key === 'End') {
+          next = visibleTargets.length - 1;
+        } else {
+          const dir = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
+          next = (activeIndex + dir + visibleTargets.length) % visibleTargets.length;
+        }
         renderActiveTarget(next);
         tabs[next]?.focus();
       });
