@@ -118,7 +118,7 @@ const LOCAL_PUBLISH_COOLDOWN_MS = 60_000;
 const LOCAL_PUBLISH_KEY = 'panda-community-last-publish-at';
 const LOCAL_PUBLISHER_ID_KEY = 'panda-community-publisher-id';
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
-const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'upvotes', 'updated_at'] as const;
+const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'upvotes', 'updated_at', 'publisher_id'] as const;
 
 
 function apiCandidates(path: string): string[] {

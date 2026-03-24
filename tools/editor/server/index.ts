@@ -15,7 +15,7 @@ const STREAKS_TABLE = 'user_streaks';
 const MISSIONS_TABLE = 'user_mission_progress';
 const SUPPORT_ROW_ID = 'global';
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
-const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'upvotes', 'updated_at'] as const;
+const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'upvotes', 'updated_at', 'publisher_id'] as const;
 
 type CommunityLibraryStats = {
   published_conversations: number;
