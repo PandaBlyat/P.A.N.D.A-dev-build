@@ -129,6 +129,37 @@ let isLoading = false;
 let loadError = '';
 let loadNotice = '';
 let communityStats: CommunityLibraryStats | null = null;
+let unsubscribeSharePanelStore: (() => void) | null = null;
+
+function isOwnedSelectedSourceMetadata(
+  sourceMetadata: ReturnType<typeof store.getSelectedConversationSourceMetadata>,
+): boolean {
+  const sourcePublisherId = sourceMetadata?.sourcePublisherId?.trim();
+  return !!sourcePublisherId && getCurrentPublisherIds().includes(sourcePublisherId);
+}
+
+function getPrimaryPublishReplacementMode(): boolean {
+  const sourceMetadata = store.getSelectedConversationSourceMetadata();
+  return !!sourceMetadata && isOwnedSelectedSourceMetadata(sourceMetadata);
+}
+
+function refreshPrimaryPublishCta(): void {
+  const publishBtn = overlayEl?.querySelector<HTMLButtonElement>('[data-share-publish]');
+  if (!publishBtn) return;
+
+  const selectedConversation = store.getSelectedConversation();
+  const useUpdateMode = !!selectedConversation && getPrimaryPublishReplacementMode();
+  if (useUpdateMode) {
+    setButtonContent(publishBtn, 'export', 'Update');
+    publishBtn.title = 'Update your existing community conversation';
+    publishBtn.onclick = () => showPublishForm({ replacementContext: true });
+    return;
+  }
+
+  setButtonContent(publishBtn, 'export', 'Publish');
+  publishBtn.title = 'Publish the currently selected conversation to the Community Library';
+  publishBtn.onclick = () => showPublishForm();
+}
 
 export function openSharePanel(): void {
   if (overlayEl) return;
@@ -146,6 +177,10 @@ export function openSharePanel(): void {
 
   overlayEl = buildOverlay();
   getSharePanelMount().appendChild(overlayEl);
+  refreshPrimaryPublishCta();
+  unsubscribeSharePanelStore = store.subscribe(() => {
+    refreshPrimaryPublishCta();
+  });
   loadConversations();
 }
 
@@ -153,6 +188,8 @@ export function closeSharePanel(): void {
   if (!overlayEl) return;
   overlayEl.remove();
   overlayEl = null;
+  unsubscribeSharePanelStore?.();
+  unsubscribeSharePanelStore = null;
   focusTrap?.release();
   focusTrap = null;
   restoreFocusEl = null;
@@ -513,6 +550,7 @@ function rebuildToolbar(): void {
 function renderContent(): void {
   const wrap = getContentEl();
   if (!wrap) return;
+  refreshPrimaryPublishCta();
 
   wrap.innerHTML = '';
 
@@ -952,6 +990,7 @@ async function handleEditImport(conv: CommunityConversation, btn: HTMLButtonElem
   setTimeout(() => {
     btn.disabled = false;
     btn.innerHTML = original;
+    refreshPrimaryPublishCta();
     renderContent();
   }, 1500);
 }
@@ -1116,6 +1155,10 @@ function buildPublishForm(): HTMLElement {
   submitBtn.className = 'toolbar-button btn-primary';
   setButtonContent(submitBtn, 'export', 'Publish →');
 
+  const applySubmitMode = (isReplacementCandidate: boolean) => {
+    setButtonContent(submitBtn, 'export', isReplacementCandidate ? 'Update →' : 'Publish →');
+  };
+
   btnRow.append(cancelBtn, submitBtn);
   form.appendChild(btnRow);
 
@@ -1146,10 +1189,24 @@ function buildPublishForm(): HTMLElement {
     const tags = tagsInput.value.split(',').map(tag => tag.trim()).filter(Boolean);
     const faction = getConversationFaction(conv, store.get().project.faction);
     const branchCount = getBranchCount(conv);
-    const sourceMetadata = getCommunitySourceMetadata(conv);
-    const sourcePublisherId = sourceMetadata?.publisher_id?.trim();
-    const ownershipValid = !!sourcePublisherId && getCurrentPublisherIds().includes(sourcePublisherId);
-    const replaceId = sourceMetadata?.id?.trim() && ownershipValid ? sourceMetadata.id.trim() : null;
+    const selectedSourceMetadata = store.getSelectedConversationSourceMetadata();
+    const selectedSourcePublisherId = selectedSourceMetadata?.sourcePublisherId?.trim();
+    const selectedOwnershipValid = !!selectedSourcePublisherId && getCurrentPublisherIds().includes(selectedSourcePublisherId);
+    const selectedReplaceId = selectedSourceMetadata?.sourceCommunityId?.trim() && selectedOwnershipValid
+      ? selectedSourceMetadata.sourceCommunityId.trim()
+      : null;
+
+    const conversationSourceMetadata = getCommunitySourceMetadata(conv);
+    const conversationSourcePublisherId = conversationSourceMetadata?.publisher_id?.trim();
+    const conversationOwnershipValid = !!conversationSourcePublisherId && getCurrentPublisherIds().includes(conversationSourcePublisherId);
+    const conversationReplaceId = conversationSourceMetadata?.id?.trim() && conversationOwnershipValid
+      ? conversationSourceMetadata.id.trim()
+      : null;
+
+    const replaceId = selectedReplaceId ?? conversationReplaceId;
+    const publisherId = selectedOwnershipValid
+      ? selectedSourcePublisherId
+      : (conversationOwnershipValid ? conversationSourcePublisherId : undefined);
     const duplicateLocal = allResults.some(entry =>
       normalizeKey(entry.label) === normalizeKey(label)
       && (!replaceId || entry.id !== replaceId),
@@ -1179,7 +1236,7 @@ function buildPublishForm(): HTMLElement {
           conversations: [conv],
         },
         replace_id: replaceId ?? undefined,
-        publisher_id: ownershipValid ? sourcePublisherId : undefined,
+        publisher_id: publisherId,
       });
       setStatus(replaceId
         ? 'Updated existing community conversation. Refreshing library…'
@@ -1323,6 +1380,7 @@ function buildPublishForm(): HTMLElement {
     tagsInput.value = branchCount <= 3 ? 'short, starter' : 'branching, story';
     factionValue.textContent = `${FACTION_DISPLAY_NAMES[faction]} · ${branchCount} branches · ${labelForComplexity(deriveConversationComplexity(branchCount))}`;
     factionValue.style.color = FACTION_COLORS[faction];
+    applySubmitMode(isReplacementCandidate);
     if (isReplacementCandidate && sourceMetadata) {
       replacementContext.hidden = false;
       replacementContext.textContent = `Update existing community post: ${sourceMetadata.sourceCommunityId}`;
@@ -1380,8 +1438,7 @@ function showPublishForm(options: { replacementContext?: boolean } = {}): void {
   }
   const form = overlayEl?.querySelector<HTMLElement & { prefill?: (isReplacementCandidate?: boolean) => void }>('.share-publish-form');
   if (!form) return;
-  const replacementContext = options.replacementContext
-    || !!store.getSelectedConversationSourceMetadata();
+  const replacementContext = options.replacementContext ?? getPrimaryPublishReplacementMode();
   form.prefill?.(replacementContext);
   form.hidden = false;
   const firstField = form.querySelector<HTMLElement>('.share-form-input');
