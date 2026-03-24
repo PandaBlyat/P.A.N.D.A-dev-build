@@ -694,7 +694,7 @@ function buildCard(conv: NormalizedConversation): HTMLElement {
     editBtn.title = 'Import and edit your published conversation';
     editBtn.onclick = async (event) => {
       event.stopPropagation();
-      await handleImportCard(conv, editBtn);
+      await handleEditImport(conv, editBtn);
     };
     actions.appendChild(editBtn);
   }
@@ -809,7 +809,7 @@ function buildPreviewDrawer(conv: NormalizedConversation | null): HTMLElement {
     editBtn.className = 'toolbar-button btn-primary';
     setButtonContent(editBtn, 'duplicate', 'Edit');
     editBtn.title = 'Import and edit your published conversation';
-    editBtn.onclick = async () => handleImportCard(conv, editBtn);
+    editBtn.onclick = async () => handleEditImport(conv, editBtn);
     actionRow.appendChild(editBtn);
   }
   drawer.appendChild(actionRow);
@@ -896,6 +896,37 @@ async function handleImportCard(conv: CommunityConversation, btn: HTMLButtonElem
     btn.innerHTML = original;
     renderContent();
   }, 1500);
+}
+
+async function handleEditImport(conv: CommunityConversation, btn: HTMLButtonElement): Promise<void> {
+  const conversations = conv.data?.conversations;
+  if (!conversations || conversations.length === 0) {
+    alert('This entry has no conversation data.');
+    return;
+  }
+
+  const importedConversationId = importConversations(conversations, conv.faction);
+  if (importedConversationId != null) {
+    store.setConversationSourceMetadata(importedConversationId, {
+      sourceCommunityId: conv.id,
+      sourcePublisherId: conv.publisher_id?.trim() || 'anonymous',
+      sourceUpdatedAt: conv.updated_at || undefined,
+    });
+  }
+  incrementDownload(conv.id);
+
+  const match = allResults.find(entry => entry.id === conv.id);
+  if (match) match.downloads += 1;
+
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  setButtonContent(btn, 'success', 'Ready to Edit');
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.innerHTML = original;
+    renderContent();
+  }, 1500);
+  showPublishForm({ replacementContext: true });
 }
 
 async function handleUpvote(conv: NormalizedConversation, btn: HTMLButtonElement): Promise<void> {
@@ -992,6 +1023,11 @@ function buildPublishForm(): HTMLElement {
   subtitle.className = 'share-publish-form-subtitle';
   subtitle.textContent = 'Anonymous publishing is public, moderated after the fact, and limited to one publish per minute from this browser.';
   form.appendChild(subtitle);
+
+  const replacementContext = document.createElement('div');
+  replacementContext.className = 'share-publish-form-subtitle';
+  replacementContext.hidden = true;
+  form.appendChild(replacementContext);
 
   const titleInput = makeFormField(form, 'Title', 'text', 'Conversation title (unique community title required)') as HTMLInputElement;
   titleInput.maxLength = 70;
@@ -1233,8 +1269,9 @@ function buildPublishForm(): HTMLElement {
     }
   };
 
-  (form as HTMLElement & { prefill?: () => void }).prefill = () => {
+  (form as HTMLElement & { prefill?: (isReplacementCandidate?: boolean) => void }).prefill = (isReplacementCandidate = false) => {
     const conv = store.getSelectedConversation();
+    const sourceMetadata = store.getSelectedConversationSourceMetadata();
     const faction = getConversationFaction(conv, store.get().project.faction);
     const branchCount = getBranchCount(conv ?? undefined);
     titleInput.value = conv?.label || '';
@@ -1248,6 +1285,13 @@ function buildPublishForm(): HTMLElement {
     tagsInput.value = branchCount <= 3 ? 'short, starter' : 'branching, story';
     factionValue.textContent = `${FACTION_DISPLAY_NAMES[faction]} · ${branchCount} branches · ${labelForComplexity(deriveConversationComplexity(branchCount))}`;
     factionValue.style.color = FACTION_COLORS[faction];
+    if (isReplacementCandidate && sourceMetadata) {
+      replacementContext.hidden = false;
+      replacementContext.textContent = `Update existing community post: ${sourceMetadata.sourceCommunityId}`;
+    } else {
+      replacementContext.hidden = true;
+      replacementContext.textContent = '';
+    }
     consentInput.checked = false;
     setStatus(currentUsername
       ? `Publishing as ${currentUsername}. Duplicate titles are rejected.`
@@ -1290,15 +1334,17 @@ function showPublishTrigger(): void {
   overlayEl?.querySelector<HTMLButtonElement>('[data-share-publish]')?.focus();
 }
 
-function showPublishForm(): void {
+function showPublishForm(options: { replacementContext?: boolean } = {}): void {
   const conv = store.getSelectedConversation();
   if (!conv) {
     alert('Select a conversation in the left panel first, then click Publish.');
     return;
   }
-  const form = overlayEl?.querySelector<HTMLElement & { prefill?: () => void }>('.share-publish-form');
+  const form = overlayEl?.querySelector<HTMLElement & { prefill?: (isReplacementCandidate?: boolean) => void }>('.share-publish-form');
   if (!form) return;
-  form.prefill?.();
+  const replacementContext = options.replacementContext
+    || !!store.getSelectedConversationSourceMetadata();
+  form.prefill?.(replacementContext);
   form.hidden = false;
   const firstField = form.querySelector<HTMLElement>('.share-form-input');
   firstField?.focus();

@@ -32,6 +32,7 @@ export interface AppState {
   projectRevision: number;
   systemStringsRevision: number;
   validationRevision: number;
+  conversationSourceMetadata: Map<number, ConversationSourceMetadata>;
 }
 
 export type RenderTarget =
@@ -90,6 +91,12 @@ type ChoiceClipboard = {
   choice: Choice;
 };
 
+export type ConversationSourceMetadata = {
+  sourceCommunityId: string;
+  sourcePublisherId: string;
+  sourceUpdatedAt?: string;
+};
+
 function mergeChanges(a: StateChange, b: StateChange): StateChange {
   const merged = a.targets.includes('appShell') || b.targets.includes('appShell')
     ? { ...FULL_APP_RENDER }
@@ -130,6 +137,7 @@ class StateManager {
       projectRevision: 0,
       systemStringsRevision: 0,
       validationRevision: 0,
+      conversationSourceMetadata: new Map(),
     };
   }
 
@@ -627,6 +635,7 @@ class StateManager {
     this.state.redoStack = [];
     this.state.copiedTurn = null;
     this.state.copiedChoice = null;
+    this.state.conversationSourceMetadata = new Map();
     this.markProjectChanged();
     this.markSystemStringsChanged();
     this.revalidate();
@@ -785,8 +794,17 @@ class StateManager {
 
   deleteConversation(id: number): void {
     this.pushUndo();
+    const previousConversations = [...this.state.project.conversations];
     this.state.project.conversations = this.state.project.conversations.filter(c => c.id !== id);
     this.state.project.conversations.forEach((c, i) => { c.id = i + 1; });
+    const remappedMetadata = new Map<number, ConversationSourceMetadata>();
+    previousConversations
+      .filter(conversation => conversation.id !== id)
+      .forEach((conversation, index) => {
+        const metadata = this.state.conversationSourceMetadata.get(conversation.id);
+        if (metadata) remappedMetadata.set(index + 1, metadata);
+      });
+    this.state.conversationSourceMetadata = remappedMetadata;
     if (this.state.selectedConversationId === id) {
       this.state.selectedConversationId = this.state.project.conversations.length > 0
         ? this.state.project.conversations[0].id : null;
@@ -804,6 +822,7 @@ class StateManager {
     dup.id = maxId + 1;
     dup.label = source.label + ' (copy)';
     this.state.project.conversations.push(dup);
+    this.state.conversationSourceMetadata.delete(dup.id);
     this.state.selectedConversationId = dup.id;
     this.clearSelection({ notify: false });
     this.finishProjectMutation();
@@ -1154,9 +1173,40 @@ class StateManager {
       merged.id = nextId++;
       if (firstId === null) firstId = merged.id;
       this.state.project.conversations.push(merged);
+      this.state.conversationSourceMetadata.delete(merged.id);
     }
     this.finishProjectMutation();
     return firstId;
+  }
+
+  getConversationSourceMetadata(conversationId: number | null | undefined): ConversationSourceMetadata | null {
+    if (conversationId == null) return null;
+    return this.state.conversationSourceMetadata.get(conversationId) ?? null;
+  }
+
+  getSelectedConversationSourceMetadata(): ConversationSourceMetadata | null {
+    return this.getConversationSourceMetadata(this.state.selectedConversationId);
+  }
+
+  setConversationSourceMetadata(
+    conversationId: number,
+    metadata: ConversationSourceMetadata | null,
+    options: { notify?: boolean } = {},
+  ): void {
+    if (metadata) {
+      this.state.conversationSourceMetadata.set(conversationId, {
+        sourceCommunityId: metadata.sourceCommunityId,
+        sourcePublisherId: metadata.sourcePublisherId,
+        sourceUpdatedAt: metadata.sourceUpdatedAt,
+      });
+    } else {
+      this.state.conversationSourceMetadata.delete(conversationId);
+    }
+    if (options.notify ?? false) this.notify(FULL_APP_RENDER);
+  }
+
+  clearConversationSourceMetadata(conversationId: number, options: { notify?: boolean } = {}): void {
+    this.setConversationSourceMetadata(conversationId, null, options);
   }
 
   setSystemString(key: string, value: string): void {
