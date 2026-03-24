@@ -314,6 +314,95 @@ AS $$
     updated_at = now();
 $$;
 
+-- Active editor user presence counter
+CREATE TABLE IF NOT EXISTS creator_active_users (
+  user_id TEXT PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE creator_active_users ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'creator_active_users'
+      AND policyname = 'Public active users read'
+  ) THEN
+    CREATE POLICY "Public active users read"
+      ON creator_active_users FOR SELECT
+      USING (true);
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'creator_active_users'
+      AND policyname = 'Public active users write'
+  ) THEN
+    CREATE POLICY "Public active users write"
+      ON creator_active_users FOR ALL
+      USING (true)
+      WITH CHECK (true);
+  END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION touch_creator_active_user(
+  active_user_id TEXT,
+  stale_after_seconds INT DEFAULT 120
+)
+RETURNS INT
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  normalized_user_id TEXT;
+  active_count INT;
+BEGIN
+  normalized_user_id := nullif(btrim(active_user_id), '');
+
+  IF normalized_user_id IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  INSERT INTO creator_active_users (user_id, last_seen_at)
+  VALUES (normalized_user_id, now())
+  ON CONFLICT (user_id)
+  DO UPDATE SET last_seen_at = now();
+
+  DELETE FROM creator_active_users
+  WHERE last_seen_at < now() - make_interval(secs => GREATEST(stale_after_seconds, 30));
+
+  SELECT count(*)::INT INTO active_count FROM creator_active_users;
+  RETURN coalesce(active_count, 0);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_active_creator_user_count(stale_after_seconds INT DEFAULT 120)
+RETURNS INT
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  active_count INT;
+BEGIN
+  DELETE FROM creator_active_users
+  WHERE last_seen_at < now() - make_interval(secs => GREATEST(stale_after_seconds, 30));
+
+  SELECT count(*)::INT INTO active_count FROM creator_active_users;
+  RETURN coalesce(active_count, 0);
+END;
+$$;
+
 -- ═══════════════════════════════════════════════════════════════════════════
 -- User Profiles & Gamification (XP / Levels)
 -- ═══════════════════════════════════════════════════════════════════════════
