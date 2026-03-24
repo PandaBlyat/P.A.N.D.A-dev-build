@@ -7014,10 +7014,10 @@ strong.support-upvote-count {
 .profile-popover-body {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
   min-height: 0;
-  padding: 14px;
+  padding: 12px;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -8891,14 +8891,14 @@ strong.support-upvote-count {
 .profile-popover-hero-row {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  gap: 12px;
+  gap: 10px;
 }
 
 /* L2 — Action row: equal halves */
 .profile-popover-action-row {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.95fr) minmax(0, 1.05fr);
-  gap: 12px;
+  gap: 10px;
   align-items: stretch;
 }
 
@@ -8906,7 +8906,7 @@ strong.support-upvote-count {
 .profile-popover-footer-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
+  gap: 10px;
   align-items: stretch;
 }
 
@@ -9107,16 +9107,16 @@ strong.support-upvote-count {
 .profile-focus-panel,
 .profile-popover-streak-challenge,
 .profile-popover-stats {
-  padding: 10px;
+  padding: 8px;
 }
 
 .profile-popover-xp-breakdown,
 .profile-popover-leaderboard {
-  padding: 12px 14px;
+  padding: 10px 12px;
 }
 
 .profile-popover-achievements {
-  padding: 12px 14px;
+  padding: 10px 12px;
 }
 
 .profile-focus-panel {
@@ -9125,7 +9125,7 @@ strong.support-upvote-count {
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--accent, #5eaa3a) 10%, transparent), transparent 50%),
     color-mix(in srgb, var(--bg-elevated, #171d28) 94%, transparent);
-  padding: 12px;
+  padding: 10px;
 }
 
 .profile-focus-header,
@@ -9160,7 +9160,7 @@ strong.support-upvote-count {
 .profile-focus-card {
   display: grid;
   gap: 3px;
-  padding: 10px 12px;
+  padding: 8px 10px;
 }
 
 .profile-focus-card-primary {
@@ -9203,7 +9203,7 @@ strong.support-upvote-count {
 
 .profile-stat-card {
   min-height: auto;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-color: color-mix(in srgb, var(--border-light, #33404e) 76%, transparent);
 }
 
@@ -9223,7 +9223,7 @@ strong.support-upvote-count {
 
 .profile-mission-panel {
   gap: 6px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-color: color-mix(in srgb, var(--accent, #5eaa3a) 24%, transparent);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--accent, #5eaa3a) 8%, transparent) 0%, transparent 100%),
@@ -9269,12 +9269,12 @@ strong.support-upvote-count {
 }
 
 .profile-mission-list {
-  gap: 10px;
+  gap: 8px;
 }
 
 .profile-mission-card {
   gap: 4px;
-  padding: 10px 12px;
+  padding: 8px 10px;
 }
 
 .profile-mission-title {
@@ -9311,7 +9311,7 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-featured-strip {
-  padding: 12px;
+  padding: 10px;
   border-radius: 14px;
 }
 
@@ -9320,7 +9320,7 @@ strong.support-upvote-count {
 }
 
 .profile-achievement-next-card {
-  padding: 10px;
+  padding: 8px;
 }
 
 .profile-achievement-category-grid {
@@ -9445,7 +9445,7 @@ strong.support-upvote-count {
 /* Leaderboard is now always visible (no longer a <details>) */
 
 .profile-popover-lb-header {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .profile-popover-leaderboard .profile-popover-summary-meta {
@@ -9453,13 +9453,13 @@ strong.support-upvote-count {
 }
 
 .profile-popover-lb-list {
-  margin-top: 6px;
+  margin-top: 4px;
   font-size: 0.78rem;
   color: var(--fg-dim, #9aa4b2);
 }
 
 .profile-popover-lb-row {
-  padding: 5px 8px;
+  padding: 4px 8px;
 }
 
 @media (max-width: 720px) {
