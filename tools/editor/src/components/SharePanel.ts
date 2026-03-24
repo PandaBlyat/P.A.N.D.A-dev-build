@@ -62,6 +62,13 @@ type NormalizedConversation = CommunityConversation & {
   updated_at: string;
   source: LibrarySource;
 };
+type CommunitySourceMetadata = {
+  id: string;
+  publisher_id?: string;
+};
+type ConversationWithSource = Conversation & {
+  community_source?: CommunitySourceMetadata;
+};
 
 const LOCAL_UPVOTE_KEY = 'panda-community-upvotes';
 const LOCAL_PUBLISHER_ID_KEY = 'panda-community-publisher-id';
@@ -83,6 +90,23 @@ function userOwnsConversation(conv: CommunityConversation): boolean {
   const publisherId = conv.publisher_id?.trim();
   if (!publisherId) return false;
   return getCurrentPublisherIds().includes(publisherId);
+}
+
+function attachCommunitySourceMetadata(conversation: Conversation, metadata: CommunitySourceMetadata): Conversation {
+  return ({
+    ...conversation,
+    community_source: metadata,
+  } as ConversationWithSource) as Conversation;
+}
+
+function getCommunitySourceMetadata(conversation: Conversation | null | undefined): CommunitySourceMetadata | null {
+  if (!conversation || typeof conversation !== 'object') return null;
+  const maybe = (conversation as ConversationWithSource).community_source;
+  if (!maybe || typeof maybe.id !== 'string' || !maybe.id.trim()) return null;
+  return {
+    id: maybe.id.trim(),
+    publisher_id: typeof maybe.publisher_id === 'string' ? maybe.publisher_id.trim() : undefined,
+  };
 }
 
 function getSharePanelMount(): HTMLElement {
@@ -882,7 +906,11 @@ async function handleImportCard(conv: CommunityConversation, btn: HTMLButtonElem
     return;
   }
 
-  importConversations(conversations, conv.faction);
+  const imported = conversations.map(entry => attachCommunitySourceMetadata(entry, {
+    id: conv.id,
+    publisher_id: conv.publisher_id,
+  }));
+  importConversations(imported, conv.faction);
   incrementDownload(conv.id);
 
   const match = allResults.find(entry => entry.id === conv.id);
@@ -1083,7 +1111,14 @@ function buildPublishForm(): HTMLElement {
     const tags = tagsInput.value.split(',').map(tag => tag.trim()).filter(Boolean);
     const faction = getConversationFaction(conv, store.get().project.faction);
     const branchCount = getBranchCount(conv);
-    const duplicateLocal = allResults.some(entry => normalizeKey(entry.label) === normalizeKey(label));
+    const sourceMetadata = getCommunitySourceMetadata(conv);
+    const sourcePublisherId = sourceMetadata?.publisher_id?.trim();
+    const ownershipValid = !!sourcePublisherId && getCurrentPublisherIds().includes(sourcePublisherId);
+    const replaceId = sourceMetadata?.id?.trim() && ownershipValid ? sourceMetadata.id.trim() : null;
+    const duplicateLocal = allResults.some(entry =>
+      normalizeKey(entry.label) === normalizeKey(label)
+      && (!replaceId || entry.id !== replaceId),
+    );
     if (duplicateLocal) {
       setStatus('That title already exists in the current library view. Choose a more specific title before publishing.', 'danger');
       return;
@@ -1108,8 +1143,12 @@ function buildPublishForm(): HTMLElement {
           faction,
           conversations: [conv],
         },
+        replace_id: replaceId ?? undefined,
+        publisher_id: ownershipValid ? sourcePublisherId : undefined,
       });
-      setStatus('Published successfully. Refreshing the library with your new community entry…', 'success');
+      setStatus(replaceId
+        ? 'Updated existing community conversation. Refreshing library…'
+        : 'Published successfully. Refreshing the library with your new community entry…', 'success');
 
       // Award XP for publishing + sync achievements/streaks server-side
       const complexity = deriveConversationComplexity(branchCount);
@@ -1250,8 +1289,8 @@ function buildPublishForm(): HTMLElement {
     factionValue.style.color = FACTION_COLORS[faction];
     consentInput.checked = false;
     setStatus(currentUsername
-      ? `Publishing as ${currentUsername}. Duplicate titles are rejected.`
-      : 'Anonymous publishes are visible to everyone and duplicate titles are rejected.');
+      ? `Publishing as ${currentUsername}. Duplicate titles are rejected. Conversation ownership is soft unless identity is backed by authenticated Supabase user auth + RLS.`
+      : 'Anonymous publishes are browser-bound and ownership is soft. Duplicate titles are rejected.');
   };
 
   return form;

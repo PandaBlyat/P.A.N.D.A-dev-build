@@ -598,6 +598,116 @@ app.post('/api/conversations', async (req, res) => {
   }
 });
 
+app.patch('/api/conversations/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const {
+      label,
+      description,
+      summary,
+      tags,
+      branch_count,
+      complexity,
+      data,
+      author,
+      publisher_id,
+    } = req.body ?? {};
+
+    const normalizedPublisherId = typeof publisher_id === 'string' ? publisher_id.trim() : '';
+    const normalizedLabel = typeof label === 'string' ? label.trim() : '';
+    if (!id || !normalizedPublisherId || !normalizedLabel || !data) {
+      res.status(400).json({ error: 'Missing required fields: id, publisher_id, label, data' });
+      return;
+    }
+
+    const existingParams = new URLSearchParams({
+      select: 'id,publisher_id',
+      id: `eq.${id}`,
+      limit: '1',
+    });
+    const existingResponse = await fetch(`${sbEndpoint(TABLE)}?${existingParams}`, { headers: sbHeaders() });
+    if (!existingResponse.ok) {
+      res.status(existingResponse.status).json({ error: await readErrorMessage(existingResponse) });
+      return;
+    }
+    const existingRows = await existingResponse.json() as Array<{ id: string; publisher_id?: string | null }>;
+    const existing = existingRows[0];
+    if (!existing) {
+      res.status(404).json({ error: 'Conversation not found.' });
+      return;
+    }
+    if ((existing.publisher_id ?? '').trim() !== normalizedPublisherId) {
+      res.status(403).json({ error: 'Forbidden: publisher mismatch.' });
+      return;
+    }
+
+    const duplicateParams = new URLSearchParams({
+      select: 'id',
+      limit: '1',
+      label: `ilike.${escapeIlike(normalizedLabel)}`,
+      id: `neq.${id}`,
+    });
+    const duplicate = await fetch(`${sbEndpoint(TABLE)}?${duplicateParams}`, { headers: sbHeaders() });
+    if (duplicate.ok) {
+      const rows = await duplicate.json() as Array<{ id: string }>;
+      if (rows.length > 0) {
+        res.status(409).json({ error: 'A different community conversation with this title already exists.' });
+        return;
+      }
+    }
+
+    const headers = { ...sbHeaders(), Prefer: 'return=minimal' };
+    const updateBody = {
+      label: normalizedLabel,
+      description: typeof description === 'string' ? description : '',
+      summary: typeof summary === 'string' ? summary : '',
+      tags: Array.isArray(tags) ? tags : [],
+      branch_count: typeof branch_count === 'number' ? branch_count : null,
+      complexity: typeof complexity === 'string' ? complexity : null,
+      data,
+      author: typeof author === 'string' && author.trim() ? author.trim() : undefined,
+    };
+    let r = await fetch(`${sbEndpoint(TABLE)}?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(updateBody),
+    });
+
+    if (!r.ok) {
+      const errorMessage = await readErrorMessage(r);
+      if (
+        isMissingSchemaColumnError(errorMessage, 'branch_count')
+        || isMissingSchemaColumnError(errorMessage, 'complexity')
+        || isMissingSchemaColumnError(errorMessage, 'summary')
+        || isMissingSchemaColumnError(errorMessage, 'tags')
+        || isCommunitySchemaMismatchError(errorMessage)
+      ) {
+        const {
+          summary: _summary,
+          tags: _tags,
+          branch_count: _branchCount,
+          complexity: _complexity,
+          ...fallbackBody
+        } = updateBody;
+        r = await fetch(`${sbEndpoint(TABLE)}?id=eq.${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify(fallbackBody),
+        });
+      }
+    }
+
+    if (!r.ok) {
+      res.status(r.status).json({ error: await readErrorMessage(r) });
+      return;
+    }
+
+    res.status(200).json({ ok: true, id });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // Download and upvote handlers moved below with XP-awarding versions.
 
 
