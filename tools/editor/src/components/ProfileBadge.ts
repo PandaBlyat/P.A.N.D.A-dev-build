@@ -479,6 +479,12 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
   subtitle.textContent = nextTargets.length > 0
     ? `Suggested achievement unlocks based on your current progression (${nextTargets.length} in queue).`
     : 'No suggested goals right now — new achievements will appear as you progress.';
+  if (nextTargets.length > 1) {
+    const navHint = document.createElement('span');
+    navHint.className = 'profile-focus-subtitle-hint';
+    navHint.textContent = 'Use ↑ ↓ or click a goal to preview details.';
+    subtitle.append(' ', navHint);
+  }
   titleWrap.append(title, subtitle);
   header.appendChild(titleWrap);
 
@@ -534,6 +540,19 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
     const detailReason = document.createElement('p');
     detailReason.className = 'profile-focus-goal-insight';
 
+    const detailProgress = document.createElement('div');
+    detailProgress.className = 'profile-focus-goal-progress';
+    const detailProgressLabel = document.createElement('span');
+    detailProgressLabel.className = 'profile-focus-goal-progress-label';
+    const detailProgressValue = document.createElement('span');
+    detailProgressValue.className = 'profile-focus-goal-progress-value';
+    const detailProgressTrack = document.createElement('div');
+    detailProgressTrack.className = 'profile-focus-goal-progress-track';
+    const detailProgressBar = document.createElement('span');
+    detailProgressBar.className = 'profile-focus-goal-progress-bar';
+    detailProgressTrack.appendChild(detailProgressBar);
+    detailProgress.append(detailProgressLabel, detailProgressValue, detailProgressTrack);
+
     const detailAction = document.createElement('div');
     detailAction.className = 'profile-focus-goal-action';
     const detailActionLabel = document.createElement('div');
@@ -544,8 +563,24 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
     const detailActionBody = document.createElement('p');
     detailActionBody.className = 'profile-focus-goal-action-body';
 
+    const detailNav = document.createElement('div');
+    detailNav.className = 'profile-focus-goal-nav';
+    const navPrev = document.createElement('button');
+    navPrev.type = 'button';
+    navPrev.className = 'profile-focus-goal-nav-btn';
+    navPrev.setAttribute('aria-label', 'Show previous goal');
+    navPrev.append(createIcon('undo'), document.createTextNode('Prev'));
+    const navCounter = document.createElement('span');
+    navCounter.className = 'profile-focus-goal-nav-counter';
+    const navNext = document.createElement('button');
+    navNext.type = 'button';
+    navNext.className = 'profile-focus-goal-nav-btn';
+    navNext.setAttribute('aria-label', 'Show next goal');
+    navNext.append(document.createTextNode('Next'), createIcon('redo'));
+    detailNav.append(navPrev, navCounter, navNext);
+
     detailAction.append(detailActionLabel, detailActionBody);
-    detailCard.append(detailHeader, detailDesc, detailReason, detailAction);
+    detailCard.append(detailHeader, detailDesc, detailReason, detailProgress, detailAction, detailNav);
 
     const tabs: HTMLButtonElement[] = [];
     let activeIndex = 0;
@@ -566,6 +601,13 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
       detailDesc.textContent = achievement.description;
       detailReason.textContent = reason;
       detailActionBody.textContent = getGoalActionHint(achievement.id, profile);
+      detailProgressLabel.textContent = 'Queue priority';
+      detailProgressValue.textContent = `${normalized + 1} of ${visibleTargets.length}`;
+      const progress = visibleTargets.length <= 1 ? 100 : ((normalized + 1) / visibleTargets.length) * 100;
+      detailProgressBar.style.width = `${progress}%`;
+      navCounter.textContent = `Goal ${normalized + 1}/${visibleTargets.length}`;
+      navPrev.disabled = visibleTargets.length <= 1;
+      navNext.disabled = visibleTargets.length <= 1;
 
       tabs.forEach((tab, tabIndex) => {
         const isActive = tabIndex === normalized;
@@ -604,7 +646,11 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
       goalDesc.className = 'profile-focus-card-desc';
       goalDesc.textContent = reason;
 
-      goalTab.append(goalTop, goalMeta, goalDesc);
+      const goalQueueHint = document.createElement('div');
+      goalQueueHint.className = 'profile-focus-goal-queue-hint';
+      goalQueueHint.textContent = index === 0 ? 'Recommended next unlock' : `Queue slot ${index + 1}`;
+
+      goalTab.append(goalTop, goalMeta, goalDesc, goalQueueHint);
       goalTab.addEventListener('click', () => renderActiveTarget(index));
       goalTab.addEventListener('focus', () => renderActiveTarget(index));
       goalTab.addEventListener('keydown', (event) => {
@@ -632,6 +678,17 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
 
       tabs.push(goalTab);
       queue.appendChild(goalTab);
+    });
+
+    navPrev.addEventListener('click', () => {
+      const prev = (activeIndex - 1 + visibleTargets.length) % visibleTargets.length;
+      renderActiveTarget(prev);
+      tabs[prev]?.focus();
+    });
+    navNext.addEventListener('click', () => {
+      const next = (activeIndex + 1) % visibleTargets.length;
+      renderActiveTarget(next);
+      tabs[next]?.focus();
     });
 
     renderActiveTarget(0);
