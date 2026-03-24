@@ -706,9 +706,13 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
   ACHIEVEMENT_CATEGORY_ORDER.forEach((category: AchievementCategory) => {
     const categoryAchievements = getAchievementsByCategory(category);
     const unlockedCount = categoryAchievements.filter(achievement => unlocked.includes(achievement.id)).length;
-    const categorySection = document.createElement('section');
-    categorySection.className = 'profile-achievement-category';
-    categorySection.style.setProperty('--category-accent', ACHIEVEMENT_CATEGORY_COLORS[category]);
+
+    // Collapsible <details> wrapper for each category
+    const categoryDetails = document.createElement('details');
+    categoryDetails.className = 'profile-achievement-category-details';
+    categoryDetails.style.setProperty('--category-accent', ACHIEVEMENT_CATEGORY_COLORS[category]);
+
+    const categorySummary = document.createElement('summary');
 
     const categoryHeader = document.createElement('div');
     categoryHeader.className = 'profile-achievement-category-header';
@@ -748,6 +752,8 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
     categoryStatus.append(categoryCount, categoryProgress);
 
     categoryHeader.append(categoryTitle, categoryStatus);
+    categorySummary.appendChild(categoryHeader);
+    categoryDetails.appendChild(categorySummary);
 
     const grid = document.createElement('div');
     grid.className = 'profile-popover-achievement-grid profile-achievement-category-rail';
@@ -800,8 +806,8 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
       grid.appendChild(cell);
     });
 
-    categorySection.append(categoryHeader, grid);
-    categoryGrid.appendChild(categorySection);
+    categoryDetails.appendChild(grid);
+    categoryGrid.appendChild(categoryDetails);
   });
 
   section.appendChild(categoryGrid);
@@ -918,24 +924,28 @@ function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTM
   const streakMeta = document.createElement('div');
   streakMeta.className = 'profile-mission-header-meta';
 
-  const streakSummary = document.createElement('span');
-  streakSummary.className = 'profile-mission-header-pill profile-surface-token';
-  streakSummary.textContent = `Best streak ${streak.longestStreak}w`;
+  // Only show streak chip when there's a meaningful streak to display
+  if (streak.longestStreak > 0) {
+    const streakSummary = document.createElement('span');
+    streakSummary.className = 'profile-mission-header-pill profile-surface-token';
+    streakSummary.textContent = `Best ${streak.longestStreak}w`;
+    streakMeta.appendChild(streakSummary);
+  }
 
-  const shieldBadge = document.createElement('span');
-  shieldBadge.className = `profile-mission-header-pill profile-surface-token${streak.shieldAvailable ? ' profile-mission-header-pill-active' : ''}`;
-  shieldBadge.title = streak.shieldAvailable
-    ? 'Streak Shield available — miss one week without losing your streak'
-    : isSelfProfile
-      ? 'Streak Shield used this month'
-      : 'Streak Shield unavailable for public profiles';
-  shieldBadge.textContent = streak.shieldAvailable ? 'Shield ready' : 'Shield spent';
+  // Only show shield when it's active/available (actionable info)
+  if (streak.shieldAvailable) {
+    const shieldBadge = document.createElement('span');
+    shieldBadge.className = 'profile-mission-header-pill profile-surface-token profile-mission-header-pill-active';
+    shieldBadge.title = 'Streak Shield available — miss one week without losing your streak';
+    shieldBadge.textContent = 'Shield ready';
+    streakMeta.appendChild(shieldBadge);
+  }
 
   const loginSummary = document.createElement('span');
   loginSummary.className = 'profile-mission-header-pill profile-surface-token';
-  loginSummary.textContent = `Login ${loginStreak.currentStreak}d`;
+  loginSummary.textContent = `${loginStreak.currentStreak}d login`;
 
-  streakMeta.append(streakSummary, shieldBadge, loginSummary);
+  streakMeta.appendChild(loginSummary);
 
   const missionHeader = document.createElement('div');
   missionHeader.className = 'profile-mission-panel-header';

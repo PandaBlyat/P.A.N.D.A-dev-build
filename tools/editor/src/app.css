@@ -8663,7 +8663,7 @@ strong.support-upvote-count {
   height: 4px;
   border-radius: 999px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--bg, #111) 78%, var(--border, #333));
+  background: color-mix(in srgb, var(--bg, #111) 65%, var(--border, #333) 35%);
 }
 
 .profile-mission-progress-fill {
@@ -8851,14 +8851,25 @@ strong.support-upvote-count {
   background: color-mix(in srgb, var(--accent, #f59e0b) 10%, transparent);
 }
 
-/* Refined Profile Popover Layout */
+/* Refined Profile Popover Layout
+   ───────────────────────────────
+   Hierarchy levels:
+     L1 (hero/header)  — prominent border + radial glow
+     L2 (action row)   — standard border, no glow
+     L3 (footer/extra) — subtle border, minimal shadow
+   Spacing tokens consolidated:
+     --profile-section-gap: 10px (between rows)
+     --profile-card-gap:    6px  (within rows)
+     --profile-card-padding: 8px (card inner)
+*/
+
 .profile-popover-body {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
   min-height: 0;
-  padding: 16px;
+  padding: 14px;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -8876,13 +8887,22 @@ strong.support-upvote-count {
   background-clip: padding-box;
 }
 
+/* L1 — Hero row: asymmetric 55/45 split, identity left, actions right */
 .profile-popover-hero-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 10px;
+}
+
+/* L2 — Action row: equal halves */
+.profile-popover-action-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
+  align-items: start;
 }
 
-.profile-popover-action-row,
+/* L3 — Footer row: equal halves, subdued */
 .profile-popover-footer-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -8899,6 +8919,20 @@ strong.support-upvote-count {
 .profile-popover-leaderboard {
   min-width: 0;
   max-width: none;
+}
+
+/* L3 sections: reduced visual weight */
+.profile-popover-xp-breakdown,
+.profile-popover-leaderboard {
+  border-color: color-mix(in srgb, var(--profile-accent) 8%, var(--border, #333));
+  box-shadow: none;
+  background: color-mix(in srgb, var(--profile-surface-fill) 80%, transparent);
+}
+
+/* L2 sections: standard weight */
+.profile-popover-stats,
+.profile-popover-streak-challenge {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
 }
 
 .profile-popover-header {
@@ -8970,14 +9004,14 @@ strong.support-upvote-count {
 }
 
 .profile-hero-meta-label {
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--fg-dim, #94a0b0);
+  letter-spacing: 0.06em;
+  color: var(--fg-dim, #a0aab8);
 }
 
 .profile-hero-meta-value {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--fg, #eef2f7);
 }
@@ -9037,8 +9071,8 @@ strong.support-upvote-count {
 
 .profile-popover-bar-track {
   height: 8px;
-  border: 1px solid color-mix(in srgb, var(--accent, #f59e0b) 18%, var(--border, #333));
-  background: color-mix(in srgb, #0b1117 78%, black 22%);
+  border: 1px solid color-mix(in srgb, var(--accent, #f59e0b) 22%, var(--border, #333));
+  background: color-mix(in srgb, #151b24 82%, black 18%);
 }
 
 .profile-popover-bar-fill {
@@ -9073,18 +9107,22 @@ strong.support-upvote-count {
 .profile-focus-panel,
 .profile-popover-streak-challenge,
 .profile-popover-stats,
-.profile-popover-achievements,
 .profile-popover-xp-breakdown,
 .profile-popover-leaderboard {
   padding: 10px;
 }
 
+.profile-popover-achievements {
+  padding: 8px 10px;
+}
+
 .profile-focus-panel {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--accent, #5eaa3a) 10%, transparent), transparent 50%),
     color-mix(in srgb, var(--bg-elevated, #171d28) 94%, transparent);
+  padding: 8px;
 }
 
 .profile-focus-header,
@@ -9113,13 +9151,13 @@ strong.support-upvote-count {
 .profile-focus-cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  gap: 5px;
 }
 
 .profile-focus-card {
   display: grid;
-  gap: 4px;
-  padding: 8px;
+  gap: 3px;
+  padding: 7px 8px;
 }
 
 .profile-focus-card-primary {
@@ -9128,22 +9166,24 @@ strong.support-upvote-count {
 }
 
 .profile-focus-card-label {
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--fg-dim, #94a0b0);
+  color: var(--fg-dim, #8a95a6);
 }
 
 .profile-focus-card-title {
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 800;
   color: var(--fg, #f3f6f8);
+  line-height: 1.2;
 }
 
 .profile-focus-card-meta {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: color-mix(in srgb, var(--accent, #f59e0b) 78%, white 22%);
+  line-height: 1.35;
 }
 
 .profile-focus-card-desc {
@@ -9171,11 +9211,11 @@ strong.support-upvote-count {
 
 .profile-stat-label {
   font-size: 0.7rem;
-  color: var(--fg-dim, #9aa4b2);
+  color: var(--fg-dim, #aab4c2);
 }
 
 .profile-stat-value {
-  font-size: 0.92rem;
+  font-size: 0.96rem;
 }
 
 .profile-mission-panel {
@@ -9219,8 +9259,10 @@ strong.support-upvote-count {
 .profile-mission-header-pill,
 .profile-mission-slot,
 .profile-achievement-summary-row .profile-popover-meta-pill {
-  min-height: 1.9rem;
-  font-size: 0.72rem;
+  min-height: 1.6rem;
+  font-size: 0.64rem;
+  padding: 2px 6px;
+  border-color: color-mix(in srgb, var(--profile-accent) 10%, var(--border, #333));
 }
 
 .profile-mission-list {
@@ -9233,29 +9275,31 @@ strong.support-upvote-count {
 }
 
 .profile-mission-title {
-  font-size: 0.76rem;
+  font-size: 0.78rem;
 }
 
 .profile-mission-reward {
-  font-size: 0.74rem;
+  font-size: 0.72rem;
 }
 
 .profile-mission-desc,
 .profile-mission-progress-meta,
 .profile-mission-reset {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
+  color: var(--fg-dim, #9aa4b2);
 }
 
 .profile-mission-progress-bar {
-  height: 8px;
+  height: 6px;
+  background: color-mix(in srgb, var(--bg, #111) 60%, var(--border, #333) 40%);
 }
 
 .profile-achievement-summary-row {
-  gap: 8px;
+  gap: 5px;
 }
 
 .profile-achievement-summary-row .profile-popover-meta-pill {
-  font-size: 0.62rem;
+  font-size: 0.58rem;
 }
 
 .profile-achievement-summary-line {
@@ -9280,6 +9324,44 @@ strong.support-upvote-count {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
+}
+
+/* Collapsible achievement categories */
+.profile-achievement-category-details {
+  border-radius: var(--profile-surface-radius);
+  border: 1px solid color-mix(in srgb, var(--category-accent, var(--profile-accent)) 14%, var(--border, #333));
+  background: color-mix(in srgb, var(--profile-surface-fill) 70%, transparent);
+}
+
+.profile-achievement-category-details > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: var(--profile-surface-radius);
+  transition: background 0.15s ease;
+}
+
+.profile-achievement-category-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.profile-achievement-category-details > summary:hover {
+  background: var(--profile-surface-highlight);
+}
+
+.profile-achievement-category-details > summary::after {
+  content: '▸';
+  font-size: 0.68rem;
+  color: var(--fg-dim, #9aa4b2);
+  transition: transform 0.2s ease;
+}
+
+.profile-achievement-category-details[open] > summary::after {
+  transform: rotate(90deg);
+}
+
+.profile-achievement-category-details .profile-popover-achievement-grid {
+  padding: 4px 8px 8px;
 }
 
 .profile-achievement-category {
@@ -9325,7 +9407,7 @@ strong.support-upvote-count {
   height: 6px;
   border-radius: 999px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--bg, #111) 78%, var(--border, #333));
+  background: color-mix(in srgb, var(--bg, #111) 60%, var(--border, #333) 40%);
 }
 
 .profile-achievement-category-progress-fill {
@@ -9369,6 +9451,8 @@ strong.support-upvote-count {
 
 .profile-popover-lb-list {
   margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--fg-dim, #9aa4b2);
 }
 
 .profile-popover-lb-row {
@@ -9392,6 +9476,10 @@ strong.support-upvote-count {
   .profile-focus-cards {
     grid-template-columns: 1fr;
   }
+
+  .profile-achievement-category-details > summary {
+    padding: 5px 6px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -9406,5 +9494,9 @@ strong.support-upvote-count {
 
   .profile-popover-achievement-grid {
     grid-template-columns: repeat(auto-fit, minmax(36px, 44px));
+  }
+
+  .profile-focus-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
