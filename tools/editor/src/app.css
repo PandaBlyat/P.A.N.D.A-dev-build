@@ -124,7 +124,7 @@ html, body {
 .toolbar-zone {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
 }
 
@@ -1041,7 +1041,7 @@ label {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 5px;
   padding: 8px 12px;
   background: linear-gradient(180deg, #141a22 0%, var(--bg-dark) 100%);
   border-bottom: 1px solid var(--border);
@@ -1771,7 +1771,7 @@ label {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 8px;
+  padding: 5px 7px;
   background: rgba(8, 10, 12, 0.92);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
@@ -7987,7 +7987,7 @@ strong.support-upvote-count {
 .public-profile-summary-stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 5px;
 }
 
 .profile-achievement-summary-row .profile-popover-meta-pill {
@@ -8061,8 +8061,8 @@ strong.support-upvote-count {
 .profile-achievement-next {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 1px;
+  gap: 2px;
+  margin-top: 0;
 }
 
 .profile-achievement-next > summary {
@@ -8078,7 +8078,7 @@ strong.support-upvote-count {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 8px;
+  padding: 5px 7px;
   cursor: pointer;
 }
 
@@ -8109,16 +8109,16 @@ strong.support-upvote-count {
 
 .profile-achievement-next-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
-  gap: 4px;
-  margin-top: 1px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  margin-top: 0;
 }
 
 .profile-achievement-next-card {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 6px 7px;
+  gap: 2px;
+  padding: 4px 6px;
 }
 
 .profile-achievement-next-card-bronze { border-color: color-mix(in srgb, #b87333 32%, transparent); }
@@ -8128,7 +8128,7 @@ strong.support-upvote-count {
 .profile-achievement-next-top {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 5px;
 }
 
 .profile-achievement-next-icon {
@@ -8139,7 +8139,7 @@ strong.support-upvote-count {
 .profile-achievement-next-copy {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
 }
 
