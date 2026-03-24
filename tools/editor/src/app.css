@@ -6985,7 +6985,7 @@ strong.support-upvote-count {
   top: calc(100% + 10px);
   right: 0;
   z-index: 9000;
-  width: min(820px, calc(100vw - 24px));
+  width: min(1100px, calc(100vw - 24px));
   max-width: calc(100vw - 24px);
   max-height: calc(100vh - 56px);
   display: flex;
@@ -7014,7 +7014,7 @@ strong.support-upvote-count {
 .profile-popover-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
   min-height: 0;
   padding: 10px;
@@ -7031,7 +7031,7 @@ strong.support-upvote-count {
 .profile-popover-side {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
@@ -7285,18 +7285,19 @@ strong.support-upvote-count {
 .profile-stat-label {
   max-width: 100%;
   min-width: 0;
-  font-size: 0.5rem;
+  font-size: 0.58rem;
   line-height: 1.35;
   color: var(--fg-dim, #777);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* XP Breakdown */
 .profile-popover-xp-breakdown {
-  padding: 9px 10px;
+  padding: 10px;
 }
 
 /* XP breakdown is now always visible (no longer a <details>) */
@@ -7352,7 +7353,7 @@ strong.support-upvote-count {
 
 /* Leaderboard */
 .profile-popover-leaderboard {
-  padding: 9px 10px 10px;
+  padding: 10px;
 }
 
 .profile-popover-lb-header {
@@ -8876,15 +8877,15 @@ strong.support-upvote-count {
 }
 
 .profile-popover-hero-row {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
 }
 
 .profile-popover-action-row,
 .profile-popover-footer-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
   align-items: start;
 }
@@ -9153,8 +9154,8 @@ strong.support-upvote-count {
 }
 
 .profile-popover-stats-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .profile-stat-card {
@@ -9275,9 +9276,15 @@ strong.support-upvote-count {
   padding: 10px;
 }
 
+.profile-achievement-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
 .profile-achievement-category {
-  gap: 4px;
-  padding-top: 6px;
+  gap: 3px;
+  padding-top: 4px;
   border-top-color: color-mix(in srgb, var(--category-accent, var(--profile-accent)) 32%, transparent);
 }
 
@@ -9328,17 +9335,17 @@ strong.support-upvote-count {
 }
 
 .profile-popover-achievement-grid {
-  grid-template-columns: repeat(auto-fit, minmax(40px, 52px));
-  gap: 4px;
+  grid-template-columns: repeat(auto-fit, minmax(36px, 44px));
+  gap: 3px;
 }
 
 .profile-achievement-cell {
   width: 100%;
-  min-height: 44px;
+  min-height: 38px;
 }
 
 .profile-achievement-badge {
-  min-height: 44px;
+  min-height: 38px;
 }
 
 .profile-achievement-visible-locked .profile-achievement-badge {
@@ -9361,7 +9368,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-lb-list {
-  margin-top: 10px;
+  margin-top: 6px;
 }
 
 .profile-popover-lb-row {
@@ -9369,8 +9376,17 @@ strong.support-upvote-count {
 }
 
 @media (max-width: 720px) {
-  .profile-popover-stats-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .profile-popover-hero-row {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-popover-action-row,
+  .profile-popover-footer-row {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-achievement-category-grid {
+    grid-template-columns: 1fr;
   }
 
   .profile-focus-cards {
