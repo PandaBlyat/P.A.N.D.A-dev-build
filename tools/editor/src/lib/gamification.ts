@@ -51,9 +51,12 @@ export type AchievementId =
   | 'popular_stalker'
   | 'first_upvote_received'
   | 'community_favorite'
+  | 'crowd_pleaser'
   | 'upvote_wave'
   | 'profile_spotlight'
+  | 'cartographer'
   | 'outcome_engineer'
+  | 'branch_architect'
   | 'precondition_master'
   | 'quality_crafter'
   | 'systems_polymath'
@@ -91,9 +94,11 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'profile_spotlight', name: 'Eyes on You', description: 'Reach your first profile view milestone', xp: 45, icon: '\u{1F441}', tier: 'silver', category: 'social' },
   { id: 'popular_stalker', name: 'Popular Stalker', description: 'Receive 50 total downloads', xp: 100, icon: '\u{1F4E5}', tier: 'silver', category: 'social' },
   { id: 'community_favorite', name: 'Community Favorite', description: 'Receive 25 total upvotes', xp: 100, icon: '\u{2B50}', tier: 'silver', category: 'social', featured: true },
+  { id: 'crowd_pleaser', name: 'Crowd Pleaser', description: 'Receive 75 total upvotes', xp: 160, icon: '\u{1F3C6}', tier: 'gold', category: 'social', featured: true },
 
   { id: 'first_publish', name: 'First Steps', description: 'Publish your first conversation', xp: 25, icon: '\u{1F4AC}', tier: 'bronze', category: 'discovery', featured: true },
   { id: 'branching_out', name: 'Branching Out', description: 'Publish a conversation with 5+ branches', xp: 30, icon: '\u{1F333}', tier: 'bronze', category: 'discovery' },
+  { id: 'cartographer', name: 'Cartographer', description: 'Publish 5 conversations', xp: 65, icon: '\u{1F5FA}', tier: 'silver', category: 'discovery' },
   { id: 'web_of_lies', name: 'Web of Lies', description: 'Publish a conversation with 10+ turns', xp: 40, icon: '\u{1F578}', tier: 'silver', category: 'discovery' },
   { id: 'new_faction_scout', name: 'New Ground', description: 'Publish in a new faction for the first time', xp: 35, icon: '\u{1F9ED}', tier: 'bronze', category: 'discovery' },
   { id: 'faction_diplomat', name: 'Faction Diplomat', description: 'Publish conversations for 3 different factions', xp: 75, icon: '\u{1F91D}', tier: 'silver', category: 'discovery', featured: true },
@@ -102,6 +107,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'uncommon_operator', name: 'Odd Operator', description: 'Publish using uncommon command types', xp: 60, icon: '\u{1F9EA}', tier: 'silver', category: 'discovery' },
 
   { id: 'outcome_engineer', name: 'Outcome Engineer', description: 'Use 4+ different outcome types in one conversation', xp: 50, icon: '\u{2699}', tier: 'silver', category: 'mastery' },
+  { id: 'branch_architect', name: 'Branch Architect', description: 'Publish a conversation with 8+ branches', xp: 70, icon: '\u{1F332}', tier: 'silver', category: 'mastery' },
   { id: 'precondition_master', name: 'Precondition Master', description: 'Use 5+ preconditions in one conversation', xp: 50, icon: '\u{1F512}', tier: 'silver', category: 'mastery' },
   { id: 'quality_crafter', name: 'Quality Crafter', description: 'Publish a 5-star quality conversation', xp: 75, icon: '\u{1F48E}', tier: 'silver', category: 'mastery', featured: true },
   { id: 'systems_polymath', name: 'Systems Polymath', description: 'Show strong variety across outcomes and preconditions in one publish', xp: 85, icon: '\u{1F9E0}', tier: 'gold', category: 'mastery' },
@@ -955,10 +961,13 @@ export function evaluatePublishGamification(
     { id: 'popular_stalker', condition: totalDownloads >= 50 },
     { id: 'first_upvote_received', condition: totalUpvotes >= 1 },
     { id: 'community_favorite', condition: totalUpvotes >= 25 },
+    { id: 'crowd_pleaser', condition: totalUpvotes >= 75 },
     { id: 'outcome_engineer', condition: outcomeTypes.length >= 4 },
+    { id: 'branch_architect', condition: branchCount >= 8 },
     { id: 'uncommon_operator', condition: outcomeTypes.some(type => uncommonOutcomeTypes.has(type)) },
     { id: 'precondition_master', condition: conversation.preconditions.length >= 5 },
     { id: 'systems_polymath', condition: outcomeTypes.length >= 4 && conversation.preconditions.length >= 3 },
+    { id: 'cartographer', condition: publishCount >= 5 },
     { id: 'prolific_writer', condition: publishCount >= 10 },
     { id: 'zone_veteran', condition: publishCount >= 50 },
     { id: 'quality_crafter', condition: quality.totalStars >= 5 },
