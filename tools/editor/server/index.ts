@@ -598,7 +598,7 @@ app.post('/api/conversations', async (req, res) => {
   }
 });
 
-app.patch('/api/conversations/:id', async (req, res) => {
+async function handleConversationReplace(req: express.Request, res: express.Response): Promise<void> {
   try {
     const id = req.params.id;
     const {
@@ -706,7 +706,10 @@ app.patch('/api/conversations/:id', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
-});
+}
+
+app.patch('/api/conversations/:id', handleConversationReplace);
+app.post('/api/conversations/:id/replace', handleConversationReplace);
 
 // Download and upvote handlers moved below with XP-awarding versions.
 
