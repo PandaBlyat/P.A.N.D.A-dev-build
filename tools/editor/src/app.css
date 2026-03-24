@@ -8948,8 +8948,8 @@ strong.support-upvote-count {
 }
 
 .profile-popover-header {
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 6px;
+  padding: 10px 12px;
   align-self: stretch;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--accent, #5eaa3a) 14%, transparent), transparent 55%),
@@ -8958,20 +8958,20 @@ strong.support-upvote-count {
 
 .profile-popover-identity {
   align-items: flex-start;
-  gap: 10px;
+  gap: 8px;
 }
 
 .profile-popover-avatar-circle {
-  width: 52px;
-  height: 52px;
+  width: 46px;
+  height: 46px;
 }
 
 .profile-popover-avatar-initial {
-  font-size: 1.2rem;
+  font-size: 1.08rem;
 }
 
 .profile-popover-info {
-  gap: 6px;
+  gap: 4px;
 }
 
 .profile-popover-eyebrow {
@@ -8983,8 +8983,8 @@ strong.support-upvote-count {
 }
 
 .profile-popover-name {
-  font-size: 1.24rem;
-  line-height: 1.15;
+  font-size: 1.1rem;
+  line-height: 1.2;
 }
 
 .profile-popover-name-row {
@@ -9019,13 +9019,13 @@ strong.support-upvote-count {
 .profile-popover-name-badge-gold { border-color: color-mix(in srgb, #c4a040 58%, transparent); }
 
 .profile-popover-title {
-  font-size: 0.82rem;
+  font-size: 0.76rem;
 }
 
 .profile-popover-header-highlights {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 .profile-popover-summary {
@@ -9042,10 +9042,10 @@ strong.support-upvote-count {
 
 .profile-hero-meta-stat {
   min-width: 80px;
-  min-height: 34px;
+  min-height: 30px;
   display: grid;
   gap: 2px;
-  padding: 6px 8px;
+  padding: 4px 7px;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--border-light, #33404e) 72%, transparent);
   background: color-mix(in srgb, var(--bg-elevated, #171d28) 88%, transparent);
@@ -9057,21 +9057,21 @@ strong.support-upvote-count {
 }
 
 .profile-hero-meta-label {
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--fg-dim, #a0aab8);
 }
 
 .profile-hero-meta-value {
-  font-size: 0.92rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--fg, #eef2f7);
 }
 
 .profile-popover-progress {
   gap: 6px;
-  padding: 7px 10px;
+  padding: 6px 8px;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--accent, #f59e0b) 18%, var(--border-light, #33404e));
   background:
@@ -9082,13 +9082,13 @@ strong.support-upvote-count {
 .profile-popover-progress-top {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 12px;
+  gap: 9px;
   align-items: center;
 }
 
 .profile-popover-level-badge {
   min-width: 60px;
-  padding: 8px 10px;
+  padding: 7px 9px;
   border-radius: 10px;
   background: linear-gradient(135deg, color-mix(in srgb, var(--accent, #f59e0b) 22%, transparent), color-mix(in srgb, #f97316 14%, transparent));
   border: 1px solid color-mix(in srgb, var(--accent, #f59e0b) 32%, transparent);
@@ -9104,7 +9104,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-progress-kicker {
-  font-size: 0.74rem;
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -9112,12 +9112,12 @@ strong.support-upvote-count {
 }
 
 .profile-popover-level-label {
-  font-size: 0.92rem;
+  font-size: 0.84rem;
   white-space: normal;
 }
 
 .profile-popover-bar-label {
-  font-size: 0.74rem;
+  font-size: 0.7rem;
   text-align: left;
   color: var(--fg, #dbe4f0);
 }
@@ -9143,7 +9143,7 @@ strong.support-upvote-count {
 
 .profile-popover-next,
 .profile-popover-progress-target {
-  font-size: 0.74rem;
+  font-size: 0.68rem;
 }
 
 .profile-popover-next {
@@ -9216,9 +9216,10 @@ strong.support-upvote-count {
 }
 
 .profile-focus-goal-cards {
-  grid-template-columns: minmax(260px, 0.92fr) minmax(300px, 1.08fr);
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
   align-items: stretch;
   gap: 12px;
+  min-width: 0;
 }
 
 .profile-focus-card {
@@ -9261,10 +9262,11 @@ strong.support-upvote-count {
 }
 
 .profile-focus-card-title {
-  font-size: 0.94rem;
+  font-size: 0.9rem;
   font-weight: 800;
   color: var(--fg, #f3f6f8);
-  line-height: 1.2;
+  line-height: 1.35;
+  word-break: break-word;
   overflow-wrap: anywhere;
 }
 
@@ -9276,8 +9278,8 @@ strong.support-upvote-count {
 
 .profile-focus-card-desc {
   margin: 0;
-  font-size: 0.8rem;
-  line-height: 1.5;
+  font-size: 0.76rem;
+  line-height: 1.45;
   color: var(--fg-dim, #c0c8d4);
   overflow-wrap: anywhere;
 }
@@ -9285,15 +9287,16 @@ strong.support-upvote-count {
 .profile-focus-goal-queue {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px;
+  gap: 8px;
   align-content: start;
+  min-width: 0;
 }
 
 .profile-focus-goal-queue-item {
   text-align: left;
   cursor: pointer;
   min-height: auto;
-  overflow: visible;
+  overflow: hidden;
   gap: 7px;
   border-width: 1px;
   transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
@@ -9301,19 +9304,21 @@ strong.support-upvote-count {
 
 .profile-focus-goal-queue-item .profile-focus-card-title,
 .profile-focus-goal-detail .profile-focus-card-title {
-  overflow: visible;
-  text-overflow: clip;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: normal;
 }
 
 .profile-focus-goal-queue-item .profile-focus-card-meta {
+  font-size: 0.72rem;
+  line-height: 1.35;
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
 .profile-focus-goal-queue-hint {
   margin-top: 2px;
-  font-size: 0.69rem;
+  font-size: 0.64rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--accent, #5eaa3a) 74%, white 26%);
@@ -9344,7 +9349,7 @@ strong.support-upvote-count {
 .profile-focus-goal-detail {
   align-content: start;
   min-height: auto;
-  overflow: visible;
+  overflow: hidden;
   gap: 12px;
   padding: 12px 14px;
   border-color: color-mix(in srgb, var(--accent, #5eaa3a) 32%, var(--border-light, #33404e));
@@ -9380,14 +9385,15 @@ strong.support-upvote-count {
 }
 
 .profile-focus-goal-detail-desc {
-  font-size: 0.82rem;
+  font-size: 0.76rem;
+  line-height: 1.4;
   color: var(--fg, #dbe4f0);
 }
 
 .profile-focus-goal-insight {
   margin: 0;
-  font-size: 0.8rem;
-  line-height: 1.5;
+  font-size: 0.74rem;
+  line-height: 1.45;
   color: var(--fg-dim, #bcc6d4);
 }
 
@@ -9462,11 +9468,17 @@ strong.support-upvote-count {
 
 .profile-focus-goal-action-body {
   margin: 0;
-  font-size: 0.77rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.45;
   color: var(--fg, #e9f6ec);
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 1280px) {
+  .profile-focus-goal-cards {
+    grid-template-columns: 1fr;
+  }
 }
 
 .profile-focus-goal-nav {
@@ -9524,7 +9536,7 @@ strong.support-upvote-count {
 
 .profile-focus-goal-cards .profile-focus-card {
   min-height: auto;
-  overflow: visible;
+  overflow: hidden;
 }
 
 @media (max-width: 980px) {
