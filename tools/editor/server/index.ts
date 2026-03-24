@@ -709,6 +709,7 @@ async function handleConversationReplace(req: express.Request, res: express.Resp
 }
 
 app.patch('/api/conversations/:id', handleConversationReplace);
+app.post('/api/conversations/:id', handleConversationReplace);
 app.post('/api/conversations/:id/replace', handleConversationReplace);
 
 // Download and upvote handlers moved below with XP-awarding versions.
