@@ -249,7 +249,15 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
     createHeroMetaStat('Joined', formatMemberSince(profile.created_at)),
   );
 
-  info.append(eyebrow, nameRow, titleEl, headerHighlights, metaRow);
+  const infoTop = document.createElement('div');
+  infoTop.className = 'profile-popover-info-top';
+  infoTop.append(eyebrow, nameRow);
+
+  const infoBottom = document.createElement('div');
+  infoBottom.className = 'profile-popover-info-bottom';
+  infoBottom.append(headerHighlights, metaRow);
+
+  info.append(infoTop, titleEl, infoBottom);
   identity.append(avatarCircle, info);
 
   header.append(identity, buildProgressSection(profile));
@@ -477,14 +485,8 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
   const subtitle = document.createElement('p');
   subtitle.className = 'profile-focus-subtitle';
   subtitle.textContent = nextTargets.length > 0
-    ? `Suggested achievement unlocks based on your current progression (${nextTargets.length} in queue).`
+    ? `${nextTargets.length} suggested unlocks based on your progression.`
     : 'No suggested goals right now — new achievements will appear as you progress.';
-  if (nextTargets.length > 1) {
-    const navHint = document.createElement('span');
-    navHint.className = 'profile-focus-subtitle-hint';
-    navHint.textContent = 'Use ↑ ↓ or click a goal to preview details.';
-    subtitle.append(' ', navHint);
-  }
   titleWrap.append(title, subtitle);
   header.appendChild(titleWrap);
 
@@ -650,7 +652,7 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
       goalQueueHint.className = 'profile-focus-goal-queue-hint';
       goalQueueHint.textContent = index === 0 ? 'Recommended next unlock' : `Queue slot ${index + 1}`;
 
-      goalTab.append(goalTop, goalMeta, goalDesc, goalQueueHint);
+      goalTab.append(goalTop, goalMeta, goalQueueHint);
       goalTab.addEventListener('click', () => renderActiveTarget(index));
       goalTab.addEventListener('focus', () => renderActiveTarget(index));
       goalTab.addEventListener('keydown', (event) => {

@@ -6985,7 +6985,7 @@ strong.support-upvote-count {
   top: calc(100% + 10px);
   right: 0;
   z-index: 9000;
-  width: min(1280px, calc(100vw - 24px));
+  width: min(1440px, calc(100vw - 24px));
   max-width: calc(100vw - 24px);
   max-height: calc(100vh - 56px);
   display: flex;
@@ -8877,10 +8877,10 @@ strong.support-upvote-count {
 .profile-popover-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
   min-height: 0;
-  padding: 12px;
+  padding: 10px;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -8898,10 +8898,10 @@ strong.support-upvote-count {
   background-clip: padding-box;
 }
 
-/* L1 — Hero row: asymmetric 55/45 split, identity left, actions right */
+/* L1 — Hero row: compact header left, spacious goals right */
 .profile-popover-hero-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   gap: 10px;
   align-items: start;
 }
@@ -8913,7 +8913,7 @@ strong.support-upvote-count {
   grid-template-areas:
     "streak achievements leaderboard"
     "xp achievements stats";
-  gap: 10px;
+  gap: 8px;
   align-items: stretch;
 }
 
@@ -8950,7 +8950,7 @@ strong.support-upvote-count {
 
 .profile-popover-header {
   gap: 6px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   align-self: stretch;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--accent, #5eaa3a) 14%, transparent), transparent 55%),
@@ -8963,16 +8963,25 @@ strong.support-upvote-count {
 }
 
 .profile-popover-avatar-circle {
-  width: 46px;
-  height: 46px;
+  width: 38px;
+  height: 38px;
 }
 
 .profile-popover-avatar-initial {
-  font-size: 1.08rem;
+  font-size: 0.92rem;
 }
 
 .profile-popover-info {
   gap: 4px;
+}
+
+.profile-popover-info-top,
+.profile-popover-info-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .profile-popover-eyebrow {
@@ -9039,14 +9048,15 @@ strong.support-upvote-count {
 
 .profile-popover-meta-row {
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .profile-hero-meta-stat {
-  min-width: 80px;
-  min-height: 30px;
+  min-width: 0;
+  min-height: auto;
   display: grid;
   gap: 2px;
-  padding: 4px 7px;
+  padding: 3px 6px;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--border-light, #33404e) 72%, transparent);
   background: color-mix(in srgb, var(--bg-elevated, #171d28) 88%, transparent);
@@ -9058,21 +9068,21 @@ strong.support-upvote-count {
 }
 
 .profile-hero-meta-label {
-  font-size: 0.74rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--fg-dim, #a0aab8);
 }
 
 .profile-hero-meta-value {
-  font-size: 0.92rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--fg, #eef2f7);
 }
 
 .profile-popover-progress {
-  gap: 6px;
-  padding: 6px 8px;
+  gap: 4px;
+  padding: 4px 6px;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--accent, #f59e0b) 18%, var(--border-light, #33404e));
   background:
@@ -9088,12 +9098,12 @@ strong.support-upvote-count {
 }
 
 .profile-popover-level-badge {
-  min-width: 60px;
-  padding: 7px 9px;
+  min-width: 48px;
+  padding: 5px 7px;
   border-radius: 10px;
   background: linear-gradient(135deg, color-mix(in srgb, var(--accent, #f59e0b) 22%, transparent), color-mix(in srgb, #f97316 14%, transparent));
   border: 1px solid color-mix(in srgb, var(--accent, #f59e0b) 32%, transparent);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 800;
   text-align: center;
   color: var(--fg, #fff7ed);
@@ -9124,7 +9134,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-bar-track {
-  height: 10px;
+  height: 6px;
   border: 1px solid color-mix(in srgb, var(--accent, #f59e0b) 22%, var(--border, #333));
   background: color-mix(in srgb, #151b24 82%, black 18%);
 }
@@ -9200,9 +9210,13 @@ strong.support-upvote-count {
 .profile-focus-subtitle,
 .profile-section-summary {
   margin: 0;
-  font-size: 0.92rem;
-  line-height: 1.5;
+  font-size: 0.78rem;
+  line-height: 1.35;
   color: var(--fg-dim, #aab3c3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .profile-focus-subtitle-hint {
@@ -9227,7 +9241,7 @@ strong.support-upvote-count {
   display: grid;
   gap: 6px;
   padding: 10px 12px;
-  min-height: 104px;
+  min-height: 0;
   min-width: 0;
   overflow: hidden;
 }
@@ -9307,11 +9321,11 @@ strong.support-upvote-count {
 .profile-focus-goal-detail .profile-focus-card-title {
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: normal;
+  white-space: nowrap;
 }
 
 .profile-focus-goal-queue-item .profile-focus-card-meta {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   line-height: 1.35;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -9319,7 +9333,7 @@ strong.support-upvote-count {
 
 .profile-focus-goal-queue-hint {
   margin-top: 2px;
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--accent, #5eaa3a) 74%, white 26%);
@@ -9351,7 +9365,7 @@ strong.support-upvote-count {
   align-content: start;
   min-height: auto;
   overflow: hidden;
-  gap: 12px;
+  gap: 8px;
   padding: 12px 14px;
   border-color: color-mix(in srgb, var(--accent, #5eaa3a) 32%, var(--border-light, #33404e));
   background:
@@ -9389,6 +9403,10 @@ strong.support-upvote-count {
   font-size: 0.84rem;
   line-height: 1.4;
   color: var(--fg, #dbe4f0);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .profile-focus-goal-insight {
@@ -9396,6 +9414,10 @@ strong.support-upvote-count {
   font-size: 0.82rem;
   line-height: 1.45;
   color: var(--fg-dim, #bcc6d4);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .profile-focus-goal-progress {
@@ -9440,10 +9462,10 @@ strong.support-upvote-count {
 }
 
 .profile-focus-goal-action {
-  margin-top: 4px;
+  margin-top: 0;
   display: grid;
   gap: 5px;
-  padding: 9px 10px;
+  padding: 6px 8px;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 36%, transparent);
   background:
@@ -9474,9 +9496,13 @@ strong.support-upvote-count {
   line-height: 1.45;
   color: var(--fg, #e9f6ec);
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1440px) {
   .profile-focus-goal-cards {
     grid-template-columns: 1fr;
   }
