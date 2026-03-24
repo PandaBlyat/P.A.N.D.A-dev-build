@@ -243,7 +243,7 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
       const badge = document.createElement('span');
       badge.className = `profile-popover-name-badge profile-popover-name-badge-${achievement.tier}`;
       badge.title = `${achievement.name} · ${achievement.tier}`;
-      badge.textContent = achievement.icon;
+      badge.appendChild(createAchievementIcon(achievement.id, 'profile-achievement-inline-icon'));
       unlockedBadgeStrip.appendChild(badge);
     });
     nameRow.appendChild(unlockedBadgeStrip);
@@ -507,7 +507,108 @@ function buildXpBreakdownSection(): HTMLElement {
 type AchievementTarget = {
   achievement: Achievement;
   reason: string;
+  progressCurrent: number;
+  progressGoal: number;
+  progressLabel: string;
 };
+
+type AchievementProgress = {
+  current: number;
+  goal: number;
+  label: string;
+};
+
+function getAchievementIconName(achievementId: Achievement['id']): IconName {
+  switch (achievementId) {
+    case 'profile_seeded': return 'user';
+    case 'login_streak_1': return 'clock';
+    case 'challenge_apprentice': return 'target';
+    case 'first_upvote_received': return 'sparkle';
+    case 'upvote_wave': return 'share';
+    case 'profile_spotlight': return 'eye';
+    case 'popular_stalker': return 'download';
+    case 'community_favorite': return 'star';
+    case 'crowd_pleaser': return 'trophy';
+    case 'first_publish': return 'export';
+    case 'branching_out': return 'target';
+    case 'cartographer': return 'locate';
+    case 'web_of_lies': return 'share';
+    case 'new_faction_scout': return 'sparkle';
+    case 'faction_diplomat': return 'user';
+    case 'zone_encyclopedist': return 'database';
+    case 'flow_restorer': return 'restart';
+    case 'uncommon_operator': return 'help';
+    case 'outcome_engineer': return 'support';
+    case 'branch_architect': return 'brand';
+    case 'precondition_master': return 'shield';
+    case 'quality_crafter': return 'medal';
+    case 'systems_polymath': return 'database';
+    case 'clean_publish_streak': return 'check';
+    case 'four_star_streak': return 'star';
+    case 'prolific_writer': return 'export';
+    case 'zone_veteran': return 'trophy';
+    case 'streak_3': return 'flame';
+    case 'streak_10': return 'flame';
+    case 'bronze_complete': return 'medal';
+    case 'silver_complete': return 'medal';
+    case 'faction_complete': return 'database';
+    case 'night_shift': return 'clock';
+    case 'zone_whisperer': return 'sparkle';
+    default: return 'medal';
+  }
+}
+
+function createAchievementIcon(achievementId: Achievement['id'], className: string): HTMLElement {
+  const icon = createIcon(getAchievementIconName(achievementId));
+  icon.classList.add(className);
+  return icon;
+}
+
+function getAchievementProgress(profile: UserProfile, unlockedIds: string[], achievementId: Achievement['id']): AchievementProgress {
+  const publishCount = profile.publisher_id === cachedProfile?.publisher_id ? (publishCountCache ?? 0) : 0;
+  const loginStreak = profile.streaks?.login_streak ?? (profile.publisher_id === cachedProfile?.publisher_id ? getLoginStreak().currentStreak : 0);
+  const publishStreak = profile.streaks?.publish_streak ?? (profile.publisher_id === cachedProfile?.publisher_id ? getStreakData().currentStreak : 0);
+  const unlockedCount = unlockedIds.length;
+
+  const completion = (current: number, goal: number): AchievementProgress => ({
+    current: Math.min(current, goal),
+    goal,
+    label: `${Math.min(current, goal)}/${goal}`,
+  });
+
+  switch (achievementId) {
+    case 'first_publish': return completion(publishCount, 1);
+    case 'cartographer': return completion(publishCount, 5);
+    case 'prolific_writer': return completion(publishCount, 10);
+    case 'zone_veteran': return completion(publishCount, 50);
+    case 'login_streak_1': return completion(loginStreak, 1);
+    case 'streak_3': return completion(publishStreak, 3);
+    case 'streak_10': return completion(publishStreak, 10);
+    case 'bronze_complete': {
+      const bronzeTotal = ACHIEVEMENTS.filter((achievement) => achievement.tier === 'bronze').length;
+      const bronzeUnlocked = ACHIEVEMENTS.filter((achievement) => achievement.tier === 'bronze' && unlockedIds.includes(achievement.id)).length;
+      return completion(bronzeUnlocked, bronzeTotal);
+    }
+    case 'silver_complete': {
+      const silverTotal = ACHIEVEMENTS.filter((achievement) => achievement.tier === 'silver').length;
+      const silverUnlocked = ACHIEVEMENTS.filter((achievement) => achievement.tier === 'silver' && unlockedIds.includes(achievement.id)).length;
+      return completion(silverUnlocked, silverTotal);
+    }
+    case 'faction_complete': {
+      const factionTotal = 3;
+      const factionUnlocked = ['new_faction_scout', 'faction_diplomat', 'zone_encyclopedist']
+        .filter((id) => unlockedIds.includes(id))
+        .length;
+      return completion(factionUnlocked, factionTotal);
+    }
+    default:
+      return {
+        current: 0,
+        goal: 1,
+        label: unlockedCount > 0 ? 'Not started' : 'Track starts after first unlock',
+      };
+  }
+}
 
 function getUnlockedAchievementIdsForProfile(profile: UserProfile): string[] {
   return profile.achievements ?? (profile.publisher_id === cachedProfile?.publisher_id ? getUnlockedAchievements() : []);
@@ -652,7 +753,7 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
     const renderActiveTarget = (index: number) => {
       const normalized = Math.max(0, Math.min(index, visibleTargets.length - 1));
       activeIndex = normalized;
-      const { achievement, reason } = visibleTargets[normalized];
+      const { achievement, reason, progressCurrent, progressGoal, progressLabel } = visibleTargets[normalized];
       const activeTab = tabs[normalized];
       detailCard.classList.remove('profile-focus-goal-card-bronze', 'profile-focus-goal-card-silver', 'profile-focus-goal-card-gold');
       detailCard.classList.add(`profile-focus-goal-card-${achievement.tier}`);
@@ -660,14 +761,15 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
         detailCard.setAttribute('aria-labelledby', activeTab.id);
       }
       detailPill.textContent = `${ACHIEVEMENT_CATEGORY_LABELS[achievement.category]} · ${achievement.tier} · +${achievement.xp} XP`;
-      detailIcon.textContent = achievement.icon;
+      detailIcon.textContent = '';
+      detailIcon.appendChild(createAchievementIcon(achievement.id, 'profile-achievement-inline-icon'));
       detailTitle.textContent = achievement.name;
       detailDesc.textContent = achievement.description;
       detailReason.textContent = reason;
       detailActionBody.textContent = getGoalActionHint(achievement.id, profile);
-      detailProgressLabel.textContent = 'Queue priority';
-      detailProgressValue.textContent = `${normalized + 1} of ${visibleTargets.length}`;
-      const progress = visibleTargets.length <= 1 ? 100 : ((normalized + 1) / visibleTargets.length) * 100;
+      detailProgressLabel.textContent = 'Goal progress';
+      detailProgressValue.textContent = progressLabel;
+      const progress = Math.min((progressCurrent / Math.max(progressGoal, 1)) * 100, 100);
       detailProgressBar.style.width = `${progress}%`;
       navCounter.textContent = `Goal ${normalized + 1}/${visibleTargets.length}`;
       navPrev.disabled = visibleTargets.length <= 1;
@@ -696,7 +798,7 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
       goalTop.className = 'profile-focus-goal-top';
       const goalIcon = document.createElement('span');
       goalIcon.className = 'profile-focus-goal-icon';
-      goalIcon.textContent = achievement.icon;
+      goalIcon.appendChild(createAchievementIcon(achievement.id, 'profile-achievement-inline-icon'));
       const goalTitle = document.createElement('div');
       goalTitle.className = 'profile-focus-card-title';
       goalTitle.textContent = achievement.name;
@@ -787,7 +889,19 @@ function getNextAchievementTargets(profile: UserProfile, unlockedIds: string[]):
   const loginStreak = profile.streaks?.login_streak ?? (profile.publisher_id === cachedProfile?.publisher_id ? getLoginStreak().currentStreak : 0);
   const publishStreak = profile.streaks?.publish_streak ?? (profile.publisher_id === cachedProfile?.publisher_id ? getStreakData().currentStreak : 0);
   const publishCount = profile.publisher_id === cachedProfile?.publisher_id ? (publishCountCache ?? 0) : 0;
-  const lockedVisible = getVisibleAchievementCatalog().filter(achievement => !unlockedIds.includes(achievement.id));
+  const lockedVisible = getVisibleAchievementCatalog().filter((achievement) => !unlockedIds.includes(achievement.id));
+  const isLikelyAlreadyDone = (achievementId: Achievement['id']): boolean => {
+    switch (achievementId) {
+      case 'first_publish': return publishCount >= 1;
+      case 'cartographer': return publishCount >= 5;
+      case 'prolific_writer': return publishCount >= 10;
+      case 'zone_veteran': return publishCount >= 50;
+      case 'login_streak_1': return loginStreak >= 1;
+      case 'streak_3': return publishStreak >= 3;
+      case 'streak_10': return publishStreak >= 10;
+      default: return false;
+    }
+  };
 
   const hints = new Map<string, { score: number; reason: string }>([
     ['profile_seeded', { score: 100, reason: 'One-time setup win that anchors the onboarding track.' }],
@@ -796,7 +910,7 @@ function getNextAchievementTargets(profile: UserProfile, unlockedIds: string[]):
     ['first_upvote_received', { score: 88, reason: 'A single community reaction unlocks your first social badge.' }],
     ['profile_spotlight', { score: 78, reason: 'Featured badges and activity make profile milestones easier to hit.' }],
     ['crowd_pleaser', { score: 72, reason: 'Sustained upvotes lock in one of the strongest social badges.' }],
-    ['first_publish', { score: publishCount === 0 ? 99 : 15, reason: publishCount === 0 ? 'Your first publish unlocks discovery progression immediately.' : 'Already cleared once you publish.' }],
+    ['first_publish', { score: publishCount === 0 ? 99 : 5, reason: publishCount === 0 ? 'Your first publish unlocks discovery progression immediately.' : 'Already completed in your publish history.' }],
     ['branching_out', { score: 90, reason: 'A five-branch conversation is the fastest visible discovery target.' }],
     ['cartographer', { score: publishCount >= 2 ? 88 : 58, reason: 'Five publishes gives you durable catalog momentum and unlocks discovery progression.' }],
     ['new_faction_scout', { score: publishCount > 0 ? 92 : 72, reason: publishCount > 0 ? 'Publishing in a fresh faction broadens your discovery set.' : 'After your first publish, try a second faction for quick breadth.' }],
@@ -812,15 +926,52 @@ function getNextAchievementTargets(profile: UserProfile, unlockedIds: string[]):
     ['bronze_complete', { score: unlockedIds.length >= 4 ? 79 : 36, reason: 'Bronze cleanup is a natural collection target after a few early wins.' }],
   ]);
 
-  return lockedVisible
-    .map((achievement) => ({
-      achievement,
-      score: hints.get(achievement.id)?.score ?? (achievement.category === 'onboarding' ? 50 : achievement.category === 'collection' ? 35 : 45),
-      reason: hints.get(achievement.id)?.reason ?? 'A visible next step that broadens your badge mix.',
-    }))
-    .sort((a, b) => b.score - a.score || getAchievementTierRank(a.achievement) - getAchievementTierRank(b.achievement) || a.achievement.xp - b.achievement.xp)
-    .slice(0, 5)
-    .map(({ achievement, reason }) => ({ achievement, reason }));
+  const scored = lockedVisible
+    .filter((achievement) => !isLikelyAlreadyDone(achievement.id))
+    .map((achievement) => {
+      const hint = hints.get(achievement.id);
+      const progress = getAchievementProgress(profile, unlockedIds, achievement.id);
+      const progressRatio = progress.goal > 0 ? Math.min(progress.current / progress.goal, 1) : 0;
+      const progressBoost = Math.round(progressRatio * 12);
+      return {
+        achievement,
+        score: (hint?.score ?? (achievement.category === 'onboarding' ? 50 : achievement.category === 'collection' ? 35 : 45)) + progressBoost,
+        reason: hint?.reason ?? 'A visible next step that broadens your badge mix.',
+        progressCurrent: progress.current,
+        progressGoal: progress.goal,
+        progressLabel: progress.label,
+      };
+    })
+    .filter((target) => !unlockedIds.includes(target.achievement.id));
+
+  const buckets = new Map<AchievementCategory, typeof scored>();
+  for (const target of scored) {
+    const existing = buckets.get(target.achievement.category) ?? [];
+    existing.push(target);
+    buckets.set(target.achievement.category, existing);
+  }
+
+  for (const bucket of buckets.values()) {
+    bucket.sort((a, b) => b.score - a.score || getAchievementTierRank(a.achievement) - getAchievementTierRank(b.achievement) || a.achievement.xp - b.achievement.xp);
+  }
+
+  const categoryQueue = ACHIEVEMENT_CATEGORY_ORDER.filter((category) => (buckets.get(category)?.length ?? 0) > 0);
+  const picks: typeof scored = [];
+
+  while (picks.length < 5 && categoryQueue.length > 0) {
+    for (let index = 0; index < categoryQueue.length && picks.length < 5; index += 1) {
+      const category = categoryQueue[index];
+      const bucket = buckets.get(category) ?? [];
+      const nextTarget = bucket.shift();
+      if (nextTarget) picks.push(nextTarget);
+      if (bucket.length === 0) {
+        categoryQueue.splice(index, 1);
+        index -= 1;
+      }
+    }
+  }
+
+  return picks;
 }
 
 function buildFeaturedBadgeStrip(unlockedIds: string[]): HTMLElement | null {
@@ -852,9 +1003,7 @@ function buildFeaturedBadgeStrip(unlockedIds: string[]): HTMLElement | null {
     badge.className = `profile-achievement-featured-badge profile-surface-token profile-achievement-featured-badge-${achievement.tier}`;
     badge.title = `${achievement.name} — ${achievement.description}`;
 
-    const icon = document.createElement('span');
-    icon.className = 'profile-achievement-featured-icon';
-    icon.textContent = achievement.icon;
+    const icon = createAchievementIcon(achievement.id, 'profile-achievement-featured-icon');
 
     const text = document.createElement('span');
     text.className = 'profile-achievement-featured-name';
@@ -975,11 +1124,12 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
       const identity = document.createElement('span');
       identity.className = 'profile-achievement-badge';
 
-      const emoji = document.createElement('span');
-      emoji.className = 'profile-achievement-emoji';
-      emoji.textContent = isUnlocked ? achievement.icon : (isHiddenLocked ? '\u{2753}' : '\u{1F512}');
-      emoji.setAttribute('aria-hidden', 'true');
-      identity.appendChild(emoji);
+      const badgeIcon = isUnlocked
+        ? createAchievementIcon(achievement.id, 'profile-achievement-emoji')
+        : createIcon(isHiddenLocked ? 'help' : 'shield');
+      badgeIcon.classList.add('profile-achievement-emoji');
+      badgeIcon.setAttribute('aria-hidden', 'true');
+      identity.appendChild(badgeIcon);
 
       const tooltip = document.createElement('span');
       tooltip.className = 'profile-achievement-tooltip';
