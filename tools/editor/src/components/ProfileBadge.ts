@@ -700,6 +700,9 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
     section.appendChild(nextSection);
   }
 
+  const categoryGrid = document.createElement('div');
+  categoryGrid.className = 'profile-achievement-category-grid';
+
   ACHIEVEMENT_CATEGORY_ORDER.forEach((category: AchievementCategory) => {
     const categoryAchievements = getAchievementsByCategory(category);
     const unlockedCount = categoryAchievements.filter(achievement => unlocked.includes(achievement.id)).length;
@@ -798,9 +801,10 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
     });
 
     categorySection.append(categoryHeader, grid);
-    section.appendChild(categorySection);
+    categoryGrid.appendChild(categorySection);
   });
 
+  section.appendChild(categoryGrid);
   return section;
 }
 
