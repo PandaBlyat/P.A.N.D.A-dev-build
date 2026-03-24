@@ -8937,13 +8937,13 @@ strong.support-upvote-count {
 
 .profile-popover-header {
   gap: 8px;
-  padding: 14px 16px;
+  padding: 10px 12px;
   align-self: stretch;
 }
 
 .profile-popover-identity {
   align-items: flex-start;
-  gap: 14px;
+  gap: 10px;
 }
 
 .profile-popover-avatar-circle {
@@ -8956,7 +8956,7 @@ strong.support-upvote-count {
 }
 
 .profile-popover-info {
-  gap: 8px;
+  gap: 6px;
 }
 
 .profile-popover-eyebrow {
@@ -8990,9 +8990,10 @@ strong.support-upvote-count {
 
 .profile-hero-meta-stat {
   min-width: 80px;
+  min-height: 34px;
   display: grid;
-  gap: 3px;
-  padding: 8px 10px;
+  gap: 2px;
+  padding: 6px 8px;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--border-light, #33404e) 72%, transparent);
   background: color-mix(in srgb, var(--bg-elevated, #171d28) 88%, transparent);
@@ -9018,7 +9019,7 @@ strong.support-upvote-count {
 
 .profile-popover-progress {
   gap: 6px;
-  padding: 10px;
+  padding: 7px 10px;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--accent, #f59e0b) 18%, var(--border-light, #33404e));
   background:
