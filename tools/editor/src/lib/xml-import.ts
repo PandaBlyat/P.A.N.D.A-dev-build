@@ -4,6 +4,7 @@
 import type { Project, Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, Outcome, FactionId } from './types';
 import { FACTION_XML_KEYS } from './types';
 import { SYSTEM_STRING_IDS } from './constants';
+import { getDefaultFlowTurnPosition } from './flow-layout';
 
 /** Parse XML text into a map of string IDs to text values */
 function parseStringTable(xmlText: string): Map<string, string> {
@@ -255,7 +256,7 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
       turnNumber: 1,
       openingMessage: strings.get(openKey) || '',
       choices: parseTurnChoices(strings, prefix, ''),
-      position: { x: 0, y: 0 },
+      position: getDefaultFlowTurnPosition(1),
     };
     conv.turns.push(turn1);
 
@@ -270,7 +271,7 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
       const turn: Turn = {
         turnNumber: turnNum,
         choices: parseTurnChoices(strings, prefix, turnInfix),
-        position: { x: (turnNum - 1) * 300, y: 0 },
+        position: getDefaultFlowTurnPosition(turnNum),
       };
       conv.turns.push(turn);
       turnNum++;

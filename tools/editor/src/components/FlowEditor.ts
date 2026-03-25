@@ -5,7 +5,7 @@ import { requestFlowCenter, setActiveFlowViewport, type FlowViewportApi } from '
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { createOnboardingNudge } from './Onboarding';
 import { FACTION_COLORS } from '../lib/faction-colors';
-import { estimateFlowNodeHeight, getFlowNodeLayout } from '../lib/flow-layout';
+import { estimateFlowNodeHeight, FLOW_WORKSPACE_MIN_HEIGHT, FLOW_WORKSPACE_MIN_WIDTH, getFlowNodeLayout } from '../lib/flow-layout';
 import { createIcon } from './icons';
 import { createFlowCursorSystem, type FlowCursorSystem } from './FlowCursor';
 import type { Choice, Conversation, Turn } from '../lib/types';
@@ -732,8 +732,8 @@ function calculateContentBounds(conv: Conversation, density: FlowDensity): Conte
 
   if (conv.turns.length === 0) {
     return {
-      width: 400,
-      height: 300,
+      width: FLOW_WORKSPACE_MIN_WIDTH,
+      height: FLOW_WORKSPACE_MIN_HEIGHT,
     };
   }
 
@@ -747,8 +747,8 @@ function calculateContentBounds(conv: Conversation, density: FlowDensity): Conte
   }
 
   return {
-    width: Math.max(420, maxX + CONTENT_PADDING),
-    height: Math.max(320, maxY + CONTENT_PADDING),
+    width: Math.max(FLOW_WORKSPACE_MIN_WIDTH, maxX + CONTENT_PADDING),
+    height: Math.max(FLOW_WORKSPACE_MIN_HEIGHT, maxY + CONTENT_PADDING),
   };
 }
 

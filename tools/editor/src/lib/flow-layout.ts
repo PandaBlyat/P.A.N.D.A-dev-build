@@ -16,6 +16,14 @@ export type FlowAutoLayoutSpacing = {
   branchGroupGap: number;
 };
 
+export const FLOW_WORKSPACE_MIN_WIDTH = 1400;
+export const FLOW_WORKSPACE_MIN_HEIGHT = 900;
+
+export const FLOW_DEFAULT_TURN_POSITION = {
+  x: 640,
+  y: 360,
+} as const;
+
 const FLOW_NODE_LAYOUTS: Record<FlowDensity, FlowNodeLayout> = {
   compact: { width: 210, messageChars: 52, previewLines: 1, minHeight: 106 },
   standard: { width: 260, messageChars: 100, previewLines: 1, minHeight: 140 },
@@ -55,4 +63,15 @@ export function estimateFlowNodeHeight(turn: Turn, density: FlowDensity): number
   }
 
   return Math.max(layout.minHeight, height);
+}
+
+export function getDefaultFlowTurnPosition(turnNumber: number): { x: number; y: number } {
+  if (turnNumber <= 1) {
+    return { ...FLOW_DEFAULT_TURN_POSITION };
+  }
+
+  return {
+    x: FLOW_DEFAULT_TURN_POSITION.x + (turnNumber - 1) * 300,
+    y: FLOW_DEFAULT_TURN_POSITION.y,
+  };
 }

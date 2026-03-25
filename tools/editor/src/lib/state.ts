@@ -4,7 +4,7 @@ import type { Project, Conversation, Turn, Choice, ValidationMessage } from './t
 import { getConversationFaction } from './types';
 import { createEmptyProject, createConversation, createTurn, createChoice } from './xml-export';
 import { validate } from './validation';
-import { estimateFlowNodeHeight, getFlowAutoLayoutSpacing, getFlowNodeLayout } from './flow-layout';
+import { estimateFlowNodeHeight, getDefaultFlowTurnPosition, getFlowAutoLayoutSpacing, getFlowNodeLayout } from './flow-layout';
 
 export type PropertiesTab = 'conversation' | 'selection';
 export type FlowDensity = 'compact' | 'standard' | 'detailed';
@@ -436,10 +436,7 @@ class StateManager {
   }
 
   private getDefaultTurnPlacement(turnNumber: number): { x: number; y: number } {
-    return {
-      x: Math.max(0, (turnNumber - 1) * 300),
-      y: 0,
-    };
+    return getDefaultFlowTurnPosition(turnNumber);
   }
 
   private getBranchTurnPlacement(sourceTurn: Turn, sourceChoiceIndex: number, newTurn: Turn): { x: number; y: number } {

@@ -245,7 +245,7 @@ class CursorInteractionAdapter {
     this.insideCanvas = this.canvas.contains(event.target as Node);
     this.hoveringManipulationZone = this.detectManipulationZone(event.target as HTMLElement | null);
     this.inTextInput = this.detectTextInput(event.target as HTMLElement | null);
-    this.renderer.setVisible(true);
+    this.renderer.setVisible(this.insideCanvas);
     this.queueRender();
     this.updateState();
   };
@@ -264,6 +264,7 @@ class CursorInteractionAdapter {
     this.linking = false;
     this.dragging = false;
     this.panning = false;
+    this.renderer.setVisible(false);
     this.updateState();
   };
 
@@ -383,7 +384,7 @@ class CursorInteractionAdapter {
       ? 'workspaceGrab'
       : 'defaultPointer';
 
-    const hideNative = nextState !== 'disabled';
+    const hideNative = nextState !== 'disabled' && this.insideCanvas;
     document.body.classList.toggle('use-custom-cursor', hideNative);
     this.controller.setRequestedState(nextState);
   }

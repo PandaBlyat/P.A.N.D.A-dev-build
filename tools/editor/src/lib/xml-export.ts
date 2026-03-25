@@ -3,6 +3,7 @@
 
 import type { Project, Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, Outcome, FactionId } from './types';
 import { FACTION_XML_KEYS, getConversationFaction } from './types';
+import { getDefaultFlowTurnPosition } from './flow-layout';
 
 /** Escape special XML characters in text content */
 function escapeXml(text: string): string {
@@ -189,7 +190,7 @@ export function createTurn(turnNumber: number): Turn {
     turnNumber,
     openingMessage: turnNumber === 1 ? '' : undefined,
     choices: [createChoice(1)],
-    position: { x: 0, y: 0 },
+    position: getDefaultFlowTurnPosition(turnNumber),
   };
 }
 
