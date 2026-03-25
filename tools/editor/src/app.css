@@ -1760,6 +1760,78 @@ label {
   cursor: grabbing;
 }
 
+.flow-canvas.use-custom-cursor,
+.flow-canvas.use-custom-cursor * {
+  cursor: none !important;
+}
+
+.flow-custom-cursor {
+  --cursor-accent: var(--accent);
+  --cursor-size: 16px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--cursor-size);
+  height: var(--cursor-size);
+  pointer-events: none;
+  z-index: 8;
+  opacity: 0;
+  transform: translate3d(-100px, -100px, 0);
+  transition: opacity 100ms ease;
+  will-change: transform;
+}
+
+.flow-custom-cursor.is-visible {
+  opacity: 1;
+}
+
+.flow-custom-cursor-glyph,
+.flow-custom-cursor-ring {
+  position: absolute;
+  inset: 0;
+  transition: transform 160ms cubic-bezier(.22, .7, .2, 1), border-radius 160ms cubic-bezier(.22, .7, .2, 1), clip-path 160ms cubic-bezier(.22, .7, .2, 1), opacity 160ms ease;
+}
+
+.flow-custom-cursor-glyph {
+  background: var(--cursor-accent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--cursor-accent) 40%, transparent);
+  clip-path: polygon(4% 2%, 98% 38%, 33% 50%, 46% 100%, 26% 100%, 14% 52%, 2% 64%);
+  transform: translate(-1px, -1px) rotate(-14deg);
+}
+
+.flow-custom-cursor[data-shape='square'] .flow-custom-cursor-glyph {
+  clip-path: inset(10% round 3px);
+  transform: translate(0, 0) rotate(0deg);
+}
+
+.flow-custom-cursor[data-shape='hidden'] {
+  opacity: 0 !important;
+}
+
+.flow-custom-cursor-ring {
+  border: 1px solid color-mix(in srgb, var(--cursor-accent) 70%, transparent);
+  border-radius: 999px;
+  transform: scale(0.7);
+  opacity: 0;
+}
+
+.flow-custom-cursor.is-clicking .flow-custom-cursor-ring {
+  animation: flow-cursor-pulse 360ms ease-out;
+}
+
+.flow-custom-cursor[data-intensity='low'].is-clicking .flow-custom-cursor-ring {
+  animation-duration: 240ms;
+}
+
+.flow-custom-cursor[data-intensity='high'].is-clicking .flow-custom-cursor-ring {
+  animation-duration: 520ms;
+}
+
+@keyframes flow-cursor-pulse {
+  0% { transform: scale(0.7); opacity: 0.55; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+
 .flow-content {
   position: absolute;
   inset: 0 auto auto 0;
@@ -1785,6 +1857,19 @@ label {
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   z-index: 4;
+}
+
+.flow-cursor-setting {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.flow-cursor-intensity,
+.flow-cursor-size {
+  height: 24px;
 }
 
 .flow-zoom-value {
