@@ -1794,16 +1794,16 @@ body.use-custom-cursor * {
 
 .flow-custom-cursor-glyph {
   background: linear-gradient(
-    145deg,
-    color-mix(in srgb, var(--cursor-accent) 92%, white 8%) 0%,
-    color-mix(in srgb, var(--cursor-accent) 72%, black 28%) 100%
+    135deg,
+    color-mix(in srgb, var(--cursor-accent) 95%, white 5%) 0%,
+    color-mix(in srgb, var(--cursor-accent) 68%, black 32%) 100%
   );
   box-shadow:
     0 0 16px color-mix(in srgb, var(--cursor-accent) 34%, transparent),
     0 1px 0 color-mix(in srgb, white 35%, transparent) inset;
-  clip-path: polygon(7% 4%, 93% 41%, 52% 47%, 65% 94%, 47% 100%, 33% 56%, 7% 67%);
-  transform: translate(-1px, -1px) rotate(-11deg);
-  border-radius: 2px;
+  clip-path: polygon(8% 8%, 92% 8%, 8% 92%);
+  transform: translate(-1px, -1px) rotate(0deg);
+  border-radius: 1px;
 }
 
 .flow-custom-cursor[data-shape='square'] .flow-custom-cursor-glyph {
@@ -1854,15 +1854,15 @@ body.use-custom-cursor * {
 
 @keyframes flow-cursor-glyph-pop {
   0% {
-    transform: translate(-1px, -1px) rotate(-14deg) scale(1);
+    transform: translate(-1px, -1px) rotate(0deg) scale(1);
     filter: brightness(1);
   }
   45% {
-    transform: translate(-1px, -1px) rotate(-14deg) scale(1.22);
+    transform: translate(-1px, -1px) rotate(0deg) scale(1.22);
     filter: brightness(1.35);
   }
   100% {
-    transform: translate(-1px, -1px) rotate(-14deg) scale(1);
+    transform: translate(-1px, -1px) rotate(0deg) scale(1);
     filter: brightness(1);
   }
 }

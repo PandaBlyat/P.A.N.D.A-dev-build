@@ -38,7 +38,7 @@ const SHAPE_BY_STATE: Record<CursorState, 'triangle' | 'square' | 'hidden'> = {
   workspaceGrab: 'square',
   dragging: 'square',
   linking: 'square',
-  textInput: 'hidden',
+  textInput: 'triangle',
   disabled: 'hidden',
 };
 
@@ -383,7 +383,7 @@ class CursorInteractionAdapter {
       ? 'workspaceGrab'
       : 'defaultPointer';
 
-    const hideNative = nextState !== 'disabled' && nextState !== 'textInput';
+    const hideNative = nextState !== 'disabled';
     document.body.classList.toggle('use-custom-cursor', hideNative);
     this.controller.setRequestedState(nextState);
   }
