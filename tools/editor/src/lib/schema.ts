@@ -65,12 +65,6 @@ export type ParamEditor =
     kind: 'command_builder';
     suggestions: ParamOption[];
     chainSeparator?: string;
-  }
-  | {
-    kind: 'artifact_zone_target';
-    specificZoneOptions: ParamOption[];
-    levelTokenOptions: ParamOption[];
-    anyToken: string;
   };
 
 const FACTION_OPTIONS: ParamOption[] = FACTION_IDS.map((factionId) => ({
@@ -199,12 +193,6 @@ const ANOMALY_TASK_ID_PICKER_PANEL_EDITOR: ParamEditor = {
   emptyLabel: '-- Type custom id or pick vanilla pattern --',
 };
 
-const PANDA_ARTIFACT_ZONE_MODE_OPTIONS: ParamOption[] = [
-  { value: 'specific', label: 'Specific Zone', keywords: ['specific', 'zone', 'target'] },
-  { value: 'any', label: 'Any Zone', keywords: ['any', 'natural', 'find'] },
-  { value: 'random_level', label: 'Random by Level', keywords: ['random', 'level', 'token'] },
-];
-
 const PANDA_ARTIFACT_LEVEL_TOKEN_OPTIONS: ParamOption[] = [
   { value: 'level:esc', label: 'Cordon (level:esc)', keywords: ['cordon', 'esc'] },
   { value: 'level:gar', label: 'Garbage (level:gar)', keywords: ['garbage', 'gar'] },
@@ -222,13 +210,6 @@ const PANDA_ARTIFACT_LEVEL_TOKEN_OPTIONS: ParamOption[] = [
   { value: 'level:zat', label: 'Zaton (level:zat)', keywords: ['zaton', 'zat'] },
   { value: 'level:pri', label: 'Pripyat (level:pri)', keywords: ['pripyat', 'pri'] },
 ];
-
-const PANDA_ARTIFACT_ZONE_TARGET_EDITOR: ParamEditor = {
-  kind: 'artifact_zone_target',
-  specificZoneOptions: ANOMALY_ZONE_ID_OPTIONS,
-  levelTokenOptions: PANDA_ARTIFACT_LEVEL_TOKEN_OPTIONS,
-  anyToken: 'any',
-};
 
 const WATCH_TRIGGER_SUGGESTIONS: ParamOption[] = [
   {
@@ -1974,19 +1955,18 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   {
     name: 'panda_task_artifact',
     label: 'Task: Artifact Hunt',
-    description: 'Marks a level anomaly on PDA and spawns an artifact there for retrieval',
+    description: 'Picks a level, then marks a random anomaly zone there and spawns an artifact',
     category: 'Tasks',
-    helpText: 'Preferred artifact/anomaly lane. Use random_level to pick a random currently available anomaly zone on that level. Leave Artifact Section empty (or set random/any) for vanilla-style random artifact spawns, or choose a section to force a specific artifact.',
+    helpText: 'Use this to create a level-based artifact hunt. You choose the level only; the framework automatically selects a random valid anomaly zone in that level and tracks it on the PDA. Leave Artifact Section empty (or set random/any) for vanilla-style random artifact generation, or choose a specific artifact section to force the spawn.',
     examples: [
       'panda_task_artifact:random:random_level:level:gar:basic:900:3:4',
-      'panda_task_artifact:af_compass:specific:red_smart_terrain_3_2_anomal_zone:elite:900:3:4',
       'panda_task_artifact:af_compass:random_level:level:gar:advanced:900:3:4',
     ],
     params: [
-      { name: 'artifact_section', type: 'item_section', required: false, label: 'Artifact Section', placeholder: 'random', editor: ITEM_PICKER_PANEL_EDITOR, helpText: 'Optional. Empty value saves as "random", which uses vanilla random anomaly artifact generation.' },
-      { name: 'zone_mode', type: 'string', required: true, label: 'Zone Mode', placeholder: 'specific', editor: { kind: 'searchable_select', options: PANDA_ARTIFACT_ZONE_MODE_OPTIONS, emptyLabel: '-- Select zone mode --' } },
-      { name: 'zone_name', type: 'string', required: true, label: 'Zone Target', editor: PANDA_ARTIFACT_ZONE_TARGET_EDITOR,
-        helpText: 'specific => anomaly zone id, any => literal any, random_level => level:<code> token (example level:esc).' },
+      { name: 'artifact_section', type: 'item_section', required: false, label: 'Artifact Section (Optional)', placeholder: 'random', editor: ITEM_PICKER_PANEL_EDITOR, helpText: 'Optional. Leave empty for random artifact generation inside the selected level\'s random anomaly zone.' },
+      { name: 'zone_mode', type: 'string', required: true, label: 'Zone Mode', placeholder: 'random_level', examples: ['random_level'], helpText: 'Automatic. Artifact Hunt now always uses random_level and this field is managed by the editor.' },
+      { name: 'zone_name', type: 'string', required: true, label: 'Target Level', editor: { kind: 'searchable_select', options: PANDA_ARTIFACT_LEVEL_TOKEN_OPTIONS, emptyLabel: '-- Select target level --' },
+        helpText: 'Pick the level where the hunt should happen (example: level:gar). The system then chooses a random anomaly zone in that level.' },
       { name: 'detector_tier', type: 'string', required: false, label: 'Detector Tier', placeholder: 'basic', editor: { kind: 'searchable_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
       { name: 'timeout', type: 'number', required: true, label: 'Timeout (s)', min: 30 },
       { name: 'success_turn', type: 'number', required: true, label: 'Success Turn', min: 2, editor: TURN_REFERENCE_EDITOR },

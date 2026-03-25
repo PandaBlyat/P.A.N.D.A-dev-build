@@ -51,6 +51,8 @@ function serializeOutcome(outcome: Outcome): string {
     if (!params[0] || params[0].trim() === '') {
       params[0] = 'random';
     }
+    // Artifact Hunt is level-based only; enforce random level mode on export.
+    params[1] = 'random_level';
   }
 
   const parts = [outcome.command, ...params.filter(p => p !== '')];
