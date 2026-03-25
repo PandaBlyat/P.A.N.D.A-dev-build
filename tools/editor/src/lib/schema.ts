@@ -544,6 +544,17 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
       { name: 'zone', type: 'string', required: true, label: 'Zone Name' },
     ],
   },
+  {
+    name: 'req_detector_tier',
+    label: 'Detector Tier',
+    description: 'Player must have at least the specified detector tier',
+    category: 'Anomaly / Artifact',
+    helpText: 'Use this precondition to gate dialogue or choices by detector progression.',
+    examples: ['req_detector_tier:advanced', 'req_detector_tier:scientific'],
+    params: [
+      { name: 'detector_tier', type: 'string', required: true, label: 'Detector Tier', editor: { kind: 'searchable_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
+    ],
+  },
 
   // Companions
   {
@@ -1586,8 +1597,10 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   {
     name: 'require_detector_tier',
     label: 'Require Detector Tier',
-    description: 'Gate branch logic behind detector progression tier.',
+    description: 'Legacy detector-tier check outcome (prefer req_detector_tier precondition).',
     category: 'Anomaly / Artifact',
+    pickerHidden: true,
+    helpText: 'Deprecated for new content: use req_detector_tier preconditions for gating. Keep this only for legacy conversation compatibility.',
     params: [
       { name: 'detector_tier', type: 'string', required: true, label: 'Detector Tier', editor: { kind: 'searchable_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
     ],
