@@ -10,6 +10,7 @@ import {
 } from './constants';
 import { FACTION_DISPLAY_NAMES } from './types';
 import { ALL_SQUAD_OPTIONS, MUTANT_SQUAD_OPTIONS, NPC_SQUAD_OPTIONS } from './generated/squad-catalog';
+import { STORY_NPC_OPTIONS } from './generated/story-npc-catalog';
 
 export interface CommandSchema {
   name: string;
@@ -840,6 +841,27 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     category: 'NPC State',
     params: [
       { name: 'level', type: 'level', required: true, label: 'Level', editor: { kind: 'searchable_select', options: LEVEL_OPTIONS, emptyLabel: '-- Select level --' } },
+    ],
+  },
+  {
+    name: 'req_story_npc',
+    label: 'Story NPC',
+    description: 'Conversation must be triggered by a specific story NPC (e.g. Sidorovich, Barkeep, Sakharov). Overrides normal random NPC selection.',
+    category: 'NPC State',
+    helpText: 'When set, the system will look up this named NPC by their story ID at trigger time. The NPC must be alive in the game world. Other preconditions (faction, rank, friendly/hostile, etc.) still apply alongside this one.',
+    examples: ['req_story_npc:bar_visitors_barman_stalker_trader', 'req_story_npc:yan_stalker_sakharov'],
+    params: [
+      {
+        name: 'story_id',
+        type: 'string',
+        required: true,
+        label: 'Story NPC',
+        editor: {
+          kind: 'searchable_select',
+          options: STORY_NPC_OPTIONS,
+          emptyLabel: '-- Search for a story NPC --',
+        },
+      },
     ],
   },
 
