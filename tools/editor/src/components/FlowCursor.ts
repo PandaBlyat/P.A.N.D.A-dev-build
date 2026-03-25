@@ -216,6 +216,7 @@ class CursorInteractionAdapter {
   private inTextInput = false;
   private shouldDisable = false;
   private featureEnabled = true;
+  private hasPointer = false;
 
   constructor(
     private readonly canvas: HTMLElement,
@@ -240,21 +241,22 @@ class CursorInteractionAdapter {
 
   private onPointerMove = (event: PointerEvent): void => {
     if (event.pointerType !== 'mouse') return;
+    this.hasPointer = true;
     this.pointerX = event.clientX;
     this.pointerY = event.clientY;
     this.insideCanvas = this.canvas.contains(event.target as Node);
     this.hoveringManipulationZone = this.detectManipulationZone(event.target as HTMLElement | null);
     this.inTextInput = this.detectTextInput(event.target as HTMLElement | null);
-    this.renderer.setVisible(this.featureEnabled && !this.shouldDisable);
     this.queueRender();
     this.updateState();
   };
 
   private onPointerEnter = (event: PointerEvent): void => {
+    if (event.pointerType !== 'mouse') return;
+    this.hasPointer = true;
     this.insideCanvas = true;
     this.pointerX = event.clientX;
     this.pointerY = event.clientY;
-    this.renderer.setVisible(true);
     this.queueRender();
     this.updateState();
   };
@@ -264,18 +266,17 @@ class CursorInteractionAdapter {
     this.linking = false;
     this.dragging = false;
     this.panning = false;
-    this.renderer.setVisible(this.featureEnabled && !this.shouldDisable);
     this.updateState();
   };
 
   private onPointerDown = (event: PointerEvent): void => {
     if (event.pointerType !== 'mouse') return;
+    this.hasPointer = true;
     this.pointerX = event.clientX;
     this.pointerY = event.clientY;
     this.insideCanvas = this.canvas.contains(event.target as Node);
     this.hoveringManipulationZone = this.detectManipulationZone(event.target as HTMLElement | null);
     this.inTextInput = this.detectTextInput(event.target as HTMLElement | null);
-    this.renderer.setVisible(this.featureEnabled && !this.shouldDisable);
     this.queueRender();
     if (!this.insideCanvas) {
       this.updateState();
@@ -309,10 +310,14 @@ class CursorInteractionAdapter {
   };
 
   private onWindowBlur = (): void => {
-    this.renderer.setVisible(false);
+    this.hasPointer = false;
     this.linking = false;
     this.dragging = false;
     this.panning = false;
+    this.updateState();
+  };
+
+  private onWindowFocus = (): void => {
     this.updateState();
   };
 
@@ -337,6 +342,7 @@ class CursorInteractionAdapter {
     document.addEventListener('pointerup', this.onPointerUp);
     this.canvas.addEventListener('flow-cursor-state', this.onCanvasStateEvent as EventListener);
     window.addEventListener('blur', this.onWindowBlur);
+    window.addEventListener('focus', this.onWindowFocus);
     document.addEventListener('mouseleave', this.onWindowBlur);
     window.matchMedia('(pointer: fine)').addEventListener('change', this.onMediaChange);
     window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', this.onMediaChange);
@@ -351,6 +357,7 @@ class CursorInteractionAdapter {
     document.removeEventListener('pointerup', this.onPointerUp);
     this.canvas.removeEventListener('flow-cursor-state', this.onCanvasStateEvent as EventListener);
     window.removeEventListener('blur', this.onWindowBlur);
+    window.removeEventListener('focus', this.onWindowFocus);
     document.removeEventListener('mouseleave', this.onWindowBlur);
     window.matchMedia('(pointer: fine)').removeEventListener('change', this.onMediaChange);
     window.matchMedia('(prefers-reduced-motion: reduce)').removeEventListener('change', this.onMediaChange);
@@ -396,6 +403,7 @@ class CursorInteractionAdapter {
 
     const hideNative = nextState !== 'disabled';
     document.body.classList.toggle('use-custom-cursor', hideNative);
+    this.renderer.setVisible(hideNative && this.hasPointer);
     this.controller.setRequestedState(nextState);
   }
 }
