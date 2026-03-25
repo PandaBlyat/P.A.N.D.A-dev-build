@@ -355,7 +355,12 @@ class CursorInteractionAdapter {
 
   private detectManipulationZone(target: HTMLElement | null): boolean {
     if (!target || !this.canvas.contains(target)) return false;
-    return Boolean(target.closest('.flow-canvas, .turn-input-port, .choice-output-port, .flow-edge'));
+    if (target.closest('.flow-controls, .flow-cursor-setting, .flow-cursor-intensity, .flow-cursor-size')) {
+      return false;
+    }
+    if (target.closest('.turn-input-port, .choice-output-port, .flow-edge')) return true;
+    if (target.closest('.turn-node')) return true;
+    return Boolean(target.closest('.flow-canvas'));
   }
 
   private detectTextInput(target: HTMLElement | null): boolean {

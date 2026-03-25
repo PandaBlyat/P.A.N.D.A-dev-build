@@ -1789,7 +1789,7 @@ label {
 .flow-custom-cursor-ring {
   position: absolute;
   inset: 0;
-  transition: transform 160ms cubic-bezier(.22, .7, .2, 1), border-radius 160ms cubic-bezier(.22, .7, .2, 1), clip-path 160ms cubic-bezier(.22, .7, .2, 1), opacity 160ms ease;
+  transition: transform 160ms cubic-bezier(.22, .7, .2, 1), border-radius 160ms cubic-bezier(.22, .7, .2, 1), clip-path 160ms cubic-bezier(.22, .7, .2, 1), opacity 160ms ease, filter 180ms ease;
 }
 
 .flow-custom-cursor-glyph {
@@ -1819,17 +1819,64 @@ label {
   animation: flow-cursor-pulse 360ms ease-out;
 }
 
+.flow-custom-cursor.is-clicking .flow-custom-cursor-glyph {
+  animation: flow-cursor-glyph-pop 240ms cubic-bezier(.18, .82, .2, 1);
+}
+
 .flow-custom-cursor[data-intensity='low'].is-clicking .flow-custom-cursor-ring {
   animation-duration: 240ms;
+}
+
+.flow-custom-cursor[data-intensity='low'].is-clicking .flow-custom-cursor-glyph {
+  animation-duration: 180ms;
 }
 
 .flow-custom-cursor[data-intensity='high'].is-clicking .flow-custom-cursor-ring {
   animation-duration: 520ms;
 }
 
+.flow-custom-cursor[data-intensity='high'].is-clicking .flow-custom-cursor-glyph {
+  animation-duration: 340ms;
+}
+
 @keyframes flow-cursor-pulse {
-  0% { transform: scale(0.7); opacity: 0.55; }
-  100% { transform: scale(1.9); opacity: 0; }
+  0% { transform: scale(0.65); opacity: 0.75; }
+  70% { transform: scale(2.2); opacity: 0.25; }
+  100% { transform: scale(2.7); opacity: 0; }
+}
+
+@keyframes flow-cursor-glyph-pop {
+  0% {
+    transform: translate(-1px, -1px) rotate(-14deg) scale(1);
+    filter: brightness(1);
+  }
+  45% {
+    transform: translate(-1px, -1px) rotate(-14deg) scale(1.22);
+    filter: brightness(1.35);
+  }
+  100% {
+    transform: translate(-1px, -1px) rotate(-14deg) scale(1);
+    filter: brightness(1);
+  }
+}
+
+.flow-custom-cursor[data-shape='square'].is-clicking .flow-custom-cursor-glyph {
+  animation-name: flow-cursor-glyph-pop-square;
+}
+
+@keyframes flow-cursor-glyph-pop-square {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    filter: brightness(1);
+  }
+  45% {
+    transform: translate(0, 0) rotate(0deg) scale(1.18);
+    filter: brightness(1.28);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    filter: brightness(1);
+  }
 }
 
 .flow-content {
