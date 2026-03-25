@@ -44,7 +44,16 @@ export function serializePreconditions(entries: PreconditionEntry[]): string {
 
 /** Serialize an outcome to colon-delimited string */
 function serializeOutcome(outcome: Outcome): string {
-  const parts = [outcome.command, ...outcome.params.filter(p => p !== '')];
+  const params = [...outcome.params];
+
+  if (outcome.command === 'panda_task_artifact') {
+    // Keep slot stability: empty artifact section should still serialize as random.
+    if (!params[0] || params[0].trim() === '') {
+      params[0] = 'random';
+    }
+  }
+
+  const parts = [outcome.command, ...params.filter(p => p !== '')];
   const base = parts.join(':');
   if (outcome.chancePercent != null && outcome.chancePercent < 100) {
     return `chance:${outcome.chancePercent}:${base}`;
