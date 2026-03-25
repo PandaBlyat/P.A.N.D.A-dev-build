@@ -3446,11 +3446,6 @@ body.use-custom-cursor * {
   padding-bottom: 8px;
 }
 
-.item-picker-option-static {
-  position: static;
-}
-
-
 .item-picker-option {
   position: absolute;
   left: 0;
@@ -3467,6 +3462,10 @@ body.use-custom-cursor * {
   color: var(--text);
   text-align: left;
   cursor: pointer;
+}
+
+.item-picker-option.item-picker-option-static {
+  position: static;
 }
 
 .item-picker-option:hover,

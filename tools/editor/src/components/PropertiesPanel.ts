@@ -1515,6 +1515,7 @@ function createOptionPickerPanelEditor(
 
     const renderList = (): void => {
       const query = searchInput.value.trim().toLowerCase();
+      const maxRenderedOptions = 250;
 
       const matches = storyNpcMeta.filter(({ option, faction, role }) => {
         if (activeFaction && faction !== activeFaction) return false;
@@ -1527,7 +1528,8 @@ function createOptionPickerPanelEditor(
       listContent.innerHTML = '';
       empty.hidden = matches.length !== 0;
 
-      for (const { option } of matches) {
+      const fragment = document.createDocumentFragment();
+      for (const { option } of matches.slice(0, maxRenderedOptions)) {
         const row = document.createElement('button');
         row.type = 'button';
         row.className = 'item-picker-option item-picker-option-static';
@@ -1538,18 +1540,40 @@ function createOptionPickerPanelEditor(
           syncUi(option.value);
           onChange(option.value);
         };
-        listContent.appendChild(row);
+        fragment.appendChild(row);
+      }
+      listContent.appendChild(fragment);
+
+      if (matches.length > maxRenderedOptions) {
+        const overflow = document.createElement('div');
+        overflow.className = 'command-description';
+        overflow.textContent = `Showing ${maxRenderedOptions} of ${matches.length} story NPCs. Keep typing to narrow results.`;
+        listContent.appendChild(overflow);
+      }
+
+      const factionCounts = new Map<string, number>();
+      const roleCounts = new Map<string, number>();
+
+      for (const { faction, role } of storyNpcMeta) {
+        if (!activeRole || role === activeRole) {
+          factionCounts.set(faction, (factionCounts.get(faction) ?? 0) + 1);
+          factionCounts.set('', (factionCounts.get('') ?? 0) + 1);
+        }
+        if (!activeFaction || faction === activeFaction) {
+          roleCounts.set(role, (roleCounts.get(role) ?? 0) + 1);
+          roleCounts.set('', (roleCounts.get('') ?? 0) + 1);
+        }
       }
 
       for (const [value, button] of factionButtons) {
-        const count = storyNpcMeta.filter((entry) => (value ? entry.faction === value : true) && (!activeRole || entry.role === activeRole)).length;
+        const count = factionCounts.get(value) ?? 0;
         button.classList.toggle('is-active', value === activeFaction);
         const countEl = button.querySelector('.item-picker-chip-count');
         if (countEl) countEl.textContent = String(count);
       }
 
       for (const [value, button] of roleButtons) {
-        const count = storyNpcMeta.filter((entry) => (value ? entry.role === value : true) && (!activeFaction || entry.faction === activeFaction)).length;
+        const count = roleCounts.get(value) ?? 0;
         button.classList.toggle('is-active', value === activeRole);
         const countEl = button.querySelector('.item-picker-chip-count');
         if (countEl) countEl.textContent = String(count);
