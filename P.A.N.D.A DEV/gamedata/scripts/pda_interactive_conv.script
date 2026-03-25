@@ -2659,6 +2659,16 @@ local function evaluate_precondition_entry(entry, npc_se, act, get_goodwill_acto
         if not zone_name or zone_name == "" then return false, "missing zone" end
         local zone = db.zone_by_name and db.zone_by_name[zone_name] or nil
         if not zone or not zone:inside(act:position()) then return false, "actor not in zone" end
+    elseif cmd == "req_detector_tier" then
+        local required_tier = parts[2] or "basic"
+        local adapter = get_anomaly_artifact_adapter()
+        if not adapter or not adapter.require_detector_tier then
+            return false, "anomaly adapter unavailable"
+        end
+        local ok = adapter.require_detector_tier(required_tier)
+        if not ok then
+            return false, "detector tier below requirement"
+        end
 
     -- ========== DISTANCE TO NPC ==========
     elseif cmd == "req_distance_max" or cmd == "req_distance_min" then
@@ -3474,6 +3484,7 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
         elseif cmd == "require_detector_tier" then
             local adapter = get_anomaly_artifact_adapter()
             if adapter then
+                printf("PANDA_IC: require_detector_tier outcome is legacy; prefer req_detector_tier preconditions for gating")
                 local ok = adapter.require_detector_tier(parts[2] or "basic")
                 if not ok then
                     printf("PANDA_IC: detector requirement failed for tier '%s'", tostring(parts[2]))
@@ -4348,7 +4359,7 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
         elseif cmd == "panda_task_artifact" then
             local artifact_sec = parts[2]
             local zone_name = parts[3]
-            local detector_tier = parts[4] or "basic"
+            local detector_tier_meta = parts[4] or "basic"
             local timeout = tonumber(parts[5]) or 900
             local s_turn = tonumber(parts[6])
             local f_turn = tonumber(parts[7])
@@ -4371,7 +4382,7 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                     adapter.start_artifact_task(
                         task_runtime_id, artifact_sec,
                         (zone_name ~= "any") and zone_name or nil,
-                        detector_tier, timeout, sender_npc_id
+                        detector_tier_meta, timeout, sender_npc_id
                     )
                 end
                 -- Notify player
@@ -4385,7 +4396,9 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                         task_item = artifact_sec,
                         task_runtime_id = task_runtime_id,
                         task_zone = zone_name,
-                        task_detector_tier = detector_tier,
+                        -- Metadata only (for PDA/job display). Do NOT use for gating:
+                        -- gate with req_detector_tier preconditions instead.
+                        task_detector_tier = detector_tier_meta,
                         squads_registered = true,
                     })
             end
