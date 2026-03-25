@@ -23,6 +23,29 @@ local CHOICE_KEYS = { [DIK_1]=1, [DIK_2]=2, [DIK_3]=3, [DIK_4]=4 }
 local FALLBACK_NPC_ICON = "ui_inGame2_neutral_1"
 
 local safe_remove_time_event
+local function get_anomaly_artifact_adapter()
+    if panda_anomaly_artifact_adapter and panda_anomaly_artifact_adapter.ensure_state then
+        return panda_anomaly_artifact_adapter
+    end
+
+    local ok = pcall(function()
+        if require then
+            require("panda_anomaly_artifact_adapter")
+        end
+    end)
+
+    if not ok then
+        pcall(function()
+            dofile("gamedata\\scripts\\panda_anomaly_artifact_adapter.script")
+        end)
+    end
+
+    if panda_anomaly_artifact_adapter and panda_anomaly_artifact_adapter.ensure_state then
+        return panda_anomaly_artifact_adapter
+    end
+
+    return nil
+end
 
 -- Global used by engine overrides to simulate talking state
 fake_talking_npc_id = nil
@@ -3350,7 +3373,98 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
         local parts = str_explode(cmd_str, ":")
         local cmd = parts[1]
 
-        if cmd == "give_task_cat" then
+        if cmd == "start_anomaly_scan_task" then
+            local adapter = get_anomaly_artifact_adapter()
+            if adapter then
+                local ok, err = adapter.start_scan_task(
+                    parts[2],
+                    parts[3],
+                    parts[4] or "basic",
+                    tonumber(parts[5]) or 0,
+                    sender_npc_id
+                )
+                if not ok then
+                    printf("PANDA_IC: start_anomaly_scan_task failed (%s)", tostring(err))
+                end
+            else
+                printf("PANDA_IC: start_anomaly_scan_task ignored (adapter unavailable)")
+            end
+
+        elseif cmd == "start_artifact_retrieval_task" then
+            local adapter = get_anomaly_artifact_adapter()
+            if adapter then
+                local ok, err = adapter.start_artifact_task(
+                    parts[2],
+                    parts[3],
+                    parts[4],
+                    parts[5] or "basic",
+                    tonumber(parts[6]) or 0,
+                    sender_npc_id
+                )
+                if not ok then
+                    printf("PANDA_IC: start_artifact_retrieval_task failed (%s)", tostring(err))
+                end
+            else
+                printf("PANDA_IC: start_artifact_retrieval_task ignored (adapter unavailable)")
+            end
+
+        elseif cmd == "spawn_artifact_on_npc" then
+            local adapter = get_anomaly_artifact_adapter()
+            if adapter then
+                local target_npc_id = tonumber(parts[3]) or sender_npc_id
+                local ok, err = adapter.spawn_artifact_on_npc(parts[2], parts[4], target_npc_id)
+                if not ok then
+                    printf("PANDA_IC: spawn_artifact_on_npc failed (%s)", tostring(err))
+                end
+            end
+
+        elseif cmd == "spawn_artifact_in_zone" then
+            local adapter = get_anomaly_artifact_adapter()
+            if adapter then
+                local ok, err = adapter.spawn_artifact_in_zone(parts[2], parts[3], parts[4])
+                if not ok then
+                    printf("PANDA_IC: spawn_artifact_in_zone failed (%s)", tostring(err))
+                end
+            end
+
+        elseif cmd == "require_detector_tier" then
+            local adapter = get_anomaly_artifact_adapter()
+            if adapter then
+                local ok = adapter.require_detector_tier(parts[2] or "basic")
+                if not ok then
+                    printf("PANDA_IC: detector requirement failed for tier '%s'", tostring(parts[2]))
+                end
+            end
+
+        elseif cmd == "turn_in_artifact" then
+            local adapter = get_anomaly_artifact_adapter()
+            if adapter then
+                local ok, err = adapter.turn_in_artifact(parts[2], parts[3])
+                if not ok then
+                    printf("PANDA_IC: turn_in_artifact failed (%s)", tostring(err))
+                end
+            end
+
+        elseif cmd == "set_anomaly_target" then
+            local adapter = get_anomaly_artifact_adapter()
+            if adapter then
+                local ok, err = adapter.set_anomaly_target(parts[2], parts[3])
+                if not ok then
+                    printf("PANDA_IC: set_anomaly_target failed (%s)", tostring(err))
+                end
+            end
+
+        elseif cmd == "fail_if_artifact_lost" then
+            local adapter = get_anomaly_artifact_adapter()
+            if adapter then
+                local enabled = tostring(parts[3] or "true") ~= "false"
+                local ok, err = adapter.set_fail_if_artifact_lost(parts[2], enabled)
+                if not ok then
+                    printf("PANDA_IC: fail_if_artifact_lost failed (%s)", tostring(err))
+                end
+            end
+
+        elseif cmd == "give_task_cat" then
             if panda_give_task(pre_found_task_id, sender_npc_id) then
                 task_given = true
                 dynamic_news_helper.send_tip(
@@ -5729,6 +5843,11 @@ function save_state(m)
     m.pda_next_location_ref_id = next_location_ref_id
     m.pda_pending_jobs = pending_jobs
     m.pda_next_job_id = next_job_id
+
+    local adapter = get_anomaly_artifact_adapter()
+    if adapter and adapter.save_state then
+        adapter.save_state(m)
+    end
 end
 
 function load_state(m)
@@ -5783,6 +5902,11 @@ function load_state(m)
 
     if m.pda_next_job_id then
         next_job_id = m.pda_next_job_id
+    end
+
+    local adapter = get_anomaly_artifact_adapter()
+    if adapter and adapter.load_state then
+        adapter.load_state(m)
     end
 
     -- Restore active conversations and rebuild their choices

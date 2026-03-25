@@ -166,7 +166,7 @@ export function generateXml(project: Project, systemStrings?: Map<string, string
 /** Create a default empty project */
 export function createEmptyProject(faction: Project['faction'] = 'stalker'): Project {
   return {
-    version: '1.0.0',
+    version: '2.0.0',
     faction,
     conversations: [],
   };

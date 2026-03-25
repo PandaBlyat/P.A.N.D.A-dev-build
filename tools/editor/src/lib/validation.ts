@@ -42,6 +42,30 @@ const TASK_OUTCOME_TURN_INDICES: Record<string, [number, number, number]> = {
   'panda_task_eliminate': [4, 5, 3],
 };
 const TASK_OUTCOME_COMMANDS = new Set(Object.keys(TASK_OUTCOME_TURN_INDICES));
+const ANOMALY_ARTIFACT_OUTCOMES = new Set([
+  'start_anomaly_scan_task',
+  'start_artifact_retrieval_task',
+  'spawn_artifact_on_npc',
+  'spawn_artifact_in_zone',
+  'require_detector_tier',
+  'turn_in_artifact',
+  'set_anomaly_target',
+  'fail_if_artifact_lost',
+]);
+const ANOMALY_TASK_ID_OUTCOMES = new Set([
+  'start_anomaly_scan_task',
+  'start_artifact_retrieval_task',
+  'spawn_artifact_on_npc',
+  'spawn_artifact_in_zone',
+  'turn_in_artifact',
+  'set_anomaly_target',
+  'fail_if_artifact_lost',
+]);
+const ANOMALY_TASK_START_OUTCOMES = new Set([
+  'start_anomaly_scan_task',
+  'start_artifact_retrieval_task',
+]);
+const MAX_ANOMALY_TASK_STARTS_PER_CONVERSATION = 3;
 const PRECONDITION_RANGE_PAIRS: Array<{ minCommand: string; maxCommand: string; label: string; rankBased?: boolean }> = [
   { minCommand: 'req_money', maxCommand: 'req_money_max', label: 'money' },
   { minCommand: 'req_rep', maxCommand: 'req_rep_max', label: 'reputation' },
@@ -192,6 +216,7 @@ function validateConversation(conv: Conversation, messages: ValidationMessage[])
   }
 
   validateConversationPreconditionLogic(conv, messages);
+  validateConversationAnomalyArtifactSafety(conv, messages);
 
   if (conv.turns.length === 0) {
     pushMessage(messages, {
@@ -244,6 +269,65 @@ function validateConversation(conv: Conversation, messages: ValidationMessage[])
 
   if (conv.turns.length > 1) {
     validateReachability(conv, turnNumbers, turnLabels, messages);
+  }
+}
+
+function validateConversationAnomalyArtifactSafety(conv: Conversation, messages: ValidationMessage[]): void {
+  const runtimeTaskIds = new Map<string, { turnNumber: number; choiceIndex: number; outcomeIndex: number }>();
+  let starts = 0;
+
+  conv.turns.forEach((turn) => {
+    turn.choices.forEach((choice) => {
+      choice.outcomes.forEach((outcome, outcomeIndex) => {
+        if (!ANOMALY_ARTIFACT_OUTCOMES.has(outcome.command)) {
+          return;
+        }
+
+        if (ANOMALY_TASK_START_OUTCOMES.has(outcome.command)) {
+          starts += 1;
+        }
+
+        if (ANOMALY_TASK_ID_OUTCOMES.has(outcome.command)) {
+          const taskId = (outcome.params[0] ?? '').trim();
+          if (!taskId) {
+            return;
+          }
+
+          const existing = runtimeTaskIds.get(taskId);
+          if (existing) {
+            pushMessage(messages, {
+              code: 'duplicate-anomaly-task-id',
+              group: 'logic',
+              scope: 'outcome',
+              level: 'error',
+              conversationId: conv.id,
+              turnNumber: turn.turnNumber,
+              choiceIndex: choice.index,
+              outcomeIndex,
+              propertiesTab: 'selection',
+              fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, 0),
+              fieldLabel: 'Runtime Task ID',
+              message: `Duplicate runtime task ID "${taskId}". Already used by Branch ${existing.turnNumber}, choice ${existing.choiceIndex}, outcome ${existing.outcomeIndex + 1}.`,
+            });
+            return;
+          }
+
+          runtimeTaskIds.set(taskId, { turnNumber: turn.turnNumber, choiceIndex: choice.index, outcomeIndex });
+        }
+      });
+    });
+  });
+
+  if (starts > MAX_ANOMALY_TASK_STARTS_PER_CONVERSATION) {
+    pushMessage(messages, {
+      code: 'too-many-anomaly-task-starts',
+      group: 'logic',
+      scope: 'conversation',
+      level: 'warning',
+      conversationId: conv.id,
+      propertiesTab: 'conversation',
+      message: `This conversation starts ${starts} anomaly/artifact tasks. Recommended maximum is ${MAX_ANOMALY_TASK_STARTS_PER_CONVERSATION}.`,
+    });
   }
 }
 

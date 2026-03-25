@@ -136,6 +136,13 @@ const MONTH_OPTIONS: ParamOption[] = Array.from({ length: 12 }, (_, i) => ({
   keywords: [String(i + 1), MONTH_NAMES[i + 1]],
 }));
 
+const DETECTOR_TIER_OPTIONS: ParamOption[] = [
+  { value: 'basic', label: 'Basic', keywords: ['basic', 'simple', 'geiger', 'radio'] },
+  { value: 'advanced', label: 'Advanced', keywords: ['advanced'] },
+  { value: 'elite', label: 'Elite', keywords: ['elite'] },
+  { value: 'scientific', label: 'Scientific', keywords: ['scientific', 'svarog'] },
+];
+
 const SMART_TERRAIN_EDITOR: ParamEditor = {
   kind: 'smart_terrain_picker',
   allowPlaceholder: true,
@@ -1470,6 +1477,96 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     category: 'NPC',
     params: [
       { name: 'faction', type: 'faction', required: true, label: 'New Faction', editor: { kind: 'searchable_select', options: FACTION_OPTIONS, emptyLabel: '-- Select faction --' } },
+    ],
+  },
+
+  // Job System
+  {
+    name: 'start_anomaly_scan_task',
+    label: 'Start Anomaly Scan Task',
+    description: 'Create/update an anomaly scan objective record.',
+    category: 'Anomaly / Artifact',
+    examples: ['start_anomaly_scan_task:scan_yan_01:labx18_2c_04_bioh_anomaly_spot:advanced:1800'],
+    params: [
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID' },
+      { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name' },
+      { name: 'detector_tier', type: 'string', required: false, label: 'Detector Tier', placeholder: 'basic', editor: { kind: 'searchable_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
+      { name: 'expire_seconds', type: 'number', required: false, label: 'Expire After (s)', placeholder: '0', min: 0 },
+    ],
+  },
+  {
+    name: 'start_artifact_retrieval_task',
+    label: 'Start Artifact Retrieval Task',
+    description: 'Create/update a tracked artifact retrieval objective.',
+    category: 'Anomaly / Artifact',
+    examples: ['start_artifact_retrieval_task:af_fetch_01:af_compass:red_smart_terrain_3_2_anomal_zone:elite:3600'],
+    params: [
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID' },
+      { name: 'artifact_section', type: 'item_section', required: true, label: 'Artifact Section', editor: ITEM_PICKER_PANEL_EDITOR },
+      { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name' },
+      { name: 'detector_tier', type: 'string', required: false, label: 'Detector Tier', placeholder: 'basic', editor: { kind: 'searchable_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
+      { name: 'expire_seconds', type: 'number', required: false, label: 'Expire After (s)', placeholder: '0', min: 0 },
+    ],
+  },
+  {
+    name: 'spawn_artifact_on_npc',
+    label: 'Spawn Artifact on NPC',
+    description: 'Give target NPC the configured artifact for interception routes.',
+    category: 'Anomaly / Artifact',
+    params: [
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID' },
+      { name: 'target_npc_id', type: 'number', required: false, label: 'Target NPC ID', placeholder: 'conversation npc' },
+      { name: 'artifact_section', type: 'item_section', required: true, label: 'Artifact Section', editor: ITEM_PICKER_PANEL_EDITOR },
+    ],
+  },
+  {
+    name: 'spawn_artifact_in_zone',
+    label: 'Spawn Artifact in Zone',
+    description: 'Spawn an artifact at a tracked anomaly zone.',
+    category: 'Anomaly / Artifact',
+    params: [
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID' },
+      { name: 'artifact_section', type: 'item_section', required: true, label: 'Artifact Section', editor: ITEM_PICKER_PANEL_EDITOR },
+      { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name' },
+    ],
+  },
+  {
+    name: 'require_detector_tier',
+    label: 'Require Detector Tier',
+    description: 'Gate branch logic behind detector progression tier.',
+    category: 'Anomaly / Artifact',
+    params: [
+      { name: 'detector_tier', type: 'string', required: true, label: 'Detector Tier', editor: { kind: 'searchable_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
+    ],
+  },
+  {
+    name: 'turn_in_artifact',
+    label: 'Turn In Artifact',
+    description: 'Validate and mark a tracked artifact turn-in.',
+    category: 'Anomaly / Artifact',
+    params: [
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID' },
+      { name: 'artifact_section', type: 'item_section', required: false, label: 'Artifact Section (override)', editor: ITEM_PICKER_PANEL_EDITOR },
+    ],
+  },
+  {
+    name: 'set_anomaly_target',
+    label: 'Set Anomaly Target',
+    description: 'Retarget an existing anomaly/artifact runtime record to a different zone.',
+    category: 'Anomaly / Artifact',
+    params: [
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID' },
+      { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name' },
+    ],
+  },
+  {
+    name: 'fail_if_artifact_lost',
+    label: 'Fail if Artifact Lost',
+    description: 'Configure failure behavior when tracked artifact is lost before hand-in.',
+    category: 'Anomaly / Artifact',
+    params: [
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID' },
+      { name: 'enabled', type: 'string', required: false, label: 'Enabled', placeholder: 'true' },
     ],
   },
 

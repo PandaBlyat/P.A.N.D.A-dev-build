@@ -1,0 +1,286 @@
+--[[
+P.A.N.D.A anomaly/artifact adapter
+Bridges conversation outcomes to anomaly/artifact flows without editing vanilla scripts.
+]]
+
+panda_anomaly_artifact_adapter = panda_anomaly_artifact_adapter or {}
+
+local M = panda_anomaly_artifact_adapter
+
+local DETECTOR_TIERS = {
+    basic = { "detector_simple", "detector_radio", "detector_geiger" },
+    advanced = { "detector_advanced" },
+    elite = { "detector_elite" },
+    scientific = { "detector_scientific" },
+}
+
+local DETECTOR_ORDER = { basic = 1, advanced = 2, elite = 3, scientific = 4 }
+
+local function log(fmt, ...)
+    printf("PANDA_AA: " .. tostring(fmt), ...)
+end
+
+local function now_ts()
+    if time_global then
+        return time_global()
+    end
+    return 0
+end
+
+local function has_item_section(section)
+    if not db or not db.actor or not section then
+        return false
+    end
+
+    local found = false
+    db.actor:iterate_inventory(function(_, item)
+        if found then
+            return
+        end
+        if item and item:section() == section then
+            found = true
+        end
+    end, db.actor)
+
+    return found
+end
+
+local function best_detector_tier()
+    local best = 0
+    for tier, sections in pairs(DETECTOR_TIERS) do
+        for _, section in ipairs(sections) do
+            if has_item_section(section) then
+                best = math.max(best, DETECTOR_ORDER[tier] or 0)
+            end
+        end
+    end
+    return best
+end
+
+local function has_detector_tier(required_tier)
+    local required = DETECTOR_ORDER[required_tier or "basic"] or 1
+    return best_detector_tier() >= required
+end
+
+function M.ensure_state()
+    if type(M.state) ~= "table" then
+        M.state = {
+            records = {},
+            order = {},
+        }
+    end
+    return M.state
+end
+
+function M.get_record(task_id)
+    local state = M.ensure_state()
+    return task_id and state.records[task_id] or nil
+end
+
+function M.upsert_record(task_id, patch)
+    if not task_id or task_id == "" then
+        return nil, "missing task_id"
+    end
+
+    local state = M.ensure_state()
+    local rec = state.records[task_id]
+    if not rec then
+        rec = {
+            task_id = task_id,
+            giver_id = nil,
+            target_npc_id = nil,
+            zone_name = nil,
+            artifact_section = nil,
+            artifact_object_id = nil,
+            detector_requirement = "basic",
+            stage = "created",
+            expire_at = nil,
+            flags = {},
+            last_known_owner_kind = "none",
+            last_seen_ts = now_ts(),
+        }
+        state.records[task_id] = rec
+        table.insert(state.order, task_id)
+    end
+
+    for k, v in pairs(patch or {}) do
+        rec[k] = v
+    end
+
+    rec.last_seen_ts = now_ts()
+    return rec
+end
+
+function M.start_scan_task(task_id, zone_name, detector_tier, expire_seconds, sender_npc_id)
+    if not zone_name or zone_name == "" then
+        return false, "missing zone name"
+    end
+
+    local expire_at = nil
+    if tonumber(expire_seconds) and tonumber(expire_seconds) > 0 then
+        expire_at = now_ts() + tonumber(expire_seconds) * 1000
+    end
+
+    local rec = M.upsert_record(task_id, {
+        giver_id = sender_npc_id,
+        zone_name = zone_name,
+        detector_requirement = detector_tier or "basic",
+        stage = "scan_started",
+        expire_at = expire_at,
+        flags = { fail_if_artifact_lost = false },
+    })
+
+    if not rec then
+        return false, "failed to allocate record"
+    end
+
+    log("scan task started: %s zone=%s detector=%s", tostring(task_id), tostring(zone_name), tostring(detector_tier))
+    return true
+end
+
+function M.start_artifact_task(task_id, artifact_section, zone_name, detector_tier, expire_seconds, sender_npc_id)
+    if not artifact_section or artifact_section == "" then
+        return false, "missing artifact section"
+    end
+
+    local expire_at = nil
+    if tonumber(expire_seconds) and tonumber(expire_seconds) > 0 then
+        expire_at = now_ts() + tonumber(expire_seconds) * 1000
+    end
+
+    local rec = M.upsert_record(task_id, {
+        giver_id = sender_npc_id,
+        zone_name = zone_name,
+        artifact_section = artifact_section,
+        detector_requirement = detector_tier or "basic",
+        stage = "artifact_started",
+        expire_at = expire_at,
+        flags = { fail_if_artifact_lost = true },
+    })
+
+    if not rec then
+        return false, "failed to allocate record"
+    end
+
+    log("artifact task started: %s artifact=%s zone=%s", tostring(task_id), tostring(artifact_section), tostring(zone_name))
+    return true
+end
+
+function M.spawn_artifact_on_npc(task_id, artifact_section, target_npc_id)
+    local rec = M.get_record(task_id)
+    if not rec then return false, "task not found" end
+    if not artifact_section or artifact_section == "" then return false, "missing artifact section" end
+    if not target_npc_id then return false, "missing npc id" end
+
+    local se_npc = alife_object(target_npc_id)
+    if not se_npc then
+        return false, "npc not found"
+    end
+
+    local obj = alife_create_item(artifact_section, se_npc)
+    rec.target_npc_id = target_npc_id
+    rec.artifact_section = artifact_section
+    rec.artifact_object_id = obj and obj.id or rec.artifact_object_id
+    rec.last_known_owner_kind = "npc"
+    rec.stage = "artifact_spawned"
+
+    log("spawned artifact %s on npc %s", tostring(artifact_section), tostring(target_npc_id))
+    return true
+end
+
+function M.spawn_artifact_in_zone(task_id, artifact_section, zone_name)
+    local rec = M.get_record(task_id)
+    if not rec then return false, "task not found" end
+    if not artifact_section or artifact_section == "" then return false, "missing artifact section" end
+    if not zone_name or zone_name == "" then return false, "missing zone name" end
+
+    local zone = db and db.anomaly_by_name and db.anomaly_by_name[zone_name]
+    if not zone then
+        return false, "zone not found"
+    end
+
+    local obj = alife_create_item(artifact_section, zone)
+    rec.zone_name = zone_name
+    rec.artifact_section = artifact_section
+    rec.artifact_object_id = obj and obj.id or rec.artifact_object_id
+    rec.last_known_owner_kind = "world"
+    rec.stage = "artifact_spawned"
+
+    log("spawned artifact %s in zone %s", tostring(artifact_section), tostring(zone_name))
+    return true
+end
+
+function M.require_detector_tier(tier)
+    return has_detector_tier(tier)
+end
+
+function M.turn_in_artifact(task_id, artifact_section)
+    local rec = M.get_record(task_id)
+    if not rec then return false, "task not found" end
+
+    local required = artifact_section or rec.artifact_section
+    if not required or required == "" then
+        return false, "missing artifact section"
+    end
+
+    if not has_item_section(required) then
+        return false, "actor missing required artifact"
+    end
+
+    rec.stage = "turned_in"
+    rec.last_known_owner_kind = "actor"
+    rec.last_seen_ts = now_ts()
+    log("artifact turned in for task %s", tostring(task_id))
+    return true
+end
+
+function M.set_anomaly_target(task_id, zone_name)
+    local rec = M.get_record(task_id)
+    if not rec then return false, "task not found" end
+    if not zone_name or zone_name == "" then return false, "missing zone" end
+    rec.zone_name = zone_name
+    rec.stage = "target_set"
+    return true
+end
+
+function M.set_fail_if_artifact_lost(task_id, enabled)
+    local rec = M.get_record(task_id)
+    if not rec then return false, "task not found" end
+    rec.flags = rec.flags or {}
+    rec.flags.fail_if_artifact_lost = enabled == true
+    return true
+end
+
+function M.evaluate_fail_state(task_id)
+    local rec = M.get_record(task_id)
+    if not rec then return false, "task not found" end
+
+    if rec.expire_at and now_ts() > rec.expire_at then
+        rec.stage = "failed_expired"
+        return true, "expired"
+    end
+
+    if rec.flags and rec.flags.fail_if_artifact_lost and rec.artifact_section then
+        if not has_item_section(rec.artifact_section) and rec.stage == "turned_in_pending" then
+            rec.stage = "failed_artifact_lost"
+            return true, "artifact lost"
+        end
+    end
+
+    return false
+end
+
+function M.save_state(m)
+    local state = M.ensure_state()
+    m.panda_anomaly_artifact_state = state
+end
+
+function M.load_state(m)
+    if m and type(m.panda_anomaly_artifact_state) == "table" then
+        M.state = m.panda_anomaly_artifact_state
+    else
+        M.state = nil
+    end
+    M.ensure_state()
+end
+

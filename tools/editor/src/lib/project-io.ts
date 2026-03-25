@@ -150,7 +150,7 @@ export async function loadOnboardingSamplePack(): Promise<void> {
   }
 
   const project = normalizeSequentialConversationIds({
-    version: remoteConversation.data.version || '1.0.0',
+    version: remoteConversation.data.version || '2.0.0',
     faction: remoteConversation.data.faction || remoteConversation.faction,
     conversations: remoteConversation.data.conversations,
   });
