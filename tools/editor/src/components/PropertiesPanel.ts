@@ -41,6 +41,8 @@ const collapsedSections = new Set<string>();
 const initializedCollapsibleSections = new Set<string>();
 let activeCommandPickerCleanup: (() => void) | null = null;
 let activeCommandPickerTrigger: HTMLElement | null = null;
+let activeOptionPickerCleanup: (() => void) | null = null;
+let activeOptionPickerTrigger: HTMLElement | null = null;
 let collapsibleSectionId = 0;
 
 function createCollapsibleSection(
@@ -1262,6 +1264,14 @@ function renderRichParamEditor(
         placeholder: paramDef.placeholder ?? 'medkit+bandage+vodka',
         chainSeparator: editor.chainSeparator ?? '+',
       });
+    case 'story_npc_picker_panel':
+      return createOptionPickerPanelEditor(currentValue, onChange, fieldKey, {
+        title: 'Browse story NPCs',
+        subtitle: 'Search by NPC name, story id, or aliases and pick a canonical story NPC id.',
+        searchPlaceholder: 'Search story NPC name or id...',
+        emptyLabel: editor.emptyLabel ?? '-- Search for a story NPC --',
+        options: editor.options,
+      });
     case 'command_builder':
       return createCommandBuilderEditor(schema, paramDef, currentValue, onChange, fieldKey, editor.suggestions, editor.chainSeparator ?? '+');
   }
@@ -1345,6 +1355,215 @@ function createSearchableSelectEditor(
   wrapper.appendChild(input);
   wrapper.appendChild(datalist);
   wrapper.appendChild(summary);
+  return wrapper;
+}
+
+
+function createOptionPickerPanelEditor(
+  currentValue: string,
+  onChange: (value: string) => void,
+  fieldKey: string,
+  config: {
+    title: string;
+    subtitle: string;
+    searchPlaceholder: string;
+    emptyLabel: string;
+    options: ParamOption[];
+  },
+): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'rich-editor rich-editor-item-picker';
+
+  const launcherRow = document.createElement('div');
+  launcherRow.className = 'rich-editor-toolbar item-picker-toolbar';
+
+  const browseButton = document.createElement('button');
+  browseButton.type = 'button';
+  browseButton.className = 'item-picker-launcher';
+
+  const clearButton = document.createElement('button');
+  clearButton.type = 'button';
+  clearButton.className = 'btn-sm';
+  clearButton.textContent = 'Clear';
+
+  const rawInput = document.createElement('input');
+  rawInput.type = 'text';
+  rawInput.className = 'rich-editor-input';
+  rawInput.value = currentValue;
+  rawInput.placeholder = config.emptyLabel;
+  rawInput.setAttribute('data-field-key', fieldKey);
+
+  const summary = document.createElement('div');
+  summary.className = 'command-description';
+
+  const syncUi = (value: string): void => {
+    rawInput.value = value;
+    const selected = config.options.find((option) => option.value === value);
+
+    browseButton.textContent = '';
+    const label = document.createElement('span');
+    label.className = 'item-picker-launcher-label';
+    label.textContent = selected ? selected.label : 'Browse story NPCs…';
+    const icon = document.createElement('span');
+    icon.className = 'item-picker-launcher-icon';
+    icon.textContent = '▾';
+    browseButton.append(label, icon);
+
+    summary.textContent = selected
+      ? `Selected ${selected.label} (${selected.value}).`
+      : 'Pick a story NPC from the searchable panel or type a custom story id manually.';
+
+    clearButton.disabled = value.length === 0;
+  };
+
+  const openPicker = (): void => {
+    if (activeOptionPickerCleanup) {
+      const shouldToggleClosed = activeOptionPickerTrigger === browseButton;
+      activeOptionPickerCleanup();
+      if (shouldToggleClosed) return;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'item-picker-overlay';
+    overlay.setAttribute('role', 'presentation');
+
+    const panel = document.createElement('div');
+    panel.className = 'item-picker-panel';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.onclick = (event) => event.stopPropagation();
+
+    const header = document.createElement('div');
+    header.className = 'item-picker-header';
+
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'item-picker-title-wrap';
+
+    const title = document.createElement('div');
+    title.className = 'item-picker-title';
+    title.textContent = config.title;
+
+    const subtitle = document.createElement('div');
+    subtitle.className = 'item-picker-subtitle';
+    subtitle.textContent = config.subtitle;
+
+    const closeButton = document.createElement('button');
+    closeButton.className = 'btn-icon btn-sm';
+    closeButton.textContent = '×';
+    closeButton.title = 'Close story NPC picker';
+
+    titleWrap.append(title, subtitle);
+    header.append(titleWrap, closeButton);
+    panel.appendChild(header);
+
+    const searchWrap = document.createElement('div');
+    searchWrap.className = 'item-picker-search-wrap';
+
+    const searchIcon = document.createElement('span');
+    searchIcon.className = 'item-picker-search-icon';
+    searchIcon.textContent = '⌕';
+    searchIcon.setAttribute('aria-hidden', 'true');
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.className = 'dropdown-search item-picker-search';
+    searchInput.placeholder = config.searchPlaceholder;
+
+    searchWrap.append(searchIcon, searchInput);
+    panel.appendChild(searchWrap);
+
+    const list = document.createElement('div');
+    list.className = 'item-picker-list';
+    panel.appendChild(list);
+
+    const renderList = (): void => {
+      const query = searchInput.value.trim().toLowerCase();
+      list.innerHTML = '';
+
+      const matches = config.options.filter((option) => {
+        if (!query) return true;
+        const haystack = [option.label, option.value, ...(option.keywords ?? [])].join(' ').toLowerCase();
+        return haystack.includes(query);
+      });
+
+      if (matches.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'item-picker-empty';
+        empty.textContent = 'No story NPCs match this search.';
+        list.appendChild(empty);
+        return;
+      }
+
+      for (const option of matches) {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'item-picker-option';
+        if (option.value === rawInput.value) row.classList.add('is-selected');
+        row.innerHTML = `<span class="item-picker-option-title">${option.label}</span><span class="item-picker-option-meta">${option.value}</span>`;
+        row.onclick = () => {
+          cleanup();
+          syncUi(option.value);
+          onChange(option.value);
+        };
+        list.appendChild(row);
+      }
+    };
+
+    let isClosed = false;
+    const cleanup = (): void => {
+      if (isClosed) return;
+      isClosed = true;
+      overlay.remove();
+      document.removeEventListener('keydown', handleEscape, true);
+      if (activeOptionPickerCleanup === cleanup) {
+        activeOptionPickerCleanup = null;
+        activeOptionPickerTrigger = null;
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      cleanup();
+      browseButton.focus();
+    };
+
+    closeButton.onclick = () => {
+      cleanup();
+      browseButton.focus();
+    };
+    overlay.onclick = (event) => {
+      if (event.target === overlay) cleanup();
+    };
+    searchInput.oninput = renderList;
+
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+    activeOptionPickerCleanup = cleanup;
+    activeOptionPickerTrigger = browseButton;
+
+    renderList();
+    requestAnimationFrame(() => searchInput.focus());
+    document.addEventListener('keydown', handleEscape, true);
+  };
+
+  browseButton.onclick = openPicker;
+  clearButton.onclick = () => {
+    syncUi('');
+    onChange('');
+    rawInput.focus();
+  };
+  rawInput.oninput = () => onChange(rawInput.value);
+  rawInput.onchange = () => {
+    syncUi(rawInput.value);
+    onChange(rawInput.value);
+  };
+  rawInput.addEventListener('input', () => syncUi(rawInput.value));
+
+  launcherRow.append(browseButton, clearButton);
+  wrapper.append(launcherRow, rawInput, summary);
+
+  syncUi(currentValue);
   return wrapper;
 }
 
