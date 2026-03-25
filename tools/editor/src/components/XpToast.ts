@@ -23,7 +23,7 @@ export function showXpToast(amount: number, reason: string): void {
   const container = getContainer();
 
   const toast = document.createElement('div');
-  toast.className = 'xp-toast';
+  toast.className = 'xp-toast achievement-toast';
 
   const icon = createIcon('star');
   icon.classList.add('xp-toast-icon');
@@ -54,7 +54,7 @@ export function showLevelUpToast(newLevel: number, newTitle: string): void {
   const container = getContainer();
 
   const toast = document.createElement('div');
-  toast.className = 'xp-toast xp-toast-levelup';
+  toast.className = 'xp-toast achievement-toast xp-toast-levelup';
 
   const icon = createIcon('trophy');
   icon.classList.add('xp-toast-icon');

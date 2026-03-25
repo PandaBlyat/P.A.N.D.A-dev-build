@@ -109,6 +109,16 @@ function getCommunitySourceMetadata(conversation: Conversation | null | undefine
   };
 }
 
+
+function bindMouseSpotlight(card: HTMLElement): void {
+  card.classList.add('mouse-glow-card');
+  card.addEventListener('pointermove', (event: PointerEvent) => {
+    const rect = card.getBoundingClientRect();
+    card.style.setProperty('--spotlight-x', `${event.clientX - rect.left}px`);
+    card.style.setProperty('--spotlight-y', `${event.clientY - rect.top}px`);
+  });
+}
+
 function getSharePanelMount(): HTMLElement {
   return document.getElementById(SHARE_PANEL_MOUNT_ID)
     ?? document.getElementById('app')
@@ -746,6 +756,7 @@ function buildCard(conv: NormalizedConversation): HTMLElement {
   const isOwner = userOwnsConversation(conv);
   const card = document.createElement('div');
   card.className = `share-card${selectedPreviewId === conv.id ? ' is-selected' : ''}`;
+  bindMouseSpotlight(card);
   card.setAttribute('role', 'group');
   card.setAttribute('aria-label', `${conv.label || 'Untitled'} by ${conv.author || 'Anonymous'}`);
   card.onclick = () => {

@@ -69,6 +69,7 @@ const BRANCH_PALETTE = [
 const CONTENT_PADDING = 120;
 const MIN_ZOOM = 0.35;
 const MAX_ZOOM = 1.8;
+const DEPTH_OF_FIELD_ZOOM_THRESHOLD = 0.62;
 const DEFAULT_VIEW_STATE: ViewState = {
   panX: 40,
   panY: 40,
@@ -465,6 +466,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     const snapY = Math.round(viewState.panY * dpr) / dpr;
     content.style.transform = `translate(${snapX}px, ${snapY}px)`;
     content.style.zoom = String(viewState.zoom);
+    canvas.classList.toggle('is-depth-blur', viewState.zoom <= DEPTH_OF_FIELD_ZOOM_THRESHOLD);
     zoomValue.textContent = `${Math.round(viewState.zoom * 100)}%`;
     viewStateByConversation.set(conversationId, { ...viewState });
   };
@@ -919,6 +921,10 @@ function renderTurnNode(options: {
     e.preventDefault();
     e.stopPropagation();
 
+    let lastMoveAt = performance.now();
+    let lastClientX = startX;
+    let lastClientY = startY;
+
     const onMove = (ev: MouseEvent) => {
       onDragStateChange(true);
       const nextPosition = {
@@ -928,6 +934,20 @@ function renderTurnNode(options: {
       dragPosition = nextPosition;
       node.style.left = `${nextPosition.x}px`;
       node.style.top = `${nextPosition.y}px`;
+
+      const now = performance.now();
+      const elapsed = Math.max(8, now - lastMoveAt);
+      const velocityX = (ev.clientX - lastClientX) / elapsed;
+      const velocityY = (ev.clientY - lastClientY) / elapsed;
+      const tiltY = clamp(velocityX * 14, -3.2, 3.2);
+      const tiltX = clamp(-velocityY * 14, -3.2, 3.2);
+      node.style.setProperty('--drag-tilt-x', `${tiltX.toFixed(2)}deg`);
+      node.style.setProperty('--drag-tilt-y', `${tiltY.toFixed(2)}deg`);
+      node.classList.add('is-dragging-node');
+
+      lastMoveAt = now;
+      lastClientX = ev.clientX;
+      lastClientY = ev.clientY;
       onPreviewPosition(new Map([[turn.turnNumber, nextPosition]]));
     };
 
@@ -936,6 +956,9 @@ function renderTurnNode(options: {
       document.removeEventListener('mouseup', onUp);
       onDragStateChange(false);
       onPreviewPosition();
+      node.classList.remove('is-dragging-node');
+      node.style.removeProperty('--drag-tilt-x');
+      node.style.removeProperty('--drag-tilt-y');
       if (!dragPosition) return;
       store.updateTurnPosition(conv.id, turn.turnNumber, dragPosition);
       dragPosition = null;
@@ -1336,6 +1359,11 @@ function drawEdges(options: {
         path.setAttribute('d', pathD);
         path.setAttribute('class', `flow-edge-path ${edge.pathClassName}${highlightSuffix}`);
       }
+      const packet = existing.querySelector('.flow-edge-packet') as SVGPathElement | null;
+      if (packet) {
+        packet.setAttribute('d', pathD);
+        packet.setAttribute('class', `flow-edge-packet ${edge.pathClassName}${highlightSuffix}`);
+      }
       const label = existing.querySelector('.flow-edge-label') as SVGTextElement | null;
       if (label) {
         label.setAttribute('x', String(labelAnchor.x));
@@ -1374,6 +1402,13 @@ function drawEdges(options: {
         store.clearChoiceContinuation(conv.id, edge.sourceTurnNumber, edge.sourceChoiceIndex);
       };
       group.appendChild(path);
+
+      const packetPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      packetPath.setAttribute('d', pathD);
+      packetPath.setAttribute('class', `flow-edge-packet ${edge.pathClassName}${highlightSuffix}`);
+      packetPath.style.setProperty('--flow-edge-color', edge.color);
+      packetPath.setAttribute('aria-hidden', 'true');
+      group.appendChild(packetPath);
 
       const labelButton = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       labelButton.setAttribute('x', String(labelAnchor.x));
