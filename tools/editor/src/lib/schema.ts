@@ -52,6 +52,11 @@ export type ParamEditor =
     chainSeparator?: string;
   }
   | {
+    kind: 'story_npc_picker_panel';
+    options: ParamOption[];
+    emptyLabel?: string;
+  }
+  | {
     kind: 'command_builder';
     suggestions: ParamOption[];
     chainSeparator?: string;
@@ -866,7 +871,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
         required: true,
         label: 'Story NPC',
         editor: {
-          kind: 'searchable_select',
+          kind: 'story_npc_picker_panel',
           options: STORY_NPC_OPTIONS,
           emptyLabel: '-- Search for a story NPC --',
         },
