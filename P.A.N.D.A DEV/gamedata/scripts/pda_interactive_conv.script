@@ -1008,6 +1008,18 @@ function check_pending_jobs()
                     is_complete = true
                 end
             end
+
+        elseif job_type == "artifact" then
+            -- Player must have the required artifact in inventory
+            if job_player_has_items(job.task_item, 1) then
+                job_take_player_items(job.task_item, 1)
+                is_complete = true
+                -- Clean up adapter record if it exists
+                local adapter = get_anomaly_artifact_adapter()
+                if adapter and adapter.remove_record then
+                    adapter.remove_record(job.task_item)
+                end
+            end
         end
 
         -- Timeout check (unless already determined)
@@ -3417,10 +3429,12 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
             end
 
         elseif cmd == "spawn_artifact_on_npc" then
+            -- Syntax: spawn_artifact_on_npc:<task_id>:<artifact_section>:<target_npc_id>
             local adapter = get_anomaly_artifact_adapter()
             if adapter then
-                local target_npc_id = tonumber(parts[3]) or sender_npc_id
-                local ok, err = adapter.spawn_artifact_on_npc(parts[2], parts[4], target_npc_id)
+                local artifact_sec = parts[3]
+                local target_npc_id = tonumber(parts[4]) or sender_npc_id
+                local ok, err = adapter.spawn_artifact_on_npc(parts[2], artifact_sec, target_npc_id)
                 if not ok then
                     printf("PANDA_IC: spawn_artifact_on_npc failed (%s)", tostring(err))
                 end
@@ -4305,6 +4319,51 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                     conv_data = conv_data,
                     extra = { job_type = "eliminate" },
                 }
+            end
+
+        -- Artifact retrieval: player must find and return a specific artifact
+        -- Syntax: panda_task_artifact:<artifact_section>:<zone_name|any>:<detector_tier>:<timeout>:<success_turn>:<fail_turn>
+        elseif cmd == "panda_task_artifact" then
+            local artifact_sec = parts[2]
+            local zone_name = parts[3]
+            local detector_tier = parts[4] or "basic"
+            local timeout = tonumber(parts[5]) or 900
+            local s_turn = tonumber(parts[6])
+            local f_turn = tonumber(parts[7])
+            if not artifact_sec or not s_turn then
+                printf("PANDA_IC: panda_task_artifact missing params in '%s'", tostring(cmd_str))
+            else
+                local adapter = get_anomaly_artifact_adapter()
+                -- If a specific zone is given (not "any"), try to spawn the artifact there
+                if adapter and zone_name and zone_name ~= "" and zone_name ~= "any" then
+                    local spawn_ok, spawn_err = adapter.spawn_artifact_in_zone(
+                        artifact_sec, artifact_sec, zone_name
+                    )
+                    if not spawn_ok then
+                        printf("PANDA_IC: panda_task_artifact zone spawn failed (%s), player must find naturally", tostring(spawn_err))
+                    end
+                end
+                -- Create adapter record for auxiliary tracking
+                if adapter then
+                    adapter.start_artifact_task(
+                        artifact_sec, artifact_sec,
+                        (zone_name ~= "any") and zone_name or nil,
+                        detector_tier, timeout, sender_npc_id
+                    )
+                end
+                -- Notify player
+                local msg = game.translate_string("st_pda_ic_task_artifact_start")
+                pda_private_add_message(sender_contact_id, sender_npc_name, sender_npc_name, msg,
+                    conv_data and conv_data.npc_icon or FALLBACK_NPC_ICON, false)
+                -- Create pending job (reuses existing job system for monitoring + conversation resume)
+                create_pending_job(sender_contact_id, sender_npc_id, sender_npc_name, sender_faction,
+                    {}, timeout, s_turn, f_turn, conv_data, {
+                        job_type = "artifact",
+                        task_item = artifact_sec,
+                        task_zone = zone_name,
+                        task_detector_tier = detector_tier,
+                        squads_registered = true,
+                    })
             end
 
         else

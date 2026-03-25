@@ -709,6 +709,66 @@ RULES:
   - success_turn and fail_turn point to multi-turn conversation turns (t3, t4, etc.)
     that you define using the standard _tN_ key format.
 
+--- CUSTOM TASK OUTCOMES ---
+
+  These outcome commands create mini-quests that pause the conversation and resume
+  it when the player completes (or fails) the objective. Each uses the same job
+  system as pause_job but with task-type-specific completion checks.
+
+  panda_task_delivery:&lt;item_section&gt;:&lt;destination_smart&gt;:&lt;timeout&gt;:&lt;success_turn&gt;:&lt;fail_turn&gt;
+    Spawn a courier with an item. Player must deliver it to the marked destination.
+    Example: panda_task_delivery:hand_radio:st_gar_smart_terrain_3_5_name:600:3:4
+
+  panda_task_fetch:&lt;item_section&gt;:&lt;count&gt;:&lt;timeout&gt;:&lt;success_turn&gt;:&lt;fail_turn&gt;
+    Player must find and collect the specified items. Inventory is checked periodically.
+    Example: panda_task_fetch:bandage:3:600:3:4
+
+  panda_task_bounty:&lt;faction&gt;:&lt;rank&gt;:&lt;smart_terrain&gt;:&lt;timeout&gt;:&lt;success_turn&gt;:&lt;fail_turn&gt;
+    Spawn a target NPC at a location. Player must kill them.
+    Example: panda_task_bounty:bandit:veteran:st_esc_smart_terrain_4_13_name:900:3:4
+
+  panda_task_dead_drop:&lt;item_section&gt;:&lt;destination_smart&gt;:&lt;timeout&gt;:&lt;success_turn&gt;:&lt;fail_turn&gt;
+    Player must deposit an item at the marked location.
+    Example: panda_task_dead_drop:pda_flash:st_gar_smart_terrain_3_5_name:600:3:4
+
+  panda_task_escort:&lt;destination_smart&gt;:&lt;timeout&gt;:&lt;success_turn&gt;:&lt;fail_turn&gt;
+    The conversation NPC becomes a companion. Player escorts them to the destination.
+    Example: panda_task_escort:st_esc_smart_terrain_4_13_name:900:3:4
+
+  panda_task_eliminate:&lt;target_type&gt;:&lt;smart_terrain&gt;:&lt;radius&gt;:&lt;timeout&gt;:&lt;success_turn&gt;:&lt;fail_turn&gt;
+    Spawn hostile squads at a location. Player must clear them all.
+    Example: panda_task_eliminate:bandit:st_gar_smart_terrain_3_5_name:100:900:3:4
+
+  panda_task_artifact:&lt;artifact_section&gt;:&lt;zone_name|any&gt;:&lt;detector_tier&gt;:&lt;timeout&gt;:&lt;success_turn&gt;:&lt;fail_turn&gt;
+    Player must find and return a specific artifact. If a zone name is provided (not
+    "any"), the artifact is spawned in that anomaly zone. Otherwise the player must
+    find it naturally in the world.
+    Detector tiers: basic, advanced, elite, scientific
+    Example: panda_task_artifact:af_compass:any:basic:900:3:4
+    Example: panda_task_artifact:af_medusa:bar_anomaly_zone_1:advanced:1200:3:4
+
+  ARTIFACT/ANOMALY UTILITY COMMANDS (use in regular outcomes, not as tasks):
+
+  spawn_artifact_on_npc:&lt;task_id&gt;:&lt;artifact_section&gt;:&lt;target_npc_id&gt;
+    Place an artifact in an NPC's inventory.
+    Example: spawn_artifact_on_npc:quest1:af_compass
+
+  spawn_artifact_in_zone:&lt;task_id&gt;:&lt;artifact_section&gt;:&lt;zone_name&gt;
+    Spawn an artifact inside an anomaly zone.
+    Example: spawn_artifact_in_zone:quest1:af_fireball:bar_anomaly_zone_1
+
+  require_detector_tier:&lt;tier&gt;
+    Check if player has the required detector. Tiers: basic, advanced, elite, scientific.
+    Basic includes: detector_simple, detector_radio, detector_geiger.
+    Example: require_detector_tier:advanced
+
+  COMMON ARTIFACT SECTIONS (af_*):
+    Gravitational: af_black_spray, af_night_star, af_gravi, af_gold_fish, af_medusa, af_vyvert, af_death_lamp
+    Thermal: af_itcher, af_pin, af_crystal, af_fireball, af_glass_beads, af_eye, af_fire, af_lobster_eyes
+    Chemical: af_blood, af_mincer_meat, af_bracelet, af_bubble, af_soul, af_fuzz_kolobok, af_glass, af_crystal_flower
+    Electrical: af_sparkler, af_sponge, af_ring, af_flash, af_battery, af_dummy, af_ice, af_moonlight
+    Other: af_compass, af_oasis
+
 
 11. WRITING RULES AND GUIDELINES
 ==================================
@@ -1111,6 +1171,9 @@ END OF HOW TO GUIDE
 </string>
 <string id="st_pda_ic_task_escort_npc_died">
     <text>The escort target has been killed. Task failed.</text>
+</string>
+<string id="st_pda_ic_task_artifact_start">
+    <text>Find the artifact I need. I'll know when you have it.</text>
 </string>
 
 <!-- ============================================================ -->
