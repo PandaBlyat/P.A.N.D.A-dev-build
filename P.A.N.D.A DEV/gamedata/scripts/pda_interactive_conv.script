@@ -3053,6 +3053,14 @@ local function evaluate_precondition_entry(entry, npc_se, act, get_goodwill_acto
             if dist > max_dist then return false, "too far from npc" end
         end
 
+    -- ========== STORY NPC ==========
+    elseif cmd == "req_story_npc" then
+        local required_sid = parts[2]
+        if not required_sid then return false, "missing story id" end
+        if not npc_se then return false, "npc missing" end
+        local npc_story_id = get_object_story_id(npc_se.id)
+        if npc_story_id ~= required_sid then return false, "story npc mismatch (need " .. required_sid .. ")" end
+
     else
         return nil, "unknown command"
     end
@@ -5478,46 +5486,146 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
 end
 
 -- ============================================================
+-- STORY NPC CONVERSATION SCANNING
+-- ============================================================
+-- Extracts req_story_npc:<id> from a precondition string.
+-- Returns the story_id or nil if not present.
+local function extract_story_npc_id(precond_str)
+    if not precond_str or precond_str == "" then return nil end
+    return string.match(precond_str, "req_story_npc:([%w_]+)")
+end
+
+-- Scans all conversations for a faction and finds those that require a specific
+-- story NPC.  For each, looks up the story NPC in alife and checks whether all
+-- preconditions pass.  Returns a list of {npc_se, conv_id} tables.
+local function collect_story_npc_conversations(xml_fac)
+    local results = {}
+    local base = "st_pda_ic_"
+    local mode = PANDA.get_config("cooldown_mode")
+    local penalty = PANDA.get_config("cooldown_penalty") / 100
+    local hard_min = PANDA.get_config("cooldown_hard_min") * 60
+
+    -- Discover max_id using the same scan as pick_random_conv_id_generic
+    local max_id = 0
+    while true do
+        local p = base .. xml_fac .. "_" .. tostring(max_id + 1) .. "_open"
+        if game.translate_string(p) == p then break end
+        max_id = max_id + 1
+    end
+    if max_id == 0 then return results end
+
+    for cid = 1, max_id do
+        local precond_key = base .. xml_fac .. "_" .. tostring(cid) .. "_precond"
+        local precond_val = game.translate_string(precond_key)
+        if precond_val == precond_key then precond_val = "" end
+
+        local story_id = extract_story_npc_id(precond_val)
+        if story_id then
+            local npc_se = get_story_se_object(story_id)
+            if npc_se and npc_se:alive() then
+                -- NPC cooldown
+                if not is_npc_on_cooldown(npc_se.id) then
+                    -- Conversation cooldown
+                    local cooldown_key = "task_" .. xml_fac .. "_" .. cid
+                    local last = conv_last_played[cooldown_key]
+                    local skip = false
+                    local weight = 100
+
+                    if last then
+                        local seconds_since = game.get_game_time():diffSec(last)
+                        local on_cooldown = seconds_since < (PANDA.get_config("default_cooldown") * 60)
+                        if on_cooldown then
+                            if mode == 1 then
+                                skip = true
+                            elseif seconds_since < hard_min then
+                                skip = true
+                            else
+                                weight = penalty * 100
+                            end
+                        end
+                    end
+
+                    if not skip then
+                        -- Full precondition check (including req_story_npc itself)
+                        if check_preconditions_generic(precond_key, npc_se) then
+                            table.insert(results, {npc_se = npc_se, conv_id = cid, weight = weight})
+                            printf("PANDA_IC: Story NPC conv %d matched — NPC %s (story_id=%s, weight=%d)", cid, npc_se:character_name(), story_id, weight)
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return results
+end
+
+-- ============================================================
 -- INTERACTIVE CONVERSATION ATTEMPT (merged system — no prefix)
 -- Preconditions on each conversation handle NPC filtering
 -- (friendly/hostile, faction, rank, etc.) via goodwill checks.
+-- Story NPC conversations are mixed into the same pool as
+-- simulated NPC conversations for equal selection chance.
 -- ============================================================
 local function attempt_interactive_conversation()
     printf("Attempting interactive conversation (merged system)")
 
-    local npc_list = get_all_eligible_npcs()
-    printf("Found %d eligible NPCs", #npc_list)
-
-    if #npc_list == 0 then
-        printf("No eligible NPCs available for interactive conversation.")
-        return false
-    end
-
     local player_comm = get_actor_true_community() or "stalker"
     local xml_fac = (player_comm == "stalker") and "loner" or player_comm
 
-    local npc_se, conv_id
+    -- Phase 1: Collect story NPC conversation candidates
+    local story_matches = collect_story_npc_conversations(xml_fac)
+    printf("Found %d story NPC conversation candidates", #story_matches)
+
+    -- Phase 2: Collect simulated NPC conversation candidates (existing flow)
+    local sim_matches = {}
+    local npc_list = get_all_eligible_npcs()
+    printf("Found %d eligible simulated NPCs", #npc_list)
+
     local pool = {}
     for i = 1, #npc_list do pool[i] = npc_list[i] end
 
-    while #pool > 0 and not conv_id do
+    while #pool > 0 do
         local idx = math.random(#pool)
         local candidate = table.remove(pool, idx)
-        -- No prefix: scans st_pda_ic_<faction>_<id>_* conversations
         local candidate_conv = pick_random_conv_id_generic(nil, xml_fac, nil, candidate)
         if candidate_conv then
-            npc_se, conv_id = candidate, candidate_conv
+            table.insert(sim_matches, {npc_se = candidate, conv_id = candidate_conv, weight = 100})
+            -- Stop after finding one simulated match (preserves existing behavior
+            -- where one random NPC is selected from the pool)
+            break
         end
     end
 
-    if not conv_id then
-        printf("No interactive conversation found for faction %s that matches available NPC preconditions.", xml_fac)
+    -- Phase 3: Merge both pools and do weighted random selection
+    local all_matches = {}
+    for _, m in ipairs(story_matches) do table.insert(all_matches, m) end
+    for _, m in ipairs(sim_matches) do table.insert(all_matches, m) end
+
+    if #all_matches == 0 then
+        printf("No interactive conversation found for faction %s (no story or simulated NPC matches).", xml_fac)
         return false
     end
-    printf("Picked NPC: %s (ID %d)", npc_se:character_name(), npc_se.id)
-    printf("Selected conv_id = %d", conv_id)
 
-    return start_interactive_conv(npc_se, conv_id, nil, xml_fac, nil, nil)
+    -- Weighted random pick from merged pool
+    local total_weight = 0
+    for _, m in ipairs(all_matches) do total_weight = total_weight + m.weight end
+
+    local r = math.random(total_weight)
+    local accum = 0
+    local pick = all_matches[1]
+    for _, m in ipairs(all_matches) do
+        accum = accum + m.weight
+        if r <= accum then
+            pick = m
+            break
+        end
+    end
+
+    printf("Picked NPC: %s (ID %d)", pick.npc_se:character_name(), pick.npc_se.id)
+    printf("Selected conv_id = %d", pick.conv_id)
+
+    return start_interactive_conv(pick.npc_se, pick.conv_id, nil, xml_fac, nil, nil)
 end
 
 -- ============================================================
