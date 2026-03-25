@@ -7,9 +7,10 @@ import { createOnboardingNudge } from './Onboarding';
 import { FACTION_COLORS } from '../lib/faction-colors';
 import { estimateFlowNodeHeight, getFlowNodeLayout } from '../lib/flow-layout';
 import { createIcon } from './icons';
+import { createFlowCursorSystem, type FlowCursorSystem } from './FlowCursor';
 import type { Choice, Conversation, Turn } from '../lib/types';
 import { getConversationFaction } from '../lib/types';
-import type { FlowDensity } from '../lib/state';
+import type { CursorAnimationIntensity, FlowDensity } from '../lib/state';
 
 type TurnPositionMap = Map<number, { x: number; y: number }>;
 type EdgeKind = 'continue' | 'pause-success' | 'pause-fail';
@@ -45,6 +46,14 @@ type ConnectionPreview = {
   cursor: { x: number; y: number };
   hoveredTargetTurnNumber: number | null;
 };
+
+declare global {
+  interface Window {
+    PANDA_FEATURE_FLAGS?: {
+      cursorTelemetry?: boolean;
+    };
+  }
+}
 
 /** Default branch color palette — automatically assigned by turn index. */
 const BRANCH_PALETTE = [
@@ -83,6 +92,7 @@ type LiveFlowState = {
   portOffsetCache: Map<string, { left: number; top: number; width: number; height: number }>;
 };
 let liveFlow: LiveFlowState | null = null;
+let flowCursorSystem: FlowCursorSystem | null = null;
 
 /**
  * Fast-path: update only selection-related visuals without rebuilding DOM.
@@ -199,6 +209,9 @@ function memoKey(convId: number, projectRevision: number, density: FlowDensity):
 }
 
 export function renderFlowEditor(container: HTMLElement): void {
+  flowCursorSystem?.destroy();
+  flowCursorSystem = null;
+
   const conv = store.getSelectedConversation();
   const state = store.get();
   const density = state.flowDensity;
@@ -307,6 +320,7 @@ export function renderFlowEditor(container: HTMLElement): void {
       },
       onFocusTurn: (turnNumber) => focusTurn(turnNumber, { center: true }),
       onKeyboardShortcut: (turnNumber, key) => handleTurnShortcut(turnNumber, key),
+      onDragStateChange: (active) => dispatchCursorState(canvas, 'dragging', active),
     });
     nodeElements.set(turn.turnNumber, node);
     content.appendChild(node);
@@ -338,11 +352,17 @@ export function renderFlowEditor(container: HTMLElement): void {
   };
 
   const controls = renderControls({
+    customCursorEnabled: state.customCursorEnabled,
+    cursorAnimationIntensity: state.cursorAnimationIntensity,
+    cursorSize: state.cursorSize,
     zoomValue,
     onZoomIn: () => zoomAtViewportPoint(canvas, viewState, 1.12, canvas.clientWidth / 2, canvas.clientHeight / 2, applyView),
     onZoomOut: () => zoomAtViewportPoint(canvas, viewState, 1 / 1.12, canvas.clientWidth / 2, canvas.clientHeight / 2, applyView),
     onFit: () => fitContent(),
     onReset: () => resetView(),
+    onSetCursorEnabled: (enabled) => store.setCustomCursorEnabled(enabled),
+    onSetCursorAnimationIntensity: (intensity) => store.setCursorAnimationIntensity(intensity),
+    onSetCursorSize: (size) => store.setCursorSize(size),
   });
 
 
@@ -534,6 +554,7 @@ export function renderFlowEditor(container: HTMLElement): void {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
       document.removeEventListener('keydown', onKeyDown, true);
+      dispatchCursorState(canvas, 'linking', false);
 
       if (targetTurnNumber != null) {
         store.connectChoiceToTurn(conversationId, sourceTurnNumber, sourceChoiceIndex, targetTurnNumber);
@@ -561,6 +582,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     };
 
     updatePreview(event.clientX, event.clientY);
+    dispatchCursorState(canvas, 'linking', true);
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
     document.addEventListener('keydown', onKeyDown, true);
@@ -579,6 +601,19 @@ export function renderFlowEditor(container: HTMLElement): void {
     viewState,
     applyView,
     onBackgroundClick: () => store.clearSelection(),
+  });
+
+  flowCursorSystem = createFlowCursorSystem({
+    canvas,
+    settings: {
+      enabled: state.customCursorEnabled,
+      animationIntensity: state.cursorAnimationIntensity,
+      size: state.cursorSize,
+    },
+    telemetry: (event, payload) => {
+      if (window.PANDA_FEATURE_FLAGS?.cursorTelemetry !== true) return;
+      window.dispatchEvent(new CustomEvent('panda:cursor-telemetry', { detail: { event, ...payload } }));
+    },
   });
 
   runDraw();
@@ -615,11 +650,17 @@ export function renderFlowEditor(container: HTMLElement): void {
 }
 
 function renderControls(options: {
+  customCursorEnabled: boolean;
+  cursorAnimationIntensity: CursorAnimationIntensity;
+  cursorSize: number;
   zoomValue: HTMLElement;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFit: () => void;
   onReset: () => void;
+  onSetCursorEnabled: (enabled: boolean) => void;
+  onSetCursorAnimationIntensity: (intensity: CursorAnimationIntensity) => void;
+  onSetCursorSize: (size: number) => void;
 }): HTMLElement {
   const controls = document.createElement('div');
   controls.className = 'flow-controls';
@@ -652,7 +693,37 @@ function renderControls(options: {
   reset.title = 'Reset pan and zoom';
   reset.onclick = options.onReset;
 
-  controls.append(zoomOut, options.zoomValue, zoomIn, fit, reset);
+  const cursorToggle = document.createElement('label');
+  cursorToggle.className = 'flow-cursor-setting';
+  const cursorToggleInput = document.createElement('input');
+  cursorToggleInput.type = 'checkbox';
+  cursorToggleInput.checked = options.customCursorEnabled;
+  cursorToggleInput.onchange = () => options.onSetCursorEnabled(cursorToggleInput.checked);
+  const cursorToggleLabel = document.createElement('span');
+  cursorToggleLabel.textContent = 'Cursor';
+  cursorToggle.append(cursorToggleInput, cursorToggleLabel);
+
+  const intensitySelect = document.createElement('select');
+  intensitySelect.className = 'flow-cursor-intensity';
+  for (const intensity of ['low', 'medium', 'high'] as CursorAnimationIntensity[]) {
+    const option = document.createElement('option');
+    option.value = intensity;
+    option.textContent = intensity[0].toUpperCase() + intensity.slice(1);
+    option.selected = options.cursorAnimationIntensity === intensity;
+    intensitySelect.appendChild(option);
+  }
+  intensitySelect.onchange = () => options.onSetCursorAnimationIntensity(intensitySelect.value as CursorAnimationIntensity);
+
+  const sizeInput = document.createElement('input');
+  sizeInput.className = 'flow-cursor-size';
+  sizeInput.type = 'range';
+  sizeInput.min = '12';
+  sizeInput.max = '28';
+  sizeInput.value = String(options.cursorSize);
+  sizeInput.title = 'Cursor size';
+  sizeInput.oninput = () => options.onSetCursorSize(Number(sizeInput.value));
+
+  controls.append(zoomOut, options.zoomValue, zoomIn, fit, reset, cursorToggle, intensitySelect, sizeInput);
   return controls;
 }
 
@@ -712,6 +783,7 @@ function renderTurnNode(options: {
   onCreateConnectedTurn: (choiceIndex: number) => void;
   onFocusTurn: (turnNumber: number) => void;
   onKeyboardShortcut: (turnNumber: number, key: 'add-turn' | 'add-choice' | 'duplicate-turn' | 'copy-turn' | 'paste-turn' | 'connect-branch' | 'disconnect-branch') => void;
+  onDragStateChange: (active: boolean) => void;
 }): HTMLElement {
   const {
     conv,
@@ -726,6 +798,7 @@ function renderTurnNode(options: {
     onCreateConnectedTurn,
     onFocusTurn,
     onKeyboardShortcut,
+    onDragStateChange,
   } = options;
   const state = store.get();
   const canPasteTurn = store.hasCopiedTurn(conv.id);
@@ -847,6 +920,7 @@ function renderTurnNode(options: {
     e.stopPropagation();
 
     const onMove = (ev: MouseEvent) => {
+      onDragStateChange(true);
       const nextPosition = {
         x: Math.max(0, origX + (ev.clientX - startX) / viewState.zoom),
         y: Math.max(0, origY + (ev.clientY - startY) / viewState.zoom),
@@ -860,6 +934,7 @@ function renderTurnNode(options: {
     const onUp = () => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      onDragStateChange(false);
       onPreviewPosition();
       if (!dragPosition) return;
       store.updateTurnPosition(conv.id, turn.turnNumber, dragPosition);
@@ -1602,6 +1677,10 @@ function truncate(value: string, max: number): string {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
 
+function dispatchCursorState(canvas: HTMLElement, kind: 'panning' | 'dragging' | 'linking', active: boolean): void {
+  canvas.dispatchEvent(new CustomEvent('flow-cursor-state', { detail: { kind, active } }));
+}
+
 function wireCanvasInteractions(options: {
   canvas: HTMLElement;
   viewState: ViewState;
@@ -1622,6 +1701,7 @@ function wireCanvasInteractions(options: {
     let moved = false;
 
     canvas.classList.add('is-panning');
+    dispatchCursorState(canvas, 'panning', true);
     event.preventDefault();
 
     let panFrame = 0;
@@ -1647,6 +1727,7 @@ function wireCanvasInteractions(options: {
       }
       applyView();
       canvas.classList.remove('is-panning');
+      dispatchCursorState(canvas, 'panning', false);
       if (!moved) onBackgroundClick();
     };
 

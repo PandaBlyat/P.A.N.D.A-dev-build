@@ -9,6 +9,34 @@ import { estimateFlowNodeHeight, getFlowAutoLayoutSpacing, getFlowNodeLayout } f
 export type PropertiesTab = 'conversation' | 'selection';
 export type FlowDensity = 'compact' | 'standard' | 'detailed';
 export type BottomWorkspaceTab = 'strings' | 'xml';
+export type CursorAnimationIntensity = 'low' | 'medium' | 'high';
+
+const CURSOR_PREFS_KEY = 'panda:cursor-prefs:v1';
+
+type CursorPrefs = {
+  enabled: boolean;
+  animationIntensity: CursorAnimationIntensity;
+  size: number;
+};
+
+function loadCursorPrefs(): CursorPrefs {
+  if (typeof window === 'undefined') {
+    return { enabled: true, animationIntensity: 'medium', size: 16 };
+  }
+  const raw = window.localStorage.getItem(CURSOR_PREFS_KEY);
+  if (!raw) return { enabled: true, animationIntensity: 'medium', size: 16 };
+  const parsed = JSON.parse(raw) as Partial<CursorPrefs>;
+  return {
+    enabled: parsed.enabled ?? true,
+    animationIntensity: parsed.animationIntensity ?? 'medium',
+    size: Math.max(12, Math.min(28, Math.round(parsed.size ?? 16))),
+  };
+}
+
+function persistCursorPrefs(prefs: CursorPrefs): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(CURSOR_PREFS_KEY, JSON.stringify(prefs));
+}
 
 export interface AppState {
   project: Project;
@@ -24,6 +52,9 @@ export interface AppState {
   bottomWorkspaceTab: BottomWorkspaceTab | null;
   bottomWorkspaceHeight: number;
   flowDensity: FlowDensity;
+  customCursorEnabled: boolean;
+  cursorAnimationIntensity: CursorAnimationIntensity;
+  cursorSize: number;
   dirty: boolean;
   undoStack: string[];
   redoStack: string[];
@@ -115,6 +146,7 @@ class StateManager {
   private batchedChange: StateChange | null = null;
 
   constructor() {
+    const cursorPrefs = loadCursorPrefs();
     this.state = {
       project: createEmptyProject('stalker'),
       systemStrings: new Map(),
@@ -129,6 +161,9 @@ class StateManager {
       bottomWorkspaceTab: null,
       bottomWorkspaceHeight: 280,
       flowDensity: 'standard',
+      customCursorEnabled: cursorPrefs.enabled,
+      cursorAnimationIntensity: cursorPrefs.animationIntensity,
+      cursorSize: cursorPrefs.size,
       dirty: false,
       undoStack: [],
       redoStack: [],
@@ -753,6 +788,40 @@ class StateManager {
       }
     }
     this.notify(FULL_APP_RENDER);
+  }
+
+  setCustomCursorEnabled(enabled: boolean): void {
+    if (this.state.customCursorEnabled === enabled) return;
+    this.state.customCursorEnabled = enabled;
+    persistCursorPrefs({
+      enabled: this.state.customCursorEnabled,
+      animationIntensity: this.state.cursorAnimationIntensity,
+      size: this.state.cursorSize,
+    });
+    this.notify(createStateChange('flowEditor'));
+  }
+
+  setCursorAnimationIntensity(intensity: CursorAnimationIntensity): void {
+    if (this.state.cursorAnimationIntensity === intensity) return;
+    this.state.cursorAnimationIntensity = intensity;
+    persistCursorPrefs({
+      enabled: this.state.customCursorEnabled,
+      animationIntensity: this.state.cursorAnimationIntensity,
+      size: this.state.cursorSize,
+    });
+    this.notify(createStateChange('flowEditor'));
+  }
+
+  setCursorSize(size: number): void {
+    const next = Math.max(12, Math.min(28, Math.round(size)));
+    if (this.state.cursorSize === next) return;
+    this.state.cursorSize = next;
+    persistCursorPrefs({
+      enabled: this.state.customCursorEnabled,
+      animationIntensity: this.state.cursorAnimationIntensity,
+      size: this.state.cursorSize,
+    });
+    this.notify(createStateChange('flowEditor'));
   }
 
   getSelectedConversation(): Conversation | null {
