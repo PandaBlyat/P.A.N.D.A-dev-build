@@ -695,6 +695,7 @@ function renderPreconditionList(container: HTMLElement, conv: Conversation): voi
 
   conv.preconditions.forEach((entry, idx) => {
     const editorEl = renderPreconditionEditor(conv, entry, [idx], 0, true);
+    editorEl.classList.add('precond-entry-shell');
 
     // Add drag handle to top-level preconditions
     editorEl.draggable = true;
@@ -749,19 +750,24 @@ function renderPreconditionEditor(
   branchLabel?: string,
 ): HTMLElement {
   const wrapper = document.createElement('div');
-  wrapper.style.cssText = `margin-left:${depth * 14}px; margin-bottom:8px;`;
+  wrapper.className = 'precond-editor';
+  wrapper.style.marginLeft = `${depth * 14}px`;
 
   if (branchLabel) {
     const label = document.createElement('div');
-    label.style.cssText = 'font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; margin:0 0 4px 2px;';
+    label.className = 'precond-branch-label';
     label.textContent = branchLabel;
     wrapper.appendChild(label);
   }
 
   const item = document.createElement('div');
   item.className = 'precond-item clickable';
-  item.style.marginBottom = '4px';
   item.setAttribute('data-field-key', getPreconditionItemFieldKey(conv.id, path[0] as number));
+
+  const indexBadge = document.createElement('span');
+  indexBadge.className = 'logic-row-index';
+  indexBadge.textContent = String((path[0] as number) + 1);
+  item.appendChild(indexBadge);
 
   const display = renderPreconditionDisplay(entry);
   item.appendChild(display);
@@ -825,11 +831,11 @@ function renderPreconditionEditor(
     const optionPath: PreconditionPath = [...path, 'options', idx];
     if (option.type === 'all') {
       const groupWrap = document.createElement('div');
-      groupWrap.style.cssText = `margin-left:${(depth + 1) * 14}px; margin-bottom:8px;`;
+      groupWrap.className = 'precond-group';
+      groupWrap.style.marginLeft = `${(depth + 1) * 14}px`;
 
       const groupHeader = document.createElement('div');
       groupHeader.className = 'precond-item clickable';
-      groupHeader.style.marginBottom = '4px';
 
       const groupLabel = document.createElement('span');
       groupLabel.style.flex = '1';
@@ -864,10 +870,16 @@ function renderPreconditionEditor(
 
 function renderPreconditionDisplay(entry: PreconditionEntry): HTMLElement {
   const span = document.createElement('span');
+  span.className = 'logic-row-content';
   span.style.flex = '1';
+
+  const typeBadge = document.createElement('span');
+  typeBadge.className = 'logic-type-badge';
+  span.appendChild(typeBadge);
 
   if (entry.type === 'simple') {
     const schema = PRECONDITION_SCHEMAS.find(s => s.name === entry.command);
+    typeBadge.textContent = 'CHECK';
     const cmd = document.createElement('span');
     cmd.className = 'precond-cmd';
     cmd.textContent = schema ? schema.label : entry.command;
@@ -880,16 +892,19 @@ function renderPreconditionDisplay(entry: PreconditionEntry): HTMLElement {
       span.appendChild(params);
     }
   } else if (entry.type === 'not') {
+    typeBadge.textContent = 'NEGATE';
     const notLabel = document.createElement('span');
     notLabel.style.color = 'var(--warning)';
     notLabel.textContent = 'NOT';
     span.appendChild(notLabel);
   } else if (entry.type === 'any') {
+    typeBadge.textContent = 'GROUP';
     const anyLabel = document.createElement('span');
     anyLabel.style.color = 'var(--info)';
     anyLabel.textContent = `ANY (${entry.options.length} options)`;
     span.appendChild(anyLabel);
   } else {
+    typeBadge.textContent = 'INVALID';
     const invalidLabel = document.createElement('span');
     invalidLabel.style.color = 'var(--danger)';
     invalidLabel.textContent = 'INVALID PRECONDITION';
@@ -902,13 +917,16 @@ function renderPreconditionDisplay(entry: PreconditionEntry): HTMLElement {
 // ─── Outcome List ─────────────────────────────────────────────────────────
 
 function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Turn, choice: Choice): void {
-  const list = document.createElement('ul');
+  const list = document.createElement('div');
   list.className = 'outcome-list';
 
   let dragSrcIdx: number | null = null;
 
   choice.outcomes.forEach((outcome, idx) => {
-    const item = document.createElement('li');
+    const card = document.createElement('div');
+    card.className = 'outcome-card';
+
+    const item = document.createElement('div');
     item.className = 'outcome-item clickable';
     item.tabIndex = -1;
     item.draggable = true;
@@ -949,7 +967,18 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
     };
 
     const display = document.createElement('span');
+    display.className = 'logic-row-content';
     display.style.flex = '1';
+
+    const indexBadge = document.createElement('span');
+    indexBadge.className = 'logic-row-index';
+    indexBadge.textContent = String(idx + 1);
+    item.appendChild(indexBadge);
+
+    const typeBadge = document.createElement('span');
+    typeBadge.className = 'logic-type-badge';
+    typeBadge.textContent = 'EFFECT';
+    display.appendChild(typeBadge);
 
     if (outcome.chancePercent != null && outcome.chancePercent < 100) {
       const chanceBadge = document.createElement('span');
@@ -987,14 +1016,14 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
     };
     item.appendChild(delBtn);
 
-    list.appendChild(item);
+    card.appendChild(item);
 
     // Description from schema
     if (schema) {
       const desc = document.createElement('div');
       desc.className = 'command-description';
       desc.textContent = schema.description;
-      list.appendChild(desc);
+      card.appendChild(desc);
     }
 
     // Editable params — always visible
@@ -1004,7 +1033,7 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
         updated[idx] = { ...updated[idx], params: newParams };
         store.updateChoice(conv.id, turn.turnNumber, choice.index, { outcomes: updated });
       }, (paramIndex) => getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, idx, paramIndex), conv);
-      list.appendChild(paramsDiv);
+      card.appendChild(paramsDiv);
     }
 
     // Chance editor
@@ -1030,7 +1059,8 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
     };
     chanceDiv.appendChild(chanceLabel);
     chanceDiv.appendChild(chanceInput);
-    list.appendChild(chanceDiv);
+    card.appendChild(chanceDiv);
+    list.appendChild(card);
   });
 
   container.appendChild(list);
