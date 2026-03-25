@@ -65,6 +65,117 @@ local function make_artifact_runtime_task_id(conv_data)
     return string.format("panda_artifact_%s_%d", conv_name, math.random(100000, 999999))
 end
 
+
+local ARTIFACT_ZONE_LEVEL_POOLS = {
+    esc = {
+        "esc_2c_01_high_hopes_anomal_zone",
+        "esc_smart_terrain_1_11_anomal_zone",
+        "esc_smart_terrain_5_4_anomal_zone",
+        "esc_smart_terrain_8_9_anomal_zone",
+        "esc_tunnel_electr_anomal_zone",
+    },
+    gar = {
+        "gar_2c_01_nwi_anomal_zone",
+        "gar_2c_02_toaster_anomal_zone",
+        "gar_smart_terrain_1_7_anomal_zone",
+        "gar_smart_terrain_3_7_anomal_zone",
+        "gar_smart_terrain_6_7_anomal_zone",
+    },
+    agr = {
+        "agr_2c_01_hg_anomal_zone",
+        "agr_smart_terrain_1_2_anomal_zone",
+        "agr_smart_terrain_5_2_anomal_zone",
+    },
+    val = {
+        "val_smart_terrain_6_4_anomal_zone",
+        "val_smart_terrain_8_6_anomal_zone",
+        "val_smart_terrain_9_10_anomal_zone",
+    },
+    yan = {
+        "yan_2c_01_cd_anomal_zone",
+        "yan_smart_terrain_2_5_anomal_zone",
+        "yan_smart_terrain_5_3_anomal_zone",
+    },
+    ros = {
+        "ros_2c_01_tunnel_anomal_zone",
+        "ros_2c_02_ct_anomal_zone",
+        "ros_2c_03_yc_anomal_zone",
+    },
+    bar = {
+        "bar_2c_01_grant_anomal_zone",
+    },
+    mar = {
+        "mar_smart_terrain_2c_01_anomal_zone",
+        "mar_smart_terrain_12_2_anomal_zone",
+        "mar_smart_terrain_8_8_anomal_zone",
+    },
+    ds = {
+        "ds_anomal_zone_2c_01",
+        "ds_anomal_zone_2c_02",
+        "ds_anomal_zone_2c_03",
+    },
+    trc = {
+        "trc_2c_01_anomal_zone",
+        "trc_2c_02_chem_anomal_zone",
+        "trc_2c_03_desolation_anomal_zone",
+    },
+    red = {
+        "red_smart_terrain_3_2_anomal_zone",
+        "red_smart_terrain_6_3_anomal_zone",
+        "red_smart_terrain_6_6_anomal_zone",
+    },
+    lim = {
+        "lim_2c_01_ls_anomal_zone",
+        "lim_2c_02_ib_anomal_zone",
+    },
+    jup = {
+        "jup_b10_anomal_zone",
+        "jup_b25_anomal_zone",
+        "jup_b32_anomal_zone",
+    },
+    zat = {
+        "zat_b14_anomal_zone",
+        "zat_b39_anomal_zone",
+        "zat_b55_anomal_zone",
+    },
+    pri = {
+        "pri_2c_01_pp_anomal_zone",
+        "pri_b301_anomal_zone",
+        "pri_b307_anomal_zone",
+    },
+}
+
+local function resolve_artifact_zone_target(zone_name)
+    local zone_raw = tostring(zone_name or "")
+    if zone_raw == "" then
+        return nil, "empty"
+    end
+
+    local token_level = zone_raw:match("^level:([%w_%-]+)$")
+    if not token_level then
+        return zone_raw, nil
+    end
+
+    local pool = ARTIFACT_ZONE_LEVEL_POOLS[token_level]
+    if not pool or #pool == 0 then
+        return nil, string.format("no curated zones for level token '%s'", token_level)
+    end
+
+    local eligible = {}
+    local anomaly_by_name = db and db.anomaly_by_name or nil
+    for _, zone_id in ipairs(pool) do
+        if anomaly_by_name and anomaly_by_name[zone_id] then
+            table.insert(eligible, zone_id)
+        end
+    end
+
+    if #eligible == 0 then
+        return nil, string.format("no online anomaly zones for level token '%s'", token_level)
+    end
+
+    return eligible[math.random(1, #eligible)], nil
+end
+
 -- Global used by engine overrides to simulate talking state
 fake_talking_npc_id = nil
 pda_private_tab_open = false
@@ -4355,33 +4466,77 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
             end
 
         -- Artifact retrieval: player must find and return a specific artifact
-        -- Syntax: panda_task_artifact:<artifact_section>:<zone_name|any>:<detector_tier>:<timeout>:<success_turn>:<fail_turn>
+        -- Syntax (legacy): panda_task_artifact:<artifact_section>:<zone_name|any>:<detector_tier>:<timeout>:<success_turn>:<fail_turn>
+        -- Syntax (v2):     panda_task_artifact:<artifact_section>:<zone_mode>:<zone_name>:<detector_tier>:<timeout>:<success_turn>:<fail_turn>
+        -- zone_name supports deterministic level tokens like level:gar / level:esc.
         elseif cmd == "panda_task_artifact" then
             local artifact_sec = parts[2]
+            local zone_mode = "legacy"
             local zone_name = parts[3]
-            local detector_tier_meta = parts[4] or "basic"
-            local timeout = tonumber(parts[5]) or 900
-            local s_turn = tonumber(parts[6])
-            local f_turn = tonumber(parts[7])
+            local detector_tier_meta
+            local timeout
+            local s_turn
+            local f_turn
+
+            if parts[3] == "specific" or parts[3] == "any" or parts[3] == "random_level" then
+                zone_mode = parts[3]
+                zone_name = parts[4]
+                local detector_index = 5
+                local timeout_index = 6
+                local success_index = 7
+                local fail_index = 8
+
+                if zone_name == "level" and parts[5] then
+                    zone_name = "level:" .. tostring(parts[5])
+                    detector_index = 6
+                    timeout_index = 7
+                    success_index = 8
+                    fail_index = 9
+                end
+
+                detector_tier_meta = parts[detector_index] or "basic"
+                timeout = tonumber(parts[timeout_index]) or 900
+                s_turn = tonumber(parts[success_index])
+                f_turn = tonumber(parts[fail_index])
+            else
+                detector_tier_meta = parts[4] or "basic"
+                timeout = tonumber(parts[5]) or 900
+                s_turn = tonumber(parts[6])
+                f_turn = tonumber(parts[7])
+            end
+
             if not artifact_sec or not s_turn then
                 printf("PANDA_IC: panda_task_artifact missing params in '%s'", tostring(cmd_str))
             else
                 local adapter = get_anomaly_artifact_adapter()
                 local task_runtime_id = make_artifact_runtime_task_id(conv_data)
-                -- If a specific zone is given (not "any"), try to spawn the artifact there
-                if adapter and zone_name and zone_name ~= "" and zone_name ~= "any" then
+                local resolved_zone = nil
+
+                if zone_name and zone_name ~= "" and zone_name ~= "any" then
+                    local zone_err = nil
+                    resolved_zone, zone_err = resolve_artifact_zone_target(zone_name)
+                    if not resolved_zone then
+                        printf("PANDA_IC: panda_task_artifact zone resolve failed (%s), using natural-find mode", tostring(zone_err))
+                    end
+                end
+
+                if adapter and resolved_zone then
                     local spawn_ok, spawn_err = adapter.spawn_artifact_in_zone(
-                        task_runtime_id, artifact_sec, zone_name
+                        task_runtime_id, artifact_sec, resolved_zone
                     )
                     if not spawn_ok then
                         printf("PANDA_IC: panda_task_artifact zone spawn failed (%s), player must find naturally", tostring(spawn_err))
+                        resolved_zone = nil
                     end
+                elseif zone_name and zone_name ~= "" and zone_name ~= "any" and not resolved_zone then
+                    printf("PANDA_IC: panda_task_artifact no resolved zone, player must find naturally")
                 end
+
                 -- Create adapter record for auxiliary tracking
                 if adapter then
                     adapter.start_artifact_task(
                         task_runtime_id, artifact_sec,
-                        (zone_name ~= "any") and zone_name or nil,
+                        resolved_zone,
                         detector_tier_meta, timeout, sender_npc_id
                     )
                 end
@@ -4395,7 +4550,8 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                         job_type = "artifact",
                         task_item = artifact_sec,
                         task_runtime_id = task_runtime_id,
-                        task_zone = zone_name,
+                        task_zone = resolved_zone or zone_name,
+                        task_zone_mode = zone_mode,
                         -- Metadata only (for PDA/job display). Do NOT use for gating:
                         -- gate with req_detector_tier preconditions instead.
                         task_detector_tier = detector_tier_meta,
