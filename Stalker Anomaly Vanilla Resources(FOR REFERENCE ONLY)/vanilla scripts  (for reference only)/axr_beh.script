@@ -1,3 +1,5 @@
+local task_anomaly_target = require("task_anomaly_target")
+
 --[[
 	scheme_type: active_section
 	author: Alundaio
@@ -217,20 +219,18 @@ function action_beh:set_desired_target()
 			self.st.behavior = "beh_cover"
 		end
 	elseif (target == "task_target_anomaly") then
-		local name = db.actor and load_var(db.actor,"task_target_anomaly")
-		if (name) then 
-			local anomaly = db.anomaly_by_name[name]
-			if (anomaly and anomaly.object) then
-				local vid = utils_obj.try_go_cover(self.object,anomaly.object:position(),self.st.desired_target and self.st.desired_target.level_vertex_id or nil)
-				if (vid) then
-					db.used_level_vertex_ids[vid] = self.object:id()
-					t.level_vertex_id = vid
-					t.position = level.vertex_position(vid)
-					t.direction = self.object:position():sub(t.position)
-					t.object = anomaly.object
-					t.__keep_until = time_global() + 8000
-					self.st.behavior = "beh_cover"
-				end
+		local target = db.actor and task_anomaly_target.deserialize(db.actor)
+		local anomaly_object = target and task_anomaly_target.resolve_anomaly_object(target)
+		if anomaly_object then
+			local vid = utils_obj.try_go_cover(self.object,anomaly_object:position(),self.st.desired_target and self.st.desired_target.level_vertex_id or nil)
+			if (vid) then
+				db.used_level_vertex_ids[vid] = self.object:id()
+				t.level_vertex_id = vid
+				t.position = level.vertex_position(vid)
+				t.direction = self.object:position():sub(t.position)
+				t.object = anomaly_object
+				t.__keep_until = time_global() + 8000
+				self.st.behavior = "beh_cover"
 			end
 		end
 	elseif (target == "task_target_hostage") then

@@ -1,0 +1,90 @@
+local M = {}
+
+M.KEY_ANOMALY_NAME = "task_target_anomaly"
+M.KEY_LEVEL_NAME = "task_target_anomaly_level"
+M.KEY_ANALYZED_STATE = "task_target_anomaly_analyzed"
+M.KEY_SOURCE_ID = "task_target_anomaly_source"
+
+local ANALYZED_DEFAULT = "not_analyzed"
+
+local function has_any_target_data(actor)
+	if not actor then
+		return false
+	end
+
+	return load_var(actor, M.KEY_ANOMALY_NAME) ~= nil
+		or load_var(actor, M.KEY_LEVEL_NAME) ~= nil
+		or load_var(actor, M.KEY_ANALYZED_STATE) ~= nil
+		or load_var(actor, M.KEY_SOURCE_ID) ~= nil
+end
+
+function M.deserialize(actor)
+	if not has_any_target_data(actor) then
+		return nil
+	end
+
+	local analyzed_state = load_var(actor, M.KEY_ANALYZED_STATE)
+	if analyzed_state ~= nil and analyzed_state ~= "analyzed" and analyzed_state ~= "not_analyzed" then
+		analyzed_state = ANALYZED_DEFAULT
+	end
+
+	return {
+		anomaly_name = load_var(actor, M.KEY_ANOMALY_NAME),
+		level_name = load_var(actor, M.KEY_LEVEL_NAME),
+		analyzed_state = analyzed_state,
+		source_task_or_dialog_id = load_var(actor, M.KEY_SOURCE_ID),
+	}
+end
+
+function M.serialize(actor, target)
+	if not actor then
+		return
+	end
+
+	if not target then
+		save_var(actor, M.KEY_ANOMALY_NAME, nil)
+		save_var(actor, M.KEY_LEVEL_NAME, nil)
+		save_var(actor, M.KEY_ANALYZED_STATE, nil)
+		save_var(actor, M.KEY_SOURCE_ID, nil)
+		return
+	end
+
+	local analyzed_state = target.analyzed_state
+	if analyzed_state ~= nil and analyzed_state ~= "analyzed" and analyzed_state ~= "not_analyzed" then
+		analyzed_state = ANALYZED_DEFAULT
+	end
+
+	save_var(actor, M.KEY_ANOMALY_NAME, target.anomaly_name)
+	save_var(actor, M.KEY_LEVEL_NAME, target.level_name)
+	save_var(actor, M.KEY_ANALYZED_STATE, analyzed_state)
+	save_var(actor, M.KEY_SOURCE_ID, target.source_task_or_dialog_id)
+end
+
+function M.resolve_anomaly(target)
+	if not (target and target.anomaly_name and db and db.anomaly_by_name) then
+		return nil
+	end
+
+	local anomaly = db.anomaly_by_name[target.anomaly_name]
+	if not anomaly then
+		return nil
+	end
+
+	if anomaly.object then
+		return anomaly
+	end
+
+	return nil
+end
+
+function M.resolve_anomaly_object(target)
+	local anomaly = M.resolve_anomaly(target)
+	return anomaly and anomaly.object or nil
+end
+
+function M.resolve_anomaly_id(target)
+	local obj = M.resolve_anomaly_object(target)
+	return obj and obj:id() or nil
+end
+
+return M

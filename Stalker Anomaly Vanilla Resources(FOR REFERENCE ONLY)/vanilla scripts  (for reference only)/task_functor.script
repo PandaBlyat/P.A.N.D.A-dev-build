@@ -8,6 +8,17 @@
 --
 -- ============================================================
 
+local task_anomaly_target = require("task_anomaly_target")
+
+local function get_task_anomaly_target()
+	return db.actor and task_anomaly_target.deserialize(db.actor) or nil
+end
+
+local function get_task_anomaly_target_id()
+	local target = get_task_anomaly_target()
+	return target and task_anomaly_target.resolve_anomaly_id(target) or nil
+end
+
 -- lostzone
 function task_targets_lostzone_all(task_id,field,p,tsk)	
 	if (field == "target") then
@@ -267,12 +278,9 @@ function yan_stalker_sakharov_task_target_4( task_id, field, p, tsk )
 		return squad.id
 	end
 
-	local n = db.actor and load_var( db.actor, "task_target_anomaly" )
-	if ( n ) then
-		local anomaly = db.anomaly_by_name[n]
-		if ( anomaly and anomaly.object ) then
-			return anomaly.object:id( )
-		end
+	local anomaly_id = get_task_anomaly_target_id()
+	if anomaly_id then
+		return anomaly_id
 	else
 		local smart = SIMBOARD.smarts_by_names["yan_smart_terrain_6_4"]
 		if ( smart ) then
@@ -295,7 +303,7 @@ end
 
 
 --'*************************************************************************************
---' Ôóíêòîðû òàéòëà è îïèñàíèÿ êâåñòà (äîëæíû âîçâðàùàòü ñòðîêó)
+--' Ã”Ã³Ã­ÃªÃ²Ã®Ã°Ã» Ã²Ã Ã©Ã²Ã«Ã  Ã¨ Ã®Ã¯Ã¨Ã±Ã Ã­Ã¨Ã¿ ÃªÃ¢Ã¥Ã±Ã²Ã  (Ã¤Ã®Ã«Ã¦Ã­Ã» Ã¢Ã®Ã§Ã¢Ã°Ã Ã¹Ã Ã²Ã¼ Ã±Ã²Ã°Ã®ÃªÃ³)
 --'*************************************************************************************
 ---
 -- HELPERS
@@ -334,8 +342,8 @@ end
 -- TASK FUNCTORS
 ---------------------------------------------------------
 function general_escort_task(task_id,field,p,tsk) -- xQd, we need to inform the player the level they are supposed to escort the escorted at
-	local lvl = db.actor and load_var(db.actor,"task_target_anomaly_level")
-	local level_target = game.translate_string(lvl)
+	local target = get_task_anomaly_target() or {}
+	local level_target = game.translate_string(target.level_name)
 	if (field == "descr") then
 		if (tsk.stage == 1) then
 			return game.translate_string("st_return_for_reward")
@@ -429,29 +437,24 @@ function mar_base_owl_stalker_trader_task_target(task_id,field,p) -- xQd, heavil
 		if (db.actor and squad and squad.dist_to_actor and squad.dist_to_actor > 50) then
 			return squad.id
 		end
-		local n = db.actor and load_var(db.actor,"task_target_anomaly")
-		local target_level = db.actor and load_var(db.actor,"task_target_anomaly_level")
-		local analyzed = db.actor and load_var(db.actor,"task_target_anomaly_analyzed")
-		--printf("task_target_anomaly: %s ;task_target_anomaly_level: %s ;task_target_anomaly_analyzed: %s", n, target_level, analyzed)
-		if (n) then
-			local anomaly = db.anomaly_by_name[n] 
-			if (anomaly and anomaly.object) then
-				return anomaly.object:id()
-			else
-				return squad.id
-			end
-		elseif (target_level) and (target_level == level.name()) and (analyzed) and (analyzed == "not_analyzed") then
+		local target = get_task_anomaly_target() or {}
+		local anomaly_id = target and task_anomaly_target.resolve_anomaly_id(target)
+		if anomaly_id then
+			return anomaly_id
+		elseif (target.level_name) and (target.level_name == level.name()) and (target.analyzed_state == "not_analyzed") then
 			local targets = {}
 			for k,v in pairs(db.anomaly_by_name) do 
 				table.insert(targets,k)
 			end
 			if (#targets <= 0) then 
-				return 
+				return squad and squad.id or nil
 			end 
 
 			local target_name = targets[math.random(#targets)]
-			save_var(db.actor,"task_target_anomaly",target_name)
-		elseif (analyzed) and (analyzed == "analyzed") then
+			target.anomaly_name = target_name
+			task_anomaly_target.serialize(db.actor, target)
+			return task_anomaly_target.resolve_anomaly_id(target) or (squad and squad.id or nil)
+		elseif (target.analyzed_state == "analyzed") then
 			local smart
 			local warfare_task = db.actor and load_var(db.actor,"warfare_escort_task_smart") 
 			if warfare_task then
@@ -497,12 +500,9 @@ function mar_base_owl_stalker_trader_task_target_3( task_id, field, p )
 		return squad.id
 	end
 
-	local n = db.actor and load_var( db.actor, "task_target_anomaly" )
-	if ( n ) then
-		local anomaly = db.anomaly_by_name[n]
-		if ( anomaly and anomaly.object ) then
-			return anomaly.object:id( )
-		end
+	local anomaly_id = get_task_anomaly_target_id()
+	if anomaly_id then
+		return anomaly_id
 	else
 		local smart = SIMBOARD.smarts_by_names["mar_smart_terrain_base"]
 		if ( smart ) then
@@ -590,28 +590,24 @@ function jup_b6_scientist_tech_task_target(task_id,field,p,tsk) -- xQd, heavily 
 		if (squad and squad.dist_to_actor and squad.dist_to_actor > 60) then
 			return squad.id
 		end
-		local n = db.actor and load_var(db.actor,"task_target_anomaly")
-		local target_level = db.actor and load_var(db.actor,"task_target_anomaly_level")
-		local analyzed = db.actor and load_var(db.actor,"task_target_anomaly_analyzed")
-		if (n) then
-			local anomaly = db.anomaly_by_name[n] 
-			if (anomaly and anomaly.object) then
-				return anomaly.object:id()
-			else
-				return squad.id
-			end
-		elseif (target_level) and (target_level == level.name()) and (analyzed) and (analyzed == "not_analyzed") then
+		local target = get_task_anomaly_target() or {}
+		local anomaly_id = target and task_anomaly_target.resolve_anomaly_id(target)
+		if anomaly_id then
+			return anomaly_id
+		elseif (target.level_name) and (target.level_name == level.name()) and (target.analyzed_state == "not_analyzed") then
 			local targets = {}
 			for k,v in pairs(db.anomaly_by_name) do 
 				table.insert(targets,k)
 			end
 			if (#targets <= 0) then 
-				return 
+				return squad and squad.id or nil
 			end 
 
 			local target_name = targets[math.random(#targets)]
-			save_var(db.actor,"task_target_anomaly",target_name)
-		elseif (analyzed) and (analyzed == "analyzed") then
+			target.anomaly_name = target_name
+			task_anomaly_target.serialize(db.actor, target)
+			return task_anomaly_target.resolve_anomaly_id(target) or (squad and squad.id or nil)
+		elseif (target.analyzed_state == "analyzed") then
 			local smart
 			local warfare_task = db.actor and load_var(db.actor,"warfare_escort_task_smart") 
 			if warfare_task then
@@ -636,12 +632,9 @@ function jup_b6_scientist_tech_task_target_1( task_id, field, p, tsk )
 		return squad.id
 	end
 
-	local n = db.actor and load_var( db.actor, "task_target_anomaly" )
-	if ( n ) then
-		local anomaly = db.anomaly_by_name[n]
-		if ( anomaly and anomaly.object ) then
-			return anomaly.object:id( )
-		end
+	local anomaly_id = get_task_anomaly_target_id()
+	if anomaly_id then
+		return anomaly_id
 	else
 		local smart = SIMBOARD.smarts_by_names["jup_b41"]
 		if ( smart ) then
@@ -819,7 +812,7 @@ function surge_task_descr(id, field, p)
 	return surge_manager.get_task_descr()
 end
 --'*************************************************************************************
---' Ôóíêòîðû öåëè êâåñòà (äîëæíû âîçâðàùàòü id ïåðñîíàæà)
+--' Ã”Ã³Ã­ÃªÃ²Ã®Ã°Ã» Ã¶Ã¥Ã«Ã¨ ÃªÃ¢Ã¥Ã±Ã²Ã  (Ã¤Ã®Ã«Ã¦Ã­Ã» Ã¢Ã®Ã§Ã¢Ã°Ã Ã¹Ã Ã²Ã¼ id Ã¯Ã¥Ã°Ã±Ã®Ã­Ã Ã¦Ã )
 --'*************************************************************************************
 
 function target_condlist(task_id, field, cond_string)
