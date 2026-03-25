@@ -1750,10 +1750,24 @@ label {
   height: 100%;
   position: relative;
   overflow: hidden;
+  background: transparent;
+  cursor: grab;
+}
+
+.flow-canvas::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
   background:
     radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--accent) 8%, transparent) 1px, transparent 0) 0 0 / 24px 24px,
     radial-gradient(circle at center, color-mix(in srgb, var(--accent) 2%, transparent) 0%, transparent 70%);
-  cursor: grab;
+  transition: filter 0.24s ease;
+}
+
+.flow-canvas.is-depth-blur::before {
+  filter: blur(1px);
 }
 
 .flow-canvas.is-panning {
@@ -1890,6 +1904,7 @@ body.use-custom-cursor * {
   position: absolute;
   inset: 0 auto auto 0;
   transform-origin: 0 0;
+  z-index: 1;
 }
 
 .flow-content.animated-view {
@@ -2103,6 +2118,13 @@ body.use-custom-cursor * {
   color: white;
   background: color-mix(in srgb, var(--branch-color) 30%, rgba(0, 0, 0, 0.68));
   border-color: color-mix(in srgb, var(--branch-color) 60%, transparent);
+}
+
+
+.turn-node.is-dragging-node {
+  transition: border-color 0.1s, box-shadow 0.1s, transform 0.08s linear;
+  transform: perspective(500px) rotateX(var(--drag-tilt-x, 1.2deg)) rotateY(var(--drag-tilt-y, 1.8deg)) scale(1.02);
+  box-shadow: 0 14px 28px rgba(0,0,0,0.45), 0 0 20px var(--branch-glow), inset 0 1px 0 rgba(255,255,255,0.06);
 }
 .turn-node.has-warning {
   border-color: color-mix(in srgb, var(--warning) 62%, var(--node-border) 38%);
@@ -2392,6 +2414,33 @@ body.use-custom-cursor * {
 
 .flow-edge-path.is-muted {
   opacity: 0.18;
+}
+
+.flow-edge-packet {
+  fill: none;
+  stroke: color-mix(in srgb, var(--flow-edge-color, var(--accent)) 82%, white 18%);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-dasharray: 1.6 11;
+  opacity: 0.55;
+  pointer-events: none;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--flow-edge-color, var(--accent)) 28%, transparent));
+  animation: flow-edge-telemetry 1.6s linear infinite;
+}
+
+.flow-edge-packet.edge-pause-success,
+.flow-edge-packet.edge-pause-fail,
+.flow-edge-packet.is-muted {
+  opacity: 0.34;
+}
+
+.flow-edge-packet.is-active {
+  opacity: 0.85;
+}
+
+@keyframes flow-edge-telemetry {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -78; }
 }
 
 @keyframes draw-edge {
@@ -4261,6 +4310,10 @@ hr {
   pointer-events: auto;
 }
 
+.flow-edge-packet {
+  pointer-events: none;
+}
+
 .flow-edge-path {
   stroke-width: 2.6;
   opacity: 0.88;
@@ -4491,6 +4544,8 @@ hr {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.72);
+  -webkit-backdrop-filter: blur(4px) grayscale(50%);
+  backdrop-filter: blur(4px) grayscale(50%);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -4790,6 +4845,25 @@ hr {
   gap: 7px;
   transition: border-color 0.15s, transform 0.15s;
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  --spotlight-x: 50%;
+  --spotlight-y: 50%;
+}
+
+.share-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  background: radial-gradient(180px circle at var(--spotlight-x) var(--spotlight-y), color-mix(in srgb, var(--accent) 24%, transparent), transparent 70%);
+}
+
+.share-card:hover::before,
+.share-card:focus-within::before {
+  opacity: 1;
 }
 
 .share-card:hover {
@@ -5463,6 +5537,8 @@ strong.support-upvote-count {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.72);
+  -webkit-backdrop-filter: blur(4px) grayscale(50%);
+  backdrop-filter: blur(4px) grayscale(50%);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -7496,9 +7572,19 @@ strong.support-upvote-count {
 .profile-popover-bar-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent, #f59e0b), color-mix(in srgb, var(--accent, #f59e0b) 70%, #e74c3c));
+  background:
+    linear-gradient(120deg, transparent 18%, color-mix(in srgb, white 30%, transparent) 42%, transparent 62%),
+    linear-gradient(90deg, var(--accent, #f59e0b), color-mix(in srgb, var(--accent, #f59e0b) 70%, #e74c3c));
+  background-size: 220% 100%, 100% 100%;
+  background-position: 180% 0, 0 0;
   transition: width 0.4s ease;
   min-width: 2px;
+  animation: xp-bar-shimmer 2.8s linear infinite;
+}
+
+@keyframes xp-bar-shimmer {
+  from { background-position: 180% 0, 0 0; }
+  to { background-position: -80% 0, 0 0; }
 }
 
 .profile-popover-next {
@@ -8245,6 +8331,48 @@ strong.support-upvote-count {
   color: var(--fg-dim, #999);
 }
 
+
+.achievement-toast.xp-toast-visible {
+  animation: achievement-toast-bump 380ms cubic-bezier(.2,.88,.2,1) 220ms both;
+}
+
+.xp-toast-levelup {
+  position: relative;
+  overflow: hidden;
+}
+
+.xp-toast-levelup::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%) scale(0.3);
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--accent, #5eaa3a) 85%, white 15%) 0 16%, transparent 18%),
+    radial-gradient(circle at 14% 28%, color-mix(in srgb, #7ce2ff 88%, transparent), transparent 12%),
+    radial-gradient(circle at 83% 32%, color-mix(in srgb, #facc15 82%, transparent), transparent 14%),
+    radial-gradient(circle at 26% 82%, color-mix(in srgb, var(--accent, #5eaa3a) 88%, transparent), transparent 14%),
+    radial-gradient(circle at 76% 76%, color-mix(in srgb, #f97316 82%, transparent), transparent 13%);
+  animation: xp-confetti-burst 720ms ease-out 160ms forwards;
+}
+
+@keyframes achievement-toast-bump {
+  0% { transform: translateY(0) scale(1); }
+  40% { transform: translateY(0) scale(1.1); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes xp-confetti-burst {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.25); }
+  28% { opacity: 0.9; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(8); }
+}
+
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -8547,6 +8675,23 @@ strong.support-upvote-count {
   transition: border-color 0.2s, background 0.2s, opacity 0.2s, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+
+.profile-achievement-cell::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  background: radial-gradient(120px circle at var(--spotlight-x, 50%) var(--spotlight-y, 50%), color-mix(in srgb, var(--achievement-accent) 34%, transparent), transparent 70%);
+}
+
+.profile-achievement-cell:hover::before,
+.profile-achievement-cell:focus-visible::before {
+  opacity: 1;
+}
+
 .profile-achievement-badge {
   width: 100%;
   min-width: 0;
@@ -8606,6 +8751,41 @@ strong.support-upvote-count {
   --achievement-accent: #c4a040;
   --achievement-glow: rgba(196, 160, 64, 0.34);
   --achievement-icon-color: color-mix(in srgb, #f7dd87 72%, white 28%);
+}
+
+
+.profile-achievement-cell-gold.profile-achievement-unlocked .profile-achievement-badge {
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-achievement-cell-gold.profile-achievement-unlocked .profile-achievement-badge::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, color-mix(in srgb, #f7dd87 75%, white 25%) 0 18%, transparent 22%),
+    radial-gradient(circle at 20% 35%, color-mix(in srgb, #facc15 84%, transparent), transparent 13%),
+    radial-gradient(circle at 78% 70%, color-mix(in srgb, #f59e0b 78%, transparent), transparent 14%),
+    radial-gradient(circle at 70% 22%, color-mix(in srgb, var(--accent, #5eaa3a) 70%, transparent), transparent 14%);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.2);
+  pointer-events: none;
+}
+
+.profile-achievement-cell-gold.profile-achievement-unlocked:hover .profile-achievement-badge::after,
+.profile-achievement-cell-gold.profile-achievement-unlocked:focus-visible .profile-achievement-badge::after {
+  animation: gold-achievement-burst 640ms ease-out;
+}
+
+@keyframes gold-achievement-burst {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  25% { opacity: 0.95; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(6.2); }
 }
 
 .profile-achievement-unlocked .profile-achievement-badge {

@@ -1150,6 +1150,7 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
           : `${achievement.name} — ${achievement.description}`;
 
       cell.setAttribute('aria-label', isUnlocked || !achievement.hidden ? achievement.name : 'Surprise achievement');
+      bindMouseSpotlight(cell);
 
       const identity = document.createElement('span');
       identity.className = 'profile-achievement-badge';
@@ -1209,6 +1210,16 @@ function getProfileMissions(profile: UserProfile, isSelfProfile: boolean): Activ
       completedAt: state?.completed_at ?? mission.completedAt,
       progressRatio: Math.min(progress / Math.max(mission.goal, 1), 1),
     };
+  });
+}
+
+
+function bindMouseSpotlight(cell: HTMLElement): void {
+  cell.classList.add('mouse-glow-card');
+  cell.addEventListener('pointermove', (event: PointerEvent) => {
+    const rect = cell.getBoundingClientRect();
+    cell.style.setProperty('--spotlight-x', `${event.clientX - rect.left}px`);
+    cell.style.setProperty('--spotlight-y', `${event.clientY - rect.top}px`);
   });
 }
 
