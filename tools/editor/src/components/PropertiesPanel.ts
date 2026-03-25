@@ -1272,6 +1272,14 @@ function renderRichParamEditor(
         emptyLabel: editor.emptyLabel ?? '-- Search for a story NPC --',
         options: editor.options,
       });
+    case 'level_option_picker_panel':
+      return createLevelOptionPickerPanelEditor(currentValue, onChange, fieldKey, {
+        title: 'Browse anomaly fields',
+        subtitle: 'Search across anomaly zone/task ids and filter by level to pick the canonical field quickly.',
+        searchPlaceholder: paramDef.placeholder ?? `Search ${paramDef.label.toLowerCase()}...`,
+        emptyLabel: editor.emptyLabel ?? '-- Search options --',
+        options: editor.options,
+      });
     case 'command_builder':
       return createCommandBuilderEditor(schema, paramDef, currentValue, onChange, fieldKey, editor.suggestions, editor.chainSeparator ?? '+');
   }
@@ -1667,6 +1675,272 @@ function createOptionPickerPanelEditor(
     onChange(rawInput.value);
   };
   rawInput.addEventListener('input', () => syncUi(rawInput.value));
+
+  launcherRow.append(browseButton, clearButton);
+  wrapper.append(launcherRow, rawInput, summary);
+
+  syncUi(currentValue);
+  return wrapper;
+}
+
+function createLevelOptionPickerPanelEditor(
+  currentValue: string,
+  onChange: (value: string) => void,
+  fieldKey: string,
+  config: {
+    title: string;
+    subtitle: string;
+    searchPlaceholder: string;
+    emptyLabel: string;
+    options: ParamOption[];
+  },
+): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'rich-editor rich-editor-item-picker';
+
+  const launcherRow = document.createElement('div');
+  launcherRow.className = 'rich-editor-toolbar item-picker-toolbar';
+
+  const browseButton = document.createElement('button');
+  browseButton.type = 'button';
+  browseButton.className = 'item-picker-launcher';
+
+  const clearButton = document.createElement('button');
+  clearButton.type = 'button';
+  clearButton.className = 'btn-sm';
+  clearButton.textContent = 'Clear';
+
+  const rawInput = document.createElement('input');
+  rawInput.type = 'text';
+  rawInput.className = 'rich-editor-input';
+  rawInput.value = currentValue;
+  rawInput.placeholder = config.emptyLabel;
+  rawInput.setAttribute('data-field-key', fieldKey);
+
+  const summary = document.createElement('div');
+  summary.className = 'command-description';
+
+  const levelLabel = (levelKey: string): string => LEVEL_DISPLAY_NAMES[levelKey] || levelKey.toUpperCase();
+
+  const getLevelKey = (value: string): string => {
+    const match = /^([a-z0-9]+)_/i.exec(value.trim());
+    return match?.[1]?.toLowerCase() || 'other';
+  };
+
+  const optionMeta = config.options.map((option) => ({
+    option,
+    level: getLevelKey(option.value),
+  }));
+
+  const levels = Array.from(new Set(optionMeta.map((entry) => entry.level))).sort((a, b) => {
+    if (a === 'other') return 1;
+    if (b === 'other') return -1;
+    return levelLabel(a).localeCompare(levelLabel(b));
+  });
+
+  const syncUi = (value: string): void => {
+    rawInput.value = value;
+    const selected = config.options.find((option) => option.value === value);
+
+    browseButton.textContent = '';
+    const label = document.createElement('span');
+    label.className = 'item-picker-launcher-label';
+    label.textContent = selected ? selected.label : 'Browse anomaly fields…';
+    const icon = document.createElement('span');
+    icon.className = 'item-picker-launcher-icon';
+    icon.textContent = '▾';
+    browseButton.append(label, icon);
+
+    summary.textContent = selected
+      ? `Selected ${selected.label} (${selected.value}).`
+      : 'Use the searchable panel to browse by level, or type a custom anomaly field id manually.';
+    clearButton.disabled = value.length === 0;
+  };
+
+  const openPicker = (): void => {
+    if (activeOptionPickerCleanup) {
+      const shouldToggleClosed = activeOptionPickerTrigger === browseButton;
+      activeOptionPickerCleanup();
+      if (shouldToggleClosed) return;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'item-picker-overlay';
+    overlay.setAttribute('role', 'presentation');
+
+    const panel = document.createElement('div');
+    panel.className = 'item-picker-panel';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.onclick = (event) => event.stopPropagation();
+
+    const header = document.createElement('div');
+    header.className = 'item-picker-header';
+
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'item-picker-title-wrap';
+    const title = document.createElement('div');
+    title.className = 'item-picker-title';
+    title.textContent = config.title;
+    const subtitle = document.createElement('div');
+    subtitle.className = 'item-picker-subtitle';
+    subtitle.textContent = config.subtitle;
+
+    const closeButton = document.createElement('button');
+    closeButton.className = 'btn-icon btn-sm';
+    closeButton.textContent = '×';
+    closeButton.title = 'Close anomaly field picker';
+
+    titleWrap.append(title, subtitle);
+    header.append(titleWrap, closeButton);
+    panel.appendChild(header);
+
+    const searchWrap = document.createElement('div');
+    searchWrap.className = 'item-picker-search-wrap';
+    const searchIcon = document.createElement('span');
+    searchIcon.className = 'item-picker-search-icon';
+    searchIcon.textContent = '⌕';
+    searchIcon.setAttribute('aria-hidden', 'true');
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.className = 'dropdown-search item-picker-search';
+    searchInput.placeholder = config.searchPlaceholder;
+    searchWrap.append(searchIcon, searchInput);
+    panel.appendChild(searchWrap);
+
+    const levelChipBar = document.createElement('div');
+    levelChipBar.className = 'item-picker-chip-bar';
+    panel.appendChild(levelChipBar);
+
+    const list = document.createElement('div');
+    list.className = 'item-picker-list';
+    const listContent = document.createElement('div');
+    listContent.className = 'item-picker-list-content item-picker-list-content-static';
+    const empty = document.createElement('div');
+    empty.className = 'item-picker-empty';
+    empty.textContent = 'No anomaly fields match this search.';
+    empty.hidden = true;
+    list.append(listContent, empty);
+    panel.appendChild(list);
+
+    let activeLevel = '';
+    const levelButtons = new Map<string, HTMLButtonElement>();
+
+    const renderList = (): void => {
+      const query = searchInput.value.trim().toLowerCase();
+      const matches = optionMeta.filter(({ option, level }) => {
+        if (activeLevel && level !== activeLevel) return false;
+        if (!query) return true;
+        const haystack = [option.label, option.value, ...(option.keywords ?? [])].join(' ').toLowerCase();
+        return haystack.includes(query);
+      });
+
+      listContent.innerHTML = '';
+      empty.hidden = matches.length !== 0;
+
+      const grouped = new Map<string, typeof matches>();
+      for (const entry of matches) {
+        if (!grouped.has(entry.level)) grouped.set(entry.level, []);
+        grouped.get(entry.level)?.push(entry);
+      }
+
+      for (const level of levels) {
+        const entries = grouped.get(level);
+        if (!entries || entries.length === 0) continue;
+        const heading = document.createElement('div');
+        heading.className = 'command-description';
+        heading.textContent = `${levelLabel(level)} (${entries.length})`;
+        listContent.appendChild(heading);
+
+        for (const { option } of entries) {
+          const row = document.createElement('button');
+          row.type = 'button';
+          row.className = 'item-picker-option item-picker-option-static';
+          if (option.value === rawInput.value) row.classList.add('is-selected');
+          row.innerHTML = `<span class="item-picker-option-title">${option.label}</span><span class="item-picker-option-meta">${option.value}</span>`;
+          row.onclick = () => {
+            cleanup();
+            syncUi(option.value);
+            onChange(option.value);
+          };
+          listContent.appendChild(row);
+        }
+      }
+
+      const counts = new Map<string, number>();
+      counts.set('', optionMeta.length);
+      for (const { level } of optionMeta) {
+        counts.set(level, (counts.get(level) ?? 0) + 1);
+      }
+
+      for (const [value, button] of levelButtons) {
+        button.classList.toggle('is-active', value === activeLevel);
+        const countEl = button.querySelector('.item-picker-chip-count');
+        if (countEl) countEl.textContent = String(counts.get(value) ?? 0);
+      }
+    };
+
+    const addChip = (label: string, value: string): void => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'item-picker-chip';
+      chip.innerHTML = `${label} <span class="item-picker-chip-count"></span>`;
+      chip.onclick = () => {
+        activeLevel = value;
+        renderList();
+      };
+      levelButtons.set(value, chip);
+      levelChipBar.appendChild(chip);
+    };
+
+    addChip('All levels', '');
+    for (const level of levels) addChip(levelLabel(level), level);
+
+    let isClosed = false;
+    const cleanup = (): void => {
+      if (isClosed) return;
+      isClosed = true;
+      overlay.remove();
+      document.removeEventListener('keydown', onKeyDown);
+      activeOptionPickerCleanup = null;
+      activeOptionPickerTrigger = null;
+      browseButton.setAttribute('aria-expanded', 'false');
+    };
+
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        cleanup();
+      }
+    };
+
+    closeButton.onclick = () => cleanup();
+    overlay.onclick = () => cleanup();
+    searchInput.oninput = () => renderList();
+
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+    document.addEventListener('keydown', onKeyDown);
+
+    activeOptionPickerCleanup = cleanup;
+    activeOptionPickerTrigger = browseButton;
+    browseButton.setAttribute('aria-expanded', 'true');
+
+    renderList();
+    searchInput.focus();
+  };
+
+  browseButton.onclick = openPicker;
+  clearButton.onclick = () => {
+    syncUi('');
+    onChange('');
+    rawInput.focus();
+  };
+  rawInput.oninput = () => {
+    syncUi(rawInput.value);
+    debounced(fieldKey, () => onChange(rawInput.value));
+  };
+  rawInput.onchange = () => onChange(rawInput.value);
 
   launcherRow.append(browseButton, clearButton);
   wrapper.append(launcherRow, rawInput, summary);
