@@ -227,7 +227,7 @@ function M.turn_in_artifact(task_id, artifact_section)
         return false, "actor missing required artifact"
     end
 
-    rec.stage = "turned_in"
+    rec.stage = "turned_in_pending"
     rec.last_known_owner_kind = "actor"
     rec.last_seen_ts = now_ts()
     log("artifact turned in for task %s", tostring(task_id))
@@ -268,6 +268,32 @@ function M.evaluate_fail_state(task_id)
     end
 
     return false
+end
+
+function M.complete_record(task_id)
+    local rec = M.get_record(task_id)
+    if not rec then return false, "task not found" end
+    rec.stage = "completed"
+    log("task %s marked completed", tostring(task_id))
+    return true
+end
+
+function M.remove_record(task_id)
+    local state = M.ensure_state()
+    state.records[task_id] = nil
+    for i, id in ipairs(state.order) do
+        if id == task_id then
+            table.remove(state.order, i)
+            break
+        end
+    end
+    log("task %s record removed", tostring(task_id))
+end
+
+function M.check_player_has_artifact(task_id)
+    local rec = M.get_record(task_id)
+    if not rec or not rec.artifact_section then return false end
+    return has_item_section(rec.artifact_section)
 end
 
 function M.save_state(m)
