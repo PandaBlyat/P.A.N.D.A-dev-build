@@ -2,6 +2,7 @@
 // Factions, ranks, levels, smart terrains, placeholders
 
 import type { FactionId } from './types';
+import { SMART_TERRAIN_CATALOG } from './generated/smart-terrain-catalog';
 
 export const FACTION_IDS: FactionId[] = [
   'stalker', 'dolg', 'freedom', 'csky', 'ecolog',
@@ -360,6 +361,37 @@ export const SMART_TERRAIN_LEVELS: Record<string, string[]> = {
     'st_pol_smart_terrain_2_1_name', 'st_pol_smart_terrain_2_2_name',
   ],
 };
+
+export type SmartTerrainOption = {
+  id: string;
+  description: string;
+  level: string;
+};
+
+export const SMART_TERRAIN_DESCRIPTIONS: Record<string, string> = Object.fromEntries(
+  SMART_TERRAIN_CATALOG.map((entry) => [entry.id, entry.description]),
+);
+
+export const ALL_SMART_TERRAIN_IDS = SMART_TERRAIN_CATALOG.map((entry) => entry.id);
+
+export const SMART_TERRAIN_OPTIONS_BY_LEVEL: Record<string, SmartTerrainOption[]> = Object.fromEntries(
+  Object.entries(SMART_TERRAIN_LEVELS).map(([level, ids]) => [level, ids.map((id) => ({
+    id,
+    level,
+    description: SMART_TERRAIN_DESCRIPTIONS[id] || id,
+  }))]),
+);
+
+const levelById = new Map<string, string>();
+for (const [level, ids] of Object.entries(SMART_TERRAIN_LEVELS)) {
+  for (const id of ids) levelById.set(id, level);
+}
+
+export const SMART_TERRAIN_OPTIONS_ALL: SmartTerrainOption[] = SMART_TERRAIN_CATALOG.map((entry) => ({
+  id: entry.id,
+  description: entry.description || entry.id,
+  level: levelById.get(entry.id) || 'other',
+}));
 
 export const LEVEL_DISPLAY_NAMES: Record<string, string> = {
   cordon: 'Cordon',

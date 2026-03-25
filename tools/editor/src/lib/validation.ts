@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Validation Engine
 
-import { FACTION_ALIASES, FACTION_IDS, LEVEL_DISPLAY_NAMES, MUTANT_TYPES, RANKS, SMART_TERRAIN_LEVELS } from './constants';
+import { ALL_SMART_TERRAIN_IDS, FACTION_ALIASES, FACTION_IDS, LEVEL_DISPLAY_NAMES, MUTANT_TYPES, RANKS } from './constants';
 import { findSchema, OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from './schema';
 import { createTurnDisplayLabeler } from './turn-labels';
 import type { CommandSchema, ParamDef } from './schema';
@@ -20,7 +20,7 @@ import type {
 const PRECONDITION_COMMANDS = new Map(PRECONDITION_SCHEMAS.map(schema => [schema.name, schema]));
 const OUTCOME_COMMANDS = new Map(OUTCOME_SCHEMAS.map(schema => [schema.name, schema]));
 const KNOWN_LEVELS = new Set(Object.keys(LEVEL_DISPLAY_NAMES));
-const KNOWN_SMART_TERRAINS = new Set(Object.values(SMART_TERRAIN_LEVELS).flat());
+const KNOWN_SMART_TERRAINS = new Set(ALL_SMART_TERRAIN_IDS);
 const KNOWN_FACTIONS = new Set([...FACTION_IDS, ...Object.keys(FACTION_ALIASES)]);
 const SPAWN_JOB_OUTCOMES = new Set([
   'spawn_hostile',

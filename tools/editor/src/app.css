@@ -3482,6 +3482,54 @@ label {
   opacity: 0.8;
 }
 
+.smart-terrain-toolbar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.smart-terrain-results {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px;
+  background: rgba(0,0,0,0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.smart-terrain-result {
+  width: 100%;
+  text-align: left;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+}
+
+.smart-terrain-result:hover,
+.smart-terrain-result.is-selected {
+  border-color: var(--border-light);
+  background: var(--bg-hover);
+}
+
+.smart-terrain-result-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.smart-terrain-result-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
 /* ─── Clickable items ─────────────────────────────────── */
 
 .precond-item.clickable, .outcome-item.clickable {

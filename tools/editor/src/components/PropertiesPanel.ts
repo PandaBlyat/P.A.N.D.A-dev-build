@@ -17,7 +17,17 @@ import {
   getTurnFieldKey,
 } from '../lib/validation';
 import type { CommandSchema, ParamDef, ParamOption } from '../lib/schema';
-import { FACTION_IDS, RANKS, MUTANT_TYPES, DYNAMIC_PLACEHOLDERS, LEVEL_DISPLAY_NAMES, SMART_TERRAIN_LEVELS } from '../lib/constants';
+import {
+  FACTION_IDS,
+  RANKS,
+  MUTANT_TYPES,
+  DYNAMIC_PLACEHOLDERS,
+  LEVEL_DISPLAY_NAMES,
+  SMART_TERRAIN_LEVELS,
+  SMART_TERRAIN_OPTIONS_ALL,
+  SMART_TERRAIN_OPTIONS_BY_LEVEL,
+  type SmartTerrainOption,
+} from '../lib/constants';
 import { createOnboardingNudge } from './Onboarding';
 import { createItemChainPickerPanelEditor, createItemPickerPanelEditor } from './ItemPickerPanel';
 import { formatGameItemLabel } from '../lib/item-catalog';
@@ -1320,6 +1330,7 @@ function createSmartTerrainEditor(
   wrapper.className = 'rich-editor rich-editor-smart-terrain';
 
   const { level, terrain, usesPlaceholder } = parseSmartTerrainReference(currentValue);
+  const initialLevel = level || (terrain ? '__all__' : '');
 
   const levelSelect = document.createElement('select');
   levelSelect.className = 'rich-editor-input';
@@ -1330,94 +1341,174 @@ function createSmartTerrainEditor(
   emptyLevel.textContent = '-- Select level --';
   levelSelect.appendChild(emptyLevel);
 
+  const allLevels = document.createElement('option');
+  allLevels.value = '__all__';
+  allLevels.textContent = 'All levels (vanilla catalog)';
+  allLevels.selected = initialLevel === '__all__';
+  levelSelect.appendChild(allLevels);
+
   for (const levelKey of Object.keys(SMART_TERRAIN_LEVELS)) {
     const opt = document.createElement('option');
     opt.value = levelKey;
     opt.textContent = LEVEL_DISPLAY_NAMES[levelKey] || levelKey;
-    opt.selected = level === levelKey;
+    opt.selected = initialLevel === levelKey;
     levelSelect.appendChild(opt);
   }
 
-  const terrainSelect = document.createElement('select');
-  terrainSelect.className = 'rich-editor-input';
+  const searchInput = document.createElement('input');
+  searchInput.className = 'rich-editor-input';
+  searchInput.type = 'search';
+  searchInput.placeholder = 'Search by id or location name…';
 
-  const syncTerrainOptions = (selectedLevel: string, selectedTerrain: string, placeholderMode: boolean) => {
-    terrainSelect.innerHTML = '';
-    const emptyTerrain = document.createElement('option');
-    emptyTerrain.value = '';
-    emptyTerrain.textContent = selectedLevel ? '-- Select terrain --' : 'Choose a level first';
-    terrainSelect.appendChild(emptyTerrain);
+  const quickActions = document.createElement('div');
+  quickActions.className = 'smart-terrain-toolbar';
 
-    if (!selectedLevel) {
-      terrainSelect.disabled = true;
-      return;
-    }
+  const selectPlaceholderButton = document.createElement('button');
+  selectPlaceholderButton.type = 'button';
+  selectPlaceholderButton.className = 'ghost';
+  selectPlaceholderButton.textContent = 'Use dynamic placeholder';
 
-    terrainSelect.disabled = false;
-    if (options.allowPlaceholder) {
-      const placeholderOpt = document.createElement('option');
-      placeholderOpt.value = '__placeholder__';
-      placeholderOpt.textContent = `Dynamic placeholder (%${selectedLevel}_panda_st_key%)`;
-      placeholderOpt.selected = placeholderMode;
-      terrainSelect.appendChild(placeholderOpt);
-    }
+  const clearButton = document.createElement('button');
+  clearButton.type = 'button';
+  clearButton.className = 'ghost';
+  clearButton.textContent = 'Clear';
 
-    for (const terrainKey of SMART_TERRAIN_LEVELS[selectedLevel] || []) {
-      const opt = document.createElement('option');
-      opt.value = terrainKey;
-      opt.textContent = terrainKey;
-      opt.selected = !placeholderMode && selectedTerrain === terrainKey;
-      terrainSelect.appendChild(opt);
-    }
+  if (options.allowPlaceholder) quickActions.appendChild(selectPlaceholderButton);
+  quickActions.appendChild(clearButton);
+
+  const terrainList = document.createElement('div');
+  terrainList.className = 'smart-terrain-results';
+
+  let selectionMode: 'placeholder' | 'exact' | '' = usesPlaceholder ? 'placeholder' : (terrain ? 'exact' : '');
+  let selectedTerrain = terrain;
+
+  const getLevelOptions = (selectedLevel: string): SmartTerrainOption[] => {
+    if (!selectedLevel) return [];
+    if (selectedLevel === '__all__') return SMART_TERRAIN_OPTIONS_ALL;
+    const curated = SMART_TERRAIN_OPTIONS_BY_LEVEL[selectedLevel] || [];
+    const extras = SMART_TERRAIN_OPTIONS_ALL
+      .filter((entry) => entry.level === 'other' && entry.id.includes(`_${selectedLevel.slice(0, 3)}_`));
+    return [...curated, ...extras];
   };
 
-  const syncValue = () => {
-    const selectedLevel = levelSelect.value;
-    const selectedTerrain = terrainSelect.value;
-    if (!selectedLevel) {
+  const applySelection = () => {
+    if (!levelSelect.value) {
       onChange('');
       return;
     }
-    if (selectedTerrain === '__placeholder__') {
-      onChange(`%${selectedLevel}_panda_st_key%`);
+    if (selectionMode === 'placeholder' && levelSelect.value !== '__all__') {
+      onChange(`%${levelSelect.value}_panda_st_key%`);
       return;
     }
-    onChange(selectedTerrain);
+    onChange(selectedTerrain || '');
   };
 
-  syncTerrainOptions(level, terrain, usesPlaceholder);
+  const renderTerrainList = () => {
+    terrainList.innerHTML = '';
+    const selectedLevel = levelSelect.value;
+    if (!selectedLevel) {
+      const hint = document.createElement('div');
+      hint.className = 'command-description';
+      hint.textContent = 'Choose a level to browse smart terrain ids.';
+      terrainList.appendChild(hint);
+      return;
+    }
+
+    const query = searchInput.value.trim().toLowerCase();
+    const optionsForLevel = getLevelOptions(selectedLevel);
+    const filtered = optionsForLevel.filter((entry) => {
+      if (!query) return true;
+      return entry.id.toLowerCase().includes(query) || entry.description.toLowerCase().includes(query);
+    });
+
+    const maxItems = 120;
+    for (const entry of filtered.slice(0, maxItems)) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'smart-terrain-result';
+      if (selectionMode === 'exact' && selectedTerrain === entry.id) btn.classList.add('is-selected');
+      const idText = document.createElement('span');
+      idText.className = 'smart-terrain-result-id';
+      idText.textContent = entry.id;
+      const descText = document.createElement('span');
+      descText.className = 'smart-terrain-result-desc';
+      descText.textContent = entry.description;
+      btn.appendChild(idText);
+      btn.appendChild(descText);
+      btn.onclick = () => {
+        selectedTerrain = entry.id;
+        selectionMode = 'exact';
+        applySelection();
+        updateSummary();
+        renderTerrainList();
+      };
+      terrainList.appendChild(btn);
+    }
+
+    if (filtered.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'command-description';
+      empty.textContent = 'No smart terrains match this search.';
+      terrainList.appendChild(empty);
+      return;
+    }
+    if (filtered.length > maxItems) {
+      const overflow = document.createElement('div');
+      overflow.className = 'command-description';
+      overflow.textContent = `Showing ${maxItems} of ${filtered.length} matches. Keep typing to narrow the list.`;
+      terrainList.appendChild(overflow);
+    }
+  };
 
   const summary = document.createElement('div');
   summary.className = 'command-description';
   const updateSummary = () => {
+    selectPlaceholderButton.disabled = !levelSelect.value || levelSelect.value === '__all__';
     if (!levelSelect.value) {
       summary.textContent = 'Pick a level first, then choose either a specific vanilla smart terrain key or a dynamic %<level>_panda_st_key% placeholder.';
       return;
     }
-    if (terrainSelect.value === '__placeholder__') {
+    if (selectionMode === 'placeholder' && levelSelect.value !== '__all__') {
       summary.textContent = `Using dynamic placeholder %${levelSelect.value}_panda_st_key% for ${LEVEL_DISPLAY_NAMES[levelSelect.value] || levelSelect.value}.`;
       return;
     }
-    summary.textContent = terrainSelect.value
-      ? `Using exact smart terrain key ${terrainSelect.value}.`
+    summary.textContent = selectedTerrain
+      ? `Using exact smart terrain key ${selectedTerrain}.`
       : 'Choose a smart terrain key for this level.';
   };
 
   levelSelect.onchange = () => {
-    syncTerrainOptions(levelSelect.value, '', options.allowPlaceholder);
-    if (options.allowPlaceholder && levelSelect.value) terrainSelect.value = '__placeholder__';
-    syncValue();
+    selectedTerrain = '';
+    selectionMode = options.allowPlaceholder && levelSelect.value && levelSelect.value !== '__all__' ? 'placeholder' : '';
+    applySelection();
+    renderTerrainList();
     updateSummary();
   };
 
-  terrainSelect.onchange = () => {
-    syncValue();
+  searchInput.oninput = () => renderTerrainList();
+  selectPlaceholderButton.onclick = () => {
+    if (!levelSelect.value || levelSelect.value === '__all__') return;
+    selectionMode = 'placeholder';
+    selectedTerrain = '';
+    applySelection();
     updateSummary();
+    renderTerrainList();
+  };
+  clearButton.onclick = () => {
+    selectionMode = '';
+    selectedTerrain = '';
+    applySelection();
+    updateSummary();
+    renderTerrainList();
   };
 
+  levelSelect.value = initialLevel;
+  renderTerrainList();
   updateSummary();
   wrapper.appendChild(levelSelect);
-  wrapper.appendChild(terrainSelect);
+  wrapper.appendChild(searchInput);
+  wrapper.appendChild(quickActions);
+  wrapper.appendChild(terrainList);
   wrapper.appendChild(summary);
   return wrapper;
 }
