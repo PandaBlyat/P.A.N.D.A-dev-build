@@ -1035,7 +1035,11 @@ function check_pending_jobs()
                 -- Clean up adapter record if it exists
                 local adapter = get_anomaly_artifact_adapter()
                 if adapter and adapter.remove_record then
-                    adapter.remove_record(job.task_runtime_id or job.task_item)
+                    -- Prefer runtime task id (new format), but keep legacy fallback for older saves/jobs.
+                    local runtime_task_id = job.task_runtime_id or job.task_item
+                    if runtime_task_id then
+                        adapter.remove_record(runtime_task_id)
+                    end
                 end
             end
         end
