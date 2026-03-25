@@ -1760,15 +1760,15 @@ label {
   cursor: grabbing;
 }
 
-.flow-canvas.use-custom-cursor,
-.flow-canvas.use-custom-cursor * {
+body.use-custom-cursor,
+body.use-custom-cursor * {
   cursor: none !important;
 }
 
 .flow-custom-cursor {
   --cursor-accent: var(--accent);
   --cursor-size: 16px;
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   width: var(--cursor-size);
