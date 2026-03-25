@@ -216,7 +216,6 @@ class CursorInteractionAdapter {
   private inTextInput = false;
   private shouldDisable = false;
   private featureEnabled = true;
-  private hasPointer = false;
 
   constructor(
     private readonly canvas: HTMLElement,
@@ -241,7 +240,6 @@ class CursorInteractionAdapter {
 
   private onPointerMove = (event: PointerEvent): void => {
     if (event.pointerType !== 'mouse') return;
-    this.hasPointer = true;
     this.pointerX = event.clientX;
     this.pointerY = event.clientY;
     this.insideCanvas = this.canvas.contains(event.target as Node);
@@ -253,7 +251,6 @@ class CursorInteractionAdapter {
 
   private onPointerEnter = (event: PointerEvent): void => {
     if (event.pointerType !== 'mouse') return;
-    this.hasPointer = true;
     this.insideCanvas = true;
     this.pointerX = event.clientX;
     this.pointerY = event.clientY;
@@ -271,7 +268,6 @@ class CursorInteractionAdapter {
 
   private onPointerDown = (event: PointerEvent): void => {
     if (event.pointerType !== 'mouse') return;
-    this.hasPointer = true;
     this.pointerX = event.clientX;
     this.pointerY = event.clientY;
     this.insideCanvas = this.canvas.contains(event.target as Node);
@@ -310,7 +306,6 @@ class CursorInteractionAdapter {
   };
 
   private onWindowBlur = (): void => {
-    this.hasPointer = false;
     this.linking = false;
     this.dragging = false;
     this.panning = false;
@@ -403,7 +398,7 @@ class CursorInteractionAdapter {
 
     const hideNative = nextState !== 'disabled';
     document.body.classList.toggle('use-custom-cursor', hideNative);
-    this.renderer.setVisible(hideNative && this.hasPointer);
+    this.renderer.setVisible(hideNative);
     this.controller.setRequestedState(nextState);
   }
 }
