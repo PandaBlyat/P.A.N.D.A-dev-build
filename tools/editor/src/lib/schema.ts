@@ -1928,6 +1928,22 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     ],
   },
   {
+    name: 'panda_task_artifact',
+    label: 'Task: Artifact Hunt',
+    description: 'Player must retrieve an artifact from a target anomaly zone',
+    category: 'Tasks',
+    helpText: 'Creates an artifact retrieval objective pinned to the selected anomaly zone. Detector tier is metadata used for guidance/gating in downstream runtime handling.',
+    examples: ['panda_task_artifact:af_compass:red_smart_terrain_3_2_anomal_zone:elite:900:3:4'],
+    params: [
+      { name: 'artifact_section', type: 'item_section', required: true, label: 'Artifact Section', editor: ITEM_PICKER_PANEL_EDITOR },
+      { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name', editor: ANOMALY_ZONE_PICKER_PANEL_EDITOR },
+      { name: 'detector_tier', type: 'string', required: false, label: 'Detector Tier', placeholder: 'basic', editor: { kind: 'searchable_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
+      { name: 'timeout', type: 'number', required: true, label: 'Timeout (s)', min: 30 },
+      { name: 'success_turn', type: 'number', required: true, label: 'Success Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
+      { name: 'fail_turn', type: 'number', required: true, label: 'Fail Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
+    ],
+  },
+  {
     name: 'panda_task_escort',
     label: 'Task: Escort NPC',
     description: 'NPC becomes companion; escort to destination',
