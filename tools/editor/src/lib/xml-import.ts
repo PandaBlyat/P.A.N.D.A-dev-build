@@ -202,12 +202,36 @@ function normalizeOutcomeParams(command: string, params: string[]): string[] {
     normalized.unshift('random');
   }
 
-  // Recombine level tokens split by ':' in XML (level:gar -> "level", "gar").
-  if (normalized[1] === 'random_level' && normalized[2] === 'level' && normalized[3]) {
-    normalized.splice(2, 2, `level:${normalized[3]}`);
-  }
+  const zoneMode = normalized[1] ?? '';
+  const zoneTarget = normalized[2] ?? '';
+  const inferredLevelToken = inferLevelToken(zoneMode, zoneTarget, normalized[3] ?? '');
+
+  // Artifact Hunt now always uses random_level targeting by level token.
+  normalized[1] = 'random_level';
+  normalized[2] = inferredLevelToken || '';
 
   return normalized;
+}
+
+function inferLevelToken(zoneMode: string, zoneTarget: string, splitLevelTokenRemainder: string): string {
+  if (zoneMode === 'random_level') {
+    // Recombine level tokens split by ':' in XML (level:gar -> "level", "gar").
+    if (zoneTarget === 'level' && splitLevelTokenRemainder) {
+      return `level:${splitLevelTokenRemainder}`;
+    }
+    if (/^level:[a-z0-9_]+$/i.test(zoneTarget)) {
+      return zoneTarget;
+    }
+  }
+
+  if (zoneMode === 'specific') {
+    const match = /^([a-z0-9]+)_/i.exec(zoneTarget);
+    if (match?.[1]) {
+      return `level:${match[1].toLowerCase()}`;
+    }
+  }
+
+  return '';
 }
 
 /** Parse outcome string into entries */
