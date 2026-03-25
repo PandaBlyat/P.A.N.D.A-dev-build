@@ -175,7 +175,7 @@ function parseOutcomeToken(token: string): Outcome {
       const parts = rest.split(':');
       return {
         command: parts[0],
-        params: parts.slice(1),
+        params: normalizeOutcomeParams(parts[0], parts.slice(1)),
         chancePercent: percent,
       };
     }
@@ -184,8 +184,30 @@ function parseOutcomeToken(token: string): Outcome {
   const parts = token.split(':');
   return {
     command: parts[0],
-    params: parts.slice(1),
+    params: normalizeOutcomeParams(parts[0], parts.slice(1)),
   };
+}
+
+function normalizeOutcomeParams(command: string, params: string[]): string[] {
+  if (command !== 'panda_task_artifact') {
+    return params;
+  }
+
+  const normalized = [...params];
+  const zoneModes = new Set(['specific', 'any', 'random_level']);
+  const first = normalized[0] ?? '';
+
+  // If authors left artifact section empty, exported XML can start directly at zone_mode.
+  if (zoneModes.has(first)) {
+    normalized.unshift('random');
+  }
+
+  // Recombine level tokens split by ':' in XML (level:gar -> "level", "gar").
+  if (normalized[1] === 'random_level' && normalized[2] === 'level' && normalized[3]) {
+    normalized.splice(2, 2, `level:${normalized[3]}`);
+  }
+
+  return normalized;
 }
 
 /** Parse outcome string into entries */

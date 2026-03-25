@@ -1983,7 +1983,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
       'panda_task_artifact:af_compass:random_level:level:gar:advanced:900:3:4',
     ],
     params: [
-      { name: 'artifact_section', type: 'item_section', required: false, label: 'Artifact Section', placeholder: 'random', editor: ITEM_PICKER_PANEL_EDITOR, helpText: 'Optional. Empty/random/any uses vanilla random anomaly artifact generation.' },
+      { name: 'artifact_section', type: 'item_section', required: false, label: 'Artifact Section', placeholder: 'random', editor: ITEM_PICKER_PANEL_EDITOR, helpText: 'Optional. Empty value saves as "random", which uses vanilla random anomaly artifact generation.' },
       { name: 'zone_mode', type: 'string', required: true, label: 'Zone Mode', placeholder: 'specific', editor: { kind: 'searchable_select', options: PANDA_ARTIFACT_ZONE_MODE_OPTIONS, emptyLabel: '-- Select zone mode --' } },
       { name: 'zone_name', type: 'string', required: true, label: 'Zone Target', editor: PANDA_ARTIFACT_ZONE_TARGET_EDITOR,
         helpText: 'specific => anomaly zone id, any => literal any, random_level => level:<code> token (example level:esc).' },
