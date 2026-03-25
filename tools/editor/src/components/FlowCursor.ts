@@ -270,7 +270,17 @@ class CursorInteractionAdapter {
 
   private onPointerDown = (event: PointerEvent): void => {
     if (event.pointerType !== 'mouse') return;
-    if (!this.insideCanvas) return;
+    this.pointerX = event.clientX;
+    this.pointerY = event.clientY;
+    this.insideCanvas = this.canvas.contains(event.target as Node);
+    this.hoveringManipulationZone = this.detectManipulationZone(event.target as HTMLElement | null);
+    this.inTextInput = this.detectTextInput(event.target as HTMLElement | null);
+    this.renderer.setVisible(this.featureEnabled && !this.shouldDisable);
+    this.queueRender();
+    if (!this.insideCanvas) {
+      this.updateState();
+      return;
+    }
     const target = event.target as HTMLElement | null;
     if (target?.closest('.choice-output-port')) {
       this.linking = true;
