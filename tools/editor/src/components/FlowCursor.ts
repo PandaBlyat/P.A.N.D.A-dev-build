@@ -223,8 +223,9 @@ class CursorController {
   ) {}
 
   setRequestedState(state: CursorState): void {
-    if (this.requestedState === state) return;
-    this.requestedState = state;
+    if (this.requestedState !== state) {
+      this.requestedState = state;
+    }
     this.evaluate();
   }
 
