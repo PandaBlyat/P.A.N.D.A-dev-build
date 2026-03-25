@@ -47,6 +47,24 @@ local function get_anomaly_artifact_adapter()
     return nil
 end
 
+local function make_artifact_runtime_task_id(conv_data)
+    local conv_name = conv_data and (conv_data.conv_id or conv_data.prefix) or nil
+    if not conv_name or conv_name == "" then
+        conv_name = "conversation"
+    end
+
+    conv_name = tostring(conv_name)
+        :gsub("%W+", "_")
+        :gsub("^_+", "")
+        :gsub("_+$", "")
+
+    if conv_name == "" then
+        conv_name = "conversation"
+    end
+
+    return string.format("panda_artifact_%s_%d", conv_name, math.random(100000, 999999))
+end
+
 -- Global used by engine overrides to simulate talking state
 fake_talking_npc_id = nil
 pda_private_tab_open = false
@@ -1017,7 +1035,7 @@ function check_pending_jobs()
                 -- Clean up adapter record if it exists
                 local adapter = get_anomaly_artifact_adapter()
                 if adapter and adapter.remove_record then
-                    adapter.remove_record(job.task_item)
+                    adapter.remove_record(job.task_runtime_id or job.task_item)
                 end
             end
         end
@@ -4334,10 +4352,11 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                 printf("PANDA_IC: panda_task_artifact missing params in '%s'", tostring(cmd_str))
             else
                 local adapter = get_anomaly_artifact_adapter()
+                local task_runtime_id = make_artifact_runtime_task_id(conv_data)
                 -- If a specific zone is given (not "any"), try to spawn the artifact there
                 if adapter and zone_name and zone_name ~= "" and zone_name ~= "any" then
                     local spawn_ok, spawn_err = adapter.spawn_artifact_in_zone(
-                        artifact_sec, artifact_sec, zone_name
+                        task_runtime_id, artifact_sec, zone_name
                     )
                     if not spawn_ok then
                         printf("PANDA_IC: panda_task_artifact zone spawn failed (%s), player must find naturally", tostring(spawn_err))
@@ -4346,7 +4365,7 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                 -- Create adapter record for auxiliary tracking
                 if adapter then
                     adapter.start_artifact_task(
-                        artifact_sec, artifact_sec,
+                        task_runtime_id, artifact_sec,
                         (zone_name ~= "any") and zone_name or nil,
                         detector_tier, timeout, sender_npc_id
                     )
@@ -4360,6 +4379,7 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                     {}, timeout, s_turn, f_turn, conv_data, {
                         job_type = "artifact",
                         task_item = artifact_sec,
+                        task_runtime_id = task_runtime_id,
                         task_zone = zone_name,
                         task_detector_tier = detector_tier,
                         squads_registered = true,
