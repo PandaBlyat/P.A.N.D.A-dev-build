@@ -1113,6 +1113,8 @@ function renderParamEditors(
       updateParam,
       paramKey,
       conv,
+      currentParams,
+      i,
     );
 
     if (richEditor) {
@@ -1238,6 +1240,8 @@ function renderRichParamEditor(
   onChange: (value: string) => void,
   fieldKey: string,
   conv?: Conversation,
+  currentParams: string[] = [],
+  paramIndex = -1,
 ): HTMLElement | null {
   const editor = paramDef.editor;
   if (!editor) return null;
@@ -1280,6 +1284,33 @@ function renderRichParamEditor(
         emptyLabel: editor.emptyLabel ?? '-- Search options --',
         options: editor.options,
       });
+    case 'artifact_zone_target': {
+      const zoneMode = (schema.name === 'panda_task_artifact' && paramIndex > 0)
+        ? (currentParams[paramIndex - 1] || 'specific')
+        : 'specific';
+
+      if (zoneMode === 'any') {
+        return createSearchableSelectEditor([{ value: editor.anyToken, label: 'Any Zone' }], currentValue, onChange, fieldKey, {
+          emptyLabel: '-- Any zone (natural find) --',
+          placeholder: 'any',
+        });
+      }
+
+      if (zoneMode === 'random_level') {
+        return createSearchableSelectEditor(editor.levelTokenOptions, currentValue, onChange, fieldKey, {
+          emptyLabel: '-- Select level token --',
+          placeholder: 'level:gar',
+        });
+      }
+
+      return createLevelOptionPickerPanelEditor(currentValue, onChange, fieldKey, {
+        title: 'Browse anomaly zones',
+        subtitle: 'Pick a concrete anomaly zone id for explicit artifact spawn routing.',
+        searchPlaceholder: paramDef.placeholder ?? `Search ${paramDef.label.toLowerCase()}...`,
+        emptyLabel: '-- Select anomaly zone id --',
+        options: editor.specificZoneOptions,
+      });
+    }
     case 'command_builder':
       return createCommandBuilderEditor(schema, paramDef, currentValue, onChange, fieldKey, editor.suggestions, editor.chainSeparator ?? '+');
   }

@@ -37,6 +37,23 @@ New outcomes:
 - `set_anomaly_target`
 - `fail_if_artifact_lost`
 
+### `panda_task_artifact` zone token format
+
+`panda_task_artifact` now uses a dedicated zone mode + zone target pair:
+
+```text
+panda_task_artifact:<artifact_section>:<zone_mode>:<zone_name>:<detector_tier>:<timeout>:<success_turn>:<fail_turn>
+```
+
+Zone modes:
+- `specific` → `zone_name` is a concrete anomaly zone id (legacy behavior).
+- `any` → `zone_name` should be `any`, and runtime stays in natural-find mode (no forced zone spawn).
+- `random_level` → `zone_name` should be a deterministic token like `level:gar` or `level:esc`.
+
+Random-by-level behavior:
+- Runtime detects `level:<code>` tokens and resolves one random eligible anomaly zone from a curated per-level table.
+- If no eligible zone is online/available, runtime logs and falls back to natural-find mode.
+
 ### Unified runtime record
 
 ```lua
@@ -106,6 +123,14 @@ Manual in-game scenarios:
 start_artifact_retrieval_task:af_fetch_01:af_compass:red_smart_terrain_3_2_anomal_zone:elite:3600
 spawn_artifact_in_zone:af_fetch_01:af_compass:red_smart_terrain_3_2_anomal_zone
 turn_in_artifact:af_fetch_01:af_compass
+```
+
+### P.A.N.D.A task artifact mode examples
+
+```text
+panda_task_artifact:af_compass:specific:red_smart_terrain_3_2_anomal_zone:elite:900:3:4
+panda_task_artifact:af_compass:any:any:basic:900:3:4
+panda_task_artifact:af_compass:random_level:level:gar:advanced:900:3:4
 ```
 
 ### Scan anomaly then report

@@ -65,6 +65,12 @@ export type ParamEditor =
     kind: 'command_builder';
     suggestions: ParamOption[];
     chainSeparator?: string;
+  }
+  | {
+    kind: 'artifact_zone_target';
+    specificZoneOptions: ParamOption[];
+    levelTokenOptions: ParamOption[];
+    anyToken: string;
   };
 
 const FACTION_OPTIONS: ParamOption[] = FACTION_IDS.map((factionId) => ({
@@ -191,6 +197,37 @@ const ANOMALY_TASK_ID_PICKER_PANEL_EDITOR: ParamEditor = {
   kind: 'level_option_picker_panel',
   options: ANOMALY_TASK_ID_OPTIONS,
   emptyLabel: '-- Type custom id or pick vanilla pattern --',
+};
+
+const PANDA_ARTIFACT_ZONE_MODE_OPTIONS: ParamOption[] = [
+  { value: 'specific', label: 'Specific Zone', keywords: ['specific', 'zone', 'target'] },
+  { value: 'any', label: 'Any Zone', keywords: ['any', 'natural', 'find'] },
+  { value: 'random_level', label: 'Random by Level', keywords: ['random', 'level', 'token'] },
+];
+
+const PANDA_ARTIFACT_LEVEL_TOKEN_OPTIONS: ParamOption[] = [
+  { value: 'level:esc', label: 'Cordon (level:esc)', keywords: ['cordon', 'esc'] },
+  { value: 'level:gar', label: 'Garbage (level:gar)', keywords: ['garbage', 'gar'] },
+  { value: 'level:agr', label: 'Agroprom (level:agr)', keywords: ['agroprom', 'agr'] },
+  { value: 'level:val', label: 'Dark Valley (level:val)', keywords: ['dark valley', 'val'] },
+  { value: 'level:yan', label: 'Yantar (level:yan)', keywords: ['yantar', 'yan'] },
+  { value: 'level:ros', label: 'Wild Territory (level:ros)', keywords: ['wild territory', 'ros'] },
+  { value: 'level:bar', label: 'Rostok (level:bar)', keywords: ['rostok', 'bar'] },
+  { value: 'level:mar', label: 'Great Swamp (level:mar)', keywords: ['swamp', 'mar'] },
+  { value: 'level:ds', label: 'Darkscape (level:ds)', keywords: ['darkscape', 'ds'] },
+  { value: 'level:trc', label: 'Truck Cemetery (level:trc)', keywords: ['truck cemetery', 'trc'] },
+  { value: 'level:red', label: 'Red Forest (level:red)', keywords: ['red forest', 'red'] },
+  { value: 'level:lim', label: 'Limansk (level:lim)', keywords: ['limansk', 'lim'] },
+  { value: 'level:jup', label: 'Jupiter (level:jup)', keywords: ['jupiter', 'jup'] },
+  { value: 'level:zat', label: 'Zaton (level:zat)', keywords: ['zaton', 'zat'] },
+  { value: 'level:pri', label: 'Pripyat (level:pri)', keywords: ['pripyat', 'pri'] },
+];
+
+const PANDA_ARTIFACT_ZONE_TARGET_EDITOR: ParamEditor = {
+  kind: 'artifact_zone_target',
+  specificZoneOptions: ANOMALY_ZONE_ID_OPTIONS,
+  levelTokenOptions: PANDA_ARTIFACT_LEVEL_TOKEN_OPTIONS,
+  anyToken: 'any',
 };
 
 const WATCH_TRIGGER_SUGGESTIONS: ParamOption[] = [
@@ -1932,11 +1969,17 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     label: 'Task: Artifact Hunt',
     description: 'Player must retrieve an artifact from a target anomaly zone',
     category: 'Tasks',
-    helpText: 'Creates an artifact retrieval objective pinned to the selected anomaly zone. Detector tier is metadata used for guidance/gating in downstream runtime handling.',
-    examples: ['panda_task_artifact:af_compass:red_smart_terrain_3_2_anomal_zone:elite:900:3:4'],
+    helpText: 'Use Zone Mode to choose how zone_name is exported: specific anomaly zone id, any, or level token (level:<code>) for runtime randomization.',
+    examples: [
+      'panda_task_artifact:af_compass:specific:red_smart_terrain_3_2_anomal_zone:elite:900:3:4',
+      'panda_task_artifact:af_compass:any:any:basic:900:3:4',
+      'panda_task_artifact:af_compass:random_level:level:gar:advanced:900:3:4',
+    ],
     params: [
       { name: 'artifact_section', type: 'item_section', required: true, label: 'Artifact Section', editor: ITEM_PICKER_PANEL_EDITOR },
-      { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name', editor: ANOMALY_ZONE_PICKER_PANEL_EDITOR },
+      { name: 'zone_mode', type: 'string', required: true, label: 'Zone Mode', placeholder: 'specific', editor: { kind: 'searchable_select', options: PANDA_ARTIFACT_ZONE_MODE_OPTIONS, emptyLabel: '-- Select zone mode --' } },
+      { name: 'zone_name', type: 'string', required: true, label: 'Zone Target', editor: PANDA_ARTIFACT_ZONE_TARGET_EDITOR,
+        helpText: 'specific => anomaly zone id, any => literal any, random_level => level:<code> token (example level:esc).' },
       { name: 'detector_tier', type: 'string', required: false, label: 'Detector Tier', placeholder: 'basic', editor: { kind: 'searchable_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
       { name: 'timeout', type: 'number', required: true, label: 'Timeout (s)', min: 30 },
       { name: 'success_turn', type: 'number', required: true, label: 'Success Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
