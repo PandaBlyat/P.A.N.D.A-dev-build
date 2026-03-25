@@ -1760,21 +1760,21 @@ label {
   cursor: grabbing;
 }
 
-.flow-canvas.use-custom-cursor,
-.flow-canvas.use-custom-cursor * {
+body.use-custom-cursor,
+body.use-custom-cursor * {
   cursor: none !important;
 }
 
 .flow-custom-cursor {
   --cursor-accent: var(--accent);
   --cursor-size: 16px;
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   width: var(--cursor-size);
   height: var(--cursor-size);
   pointer-events: none;
-  z-index: 8;
+  z-index: 12000;
   opacity: 0;
   transform: translate3d(-100px, -100px, 0);
   transition: opacity 100ms ease;
@@ -1793,10 +1793,17 @@ label {
 }
 
 .flow-custom-cursor-glyph {
-  background: var(--cursor-accent);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--cursor-accent) 40%, transparent);
-  clip-path: polygon(4% 2%, 98% 38%, 33% 50%, 46% 100%, 26% 100%, 14% 52%, 2% 64%);
-  transform: translate(-1px, -1px) rotate(-14deg);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--cursor-accent) 92%, white 8%) 0%,
+    color-mix(in srgb, var(--cursor-accent) 72%, black 28%) 100%
+  );
+  box-shadow:
+    0 0 16px color-mix(in srgb, var(--cursor-accent) 34%, transparent),
+    0 1px 0 color-mix(in srgb, white 35%, transparent) inset;
+  clip-path: polygon(7% 4%, 93% 41%, 52% 47%, 65% 94%, 47% 100%, 33% 56%, 7% 67%);
+  transform: translate(-1px, -1px) rotate(-11deg);
+  border-radius: 2px;
 }
 
 .flow-custom-cursor[data-shape='square'] .flow-custom-cursor-glyph {

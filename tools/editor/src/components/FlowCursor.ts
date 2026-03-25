@@ -129,7 +129,7 @@ function createCursorRenderer(canvas: HTMLElement, settings: CursorSettings): Cu
   ring.className = 'flow-custom-cursor-ring';
 
   root.append(glyph, ring);
-  canvas.appendChild(root);
+  document.body.appendChild(root);
 
   let currentState: CursorState = 'disabled';
 
@@ -239,11 +239,13 @@ class CursorInteractionAdapter {
   }
 
   private onPointerMove = (event: PointerEvent): void => {
+    if (event.pointerType !== 'mouse') return;
     this.pointerX = event.clientX;
     this.pointerY = event.clientY;
     this.insideCanvas = this.canvas.contains(event.target as Node);
     this.hoveringManipulationZone = this.detectManipulationZone(event.target as HTMLElement | null);
     this.inTextInput = this.detectTextInput(event.target as HTMLElement | null);
+    this.renderer.setVisible(true);
     this.queueRender();
     this.updateState();
   };
@@ -259,7 +261,6 @@ class CursorInteractionAdapter {
 
   private onPointerLeave = (): void => {
     this.insideCanvas = false;
-    this.renderer.setVisible(false);
     this.linking = false;
     this.dragging = false;
     this.panning = false;
@@ -345,11 +346,10 @@ class CursorInteractionAdapter {
   }
 
   private queueRender(): void {
-    if (!this.insideCanvas || this.rafId !== 0) return;
+    if (this.rafId !== 0) return;
     this.rafId = requestAnimationFrame(() => {
       this.rafId = 0;
-      const rect = this.canvas.getBoundingClientRect();
-      this.renderer.setPosition(this.pointerX - rect.left, this.pointerY - rect.top);
+      this.renderer.setPosition(this.pointerX, this.pointerY);
     });
   }
 
@@ -364,7 +364,7 @@ class CursorInteractionAdapter {
   }
 
   private detectTextInput(target: HTMLElement | null): boolean {
-    if (!target || !this.canvas.contains(target)) return false;
+    if (!target) return false;
     return Boolean(target.closest(TEXT_INPUT_SELECTOR));
   }
 
@@ -372,7 +372,7 @@ class CursorInteractionAdapter {
     const nextState: CursorState = !this.featureEnabled || this.shouldDisable
       ? 'disabled'
       : !this.insideCanvas
-      ? 'disabled'
+      ? 'defaultPointer'
       : this.inTextInput
       ? 'textInput'
       : this.linking
@@ -384,7 +384,7 @@ class CursorInteractionAdapter {
       : 'defaultPointer';
 
     const hideNative = nextState !== 'disabled' && nextState !== 'textInput';
-    this.canvas.classList.toggle('use-custom-cursor', hideNative);
+    document.body.classList.toggle('use-custom-cursor', hideNative);
     this.controller.setRequestedState(nextState);
   }
 }
@@ -419,7 +419,8 @@ export function createFlowCursorSystem(options: FlowCursorSystemOptions): FlowCu
     destroy() {
       interactions.destroy();
       renderer.destroy();
-      canvas.classList.remove('use-custom-cursor', 'custom-cursor-enabled');
+      canvas.classList.remove('custom-cursor-enabled');
+      document.body.classList.remove('use-custom-cursor');
     },
   };
 }
