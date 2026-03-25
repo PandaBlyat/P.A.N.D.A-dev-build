@@ -1584,9 +1584,10 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   // Job System
   {
     name: 'start_anomaly_scan_task',
-    label: 'Start Anomaly Scan Task',
-    description: 'Create/update an anomaly scan objective record.',
+    label: 'Start Anomaly Scan Task (Legacy)',
+    description: 'Legacy outcome kept for backward compatibility only.',
     category: 'Anomaly / Artifact',
+    pickerHidden: true,
     examples: ['start_anomaly_scan_task:scan_yan_01:labx18_2c_04_bioh_anomaly_spot:advanced:1800'],
     params: [
       { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: ANOMALY_TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
@@ -1597,9 +1598,10 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   },
   {
     name: 'start_artifact_retrieval_task',
-    label: 'Start Artifact Retrieval Task',
-    description: 'Create/update a tracked artifact retrieval objective.',
+    label: 'Start Artifact Retrieval Task (Legacy)',
+    description: 'Legacy outcome kept for backward compatibility only.',
     category: 'Anomaly / Artifact',
+    pickerHidden: true,
     examples: ['start_artifact_retrieval_task:af_fetch_01:af_compass:red_smart_terrain_3_2_anomal_zone:elite:3600'],
     params: [
       { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: ANOMALY_TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
@@ -1611,9 +1613,10 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   },
   {
     name: 'spawn_artifact_on_npc',
-    label: 'Spawn Artifact on NPC',
-    description: 'Give target NPC the configured artifact for interception routes.',
+    label: 'Spawn Artifact on NPC (Legacy)',
+    description: 'Legacy outcome kept for backward compatibility only.',
     category: 'Anomaly / Artifact',
+    pickerHidden: true,
     params: [
       { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: ANOMALY_TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
       { name: 'target_npc_id', type: 'number', required: false, label: 'Target NPC ID', placeholder: 'conversation npc' },
@@ -1622,9 +1625,10 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   },
   {
     name: 'spawn_artifact_in_zone',
-    label: 'Spawn Artifact in Zone',
-    description: 'Spawn an artifact at a tracked anomaly zone.',
+    label: 'Spawn Artifact in Zone (Legacy)',
+    description: 'Legacy outcome kept for backward compatibility only.',
     category: 'Anomaly / Artifact',
+    pickerHidden: true,
     params: [
       { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: ANOMALY_TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
       { name: 'artifact_section', type: 'item_section', required: true, label: 'Artifact Section', editor: ITEM_PICKER_PANEL_EDITOR },
@@ -1644,9 +1648,10 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   },
   {
     name: 'turn_in_artifact',
-    label: 'Turn In Artifact',
-    description: 'Validate and mark a tracked artifact turn-in.',
+    label: 'Turn In Artifact (Legacy)',
+    description: 'Legacy outcome kept for backward compatibility only.',
     category: 'Anomaly / Artifact',
+    pickerHidden: true,
     params: [
       { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: ANOMALY_TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
       { name: 'artifact_section', type: 'item_section', required: false, label: 'Artifact Section (override)', editor: ITEM_PICKER_PANEL_EDITOR },
@@ -1654,9 +1659,10 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   },
   {
     name: 'set_anomaly_target',
-    label: 'Set Anomaly Target',
-    description: 'Retarget an existing anomaly/artifact runtime record to a different zone.',
+    label: 'Set Anomaly Target (Legacy)',
+    description: 'Legacy outcome kept for backward compatibility only.',
     category: 'Anomaly / Artifact',
+    pickerHidden: true,
     params: [
       { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: ANOMALY_TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
       { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name', editor: ANOMALY_ZONE_PICKER_PANEL_EDITOR },
@@ -1664,9 +1670,10 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   },
   {
     name: 'fail_if_artifact_lost',
-    label: 'Fail if Artifact Lost',
-    description: 'Configure failure behavior when tracked artifact is lost before hand-in.',
+    label: 'Fail if Artifact Lost (Legacy)',
+    description: 'Legacy outcome kept for backward compatibility only.',
     category: 'Anomaly / Artifact',
+    pickerHidden: true,
     params: [
       { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: ANOMALY_TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
       { name: 'enabled', type: 'string', required: false, label: 'Enabled', placeholder: 'true' },
@@ -1967,16 +1974,16 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   {
     name: 'panda_task_artifact',
     label: 'Task: Artifact Hunt',
-    description: 'Player must retrieve an artifact from a target anomaly zone',
+    description: 'Marks a level anomaly on PDA and spawns an artifact there for retrieval',
     category: 'Tasks',
-    helpText: 'Use Zone Mode to choose how zone_name is exported: specific anomaly zone id, any, or level token (level:<code>) for runtime randomization.',
+    helpText: 'Preferred artifact/anomaly lane. Use random_level to pick a random currently available anomaly zone on that level. Leave Artifact Section empty (or set random/any) for vanilla-style random artifact spawns, or choose a section to force a specific artifact.',
     examples: [
+      'panda_task_artifact:random:random_level:level:gar:basic:900:3:4',
       'panda_task_artifact:af_compass:specific:red_smart_terrain_3_2_anomal_zone:elite:900:3:4',
-      'panda_task_artifact:af_compass:any:any:basic:900:3:4',
       'panda_task_artifact:af_compass:random_level:level:gar:advanced:900:3:4',
     ],
     params: [
-      { name: 'artifact_section', type: 'item_section', required: true, label: 'Artifact Section', editor: ITEM_PICKER_PANEL_EDITOR },
+      { name: 'artifact_section', type: 'item_section', required: false, label: 'Artifact Section', placeholder: 'random', editor: ITEM_PICKER_PANEL_EDITOR, helpText: 'Optional. Empty/random/any uses vanilla random anomaly artifact generation.' },
       { name: 'zone_mode', type: 'string', required: true, label: 'Zone Mode', placeholder: 'specific', editor: { kind: 'searchable_select', options: PANDA_ARTIFACT_ZONE_MODE_OPTIONS, emptyLabel: '-- Select zone mode --' } },
       { name: 'zone_name', type: 'string', required: true, label: 'Zone Target', editor: PANDA_ARTIFACT_ZONE_TARGET_EDITOR,
         helpText: 'specific => anomaly zone id, any => literal any, random_level => level:<code> token (example level:esc).' },

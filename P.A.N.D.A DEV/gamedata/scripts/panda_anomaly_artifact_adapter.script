@@ -20,6 +20,57 @@ local function log(fmt, ...)
     printf("PANDA_AA: " .. tostring(fmt), ...)
 end
 
+local function ensure_parent_zone_tracking(artifact_obj, zone)
+    if not artifact_obj or not zone then
+        return
+    end
+
+    local artifact_id = artifact_obj.id
+    if not artifact_id then
+        return
+    end
+
+    local path_name = nil
+    local path_point = nil
+    if zone.get_artefact_path then
+        local ok, generated = pcall(function()
+            return zone:get_artefact_path()
+        end)
+        if ok then
+            path_name = generated
+        end
+    end
+
+    if path_name and patrol then
+        local ok, path = pcall(function()
+            return patrol(path_name)
+        end)
+        if ok and path and path.count and path:count() > 0 then
+            path_point = math.random(0, path:count() - 1)
+        end
+    end
+
+    if artefact_ways_by_id and path_name then
+        artefact_ways_by_id[artifact_id] = path_name
+    end
+    if artefact_points_by_id and path_point then
+        artefact_points_by_id[artifact_id] = path_point
+    end
+    if parent_zones_by_artefact_id then
+        parent_zones_by_artefact_id[artifact_id] = zone
+    end
+
+    if zone.artefact_ways_by_id and path_name then
+        zone.artefact_ways_by_id[artifact_id] = path_name
+    end
+    if zone.artefact_points_by_id and path_point then
+        zone.artefact_points_by_id[artifact_id] = path_point
+    end
+    if zone.spawned_count then
+        zone.spawned_count = zone.spawned_count + 1
+    end
+end
+
 local function now_ts()
     if time_global then
         return time_global()
@@ -139,10 +190,6 @@ function M.start_scan_task(task_id, zone_name, detector_tier, expire_seconds, se
 end
 
 function M.start_artifact_task(task_id, artifact_section, zone_name, detector_tier, expire_seconds, sender_npc_id)
-    if not artifact_section or artifact_section == "" then
-        return false, "missing artifact section"
-    end
-
     local expire_at = nil
     if tonumber(expire_seconds) and tonumber(expire_seconds) > 0 then
         expire_at = now_ts() + tonumber(expire_seconds) * 1000
@@ -151,7 +198,7 @@ function M.start_artifact_task(task_id, artifact_section, zone_name, detector_ti
     local rec = M.upsert_record(task_id, {
         giver_id = sender_npc_id,
         zone_name = zone_name,
-        artifact_section = artifact_section,
+        artifact_section = (artifact_section and artifact_section ~= "") and artifact_section or nil,
         detector_requirement = detector_tier or "basic",
         stage = "artifact_started",
         expire_at = expire_at,
@@ -162,7 +209,7 @@ function M.start_artifact_task(task_id, artifact_section, zone_name, detector_ti
         return false, "failed to allocate record"
     end
 
-    log("artifact task started: %s artifact=%s zone=%s", tostring(task_id), tostring(artifact_section), tostring(zone_name))
+    log("artifact task started: %s artifact=%s zone=%s", tostring(task_id), tostring(artifact_section or "random"), tostring(zone_name))
     return true
 end
 
@@ -191,7 +238,6 @@ end
 function M.spawn_artifact_in_zone(task_id, artifact_section, zone_name)
     local rec = M.get_record(task_id)
     if not rec then return false, "task not found" end
-    if not artifact_section or artifact_section == "" then return false, "missing artifact section" end
     if not zone_name or zone_name == "" then return false, "missing zone name" end
 
     local zone = db and db.anomaly_by_name and db.anomaly_by_name[zone_name]
@@ -199,15 +245,56 @@ function M.spawn_artifact_in_zone(task_id, artifact_section, zone_name)
         return false, "zone not found"
     end
 
-    local obj = alife_create_item(artifact_section, zone)
+    local requested = tostring(artifact_section or ""):lower()
+    local wants_random = requested == "" or requested == "any" or requested == "random" or requested == "vanilla"
+    local obj = nil
+    local spawned_section = artifact_section
+
+    if wants_random and zone.spawn_artefact_randomly then
+        local existing = {}
+        for artifact_id in pairs(zone.artefact_ways_by_id or {}) do
+            existing[artifact_id] = true
+        end
+        zone:spawn_artefact_randomly()
+        for artifact_id in pairs(zone.artefact_ways_by_id or {}) do
+            if not existing[artifact_id] then
+                obj = alife_object(artifact_id)
+                spawned_section = obj and obj.section and obj:section() or spawned_section
+                break
+            end
+        end
+    else
+        if not artifact_section or artifact_section == "" then
+            return false, "missing artifact section"
+        end
+        local patrol_name = zone.get_artefact_path and zone:get_artefact_path() or nil
+        if patrol_name and patrol then
+            local path = patrol(patrol_name)
+            if path and path:count() > 0 then
+                local point_id = math.random(0, path:count() - 1)
+                local pos = path:point(point_id)
+                pos.y = pos.y + 1
+                obj = alife_create_item(artifact_section, { pos, zone.object:level_vertex_id(), zone.object:game_vertex_id() })
+            end
+        end
+        if not obj then
+            obj = alife_create_item(artifact_section, zone)
+        end
+        ensure_parent_zone_tracking(obj, zone)
+    end
+
+    if not obj then
+        return false, "spawn failed"
+    end
+
     rec.zone_name = zone_name
-    rec.artifact_section = artifact_section
+    rec.artifact_section = spawned_section
     rec.artifact_object_id = obj and obj.id or rec.artifact_object_id
     rec.last_known_owner_kind = "world"
     rec.stage = "artifact_spawned"
 
-    log("spawned artifact %s in zone %s", tostring(artifact_section), tostring(zone_name))
-    return true
+    log("spawned artifact %s in zone %s", tostring(spawned_section), tostring(zone_name))
+    return true, nil, spawned_section, rec.artifact_object_id
 end
 
 function M.require_detector_tier(tier)
@@ -309,4 +396,3 @@ function M.load_state(m)
     end
     M.ensure_state()
 end
-

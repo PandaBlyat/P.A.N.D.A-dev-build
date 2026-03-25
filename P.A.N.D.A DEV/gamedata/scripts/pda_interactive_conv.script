@@ -157,15 +157,23 @@ local function resolve_artifact_zone_target(zone_name)
     end
 
     local pool = ARTIFACT_ZONE_LEVEL_POOLS[token_level]
-    if not pool or #pool == 0 then
-        return nil, string.format("no curated zones for level token '%s'", token_level)
+    local anomaly_by_name = db and db.anomaly_by_name or nil
+    local eligible = {}
+
+    if anomaly_by_name then
+        local level_prefix = token_level .. "_"
+        for anomaly_name, anomaly_obj in pairs(anomaly_by_name) do
+            if anomaly_obj and string.find(anomaly_name, "^" .. level_prefix) and string.find(anomaly_name, "anomal_zone") then
+                table.insert(eligible, anomaly_name)
+            end
+        end
     end
 
-    local eligible = {}
-    local anomaly_by_name = db and db.anomaly_by_name or nil
-    for _, zone_id in ipairs(pool) do
-        if anomaly_by_name and anomaly_by_name[zone_id] then
-            table.insert(eligible, zone_id)
+    if #eligible == 0 and pool and #pool > 0 then
+        for _, zone_id in ipairs(pool) do
+            if anomaly_by_name and anomaly_by_name[zone_id] then
+                table.insert(eligible, zone_id)
+            end
         end
     end
 
@@ -740,6 +748,54 @@ local function register_location_reference(location_ref, sender_npc_name, sender
     )
 
     return entry
+end
+
+local function register_anomaly_zone_reference(zone_name, sender_npc_name, sender_npc_id, sender_contact_id)
+    if not zone_name or zone_name == "" then
+        return nil
+    end
+
+    local zone = db and db.anomaly_by_name and db.anomaly_by_name[zone_name]
+    if not zone or not zone.object or not zone.object.id then
+        return nil
+    end
+
+    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
+    local spot_id = zone.object:id()
+    local spot_type = "primary_object"
+    local marker_hint = utils_data.parse_string_keys(
+        game.translate_string("st_pda_ic_location_marker_hint"),
+        {
+            ["location"] = zone_name,
+            ["name"] = sender_npc_name or "Unknown",
+        }
+    )
+
+    if level.map_has_object_spot(spot_id, spot_type) == 0 then
+        level.map_add_object_spot_ser(spot_id, spot_type, marker_hint)
+    end
+
+    pda_private_add_message(
+        contact_id,
+        sender_npc_name,
+        sender_npc_name or game.translate_string("st_pda_ic_outcome_sender"),
+        "Map Coordinates:",
+        sender_icon,
+        false,
+        "delivered",
+        nil,
+        nil,
+        {
+            msg_type = "map_attachment",
+            map_spot_id = spot_id,
+            map_spot_type = spot_type,
+            location_name = zone_name,
+            skip_personality = true,
+        }
+    )
+
+    return spot_id
 end
 
 function check_location_references()
@@ -4505,7 +4561,7 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                 f_turn = tonumber(parts[7])
             end
 
-            if not artifact_sec or not s_turn then
+            if not s_turn then
                 printf("PANDA_IC: panda_task_artifact missing params in '%s'", tostring(cmd_str))
             else
                 local adapter = get_anomaly_artifact_adapter()
@@ -4520,16 +4576,24 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                     end
                 end
 
+                local spawned_artifact_section = artifact_sec
                 if adapter and resolved_zone then
-                    local spawn_ok, spawn_err = adapter.spawn_artifact_in_zone(
+                    local spawn_ok, spawn_err, spawned_section = adapter.spawn_artifact_in_zone(
                         task_runtime_id, artifact_sec, resolved_zone
                     )
                     if not spawn_ok then
                         printf("PANDA_IC: panda_task_artifact zone spawn failed (%s), player must find naturally", tostring(spawn_err))
                         resolved_zone = nil
+                    elseif spawned_section and spawned_section ~= "" then
+                        spawned_artifact_section = spawned_section
                     end
                 elseif zone_name and zone_name ~= "" and zone_name ~= "any" and not resolved_zone then
                     printf("PANDA_IC: panda_task_artifact no resolved zone, player must find naturally")
+                end
+
+                if not spawned_artifact_section or spawned_artifact_section == "" then
+                    printf("PANDA_IC: panda_task_artifact requires explicit artifact_section when zone spawn is unavailable")
+                    return
                 end
 
                 -- Create adapter record for auxiliary tracking
@@ -4540,6 +4604,9 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                         detector_tier_meta, timeout, sender_npc_id
                     )
                 end
+                if resolved_zone then
+                    register_anomaly_zone_reference(resolved_zone, sender_npc_name, sender_npc_id, sender_contact_id)
+                end
                 -- Notify player
                 local msg = game.translate_string("st_pda_ic_task_artifact_start")
                 pda_private_add_message(sender_contact_id, sender_npc_name, sender_npc_name, msg,
@@ -4548,7 +4615,7 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
                 create_pending_job(sender_contact_id, sender_npc_id, sender_npc_name, sender_faction,
                     {}, timeout, s_turn, f_turn, conv_data, {
                         job_type = "artifact",
-                        task_item = artifact_sec,
+                        task_item = spawned_artifact_section,
                         task_runtime_id = task_runtime_id,
                         task_zone = resolved_zone or zone_name,
                         task_zone_mode = zone_mode,
