@@ -32,6 +32,7 @@ type CursorRenderer = {
 };
 
 const TEXT_INPUT_SELECTOR = 'input, textarea, select, [contenteditable="true"], [contenteditable=""], .turn-label-input';
+const POINTER_TRACKING_NAMESPACE = '__pandaFlowCursorPointerTracker';
 
 const SHAPE_BY_STATE: Record<CursorState, 'triangle' | 'circle' | 'hidden'> = {
   defaultPointer: 'triangle',
@@ -41,6 +42,40 @@ const SHAPE_BY_STATE: Record<CursorState, 'triangle' | 'circle' | 'hidden'> = {
   textInput: 'triangle',
   disabled: 'hidden',
 };
+
+type SharedPointerTracker = {
+  lastPosition: { x: number; y: number } | null;
+  dispose: () => void;
+};
+
+function getSharedPointerTracker(): SharedPointerTracker {
+  const globalWindow = window as typeof window & { [POINTER_TRACKING_NAMESPACE]?: SharedPointerTracker };
+  const existing = globalWindow[POINTER_TRACKING_NAMESPACE];
+  if (existing) return existing;
+
+  let lastPosition: { x: number; y: number } | null = null;
+  const updatePointer = (event: PointerEvent) => {
+    if (event.pointerType !== 'mouse') return;
+    lastPosition = { x: event.clientX, y: event.clientY };
+  };
+
+  document.addEventListener('pointermove', updatePointer, { passive: true });
+  document.addEventListener('pointerdown', updatePointer, { passive: true });
+
+  const tracker: SharedPointerTracker = {
+    get lastPosition() {
+      return lastPosition;
+    },
+    dispose() {
+      document.removeEventListener('pointermove', updatePointer);
+      document.removeEventListener('pointerdown', updatePointer);
+      delete globalWindow[POINTER_TRACKING_NAMESPACE];
+    },
+  };
+
+  globalWindow[POINTER_TRACKING_NAMESPACE] = tracker;
+  return tracker;
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
@@ -119,6 +154,7 @@ class CursorThemeAdapter {
 }
 
 function createCursorRenderer(canvas: HTMLElement, settings: CursorSettings): CursorRenderer {
+  const pointerTracker = getSharedPointerTracker();
   const root = document.createElement('div');
   root.className = 'flow-custom-cursor';
 
@@ -139,6 +175,10 @@ function createCursorRenderer(canvas: HTMLElement, settings: CursorSettings): Cu
   };
 
   setShape('disabled');
+  const lastPointer = pointerTracker.lastPosition;
+  if (lastPointer) {
+    root.style.transform = `translate3d(${lastPointer.x}px, ${lastPointer.y}px, 0)`;
+  }
 
   return {
     setVisible(visible) {
@@ -216,12 +256,20 @@ class CursorInteractionAdapter {
   private inTextInput = false;
   private shouldDisable = false;
   private featureEnabled = true;
+  private pointerTracker: SharedPointerTracker;
 
   constructor(
     private readonly canvas: HTMLElement,
     private readonly renderer: CursorRenderer,
     private readonly controller: CursorController,
   ) {
+    this.pointerTracker = getSharedPointerTracker();
+    const lastPointer = this.pointerTracker.lastPosition;
+    if (lastPointer) {
+      this.pointerX = lastPointer.x;
+      this.pointerY = lastPointer.y;
+      this.queueRender();
+    }
     this.bind();
   }
 
@@ -399,6 +447,9 @@ class CursorInteractionAdapter {
     const hideNative = nextState !== 'disabled';
     document.body.classList.toggle('use-custom-cursor', hideNative);
     this.renderer.setVisible(hideNative);
+    if (hideNative) {
+      this.renderer.setPosition(this.pointerX, this.pointerY);
+    }
     this.controller.setRequestedState(nextState);
   }
 }
