@@ -3439,6 +3439,18 @@ body.use-custom-cursor * {
   min-height: 100%;
 }
 
+.item-picker-list-content-static {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 8px;
+}
+
+.item-picker-option-static {
+  position: static;
+}
+
+
 .item-picker-option {
   position: absolute;
   left: 0;

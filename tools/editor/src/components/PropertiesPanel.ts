@@ -1396,6 +1396,20 @@ function createOptionPickerPanelEditor(
   const summary = document.createElement('div');
   summary.className = 'command-description';
 
+  const readFacet = (option: ParamOption, index: number, fallback: string): string => {
+    const facet = option.keywords?.[index]?.trim();
+    return facet ? facet : fallback;
+  };
+
+  const storyNpcMeta = config.options.map((option) => ({
+    option,
+    faction: readFacet(option, 1, 'Unknown faction'),
+    role: readFacet(option, 3, 'Other role'),
+  }));
+
+  const factions = Array.from(new Set(storyNpcMeta.map((entry) => entry.faction))).sort((a, b) => a.localeCompare(b));
+  const roles = Array.from(new Set(storyNpcMeta.map((entry) => entry.role))).sort((a, b) => a.localeCompare(b));
+
   const syncUi = (value: string): void => {
     rawInput.value = value;
     const selected = config.options.find((option) => option.value === value);
@@ -1472,32 +1486,51 @@ function createOptionPickerPanelEditor(
     searchWrap.append(searchIcon, searchInput);
     panel.appendChild(searchWrap);
 
+    const factionChipBar = document.createElement('div');
+    factionChipBar.className = 'item-picker-chip-bar';
+
+    const roleChipBar = document.createElement('div');
+    roleChipBar.className = 'item-picker-chip-bar item-picker-subchip-bar';
+
+    panel.append(factionChipBar, roleChipBar);
+
     const list = document.createElement('div');
     list.className = 'item-picker-list';
+
+    const listContent = document.createElement('div');
+    listContent.className = 'item-picker-list-content item-picker-list-content-static';
+
+    const empty = document.createElement('div');
+    empty.className = 'item-picker-empty';
+    empty.textContent = 'No story NPCs match this search.';
+    empty.hidden = true;
+
+    list.append(listContent, empty);
     panel.appendChild(list);
+
+    let activeFaction = '';
+    let activeRole = '';
+    const factionButtons = new Map<string, HTMLButtonElement>();
+    const roleButtons = new Map<string, HTMLButtonElement>();
 
     const renderList = (): void => {
       const query = searchInput.value.trim().toLowerCase();
-      list.innerHTML = '';
 
-      const matches = config.options.filter((option) => {
+      const matches = storyNpcMeta.filter(({ option, faction, role }) => {
+        if (activeFaction && faction !== activeFaction) return false;
+        if (activeRole && role !== activeRole) return false;
         if (!query) return true;
         const haystack = [option.label, option.value, ...(option.keywords ?? [])].join(' ').toLowerCase();
         return haystack.includes(query);
       });
 
-      if (matches.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'item-picker-empty';
-        empty.textContent = 'No story NPCs match this search.';
-        list.appendChild(empty);
-        return;
-      }
+      listContent.innerHTML = '';
+      empty.hidden = matches.length !== 0;
 
-      for (const option of matches) {
+      for (const { option } of matches) {
         const row = document.createElement('button');
         row.type = 'button';
-        row.className = 'item-picker-option';
+        row.className = 'item-picker-option item-picker-option-static';
         if (option.value === rawInput.value) row.classList.add('is-selected');
         row.innerHTML = `<span class="item-picker-option-title">${option.label}</span><span class="item-picker-option-meta">${option.value}</span>`;
         row.onclick = () => {
@@ -1505,9 +1538,60 @@ function createOptionPickerPanelEditor(
           syncUi(option.value);
           onChange(option.value);
         };
-        list.appendChild(row);
+        listContent.appendChild(row);
+      }
+
+      for (const [value, button] of factionButtons) {
+        const count = storyNpcMeta.filter((entry) => (value ? entry.faction === value : true) && (!activeRole || entry.role === activeRole)).length;
+        button.classList.toggle('is-active', value === activeFaction);
+        const countEl = button.querySelector('.item-picker-chip-count');
+        if (countEl) countEl.textContent = String(count);
+      }
+
+      for (const [value, button] of roleButtons) {
+        const count = storyNpcMeta.filter((entry) => (value ? entry.role === value : true) && (!activeFaction || entry.faction === activeFaction)).length;
+        button.classList.toggle('is-active', value === activeRole);
+        const countEl = button.querySelector('.item-picker-chip-count');
+        if (countEl) countEl.textContent = String(count);
       }
     };
+
+    const addChip = (
+      parent: HTMLElement,
+      label: string,
+      value: string,
+      onClick: (nextValue: string) => void,
+      store: Map<string, HTMLButtonElement>,
+    ): void => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'item-picker-chip';
+      chip.innerHTML = `${label} <span class="item-picker-chip-count"></span>`;
+      chip.onclick = () => {
+        onClick(value);
+        renderList();
+      };
+      store.set(value, chip);
+      parent.appendChild(chip);
+    };
+
+    addChip(factionChipBar, 'All factions', '', (nextValue) => {
+      activeFaction = nextValue;
+    }, factionButtons);
+    for (const faction of factions) {
+      addChip(factionChipBar, faction, faction, (nextValue) => {
+        activeFaction = nextValue;
+      }, factionButtons);
+    }
+
+    addChip(roleChipBar, 'All roles', '', (nextValue) => {
+      activeRole = nextValue;
+    }, roleButtons);
+    for (const role of roles) {
+      addChip(roleChipBar, role, role, (nextValue) => {
+        activeRole = nextValue;
+      }, roleButtons);
+    }
 
     let isClosed = false;
     const cleanup = (): void => {
