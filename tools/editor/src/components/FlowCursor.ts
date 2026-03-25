@@ -33,11 +33,11 @@ type CursorRenderer = {
 
 const TEXT_INPUT_SELECTOR = 'input, textarea, select, [contenteditable="true"], [contenteditable=""], .turn-label-input';
 
-const SHAPE_BY_STATE: Record<CursorState, 'triangle' | 'square' | 'hidden'> = {
+const SHAPE_BY_STATE: Record<CursorState, 'triangle' | 'circle' | 'hidden'> = {
   defaultPointer: 'triangle',
-  workspaceGrab: 'square',
-  dragging: 'square',
-  linking: 'square',
+  workspaceGrab: 'circle',
+  dragging: 'circle',
+  linking: 'circle',
   textInput: 'triangle',
   disabled: 'hidden',
 };

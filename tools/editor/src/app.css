@@ -1774,7 +1774,7 @@ body.use-custom-cursor * {
   width: var(--cursor-size);
   height: var(--cursor-size);
   pointer-events: none;
-  z-index: 12000;
+  z-index: 2147483647;
   opacity: 0;
   transform: translate3d(-100px, -100px, 0);
   transition: opacity 100ms ease;
@@ -1801,13 +1801,13 @@ body.use-custom-cursor * {
   box-shadow:
     0 0 16px color-mix(in srgb, var(--cursor-accent) 34%, transparent),
     0 1px 0 color-mix(in srgb, white 35%, transparent) inset;
-  clip-path: polygon(8% 8%, 92% 8%, 8% 92%);
+  clip-path: polygon(9% 6%, 91% 55%, 46% 55%, 10% 93%);
   transform: translate(-1px, -1px) rotate(0deg);
-  border-radius: 1px;
+  border-radius: 4px;
 }
 
-.flow-custom-cursor[data-shape='square'] .flow-custom-cursor-glyph {
-  clip-path: inset(10% round 3px);
+.flow-custom-cursor[data-shape='circle'] .flow-custom-cursor-glyph {
+  clip-path: inset(9% round 999px);
   transform: translate(0, 0) rotate(0deg);
 }
 
@@ -1867,11 +1867,11 @@ body.use-custom-cursor * {
   }
 }
 
-.flow-custom-cursor[data-shape='square'].is-clicking .flow-custom-cursor-glyph {
-  animation-name: flow-cursor-glyph-pop-square;
+.flow-custom-cursor[data-shape='circle'].is-clicking .flow-custom-cursor-glyph {
+  animation-name: flow-cursor-glyph-pop-circle;
 }
 
-@keyframes flow-cursor-glyph-pop-square {
+@keyframes flow-cursor-glyph-pop-circle {
   0% {
     transform: translate(0, 0) rotate(0deg) scale(1);
     filter: brightness(1);
