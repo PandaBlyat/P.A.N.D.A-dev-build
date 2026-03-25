@@ -353,6 +353,7 @@ function isSelectionOnlyChange(change: StateChange): boolean {
     && !change.systemStringsChanged
     && !change.validationChanged
     && change.targets.includes('flowEditor')
+    && change.targets.includes('propertiesPanel')
     && !change.targets.includes('appShell');
 }
 
