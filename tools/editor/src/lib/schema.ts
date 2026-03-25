@@ -10,6 +10,7 @@ import {
 } from './constants';
 import { FACTION_DISPLAY_NAMES } from './types';
 import { ALL_SQUAD_OPTIONS, MUTANT_SQUAD_OPTIONS, NPC_SQUAD_OPTIONS } from './generated/squad-catalog';
+import { ANOMALY_ZONE_ID_OPTIONS } from './generated/anomaly-zone-catalog';
 
 export interface CommandSchema {
   name: string;
@@ -142,6 +143,14 @@ const DETECTOR_TIER_OPTIONS: ParamOption[] = [
   { value: 'elite', label: 'Elite', keywords: ['elite'] },
   { value: 'scientific', label: 'Scientific', keywords: ['scientific', 'svarog'] },
 ];
+
+const ANOMALY_TASK_ID_OPTIONS: ParamOption[] = ANOMALY_ZONE_ID_OPTIONS
+  .filter((option) => option.value.includes('anomal_zone'))
+  .map((option) => ({
+    value: option.value,
+    label: `${option.value} — Suggested runtime task id`,
+    keywords: [...(option.keywords ?? []), 'task_id', 'runtime'],
+  }));
 
 const SMART_TERRAIN_EDITOR: ParamEditor = {
   kind: 'smart_terrain_picker',
@@ -1488,8 +1497,8 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     category: 'Anomaly / Artifact',
     examples: ['start_anomaly_scan_task:scan_yan_01:labx18_2c_04_bioh_anomaly_spot:advanced:1800'],
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID' },
-      { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name' },
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: { kind: 'searchable_select', options: ANOMALY_TASK_ID_OPTIONS, emptyLabel: '-- Type custom id or pick vanilla pattern --' }, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
+      { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name', editor: { kind: 'searchable_select', options: ANOMALY_ZONE_ID_OPTIONS, emptyLabel: '-- Select anomaly zone id --' } },
       { name: 'detector_tier', type: 'string', required: false, label: 'Detector Tier', placeholder: 'basic', editor: { kind: 'searchable_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
       { name: 'expire_seconds', type: 'number', required: false, label: 'Expire After (s)', placeholder: '0', min: 0 },
     ],
@@ -1501,9 +1510,9 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     category: 'Anomaly / Artifact',
     examples: ['start_artifact_retrieval_task:af_fetch_01:af_compass:red_smart_terrain_3_2_anomal_zone:elite:3600'],
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID' },
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: { kind: 'searchable_select', options: ANOMALY_TASK_ID_OPTIONS, emptyLabel: '-- Type custom id or pick vanilla pattern --' }, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
       { name: 'artifact_section', type: 'item_section', required: true, label: 'Artifact Section', editor: ITEM_PICKER_PANEL_EDITOR },
-      { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name' },
+      { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name', editor: { kind: 'searchable_select', options: ANOMALY_ZONE_ID_OPTIONS, emptyLabel: '-- Select anomaly zone id --' } },
       { name: 'detector_tier', type: 'string', required: false, label: 'Detector Tier', placeholder: 'basic', editor: { kind: 'searchable_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
       { name: 'expire_seconds', type: 'number', required: false, label: 'Expire After (s)', placeholder: '0', min: 0 },
     ],
@@ -1514,7 +1523,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Give target NPC the configured artifact for interception routes.',
     category: 'Anomaly / Artifact',
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID' },
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: { kind: 'searchable_select', options: ANOMALY_TASK_ID_OPTIONS, emptyLabel: '-- Type custom id or pick vanilla pattern --' }, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
       { name: 'target_npc_id', type: 'number', required: false, label: 'Target NPC ID', placeholder: 'conversation npc' },
       { name: 'artifact_section', type: 'item_section', required: true, label: 'Artifact Section', editor: ITEM_PICKER_PANEL_EDITOR },
     ],
@@ -1525,9 +1534,9 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Spawn an artifact at a tracked anomaly zone.',
     category: 'Anomaly / Artifact',
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID' },
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: { kind: 'searchable_select', options: ANOMALY_TASK_ID_OPTIONS, emptyLabel: '-- Type custom id or pick vanilla pattern --' }, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
       { name: 'artifact_section', type: 'item_section', required: true, label: 'Artifact Section', editor: ITEM_PICKER_PANEL_EDITOR },
-      { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name' },
+      { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name', editor: { kind: 'searchable_select', options: ANOMALY_ZONE_ID_OPTIONS, emptyLabel: '-- Select anomaly zone id --' } },
     ],
   },
   {
@@ -1545,7 +1554,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Validate and mark a tracked artifact turn-in.',
     category: 'Anomaly / Artifact',
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID' },
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: { kind: 'searchable_select', options: ANOMALY_TASK_ID_OPTIONS, emptyLabel: '-- Type custom id or pick vanilla pattern --' }, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
       { name: 'artifact_section', type: 'item_section', required: false, label: 'Artifact Section (override)', editor: ITEM_PICKER_PANEL_EDITOR },
     ],
   },
@@ -1555,8 +1564,8 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Retarget an existing anomaly/artifact runtime record to a different zone.',
     category: 'Anomaly / Artifact',
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID' },
-      { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name' },
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: { kind: 'searchable_select', options: ANOMALY_TASK_ID_OPTIONS, emptyLabel: '-- Type custom id or pick vanilla pattern --' }, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
+      { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name', editor: { kind: 'searchable_select', options: ANOMALY_ZONE_ID_OPTIONS, emptyLabel: '-- Select anomaly zone id --' } },
     ],
   },
   {
@@ -1565,7 +1574,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Configure failure behavior when tracked artifact is lost before hand-in.',
     category: 'Anomaly / Artifact',
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID' },
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: { kind: 'searchable_select', options: ANOMALY_TASK_ID_OPTIONS, emptyLabel: '-- Type custom id or pick vanilla pattern --' }, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
       { name: 'enabled', type: 'string', required: false, label: 'Enabled', placeholder: 'true' },
     ],
   },
