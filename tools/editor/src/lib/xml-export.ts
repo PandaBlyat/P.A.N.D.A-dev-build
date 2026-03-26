@@ -200,6 +200,9 @@ export function createTurn(turnNumber: number): Turn {
   return {
     turnNumber,
     openingMessage: turnNumber === 1 ? '' : undefined,
+    channel: 'both',
+    pda_entry: turnNumber === 1,
+    f2f_entry: false,
     choices: [createChoice(1)],
     position: getDefaultFlowTurnPosition(turnNumber),
   };
@@ -210,7 +213,10 @@ export function createChoice(index: number): Choice {
   return {
     index,
     text: '',
+    channel: 'pda',
     reply: '',
     outcomes: [],
+    continue_channel: 'pda',
+    allow_generic_stalker: false,
   };
 }

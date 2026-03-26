@@ -619,10 +619,16 @@ class StateManager {
   ): Choice {
     const choice = createChoice(index);
     choice.text = sourceChoice.text;
+    choice.channel = sourceChoice.channel ?? 'pda';
     choice.reply = sourceChoice.reply;
     if (sourceChoice.replyRelHigh != null) choice.replyRelHigh = sourceChoice.replyRelHigh;
     if (sourceChoice.replyRelLow != null) choice.replyRelLow = sourceChoice.replyRelLow;
     choice.outcomes = this.cloneOutcomeList(sourceChoice.outcomes);
+    choice.continue_channel = sourceChoice.continue_channel ?? 'pda';
+    choice.story_npc_id = sourceChoice.story_npc_id;
+    choice.npc_faction_filters = sourceChoice.npc_faction_filters ? [...sourceChoice.npc_faction_filters] : undefined;
+    choice.npc_profile_filters = sourceChoice.npc_profile_filters ? [...sourceChoice.npc_profile_filters] : undefined;
+    choice.allow_generic_stalker = sourceChoice.allow_generic_stalker ?? false;
 
     const continueTo = this.remapContinuationTarget(sourceChoice.continueTo, options);
     if (continueTo != null) choice.continueTo = continueTo;
@@ -640,6 +646,9 @@ class StateManager {
   ): Turn {
     const turn = createTurn(turnNumber);
     turn.openingMessage = sourceTurn.openingMessage;
+    turn.channel = sourceTurn.channel ?? 'both';
+    turn.pda_entry = sourceTurn.pda_entry ?? turnNumber === 1;
+    turn.f2f_entry = sourceTurn.f2f_entry ?? false;
     turn.customLabel = sourceTurn.customLabel;
     turn.color = sourceTurn.color;
     turn.choices = sourceTurn.choices.map((choice, index) => this.cloneChoiceFromSource(choice, index + 1, options));
@@ -652,6 +661,20 @@ class StateManager {
       conversations: project.conversations.map((conversation) => ({
         ...conversation,
         faction: getConversationFaction(conversation, project.faction),
+        turns: conversation.turns.map((turn, turnIndex) => ({
+          ...turn,
+          channel: turn.channel ?? 'both',
+          pda_entry: turn.pda_entry ?? turn.turnNumber === 1,
+          f2f_entry: turn.f2f_entry ?? false,
+          position: turn.position ?? getDefaultFlowTurnPosition(turnIndex + 1),
+          choices: turn.choices.map((choice, choiceIndex) => ({
+            ...choice,
+            index: choice.index ?? choiceIndex + 1,
+            channel: choice.channel ?? 'pda',
+            continue_channel: choice.continue_channel ?? 'pda',
+            allow_generic_stalker: choice.allow_generic_stalker ?? false,
+          })),
+        })),
       })),
     };
     this.state.systemStrings = systemStrings;

@@ -11,6 +11,8 @@ export type FactionId =
   | 'killer' | 'army' | 'bandit' | 'monolith' | 'zombied'
   | 'isg' | 'renegade' | 'greh';
 
+export type ConversationChannel = 'pda' | 'f2f' | 'both';
+
 export interface Conversation {
   id: number;
   label: string;
@@ -62,6 +64,9 @@ export interface InvalidPrecondition {
 export interface Turn {
   turnNumber: number;
   openingMessage?: string;
+  channel?: ConversationChannel;
+  pda_entry?: boolean;
+  f2f_entry?: boolean;
   choices: Choice[];
   position: { x: number; y: number };
   /** Optional custom display name for this branch node. */
@@ -73,11 +78,17 @@ export interface Turn {
 export interface Choice {
   index: number;
   text: string;
+  channel?: ConversationChannel;
   reply: string;
   replyRelHigh?: string;
   replyRelLow?: string;
   outcomes: Outcome[];
   continueTo?: number;
+  continue_channel?: ConversationChannel;
+  story_npc_id?: string;
+  npc_faction_filters?: FactionId[];
+  npc_profile_filters?: string[];
+  allow_generic_stalker?: boolean;
 }
 
 export interface Outcome {
