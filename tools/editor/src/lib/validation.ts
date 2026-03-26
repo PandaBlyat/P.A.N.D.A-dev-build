@@ -80,7 +80,7 @@ const PRECONDITION_RANGE_PAIRS: Array<{ minCommand: string; maxCommand: string; 
 ] as const;
 
 type ConversationField = 'label' | 'timeout' | 'timeout-message' | 'preconditions';
-type TurnField = 'opening-message';
+type TurnField = 'opening-message' | 'channel' | 'pda-entry' | 'f2f-entry';
 type ChoiceField =
   | 'text'
   | 'reply'

@@ -8,7 +8,7 @@ import { FACTION_COLORS } from '../lib/faction-colors';
 import { estimateFlowNodeHeight, FLOW_WORKSPACE_MIN_HEIGHT, FLOW_WORKSPACE_MIN_WIDTH, getFlowNodeLayout } from '../lib/flow-layout';
 import { createIcon } from './icons';
 import { createFlowCursorSystem, type FlowCursorSystem } from './FlowCursor';
-import type { Choice, Conversation, Turn } from '../lib/types';
+import type { Choice, Conversation, ConversationChannel, Turn } from '../lib/types';
 import { getConversationFaction } from '../lib/types';
 import type { CursorAnimationIntensity, FlowDensity } from '../lib/state';
 
@@ -1029,6 +1029,12 @@ function renderTurnNode(options: {
   };
   header.appendChild(labelSpan);
 
+  const turnChannelBadge = document.createElement('span');
+  turnChannelBadge.className = 'flow-channel-badge';
+  turnChannelBadge.textContent = channelBadgeLabel(normalizeChannel(turn.channel, 'both'));
+  turnChannelBadge.title = `Turn visibility: ${turnChannelBadge.textContent}`;
+  header.appendChild(turnChannelBadge);
+
   // Color picker (small dot, click to change branch color)
   const colorDot = document.createElement('input');
   colorDot.type = 'color';
@@ -1164,6 +1170,12 @@ function renderTurnNode(options: {
         });
       };
       item.appendChild(unlinkButton);
+
+      const handoffBadge = document.createElement('span');
+      handoffBadge.className = 'flow-channel-badge flow-channel-badge-handoff';
+      handoffBadge.textContent = `→${channelBadgeLabel(normalizeChannel(choice.continue_channel, 'pda'))}`;
+      handoffBadge.title = `Continuation channel: ${channelBadgeLabel(normalizeChannel(choice.continue_channel, 'pda'))}`;
+      item.appendChild(handoffBadge);
     }
 
     if (hasPauseOutcome(choice)) {
@@ -1172,6 +1184,12 @@ function renderTurnNode(options: {
       pauseBadge.textContent = 'pause';
       item.appendChild(pauseBadge);
     }
+
+    const choiceChannelBadge = document.createElement('span');
+    choiceChannelBadge.className = 'flow-channel-badge';
+    choiceChannelBadge.textContent = channelBadgeLabel(normalizeChannel(choice.channel, 'pda'));
+    choiceChannelBadge.title = `Choice visibility: ${choiceChannelBadge.textContent}`;
+    item.appendChild(choiceChannelBadge);
 
     // Outcomes count (standard/detailed only)
     if (density !== 'compact' && choice.outcomes.length > 0) {
@@ -1710,6 +1728,17 @@ function viewportToWorldPoint(canvas: HTMLElement, viewState: ViewState, clientX
 
 function truncate(value: string, max: number): string {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
+function normalizeChannel(channel: ConversationChannel | undefined, fallback: 'pda' | 'both'): 'pda' | 'f2f' | 'both' {
+  if (channel === 'pda' || channel === 'f2f' || channel === 'both') return channel;
+  return fallback;
+}
+
+function channelBadgeLabel(channel: 'pda' | 'f2f' | 'both'): string {
+  if (channel === 'pda') return 'PDA';
+  if (channel === 'f2f') return 'F2F';
+  return 'BOTH';
 }
 
 function dispatchCursorState(canvas: HTMLElement, kind: 'panning' | 'dragging' | 'linking', active: boolean): void {
