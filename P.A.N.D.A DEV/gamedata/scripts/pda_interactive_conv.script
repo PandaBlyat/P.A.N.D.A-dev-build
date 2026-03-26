@@ -3527,8 +3527,12 @@ end
 
 local spawn_squad_at_smart_terrain
 
-function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_id, pre_found_task_id, sender_contact_id, conv_data)
+local function apply_outcome_internal(outcome_str, sender_npc_name, sender_faction, sender_npc_id, pre_found_task_id, sender_contact_id, conv_data, channel)
     if not outcome_str or outcome_str == "" or outcome_str == "none" then return false end
+    local resolved_channel = channel or (conv_data and conv_data.channel) or "pda"
+    if conv_data and conv_data.channel == nil then
+        conv_data.channel = resolved_channel
+    end
 
     -- Resolve dynamic placeholders in outcome command strings (including smart terrain refs)
     -- so commands like watch_location_trigger:%cordon_panda_st_key% work at runtime.
@@ -4662,6 +4666,19 @@ function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_
     end
 
     return task_given
+end
+
+function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_id, pre_found_task_id, sender_contact_id, conv_data, channel)
+    return apply_outcome_internal(
+        outcome_str,
+        sender_npc_name,
+        sender_faction,
+        sender_npc_id,
+        pre_found_task_id,
+        sender_contact_id,
+        conv_data,
+        channel or "pda"
+    )
 end
 
 function find_squad_section(faction)
@@ -5836,6 +5853,81 @@ function on_player_choice(idx, contact_id)
         local composite_key = (c.prefix or "task") .. "_" .. c.faction .. "_" .. c.conv_id
         conv_last_played[composite_key] = game.get_game_time()
     end
+end
+
+local function resolve_conversation_context_internal(npc_id, conversation_id, turn_number, channel)
+    local resolved_channel = channel or "pda"
+    local matched = nil
+
+    if npc_id ~= nil then
+        for _, conv in pairs(active_conversations) do
+            if conv and conv.npc_id == npc_id then
+                matched = conv
+                break
+            end
+        end
+    elseif CONV then
+        matched = CONV
+    end
+
+    if not matched then
+        return nil
+    end
+
+    if conversation_id ~= nil and matched.conv_id ~= conversation_id then
+        return nil
+    end
+
+    if turn_number ~= nil and matched.turn ~= turn_number then
+        return nil
+    end
+
+    if matched.channel == nil then
+        matched.channel = resolved_channel
+    end
+
+    return matched
+end
+
+local function apply_choice_internal(conversation_context, choice_index, channel)
+    if not conversation_context then
+        return false
+    end
+
+    conversation_context.channel = channel or conversation_context.channel or "pda"
+    on_player_choice(choice_index, conversation_context.contact_id)
+    return true
+end
+
+PANDA_CONV_API = PANDA_CONV_API or {}
+
+function PANDA_CONV_API.resolve_conversation_context(npc_id, conversation_id, turn_number, channel)
+    return resolve_conversation_context_internal(npc_id, conversation_id, turn_number, channel or "pda")
+end
+
+function PANDA_CONV_API.check_preconditions(precond_key, npc_se, channel, context)
+    local resolved_channel = channel or "pda"
+    if type(context) == "table" and context.channel == nil then
+        context.channel = resolved_channel
+    end
+    return check_preconditions_generic(precond_key, npc_se)
+end
+
+function PANDA_CONV_API.apply_choice(conversation_context, choice_index, channel)
+    return apply_choice_internal(conversation_context, choice_index, channel or "pda")
+end
+
+function PANDA_CONV_API.apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_id, task_id, contact_id, conv_data, channel)
+    return apply_outcome(
+        outcome_str,
+        sender_npc_name,
+        sender_faction,
+        sender_npc_id,
+        task_id,
+        contact_id,
+        conv_data,
+        channel or "pda"
+    )
 end
 
 function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, category)
