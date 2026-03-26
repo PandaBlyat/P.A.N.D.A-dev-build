@@ -346,6 +346,15 @@ function bridge_debug(fmt, ...)
     end
 end
 
+local function bridge_warn(fmt, ...)
+    local msg = string.format("PANDA_F2F_BRIDGE: " .. tostring(fmt), ...)
+    if type(rawget(_G, "printf")) == "function" then
+        _G.printf("%s", msg)
+    elseif type(rawget(_G, "log1")) == "function" then
+        _G.log1(msg)
+    end
+end
+
 local function key_exists(key)
     local val = tr(key)
     return val ~= key
@@ -1113,6 +1122,7 @@ function panda_f2f_bridge.precondition()
 
     local npc_se = get_partner_npc_se()
     if not npc_se then
+        bridge_warn("precondition fail: partner npc unresolved npc_id=nil conv_id=nil turn=nil")
         bridge_debug("precondition fail: no partner npc")
         return false
     end
@@ -1129,11 +1139,20 @@ function panda_f2f_bridge.precondition()
     )
 
     local handoff = get_pending_handoff_for_npc(npc_se)
+    local handoff_fallback_attempted = false
     local state = collect_branches(npc_se, handoff)
     if not state and handoff then
+        handoff_fallback_attempted = true
         state = collect_branches(npc_se, nil)
     end
     if not state then
+        bridge_warn(
+            "precondition fail: no matching state npc_id=%s conv_id=%s turn=%s fallback_attempted=%s",
+            tostring(npc_se and npc_se.id),
+            tostring(handoff and handoff.conv_id or "nil"),
+            tostring(handoff and handoff.turn or "nil"),
+            tostring(handoff_fallback_attempted)
+        )
         bridge_debug(
             "precondition fail: no matching state for npc_id=%s runtime_story_id=%s runtime_fallback_name=%s runtime_canonical_id=%s",
             tostring(npc_se and npc_se.id),
