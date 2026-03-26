@@ -39,18 +39,23 @@ local function get_dialog_manager_iface()
 end
 
 local function get_partner_npc_se()
+    local sim = alife and alife()
+    if not sim then
+        return nil
+    end
+
     if db and db.actor_dialog then
         local id = db.actor_dialog:id()
-        if id and alife and alife.object then
-            local se = alife.object(id)
+        if id then
+            local se = sim:object(id)
             if se then return se end
         end
         if id and level and level.object_by_id then
             local obj = level.object_by_id(id)
             if obj and obj.id then
                 local sid = obj:id()
-                if sid and alife and alife.object then
-                    local se = alife.object(sid)
+                if sid then
+                    local se = sim:object(sid)
                     if se then return se end
                 end
             end
@@ -59,8 +64,8 @@ local function get_partner_npc_se()
 
     if level and level.get_target_obj then
         local obj = level.get_target_obj()
-        if obj and obj:id() and alife and alife.object then
-            local se = alife.object(obj:id())
+        if obj and obj:id() then
+            local se = sim:object(obj:id())
             if se then return se end
         end
     end
