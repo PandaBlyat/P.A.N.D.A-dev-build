@@ -21,7 +21,10 @@
         <text>none</text>
     </string>
     <string id="st_pda_ic_loner_1_cont_1">
-        <text>F2F</text>
+        <text>2</text>
+    </string>
+    <string id="st_pda_ic_loner_1_cont_channel_1">
+        <text>f2f</text>
     </string>
 	<string id="st_pda_ic_loner_1_t2_choice_1_precond">
         <text>req_story_npc:esc_2_12_stalker_wolf</text>
