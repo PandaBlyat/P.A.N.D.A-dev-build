@@ -33,8 +33,22 @@ import { createItemChainPickerPanelEditor, createItemPickerPanelEditor } from '.
 import { formatGameItemLabel } from '../lib/item-catalog';
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { createIcon, setButtonContent } from './icons';
+import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
 
 const ADDABLE_PRECONDITION_SCHEMAS = PRECONDITION_SCHEMAS.filter((schema) => !schema.pickerHidden);
+const CHANNEL_OPTIONS: Array<{ value: 'pda' | 'f2f' | 'both'; label: string }> = [
+  { value: 'pda', label: 'PDA' },
+  { value: 'f2f', label: 'In-person (F2F)' },
+  { value: 'both', label: 'Both' },
+];
+
+const STORY_NPC_PROFILE_OPTIONS = Array.from(
+  new Set(
+    STORY_NPC_OPTIONS
+      .map((option) => option.keywords?.[2]?.trim() ?? '')
+      .filter((value) => value.length > 0),
+  ),
+).sort((a, b) => a.localeCompare(b));
 
 // Track collapsed state of collapsible sections per key
 const collapsedSections = new Set<string>();
@@ -295,6 +309,35 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   container.appendChild(timeoutWrapper);
 }
 
+function normalizeChannel(channel: Choice['channel'] | Choice['continue_channel'] | Turn['channel'] | undefined, fallback: 'pda' | 'both'): 'pda' | 'f2f' | 'both' {
+  if (channel === 'pda' || channel === 'f2f' || channel === 'both') return channel;
+  return fallback;
+}
+
+function channelLabel(channel: 'pda' | 'f2f' | 'both'): string {
+  if (channel === 'pda') return 'PDA';
+  if (channel === 'f2f') return 'F2F';
+  return 'Both';
+}
+
+function createChannelSelect(
+  value: 'pda' | 'f2f' | 'both',
+  onChange: (value: 'pda' | 'f2f' | 'both') => void,
+  fieldKey: string,
+): HTMLSelectElement {
+  const select = document.createElement('select');
+  select.setAttribute('data-field-key', fieldKey);
+  for (const option of CHANNEL_OPTIONS) {
+    const el = document.createElement('option');
+    el.value = option.value;
+    el.textContent = option.label;
+    el.selected = option.value === value;
+    select.appendChild(el);
+  }
+  select.onchange = () => onChange(select.value as 'pda' | 'f2f' | 'both');
+  return select;
+}
+
 // ─── Turn Properties ──────────────────────────────────────────────────────
 
 function renderTurnProperties(
@@ -321,6 +364,56 @@ function renderTurnProperties(
 
     renderPlaceholderPicker(container, `conv-${conv.id}-turn-${turn.turnNumber}-dynamic-placeholders`);
   }
+
+  const currentTurnChannel = normalizeChannel(turn.channel, 'both');
+  const visibilityWrapper = document.createElement('div');
+  visibilityWrapper.className = 'field';
+  const visibilityLabel = document.createElement('label');
+  visibilityLabel.textContent = 'Turn Visibility Channel';
+  visibilityWrapper.appendChild(visibilityLabel);
+  const visibilityHint = document.createElement('div');
+  visibilityHint.className = 'field-hint';
+  visibilityHint.textContent = 'Conservative default is Both for existing turns; choices still default to PDA-only.';
+  visibilityWrapper.appendChild(visibilityHint);
+  visibilityWrapper.appendChild(createChannelSelect(
+    currentTurnChannel,
+    (nextChannel) => store.updateTurn(conv.id, turn.turnNumber, { channel: nextChannel }),
+    getTurnFieldKey(conv.id, turn.turnNumber, 'channel'),
+  ));
+  container.appendChild(visibilityWrapper);
+
+  const entryScopeField = document.createElement('div');
+  entryScopeField.className = 'field';
+  const entryScopeLabel = document.createElement('label');
+  entryScopeLabel.textContent = 'Entry Turn Flags';
+  entryScopeField.appendChild(entryScopeLabel);
+  const entryScopeHint = document.createElement('div');
+  entryScopeHint.className = 'field-hint';
+  entryScopeHint.textContent = 'Mark if this branch can be used as a channel entry target for handoffs.';
+  entryScopeField.appendChild(entryScopeHint);
+  const entryScopeRow = document.createElement('div');
+  entryScopeRow.style.cssText = 'display:flex; gap:12px; flex-wrap:wrap;';
+
+  const createEntryToggle = (label: string, checked: boolean, key: 'pda_entry' | 'f2f_entry', fieldSuffix: 'pda-entry' | 'f2f-entry'): HTMLElement => {
+    const wrapper = document.createElement('label');
+    wrapper.style.cssText = 'display:inline-flex; align-items:center; gap:6px; font-size:12px;';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = checked;
+    input.setAttribute('data-field-key', getTurnFieldKey(conv.id, turn.turnNumber, fieldSuffix));
+    input.onchange = () => store.updateTurn(conv.id, turn.turnNumber, { [key]: input.checked });
+    const text = document.createElement('span');
+    text.textContent = label;
+    wrapper.append(input, text);
+    return wrapper;
+  };
+
+  entryScopeRow.append(
+    createEntryToggle('PDA entry turn', turn.pda_entry ?? turn.turnNumber === 1, 'pda_entry', 'pda-entry'),
+    createEntryToggle('F2F entry turn', turn.f2f_entry ?? false, 'f2f_entry', 'f2f-entry'),
+  );
+  entryScopeField.appendChild(entryScopeRow);
+  container.appendChild(entryScopeField);
 
   const { wrapper: turnActionsWrapper, body: turnActionsBody } = createCollapsibleSection(
     `conv-${conv.id}-turn-${turn.turnNumber}-actions`,
@@ -388,6 +481,11 @@ function renderTurnProperties(
     previewText.textContent = choice.text || '(empty)';
     header.appendChild(previewText);
 
+    const channelBadge = document.createElement('span');
+    channelBadge.style.cssText = 'font-size:10px; font-family:var(--font-mono); color:var(--accent);';
+    channelBadge.textContent = channelLabel(normalizeChannel(choice.channel, 'pda'));
+    header.appendChild(channelBadge);
+
     const actionGroup = document.createElement('div');
     actionGroup.className = 'inspector-action-row';
 
@@ -425,7 +523,7 @@ function renderTurnProperties(
     if (choice.continueTo != null) {
       const badge = document.createElement('div');
       badge.style.cssText = 'padding:2px 10px; font-size:10px; color:var(--accent); font-family:var(--font-mono);';
-      badge.textContent = `\u2192 Continues to ${turnLabels.getLongLabel(choice.continueTo)}`;
+      badge.textContent = `\u2192 ${channelLabel(normalizeChannel(choice.continue_channel, 'pda'))} to ${turnLabels.getLongLabel(choice.continueTo)}`;
       card.appendChild(badge);
     }
 
@@ -517,6 +615,119 @@ function renderChoiceProperties(
   }, 'Alternative reply when relationship score is -300 or lower (optional)', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-rel-low'));
   replyVariantsBody.appendChild(relLowField);
   container.appendChild(replyVariantsWrapper);
+
+  const currentChoiceChannel = normalizeChannel(choice.channel, 'pda');
+  const choiceVisibilityField = document.createElement('div');
+  choiceVisibilityField.className = 'field';
+  const choiceVisibilityLabel = document.createElement('label');
+  choiceVisibilityLabel.textContent = 'Choice Visibility Channel';
+  choiceVisibilityField.appendChild(choiceVisibilityLabel);
+  const choiceVisibilityHint = document.createElement('div');
+  choiceVisibilityHint.className = 'field-hint';
+  choiceVisibilityHint.textContent = 'Default remains PDA to avoid accidental F2F exposure in existing projects.';
+  choiceVisibilityField.appendChild(choiceVisibilityHint);
+  choiceVisibilityField.appendChild(createChannelSelect(
+    currentChoiceChannel,
+    (nextChannel) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { channel: nextChannel }),
+    getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'channel'),
+  ));
+  container.appendChild(choiceVisibilityField);
+
+  const { wrapper: targetingWrapper, body: targetingBody } = createCollapsibleSection(
+    `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-f2f-targeting`,
+    'Available When Talking To',
+    undefined,
+    { defaultCollapsed: true },
+  );
+
+  const storyNpcEditor = createOptionPickerPanelEditor(
+    choice.story_npc_id ?? '',
+    (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { story_npc_id: value.trim() || undefined }),
+    getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'story-npc-id'),
+    {
+      title: 'Story NPC Catalog',
+      subtitle: 'Select a specific story NPC from story-npc-catalog.',
+      searchPlaceholder: 'Search story NPCs by id, faction, or role...',
+      emptyLabel: 'No specific story NPC',
+      options: STORY_NPC_OPTIONS,
+    },
+  );
+  const storyNpcField = document.createElement('div');
+  storyNpcField.className = 'field';
+  const storyNpcLabel = document.createElement('label');
+  storyNpcLabel.textContent = 'Story NPC Picker';
+  storyNpcField.append(storyNpcLabel, storyNpcEditor);
+  targetingBody.appendChild(storyNpcField);
+
+  const factionFilterField = document.createElement('div');
+  factionFilterField.className = 'field';
+  const factionFilterLabel = document.createElement('label');
+  factionFilterLabel.textContent = 'Faction Scope';
+  factionFilterField.appendChild(factionFilterLabel);
+  const factionFilterHint = document.createElement('div');
+  factionFilterHint.className = 'field-hint';
+  factionFilterHint.textContent = 'Restrict sim NPC matches to one or more factions.';
+  factionFilterField.appendChild(factionFilterHint);
+  const factionFilterSelect = document.createElement('select');
+  factionFilterSelect.multiple = true;
+  factionFilterSelect.size = Math.min(8, FACTION_IDS.length);
+  factionFilterSelect.setAttribute('data-field-key', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'npc-faction-filters'));
+  for (const factionId of FACTION_IDS) {
+    const option = document.createElement('option');
+    option.value = factionId;
+    option.textContent = FACTION_DISPLAY_NAMES[factionId];
+    option.selected = (choice.npc_faction_filters ?? []).includes(factionId);
+    factionFilterSelect.appendChild(option);
+  }
+  factionFilterSelect.onchange = () => {
+    const values = Array.from(factionFilterSelect.selectedOptions).map((option) => option.value as FactionId);
+    store.updateChoice(conv.id, turn.turnNumber, choice.index, { npc_faction_filters: values.length > 0 ? values : undefined });
+  };
+  factionFilterField.appendChild(factionFilterSelect);
+  targetingBody.appendChild(factionFilterField);
+
+  const profileFilterField = document.createElement('div');
+  profileFilterField.className = 'field';
+  const profileFilterLabel = document.createElement('label');
+  profileFilterLabel.textContent = 'Profile Scope';
+  profileFilterField.appendChild(profileFilterLabel);
+  const profileFilterHint = document.createElement('div');
+  profileFilterHint.className = 'field-hint';
+  profileFilterHint.textContent = 'Pick one or more sim profile IDs (derived from story-npc-catalog metadata).';
+  profileFilterField.appendChild(profileFilterHint);
+  const profileFilterSelect = document.createElement('select');
+  profileFilterSelect.multiple = true;
+  profileFilterSelect.size = Math.min(8, Math.max(3, STORY_NPC_PROFILE_OPTIONS.length));
+  profileFilterSelect.setAttribute('data-field-key', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'npc-profile-filters'));
+  for (const profileId of STORY_NPC_PROFILE_OPTIONS) {
+    const option = document.createElement('option');
+    option.value = profileId;
+    option.textContent = profileId;
+    option.selected = (choice.npc_profile_filters ?? []).includes(profileId);
+    profileFilterSelect.appendChild(option);
+  }
+  profileFilterSelect.onchange = () => {
+    const values = Array.from(profileFilterSelect.selectedOptions).map((option) => option.value.trim()).filter(Boolean);
+    store.updateChoice(conv.id, turn.turnNumber, choice.index, { npc_profile_filters: values.length > 0 ? values : undefined });
+  };
+  profileFilterField.appendChild(profileFilterSelect);
+  targetingBody.appendChild(profileFilterField);
+
+  const broadScopeField = document.createElement('div');
+  broadScopeField.className = 'field';
+  const broadScopeToggle = document.createElement('label');
+  broadScopeToggle.style.cssText = 'display:inline-flex; align-items:center; gap:6px; font-size:12px;';
+  const broadScopeInput = document.createElement('input');
+  broadScopeInput.type = 'checkbox';
+  broadScopeInput.checked = choice.allow_generic_stalker === true;
+  broadScopeInput.setAttribute('data-field-key', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'allow-generic-stalker'));
+  broadScopeInput.onchange = () => store.updateChoice(conv.id, turn.turnNumber, choice.index, { allow_generic_stalker: broadScopeInput.checked });
+  const broadScopeText = document.createElement('span');
+  broadScopeText.textContent = 'Allow generic sim stalker fallback';
+  broadScopeToggle.append(broadScopeInput, broadScopeText);
+  broadScopeField.appendChild(broadScopeToggle);
+  targetingBody.appendChild(broadScopeField);
+  container.appendChild(targetingWrapper);
 
   // Outcomes — collapsible section
   const { wrapper: outcomeWrapper, body: outcomeBody } = createCollapsibleSection(
@@ -613,6 +824,24 @@ function renderChoiceProperties(
   contControls.append(contSelect, createBranchButton);
   contField.appendChild(contControls);
   continuationBody.appendChild(contField);
+
+  const handoffField = document.createElement('div');
+  handoffField.className = 'field';
+  const handoffLabel = document.createElement('label');
+  handoffLabel.textContent = 'Explicit Handoff Channel';
+  handoffField.appendChild(handoffLabel);
+  const handoffHint = document.createElement('div');
+  handoffHint.className = 'field-hint';
+  handoffHint.textContent = 'Used when this choice continues to another turn. Set to continue via PDA or in-person.';
+  handoffField.appendChild(handoffHint);
+  const handoffSelect = createChannelSelect(
+    normalizeChannel(choice.continue_channel, 'pda'),
+    (nextChannel) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { continue_channel: nextChannel }),
+    getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-channel'),
+  );
+  handoffField.appendChild(handoffSelect);
+  continuationBody.appendChild(handoffField);
+
   container.appendChild(continuationWrapper);
 }
 
