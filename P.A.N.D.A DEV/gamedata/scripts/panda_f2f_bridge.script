@@ -715,9 +715,54 @@ local function get_pending_handoff_for_npc(npc_se)
         end
     end
 
-    bridge_debug("get_pending_handoff_for_npc: resolved partner_id=%s npc_se_present=%s", tostring(partner_id), tostring(npc_se ~= nil))
-    if not partner_id then
+    local runtime_ids = resolve_partner_runtime_ids(npc_se)
+    local runtime_candidate_map = {}
+    for _, candidate in ipairs(runtime_ids.canonical_candidates or {}) do
+        runtime_candidate_map[tostring(candidate):lower()] = true
+    end
+
+    bridge_debug(
+        "get_pending_handoff_for_npc: resolved partner_id=%s npc_se_present=%s runtime_story_id=%s runtime_canonical_id=%s runtime_candidates=%s",
+        tostring(partner_id),
+        tostring(npc_se ~= nil),
+        tostring(runtime_ids.story_id),
+        tostring(runtime_ids.canonical_id),
+        (#runtime_ids.canonical_candidates > 0 and table.concat(runtime_ids.canonical_candidates, "|") or "<none>")
+    )
+    if not partner_id and #runtime_ids.canonical_candidates == 0 then
+        bridge_debug("get_pending_handoff_for_npc: reject reason=bad_ids partner_id=nil runtime_candidates=<none>")
         return nil
+    end
+
+    local function collect_handoff_identity_candidates(raw_handoff)
+        local out = {}
+        local seen = {}
+        local function push_candidate(value)
+            if value == nil then
+                return
+            end
+            local normalized = tostring(value):lower()
+            if normalized == "" or seen[normalized] then
+                return
+            end
+            seen[normalized] = true
+            out[#out + 1] = normalized
+        end
+
+        push_candidate(raw_handoff and raw_handoff.canonical_id)
+        push_candidate(raw_handoff and raw_handoff.story_id)
+        push_candidate(raw_handoff and raw_handoff.story_npc_id)
+        push_candidate(raw_handoff and raw_handoff.req_story_npc)
+
+        local raw_npc_id = normalize_positive_int(raw_handoff and raw_handoff.npc_id)
+        if raw_npc_id and type(get_object_story_id) == "function" then
+            local ok_story, resolved_story = pcall(function() return get_object_story_id(raw_npc_id) end)
+            if ok_story and resolved_story and resolved_story ~= "" then
+                push_candidate(resolved_story)
+            end
+        end
+
+        return out
     end
 
     local function normalize_handoff(raw_handoff, source_path)
@@ -741,9 +786,84 @@ local function get_pending_handoff_for_npc(npc_se)
             channel = "f2f",
             source_path = source_path or "unknown",
             source = raw_handoff,
+            set_at = tonumber(raw_handoff.set_at),
         }
 
         return normalized
+    end
+
+    local function handoff_matches_identity(raw_handoff)
+        local candidates = collect_handoff_identity_candidates(raw_handoff)
+        if #candidates == 0 then
+            return false, "<none>"
+        end
+        for _, candidate in ipairs(candidates) do
+            if runtime_candidate_map[candidate] then
+                return true, table.concat(candidates, "|")
+            end
+        end
+        return false, table.concat(candidates, "|")
+    end
+
+    local function evaluate_handoff_candidate(raw_handoff, source_path)
+        if type(raw_handoff) ~= "table" then
+            bridge_debug(
+                "get_pending_handoff_for_npc: reject source=%s reason=bad_ids handoff_type=%s",
+                tostring(source_path),
+                tostring(type(raw_handoff))
+            )
+            return nil
+        end
+
+        local raw_npc_id = normalize_positive_int(raw_handoff.npc_id)
+        local conv_id = normalize_positive_int(raw_handoff.conv_id)
+        local turn = normalize_positive_int(raw_handoff.turn)
+        if not conv_id or not turn then
+            bridge_debug(
+                "get_pending_handoff_for_npc: reject source=%s reason=missing_conv_or_turn raw_npc_id=%s conv_id=%s turn=%s",
+                tostring(source_path),
+                tostring(raw_handoff.npc_id),
+                tostring(conv_id),
+                tostring(turn)
+            )
+            return nil
+        end
+
+        if not raw_npc_id then
+            bridge_debug(
+                "get_pending_handoff_for_npc: reject source=%s reason=bad_ids raw_npc_id=%s conv_id=%s turn=%s",
+                tostring(source_path),
+                tostring(raw_handoff.npc_id),
+                tostring(conv_id),
+                tostring(turn)
+            )
+            return nil
+        end
+
+        if partner_id and raw_npc_id == partner_id then
+            return normalize_handoff(raw_handoff, source_path)
+        end
+
+        local identity_match, handoff_candidates = handoff_matches_identity(raw_handoff)
+        if identity_match then
+            bridge_debug(
+                "get_pending_handoff_for_npc: canonical_match source=%s partner_id=%s handoff_npc_id=%s handoff_candidates=%s",
+                tostring(source_path),
+                tostring(partner_id),
+                tostring(raw_npc_id),
+                tostring(handoff_candidates)
+            )
+            return normalize_handoff(raw_handoff, source_path)
+        end
+
+        bridge_debug(
+            "get_pending_handoff_for_npc: reject source=%s reason=npc_mismatch partner_id=%s handoff_npc_id=%s handoff_candidates=%s",
+            tostring(source_path),
+            tostring(partner_id),
+            tostring(raw_npc_id),
+            tostring(handoff_candidates)
+        )
+        return nil
     end
 
     local function fallback_from_global_handoffs()
@@ -764,11 +884,9 @@ local function get_pending_handoff_for_npc(npc_se)
         end
 
         for _, raw_handoff in pairs(handoffs) do
-            if normalize_positive_int(raw_handoff and raw_handoff.npc_id) == partner_id then
-                local normalized = normalize_handoff(raw_handoff, "fallback:pda_f2f_handoffs")
-                if normalized then
-                    return normalized
-                end
+            local normalized = evaluate_handoff_candidate(raw_handoff, "fallback:pda_f2f_handoffs")
+            if normalized then
+                return normalized
             end
         end
 
@@ -788,18 +906,17 @@ local function get_pending_handoff_for_npc(npc_se)
         end
 
         for contact_id, conv in pairs(conversations) do
-            if type(conv) == "table"
-                and normalize_positive_int(conv.npc_id) == partner_id
-                and conv.pending_in_person_continuation == true
-            then
-                local normalized = normalize_handoff({
+            if type(conv) == "table" and conv.pending_in_person_continuation == true then
+                local raw_handoff = {
                     npc_id = conv.npc_id,
                     conv_id = conv.conv_id,
                     turn = conv.pending_in_person_turn or conv.turn,
                     faction = conv.faction,
                     prefix = conv.prefix,
                     contact_id = contact_id,
-                }, "fallback:active_conversations")
+                    set_at = conv.pending_in_person_set_at,
+                }
+                local normalized = evaluate_handoff_candidate(raw_handoff, "fallback:active_conversations")
                 if normalized then
                     return normalized
                 end
@@ -807,6 +924,69 @@ local function get_pending_handoff_for_npc(npc_se)
         end
 
         return nil
+    end
+
+    local function fallback_recent_canonical_within_grace_window(grace_ms)
+        local handoffs = rawget(_G, "pda_f2f_handoffs")
+        if type(handoffs) ~= "table" or #runtime_ids.canonical_candidates == 0 then
+            return nil
+        end
+
+        local latest = nil
+        local latest_set_at = nil
+        local now = tonumber(time_global and time_global() or 0) or 0
+        local allowed_age = tonumber(grace_ms) or RECENT_HANDOFF_GRACE_MS
+
+        for _, raw_handoff in pairs(handoffs) do
+            local set_at = tonumber(raw_handoff and raw_handoff.set_at)
+            if not set_at then
+                bridge_debug("get_pending_handoff_for_npc: reject source=recent_canonical reason=stale_age missing_set_at=true")
+            else
+                local age = now - set_at
+                if age < 0 then
+                    age = 0
+                end
+                if age > allowed_age then
+                    bridge_debug(
+                        "get_pending_handoff_for_npc: reject source=recent_canonical reason=stale_age raw_npc_id=%s age_ms=%s grace_ms=%s",
+                        tostring(raw_handoff and raw_handoff.npc_id),
+                        tostring(age),
+                        tostring(allowed_age)
+                    )
+                else
+                    local identity_match = handoff_matches_identity(raw_handoff)
+                    local conv_id = normalize_positive_int(raw_handoff and raw_handoff.conv_id)
+                    local turn = normalize_positive_int(raw_handoff and raw_handoff.turn)
+                    local raw_npc_id = normalize_positive_int(raw_handoff and raw_handoff.npc_id)
+                    if not conv_id or not turn then
+                        bridge_debug(
+                            "get_pending_handoff_for_npc: reject source=recent_canonical reason=missing_conv_or_turn raw_npc_id=%s conv_id=%s turn=%s",
+                            tostring(raw_handoff and raw_handoff.npc_id),
+                            tostring(conv_id),
+                            tostring(turn)
+                        )
+                    elseif not raw_npc_id then
+                        bridge_debug(
+                            "get_pending_handoff_for_npc: reject source=recent_canonical reason=bad_ids raw_npc_id=%s",
+                            tostring(raw_handoff and raw_handoff.npc_id)
+                        )
+                    elseif not identity_match then
+                        local _, handoff_candidates = handoff_matches_identity(raw_handoff)
+                        bridge_debug(
+                            "get_pending_handoff_for_npc: reject source=recent_canonical reason=npc_mismatch partner_id=%s handoff_npc_id=%s handoff_candidates=%s",
+                            tostring(partner_id),
+                            tostring(raw_npc_id),
+                            tostring(handoff_candidates)
+                        )
+                    elseif not latest_set_at or set_at > latest_set_at then
+                        latest_set_at = set_at
+                        latest = normalize_handoff(raw_handoff, "recent_canonical_match")
+                    end
+                end
+            end
+        end
+
+        return latest
     end
 
     local api = get_conv_api()
@@ -817,7 +997,7 @@ local function get_pending_handoff_for_npc(npc_se)
         bridge_debug("get_pending_handoff_for_npc: get_conv_api returned table")
     end
 
-    if api and type(api.get_pending_f2f_handoff) == "function" then
+    if api and type(api.get_pending_f2f_handoff) == "function" and partner_id then
         local ok_handoff, api_handoff = pcall(function()
             return api.get_pending_f2f_handoff(partner_id)
         end)
@@ -827,7 +1007,7 @@ local function get_pending_handoff_for_npc(npc_se)
                 tostring(partner_id),
                 tostring(type(api_handoff))
             )
-            handoff = normalize_handoff(api_handoff, "api:get_pending_f2f_handoff")
+            handoff = evaluate_handoff_candidate(api_handoff, "api:get_pending_f2f_handoff")
         else
             bridge_debug(
                 "get_pending_handoff_for_npc: api.get_pending_f2f_handoff(partner_id=%s) call_failed",
@@ -846,6 +1026,11 @@ local function get_pending_handoff_for_npc(npc_se)
             handoff = fallback_from_active_conversations()
             if handoff then
                 bridge_debug("get_pending_handoff_for_npc: winner path=fallback:active_conversations partner_id=%s", tostring(partner_id))
+            else
+                handoff = fallback_recent_canonical_within_grace_window(RECENT_HANDOFF_GRACE_MS)
+                if handoff then
+                    bridge_debug("get_pending_handoff_for_npc: winner path=recent_canonical_match partner_id=%s", tostring(partner_id))
+                end
             end
         end
     else
@@ -1515,6 +1700,9 @@ function panda_f2f_bridge.init_dialog(dialog)
             return
         end
         local handoff = get_pending_handoff_for_npc(npc_se)
+        if not handoff then
+            handoff = get_recent_handoff_match_for_npc(npc_se, RECENT_HANDOFF_GRACE_MS)
+        end
         state = collect_branches(npc_se, handoff)
         if not state and handoff then
             state = collect_branches(npc_se, nil)
