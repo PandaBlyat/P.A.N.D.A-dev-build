@@ -59,6 +59,44 @@ local function get_partner_npc_se()
         local api = get_conv_api()
         local found = nil
 
+        local function resolve_current_talker_id()
+            if mob_trade and type(mob_trade.GetTalkingNpc) == "function" then
+                local ok_talker, talker = pcall(function() return mob_trade.GetTalkingNpc() end)
+                if ok_talker and talker then
+                    local talker_id = talker.id
+                    if type(talker.id) == "function" then
+                        local ok_id, id_from_fn = pcall(function() return talker:id() end)
+                        if ok_id then
+                            talker_id = id_from_fn
+                        end
+                    end
+                    talker_id = normalize_lookup_id(talker_id)
+                    if talker_id then
+                        return talker_id
+                    end
+                end
+            end
+
+            if type(get_speaker) == "function" then
+                local ok_speaker, speaker = pcall(function() return get_speaker() end)
+                if ok_speaker and speaker then
+                    local speaker_id = speaker.id
+                    if type(speaker.id) == "function" then
+                        local ok_id, id_from_fn = pcall(function() return speaker:id() end)
+                        if ok_id then
+                            speaker_id = id_from_fn
+                        end
+                    end
+                    speaker_id = normalize_lookup_id(speaker_id)
+                    if speaker_id then
+                        return speaker_id
+                    end
+                end
+            end
+
+            return nil
+        end
+
         local function validate_handoff(path, handoff)
             if type(handoff) ~= "table" then
                 return nil
@@ -79,18 +117,21 @@ local function get_partner_npc_se()
             }
         end
 
-        if type(api) == "table" and type(api.get_pending_f2f_handoff) == "function" and type(rawget(_G, "pda_f2f_handoffs")) == "table" then
-            for _, raw_handoff in pairs(pda_f2f_handoffs) do
-                local raw_sid = normalize_lookup_id(raw_handoff and raw_handoff.npc_id)
-                if raw_sid then
-                    local ok_handoff, handoff = pcall(function()
-                        return api.get_pending_f2f_handoff(raw_sid)
-                    end)
-                    if ok_handoff then
-                        found = validate_handoff("pending_handoff", handoff)
-                        if found then
-                            return found
-                        end
+        if type(api) == "table" and type(api.get_pending_f2f_handoff) == "function" then
+            local talker_id = resolve_current_talker_id()
+            if talker_id then
+                local ok_handoff, handoff = pcall(function()
+                    return api.get_pending_f2f_handoff(talker_id)
+                end)
+                if ok_handoff then
+                    found = validate_handoff("api:direct_talker", handoff)
+                    if found then
+                        bridge_debug(
+                            "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s",
+                            "api:direct_talker",
+                            tostring(talker_id)
+                        )
+                        return found
                     end
                 end
             end
@@ -100,11 +141,21 @@ local function get_partner_npc_se()
             for _, raw_handoff in pairs(pda_f2f_handoffs) do
                 found = validate_handoff("pending_handoff_scan", raw_handoff)
                 if found then
+                    bridge_debug(
+                        "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s",
+                        "pending_handoff_scan",
+                        "nil"
+                    )
                     return found
                 end
             end
         end
 
+        bridge_debug(
+            "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s",
+            "none",
+            "nil"
+        )
         return nil
     end
     local function resolve_from_id(path, id)
