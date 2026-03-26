@@ -340,10 +340,36 @@ end
 
 local function normalize_npc_id(npc_id)
     local out = tonumber(npc_id)
-    if not out then
+    if not out or out <= 0 then
         return nil
     end
     return math.floor(out)
+end
+
+local function resolve_server_npc_id(npc_se, source_tag)
+    local sid = normalize_npc_id(npc_se and npc_se.id)
+    if sid then
+        return sid
+    end
+
+    if npc_se and type(npc_se.id) == "function" then
+        local ok_sid, resolved_sid = pcall(function() return npc_se:id() end)
+        if ok_sid then
+            sid = normalize_npc_id(resolved_sid)
+            if sid then
+                return sid
+            end
+        end
+    end
+
+    bridge_debug(
+        "resolve_server_npc_id: failed source=%s npc_se_present=%s raw_id=%s id_field_type=%s",
+        tostring(source_tag or "unknown"),
+        tostring(npc_se ~= nil),
+        tostring(npc_se and npc_se.id),
+        tostring(npc_se and type(npc_se.id) or "nil")
+    )
+    return nil
 end
 
 local function make_override_owner_tag(state, branch)
@@ -675,7 +701,7 @@ local function execute_shared_outcome(branch, state)
     local npc = state.npc_se
     local npc_name = npc and npc:character_name() or "Unknown"
     local npc_faction = (npc and npc.community and npc:community()) or state.faction
-    local npc_id = npc and npc.id or nil
+    local npc_id = resolve_server_npc_id(npc, "execute_shared_outcome")
     local contact_id = npc_id and tostring(npc_id) or nil
 
     local conv_data = {
@@ -700,20 +726,10 @@ end
 
 local function get_pending_handoff_for_npc(npc_se)
     local function normalize_positive_int(value)
-        local n = tonumber(value)
-        if not n or n <= 0 then
-            return nil
-        end
-        return math.floor(n)
+        return normalize_npc_id(value)
     end
 
-    local partner_id = normalize_positive_int(npc_se and npc_se.id)
-    if not partner_id and npc_se and type(npc_se.id) == "function" then
-        local ok_partner_id, resolved_partner_id = pcall(function() return npc_se:id() end)
-        if ok_partner_id then
-            partner_id = normalize_positive_int(resolved_partner_id)
-        end
-    end
+    local partner_id = resolve_server_npc_id(npc_se, "get_pending_handoff_for_npc")
 
     local runtime_ids = resolve_partner_runtime_ids(npc_se)
     local runtime_candidate_map = {}
@@ -1054,34 +1070,26 @@ local function get_pending_handoff_for_npc(npc_se)
 end
 
 local function consume_pending_handoff_for_npc(npc_se)
-    if not npc_se or not npc_se.id then
-        return false
-    end
-
     local api = get_conv_api()
     if not api or type(api.consume_pending_f2f_handoff) ~= "function" then
         return false
     end
 
-    return api.consume_pending_f2f_handoff(npc_se.id) == true
+    local partner_id = resolve_server_npc_id(npc_se, "consume_pending_handoff_for_npc")
+    if not partner_id then
+        bridge_debug("consume_pending_handoff_for_npc: reject reason=bad_ids")
+        return false
+    end
+
+    return api.consume_pending_f2f_handoff(partner_id) == true
 end
 
 local function get_recent_handoff_match_for_npc(npc_se, grace_ms)
     local function normalize_positive_int(value)
-        local n = tonumber(value)
-        if not n or n <= 0 then
-            return nil
-        end
-        return math.floor(n)
+        return normalize_npc_id(value)
     end
 
-    local partner_id = normalize_positive_int(npc_se and npc_se.id)
-    if not partner_id and npc_se and type(npc_se.id) == "function" then
-        local ok_partner_id, resolved_partner_id = pcall(function() return npc_se:id() end)
-        if ok_partner_id then
-            partner_id = normalize_positive_int(resolved_partner_id)
-        end
-    end
+    local partner_id = resolve_server_npc_id(npc_se, "get_recent_handoff_match_for_npc")
 
     local handoffs = rawget(_G, "pda_f2f_handoffs")
     if not partner_id or type(handoffs) ~= "table" then
@@ -1150,6 +1158,7 @@ function panda_f2f_bridge.hard_route_branch(npc_id, owner_tag)
 
     local sid = normalize_npc_id(npc_id)
     if not sid then
+        bridge_debug("hard_route_branch: reject reason=bad_ids npc_id=%s", tostring(npc_id))
         return false
     end
     if not xr_meet or type(xr_meet.override_dialog) ~= "function" then
@@ -1213,6 +1222,7 @@ function panda_f2f_bridge.restore_branch_route(npc_id, owner_tag)
 
     local sid = normalize_npc_id(npc_id)
     if not sid then
+        bridge_debug("restore_branch_route: reject reason=bad_ids npc_id=%s", tostring(npc_id))
         return false
     end
 
@@ -1572,9 +1582,10 @@ local function build_dialog_tree(dialog, state)
 
             local owner_tag = nil
             local routed = false
+            local active_npc_id = resolve_server_npc_id(active_state.npc_se, "register_dispatcher:act")
             if branch.hard_route then
                 owner_tag = make_override_owner_tag(active_state, branch)
-                routed = panda_f2f_bridge.hard_route_branch(active_state.npc_se and active_state.npc_se.id or nil, owner_tag)
+                routed = panda_f2f_bridge.hard_route_branch(active_npc_id, owner_tag)
             end
 
             local ok = execute_shared_outcome(branch, active_state)
@@ -1582,7 +1593,7 @@ local function build_dialog_tree(dialog, state)
                 consume_pending_handoff_for_npc(active_state.npc_se)
             end
             if branch.hard_route and routed and not ok then
-                panda_f2f_bridge.restore_branch_route(active_state.npc_se and active_state.npc_se.id or nil, owner_tag)
+                panda_f2f_bridge.restore_branch_route(active_npc_id, owner_tag)
             end
         end
 
