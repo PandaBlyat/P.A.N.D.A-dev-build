@@ -119,8 +119,12 @@ export function downloadFile(content: string, filename: string, mimeType: string
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  // Delay revocation so slower browsers can finish initiating the download.
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function getProjectConversationFactions(project: Project): Project['faction'][] {

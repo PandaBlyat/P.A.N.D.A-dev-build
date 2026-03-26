@@ -1140,7 +1140,9 @@ async function handleDownloadAll(): Promise<void> {
   if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
 
   try {
-    const results = getFilteredResults().filter(entry => entry.faction === activeFaction);
+    // Download-all should always export the full active faction library,
+    // independent of temporary UI filters like search/length/sort.
+    const results = allResults.filter(entry => entry.faction === activeFaction);
     if (results.length === 0) {
       alert(`No ${FACTION_DISPLAY_NAMES[activeFaction as FactionId]} conversations to download.`);
       return;
