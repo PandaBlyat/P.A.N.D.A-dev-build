@@ -48,33 +48,95 @@ local function get_partner_npc_se()
 
     local pending_conv_id = nil
     local partner_id = nil
-
-    if db and db.actor_dialog then
-        local id = db.actor_dialog:id()
+    local function normalize_lookup_id(id)
         local sid = tonumber(id)
-        if sid and sid > 0 then
-            sid = math.floor(sid)
-            partner_id = sid
-            local se = sim:object(sid)
-            bridge_debug("get_partner_npc_se: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", tostring(pending_conv_id), tostring(partner_id), tostring(se ~= nil))
+        if not sid or sid <= 0 then
+            return nil
+        end
+        return math.floor(sid)
+    end
+    local function resolve_from_id(path, id)
+        local sid = normalize_lookup_id(id)
+        if not sid then
+            return nil
+        end
+
+        partner_id = sid
+        local se = sim:object(sid)
+        if se then
+            local story_id = nil
+            if type(get_object_story_id) == "function" then
+                local ok_story, resolved_story_id = pcall(function() return get_object_story_id(sid) end)
+                if ok_story and resolved_story_id and resolved_story_id ~= "" then
+                    story_id = tostring(resolved_story_id)
+                end
+            end
+            bridge_debug(
+                "get_partner_npc_se: path=%s pending_conv_id=%s partner_id=%s story_id=%s server_entity_resolved=%s",
+                tostring(path),
+                tostring(pending_conv_id),
+                tostring(partner_id),
+                tostring(story_id),
+                "true"
+            )
+            return se
+        end
+
+        bridge_debug("get_partner_npc_se: path=%s sim:object(id) returned nil for partner_id=%s", tostring(path), tostring(partner_id))
+        return nil
+    end
+
+    if mob_trade and type(mob_trade.GetTalkingNpc) == "function" then
+        local ok_talker, talker = pcall(function() return mob_trade.GetTalkingNpc() end)
+        if ok_talker and talker then
+            local talker_id = talker.id
+            if type(talker.id) == "function" then
+                local ok_id, id_from_fn = pcall(function() return talker:id() end)
+                if ok_id then
+                    talker_id = id_from_fn
+                end
+            end
+            local se = resolve_from_id("mob_trade.GetTalkingNpc", talker_id)
             if se then
                 return se
             end
-            bridge_debug("get_partner_npc_se: sim:object(id) returned nil for partner_id=%s", tostring(partner_id))
         end
-        if sid and sid > 0 and level and level.object_by_id then
+    end
+
+    if type(get_speaker) == "function" then
+        local ok_speaker, speaker = pcall(function() return get_speaker() end)
+        if ok_speaker and speaker then
+            local speaker_id = speaker.id
+            if type(speaker.id) == "function" then
+                local ok_id, id_from_fn = pcall(function() return speaker:id() end)
+                if ok_id then
+                    speaker_id = id_from_fn
+                end
+            end
+            local se = resolve_from_id("get_speaker", speaker_id)
+            if se then
+                return se
+            end
+        end
+    end
+
+    if db and db.actor_dialog then
+        local sid = normalize_lookup_id(db.actor_dialog:id())
+        if sid then
+            local se = resolve_from_id("db.actor_dialog:id()", sid)
+            if se then
+                return se
+            end
+        end
+        if sid and level and level.object_by_id then
             local obj = level.object_by_id(sid)
             if obj and obj.id then
-                local obj_sid = tonumber(obj:id())
-                if obj_sid and obj_sid > 0 then
-                    obj_sid = math.floor(obj_sid)
-                    partner_id = obj_sid
-                    local se = sim:object(obj_sid)
-                    bridge_debug("get_partner_npc_se: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", tostring(pending_conv_id), tostring(partner_id), tostring(se ~= nil))
+                local obj_sid = normalize_lookup_id(obj:id())
+                if obj_sid then
+                    local se = resolve_from_id("db.actor_dialog -> level.object_by_id", obj_sid)
                     if se then
                         return se
                     end
-                    bridge_debug("get_partner_npc_se: sim:object(id) returned nil for partner_id=%s", tostring(partner_id))
                 end
             end
         end
@@ -83,21 +145,24 @@ local function get_partner_npc_se()
     if level and level.get_target_obj then
         local obj = level.get_target_obj()
         if obj and obj:id() then
-            local sid = tonumber(obj:id())
-            if sid and sid > 0 then
-                sid = math.floor(sid)
-                partner_id = sid
-                local se = sim:object(sid)
-                bridge_debug("get_partner_npc_se: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", tostring(pending_conv_id), tostring(partner_id), tostring(se ~= nil))
+            local sid = normalize_lookup_id(obj:id())
+            if sid then
+                local se = resolve_from_id("level.get_target_obj", sid)
                 if se then
                     return se
                 end
-                bridge_debug("get_partner_npc_se: sim:object(id) returned nil for partner_id=%s", tostring(partner_id))
             end
         end
     end
 
-    bridge_debug("get_partner_npc_se: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", tostring(pending_conv_id), tostring(partner_id), "false")
+    bridge_debug(
+        "get_partner_npc_se: path=%s pending_conv_id=%s partner_id=%s story_id=%s server_entity_resolved=%s",
+        "none",
+        tostring(pending_conv_id),
+        tostring(partner_id),
+        "nil",
+        "false"
+    )
     return nil
 end
 
