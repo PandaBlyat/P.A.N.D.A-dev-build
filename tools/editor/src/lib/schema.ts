@@ -318,7 +318,7 @@ const WATCH_TRIGGER_EDITOR: ParamEditor = {
 export interface ParamDef {
   name: string;
   type: 'faction' | 'rank' | 'number' | 'level' | 'smart_terrain'
-    | 'item_section' | 'mutant_type' | 'achievement' | 'string' | 'slot';
+    | 'item_section' | 'mutant_type' | 'achievement' | 'story_npc' | 'string' | 'slot';
   required: boolean;
   label: string;
   placeholder?: string;
@@ -913,7 +913,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     params: [
       {
         name: 'story_id',
-        type: 'string',
+        type: 'story_npc',
         required: true,
         label: 'Story NPC',
         editor: {

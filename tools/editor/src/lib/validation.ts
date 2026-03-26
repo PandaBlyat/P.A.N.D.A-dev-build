@@ -3,6 +3,7 @@
 import { ALL_SMART_TERRAIN_IDS, FACTION_ALIASES, FACTION_IDS, LEVEL_DISPLAY_NAMES, MUTANT_TYPES, RANKS } from './constants';
 import { findSchema, OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from './schema';
 import { createTurnDisplayLabeler } from './turn-labels';
+import { STORY_NPC_OPTIONS } from './generated/story-npc-catalog';
 import type { CommandSchema, ParamDef } from './schema';
 import type {
   AnyPrecondition,
@@ -22,6 +23,7 @@ const OUTCOME_COMMANDS = new Map(OUTCOME_SCHEMAS.map(schema => [schema.name, sch
 const KNOWN_LEVELS = new Set(Object.keys(LEVEL_DISPLAY_NAMES));
 const KNOWN_SMART_TERRAINS = new Set(ALL_SMART_TERRAIN_IDS);
 const KNOWN_FACTIONS = new Set([...FACTION_IDS, ...Object.keys(FACTION_ALIASES)]);
+const KNOWN_STORY_NPCS = new Set(STORY_NPC_OPTIONS.map((option) => option.value));
 const SPAWN_JOB_OUTCOMES = new Set([
   'spawn_hostile',
   'spawn_friendly',
@@ -79,7 +81,18 @@ const PRECONDITION_RANGE_PAIRS: Array<{ minCommand: string; maxCommand: string; 
 
 type ConversationField = 'label' | 'timeout' | 'timeout-message' | 'preconditions';
 type TurnField = 'opening-message';
-type ChoiceField = 'text' | 'reply' | 'reply-rel-high' | 'reply-rel-low' | 'continue-to';
+type ChoiceField =
+  | 'text'
+  | 'reply'
+  | 'reply-rel-high'
+  | 'reply-rel-low'
+  | 'channel'
+  | 'continue-to'
+  | 'continue-channel'
+  | 'story-npc-id'
+  | 'npc-faction-filters'
+  | 'npc-profile-filters'
+  | 'allow-generic-stalker';
 
 interface ValidationContext {
   conversationId: number;
@@ -218,6 +231,7 @@ function validateConversation(conv: Conversation, messages: ValidationMessage[])
 
   validateConversationPreconditionLogic(conv, messages);
   validateConversationAnomalyArtifactSafety(conv, messages);
+  validateConversationF2FAndChannelFlow(conv, messages);
 
   if (conv.turns.length === 0) {
     pushMessage(messages, {
@@ -952,6 +966,224 @@ function validateReachability(
   }
 }
 
+function validateConversationF2FAndChannelFlow(conv: Conversation, messages: ValidationMessage[]): void {
+  const turnByNumber = new Map(conv.turns.map((turn) => [turn.turnNumber, turn]));
+
+  for (const turn of conv.turns) {
+    const turnChannel = normalizeChannel(turn.channel, 'both');
+    const f2fVisibleChoices = turn.choices.filter((choice) => isChannelVisible(normalizeChannel(choice.channel, 'pda'), 'f2f'));
+
+    for (const choice of turn.choices) {
+      const choiceChannel = normalizeChannel(choice.channel, 'pda');
+      const continueChannel = normalizeChannel(choice.continue_channel, 'pda');
+
+      if (!isChannelVisible(choiceChannel, 'f2f')) {
+        if ((choice.story_npc_id ?? '').trim() !== '' || (choice.npc_faction_filters?.length ?? 0) > 0 || (choice.npc_profile_filters?.length ?? 0) > 0 || choice.allow_generic_stalker) {
+          pushMessage(messages, {
+            code: 'f2f-targeting-on-non-f2f-choice',
+            group: 'logic',
+            scope: 'choice',
+            level: 'warning',
+            conversationId: conv.id,
+            turnNumber: turn.turnNumber,
+            choiceIndex: choice.index,
+            propertiesTab: 'selection',
+            fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'channel'),
+            fieldLabel: 'Choice Channel',
+            message: `Branch ${turn.turnNumber}, Choice ${choice.index} is not visible in F2F, so NPC targeting filters will not be used.`,
+          });
+        }
+      } else {
+        validateF2FTargeting(conv, turn, choice, messages);
+      }
+
+      if (choice.continueTo == null) {
+        continue;
+      }
+
+      const targetTurn = turnByNumber.get(choice.continueTo);
+      if (!targetTurn) {
+        continue;
+      }
+
+      if (!isCrossChannelHandoff(choiceChannel, continueChannel)) {
+        continue;
+      }
+
+      const destinationChannel: 'pda' | 'f2f' = continueChannel === 'f2f' ? 'f2f' : 'pda';
+
+      if (!isChannelVisible(normalizeChannel(targetTurn.channel, 'both'), destinationChannel)) {
+        pushMessage(messages, {
+          code: 'handoff-target-hidden-channel',
+          group: 'structure',
+          scope: 'choice',
+          level: 'error',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          propertiesTab: 'selection',
+          fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'),
+          fieldLabel: 'Continue To Turn',
+          message: `Cross-channel handoff to Branch ${choice.continueTo} is invalid: target turn is not visible on ${destinationChannel.toUpperCase()}.`,
+        });
+      }
+
+      const hasEntry = destinationChannel === 'pda'
+        ? targetTurn.pda_entry === true
+        : targetTurn.f2f_entry === true;
+      if (!hasEntry) {
+        pushMessage(messages, {
+          code: 'handoff-target-not-entry',
+          group: 'structure',
+          scope: 'choice',
+          level: 'error',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          propertiesTab: 'selection',
+          fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'),
+          fieldLabel: 'Continue To Turn',
+          message: `Cross-channel handoff to Branch ${choice.continueTo} is invalid: target is not marked as a ${destinationChannel.toUpperCase()} entry turn.`,
+        });
+      }
+    }
+
+    if (turnChannel === 'f2f' && turn.f2f_entry === true && f2fVisibleChoices.length > 0) {
+      const hasF2FExit = f2fVisibleChoices.some((choice) => {
+        const continueTo = choice.continueTo;
+        if (continueTo != null) {
+          return true;
+        }
+        return choice.outcomes.some((outcome) => {
+          if (outcome.command === 'pause_job') {
+            return parseStrictInteger(outcome.params[1]) != null || parseStrictInteger(outcome.params[2]) != null;
+          }
+          const task = TASK_OUTCOME_TURN_INDICES[outcome.command];
+          return task != null && (parseStrictInteger(outcome.params[task[0]]) != null || parseStrictInteger(outcome.params[task[1]]) != null);
+        });
+      });
+
+      if (!hasF2FExit) {
+        pushMessage(messages, {
+          code: 'forced-f2f-dead-end',
+          group: 'logic',
+          scope: 'turn',
+          level: 'error',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          propertiesTab: 'selection',
+          fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'),
+          fieldLabel: 'Opening Message',
+          message: `Branch ${turn.turnNumber} is a forced F2F entry with no exit path (no continuation or task resume turn).`,
+        });
+      }
+    }
+  }
+}
+
+function validateF2FTargeting(conv: Conversation, turn: Conversation['turns'][number], choice: Choice, messages: ValidationMessage[]): void {
+  const storyNpc = (choice.story_npc_id ?? '').trim();
+  const factionFilters = choice.npc_faction_filters ?? [];
+  const profileFilters = choice.npc_profile_filters?.map((filter) => filter.trim()).filter(Boolean) ?? [];
+  const broadScope = choice.allow_generic_stalker === true;
+  const hasSpecificFilters = storyNpc !== '' || factionFilters.length > 0 || profileFilters.length > 0;
+
+  if (!hasSpecificFilters && !broadScope) {
+    pushMessage(messages, {
+      code: 'f2f-missing-targeting',
+      group: 'logic',
+      scope: 'choice',
+      level: 'error',
+      conversationId: conv.id,
+      turnNumber: turn.turnNumber,
+      choiceIndex: choice.index,
+      propertiesTab: 'selection',
+      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'story-npc-id'),
+      fieldLabel: 'Story NPC',
+      message: `Branch ${turn.turnNumber}, Choice ${choice.index} is visible in F2F but has no NPC target filters and no broad-scope fallback.`,
+    });
+  }
+
+  if (storyNpc !== '' && !KNOWN_STORY_NPCS.has(storyNpc)) {
+    pushMessage(messages, {
+      code: 'f2f-unknown-story-npc',
+      group: 'schema',
+      scope: 'choice',
+      level: 'error',
+      conversationId: conv.id,
+      turnNumber: turn.turnNumber,
+      choiceIndex: choice.index,
+      propertiesTab: 'selection',
+      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'story-npc-id'),
+      fieldLabel: 'Story NPC',
+      message: `Unknown story NPC "${storyNpc}" for F2F targeting.`,
+    });
+  }
+
+  if (storyNpc !== '' && (factionFilters.length > 0 || profileFilters.length > 0 || broadScope)) {
+    pushMessage(messages, {
+      code: 'f2f-ambiguous-targeting',
+      group: 'logic',
+      scope: 'choice',
+      level: 'warning',
+      conversationId: conv.id,
+      turnNumber: turn.turnNumber,
+      choiceIndex: choice.index,
+      propertiesTab: 'selection',
+      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'story-npc-id'),
+      fieldLabel: 'Story NPC',
+      message: `Story NPC target is combined with broader sim-NPC filters, which can make F2F selection ambiguous.`,
+    });
+  }
+
+  if (factionFilters.length === 0 && profileFilters.length > 0 && !broadScope && storyNpc === '') {
+    pushMessage(messages, {
+      code: 'f2f-profile-filter-without-scope',
+      group: 'logic',
+      scope: 'choice',
+      level: 'warning',
+      conversationId: conv.id,
+      turnNumber: turn.turnNumber,
+      choiceIndex: choice.index,
+      propertiesTab: 'selection',
+      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'npc-profile-filters'),
+      fieldLabel: 'NPC Profile Filters',
+      message: 'Profile-only targeting may match multiple sim NPCs. Consider setting Story NPC, faction filters, or broad scope explicitly.',
+    });
+  }
+
+  if (factionFilters.length > 0 && storyNpc !== '') {
+    pushMessage(messages, {
+      code: 'f2f-impossible-filter-combo',
+      group: 'logic',
+      scope: 'choice',
+      level: 'error',
+      conversationId: conv.id,
+      turnNumber: turn.turnNumber,
+      choiceIndex: choice.index,
+      propertiesTab: 'selection',
+      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'npc-faction-filters'),
+      fieldLabel: 'NPC Faction Filters',
+      message: 'Story NPC targeting cannot be combined with faction filters. This filter combo is not resolvable.',
+    });
+  }
+}
+
+function normalizeChannel(channel: Conversation['turns'][number]['channel'] | Choice['channel'] | Choice['continue_channel'] | undefined, fallback: 'pda' | 'both'): 'pda' | 'f2f' | 'both' {
+  if (channel === 'pda' || channel === 'f2f' || channel === 'both') {
+    return channel;
+  }
+  return fallback;
+}
+
+function isChannelVisible(value: 'pda' | 'f2f' | 'both', target: 'pda' | 'f2f'): boolean {
+  return value === 'both' || value === target;
+}
+
+function isCrossChannelHandoff(from: 'pda' | 'f2f' | 'both', to: 'pda' | 'f2f' | 'both'): boolean {
+  return (from === 'pda' && to === 'f2f') || (from === 'f2f' && to === 'pda');
+}
+
 function flattenTopLevelPrecondition(entry: PreconditionEntry, index: number): FlattenedPrecondition[] {
   if (entry.type === 'simple') {
     return [buildFlattenedPrecondition(entry, 'positive', index)];
@@ -1037,6 +1269,8 @@ function normalizeParamValue(type: ParamDef['type'], value: string): string | nu
       return MUTANT_TYPES.includes(trimmed.toLowerCase() as typeof MUTANT_TYPES[number]) ? trimmed.toLowerCase() : null;
     case 'smart_terrain':
       return isSmartTerrainPlaceholder(trimmed) || KNOWN_SMART_TERRAINS.has(trimmed) ? trimmed : null;
+    case 'story_npc':
+      return KNOWN_STORY_NPCS.has(trimmed) ? trimmed : null;
     default:
       return trimmed;
   }
@@ -1061,6 +1295,8 @@ function describeAllowedValues(type: ParamDef['type'], schemas: CommandSchema[])
         return null;
       }
       return null;
+    case 'story_npc':
+      return 'a known story NPC id';
     default:
       return null;
   }
