@@ -1436,6 +1436,8 @@ local function collect_branches(npc_se, forced_context)
                         precond_key = key_exists(precond_key) and precond_key or nil,
                         branches = {},
                         handoff = forced_handoff_active and forced_context and forced_context.source or nil,
+                        handoff_source = forced_handoff_active and forced_context and (forced_context.source_path or forced_context.source) or nil,
+                        handoff_present = forced_handoff_active,
                         stem = stem,
                     }
 
@@ -1469,6 +1471,8 @@ local function collect_branches(npc_se, forced_context)
 
                         local missing_choices = 0
                         local rejected_choice_keys = {}
+                        local total_choices_loaded = 0
+                        local choices_passing_preconditions = 0
                         local choice_1_key = turn_stem .. "_choice_1"
                         for idx = 1, MAX_CHOICE_SCAN do
                             local choice_key = turn_stem .. "_choice_" .. idx
@@ -1482,6 +1486,7 @@ local function collect_branches(npc_se, forced_context)
                                 end
                             else
                                 missing_choices = 0
+                                total_choices_loaded = total_choices_loaded + 1
                                 local reply_key = turn_stem .. "_reply_" .. idx
                                 local outcome_key = turn_stem .. "_outcome_" .. idx
                                 local choice_precond_key = turn_stem .. "_choice_" .. idx .. "_precond"
@@ -1519,6 +1524,7 @@ local function collect_branches(npc_se, forced_context)
                                 )
 
                                 if show then
+                                    choices_passing_preconditions = choices_passing_preconditions + 1
                                     local hard_route = false
                                     if key_exists(hard_route_key) then
                                         hard_route = parse_bool_flag(tr(hard_route_key))
@@ -1537,6 +1543,8 @@ local function collect_branches(npc_se, forced_context)
                                 end
                             end
                         end
+                        found.total_choices_loaded = total_choices_loaded
+                        found.choices_passing_preconditions = choices_passing_preconditions
 
                         if found and #found.branches == 0 then
                             if not first_missing_key then
@@ -1572,6 +1580,25 @@ local function collect_branches(npc_se, forced_context)
     end
 
     return found
+end
+
+local function debug_resolve_snapshot(stage, npc_se, state, handoff)
+    local npc_id = resolve_server_npc_id(npc_se, "debug_resolve_snapshot")
+    bridge_debug(
+        "resolve stage=%s npc_id=%s conv_id=%s forced_turn=%s resolved_faction=%s resolved_stem=%s handoff_present=%s handoff_source=%s turn_root_key=%s total_choices_loaded=%s choices_passing_preconditions=%s final_branch_count=%s",
+        tostring(stage or "unknown"),
+        tostring(npc_id or "nil"),
+        tostring(state and state.conv_id or handoff and handoff.conv_id or "nil"),
+        tostring(handoff and handoff.turn or state and state.turn or "nil"),
+        tostring(state and state.faction or handoff and handoff.faction or "nil"),
+        tostring(state and state.stem or "nil"),
+        tostring((handoff ~= nil) or (state and state.handoff_present) or false),
+        tostring(handoff and (handoff.source_path or handoff.source) or state and state.handoff_source or "none"),
+        tostring(state and state.open_key or "nil"),
+        tostring(state and state.total_choices_loaded or 0),
+        tostring(state and state.choices_passing_preconditions or 0),
+        tostring(state and state.branches and #state.branches or 0)
+    )
 end
 
 local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_script_text)
@@ -1786,6 +1813,7 @@ function panda_f2f_bridge.precondition()
 
     state.npc_se = npc_se
     runtime.latest_state = state
+    debug_resolve_snapshot("precondition", npc_se, state, handoff)
     bridge_debug(
         "precondition pass: npc_id=%s runtime_story_id=%s runtime_fallback_name=%s runtime_canonical_id=%s conv_id=%s turn=%s branches=%s",
         tostring(npc_se and npc_se.id),
@@ -1803,6 +1831,7 @@ function panda_f2f_bridge.init_dialog(dialog)
     ensure_callbacks_registered()
 
     local state = runtime.latest_state
+    local init_handoff = nil
     if not state then
         local npc_se = get_partner_npc_se()
         if not npc_se then
@@ -1812,6 +1841,7 @@ function panda_f2f_bridge.init_dialog(dialog)
         if not handoff then
             handoff = get_recent_handoff_match_for_npc(npc_se, RECENT_HANDOFF_GRACE_MS)
         end
+        init_handoff = handoff
         state = collect_branches(npc_se, handoff)
         if not state and handoff then
             state = collect_branches(npc_se, nil)
@@ -1825,8 +1855,10 @@ function panda_f2f_bridge.init_dialog(dialog)
     local id = tostring(state.npc_se and state.npc_se.id or "unknown") .. ":" .. tostring(state.conv_id or 0)
     runtime.state_by_id[id] = state
     runtime.latest_state = state
+    debug_resolve_snapshot("init", state.npc_se, state, init_handoff)
 
     build_dialog_tree(dialog, state)
+    debug_resolve_snapshot("build", state.npc_se, state, nil)
 end
 
 return panda_f2f_bridge
