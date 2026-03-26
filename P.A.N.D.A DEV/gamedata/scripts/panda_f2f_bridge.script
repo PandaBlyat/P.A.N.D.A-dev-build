@@ -41,22 +41,39 @@ end
 local function get_partner_npc_se()
     local sim = alife and alife()
     if not sim then
+        bridge_debug("get_partner_npc_se: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", "nil", "nil", "false")
         return nil
     end
 
+    local pending_conv_id = nil
+    local partner_id = nil
+
     if db and db.actor_dialog then
         local id = db.actor_dialog:id()
-        if id then
-            local se = sim:object(id)
-            if se then return se end
+        local sid = tonumber(id)
+        if sid and sid > 0 then
+            sid = math.floor(sid)
+            partner_id = sid
+            local se = sim:object(sid)
+            bridge_debug("get_partner_npc_se: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", tostring(pending_conv_id), tostring(partner_id), tostring(se ~= nil))
+            if se then
+                return se
+            end
+            bridge_debug("get_partner_npc_se: sim:object(id) returned nil for partner_id=%s", tostring(partner_id))
         end
-        if id and level and level.object_by_id then
-            local obj = level.object_by_id(id)
+        if sid and sid > 0 and level and level.object_by_id then
+            local obj = level.object_by_id(sid)
             if obj and obj.id then
-                local sid = obj:id()
-                if sid then
-                    local se = sim:object(sid)
-                    if se then return se end
+                local obj_sid = tonumber(obj:id())
+                if obj_sid and obj_sid > 0 then
+                    obj_sid = math.floor(obj_sid)
+                    partner_id = obj_sid
+                    local se = sim:object(obj_sid)
+                    bridge_debug("get_partner_npc_se: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", tostring(pending_conv_id), tostring(partner_id), tostring(se ~= nil))
+                    if se then
+                        return se
+                    end
+                    bridge_debug("get_partner_npc_se: sim:object(id) returned nil for partner_id=%s", tostring(partner_id))
                 end
             end
         end
@@ -65,11 +82,21 @@ local function get_partner_npc_se()
     if level and level.get_target_obj then
         local obj = level.get_target_obj()
         if obj and obj:id() then
-            local se = sim:object(obj:id())
-            if se then return se end
+            local sid = tonumber(obj:id())
+            if sid and sid > 0 then
+                sid = math.floor(sid)
+                partner_id = sid
+                local se = sim:object(sid)
+                bridge_debug("get_partner_npc_se: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", tostring(pending_conv_id), tostring(partner_id), tostring(se ~= nil))
+                if se then
+                    return se
+                end
+                bridge_debug("get_partner_npc_se: sim:object(id) returned nil for partner_id=%s", tostring(partner_id))
+            end
         end
     end
 
+    bridge_debug("get_partner_npc_se: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", tostring(pending_conv_id), tostring(partner_id), "false")
     return nil
 end
 
@@ -362,29 +389,42 @@ local function execute_shared_outcome(branch, state)
 end
 
 local function get_pending_handoff_for_npc(npc_se)
-    if not npc_se or not npc_se.id then
+    local partner_id = npc_se and tonumber(npc_se.id) or nil
+    if not partner_id or partner_id <= 0 then
+        bridge_debug("get_pending_handoff_for_npc: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", "nil", tostring(partner_id), tostring(npc_se ~= nil))
         return nil
     end
+    partner_id = math.floor(partner_id)
 
     local api = get_conv_api()
     if not api or type(api.get_pending_f2f_handoff) ~= "function" then
         return nil
     end
 
-    local handoff = api.get_pending_f2f_handoff(npc_se.id)
+    local handoff = api.get_pending_f2f_handoff(partner_id)
     if type(handoff) ~= "table" then
+        bridge_debug("get_pending_handoff_for_npc: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", "nil", tostring(partner_id), "true")
         return nil
     end
 
     local conv_id = tonumber(handoff.conv_id)
     local turn = tonumber(handoff.turn)
     if not conv_id or not turn then
+        bridge_debug("get_pending_handoff_for_npc: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", tostring(handoff and handoff.conv_id), tostring(partner_id), "true")
+        return nil
+    end
+    conv_id = math.floor(conv_id)
+    turn = math.floor(turn)
+    if conv_id <= 0 or turn <= 0 then
+        bridge_debug("get_pending_handoff_for_npc: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", tostring(conv_id), tostring(partner_id), "true")
         return nil
     end
 
+    bridge_debug("get_pending_handoff_for_npc: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", tostring(conv_id), tostring(partner_id), "true")
+
     return {
-        conv_id = math.floor(conv_id),
-        turn = math.floor(turn),
+        conv_id = conv_id,
+        turn = turn,
         channel = "f2f",
         source = handoff,
     }
@@ -703,13 +743,21 @@ function panda_f2f_bridge.precondition()
         state = collect_branches(npc_se, nil)
     end
     if not state then
-        bridge_debug("precondition fail: no matching state for npc_id=%s partner_story_id=%s", tostring(npc_se.id), tostring(get_partner_story_npc_id(npc_se)))
+        local partner_story_id = nil
+        if npc_se then
+            partner_story_id = get_partner_story_npc_id(npc_se)
+        end
+        bridge_debug("precondition fail: no matching state for npc_id=%s partner_story_id=%s", tostring(npc_se and npc_se.id), tostring(partner_story_id))
         return false
     end
 
     state.npc_se = npc_se
     runtime.latest_state = state
-    bridge_debug("precondition pass: npc_id=%s partner_story_id=%s conv_id=%s turn=%s branches=%s", tostring(npc_se.id), tostring(get_partner_story_npc_id(npc_se)), tostring(state.conv_id), tostring(state.turn), tostring(#state.branches))
+    local partner_story_id = nil
+    if npc_se then
+        partner_story_id = get_partner_story_npc_id(npc_se)
+    end
+    bridge_debug("precondition pass: npc_id=%s partner_story_id=%s conv_id=%s turn=%s branches=%s", tostring(npc_se and npc_se.id), tostring(partner_story_id), tostring(state.conv_id), tostring(state.turn), tostring(#state.branches))
     return true
 end
 
