@@ -3,7 +3,7 @@ import { generateXml } from './xml-export';
 import { importXml } from './xml-import';
 import { createSampleProjectBundle } from './sample-project';
 import { fetchConversationById } from './api-client';
-import type { Project } from './types';
+import type { Choice, Conversation, ConversationChannel, FactionId, Project, Turn } from './types';
 import { FACTION_XML_KEYS, getConversationFaction } from './types';
 
 export function createBlankProject(): void {
@@ -12,14 +12,14 @@ export function createBlankProject(): void {
 
 export function loadSampleProject(): void {
   const sample = createSampleProjectBundle();
-  store.loadProject(sample.project, sample.systemStrings);
+  store.loadProject(normalizeProjectData(sample.project), sample.systemStrings);
 }
 
 /** Export project as .panda JSON file */
 export function exportProjectJson(): void {
   const state = store.get();
   const data = JSON.stringify({
-    ...state.project,
+    ...normalizeProjectData(state.project),
     systemStrings: Object.fromEntries(state.systemStrings),
   }, null, 2);
   const factions = getProjectConversationFactions(state.project);
@@ -84,7 +84,7 @@ function tryLoadProjectFile(raw: string, parseOrder: string[]): boolean {
     if (format === 'xml') {
       const result = importXml(raw);
       if (result) {
-        store.loadProject(result.project, result.systemStrings);
+        store.loadProject(normalizeProjectData(result.project), result.systemStrings);
         return true;
       }
       continue;
@@ -95,7 +95,7 @@ function tryLoadProjectFile(raw: string, parseOrder: string[]): boolean {
         const data = JSON.parse(raw);
         const systemStrings = new Map<string, string>(Object.entries(data.systemStrings || {}));
         delete data.systemStrings;
-        store.loadProject(data, systemStrings);
+        store.loadProject(normalizeProjectData(data), systemStrings);
         return true;
       } catch {
         continue;
@@ -159,7 +159,7 @@ export async function loadOnboardingSamplePack(): Promise<void> {
     conversations: remoteConversation.data.conversations,
   });
 
-  store.loadProject(project, new Map());
+  store.loadProject(normalizeProjectData(project), new Map());
 }
 
 function normalizeSequentialConversationIds(project: Project): Project {
@@ -173,5 +173,69 @@ function normalizeSequentialConversationIds(project: Project): Project {
   return {
     ...project,
     conversations: normalizedConversations,
+  };
+}
+
+const CHANNEL_VALUES: ConversationChannel[] = ['pda', 'f2f', 'both'];
+
+function normalizeChannel(value: unknown, fallback: ConversationChannel): ConversationChannel {
+  return typeof value === 'string' && CHANNEL_VALUES.includes(value as ConversationChannel)
+    ? value as ConversationChannel
+    : fallback;
+}
+
+function normalizeFaction(value: unknown, fallback: FactionId): FactionId {
+  return typeof value === 'string' && value in FACTION_XML_KEYS
+    ? value as FactionId
+    : fallback;
+}
+
+function normalizeStringArray(values: unknown): string[] | undefined {
+  if (!Array.isArray(values)) return undefined;
+  const normalized = values.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0);
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeTurn(turn: Turn, fallbackPosition: { x: number; y: number }): Turn {
+  return {
+    ...turn,
+    channel: normalizeChannel(turn.channel, 'both'),
+    pda_entry: typeof turn.pda_entry === 'boolean' ? turn.pda_entry : turn.turnNumber === 1,
+    f2f_entry: typeof turn.f2f_entry === 'boolean' ? turn.f2f_entry : false,
+    position: turn.position ?? fallbackPosition,
+    choices: turn.choices.map((choice, index) => normalizeChoice(choice, index + 1)),
+  };
+}
+
+function normalizeChoice(choice: Choice, fallbackIndex: number): Choice {
+  return {
+    ...choice,
+    index: typeof choice.index === 'number' ? choice.index : fallbackIndex,
+    channel: normalizeChannel(choice.channel, 'pda'),
+    continue_channel: normalizeChannel(choice.continue_channel, 'pda'),
+    story_npc_id: typeof choice.story_npc_id === 'string' && choice.story_npc_id.trim().length > 0
+      ? choice.story_npc_id.trim()
+      : undefined,
+    npc_faction_filters: normalizeStringArray(choice.npc_faction_filters)?.filter((faction): faction is FactionId => faction in FACTION_XML_KEYS),
+    npc_profile_filters: normalizeStringArray(choice.npc_profile_filters),
+    allow_generic_stalker: typeof choice.allow_generic_stalker === 'boolean' ? choice.allow_generic_stalker : false,
+  };
+}
+
+function normalizeConversation(conversation: Conversation, fallbackFaction: FactionId): Conversation {
+  return {
+    ...conversation,
+    faction: normalizeFaction(conversation.faction, fallbackFaction),
+    turns: conversation.turns.map((turn, index) => normalizeTurn(turn, { x: index * 340, y: 220 })),
+  };
+}
+
+function normalizeProjectData(project: Project): Project {
+  const fallbackFaction = normalizeFaction(project.faction, 'stalker');
+  return {
+    ...project,
+    version: typeof project.version === 'string' && project.version.trim().length > 0 ? project.version : '2.0.0',
+    faction: fallbackFaction,
+    conversations: project.conversations.map((conversation) => normalizeConversation(conversation, fallbackFaction)),
   };
 }
