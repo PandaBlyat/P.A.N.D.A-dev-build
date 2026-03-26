@@ -9,10 +9,15 @@ panda_f2f_bridge = panda_f2f_bridge or {}
 local MAX_CONV_SCAN = 256
 local MAX_CHOICE_SCAN = 12
 local MISSING_STOP = 20
+local HUB_DIALOG_ID = "panda_f2f_hub_dialog"
+local BRANCH_HARD_ROUTE_SUFFIX = "_f2f_hard_route"
+local SAVE_KEY_OVERRIDE_OWNERS = "panda_f2f_bridge_override_owners"
 
 local runtime = {
     state_by_id = {},
     latest_state = nil,
+    override_owners = {},
+    callbacks_registered = false,
 }
 
 local function get_conv_api()
@@ -101,6 +106,75 @@ local function tr(key)
     return game.translate_string(key)
 end
 
+local function parse_bool_flag(value)
+    if value == nil then
+        return false
+    end
+
+    local s = tostring(value):lower()
+    if s == "0" or s == "false" or s == "off" or s == "no" then
+        return false
+    end
+
+    return true
+end
+
+local function normalize_npc_id(npc_id)
+    local out = tonumber(npc_id)
+    if not out then
+        return nil
+    end
+    return math.floor(out)
+end
+
+local function make_override_owner_tag(state, branch)
+    return string.format(
+        "f2f:%s:%s:%s",
+        tostring(state and state.faction or "loner"),
+        tostring(state and state.conv_id or 0),
+        tostring(branch and branch.index or 0)
+    )
+end
+
+local function save_state_cb(m)
+    m[SAVE_KEY_OVERRIDE_OWNERS] = runtime.override_owners
+end
+
+local function load_state_cb(m)
+    runtime.override_owners = m[SAVE_KEY_OVERRIDE_OWNERS] or {}
+    for npc_id, _ in pairs(runtime.override_owners) do
+        local sid = normalize_npc_id(npc_id)
+        if sid and xr_meet and type(xr_meet.restore_dialog) == "function" then
+            xr_meet.restore_dialog(sid)
+        end
+    end
+    runtime.override_owners = {}
+end
+
+local function on_game_end_cb()
+    for npc_id, _ in pairs(runtime.override_owners) do
+        local sid = normalize_npc_id(npc_id)
+        if sid and xr_meet and type(xr_meet.restore_dialog) == "function" then
+            xr_meet.restore_dialog(sid)
+        end
+    end
+    runtime.override_owners = {}
+end
+
+local function ensure_callbacks_registered()
+    if runtime.callbacks_registered then
+        return
+    end
+    if type(RegisterScriptCallback) ~= "function" then
+        return
+    end
+
+    RegisterScriptCallback("save_state", save_state_cb)
+    RegisterScriptCallback("load_state", load_state_cb)
+    RegisterScriptCallback("on_game_end", on_game_end_cb)
+    runtime.callbacks_registered = true
+end
+
 local function key_exists(key)
     local val = tr(key)
     return val ~= key
@@ -151,6 +225,60 @@ local function execute_shared_outcome(branch, state)
     ) == true
 end
 
+function panda_f2f_bridge.hard_route_branch(npc_id, owner_tag)
+    ensure_callbacks_registered()
+
+    local sid = normalize_npc_id(npc_id)
+    if not sid then
+        return false
+    end
+    if not xr_meet or type(xr_meet.override_dialog) ~= "function" then
+        return false
+    end
+
+    xr_meet.override_dialog(sid, HUB_DIALOG_ID)
+    runtime.override_owners[tostring(sid)] = {
+        owner = owner_tag or "f2f",
+        dialog = HUB_DIALOG_ID,
+        started_at = time_global and time_global() or 0,
+    }
+
+    return true
+end
+
+function panda_f2f_bridge.restore_branch_route(npc_id, owner_tag)
+    ensure_callbacks_registered()
+
+    local sid = normalize_npc_id(npc_id)
+    if not sid then
+        return false
+    end
+
+    local key = tostring(sid)
+    local rec = runtime.override_owners[key]
+    if rec and owner_tag and rec.owner ~= owner_tag then
+        return false
+    end
+
+    if xr_meet and type(xr_meet.restore_dialog) == "function" then
+        xr_meet.restore_dialog(sid)
+    end
+    runtime.override_owners[key] = nil
+    return true
+end
+
+function panda_f2f_bridge.on_branch_completed(npc_id, owner_tag)
+    return panda_f2f_bridge.restore_branch_route(npc_id, owner_tag)
+end
+
+function panda_f2f_bridge.on_branch_failed(npc_id, owner_tag)
+    return panda_f2f_bridge.restore_branch_route(npc_id, owner_tag)
+end
+
+function panda_f2f_bridge.on_branch_timeout(npc_id, owner_tag)
+    return panda_f2f_bridge.restore_branch_route(npc_id, owner_tag)
+end
+
 local function collect_branches(npc_se)
     local faction = actor_faction_key()
     local found = nil
@@ -199,6 +327,7 @@ local function collect_branches(npc_se)
                         local reply_key = stem .. "_reply_" .. idx
                         local outcome_key = stem .. "_outcome_" .. idx
                         local choice_precond_key = stem .. "_choice_" .. idx .. "_precond"
+                        local hard_route_key = stem .. "_choice_" .. idx .. BRANCH_HARD_ROUTE_SUFFIX
 
                         local show = true
                         if key_exists(choice_precond_key) then
@@ -211,12 +340,18 @@ local function collect_branches(npc_se)
                         end
 
                         if show then
+                            local hard_route = false
+                            if key_exists(hard_route_key) then
+                                hard_route = parse_bool_flag(tr(hard_route_key))
+                            end
+
                             table.insert(found.branches, {
                                 index = idx,
                                 choice_key = choice_key,
                                 reply_key = key_exists(reply_key) and reply_key or nil,
                                 outcome = key_exists(outcome_key) and tr(outcome_key) or "none",
                                 precond_key = key_exists(choice_precond_key) and choice_precond_key or nil,
+                                hard_route = hard_route,
                             })
                         end
                     end
@@ -301,7 +436,17 @@ local function build_dialog_tree(dialog, state)
                 if not ok then return end
             end
 
-            execute_shared_outcome(branch, active_state)
+            local owner_tag = nil
+            local routed = false
+            if branch.hard_route then
+                owner_tag = make_override_owner_tag(active_state, branch)
+                routed = panda_f2f_bridge.hard_route_branch(active_state.npc_se and active_state.npc_se.id or nil, owner_tag)
+            end
+
+            local ok = execute_shared_outcome(branch, active_state)
+            if branch.hard_route and routed and not ok then
+                panda_f2f_bridge.restore_branch_route(active_state.npc_se and active_state.npc_se.id or nil, owner_tag)
+            end
         end
 
         state.handlers[#state.handlers + 1] = { cond_name = cond_name, act_name = act_name }
@@ -340,6 +485,8 @@ local function build_dialog_tree(dialog, state)
 end
 
 function panda_f2f_bridge.precondition()
+    ensure_callbacks_registered()
+
     local npc_se = get_partner_npc_se()
     if not npc_se then
         return false
@@ -356,6 +503,8 @@ function panda_f2f_bridge.precondition()
 end
 
 function panda_f2f_bridge.init_dialog(dialog)
+    ensure_callbacks_registered()
+
     local state = runtime.latest_state
     if not state then
         local npc_se = get_partner_npc_se()
