@@ -7,7 +7,7 @@
     <!-- ═══════════════════════════════════════════════════════════ -->
     <string id="st_pda_ic_loner_1_precond">
         <text>req_story_npc:esc_2_12_stalker_wolf</text>
-	</string>	
+    </string>
     <string id="st_pda_ic_loner_1_open">
         <text>Yo come see me right now need to talk with you in person.</text>
     </string>
@@ -26,7 +26,7 @@
     <string id="st_pda_ic_loner_1_cont_channel_1">
         <text>f2f</text>
     </string>
-	<string id="st_pda_ic_loner_1_t2_choice_1_precond">
+    <string id="st_pda_ic_loner_1_t2_choice_1_precond">
         <text>req_story_npc:esc_2_12_stalker_wolf</text>
     </string>
     <string id="st_pda_ic_loner_1_t2_choice_1">
