@@ -1869,26 +1869,33 @@ function panda_f2f_bridge.precondition()
     ensure_callbacks_registered()
     bridge_warn("callback fired entry=hub_precondition name=%s", "panda_f2f_bridge.precondition")
 
-    local function precondition_warn(reason, npc_id, handoff, state, selected_faction, selected_prefix)
-        bridge_warn(
-            "precondition fail reason=%s npc_id=%s handoff_present=%s handoff_source=%s forced_conv_id=%s forced_turn=%s faction=%s prefix=%s branch_count=%s",
-            tostring(reason or "unknown"),
-            tostring(npc_id or "nil"),
-            tostring(handoff ~= nil),
-            tostring(handoff and handoff.source_path or "none"),
-            tostring(handoff and handoff.conv_id or "nil"),
-            tostring(handoff and handoff.turn or "nil"),
-            tostring(selected_faction or "nil"),
-            tostring(selected_prefix or "nil"),
-            tostring(state and state.branches and #state.branches or 0)
-        )
+    local function reject_hub_activation(reason)
+        runtime.latest_state = nil
+        bridge_warn("hub activation reject reason=%s", tostring(reason or "unknown"))
+        return false
+    end
+
+    local function has_renderable_alternating_branch(state)
+        if type(state) ~= "table" or type(state.branches) ~= "table" then
+            return false
+        end
+
+        for _, branch in ipairs(state.branches) do
+            if type(branch) == "table" then
+                local choice_ok = type(branch.choice_key) == "string" and branch.choice_key ~= "" and key_exists(branch.choice_key)
+                local reply_ok = type(branch.reply_key) == "string" and branch.reply_key ~= "" and key_exists(branch.reply_key)
+                if choice_ok and reply_ok then
+                    return true
+                end
+            end
+        end
+
+        return false
     end
 
     local npc_se = get_partner_npc_se()
     if not npc_se then
-        precondition_warn("npc_unresolved", nil, nil, nil, actor_faction_key(), nil)
-        bridge_debug("precondition fail: no partner npc")
-        return false
+        return reject_hub_activation("npc_unresolved")
     end
 
     local runtime_ids = resolve_partner_runtime_ids(npc_se)
@@ -1909,31 +1916,20 @@ function panda_f2f_bridge.precondition()
         tostring(handoff and handoff.npc_id or "nil")
     )
     if not handoff then
-        handoff = get_recent_handoff_match_for_npc(npc_se, RECENT_HANDOFF_GRACE_MS)
+        return reject_hub_activation("invalid_handoff_context")
     end
-    local handoff_fallback_attempted = false
+
     local state = collect_branches(npc_se, handoff)
-    if not state and handoff then
-        handoff_fallback_attempted = true
-        state = collect_branches(npc_se, nil)
-    end
     if not state then
-        precondition_warn(
-            handoff_fallback_attempted and "no_state_after_fallback" or "no_state",
-            npc_se and npc_se.id,
-            handoff,
-            nil,
-            handoff and handoff.faction or actor_faction_key(),
-            handoff and handoff.prefix or nil
-        )
-        bridge_debug(
-            "precondition fail: no matching state for npc_id=%s runtime_story_id=%s runtime_fallback_name=%s runtime_canonical_id=%s",
-            tostring(npc_se and npc_se.id),
-            tostring(runtime_ids.story_id),
-            tostring(runtime_ids.fallback_name),
-            tostring(runtime_ids.canonical_id)
-        )
-        return false
+        return reject_hub_activation("no_state")
+    end
+
+    if type(state.open_key) ~= "string" or state.open_key == "" or not key_exists(state.open_key) then
+        return reject_hub_activation("missing_open_key")
+    end
+
+    if not has_renderable_alternating_branch(state) then
+        return reject_hub_activation("invalid_tree_shape")
     end
 
     state.npc_se = npc_se
