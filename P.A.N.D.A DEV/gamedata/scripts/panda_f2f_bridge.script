@@ -1659,6 +1659,13 @@ local function build_dialog_tree(dialog, state)
         local act_name = string.format("panda_f2f_bridge_choice_action_%s_%d", token, idx)
 
         _G[cond_name] = function()
+            bridge_warn(
+                "callback fired entry=choice_precondition name=%s branch=%s conv_id=%s turn=%s",
+                tostring(cond_name),
+                tostring(branch.index),
+                tostring(runtime.latest_state and runtime.latest_state.conv_id or "nil"),
+                tostring(runtime.latest_state and runtime.latest_state.turn or "nil")
+            )
             if not runtime.latest_state then return false end
             if branch.precond_key and branch.precond_key ~= "" then
                 return evaluate_shared_precondition(branch.precond_key, runtime.latest_state.npc_se, {
@@ -1673,6 +1680,13 @@ local function build_dialog_tree(dialog, state)
         end
 
         _G[act_name] = function()
+            bridge_warn(
+                "callback fired entry=answer name=%s branch=%s conv_id=%s turn=%s",
+                tostring(act_name),
+                tostring(branch.index),
+                tostring(runtime.latest_state and runtime.latest_state.conv_id or "nil"),
+                tostring(runtime.latest_state and runtime.latest_state.turn or "nil")
+            )
             local active_state = runtime.latest_state
             if not active_state then return end
 
@@ -1743,6 +1757,7 @@ end
 
 function panda_f2f_bridge.precondition()
     ensure_callbacks_registered()
+    bridge_warn("callback fired entry=hub_precondition name=%s", "panda_f2f_bridge.precondition")
 
     local function precondition_warn(reason, npc_id, handoff, state, selected_faction, selected_prefix)
         bridge_warn(
@@ -1829,6 +1844,7 @@ end
 
 function panda_f2f_bridge.init_dialog(dialog)
     ensure_callbacks_registered()
+    bridge_warn("callback fired entry=hub_init name=%s", "panda_f2f_bridge.init_dialog")
 
     local state = runtime.latest_state
     local init_handoff = nil
