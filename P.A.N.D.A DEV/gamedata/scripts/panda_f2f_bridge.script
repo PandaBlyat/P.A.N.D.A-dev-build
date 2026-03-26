@@ -1389,14 +1389,11 @@ local function collect_branches(npc_se, forced_context)
             end
             last_resolved_stem = stem
             local open_key = stem .. "_open"
-            if not key_exists(open_key) then
+            if not key_exists(open_key) and not forced_conv_id then
                 if not first_missing_key then
                     first_missing_key = open_key
                 end
                 missing = missing + 1
-                if forced_conv_id then
-                    break
-                end
                 if missing >= MISSING_STOP then
                     break
                 end
@@ -1439,6 +1436,7 @@ local function collect_branches(npc_se, forced_context)
                         precond_key = key_exists(precond_key) and precond_key or nil,
                         branches = {},
                         handoff = forced_handoff_active and forced_context and forced_context.source or nil,
+                        stem = stem,
                     }
 
                     local f2f_turn = forced_turn or select_f2f_turn(stem, npc_se)
@@ -1456,6 +1454,17 @@ local function collect_branches(npc_se, forced_context)
                         local turn_stem = stem
                         if f2f_turn > 1 then
                             turn_stem = stem .. "_t" .. tostring(f2f_turn)
+                        end
+                        found.turn_stem = turn_stem
+                        found.preferred_open_key = turn_stem .. "_open"
+                        found.fallback_open_key = stem .. "_open"
+                        if key_exists(found.preferred_open_key) then
+                            found.open_key = found.preferred_open_key
+                        elseif key_exists(found.fallback_open_key) then
+                            found.open_key = found.fallback_open_key
+                        else
+                            found.open_key = "__PANDA_F2F_MISSING_TURN_OPEN__"
+                            found.missing_turn_open = true
                         end
 
                         local missing_choices = 0
@@ -1600,8 +1609,22 @@ local function build_dialog_tree(dialog, state)
     state.alloc = alloc
     state.handlers = {}
 
+    local root_phrase_id = state.open_key
+    local root_use_script_text = true
+    if state.missing_turn_open then
+        root_phrase_id = "[DEBUG] Missing conversation opening line."
+        root_use_script_text = true
+        bridge_warn(
+            "build_dialog_tree fallback reason=missing_turn_open conv_id=%s turn=%s preferred=%s fallback=%s",
+            tostring(state.conv_id or "nil"),
+            tostring(state.turn or "nil"),
+            tostring(state.preferred_open_key or "nil"),
+            tostring(state.fallback_open_key or "nil")
+        )
+    end
+
     local root_id = alloc()
-    dm_add_dialog(state, "", root_id, state.open_key, nil, nil, true)
+    dm_add_dialog(state, "", root_id, root_phrase_id, nil, nil, root_use_script_text)
 
     local function register_dispatcher(branch)
         local idx = branch.index
@@ -1666,7 +1689,7 @@ local function build_dialog_tree(dialog, state)
         local fallback_exit_id = alloc()
 
         dm_add_dialog(state, root_id, fallback_actor_id, "dm_universal_actor_exit", nil, nil, false)
-        dm_add_dialog(state, fallback_actor_id, fallback_npc_id, state.open_key, nil, nil, true)
+        dm_add_dialog(state, fallback_actor_id, fallback_npc_id, root_phrase_id, nil, nil, root_use_script_text)
         dm_add_dialog(state, fallback_npc_id, fallback_exit_id, exit_phrase, nil, nil, false)
         return
     end
