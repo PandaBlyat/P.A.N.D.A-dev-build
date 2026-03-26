@@ -21,9 +21,11 @@
 local DIK_SPACE, DIK_0, DIK_1, DIK_2, DIK_3, DIK_4 = 57, 11, 2, 3, 4, 5
 local CHOICE_KEYS = { [DIK_1]=1, [DIK_2]=2, [DIK_3]=3, [DIK_4]=4 }
 local FALLBACK_NPC_ICON = "ui_inGame2_neutral_1"
+local F2F_SCANNER_SUPPRESS_LOG_WINDOW_MS = 15000
 
 local safe_remove_time_event
 local _panda_f2f_bridge_checked = false
+local _f2f_scanner_suppress_last_log_at = nil
 
 local function ensure_panda_f2f_bridge()
     if _panda_f2f_bridge_checked then
@@ -6641,6 +6643,81 @@ local function is_actor_currently_in_dialog()
     return false
 end
 
+local function has_pending_f2f_handoff_entries()
+    if type(pda_f2f_handoffs) ~= "table" then
+        return false
+    end
+
+    for _, handoff in pairs(pda_f2f_handoffs) do
+        if type(handoff) == "table" then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function bridge_reports_active_f2f_session()
+    local bridge = ensure_panda_f2f_bridge()
+    if not bridge then
+        return false, nil
+    end
+
+    local probes = {
+        "is_session_active",
+        "has_active_session",
+        "is_active_for_actor",
+        "session_active_for_actor",
+    }
+
+    for _, fn_name in ipairs(probes) do
+        local fn = bridge[fn_name]
+        if type(fn) == "function" then
+            local ok, active = pcall(fn, db and db.actor or nil)
+            if ok and active == true then
+                return true, fn_name
+            end
+        end
+    end
+
+    return false, nil
+end
+
+local function is_f2f_session_active_for_actor()
+    if has_pending_f2f_handoff_entries() then
+        return true, "handoff_table"
+    end
+
+    for _, conv in pairs(active_conversations or {}) do
+        if type(conv) == "table" and conv.pending_in_person_continuation == true then
+            return true, "pending_in_person_continuation"
+        end
+    end
+
+    local bridge_active, bridge_probe = bridge_reports_active_f2f_session()
+    if bridge_active then
+        return true, "bridge_runtime:" .. tostring(bridge_probe)
+    end
+
+    return false, nil
+end
+
+local function log_f2f_scanner_suppression_once(source_reason)
+    local now = time_global and time_global() or nil
+    if now and _f2f_scanner_suppress_last_log_at and (now - _f2f_scanner_suppress_last_log_at) < F2F_SCANNER_SUPPRESS_LOG_WINDOW_MS then
+        return
+    end
+
+    if now then
+        _f2f_scanner_suppress_last_log_at = now
+    end
+
+    printf(
+        "PANDA_IC: scanner suppressed reason=f2f_session_active source=%s",
+        tostring(source_reason or "unknown")
+    )
+end
+
 function try_trigger_interactive_conv()
     if not PANDA.get_config("enabled") then
         printf("Trigger skipped: disabled")
@@ -6648,6 +6725,13 @@ function try_trigger_interactive_conv()
     end
     if not is_player_chat_online() then
         printf("Trigger skipped: player chat is offline")
+        return false
+    end
+    local f2f_active, f2f_source = is_f2f_session_active_for_actor()
+    if f2f_active then
+        -- Guard: while an F2F handoff/session is active, skip scanner selection and
+        -- precondition evaluation so we do not overwrite shared conversation context.
+        log_f2f_scanner_suppression_once(f2f_source)
         return false
     end
     -- Allow up to 3 simultaneous conversations (configurable)
