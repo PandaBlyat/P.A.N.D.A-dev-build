@@ -6,8 +6,8 @@
     <!-- CONVERSATION 1: remote to in person chat -->
     <!-- ═══════════════════════════════════════════════════════════ -->
     <string id="st_pda_ic_loner_1_precond">
-        <text></text>
-    </string>
+        <text>req_story_npc:esc_2_12_stalker_wolf</text>
+	</string>	
     <string id="st_pda_ic_loner_1_open">
         <text>Yo come see me right now need to talk with you in person.</text>
     </string>
@@ -21,13 +21,13 @@
         <text>none</text>
     </string>
     <string id="st_pda_ic_loner_1_cont_1">
-        <text>2</text>
+        <text>F2F</text>
+    </string>
+	<string id="st_pda_ic_loner_1_t2_choice_1_precond">
+        <text>req_story_npc:esc_2_12_stalker_wolf</text>
     </string>
     <string id="st_pda_ic_loner_1_t2_choice_1">
         <text>So, what is it you wanted to talk about?</text>
-    </string>
-    <string id="st_pda_ic_loner_1_t2_choice_1_precond">
-        <text>req_story_npc:esc_2_12_stalker_wolf</text>
     </string>
     <string id="st_pda_ic_loner_1_t2_reply_1">
         <text>HOLY SHIT IT WORKS!!! DO YOU UNDERSTAND WHAT THIS MEANS??</text>
