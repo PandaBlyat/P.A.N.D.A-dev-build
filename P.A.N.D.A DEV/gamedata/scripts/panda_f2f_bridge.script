@@ -1601,32 +1601,99 @@ local function debug_resolve_snapshot(stage, npc_se, state, handoff)
     )
 end
 
+local function dm_context_initialized_for_dialog(dm, dialog)
+    if type(dm) ~= "table" or not dialog then
+        return false
+    end
+
+    local scoped_dialog = dm.saved_dialog or dm.current_dialog or dm.dialog or rawget(_G, "saved_dialog")
+    return scoped_dialog ~= nil and scoped_dialog == dialog
+end
+
 local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_script_text)
     local dm = get_dialog_manager_iface()
-    local phrase = tostring(phrase_id or "")
-    local allow_script_text = use_script_text and phrase:find("^dialogs%.") ~= nil
+    local phrase_text = tostring(phrase_id or "")
+    local allow_script_text = use_script_text and phrase_text:find("^dialogs%.") ~= nil
+    local parent_sid = tostring(parent_id)
+    local node_sid = tostring(id)
 
-    if type(dm.add_script_dialog) == "function" and allow_script_text then
-        return dm.add_script_dialog(parent_id, id, phrase_id, cond, act)
+    local phrase = nil
+    if state and state.dialog and state.dialog.AddPhrase then
+        phrase = state.dialog:AddPhrase(phrase_id, node_sid, parent_sid, -10000)
     end
 
-    if type(dm.add_dialog) == "function" then
-        return dm.add_dialog(parent_id, id, phrase_id, cond, act)
+    bridge_debug(
+        "dm_add_dialog insert phrase_id=%s parent_id=%s node_id=%s add_phrase_ret=%s script_text_mode=%s",
+        tostring(phrase_id or "nil"),
+        tostring(parent_id or "nil"),
+        tostring(id or "nil"),
+        tostring(phrase ~= nil),
+        tostring(allow_script_text == true)
+    )
+
+    if phrase then
+        local script = phrase:GetPhraseScript()
+        if script then
+            if cond then script:AddPrecondition(cond) end
+            if act then script:AddAction(act) end
+            if allow_script_text and script.SetScriptText then
+                script:SetScriptText(phrase_id)
+            end
+        end
+
+        bridge_debug(
+            "dm_add_dialog success phrase_id=%s parent_id=%s node_id=%s script_ret=%s",
+            tostring(phrase_id or "nil"),
+            tostring(parent_id or "nil"),
+            tostring(id or "nil"),
+            tostring(script ~= nil)
+        )
+
+        return script
     end
 
-    local phrase = state.dialog:AddPhrase(phrase_id, tostring(id), tostring(parent_id), -10000)
-    if not phrase then
+    bridge_warn(
+        "dm_add_dialog add_phrase_failed phrase_id=%s parent_id=%s node_id=%s",
+        tostring(phrase_id or "nil"),
+        tostring(parent_id or "nil"),
+        tostring(id or "nil")
+    )
+
+    if not dm_context_initialized_for_dialog(dm, state and state.dialog) then
+        bridge_warn(
+            "dm_add_dialog fallback_blocked reason=dialog_manager_context_not_initialized phrase_id=%s parent_id=%s node_id=%s",
+            tostring(phrase_id or "nil"),
+            tostring(parent_id or "nil"),
+            tostring(id or "nil")
+        )
         return nil
     end
 
-    local script = phrase:GetPhraseScript()
-    if cond then script:AddPrecondition(cond) end
-    if act then script:AddAction(act) end
-    if allow_script_text and script and script.SetScriptText then
-        script:SetScriptText(phrase_id)
+    if type(dm.add_script_dialog) == "function" and allow_script_text then
+        local ret = dm.add_script_dialog(parent_id, id, phrase_id, cond, act)
+        bridge_debug(
+            "dm_add_dialog fallback add_script_dialog phrase_id=%s parent_id=%s node_id=%s ret=%s",
+            tostring(phrase_id or "nil"),
+            tostring(parent_id or "nil"),
+            tostring(id or "nil"),
+            tostring(ret ~= nil)
+        )
+        return ret
     end
 
-    return script
+    if type(dm.add_dialog) == "function" then
+        local ret = dm.add_dialog(parent_id, id, phrase_id, cond, act)
+        bridge_debug(
+            "dm_add_dialog fallback add_dialog phrase_id=%s parent_id=%s node_id=%s ret=%s",
+            tostring(phrase_id or "nil"),
+            tostring(parent_id or "nil"),
+            tostring(id or "nil"),
+            tostring(ret ~= nil)
+        )
+        return ret
+    end
+
+    return nil
 end
 
 local function build_dialog_tree(dialog, state)
