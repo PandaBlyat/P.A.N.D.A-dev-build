@@ -3292,8 +3292,22 @@ local function evaluate_precondition_entry(entry, npc_se, act, get_goodwill_acto
         local required_sid = parts[2]
         if not required_sid then return false, "missing story id" end
         if not npc_se then return false, "npc missing" end
-        local npc_story_id = get_object_story_id(npc_se.id)
-        if npc_story_id ~= required_sid then return false, "story npc mismatch (need " .. required_sid .. ")" end
+
+        local canonical_required = tostring(required_sid):lower()
+        local canonical_runtime = nil
+        if PANDA_CONV_API and type(PANDA_CONV_API.get_npc_canonical_id) == "function" then
+            canonical_runtime = PANDA_CONV_API.get_npc_canonical_id(npc_se)
+        elseif type(get_object_story_id) == "function" then
+            local raw_story_id = get_object_story_id(npc_se.id)
+            if raw_story_id ~= nil and raw_story_id ~= "" then
+                canonical_runtime = tostring(raw_story_id)
+            end
+        end
+        canonical_runtime = canonical_runtime and tostring(canonical_runtime):lower() or nil
+
+        if canonical_runtime ~= canonical_required then
+            return false, "story npc mismatch (need " .. required_sid .. ")"
+        end
 
     else
         return nil, "unknown command"
@@ -6039,6 +6053,45 @@ local function consume_pending_f2f_handoff_internal(npc_id)
     return consumed
 end
 
+local function resolve_npc_server_id(npc_se)
+    if not npc_se then
+        return nil
+    end
+
+    local sid = tonumber(npc_se.id)
+    if not sid and type(npc_se.id) == "function" then
+        local ok, from_fn = pcall(function() return npc_se:id() end)
+        if ok then
+            sid = tonumber(from_fn)
+        end
+    end
+
+    if not sid or sid <= 0 then
+        return nil
+    end
+
+    return math.floor(sid)
+end
+
+local function get_npc_story_or_name_id(npc_se)
+    local sid = resolve_npc_server_id(npc_se)
+    if sid and type(get_object_story_id) == "function" then
+        local ok_story, story_id = pcall(function() return get_object_story_id(sid) end)
+        if ok_story and story_id and story_id ~= "" then
+            return tostring(story_id), "story"
+        end
+    end
+
+    if npc_se and npc_se.name then
+        local ok_name, fallback_name = pcall(function() return npc_se:name() end)
+        if ok_name and fallback_name and fallback_name ~= "" then
+            return tostring(fallback_name), "name"
+        end
+    end
+
+    return nil, nil
+end
+
 PANDA_CONV_API = PANDA_CONV_API or {}
 
 function PANDA_CONV_API.resolve_conversation_context(npc_id, conversation_id, turn_number, channel)
@@ -6076,6 +6129,14 @@ end
 
 function PANDA_CONV_API.consume_pending_f2f_handoff(npc_id)
     return consume_pending_f2f_handoff_internal(npc_id)
+end
+
+function PANDA_CONV_API.get_npc_canonical_id(npc_se)
+    local raw_id = get_npc_story_or_name_id(npc_se)
+    if not raw_id then
+        return nil
+    end
+    return tostring(raw_id):lower()
 end
 
 function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, category)
@@ -6165,7 +6226,7 @@ end
 -- Returns the story_id or nil if not present.
 local function extract_story_npc_id(precond_str)
     if not precond_str or precond_str == "" then return nil end
-    return string.match(precond_str, "req_story_npc:([%w_]+)")
+    return string.match(precond_str, "req_story_npc:([%w_%-]+)")
 end
 
 -- Scans all conversations for a faction and finds those that require a specific

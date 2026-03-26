@@ -256,26 +256,51 @@ local function get_registry_raw(stem)
     return decode_registry_json(raw)
 end
 
-local function get_partner_story_npc_id(npc_se)
-    if not npc_se or not npc_se.id then
-        return nil
+local function resolve_partner_runtime_ids(npc_se)
+    local out = {
+        story_id = nil,
+        fallback_name = nil,
+        canonical_id = nil,
+    }
+
+    if not npc_se then
+        return out
     end
 
-    if type(get_object_story_id) == "function" then
-        local ok_story, story_id = pcall(function() return get_object_story_id(npc_se.id) end)
+    local conv_api = get_conv_api()
+    if conv_api and type(conv_api.get_npc_canonical_id) == "function" then
+        out.canonical_id = conv_api.get_npc_canonical_id(npc_se)
+    end
+
+    local sid = tonumber(npc_se.id)
+    if not sid and type(npc_se.id) == "function" then
+        local ok_sid, sid_from_fn = pcall(function() return npc_se:id() end)
+        if ok_sid then
+            sid = tonumber(sid_from_fn)
+        end
+    end
+    if sid and sid > 0 and type(get_object_story_id) == "function" then
+        local ok_story, story_id = pcall(function() return get_object_story_id(math.floor(sid)) end)
         if ok_story and story_id and story_id ~= "" then
-            return tostring(story_id)
+            out.story_id = tostring(story_id)
         end
     end
 
     if npc_se.name then
-        local ok, story_id = pcall(function() return npc_se:name() end)
-        if ok and story_id and story_id ~= "" then
-            return tostring(story_id)
+        local ok_name, fallback_name = pcall(function() return npc_se:name() end)
+        if ok_name and fallback_name and fallback_name ~= "" then
+            out.fallback_name = tostring(fallback_name)
         end
     end
 
-    return nil
+    if not out.canonical_id then
+        out.canonical_id = out.story_id or out.fallback_name
+    end
+    if out.canonical_id then
+        out.canonical_id = tostring(out.canonical_id):lower()
+    end
+
+    return out
 end
 
 local function collect_registry_f2f_turns(registry_raw)
@@ -329,24 +354,39 @@ local function select_f2f_turn(stem, npc_se)
         return 1
     end
 
-    local partner_story_id = get_partner_story_npc_id(npc_se)
-    if partner_story_id ~= nil then
-        partner_story_id = tostring(partner_story_id)
-    end
-
-    bridge_debug("select_f2f_turn stem=%s partner_story_id=%s entry_turns=%s", tostring(stem), tostring(partner_story_id), table.concat(entry_turns, ","))
+    local runtime_ids = resolve_partner_runtime_ids(npc_se)
+    bridge_debug(
+        "select_f2f_turn stem=%s runtime_story_id=%s runtime_fallback_name=%s runtime_canonical_id=%s entry_turns=%s",
+        tostring(stem),
+        tostring(runtime_ids.story_id),
+        tostring(runtime_ids.fallback_name),
+        tostring(runtime_ids.canonical_id),
+        table.concat(entry_turns, ",")
+    )
 
     for _, turn in ipairs(entry_turns) do
         local ids = collect_turn_story_ids(registry_raw, turn)
-        bridge_debug("select_f2f_turn turn=%s candidate_storyNpcIds=%s", tostring(turn), (#ids > 0 and table.concat(ids, ",") or "<none>"))
+        bridge_debug(
+            "select_f2f_turn turn=%s candidate_storyNpcIds=%s runtime_canonical_id=%s",
+            tostring(turn),
+            (#ids > 0 and table.concat(ids, ",") or "<none>"),
+            tostring(runtime_ids.canonical_id)
+        )
 
         if #ids == 0 then
             return turn
         end
 
-        if partner_story_id then
+        if runtime_ids.canonical_id then
             for _, id in ipairs(ids) do
-                if tostring(id) == partner_story_id then
+                local canonical_registry_id = tostring(id):lower()
+                bridge_debug(
+                    "select_f2f_turn compare runtime_canonical_id=%s xml_storyNpcId=%s match=%s",
+                    tostring(runtime_ids.canonical_id),
+                    tostring(canonical_registry_id),
+                    tostring(canonical_registry_id == runtime_ids.canonical_id)
+                )
+                if canonical_registry_id == runtime_ids.canonical_id then
                     return turn
                 end
             end
@@ -743,21 +783,30 @@ function panda_f2f_bridge.precondition()
         state = collect_branches(npc_se, nil)
     end
     if not state then
-        local partner_story_id = nil
-        if npc_se then
-            partner_story_id = get_partner_story_npc_id(npc_se)
-        end
-        bridge_debug("precondition fail: no matching state for npc_id=%s partner_story_id=%s", tostring(npc_se and npc_se.id), tostring(partner_story_id))
+        local runtime_ids = resolve_partner_runtime_ids(npc_se)
+        bridge_debug(
+            "precondition fail: no matching state for npc_id=%s runtime_story_id=%s runtime_fallback_name=%s runtime_canonical_id=%s",
+            tostring(npc_se and npc_se.id),
+            tostring(runtime_ids.story_id),
+            tostring(runtime_ids.fallback_name),
+            tostring(runtime_ids.canonical_id)
+        )
         return false
     end
 
     state.npc_se = npc_se
     runtime.latest_state = state
-    local partner_story_id = nil
-    if npc_se then
-        partner_story_id = get_partner_story_npc_id(npc_se)
-    end
-    bridge_debug("precondition pass: npc_id=%s partner_story_id=%s conv_id=%s turn=%s branches=%s", tostring(npc_se and npc_se.id), tostring(partner_story_id), tostring(state.conv_id), tostring(state.turn), tostring(#state.branches))
+    local runtime_ids = resolve_partner_runtime_ids(npc_se)
+    bridge_debug(
+        "precondition pass: npc_id=%s runtime_story_id=%s runtime_fallback_name=%s runtime_canonical_id=%s conv_id=%s turn=%s branches=%s",
+        tostring(npc_se and npc_se.id),
+        tostring(runtime_ids.story_id),
+        tostring(runtime_ids.fallback_name),
+        tostring(runtime_ids.canonical_id),
+        tostring(state.conv_id),
+        tostring(state.turn),
+        tostring(#state.branches)
+    )
     return true
 end
 
