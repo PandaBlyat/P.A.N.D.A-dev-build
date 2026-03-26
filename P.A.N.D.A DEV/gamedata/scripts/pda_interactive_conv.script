@@ -23,6 +23,37 @@ local CHOICE_KEYS = { [DIK_1]=1, [DIK_2]=2, [DIK_3]=3, [DIK_4]=4 }
 local FALLBACK_NPC_ICON = "ui_inGame2_neutral_1"
 
 local safe_remove_time_event
+local _panda_f2f_bridge_checked = false
+
+local function ensure_panda_f2f_bridge()
+    if _panda_f2f_bridge_checked then
+        return panda_f2f_bridge
+    end
+
+    _panda_f2f_bridge_checked = true
+
+    if not (panda_f2f_bridge and panda_f2f_bridge.hard_route_branch) then
+        local ok = pcall(function()
+            if require then
+                require("panda_f2f_bridge")
+            end
+        end)
+
+        if not ok then
+            pcall(function()
+                dofile("gamedata\\scripts\\panda_f2f_bridge.script")
+            end)
+        end
+    end
+
+    if not (panda_f2f_bridge and panda_f2f_bridge.hard_route_branch) then
+        printf("PANDA_IC: warning: panda_f2f_bridge unavailable - missing hard_route_branch after module load")
+        return nil
+    end
+
+    return panda_f2f_bridge
+end
+
 local function get_anomaly_artifact_adapter()
     if panda_anomaly_artifact_adapter and panda_anomaly_artifact_adapter.ensure_state then
         return panda_anomaly_artifact_adapter
@@ -5975,8 +6006,12 @@ function on_player_choice(idx, contact_id)
                         }
 
                         if panda_f2f_bridge and panda_f2f_bridge.hard_route_branch then
+                            printf("PANDA_IC: f2f handoff route=bridge route npc_id=%s conv_id=%s turn=%s",
+                                tostring(c.npc_id), tostring(c.conv_id), tostring(ch.next_turn))
                             panda_f2f_bridge.hard_route_branch(c.npc_id, "pda_handoff:" .. tostring(cid))
                         elseif xr_meet and xr_meet.override_dialog then
+                            printf("PANDA_IC: f2f handoff route=xr_meet fallback npc_id=%s conv_id=%s turn=%s",
+                                tostring(c.npc_id), tostring(c.conv_id), tostring(ch.next_turn))
                             xr_meet.override_dialog(c.npc_id, "panda_f2f_hub_dialog")
                         end
                     end
@@ -6741,6 +6776,9 @@ end
 function on_game_start()
     -- Ensure this function runs only once
     if _callbacks_registered then return end
+
+    -- Wire optional f2f bridge integration early at startup
+    ensure_panda_f2f_bridge()
 
     -- Add the private tab to the PDA via mac_mcm
     if mac_mcm then
