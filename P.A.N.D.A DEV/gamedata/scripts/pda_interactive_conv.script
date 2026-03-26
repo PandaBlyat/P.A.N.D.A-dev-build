@@ -1360,7 +1360,11 @@ end
 
 local function printf(fmt, ...)
     if PANDA.get_config("debug_logging") then
-        _G.printf("PANDA_IC: "..fmt, ...)
+        local normalized_fmt = tostring(fmt or "")
+        if string.sub(normalized_fmt, 1, 9) ~= "PANDA_IC:" then
+            normalized_fmt = "PANDA_IC: " .. normalized_fmt
+        end
+        _G.printf(normalized_fmt, ...)
     end
 end
 
@@ -2530,7 +2534,7 @@ local function sub_placeholders(str, npc_name, npc_faction, npc_se, contact_id)
             if translated then
                 _st_resolve_cache[level_key] = { name = translated, key = raw_key }
             else
-                printf("PANDA_IC: failed to resolve %%"..level_key.."_panda_st%% placeholder")
+                printf("failed to resolve %%%s_panda_st%% placeholder", tostring(level_key))
                 return "%"..level_key.."_panda_st%"
             end
         end
@@ -2544,7 +2548,7 @@ local function sub_placeholders(str, npc_name, npc_faction, npc_se, contact_id)
             if translated then
                 _st_resolve_cache[level_key] = { name = translated, key = raw_key }
             else
-                printf("PANDA_IC: failed to resolve %%"..level_key.."_panda_st_key%% placeholder")
+                printf("failed to resolve %%%s_panda_st_key%% placeholder", tostring(level_key))
                 return "%"..level_key.."_panda_st_key%"
             end
         end
@@ -5897,6 +5901,22 @@ function on_player_choice(idx, contact_id)
                         c.pending_in_person_turn = ch.next_turn
                         c.pending_in_person_target = "panda_f2f_hub_dialog"
                         c.pending_in_person_set_at = time_global and time_global() or 0
+                        local handoff_story_id = "n/a"
+                        if type(get_object_story_id) == "function" then
+                            local ok_story, resolved_story = pcall(function()
+                                return get_object_story_id(c.npc_id)
+                            end)
+                            if ok_story and resolved_story and resolved_story ~= "" then
+                                handoff_story_id = tostring(resolved_story)
+                            end
+                        end
+
+                        printf("TRACE f2f-handoff npc_sid=%d story_id=%s conv_id=%d next_turn=%d channel=%s",
+                            tonumber(c.npc_id) or 0,
+                            tostring(handoff_story_id),
+                            tonumber(c.conv_id) or 0,
+                            tonumber(ch.next_turn) or 0,
+                            tostring(continuation_channel))
 
                         pda_f2f_handoffs = pda_f2f_handoffs or {}
                         pda_f2f_handoffs[cid] = {
@@ -6283,7 +6303,13 @@ local function collect_story_npc_conversations(xml_fac)
                         -- Full precondition check (including req_story_npc itself)
                         if check_preconditions_generic(precond_key, npc_se) then
                             table.insert(results, {npc_se = npc_se, conv_id = cid, weight = weight})
-                            printf("PANDA_IC: Story NPC conv %d matched — NPC %s (story_id=%s, weight=%d)", cid, npc_se:character_name(), story_id, weight)
+                            printf("Story NPC conv %d matched — NPC %s (story_id=%s, weight=%d)", cid, npc_se:character_name(), story_id, weight)
+                            printf("TRACE story-match npc_sid=%d story_id=%s conv_id=%d next_turn=%s channel=%s",
+                                npc_se.id,
+                                tostring(story_id),
+                                cid,
+                                "n/a",
+                                "pda")
                         end
                     end
                 end
