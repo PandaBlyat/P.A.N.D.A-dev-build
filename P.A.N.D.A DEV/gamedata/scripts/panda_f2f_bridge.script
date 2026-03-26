@@ -193,6 +193,107 @@ local function evaluate_shared_precondition(precond_key, npc_se, context)
     return api.check_preconditions(precond_key, npc_se, "f2f", context or {}) == true
 end
 
+local function decode_registry_json(raw)
+    if not raw or raw == "" then
+        return nil
+    end
+    return tostring(raw):gsub("&quot;", "\"")
+end
+
+local function get_registry_raw(stem)
+    local key = stem .. "_panda_f2f_registry"
+    local raw = tr(key)
+    if raw == key then
+        return nil
+    end
+    return decode_registry_json(raw)
+end
+
+local function get_partner_story_npc_id(npc_se)
+    if not npc_se then
+        return nil
+    end
+
+    if npc_se.name then
+        local ok, story_id = pcall(function() return npc_se:name() end)
+        if ok and story_id and story_id ~= "" then
+            return tostring(story_id)
+        end
+    end
+
+    return nil
+end
+
+local function collect_registry_f2f_turns(registry_raw)
+    local out = {}
+    if not registry_raw or registry_raw == "" then
+        return out
+    end
+    if not registry_raw:find("\"schema\"%s*:%s*\"panda_f2f_bridge_registry_v1\"") then
+        return out
+    end
+
+    local entry_nodes = registry_raw:match("\"entryNodes\"%s*:%s*{(.-)}")
+    if not entry_nodes then
+        return out
+    end
+
+    local f2f_list = entry_nodes:match("\"f2f\"%s*:%s*%[(.-)%]")
+    if not f2f_list then
+        return out
+    end
+
+    for n in f2f_list:gmatch("(%d+)") do
+        out[#out + 1] = tonumber(n)
+    end
+
+    return out
+end
+
+local function collect_turn_story_ids(registry_raw, turn)
+    local ids = {}
+    if not registry_raw or not turn then
+        return ids
+    end
+
+    local turn_block = registry_raw:match("\"turnNumber\"%s*:%s*" .. tostring(turn) .. "%s*,(.-)%}%s*[,%]]")
+    if not turn_block then
+        return ids
+    end
+
+    for story_id in turn_block:gmatch("\"storyNpcId\"%s*:%s*\"([%w_%-]+)\"") do
+        ids[#ids + 1] = story_id
+    end
+
+    return ids
+end
+
+local function select_f2f_turn(stem, npc_se)
+    local registry_raw = get_registry_raw(stem)
+    local entry_turns = collect_registry_f2f_turns(registry_raw)
+    if #entry_turns == 0 then
+        return 1
+    end
+
+    local partner_story_id = get_partner_story_npc_id(npc_se)
+    for _, turn in ipairs(entry_turns) do
+        local ids = collect_turn_story_ids(registry_raw, turn)
+        if #ids == 0 then
+            return turn
+        end
+
+        if partner_story_id then
+            for _, id in ipairs(ids) do
+                if id == partner_story_id then
+                    return turn
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
 local function execute_shared_outcome(branch, state)
     local api = get_conv_api()
     if not api or type(api.apply_outcome) ~= "function" then
@@ -210,7 +311,7 @@ local function execute_shared_outcome(branch, state)
         faction = state.faction,
         conv_id = state.conv_id,
         prefix = state.prefix,
-        turn = 1,
+        turn = state.turn or 1,
     }
 
     return api.apply_outcome(
@@ -314,50 +415,63 @@ local function collect_branches(npc_se)
                     branches = {},
                 }
 
-                local missing_choices = 0
-                for idx = 1, MAX_CHOICE_SCAN do
-                    local choice_key = stem .. "_choice_" .. idx
-                    if not key_exists(choice_key) then
-                        missing_choices = missing_choices + 1
-                        if missing_choices >= 3 then
-                            break
-                        end
-                    else
-                        missing_choices = 0
-                        local reply_key = stem .. "_reply_" .. idx
-                        local outcome_key = stem .. "_outcome_" .. idx
-                        local choice_precond_key = stem .. "_choice_" .. idx .. "_precond"
-                        local hard_route_key = stem .. "_choice_" .. idx .. BRANCH_HARD_ROUTE_SUFFIX
+                local f2f_turn = select_f2f_turn(stem, npc_se)
+                if not f2f_turn then
+                    found = nil
+                else
+                    found.turn = f2f_turn
 
-                        local show = true
-                        if key_exists(choice_precond_key) then
-                            show = evaluate_shared_precondition(choice_precond_key, npc_se, {
-                                channel = "f2f",
-                                conv_id = cid,
-                                branch = idx,
-                                faction = faction,
-                            })
-                        end
+                    local turn_stem = stem
+                    if f2f_turn > 1 then
+                        turn_stem = stem .. "_t" .. tostring(f2f_turn)
+                    end
 
-                        if show then
-                            local hard_route = false
-                            if key_exists(hard_route_key) then
-                                hard_route = parse_bool_flag(tr(hard_route_key))
+                    local missing_choices = 0
+                    for idx = 1, MAX_CHOICE_SCAN do
+                        local choice_key = turn_stem .. "_choice_" .. idx
+                        if not key_exists(choice_key) then
+                            missing_choices = missing_choices + 1
+                            if missing_choices >= 3 then
+                                break
+                            end
+                        else
+                            missing_choices = 0
+                            local reply_key = turn_stem .. "_reply_" .. idx
+                            local outcome_key = turn_stem .. "_outcome_" .. idx
+                            local choice_precond_key = turn_stem .. "_choice_" .. idx .. "_precond"
+                            local hard_route_key = turn_stem .. "_choice_" .. idx .. BRANCH_HARD_ROUTE_SUFFIX
+
+                            local show = true
+                            if key_exists(choice_precond_key) then
+                                show = evaluate_shared_precondition(choice_precond_key, npc_se, {
+                                    channel = "f2f",
+                                    conv_id = cid,
+                                    branch = idx,
+                                    faction = faction,
+                                    turn = f2f_turn,
+                                })
                             end
 
-                            table.insert(found.branches, {
-                                index = idx,
-                                choice_key = choice_key,
-                                reply_key = key_exists(reply_key) and reply_key or nil,
-                                outcome = key_exists(outcome_key) and tr(outcome_key) or "none",
-                                precond_key = key_exists(choice_precond_key) and choice_precond_key or nil,
-                                hard_route = hard_route,
-                            })
+                            if show then
+                                local hard_route = false
+                                if key_exists(hard_route_key) then
+                                    hard_route = parse_bool_flag(tr(hard_route_key))
+                                end
+
+                                table.insert(found.branches, {
+                                    index = idx,
+                                    choice_key = choice_key,
+                                    reply_key = key_exists(reply_key) and reply_key or nil,
+                                    outcome = key_exists(outcome_key) and tr(outcome_key) or "none",
+                                    precond_key = key_exists(choice_precond_key) and choice_precond_key or nil,
+                                    hard_route = hard_route,
+                                })
+                            end
                         end
                     end
-                end
 
-                break
+                    break
+                end
             end
         end
     end
@@ -416,6 +530,7 @@ local function build_dialog_tree(dialog, state)
                     conv_id = runtime.latest_state.conv_id,
                     branch = branch.index,
                     faction = runtime.latest_state.faction,
+                    turn = runtime.latest_state.turn or 1,
                 })
             end
             return true
@@ -432,6 +547,7 @@ local function build_dialog_tree(dialog, state)
                     conv_id = active_state.conv_id,
                     branch = branch.index,
                     faction = active_state.faction,
+                    turn = active_state.turn or 1,
                 })
                 if not ok then return end
             end
