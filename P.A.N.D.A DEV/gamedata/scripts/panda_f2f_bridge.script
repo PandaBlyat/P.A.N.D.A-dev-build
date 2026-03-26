@@ -12,6 +12,7 @@ local MISSING_STOP = 20
 local HUB_DIALOG_ID = "panda_f2f_hub_dialog"
 local BRANCH_HARD_ROUTE_SUFFIX = "_f2f_hard_route"
 local SAVE_KEY_OVERRIDE_OWNERS = "panda_f2f_bridge_override_owners"
+local RECENT_HANDOFF_GRACE_MS = 2 * 60 * 1000
 local bridge_debug
 
 local runtime = {
@@ -880,6 +881,85 @@ local function consume_pending_handoff_for_npc(npc_se)
     return api.consume_pending_f2f_handoff(npc_se.id) == true
 end
 
+local function get_recent_handoff_match_for_npc(npc_se, grace_ms)
+    local function normalize_positive_int(value)
+        local n = tonumber(value)
+        if not n or n <= 0 then
+            return nil
+        end
+        return math.floor(n)
+    end
+
+    local partner_id = normalize_positive_int(npc_se and npc_se.id)
+    if not partner_id and npc_se and type(npc_se.id) == "function" then
+        local ok_partner_id, resolved_partner_id = pcall(function() return npc_se:id() end)
+        if ok_partner_id then
+            partner_id = normalize_positive_int(resolved_partner_id)
+        end
+    end
+
+    local handoffs = rawget(_G, "pda_f2f_handoffs")
+    if not partner_id or type(handoffs) ~= "table" then
+        return nil
+    end
+
+    local latest = nil
+    local latest_set_at = nil
+    for _, raw_handoff in pairs(handoffs) do
+        if type(raw_handoff) == "table" and normalize_positive_int(raw_handoff.npc_id) == partner_id then
+            local conv_id = normalize_positive_int(raw_handoff.conv_id)
+            local turn = normalize_positive_int(raw_handoff.turn)
+            local set_at = tonumber(raw_handoff.set_at)
+            if conv_id and turn and set_at and (not latest_set_at or set_at > latest_set_at) then
+                latest_set_at = set_at
+                latest = {
+                    npc_id = partner_id,
+                    conv_id = conv_id,
+                    turn = turn,
+                    faction = raw_handoff.faction,
+                    prefix = raw_handoff.prefix,
+                    channel = "f2f",
+                    source_path = "recent_npc_match",
+                    source = raw_handoff,
+                }
+            end
+        end
+    end
+
+    if not latest then
+        bridge_debug("get_recent_handoff_match_for_npc: handoff source=none partner_id=%s", tostring(partner_id))
+        return nil
+    end
+
+    local now = tonumber(time_global and time_global() or 0) or 0
+    local allowed_age = tonumber(grace_ms) or RECENT_HANDOFF_GRACE_MS
+    local age = now - (latest_set_at or 0)
+    if age < 0 then
+        age = 0
+    end
+    if age > allowed_age then
+        bridge_debug(
+            "get_recent_handoff_match_for_npc: handoff source=recent_npc_match stale=true partner_id=%s conv_id=%s turn=%s age_ms=%s grace_ms=%s",
+            tostring(partner_id),
+            tostring(latest.conv_id),
+            tostring(latest.turn),
+            tostring(age),
+            tostring(allowed_age)
+        )
+        return nil
+    end
+
+    bridge_debug(
+        "get_recent_handoff_match_for_npc: handoff source=recent_npc_match partner_id=%s conv_id=%s turn=%s age_ms=%s grace_ms=%s",
+        tostring(partner_id),
+        tostring(latest.conv_id),
+        tostring(latest.turn),
+        tostring(age),
+        tostring(allowed_age)
+    )
+    return latest
+end
+
 function panda_f2f_bridge.hard_route_branch(npc_id, owner_tag)
     ensure_callbacks_registered()
 
@@ -1383,6 +1463,9 @@ function panda_f2f_bridge.precondition()
         tostring(npc_se and npc_se.id or "nil"),
         tostring(handoff and handoff.npc_id or "nil")
     )
+    if not handoff then
+        handoff = get_recent_handoff_match_for_npc(npc_se, RECENT_HANDOFF_GRACE_MS)
+    end
     local handoff_fallback_attempted = false
     local state = collect_branches(npc_se, handoff)
     if not state and handoff then
