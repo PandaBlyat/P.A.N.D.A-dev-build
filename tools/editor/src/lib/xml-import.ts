@@ -6,6 +6,33 @@ import { FACTION_XML_KEYS } from './types';
 import { SYSTEM_STRING_IDS } from './constants';
 import { getDefaultFlowTurnPosition } from './flow-layout';
 
+const PANDA_F2F_REGISTRY_SCHEMA = 'panda_f2f_bridge_registry_v1';
+const PANDA_F2F_REGISTRY_SUFFIX = '_panda_f2f_registry';
+
+interface ImportedF2FChoiceMetadata {
+  index: number;
+  channel?: 'pda' | 'f2f' | 'both';
+  continueTo?: number | null;
+  continueChannel?: 'pda' | 'f2f' | 'both';
+  storyNpcId?: string | null;
+  npcFactionFilters?: string[];
+  npcProfileFilters?: string[];
+  allowGenericStalker?: boolean;
+}
+
+interface ImportedF2FTurnMetadata {
+  turnNumber: number;
+  channel?: 'pda' | 'f2f' | 'both';
+  pdaEntry?: boolean;
+  f2fEntry?: boolean;
+  choices?: ImportedF2FChoiceMetadata[];
+}
+
+interface ImportedF2FRegistryPayload {
+  schema?: string;
+  turns?: ImportedF2FTurnMetadata[];
+}
+
 /** Parse XML text into a map of string IDs to text values */
 function parseStringTable(xmlText: string): Map<string, string> {
   const map = new Map<string, string>();
@@ -234,6 +261,73 @@ function inferLevelToken(zoneMode: string, zoneTarget: string, splitLevelTokenRe
   return '';
 }
 
+function normalizeChannel(value: string | undefined, fallback: 'pda' | 'both'): 'pda' | 'f2f' | 'both' {
+  if (value === 'pda' || value === 'f2f' || value === 'both') {
+    return value;
+  }
+  return fallback;
+}
+
+function parseF2FRegistryPayload(payloadRaw: string | undefined): ImportedF2FRegistryPayload | null {
+  if (!payloadRaw || payloadRaw.trim() === '') {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(payloadRaw) as ImportedF2FRegistryPayload;
+    if (!parsed || typeof parsed !== 'object') {
+      return null;
+    }
+    if (parsed.schema != null && parsed.schema !== PANDA_F2F_REGISTRY_SCHEMA) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function applyTurnMetadata(turn: Turn, metadata: ImportedF2FTurnMetadata | undefined): void {
+  if (!metadata) {
+    turn.channel = 'both';
+    turn.pda_entry = turn.turnNumber === 1;
+    turn.f2f_entry = false;
+    return;
+  }
+
+  turn.channel = normalizeChannel(metadata.channel, 'both');
+  turn.pda_entry = typeof metadata.pdaEntry === 'boolean' ? metadata.pdaEntry : turn.turnNumber === 1;
+  turn.f2f_entry = typeof metadata.f2fEntry === 'boolean' ? metadata.f2fEntry : false;
+
+  const choiceMap = new Map<number, ImportedF2FChoiceMetadata>();
+  for (const item of metadata.choices ?? []) {
+    choiceMap.set(item.index, item);
+  }
+
+  for (const choice of turn.choices) {
+    const choiceMeta = choiceMap.get(choice.index);
+    if (!choiceMeta) {
+      choice.channel = 'pda';
+      choice.continue_channel = 'pda';
+      choice.allow_generic_stalker = false;
+      continue;
+    }
+
+    choice.channel = normalizeChannel(choiceMeta.channel, 'pda');
+    choice.continue_channel = normalizeChannel(choiceMeta.continueChannel, 'pda');
+    choice.allow_generic_stalker = choiceMeta.allowGenericStalker === true;
+    choice.story_npc_id = choiceMeta.storyNpcId ?? undefined;
+    choice.npc_faction_filters = (choiceMeta.npcFactionFilters ?? []).filter((faction): faction is FactionId => faction in FACTION_XML_KEYS);
+    choice.npc_profile_filters = (choiceMeta.npcProfileFilters ?? []).filter((profile) => typeof profile === 'string' && profile.trim().length > 0);
+
+    if (choiceMeta.continueTo == null) {
+      choice.continueTo = undefined;
+    } else if (typeof choiceMeta.continueTo === 'number' && Number.isFinite(choiceMeta.continueTo)) {
+      choice.continueTo = Math.floor(choiceMeta.continueTo);
+    }
+  }
+}
+
 /** Parse outcome string into entries */
 export function parseOutcomes(outcomeStr: string): Outcome[] {
   if (!outcomeStr || outcomeStr.trim() === '' || outcomeStr.trim() === 'none') return [];
@@ -272,6 +366,11 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
     const openKey = `${prefix}_open`;
 
     if (!strings.has(openKey)) break;
+    const metadata = parseF2FRegistryPayload(strings.get(`${prefix}${PANDA_F2F_REGISTRY_SUFFIX}`));
+    const metadataTurns = new Map<number, ImportedF2FTurnMetadata>();
+    for (const turnMeta of metadata?.turns ?? []) {
+      metadataTurns.set(turnMeta.turnNumber, turnMeta);
+    }
 
     const conv: Conversation = {
       id: convId,
@@ -304,6 +403,7 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
       choices: parseTurnChoices(strings, prefix, ''),
       position: getDefaultFlowTurnPosition(1),
     };
+    applyTurnMetadata(turn1, metadataTurns.get(1));
     conv.turns.push(turn1);
 
     // Parse multi-turn: t2, t3, etc.
@@ -319,6 +419,7 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
         choices: parseTurnChoices(strings, prefix, turnInfix),
         position: getDefaultFlowTurnPosition(turnNum),
       };
+      applyTurnMetadata(turn, metadataTurns.get(turnNum));
       conv.turns.push(turn);
       turnNum++;
     }
