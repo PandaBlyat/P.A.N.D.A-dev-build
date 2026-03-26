@@ -5677,17 +5677,54 @@ end
 -- ============================================================
 
 function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact_id, npc_se)
-    local p
+    local base_key
     if prefix == "task" or not prefix then
-        p = "st_pda_ic_"..faction.."_"..tostring(conv_id)
+        base_key = "st_pda_ic_"..faction.."_"..tostring(conv_id)
     else
-        p = "st_pda_ic_"..prefix.."_"..faction.."_"..tostring(conv_id)
+        base_key = "st_pda_ic_"..prefix.."_"..faction.."_"..tostring(conv_id)
     end
 
+    local p = base_key
     if turn > 1 then
         p = p.."_t"..tostring(turn)
     end
     local choices, count = {}, 0
+
+    local function normalize_choice_channel(value)
+        if not value then
+            return "pda"
+        end
+
+        local normalized = tostring(value):lower():gsub("^%s+", ""):gsub("%s+$", "")
+        if normalized == "f2f" then
+            return "f2f"
+        end
+
+        return "pda"
+    end
+
+    local function load_registry_continue_channel(choice_idx)
+        local registry_key = base_key .. "_panda_f2f_registry"
+        local raw = game.translate_string(registry_key)
+        if not raw or raw == registry_key then
+            return nil
+        end
+
+        raw = tostring(raw):gsub("&quot;", "\"")
+        local turn_block = raw:match("\"turnNumber\"%s*:%s*" .. tostring(turn) .. ".-\"choices\"%s*:%s*%[(.-)%]")
+        if not turn_block then
+            return nil
+        end
+
+        for choice_block in turn_block:gmatch("{(.-)}") do
+            local found_idx = tonumber(choice_block:match("\"index\"%s*:%s*(%d+)"))
+            if found_idx == choice_idx then
+                return choice_block:match("\"continueChannel\"%s*:%s*\"([%w_%-]+)\"")
+            end
+        end
+
+        return nil
+    end
 
     -- Get relationship score for reply variant selection
     local rel = contact_id and get_npc_relationship(contact_id) or 0
@@ -5718,11 +5755,20 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact
             end
         end
 
+        local cont_channel = game.translate_string(p.."_cont_channel_"..i)
+        if cont_channel == p.."_cont_channel_"..i then
+            cont_channel = game.translate_string(p.."_channel_"..i)
+            if cont_channel == p.."_channel_"..i then
+                cont_channel = load_registry_continue_channel(i)
+            end
+        end
+
         choices[i] = {
             text = sub_placeholders(text, npc_name, faction, npc_se, contact_id),
             reply = sub_placeholders(reply_text, npc_name, faction, npc_se, contact_id),
             outcome = game.translate_string(p.."_outcome_"..i),
-            next_turn = tonumber(game.translate_string(p.."_cont_"..i)) or nil
+            next_turn = tonumber(game.translate_string(p.."_cont_"..i)) or nil,
+            next_channel = normalize_choice_channel(cont_channel)
         }
         if choices[i].outcome == p.."_outcome_"..i then choices[i].outcome = "none" end
         count = i
@@ -5744,6 +5790,7 @@ function on_player_choice(idx, contact_id)
     if not c or not c.choices or not c.choices[idx] then return end
 
     local ch = c.choices[idx]
+    local continuation_channel = (ch.next_channel == "f2f") and "f2f" or "pda"
     local npc_name = c.npc_name
     local cid = c.contact_id
 
@@ -5820,7 +5867,7 @@ function on_player_choice(idx, contact_id)
                         end)
                     end
 
-                    if ch.next_turn then
+                    if ch.next_turn and continuation_channel == "pda" then
                         local next_choices, num = load_choices_for_turn(c.prefix, c.faction, c.conv_id, ch.next_turn, npc_name, cid)
                         if num > 0 then
                             c.turn = ch.next_turn
@@ -5830,6 +5877,27 @@ function on_player_choice(idx, contact_id)
                             -- Re-register in multi-conv table
                             active_conversations[cid] = c
                             CONV = c
+                        end
+                    elseif ch.next_turn and continuation_channel == "f2f" then
+                        c.pending_in_person_continuation = true
+                        c.pending_in_person_turn = ch.next_turn
+                        c.pending_in_person_target = "panda_f2f_hub_dialog"
+                        c.pending_in_person_set_at = time_global and time_global() or 0
+
+                        pda_f2f_handoffs = pda_f2f_handoffs or {}
+                        pda_f2f_handoffs[cid] = {
+                            npc_id = c.npc_id,
+                            conv_id = c.conv_id,
+                            turn = ch.next_turn,
+                            channel = "f2f",
+                            dialog = "panda_f2f_hub_dialog",
+                            set_at = c.pending_in_person_set_at,
+                        }
+
+                        if panda_f2f_bridge and panda_f2f_bridge.hard_route_branch then
+                            panda_f2f_bridge.hard_route_branch(c.npc_id, "pda_handoff:" .. tostring(cid))
+                        elseif xr_meet and xr_meet.override_dialog then
+                            xr_meet.override_dialog(c.npc_id, "panda_f2f_hub_dialog")
                         end
                     end
 
@@ -5849,7 +5917,7 @@ function on_player_choice(idx, contact_id)
     end)
 
     -- Record cooldown immediately if this choice ends the conversation (no next turn)
-    if not ch.next_turn then
+    if (not ch.next_turn) or continuation_channel ~= "pda" then
         local composite_key = (c.prefix or "task") .. "_" .. c.faction .. "_" .. c.conv_id
         conv_last_played[composite_key] = game.get_game_time()
     end
