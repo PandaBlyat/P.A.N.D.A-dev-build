@@ -1670,13 +1670,23 @@ local function build_dialog_tree(dialog, state)
             )
             if not runtime.latest_state then return false end
             if branch.precond_key and branch.precond_key ~= "" then
-                return evaluate_shared_precondition(branch.precond_key, runtime.latest_state.npc_se, {
+                local ok, reason = evaluate_shared_precondition(branch.precond_key, runtime.latest_state.npc_se, {
                     channel = "f2f",
                     conv_id = runtime.latest_state.conv_id,
                     branch = branch.index,
                     faction = runtime.latest_state.faction,
                     turn = runtime.latest_state.turn or 1,
                 })
+                bridge_debug(
+                    "callback choice_precondition evaluated key=%s result=%s reason=%s conv_id=%s turn=%s branch=%s",
+                    tostring(branch.precond_key),
+                    tostring(ok),
+                    tostring(reason),
+                    tostring(runtime.latest_state and runtime.latest_state.conv_id or "nil"),
+                    tostring(runtime.latest_state and runtime.latest_state.turn or "nil"),
+                    tostring(branch.index)
+                )
+                return ok == true
             end
             return true
         end
