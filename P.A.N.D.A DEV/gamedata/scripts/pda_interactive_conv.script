@@ -5967,6 +5967,78 @@ local function apply_choice_internal(conversation_context, choice_index, channel
     return true
 end
 
+local function get_pending_f2f_handoff_internal(npc_id)
+    local npc_sid = tonumber(npc_id)
+    if not npc_sid then
+        return nil
+    end
+
+    if pda_f2f_handoffs then
+        for _, handoff in pairs(pda_f2f_handoffs) do
+            if type(handoff) == "table" and tonumber(handoff.npc_id) == npc_sid then
+                return {
+                    npc_id = handoff.npc_id,
+                    conv_id = handoff.conv_id,
+                    turn = handoff.turn,
+                    channel = handoff.channel or "f2f",
+                    dialog = handoff.dialog,
+                    set_at = handoff.set_at,
+                }
+            end
+        end
+    end
+
+    for contact_id, conv in pairs(active_conversations) do
+        if conv
+            and tonumber(conv.npc_id) == npc_sid
+            and conv.pending_in_person_continuation == true
+            and conv.pending_in_person_turn
+        then
+            return {
+                contact_id = contact_id,
+                npc_id = conv.npc_id,
+                conv_id = conv.conv_id,
+                turn = conv.pending_in_person_turn,
+                channel = "f2f",
+                dialog = conv.pending_in_person_target or "panda_f2f_hub_dialog",
+                set_at = conv.pending_in_person_set_at,
+            }
+        end
+    end
+
+    return nil
+end
+
+local function consume_pending_f2f_handoff_internal(npc_id)
+    local npc_sid = tonumber(npc_id)
+    if not npc_sid then
+        return false
+    end
+
+    local consumed = false
+
+    if pda_f2f_handoffs then
+        for key, handoff in pairs(pda_f2f_handoffs) do
+            if type(handoff) == "table" and tonumber(handoff.npc_id) == npc_sid then
+                pda_f2f_handoffs[key] = nil
+                consumed = true
+            end
+        end
+    end
+
+    for _, conv in pairs(active_conversations) do
+        if conv and tonumber(conv.npc_id) == npc_sid and conv.pending_in_person_continuation == true then
+            conv.pending_in_person_continuation = false
+            conv.pending_in_person_turn = nil
+            conv.pending_in_person_target = nil
+            conv.pending_in_person_set_at = nil
+            consumed = true
+        end
+    end
+
+    return consumed
+end
+
 PANDA_CONV_API = PANDA_CONV_API or {}
 
 function PANDA_CONV_API.resolve_conversation_context(npc_id, conversation_id, turn_number, channel)
@@ -5996,6 +6068,14 @@ function PANDA_CONV_API.apply_outcome(outcome_str, sender_npc_name, sender_facti
         conv_data,
         channel or "pda"
     )
+end
+
+function PANDA_CONV_API.get_pending_f2f_handoff(npc_id)
+    return get_pending_f2f_handoff_internal(npc_id)
+end
+
+function PANDA_CONV_API.consume_pending_f2f_handoff(npc_id)
+    return consume_pending_f2f_handoff_internal(npc_id)
 end
 
 function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, category)

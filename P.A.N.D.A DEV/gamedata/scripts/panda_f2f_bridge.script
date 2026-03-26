@@ -336,6 +336,48 @@ local function execute_shared_outcome(branch, state)
     ) == true
 end
 
+local function get_pending_handoff_for_npc(npc_se)
+    if not npc_se or not npc_se.id then
+        return nil
+    end
+
+    local api = get_conv_api()
+    if not api or type(api.get_pending_f2f_handoff) ~= "function" then
+        return nil
+    end
+
+    local handoff = api.get_pending_f2f_handoff(npc_se.id)
+    if type(handoff) ~= "table" then
+        return nil
+    end
+
+    local conv_id = tonumber(handoff.conv_id)
+    local turn = tonumber(handoff.turn)
+    if not conv_id or not turn then
+        return nil
+    end
+
+    return {
+        conv_id = math.floor(conv_id),
+        turn = math.floor(turn),
+        channel = "f2f",
+        source = handoff,
+    }
+end
+
+local function consume_pending_handoff_for_npc(npc_se)
+    if not npc_se or not npc_se.id then
+        return false
+    end
+
+    local api = get_conv_api()
+    if not api or type(api.consume_pending_f2f_handoff) ~= "function" then
+        return false
+    end
+
+    return api.consume_pending_f2f_handoff(npc_se.id) == true
+end
+
 function panda_f2f_bridge.hard_route_branch(npc_id, owner_tag)
     ensure_callbacks_registered()
 
@@ -390,97 +432,105 @@ function panda_f2f_bridge.on_branch_timeout(npc_id, owner_tag)
     return panda_f2f_bridge.restore_branch_route(npc_id, owner_tag)
 end
 
-local function collect_branches(npc_se)
+local function collect_branches(npc_se, forced_context)
     local faction = actor_faction_key()
     local found = nil
     local missing = 0
+    local forced_conv_id = forced_context and tonumber(forced_context.conv_id) or nil
+    local forced_turn = forced_context and tonumber(forced_context.turn) or nil
 
     for cid = 1, MAX_CONV_SCAN do
-        local stem = string.format("st_pda_ic_%s_%d", faction, cid)
-        local open_key = stem .. "_open"
-        if not key_exists(open_key) then
-            missing = missing + 1
-            if missing >= MISSING_STOP then
-                break
-            end
-        else
-            missing = 0
-            local precond_key = stem .. "_precond"
-            local conv_ok = true
-            if key_exists(precond_key) then
-                conv_ok = evaluate_shared_precondition(precond_key, npc_se, {
-                    channel = "f2f",
-                    conv_id = cid,
-                    faction = faction,
-                })
-            end
+        if not forced_conv_id or cid == forced_conv_id then
+            local stem = string.format("st_pda_ic_%s_%d", faction, cid)
+            local open_key = stem .. "_open"
+            if not key_exists(open_key) then
+                missing = missing + 1
+                if forced_conv_id then
+                    break
+                end
+                if missing >= MISSING_STOP then
+                    break
+                end
+            else
+                missing = 0
+                local precond_key = stem .. "_precond"
+                local conv_ok = true
+                if key_exists(precond_key) then
+                    conv_ok = evaluate_shared_precondition(precond_key, npc_se, {
+                        channel = "f2f",
+                        conv_id = cid,
+                        faction = faction,
+                    })
+                end
 
-            if conv_ok then
-                found = {
-                    faction = faction,
-                    conv_id = cid,
-                    prefix = nil,
-                    open_key = open_key,
-                    precond_key = key_exists(precond_key) and precond_key or nil,
-                    branches = {},
-                }
+                if conv_ok then
+                    found = {
+                        faction = faction,
+                        conv_id = cid,
+                        prefix = nil,
+                        open_key = open_key,
+                        precond_key = key_exists(precond_key) and precond_key or nil,
+                        branches = {},
+                        handoff = forced_context and forced_context.source or nil,
+                    }
 
-                local f2f_turn = select_f2f_turn(stem, npc_se)
-                if not f2f_turn then
-                    found = nil
-                else
-                    found.turn = f2f_turn
+                    local f2f_turn = forced_turn or select_f2f_turn(stem, npc_se)
+                    if not f2f_turn then
+                        found = nil
+                    else
+                        found.turn = f2f_turn
 
-                    local turn_stem = stem
-                    if f2f_turn > 1 then
-                        turn_stem = stem .. "_t" .. tostring(f2f_turn)
-                    end
+                        local turn_stem = stem
+                        if f2f_turn > 1 then
+                            turn_stem = stem .. "_t" .. tostring(f2f_turn)
+                        end
 
-                    local missing_choices = 0
-                    for idx = 1, MAX_CHOICE_SCAN do
-                        local choice_key = turn_stem .. "_choice_" .. idx
-                        if not key_exists(choice_key) then
-                            missing_choices = missing_choices + 1
-                            if missing_choices >= 3 then
-                                break
-                            end
-                        else
-                            missing_choices = 0
-                            local reply_key = turn_stem .. "_reply_" .. idx
-                            local outcome_key = turn_stem .. "_outcome_" .. idx
-                            local choice_precond_key = turn_stem .. "_choice_" .. idx .. "_precond"
-                            local hard_route_key = turn_stem .. "_choice_" .. idx .. BRANCH_HARD_ROUTE_SUFFIX
+                        local missing_choices = 0
+                        for idx = 1, MAX_CHOICE_SCAN do
+                            local choice_key = turn_stem .. "_choice_" .. idx
+                            if not key_exists(choice_key) then
+                                missing_choices = missing_choices + 1
+                                if missing_choices >= 3 then
+                                    break
+                                end
+                            else
+                                missing_choices = 0
+                                local reply_key = turn_stem .. "_reply_" .. idx
+                                local outcome_key = turn_stem .. "_outcome_" .. idx
+                                local choice_precond_key = turn_stem .. "_choice_" .. idx .. "_precond"
+                                local hard_route_key = turn_stem .. "_choice_" .. idx .. BRANCH_HARD_ROUTE_SUFFIX
 
-                            local show = true
-                            if key_exists(choice_precond_key) then
-                                show = evaluate_shared_precondition(choice_precond_key, npc_se, {
-                                    channel = "f2f",
-                                    conv_id = cid,
-                                    branch = idx,
-                                    faction = faction,
-                                    turn = f2f_turn,
-                                })
-                            end
-
-                            if show then
-                                local hard_route = false
-                                if key_exists(hard_route_key) then
-                                    hard_route = parse_bool_flag(tr(hard_route_key))
+                                local show = true
+                                if key_exists(choice_precond_key) then
+                                    show = evaluate_shared_precondition(choice_precond_key, npc_se, {
+                                        channel = "f2f",
+                                        conv_id = cid,
+                                        branch = idx,
+                                        faction = faction,
+                                        turn = f2f_turn,
+                                    })
                                 end
 
-                                table.insert(found.branches, {
-                                    index = idx,
-                                    choice_key = choice_key,
-                                    reply_key = key_exists(reply_key) and reply_key or nil,
-                                    outcome = key_exists(outcome_key) and tr(outcome_key) or "none",
-                                    precond_key = key_exists(choice_precond_key) and choice_precond_key or nil,
-                                    hard_route = hard_route,
-                                })
+                                if show then
+                                    local hard_route = false
+                                    if key_exists(hard_route_key) then
+                                        hard_route = parse_bool_flag(tr(hard_route_key))
+                                    end
+
+                                    table.insert(found.branches, {
+                                        index = idx,
+                                        choice_key = choice_key,
+                                        reply_key = key_exists(reply_key) and reply_key or nil,
+                                        outcome = key_exists(outcome_key) and tr(outcome_key) or "none",
+                                        precond_key = key_exists(choice_precond_key) and choice_precond_key or nil,
+                                        hard_route = hard_route,
+                                    })
+                                end
                             end
                         end
-                    end
 
-                    break
+                        break
+                    end
                 end
             end
         end
@@ -570,6 +620,9 @@ local function build_dialog_tree(dialog, state)
             end
 
             local ok = execute_shared_outcome(branch, active_state)
+            if ok then
+                consume_pending_handoff_for_npc(active_state.npc_se)
+            end
             if branch.hard_route and routed and not ok then
                 panda_f2f_bridge.restore_branch_route(active_state.npc_se and active_state.npc_se.id or nil, owner_tag)
             end
@@ -618,7 +671,11 @@ function panda_f2f_bridge.precondition()
         return false
     end
 
-    local state = collect_branches(npc_se)
+    local handoff = get_pending_handoff_for_npc(npc_se)
+    local state = collect_branches(npc_se, handoff)
+    if not state and handoff then
+        state = collect_branches(npc_se, nil)
+    end
     if not state then
         return false
     end
@@ -637,7 +694,11 @@ function panda_f2f_bridge.init_dialog(dialog)
         if not npc_se then
             return
         end
-        state = collect_branches(npc_se)
+        local handoff = get_pending_handoff_for_npc(npc_se)
+        state = collect_branches(npc_se, handoff)
+        if not state and handoff then
+            state = collect_branches(npc_se, nil)
+        end
         if not state then
             return
         end
@@ -649,6 +710,10 @@ function panda_f2f_bridge.init_dialog(dialog)
     runtime.latest_state = state
 
     build_dialog_tree(dialog, state)
+
+    if state.handoff then
+        consume_pending_handoff_for_npc(state.npc_se)
+    end
 end
 
 return panda_f2f_bridge
