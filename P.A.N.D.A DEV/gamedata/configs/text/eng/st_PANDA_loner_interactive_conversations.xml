@@ -6,7 +6,7 @@
     <!-- CONVERSATION 1: remote to in person chat -->
     <!-- ═══════════════════════════════════════════════════════════ -->
     <string id="st_pda_ic_loner_1_precond">
-        <text>req_story_npc:esc_2_12_stalker_wolf</text>
+        <text>req_npc_friendly:stalker</text>
     </string>
     <string id="st_pda_ic_loner_1_open">
         <text>Yo come see me right now need to talk with you in person.</text>
@@ -27,7 +27,7 @@
         <text>f2f</text>
     </string>
     <string id="st_pda_ic_loner_1_t2_choice_1_precond">
-        <text>req_story_npc:esc_2_12_stalker_wolf</text>
+        <text>req_npc_friendly:stalker</text>
     </string>
     <string id="st_pda_ic_loner_1_t2_choice_1">
         <text>So, what is it you wanted to talk about?</text>
@@ -39,7 +39,7 @@
         <text>none</text>
     </string>
     <string id="st_pda_ic_loner_1_panda_f2f_registry">
-        <text>{&quot;schema&quot;:&quot;panda_f2f_bridge_registry_v1&quot;,&quot;conversationId&quot;:1,&quot;entryNodes&quot;:{&quot;pda&quot;:[1],&quot;f2f&quot;:[2]},&quot;turns&quot;:[{&quot;turnNumber&quot;:1,&quot;channel&quot;:&quot;pda&quot;,&quot;pdaEntry&quot;:true,&quot;f2fEntry&quot;:false,&quot;choices&quot;:[{&quot;index&quot;:1,&quot;channel&quot;:&quot;pda&quot;,&quot;continueTo&quot;:2,&quot;continueChannel&quot;:&quot;f2f&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[&quot;stalker&quot;],&quot;npcProfileFilters&quot;:[&quot;cordon&quot;],&quot;allowGenericStalker&quot;:false}]},{&quot;turnNumber&quot;:2,&quot;channel&quot;:&quot;f2f&quot;,&quot;pdaEntry&quot;:false,&quot;f2fEntry&quot;:true,&quot;choices&quot;:[{&quot;index&quot;:1,&quot;channel&quot;:&quot;f2f&quot;,&quot;continueTo&quot;:null,&quot;continueChannel&quot;:&quot;pda&quot;,&quot;storyNpcId&quot;:&quot;esc_2_12_stalker_wolf&quot;,&quot;npcFactionFilters&quot;:[],&quot;npcProfileFilters&quot;:[],&quot;allowGenericStalker&quot;:false}]}]}</text>
+        <text>{&quot;schema&quot;:&quot;panda_f2f_bridge_registry_v1&quot;,&quot;conversationId&quot;:1,&quot;entryNodes&quot;:{&quot;pda&quot;:[1],&quot;f2f&quot;:[2]},&quot;turns&quot;:[{&quot;turnNumber&quot;:1,&quot;channel&quot;:&quot;pda&quot;,&quot;pdaEntry&quot;:true,&quot;f2fEntry&quot;:false,&quot;choices&quot;:[{&quot;index&quot;:1,&quot;channel&quot;:&quot;pda&quot;,&quot;continueTo&quot;:2,&quot;continueChannel&quot;:&quot;f2f&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[&quot;stalker&quot;],&quot;npcProfileFilters&quot;:[&quot;cordon&quot;],&quot;allowGenericStalker&quot;:false}]},{&quot;turnNumber&quot;:2,&quot;channel&quot;:&quot;f2f&quot;,&quot;pdaEntry&quot;:false,&quot;f2fEntry&quot;:true,&quot;choices&quot;:[{&quot;index&quot;:1,&quot;channel&quot;:&quot;f2f&quot;,&quot;continueTo&quot;:null,&quot;continueChannel&quot;:&quot;pda&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[],&quot;npcProfileFilters&quot;:[],&quot;allowGenericStalker&quot;:false}]}]}</text>
     </string>
 
 </string_table>
