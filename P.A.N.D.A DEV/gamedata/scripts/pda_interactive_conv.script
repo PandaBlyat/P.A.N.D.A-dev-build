@@ -6744,9 +6744,14 @@ function save_state(m)
             faction = c.faction, prefix = c.prefix, conv_id = c.conv_id,
             turn = c.turn, task_id = c.task_id, category = c.category,
             applied_outcomes = c.applied_outcomes, started_at = c.started_at,
+            pending_in_person_continuation = c.pending_in_person_continuation,
+            pending_in_person_turn = c.pending_in_person_turn,
+            pending_in_person_target = c.pending_in_person_target,
+            pending_in_person_set_at = c.pending_in_person_set_at,
         }
     end
     m.pda_active_conversations = save_convs
+    m.pda_f2f_handoffs = pda_f2f_handoffs
     m.pda_pending_location_refs = pending_location_refs
     m.pda_next_location_ref_id = next_location_ref_id
     m.pda_pending_jobs = pending_jobs
@@ -6812,6 +6817,9 @@ function load_state(m)
         next_job_id = m.pda_next_job_id
     end
 
+    -- Restore explicit f2f handoff table before any bridge-dependent post-load logic runs.
+    pda_f2f_handoffs = m.pda_f2f_handoffs or nil
+
     local adapter = get_anomaly_artifact_adapter()
     if adapter and adapter.load_state then
         adapter.load_state(m)
@@ -6830,11 +6838,34 @@ function load_state(m)
                 saved.choices = choices
                 saved.num_choices = num
                 saved.reply_pending = false
+                saved.pending_in_person_continuation = saved.pending_in_person_continuation == true
+                saved.pending_in_person_turn = saved.pending_in_person_turn
+                saved.pending_in_person_target = saved.pending_in_person_target
+                saved.pending_in_person_set_at = saved.pending_in_person_set_at
                 active_conversations[cid] = saved
                 CONV = saved  -- last one loaded becomes CONV for compat
             end
         end
     end
+
+    local recovered_handoffs = 0
+    if pda_f2f_handoffs then
+        for _, handoff in pairs(pda_f2f_handoffs) do
+            if type(handoff) == "table" then
+                recovered_handoffs = recovered_handoffs + 1
+            end
+        end
+    end
+
+    local pending_contacts = {}
+    for cid, conv in pairs(active_conversations) do
+        if conv and conv.pending_in_person_continuation == true then
+            table.insert(pending_contacts, tostring(cid))
+        end
+    end
+    local pending_contacts_str = (#pending_contacts > 0) and table.concat(pending_contacts, ",") or "none"
+    printf("PANDA_IC: load_state recovered f2f_handoffs=%d pending_in_person_contacts=%s",
+        recovered_handoffs, pending_contacts_str)
 end
 
 -- ============================================================
