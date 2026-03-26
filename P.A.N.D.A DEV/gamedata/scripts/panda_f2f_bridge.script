@@ -1641,6 +1641,7 @@ local function build_dialog_tree(dialog, state)
 
             local ok = execute_shared_outcome(branch, active_state)
             if ok then
+                -- Consume only after a player-selected branch is committed.
                 consume_pending_handoff_for_npc(active_state.npc_se)
             end
             if branch.hard_route and routed and not ok then
@@ -1796,10 +1797,6 @@ function panda_f2f_bridge.init_dialog(dialog)
     runtime.latest_state = state
 
     build_dialog_tree(dialog, state)
-
-    if state.handoff then
-        consume_pending_handoff_for_npc(state.npc_se)
-    end
 end
 
 return panda_f2f_bridge
