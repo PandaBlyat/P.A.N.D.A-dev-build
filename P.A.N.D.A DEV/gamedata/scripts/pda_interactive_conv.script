@@ -6820,6 +6820,11 @@ function load_state(m)
 
     -- Restore explicit f2f handoff table before any bridge-dependent post-load logic runs.
     pda_f2f_handoffs = m.pda_f2f_handoffs or nil
+    if pda_f2f_handoffs then
+        _G.pda_f2f_handoffs = pda_f2f_handoffs
+    else
+        _G.pda_f2f_handoffs = nil
+    end
 
     local adapter = get_anomaly_artifact_adapter()
     if adapter and adapter.load_state then
