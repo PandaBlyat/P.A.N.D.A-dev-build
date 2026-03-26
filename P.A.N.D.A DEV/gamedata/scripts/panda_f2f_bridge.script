@@ -675,7 +675,7 @@ local function get_pending_handoff_for_npc(npc_se)
 
         local conv_id = normalize_positive_int(raw_handoff.conv_id)
         local turn = normalize_positive_int(raw_handoff.turn)
-        local npc_id = normalize_positive_int(raw_handoff.npc_id) or partner_id
+        local npc_id = normalize_positive_int(raw_handoff.npc_id)
         if not conv_id or not turn or not npc_id then
             return nil
         end
@@ -938,6 +938,11 @@ local function collect_branches(npc_se, forced_context)
         tostring(forced_npc_binding),
         tostring(forced_faction),
         tostring(forced_prefix)
+    )
+    bridge_debug(
+        "collect_branches: forced_identity forced_npc_binding=%s forced_identity_matches=%s",
+        tostring(forced_npc_binding),
+        tostring(forced_identity_matches)
     )
 
     for cid = 1, MAX_CONV_SCAN do
