@@ -1166,7 +1166,15 @@ function panda_f2f_bridge.hard_route_branch(npc_id, owner_tag)
         return false
     end
 
-    xr_meet.override_dialog(sid, HUB_DIALOG_ID)
+    local ok_override_call = pcall(xr_meet.override_dialog, sid, HUB_DIALOG_ID)
+    if not ok_override_call then
+        bridge_warn(
+            "hard_route_branch warning: override_dialog call failed npc_id=%s dialog=%s",
+            tostring(sid),
+            tostring(HUB_DIALOG_ID)
+        )
+        return false
+    end
     local override_applied = false
     local detected_override_value = nil
     if type(xr_meet.has_dialog_override) == "function" then
@@ -1218,12 +1226,11 @@ function panda_f2f_bridge.hard_route_branch(npc_id, owner_tag)
         tostring(override_applied)
     )
     if not override_applied then
-        bridge_warn(
-            "hard_route_branch warning: dialog override not applied npc_id=%s dialog=%s",
+        bridge_debug(
+            "hard_route_branch debug: dialog override reflection pending npc_id=%s dialog=%s",
             tostring(sid),
             tostring(HUB_DIALOG_ID)
         )
-        return false
     end
 
     runtime.override_owners[tostring(sid)] = {
