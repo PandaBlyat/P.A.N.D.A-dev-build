@@ -1,0 +1,379 @@
+--[[
+    P.A.N.D.A Face-to-Face conversation bridge.
+    Dynamically builds a dialogue tree from interactive-conversation string tables
+    and routes branch logic through PANDA_CONV_API with channel="f2f".
+--]]
+
+panda_f2f_bridge = panda_f2f_bridge or {}
+
+local MAX_CONV_SCAN = 256
+local MAX_CHOICE_SCAN = 12
+local MISSING_STOP = 20
+
+local runtime = {
+    state_by_id = {},
+    latest_state = nil,
+}
+
+local function get_conv_api()
+    if PANDA_CONV_API then
+        return PANDA_CONV_API
+    end
+    if pda_interactive_conv and pda_interactive_conv.PANDA_CONV_API then
+        return pda_interactive_conv.PANDA_CONV_API
+    end
+    return nil
+end
+
+local function get_dialog_manager_iface()
+    local dm = rawget(_G, "dialog_manager")
+    if type(dm) == "table" then
+        return dm
+    end
+    return _G
+end
+
+local function get_partner_npc_se()
+    if db and db.actor_dialog then
+        local id = db.actor_dialog:id()
+        if id and alife and alife.object then
+            local se = alife.object(id)
+            if se then return se end
+        end
+        if id and level and level.object_by_id then
+            local obj = level.object_by_id(id)
+            if obj and obj.id then
+                local sid = obj:id()
+                if sid and alife and alife.object then
+                    local se = alife.object(sid)
+                    if se then return se end
+                end
+            end
+        end
+    end
+
+    if level and level.get_target_obj then
+        local obj = level.get_target_obj()
+        if obj and obj:id() and alife and alife.object then
+            local se = alife.object(obj:id())
+            if se then return se end
+        end
+    end
+
+    return nil
+end
+
+local function actor_faction_key()
+    if db and db.actor and db.actor.character_community then
+        local fac = db.actor:character_community()
+        if fac and fac ~= "" then
+            return (fac == "stalker") and "loner" or fac
+        end
+    end
+    return "loner"
+end
+
+local function make_allocator(seed)
+    local base = tonumber(seed) or 0
+    base = math.abs(base) % 100000
+    local next_id = base + 1000
+
+    return function()
+        local out = next_id
+        next_id = next_id + 1
+        return out
+    end
+end
+
+local function make_seed(npc_id, conv_id, faction)
+    local raw = string.format("%s|%s|%s", tostring(npc_id or 0), tostring(conv_id or 0), tostring(faction or "loner"))
+    local acc = 0
+    for i = 1, #raw do
+        acc = (acc * 131 + raw:byte(i)) % 2147483647
+    end
+    return acc
+end
+
+local function tr(key)
+    if not key or key == "" then
+        return key
+    end
+    return game.translate_string(key)
+end
+
+local function key_exists(key)
+    local val = tr(key)
+    return val ~= key
+end
+
+local function evaluate_shared_precondition(precond_key, npc_se, context)
+    if not precond_key or precond_key == "" then
+        return true
+    end
+
+    local api = get_conv_api()
+    if not api or type(api.check_preconditions) ~= "function" then
+        return true
+    end
+
+    return api.check_preconditions(precond_key, npc_se, "f2f", context or {}) == true
+end
+
+local function execute_shared_outcome(branch, state)
+    local api = get_conv_api()
+    if not api or type(api.apply_outcome) ~= "function" then
+        return false
+    end
+
+    local npc = state.npc_se
+    local npc_name = npc and npc:character_name() or "Unknown"
+    local npc_faction = (npc and npc.community and npc:community()) or state.faction
+    local npc_id = npc and npc.id or nil
+    local contact_id = npc_id and tostring(npc_id) or nil
+
+    local conv_data = {
+        channel = "f2f",
+        faction = state.faction,
+        conv_id = state.conv_id,
+        prefix = state.prefix,
+        turn = 1,
+    }
+
+    return api.apply_outcome(
+        branch.outcome or "none",
+        npc_name,
+        npc_faction,
+        npc_id,
+        nil,
+        contact_id,
+        conv_data,
+        "f2f"
+    ) == true
+end
+
+local function collect_branches(npc_se)
+    local faction = actor_faction_key()
+    local found = nil
+    local missing = 0
+
+    for cid = 1, MAX_CONV_SCAN do
+        local stem = string.format("st_pda_ic_%s_%d", faction, cid)
+        local open_key = stem .. "_open"
+        if not key_exists(open_key) then
+            missing = missing + 1
+            if missing >= MISSING_STOP then
+                break
+            end
+        else
+            missing = 0
+            local precond_key = stem .. "_precond"
+            local conv_ok = true
+            if key_exists(precond_key) then
+                conv_ok = evaluate_shared_precondition(precond_key, npc_se, {
+                    channel = "f2f",
+                    conv_id = cid,
+                    faction = faction,
+                })
+            end
+
+            if conv_ok then
+                found = {
+                    faction = faction,
+                    conv_id = cid,
+                    prefix = nil,
+                    open_key = open_key,
+                    precond_key = key_exists(precond_key) and precond_key or nil,
+                    branches = {},
+                }
+
+                local missing_choices = 0
+                for idx = 1, MAX_CHOICE_SCAN do
+                    local choice_key = stem .. "_choice_" .. idx
+                    if not key_exists(choice_key) then
+                        missing_choices = missing_choices + 1
+                        if missing_choices >= 3 then
+                            break
+                        end
+                    else
+                        missing_choices = 0
+                        local reply_key = stem .. "_reply_" .. idx
+                        local outcome_key = stem .. "_outcome_" .. idx
+                        local choice_precond_key = stem .. "_choice_" .. idx .. "_precond"
+
+                        local show = true
+                        if key_exists(choice_precond_key) then
+                            show = evaluate_shared_precondition(choice_precond_key, npc_se, {
+                                channel = "f2f",
+                                conv_id = cid,
+                                branch = idx,
+                                faction = faction,
+                            })
+                        end
+
+                        if show then
+                            table.insert(found.branches, {
+                                index = idx,
+                                choice_key = choice_key,
+                                reply_key = key_exists(reply_key) and reply_key or nil,
+                                outcome = key_exists(outcome_key) and tr(outcome_key) or "none",
+                                precond_key = key_exists(choice_precond_key) and choice_precond_key or nil,
+                            })
+                        end
+                    end
+                end
+
+                break
+            end
+        end
+    end
+
+    return found
+end
+
+local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_script_text)
+    local dm = get_dialog_manager_iface()
+
+    if type(dm.add_script_dialog) == "function" and use_script_text then
+        return dm.add_script_dialog(parent_id, id, phrase_id, cond, act)
+    end
+
+    if type(dm.add_dialog) == "function" then
+        return dm.add_dialog(parent_id, id, phrase_id, cond, act)
+    end
+
+    local phrase = state.dialog:AddPhrase(phrase_id, tostring(id), tostring(parent_id), -10000)
+    if not phrase then
+        return nil
+    end
+
+    local script = phrase:GetPhraseScript()
+    if cond then script:AddPrecondition(cond) end
+    if act then script:AddAction(act) end
+    if use_script_text and script and script.SetScriptText then
+        script:SetScriptText(phrase_id)
+    end
+
+    return script
+end
+
+local function build_dialog_tree(dialog, state)
+    local alloc = make_allocator(make_seed(state.npc_se and state.npc_se.id or 0, state.conv_id, state.faction))
+    local token = tostring(time_global and time_global() or math.random(10000, 99999))
+    local exit_phrase = "dm_universal_actor_exit"
+
+    state.dialog = dialog
+    state.alloc = alloc
+    state.handlers = {}
+
+    local root_id = alloc()
+    dm_add_dialog(state, "", root_id, state.open_key, nil, nil, true)
+
+    local function register_dispatcher(branch)
+        local idx = branch.index
+        local cond_name = string.format("panda_f2f_bridge_choice_precond_%s_%d", token, idx)
+        local act_name = string.format("panda_f2f_bridge_choice_action_%s_%d", token, idx)
+
+        _G[cond_name] = function()
+            if not runtime.latest_state then return false end
+            if branch.precond_key and branch.precond_key ~= "" then
+                return evaluate_shared_precondition(branch.precond_key, runtime.latest_state.npc_se, {
+                    channel = "f2f",
+                    conv_id = runtime.latest_state.conv_id,
+                    branch = branch.index,
+                    faction = runtime.latest_state.faction,
+                })
+            end
+            return true
+        end
+
+        _G[act_name] = function()
+            local active_state = runtime.latest_state
+            if not active_state then return end
+
+            -- Re-evaluate preconditions at dispatch time for deterministic safety.
+            if branch.precond_key and branch.precond_key ~= "" then
+                local ok = evaluate_shared_precondition(branch.precond_key, active_state.npc_se, {
+                    channel = "f2f",
+                    conv_id = active_state.conv_id,
+                    branch = branch.index,
+                    faction = active_state.faction,
+                })
+                if not ok then return end
+            end
+
+            execute_shared_outcome(branch, active_state)
+        end
+
+        state.handlers[#state.handlers + 1] = { cond_name = cond_name, act_name = act_name }
+        return cond_name, act_name
+    end
+
+    if #state.branches == 0 then
+        local fallback_actor_id = alloc()
+        local fallback_npc_id = alloc()
+        local fallback_exit_id = alloc()
+
+        dm_add_dialog(state, root_id, fallback_actor_id, "dm_universal_actor_exit", nil, nil, false)
+        dm_add_dialog(state, fallback_actor_id, fallback_npc_id, state.open_key, nil, nil, true)
+        dm_add_dialog(state, fallback_npc_id, fallback_exit_id, exit_phrase, nil, nil, false)
+        return
+    end
+
+    for _, branch in ipairs(state.branches) do
+        local actor_id = alloc()
+        local npc_id = alloc()
+        local exit_id = alloc()
+        local cond_name, act_name = register_dispatcher(branch)
+
+        dm_add_dialog(state, root_id, actor_id, branch.choice_key, cond_name, act_name, false)
+
+        if branch.reply_key then
+            dm_add_dialog(state, actor_id, npc_id, branch.reply_key, nil, nil, true)
+            dm_add_dialog(state, npc_id, exit_id, exit_phrase, nil, nil, false)
+        else
+            dm_add_dialog(state, actor_id, exit_id, exit_phrase, nil, nil, false)
+        end
+    end
+
+    local root_exit_id = alloc()
+    dm_add_dialog(state, root_id, root_exit_id, exit_phrase, nil, nil, false)
+end
+
+function panda_f2f_bridge.precondition()
+    local npc_se = get_partner_npc_se()
+    if not npc_se then
+        return false
+    end
+
+    local state = collect_branches(npc_se)
+    if not state then
+        return false
+    end
+
+    state.npc_se = npc_se
+    runtime.latest_state = state
+    return true
+end
+
+function panda_f2f_bridge.init_dialog(dialog)
+    local state = runtime.latest_state
+    if not state then
+        local npc_se = get_partner_npc_se()
+        if not npc_se then
+            return
+        end
+        state = collect_branches(npc_se)
+        if not state then
+            return
+        end
+        state.npc_se = npc_se
+    end
+
+    local id = tostring(state.npc_se and state.npc_se.id or "unknown") .. ":" .. tostring(state.conv_id or 0)
+    runtime.state_by_id[id] = state
+    runtime.latest_state = state
+
+    build_dialog_tree(dialog, state)
+end
+
+return panda_f2f_bridge
