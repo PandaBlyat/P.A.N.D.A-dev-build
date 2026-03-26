@@ -12,6 +12,7 @@ local MISSING_STOP = 20
 local HUB_DIALOG_ID = "panda_f2f_hub_dialog"
 local BRANCH_HARD_ROUTE_SUFFIX = "_f2f_hard_route"
 local SAVE_KEY_OVERRIDE_OWNERS = "panda_f2f_bridge_override_owners"
+local bridge_debug
 
 local runtime = {
     state_by_id = {},
@@ -207,7 +208,7 @@ local function ensure_callbacks_registered()
     runtime.callbacks_registered = true
 end
 
-local function bridge_debug(fmt, ...)
+function bridge_debug(fmt, ...)
     local panda = rawget(_G, "PANDA")
     local debug_enabled = panda and type(panda.get_config) == "function" and panda.get_config("debug_logging")
     if not debug_enabled then
