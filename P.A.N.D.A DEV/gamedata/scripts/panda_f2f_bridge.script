@@ -647,47 +647,134 @@ local function execute_shared_outcome(branch, state)
 end
 
 local function get_pending_handoff_for_npc(npc_se)
-    local partner_id = npc_se and tonumber(npc_se.id) or nil
-    if not partner_id or partner_id <= 0 then
-        bridge_debug("get_pending_handoff_for_npc: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", "nil", tostring(partner_id), tostring(npc_se ~= nil))
+    local function normalize_positive_int(value)
+        local n = tonumber(value)
+        if not n or n <= 0 then
+            return nil
+        end
+        return math.floor(n)
+    end
+
+    local partner_id = normalize_positive_int(npc_se and npc_se.id)
+    if not partner_id and npc_se and type(npc_se.id) == "function" then
+        local ok_partner_id, resolved_partner_id = pcall(function() return npc_se:id() end)
+        if ok_partner_id then
+            partner_id = normalize_positive_int(resolved_partner_id)
+        end
+    end
+
+    bridge_debug("get_pending_handoff_for_npc: resolved partner_id=%s npc_se_present=%s", tostring(partner_id), tostring(npc_se ~= nil))
+    if not partner_id then
         return nil
     end
-    partner_id = math.floor(partner_id)
+
+    local function normalize_handoff(raw_handoff, source_path)
+        if type(raw_handoff) ~= "table" then
+            return nil
+        end
+
+        local conv_id = normalize_positive_int(raw_handoff.conv_id)
+        local turn = normalize_positive_int(raw_handoff.turn)
+        local npc_id = normalize_positive_int(raw_handoff.npc_id) or partner_id
+        if not conv_id or not turn or not npc_id then
+            return nil
+        end
+
+        local normalized = {
+            npc_id = npc_id,
+            conv_id = conv_id,
+            turn = turn,
+            faction = raw_handoff.faction,
+            prefix = raw_handoff.prefix,
+            channel = "f2f",
+            source_path = source_path or "unknown",
+            source = raw_handoff,
+        }
+
+        return normalized
+    end
+
+    local function fallback_from_global_handoffs()
+        local handoffs = rawget(_G, "pda_f2f_handoffs")
+        if type(handoffs) ~= "table" then
+            return nil
+        end
+
+        for _, raw_handoff in pairs(handoffs) do
+            if normalize_positive_int(raw_handoff and raw_handoff.npc_id) == partner_id then
+                local normalized = normalize_handoff(raw_handoff, "fallback:pda_f2f_handoffs")
+                if normalized then
+                    return normalized
+                end
+            end
+        end
+
+        return nil
+    end
+
+    local function fallback_from_active_conversations()
+        local conversations = nil
+        if pda_interactive_conv and type(pda_interactive_conv.active_conversations) == "table" then
+            conversations = pda_interactive_conv.active_conversations
+        elseif type(rawget(_G, "active_conversations")) == "table" then
+            conversations = active_conversations
+        end
+
+        if type(conversations) ~= "table" then
+            return nil
+        end
+
+        for contact_id, conv in pairs(conversations) do
+            if type(conv) == "table"
+                and normalize_positive_int(conv.npc_id) == partner_id
+                and conv.pending_in_person_continuation == true
+            then
+                local normalized = normalize_handoff({
+                    npc_id = conv.npc_id,
+                    conv_id = conv.conv_id,
+                    turn = conv.pending_in_person_turn or conv.turn,
+                    faction = conv.faction,
+                    prefix = conv.prefix,
+                    contact_id = contact_id,
+                }, "fallback:active_conversations")
+                if normalized then
+                    return normalized
+                end
+            end
+        end
+
+        return nil
+    end
 
     local api = get_conv_api()
-    if not api or type(api.get_pending_f2f_handoff) ~= "function" then
+    local handoff = nil
+    if api and type(api.get_pending_f2f_handoff) == "function" then
+        local ok_handoff, api_handoff = pcall(function()
+            return api.get_pending_f2f_handoff(partner_id)
+        end)
+        if ok_handoff then
+            handoff = normalize_handoff(api_handoff, "api:get_pending_f2f_handoff")
+        end
+    end
+
+    if not handoff then
+        handoff = fallback_from_global_handoffs() or fallback_from_active_conversations()
+    end
+
+    if not handoff then
+        bridge_debug("get_pending_handoff_for_npc: handoff source=none partner_id=%s", tostring(partner_id))
         return nil
     end
 
-    local handoff = api.get_pending_f2f_handoff(partner_id)
-    if type(handoff) ~= "table" then
-        bridge_debug("get_pending_handoff_for_npc: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", "nil", tostring(partner_id), "true")
-        return nil
-    end
+    bridge_debug(
+        "get_pending_handoff_for_npc: handoff source=%s partner_id=%s conv_id=%s turn=%s",
+        tostring(handoff.source_path),
+        tostring(partner_id),
+        tostring(handoff.conv_id),
+        tostring(handoff.turn)
+    )
 
-    local conv_id = tonumber(handoff.conv_id)
-    local turn = tonumber(handoff.turn)
-    if not conv_id or not turn then
-        bridge_debug("get_pending_handoff_for_npc: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", tostring(handoff and handoff.conv_id), tostring(partner_id), "true")
-        return nil
-    end
-    conv_id = math.floor(conv_id)
-    turn = math.floor(turn)
-    if conv_id <= 0 or turn <= 0 then
-        bridge_debug("get_pending_handoff_for_npc: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", tostring(conv_id), tostring(partner_id), "true")
-        return nil
-    end
-
-    bridge_debug("get_pending_handoff_for_npc: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", tostring(conv_id), tostring(partner_id), "true")
-
-    return {
-        conv_id = conv_id,
-        turn = turn,
-        faction = handoff.faction,
-        prefix = handoff.prefix,
-        channel = "f2f",
-        source = handoff,
-    }
+    return handoff
 end
 
 local function consume_pending_handoff_for_npc(npc_se)
@@ -843,6 +930,15 @@ local function collect_branches(npc_se, forced_context)
     end
 
     local forced_identity_matches = forced_identity_matches_partner()
+    bridge_debug(
+        "collect_branches: forced_context active=%s conv_id=%s turn=%s npc_id=%s faction=%s prefix=%s",
+        tostring(forced_handoff_active),
+        tostring(forced_conv_id),
+        tostring(forced_turn),
+        tostring(forced_npc_binding),
+        tostring(forced_faction),
+        tostring(forced_prefix)
+    )
 
     for cid = 1, MAX_CONV_SCAN do
         if not forced_conv_id or cid == forced_conv_id then
@@ -904,6 +1000,12 @@ local function collect_branches(npc_se, forced_context)
                         found = nil
                     else
                         found.turn = f2f_turn
+                        bridge_debug(
+                            "collect_branches: resolved branch context conv_id=%s turn=%s forced_active=%s",
+                            tostring(cid),
+                            tostring(f2f_turn),
+                            tostring(forced_handoff_active)
+                        )
 
                         local turn_stem = stem
                         if f2f_turn > 1 then
