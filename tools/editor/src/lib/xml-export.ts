@@ -5,6 +5,9 @@ import type { Project, Conversation, Turn, Choice, PreconditionEntry, AnyPrecond
 import { FACTION_XML_KEYS, getConversationFaction } from './types';
 import { getDefaultFlowTurnPosition } from './flow-layout';
 
+const PANDA_F2F_REGISTRY_SCHEMA = 'panda_f2f_bridge_registry_v1';
+const PANDA_F2F_REGISTRY_SUFFIX = '_panda_f2f_registry';
+
 /** Escape special XML characters in text content */
 function escapeXml(text: string): string {
   return text
@@ -74,6 +77,42 @@ function emitString(id: string, text: string): string {
   return `    <string id="${id}">\n        <text>${escapeXml(text)}</text>\n    </string>`;
 }
 
+function normalizeChannel(value: Conversation['turns'][number]['channel'] | Choice['channel'] | Choice['continue_channel'] | undefined, fallback: 'pda' | 'both'): 'pda' | 'f2f' | 'both' {
+  if (value === 'pda' || value === 'f2f' || value === 'both') {
+    return value;
+  }
+  return fallback;
+}
+
+function createF2FRegistryPayload(conv: Conversation) {
+  const turns = conv.turns.map((turn) => ({
+    turnNumber: turn.turnNumber,
+    channel: normalizeChannel(turn.channel, 'both'),
+    pdaEntry: turn.pda_entry ?? turn.turnNumber === 1,
+    f2fEntry: turn.f2f_entry ?? false,
+    choices: turn.choices.map((choice) => ({
+      index: choice.index,
+      channel: normalizeChannel(choice.channel, 'pda'),
+      continueTo: choice.continueTo ?? null,
+      continueChannel: normalizeChannel(choice.continue_channel, 'pda'),
+      storyNpcId: choice.story_npc_id ?? null,
+      npcFactionFilters: choice.npc_faction_filters ?? [],
+      npcProfileFilters: choice.npc_profile_filters ?? [],
+      allowGenericStalker: choice.allow_generic_stalker ?? false,
+    })),
+  }));
+
+  return {
+    schema: PANDA_F2F_REGISTRY_SCHEMA,
+    conversationId: conv.id,
+    entryNodes: {
+      pda: turns.filter((turn) => turn.pdaEntry).map((turn) => turn.turnNumber),
+      f2f: turns.filter((turn) => turn.f2fEntry).map((turn) => turn.turnNumber),
+    },
+    turns,
+  };
+}
+
 /** Generate system strings block */
 function generateSystemStrings(systemStrings: Map<string, string>): string {
   const lines: string[] = [];
@@ -138,6 +177,9 @@ function generateConversation(conv: Conversation, factionKey: string, exportId: 
   if (conv.timeoutMessage) {
     lines.push(emitString(`${prefix}_timeout_msg`, conv.timeoutMessage));
   }
+
+  // PANDA-managed F2F metadata registry payload (consumed by panda_f2f_bridge.script).
+  lines.push(emitString(`${prefix}${PANDA_F2F_REGISTRY_SUFFIX}`, JSON.stringify(createF2FRegistryPayload(conv))));
 
   return lines.join('\n');
 }
