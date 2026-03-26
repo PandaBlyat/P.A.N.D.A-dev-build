@@ -802,6 +802,48 @@ function panda_f2f_bridge.hard_route_branch(npc_id, owner_tag)
     end
 
     xr_meet.override_dialog(sid, HUB_DIALOG_ID)
+    local override_applied = false
+    if type(xr_meet.has_dialog_override) == "function" then
+        local ok_override, has_override = pcall(xr_meet.has_dialog_override, sid)
+        if ok_override then
+            if has_override == true or has_override == HUB_DIALOG_ID then
+                override_applied = true
+            end
+        end
+    end
+    if not override_applied then
+        local table_candidates = {
+            "dialog_override",
+            "dialog_overrides",
+            "override_dialogs",
+        }
+        for _, field in ipairs(table_candidates) do
+            local overrides = rawget(xr_meet, field)
+            if type(overrides) == "table" then
+                local rec = overrides[sid] or overrides[tostring(sid)]
+                if rec == HUB_DIALOG_ID then
+                    override_applied = true
+                    break
+                end
+                if type(rec) == "table" then
+                    local rec_dialog = rec.dialog or rec.dialog_id or rec.id or rec.override
+                    if rec_dialog == HUB_DIALOG_ID then
+                        override_applied = true
+                        break
+                    end
+                end
+            end
+        end
+    end
+    if not override_applied then
+        bridge_warn(
+            "hard_route_branch warning: dialog override not applied npc_id=%s dialog=%s",
+            tostring(sid),
+            tostring(HUB_DIALOG_ID)
+        )
+        return false
+    end
+
     runtime.override_owners[tostring(sid)] = {
         owner = owner_tag or "f2f",
         dialog = HUB_DIALOG_ID,
