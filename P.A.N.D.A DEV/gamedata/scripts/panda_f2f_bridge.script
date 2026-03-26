@@ -1603,8 +1603,10 @@ end
 
 local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_script_text)
     local dm = get_dialog_manager_iface()
+    local phrase = tostring(phrase_id or "")
+    local allow_script_text = use_script_text and phrase:find("^dialogs%.") ~= nil
 
-    if type(dm.add_script_dialog) == "function" and use_script_text then
+    if type(dm.add_script_dialog) == "function" and allow_script_text then
         return dm.add_script_dialog(parent_id, id, phrase_id, cond, act)
     end
 
@@ -1620,7 +1622,7 @@ local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_scr
     local script = phrase:GetPhraseScript()
     if cond then script:AddPrecondition(cond) end
     if act then script:AddAction(act) end
-    if use_script_text and script and script.SetScriptText then
+    if allow_script_text and script and script.SetScriptText then
         script:SetScriptText(phrase_id)
     end
 
@@ -1637,10 +1639,10 @@ local function build_dialog_tree(dialog, state)
     state.handlers = {}
 
     local root_phrase_id = state.open_key
-    local root_use_script_text = true
+    local root_use_script_text = false
     if state.missing_turn_open then
         root_phrase_id = "[DEBUG] Missing conversation opening line."
-        root_use_script_text = true
+        root_use_script_text = false
         bridge_warn(
             "build_dialog_tree fallback reason=missing_turn_open conv_id=%s turn=%s preferred=%s fallback=%s",
             tostring(state.conv_id or "nil"),
@@ -1744,7 +1746,7 @@ local function build_dialog_tree(dialog, state)
         dm_add_dialog(state, root_id, actor_id, branch.choice_key, cond_name, act_name, false)
 
         if branch.reply_key then
-            dm_add_dialog(state, actor_id, npc_id, branch.reply_key, nil, nil, true)
+            dm_add_dialog(state, actor_id, npc_id, branch.reply_key, nil, nil, false)
             dm_add_dialog(state, npc_id, exit_id, exit_phrase, nil, nil, false)
         else
             dm_add_dialog(state, actor_id, exit_id, exit_phrase, nil, nil, false)
