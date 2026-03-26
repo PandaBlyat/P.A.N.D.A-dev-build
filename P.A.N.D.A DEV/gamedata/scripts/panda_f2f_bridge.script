@@ -1652,6 +1652,14 @@ local function build_dialog_tree(dialog, state)
         )
     end
 
+    bridge_debug(
+        "build_dialog_tree root_mode phrase_id=%s script_text_mode=%s conv_id=%s turn=%s",
+        tostring(root_phrase_id or "nil"),
+        tostring(root_use_script_text == true),
+        tostring(state.conv_id or "nil"),
+        tostring(state.turn or "nil")
+    )
+
     local root_id = alloc()
     dm_add_dialog(state, "", root_id, root_phrase_id, nil, nil, root_use_script_text)
 
@@ -1740,6 +1748,13 @@ local function build_dialog_tree(dialog, state)
         local fallback_actor_id = alloc()
         local fallback_npc_id = alloc()
         local fallback_exit_id = alloc()
+
+        bridge_warn(
+            "build_dialog_tree fallback inserted reason=no_branches conv_id=%s turn=%s root_phrase_id=%s",
+            tostring(state.conv_id or "nil"),
+            tostring(state.turn or "nil"),
+            tostring(root_phrase_id or "nil")
+        )
 
         dm_add_dialog(state, root_id, fallback_actor_id, "dm_universal_actor_exit", nil, nil, false)
         dm_add_dialog(state, fallback_actor_id, fallback_npc_id, root_phrase_id, nil, nil, root_use_script_text)
@@ -1886,6 +1901,15 @@ function panda_f2f_bridge.init_dialog(dialog)
     debug_resolve_snapshot("init", state.npc_se, state, init_handoff)
 
     build_dialog_tree(dialog, state)
+    bridge_warn(
+        "init_dialog build_complete npc_id=%s conv_id=%s turn=%s open_key=%s branch_count=%s missing_turn_open=%s",
+        tostring(state.npc_se and state.npc_se.id or "nil"),
+        tostring(state.conv_id or "nil"),
+        tostring(state.turn or "nil"),
+        tostring(state.open_key or "nil"),
+        tostring(state.branches and #state.branches or 0),
+        tostring(state.missing_turn_open == true)
+    )
     debug_resolve_snapshot("build", state.npc_se, state, nil)
 end
 
