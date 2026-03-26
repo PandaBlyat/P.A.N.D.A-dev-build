@@ -5911,11 +5911,11 @@ function on_player_choice(idx, contact_id)
                             end
                         end
 
-                        printf("TRACE f2f-handoff npc_sid=%d story_id=%s conv_id=%d next_turn=%d channel=%s",
-                            tonumber(c.npc_id) or 0,
+                        printf("TRACE f2f-handoff npc_sid=%s story_id=%s conv_id=%s next_turn=%s channel=%s",
+                            tostring(tonumber(c.npc_id) or 0),
                             tostring(handoff_story_id),
-                            tonumber(c.conv_id) or 0,
-                            tonumber(ch.next_turn) or 0,
+                            tostring(tonumber(c.conv_id) or 0),
+                            tostring(tonumber(ch.next_turn) or 0),
                             tostring(continuation_channel))
 
                         pda_f2f_handoffs = pda_f2f_handoffs or {}
@@ -6303,13 +6303,17 @@ local function collect_story_npc_conversations(xml_fac)
                         -- Full precondition check (including req_story_npc itself)
                         if check_preconditions_generic(precond_key, npc_se) then
                             table.insert(results, {npc_se = npc_se, conv_id = cid, weight = weight})
-                            printf("Story NPC conv %d matched — NPC %s (story_id=%s, weight=%d)", cid, npc_se:character_name(), story_id, weight)
-                            printf("TRACE story-match npc_sid=%d story_id=%s conv_id=%d next_turn=%s channel=%s",
-                                npc_se.id,
+                            printf("Story NPC conv %s matched — NPC %s (story_id=%s, weight=%s)",
+                                tostring(tonumber(cid) or 0),
+                                tostring(npc_se:character_name()),
                                 tostring(story_id),
-                                cid,
-                                "n/a",
-                                "pda")
+                                tostring(tonumber(weight) or 0))
+                            printf("TRACE story-match npc_sid=%s story_id=%s conv_id=%s next_turn=%s channel=%s",
+                                tostring(tonumber(npc_se.id) or 0),
+                                tostring(story_id),
+                                tostring(tonumber(cid) or 0),
+                                tostring("n/a"),
+                                tostring("pda"))
                         end
                     end
                 end
@@ -6382,8 +6386,10 @@ local function attempt_interactive_conversation()
         end
     end
 
-    printf("Picked NPC: %s (ID %d)", pick.npc_se:character_name(), pick.npc_se.id)
-    printf("Selected conv_id = %d", pick.conv_id)
+    printf("Picked NPC: %s (ID %s)",
+        tostring(pick.npc_se:character_name()),
+        tostring(tonumber(pick.npc_se.id) or 0))
+    printf("Selected conv_id = %s", tostring(tonumber(pick.conv_id) or 0))
 
     return start_interactive_conv(pick.npc_se, pick.conv_id, nil, xml_fac, nil, nil)
 end
