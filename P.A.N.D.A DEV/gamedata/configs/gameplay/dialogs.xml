@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+
+<game_dialogs>
+    <!-- PANDA face-to-face dynamic hub dialog -->
+    <dialog id="panda_f2f_hub_dialog">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+    </dialog>
+</game_dialogs>
