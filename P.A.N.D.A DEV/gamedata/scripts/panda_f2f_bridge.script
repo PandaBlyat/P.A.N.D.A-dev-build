@@ -284,15 +284,58 @@ end
 
 local function evaluate_shared_precondition(precond_key, npc_se, context)
     if not precond_key or precond_key == "" then
-        return true
+        return true, "no-precondition-key"
     end
 
     local api = get_conv_api()
     if not api or type(api.check_preconditions) ~= "function" then
-        return true
+        return true, "no-shared-api"
     end
 
-    return api.check_preconditions(precond_key, npc_se, "f2f", context or {}) == true
+    local ctx = context or {}
+    local ok = api.check_preconditions(precond_key, npc_se, "f2f", ctx) == true
+    local reason = nil
+
+    -- Optional richer reason plumbing if shared API grows detailed helpers.
+    if type(api.check_preconditions_with_reason) == "function" then
+        local detailed_ok, detailed_res = pcall(function()
+            return api.check_preconditions_with_reason(precond_key, npc_se, "f2f", ctx)
+        end)
+        if detailed_ok then
+            if type(detailed_res) == "table" then
+                if detailed_res.ok ~= nil then
+                    ok = detailed_res.ok == true
+                end
+                if detailed_res.reason ~= nil then
+                    reason = tostring(detailed_res.reason)
+                end
+            elseif type(detailed_res) == "boolean" then
+                ok = detailed_res
+            elseif detailed_res ~= nil then
+                reason = tostring(detailed_res)
+            end
+        end
+    elseif type(api.get_last_precondition_reason) == "function" then
+        local reason_ok, reason_res = pcall(function()
+            return api.get_last_precondition_reason(precond_key, npc_se, "f2f", ctx)
+        end)
+        if reason_ok and reason_res ~= nil then
+            reason = tostring(reason_res)
+        end
+    end
+
+    return ok, reason
+end
+
+local function extract_req_story_npc_id_from_key(precond_key)
+    if not precond_key or precond_key == "" then
+        return nil
+    end
+    local raw = tr(precond_key)
+    if raw == precond_key then
+        return nil
+    end
+    return raw:match("req_story_npc:([%w_%-]+)")
 end
 
 local function decode_registry_json(raw)
@@ -483,6 +526,13 @@ local function select_f2f_turn(stem, npc_se)
         end
     end
 
+    bridge_debug(
+        "select_f2f_turn no-match stem=%s runtime_candidates=%s entry_turns=%s reason=%s",
+        tostring(stem),
+        (#runtime_ids.canonical_candidates > 0 and table.concat(runtime_ids.canonical_candidates, "|") or "<none>"),
+        table.concat(entry_turns, ","),
+        "no turn storyNpcId matched runtime canonical candidates"
+    )
     return nil
 end
 
@@ -650,13 +700,23 @@ local function collect_branches(npc_se, forced_context)
                 missing = 0
                 local precond_key = stem .. "_precond"
                 local conv_ok = true
+                local conv_reason = nil
+                local conv_req_story_npc = nil
                 if key_exists(precond_key) then
-                    conv_ok = evaluate_shared_precondition(precond_key, npc_se, {
+                    conv_ok, conv_reason = evaluate_shared_precondition(precond_key, npc_se, {
                         channel = "f2f",
                         conv_id = cid,
                         faction = faction,
                     })
+                    conv_req_story_npc = extract_req_story_npc_id_from_key(precond_key)
                 end
+                bridge_debug(
+                    "collect_branches conv-precond key=%s result=%s reason=%s conv_id=%s",
+                    tostring(key_exists(precond_key) and precond_key or "<none>"),
+                    tostring(conv_ok),
+                    tostring(conv_reason),
+                    tostring(cid)
+                )
 
                 if conv_ok then
                     found = {
@@ -681,6 +741,7 @@ local function collect_branches(npc_se, forced_context)
                         end
 
                         local missing_choices = 0
+                        local rejected_choice_keys = {}
                         for idx = 1, MAX_CHOICE_SCAN do
                             local choice_key = turn_stem .. "_choice_" .. idx
                             if not key_exists(choice_key) then
@@ -696,15 +757,32 @@ local function collect_branches(npc_se, forced_context)
                                 local hard_route_key = turn_stem .. "_choice_" .. idx .. BRANCH_HARD_ROUTE_SUFFIX
 
                                 local show = true
+                                local choice_reason = nil
                                 if key_exists(choice_precond_key) then
-                                    show = evaluate_shared_precondition(choice_precond_key, npc_se, {
+                                    show, choice_reason = evaluate_shared_precondition(choice_precond_key, npc_se, {
                                         channel = "f2f",
                                         conv_id = cid,
                                         branch = idx,
                                         faction = faction,
                                         turn = f2f_turn,
                                     })
+
+                                    -- For F2F identity handoff testing, keep req_story_npc only on the conversation gate.
+                                    local choice_req_story_npc = extract_req_story_npc_id_from_key(choice_precond_key)
+                                    if not show and conv_req_story_npc and choice_req_story_npc and conv_req_story_npc == choice_req_story_npc then
+                                        show = true
+                                        choice_reason = "relaxed-duplicate-req_story_npc:" .. tostring(choice_req_story_npc)
+                                    end
                                 end
+                                bridge_debug(
+                                    "collect_branches choice-precond key=%s result=%s reason=%s conv_id=%s turn=%s choice=%s",
+                                    tostring(key_exists(choice_precond_key) and choice_precond_key or "<none>"),
+                                    tostring(show),
+                                    tostring(choice_reason),
+                                    tostring(cid),
+                                    tostring(f2f_turn),
+                                    tostring(choice_key)
+                                )
 
                                 if show then
                                     local hard_route = false
@@ -720,8 +798,19 @@ local function collect_branches(npc_se, forced_context)
                                         precond_key = key_exists(choice_precond_key) and choice_precond_key or nil,
                                         hard_route = hard_route,
                                     })
+                                else
+                                    rejected_choice_keys[#rejected_choice_keys + 1] = choice_key
                                 end
                             end
+                        end
+
+                        if found and #found.branches == 0 then
+                            bridge_debug(
+                                "collect_branches warning: no branches exposed conv_id=%s turn=%s rejected_choice_keys=%s",
+                                tostring(found.conv_id),
+                                tostring(found.turn),
+                                (#rejected_choice_keys > 0 and table.concat(rejected_choice_keys, ",") or "<none>")
+                            )
                         end
 
                         break
@@ -867,13 +956,23 @@ function panda_f2f_bridge.precondition()
         return false
     end
 
+    local runtime_ids = resolve_partner_runtime_ids(npc_se)
+    bridge_debug(
+        "precondition partner ids: npc_id=%s runtime_story_id=%s runtime_fallback_name=%s runtime_character_name=%s runtime_canonical_id=%s canonical_candidates=%s",
+        tostring(npc_se and npc_se.id),
+        tostring(runtime_ids.story_id),
+        tostring(runtime_ids.fallback_name),
+        tostring(runtime_ids.character_name),
+        tostring(runtime_ids.canonical_id),
+        (#runtime_ids.canonical_candidates > 0 and table.concat(runtime_ids.canonical_candidates, "|") or "<none>")
+    )
+
     local handoff = get_pending_handoff_for_npc(npc_se)
     local state = collect_branches(npc_se, handoff)
     if not state and handoff then
         state = collect_branches(npc_se, nil)
     end
     if not state then
-        local runtime_ids = resolve_partner_runtime_ids(npc_se)
         bridge_debug(
             "precondition fail: no matching state for npc_id=%s runtime_story_id=%s runtime_fallback_name=%s runtime_canonical_id=%s",
             tostring(npc_se and npc_se.id),
@@ -886,7 +985,6 @@ function panda_f2f_bridge.precondition()
 
     state.npc_se = npc_se
     runtime.latest_state = state
-    local runtime_ids = resolve_partner_runtime_ids(npc_se)
     bridge_debug(
         "precondition pass: npc_id=%s runtime_story_id=%s runtime_fallback_name=%s runtime_canonical_id=%s conv_id=%s turn=%s branches=%s",
         tostring(npc_se and npc_se.id),
