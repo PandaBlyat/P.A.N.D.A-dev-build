@@ -1167,10 +1167,12 @@ function panda_f2f_bridge.hard_route_branch(npc_id, owner_tag)
 
     xr_meet.override_dialog(sid, HUB_DIALOG_ID)
     local override_applied = false
+    local detected_override_value = nil
     if type(xr_meet.has_dialog_override) == "function" then
         local ok_override, has_override = pcall(xr_meet.has_dialog_override, sid)
         if ok_override then
-            if has_override == true or has_override == HUB_DIALOG_ID then
+            detected_override_value = has_override
+            if has_override == HUB_DIALOG_ID then
                 override_applied = true
             end
         end
@@ -1186,19 +1188,34 @@ function panda_f2f_bridge.hard_route_branch(npc_id, owner_tag)
             if type(overrides) == "table" then
                 local rec = overrides[sid] or overrides[tostring(sid)]
                 if rec == HUB_DIALOG_ID then
+                    detected_override_value = rec
                     override_applied = true
                     break
                 end
                 if type(rec) == "table" then
                     local rec_dialog = rec.dialog or rec.dialog_id or rec.id or rec.override
                     if rec_dialog == HUB_DIALOG_ID then
+                        detected_override_value = rec_dialog
                         override_applied = true
                         break
                     end
+                    if detected_override_value == nil then
+                        detected_override_value = rec_dialog
+                    end
+                elseif detected_override_value == nil then
+                    detected_override_value = rec
                 end
             end
         end
     end
+    bridge_debug(
+        "hard_route_branch: override validation npc_id=%s expected=%s detected=%s detected_type=%s applied=%s",
+        tostring(sid),
+        tostring(HUB_DIALOG_ID),
+        tostring(detected_override_value),
+        type(detected_override_value),
+        tostring(override_applied)
+    )
     if not override_applied then
         bridge_warn(
             "hard_route_branch warning: dialog override not applied npc_id=%s dialog=%s",
