@@ -291,6 +291,7 @@ local function actor_faction_key()
     if db and db.actor and db.actor.character_community then
         local fac = db.actor:character_community()
         if fac and fac ~= "" then
+            fac = string.gsub(fac, "^actor_", "")
             return (fac == "stalker") and "loner" or fac
         end
     end
