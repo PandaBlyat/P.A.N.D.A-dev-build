@@ -1246,6 +1246,11 @@ function panda_f2f_bridge.precondition()
     )
 
     local handoff = get_pending_handoff_for_npc(npc_se)
+    bridge_debug(
+        "precondition handoff check: runtime_partner_id=%s pending_handoff_npc_id=%s",
+        tostring(npc_se and npc_se.id or "nil"),
+        tostring(handoff and handoff.npc_id or "nil")
+    )
     local handoff_fallback_attempted = false
     local state = collect_branches(npc_se, handoff)
     if not state and handoff then

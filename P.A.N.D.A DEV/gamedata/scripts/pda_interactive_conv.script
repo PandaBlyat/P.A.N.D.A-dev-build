@@ -5978,6 +5978,20 @@ function on_player_choice(idx, contact_id)
                         c.pending_in_person_turn = ch.next_turn
                         c.pending_in_person_target = "panda_f2f_hub_dialog"
                         c.pending_in_person_set_at = time_global and time_global() or 0
+                        local handoff_target_name = tostring(c.npc_name or "Unknown")
+                        local handoff_target_id = tostring(c.npc_id or "Unknown")
+                        pda_private_add_message(
+                            cid,
+                            npc_name,
+                            "PDA System",
+                            string.format("Meet %s (ID: %s) to continue this conversation.", handoff_target_name, handoff_target_id),
+                            c.npc_icon,
+                            false,
+                            nil,
+                            nil,
+                            nil,
+                            { skip_personality = true }
+                        )
                         local handoff_story_id = "n/a"
                         if type(get_object_story_id) == "function" then
                             local ok_story, resolved_story = pcall(function()
