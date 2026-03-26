@@ -6020,6 +6020,7 @@ function on_player_choice(idx, contact_id)
                             dialog = "panda_f2f_hub_dialog",
                             set_at = c.pending_in_person_set_at,
                         }
+                        _G.pda_f2f_handoffs = pda_f2f_handoffs
 
                         if panda_f2f_bridge and panda_f2f_bridge.hard_route_branch then
                             local ok_route_call, route_applied = pcall(

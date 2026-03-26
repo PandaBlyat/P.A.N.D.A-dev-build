@@ -747,6 +747,17 @@ local function get_pending_handoff_for_npc(npc_se)
 
     local function fallback_from_global_handoffs()
         local handoffs = rawget(_G, "pda_f2f_handoffs")
+        local handoff_count = 0
+        if type(handoffs) == "table" then
+            for _ in pairs(handoffs) do
+                handoff_count = handoff_count + 1
+            end
+        end
+        bridge_debug(
+            "get_pending_handoff_for_npc: _G.pda_f2f_handoffs exists=%s count=%s",
+            tostring(type(handoffs) == "table"),
+            tostring(handoff_count)
+        )
         if type(handoffs) ~= "table" then
             return nil
         end
@@ -799,17 +810,45 @@ local function get_pending_handoff_for_npc(npc_se)
 
     local api = get_conv_api()
     local handoff = nil
+    if not api then
+        bridge_debug("get_pending_handoff_for_npc: get_conv_api returned nil")
+    else
+        bridge_debug("get_pending_handoff_for_npc: get_conv_api returned table")
+    end
+
     if api and type(api.get_pending_f2f_handoff) == "function" then
         local ok_handoff, api_handoff = pcall(function()
             return api.get_pending_f2f_handoff(partner_id)
         end)
         if ok_handoff then
+            bridge_debug(
+                "get_pending_handoff_for_npc: api.get_pending_f2f_handoff(partner_id=%s) returned=%s",
+                tostring(partner_id),
+                tostring(type(api_handoff))
+            )
             handoff = normalize_handoff(api_handoff, "api:get_pending_f2f_handoff")
+        else
+            bridge_debug(
+                "get_pending_handoff_for_npc: api.get_pending_f2f_handoff(partner_id=%s) call_failed",
+                tostring(partner_id)
+            )
         end
+    elseif api then
+        bridge_debug("get_pending_handoff_for_npc: api.get_pending_f2f_handoff missing or not callable")
     end
 
     if not handoff then
-        handoff = fallback_from_global_handoffs() or fallback_from_active_conversations()
+        handoff = fallback_from_global_handoffs()
+        if handoff then
+            bridge_debug("get_pending_handoff_for_npc: winner path=fallback:pda_f2f_handoffs partner_id=%s", tostring(partner_id))
+        else
+            handoff = fallback_from_active_conversations()
+            if handoff then
+                bridge_debug("get_pending_handoff_for_npc: winner path=fallback:active_conversations partner_id=%s", tostring(partner_id))
+            end
+        end
+    else
+        bridge_debug("get_pending_handoff_for_npc: winner path=api:get_pending_f2f_handoff partner_id=%s", tostring(partner_id))
     end
 
     if not handoff then
