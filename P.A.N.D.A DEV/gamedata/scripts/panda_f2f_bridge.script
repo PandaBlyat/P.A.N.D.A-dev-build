@@ -210,8 +210,15 @@ local function get_registry_raw(stem)
 end
 
 local function get_partner_story_npc_id(npc_se)
-    if not npc_se then
+    if not npc_se or not npc_se.id then
         return nil
+    end
+
+    if type(get_object_story_id) == "function" then
+        local ok_story, story_id = pcall(function() return get_object_story_id(npc_se.id) end)
+        if ok_story and story_id and story_id ~= "" then
+            return tostring(story_id)
+        end
     end
 
     if npc_se.name then
@@ -276,6 +283,9 @@ local function select_f2f_turn(stem, npc_se)
     end
 
     local partner_story_id = get_partner_story_npc_id(npc_se)
+    if partner_story_id ~= nil then
+        partner_story_id = tostring(partner_story_id)
+    end
     for _, turn in ipairs(entry_turns) do
         local ids = collect_turn_story_ids(registry_raw, turn)
         if #ids == 0 then
@@ -284,7 +294,7 @@ local function select_f2f_turn(stem, npc_se)
 
         if partner_story_id then
             for _, id in ipairs(ids) do
-                if id == partner_story_id then
+                if tostring(id) == partner_story_id then
                     return turn
                 end
             end
