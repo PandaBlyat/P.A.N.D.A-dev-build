@@ -1705,11 +1705,13 @@ local function build_dialog_tree(dialog, state)
     state.alloc = alloc
     state.handlers = {}
 
-    local root_phrase_id = state.open_key
-    local root_use_script_text = false
+    local root_phrase_id = "[PANDA_F2F_ROOT_ENTRY]"
+    local root_use_script_text = true
+    local npc_open_phrase_id = state.open_key
+    local npc_open_use_script_text = false
     if state.missing_turn_open then
-        root_phrase_id = "[DEBUG] Missing conversation opening line."
-        root_use_script_text = false
+        npc_open_phrase_id = "[DEBUG] Missing conversation opening line."
+        npc_open_use_script_text = false
         bridge_warn(
             "build_dialog_tree fallback reason=missing_turn_open conv_id=%s turn=%s preferred=%s fallback=%s",
             tostring(state.conv_id or "nil"),
@@ -1720,15 +1722,33 @@ local function build_dialog_tree(dialog, state)
     end
 
     bridge_debug(
-        "build_dialog_tree root_mode phrase_id=%s script_text_mode=%s conv_id=%s turn=%s",
+        "build_dialog_tree root_mode root_phrase_id=%s root_script_text_mode=%s npc_open_phrase_id=%s npc_open_script_text_mode=%s conv_id=%s turn=%s",
         tostring(root_phrase_id or "nil"),
         tostring(root_use_script_text == true),
+        tostring(npc_open_phrase_id or "nil"),
+        tostring(npc_open_use_script_text == true),
         tostring(state.conv_id or "nil"),
         tostring(state.turn or "nil")
     )
 
     local root_id = alloc()
-    dm_add_dialog(state, "", root_id, root_phrase_id, nil, nil, root_use_script_text)
+    local npc_open_id = alloc()
+    local function add_logged_node(parent_id, node_id, phrase_id, cond, act, allow_script_text, role)
+        bridge_debug(
+            "build_dialog_tree insert role=%s parent_id=%s node_id=%s phrase_id=%s cond=%s act=%s script_text=%s",
+            tostring(role or "unknown"),
+            tostring(parent_id or "nil"),
+            tostring(node_id or "nil"),
+            tostring(phrase_id or "nil"),
+            tostring(cond or "nil"),
+            tostring(act or "nil"),
+            tostring(allow_script_text == true)
+        )
+        return dm_add_dialog(state, parent_id, node_id, phrase_id, cond, act, allow_script_text)
+    end
+
+    add_logged_node("", root_id, root_phrase_id, nil, nil, root_use_script_text, "root_actor_entry")
+    add_logged_node(root_id, npc_open_id, npc_open_phrase_id, nil, nil, npc_open_use_script_text, "npc_open")
 
     local function register_dispatcher(branch)
         local idx = branch.index
@@ -1813,19 +1833,15 @@ local function build_dialog_tree(dialog, state)
 
     if #state.branches == 0 then
         local fallback_actor_id = alloc()
-        local fallback_npc_id = alloc()
-        local fallback_exit_id = alloc()
 
         bridge_warn(
-            "build_dialog_tree fallback inserted reason=no_branches conv_id=%s turn=%s root_phrase_id=%s",
+            "build_dialog_tree fallback inserted reason=no_branches conv_id=%s turn=%s npc_open_phrase_id=%s",
             tostring(state.conv_id or "nil"),
             tostring(state.turn or "nil"),
-            tostring(root_phrase_id or "nil")
+            tostring(npc_open_phrase_id or "nil")
         )
 
-        dm_add_dialog(state, root_id, fallback_actor_id, "dm_universal_actor_exit", nil, nil, false)
-        dm_add_dialog(state, fallback_actor_id, fallback_npc_id, root_phrase_id, nil, nil, root_use_script_text)
-        dm_add_dialog(state, fallback_npc_id, fallback_exit_id, exit_phrase, nil, nil, false)
+        add_logged_node(npc_open_id, fallback_actor_id, exit_phrase, nil, nil, false, "fallback_actor_exit")
         return
     end
 
@@ -1835,18 +1851,18 @@ local function build_dialog_tree(dialog, state)
         local exit_id = alloc()
         local cond_name, act_name = register_dispatcher(branch)
 
-        dm_add_dialog(state, root_id, actor_id, branch.choice_key, cond_name, act_name, false)
+        add_logged_node(npc_open_id, actor_id, branch.choice_key, cond_name, act_name, false, "actor_choice")
 
         if branch.reply_key then
-            dm_add_dialog(state, actor_id, npc_id, branch.reply_key, nil, nil, false)
-            dm_add_dialog(state, npc_id, exit_id, exit_phrase, nil, nil, false)
+            add_logged_node(actor_id, npc_id, branch.reply_key, nil, nil, false, "npc_reply")
+            add_logged_node(npc_id, exit_id, exit_phrase, nil, nil, false, "actor_exit")
         else
-            dm_add_dialog(state, actor_id, exit_id, exit_phrase, nil, nil, false)
+            add_logged_node(actor_id, exit_id, exit_phrase, nil, nil, false, "actor_exit")
         end
     end
 
     local root_exit_id = alloc()
-    dm_add_dialog(state, root_id, root_exit_id, exit_phrase, nil, nil, false)
+    add_logged_node(npc_open_id, root_exit_id, exit_phrase, nil, nil, false, "actor_root_exit")
 end
 
 function panda_f2f_bridge.precondition()
