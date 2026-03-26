@@ -674,6 +674,8 @@ local function get_pending_handoff_for_npc(npc_se)
     return {
         conv_id = conv_id,
         turn = turn,
+        faction = handoff.faction,
+        prefix = handoff.prefix,
         channel = "f2f",
         source = handoff,
     }
@@ -747,7 +749,9 @@ function panda_f2f_bridge.on_branch_timeout(npc_id, owner_tag)
 end
 
 local function collect_branches(npc_se, forced_context)
-    local faction = actor_faction_key()
+    local actor_faction = actor_faction_key()
+    local faction = actor_faction
+    local stem_prefix = nil
     local found = nil
     local missing = 0
 
@@ -762,13 +766,30 @@ local function collect_branches(npc_se, forced_context)
     local forced_conv_id = nil
     local forced_turn = nil
     local forced_handoff_active = false
+    local forced_faction = nil
+    local forced_prefix = nil
     if type(forced_context) == "table" then
         forced_conv_id = normalize_positive_int(forced_context.conv_id)
         forced_turn = normalize_positive_int(forced_context.turn)
         forced_handoff_active = (forced_conv_id ~= nil and forced_turn ~= nil)
+        forced_faction = tostring(forced_context.faction or ""):lower()
+        if forced_faction == "" then
+            forced_faction = nil
+        end
+
+        forced_prefix = tostring(forced_context.prefix or "")
+        if forced_prefix == "" then
+            forced_prefix = nil
+        end
+
         if not forced_handoff_active then
             forced_conv_id = nil
             forced_turn = nil
+            forced_faction = nil
+            forced_prefix = nil
+        else
+            faction = forced_faction or actor_faction
+            stem_prefix = forced_prefix
         end
     end
 
@@ -816,7 +837,12 @@ local function collect_branches(npc_se, forced_context)
 
     for cid = 1, MAX_CONV_SCAN do
         if not forced_conv_id or cid == forced_conv_id then
-            local stem = string.format("st_pda_ic_%s_%d", faction, cid)
+            local stem
+            if stem_prefix and stem_prefix ~= "task" then
+                stem = string.format("st_pda_ic_%s_%s_%d", stem_prefix, faction, cid)
+            else
+                stem = string.format("st_pda_ic_%s_%d", faction, cid)
+            end
             local open_key = stem .. "_open"
             if not key_exists(open_key) then
                 missing = missing + 1
@@ -857,7 +883,7 @@ local function collect_branches(npc_se, forced_context)
                     found = {
                         faction = faction,
                         conv_id = cid,
-                        prefix = nil,
+                        prefix = stem_prefix,
                         open_key = open_key,
                         precond_key = key_exists(precond_key) and precond_key or nil,
                         branches = {},
