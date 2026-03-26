@@ -2979,7 +2979,7 @@ local function evaluate_precondition_entry(entry, npc_se, act, get_goodwill_acto
     elseif cmd == "req_bleeding" then
         if act.bleeding <= 0 then return false, "player not bleeding" end
     elseif cmd == "req_overweight" then
-        local max_weight = (db.actor:get_actor_max_weight and db.actor:get_actor_max_weight()) or 60
+        local max_weight = (db.actor.get_actor_max_weight and db.actor:get_actor_max_weight()) or 60
         local cur_weight = (db.actor.get_total_weight and db.actor:get_total_weight()) or 0
         if cur_weight <= max_weight then return false, "player not overweight" end
 
