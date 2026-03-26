@@ -3298,19 +3298,65 @@ local function evaluate_precondition_entry(entry, npc_se, act, get_goodwill_acto
         if not npc_se then return false, "npc missing" end
 
         local canonical_required = tostring(required_sid):lower()
-        local canonical_runtime = nil
+        local runtime_candidates = {}
+        local seen_candidates = {}
+        local function push_candidate(value)
+            if value == nil then
+                return
+            end
+            local normalized = tostring(value):lower()
+            if normalized == "" or seen_candidates[normalized] then
+                return
+            end
+            seen_candidates[normalized] = true
+            runtime_candidates[#runtime_candidates + 1] = normalized
+        end
+
         if PANDA_CONV_API and type(PANDA_CONV_API.get_npc_canonical_id) == "function" then
-            canonical_runtime = PANDA_CONV_API.get_npc_canonical_id(npc_se)
-        elseif type(get_object_story_id) == "function" then
-            local raw_story_id = get_object_story_id(npc_se.id)
-            if raw_story_id ~= nil and raw_story_id ~= "" then
-                canonical_runtime = tostring(raw_story_id)
+            push_candidate(PANDA_CONV_API.get_npc_canonical_id(npc_se))
+        end
+
+        local sid = tonumber(npc_se.id)
+        if not sid and type(npc_se.id) == "function" then
+            local ok_sid, sid_from_fn = pcall(function() return npc_se:id() end)
+            if ok_sid then
+                sid = tonumber(sid_from_fn)
             end
         end
-        canonical_runtime = canonical_runtime and tostring(canonical_runtime):lower() or nil
+        if sid and sid > 0 and type(get_object_story_id) == "function" then
+            local ok_story, raw_story_id = pcall(function() return get_object_story_id(math.floor(sid)) end)
+            if ok_story then
+                push_candidate(raw_story_id)
+            end
+        end
 
-        if canonical_runtime ~= canonical_required then
-            return false, "story npc mismatch (need " .. required_sid .. ")"
+        if npc_se.name then
+            local ok_name, runtime_name = pcall(function() return npc_se:name() end)
+            if ok_name then
+                push_candidate(runtime_name)
+            end
+        end
+        if npc_se.character_name then
+            local ok_char_name, character_name = pcall(function() return npc_se:character_name() end)
+            if ok_char_name then
+                push_candidate(character_name)
+            end
+        end
+
+        local matched = false
+        for _, candidate in ipairs(runtime_candidates) do
+            if candidate == canonical_required then
+                matched = true
+                break
+            end
+        end
+
+        if not matched then
+            local checked = (#runtime_candidates > 0 and table.concat(runtime_candidates, "|") or "<none>")
+            if #checked > 128 then
+                checked = checked:sub(1, 128) .. "..."
+            end
+            return false, "story npc mismatch (need " .. required_sid .. "; checked " .. checked .. ")"
         end
 
     else
