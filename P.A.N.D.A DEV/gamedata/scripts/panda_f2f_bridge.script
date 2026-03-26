@@ -175,6 +175,21 @@ local function ensure_callbacks_registered()
     runtime.callbacks_registered = true
 end
 
+local function bridge_debug(fmt, ...)
+    local panda = rawget(_G, "PANDA")
+    local debug_enabled = panda and type(panda.get_config) == "function" and panda.get_config("debug_logging")
+    if not debug_enabled then
+        return
+    end
+
+    local msg = string.format("PANDA_F2F_BRIDGE: " .. tostring(fmt), ...)
+    if type(rawget(_G, "printf")) == "function" then
+        _G.printf("%s", msg)
+    elseif type(rawget(_G, "log1")) == "function" then
+        _G.log1(msg)
+    end
+end
+
 local function key_exists(key)
     local val = tr(key)
     return val ~= key
@@ -286,8 +301,13 @@ local function select_f2f_turn(stem, npc_se)
     if partner_story_id ~= nil then
         partner_story_id = tostring(partner_story_id)
     end
+
+    bridge_debug("select_f2f_turn stem=%s partner_story_id=%s entry_turns=%s", tostring(stem), tostring(partner_story_id), table.concat(entry_turns, ","))
+
     for _, turn in ipairs(entry_turns) do
         local ids = collect_turn_story_ids(registry_raw, turn)
+        bridge_debug("select_f2f_turn turn=%s candidate_storyNpcIds=%s", tostring(turn), (#ids > 0 and table.concat(ids, ",") or "<none>"))
+
         if #ids == 0 then
             return turn
         end
@@ -668,6 +688,7 @@ function panda_f2f_bridge.precondition()
 
     local npc_se = get_partner_npc_se()
     if not npc_se then
+        bridge_debug("precondition fail: no partner npc")
         return false
     end
 
@@ -677,11 +698,13 @@ function panda_f2f_bridge.precondition()
         state = collect_branches(npc_se, nil)
     end
     if not state then
+        bridge_debug("precondition fail: no matching state for npc_id=%s partner_story_id=%s", tostring(npc_se.id), tostring(get_partner_story_npc_id(npc_se)))
         return false
     end
 
     state.npc_se = npc_se
     runtime.latest_state = state
+    bridge_debug("precondition pass: npc_id=%s partner_story_id=%s conv_id=%s turn=%s branches=%s", tostring(npc_se.id), tostring(get_partner_story_npc_id(npc_se)), tostring(state.conv_id), tostring(state.turn), tostring(#state.branches))
     return true
 end
 
