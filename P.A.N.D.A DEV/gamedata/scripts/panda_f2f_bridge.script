@@ -184,16 +184,6 @@ local function load_state_cb(m)
     runtime.override_owners = {}
 end
 
-local function on_game_end_cb()
-    for npc_id, _ in pairs(runtime.override_owners) do
-        local sid = normalize_npc_id(npc_id)
-        if sid and xr_meet and type(xr_meet.restore_dialog) == "function" then
-            xr_meet.restore_dialog(sid)
-        end
-    end
-    runtime.override_owners = {}
-end
-
 local function ensure_callbacks_registered()
     if runtime.callbacks_registered then
         return
@@ -204,7 +194,6 @@ local function ensure_callbacks_registered()
 
     RegisterScriptCallback("save_state", save_state_cb)
     RegisterScriptCallback("load_state", load_state_cb)
-    RegisterScriptCallback("on_game_end", on_game_end_cb)
     runtime.callbacks_registered = true
 end
 
