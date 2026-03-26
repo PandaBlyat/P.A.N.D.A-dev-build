@@ -6577,6 +6577,27 @@ end
 -- MAIN TRIGGER & SCHEDULING
 -- ============================================================
 
+local function is_actor_currently_in_dialog()
+    if not (db and db.actor) then
+        return false
+    end
+
+    if db.actor_dialog then
+        return true
+    end
+
+    if db.actor.is_talking then
+        local ok, talking = pcall(function()
+            return db.actor:is_talking()
+        end)
+        if ok and talking then
+            return true
+        end
+    end
+
+    return false
+end
+
 function try_trigger_interactive_conv()
     if not PANDA.get_config("enabled") then
         printf("Trigger skipped: disabled")
@@ -6594,6 +6615,10 @@ function try_trigger_interactive_conv()
     end
     if not db.actor then
         printf("Trigger skipped: no actor")
+        return false
+    end
+    if is_actor_currently_in_dialog() then
+        printf("Trigger skipped: actor currently in dialog")
         return false
     end
     if PANDA.get_config("require_pda_equipped") and not db.actor:item_in_slot(8) then
