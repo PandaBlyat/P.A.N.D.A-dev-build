@@ -55,6 +55,58 @@ local function get_partner_npc_se()
         end
         return math.floor(sid)
     end
+    local function resolve_pending_handoff_candidate()
+        local api = get_conv_api()
+        local found = nil
+
+        local function validate_handoff(path, handoff)
+            if type(handoff) ~= "table" then
+                return nil
+            end
+
+            local npc_sid = normalize_lookup_id(handoff.npc_id)
+            local conv_sid = normalize_lookup_id(handoff.conv_id)
+            local turn_sid = normalize_lookup_id(handoff.turn)
+            if not npc_sid or not conv_sid or not turn_sid then
+                return nil
+            end
+
+            return {
+                path = path,
+                npc_id = npc_sid,
+                conv_id = conv_sid,
+                turn = turn_sid,
+            }
+        end
+
+        if type(api) == "table" and type(api.get_pending_f2f_handoff) == "function" and type(rawget(_G, "pda_f2f_handoffs")) == "table" then
+            for _, raw_handoff in pairs(pda_f2f_handoffs) do
+                local raw_sid = normalize_lookup_id(raw_handoff and raw_handoff.npc_id)
+                if raw_sid then
+                    local ok_handoff, handoff = pcall(function()
+                        return api.get_pending_f2f_handoff(raw_sid)
+                    end)
+                    if ok_handoff then
+                        found = validate_handoff("pending_handoff", handoff)
+                        if found then
+                            return found
+                        end
+                    end
+                end
+            end
+        end
+
+        if type(rawget(_G, "pda_f2f_handoffs")) == "table" then
+            for _, raw_handoff in pairs(pda_f2f_handoffs) do
+                found = validate_handoff("pending_handoff_scan", raw_handoff)
+                if found then
+                    return found
+                end
+            end
+        end
+
+        return nil
+    end
     local function resolve_from_id(path, id)
         local sid = normalize_lookup_id(id)
         if not sid then
@@ -84,6 +136,23 @@ local function get_partner_npc_se()
 
         bridge_debug("get_partner_npc_se: path=%s sim:object(id) returned nil for partner_id=%s", tostring(path), tostring(partner_id))
         return nil
+    end
+
+    local pending_handoff = resolve_pending_handoff_candidate()
+    if pending_handoff then
+        pending_conv_id = pending_handoff.conv_id
+        local se = resolve_from_id(pending_handoff.path or "pending_handoff", pending_handoff.npc_id)
+        if se then
+            bridge_debug(
+                "get_partner_npc_se: path=%s pending_conv_id=%s partner_id=%s handoff_turn=%s server_entity_resolved=%s",
+                tostring(pending_handoff.path or "pending_handoff"),
+                tostring(pending_conv_id),
+                tostring(partner_id),
+                tostring(pending_handoff.turn),
+                "true"
+            )
+            return se
+        end
     end
 
     if mob_trade and type(mob_trade.GetTalkingNpc) == "function" then
