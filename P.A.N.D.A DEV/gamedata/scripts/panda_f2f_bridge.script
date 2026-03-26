@@ -315,17 +315,33 @@ local function resolve_partner_runtime_ids(npc_se)
     local out = {
         story_id = nil,
         fallback_name = nil,
+        character_name = nil,
         canonical_id = nil,
+        canonical_candidates = {},
     }
 
     if not npc_se then
         return out
     end
 
+    local seen_candidates = {}
+    local function push_candidate(value)
+        if value == nil then
+            return
+        end
+        local normalized = tostring(value):lower()
+        if normalized == "" or seen_candidates[normalized] then
+            return
+        end
+        seen_candidates[normalized] = true
+        out.canonical_candidates[#out.canonical_candidates + 1] = normalized
+    end
+
     local conv_api = get_conv_api()
     if conv_api and type(conv_api.get_npc_canonical_id) == "function" then
         out.canonical_id = conv_api.get_npc_canonical_id(npc_se)
     end
+    push_candidate(out.canonical_id)
 
     local sid = tonumber(npc_se.id)
     if not sid and type(npc_se.id) == "function" then
@@ -340,6 +356,7 @@ local function resolve_partner_runtime_ids(npc_se)
             out.story_id = tostring(story_id)
         end
     end
+    push_candidate(out.story_id)
 
     if npc_se.name then
         local ok_name, fallback_name = pcall(function() return npc_se:name() end)
@@ -347,9 +364,18 @@ local function resolve_partner_runtime_ids(npc_se)
             out.fallback_name = tostring(fallback_name)
         end
     end
+    push_candidate(out.fallback_name)
+
+    if npc_se.character_name then
+        local ok_character, character_name = pcall(function() return npc_se:character_name() end)
+        if ok_character and character_name and character_name ~= "" then
+            out.character_name = tostring(character_name)
+        end
+    end
+    push_candidate(out.character_name)
 
     if not out.canonical_id then
-        out.canonical_id = out.story_id or out.fallback_name
+        out.canonical_id = out.canonical_candidates[1]
     end
     if out.canonical_id then
         out.canonical_id = tostring(out.canonical_id):lower()
@@ -411,11 +437,13 @@ local function select_f2f_turn(stem, npc_se)
 
     local runtime_ids = resolve_partner_runtime_ids(npc_se)
     bridge_debug(
-        "select_f2f_turn stem=%s runtime_story_id=%s runtime_fallback_name=%s runtime_canonical_id=%s entry_turns=%s",
+        "select_f2f_turn stem=%s runtime_story_id=%s runtime_fallback_name=%s runtime_character_name=%s runtime_canonical_id=%s runtime_candidates=%s entry_turns=%s",
         tostring(stem),
         tostring(runtime_ids.story_id),
         tostring(runtime_ids.fallback_name),
+        tostring(runtime_ids.character_name),
         tostring(runtime_ids.canonical_id),
+        (#runtime_ids.canonical_candidates > 0 and table.concat(runtime_ids.canonical_candidates, "|") or "<none>"),
         table.concat(entry_turns, ",")
     )
 
@@ -432,16 +460,23 @@ local function select_f2f_turn(stem, npc_se)
             return turn
         end
 
-        if runtime_ids.canonical_id then
+        if #runtime_ids.canonical_candidates > 0 then
             for _, id in ipairs(ids) do
                 local canonical_registry_id = tostring(id):lower()
+                local matched = false
+                for _, candidate in ipairs(runtime_ids.canonical_candidates) do
+                    if candidate == canonical_registry_id then
+                        matched = true
+                        break
+                    end
+                end
                 bridge_debug(
-                    "select_f2f_turn compare runtime_canonical_id=%s xml_storyNpcId=%s match=%s",
-                    tostring(runtime_ids.canonical_id),
+                    "select_f2f_turn compare runtime_candidates=%s xml_storyNpcId=%s match=%s",
+                    table.concat(runtime_ids.canonical_candidates, "|"),
                     tostring(canonical_registry_id),
-                    tostring(canonical_registry_id == runtime_ids.canonical_id)
+                    tostring(matched)
                 )
-                if canonical_registry_id == runtime_ids.canonical_id then
+                if matched then
                     return turn
                 end
             end
