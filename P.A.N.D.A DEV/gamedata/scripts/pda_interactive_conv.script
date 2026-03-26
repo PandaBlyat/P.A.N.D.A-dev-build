@@ -6448,12 +6448,12 @@ local function attempt_interactive_conversation()
 
     -- Phase 1: Collect story NPC conversation candidates
     local story_matches = collect_story_npc_conversations(xml_fac)
-    printf("Found %d story NPC conversation candidates", #story_matches)
+    printf(string.format("Found %d story NPC conversation candidates", #story_matches))
 
     -- Phase 2: Collect simulated NPC conversation candidates (existing flow)
     local sim_matches = {}
     local npc_list = get_all_eligible_npcs()
-    printf("Found %d eligible simulated NPCs", #npc_list)
+    printf(string.format("Found %d eligible simulated NPCs", #npc_list))
 
     local pool = {}
     for i = 1, #npc_list do pool[i] = npc_list[i] end
