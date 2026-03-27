@@ -13,10 +13,6 @@ local HUB_DIALOG_ID = "panda_f2f_hub_dialog"
 local BRANCH_HARD_ROUTE_SUFFIX = "_f2f_hard_route"
 local SAVE_KEY_OVERRIDE_OWNERS = "panda_f2f_bridge_override_owners"
 local RECENT_HANDOFF_GRACE_MS = 2 * 60 * 1000
-local HUB_DYNAMIC_NODE_ID_START = 64
-local HUB_DYNAMIC_NODE_ID_STEP = 64
-local HUB_DYNAMIC_NODE_ID_SCAN_RANGES = 8
-local HUB_DYNAMIC_NODE_ID_RETRY_OFFSET = 64
 local bridge_debug
 
 local runtime = {
@@ -390,76 +386,6 @@ local function make_allocator(start_id)
         next_id = next_id + 1
         return out
     end
-end
-
-local function dialog_probe_node_id(dialog, node_id)
-    if not dialog then
-        return "unverified"
-    end
-
-    local probe_methods = {
-        "GetPhrase",
-        "GetPhraseByID",
-        "GetPhraseById",
-        "GetDialogPhrase",
-    }
-    local any_probe_method = false
-
-    for _, method_name in ipairs(probe_methods) do
-        local probe = dialog[method_name]
-        if type(probe) == "function" then
-            any_probe_method = true
-            local ok_sid, sid_result = pcall(function() return probe(dialog, tostring(node_id)) end)
-            if ok_sid and sid_result ~= nil then
-                return "occupied"
-            end
-
-            local ok_num, num_result = pcall(function() return probe(dialog, node_id) end)
-            if ok_num and num_result ~= nil then
-                return "occupied"
-            end
-        end
-    end
-
-    if any_probe_method then
-        return "free"
-    end
-
-    return "unverified"
-end
-
-local function pick_free_allocator_start(dialog, preferred_start, range_size, max_ranges)
-    local base_start = tonumber(preferred_start) or 0
-    base_start = math.max(0, math.floor(base_start))
-    local bucket_size = tonumber(range_size) or 64
-    bucket_size = math.max(1, math.floor(bucket_size))
-    local ranges_to_scan = tonumber(max_ranges) or 1
-    ranges_to_scan = math.max(1, math.floor(ranges_to_scan))
-
-    for scan_idx = 0, (ranges_to_scan - 1) do
-        local candidate_start = base_start + (scan_idx * bucket_size)
-        local collision = false
-        local has_unverified_probe = false
-
-        for offset = 0, (bucket_size - 1) do
-            local probe_state = dialog_probe_node_id(dialog, candidate_start + offset)
-            if probe_state == "occupied" then
-                collision = true
-                break
-            elseif probe_state ~= "free" then
-                has_unverified_probe = true
-            end
-        end
-
-        if not collision then
-            if has_unverified_probe then
-                return candidate_start, "unverified", scan_idx + 1
-            end
-            return candidate_start, "scan", scan_idx + 1
-        end
-    end
-
-    return base_start + (ranges_to_scan * bucket_size), "fallback_unverified", ranges_to_scan + 1
 end
 
 local function tr(key)
@@ -1811,7 +1737,7 @@ local function dm_bind_saved_dialog(dm, state)
     return dm.saved_dialog == state.dialog
 end
 
-local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_script_text, alloc_range_start)
+local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_script_text)
     local dm = get_dialog_manager_iface()
     local phrase_text = tostring(phrase_id or "")
     local allow_script_text = use_script_text and phrase_text:find("^dialogs%.") ~= nil
@@ -1824,13 +1750,12 @@ local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_scr
     end
 
     bridge_debug(
-        "dm_add_dialog insert phrase_id=%s parent_id=%s node_id=%s add_phrase_ret=%s script_text_mode=%s alloc_range_start=%s",
+        "dm_add_dialog insert phrase_id=%s parent_id=%s node_id=%s add_phrase_ret=%s script_text_mode=%s",
         tostring(phrase_id or "nil"),
         tostring(parent_id or "nil"),
         tostring(id or "nil"),
         tostring(phrase ~= nil),
-        tostring(allow_script_text == true),
-        tostring(alloc_range_start or "nil")
+        tostring(allow_script_text == true)
     )
 
     if phrase then
@@ -1844,12 +1769,11 @@ local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_scr
         end
 
         bridge_debug(
-            "dm_add_dialog success phrase_id=%s parent_id=%s node_id=%s script_ret=%s alloc_range_start=%s",
+            "dm_add_dialog success phrase_id=%s parent_id=%s node_id=%s script_ret=%s",
             tostring(phrase_id or "nil"),
             tostring(parent_id or "nil"),
             tostring(id or "nil"),
-            tostring(script ~= nil),
-            tostring(alloc_range_start or "nil")
+            tostring(script ~= nil)
         )
 
         return script
@@ -1857,55 +1781,23 @@ local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_scr
 
     local fallback_bound_dialog = dm_bind_saved_dialog(dm, state)
     bridge_warn(
-        "dm_add_dialog hard_fail reason=add_phrase_failed phrase_id=%s parent_id=%s node_id=%s fallback_bound_dialog=%s alloc_range_start=%s",
+        "dm_add_dialog hard_fail reason=add_phrase_failed phrase_id=%s parent_id=%s node_id=%s fallback_bound_dialog=%s",
         tostring(phrase_id or "nil"),
         tostring(parent_id or "nil"),
         tostring(id or "nil"),
-        tostring(fallback_bound_dialog),
-        tostring(alloc_range_start or "nil")
+        tostring(fallback_bound_dialog)
     )
 
     return nil
 end
 
 local function build_dialog_tree(dialog, state)
-    local initial_range_start, alloc_probe_mode, alloc_probe_attempt = pick_free_allocator_start(
-        dialog,
-        HUB_DYNAMIC_NODE_ID_START,
-        HUB_DYNAMIC_NODE_ID_STEP,
-        HUB_DYNAMIC_NODE_ID_SCAN_RANGES
-    )
-    local range_attempts = {}
-    local seen_range_attempts = {}
-    local function push_range_attempt(range_start)
-        local start_id = tonumber(range_start)
-        if not start_id then
-            return
-        end
-        start_id = math.max(0, math.floor(start_id))
-        if not seen_range_attempts[start_id] then
-            seen_range_attempts[start_id] = true
-            range_attempts[#range_attempts + 1] = start_id
-        end
-    end
-
-    push_range_attempt(initial_range_start)
-
-    for bucket_idx = 0, (HUB_DYNAMIC_NODE_ID_SCAN_RANGES - 1) do
-        push_range_attempt(HUB_DYNAMIC_NODE_ID_START + (bucket_idx * HUB_DYNAMIC_NODE_ID_STEP))
-    end
-
-    local fallback_offsets = { 0, 1, 2, 4, 8, 16, 32 }
-    for _, offset_bucket in ipairs(fallback_offsets) do
-        local range_start = initial_range_start + (offset_bucket * HUB_DYNAMIC_NODE_ID_RETRY_OFFSET)
-        push_range_attempt(range_start)
-    end
-    local alloc = nil
-    local selected_range_start = nil
+    local alloc = make_allocator(0)
     local token = tostring(time_global and time_global() or math.random(10000, 99999))
     local exit_phrase = "dm_universal_actor_exit"
 
     state.dialog = dialog
+    state.alloc = alloc
     state.handlers = {}
 
     local root_phrase_id = "st_panda_f2f_root_entry"
@@ -1944,26 +1836,11 @@ local function build_dialog_tree(dialog, state)
         tostring(state.turn or "nil")
     )
 
-    local alloc_probe_flag = "probe_mode=verified"
-    if alloc_probe_mode == "unverified" or alloc_probe_mode == "fallback_unverified" then
-        alloc_probe_flag = "probe_mode=unverified"
-    end
-
-    bridge_debug(
-        "build_dialog_tree allocator_probe_result start=%s mode=%s scanned_ranges=%s %s conv_id=%s turn=%s",
-        tostring(initial_range_start),
-        tostring(alloc_probe_mode),
-        tostring(alloc_probe_attempt),
-        tostring(alloc_probe_flag),
-        tostring(state.conv_id or "nil"),
-        tostring(state.turn or "nil")
-    )
-
-    local root_id = nil
-    local npc_open_id = nil
+    local root_id = alloc()
+    local npc_open_id = alloc()
     local generated_ids = {
-        root = {},
-        open = {},
+        root = { root_id },
+        open = { npc_open_id },
         choice = {},
         reply = {},
         exit = {},
@@ -1973,31 +1850,18 @@ local function build_dialog_tree(dialog, state)
     local npc_open_ok = false
     local actor_choice_count_added = 0
     local npc_reply_count_added = 0
-    local fallback_actor_exit_count_added = 0
-    local attempted_ranges = {}
-    local function attempted_ranges_str()
-        if #attempted_ranges <= 0 then
-            return "<none>"
-        end
-        return table.concat(attempted_ranges, ",")
-    end
-    local function add_logged_node(parent_id, node_id, phrase_id, cond, act, allow_script_text, role, alloc_range_start)
-        local active_range_start = alloc_range_start
-        if active_range_start == nil then
-            active_range_start = selected_range_start
-        end
+    local function add_logged_node(parent_id, node_id, phrase_id, cond, act, allow_script_text, role)
         bridge_debug(
-            "build_dialog_tree insert role=%s parent_id=%s node_id=%s phrase_id=%s cond=%s act=%s script_text=%s alloc_range_start=%s",
+            "build_dialog_tree insert role=%s parent_id=%s node_id=%s phrase_id=%s cond=%s act=%s script_text=%s",
             tostring(role or "unknown"),
             tostring(parent_id or "nil"),
             tostring(node_id or "nil"),
             tostring(phrase_id or "nil"),
             tostring(cond or "nil"),
             tostring(act or "nil"),
-            tostring(allow_script_text == true),
-            tostring(active_range_start or "nil")
+            tostring(allow_script_text == true)
         )
-        local ok = dm_add_dialog(state, parent_id, node_id, phrase_id, cond, act, allow_script_text, active_range_start)
+        local ok = dm_add_dialog(state, parent_id, node_id, phrase_id, cond, act, allow_script_text)
         if ok then
             nodes_added = nodes_added + 1
             if role == "root_actor_entry" then
@@ -2008,88 +1872,13 @@ local function build_dialog_tree(dialog, state)
                 actor_choice_count_added = actor_choice_count_added + 1
             elseif role == "npc_reply" then
                 npc_reply_count_added = npc_reply_count_added + 1
-            elseif role == "fallback_actor_exit" then
-                fallback_actor_exit_count_added = fallback_actor_exit_count_added + 1
             end
         end
         return ok
     end
 
-    for attempt_idx, range_start in ipairs(range_attempts) do
-        attempted_ranges[#attempted_ranges + 1] = tostring(range_start)
-        alloc = make_allocator(range_start)
-        local first_allocated_id = alloc()
-        root_id = first_allocated_id
-        npc_open_id = alloc()
-        generated_ids.root = { root_id }
-        generated_ids.open = { npc_open_id }
-
-        bridge_debug(
-            "build_dialog_tree allocator_range attempt=%s start=%s next=%s attempted_ranges=%s conv_id=%s turn=%s",
-            tostring(attempt_idx),
-            tostring(first_allocated_id),
-            tostring(first_allocated_id + 1),
-            attempted_ranges_str(),
-            tostring(state.conv_id or "nil"),
-            tostring(state.turn or "nil")
-        )
-
-        local root_added = add_logged_node("", root_id, root_phrase_id, nil, nil, root_use_script_text, "root_actor_entry", range_start)
-        local open_added = add_logged_node(root_id, npc_open_id, npc_open_phrase_id, nil, nil, npc_open_use_script_text, "npc_open", range_start)
-        if root_added and open_added then
-            selected_range_start = range_start
-            break
-        end
-
-        bridge_warn(
-            "build_dialog_tree allocator_retry reason=root_or_open_insert_failed attempt=%s alloc_range_start=%s attempted_ranges=%s root_ok=%s npc_open_ok=%s conv_id=%s turn=%s",
-            tostring(attempt_idx),
-            tostring(range_start),
-            attempted_ranges_str(),
-            tostring(root_added == true),
-            tostring(open_added == true),
-            tostring(state.conv_id or "nil"),
-            tostring(state.turn or "nil")
-        )
-        if attempt_idx < #range_attempts then
-            root_ok = false
-            npc_open_ok = false
-        end
-    end
-
-    state.alloc = alloc
-    if not selected_range_start then
-        bridge_warn(
-            "build_dialog_tree fail reason=root_or_open_insert_failed alloc_range_primary=%s alloc_range_secondary=%s attempted_ranges=%s conv_id=%s turn=%s",
-            tostring(range_attempts[1] or "nil"),
-            tostring(range_attempts[2] or "nil"),
-            attempted_ranges_str(),
-            tostring(state.conv_id or "nil"),
-            tostring(state.turn or "nil")
-        )
-        local build_ok = false
-        bridge_debug(
-            "build_dialog_tree summary build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s fallback_actor_exit_count_added=%s npc_reply_count_added=%s conv_id=%s turn=%s",
-            tostring(build_ok),
-            tostring(nodes_added),
-            tostring(root_ok),
-            tostring(npc_open_ok),
-            tostring(actor_choice_count_added),
-            tostring(fallback_actor_exit_count_added),
-            tostring(npc_reply_count_added),
-            tostring(state.conv_id or "nil"),
-            tostring(state.turn or "nil")
-        )
-        return {
-            build_ok = build_ok,
-            nodes_added = nodes_added,
-            root_ok = root_ok,
-            npc_open_ok = npc_open_ok,
-            actor_choice_count_added = actor_choice_count_added,
-            fallback_actor_exit_count_added = fallback_actor_exit_count_added,
-            npc_reply_count_added = npc_reply_count_added,
-        }
-    end
+    add_logged_node("", root_id, root_phrase_id, nil, nil, root_use_script_text, "root_actor_entry")
+    add_logged_node(root_id, npc_open_id, npc_open_phrase_id, nil, nil, npc_open_use_script_text, "npc_open")
 
     local function register_dispatcher(branch)
         local idx = branch.index
@@ -2159,50 +1948,35 @@ local function build_dialog_tree(dialog, state)
             end
 
             local ok = execute_shared_outcome(branch, active_state)
-            local pending_consumed = false
-            local override_restored = false
             if ok then
                 -- Consume only after a player-selected branch is committed.
-                pending_consumed = consume_pending_handoff_for_npc(active_state.npc_se) == true
+                consume_pending_handoff_for_npc(active_state.npc_se)
             end
-
-            local keep_hub_override = branch.keep_hub_override == true
-            local should_restore_override = ok and active_npc_id and not keep_hub_override
-            if should_restore_override then
-                local restored = false
-                if owner_tag then
-                    restored = panda_f2f_bridge.restore_branch_route(active_npc_id, owner_tag) == true
-                    if not restored then
-                        restored = panda_f2f_bridge.restore_branch_route(active_npc_id, nil) == true
+            if branch.hard_route and routed then
+                local keep_hub_override = branch.keep_hub_override == true
+                if not keep_hub_override then
+                    local restored = panda_f2f_bridge.restore_branch_route(active_npc_id, owner_tag)
+                    if ok and active_npc_id then
+                        runtime.override_owners[tostring(active_npc_id)] = nil
                     end
+                    bridge_debug(
+                        "register_dispatcher: hard_route cleanup branch=%s conv_id=%s turn=%s ok=%s restored=%s",
+                        tostring(branch.index),
+                        tostring(active_state.conv_id or "nil"),
+                        tostring(active_state.turn or "nil"),
+                        tostring(ok),
+                        tostring(restored)
+                    )
                 else
-                    restored = panda_f2f_bridge.restore_branch_route(active_npc_id, nil) == true
+                    bridge_debug(
+                        "register_dispatcher: hard_route cleanup skipped keep_hub_override=true branch=%s conv_id=%s turn=%s ok=%s",
+                        tostring(branch.index),
+                        tostring(active_state.conv_id or "nil"),
+                        tostring(active_state.turn or "nil"),
+                        tostring(ok)
+                    )
                 end
-                override_restored = restored == true
-            elseif branch.hard_route and routed and keep_hub_override then
-                bridge_debug(
-                    "register_dispatcher: hard_route cleanup skipped keep_hub_override=true branch=%s npc_id=%s conv_id=%s turn=%s ok=%s",
-                    tostring(branch.index),
-                    tostring(active_npc_id or "nil"),
-                    tostring(active_state.conv_id or "nil"),
-                    tostring(active_state.turn or "nil"),
-                    tostring(ok)
-                )
             end
-
-            bridge_debug(
-                "register_dispatcher: post_choice_cleanup branch=%s npc_id=%s conv_id=%s turn=%s ok=%s pending_handoff_consumed=%s dialog_override_restored=%s hard_route=%s keep_hub_override=%s routed=%s",
-                tostring(branch.index),
-                tostring(active_npc_id or "nil"),
-                tostring(active_state.conv_id or "nil"),
-                tostring(active_state.turn or "nil"),
-                tostring(ok),
-                tostring(pending_consumed),
-                tostring(override_restored),
-                tostring(branch.hard_route == true),
-                tostring(keep_hub_override),
-                tostring(routed)
-            )
         end
 
         state.handlers[#state.handlers + 1] = { cond_name = cond_name, act_name = act_name }
@@ -2220,8 +1994,8 @@ local function build_dialog_tree(dialog, state)
             tostring(npc_open_phrase_id or "nil")
         )
 
-        local fallback_exit_ok = add_logged_node(npc_open_id, fallback_actor_id, exit_phrase, nil, nil, false, "fallback_actor_exit")
-        local build_ok = (root_ok == true) and (npc_open_ok == true) and (fallback_exit_ok == true)
+        add_logged_node(npc_open_id, fallback_actor_id, exit_phrase, nil, nil, false, "fallback_actor_exit")
+        local build_ok = (root_ok == true) and (npc_open_ok == true) and (actor_choice_count_added > 0)
         bridge_debug(
             "build_dialog_tree node_ids root=%s open=%s choice=%s reply=%s exit=%s conv_id=%s turn=%s",
             table.concat(generated_ids.root, ","),
@@ -2233,14 +2007,12 @@ local function build_dialog_tree(dialog, state)
             tostring(state.turn or "nil")
         )
         bridge_debug(
-            "build_dialog_tree summary build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s fallback_exit_ok=%s actor_choice_count_added=%s fallback_actor_exit_count_added=%s npc_reply_count_added=%s conv_id=%s turn=%s",
+            "build_dialog_tree summary build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s conv_id=%s turn=%s",
             tostring(build_ok),
             tostring(nodes_added),
             tostring(root_ok),
             tostring(npc_open_ok),
-            tostring(fallback_exit_ok),
             tostring(actor_choice_count_added),
-            tostring(fallback_actor_exit_count_added),
             tostring(npc_reply_count_added),
             tostring(state.conv_id or "nil"),
             tostring(state.turn or "nil")
@@ -2251,7 +2023,6 @@ local function build_dialog_tree(dialog, state)
             root_ok = root_ok,
             npc_open_ok = npc_open_ok,
             actor_choice_count_added = actor_choice_count_added,
-            fallback_actor_exit_count_added = fallback_actor_exit_count_added,
             npc_reply_count_added = npc_reply_count_added,
         }
     end
@@ -2291,13 +2062,12 @@ local function build_dialog_tree(dialog, state)
         tostring(state.turn or "nil")
     )
     bridge_debug(
-        "build_dialog_tree summary build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s fallback_actor_exit_count_added=%s npc_reply_count_added=%s conv_id=%s turn=%s",
+        "build_dialog_tree summary build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s conv_id=%s turn=%s",
         tostring(build_ok),
         tostring(nodes_added),
         tostring(root_ok),
         tostring(npc_open_ok),
         tostring(actor_choice_count_added),
-        tostring(fallback_actor_exit_count_added),
         tostring(npc_reply_count_added),
         tostring(state.conv_id or "nil"),
         tostring(state.turn or "nil")
@@ -2308,52 +2078,8 @@ local function build_dialog_tree(dialog, state)
         root_ok = root_ok,
         npc_open_ok = npc_open_ok,
         actor_choice_count_added = actor_choice_count_added,
-        fallback_actor_exit_count_added = fallback_actor_exit_count_added,
         npc_reply_count_added = npc_reply_count_added,
     }
-end
-
-local function try_emergency_dialog_injection(dialog)
-    if not dialog or type(dialog.AddPhrase) ~= "function" then
-        return false
-    end
-
-    local root_phrase_id = "st_panda_f2f_root_entry"
-    local npc_fallback_phrase_id = "[PANDA] Conversation data unavailable."
-    local exit_phrase_id = "dm_universal_actor_exit"
-    local base_start = 1
-    local base_limit = 96
-
-    for base_id = base_start, base_limit do
-        local root_id = tostring(base_id)
-        local npc_id = tostring(base_id + 1)
-        local exit_id = tostring(base_id + 2)
-
-        local root_phrase = dialog:AddPhrase(root_phrase_id, root_id, "", -10000)
-        if root_phrase then
-            local npc_phrase = dialog:AddPhrase(npc_fallback_phrase_id, npc_id, root_id, -10000)
-            if npc_phrase then
-                local exit_node = dialog:AddPhrase(exit_phrase_id, exit_id, npc_id, -10000)
-                if exit_node then
-                    bridge_warn(
-                        "init_dialog emergency_fallback_injection emergency_injected=true sweep_base_id=%s root_id=%s npc_id=%s exit_id=%s",
-                        tostring(base_id),
-                        tostring(root_id),
-                        tostring(npc_id),
-                        tostring(exit_id)
-                    )
-                    return true
-                end
-            end
-        end
-    end
-
-    bridge_warn(
-        "init_dialog emergency_fallback_injection emergency_injected=false sweep_base_start=%s sweep_base_limit=%s",
-        tostring(base_start),
-        tostring(base_limit)
-    )
-    return false
 end
 
 function panda_f2f_bridge.precondition()
@@ -2486,13 +2212,8 @@ function panda_f2f_bridge.init_dialog(dialog)
     local build_result = build_dialog_tree(dialog, state) or {}
     if build_result.build_ok ~= true then
         local active_npc_id = resolve_server_npc_id(state.npc_se, "init_dialog:build_failed")
-        local emergency_injected = try_emergency_dialog_injection(dialog) == true
-        local restored = false
-        if active_npc_id then
-            restored = panda_f2f_bridge.restore_branch_route(active_npc_id, nil) == true
-        end
         bridge_warn(
-            "init_dialog build_failed npc_id=%s conv_id=%s turn=%s build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s action=%s emergency_injected=%s route_restored=%s",
+            "init_dialog build_failed npc_id=%s conv_id=%s turn=%s build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s action=%s",
             tostring(active_npc_id or "nil"),
             tostring(state.conv_id or "nil"),
             tostring(state.turn or "nil"),
@@ -2502,14 +2223,13 @@ function panda_f2f_bridge.init_dialog(dialog)
             tostring(build_result.npc_open_ok == true),
             tostring(build_result.actor_choice_count_added or 0),
             tostring(build_result.npc_reply_count_added or 0),
-            "restore_dialog_route",
-            tostring(emergency_injected),
-            tostring(restored)
+            "restore_dialog_route"
         )
-        runtime.latest_state = nil
-        if not emergency_injected then
-            return
+        if active_npc_id then
+            panda_f2f_bridge.restore_branch_route(active_npc_id, nil)
         end
+        runtime.latest_state = nil
+        return
     end
     bridge_warn(
         "init_dialog build_complete npc_id=%s conv_id=%s turn=%s open_key=%s branch_count=%s missing_turn_open=%s build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s",

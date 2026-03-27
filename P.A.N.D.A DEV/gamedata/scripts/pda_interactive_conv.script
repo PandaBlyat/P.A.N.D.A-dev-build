@@ -6175,20 +6175,12 @@ local function consume_pending_f2f_handoff_internal(npc_id)
     end
 
     for _, conv in pairs(active_conversations) do
-        if conv and tonumber(conv.npc_id) == npc_sid then
-            local had_pending_fields = (
-                conv.pending_in_person_continuation == true
-                or conv.pending_in_person_turn ~= nil
-                or conv.pending_in_person_target ~= nil
-                or conv.pending_in_person_set_at ~= nil
-            )
-            if had_pending_fields then
-                conv.pending_in_person_continuation = false
-                conv.pending_in_person_turn = nil
-                conv.pending_in_person_target = nil
-                conv.pending_in_person_set_at = nil
-                consumed = true
-            end
+        if conv and tonumber(conv.npc_id) == npc_sid and conv.pending_in_person_continuation == true then
+            conv.pending_in_person_continuation = false
+            conv.pending_in_person_turn = nil
+            conv.pending_in_person_target = nil
+            conv.pending_in_person_set_at = nil
+            consumed = true
         end
     end
 
