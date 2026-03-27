@@ -168,6 +168,7 @@ function createCursorRenderer(canvas: HTMLElement, settings: CursorSettings): Cu
   document.body.appendChild(root);
 
   let currentState: CursorState = 'disabled';
+  let currentSize = clamp(settings.size, 10, 32);
 
   const setShape = (state: CursorState) => {
     const shape = SHAPE_BY_STATE[state];
@@ -177,7 +178,7 @@ function createCursorRenderer(canvas: HTMLElement, settings: CursorSettings): Cu
   setShape('disabled');
   const lastPointer = pointerTracker.lastPosition;
   if (lastPointer) {
-    root.style.transform = `translate3d(${lastPointer.x}px, ${lastPointer.y}px, 0)`;
+    root.style.transform = `translate3d(${lastPointer.x - currentSize / 2}px, ${lastPointer.y - currentSize / 2}px, 0)`;
   }
 
   return {
@@ -185,7 +186,7 @@ function createCursorRenderer(canvas: HTMLElement, settings: CursorSettings): Cu
       root.classList.toggle('is-visible', visible);
     },
     setPosition(x, y) {
-      root.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+      root.style.transform = `translate3d(${x - currentSize / 2}px, ${y - currentSize / 2}px, 0)`;
     },
     setState(state) {
       if (currentState === state) return;
@@ -200,7 +201,8 @@ function createCursorRenderer(canvas: HTMLElement, settings: CursorSettings): Cu
       root.dataset.intensity = intensity;
     },
     setSize(size) {
-      root.style.setProperty('--cursor-size', `${clamp(size, 10, 32)}px`);
+      currentSize = clamp(size, 10, 32);
+      root.style.setProperty('--cursor-size', `${currentSize}px`);
     },
     pulse() {
       root.classList.remove('is-clicking');
