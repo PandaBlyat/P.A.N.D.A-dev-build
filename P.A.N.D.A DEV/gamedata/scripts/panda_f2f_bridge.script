@@ -1728,6 +1728,15 @@ local function debug_resolve_snapshot(stage, npc_se, state, handoff)
     )
 end
 
+local function dm_bind_saved_dialog(dm, state)
+    if type(dm) ~= "table" or type(state) ~= "table" or state.dialog == nil then
+        return false
+    end
+
+    dm.saved_dialog = state.dialog
+    return dm.saved_dialog == state.dialog
+end
+
 local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_script_text)
     local dm = get_dialog_manager_iface()
     local phrase_text = tostring(phrase_id or "")
@@ -1770,62 +1779,16 @@ local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_scr
         return script
     end
 
+    local fallback_bound_dialog = dm_bind_saved_dialog(dm, state)
     bridge_warn(
-        "dm_add_dialog add_phrase_failed phrase_id=%s parent_id=%s node_id=%s",
-        tostring(phrase_id or "nil"),
-        tostring(parent_id or "nil"),
-        tostring(id or "nil")
-    )
-
-    if not (state and state.dialog and type(dm.add_dialog) == "function") then
-        bridge_warn(
-            "dm_add_dialog fallback_blocked reason=missing_dialog_or_add_dialog phrase_id=%s parent_id=%s node_id=%s",
-            tostring(phrase_id or "nil"),
-            tostring(parent_id or "nil"),
-            tostring(id or "nil")
-        )
-        return nil
-    end
-
-    if type(dm.add_script_dialog) == "function" and allow_script_text then
-        local ok_script, ret = pcall(dm.add_script_dialog, parent_id, id, phrase_id, cond, act)
-        if not ok_script then
-            bridge_warn(
-                "dm_add_dialog fallback_failed fn=add_script_dialog phrase_id=%s parent_id=%s node_id=%s",
-                tostring(phrase_id or "nil"),
-                tostring(parent_id or "nil"),
-                tostring(id or "nil")
-            )
-            return nil
-        end
-        bridge_debug(
-            "dm_add_dialog fallback add_script_dialog phrase_id=%s parent_id=%s node_id=%s ret=%s",
-            tostring(phrase_id or "nil"),
-            tostring(parent_id or "nil"),
-            tostring(id or "nil"),
-            tostring(ret ~= nil)
-        )
-        return ret
-    end
-
-    local ok_dialog, ret = pcall(dm.add_dialog, parent_id, id, phrase_id, cond, act)
-    if not ok_dialog then
-        bridge_warn(
-            "dm_add_dialog fallback_failed fn=add_dialog phrase_id=%s parent_id=%s node_id=%s",
-            tostring(phrase_id or "nil"),
-            tostring(parent_id or "nil"),
-            tostring(id or "nil")
-        )
-        return nil
-    end
-    bridge_debug(
-        "dm_add_dialog fallback add_dialog phrase_id=%s parent_id=%s node_id=%s ret=%s",
+        "dm_add_dialog hard_fail reason=add_phrase_failed phrase_id=%s parent_id=%s node_id=%s fallback_bound_dialog=%s",
         tostring(phrase_id or "nil"),
         tostring(parent_id or "nil"),
         tostring(id or "nil"),
-        tostring(ret ~= nil)
+        tostring(fallback_bound_dialog)
     )
-    return ret
+
+    return nil
 end
 
 local function build_dialog_tree(dialog, state)
