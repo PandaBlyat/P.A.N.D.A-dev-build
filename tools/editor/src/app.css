@@ -4391,11 +4391,26 @@ hr {
   stroke: var(--flow-edge-color, color-mix(in srgb, var(--accent) 65%, transparent));
   fill: none;
   stroke-dasharray: 8 6;
+  animation: flow-edge-preview-dash 0.95s linear infinite;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--flow-edge-color, var(--accent)) 30%, transparent));
 }
 
 .flow-edge-path.edge-preview-invalid {
   stroke: color-mix(in srgb, var(--danger) 82%, #f7d0d0);
   opacity: 0.85;
+  animation-duration: 0.7s;
+}
+
+.flow-edge-preview-packet {
+  stroke-width: 1.8;
+  opacity: 0.8;
+  stroke-dasharray: 2 11;
+  animation: flow-edge-preview-packet 0.78s linear infinite;
+}
+
+.flow-edge-preview-packet.edge-preview-invalid {
+  stroke: color-mix(in srgb, var(--danger) 84%, white 16%);
+  opacity: 0.74;
 }
 
 .flow-edge-path.edge-continue {
@@ -4419,6 +4434,16 @@ hr {
   cursor: pointer;
   font-size: 10px;
   font-weight: 700;
+}
+
+@keyframes flow-edge-preview-dash {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -56; }
+}
+
+@keyframes flow-edge-preview-packet {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -88; }
 }
 
 .flow-shell.density-detailed .turn-message {

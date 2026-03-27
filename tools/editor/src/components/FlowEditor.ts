@@ -556,6 +556,10 @@ export function renderFlowEditor(container: HTMLElement): void {
     const sourcePort = event.currentTarget as HTMLElement | null;
     const pointerId = event.pointerId;
     const sourceNode = sourcePort?.closest('.turn-node') as HTMLElement | null;
+    const sourceConversation = store.get().project.conversations.find(conversation => conversation.id === conversationId);
+    const sourceChoice = sourceConversation?.turns
+      .find((turn) => turn.turnNumber === sourceTurnNumber)
+      ?.choices.find((choice) => choice.index === sourceChoiceIndex);
     const getInputPortCenter = (port: HTMLElement): { x: number; y: number } => {
       const rect = port.getBoundingClientRect();
       return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
@@ -639,6 +643,8 @@ export function renderFlowEditor(container: HTMLElement): void {
 
       if (targetTurnNumber != null) {
         store.connectChoiceToTurn(conversationId, sourceTurnNumber, sourceChoiceIndex, targetTurnNumber);
+      } else if (sourceChoice?.continueTo != null) {
+        store.clearChoiceContinuation(conversationId, sourceTurnNumber, sourceChoiceIndex);
       }
 
       connectionPreview = null;
@@ -1585,6 +1591,13 @@ function drawConnectionPreview(options: {
   previewPath.style.setProperty('--flow-edge-color', previewColor);
   previewPath.setAttribute('marker-end', `url(#${ensureMarker(defs, 'continue', previewColor)})`);
   svg.appendChild(previewPath);
+
+  const previewPacket = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  previewPacket.setAttribute('d', buildEdgePath(sourceAnchor, previewTarget, 0));
+  previewPacket.setAttribute('class', `flow-edge-packet flow-edge-preview-packet${preview.invalidTarget ? ' edge-preview-invalid' : ''}`);
+  previewPacket.style.setProperty('--flow-edge-color', previewColor);
+  previewPacket.setAttribute('aria-hidden', 'true');
+  svg.appendChild(previewPacket);
 }
 
 /**
