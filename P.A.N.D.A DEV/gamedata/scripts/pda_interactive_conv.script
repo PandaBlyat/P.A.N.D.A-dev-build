@@ -6024,8 +6024,25 @@ function on_player_choice(idx, contact_id)
                         }
                         _G.pda_f2f_handoffs = pda_f2f_handoffs
 
-                        printf("PANDA_IC: f2f handoff registered npc_id=%s conv_id=%s turn=%s dialog=%s route=actor_dialog_eval",
-                            tostring(c.npc_id), tostring(c.conv_id), tostring(ch.next_turn), "panda_f2f_hub_dialog")
+                        local handoff_route = "no-route"
+                        local bridge = ensure_panda_f2f_bridge()
+                        local owner_tag = string.format("pda_handoff_%s_%s_%s", tostring(cid), tostring(c.conv_id), tostring(ch.next_turn))
+                        if bridge and type(bridge.hard_route_branch) == "function" then
+                            local ok_route_call, route_applied = pcall(bridge.hard_route_branch, c.npc_id, owner_tag)
+                            if ok_route_call and route_applied == true then
+                                handoff_route = "bridge route"
+                            end
+                        end
+
+                        if handoff_route ~= "bridge route" and xr_meet and type(xr_meet.override_dialog) == "function" then
+                            local ok_override_call, fallback_applied = pcall(xr_meet.override_dialog, c.npc_id, "panda_f2f_hub_dialog")
+                            if ok_override_call and fallback_applied ~= nil and fallback_applied ~= false then
+                                handoff_route = "xr_meet fallback"
+                            end
+                        end
+
+                        printf("PANDA_IC: f2f handoff registered npc_id=%s conv_id=%s turn=%s dialog=%s route=%s",
+                            tostring(c.npc_id), tostring(c.conv_id), tostring(ch.next_turn), "panda_f2f_hub_dialog", handoff_route)
                     end
 
                     if get_ui then
