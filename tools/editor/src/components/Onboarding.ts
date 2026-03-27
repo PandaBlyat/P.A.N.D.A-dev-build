@@ -9,7 +9,7 @@ type OnboardingCardOptions = {
 };
 
 const CHECKLIST_ITEMS = [
-  'Create a conversation',
+  'Create a story',
   'Wire preconditions',
   'Write replies & branches',
   'Link turns together',
@@ -38,7 +38,7 @@ const FIRST_RUN_CTAS: FirstRunCta[] = [
   },
   {
     title: 'Sample Pack',
-    description: 'Load a ready-made conversation set to inspect structure, pacing, and branching patterns in the editor.',
+    description: 'Load a ready-made story set to inspect structure, pacing, and branching patterns in the editor.',
     icon: 'open',
     tone: 'sample',
     actionLabel: 'Open Sample Pack',
@@ -46,7 +46,7 @@ const FIRST_RUN_CTAS: FirstRunCta[] = [
   },
   {
     title: 'Import XML',
-    description: 'Bring existing conversation files aboard and convert them into an editable mission board immediately.',
+    description: 'Bring existing story files aboard and convert them into an editable mission board immediately.',
     icon: 'import',
     tone: 'import',
     actionLabel: 'Import Transmission',
@@ -88,7 +88,7 @@ const NARRATOR_PHASES: NarratorPhase[] = [
   {
     lines: [
       'Well..no more! Panda is here.',
-      'PANDA mod takes advantage of A-life systems into a framework we can use for full branching conversations. And this editor makes the process far easier. (hopefully)',
+      'PANDA mod takes advantage of A-life systems into a framework we can use for full branching stories. And this editor makes the process far easier. (hopefully)',
     ],
     holdAfter: 1200,
     shellClass: 'phase-solution',
@@ -159,7 +159,7 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   const subtitle = document.createElement('p');
   subtitle.className = 'first-run-subtitle hidden';
-  subtitle.textContent = 'The P.A.N.D.A. Conversation Editor';
+  subtitle.textContent = 'The P.A.N.D.A. Story Editor';
 
   const title = document.createElement('h2');
   title.className = 'first-run-title hidden';
@@ -181,7 +181,7 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   const intro = document.createElement('p');
   intro.className = 'first-run-intro hidden';
-  intro.textContent = 'Map branching conversations. Wire preconditions. Tune replies. Validate logic. Export game-ready XML. All without fumbling through string tables by hand — which, as anyone who has tried it will tell you, is only marginally more fun than being hit over the head with a slice of lemon wrapped around a large gold brick.';
+  intro.textContent = 'Map branching stories. Wire preconditions. Tune replies. Validate logic. Export game-ready XML. All without fumbling through string tables by hand — which, as anyone who has tried it will tell you, is only marginally more fun than being hit over the head with a slice of lemon wrapped around a large gold brick.';
 
   const subcopy = document.createElement('p');
   subcopy.className = 'first-run-subcopy hidden';
@@ -372,7 +372,7 @@ async function handleSamplePackClick(button?: HTMLButtonElement): Promise<void> 
   try {
     await loadOnboardingSamplePack();
   } catch (error) {
-    alert(error instanceof Error ? error.message : 'Failed to load the sample pack template conversation.');
+    alert(error instanceof Error ? error.message : 'Failed to load the sample pack template story.');
   } finally {
     if (button) {
       button.disabled = false;

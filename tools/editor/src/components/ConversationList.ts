@@ -31,8 +31,8 @@ export function duplicateConversationSelection(conversationId: number): void {
 export function deleteConversationSelection(conversationId: number): void {
   const conversation = store.get().project.conversations.find((entry) => entry.id === conversationId);
   if (!conversation) return;
-  const conversationLabel = conversation.label || `Conversation ${conversation.id}`;
-  if (confirm(`Delete conversation ${conversation.id}: "${conversationLabel}"?`)) {
+  const conversationLabel = conversation.label || `Story ${conversation.id}`;
+  if (confirm(`Delete story ${conversation.id}: "${conversationLabel}"?`)) {
     store.deleteConversation(conversationId);
   }
 }
@@ -43,8 +43,8 @@ export function renderConversationList(container: HTMLElement): void {
 
   if (convs.length === 0) {
     container.replaceChildren(createOnboardingNudge({
-      title: 'No conversations yet',
-      body: 'Kick off the onboarding flow with a blank project, import existing XML, or publish and import shared conversations from the Community Library.',
+      title: 'No stories yet',
+      body: 'Kick off the onboarding flow with a blank project, import existing XML, or publish and import shared stories from the Community Library.',
     }));
     return;
   }
@@ -58,10 +58,10 @@ export function renderConversationList(container: HTMLElement): void {
   const list = document.createElement('ul');
   list.className = 'conv-list';
   list.setAttribute('role', 'listbox');
-  list.setAttribute('aria-label', 'Conversations');
+  list.setAttribute('aria-label', 'Stories');
 
   for (const conv of convs) {
-    const conversationLabel = conv.label || `Conversation ${conv.id}`;
+    const conversationLabel = conv.label || `Story ${conv.id}`;
     const item = document.createElement('li');
     item.className = 'conv-item' + (conv.id === state.selectedConversationId ? ' selected' : '');
     item.tabIndex = 0;
@@ -111,7 +111,7 @@ export function renderConversationList(container: HTMLElement): void {
       const playBtn = document.createElement('button');
       playBtn.type = 'button';
       playBtn.className = 'conv-play-btn';
-      playBtn.title = 'Preview conversation';
+      playBtn.title = 'Preview story';
       playBtn.append(createIcon('play'), document.createTextNode('Play'));
       playBtn.onpointerdown = (e) => e.stopPropagation();
       playBtn.onclick = (e) => {
@@ -130,7 +130,7 @@ export function renderConversationList(container: HTMLElement): void {
 
     const factionSelect = document.createElement('select');
     factionSelect.className = 'conv-faction-select toolbar-select-quiet';
-    factionSelect.title = "Set this conversation's faction";
+    factionSelect.title = "Set this story's faction";
     factionSelect.setAttribute('aria-label', `Set faction for ${conversationLabel}`);
     for (const factionId of FACTION_IDS) {
       const option = document.createElement('option');

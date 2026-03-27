@@ -175,13 +175,13 @@ function refreshPrimaryPublishCta(): void {
   const useUpdateMode = getPrimaryPublishReplacementMode();
   if (useUpdateMode) {
     setButtonContent(publishBtn, 'export', 'Update');
-    publishBtn.title = 'Update your existing community conversation';
+    publishBtn.title = 'Update your existing community story';
     publishBtn.onclick = () => { void handlePrimaryPublishAction(publishBtn); };
     return;
   }
 
   setButtonContent(publishBtn, 'export', 'Publish');
-  publishBtn.title = 'Publish the currently selected conversation to the Community Library';
+  publishBtn.title = 'Publish the currently selected story to the Community Library';
   publishBtn.onclick = () => { void handlePrimaryPublishAction(publishBtn); };
 }
 
@@ -211,7 +211,7 @@ async function handlePrimaryPublishAction(triggerBtn?: HTMLButtonElement): Promi
   const libraryMatch = allResults.find(entry => entry.id === sourceCommunityId);
   const label = conv.label?.trim() || libraryMatch?.label?.trim() || '';
   if (!label) {
-    alert('This conversation is missing a title. Open Update form to set one before replacing.');
+    alert('This story is missing a title. Open Update form to set one before replacing.');
     showPublishForm({ replacementContext: true });
     return;
   }
@@ -240,7 +240,7 @@ async function handlePrimaryPublishAction(triggerBtn?: HTMLButtonElement): Promi
       replace_id: sourceCommunityId,
       publisher_id: sourcePublisherId,
     });
-    loadNotice = 'Updated existing community conversation. Refreshing library…';
+    loadNotice = 'Updated existing community story. Refreshing library…';
     loadError = '';
     renderContent();
     await loadConversations();
@@ -319,7 +319,7 @@ async function loadConversations(): Promise<void> {
       loadNotice = `Remote community sync failed, so bundled picks are shown instead. ${err instanceof Error ? err.message : String(err)}`;
       loadError = '';
     } else {
-      loadError = err instanceof Error ? err.message : 'Failed to load conversations.';
+      loadError = err instanceof Error ? err.message : 'Failed to load stories.';
     }
   } finally {
     isLoading = false;
@@ -489,7 +489,7 @@ function buildHeader(): HTMLElement {
   publishBtn.className = 'toolbar-button btn-primary';
   publishBtn.dataset.sharePublish = 'true';
   setButtonContent(publishBtn, 'export', 'Publish');
-  publishBtn.title = 'Publish the currently selected conversation to the Community Library';
+  publishBtn.title = 'Publish the currently selected story to the Community Library';
   publishBtn.onclick = () => showPublishForm();
   publishBtn.classList.add('share-publish-cta');
   publishSlot.appendChild(publishBtn);
@@ -596,7 +596,7 @@ function buildToolbarRow(): HTMLElement {
   refreshBtn.type = 'button';
   refreshBtn.className = 'toolbar-button toolbar-icon-button btn-icon';
   refreshBtn.appendChild(createIcon('undo'));
-  refreshBtn.title = 'Refresh the conversation list';
+  refreshBtn.title = 'Refresh the story list';
   refreshBtn.onclick = () => {
     allResults = [];
     loadConversations();
@@ -607,7 +607,7 @@ function buildToolbarRow(): HTMLElement {
   downloadAllBtn.type = 'button';
   downloadAllBtn.className = 'toolbar-button share-download-all-btn';
   setButtonContent(downloadAllBtn, 'download', 'Download All XML');
-  downloadAllBtn.title = 'Download all conversations for this faction as a game-ready XML file';
+  downloadAllBtn.title = 'Download all stories for this faction as a game-ready XML file';
   downloadAllBtn.hidden = activeFaction === 'all';
   downloadAllBtn.onclick = handleDownloadAll;
   row.appendChild(downloadAllBtn);
@@ -706,8 +706,8 @@ function buildEmptyState(): HTMLElement {
   const el = document.createElement('div');
   el.className = 'share-state-message';
   el.textContent = activeFaction === 'all'
-    ? 'No conversations matched your filters. Try clearing search terms or publishing a new entry.'
-    : `No ${FACTION_DISPLAY_NAMES[activeFaction as FactionId]} conversations matched your filters yet.`;
+    ? 'No stories matched your filters. Try clearing search terms or publishing a new entry.'
+    : `No ${FACTION_DISPLAY_NAMES[activeFaction as FactionId]} stories matched your filters yet.`;
   return el;
 }
 
@@ -725,14 +725,14 @@ function buildCommunitySummary(visibleCount: number): HTMLElement {
   const factionLabel = activeFaction === 'all'
     ? 'all factions'
     : FACTION_DISPLAY_NAMES[activeFaction as FactionId];
-  const visibleLabel = `${visibleCount} visible conversation${visibleCount !== 1 ? 's' : ''} in ${factionLabel}`;
+  const visibleLabel = `${visibleCount} visible story${visibleCount !== 1 ? 's' : ''} in ${factionLabel}`;
 
   if (!communityStats) {
     el.textContent = visibleLabel;
     return el;
   }
 
-  el.textContent = `${visibleLabel} · ${communityStats.published_conversations} total published conversation${communityStats.published_conversations !== 1 ? 's' : ''} · ${communityStats.published_publishers} total publisher${communityStats.published_publishers !== 1 ? 's' : ''}`;
+  el.textContent = `${visibleLabel} · ${communityStats.published_conversations} total published story${communityStats.published_conversations !== 1 ? 's' : ''} · ${communityStats.published_publishers} total publisher${communityStats.published_publishers !== 1 ? 's' : ''}`;
   return el;
 }
 
@@ -841,7 +841,7 @@ function buildCard(conv: NormalizedConversation): HTMLElement {
   importBtn.type = 'button';
   importBtn.className = 'toolbar-button btn-sm';
   setButtonContent(importBtn, 'download', 'Import');
-  importBtn.title = 'Add this conversation to your current project';
+  importBtn.title = 'Add this story to your current project';
   importBtn.onclick = async (event) => {
     event.stopPropagation();
     await handleImportCard(conv, importBtn);
@@ -897,7 +897,7 @@ function buildPreviewDrawer(conv: NormalizedConversation | null): HTMLElement {
   if (!conv) {
     const empty = document.createElement('div');
     empty.className = 'share-state-message';
-    empty.textContent = 'Select a conversation to preview its summary before importing.';
+    empty.textContent = 'Select a story to preview its summary before importing.';
     drawer.appendChild(empty);
     return drawer;
   }
@@ -961,7 +961,7 @@ function buildPreviewDrawer(conv: NormalizedConversation | null): HTMLElement {
   const importBtn = document.createElement('button');
   importBtn.type = 'button';
   importBtn.className = 'toolbar-button btn-primary';
-  setButtonContent(importBtn, 'download', 'Import Conversation');
+  setButtonContent(importBtn, 'download', 'Import Story');
   importBtn.onclick = async () => handleImportCard(conv, importBtn);
 
   actionRow.append(upvoteBtn, importBtn);
@@ -1040,7 +1040,7 @@ function formatExactDate(value: string): string {
 async function handleImportCard(conv: CommunityConversation, btn: HTMLButtonElement): Promise<void> {
   const conversations = conv.data?.conversations;
   if (!conversations || conversations.length === 0) {
-    alert('This entry has no conversation data.');
+    alert('This entry has no story data.');
     return;
   }
 
@@ -1067,7 +1067,7 @@ async function handleImportCard(conv: CommunityConversation, btn: HTMLButtonElem
 async function handleEditImport(conv: CommunityConversation, btn: HTMLButtonElement): Promise<void> {
   const conversations = conv.data?.conversations;
   if (!conversations || conversations.length === 0) {
-    alert('This entry has no conversation data.');
+    alert('This entry has no story data.');
     return;
   }
 
@@ -1198,7 +1198,7 @@ function buildPublishForm(): HTMLElement {
   replacementContext.hidden = true;
   form.appendChild(replacementContext);
 
-  const titleInput = makeFormField(form, 'Title', 'text', 'Conversation title (unique community title required)') as HTMLInputElement;
+  const titleInput = makeFormField(form, 'Title', 'text', 'Story title (unique community title required)') as HTMLInputElement;
   titleInput.maxLength = 70;
 
   const storedName = getStoredUsername();
@@ -1212,7 +1212,7 @@ function buildPublishForm(): HTMLElement {
     authorInput.title = 'Author name is your profile username. Change it in your profile.';
   }
 
-  const descInput = makeFormField(form, 'Description', 'textarea', 'Brief description of what this conversation does…') as HTMLTextAreaElement;
+  const descInput = makeFormField(form, 'Description', 'textarea', 'Brief description of what this story does…') as HTMLTextAreaElement;
   descInput.maxLength = 280;
 
   const summaryInput = makeFormField(form, 'Summary', 'textarea', 'Short preview text shown in the drawer before import.') as HTMLTextAreaElement;
@@ -1240,7 +1240,7 @@ function buildPublishForm(): HTMLElement {
   const consentInput = document.createElement('input');
   consentInput.type = 'checkbox';
   const consentText = document.createElement('span');
-  consentText.textContent = 'I confirm this conversation is my own work, safe for public browsing, and not a duplicate community title.';
+  consentText.textContent = 'I confirm this story is my own work, safe for public browsing, and not a duplicate community title.';
   consentRow.append(consentInput, consentText);
   form.appendChild(consentRow);
 
@@ -1286,7 +1286,7 @@ function buildPublishForm(): HTMLElement {
     updateReplacementIntentState();
     const conv = store.getSelectedConversation();
     if (!conv) {
-      setStatus('No conversation selected. Select a conversation in the left panel first.', 'danger');
+      setStatus('No story selected. Select a story in the left panel first.', 'danger');
       return;
     }
     if (!consentInput.checked) {
@@ -1348,7 +1348,7 @@ function buildPublishForm(): HTMLElement {
         publisher_id: publisherId,
       });
       setStatus(replaceId
-        ? 'Updated existing community conversation. Refreshing library…'
+        ? 'Updated existing community story. Refreshing library…'
         : 'Published successfully. Refreshing the library with your new community entry…', 'success');
 
       // Award XP for publishing + sync achievements/streaks server-side
@@ -1422,7 +1422,7 @@ function buildPublishForm(): HTMLElement {
           if (qualityMult > 1) {
             showXpToast(adjustedPublishXp, `Published! (${qualityScore.totalStars}\u2605 quality \u00D7${qualityMult})`);
           } else {
-            showXpToast(adjustedPublishXp, 'Conversation published!');
+            showXpToast(adjustedPublishXp, 'Story published!');
           }
         }
 
@@ -1491,7 +1491,7 @@ function buildPublishForm(): HTMLElement {
     applySubmitMode(replacementMode);
     consentInput.checked = false;
     setStatus(currentUsername
-      ? `Publishing as ${currentUsername}. Duplicate titles are rejected. Conversation ownership is soft unless identity is backed by authenticated Supabase user auth + RLS.`
+      ? `Publishing as ${currentUsername}. Duplicate titles are rejected. Story ownership is soft unless identity is backed by authenticated Supabase user auth + RLS.`
       : 'Anonymous publishes are browser-bound and ownership is soft. Duplicate titles are rejected.');
   };
 
@@ -1534,7 +1534,7 @@ function showPublishTrigger(): void {
 function showPublishForm(options: { replacementContext?: boolean } = {}): void {
   const conv = store.getSelectedConversation();
   if (!conv) {
-    alert('Select a conversation in the left panel first, then click Publish.');
+    alert('Select a story in the left panel first, then click Publish.');
     return;
   }
   const form = overlayEl?.querySelector<HTMLElement & { prefill?: (isReplacementCandidate?: boolean) => void }>('.share-publish-form');
