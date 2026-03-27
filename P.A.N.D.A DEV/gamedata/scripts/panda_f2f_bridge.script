@@ -2234,6 +2234,15 @@ local function build_dialog_tree(dialog, state)
                     local next_turn_state = get_turn_state(branch.next_turn)
                     local next_open_phrase = next_turn_state and next_turn_state.open_key or nil
                     if next_turn_state and next_turn_state.missing_turn_open then
+                        bridge_warn(
+                            "build_dialog_tree missing_next_turn_open conv_id=%s from_turn=%s to_turn=%s choice_key=%s preferred=%s fallback=%s action=exit_fallback",
+                            tostring(state.conv_id or "nil"),
+                            tostring(turn or "nil"),
+                            tostring(branch.next_turn or "nil"),
+                            tostring(branch.choice_key or "nil"),
+                            tostring(next_turn_state.preferred_open_key or "nil"),
+                            tostring(next_turn_state.fallback_open_key or "nil")
+                        )
                         next_open_phrase = "[DEBUG] Missing conversation opening line."
                     end
                     if next_open_phrase then
@@ -2242,6 +2251,13 @@ local function build_dialog_tree(dialog, state)
                         add_logged_node(npc_id, next_open_id, next_open_phrase, nil, nil, false, "npc_open")
                         build_turn(next_open_id, branch.next_turn, depth + 1, visited_turns)
                     else
+                        bridge_warn(
+                            "build_dialog_tree missing_next_turn_state_or_open conv_id=%s from_turn=%s to_turn=%s choice_key=%s action=exit_fallback",
+                            tostring(state.conv_id or "nil"),
+                            tostring(turn or "nil"),
+                            tostring(branch.next_turn or "nil"),
+                            tostring(branch.choice_key or "nil")
+                        )
                         local exit_id = alloc()
                         generated_ids.exit[#generated_ids.exit + 1] = exit_id
                         add_logged_node(npc_id, exit_id, exit_phrase, nil, nil, false, "actor_exit")
