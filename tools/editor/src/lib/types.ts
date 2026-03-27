@@ -12,6 +12,7 @@ export type FactionId =
   | 'isg' | 'renegade' | 'greh';
 
 export type ConversationChannel = 'pda' | 'f2f' | 'both';
+export type TurnFirstSpeaker = 'npc' | 'player';
 
 export interface Conversation {
   id: number;
@@ -65,6 +66,7 @@ export interface Turn {
   turnNumber: number;
   openingMessage?: string;
   channel?: ConversationChannel;
+  firstSpeaker?: TurnFirstSpeaker;
   pda_entry?: boolean;
   f2f_entry?: boolean;
   choices: Choice[];

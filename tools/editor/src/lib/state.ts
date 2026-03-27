@@ -95,6 +95,13 @@ export function createStateChange(...targets: RenderTarget[]): StateChange {
 export const FULL_APP_RENDER = createStateChange('appShell');
 export const SELECTION_RENDER = createStateChange('flowEditor', 'propertiesPanel');
 
+function inferTurnFirstSpeaker(turn: Pick<Turn, 'firstSpeaker' | 'f2f_entry' | 'channel'>): 'npc' | 'player' {
+  if (turn.firstSpeaker === 'npc' || turn.firstSpeaker === 'player') {
+    return turn.firstSpeaker;
+  }
+  return turn.channel === 'f2f' && turn.f2f_entry === true ? 'player' : 'npc';
+}
+
 const VALIDATION_DEBOUNCE_MS = 120;
 
 type TurnPositionUpdate = {
@@ -649,6 +656,7 @@ class StateManager {
     turn.channel = sourceTurn.channel ?? 'both';
     turn.pda_entry = sourceTurn.pda_entry ?? turnNumber === 1;
     turn.f2f_entry = sourceTurn.f2f_entry ?? false;
+    turn.firstSpeaker = inferTurnFirstSpeaker(sourceTurn);
     turn.customLabel = sourceTurn.customLabel;
     turn.color = sourceTurn.color;
     turn.choices = sourceTurn.choices.map((choice, index) => this.cloneChoiceFromSource(choice, index + 1, options));
@@ -666,6 +674,7 @@ class StateManager {
           channel: turn.channel ?? 'both',
           pda_entry: turn.pda_entry ?? turn.turnNumber === 1,
           f2f_entry: turn.f2f_entry ?? false,
+          firstSpeaker: inferTurnFirstSpeaker(turn),
           position: turn.position ?? getDefaultFlowTurnPosition(turnIndex + 1),
           choices: turn.choices.map((choice, choiceIndex) => ({
             ...choice,
