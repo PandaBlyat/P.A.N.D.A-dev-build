@@ -511,8 +511,30 @@ local function bridge_warn(fmt, ...)
 end
 
 local function key_exists(key)
+    if type(key) ~= "string" then
+        return false
+    end
+
+    key = key:gsub("^%s*(.-)%s*$", "%1")
+    if key == "" then
+        return false
+    end
+
     local val = tr(key)
-    return val ~= key
+    if type(val) ~= "string" then
+        return false
+    end
+
+    val = val:gsub("^%s*(.-)%s*$", "%1")
+    if val == "" then
+        return false
+    end
+
+    if val == key then
+        return false
+    end
+
+    return true
 end
 
 local function evaluate_shared_precondition(precond_key, npc_se, context)
@@ -1622,6 +1644,15 @@ local function collect_branches(npc_se, forced_context)
                                 )
 
                                 if show then
+                                    local choice_renderable = key_exists(choice_key)
+                                    local reply_renderable = key_exists(reply_key)
+                                    if not choice_renderable or not reply_renderable then
+                                        show = false
+                                        choice_reason = (not choice_renderable and "choice_not_renderable" or "reply_not_renderable")
+                                    end
+                                end
+
+                                if show then
                                     choices_passing_preconditions = choices_passing_preconditions + 1
                                     local hard_route = false
                                     if key_exists(hard_route_key) then
@@ -2080,8 +2111,8 @@ function panda_f2f_bridge.precondition()
 
         for _, branch in ipairs(state.branches) do
             if type(branch) == "table" then
-                local choice_ok = type(branch.choice_key) == "string" and branch.choice_key ~= "" and key_exists(branch.choice_key)
-                local reply_ok = type(branch.reply_key) == "string" and branch.reply_key ~= "" and key_exists(branch.reply_key)
+                local choice_ok = key_exists(branch.choice_key)
+                local reply_ok = key_exists(branch.reply_key)
                 if choice_ok and reply_ok then
                     return true
                 end
@@ -2135,7 +2166,7 @@ function panda_f2f_bridge.precondition()
         return reject_hub_activation("no_state")
     end
 
-    if type(state.open_key) ~= "string" or state.open_key == "" or not key_exists(state.open_key) then
+    if not key_exists(state.open_key) then
         return reject_hub_activation("missing_open_key")
     end
 
