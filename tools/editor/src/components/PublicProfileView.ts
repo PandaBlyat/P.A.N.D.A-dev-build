@@ -2,6 +2,7 @@ import {
   type CommunityConversation,
   type PublicProfileData,
   deriveLevelMetadata,
+  getLevelTitle,
 } from '../lib/api-client';
 import {
   ACHIEVEMENTS,
@@ -80,6 +81,7 @@ function buildHeader(data: PublicProfileData): HTMLElement {
   const levelMeta = deriveLevelMetadata(profile.xp);
   const currentThreshold = levelMeta.currentLevelThreshold;
   const nextThreshold = levelMeta.nextLevelThreshold;
+  const resolvedCurrentTitle = getLevelTitle(currentThreshold.level) || profile.title;
 
   const header = document.createElement('section');
   header.className = 'public-profile-hero';
@@ -110,7 +112,7 @@ function buildHeader(data: PublicProfileData): HTMLElement {
 
   const subtitle = document.createElement('div');
   subtitle.className = 'public-profile-title';
-  subtitle.textContent = `${levelMeta.displayTitle} · ${profile.xp.toLocaleString()} XP · ${publish_count} publishes`;
+  subtitle.textContent = `${resolvedCurrentTitle} · ${profile.xp.toLocaleString()} XP · ${publish_count} publishes`;
 
   const memberSince = document.createElement('div');
   memberSince.className = 'public-profile-member-since';
@@ -143,7 +145,7 @@ function buildHeader(data: PublicProfileData): HTMLElement {
   const progressMeta = document.createElement('div');
   progressMeta.className = 'public-profile-progress-meta';
   progressMeta.textContent = nextThreshold
-    ? `${profile.xp.toLocaleString()} / ${nextThreshold.xp.toLocaleString()} XP to ${nextThreshold.title}`
+    ? `${profile.xp.toLocaleString()} / ${nextThreshold.xp.toLocaleString()} XP to ${getLevelTitle(nextThreshold.level) || nextThreshold.title}`
     : `${profile.xp.toLocaleString()} XP · max level reached`;
 
   const progressTrack = document.createElement('div');
