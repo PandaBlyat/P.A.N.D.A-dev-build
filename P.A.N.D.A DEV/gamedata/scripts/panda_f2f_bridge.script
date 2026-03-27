@@ -1837,9 +1837,11 @@ local function build_dialog_tree(dialog, state)
     )
 
     local root_id = alloc()
+    local parity_shim_id = alloc()
     local npc_open_id = alloc()
     local generated_ids = {
         root = { root_id },
+        shim = { parity_shim_id },
         open = { npc_open_id },
         choice = {},
         reply = {},
@@ -1878,7 +1880,12 @@ local function build_dialog_tree(dialog, state)
     end
 
     add_logged_node("", root_id, root_phrase_id, nil, nil, root_use_script_text, "root_actor_entry")
-    add_logged_node(root_id, npc_open_id, npc_open_phrase_id, nil, nil, npc_open_use_script_text, "npc_open")
+    -- NOTE:
+    -- Anomaly's actor_dialog flow can present dynamic root nodes with reversed parity
+    -- (root behaving as NPC in hub-style dialogs). Insert an explicit actor shim so
+    -- authored NPC opening lines always render as NPC before branch choices.
+    add_logged_node(root_id, parity_shim_id, "dm_universal_actor_start", nil, nil, false, "actor_parity_shim")
+    add_logged_node(parity_shim_id, npc_open_id, npc_open_phrase_id, nil, nil, npc_open_use_script_text, "npc_open")
 
     local function register_dispatcher(branch)
         local idx = branch.index
@@ -1997,8 +2004,9 @@ local function build_dialog_tree(dialog, state)
         add_logged_node(npc_open_id, fallback_actor_id, exit_phrase, nil, nil, false, "fallback_actor_exit")
         local build_ok = (root_ok == true) and (npc_open_ok == true) and (actor_choice_count_added > 0)
         bridge_debug(
-            "build_dialog_tree node_ids root=%s open=%s choice=%s reply=%s exit=%s conv_id=%s turn=%s",
+            "build_dialog_tree node_ids root=%s shim=%s open=%s choice=%s reply=%s exit=%s conv_id=%s turn=%s",
             table.concat(generated_ids.root, ","),
+            table.concat(generated_ids.shim, ","),
             table.concat(generated_ids.open, ","),
             table.concat(generated_ids.choice, ","),
             table.concat(generated_ids.reply, ","),
@@ -2052,8 +2060,9 @@ local function build_dialog_tree(dialog, state)
 
     local build_ok = (root_ok == true) and (npc_open_ok == true) and (actor_choice_count_added > 0)
     bridge_debug(
-        "build_dialog_tree node_ids root=%s open=%s choice=%s reply=%s exit=%s conv_id=%s turn=%s",
+        "build_dialog_tree node_ids root=%s shim=%s open=%s choice=%s reply=%s exit=%s conv_id=%s turn=%s",
         table.concat(generated_ids.root, ","),
+        table.concat(generated_ids.shim, ","),
         table.concat(generated_ids.open, ","),
         table.concat(generated_ids.choice, ","),
         table.concat(generated_ids.reply, ","),
