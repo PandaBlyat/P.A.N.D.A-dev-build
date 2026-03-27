@@ -1862,7 +1862,31 @@ local function build_dialog_tree(dialog, state)
         HUB_DYNAMIC_NODE_ID_STEP,
         HUB_DYNAMIC_NODE_ID_SCAN_RANGES
     )
-    local range_attempts = { initial_range_start, initial_range_start + HUB_DYNAMIC_NODE_ID_RETRY_OFFSET }
+    local range_attempts = {}
+    local seen_range_attempts = {}
+    local function push_range_attempt(range_start)
+        local start_id = tonumber(range_start)
+        if not start_id then
+            return
+        end
+        start_id = math.max(0, math.floor(start_id))
+        if not seen_range_attempts[start_id] then
+            seen_range_attempts[start_id] = true
+            range_attempts[#range_attempts + 1] = start_id
+        end
+    end
+
+    for bucket_idx = 0, (HUB_DYNAMIC_NODE_ID_SCAN_RANGES - 1) do
+        push_range_attempt(HUB_DYNAMIC_NODE_ID_START + (bucket_idx * HUB_DYNAMIC_NODE_ID_STEP))
+    end
+
+    push_range_attempt(initial_range_start)
+
+    local fallback_offsets = { 0, 1, 2, 4, 8, 16, 32 }
+    for _, offset_bucket in ipairs(fallback_offsets) do
+        local range_start = initial_range_start + (offset_bucket * HUB_DYNAMIC_NODE_ID_RETRY_OFFSET)
+        push_range_attempt(range_start)
+    end
     local alloc = nil
     local selected_range_start = nil
     local token = tostring(time_global and time_global() or math.random(10000, 99999))
@@ -1931,6 +1955,13 @@ local function build_dialog_tree(dialog, state)
     local actor_choice_count_added = 0
     local npc_reply_count_added = 0
     local fallback_actor_exit_count_added = 0
+    local attempted_ranges = {}
+    local function attempted_ranges_str()
+        if #attempted_ranges <= 0 then
+            return "<none>"
+        end
+        return table.concat(attempted_ranges, ",")
+    end
     local function add_logged_node(parent_id, node_id, phrase_id, cond, act, allow_script_text, role, alloc_range_start)
         local active_range_start = alloc_range_start
         if active_range_start == nil then
@@ -1966,6 +1997,7 @@ local function build_dialog_tree(dialog, state)
     end
 
     for attempt_idx, range_start in ipairs(range_attempts) do
+        attempted_ranges[#attempted_ranges + 1] = tostring(range_start)
         alloc = make_allocator(range_start)
         local first_allocated_id = alloc()
         root_id = first_allocated_id
@@ -1974,10 +2006,11 @@ local function build_dialog_tree(dialog, state)
         generated_ids.open = { npc_open_id }
 
         bridge_debug(
-            "build_dialog_tree allocator_range attempt=%s start=%s next=%s conv_id=%s turn=%s",
+            "build_dialog_tree allocator_range attempt=%s start=%s next=%s attempted_ranges=%s conv_id=%s turn=%s",
             tostring(attempt_idx),
             tostring(first_allocated_id),
             tostring(first_allocated_id + 1),
+            attempted_ranges_str(),
             tostring(state.conv_id or "nil"),
             tostring(state.turn or "nil")
         )
@@ -1990,9 +2023,10 @@ local function build_dialog_tree(dialog, state)
         end
 
         bridge_warn(
-            "build_dialog_tree allocator_retry reason=root_or_open_insert_failed attempt=%s alloc_range_start=%s root_ok=%s npc_open_ok=%s conv_id=%s turn=%s",
+            "build_dialog_tree allocator_retry reason=root_or_open_insert_failed attempt=%s alloc_range_start=%s attempted_ranges=%s root_ok=%s npc_open_ok=%s conv_id=%s turn=%s",
             tostring(attempt_idx),
             tostring(range_start),
+            attempted_ranges_str(),
             tostring(root_added == true),
             tostring(open_added == true),
             tostring(state.conv_id or "nil"),
@@ -2007,9 +2041,10 @@ local function build_dialog_tree(dialog, state)
     state.alloc = alloc
     if not selected_range_start then
         bridge_warn(
-            "build_dialog_tree fail reason=root_or_open_insert_failed alloc_range_primary=%s alloc_range_secondary=%s conv_id=%s turn=%s",
+            "build_dialog_tree fail reason=root_or_open_insert_failed alloc_range_primary=%s alloc_range_secondary=%s attempted_ranges=%s conv_id=%s turn=%s",
             tostring(range_attempts[1] or "nil"),
             tostring(range_attempts[2] or "nil"),
+            attempted_ranges_str(),
             tostring(state.conv_id or "nil"),
             tostring(state.turn or "nil")
         )
