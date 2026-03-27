@@ -10,7 +10,7 @@ import { createIcon } from './icons';
 import { createFlowCursorSystem, type FlowCursorSystem } from './FlowCursor';
 import type { Choice, Conversation, ConversationChannel, Turn } from '../lib/types';
 import { getConversationFaction } from '../lib/types';
-import type { CursorAnimationIntensity, FlowDensity } from '../lib/state';
+import type { FlowDensity } from '../lib/state';
 
 type TurnPositionMap = Map<number, { x: number; y: number }>;
 type EdgeKind = 'continue' | 'pause-success' | 'pause-fail';
@@ -354,7 +354,6 @@ export function renderFlowEditor(container: HTMLElement): void {
 
   const controls = renderControls({
     customCursorEnabled: state.customCursorEnabled,
-    cursorAnimationIntensity: state.cursorAnimationIntensity,
     cursorSize: state.cursorSize,
     zoomValue,
     onZoomIn: () => zoomAtViewportPoint(canvas, viewState, 1.12, canvas.clientWidth / 2, canvas.clientHeight / 2, applyView),
@@ -362,7 +361,6 @@ export function renderFlowEditor(container: HTMLElement): void {
     onFit: () => fitContent(),
     onReset: () => resetView(),
     onSetCursorEnabled: (enabled) => store.setCustomCursorEnabled(enabled),
-    onSetCursorAnimationIntensity: (intensity) => store.setCursorAnimationIntensity(intensity),
     onSetCursorSize: (size) => store.setCursorSize(size),
   });
 
@@ -653,7 +651,6 @@ export function renderFlowEditor(container: HTMLElement): void {
 
 function renderControls(options: {
   customCursorEnabled: boolean;
-  cursorAnimationIntensity: CursorAnimationIntensity;
   cursorSize: number;
   zoomValue: HTMLElement;
   onZoomIn: () => void;
@@ -661,7 +658,6 @@ function renderControls(options: {
   onFit: () => void;
   onReset: () => void;
   onSetCursorEnabled: (enabled: boolean) => void;
-  onSetCursorAnimationIntensity: (intensity: CursorAnimationIntensity) => void;
   onSetCursorSize: (size: number) => void;
 }): HTMLElement {
   const controls = document.createElement('div');
@@ -705,16 +701,6 @@ function renderControls(options: {
   cursorToggleLabel.textContent = 'Cursor';
   cursorToggle.append(cursorToggleInput, cursorToggleLabel);
 
-  const intensitySelect = document.createElement('select');
-  intensitySelect.className = 'flow-cursor-intensity';
-  for (const intensity of ['low', 'medium', 'high'] as CursorAnimationIntensity[]) {
-    const option = document.createElement('option');
-    option.value = intensity;
-    option.textContent = intensity[0].toUpperCase() + intensity.slice(1);
-    option.selected = options.cursorAnimationIntensity === intensity;
-    intensitySelect.appendChild(option);
-  }
-  intensitySelect.onchange = () => options.onSetCursorAnimationIntensity(intensitySelect.value as CursorAnimationIntensity);
 
   const sizeInput = document.createElement('input');
   sizeInput.className = 'flow-cursor-size';
@@ -725,7 +711,7 @@ function renderControls(options: {
   sizeInput.title = 'Cursor size';
   sizeInput.oninput = () => options.onSetCursorSize(Number(sizeInput.value));
 
-  controls.append(zoomOut, options.zoomValue, zoomIn, fit, reset, cursorToggle, intensitySelect, sizeInput);
+  controls.append(zoomOut, options.zoomValue, zoomIn, fit, reset, cursorToggle, sizeInput);
   return controls;
 }
 
