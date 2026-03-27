@@ -2006,11 +2006,10 @@ local function build_dialog_tree(dialog, state)
     )
 
     local root_id = alloc()
-    local parity_shim_id = alloc()
     local npc_open_id = alloc()
     local generated_ids = {
         root = { root_id },
-        shim = { parity_shim_id },
+        shim = {},
         open = { npc_open_id },
         choice = {},
         reply = {},
@@ -2021,7 +2020,10 @@ local function build_dialog_tree(dialog, state)
     local npc_open_ok = false
     local actor_choice_count_added = 0
     local npc_reply_count_added = 0
-    local function add_logged_node(parent_id, node_id, phrase_id, cond, act, allow_script_text, role)
+    local build_state = {
+        node_speaker_role = {},
+    }
+    local function add_logged_node(parent_id, node_id, phrase_id, cond, act, allow_script_text, role, speaker_role)
         bridge_debug(
             "build_dialog_tree insert role=%s parent_id=%s node_id=%s phrase_id=%s cond=%s act=%s script_text=%s",
             tostring(role or "unknown"),
@@ -2035,6 +2037,9 @@ local function build_dialog_tree(dialog, state)
         local ok = dm_add_dialog(state, parent_id, node_id, phrase_id, cond, act, allow_script_text)
         if ok then
             nodes_added = nodes_added + 1
+            if speaker_role == "actor" or speaker_role == "npc" then
+                build_state.node_speaker_role[tostring(node_id)] = speaker_role
+            end
             if role == "root_actor_entry" then
                 root_ok = true
             elseif role == "npc_open" then
@@ -2048,13 +2053,44 @@ local function build_dialog_tree(dialog, state)
         return ok
     end
 
-    add_logged_node("", root_id, root_phrase_id, nil, nil, root_use_script_text, "root_actor_entry")
+    local function ensure_actor_parity(parent_node_id, context)
+        context = context or {}
+        local next_speaker_role = context.next_speaker_role
+        local parent_speaker_role = context.parent_speaker_role
+        if parent_speaker_role ~= "actor" and parent_speaker_role ~= "npc" then
+            parent_speaker_role = build_state.node_speaker_role[tostring(parent_node_id)]
+        end
+
+        if parent_speaker_role == "npc" and next_speaker_role == "npc" then
+            local parity_shim_id = alloc()
+            generated_ids.shim[#generated_ids.shim + 1] = parity_shim_id
+            add_logged_node(
+                parent_node_id,
+                parity_shim_id,
+                parity_shim_phrase_id,
+                nil,
+                nil,
+                parity_shim_use_script_text,
+                "actor_parity_shim",
+                "actor"
+            )
+            return parity_shim_id, true
+        end
+
+        return parent_node_id, false
+    end
+
+    add_logged_node("", root_id, root_phrase_id, nil, nil, root_use_script_text, "root_actor_entry", "actor")
     -- NOTE:
     -- Anomaly's actor_dialog flow can present dynamic root nodes with reversed parity
     -- (root behaving as NPC in hub-style dialogs). Insert an explicit actor shim so
     -- authored NPC opening lines always render as NPC before branch choices.
-    add_logged_node(root_id, parity_shim_id, parity_shim_phrase_id, nil, nil, parity_shim_use_script_text, "actor_parity_shim")
-    add_logged_node(parity_shim_id, npc_open_id, npc_open_phrase_id, nil, nil, npc_open_use_script_text, "npc_open")
+    local npc_open_parent_id = ensure_actor_parity(root_id, {
+        -- Preserve current root behavior even in hub-style/root-parity inversion cases.
+        parent_speaker_role = "npc",
+        next_speaker_role = "npc",
+    })
+    add_logged_node(npc_open_parent_id, npc_open_id, npc_open_phrase_id, nil, nil, npc_open_use_script_text, "npc_open", "npc")
 
     local function register_dispatcher(branch)
         local idx = branch.index
@@ -2180,7 +2216,7 @@ local function build_dialog_tree(dialog, state)
             tostring(npc_open_phrase_id or "nil")
         )
 
-        add_logged_node(npc_open_id, fallback_actor_id, exit_phrase, nil, nil, false, "fallback_actor_exit")
+        add_logged_node(npc_open_id, fallback_actor_id, exit_phrase, nil, nil, false, "fallback_actor_exit", "actor")
         local build_ok = (root_ok == true) and (npc_open_ok == true) and (actor_choice_count_added > 0)
         bridge_debug(
             "build_dialog_tree node_ids root=%s shim=%s open=%s choice=%s reply=%s exit=%s conv_id=%s turn=%s",
@@ -2261,16 +2297,21 @@ local function build_dialog_tree(dialog, state)
             local actor_id = alloc()
             generated_ids.choice[#generated_ids.choice + 1] = actor_id
             local cond_name, act_name = register_dispatcher(branch)
-            add_logged_node(parent_open_id, actor_id, branch.choice_key, cond_name, act_name, false, "actor_choice")
+            add_logged_node(parent_open_id, actor_id, branch.choice_key, cond_name, act_name, false, "actor_choice", "actor")
 
             if branch.reply_key then
                 local npc_id = alloc()
                 generated_ids.reply[#generated_ids.reply + 1] = npc_id
-                add_logged_node(actor_id, npc_id, branch.reply_key, nil, nil, false, "npc_reply")
+                add_logged_node(actor_id, npc_id, branch.reply_key, nil, nil, false, "npc_reply", "npc")
 
                 if branch.next_channel == "f2f" and branch.next_turn then
                     local next_turn_state = get_turn_state(branch.next_turn)
                     if next_turn_state then
+                        local continuation_parent_id, continuation_shim_inserted = ensure_actor_parity(npc_id, {
+                            -- Continuations currently recurse directly to actor choices;
+                            -- leave metadata-driven parity insertion here for npc->npc transitions.
+                            next_speaker_role = "actor",
+                        })
                         bridge_debug(
                             "build_dialog_tree continuation conv_id=%s from_turn=%s to_turn=%s choice_key=%s direct_actor_next=%s npc_open_inserted=%s next_open_phrase=%s",
                             tostring(state.conv_id or "nil"),
@@ -2278,10 +2319,10 @@ local function build_dialog_tree(dialog, state)
                             tostring(branch.next_turn or "nil"),
                             tostring(branch.choice_key or "nil"),
                             "true",
-                            "false",
+                            tostring(continuation_shim_inserted == true),
                             "ignored_non_entry"
                         )
-                        build_turn(npc_id, branch.next_turn, depth + 1, visited_turns)
+                        build_turn(continuation_parent_id, branch.next_turn, depth + 1, visited_turns)
                     else
                         bridge_warn(
                             "build_dialog_tree missing_next_turn_state conv_id=%s from_turn=%s to_turn=%s choice_key=%s action=exit_fallback",
@@ -2302,17 +2343,17 @@ local function build_dialog_tree(dialog, state)
                         )
                         local exit_id = alloc()
                         generated_ids.exit[#generated_ids.exit + 1] = exit_id
-                        add_logged_node(npc_id, exit_id, exit_phrase, nil, nil, false, "actor_exit")
+                        add_logged_node(npc_id, exit_id, exit_phrase, nil, nil, false, "actor_exit", "actor")
                     end
                 else
                     local exit_id = alloc()
                     generated_ids.exit[#generated_ids.exit + 1] = exit_id
-                    add_logged_node(npc_id, exit_id, exit_phrase, nil, nil, false, "actor_exit")
+                    add_logged_node(npc_id, exit_id, exit_phrase, nil, nil, false, "actor_exit", "actor")
                 end
             else
                 local exit_id = alloc()
                 generated_ids.exit[#generated_ids.exit + 1] = exit_id
-                add_logged_node(actor_id, exit_id, exit_phrase, nil, nil, false, "actor_exit")
+                add_logged_node(actor_id, exit_id, exit_phrase, nil, nil, false, "actor_exit", "actor")
             end
         end
 
@@ -2323,7 +2364,7 @@ local function build_dialog_tree(dialog, state)
 
     local root_exit_id = alloc()
     generated_ids.exit[#generated_ids.exit + 1] = root_exit_id
-    add_logged_node(npc_open_id, root_exit_id, exit_phrase, nil, nil, false, "actor_root_exit")
+    add_logged_node(npc_open_id, root_exit_id, exit_phrase, nil, nil, false, "actor_root_exit", "actor")
 
     local build_ok = (root_ok == true) and (npc_open_ok == true) and (actor_choice_count_added > 0)
     bridge_debug(
