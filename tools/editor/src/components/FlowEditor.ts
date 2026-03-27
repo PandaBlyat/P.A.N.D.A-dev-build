@@ -205,6 +205,34 @@ function getFlowNodeWidthForLabel(label: string, density: FlowDensity): number {
   return Math.round(layout.width + Math.min(maxExtraWidth, extraWidth));
 }
 
+function estimateChoiceRowWidth(choice: Choice, density: FlowDensity): number {
+  const previewLength = Math.max(7, choice.text.trim().length || 0);
+  const previewFreeChars = density === 'compact' ? 16 : density === 'standard' ? 22 : 28;
+  const previewCharWidth = density === 'compact' ? 5.2 : density === 'standard' ? 5.8 : 6.4;
+  const previewExtraWidth = Math.max(0, previewLength - previewFreeChars) * previewCharWidth;
+  const previewWidthCap = density === 'compact' ? 120 : density === 'standard' ? 190 : 240;
+
+  let controlsWidth = 88; // index + add-branch + connector handle
+  if (choice.continueTo != null) controlsWidth += 104; // unlink + handoff badge
+  controlsWidth += 48; // choice channel badge
+  if (hasPauseOutcome(choice)) controlsWidth += 42;
+  if (density !== 'compact' && choice.outcomes.length > 0) controlsWidth += 52;
+
+  return controlsWidth + Math.min(previewExtraWidth, previewWidthCap);
+}
+
+function getFlowNodeWidth(turn: Turn, turnLabel: string, density: FlowDensity): number {
+  const labelWidth = getFlowNodeWidthForLabel(turnLabel, density);
+  if (turn.choices.length === 0) return labelWidth;
+
+  const widestChoice = turn.choices.reduce((maxWidth, choice) => {
+    return Math.max(maxWidth, estimateChoiceRowWidth(choice, density));
+  }, 0);
+
+  // Include body padding + a small safety buffer so badges stay within the card edge.
+  return Math.round(Math.max(labelWidth, widestChoice + 30));
+}
+
 // ── Memoization caches ──
 let memoEdges: { key: string; edges: EdgeDescriptor[] } | null = null;
 let memoBounds: { key: string; bounds: ContentBounds } | null = null;
@@ -512,7 +540,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     if (!targetTurn) return;
     const targetLabel = turnLabels.getLongLabel(targetTurn.turnNumber);
     centerWorldPoint(
-      targetTurn.position.x + getFlowNodeWidthForLabel(targetLabel, density) / 2,
+      targetTurn.position.x + getFlowNodeWidth(targetTurn, targetLabel, density) / 2,
       targetTurn.position.y + estimateFlowNodeHeight(targetTurn, density) / 2,
       animate,
     );
@@ -820,7 +848,7 @@ function calculateContentBounds(conv: Conversation, density: FlowDensity): Conte
   let maxY = 0;
 
   for (const turn of conv.turns) {
-    const turnWidth = getFlowNodeWidthForLabel(turnLabels.getLongLabel(turn.turnNumber), density);
+    const turnWidth = getFlowNodeWidth(turn, turnLabels.getLongLabel(turn.turnNumber), density);
     maxX = Math.max(maxX, turn.position.x + turnWidth);
     maxY = Math.max(maxY, turn.position.y + estimateFlowNodeHeight(turn, density));
   }
@@ -887,7 +915,7 @@ function renderTurnNode(options: {
   const turnIndex = conv.turns.indexOf(turn);
   const factionColor = FACTION_COLORS[getConversationFaction(conv, state.project.faction)];
   const branchColor = getBranchColor(turn, turnIndex, factionColor);
-  const nodeWidth = getFlowNodeWidthForLabel(turnLabels.getLongLabel(turn.turnNumber), density);
+  const nodeWidth = getFlowNodeWidth(turn, turnLabels.getLongLabel(turn.turnNumber), density);
 
   const node = document.createElement('div');
 

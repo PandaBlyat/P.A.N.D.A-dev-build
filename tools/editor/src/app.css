@@ -2093,8 +2093,9 @@ body.use-custom-cursor * {
 .turn-node.connection-source::after {
   content: 'Dragging';
   position: absolute;
-  top: 8px;
+  top: 0;
   right: 10px;
+  transform: translateY(calc(-100% - 6px));
   padding: 2px 6px;
   border-radius: 999px;
   font-size: 9px;
@@ -2104,7 +2105,9 @@ body.use-custom-cursor * {
   color: var(--text-bright);
   background: color-mix(in srgb, var(--branch-color) 18%, rgba(0, 0, 0, 0.6));
   border: 1px solid color-mix(in srgb, var(--branch-color) 45%, transparent);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.28);
   pointer-events: none;
+  z-index: 4;
 }
 
 .turn-node.connection-target-active {
