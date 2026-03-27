@@ -1566,9 +1566,11 @@ local function collect_branches(npc_se, forced_context)
             registry_raw = tr(stem .. "_registry")
         end
 
+        local is_entry_turn = out_state and out_state.entry_turn and turn == out_state.entry_turn or false
         local turn_state = {
             turn = turn,
             turn_stem = turn_stem,
+            is_entry_turn = is_entry_turn,
             open_key = turn_open_key,
             preferred_open_key = turn_open_preferred,
             fallback_open_key = turn_open_fallback,
@@ -1576,6 +1578,17 @@ local function collect_branches(npc_se, forced_context)
             branches = {},
         }
         out_state.turns[turn] = turn_state
+
+        if not is_entry_turn and not missing_turn_open then
+            bridge_warn(
+                "collect_branches non_entry_turn_opener_ignored conv_id=%s turn=%s open_key=%s preferred=%s fallback=%s action=ignored_or_remapped",
+                tostring(cid),
+                tostring(turn),
+                tostring(turn_open_key or "nil"),
+                tostring(turn_open_preferred or "nil"),
+                tostring(turn_open_fallback or "nil")
+            )
+        end
 
         local missing_choices = 0
         local rejected_choice_keys = {}
@@ -1782,6 +1795,7 @@ local function collect_branches(npc_se, forced_context)
                         found = nil
                     else
                         found.turn = f2f_turn
+                        found.entry_turn = f2f_turn
                         found.turns = {}
                         bridge_debug(
                             "collect_branches: resolved branch context conv_id=%s turn=%s forced_active=%s",
@@ -1791,6 +1805,7 @@ local function collect_branches(npc_se, forced_context)
                         )
                         local root_turn = collect_turn_branches(stem, cid, f2f_turn, conv_req_story_npc, found)
                         found.turn_stem = root_turn.turn_stem
+                        found.is_entry_turn = root_turn.is_entry_turn
                         found.preferred_open_key = root_turn.preferred_open_key
                         found.fallback_open_key = root_turn.fallback_open_key
                         found.open_key = root_turn.open_key
@@ -1948,7 +1963,10 @@ local function build_dialog_tree(dialog, state)
     end
     local npc_open_phrase_id = state.open_key
     local npc_open_use_script_text = false
-    if state.missing_turn_open then
+    if state.is_entry_turn == false then
+        npc_open_phrase_id = nil
+        npc_open_use_script_text = false
+    elseif state.missing_turn_open then
         npc_open_phrase_id = "[DEBUG] Missing conversation opening line."
         npc_open_use_script_text = false
         bridge_warn(
@@ -2252,20 +2270,7 @@ local function build_dialog_tree(dialog, state)
 
                 if branch.next_channel == "f2f" and branch.next_turn then
                     local next_turn_state = get_turn_state(branch.next_turn)
-                    local next_open_phrase = next_turn_state and next_turn_state.open_key or nil
-                    if next_turn_state and next_turn_state.missing_turn_open then
-                        bridge_warn(
-                            "build_dialog_tree missing_next_turn_open conv_id=%s from_turn=%s to_turn=%s choice_key=%s preferred=%s fallback=%s action=exit_fallback",
-                            tostring(state.conv_id or "nil"),
-                            tostring(turn or "nil"),
-                            tostring(branch.next_turn or "nil"),
-                            tostring(branch.choice_key or "nil"),
-                            tostring(next_turn_state.preferred_open_key or "nil"),
-                            tostring(next_turn_state.fallback_open_key or "nil")
-                        )
-                        next_open_phrase = "[DEBUG] Missing conversation opening line."
-                    end
-                    if next_open_phrase then
+                    if next_turn_state then
                         bridge_debug(
                             "build_dialog_tree continuation conv_id=%s from_turn=%s to_turn=%s choice_key=%s direct_actor_next=%s npc_open_inserted=%s next_open_phrase=%s",
                             tostring(state.conv_id or "nil"),
@@ -2274,12 +2279,12 @@ local function build_dialog_tree(dialog, state)
                             tostring(branch.choice_key or "nil"),
                             "true",
                             "false",
-                            tostring(next_open_phrase or "nil")
+                            "ignored_non_entry"
                         )
                         build_turn(npc_id, branch.next_turn, depth + 1, visited_turns)
                     else
                         bridge_warn(
-                            "build_dialog_tree missing_next_turn_state_or_open conv_id=%s from_turn=%s to_turn=%s choice_key=%s action=exit_fallback",
+                            "build_dialog_tree missing_next_turn_state conv_id=%s from_turn=%s to_turn=%s choice_key=%s action=exit_fallback",
                             tostring(state.conv_id or "nil"),
                             tostring(turn or "nil"),
                             tostring(branch.next_turn or "nil"),
