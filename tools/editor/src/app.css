@@ -2401,6 +2401,10 @@ body.use-custom-cursor * {
   pointer-events: none;
 }
 
+.flow-edges-preview {
+  z-index: 6;
+}
+
 .flow-edge-path {
   fill: none;
   stroke: var(--flow-edge-color, var(--accent));
@@ -4211,8 +4215,7 @@ hr {
   padding-left: 12px;
 }
 
-.turn-input-port,
-.choice-output-port {
+.turn-input-port {
   position: absolute;
   width: 14px;
   height: 14px;
@@ -4232,13 +4235,31 @@ hr {
 
 .choice-output-port {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
   left: auto;
   top: auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  margin-left: auto;
+  margin-right: -3px;
+  touch-action: none;
+}
+
+.choice-output-port-dot {
   width: 12px;
   height: 12px;
-  margin-left: auto;
-  margin-right: 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 80%, transparent), color-mix(in srgb, var(--accent-dim) 72%, #10141a));
+  box-shadow: 0 0 0 2px rgba(8, 10, 12, 0.9), 0 0 10px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .choice-output-port.choice-output-port-left {
@@ -4251,15 +4272,15 @@ hr {
 }
 
 .turn-node:hover .turn-input-port,
-.turn-node:hover .choice-output-port,
+.turn-node:hover .choice-output-port-dot,
 .turn-node.selected .turn-input-port,
-.turn-node.selected .choice-output-port {
+.turn-node.selected .choice-output-port-dot {
   border-color: var(--branch-color, var(--accent));
   box-shadow: 0 0 0 2px rgba(8, 10, 12, 0.92), 0 0 14px var(--branch-glow, var(--accent-glow-strong));
 }
 
-.choice-output-port.connection-source-active,
-.turn-node.connection-source .choice-output-port.connection-source-active {
+.choice-output-port.connection-source-active .choice-output-port-dot,
+.turn-node.connection-source .choice-output-port.connection-source-active .choice-output-port-dot {
   border-color: color-mix(in srgb, var(--branch-color, var(--accent)) 85%, white);
   box-shadow: 0 0 0 2px rgba(8, 10, 12, 0.95), 0 0 16px color-mix(in srgb, var(--branch-color, var(--accent)) 60%, white);
 }
