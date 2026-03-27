@@ -2313,6 +2313,49 @@ local function build_dialog_tree(dialog, state)
     }
 end
 
+local function try_emergency_dialog_injection(dialog)
+    if not dialog or type(dialog.AddPhrase) ~= "function" then
+        return false
+    end
+
+    local root_phrase_id = "st_panda_f2f_root_entry"
+    local npc_fallback_phrase_id = "[PANDA] Conversation data unavailable."
+    local exit_phrase_id = "dm_universal_actor_exit"
+    local base_start = 1
+    local base_limit = 96
+
+    for base_id = base_start, base_limit do
+        local root_id = tostring(base_id)
+        local npc_id = tostring(base_id + 1)
+        local exit_id = tostring(base_id + 2)
+
+        local root_phrase = dialog:AddPhrase(root_phrase_id, root_id, "", -10000)
+        if root_phrase then
+            local npc_phrase = dialog:AddPhrase(npc_fallback_phrase_id, npc_id, root_id, -10000)
+            if npc_phrase then
+                local exit_node = dialog:AddPhrase(exit_phrase_id, exit_id, npc_id, -10000)
+                if exit_node then
+                    bridge_warn(
+                        "init_dialog emergency_fallback_injection emergency_injected=true sweep_base_id=%s root_id=%s npc_id=%s exit_id=%s",
+                        tostring(base_id),
+                        tostring(root_id),
+                        tostring(npc_id),
+                        tostring(exit_id)
+                    )
+                    return true
+                end
+            end
+        end
+    end
+
+    bridge_warn(
+        "init_dialog emergency_fallback_injection emergency_injected=false sweep_base_start=%s sweep_base_limit=%s",
+        tostring(base_start),
+        tostring(base_limit)
+    )
+    return false
+end
+
 function panda_f2f_bridge.precondition()
     ensure_callbacks_registered()
     bridge_warn("callback fired entry=hub_precondition name=%s", "panda_f2f_bridge.precondition")
@@ -2443,8 +2486,13 @@ function panda_f2f_bridge.init_dialog(dialog)
     local build_result = build_dialog_tree(dialog, state) or {}
     if build_result.build_ok ~= true then
         local active_npc_id = resolve_server_npc_id(state.npc_se, "init_dialog:build_failed")
+        local emergency_injected = try_emergency_dialog_injection(dialog) == true
+        local restored = false
+        if active_npc_id then
+            restored = panda_f2f_bridge.restore_branch_route(active_npc_id, nil) == true
+        end
         bridge_warn(
-            "init_dialog build_failed npc_id=%s conv_id=%s turn=%s build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s action=%s",
+            "init_dialog build_failed npc_id=%s conv_id=%s turn=%s build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s action=%s emergency_injected=%s route_restored=%s",
             tostring(active_npc_id or "nil"),
             tostring(state.conv_id or "nil"),
             tostring(state.turn or "nil"),
@@ -2454,13 +2502,14 @@ function panda_f2f_bridge.init_dialog(dialog)
             tostring(build_result.npc_open_ok == true),
             tostring(build_result.actor_choice_count_added or 0),
             tostring(build_result.npc_reply_count_added or 0),
-            "restore_dialog_route"
+            "restore_dialog_route",
+            tostring(emergency_injected),
+            tostring(restored)
         )
-        if active_npc_id then
-            panda_f2f_bridge.restore_branch_route(active_npc_id, nil)
-        end
         runtime.latest_state = nil
-        return
+        if not emergency_injected then
+            return
+        end
     end
     bridge_warn(
         "init_dialog build_complete npc_id=%s conv_id=%s turn=%s open_key=%s branch_count=%s missing_turn_open=%s build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s",
