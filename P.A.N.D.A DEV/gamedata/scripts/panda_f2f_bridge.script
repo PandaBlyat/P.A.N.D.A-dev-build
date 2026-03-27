@@ -40,6 +40,78 @@ local function get_dialog_manager_iface()
     return _G
 end
 
+local function normalize_lookup_id(id)
+    local sid = tonumber(id)
+    if not sid or sid <= 0 then
+        return nil
+    end
+    return math.floor(sid)
+end
+
+local function resolve_current_talker_id()
+    if mob_trade and type(mob_trade.GetTalkingNpc) == "function" then
+        local ok_talker, talker = pcall(function() return mob_trade.GetTalkingNpc() end)
+        if ok_talker and talker then
+            local talker_id = talker.id
+            if type(talker.id) == "function" then
+                local ok_id, id_from_fn = pcall(function() return talker:id() end)
+                if ok_id then
+                    talker_id = id_from_fn
+                end
+            end
+            talker_id = normalize_lookup_id(talker_id)
+            if talker_id then
+                return talker_id
+            end
+        end
+    end
+
+    if type(get_speaker) == "function" then
+        local ok_speaker, speaker = pcall(function() return get_speaker() end)
+        if ok_speaker and speaker then
+            local speaker_id = speaker.id
+            if type(speaker.id) == "function" then
+                local ok_id, id_from_fn = pcall(function() return speaker:id() end)
+                if ok_id then
+                    speaker_id = id_from_fn
+                end
+            end
+            speaker_id = normalize_lookup_id(speaker_id)
+            if speaker_id then
+                return speaker_id
+            end
+        end
+    end
+
+    return nil
+end
+
+local function resolve_story_id_for_sid(sid)
+    if type(get_object_story_id) ~= "function" then
+        return nil
+    end
+    local ok_story, resolved_story_id = pcall(function() return get_object_story_id(sid) end)
+    if ok_story and resolved_story_id and resolved_story_id ~= "" then
+        return tostring(resolved_story_id)
+    end
+    return nil
+end
+
+local function handoff_matches_talker_identity(handoff_npc_sid, talker_sid)
+    if not handoff_npc_sid or not talker_sid then
+        return false
+    end
+    if handoff_npc_sid == talker_sid then
+        return true
+    end
+    local handoff_story_id = resolve_story_id_for_sid(handoff_npc_sid)
+    local talker_story_id = resolve_story_id_for_sid(talker_sid)
+    if handoff_story_id and talker_story_id and handoff_story_id == talker_story_id then
+        return true
+    end
+    return false
+end
+
 local function get_partner_npc_se()
     local sim = alife and alife()
     if not sim then
@@ -49,80 +121,9 @@ local function get_partner_npc_se()
 
     local pending_conv_id = nil
     local partner_id = nil
-    local function normalize_lookup_id(id)
-        local sid = tonumber(id)
-        if not sid or sid <= 0 then
-            return nil
-        end
-        return math.floor(sid)
-    end
     local function resolve_pending_handoff_candidate()
         local api = get_conv_api()
         local found = nil
-
-        local function resolve_current_talker_id()
-            if mob_trade and type(mob_trade.GetTalkingNpc) == "function" then
-                local ok_talker, talker = pcall(function() return mob_trade.GetTalkingNpc() end)
-                if ok_talker and talker then
-                    local talker_id = talker.id
-                    if type(talker.id) == "function" then
-                        local ok_id, id_from_fn = pcall(function() return talker:id() end)
-                        if ok_id then
-                            talker_id = id_from_fn
-                        end
-                    end
-                    talker_id = normalize_lookup_id(talker_id)
-                    if talker_id then
-                        return talker_id
-                    end
-                end
-            end
-
-            if type(get_speaker) == "function" then
-                local ok_speaker, speaker = pcall(function() return get_speaker() end)
-                if ok_speaker and speaker then
-                    local speaker_id = speaker.id
-                    if type(speaker.id) == "function" then
-                        local ok_id, id_from_fn = pcall(function() return speaker:id() end)
-                        if ok_id then
-                            speaker_id = id_from_fn
-                        end
-                    end
-                    speaker_id = normalize_lookup_id(speaker_id)
-                    if speaker_id then
-                        return speaker_id
-                    end
-                end
-            end
-
-            return nil
-        end
-
-        local function resolve_story_id_for_sid(sid)
-            if type(get_object_story_id) ~= "function" then
-                return nil
-            end
-            local ok_story, resolved_story_id = pcall(function() return get_object_story_id(sid) end)
-            if ok_story and resolved_story_id and resolved_story_id ~= "" then
-                return tostring(resolved_story_id)
-            end
-            return nil
-        end
-
-        local function handoff_matches_talker_identity(handoff_npc_sid, talker_sid)
-            if not handoff_npc_sid or not talker_sid then
-                return false
-            end
-            if handoff_npc_sid == talker_sid then
-                return true
-            end
-            local handoff_story_id = resolve_story_id_for_sid(handoff_npc_sid)
-            local talker_story_id = resolve_story_id_for_sid(talker_sid)
-            if handoff_story_id and talker_story_id and handoff_story_id == talker_story_id then
-                return true
-            end
-            return false
-        end
 
         local function validate_handoff(path, handoff)
             if type(handoff) ~= "table" then
@@ -2103,6 +2104,19 @@ function panda_f2f_bridge.precondition()
     )
     if not handoff then
         return reject_hub_activation("invalid_handoff_context")
+    end
+
+    local talker_id = resolve_current_talker_id()
+    if not talker_id then
+        return reject_hub_activation("missing_talk_target")
+    end
+    if not handoff_matches_talker_identity(tonumber(handoff.npc_id), talker_id) then
+        bridge_debug(
+            "precondition reject: talk_target_mismatch talker_id=%s handoff_npc_id=%s",
+            tostring(talker_id),
+            tostring(handoff and handoff.npc_id or "nil")
+        )
+        return reject_hub_activation("talk_target_mismatch")
     end
 
     local state = collect_branches(npc_se, handoff)
