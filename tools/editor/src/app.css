@@ -4222,6 +4222,7 @@ hr {
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 80%, transparent), color-mix(in srgb, var(--accent-dim) 72%, #10141a));
   box-shadow: 0 0 0 2px rgba(8, 10, 12, 0.9), 0 0 10px color-mix(in srgb, var(--accent) 20%, transparent);
   z-index: 3;
+  touch-action: none;
 }
 
 .turn-input-port {
@@ -4246,6 +4247,24 @@ hr {
 .turn-node.selected .choice-output-port {
   border-color: var(--branch-color, var(--accent));
   box-shadow: 0 0 0 2px rgba(8, 10, 12, 0.92), 0 0 14px var(--branch-glow, var(--accent-glow-strong));
+}
+
+.choice-output-port.connection-source-active,
+.turn-node.connection-source .choice-output-port.connection-source-active {
+  border-color: color-mix(in srgb, var(--branch-color, var(--accent)) 85%, white);
+  box-shadow: 0 0 0 2px rgba(8, 10, 12, 0.95), 0 0 16px color-mix(in srgb, var(--branch-color, var(--accent)) 60%, white);
+}
+
+.turn-input-port.connection-target-active,
+.turn-node.connection-target-active .turn-input-port {
+  transform: scale(1.13);
+  border-color: color-mix(in srgb, var(--branch-color, var(--accent)) 85%, white);
+  box-shadow: 0 0 0 2px rgba(8, 10, 12, 0.94), 0 0 18px color-mix(in srgb, var(--branch-color, var(--accent)) 65%, white);
+}
+
+.turn-input-port.connection-target-invalid {
+  border-color: color-mix(in srgb, var(--danger) 85%, white);
+  box-shadow: 0 0 0 2px rgba(8, 10, 12, 0.95), 0 0 14px color-mix(in srgb, var(--danger) 70%, transparent);
 }
 
 .turn-header {
@@ -4342,6 +4361,11 @@ hr {
   stroke: var(--flow-edge-color, color-mix(in srgb, var(--accent) 65%, transparent));
   fill: none;
   stroke-dasharray: 8 6;
+}
+
+.flow-edge-path.edge-preview-invalid {
+  stroke: color-mix(in srgb, var(--danger) 82%, #f7d0d0);
+  opacity: 0.85;
 }
 
 .flow-edge-path.edge-continue {
