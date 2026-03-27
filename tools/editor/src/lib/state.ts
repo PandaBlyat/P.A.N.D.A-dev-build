@@ -102,6 +102,13 @@ function inferTurnFirstSpeaker(turn: Pick<Turn, 'firstSpeaker' | 'f2f_entry' | '
   return turn.channel === 'f2f' ? 'player' : 'npc';
 }
 
+function normalizeChannelValue(channel: Turn['channel'] | Choice['channel'] | Choice['continue_channel'] | undefined, fallback: 'pda' | 'f2f' = 'pda'): 'pda' | 'f2f' {
+  if (channel === 'pda' || channel === 'f2f') {
+    return channel;
+  }
+  return fallback;
+}
+
 function normalizeTurnEntryFlags(turn: Turn): void {
   if (turn.channel === 'pda') {
     turn.f2f_entry = false;
@@ -636,12 +643,12 @@ class StateManager {
   ): Choice {
     const choice = createChoice(index);
     choice.text = sourceChoice.text;
-    choice.channel = sourceChoice.channel ?? 'pda';
+    choice.channel = normalizeChannelValue(sourceChoice.channel, 'pda');
     choice.reply = sourceChoice.reply;
     if (sourceChoice.replyRelHigh != null) choice.replyRelHigh = sourceChoice.replyRelHigh;
     if (sourceChoice.replyRelLow != null) choice.replyRelLow = sourceChoice.replyRelLow;
     choice.outcomes = this.cloneOutcomeList(sourceChoice.outcomes);
-    choice.continue_channel = sourceChoice.continue_channel ?? 'pda';
+    choice.continue_channel = normalizeChannelValue(sourceChoice.continue_channel, 'pda');
     choice.story_npc_id = sourceChoice.story_npc_id;
     choice.npc_faction_filters = sourceChoice.npc_faction_filters ? [...sourceChoice.npc_faction_filters] : undefined;
     choice.npc_profile_filters = sourceChoice.npc_profile_filters ? [...sourceChoice.npc_profile_filters] : undefined;
@@ -663,7 +670,7 @@ class StateManager {
   ): Turn {
     const turn = createTurn(turnNumber);
     turn.openingMessage = sourceTurn.openingMessage;
-    turn.channel = sourceTurn.channel ?? 'both';
+    turn.channel = normalizeChannelValue(sourceTurn.channel, 'pda');
     turn.pda_entry = sourceTurn.pda_entry ?? turnNumber === 1;
     turn.f2f_entry = sourceTurn.f2f_entry ?? false;
     turn.firstSpeaker = inferTurnFirstSpeaker(sourceTurn);
@@ -681,7 +688,7 @@ class StateManager {
         faction: getConversationFaction(conversation, project.faction),
         turns: conversation.turns.map((turn, turnIndex) => ({
           ...turn,
-          channel: turn.channel ?? 'both',
+          channel: normalizeChannelValue(turn.channel, 'pda'),
           pda_entry: turn.pda_entry ?? turn.turnNumber === 1,
           f2f_entry: turn.f2f_entry ?? false,
           firstSpeaker: inferTurnFirstSpeaker(turn),
@@ -689,8 +696,8 @@ class StateManager {
           choices: turn.choices.map((choice, choiceIndex) => ({
             ...choice,
             index: choice.index ?? choiceIndex + 1,
-            channel: choice.channel ?? 'pda',
-            continue_channel: choice.continue_channel ?? 'pda',
+            channel: normalizeChannelValue(choice.channel, 'pda'),
+            continue_channel: normalizeChannelValue(choice.continue_channel, 'pda'),
             allow_generic_stalker: choice.allow_generic_stalker ?? false,
           })),
         })),

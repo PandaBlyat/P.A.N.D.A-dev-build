@@ -188,12 +188,32 @@ function normalizeSequentialConversationIds(project: Project): Project {
   };
 }
 
-const CHANNEL_VALUES: ConversationChannel[] = ['pda', 'f2f', 'both'];
+type LegacyChannelNormalizationWarning = {
+  scope: 'turn' | 'choice' | 'continue';
+  conversationId: number;
+  turnNumber: number;
+  choiceIndex?: number;
+};
 
-function normalizeChannel(value: unknown, fallback: ConversationChannel): ConversationChannel {
-  return typeof value === 'string' && CHANNEL_VALUES.includes(value as ConversationChannel)
-    ? value as ConversationChannel
-    : fallback;
+function normalizeChannel(
+  value: unknown,
+  fallback: ConversationChannel,
+  warningSink?: LegacyChannelNormalizationWarning[],
+  warningContext?: Omit<LegacyChannelNormalizationWarning, 'scope'> & { scope: LegacyChannelNormalizationWarning['scope'] },
+): ConversationChannel {
+  if (value === 'pda' || value === 'f2f') {
+    return value;
+  }
+  if (value === 'both') {
+    warningSink?.push({
+      scope: warningContext?.scope ?? 'turn',
+      conversationId: warningContext?.conversationId ?? 0,
+      turnNumber: warningContext?.turnNumber ?? 0,
+      choiceIndex: warningContext?.choiceIndex,
+    });
+    return 'pda';
+  }
+  return fallback;
 }
 
 function normalizeFaction(value: unknown, fallback: FactionId): FactionId {
@@ -208,8 +228,17 @@ function normalizeStringArray(values: unknown): string[] | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
-function normalizeTurn(turn: Turn, fallbackPosition: { x: number; y: number }): Turn {
-  const normalizedChannel = normalizeChannel(turn.channel, 'both');
+function normalizeTurn(
+  conversationId: number,
+  turn: Turn,
+  fallbackPosition: { x: number; y: number },
+  warningSink: LegacyChannelNormalizationWarning[],
+): Turn {
+  const normalizedChannel = normalizeChannel(turn.channel, 'pda', warningSink, {
+    scope: 'turn',
+    conversationId,
+    turnNumber: turn.turnNumber,
+  });
   const normalizedF2fEntry = typeof turn.f2f_entry === 'boolean' ? turn.f2f_entry : false;
   const normalizedFirstSpeaker = turn.firstSpeaker === 'npc' || turn.firstSpeaker === 'player'
     ? turn.firstSpeaker
@@ -222,16 +251,32 @@ function normalizeTurn(turn: Turn, fallbackPosition: { x: number; y: number }): 
     pda_entry: typeof turn.pda_entry === 'boolean' ? turn.pda_entry : turn.turnNumber === 1,
     f2f_entry: normalizedF2fEntry,
     position: turn.position ?? fallbackPosition,
-    choices: turn.choices.map((choice, index) => normalizeChoice(choice, index + 1)),
+    choices: turn.choices.map((choice, index) => normalizeChoice(conversationId, turn.turnNumber, choice, index + 1, warningSink)),
   };
 }
 
-function normalizeChoice(choice: Choice, fallbackIndex: number): Choice {
+function normalizeChoice(
+  conversationId: number,
+  turnNumber: number,
+  choice: Choice,
+  fallbackIndex: number,
+  warningSink: LegacyChannelNormalizationWarning[],
+): Choice {
   return {
     ...choice,
     index: typeof choice.index === 'number' ? choice.index : fallbackIndex,
-    channel: normalizeChannel(choice.channel, 'pda'),
-    continue_channel: normalizeChannel(choice.continue_channel, 'pda'),
+    channel: normalizeChannel(choice.channel, 'pda', warningSink, {
+      scope: 'choice',
+      conversationId,
+      turnNumber,
+      choiceIndex: typeof choice.index === 'number' ? choice.index : fallbackIndex,
+    }),
+    continue_channel: normalizeChannel(choice.continue_channel, 'pda', warningSink, {
+      scope: 'continue',
+      conversationId,
+      turnNumber,
+      choiceIndex: typeof choice.index === 'number' ? choice.index : fallbackIndex,
+    }),
     story_npc_id: typeof choice.story_npc_id === 'string' && choice.story_npc_id.trim().length > 0
       ? choice.story_npc_id.trim()
       : undefined,
@@ -241,22 +286,77 @@ function normalizeChoice(choice: Choice, fallbackIndex: number): Choice {
   };
 }
 
-function normalizeConversation(conversation: Conversation, fallbackFaction: FactionId): Conversation {
+function normalizeConversation(
+  conversation: Conversation,
+  fallbackFaction: FactionId,
+  warningSink: LegacyChannelNormalizationWarning[],
+): Conversation {
   return {
     ...conversation,
     faction: normalizeFaction(conversation.faction, fallbackFaction),
-    turns: conversation.turns.map((turn, index) => normalizeTurn(turn, { x: index * 340, y: 220 })),
+    turns: conversation.turns.map((turn, index) => normalizeTurn(conversation.id, turn, { x: index * 340, y: 220 }, warningSink)),
   };
 }
 
 function normalizeProjectData(project: Project): Project {
+  const normalizationWarnings: LegacyChannelNormalizationWarning[] = [];
   const fallbackFaction = normalizeFaction(project.faction, 'stalker');
   const normalized: Project = {
     ...project,
     version: typeof project.version === 'string' && project.version.trim().length > 0 ? project.version : '2.0.0',
     faction: fallbackFaction,
-    conversations: project.conversations.map((conversation) => normalizeConversation(conversation, fallbackFaction)),
+    conversations: project.conversations.map((conversation) => normalizeConversation(conversation, fallbackFaction, normalizationWarnings)),
   };
 
-  return migrateLegacyF2FEntryOpenings(normalized);
+  const migrated = migrateLegacyF2FEntryOpenings(normalized);
+  appendLegacyChannelWarnings(migrated, normalizationWarnings);
+  maybeAlertLegacyChannelWarnings(normalizationWarnings);
+  return migrated;
+}
+
+function appendLegacyChannelWarnings(project: Project, warnings: LegacyChannelNormalizationWarning[]): void {
+  if (warnings.length === 0) return;
+  const byTurn = new Map<string, string[]>();
+  for (const warning of warnings) {
+    if (warning.scope === 'turn') {
+      const key = `${warning.conversationId}:${warning.turnNumber}`;
+      const list = byTurn.get(key) ?? [];
+      list.push('Legacy "both" turn channel was migrated to PDA.');
+      byTurn.set(key, list);
+      continue;
+    }
+    if (warning.choiceIndex == null) continue;
+    const key = `${warning.conversationId}:${warning.turnNumber}`;
+    const list = byTurn.get(key) ?? [];
+    const label = warning.scope === 'choice' ? 'choice visibility' : 'choice handoff channel';
+    list.push(`Legacy "both" ${label} on Choice ${warning.choiceIndex} was migrated to PDA.`);
+    byTurn.set(key, list);
+  }
+
+  for (const conversation of project.conversations) {
+    for (const turn of conversation.turns) {
+      const key = `${conversation.id}:${turn.turnNumber}`;
+      const messages = byTurn.get(key);
+      if (!messages || messages.length === 0) continue;
+      const existing = turn.migrationWarnings ?? [];
+      turn.migrationWarnings = [...existing, ...messages];
+    }
+  }
+}
+
+function maybeAlertLegacyChannelWarnings(warnings: LegacyChannelNormalizationWarning[]): void {
+  if (warnings.length === 0 || typeof window === 'undefined') {
+    return;
+  }
+
+  const labels = warnings.map((warning) => {
+    const prefix = `Conversation ${warning.conversationId}, Turn ${warning.turnNumber}`;
+    if (warning.scope === 'turn') return `${prefix} (turn channel)`;
+    const suffix = warning.scope === 'choice' ? 'choice channel' : 'continue channel';
+    return `${prefix}, Choice ${warning.choiceIndex} (${suffix})`;
+  });
+  const unique = Array.from(new Set(labels));
+  alert(
+    `Legacy channel value "both" was migrated to "pda" for compatibility.\n\nAffected items:\n- ${unique.join('\n- ')}`,
+  );
 }
