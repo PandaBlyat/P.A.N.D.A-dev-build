@@ -196,12 +196,11 @@ function generateConversation(conv: Conversation, factionKey: string, exportId: 
   for (const turn of conv.turns) {
     const turnInfix = turn.turnNumber === 1 ? '' : `_t${turn.turnNumber}`;
 
-    // Opening message (turn 1 only). For F2F entry turns, emit a non-authored
-    // starter placeholder so authored lines begin at choice/reply rows.
-    if (turn.turnNumber === 1) {
-      const openingText = isF2FEntryTurn(turn) ? '' : (turn.openingMessage ?? '');
-      lines.push(emitString(`${prefix}_open`, openingText));
-    }
+    // Opening message (all turns). For F2F entry turns, reserve `_open` as
+    // handshake padding so player-visible authored dialogue starts at `choice_1`.
+    const openingKey = `${prefix}${turnInfix}_open`;
+    const openingText = isF2FEntryTurn(turn) ? '' : (turn.openingMessage ?? '');
+    lines.push(emitString(openingKey, openingText));
 
     // Choices
     for (const choice of turn.choices) {
