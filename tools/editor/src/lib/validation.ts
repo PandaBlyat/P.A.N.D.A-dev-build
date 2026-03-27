@@ -989,6 +989,22 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
     const f2fVisibleChoices = turn.choices.filter((choice) => isChannelVisible(normalizeChannel(choice.channel, 'pda'), 'f2f'));
 
     for (const choice of turn.choices) {
+      if (choice.continue_channel != null && !isStrictChannel(choice.continue_channel)) {
+        pushMessage(messages, {
+          code: 'invalid-continue-channel',
+          group: 'schema',
+          scope: 'choice',
+          level: 'error',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          propertiesTab: 'selection',
+          fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-channel'),
+          fieldLabel: 'Continue Channel',
+          message: `Branch ${turn.turnNumber}, Choice ${choice.index} has invalid continuation channel "${String(choice.continue_channel)}". Use only "pda" or "f2f".`,
+        });
+      }
+
       const choiceChannel = normalizeChannel(choice.channel, 'pda');
       const continueChannel = normalizeChannel(choice.continue_channel, 'pda');
 
@@ -1192,6 +1208,10 @@ function normalizeChannel(
     return channel;
   }
   return fallback;
+}
+
+function isStrictChannel(channel: unknown): channel is 'pda' | 'f2f' {
+  return channel === 'pda' || channel === 'f2f';
 }
 
 function isChannelVisible(value: 'pda' | 'f2f', target: 'pda' | 'f2f'): boolean {
