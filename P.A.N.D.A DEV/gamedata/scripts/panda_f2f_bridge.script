@@ -13,7 +13,10 @@ local HUB_DIALOG_ID = "panda_f2f_hub_dialog"
 local BRANCH_HARD_ROUTE_SUFFIX = "_f2f_hard_route"
 local SAVE_KEY_OVERRIDE_OWNERS = "panda_f2f_bridge_override_owners"
 local RECENT_HANDOFF_GRACE_MS = 2 * 60 * 1000
-local HUB_DYNAMIC_NODE_ID_START = 10000
+local HUB_DYNAMIC_NODE_ID_START = 64
+local HUB_DYNAMIC_NODE_ID_STEP = 64
+local HUB_DYNAMIC_NODE_ID_SCAN_RANGES = 8
+local HUB_DYNAMIC_NODE_ID_RETRY_OFFSET = 64
 local bridge_debug
 
 local runtime = {
@@ -387,6 +390,63 @@ local function make_allocator(start_id)
         next_id = next_id + 1
         return out
     end
+end
+
+local function dialog_has_node_id(dialog, node_id)
+    if not dialog then
+        return false
+    end
+
+    local probe_methods = {
+        "GetPhrase",
+        "GetPhraseByID",
+        "GetPhraseById",
+        "GetDialogPhrase",
+    }
+
+    for _, method_name in ipairs(probe_methods) do
+        local probe = dialog[method_name]
+        if type(probe) == "function" then
+            local ok_sid, sid_result = pcall(function() return probe(dialog, tostring(node_id)) end)
+            if ok_sid and sid_result ~= nil then
+                return true
+            end
+
+            local ok_num, num_result = pcall(function() return probe(dialog, node_id) end)
+            if ok_num and num_result ~= nil then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+local function pick_free_allocator_start(dialog, preferred_start, range_size, max_ranges)
+    local base_start = tonumber(preferred_start) or 0
+    base_start = math.max(0, math.floor(base_start))
+    local bucket_size = tonumber(range_size) or 64
+    bucket_size = math.max(1, math.floor(bucket_size))
+    local ranges_to_scan = tonumber(max_ranges) or 1
+    ranges_to_scan = math.max(1, math.floor(ranges_to_scan))
+
+    for scan_idx = 0, (ranges_to_scan - 1) do
+        local candidate_start = base_start + (scan_idx * bucket_size)
+        local collision = false
+
+        for offset = 0, (bucket_size - 1) do
+            if dialog_has_node_id(dialog, candidate_start + offset) then
+                collision = true
+                break
+            end
+        end
+
+        if not collision then
+            return candidate_start, "scan", scan_idx + 1
+        end
+    end
+
+    return base_start + (ranges_to_scan * bucket_size), "fallback_unverified", ranges_to_scan + 1
 end
 
 local function tr(key)
@@ -1738,7 +1798,7 @@ local function dm_bind_saved_dialog(dm, state)
     return dm.saved_dialog == state.dialog
 end
 
-local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_script_text)
+local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_script_text, alloc_range_start)
     local dm = get_dialog_manager_iface()
     local phrase_text = tostring(phrase_id or "")
     local allow_script_text = use_script_text and phrase_text:find("^dialogs%.") ~= nil
@@ -1751,12 +1811,13 @@ local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_scr
     end
 
     bridge_debug(
-        "dm_add_dialog insert phrase_id=%s parent_id=%s node_id=%s add_phrase_ret=%s script_text_mode=%s",
+        "dm_add_dialog insert phrase_id=%s parent_id=%s node_id=%s add_phrase_ret=%s script_text_mode=%s alloc_range_start=%s",
         tostring(phrase_id or "nil"),
         tostring(parent_id or "nil"),
         tostring(id or "nil"),
         tostring(phrase ~= nil),
-        tostring(allow_script_text == true)
+        tostring(allow_script_text == true),
+        tostring(alloc_range_start or "nil")
     )
 
     if phrase then
@@ -1770,11 +1831,12 @@ local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_scr
         end
 
         bridge_debug(
-            "dm_add_dialog success phrase_id=%s parent_id=%s node_id=%s script_ret=%s",
+            "dm_add_dialog success phrase_id=%s parent_id=%s node_id=%s script_ret=%s alloc_range_start=%s",
             tostring(phrase_id or "nil"),
             tostring(parent_id or "nil"),
             tostring(id or "nil"),
-            tostring(script ~= nil)
+            tostring(script ~= nil),
+            tostring(alloc_range_start or "nil")
         )
 
         return script
@@ -1782,23 +1844,31 @@ local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_scr
 
     local fallback_bound_dialog = dm_bind_saved_dialog(dm, state)
     bridge_warn(
-        "dm_add_dialog hard_fail reason=add_phrase_failed phrase_id=%s parent_id=%s node_id=%s fallback_bound_dialog=%s",
+        "dm_add_dialog hard_fail reason=add_phrase_failed phrase_id=%s parent_id=%s node_id=%s fallback_bound_dialog=%s alloc_range_start=%s",
         tostring(phrase_id or "nil"),
         tostring(parent_id or "nil"),
         tostring(id or "nil"),
-        tostring(fallback_bound_dialog)
+        tostring(fallback_bound_dialog),
+        tostring(alloc_range_start or "nil")
     )
 
     return nil
 end
 
 local function build_dialog_tree(dialog, state)
-    local alloc = make_allocator(HUB_DYNAMIC_NODE_ID_START)
+    local initial_range_start, alloc_probe_mode, alloc_probe_attempt = pick_free_allocator_start(
+        dialog,
+        HUB_DYNAMIC_NODE_ID_START,
+        HUB_DYNAMIC_NODE_ID_STEP,
+        HUB_DYNAMIC_NODE_ID_SCAN_RANGES
+    )
+    local range_attempts = { initial_range_start, initial_range_start + HUB_DYNAMIC_NODE_ID_RETRY_OFFSET }
+    local alloc = nil
+    local selected_range_start = nil
     local token = tostring(time_global and time_global() or math.random(10000, 99999))
     local exit_phrase = "dm_universal_actor_exit"
 
     state.dialog = dialog
-    state.alloc = alloc
     state.handlers = {}
 
     local root_phrase_id = "st_panda_f2f_root_entry"
@@ -1837,20 +1907,20 @@ local function build_dialog_tree(dialog, state)
         tostring(state.turn or "nil")
     )
 
-    local first_allocated_id = alloc()
     bridge_debug(
-        "build_dialog_tree allocator_range start=%s next=%s conv_id=%s turn=%s",
-        tostring(first_allocated_id),
-        tostring(first_allocated_id + 1),
+        "build_dialog_tree allocator_probe_result start=%s mode=%s scanned_ranges=%s conv_id=%s turn=%s",
+        tostring(initial_range_start),
+        tostring(alloc_probe_mode),
+        tostring(alloc_probe_attempt),
         tostring(state.conv_id or "nil"),
         tostring(state.turn or "nil")
     )
 
-    local root_id = first_allocated_id
-    local npc_open_id = alloc()
+    local root_id = nil
+    local npc_open_id = nil
     local generated_ids = {
-        root = { root_id },
-        open = { npc_open_id },
+        root = {},
+        open = {},
         choice = {},
         reply = {},
         exit = {},
@@ -1860,18 +1930,23 @@ local function build_dialog_tree(dialog, state)
     local npc_open_ok = false
     local actor_choice_count_added = 0
     local npc_reply_count_added = 0
-    local function add_logged_node(parent_id, node_id, phrase_id, cond, act, allow_script_text, role)
+    local function add_logged_node(parent_id, node_id, phrase_id, cond, act, allow_script_text, role, alloc_range_start)
+        local active_range_start = alloc_range_start
+        if active_range_start == nil then
+            active_range_start = selected_range_start
+        end
         bridge_debug(
-            "build_dialog_tree insert role=%s parent_id=%s node_id=%s phrase_id=%s cond=%s act=%s script_text=%s",
+            "build_dialog_tree insert role=%s parent_id=%s node_id=%s phrase_id=%s cond=%s act=%s script_text=%s alloc_range_start=%s",
             tostring(role or "unknown"),
             tostring(parent_id or "nil"),
             tostring(node_id or "nil"),
             tostring(phrase_id or "nil"),
             tostring(cond or "nil"),
             tostring(act or "nil"),
-            tostring(allow_script_text == true)
+            tostring(allow_script_text == true),
+            tostring(active_range_start or "nil")
         )
-        local ok = dm_add_dialog(state, parent_id, node_id, phrase_id, cond, act, allow_script_text)
+        local ok = dm_add_dialog(state, parent_id, node_id, phrase_id, cond, act, allow_script_text, active_range_start)
         if ok then
             nodes_added = nodes_added + 1
             if role == "root_actor_entry" then
@@ -1887,8 +1962,75 @@ local function build_dialog_tree(dialog, state)
         return ok
     end
 
-    add_logged_node("", root_id, root_phrase_id, nil, nil, root_use_script_text, "root_actor_entry")
-    add_logged_node(root_id, npc_open_id, npc_open_phrase_id, nil, nil, npc_open_use_script_text, "npc_open")
+    for attempt_idx, range_start in ipairs(range_attempts) do
+        alloc = make_allocator(range_start)
+        local first_allocated_id = alloc()
+        root_id = first_allocated_id
+        npc_open_id = alloc()
+        generated_ids.root = { root_id }
+        generated_ids.open = { npc_open_id }
+
+        bridge_debug(
+            "build_dialog_tree allocator_range attempt=%s start=%s next=%s conv_id=%s turn=%s",
+            tostring(attempt_idx),
+            tostring(first_allocated_id),
+            tostring(first_allocated_id + 1),
+            tostring(state.conv_id or "nil"),
+            tostring(state.turn or "nil")
+        )
+
+        local root_added = add_logged_node("", root_id, root_phrase_id, nil, nil, root_use_script_text, "root_actor_entry", range_start)
+        local open_added = add_logged_node(root_id, npc_open_id, npc_open_phrase_id, nil, nil, npc_open_use_script_text, "npc_open", range_start)
+        if root_added and open_added then
+            selected_range_start = range_start
+            break
+        end
+
+        bridge_warn(
+            "build_dialog_tree allocator_retry reason=root_or_open_insert_failed attempt=%s alloc_range_start=%s root_ok=%s npc_open_ok=%s conv_id=%s turn=%s",
+            tostring(attempt_idx),
+            tostring(range_start),
+            tostring(root_added == true),
+            tostring(open_added == true),
+            tostring(state.conv_id or "nil"),
+            tostring(state.turn or "nil")
+        )
+        if attempt_idx < #range_attempts then
+            root_ok = false
+            npc_open_ok = false
+        end
+    end
+
+    state.alloc = alloc
+    if not selected_range_start then
+        bridge_warn(
+            "build_dialog_tree fail reason=root_or_open_insert_failed alloc_range_primary=%s alloc_range_secondary=%s conv_id=%s turn=%s",
+            tostring(range_attempts[1] or "nil"),
+            tostring(range_attempts[2] or "nil"),
+            tostring(state.conv_id or "nil"),
+            tostring(state.turn or "nil")
+        )
+        local build_ok = false
+        bridge_debug(
+            "build_dialog_tree summary build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s conv_id=%s turn=%s",
+            tostring(build_ok),
+            tostring(nodes_added),
+            tostring(root_ok),
+            tostring(npc_open_ok),
+            tostring(actor_choice_count_added),
+            tostring(npc_reply_count_added),
+            tostring(state.conv_id or "nil"),
+            tostring(state.turn or "nil")
+        )
+        return {
+            build_ok = build_ok,
+            nodes_added = nodes_added,
+            root_ok = root_ok,
+            npc_open_ok = npc_open_ok,
+            actor_choice_count_added = actor_choice_count_added,
+            npc_reply_count_added = npc_reply_count_added,
+        }
+    end
 
     local function register_dispatcher(branch)
         local idx = branch.index
