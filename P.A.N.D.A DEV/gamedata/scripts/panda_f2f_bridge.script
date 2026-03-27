@@ -1958,35 +1958,50 @@ local function build_dialog_tree(dialog, state)
             end
 
             local ok = execute_shared_outcome(branch, active_state)
+            local pending_consumed = false
+            local override_restored = false
             if ok then
                 -- Consume only after a player-selected branch is committed.
-                consume_pending_handoff_for_npc(active_state.npc_se)
+                pending_consumed = consume_pending_handoff_for_npc(active_state.npc_se) == true
             end
-            if branch.hard_route and routed then
-                local keep_hub_override = branch.keep_hub_override == true
-                if not keep_hub_override then
-                    local restored = panda_f2f_bridge.restore_branch_route(active_npc_id, owner_tag)
-                    if ok and active_npc_id then
-                        runtime.override_owners[tostring(active_npc_id)] = nil
+
+            local keep_hub_override = branch.keep_hub_override == true
+            local should_restore_override = ok and active_npc_id and not keep_hub_override
+            if should_restore_override then
+                local restored = false
+                if owner_tag then
+                    restored = panda_f2f_bridge.restore_branch_route(active_npc_id, owner_tag) == true
+                    if not restored then
+                        restored = panda_f2f_bridge.restore_branch_route(active_npc_id, nil) == true
                     end
-                    bridge_debug(
-                        "register_dispatcher: hard_route cleanup branch=%s conv_id=%s turn=%s ok=%s restored=%s",
-                        tostring(branch.index),
-                        tostring(active_state.conv_id or "nil"),
-                        tostring(active_state.turn or "nil"),
-                        tostring(ok),
-                        tostring(restored)
-                    )
                 else
-                    bridge_debug(
-                        "register_dispatcher: hard_route cleanup skipped keep_hub_override=true branch=%s conv_id=%s turn=%s ok=%s",
-                        tostring(branch.index),
-                        tostring(active_state.conv_id or "nil"),
-                        tostring(active_state.turn or "nil"),
-                        tostring(ok)
-                    )
+                    restored = panda_f2f_bridge.restore_branch_route(active_npc_id, nil) == true
                 end
+                override_restored = restored == true
+            elseif branch.hard_route and routed and keep_hub_override then
+                bridge_debug(
+                    "register_dispatcher: hard_route cleanup skipped keep_hub_override=true branch=%s npc_id=%s conv_id=%s turn=%s ok=%s",
+                    tostring(branch.index),
+                    tostring(active_npc_id or "nil"),
+                    tostring(active_state.conv_id or "nil"),
+                    tostring(active_state.turn or "nil"),
+                    tostring(ok)
+                )
             end
+
+            bridge_debug(
+                "register_dispatcher: post_choice_cleanup branch=%s npc_id=%s conv_id=%s turn=%s ok=%s pending_handoff_consumed=%s dialog_override_restored=%s hard_route=%s keep_hub_override=%s routed=%s",
+                tostring(branch.index),
+                tostring(active_npc_id or "nil"),
+                tostring(active_state.conv_id or "nil"),
+                tostring(active_state.turn or "nil"),
+                tostring(ok),
+                tostring(pending_consumed),
+                tostring(override_restored),
+                tostring(branch.hard_route == true),
+                tostring(keep_hub_override),
+                tostring(routed)
+            )
         end
 
         state.handlers[#state.handlers + 1] = { cond_name = cond_name, act_name = act_name }
