@@ -99,6 +99,23 @@ function isDialogueBearingKey(id: string): boolean {
     || /_timeout_msg$/.test(id);
 }
 
+function buildF2FEntryOpenAllowlistForConversation(
+  conv: Conversation,
+  factionKey: string,
+  exportId: number,
+): Set<string> {
+  const allowlist = new Set<string>();
+  const prefix = `st_pda_ic_${factionKey}_${exportId}`;
+
+  for (const turn of conv.turns) {
+    if (!isF2FEntryTurn(turn)) continue;
+    const turnInfix = turn.turnNumber === 1 ? '' : `_t${turn.turnNumber}`;
+    allowlist.add(`${prefix}${turnInfix}_open`);
+  }
+
+  return allowlist;
+}
+
 function decodeXmlEntities(text: string): string {
   return text
     .replace(/&lt;/g, '<')
@@ -107,13 +124,20 @@ function decodeXmlEntities(text: string): string {
     .replace(/&amp;/g, '&');
 }
 
-function validateEmittedDialogueStrings(xml: string, config: Required<XmlExporterConfig>): void {
+function validateEmittedDialogueStrings(
+  xml: string,
+  config: Required<XmlExporterConfig>,
+  intentionalEmptyOpenAllowlist: ReadonlySet<string>,
+): void {
   const stringRecordRegex = /<string id="([^"]+)">\s*<text>([\s\S]*?)<\/text>\s*<\/string>/g;
   let match: RegExpExecArray | null;
   while ((match = stringRecordRegex.exec(xml)) != null) {
     const id = match[1];
     if (!isDialogueBearingKey(id)) continue;
-    if (!config.strictDialogueValidation && /_open$/.test(id)) continue;
+    if (/(_open)$/.test(id)) {
+      if (intentionalEmptyOpenAllowlist.has(id)) continue;
+      if (!config.strictDialogueValidation) continue;
+    }
 
     const text = decodeXmlEntities(match[2]).trim();
     if (text.length === 0) {
@@ -333,10 +357,13 @@ export function generateXml(
     .filter((conv) => factionFilter == null || getConversationFaction(conv, project.faction) === factionFilter)
     .sort((a, b) => a.id - b.id);
   const exportCounts = new Map<FactionId, number>();
+  const intentionalEmptyOpenAllowlist = new Set<string>();
   for (const conv of sorted) {
     const faction = getConversationFaction(conv, project.faction);
     const exportId = (exportCounts.get(faction) ?? 0) + 1;
     exportCounts.set(faction, exportId);
+    buildF2FEntryOpenAllowlistForConversation(conv, FACTION_XML_KEYS[faction], exportId)
+      .forEach((id) => intentionalEmptyOpenAllowlist.add(id));
     lines.push(generateConversation(conv, FACTION_XML_KEYS[faction], exportId, config));
     lines.push('');
   }
@@ -345,7 +372,7 @@ export function generateXml(
 
   const xml = lines.join('\n');
   if (config.validateDialogueStrings) {
-    validateEmittedDialogueStrings(xml, config);
+    validateEmittedDialogueStrings(xml, config, intentionalEmptyOpenAllowlist);
   }
   return xml;
 }
