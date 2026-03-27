@@ -196,7 +196,7 @@ function inferContinueChannelFromDestination(
   const targetTurn = conv.turns.find((candidate) => candidate.turnNumber === choice.continueTo);
   if (!targetTurn) return configuredChannel;
 
-  return normalizeChannel(targetTurn.channel, configuredChannel);
+  return normalizeChannel(targetTurn.channel, 'pda');
 }
 
 function createF2FRegistryPayload(conv: Conversation) {
