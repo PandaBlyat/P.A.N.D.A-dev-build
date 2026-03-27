@@ -146,8 +146,11 @@ function validateEmittedDialogueStrings(
   }
 }
 
-function normalizeChannel(value: Conversation['turns'][number]['channel'] | Choice['channel'] | Choice['continue_channel'] | undefined, fallback: 'pda' | 'both'): 'pda' | 'f2f' | 'both' {
-  if (value === 'pda' || value === 'f2f' || value === 'both') {
+function normalizeChannel(
+  value: Conversation['turns'][number]['channel'] | Choice['channel'] | Choice['continue_channel'] | undefined,
+  fallback: 'pda' | 'f2f',
+): 'pda' | 'f2f' {
+  if (value === 'pda' || value === 'f2f') {
     return value;
   }
   return fallback;
@@ -157,7 +160,7 @@ function inferTurnFirstSpeaker(turn: Turn): 'npc' | 'player' {
   if (turn.firstSpeaker === 'npc' || turn.firstSpeaker === 'player') {
     return turn.firstSpeaker;
   }
-  const channel = normalizeChannel(turn.channel, 'both');
+  const channel = normalizeChannel(turn.channel, 'pda');
   if (channel === 'f2f') {
     return 'player';
   }
@@ -165,11 +168,11 @@ function inferTurnFirstSpeaker(turn: Turn): 'npc' | 'player' {
 }
 
 function isF2FEntryTurn(turn: Turn): boolean {
-  return normalizeChannel(turn.channel, 'both') === 'f2f' && (turn.f2f_entry ?? false);
+  return normalizeChannel(turn.channel, 'pda') === 'f2f' && (turn.f2f_entry ?? false);
 }
 
 function resolveRegistryEntryFlags(turn: Turn): { pdaEntry: boolean; f2fEntry: boolean } {
-  const channel = normalizeChannel(turn.channel, 'both');
+  const channel = normalizeChannel(turn.channel, 'pda');
   const basePdaEntry = turn.pda_entry ?? turn.turnNumber === 1;
   const baseF2FEntry = turn.f2f_entry ?? false;
 
@@ -179,22 +182,21 @@ function resolveRegistryEntryFlags(turn: Turn): { pdaEntry: boolean; f2fEntry: b
   if (channel === 'f2f') {
     return { pdaEntry: false, f2fEntry: baseF2FEntry };
   }
-  return { pdaEntry: basePdaEntry, f2fEntry: baseF2FEntry };
+  return { pdaEntry: false, f2fEntry: baseF2FEntry };
 }
 
 function inferContinueChannelFromDestination(
   conv: Conversation,
   choice: Choice,
-  fallback: 'pda' | 'both' = 'pda',
-): 'pda' | 'f2f' | 'both' {
+  fallback: 'pda' | 'f2f' = 'pda',
+): 'pda' | 'f2f' {
   const configuredChannel = normalizeChannel(choice.continue_channel, fallback);
   if (choice.continueTo == null) return configuredChannel;
 
   const targetTurn = conv.turns.find((candidate) => candidate.turnNumber === choice.continueTo);
   if (!targetTurn) return configuredChannel;
 
-  const targetChannel = normalizeChannel(targetTurn.channel, 'both');
-  return targetChannel === 'both' ? configuredChannel : targetChannel;
+  return normalizeChannel(targetTurn.channel, configuredChannel);
 }
 
 function createF2FRegistryPayload(conv: Conversation) {
@@ -202,7 +204,7 @@ function createF2FRegistryPayload(conv: Conversation) {
     const { pdaEntry, f2fEntry } = resolveRegistryEntryFlags(turn);
     return {
       turnNumber: turn.turnNumber,
-      channel: normalizeChannel(turn.channel, 'both'),
+      channel: normalizeChannel(turn.channel, 'pda'),
       firstSpeaker: inferTurnFirstSpeaker(turn),
       pdaEntry,
       f2fEntry,
@@ -235,7 +237,7 @@ function resolveContinueChannelForExport(
   _turn: Turn,
   choice: Choice,
   _prefix: string,
-): 'pda' | 'f2f' | 'both' {
+): 'pda' | 'f2f' {
   return inferContinueChannelFromDestination(conv, choice, 'pda');
 }
 
@@ -403,7 +405,7 @@ export function createTurn(turnNumber: number): Turn {
   return {
     turnNumber,
     openingMessage: turnNumber === 1 ? '' : undefined,
-    channel: 'both',
+    channel: 'pda',
     firstSpeaker: 'npc',
     pda_entry: turnNumber === 1,
     f2f_entry: false,

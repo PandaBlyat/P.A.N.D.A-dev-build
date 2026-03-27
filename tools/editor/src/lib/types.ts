@@ -11,7 +11,7 @@ export type FactionId =
   | 'killer' | 'army' | 'bandit' | 'monolith' | 'zombied'
   | 'isg' | 'renegade' | 'greh';
 
-export type ConversationChannel = 'pda' | 'f2f' | 'both';
+export type ConversationChannel = 'pda' | 'f2f';
 export type TurnFirstSpeaker = 'npc' | 'player';
 
 export interface Conversation {

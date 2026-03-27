@@ -1136,7 +1136,7 @@ function renderTurnNode(options: {
 
   const turnChannelBadge = document.createElement('span');
   turnChannelBadge.className = 'flow-channel-badge';
-  turnChannelBadge.textContent = channelBadgeLabel(normalizeChannel(turn.channel, 'both'));
+  turnChannelBadge.textContent = channelBadgeLabel(normalizeChannel(turn.channel, 'pda'));
   turnChannelBadge.title = `Turn visibility: ${turnChannelBadge.textContent}`;
   header.appendChild(turnChannelBadge);
 
@@ -1890,15 +1890,14 @@ function truncate(value: string, max: number): string {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
 
-function normalizeChannel(channel: ConversationChannel | undefined, fallback: 'pda' | 'both'): 'pda' | 'f2f' | 'both' {
-  if (channel === 'pda' || channel === 'f2f' || channel === 'both') return channel;
+function normalizeChannel(channel: ConversationChannel | undefined, fallback: 'pda' | 'f2f'): 'pda' | 'f2f' {
+  if (channel === 'pda' || channel === 'f2f') return channel;
   return fallback;
 }
 
-function channelBadgeLabel(channel: 'pda' | 'f2f' | 'both'): string {
+function channelBadgeLabel(channel: 'pda' | 'f2f'): string {
   if (channel === 'pda') return 'PDA';
-  if (channel === 'f2f') return 'F2F';
-  return 'BOTH';
+  return 'F2F';
 }
 
 function dispatchCursorState(canvas: HTMLElement, kind: 'panning' | 'dragging' | 'linking', active: boolean): void {

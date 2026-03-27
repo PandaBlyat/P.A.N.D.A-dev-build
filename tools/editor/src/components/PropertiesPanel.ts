@@ -36,10 +36,9 @@ import { createIcon, setButtonContent } from './icons';
 import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
 
 const ADDABLE_PRECONDITION_SCHEMAS = PRECONDITION_SCHEMAS.filter((schema) => !schema.pickerHidden);
-const CHANNEL_OPTIONS: Array<{ value: 'pda' | 'f2f' | 'both'; label: string }> = [
+const CHANNEL_OPTIONS: Array<{ value: 'pda' | 'f2f'; label: string }> = [
   { value: 'pda', label: 'PDA' },
   { value: 'f2f', label: 'In-person (F2F)' },
-  { value: 'both', label: 'Both' },
 ];
 
 const STORY_NPC_PROFILE_OPTIONS = Array.from(
@@ -309,20 +308,19 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   container.appendChild(timeoutWrapper);
 }
 
-function normalizeChannel(channel: Choice['channel'] | Choice['continue_channel'] | Turn['channel'] | undefined, fallback: 'pda' | 'both'): 'pda' | 'f2f' | 'both' {
-  if (channel === 'pda' || channel === 'f2f' || channel === 'both') return channel;
+function normalizeChannel(channel: Choice['channel'] | Choice['continue_channel'] | Turn['channel'] | undefined, fallback: 'pda' | 'f2f'): 'pda' | 'f2f' {
+  if (channel === 'pda' || channel === 'f2f') return channel;
   return fallback;
 }
 
-function channelLabel(channel: 'pda' | 'f2f' | 'both'): string {
+function channelLabel(channel: 'pda' | 'f2f'): string {
   if (channel === 'pda') return 'PDA';
-  if (channel === 'f2f') return 'F2F';
-  return 'Both';
+  return 'F2F';
 }
 
 function createChannelSelect(
-  value: 'pda' | 'f2f' | 'both',
-  onChange: (value: 'pda' | 'f2f' | 'both') => void,
+  value: 'pda' | 'f2f',
+  onChange: (value: 'pda' | 'f2f') => void,
   fieldKey: string,
 ): HTMLSelectElement {
   const select = document.createElement('select');
@@ -334,7 +332,7 @@ function createChannelSelect(
     el.selected = option.value === value;
     select.appendChild(el);
   }
-  select.onchange = () => onChange(select.value as 'pda' | 'f2f' | 'both');
+  select.onchange = () => onChange(select.value as 'pda' | 'f2f');
   return select;
 }
 
@@ -365,7 +363,7 @@ function renderTurnProperties(
     renderPlaceholderPicker(container, `conv-${conv.id}-turn-${turn.turnNumber}-dynamic-placeholders`);
   }
 
-  const currentTurnChannel = normalizeChannel(turn.channel, 'both');
+  const currentTurnChannel = normalizeChannel(turn.channel, 'pda');
   const effectivePdaEntry = turn.pda_entry ?? turn.turnNumber === 1;
   const effectiveF2FEntry = turn.f2f_entry ?? false;
   const pdaEntryAllowed = currentTurnChannel !== 'f2f';
@@ -377,14 +375,13 @@ function renderTurnProperties(
   visibilityWrapper.appendChild(visibilityLabel);
   const visibilityHint = document.createElement('div');
   visibilityHint.className = 'field-hint';
-  visibilityHint.textContent = 'Conservative default is Both for existing turns; choices still default to PDA-only.';
+  visibilityHint.textContent = 'Turns are exclusive to one channel: PDA or in-person (F2F). Legacy "Both" values are migrated to PDA.';
   visibilityWrapper.appendChild(visibilityHint);
   visibilityWrapper.appendChild(createChannelSelect(
     currentTurnChannel,
     (nextChannel) => store.updateTurn(conv.id, turn.turnNumber, {
       channel: nextChannel,
-      ...(nextChannel === 'pda' ? { f2f_entry: false } : {}),
-      ...(nextChannel === 'f2f' ? { pda_entry: false } : {}),
+      ...(nextChannel === 'pda' ? { f2f_entry: false } : { pda_entry: false }),
     }),
     getTurnFieldKey(conv.id, turn.turnNumber, 'channel'),
   ));
@@ -642,7 +639,7 @@ function renderChoiceProperties(
   choiceVisibilityField.appendChild(choiceVisibilityLabel);
   const choiceVisibilityHint = document.createElement('div');
   choiceVisibilityHint.className = 'field-hint';
-  choiceVisibilityHint.textContent = 'Default remains PDA to avoid accidental F2F exposure in existing projects.';
+  choiceVisibilityHint.textContent = 'Choices are exclusive: select PDA or F2F for this response path.';
   choiceVisibilityField.appendChild(choiceVisibilityHint);
   choiceVisibilityField.appendChild(createChannelSelect(
     currentChoiceChannel,
@@ -850,7 +847,7 @@ function renderChoiceProperties(
   handoffField.appendChild(handoffLabel);
   const handoffHint = document.createElement('div');
   handoffHint.className = 'field-hint';
-  handoffHint.textContent = 'Used when this choice continues to another turn. Set to continue via PDA or in-person.';
+  handoffHint.textContent = 'Used when this choice continues to another turn. Handoffs are exclusive to PDA or F2F.';
   handoffField.appendChild(handoffHint);
   const handoffSelect = createChannelSelect(
     normalizeChannel(choice.continue_channel, 'pda'),

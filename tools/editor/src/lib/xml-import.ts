@@ -267,9 +267,24 @@ function inferLevelToken(zoneMode: string, zoneTarget: string, splitLevelTokenRe
   return '';
 }
 
-function normalizeChannel(value: string | undefined, fallback: 'pda' | 'both'): 'pda' | 'f2f' | 'both' {
-  if (value === 'pda' || value === 'f2f' || value === 'both') {
+type LegacyChannelNormalizationWarning = {
+  scope: 'turn' | 'choice' | 'continue';
+  turnNumber: number;
+  choiceIndex?: number;
+};
+
+function normalizeChannel(
+  value: string | undefined,
+  fallback: 'pda' | 'f2f',
+  warningSink?: LegacyChannelNormalizationWarning[],
+  warning?: LegacyChannelNormalizationWarning,
+): 'pda' | 'f2f' {
+  if (value === 'pda' || value === 'f2f') {
     return value;
+  }
+  if (value === 'both') {
+    if (warningSink && warning) warningSink.push(warning);
+    return 'pda';
   }
   return fallback;
 }
@@ -302,7 +317,7 @@ function inferFirstSpeaker(
     return metadata.firstSpeaker;
   }
 
-  const channel = normalizeChannel(metadata?.channel ?? turn.channel, 'both');
+  const channel = normalizeChannel(metadata?.channel ?? turn.channel, 'pda');
   if (channel === 'f2f') {
     return 'player';
   }
@@ -310,16 +325,24 @@ function inferFirstSpeaker(
   return 'npc';
 }
 
-function applyTurnMetadata(turn: Turn, metadata: ImportedF2FTurnMetadata | undefined, f2fEntryTargets: ReadonlySet<number>): void {
+function applyTurnMetadata(
+  turn: Turn,
+  metadata: ImportedF2FTurnMetadata | undefined,
+  f2fEntryTargets: ReadonlySet<number>,
+  warningSink: LegacyChannelNormalizationWarning[],
+): void {
   if (!metadata) {
-    turn.channel = 'both';
+    turn.channel = 'pda';
     turn.pda_entry = turn.turnNumber === 1;
     turn.f2f_entry = f2fEntryTargets.has(turn.turnNumber);
     turn.firstSpeaker = inferFirstSpeaker(turn, metadata, f2fEntryTargets);
     return;
   }
 
-  turn.channel = normalizeChannel(metadata.channel, 'both');
+  turn.channel = normalizeChannel(metadata.channel, 'pda', warningSink, {
+    scope: 'turn',
+    turnNumber: turn.turnNumber,
+  });
   turn.pda_entry = typeof metadata.pdaEntry === 'boolean' ? metadata.pdaEntry : turn.turnNumber === 1;
   turn.f2f_entry = typeof metadata.f2fEntry === 'boolean' ? metadata.f2fEntry : f2fEntryTargets.has(turn.turnNumber);
   turn.firstSpeaker = inferFirstSpeaker(turn, metadata, f2fEntryTargets);
@@ -338,8 +361,16 @@ function applyTurnMetadata(turn: Turn, metadata: ImportedF2FTurnMetadata | undef
       continue;
     }
 
-    choice.channel = normalizeChannel(choiceMeta.channel, 'pda');
-    choice.continue_channel = normalizeChannel(choiceMeta.continueChannel, 'pda');
+    choice.channel = normalizeChannel(choiceMeta.channel, 'pda', warningSink, {
+      scope: 'choice',
+      turnNumber: turn.turnNumber,
+      choiceIndex: choice.index,
+    });
+    choice.continue_channel = normalizeChannel(choiceMeta.continueChannel, 'pda', warningSink, {
+      scope: 'continue',
+      turnNumber: turn.turnNumber,
+      choiceIndex: choice.index,
+    });
     choice.allow_generic_stalker = choiceMeta.allowGenericStalker === true;
     choice.story_npc_id = choiceMeta.storyNpcId ?? undefined;
     choice.npc_faction_filters = (choiceMeta.npcFactionFilters ?? []).filter((faction): faction is FactionId => faction in FACTION_XML_KEYS);
@@ -391,6 +422,7 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
     const openKey = `${prefix}_open`;
 
     if (!strings.has(openKey)) break;
+    const channelWarnings: LegacyChannelNormalizationWarning[] = [];
     const metadata = parseF2FRegistryPayload(strings.get(`${prefix}${PANDA_F2F_REGISTRY_SUFFIX}`));
     const f2fEntryTargets = new Set<number>(
       (metadata?.entryNodes?.f2f ?? [])
@@ -433,7 +465,7 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
       choices: parseTurnChoices(strings, prefix, ''),
       position: getDefaultFlowTurnPosition(1),
     };
-    applyTurnMetadata(turn1, metadataTurns.get(1), f2fEntryTargets);
+    applyTurnMetadata(turn1, metadataTurns.get(1), f2fEntryTargets, channelWarnings);
     conv.turns.push(turn1);
 
     // Parse multi-turn: t2, t3, etc.
@@ -450,10 +482,12 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
         choices: parseTurnChoices(strings, prefix, turnInfix),
         position: getDefaultFlowTurnPosition(turnNum),
       };
-      applyTurnMetadata(turn, metadataTurns.get(turnNum), f2fEntryTargets);
+      applyTurnMetadata(turn, metadataTurns.get(turnNum), f2fEntryTargets, channelWarnings);
       conv.turns.push(turn);
       turnNum++;
     }
+
+    applyLegacyChannelWarningsToConversation(conv, channelWarnings);
 
     conversations.push(conv);
     convId++;
@@ -469,6 +503,28 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
     project: importedProject,
     systemStrings,
   };
+}
+
+function applyLegacyChannelWarningsToConversation(conv: Conversation, warnings: LegacyChannelNormalizationWarning[]): void {
+  if (warnings.length === 0) return;
+  const byTurn = new Map<number, string[]>();
+  for (const warning of warnings) {
+    const list = byTurn.get(warning.turnNumber) ?? [];
+    if (warning.scope === 'turn') {
+      list.push('Legacy "both" turn channel from XML registry was migrated to PDA.');
+    } else if (warning.choiceIndex != null) {
+      const label = warning.scope === 'choice' ? 'choice visibility' : 'choice handoff channel';
+      list.push(`Legacy "both" ${label} on Choice ${warning.choiceIndex} from XML registry was migrated to PDA.`);
+    }
+    byTurn.set(warning.turnNumber, list);
+  }
+
+  for (const turn of conv.turns) {
+    const messages = byTurn.get(turn.turnNumber);
+    if (!messages?.length) continue;
+    const existing = turn.migrationWarnings ?? [];
+    turn.migrationWarnings = [...existing, ...messages];
+  }
 }
 
 /** Parse choices for a single turn */

@@ -985,7 +985,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
   const turnByNumber = new Map(conv.turns.map((turn) => [turn.turnNumber, turn]));
 
   for (const turn of conv.turns) {
-    const turnChannel = normalizeChannel(turn.channel, 'both');
+    const turnChannel = normalizeChannel(turn.channel, 'pda');
     const f2fVisibleChoices = turn.choices.filter((choice) => isChannelVisible(normalizeChannel(choice.channel, 'pda'), 'f2f'));
 
     for (const choice of turn.choices) {
@@ -1027,7 +1027,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
 
       const destinationChannel: 'pda' | 'f2f' = continueChannel === 'f2f' ? 'f2f' : 'pda';
 
-      if (!isChannelVisible(normalizeChannel(targetTurn.channel, 'both'), destinationChannel)) {
+      if (!isChannelVisible(normalizeChannel(targetTurn.channel, 'pda'), destinationChannel)) {
         pushMessage(messages, {
           code: 'handoff-target-hidden-channel',
           group: 'structure',
@@ -1184,18 +1184,21 @@ function validateF2FTargeting(conv: Conversation, turn: Conversation['turns'][nu
   }
 }
 
-function normalizeChannel(channel: Conversation['turns'][number]['channel'] | Choice['channel'] | Choice['continue_channel'] | undefined, fallback: 'pda' | 'both'): 'pda' | 'f2f' | 'both' {
-  if (channel === 'pda' || channel === 'f2f' || channel === 'both') {
+function normalizeChannel(
+  channel: Conversation['turns'][number]['channel'] | Choice['channel'] | Choice['continue_channel'] | undefined,
+  fallback: 'pda' | 'f2f',
+): 'pda' | 'f2f' {
+  if (channel === 'pda' || channel === 'f2f') {
     return channel;
   }
   return fallback;
 }
 
-function isChannelVisible(value: 'pda' | 'f2f' | 'both', target: 'pda' | 'f2f'): boolean {
-  return value === 'both' || value === target;
+function isChannelVisible(value: 'pda' | 'f2f', target: 'pda' | 'f2f'): boolean {
+  return value === target;
 }
 
-function isCrossChannelHandoff(from: 'pda' | 'f2f' | 'both', to: 'pda' | 'f2f' | 'both'): boolean {
+function isCrossChannelHandoff(from: 'pda' | 'f2f', to: 'pda' | 'f2f'): boolean {
   return (from === 'pda' && to === 'f2f') || (from === 'f2f' && to === 'pda');
 }
 
