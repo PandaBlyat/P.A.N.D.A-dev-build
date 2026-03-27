@@ -1930,6 +1930,7 @@ local function build_dialog_tree(dialog, state)
     local npc_open_ok = false
     local actor_choice_count_added = 0
     local npc_reply_count_added = 0
+    local fallback_actor_exit_count_added = 0
     local function add_logged_node(parent_id, node_id, phrase_id, cond, act, allow_script_text, role, alloc_range_start)
         local active_range_start = alloc_range_start
         if active_range_start == nil then
@@ -1957,6 +1958,8 @@ local function build_dialog_tree(dialog, state)
                 actor_choice_count_added = actor_choice_count_added + 1
             elseif role == "npc_reply" then
                 npc_reply_count_added = npc_reply_count_added + 1
+            elseif role == "fallback_actor_exit" then
+                fallback_actor_exit_count_added = fallback_actor_exit_count_added + 1
             end
         end
         return ok
@@ -2012,12 +2015,13 @@ local function build_dialog_tree(dialog, state)
         )
         local build_ok = false
         bridge_debug(
-            "build_dialog_tree summary build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s conv_id=%s turn=%s",
+            "build_dialog_tree summary build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s fallback_actor_exit_count_added=%s npc_reply_count_added=%s conv_id=%s turn=%s",
             tostring(build_ok),
             tostring(nodes_added),
             tostring(root_ok),
             tostring(npc_open_ok),
             tostring(actor_choice_count_added),
+            tostring(fallback_actor_exit_count_added),
             tostring(npc_reply_count_added),
             tostring(state.conv_id or "nil"),
             tostring(state.turn or "nil")
@@ -2028,6 +2032,7 @@ local function build_dialog_tree(dialog, state)
             root_ok = root_ok,
             npc_open_ok = npc_open_ok,
             actor_choice_count_added = actor_choice_count_added,
+            fallback_actor_exit_count_added = fallback_actor_exit_count_added,
             npc_reply_count_added = npc_reply_count_added,
         }
     end
@@ -2161,8 +2166,8 @@ local function build_dialog_tree(dialog, state)
             tostring(npc_open_phrase_id or "nil")
         )
 
-        add_logged_node(npc_open_id, fallback_actor_id, exit_phrase, nil, nil, false, "fallback_actor_exit")
-        local build_ok = (root_ok == true) and (npc_open_ok == true) and (actor_choice_count_added > 0)
+        local fallback_exit_ok = add_logged_node(npc_open_id, fallback_actor_id, exit_phrase, nil, nil, false, "fallback_actor_exit")
+        local build_ok = (root_ok == true) and (npc_open_ok == true) and (fallback_exit_ok == true)
         bridge_debug(
             "build_dialog_tree node_ids root=%s open=%s choice=%s reply=%s exit=%s conv_id=%s turn=%s",
             table.concat(generated_ids.root, ","),
@@ -2174,12 +2179,14 @@ local function build_dialog_tree(dialog, state)
             tostring(state.turn or "nil")
         )
         bridge_debug(
-            "build_dialog_tree summary build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s conv_id=%s turn=%s",
+            "build_dialog_tree summary build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s fallback_exit_ok=%s actor_choice_count_added=%s fallback_actor_exit_count_added=%s npc_reply_count_added=%s conv_id=%s turn=%s",
             tostring(build_ok),
             tostring(nodes_added),
             tostring(root_ok),
             tostring(npc_open_ok),
+            tostring(fallback_exit_ok),
             tostring(actor_choice_count_added),
+            tostring(fallback_actor_exit_count_added),
             tostring(npc_reply_count_added),
             tostring(state.conv_id or "nil"),
             tostring(state.turn or "nil")
@@ -2190,6 +2197,7 @@ local function build_dialog_tree(dialog, state)
             root_ok = root_ok,
             npc_open_ok = npc_open_ok,
             actor_choice_count_added = actor_choice_count_added,
+            fallback_actor_exit_count_added = fallback_actor_exit_count_added,
             npc_reply_count_added = npc_reply_count_added,
         }
     end
@@ -2229,12 +2237,13 @@ local function build_dialog_tree(dialog, state)
         tostring(state.turn or "nil")
     )
     bridge_debug(
-        "build_dialog_tree summary build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s conv_id=%s turn=%s",
+        "build_dialog_tree summary build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s fallback_actor_exit_count_added=%s npc_reply_count_added=%s conv_id=%s turn=%s",
         tostring(build_ok),
         tostring(nodes_added),
         tostring(root_ok),
         tostring(npc_open_ok),
         tostring(actor_choice_count_added),
+        tostring(fallback_actor_exit_count_added),
         tostring(npc_reply_count_added),
         tostring(state.conv_id or "nil"),
         tostring(state.turn or "nil")
@@ -2245,6 +2254,7 @@ local function build_dialog_tree(dialog, state)
         root_ok = root_ok,
         npc_open_ok = npc_open_ok,
         actor_choice_count_added = actor_choice_count_added,
+        fallback_actor_exit_count_added = fallback_actor_exit_count_added,
         npc_reply_count_added = npc_reply_count_added,
     }
 end
