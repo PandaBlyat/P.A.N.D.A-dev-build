@@ -95,6 +95,10 @@ function inferTurnFirstSpeaker(turn: Turn): 'npc' | 'player' {
   return 'npc';
 }
 
+function isF2FEntryTurn(turn: Turn): boolean {
+  return normalizeChannel(turn.channel, 'both') === 'f2f' && (turn.f2f_entry ?? false);
+}
+
 function createF2FRegistryPayload(conv: Conversation) {
   const turns = conv.turns.map((turn) => ({
     turnNumber: turn.turnNumber,
@@ -151,9 +155,11 @@ function generateConversation(conv: Conversation, factionKey: string, exportId: 
   for (const turn of conv.turns) {
     const turnInfix = turn.turnNumber === 1 ? '' : `_t${turn.turnNumber}`;
 
-    // Opening message (turn 1 only)
-    if (turn.turnNumber === 1 && turn.openingMessage) {
-      lines.push(emitString(`${prefix}_open`, turn.openingMessage));
+    // Opening message (turn 1 only). For F2F entry turns, emit a non-authored
+    // starter placeholder so authored lines begin at choice/reply rows.
+    if (turn.turnNumber === 1) {
+      const openingText = isF2FEntryTurn(turn) ? '' : (turn.openingMessage ?? '');
+      lines.push(emitString(`${prefix}_open`, openingText));
     }
 
     // Choices
