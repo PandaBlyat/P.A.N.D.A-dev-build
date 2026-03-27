@@ -73,7 +73,6 @@ const MIN_ZOOM = 0.35;
 const MAX_ZOOM = 1.8;
 const CONNECTION_DROP_RADIUS = 42;
 const CONNECTION_SNAP_RADIUS = 18;
-const CONNECTION_GRID_SNAP = 8;
 const EDGE_MIN_CLEARANCE = 24;
 const DEPTH_OF_FIELD_ZOOM_THRESHOLD = 0.62;
 const DEFAULT_VIEW_STATE: ViewState = {
@@ -282,6 +281,11 @@ export function renderFlowEditor(container: HTMLElement): void {
   svg.setAttribute('width', String(bounds.width));
   svg.setAttribute('height', String(bounds.height));
   svg.appendChild(createMarkerDefs());
+  const previewSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  previewSvg.classList.add('flow-edges', 'flow-edges-preview');
+  previewSvg.setAttribute('width', String(bounds.width));
+  previewSvg.setAttribute('height', String(bounds.height));
+  previewSvg.appendChild(createMarkerDefs());
 
   let viewAdjusted = false;
   let connectionPreview: ConnectionPreview | null = null;
@@ -337,6 +341,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     content.appendChild(node);
 
   }
+  content.appendChild(previewSvg);
 
   let drawFrame = 0;
   let pendingPositionOverrides: TurnPositionMap | undefined;
@@ -350,8 +355,15 @@ export function renderFlowEditor(container: HTMLElement): void {
       edges,
       nodeElements,
       positionOverrides: pendingPositionOverrides,
-      preview: connectionPreview,
       turnLabels,
+      factionColor,
+    });
+    drawConnectionPreview({
+      svg: previewSvg,
+      conv,
+      nodeElements,
+      positionOverrides: pendingPositionOverrides,
+      preview: connectionPreview,
       factionColor,
     });
   };
@@ -570,7 +582,7 @@ export function renderFlowEditor(container: HTMLElement): void {
       targetTurnNumber: number | null;
       hoveredPortTurnNumber: number | null;
       invalidTarget: boolean;
-      snappedCursor: { x: number; y: number };
+      previewCursor: { x: number; y: number };
     } => {
       const rawElement = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
       const hoveredPort = rawElement?.closest('.turn-input-port') as HTMLElement | null;
@@ -588,18 +600,16 @@ export function renderFlowEditor(container: HTMLElement): void {
       const candidateTurn = nearest?.turnNumber ?? null;
       const invalidFromHoverNode = hoveredNodeTurn === sourceTurnNumber;
       const invalidTarget = candidateTurn === sourceTurnNumber || invalidFromHoverNode;
-      const isSnapCandidate = nearest && nearest.distance <= CONNECTION_SNAP_RADIUS;
-      const snappedViewport = isSnapCandidate ? getInputPortCenter(nearest.port) : { x: clientX, y: clientY };
-      const snappedWorld = viewportToWorldPoint(canvas, viewState, snappedViewport.x, snappedViewport.y);
-      const snappedCursor = {
-        x: Math.round(snappedWorld.x / CONNECTION_GRID_SNAP) * CONNECTION_GRID_SNAP,
-        y: Math.round(snappedWorld.y / CONNECTION_GRID_SNAP) * CONNECTION_GRID_SNAP,
-      };
+      const shouldSnapToPort = Boolean(nearest && nearest.distance <= CONNECTION_SNAP_RADIUS && !invalidTarget);
+      const previewViewportPoint = shouldSnapToPort && nearest
+        ? getInputPortCenter(nearest.port)
+        : { x: clientX, y: clientY };
+      const previewCursor = viewportToWorldPoint(canvas, viewState, previewViewportPoint.x, previewViewportPoint.y);
       return {
         targetTurnNumber: invalidTarget ? null : candidateTurn,
         hoveredPortTurnNumber: nearest?.turnNumber ?? null,
         invalidTarget,
-        snappedCursor,
+        previewCursor,
       };
     };
 
@@ -608,7 +618,7 @@ export function renderFlowEditor(container: HTMLElement): void {
       connectionPreview = {
         sourceTurnNumber,
         sourceChoiceIndex,
-        cursor: hovered.snappedCursor,
+        cursor: hovered.previewCursor,
         hoveredTargetTurnNumber: hovered.targetTurnNumber,
         hoveredTargetPortTurnNumber: hovered.hoveredPortTurnNumber,
         invalidTarget: hovered.invalidTarget,
@@ -1201,7 +1211,10 @@ function renderTurnNode(options: {
     port.title = choice.continueTo != null
       ? `Drag to change the destination for Choice ${choice.index}. Double-click to create a new connected turn, or use Unlink to disconnect. Press Escape to cancel a drag.`
       : `Drag to connect Choice ${choice.index} to another turn. Double-click to create a new connected turn. Press Escape to cancel a drag.`;
-    port.style.background = `linear-gradient(180deg, ${choiceBranchColor}cc, ${choiceBranchColor}80)`;
+    const portDot = document.createElement('span');
+    portDot.className = 'choice-output-port-dot';
+    portDot.style.background = `linear-gradient(180deg, ${choiceBranchColor}cc, ${choiceBranchColor}80)`;
+    port.appendChild(portDot);
     port.onpointerdown = (event) => {
       if (event.button !== 0) return;
       onChoicePortDragStart(choice.index, event);
@@ -1395,11 +1408,10 @@ function drawEdges(options: {
   edges: EdgeDescriptor[];
   nodeElements: Map<number, HTMLElement>;
   positionOverrides?: TurnPositionMap;
-  preview: ConnectionPreview | null;
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
   factionColor: string;
 }): void {
-  const { svg, conv, edges, nodeElements, positionOverrides, preview, turnLabels, factionColor } = options;
+  const { svg, conv, edges, nodeElements, positionOverrides, turnLabels, factionColor } = options;
   const defs = svg.querySelector('defs');
   const turnsByNumber = new Map(conv.turns.map(turn => [turn.turnNumber, turn]));
   const choiceAnchorCache = new Map<string, { x: number; y: number } | null>();
@@ -1535,24 +1547,44 @@ function drawEdges(options: {
     }
   }
 
-  // Remove old preview path and add new one if needed
+}
+
+function drawConnectionPreview(options: {
+  svg: SVGSVGElement;
+  conv: Conversation;
+  nodeElements: Map<number, HTMLElement>;
+  positionOverrides?: TurnPositionMap;
+  preview: ConnectionPreview | null;
+  factionColor: string;
+}): void {
+  const { svg, conv, nodeElements, positionOverrides, preview, factionColor } = options;
+  const defs = svg.querySelector('defs');
+  const turnsByNumber = new Map(conv.turns.map(turn => [turn.turnNumber, turn]));
+
   svg.querySelector('.edge-preview')?.remove();
-  if (preview) {
-    const sourceAnchor = getCachedChoiceAnchor(preview.sourceTurnNumber, preview.sourceChoiceIndex);
-    if (sourceAnchor) {
-      const previewTarget = preview.hoveredTargetTurnNumber != null
-        ? getCachedTurnInputAnchor(preview.hoveredTargetTurnNumber) ?? preview.cursor
-        : preview.cursor;
-      const previewColor = getTurnBranchColor(conv, preview.sourceTurnNumber, factionColor) ?? BRANCH_PALETTE[0];
-      const previewPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      previewPath.setAttribute('d', buildEdgePath(sourceAnchor, previewTarget, 0));
-      previewPath.setAttribute('class', `flow-edge-path edge-preview${preview.invalidTarget ? ' edge-preview-invalid' : ''}`);
-      previewPath.setAttribute('stroke', previewColor);
-      previewPath.style.setProperty('--flow-edge-color', previewColor);
-      previewPath.setAttribute('marker-end', `url(#${ensureMarker(defs, 'continue', previewColor)})`);
-      svg.appendChild(previewPath);
-    }
-  }
+  if (!preview) return;
+
+  const sourceAnchor = getChoiceAnchor(
+    preview.sourceTurnNumber,
+    preview.sourceChoiceIndex,
+    conv,
+    nodeElements,
+    positionOverrides,
+    turnsByNumber,
+  );
+  if (!sourceAnchor) return;
+
+  const previewTarget = preview.hoveredTargetTurnNumber != null
+    ? getTurnInputAnchor(preview.hoveredTargetTurnNumber, conv, nodeElements, positionOverrides, turnsByNumber) ?? preview.cursor
+    : preview.cursor;
+  const previewColor = getTurnBranchColor(conv, preview.sourceTurnNumber, factionColor) ?? BRANCH_PALETTE[0];
+  const previewPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  previewPath.setAttribute('d', buildEdgePath(sourceAnchor, previewTarget, 0));
+  previewPath.setAttribute('class', `flow-edge-path edge-preview${preview.invalidTarget ? ' edge-preview-invalid' : ''}`);
+  previewPath.setAttribute('stroke', previewColor);
+  previewPath.style.setProperty('--flow-edge-color', previewColor);
+  previewPath.setAttribute('marker-end', `url(#${ensureMarker(defs, 'continue', previewColor)})`);
+  svg.appendChild(previewPath);
 }
 
 /**
