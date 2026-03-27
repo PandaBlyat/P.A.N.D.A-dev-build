@@ -302,9 +302,8 @@ function inferFirstSpeaker(
     return metadata.firstSpeaker;
   }
 
-  const inferredF2FEntry = metadata?.f2fEntry === true || f2fEntryTargets.has(turn.turnNumber);
   const channel = normalizeChannel(metadata?.channel ?? turn.channel, 'both');
-  if (inferredF2FEntry && channel === 'f2f') {
+  if (channel === 'f2f') {
     return 'player';
   }
 

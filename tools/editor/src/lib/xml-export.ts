@@ -89,7 +89,7 @@ function inferTurnFirstSpeaker(turn: Turn): 'npc' | 'player' {
     return turn.firstSpeaker;
   }
   const channel = normalizeChannel(turn.channel, 'both');
-  if (channel === 'f2f' && turn.f2f_entry === true) {
+  if (channel === 'f2f') {
     return 'player';
   }
   return 'npc';
