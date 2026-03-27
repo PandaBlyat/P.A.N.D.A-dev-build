@@ -45,6 +45,8 @@ type ConnectionPreview = {
   sourceChoiceIndex: number;
   cursor: { x: number; y: number };
   hoveredTargetTurnNumber: number | null;
+  hoveredTargetPortTurnNumber: number | null;
+  invalidTarget: boolean;
 };
 
 declare global {
@@ -69,6 +71,10 @@ const BRANCH_PALETTE = [
 const CONTENT_PADDING = 120;
 const MIN_ZOOM = 0.35;
 const MAX_ZOOM = 1.8;
+const CONNECTION_DROP_RADIUS = 42;
+const CONNECTION_SNAP_RADIUS = 18;
+const CONNECTION_GRID_SNAP = 8;
+const EDGE_MIN_CLEARANCE = 24;
 const DEPTH_OF_FIELD_ZOOM_THRESHOLD = 0.62;
 const DEFAULT_VIEW_STATE: ViewState = {
   panX: 40,
@@ -283,11 +289,15 @@ export function renderFlowEditor(container: HTMLElement): void {
   const updateConnectionTargetHighlights = (): void => {
     for (const [turnNumber, node] of nodeElements) {
       const isSource = connectionPreview?.sourceTurnNumber === turnNumber;
-      const isValidTarget = connectionPreview != null && !isSource;
       const isHoveredTarget = connectionPreview?.hoveredTargetTurnNumber === turnNumber;
+      const isHoveredPort = connectionPreview?.hoveredTargetPortTurnNumber === turnNumber;
+      const inputPort = node.querySelector('.turn-input-port');
+      const sourcePort = node.querySelector(`[data-choice-port="${connectionPreview?.sourceChoiceIndex ?? -1}"]`);
       node.classList.toggle('connection-source', Boolean(isSource));
-      node.classList.toggle('connection-target', isValidTarget);
       node.classList.toggle('connection-target-active', isHoveredTarget);
+      inputPort?.classList.toggle('connection-target-active', isHoveredPort);
+      inputPort?.classList.toggle('connection-target-invalid', isHoveredTarget && Boolean(connectionPreview?.invalidTarget));
+      sourcePort?.classList.toggle('connection-source-active', Boolean(isSource && connectionPreview));
     }
   };
 
@@ -528,32 +538,93 @@ export function renderFlowEditor(container: HTMLElement): void {
     applyView();
   };
 
-  function startConnectionDrag(sourceTurnNumber: number, sourceChoiceIndex: number, event: MouseEvent): void {
+  function startConnectionDrag(sourceTurnNumber: number, sourceChoiceIndex: number, event: PointerEvent): void {
     event.preventDefault();
     event.stopPropagation();
-
-    const getHoveredTargetTurnNumber = (clientX: number, clientY: number): number | null => {
-      const hoveredNode = document.elementFromPoint(clientX, clientY)?.closest('.turn-node') as HTMLElement | null;
-      if (!hoveredNode) return null;
-      const targetTurn = Number(hoveredNode.dataset.turnNumber);
-      if (Number.isNaN(targetTurn) || targetTurn === sourceTurnNumber) return null;
-      return targetTurn;
+    const sourcePort = event.currentTarget as HTMLElement | null;
+    const pointerId = event.pointerId;
+    const sourceNode = sourcePort?.closest('.turn-node') as HTMLElement | null;
+    const getInputPortCenter = (port: HTMLElement): { x: number; y: number } => {
+      const rect = port.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    };
+    const getClosestInputPort = (clientX: number, clientY: number, restrictToTurn?: number): { turnNumber: number; port: HTMLElement; distance: number } | null => {
+      let best: { turnNumber: number; port: HTMLElement; distance: number } | null = null;
+      const candidates = restrictToTurn != null
+        ? [nodeElements.get(restrictToTurn)].filter(Boolean) as HTMLElement[]
+        : [...nodeElements.values()];
+      for (const node of candidates) {
+        const turnNumber = Number(node.dataset.turnNumber);
+        if (Number.isNaN(turnNumber)) continue;
+        const port = node.querySelector('.turn-input-port') as HTMLElement | null;
+        if (!port) continue;
+        const center = getInputPortCenter(port);
+        const distance = Math.hypot(center.x - clientX, center.y - clientY);
+        if (!best || distance < best.distance) {
+          best = { turnNumber, port, distance };
+        }
+      }
+      return best;
+    };
+    const getHoveredTarget = (clientX: number, clientY: number): {
+      targetTurnNumber: number | null;
+      hoveredPortTurnNumber: number | null;
+      invalidTarget: boolean;
+      snappedCursor: { x: number; y: number };
+    } => {
+      const rawElement = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+      const hoveredPort = rawElement?.closest('.turn-input-port') as HTMLElement | null;
+      const hoveredNode = rawElement?.closest('.turn-node') as HTMLElement | null;
+      const hoveredNodeTurn = hoveredNode ? Number(hoveredNode.dataset.turnNumber) : null;
+      const directPortTurn = hoveredPort ? Number((hoveredPort.closest('.turn-node') as HTMLElement | null)?.dataset.turnNumber) : null;
+      const initialNearest = directPortTurn != null && !Number.isNaN(directPortTurn)
+        ? getClosestInputPort(clientX, clientY, directPortTurn)
+        : hoveredNodeTurn != null && !Number.isNaN(hoveredNodeTurn)
+          ? getClosestInputPort(clientX, clientY, hoveredNodeTurn)
+          : getClosestInputPort(clientX, clientY);
+      const nearest = initialNearest?.distance != null && initialNearest.distance <= CONNECTION_DROP_RADIUS
+        ? initialNearest
+        : null;
+      const candidateTurn = nearest?.turnNumber ?? null;
+      const invalidFromHoverNode = hoveredNodeTurn === sourceTurnNumber;
+      const invalidTarget = candidateTurn === sourceTurnNumber || invalidFromHoverNode;
+      const isSnapCandidate = nearest && nearest.distance <= CONNECTION_SNAP_RADIUS;
+      const snappedViewport = isSnapCandidate ? getInputPortCenter(nearest.port) : { x: clientX, y: clientY };
+      const snappedWorld = viewportToWorldPoint(canvas, viewState, snappedViewport.x, snappedViewport.y);
+      const snappedCursor = {
+        x: Math.round(snappedWorld.x / CONNECTION_GRID_SNAP) * CONNECTION_GRID_SNAP,
+        y: Math.round(snappedWorld.y / CONNECTION_GRID_SNAP) * CONNECTION_GRID_SNAP,
+      };
+      return {
+        targetTurnNumber: invalidTarget ? null : candidateTurn,
+        hoveredPortTurnNumber: nearest?.turnNumber ?? null,
+        invalidTarget,
+        snappedCursor,
+      };
     };
 
     const updatePreview = (clientX: number, clientY: number): void => {
+      const hovered = getHoveredTarget(clientX, clientY);
       connectionPreview = {
         sourceTurnNumber,
         sourceChoiceIndex,
-        cursor: viewportToWorldPoint(canvas, viewState, clientX, clientY),
-        hoveredTargetTurnNumber: getHoveredTargetTurnNumber(clientX, clientY),
+        cursor: hovered.snappedCursor,
+        hoveredTargetTurnNumber: hovered.targetTurnNumber,
+        hoveredTargetPortTurnNumber: hovered.hoveredPortTurnNumber,
+        invalidTarget: hovered.invalidTarget,
       };
       draw();
     };
 
     const finishConnectionDrag = (targetTurnNumber: number | null = null): void => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+      sourcePort?.removeEventListener('pointermove', onMove);
+      sourcePort?.removeEventListener('pointerup', onUp);
+      sourcePort?.removeEventListener('pointercancel', onCancel);
       document.removeEventListener('keydown', onKeyDown, true);
+      if (sourcePort?.hasPointerCapture(pointerId)) {
+        sourcePort.releasePointerCapture(pointerId);
+      }
+      sourceNode?.classList.remove('connection-source');
       dispatchCursorState(canvas, 'linking', false);
 
       if (targetTurnNumber != null) {
@@ -564,15 +635,16 @@ export function renderFlowEditor(container: HTMLElement): void {
       draw();
     };
 
-    const onMove = (moveEvent: MouseEvent) => {
+    const onMove = (moveEvent: PointerEvent) => {
       updatePreview(moveEvent.clientX, moveEvent.clientY);
     };
 
-    const onUp = (upEvent: MouseEvent) => {
+    const onUp = (upEvent: PointerEvent) => {
       const targetTurnNumber = connectionPreview?.hoveredTargetTurnNumber
-        ?? getHoveredTargetTurnNumber(upEvent.clientX, upEvent.clientY);
+        ?? getHoveredTarget(upEvent.clientX, upEvent.clientY).targetTurnNumber;
       finishConnectionDrag(targetTurnNumber);
     };
+    const onCancel = () => finishConnectionDrag();
 
     const onKeyDown = (keyEvent: KeyboardEvent) => {
       if (keyEvent.key !== 'Escape') return;
@@ -582,9 +654,12 @@ export function renderFlowEditor(container: HTMLElement): void {
     };
 
     updatePreview(event.clientX, event.clientY);
+    sourcePort?.setPointerCapture(pointerId);
+    sourceNode?.classList.add('connection-source');
     dispatchCursorState(canvas, 'linking', true);
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    sourcePort?.addEventListener('pointermove', onMove);
+    sourcePort?.addEventListener('pointerup', onUp);
+    sourcePort?.addEventListener('pointercancel', onCancel);
     document.addEventListener('keydown', onKeyDown, true);
   }
 
@@ -767,7 +842,7 @@ function renderTurnNode(options: {
   viewState: ViewState;
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
   onPreviewPosition: (positions?: TurnPositionMap) => void;
-  onChoicePortDragStart: (choiceIndex: number, event: MouseEvent) => void;
+  onChoicePortDragStart: (choiceIndex: number, event: PointerEvent) => void;
   onCreateConnectedTurn: (choiceIndex: number) => void;
   onFocusTurn: (turnNumber: number) => void;
   onKeyboardShortcut: (turnNumber: number, key: 'add-turn' | 'add-choice' | 'duplicate-turn' | 'copy-turn' | 'paste-turn' | 'connect-branch' | 'disconnect-branch') => void;
@@ -1119,7 +1194,10 @@ function renderTurnNode(options: {
       ? `Drag to change the destination for Choice ${choice.index}. Double-click to create a new connected turn, or use Unlink to disconnect. Press Escape to cancel a drag.`
       : `Drag to connect Choice ${choice.index} to another turn. Double-click to create a new connected turn. Press Escape to cancel a drag.`;
     port.style.background = `linear-gradient(180deg, ${choiceBranchColor}cc, ${choiceBranchColor}80)`;
-    port.onmousedown = (event) => onChoicePortDragStart(choice.index, event);
+    port.onpointerdown = (event) => {
+      if (event.button !== 0) return;
+      onChoicePortDragStart(choice.index, event);
+    };
     port.ondblclick = (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -1447,10 +1525,13 @@ function drawEdges(options: {
   if (preview) {
     const sourceAnchor = getCachedChoiceAnchor(preview.sourceTurnNumber, preview.sourceChoiceIndex);
     if (sourceAnchor) {
+      const previewTarget = preview.hoveredTargetTurnNumber != null
+        ? getCachedTurnInputAnchor(preview.hoveredTargetTurnNumber) ?? preview.cursor
+        : preview.cursor;
       const previewColor = getTurnBranchColor(conv, preview.sourceTurnNumber, factionColor) ?? BRANCH_PALETTE[0];
       const previewPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      previewPath.setAttribute('d', buildEdgePath(sourceAnchor, preview.cursor, 0));
-      previewPath.setAttribute('class', 'flow-edge-path edge-preview');
+      previewPath.setAttribute('d', buildEdgePath(sourceAnchor, previewTarget, 0));
+      previewPath.setAttribute('class', `flow-edge-path edge-preview${preview.invalidTarget ? ' edge-preview-invalid' : ''}`);
       previewPath.setAttribute('stroke', previewColor);
       previewPath.style.setProperty('--flow-edge-color', previewColor);
       previewPath.setAttribute('marker-end', `url(#${ensureMarker(defs, 'continue', previewColor)})`);
@@ -1635,29 +1716,34 @@ function hasPauseOutcome(choice: Choice): boolean {
 }
 
 function buildEdgePath(source: { x: number; y: number }, target: { x: number; y: number }, laneOffset: number): string {
-  const horizontalGap = target.x - source.x;
-  const lane = laneOffset * 22;
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  const lane = laneOffset * 20;
+  const absDx = Math.abs(dx);
+  const absDy = Math.abs(dy);
+  const horizontalBias = absDx >= absDy;
 
-  if (horizontalGap >= 48) {
-    const cp1x = source.x + Math.max(42, horizontalGap * 0.32);
-    const cp2x = target.x - Math.max(42, horizontalGap * 0.32);
-    return `M${source.x},${source.y} C${cp1x},${source.y + lane} ${cp2x},${target.y + lane} ${target.x},${target.y}`;
+  if (horizontalBias) {
+    const forward = dx >= 0 ? 1 : -1;
+    const baseSpread = clamp(absDx * 0.34, 34, 120);
+    const cross = clamp(absDy * 0.2, 8, 42) * Math.sign(dy || lane || 1);
+    const cp1x = source.x + forward * (baseSpread + Math.max(0, lane * 0.2));
+    const cp2x = target.x - forward * (baseSpread + EDGE_MIN_CLEARANCE);
+    const cp1y = source.y + lane + cross;
+    const cp2y = target.y + lane - cross;
+    return `M${source.x},${source.y} C${cp1x},${cp1y} ${cp2x},${cp2y} ${target.x},${target.y}`;
   }
 
-  const leadOut = 26 + Math.max(0, laneOffset * 4);
-  const leadIn = 26 + Math.max(0, -laneOffset * 4);
-  const doglegX = Math.max(source.x + leadOut + 40, target.x + leadIn + 44, source.x + 78 + Math.abs(lane));
-  const midY = source.y < target.y
-    ? Math.min(source.y, target.y) - 30 - Math.abs(lane)
-    : Math.max(source.y, target.y) + 30 + Math.abs(lane);
+  const verticalDirection = dy >= 0 ? 1 : -1;
+  const horizontalDirection = dx >= 0 ? 1 : -1;
+  const sideClearance = clamp(absDx * 0.45, EDGE_MIN_CLEARANCE + 12, 76) * horizontalDirection;
+  const arcClearance = clamp(absDy * 0.3, EDGE_MIN_CLEARANCE + 8, 84) * verticalDirection;
+  const cp1x = source.x + sideClearance + lane;
+  const cp1y = source.y + arcClearance * 0.45;
+  const cp2x = target.x - sideClearance;
+  const cp2y = target.y - arcClearance * 0.45 + lane;
 
-  return [
-    `M${source.x},${source.y}`,
-    `H${source.x + leadOut}`,
-    `C${doglegX},${source.y} ${doglegX},${source.y + lane} ${doglegX},${midY}`,
-    `S${doglegX},${target.y + lane} ${target.x - leadIn},${target.y}`,
-    `S${target.x - 12},${target.y} ${target.x},${target.y}`,
-  ].join(' ');
+  return `M${source.x},${source.y} C${cp1x},${cp1y} ${cp2x},${cp2y} ${target.x},${target.y}`;
 }
 
 function getLabelAnchor(source: { x: number; y: number }, target: { x: number; y: number }, offsetIndex: number): { x: number; y: number } {
