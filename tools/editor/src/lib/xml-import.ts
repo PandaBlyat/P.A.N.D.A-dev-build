@@ -5,6 +5,7 @@ import type { Project, Conversation, Turn, Choice, PreconditionEntry, AnyPrecond
 import { FACTION_XML_KEYS } from './types';
 import { SYSTEM_STRING_IDS } from './constants';
 import { getDefaultFlowTurnPosition } from './flow-layout';
+import { migrateLegacyF2FEntryOpenings } from './f2f-entry-migration';
 
 const PANDA_F2F_REGISTRY_SCHEMA = 'panda_f2f_bridge_registry_v1';
 const PANDA_F2F_REGISTRY_SUFFIX = '_panda_f2f_registry';
@@ -446,6 +447,7 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
 
       const turn: Turn = {
         turnNumber: turnNum,
+        openingMessage: strings.get(`${prefix}${turnInfix}_open`) || '',
         choices: parseTurnChoices(strings, prefix, turnInfix),
         position: getDefaultFlowTurnPosition(turnNum),
       };
@@ -458,12 +460,14 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
     convId++;
   }
 
+  const importedProject = migrateLegacyF2FEntryOpenings({
+    version: '2.0.0',
+    faction: factionId,
+    conversations,
+  });
+
   return {
-    project: {
-      version: '2.0.0',
-      faction: factionId,
-      conversations,
-    },
+    project: importedProject,
     systemStrings,
   };
 }
