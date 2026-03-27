@@ -13,6 +13,7 @@ local HUB_DIALOG_ID = "panda_f2f_hub_dialog"
 local BRANCH_HARD_ROUTE_SUFFIX = "_f2f_hard_route"
 local SAVE_KEY_OVERRIDE_OWNERS = "panda_f2f_bridge_override_owners"
 local RECENT_HANDOFF_GRACE_MS = 2 * 60 * 1000
+local ACTOR_PARITY_SHIM_PHRASE_ID = "st_panda_f2f_actor_parity_shim"
 local bridge_debug
 
 local runtime = {
@@ -1884,7 +1885,7 @@ local function build_dialog_tree(dialog, state)
     -- Anomaly's actor_dialog flow can present dynamic root nodes with reversed parity
     -- (root behaving as NPC in hub-style dialogs). Insert an explicit actor shim so
     -- authored NPC opening lines always render as NPC before branch choices.
-    add_logged_node(root_id, parity_shim_id, "dm_universal_actor_start", nil, nil, false, "actor_parity_shim")
+    add_logged_node(root_id, parity_shim_id, ACTOR_PARITY_SHIM_PHRASE_ID, nil, nil, false, "actor_parity_shim")
     add_logged_node(parity_shim_id, npc_open_id, npc_open_phrase_id, nil, nil, npc_open_use_script_text, "npc_open")
 
     local function register_dispatcher(branch)
