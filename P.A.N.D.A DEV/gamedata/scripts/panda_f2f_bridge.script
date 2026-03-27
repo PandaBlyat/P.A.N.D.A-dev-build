@@ -21,9 +21,66 @@ local bridge_debug
 local runtime = {
     state_by_id = {},
     latest_state = nil,
+    pending_state = nil,
+    active_token = nil,
     override_owners = {},
     callbacks_registered = false,
 }
+
+local function make_state_id_from_values(npc_id, conv_id, turn)
+    return string.format("%s:%s:%s", tostring(npc_id or "unknown"), tostring(conv_id or 0), tostring(turn or 1))
+end
+
+local function make_state_id(state)
+    if type(state) ~= "table" then
+        return make_state_id_from_values("unknown", 0, 1)
+    end
+    local npc_id = state.npc_se and state.npc_se.id or "unknown"
+    return make_state_id_from_values(npc_id, state.conv_id, state.turn)
+end
+
+local function register_active_state(state)
+    if type(state) ~= "table" then
+        return nil
+    end
+    if runtime.active_token and state.active_token and runtime.active_token ~= tostring(state.active_token) then
+        local previous_token_key = "token:" .. tostring(runtime.active_token)
+        local previous_state = runtime.state_by_id[previous_token_key]
+        runtime.state_by_id[previous_token_key] = nil
+        if previous_state and previous_state.runtime_state_id then
+            runtime.state_by_id[previous_state.runtime_state_id] = nil
+        end
+    end
+    local state_id = make_state_id(state)
+    state.runtime_state_id = state_id
+    runtime.state_by_id[state_id] = state
+    if state.active_token then
+        runtime.state_by_id["token:" .. tostring(state.active_token)] = state
+        runtime.active_token = tostring(state.active_token)
+    end
+    runtime.latest_state = state
+    return state_id
+end
+
+local function unregister_active_state(state)
+    if type(state) ~= "table" then
+        return
+    end
+    local state_id = state.runtime_state_id or make_state_id(state)
+    runtime.state_by_id[state_id] = nil
+    if state.active_token then
+        local token_key = "token:" .. tostring(state.active_token)
+        if runtime.state_by_id[token_key] == state then
+            runtime.state_by_id[token_key] = nil
+        end
+        if runtime.active_token == tostring(state.active_token) then
+            runtime.active_token = nil
+        end
+    end
+    if runtime.latest_state == state then
+        runtime.latest_state = nil
+    end
+end
 
 local function get_conv_api()
     if PANDA_CONV_API then
@@ -1947,6 +2004,8 @@ local function build_dialog_tree(dialog, state)
     state.dialog = dialog
     state.alloc = alloc
     state.handlers = {}
+    state.active_token = token
+    register_active_state(state)
 
     local root_phrase_id = "st_panda_f2f_root_entry"
     local root_use_script_text = false
@@ -2109,30 +2168,50 @@ local function build_dialog_tree(dialog, state)
         local branch_turn = branch.turn or state.turn or 1
         local cond_name = string.format("panda_f2f_bridge_choice_precond_%s_%d_t%d", token, idx, branch_turn)
         local act_name = string.format("panda_f2f_bridge_choice_action_%s_%d_t%d", token, idx, branch_turn)
+        local captured_state = state
+        local captured_state_id = make_state_id(captured_state)
+        local captured_token = tostring(token)
+
+        local function resolve_callback_state()
+            local token_key = "token:" .. captured_token
+            local token_state = runtime.state_by_id[token_key]
+            if token_state ~= captured_state then
+                return nil, "token_invalid"
+            end
+            local indexed_state = runtime.state_by_id[captured_state_id]
+            if indexed_state == captured_state then
+                return indexed_state, "token_valid"
+            end
+            return captured_state, "token_valid_fallback"
+        end
 
         _G[cond_name] = function()
+            local active_state, status = resolve_callback_state()
             bridge_warn(
-                "callback fired entry=choice_precondition name=%s branch=%s conv_id=%s turn=%s",
+                "callback fired entry=choice_precondition name=%s branch=%s token=%s status=%s conv_id=%s turn=%s",
                 tostring(cond_name),
                 tostring(branch.index),
-                tostring(runtime.latest_state and runtime.latest_state.conv_id or "nil"),
+                tostring(captured_token),
+                tostring(status or "nil"),
+                tostring(active_state and active_state.conv_id or "nil"),
                 tostring(branch_turn)
             )
-            if not runtime.latest_state then return false end
+            if not active_state then return false end
             if branch.precond_key and branch.precond_key ~= "" then
-                local ok, reason = evaluate_shared_precondition(branch.precond_key, runtime.latest_state.npc_se, {
+                local ok, reason = evaluate_shared_precondition(branch.precond_key, active_state.npc_se, {
                     channel = "f2f",
-                    conv_id = runtime.latest_state.conv_id,
+                    conv_id = active_state.conv_id,
                     branch = branch.index,
-                    faction = runtime.latest_state.faction,
+                    faction = active_state.faction,
                     turn = branch_turn,
                 })
                 bridge_debug(
-                    "callback choice_precondition evaluated key=%s result=%s reason=%s conv_id=%s turn=%s branch=%s",
+                    "callback choice_precondition evaluated key=%s result=%s reason=%s token=%s conv_id=%s turn=%s branch=%s",
                     tostring(branch.precond_key),
                     tostring(ok),
                     tostring(reason),
-                    tostring(runtime.latest_state and runtime.latest_state.conv_id or "nil"),
+                    tostring(captured_token),
+                    tostring(active_state and active_state.conv_id or "nil"),
                     tostring(branch_turn),
                     tostring(branch.index)
                 )
@@ -2142,14 +2221,16 @@ local function build_dialog_tree(dialog, state)
         end
 
         _G[act_name] = function()
+            local active_state, status = resolve_callback_state()
             bridge_warn(
-                "callback fired entry=answer name=%s branch=%s conv_id=%s turn=%s",
+                "callback fired entry=answer name=%s branch=%s token=%s status=%s conv_id=%s turn=%s",
                 tostring(act_name),
                 tostring(branch.index),
-                tostring(runtime.latest_state and runtime.latest_state.conv_id or "nil"),
+                tostring(captured_token),
+                tostring(status or "nil"),
+                tostring(active_state and active_state.conv_id or "nil"),
                 tostring(branch_turn)
             )
-            local active_state = runtime.latest_state
             if not active_state then return end
 
             -- Re-evaluate preconditions at dispatch time for deterministic safety.
@@ -2435,7 +2516,7 @@ function panda_f2f_bridge.precondition()
     bridge_warn("callback fired entry=hub_precondition name=%s", "panda_f2f_bridge.precondition")
 
     local function reject_hub_activation(reason)
-        runtime.latest_state = nil
+        runtime.pending_state = nil
         bridge_warn("hub activation reject reason=%s", tostring(reason or "unknown"))
         return false
     end
@@ -2511,7 +2592,7 @@ function panda_f2f_bridge.precondition()
     end
 
     state.npc_se = npc_se
-    runtime.latest_state = state
+    runtime.pending_state = state
     debug_resolve_snapshot("precondition", npc_se, state, handoff)
     bridge_debug(
         "precondition pass: npc_id=%s runtime_story_id=%s runtime_fallback_name=%s runtime_canonical_id=%s conv_id=%s turn=%s branches=%s",
@@ -2530,7 +2611,7 @@ function panda_f2f_bridge.init_dialog(dialog)
     ensure_callbacks_registered()
     bridge_warn("callback fired entry=hub_init name=%s", "panda_f2f_bridge.init_dialog")
 
-    local state = runtime.latest_state
+    local state = runtime.pending_state
     local init_handoff = nil
     if not state then
         local npc_se = get_partner_npc_se()
@@ -2552,9 +2633,7 @@ function panda_f2f_bridge.init_dialog(dialog)
         state.npc_se = npc_se
     end
 
-    local id = tostring(state.npc_se and state.npc_se.id or "unknown") .. ":" .. tostring(state.conv_id or 0)
-    runtime.state_by_id[id] = state
-    runtime.latest_state = state
+    runtime.pending_state = nil
     debug_resolve_snapshot("init", state.npc_se, state, init_handoff)
 
     local build_result = build_dialog_tree(dialog, state) or {}
@@ -2576,7 +2655,7 @@ function panda_f2f_bridge.init_dialog(dialog)
         if active_npc_id then
             panda_f2f_bridge.restore_branch_route(active_npc_id, nil)
         end
-        runtime.latest_state = nil
+        unregister_active_state(state)
         return
     end
     bridge_warn(
