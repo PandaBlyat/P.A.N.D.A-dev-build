@@ -34,7 +34,7 @@ local function ensure_panda_f2f_bridge()
 
     _panda_f2f_bridge_checked = true
 
-    if not (panda_f2f_bridge and panda_f2f_bridge.hard_route_branch) then
+    if not panda_f2f_bridge then
         local ok = pcall(function()
             if require then
                 require("panda_f2f_bridge")
@@ -48,8 +48,8 @@ local function ensure_panda_f2f_bridge()
         end
     end
 
-    if not (panda_f2f_bridge and panda_f2f_bridge.hard_route_branch) then
-        printf("PANDA_IC: warning: panda_f2f_bridge unavailable - missing hard_route_branch after module load")
+    if not panda_f2f_bridge then
+        printf("PANDA_IC: warning: panda_f2f_bridge unavailable after module load")
         return nil
     end
 
@@ -6024,37 +6024,8 @@ function on_player_choice(idx, contact_id)
                         }
                         _G.pda_f2f_handoffs = pda_f2f_handoffs
 
-                        if panda_f2f_bridge and panda_f2f_bridge.hard_route_branch then
-                            local ok_route_call, route_applied = pcall(
-                                panda_f2f_bridge.hard_route_branch,
-                                c.npc_id,
-                                "pda_handoff:" .. tostring(cid)
-                            )
-
-                            if ok_route_call and route_applied then
-                                printf("PANDA_IC: f2f handoff route=bridge route npc_id=%s conv_id=%s turn=%s",
-                                    tostring(c.npc_id), tostring(c.conv_id), tostring(ch.next_turn))
-                            else
-                                printf("PANDA_IC: f2f handoff route=bridge FAILED npc_id=%s conv_id=%s turn=%s",
-                                    tostring(c.npc_id), tostring(c.conv_id), tostring(ch.next_turn))
-
-                                if xr_meet and xr_meet.override_dialog then
-                                    printf("PANDA_IC: f2f handoff route=xr_meet fallback npc_id=%s conv_id=%s turn=%s",
-                                        tostring(c.npc_id), tostring(c.conv_id), tostring(ch.next_turn))
-                                    xr_meet.override_dialog(c.npc_id, "panda_f2f_hub_dialog")
-                                else
-                                    printf("PANDA_IC: f2f handoff no route available npc_id=%s conv_id=%s turn=%s",
-                                        tostring(c.npc_id), tostring(c.conv_id), tostring(ch.next_turn))
-                                end
-                            end
-                        elseif xr_meet and xr_meet.override_dialog then
-                            printf("PANDA_IC: f2f handoff route=xr_meet fallback npc_id=%s conv_id=%s turn=%s",
-                                tostring(c.npc_id), tostring(c.conv_id), tostring(ch.next_turn))
-                            xr_meet.override_dialog(c.npc_id, "panda_f2f_hub_dialog")
-                        else
-                            printf("PANDA_IC: f2f handoff no route available npc_id=%s conv_id=%s turn=%s",
-                                tostring(c.npc_id), tostring(c.conv_id), tostring(ch.next_turn))
-                        end
+                        printf("PANDA_IC: f2f handoff registered npc_id=%s conv_id=%s turn=%s dialog=%s route=actor_dialog_eval",
+                            tostring(c.npc_id), tostring(c.conv_id), tostring(ch.next_turn), "panda_f2f_hub_dialog")
                     end
 
                     if get_ui then
