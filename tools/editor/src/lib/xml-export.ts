@@ -207,6 +207,11 @@ function createF2FRegistryPayload(conv: Conversation) {
   };
 }
 
+function isEntryTurnForExport(turn: Turn): boolean {
+  const { pdaEntry, f2fEntry } = resolveRegistryEntryFlags(turn);
+  return pdaEntry || f2fEntry;
+}
+
 function resolveContinueChannelForExport(
   conv: Conversation,
   _turn: Turn,
@@ -247,15 +252,17 @@ function generateConversation(
   for (const turn of conv.turns) {
     const turnInfix = turn.turnNumber === 1 ? '' : `_t${turn.turnNumber}`;
 
-    // Opening message (all turns). F2F bridge runtime requires non-empty openers
-    // for continuation safety, so export authored text without intentional blanking.
+    // Opening message (all turns for backward compatibility). Entry-turn semantics
+    // are defined by the exported F2F registry payload, and non-entry openers should
+    // be treated as optional metadata by runtime consumers.
     const openingKey = `${prefix}${turnInfix}_open`;
     let openingText = turn.openingMessage ?? '';
-    if (
-      !config.strictDialogueValidation
+    const shouldAutofillMissingOpen =
+      isEntryTurnForExport(turn)
+      && !config.strictDialogueValidation
       && config.autofillMissingOpenWhenNonStrict
-      && openingText.trim().length === 0
-    ) {
+      && openingText.trim().length === 0;
+    if (shouldAutofillMissingOpen) {
       openingText = config.missingOpenPlaceholder;
     }
     lines.push(emitString(openingKey, openingText));
