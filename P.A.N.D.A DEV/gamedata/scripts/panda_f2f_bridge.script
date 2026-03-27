@@ -2169,7 +2169,24 @@ local function build_dialog_tree(dialog, state)
                     turn = branch_turn,
                 }
             end
-            local ok = execute_shared_outcome(branch, branch_state)
+            local outcome_token = tostring(branch.outcome or ""):gsub("^%s*(.-)%s*$", "%1"):lower()
+            local commit_mode = "outcome_applied"
+            local ok = false
+            if outcome_token == "" or outcome_token == "none" then
+                ok = true
+                commit_mode = "outcome_skipped_none"
+            else
+                ok = execute_shared_outcome(branch, branch_state)
+            end
+            bridge_debug(
+                "register_dispatcher: branch commit branch=%s conv_id=%s turn=%s ok=%s commit_mode=%s outcome=%s",
+                tostring(branch.index),
+                tostring(active_state.conv_id or "nil"),
+                tostring(branch_state.turn or "nil"),
+                tostring(ok),
+                tostring(commit_mode),
+                tostring(branch.outcome or "none")
+            )
             if ok then
                 -- Consume only after a player-selected branch is committed.
                 consume_pending_handoff_for_npc(active_state.npc_se)
@@ -2182,20 +2199,22 @@ local function build_dialog_tree(dialog, state)
                         runtime.override_owners[tostring(active_npc_id)] = nil
                     end
                     bridge_debug(
-                        "register_dispatcher: hard_route cleanup branch=%s conv_id=%s turn=%s ok=%s restored=%s",
+                        "register_dispatcher: hard_route cleanup branch=%s conv_id=%s turn=%s ok=%s commit_mode=%s restored=%s",
                         tostring(branch.index),
                         tostring(active_state.conv_id or "nil"),
                         tostring(active_state.turn or "nil"),
                         tostring(ok),
+                        tostring(commit_mode),
                         tostring(restored)
                     )
                 else
                     bridge_debug(
-                        "register_dispatcher: hard_route cleanup skipped keep_hub_override=true branch=%s conv_id=%s turn=%s ok=%s",
+                        "register_dispatcher: hard_route cleanup skipped keep_hub_override=true branch=%s conv_id=%s turn=%s ok=%s commit_mode=%s",
                         tostring(branch.index),
                         tostring(active_state.conv_id or "nil"),
                         tostring(active_state.turn or "nil"),
-                        tostring(ok)
+                        tostring(ok),
+                        tostring(commit_mode)
                     )
                 end
             end
