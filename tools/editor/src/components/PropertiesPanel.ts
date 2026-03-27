@@ -366,6 +366,10 @@ function renderTurnProperties(
   }
 
   const currentTurnChannel = normalizeChannel(turn.channel, 'both');
+  const effectivePdaEntry = turn.pda_entry ?? turn.turnNumber === 1;
+  const effectiveF2FEntry = turn.f2f_entry ?? false;
+  const pdaEntryAllowed = currentTurnChannel !== 'f2f';
+  const f2fEntryAllowed = currentTurnChannel !== 'pda';
   const visibilityWrapper = document.createElement('div');
   visibilityWrapper.className = 'field';
   const visibilityLabel = document.createElement('label');
@@ -377,7 +381,11 @@ function renderTurnProperties(
   visibilityWrapper.appendChild(visibilityHint);
   visibilityWrapper.appendChild(createChannelSelect(
     currentTurnChannel,
-    (nextChannel) => store.updateTurn(conv.id, turn.turnNumber, { channel: nextChannel }),
+    (nextChannel) => store.updateTurn(conv.id, turn.turnNumber, {
+      channel: nextChannel,
+      ...(nextChannel === 'pda' ? { f2f_entry: false } : {}),
+      ...(nextChannel === 'f2f' ? { pda_entry: false } : {}),
+    }),
     getTurnFieldKey(conv.id, turn.turnNumber, 'channel'),
   ));
   container.appendChild(visibilityWrapper);
@@ -394,23 +402,33 @@ function renderTurnProperties(
   const entryScopeRow = document.createElement('div');
   entryScopeRow.style.cssText = 'display:flex; gap:12px; flex-wrap:wrap;';
 
-  const createEntryToggle = (label: string, checked: boolean, key: 'pda_entry' | 'f2f_entry', fieldSuffix: 'pda-entry' | 'f2f-entry'): HTMLElement => {
+  const createEntryToggle = (
+    label: string,
+    checked: boolean,
+    key: 'pda_entry' | 'f2f_entry',
+    fieldSuffix: 'pda-entry' | 'f2f-entry',
+    enabled: boolean,
+  ): HTMLElement => {
     const wrapper = document.createElement('label');
     wrapper.style.cssText = 'display:inline-flex; align-items:center; gap:6px; font-size:12px;';
     const input = document.createElement('input');
     input.type = 'checkbox';
-    input.checked = checked;
+    input.checked = enabled ? checked : false;
+    input.disabled = !enabled;
     input.setAttribute('data-field-key', getTurnFieldKey(conv.id, turn.turnNumber, fieldSuffix));
     input.onchange = () => store.updateTurn(conv.id, turn.turnNumber, { [key]: input.checked });
     const text = document.createElement('span');
     text.textContent = label;
+    if (!enabled) {
+      text.style.opacity = '0.65';
+    }
     wrapper.append(input, text);
     return wrapper;
   };
 
   entryScopeRow.append(
-    createEntryToggle('PDA entry turn', turn.pda_entry ?? turn.turnNumber === 1, 'pda_entry', 'pda-entry'),
-    createEntryToggle('F2F entry turn', turn.f2f_entry ?? false, 'f2f_entry', 'f2f-entry'),
+    createEntryToggle('PDA entry turn', effectivePdaEntry, 'pda_entry', 'pda-entry', pdaEntryAllowed),
+    createEntryToggle('F2F entry turn', effectiveF2FEntry, 'f2f_entry', 'f2f-entry', f2fEntryAllowed),
   );
   entryScopeField.appendChild(entryScopeRow);
   container.appendChild(entryScopeField);

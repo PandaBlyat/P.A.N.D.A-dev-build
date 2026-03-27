@@ -99,24 +99,41 @@ function isF2FEntryTurn(turn: Turn): boolean {
   return normalizeChannel(turn.channel, 'both') === 'f2f' && (turn.f2f_entry ?? false);
 }
 
+function resolveRegistryEntryFlags(turn: Turn): { pdaEntry: boolean; f2fEntry: boolean } {
+  const channel = normalizeChannel(turn.channel, 'both');
+  const basePdaEntry = turn.pda_entry ?? turn.turnNumber === 1;
+  const baseF2FEntry = turn.f2f_entry ?? false;
+
+  if (channel === 'pda') {
+    return { pdaEntry: basePdaEntry, f2fEntry: false };
+  }
+  if (channel === 'f2f') {
+    return { pdaEntry: false, f2fEntry: baseF2FEntry };
+  }
+  return { pdaEntry: basePdaEntry, f2fEntry: baseF2FEntry };
+}
+
 function createF2FRegistryPayload(conv: Conversation) {
-  const turns = conv.turns.map((turn) => ({
-    turnNumber: turn.turnNumber,
-    channel: normalizeChannel(turn.channel, 'both'),
-    firstSpeaker: inferTurnFirstSpeaker(turn),
-    pdaEntry: turn.pda_entry ?? turn.turnNumber === 1,
-    f2fEntry: turn.f2f_entry ?? false,
-    choices: turn.choices.map((choice) => ({
-      index: choice.index,
-      channel: normalizeChannel(choice.channel, 'pda'),
-      continueTo: choice.continueTo ?? null,
-      continueChannel: normalizeChannel(choice.continue_channel, 'pda'),
-      storyNpcId: choice.story_npc_id ?? null,
-      npcFactionFilters: choice.npc_faction_filters ?? [],
-      npcProfileFilters: choice.npc_profile_filters ?? [],
-      allowGenericStalker: choice.allow_generic_stalker ?? false,
-    })),
-  }));
+  const turns = conv.turns.map((turn) => {
+    const { pdaEntry, f2fEntry } = resolveRegistryEntryFlags(turn);
+    return {
+      turnNumber: turn.turnNumber,
+      channel: normalizeChannel(turn.channel, 'both'),
+      firstSpeaker: inferTurnFirstSpeaker(turn),
+      pdaEntry,
+      f2fEntry,
+      choices: turn.choices.map((choice) => ({
+        index: choice.index,
+        channel: normalizeChannel(choice.channel, 'pda'),
+        continueTo: choice.continueTo ?? null,
+        continueChannel: normalizeChannel(choice.continue_channel, 'pda'),
+        storyNpcId: choice.story_npc_id ?? null,
+        npcFactionFilters: choice.npc_faction_filters ?? [],
+        npcProfileFilters: choice.npc_profile_filters ?? [],
+        allowGenericStalker: choice.allow_generic_stalker ?? false,
+      })),
+    };
+  });
 
   return {
     schema: PANDA_F2F_REGISTRY_SCHEMA,
