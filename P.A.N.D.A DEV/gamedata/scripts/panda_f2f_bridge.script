@@ -2266,10 +2266,17 @@ local function build_dialog_tree(dialog, state)
                         next_open_phrase = "[DEBUG] Missing conversation opening line."
                     end
                     if next_open_phrase then
-                        local next_open_id = alloc()
-                        generated_ids.open[#generated_ids.open + 1] = next_open_id
-                        add_logged_node(npc_id, next_open_id, next_open_phrase, nil, nil, false, "npc_open")
-                        build_turn(next_open_id, branch.next_turn, depth + 1, visited_turns)
+                        bridge_debug(
+                            "build_dialog_tree continuation conv_id=%s from_turn=%s to_turn=%s choice_key=%s direct_actor_next=%s npc_open_inserted=%s next_open_phrase=%s",
+                            tostring(state.conv_id or "nil"),
+                            tostring(turn or "nil"),
+                            tostring(branch.next_turn or "nil"),
+                            tostring(branch.choice_key or "nil"),
+                            "true",
+                            "false",
+                            tostring(next_open_phrase or "nil")
+                        )
+                        build_turn(npc_id, branch.next_turn, depth + 1, visited_turns)
                     else
                         bridge_warn(
                             "build_dialog_tree missing_next_turn_state_or_open conv_id=%s from_turn=%s to_turn=%s choice_key=%s action=exit_fallback",
@@ -2277,6 +2284,16 @@ local function build_dialog_tree(dialog, state)
                             tostring(turn or "nil"),
                             tostring(branch.next_turn or "nil"),
                             tostring(branch.choice_key or "nil")
+                        )
+                        bridge_debug(
+                            "build_dialog_tree continuation conv_id=%s from_turn=%s to_turn=%s choice_key=%s direct_actor_next=%s npc_open_inserted=%s next_open_phrase=%s",
+                            tostring(state.conv_id or "nil"),
+                            tostring(turn or "nil"),
+                            tostring(branch.next_turn or "nil"),
+                            tostring(branch.choice_key or "nil"),
+                            "false",
+                            "false",
+                            "nil"
                         )
                         local exit_id = alloc()
                         generated_ids.exit[#generated_ids.exit + 1] = exit_id
