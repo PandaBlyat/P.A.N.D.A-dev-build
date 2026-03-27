@@ -7,6 +7,21 @@ import { getDefaultFlowTurnPosition } from './flow-layout';
 
 const PANDA_F2F_REGISTRY_SCHEMA = 'panda_f2f_bridge_registry_v1';
 const PANDA_F2F_REGISTRY_SUFFIX = '_panda_f2f_registry';
+const DEFAULT_MISSING_OPEN_PLACEHOLDER = '[MISSING_OPEN_LINE]';
+
+export type XmlExporterConfig = {
+  strictDialogueValidation?: boolean;
+  autofillMissingOpenWhenNonStrict?: boolean;
+  missingOpenPlaceholder?: string;
+  validateDialogueStrings?: boolean;
+};
+
+export const DEFAULT_XML_EXPORTER_CONFIG: Required<XmlExporterConfig> = {
+  strictDialogueValidation: true,
+  autofillMissingOpenWhenNonStrict: false,
+  missingOpenPlaceholder: DEFAULT_MISSING_OPEN_PLACEHOLDER,
+  validateDialogueStrings: false,
+};
 
 /** Escape special XML characters in text content */
 function escapeXml(text: string): string {
@@ -75,6 +90,36 @@ export function serializeOutcomes(outcomes: Outcome[]): string {
 /** Emit a single XML string entry */
 function emitString(id: string, text: string): string {
   return `    <string id="${id}">\n        <text>${escapeXml(text)}</text>\n    </string>`;
+}
+
+function isDialogueBearingKey(id: string): boolean {
+  return /_open$/.test(id)
+    || /_choice_\d+$/.test(id)
+    || /_reply_\d+$/.test(id)
+    || /_timeout_msg$/.test(id);
+}
+
+function decodeXmlEntities(text: string): string {
+  return text
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&');
+}
+
+function validateEmittedDialogueStrings(xml: string, config: Required<XmlExporterConfig>): void {
+  const stringRecordRegex = /<string id="([^"]+)">\s*<text>([\s\S]*?)<\/text>\s*<\/string>/g;
+  let match: RegExpExecArray | null;
+  while ((match = stringRecordRegex.exec(xml)) != null) {
+    const id = match[1];
+    if (!isDialogueBearingKey(id)) continue;
+    if (!config.strictDialogueValidation && /_open$/.test(id)) continue;
+
+    const text = decodeXmlEntities(match[2]).trim();
+    if (text.length === 0) {
+      throw new Error(`Export blocked: empty dialogue text for key "${id}".`);
+    }
+  }
 }
 
 function normalizeChannel(value: Conversation['turns'][number]['channel'] | Choice['channel'] | Choice['continue_channel'] | undefined, fallback: 'pda' | 'both'): 'pda' | 'f2f' | 'both' {
@@ -181,7 +226,12 @@ function generateSystemStrings(systemStrings: Map<string, string>): string {
 }
 
 /** Generate XML for a single conversation */
-function generateConversation(conv: Conversation, factionKey: string, exportId: number): string {
+function generateConversation(
+  conv: Conversation,
+  factionKey: string,
+  exportId: number,
+  config: Required<XmlExporterConfig>,
+): string {
   const prefix = `st_pda_ic_${factionKey}_${exportId}`;
   const lines: string[] = [];
 
@@ -199,7 +249,14 @@ function generateConversation(conv: Conversation, factionKey: string, exportId: 
     // Opening message (all turns). For F2F entry turns, reserve `_open` as
     // handshake padding so player-visible authored dialogue starts at `choice_1`.
     const openingKey = `${prefix}${turnInfix}_open`;
-    const openingText = isF2FEntryTurn(turn) ? '' : (turn.openingMessage ?? '');
+    let openingText = isF2FEntryTurn(turn) ? '' : (turn.openingMessage ?? '');
+    if (
+      !config.strictDialogueValidation
+      && config.autofillMissingOpenWhenNonStrict
+      && openingText.trim().length === 0
+    ) {
+      openingText = config.missingOpenPlaceholder;
+    }
     lines.push(emitString(openingKey, openingText));
 
     // Choices
@@ -249,7 +306,16 @@ function generateConversation(conv: Conversation, factionKey: string, exportId: 
 }
 
 /** Generate the complete XML file content */
-export function generateXml(project: Project, systemStrings?: Map<string, string>, factionFilter?: FactionId): string {
+export function generateXml(
+  project: Project,
+  systemStrings?: Map<string, string>,
+  factionFilter?: FactionId,
+  exporterConfig?: XmlExporterConfig,
+): string {
+  const config: Required<XmlExporterConfig> = {
+    ...DEFAULT_XML_EXPORTER_CONFIG,
+    ...(exporterConfig ?? {}),
+  };
   const lines: string[] = [];
 
   lines.push('<?xml version="1.0" encoding="utf-8"?>');
@@ -271,13 +337,17 @@ export function generateXml(project: Project, systemStrings?: Map<string, string
     const faction = getConversationFaction(conv, project.faction);
     const exportId = (exportCounts.get(faction) ?? 0) + 1;
     exportCounts.set(faction, exportId);
-    lines.push(generateConversation(conv, FACTION_XML_KEYS[faction], exportId));
+    lines.push(generateConversation(conv, FACTION_XML_KEYS[faction], exportId, config));
     lines.push('');
   }
 
   lines.push('</string_table>');
 
-  return lines.join('\n');
+  const xml = lines.join('\n');
+  if (config.validateDialogueStrings) {
+    validateEmittedDialogueStrings(xml, config);
+  }
+  return xml;
 }
 
 /** Create a default empty project */
