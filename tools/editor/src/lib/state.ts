@@ -102,6 +102,16 @@ function inferTurnFirstSpeaker(turn: Pick<Turn, 'firstSpeaker' | 'f2f_entry' | '
   return turn.channel === 'f2f' && turn.f2f_entry === true ? 'player' : 'npc';
 }
 
+function normalizeTurnEntryFlags(turn: Turn): void {
+  if (turn.channel === 'pda') {
+    turn.f2f_entry = false;
+    return;
+  }
+  if (turn.channel === 'f2f') {
+    turn.pda_entry = false;
+  }
+}
+
 const VALIDATION_DEBOUNCE_MS = 120;
 
 type TurnPositionUpdate = {
@@ -1078,6 +1088,7 @@ class StateManager {
     if (!turn) return;
     this.pushUndo();
     Object.assign(turn, updates);
+    normalizeTurnEntryFlags(turn);
     this.finishProjectMutation();
   }
 
