@@ -988,7 +988,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
   for (const turn of conv.turns) {
     const turnChannel = normalizeChannel(turn.channel, 'pda');
     const f2fVisibleChoices = turn.choices.filter((choice) => isChannelVisible(normalizeChannel(choice.channel, 'pda'), 'f2f'));
-    if (turnChannel === 'f2f' && turn.f2f_entry === true) {
+    if (turn.f2f_entry === true) {
       requiredF2FOpeningTurns.add(turn.turnNumber);
     }
 
@@ -1041,10 +1041,6 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         continue;
       }
 
-      if (continueChannel === 'f2f' && isChannelVisible(choiceChannel, 'f2f')) {
-        requiredF2FOpeningTurns.add(targetTurn.turnNumber);
-      }
-
       if (!isCrossChannelHandoff(choiceChannel, continueChannel)) {
         continue;
       }
@@ -1084,6 +1080,10 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
           fieldLabel: 'Continue To Turn',
           message: `Cross-channel handoff to Branch ${choice.continueTo} is invalid: target is not marked as a ${destinationChannel.toUpperCase()} entry turn.`,
         });
+      }
+
+      if (destinationChannel === 'f2f' && hasEntry) {
+        requiredF2FOpeningTurns.add(targetTurn.turnNumber);
       }
     }
 
@@ -1134,7 +1134,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
       propertiesTab: 'selection',
       fieldKey: getTurnFieldKey(conv.id, turnNumber, 'opening-message'),
       fieldLabel: 'Opening Message',
-      message: `Branch ${turnNumber} participates in active F2F flow and must have an opening message.`,
+      message: `Branch ${turnNumber} is required for F2F entry turns and must have an opening message.`,
     });
   }
 }
