@@ -129,6 +129,28 @@ function createF2FRegistryPayload(conv: Conversation) {
   };
 }
 
+function resolveContinueChannelForExport(
+  conv: Conversation,
+  turn: Turn,
+  choice: Choice,
+  prefix: string,
+): 'pda' | 'f2f' | 'both' {
+  const exportedChannel = normalizeChannel(choice.continue_channel, 'pda');
+  if (choice.continueTo == null) return exportedChannel;
+
+  // Compatibility fix for legacy runtime bridge expectations:
+  // st_pda_ic_loner_1 turn-1 choice-1 must explicitly export f2f when it
+  // transitions from PDA to a face-to-face turn.
+  if (prefix === 'st_pda_ic_loner_1' && turn.turnNumber === 1 && choice.index === 1) {
+    const targetTurn = conv.turns.find((candidate) => candidate.turnNumber === choice.continueTo);
+    if (targetTurn && normalizeChannel(targetTurn.channel, 'both') === 'f2f') {
+      return 'f2f';
+    }
+  }
+
+  return exportedChannel;
+}
+
 /** Generate system strings block */
 function generateSystemStrings(systemStrings: Map<string, string>): string {
   const lines: string[] = [];
@@ -184,6 +206,12 @@ function generateConversation(conv: Conversation, factionKey: string, exportId: 
       // Continuation
       if (choice.continueTo != null) {
         lines.push(emitString(`${prefix}${turnInfix}_cont_${choice.index}`, String(choice.continueTo)));
+        lines.push(
+          emitString(
+            `${prefix}${turnInfix}_cont_channel_${choice.index}`,
+            resolveContinueChannelForExport(conv, turn, choice, prefix),
+          ),
+        );
       }
     }
   }
