@@ -1796,8 +1796,18 @@ local function build_dialog_tree(dialog, state)
     state.alloc = alloc
     state.handlers = {}
 
-    local root_phrase_id = "[PANDA_F2F_ROOT_ENTRY]"
-    local root_use_script_text = true
+    local root_phrase_id = "st_panda_f2f_root_entry"
+    local root_use_script_text = false
+
+    local root_phrase_text = tr(root_phrase_id)
+    if root_phrase_text == root_phrase_id then
+        bridge_warn(
+            "build_dialog_tree root_key_unresolved root_phrase_id=%s conv_id=%s turn=%s",
+            tostring(root_phrase_id),
+            tostring(state.conv_id or "nil"),
+            tostring(state.turn or "nil")
+        )
+    end
     local npc_open_phrase_id = state.open_key
     local npc_open_use_script_text = false
     if state.missing_turn_open then
