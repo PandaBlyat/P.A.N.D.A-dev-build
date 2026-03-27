@@ -334,7 +334,7 @@ function applyTurnMetadata(
   if (!metadata) {
     turn.channel = 'pda';
     turn.pda_entry = turn.turnNumber === 1;
-    turn.f2f_entry = f2fEntryTargets.has(turn.turnNumber);
+    turn.f2f_entry = false;
     turn.firstSpeaker = inferFirstSpeaker(turn, metadata, f2fEntryTargets);
     return;
   }
@@ -346,6 +346,12 @@ function applyTurnMetadata(
   turn.pda_entry = typeof metadata.pdaEntry === 'boolean' ? metadata.pdaEntry : turn.turnNumber === 1;
   turn.f2f_entry = typeof metadata.f2fEntry === 'boolean' ? metadata.f2fEntry : f2fEntryTargets.has(turn.turnNumber);
   turn.firstSpeaker = inferFirstSpeaker(turn, metadata, f2fEntryTargets);
+
+  if (turn.channel === 'pda') {
+    turn.f2f_entry = false;
+  } else {
+    turn.pda_entry = false;
+  }
 
   const choiceMap = new Map<number, ImportedF2FChoiceMetadata>();
   for (const item of metadata.choices ?? []) {
