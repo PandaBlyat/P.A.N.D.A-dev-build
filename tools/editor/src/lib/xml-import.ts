@@ -23,6 +23,7 @@ interface ImportedF2FChoiceMetadata {
 interface ImportedF2FTurnMetadata {
   turnNumber: number;
   channel?: 'pda' | 'f2f' | 'both';
+  firstSpeaker?: 'npc' | 'player';
   pdaEntry?: boolean;
   f2fEntry?: boolean;
   choices?: ImportedF2FChoiceMetadata[];
@@ -30,6 +31,10 @@ interface ImportedF2FTurnMetadata {
 
 interface ImportedF2FRegistryPayload {
   schema?: string;
+  entryNodes?: {
+    pda?: number[];
+    f2f?: number[];
+  };
   turns?: ImportedF2FTurnMetadata[];
 }
 
@@ -287,17 +292,37 @@ function parseF2FRegistryPayload(payloadRaw: string | undefined): ImportedF2FReg
   }
 }
 
-function applyTurnMetadata(turn: Turn, metadata: ImportedF2FTurnMetadata | undefined): void {
+function inferFirstSpeaker(
+  turn: Turn,
+  metadata: ImportedF2FTurnMetadata | undefined,
+  f2fEntryTargets: ReadonlySet<number>,
+): 'npc' | 'player' {
+  if (metadata?.firstSpeaker === 'npc' || metadata?.firstSpeaker === 'player') {
+    return metadata.firstSpeaker;
+  }
+
+  const inferredF2FEntry = metadata?.f2fEntry === true || f2fEntryTargets.has(turn.turnNumber);
+  const channel = normalizeChannel(metadata?.channel ?? turn.channel, 'both');
+  if (inferredF2FEntry && channel === 'f2f') {
+    return 'player';
+  }
+
+  return 'npc';
+}
+
+function applyTurnMetadata(turn: Turn, metadata: ImportedF2FTurnMetadata | undefined, f2fEntryTargets: ReadonlySet<number>): void {
   if (!metadata) {
     turn.channel = 'both';
     turn.pda_entry = turn.turnNumber === 1;
-    turn.f2f_entry = false;
+    turn.f2f_entry = f2fEntryTargets.has(turn.turnNumber);
+    turn.firstSpeaker = inferFirstSpeaker(turn, metadata, f2fEntryTargets);
     return;
   }
 
   turn.channel = normalizeChannel(metadata.channel, 'both');
   turn.pda_entry = typeof metadata.pdaEntry === 'boolean' ? metadata.pdaEntry : turn.turnNumber === 1;
-  turn.f2f_entry = typeof metadata.f2fEntry === 'boolean' ? metadata.f2fEntry : false;
+  turn.f2f_entry = typeof metadata.f2fEntry === 'boolean' ? metadata.f2fEntry : f2fEntryTargets.has(turn.turnNumber);
+  turn.firstSpeaker = inferFirstSpeaker(turn, metadata, f2fEntryTargets);
 
   const choiceMap = new Map<number, ImportedF2FChoiceMetadata>();
   for (const item of metadata.choices ?? []) {
@@ -367,6 +392,11 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
 
     if (!strings.has(openKey)) break;
     const metadata = parseF2FRegistryPayload(strings.get(`${prefix}${PANDA_F2F_REGISTRY_SUFFIX}`));
+    const f2fEntryTargets = new Set<number>(
+      (metadata?.entryNodes?.f2f ?? [])
+        .filter((turnNumber): turnNumber is number => typeof turnNumber === 'number' && Number.isFinite(turnNumber))
+        .map((turnNumber) => Math.floor(turnNumber)),
+    );
     const metadataTurns = new Map<number, ImportedF2FTurnMetadata>();
     for (const turnMeta of metadata?.turns ?? []) {
       metadataTurns.set(turnMeta.turnNumber, turnMeta);
@@ -403,7 +433,7 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
       choices: parseTurnChoices(strings, prefix, ''),
       position: getDefaultFlowTurnPosition(1),
     };
-    applyTurnMetadata(turn1, metadataTurns.get(1));
+    applyTurnMetadata(turn1, metadataTurns.get(1), f2fEntryTargets);
     conv.turns.push(turn1);
 
     // Parse multi-turn: t2, t3, etc.
@@ -419,7 +449,7 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
         choices: parseTurnChoices(strings, prefix, turnInfix),
         position: getDefaultFlowTurnPosition(turnNum),
       };
-      applyTurnMetadata(turn, metadataTurns.get(turnNum));
+      applyTurnMetadata(turn, metadataTurns.get(turnNum), f2fEntryTargets);
       conv.turns.push(turn);
       turnNum++;
     }

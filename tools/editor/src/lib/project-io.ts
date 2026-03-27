@@ -197,11 +197,18 @@ function normalizeStringArray(values: unknown): string[] | undefined {
 }
 
 function normalizeTurn(turn: Turn, fallbackPosition: { x: number; y: number }): Turn {
+  const normalizedChannel = normalizeChannel(turn.channel, 'both');
+  const normalizedF2fEntry = typeof turn.f2f_entry === 'boolean' ? turn.f2f_entry : false;
+  const normalizedFirstSpeaker = turn.firstSpeaker === 'npc' || turn.firstSpeaker === 'player'
+    ? turn.firstSpeaker
+    : (normalizedChannel === 'f2f' && normalizedF2fEntry ? 'player' : 'npc');
+
   return {
     ...turn,
-    channel: normalizeChannel(turn.channel, 'both'),
+    channel: normalizedChannel,
+    firstSpeaker: normalizedFirstSpeaker,
     pda_entry: typeof turn.pda_entry === 'boolean' ? turn.pda_entry : turn.turnNumber === 1,
-    f2f_entry: typeof turn.f2f_entry === 'boolean' ? turn.f2f_entry : false,
+    f2f_entry: normalizedF2fEntry,
     position: turn.position ?? fallbackPosition,
     choices: turn.choices.map((choice, index) => normalizeChoice(choice, index + 1)),
   };

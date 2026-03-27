@@ -262,7 +262,8 @@ function advanceTurn(turnNumber: number): void {
   pushMessage({ kind: 'branch-entry', text: branchLabel, turnNumber });
 
   if (turn.openingMessage) {
-    pushMessage({ kind: 'npc', text: turn.openingMessage, turnNumber });
+    const openingSpeaker = turn.firstSpeaker === 'player' ? 'player' : 'npc';
+    pushMessage({ kind: openingSpeaker, text: turn.openingMessage, turnNumber });
   }
 
   if (turn.choices.length > 0) {

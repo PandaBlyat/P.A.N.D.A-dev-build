@@ -84,10 +84,22 @@ function normalizeChannel(value: Conversation['turns'][number]['channel'] | Choi
   return fallback;
 }
 
+function inferTurnFirstSpeaker(turn: Turn): 'npc' | 'player' {
+  if (turn.firstSpeaker === 'npc' || turn.firstSpeaker === 'player') {
+    return turn.firstSpeaker;
+  }
+  const channel = normalizeChannel(turn.channel, 'both');
+  if (channel === 'f2f' && turn.f2f_entry === true) {
+    return 'player';
+  }
+  return 'npc';
+}
+
 function createF2FRegistryPayload(conv: Conversation) {
   const turns = conv.turns.map((turn) => ({
     turnNumber: turn.turnNumber,
     channel: normalizeChannel(turn.channel, 'both'),
+    firstSpeaker: inferTurnFirstSpeaker(turn),
     pdaEntry: turn.pda_entry ?? turn.turnNumber === 1,
     f2fEntry: turn.f2f_entry ?? false,
     choices: turn.choices.map((choice) => ({
@@ -243,6 +255,7 @@ export function createTurn(turnNumber: number): Turn {
     turnNumber,
     openingMessage: turnNumber === 1 ? '' : undefined,
     channel: 'both',
+    firstSpeaker: 'npc',
     pda_entry: turnNumber === 1,
     f2f_entry: false,
     choices: [createChoice(1)],
