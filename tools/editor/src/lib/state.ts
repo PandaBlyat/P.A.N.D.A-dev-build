@@ -110,12 +110,17 @@ function normalizeChannelValue(channel: Turn['channel'] | Choice['channel'] | Ch
 }
 
 function normalizeTurnEntryFlags(turn: Turn): void {
+  turn.channel = normalizeChannelValue(turn.channel, 'pda');
+  const defaultPdaEntry = turn.turnNumber === 1;
+
   if (turn.channel === 'pda') {
+    turn.pda_entry = typeof turn.pda_entry === 'boolean' ? turn.pda_entry : defaultPdaEntry;
     turn.f2f_entry = false;
     return;
   }
   if (turn.channel === 'f2f') {
     turn.pda_entry = false;
+    turn.f2f_entry = typeof turn.f2f_entry === 'boolean' ? turn.f2f_entry : false;
   }
 }
 
@@ -677,6 +682,7 @@ class StateManager {
     turn.customLabel = sourceTurn.customLabel;
     turn.color = sourceTurn.color;
     turn.choices = sourceTurn.choices.map((choice, index) => this.cloneChoiceFromSource(choice, index + 1, options));
+    normalizeTurnEntryFlags(turn);
     return turn;
   }
 
@@ -686,21 +692,25 @@ class StateManager {
       conversations: project.conversations.map((conversation) => ({
         ...conversation,
         faction: getConversationFaction(conversation, project.faction),
-        turns: conversation.turns.map((turn, turnIndex) => ({
-          ...turn,
-          channel: normalizeChannelValue(turn.channel, 'pda'),
-          pda_entry: turn.pda_entry ?? turn.turnNumber === 1,
-          f2f_entry: turn.f2f_entry ?? false,
-          firstSpeaker: inferTurnFirstSpeaker(turn),
-          position: turn.position ?? getDefaultFlowTurnPosition(turnIndex + 1),
-          choices: turn.choices.map((choice, choiceIndex) => ({
-            ...choice,
-            index: choice.index ?? choiceIndex + 1,
-            channel: normalizeChannelValue(choice.channel, 'pda'),
-            continue_channel: normalizeChannelValue(choice.continue_channel, 'pda'),
-            allow_generic_stalker: choice.allow_generic_stalker ?? false,
-          })),
-        })),
+        turns: conversation.turns.map((turn, turnIndex) => {
+          const normalizedTurn: Turn = {
+            ...turn,
+            channel: normalizeChannelValue(turn.channel, 'pda'),
+            pda_entry: turn.pda_entry ?? turn.turnNumber === 1,
+            f2f_entry: turn.f2f_entry ?? false,
+            firstSpeaker: inferTurnFirstSpeaker(turn),
+            position: turn.position ?? getDefaultFlowTurnPosition(turnIndex + 1),
+            choices: turn.choices.map((choice, choiceIndex) => ({
+              ...choice,
+              index: choice.index ?? choiceIndex + 1,
+              channel: normalizeChannelValue(choice.channel, 'pda'),
+              continue_channel: normalizeChannelValue(choice.continue_channel, 'pda'),
+              allow_generic_stalker: choice.allow_generic_stalker ?? false,
+            })),
+          };
+          normalizeTurnEntryFlags(normalizedTurn);
+          return normalizedTurn;
+        }),
       })),
     };
     this.state.systemStrings = systemStrings;

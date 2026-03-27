@@ -243,16 +243,25 @@ function normalizeTurn(
   const normalizedFirstSpeaker = turn.firstSpeaker === 'npc' || turn.firstSpeaker === 'player'
     ? turn.firstSpeaker
     : (normalizedChannel === 'f2f' ? 'player' : 'npc');
+  const normalizedPdaEntry = typeof turn.pda_entry === 'boolean' ? turn.pda_entry : turn.turnNumber === 1;
 
-  return {
+  const normalizedTurn: Turn = {
     ...turn,
     channel: normalizedChannel,
     firstSpeaker: normalizedFirstSpeaker,
-    pda_entry: typeof turn.pda_entry === 'boolean' ? turn.pda_entry : turn.turnNumber === 1,
+    pda_entry: normalizedPdaEntry,
     f2f_entry: normalizedF2fEntry,
     position: turn.position ?? fallbackPosition,
     choices: turn.choices.map((choice, index) => normalizeChoice(conversationId, turn.turnNumber, choice, index + 1, warningSink)),
   };
+
+  if (normalizedTurn.channel === 'pda') {
+    normalizedTurn.f2f_entry = false;
+    return normalizedTurn;
+  }
+
+  normalizedTurn.pda_entry = false;
+  return normalizedTurn;
 }
 
 function normalizeChoice(
