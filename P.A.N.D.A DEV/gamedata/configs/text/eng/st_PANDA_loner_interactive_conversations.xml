@@ -3,19 +3,19 @@
 
 
     <!-- ═══════════════════════════════════════════════════════════ -->
-    <!-- CONVERSATION 1: remote to in person chat -->
+    <!-- CONVERSATION 1: Conversation 1 -->
     <!-- ═══════════════════════════════════════════════════════════ -->
     <string id="st_pda_ic_loner_1_precond">
         <text>req_npc_friendly:stalker</text>
     </string>
     <string id="st_pda_ic_loner_1_open">
-        <text>Yo come see me right now need to talk with you in person.</text>
+        <text>meet me</text>
     </string>
     <string id="st_pda_ic_loner_1_choice_1">
-        <text>Yes sir!</text>
+        <text>Sure omw</text>
     </string>
     <string id="st_pda_ic_loner_1_reply_1">
-        <text>hurry up!</text>
+        <text>hurry the fuck up</text>
     </string>
     <string id="st_pda_ic_loner_1_outcome_1">
         <text>none</text>
@@ -26,23 +26,89 @@
     <string id="st_pda_ic_loner_1_cont_channel_1">
         <text>f2f</text>
     </string>
-    <string id="st_pda_ic_loner_1_t2_choice_1_precond">
-        <text>req_npc_friendly:stalker</text>
-    </string>
     <string id="st_pda_ic_loner_1_t2_open">
-        <text>Glad you made it, keep this between us.</text>
+        <text>You made it. What took you so long?</text>
     </string>
     <string id="st_pda_ic_loner_1_t2_choice_1">
-        <text>So, what is it you wanted to talk about?</text>
+        <text>So what is it you wanted?</text>
     </string>
     <string id="st_pda_ic_loner_1_t2_reply_1">
-        <text>HOLY SHIT IT WORKS!!! DO YOU UNDERSTAND WHAT THIS MEANS??</text>
+        <text>To test if in person dialogues work</text>
     </string>
     <string id="st_pda_ic_loner_1_t2_outcome_1">
         <text>none</text>
     </string>
+    <string id="st_pda_ic_loner_1_t2_cont_1">
+        <text>3</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t2_cont_channel_1">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t2_choice_2">
+        <text>You dragged me all the way here, so what is it?</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t2_reply_2">
+        <text>watch your mouth</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t2_outcome_2">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t2_cont_2">
+        <text>4</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t2_cont_channel_2">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t3_open">
+        <text>Yeah, face-to-face works fine.</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t3_choice_1">
+        <text>Well do they?</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t3_reply_1">
+        <text>what do you think</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t3_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t3_choice_2">
+        <text>I dont really care</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t3_reply_2">
+        <text>fuck you</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t3_outcome_2">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t4_open">
+        <text>Watch your tone, stalker.</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t4_choice_1">
+        <text>or what?</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t4_reply_1">
+        <text>git gud</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t4_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t4_choice_2">
+        <text>you're going to be eating lead soon</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t4_reply_2">
+        <text>lol</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t4_outcome_2">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_loner_1_timeout">
+        <text>400</text>
+    </string>
+    <string id="st_pda_ic_loner_1_timeout_msg">
+        <text>nvm </text>
+    </string>
     <string id="st_pda_ic_loner_1_panda_f2f_registry">
-        <text>{&quot;schema&quot;:&quot;panda_f2f_bridge_registry_v1&quot;,&quot;conversationId&quot;:1,&quot;entryNodes&quot;:{&quot;pda&quot;:[1],&quot;f2f&quot;:[2]},&quot;turns&quot;:[{&quot;turnNumber&quot;:1,&quot;channel&quot;:&quot;pda&quot;,&quot;pdaEntry&quot;:true,&quot;f2fEntry&quot;:false,&quot;choices&quot;:[{&quot;index&quot;:1,&quot;channel&quot;:&quot;pda&quot;,&quot;continueTo&quot;:2,&quot;continueChannel&quot;:&quot;f2f&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[&quot;stalker&quot;],&quot;npcProfileFilters&quot;:[&quot;cordon&quot;],&quot;allowGenericStalker&quot;:false}]},{&quot;turnNumber&quot;:2,&quot;channel&quot;:&quot;f2f&quot;,&quot;pdaEntry&quot;:false,&quot;f2fEntry&quot;:true,&quot;choices&quot;:[{&quot;index&quot;:1,&quot;channel&quot;:&quot;f2f&quot;,&quot;continueTo&quot;:null,&quot;continueChannel&quot;:&quot;pda&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[],&quot;npcProfileFilters&quot;:[],&quot;allowGenericStalker&quot;:false}]}]}</text>
+        <text>{&quot;schema&quot;:&quot;panda_f2f_bridge_registry_v1&quot;,&quot;conversationId&quot;:1,&quot;entryNodes&quot;:{&quot;pda&quot;:[1],&quot;f2f&quot;:[2,3]},&quot;turns&quot;:[{&quot;turnNumber&quot;:1,&quot;channel&quot;:&quot;pda&quot;,&quot;firstSpeaker&quot;:&quot;npc&quot;,&quot;pdaEntry&quot;:true,&quot;f2fEntry&quot;:false,&quot;choices&quot;:[{&quot;index&quot;:1,&quot;channel&quot;:&quot;pda&quot;,&quot;continueTo&quot;:2,&quot;continueChannel&quot;:&quot;f2f&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[],&quot;npcProfileFilters&quot;:[],&quot;allowGenericStalker&quot;:false}]},{&quot;turnNumber&quot;:2,&quot;channel&quot;:&quot;f2f&quot;,&quot;firstSpeaker&quot;:&quot;npc&quot;,&quot;pdaEntry&quot;:false,&quot;f2fEntry&quot;:true,&quot;choices&quot;:[{&quot;index&quot;:1,&quot;channel&quot;:&quot;f2f&quot;,&quot;continueTo&quot;:3,&quot;continueChannel&quot;:&quot;f2f&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[],&quot;npcProfileFilters&quot;:[],&quot;allowGenericStalker&quot;:false},{&quot;index&quot;:2,&quot;channel&quot;:&quot;f2f&quot;,&quot;continueTo&quot;:4,&quot;continueChannel&quot;:&quot;f2f&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[],&quot;npcProfileFilters&quot;:[],&quot;allowGenericStalker&quot;:false}]},{&quot;turnNumber&quot;:3,&quot;channel&quot;:&quot;f2f&quot;,&quot;firstSpeaker&quot;:&quot;npc&quot;,&quot;pdaEntry&quot;:false,&quot;f2fEntry&quot;:true,&quot;choices&quot;:[{&quot;index&quot;:1,&quot;channel&quot;:&quot;f2f&quot;,&quot;continueTo&quot;:null,&quot;continueChannel&quot;:&quot;pda&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[],&quot;npcProfileFilters&quot;:[],&quot;allowGenericStalker&quot;:false},{&quot;index&quot;:2,&quot;channel&quot;:&quot;f2f&quot;,&quot;continueTo&quot;:null,&quot;continueChannel&quot;:&quot;pda&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[],&quot;npcProfileFilters&quot;:[],&quot;allowGenericStalker&quot;:false}]},{&quot;turnNumber&quot;:4,&quot;channel&quot;:&quot;f2f&quot;,&quot;firstSpeaker&quot;:&quot;npc&quot;,&quot;pdaEntry&quot;:false,&quot;f2fEntry&quot;:false,&quot;choices&quot;:[{&quot;index&quot;:1,&quot;channel&quot;:&quot;f2f&quot;,&quot;continueTo&quot;:null,&quot;continueChannel&quot;:&quot;pda&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[],&quot;npcProfileFilters&quot;:[],&quot;allowGenericStalker&quot;:false},{&quot;index&quot;:2,&quot;channel&quot;:&quot;f2f&quot;,&quot;continueTo&quot;:null,&quot;continueChannel&quot;:&quot;pda&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[],&quot;npcProfileFilters&quot;:[],&quot;allowGenericStalker&quot;:false}]}]}</text>
     </string>
 
 </string_table>
