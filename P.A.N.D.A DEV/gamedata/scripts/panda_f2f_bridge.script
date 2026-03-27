@@ -1839,6 +1839,11 @@ local function build_dialog_tree(dialog, state)
 
     local root_id = alloc()
     local npc_open_id = alloc()
+    local nodes_added = 0
+    local root_ok = false
+    local npc_open_ok = false
+    local actor_choice_count_added = 0
+    local npc_reply_count_added = 0
     local function add_logged_node(parent_id, node_id, phrase_id, cond, act, allow_script_text, role)
         bridge_debug(
             "build_dialog_tree insert role=%s parent_id=%s node_id=%s phrase_id=%s cond=%s act=%s script_text=%s",
@@ -1850,7 +1855,20 @@ local function build_dialog_tree(dialog, state)
             tostring(act or "nil"),
             tostring(allow_script_text == true)
         )
-        return dm_add_dialog(state, parent_id, node_id, phrase_id, cond, act, allow_script_text)
+        local ok = dm_add_dialog(state, parent_id, node_id, phrase_id, cond, act, allow_script_text)
+        if ok then
+            nodes_added = nodes_added + 1
+            if role == "root_actor_entry" then
+                root_ok = true
+            elseif role == "npc_open" then
+                npc_open_ok = true
+            elseif role == "actor_choice" then
+                actor_choice_count_added = actor_choice_count_added + 1
+            elseif role == "npc_reply" then
+                npc_reply_count_added = npc_reply_count_added + 1
+            end
+        end
+        return ok
     end
 
     add_logged_node("", root_id, root_phrase_id, nil, nil, root_use_script_text, "root_actor_entry")
@@ -1970,7 +1988,26 @@ local function build_dialog_tree(dialog, state)
         )
 
         add_logged_node(npc_open_id, fallback_actor_id, exit_phrase, nil, nil, false, "fallback_actor_exit")
-        return
+        local build_ok = (root_ok == true) and (npc_open_ok == true) and (actor_choice_count_added > 0)
+        bridge_debug(
+            "build_dialog_tree summary build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s conv_id=%s turn=%s",
+            tostring(build_ok),
+            tostring(nodes_added),
+            tostring(root_ok),
+            tostring(npc_open_ok),
+            tostring(actor_choice_count_added),
+            tostring(npc_reply_count_added),
+            tostring(state.conv_id or "nil"),
+            tostring(state.turn or "nil")
+        )
+        return {
+            build_ok = build_ok,
+            nodes_added = nodes_added,
+            root_ok = root_ok,
+            npc_open_ok = npc_open_ok,
+            actor_choice_count_added = actor_choice_count_added,
+            npc_reply_count_added = npc_reply_count_added,
+        }
     end
 
     for _, branch in ipairs(state.branches) do
@@ -1991,6 +2028,27 @@ local function build_dialog_tree(dialog, state)
 
     local root_exit_id = alloc()
     add_logged_node(npc_open_id, root_exit_id, exit_phrase, nil, nil, false, "actor_root_exit")
+
+    local build_ok = (root_ok == true) and (npc_open_ok == true) and (actor_choice_count_added > 0)
+    bridge_debug(
+        "build_dialog_tree summary build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s conv_id=%s turn=%s",
+        tostring(build_ok),
+        tostring(nodes_added),
+        tostring(root_ok),
+        tostring(npc_open_ok),
+        tostring(actor_choice_count_added),
+        tostring(npc_reply_count_added),
+        tostring(state.conv_id or "nil"),
+        tostring(state.turn or "nil")
+    )
+    return {
+        build_ok = build_ok,
+        nodes_added = nodes_added,
+        root_ok = root_ok,
+        npc_open_ok = npc_open_ok,
+        actor_choice_count_added = actor_choice_count_added,
+        npc_reply_count_added = npc_reply_count_added,
+    }
 end
 
 function panda_f2f_bridge.precondition()
@@ -2107,15 +2165,42 @@ function panda_f2f_bridge.init_dialog(dialog)
     runtime.latest_state = state
     debug_resolve_snapshot("init", state.npc_se, state, init_handoff)
 
-    build_dialog_tree(dialog, state)
+    local build_result = build_dialog_tree(dialog, state) or {}
+    if build_result.build_ok ~= true then
+        local active_npc_id = resolve_server_npc_id(state.npc_se, "init_dialog:build_failed")
+        bridge_warn(
+            "init_dialog build_failed npc_id=%s conv_id=%s turn=%s build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s action=%s",
+            tostring(active_npc_id or "nil"),
+            tostring(state.conv_id or "nil"),
+            tostring(state.turn or "nil"),
+            tostring(build_result.build_ok == true),
+            tostring(build_result.nodes_added or 0),
+            tostring(build_result.root_ok == true),
+            tostring(build_result.npc_open_ok == true),
+            tostring(build_result.actor_choice_count_added or 0),
+            tostring(build_result.npc_reply_count_added or 0),
+            "restore_dialog_route"
+        )
+        if active_npc_id then
+            panda_f2f_bridge.restore_branch_route(active_npc_id, nil)
+        end
+        runtime.latest_state = nil
+        return
+    end
     bridge_warn(
-        "init_dialog build_complete npc_id=%s conv_id=%s turn=%s open_key=%s branch_count=%s missing_turn_open=%s",
+        "init_dialog build_complete npc_id=%s conv_id=%s turn=%s open_key=%s branch_count=%s missing_turn_open=%s build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s",
         tostring(state.npc_se and state.npc_se.id or "nil"),
         tostring(state.conv_id or "nil"),
         tostring(state.turn or "nil"),
         tostring(state.open_key or "nil"),
         tostring(state.branches and #state.branches or 0),
-        tostring(state.missing_turn_open == true)
+        tostring(state.missing_turn_open == true),
+        tostring(build_result.build_ok == true),
+        tostring(build_result.nodes_added or 0),
+        tostring(build_result.root_ok == true),
+        tostring(build_result.npc_open_ok == true),
+        tostring(build_result.actor_choice_count_added or 0),
+        tostring(build_result.npc_reply_count_added or 0)
     )
     debug_resolve_snapshot("build", state.npc_se, state, nil)
 end
