@@ -15,6 +15,7 @@ local BRANCH_HARD_ROUTE_SUFFIX = "_f2f_hard_route"
 local SAVE_KEY_OVERRIDE_OWNERS = "panda_f2f_bridge_override_owners"
 local RECENT_HANDOFF_GRACE_MS = 2 * 60 * 1000
 local ACTOR_PARITY_SHIM_PHRASE_ID = "st_panda_f2f_actor_parity_shim"
+local ACTOR_PARITY_SHIM_FALLBACK_LITERAL = "[PANDA parity shim]"
 local bridge_debug
 
 local runtime = {
@@ -1933,6 +1934,8 @@ local function build_dialog_tree(dialog, state)
 
     local root_phrase_id = "st_panda_f2f_root_entry"
     local root_use_script_text = false
+    local parity_shim_phrase_id = ACTOR_PARITY_SHIM_PHRASE_ID
+    local parity_shim_use_script_text = false
 
     local root_phrase_text = tr(root_phrase_id)
     if root_phrase_text == root_phrase_id then
@@ -1956,11 +1959,28 @@ local function build_dialog_tree(dialog, state)
             tostring(state.fallback_open_key or "nil")
         )
     end
+    local parity_shim_phrase_text = tr(ACTOR_PARITY_SHIM_PHRASE_ID)
+    local parity_shim_phrase_valid = type(parity_shim_phrase_text) == "string"
+        and parity_shim_phrase_text ~= ""
+        and parity_shim_phrase_text ~= ACTOR_PARITY_SHIM_PHRASE_ID
+    if not parity_shim_phrase_valid then
+        parity_shim_phrase_id = ACTOR_PARITY_SHIM_FALLBACK_LITERAL
+        bridge_warn(
+            "build_dialog_tree fallback reason=actor_parity_shim_missing_text constant=ACTOR_PARITY_SHIM_PHRASE_ID phrase_id=%s fallback_literal=%s translated_text=%s conv_id=%s turn=%s",
+            tostring(ACTOR_PARITY_SHIM_PHRASE_ID),
+            tostring(parity_shim_phrase_id),
+            tostring(parity_shim_phrase_text),
+            tostring(state.conv_id or "nil"),
+            tostring(state.turn or "nil")
+        )
+    end
 
     bridge_debug(
-        "build_dialog_tree root_mode root_phrase_id=%s root_script_text_mode=%s npc_open_phrase_id=%s npc_open_script_text_mode=%s conv_id=%s turn=%s",
+        "build_dialog_tree root_mode root_phrase_id=%s root_script_text_mode=%s parity_shim_phrase_id=%s parity_shim_script_text_mode=%s npc_open_phrase_id=%s npc_open_script_text_mode=%s conv_id=%s turn=%s",
         tostring(root_phrase_id or "nil"),
         tostring(root_use_script_text == true),
+        tostring(parity_shim_phrase_id or "nil"),
+        tostring(parity_shim_use_script_text == true),
         tostring(npc_open_phrase_id or "nil"),
         tostring(npc_open_use_script_text == true),
         tostring(state.conv_id or "nil"),
@@ -2015,7 +2035,7 @@ local function build_dialog_tree(dialog, state)
     -- Anomaly's actor_dialog flow can present dynamic root nodes with reversed parity
     -- (root behaving as NPC in hub-style dialogs). Insert an explicit actor shim so
     -- authored NPC opening lines always render as NPC before branch choices.
-    add_logged_node(root_id, parity_shim_id, ACTOR_PARITY_SHIM_PHRASE_ID, nil, nil, false, "actor_parity_shim")
+    add_logged_node(root_id, parity_shim_id, parity_shim_phrase_id, nil, nil, parity_shim_use_script_text, "actor_parity_shim")
     add_logged_node(parity_shim_id, npc_open_id, npc_open_phrase_id, nil, nil, npc_open_use_script_text, "npc_open")
 
     local function register_dispatcher(branch)
