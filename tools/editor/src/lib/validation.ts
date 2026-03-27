@@ -983,10 +983,14 @@ function validateReachability(
 
 function validateConversationF2FAndChannelFlow(conv: Conversation, messages: ValidationMessage[]): void {
   const turnByNumber = new Map(conv.turns.map((turn) => [turn.turnNumber, turn]));
+  const requiredF2FOpeningTurns = new Set<number>();
 
   for (const turn of conv.turns) {
     const turnChannel = normalizeChannel(turn.channel, 'pda');
     const f2fVisibleChoices = turn.choices.filter((choice) => isChannelVisible(normalizeChannel(choice.channel, 'pda'), 'f2f'));
+    if (turnChannel === 'f2f' && turn.f2f_entry === true) {
+      requiredF2FOpeningTurns.add(turn.turnNumber);
+    }
 
     for (const choice of turn.choices) {
       if (choice.continue_channel != null && !isStrictChannel(choice.continue_channel)) {
@@ -1035,6 +1039,10 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
       const targetTurn = turnByNumber.get(choice.continueTo);
       if (!targetTurn) {
         continue;
+      }
+
+      if (continueChannel === 'f2f' && isChannelVisible(choiceChannel, 'f2f')) {
+        requiredF2FOpeningTurns.add(targetTurn.turnNumber);
       }
 
       if (!isCrossChannelHandoff(choiceChannel, continueChannel)) {
@@ -1109,6 +1117,25 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         });
       }
     }
+  }
+
+  for (const turnNumber of requiredF2FOpeningTurns) {
+    const turn = turnByNumber.get(turnNumber);
+    if (!turn) continue;
+    if ((turn.openingMessage ?? '').trim() !== '') continue;
+
+    pushMessage(messages, {
+      code: 'missing-f2f-opening-message',
+      group: 'structure',
+      scope: 'turn',
+      level: 'error',
+      conversationId: conv.id,
+      turnNumber,
+      propertiesTab: 'selection',
+      fieldKey: getTurnFieldKey(conv.id, turnNumber, 'opening-message'),
+      fieldLabel: 'Opening Message',
+      message: `Branch ${turnNumber} participates in active F2F flow and must have an opening message.`,
+    });
   }
 }
 

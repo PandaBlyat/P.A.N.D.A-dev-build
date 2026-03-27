@@ -99,23 +99,6 @@ function isDialogueBearingKey(id: string): boolean {
     || /_timeout_msg$/.test(id);
 }
 
-function buildF2FEntryOpenAllowlistForConversation(
-  conv: Conversation,
-  factionKey: string,
-  exportId: number,
-): Set<string> {
-  const allowlist = new Set<string>();
-  const prefix = `st_pda_ic_${factionKey}_${exportId}`;
-
-  for (const turn of conv.turns) {
-    if (!isF2FEntryTurn(turn)) continue;
-    const turnInfix = turn.turnNumber === 1 ? '' : `_t${turn.turnNumber}`;
-    allowlist.add(`${prefix}${turnInfix}_open`);
-  }
-
-  return allowlist;
-}
-
 function decodeXmlEntities(text: string): string {
   return text
     .replace(/&lt;/g, '<')
@@ -127,17 +110,13 @@ function decodeXmlEntities(text: string): string {
 function validateEmittedDialogueStrings(
   xml: string,
   config: Required<XmlExporterConfig>,
-  intentionalEmptyOpenAllowlist: ReadonlySet<string>,
 ): void {
   const stringRecordRegex = /<string id="([^"]+)">\s*<text>([\s\S]*?)<\/text>\s*<\/string>/g;
   let match: RegExpExecArray | null;
   while ((match = stringRecordRegex.exec(xml)) != null) {
     const id = match[1];
     if (!isDialogueBearingKey(id)) continue;
-    if (/(_open)$/.test(id)) {
-      if (intentionalEmptyOpenAllowlist.has(id)) continue;
-      if (!config.strictDialogueValidation) continue;
-    }
+    if (/(_open)$/.test(id) && !config.strictDialogueValidation) continue;
 
     const text = decodeXmlEntities(match[2]).trim();
     if (text.length === 0) {
@@ -165,10 +144,6 @@ function inferTurnFirstSpeaker(turn: Turn): 'npc' | 'player' {
     return 'player';
   }
   return 'npc';
-}
-
-function isF2FEntryTurn(turn: Turn): boolean {
-  return normalizeChannel(turn.channel, 'pda') === 'f2f' && (turn.f2f_entry ?? false);
 }
 
 function resolveRegistryEntryFlags(turn: Turn): { pdaEntry: boolean; f2fEntry: boolean } {
@@ -272,10 +247,10 @@ function generateConversation(
   for (const turn of conv.turns) {
     const turnInfix = turn.turnNumber === 1 ? '' : `_t${turn.turnNumber}`;
 
-    // Opening message (all turns). For F2F entry turns, reserve `_open` as
-    // handshake padding so player-visible authored dialogue starts at `choice_1`.
+    // Opening message (all turns). F2F bridge runtime requires non-empty openers
+    // for continuation safety, so export authored text without intentional blanking.
     const openingKey = `${prefix}${turnInfix}_open`;
-    let openingText = isF2FEntryTurn(turn) ? '' : (turn.openingMessage ?? '');
+    let openingText = turn.openingMessage ?? '';
     if (
       !config.strictDialogueValidation
       && config.autofillMissingOpenWhenNonStrict
@@ -359,13 +334,10 @@ export function generateXml(
     .filter((conv) => factionFilter == null || getConversationFaction(conv, project.faction) === factionFilter)
     .sort((a, b) => a.id - b.id);
   const exportCounts = new Map<FactionId, number>();
-  const intentionalEmptyOpenAllowlist = new Set<string>();
   for (const conv of sorted) {
     const faction = getConversationFaction(conv, project.faction);
     const exportId = (exportCounts.get(faction) ?? 0) + 1;
     exportCounts.set(faction, exportId);
-    buildF2FEntryOpenAllowlistForConversation(conv, FACTION_XML_KEYS[faction], exportId)
-      .forEach((id) => intentionalEmptyOpenAllowlist.add(id));
     lines.push(generateConversation(conv, FACTION_XML_KEYS[faction], exportId, config));
     lines.push('');
   }
@@ -374,7 +346,7 @@ export function generateXml(
 
   const xml = lines.join('\n');
   if (config.validateDialogueStrings) {
-    validateEmittedDialogueStrings(xml, config, intentionalEmptyOpenAllowlist);
+    validateEmittedDialogueStrings(xml, config);
   }
   return xml;
 }

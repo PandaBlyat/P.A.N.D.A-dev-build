@@ -353,15 +353,13 @@ function renderTurnProperties(
   title.appendChild(titleSpan);
   container.appendChild(title);
 
-  // Opening message (turn 1 only)
-  if (turn.turnNumber === 1) {
-    const msgField = createField('Opening Message', 'textarea', turn.openingMessage || '', (val) => {
-      store.updateTurn(conv.id, turn.turnNumber, { openingMessage: val });
-    }, 'The first message the NPC sends when starting this conversation', getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'));
-    container.appendChild(msgField);
+  // Opening message (all turns)
+  const msgField = createField('Opening Message', 'textarea', turn.openingMessage || '', (val) => {
+    store.updateTurn(conv.id, turn.turnNumber, { openingMessage: val });
+  }, 'The opening line for this branch. Required for F2F flow turns.', getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'));
+  container.appendChild(msgField);
 
-    renderPlaceholderPicker(container, `conv-${conv.id}-turn-${turn.turnNumber}-dynamic-placeholders`);
-  }
+  renderPlaceholderPicker(container, `conv-${conv.id}-turn-${turn.turnNumber}-dynamic-placeholders`);
 
   const currentTurnChannel = normalizeChannel(turn.channel, 'pda');
   const effectivePdaEntry = turn.pda_entry ?? turn.turnNumber === 1;
