@@ -37,6 +37,7 @@ interface SimState {
   turnLabels: TurnLabeler;
   timeoutSeconds: number | null;
   timeoutMessage: string | null;
+  mode: 'runtime-parity' | 'authoring-raw';
 }
 
 // ---------------------------------------------------------------------------
@@ -136,6 +137,29 @@ export function openPlayPanel(conversation: Conversation): void {
   const footerLeft = document.createElement('div');
   footerLeft.className = 'play-footer-left';
 
+  const modeWrapper = document.createElement('label');
+  modeWrapper.className = 'play-mode-select-wrap';
+  const modeLabel = document.createElement('span');
+  modeLabel.className = 'play-mode-select-label';
+  modeLabel.textContent = 'Opening message view';
+  const modeSelect = document.createElement('select');
+  modeSelect.className = 'play-mode-select';
+  modeSelect.setAttribute('aria-label', 'Opening message display mode');
+  const runtimeOption = document.createElement('option');
+  runtimeOption.value = 'runtime-parity';
+  runtimeOption.textContent = 'Runtime-accurate parity mode';
+  const rawOption = document.createElement('option');
+  rawOption.value = 'authoring-raw';
+  rawOption.textContent = 'Authoring raw mode';
+  modeSelect.append(runtimeOption, rawOption);
+  modeSelect.onchange = () => {
+    if (!simState) return;
+    simState.mode = modeSelect.value === 'authoring-raw' ? 'authoring-raw' : 'runtime-parity';
+    restartSimulation();
+  };
+  modeWrapper.append(modeLabel, modeSelect);
+  footerLeft.appendChild(modeWrapper);
+
   // Timeout trigger button (only if timeout configured)
   const hasTimeout = conversation.timeout != null && conversation.timeout > 0;
   if (hasTimeout) {
@@ -193,6 +217,7 @@ export function openPlayPanel(conversation: Conversation): void {
     turnLabels,
     timeoutSeconds: hasTimeout ? conversation.timeout! : null,
     timeoutMessage: hasTimeout ? (conversation.timeoutMessage ?? null) : null,
+    mode: 'runtime-parity',
   };
 
   if (conversation.turns.length === 0) {
@@ -261,7 +286,7 @@ function advanceTurn(turnNumber: number): void {
   const branchLabel = simState.turnLabels.getLongLabel(turnNumber);
   pushMessage({ kind: 'branch-entry', text: branchLabel, turnNumber });
 
-  if (turn.openingMessage) {
+  if (turn.openingMessage && shouldDisplayOpeningMessage(turn)) {
     const openingSpeaker = turn.firstSpeaker === 'player' ? 'player' : 'npc';
     pushMessage({ kind: openingSpeaker, text: turn.openingMessage, turnNumber });
   }
@@ -329,6 +354,24 @@ function triggerTimeout(): void {
   renderChoices([]);
   renderStatus();
   if (timeoutBtnEl) timeoutBtnEl.disabled = true;
+}
+
+function normalizeTurnChannel(channel: Conversation['turns'][number]['channel'] | undefined): 'pda' | 'f2f' {
+  return channel === 'f2f' ? 'f2f' : 'pda';
+}
+
+function isEntryTurn(turn: Conversation['turns'][number]): boolean {
+  const channel = normalizeTurnChannel(turn.channel);
+  if (channel === 'f2f') {
+    return turn.f2f_entry === true;
+  }
+  return turn.pda_entry ?? turn.turnNumber === 1;
+}
+
+function shouldDisplayOpeningMessage(turn: Conversation['turns'][number]): boolean {
+  if (!simState) return false;
+  if (simState.mode === 'authoring-raw') return true;
+  return isEntryTurn(turn);
 }
 
 // ---------------------------------------------------------------------------

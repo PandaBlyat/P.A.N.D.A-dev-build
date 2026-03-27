@@ -7052,6 +7052,33 @@ strong.support-upvote-count {
   gap: 6px;
 }
 
+.play-mode-select-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.play-mode-select-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.play-mode-select {
+  min-height: 26px;
+  padding: 2px 24px 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.play-mode-select:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 1px;
+}
+
 .play-timeout-btn {
   color: var(--warning, #e8a735);
   border-color: color-mix(in srgb, var(--warning, #e8a735) 30%, transparent);

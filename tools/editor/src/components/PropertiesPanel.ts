@@ -32,7 +32,7 @@ import { createOnboardingNudge } from './Onboarding';
 import { createItemChainPickerPanelEditor, createItemPickerPanelEditor } from './ItemPickerPanel';
 import { formatGameItemLabel } from '../lib/item-catalog';
 import { requestFlowCenter } from '../lib/flow-navigation';
-import { createIcon, setButtonContent } from './icons';
+import { createBadge, createIcon, setButtonContent } from './icons';
 import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
 
 const ADDABLE_PRECONDITION_SCHEMAS = PRECONDITION_SCHEMAS.filter((schema) => !schema.pickerHidden);
@@ -344,6 +344,9 @@ function renderTurnProperties(
   turn: Turn,
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
 ): void {
+  const currentTurnChannel = normalizeChannel(turn.channel, 'pda');
+  const effectivePdaEntry = turn.pda_entry ?? turn.turnNumber === 1;
+  const effectiveF2FEntry = turn.f2f_entry ?? false;
   const canPasteChoice = store.hasCopiedChoice(conv.id) && turn.choices.length < 4;
   const title = document.createElement('div');
   title.className = 'section-header';
@@ -356,14 +359,25 @@ function renderTurnProperties(
   // Opening message (all turns)
   const msgField = createField('Opening Message', 'textarea', turn.openingMessage || '', (val) => {
     store.updateTurn(conv.id, turn.turnNumber, { openingMessage: val });
-  }, 'The opening line for this branch. Required for F2F flow turns.', getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'));
+  }, 'Used for entry turns; continuation turns may ignore this in F2F runtime.', getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'));
   container.appendChild(msgField);
 
-  renderPlaceholderPicker(container, `conv-${conv.id}-turn-${turn.turnNumber}-dynamic-placeholders`);
+  const hasOpeningText = (turn.openingMessage ?? '').trim().length > 0;
+  const isNonEntryF2FTurn = currentTurnChannel === 'f2f' && !effectiveF2FEntry;
+  if (hasOpeningText && isNonEntryF2FTurn) {
+    const warningRow = document.createElement('div');
+    warningRow.style.cssText = 'display:flex; align-items:center; gap:8px; margin-top:-2px; margin-bottom:8px; flex-wrap:wrap;';
+    warningRow.appendChild(createBadge('warning', 'F2F non-entry opener', 'warning'));
 
-  const currentTurnChannel = normalizeChannel(turn.channel, 'pda');
-  const effectivePdaEntry = turn.pda_entry ?? turn.turnNumber === 1;
-  const effectiveF2FEntry = turn.f2f_entry ?? false;
+    const warningText = document.createElement('div');
+    warningText.className = 'field-hint';
+    warningText.style.margin = '0';
+    warningText.textContent = 'Bridge parity may ignore or remap this opener on continuation turns.';
+    warningRow.appendChild(warningText);
+    container.appendChild(warningRow);
+  }
+
+  renderPlaceholderPicker(container, `conv-${conv.id}-turn-${turn.turnNumber}-dynamic-placeholders`);
   const pdaEntryAllowed = currentTurnChannel !== 'f2f';
   const f2fEntryAllowed = currentTurnChannel !== 'pda';
   const visibilityWrapper = document.createElement('div');
