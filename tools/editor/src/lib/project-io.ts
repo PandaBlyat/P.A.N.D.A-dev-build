@@ -1,5 +1,5 @@
 import { store } from './state';
-import { generateXml } from './xml-export';
+import { generateXml, type XmlExporterConfig } from './xml-export';
 import { importXml } from './xml-import';
 import { createSampleProjectBundle } from './sample-project';
 import { fetchConversationById } from './api-client';
@@ -34,14 +34,25 @@ export function exportProjectJson(): void {
 export function exportXml(): void {
   const state = store.get();
   const factions = getProjectConversationFactions(state.project);
+  const exporterConfig: XmlExporterConfig = {
+    strictDialogueValidation: true,
+    validateDialogueStrings: true,
+    autofillMissingOpenWhenNonStrict: true,
+    missingOpenPlaceholder: '[MISSING_OPEN_LINE]',
+  };
 
-  factions.forEach((faction, index) => {
-    const xml = generateXml(state.project, state.systemStrings, faction);
-    const factionKey = FACTION_XML_KEYS[faction];
-    window.setTimeout(() => {
-      downloadFile(xml, `st_PANDA_${factionKey}_interactive_conversations.xml`, 'application/xml');
-    }, index * 150);
-  });
+  try {
+    factions.forEach((faction, index) => {
+      const xml = generateXml(state.project, state.systemStrings, faction, exporterConfig);
+      const factionKey = FACTION_XML_KEYS[faction];
+      window.setTimeout(() => {
+        downloadFile(xml, `st_PANDA_${factionKey}_interactive_conversations.xml`, 'application/xml');
+      }, index * 150);
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    alert(message);
+  }
 }
 
 /** Import from XML file */
