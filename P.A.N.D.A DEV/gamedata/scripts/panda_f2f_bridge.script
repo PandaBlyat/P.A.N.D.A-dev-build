@@ -98,6 +98,32 @@ local function get_partner_npc_se()
             return nil
         end
 
+        local function resolve_story_id_for_sid(sid)
+            if type(get_object_story_id) ~= "function" then
+                return nil
+            end
+            local ok_story, resolved_story_id = pcall(function() return get_object_story_id(sid) end)
+            if ok_story and resolved_story_id and resolved_story_id ~= "" then
+                return tostring(resolved_story_id)
+            end
+            return nil
+        end
+
+        local function handoff_matches_talker_identity(handoff_npc_sid, talker_sid)
+            if not handoff_npc_sid or not talker_sid then
+                return false
+            end
+            if handoff_npc_sid == talker_sid then
+                return true
+            end
+            local handoff_story_id = resolve_story_id_for_sid(handoff_npc_sid)
+            local talker_story_id = resolve_story_id_for_sid(talker_sid)
+            if handoff_story_id and talker_story_id and handoff_story_id == talker_story_id then
+                return true
+            end
+            return false
+        end
+
         local function validate_handoff(path, handoff)
             if type(handoff) ~= "table" then
                 return nil
@@ -118,19 +144,31 @@ local function get_partner_npc_se()
             }
         end
 
+        local current_talker_id = resolve_current_talker_id()
+
         if type(api) == "table" and type(api.get_pending_f2f_handoff) == "function" then
-            local talker_id = resolve_current_talker_id()
-            if talker_id then
+            if current_talker_id then
                 local ok_handoff, handoff = pcall(function()
-                    return api.get_pending_f2f_handoff(talker_id)
+                    return api.get_pending_f2f_handoff(current_talker_id)
                 end)
                 if ok_handoff then
                     found = validate_handoff("api:direct_talker", handoff)
+                    if found and not handoff_matches_talker_identity(found.npc_id, current_talker_id) then
+                        bridge_debug(
+                            "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s handoff_npc_id=%s reject_reason=%s",
+                            "api:direct_talker",
+                            tostring(current_talker_id),
+                            tostring(found.npc_id),
+                            "npc_mismatch"
+                        )
+                        found = nil
+                    end
                     if found then
                         bridge_debug(
-                            "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s",
+                            "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s handoff_npc_id=%s",
                             "api:direct_talker",
-                            tostring(talker_id)
+                            tostring(current_talker_id),
+                            tostring(found.npc_id)
                         )
                         return found
                     end
@@ -138,16 +176,40 @@ local function get_partner_npc_se()
             end
         end
 
+        if not current_talker_id then
+            bridge_debug(
+                "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s reject_reason=%s",
+                "pending_handoff_scan",
+                "nil",
+                "missing_talker"
+            )
+            bridge_debug(
+                "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s",
+                "none",
+                "nil"
+            )
+            return nil
+        end
+
         if type(rawget(_G, "pda_f2f_handoffs")) == "table" then
             for _, raw_handoff in pairs(pda_f2f_handoffs) do
                 found = validate_handoff("pending_handoff_scan", raw_handoff)
-                if found then
+                if found and handoff_matches_talker_identity(found.npc_id, current_talker_id) then
                     bridge_debug(
-                        "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s",
+                        "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s handoff_npc_id=%s",
                         "pending_handoff_scan",
-                        "nil"
+                        tostring(current_talker_id),
+                        tostring(found.npc_id)
                     )
                     return found
+                elseif found then
+                    bridge_debug(
+                        "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s handoff_npc_id=%s reject_reason=%s",
+                        "pending_handoff_scan",
+                        tostring(current_talker_id),
+                        tostring(found.npc_id),
+                        "npc_mismatch"
+                    )
                 end
             end
         end
