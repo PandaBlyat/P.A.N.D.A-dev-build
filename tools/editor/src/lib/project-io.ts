@@ -5,6 +5,7 @@ import { createSampleProjectBundle } from './sample-project';
 import { fetchConversationById } from './api-client';
 import type { Choice, Conversation, ConversationChannel, FactionId, Project, Turn } from './types';
 import { FACTION_XML_KEYS, getConversationFaction } from './types';
+import { migrateLegacyF2FEntryOpenings } from './f2f-entry-migration';
 
 export function createBlankProject(): void {
   store.addConversation();
@@ -239,10 +240,12 @@ function normalizeConversation(conversation: Conversation, fallbackFaction: Fact
 
 function normalizeProjectData(project: Project): Project {
   const fallbackFaction = normalizeFaction(project.faction, 'stalker');
-  return {
+  const normalized: Project = {
     ...project,
     version: typeof project.version === 'string' && project.version.trim().length > 0 ? project.version : '2.0.0',
     faction: fallbackFaction,
     conversations: project.conversations.map((conversation) => normalizeConversation(conversation, fallbackFaction)),
   };
+
+  return migrateLegacyF2FEntryOpenings(normalized);
 }

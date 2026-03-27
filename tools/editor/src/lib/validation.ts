@@ -353,6 +353,21 @@ function validateTurn(
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
   messages: ValidationMessage[],
 ): void {
+  for (const warning of turn.migrationWarnings ?? []) {
+    pushMessage(messages, {
+      code: 'legacy-f2f-opening-migration-warning',
+      group: 'logic',
+      scope: 'turn',
+      level: 'warning',
+      conversationId: conv.id,
+      turnNumber: turn.turnNumber,
+      propertiesTab: 'selection',
+      fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'),
+      fieldLabel: 'Opening Message',
+      message: `${turnLabels.getLongLabel(turn.turnNumber)}: ${warning}`,
+    });
+  }
+
   if (turn.choices.length === 0) {
     pushMessage(messages, {
       code: 'missing-choices',

@@ -65,10 +65,14 @@ export interface InvalidPrecondition {
 export interface Turn {
   turnNumber: number;
   openingMessage?: string;
+  /** Internal marker used by legacy F2F opening migration. */
+  openingMessagePlaceholder?: string;
   channel?: ConversationChannel;
   firstSpeaker?: TurnFirstSpeaker;
   pda_entry?: boolean;
   f2f_entry?: boolean;
+  /** Non-blocking notes produced by migration passes. */
+  migrationWarnings?: string[];
   choices: Choice[];
   position: { x: number; y: number };
   /** Optional custom display name for this branch node. */
