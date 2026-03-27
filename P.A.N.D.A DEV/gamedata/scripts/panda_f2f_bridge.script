@@ -8,6 +8,7 @@ panda_f2f_bridge = panda_f2f_bridge or {}
 
 local MAX_CONV_SCAN = 256
 local MAX_CHOICE_SCAN = 12
+local MAX_TREE_DEPTH = 12
 local MISSING_STOP = 20
 local HUB_DIALOG_ID = "panda_f2f_hub_dialog"
 local BRANCH_HARD_ROUTE_SUFFIX = "_f2f_hard_route"
@@ -445,9 +446,10 @@ end
 
 local function make_override_owner_tag(state, branch)
     return string.format(
-        "f2f:%s:%s:%s",
+        "f2f:%s:%s:%s:%s",
         tostring(state and state.faction or "loner"),
         tostring(state and state.conv_id or 0),
+        tostring((branch and branch.turn) or (state and state.turn) or 0),
         tostring(branch and branch.index or 0)
     )
 end
@@ -718,6 +720,50 @@ local function collect_turn_story_ids(registry_raw, turn)
     end
 
     return ids
+end
+
+local function collect_registry_continuation(registry_raw, turn, choice_index)
+    if not registry_raw or not turn or not choice_index then
+        return nil, nil
+    end
+
+    local turn_pattern = "\"turnNumber\"%s*:%s*" .. tostring(turn) .. "%s*,(.-)%}%s*[,%]]"
+    local turn_block = registry_raw:match(turn_pattern)
+    if not turn_block then
+        return nil, nil
+    end
+
+    local choice_patterns = {
+        "\"choiceIndex\"%s*:%s*" .. tostring(choice_index) .. "%s*,(.-)%}%s*[,%]]",
+        "\"choiceNumber\"%s*:%s*" .. tostring(choice_index) .. "%s*,(.-)%}%s*[,%]]",
+        "\"index\"%s*:%s*" .. tostring(choice_index) .. "%s*,(.-)%}%s*[,%]]",
+    }
+
+    local choice_block = nil
+    for _, pattern in ipairs(choice_patterns) do
+        choice_block = turn_block:match(pattern)
+        if choice_block then
+            break
+        end
+    end
+    if not choice_block then
+        return nil, nil
+    end
+
+    local next_turn =
+        choice_block:match("\"nextTurn\"%s*:%s*(%d+)") or
+        choice_block:match("\"contTurn\"%s*:%s*(%d+)") or
+        choice_block:match("\"continuationTurn\"%s*:%s*(%d+)")
+    local next_channel =
+        choice_block:match("\"nextChannel\"%s*:%s*\"([%w_%-]+)\"") or
+        choice_block:match("\"contChannel\"%s*:%s*\"([%w_%-]+)\"") or
+        choice_block:match("\"continuationChannel\"%s*:%s*\"([%w_%-]+)\"")
+
+    if next_turn then
+        next_turn = tonumber(next_turn)
+    end
+
+    return next_turn, next_channel
 end
 
 local function select_f2f_turn(stem, npc_se)
@@ -1486,6 +1532,188 @@ local function collect_branches(npc_se, forced_context)
         tostring(forced_identity_matches)
     )
 
+    local function resolve_turn_stem(stem, turn)
+        if turn and turn > 1 then
+            return stem .. "_t" .. tostring(turn)
+        end
+        return stem
+    end
+
+    local function collect_turn_branches(stem, cid, turn, conv_req_story_npc, out_state)
+        if type(out_state.turns) ~= "table" then
+            out_state.turns = {}
+        end
+        if out_state.turns[turn] then
+            return out_state.turns[turn]
+        end
+
+        local turn_stem = resolve_turn_stem(stem, turn)
+        local turn_open_preferred = turn_stem .. "_open"
+        local turn_open_fallback = stem .. "_open"
+        local turn_open_key = "__PANDA_F2F_MISSING_TURN_OPEN__"
+        local missing_turn_open = true
+        if key_exists(turn_open_preferred) then
+            turn_open_key = turn_open_preferred
+            missing_turn_open = false
+        elseif key_exists(turn_open_fallback) then
+            turn_open_key = turn_open_fallback
+            missing_turn_open = false
+        end
+
+        local registry_raw = nil
+        if key_exists(stem .. "_registry") then
+            registry_raw = tr(stem .. "_registry")
+        end
+
+        local turn_state = {
+            turn = turn,
+            turn_stem = turn_stem,
+            open_key = turn_open_key,
+            preferred_open_key = turn_open_preferred,
+            fallback_open_key = turn_open_fallback,
+            missing_turn_open = missing_turn_open,
+            branches = {},
+        }
+        out_state.turns[turn] = turn_state
+
+        local missing_choices = 0
+        local rejected_choice_keys = {}
+        local total_choices_loaded = 0
+        local choices_passing_preconditions = 0
+        local choice_1_key = turn_stem .. "_choice_1"
+        for idx = 1, MAX_CHOICE_SCAN do
+            local choice_key = turn_stem .. "_choice_" .. idx
+            if not key_exists(choice_key) then
+                if idx == 1 and not first_missing_key then
+                    first_missing_key = choice_1_key
+                end
+                missing_choices = missing_choices + 1
+                if missing_choices >= 3 then
+                    break
+                end
+            else
+                missing_choices = 0
+                total_choices_loaded = total_choices_loaded + 1
+                local reply_key = turn_stem .. "_reply_" .. idx
+                local outcome_key = turn_stem .. "_outcome_" .. idx
+                local choice_precond_key = turn_stem .. "_choice_" .. idx .. "_precond"
+                local hard_route_key = turn_stem .. "_choice_" .. idx .. BRANCH_HARD_ROUTE_SUFFIX
+                local keep_hub_override_key = turn_stem .. "_choice_" .. idx .. "_keep_hub_override"
+                local cont_turn_key = turn_stem .. "_cont_" .. idx
+                local cont_channel_key = turn_stem .. "_cont_channel_" .. idx
+
+                local show = true
+                local choice_reason = nil
+                if key_exists(choice_precond_key) then
+                    show, choice_reason = evaluate_shared_precondition(choice_precond_key, npc_se, {
+                        channel = "f2f",
+                        conv_id = cid,
+                        branch = idx,
+                        faction = faction,
+                        turn = turn,
+                    })
+
+                    local choice_req_story_npc = extract_req_story_npc_id_from_key(choice_precond_key)
+                    if not show and conv_req_story_npc and choice_req_story_npc and conv_req_story_npc == choice_req_story_npc then
+                        show = true
+                        choice_reason = "relaxed-duplicate-req_story_npc:" .. tostring(choice_req_story_npc)
+                    end
+                    if not show and not first_missing_key and key_exists(choice_precond_key) then
+                        first_missing_key = choice_precond_key
+                    end
+                end
+                bridge_debug(
+                    "collect_branches choice-precond key=%s result=%s reason=%s conv_id=%s turn=%s choice=%s",
+                    tostring(key_exists(choice_precond_key) and choice_precond_key or "<none>"),
+                    tostring(show),
+                    tostring(choice_reason),
+                    tostring(cid),
+                    tostring(turn),
+                    tostring(choice_key)
+                )
+
+                if show then
+                    local choice_renderable = key_exists(choice_key)
+                    local reply_renderable = key_exists(reply_key)
+                    if not choice_renderable or not reply_renderable then
+                        show = false
+                        choice_reason = (not choice_renderable and "choice_not_renderable" or "reply_not_renderable")
+                    end
+                end
+
+                if show then
+                    choices_passing_preconditions = choices_passing_preconditions + 1
+                    local hard_route = false
+                    if key_exists(hard_route_key) then
+                        hard_route = parse_bool_flag(tr(hard_route_key))
+                    end
+                    local keep_hub_override = false
+                    if key_exists(keep_hub_override_key) then
+                        keep_hub_override = parse_bool_flag(tr(keep_hub_override_key))
+                    end
+
+                    local next_turn = nil
+                    local next_channel = nil
+                    if key_exists(cont_turn_key) then
+                        next_turn = normalize_positive_int(tr(cont_turn_key))
+                    end
+                    if key_exists(cont_channel_key) then
+                        next_channel = tostring(tr(cont_channel_key) or ""):lower()
+                        if next_channel == "" then
+                            next_channel = nil
+                        end
+                    end
+                    if (not next_turn or not next_channel) and registry_raw and registry_raw ~= "" then
+                        local reg_turn, reg_channel = collect_registry_continuation(registry_raw, turn, idx)
+                        if not next_turn then
+                            next_turn = normalize_positive_int(reg_turn)
+                        end
+                        if not next_channel and reg_channel and reg_channel ~= "" then
+                            next_channel = tostring(reg_channel):lower()
+                        end
+                    end
+                    bridge_debug(
+                        "collect_branches continuation conv_id=%s turn=%s choice=%s next_turn=%s next_channel=%s",
+                        tostring(cid),
+                        tostring(turn),
+                        tostring(idx),
+                        tostring(next_turn or "nil"),
+                        tostring(next_channel or "nil")
+                    )
+
+                    table.insert(turn_state.branches, {
+                        index = idx,
+                        turn = turn,
+                        choice_key = choice_key,
+                        reply_key = key_exists(reply_key) and reply_key or nil,
+                        outcome = key_exists(outcome_key) and tr(outcome_key) or "none",
+                        precond_key = key_exists(choice_precond_key) and choice_precond_key or nil,
+                        hard_route = hard_route,
+                        keep_hub_override = keep_hub_override,
+                        next_turn = next_turn,
+                        next_channel = next_channel,
+                    })
+                else
+                    rejected_choice_keys[#rejected_choice_keys + 1] = choice_key
+                end
+            end
+        end
+
+        turn_state.total_choices_loaded = total_choices_loaded
+        turn_state.choices_passing_preconditions = choices_passing_preconditions
+        if #turn_state.branches == 0 then
+            bridge_warn(
+                "collect_branches fail reason=no_branches stem=%s key=%s conv_id=%s turn=%s rejected=%s",
+                tostring(turn_stem),
+                tostring(first_missing_key or "nil"),
+                tostring(cid),
+                tostring(turn),
+                (#rejected_choice_keys > 0 and table.concat(rejected_choice_keys, ",") or "<none>")
+            )
+        end
+        return turn_state
+    end
+
     for cid = 1, MAX_CONV_SCAN do
         if not forced_conv_id or cid == forced_conv_id then
             local stem
@@ -1553,140 +1781,42 @@ local function collect_branches(npc_se, forced_context)
                         found = nil
                     else
                         found.turn = f2f_turn
+                        found.turns = {}
                         bridge_debug(
                             "collect_branches: resolved branch context conv_id=%s turn=%s forced_active=%s",
                             tostring(cid),
                             tostring(f2f_turn),
                             tostring(forced_handoff_active)
                         )
+                        local root_turn = collect_turn_branches(stem, cid, f2f_turn, conv_req_story_npc, found)
+                        found.turn_stem = root_turn.turn_stem
+                        found.preferred_open_key = root_turn.preferred_open_key
+                        found.fallback_open_key = root_turn.fallback_open_key
+                        found.open_key = root_turn.open_key
+                        found.missing_turn_open = root_turn.missing_turn_open
+                        found.branches = root_turn.branches
+                        found.total_choices_loaded = root_turn.total_choices_loaded
+                        found.choices_passing_preconditions = root_turn.choices_passing_preconditions
 
-                        local turn_stem = stem
-                        if f2f_turn > 1 then
-                            turn_stem = stem .. "_t" .. tostring(f2f_turn)
-                        end
-                        found.turn_stem = turn_stem
-                        found.preferred_open_key = turn_stem .. "_open"
-                        found.fallback_open_key = stem .. "_open"
-                        if key_exists(found.preferred_open_key) then
-                            found.open_key = found.preferred_open_key
-                        elseif key_exists(found.fallback_open_key) then
-                            found.open_key = found.fallback_open_key
-                        else
-                            found.open_key = "__PANDA_F2F_MISSING_TURN_OPEN__"
-                            found.missing_turn_open = true
-                        end
-                        bridge_debug(
-                            "collect_branches: resolved_stem_validation sample_key=%s matches=%s resolved_open_key=%s",
-                            "st_pda_ic_loner_1_t2_open",
-                            tostring(turn_stem == "st_pda_ic_loner_1_t2"),
-                            tostring(found.open_key)
-                        )
+                        local expansion_seen = {}
+                        local function expand_turns(turn, depth)
+                            if not turn or depth > MAX_TREE_DEPTH then
+                                return
+                            end
+                            local visit_key = tostring(cid) .. ":" .. tostring(turn)
+                            if expansion_seen[visit_key] then
+                                return
+                            end
+                            expansion_seen[visit_key] = true
 
-                        local missing_choices = 0
-                        local rejected_choice_keys = {}
-                        local total_choices_loaded = 0
-                        local choices_passing_preconditions = 0
-                        local choice_1_key = turn_stem .. "_choice_1"
-                        for idx = 1, MAX_CHOICE_SCAN do
-                            local choice_key = turn_stem .. "_choice_" .. idx
-                            if not key_exists(choice_key) then
-                                if idx == 1 and not first_missing_key then
-                                    first_missing_key = choice_1_key
-                                end
-                                missing_choices = missing_choices + 1
-                                if missing_choices >= 3 then
-                                    break
-                                end
-                            else
-                                missing_choices = 0
-                                total_choices_loaded = total_choices_loaded + 1
-                                local reply_key = turn_stem .. "_reply_" .. idx
-                                local outcome_key = turn_stem .. "_outcome_" .. idx
-                                local choice_precond_key = turn_stem .. "_choice_" .. idx .. "_precond"
-                                local hard_route_key = turn_stem .. "_choice_" .. idx .. BRANCH_HARD_ROUTE_SUFFIX
-                                local keep_hub_override_key = turn_stem .. "_choice_" .. idx .. "_keep_hub_override"
-
-                                local show = true
-                                local choice_reason = nil
-                                if key_exists(choice_precond_key) then
-                                    show, choice_reason = evaluate_shared_precondition(choice_precond_key, npc_se, {
-                                        channel = "f2f",
-                                        conv_id = cid,
-                                        branch = idx,
-                                        faction = faction,
-                                        turn = f2f_turn,
-                                    })
-
-                                    -- For F2F identity handoff testing, keep req_story_npc only on the conversation gate.
-                                    local choice_req_story_npc = extract_req_story_npc_id_from_key(choice_precond_key)
-                                    if not show and conv_req_story_npc and choice_req_story_npc and conv_req_story_npc == choice_req_story_npc then
-                                        show = true
-                                        choice_reason = "relaxed-duplicate-req_story_npc:" .. tostring(choice_req_story_npc)
-                                    end
-                                    if not show and not first_missing_key and key_exists(choice_precond_key) then
-                                        first_missing_key = choice_precond_key
-                                    end
-                                end
-                                bridge_debug(
-                                    "collect_branches choice-precond key=%s result=%s reason=%s conv_id=%s turn=%s choice=%s",
-                                    tostring(key_exists(choice_precond_key) and choice_precond_key or "<none>"),
-                                    tostring(show),
-                                    tostring(choice_reason),
-                                    tostring(cid),
-                                    tostring(f2f_turn),
-                                    tostring(choice_key)
-                                )
-
-                                if show then
-                                    local choice_renderable = key_exists(choice_key)
-                                    local reply_renderable = key_exists(reply_key)
-                                    if not choice_renderable or not reply_renderable then
-                                        show = false
-                                        choice_reason = (not choice_renderable and "choice_not_renderable" or "reply_not_renderable")
-                                    end
-                                end
-
-                                if show then
-                                    choices_passing_preconditions = choices_passing_preconditions + 1
-                                    local hard_route = false
-                                    if key_exists(hard_route_key) then
-                                        hard_route = parse_bool_flag(tr(hard_route_key))
-                                    end
-                                    local keep_hub_override = false
-                                    if key_exists(keep_hub_override_key) then
-                                        keep_hub_override = parse_bool_flag(tr(keep_hub_override_key))
-                                    end
-
-                                    table.insert(found.branches, {
-                                        index = idx,
-                                        choice_key = choice_key,
-                                        reply_key = key_exists(reply_key) and reply_key or nil,
-                                        outcome = key_exists(outcome_key) and tr(outcome_key) or "none",
-                                        precond_key = key_exists(choice_precond_key) and choice_precond_key or nil,
-                                        hard_route = hard_route,
-                                        keep_hub_override = keep_hub_override,
-                                    })
-                                else
-                                    rejected_choice_keys[#rejected_choice_keys + 1] = choice_key
+                            local turn_state = collect_turn_branches(stem, cid, turn, conv_req_story_npc, found)
+                            for _, branch in ipairs(turn_state.branches or {}) do
+                                if branch.next_channel == "f2f" and branch.next_turn then
+                                    expand_turns(branch.next_turn, depth + 1)
                                 end
                             end
                         end
-                        found.total_choices_loaded = total_choices_loaded
-                        found.choices_passing_preconditions = choices_passing_preconditions
-
-                        if found and #found.branches == 0 then
-                            if not first_missing_key then
-                                first_missing_key = choice_1_key
-                            end
-                            bridge_warn(
-                                "collect_branches fail reason=no_branches stem=%s key=%s conv_id=%s turn=%s rejected=%s",
-                                tostring(turn_stem),
-                                tostring(first_missing_key or "nil"),
-                                tostring(found.conv_id),
-                                tostring(found.turn),
-                                (#rejected_choice_keys > 0 and table.concat(rejected_choice_keys, ",") or "<none>")
-                            )
-                        end
+                        expand_turns(f2f_turn, 1)
 
                         break
                     end
@@ -1890,8 +2020,9 @@ local function build_dialog_tree(dialog, state)
 
     local function register_dispatcher(branch)
         local idx = branch.index
-        local cond_name = string.format("panda_f2f_bridge_choice_precond_%s_%d", token, idx)
-        local act_name = string.format("panda_f2f_bridge_choice_action_%s_%d", token, idx)
+        local branch_turn = branch.turn or state.turn or 1
+        local cond_name = string.format("panda_f2f_bridge_choice_precond_%s_%d_t%d", token, idx, branch_turn)
+        local act_name = string.format("panda_f2f_bridge_choice_action_%s_%d_t%d", token, idx, branch_turn)
 
         _G[cond_name] = function()
             bridge_warn(
@@ -1899,7 +2030,7 @@ local function build_dialog_tree(dialog, state)
                 tostring(cond_name),
                 tostring(branch.index),
                 tostring(runtime.latest_state and runtime.latest_state.conv_id or "nil"),
-                tostring(runtime.latest_state and runtime.latest_state.turn or "nil")
+                tostring(branch_turn)
             )
             if not runtime.latest_state then return false end
             if branch.precond_key and branch.precond_key ~= "" then
@@ -1908,7 +2039,7 @@ local function build_dialog_tree(dialog, state)
                     conv_id = runtime.latest_state.conv_id,
                     branch = branch.index,
                     faction = runtime.latest_state.faction,
-                    turn = runtime.latest_state.turn or 1,
+                    turn = branch_turn,
                 })
                 bridge_debug(
                     "callback choice_precondition evaluated key=%s result=%s reason=%s conv_id=%s turn=%s branch=%s",
@@ -1916,7 +2047,7 @@ local function build_dialog_tree(dialog, state)
                     tostring(ok),
                     tostring(reason),
                     tostring(runtime.latest_state and runtime.latest_state.conv_id or "nil"),
-                    tostring(runtime.latest_state and runtime.latest_state.turn or "nil"),
+                    tostring(branch_turn),
                     tostring(branch.index)
                 )
                 return ok == true
@@ -1930,7 +2061,7 @@ local function build_dialog_tree(dialog, state)
                 tostring(act_name),
                 tostring(branch.index),
                 tostring(runtime.latest_state and runtime.latest_state.conv_id or "nil"),
-                tostring(runtime.latest_state and runtime.latest_state.turn or "nil")
+                tostring(branch_turn)
             )
             local active_state = runtime.latest_state
             if not active_state then return end
@@ -1942,7 +2073,7 @@ local function build_dialog_tree(dialog, state)
                     conv_id = active_state.conv_id,
                     branch = branch.index,
                     faction = active_state.faction,
-                    turn = active_state.turn or 1,
+                    turn = branch_turn,
                 })
                 if not ok then return end
             end
@@ -1955,7 +2086,16 @@ local function build_dialog_tree(dialog, state)
                 routed = panda_f2f_bridge.hard_route_branch(active_npc_id, owner_tag)
             end
 
-            local ok = execute_shared_outcome(branch, active_state)
+            local branch_state = active_state
+            if branch_turn ~= (active_state.turn or 1) then
+                branch_state = {
+                    conv_id = active_state.conv_id,
+                    faction = active_state.faction,
+                    npc_se = active_state.npc_se,
+                    turn = branch_turn,
+                }
+            end
+            local ok = execute_shared_outcome(branch, branch_state)
             if ok then
                 -- Consume only after a player-selected branch is committed.
                 consume_pending_handoff_for_npc(active_state.npc_se)
@@ -2036,24 +2176,92 @@ local function build_dialog_tree(dialog, state)
         }
     end
 
-    for _, branch in ipairs(state.branches) do
-        local actor_id = alloc()
-        local npc_id = alloc()
-        local exit_id = alloc()
-        generated_ids.choice[#generated_ids.choice + 1] = actor_id
-        generated_ids.exit[#generated_ids.exit + 1] = exit_id
-        local cond_name, act_name = register_dispatcher(branch)
-
-        add_logged_node(npc_open_id, actor_id, branch.choice_key, cond_name, act_name, false, "actor_choice")
-
-        if branch.reply_key then
-            generated_ids.reply[#generated_ids.reply + 1] = npc_id
-            add_logged_node(actor_id, npc_id, branch.reply_key, nil, nil, false, "npc_reply")
-            add_logged_node(npc_id, exit_id, exit_phrase, nil, nil, false, "actor_exit")
-        else
-            add_logged_node(actor_id, exit_id, exit_phrase, nil, nil, false, "actor_exit")
+    local function get_turn_state(turn)
+        if type(state.turns) == "table" then
+            return state.turns[turn]
         end
+        if turn == state.turn then
+            return state
+        end
+        return nil
     end
+
+    local function build_turn(parent_open_id, turn, depth, visited_turns)
+        if depth > MAX_TREE_DEPTH then
+            bridge_warn(
+                "build_dialog_tree max_depth_guard conv_id=%s turn=%s depth=%s",
+                tostring(state.conv_id or "nil"),
+                tostring(turn or "nil"),
+                tostring(depth)
+            )
+            return
+        end
+
+        local turn_state = get_turn_state(turn)
+        if type(turn_state) ~= "table" then
+            bridge_warn(
+                "build_dialog_tree missing_turn_state conv_id=%s turn=%s",
+                tostring(state.conv_id or "nil"),
+                tostring(turn or "nil")
+            )
+            return
+        end
+
+        local visit_key = tostring(state.conv_id or "nil") .. ":" .. tostring(turn)
+        if visited_turns[visit_key] then
+            bridge_warn(
+                "build_dialog_tree loop_guard conv_id=%s turn=%s depth=%s",
+                tostring(state.conv_id or "nil"),
+                tostring(turn or "nil"),
+                tostring(depth)
+            )
+            return
+        end
+        visited_turns[visit_key] = true
+
+        for _, branch in ipairs(turn_state.branches or {}) do
+            local actor_id = alloc()
+            generated_ids.choice[#generated_ids.choice + 1] = actor_id
+            local cond_name, act_name = register_dispatcher(branch)
+            add_logged_node(parent_open_id, actor_id, branch.choice_key, cond_name, act_name, false, "actor_choice")
+
+            if branch.reply_key then
+                local npc_id = alloc()
+                generated_ids.reply[#generated_ids.reply + 1] = npc_id
+                add_logged_node(actor_id, npc_id, branch.reply_key, nil, nil, false, "npc_reply")
+
+                if branch.next_channel == "f2f" and branch.next_turn then
+                    local next_turn_state = get_turn_state(branch.next_turn)
+                    local next_open_phrase = next_turn_state and next_turn_state.open_key or nil
+                    if next_turn_state and next_turn_state.missing_turn_open then
+                        next_open_phrase = "[DEBUG] Missing conversation opening line."
+                    end
+                    if next_open_phrase then
+                        local next_open_id = alloc()
+                        generated_ids.open[#generated_ids.open + 1] = next_open_id
+                        add_logged_node(npc_id, next_open_id, next_open_phrase, nil, nil, false, "npc_open")
+                        build_turn(next_open_id, branch.next_turn, depth + 1, visited_turns)
+                    else
+                        local exit_id = alloc()
+                        generated_ids.exit[#generated_ids.exit + 1] = exit_id
+                        add_logged_node(npc_id, exit_id, exit_phrase, nil, nil, false, "actor_exit")
+                    end
+                else
+                    local exit_id = alloc()
+                    generated_ids.exit[#generated_ids.exit + 1] = exit_id
+                    add_logged_node(npc_id, exit_id, exit_phrase, nil, nil, false, "actor_exit")
+                end
+            else
+                local exit_id = alloc()
+                generated_ids.exit[#generated_ids.exit + 1] = exit_id
+                add_logged_node(actor_id, exit_id, exit_phrase, nil, nil, false, "actor_exit")
+            end
+        end
+
+        visited_turns[visit_key] = nil
+    end
+
+    build_turn(npc_open_id, state.turn, 1, {})
 
     local root_exit_id = alloc()
     generated_ids.exit[#generated_ids.exit + 1] = root_exit_id
