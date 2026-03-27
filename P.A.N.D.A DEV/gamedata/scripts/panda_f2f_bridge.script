@@ -287,12 +287,25 @@ local function get_partner_npc_se()
     return nil
 end
 
+local function normalize_faction_key(faction)
+    local fac = tostring(faction or ""):lower()
+    if fac == "" then
+        return nil
+    end
+
+    fac = string.gsub(fac, "^actor_", "")
+    if fac == "stalker" then
+        return "loner"
+    end
+
+    return fac
+end
+
 local function actor_faction_key()
     if db and db.actor and db.actor.character_community then
         local fac = db.actor:character_community()
         if fac and fac ~= "" then
-            fac = string.gsub(fac, "^actor_", "")
-            return (fac == "stalker") and "loner" or fac
+            return normalize_faction_key(fac) or "loner"
         end
     end
     return "loner"
@@ -1297,15 +1310,14 @@ local function collect_branches(npc_se, forced_context)
     local forced_turn = nil
     local forced_handoff_active = false
     local forced_faction = nil
+    local forced_faction_raw = nil
     local forced_prefix = nil
     if type(forced_context) == "table" then
         forced_conv_id = normalize_positive_int(forced_context.conv_id)
         forced_turn = normalize_positive_int(forced_context.turn)
         forced_handoff_active = (forced_conv_id ~= nil and forced_turn ~= nil)
-        forced_faction = tostring(forced_context.faction or ""):lower()
-        if forced_faction == "" then
-            forced_faction = nil
-        end
+        forced_faction_raw = tostring(forced_context.faction or "")
+        forced_faction = normalize_faction_key(forced_context.faction)
 
         forced_prefix = tostring(forced_context.prefix or "")
         if forced_prefix == "" then
@@ -1372,6 +1384,11 @@ local function collect_branches(npc_se, forced_context)
         tostring(forced_npc_binding),
         tostring(forced_faction),
         tostring(forced_prefix)
+    )
+    bridge_debug(
+        "collect_branches: forced_faction raw=%s normalized=%s",
+        tostring(forced_faction_raw),
+        tostring(forced_faction)
     )
     bridge_debug(
         "collect_branches: forced_identity forced_npc_binding=%s forced_identity_matches=%s",
@@ -1468,6 +1485,12 @@ local function collect_branches(npc_se, forced_context)
                             found.open_key = "__PANDA_F2F_MISSING_TURN_OPEN__"
                             found.missing_turn_open = true
                         end
+                        bridge_debug(
+                            "collect_branches: resolved_stem_validation sample_key=%s matches=%s resolved_open_key=%s",
+                            "st_pda_ic_loner_1_t2_open",
+                            tostring(turn_stem == "st_pda_ic_loner_1_t2"),
+                            tostring(found.open_key)
+                        )
 
                         local missing_choices = 0
                         local rejected_choice_keys = {}
