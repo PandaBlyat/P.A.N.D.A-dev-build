@@ -13,6 +13,7 @@ local HUB_DIALOG_ID = "panda_f2f_hub_dialog"
 local BRANCH_HARD_ROUTE_SUFFIX = "_f2f_hard_route"
 local SAVE_KEY_OVERRIDE_OWNERS = "panda_f2f_bridge_override_owners"
 local RECENT_HANDOFF_GRACE_MS = 2 * 60 * 1000
+local HUB_DYNAMIC_NODE_ID_START = 10000
 local bridge_debug
 
 local runtime = {
@@ -1792,7 +1793,7 @@ local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_scr
 end
 
 local function build_dialog_tree(dialog, state)
-    local alloc = make_allocator(0)
+    local alloc = make_allocator(HUB_DYNAMIC_NODE_ID_START)
     local token = tostring(time_global and time_global() or math.random(10000, 99999))
     local exit_phrase = "dm_universal_actor_exit"
 
@@ -1836,7 +1837,16 @@ local function build_dialog_tree(dialog, state)
         tostring(state.turn or "nil")
     )
 
-    local root_id = alloc()
+    local first_allocated_id = alloc()
+    bridge_debug(
+        "build_dialog_tree allocator_range start=%s next=%s conv_id=%s turn=%s",
+        tostring(first_allocated_id),
+        tostring(first_allocated_id + 1),
+        tostring(state.conv_id or "nil"),
+        tostring(state.turn or "nil")
+    )
+
+    local root_id = first_allocated_id
     local npc_open_id = alloc()
     local generated_ids = {
         root = { root_id },
