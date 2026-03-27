@@ -392,9 +392,9 @@ local function make_allocator(start_id)
     end
 end
 
-local function dialog_has_node_id(dialog, node_id)
+local function dialog_probe_node_id(dialog, node_id)
     if not dialog then
-        return false
+        return "unverified"
     end
 
     local probe_methods = {
@@ -403,23 +403,29 @@ local function dialog_has_node_id(dialog, node_id)
         "GetPhraseById",
         "GetDialogPhrase",
     }
+    local any_probe_method = false
 
     for _, method_name in ipairs(probe_methods) do
         local probe = dialog[method_name]
         if type(probe) == "function" then
+            any_probe_method = true
             local ok_sid, sid_result = pcall(function() return probe(dialog, tostring(node_id)) end)
             if ok_sid and sid_result ~= nil then
-                return true
+                return "occupied"
             end
 
             local ok_num, num_result = pcall(function() return probe(dialog, node_id) end)
             if ok_num and num_result ~= nil then
-                return true
+                return "occupied"
             end
         end
     end
 
-    return false
+    if any_probe_method then
+        return "free"
+    end
+
+    return "unverified"
 end
 
 local function pick_free_allocator_start(dialog, preferred_start, range_size, max_ranges)
@@ -433,15 +439,22 @@ local function pick_free_allocator_start(dialog, preferred_start, range_size, ma
     for scan_idx = 0, (ranges_to_scan - 1) do
         local candidate_start = base_start + (scan_idx * bucket_size)
         local collision = false
+        local has_unverified_probe = false
 
         for offset = 0, (bucket_size - 1) do
-            if dialog_has_node_id(dialog, candidate_start + offset) then
+            local probe_state = dialog_probe_node_id(dialog, candidate_start + offset)
+            if probe_state == "occupied" then
                 collision = true
                 break
+            elseif probe_state ~= "free" then
+                has_unverified_probe = true
             end
         end
 
         if not collision then
+            if has_unverified_probe then
+                return candidate_start, "unverified", scan_idx + 1
+            end
             return candidate_start, "scan", scan_idx + 1
         end
     end
@@ -1876,11 +1889,11 @@ local function build_dialog_tree(dialog, state)
         end
     end
 
+    push_range_attempt(initial_range_start)
+
     for bucket_idx = 0, (HUB_DYNAMIC_NODE_ID_SCAN_RANGES - 1) do
         push_range_attempt(HUB_DYNAMIC_NODE_ID_START + (bucket_idx * HUB_DYNAMIC_NODE_ID_STEP))
     end
-
-    push_range_attempt(initial_range_start)
 
     local fallback_offsets = { 0, 1, 2, 4, 8, 16, 32 }
     for _, offset_bucket in ipairs(fallback_offsets) do
@@ -1931,11 +1944,17 @@ local function build_dialog_tree(dialog, state)
         tostring(state.turn or "nil")
     )
 
+    local alloc_probe_flag = "probe_mode=verified"
+    if alloc_probe_mode == "unverified" or alloc_probe_mode == "fallback_unverified" then
+        alloc_probe_flag = "probe_mode=unverified"
+    end
+
     bridge_debug(
-        "build_dialog_tree allocator_probe_result start=%s mode=%s scanned_ranges=%s conv_id=%s turn=%s",
+        "build_dialog_tree allocator_probe_result start=%s mode=%s scanned_ranges=%s %s conv_id=%s turn=%s",
         tostring(initial_range_start),
         tostring(alloc_probe_mode),
         tostring(alloc_probe_attempt),
+        tostring(alloc_probe_flag),
         tostring(state.conv_id or "nil"),
         tostring(state.turn or "nil")
     )
