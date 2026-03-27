@@ -99,7 +99,7 @@ function inferTurnFirstSpeaker(turn: Pick<Turn, 'firstSpeaker' | 'f2f_entry' | '
   if (turn.firstSpeaker === 'npc' || turn.firstSpeaker === 'player') {
     return turn.firstSpeaker;
   }
-  return turn.channel === 'f2f' && turn.f2f_entry === true ? 'player' : 'npc';
+  return turn.channel === 'f2f' ? 'player' : 'npc';
 }
 
 function normalizeTurnEntryFlags(turn: Turn): void {

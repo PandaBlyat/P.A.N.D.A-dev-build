@@ -202,7 +202,7 @@ function normalizeTurn(turn: Turn, fallbackPosition: { x: number; y: number }): 
   const normalizedF2fEntry = typeof turn.f2f_entry === 'boolean' ? turn.f2f_entry : false;
   const normalizedFirstSpeaker = turn.firstSpeaker === 'npc' || turn.firstSpeaker === 'player'
     ? turn.firstSpeaker
-    : (normalizedChannel === 'f2f' && normalizedF2fEntry ? 'player' : 'npc');
+    : (normalizedChannel === 'f2f' ? 'player' : 'npc');
 
   return {
     ...turn,
