@@ -790,6 +790,12 @@ export const XP_DOWNLOAD_RECEIVED = 5;
 export const XP_UPVOTE_RECEIVED = 10;
 
 export type LevelThreshold = { level: number; xp: number; title: string };
+export type LevelMetadata = {
+  currentLevelThreshold: LevelThreshold;
+  nextLevelThreshold: LevelThreshold | null;
+  progressFraction: number;
+  displayTitle: string;
+};
 
 const LEVEL_RANKS = [
   'Novice',
@@ -840,6 +846,47 @@ export function getNextLevelThreshold(currentXp: number): LevelThreshold | null 
     if (t.xp > currentXp) return t;
   }
   return null;
+}
+
+export function deriveLevelMetadata(currentXp: number): LevelMetadata {
+  const baseThreshold = LEVEL_THRESHOLDS[0] ?? { level: 1, xp: 0, title: 'Novice' };
+
+  let currentLevelThreshold = baseThreshold;
+  for (const threshold of LEVEL_THRESHOLDS) {
+    if (threshold.xp <= currentXp) {
+      currentLevelThreshold = threshold;
+      continue;
+    }
+    break;
+  }
+
+  let nextLevelThreshold: LevelThreshold | null = null;
+  for (const threshold of LEVEL_THRESHOLDS) {
+    if (threshold.xp > currentXp) {
+      nextLevelThreshold = threshold;
+      break;
+    }
+  }
+
+  if (!nextLevelThreshold) {
+    return {
+      currentLevelThreshold,
+      nextLevelThreshold: null,
+      progressFraction: 1,
+      displayTitle: currentLevelThreshold.title,
+    };
+  }
+
+  const xpRange = nextLevelThreshold.xp - currentLevelThreshold.xp;
+  const rawProgress = xpRange > 0 ? (currentXp - currentLevelThreshold.xp) / xpRange : 1;
+  const progressFraction = Math.max(0, Math.min(rawProgress, 1));
+
+  return {
+    currentLevelThreshold,
+    nextLevelThreshold,
+    progressFraction,
+    displayTitle: currentLevelThreshold.title,
+  };
 }
 
 export function getStoredUsername(): string | null {

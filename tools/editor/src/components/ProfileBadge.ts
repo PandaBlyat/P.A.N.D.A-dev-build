@@ -4,8 +4,7 @@
 import {
   type UserProfile,
   type LeaderboardEntry,
-  LEVEL_THRESHOLDS,
-  getNextLevelThreshold,
+  deriveLevelMetadata,
   fetchLeaderboard,
   fetchPublicProfileData,
   fetchUserPublishCount,
@@ -313,37 +312,36 @@ function buildProgressSection(profile: UserProfile): HTMLElement {
   const progressSection = document.createElement('div');
   progressSection.className = 'profile-popover-progress';
 
-  const next = getNextLevelThreshold(profile.xp);
-  const currentThreshold = LEVEL_THRESHOLDS.find(t => t.level === profile.level);
-  const currentMin = currentThreshold?.xp ?? 0;
-  const nextXp = next?.xp ?? currentMin;
-  const range = Math.max(nextXp - currentMin, 1);
-  const progress = Math.min((profile.xp - currentMin) / range, 1);
-  const progressPercent = Math.round(progress * 100);
-  const xpToGo = Math.max(nextXp - profile.xp, 0);
+  const levelMeta = deriveLevelMetadata(profile.xp);
+  const currentThreshold = levelMeta.currentLevelThreshold;
+  const nextThreshold = levelMeta.nextLevelThreshold;
+  const currentMin = currentThreshold.xp;
+  const nextXp = nextThreshold?.xp ?? currentThreshold.xp;
+  const progressPercent = Math.round(levelMeta.progressFraction * 100);
+  const xpToGo = Math.max((nextThreshold?.xp ?? profile.xp) - profile.xp, 0);
 
   const progressTop = document.createElement('div');
   progressTop.className = 'profile-popover-progress-top';
 
   const levelBadge = document.createElement('div');
   levelBadge.className = 'profile-popover-level-badge';
-  levelBadge.textContent = `Lv.${profile.level}`;
+  levelBadge.textContent = `Lv.${currentThreshold.level}`;
 
   const progressCopy = document.createElement('div');
   progressCopy.className = 'profile-popover-progress-copy';
 
   const progressKicker = document.createElement('span');
   progressKicker.className = 'profile-popover-progress-kicker';
-  progressKicker.textContent = next ? 'Progress to next title' : 'Progress complete';
+  progressKicker.textContent = nextThreshold ? 'Progress to next title' : 'Progress complete';
 
   const levelLabel = document.createElement('span');
   levelLabel.className = 'profile-popover-level-label';
-  levelLabel.textContent = next ? `${progressPercent}% to Level ${next.level}` : 'Max level reached';
+  levelLabel.textContent = nextThreshold ? `${progressPercent}% to Level ${nextThreshold.level}` : 'Max level reached';
 
   const xpNumbers = document.createElement('span');
   xpNumbers.className = 'profile-popover-bar-label';
-  xpNumbers.textContent = next
-    ? `${profile.xp.toLocaleString()} / ${next.xp.toLocaleString()} XP`
+  xpNumbers.textContent = nextThreshold
+    ? `${profile.xp.toLocaleString()} / ${nextThreshold.xp.toLocaleString()} XP`
     : `${profile.xp.toLocaleString()} XP`;
 
   progressCopy.append(progressKicker, levelLabel, xpNumbers);
@@ -351,8 +349,8 @@ function buildProgressSection(profile: UserProfile): HTMLElement {
 
   const barTrack = document.createElement('div');
   barTrack.className = 'profile-popover-bar-track';
-  barTrack.title = next
-    ? `${xpToGo.toLocaleString()} XP needed for Level ${next.level}`
+  barTrack.title = nextThreshold
+    ? `${xpToGo.toLocaleString()} XP needed for Level ${nextThreshold.level}`
     : 'Max level reached';
   const barFill = document.createElement('div');
   barFill.className = 'profile-popover-bar-fill';
@@ -378,13 +376,13 @@ function buildProgressSection(profile: UserProfile): HTMLElement {
 
   const nextLabel = document.createElement('div');
   nextLabel.className = 'profile-popover-next';
-  nextLabel.textContent = next
-    ? `Next title: ${next.title}`
+  nextLabel.textContent = nextThreshold
+    ? `Next title: ${nextThreshold.title}`
     : 'All level rewards unlocked';
 
   const progressTarget = document.createElement('div');
   progressTarget.className = 'profile-popover-progress-target';
-  progressTarget.textContent = next ? `${xpToGo.toLocaleString()} XP to go` : 'Legend status achieved';
+  progressTarget.textContent = nextThreshold ? `${xpToGo.toLocaleString()} XP to go` : 'Legend status achieved';
 
   progressFooter.append(nextLabel, progressTarget);
   progressSection.append(progressTop, barTrack, barMarkers, progressFooter);

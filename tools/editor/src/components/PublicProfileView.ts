@@ -1,8 +1,7 @@
 import {
   type CommunityConversation,
   type PublicProfileData,
-  LEVEL_THRESHOLDS,
-  getNextLevelThreshold,
+  deriveLevelMetadata,
 } from '../lib/api-client';
 import {
   ACHIEVEMENTS,
@@ -78,11 +77,9 @@ function getRareBadgeCount(profileData: PublicProfileData): number {
 
 function buildHeader(data: PublicProfileData): HTMLElement {
   const { profile, publish_count } = data;
-  const next = getNextLevelThreshold(profile.xp);
-  const currentThreshold = LEVEL_THRESHOLDS.find((threshold) => threshold.level === profile.level);
-  const minXp = currentThreshold?.xp ?? 0;
-  const maxXp = next?.xp ?? profile.xp;
-  const progress = Math.min((profile.xp - minXp) / Math.max(maxXp - minXp, 1), 1);
+  const levelMeta = deriveLevelMetadata(profile.xp);
+  const currentThreshold = levelMeta.currentLevelThreshold;
+  const nextThreshold = levelMeta.nextLevelThreshold;
 
   const header = document.createElement('section');
   header.className = 'public-profile-hero';
@@ -92,12 +89,12 @@ function buildHeader(data: PublicProfileData): HTMLElement {
 
   const avatar = document.createElement('div');
   avatar.className = 'public-profile-avatar';
-  avatar.style.setProperty('--tier-color', getLevelTierColor(profile.level));
+  avatar.style.setProperty('--tier-color', getLevelTierColor(currentThreshold.level));
   avatar.textContent = getUserInitial(profile.username);
 
   const avatarLevel = document.createElement('span');
   avatarLevel.className = 'public-profile-avatar-level';
-  avatarLevel.textContent = `Lv.${profile.level}`;
+  avatarLevel.textContent = `Lv.${currentThreshold.level}`;
   avatar.appendChild(avatarLevel);
 
   const copy = document.createElement('div');
@@ -113,7 +110,7 @@ function buildHeader(data: PublicProfileData): HTMLElement {
 
   const subtitle = document.createElement('div');
   subtitle.className = 'public-profile-title';
-  subtitle.textContent = `${profile.title} · ${profile.xp.toLocaleString()} XP · ${publish_count} publishes`;
+  subtitle.textContent = `${levelMeta.displayTitle} · ${profile.xp.toLocaleString()} XP · ${publish_count} publishes`;
 
   const memberSince = document.createElement('div');
   memberSince.className = 'public-profile-member-since';
@@ -145,15 +142,15 @@ function buildHeader(data: PublicProfileData): HTMLElement {
 
   const progressMeta = document.createElement('div');
   progressMeta.className = 'public-profile-progress-meta';
-  progressMeta.textContent = next
-    ? `${profile.xp.toLocaleString()} / ${next.xp.toLocaleString()} XP to ${next.title}`
+  progressMeta.textContent = nextThreshold
+    ? `${profile.xp.toLocaleString()} / ${nextThreshold.xp.toLocaleString()} XP to ${nextThreshold.title}`
     : `${profile.xp.toLocaleString()} XP · max level reached`;
 
   const progressTrack = document.createElement('div');
   progressTrack.className = 'public-profile-progress-track';
   const progressFill = document.createElement('div');
   progressFill.className = 'public-profile-progress-fill';
-  progressFill.style.width = `${Math.round(progress * 100)}%`;
+  progressFill.style.width = `${Math.round(levelMeta.progressFraction * 100)}%`;
   progressTrack.appendChild(progressFill);
   progressWrap.append(progressMeta, progressTrack);
 
@@ -164,7 +161,7 @@ function buildHeader(data: PublicProfileData): HTMLElement {
   stats.className = 'public-profile-hero-stats';
 
   const statDefs = [
-    { icon: 'trophy' as const, value: `Level ${profile.level}`, label: 'Title tier' },
+    { icon: 'trophy' as const, value: `Level ${currentThreshold.level}`, label: 'Title tier' },
     { icon: 'star' as const, value: `${profile.xp.toLocaleString()} XP`, label: 'Career XP' },
     { icon: 'export' as const, value: String(publish_count), label: 'Published' },
     { icon: 'medal' as const, value: String(getUnlockedAchievements(data).length), label: 'Badges' },
