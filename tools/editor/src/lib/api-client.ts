@@ -841,6 +841,11 @@ export const LEVEL_THRESHOLDS: LevelThreshold[] = (() => {
   );
 })();
 
+export function getLevelTitle(level: number): string {
+  if (!Number.isFinite(level)) return '';
+  return LEVEL_THRESHOLDS.find(threshold => threshold.level === level)?.title ?? '';
+}
+
 export function getNextLevelThreshold(currentXp: number): LevelThreshold | null {
   for (const t of LEVEL_THRESHOLDS) {
     if (t.xp > currentXp) return t;

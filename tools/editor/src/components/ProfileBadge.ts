@@ -8,6 +8,7 @@ import {
   fetchLeaderboard,
   fetchPublicProfileData,
   fetchUserPublishCount,
+  getLevelTitle,
   XP_PUBLISH_SHORT,
   XP_PUBLISH_MEDIUM,
   XP_PUBLISH_LONG,
@@ -73,6 +74,10 @@ function getUserInitial(username: string): string {
   return username.trim().charAt(0).toUpperCase() || '?';
 }
 
+function resolveProfileTitle(profile: Pick<UserProfile, 'level' | 'title'>): string {
+  return getLevelTitle(profile.level) || profile.title;
+}
+
 function getProfileModalMount(): HTMLElement {
   return document.getElementById(PROFILE_MODAL_MOUNT_ID) ?? document.body;
 }
@@ -92,7 +97,7 @@ export function renderProfileBadge(): HTMLElement | null {
 
   const wrapper = document.createElement('div');
   wrapper.className = 'profile-badge';
-  wrapper.title = `${cachedProfile.title} — ${cachedProfile.xp} XP`;
+  wrapper.title = `${resolveProfileTitle(cachedProfile)} — ${cachedProfile.xp} XP`;
 
   const tierColor = getLevelTierColor(cachedProfile.level);
 
@@ -225,7 +230,7 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
 
   const titleEl = document.createElement('div');
   titleEl.className = 'profile-popover-title';
-  titleEl.textContent = profile.title;
+  titleEl.textContent = resolveProfileTitle(profile);
 
   const unlocked = getUnlockedAchievementIdsForProfile(profile);
   const featuredBadges = getFeaturedAchievements(unlocked);
@@ -1499,7 +1504,8 @@ function renderLeaderboardList(container: HTMLElement, entries: LeaderboardEntry
 
     const xp = document.createElement('span');
     xp.className = 'profile-popover-lb-xp';
-    xp.textContent = `Lv.${entry.level} · ${entry.xp} XP`;
+    const resolvedTitle = getLevelTitle(entry.level) || entry.title;
+    xp.textContent = `Lv.${entry.level} · ${resolvedTitle} · ${entry.xp} XP`;
 
     row.append(rank, name, xp);
     container.appendChild(row);
@@ -1608,7 +1614,7 @@ async function openPublicProfileOverlay(publisherId: string, trigger: HTMLButton
       return;
     }
 
-    subtitle.textContent = `${profile.username} · ${profile.title}`;
+    subtitle.textContent = `${profile.username} · ${resolveProfileTitle(profile)}`;
     body.appendChild(renderPublicProfileView({ data: publicProfile, leaderboardRank }));
   } catch {
     if (activePublicProfilePublisherId !== publisherId || publicProfileOverlay !== overlay) {
