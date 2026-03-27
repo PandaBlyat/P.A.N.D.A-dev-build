@@ -30,7 +30,7 @@
         <text>req_npc_friendly:stalker</text>
     </string>
     <string id="st_pda_ic_loner_1_t2_open">
-        <text>Glad you made it—keep this between us.</text>
+        <text>Glad you made it, keep this between us.</text>
     </string>
     <string id="st_pda_ic_loner_1_t2_choice_1">
         <text>So, what is it you wanted to talk about?</text>
