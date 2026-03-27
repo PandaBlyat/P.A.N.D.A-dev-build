@@ -113,6 +113,21 @@ function resolveRegistryEntryFlags(turn: Turn): { pdaEntry: boolean; f2fEntry: b
   return { pdaEntry: basePdaEntry, f2fEntry: baseF2FEntry };
 }
 
+function inferContinueChannelFromDestination(
+  conv: Conversation,
+  choice: Choice,
+  fallback: 'pda' | 'both' = 'pda',
+): 'pda' | 'f2f' | 'both' {
+  const configuredChannel = normalizeChannel(choice.continue_channel, fallback);
+  if (choice.continueTo == null) return configuredChannel;
+
+  const targetTurn = conv.turns.find((candidate) => candidate.turnNumber === choice.continueTo);
+  if (!targetTurn) return configuredChannel;
+
+  const targetChannel = normalizeChannel(targetTurn.channel, 'both');
+  return targetChannel === 'both' ? configuredChannel : targetChannel;
+}
+
 function createF2FRegistryPayload(conv: Conversation) {
   const turns = conv.turns.map((turn) => {
     const { pdaEntry, f2fEntry } = resolveRegistryEntryFlags(turn);
@@ -126,7 +141,7 @@ function createF2FRegistryPayload(conv: Conversation) {
         index: choice.index,
         channel: normalizeChannel(choice.channel, 'pda'),
         continueTo: choice.continueTo ?? null,
-        continueChannel: normalizeChannel(choice.continue_channel, 'pda'),
+        continueChannel: inferContinueChannelFromDestination(conv, choice, 'pda'),
         storyNpcId: choice.story_npc_id ?? null,
         npcFactionFilters: choice.npc_faction_filters ?? [],
         npcProfileFilters: choice.npc_profile_filters ?? [],
@@ -148,24 +163,11 @@ function createF2FRegistryPayload(conv: Conversation) {
 
 function resolveContinueChannelForExport(
   conv: Conversation,
-  turn: Turn,
+  _turn: Turn,
   choice: Choice,
-  prefix: string,
+  _prefix: string,
 ): 'pda' | 'f2f' | 'both' {
-  const exportedChannel = normalizeChannel(choice.continue_channel, 'pda');
-  if (choice.continueTo == null) return exportedChannel;
-
-  // Compatibility fix for legacy runtime bridge expectations:
-  // st_pda_ic_loner_1 turn-1 choice-1 must explicitly export f2f when it
-  // transitions from PDA to a face-to-face turn.
-  if (prefix === 'st_pda_ic_loner_1' && turn.turnNumber === 1 && choice.index === 1) {
-    const targetTurn = conv.turns.find((candidate) => candidate.turnNumber === choice.continueTo);
-    if (targetTurn && normalizeChannel(targetTurn.channel, 'both') === 'f2f') {
-      return 'f2f';
-    }
-  }
-
-  return exportedChannel;
+  return inferContinueChannelFromDestination(conv, choice, 'pda');
 }
 
 /** Generate system strings block */
