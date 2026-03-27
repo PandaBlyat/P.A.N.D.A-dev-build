@@ -1567,7 +1567,7 @@ function drawConnectionPreview(options: {
   const defs = svg.querySelector('defs');
   const turnsByNumber = new Map(conv.turns.map(turn => [turn.turnNumber, turn]));
 
-  svg.querySelector('.edge-preview')?.remove();
+  svg.querySelectorAll('.edge-preview, .flow-edge-preview-packet').forEach((element) => element.remove());
   if (!preview) return;
 
   const sourceAnchor = getChoiceAnchor(
@@ -1594,7 +1594,7 @@ function drawConnectionPreview(options: {
 
   const previewPacket = document.createElementNS('http://www.w3.org/2000/svg', 'path');
   previewPacket.setAttribute('d', buildEdgePath(sourceAnchor, previewTarget, 0));
-  previewPacket.setAttribute('class', `flow-edge-packet flow-edge-preview-packet${preview.invalidTarget ? ' edge-preview-invalid' : ''}`);
+  previewPacket.setAttribute('class', `flow-edge-packet flow-edge-preview-packet edge-preview${preview.invalidTarget ? ' edge-preview-invalid' : ''}`);
   previewPacket.style.setProperty('--flow-edge-color', previewColor);
   previewPacket.setAttribute('aria-hidden', 'true');
   svg.appendChild(previewPacket);
