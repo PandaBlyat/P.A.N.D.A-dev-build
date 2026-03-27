@@ -1576,6 +1576,7 @@ local function collect_branches(npc_se, forced_context)
                                 local outcome_key = turn_stem .. "_outcome_" .. idx
                                 local choice_precond_key = turn_stem .. "_choice_" .. idx .. "_precond"
                                 local hard_route_key = turn_stem .. "_choice_" .. idx .. BRANCH_HARD_ROUTE_SUFFIX
+                                local keep_hub_override_key = turn_stem .. "_choice_" .. idx .. "_keep_hub_override"
 
                                 local show = true
                                 local choice_reason = nil
@@ -1614,6 +1615,10 @@ local function collect_branches(npc_se, forced_context)
                                     if key_exists(hard_route_key) then
                                         hard_route = parse_bool_flag(tr(hard_route_key))
                                     end
+                                    local keep_hub_override = false
+                                    if key_exists(keep_hub_override_key) then
+                                        keep_hub_override = parse_bool_flag(tr(keep_hub_override_key))
+                                    end
 
                                     table.insert(found.branches, {
                                         index = idx,
@@ -1622,6 +1627,7 @@ local function collect_branches(npc_se, forced_context)
                                         outcome = key_exists(outcome_key) and tr(outcome_key) or "none",
                                         precond_key = key_exists(choice_precond_key) and choice_precond_key or nil,
                                         hard_route = hard_route,
+                                        keep_hub_override = keep_hub_override,
                                     })
                                 else
                                     rejected_choice_keys[#rejected_choice_keys + 1] = choice_key
@@ -1907,8 +1913,30 @@ local function build_dialog_tree(dialog, state)
                 -- Consume only after a player-selected branch is committed.
                 consume_pending_handoff_for_npc(active_state.npc_se)
             end
-            if branch.hard_route and routed and not ok then
-                panda_f2f_bridge.restore_branch_route(active_npc_id, owner_tag)
+            if branch.hard_route and routed then
+                local keep_hub_override = branch.keep_hub_override == true
+                if not keep_hub_override then
+                    local restored = panda_f2f_bridge.restore_branch_route(active_npc_id, owner_tag)
+                    if ok and active_npc_id then
+                        runtime.override_owners[tostring(active_npc_id)] = nil
+                    end
+                    bridge_debug(
+                        "register_dispatcher: hard_route cleanup branch=%s conv_id=%s turn=%s ok=%s restored=%s",
+                        tostring(branch.index),
+                        tostring(active_state.conv_id or "nil"),
+                        tostring(active_state.turn or "nil"),
+                        tostring(ok),
+                        tostring(restored)
+                    )
+                else
+                    bridge_debug(
+                        "register_dispatcher: hard_route cleanup skipped keep_hub_override=true branch=%s conv_id=%s turn=%s ok=%s",
+                        tostring(branch.index),
+                        tostring(active_state.conv_id or "nil"),
+                        tostring(active_state.turn or "nil"),
+                        tostring(ok)
+                    )
+                end
             end
         end
 
