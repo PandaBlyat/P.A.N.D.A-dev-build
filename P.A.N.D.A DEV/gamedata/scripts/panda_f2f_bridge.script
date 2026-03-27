@@ -1942,6 +1942,7 @@ local function build_dialog_tree(dialog, state)
     local alloc = make_allocator(0)
     local token = tostring(time_global and time_global() or math.random(10000, 99999))
     local exit_phrase = "dm_universal_actor_exit"
+    local exit_action = "dialogs.break_dialog"
 
     state.dialog = dialog
     state.alloc = alloc
@@ -2051,6 +2052,17 @@ local function build_dialog_tree(dialog, state)
             end
         end
         return ok
+    end
+    local function add_logged_exit_node(parent_id, node_id, role)
+        bridge_debug(
+            "build_dialog_tree exit_insert role=%s parent_id=%s node_id=%s phrase_id=%s act=%s",
+            tostring(role or "unknown"),
+            tostring(parent_id or "nil"),
+            tostring(node_id or "nil"),
+            tostring(exit_phrase),
+            tostring(exit_action)
+        )
+        return add_logged_node(parent_id, node_id, exit_phrase, nil, exit_action, false, role, "actor")
     end
 
     local function ensure_actor_parity(parent_node_id, context)
@@ -2235,7 +2247,7 @@ local function build_dialog_tree(dialog, state)
             tostring(npc_open_phrase_id or "nil")
         )
 
-        add_logged_node(npc_open_id, fallback_actor_id, exit_phrase, nil, nil, false, "fallback_actor_exit", "actor")
+        add_logged_exit_node(npc_open_id, fallback_actor_id, "fallback_actor_exit")
         local build_ok = (root_ok == true) and (npc_open_ok == true) and (actor_choice_count_added > 0)
         bridge_debug(
             "build_dialog_tree node_ids root=%s shim=%s open=%s choice=%s reply=%s exit=%s conv_id=%s turn=%s",
@@ -2362,17 +2374,17 @@ local function build_dialog_tree(dialog, state)
                         )
                         local exit_id = alloc()
                         generated_ids.exit[#generated_ids.exit + 1] = exit_id
-                        add_logged_node(npc_id, exit_id, exit_phrase, nil, nil, false, "actor_exit", "actor")
+                        add_logged_exit_node(npc_id, exit_id, "actor_exit")
                     end
                 else
                     local exit_id = alloc()
                     generated_ids.exit[#generated_ids.exit + 1] = exit_id
-                    add_logged_node(npc_id, exit_id, exit_phrase, nil, nil, false, "actor_exit", "actor")
+                    add_logged_exit_node(npc_id, exit_id, "actor_exit")
                 end
             else
                 local exit_id = alloc()
                 generated_ids.exit[#generated_ids.exit + 1] = exit_id
-                add_logged_node(actor_id, exit_id, exit_phrase, nil, nil, false, "actor_exit", "actor")
+                add_logged_exit_node(actor_id, exit_id, "actor_exit")
             end
         end
 
@@ -2383,7 +2395,7 @@ local function build_dialog_tree(dialog, state)
 
     local root_exit_id = alloc()
     generated_ids.exit[#generated_ids.exit + 1] = root_exit_id
-    add_logged_node(npc_open_id, root_exit_id, exit_phrase, nil, nil, false, "actor_root_exit", "actor")
+    add_logged_exit_node(npc_open_id, root_exit_id, "actor_root_exit")
 
     local build_ok = (root_ok == true) and (npc_open_ok == true) and (actor_choice_count_added > 0)
     bridge_debug(
