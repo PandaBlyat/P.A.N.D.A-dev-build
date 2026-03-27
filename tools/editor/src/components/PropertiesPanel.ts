@@ -174,7 +174,7 @@ export function renderPropertiesPanel(container: HTMLElement): void {
   if (!conv) {
     container.replaceChildren(createOnboardingNudge({
       title: 'No properties to edit yet',
-      body: 'Use the onboarding flow to start a blank project, import XML, or pull in a Community Library conversation, then edit preconditions, replies, and branch data here.',
+      body: 'Use the onboarding flow to start a blank project, import XML, or pull in a Community Library story, then edit preconditions, replies, and branch data here.',
     }));
     return;
   }
@@ -190,8 +190,8 @@ export function renderPropertiesPanel(container: HTMLElement): void {
 
   const convTab = document.createElement('button');
   convTab.className = 'tab' + (activeTab === 'conversation' ? ' active' : '');
-  convTab.textContent = 'Conversation';
-  convTab.title = 'Edit conversation label, preconditions & settings';
+  convTab.textContent = 'Story';
+  convTab.title = 'Edit story label, preconditions & settings';
   convTab.onclick = () => store.setPropertiesTab('conversation');
   tabBar.appendChild(convTab);
 
@@ -233,7 +233,7 @@ export function renderPropertiesPanel(container: HTMLElement): void {
     // Nothing selected — show a hint
     content.appendChild(createOnboardingNudge({
       title: 'Pick a turn to tune',
-      body: 'Select a node in the flow editor to edit replies and outcomes, or stay on the Conversation tab to shape preconditions before you branch further.',
+      body: 'Select a node in the flow editor to edit replies and outcomes, or stay on the Story tab to shape preconditions before you branch further.',
       compact: true,
     }));
   }
@@ -253,7 +253,7 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   // Label
   const labelField = createField('Label', 'text', conv.label, (val) => {
     store.updateConversation(conv.id, { label: val });
-  }, 'A short name for this conversation (only used in the editor)', getConversationFieldKey(conv.id, 'label'));
+  }, 'A short name for this story (only used in the editor)', getConversationFieldKey(conv.id, 'label'));
   container.appendChild(labelField);
 
   // Preconditions — collapsible section
@@ -282,7 +282,7 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   if (conv.preconditions.length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
-    hint.textContent = 'No preconditions set — this conversation will trigger for any NPC. Click "+ Add" to add conditions.';
+    hint.textContent = 'No preconditions set — this story will trigger for any NPC. Click "+ Add" to add conditions.';
     precondBody.appendChild(hint);
   } else {
     renderPreconditionList(precondBody, conv);
@@ -299,12 +299,12 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
 
   const timeoutField = createField('Timeout (seconds)', 'number', String(conv.timeout || ''), (val) => {
     store.updateConversation(conv.id, { timeout: val ? parseInt(val, 10) : undefined });
-  }, 'Auto-close conversation after this many seconds (leave empty for no timeout)', getConversationFieldKey(conv.id, 'timeout'));
+  }, 'Auto-close story after this many seconds (leave empty for no timeout)', getConversationFieldKey(conv.id, 'timeout'));
   timeoutBody.appendChild(timeoutField);
 
   const timeoutMsgField = createField('Timeout Message', 'textarea', conv.timeoutMessage || '', (val) => {
     store.updateConversation(conv.id, { timeoutMessage: val || undefined });
-  }, 'Message shown when the conversation times out', getConversationFieldKey(conv.id, 'timeout-message'));
+  }, 'Message shown when the story times out', getConversationFieldKey(conv.id, 'timeout-message'));
   timeoutBody.appendChild(timeoutMsgField);
   container.appendChild(timeoutWrapper);
 }
@@ -431,7 +431,7 @@ function renderTurnProperties(
   turnActionsRow.appendChild(pasteChoiceBtn);
 
   if (turn.turnNumber > 1) {
-    const delTurnBtn = createActionButton('Delete Turn', 'Remove this turn from the conversation', () => {
+    const delTurnBtn = createActionButton('Delete Turn', 'Remove this turn from the story', () => {
       store.deleteTurn(conv.id, turn.turnNumber);
     }, 'delete', 'danger');
     turnActionsRow.appendChild(delTurnBtn);
@@ -495,7 +495,7 @@ function renderTurnProperties(
     duplicateBtn.disabled = turn.choices.length >= 4;
     actionGroup.appendChild(duplicateBtn);
 
-    const copyBtn = createActionButton('Copy', 'Copy this choice to paste into another turn in this conversation', () => {
+    const copyBtn = createActionButton('Copy', 'Copy this choice to paste into another turn in this story', () => {
       store.copyChoice(conv.id, turn.turnNumber, choice.index);
     }, 'share');
     actionGroup.appendChild(copyBtn);
@@ -777,7 +777,7 @@ function renderChoiceProperties(
 
   const contHint = document.createElement('div');
   contHint.className = 'field-hint';
-  contHint.textContent = 'Link this choice to another turn for multi-step conversations';
+  contHint.textContent = 'Link this choice to another turn for multi-step stories';
   contField.appendChild(contHint);
 
   const contControls = document.createElement('div');
@@ -789,7 +789,7 @@ function renderChoiceProperties(
 
   const noneOpt = document.createElement('option');
   noneOpt.value = '';
-  noneOpt.textContent = '(End conversation)';
+  noneOpt.textContent = '(End story)';
   noneOpt.selected = choice.continueTo == null;
   contSelect.appendChild(noneOpt);
 
@@ -2434,7 +2434,7 @@ function createTurnReferenceEditor(
   summary.className = 'command-description';
   const getBranchSummary = (value: string): string => value
     ? `Branches to ${turnLabels?.getLongLabel(Number(value)) ?? `Branch ${value}`}.`
-    : 'Select one of the turns already defined in this conversation.';
+    : 'Select one of the turns already defined in this story.';
   summary.textContent = getBranchSummary(currentValue);
   select.addEventListener('change', () => {
     summary.textContent = getBranchSummary(select.value);

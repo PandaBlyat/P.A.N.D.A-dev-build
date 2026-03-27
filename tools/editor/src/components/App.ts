@@ -184,7 +184,7 @@ function getAppShell(container: HTMLElement): AppShell {
   leftHeader.className = 'panel-header panel-header-conversations';
   const leftTitle = document.createElement('span');
   leftTitle.className = 'panel-header-title panel-header-title-conversations';
-  leftTitle.textContent = 'Conversations';
+  leftTitle.textContent = 'Stories';
   const leftActions = document.createElement('div');
   leftActions.className = 'panel-header-actions panel-header-actions-conversations';
   leftHeader.append(leftTitle, leftActions);
@@ -335,7 +335,7 @@ function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSel
 
   if (!firstRun && layoutState.responsiveMode !== 'desktop') {
     shell.centerActions.append(
-      createPanelLauncherButton('left', 'Conversations'),
+      createPanelLauncherButton('left', 'Stories'),
       createPanelLauncherButton('right', 'Inspector'),
     );
   }
@@ -446,8 +446,8 @@ function createAddConversationButton(): HTMLButtonElement {
   addBtn.type = 'button';
   addBtn.className = 'btn-sm btn-icon conversation-panel-action panel-action-add';
   addBtn.appendChild(createIcon('add'));
-  addBtn.title = 'New conversation';
-  addBtn.setAttribute('aria-label', 'New conversation');
+  addBtn.title = 'New story';
+  addBtn.setAttribute('aria-label', 'New story');
   addBtn.onclick = () => createBlankProject();
   return addBtn;
 }
@@ -490,11 +490,11 @@ function createPanelToggleButton(side: 'left' | 'right'): HTMLButtonElement {
   if (layoutState.responsiveMode !== 'desktop') {
     const open = layoutState.activeDrawer === side;
     button.textContent = open ? '✕' : '↗';
-    button.title = `${open ? 'Close' : 'Open'} ${side === 'left' ? 'conversation list' : 'properties panel'}`;
+    button.title = `${open ? 'Close' : 'Open'} ${side === 'left' ? 'story list' : 'properties panel'}`;
   } else {
     const collapsed = side === 'left' ? layoutState.leftCollapsed : layoutState.rightCollapsed;
     button.textContent = collapsed ? (side === 'left' ? '⟩' : '⟨') : (side === 'left' ? '⟨' : '⟩');
-    button.title = `${collapsed ? 'Expand' : 'Collapse'} ${side === 'left' ? 'conversation list' : 'properties panel'}`;
+    button.title = `${collapsed ? 'Expand' : 'Collapse'} ${side === 'left' ? 'story list' : 'properties panel'}`;
   }
 
   button.setAttribute('aria-label', button.title);
@@ -518,7 +518,7 @@ function createSplitter(side: 'left' | 'right', main: HTMLElement): HTMLDivEleme
   const splitter = document.createElement('div');
   splitter.className = 'panel-splitter';
   splitter.dataset.side = side;
-  splitter.title = `Drag to resize the ${side === 'left' ? 'conversation list' : 'properties panel'}`;
+  splitter.title = `Drag to resize the ${side === 'left' ? 'story list' : 'properties panel'}`;
   splitter.onpointerdown = (event) => startPanelResize(event, side, main);
   return splitter;
 }

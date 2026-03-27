@@ -392,7 +392,6 @@ export async function publishConversation(payload: PublishPayload): Promise<void
   if (summary.length > 180) throw new PublishValidationError('Keep the summary under 180 characters.', 'summary-too-long');
   if (tags.length > 6) throw new PublishValidationError('Use up to 6 tags.', 'too-many-tags');
   if (tags.some(tag => tag.length > 20)) throw new PublishValidationError('Each tag must be 20 characters or fewer.', 'tag-too-long');
-  if (branchCount > 12) throw new PublishValidationError('Anonymous publishing is limited to 12 branches per conversation.', 'too-many-branches');
   if ([label, author, description, summary, ...tags].some(hasSuspiciousLink)) {
     throw new PublishValidationError('Links and invite URLs are blocked for anonymous publishing.', 'contains-link');
   }

@@ -94,17 +94,17 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
 
   const openBtn = btn('open', 'Open', importFromJson, 'Open a saved .panda/.json project or import a PANDA XML file');
   const saveBtn = btn('save', 'Save', exportProjectJson, 'Save as .panda project file (preserves editor data)');
-  const importBtn = btn('import', 'Import', importFromXml, 'Import conversations from an existing game XML file');
+  const importBtn = btn('import', 'Import', importFromXml, 'Import stories from an existing game XML file');
   const exportXmlBtn = btn('export', 'Export XML', exportXml, 'Export as game-ready XML file for S.T.A.L.K.E.R. Anomaly', {
     classes: ['btn-subtle'],
   });
-  const communityBtn = btn('share', 'Community', openSharePanel, 'Browse, import, and publish community conversations', {
+  const communityBtn = btn('share', 'Community', openSharePanel, 'Browse, import, and publish community stories', {
     classes: ['btn-community', 'toolbar-button-primary'],
   });
   const supportBtn = btn('support', 'Support', openSupportPanel, 'Support the Creator', {
     classes: ['toolbar-support-trigger'],
   });
-  const helpBtn = btn('help', '?', openHelpModal, 'New here? Open the quick-start guide to preconditions, dynamic references, outcomes, and conversation design.', {
+  const helpBtn = btn('help', '?', openHelpModal, 'New here? Open the quick-start guide to preconditions, dynamic references, outcomes, and story design.', {
     classes: ['toolbar-help-trigger'],
     ariaLabel: 'Open P.A.N.D.A. quick-start guide',
     icon: null,
@@ -368,7 +368,7 @@ function renderQuickSearch(): HTMLElement {
   input.type = 'search';
   input.className = 'toolbar-search-input';
   input.placeholder = 'Jump to convo, turn, string…';
-  input.title = 'Quick navigation across conversations, choices, commands, and system strings (Ctrl/Cmd+P)';
+  input.title = 'Quick navigation across stories, choices, commands, and system strings (Ctrl/Cmd+P)';
   input.setAttribute('data-global-search', 'true');
 
   const results = document.createElement('div');
@@ -440,8 +440,8 @@ function buildSearchResults(query: string): SearchResult[] {
     const conversationText = `${conv.id} ${conv.label}`.toLowerCase();
     if (conversationText.includes(normalized)) {
       results.push({
-        label: `Conversation ${conv.id}`,
-        meta: conv.label || 'Untitled conversation',
+        label: `Story ${conv.id}`,
+        meta: conv.label || 'Untitled story',
         onSelect: () => {
           store.selectConversation(conv.id);
           requestFlowCenter({ conversationId: conv.id, fit: true });
@@ -532,7 +532,7 @@ function formatStatus(convCount: number, stringCount: number, compact: boolean, 
   if (compact) {
     return `${convCount} conv • ${stringCount} strings${dirty ? ' • unsaved' : ''}`;
   }
-  return `${convCount} conversation${convCount !== 1 ? 's' : ''} • ${stringCount} strings${dirty ? ' • unsaved' : ''}`;
+  return `${convCount} stor${convCount !== 1 ? 'ies' : 'y'} • ${stringCount} strings${dirty ? ' • unsaved' : ''}`;
 }
 
 function renderVisitorCounter(compact?: boolean): HTMLElement | null {

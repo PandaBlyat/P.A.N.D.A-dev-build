@@ -4241,6 +4241,15 @@ hr {
   margin-right: 2px;
 }
 
+.choice-output-port.choice-output-port-left {
+  margin-left: 0;
+  margin-right: 6px;
+}
+
+.turn-choice-item.choice-link-backward {
+  justify-content: flex-start;
+}
+
 .turn-node:hover .turn-input-port,
 .turn-node:hover .choice-output-port,
 .turn-node.selected .turn-input-port,

@@ -230,7 +230,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     liveFlow = null;
     container.replaceChildren(createOnboardingNudge({
       title: 'No flow to render',
-      body: 'Start the onboarding flow to create a blank project, import XML, or open the sample conversation pack, then branches and links will appear here.',
+      body: 'Start the onboarding flow to create a blank project, import XML, or open the sample story pack, then branches and links will appear here.',
     }));
     return;
   }
@@ -268,12 +268,12 @@ export function renderFlowEditor(container: HTMLElement): void {
   const canvas = document.createElement('div');
   canvas.className = 'flow-canvas';
   canvas.setAttribute('role', 'region');
-  canvas.setAttribute('aria-label', `Conversation ${conv.id} flow graph`);
+  canvas.setAttribute('aria-label', `Story ${conv.id} flow graph`);
 
   const content = document.createElement('div');
   content.className = 'flow-content';
   content.setAttribute('role', 'list');
-  content.setAttribute('aria-label', 'Conversation turns');
+  content.setAttribute('aria-label', 'Story turns');
   content.style.width = `${bounds.width}px`;
   content.style.height = `${bounds.height}px`;
 
@@ -1059,7 +1059,7 @@ function renderTurnNode(options: {
     input.className = 'turn-label-input';
     input.value = turn.customLabel || '';
     input.placeholder = turn.turnNumber === 1
-      ? (conv.label.trim() || `Conversation ${conv.id}`)
+      ? (conv.label.trim() || `Story ${conv.id}`)
       : `Branch ${turn.turnNumber}`;
     input.maxLength = 32;
     let hasCommitted = false;
@@ -1183,9 +1183,17 @@ function renderTurnNode(options: {
       });
     };
 
+    const continuationTarget = choice.continueTo == null
+      ? null
+      : conv.turns.find(candidate => candidate.turnNumber === choice.continueTo) ?? null;
+    const linkPointsBehind = Boolean(
+      continuationTarget
+      && continuationTarget.position.x < turn.position.x,
+    );
+
     const port = document.createElement('button');
     port.type = 'button';
-    port.className = 'choice-output-port';
+    port.className = `choice-output-port${linkPointsBehind ? ' choice-output-port-left' : ''}`;
     port.dataset.choicePort = String(choice.index);
     port.setAttribute('aria-label', choice.continueTo != null
       ? `Connection handle for choice ${choice.index}. Drag to retarget this link, double-click to create a new connected turn, or use the unlink button to disconnect.`
@@ -1214,7 +1222,12 @@ function renderTurnNode(options: {
     preview.textContent = choice.text || '(empty)';
     preview.style.setProperty('-webkit-line-clamp', String(layout.previewLines));
 
-    item.append(num, preview);
+    if (linkPointsBehind) {
+      item.classList.add('choice-link-backward');
+      item.append(port, num, preview);
+    } else {
+      item.append(num, preview);
+    }
 
     // Badges
     if (choice.continueTo != null) {
@@ -1276,7 +1289,9 @@ function renderTurnNode(options: {
     };
     item.appendChild(branchButton);
 
-    item.appendChild(port);
+    if (!linkPointsBehind) {
+      item.appendChild(port);
+    }
     choicesList.appendChild(item);
 
     // NPC Reply — show below player choice in standard/detailed modes
