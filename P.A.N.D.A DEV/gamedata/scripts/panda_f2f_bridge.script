@@ -18,6 +18,7 @@ local ROOT_ENTRY_PHRASE_ID = "st_panda_f2f_root_entry"
 local ACTOR_PARITY_SHIM_PHRASE_ID = "st_panda_f2f_actor_parity_shim"
 local ACTOR_PARITY_SHIM_FALLBACK_LITERAL = "[PANDA parity shim]"
 local bridge_debug
+local bridge_warn
 local cleanup_noncommit_exit
 local resolve_server_npc_id
 
