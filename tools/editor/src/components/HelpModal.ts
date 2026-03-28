@@ -170,9 +170,9 @@ const HELP_CONTENT = `
 <ol>
   <li><strong>Start with the situation.</strong> Example: "A friendly stalker wants to warn the player about activity near a smart terrain."</li>
   <li><strong>Add only the preconditions needed to make that situation true.</strong></li>
-  <li><strong>Write one clear opening message.</strong> For F2F, also set an explicit <code>npcOpenKey</code> opener (NPC-first by default).</li>
+  <li><strong>Pick the story's initial channel (PDA or F2F), then write one clear opening message.</strong></li>
   <li><strong>Create 1-3 reply choices.</strong> Helpful, dismissive, suspicious, curious, etc.</li>
-  <li><strong>Give each choice an outcome or follow-up turn.</strong> Even a small branch feels meaningful when it changes text, tone, or gameplay.</li>
+  <li><strong>Use “Continue as PDA/F2F” for each branch and add outcomes or follow-up turns.</strong> The editor auto-fills most handoff flags.</li>
   <li><strong>Only add complexity when the simple version already works.</strong></li>
 </ol>
 
@@ -188,7 +188,7 @@ const HELP_CONTENT = `
 
 <h2>7. PDA + F2F writing rules to remember</h2>
 <p><strong>PDA turns:</strong> write like text/radio communication from an NPC somewhere else in the world.</p>
-<p><strong>F2F turns:</strong> configure explicit opener keys and actor order. Only F2F entry turns should define opener data; non-entry F2F turns continue normal back-and-forth without extra opener lines.</p>
+<p><strong>F2F turns:</strong> use <em>Continue as F2F</em> when you want a new in-person segment. The editor marks that target as an F2F entry and only that entry needs <code>npcOpenKey</code> + opener text. Continuation F2F turns do not require extra opener metadata.</p>
 
 <h2>8. XML key format</h2>
 <p>Base format: <code>st_pda_ic_&lt;faction&gt;_&lt;id&gt;_&lt;suffix&gt;</code></p>

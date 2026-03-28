@@ -128,6 +128,10 @@ function normalizeTurnEntryFlags(turn: Turn): void {
   }
 }
 
+function computeSegmentStartFlag(sourceChannel: 'pda' | 'f2f', destinationChannel: 'pda' | 'f2f'): boolean {
+  return sourceChannel !== destinationChannel;
+}
+
 const VALIDATION_DEBOUNCE_MS = 120;
 
 type TurnPositionUpdate = {
@@ -700,6 +704,7 @@ class StateManager {
       ...project,
       conversations: project.conversations.map((conversation) => ({
         ...conversation,
+        initialChannel: normalizeChannelValue(conversation.initialChannel, normalizeChannelValue(conversation.turns.find((turn) => turn.turnNumber === 1)?.channel, 'pda')),
         faction: getConversationFaction(conversation, project.faction),
         turns: conversation.turns.map((turn, turnIndex) => {
           const normalizedTurn: Turn = {
@@ -765,6 +770,27 @@ class StateManager {
     if (!conv || conv.faction === faction) return;
     this.pushUndo();
     conv.faction = faction;
+    this.finishProjectMutation();
+  }
+
+  setConversationInitialChannel(id: number, channel: 'pda' | 'f2f'): void {
+    const conv = this.state.project.conversations.find(c => c.id === id);
+    if (!conv) return;
+    this.pushUndo();
+    conv.initialChannel = channel;
+    const firstTurn = conv.turns.find((turn) => turn.turnNumber === 1);
+    if (firstTurn) {
+      firstTurn.channel = channel;
+      if (channel === 'f2f') {
+        firstTurn.f2f_entry = true;
+        firstTurn.pda_entry = false;
+      } else {
+        firstTurn.pda_entry = true;
+        firstTurn.f2f_entry = false;
+        firstTurn.npcOpenKey = undefined;
+      }
+      normalizeTurnEntryFlags(firstTurn);
+    }
     this.finishProjectMutation();
   }
 
@@ -998,15 +1024,16 @@ class StateManager {
 
     const nextTurnNumber = conversation.turns.reduce((max, turn) => Math.max(max, turn.turnNumber), 0) + 1;
     const newTurn = createTurn(nextTurnNumber);
-    const sourceTurnChannel = normalizeChannelValue(sourceTurn.channel, 'pda');
+    const sourceTurnChannel = normalizeChannelValue(sourceTurn.channel, normalizeChannelValue(conversation.initialChannel, 'pda'));
+    const sourceChoiceChannel = normalizeChannelValue(sourceChoice.channel, sourceTurnChannel);
     const sourceContinueChannel = sourceChoice.continueChannel ?? sourceChoice.continue_channel;
-    const destinationChannel = normalizeChannelValue(sourceContinueChannel, sourceTurnChannel);
+    const destinationChannel = normalizeChannelValue(sourceContinueChannel, sourceChoiceChannel);
 
     newTurn.channel = destinationChannel;
     sourceChoice.continueChannel = destinationChannel;
     sourceChoice.continue_channel = destinationChannel;
 
-    const isCrossChannelHandoff = sourceTurnChannel !== destinationChannel;
+    const isCrossChannelHandoff = computeSegmentStartFlag(sourceChoiceChannel, destinationChannel);
     if (destinationChannel === 'f2f') {
       newTurn.f2f_entry = isCrossChannelHandoff;
     } else {
@@ -1295,6 +1322,40 @@ class StateManager {
     if (!choice) return;
     this.pushUndo();
     Object.assign(choice, updates);
+    this.finishProjectMutation();
+  }
+
+  setChoiceContinuationChannel(conversationId: number, turnNumber: number, choiceIndex: number, nextChannel: 'pda' | 'f2f'): void {
+    const conv = this.state.project.conversations.find(c => c.id === conversationId);
+    const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
+    const choice = turn?.choices.find(c => c.index === choiceIndex);
+    if (!conv || !turn || !choice) return;
+
+    this.pushUndo();
+
+    const sourceTurnChannel = normalizeChannelValue(turn.channel, normalizeChannelValue(conv.initialChannel, 'pda'));
+    const sourceChoiceChannel = normalizeChannelValue(choice.channel, sourceTurnChannel);
+    const isSegmentStart = computeSegmentStartFlag(sourceChoiceChannel, nextChannel);
+
+    choice.continueChannel = nextChannel;
+    choice.continue_channel = nextChannel;
+
+    if (choice.continueTo != null) {
+      const targetTurn = conv.turns.find((candidate) => candidate.turnNumber === choice.continueTo);
+      if (targetTurn) {
+        targetTurn.channel = nextChannel;
+        if (nextChannel === 'f2f') {
+          targetTurn.f2f_entry = isSegmentStart;
+          targetTurn.pda_entry = false;
+        } else {
+          targetTurn.pda_entry = isSegmentStart;
+          targetTurn.f2f_entry = false;
+          targetTurn.npcOpenKey = undefined;
+        }
+        normalizeTurnEntryFlags(targetTurn);
+      }
+    }
+
     this.finishProjectMutation();
   }
 

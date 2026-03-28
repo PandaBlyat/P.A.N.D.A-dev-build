@@ -336,6 +336,12 @@ function normalizeConversation(
   warningSink: LegacyChannelNormalizationWarning[],
 ): Conversation {
   const normalizedTurns = conversation.turns.map((turn, index) => normalizeTurn(conversation.id, turn, { x: index * 340, y: 220 }, warningSink));
+  const inferredInitialChannel = normalizedTurns.find((turn) => turn.turnNumber === 1)?.channel ?? 'pda';
+  const normalizedInitialChannel = normalizeChannel(conversation.initialChannel, inferredInitialChannel, warningSink, {
+    scope: 'turn',
+    conversationId: conversation.id,
+    turnNumber: 1,
+  });
   const hintedF2fEntries = extractLegacyF2FEntryHints(conversation);
   const hintedF2fSet = new Set<number>(hintedF2fEntries);
   for (const turn of normalizedTurns) {
@@ -352,6 +358,7 @@ function normalizeConversation(
   return {
     ...conversation,
     faction: normalizeFaction(conversation.faction, fallbackFaction),
+    initialChannel: normalizedInitialChannel,
     turns: normalizedTurns,
   };
 }

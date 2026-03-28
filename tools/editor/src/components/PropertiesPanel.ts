@@ -256,7 +256,36 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   }, 'A short name for this story (only used in the editor)', getConversationFieldKey(conv.id, 'label'));
   container.appendChild(labelField);
 
-  renderF2FEntrySection(container, conv, turnLabels);
+  const initialChannelField = document.createElement('div');
+  initialChannelField.className = 'field';
+  const initialChannelLabel = document.createElement('label');
+  initialChannelLabel.textContent = 'Initial Conversation Channel';
+  initialChannelField.appendChild(initialChannelLabel);
+  const initialChannelHint = document.createElement('div');
+  initialChannelHint.className = 'field-hint';
+  initialChannelHint.textContent = 'Sets how Branch 1 starts. Choose PDA for default text-message flow, or F2F for in-person opener flow.';
+  initialChannelField.appendChild(initialChannelHint);
+  const initialChannel = normalizeChannel(conv.initialChannel, normalizeChannel(conv.turns.find((turn) => turn.turnNumber === 1)?.channel, 'pda'));
+  initialChannelField.appendChild(createChannelSelect(
+    initialChannel,
+    (nextChannel) => store.setConversationInitialChannel(conv.id, nextChannel),
+    getConversationFieldKey(conv.id, 'initial-channel'),
+  ));
+  container.appendChild(initialChannelField);
+
+  const { wrapper: advancedWrapper, body: advancedBody } = createCollapsibleSection(
+    `conv-${conv.id}-advanced-channel-controls`,
+    'Advanced Channel Controls',
+    undefined,
+    { defaultCollapsed: true },
+  );
+  const advancedHint = document.createElement('div');
+  advancedHint.className = 'field-hint';
+  advancedHint.style.marginBottom = '10px';
+  advancedHint.textContent = 'Use this section for explicit F2F entry metadata and compatibility with legacy channel workflows.';
+  advancedBody.appendChild(advancedHint);
+  renderF2FEntrySection(advancedBody, conv, turnLabels);
+  container.appendChild(advancedWrapper);
 
   // Preconditions — collapsible section
   const { wrapper: precondWrapper, body: precondBody } = createCollapsibleSection(
@@ -398,12 +427,7 @@ function renderF2FEntrySection(
     }
   }
 
-  const { wrapper: f2fEntryWrapper, body: f2fEntryBody } = createCollapsibleSection(
-    `conv-${conv.id}-f2f-entry`,
-    `F2F Entry (${f2fTurns.length})`,
-    undefined,
-    { defaultCollapsed: false },
-  );
+  const f2fEntryBody = document.createElement('div');
 
   const f2fEntryHint = document.createElement('div');
   f2fEntryHint.className = 'field-hint';
@@ -439,7 +463,7 @@ function renderF2FEntrySection(
     emptyHint.className = 'empty-hint';
     emptyHint.textContent = 'No F2F turns yet. Set a turn visibility channel to In-person (F2F) first.';
     f2fEntryBody.appendChild(emptyHint);
-    container.appendChild(f2fEntryWrapper);
+    container.appendChild(f2fEntryBody);
     return;
   }
 
@@ -550,7 +574,7 @@ function renderF2FEntrySection(
     f2fEntryBody.appendChild(card);
   }
 
-  container.appendChild(f2fEntryWrapper);
+  container.appendChild(f2fEntryBody);
 }
 
 function channelLabel(channel: 'pda' | 'f2f'): string {
@@ -645,36 +669,6 @@ function renderTurnProperties(
   renderPlaceholderPicker(container, `conv-${conv.id}-turn-${turn.turnNumber}-dynamic-placeholders`);
   const pdaEntryAllowed = currentTurnChannel !== 'f2f';
   const f2fEntryAllowed = currentTurnChannel !== 'pda';
-  const visibilityWrapper = document.createElement('div');
-  visibilityWrapper.className = 'field';
-  const visibilityLabel = document.createElement('label');
-  visibilityLabel.textContent = 'Turn Visibility Channel';
-  visibilityWrapper.appendChild(visibilityLabel);
-  const visibilityHint = document.createElement('div');
-  visibilityHint.className = 'field-hint';
-  visibilityHint.textContent = 'Turns are exclusive to one channel: PDA or in-person (F2F). Legacy "Both" values are migrated to PDA.';
-  visibilityWrapper.appendChild(visibilityHint);
-  visibilityWrapper.appendChild(createChannelSelect(
-    currentTurnChannel,
-    (nextChannel) => store.updateTurn(conv.id, turn.turnNumber, {
-      channel: nextChannel,
-      ...(nextChannel === 'pda' ? { f2f_entry: false } : { pda_entry: false }),
-    }),
-    getTurnFieldKey(conv.id, turn.turnNumber, 'channel'),
-  ));
-  container.appendChild(visibilityWrapper);
-
-  const entryScopeField = document.createElement('div');
-  entryScopeField.className = 'field';
-  const entryScopeLabel = document.createElement('label');
-  entryScopeLabel.textContent = 'Entry Turn Flags';
-  entryScopeField.appendChild(entryScopeLabel);
-  const entryScopeHint = document.createElement('div');
-  entryScopeHint.className = 'field-hint';
-  entryScopeHint.textContent = 'Mark if this branch can be used as a channel entry target for handoffs.';
-  entryScopeField.appendChild(entryScopeHint);
-  const entryScopeRow = document.createElement('div');
-  entryScopeRow.style.cssText = 'display:flex; gap:12px; flex-wrap:wrap;';
 
   const createEntryToggle = (
     label: string,
@@ -700,12 +694,49 @@ function renderTurnProperties(
     return wrapper;
   };
 
+  const { wrapper: turnAdvancedWrapper, body: turnAdvancedBody } = createCollapsibleSection(
+    `conv-${conv.id}-turn-${turn.turnNumber}-advanced-channel-controls`,
+    'Advanced Channel Controls',
+    undefined,
+    { defaultCollapsed: true },
+  );
+  const visibilityWrapper = document.createElement('div');
+  visibilityWrapper.className = 'field';
+  const visibilityLabel = document.createElement('label');
+  visibilityLabel.textContent = 'Turn Visibility Channel';
+  visibilityWrapper.appendChild(visibilityLabel);
+  const visibilityHint = document.createElement('div');
+  visibilityHint.className = 'field-hint';
+  visibilityHint.textContent = 'Turns are exclusive to one channel: PDA or in-person (F2F). Legacy "Both" values are migrated to PDA.';
+  visibilityWrapper.appendChild(visibilityHint);
+  visibilityWrapper.appendChild(createChannelSelect(
+    currentTurnChannel,
+    (nextChannel) => store.updateTurn(conv.id, turn.turnNumber, {
+      channel: nextChannel,
+      ...(nextChannel === 'pda' ? { f2f_entry: false } : { pda_entry: false }),
+    }),
+    getTurnFieldKey(conv.id, turn.turnNumber, 'channel'),
+  ));
+  turnAdvancedBody.appendChild(visibilityWrapper);
+
+  const entryScopeField = document.createElement('div');
+  entryScopeField.className = 'field';
+  const entryScopeLabel = document.createElement('label');
+  entryScopeLabel.textContent = 'Entry Turn Flags';
+  entryScopeField.appendChild(entryScopeLabel);
+  const entryScopeHint = document.createElement('div');
+  entryScopeHint.className = 'field-hint';
+  entryScopeHint.textContent = 'Mark if this branch can be used as a channel entry target for handoffs.';
+  entryScopeField.appendChild(entryScopeHint);
+  const entryScopeRow = document.createElement('div');
+  entryScopeRow.style.cssText = 'display:flex; gap:12px; flex-wrap:wrap;';
   entryScopeRow.append(
     createEntryToggle('PDA entry turn', effectivePdaEntry, 'pda_entry', 'pda-entry', pdaEntryAllowed),
     createEntryToggle('F2F entry turn', effectiveF2FEntry, 'f2f_entry', 'f2f-entry', f2fEntryAllowed),
   );
   entryScopeField.appendChild(entryScopeRow);
-  container.appendChild(entryScopeField);
+  turnAdvancedBody.appendChild(entryScopeField);
+  container.appendChild(turnAdvancedWrapper);
 
   const { wrapper: turnActionsWrapper, body: turnActionsBody } = createCollapsibleSection(
     `conv-${conv.id}-turn-${turn.turnNumber}-actions`,
@@ -908,23 +939,6 @@ function renderChoiceProperties(
   replyVariantsBody.appendChild(relLowField);
   container.appendChild(replyVariantsWrapper);
 
-  const currentChoiceChannel = normalizeChannel(choice.channel, 'pda');
-  const choiceVisibilityField = document.createElement('div');
-  choiceVisibilityField.className = 'field';
-  const choiceVisibilityLabel = document.createElement('label');
-  choiceVisibilityLabel.textContent = 'Choice Visibility Channel';
-  choiceVisibilityField.appendChild(choiceVisibilityLabel);
-  const choiceVisibilityHint = document.createElement('div');
-  choiceVisibilityHint.className = 'field-hint';
-  choiceVisibilityHint.textContent = 'Choices are exclusive: select PDA or F2F for this response path.';
-  choiceVisibilityField.appendChild(choiceVisibilityHint);
-  choiceVisibilityField.appendChild(createChannelSelect(
-    currentChoiceChannel,
-    (nextChannel) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { channel: nextChannel }),
-    getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'channel'),
-  ));
-  container.appendChild(choiceVisibilityField);
-
   const { wrapper: targetingWrapper, body: targetingBody } = createCollapsibleSection(
     `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-f2f-targeting`,
     'Available When Talking To',
@@ -1117,6 +1131,64 @@ function renderChoiceProperties(
   contField.appendChild(contControls);
   continuationBody.appendChild(contField);
 
+  const currentChoiceChannel = normalizeChannel(choice.channel, normalizeChannel(turn.channel, normalizeChannel(conv.initialChannel, 'pda')));
+  const currentContinuationChannel = normalizeChannel(choice.continueChannel ?? choice.continue_channel, currentChoiceChannel);
+  const continueAsField = document.createElement('div');
+  continueAsField.className = 'field';
+  const continueAsLabel = document.createElement('label');
+  continueAsLabel.textContent = 'Continue As';
+  continueAsField.appendChild(continueAsLabel);
+  const continueAsHint = document.createElement('div');
+  continueAsHint.className = 'field-hint';
+  continueAsHint.textContent = 'Choose the next segment channel. The editor auto-updates handoff metadata and marks entry turns only when the channel changes.';
+  continueAsField.appendChild(continueAsHint);
+  const continueAsRow = document.createElement('div');
+  continueAsRow.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap;';
+  const createContinueAsButton = (channel: 'pda' | 'f2f', label: string): HTMLButtonElement => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `btn-sm${currentContinuationChannel === channel ? ' active' : ''}`;
+    button.textContent = label;
+    button.onclick = () => store.setChoiceContinuationChannel(conv.id, turn.turnNumber, choice.index, channel);
+    return button;
+  };
+  continueAsRow.append(
+    createContinueAsButton('pda', 'Continue as PDA'),
+    createContinueAsButton('f2f', 'Continue as F2F'),
+  );
+  continueAsField.appendChild(continueAsRow);
+  const requiresNewF2FSegment = currentChoiceChannel !== currentContinuationChannel && currentContinuationChannel === 'f2f';
+  const continuationDetails = document.createElement('div');
+  continuationDetails.className = 'field-hint';
+  continuationDetails.style.marginTop = '8px';
+  continuationDetails.textContent = requiresNewF2FSegment
+    ? 'New F2F segment: the target turn is auto-marked as F2F entry and must include Opening Message + npcOpenKey.'
+    : 'Same-channel continuation: no entry opener metadata is required on the next turn.';
+  continueAsField.appendChild(continuationDetails);
+  continuationBody.appendChild(continueAsField);
+
+  const { wrapper: choiceAdvancedWrapper, body: choiceAdvancedBody } = createCollapsibleSection(
+    `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-advanced-channel-controls`,
+    'Advanced Channel Controls',
+    undefined,
+    { defaultCollapsed: true },
+  );
+  const choiceVisibilityField = document.createElement('div');
+  choiceVisibilityField.className = 'field';
+  const choiceVisibilityLabel = document.createElement('label');
+  choiceVisibilityLabel.textContent = 'Choice Visibility Channel';
+  choiceVisibilityField.appendChild(choiceVisibilityLabel);
+  const choiceVisibilityHint = document.createElement('div');
+  choiceVisibilityHint.className = 'field-hint';
+  choiceVisibilityHint.textContent = 'Choices are exclusive: select PDA or F2F for this response path.';
+  choiceVisibilityField.appendChild(choiceVisibilityHint);
+  choiceVisibilityField.appendChild(createChannelSelect(
+    currentChoiceChannel,
+    (nextChannel) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { channel: nextChannel }),
+    getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'channel'),
+  ));
+  choiceAdvancedBody.appendChild(choiceVisibilityField);
+
   const handoffField = document.createElement('div');
   handoffField.className = 'field';
   const handoffLabel = document.createElement('label');
@@ -1127,12 +1199,13 @@ function renderChoiceProperties(
   handoffHint.textContent = 'Used when this choice continues to another turn. Handoffs are exclusive to PDA or F2F.';
   handoffField.appendChild(handoffHint);
   const handoffSelect = createChannelSelect(
-    normalizeChannel(choice.continue_channel, 'pda'),
-    (nextChannel) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { continue_channel: nextChannel }),
+    currentContinuationChannel,
+    (nextChannel) => store.setChoiceContinuationChannel(conv.id, turn.turnNumber, choice.index, nextChannel),
     getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-channel'),
   );
   handoffField.appendChild(handoffSelect);
-  continuationBody.appendChild(handoffField);
+  choiceAdvancedBody.appendChild(handoffField);
+  continuationBody.appendChild(choiceAdvancedWrapper);
 
   container.appendChild(continuationWrapper);
 }

@@ -79,7 +79,7 @@ const PRECONDITION_RANGE_PAIRS: Array<{ minCommand: string; maxCommand: string; 
   { minCommand: 'req_npc_rank', maxCommand: 'req_npc_rank_max', label: 'NPC rank', rankBased: true },
 ] as const;
 
-type ConversationField = 'label' | 'timeout' | 'timeout-message' | 'preconditions';
+type ConversationField = 'label' | 'initial-channel' | 'timeout' | 'timeout-message' | 'preconditions';
 type TurnField = 'opening-message' | 'channel' | 'pda-entry' | 'f2f-entry' | 'npc-open-key' | 'requires-npc-first' | 'first-speaker';
 type ChoiceField =
   | 'text'
