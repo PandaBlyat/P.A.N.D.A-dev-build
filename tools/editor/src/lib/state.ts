@@ -1028,13 +1028,20 @@ class StateManager {
     this.batchUpdateTurnPositions(conversationId, this.calculateAutoLayoutUpdates(conversation, this.state.flowDensity));
   }
 
-  createConnectedTurn(conversationId: number, sourceTurnNumber: number, choiceIndex: number): number | null {
+  createConnectedTurn(
+    conversationId: number,
+    sourceTurnNumber: number,
+    choiceIndex: number,
+    options: { skipUndo?: boolean } = {},
+  ): number | null {
     const conversation = this.getConversationById(conversationId);
     const sourceTurn = conversation?.turns.find(turn => turn.turnNumber === sourceTurnNumber);
     const sourceChoice = sourceTurn?.choices.find(choice => choice.index === choiceIndex);
     if (!conversation || !sourceTurn || !sourceChoice) return null;
 
-    this.pushUndo();
+    if (!(options.skipUndo ?? false)) {
+      this.pushUndo();
+    }
 
     const nextTurnNumber = conversation.turns.reduce((max, turn) => Math.max(max, turn.turnNumber), 0) + 1;
     const newTurn = createTurn(nextTurnNumber);
@@ -1362,30 +1369,32 @@ class StateManager {
     if (!conv || !turn || !choice) return;
 
     this.pushUndo();
+    this.applyChoiceContinuationChannel(conv, turn, choice, nextChannel);
+    this.finishProjectMutation();
+  }
 
-    const sourceTurnChannel = normalizeChannelValue(turn.channel, normalizeChannelValue(conv.initialChannel, 'pda'));
-    const sourceChoiceChannel = sourceTurnChannel;
-    const isSegmentStart = computeSegmentStartFlag(sourceChoiceChannel, nextChannel);
+  ensureChoiceContinuationTurn(
+    conversationId: number,
+    turnNumber: number,
+    choiceIndex: number,
+    nextChannel: 'pda' | 'f2f',
+  ): number | null {
+    const conv = this.state.project.conversations.find(c => c.id === conversationId);
+    const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
+    const choice = turn?.choices.find(c => c.index === choiceIndex);
+    if (!conv || !turn || !choice) return null;
 
-    choice.continueChannel = nextChannel;
-    choice.continue_channel = nextChannel;
-
-    if (choice.continueTo != null) {
-      const targetTurn = conv.turns.find((candidate) => candidate.turnNumber === choice.continueTo);
-      if (targetTurn) {
-        targetTurn.channel = nextChannel;
-        if (nextChannel === 'f2f') {
-          targetTurn.f2f_entry = isSegmentStart;
-          targetTurn.pda_entry = false;
-        } else {
-          targetTurn.pda_entry = isSegmentStart;
-          targetTurn.f2f_entry = false;
-        }
-        normalizeTurnEntryFlags(targetTurn);
-      }
+    if (choice.continueTo == null) {
+      this.pushUndo();
+      choice.continueChannel = nextChannel;
+      choice.continue_channel = nextChannel;
+      return this.createConnectedTurn(conversationId, turnNumber, choiceIndex, { skipUndo: true });
     }
 
+    this.pushUndo();
+    this.applyChoiceContinuationChannel(conv, turn, choice, nextChannel);
     this.finishProjectMutation();
+    return choice.continueTo;
   }
 
   connectChoiceToTurn(conversationId: number, turnNumber: number, choiceIndex: number, targetTurnNumber: number): void {
@@ -1408,6 +1417,34 @@ class StateManager {
     this.pushUndo();
     delete choice.continueTo;
     this.finishProjectMutation();
+  }
+
+  private applyChoiceContinuationChannel(
+    conv: Conversation,
+    turn: Turn,
+    choice: Choice,
+    nextChannel: 'pda' | 'f2f',
+  ): void {
+    const sourceTurnChannel = normalizeChannelValue(turn.channel, normalizeChannelValue(conv.initialChannel, 'pda'));
+    const sourceChoiceChannel = sourceTurnChannel;
+    const isSegmentStart = computeSegmentStartFlag(sourceChoiceChannel, nextChannel);
+
+    choice.continueChannel = nextChannel;
+    choice.continue_channel = nextChannel;
+
+    if (choice.continueTo == null) return;
+    const targetTurn = conv.turns.find((candidate) => candidate.turnNumber === choice.continueTo);
+    if (!targetTurn) return;
+
+    targetTurn.channel = nextChannel;
+    if (nextChannel === 'f2f') {
+      targetTurn.f2f_entry = isSegmentStart;
+      targetTurn.pda_entry = false;
+    } else {
+      targetTurn.pda_entry = isSegmentStart;
+      targetTurn.f2f_entry = false;
+    }
+    normalizeTurnEntryFlags(targetTurn);
   }
 
   /**

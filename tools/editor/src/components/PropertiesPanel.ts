@@ -1120,7 +1120,7 @@ function renderChoiceProperties(
   continueAsField.appendChild(continueAsLabel);
   const continueAsHint = document.createElement('div');
   continueAsHint.className = 'field-hint';
-  continueAsHint.textContent = 'Choices inherit this branch channel automatically. Choose the next segment channel and the editor auto-updates handoff metadata when the channel changes.';
+  continueAsHint.textContent = 'Choices inherit this branch channel automatically. If no continuation turn is linked yet, Continue as PDA/F2F now creates one and links it for you.';
   continueAsField.appendChild(continueAsHint);
   const continueAsRow = document.createElement('div');
   continueAsRow.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap;';
@@ -1129,7 +1129,16 @@ function renderChoiceProperties(
     button.type = 'button';
     button.className = `btn-sm${currentContinuationChannel === channel ? ' active' : ''}`;
     button.textContent = label;
-    button.onclick = () => store.setChoiceContinuationChannel(conv.id, turn.turnNumber, choice.index, channel);
+    button.onclick = () => {
+      if (choice.continueTo == null) {
+        const createdTurnNumber = store.ensureChoiceContinuationTurn(conv.id, turn.turnNumber, choice.index, channel);
+        if (createdTurnNumber != null) {
+          requestFlowCenter({ conversationId: conv.id, turnNumber: createdTurnNumber });
+        }
+        return;
+      }
+      store.setChoiceContinuationChannel(conv.id, turn.turnNumber, choice.index, channel);
+    };
     return button;
   };
   continueAsRow.append(
@@ -1141,9 +1150,11 @@ function renderChoiceProperties(
   const continuationDetails = document.createElement('div');
   continuationDetails.className = 'field-hint';
   continuationDetails.style.marginTop = '8px';
-  continuationDetails.textContent = requiresNewF2FSegment
-    ? 'New F2F segment: the target turn is auto-marked as F2F entry and should include an Opening Message.'
-    : 'Same-channel continuation: no entry opener metadata is required on the next turn.';
+  continuationDetails.textContent = choice.continueTo == null
+    ? 'No continuation target linked yet: choosing Continue as PDA/F2F will create and link a new branch turn with the selected channel preset.'
+    : (requiresNewF2FSegment
+      ? 'New F2F segment: the target turn is auto-marked as F2F entry and should include an Opening Message.'
+      : 'Same-channel continuation: no entry opener metadata is required on the next turn.');
   continueAsField.appendChild(continuationDetails);
   continuationBody.appendChild(continueAsField);
 
