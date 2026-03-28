@@ -18,6 +18,8 @@ local ROOT_ENTRY_PHRASE_ID = "st_panda_f2f_root_entry"
 local ACTOR_PARITY_SHIM_PHRASE_ID = "st_panda_f2f_actor_parity_shim"
 local ACTOR_PARITY_SHIM_FALLBACK_LITERAL = "[PANDA parity shim]"
 local bridge_debug
+local cleanup_noncommit_exit
+local resolve_server_npc_id
 
 local runtime = {
     state_by_id = {},
@@ -477,7 +479,7 @@ local function normalize_npc_id(npc_id)
     return math.floor(out)
 end
 
-local function resolve_server_npc_id(npc_se, source_tag)
+resolve_server_npc_id = function(npc_se, source_tag)
     local sid = normalize_npc_id(npc_se and npc_se.id)
     if sid then
         return sid
@@ -528,6 +530,32 @@ local function load_state_cb(m)
     runtime.override_owners = {}
 end
 
+local function actor_on_update_cb()
+    local state = runtime.latest_state
+    if type(state) ~= "table" then
+        return
+    end
+
+    local active_npc_id = resolve_server_npc_id(state.npc_se, "actor_on_update_cb")
+    if not active_npc_id then
+        return
+    end
+
+    local talker_id = resolve_current_talker_id()
+    if talker_id and handoff_matches_talker_identity(active_npc_id, talker_id) then
+        return
+    end
+
+    if state.branch_committed == true then
+        unregister_active_state(state)
+        return
+    end
+
+    if type(cleanup_noncommit_exit) == "function" then
+        cleanup_noncommit_exit(state, "dialog_closed_or_aborted")
+    end
+end
+
 local function ensure_callbacks_registered()
     if runtime.callbacks_registered then
         return
@@ -538,6 +566,7 @@ local function ensure_callbacks_registered()
 
     RegisterScriptCallback("save_state", save_state_cb)
     RegisterScriptCallback("load_state", load_state_cb)
+    RegisterScriptCallback("actor_on_update", actor_on_update_cb)
     runtime.callbacks_registered = true
 end
 
@@ -1315,6 +1344,30 @@ local function consume_pending_handoff_for_npc(npc_se)
     return api.consume_pending_f2f_handoff(partner_id) == true
 end
 
+cleanup_noncommit_exit = function(state, exit_reason)
+    if type(state) ~= "table" then
+        return false
+    end
+    if state.branch_committed == true then
+        return false
+    end
+
+    local active_npc_id = resolve_server_npc_id(state.npc_se, "cleanup_noncommit_exit")
+    consume_pending_handoff_for_npc(state.npc_se)
+    if active_npc_id then
+        panda_f2f_bridge.restore_branch_route(active_npc_id, nil)
+    end
+    bridge_warn(
+        "handoff_cleared_on_abort npc_id=%s conv_id=%s turn=%s reason=%s",
+        tostring(active_npc_id or state.npc_se and state.npc_se.id or "nil"),
+        tostring(state.conv_id or "nil"),
+        tostring(state.turn or "nil"),
+        tostring(exit_reason or "unknown")
+    )
+    unregister_active_state(state)
+    return true
+end
+
 local function get_recent_handoff_match_for_npc(npc_se, grace_ms)
     local function normalize_positive_int(value)
         return normalize_npc_id(value)
@@ -2034,6 +2087,7 @@ local function build_dialog_tree(dialog, state)
     state.alloc = alloc
     state.handlers = {}
     state.active_token = token
+    state.branch_committed = false
     register_active_state(state)
 
     local use_legacy_visible_root = resolve_bool_flag_override("panda_f2f_use_legacy_visible_root", true)
@@ -2449,6 +2503,7 @@ local function build_dialog_tree(dialog, state)
                 tostring(branch.outcome or "none")
             )
             if ok then
+                active_state.branch_committed = true
                 -- Consume only after a player-selected branch is committed.
                 consume_pending_handoff_for_npc(active_state.npc_se)
             end
