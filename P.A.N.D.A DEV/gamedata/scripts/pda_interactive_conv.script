@@ -22,6 +22,7 @@ local DIK_SPACE, DIK_0, DIK_1, DIK_2, DIK_3, DIK_4 = 57, 11, 2, 3, 4, 5
 local CHOICE_KEYS = { [DIK_1]=1, [DIK_2]=2, [DIK_3]=3, [DIK_4]=4 }
 local FALLBACK_NPC_ICON = "ui_inGame2_neutral_1"
 local F2F_SCANNER_SUPPRESS_LOG_WINDOW_MS = 15000
+local F2F_HANDOFF_ACTIONABLE_GRACE_MS = 2 * 60 * 1000
 
 local safe_remove_time_event
 local _panda_f2f_bridge_checked = false
@@ -6631,18 +6632,86 @@ local function is_actor_currently_in_dialog()
     return false
 end
 
+local function is_handoff_actionable(handoff, now_ms)
+    if type(handoff) ~= "table" then
+        return false, "invalid_type"
+    end
+
+    local npc_id = tonumber(handoff.npc_id)
+    local conv_id = tonumber(handoff.conv_id)
+    local turn = tonumber(handoff.turn)
+
+    if not npc_id or npc_id <= 0 then
+        return false, "invalid_npc_id"
+    end
+
+    if not conv_id or conv_id <= 0 then
+        return false, "invalid_conv_id"
+    end
+
+    if not turn or turn <= 0 then
+        return false, "invalid_turn"
+    end
+
+    if now_ms then
+        local set_at = tonumber(handoff.set_at)
+        if not set_at then
+            return false, "missing_set_at"
+        end
+
+        local age_ms = now_ms - set_at
+        if age_ms > F2F_HANDOFF_ACTIONABLE_GRACE_MS then
+            return false, string.format("stale_age age_ms=%s grace_ms=%s", tostring(age_ms), tostring(F2F_HANDOFF_ACTIONABLE_GRACE_MS))
+        end
+    end
+
+    return true, nil
+end
+
 local function has_pending_f2f_handoff_entries()
     if type(pda_f2f_handoffs) ~= "table" then
         return false
     end
 
-    for _, handoff in pairs(pda_f2f_handoffs) do
-        if type(handoff) == "table" then
-            return true
+    local now = time_global and time_global() or nil
+    local has_actionable = false
+    local pruned_any = false
+
+    for key, handoff in pairs(pda_f2f_handoffs) do
+        local actionable, reason = is_handoff_actionable(handoff, now)
+        if actionable then
+            has_actionable = true
+        else
+            pda_f2f_handoffs[key] = nil
+            pruned_any = true
+            printf(
+                "PANDA_IC: purged stale f2f handoff key=%s reason=%s npc_id=%s conv_id=%s turn=%s set_at=%s",
+                tostring(key),
+                tostring(reason or "invalid"),
+                tostring(handoff and handoff.npc_id),
+                tostring(handoff and handoff.conv_id),
+                tostring(handoff and handoff.turn),
+                tostring(handoff and handoff.set_at)
+            )
         end
     end
 
-    return false
+    if pruned_any then
+        local has_remaining = false
+        for _ in pairs(pda_f2f_handoffs) do
+            has_remaining = true
+            break
+        end
+
+        if has_remaining then
+            _G.pda_f2f_handoffs = pda_f2f_handoffs
+        else
+            pda_f2f_handoffs = nil
+            _G.pda_f2f_handoffs = nil
+        end
+    end
+
+    return has_actionable
 end
 
 local function bridge_reports_active_f2f_session()
