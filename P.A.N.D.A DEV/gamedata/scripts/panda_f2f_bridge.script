@@ -1413,6 +1413,51 @@ local function get_pending_handoff_for_npc(npc_se)
     return handoff
 end
 
+local function has_actionable_handoff_marker_for_npc(npc_se)
+    local function normalize_positive_int(value)
+        return normalize_npc_id(value)
+    end
+
+    local partner_id = resolve_server_npc_id(npc_se, "has_actionable_handoff_marker_for_npc")
+    if not partner_id then
+        return false, "no_partner_id"
+    end
+
+    local handoffs = rawget(_G, "pda_f2f_handoffs")
+    if type(handoffs) == "table" then
+        for _, raw_handoff in pairs(handoffs) do
+            if type(raw_handoff) == "table" then
+                local raw_npc_id = normalize_positive_int(raw_handoff.npc_id)
+                local conv_id = normalize_positive_int(raw_handoff.conv_id)
+                local turn = normalize_positive_int(raw_handoff.turn)
+                if raw_npc_id == partner_id and conv_id and turn then
+                    return true, "global_handoff_entry_present"
+                end
+            end
+        end
+    end
+
+    local conversations = nil
+    if pda_interactive_conv and type(pda_interactive_conv.active_conversations) == "table" then
+        conversations = pda_interactive_conv.active_conversations
+    elseif type(rawget(_G, "active_conversations")) == "table" then
+        conversations = active_conversations
+    end
+
+    if type(conversations) == "table" then
+        for _, conv in pairs(conversations) do
+            if type(conv) == "table" and conv.pending_in_person_continuation == true then
+                local conv_npc_id = normalize_positive_int(conv.npc_id)
+                if conv_npc_id == partner_id then
+                    return true, "active_conversation_pending_in_person"
+                end
+            end
+        end
+    end
+
+    return false, "recent_fallback_blocked_no_actionable_marker"
+end
+
 local function consume_pending_handoff_for_npc(npc_se)
     local api = get_conv_api()
     if not api or type(api.consume_pending_f2f_handoff) ~= "function" then
@@ -3089,7 +3134,23 @@ function panda_f2f_bridge.init_dialog(dialog)
         end
         local handoff = get_pending_handoff_for_npc(npc_se)
         if not handoff then
-            handoff = get_recent_handoff_match_for_npc(npc_se, RECENT_HANDOFF_GRACE_MS)
+            local has_actionable_marker, marker_reason = has_actionable_handoff_marker_for_npc(npc_se)
+            if has_actionable_marker then
+                handoff = get_recent_handoff_match_for_npc(npc_se, RECENT_HANDOFF_GRACE_MS)
+                if handoff then
+                    bridge_debug(
+                        "init_dialog recent_fallback_allowed npc_id=%s reason=%s",
+                        tostring(npc_se and npc_se.id or "nil"),
+                        tostring(marker_reason)
+                    )
+                end
+            else
+                bridge_debug(
+                    "init_dialog recent_fallback_blocked npc_id=%s reason=%s",
+                    tostring(npc_se and npc_se.id or "nil"),
+                    tostring(marker_reason or "recent_fallback_blocked_no_actionable_marker")
+                )
+            end
         end
         init_handoff = handoff
         state = collect_branches(npc_se, handoff)
