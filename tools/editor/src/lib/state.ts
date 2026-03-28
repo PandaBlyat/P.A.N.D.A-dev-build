@@ -1073,6 +1073,7 @@ class StateManager {
     });
 
     sourceChoice.continueTo = nextTurnNumber;
+    sourceChoice.terminal = false;
     conversation.turns.push(newTurn);
     const partialUpdates = this.calculatePartialAutoLayoutUpdates(conversation, sourceTurnNumber, sourceTurnNumber);
     for (const update of partialUpdates) {
@@ -1363,6 +1364,20 @@ class StateManager {
     if (!choice || !turn) return;
     this.pushUndo();
     Object.assign(choice, updates);
+    if (choice.continueTo == null) {
+      choice.terminal = true;
+      delete choice.continueChannel;
+      delete choice.continue_channel;
+    } else {
+      choice.terminal = false;
+      const normalizedTurnChannel = normalizeChannelValue(turn.channel, 'pda');
+      const normalizedContinuationChannel = normalizeChannelValue(
+        choice.continueChannel ?? choice.continue_channel,
+        normalizedTurnChannel,
+      );
+      choice.continueChannel = normalizedContinuationChannel;
+      choice.continue_channel = normalizedContinuationChannel;
+    }
     choice.channel = normalizeChannelValue(turn.channel, 'pda');
     this.finishProjectMutation();
   }
@@ -1408,9 +1423,14 @@ class StateManager {
     const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
     const target = conv?.turns.find(t => t.turnNumber === targetTurnNumber);
     const choice = turn?.choices.find(c => c.index === choiceIndex);
-    if (!choice || !target) return;
+    if (!conv || !turn || !choice || !target) return;
     this.pushUndo();
     choice.continueTo = targetTurnNumber;
+    choice.terminal = false;
+    const sourceChannel = normalizeChannelValue(turn.channel, normalizeChannelValue(conv.initialChannel, 'pda'));
+    const destinationChannel = normalizeChannelValue(target.channel, sourceChannel);
+    choice.continueChannel = destinationChannel;
+    choice.continue_channel = destinationChannel;
     this.finishProjectMutation();
   }
 
@@ -1421,6 +1441,9 @@ class StateManager {
     if (!choice || choice.continueTo == null) return;
     this.pushUndo();
     delete choice.continueTo;
+    choice.terminal = true;
+    delete choice.continueChannel;
+    delete choice.continue_channel;
     this.finishProjectMutation();
   }
 
