@@ -1,0 +1,51 @@
+{
+  "id": 104,
+  "label": "Fixture terminal and return-to-PDA",
+  "preconditions": [],
+  "turns": [
+    {
+      "turnNumber": 1,
+      "channel": "f2f",
+      "pda_entry": false,
+      "f2f_entry": true,
+      "npcOpenKey": "camp_briefing",
+      "openingMessage": "We finish this face to face.",
+      "choices": [
+        {
+          "index": 1,
+          "text": "Send updates by PDA",
+          "reply": "Switching channels.",
+          "terminal": false,
+          "continue_channel": "pda",
+          "continueTo": 2,
+          "outcomes": []
+        },
+        {
+          "index": 2,
+          "text": "End it here",
+          "reply": "Conversation closed.",
+          "terminal": true,
+          "outcomes": []
+        }
+      ],
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "turnNumber": 2,
+      "channel": "pda",
+      "pda_entry": true,
+      "f2f_entry": false,
+      "openingMessage": "PDA link restored.",
+      "choices": [
+        {
+          "index": 1,
+          "text": "Acknowledged",
+          "reply": "Proceed to extraction.",
+          "terminal": true,
+          "outcomes": []
+        }
+      ],
+      "position": { "x": 320, "y": 0 }
+    }
+  ]
+}

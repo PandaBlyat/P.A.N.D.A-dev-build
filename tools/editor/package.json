@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build:item-catalog": "python ../build_editor_item_catalog.py",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
+    "build": "npm run validate:conversations && tsc && vite build",
+    "preview": "vite preview",
+    "validate:conversations": "node ./scripts/audit-conversation-assets.mjs"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

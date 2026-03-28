@@ -1,0 +1,74 @@
+{
+  "id": 103,
+  "label": "Fixture multi-turn F2F branches",
+  "preconditions": [],
+  "turns": [
+    {
+      "turnNumber": 1,
+      "channel": "f2f",
+      "pda_entry": false,
+      "f2f_entry": true,
+      "npcOpenKey": "warehouse_start",
+      "openingMessage": "No radios. We settle this now.",
+      "choices": [
+        {
+          "index": 1,
+          "text": "Tell me the route",
+          "reply": "Route goes through the rail yard.",
+          "terminal": false,
+          "continue_channel": "f2f",
+          "continueTo": 2,
+          "outcomes": []
+        },
+        {
+          "index": 2,
+          "text": "What's the risk?",
+          "reply": "Ambushes at every checkpoint.",
+          "terminal": false,
+          "continue_channel": "f2f",
+          "continueTo": 3,
+          "outcomes": []
+        }
+      ],
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "turnNumber": 2,
+      "channel": "f2f",
+      "pda_entry": false,
+      "f2f_entry": false,
+      "npcOpenKey": "warehouse_route",
+      "openingMessage": "First branch details.",
+      "choices": [
+        {
+          "index": 1,
+          "text": "Back up. Start over",
+          "reply": "Fine, from the top.",
+          "terminal": false,
+          "continue_channel": "f2f",
+          "continueTo": 1,
+          "outcomes": []
+        }
+      ],
+      "position": { "x": 320, "y": -120 }
+    },
+    {
+      "turnNumber": 3,
+      "channel": "f2f",
+      "pda_entry": false,
+      "f2f_entry": false,
+      "npcOpenKey": "warehouse_risk",
+      "openingMessage": "Second branch details.",
+      "choices": [
+        {
+          "index": 1,
+          "text": "Continue",
+          "reply": "Then let's move.",
+          "terminal": true,
+          "outcomes": []
+        }
+      ],
+      "position": { "x": 320, "y": 120 }
+    }
+  ]
+}

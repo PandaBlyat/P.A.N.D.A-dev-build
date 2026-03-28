@@ -1,0 +1,44 @@
+{
+  "id": 102,
+  "label": "Fixture PDA to F2F handoff",
+  "preconditions": [],
+  "turns": [
+    {
+      "turnNumber": 1,
+      "channel": "pda",
+      "pda_entry": true,
+      "f2f_entry": false,
+      "openingMessage": "Can't discuss details on comms.",
+      "choices": [
+        {
+          "index": 1,
+          "text": "Let's talk in person",
+          "reply": "Meet me by the old bridge.",
+          "terminal": false,
+          "continue_channel": "f2f",
+          "continueTo": 2,
+          "outcomes": []
+        }
+      ],
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "turnNumber": 2,
+      "channel": "f2f",
+      "pda_entry": false,
+      "f2f_entry": true,
+      "npcOpenKey": "bridge_meet_opener",
+      "openingMessage": "You made it. Keep your voice down.",
+      "choices": [
+        {
+          "index": 1,
+          "text": "I'm listening",
+          "reply": "Then hear me out.",
+          "terminal": true,
+          "outcomes": []
+        }
+      ],
+      "position": { "x": 320, "y": 0 }
+    }
+  ]
+}
