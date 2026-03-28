@@ -2122,7 +2122,64 @@ local function build_dialog_tree(dialog, state)
     local npc_reply_count_added = 0
     local build_state = {
         node_speaker_role = {},
+        node_parent = {},
+        node_children = {},
+        first_level_choices = {},
     }
+    local function register_parent_child(parent_id, node_id)
+        if node_id == nil then
+            return
+        end
+        local node_key = tostring(node_id)
+        local parent_key = tostring(parent_id or "")
+        build_state.node_parent[node_key] = parent_key
+        if build_state.node_children[parent_key] == nil then
+            build_state.node_children[parent_key] = {}
+        end
+        build_state.node_children[parent_key][#build_state.node_children[parent_key] + 1] = node_key
+    end
+
+    local function log_parity_diagnostics(reason)
+        local function children_csv(node_id)
+            local node_key = tostring(node_id or "")
+            local children = build_state.node_children[node_key] or {}
+            if #children == 0 then
+                return "<none>"
+            end
+            return table.concat(children, ",")
+        end
+
+        local function log_node(label, node_id)
+            if node_id == nil then
+                bridge_warn(
+                    "build_dialog_tree parity_diag reason=%s label=%s node_id=nil",
+                    tostring(reason or "unknown"),
+                    tostring(label or "unknown")
+                )
+                return
+            end
+            local node_key = tostring(node_id)
+            bridge_warn(
+                "build_dialog_tree parity_diag reason=%s label=%s node_id=%s parent=%s children=%s speaker=%s",
+                tostring(reason or "unknown"),
+                tostring(label or "unknown"),
+                tostring(node_key),
+                tostring(build_state.node_parent[node_key] or "<none>"),
+                tostring(children_csv(node_key)),
+                tostring(build_state.node_speaker_role[node_key] or "unknown")
+            )
+        end
+
+        log_node("root", root_id)
+        for idx, node_id in ipairs(generated_ids.shim or {}) do
+            log_node("shim_" .. tostring(idx), node_id)
+        end
+        log_node("opener", npc_open_id)
+        for idx, node_id in ipairs(build_state.first_level_choices or {}) do
+            log_node("choice_" .. tostring(idx), node_id)
+        end
+    end
+
     local function add_logged_node(parent_id, node_id, phrase_id, cond, act, allow_script_text, role, speaker_role)
         bridge_debug(
             "build_dialog_tree insert role=%s parent_id=%s node_id=%s phrase_id=%s cond=%s act=%s script_text=%s",
@@ -2137,6 +2194,7 @@ local function build_dialog_tree(dialog, state)
         local ok = dm_add_dialog(state, parent_id, node_id, phrase_id, cond, act, allow_script_text)
         if ok then
             nodes_added = nodes_added + 1
+            register_parent_child(parent_id, node_id)
             if speaker_role == "actor" or speaker_role == "npc" then
                 build_state.node_speaker_role[tostring(node_id)] = speaker_role
             end
@@ -2181,6 +2239,18 @@ local function build_dialog_tree(dialog, state)
                 )
                 return parent_node_id, false
             end
+            local shim_literal_phrase = type(parity_shim_phrase_id) == "string" and key_exists(parity_shim_phrase_id) ~= true
+            local safe_one_way = context and context.safe_one_way_progression == true
+            if shim_literal_phrase and not safe_one_way then
+                bridge_warn(
+                    "build_dialog_tree parity_path skip_literal_shim parent_id=%s context=%s phrase_id=%s",
+                    tostring(parent_node_id or "nil"),
+                    tostring(context.parity_context or "generic"),
+                    tostring(parity_shim_phrase_id or "nil")
+                )
+                return parent_node_id, false
+            end
+
             local parity_shim_id = alloc()
             generated_ids.shim[#generated_ids.shim + 1] = parity_shim_id
             add_logged_node(
@@ -2211,9 +2281,55 @@ local function build_dialog_tree(dialog, state)
             parent_speaker_role = "npc",
             next_speaker_role = "npc",
             parity_context = "root_open",
+            safe_one_way_progression = false,
         })
     end
     add_logged_node(npc_open_parent_id, npc_open_id, npc_open_phrase_id, nil, nil, npc_open_use_script_text, "npc_open", "npc")
+
+    local function has_renderable_authored_choice(turn_state)
+        if type(turn_state) ~= "table" or type(turn_state.branches) ~= "table" then
+            return false
+        end
+        for _, branch in ipairs(turn_state.branches) do
+            if type(branch) == "table" and key_exists(branch.choice_key) then
+                return true
+            end
+        end
+        return false
+    end
+
+    local current_turn_state = state
+    if type(state.turns) == "table" and state.turn ~= nil then
+        current_turn_state = state.turns[state.turn] or state
+    end
+
+    local has_turn_choices = has_renderable_authored_choice(current_turn_state)
+    if not has_turn_choices then
+        bridge_warn(
+            "build_dialog_tree short_circuit reason=no_renderable_turn_choices conv_id=%s turn=%s action=%s",
+            tostring(state.conv_id or "nil"),
+            tostring(state.turn or "nil"),
+            tostring(exit_action)
+        )
+        local fallback_actor_id = alloc()
+        generated_ids.exit[#generated_ids.exit + 1] = fallback_actor_id
+        add_logged_exit_node(npc_open_id, fallback_actor_id, "fallback_actor_exit")
+        log_parity_diagnostics("no_renderable_turn_choices")
+
+        return {
+            build_ok = false,
+            nodes_added = nodes_added,
+            root_ok = root_ok,
+            npc_open_ok = npc_open_ok,
+            actor_choice_count_added = actor_choice_count_added,
+            npc_reply_count_added = npc_reply_count_added,
+        }
+    end
+
+    local function should_log_parity_diagnostics()
+        local only_shim_selectable = (#generated_ids.shim > 0) and (#build_state.first_level_choices == 0)
+        return (actor_choice_count_added == 0) or only_shim_selectable
+    end
 
     local function register_dispatcher(branch)
         local idx = branch.index
@@ -2393,6 +2509,9 @@ local function build_dialog_tree(dialog, state)
             tostring(state.conv_id or "nil"),
             tostring(state.turn or "nil")
         )
+        if should_log_parity_diagnostics() then
+            log_parity_diagnostics("no_branches")
+        end
         bridge_debug(
             "build_dialog_tree summary build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s conv_id=%s turn=%s",
             tostring(build_ok),
@@ -2461,7 +2580,10 @@ local function build_dialog_tree(dialog, state)
             local actor_id = alloc()
             generated_ids.choice[#generated_ids.choice + 1] = actor_id
             local cond_name, act_name = register_dispatcher(branch)
-            add_logged_node(parent_open_id, actor_id, branch.choice_key, cond_name, act_name, false, "actor_choice", "actor")
+            local actor_choice_added = add_logged_node(parent_open_id, actor_id, branch.choice_key, cond_name, act_name, false, "actor_choice", "actor")
+            if actor_choice_added and depth == 1 then
+                build_state.first_level_choices[#build_state.first_level_choices + 1] = actor_id
+            end
 
             if branch.reply_key then
                 local npc_id = alloc()
@@ -2580,6 +2702,9 @@ local function build_dialog_tree(dialog, state)
         tostring(state.conv_id or "nil"),
         tostring(state.turn or "nil")
     )
+    if should_log_parity_diagnostics() then
+        log_parity_diagnostics("final_tree")
+    end
     bridge_debug(
         "build_dialog_tree summary build_ok=%s nodes_added=%s root_ok=%s npc_open_ok=%s actor_choice_count_added=%s npc_reply_count_added=%s conv_id=%s turn=%s",
         tostring(build_ok),
@@ -2611,16 +2736,24 @@ function panda_f2f_bridge.precondition()
         return false
     end
 
-    local function has_renderable_alternating_branch(state)
+    local function has_renderable_authored_choice(state)
         if type(state) ~= "table" or type(state.branches) ~= "table" then
             return false
         end
 
         for _, branch in ipairs(state.branches) do
-            if type(branch) == "table" then
-                local choice_ok = key_exists(branch.choice_key)
-                local reply_ok = key_exists(branch.reply_key)
-                if choice_ok and reply_ok then
+            if type(branch) == "table" and key_exists(branch.choice_key) then
+                local precond_ok = true
+                if branch.precond_key and branch.precond_key ~= "" then
+                    precond_ok = evaluate_shared_precondition(branch.precond_key, state.npc_se, {
+                        channel = "f2f",
+                        conv_id = state.conv_id,
+                        branch = branch.index,
+                        faction = state.faction,
+                        turn = state.turn,
+                    }) == true
+                end
+                if precond_ok then
                     return true
                 end
             end
@@ -2677,8 +2810,8 @@ function panda_f2f_bridge.precondition()
         return reject_hub_activation("missing_open_key")
     end
 
-    if not has_renderable_alternating_branch(state) then
-        return reject_hub_activation("invalid_tree_shape")
+    if not has_renderable_authored_choice(state) then
+        return reject_hub_activation("no_renderable_authored_choices")
     end
 
     state.npc_se = npc_se
