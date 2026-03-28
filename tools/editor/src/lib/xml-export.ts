@@ -126,7 +126,7 @@ function validateEmittedDialogueStrings(
 }
 
 function normalizeChannel(
-  value: Conversation['turns'][number]['channel'] | Choice['channel'] | Choice['continue_channel'] | undefined,
+  value: Conversation['turns'][number]['channel'] | Choice['channel'] | Choice['continue_channel'] | Choice['continueChannel'] | undefined,
   fallback: 'pda' | 'f2f',
 ): 'pda' | 'f2f' {
   if (value === 'pda' || value === 'f2f') {
@@ -165,7 +165,8 @@ function inferContinueChannelFromDestination(
   choice: Choice,
   fallback: 'pda' | 'f2f' = 'pda',
 ): 'pda' | 'f2f' {
-  const configuredChannel = normalizeChannel(choice.continue_channel, fallback);
+  const configured = choice.continueChannel ?? choice.continue_channel;
+  const configuredChannel = configured == null ? fallback : normalizeChannel(configured, fallback);
   if (choice.continueTo == null) return configuredChannel;
 
   const targetTurn = conv.turns.find((candidate) => candidate.turnNumber === choice.continueTo);
@@ -177,17 +178,23 @@ function inferContinueChannelFromDestination(
 function createF2FRegistryPayload(conv: Conversation) {
   const turns = conv.turns.map((turn) => {
     const { pdaEntry, f2fEntry } = resolveRegistryEntryFlags(turn);
+    const turnChannel = normalizeChannel(turn.channel, 'pda');
     return {
       turnNumber: turn.turnNumber,
-      channel: normalizeChannel(turn.channel, 'pda'),
+      channel: turnChannel,
       firstSpeaker: inferTurnFirstSpeaker(turn),
+      npcOpenKey: turnChannel === 'f2f' ? (turn.npcOpenKey ?? null) : null,
+      requiresNpcFirst: turnChannel === 'f2f' ? (turn.requiresNpcFirst ?? true) : null,
       pdaEntry,
       f2fEntry,
       choices: turn.choices.map((choice) => ({
         index: choice.index,
         channel: normalizeChannel(choice.channel, 'pda'),
+        terminal: choice.terminal === true,
         continueTo: choice.continueTo ?? null,
-        continueChannel: inferContinueChannelFromDestination(conv, choice, 'pda'),
+        continueChannel: (choice.terminal === true)
+          ? null
+          : (choice.continueChannel ?? choice.continue_channel ?? null),
         storyNpcId: choice.story_npc_id ?? null,
         npcFactionFilters: choice.npc_faction_filters ?? [],
         npcProfileFilters: choice.npc_profile_filters ?? [],
@@ -385,6 +392,8 @@ export function createTurn(turnNumber: number): Turn {
     turnNumber,
     openingMessage: turnNumber === 1 ? '' : undefined,
     channel: 'pda',
+    npcOpenKey: undefined,
+    requiresNpcFirst: undefined,
     firstSpeaker: 'npc',
     pda_entry: turnNumber === 1,
     f2f_entry: false,
@@ -401,7 +410,9 @@ export function createChoice(index: number): Choice {
     channel: 'pda',
     reply: '',
     outcomes: [],
+    terminal: false,
     continue_channel: 'pda',
+    continueChannel: 'pda',
     allow_generic_stalker: false,
   };
 }
