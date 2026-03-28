@@ -81,7 +81,7 @@ function auditConversation(file, conversation) {
       const choiceChannel = normalizeChannel(choice.channel, turnChannel);
       const continueChannelRaw = choice.continueChannel ?? choice.continue_channel;
 
-      if (!terminal && continueChannelRaw == null) {
+      if (!terminal && choice.continueTo != null && continueChannelRaw == null) {
         issues.push(createIssue('must-fix', 'invalid-channel-transition', file, conversation.id, `Turn ${turnNumber} choice ${choice.index} is non-terminal but missing continueChannel/continue_channel.`));
       }
 
@@ -90,7 +90,11 @@ function auditConversation(file, conversation) {
       }
 
       if (!terminal && choice.continueTo == null) {
-        issues.push(createIssue('must-fix', 'dangling-turn-reference', file, conversation.id, `Turn ${turnNumber} choice ${choice.index} is non-terminal but missing continueTo.`));
+        if (continueChannelRaw != null) {
+          issues.push(createIssue('must-fix', 'dangling-turn-reference', file, conversation.id, `Turn ${turnNumber} choice ${choice.index} defines continueChannel but missing continueTo.`));
+        } else {
+          issues.push(createIssue('warning', 'implicit-terminal-choice', file, conversation.id, `Turn ${turnNumber} choice ${choice.index} has no continuation target; it will behave as terminal unless a continue target is added.`));
+        }
         continue;
       }
 
