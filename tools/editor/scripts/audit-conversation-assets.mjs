@@ -62,9 +62,15 @@ function auditConversation(file, conversation) {
   for (const turn of turns) {
     const turnNumber = turn.turnNumber;
     const turnChannel = normalizeChannel(turn.channel, 'pda');
+    const isF2FEntryTurn = turn.f2f_entry === true;
+    const hasNpcOpenKey = typeof turn.npcOpenKey === 'string' && turn.npcOpenKey.trim() !== '';
 
-    if (turnChannel === 'f2f' && (typeof turn.npcOpenKey !== 'string' || turn.npcOpenKey.trim() === '')) {
-      issues.push(createIssue('must-fix', 'missing-f2f-opener-key', file, conversation.id, `Turn ${turnNumber} is F2F but npcOpenKey is missing.`));
+    if (turnChannel === 'f2f' && isF2FEntryTurn && !hasNpcOpenKey) {
+      issues.push(createIssue('must-fix', 'missing-f2f-opener-key', file, conversation.id, `Turn ${turnNumber} is an F2F entry turn (segment start) but npcOpenKey is missing.`));
+    }
+
+    if (turnChannel === 'f2f' && !isF2FEntryTurn && hasNpcOpenKey) {
+      issues.push(createIssue('warning', 'f2f-opener-key-ignored', file, conversation.id, `Turn ${turnNumber} is an F2F continuation (not an entry turn / segment start), so npcOpenKey metadata will be ignored.`));
     }
 
     adjacency.set(turnNumber, new Set());
