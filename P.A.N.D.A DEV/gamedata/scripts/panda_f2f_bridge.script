@@ -530,6 +530,33 @@ local function load_state_cb(m)
     runtime.override_owners = {}
 end
 
+local function is_actor_dialog_active()
+    if db and db.actor_dialog then
+        return true
+    end
+
+    local actor = db and db.actor or nil
+    if actor and actor.is_talking then
+        local ok, talking = pcall(function()
+            return actor:is_talking()
+        end)
+        if ok and talking == true then
+            return true
+        end
+    end
+
+    if mob_trade and type(mob_trade.GetTalkingNpc) == "function" then
+        local ok, talker = pcall(function()
+            return mob_trade.GetTalkingNpc()
+        end)
+        if ok and talker then
+            return true
+        end
+    end
+
+    return false
+end
+
 local function actor_on_update_cb()
     local state = runtime.latest_state
     if type(state) ~= "table" then
@@ -543,6 +570,11 @@ local function actor_on_update_cb()
 
     local talker_id = resolve_current_talker_id()
     if talker_id and handoff_matches_talker_identity(active_npc_id, talker_id) then
+        return
+    end
+    if not talker_id and is_actor_dialog_active() then
+        -- During active dialog frames, talker resolution can briefly return nil.
+        -- Treat this as transient and keep the handoff/session alive.
         return
     end
 
