@@ -18,6 +18,7 @@ export interface Conversation {
   id: number;
   label: string;
   faction?: FactionId;
+  initialChannel?: ConversationChannel;
   preconditions: PreconditionEntry[];
   timeout?: number;
   timeoutMessage?: string;

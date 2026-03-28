@@ -388,6 +388,7 @@ export function createConversation(project: Project): Conversation {
     id: maxId + 1,
     label: `Conversation ${maxId + 1}`,
     faction: project.faction,
+    initialChannel: 'pda',
     preconditions: [],
     turns: [createTurn(1)],
   };
