@@ -1051,6 +1051,11 @@ class StateManager {
     const destinationChannel = normalizeChannelValue(sourceContinueChannel, sourceChoiceChannel);
 
     newTurn.channel = destinationChannel;
+    for (const choice of newTurn.choices) {
+      choice.channel = destinationChannel;
+      choice.continueChannel = destinationChannel;
+      choice.continue_channel = destinationChannel;
+    }
     sourceChoice.continueChannel = destinationChannel;
     sourceChoice.continue_channel = destinationChannel;
 
