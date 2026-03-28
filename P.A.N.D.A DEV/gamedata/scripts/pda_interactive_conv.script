@@ -27,6 +27,7 @@ local F2F_HANDOFF_ACTIONABLE_GRACE_MS = 2 * 60 * 1000
 local safe_remove_time_event
 local _panda_f2f_bridge_checked = false
 local _f2f_scanner_suppress_last_log_at = nil
+local _f2f_scanner_suppress_last_source = nil
 
 local function ensure_panda_f2f_bridge()
     if _panda_f2f_bridge_checked then
@@ -6173,6 +6174,19 @@ local function consume_pending_f2f_handoff_internal(npc_id)
                 consumed = true
             end
         end
+
+        local has_remaining_handoffs = false
+        for _ in pairs(pda_f2f_handoffs) do
+            has_remaining_handoffs = true
+            break
+        end
+
+        if has_remaining_handoffs then
+            _G.pda_f2f_handoffs = pda_f2f_handoffs
+        else
+            pda_f2f_handoffs = nil
+            _G.pda_f2f_handoffs = nil
+        end
     end
 
     for _, conv in pairs(active_conversations) do
@@ -6186,6 +6200,91 @@ local function consume_pending_f2f_handoff_internal(npc_id)
     end
 
     return consumed
+end
+
+local function sweep_expired_f2f_pending_markers(reason)
+    local now = time_global and time_global() or nil
+    if not now then
+        return {
+            stale_pending_cleared = 0,
+            handoff_rows_removed = 0,
+            source_reason = tostring(reason or "unspecified"),
+        }
+    end
+
+    local stale_pending_cleared = 0
+    local handoff_rows_removed = 0
+    local stale_entries = {}
+
+    for contact_id, conv in pairs(active_conversations or {}) do
+        if type(conv) == "table" and conv.pending_in_person_continuation == true then
+            local set_at = tonumber(conv.pending_in_person_set_at)
+            local age_ms = set_at and (now - set_at) or nil
+            if not set_at or age_ms > F2F_HANDOFF_ACTIONABLE_GRACE_MS then
+                table.insert(stale_entries, {
+                    contact_id = contact_id,
+                    npc_id = tonumber(conv.npc_id),
+                    conv_id = tonumber(conv.conv_id),
+                    turn = tonumber(conv.pending_in_person_turn),
+                    set_at = set_at,
+                    age_ms = age_ms,
+                })
+                conv.pending_in_person_continuation = false
+                conv.pending_in_person_turn = nil
+                conv.pending_in_person_target = nil
+                conv.pending_in_person_set_at = nil
+                stale_pending_cleared = stale_pending_cleared + 1
+            end
+        end
+    end
+
+    if #stale_entries > 0 and type(pda_f2f_handoffs) == "table" then
+        for key, handoff in pairs(pda_f2f_handoffs) do
+            if type(handoff) == "table" then
+                local handoff_npc = tonumber(handoff.npc_id)
+                local handoff_conv = tonumber(handoff.conv_id)
+                local handoff_turn = tonumber(handoff.turn)
+                for _, stale in ipairs(stale_entries) do
+                    local npc_match = stale.npc_id and handoff_npc and stale.npc_id == handoff_npc
+                    local conv_match = stale.conv_id and handoff_conv and stale.conv_id == handoff_conv
+                    local turn_match = stale.turn and handoff_turn and stale.turn == handoff_turn
+                    if npc_match and (conv_match or turn_match or (not stale.conv_id and not stale.turn)) then
+                        pda_f2f_handoffs[key] = nil
+                        handoff_rows_removed = handoff_rows_removed + 1
+                        break
+                    end
+                end
+            end
+        end
+
+        local has_remaining_handoffs = false
+        for _ in pairs(pda_f2f_handoffs) do
+            has_remaining_handoffs = true
+            break
+        end
+
+        if has_remaining_handoffs then
+            _G.pda_f2f_handoffs = pda_f2f_handoffs
+        else
+            pda_f2f_handoffs = nil
+            _G.pda_f2f_handoffs = nil
+        end
+    end
+
+    if stale_pending_cleared > 0 or handoff_rows_removed > 0 then
+        printf(
+            "PANDA_IC: f2f marker safety sweep reason=%s stale_pending_cleared=%s handoff_rows_removed=%s",
+            tostring(reason or "unspecified"),
+            tostring(stale_pending_cleared),
+            tostring(handoff_rows_removed)
+        )
+    end
+
+    return {
+        stale_pending_cleared = stale_pending_cleared,
+        handoff_rows_removed = handoff_rows_removed,
+        source_reason = tostring(reason or "unspecified"),
+    }
 end
 
 local function resolve_npc_server_id(npc_se)
@@ -6264,6 +6363,10 @@ end
 
 function PANDA_CONV_API.consume_pending_f2f_handoff(npc_id)
     return consume_pending_f2f_handoff_internal(npc_id)
+end
+
+function PANDA_CONV_API.sweep_expired_f2f_markers(reason)
+    return sweep_expired_f2f_pending_markers(reason)
 end
 
 function PANDA_CONV_API.get_npc_canonical_id(npc_se)
@@ -6760,10 +6863,18 @@ local function is_f2f_session_active_for_actor()
 end
 
 local function log_f2f_scanner_suppression_once(source_reason)
+    local source = tostring(source_reason or "unknown")
+    local source_changed = source ~= _f2f_scanner_suppress_last_source
     local now = time_global and time_global() or nil
-    if now and _f2f_scanner_suppress_last_log_at and (now - _f2f_scanner_suppress_last_log_at) < F2F_SCANNER_SUPPRESS_LOG_WINDOW_MS then
+    if (not source_changed)
+        and now
+        and _f2f_scanner_suppress_last_log_at
+        and (now - _f2f_scanner_suppress_last_log_at) < F2F_SCANNER_SUPPRESS_LOG_WINDOW_MS
+    then
         return
     end
+
+    _f2f_scanner_suppress_last_source = source
 
     if now then
         _f2f_scanner_suppress_last_log_at = now
@@ -6771,7 +6882,7 @@ local function log_f2f_scanner_suppression_once(source_reason)
 
     printf(
         "PANDA_IC: scanner suppressed reason=f2f_session_active source=%s",
-        tostring(source_reason or "unknown")
+        source
     )
 end
 
@@ -6784,6 +6895,7 @@ function try_trigger_interactive_conv()
         printf("Trigger skipped: player chat is offline")
         return false
     end
+    sweep_expired_f2f_pending_markers("periodic_scanner_gate")
     local f2f_active, f2f_source = is_f2f_session_active_for_actor()
     if f2f_active then
         -- Guard: while an F2F handoff/session is active, skip scanner selection and
@@ -6835,6 +6947,7 @@ end
 local function schedule_timeout_checker()
     CreateTimeEvent("pda_ic_timeout", "check", 10, function()
         check_conversation_timeouts()
+        sweep_expired_f2f_pending_markers("periodic_timeout_checker")
         return false  -- Keep repeating
     end)
 end
@@ -7013,6 +7126,8 @@ function load_state(m)
     local pending_contacts_str = (#pending_contacts > 0) and table.concat(pending_contacts, ",") or "none"
     printf("PANDA_IC: load_state recovered f2f_handoffs=%d pending_in_person_contacts=%s",
         recovered_handoffs, pending_contacts_str)
+
+    sweep_expired_f2f_pending_markers("load_state")
 end
 
 -- ============================================================
