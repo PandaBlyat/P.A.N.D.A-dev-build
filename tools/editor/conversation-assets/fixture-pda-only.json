@@ -1,0 +1,50 @@
+{
+  "id": 101,
+  "label": "Fixture PDA-only",
+  "preconditions": [],
+  "turns": [
+    {
+      "turnNumber": 1,
+      "channel": "pda",
+      "pda_entry": true,
+      "f2f_entry": false,
+      "openingMessage": "Need a quick favor over PDA.",
+      "choices": [
+        {
+          "index": 1,
+          "text": "Accept",
+          "reply": "Good. Meet at the stash.",
+          "terminal": false,
+          "continue_channel": "pda",
+          "continueTo": 2,
+          "outcomes": []
+        },
+        {
+          "index": 2,
+          "text": "Decline",
+          "reply": "Then we're done here.",
+          "terminal": true,
+          "outcomes": []
+        }
+      ],
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "turnNumber": 2,
+      "channel": "pda",
+      "pda_entry": false,
+      "f2f_entry": false,
+      "openingMessage": "Bring medkits before dawn.",
+      "choices": [
+        {
+          "index": 1,
+          "text": "Understood",
+          "reply": "I'll be waiting.",
+          "terminal": true,
+          "outcomes": []
+        }
+      ],
+      "position": { "x": 320, "y": 0 }
+    }
+  ]
+}
