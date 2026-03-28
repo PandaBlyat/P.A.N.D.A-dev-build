@@ -6159,17 +6159,60 @@ local function get_pending_f2f_handoff_internal(npc_id)
     return nil
 end
 
-local function consume_pending_f2f_handoff_internal(npc_id)
+local function consume_pending_f2f_handoff_internal(npc_id, conv_id, turn)
     local npc_sid = tonumber(npc_id)
     if not npc_sid then
         return false
+    end
+
+    local target_conv_id = tonumber(conv_id)
+    local target_turn = tonumber(turn)
+
+    local function handoff_matches_target(handoff)
+        if type(handoff) ~= "table" then
+            return false
+        end
+
+        if tonumber(handoff.npc_id) ~= npc_sid then
+            return false
+        end
+
+        if target_conv_id and tonumber(handoff.conv_id) ~= target_conv_id then
+            return false
+        end
+
+        if target_turn and tonumber(handoff.turn) ~= target_turn then
+            return false
+        end
+
+        return true
+    end
+
+    local function conv_matches_target(conv)
+        if type(conv) ~= "table" then
+            return false
+        end
+
+        if tonumber(conv.npc_id) ~= npc_sid or conv.pending_in_person_continuation ~= true then
+            return false
+        end
+
+        if target_conv_id and tonumber(conv.conv_id) ~= target_conv_id then
+            return false
+        end
+
+        if target_turn and tonumber(conv.pending_in_person_turn) ~= target_turn then
+            return false
+        end
+
+        return true
     end
 
     local consumed = false
 
     if pda_f2f_handoffs then
         for key, handoff in pairs(pda_f2f_handoffs) do
-            if type(handoff) == "table" and tonumber(handoff.npc_id) == npc_sid then
+            if handoff_matches_target(handoff) then
                 pda_f2f_handoffs[key] = nil
                 consumed = true
             end
@@ -6190,7 +6233,7 @@ local function consume_pending_f2f_handoff_internal(npc_id)
     end
 
     for _, conv in pairs(active_conversations) do
-        if conv and tonumber(conv.npc_id) == npc_sid and conv.pending_in_person_continuation == true then
+        if conv_matches_target(conv) then
             conv.pending_in_person_continuation = false
             conv.pending_in_person_turn = nil
             conv.pending_in_person_target = nil
@@ -6361,8 +6404,8 @@ function PANDA_CONV_API.get_pending_f2f_handoff(npc_id)
     return get_pending_f2f_handoff_internal(npc_id)
 end
 
-function PANDA_CONV_API.consume_pending_f2f_handoff(npc_id)
-    return consume_pending_f2f_handoff_internal(npc_id)
+function PANDA_CONV_API.consume_pending_f2f_handoff(npc_id, conv_id, turn)
+    return consume_pending_f2f_handoff_internal(npc_id, conv_id, turn)
 end
 
 function PANDA_CONV_API.sweep_expired_f2f_markers(reason)

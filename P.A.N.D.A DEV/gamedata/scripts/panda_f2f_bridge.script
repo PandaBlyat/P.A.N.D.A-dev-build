@@ -1458,7 +1458,7 @@ local function has_actionable_handoff_marker_for_npc(npc_se)
     return false, "recent_fallback_blocked_no_actionable_marker"
 end
 
-local function consume_pending_handoff_for_npc(npc_se)
+local function consume_pending_handoff_for_npc(npc_se, conv_id, turn)
     local api = get_conv_api()
     if not api or type(api.consume_pending_f2f_handoff) ~= "function" then
         return false
@@ -1470,7 +1470,7 @@ local function consume_pending_handoff_for_npc(npc_se)
         return false
     end
 
-    return api.consume_pending_f2f_handoff(partner_id) == true
+    return api.consume_pending_f2f_handoff(partner_id, conv_id, turn) == true
 end
 
 cleanup_noncommit_exit = function(state, exit_reason)
@@ -1482,7 +1482,7 @@ cleanup_noncommit_exit = function(state, exit_reason)
     end
 
     local active_npc_id = resolve_server_npc_id(state.npc_se, "cleanup_noncommit_exit")
-    local consumed_handoff = consume_pending_handoff_for_npc(state.npc_se)
+    local consumed_handoff = consume_pending_handoff_for_npc(state.npc_se, state.conv_id, state.turn)
     if consumed_handoff then
         bridge_warn(
             "cleanup_noncommit_exit handoff_consume removed=true npc_id=%s conv_id=%s turn=%s reason=%s",
@@ -2651,7 +2651,7 @@ local function build_dialog_tree(dialog, state)
             if ok then
                 active_state.branch_committed = true
                 -- Consume only after a player-selected branch is committed.
-                consume_pending_handoff_for_npc(active_state.npc_se)
+                consume_pending_handoff_for_npc(active_state.npc_se, active_state.conv_id, branch_state.turn)
             end
             if branch.hard_route and routed then
                 local keep_hub_override = branch.keep_hub_override == true
