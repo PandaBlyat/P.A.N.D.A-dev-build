@@ -15,6 +15,7 @@ interface ImportedF2FChoiceMetadata {
   channel?: 'pda' | 'f2f' | 'both';
   continueTo?: number | null;
   continueChannel?: 'pda' | 'f2f' | 'both';
+  terminal?: boolean;
   storyNpcId?: string | null;
   npcFactionFilters?: string[];
   npcProfileFilters?: string[];
@@ -24,6 +25,8 @@ interface ImportedF2FChoiceMetadata {
 interface ImportedF2FTurnMetadata {
   turnNumber: number;
   channel?: 'pda' | 'f2f' | 'both';
+  npcOpenKey?: string | null;
+  requiresNpcFirst?: boolean;
   firstSpeaker?: 'npc' | 'player';
   pdaEntry?: boolean;
   f2fEntry?: boolean;
@@ -335,6 +338,8 @@ function applyTurnMetadata(
     turn.channel = 'pda';
     turn.pda_entry = turn.turnNumber === 1;
     turn.f2f_entry = false;
+    turn.npcOpenKey = undefined;
+    turn.requiresNpcFirst = undefined;
     turn.firstSpeaker = inferFirstSpeaker(turn, metadata, f2fEntryTargets);
     return;
   }
@@ -345,6 +350,12 @@ function applyTurnMetadata(
   });
   turn.pda_entry = typeof metadata.pdaEntry === 'boolean' ? metadata.pdaEntry : turn.turnNumber === 1;
   turn.f2f_entry = typeof metadata.f2fEntry === 'boolean' ? metadata.f2fEntry : f2fEntryTargets.has(turn.turnNumber);
+  turn.npcOpenKey = typeof metadata.npcOpenKey === 'string' && metadata.npcOpenKey.trim().length > 0
+    ? metadata.npcOpenKey.trim()
+    : undefined;
+  turn.requiresNpcFirst = typeof metadata.requiresNpcFirst === 'boolean'
+    ? metadata.requiresNpcFirst
+    : (turn.channel === 'f2f' ? true : undefined);
   turn.firstSpeaker = inferFirstSpeaker(turn, metadata, f2fEntryTargets);
 
   if (turn.channel === 'pda') {
@@ -362,7 +373,9 @@ function applyTurnMetadata(
     const choiceMeta = choiceMap.get(choice.index);
     if (!choiceMeta) {
       choice.channel = 'pda';
-      choice.continue_channel = 'pda';
+      choice.terminal = false;
+      choice.continueChannel = undefined;
+      choice.continue_channel = undefined;
       choice.allow_generic_stalker = false;
       continue;
     }
@@ -372,11 +385,19 @@ function applyTurnMetadata(
       turnNumber: turn.turnNumber,
       choiceIndex: choice.index,
     });
-    choice.continue_channel = normalizeChannel(choiceMeta.continueChannel, 'pda', warningSink, {
-      scope: 'continue',
-      turnNumber: turn.turnNumber,
-      choiceIndex: choice.index,
-    });
+    choice.terminal = typeof choiceMeta.terminal === 'boolean' ? choiceMeta.terminal : choiceMeta.continueTo == null;
+    if (choiceMeta.continueChannel != null) {
+      const normalizedContinueChannel = normalizeChannel(choiceMeta.continueChannel, 'pda', warningSink, {
+        scope: 'continue',
+        turnNumber: turn.turnNumber,
+        choiceIndex: choice.index,
+      });
+      choice.continueChannel = normalizedContinueChannel;
+      choice.continue_channel = normalizedContinueChannel;
+    } else {
+      choice.continueChannel = undefined;
+      choice.continue_channel = undefined;
+    }
     choice.allow_generic_stalker = choiceMeta.allowGenericStalker === true;
     choice.story_npc_id = choiceMeta.storyNpcId ?? undefined;
     choice.npc_faction_filters = (choiceMeta.npcFactionFilters ?? []).filter((faction): faction is FactionId => faction in FACTION_XML_KEYS);
@@ -551,6 +572,7 @@ function parseTurnChoices(strings: Map<string, string>, prefix: string, turnInfi
       text: choiceText,
       reply: strings.get(replyKey) || '',
       outcomes: parseOutcomes(strings.get(outcomeKey) || 'none'),
+      terminal: true,
     };
 
     // Relationship reply variants
@@ -563,6 +585,7 @@ function parseTurnChoices(strings: Map<string, string>, prefix: string, turnInfi
     const contStr = strings.get(contKey);
     if (contStr) {
       choice.continueTo = parseInt(contStr, 10);
+      choice.terminal = false;
     }
 
     choices.push(choice);

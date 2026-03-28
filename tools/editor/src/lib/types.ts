@@ -68,6 +68,10 @@ export interface Turn {
   /** Internal marker used by legacy F2F opening migration. */
   openingMessagePlaceholder?: string;
   channel?: ConversationChannel;
+  /** Registry key used by runtime to resolve the NPC-facing opener for F2F turns. */
+  npcOpenKey?: string;
+  /** Whether the NPC line is required to play before choices are shown in F2F. */
+  requiresNpcFirst?: boolean;
   firstSpeaker?: TurnFirstSpeaker;
   pda_entry?: boolean;
   f2f_entry?: boolean;
@@ -89,7 +93,11 @@ export interface Choice {
   replyRelHigh?: string;
   replyRelLow?: string;
   outcomes: Outcome[];
+  /** Explicitly marks this choice as ending the branch flow. */
+  terminal?: boolean;
   continueTo?: number;
+  continueChannel?: ConversationChannel;
+  /** @deprecated Legacy snake_case field retained for migration compatibility. */
   continue_channel?: ConversationChannel;
   story_npc_id?: string;
   npc_faction_filters?: FactionId[];

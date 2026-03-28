@@ -102,7 +102,10 @@ function inferTurnFirstSpeaker(turn: Pick<Turn, 'firstSpeaker' | 'f2f_entry' | '
   return turn.channel === 'f2f' ? 'player' : 'npc';
 }
 
-function normalizeChannelValue(channel: Turn['channel'] | Choice['channel'] | Choice['continue_channel'] | undefined, fallback: 'pda' | 'f2f' = 'pda'): 'pda' | 'f2f' {
+function normalizeChannelValue(
+  channel: Turn['channel'] | Choice['channel'] | Choice['continue_channel'] | Choice['continueChannel'] | undefined,
+  fallback: 'pda' | 'f2f' = 'pda',
+): 'pda' | 'f2f' {
   if (channel === 'pda' || channel === 'f2f') {
     return channel;
   }
@@ -121,6 +124,7 @@ function normalizeTurnEntryFlags(turn: Turn): void {
   if (turn.channel === 'f2f') {
     turn.pda_entry = false;
     turn.f2f_entry = typeof turn.f2f_entry === 'boolean' ? turn.f2f_entry : false;
+    turn.requiresNpcFirst = typeof turn.requiresNpcFirst === 'boolean' ? turn.requiresNpcFirst : true;
   }
 }
 
@@ -653,7 +657,10 @@ class StateManager {
     if (sourceChoice.replyRelHigh != null) choice.replyRelHigh = sourceChoice.replyRelHigh;
     if (sourceChoice.replyRelLow != null) choice.replyRelLow = sourceChoice.replyRelLow;
     choice.outcomes = this.cloneOutcomeList(sourceChoice.outcomes);
-    choice.continue_channel = normalizeChannelValue(sourceChoice.continue_channel, 'pda');
+    choice.terminal = sourceChoice.terminal ?? sourceChoice.continueTo == null;
+    const sourceContinueChannel = sourceChoice.continueChannel ?? sourceChoice.continue_channel;
+    choice.continueChannel = sourceContinueChannel == null ? undefined : normalizeChannelValue(sourceContinueChannel, 'pda');
+    choice.continue_channel = choice.continueChannel;
     choice.story_npc_id = sourceChoice.story_npc_id;
     choice.npc_faction_filters = sourceChoice.npc_faction_filters ? [...sourceChoice.npc_faction_filters] : undefined;
     choice.npc_profile_filters = sourceChoice.npc_profile_filters ? [...sourceChoice.npc_profile_filters] : undefined;
@@ -676,6 +683,8 @@ class StateManager {
     const turn = createTurn(turnNumber);
     turn.openingMessage = sourceTurn.openingMessage;
     turn.channel = normalizeChannelValue(sourceTurn.channel, 'pda');
+    turn.npcOpenKey = sourceTurn.npcOpenKey;
+    turn.requiresNpcFirst = sourceTurn.requiresNpcFirst;
     turn.pda_entry = sourceTurn.pda_entry ?? turnNumber === 1;
     turn.f2f_entry = sourceTurn.f2f_entry ?? false;
     turn.firstSpeaker = inferTurnFirstSpeaker(sourceTurn);
@@ -696,6 +705,10 @@ class StateManager {
           const normalizedTurn: Turn = {
             ...turn,
             channel: normalizeChannelValue(turn.channel, 'pda'),
+            npcOpenKey: typeof turn.npcOpenKey === 'string' && turn.npcOpenKey.trim().length > 0 ? turn.npcOpenKey.trim() : undefined,
+            requiresNpcFirst: typeof turn.requiresNpcFirst === 'boolean'
+              ? turn.requiresNpcFirst
+              : (normalizeChannelValue(turn.channel, 'pda') === 'f2f' ? true : undefined),
             pda_entry: turn.pda_entry ?? turn.turnNumber === 1,
             f2f_entry: turn.f2f_entry ?? false,
             firstSpeaker: inferTurnFirstSpeaker(turn),
@@ -704,7 +717,15 @@ class StateManager {
               ...choice,
               index: choice.index ?? choiceIndex + 1,
               channel: normalizeChannelValue(choice.channel, 'pda'),
-              continue_channel: normalizeChannelValue(choice.continue_channel, 'pda'),
+              terminal: choice.terminal ?? choice.continueTo == null,
+              continueChannel: (() => {
+                const sourceContinueChannel = choice.continueChannel ?? choice.continue_channel;
+                return sourceContinueChannel == null ? undefined : normalizeChannelValue(sourceContinueChannel, 'pda');
+              })(),
+              continue_channel: (() => {
+                const sourceContinueChannel = choice.continueChannel ?? choice.continue_channel;
+                return sourceContinueChannel == null ? undefined : normalizeChannelValue(sourceContinueChannel, 'pda');
+              })(),
               allow_generic_stalker: choice.allow_generic_stalker ?? false,
             })),
           };

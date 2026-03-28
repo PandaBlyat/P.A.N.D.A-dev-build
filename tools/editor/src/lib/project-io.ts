@@ -234,7 +234,8 @@ function normalizeTurn(
   fallbackPosition: { x: number; y: number },
   warningSink: LegacyChannelNormalizationWarning[],
 ): Turn {
-  const normalizedChannel = normalizeChannel(turn.channel, 'pda', warningSink, {
+  const inferredLegacyChannel = inferLegacyTurnChannel(turn);
+  const normalizedChannel = normalizeChannel(inferredLegacyChannel, 'pda', warningSink, {
     scope: 'turn',
     conversationId,
     turnNumber: turn.turnNumber,
@@ -248,6 +249,10 @@ function normalizeTurn(
   const normalizedTurn: Turn = {
     ...turn,
     channel: normalizedChannel,
+    npcOpenKey: typeof turn.npcOpenKey === 'string' && turn.npcOpenKey.trim().length > 0 ? turn.npcOpenKey.trim() : undefined,
+    requiresNpcFirst: typeof turn.requiresNpcFirst === 'boolean'
+      ? turn.requiresNpcFirst
+      : (normalizedChannel === 'f2f' ? true : undefined),
     firstSpeaker: normalizedFirstSpeaker,
     pda_entry: normalizedPdaEntry,
     f2f_entry: normalizedF2fEntry,
@@ -271,21 +276,30 @@ function normalizeChoice(
   fallbackIndex: number,
   warningSink: LegacyChannelNormalizationWarning[],
 ): Choice {
+  const normalizedTerminal = typeof choice.terminal === 'boolean'
+    ? choice.terminal
+    : choice.continueTo == null;
+  const rawContinueChannel = choice.continueChannel ?? choice.continue_channel;
+  const normalizedContinueChannel = rawContinueChannel == null
+    ? undefined
+    : normalizeChannel(rawContinueChannel, 'pda', warningSink, {
+      scope: 'continue',
+      conversationId,
+      turnNumber,
+      choiceIndex: typeof choice.index === 'number' ? choice.index : fallbackIndex,
+    });
   return {
     ...choice,
     index: typeof choice.index === 'number' ? choice.index : fallbackIndex,
+    terminal: normalizedTerminal,
     channel: normalizeChannel(choice.channel, 'pda', warningSink, {
       scope: 'choice',
       conversationId,
       turnNumber,
       choiceIndex: typeof choice.index === 'number' ? choice.index : fallbackIndex,
     }),
-    continue_channel: normalizeChannel(choice.continue_channel, 'pda', warningSink, {
-      scope: 'continue',
-      conversationId,
-      turnNumber,
-      choiceIndex: typeof choice.index === 'number' ? choice.index : fallbackIndex,
-    }),
+    continueChannel: normalizedContinueChannel,
+    continue_channel: normalizedContinueChannel,
     story_npc_id: typeof choice.story_npc_id === 'string' && choice.story_npc_id.trim().length > 0
       ? choice.story_npc_id.trim()
       : undefined,
@@ -300,11 +314,54 @@ function normalizeConversation(
   fallbackFaction: FactionId,
   warningSink: LegacyChannelNormalizationWarning[],
 ): Conversation {
+  const normalizedTurns = conversation.turns.map((turn, index) => normalizeTurn(conversation.id, turn, { x: index * 340, y: 220 }, warningSink));
+  const hintedF2fEntries = extractLegacyF2FEntryHints(conversation);
+  const hintedF2fSet = new Set<number>(hintedF2fEntries);
+  for (const turn of normalizedTurns) {
+    if (hintedF2fSet.has(turn.turnNumber) && (turn.channel == null || turn.channel === 'f2f')) {
+      turn.channel = 'f2f';
+      turn.pda_entry = false;
+      turn.f2f_entry = true;
+      if (typeof turn.requiresNpcFirst !== 'boolean') {
+        turn.requiresNpcFirst = true;
+      }
+    }
+  }
+
   return {
     ...conversation,
     faction: normalizeFaction(conversation.faction, fallbackFaction),
-    turns: conversation.turns.map((turn, index) => normalizeTurn(conversation.id, turn, { x: index * 340, y: 220 }, warningSink)),
+    turns: normalizedTurns,
   };
+}
+
+function inferLegacyTurnChannel(turn: Turn): unknown {
+  if (turn.channel != null) return turn.channel;
+  if (turn.f2f_entry === true) return 'f2f';
+  if (turn.pda_entry === true) return 'pda';
+  if (typeof turn.npcOpenKey === 'string' && turn.npcOpenKey.trim().length > 0) return 'f2f';
+  if (turn.firstSpeaker === 'player') return 'f2f';
+  return 'pda';
+}
+
+function extractLegacyF2FEntryHints(conversation: Conversation): number[] {
+  const rawConversation = conversation as Conversation & {
+    entryNodes?: { f2f?: unknown };
+    registry?: { entryNodes?: { f2f?: unknown } };
+  };
+
+  const candidates = [
+    rawConversation.entryNodes?.f2f,
+    rawConversation.registry?.entryNodes?.f2f,
+  ];
+
+  for (const candidate of candidates) {
+    if (!Array.isArray(candidate)) continue;
+    return candidate
+      .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+      .map((value) => Math.floor(value));
+  }
+  return [];
 }
 
 function normalizeProjectData(project: Project): Project {

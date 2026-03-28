@@ -80,13 +80,14 @@ const PRECONDITION_RANGE_PAIRS: Array<{ minCommand: string; maxCommand: string; 
 ] as const;
 
 type ConversationField = 'label' | 'timeout' | 'timeout-message' | 'preconditions';
-type TurnField = 'opening-message' | 'channel' | 'pda-entry' | 'f2f-entry';
+type TurnField = 'opening-message' | 'channel' | 'pda-entry' | 'f2f-entry' | 'npc-open-key' | 'requires-npc-first';
 type ChoiceField =
   | 'text'
   | 'reply'
   | 'reply-rel-high'
   | 'reply-rel-low'
   | 'channel'
+  | 'terminal'
   | 'continue-to'
   | 'continue-channel'
   | 'story-npc-id'
@@ -987,13 +988,45 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
 
   for (const turn of conv.turns) {
     const turnChannel = normalizeChannel(turn.channel, 'pda');
+    if (turnChannel === 'f2f' && (turn.npcOpenKey ?? '').trim() === '') {
+      pushMessage(messages, {
+        code: 'missing-f2f-npc-open-key',
+        group: 'structure',
+        scope: 'turn',
+        level: 'error',
+        conversationId: conv.id,
+        turnNumber: turn.turnNumber,
+        propertiesTab: 'selection',
+        fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'npc-open-key'),
+        fieldLabel: 'NPC Open Key',
+        message: `Branch ${turn.turnNumber} is an F2F turn and must define npcOpenKey.`,
+      });
+    }
     const f2fVisibleChoices = turn.choices.filter((choice) => isChannelVisible(normalizeChannel(choice.channel, 'pda'), 'f2f'));
     if (turn.f2f_entry === true) {
       requiredF2FOpeningTurns.add(turn.turnNumber);
     }
 
     for (const choice of turn.choices) {
-      if (choice.continue_channel != null && !isStrictChannel(choice.continue_channel)) {
+      const terminal = choice.terminal;
+      if (typeof terminal !== 'boolean') {
+        pushMessage(messages, {
+          code: 'missing-choice-terminal-flag',
+          group: 'schema',
+          scope: 'choice',
+          level: 'error',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          propertiesTab: 'selection',
+          fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'terminal'),
+          fieldLabel: 'Terminal Choice',
+          message: `Branch ${turn.turnNumber}, Choice ${choice.index} is missing the explicit terminal flag.`,
+        });
+      }
+
+      const continueChannelRaw = choice.continueChannel ?? choice.continue_channel;
+      if (continueChannelRaw != null && !isStrictChannel(continueChannelRaw)) {
         pushMessage(messages, {
           code: 'invalid-continue-channel',
           group: 'schema',
@@ -1005,12 +1038,44 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
           propertiesTab: 'selection',
           fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-channel'),
           fieldLabel: 'Continue Channel',
-          message: `Branch ${turn.turnNumber}, Choice ${choice.index} has invalid continuation channel "${String(choice.continue_channel)}". Use only "pda" or "f2f".`,
+          message: `Branch ${turn.turnNumber}, Choice ${choice.index} has invalid continuation channel "${String(continueChannelRaw)}". Use only "pda" or "f2f".`,
         });
       }
 
       const choiceChannel = normalizeChannel(choice.channel, 'pda');
-      const continueChannel = normalizeChannel(choice.continue_channel, 'pda');
+      const continueChannel = normalizeChannel(continueChannelRaw, 'pda');
+
+      if (terminal !== true && choice.continueTo == null) {
+        pushMessage(messages, {
+          code: 'missing-choice-continue-to',
+          group: 'structure',
+          scope: 'choice',
+          level: 'error',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          propertiesTab: 'selection',
+          fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'),
+          fieldLabel: 'Continue To Turn',
+          message: `Branch ${turn.turnNumber}, Choice ${choice.index} must define continueTo when terminal is false.`,
+        });
+      }
+
+      if (terminal !== true && continueChannelRaw == null) {
+        pushMessage(messages, {
+          code: 'missing-choice-continue-channel',
+          group: 'structure',
+          scope: 'choice',
+          level: 'error',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          propertiesTab: 'selection',
+          fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-channel'),
+          fieldLabel: 'Continue Channel',
+          message: `Branch ${turn.turnNumber}, Choice ${choice.index} must define continueChannel when terminal is false.`,
+        });
+      }
 
       if (!isChannelVisible(choiceChannel, 'f2f')) {
         if ((choice.story_npc_id ?? '').trim() !== '' || (choice.npc_faction_filters?.length ?? 0) > 0 || (choice.npc_profile_filters?.length ?? 0) > 0 || choice.allow_generic_stalker) {
@@ -1032,7 +1097,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         validateF2FTargeting(conv, turn, choice, messages);
       }
 
-      if (choice.continueTo == null) {
+      if (terminal === true || choice.continueTo == null) {
         continue;
       }
 
@@ -1228,7 +1293,7 @@ function validateF2FTargeting(conv: Conversation, turn: Conversation['turns'][nu
 }
 
 function normalizeChannel(
-  channel: Conversation['turns'][number]['channel'] | Choice['channel'] | Choice['continue_channel'] | undefined,
+  channel: Conversation['turns'][number]['channel'] | Choice['channel'] | Choice['continue_channel'] | Choice['continueChannel'] | undefined,
   fallback: 'pda' | 'f2f',
 ): 'pda' | 'f2f' {
   if (channel === 'pda' || channel === 'f2f') {
