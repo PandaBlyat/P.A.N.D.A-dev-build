@@ -270,7 +270,6 @@ function normalizeTurn(
   const normalizedTurn: Turn = {
     ...turn,
     channel: normalizedChannel,
-    npcOpenKey: typeof turn.npcOpenKey === 'string' && turn.npcOpenKey.trim().length > 0 ? turn.npcOpenKey.trim() : undefined,
     requiresNpcFirst: typeof turn.requiresNpcFirst === 'boolean'
       ? turn.requiresNpcFirst
       : (normalizedChannel === 'f2f' ? true : undefined),
@@ -365,9 +364,10 @@ function normalizeConversation(
 
 function inferLegacyTurnChannel(turn: Turn): unknown {
   if (turn.channel != null) return turn.channel;
+  const legacyNpcOpenKey = (turn as Turn & { npcOpenKey?: unknown }).npcOpenKey;
   if (turn.f2f_entry === true) return 'f2f';
   if (turn.pda_entry === true) return 'pda';
-  if (typeof turn.npcOpenKey === 'string' && turn.npcOpenKey.trim().length > 0) return 'f2f';
+  if (typeof legacyNpcOpenKey === 'string' && legacyNpcOpenKey.trim().length > 0) return 'f2f';
   if (turn.firstSpeaker === 'player') return 'f2f';
   return 'pda';
 }

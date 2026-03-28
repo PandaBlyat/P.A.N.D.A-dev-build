@@ -69,7 +69,7 @@ export interface Turn {
   /** Internal marker used by legacy F2F opening migration. */
   openingMessagePlaceholder?: string;
   channel?: ConversationChannel;
-  /** Registry key used by runtime to resolve the NPC-facing opener for F2F turns. */
+  /** @deprecated Legacy field kept only for backward-compatible import parsing. */
   npcOpenKey?: string;
   /** Whether the NPC line is required to play before choices are shown in F2F. */
   requiresNpcFirst?: boolean;

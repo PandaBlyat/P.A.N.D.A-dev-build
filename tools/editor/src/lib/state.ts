@@ -700,7 +700,6 @@ class StateManager {
     const turn = createTurn(turnNumber);
     turn.openingMessage = sourceTurn.openingMessage;
     turn.channel = normalizeChannelValue(sourceTurn.channel, 'pda');
-    turn.npcOpenKey = sourceTurn.npcOpenKey;
     turn.requiresNpcFirst = sourceTurn.requiresNpcFirst;
     turn.pda_entry = sourceTurn.pda_entry ?? turnNumber === 1;
     turn.f2f_entry = sourceTurn.f2f_entry ?? false;
@@ -727,7 +726,6 @@ class StateManager {
           const normalizedTurn: Turn = {
             ...turn,
             channel: parentTurnChannel,
-            npcOpenKey: typeof turn.npcOpenKey === 'string' && turn.npcOpenKey.trim().length > 0 ? turn.npcOpenKey.trim() : undefined,
             requiresNpcFirst: typeof turn.requiresNpcFirst === 'boolean'
               ? turn.requiresNpcFirst
               : undefined,
@@ -804,7 +802,6 @@ class StateManager {
       } else {
         firstTurn.pda_entry = true;
         firstTurn.f2f_entry = false;
-        firstTurn.npcOpenKey = undefined;
       }
       normalizeTurnEntryFlags(firstTurn);
     }
@@ -1383,7 +1380,6 @@ class StateManager {
         } else {
           targetTurn.pda_entry = isSegmentStart;
           targetTurn.f2f_entry = false;
-          targetTurn.npcOpenKey = undefined;
         }
         normalizeTurnEntryFlags(targetTurn);
       }

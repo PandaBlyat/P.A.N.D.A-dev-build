@@ -80,7 +80,7 @@ const PRECONDITION_RANGE_PAIRS: Array<{ minCommand: string; maxCommand: string; 
 ] as const;
 
 type ConversationField = 'label' | 'initial-channel' | 'timeout' | 'timeout-message' | 'preconditions';
-type TurnField = 'opening-message' | 'channel' | 'pda-entry' | 'f2f-entry' | 'npc-open-key' | 'requires-npc-first' | 'first-speaker';
+type TurnField = 'opening-message' | 'channel' | 'pda-entry' | 'f2f-entry' | 'requires-npc-first' | 'first-speaker';
 type ChoiceField =
   | 'text'
   | 'reply'
@@ -1028,34 +1028,6 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
     const turnChannel = normalizeChannel(turn.channel, 'pda');
     const isF2FEntryTurn = turnChannel === 'f2f' && turn.f2f_entry === true;
     const isNonEntryF2FTurn = turnChannel === 'f2f' && turn.f2f_entry !== true;
-    if (hasExplicitF2FContext && isF2FEntryTurn && (turn.npcOpenKey ?? '').trim() === '') {
-      pushMessage(messages, {
-        code: 'missing-f2f-npc-open-key',
-        group: 'structure',
-        scope: 'turn',
-        level: 'error',
-        conversationId: conv.id,
-        turnNumber: turn.turnNumber,
-        propertiesTab: 'selection',
-        fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'npc-open-key'),
-        fieldLabel: 'NPC Open Key',
-        message: `Branch ${turn.turnNumber} is an F2F entry turn and must define npcOpenKey.`,
-      });
-    }
-    if (hasExplicitF2FContext && isNonEntryF2FTurn && (turn.npcOpenKey ?? '').trim() !== '') {
-      pushMessage(messages, {
-        code: 'non-entry-f2f-npc-open-key-ignored',
-        group: 'logic',
-        scope: 'turn',
-        level: 'warning',
-        conversationId: conv.id,
-        turnNumber: turn.turnNumber,
-        propertiesTab: 'selection',
-        fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'npc-open-key'),
-        fieldLabel: 'NPC Open Key',
-        message: `Branch ${turn.turnNumber} is a non-entry F2F turn; npcOpenKey is ignored (migration cleanup: remove stale opener key).`,
-      });
-    }
     if (hasExplicitF2FContext && isNonEntryF2FTurn && (turn.openingMessage ?? '').trim() !== '') {
       pushMessage(messages, {
         code: 'non-entry-f2f-opening-message-ignored',
@@ -1260,23 +1232,6 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         });
       }
 
-      if (hasExplicitF2FContext && destinationChannel === 'f2f' && hasEntry) {
-        if ((targetTurn.npcOpenKey ?? '').trim() === '') {
-          pushMessage(messages, {
-            code: 'handoff-f2f-entry-missing-npc-open-key',
-            group: 'structure',
-            scope: 'choice',
-            level: 'error',
-            conversationId: conv.id,
-            turnNumber: turn.turnNumber,
-            choiceIndex: choice.index,
-            propertiesTab: 'selection',
-            fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'),
-            fieldLabel: 'Continue To Turn',
-            message: `Branch ${turn.turnNumber}, Choice ${choice.index} transitions PDA → F2F but target Branch ${targetTurn.turnNumber} has no npcOpenKey opener.`,
-          });
-        }
-      }
     }
 
     if (hasExplicitF2FContext && turnChannel === 'f2f' && turn.f2f_entry === true && f2fVisibleChoices.length > 0) {
