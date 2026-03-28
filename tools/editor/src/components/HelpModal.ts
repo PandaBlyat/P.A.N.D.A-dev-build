@@ -188,7 +188,7 @@ const HELP_CONTENT = `
 
 <h2>7. PDA + F2F writing rules to remember</h2>
 <p><strong>PDA turns:</strong> write like text/radio communication from an NPC somewhere else in the world.</p>
-<p><strong>F2F turns:</strong> configure explicit opener keys and actor order. Entry turns require NPC opener configuration, and non-entry turns may also require per-turn openers when runtime renders all openers.</p>
+<p><strong>F2F turns:</strong> configure explicit opener keys and actor order. Only F2F entry turns should define opener data; non-entry F2F turns continue normal back-and-forth without extra opener lines.</p>
 
 <h2>8. XML key format</h2>
 <p>Base format: <code>st_pda_ic_&lt;faction&gt;_&lt;id&gt;_&lt;suffix&gt;</code></p>

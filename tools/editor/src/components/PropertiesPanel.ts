@@ -447,10 +447,17 @@ function renderF2FEntrySection(
       'text',
       turn.npcOpenKey ?? '',
       (val) => store.updateTurn(conv.id, turn.turnNumber, { npcOpenKey: val.trim() || undefined }),
-      'Required for F2F turns. Runtime resolves this key to the NPC-first opener line.',
+      'Required for F2F entry turns only. Runtime resolves this key to the first NPC opener line.',
       getTurnFieldKey(conv.id, turn.turnNumber, 'npc-open-key'),
     );
     openKeyField.style.marginTop = '0';
+    const openKeyInput = openKeyField.querySelector('input') as HTMLInputElement | null;
+    const isNonEntryF2FTurn = turn.f2f_entry !== true;
+    if (openKeyInput && isNonEntryF2FTurn) {
+      openKeyInput.disabled = true;
+      openKeyInput.placeholder = 'Only used on F2F entry turns';
+      openKeyInput.title = 'npcOpenKey is only used for F2F entry turns.';
+    }
     body.appendChild(openKeyField);
 
     const firstSpeakerField = document.createElement('div');
@@ -501,7 +508,7 @@ function renderF2FEntrySection(
     const continuationHint = document.createElement('div');
     continuationHint.className = 'field-hint';
     continuationHint.style.marginTop = '8px';
-    continuationHint.textContent = 'Non-entry F2F turns also need npcOpenKey if your runtime renders all openers.';
+    continuationHint.textContent = 'Only F2F entry turns need npcOpenKey. Continuation F2F turns use normal back-and-forth flow.';
     body.appendChild(continuationHint);
 
     card.appendChild(body);
@@ -554,23 +561,32 @@ function renderTurnProperties(
   title.appendChild(titleSpan);
   container.appendChild(title);
 
-  // Opening message (all turns)
+  const isNonEntryF2FTurn = currentTurnChannel === 'f2f' && !effectiveF2FEntry;
+
+  // Opening message
   const msgField = createField('Opening Message', 'textarea', turn.openingMessage || '', (val) => {
     store.updateTurn(conv.id, turn.turnNumber, { openingMessage: val });
-  }, 'Opening text for this turn. In F2F runtime, this is separate from npcOpenKey and should not rely on default scaffolding.', getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'));
+  }, isNonEntryF2FTurn
+    ? 'Non-entry F2F branches do not use opener text. Only F2F entry branches should define an opener.'
+    : 'Opening text for this turn. In F2F runtime, this is separate from npcOpenKey and should not rely on default scaffolding.', getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'));
+  const msgTextarea = msgField.querySelector('textarea') as HTMLTextAreaElement | null;
+  if (msgTextarea && isNonEntryF2FTurn) {
+    msgTextarea.disabled = true;
+    msgTextarea.placeholder = 'Disabled for non-entry F2F turns';
+    msgTextarea.title = 'Opening Message is only used for F2F entry turns.';
+  }
   container.appendChild(msgField);
 
   const hasOpeningText = (turn.openingMessage ?? '').trim().length > 0;
-  const isNonEntryF2FTurn = currentTurnChannel === 'f2f' && !effectiveF2FEntry;
   if (hasOpeningText && isNonEntryF2FTurn) {
     const warningRow = document.createElement('div');
     warningRow.style.cssText = 'display:flex; align-items:center; gap:8px; margin-top:-2px; margin-bottom:8px; flex-wrap:wrap;';
-    warningRow.appendChild(createBadge('warning', 'F2F non-entry opener', 'warning'));
+    warningRow.appendChild(createBadge('warning', 'Ignored non-entry F2F opener', 'warning'));
 
     const warningText = document.createElement('div');
     warningText.className = 'field-hint';
     warningText.style.margin = '0';
-    warningText.textContent = 'If runtime renders all F2F openers, continuation turns still need explicit npcOpenKey/opening data.';
+    warningText.textContent = 'This opener text is ignored for non-entry F2F branches. Keep opener text only on F2F entry branches.';
     warningRow.appendChild(warningText);
     container.appendChild(warningRow);
   }

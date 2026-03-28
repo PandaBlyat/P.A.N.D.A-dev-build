@@ -259,20 +259,27 @@ function generateConversation(
   for (const turn of conv.turns) {
     const turnInfix = turn.turnNumber === 1 ? '' : `_t${turn.turnNumber}`;
 
-    // Opening message (all turns for backward compatibility). Entry-turn semantics
-    // are defined by the exported F2F registry payload, and non-entry openers should
-    // be treated as optional metadata by runtime consumers.
-    const openingKey = `${prefix}${turnInfix}_open`;
-    let openingText = turn.openingMessage ?? '';
-    const shouldAutofillMissingOpen =
-      isEntryTurnForExport(turn)
-      && !config.strictDialogueValidation
-      && config.autofillMissingOpenWhenNonStrict
-      && openingText.trim().length === 0;
-    if (shouldAutofillMissingOpen) {
-      openingText = config.missingOpenPlaceholder;
+    const isEntryTurn = isEntryTurnForExport(turn);
+    const isNonEntryF2FTurn = normalizeChannel(turn.channel, 'pda') === 'f2f' && !isEntryTurn;
+
+    // Opening message export:
+    // - Export all non-F2F turns as before.
+    // - Export F2F opener only for entry turns (initial NPC-first handoff/start).
+    // This prevents authoring/runtime drift where continuation F2F branches carry
+    // redundant per-branch opener strings.
+    if (!isNonEntryF2FTurn) {
+      const openingKey = `${prefix}${turnInfix}_open`;
+      let openingText = turn.openingMessage ?? '';
+      const shouldAutofillMissingOpen =
+        isEntryTurn
+        && !config.strictDialogueValidation
+        && config.autofillMissingOpenWhenNonStrict
+        && openingText.trim().length === 0;
+      if (shouldAutofillMissingOpen) {
+        openingText = config.missingOpenPlaceholder;
+      }
+      lines.push(emitString(openingKey, openingText));
     }
-    lines.push(emitString(openingKey, openingText));
 
     // Choices
     for (const choice of turn.choices) {

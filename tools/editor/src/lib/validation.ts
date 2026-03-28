@@ -990,7 +990,9 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
 
   for (const turn of conv.turns) {
     const turnChannel = normalizeChannel(turn.channel, 'pda');
-    if (turnChannel === 'f2f' && (turn.npcOpenKey ?? '').trim() === '') {
+    const isF2FEntryTurn = turnChannel === 'f2f' && turn.f2f_entry === true;
+    const isNonEntryF2FTurn = turnChannel === 'f2f' && turn.f2f_entry !== true;
+    if (isF2FEntryTurn && (turn.npcOpenKey ?? '').trim() === '') {
       pushMessage(messages, {
         code: 'missing-f2f-npc-open-key',
         group: 'structure',
@@ -1001,7 +1003,35 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         propertiesTab: 'selection',
         fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'npc-open-key'),
         fieldLabel: 'NPC Open Key',
-        message: `Branch ${turn.turnNumber} is an F2F turn and must define npcOpenKey.`,
+        message: `Branch ${turn.turnNumber} is an F2F entry turn and must define npcOpenKey.`,
+      });
+    }
+    if (isNonEntryF2FTurn && (turn.npcOpenKey ?? '').trim() !== '') {
+      pushMessage(messages, {
+        code: 'non-entry-f2f-npc-open-key-ignored',
+        group: 'structure',
+        scope: 'turn',
+        level: 'warning',
+        conversationId: conv.id,
+        turnNumber: turn.turnNumber,
+        propertiesTab: 'selection',
+        fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'npc-open-key'),
+        fieldLabel: 'NPC Open Key',
+        message: `Branch ${turn.turnNumber} is a non-entry F2F turn; npcOpenKey is ignored and should be removed.`,
+      });
+    }
+    if (isNonEntryF2FTurn && (turn.openingMessage ?? '').trim() !== '') {
+      pushMessage(messages, {
+        code: 'non-entry-f2f-opening-message-ignored',
+        group: 'structure',
+        scope: 'turn',
+        level: 'warning',
+        conversationId: conv.id,
+        turnNumber: turn.turnNumber,
+        propertiesTab: 'selection',
+        fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'),
+        fieldLabel: 'Opening Message',
+        message: `Branch ${turn.turnNumber} is a non-entry F2F turn; opening message is ignored and should be removed.`,
       });
     }
     const f2fVisibleChoices = turn.choices.filter((choice) => isChannelVisible(normalizeChannel(choice.channel, 'pda'), 'f2f'));
