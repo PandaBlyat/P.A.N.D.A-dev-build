@@ -417,13 +417,6 @@ function renderF2FEntrySection(
         });
         continue;
       }
-      if ((target.npcOpenKey ?? '').trim() === '') {
-        invalidPdaToF2FHandoffs.push({
-          fromTurnNumber: turn.turnNumber,
-          choiceIndex: choice.index,
-          reason: `${turnLabels.getCompactLabel(target.turnNumber)} is missing npcOpenKey`,
-        });
-      }
     }
   }
 
@@ -432,7 +425,7 @@ function renderF2FEntrySection(
   const f2fEntryHint = document.createElement('div');
   f2fEntryHint.className = 'field-hint';
   f2fEntryHint.style.marginBottom = '10px';
-  f2fEntryHint.textContent = 'F2F requires an explicit NPC-first opener key. Mark entry turn(s), set npcOpenKey, and configure optional first-actor behavior if your runtime supports it.';
+  f2fEntryHint.textContent = 'Mark entry turn(s) for F2F and configure optional first-actor behavior if your runtime supports it.';
   f2fEntryBody.appendChild(f2fEntryHint);
 
   if (invalidPdaToF2FHandoffs.length > 0) {
@@ -443,7 +436,7 @@ function renderF2FEntrySection(
     warningHeader.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:6px;';
     warningHeader.appendChild(createBadge('warning', 'Blocking warning', 'warning'));
     const warningTitle = document.createElement('strong');
-    warningTitle.textContent = 'PDA → F2F handoff is invalid until a valid F2F entry + opener are configured.';
+    warningTitle.textContent = 'PDA → F2F handoff is invalid until a valid F2F entry turn is configured.';
     warningHeader.appendChild(warningTitle);
     warningWrap.appendChild(warningHeader);
 
@@ -501,24 +494,6 @@ function renderF2FEntrySection(
     entryToggleField.append(entryInput, entryText);
     body.appendChild(entryToggleField);
 
-    const openKeyField = createField(
-      'NPC opener key (npcOpenKey)',
-      'text',
-      turn.npcOpenKey ?? '',
-      (val) => store.updateTurn(conv.id, turn.turnNumber, { npcOpenKey: val.trim() || undefined }),
-      'Required for F2F entry turns only. Runtime resolves this key to the first NPC opener line.',
-      getTurnFieldKey(conv.id, turn.turnNumber, 'npc-open-key'),
-    );
-    openKeyField.style.marginTop = '0';
-    const openKeyInput = openKeyField.querySelector('input') as HTMLInputElement | null;
-    const isNonEntryF2FTurn = turn.f2f_entry !== true;
-    if (openKeyInput && isNonEntryF2FTurn) {
-      openKeyInput.disabled = true;
-      openKeyInput.placeholder = 'Only used on F2F entry turns';
-      openKeyInput.title = 'npcOpenKey is only used for F2F entry turns.';
-    }
-    body.appendChild(openKeyField);
-
     const firstSpeakerField = document.createElement('div');
     firstSpeakerField.className = 'field';
     const firstSpeakerLabel = document.createElement('label');
@@ -567,7 +542,7 @@ function renderF2FEntrySection(
     const continuationHint = document.createElement('div');
     continuationHint.className = 'field-hint';
     continuationHint.style.marginTop = '8px';
-    continuationHint.textContent = 'Only F2F entry turns need npcOpenKey. Continuation F2F turns use normal back-and-forth flow.';
+    continuationHint.textContent = 'F2F continuation turns use normal back-and-forth flow; author opening text on segment starts.';
     body.appendChild(continuationHint);
 
     card.appendChild(body);
@@ -1167,7 +1142,7 @@ function renderChoiceProperties(
   continuationDetails.className = 'field-hint';
   continuationDetails.style.marginTop = '8px';
   continuationDetails.textContent = requiresNewF2FSegment
-    ? 'New F2F segment: the target turn is auto-marked as F2F entry and must include Opening Message + npcOpenKey.'
+    ? 'New F2F segment: the target turn is auto-marked as F2F entry and should include an Opening Message.'
     : 'Same-channel continuation: no entry opener metadata is required on the next turn.';
   continueAsField.appendChild(continuationDetails);
   continuationBody.appendChild(continueAsField);

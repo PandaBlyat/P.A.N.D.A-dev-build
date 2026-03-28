@@ -338,7 +338,6 @@ function applyTurnMetadata(
     turn.channel = 'pda';
     turn.pda_entry = turn.turnNumber === 1;
     turn.f2f_entry = false;
-    turn.npcOpenKey = undefined;
     turn.requiresNpcFirst = undefined;
     turn.firstSpeaker = inferFirstSpeaker(turn, metadata, f2fEntryTargets);
     return;
@@ -350,9 +349,6 @@ function applyTurnMetadata(
   });
   turn.pda_entry = typeof metadata.pdaEntry === 'boolean' ? metadata.pdaEntry : turn.turnNumber === 1;
   turn.f2f_entry = typeof metadata.f2fEntry === 'boolean' ? metadata.f2fEntry : f2fEntryTargets.has(turn.turnNumber);
-  turn.npcOpenKey = typeof metadata.npcOpenKey === 'string' && metadata.npcOpenKey.trim().length > 0
-    ? metadata.npcOpenKey.trim()
-    : undefined;
   turn.requiresNpcFirst = typeof metadata.requiresNpcFirst === 'boolean'
     ? metadata.requiresNpcFirst
     : (turn.channel === 'f2f' ? true : undefined);

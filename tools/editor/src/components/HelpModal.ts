@@ -188,7 +188,7 @@ const HELP_CONTENT = `
 
 <h2>7. PDA + F2F writing rules to remember</h2>
 <p><strong>PDA turns:</strong> write like text/radio communication from an NPC somewhere else in the world.</p>
-<p><strong>F2F turns:</strong> use <em>Continue as F2F</em> when you want a new in-person segment. Choices inherit the current branch channel automatically, and the editor marks that target as an F2F entry when the channel changes. Only that entry needs <code>npcOpenKey</code> + opener text.</p>
+<p><strong>F2F turns:</strong> use <em>Continue as F2F</em> when you want a new in-person segment. Choices inherit the current branch channel automatically, and the editor marks that target as an F2F entry when the channel changes. Author opener text on the segment start turn.</p>
 
 <h2>8. XML key format</h2>
 <p>Base format: <code>st_pda_ic_&lt;faction&gt;_&lt;id&gt;_&lt;suffix&gt;</code></p>
