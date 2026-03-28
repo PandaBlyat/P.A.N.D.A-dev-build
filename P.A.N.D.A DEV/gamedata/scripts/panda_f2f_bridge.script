@@ -1673,17 +1673,6 @@ local function collect_branches(npc_se, forced_context)
         }
         out_state.turns[turn] = turn_state
 
-        if not is_entry_turn and not missing_turn_open then
-            bridge_warn(
-                "collect_branches non_entry_turn_opener_ignored conv_id=%s turn=%s open_key=%s preferred=%s fallback=%s action=ignored_or_remapped",
-                tostring(cid),
-                tostring(turn),
-                tostring(turn_open_key or "nil"),
-                tostring(turn_open_preferred or "nil"),
-                tostring(turn_open_fallback or "nil")
-            )
-        end
-
         local missing_choices = 0
         local rejected_choice_keys = {}
         local total_choices_loaded = 0
@@ -1882,6 +1871,7 @@ local function collect_branches(npc_se, forced_context)
                         handoff_source = forced_handoff_active and forced_context and (forced_context.source_path or forced_context.source) or nil,
                         handoff_present = forced_handoff_active,
                         stem = stem,
+                        render_non_entry_openers = resolve_bool_flag_override("panda_f2f_render_non_entry_openers", true),
                     }
 
                     local f2f_turn = forced_turn or select_f2f_turn(stem, npc_se)
@@ -2481,20 +2471,58 @@ local function build_dialog_tree(dialog, state)
                 if branch.next_channel == "f2f" and branch.next_turn then
                     local next_turn_state = get_turn_state(branch.next_turn)
                     if next_turn_state then
-                        local continuation_parent_id, continuation_shim_inserted = ensure_actor_parity(npc_id, {
-                            -- Continuations currently recurse directly to actor choices;
-                            -- leave metadata-driven parity insertion here for npc->npc transitions.
-                            next_speaker_role = "actor",
-                        })
+                        local allow_next_turn_open = state.render_non_entry_openers ~= false
+                        local should_insert_next_turn_open = allow_next_turn_open and (next_turn_state.missing_turn_open ~= true)
+                        local continuation_parent_id = npc_id
+                        local continuation_shim_inserted = false
+                        local next_open_phrase_for_log = "nil"
+
+                        if should_insert_next_turn_open then
+                            local continuation_open_id = alloc()
+                            generated_ids.open[#generated_ids.open + 1] = continuation_open_id
+                            add_logged_node(
+                                npc_id,
+                                continuation_open_id,
+                                next_turn_state.open_key,
+                                nil,
+                                nil,
+                                false,
+                                "npc_open",
+                                "npc"
+                            )
+                            continuation_parent_id = continuation_open_id
+                            continuation_shim_inserted = false
+                            next_open_phrase_for_log = tostring(next_turn_state.open_key or "nil")
+                        else
+                            continuation_parent_id, continuation_shim_inserted = ensure_actor_parity(npc_id, {
+                                next_speaker_role = "actor",
+                            })
+                            if allow_next_turn_open and next_turn_state.missing_turn_open == true then
+                                bridge_warn(
+                                    "build_dialog_tree continuation missing_next_turn_open conv_id=%s from_turn=%s to_turn=%s choice_key=%s action=direct_to_choices preferred=%s fallback=%s",
+                                    tostring(state.conv_id or "nil"),
+                                    tostring(turn or "nil"),
+                                    tostring(branch.next_turn or "nil"),
+                                    tostring(branch.choice_key or "nil"),
+                                    tostring(next_turn_state.preferred_open_key or "nil"),
+                                    tostring(next_turn_state.fallback_open_key or "nil")
+                                )
+                            end
+                            if not allow_next_turn_open then
+                                next_open_phrase_for_log = "render_disabled"
+                            elseif next_turn_state.missing_turn_open == true then
+                                next_open_phrase_for_log = "missing_turn_open"
+                            end
+                        end
                         bridge_debug(
                             "build_dialog_tree continuation conv_id=%s from_turn=%s to_turn=%s choice_key=%s direct_actor_next=%s npc_open_inserted=%s next_open_phrase=%s",
                             tostring(state.conv_id or "nil"),
                             tostring(turn or "nil"),
                             tostring(branch.next_turn or "nil"),
                             tostring(branch.choice_key or "nil"),
-                            "true",
+                            tostring(should_insert_next_turn_open ~= true),
                             tostring(continuation_shim_inserted == true),
-                            "ignored_non_entry"
+                            tostring(next_open_phrase_for_log)
                         )
                         build_turn(continuation_parent_id, branch.next_turn, depth + 1, visited_turns)
                     else
