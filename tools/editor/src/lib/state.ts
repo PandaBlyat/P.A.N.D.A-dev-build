@@ -663,18 +663,20 @@ class StateManager {
     options: {
       turnNumberMap?: ReadonlyMap<number, number>;
       validTurnNumbers?: ReadonlySet<number>;
+      parentTurnChannel?: 'pda' | 'f2f';
     } = {},
   ): Choice {
+    const parentTurnChannel = options.parentTurnChannel ?? 'pda';
     const choice = createChoice(index);
     choice.text = sourceChoice.text;
-    choice.channel = normalizeChannelValue(sourceChoice.channel, 'pda');
+    choice.channel = normalizeChannelValue(sourceChoice.channel, parentTurnChannel);
     choice.reply = sourceChoice.reply;
     if (sourceChoice.replyRelHigh != null) choice.replyRelHigh = sourceChoice.replyRelHigh;
     if (sourceChoice.replyRelLow != null) choice.replyRelLow = sourceChoice.replyRelLow;
     choice.outcomes = this.cloneOutcomeList(sourceChoice.outcomes);
     choice.terminal = sourceChoice.terminal ?? sourceChoice.continueTo == null;
     const sourceContinueChannel = sourceChoice.continueChannel ?? sourceChoice.continue_channel;
-    choice.continueChannel = sourceContinueChannel == null ? undefined : normalizeChannelValue(sourceContinueChannel, 'pda');
+    choice.continueChannel = sourceContinueChannel == null ? undefined : normalizeChannelValue(sourceContinueChannel, parentTurnChannel);
     choice.continue_channel = choice.continueChannel;
     choice.story_npc_id = sourceChoice.story_npc_id;
     choice.npc_faction_filters = sourceChoice.npc_faction_filters ? [...sourceChoice.npc_faction_filters] : undefined;
@@ -705,7 +707,10 @@ class StateManager {
     turn.firstSpeaker = inferTurnFirstSpeaker(sourceTurn);
     turn.customLabel = sourceTurn.customLabel;
     turn.color = sourceTurn.color;
-    turn.choices = sourceTurn.choices.map((choice, index) => this.cloneChoiceFromSource(choice, index + 1, options));
+    turn.choices = sourceTurn.choices.map((choice, index) => this.cloneChoiceFromSource(choice, index + 1, {
+      ...options,
+      parentTurnChannel: turn.channel,
+    }));
     normalizeTurnEntryFlags(turn);
     return turn;
   }
@@ -718,9 +723,10 @@ class StateManager {
         initialChannel: normalizeChannelValue(conversation.initialChannel, normalizeChannelValue(conversation.turns.find((turn) => turn.turnNumber === 1)?.channel, 'pda')),
         faction: getConversationFaction(conversation, project.faction),
         turns: conversation.turns.map((turn, turnIndex) => {
+          const parentTurnChannel = normalizeChannelValue(turn.channel, 'pda');
           const normalizedTurn: Turn = {
             ...turn,
-            channel: normalizeChannelValue(turn.channel, 'pda'),
+            channel: parentTurnChannel,
             npcOpenKey: typeof turn.npcOpenKey === 'string' && turn.npcOpenKey.trim().length > 0 ? turn.npcOpenKey.trim() : undefined,
             requiresNpcFirst: typeof turn.requiresNpcFirst === 'boolean'
               ? turn.requiresNpcFirst
@@ -732,15 +738,15 @@ class StateManager {
             choices: turn.choices.map((choice, choiceIndex) => ({
               ...choice,
               index: choice.index ?? choiceIndex + 1,
-              channel: normalizeChannelValue(choice.channel, 'pda'),
+              channel: normalizeChannelValue(choice.channel, parentTurnChannel),
               terminal: choice.terminal ?? choice.continueTo == null,
               continueChannel: (() => {
                 const sourceContinueChannel = choice.continueChannel ?? choice.continue_channel;
-                return sourceContinueChannel == null ? undefined : normalizeChannelValue(sourceContinueChannel, 'pda');
+                return sourceContinueChannel == null ? undefined : normalizeChannelValue(sourceContinueChannel, parentTurnChannel);
               })(),
               continue_channel: (() => {
                 const sourceContinueChannel = choice.continueChannel ?? choice.continue_channel;
-                return sourceContinueChannel == null ? undefined : normalizeChannelValue(sourceContinueChannel, 'pda');
+                return sourceContinueChannel == null ? undefined : normalizeChannelValue(sourceContinueChannel, parentTurnChannel);
               })(),
               allow_generic_stalker: choice.allow_generic_stalker ?? false,
             })),
@@ -1270,7 +1276,10 @@ class StateManager {
     const nextIndex = turn.choices.length + 1;
 
     this.pushUndo();
-    turn.choices.push(this.cloneChoiceFromSource(sourceChoice, nextIndex, { validTurnNumbers }));
+    turn.choices.push(this.cloneChoiceFromSource(sourceChoice, nextIndex, {
+      validTurnNumbers,
+      parentTurnChannel: normalizeChannelValue(turn.channel, 'pda'),
+    }));
     this.state.selectedConversationId = conversationId;
     this.state.selectedTurnNumber = turnNumber;
     this.state.selectedChoiceIndex = nextIndex;
@@ -1304,7 +1313,10 @@ class StateManager {
     const nextIndex = turn.choices.length + 1;
 
     this.pushUndo();
-    turn.choices.push(this.cloneChoiceFromSource(clipboard.choice, nextIndex, { validTurnNumbers }));
+    turn.choices.push(this.cloneChoiceFromSource(clipboard.choice, nextIndex, {
+      validTurnNumbers,
+      parentTurnChannel: normalizeChannelValue(turn.channel, 'pda'),
+    }));
     this.state.selectedConversationId = conversationId;
     this.state.selectedTurnNumber = turnNumber;
     this.state.selectedChoiceIndex = nextIndex;

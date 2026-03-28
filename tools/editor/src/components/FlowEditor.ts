@@ -1277,6 +1277,9 @@ function renderTurnNode(options: {
     }
 
     // Badges
+    const effectiveTurnChannel = normalizeChannel(turn.channel, 'pda');
+    const effectiveChoiceChannel = normalizeChannel(choice.channel, effectiveTurnChannel);
+
     if (choice.continueTo != null) {
       const unlinkButton = document.createElement('button');
       unlinkButton.type = 'button';
@@ -1297,8 +1300,10 @@ function renderTurnNode(options: {
 
       const handoffBadge = document.createElement('span');
       handoffBadge.className = 'flow-channel-badge flow-channel-badge-handoff';
-      handoffBadge.textContent = `→${channelBadgeLabel(normalizeChannel(choice.continue_channel, 'pda'))}`;
-      handoffBadge.title = `Continuation channel: ${channelBadgeLabel(normalizeChannel(choice.continue_channel, 'pda'))}`;
+      const rawContinueChannel = choice.continueChannel ?? choice.continue_channel;
+      const effectiveContinueChannel = normalizeChannel(rawContinueChannel, effectiveChoiceChannel);
+      handoffBadge.textContent = `→${channelBadgeLabel(effectiveContinueChannel)}`;
+      handoffBadge.title = `Continuation channel: ${channelBadgeLabel(effectiveContinueChannel)}`;
       item.appendChild(handoffBadge);
     }
 
@@ -1311,7 +1316,7 @@ function renderTurnNode(options: {
 
     const choiceChannelBadge = document.createElement('span');
     choiceChannelBadge.className = 'flow-channel-badge';
-    choiceChannelBadge.textContent = channelBadgeLabel(normalizeChannel(choice.channel, 'pda'));
+    choiceChannelBadge.textContent = channelBadgeLabel(effectiveChoiceChannel);
     choiceChannelBadge.title = `Choice visibility: ${choiceChannelBadge.textContent}`;
     item.appendChild(choiceChannelBadge);
 
