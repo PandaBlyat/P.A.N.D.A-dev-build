@@ -668,7 +668,7 @@ function bridge_debug(fmt, ...)
     end
 end
 
-local function bridge_warn(fmt, ...)
+function bridge_warn(fmt, ...)
     local msg = string.format("PANDA_F2F_BRIDGE: " .. tostring(fmt), ...)
     if type(rawget(_G, "printf")) == "function" then
         _G.printf("%s", msg)
