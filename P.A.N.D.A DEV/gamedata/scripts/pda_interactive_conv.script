@@ -6062,8 +6062,8 @@ function on_player_choice(idx, contact_id)
         return true
     end)
 
-    -- Record cooldown immediately if this choice ends the conversation (no next turn)
-    if (not ch.next_turn) or continuation_channel ~= "pda" then
+    -- Record cooldown only for terminal branches (no continuation turn)
+    if not ch.next_turn then
         local composite_key = (c.prefix or "task") .. "_" .. c.faction .. "_" .. c.conv_id
         conv_last_played[composite_key] = game.get_game_time()
     end
