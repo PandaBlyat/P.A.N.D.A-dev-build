@@ -4238,5 +4238,6 @@
     <dialog id="panda_f2f_hub_dialog">
         <precondition>panda_f2f_bridge.precondition</precondition>
         <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
     </dialog>
 </game_dialogs>
