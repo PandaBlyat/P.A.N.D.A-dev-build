@@ -261,21 +261,6 @@ function validateConversation(conv: Conversation, messages: ValidationMessage[])
     return;
   }
 
-  if (!turn1.openingMessage || turn1.openingMessage.trim() === '') {
-    pushMessage(messages, {
-      code: 'missing-opening-message',
-      group: 'structure',
-      scope: 'turn',
-      level: 'error',
-      conversationId: conv.id,
-      turnNumber: 1,
-      propertiesTab: 'selection',
-      fieldKey: getTurnFieldKey(conv.id, 1, 'opening-message'),
-      fieldLabel: 'Opening Message',
-      message: 'Branch 1 is missing an opening message.',
-    });
-  }
-
   const turnNumbers = new Set(conv.turns.map(t => t.turnNumber));
   const turnLabels = createTurnDisplayLabeler(conv);
 
@@ -983,10 +968,45 @@ function validateReachability(
   }
 }
 
+function collectSegmentStartTurns(conv: Conversation): Set<number> {
+  const segmentStarts = new Set<number>();
+  const turnByNumber = new Map(conv.turns.map((turn) => [turn.turnNumber, turn] as const));
+
+  const firstPdaEntryTurn = conv.turns
+    .filter((turn) => normalizeChannel(turn.channel, 'pda') === 'pda' && turn.pda_entry === true)
+    .sort((a, b) => a.turnNumber - b.turnNumber)[0];
+  if (firstPdaEntryTurn) {
+    segmentStarts.add(firstPdaEntryTurn.turnNumber);
+  } else if (turnByNumber.has(1)) {
+    segmentStarts.add(1);
+  }
+
+  const firstF2FEntryTurn = conv.turns
+    .filter((turn) => normalizeChannel(turn.channel, 'pda') === 'f2f' && turn.f2f_entry === true)
+    .sort((a, b) => a.turnNumber - b.turnNumber)[0];
+  if (firstF2FEntryTurn) {
+    segmentStarts.add(firstF2FEntryTurn.turnNumber);
+  }
+
+  for (const turn of conv.turns) {
+    for (const choice of turn.choices) {
+      if (choice.terminal === true || choice.continueTo == null) continue;
+      const choiceChannel = normalizeChannel(choice.channel, 'pda');
+      const continueChannel = normalizeChannel(choice.continueChannel ?? choice.continue_channel, 'pda');
+      if (!isCrossChannelHandoff(choiceChannel, continueChannel)) continue;
+      if (turnByNumber.has(choice.continueTo)) {
+        segmentStarts.add(choice.continueTo);
+      }
+    }
+  }
+
+  return segmentStarts;
+}
+
 function validateConversationF2FAndChannelFlow(conv: Conversation, messages: ValidationMessage[]): void {
   const turnByNumber = new Map(conv.turns.map((turn) => [turn.turnNumber, turn]));
   const f2fEntryTurnNumbers = new Set<number>(conv.turns.filter((turn) => turn.f2f_entry === true).map((turn) => turn.turnNumber));
-  const requiredF2FOpeningTurns = new Set<number>();
+  const requiredSegmentOpeningTurns = collectSegmentStartTurns(conv);
 
   for (const turn of conv.turns) {
     const turnChannel = normalizeChannel(turn.channel, 'pda');
@@ -1009,7 +1029,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
     if (isNonEntryF2FTurn && (turn.npcOpenKey ?? '').trim() !== '') {
       pushMessage(messages, {
         code: 'non-entry-f2f-npc-open-key-ignored',
-        group: 'structure',
+        group: 'logic',
         scope: 'turn',
         level: 'warning',
         conversationId: conv.id,
@@ -1017,13 +1037,13 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         propertiesTab: 'selection',
         fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'npc-open-key'),
         fieldLabel: 'NPC Open Key',
-        message: `Branch ${turn.turnNumber} is a non-entry F2F turn; npcOpenKey is ignored and should be removed.`,
+        message: `Branch ${turn.turnNumber} is a non-entry F2F turn; npcOpenKey is ignored (migration cleanup: remove stale opener key).`,
       });
     }
     if (isNonEntryF2FTurn && (turn.openingMessage ?? '').trim() !== '') {
       pushMessage(messages, {
         code: 'non-entry-f2f-opening-message-ignored',
-        group: 'structure',
+        group: 'logic',
         scope: 'turn',
         level: 'warning',
         conversationId: conv.id,
@@ -1031,13 +1051,10 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         propertiesTab: 'selection',
         fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'),
         fieldLabel: 'Opening Message',
-        message: `Branch ${turn.turnNumber} is a non-entry F2F turn; opening message is ignored and should be removed.`,
+        message: `Branch ${turn.turnNumber} is a non-entry F2F turn; opening message is ignored (migration cleanup: remove stale opener text).`,
       });
     }
     const f2fVisibleChoices = turn.choices.filter((choice) => isChannelVisible(normalizeChannel(choice.channel, 'pda'), 'f2f'));
-    if (turn.f2f_entry === true) {
-      requiredF2FOpeningTurns.add(turn.turnNumber);
-    }
 
     for (const choice of turn.choices) {
       const terminal = choice.terminal;
@@ -1228,7 +1245,6 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
       }
 
       if (destinationChannel === 'f2f' && hasEntry) {
-        requiredF2FOpeningTurns.add(targetTurn.turnNumber);
         if ((targetTurn.npcOpenKey ?? '').trim() === '') {
           pushMessage(messages, {
             code: 'handoff-f2f-entry-missing-npc-open-key',
@@ -1279,13 +1295,13 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
     }
   }
 
-  for (const turnNumber of requiredF2FOpeningTurns) {
+  for (const turnNumber of requiredSegmentOpeningTurns) {
     const turn = turnByNumber.get(turnNumber);
     if (!turn) continue;
     if ((turn.openingMessage ?? '').trim() !== '') continue;
 
     pushMessage(messages, {
-      code: 'missing-f2f-opening-message',
+      code: 'missing-segment-opening-message',
       group: 'structure',
       scope: 'turn',
       level: 'error',
@@ -1294,7 +1310,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
       propertiesTab: 'selection',
       fieldKey: getTurnFieldKey(conv.id, turnNumber, 'opening-message'),
       fieldLabel: 'Opening Message',
-      message: `Branch ${turnNumber} is required for F2F entry turns and must have an opening message.`,
+      message: `Branch ${turnNumber} starts a new channel segment and must define an opening message.`,
     });
   }
 }

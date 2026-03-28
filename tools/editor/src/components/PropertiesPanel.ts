@@ -322,6 +322,41 @@ function isPdaToF2FHandoff(choice: Choice): boolean {
   return choiceChannel === 'pda' && continueChannel === 'f2f';
 }
 
+function collectSegmentStartTurns(conv: Conversation): Set<number> {
+  const segmentStarts = new Set<number>();
+  const turnByNumber = new Map(conv.turns.map((candidate) => [candidate.turnNumber, candidate] as const));
+
+  const firstPdaEntryTurn = conv.turns
+    .filter((candidate) => normalizeChannel(candidate.channel, 'pda') === 'pda' && candidate.pda_entry === true)
+    .sort((a, b) => a.turnNumber - b.turnNumber)[0];
+  if (firstPdaEntryTurn) {
+    segmentStarts.add(firstPdaEntryTurn.turnNumber);
+  } else if (turnByNumber.has(1)) {
+    segmentStarts.add(1);
+  }
+
+  const firstF2FEntryTurn = conv.turns
+    .filter((candidate) => normalizeChannel(candidate.channel, 'pda') === 'f2f' && candidate.f2f_entry === true)
+    .sort((a, b) => a.turnNumber - b.turnNumber)[0];
+  if (firstF2FEntryTurn) {
+    segmentStarts.add(firstF2FEntryTurn.turnNumber);
+  }
+
+  for (const sourceTurn of conv.turns) {
+    for (const choice of sourceTurn.choices) {
+      if (choice.terminal === true || choice.continueTo == null) continue;
+      const sourceChannel = normalizeChannel(choice.channel, 'pda');
+      const destinationChannel = normalizeChannel(choice.continueChannel ?? choice.continue_channel, 'pda');
+      if (sourceChannel === destinationChannel) continue;
+      if (turnByNumber.has(choice.continueTo)) {
+        segmentStarts.add(choice.continueTo);
+      }
+    }
+  }
+
+  return segmentStarts;
+}
+
 function renderF2FEntrySection(
   container: HTMLElement,
   conv: Conversation,
@@ -552,6 +587,8 @@ function renderTurnProperties(
   const currentTurnChannel = normalizeChannel(turn.channel, 'pda');
   const effectivePdaEntry = turn.pda_entry ?? turn.turnNumber === 1;
   const effectiveF2FEntry = turn.f2f_entry ?? false;
+  const segmentStartTurns = collectSegmentStartTurns(conv);
+  const isSegmentStartTurn = segmentStartTurns.has(turn.turnNumber);
   const canPasteChoice = store.hasCopiedChoice(conv.id) && turn.choices.length < 4;
   const title = document.createElement('div');
   title.className = 'section-header';
@@ -562,31 +599,45 @@ function renderTurnProperties(
   container.appendChild(title);
 
   const isNonEntryF2FTurn = currentTurnChannel === 'f2f' && !effectiveF2FEntry;
-
-  // Opening message
-  const msgField = createField('Opening Message', 'textarea', turn.openingMessage || '', (val) => {
-    store.updateTurn(conv.id, turn.turnNumber, { openingMessage: val });
-  }, isNonEntryF2FTurn
-    ? 'Non-entry F2F branches do not use opener text. Only F2F entry branches should define an opener.'
-    : 'Opening text for this turn. In F2F runtime, this is separate from npcOpenKey and should not rely on default scaffolding.', getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'));
-  const msgTextarea = msgField.querySelector('textarea') as HTMLTextAreaElement | null;
-  if (msgTextarea && isNonEntryF2FTurn) {
-    msgTextarea.disabled = true;
-    msgTextarea.placeholder = 'Disabled for non-entry F2F turns';
-    msgTextarea.title = 'Opening Message is only used for F2F entry turns.';
-  }
-  container.appendChild(msgField);
-
   const hasOpeningText = (turn.openingMessage ?? '').trim().length > 0;
+
+  if (isSegmentStartTurn) {
+    const msgField = createField('Opening Message', 'textarea', turn.openingMessage || '', (val) => {
+      store.updateTurn(conv.id, turn.turnNumber, { openingMessage: val });
+    }, 'Opening text for this segment start turn. Re-enter opener text only when the flow starts a new channel segment.', getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'));
+    container.appendChild(msgField);
+  } else {
+    const openerHintField = document.createElement('div');
+    openerHintField.className = 'field';
+    openerHintField.setAttribute('data-field-key', getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'));
+    const openerHintLabel = document.createElement('label');
+    openerHintLabel.textContent = 'Opening Message';
+    openerHintLabel.style.opacity = '0.75';
+    openerHintField.appendChild(openerHintLabel);
+    const openerHint = document.createElement('div');
+    openerHint.className = 'field-hint';
+    openerHint.textContent = `Read-only on continuation turns. This branch continues an existing ${channelLabel(currentTurnChannel)} segment; opener text belongs on the segment start.`;
+    openerHintField.appendChild(openerHint);
+
+    if (hasOpeningText) {
+      const openerPreview = document.createElement('div');
+      openerPreview.className = 'field-hint';
+      openerPreview.style.cssText = 'margin-top:6px; padding:8px; border:1px dashed var(--border); border-radius:8px; color:var(--text-dim); white-space:pre-wrap;';
+      openerPreview.textContent = `Legacy opener text retained for cleanup: ${turn.openingMessage}`;
+      openerHintField.appendChild(openerPreview);
+    }
+    container.appendChild(openerHintField);
+  }
+
   if (hasOpeningText && isNonEntryF2FTurn) {
     const warningRow = document.createElement('div');
     warningRow.style.cssText = 'display:flex; align-items:center; gap:8px; margin-top:-2px; margin-bottom:8px; flex-wrap:wrap;';
-    warningRow.appendChild(createBadge('warning', 'Ignored non-entry F2F opener', 'warning'));
+    warningRow.appendChild(createBadge('warning', 'Migration cleanup: ignored non-entry F2F opener', 'warning'));
 
     const warningText = document.createElement('div');
     warningText.className = 'field-hint';
     warningText.style.margin = '0';
-    warningText.textContent = 'This opener text is ignored for non-entry F2F branches. Keep opener text only on F2F entry branches.';
+    warningText.textContent = 'This opener text is ignored for non-entry F2F branches. Keep opener text only at segment starts and remove legacy continuation opener text.';
     warningRow.appendChild(warningText);
     container.appendChild(warningRow);
   }
