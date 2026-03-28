@@ -998,6 +998,22 @@ class StateManager {
 
     const nextTurnNumber = conversation.turns.reduce((max, turn) => Math.max(max, turn.turnNumber), 0) + 1;
     const newTurn = createTurn(nextTurnNumber);
+    const sourceTurnChannel = normalizeChannelValue(sourceTurn.channel, 'pda');
+    const sourceContinueChannel = sourceChoice.continueChannel ?? sourceChoice.continue_channel;
+    const destinationChannel = normalizeChannelValue(sourceContinueChannel, sourceTurnChannel);
+
+    newTurn.channel = destinationChannel;
+    sourceChoice.continueChannel = destinationChannel;
+    sourceChoice.continue_channel = destinationChannel;
+
+    const isCrossChannelHandoff = sourceTurnChannel !== destinationChannel;
+    if (destinationChannel === 'f2f') {
+      newTurn.f2f_entry = isCrossChannelHandoff;
+    } else {
+      newTurn.pda_entry = isCrossChannelHandoff;
+    }
+    normalizeTurnEntryFlags(newTurn);
+
     newTurn.position = this.getContextualTurnPlacement(conversation, newTurn, {
       sourceTurnNumber,
       sourceChoiceIndex: choiceIndex,
