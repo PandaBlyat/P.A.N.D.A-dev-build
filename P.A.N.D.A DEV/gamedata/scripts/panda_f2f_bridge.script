@@ -3152,11 +3152,27 @@ function panda_f2f_bridge.init_dialog(dialog)
                 )
             end
         end
+        if not handoff then
+            bridge_warn(
+                "init_dialog reject reason=missing_valid_handoff npc_id=%s",
+                tostring(npc_se and npc_se.id or "nil")
+            )
+            return
+        end
+
+        local talker_id = resolve_current_talker_id()
+        if not talker_id or not handoff_matches_talker_identity(tonumber(handoff.npc_id), talker_id) then
+            bridge_warn(
+                "init_dialog reject reason=missing_valid_handoff npc_id=%s talker_id=%s handoff_npc_id=%s",
+                tostring(npc_se and npc_se.id or "nil"),
+                tostring(talker_id or "nil"),
+                tostring(handoff and handoff.npc_id or "nil")
+            )
+            return
+        end
+
         init_handoff = handoff
         state = collect_branches(npc_se, handoff)
-        if not state and handoff then
-            state = collect_branches(npc_se, nil)
-        end
         if not state then
             return
         end
