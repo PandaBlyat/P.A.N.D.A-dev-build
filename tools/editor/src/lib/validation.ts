@@ -1083,35 +1083,23 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
       const continueChannel = normalizeChannel(continueChannelRaw, 'pda');
 
       if (terminal !== true && choice.continueTo == null) {
-        if (continueChannelRaw != null) {
-          pushMessage(messages, {
-            code: 'missing-choice-continue-to',
-            group: 'structure',
-            scope: 'choice',
-            level: 'error',
-            conversationId: conv.id,
-            turnNumber: turn.turnNumber,
-            choiceIndex: choice.index,
-            propertiesTab: 'selection',
-            fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'),
-            fieldLabel: 'Continue To Turn',
-            message: `Branch ${turn.turnNumber}, Choice ${choice.index} defines continueChannel but is missing continueTo.`,
-          });
-        } else {
-          pushMessage(messages, {
-            code: 'implicit-terminal-choice',
-            group: 'structure',
-            scope: 'choice',
-            level: 'warning',
-            conversationId: conv.id,
-            turnNumber: turn.turnNumber,
-            choiceIndex: choice.index,
-            propertiesTab: 'selection',
-            fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'terminal'),
-            fieldLabel: 'Terminal Choice',
-            message: `Branch ${turn.turnNumber}, Choice ${choice.index} has no continuation target and will be treated as terminal; set terminal=true to make intent explicit.`,
-          });
-        }
+        pushMessage(messages, {
+          code: 'implicit-terminal-choice',
+          group: 'structure',
+          scope: 'choice',
+          level: 'warning',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          propertiesTab: 'selection',
+          fieldKey: continueChannelRaw != null
+            ? getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to')
+            : getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'terminal'),
+          fieldLabel: continueChannelRaw != null ? 'Continue To Turn' : 'Terminal Choice',
+          message: continueChannelRaw != null
+            ? `Branch ${turn.turnNumber}, Choice ${choice.index} defines continueChannel but no continueTo; this choice will end the conversation.`
+            : `Branch ${turn.turnNumber}, Choice ${choice.index} has no continuation target and will be treated as terminal; set terminal=true to make intent explicit.`,
+        });
       }
 
       if (terminal !== true && choice.continueTo != null && continueChannelRaw == null) {
