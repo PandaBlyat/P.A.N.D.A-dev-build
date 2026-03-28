@@ -991,7 +991,7 @@ function collectSegmentStartTurns(conv: Conversation): Set<number> {
   for (const turn of conv.turns) {
     for (const choice of turn.choices) {
       if (choice.terminal === true || choice.continueTo == null) continue;
-      const choiceChannel = normalizeChannel(choice.channel, 'pda');
+      const choiceChannel = normalizeChannel(turn.channel, 'pda');
       const continueChannel = normalizeChannel(choice.continueChannel ?? choice.continue_channel, 'pda');
       if (!isCrossChannelHandoff(choiceChannel, continueChannel)) continue;
       if (turnByNumber.has(choice.continueTo)) {
@@ -1010,11 +1010,8 @@ function conversationHasExplicitF2FContext(conv: Conversation): boolean {
   return conv.turns.some((turn) => {
     const sourceTurnChannel = isStrictChannel(turn.channel) ? turn.channel : null;
     return turn.choices.some((choice) => {
-      const sourceChoiceChannel = isStrictChannel(choice.channel)
-        ? choice.channel
-        : sourceTurnChannel;
       const continueChannel = choice.continueChannel ?? choice.continue_channel;
-      return sourceChoiceChannel === 'pda' && continueChannel === 'f2f';
+      return sourceTurnChannel === 'pda' && continueChannel === 'f2f';
     });
   });
 }
@@ -1073,7 +1070,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         message: `Branch ${turn.turnNumber} is a non-entry F2F turn; opening message is ignored (migration cleanup: remove stale opener text).`,
       });
     }
-    const f2fVisibleChoices = turn.choices.filter((choice) => isChannelVisible(normalizeChannel(choice.channel, 'pda'), 'f2f'));
+    const f2fVisibleChoices = turnChannel === 'f2f' ? turn.choices : [];
 
     for (const choice of turn.choices) {
       const terminal = choice.terminal;
@@ -1110,7 +1107,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         });
       }
 
-      const choiceChannel = normalizeChannel(choice.channel, 'pda');
+      const choiceChannel = turnChannel;
       const continueChannel = normalizeChannel(continueChannelRaw, 'pda');
 
       if (terminal !== true && choice.continueTo == null) {
@@ -1156,8 +1153,8 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
             turnNumber: turn.turnNumber,
             choiceIndex: choice.index,
             propertiesTab: 'selection',
-            fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'channel'),
-            fieldLabel: 'Choice Channel',
+            fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'channel'),
+            fieldLabel: 'Turn Channel',
             message: `Branch ${turn.turnNumber}, Choice ${choice.index} is not visible in F2F, so NPC targeting filters will not be used.`,
           });
         }

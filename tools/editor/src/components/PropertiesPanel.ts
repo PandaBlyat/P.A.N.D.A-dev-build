@@ -1135,7 +1135,8 @@ function renderChoiceProperties(
   contField.appendChild(contControls);
   continuationBody.appendChild(contField);
 
-  const currentChoiceChannel = normalizeChannel(choice.channel, normalizeChannel(turn.channel, normalizeChannel(conv.initialChannel, 'pda')));
+  const currentTurnChannel = normalizeChannel(turn.channel, normalizeChannel(conv.initialChannel, 'pda'));
+  const currentChoiceChannel = currentTurnChannel;
   const currentContinuationChannel = normalizeChannel(choice.continueChannel ?? choice.continue_channel, currentChoiceChannel);
   const continueAsField = document.createElement('div');
   continueAsField.className = 'field';
@@ -1144,7 +1145,7 @@ function renderChoiceProperties(
   continueAsField.appendChild(continueAsLabel);
   const continueAsHint = document.createElement('div');
   continueAsHint.className = 'field-hint';
-  continueAsHint.textContent = 'Choose the next segment channel. The editor auto-updates handoff metadata and marks entry turns only when the channel changes.';
+  continueAsHint.textContent = 'Choices inherit this branch channel automatically. Choose the next segment channel and the editor auto-updates handoff metadata when the channel changes.';
   continueAsField.appendChild(continueAsHint);
   const continueAsRow = document.createElement('div');
   continueAsRow.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap;';
@@ -1177,21 +1178,10 @@ function renderChoiceProperties(
     undefined,
     { defaultCollapsed: true },
   );
-  const choiceVisibilityField = document.createElement('div');
-  choiceVisibilityField.className = 'field';
-  const choiceVisibilityLabel = document.createElement('label');
-  choiceVisibilityLabel.textContent = 'Choice Visibility Channel';
-  choiceVisibilityField.appendChild(choiceVisibilityLabel);
   const choiceVisibilityHint = document.createElement('div');
   choiceVisibilityHint.className = 'field-hint';
-  choiceVisibilityHint.textContent = 'Choices are exclusive: select PDA or F2F for this response path.';
-  choiceVisibilityField.appendChild(choiceVisibilityHint);
-  choiceVisibilityField.appendChild(createChannelSelect(
-    currentChoiceChannel,
-    (nextChannel) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { channel: nextChannel }),
-    getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'channel'),
-  ));
-  choiceAdvancedBody.appendChild(choiceVisibilityField);
+  choiceVisibilityHint.textContent = `Choice visibility is inherited from Branch ${turn.turnNumber} (${channelLabel(currentChoiceChannel)}).`;
+  choiceAdvancedBody.appendChild(choiceVisibilityHint);
 
   const handoffField = document.createElement('div');
   handoffField.className = 'field';
