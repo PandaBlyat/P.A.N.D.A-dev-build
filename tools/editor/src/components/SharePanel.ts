@@ -38,6 +38,7 @@ import {
   type UserProfile,
 } from '../lib/api-client';
 import { setProfileForBadge, invalidateLeaderboardCache } from './ProfileBadge';
+import { buildValidationSummary, splitValidationMessages } from '../lib/validation-gate';
 import {
   evaluatePublishGamification,
   calculateQualityScore,
@@ -1284,6 +1285,19 @@ function buildPublishForm(): HTMLElement {
 
   submitBtn.onclick = async () => {
     updateReplacementIntentState();
+    const validationGate = splitValidationMessages(store.get().validationMessages);
+    if (validationGate.errors.length > 0) {
+      setStatus(buildValidationSummary('Publish blocked: resolve validation errors first.', validationGate.errors, 3), 'danger');
+      return;
+    }
+    if (validationGate.warnings.length > 0) {
+      const proceed = window.confirm(buildValidationSummary('Validation warnings detected. Publish anyway?', validationGate.warnings));
+      if (!proceed) {
+        setStatus('Publish cancelled. Resolve warnings or confirm override to continue.', 'neutral');
+        return;
+      }
+    }
+
     const conv = store.getSelectedConversation();
     if (!conv) {
       setStatus('No story selected. Select a story in the left panel first.', 'danger');

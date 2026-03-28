@@ -128,6 +128,8 @@ export interface ValidationMessage {
   propertiesTab?: 'conversation' | 'selection';
   fieldKey?: string;
   fieldLabel?: string;
+  /** Dot-notation data path hint (for fast fixing in forms and exports). */
+  fieldPath?: string;
   message: string;
 }
 
