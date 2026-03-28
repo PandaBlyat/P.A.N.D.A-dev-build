@@ -1871,7 +1871,7 @@ local function collect_branches(npc_se, forced_context)
                         handoff_source = forced_handoff_active and forced_context and (forced_context.source_path or forced_context.source) or nil,
                         handoff_present = forced_handoff_active,
                         stem = stem,
-                        render_non_entry_openers = resolve_bool_flag_override("panda_f2f_render_non_entry_openers", true),
+                        render_non_entry_openers = resolve_bool_flag_override("panda_f2f_render_non_entry_openers", false),
                     }
 
                     local f2f_turn = forced_turn or select_f2f_turn(stem, npc_se)
