@@ -85,6 +85,44 @@ local function unregister_active_state(state)
     end
 end
 
+
+local function resolve_runtime_state_for_npc(npc_id)
+    local sid = normalize_lookup_id(npc_id)
+    if not sid then
+        return runtime.latest_state
+    end
+
+    local active_token = runtime.active_token
+    if active_token then
+        local token_state = runtime.state_by_id["token:" .. tostring(active_token)]
+        if type(token_state) == "table" then
+            local token_npc_id = resolve_server_npc_id(token_state.npc_se, "resolve_runtime_state_for_npc:token")
+            if token_npc_id == sid then
+                return token_state
+            end
+        end
+    end
+
+    for _, candidate in pairs(runtime.state_by_id) do
+        if type(candidate) == "table" then
+            local candidate_npc_id = resolve_server_npc_id(candidate.npc_se, "resolve_runtime_state_for_npc:scan")
+            if candidate_npc_id == sid then
+                return candidate
+            end
+        end
+    end
+
+    local latest = runtime.latest_state
+    if type(latest) == "table" then
+        local latest_npc_id = resolve_server_npc_id(latest.npc_se, "resolve_runtime_state_for_npc:latest")
+        if latest_npc_id == sid then
+            return latest
+        end
+    end
+
+    return nil
+end
+
 local function get_conv_api()
     if PANDA_CONV_API then
         return PANDA_CONV_API
@@ -578,14 +616,12 @@ local function actor_on_update_cb()
         return
     end
 
-    if state.branch_committed == true then
-        unregister_active_state(state)
-        return
-    end
-
-    if type(cleanup_noncommit_exit) == "function" then
-        cleanup_noncommit_exit(state, "dialog_closed_or_aborted")
-    end
+    bridge_warn(
+        "teardown watchdog fallback npc_id=%s reason=%s",
+        tostring(active_npc_id or "nil"),
+        "actor_on_update_watchdog"
+    )
+    panda_f2f_bridge.on_dialog_closed(active_npc_id, "actor_on_update_watchdog")
 end
 
 local function ensure_callbacks_registered()
@@ -596,9 +632,23 @@ local function ensure_callbacks_registered()
         return
     end
 
-    RegisterScriptCallback("save_state", save_state_cb)
-    RegisterScriptCallback("load_state", load_state_cb)
-    RegisterScriptCallback("actor_on_update", actor_on_update_cb)
+    local function register_callback_safe(name, fn)
+        local ok, err = pcall(RegisterScriptCallback, name, fn)
+        if not ok then
+            bridge_warn("teardown callback_register_failed name=%s error=%s", tostring(name), tostring(err))
+        end
+        return ok
+    end
+
+    register_callback_safe("save_state", save_state_cb)
+    register_callback_safe("load_state", load_state_cb)
+    register_callback_safe("actor_on_update", actor_on_update_cb)
+
+    -- Prefer explicit dialog-close callbacks where available; actor_on_update remains fallback watchdog.
+    register_callback_safe("dialog_close", panda_f2f_bridge.on_dialog_closed)
+    register_callback_safe("dialog_closed", panda_f2f_bridge.on_dialog_closed)
+    register_callback_safe("on_dialog_close", panda_f2f_bridge.on_dialog_closed)
+
     runtime.callbacks_registered = true
 end
 
@@ -2811,6 +2861,71 @@ local function build_dialog_tree(dialog, state)
         actor_choice_count_added = actor_choice_count_added,
         npc_reply_count_added = npc_reply_count_added,
     }
+end
+
+function panda_f2f_bridge.on_dialog_closed(npc_id, reason)
+    ensure_callbacks_registered()
+
+    local close_reason = tostring(reason or "dialog_closed")
+    local state = resolve_runtime_state_for_npc(npc_id)
+    local resolved_npc_id = normalize_lookup_id(npc_id)
+
+    if not resolved_npc_id and type(state) == "table" then
+        resolved_npc_id = resolve_server_npc_id(state.npc_se, "on_dialog_closed:state_fallback")
+    end
+
+    bridge_warn(
+        "teardown start npc_id=%s reason=%s state_present=%s branch_committed=%s",
+        tostring(resolved_npc_id or "nil"),
+        tostring(close_reason),
+        tostring(type(state) == "table"),
+        tostring(type(state) == "table" and state.branch_committed == true)
+    )
+
+    if type(state) == "table" and state.branch_committed ~= true and type(cleanup_noncommit_exit) == "function" then
+        bridge_warn(
+            "teardown cleanup_noncommit_exit npc_id=%s reason=%s",
+            tostring(resolved_npc_id or "nil"),
+            tostring(close_reason)
+        )
+        cleanup_noncommit_exit(state, close_reason)
+    end
+
+    if resolved_npc_id then
+        local restored = panda_f2f_bridge.restore_branch_route(resolved_npc_id, nil)
+        bridge_warn(
+            "teardown restore_branch_route npc_id=%s reason=%s restored=%s",
+            tostring(resolved_npc_id),
+            tostring(close_reason),
+            tostring(restored == true)
+        )
+    else
+        bridge_warn(
+            "teardown restore_branch_route skipped reason=%s detail=%s",
+            tostring(close_reason),
+            "missing_npc_id"
+        )
+    end
+
+    if type(state) == "table" then
+        local had_runtime_state_id = state.runtime_state_id ~= nil
+        local had_active_token = state.active_token ~= nil
+        unregister_active_state(state)
+        bridge_warn(
+            "teardown unregister_state npc_id=%s reason=%s had_runtime_state_id=%s had_active_token=%s",
+            tostring(resolved_npc_id or "nil"),
+            tostring(close_reason),
+            tostring(had_runtime_state_id),
+            tostring(had_active_token)
+        )
+    else
+        bridge_warn(
+            "teardown unregister_state skipped npc_id=%s reason=%s detail=%s",
+            tostring(resolved_npc_id or "nil"),
+            tostring(close_reason),
+            "state_missing"
+        )
+    end
 end
 
 function panda_f2f_bridge.precondition()
