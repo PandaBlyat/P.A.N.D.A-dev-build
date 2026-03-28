@@ -243,6 +243,7 @@ export function renderPropertiesPanel(container: HTMLElement): void {
 // ─── Conversation Properties ──────────────────────────────────────────────
 
 function renderConversationProperties(container: HTMLElement, conv: Conversation): void {
+  const turnLabels = createTurnDisplayLabeler(conv);
   // Section title
   const sectionTitle = document.createElement('div');
   sectionTitle.className = 'props-section-intro';
@@ -254,6 +255,8 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
     store.updateConversation(conv.id, { label: val });
   }, 'A short name for this story (only used in the editor)', getConversationFieldKey(conv.id, 'label'));
   container.appendChild(labelField);
+
+  renderF2FEntrySection(container, conv, turnLabels);
 
   // Preconditions — collapsible section
   const { wrapper: precondWrapper, body: precondBody } = createCollapsibleSection(
@@ -313,6 +316,201 @@ function normalizeChannel(channel: Choice['channel'] | Choice['continue_channel'
   return fallback;
 }
 
+function isPdaToF2FHandoff(choice: Choice): boolean {
+  const choiceChannel = normalizeChannel(choice.channel, 'pda');
+  const continueChannel = normalizeChannel(choice.continueChannel ?? choice.continue_channel, 'pda');
+  return choiceChannel === 'pda' && continueChannel === 'f2f';
+}
+
+function renderF2FEntrySection(
+  container: HTMLElement,
+  conv: Conversation,
+  turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
+): void {
+  const f2fTurns = conv.turns
+    .filter((turn) => normalizeChannel(turn.channel, 'pda') === 'f2f')
+    .sort((a, b) => a.turnNumber - b.turnNumber);
+  const turnByNumber = new Map(conv.turns.map((turn) => [turn.turnNumber, turn] as const));
+  const invalidPdaToF2FHandoffs: Array<{ fromTurnNumber: number; choiceIndex: number; reason: string }> = [];
+
+  for (const turn of conv.turns) {
+    for (const choice of turn.choices) {
+      if (!isPdaToF2FHandoff(choice) || choice.continueTo == null) continue;
+      const target = turnByNumber.get(choice.continueTo);
+      if (!target) {
+        invalidPdaToF2FHandoffs.push({
+          fromTurnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          reason: `target ${choice.continueTo} does not exist`,
+        });
+        continue;
+      }
+      if (target.f2f_entry !== true) {
+        invalidPdaToF2FHandoffs.push({
+          fromTurnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          reason: `${turnLabels.getCompactLabel(target.turnNumber)} is not marked as an F2F entry turn`,
+        });
+        continue;
+      }
+      if ((target.npcOpenKey ?? '').trim() === '') {
+        invalidPdaToF2FHandoffs.push({
+          fromTurnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          reason: `${turnLabels.getCompactLabel(target.turnNumber)} is missing npcOpenKey`,
+        });
+      }
+    }
+  }
+
+  const { wrapper: f2fEntryWrapper, body: f2fEntryBody } = createCollapsibleSection(
+    `conv-${conv.id}-f2f-entry`,
+    `F2F Entry (${f2fTurns.length})`,
+    undefined,
+    { defaultCollapsed: false },
+  );
+
+  const f2fEntryHint = document.createElement('div');
+  f2fEntryHint.className = 'field-hint';
+  f2fEntryHint.style.marginBottom = '10px';
+  f2fEntryHint.textContent = 'F2F requires an explicit NPC-first opener key. Mark entry turn(s), set npcOpenKey, and configure optional first-actor behavior if your runtime supports it.';
+  f2fEntryBody.appendChild(f2fEntryHint);
+
+  if (invalidPdaToF2FHandoffs.length > 0) {
+    const warningWrap = document.createElement('div');
+    warningWrap.style.cssText = 'border:1px solid var(--warning); border-radius:8px; padding:10px; margin:0 0 10px 0; background:color-mix(in srgb, var(--warning) 8%, transparent);';
+
+    const warningHeader = document.createElement('div');
+    warningHeader.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:6px;';
+    warningHeader.appendChild(createBadge('warning', 'Blocking warning', 'warning'));
+    const warningTitle = document.createElement('strong');
+    warningTitle.textContent = 'PDA → F2F handoff is invalid until a valid F2F entry + opener are configured.';
+    warningHeader.appendChild(warningTitle);
+    warningWrap.appendChild(warningHeader);
+
+    const warningList = document.createElement('ul');
+    warningList.style.cssText = 'margin:0; padding-left:18px;';
+    for (const item of invalidPdaToF2FHandoffs) {
+      const li = document.createElement('li');
+      li.textContent = `${turnLabels.getCompactLabel(item.fromTurnNumber)} / Choice ${item.choiceIndex}: ${item.reason}.`;
+      warningList.appendChild(li);
+    }
+    warningWrap.appendChild(warningList);
+    f2fEntryBody.appendChild(warningWrap);
+  }
+
+  if (f2fTurns.length === 0) {
+    const emptyHint = document.createElement('div');
+    emptyHint.className = 'empty-hint';
+    emptyHint.textContent = 'No F2F turns yet. Set a turn visibility channel to In-person (F2F) first.';
+    f2fEntryBody.appendChild(emptyHint);
+    container.appendChild(f2fEntryWrapper);
+    return;
+  }
+
+  for (const turn of f2fTurns) {
+    const card = document.createElement('div');
+    card.className = 'choice-card';
+    card.style.marginBottom = '10px';
+
+    const cardHeader = document.createElement('div');
+    cardHeader.className = 'choice-card-header';
+    const title = document.createElement('span');
+    title.className = 'choice-card-title';
+    title.textContent = turnLabels.getLongLabel(turn.turnNumber);
+    cardHeader.appendChild(title);
+
+    const channelBadge = document.createElement('span');
+    channelBadge.style.cssText = 'font-size:10px; font-family:var(--font-mono); color:var(--accent);';
+    channelBadge.textContent = 'F2F';
+    cardHeader.appendChild(channelBadge);
+    card.appendChild(cardHeader);
+
+    const body = document.createElement('div');
+    body.style.cssText = 'padding:8px;';
+
+    const entryToggleField = document.createElement('label');
+    entryToggleField.className = 'choice-chip';
+    entryToggleField.style.cssText = 'display:inline-flex; align-items:center; gap:8px; margin-bottom:8px;';
+    const entryInput = document.createElement('input');
+    entryInput.type = 'checkbox';
+    entryInput.checked = turn.f2f_entry === true;
+    entryInput.setAttribute('data-field-key', getTurnFieldKey(conv.id, turn.turnNumber, 'f2f-entry'));
+    entryInput.onchange = () => store.updateTurn(conv.id, turn.turnNumber, { f2f_entry: entryInput.checked });
+    const entryText = document.createElement('span');
+    entryText.textContent = 'Use as F2F entry turn';
+    entryToggleField.append(entryInput, entryText);
+    body.appendChild(entryToggleField);
+
+    const openKeyField = createField(
+      'NPC opener key (npcOpenKey)',
+      'text',
+      turn.npcOpenKey ?? '',
+      (val) => store.updateTurn(conv.id, turn.turnNumber, { npcOpenKey: val.trim() || undefined }),
+      'Required for F2F turns. Runtime resolves this key to the NPC-first opener line.',
+      getTurnFieldKey(conv.id, turn.turnNumber, 'npc-open-key'),
+    );
+    openKeyField.style.marginTop = '0';
+    body.appendChild(openKeyField);
+
+    const firstSpeakerField = document.createElement('div');
+    firstSpeakerField.className = 'field';
+    const firstSpeakerLabel = document.createElement('label');
+    firstSpeakerLabel.textContent = 'First actor (optional runtime override)';
+    firstSpeakerField.appendChild(firstSpeakerLabel);
+    const firstSpeakerHint = document.createElement('div');
+    firstSpeakerHint.className = 'field-hint';
+    firstSpeakerHint.textContent = 'Use if your runtime supports actor-first alternatives. Default remains NPC-first.';
+    firstSpeakerField.appendChild(firstSpeakerHint);
+    const firstSpeakerSelect = document.createElement('select');
+    firstSpeakerSelect.value = turn.firstSpeaker === 'player' ? 'player' : 'npc';
+    firstSpeakerSelect.setAttribute('data-field-key', getTurnFieldKey(conv.id, turn.turnNumber, 'first-speaker'));
+    [
+      { value: 'npc', label: 'NPC first (default)' },
+      { value: 'player', label: 'Player first (runtime-dependent)' },
+    ].forEach((option) => {
+      const el = document.createElement('option');
+      el.value = option.value;
+      el.textContent = option.label;
+      el.selected = option.value === firstSpeakerSelect.value;
+      firstSpeakerSelect.appendChild(el);
+    });
+    firstSpeakerSelect.onchange = () => {
+      const nextFirstSpeaker = firstSpeakerSelect.value === 'player' ? 'player' : 'npc';
+      store.updateTurn(conv.id, turn.turnNumber, {
+        firstSpeaker: nextFirstSpeaker,
+        requiresNpcFirst: nextFirstSpeaker === 'npc',
+      });
+    };
+    firstSpeakerField.appendChild(firstSpeakerSelect);
+    body.appendChild(firstSpeakerField);
+
+    const requiresNpcFirstField = document.createElement('label');
+    requiresNpcFirstField.className = 'choice-chip';
+    requiresNpcFirstField.style.cssText = 'display:inline-flex; align-items:center; gap:8px;';
+    const requiresNpcFirstInput = document.createElement('input');
+    requiresNpcFirstInput.type = 'checkbox';
+    requiresNpcFirstInput.checked = turn.requiresNpcFirst ?? true;
+    requiresNpcFirstInput.setAttribute('data-field-key', getTurnFieldKey(conv.id, turn.turnNumber, 'requires-npc-first'));
+    requiresNpcFirstInput.onchange = () => store.updateTurn(conv.id, turn.turnNumber, { requiresNpcFirst: requiresNpcFirstInput.checked });
+    const requiresNpcFirstText = document.createElement('span');
+    requiresNpcFirstText.textContent = 'Require NPC opener before responses';
+    requiresNpcFirstField.append(requiresNpcFirstInput, requiresNpcFirstText);
+    body.appendChild(requiresNpcFirstField);
+
+    const continuationHint = document.createElement('div');
+    continuationHint.className = 'field-hint';
+    continuationHint.style.marginTop = '8px';
+    continuationHint.textContent = 'Non-entry F2F turns also need npcOpenKey if your runtime renders all openers.';
+    body.appendChild(continuationHint);
+
+    card.appendChild(body);
+    f2fEntryBody.appendChild(card);
+  }
+
+  container.appendChild(f2fEntryWrapper);
+}
+
 function channelLabel(channel: 'pda' | 'f2f'): string {
   if (channel === 'pda') return 'PDA';
   return 'F2F';
@@ -359,7 +557,7 @@ function renderTurnProperties(
   // Opening message (all turns)
   const msgField = createField('Opening Message', 'textarea', turn.openingMessage || '', (val) => {
     store.updateTurn(conv.id, turn.turnNumber, { openingMessage: val });
-  }, 'Used for entry turns; continuation turns may ignore this in F2F runtime.', getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'));
+  }, 'Opening text for this turn. In F2F runtime, this is separate from npcOpenKey and should not rely on default scaffolding.', getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'));
   container.appendChild(msgField);
 
   const hasOpeningText = (turn.openingMessage ?? '').trim().length > 0;
@@ -372,7 +570,7 @@ function renderTurnProperties(
     const warningText = document.createElement('div');
     warningText.className = 'field-hint';
     warningText.style.margin = '0';
-    warningText.textContent = 'Bridge parity may ignore or remap this opener on continuation turns.';
+    warningText.textContent = 'If runtime renders all F2F openers, continuation turns still need explicit npcOpenKey/opening data.';
     warningRow.appendChild(warningText);
     container.appendChild(warningRow);
   }

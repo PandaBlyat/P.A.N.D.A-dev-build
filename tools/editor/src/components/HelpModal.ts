@@ -170,7 +170,7 @@ const HELP_CONTENT = `
 <ol>
   <li><strong>Start with the situation.</strong> Example: "A friendly stalker wants to warn the player about activity near a smart terrain."</li>
   <li><strong>Add only the preconditions needed to make that situation true.</strong></li>
-  <li><strong>Write one clear opening message.</strong> Keep it like a PDA text, not face-to-face dialogue.</li>
+  <li><strong>Write one clear opening message.</strong> For F2F, also set an explicit <code>npcOpenKey</code> opener (NPC-first by default).</li>
   <li><strong>Create 1-3 reply choices.</strong> Helpful, dismissive, suspicious, curious, etc.</li>
   <li><strong>Give each choice an outcome or follow-up turn.</strong> Even a small branch feels meaningful when it changes text, tone, or gameplay.</li>
   <li><strong>Only add complexity when the simple version already works.</strong></li>
@@ -186,8 +186,9 @@ const HELP_CONTENT = `
   <li>Applies replies, outcomes, and continuation turns.</li>
 </ol>
 
-<h2>7. PDA writing rule to remember</h2>
-<p><strong>All PANDA conversations are PDA messages.</strong> Write them like text/radio communication from an NPC somewhere else in the world. Avoid physical stage directions such as "hands you a package" or "leans closer."</p>
+<h2>7. PDA + F2F writing rules to remember</h2>
+<p><strong>PDA turns:</strong> write like text/radio communication from an NPC somewhere else in the world.</p>
+<p><strong>F2F turns:</strong> configure explicit opener keys and actor order. Entry turns require NPC opener configuration, and non-entry turns may also require per-turn openers when runtime renders all openers.</p>
 
 <h2>8. XML key format</h2>
 <p>Base format: <code>st_pda_ic_&lt;faction&gt;_&lt;id&gt;_&lt;suffix&gt;</code></p>
