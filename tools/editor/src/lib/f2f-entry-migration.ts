@@ -1,4 +1,4 @@
-import type { Project, Turn } from './types';
+import type { Project, Conversation, Choice, Turn } from './types';
 
 export const LEGACY_F2F_OPENING_MIGRATION_VERSION = '2.1.0';
 export const F2F_ENTRY_OPENING_SENTINEL = '__PANDA_F2F_ENTRY_STARTER__';
@@ -23,6 +23,38 @@ function isVersionAtLeast(current: string | undefined, minimum: string): boolean
   return true;
 }
 
+function isStrictChannel(value: unknown): value is 'pda' | 'f2f' {
+  return value === 'pda' || value === 'f2f';
+}
+
+function hasExplicitF2FTurn(conversation: Conversation): boolean {
+  return conversation.turns.some((turn) => turn.channel === 'f2f');
+}
+
+function choiceSourceChannel(choice: Choice, turn: Turn): 'pda' | 'f2f' | null {
+  if (isStrictChannel(choice.channel)) {
+    return choice.channel;
+  }
+  if (isStrictChannel(turn.channel)) {
+    return turn.channel;
+  }
+  return null;
+}
+
+function hasExplicitPdaToF2FHandoff(conversation: Conversation): boolean {
+  return conversation.turns.some((turn) => turn.choices.some((choice) => {
+    const continueChannel = choice.continueChannel ?? choice.continue_channel;
+    if (continueChannel !== 'f2f') {
+      return false;
+    }
+    return choiceSourceChannel(choice, turn) === 'pda';
+  }));
+}
+
+function conversationNeedsLegacyF2FOpeningMigration(conversation: Conversation): boolean {
+  return hasExplicitF2FTurn(conversation) || hasExplicitPdaToF2FHandoff(conversation);
+}
+
 /**
  * Migration pass for legacy F2F-entry authored `_open` text.
  *
@@ -31,6 +63,7 @@ function isVersionAtLeast(current: string | undefined, minimum: string): boolean
  * - Always replace opening text with a starter sentinel.
  * - Flag ambiguous/conflicting cases as non-blocking migration warnings.
  * - Bump schema version when migration has run so we do not repeatedly reprocess legacy data.
+ * - Strict guard: no-op for conversations without explicit F2F turns and without explicit PDA→F2F handoffs.
  */
 export function migrateLegacyF2FEntryOpenings(project: Project): Project {
   if (isVersionAtLeast(project.version, LEGACY_F2F_OPENING_MIGRATION_VERSION)) {
@@ -39,6 +72,10 @@ export function migrateLegacyF2FEntryOpenings(project: Project): Project {
 
   let touched = false;
   const conversations = project.conversations.map((conversation) => {
+    if (!conversationNeedsLegacyF2FOpeningMigration(conversation)) {
+      return conversation;
+    }
+
     const turns = conversation.turns.map((turn) => {
       if (turn.f2f_entry !== true || !hasAuthoredOpening(turn)) {
         return turn;

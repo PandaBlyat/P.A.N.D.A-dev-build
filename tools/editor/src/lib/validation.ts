@@ -1003,16 +1003,35 @@ function collectSegmentStartTurns(conv: Conversation): Set<number> {
   return segmentStarts;
 }
 
+function conversationHasExplicitF2FContext(conv: Conversation): boolean {
+  const hasExplicitF2FTurn = conv.turns.some((turn) => turn.channel === 'f2f');
+  if (hasExplicitF2FTurn) return true;
+
+  return conv.turns.some((turn) => {
+    const sourceTurnChannel = isStrictChannel(turn.channel) ? turn.channel : null;
+    return turn.choices.some((choice) => {
+      const sourceChoiceChannel = isStrictChannel(choice.channel)
+        ? choice.channel
+        : sourceTurnChannel;
+      const continueChannel = choice.continueChannel ?? choice.continue_channel;
+      return sourceChoiceChannel === 'pda' && continueChannel === 'f2f';
+    });
+  });
+}
+
 function validateConversationF2FAndChannelFlow(conv: Conversation, messages: ValidationMessage[]): void {
   const turnByNumber = new Map(conv.turns.map((turn) => [turn.turnNumber, turn]));
-  const f2fEntryTurnNumbers = new Set<number>(conv.turns.filter((turn) => turn.f2f_entry === true).map((turn) => turn.turnNumber));
+  const hasExplicitF2FContext = conversationHasExplicitF2FContext(conv);
+  const f2fEntryTurnNumbers = new Set<number>(conv.turns
+    .filter((turn) => normalizeChannel(turn.channel, 'pda') === 'f2f' && turn.f2f_entry === true)
+    .map((turn) => turn.turnNumber));
   const requiredSegmentOpeningTurns = collectSegmentStartTurns(conv);
 
   for (const turn of conv.turns) {
     const turnChannel = normalizeChannel(turn.channel, 'pda');
     const isF2FEntryTurn = turnChannel === 'f2f' && turn.f2f_entry === true;
     const isNonEntryF2FTurn = turnChannel === 'f2f' && turn.f2f_entry !== true;
-    if (isF2FEntryTurn && (turn.npcOpenKey ?? '').trim() === '') {
+    if (hasExplicitF2FContext && isF2FEntryTurn && (turn.npcOpenKey ?? '').trim() === '') {
       pushMessage(messages, {
         code: 'missing-f2f-npc-open-key',
         group: 'structure',
@@ -1026,7 +1045,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         message: `Branch ${turn.turnNumber} is an F2F entry turn and must define npcOpenKey.`,
       });
     }
-    if (isNonEntryF2FTurn && (turn.npcOpenKey ?? '').trim() !== '') {
+    if (hasExplicitF2FContext && isNonEntryF2FTurn && (turn.npcOpenKey ?? '').trim() !== '') {
       pushMessage(messages, {
         code: 'non-entry-f2f-npc-open-key-ignored',
         group: 'logic',
@@ -1040,7 +1059,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         message: `Branch ${turn.turnNumber} is a non-entry F2F turn; npcOpenKey is ignored (migration cleanup: remove stale opener key).`,
       });
     }
-    if (isNonEntryF2FTurn && (turn.openingMessage ?? '').trim() !== '') {
+    if (hasExplicitF2FContext && isNonEntryF2FTurn && (turn.openingMessage ?? '').trim() !== '') {
       pushMessage(messages, {
         code: 'non-entry-f2f-opening-message-ignored',
         group: 'logic',
@@ -1126,7 +1145,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         });
       }
 
-      if (!isChannelVisible(choiceChannel, 'f2f')) {
+      if (!hasExplicitF2FContext || !isChannelVisible(choiceChannel, 'f2f')) {
         if ((choice.story_npc_id ?? '').trim() !== '' || (choice.npc_faction_filters?.length ?? 0) > 0 || (choice.npc_profile_filters?.length ?? 0) > 0 || choice.allow_generic_stalker) {
           pushMessage(messages, {
             code: 'f2f-targeting-on-non-f2f-choice',
@@ -1169,7 +1188,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         continue;
       }
 
-      if (continueChannel === 'f2f' && !f2fEntryTurnNumbers.has(targetTurn.turnNumber)) {
+      if (hasExplicitF2FContext && continueChannel === 'f2f' && !f2fEntryTurnNumbers.has(targetTurn.turnNumber)) {
         pushMessage(messages, {
           code: 'f2f-entry-target-not-listed',
           group: 'structure',
@@ -1244,7 +1263,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         });
       }
 
-      if (destinationChannel === 'f2f' && hasEntry) {
+      if (hasExplicitF2FContext && destinationChannel === 'f2f' && hasEntry) {
         if ((targetTurn.npcOpenKey ?? '').trim() === '') {
           pushMessage(messages, {
             code: 'handoff-f2f-entry-missing-npc-open-key',
@@ -1263,7 +1282,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
       }
     }
 
-    if (turnChannel === 'f2f' && turn.f2f_entry === true && f2fVisibleChoices.length > 0) {
+    if (hasExplicitF2FContext && turnChannel === 'f2f' && turn.f2f_entry === true && f2fVisibleChoices.length > 0) {
       const hasF2FExit = f2fVisibleChoices.some((choice) => {
         const continueTo = choice.continueTo;
         if (continueTo != null) {
