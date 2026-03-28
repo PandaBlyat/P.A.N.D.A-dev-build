@@ -80,7 +80,7 @@ const PRECONDITION_RANGE_PAIRS: Array<{ minCommand: string; maxCommand: string; 
 ] as const;
 
 type ConversationField = 'label' | 'timeout' | 'timeout-message' | 'preconditions';
-type TurnField = 'opening-message' | 'channel' | 'pda-entry' | 'f2f-entry' | 'npc-open-key' | 'requires-npc-first';
+type TurnField = 'opening-message' | 'channel' | 'pda-entry' | 'f2f-entry' | 'npc-open-key' | 'requires-npc-first' | 'first-speaker';
 type ChoiceField =
   | 'text'
   | 'reply'
@@ -1199,6 +1199,21 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
 
       if (destinationChannel === 'f2f' && hasEntry) {
         requiredF2FOpeningTurns.add(targetTurn.turnNumber);
+        if ((targetTurn.npcOpenKey ?? '').trim() === '') {
+          pushMessage(messages, {
+            code: 'handoff-f2f-entry-missing-npc-open-key',
+            group: 'structure',
+            scope: 'choice',
+            level: 'error',
+            conversationId: conv.id,
+            turnNumber: turn.turnNumber,
+            choiceIndex: choice.index,
+            propertiesTab: 'selection',
+            fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'),
+            fieldLabel: 'Continue To Turn',
+            message: `Branch ${turn.turnNumber}, Choice ${choice.index} transitions PDA → F2F but target Branch ${targetTurn.turnNumber} has no npcOpenKey opener.`,
+          });
+        }
       }
     }
 
