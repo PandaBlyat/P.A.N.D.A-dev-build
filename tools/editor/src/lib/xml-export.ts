@@ -416,9 +416,7 @@ export function createChoice(index: number): Choice {
     channel: 'pda',
     reply: '',
     outcomes: [],
-    terminal: false,
-    continue_channel: 'pda',
-    continueChannel: 'pda',
+    terminal: true,
     allow_generic_stalker: false,
   };
 }
