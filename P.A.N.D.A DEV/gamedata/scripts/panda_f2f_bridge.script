@@ -1435,7 +1435,24 @@ cleanup_noncommit_exit = function(state, exit_reason)
     end
 
     local active_npc_id = resolve_server_npc_id(state.npc_se, "cleanup_noncommit_exit")
-    consume_pending_handoff_for_npc(state.npc_se)
+    local consumed_handoff = consume_pending_handoff_for_npc(state.npc_se)
+    if consumed_handoff then
+        bridge_warn(
+            "cleanup_noncommit_exit handoff_consume removed=true npc_id=%s conv_id=%s turn=%s reason=%s",
+            tostring(active_npc_id or state.npc_se and state.npc_se.id or "nil"),
+            tostring(state.conv_id or "nil"),
+            tostring(state.turn or "nil"),
+            tostring(exit_reason or "unknown")
+        )
+    else
+        bridge_warn(
+            "cleanup_noncommit_exit handoff_consume removed=false npc_id=%s conv_id=%s turn=%s reason=%s detail=consume_miss",
+            tostring(active_npc_id or state.npc_se and state.npc_se.id or "nil"),
+            tostring(state.conv_id or "nil"),
+            tostring(state.turn or "nil"),
+            tostring(exit_reason or "unknown")
+        )
+    end
     if active_npc_id then
         panda_f2f_bridge.restore_branch_route(active_npc_id, nil)
     end
@@ -2889,6 +2906,31 @@ function panda_f2f_bridge.on_dialog_closed(npc_id, reason)
             tostring(close_reason)
         )
         cleanup_noncommit_exit(state, close_reason)
+    end
+
+    local conv_api = get_conv_api()
+    if conv_api and type(conv_api.sweep_expired_f2f_markers) == "function" then
+        local ok_sweep, sweep_summary = pcall(conv_api.sweep_expired_f2f_markers, "bridge:on_dialog_closed:" .. close_reason)
+        if ok_sweep and type(sweep_summary) == "table" then
+            bridge_warn(
+                "teardown f2f_marker_sweep reason=%s stale_pending_cleared=%s handoff_rows_removed=%s",
+                tostring(close_reason),
+                tostring(sweep_summary.stale_pending_cleared or 0),
+                tostring(sweep_summary.handoff_rows_removed or 0)
+            )
+        else
+            bridge_warn(
+                "teardown f2f_marker_sweep reason=%s result=%s",
+                tostring(close_reason),
+                tostring(ok_sweep and "invalid_summary" or "call_failed")
+            )
+        end
+    else
+        bridge_warn(
+            "teardown f2f_marker_sweep skipped reason=%s detail=%s",
+            tostring(close_reason),
+            "api_unavailable"
+        )
     end
 
     if resolved_npc_id then
