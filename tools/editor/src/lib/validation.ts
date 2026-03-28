@@ -286,6 +286,7 @@ function validateConversation(conv: Conversation, messages: ValidationMessage[])
   if (conv.turns.length > 1) {
     validateReachability(conv, turnNumbers, turnLabels, messages);
   }
+  validateCycleSafety(conv, turnNumbers, messages);
 }
 
 function validateConversationAnomalyArtifactSafety(conv: Conversation, messages: ValidationMessage[]): void {
@@ -984,6 +985,7 @@ function validateReachability(
 
 function validateConversationF2FAndChannelFlow(conv: Conversation, messages: ValidationMessage[]): void {
   const turnByNumber = new Map(conv.turns.map((turn) => [turn.turnNumber, turn]));
+  const f2fEntryTurnNumbers = new Set<number>(conv.turns.filter((turn) => turn.f2f_entry === true).map((turn) => turn.turnNumber));
   const requiredF2FOpeningTurns = new Set<number>();
 
   for (const turn of conv.turns) {
@@ -1103,10 +1105,58 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
 
       const targetTurn = turnByNumber.get(choice.continueTo);
       if (!targetTurn) {
+        pushMessage(messages, {
+          code: 'continue-target-not-found',
+          group: 'structure',
+          scope: 'choice',
+          level: 'error',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          propertiesTab: 'selection',
+          fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'),
+          fieldLabel: 'Continue To Turn',
+          fieldPath: buildChoiceFieldPath(turn.turnNumber, choice.index, 'continueTo'),
+          message: `Branch ${turn.turnNumber}, Choice ${choice.index} points to Branch ${choice.continueTo}, but that turn does not exist.`,
+        });
         continue;
       }
 
+      if (continueChannel === 'f2f' && !f2fEntryTurnNumbers.has(targetTurn.turnNumber)) {
+        pushMessage(messages, {
+          code: 'f2f-entry-target-not-listed',
+          group: 'structure',
+          scope: 'choice',
+          level: 'error',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          propertiesTab: 'selection',
+          fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'),
+          fieldLabel: 'Continue To Turn',
+          fieldPath: buildChoiceFieldPath(turn.turnNumber, choice.index, 'continueTo'),
+          message: `Branch ${turn.turnNumber}, Choice ${choice.index} transitions into F2F but targets Branch ${choice.continueTo}, which is not listed in entryNodes.f2f.`,
+        });
+      }
+
       if (!isCrossChannelHandoff(choiceChannel, continueChannel)) {
+        const targetChannel = normalizeChannel(targetTurn.channel, 'pda');
+        if (targetChannel !== continueChannel) {
+          pushMessage(messages, {
+            code: 'continue-channel-target-mismatch',
+            group: 'structure',
+            scope: 'choice',
+            level: 'error',
+            conversationId: conv.id,
+            turnNumber: turn.turnNumber,
+            choiceIndex: choice.index,
+            propertiesTab: 'selection',
+            fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-channel'),
+            fieldLabel: 'Continue Channel',
+            fieldPath: buildChoiceFieldPath(turn.turnNumber, choice.index, 'continueChannel'),
+            message: `Branch ${turn.turnNumber}, Choice ${choice.index} continues via ${continueChannel.toUpperCase()} but target Branch ${targetTurn.turnNumber} is ${targetChannel.toUpperCase()}.`,
+          });
+        }
         continue;
       }
 
@@ -1202,6 +1252,171 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
       message: `Branch ${turnNumber} is required for F2F entry turns and must have an opening message.`,
     });
   }
+}
+
+type GraphEdge = {
+  from: number;
+  to: number;
+  choice: Choice;
+  turn: Conversation['turns'][number];
+};
+
+function validateCycleSafety(conv: Conversation, turnNumbers: Set<number>, messages: ValidationMessage[]): void {
+  const edges: GraphEdge[] = [];
+  const adjacency = new Map<number, number[]>();
+  const turnByNumber = new Map(conv.turns.map((turn) => [turn.turnNumber, turn]));
+
+  const addEdge = (from: number, to: number, turn: Conversation['turns'][number], choice: Choice): void => {
+    edges.push({ from, to, turn, choice });
+    if (!adjacency.has(from)) adjacency.set(from, []);
+    adjacency.get(from)!.push(to);
+  };
+
+  conv.turns.forEach((turn) => {
+    turn.choices.forEach((choice) => {
+      if (choice.continueTo == null || !turnNumbers.has(choice.continueTo)) return;
+      addEdge(turn.turnNumber, choice.continueTo, turn, choice);
+    });
+  });
+
+  for (const edge of edges) {
+    if (edge.from !== edge.to) continue;
+    if (!isChoiceStateMutating(edge.choice)) {
+      pushMessage(messages, {
+        code: 'self-loop-no-state-change',
+        group: 'logic',
+        scope: 'choice',
+        level: 'warning',
+        conversationId: conv.id,
+        turnNumber: edge.turn.turnNumber,
+        choiceIndex: edge.choice.index,
+        propertiesTab: 'selection',
+        fieldKey: getChoiceFieldKey(conv.id, edge.turn.turnNumber, edge.choice.index, 'continue-to'),
+        fieldLabel: 'Continue To Turn',
+        fieldPath: buildChoiceFieldPath(edge.turn.turnNumber, edge.choice.index, 'continueTo'),
+        message: `Branch ${edge.turn.turnNumber}, Choice ${edge.choice.index} loops to itself without any state/effect change.`,
+      });
+    }
+  }
+
+  const twoNodePairs = new Set<string>();
+  for (const edge of edges) {
+    if (edge.from === edge.to) continue;
+    const backExists = (adjacency.get(edge.to) ?? []).includes(edge.from);
+    if (!backExists) continue;
+    const a = Math.min(edge.from, edge.to);
+    const b = Math.max(edge.from, edge.to);
+    const key = `${a}:${b}`;
+    if (twoNodePairs.has(key)) continue;
+    twoNodePairs.add(key);
+
+    const turnA = turnByNumber.get(a);
+    const turnB = turnByNumber.get(b);
+    if (!turnA || !turnB) continue;
+    const textA = (turnA.openingMessage ?? '').trim();
+    const textB = (turnB.openingMessage ?? '').trim();
+    const hasExit = (adjacency.get(a) ?? []).some((to) => to !== b) || (adjacency.get(b) ?? []).some((to) => to !== a);
+
+    if (textA !== '' && textA === textB && !hasExit) {
+      pushMessage(messages, {
+        code: 'two-node-cycle-identical-visible-text',
+        group: 'logic',
+        scope: 'turn',
+        level: 'warning',
+        conversationId: conv.id,
+        turnNumber: a,
+        propertiesTab: 'selection',
+        fieldKey: getTurnFieldKey(conv.id, a, 'opening-message'),
+        fieldLabel: 'Opening Message',
+        fieldPath: buildTurnFieldPath(a, 'openingMessage'),
+        message: `Branches ${a} and ${b} form a 2-node cycle with identical visible text and no exit path.`,
+      });
+    }
+  }
+
+  const sccs = computeStronglyConnectedComponents([...turnNumbers], adjacency);
+  const terminalNodes = new Set<number>();
+  conv.turns.forEach((turn) => {
+    if (turn.choices.some((choice) => choice.terminal === true)) {
+      terminalNodes.add(turn.turnNumber);
+    }
+  });
+
+  for (const scc of sccs) {
+    const isCycle = scc.length > 1 || (scc.length === 1 && (adjacency.get(scc[0]) ?? []).includes(scc[0]));
+    if (!isCycle) continue;
+
+    const sccSet = new Set(scc);
+    const hasTerminalInside = scc.some((node) => terminalNodes.has(node));
+    const hasExitEdge = scc.some((node) => (adjacency.get(node) ?? []).some((to) => !sccSet.has(to)));
+    if (hasTerminalInside || hasExitEdge) {
+      continue;
+    }
+
+    const representative = Math.min(...scc);
+    pushMessage(messages, {
+      code: 'cycle-region-no-terminal-path',
+      group: 'logic',
+      scope: 'turn',
+      level: 'error',
+      conversationId: conv.id,
+      turnNumber: representative,
+      propertiesTab: 'selection',
+      fieldKey: getTurnFieldKey(conv.id, representative, 'opening-message'),
+      fieldLabel: 'Opening Message',
+      fieldPath: buildTurnFieldPath(representative, 'openingMessage'),
+      message: `Cycle region [${[...scc].sort((x, y) => x - y).join(', ')}] has no terminal path or exit edge.`,
+    });
+  }
+}
+
+function isChoiceStateMutating(choice: Choice): boolean {
+  if (choice.outcomes.length > 0) return true;
+  const hasNonEmpty = (value: string | undefined): boolean => (value ?? '').trim().length > 0;
+  return hasNonEmpty(choice.replyRelHigh) || hasNonEmpty(choice.replyRelLow);
+}
+
+function computeStronglyConnectedComponents(nodes: number[], adjacency: Map<number, number[]>): number[][] {
+  const visited = new Set<number>();
+  const order: number[] = [];
+
+  const dfs1 = (node: number): void => {
+    if (visited.has(node)) return;
+    visited.add(node);
+    for (const next of adjacency.get(node) ?? []) {
+      dfs1(next);
+    }
+    order.push(node);
+  };
+  nodes.forEach(dfs1);
+
+  const reverse = new Map<number, number[]>();
+  adjacency.forEach((targets, from) => {
+    targets.forEach((to) => {
+      if (!reverse.has(to)) reverse.set(to, []);
+      reverse.get(to)!.push(from);
+    });
+  });
+
+  const assigned = new Set<number>();
+  const components: number[][] = [];
+  const dfs2 = (node: number, bucket: number[]): void => {
+    if (assigned.has(node)) return;
+    assigned.add(node);
+    bucket.push(node);
+    for (const prev of reverse.get(node) ?? []) {
+      dfs2(prev, bucket);
+    }
+  };
+
+  for (let i = order.length - 1; i >= 0; i--) {
+    const node = order[i];
+    if (assigned.has(node)) continue;
+    const bucket: number[] = [];
+    dfs2(node, bucket);
+    components.push(bucket);
+  }
+  return components;
 }
 
 function validateF2FTargeting(conv: Conversation, turn: Conversation['turns'][number], choice: Choice, messages: ValidationMessage[]): void {
@@ -1465,5 +1680,25 @@ function formatPrecondition(command: string, params: string[], polarity: Flatten
 }
 
 function pushMessage(messages: ValidationMessage[], message: ValidationMessage): void {
+  if (!message.fieldPath) {
+    if (message.scope === 'turn' && message.turnNumber != null) {
+      message.fieldPath = buildTurnFieldPath(message.turnNumber);
+    } else if (message.scope === 'choice' && message.turnNumber != null && message.choiceIndex != null) {
+      message.fieldPath = buildChoiceFieldPath(message.turnNumber, message.choiceIndex);
+    } else if (message.scope === 'outcome' && message.turnNumber != null && message.choiceIndex != null && message.outcomeIndex != null) {
+      message.fieldPath = `turns[${message.turnNumber}].choices[${message.choiceIndex}].outcomes[${message.outcomeIndex}]`;
+    } else if (message.scope === 'precondition' && message.preconditionIndex != null) {
+      message.fieldPath = `preconditions[${message.preconditionIndex}]`;
+    }
+  }
   messages.push(message);
+}
+
+function buildTurnFieldPath(turnNumber: number, leaf?: string): string {
+  return leaf ? `turns[${turnNumber}].${leaf}` : `turns[${turnNumber}]`;
+}
+
+function buildChoiceFieldPath(turnNumber: number, choiceIndex: number, leaf?: string): string {
+  const base = `turns[${turnNumber}].choices[${choiceIndex}]`;
+  return leaf ? `${base}.${leaf}` : base;
 }

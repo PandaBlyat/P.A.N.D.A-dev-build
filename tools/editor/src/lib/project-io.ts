@@ -6,6 +6,7 @@ import { fetchConversationById } from './api-client';
 import type { Choice, Conversation, ConversationChannel, FactionId, Project, Turn } from './types';
 import { FACTION_XML_KEYS, getConversationFaction } from './types';
 import { migrateLegacyF2FEntryOpenings } from './f2f-entry-migration';
+import { buildValidationSummary, splitValidationMessages } from './validation-gate';
 
 export function createBlankProject(): void {
   store.addConversation();
@@ -19,6 +20,16 @@ export function loadSampleProject(): void {
 /** Export project as .panda JSON file */
 export function exportProjectJson(): void {
   const state = store.get();
+  const gate = splitValidationMessages(state.validationMessages);
+  if (gate.errors.length > 0) {
+    alert(buildValidationSummary('Save blocked: fix validation errors first.', gate.errors));
+    return;
+  }
+  if (gate.warnings.length > 0) {
+    const proceed = window.confirm(buildValidationSummary('This draft has validation warnings. Save anyway?', gate.warnings));
+    if (!proceed) return;
+  }
+
   const data = JSON.stringify({
     ...normalizeProjectData(state.project),
     systemStrings: Object.fromEntries(state.systemStrings),
@@ -33,6 +44,16 @@ export function exportProjectJson(): void {
 /** Export as game-ready XML */
 export function exportXml(): void {
   const state = store.get();
+  const gate = splitValidationMessages(state.validationMessages);
+  if (gate.errors.length > 0) {
+    alert(buildValidationSummary('Export blocked: fix validation errors first.', gate.errors));
+    return;
+  }
+  if (gate.warnings.length > 0) {
+    const proceed = window.confirm(buildValidationSummary('Validation warnings detected. Export anyway?', gate.warnings));
+    if (!proceed) return;
+  }
+
   const factions = getProjectConversationFactions(state.project);
   const exporterConfig: XmlExporterConfig = {
     strictDialogueValidation: true,
