@@ -1082,26 +1082,6 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
       const choiceChannel = turnChannel;
       const continueChannel = normalizeChannel(continueChannelRaw, 'pda');
 
-      if (terminal !== true && choice.continueTo == null) {
-        pushMessage(messages, {
-          code: 'implicit-terminal-choice',
-          group: 'structure',
-          scope: 'choice',
-          level: 'warning',
-          conversationId: conv.id,
-          turnNumber: turn.turnNumber,
-          choiceIndex: choice.index,
-          propertiesTab: 'selection',
-          fieldKey: continueChannelRaw != null
-            ? getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to')
-            : getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'terminal'),
-          fieldLabel: continueChannelRaw != null ? 'Continue To Turn' : 'Terminal Choice',
-          message: continueChannelRaw != null
-            ? `Branch ${turn.turnNumber}, Choice ${choice.index} defines continueChannel but no continueTo; this choice will end the conversation.`
-            : `Branch ${turn.turnNumber}, Choice ${choice.index} has no continuation target and will be treated as terminal; set terminal=true to make intent explicit.`,
-        });
-      }
-
       if (terminal !== true && choice.continueTo != null && continueChannelRaw == null) {
         pushMessage(messages, {
           code: 'missing-choice-continue-channel',

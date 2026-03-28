@@ -92,8 +92,6 @@ function auditConversation(file, conversation) {
       if (!terminal && choice.continueTo == null) {
         if (continueChannelRaw != null) {
           issues.push(createIssue('must-fix', 'dangling-turn-reference', file, conversation.id, `Turn ${turnNumber} choice ${choice.index} defines continueChannel but missing continueTo.`));
-        } else {
-          issues.push(createIssue('warning', 'implicit-terminal-choice', file, conversation.id, `Turn ${turnNumber} choice ${choice.index} has no continuation target; it will behave as terminal unless a continue target is added.`));
         }
         continue;
       }
