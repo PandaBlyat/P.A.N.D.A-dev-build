@@ -1083,22 +1083,38 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
       const continueChannel = normalizeChannel(continueChannelRaw, 'pda');
 
       if (terminal !== true && choice.continueTo == null) {
-        pushMessage(messages, {
-          code: 'missing-choice-continue-to',
-          group: 'structure',
-          scope: 'choice',
-          level: 'error',
-          conversationId: conv.id,
-          turnNumber: turn.turnNumber,
-          choiceIndex: choice.index,
-          propertiesTab: 'selection',
-          fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'),
-          fieldLabel: 'Continue To Turn',
-          message: `Branch ${turn.turnNumber}, Choice ${choice.index} must define continueTo when terminal is false.`,
-        });
+        if (continueChannelRaw != null) {
+          pushMessage(messages, {
+            code: 'missing-choice-continue-to',
+            group: 'structure',
+            scope: 'choice',
+            level: 'error',
+            conversationId: conv.id,
+            turnNumber: turn.turnNumber,
+            choiceIndex: choice.index,
+            propertiesTab: 'selection',
+            fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'),
+            fieldLabel: 'Continue To Turn',
+            message: `Branch ${turn.turnNumber}, Choice ${choice.index} defines continueChannel but is missing continueTo.`,
+          });
+        } else {
+          pushMessage(messages, {
+            code: 'implicit-terminal-choice',
+            group: 'structure',
+            scope: 'choice',
+            level: 'warning',
+            conversationId: conv.id,
+            turnNumber: turn.turnNumber,
+            choiceIndex: choice.index,
+            propertiesTab: 'selection',
+            fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'terminal'),
+            fieldLabel: 'Terminal Choice',
+            message: `Branch ${turn.turnNumber}, Choice ${choice.index} has no continuation target and will be treated as terminal; set terminal=true to make intent explicit.`,
+          });
+        }
       }
 
-      if (terminal !== true && continueChannelRaw == null) {
+      if (terminal !== true && choice.continueTo != null && continueChannelRaw == null) {
         pushMessage(messages, {
           code: 'missing-choice-continue-channel',
           group: 'structure',
@@ -1110,7 +1126,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
           propertiesTab: 'selection',
           fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-channel'),
           fieldLabel: 'Continue Channel',
-          message: `Branch ${turn.turnNumber}, Choice ${choice.index} must define continueChannel when terminal is false.`,
+          message: `Branch ${turn.turnNumber}, Choice ${choice.index} must define continueChannel when continuing to another branch.`,
         });
       }
 
@@ -1131,7 +1147,8 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
           });
         }
       } else {
-        validateF2FTargeting(conv, turn, choice, messages);
+        const requiresExplicitTargeting = isCrossChannelHandoff(choiceChannel, continueChannel) && continueChannel === 'f2f';
+        validateF2FTargeting(conv, turn, choice, messages, { requireExplicitTargeting: requiresExplicitTargeting });
       }
 
       if (terminal === true || choice.continueTo == null) {
@@ -1157,7 +1174,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         continue;
       }
 
-      if (hasExplicitF2FContext && continueChannel === 'f2f' && !f2fEntryTurnNumbers.has(targetTurn.turnNumber)) {
+      if (hasExplicitF2FContext && isCrossChannelHandoff(choiceChannel, continueChannel) && continueChannel === 'f2f' && !f2fEntryTurnNumbers.has(targetTurn.turnNumber)) {
         pushMessage(messages, {
           code: 'f2f-entry-target-not-listed',
           group: 'structure',
@@ -1451,14 +1468,20 @@ function computeStronglyConnectedComponents(nodes: number[], adjacency: Map<numb
   return components;
 }
 
-function validateF2FTargeting(conv: Conversation, turn: Conversation['turns'][number], choice: Choice, messages: ValidationMessage[]): void {
+function validateF2FTargeting(
+  conv: Conversation,
+  turn: Conversation['turns'][number],
+  choice: Choice,
+  messages: ValidationMessage[],
+  options: { requireExplicitTargeting: boolean },
+): void {
   const storyNpc = (choice.story_npc_id ?? '').trim();
   const factionFilters = choice.npc_faction_filters ?? [];
   const profileFilters = choice.npc_profile_filters?.map((filter) => filter.trim()).filter(Boolean) ?? [];
   const broadScope = choice.allow_generic_stalker === true;
   const hasSpecificFilters = storyNpc !== '' || factionFilters.length > 0 || profileFilters.length > 0;
 
-  if (!hasSpecificFilters && !broadScope) {
+  if (options.requireExplicitTargeting && !hasSpecificFilters && !broadScope) {
     pushMessage(messages, {
       code: 'f2f-missing-targeting',
       group: 'logic',
