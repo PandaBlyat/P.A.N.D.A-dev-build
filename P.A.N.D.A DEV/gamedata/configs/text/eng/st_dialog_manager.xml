@@ -298,6 +298,9 @@
 <string id="st_panda_f2f_actor_parity_shim">
     <text>...</text>
 </string>
+<string id="panda_f2f_use_legacy_visible_root">
+    <text>false</text>
+</string>
 <string id="dm_universal_actor_exit">
     <text>Forget it.</text>
 </string>
