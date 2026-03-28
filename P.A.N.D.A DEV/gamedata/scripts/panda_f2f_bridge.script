@@ -21,6 +21,7 @@ local bridge_debug
 local bridge_warn
 local cleanup_noncommit_exit
 local resolve_server_npc_id
+local normalize_lookup_id
 
 local runtime = {
     state_by_id = {},
@@ -142,7 +143,7 @@ local function get_dialog_manager_iface()
     return _G
 end
 
-local function normalize_lookup_id(id)
+function normalize_lookup_id(id)
     local sid = tonumber(id)
     if not sid or sid <= 0 then
         return nil
@@ -668,7 +669,7 @@ function bridge_debug(fmt, ...)
     end
 end
 
-local function bridge_warn(fmt, ...)
+function bridge_warn(fmt, ...)
     local msg = string.format("PANDA_F2F_BRIDGE: " .. tostring(fmt), ...)
     if type(rawget(_G, "printf")) == "function" then
         _G.printf("%s", msg)
