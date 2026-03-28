@@ -1,6 +1,6 @@
 {
   "id": 102,
-  "label": "Fixture PDA to F2F handoff",
+  "label": "Fixture mixed PDA/F2F handoff",
   "preconditions": [],
   "turns": [
     {
@@ -20,7 +20,10 @@
           "outcomes": []
         }
       ],
-      "position": { "x": 0, "y": 0 }
+      "position": {
+        "x": 0,
+        "y": 0
+      }
     },
     {
       "turnNumber": 2,
@@ -34,11 +37,36 @@
           "index": 1,
           "text": "I'm listening",
           "reply": "Then hear me out.",
+          "terminal": false,
+          "outcomes": [],
+          "continue_channel": "pda",
+          "continueTo": 3
+        }
+      ],
+      "position": {
+        "x": 320,
+        "y": 0
+      }
+    },
+    {
+      "turnNumber": 3,
+      "channel": "pda",
+      "pda_entry": true,
+      "f2f_entry": false,
+      "openingMessage": "Use PDA from here on out.",
+      "choices": [
+        {
+          "index": 1,
+          "text": "Roger that",
+          "reply": "Stay sharp.",
           "terminal": true,
           "outcomes": []
         }
       ],
-      "position": { "x": 320, "y": 0 }
+      "position": {
+        "x": 640,
+        "y": 0
+      }
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
   "id": 101,
-  "label": "Fixture PDA-only",
+  "label": "Fixture PDA-only (no F2F context)",
   "preconditions": [],
   "turns": [
     {
@@ -27,7 +27,10 @@
           "outcomes": []
         }
       ],
-      "position": { "x": 0, "y": 0 }
+      "position": {
+        "x": 0,
+        "y": 0
+      }
     },
     {
       "turnNumber": 2,
@@ -44,7 +47,10 @@
           "outcomes": []
         }
       ],
-      "position": { "x": 320, "y": 0 }
+      "position": {
+        "x": 320,
+        "y": 0
+      }
     }
   ]
 }

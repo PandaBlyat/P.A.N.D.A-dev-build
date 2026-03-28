@@ -95,9 +95,15 @@ export function createStateChange(...targets: RenderTarget[]): StateChange {
 export const FULL_APP_RENDER = createStateChange('appShell');
 export const SELECTION_RENDER = createStateChange('flowEditor', 'propertiesPanel');
 
-function inferTurnFirstSpeaker(turn: Pick<Turn, 'firstSpeaker' | 'f2f_entry' | 'channel'>): 'npc' | 'player' {
+function inferTurnFirstSpeaker(
+  turn: Pick<Turn, 'firstSpeaker' | 'f2f_entry' | 'channel'>,
+  options: { allowChannelInference?: boolean } = {},
+): 'npc' | 'player' {
   if (turn.firstSpeaker === 'npc' || turn.firstSpeaker === 'player') {
     return turn.firstSpeaker;
+  }
+  if (!(options.allowChannelInference ?? true)) {
+    return 'npc';
   }
   return turn.channel === 'f2f' ? 'player' : 'npc';
 }
@@ -112,19 +118,24 @@ function normalizeChannelValue(
   return fallback;
 }
 
-function normalizeTurnEntryFlags(turn: Turn): void {
+function normalizeTurnEntryFlags(turn: Turn, options: { inferDefaults?: boolean } = {}): void {
   turn.channel = normalizeChannelValue(turn.channel, 'pda');
+  const inferDefaults = options.inferDefaults ?? true;
   const defaultPdaEntry = turn.turnNumber === 1;
 
   if (turn.channel === 'pda') {
-    turn.pda_entry = typeof turn.pda_entry === 'boolean' ? turn.pda_entry : defaultPdaEntry;
+    turn.pda_entry = typeof turn.pda_entry === 'boolean'
+      ? turn.pda_entry
+      : (inferDefaults ? defaultPdaEntry : false);
     turn.f2f_entry = false;
     return;
   }
   if (turn.channel === 'f2f') {
     turn.pda_entry = false;
     turn.f2f_entry = typeof turn.f2f_entry === 'boolean' ? turn.f2f_entry : false;
-    turn.requiresNpcFirst = typeof turn.requiresNpcFirst === 'boolean' ? turn.requiresNpcFirst : true;
+    if (inferDefaults) {
+      turn.requiresNpcFirst = typeof turn.requiresNpcFirst === 'boolean' ? turn.requiresNpcFirst : true;
+    }
   }
 }
 
@@ -713,10 +724,10 @@ class StateManager {
             npcOpenKey: typeof turn.npcOpenKey === 'string' && turn.npcOpenKey.trim().length > 0 ? turn.npcOpenKey.trim() : undefined,
             requiresNpcFirst: typeof turn.requiresNpcFirst === 'boolean'
               ? turn.requiresNpcFirst
-              : (normalizeChannelValue(turn.channel, 'pda') === 'f2f' ? true : undefined),
-            pda_entry: turn.pda_entry ?? turn.turnNumber === 1,
+              : undefined,
+            pda_entry: typeof turn.pda_entry === 'boolean' ? turn.pda_entry : false,
             f2f_entry: turn.f2f_entry ?? false,
-            firstSpeaker: inferTurnFirstSpeaker(turn),
+            firstSpeaker: inferTurnFirstSpeaker(turn, { allowChannelInference: false }),
             position: turn.position ?? getDefaultFlowTurnPosition(turnIndex + 1),
             choices: turn.choices.map((choice, choiceIndex) => ({
               ...choice,
@@ -734,7 +745,7 @@ class StateManager {
               allow_generic_stalker: choice.allow_generic_stalker ?? false,
             })),
           };
-          normalizeTurnEntryFlags(normalizedTurn);
+          normalizeTurnEntryFlags(normalizedTurn, { inferDefaults: false });
           return normalizedTurn;
         }),
       })),
