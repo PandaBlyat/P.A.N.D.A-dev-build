@@ -172,7 +172,7 @@ const HELP_CONTENT = `
   <li><strong>Add only the preconditions needed to make that situation true.</strong></li>
   <li><strong>Pick the story's initial channel (PDA or F2F), then write one clear opening message.</strong></li>
   <li><strong>Create 1-3 reply choices.</strong> Helpful, dismissive, suspicious, curious, etc.</li>
-  <li><strong>Use “Continue as PDA/F2F” for each branch and add outcomes or follow-up turns.</strong> The editor auto-fills most handoff flags.</li>
+  <li><strong>Use “Continue as PDA/F2F” for each branch and add outcomes or follow-up turns.</strong> Choices automatically inherit their parent branch channel, and the editor auto-fills handoff flags.</li>
   <li><strong>Only add complexity when the simple version already works.</strong></li>
 </ol>
 
@@ -188,7 +188,7 @@ const HELP_CONTENT = `
 
 <h2>7. PDA + F2F writing rules to remember</h2>
 <p><strong>PDA turns:</strong> write like text/radio communication from an NPC somewhere else in the world.</p>
-<p><strong>F2F turns:</strong> use <em>Continue as F2F</em> when you want a new in-person segment. The editor marks that target as an F2F entry and only that entry needs <code>npcOpenKey</code> + opener text. Continuation F2F turns do not require extra opener metadata.</p>
+<p><strong>F2F turns:</strong> use <em>Continue as F2F</em> when you want a new in-person segment. Choices inherit the current branch channel automatically, and the editor marks that target as an F2F entry when the channel changes. Only that entry needs <code>npcOpenKey</code> + opener text.</p>
 
 <h2>8. XML key format</h2>
 <p>Base format: <code>st_pda_ic_&lt;faction&gt;_&lt;id&gt;_&lt;suffix&gt;</code></p>

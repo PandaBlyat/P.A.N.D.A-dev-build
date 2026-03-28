@@ -669,7 +669,7 @@ class StateManager {
     const parentTurnChannel = options.parentTurnChannel ?? 'pda';
     const choice = createChoice(index);
     choice.text = sourceChoice.text;
-    choice.channel = normalizeChannelValue(sourceChoice.channel, parentTurnChannel);
+    choice.channel = parentTurnChannel;
     choice.reply = sourceChoice.reply;
     if (sourceChoice.replyRelHigh != null) choice.replyRelHigh = sourceChoice.replyRelHigh;
     if (sourceChoice.replyRelLow != null) choice.replyRelLow = sourceChoice.replyRelLow;
@@ -738,7 +738,7 @@ class StateManager {
             choices: turn.choices.map((choice, choiceIndex) => ({
               ...choice,
               index: choice.index ?? choiceIndex + 1,
-              channel: normalizeChannelValue(choice.channel, parentTurnChannel),
+              channel: parentTurnChannel,
               terminal: choice.terminal ?? choice.continueTo == null,
               continueChannel: (() => {
                 const sourceContinueChannel = choice.continueChannel ?? choice.continue_channel;
@@ -1042,7 +1042,7 @@ class StateManager {
     const nextTurnNumber = conversation.turns.reduce((max, turn) => Math.max(max, turn.turnNumber), 0) + 1;
     const newTurn = createTurn(nextTurnNumber);
     const sourceTurnChannel = normalizeChannelValue(sourceTurn.channel, normalizeChannelValue(conversation.initialChannel, 'pda'));
-    const sourceChoiceChannel = normalizeChannelValue(sourceChoice.channel, sourceTurnChannel);
+    const sourceChoiceChannel = sourceTurnChannel;
     const sourceContinueChannel = sourceChoice.continueChannel ?? sourceChoice.continue_channel;
     const destinationChannel = normalizeChannelValue(sourceContinueChannel, sourceChoiceChannel);
 
@@ -1185,8 +1185,15 @@ class StateManager {
     const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
     if (!turn) return;
     this.pushUndo();
+    const previousChannel = normalizeChannelValue(turn.channel, 'pda');
     Object.assign(turn, updates);
     normalizeTurnEntryFlags(turn);
+    const normalizedTurnChannel = normalizeChannelValue(turn.channel, 'pda');
+    if (normalizedTurnChannel !== previousChannel || updates.channel != null) {
+      for (const choice of turn.choices) {
+        choice.channel = normalizedTurnChannel;
+      }
+    }
     this.finishProjectMutation();
   }
 
@@ -1262,7 +1269,9 @@ class StateManager {
     if (!turn || turn.choices.length >= 4) return;
     this.pushUndo();
     const nextIndex = turn.choices.length + 1;
-    turn.choices.push(createChoice(nextIndex));
+    const newChoice = createChoice(nextIndex);
+    newChoice.channel = normalizeChannelValue(turn.channel, 'pda');
+    turn.choices.push(newChoice);
     this.finishProjectMutation();
   }
 
@@ -1342,9 +1351,10 @@ class StateManager {
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
     const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
     const choice = turn?.choices.find(c => c.index === choiceIndex);
-    if (!choice) return;
+    if (!choice || !turn) return;
     this.pushUndo();
     Object.assign(choice, updates);
+    choice.channel = normalizeChannelValue(turn.channel, 'pda');
     this.finishProjectMutation();
   }
 
@@ -1357,7 +1367,7 @@ class StateManager {
     this.pushUndo();
 
     const sourceTurnChannel = normalizeChannelValue(turn.channel, normalizeChannelValue(conv.initialChannel, 'pda'));
-    const sourceChoiceChannel = normalizeChannelValue(choice.channel, sourceTurnChannel);
+    const sourceChoiceChannel = sourceTurnChannel;
     const isSegmentStart = computeSegmentStartFlag(sourceChoiceChannel, nextChannel);
 
     choice.continueChannel = nextChannel;
