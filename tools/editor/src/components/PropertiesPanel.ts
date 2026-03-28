@@ -779,6 +779,8 @@ function renderTurnProperties(
   }
 
   for (const choice of turn.choices) {
+    const effectiveTurnChannel = normalizeChannel(turn.channel, 'pda');
+    const effectiveChoiceChannel = normalizeChannel(choice.channel, effectiveTurnChannel);
     const card = document.createElement('div');
     card.className = 'choice-card';
     const header = document.createElement('div');
@@ -806,7 +808,7 @@ function renderTurnProperties(
 
     const channelBadge = document.createElement('span');
     channelBadge.style.cssText = 'font-size:10px; font-family:var(--font-mono); color:var(--accent);';
-    channelBadge.textContent = channelLabel(normalizeChannel(choice.channel, 'pda'));
+    channelBadge.textContent = channelLabel(effectiveChoiceChannel);
     header.appendChild(channelBadge);
 
     const actionGroup = document.createElement('div');
@@ -846,7 +848,9 @@ function renderTurnProperties(
     if (choice.continueTo != null) {
       const badge = document.createElement('div');
       badge.style.cssText = 'padding:2px 10px; font-size:10px; color:var(--accent); font-family:var(--font-mono);';
-      badge.textContent = `\u2192 ${channelLabel(normalizeChannel(choice.continue_channel, 'pda'))} to ${turnLabels.getLongLabel(choice.continueTo)}`;
+      const rawContinueChannel = choice.continueChannel ?? choice.continue_channel;
+      const effectiveContinueChannel = normalizeChannel(rawContinueChannel, effectiveChoiceChannel);
+      badge.textContent = `\u2192 ${channelLabel(effectiveContinueChannel)} to ${turnLabels.getLongLabel(choice.continueTo)}`;
       card.appendChild(badge);
     }
 
