@@ -1442,6 +1442,9 @@ class StateManager {
     if (!targetTurn) return;
 
     targetTurn.channel = nextChannel;
+    for (const targetChoice of targetTurn.choices) {
+      targetChoice.channel = nextChannel;
+    }
     if (nextChannel === 'f2f') {
       targetTurn.f2f_entry = isSegmentStart;
       targetTurn.pda_entry = false;
