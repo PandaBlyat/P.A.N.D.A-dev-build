@@ -37,6 +37,9 @@ local abort_contact_f2f_state
 local build_savable_f2f_handoffs
 local is_handoff_actionable
 local consume_pending_f2f_handoff_internal
+local clear_pda_choices_for_pending_handoff
+local remove_active_conversation_entry
+local is_conversation_identity_in_use
 
 local function ensure_panda_f2f_bridge()
     if _panda_f2f_bridge_checked then
@@ -6084,6 +6087,9 @@ function on_player_choice(idx, contact_id)
                         -- object is orphaned after on_player_choice removes it (line 5921).
                         active_conversations[cid] = c
                         CONV = c
+                        -- The PDA thread is now waiting on an in-person continuation,
+                        -- so keep the thread visible but remove the reply chips.
+                        clear_pda_choices_for_pending_handoff(c)
                     end
 
                     if get_ui then
@@ -6212,6 +6218,36 @@ local function clear_pending_in_person_marker(conv)
     conv.pending_in_person_token = nil
     conv.pending_in_person_story_id = nil
     conv.pending_in_person_canonical_id = nil
+end
+
+clear_pda_choices_for_pending_handoff = function(conv)
+    if type(conv) ~= "table" then
+        return
+    end
+
+    conv.choices = nil
+    conv.num_choices = 0
+end
+
+remove_active_conversation_entry = function(contact_id)
+    local contact_key = tostring(contact_id or "")
+    if contact_key == "" then
+        return false
+    end
+
+    local removed = false
+
+    if type(active_conversations) == "table" and active_conversations[contact_key] then
+        active_conversations[contact_key] = nil
+        removed = true
+    end
+
+    if CONV and CONV.contact_id == contact_key then
+        CONV = nil
+        removed = true
+    end
+
+    return removed
 end
 
 abort_contact_f2f_state = function(contact_id, reason, options)
@@ -6673,9 +6709,12 @@ consume_pending_f2f_handoff_internal = function(npc_id, conv_id, turn, token, se
         end
     end
 
-    for _, conv in pairs(active_conversations) do
+    local consumed_contact_ids = {}
+
+    for contact_id, conv in pairs(active_conversations or {}) do
         if conv_matches_target(conv) then
             clear_pending_in_person_marker(conv)
+            consumed_contact_ids[#consumed_contact_ids + 1] = tostring(contact_id)
             consumed = true
         elseif tonumber(conv.npc_id) == npc_sid
             and conv.pending_in_person_continuation == true
@@ -6693,6 +6732,10 @@ consume_pending_f2f_handoff_internal = function(npc_id, conv_id, turn, token, se
                 tostring(target_set_at or "nil")
             )
         end
+    end
+
+    for _, contact_id in ipairs(consumed_contact_ids) do
+        remove_active_conversation_entry(contact_id)
     end
 
     return consumed
@@ -6802,6 +6845,10 @@ local function sweep_expired_f2f_pending_markers(reason)
         end
     end
 
+    for _, stale in ipairs(stale_entries) do
+        remove_active_conversation_entry(stale.contact_id)
+    end
+
     if stale_pending_cleared > 0 or handoff_rows_removed > 0 then
         printf(
             "PANDA_IC: f2f marker safety sweep reason=%s stale_pending_cleared=%s handoff_rows_removed=%s",
@@ -6899,6 +6946,97 @@ build_f2f_handoff_identity = function(npc_se, fallback_npc_id)
     return out
 end
 
+local function normalize_identity_value(value)
+    if value == nil then
+        return nil
+    end
+
+    local normalized = tostring(value):lower()
+    if normalized == "" or normalized == "nil" then
+        return nil
+    end
+
+    return normalized
+end
+
+local function identities_overlap(target_identity, slot_npc_id, slot_story_id, slot_canonical_id)
+    if type(target_identity) ~= "table" then
+        return false, nil
+    end
+
+    local target_npc_id = tonumber(target_identity.npc_id)
+    local slot_npc = tonumber(slot_npc_id)
+    if target_npc_id and slot_npc and target_npc_id == slot_npc then
+        return true, "npc_id"
+    end
+
+    local target_story_id = normalize_identity_value(target_identity.story_id)
+    local target_canonical_id = normalize_identity_value(target_identity.canonical_id)
+    local slot_story = normalize_identity_value(slot_story_id)
+    local slot_canonical = normalize_identity_value(slot_canonical_id)
+
+    if target_story_id and slot_story and target_story_id == slot_story then
+        return true, "story_id"
+    end
+    if target_canonical_id and slot_canonical and target_canonical_id == slot_canonical then
+        return true, "canonical_id"
+    end
+    if target_story_id and slot_canonical and target_story_id == slot_canonical then
+        return true, "story_to_canonical"
+    end
+    if target_canonical_id and slot_story and target_canonical_id == slot_story then
+        return true, "canonical_to_story"
+    end
+
+    return false, nil
+end
+
+is_conversation_identity_in_use = function(npc_se, options)
+    options = type(options) == "table" and options or {}
+
+    local identity = options.identity or build_f2f_handoff_identity(npc_se, options.fallback_npc_id)
+    if type(identity) ~= "table" then
+        identity = {}
+    end
+    identity.npc_id = tonumber(options.npc_id or identity.npc_id or (npc_se and npc_se.id)) or identity.npc_id
+
+    for contact_key, conv in pairs(active_conversations or {}) do
+        if type(conv) == "table" then
+            local matched, reason = identities_overlap(
+                identity,
+                conv.npc_id,
+                conv.pending_in_person_story_id or conv.story_id,
+                conv.pending_in_person_canonical_id or conv.canonical_id
+            )
+            if matched then
+                return true, "active_conversation:" .. tostring(reason), tostring(contact_key)
+            end
+        end
+    end
+
+    for key, handoff in pairs(pda_f2f_handoffs or {}) do
+        if type(handoff) == "table" then
+            local actionable = true
+            if type(is_handoff_actionable) == "function" then
+                actionable = is_handoff_actionable(handoff, time_global and time_global() or nil)
+            end
+            if actionable then
+                local matched, reason = identities_overlap(
+                    identity,
+                    handoff.npc_id,
+                    handoff.story_id,
+                    handoff.canonical_id
+                )
+                if matched then
+                    return true, "pending_handoff:" .. tostring(reason), tostring(handoff.contact_id or key)
+                end
+            end
+        end
+    end
+
+    return false, nil, nil
+end
+
 make_f2f_handoff_token = function(npc_id, conv_id, turn, set_at)
     local rand = math.random(100000, 999999)
     return string.format(
@@ -6973,6 +7111,22 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
 
     -- Block if this specific NPC already has an active conversation
     if active_conversations[contact_id] then return false end
+
+    local identity_in_use, identity_reason, owner_key = is_conversation_identity_in_use(npc_se, {
+        identity = identity,
+    })
+    if identity_in_use then
+        printf(
+            "PANDA_IC: start_interactive_conv blocked reason=%s owner=%s npc_id=%s story_id=%s canonical_id=%s conv_id=%s",
+            tostring(identity_reason or "identity_in_use"),
+            tostring(owner_key or "nil"),
+            tostring(identity.npc_id or npc_se.id or "nil"),
+            tostring(identity.story_id or "nil"),
+            tostring(identity.canonical_id or "nil"),
+            tostring(conv_id or "nil")
+        )
+        return false
+    end
 
     -- Initialize relationship score for hostile NPCs on first contact
     if not npc_relationship_scores[contact_id] then
@@ -7088,6 +7242,17 @@ local function collect_story_npc_conversations(xml_fac)
         if story_id then
             local npc_se = get_story_se_object(story_id)
             if npc_se and npc_se:alive() then
+                local identity_in_use, identity_reason, owner_key = is_conversation_identity_in_use(npc_se)
+                if identity_in_use then
+                    printf(
+                        "PANDA_IC: skip story NPC candidate npc_id=%s story_id=%s conv_id=%s reason=%s owner=%s",
+                        tostring(tonumber(npc_se.id) or 0),
+                        tostring(story_id),
+                        tostring(tonumber(cid) or 0),
+                        tostring(identity_reason or "identity_in_use"),
+                        tostring(owner_key or "nil")
+                    )
+                else
                 -- NPC cooldown
                 if not is_npc_on_cooldown(npc_se.id) then
                     -- Conversation cooldown
@@ -7128,6 +7293,7 @@ local function collect_story_npc_conversations(xml_fac)
                         end
                     end
                 end
+                end
             end
         end
     end
@@ -7163,12 +7329,22 @@ local function attempt_interactive_conversation()
     while #pool > 0 do
         local idx = math.random(#pool)
         local candidate = table.remove(pool, idx)
-        local candidate_conv = pick_random_conv_id_generic(nil, xml_fac, nil, candidate)
-        if candidate_conv then
-            table.insert(sim_matches, {npc_se = candidate, conv_id = candidate_conv, weight = 100})
-            -- Stop after finding one simulated match (preserves existing behavior
-            -- where one random NPC is selected from the pool)
-            break
+        local identity_in_use, identity_reason, owner_key = is_conversation_identity_in_use(candidate)
+        if identity_in_use then
+            printf(
+                "PANDA_IC: skip simulated NPC candidate npc_id=%s reason=%s owner=%s",
+                tostring(tonumber(candidate.id) or 0),
+                tostring(identity_reason or "identity_in_use"),
+                tostring(owner_key or "nil")
+            )
+        else
+            local candidate_conv = pick_random_conv_id_generic(nil, xml_fac, nil, candidate)
+            if candidate_conv then
+                table.insert(sim_matches, {npc_se = candidate, conv_id = candidate_conv, weight = 100})
+                -- Stop after finding one simulated match (preserves existing behavior
+                -- where one random NPC is selected from the pool)
+                break
+            end
         end
     end
 
@@ -7268,7 +7444,11 @@ function check_conversation_timeouts()
     local expired = {}
     for cid, conv in pairs(active_conversations) do
         -- Skip conversations that have a pending job (they are "paused")
-        if conv.started_at and not conv.reply_pending and not has_pending_job(cid) then
+        if conv.started_at
+            and not conv.reply_pending
+            and not has_pending_job(cid)
+            and conv.pending_in_person_continuation ~= true
+        then
             local timeout_secs, timeout_msg = get_conv_timeout_config(
                 conv.prefix, conv.faction, conv.conv_id
             )
@@ -7747,6 +7927,9 @@ function load_state(m)
                     saved.pending_in_person_token = saved.pending_in_person_token
                     saved.pending_in_person_story_id = saved.pending_in_person_story_id or saved.story_id
                     saved.pending_in_person_canonical_id = saved.pending_in_person_canonical_id or saved.canonical_id
+                    if saved.pending_in_person_continuation == true then
+                        clear_pda_choices_for_pending_handoff(saved)
+                    end
                     active_conversations[cid] = saved
                     CONV = saved  -- last one loaded becomes CONV for compat
                 end

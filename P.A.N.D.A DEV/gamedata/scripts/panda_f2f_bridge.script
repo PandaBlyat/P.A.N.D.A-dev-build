@@ -961,6 +961,37 @@ local function actor_on_update_cb()
     panda_f2f_bridge.on_dialog_closed(active_npc_id, "actor_on_update_watchdog")
 end
 
+local function actor_menu_mode_changed_cb(mode, previous_mode)
+    local current_mode = tonumber(mode)
+    local last_mode = tonumber(previous_mode)
+    local dialog_hidden = (current_mode == 11) or (current_mode == 0 and last_mode == 10)
+    if not dialog_hidden then
+        return
+    end
+
+    -- A pending pre-init handoff is not yet a safe teardown target here.
+    -- Late ActorMenu close notifications can belong to the previous dialog.
+    local has_registered_state = runtime.active_token ~= nil or next(runtime.state_by_id or {}) ~= nil
+    if not has_registered_state then
+        if type(runtime.pending_state) == "table" or next(runtime.override_owners or {}) ~= nil then
+            bridge_warn(
+                "callback ignored entry=actor_menu_on_mode_changed mode=%s previous_mode=%s reason=%s",
+                tostring(mode),
+                tostring(previous_mode),
+                "pending_or_override_without_registered_state"
+            )
+        end
+        return
+    end
+
+    bridge_warn(
+        "callback fired entry=actor_menu_on_mode_changed mode=%s previous_mode=%s",
+        tostring(mode),
+        tostring(previous_mode)
+    )
+    panda_f2f_bridge.on_dialog_closed("actor_menu_mode_changed")
+end
+
 local function ensure_callbacks_registered()
     if runtime.callbacks_registered then
         return
@@ -985,6 +1016,7 @@ local function ensure_callbacks_registered()
     register_callback_safe("dialog_close", panda_f2f_bridge.on_dialog_closed)
     register_callback_safe("dialog_closed", panda_f2f_bridge.on_dialog_closed)
     register_callback_safe("on_dialog_close", panda_f2f_bridge.on_dialog_closed)
+    register_callback_safe("ActorMenu_on_mode_changed", actor_menu_mode_changed_cb)
 
     runtime.callbacks_registered = true
 end
@@ -3541,14 +3573,19 @@ function panda_f2f_bridge.on_dialog_closed(npc_or_reason, reason, ...)
     if type(state) == "table" then
         local had_runtime_state_id = state.runtime_state_id ~= nil
         local had_active_token = state.active_token ~= nil
+        local had_pending_state = runtime.pending_state == state
         unregister_active_state(state)
+        if had_pending_state then
+            runtime.pending_state = nil
+        end
         cleanup_state_handlers(state)
         bridge_warn(
-            "teardown unregister_state npc_id=%s reason=%s had_runtime_state_id=%s had_active_token=%s",
+            "teardown unregister_state npc_id=%s reason=%s had_runtime_state_id=%s had_active_token=%s had_pending_state=%s",
             tostring(resolved_npc_id or "nil"),
             tostring(close_reason),
             tostring(had_runtime_state_id),
-            tostring(had_active_token)
+            tostring(had_active_token),
+            tostring(had_pending_state)
         )
     else
         bridge_warn(
