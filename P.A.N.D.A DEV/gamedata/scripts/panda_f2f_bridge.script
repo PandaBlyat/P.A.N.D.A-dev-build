@@ -1012,10 +1012,8 @@ local function ensure_callbacks_registered()
     register_callback_safe("load_state", load_state_cb)
     register_callback_safe("actor_on_update", actor_on_update_cb)
 
-    -- Prefer explicit dialog-close callbacks where available; actor_on_update remains fallback watchdog.
-    register_callback_safe("dialog_close", panda_f2f_bridge.on_dialog_closed)
-    register_callback_safe("dialog_closed", panda_f2f_bridge.on_dialog_closed)
-    register_callback_safe("on_dialog_close", panda_f2f_bridge.on_dialog_closed)
+    -- Register the vanilla dialog-close callback; actor_on_update remains fallback watchdog.
+    register_callback_safe("actor_on_leave_dialog", panda_f2f_bridge.on_dialog_closed)
     register_callback_safe("ActorMenu_on_mode_changed", actor_menu_mode_changed_cb)
 
     runtime.callbacks_registered = true
