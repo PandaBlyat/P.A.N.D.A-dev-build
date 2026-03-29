@@ -6077,6 +6077,13 @@ function on_player_choice(idx, contact_id)
 
                         printf("PANDA_IC: f2f handoff registered npc_id=%s conv_id=%s turn=%s dialog=%s route=%s",
                             tostring(c.npc_id), tostring(c.conv_id), tostring(ch.next_turn), "panda_f2f_hub_dialog", handoff_route)
+
+                        -- Re-register in active_conversations so the pending_in_person
+                        -- markers are trackable by consume_pending_f2f_handoff_internal
+                        -- and sweep_expired_f2f_pending_markers. Without this, the conv
+                        -- object is orphaned after on_player_choice removes it (line 5921).
+                        active_conversations[cid] = c
+                        CONV = c
                     end
 
                     if get_ui then

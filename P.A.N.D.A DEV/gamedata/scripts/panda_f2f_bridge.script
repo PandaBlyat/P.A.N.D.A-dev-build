@@ -22,6 +22,7 @@ local ACTOR_PARITY_SHIM_FALLBACK_LITERAL = "[PANDA parity shim]"
 local bridge_debug
 local bridge_warn
 local cleanup_noncommit_exit
+local cleanup_state_handlers
 local resolve_server_npc_id
 local resolve_server_entity_from_id
 local normalize_lookup_id
@@ -62,6 +63,11 @@ local function register_active_state(state)
         runtime.state_by_id[previous_token_key] = nil
         if previous_state and previous_state.runtime_state_id then
             runtime.state_by_id[previous_state.runtime_state_id] = nil
+        end
+        -- Clean up handler functions from the replaced session to prevent
+        -- stale closures holding references to destroyed engine objects
+        if type(previous_state) == "table" then
+            cleanup_state_handlers(previous_state)
         end
     end
     local state_id = make_state_id(state)
@@ -896,6 +902,23 @@ end
 local function actor_on_update_cb()
     local state = runtime.latest_state
     if type(state) ~= "table" then
+        return
+    end
+
+    -- Only watchdog the state that matches the current active token.
+    -- If a newer session has been registered (e.g. a second f2f conversation
+    -- started while this state's teardown was deferred), this state is orphaned.
+    -- Clean it up directly without going through on_dialog_closed, which would
+    -- resolve the NPC ID and potentially tear down the NEW session's state instead.
+    if state.active_token and runtime.active_token
+        and tostring(state.active_token) ~= tostring(runtime.active_token) then
+        bridge_warn(
+            "teardown watchdog stale_session_cleanup token=%s active_token=%s",
+            tostring(state.active_token),
+            tostring(runtime.active_token)
+        )
+        cleanup_state_handlers(state)
+        unregister_active_state(state)
         return
     end
 
@@ -1860,6 +1883,31 @@ local function consume_pending_handoff_for_npc(npc_se, conv_id, turn, token, set
     return api.consume_pending_f2f_handoff(partner_id, conv_id, turn, token, set_at) == true
 end
 
+cleanup_state_handlers = function(state)
+    if type(state) ~= "table" then
+        return
+    end
+    -- Remove _G handler functions to prevent stale closure leaks.
+    -- Each f2f dialog session registers precondition/action callbacks in _G
+    -- via register_dispatcher(). These closures capture state.dialog (CPhraseDialog
+    -- userdata) and state.npc_se (server entity). If not cleaned up, stale
+    -- references to destroyed engine objects can cause freezes during save/load/GC.
+    if type(state.handlers) == "table" then
+        for _, handler in ipairs(state.handlers) do
+            if handler.cond_name then
+                _G[handler.cond_name] = nil
+            end
+            if handler.act_name then
+                _G[handler.act_name] = nil
+            end
+        end
+        state.handlers = {}
+    end
+    -- Break references to engine userdata to prevent stale access
+    state.dialog = nil
+    state.npc_se = nil
+end
+
 cleanup_noncommit_exit = function(state, exit_reason)
     if type(state) ~= "table" then
         return false
@@ -1900,6 +1948,7 @@ cleanup_noncommit_exit = function(state, exit_reason)
         tostring(state.turn or "nil"),
         tostring(exit_reason or "unknown")
     )
+    cleanup_state_handlers(state)
     return true
 end
 
@@ -3493,6 +3542,7 @@ function panda_f2f_bridge.on_dialog_closed(npc_or_reason, reason, ...)
         local had_runtime_state_id = state.runtime_state_id ~= nil
         local had_active_token = state.active_token ~= nil
         unregister_active_state(state)
+        cleanup_state_handlers(state)
         bridge_warn(
             "teardown unregister_state npc_id=%s reason=%s had_runtime_state_id=%s had_active_token=%s",
             tostring(resolved_npc_id or "nil"),
