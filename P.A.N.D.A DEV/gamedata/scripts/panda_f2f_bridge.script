@@ -14,6 +14,8 @@ local HUB_DIALOG_ID = "panda_f2f_hub_dialog"
 local BRANCH_HARD_ROUTE_SUFFIX = "_f2f_hard_route"
 local SAVE_KEY_OVERRIDE_OWNERS = "panda_f2f_bridge_override_owners"
 local RECENT_HANDOFF_GRACE_MS = 2 * 60 * 1000
+local WATCHDOG_INIT_GRACE_MS = 1500
+local WATCHDOG_FORCE_TIMEOUT_MS = 5000
 local ROOT_ENTRY_PHRASE_ID = "st_panda_f2f_root_entry"
 local ACTOR_PARITY_SHIM_PHRASE_ID = "st_panda_f2f_actor_parity_shim"
 local ACTOR_PARITY_SHIM_FALLBACK_LITERAL = "[PANDA parity shim]"
@@ -21,7 +23,12 @@ local bridge_debug
 local bridge_warn
 local cleanup_noncommit_exit
 local resolve_server_npc_id
+local resolve_server_entity_from_id
 local normalize_lookup_id
+local resolve_partner_runtime_ids
+local handoff_matches_talker_identity
+local build_callback_resolution_context
+local get_unique_actionable_pending_handoff
 
 local runtime = {
     state_by_id = {},
@@ -48,6 +55,7 @@ local function register_active_state(state)
     if type(state) ~= "table" then
         return nil
     end
+    state.teardown_in_progress = false
     if runtime.active_token and state.active_token and runtime.active_token ~= tostring(state.active_token) then
         local previous_token_key = "token:" .. tostring(runtime.active_token)
         local previous_state = runtime.state_by_id[previous_token_key]
@@ -91,13 +99,17 @@ end
 local function resolve_runtime_state_for_npc(npc_id)
     local sid = normalize_lookup_id(npc_id)
     if not sid then
-        return runtime.latest_state
+        local latest = runtime.latest_state
+        if type(latest) == "table" and latest.teardown_in_progress ~= true then
+            return latest
+        end
+        return nil
     end
 
     local active_token = runtime.active_token
     if active_token then
         local token_state = runtime.state_by_id["token:" .. tostring(active_token)]
-        if type(token_state) == "table" then
+        if type(token_state) == "table" and token_state.teardown_in_progress ~= true then
             local token_npc_id = resolve_server_npc_id(token_state.npc_se, "resolve_runtime_state_for_npc:token")
             if token_npc_id == sid then
                 return token_state
@@ -106,7 +118,7 @@ local function resolve_runtime_state_for_npc(npc_id)
     end
 
     for _, candidate in pairs(runtime.state_by_id) do
-        if type(candidate) == "table" then
+        if type(candidate) == "table" and candidate.teardown_in_progress ~= true then
             local candidate_npc_id = resolve_server_npc_id(candidate.npc_se, "resolve_runtime_state_for_npc:scan")
             if candidate_npc_id == sid then
                 return candidate
@@ -115,7 +127,7 @@ local function resolve_runtime_state_for_npc(npc_id)
     end
 
     local latest = runtime.latest_state
-    if type(latest) == "table" then
+    if type(latest) == "table" and latest.teardown_in_progress ~= true then
         local latest_npc_id = resolve_server_npc_id(latest.npc_se, "resolve_runtime_state_for_npc:latest")
         if latest_npc_id == sid then
             return latest
@@ -149,6 +161,265 @@ function normalize_lookup_id(id)
         return nil
     end
     return math.floor(sid)
+end
+
+local function resolve_actor_sid()
+    local actor = db and db.actor or nil
+    if not actor then
+        return nil
+    end
+
+    local sid = normalize_lookup_id(actor.id)
+    if sid then
+        return sid
+    end
+
+    if type(actor.id) == "function" then
+        local ok_sid, resolved_sid = pcall(function()
+            return actor:id()
+        end)
+        if ok_sid then
+            return normalize_lookup_id(resolved_sid)
+        end
+    end
+
+    return nil
+end
+
+local function resolve_unique_active_runtime_state()
+    local unique_state = nil
+    local seen = {}
+
+    for _, candidate in pairs(runtime.state_by_id) do
+        if type(candidate) == "table" and candidate.teardown_in_progress ~= true and not seen[candidate] then
+            if unique_state and unique_state ~= candidate then
+                return nil
+            end
+            seen[candidate] = true
+            unique_state = candidate
+        end
+    end
+
+    if type(unique_state) == "table" then
+        return unique_state
+    end
+
+    local latest = runtime.latest_state
+    if type(latest) == "table" and latest.teardown_in_progress ~= true then
+        return latest
+    end
+
+    return nil
+end
+
+local function resolve_lookup_id_from_value(value)
+    local sid = normalize_lookup_id(value)
+    if sid then
+        return sid
+    end
+
+    local value_type = type(value)
+    if value_type ~= "table" and value_type ~= "userdata" then
+        return nil
+    end
+
+    local ok_field, raw_id = pcall(function()
+        return value.id
+    end)
+    if ok_field then
+        if type(raw_id) == "function" then
+            local ok_call, resolved_id = pcall(function()
+                return value:id()
+            end)
+            if ok_call then
+                sid = normalize_lookup_id(resolved_id)
+            end
+        else
+            sid = normalize_lookup_id(raw_id)
+        end
+        if sid then
+            return sid
+        end
+    end
+
+    for _, field_name in ipairs({
+        "npc_id",
+        "object_id",
+        "speaker_id",
+        "talker_id",
+        "partner_id",
+    }) do
+        local ok_nested, nested_value = pcall(function()
+            return value[field_name]
+        end)
+        if ok_nested then
+            sid = normalize_lookup_id(nested_value)
+            if sid then
+                return sid
+            end
+        end
+    end
+
+    return nil
+end
+
+resolve_server_entity_from_id = function(id, source_tag)
+    local sid = normalize_lookup_id(id)
+    if not sid then
+        return nil
+    end
+
+    local sim = alife and alife()
+    if not sim then
+        bridge_debug(
+            "resolve_server_entity_from_id: failed source=%s npc_id=%s detail=%s",
+            tostring(source_tag or "unknown"),
+            tostring(sid),
+            "missing_alife"
+        )
+        return nil
+    end
+
+    local se = sim:object(sid)
+    if se then
+        return se
+    end
+
+    bridge_debug(
+        "resolve_server_entity_from_id: failed source=%s npc_id=%s detail=%s",
+        tostring(source_tag or "unknown"),
+        tostring(sid),
+        "sim_object_nil"
+    )
+    return nil
+end
+
+build_callback_resolution_context = function(...)
+    local out = {
+        npc_id = nil,
+        npc_se = nil,
+        talker_id = nil,
+        source = "none",
+        candidate_ids = {},
+    }
+
+    local actor_sid = resolve_actor_sid()
+    local seen = {}
+
+    local function consider_value(source_tag, value)
+        local sid = resolve_lookup_id_from_value(value)
+        if not sid or (actor_sid and sid == actor_sid) or seen[sid] then
+            return
+        end
+
+        seen[sid] = true
+        out.candidate_ids[#out.candidate_ids + 1] = sid
+        if not out.npc_id then
+            out.npc_id = sid
+            out.source = tostring(source_tag or "callback")
+        end
+        if not out.npc_se then
+            out.npc_se = resolve_server_entity_from_id(sid, source_tag)
+        end
+    end
+
+    for idx = 1, select("#", ...) do
+        local arg = select(idx, ...)
+        local source_tag = "callback_arg_" .. tostring(idx)
+        if type(arg) == "table" or type(arg) == "userdata" or idx <= 2 then
+            consider_value(source_tag, arg)
+        end
+
+        if type(arg) == "table" or type(arg) == "userdata" then
+            for _, field_name in ipairs({
+                "npc",
+                "speaker",
+                "object",
+                "talker",
+                "partner",
+                "other",
+            }) do
+                local ok_nested, nested_value = pcall(function()
+                    return arg[field_name]
+                end)
+                if ok_nested then
+                    consider_value(source_tag .. "." .. tostring(field_name), nested_value)
+                end
+            end
+        end
+    end
+
+    out.talker_id = out.npc_id
+    return out
+end
+
+local function compare_pending_handoff_priority(a, b)
+    local a_set_at = tonumber(a and a.set_at) or 0
+    local b_set_at = tonumber(b and b.set_at) or 0
+    if a_set_at ~= b_set_at then
+        return a_set_at > b_set_at
+    end
+
+    local a_token = tostring(a and a.token or "")
+    local b_token = tostring(b and b.token or "")
+    if a_token ~= b_token then
+        return a_token > b_token
+    end
+
+    return tostring(a and a.key or "") < tostring(b and b.key or "")
+end
+
+get_unique_actionable_pending_handoff = function()
+    local handoffs = rawget(_G, "pda_f2f_handoffs")
+    if type(handoffs) ~= "table" then
+        return nil
+    end
+
+    local now = tonumber(time_global and time_global() or 0) or 0
+    local newest_by_npc = {}
+    for key, raw_handoff in pairs(handoffs) do
+        if type(raw_handoff) == "table" then
+            local npc_id = normalize_lookup_id(raw_handoff.npc_id)
+            local conv_id = normalize_lookup_id(raw_handoff.conv_id)
+            local turn = normalize_lookup_id(raw_handoff.turn)
+            local set_at = tonumber(raw_handoff.set_at)
+            local age_ok = true
+            if set_at then
+                local age = now - set_at
+                if age < 0 then
+                    age = 0
+                end
+                age_ok = age <= RECENT_HANDOFF_GRACE_MS
+            end
+
+            if npc_id and conv_id and turn and set_at and age_ok then
+                local candidate = {
+                    key = key,
+                    npc_id = npc_id,
+                    conv_id = conv_id,
+                    turn = turn,
+                    set_at = set_at,
+                    token = raw_handoff.token and tostring(raw_handoff.token) or nil,
+                    source_path = "unique_pending_handoff",
+                }
+                local existing = newest_by_npc[npc_id]
+                if not existing or compare_pending_handoff_priority(candidate, existing) then
+                    newest_by_npc[npc_id] = candidate
+                end
+            end
+        end
+    end
+
+    local candidates = {}
+    for _, candidate in pairs(newest_by_npc) do
+        candidates[#candidates + 1] = candidate
+    end
+
+    if #candidates ~= 1 then
+        return nil
+    end
+
+    return candidates[1]
 end
 
 local function resolve_current_talker_id()
@@ -200,7 +471,78 @@ local function resolve_story_id_for_sid(sid)
     return nil
 end
 
-local function handoff_matches_talker_identity(handoff_npc_sid, talker_sid)
+local function build_identity_candidate_list(raw_values)
+    local out = {}
+    local seen = {}
+    for _, value in ipairs(raw_values or {}) do
+        if value ~= nil then
+            local normalized = tostring(value):lower()
+            if normalized ~= "" and not seen[normalized] then
+                seen[normalized] = true
+                out[#out + 1] = normalized
+            end
+        end
+    end
+    return out
+end
+
+local function build_runtime_identity_candidates(npc_se, talker_sid)
+    local runtime_ids = resolve_partner_runtime_ids(npc_se)
+    local raw_values = {}
+
+    for _, candidate in ipairs(runtime_ids.canonical_candidates or {}) do
+        raw_values[#raw_values + 1] = candidate
+    end
+    raw_values[#raw_values + 1] = runtime_ids.story_id
+    raw_values[#raw_values + 1] = runtime_ids.canonical_id
+    raw_values[#raw_values + 1] = runtime_ids.fallback_name
+    raw_values[#raw_values + 1] = runtime_ids.character_name
+
+    if talker_sid then
+        raw_values[#raw_values + 1] = resolve_story_id_for_sid(talker_sid)
+    end
+
+    return build_identity_candidate_list(raw_values), runtime_ids
+end
+
+local function build_handoff_identity_candidates(raw_handoff)
+    local raw_values = {
+        raw_handoff and raw_handoff.canonical_id,
+        raw_handoff and raw_handoff.story_id,
+        raw_handoff and raw_handoff.story_npc_id,
+        raw_handoff and raw_handoff.req_story_npc,
+        raw_handoff and raw_handoff.fallback_name,
+    }
+
+    local raw_npc_id = normalize_lookup_id(raw_handoff and raw_handoff.npc_id)
+    if raw_npc_id then
+        raw_values[#raw_values + 1] = resolve_story_id_for_sid(raw_npc_id)
+    end
+
+    return build_identity_candidate_list(raw_values)
+end
+
+local function match_handoff_identity(raw_handoff, runtime_candidate_map, talker_sid)
+    local raw_npc_id = normalize_lookup_id(raw_handoff and raw_handoff.npc_id)
+    if talker_sid and raw_npc_id and handoff_matches_talker_identity(raw_npc_id, talker_sid) then
+        return true, "exact_id", build_handoff_identity_candidates(raw_handoff)
+    end
+
+    local handoff_candidates = build_handoff_identity_candidates(raw_handoff)
+    for _, candidate in ipairs(handoff_candidates) do
+        if runtime_candidate_map[candidate] then
+            local match_mode = "canonical_id"
+            if raw_handoff and raw_handoff.story_id and tostring(raw_handoff.story_id):lower() == candidate then
+                match_mode = "story_id"
+            end
+            return true, match_mode, handoff_candidates
+        end
+    end
+
+    return false, nil, handoff_candidates
+end
+
+handoff_matches_talker_identity = function(handoff_npc_sid, talker_sid)
     if not handoff_npc_sid or not talker_sid then
         return false
     end
@@ -215,116 +557,17 @@ local function handoff_matches_talker_identity(handoff_npc_sid, talker_sid)
     return false
 end
 
-local function get_partner_npc_se()
+local function get_partner_npc_se(context)
     local sim = alife and alife()
     if not sim then
         bridge_debug("get_partner_npc_se: pending_conv_id=%s partner_id=%s server_entity_resolved=%s", "nil", "nil", "false")
         return nil
     end
 
+    context = type(context) == "table" and context or {}
     local pending_conv_id = nil
     local partner_id = nil
-    local function resolve_pending_handoff_candidate()
-        local api = get_conv_api()
-        local found = nil
 
-        local function validate_handoff(path, handoff)
-            if type(handoff) ~= "table" then
-                return nil
-            end
-
-            local npc_sid = normalize_lookup_id(handoff.npc_id)
-            local conv_sid = normalize_lookup_id(handoff.conv_id)
-            local turn_sid = normalize_lookup_id(handoff.turn)
-            if not npc_sid or not conv_sid or not turn_sid then
-                return nil
-            end
-
-            return {
-                path = path,
-                npc_id = npc_sid,
-                conv_id = conv_sid,
-                turn = turn_sid,
-            }
-        end
-
-        local current_talker_id = resolve_current_talker_id()
-
-        if type(api) == "table" and type(api.get_pending_f2f_handoff) == "function" then
-            if current_talker_id then
-                local ok_handoff, handoff = pcall(function()
-                    return api.get_pending_f2f_handoff(current_talker_id)
-                end)
-                if ok_handoff then
-                    found = validate_handoff("api:direct_talker", handoff)
-                    if found and not handoff_matches_talker_identity(found.npc_id, current_talker_id) then
-                        bridge_debug(
-                            "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s handoff_npc_id=%s reject_reason=%s",
-                            "api:direct_talker",
-                            tostring(current_talker_id),
-                            tostring(found.npc_id),
-                            "npc_mismatch"
-                        )
-                        found = nil
-                    end
-                    if found then
-                        bridge_debug(
-                            "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s handoff_npc_id=%s",
-                            "api:direct_talker",
-                            tostring(current_talker_id),
-                            tostring(found.npc_id)
-                        )
-                        return found
-                    end
-                end
-            end
-        end
-
-        if not current_talker_id then
-            bridge_debug(
-                "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s reject_reason=%s",
-                "pending_handoff_scan",
-                "nil",
-                "missing_talker"
-            )
-            bridge_debug(
-                "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s",
-                "none",
-                "nil"
-            )
-            return nil
-        end
-
-        if type(rawget(_G, "pda_f2f_handoffs")) == "table" then
-            for _, raw_handoff in pairs(pda_f2f_handoffs) do
-                found = validate_handoff("pending_handoff_scan", raw_handoff)
-                if found and handoff_matches_talker_identity(found.npc_id, current_talker_id) then
-                    bridge_debug(
-                        "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s handoff_npc_id=%s",
-                        "pending_handoff_scan",
-                        tostring(current_talker_id),
-                        tostring(found.npc_id)
-                    )
-                    return found
-                elseif found then
-                    bridge_debug(
-                        "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s handoff_npc_id=%s reject_reason=%s",
-                        "pending_handoff_scan",
-                        tostring(current_talker_id),
-                        tostring(found.npc_id),
-                        "npc_mismatch"
-                    )
-                end
-            end
-        end
-
-        bridge_debug(
-            "get_partner_npc_se: resolve_pending_handoff_candidate source=%s talker_id=%s",
-            "none",
-            "nil"
-        )
-        return nil
-    end
     local function resolve_from_id(path, id)
         local sid = normalize_lookup_id(id)
         if not sid then
@@ -356,54 +599,27 @@ local function get_partner_npc_se()
         return nil
     end
 
-    local pending_handoff = resolve_pending_handoff_candidate()
-    if pending_handoff then
-        pending_conv_id = pending_handoff.conv_id
-        local se = resolve_from_id(pending_handoff.path or "pending_handoff", pending_handoff.npc_id)
+    local callback_npc_id = context.npc_id or resolve_server_npc_id(context.npc_se, "get_partner_npc_se:callback")
+    if callback_npc_id then
+        local se = resolve_from_id(context.source or "callback_context", callback_npc_id)
         if se then
             bridge_debug(
-                "get_partner_npc_se: path=%s pending_conv_id=%s partner_id=%s handoff_turn=%s server_entity_resolved=%s",
-                tostring(pending_handoff.path or "pending_handoff"),
+                "get_partner_npc_se: path=%s pending_conv_id=%s partner_id=%s source=%s server_entity_resolved=%s",
+                tostring(context.source or "callback_context"),
                 tostring(pending_conv_id),
                 tostring(partner_id),
-                tostring(pending_handoff.turn),
+                tostring(context.source or "callback_context"),
                 "true"
             )
             return se
         end
     end
 
-    if mob_trade and type(mob_trade.GetTalkingNpc) == "function" then
-        local ok_talker, talker = pcall(function() return mob_trade.GetTalkingNpc() end)
-        if ok_talker and talker then
-            local talker_id = talker.id
-            if type(talker.id) == "function" then
-                local ok_id, id_from_fn = pcall(function() return talker:id() end)
-                if ok_id then
-                    talker_id = id_from_fn
-                end
-            end
-            local se = resolve_from_id("mob_trade.GetTalkingNpc", talker_id)
-            if se then
-                return se
-            end
-        end
-    end
-
-    if type(get_speaker) == "function" then
-        local ok_speaker, speaker = pcall(function() return get_speaker() end)
-        if ok_speaker and speaker then
-            local speaker_id = speaker.id
-            if type(speaker.id) == "function" then
-                local ok_id, id_from_fn = pcall(function() return speaker:id() end)
-                if ok_id then
-                    speaker_id = id_from_fn
-                end
-            end
-            local se = resolve_from_id("get_speaker", speaker_id)
-            if se then
-                return se
-            end
+    local live_talker_id = context.talker_id or resolve_current_talker_id()
+    if live_talker_id then
+        local se = resolve_from_id("live_talker", live_talker_id)
+        if se then
+            return se
         end
     end
 
@@ -439,6 +655,24 @@ local function get_partner_npc_se()
                     return se
                 end
             end
+        end
+    end
+
+    local unique_handoff = get_unique_actionable_pending_handoff()
+    if unique_handoff then
+        pending_conv_id = unique_handoff.conv_id
+        local se = resolve_from_id(unique_handoff.source_path or "unique_pending_handoff", unique_handoff.npc_id)
+        if se then
+            bridge_debug(
+                "get_partner_npc_se: path=%s pending_conv_id=%s partner_id=%s handoff_turn=%s token=%s server_entity_resolved=%s",
+                tostring(unique_handoff.source_path or "unique_pending_handoff"),
+                tostring(pending_conv_id),
+                tostring(partner_id),
+                tostring(unique_handoff.turn or "nil"),
+                tostring(unique_handoff.token or "nil"),
+                "true"
+            )
+            return se
         end
     end
 
@@ -519,6 +753,72 @@ local function normalize_npc_id(npc_id)
     return math.floor(out)
 end
 
+local function restore_override_owners(owners)
+    if type(owners) ~= "table" then
+        return false
+    end
+
+    local restored_any = false
+    for npc_id, _ in pairs(owners) do
+        local sid = normalize_npc_id(npc_id)
+        if sid and xr_meet and type(xr_meet.restore_dialog) == "function" then
+            local ok_restore = pcall(xr_meet.restore_dialog, sid)
+            restored_any = ok_restore or restored_any
+        end
+    end
+
+    return restored_any
+end
+
+local function clear_runtime_transient_state()
+    runtime.state_by_id = {}
+    runtime.latest_state = nil
+    runtime.pending_state = nil
+    runtime.active_token = nil
+end
+
+local function discard_runtime_state_for_npc(npc_id, token)
+    local sid = normalize_npc_id(npc_id)
+    local token_s = token and tostring(token) or nil
+    local removed = false
+
+    local pending_state = runtime.pending_state
+    if type(pending_state) == "table" then
+        local pending_sid = pending_state.resolved_npc_id or resolve_server_npc_id(pending_state.npc_se, "discard_runtime_state_for_npc:pending")
+        local pending_token = pending_state.active_token and tostring(pending_state.active_token) or nil
+        local pending_handoff_token = pending_state.handoff_token and tostring(pending_state.handoff_token) or nil
+        if (sid and pending_sid == sid)
+            or (token_s and (pending_token == token_s or pending_handoff_token == token_s))
+        then
+            runtime.pending_state = nil
+            removed = true
+        end
+    end
+
+    local matched_states = {}
+    local seen = {}
+    for _, candidate in pairs(runtime.state_by_id) do
+        if type(candidate) == "table" and not seen[candidate] then
+            local candidate_sid = candidate.resolved_npc_id or resolve_server_npc_id(candidate.npc_se, "discard_runtime_state_for_npc:active")
+            local candidate_active_token = candidate.active_token and tostring(candidate.active_token) or nil
+            local candidate_handoff_token = candidate.handoff_token and tostring(candidate.handoff_token) or nil
+            if (sid and candidate_sid == sid)
+                or (token_s and (candidate_active_token == token_s or candidate_handoff_token == token_s))
+            then
+                matched_states[#matched_states + 1] = candidate
+                seen[candidate] = true
+            end
+        end
+    end
+
+    for _, candidate in ipairs(matched_states) do
+        unregister_active_state(candidate)
+        removed = true
+    end
+
+    return removed
+end
+
 resolve_server_npc_id = function(npc_se, source_tag)
     local sid = normalize_npc_id(npc_se and npc_se.id)
     if sid then
@@ -560,13 +860,9 @@ local function save_state_cb(m)
 end
 
 local function load_state_cb(m)
-    runtime.override_owners = m[SAVE_KEY_OVERRIDE_OWNERS] or {}
-    for npc_id, _ in pairs(runtime.override_owners) do
-        local sid = normalize_npc_id(npc_id)
-        if sid and xr_meet and type(xr_meet.restore_dialog) == "function" then
-            xr_meet.restore_dialog(sid)
-        end
-    end
+    local saved_override_owners = m[SAVE_KEY_OVERRIDE_OWNERS] or {}
+    restore_override_owners(saved_override_owners)
+    clear_runtime_transient_state()
     runtime.override_owners = {}
 end
 
@@ -608,20 +904,36 @@ local function actor_on_update_cb()
         return
     end
 
+    local now_ms = time_global and time_global() or 0
+    local watchdog_started_at = tonumber(state.watchdog_started_at) or now_ms
+    local watchdog_age_ms = now_ms - watchdog_started_at
     local talker_id = resolve_current_talker_id()
     if talker_id and handoff_matches_talker_identity(active_npc_id, talker_id) then
+        state.watchdog_talker_seen = true
         return
     end
-    if not talker_id and is_actor_dialog_active() then
+    if is_actor_dialog_active() then
         -- During active dialog frames, talker resolution can briefly return nil.
         -- Treat this as transient and keep the handoff/session alive.
+        state.watchdog_dialog_seen = true
+        return
+    end
+
+    if watchdog_age_ms < WATCHDOG_INIT_GRACE_MS then
+        return
+    end
+
+    if state.watchdog_talker_seen ~= true and state.watchdog_dialog_seen ~= true and watchdog_age_ms < WATCHDOG_FORCE_TIMEOUT_MS then
         return
     end
 
     bridge_warn(
-        "teardown watchdog fallback npc_id=%s reason=%s",
+        "teardown watchdog fallback npc_id=%s reason=%s age_ms=%s talker_seen=%s dialog_seen=%s",
         tostring(active_npc_id or "nil"),
-        "actor_on_update_watchdog"
+        "actor_on_update_watchdog",
+        tostring(watchdog_age_ms),
+        tostring(state.watchdog_talker_seen == true),
+        tostring(state.watchdog_dialog_seen == true)
     )
     panda_f2f_bridge.on_dialog_closed(active_npc_id, "actor_on_update_watchdog")
 end
@@ -777,7 +1089,7 @@ local function get_registry_raw(stem)
     return decode_registry_json(raw)
 end
 
-local function resolve_partner_runtime_ids(npc_se)
+resolve_partner_runtime_ids = function(npc_se)
     local out = {
         story_id = nil,
         fallback_name = nil,
@@ -1113,6 +1425,7 @@ local function get_pending_handoff_for_npc(npc_se)
         push_candidate(raw_handoff and raw_handoff.story_id)
         push_candidate(raw_handoff and raw_handoff.story_npc_id)
         push_candidate(raw_handoff and raw_handoff.req_story_npc)
+        push_candidate(raw_handoff and raw_handoff.fallback_name)
 
         local raw_npc_id = normalize_positive_int(raw_handoff and raw_handoff.npc_id)
         if raw_npc_id and type(get_object_story_id) == "function" then
@@ -1125,7 +1438,7 @@ local function get_pending_handoff_for_npc(npc_se)
         return out
     end
 
-    local function normalize_handoff(raw_handoff, source_path)
+    local function normalize_handoff(raw_handoff, source_path, match_mode)
         if type(raw_handoff) ~= "table" then
             return nil
         end
@@ -1134,6 +1447,20 @@ local function get_pending_handoff_for_npc(npc_se)
         local turn = normalize_positive_int(raw_handoff.turn)
         local npc_id = normalize_positive_int(raw_handoff.npc_id)
         if not conv_id or not turn or not npc_id then
+            return nil
+        end
+
+        local set_at = tonumber(raw_handoff.set_at)
+        if not set_at then
+            return nil
+        end
+
+        local now = tonumber(time_global and time_global() or 0) or 0
+        local age = now - set_at
+        if age < 0 then
+            age = 0
+        end
+        if age > RECENT_HANDOFF_GRACE_MS then
             return nil
         end
 
@@ -1146,10 +1473,52 @@ local function get_pending_handoff_for_npc(npc_se)
             channel = "f2f",
             source_path = source_path or "unknown",
             source = raw_handoff,
-            set_at = tonumber(raw_handoff.set_at),
+            match_mode = match_mode or "exact_id",
+            contact_id = raw_handoff.contact_id,
+            set_at = set_at,
+            token = raw_handoff.token and tostring(raw_handoff.token) or nil,
+            story_id = raw_handoff.story_id,
+            canonical_id = raw_handoff.canonical_id,
+            fallback_name = raw_handoff.fallback_name,
+            route_owner = raw_handoff.route_owner,
+            route_dialog = raw_handoff.route_dialog,
+            route_status = raw_handoff.route_status,
         }
 
         return normalized
+    end
+
+    local function choose_preferred_candidate(candidates)
+        if type(candidates) ~= "table" or #candidates == 0 then
+            return nil
+        end
+
+        table.sort(candidates, function(a, b)
+            local a_exact = a and a.match_mode == "exact_id" and 1 or 0
+            local b_exact = b and b.match_mode == "exact_id" and 1 or 0
+            if a_exact ~= b_exact then
+                return a_exact > b_exact
+            end
+
+            if compare_pending_handoff_priority(a, b) then
+                return true
+            end
+            if compare_pending_handoff_priority(b, a) then
+                return false
+            end
+
+            return tostring(a and a.source_path or "") < tostring(b and b.source_path or "")
+        end)
+
+        if candidates[1].match_mode == "exact_id" then
+            return candidates[1]
+        end
+
+        if #candidates == 1 then
+            return candidates[1]
+        end
+
+        return nil
     end
 
     local function handoff_matches_identity(raw_handoff)
@@ -1201,19 +1570,30 @@ local function get_pending_handoff_for_npc(npc_se)
         end
 
         if partner_id and raw_npc_id == partner_id then
-            return normalize_handoff(raw_handoff, source_path)
+            bridge_debug(
+                "get_pending_handoff_for_npc: exact_match source=%s partner_id=%s handoff_npc_id=%s",
+                tostring(source_path),
+                tostring(partner_id),
+                tostring(raw_npc_id)
+            )
+            return normalize_handoff(raw_handoff, source_path, "exact_id")
         end
 
         local identity_match, handoff_candidates = handoff_matches_identity(raw_handoff)
         if identity_match then
+            local match_mode = "canonical_id"
+            if raw_handoff.story_id and runtime_candidate_map[tostring(raw_handoff.story_id):lower()] then
+                match_mode = "story_id"
+            end
             bridge_debug(
-                "get_pending_handoff_for_npc: canonical_match source=%s partner_id=%s handoff_npc_id=%s handoff_candidates=%s",
+                "get_pending_handoff_for_npc: canonical_match source=%s partner_id=%s handoff_npc_id=%s match=%s handoff_candidates=%s",
                 tostring(source_path),
                 tostring(partner_id),
                 tostring(raw_npc_id),
+                tostring(match_mode),
                 tostring(handoff_candidates)
             )
-            return normalize_handoff(raw_handoff, source_path)
+            return normalize_handoff(raw_handoff, source_path, match_mode)
         end
 
         bridge_debug(
@@ -1243,14 +1623,15 @@ local function get_pending_handoff_for_npc(npc_se)
             return nil
         end
 
+        local candidates = {}
         for _, raw_handoff in pairs(handoffs) do
             local normalized = evaluate_handoff_candidate(raw_handoff, "fallback:pda_f2f_handoffs")
             if normalized then
-                return normalized
+                candidates[#candidates + 1] = normalized
             end
         end
 
-        return nil
+        return choose_preferred_candidate(candidates)
     end
 
     local function fallback_from_active_conversations()
@@ -1265,6 +1646,7 @@ local function get_pending_handoff_for_npc(npc_se)
             return nil
         end
 
+        local candidates = {}
         for contact_id, conv in pairs(conversations) do
             if type(conv) == "table" and conv.pending_in_person_continuation == true then
                 local raw_handoff = {
@@ -1275,15 +1657,19 @@ local function get_pending_handoff_for_npc(npc_se)
                     prefix = conv.prefix,
                     contact_id = contact_id,
                     set_at = conv.pending_in_person_set_at,
+                    token = conv.pending_in_person_token,
+                    story_id = conv.pending_in_person_story_id or conv.story_id,
+                    canonical_id = conv.pending_in_person_canonical_id or conv.canonical_id,
+                    fallback_name = conv.fallback_name,
                 }
                 local normalized = evaluate_handoff_candidate(raw_handoff, "fallback:active_conversations")
                 if normalized then
-                    return normalized
+                    candidates[#candidates + 1] = normalized
                 end
             end
         end
 
-        return nil
+        return choose_preferred_candidate(candidates)
     end
 
     local function fallback_recent_canonical_within_grace_window(grace_ms)
@@ -1292,8 +1678,7 @@ local function get_pending_handoff_for_npc(npc_se)
             return nil
         end
 
-        local latest = nil
-        local latest_set_at = nil
+        local candidates = {}
         local now = tonumber(time_global and time_global() or 0) or 0
         local allowed_age = tonumber(grace_ms) or RECENT_HANDOFF_GRACE_MS
 
@@ -1338,15 +1723,17 @@ local function get_pending_handoff_for_npc(npc_se)
                             tostring(raw_npc_id),
                             tostring(handoff_candidates)
                         )
-                    elseif not latest_set_at or set_at > latest_set_at then
-                        latest_set_at = set_at
-                        latest = normalize_handoff(raw_handoff, "recent_canonical_match")
+                    else
+                        local normalized = normalize_handoff(raw_handoff, "recent_canonical_match", "canonical_id")
+                        if normalized then
+                            candidates[#candidates + 1] = normalized
+                        end
                     end
                 end
             end
         end
 
-        return latest
+        return choose_preferred_candidate(candidates)
     end
 
     local api = get_conv_api()
@@ -1458,7 +1845,7 @@ local function has_actionable_handoff_marker_for_npc(npc_se)
     return false, "recent_fallback_blocked_no_actionable_marker"
 end
 
-local function consume_pending_handoff_for_npc(npc_se, conv_id, turn)
+local function consume_pending_handoff_for_npc(npc_se, conv_id, turn, token, set_at)
     local api = get_conv_api()
     if not api or type(api.consume_pending_f2f_handoff) ~= "function" then
         return false
@@ -1470,7 +1857,7 @@ local function consume_pending_handoff_for_npc(npc_se, conv_id, turn)
         return false
     end
 
-    return api.consume_pending_f2f_handoff(partner_id, conv_id, turn) == true
+    return api.consume_pending_f2f_handoff(partner_id, conv_id, turn, token, set_at) == true
 end
 
 cleanup_noncommit_exit = function(state, exit_reason)
@@ -1482,7 +1869,13 @@ cleanup_noncommit_exit = function(state, exit_reason)
     end
 
     local active_npc_id = resolve_server_npc_id(state.npc_se, "cleanup_noncommit_exit")
-    local consumed_handoff = consume_pending_handoff_for_npc(state.npc_se, state.conv_id, state.turn)
+    local consumed_handoff = consume_pending_handoff_for_npc(
+        state.npc_se,
+        state.handoff_conv_id or state.conv_id,
+        state.handoff_turn or state.turn,
+        state.handoff_token,
+        state.handoff_set_at
+    )
     if consumed_handoff then
         bridge_warn(
             "cleanup_noncommit_exit handoff_consume removed=true npc_id=%s conv_id=%s turn=%s reason=%s",
@@ -1500,9 +1893,6 @@ cleanup_noncommit_exit = function(state, exit_reason)
             tostring(exit_reason or "unknown")
         )
     end
-    if active_npc_id then
-        panda_f2f_bridge.restore_branch_route(active_npc_id, nil)
-    end
     bridge_warn(
         "handoff_cleared_on_abort npc_id=%s conv_id=%s turn=%s reason=%s",
         tostring(active_npc_id or state.npc_se and state.npc_se.id or "nil"),
@@ -1510,7 +1900,6 @@ cleanup_noncommit_exit = function(state, exit_reason)
         tostring(state.turn or "nil"),
         tostring(exit_reason or "unknown")
     )
-    unregister_active_state(state)
     return true
 end
 
@@ -1604,15 +1993,14 @@ function panda_f2f_bridge.hard_route_branch(npc_id, owner_tag)
         )
         return false
     end
-    if override_result == nil or override_result == false then
-        bridge_debug(
-            "hard_route_branch: override_dialog returned no-apply npc_id=%s dialog=%s result=%s",
-            tostring(sid),
-            tostring(HUB_DIALOG_ID),
-            tostring(override_result)
-        )
-        return false
-    end
+
+    bridge_debug(
+        "hard_route_branch: override_dialog invoked npc_id=%s dialog=%s result=%s",
+        tostring(sid),
+        tostring(HUB_DIALOG_ID),
+        tostring(override_result)
+    )
+
     local override_applied = false
     local detected_override_value = nil
     if type(xr_meet.has_dialog_override) == "function" then
@@ -1702,6 +2090,59 @@ function panda_f2f_bridge.restore_branch_route(npc_id, owner_tag)
     end
     runtime.override_owners[key] = nil
     return true
+end
+
+function panda_f2f_bridge.abort_session(npc_id, owner_tag, reason, token)
+    ensure_callbacks_registered()
+
+    local sid = normalize_npc_id(npc_id)
+    if not sid then
+        bridge_debug("abort_session: reject reason=bad_ids npc_id=%s", tostring(npc_id))
+        return false
+    end
+
+    local restored = panda_f2f_bridge.restore_branch_route(sid, owner_tag)
+    if restored ~= true and owner_tag ~= nil then
+        restored = panda_f2f_bridge.restore_branch_route(sid, nil) or restored
+    end
+
+    local discarded = discard_runtime_state_for_npc(sid, token)
+    bridge_warn(
+        "abort_session npc_id=%s reason=%s restored=%s discarded=%s token=%s",
+        tostring(sid),
+        tostring(reason or "unknown"),
+        tostring(restored == true),
+        tostring(discarded == true),
+        tostring(token or "nil")
+    )
+    return restored == true or discarded == true
+end
+
+function panda_f2f_bridge.reset_runtime(reason)
+    ensure_callbacks_registered()
+
+    local restored = restore_override_owners(runtime.override_owners)
+    clear_runtime_transient_state()
+    runtime.override_owners = {}
+    bridge_warn(
+        "reset_runtime reason=%s restored_overrides=%s",
+        tostring(reason or "unknown"),
+        tostring(restored == true)
+    )
+    return true
+end
+
+function panda_f2f_bridge.is_session_active(_actor)
+    if type(runtime.pending_state) == "table" then
+        return true
+    end
+    if type(runtime.latest_state) == "table" then
+        return true
+    end
+    if runtime.active_token ~= nil then
+        return true
+    end
+    return next(runtime.state_by_id or {}) ~= nil
 end
 
 function panda_f2f_bridge.on_branch_completed(npc_id, owner_tag)
@@ -2069,6 +2510,10 @@ local function collect_branches(npc_se, forced_context)
                         handoff = forced_handoff_active and forced_context and forced_context.source or nil,
                         handoff_source = forced_handoff_active and forced_context and (forced_context.source_path or forced_context.source) or nil,
                         handoff_present = forced_handoff_active,
+                        handoff_conv_id = forced_handoff_active and forced_context and forced_context.conv_id or nil,
+                        handoff_turn = forced_handoff_active and forced_context and forced_context.turn or nil,
+                        handoff_token = forced_handoff_active and forced_context and forced_context.token or nil,
+                        handoff_set_at = forced_handoff_active and forced_context and forced_context.set_at or nil,
                         stem = stem,
                         render_non_entry_openers = resolve_bool_flag_override("panda_f2f_render_non_entry_openers", false),
                     }
@@ -2234,6 +2679,9 @@ local function build_dialog_tree(dialog, state)
     state.handlers = {}
     state.active_token = token
     state.branch_committed = false
+    state.watchdog_started_at = time_global and time_global() or 0
+    state.watchdog_dialog_seen = false
+    state.watchdog_talker_seen = false
     register_active_state(state)
 
     local use_legacy_visible_root = resolve_bool_flag_override("panda_f2f_use_legacy_visible_root", true)
@@ -2651,7 +3099,13 @@ local function build_dialog_tree(dialog, state)
             if ok then
                 active_state.branch_committed = true
                 -- Consume only after a player-selected branch is committed.
-                consume_pending_handoff_for_npc(active_state.npc_se, active_state.conv_id, branch_state.turn)
+                consume_pending_handoff_for_npc(
+                    active_state.npc_se,
+                    active_state.handoff_conv_id or active_state.conv_id,
+                    active_state.handoff_turn or active_state.turn,
+                    active_state.handoff_token,
+                    active_state.handoff_set_at
+                )
             end
             if branch.hard_route and routed then
                 local keep_hub_override = branch.keep_hub_override == true
@@ -2927,15 +3381,54 @@ local function build_dialog_tree(dialog, state)
     }
 end
 
-function panda_f2f_bridge.on_dialog_closed(npc_id, reason)
+function panda_f2f_bridge.on_dialog_closed(npc_or_reason, reason, ...)
     ensure_callbacks_registered()
 
-    local close_reason = tostring(reason or "dialog_closed")
-    local state = resolve_runtime_state_for_npc(npc_id)
-    local resolved_npc_id = normalize_lookup_id(npc_id)
+    local callback_context = build_callback_resolution_context(npc_or_reason, reason, ...)
+    local close_reason = "dialog_closed"
+    if type(reason) == "string" then
+        close_reason = tostring(reason)
+    elseif type(npc_or_reason) == "string" and not callback_context.npc_id then
+        close_reason = tostring(npc_or_reason)
+    end
+
+    -- Some close callbacks arrive late or without stable NPC context.
+    -- If another dialog is already active, let the watchdog own teardown so a
+    -- stale close event cannot dismantle the new session's runtime token/tree.
+    local dialog_still_active = is_actor_dialog_active()
+    if close_reason ~= "actor_on_update_watchdog" and dialog_still_active then
+        bridge_warn(
+            "teardown deferred reason=%s detail=%s callback_npc_id=%s",
+            tostring(close_reason),
+            "dialog_still_active",
+            tostring(callback_context.npc_id or normalize_lookup_id(npc_or_reason) or "nil")
+        )
+        return
+    end
+
+    local resolved_npc_id = callback_context.npc_id or normalize_lookup_id(npc_or_reason)
+    local state = nil
+    if resolved_npc_id then
+        state = resolve_runtime_state_for_npc(resolved_npc_id)
+    else
+        state = resolve_unique_active_runtime_state()
+    end
 
     if not resolved_npc_id and type(state) == "table" then
-        resolved_npc_id = resolve_server_npc_id(state.npc_se, "on_dialog_closed:state_fallback")
+        resolved_npc_id = state.resolved_npc_id or resolve_server_npc_id(state.npc_se, "on_dialog_closed:state_fallback")
+    end
+
+    if type(state) == "table" and state.teardown_in_progress == true then
+        bridge_warn(
+            "teardown duplicate_skip npc_id=%s reason=%s",
+            tostring(resolved_npc_id or "nil"),
+            tostring(close_reason)
+        )
+        return
+    end
+
+    if type(state) == "table" then
+        state.teardown_in_progress = true
     end
 
     bridge_warn(
@@ -3014,12 +3507,22 @@ function panda_f2f_bridge.on_dialog_closed(npc_id, reason)
             tostring(close_reason),
             "state_missing"
         )
+        if resolved_npc_id then
+            local discarded = discard_runtime_state_for_npc(resolved_npc_id, nil)
+            bridge_warn(
+                "teardown discard_runtime_state npc_id=%s reason=%s discarded=%s",
+                tostring(resolved_npc_id or "nil"),
+                tostring(close_reason),
+                tostring(discarded == true)
+            )
+        end
     end
 end
 
-function panda_f2f_bridge.precondition()
+function panda_f2f_bridge.precondition(...)
     ensure_callbacks_registered()
     bridge_warn("callback fired entry=hub_precondition name=%s", "panda_f2f_bridge.precondition")
+    local callback_context = build_callback_resolution_context(...)
 
     local function reject_hub_activation(reason)
         runtime.pending_state = nil
@@ -3053,7 +3556,22 @@ function panda_f2f_bridge.precondition()
         return false
     end
 
-    local npc_se = get_partner_npc_se()
+    local npc_se = get_partner_npc_se(callback_context)
+    local handoff = npc_se and get_pending_handoff_for_npc(npc_se) or nil
+    if not handoff then
+        local live_npc_se = get_partner_npc_se()
+        local callback_npc_id = resolve_server_npc_id(npc_se, "precondition:callback_probe")
+        local live_npc_id = resolve_server_npc_id(live_npc_se, "precondition:live_probe")
+        if live_npc_se and live_npc_id and live_npc_id ~= callback_npc_id then
+            bridge_debug(
+                "precondition resolution retry: callback_npc_id=%s live_npc_id=%s",
+                tostring(callback_npc_id or "nil"),
+                tostring(live_npc_id)
+            )
+            npc_se = live_npc_se
+            handoff = get_pending_handoff_for_npc(npc_se)
+        end
+    end
     if not npc_se then
         return reject_hub_activation("npc_unresolved")
     end
@@ -3069,7 +3587,6 @@ function panda_f2f_bridge.precondition()
         (#runtime_ids.canonical_candidates > 0 and table.concat(runtime_ids.canonical_candidates, "|") or "<none>")
     )
 
-    local handoff = get_pending_handoff_for_npc(npc_se)
     bridge_debug(
         "precondition handoff check: runtime_partner_id=%s pending_handoff_npc_id=%s",
         tostring(npc_se and npc_se.id or "nil"),
@@ -3079,7 +3596,7 @@ function panda_f2f_bridge.precondition()
         return reject_hub_activation("invalid_handoff_context")
     end
 
-    local talker_id = resolve_current_talker_id()
+    local talker_id = callback_context.talker_id or resolve_current_talker_id() or resolve_server_npc_id(npc_se, "precondition:npc_fallback")
     if not talker_id then
         return reject_hub_activation("missing_talk_target")
     end
@@ -3106,6 +3623,8 @@ function panda_f2f_bridge.precondition()
     end
 
     state.npc_se = npc_se
+    state.resolved_npc_id = resolve_server_npc_id(npc_se, "precondition:resolved")
+    state.teardown_in_progress = false
     runtime.pending_state = state
     debug_resolve_snapshot("precondition", npc_se, state, handoff)
     bridge_debug(
@@ -3121,18 +3640,33 @@ function panda_f2f_bridge.precondition()
     return true
 end
 
-function panda_f2f_bridge.init_dialog(dialog)
+function panda_f2f_bridge.init_dialog(dialog, ...)
     ensure_callbacks_registered()
     bridge_warn("callback fired entry=hub_init name=%s", "panda_f2f_bridge.init_dialog")
+    local callback_context = build_callback_resolution_context(...)
 
     local state = runtime.pending_state
     local init_handoff = nil
     if not state then
-        local npc_se = get_partner_npc_se()
+        local npc_se = get_partner_npc_se(callback_context)
+        local handoff = npc_se and get_pending_handoff_for_npc(npc_se) or nil
+        if not handoff then
+            local live_npc_se = get_partner_npc_se()
+            local callback_npc_id = resolve_server_npc_id(npc_se, "init_dialog:callback_probe")
+            local live_npc_id = resolve_server_npc_id(live_npc_se, "init_dialog:live_probe")
+            if live_npc_se and live_npc_id and live_npc_id ~= callback_npc_id then
+                bridge_debug(
+                    "init_dialog resolution retry: callback_npc_id=%s live_npc_id=%s",
+                    tostring(callback_npc_id or "nil"),
+                    tostring(live_npc_id)
+                )
+                npc_se = live_npc_se
+                handoff = get_pending_handoff_for_npc(npc_se)
+            end
+        end
         if not npc_se then
             return
         end
-        local handoff = get_pending_handoff_for_npc(npc_se)
         if not handoff then
             local has_actionable_marker, marker_reason = has_actionable_handoff_marker_for_npc(npc_se)
             if has_actionable_marker then
@@ -3160,7 +3694,7 @@ function panda_f2f_bridge.init_dialog(dialog)
             return
         end
 
-        local talker_id = resolve_current_talker_id()
+        local talker_id = callback_context.talker_id or resolve_current_talker_id() or resolve_server_npc_id(npc_se, "init_dialog:npc_fallback")
         if not talker_id or not handoff_matches_talker_identity(tonumber(handoff.npc_id), talker_id) then
             bridge_warn(
                 "init_dialog reject reason=missing_valid_handoff npc_id=%s talker_id=%s handoff_npc_id=%s",
@@ -3179,6 +3713,8 @@ function panda_f2f_bridge.init_dialog(dialog)
         state.npc_se = npc_se
     end
 
+    state.resolved_npc_id = state.resolved_npc_id or resolve_server_npc_id(state.npc_se, "init_dialog:resolved")
+    state.teardown_in_progress = false
     runtime.pending_state = nil
     debug_resolve_snapshot("init", state.npc_se, state, init_handoff)
 

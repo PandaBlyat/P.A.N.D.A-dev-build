@@ -28,6 +28,15 @@ local safe_remove_time_event
 local _panda_f2f_bridge_checked = false
 local _f2f_scanner_suppress_last_log_at = nil
 local _f2f_scanner_suppress_last_source = nil
+local build_f2f_handoff_identity
+local make_f2f_handoff_token
+local has_xr_meet_dialog_override
+local register_pending_f2f_handoff
+local select_preferred_pending_f2f_candidate
+local abort_contact_f2f_state
+local build_savable_f2f_handoffs
+local is_handoff_actionable
+local consume_pending_f2f_handoff_internal
 
 local function ensure_panda_f2f_bridge()
     if _panda_f2f_bridge_checked then
@@ -359,38 +368,15 @@ function block_contact(contact_id)
     end
 
     pda_private_blocked_contacts[contact_id] = true
-    local removed = delete_contact_thread(contact_id)
-
-    local convo = active_conversations and active_conversations[contact_id]
-
-    -- Remove from multi-conversation table
-    if active_conversations[contact_id] then
-        active_conversations[contact_id] = nil
-    end
-    if CONV and CONV.contact_id == contact_id then
-        CONV = nil
-    end
-
-    -- Cancel any pending message delivery timers
-    pda_reply_pending = false
-    -- Legacy fallback timer group (older builds)
-    safe_remove_time_event("pda_ic", "delivery_ack")
-    safe_remove_time_event("pda_ic", "npc_typing_start")
-    safe_remove_time_event("pda_ic", "npc_reply")
-
-    -- Current per-conversation timer group
-    if convo and convo.npc_id then
-        local ev_prefix = "pda_ic_" .. tostring(convo.npc_id)
-        safe_remove_time_event(ev_prefix, "delivery_ack")
-        safe_remove_time_event(ev_prefix, "npc_read")
-        safe_remove_time_event(ev_prefix, "npc_thinking")
-        safe_remove_time_event(ev_prefix, "npc_reply")
-        safe_remove_time_event(ev_prefix, "outcome")
-    end
+    local _, removed = abort_contact_f2f_state(contact_id, "block_contact", {
+        remove_conversation = true,
+        cancel_events = true,
+        remove_thread = true,
+    })
 
     clear_npc_typing_message(contact_id)
 
-    return true, removed
+    return true, tonumber(removed) or 0
 end
 
 function unblock_contact(contact_id)
@@ -1380,6 +1366,41 @@ function cleanup_panda_ic_events()
 end
 
 function on_game_shutdown_cb()
+    local handoff_contacts = {}
+    if type(pda_f2f_handoffs) == "table" then
+        for contact_id in pairs(pda_f2f_handoffs) do
+            handoff_contacts[#handoff_contacts + 1] = tostring(contact_id)
+        end
+    end
+    for contact_id in pairs(active_conversations or {}) do
+        local contact_key = tostring(contact_id)
+        local already_queued = false
+        for _, existing in ipairs(handoff_contacts) do
+            if existing == contact_key then
+                already_queued = true
+                break
+            end
+        end
+        if not already_queued then
+            handoff_contacts[#handoff_contacts + 1] = contact_key
+        end
+    end
+
+    for _, contact_id in ipairs(handoff_contacts) do
+        abort_contact_f2f_state(contact_id, "on_game_shutdown", {
+            remove_conversation = true,
+            cancel_events = true,
+            remove_thread = false,
+        })
+    end
+
+    local bridge = ensure_panda_f2f_bridge()
+    if bridge and type(bridge.reset_runtime) == "function" then
+        pcall(bridge.reset_runtime, "on_game_shutdown")
+    end
+
+    pda_f2f_handoffs = nil
+    sync_pda_f2f_handoff_globals()
     cleanup_panda_ic_events()
 end
 
@@ -5982,6 +6003,12 @@ function on_player_choice(idx, contact_id)
                         c.pending_in_person_turn = ch.next_turn
                         c.pending_in_person_target = "panda_f2f_hub_dialog"
                         c.pending_in_person_set_at = time_global and time_global() or 0
+                        local npc_se = c.npc_id and alife_object(c.npc_id) or nil
+                        local handoff_identity = build_f2f_handoff_identity(npc_se, c.npc_id)
+                        local handoff_token = make_f2f_handoff_token(c.npc_id, c.conv_id, ch.next_turn, c.pending_in_person_set_at)
+                        c.pending_in_person_token = handoff_token
+                        c.pending_in_person_story_id = handoff_identity.story_id
+                        c.pending_in_person_canonical_id = handoff_identity.canonical_id
                         local handoff_target_name = tostring(c.npc_name or "Unknown")
                         local handoff_target_id = tostring(c.npc_id or "Unknown")
                         pda_private_add_message(
@@ -5996,25 +6023,19 @@ function on_player_choice(idx, contact_id)
                             nil,
                             { skip_personality = true }
                         )
-                        local handoff_story_id = "n/a"
-                        if type(get_object_story_id) == "function" then
-                            local ok_story, resolved_story = pcall(function()
-                                return get_object_story_id(c.npc_id)
-                            end)
-                            if ok_story and resolved_story and resolved_story ~= "" then
-                                handoff_story_id = tostring(resolved_story)
-                            end
-                        end
+                        local handoff_story_id = tostring(handoff_identity.story_id or "n/a")
 
-                        printf("TRACE f2f-handoff npc_sid=%s story_id=%s conv_id=%s next_turn=%s channel=%s",
+                        printf("TRACE f2f-handoff npc_sid=%s story_id=%s canonical_id=%s conv_id=%s next_turn=%s channel=%s token=%s",
                             tostring(tonumber(c.npc_id) or 0),
                             tostring(handoff_story_id),
+                            tostring(handoff_identity.canonical_id or "n/a"),
                             tostring(tonumber(c.conv_id) or 0),
                             tostring(tonumber(ch.next_turn) or 0),
-                            tostring(continuation_channel))
+                            tostring(continuation_channel),
+                            tostring(handoff_token))
 
-                        pda_f2f_handoffs = pda_f2f_handoffs or {}
-                        pda_f2f_handoffs[cid] = {
+                        local handoff_row = {
+                            contact_id = cid,
                             npc_id = c.npc_id,
                             conv_id = c.conv_id,
                             turn = ch.next_turn,
@@ -6023,8 +6044,15 @@ function on_player_choice(idx, contact_id)
                             channel = "f2f",
                             dialog = "panda_f2f_hub_dialog",
                             set_at = c.pending_in_person_set_at,
+                            token = handoff_token,
+                            story_id = handoff_identity.story_id,
+                            canonical_id = handoff_identity.canonical_id,
+                            fallback_name = handoff_identity.fallback_name,
+                            route_owner = nil,
+                            route_dialog = "panda_f2f_hub_dialog",
+                            route_status = "pending",
                         }
-                        _G.pda_f2f_handoffs = pda_f2f_handoffs
+                        register_pending_f2f_handoff(cid, handoff_row)
 
                         local handoff_route = "no-route"
                         local bridge = ensure_panda_f2f_bridge()
@@ -6037,11 +6065,15 @@ function on_player_choice(idx, contact_id)
                         end
 
                         if handoff_route ~= "bridge route" and xr_meet and type(xr_meet.override_dialog) == "function" then
-                            local ok_override_call, fallback_applied = pcall(xr_meet.override_dialog, c.npc_id, "panda_f2f_hub_dialog")
-                            if ok_override_call and fallback_applied ~= nil and fallback_applied ~= false then
+                            local ok_override_call = pcall(xr_meet.override_dialog, c.npc_id, "panda_f2f_hub_dialog")
+                            if ok_override_call and has_xr_meet_dialog_override(c.npc_id, "panda_f2f_hub_dialog") then
                                 handoff_route = "xr_meet fallback"
                             end
                         end
+
+                        handoff_row.route_owner = owner_tag
+                        handoff_row.route_status = handoff_route
+                        handoff_row.route_set_at = time_global and time_global() or c.pending_in_person_set_at
 
                         printf("PANDA_IC: f2f handoff registered npc_id=%s conv_id=%s turn=%s dialog=%s route=%s",
                             tostring(c.npc_id), tostring(c.conv_id), tostring(ch.next_turn), "panda_f2f_hub_dialog", handoff_route)
@@ -6113,36 +6145,398 @@ local function apply_choice_internal(conversation_context, choice_index, channel
     return true
 end
 
+has_xr_meet_dialog_override = function(npc_id, dialog_name)
+    local sid = tonumber(npc_id)
+    if not sid or sid <= 0 or not xr_meet then
+        return false
+    end
+
+    if type(xr_meet.has_dialog_override) == "function" then
+        local ok_override, has_override = pcall(function()
+            return xr_meet.has_dialog_override(sid)
+        end)
+        if ok_override and has_override == true then
+            return true
+        end
+    end
+
+    local table_candidates = {
+        "dialog_override",
+        "dialog_overrides",
+        "override_dialogs",
+    }
+
+    for _, field in ipairs(table_candidates) do
+        local overrides = rawget(xr_meet, field)
+        if type(overrides) == "table" then
+            local rec = overrides[sid] or overrides[tostring(sid)]
+            if rec == dialog_name then
+                return true
+            end
+            if type(rec) == "table" then
+                local rec_dialog = rec.dialog or rec.dialog_id or rec.id or rec.override or rec.dialog_name
+                if rec_dialog == dialog_name then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+local function sync_pda_f2f_handoff_globals()
+    if pda_f2f_handoffs then
+        _G.pda_f2f_handoffs = pda_f2f_handoffs
+    else
+        _G.pda_f2f_handoffs = nil
+    end
+end
+
+local function clear_pending_in_person_marker(conv)
+    if type(conv) ~= "table" then
+        return
+    end
+
+    conv.pending_in_person_continuation = false
+    conv.pending_in_person_turn = nil
+    conv.pending_in_person_target = nil
+    conv.pending_in_person_set_at = nil
+    conv.pending_in_person_token = nil
+    conv.pending_in_person_story_id = nil
+    conv.pending_in_person_canonical_id = nil
+end
+
+abort_contact_f2f_state = function(contact_id, reason, options)
+    local contact_key = tostring(contact_id or "")
+    if contact_key == "" then
+        return false, 0
+    end
+
+    options = type(options) == "table" and options or {}
+
+    local convo = active_conversations and active_conversations[contact_key] or nil
+    local handoff = pda_f2f_handoffs and pda_f2f_handoffs[contact_key] or nil
+    local npc_sid = tonumber(handoff and handoff.npc_id or convo and convo.npc_id)
+    local conv_id = tonumber(handoff and handoff.conv_id or convo and convo.conv_id)
+    local turn = tonumber(handoff and handoff.turn or convo and convo.pending_in_person_turn)
+    local token = handoff and handoff.token or convo and convo.pending_in_person_token or nil
+    local set_at = tonumber(handoff and handoff.set_at or convo and convo.pending_in_person_set_at) or nil
+    local route_owner = handoff and handoff.route_owner or nil
+    local route_status = handoff and handoff.route_status or nil
+    local any_cleanup = type(convo) == "table" or type(handoff) == "table"
+    local removed_threads = 0
+
+    if options.cancel_events == true then
+        pda_reply_pending = false
+        safe_remove_time_event("pda_ic", "delivery_ack")
+        safe_remove_time_event("pda_ic", "npc_typing_start")
+        safe_remove_time_event("pda_ic", "npc_reply")
+        if npc_sid then
+            local ev_prefix = "pda_ic_" .. tostring(npc_sid)
+            safe_remove_time_event(ev_prefix, "delivery_ack")
+            safe_remove_time_event(ev_prefix, "npc_read")
+            safe_remove_time_event(ev_prefix, "npc_thinking")
+            safe_remove_time_event(ev_prefix, "npc_reply")
+            safe_remove_time_event(ev_prefix, "outcome")
+        end
+    end
+
+    if npc_sid then
+        local bridge = ensure_panda_f2f_bridge()
+        local bridge_aborted = false
+        if bridge and type(bridge.abort_session) == "function" then
+            local ok_abort, abort_result = pcall(bridge.abort_session, npc_sid, route_owner, tostring(reason or "unspecified"), token)
+            bridge_aborted = ok_abort and abort_result == true
+        elseif bridge and type(bridge.restore_branch_route) == "function" then
+            pcall(bridge.restore_branch_route, npc_sid, route_owner)
+        end
+
+        if xr_meet and type(xr_meet.restore_dialog) == "function" then
+            pcall(xr_meet.restore_dialog, npc_sid)
+        end
+
+        if type(consume_pending_f2f_handoff_internal) == "function" then
+            any_cleanup = consume_pending_f2f_handoff_internal(npc_sid, conv_id, turn, token, set_at) == true or any_cleanup
+        elseif type(handoff) == "table" and type(pda_f2f_handoffs) == "table" then
+            pda_f2f_handoffs[contact_key] = nil
+            sync_pda_f2f_handoff_globals()
+            any_cleanup = true
+        end
+        printf(
+            "PANDA_IC: abort_contact_f2f_state contact_id=%s reason=%s npc_id=%s conv_id=%s turn=%s token=%s route_status=%s bridge_aborted=%s",
+            tostring(contact_key),
+            tostring(reason or "unspecified"),
+            tostring(npc_sid),
+            tostring(conv_id or "nil"),
+            tostring(turn or "nil"),
+            tostring(token or "nil"),
+            tostring(route_status or "nil"),
+            tostring(bridge_aborted)
+        )
+    elseif type(handoff) == "table" and type(pda_f2f_handoffs) == "table" then
+        pda_f2f_handoffs[contact_key] = nil
+        sync_pda_f2f_handoff_globals()
+    end
+
+    if type(convo) == "table" then
+        clear_pending_in_person_marker(convo)
+    end
+
+    if options.remove_conversation ~= false and active_conversations and active_conversations[contact_key] then
+        any_cleanup = true
+        active_conversations[contact_key] = nil
+    end
+    if options.remove_conversation ~= false and CONV and CONV.contact_id == contact_key then
+        CONV = nil
+    end
+
+    if options.remove_thread == true then
+        removed_threads = delete_contact_thread(contact_key)
+        if removed_threads > 0 then
+            any_cleanup = true
+        end
+    end
+
+    return any_cleanup, removed_threads
+end
+
+local function normalize_pending_f2f_candidate(raw_handoff, source, match_mode)
+    if type(raw_handoff) ~= "table" then
+        return nil
+    end
+
+    local npc_sid = tonumber(raw_handoff.npc_id)
+    local conv_id = tonumber(raw_handoff.conv_id)
+    local turn = tonumber(raw_handoff.turn)
+    if not npc_sid or npc_sid <= 0 or not conv_id or conv_id <= 0 or not turn or turn <= 0 then
+        return nil
+    end
+
+    local set_at = tonumber(raw_handoff.set_at)
+    if not set_at then
+        return nil
+    end
+
+    local now = time_global and time_global() or nil
+    if now and (now - set_at) > F2F_HANDOFF_ACTIONABLE_GRACE_MS then
+        return nil
+    end
+
+    return {
+        source = source or "unknown",
+        match_mode = match_mode or "exact_id",
+        contact_id = raw_handoff.contact_id,
+        npc_id = npc_sid,
+        conv_id = conv_id,
+        turn = turn,
+        faction = raw_handoff.faction,
+        prefix = raw_handoff.prefix,
+        channel = raw_handoff.channel or "f2f",
+        dialog = raw_handoff.dialog,
+        set_at = set_at,
+        token = raw_handoff.token and tostring(raw_handoff.token) or nil,
+        story_id = raw_handoff.story_id,
+        canonical_id = raw_handoff.canonical_id,
+        fallback_name = raw_handoff.fallback_name,
+        route_owner = raw_handoff.route_owner,
+        route_dialog = raw_handoff.route_dialog,
+        route_status = raw_handoff.route_status,
+    }
+end
+
+select_preferred_pending_f2f_candidate = function(candidates)
+    if type(candidates) ~= "table" or #candidates == 0 then
+        return nil
+    end
+
+    table.sort(candidates, function(a, b)
+        local a_exact = a and a.match_mode == "exact_id" and 1 or 0
+        local b_exact = b and b.match_mode == "exact_id" and 1 or 0
+        if a_exact ~= b_exact then
+            return a_exact > b_exact
+        end
+
+        local a_set_at = tonumber(a and a.set_at) or 0
+        local b_set_at = tonumber(b and b.set_at) or 0
+        if a_set_at ~= b_set_at then
+            return a_set_at > b_set_at
+        end
+
+        local a_token = tostring(a and a.token or "")
+        local b_token = tostring(b and b.token or "")
+        if a_token ~= b_token then
+            return a_token > b_token
+        end
+
+        return tostring(a and a.source or "") < tostring(b and b.source or "")
+    end)
+
+    local exact_candidates = {}
+    local fallback_candidates = {}
+    for _, candidate in ipairs(candidates) do
+        if candidate.match_mode == "exact_id" then
+            exact_candidates[#exact_candidates + 1] = candidate
+        else
+            fallback_candidates[#fallback_candidates + 1] = candidate
+        end
+    end
+
+    if #exact_candidates > 0 then
+        return exact_candidates[1]
+    end
+
+    if #fallback_candidates == 1 then
+        return fallback_candidates[1]
+    end
+
+    return nil
+end
+
+register_pending_f2f_handoff = function(contact_id, handoff_row)
+    if type(handoff_row) ~= "table" then
+        return false
+    end
+
+    local contact_key = tostring(contact_id or handoff_row.contact_id or "")
+    local npc_sid = tonumber(handoff_row.npc_id)
+    if contact_key == "" or not npc_sid or npc_sid <= 0 then
+        return false
+    end
+
+    pda_f2f_handoffs = pda_f2f_handoffs or {}
+
+    local existing = pda_f2f_handoffs[contact_key]
+    if type(existing) == "table"
+        and tonumber(existing.npc_id) == npc_sid
+        and tostring(existing.token or "") ~= tostring(handoff_row.token or "")
+    then
+        printf(
+            "PANDA_IC: superseding pending f2f handoff key=%s npc_id=%s old_conv_id=%s old_turn=%s old_token=%s new_conv_id=%s new_turn=%s new_token=%s",
+            tostring(contact_key),
+            tostring(npc_sid),
+            tostring(existing.conv_id or "nil"),
+            tostring(existing.turn or "nil"),
+            tostring(existing.token or "nil"),
+            tostring(handoff_row.conv_id or "nil"),
+            tostring(handoff_row.turn or "nil"),
+            tostring(handoff_row.token or "nil")
+        )
+    end
+
+    for key, existing_row in pairs(pda_f2f_handoffs) do
+        if key ~= contact_key and type(existing_row) == "table" and tonumber(existing_row.npc_id) == npc_sid then
+            printf(
+                "PANDA_IC: superseding pending f2f handoff key=%s npc_id=%s old_conv_id=%s old_turn=%s old_token=%s new_conv_id=%s new_turn=%s new_token=%s",
+                tostring(key),
+                tostring(npc_sid),
+                tostring(existing_row.conv_id or "nil"),
+                tostring(existing_row.turn or "nil"),
+                tostring(existing_row.token or "nil"),
+                tostring(handoff_row.conv_id or "nil"),
+                tostring(handoff_row.turn or "nil"),
+                tostring(handoff_row.token or "nil")
+            )
+            pda_f2f_handoffs[key] = nil
+        end
+    end
+
+    for key, conv in pairs(active_conversations or {}) do
+        if key ~= contact_key and type(conv) == "table" and tonumber(conv.npc_id) == npc_sid and conv.pending_in_person_continuation == true then
+            clear_pending_in_person_marker(conv)
+        end
+    end
+
+    handoff_row.contact_id = contact_key
+    pda_f2f_handoffs[contact_key] = handoff_row
+    sync_pda_f2f_handoff_globals()
+    return true
+end
+
 local function get_pending_f2f_handoff_internal(npc_id)
     local npc_sid = tonumber(npc_id)
     if not npc_sid then
         return nil
     end
 
+    local runtime_story_id = nil
+    local runtime_canonical_id = nil
+    if type(get_object_story_id) == "function" then
+        local ok_story, story_id = pcall(function() return get_object_story_id(npc_sid) end)
+        if ok_story and story_id and story_id ~= "" then
+            runtime_story_id = tostring(story_id)
+            runtime_canonical_id = tostring(story_id):lower()
+        end
+    end
+
+    local function get_match_mode(handoff)
+        if type(handoff) ~= "table" then
+            return nil
+        end
+
+        if tonumber(handoff.npc_id) == npc_sid then
+            return "exact_id"
+        end
+
+        local handoff_story_id = handoff.story_id and tostring(handoff.story_id) or nil
+        local handoff_canonical_id = handoff.canonical_id and tostring(handoff.canonical_id):lower() or nil
+        local handoff_fallback_name = handoff.fallback_name and tostring(handoff.fallback_name):lower() or nil
+
+        if runtime_story_id and handoff_story_id and handoff_story_id == runtime_story_id then
+            return "story_id"
+        end
+        if runtime_canonical_id and handoff_canonical_id and handoff_canonical_id == runtime_canonical_id then
+            return "canonical_id"
+        end
+        if runtime_canonical_id and handoff_fallback_name and handoff_fallback_name == runtime_canonical_id then
+            return "fallback_name"
+        end
+
+        return nil
+    end
+
+    local candidates = {}
+    local seen = {}
+
+    local function push_candidate(source, raw_handoff, match_mode, contact_id)
+        if not match_mode then
+            return
+        end
+
+        local normalized = normalize_pending_f2f_candidate(raw_handoff, source, match_mode)
+        if not normalized then
+            return
+        end
+
+        if contact_id ~= nil and normalized.contact_id == nil then
+            normalized.contact_id = contact_id
+        end
+
+        local signature = table.concat({
+            tostring(normalized.npc_id or "0"),
+            tostring(normalized.conv_id or "0"),
+            tostring(normalized.turn or "0"),
+            tostring(normalized.token or ""),
+            tostring(normalized.set_at or 0),
+            tostring(normalized.match_mode or "unknown"),
+        }, ":")
+        if seen[signature] then
+            return
+        end
+
+        seen[signature] = true
+        candidates[#candidates + 1] = normalized
+    end
+
     if pda_f2f_handoffs then
-        for _, handoff in pairs(pda_f2f_handoffs) do
-            if type(handoff) == "table" and tonumber(handoff.npc_id) == npc_sid then
-                return {
-                    npc_id = handoff.npc_id,
-                    conv_id = handoff.conv_id,
-                    turn = handoff.turn,
-                    faction = handoff.faction,
-                    prefix = handoff.prefix,
-                    channel = handoff.channel or "f2f",
-                    dialog = handoff.dialog,
-                    set_at = handoff.set_at,
-                }
-            end
+        for contact_id, handoff in pairs(pda_f2f_handoffs) do
+            push_candidate("pda_f2f_handoffs", handoff, get_match_mode(handoff), contact_id)
         end
     end
 
     for contact_id, conv in pairs(active_conversations) do
-        if conv
-            and tonumber(conv.npc_id) == npc_sid
-            and conv.pending_in_person_continuation == true
-            and conv.pending_in_person_turn
-        then
-            return {
+        if type(conv) == "table" and conv.pending_in_person_continuation == true and conv.pending_in_person_turn then
+            local raw_conv_handoff = {
                 contact_id = contact_id,
                 npc_id = conv.npc_id,
                 conv_id = conv.conv_id,
@@ -6152,14 +6546,19 @@ local function get_pending_f2f_handoff_internal(npc_id)
                 channel = "f2f",
                 dialog = conv.pending_in_person_target or "panda_f2f_hub_dialog",
                 set_at = conv.pending_in_person_set_at,
+                token = conv.pending_in_person_token,
+                story_id = conv.pending_in_person_story_id or conv.story_id,
+                canonical_id = conv.pending_in_person_canonical_id or conv.canonical_id,
+                fallback_name = conv.fallback_name,
             }
+            push_candidate("active_conversations", raw_conv_handoff, get_match_mode(raw_conv_handoff), contact_id)
         end
     end
 
-    return nil
+    return select_preferred_pending_f2f_candidate(candidates)
 end
 
-local function consume_pending_f2f_handoff_internal(npc_id, conv_id, turn)
+consume_pending_f2f_handoff_internal = function(npc_id, conv_id, turn, token, set_at)
     local npc_sid = tonumber(npc_id)
     if not npc_sid then
         return false
@@ -6167,6 +6566,8 @@ local function consume_pending_f2f_handoff_internal(npc_id, conv_id, turn)
 
     local target_conv_id = tonumber(conv_id)
     local target_turn = tonumber(turn)
+    local target_set_at = tonumber(set_at)
+    local target_token = token and tostring(token) or nil
 
     local function handoff_matches_target(handoff)
         if type(handoff) ~= "table" then
@@ -6175,6 +6576,15 @@ local function consume_pending_f2f_handoff_internal(npc_id, conv_id, turn)
 
         if tonumber(handoff.npc_id) ~= npc_sid then
             return false
+        end
+
+        if target_token then
+            return tostring(handoff.token or "") == target_token
+        end
+
+        if target_set_at then
+            local handoff_set_at = tonumber(handoff.set_at)
+            return handoff_set_at ~= nil and handoff_set_at == target_set_at
         end
 
         if target_conv_id and tonumber(handoff.conv_id) ~= target_conv_id then
@@ -6197,6 +6607,15 @@ local function consume_pending_f2f_handoff_internal(npc_id, conv_id, turn)
             return false
         end
 
+        if target_token then
+            return tostring(conv.pending_in_person_token or "") == target_token
+        end
+
+        if target_set_at then
+            local pending_set_at = tonumber(conv.pending_in_person_set_at)
+            return pending_set_at ~= nil and pending_set_at == target_set_at
+        end
+
         if target_conv_id and tonumber(conv.conv_id) ~= target_conv_id then
             return false
         end
@@ -6215,6 +6634,21 @@ local function consume_pending_f2f_handoff_internal(npc_id, conv_id, turn)
             if handoff_matches_target(handoff) then
                 pda_f2f_handoffs[key] = nil
                 consumed = true
+            elseif tonumber(handoff.npc_id) == npc_sid
+                and (not target_conv_id or tonumber(handoff.conv_id) == target_conv_id)
+                and (not target_turn or tonumber(handoff.turn) == target_turn)
+            then
+                printf(
+                    "PANDA_IC: preserving newer f2f handoff key=%s npc_id=%s conv_id=%s turn=%s token=%s requested_token=%s set_at=%s requested_set_at=%s",
+                    tostring(key),
+                    tostring(handoff.npc_id),
+                    tostring(handoff.conv_id),
+                    tostring(handoff.turn),
+                    tostring(handoff.token or "nil"),
+                    tostring(target_token or "nil"),
+                    tostring(handoff.set_at or "nil"),
+                    tostring(target_set_at or "nil")
+                )
             end
         end
 
@@ -6234,15 +6668,59 @@ local function consume_pending_f2f_handoff_internal(npc_id, conv_id, turn)
 
     for _, conv in pairs(active_conversations) do
         if conv_matches_target(conv) then
-            conv.pending_in_person_continuation = false
-            conv.pending_in_person_turn = nil
-            conv.pending_in_person_target = nil
-            conv.pending_in_person_set_at = nil
+            clear_pending_in_person_marker(conv)
             consumed = true
+        elseif tonumber(conv.npc_id) == npc_sid
+            and conv.pending_in_person_continuation == true
+            and (not target_conv_id or tonumber(conv.conv_id) == target_conv_id)
+            and (not target_turn or tonumber(conv.pending_in_person_turn) == target_turn)
+        then
+            printf(
+                "PANDA_IC: preserving newer pending_in_person marker npc_id=%s conv_id=%s turn=%s token=%s requested_token=%s set_at=%s requested_set_at=%s",
+                tostring(conv.npc_id),
+                tostring(conv.conv_id),
+                tostring(conv.pending_in_person_turn),
+                tostring(conv.pending_in_person_token or "nil"),
+                tostring(target_token or "nil"),
+                tostring(conv.pending_in_person_set_at or "nil"),
+                tostring(target_set_at or "nil")
+            )
         end
     end
 
     return consumed
+end
+
+build_savable_f2f_handoffs = function()
+    if type(pda_f2f_handoffs) ~= "table" then
+        return nil
+    end
+
+    local now = time_global and time_global() or nil
+    local out = {}
+    local saved_any = false
+
+    for key, handoff in pairs(pda_f2f_handoffs) do
+        if type(handoff) == "table" then
+            local contact_key = tostring(handoff.contact_id or key)
+            local actionable = is_handoff_actionable(handoff, now)
+            if not is_contact_blocked(contact_key) and actionable == true then
+                local cloned = {}
+                for field_name, field_value in pairs(handoff) do
+                    cloned[field_name] = field_value
+                end
+                cloned.contact_id = contact_key
+                out[contact_key] = cloned
+                saved_any = true
+            end
+        end
+    end
+
+    if saved_any then
+        return out
+    end
+
+    return nil
 end
 
 local function sweep_expired_f2f_pending_markers(reason)
@@ -6276,6 +6754,9 @@ local function sweep_expired_f2f_pending_markers(reason)
                 conv.pending_in_person_turn = nil
                 conv.pending_in_person_target = nil
                 conv.pending_in_person_set_at = nil
+                conv.pending_in_person_token = nil
+                conv.pending_in_person_story_id = nil
+                conv.pending_in_person_canonical_id = nil
                 stale_pending_cleared = stale_pending_cleared + 1
             end
         end
@@ -6369,6 +6850,60 @@ local function get_npc_story_or_name_id(npc_se)
     return nil, nil
 end
 
+build_f2f_handoff_identity = function(npc_se, fallback_npc_id)
+    local out = {
+        npc_id = resolve_npc_server_id(npc_se) or tonumber(fallback_npc_id) or nil,
+        story_id = nil,
+        canonical_id = nil,
+        fallback_name = nil,
+    }
+
+    if out.npc_id and type(get_object_story_id) == "function" then
+        local ok_story, story_id = pcall(function() return get_object_story_id(out.npc_id) end)
+        if ok_story and story_id and story_id ~= "" then
+            out.story_id = tostring(story_id)
+        end
+    end
+
+    if PANDA_CONV_API and type(PANDA_CONV_API.get_npc_canonical_id) == "function" and npc_se then
+        local ok_canonical, canonical_id = pcall(function()
+            return PANDA_CONV_API.get_npc_canonical_id(npc_se)
+        end)
+        if ok_canonical and canonical_id and canonical_id ~= "" then
+            out.canonical_id = tostring(canonical_id):lower()
+        end
+    end
+
+    if npc_se and npc_se.name then
+        local ok_name, fallback_name = pcall(function() return npc_se:name() end)
+        if ok_name and fallback_name and fallback_name ~= "" then
+            out.fallback_name = tostring(fallback_name)
+        end
+    end
+
+    if not out.canonical_id then
+        if out.story_id and out.story_id ~= "" then
+            out.canonical_id = tostring(out.story_id):lower()
+        elseif out.fallback_name and out.fallback_name ~= "" then
+            out.canonical_id = tostring(out.fallback_name):lower()
+        end
+    end
+
+    return out
+end
+
+make_f2f_handoff_token = function(npc_id, conv_id, turn, set_at)
+    local rand = math.random(100000, 999999)
+    return string.format(
+        "f2f_%s_%s_%s_%s_%s",
+        tostring(tonumber(npc_id) or 0),
+        tostring(tonumber(conv_id) or 0),
+        tostring(tonumber(turn) or 0),
+        tostring(tonumber(set_at) or 0),
+        tostring(rand)
+    )
+end
+
 PANDA_CONV_API = PANDA_CONV_API or {}
 
 function PANDA_CONV_API.resolve_conversation_context(npc_id, conversation_id, turn_number, channel)
@@ -6404,8 +6939,8 @@ function PANDA_CONV_API.get_pending_f2f_handoff(npc_id)
     return get_pending_f2f_handoff_internal(npc_id)
 end
 
-function PANDA_CONV_API.consume_pending_f2f_handoff(npc_id, conv_id, turn)
-    return consume_pending_f2f_handoff_internal(npc_id, conv_id, turn)
+function PANDA_CONV_API.consume_pending_f2f_handoff(npc_id, conv_id, turn, token, set_at)
+    return consume_pending_f2f_handoff_internal(npc_id, conv_id, turn, token, set_at)
 end
 
 function PANDA_CONV_API.sweep_expired_f2f_markers(reason)
@@ -6423,6 +6958,11 @@ end
 function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, category)
     local name = npc_se:character_name()
     local contact_id = make_contact_id(npc_se)
+    local identity = build_f2f_handoff_identity(npc_se)
+
+    if is_contact_blocked(contact_id) then
+        return false
+    end
 
     -- Block if this specific NPC already has an active conversation
     if active_conversations[contact_id] then return false end
@@ -6452,7 +6992,7 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
     if num == 0 then return false end
 
     local conv_data = {
-        npc_id = npc_se.id,
+        npc_id = identity.npc_id or npc_se.id,
         contact_id = contact_id,
         npc_name = name,
         npc_icon = npc_se:character_icon() or FALLBACK_NPC_ICON,
@@ -6467,6 +7007,9 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
         applied_outcomes = {}, -- Track applied outcomes to prevent farming during UI loops
         started_at = time_global(),  -- Track when conversation started (for timeout)
         reply_pending = false,  -- Per-conversation reply pending flag
+        story_id = identity.story_id,
+        canonical_id = identity.canonical_id,
+        fallback_name = identity.fallback_name,
     }
 
     -- Store in multi-conversation table keyed by contact_id
@@ -6624,8 +7167,16 @@ local function attempt_interactive_conversation()
 
     -- Phase 3: Merge both pools and do weighted random selection
     local all_matches = {}
-    for _, m in ipairs(story_matches) do table.insert(all_matches, m) end
-    for _, m in ipairs(sim_matches) do table.insert(all_matches, m) end
+    for _, m in ipairs(story_matches) do
+        if m.npc_se and not is_contact_blocked(make_contact_id(m.npc_se)) then
+            table.insert(all_matches, m)
+        end
+    end
+    for _, m in ipairs(sim_matches) do
+        if m.npc_se and not is_contact_blocked(make_contact_id(m.npc_se)) then
+            table.insert(all_matches, m)
+        end
+    end
 
     if #all_matches == 0 then
         printf("No interactive conversation found for faction %s (no story or simulated NPC matches).", xml_fac)
@@ -6735,9 +7286,10 @@ function check_conversation_timeouts()
         -- Add the annoyed message to the chat log
         pda_private_add_message(exp.contact_id, conv.npc_name, conv.npc_name, annoyed_msg, conv.npc_icon, false)
 
-        -- Remove from active conversations
-        active_conversations[exp.contact_id] = nil
-        if CONV and CONV.contact_id == exp.contact_id then CONV = nil end
+        abort_contact_f2f_state(exp.contact_id, "conversation_timeout", {
+            remove_conversation = true,
+            cancel_events = true,
+        })
 
         -- Record cooldown
         local composite_key = (conv.prefix or "task") .. "_" .. conv.faction .. "_" .. conv.conv_id
@@ -6778,7 +7330,7 @@ local function is_actor_currently_in_dialog()
     return false
 end
 
-local function is_handoff_actionable(handoff, now_ms)
+is_handoff_actionable = function(handoff, now_ms)
     if type(handoff) ~= "table" then
         return false, "invalid_type"
     end
@@ -6824,7 +7376,12 @@ local function has_pending_f2f_handoff_entries()
     local pruned_any = false
 
     for key, handoff in pairs(pda_f2f_handoffs) do
+        local contact_key = tostring(handoff and handoff.contact_id or key)
         local actionable, reason = is_handoff_actionable(handoff, now)
+        if actionable and is_contact_blocked(contact_key) then
+            actionable = false
+            reason = "blocked_contact"
+        end
         if actionable then
             has_actionable = true
         else
@@ -7036,20 +7593,26 @@ function save_state(m)
     -- Save active conversations (strip non-serializable fields)
     local save_convs = {}
     for cid, c in pairs(active_conversations) do
-        save_convs[cid] = {
-            npc_id = c.npc_id, contact_id = c.contact_id,
-            npc_name = c.npc_name, npc_icon = c.npc_icon,
-            faction = c.faction, prefix = c.prefix, conv_id = c.conv_id,
-            turn = c.turn, task_id = c.task_id, category = c.category,
-            applied_outcomes = c.applied_outcomes, started_at = c.started_at,
-            pending_in_person_continuation = c.pending_in_person_continuation,
-            pending_in_person_turn = c.pending_in_person_turn,
-            pending_in_person_target = c.pending_in_person_target,
-            pending_in_person_set_at = c.pending_in_person_set_at,
-        }
+        if not is_contact_blocked(cid) then
+            save_convs[cid] = {
+                npc_id = c.npc_id, contact_id = c.contact_id,
+                npc_name = c.npc_name, npc_icon = c.npc_icon,
+                faction = c.faction, prefix = c.prefix, conv_id = c.conv_id,
+                turn = c.turn, task_id = c.task_id, category = c.category,
+                applied_outcomes = c.applied_outcomes, started_at = c.started_at,
+                story_id = c.story_id, canonical_id = c.canonical_id, fallback_name = c.fallback_name,
+                pending_in_person_continuation = c.pending_in_person_continuation,
+                pending_in_person_turn = c.pending_in_person_turn,
+                pending_in_person_target = c.pending_in_person_target,
+                pending_in_person_set_at = c.pending_in_person_set_at,
+                pending_in_person_token = c.pending_in_person_token,
+                pending_in_person_story_id = c.pending_in_person_story_id,
+                pending_in_person_canonical_id = c.pending_in_person_canonical_id,
+            }
+        end
     end
     m.pda_active_conversations = save_convs
-    m.pda_f2f_handoffs = pda_f2f_handoffs
+    m.pda_f2f_handoffs = build_savable_f2f_handoffs()
     m.pda_pending_location_refs = pending_location_refs
     m.pda_next_location_ref_id = next_location_ref_id
     m.pda_pending_jobs = pending_jobs
@@ -7065,6 +7628,13 @@ function load_state(m)
     if m.pda_ic_cooldowns then conv_last_played = m.pda_ic_cooldowns end
     if m.pda_ic_npc_cooldowns then npc_last_used = m.pda_ic_npc_cooldowns end
     if m.pda_npc_relationship_scores then npc_relationship_scores = m.pda_npc_relationship_scores end
+    active_conversations = {}
+    CONV = nil
+    pda_reply_pending = false
+    pending_location_refs = {}
+    next_location_ref_id = 1
+    pending_jobs = {}
+    next_job_id = 1
     if m.pda_private_log then
         pda_private_log = m.pda_private_log -- LOAD FROM FILE
         local i = #pda_private_log
@@ -7116,7 +7686,28 @@ function load_state(m)
     end
 
     -- Restore explicit f2f handoff table before any bridge-dependent post-load logic runs.
-    pda_f2f_handoffs = m.pda_f2f_handoffs or nil
+    pda_f2f_handoffs = nil
+    if type(m.pda_f2f_handoffs) == "table" then
+        local now = time_global and time_global() or nil
+        local restored_handoffs = {}
+        for key, handoff in pairs(m.pda_f2f_handoffs) do
+            if type(handoff) == "table" then
+                local contact_key = tostring(handoff.contact_id or key)
+                local actionable = is_handoff_actionable(handoff, now)
+                if not is_contact_blocked(contact_key) and actionable == true then
+                    local cloned = {}
+                    for field_name, field_value in pairs(handoff) do
+                        cloned[field_name] = field_value
+                    end
+                    cloned.contact_id = contact_key
+                    restored_handoffs[contact_key] = cloned
+                end
+            end
+        end
+        if next(restored_handoffs) ~= nil then
+            pda_f2f_handoffs = restored_handoffs
+        end
+    end
     if pda_f2f_handoffs then
         _G.pda_f2f_handoffs = pda_f2f_handoffs
     else
@@ -7134,19 +7725,24 @@ function load_state(m)
             -- Migration: old saves keyed by npc_name; re-key using npc_id if available
             local cid = saved.contact_id or (saved.npc_id and tostring(saved.npc_id)) or key
             saved.contact_id = cid
-            local choices, num = load_choices_for_turn(
-                saved.prefix, saved.faction, saved.conv_id, saved.turn, saved.npc_name, cid
-            )
-            if num > 0 then
-                saved.choices = choices
-                saved.num_choices = num
-                saved.reply_pending = false
-                saved.pending_in_person_continuation = saved.pending_in_person_continuation == true
-                saved.pending_in_person_turn = saved.pending_in_person_turn
-                saved.pending_in_person_target = saved.pending_in_person_target
-                saved.pending_in_person_set_at = saved.pending_in_person_set_at
-                active_conversations[cid] = saved
-                CONV = saved  -- last one loaded becomes CONV for compat
+            if not is_contact_blocked(cid) then
+                local choices, num = load_choices_for_turn(
+                    saved.prefix, saved.faction, saved.conv_id, saved.turn, saved.npc_name, cid
+                )
+                if num > 0 then
+                    saved.choices = choices
+                    saved.num_choices = num
+                    saved.reply_pending = false
+                    saved.pending_in_person_continuation = saved.pending_in_person_continuation == true
+                    saved.pending_in_person_turn = saved.pending_in_person_turn
+                    saved.pending_in_person_target = saved.pending_in_person_target
+                    saved.pending_in_person_set_at = saved.pending_in_person_set_at
+                    saved.pending_in_person_token = saved.pending_in_person_token
+                    saved.pending_in_person_story_id = saved.pending_in_person_story_id or saved.story_id
+                    saved.pending_in_person_canonical_id = saved.pending_in_person_canonical_id or saved.canonical_id
+                    active_conversations[cid] = saved
+                    CONV = saved  -- last one loaded becomes CONV for compat
+                end
             end
         end
     end
