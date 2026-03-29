@@ -6084,6 +6084,10 @@ function on_player_choice(idx, contact_id)
                         -- object is orphaned after on_player_choice removes it (line 5921).
                         active_conversations[cid] = c
                         CONV = c
+                        -- Clear PDA choices: conversation has moved to f2f stage,
+                        -- player should not be able to reply via PDA anymore.
+                        c.choices = nil
+                        c.num_choices = 0
                     end
 
                     if get_ui then
@@ -6673,9 +6677,14 @@ consume_pending_f2f_handoff_internal = function(npc_id, conv_id, turn, token, se
         end
     end
 
-    for _, conv in pairs(active_conversations) do
+    for contact_id, conv in pairs(active_conversations) do
         if conv_matches_target(conv) then
             clear_pending_in_person_marker(conv)
+            -- Remove completed conversation so new ones can trigger for this NPC
+            active_conversations[contact_id] = nil
+            if CONV and CONV.contact_id == contact_id then
+                CONV = nil
+            end
             consumed = true
         elseif tonumber(conv.npc_id) == npc_sid
             and conv.pending_in_person_continuation == true
@@ -6764,6 +6773,11 @@ local function sweep_expired_f2f_pending_markers(reason)
                 conv.pending_in_person_token = nil
                 conv.pending_in_person_story_id = nil
                 conv.pending_in_person_canonical_id = nil
+                -- Remove the zombie conversation so new ones can trigger
+                active_conversations[contact_id] = nil
+                if CONV and CONV.contact_id == contact_id then
+                    CONV = nil
+                end
                 stale_pending_cleared = stale_pending_cleared + 1
             end
         end
