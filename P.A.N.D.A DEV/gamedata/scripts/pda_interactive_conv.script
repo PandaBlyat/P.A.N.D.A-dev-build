@@ -6004,11 +6004,29 @@ function on_player_choice(idx, contact_id)
                     elseif ch.next_turn and continuation_channel == "f2f" then
                         c.pending_in_person_continuation = true
                         c.pending_in_person_turn = ch.next_turn
-                        c.pending_in_person_target = "panda_f2f_hub_dialog"
                         c.pending_in_person_set_at = time_global and time_global() or 0
                         local npc_se = c.npc_id and alife_object(c.npc_id) or nil
                         local handoff_identity = build_f2f_handoff_identity(npc_se, c.npc_id)
                         local handoff_token = make_f2f_handoff_token(c.npc_id, c.conv_id, ch.next_turn, c.pending_in_person_set_at)
+                        local bridge = ensure_panda_f2f_bridge()
+                        local handoff_dialog = "panda_f2f_hub_dialog"
+                        if bridge and type(bridge.reset_runtime) == "function" then
+                            local ok_reset = pcall(bridge.reset_runtime, "prepare_new_pda_f2f_handoff")
+                            printf(
+                                "PANDA_IC: pre-handoff bridge reset requested npc_id=%s conv_id=%s turn=%s ok=%s",
+                                tostring(c.npc_id),
+                                tostring(c.conv_id),
+                                tostring(ch.next_turn),
+                                tostring(ok_reset == true)
+                            )
+                        end
+                        if bridge and type(bridge.allocate_hub_dialog_id) == "function" then
+                            local ok_dialog, allocated_dialog = pcall(bridge.allocate_hub_dialog_id)
+                            if ok_dialog and type(allocated_dialog) == "string" and allocated_dialog ~= "" then
+                                handoff_dialog = allocated_dialog
+                            end
+                        end
+                        c.pending_in_person_target = handoff_dialog
                         c.pending_in_person_token = handoff_token
                         c.pending_in_person_story_id = handoff_identity.story_id
                         c.pending_in_person_canonical_id = handoff_identity.canonical_id
@@ -6045,31 +6063,30 @@ function on_player_choice(idx, contact_id)
                             faction = c.faction,
                             prefix = c.prefix,
                             channel = "f2f",
-                            dialog = "panda_f2f_hub_dialog",
+                            dialog = handoff_dialog,
                             set_at = c.pending_in_person_set_at,
                             token = handoff_token,
                             story_id = handoff_identity.story_id,
                             canonical_id = handoff_identity.canonical_id,
                             fallback_name = handoff_identity.fallback_name,
                             route_owner = nil,
-                            route_dialog = "panda_f2f_hub_dialog",
+                            route_dialog = handoff_dialog,
                             route_status = "pending",
                         }
                         register_pending_f2f_handoff(cid, handoff_row)
 
                         local handoff_route = "no-route"
-                        local bridge = ensure_panda_f2f_bridge()
                         local owner_tag = string.format("pda_handoff_%s_%s_%s", tostring(cid), tostring(c.conv_id), tostring(ch.next_turn))
                         if bridge and type(bridge.hard_route_branch) == "function" then
-                            local ok_route_call, route_applied = pcall(bridge.hard_route_branch, c.npc_id, owner_tag)
+                            local ok_route_call, route_applied = pcall(bridge.hard_route_branch, c.npc_id, owner_tag, handoff_dialog)
                             if ok_route_call and route_applied == true then
                                 handoff_route = "bridge route"
                             end
                         end
 
                         if handoff_route ~= "bridge route" and xr_meet and type(xr_meet.override_dialog) == "function" then
-                            local ok_override_call = pcall(xr_meet.override_dialog, c.npc_id, "panda_f2f_hub_dialog")
-                            if ok_override_call and has_xr_meet_dialog_override(c.npc_id, "panda_f2f_hub_dialog") then
+                            local ok_override_call = pcall(xr_meet.override_dialog, c.npc_id, handoff_dialog)
+                            if ok_override_call and has_xr_meet_dialog_override(c.npc_id, handoff_dialog) then
                                 handoff_route = "xr_meet fallback"
                             end
                         end
@@ -6079,7 +6096,7 @@ function on_player_choice(idx, contact_id)
                         handoff_row.route_set_at = time_global and time_global() or c.pending_in_person_set_at
 
                         printf("PANDA_IC: f2f handoff registered npc_id=%s conv_id=%s turn=%s dialog=%s route=%s",
-                            tostring(c.npc_id), tostring(c.conv_id), tostring(ch.next_turn), "panda_f2f_hub_dialog", handoff_route)
+                            tostring(c.npc_id), tostring(c.conv_id), tostring(ch.next_turn), tostring(handoff_dialog), handoff_route)
 
                         -- Re-register in active_conversations so the pending_in_person
                         -- markers are trackable by consume_pending_f2f_handoff_internal
@@ -6288,14 +6305,18 @@ abort_contact_f2f_state = function(contact_id, reason, options)
     if npc_sid then
         local bridge = ensure_panda_f2f_bridge()
         local bridge_aborted = false
+        local bridge_attempted = false
         if bridge and type(bridge.abort_session) == "function" then
+            bridge_attempted = true
             local ok_abort, abort_result = pcall(bridge.abort_session, npc_sid, route_owner, tostring(reason or "unspecified"), token)
             bridge_aborted = ok_abort and abort_result == true
         elseif bridge and type(bridge.restore_branch_route) == "function" then
-            pcall(bridge.restore_branch_route, npc_sid, route_owner)
+            bridge_attempted = true
+            local ok_restore, restore_result = pcall(bridge.restore_branch_route, npc_sid, route_owner)
+            bridge_aborted = ok_restore and restore_result == true
         end
 
-        if xr_meet and type(xr_meet.restore_dialog) == "function" then
+        if not bridge_attempted and xr_meet and type(xr_meet.restore_dialog) == "function" then
             pcall(xr_meet.restore_dialog, npc_sid)
         end
 
@@ -6447,6 +6468,10 @@ register_pending_f2f_handoff = function(contact_id, handoff_row)
         return false
     end
 
+    if type(handoff_row.route_dialog) ~= "string" or handoff_row.route_dialog == "" then
+        handoff_row.route_dialog = handoff_row.dialog
+    end
+
     pda_f2f_handoffs = pda_f2f_handoffs or {}
 
     local existing = pda_f2f_handoffs[contact_key]
@@ -6579,6 +6604,7 @@ local function get_pending_f2f_handoff_internal(npc_id)
 
     for contact_id, conv in pairs(active_conversations) do
         if type(conv) == "table" and conv.pending_in_person_continuation == true and conv.pending_in_person_turn then
+            local pending_dialog = conv.pending_in_person_target or "panda_f2f_hub_dialog"
             local raw_conv_handoff = {
                 contact_id = contact_id,
                 npc_id = conv.npc_id,
@@ -6587,12 +6613,13 @@ local function get_pending_f2f_handoff_internal(npc_id)
                 faction = conv.faction,
                 prefix = conv.prefix,
                 channel = "f2f",
-                dialog = conv.pending_in_person_target or "panda_f2f_hub_dialog",
+                dialog = pending_dialog,
                 set_at = conv.pending_in_person_set_at,
                 token = conv.pending_in_person_token,
                 story_id = conv.pending_in_person_story_id or conv.story_id,
                 canonical_id = conv.pending_in_person_canonical_id or conv.canonical_id,
                 fallback_name = conv.fallback_name,
+                route_dialog = pending_dialog,
             }
             push_candidate("active_conversations", raw_conv_handoff, get_match_mode(raw_conv_handoff), contact_id)
         end
@@ -7643,6 +7670,18 @@ local function is_f2f_session_active_for_actor()
 
     local bridge_active, bridge_probe = bridge_reports_active_f2f_session()
     if bridge_active then
+        local bridge = ensure_panda_f2f_bridge()
+        if bridge and type(bridge.reset_runtime) == "function" then
+            local ok_reset = pcall(bridge.reset_runtime, "scanner_recover_orphaned_bridge_state")
+            printf(
+                "PANDA_IC: scanner bridge recovery source=%s ok=%s",
+                tostring(bridge_probe or "unknown"),
+                tostring(ok_reset == true)
+            )
+            if ok_reset == true then
+                return false, nil
+            end
+        end
         return true, "bridge_runtime:" .. tostring(bridge_probe)
     end
 

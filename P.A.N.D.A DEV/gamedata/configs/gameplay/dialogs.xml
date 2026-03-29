@@ -4240,4 +4240,190 @@
         <init_func>panda_f2f_bridge.init_dialog</init_func>
         <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
     </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_02">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_03">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_04">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_05">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_06">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_07">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_08">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_09">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_10">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_11">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_12">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_13">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_14">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_15">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_16">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_17">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_18">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_19">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_20">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_21">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_22">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_23">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_24">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_25">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_26">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_27">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_28">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_29">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_30">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_31">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
+
+    <dialog id="panda_f2f_hub_dialog_32">
+        <precondition>panda_f2f_bridge.precondition</precondition>
+        <init_func>panda_f2f_bridge.init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
 </game_dialogs>
