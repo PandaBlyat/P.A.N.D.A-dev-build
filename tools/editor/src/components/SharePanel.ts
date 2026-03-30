@@ -1568,6 +1568,11 @@ function buildPublishForm(): HTMLElement {
   form.className = 'share-publish-form';
   form.hidden = true;
 
+  const markPublishField = <T extends HTMLInputElement | HTMLTextAreaElement>(input: T, ...classNames: string[]): T => {
+    input.closest('.share-form-field')?.classList.add('share-publish-field', ...classNames);
+    return input;
+  };
+
   const createMetric = (labelText: string): { root: HTMLElement; value: HTMLElement } => {
     const root = document.createElement('div');
     root.className = 'share-publish-metric';
@@ -1677,16 +1682,26 @@ function buildPublishForm(): HTMLElement {
   sideColumn.className = 'share-publish-side';
   contentGrid.append(mainColumn, sideColumn);
 
-  const titleInput = makeFormField(mainColumn, 'Title', 'text', 'Story title (unique community title required)') as HTMLInputElement;
+  const identityGrid = document.createElement('div');
+  identityGrid.className = 'share-publish-main-grid share-publish-main-grid-identity';
+  mainColumn.appendChild(identityGrid);
+
+  const titleInput = markPublishField(
+    makeFormField(identityGrid, 'Title', 'text', 'Story title (unique community title required)') as HTMLInputElement,
+    'share-publish-field-title',
+  );
   titleInput.maxLength = 70;
 
   const storedName = getStoredUsername();
-  const authorInput = makeFormField(
-    mainColumn,
-    'Author',
-    'text',
-    storedName ? storedName : 'Anonymous (set a username via your profile)',
-  ) as HTMLInputElement;
+  const authorInput = markPublishField(
+    makeFormField(
+      identityGrid,
+      'Author',
+      'text',
+      storedName ? storedName : 'Anonymous (set a username via your profile)',
+    ) as HTMLInputElement,
+    'share-publish-field-author',
+  );
   authorInput.maxLength = 32;
   if (storedName) {
     authorInput.value = storedName;
@@ -1695,26 +1710,43 @@ function buildPublishForm(): HTMLElement {
     authorInput.title = 'Author name is your profile username. Change it in your profile.';
   }
 
-  const descInput = makeFormField(mainColumn, 'Description', 'textarea', 'Brief description of what this story does...') as HTMLTextAreaElement;
+  const descInput = markPublishField(
+    makeFormField(mainColumn, 'Description', 'textarea', 'Brief description of what this story does...') as HTMLTextAreaElement,
+    'share-publish-field-description',
+  );
   descInput.maxLength = 280;
 
-  const summaryInput = makeFormField(mainColumn, 'Summary', 'textarea', 'Short preview text shown in the drawer before import.') as HTMLTextAreaElement;
+  const supportGrid = document.createElement('div');
+  supportGrid.className = 'share-publish-main-grid share-publish-main-grid-support';
+  mainColumn.appendChild(supportGrid);
+
+  const summaryInput = markPublishField(
+    makeFormField(supportGrid, 'Summary', 'textarea', 'Short preview text shown in the drawer before import.') as HTMLTextAreaElement,
+    'share-publish-field-summary',
+  );
   summaryInput.maxLength = 180;
 
-  const tagsInput = makeFormField(mainColumn, 'Tags', 'text', 'Comma-separated tags (e.g. jobs, tutorial, campfire)') as HTMLInputElement;
+  const metaStack = document.createElement('div');
+  metaStack.className = 'share-publish-meta-stack';
+  supportGrid.appendChild(metaStack);
+
+  const tagsInput = markPublishField(
+    makeFormField(metaStack, 'Tags', 'text', 'Comma-separated tags (e.g. jobs, tutorial, campfire)') as HTMLInputElement,
+    'share-publish-field-tags',
+  );
 
   const factionRow = document.createElement('div');
-  factionRow.className = 'share-form-field';
+  factionRow.className = 'share-form-field share-publish-field share-publish-field-faction';
   const factionLabel = document.createElement('label');
   factionLabel.className = 'share-form-label';
   factionLabel.textContent = 'Broadcast Lane';
   const factionValue = document.createElement('div');
   factionValue.className = 'share-form-faction-display';
   factionRow.append(factionLabel, factionValue);
-  mainColumn.appendChild(factionRow);
+  metaStack.appendChild(factionRow);
 
   const consentRow = document.createElement('label');
-  consentRow.className = 'share-consent-row';
+  consentRow.className = 'share-consent-row share-publish-consent';
   const consentInput = document.createElement('input');
   consentInput.type = 'checkbox';
   const consentText = document.createElement('span');
@@ -1742,12 +1774,12 @@ function buildPublishForm(): HTMLElement {
   sideColumn.appendChild(rewardCard);
 
   const moderationBox = document.createElement('div');
-  moderationBox.className = 'share-moderation-box';
+  moderationBox.className = 'share-moderation-box share-publish-moderation';
   moderationBox.innerHTML = '<strong>Before you publish:</strong> keep titles unique, avoid links or invites, and expect public visibility for anonymous uploads.';
   sideColumn.appendChild(moderationBox);
 
   const checklistCard = document.createElement('section');
-  checklistCard.className = 'share-publish-side-card';
+  checklistCard.className = 'share-publish-side-card share-publish-checklist-card';
 
   const checklistTitle = document.createElement('div');
   checklistTitle.className = 'share-publish-side-title';
