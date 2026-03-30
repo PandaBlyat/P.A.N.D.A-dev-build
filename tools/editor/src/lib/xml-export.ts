@@ -329,7 +329,15 @@ function generateConversation(
   }
 
   // PANDA-managed F2F metadata registry payload (consumed by panda_f2f_bridge.script).
-  lines.push(emitString(`${prefix}${PANDA_F2F_REGISTRY_SUFFIX}`, JSON.stringify(createF2FRegistryPayload(conv))));
+  const registryPayload = createF2FRegistryPayload(conv);
+  lines.push(emitString(`${prefix}${PANDA_F2F_REGISTRY_SUFFIX}`, JSON.stringify(registryPayload)));
+
+  // Start mode: tells the Lua runtime how this conversation is triggered.
+  // Derived from the conversation's startMode field (authoritative) with fallback to entry nodes.
+  const resolvedStartMode = conv.startMode ?? (registryPayload.entryNodes.f2f.length > 0 && registryPayload.entryNodes.pda.length === 0 ? 'f2f' : 'pda');
+  if (resolvedStartMode === 'f2f') {
+    lines.push(emitString(`${prefix}_start_mode`, 'f2f'));
+  }
 
   return lines.join('\n');
 }

@@ -256,6 +256,37 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   }, 'A short name for this story (only used in the editor)', getConversationFieldKey(conv.id, 'label'));
   container.appendChild(labelField);
 
+  // Start Mode — controls how this conversation is triggered
+  const startModeField = document.createElement('div');
+  startModeField.className = 'field';
+  const startModeLabel = document.createElement('label');
+  startModeLabel.textContent = 'Start Mode';
+  startModeField.appendChild(startModeLabel);
+  const startModeHint = document.createElement('div');
+  startModeHint.className = 'field-hint';
+  startModeHint.textContent = 'PDA: conversation triggers via a PDA message. F2F: conversation triggers as a dialogue option when the player talks to the NPC.';
+  startModeField.appendChild(startModeHint);
+  const startModeSelect = document.createElement('select');
+  startModeSelect.className = 'channel-select';
+  startModeSelect.dataset.fieldKey = getConversationFieldKey(conv.id, 'start-mode');
+  const startModeOptionPda = document.createElement('option');
+  startModeOptionPda.value = 'pda';
+  startModeOptionPda.textContent = 'PDA (default)';
+  const startModeOptionF2f = document.createElement('option');
+  startModeOptionF2f.value = 'f2f';
+  startModeOptionF2f.textContent = 'Face-to-Face';
+  startModeSelect.appendChild(startModeOptionPda);
+  startModeSelect.appendChild(startModeOptionF2f);
+  startModeSelect.value = conv.startMode ?? 'pda';
+  startModeSelect.onchange = () => {
+    const nextMode = startModeSelect.value as 'pda' | 'f2f';
+    store.updateConversation(conv.id, { startMode: nextMode });
+    // setConversationInitialChannel auto-configures Turn 1 channel + entry flags
+    store.setConversationInitialChannel(conv.id, nextMode);
+  };
+  startModeField.appendChild(startModeSelect);
+  container.appendChild(startModeField);
+
   const initialChannelField = document.createElement('div');
   initialChannelField.className = 'field';
   const initialChannelLabel = document.createElement('label');

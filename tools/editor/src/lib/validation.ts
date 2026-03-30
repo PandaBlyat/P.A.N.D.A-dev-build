@@ -80,7 +80,7 @@ const PRECONDITION_RANGE_PAIRS: Array<{ minCommand: string; maxCommand: string; 
   { minCommand: 'req_npc_rank', maxCommand: 'req_npc_rank_max', label: 'NPC rank', rankBased: true },
 ] as const;
 
-type ConversationField = 'label' | 'initial-channel' | 'timeout' | 'timeout-message' | 'preconditions';
+type ConversationField = 'label' | 'initial-channel' | 'start-mode' | 'timeout' | 'timeout-message' | 'preconditions';
 type TurnField = 'opening-message' | 'channel' | 'pda-entry' | 'f2f-entry' | 'requires-npc-first' | 'first-speaker';
 type ChoiceField =
   | 'text'
@@ -228,6 +228,26 @@ function validateConversation(conv: Conversation, messages: ValidationMessage[])
         fieldKey: getConversationFieldKey(conv.id, 'timeout-message'),
         fieldLabel: 'Timeout Message',
         message: 'Timeout is set, but the timeout message is empty.',
+      });
+    }
+  }
+
+  // F2F-first start mode validation
+  if (conv.startMode === 'f2f') {
+    const hasF2FEntry = conv.turns.some(
+      (turn) => normalizeChannel(turn.channel, 'pda') === 'f2f' && turn.f2f_entry === true,
+    );
+    if (!hasF2FEntry) {
+      pushMessage(messages, {
+        code: 'f2f-start-mode-no-entry-turn',
+        group: 'structure',
+        scope: 'conversation',
+        level: 'error',
+        conversationId: conv.id,
+        propertiesTab: 'conversation',
+        fieldKey: getConversationFieldKey(conv.id, 'start-mode'),
+        fieldLabel: 'Start Mode',
+        message: 'Start Mode is set to Face-to-Face, but no turn is marked as an F2F entry turn. Set at least one F2F turn with "F2F Entry" enabled.',
       });
     }
   }

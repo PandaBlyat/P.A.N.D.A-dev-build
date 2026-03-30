@@ -3794,9 +3794,16 @@ function pick_random_conv_id_generic(prefix, xml_fac, category, npc_se)
         local cid = i
         local skip = false
 
+        -- Skip F2F-only conversations (they are triggered face-to-face, not via PDA)
+        local start_mode_key = base .. xml_fac .. "_" .. tostring(cid) .. "_start_mode"
+        local start_mode_val = game.translate_string(start_mode_key)
+        if start_mode_val ~= start_mode_key and start_mode_val == "f2f" then skip = true end
+
         -- Preconditions
-        local precond_key = base .. xml_fac .. "_" .. tostring(cid) .. "_precond"
-        if not check_preconditions_generic(precond_key, npc_se) then skip = true end
+        if not skip then
+            local precond_key = base .. xml_fac .. "_" .. tostring(cid) .. "_precond"
+            if not check_preconditions_generic(precond_key, npc_se) then skip = true end
+        end
 
         -- Category filtering for task conversations
         if not skip and prefix == "task" then
@@ -7404,6 +7411,23 @@ function PANDA_CONV_API.get_npc_canonical_id(npc_se)
     return tostring(raw_id):lower()
 end
 
+function PANDA_CONV_API.check_cooldown(conv_id, faction, prefix)
+    local cooldown_key = (prefix or "task") .. "_" .. tostring(faction or "loner") .. "_" .. tostring(conv_id or 0)
+    local last = conv_last_played[cooldown_key]
+    if not last then
+        return false, 0
+    end
+    local seconds_since = game.get_game_time():diffSec(last)
+    local default_cooldown = (PANDA.get_config("default_cooldown") or 60) * 60
+    local on_cooldown = seconds_since < default_cooldown
+    return on_cooldown, seconds_since
+end
+
+function PANDA_CONV_API.record_cooldown(conv_id, faction, prefix)
+    local cooldown_key = (prefix or "task") .. "_" .. tostring(faction or "loner") .. "_" .. tostring(conv_id or 0)
+    conv_last_played[cooldown_key] = game.get_game_time()
+end
+
 function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, category)
     local name = npc_se:character_name()
     local contact_id = make_contact_id(npc_se)
@@ -7538,6 +7562,11 @@ local function collect_story_npc_conversations(xml_fac)
     if max_id == 0 then return results end
 
     for cid = 1, max_id do
+        -- Skip F2F-only conversations (they are triggered face-to-face, not via PDA)
+        local start_mode_key = base .. xml_fac .. "_" .. tostring(cid) .. "_start_mode"
+        local start_mode_val = game.translate_string(start_mode_key)
+        if start_mode_val ~= start_mode_key and start_mode_val == "f2f" then goto story_continue end
+
         local precond_key = base .. xml_fac .. "_" .. tostring(cid) .. "_precond"
         local precond_val = game.translate_string(precond_key)
         if precond_val == precond_key then precond_val = "" end
@@ -7600,6 +7629,7 @@ local function collect_story_npc_conversations(xml_fac)
                 end
             end
         end
+        ::story_continue::
     end
 
     return results
