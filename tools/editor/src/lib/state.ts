@@ -3,6 +3,7 @@
 import type { Project, Conversation, Turn, Choice, ValidationMessage } from './types';
 import { getConversationFaction } from './types';
 import { createEmptyProject, createConversation, createTurn, createChoice } from './xml-export';
+import { migrateLegacyF2FEntryOpenings } from './f2f-entry-migration';
 import { validate } from './validation';
 import { estimateFlowNodeHeight, getDefaultFlowTurnPosition, getFlowAutoLayoutSpacing, getFlowNodeLayout } from './flow-layout';
 
@@ -724,12 +725,13 @@ class StateManager {
   }
 
   loadProject(project: Project, systemStrings: Map<string, string>): void {
+    const sanitizedProject = migrateLegacyF2FEntryOpenings(project);
     this.state.project = {
-      ...project,
-      conversations: project.conversations.map((conversation) => ({
+      ...sanitizedProject,
+      conversations: sanitizedProject.conversations.map((conversation) => ({
         ...conversation,
         initialChannel: normalizeChannelValue(conversation.initialChannel, normalizeChannelValue(conversation.turns.find((turn) => turn.turnNumber === 1)?.channel, 'pda')),
-        faction: getConversationFaction(conversation, project.faction),
+        faction: getConversationFaction(conversation, sanitizedProject.faction),
         turns: conversation.turns.map((turn, turnIndex) => {
           const parentTurnChannel = normalizeChannelValue(turn.channel, 'pda');
           const normalizedTurn: Turn = {
@@ -765,7 +767,7 @@ class StateManager {
       })),
     };
     this.state.systemStrings = systemStrings;
-    this.state.selectedConversationId = project.conversations.length > 0 ? project.conversations[0].id : null;
+    this.state.selectedConversationId = sanitizedProject.conversations.length > 0 ? sanitizedProject.conversations[0].id : null;
     this.clearSelection({ notify: false });
     this.state.showXmlPreview = false;
     this.state.showSystemStringsPanel = false;

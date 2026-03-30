@@ -1,6 +1,7 @@
 // P.A.N.D.A. Conversation Editor — Validation Engine
 
 import { ALL_SMART_TERRAIN_IDS, FACTION_ALIASES, FACTION_IDS, LEVEL_DISPLAY_NAMES, MUTANT_TYPES, RANKS } from './constants';
+import { LEGACY_F2F_OPENING_WARNINGS } from './f2f-entry-migration';
 import { findSchema, OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from './schema';
 import { createTurnDisplayLabeler } from './turn-labels';
 import { STORY_NPC_OPTIONS } from './generated/story-npc-catalog';
@@ -342,6 +343,9 @@ function validateTurn(
   messages: ValidationMessage[],
 ): void {
   for (const warning of turn.migrationWarnings ?? []) {
+    if (LEGACY_F2F_OPENING_WARNINGS.has(warning)) {
+      continue;
+    }
     pushMessage(messages, {
       code: 'legacy-f2f-opening-migration-warning',
       group: 'logic',

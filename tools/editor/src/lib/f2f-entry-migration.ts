@@ -2,7 +2,7 @@ import type { Project, Turn } from './types';
 
 export const F2F_ENTRY_OPENING_SENTINEL = '__PANDA_F2F_ENTRY_STARTER__';
 
-const LEGACY_F2F_OPENING_WARNINGS = new Set([
+export const LEGACY_F2F_OPENING_WARNINGS = new Set([
   'Legacy F2F _open text found, but choice_1 is missing; NPC text could not be auto-mapped to reply_1.',
   'Legacy F2F _open text and reply_1 were both populated; kept existing reply_1 and preserved legacy text only in migration history.',
 ]);
