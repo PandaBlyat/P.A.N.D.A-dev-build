@@ -5562,7 +5562,7 @@ hr {
   flex-direction: column;
   gap: 16px;
   padding-right: 8px;
-  padding-bottom: 6px;
+  padding-bottom: 16px;
   overscroll-behavior: contain;
 }
 
@@ -5599,6 +5599,7 @@ hr {
   padding: 18px;
   overflow: hidden;
   isolation: isolate;
+  flex-shrink: 0;
   border-radius: 20px;
   border: 1px solid color-mix(in srgb, var(--accent) 28%, rgba(255, 255, 255, 0.1));
   background:
@@ -5733,7 +5734,7 @@ hr {
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.9fr);
   gap: 16px;
-  min-height: 0;
+  flex-shrink: 0;
   align-items: start;
 }
 
@@ -5744,6 +5745,11 @@ hr {
   gap: 14px;
   align-self: start;
   min-width: 0;
+}
+
+.share-publish-side {
+  position: sticky;
+  top: 0;
 }
 
 .share-publish-main-grid {
