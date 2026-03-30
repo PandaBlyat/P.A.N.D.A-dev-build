@@ -14,6 +14,8 @@ export type CursorSettings = {
   size: number;
 };
 
+type CursorShape = 'triangle' | 'circle' | 'hidden';
+
 type FlowCursorSystemOptions = {
   canvas: HTMLElement;
   settings: CursorSettings;
@@ -34,7 +36,7 @@ type CursorRenderer = {
 const TEXT_INPUT_SELECTOR = 'input, textarea, select, [contenteditable="true"], [contenteditable=""], .turn-label-input';
 const POINTER_TRACKING_NAMESPACE = '__pandaFlowCursorPointerTracker';
 
-const SHAPE_BY_STATE: Record<CursorState, 'triangle' | 'circle' | 'hidden'> = {
+const SHAPE_BY_STATE: Record<CursorState, CursorShape> = {
   defaultPointer: 'triangle',
   workspaceGrab: 'circle',
   dragging: 'circle',
@@ -42,6 +44,21 @@ const SHAPE_BY_STATE: Record<CursorState, 'triangle' | 'circle' | 'hidden'> = {
   textInput: 'triangle',
   disabled: 'hidden',
 };
+
+const TRIANGLE_VISUAL_CENTER = {
+  x: 0.3274,
+  y: 0.4614,
+} as const;
+
+function getCursorHotspotOffset(shape: CursorShape, size: number): { x: number; y: number } {
+  if (shape !== 'triangle') return { x: 0, y: 0 };
+  // The triangle glyph's visual center sits left/up of its bounding box center,
+  // so compensate here to keep the cursor hotspot centered on the pointer.
+  return {
+    x: (0.5 - TRIANGLE_VISUAL_CENTER.x) * size,
+    y: (0.5 - TRIANGLE_VISUAL_CENTER.y) * size,
+  };
+}
 
 type SharedPointerTracker = {
   lastPosition: { x: number; y: number } | null;
@@ -168,31 +185,38 @@ function createCursorRenderer(canvas: HTMLElement, settings: CursorSettings): Cu
   document.body.appendChild(root);
 
   let currentState: CursorState = 'disabled';
+  let currentShape: CursorShape = 'hidden';
   let currentSize = clamp(settings.size, 10, 32);
+  let lastPointerPosition: { x: number; y: number } | null = pointerTracker.lastPosition;
+
+  const applyPosition = () => {
+    if (!lastPointerPosition) return;
+    const hotspotOffset = getCursorHotspotOffset(currentShape, currentSize);
+    root.style.transform = `translate3d(${lastPointerPosition.x - currentSize / 2 + hotspotOffset.x}px, ${lastPointerPosition.y - currentSize / 2 + hotspotOffset.y}px, 0)`;
+  };
 
   const setShape = (state: CursorState) => {
-    const shape = SHAPE_BY_STATE[state];
-    root.dataset.shape = shape;
+    currentShape = SHAPE_BY_STATE[state];
+    root.dataset.shape = currentShape;
   };
 
   setShape('disabled');
-  const lastPointer = pointerTracker.lastPosition;
-  if (lastPointer) {
-    root.style.transform = `translate3d(${lastPointer.x - currentSize / 2}px, ${lastPointer.y - currentSize / 2}px, 0)`;
-  }
+  applyPosition();
 
   return {
     setVisible(visible) {
       root.classList.toggle('is-visible', visible);
     },
     setPosition(x, y) {
-      root.style.transform = `translate3d(${x - currentSize / 2}px, ${y - currentSize / 2}px, 0)`;
+      lastPointerPosition = { x, y };
+      applyPosition();
     },
     setState(state) {
       if (currentState === state) return;
       currentState = state;
       setShape(state);
       root.dataset.state = state;
+      applyPosition();
     },
     setAccentColor(color) {
       root.style.setProperty('--cursor-accent', color);
@@ -203,6 +227,7 @@ function createCursorRenderer(canvas: HTMLElement, settings: CursorSettings): Cu
     setSize(size) {
       currentSize = clamp(size, 10, 32);
       root.style.setProperty('--cursor-size', `${currentSize}px`);
+      applyPosition();
     },
     pulse() {
       root.classList.remove('is-clicking');
