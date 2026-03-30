@@ -1260,6 +1260,9 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
 
     if (hasExplicitF2FContext && turnChannel === 'f2f' && turn.f2f_entry === true && f2fVisibleChoices.length > 0) {
       const hasF2FExit = f2fVisibleChoices.some((choice) => {
+        if (choice.terminal === true) {
+          return true;
+        }
         const continueTo = choice.continueTo;
         if (continueTo != null) {
           return true;
@@ -1284,7 +1287,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
           propertiesTab: 'selection',
           fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'),
           fieldLabel: 'Opening Message',
-          message: `Branch ${turn.turnNumber} is a forced F2F entry with no exit path (no continuation or task resume turn).`,
+          message: `Branch ${turn.turnNumber} is a forced F2F entry with no exit path (no continuation, terminal ending, or task resume turn).`,
         });
       }
     }
