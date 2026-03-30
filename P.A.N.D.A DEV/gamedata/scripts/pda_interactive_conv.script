@@ -547,6 +547,8 @@ CONV = nil  -- Legacy: kept as a reference to the most-recently-started conversa
 active_conversations = {}  -- Table keyed by npc_name → conversation data
 pda_reply_pending = false  -- True while the multi-stage reply timer chain is active
 pda_player_chat_online = true
+local panda_ic_shutdown_in_progress = false
+local is_panda_ic_shutdown_in_progress
 local conv_last_played, last_conv_npc_id, _callbacks_registered = {}, nil, false
 local npc_last_used = {}   -- store last used time per NPC
 local last_pda_warning_time = 0 
@@ -823,6 +825,9 @@ local function register_anomaly_zone_reference(zone_name, sender_npc_name, sende
 end
 
 function check_location_references()
+    if is_panda_ic_shutdown_in_progress() then
+        return
+    end
     if not db.actor then
         return
     end
@@ -1160,6 +1165,9 @@ end
 
 -- Main job monitor — called periodically.
 function check_pending_jobs()
+    if is_panda_ic_shutdown_in_progress() then
+        return
+    end
     if not pending_jobs or not db.actor then return end
 
     local now = time_global()
@@ -1318,6 +1326,10 @@ safe_remove_time_event = function(id, name)
     end
 end
 
+is_panda_ic_shutdown_in_progress = function()
+    return panda_ic_shutdown_in_progress == true
+end
+
 function cleanup_panda_ic_events()
     -- Repeating scheduler groups
     safe_remove_time_event("pda_ic_trigger", "tick")
@@ -1369,42 +1381,14 @@ function cleanup_panda_ic_events()
 end
 
 function on_game_shutdown_cb()
-    local handoff_contacts = {}
-    if type(pda_f2f_handoffs) == "table" then
-        for contact_id in pairs(pda_f2f_handoffs) do
-            handoff_contacts[#handoff_contacts + 1] = tostring(contact_id)
-        end
-    end
-    for contact_id in pairs(active_conversations or {}) do
-        local contact_key = tostring(contact_id)
-        local already_queued = false
-        for _, existing in ipairs(handoff_contacts) do
-            if existing == contact_key then
-                already_queued = true
-                break
-            end
-        end
-        if not already_queued then
-            handoff_contacts[#handoff_contacts + 1] = contact_key
-        end
-    end
-
-    for _, contact_id in ipairs(handoff_contacts) do
-        abort_contact_f2f_state(contact_id, "on_game_shutdown", {
-            remove_conversation = true,
-            cancel_events = true,
-            remove_thread = false,
-        })
-    end
+    panda_ic_shutdown_in_progress = true
 
     local bridge = ensure_panda_f2f_bridge()
-    if bridge and type(bridge.reset_runtime) == "function" then
-        pcall(bridge.reset_runtime, "on_game_shutdown")
+    if bridge and type(bridge.mark_shutdown_in_progress) == "function" then
+        pcall(bridge.mark_shutdown_in_progress, "on_game_shutdown")
+    elseif bridge and type(bridge.begin_shutdown_cleanup) == "function" then
+        pcall(bridge.begin_shutdown_cleanup, "on_game_shutdown")
     end
-
-    pda_f2f_handoffs = nil
-    sync_pda_f2f_handoff_globals()
-    cleanup_panda_ic_events()
 end
 
 -- NPC invulnerability check for make_npc_invulnerable outcome
@@ -3651,6 +3635,9 @@ end
 local spawn_squad_at_smart_terrain
 
 local function apply_outcome_internal(outcome_str, sender_npc_name, sender_faction, sender_npc_id, pre_found_task_id, sender_contact_id, conv_data, channel)
+    if is_panda_ic_shutdown_in_progress() then
+        return false
+    end
     if not outcome_str or outcome_str == "" or outcome_str == "none" then return false end
     local resolved_channel = channel or (conv_data and conv_data.channel) or "pda"
     if conv_data and conv_data.channel == nil then
@@ -5954,21 +5941,33 @@ function on_player_choice(idx, contact_id)
     -- Stage 2: After a short delay, mark as "delivered" (message reaches NPC's PDA)
     local delivered_delay = math.random(1, 2)
     CreateTimeEvent(ev_prefix, "delivery_ack", delivered_delay, function()
+        if is_panda_ic_shutdown_in_progress() then
+            return true
+        end
         set_last_player_message_state(cid, "delivered")
 
         -- Stage 3: NPC reads the message
         local player_msg_len = string.len(ch.text or "")
         local read_delay = math.max(1, math.min(4, math.floor(player_msg_len / 30) + 1))
         CreateTimeEvent(ev_prefix, "npc_read", read_delay, function()
+            if is_panda_ic_shutdown_in_progress() then
+                return true
+            end
             set_last_player_message_state(cid, "read")
 
             -- Stage 4: NPC thinks before typing
             local think_delay = math.random(1, 3)
             CreateTimeEvent(ev_prefix, "npc_thinking", think_delay, function()
+                if is_panda_ic_shutdown_in_progress() then
+                    return true
+                end
 
                 -- Stage 5: NPC starts typing
                 upsert_npc_typing_message(cid, npc_name, c.npc_icon)
                 CreateTimeEvent(ev_prefix, "npc_reply", typing_duration, function()
+                    if is_panda_ic_shutdown_in_progress() then
+                        return true
+                    end
                     clear_npc_typing_message(cid)
 
                     if ch.reply and ch.reply ~= "" then
@@ -5985,6 +5984,9 @@ function on_player_choice(idx, contact_id)
                         local outcome_delay_min = PANDA.get_config("outcome_delay_min") or 1
                         local outcome_delay_max = PANDA.get_config("outcome_delay_max") or 2
                         CreateTimeEvent(ev_prefix, "outcome", math.random(outcome_delay_min, outcome_delay_max), function()
+                            if is_panda_ic_shutdown_in_progress() then
+                                return true
+                            end
                             apply_outcome(ch.outcome, npc_name, c.faction, c.npc_id, c.task_id, cid, c)
                             return true
                         end)
@@ -7336,6 +7338,9 @@ end
 -- simulated NPC conversations for equal selection chance.
 -- ============================================================
 local function attempt_interactive_conversation()
+    if is_panda_ic_shutdown_in_progress() then
+        return false
+    end
     printf("Attempting interactive conversation (merged system)")
 
     local player_comm = get_actor_true_community() or "stalker"
@@ -7465,6 +7470,9 @@ local GENERIC_TIMEOUT_MESSAGES = {
 }
 
 function check_conversation_timeouts()
+    if is_panda_ic_shutdown_in_progress() then
+        return
+    end
     if not active_conversations then return end
     local now = time_global()
 
@@ -7713,6 +7721,9 @@ local function log_f2f_scanner_suppression_once(source_reason)
 end
 
 function try_trigger_interactive_conv()
+    if is_panda_ic_shutdown_in_progress() then
+        return false
+    end
     if not PANDA.get_config("enabled") then
         printf("Trigger skipped: disabled")
         return false
@@ -7761,6 +7772,9 @@ local function schedule_next_trigger(interval_min)
     -- Convert in-game minutes to real seconds
     local delay = (interval_min * 60) / tf
     CreateTimeEvent("pda_ic_trigger", "tick", delay, function()
+        if is_panda_ic_shutdown_in_progress() then
+            return true
+        end
         -- Check for timed-out conversations before triggering new ones
         check_conversation_timeouts()
         try_trigger_interactive_conv()
@@ -7772,6 +7786,9 @@ end
 -- Also run timeout checks more frequently (every 10 real seconds)
 local function schedule_timeout_checker()
     CreateTimeEvent("pda_ic_timeout", "check", 10, function()
+        if is_panda_ic_shutdown_in_progress() then
+            return true
+        end
         check_conversation_timeouts()
         sweep_expired_f2f_pending_markers("periodic_timeout_checker")
         return false  -- Keep repeating
@@ -7783,6 +7800,9 @@ local function schedule_location_ref_checker()
     if interval < 1 then interval = 1 end
 
     CreateTimeEvent("pda_ic_location", "check", interval, function()
+        if is_panda_ic_shutdown_in_progress() then
+            return true
+        end
         check_location_references()
         return false
     end)
@@ -7790,6 +7810,9 @@ end
 
 local function schedule_job_checker()
     CreateTimeEvent("pda_ic_jobs", "check", 5, function()
+        if is_panda_ic_shutdown_in_progress() then
+            return true
+        end
         check_pending_jobs()
         return false -- Keep repeating
     end)
@@ -7800,6 +7823,9 @@ end
 -- KEYBOARD CALLBACKS
 -- ============================================================
 function on_key_press_cb(key)
+    if is_panda_ic_shutdown_in_progress() then
+        return
+    end
     -- debug trigger if enabled. All choice interactions are in the PDA UI now.
     if key == DIK_SPACE and not CONV and PANDA.get_config("debug_trigger") then
         try_trigger_interactive_conv()
@@ -7851,6 +7877,7 @@ function save_state(m)
 end
 
 function load_state(m)
+    panda_ic_shutdown_in_progress = false
     if m.pda_ic_cooldowns then conv_last_played = m.pda_ic_cooldowns end
     if m.pda_ic_npc_cooldowns then npc_last_used = m.pda_ic_npc_cooldowns end
     if m.pda_npc_relationship_scores then npc_relationship_scores = m.pda_npc_relationship_scores end
@@ -8004,6 +8031,8 @@ end
 function on_game_start()
     -- Ensure this function runs only once
     if _callbacks_registered then return end
+
+    panda_ic_shutdown_in_progress = false
 
     -- Wire optional f2f bridge integration early at startup
     ensure_panda_f2f_bridge()

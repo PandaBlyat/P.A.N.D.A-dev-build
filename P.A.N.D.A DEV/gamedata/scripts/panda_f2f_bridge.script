@@ -213,6 +213,26 @@ local function get_dialog_manager_iface()
     return _G
 end
 
+local function clear_exported_saved_dialog_ref(dialog_ref)
+    if dialog_ref == nil then
+        return false
+    end
+
+    local cleared = false
+    local dm = rawget(_G, "dialog_manager")
+    if type(dm) == "table" and rawget(dm, "saved_dialog") == dialog_ref then
+        dm.saved_dialog = nil
+        cleared = true
+    end
+
+    if rawget(_G, "saved_dialog") == dialog_ref then
+        _G.saved_dialog = nil
+        cleared = true
+    end
+
+    return cleared
+end
+
 function normalize_lookup_id(id)
     local sid = tonumber(id)
     if not sid or sid <= 0 then
@@ -850,6 +870,16 @@ local function resolve_meet_manager_from_storage(storage)
 end
 
 local function restore_live_dialog_defaults(npc_id, source_tag)
+    if runtime.shutdown_in_progress == true then
+        bridge_debug(
+            "restore_live_dialog_defaults skipped npc_id=%s source=%s reason=%s",
+            tostring(npc_id or "nil"),
+            tostring(source_tag or "unknown"),
+            "shutdown_in_progress"
+        )
+        return false
+    end
+
     local sid = normalize_npc_id(npc_id)
     if not sid then
         return false
@@ -884,7 +914,7 @@ local function restore_live_dialog_defaults(npc_id, source_tag)
     return restored_default == true or cleared_cache == true
 end
 
-local function restore_override_owners(owners)
+local function restore_override_owners(owners, skip_live_restore)
     if type(owners) ~= "table" then
         return false
     end
@@ -896,7 +926,7 @@ local function restore_override_owners(owners)
             local ok_restore = pcall(xr_meet.restore_dialog, sid)
             restored_any = ok_restore or restored_any
         end
-        if sid then
+        if sid and skip_live_restore ~= true and runtime.shutdown_in_progress ~= true then
             restored_any = restore_live_dialog_defaults(sid, "restore_override_owners") or restored_any
         end
     end
@@ -909,6 +939,23 @@ local function clear_runtime_transient_state()
     runtime.latest_state = nil
     runtime.pending_state = nil
     runtime.active_token = nil
+end
+
+local function cleanup_all_runtime_handlers()
+    local seen = {}
+    local function cleanup_state_candidate(candidate)
+        if type(candidate) ~= "table" or seen[candidate] then
+            return
+        end
+        seen[candidate] = true
+        cleanup_state_handlers(candidate)
+    end
+
+    cleanup_state_candidate(runtime.pending_state)
+    cleanup_state_candidate(runtime.latest_state)
+    for _, candidate in pairs(runtime.state_by_id or {}) do
+        cleanup_state_candidate(candidate)
+    end
 end
 
 local function discard_runtime_state_for_npc(npc_id, token)
@@ -997,6 +1044,7 @@ end
 
 local function load_state_cb(m)
     local saved_override_owners = m[SAVE_KEY_OVERRIDE_OWNERS] or {}
+    runtime.shutdown_in_progress = false
     restore_override_owners(saved_override_owners)
     clear_runtime_transient_state()
     runtime.override_owners = {}
@@ -1032,6 +1080,10 @@ local function is_actor_dialog_active()
 end
 
 local function actor_on_update_cb()
+    if runtime.shutdown_in_progress == true then
+        return
+    end
+
     local state = runtime.latest_state
     if type(state) ~= "table" then
         return
@@ -1094,6 +1146,10 @@ local function actor_on_update_cb()
 end
 
 local function actor_menu_mode_changed_cb(mode, previous_mode)
+    if runtime.shutdown_in_progress == true then
+        return
+    end
+
     local current_mode = tonumber(mode)
     local last_mode = tonumber(previous_mode)
     local dialog_hidden = (current_mode == 11) or (current_mode == 0 and last_mode == 10)
@@ -2055,6 +2111,7 @@ cleanup_state_handlers = function(state)
     if type(state) ~= "table" then
         return
     end
+    local dialog_ref = state.dialog
     -- Remove _G handler functions to prevent stale closure leaks.
     -- Each f2f dialog session registers precondition/action callbacks in _G
     -- via register_dispatcher(). These closures capture state.dialog (CPhraseDialog
@@ -2071,9 +2128,20 @@ cleanup_state_handlers = function(state)
         end
         state.handlers = {}
     end
+    local cleared_saved_dialog = clear_exported_saved_dialog_ref(dialog_ref)
     -- Break references to engine userdata to prevent stale access
     state.dialog = nil
     state.npc_se = nil
+    state.alloc = nil
+    state.handoff = nil
+    state.handoff_source = nil
+    state.handoff_route_dialog = nil
+    state.route_dialog = nil
+    state.turns = nil
+    state.branches = nil
+    if cleared_saved_dialog then
+        bridge_debug("cleanup_state_handlers cleared_exported_saved_dialog=true")
+    end
 end
 
 cleanup_noncommit_exit = function(state, exit_reason)
@@ -2309,7 +2377,9 @@ function panda_f2f_bridge.restore_branch_route(npc_id, owner_tag)
         local ok_restore = pcall(xr_meet.restore_dialog, sid)
         restored = ok_restore == true or restored
     end
-    restored = restore_live_dialog_defaults(sid, "restore_branch_route") or restored
+    if runtime.shutdown_in_progress ~= true then
+        restored = restore_live_dialog_defaults(sid, "restore_branch_route") or restored
+    end
     runtime.override_owners[key] = nil
     return restored == true or rec ~= nil
 end
@@ -2343,28 +2413,49 @@ end
 function panda_f2f_bridge.reset_runtime(reason)
     ensure_callbacks_registered()
 
-    local seen = {}
-    local function cleanup_state_candidate(candidate)
-        if type(candidate) ~= "table" or seen[candidate] then
-            return
-        end
-        seen[candidate] = true
-        cleanup_state_handlers(candidate)
+    local reason_s = tostring(reason or "unknown")
+    if runtime.shutdown_in_progress == true or string.find(reason_s, "shutdown", 1, true) then
+        return panda_f2f_bridge.begin_shutdown_cleanup(reason_s)
     end
 
-    cleanup_state_candidate(runtime.pending_state)
-    cleanup_state_candidate(runtime.latest_state)
-    for _, candidate in pairs(runtime.state_by_id or {}) do
-        cleanup_state_candidate(candidate)
-    end
+    cleanup_all_runtime_handlers()
 
     local restored = restore_override_owners(runtime.override_owners)
     clear_runtime_transient_state()
     runtime.override_owners = {}
     bridge_warn(
         "reset_runtime reason=%s restored_overrides=%s",
-        tostring(reason or "unknown"),
+        tostring(reason_s),
         tostring(restored == true)
+    )
+    return true
+end
+
+function panda_f2f_bridge.begin_shutdown_cleanup(reason)
+    ensure_callbacks_registered()
+
+    local reason_s = tostring(reason or "unknown")
+    runtime.shutdown_in_progress = true
+
+    cleanup_all_runtime_handlers()
+
+    local restored = restore_override_owners(runtime.override_owners, true)
+    clear_runtime_transient_state()
+    runtime.override_owners = {}
+    bridge_warn(
+        "begin_shutdown_cleanup reason=%s restored_overrides=%s",
+        tostring(reason_s),
+        tostring(restored == true)
+    )
+    return true
+end
+
+function panda_f2f_bridge.mark_shutdown_in_progress(reason)
+    ensure_callbacks_registered()
+    runtime.shutdown_in_progress = true
+    bridge_warn(
+        "mark_shutdown_in_progress reason=%s",
+        tostring(reason or "unknown")
     )
     return true
 end
@@ -2850,17 +2941,7 @@ local function debug_resolve_snapshot(stage, npc_se, state, handoff)
     )
 end
 
-local function dm_bind_saved_dialog(dm, state)
-    if type(dm) ~= "table" or type(state) ~= "table" or state.dialog == nil then
-        return false
-    end
-
-    dm.saved_dialog = state.dialog
-    return dm.saved_dialog == state.dialog
-end
-
 local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_script_text)
-    local dm = get_dialog_manager_iface()
     local phrase_text = tostring(phrase_id or "")
     local allow_script_text = use_script_text and phrase_text:find("^dialogs%.") ~= nil
     local parent_sid = tostring(parent_id)
@@ -2943,13 +3024,11 @@ local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_scr
         return script
     end
 
-    local fallback_bound_dialog = dm_bind_saved_dialog(dm, state)
     bridge_warn(
-        "dm_add_dialog hard_fail reason=add_phrase_failed phrase_id=%s parent_id=%s node_id=%s fallback_bound_dialog=%s",
+        "dm_add_dialog hard_fail reason=add_phrase_failed phrase_id=%s parent_id=%s node_id=%s",
         tostring(phrase_id or "nil"),
         tostring(parent_id or "nil"),
-        tostring(id or "nil"),
-        tostring(fallback_bound_dialog)
+        tostring(id or "nil")
     )
 
     return nil
@@ -3733,6 +3812,10 @@ end
 function panda_f2f_bridge.on_dialog_closed(npc_or_reason, reason, ...)
     ensure_callbacks_registered()
 
+    if runtime.shutdown_in_progress == true then
+        return
+    end
+
     local callback_context = build_callback_resolution_context(npc_or_reason, reason, ...)
     local close_reason = "dialog_closed"
     if type(reason) == "string" then
@@ -3912,6 +3995,9 @@ end
 
 function panda_f2f_bridge.precondition(...)
     ensure_callbacks_registered()
+    if runtime.shutdown_in_progress == true then
+        return false
+    end
     bridge_warn("callback fired entry=hub_precondition name=%s", "panda_f2f_bridge.precondition")
     local callback_context = build_callback_resolution_context(...)
 
@@ -4033,6 +4119,9 @@ end
 
 function panda_f2f_bridge.init_dialog(dialog, ...)
     ensure_callbacks_registered()
+    if runtime.shutdown_in_progress == true then
+        return
+    end
     bridge_warn("callback fired entry=hub_init name=%s", "panda_f2f_bridge.init_dialog")
     local callback_context = build_callback_resolution_context(...)
 
