@@ -249,6 +249,12 @@ function normalizeStringArray(values: unknown): string[] | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
+function normalizeOptionalNonNegativeInteger(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+  const normalized = Math.floor(value);
+  return normalized >= 0 ? normalized : undefined;
+}
+
 function normalizeTurn(
   conversationId: number,
   turn: Turn,
@@ -320,6 +326,7 @@ function normalizeChoice(
     }),
     continueChannel: normalizedContinueChannel,
     continue_channel: normalizedContinueChannel,
+    pdaDelaySeconds: normalizeOptionalNonNegativeInteger(choice.pdaDelaySeconds),
     story_npc_id: typeof choice.story_npc_id === 'string' && choice.story_npc_id.trim().length > 0
       ? choice.story_npc_id.trim()
       : undefined,

@@ -1158,6 +1158,39 @@ function renderChoiceProperties(
   continueAsField.appendChild(continuationDetails);
   continuationBody.appendChild(continueAsField);
 
+  const pdaDelayField = document.createElement('div');
+  pdaDelayField.className = 'field';
+  const pdaDelayLabel = document.createElement('label');
+  pdaDelayLabel.textContent = 'Delay Before PDA Follow-up (seconds)';
+  pdaDelayField.appendChild(pdaDelayLabel);
+  const pdaDelayHint = document.createElement('div');
+  pdaDelayHint.className = 'field-hint';
+  pdaDelayHint.textContent = 'Only used when this F2F choice continues as PDA. Leave blank or use 0 for an immediate follow-up after the face-to-face dialog closes.';
+  pdaDelayField.appendChild(pdaDelayHint);
+  const pdaDelayFieldKey = getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'pda-delay-seconds');
+  const pdaDelayInput = document.createElement('input');
+  pdaDelayInput.type = 'number';
+  pdaDelayInput.min = '0';
+  pdaDelayInput.step = '1';
+  pdaDelayInput.placeholder = '0';
+  pdaDelayInput.value = choice.pdaDelaySeconds != null ? String(choice.pdaDelaySeconds) : '';
+  pdaDelayInput.setAttribute('data-field-key', pdaDelayFieldKey);
+  pdaDelayInput.oninput = () => {
+    debounced(pdaDelayFieldKey, () => {
+      const trimmed = pdaDelayInput.value.trim();
+      if (trimmed === '') {
+        store.updateChoice(conv.id, turn.turnNumber, choice.index, { pdaDelaySeconds: undefined });
+        return;
+      }
+      const parsed = Number.parseInt(trimmed, 10);
+      store.updateChoice(conv.id, turn.turnNumber, choice.index, {
+        pdaDelaySeconds: Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined,
+      });
+    });
+  };
+  pdaDelayField.appendChild(pdaDelayInput);
+  continuationBody.appendChild(pdaDelayField);
+
   const { wrapper: choiceAdvancedWrapper, body: choiceAdvancedBody } = createCollapsibleSection(
     `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-advanced-channel-controls`,
     'Advanced Channel Controls',

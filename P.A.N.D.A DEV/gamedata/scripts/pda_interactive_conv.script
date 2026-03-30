@@ -560,6 +560,8 @@ local next_location_ref_id = 1
 -- ============================================================
 local pending_jobs = {}          -- keyed by contact_id
 local next_job_id = 1
+local pending_pda_followups = {}
+local next_pda_followup_id = 1
 -- Temporary collector: when non-nil, create_squad_safely appends squad IDs here
 local _job_spawn_collector = nil
 -- Temporary storage for pause_job params within an outcome batch
@@ -1296,6 +1298,248 @@ function has_pending_job(contact_id)
     return pending_jobs[contact_id] ~= nil
 end
 
+local function clone_plain_table(src)
+    if type(src) ~= "table" then
+        return nil
+    end
+
+    local out = {}
+    for key, value in pairs(src) do
+        local value_type = type(value)
+        if value_type ~= "function" and value_type ~= "userdata" and value_type ~= "thread" then
+            out[key] = value
+        end
+    end
+
+    return out
+end
+
+local function build_turn_string_prefix(prefix, faction, conv_id, turn)
+    local base_key
+    if prefix == "task" or not prefix then
+        base_key = "st_pda_ic_" .. tostring(faction) .. "_" .. tostring(conv_id)
+    else
+        base_key = "st_pda_ic_" .. tostring(prefix) .. "_" .. tostring(faction) .. "_" .. tostring(conv_id)
+    end
+
+    local turn_number = tonumber(turn)
+    if turn_number and turn_number > 1 then
+        base_key = base_key .. "_t" .. tostring(turn_number)
+    end
+
+    return base_key
+end
+
+local function queue_pda_followup_internal(raw_entry)
+    if type(raw_entry) ~= "table" then
+        return false
+    end
+
+    local npc_id = tonumber(raw_entry.npc_id)
+    local conv_id = tonumber(raw_entry.conv_id)
+    local turn = tonumber(raw_entry.turn)
+    local faction = raw_entry.faction
+    local contact_id = tostring(raw_entry.contact_id or npc_id or "")
+    if contact_id == "" or not npc_id or not conv_id or not turn or not faction then
+        return false
+    end
+
+    local delay_seconds = tonumber(raw_entry.delay_seconds) or 0
+    if delay_seconds < 0 then
+        delay_seconds = 0
+    end
+    delay_seconds = math.floor(delay_seconds)
+
+    for id, pending in pairs(pending_pda_followups) do
+        if type(pending) == "table" and tostring(pending.contact_id or "") == contact_id then
+            pending_pda_followups[id] = nil
+        end
+    end
+
+    local entry_id = next_pda_followup_id
+    next_pda_followup_id = next_pda_followup_id + 1
+
+    pending_pda_followups[entry_id] = {
+        id = entry_id,
+        npc_id = npc_id,
+        contact_id = contact_id,
+        npc_name = raw_entry.npc_name,
+        npc_icon = raw_entry.npc_icon,
+        faction = faction,
+        prefix = raw_entry.prefix,
+        conv_id = conv_id,
+        turn = turn,
+        delay_seconds = delay_seconds,
+        trigger_at = (time_global and time_global() or 0) + (delay_seconds * 1000),
+        task_id = raw_entry.task_id,
+        category = raw_entry.category,
+        story_id = raw_entry.story_id,
+        canonical_id = raw_entry.canonical_id,
+        fallback_name = raw_entry.fallback_name,
+        applied_outcomes = clone_plain_table(raw_entry.applied_outcomes) or {},
+    }
+
+    printf(
+        "PANDA_IC: queued pda follow-up contact_id=%s npc_id=%s conv_id=%s turn=%s delay_s=%s",
+        tostring(contact_id),
+        tostring(npc_id),
+        tostring(conv_id),
+        tostring(turn),
+        tostring(delay_seconds)
+    )
+
+    return true
+end
+
+local function activate_pending_pda_followup(entry)
+    if type(entry) ~= "table" then
+        return false, "bad_entry"
+    end
+
+    local contact_id = tostring(entry.contact_id or entry.npc_id or "")
+    if contact_id == "" then
+        return false, "missing_contact_id"
+    end
+
+    if is_contact_blocked(contact_id) then
+        return false, "contact_blocked"
+    end
+
+    local npc_id = tonumber(entry.npc_id)
+    local conv_id = tonumber(entry.conv_id)
+    local turn = tonumber(entry.turn) or 1
+    if not npc_id or not conv_id or not entry.faction then
+        return false, "missing_identity"
+    end
+
+    local npc_se = nil
+    if alife_object then
+        npc_se = alife_object(npc_id)
+    end
+    if not npc_se and level and level.object_by_id then
+        npc_se = level.object_by_id(npc_id)
+    end
+
+    local npc_name = tostring(entry.npc_name or "Unknown")
+    if npc_name == "" or npc_name == "Unknown" then
+        local ok_name, resolved_name = pcall(function()
+            return npc_se and npc_se:character_name() or nil
+        end)
+        if ok_name and resolved_name and resolved_name ~= "" then
+            npc_name = tostring(resolved_name)
+        end
+    end
+
+    local npc_icon = entry.npc_icon or FALLBACK_NPC_ICON
+    local ok_icon, resolved_icon = pcall(function()
+        return npc_se and npc_se:character_icon() or nil
+    end)
+    if ok_icon and resolved_icon and resolved_icon ~= "" then
+        npc_icon = resolved_icon
+    end
+
+    local prefix_key = build_turn_string_prefix(entry.prefix, entry.faction, conv_id, turn)
+    local open_key = prefix_key .. "_open"
+    local open_text = game.translate_string(open_key)
+    if open_text == open_key then
+        return false, "missing_open_text"
+    end
+
+    local choices, num = load_choices_for_turn(entry.prefix, entry.faction, conv_id, turn, npc_name, contact_id, npc_se)
+    if num == 0 then
+        return false, "missing_choices"
+    end
+
+    remove_active_conversation_entry(contact_id)
+    clear_npc_typing_message(contact_id)
+
+    local conv_data = {
+        npc_id = npc_id,
+        contact_id = contact_id,
+        npc_name = npc_name,
+        npc_icon = npc_icon,
+        faction = entry.faction,
+        prefix = entry.prefix,
+        conv_id = conv_id,
+        turn = turn,
+        choices = choices,
+        num_choices = num,
+        task_id = entry.task_id,
+        category = entry.category,
+        applied_outcomes = clone_plain_table(entry.applied_outcomes) or {},
+        started_at = time_global and time_global() or 0,
+        reply_pending = false,
+        story_id = entry.story_id,
+        canonical_id = entry.canonical_id,
+        fallback_name = entry.fallback_name,
+        channel = "pda",
+    }
+
+    active_conversations[contact_id] = conv_data
+    CONV = conv_data
+    last_conv_npc_id = npc_id
+    record_npc_use(npc_id)
+
+    if pda_typing_personality and pda_typing_personality.register_npc and npc_se then
+        local rank_name = get_npc_rank_name(npc_se) or "experienced"
+        pda_typing_personality.register_npc(contact_id, entry.faction, rank_name)
+    end
+
+    dynamic_news_helper.send_tip(
+        "You've received a Private Message from " .. npc_name,
+        "PDA Alert", 0, 10, npc_icon, "news", "npc"
+    )
+
+    pda_private_add_message(
+        contact_id,
+        npc_name,
+        npc_name,
+        sub_placeholders(open_text, npc_name, entry.faction, npc_se, contact_id),
+        npc_icon,
+        false
+    )
+
+    if get_ui then
+        get_ui():Reset()
+    end
+
+    return true
+end
+
+local function check_pending_pda_followups()
+    if not db.actor then
+        return
+    end
+
+    local now = time_global and time_global() or 0
+    for id, entry in pairs(pending_pda_followups) do
+        if type(entry) ~= "table" then
+            pending_pda_followups[id] = nil
+        else
+            local contact_id = tostring(entry.contact_id or entry.npc_id or "")
+            if contact_id ~= "" and is_contact_blocked(contact_id) then
+                pending_pda_followups[id] = nil
+            else
+                local trigger_at = tonumber(entry.trigger_at) or 0
+                if trigger_at <= now then
+                    local ok, reason = activate_pending_pda_followup(entry)
+                    pending_pda_followups[id] = nil
+                    if not ok then
+                        printf(
+                            "PANDA_IC: dropped queued pda follow-up contact_id=%s npc_id=%s conv_id=%s turn=%s reason=%s",
+                            tostring(contact_id or "nil"),
+                            tostring(entry.npc_id or "nil"),
+                            tostring(entry.conv_id or "nil"),
+                            tostring(entry.turn or "nil"),
+                            tostring(reason or "unknown")
+                        )
+                    end
+                end
+            end
+        end
+    end
+end
+
 local tracked_panda_ic_events = {
     pda_ic_spawn = {},
     pda_ic_courier = {},
@@ -1336,6 +1580,7 @@ function cleanup_panda_ic_events()
     safe_remove_time_event("pda_ic_timeout", "check")
     safe_remove_time_event("pda_ic_location", "check")
     safe_remove_time_event("pda_ic_jobs", "check")
+    safe_remove_time_event("pda_ic_followups", "check")
 
     -- Legacy global event chain
     safe_remove_time_event("pda_ic", "delivery_ack")
@@ -5878,7 +6123,8 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact
             reply = sub_placeholders(reply_text, npc_name, faction, npc_se, contact_id),
             outcome = game.translate_string(p.."_outcome_"..i),
             next_turn = tonumber(game.translate_string(p.."_cont_"..i)) or nil,
-            next_channel = normalize_choice_channel(cont_channel)
+            next_channel = normalize_choice_channel(cont_channel),
+            pda_delay_seconds = tonumber(game.translate_string(p.."_pda_delay_"..i)) or nil
         }
         if choices[i].outcome == p.."_outcome_"..i then choices[i].outcome = "none" end
         count = i
@@ -6060,6 +6306,8 @@ function on_player_choice(idx, contact_id)
                         local handoff_row = {
                             contact_id = cid,
                             npc_id = c.npc_id,
+                            npc_name = c.npc_name,
+                            npc_icon = c.npc_icon,
                             conv_id = c.conv_id,
                             turn = ch.next_turn,
                             faction = c.faction,
@@ -6071,6 +6319,9 @@ function on_player_choice(idx, contact_id)
                             story_id = handoff_identity.story_id,
                             canonical_id = handoff_identity.canonical_id,
                             fallback_name = handoff_identity.fallback_name,
+                            task_id = c.task_id,
+                            category = c.category,
+                            applied_outcomes = clone_plain_table(c.applied_outcomes) or {},
                             route_owner = nil,
                             route_dialog = handoff_dialog,
                             route_status = "pending",
@@ -7063,6 +7314,23 @@ is_conversation_identity_in_use = function(npc_se, options)
         end
     end
 
+    for key, pending in pairs(pending_pda_followups or {}) do
+        if type(pending) == "table" then
+            local contact_key = tostring(pending.contact_id or key)
+            if not is_contact_blocked(contact_key) then
+                local matched, reason = identities_overlap(
+                    identity,
+                    pending.npc_id,
+                    pending.story_id,
+                    pending.canonical_id
+                )
+                if matched then
+                    return true, "pending_pda_followup:" .. tostring(reason), contact_key
+                end
+            end
+        end
+    end
+
     return false, nil, nil
 end
 
@@ -7107,6 +7375,10 @@ function PANDA_CONV_API.apply_outcome(outcome_str, sender_npc_name, sender_facti
         conv_data,
         channel or "pda"
     )
+end
+
+function PANDA_CONV_API.queue_pda_followup(followup)
+    return queue_pda_followup_internal(followup)
 end
 
 function PANDA_CONV_API.get_pending_f2f_handoff(npc_id)
@@ -7818,6 +8090,16 @@ local function schedule_job_checker()
     end)
 end
 
+local function schedule_pda_followup_checker()
+    CreateTimeEvent("pda_ic_followups", "check", 1, function()
+        if is_panda_ic_shutdown_in_progress() then
+            return true
+        end
+        check_pending_pda_followups()
+        return false
+    end)
+end
+
 
 -- ============================================================
 -- KEYBOARD CALLBACKS
@@ -7869,6 +8151,23 @@ function save_state(m)
     m.pda_next_location_ref_id = next_location_ref_id
     m.pda_pending_jobs = pending_jobs
     m.pda_next_job_id = next_job_id
+    m.pda_pending_pda_followups = nil
+    if type(pending_pda_followups) == "table" then
+        local saved_followups = {}
+        for key, followup in pairs(pending_pda_followups) do
+            if type(followup) == "table" then
+                local contact_id = tostring(followup.contact_id or key)
+                if not is_contact_blocked(contact_id) then
+                    saved_followups[key] = clone_plain_table(followup)
+                    saved_followups[key].contact_id = contact_id
+                end
+            end
+        end
+        if next(saved_followups) ~= nil then
+            m.pda_pending_pda_followups = saved_followups
+        end
+    end
+    m.pda_next_pda_followup_id = next_pda_followup_id
 
     local adapter = get_anomaly_artifact_adapter()
     if adapter and adapter.save_state then
@@ -7888,6 +8187,8 @@ function load_state(m)
     next_location_ref_id = 1
     pending_jobs = {}
     next_job_id = 1
+    pending_pda_followups = {}
+    next_pda_followup_id = 1
     if m.pda_private_log then
         pda_private_log = m.pda_private_log -- LOAD FROM FILE
         local i = #pda_private_log
@@ -7936,6 +8237,22 @@ function load_state(m)
 
     if m.pda_next_job_id then
         next_job_id = m.pda_next_job_id
+    end
+
+    if type(m.pda_pending_pda_followups) == "table" then
+        for key, followup in pairs(m.pda_pending_pda_followups) do
+            if type(followup) == "table" then
+                local contact_id = tostring(followup.contact_id or key)
+                if not is_contact_blocked(contact_id) then
+                    pending_pda_followups[key] = clone_plain_table(followup)
+                    pending_pda_followups[key].contact_id = contact_id
+                end
+            end
+        end
+    end
+
+    if m.pda_next_pda_followup_id then
+        next_pda_followup_id = tonumber(m.pda_next_pda_followup_id) or next_pda_followup_id
     end
 
     -- Restore explicit f2f handoff table before any bridge-dependent post-load logic runs.
@@ -8065,6 +8382,8 @@ function on_game_start()
     schedule_location_ref_checker()
     -- Schedule pending job checker (kill tracking)
     schedule_job_checker()
+    -- Schedule delayed F2F -> PDA follow-up delivery
+    schedule_pda_followup_checker()
 
     _callbacks_registered = true
 end

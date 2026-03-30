@@ -562,6 +562,7 @@ function parseTurnChoices(strings: Map<string, string>, prefix: string, turnInfi
     const replyKey = `${prefix}${turnInfix}_reply_${i}`;
     const outcomeKey = `${prefix}${turnInfix}_outcome_${i}`;
     const contKey = `${prefix}${turnInfix}_cont_${i}`;
+    const pdaDelayKey = `${prefix}${turnInfix}_pda_delay_${i}`;
 
     const choice: Choice = {
       index: i,
@@ -582,6 +583,14 @@ function parseTurnChoices(strings: Map<string, string>, prefix: string, turnInfi
     if (contStr) {
       choice.continueTo = parseInt(contStr, 10);
       choice.terminal = false;
+    }
+
+    const pdaDelayStr = strings.get(pdaDelayKey);
+    if (pdaDelayStr) {
+      const parsedDelay = parseInt(pdaDelayStr, 10);
+      if (Number.isFinite(parsedDelay) && parsedDelay >= 0) {
+        choice.pdaDelaySeconds = Math.floor(parsedDelay);
+      }
     }
 
     choices.push(choice);

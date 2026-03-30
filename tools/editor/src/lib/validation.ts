@@ -90,6 +90,7 @@ type ChoiceField =
   | 'terminal'
   | 'continue-to'
   | 'continue-channel'
+  | 'pda-delay-seconds'
   | 'story-npc-id'
   | 'npc-faction-filters'
   | 'npc-profile-filters'
@@ -1081,6 +1082,44 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
 
       const choiceChannel = turnChannel;
       const continueChannel = normalizeChannel(continueChannelRaw, 'pda');
+      const hasPdaDelay = choice.pdaDelaySeconds != null;
+      if (hasPdaDelay && (!Number.isInteger(choice.pdaDelaySeconds) || (choice.pdaDelaySeconds ?? 0) < 0)) {
+        pushMessage(messages, {
+          code: 'invalid-pda-followup-delay',
+          group: 'schema',
+          scope: 'choice',
+          level: 'error',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          propertiesTab: 'selection',
+          fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'pda-delay-seconds'),
+          fieldLabel: 'Delay Before PDA Follow-up',
+          fieldPath: buildChoiceFieldPath(turn.turnNumber, choice.index, 'pdaDelaySeconds'),
+          message: `Branch ${turn.turnNumber}, Choice ${choice.index} has an invalid PDA follow-up delay. Use a whole number of seconds that is 0 or greater.`,
+        });
+      }
+      if (
+        hasPdaDelay
+        && Number.isInteger(choice.pdaDelaySeconds)
+        && (choice.pdaDelaySeconds ?? 0) >= 0
+        && !(choiceChannel === 'f2f' && continueChannel === 'pda' && terminal !== true && choice.continueTo != null)
+      ) {
+        pushMessage(messages, {
+          code: 'unused-pda-followup-delay',
+          group: 'logic',
+          scope: 'choice',
+          level: 'warning',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          propertiesTab: 'selection',
+          fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'pda-delay-seconds'),
+          fieldLabel: 'Delay Before PDA Follow-up',
+          fieldPath: buildChoiceFieldPath(turn.turnNumber, choice.index, 'pdaDelaySeconds'),
+          message: `Branch ${turn.turnNumber}, Choice ${choice.index} sets a PDA follow-up delay, but that setting only applies to F2F choices that continue into PDA.`,
+        });
+      }
 
       if (terminal !== true && choice.continueTo != null && continueChannelRaw == null) {
         pushMessage(messages, {

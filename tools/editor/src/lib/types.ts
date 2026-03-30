@@ -100,6 +100,8 @@ export interface Choice {
   continueChannel?: ConversationChannel;
   /** @deprecated Legacy snake_case field retained for migration compatibility. */
   continue_channel?: ConversationChannel;
+  /** Optional delay before a face-to-face branch resumes remotely on PDA. */
+  pdaDelaySeconds?: number;
   story_npc_id?: string;
   npc_faction_filters?: FactionId[];
   npc_profile_filters?: string[];

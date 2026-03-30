@@ -118,6 +118,14 @@ function normalizeChannelValue(
   return fallback;
 }
 
+function normalizeOptionalNonNegativeInteger(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return undefined;
+  }
+  const normalized = Math.floor(value);
+  return normalized >= 0 ? normalized : undefined;
+}
+
 function normalizeTurnEntryFlags(turn: Turn, options: { inferDefaults?: boolean } = {}): void {
   turn.channel = normalizeChannelValue(turn.channel, 'pda');
   const inferDefaults = options.inferDefaults ?? true;
@@ -678,6 +686,7 @@ class StateManager {
     const sourceContinueChannel = sourceChoice.continueChannel ?? sourceChoice.continue_channel;
     choice.continueChannel = sourceContinueChannel == null ? undefined : normalizeChannelValue(sourceContinueChannel, parentTurnChannel);
     choice.continue_channel = choice.continueChannel;
+    choice.pdaDelaySeconds = normalizeOptionalNonNegativeInteger(sourceChoice.pdaDelaySeconds);
     choice.story_npc_id = sourceChoice.story_npc_id;
     choice.npc_faction_filters = sourceChoice.npc_faction_filters ? [...sourceChoice.npc_faction_filters] : undefined;
     choice.npc_profile_filters = sourceChoice.npc_profile_filters ? [...sourceChoice.npc_profile_filters] : undefined;
@@ -746,6 +755,7 @@ class StateManager {
                 const sourceContinueChannel = choice.continueChannel ?? choice.continue_channel;
                 return sourceContinueChannel == null ? undefined : normalizeChannelValue(sourceContinueChannel, parentTurnChannel);
               })(),
+              pdaDelaySeconds: normalizeOptionalNonNegativeInteger(choice.pdaDelaySeconds),
               allow_generic_stalker: choice.allow_generic_stalker ?? false,
             })),
           };
@@ -1364,6 +1374,7 @@ class StateManager {
     if (!choice || !turn) return;
     this.pushUndo();
     Object.assign(choice, updates);
+    choice.pdaDelaySeconds = normalizeOptionalNonNegativeInteger(choice.pdaDelaySeconds);
     if (choice.continueTo == null) {
       choice.terminal = true;
       delete choice.continueChannel;

@@ -2719,6 +2719,7 @@ local function collect_branches(npc_se, forced_context)
 
                     local next_turn = nil
                     local next_channel = nil
+                    local pda_delay_seconds = nil
                     if key_exists(cont_turn_key) then
                         next_turn = normalize_positive_int(tr(cont_turn_key))
                     end
@@ -2726,6 +2727,13 @@ local function collect_branches(npc_se, forced_context)
                         next_channel = tostring(tr(cont_channel_key) or ""):lower()
                         if next_channel == "" then
                             next_channel = nil
+                        end
+                    end
+                    local pda_delay_key = turn_stem .. "_pda_delay_" .. tostring(idx)
+                    if key_exists(pda_delay_key) then
+                        local parsed_delay = tonumber(tr(pda_delay_key))
+                        if parsed_delay and parsed_delay >= 0 then
+                            pda_delay_seconds = math.floor(parsed_delay)
                         end
                     end
                     if (not next_turn or not next_channel) and registry_raw and registry_raw ~= "" then
@@ -2757,6 +2765,7 @@ local function collect_branches(npc_se, forced_context)
                         keep_hub_override = keep_hub_override,
                         next_turn = next_turn,
                         next_channel = next_channel,
+                        pda_delay_seconds = pda_delay_seconds,
                     })
                 else
                     rejected_choice_keys[#rejected_choice_keys + 1] = choice_key
@@ -3500,6 +3509,44 @@ local function build_dialog_tree(dialog, state)
                 tostring(branch.outcome or "none")
             )
             if ok then
+                if branch.next_turn and branch.next_channel == "pda" then
+                    local handoff_source = type(active_state.handoff) == "table" and active_state.handoff or nil
+                    local followup_name = handoff_source and handoff_source.npc_name or "Unknown"
+                    if followup_name == "Unknown" and active_state.npc_se then
+                        local ok_name, resolved_name = pcall(function()
+                            return active_state.npc_se:character_name()
+                        end)
+                        if ok_name and resolved_name and resolved_name ~= "" then
+                            followup_name = tostring(resolved_name)
+                        end
+                    end
+
+                    active_state.pending_pda_followup = {
+                        npc_id = active_npc_id,
+                        contact_id = handoff_source and handoff_source.contact_id or (active_npc_id and tostring(active_npc_id) or nil),
+                        npc_name = followup_name,
+                        npc_icon = handoff_source and handoff_source.npc_icon or nil,
+                        faction = active_state.faction,
+                        prefix = active_state.prefix,
+                        conv_id = active_state.conv_id,
+                        turn = branch.next_turn,
+                        delay_seconds = branch.pda_delay_seconds or 0,
+                        task_id = handoff_source and handoff_source.task_id or nil,
+                        category = handoff_source and handoff_source.category or nil,
+                        applied_outcomes = handoff_source and handoff_source.applied_outcomes or nil,
+                        story_id = handoff_source and handoff_source.story_id or nil,
+                        canonical_id = handoff_source and handoff_source.canonical_id or nil,
+                        fallback_name = handoff_source and handoff_source.fallback_name or nil,
+                    }
+                    bridge_debug(
+                        "register_dispatcher: queued_pda_followup branch=%s conv_id=%s target_turn=%s delay_s=%s contact_id=%s",
+                        tostring(branch.index),
+                        tostring(active_state.conv_id or "nil"),
+                        tostring(branch.next_turn or "nil"),
+                        tostring(branch.pda_delay_seconds or 0),
+                        tostring(active_state.pending_pda_followup.contact_id or "nil")
+                    )
+                end
                 active_state.branch_committed = true
                 -- Consume only after a player-selected branch is committed.
                 consume_pending_handoff_for_npc(
@@ -3988,6 +4035,17 @@ function panda_f2f_bridge.on_dialog_closed(npc_or_reason, reason, ...)
             tostring(consume_turn or "nil"),
             tostring(consume_token or "nil")
         )
+        if type(state.pending_pda_followup) == "table" and conv_api and type(conv_api.queue_pda_followup) == "function" then
+            local ok_queue, queued = pcall(conv_api.queue_pda_followup, state.pending_pda_followup)
+            bridge_warn(
+                "teardown queue_pda_followup npc_id=%s reason=%s queued=%s target_turn=%s delay_s=%s",
+                tostring(resolved_npc_id or "nil"),
+                tostring(close_reason),
+                tostring(ok_queue and queued == true),
+                tostring(state.pending_pda_followup.turn or "nil"),
+                tostring(state.pending_pda_followup.delay_seconds or 0)
+            )
+        end
     end
 
     panda_f2f_bridge.reset_runtime("on_dialog_closed_finalize:" .. tostring(close_reason))

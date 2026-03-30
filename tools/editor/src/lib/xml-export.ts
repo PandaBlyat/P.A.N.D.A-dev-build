@@ -308,6 +308,14 @@ function generateConversation(
             resolveContinueChannelForExport(conv, turn, choice, prefix),
           ),
         );
+        if (choice.pdaDelaySeconds != null && Number.isFinite(choice.pdaDelaySeconds) && choice.pdaDelaySeconds >= 0) {
+          lines.push(
+            emitString(
+              `${prefix}${turnInfix}_pda_delay_${choice.index}`,
+              String(Math.floor(choice.pdaDelaySeconds)),
+            ),
+          );
+        }
       }
     }
   }
