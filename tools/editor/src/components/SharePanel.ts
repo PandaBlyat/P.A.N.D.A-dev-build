@@ -1608,6 +1608,15 @@ function buildPublishForm(): HTMLElement {
 
   topbarCopy.append(kicker, formHeader, subtitle);
 
+  const topbarActions = document.createElement('div');
+  topbarActions.className = 'share-publish-form-topbar-actions';
+
+  const backBtn = document.createElement('button');
+  backBtn.type = 'button';
+  backBtn.className = 'toolbar-button share-publish-header-back';
+  setButtonContent(backBtn, 'undo', 'Back to Library');
+  backBtn.onclick = hidePublishForm;
+
   const panelCloseBtn = document.createElement('button');
   panelCloseBtn.type = 'button';
   panelCloseBtn.className = 'toolbar-button toolbar-icon-button btn-icon share-publish-form-close';
@@ -1615,8 +1624,13 @@ function buildPublishForm(): HTMLElement {
   panelCloseBtn.title = 'Close Community Library';
   panelCloseBtn.onclick = closeSharePanel;
 
-  topbar.append(topbarCopy, panelCloseBtn);
+  topbarActions.append(backBtn, panelCloseBtn);
+  topbar.append(topbarCopy, topbarActions);
   form.appendChild(topbar);
+
+  const formScroll = document.createElement('div');
+  formScroll.className = 'share-publish-scroll';
+  form.appendChild(formScroll);
 
   const hero = document.createElement('section');
   hero.className = 'share-publish-hero';
@@ -1651,11 +1665,11 @@ function buildPublishForm(): HTMLElement {
   metrics.append(factionMetric.root, sizeMetric.root, qualityMetric.root, rewardMetric.root);
 
   hero.append(heroCopy, metrics);
-  form.appendChild(hero);
+  formScroll.appendChild(hero);
 
   const contentGrid = document.createElement('div');
   contentGrid.className = 'share-publish-grid';
-  form.appendChild(contentGrid);
+  formScroll.appendChild(contentGrid);
 
   const mainColumn = document.createElement('div');
   mainColumn.className = 'share-publish-main';
@@ -1754,26 +1768,31 @@ function buildPublishForm(): HTMLElement {
   checklistCard.append(checklistTitle, checklist);
   sideColumn.appendChild(checklistCard);
 
-  const btnRow = document.createElement('div');
-  btnRow.className = 'share-publish-btn-row';
-
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.className = 'toolbar-button';
-  setButtonContent(cancelBtn, 'undo', 'Back to Library');
-  cancelBtn.onclick = hidePublishForm;
-
   const submitBtn = document.createElement('button');
   submitBtn.type = 'button';
-  submitBtn.className = 'toolbar-button btn-primary';
+  submitBtn.className = 'toolbar-button btn-primary share-publish-primary';
   setButtonContent(submitBtn, 'export', 'Publish Story');
 
-  btnRow.append(cancelBtn, submitBtn);
-  form.appendChild(btnRow);
+  const footer = document.createElement('div');
+  footer.className = 'share-publish-footer';
+
+  const footerMeta = document.createElement('div');
+  footerMeta.className = 'share-publish-footer-meta';
+
+  const footerLabel = document.createElement('div');
+  footerLabel.className = 'share-publish-footer-label';
+  footerLabel.textContent = 'Community publish checks';
 
   const statusMsg = document.createElement('div');
   statusMsg.className = 'share-publish-status';
-  form.appendChild(statusMsg);
+  footerMeta.append(footerLabel, statusMsg);
+
+  const footerActions = document.createElement('div');
+  footerActions.className = 'share-publish-footer-actions';
+  footerActions.appendChild(submitBtn);
+
+  footer.append(footerMeta, footerActions);
+  form.appendChild(footer);
 
   const setStatus = (message: string, tone: 'neutral' | 'danger' | 'success' = 'neutral') => {
     statusMsg.textContent = message;
@@ -1876,7 +1895,8 @@ function buildPublishForm(): HTMLElement {
     }
 
     submitBtn.disabled = true;
-    cancelBtn.disabled = true;
+    backBtn.disabled = true;
+    panelCloseBtn.disabled = true;
     setStatus('Validating title, abuse checks, and publish payload...', 'neutral');
 
     try {
@@ -2040,7 +2060,8 @@ function buildPublishForm(): HTMLElement {
       setStatus(err instanceof Error ? err.message : 'Publish failed.', 'danger');
     } finally {
       submitBtn.disabled = false;
-      cancelBtn.disabled = false;
+      backBtn.disabled = false;
+      panelCloseBtn.disabled = false;
     }
   };
 
