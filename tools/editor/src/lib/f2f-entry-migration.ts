@@ -1,108 +1,59 @@
-import type { Project, Conversation, Choice, Turn } from './types';
+import type { Project, Turn } from './types';
 
-export const LEGACY_F2F_OPENING_MIGRATION_VERSION = '2.1.0';
 export const F2F_ENTRY_OPENING_SENTINEL = '__PANDA_F2F_ENTRY_STARTER__';
 
-function hasAuthoredOpening(turn: Turn): boolean {
-  return typeof turn.openingMessage === 'string'
-    && turn.openingMessage.trim().length > 0
-    && turn.openingMessage !== F2F_ENTRY_OPENING_SENTINEL;
-}
+const LEGACY_F2F_OPENING_WARNINGS = new Set([
+  'Legacy F2F _open text found, but choice_1 is missing; NPC text could not be auto-mapped to reply_1.',
+  'Legacy F2F _open text and reply_1 were both populated; kept existing reply_1 and preserved legacy text only in migration history.',
+]);
 
-function isVersionAtLeast(current: string | undefined, minimum: string): boolean {
-  if (!current) return false;
-  const a = current.split('.').map((part) => Number.parseInt(part, 10) || 0);
-  const b = minimum.split('.').map((part) => Number.parseInt(part, 10) || 0);
-  const maxLen = Math.max(a.length, b.length);
-  for (let i = 0; i < maxLen; i++) {
-    const av = a[i] ?? 0;
-    const bv = b[i] ?? 0;
-    if (av > bv) return true;
-    if (av < bv) return false;
+function sanitizeLegacyF2FOpeningArtifacts(turn: Turn): Turn {
+  let changed = false;
+  const nextTurn: Turn = { ...turn };
+
+  if (nextTurn.openingMessage === F2F_ENTRY_OPENING_SENTINEL) {
+    nextTurn.openingMessage = '';
+    changed = true;
   }
-  return true;
-}
 
-function isStrictChannel(value: unknown): value is 'pda' | 'f2f' {
-  return value === 'pda' || value === 'f2f';
-}
-
-function hasExplicitF2FTurn(conversation: Conversation): boolean {
-  return conversation.turns.some((turn) => turn.channel === 'f2f');
-}
-
-function choiceSourceChannel(choice: Choice, turn: Turn): 'pda' | 'f2f' | null {
-  if (isStrictChannel(choice.channel)) {
-    return choice.channel;
+  if (nextTurn.openingMessagePlaceholder != null) {
+    delete nextTurn.openingMessagePlaceholder;
+    changed = true;
   }
-  if (isStrictChannel(turn.channel)) {
-    return turn.channel;
-  }
-  return null;
-}
 
-function hasExplicitPdaToF2FHandoff(conversation: Conversation): boolean {
-  return conversation.turns.some((turn) => turn.choices.some((choice) => {
-    const continueChannel = choice.continueChannel ?? choice.continue_channel;
-    if (continueChannel !== 'f2f') {
-      return false;
+  if ((nextTurn.migrationWarnings?.length ?? 0) > 0) {
+    const filteredWarnings = nextTurn.migrationWarnings?.filter((warning) => !LEGACY_F2F_OPENING_WARNINGS.has(warning)) ?? [];
+    if (filteredWarnings.length !== (nextTurn.migrationWarnings?.length ?? 0)) {
+      nextTurn.migrationWarnings = filteredWarnings.length > 0 ? filteredWarnings : undefined;
+      changed = true;
     }
-    return choiceSourceChannel(choice, turn) === 'pda';
-  }));
-}
+  }
 
-function conversationNeedsLegacyF2FOpeningMigration(conversation: Conversation): boolean {
-  return hasExplicitF2FTurn(conversation) || hasExplicitPdaToF2FHandoff(conversation);
+  return changed ? nextTurn : turn;
 }
 
 /**
- * Migration pass for legacy F2F-entry authored `_open` text.
+ * Historical cleanup pass for editor data polluted by the retired legacy F2F opener migration.
  *
- * Rules:
- * - For F2F entry turns with non-empty authored opening text, move text to reply_1 if reply_1 is empty.
- * - Always replace opening text with a starter sentinel.
- * - Flag ambiguous/conflicting cases as non-blocking migration warnings.
- * - Bump schema version when migration has run so we do not repeatedly reprocess legacy data.
- * - Strict guard: no-op for conversations without explicit F2F turns and without explicit PDA→F2F handoffs.
+ * Authored F2F `_open` text is now preserved as-is, so this pass only removes old sentinel,
+ * placeholder, and warning artifacts from previously migrated editor data.
  */
 export function migrateLegacyF2FEntryOpenings(project: Project): Project {
-  if (isVersionAtLeast(project.version, LEGACY_F2F_OPENING_MIGRATION_VERSION)) {
-    return project;
-  }
-
   let touched = false;
   const conversations = project.conversations.map((conversation) => {
-    if (!conversationNeedsLegacyF2FOpeningMigration(conversation)) {
+    let conversationTouched = false;
+    const turns = conversation.turns.map((turn) => {
+      const sanitizedTurn = sanitizeLegacyF2FOpeningArtifacts(turn);
+      if (sanitizedTurn !== turn) {
+        touched = true;
+        conversationTouched = true;
+      }
+      return sanitizedTurn;
+    });
+
+    if (!conversationTouched) {
       return conversation;
     }
-
-    const turns = conversation.turns.map((turn) => {
-      if (turn.f2f_entry !== true || !hasAuthoredOpening(turn)) {
-        return turn;
-      }
-
-      touched = true;
-      const migratedWarnings = [...(turn.migrationWarnings ?? [])];
-      const choices = turn.choices.map((choice) => ({ ...choice }));
-      const choice1 = choices.find((choice) => choice.index === 1);
-      const legacyOpening = turn.openingMessage ?? '';
-
-      if (!choice1) {
-        migratedWarnings.push('Legacy F2F _open text found, but choice_1 is missing; NPC text could not be auto-mapped to reply_1.');
-      } else if ((choice1.reply ?? '').trim().length === 0) {
-        choice1.reply = legacyOpening;
-      } else {
-        migratedWarnings.push('Legacy F2F _open text and reply_1 were both populated; kept existing reply_1 and preserved legacy text only in migration history.');
-      }
-
-      return {
-        ...turn,
-        choices,
-        openingMessage: F2F_ENTRY_OPENING_SENTINEL,
-        openingMessagePlaceholder: 'f2f_entry_starter_v1',
-        migrationWarnings: migratedWarnings.length > 0 ? migratedWarnings : undefined,
-      };
-    });
 
     return {
       ...conversation,
@@ -110,9 +61,12 @@ export function migrateLegacyF2FEntryOpenings(project: Project): Project {
     };
   });
 
+  if (!touched) {
+    return project;
+  }
+
   return {
     ...project,
-    version: touched ? LEGACY_F2F_OPENING_MIGRATION_VERSION : project.version,
     conversations,
   };
 }
