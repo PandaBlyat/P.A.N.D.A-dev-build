@@ -782,11 +782,11 @@ export function startActiveEditorPresenceTracking(onUpdate: (count: number) => v
 
 const LOCAL_USERNAME_KEY = 'panda-community-username';
 
-export const XP_PUBLISH_SHORT = 50;
-export const XP_PUBLISH_MEDIUM = 75;
-export const XP_PUBLISH_LONG = 100;
-export const XP_DOWNLOAD_RECEIVED = 5;
-export const XP_UPVOTE_RECEIVED = 10;
+export const XP_PUBLISH_SHORT = 150;
+export const XP_PUBLISH_MEDIUM = 225;
+export const XP_PUBLISH_LONG = 300;
+export const XP_DOWNLOAD_RECEIVED = 50;
+export const XP_UPVOTE_RECEIVED = 50;
 
 export type LevelThreshold = { level: number; xp: number; title: string };
 export type LevelMetadata = {
