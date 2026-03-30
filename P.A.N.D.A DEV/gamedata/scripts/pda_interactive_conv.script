@@ -40,6 +40,9 @@ local consume_pending_f2f_handoff_internal
 local clear_pda_choices_for_pending_handoff
 local remove_active_conversation_entry
 local is_conversation_identity_in_use
+local record_npc_use
+local sub_placeholders
+local get_npc_rank_name
 
 local function ensure_panda_f2f_bridge()
     if _panda_f2f_bridge_checked then
@@ -1922,7 +1925,7 @@ local function is_npc_on_cooldown(npc_id)
     return (game.get_game_time():diffSec(last) / 60) < cd_min
 end
 
-local function record_npc_use(npc_id)
+record_npc_use = function(npc_id)
     npc_last_used[npc_id] = game.get_game_time()
 end
 
@@ -2810,7 +2813,7 @@ function clear_st_resolve_cache()
     _st_resolve_cache = {}
 end
 
-local function sub_placeholders(str, npc_name, npc_faction, npc_se, contact_id)
+sub_placeholders = function(str, npc_name, npc_faction, npc_se, contact_id)
     if not str or str == "" then return str end
 
     -- First resolve any %<level>_panda_st% patterns.
@@ -2860,7 +2863,7 @@ local function get_rank_order_value(rank_name)
     return RANK_ORDER[tostring(rank_name):lower()] or 1
 end
 
-local function get_npc_rank_name(npc_se)
+get_npc_rank_name = function(npc_se)
     if not npc_se or not ranks or not ranks.get_obj_rank_name then
         return nil
     end
@@ -7950,18 +7953,6 @@ local function is_f2f_session_active_for_actor()
 
     local bridge_active, bridge_probe = bridge_reports_active_f2f_session()
     if bridge_active then
-        local bridge = ensure_panda_f2f_bridge()
-        if bridge and type(bridge.reset_runtime) == "function" then
-            local ok_reset = pcall(bridge.reset_runtime, "scanner_recover_orphaned_bridge_state")
-            printf(
-                "PANDA_IC: scanner bridge recovery source=%s ok=%s",
-                tostring(bridge_probe or "unknown"),
-                tostring(ok_reset == true)
-            )
-            if ok_reset == true then
-                return false, nil
-            end
-        end
         return true, "bridge_runtime:" .. tostring(bridge_probe)
     end
 
