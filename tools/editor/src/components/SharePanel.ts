@@ -25,6 +25,7 @@ import { createIcon, setButtonContent } from './icons';
 import { importConversations } from './App';
 import { downloadFile } from '../lib/project-io';
 import { showXpToast, showLevelUpToast } from './XpToast';
+import { showPublishCelebration } from './PublishCelebration';
 import {
   awardXp,
   awardXpCapped,
@@ -429,10 +430,41 @@ function getDownloadAllBtn(): HTMLButtonElement | null {
   return overlayEl?.querySelector<HTMLButtonElement>('.share-download-all-btn') ?? null;
 }
 
+type PublishPreviewStats = {
+  branchCount: number;
+  complexity: ConversationComplexity;
+  basePublishXp: number;
+  qualityScore: ReturnType<typeof calculateQualityScore>;
+  qualityMultiplier: number;
+  publishXp: number;
+};
+
+function formatMultiplier(value: number): string {
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+}
+
+function getPublishPreviewStats(conversation: Conversation): PublishPreviewStats {
+  const branchCount = getBranchCount(conversation);
+  const complexity = deriveConversationComplexity(branchCount);
+  const basePublishXp = getPublishXp(complexity);
+  const qualityScore = calculateQualityScore(conversation);
+  const qualityMultiplier = getQualityMultiplier(qualityScore.totalStars);
+  const publishXp = Math.round(basePublishXp * qualityMultiplier);
+
+  return {
+    branchCount,
+    complexity,
+    basePublishXp,
+    qualityScore,
+    qualityMultiplier,
+    publishXp,
+  };
+}
+
 function buildOverlay(): HTMLElement {
   const overlay = document.createElement('div');
   overlay.className = 'share-overlay';
-  overlay.onclick = (e) => { if (e.target === overlay) closeSharePanel(); };
 
   const modal = document.createElement('div');
   modal.className = 'share-modal';
@@ -476,7 +508,25 @@ function buildHeader(): HTMLElement {
   const titleWrap = document.createElement('div');
   titleWrap.className = 'share-modal-title';
   titleWrap.id = 'share-modal-title';
-  titleWrap.append(createIcon('share'), document.createTextNode('Community Library'));
+  const titleIcon = createIcon('share');
+
+  const titleCopy = document.createElement('div');
+  titleCopy.className = 'share-modal-title-copy';
+
+  const titleKicker = document.createElement('span');
+  titleKicker.className = 'share-modal-title-kicker';
+  titleKicker.textContent = 'Community Exchange';
+
+  const titleText = document.createElement('span');
+  titleText.className = 'share-modal-title-text';
+  titleText.textContent = 'Community Library';
+
+  const titleSubtitle = document.createElement('span');
+  titleSubtitle.className = 'share-modal-title-subtitle';
+  titleSubtitle.textContent = 'Preview uploads, polish metadata, and publish stronger branching stories without leaving the editor.';
+
+  titleCopy.append(titleKicker, titleText, titleSubtitle);
+  titleWrap.append(titleIcon, titleCopy);
   const titleSlot = document.createElement('div');
   titleSlot.className = 'share-modal-header-slot share-modal-header-slot-start';
   titleSlot.appendChild(titleWrap);
@@ -501,7 +551,7 @@ function buildHeader(): HTMLElement {
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
-  closeBtn.className = 'toolbar-button toolbar-icon-button btn-icon';
+  closeBtn.className = 'toolbar-button toolbar-icon-button btn-icon share-modal-close';
   closeBtn.dataset.shareClose = 'true';
   closeBtn.appendChild(createIcon('close'));
   closeBtn.title = 'Close Community Library';
@@ -1179,7 +1229,8 @@ async function handleDownloadAll(): Promise<void> {
   }
 }
 
-function buildPublishForm(): HTMLElement {
+function buildPublishFormLegacy(): HTMLElement {
+
   const form = document.createElement('div');
   form.className = 'share-publish-form';
   form.hidden = true;
@@ -1507,6 +1558,515 @@ function buildPublishForm(): HTMLElement {
     setStatus(currentUsername
       ? `Publishing as ${currentUsername}. Duplicate titles are rejected. Story ownership is soft unless identity is backed by authenticated Supabase user auth + RLS.`
       : 'Anonymous publishes are browser-bound and ownership is soft. Duplicate titles are rejected.');
+  };
+
+  return form;
+}
+
+function buildPublishForm(): HTMLElement {
+  const form = document.createElement('div');
+  form.className = 'share-publish-form';
+  form.hidden = true;
+
+  const createMetric = (labelText: string): { root: HTMLElement; value: HTMLElement } => {
+    const root = document.createElement('div');
+    root.className = 'share-publish-metric';
+
+    const label = document.createElement('span');
+    label.className = 'share-publish-metric-label';
+    label.textContent = labelText;
+
+    const value = document.createElement('strong');
+    value.className = 'share-publish-metric-value';
+
+    root.append(label, value);
+    return { root, value };
+  };
+
+  const hidePublishForm = (): void => {
+    form.hidden = true;
+    showPublishTrigger();
+  };
+
+  const topbar = document.createElement('div');
+  topbar.className = 'share-publish-form-topbar';
+
+  const topbarCopy = document.createElement('div');
+  topbarCopy.className = 'share-publish-form-topbar-copy';
+
+  const kicker = document.createElement('div');
+  kicker.className = 'share-publish-form-kicker';
+  kicker.textContent = 'Rewarded community publish';
+
+  const formHeader = document.createElement('div');
+  formHeader.className = 'share-publish-form-header';
+  formHeader.textContent = 'Publish to Community Library';
+
+  const subtitle = document.createElement('div');
+  subtitle.className = 'share-publish-form-subtitle';
+  subtitle.textContent = 'Public publishing is moderated after the fact and limited to one publish per minute from this browser.';
+
+  topbarCopy.append(kicker, formHeader, subtitle);
+
+  const panelCloseBtn = document.createElement('button');
+  panelCloseBtn.type = 'button';
+  panelCloseBtn.className = 'toolbar-button toolbar-icon-button btn-icon share-publish-form-close';
+  panelCloseBtn.appendChild(createIcon('close'));
+  panelCloseBtn.title = 'Close Community Library';
+  panelCloseBtn.onclick = closeSharePanel;
+
+  topbar.append(topbarCopy, panelCloseBtn);
+  form.appendChild(topbar);
+
+  const hero = document.createElement('section');
+  hero.className = 'share-publish-hero';
+
+  const heroCopy = document.createElement('div');
+  heroCopy.className = 'share-publish-hero-copy';
+
+  const heroEyebrow = document.createElement('div');
+  heroEyebrow.className = 'share-publish-hero-kicker';
+  heroEyebrow.textContent = 'Ready to go live';
+
+  const heroTitle = document.createElement('div');
+  heroTitle.className = 'share-publish-hero-title';
+  heroTitle.textContent = 'Publish your selected story';
+
+  const heroBlurb = document.createElement('div');
+  heroBlurb.className = 'share-publish-hero-blurb';
+  heroBlurb.textContent = 'Stronger branching and better quality scores boost publish XP, so a more ambitious story gets a bigger send-off.';
+
+  const replacementContext = document.createElement('div');
+  replacementContext.className = 'share-publish-context-badge';
+  replacementContext.hidden = true;
+
+  heroCopy.append(heroEyebrow, heroTitle, heroBlurb, replacementContext);
+
+  const metrics = document.createElement('div');
+  metrics.className = 'share-publish-metrics';
+  const factionMetric = createMetric('Faction');
+  const sizeMetric = createMetric('Flow Size');
+  const qualityMetric = createMetric('Quality');
+  const rewardMetric = createMetric('Reward');
+  metrics.append(factionMetric.root, sizeMetric.root, qualityMetric.root, rewardMetric.root);
+
+  hero.append(heroCopy, metrics);
+  form.appendChild(hero);
+
+  const contentGrid = document.createElement('div');
+  contentGrid.className = 'share-publish-grid';
+  form.appendChild(contentGrid);
+
+  const mainColumn = document.createElement('div');
+  mainColumn.className = 'share-publish-main';
+  const sideColumn = document.createElement('aside');
+  sideColumn.className = 'share-publish-side';
+  contentGrid.append(mainColumn, sideColumn);
+
+  const titleInput = makeFormField(mainColumn, 'Title', 'text', 'Story title (unique community title required)') as HTMLInputElement;
+  titleInput.maxLength = 70;
+
+  const storedName = getStoredUsername();
+  const authorInput = makeFormField(
+    mainColumn,
+    'Author',
+    'text',
+    storedName ? storedName : 'Anonymous (set a username via your profile)',
+  ) as HTMLInputElement;
+  authorInput.maxLength = 32;
+  if (storedName) {
+    authorInput.value = storedName;
+    authorInput.readOnly = true;
+    authorInput.style.opacity = '0.7';
+    authorInput.title = 'Author name is your profile username. Change it in your profile.';
+  }
+
+  const descInput = makeFormField(mainColumn, 'Description', 'textarea', 'Brief description of what this story does...') as HTMLTextAreaElement;
+  descInput.maxLength = 280;
+
+  const summaryInput = makeFormField(mainColumn, 'Summary', 'textarea', 'Short preview text shown in the drawer before import.') as HTMLTextAreaElement;
+  summaryInput.maxLength = 180;
+
+  const tagsInput = makeFormField(mainColumn, 'Tags', 'text', 'Comma-separated tags (e.g. jobs, tutorial, campfire)') as HTMLInputElement;
+
+  const factionRow = document.createElement('div');
+  factionRow.className = 'share-form-field';
+  const factionLabel = document.createElement('label');
+  factionLabel.className = 'share-form-label';
+  factionLabel.textContent = 'Broadcast Lane';
+  const factionValue = document.createElement('div');
+  factionValue.className = 'share-form-faction-display';
+  factionRow.append(factionLabel, factionValue);
+  mainColumn.appendChild(factionRow);
+
+  const consentRow = document.createElement('label');
+  consentRow.className = 'share-consent-row';
+  const consentInput = document.createElement('input');
+  consentInput.type = 'checkbox';
+  const consentText = document.createElement('span');
+  consentText.textContent = 'I confirm this story is my own work, safe for public browsing, and not a duplicate community title.';
+  consentRow.append(consentInput, consentText);
+  mainColumn.appendChild(consentRow);
+
+  const rewardCard = document.createElement('section');
+  rewardCard.className = 'share-publish-side-card share-publish-reward-card';
+
+  const rewardKicker = document.createElement('span');
+  rewardKicker.className = 'share-publish-side-kicker';
+  rewardKicker.textContent = 'Reward Preview';
+
+  const rewardValue = document.createElement('strong');
+  rewardValue.className = 'share-publish-reward-value';
+
+  const rewardSummary = document.createElement('p');
+  rewardSummary.className = 'share-publish-reward-summary';
+
+  const rewardFormula = document.createElement('p');
+  rewardFormula.className = 'share-publish-reward-formula';
+
+  rewardCard.append(rewardKicker, rewardValue, rewardSummary, rewardFormula);
+  sideColumn.appendChild(rewardCard);
+
+  const moderationBox = document.createElement('div');
+  moderationBox.className = 'share-moderation-box';
+  moderationBox.innerHTML = '<strong>Before you publish:</strong> keep titles unique, avoid links or invites, and expect public visibility for anonymous uploads.';
+  sideColumn.appendChild(moderationBox);
+
+  const checklistCard = document.createElement('section');
+  checklistCard.className = 'share-publish-side-card';
+
+  const checklistTitle = document.createElement('div');
+  checklistTitle.className = 'share-publish-side-title';
+  checklistTitle.textContent = 'Make it land well';
+
+  const checklist = document.createElement('ul');
+  checklist.className = 'share-publish-checklist';
+  [
+    'Use a specific title so your story is easy to find later.',
+    'A strong summary improves previews before import.',
+    'More branching, outcomes, and conditions push quality and XP higher.',
+  ].forEach((itemText) => {
+    const item = document.createElement('li');
+    item.textContent = itemText;
+    checklist.appendChild(item);
+  });
+
+  checklistCard.append(checklistTitle, checklist);
+  sideColumn.appendChild(checklistCard);
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'share-publish-btn-row';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'toolbar-button';
+  setButtonContent(cancelBtn, 'undo', 'Back to Library');
+  cancelBtn.onclick = hidePublishForm;
+
+  const submitBtn = document.createElement('button');
+  submitBtn.type = 'button';
+  submitBtn.className = 'toolbar-button btn-primary';
+  setButtonContent(submitBtn, 'export', 'Publish Story');
+
+  btnRow.append(cancelBtn, submitBtn);
+  form.appendChild(btnRow);
+
+  const statusMsg = document.createElement('div');
+  statusMsg.className = 'share-publish-status';
+  form.appendChild(statusMsg);
+
+  const setStatus = (message: string, tone: 'neutral' | 'danger' | 'success' = 'neutral') => {
+    statusMsg.textContent = message;
+    statusMsg.dataset.tone = tone;
+  };
+
+  const updatePreview = (conversation: Conversation | null | undefined, replacementMode = false): void => {
+    if (!conversation) return;
+
+    const preview = getPublishPreviewStats(conversation);
+    const faction = getConversationFaction(conversation, store.get().project.faction);
+
+    factionMetric.value.textContent = FACTION_DISPLAY_NAMES[faction];
+    sizeMetric.value.textContent = `${preview.branchCount} ${preview.branchCount === 1 ? 'branch' : 'branches'}`;
+    qualityMetric.value.textContent = `${preview.qualityScore.totalStars}-star x${formatMultiplier(preview.qualityMultiplier)}`;
+    rewardMetric.value.textContent = `+${preview.publishXp} XP`;
+
+    factionValue.textContent = `${FACTION_DISPLAY_NAMES[faction]} | ${preview.branchCount} branches | ${labelForComplexity(preview.complexity)} signal`;
+    factionValue.style.color = FACTION_COLORS[faction];
+
+    rewardValue.textContent = `+${preview.publishXp} XP`;
+    rewardSummary.textContent = replacementMode
+      ? `This update keeps the same community slot, with reward intensity driven by ${preview.qualityScore.totalStars}-star quality.`
+      : `This story is lined up as a ${labelForComplexity(preview.complexity).toLowerCase()} publish with a ${preview.qualityScore.totalStars}-star quality rating.`;
+    rewardFormula.textContent = `Base ${preview.basePublishXp} XP x quality ${formatMultiplier(preview.qualityMultiplier)} = ${preview.publishXp} publish XP`;
+  };
+
+  const applySubmitMode = (isReplacementMode: boolean) => {
+    setButtonContent(submitBtn, 'export', isReplacementMode ? 'Update Story' : 'Publish Story');
+    formHeader.textContent = isReplacementMode ? 'Update existing community entry' : 'Publish to Community Library';
+    subtitle.textContent = isReplacementMode
+      ? 'Replace your live community version with updated content and metadata while ownership checks stay intact.'
+      : 'Public publishing is moderated after the fact and rate limited per browser to keep the library tidy.';
+    kicker.textContent = isReplacementMode ? 'Live signal refresh' : 'Rewarded community publish';
+    heroEyebrow.textContent = isReplacementMode ? 'Updating a live story' : 'Ready to go live';
+    heroTitle.textContent = isReplacementMode ? 'Refresh your published story' : 'Launch a new community story';
+    heroBlurb.textContent = isReplacementMode
+      ? 'Ship a cleaner revision without leaving the editor, then let the library refresh around it.'
+      : 'Higher quality branching raises the multiplier, which now feeds a bigger publish celebration the moment your story goes live.';
+    replacementContext.hidden = !isReplacementMode;
+    replacementContext.textContent = isReplacementMode && replacementCommunityId
+      ? `Updating community post ${replacementCommunityId}`
+      : '';
+  };
+
+  submitBtn.onclick = async () => {
+    updateReplacementIntentState();
+    const validationGate = splitValidationMessages(store.get().validationMessages);
+    if (validationGate.errors.length > 0) {
+      setStatus(buildValidationSummary('Publish blocked: resolve validation errors first.', validationGate.errors, 3), 'danger');
+      return;
+    }
+    if (validationGate.warnings.length > 0) {
+      const proceed = window.confirm(buildValidationSummary('Validation warnings detected. Publish anyway?', validationGate.warnings));
+      if (!proceed) {
+        setStatus('Publish cancelled. Resolve warnings or confirm override to continue.', 'neutral');
+        return;
+      }
+    }
+
+    const conv = store.getSelectedConversation();
+    if (!conv) {
+      setStatus('No story selected. Select a story in the left panel first.', 'danger');
+      return;
+    }
+    if (!consentInput.checked) {
+      setStatus('Confirm the moderation checkbox before publishing.', 'danger');
+      return;
+    }
+
+    const label = titleInput.value.trim() || conv.label || 'Untitled';
+    const author = authorInput.value.trim() || 'Anonymous';
+    const description = descInput.value.trim();
+    const summary = summaryInput.value.trim() || createSummaryFromConversation(conv);
+    const tags = tagsInput.value.split(',').map(tag => tag.trim()).filter(Boolean);
+    const faction = getConversationFaction(conv, store.get().project.faction);
+    const branchCount = getBranchCount(conv);
+    const selectedSourceMetadata = store.getSelectedConversationSourceMetadata();
+    const selectedSourcePublisherId = selectedSourceMetadata?.sourcePublisherId?.trim();
+    const selectedOwnershipValid = !!selectedSourcePublisherId && getCurrentPublisherIds().includes(selectedSourcePublisherId);
+    const shouldUseReplacePayload = isReplacementCandidate && selectedOwnershipValid;
+    const selectedReplaceId = shouldUseReplacePayload && replacementCommunityId
+      ? replacementCommunityId
+      : null;
+
+    const conversationSourceMetadata = getCommunitySourceMetadata(conv);
+    const conversationSourcePublisherId = conversationSourceMetadata?.publisher_id?.trim();
+    const conversationOwnershipValid = !!conversationSourcePublisherId && getCurrentPublisherIds().includes(conversationSourcePublisherId);
+    const replaceId = selectedReplaceId;
+    const publisherId = selectedOwnershipValid
+      ? selectedSourcePublisherId
+      : (conversationOwnershipValid ? conversationSourcePublisherId : undefined);
+    const duplicateLocal = allResults.some(entry =>
+      normalizeKey(entry.label) === normalizeKey(label)
+      && (!replaceId || entry.id !== replaceId),
+    );
+    if (duplicateLocal) {
+      setStatus('That title already exists in the current library view. Choose a more specific title before publishing.', 'danger');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    cancelBtn.disabled = true;
+    setStatus('Validating title, abuse checks, and publish payload...', 'neutral');
+
+    try {
+      await publishConversation({
+        faction,
+        label,
+        description,
+        summary,
+        author,
+        tags,
+        branch_count: branchCount,
+        complexity: deriveConversationComplexity(branchCount),
+        data: {
+          version: store.get().project.version,
+          faction,
+          conversations: [conv],
+        },
+        replace_id: replaceId ?? undefined,
+        publisher_id: publisherId,
+      });
+      setStatus(
+        replaceId
+          ? 'Updated existing community story. Refreshing library...'
+          : 'Published successfully. Refreshing the library with your new community entry...',
+        'success',
+      );
+
+      const publishPreview = getPublishPreviewStats(conv);
+      const currentProfile = (globalThis as any).__pandaUserProfile as UserProfile | null;
+      let persistedBonusXp = 0;
+      let previousLevel = currentProfile?.level ?? 0;
+      let updatedProfile: UserProfile | null = currentProfile;
+      let publishToastMessage = '';
+
+      if (currentProfile) {
+        const publishCount = await fetchUserPublishCount(currentProfile.publisher_id).catch(() => 1);
+        const publishedFactions = [faction];
+        try {
+          const allConvs = await fetchConversations();
+          const userConvs = allConvs.filter(c => c.author === currentProfile.username);
+          for (const entry of userConvs) {
+            if (!publishedFactions.includes(entry.faction as FactionId)) {
+              publishedFactions.push(entry.faction as FactionId);
+            }
+          }
+        } catch {
+          // best-effort only
+        }
+
+        const totalDownloads = 0;
+        const totalUpvotes = 0;
+        const gamResult = evaluatePublishGamification(conv, publishCount, totalDownloads, totalUpvotes, publishedFactions);
+
+        const persistedAchievements: Array<(typeof gamResult.achievementsUnlocked)[number]> = [];
+        for (const achievement of gamResult.achievementsUnlocked) {
+          const unlocked = await unlockAchievement(currentProfile.publisher_id, achievement.id);
+          if (unlocked) {
+            unlockAchievementLocally(achievement.id);
+            setCooldown(`ach-${achievement.id}`);
+            persistedAchievements.push(achievement);
+          }
+        }
+
+        if (gamResult.changedMissionRecords.length > 0) {
+          await syncUserMissionProgress(currentProfile.publisher_id, gamResult.changedMissionRecords);
+        }
+
+        const currentStreakState = currentProfile.streaks ?? {
+          publish_streak: 0,
+          longest_streak: 0,
+          last_publish_week: '',
+          login_streak: 0,
+          last_login_date: '',
+        };
+        await updateUserStreak(currentProfile.publisher_id, {
+          publish_streak: gamResult.streakData.currentStreak,
+          longest_streak: gamResult.streakData.longestStreak,
+          last_publish_week: gamResult.streakData.lastPublishWeek,
+          login_streak: currentStreakState.login_streak,
+          last_login_date: currentStreakState.last_login_date,
+        });
+
+        persistedBonusXp = persistedAchievements.reduce((total, achievement) => total + achievement.xp, 0) + gamResult.missionXp;
+        previousLevel = currentProfile.level;
+
+        if (publishPreview.publishXp > 0) {
+          await awardXp(currentProfile.publisher_id, publishPreview.publishXp);
+        }
+        if (persistedBonusXp > 0) {
+          await awardXpCapped(currentProfile.publisher_id, persistedBonusXp);
+        }
+
+        const refreshed = await fetchUserProfile(currentProfile.publisher_id);
+        updatedProfile = refreshed ?? currentProfile;
+        (globalThis as any).__pandaUserProfile = updatedProfile;
+        setProfileForBadge(updatedProfile);
+        invalidateLeaderboardCache();
+
+        if (publishPreview.publishXp > 0) {
+          publishToastMessage = publishPreview.qualityMultiplier > 1
+            ? `Published! (${publishPreview.qualityScore.totalStars}-star quality x${formatMultiplier(publishPreview.qualityMultiplier)})`
+            : (replaceId ? 'Story updated!' : 'Story published!');
+        }
+
+        if (persistedAchievements.length > 0) {
+          setTimeout(() => showAchievementToasts(persistedAchievements), 1200);
+        }
+
+        if (gamResult.streakInfo.streakChanged && gamResult.streakInfo.newStreak > 1) {
+          const delay = 1200 + persistedAchievements.length * 800;
+          setTimeout(() => {
+            const shieldNote = gamResult.streakInfo.shieldUsed ? ' (Shield used!)' : '';
+            showGamificationToast('\u{1F525}', `${gamResult.streakInfo.newStreak}-Week Streak!`, `Keep publishing weekly to grow your streak${shieldNote}`);
+          }, delay);
+        }
+
+        if (gamResult.missionXp > 0 && gamResult.completedMissions.length > 0) {
+          const delay = 1200 + persistedAchievements.length * 800 + (gamResult.streakInfo.streakChanged ? 800 : 0);
+          setTimeout(() => {
+            const missionSummary = gamResult.completedMissions.length === 1
+              ? gamResult.completedMissions[0].description
+              : gamResult.completedMissions.map(mission => mission.name).join(' | ');
+            showGamificationToast('\u{1F3AF}', getMissionCompletionHeadline(gamResult.completedMissions), missionSummary, gamResult.missionXp);
+          }, delay);
+        }
+      }
+
+      showPublishCelebration({
+        title: label,
+        publishXp: publishPreview.publishXp,
+        bonusXp: persistedBonusXp,
+        totalXp: publishPreview.publishXp + persistedBonusXp,
+        qualityStars: publishPreview.qualityScore.totalStars,
+        qualityMultiplier: publishPreview.qualityMultiplier,
+        branchCount: publishPreview.branchCount,
+        complexityLabel: labelForComplexity(publishPreview.complexity),
+        isUpdate: Boolean(replaceId),
+      });
+
+      if (publishToastMessage && publishPreview.publishXp > 0) {
+        showXpToast(publishPreview.publishXp, publishToastMessage);
+      }
+
+      if (updatedProfile && updatedProfile.level > previousLevel) {
+        setTimeout(() => showLevelUpToast(updatedProfile.level, updatedProfile.title), 600);
+      }
+
+      setTimeout(() => {
+        form.hidden = true;
+        setStatus('');
+        if (activeFaction !== 'all' && activeFaction !== faction) {
+          activeFaction = faction;
+          rebuildSidebar();
+          updateDownloadAllBtn();
+        }
+        allResults = [];
+        selectedPreviewId = null;
+        loadConversations();
+      }, 1200);
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Publish failed.', 'danger');
+    } finally {
+      submitBtn.disabled = false;
+      cancelBtn.disabled = false;
+    }
+  };
+
+  (form as HTMLElement & { prefill?: (isReplacementCandidate?: boolean) => void }).prefill = (replacementMode = false) => {
+    const conv = store.getSelectedConversation();
+    const faction = getConversationFaction(conv, store.get().project.faction);
+    const branchCount = getBranchCount(conv ?? undefined);
+    titleInput.value = conv?.label || '';
+    const currentUsername = getStoredUsername();
+    authorInput.value = currentUsername || '';
+    authorInput.readOnly = !!currentUsername;
+    authorInput.style.opacity = currentUsername ? '0.7' : '1';
+    authorInput.placeholder = currentUsername ? currentUsername : 'Anonymous (set a username via your profile)';
+    descInput.value = '';
+    summaryInput.value = conv ? createSummaryFromConversation(conv) : '';
+    tagsInput.value = branchCount <= 3 ? 'short, starter' : 'branching, story';
+    factionValue.textContent = `${FACTION_DISPLAY_NAMES[faction]} | ${branchCount} branches | ${labelForComplexity(deriveConversationComplexity(branchCount))}`;
+    factionValue.style.color = FACTION_COLORS[faction];
+    applySubmitMode(replacementMode);
+    updatePreview(conv, replacementMode);
+    consentInput.checked = false;
+    setStatus(
+      currentUsername
+        ? `Publishing as ${currentUsername}. Duplicate titles are rejected. Story ownership is soft unless identity is backed by authenticated Supabase user auth + RLS.`
+        : 'Anonymous publishes are browser-bound and ownership is soft. Duplicate titles are rejected.',
+    );
   };
 
   return form;
