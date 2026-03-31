@@ -1503,12 +1503,18 @@ local function collect_registry_continuation(registry_raw, turn, choice_index)
         choice_block:match("\"nextChannel\"%s*:%s*\"([%w_%-]+)\"") or
         choice_block:match("\"contChannel\"%s*:%s*\"([%w_%-]+)\"") or
         choice_block:match("\"continuationChannel\"%s*:%s*\"([%w_%-]+)\"")
+    local next_npc_id =
+        choice_block:match("\"contNpcId\"%s*:%s*\"([%w_%-]+)\"") or
+        choice_block:match("\"nextNpcId\"%s*:%s*\"([%w_%-]+)\"")
 
     if next_turn then
         next_turn = tonumber(next_turn)
     end
+    if next_npc_id == "" then
+        next_npc_id = nil
+    end
 
-    return next_turn, next_channel
+    return next_turn, next_channel, next_npc_id
 end
 
 local function extract_registry_string_override(registry_raw, key_name)
@@ -2686,6 +2692,7 @@ local function collect_branches(npc_se, forced_context)
                 local keep_hub_override_key = turn_stem .. "_choice_" .. idx .. "_keep_hub_override"
                 local cont_turn_key = turn_stem .. "_cont_" .. idx
                 local cont_channel_key = turn_stem .. "_cont_channel_" .. idx
+                local cont_npc_key = turn_stem .. "_cont_npc_" .. idx
 
                 local show = true
                 local choice_reason = nil
@@ -2739,6 +2746,7 @@ local function collect_branches(npc_se, forced_context)
 
                     local next_turn = nil
                     local next_channel = nil
+                    local next_npc_id = nil
                     local pda_delay_seconds = nil
                     if key_exists(cont_turn_key) then
                         next_turn = normalize_positive_int(tr(cont_turn_key))
@@ -2749,6 +2757,12 @@ local function collect_branches(npc_se, forced_context)
                             next_channel = nil
                         end
                     end
+                    if key_exists(cont_npc_key) then
+                        local raw_npc = tostring(tr(cont_npc_key) or ""):match("^%s*(.-)%s*$")
+                        if raw_npc ~= "" then
+                            next_npc_id = raw_npc
+                        end
+                    end
                     local pda_delay_key = turn_stem .. "_pda_delay_" .. tostring(idx)
                     if key_exists(pda_delay_key) then
                         local parsed_delay = tonumber(tr(pda_delay_key))
@@ -2756,22 +2770,26 @@ local function collect_branches(npc_se, forced_context)
                             pda_delay_seconds = math.floor(parsed_delay)
                         end
                     end
-                    if (not next_turn or not next_channel) and registry_raw and registry_raw ~= "" then
-                        local reg_turn, reg_channel = collect_registry_continuation(registry_raw, turn, idx)
+                    if (not next_turn or not next_channel or not next_npc_id) and registry_raw and registry_raw ~= "" then
+                        local reg_turn, reg_channel, reg_npc = collect_registry_continuation(registry_raw, turn, idx)
                         if not next_turn then
                             next_turn = normalize_positive_int(reg_turn)
                         end
                         if not next_channel and reg_channel and reg_channel ~= "" then
                             next_channel = tostring(reg_channel):lower()
                         end
+                        if not next_npc_id and reg_npc and reg_npc ~= "" then
+                            next_npc_id = reg_npc
+                        end
                     end
                     bridge_debug(
-                        "collect_branches continuation conv_id=%s turn=%s choice=%s next_turn=%s next_channel=%s",
+                        "collect_branches continuation conv_id=%s turn=%s choice=%s next_turn=%s next_channel=%s next_npc_id=%s",
                         tostring(cid),
                         tostring(turn),
                         tostring(idx),
                         tostring(next_turn or "nil"),
-                        tostring(next_channel or "nil")
+                        tostring(next_channel or "nil"),
+                        tostring(next_npc_id or "nil")
                     )
 
                     table.insert(turn_state.branches, {
@@ -2785,6 +2803,7 @@ local function collect_branches(npc_se, forced_context)
                         keep_hub_override = keep_hub_override,
                         next_turn = next_turn,
                         next_channel = next_channel,
+                        next_npc_id = next_npc_id,
                         pda_delay_seconds = pda_delay_seconds,
                     })
                 else
@@ -3531,7 +3550,13 @@ local function build_dialog_tree(dialog, state)
             if ok then
                 if branch.next_turn and branch.next_channel == "pda" then
                     local handoff_source = type(active_state.handoff) == "table" and active_state.handoff or nil
+                    local followup_npc_id = active_npc_id
+                    local followup_contact_id = handoff_source and handoff_source.contact_id or (active_npc_id and tostring(active_npc_id) or nil)
                     local followup_name = handoff_source and handoff_source.npc_name or "Unknown"
+                    local followup_icon = handoff_source and handoff_source.npc_icon or nil
+                    local followup_story_id = handoff_source and handoff_source.story_id or nil
+                    local followup_canonical_id = handoff_source and handoff_source.canonical_id or nil
+
                     if followup_name == "Unknown" and active_state.npc_se then
                         local ok_name, resolved_name = pcall(function()
                             return active_state.npc_se:character_name()
@@ -3541,11 +3566,39 @@ local function build_dialog_tree(dialog, state)
                         end
                     end
 
+                    -- Override identity when this branch targets a different NPC for the next PDA turn.
+                    if branch.next_npc_id and branch.next_npc_id ~= "" and type(get_story_se_object) == "function" then
+                        local ok_se, new_se = pcall(get_story_se_object, branch.next_npc_id)
+                        if ok_se and new_se then
+                            local new_id = resolve_server_npc_id(new_se, "pending_pda_followup:next_npc_id")
+                            if new_id then
+                                followup_npc_id = new_id
+                                followup_contact_id = tostring(new_id)
+                                followup_story_id = branch.next_npc_id
+                                followup_canonical_id = branch.next_npc_id:lower()
+                                local ok_name, new_name = pcall(function() return new_se:character_name() end)
+                                if ok_name and new_name and new_name ~= "" then
+                                    followup_name = tostring(new_name)
+                                end
+                                local ok_icon, new_icon = pcall(function() return new_se:character_icon() end)
+                                if ok_icon and new_icon and new_icon ~= "" then
+                                    followup_icon = tostring(new_icon)
+                                end
+                            end
+                        end
+                        bridge_debug(
+                            "register_dispatcher: pda_followup npc_override branch=%s next_npc_id=%s resolved_npc_id=%s",
+                            tostring(branch.index),
+                            tostring(branch.next_npc_id),
+                            tostring(followup_npc_id or "nil")
+                        )
+                    end
+
                     active_state.pending_pda_followup = {
-                        npc_id = active_npc_id,
-                        contact_id = handoff_source and handoff_source.contact_id or (active_npc_id and tostring(active_npc_id) or nil),
+                        npc_id = followup_npc_id,
+                        contact_id = followup_contact_id,
                         npc_name = followup_name,
-                        npc_icon = handoff_source and handoff_source.npc_icon or nil,
+                        npc_icon = followup_icon,
                         faction = active_state.faction,
                         prefix = active_state.prefix,
                         conv_id = active_state.conv_id,
@@ -3554,8 +3607,8 @@ local function build_dialog_tree(dialog, state)
                         task_id = handoff_source and handoff_source.task_id or nil,
                         category = handoff_source and handoff_source.category or nil,
                         applied_outcomes = handoff_source and handoff_source.applied_outcomes or nil,
-                        story_id = handoff_source and handoff_source.story_id or nil,
-                        canonical_id = handoff_source and handoff_source.canonical_id or nil,
+                        story_id = followup_story_id,
+                        canonical_id = followup_canonical_id,
                         fallback_name = handoff_source and handoff_source.fallback_name or nil,
                     }
                     bridge_debug(
