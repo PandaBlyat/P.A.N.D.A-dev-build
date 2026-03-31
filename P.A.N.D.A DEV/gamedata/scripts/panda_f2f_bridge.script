@@ -39,7 +39,7 @@ local get_unique_actionable_pending_handoff
 -- function body are assigned further down in the F2F-direct section.
 local F2F_DIRECT_INJECT_INTERVAL_MS = 30 * 1000
 local f2f_direct_injected_npcs = {}   -- [npc_id] = true
-local f2f_direct_last_inject_at = 0
+local f2f_direct_last_inject_at = -F2F_DIRECT_INJECT_INTERVAL_MS
 local inject_f2f_direct_for_story_npcs  -- forward declaration; body assigned below
 
 local runtime = {
@@ -1060,7 +1060,7 @@ local function load_state_cb(m)
     runtime.dialog_node_cursor = tonumber(m[SAVE_KEY_DIALOG_NODE_CURSOR]) or 0
     -- Reset F2F-direct injection state so the first actor_on_update triggers a fresh scan
     f2f_direct_injected_npcs = {}
-    f2f_direct_last_inject_at = 0
+    f2f_direct_last_inject_at = -F2F_DIRECT_INJECT_INTERVAL_MS
 end
 
 local function is_actor_dialog_active()
@@ -4648,6 +4648,12 @@ function panda_f2f_bridge.f2f_direct_precondition(...)
     local callback_context = build_callback_resolution_context(...)
     local npc_se = get_partner_npc_se(callback_context)
     if not npc_se then
+        -- Fallback: when called as a set_start_dialog precondition, talker args may be
+        -- absent or unresolvable.  Try the no-arg path (db.actor_dialog / mob_trade).
+        npc_se = get_partner_npc_se()
+    end
+    if not npc_se then
+        bridge_debug("f2f_direct_precondition reject reason=npc_unresolved")
         return false
     end
 
@@ -4692,6 +4698,9 @@ function panda_f2f_bridge.f2f_direct_init_dialog(dialog, ...)
     local callback_context = build_callback_resolution_context(...)
 
     local npc_se = get_partner_npc_se(callback_context)
+    if not npc_se then
+        npc_se = get_partner_npc_se()
+    end
     if not npc_se then
         bridge_warn("f2f_direct_init_dialog reject reason=npc_unresolved")
         return
@@ -4775,5 +4784,10 @@ function panda_f2f_bridge.f2f_direct_init_dialog(dialog, ...)
     )
     debug_resolve_snapshot("f2f_direct_build", npc_se, state, nil)
 end
+
+-- Register callbacks immediately so actor_on_update fires from the first frame,
+-- ensuring inject_f2f_direct_for_story_npcs runs at game start without waiting
+-- for a separate bridge function call.
+ensure_callbacks_registered()
 
 return panda_f2f_bridge
