@@ -95,7 +95,8 @@ type ChoiceField =
   | 'story-npc-id'
   | 'npc-faction-filters'
   | 'npc-profile-filters'
-  | 'allow-generic-stalker';
+  | 'allow-generic-stalker'
+  | 'cont-npc-id';
 
 interface ValidationContext {
   conversationId: number;
