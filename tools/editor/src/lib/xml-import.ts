@@ -481,6 +481,12 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
       conv.timeoutMessage = timeoutMsg;
     }
 
+    // Start mode
+    const startModeStr = strings.get(`${prefix}_start_mode`);
+    if (startModeStr === 'pda' || startModeStr === 'f2f') {
+      conv.startMode = startModeStr;
+    }
+
     // Parse Turn 1
     const turn1: Turn = {
       turnNumber: 1,

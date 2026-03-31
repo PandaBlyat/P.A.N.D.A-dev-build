@@ -4296,4 +4296,329 @@ function panda_f2f_bridge.init_dialog(dialog, ...)
     debug_resolve_snapshot("build", state.npc_se, state, nil)
 end
 
+-- ============================================================
+-- F2F-DIRECT: conversations that start face-to-face without PDA
+-- ============================================================
+
+local F2F_DIRECT_DIALOG_ID = "panda_f2f_direct_dialog"
+local F2F_DIRECT_SCAN_CACHE_TTL_MS = 5000
+
+local f2f_direct_cache = {}
+-- Structure: f2f_direct_cache[npc_id] = { candidates = {...}, expires_at = time_global() + TTL }
+
+runtime.f2f_direct_pending = runtime.f2f_direct_pending or {}
+-- Structure: runtime.f2f_direct_pending[npc_id] = { conv_id, turn, faction, prefix, stem, weight }
+
+local function f2f_direct_cache_get(npc_id)
+    local entry = f2f_direct_cache[npc_id]
+    if not entry then
+        return nil
+    end
+    local now = tonumber(time_global and time_global() or 0) or 0
+    if now > entry.expires_at then
+        f2f_direct_cache[npc_id] = nil
+        return nil
+    end
+    return entry.candidates
+end
+
+local function f2f_direct_cache_set(npc_id, candidates)
+    local now = tonumber(time_global and time_global() or 0) or 0
+    f2f_direct_cache[npc_id] = {
+        candidates = candidates,
+        expires_at = now + F2F_DIRECT_SCAN_CACHE_TTL_MS,
+    }
+end
+
+local function scan_f2f_direct_conversations(npc_se)
+    if not npc_se then
+        return {}
+    end
+
+    local npc_id = resolve_server_npc_id(npc_se, "scan_f2f_direct")
+    if not npc_id then
+        return {}
+    end
+
+    -- Check cache first
+    local cached = f2f_direct_cache_get(npc_id)
+    if cached then
+        return cached
+    end
+
+    local faction = actor_faction_key()
+    local candidates = {}
+    local missing = 0
+
+    -- Get cooldown config from main script API
+    local api = get_conv_api()
+    local cooldown_mode = 1
+    local cooldown_penalty = 0.5
+    local default_cooldown_sec = 3600
+    local cooldown_hard_min_sec = 300
+    if PANDA and type(PANDA.get_config) == "function" then
+        cooldown_mode = tonumber(PANDA.get_config("cooldown_mode")) or 1
+        cooldown_penalty = (tonumber(PANDA.get_config("cooldown_penalty")) or 50) / 100
+        default_cooldown_sec = (tonumber(PANDA.get_config("default_cooldown")) or 60) * 60
+        cooldown_hard_min_sec = (tonumber(PANDA.get_config("cooldown_hard_min")) or 5) * 60
+    end
+
+    for cid = 1, MAX_CONV_SCAN do
+        local stem = string.format("st_pda_ic_%s_%d", faction, cid)
+        local open_key = stem .. "_open"
+
+        if not key_exists(open_key) then
+            missing = missing + 1
+            if missing >= MISSING_STOP then
+                break
+            end
+        else
+            missing = 0
+
+            -- Check start_mode: only include conversations marked as "f2f"
+            local start_mode_key = stem .. "_start_mode"
+            local start_mode = tr(start_mode_key)
+            if start_mode == start_mode_key then
+                start_mode = nil -- key doesn't exist, legacy PDA-only
+            end
+
+            if start_mode == "f2f" then
+                -- Check preconditions
+                local precond_key = stem .. "_precond"
+                local precond_ok = true
+                if key_exists(precond_key) then
+                    precond_ok = evaluate_shared_precondition(precond_key, npc_se, {
+                        channel = "f2f",
+                        conv_id = cid,
+                        faction = faction,
+                    }) == true
+                end
+
+                if precond_ok then
+                    -- Check F2F entry turn exists for this NPC
+                    local f2f_turn = select_f2f_turn(stem, npc_se)
+                    if f2f_turn then
+                        -- Check cooldown
+                        local weight = 100
+                        local skip = false
+
+                        if api and type(api.check_cooldown) == "function" then
+                            local on_cooldown, seconds_since = api.check_cooldown(cid, faction, "task")
+                            if on_cooldown then
+                                if cooldown_mode == 1 then
+                                    skip = true
+                                else
+                                    if seconds_since < cooldown_hard_min_sec then
+                                        skip = true
+                                    else
+                                        weight = math.max(1, math.floor(cooldown_penalty * 100))
+                                    end
+                                end
+                            end
+                        end
+
+                        if not skip then
+                            candidates[#candidates + 1] = {
+                                conv_id = cid,
+                                turn = f2f_turn,
+                                stem = stem,
+                                faction = faction,
+                                prefix = nil,
+                                weight = weight,
+                            }
+                            bridge_debug(
+                                "f2f_direct scan match conv_id=%s turn=%s faction=%s weight=%s npc_id=%s",
+                                tostring(cid),
+                                tostring(f2f_turn),
+                                tostring(faction),
+                                tostring(weight),
+                                tostring(npc_id)
+                            )
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    f2f_direct_cache_set(npc_id, candidates)
+    bridge_debug(
+        "f2f_direct scan complete npc_id=%s faction=%s candidates=%s",
+        tostring(npc_id),
+        tostring(faction),
+        tostring(#candidates)
+    )
+    return candidates
+end
+
+local function f2f_direct_weighted_select(candidates)
+    if not candidates or #candidates == 0 then
+        return nil
+    end
+
+    local total_weight = 0
+    for _, cand in ipairs(candidates) do
+        total_weight = total_weight + (cand.weight or 100)
+    end
+    if total_weight <= 0 then
+        return candidates[1]
+    end
+
+    local r = math.random(total_weight)
+    local accum = 0
+    for _, cand in ipairs(candidates) do
+        accum = accum + (cand.weight or 100)
+        if r <= accum then
+            return cand
+        end
+    end
+    return candidates[1]
+end
+
+function panda_f2f_bridge.f2f_direct_precondition(...)
+    ensure_callbacks_registered()
+    if runtime.shutdown_in_progress == true then
+        return false
+    end
+
+    -- Check system enabled
+    if PANDA and type(PANDA.get_config) == "function" then
+        if not PANDA.get_config("enabled") then
+            return false
+        end
+    end
+
+    bridge_debug("f2f_direct_precondition entry")
+
+    local callback_context = build_callback_resolution_context(...)
+    local npc_se = get_partner_npc_se(callback_context)
+    if not npc_se then
+        return false
+    end
+
+    -- Don't show F2F-direct if there's already a pending PDA handoff for this NPC
+    local existing_handoff = get_pending_handoff_for_npc(npc_se)
+    if existing_handoff then
+        bridge_debug("f2f_direct_precondition reject reason=existing_handoff npc_id=%s", tostring(npc_se and npc_se.id or "nil"))
+        return false
+    end
+
+    local candidates = scan_f2f_direct_conversations(npc_se)
+    if #candidates == 0 then
+        return false
+    end
+
+    -- Weighted random selection
+    local selected = f2f_direct_weighted_select(candidates)
+    if not selected then
+        return false
+    end
+
+    local npc_id = resolve_server_npc_id(npc_se, "f2f_direct_precondition")
+    runtime.f2f_direct_pending[npc_id] = selected
+
+    bridge_debug(
+        "f2f_direct_precondition accept npc_id=%s conv_id=%s turn=%s faction=%s",
+        tostring(npc_id),
+        tostring(selected.conv_id),
+        tostring(selected.turn),
+        tostring(selected.faction)
+    )
+    return true
+end
+
+function panda_f2f_bridge.f2f_direct_init_dialog(dialog, ...)
+    ensure_callbacks_registered()
+    if runtime.shutdown_in_progress == true then
+        return
+    end
+
+    bridge_debug("f2f_direct_init_dialog entry")
+    local callback_context = build_callback_resolution_context(...)
+
+    local npc_se = get_partner_npc_se(callback_context)
+    if not npc_se then
+        bridge_warn("f2f_direct_init_dialog reject reason=npc_unresolved")
+        return
+    end
+
+    local npc_id = resolve_server_npc_id(npc_se, "f2f_direct_init_dialog")
+    local selected = runtime.f2f_direct_pending[npc_id]
+    if not selected then
+        -- Fallback: try re-scan
+        local candidates = scan_f2f_direct_conversations(npc_se)
+        selected = f2f_direct_weighted_select(candidates)
+        if not selected then
+            bridge_warn("f2f_direct_init_dialog reject reason=no_selected_conversation npc_id=%s", tostring(npc_id))
+            return
+        end
+    end
+
+    -- Clear pending so it's consumed
+    runtime.f2f_direct_pending[npc_id] = nil
+
+    -- Invalidate cache so next interaction re-scans
+    f2f_direct_cache[npc_id] = nil
+
+    bridge_debug(
+        "f2f_direct_init_dialog building tree npc_id=%s conv_id=%s turn=%s faction=%s",
+        tostring(npc_id),
+        tostring(selected.conv_id),
+        tostring(selected.turn),
+        tostring(selected.faction)
+    )
+
+    -- Build synthetic handoff context for collect_branches
+    local synthetic_context = {
+        conv_id = selected.conv_id,
+        turn = selected.turn,
+        faction = selected.faction,
+        prefix = selected.prefix,
+        npc_id = npc_id,
+    }
+
+    local state = collect_branches(npc_se, synthetic_context)
+    if not state then
+        bridge_warn(
+            "f2f_direct_init_dialog reject reason=no_state npc_id=%s conv_id=%s turn=%s",
+            tostring(npc_id),
+            tostring(selected.conv_id),
+            tostring(selected.turn)
+        )
+        return
+    end
+
+    state.npc_se = npc_se
+    state.resolved_npc_id = npc_id
+    state.teardown_in_progress = false
+    state.f2f_direct = true  -- Mark as F2F-direct initiated (no PDA handoff)
+
+    local build_result = build_dialog_tree(dialog, state) or {}
+    if build_result.build_ok ~= true then
+        bridge_warn(
+            "f2f_direct_init_dialog build_failed npc_id=%s conv_id=%s turn=%s",
+            tostring(npc_id),
+            tostring(selected.conv_id),
+            tostring(selected.turn)
+        )
+        unregister_active_state(state)
+        return
+    end
+
+    -- Record cooldown via API
+    local api = get_conv_api()
+    if api and type(api.record_cooldown) == "function" then
+        api.record_cooldown(selected.conv_id, selected.faction, selected.prefix or "task")
+    end
+
+    bridge_warn(
+        "f2f_direct_init_dialog build_complete npc_id=%s conv_id=%s turn=%s branch_count=%s",
+        tostring(npc_id),
+        tostring(selected.conv_id),
+        tostring(selected.turn),
+        tostring(state.branches and #state.branches or 0)
+    )
+    debug_resolve_snapshot("f2f_direct_build", npc_se, state, nil)
+end
+
 return panda_f2f_bridge

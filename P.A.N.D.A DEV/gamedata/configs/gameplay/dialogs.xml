@@ -4426,4 +4426,11 @@
         <init_func>panda_f2f_bridge.init_dialog</init_func>
         <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
     </dialog>
+
+    <!-- PANDA F2F-direct: conversations that start face-to-face without PDA -->
+    <dialog id="panda_f2f_direct_dialog">
+        <precondition>panda_f2f_bridge.f2f_direct_precondition</precondition>
+        <init_func>panda_f2f_bridge.f2f_direct_init_dialog</init_func>
+        <close_func>panda_f2f_bridge.on_dialog_closed</close_func>
+    </dialog>
 </game_dialogs>

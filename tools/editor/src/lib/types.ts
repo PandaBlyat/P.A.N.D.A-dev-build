@@ -13,12 +13,15 @@ export type FactionId =
 
 export type ConversationChannel = 'pda' | 'f2f';
 export type TurnFirstSpeaker = 'npc' | 'player';
+export type ConversationStartMode = 'pda' | 'f2f';
 
 export interface Conversation {
   id: number;
   label: string;
   faction?: FactionId;
   initialChannel?: ConversationChannel;
+  /** Controls how this conversation is triggered: 'pda' (default) via PDA message, 'f2f' via NPC dialogue option. */
+  startMode?: ConversationStartMode;
   preconditions: PreconditionEntry[];
   timeout?: number;
   timeoutMessage?: string;
