@@ -1,0 +1,2498 @@
+-- A.R.C.H. Archetype Core
+
+local _log = _G.arch_logger_module and type(_G.arch_logger_module.new) == "function" and _G.arch_logger_module.new("ARCHLOG") or nil
+local printf = (_log and _log.printf) or function(fmt, ...) if not _G.printf then return end; if select("#",...) > 0 then local ok,r = pcall(string.format,fmt,...); if ok then fmt = r end end; _G.printf("ARCHLOG %s", tostring(fmt)) end
+local printe = (_log and _log.printe) or function(fmt, ...) local fn = type(_G.printe)=="function" and _G.printe or _G.printf; if not fn then return end; if select("#",...) > 0 then local ok,r = pcall(string.format,fmt,...); if ok then fmt = r end end; fn("ARCHLOG %s", tostring(fmt)) end
+local tostr  = tostring
+local tonum  = tonumber
+local sgsub  = string.gsub
+local type_  = type
+
+-- ──────────────────────────────────────────────────
+-- Module Globals
+-- ──────────────────────────────────────────────────
+
+local DEBUG_VERBOSE = false
+local ASSIGNMENT_MODE = "hybrid"
+local PERF_ENABLED = false
+local RUN_STARTUP_VALIDATION = false
+local MOD_NAME = "A.R.C.H."
+local MOD_VERSION = "0.9"
+local ARCHETYPE_REMAP_MIGRATION_SESSION_DONE = false
+local tier_count_level = {}
+local tier_count_community = {}
+
+-- ──────────────────────────────────────────────────
+-- Utility Functions
+-- ──────────────────────────────────────────────────
+
+local spawn_assign_stats = {
+    spawn_callbacks = 0,
+    assigned_archetype = 0,
+    upgraded_to_archetype = 0,
+    loadout_applied = 0,
+    loadout_failed = 0,
+    deferred_unknown_context = 0,
+    skipped_existing = 0,
+    skipped_zombied = 0,
+    skipped_unique_npc = 0,
+    skipped_mode_online_only = 0,
+    invalid_arch = 0,
+    miss = 0
+}
+local function logv(fmt, ...)
+    if DEBUG_VERBOSE then
+        printf(fmt, ...)
+    end
+end
+local function spawn_stat_add(name, value)
+    if not name then return end
+    local v = tonumber(value) or 0
+    spawn_assign_stats[name] = (spawn_assign_stats[name] or 0) + v
+end
+function get_spawn_assignment_stats()
+    local out = {}
+    for k, v in pairs(spawn_assign_stats) do
+        out[k] = v
+    end
+    return out
+end
+function reset_spawn_assignment_stats()
+    for k in pairs(spawn_assign_stats) do
+        spawn_assign_stats[k] = 0
+    end
+    printf("[ARCH] Spawn assignment stats reset")
+end
+local function print_spawn_assignment_stats_internal()
+    printf("=== ARCH SPAWN ASSIGNMENT STATS ===")
+    local keys = {
+        "spawn_callbacks",
+        "assigned_archetype",
+        "upgraded_to_archetype",
+        "loadout_applied",
+        "loadout_failed",
+        "deferred_unknown_context",
+        "skipped_existing",
+        "skipped_zombied",
+        "skipped_mode_online_only",
+        "skipped_unique_npc",
+        "invalid_arch",
+        "miss"
+    }
+    for i = 1, #keys do
+        local k = keys[i]
+        printf("  %s: %s", k, tostring(spawn_assign_stats[k] or 0))
+    end
+    printf("===================================")
+end
+local function print_spawn_assignment_compact_line()
+    printf(
+        "[ARCH][SPAWN] callbacks=%d arch=%d upgrades=%d loadout_ok=%d loadout_fail=%d deferred=%d miss=%d skipped_existing=%d skipped_zombied=%d skipped_online_only=%d skipped_unique=%d invalid_arch=%d",
+        tonum(spawn_assign_stats.spawn_callbacks) or 0,
+        tonum(spawn_assign_stats.assigned_archetype) or 0,
+        tonum(spawn_assign_stats.upgraded_to_archetype) or 0,
+        tonum(spawn_assign_stats.loadout_applied) or 0,
+        tonum(spawn_assign_stats.loadout_failed) or 0,
+        tonum(spawn_assign_stats.deferred_unknown_context) or 0,
+        tonum(spawn_assign_stats.miss) or 0,
+        tonum(spawn_assign_stats.skipped_existing) or 0,
+        tonum(spawn_assign_stats.skipped_zombied) or 0,
+        tonum(spawn_assign_stats.skipped_mode_online_only) or 0,
+        tonum(spawn_assign_stats.skipped_unique_npc) or 0,
+        tonum(spawn_assign_stats.invalid_arch) or 0
+    )
+end
+function print_spawn_assignment_stats()
+    return print_spawn_assignment_stats_internal()
+end
+local perf_stats = {}
+function set_assignment_mode(mode)
+    local normalized = string.lower(tostring(mode or ""))
+    if normalized ~= "hybrid" and normalized ~= "strict_spawn_only" and normalized ~= "online_only" then
+        printf("[ARCH] WARNING: Invalid assignment mode '%s' (expected 'hybrid', 'strict_spawn_only', or 'online_only')", tostring(mode))
+        return false
+    end
+    ASSIGNMENT_MODE = normalized
+    printf("[ARCH] Assignment mode: %s", ASSIGNMENT_MODE)
+    return true
+end
+function get_assignment_mode()
+    return ASSIGNMENT_MODE
+end
+function set_perf_enabled(enabled)
+    PERF_ENABLED = enabled == true
+    printf("[ARCH] Perf counters: %s", tostring(PERF_ENABLED))
+end
+function perf_add(name, value)
+    if not PERF_ENABLED or not name then return end
+    value = tonumber(value) or 0
+    perf_stats[name] = (perf_stats[name] or 0) + value
+end
+function perf_max(name, value)
+    if not PERF_ENABLED or not name then return end
+    value = tonumber(value) or 0
+    local current = perf_stats[name]
+    if not current or value > current then
+        perf_stats[name] = value
+    end
+end
+function reset_perf_stats()
+    perf_stats = {}
+    printf("[ARCH] Perf counters reset")
+end
+function print_perf_stats()
+    printf("=== ARCH PERF STATS ===")
+    if next(perf_stats) == nil then
+        printf("  (empty)")
+    else
+        local keys = {}
+        for k in pairs(perf_stats) do keys[#keys + 1] = k end
+        table.sort(keys)
+        for i = 1, #keys do
+            local key = keys[i]
+            printf("  %s: %s", key, tostring(perf_stats[key]))
+        end
+    end
+    printf("=======================")
+end
+function set_startup_validation(enabled)
+    RUN_STARTUP_VALIDATION = enabled == true
+    printf("[ARCH] Startup validation on first update: %s", tostring(RUN_STARTUP_VALIDATION))
+end
+function is_startup_validation_enabled()
+    return RUN_STARTUP_VALIDATION
+end
+
+local show_arch_news              = arch_news.show_arch_news
+local maybe_announce_archetype_assignment = arch_news.maybe_announce_archetype_assignment
+function set_assignment_news_enabled(enabled) arch_news.set_assignment_news_enabled(enabled) end
+function set_dynamic_news_enabled(enabled) arch_news.set_dynamic_news_enabled(enabled) end
+
+local EXCLUDED_CONFIGS = {
+    ["items\\trade\\trade_sidorovich.ltx"]  = true,
+    ["items\\trade\\trade_barman.ltx"]      = true,
+    ["items\\trade\\trade_informator.ltx"]  = true,
+    ["items\\trade\\trade_medic.ltx"]       = true,
+    ["items\\trade\\trade_scientific.ltx"]  = true,
+    ["items\\trade\\trade_companion.ltx"]   = true
+}
+local EXCLUDED_COMMUNITIES = {
+}
+local get_rank_name              = arch_filters.get_rank_name
+local is_in_table                = arch_filters.is_in_table
+local list_to_set                = arch_filters.list_to_set
+local sorted_keys                = arch_filters.sorted_keys
+local select_weighted_entry      = arch_filters.select_weighted_entry
+local normalize_string_list      = arch_filters.normalize_string_list
+local validate_shared_filters    = arch_filters.validate_shared_filters
+local validate_unknown_keys      = arch_filters.validate_unknown_keys
+local compile_filter_cache       = arch_filters.compile_filter_cache
+local get_primary_filter_index   = arch_filters.get_primary_filter_index
+local get_npc_gender             = arch_filters.get_npc_gender
+local get_server_community       = arch_filters.get_server_community
+local get_filter_data            = arch_filters.get_filter_data
+local check_filters              = arch_filters.check_filters
+local custom_archetypes = {}
+local global_blocks = {}
+local custom_archetype_count = 0
+local archetype_index = {
+    rank = {},
+    location = {},
+    community = {},
+    gender = {},
+    smart_terrain = {},
+    unindexed = {}
+}
+local archetype_candidate_cache = {}
+local assigned_npc_ids = {}
+local zombied_profile_cache = {}
+local archetype_full = {}
+local assign_to_index = {}
+local get_arch_counters
+
+-- ──────────────────────────────────────────────────
+-- Archetype Schema and Storage
+-- ──────────────────────────────────────────────────
+
+local ARCHETYPE_ALLOWED_KEYS = {
+    enabled = true,
+    global_block = true,
+    ltx = true,
+    trade_preset = true,
+    buy = true,
+    sell = true,
+    amount = true,
+    respawn = true,
+    tier = true,
+    chance = true,
+    name_format = true,
+    dialog_id = true,
+    dialog_ids = true,
+    dialog_priority = true,
+    spawn_loadout = true,
+    male = true,
+    female = true,
+    rank_include = true,
+    rank_exclude = true,
+    location_include = true,
+    location_exclude = true,
+    community_include = true,
+    community_exclude = true,
+    smart_terrain_include = true,
+    smart_terrain_exclude = true,
+    news_on_death = true,
+    news_on_area = true,
+    news_icon = true,
+    goodwill = true,
+    available_after_days = true,
+    regular_visit_threshold = true,
+    specialization = true,
+    strip_dialog_categories = true,
+    assign_to = true,
+    intro_dialog = true,
+    intro_done_info = true,
+    map_spot = true,
+    on_death_info = true,
+    locked = true
+}
+local apply_trade_profile_defaults = arch_trade.apply_trade_profile_defaults
+local function validate_spawn_loadout(owner, data)
+    if data == nil then
+        return 0
+    end
+    if type(data) ~= "table" then
+        printf("[ARCH] WARNING: %s 'spawn_loadout' must be table", owner)
+        return 1
+    end
+    local warnings = 0
+    local known_slots = {
+        primary = true,
+        secondary = true,
+        extra = true,
+        inherit = true
+    }
+    for key in pairs(data) do
+        if not known_slots[key] then
+            printf("[ARCH] WARNING: %s spawn_loadout has unknown slot '%s'", owner, tostring(key))
+            warnings = warnings + 1
+        end
+    end
+    local function validate_slot(slot_name, slot_data)
+        if slot_data == nil then
+            return
+        end
+        if type(slot_data) ~= "table" then
+            printf("[ARCH] WARNING: %s spawn_loadout.%s must be table", owner, slot_name)
+            warnings = warnings + 1
+            return
+        end
+        for i = 1, #slot_data do
+            local entry = slot_data[i]
+            if type(entry) == "string" then
+                if entry == "" then
+                    printf("[ARCH] WARNING: %s spawn_loadout.%s[%s] must not be empty string", owner, slot_name, i)
+                    warnings = warnings + 1
+                end
+            elseif type(entry) == "table" then
+                local section = entry.section or entry[1]
+                if type(section) ~= "string" or section == "" then
+                    printf("[ARCH] WARNING: %s spawn_loadout.%s[%s] table entry requires non-empty 'section'", owner, slot_name, i)
+                    warnings = warnings + 1
+                end
+                if entry.chance ~= nil and tonumber(entry.chance) == nil then
+                    printf("[ARCH] WARNING: %s spawn_loadout.%s[%s] chance must be numeric", owner, slot_name, i)
+                    warnings = warnings + 1
+                end
+            else
+                printf("[ARCH] WARNING: %s spawn_loadout.%s[%s] must be string or table", owner, slot_name, i)
+                warnings = warnings + 1
+            end
+        end
+    end
+    validate_slot("primary", data.primary)
+    validate_slot("secondary", data.secondary)
+    validate_slot("extra", data.extra)
+    return warnings
+end
+local function validate_archetype_entry(arch_id, data)
+    local owner = string.format("Archetype '%s'", tostring(arch_id))
+    local warnings = 0
+    warnings = warnings + validate_unknown_keys(owner, data, ARCHETYPE_ALLOWED_KEYS)
+    warnings = warnings + validate_shared_filters(owner, data)
+    warnings = warnings + validate_spawn_loadout(owner, data.spawn_loadout)
+    local bool_fields   = {"enabled", "respawn"}
+    local string_fields = {"global_block", "ltx", "trade_preset", "dialog_id"}
+    local number_fields = {"buy", "sell", "chance", "amount", "dialog_priority", "available_after_days"}
+    for _, f in ipairs(bool_fields) do
+        if data[f] ~= nil and type_(data[f]) ~= "boolean" then
+            printf("[ARCH] WARNING: %s '%s' must be boolean", owner, f)
+            warnings = warnings + 1
+        end
+    end
+    for _, f in ipairs(string_fields) do
+        if data[f] ~= nil and type_(data[f]) ~= "string" then
+            printf("[ARCH] WARNING: %s '%s' must be string", owner, f)
+            warnings = warnings + 1
+        end
+    end
+    for _, f in ipairs(number_fields) do
+        if data[f] ~= nil and tonum(data[f]) == nil then
+            printf("[ARCH] WARNING: %s '%s' must be numeric", owner, f)
+            warnings = warnings + 1
+        end
+    end
+    if data.tier ~= nil and tonum(data.tier) == nil then
+        printf("[ARCH] WARNING: %s 'tier' must be numeric (1-5)", owner)
+        warnings = warnings + 1
+    end
+    if data.dialog_ids ~= nil then
+        if type_(data.dialog_ids) ~= "table" then
+            printf("[ARCH] WARNING: %s 'dialog_ids' must be table", owner)
+            warnings = warnings + 1
+        else
+            for i, dialog_id in pairs(data.dialog_ids) do
+                if type_(dialog_id) ~= "string" or dialog_id == "" then
+                    printf("[ARCH] WARNING: %s dialog_ids[%s] must be non-empty string", owner, tostring(i))
+                    warnings = warnings + 1
+                end
+            end
+        end
+    end
+    if data.name_format ~= nil then
+        if type_(data.name_format) ~= "table" then
+            printf("[ARCH] WARNING: %s 'name_format' must be a table", owner)
+            warnings = warnings + 1
+        else
+            if type_(data.name_format.type) ~= "string" or type_(data.name_format.text) ~= "string" then
+                printf("[ARCH] WARNING: %s name_format must contain string 'type' and 'text'", owner)
+                warnings = warnings + 1
+            end
+        end
+    end
+    return warnings
+end
+local function add_index_entry(index_map, key, arch_id)
+    if not key then return end
+    local list = index_map[key]
+    if not list then
+        list = {}
+        index_map[key] = list
+    end
+    list[#list + 1] = arch_id
+end
+local function append_candidates(candidates, seen, list)
+    if not list then return end
+    for i = 1, #list do
+        local arch_id = list[i]
+        if not seen[arch_id] then
+            seen[arch_id] = true
+            candidates[#candidates + 1] = arch_id
+        end
+    end
+end
+local function get_filter_signature(filter_data)
+    if not filter_data then
+        return "__all__"
+    end
+    return table.concat({
+        tostr(filter_data.community or ""),
+        tostr(filter_data.location or ""),
+        tostr(filter_data.rank or ""),
+        tostr(filter_data.gender or ""),
+        tostr(filter_data.smart_terrain or "")
+    }, "|")
+end
+local function get_archetype_candidates(filter_data)
+    local signature = get_filter_signature(filter_data)
+    local cached = archetype_candidate_cache[signature]
+    if cached then
+        perf_add("arch_candidate_cache_hit", 1)
+        return cached
+    end
+    perf_add("arch_candidate_cache_miss", 1)
+    local candidates = {}
+    if not filter_data then
+        for arch_id in pairs(custom_archetypes) do
+            candidates[#candidates + 1] = arch_id
+        end
+        archetype_candidate_cache[signature] = candidates
+        return candidates
+    end
+    local seen = {}
+    append_candidates(candidates, seen, archetype_index.community[filter_data.community])
+    append_candidates(candidates, seen, archetype_index.location[filter_data.location])
+    append_candidates(candidates, seen, archetype_index.rank[filter_data.rank])
+    append_candidates(candidates, seen, archetype_index.gender[filter_data.gender])
+    append_candidates(candidates, seen, archetype_index.smart_terrain[filter_data.smart_terrain])
+    append_candidates(candidates, seen, archetype_index.unindexed)
+    archetype_candidate_cache[signature] = candidates
+    return candidates
+end
+
+-- ──────────────────────────────────────────────────
+-- Pack Loader Context Setup + Delegates
+-- ──────────────────────────────────────────────────
+
+local function setup_pack_loader_context()
+    arch_pack_loader.setup({
+        register_custom_archetypes = register_custom_archetypes,
+        validate_shared_filters = validate_shared_filters,
+        compile_filter_cache = compile_filter_cache,
+        global_blocks = global_blocks,
+        custom_archetypes = custom_archetypes,
+    })
+end
+
+function register_global_block(name, filters)
+    return arch_pack_loader.register_global_block(name, filters)
+end
+function register_creation_pack(manifest)
+    return arch_pack_loader.register_creation_pack(manifest)
+end
+function register_pack_files(config)
+    return arch_pack_loader.register_pack_files(config)
+end
+function register_universal_dialog(config)
+    return arch_pack_loader.register_universal_dialog(config)
+end
+function get_registered_creation_packs()
+    return arch_pack_loader.get_registered_creation_packs()
+end
+function update_pack_task_pool_count(pack_id, count)
+    return arch_pack_loader.update_pack_task_pool_count(pack_id, count)
+end
+
+
+-- ──────────────────────────────────────────────────
+-- Custom Archetype Registration
+-- ──────────────────────────────────────────────────
+
+function register_custom_archetypes(tbl)
+    local tconcat = table.concat
+    if not tbl then
+        printf("[ARCH] ERROR: No archetypes provided!")
+        return
+    end
+    local pending = arch_pack_loader.get_pending_archetypes()
+    local pending_count = arch_pack_loader.get_pending_count()
+    if tbl ~= pending and pending_count > 0 then
+        local merged = {}
+        local merged_pending = 0
+        local merged_base = 0
+        for id, data in pairs(pending) do
+            local key = tostring(id)
+            if key ~= "" then
+                merged[key] = data
+                merged_pending = merged_pending + 1
+            end
+        end
+        for id, data in pairs(tbl) do
+            local key = tostring(id)
+            if key ~= "" then
+                if merged[key] ~= nil then
+                    printf("[ARCH] ERROR: Duplicate archetype id '%s' between base custom_archetypes and pending creation packs", key)
+                    return
+                end
+                merged[key] = data
+                merged_base = merged_base + 1
+            end
+        end
+        tbl = merged
+        arch_pack_loader.clear_pending()
+        printf("[ARCH] Merged %s pending creation-pack archetype(s) into base archetype registration (%s base)", merged_pending, merged_base)
+    end
+    if arch_pack_loader.is_archetypes_registered() then
+        printf("[ARCH] Archetypes already registered, skipping duplicate call")
+        return
+    end
+    arch_pack_loader.set_archetypes_registered(true)
+    archetype_candidate_cache = {}
+    assigned_npc_ids = {}
+    local count = 0
+    local warnings = 0
+    for id, data in pairs(tbl) do
+        if data.enabled == nil then data.enabled = true end
+        if not data.enabled then
+            printf("[ARCH] Skipped disabled archetype: %s", id)
+        else
+            if data.global_block and global_blocks[data.global_block] then
+                local block = global_blocks[data.global_block]
+                for k, v in pairs(block) do
+                    if data[k] == nil then
+                        data[k] = v
+                    end
+                end
+            end
+            if not data.tier then data.tier = 3 end
+            if not data.chance then data.chance = 100 end
+            if not data.available_after_days then data.available_after_days = 0 end
+            data.tier = math.max(1, math.min(5, math.floor(data.tier)))
+            data.chance = math.max(1, math.floor(data.chance))
+            data.available_after_days = math.max(0, math.floor(data.available_after_days))
+            apply_trade_profile_defaults(id, data)
+            warnings = warnings + validate_archetype_entry(id, data)
+            compile_filter_cache(data)
+            if not data.ltx then
+                printf("[ARCH] WARNING: Archetype '%s' has no ltx (trade config will be skipped)", id)
+            end
+                custom_archetypes[id] = data
+                count = count + 1
+                if not (data.assign_to and data.assign_to ~= "") then
+                    local index_field, index_values = get_primary_filter_index(data)
+                    if index_field and index_values then
+                        for _, value in pairs(index_values) do
+                            add_index_entry(archetype_index[index_field], value, id)
+                        end
+                        data._index_field = index_field
+                    else
+                        archetype_index.unindexed[#archetype_index.unindexed + 1] = id
+                    end
+                end
+                if data.amount and data.amount > 0 then
+                    local state = alife_storage_manager.get_state()
+                    local counters = state and state.arch_counters
+                    if counters and (counters[id] or 0) >= data.amount then
+                        archetype_full[id] = true
+                    end
+                end
+                if data.assign_to and data.assign_to ~= "" then
+                    if assign_to_index[data.assign_to] then
+                        printf("[ARCH] WARNING: Duplicate assign_to target '%s' (archetype '%s' conflicts with '%s')",
+                            tostr(data.assign_to), tostr(id), tostr(assign_to_index[data.assign_to]))
+                    end
+                    assign_to_index[data.assign_to] = id
+                end
+                local parts = {}
+                if not is_empty(data.community_include) then
+                    parts[#parts + 1] = "faction: " .. tconcat(data.community_include, ",")
+                end
+                if not is_empty(data.location_include) then
+                    parts[#parts + 1] = "loc: " .. tconcat(data.location_include, ",")
+                end
+                if not is_empty(data.rank_include) then
+                    parts[#parts + 1] = "rank: " .. tconcat(data.rank_include, ",")
+                end
+                local info = #parts > 0 and " [" .. tconcat(parts, ", ") .. "]" or ""
+                printf("[ARCH] Registered unique archetype: %s%s", id, info)
+        end
+    end
+    printf("[ARCH] Total unique archetypes: %s", count)
+    custom_archetype_count = count
+    if warnings > 0 then
+        printf("[ARCH] Validation warnings: %s", warnings)
+    end
+    if type(refresh_runtime_bindings) == "function" then
+        refresh_runtime_bindings()
+    end
+    local dm = arch_condlists or (_G and _G.arch_condlists)
+    if dm and dm.rebuild_condlists then
+        dm.rebuild_condlists(custom_archetypes, custom_archetype_count, "register_custom_archetypes")
+    end
+    apply_mcm_archetype_overrides()
+end
+
+-- ──────────────────────────────────────────────────
+-- Calendar and Game Time
+-- ──────────────────────────────────────────────────
+
+local function get_game_start_time()
+    local st = alife_storage_manager.get_state()
+    if st and st.arch_game_start_time then
+        return st.arch_game_start_time
+    end
+    return nil
+end
+local function save_game_start_time()
+    local st = alife_storage_manager.get_state()
+    if st and not st.arch_game_start_time then
+        st.arch_game_start_time = game.get_game_time()
+        printf("[ARCH] Saved game start time")
+    end
+end
+local function get_elapsed_game_days()
+    local start = get_game_start_time()
+    if not start then return 0 end
+    local now = game.get_game_time()
+    local diff_sec = now:diffSec(start)
+    return math.floor(diff_sec / 86400)
+end
+
+-- ──────────────────────────────────────────────────
+-- Tier Cap Settings
+-- ──────────────────────────────────────────────────
+
+local TIER_CAP_DEFAULTS = {
+    { max_level = 0,  max_faction = 0 },
+    { max_level = 0,  max_faction = 0 },
+    { max_level = 0,  max_faction = 0 },
+    { max_level = 0,  max_faction = 0 },
+    { max_level = 0,  max_faction = 0 },
+}
+local function get_tier_cap_settings_internal()
+    local caps = {}
+    for t = 1, 5 do
+        local def = TIER_CAP_DEFAULTS[t]
+        local ml_key = "creations/tier_caps/tier_" .. t .. "_max_level"
+        local mf_key = "creations/tier_caps/tier_" .. t .. "_max_faction"
+        local ml = def.max_level
+        local mf = def.max_faction
+        if arch_mcm and type(arch_mcm.get) == "function" then
+            local v_ml = arch_mcm.get(ml_key)
+            local v_mf = arch_mcm.get(mf_key)
+            if v_ml ~= nil then ml = tonumber(v_ml) or ml end
+            if v_mf ~= nil then mf = tonumber(v_mf) or mf end
+        end
+        caps[t] = { max_level = ml, max_faction = mf }
+    end
+    return caps
+end
+
+-- ──────────────────────────────────────────────────
+-- Match Pipeline
+-- ──────────────────────────────────────────────────
+
+local function match_custom_archetype(npc, filter_data)
+    if not npc and not filter_data then return nil end
+    local counters = get_arch_counters()
+    local candidate_ids = get_archetype_candidates(filter_data)
+    local tested = 0
+    local npc_level = filter_data and filter_data.location or ""
+    local npc_community = filter_data and filter_data.community or ""
+    perf_add("arch_candidate_total", #candidate_ids)
+    perf_max("arch_candidate_max", #candidate_ids)
+    local total_arch = get_count()
+    if filter_data and #candidate_ids < total_arch then
+        perf_add("arch_index_narrowed", 1)
+    else
+        perf_add("arch_index_fullscan", 1)
+    end
+    local tier_caps = get_tier_cap_settings_internal()
+    local game_days = get_elapsed_game_days()
+    local tier_buckets = { [0]={}, {}, {}, {}, {}, {} }
+    for i = 1, #candidate_ids do
+        local id = candidate_ids[i]
+        local data = custom_archetypes[id]
+        if data then
+            local blocked_by_amount = false
+            if data.amount and data.amount > 0 then
+                local current = counters[id] or 0
+                if current >= data.amount then
+                    archetype_full[id] = true
+                    blocked_by_amount = true
+                    perf_add("arch_skip_full", 1)
+                end
+            end
+            if not blocked_by_amount and data.available_after_days and data.available_after_days > 0 then
+                if game_days < data.available_after_days then
+                    blocked_by_amount = true
+                    perf_add("arch_skip_calendar", 1)
+                end
+            end
+            if not blocked_by_amount then
+                tested = tested + 1
+                if check_filters(npc, data, filter_data) then
+                    local t = data.tier or 3
+                    local cap = tier_caps[t]
+                    local blocked_by_cap = false
+                    -- T0 (death respawn) skips tier caps entirely
+                    if t > 0 and cap then
+                        if cap.max_level > 0 then
+                            local cnt = tier_count_level[t] and tier_count_level[t][npc_level] or 0
+                            if cnt >= cap.max_level then
+                                blocked_by_cap = true
+                                logv("[ARCH][MATCH]   %s T%s blocked: level cap %s/%s (%s)", tostr(id), t, cnt, cap.max_level, tostr(npc_level))
+                            end
+                        end
+                        if not blocked_by_cap and cap.max_faction > 0 then
+                            local cnt = tier_count_community[t] and tier_count_community[t][npc_community] or 0
+                            if cnt >= cap.max_faction then
+                                blocked_by_cap = true
+                                logv("[ARCH][MATCH]   %s T%s blocked: faction cap %s/%s (%s)", tostr(id), t, cnt, cap.max_faction, tostr(npc_community))
+                            end
+                        end
+                    end
+                    if blocked_by_cap then
+                        perf_add("arch_skip_tier_cap", 1)
+                    else
+                        local bucket = tier_buckets[t]
+                        if bucket then
+                            bucket[#bucket + 1] = { id = id, chance = data.chance or 100 }
+                        end
+                    end
+                end
+            end
+        end
+    end
+    local selected_bucket = nil
+    local selected_tier = nil
+    for t = 0, 5 do
+        if tier_buckets[t] and #tier_buckets[t] > 0 then
+            selected_bucket = tier_buckets[t]
+            selected_tier = t
+            perf_add("arch_tier_selected", t)
+            break
+        end
+    end
+    do
+        local bucket_counts = {}
+        for t = 0, 5 do bucket_counts[t] = tier_buckets[t] and #tier_buckets[t] or 0 end
+        logv("[ARCH][MATCH] candidates=%s tested=%s buckets=[T0=%s T1=%s T2=%s T3=%s T4=%s T5=%s] winner=T%s loc=%s fac=%s",
+            #candidate_ids, tested,
+            bucket_counts[0], bucket_counts[1], bucket_counts[2], bucket_counts[3], bucket_counts[4], bucket_counts[5],
+            tostr(selected_tier or "none"),
+            tostr(npc_level), tostr(npc_community))
+    end
+    if not selected_bucket then
+        perf_add("arch_match_miss", 1)
+        perf_add("arch_candidate_tested", tested)
+        return nil
+    end
+    local best_id = nil
+    if #selected_bucket == 1 then
+        best_id = selected_bucket[1].id
+    else
+        local weight_map = {}
+        local total = 0
+        for j = 1, #selected_bucket do
+            local entry = selected_bucket[j]
+            weight_map[entry.id] = entry.chance
+            total = total + entry.chance
+        end
+        best_id = select_weighted_entry(weight_map, total, nil)
+        logv("[ARCH][MATCH]   T%s pick: %s (from %s entries, total_chance=%s)",
+            selected_tier, tostr(best_id), #selected_bucket, total)
+    end
+    perf_add("arch_candidate_tested", tested)
+    if best_id then
+        perf_add("arch_match_success", 1)
+    else
+        perf_add("arch_match_miss", 1)
+    end
+    return best_id, npc_level, npc_community
+end
+get_arch_counters = function()
+    local state = alife_storage_manager.get_state()
+    if not state.arch_counters then
+        state.arch_counters = {}
+    end
+    return state.arch_counters
+end
+
+-- ──────────────────────────────────────────────────
+-- Archetype Counters and Mapping
+-- ──────────────────────────────────────────────────
+
+function get_archetype_counter(arch_id)
+    local counters = get_arch_counters()
+    return counters[arch_id] or 0
+end
+local function increment_arch_counter(arch_id)
+    local counters = get_arch_counters()
+    counters[arch_id] = (counters[arch_id] or 0) + 1
+    local data = custom_archetypes[arch_id]
+    if data and data.amount and data.amount > 0 then
+        archetype_full[arch_id] = counters[arch_id] >= data.amount
+    end
+    logv("[ARCH] Counter %s: %d", arch_id, counters[arch_id])
+end
+local function decrement_arch_counter(arch_id)
+    local counters = get_arch_counters()
+    local current = counters[arch_id] or 0
+    if current > 0 then
+        counters[arch_id] = current - 1
+        local data = custom_archetypes[arch_id]
+        if data and data.amount and data.amount > 0 then
+            archetype_full[arch_id] = counters[arch_id] >= data.amount
+        end
+        logv("[ARCH] Counter %s: %d (freed)", arch_id, counters[arch_id])
+    end
+end
+local function update_tier_counters(arch_id, npc_level_name, npc_community_name)
+    local data = custom_archetypes[arch_id]
+    if not data then return end
+    local t = data.tier or 3
+    if not tier_count_level[t] then tier_count_level[t] = {} end
+    if not tier_count_community[t] then tier_count_community[t] = {} end
+    if npc_level_name and npc_level_name ~= "" then
+        tier_count_level[t][npc_level_name] = (tier_count_level[t][npc_level_name] or 0) + 1
+    end
+    if npc_community_name and npc_community_name ~= "" then
+        tier_count_community[t][npc_community_name] = (tier_count_community[t][npc_community_name] or 0) + 1
+    end
+end
+function get_npc_state(npc)
+    if not npc then return nil end
+    local sim = alife()
+    if not sim then return nil end
+    local se_obj = sim:object(npc:id())
+    if not se_obj then return nil end
+    return alife_storage_manager.get_se_obj_state(se_obj)
+end
+function get_npc_state_or_create(npc)
+    if not npc then return nil end
+    local sim = alife()
+    if not sim then return nil end
+    local se_obj = sim:object(npc:id())
+    if not se_obj then return nil end
+    return alife_storage_manager.get_se_obj_state(se_obj, true)
+end
+local function get_character_archetypes()
+    local state = alife_storage_manager.get_state()
+    if not state.character_archetypes then
+        state.character_archetypes = {}
+    end
+    return state.character_archetypes
+end
+local function register_character_archetype(character_id, arch_id)
+    if not character_id then return end
+    local map = get_character_archetypes()
+    if arch_id and arch_id ~= "" then
+        map[character_id] = arch_id
+        logv("[ARCH] Registered character '%s' -> archetype '%s'", character_id, arch_id)
+    else
+        map[character_id] = nil
+        logv("[ARCH] Cleared character archetype mapping for '%s'", character_id)
+    end
+end
+function get_archetype_by_character_id(character_id)
+    if not character_id then return nil end
+    local map = get_character_archetypes()
+    local direct = map[character_id]
+    if direct then return direct end
+    if db and db.storage then
+        for npc_id, entry in pairs(db.storage) do
+            local npc = entry and entry.object
+            if npc and IsStalker and IsStalker(npc) then
+                local ok, sec = pcall(function() return npc:section() end)
+                if ok and sec == character_id then
+                    local st = get_npc_state(npc)
+                    if st and st.archetype_id then
+                        return st.archetype_id
+                    end
+                end
+            end
+        end
+    end
+    return nil
+end
+function archetype_core_get_trust(npc_id)
+    local spec = arch_relationships or (_G and _G.arch_relationships)
+    return spec and spec.get_trust(npc_id) or 0
+end
+function archetype_core_increment_trust(npc_id)
+    local spec = arch_relationships or (_G and _G.arch_relationships)
+    return spec and spec.increment_trust(npc_id) or 0
+end
+function archetype_core_get_visits(npc_id)
+    local spec = arch_relationships or (_G and _G.arch_relationships)
+    return spec and spec.get_visits(npc_id) or 0
+end
+function archetype_core_apply_reward_buy_modifier(npc_id, delta)
+    local spec = arch_relationships or (_G and _G.arch_relationships)
+    if spec and spec.apply_reward_buy_modifier then
+        spec.apply_reward_buy_modifier(npc_id, delta)
+    end
+end
+function archetype_core_apply_reward_sell_modifier(npc_id, delta)
+    local spec = arch_relationships or (_G and _G.arch_relationships)
+    if spec and spec.apply_reward_sell_modifier then
+        spec.apply_reward_sell_modifier(npc_id, delta)
+    end
+end
+function archetype_core_get_giver_community(arch_id)
+    if not arch_id then return nil end
+    local arch = custom_archetypes[arch_id]
+    if not arch then return nil end
+    if type(arch.community_include) == "table" and #arch.community_include > 0 then
+        return arch.community_include[1]
+    end
+    return nil
+end
+
+-- ──────────────────────────────────────────────────
+-- Archetype Remap and Migration
+-- ──────────────────────────────────────────────────
+
+local function get_archetype_migration_state()
+    local state = alife_storage_manager.get_state()
+    if not state.arch_migrations then
+        state.arch_migrations = {}
+    end
+    return state.arch_migrations
+end
+local function get_compiled_archetype_remap()
+    local remap = _G and _G.ARCH_ARCHETYPE_REMAP_DATA or nil
+    if type(remap) ~= "table" then
+        return {}
+    end
+    return remap
+end
+local function build_archetype_remap_signature(remap)
+    local keys = {}
+    for from_id, to_id in pairs(remap or {}) do
+        if type(from_id) == "string" and from_id ~= "" and to_id ~= nil then
+            keys[#keys + 1] = from_id
+        end
+    end
+    table.sort(keys)
+    local parts = {}
+    for i = 1, #keys do
+        local from_id = keys[i]
+        local to_id = remap[from_id]
+        local encoded = (to_id == false) and "!remove" or tostring(to_id)
+        parts[#parts + 1] = from_id .. "->" .. encoded
+    end
+    return table.concat(parts, ";")
+end
+local function resolve_archetype_remap_target(source_arch_id, remap)
+    local current = source_arch_id
+    local visited = {}
+    local has_mapping = false
+    while true do
+        local mapped = remap[current]
+        if mapped == nil then
+            if has_mapping then
+                return current, true, nil
+            end
+            return nil, false, nil
+        end
+        has_mapping = true
+        if mapped == false then
+            return false, true, nil
+        end
+        local next_id = tostring(mapped or "")
+        if next_id == "" then
+            return false, true, nil
+        end
+        if next_id == current then
+            return current, true, nil
+        end
+        if visited[next_id] then
+            return nil, true, "cycle"
+        end
+        visited[current] = true
+        current = next_id
+    end
+end
+local apply_runtime_name
+local function restore_original_name_if_needed(npc, st)
+    if not npc or not st then
+        return
+    end
+    if st.original_name and st.original_name ~= "" then
+        apply_runtime_name(npc, st.original_name)
+    end
+    st.custom_name = nil
+end
+local function run_archetype_remap_migration()
+    if ARCHETYPE_REMAP_MIGRATION_SESSION_DONE then
+        return false
+    end
+    ARCHETYPE_REMAP_MIGRATION_SESSION_DONE = true
+    local remap = get_compiled_archetype_remap()
+    local signature = build_archetype_remap_signature(remap)
+    local migration_state = get_archetype_migration_state()
+    local migration_key = "archetype_remap_signature"
+    local previous_signature = tostr(migration_state[migration_key] or "")
+    if signature == "" then
+        if previous_signature ~= "" then
+            migration_state[migration_key] = ""
+        end
+        printf("[ARCH] Archetype remap migration: no remap entries")
+        return false
+    end
+    if previous_signature == signature then
+        printf("[ARCH] Archetype remap migration: already applied")
+        return false
+    end
+    if not db or not db.storage then
+        printf("[ARCH] WARNING: Archetype remap migration skipped (db.storage unavailable)")
+        return false
+    end
+    local checked = 0
+    local migrated = 0
+    local removed = 0
+    local skipped = 0
+    local cycle_errors = 0
+    local missing_target_errors = 0
+    local remapped_pairs = {}
+    for _, entry in pairs(db.storage) do
+        local npc = entry and entry.object
+        if npc and IsStalker and IsStalker(npc) then
+            local st = get_npc_state(npc)
+            if st and st.archetype_id then
+                local old_arch_id = tostr(st.archetype_id)
+                local target_arch_id, has_mapping, err = resolve_archetype_remap_target(old_arch_id, remap)
+                if has_mapping then
+                    checked = checked + 1
+                    if err == "cycle" then
+                        cycle_errors = cycle_errors + 1
+                        skipped = skipped + 1
+                        printf("[ARCH] WARNING: Archetype remap cycle detected for '%s' (skipped for %s)",
+                            tostr(old_arch_id), tostr(npc:name()))
+                    elseif target_arch_id and target_arch_id ~= false and not custom_archetypes[target_arch_id] then
+                        missing_target_errors = missing_target_errors + 1
+                        skipped = skipped + 1
+                        printf("[ARCH] WARNING: Archetype remap target '%s' missing for source '%s' (skipped for %s)",
+                            tostr(target_arch_id), tostr(old_arch_id), tostr(npc:name()))
+                    elseif target_arch_id ~= old_arch_id then
+                        local npc_id = npc:id()
+                        local se_obj = alife() and alife():object(npc_id) or nil
+                        local character_id = se_obj and se_obj:section_name() or nil
+                        decrement_arch_counter(old_arch_id)
+                        restore_original_name_if_needed(npc, st)
+                        if target_arch_id == false then
+                            st.archetype_id = nil
+                            st.arch_assigned = false
+                            st.arch_spawn_loadout_applied = nil
+                            register_character_archetype(character_id, nil)
+                            assigned_npc_ids[npc_id] = (st.arch_assigned == true)
+                            remapped_pairs[old_arch_id] = false
+                            removed = removed + 1
+                            printf("[ARCH] Removed archetype '%s' from %s", tostr(old_arch_id), tostr(npc:name()))
+                        else
+                            local target_arch = custom_archetypes[target_arch_id]
+                            st.archetype_id = target_arch_id
+                            st.arch_assigned = true
+                            st.arch_spawn_loadout_applied = nil
+                            register_character_archetype(character_id, target_arch_id)
+                            increment_arch_counter(target_arch_id)
+                            assigned_npc_ids[npc_id] = true
+                            remapped_pairs[old_arch_id] = target_arch_id
+                            if target_arch and target_arch.name_format then
+                                apply_name_format(npc, target_arch.name_format)
+                            end
+                            migrated = migrated + 1
+                            printf("[ARCH] Remapped archetype '%s' -> '%s' for %s",
+                                tostr(old_arch_id), tostr(target_arch_id), tostr(npc:name()))
+                        end
+                    end
+                end
+            end
+        end
+    end
+    if tasks_core and tasks_core.remap_arch_task_state then
+        for from_id, to_id in pairs(remapped_pairs) do
+            tasks_core.remap_arch_task_state(from_id, (to_id ~= false) and to_id or nil)
+        end
+    end
+    if cycle_errors == 0 and missing_target_errors == 0 then
+        migration_state[migration_key] = signature
+    else
+        printf("[ARCH] WARNING: Archetype remap migration has unresolved errors; migration signature not committed")
+    end
+    printf("[ARCH] Archetype remap migration finished: checked=%s migrated=%s removed=%s skipped=%s cycles=%s missing_targets=%s",
+        checked, migrated, removed, skipped, cycle_errors, missing_target_errors)
+    return (migrated + removed) > 0
+end
+apply_runtime_name = function(npc, new_name)
+    if not npc or not new_name or new_name == "" then return end
+    local sim = alife()
+    if not sim then return end
+    local se_obj = sim:object(npc:id())
+    if se_obj and se_obj.set_character_name then
+        se_obj:set_character_name(new_name)
+    end
+end
+
+-- ──────────────────────────────────────────────────
+-- NPC Name Formatting
+-- ──────────────────────────────────────────────────
+
+function apply_name_format(npc, name_format)
+    if not npc or not name_format then return end
+    if not name_format.type or not name_format.text then return end
+    local st = get_npc_state_or_create(npc)
+    if not st then return end
+    local original = st.original_name or npc:character_name()
+    local new_name = original
+    if name_format.type == "prefix" then
+        new_name = name_format.text .. " " .. original
+    elseif name_format.type == "suffix" then
+        new_name = original .. " " .. name_format.text
+    elseif name_format.type == "full" or name_format.type == "replace" then
+        new_name = name_format.text
+    end
+    if not st.original_name then
+        st.original_name = original
+    end
+    st.custom_name = new_name
+    apply_runtime_name(npc, new_name)
+    logv("[ARCH] Name: %s -> %s", original, new_name)
+end
+function set_custom_name(npc, new_name)
+    if not npc or not new_name or new_name == "" then return end
+    local st = get_npc_state_or_create(npc)
+    if st then
+        st.original_name = st.original_name or npc:character_name()
+        st.custom_name = new_name
+    end
+    apply_runtime_name(npc, new_name)
+end
+local function is_zombied_profile_name(profile)
+    if not profile or profile == "" then
+        return false
+    end
+    local cached = zombied_profile_cache[profile]
+    if cached == nil then
+        cached = string.find(string.lower(profile), "zombied", 1, true) ~= nil
+        zombied_profile_cache[profile] = cached
+    end
+    return cached
+end
+local function try_upgrade_saved_assignment_to_archetype(npc, se_obj, st, filter_data, perf_stat_key)
+    if ASSIGNMENT_MODE == "strict_spawn_only" then
+        return nil
+    end
+    if not st or st.archetype_id then
+        return nil
+    end
+    local check_data = filter_data or get_filter_data(npc, se_obj)
+    local arch_id, match_level, match_community = match_custom_archetype(npc, check_data)
+    local arch = arch_id and custom_archetypes[arch_id] or nil
+    if not arch or not arch.ltx then
+        return nil
+    end
+    st.archetype_id = arch_id
+    st.arch_spawn_loadout_applied = nil
+    st.assignment_announced = false
+    invalidate_find_cache(arch_id)
+    if se_obj then
+        register_character_archetype(se_obj:section_name(), arch_id)
+    end
+    if arch.amount and arch.amount > 0 then
+        increment_arch_counter(arch_id)
+    end
+    update_tier_counters(arch_id, match_level, match_community)
+    if arch.name_format and not st.custom_name then
+        apply_name_format(npc, arch.name_format)
+    end
+    maybe_announce_archetype_assignment(st, npc, arch_id)
+    if perf_stat_key then
+        perf_add(perf_stat_key, 1)
+    end
+    return arch.ltx
+end
+
+-- ──────────────────────────────────────────────────
+-- Spawn Loadout System
+-- ──────────────────────────────────────────────────
+
+-- Extra slot ignores attachment/ammo_type during spawn but parses the same way.
+local function parse_spawn_loadout_entry(slot_name, entry)
+    if type(entry) == "string" then
+        if entry == "" then
+            return nil
+        end
+        local parts = {}
+        for token in string.gmatch(entry, "([^:]+)") do
+            parts[#parts + 1] = token
+        end
+        local section = parts[1]
+        if not section or section == "" then
+            return nil
+        end
+        return {
+            section = section,
+            attachment = tostr(parts[2] or "0"),
+            ammo_type = tostr(parts[3] or "0"),
+            chance = tonum(parts[4]) or 100
+        }
+    end
+    if type(entry) == "table" then
+        local section = entry.section or entry[1]
+        if type(section) ~= "string" or section == "" then
+            return nil
+        end
+        return {
+            section = section,
+            attachment = tostr(entry.attachment or "0"),
+            ammo_type = tostr(entry.ammo_type or "0"),
+            chance = tonum(entry.chance) or 100
+        }
+    end
+    return nil
+end
+local function pick_spawn_loadout_entry(entries)
+    if type(entries) ~= "table" or #entries == 0 then
+        return nil
+    end
+    local passed = {}
+    for i = 1, #entries do
+        local entry = entries[i]
+        local chance = tonumber(entry.chance) or 100
+        if chance < 0 then chance = 0 end
+        if chance > 100 then chance = 100 end
+        if math.random(100) <= chance then
+            passed[#passed + 1] = entry
+        end
+    end
+    if #passed == 0 then
+        return nil
+    end
+    return passed[math.random(#passed)]
+end
+local function resolve_spawn_ammo_type(section, ammo_type_value)
+    if not parse_list or not ini_sys or not ini_sys.line_exist or not ini_sys:line_exist(section, "ammo_class") then
+        return 0
+    end
+    local ammos = parse_list(ini_sys, section, "ammo_class")
+    if type(ammos) ~= "table" or #ammos == 0 then
+        return 0
+    end
+    if tostring(ammo_type_value or "0") == "r" then
+        return math.random(0, #ammos - 1)
+    end
+    local ammo_type = tonumber(ammo_type_value) or 0
+    if ammo_type < 0 or ammo_type > (#ammos - 1) then
+        return 0
+    end
+    return ammo_type
+end
+local function resolve_spawn_addon_flags(section, attachment_value)
+    local attach = tostring(attachment_value or "0")
+    if attach ~= "r" then
+        return tonumber(attach) or 0
+    end
+    if not section or section == "" or not ini_sys or not ini_sys.line_exist then
+        return 0
+    end
+    local flag = 0
+    if utils_data and utils_data.read_from_ini and utils_data.read_from_ini(nil, section, "scope_status", "float", nil) then
+        flag = flag + 1
+    end
+    if utils_data and utils_data.read_from_ini and utils_data.read_from_ini(nil, section, "grenade_launcher_status", "float", nil) then
+        flag = flag + 2
+    end
+    if utils_data and utils_data.read_from_ini and utils_data.read_from_ini(nil, section, "silencer_status", "float", nil) then
+        flag = flag + 4
+    end
+    return math.random(0, flag)
+end
+local function apply_spawn_loadout_slot(se_obj, slot_name, slot_data)
+    if type(slot_data) ~= "table" or #slot_data == 0 then
+        return false
+    end
+    local candidates = {}
+    for i = 1, #slot_data do
+        local parsed = parse_spawn_loadout_entry(slot_name, slot_data[i])
+        if parsed and ini_sys and ini_sys:section_exist(parsed.section) then
+            candidates[#candidates + 1] = parsed
+        elseif parsed and parsed.section then
+            printf("[ARCH] WARNING: spawn_loadout.%s section '%s' does not exist", tostring(slot_name), tostring(parsed.section))
+        end
+    end
+    -- Extra slot: spawn ALL items that pass their chance roll (not pick-one)
+    if slot_name == "extra" then
+        local spawned = 0
+        local last_section = nil
+        for i = 1, #candidates do
+            local chance = tonumber(candidates[i].chance) or 100
+            if chance < 0 then chance = 0 end
+            if chance > 100 then chance = 100 end
+            if math.random(100) <= chance then
+                local ok_e, result_e = pcall(alife_create_item, candidates[i].section, se_obj)
+                if ok_e and result_e ~= nil then
+                    spawned = spawned + 1
+                    last_section = candidates[i].section
+                end
+            end
+        end
+        return spawned > 0, last_section
+    end
+    -- Primary/secondary: pick one
+    local selected = pick_spawn_loadout_entry(candidates)
+    if not selected then
+        return false
+    end
+    local ok_w, se_wpn = pcall(alife_create_item, selected.section, se_obj)
+    if not ok_w or not se_wpn then
+        return false
+    end
+    if utils_stpk and utils_stpk.get_weapon_data and utils_stpk.set_weapon_data then
+        local data = utils_stpk.get_weapon_data(se_wpn)
+        if data then
+            data.addon_flags = resolve_spawn_addon_flags(selected.section, selected.attachment)
+            data.ammo_type = resolve_spawn_ammo_type(selected.section, selected.ammo_type)
+            utils_stpk.set_weapon_data(data, se_wpn)
+        end
+    end
+    return true, selected.section
+end
+
+-- ──────────────────────────────────────────────────
+-- Spawn Assignment
+-- ──────────────────────────────────────────────────
+
+local function apply_archetype_spawn_loadout(se_obj, st, arch_id, arch)
+    if not se_obj or not st or not arch then
+        return
+    end
+    if st.arch_spawn_loadout_applied then
+        return
+    end
+    local loadout = arch.spawn_loadout
+    if type(loadout) ~= "table" then
+        st.arch_spawn_loadout_applied = true
+        return
+    end
+    local slot_order = {"primary", "secondary", "extra"}
+    local applied = 0
+    local failed = 0
+    local attempted = 0
+    for i = 1, #slot_order do
+        local slot_name = slot_order[i]
+        local slot_data = loadout[slot_name]
+        if type(slot_data) == "table" and #slot_data > 0 then
+            attempted = attempted + 1
+            local ok, section = apply_spawn_loadout_slot(se_obj, slot_name, slot_data)
+            if ok then
+                applied = applied + 1
+                if section and ini_sys:section_exist(section) then
+                    local npc_visual = ini_sys:r_string_ex(section, "npc_visual")
+                    if npc_visual then
+                        st.arch_npc_visual = npc_visual
+                    end
+                end
+            else
+                failed = failed + 1
+            end
+        end
+    end
+    st.arch_spawn_loadout_applied = true
+    if attempted > 0 then
+        spawn_stat_add("loadout_applied", applied)
+        spawn_stat_add("loadout_failed", failed)
+        local vis_msg = st.arch_npc_visual and string.format(" visual=%s", st.arch_npc_visual) or ""
+        logv("[ARCH][SPAWN] Applied spawn_loadout for '%s' on %s (ok=%s fail=%s%s)",
+            tostring(arch_id), tostring(se_obj:name()), applied, failed, vis_msg)
+    end
+end
+local function is_unique_npc(section_name, npc_id)
+    local sn = section_name and tostring(section_name) or ""
+    if sn ~= "" then
+        if not string.find(sn, "sim_default", 1, true) then
+            return true
+        end
+    end
+    if npc_id and get_object_story_id then
+        local story_id = get_object_story_id(npc_id)
+        if story_id ~= nil then
+            return true
+        end
+    end
+    return false
+end
+local function assign_archetype_on_spawn(se_obj)
+    if not se_obj then return false end
+    spawn_stat_add("spawn_callbacks", 1)
+    local npc_id = se_obj.id
+    if not npc_id then return false end
+    local st = alife_storage_manager.get_se_obj_state(se_obj)
+    if st and st.arch_assigned and st.archetype_id then
+        local saved_arch = custom_archetypes[st.archetype_id]
+        if saved_arch then
+            apply_archetype_spawn_loadout(se_obj, st, st.archetype_id, saved_arch)
+        end
+        assigned_npc_ids[npc_id] = true
+        spawn_stat_add("skipped_existing", 1)
+        perf_add("spawn_assign_skip_existing", 1)
+        return true
+    end
+    if ASSIGNMENT_MODE == "online_only" then
+        assigned_npc_ids[npc_id] = false
+        spawn_stat_add("skipped_mode_online_only", 1)
+        perf_add("spawn_assign_skip_mode_online_only", 1)
+        return false
+    end
+    local profile = se_obj:section_name() or ""
+    local community = get_server_community(se_obj)
+    if EXCLUDED_COMMUNITIES[community] then
+        assigned_npc_ids[npc_id] = false
+        spawn_stat_add("skipped_zombied", 1)
+        perf_add("spawn_assign_skip_zombied", 1)
+        return false
+    end
+    local assign_to_arch_id = assign_to_index[profile]
+    if not assign_to_arch_id and se_obj.profile_name then
+        local pname = se_obj:profile_name()
+        if pname and pname ~= "" then
+            assign_to_arch_id = assign_to_index[pname]
+            if assign_to_arch_id then
+                profile = pname
+            end
+        end
+    end
+    if assign_to_arch_id then
+        local arch = custom_archetypes[assign_to_arch_id]
+        if arch then
+            st = alife_storage_manager.get_se_obj_state(se_obj, true)
+            st.arch_assigned = true
+            st.archetype_id = assign_to_arch_id
+            st.assignment_announced = false
+            st.arch_spawn_loadout_applied = nil
+            assigned_npc_ids[npc_id] = true
+            register_character_archetype(profile, assign_to_arch_id)
+            if arch.amount and arch.amount > 0 then
+                increment_arch_counter(assign_to_arch_id)
+            end
+            apply_archetype_spawn_loadout(se_obj, st, assign_to_arch_id, arch)
+            logv("[ARCH][SPAWN] Assigned archetype '%s' to %s via assign_to (%s)",
+                tostr(assign_to_arch_id), tostr(se_obj:name()), tostr(profile))
+            perf_add("spawn_assign_to_direct", 1)
+            spawn_stat_add("assigned_archetype", 1)
+            return true
+        end
+    end
+    if is_unique_npc(profile, npc_id) then
+        assigned_npc_ids[npc_id] = false
+        spawn_stat_add("skipped_unique_npc", 1)
+        perf_add("spawn_assign_skip_unique_npc", 1)
+        logv("[ARCH][SPAWN] Skipped unique/story NPC: %s (section=%s)", tostr(se_obj:name()), tostr(profile))
+        return false
+    end
+    local filter_data = get_filter_data(nil, se_obj)
+    if not filter_data or not filter_data.location_known then
+        assigned_npc_ids[npc_id] = false
+        spawn_stat_add("deferred_unknown_context", 1)
+        perf_add("spawn_assign_defer_unknown_context", 1)
+        logv("[ARCH][SPAWN] Deferred: %s (community=%s, location=unknown)", tostr(profile), tostr(community or "unknown"))
+        return false
+    end
+    local arch_id, match_level, match_community = match_custom_archetype(nil, filter_data)
+    if st and st.arch_assigned and not st.archetype_id and not arch_id then
+        assigned_npc_ids[npc_id] = true
+        spawn_stat_add("skipped_existing", 1)
+        perf_add("spawn_assign_skip_existing", 1)
+        return true
+    end
+    if arch_id then
+        local arch = custom_archetypes[arch_id]
+        if not arch or not arch.ltx then
+            assigned_npc_ids[npc_id] = false
+            spawn_stat_add("invalid_arch", 1)
+            perf_add("spawn_assign_invalid_arch", 1)
+            return false
+        end
+        local was_upgrade_from_role_or_pers = st and st.arch_assigned and not st.archetype_id
+        st = alife_storage_manager.get_se_obj_state(se_obj, true)
+        st.arch_assigned = true
+        st.archetype_id = arch_id
+        st.assignment_announced = false
+        st.arch_spawn_loadout_applied = nil
+        invalidate_find_cache(arch_id)
+        assigned_npc_ids[npc_id] = true
+        register_character_archetype(profile, arch_id)
+        if arch.amount and arch.amount > 0 then
+            increment_arch_counter(arch_id)
+        end
+        -- Clear T0 death respawn state after successful reassignment
+        if arch._death_level then
+            printf("[ARCH] T0 RESOLVED: '%s' reassigned on '%s' (died on '%s')", tostr(arch_id), tostr(match_level), tostr(arch._death_level))
+            arch._death_level = nil
+            arch._death_respawn_levels = nil
+            arch._t0_death_time = nil
+            arch._t0_unrestricted_logged = nil
+            -- Restore original tier
+            arch.tier = arch._original_tier or 3
+            arch._original_tier = nil
+            -- Restore original location/smart terrain filters
+            if arch._original_filters then
+                arch.location_include = arch._original_filters.location_include or {}
+                arch.location_exclude = arch._original_filters.location_exclude or {}
+                arch.smart_terrain_include = arch._original_filters.smart_terrain_include or {}
+                arch.smart_terrain_exclude = arch._original_filters.smart_terrain_exclude or {}
+                arch._original_filters = nil
+                compile_filter_cache(arch)
+            end
+            -- Clear persisted death level
+            local asm_state = alife_storage_manager.get_state()
+            if asm_state and asm_state.arch_death_levels then
+                asm_state.arch_death_levels[arch_id] = nil
+            end
+            -- Clear respawn prediction
+            arch._predicted_respawn = nil
+        end
+        update_tier_counters(arch_id, match_level, match_community)
+        perf_add("spawn_assign_new_arch", 1)
+        spawn_stat_add("assigned_archetype", 1)
+        if was_upgrade_from_role_or_pers then
+            perf_add("spawn_assign_upgrade_to_arch", 1)
+            spawn_stat_add("upgraded_to_archetype", 1)
+            logv("[ARCH][SPAWN] Upgraded -> archetype '%s' for %s (%s/%s)",
+                tostr(arch_id), tostr(se_obj:name()), tostr(filter_data.community), tostr(filter_data.location))
+        end
+        apply_archetype_spawn_loadout(se_obj, st, arch_id, arch)
+        logv("[ARCH][SPAWN] Assigned archetype '%s' to %s (%s/%s)",
+            tostr(arch_id), tostr(se_obj:name()), tostr(filter_data.community), tostr(filter_data.location))
+        return true
+    end
+    assigned_npc_ids[npc_id] = false
+    spawn_stat_add("miss", 1)
+    perf_add("spawn_assign_miss", 1)
+    return false
+end
+local function on_se_stalker_spawn(se_obj)
+    assign_archetype_on_spawn(se_obj)
+end
+local function on_npc_net_spawn(npc, se_obj)
+    if not npc or not se_obj then return end
+    local st = alife_storage_manager.get_se_obj_state(se_obj)
+    if not st then return end
+    if st.visual and not st.arch_npc_visual then
+        st.arch_npc_visual = st.visual
+    end
+    if st.visual then
+        st.visual = nil
+    end
+    if st.arch_npc_visual then
+        local npc_id = npc:id()
+        local visual = st.arch_npc_visual
+        local npc_name = se_obj:name()
+        CreateTimeEvent("arch_visual", tostring(npc_id), 0.1, function()
+            local obj = level.object_by_id(npc_id)
+            if obj and obj:alive() then
+                obj:set_visual_name(visual)
+                logv("[ARCH][SPAWN] Applied NPC visual '%s' on %s (deferred post-net_spawn)", tostring(visual), tostring(npc_name))
+            end
+            return true
+        end)
+    end
+    -- Per-archetype goodwill: set goodwill + enable talk if archetype defines a goodwill value
+    local arch_state = get_npc_state(npc)
+    if arch_state and arch_state.archetype_id then
+        local data = custom_archetypes[arch_state.archetype_id]
+        if data and data.goodwill and data.goodwill > 0 then
+            local npc_id = npc:id()
+            local gw_value = data.goodwill
+            CreateTimeEvent("arch_goodwill", tostring(npc_id), 0.1, function()
+                local obj = level.object_by_id(npc_id)
+                if obj and obj:alive() and db.actor then
+                    obj:force_set_goodwill(gw_value, db.actor)
+                    obj:enable_talk()
+                    logv("[ARCH][SPAWN] Set goodwill %s + enable_talk for ARCH NPC %s", gw_value, tostr(obj:name()))
+                end
+                return true
+            end)
+        end
+    end
+    -- Intro dialog: override start_dialog via xr_meet
+    if arch_state and arch_state.archetype_id then
+        local data = custom_archetypes[arch_state.archetype_id]
+        if data and data.intro_dialog and data.intro_done_info then
+            local npc_id = npc:id()
+            if not has_alife_info(data.intro_done_info) then
+                if xr_meet and xr_meet.override_dialog then
+                    xr_meet.override_dialog(npc_id, data.intro_dialog)
+                    logv("[ARCH] Set intro dialog '%s' via xr_meet for NPC %s", tostr(data.intro_dialog), tostr(npc_id))
+                end
+            else
+                if xr_meet and xr_meet.restore_dialog then
+                    xr_meet.restore_dialog(npc_id)
+                end
+            end
+        end
+    end
+end
+
+local function setup_trade_context()
+    arch_trade.setup({
+        get_npc_state = get_npc_state,
+        get_npc_state_or_create = get_npc_state_or_create,
+        get_filter_data = get_filter_data,
+        match_custom_archetype = match_custom_archetype,
+        apply_runtime_name = apply_runtime_name,
+        apply_name_format = apply_name_format,
+        try_upgrade_saved_assignment_to_archetype = try_upgrade_saved_assignment_to_archetype,
+        is_unique_npc = is_unique_npc,
+        is_zombied_profile_name = is_zombied_profile_name,
+        register_character_archetype = register_character_archetype,
+        increment_arch_counter = increment_arch_counter,
+        update_tier_counters = update_tier_counters,
+        maybe_announce = maybe_announce_archetype_assignment,
+        perf_add = perf_add,
+        logv = logv,
+        custom_archetypes = custom_archetypes,
+        assigned_npc_ids = assigned_npc_ids,
+        assign_to_index = assign_to_index,
+        EXCLUDED_CONFIGS = EXCLUDED_CONFIGS,
+        EXCLUDED_COMMUNITIES = EXCLUDED_COMMUNITIES,
+        get_assignment_mode = function() return ASSIGNMENT_MODE end,
+    })
+end
+-- ──────────────────────────────────────────────────
+-- NPC Death Handling
+-- ──────────────────────────────────────────────────
+
+local function on_npc_death(npc)
+    if npc and npc.id then
+        assigned_npc_ids[npc:id()] = false
+    end
+    local st = get_npc_state(npc)
+    if not st then return end
+    if st.arch_death_handled then return end
+    st.arch_death_handled = true
+    if st.archetype_id then
+        local arch = custom_archetypes[st.archetype_id]
+        if arch then
+            if arch.news_on_death then
+                arch_news.on_death(arch, st.archetype_id, npc)
+            end
+            if arch.on_death_info and arch.on_death_info ~= "" and db.actor then
+                db.actor:give_info_portion(arch.on_death_info)
+                logv("[ARCH] Death info portion given: %s (archetype '%s')", arch.on_death_info, st.archetype_id)
+            end
+            local tc = tasks_core or (_G and _G.tasks_core)
+            if tc and tc.fail_active_task_for_arch then
+                tc.fail_active_task_for_arch(st.archetype_id, npc and npc:id() or 0)
+            end
+            if tc and tc.fail_tasks_targeting_npc then
+                tc.fail_tasks_targeting_npc(npc and npc:id() or 0)
+            end
+            if arch.respawn ~= false then
+                local dead_arch_id = st.archetype_id
+                if arch.amount and arch.amount > 0 then
+                    decrement_arch_counter(dead_arch_id)
+                end
+                -- T0 death respawn: set tier 0, store death level, clear location/smart filters
+                local death_level = level and level.name and level.name() or ""
+                if death_level ~= "" and arch.amount and arch.amount == 1 then
+                    arch._death_level = death_level
+                    if not arch._original_tier then
+                        arch._original_tier = arch.tier or 3
+                    end
+                    arch.tier = 0
+                    if not arch._original_filters then
+                        arch._original_filters = {
+                            location_include = arch.location_include,
+                            location_exclude = arch.location_exclude,
+                            smart_terrain_include = arch.smart_terrain_include,
+                            smart_terrain_exclude = arch.smart_terrain_exclude,
+                        }
+                    end
+                    arch.location_include = {}
+                    arch.location_exclude = {}
+                    arch.smart_terrain_include = {}
+                    arch.smart_terrain_exclude = {}
+                    archetype_full[dead_arch_id] = false
+                    -- Move to unindexed so T0 always gets checked
+                    if arch._index_field then
+                        arch._index_field = nil
+                    end
+                    local already_unindexed = false
+                    for ui = 1, #archetype_index.unindexed do
+                        if archetype_index.unindexed[ui] == dead_arch_id then
+                            already_unindexed = true
+                            break
+                        end
+                    end
+                    if not already_unindexed then
+                        archetype_index.unindexed[#archetype_index.unindexed + 1] = dead_arch_id
+                    end
+                    archetype_candidate_cache = {}
+                    compile_filter_cache(arch)
+                    -- Persist death level
+                    local asm_state = alife_storage_manager.get_state()
+                    if asm_state then
+                        asm_state.arch_death_levels = asm_state.arch_death_levels or {}
+                        asm_state.arch_death_levels[dead_arch_id] = death_level
+                    end
+                    printf("[ARCH] T0 DEATH RESPAWN: '%s' died on '%s' — tier set to 0, location cleared, death level stored", dead_arch_id, death_level)
+                    -- Predict when/where the next matching NPC will spawn
+                    local af = arch_filters or (_G and _G.arch_filters)
+                    if af and af.predict_next_respawn then
+                        local community = arch.community_include and arch.community_include[1] or nil
+                        local prediction = af.predict_next_respawn(death_level, community)
+                        if prediction then
+                            arch._predicted_respawn = prediction
+                        end
+                        arch._t0_death_time = game.get_game_time()
+                    end
+                else
+                    printf("[ARCH] Unique NPC '%s' died, slot freed (respawn=true)", dead_arch_id)
+                end
+                st.archetype_id = nil
+                st.arch_spawn_loadout_applied = nil
+                st.assignment_announced = false
+                st.arch_assigned = false
+                local sim = alife()
+                local se_obj = sim and npc and npc.id and sim:object(npc:id()) or nil
+                if se_obj then
+                    register_character_archetype(se_obj:section_name(), nil)
+                end
+            else
+                printf("[ARCH] Unique NPC '%s' died, slot NOT freed (respawn=false)", st.archetype_id)
+            end
+        end
+    end
+end
+
+-- ──────────────────────────────────────────────────
+-- Public Query API
+-- ──────────────────────────────────────────────────
+
+function is_custom_archetype(npc)
+    local st = get_npc_state(npc)
+    return st and st.archetype_id ~= nil
+end
+function get_archetype_id(npc)
+    local st = get_npc_state(npc)
+    return st and st.archetype_id
+end
+function get_archetype_data(arch_id)
+    return custom_archetypes[arch_id]
+end
+function get_count()
+    return custom_archetype_count
+end
+function get_all_archetypes()
+    return custom_archetypes
+end
+function get_npc_archetype_by_id(character_id)
+    return get_archetype_by_character_id(character_id)
+end
+function is_story_or_unique_npc(section_name, npc_id)
+    return is_unique_npc(section_name, npc_id)
+end
+-- Cache for find_npc_id_by_archetype: avoids repeated 65k scans when archetype has no NPC.
+-- Positive results (found) cached 10s, negative results (not found) cached 30s.
+local find_by_arch_cache = {}
+local FIND_CACHE_TTL_HIT = 10    -- seconds: revalidate found NPC after 10s
+local FIND_CACHE_TTL_MISS = 30   -- seconds: suppress 65k rescan for 30s on miss
+
+function find_npc_id_by_archetype(target_arch_id)
+    -- Returns the first NPC ID assigned to the given archetype, or nil.
+    if not target_arch_id then return nil end
+    -- Check cache
+    local cached = find_by_arch_cache[target_arch_id]
+    if cached then
+        local now = time_global()
+        if now < cached.expires then
+            return cached.result
+        end
+        find_by_arch_cache[target_arch_id] = nil
+    end
+    -- T0 shortcut: archetype is in death-respawn state, no NPC holds it — skip scan entirely
+    local arch_data = custom_archetypes[target_arch_id]
+    if arch_data and arch_data._death_level then
+        return nil
+    end
+    local sim = alife()
+    if not sim then return nil end
+    -- Fast: check online NPCs via db.storage
+    if db and db.storage then
+        for npc_id, entry in pairs(db.storage) do
+            local obj = entry and entry.object
+            if obj then
+                local arch = get_archetype_id(obj)
+                if arch == target_arch_id then
+                    find_by_arch_cache[target_arch_id] = {
+                        result = npc_id,
+                        expires = time_global() + FIND_CACHE_TTL_HIT * 1000,
+                    }
+                    return npc_id
+                end
+            end
+        end
+    end
+    for i = 1, 65534 do
+        local se_obj = sim:object(i)
+        if se_obj and IsStalker(nil, se_obj:clsid()) and se_obj:alive() then
+            local st = alife_storage_manager.get_se_obj_state(se_obj)
+            if st and st.archetype_id == target_arch_id then
+                find_by_arch_cache[target_arch_id] = {
+                    result = se_obj.id,
+                    expires = time_global() + FIND_CACHE_TTL_HIT * 1000,
+                }
+                return se_obj.id
+            end
+        end
+    end
+    printf("[ARCH] find_npc_id_by_archetype: '%s' not found (online + 65k scan)", tostr(target_arch_id))
+    -- Cache the miss to prevent repeated 65k scans
+    find_by_arch_cache[target_arch_id] = {
+        result = nil,
+        expires = time_global() + FIND_CACHE_TTL_MISS * 1000,
+    }
+    return nil
+end
+-- Invalidate cache for a specific archetype (call when archetype is assigned/freed)
+function invalidate_find_cache(arch_id)
+    if arch_id then
+        find_by_arch_cache[arch_id] = nil
+    end
+end
+
+-- ──────────────────────────────────────────────────
+-- Specialization Unlocking
+-- ──────────────────────────────────────────────────
+
+function unlock_specialization(arch_id, spec_name)
+    local data = custom_archetypes[arch_id]
+    if not data then
+        printf("[ARCH] unlock_specialization: unknown archetype '%s'", tostr(arch_id))
+        return false
+    end
+    local raw = tostring(spec_name or "")
+    raw = string.gsub(string.gsub(raw, "^%s+", ""), "%s+$", "")
+    local key = string.lower(string.gsub(raw, "[^%w_]+", "_"))
+    if key == "" then return false end
+    if type(data.specialization) ~= "table" then data.specialization = {} end
+    for i = 1, #data.specialization do
+        if data.specialization[i] == key then
+            printf("[ARCH] unlock_specialization: '%s' already active on '%s'", key, tostr(arch_id))
+            return true
+        end
+    end
+    data.specialization[#data.specialization + 1] = key
+    printf("[ARCH] Unlocked specialization '%s' for archetype '%s'", key, tostr(arch_id))
+    return true
+end
+
+-- ──────────────────────────────────────────────────
+-- MCM Management Functions
+-- ──────────────────────────────────────────────────
+
+function clear_all_assignments()
+    local cleared = 0
+    local skipped = 0
+    local map = get_character_archetypes()
+    -- Build set of assign_to archetype IDs to skip
+    local assign_to_ids = {}
+    for _, aid in pairs(assign_to_index) do
+        assign_to_ids[aid] = true
+    end
+    for k, aid in pairs(map) do
+        if assign_to_ids[aid] then
+            skipped = skipped + 1
+        else
+            map[k] = nil
+            cleared = cleared + 1
+        end
+    end
+    local counters = get_arch_counters()
+    for k in pairs(counters) do
+        if not assign_to_ids[k] then
+            counters[k] = nil
+        end
+    end
+    assigned_npc_ids = {}
+    for k in pairs(archetype_full) do
+        if not assign_to_ids[k] then
+            archetype_full[k] = nil
+        end
+    end
+    local sim = alife()
+    if sim and db and db.storage then
+        for npc_id, storage in pairs(db.storage) do
+            local se_obj = sim:object(npc_id)
+            if se_obj then
+                local st = alife_storage_manager.get_se_obj_state(se_obj)
+                if st and st.arch_assigned then
+                    if assign_to_ids[st.archetype_id] then
+                        assigned_npc_ids[npc_id] = true
+                    else
+                        st.arch_assigned = nil
+                        st.archetype_id = nil
+                        st.assignment_announced = nil
+                        st.arch_spawn_loadout_applied = nil
+                    end
+                end
+            end
+        end
+    end
+    printf("[ARCH][MCM] Cleared ALL assignments (%s removed, %s story NPCs preserved)", cleared, skipped)
+    return cleared
+end
+function clear_assign_to_assignments()
+    local cleared = 0
+    local map = get_character_archetypes()
+    local assign_to_ids = {}
+    for _, aid in pairs(assign_to_index) do
+        assign_to_ids[aid] = true
+    end
+    for k, aid in pairs(map) do
+        if assign_to_ids[aid] then
+            map[k] = nil
+            cleared = cleared + 1
+        end
+    end
+    local counters = get_arch_counters()
+    for k in pairs(counters) do
+        if assign_to_ids[k] then
+            counters[k] = nil
+        end
+    end
+    for k in pairs(archetype_full) do
+        if assign_to_ids[k] then
+            archetype_full[k] = nil
+        end
+    end
+    local sim = alife()
+    if sim and db and db.storage then
+        for npc_id, storage in pairs(db.storage) do
+            local se_obj = sim:object(npc_id)
+            if se_obj then
+                local st = alife_storage_manager.get_se_obj_state(se_obj)
+                if st and st.arch_assigned and assign_to_ids[st.archetype_id] then
+                    st.arch_assigned = nil
+                    st.archetype_id = nil
+                    st.assignment_announced = nil
+                    st.arch_spawn_loadout_applied = nil
+                    assigned_npc_ids[npc_id] = nil
+                end
+            end
+        end
+    end
+    printf("[ARCH][MCM] Cleared story NPC assignments (%s removed)", cleared)
+    return cleared
+end
+function clear_archetype_assignments(arch_id)
+    if not arch_id then return 0 end
+    local cleared = 0
+    local map = get_character_archetypes()
+    for char_id, aid in pairs(map) do
+        if aid == arch_id then
+            map[char_id] = nil
+            cleared = cleared + 1
+        end
+    end
+    local counters = get_arch_counters()
+    counters[arch_id] = nil
+    archetype_full[arch_id] = nil
+    local sim = alife()
+    if sim and db and db.storage then
+        for npc_id, storage in pairs(db.storage) do
+            local se_obj = sim:object(npc_id)
+            if se_obj then
+                local st = alife_storage_manager.get_se_obj_state(se_obj)
+                if st and st.archetype_id == arch_id then
+                    st.arch_assigned = nil
+                    st.archetype_id = nil
+                    st.assignment_announced = nil
+                    st.arch_spawn_loadout_applied = nil
+                    assigned_npc_ids[npc_id] = nil
+                end
+            end
+        end
+    end
+    printf("[ARCH][MCM] Cleared assignments for '%s' (%s NPCs)", tostr(arch_id), cleared)
+    return cleared
+end
+function reassign_all_online()
+    local cleared = clear_all_assignments()
+    local sim = alife()
+    if not sim then
+        printf("[ARCH][MCM] Reassign: no alife sim available")
+        return 0
+    end
+    local reassigned = 0
+    reset_spawn_assignment_stats()
+    for npc_id, _ in pairs(db.storage or {}) do
+        local se_obj = sim:object(npc_id)
+        if se_obj then
+            local cls = se_obj:clsid()
+            if cls == clsid.script_stalker or cls == clsid.stalker then
+                if assign_archetype_on_spawn(se_obj) then
+                    reassigned = reassigned + 1
+                end
+            end
+        end
+    end
+    printf("[ARCH][MCM] Reassign all: cleared %s, reassigned %s", cleared, reassigned)
+    return reassigned
+end
+function apply_mcm_archetype_overrides()
+    if not arch_mcm or type(arch_mcm.get) ~= "function" then return end
+    local overrides_applied = 0
+    for arch_id, data in pairs(custom_archetypes) do
+        local tier = data.tier or 3
+        local prefix = "creations/tier_" .. tier .. "/" .. arch_id
+        local mcm_enabled = arch_mcm.get(prefix .. "_on")
+        if mcm_enabled ~= nil then
+            local new_val = mcm_enabled ~= false and mcm_enabled ~= 0
+            if new_val ~= data.enabled then
+                data.enabled = new_val
+                overrides_applied = overrides_applied + 1
+                printf("[ARCH][MCM] Override %s enabled=%s", arch_id, tostr(new_val))
+            end
+        end
+        local mcm_chance = arch_mcm.get(prefix .. "_chance")
+        if mcm_chance ~= nil then
+            local new_val = tonumber(mcm_chance)
+            if new_val and new_val ~= data.chance then
+                data.chance = new_val
+                overrides_applied = overrides_applied + 1
+                printf("[ARCH][MCM] Override %s chance=%s", arch_id, tostr(new_val))
+            end
+        end
+    end
+    if overrides_applied > 0 then
+        printf("[ARCH][MCM] Applied %s archetype overrides from MCM", overrides_applied)
+    end
+end
+
+-- ──────────────────────────────────────────────────
+-- Validation and Startup
+-- ──────────────────────────────────────────────────
+
+local function validate_registered_archetypes()
+    local warnings = 0
+    for arch_id, data in pairs(custom_archetypes) do
+        warnings = warnings + validate_archetype_entry(arch_id, data)
+        if data.ltx then
+            local ini = ini_file(data.ltx)
+            if not ini then
+                printf("[ARCH] WARNING: Archetype '%s' has missing LTX '%s'", arch_id, data.ltx)
+                warnings = warnings + 1
+            elseif not ini:section_exist("trader") then
+                printf("[ARCH] WARNING: Archetype '%s' LTX '%s' has no [trader] section", arch_id, data.ltx)
+                warnings = warnings + 1
+            end
+        end
+    end
+    return warnings
+end
+function run_startup_validation()
+    local warnings = 0
+    printf("[ARCH] Startup validation: checking archetype/XML conflicts...")
+    warnings = warnings + validate_registered_archetypes()
+    local dm = arch_condlists or (_G and _G.arch_condlists)
+    if dm and dm.validate_all then
+        warnings = warnings + dm.validate_all(custom_archetypes)
+    end
+    if tasks_core and tasks_core.validate_registered then
+        warnings = warnings + (tasks_core.validate_registered() or 0)
+    end
+    if warnings > 0 then
+        printf("[ARCH] Startup validation finished with %s warnings", warnings)
+        show_arch_news(string.format("[ARCH] Validation warnings: %d", warnings), 6000, true)
+    else
+        printf("[ARCH] Startup validation passed")
+    end
+    return warnings
+end
+function validate_loaded_npc_states()
+    local checked = 0
+    local issues = 0
+    if not db or not db.storage then
+        printf("[ARCH] WARNING: db.storage unavailable for state validation")
+        return 0, 0
+    end
+    for _, entry in pairs(db.storage) do
+        local npc = entry and entry.object
+        if npc and IsStalker and IsStalker(npc) then
+            checked = checked + 1
+            local st = get_npc_state(npc)
+            if st and st.arch_assigned then
+                local has_assignment = false
+                if st.archetype_id then
+                    has_assignment = true
+                    local arch = custom_archetypes[st.archetype_id]
+                    if not arch then
+                        printf("[ARCH] STATE ISSUE: %s has missing archetype '%s'", npc:name(), st.archetype_id)
+                        issues = issues + 1
+                    elseif arch.ltx then
+                        local ini = ini_file(arch.ltx)
+                        if not ini then
+                            printf("[ARCH] STATE ISSUE: %s archetype '%s' missing LTX '%s'",
+                                npc:name(), st.archetype_id, arch.ltx)
+                            issues = issues + 1
+                        end
+                    end
+                end
+                if not has_assignment then
+                    printf("[ARCH] STATE ISSUE: %s has arch_assigned=true with no archetype", npc:name())
+                    issues = issues + 1
+                end
+            end
+        end
+    end
+    printf("[ARCH] State validation checked %s loaded NPCs, issues=%s", checked, issues)
+    show_arch_news(string.format("[ARCH] State check: %d NPCs, %d issues", checked, issues), 7000, true)
+    return checked, issues
+end
+
+function is_arch(first_speaker, second_speaker, arch_id)
+    return arch_dialog_bindings.is_arch(first_speaker, second_speaker, arch_id)
+end
+function has_any_archetype(first_speaker, second_speaker)
+    return arch_dialog_bindings.has_any_archetype(first_speaker, second_speaker)
+end
+local runtime_bindings_signature = nil
+local function build_runtime_bindings_signature()
+    local keys = sorted_keys(custom_archetypes)
+    return tostring(#keys) .. "|" .. table.concat(keys, "|")
+end
+function refresh_runtime_bindings(force)
+    local signature = build_runtime_bindings_signature()
+    if not force
+    and runtime_bindings_signature == signature
+    and dialogs and dialogs.arch_is
+    and xr_conditions and xr_conditions.has_any_archetype
+    then
+        return false
+    end
+    arch_dialog_bindings.inject_all(custom_archetypes)
+    runtime_bindings_signature = signature
+    return true
+end
+
+-- ──────────────────────────────────────────────────
+-- Tier Summary and Reporting
+-- ──────────────────────────────────────────────────
+
+local function count_assigned_by_tier_internal()
+    local tier_totals = { [0]=0, 0, 0, 0, 0, 0 }
+    local total = 0
+    if not db or not db.storage then
+        return tier_totals, total
+    end
+    for _, entry in pairs(db.storage) do
+        local npc = entry and entry.object
+        if npc and IsStalker and IsStalker(npc) then
+            local st = get_npc_state(npc)
+            if st and st.arch_assigned and st.archetype_id then
+                local data = custom_archetypes[st.archetype_id]
+                local t = (data and data.tier) or 3
+                if t < 1 then t = 1 elseif t > 5 then t = 5 end
+                tier_totals[t] = tier_totals[t] + 1
+                total = total + 1
+            end
+        end
+    end
+    return tier_totals, total
+end
+function print_tier_summary()
+    local tier_totals, total = count_assigned_by_tier_internal()
+    if total > 0 then
+        printf("═══════════════════════════════════════")
+        printf("[ARCH] TIER SUMMARY: %s assigned — T0=%s T1=%s T2=%s T3=%s T4=%s T5=%s",
+            total, tier_totals[0] or 0, tier_totals[1], tier_totals[2], tier_totals[3], tier_totals[4], tier_totals[5])
+        for t = 0, 5 do
+            if tier_count_level[t] then
+                local parts = {}
+                for lvl, cnt in pairs(tier_count_level[t]) do
+                    parts[#parts + 1] = tostr(lvl) .. "=" .. tostr(cnt)
+                end
+                if #parts > 0 then
+                    table.sort(parts)
+                    printf("  T%s by level:   %s", t, table.concat(parts, ", "))
+                end
+            end
+        end
+        for t = 0, 5 do
+            if tier_count_community[t] then
+                local parts = {}
+                for fac, cnt in pairs(tier_count_community[t]) do
+                    parts[#parts + 1] = tostr(fac) .. "=" .. tostr(cnt)
+                end
+                if #parts > 0 then
+                    table.sort(parts)
+                    printf("  T%s by faction:  %s", t, table.concat(parts, ", "))
+                end
+            end
+        end
+        local arch_counts = {}
+        if db and db.storage then
+            for _, entry in pairs(db.storage) do
+                local npc = entry and entry.object
+                if npc and IsStalker and IsStalker(npc) then
+                    local st = get_npc_state(npc)
+                    if st and st.arch_assigned and st.archetype_id then
+                        arch_counts[st.archetype_id] = (arch_counts[st.archetype_id] or 0) + 1
+                    end
+                end
+            end
+        end
+        local arch_lines = {}
+        for aid, cnt in pairs(arch_counts) do
+            local data = custom_archetypes[aid]
+            local t = data and data.tier or "?"
+            arch_lines[#arch_lines + 1] = string.format("    %-30s T%s  x%d", tostr(aid), tostr(t), cnt)
+        end
+        if #arch_lines > 0 then
+            table.sort(arch_lines)
+            printf("  Per-archetype assignments:")
+            for a = 1, #arch_lines do
+                printf("%s", arch_lines[a])
+            end
+        end
+        printf("═══════════════════════════════════════")
+        if db and db.actor then
+            show_arch_news(string.format("[ARCH] %d assigned: T1=%d T2=%d T3=%d T4=%d T5=%d",
+                total, tier_totals[1], tier_totals[2], tier_totals[3], tier_totals[4], tier_totals[5]), 7000, true)
+        end
+    else
+        printf("[ARCH] No archetypes currently assigned to online NPCs")
+    end
+end
+function dump_diagnostic()
+    if _G.arch_diagnostic_dump and _G.arch_diagnostic_dump.dump_diagnostic then
+        arch_diagnostic_dump.dump_diagnostic()
+    else
+        printf("[ARCH] Diagnostic dump not available (debug scripts not installed)")
+    end
+end
+function get_tier_cap_settings() return get_tier_cap_settings_internal() end
+function count_assigned_by_tier() return count_assigned_by_tier_internal() end
+function get_tier_count_level() return tier_count_level end
+function get_tier_count_community() return tier_count_community end
+function get_arch_counters_for_diag() return get_arch_counters() end
+function get_assignment_stats()
+    local counters = get_arch_counters()
+    local total_assigned = 0
+    local by_arch = {}
+    local by_faction = {}
+    local by_location = {}
+    local by_tier = { [0]=0, 0, 0, 0, 0, 0 }
+    for arch_id, count in pairs(counters) do
+        if count > 0 then
+            total_assigned = total_assigned + count
+            by_arch[arch_id] = count
+            local data = custom_archetypes[arch_id]
+            if data then
+                local tier = data.tier or 3
+                if tier >= 1 and tier <= 5 then
+                    by_tier[tier] = by_tier[tier] + count
+                end
+                if data.community_include then
+                    for i = 1, #data.community_include do
+                        local fac = data.community_include[i]
+                        by_faction[fac] = (by_faction[fac] or 0) + count
+                    end
+                end
+                if data.location_include then
+                    for i = 1, #data.location_include do
+                        local loc = data.location_include[i]
+                        by_location[loc] = (by_location[loc] or 0) + count
+                    end
+                end
+            end
+        end
+    end
+    local total_archetypes = 0
+    for _ in pairs(custom_archetypes) do
+        total_archetypes = total_archetypes + 1
+    end
+    return {
+        total_archetypes = total_archetypes,
+        total_assigned = total_assigned,
+        by_arch = by_arch,
+        by_faction = by_faction,
+        by_location = by_location,
+        by_tier = by_tier
+    }
+end
+function process_pending_news()
+    arch_news.process_news_queue()
+end
+
+-- ──────────────────────────────────────────────────
+-- Game Load and First Update
+-- ──────────────────────────────────────────────────
+
+local function show_pack_conflict_warnings()
+    if not arch_pack_loader or type(arch_pack_loader.get_pack_conflicts) ~= "function" then return end
+    local conflicts = arch_pack_loader.get_pack_conflicts()
+    if not conflicts or #conflicts == 0 then return end
+    for i = 1, #conflicts do
+        local c = conflicts[i]
+        local msg = string.format(
+            "[ARCH] WARNING: Pack '%s' REJECTED — archetype '%s' already registered by pack '%s'. Rename the archetype ID in one of the packs.",
+            tostr(c.pack_rejected), tostr(c.arch_id), tostr(c.pack_owner))
+        printf(msg)
+        show_arch_news(msg, 15000, true)
+    end
+end
+
+local function on_game_load_archetype_core()
+    assigned_npc_ids = {}
+    find_by_arch_cache = {}
+    arch_news.reset()
+    tier_count_level = {}
+    tier_count_community = {}
+    reset_spawn_assignment_stats()
+    printf("[ARCH] on_game_load: cleared stale runtime state")
+    -- Restore T0 death respawn state (alife_storage_manager is ready now)
+    do
+        local state = alife_storage_manager.get_state()
+        local death_levels = state and state.arch_death_levels
+        if death_levels then
+            for arch_id, death_level in pairs(death_levels) do
+                local data = custom_archetypes[arch_id]
+                if data then
+                    data._death_level = death_level
+                    if not data._original_tier then
+                        data._original_tier = data.tier or 3
+                    end
+                    data.tier = 0
+                    if not data._original_filters then
+                        data._original_filters = {
+                            location_include = data.location_include,
+                            location_exclude = data.location_exclude,
+                            smart_terrain_include = data.smart_terrain_include,
+                            smart_terrain_exclude = data.smart_terrain_exclude,
+                        }
+                    end
+                    data.location_include = {}
+                    data.location_exclude = {}
+                    data.smart_terrain_include = {}
+                    data.smart_terrain_exclude = {}
+                    archetype_full[arch_id] = false
+                    -- Move to unindexed so T0 gets checked on every spawn
+                    if data._index_field then
+                        data._index_field = nil
+                    end
+                    local already_unindexed = false
+                    for ui = 1, #archetype_index.unindexed do
+                        if archetype_index.unindexed[ui] == arch_id then
+                            already_unindexed = true
+                            break
+                        end
+                    end
+                    if not already_unindexed then
+                        archetype_index.unindexed[#archetype_index.unindexed + 1] = arch_id
+                    end
+                    archetype_candidate_cache = {}
+                    compile_filter_cache(data)
+                    invalidate_find_cache(arch_id)
+                    printf("[ARCH] Restored T0 death respawn for '%s' (death_level='%s')", tostr(arch_id), tostr(death_level))
+                else
+                    printf("[ARCH] T0 restore: archetype '%s' not found in custom_archetypes (stale?)", tostr(arch_id))
+                end
+            end
+        end
+    end
+    show_pack_conflict_warnings()
+    -- Per-task accept bindings (tasks are ready by on_game_load)
+    local adb = arch_dialog_bindings or (_G and _G.arch_dialog_bindings)
+    if adb and type(adb.register_per_task_accept_bindings) == "function" then
+        adb.register_per_task_accept_bindings()
+    end
+end
+local function on_first_update()
+    save_game_start_time()
+    arch_news.reset()
+    arch_pack_loader.flush_pending_creation_pack_archetypes("first_update")
+    arch_pack_loader.try_flush_deferred_dialog_registrations("first_update")
+    arch_pack_loader.try_flush_deferred_task_registrations("first_update")
+    do local dm = arch_condlists or (_G and _G.arch_condlists)
+        if dm and dm.rebuild_condlists then dm.rebuild_condlists(custom_archetypes, custom_archetype_count, "first_update") end
+    end
+    run_archetype_remap_migration()
+    if RUN_STARTUP_VALIDATION or DEBUG_VERBOSE then
+        run_startup_validation()
+    else
+        printf("[ARCH] Startup validation skipped (enable with debug_helper.set_startup_validation(true))")
+    end
+    local tc = tasks_core or (_G and _G.tasks_core)
+    if tc and tc.restore_unlocked_specializations then
+        tc.restore_unlocked_specializations()
+    end
+    arch_news.show_game_start_summary(spawn_assign_stats, ASSIGNMENT_MODE)
+    print_spawn_assignment_stats_internal()
+    print_spawn_assignment_compact_line()
+    arch_news.queue_game_start_assignment_news()
+    arch_news.process_news_queue()
+    show_pack_conflict_warnings()
+end
+
+function get_trade_presets()
+    return arch_trade.get_trade_presets()
+end
+
+-- ──────────────────────────────────────────────────
+-- Game Start Coordinator
+-- ──────────────────────────────────────────────────
+
+function on_game_start()
+    printf("[ARCH] Initializing coordinator...")
+    -- Register hardcoded story NPCs BEFORE pack discovery (locked, can't be overridden)
+    local story_mod = arch_story_npcs or (_G and _G.arch_story_npcs)
+    if story_mod and story_mod.get_story_archetypes then
+        local story = story_mod.get_story_archetypes()
+        for arch_id, entry in pairs(story) do
+            if not custom_archetypes[arch_id] then
+                custom_archetypes[arch_id] = entry.data
+                custom_archetype_count = custom_archetype_count + 1
+                if entry.data.assign_to and entry.data.assign_to ~= "" then
+                    assign_to_index[entry.data.assign_to] = arch_id
+                end
+                printf("[ARCH][STORY] Registered story NPC: %s → %s (%s)", arch_id, entry.profile, entry.block_name)
+            end
+        end
+    end
+    setup_pack_loader_context()
+    arch_pack_loader.discover_and_register_config_packs()
+    arch_pack_loader.flush_pending_creation_pack_archetypes("on_game_start")
+    arch_pack_loader.try_flush_deferred_dialog_registrations("on_game_start")
+    arch_pack_loader.try_flush_deferred_task_registrations("on_game_start")
+    do local dm = arch_condlists or (_G and _G.arch_condlists)
+        if dm and dm.rebuild_condlists then dm.rebuild_condlists(custom_archetypes, custom_archetype_count, "on_game_start") end
+    end
+    refresh_runtime_bindings()
+    setup_trade_context()
+    arch_trade.wrap_all()
+    RegisterScriptCallback("on_game_load", on_game_load_archetype_core)
+    RegisterScriptCallback("se_stalker_on_spawn", on_se_stalker_spawn)
+    RegisterScriptCallback("npc_on_net_spawn", on_npc_net_spawn)
+    RegisterScriptCallback("npc_on_death_callback", on_npc_death)
+    RegisterScriptCallback("actor_on_update", arch_news.on_update)
+    RegisterScriptCallback("actor_on_first_update", on_first_update)
+    RegisterScriptCallback("ActorMenu_on_trade_started", arch_trade.on_trade_started_increment_visits)
+    -- Skip vanilla loadout for ARCH NPCs that have custom spawn_loadout.
+    -- Patches xrs_rnd_npc_loadout.on_creation to check for ARCH assignment first.
+    if xrs_rnd_npc_loadout and xrs_rnd_npc_loadout.on_creation then
+        local orig_on_creation = xrs_rnd_npc_loadout.on_creation
+        xrs_rnd_npc_loadout.on_creation = function(se_npc)
+            if se_npc then
+                local st = alife_storage_manager.get_se_obj_state(se_npc)
+                if st and st.archetype_id then
+                    local arch = custom_archetypes[st.archetype_id]
+                    if arch and arch.spawn_loadout then
+                        logv("[ARCH] Skipping vanilla loadout for '%s' (ARCH loadout applies)", tostr(se_npc:name()))
+                        return
+                    end
+                end
+            end
+            return orig_on_creation(se_npc)
+        end
+        printf("[ARCH] Patched xrs_rnd_npc_loadout to skip ARCH NPCs with custom loadout")
+    end
+    -- ARCH NPCs with trade_preset always accept trade (bypass vanilla 60% roll)
+    if dialogs and dialogs.is_trade_accept then
+        local orig_is_trade_accept = dialogs.is_trade_accept
+        dialogs.is_trade_accept = function(a, b)
+            local npc = dialogs.who_is_npc(a, b)
+            if npc then
+                local arch_id = get_archetype_id(npc)
+                if arch_id then
+                    logv("[ARCH] Trade always accepted for '%s' (archetype '%s')", tostr(npc:name()), tostr(arch_id))
+                    local id = npc:id()
+                    local npc_items = death_manager.get_items_by_npc(id)
+                    if npc_items == nil then
+                        local npc_comm = character_community(npc)
+                        local npc_rank = ranks.get_obj_rank_name(npc)
+                        death_manager.create_item_list(npc, npc_comm, npc_rank, false, true)
+                    end
+                    return true
+                end
+            end
+            return orig_is_trade_accept(a, b)
+        end
+        local orig_is_not_trade_accept = dialogs.is_not_trade_accept
+        dialogs.is_not_trade_accept = function(a, b)
+            local npc = dialogs.who_is_npc(a, b)
+            if npc then
+                local arch_id = get_archetype_id(npc)
+                if arch_id then
+                    return false
+                end
+            end
+            return orig_is_not_trade_accept(a, b)
+        end
+        printf("[ARCH] Patched dialogs.is_trade_accept — ARCH NPCs always accept")
+    end
+    printf("[ARCH] Coordinator ready!")
+end

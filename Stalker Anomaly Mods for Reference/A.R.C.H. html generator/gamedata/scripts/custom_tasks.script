@@ -1,0 +1,213 @@
+-- A.R.C.H. Custom Tasks
+custom_tasks = custom_tasks or {}
+local tonum = tonumber
+local printf = function(fmt, ...) if not _G.printf then return end; if select("#",...) > 0 then local ok,r = pcall(string.format,fmt,...); if ok then fmt = r end end; _G.printf("%s", tostring(fmt)) end
+
+-- ══════════════════════════════════════════════════
+-- Shared Utilities
+-- ══════════════════════════════════════════════════
+
+local function sanitize_slug(value, fallback) return arch_bootstrap.sanitize_slug(value, fallback) end
+local function sanitize_identifier(value, fallback) return arch_bootstrap.sanitize_identifier(value, fallback) end
+local function as_non_empty_string(value) return arch_bootstrap.as_non_empty_string(value) end
+
+-- ──────────────────────────────────────────────────
+-- Module Globals
+-- ──────────────────────────────────────────────────
+
+local SOURCE_TASK_POOLS = {}
+local CREATION_TASK_PACKS = {}
+local COMPILED_TASK_POOLS = nil
+local function clone_value(value)
+    if type(value) ~= "table" then
+        return value
+    end
+    local out = {}
+    for k, v in pairs(value) do
+        out[k] = clone_value(v)
+    end
+    return out
+end
+
+-- ──────────────────────────────────────────────────
+-- Task Pool Compilation
+-- ──────────────────────────────────────────────────
+
+local function compile_task_pools()
+    if (COMPILED_TASK_POOLS) then
+        return COMPILED_TASK_POOLS
+    end
+    local compiled = {}
+    local function compile_source_pool(source_pool, pi, pack_id)
+        source_pool = source_pool or {}
+        local fallback_id = pack_id and (tostring(pack_id) .. "_pool_" .. tostring(pi)) or ("arch_pool_" .. tostring(pi))
+        local arch_id = sanitize_identifier(
+            source_pool.archetype_id or source_pool.id or fallback_id,
+            fallback_id
+        )
+        local pool_tag = as_non_empty_string(source_pool.pool_tag) or "default"
+        if compiled[arch_id] and compiled[arch_id][pool_tag] then
+            printf("[TASK] WARNING: Duplicate task pool '%s/%s' (%s) skipped",
+                tostring(arch_id), tostring(pool_tag), tostring(pack_id or "framework"))
+            return
+        end
+        local pool = {
+            enabled = (source_pool.enabled ~= false),
+            cooldown_hours = tonum(source_pool.cooldown_hours) or 0,
+            pool_tag = pool_tag,
+            dialog_open_text = as_non_empty_string(source_pool.dialog_open_text),
+            dialog_npc_prompt = as_non_empty_string(source_pool.dialog_npc_prompt),
+            personality_accept = as_non_empty_string(source_pool.personality_accept),
+            personality_decline = as_non_empty_string(source_pool.personality_decline),
+            personality_turnin_actor = as_non_empty_string(source_pool.personality_turnin_actor),
+            personality_turnin_npc = as_non_empty_string(source_pool.personality_turnin_npc),
+            tasks = {}
+        }
+        local tasks = source_pool.tasks
+        if type(tasks) == "table" then
+            for ti = 1, #tasks do
+                local task_data = tasks[ti] or {}
+                local task_id = sanitize_identifier(
+                    task_data.id or string.format("arch_%s_fetch_%02d", arch_id, ti),
+                    string.format("arch_%s_fetch_%02d", arch_id, ti)
+                )
+                pool.tasks[task_id] = {
+                    enabled = (task_data.enabled ~= false),
+                    kind = as_non_empty_string(task_data.kind) or "fetch",
+                    text_prefix = as_non_empty_string(task_data.text_prefix) or "",
+                    weight = tonum(task_data.weight) or 1,
+                    repeatable = (task_data.repeatable ~= false),
+                    once_per_actor = (task_data.once_per_actor == true),
+                    min_rank = task_data.min_rank,
+                    max_rank = task_data.max_rank,
+                    item_section = as_non_empty_string(task_data.item_section),
+                    amount = tonum(task_data.amount) or 1,
+                    reward_money = tonum(task_data.reward_money) or 0,
+                    reward_items = task_data.reward_items or {},
+                    use_pda_task = (task_data.use_pda_task ~= false),
+                    pda_task_id = as_non_empty_string(task_data.pda_task_id),
+                    summary_text = as_non_empty_string(task_data.summary_text),
+                    details_text = as_non_empty_string(task_data.details_text),
+                    accepted_text = as_non_empty_string(task_data.accepted_text),
+                    completed_text = as_non_empty_string(task_data.completed_text),
+                    reward_goodwill = tonum(task_data.reward_goodwill) or nil,
+                    reward_goodwill_community = as_non_empty_string(task_data.reward_goodwill_community),
+                    item_category = as_non_empty_string(task_data.item_category),
+                    category_mode = as_non_empty_string(task_data.category_mode),
+                    reward_multiplier = tonum(task_data.reward_multiplier) or nil,
+                    reward_cap = tonum(task_data.reward_cap) or nil,
+                    items = task_data.items,
+                    reward_buy_modifier = tonum(task_data.reward_buy_modifier) or nil,
+                    reward_sell_modifier = tonum(task_data.reward_sell_modifier) or nil,
+                    pda_icon = as_non_empty_string(task_data.pda_icon),
+                    pda_priority = tonum(task_data.pda_priority) or nil,
+                    cooldown_hours = tonum(task_data.cooldown_hours) or nil,
+                    requires_trust = tonum(task_data.requires_trust) or nil,
+                    requires_time = as_non_empty_string(task_data.requires_time),
+                    requires_item = as_non_empty_string(task_data.requires_item),
+                    requires_task_done = as_non_empty_string(task_data.requires_task_done),
+                    requires_task_done_by_npc = as_non_empty_string(task_data.requires_task_done_by_npc),
+                    requires_info = as_non_empty_string(task_data.requires_info),
+                    requires_min_goodwill = tonum(task_data.requires_min_goodwill) or nil,
+                    requires_pool_unlock = as_non_empty_string(task_data.requires_pool_unlock),
+                    conditions = as_non_empty_string(task_data.conditions),
+                    on_complete_info = as_non_empty_string(task_data.on_complete_info),
+                    on_complete_task = as_non_empty_string(task_data.on_complete_task),
+                    on_fail_info = as_non_empty_string(task_data.on_fail_info),
+                    -- Death behavior fields
+                    on_giver_death = as_non_empty_string(task_data.on_giver_death),
+                    on_giver_death_transfer_to = as_non_empty_string(task_data.on_giver_death_transfer_to),
+                    on_target_death = as_non_empty_string(task_data.on_target_death),
+                    on_death_task = as_non_empty_string(task_data.on_death_task),
+                    on_death_info = as_non_empty_string(task_data.on_death_info),
+                    -- Delivery fields
+                    deliver_item = as_non_empty_string(task_data.deliver_item),
+                    deliver_amount = tonum(task_data.deliver_amount) or nil,
+                    deliver_to_archetype = as_non_empty_string(task_data.deliver_to_archetype),
+                    deliver_to_community = as_non_empty_string(task_data.deliver_to_community),
+                    deliver_to_rank = as_non_empty_string(task_data.deliver_to_rank),
+                    deliver_to_location = as_non_empty_string(task_data.deliver_to_location),
+                    -- Talk fields
+                    talk_to_giver = task_data.talk_to_giver or nil,
+                    talk_to_archetype = as_non_empty_string(task_data.talk_to_archetype),
+                    -- Collect fields
+                    collect_from_archetype = as_non_empty_string(task_data.collect_from_archetype),
+                    collect_from_community = as_non_empty_string(task_data.collect_from_community),
+                    collect_from_rank = as_non_empty_string(task_data.collect_from_rank),
+                    collect_from_location = as_non_empty_string(task_data.collect_from_location),
+                    collect_item = as_non_empty_string(task_data.collect_item),
+                    collect_amount = tonum(task_data.collect_amount) or nil
+                }
+            end
+        end
+        if not compiled[arch_id] then
+            compiled[arch_id] = {}
+        end
+        compiled[arch_id][pool_tag] = pool
+    end
+    for pi = 1, #SOURCE_TASK_POOLS do
+        compile_source_pool(SOURCE_TASK_POOLS[pi], pi, "framework")
+    end
+    for pack_id, source_pools in pairs(CREATION_TASK_PACKS) do
+        if type(source_pools) == "table" then
+            for pi = 1, #source_pools do
+                compile_source_pool(source_pools[pi], pi, pack_id)
+            end
+        end
+    end
+    COMPILED_TASK_POOLS = compiled
+    return compiled
+end
+
+
+function custom_tasks.invalidate_compiled_cache()
+    COMPILED_TASK_POOLS = nil
+end
+function custom_tasks.get_source()
+    return SOURCE_TASK_POOLS
+end
+function custom_tasks.get_compiled_task_pools()
+    return compile_task_pools()
+end
+function custom_tasks.register_creation_task_pools(pack_id, source_pools)
+    local pid = as_non_empty_string(pack_id)
+    if not pid then
+        printf("[TASK] ERROR: register_creation_task_pools requires non-empty pack_id")
+        return false
+    end
+    if type(source_pools) ~= "table" then
+        printf("[TASK] ERROR: register_creation_task_pools('%s') requires an array table", tostring(pid))
+        return false
+    end
+    CREATION_TASK_PACKS[pid] = clone_value(source_pools)
+    custom_tasks.invalidate_compiled_cache()
+    local compiled = custom_tasks.get_compiled_task_pools()
+    _G.ARCH_TASK_POOLS_DATA = compiled
+    if tasks_core and tasks_core.register_custom_tasks then
+        tasks_core.register_custom_tasks(compiled)
+        if tasks_core.print_summary then
+            tasks_core.print_summary()
+        end
+    end
+    local count = #source_pools
+    printf("[TASK] Registered creation task pools from '%s': %s pool(s)", tostring(pid), tonumber(count) or 0)
+    return true
+end
+do
+    _G.ARCH_TASK_POOLS_DATA = custom_tasks.get_compiled_task_pools()
+end
+
+-- ──────────────────────────────────────────────────
+-- Game Start
+-- ──────────────────────────────────────────────────
+
+function on_game_start()
+    local compiled = custom_tasks.get_compiled_task_pools()
+    _G.ARCH_TASK_POOLS_DATA = compiled
+    if tasks_core and tasks_core.register_custom_tasks then
+        tasks_core.register_custom_tasks(compiled)
+        if tasks_core.print_summary then
+            tasks_core.print_summary()
+        end
+    end
+end

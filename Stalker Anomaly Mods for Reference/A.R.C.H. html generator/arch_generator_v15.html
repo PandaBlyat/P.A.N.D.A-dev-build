@@ -6,6 +6,13 @@
 <title>A.R.C.H. Generator v5</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
+.stable-mode [data-stab="tasks"]{display:none!important}
+.stable-mode [data-stab="flags"]{display:none!important}
+.stable-mode .dlg-action-btn{display:none!important}
+.stable-mode .dlg-node-bind-btn{display:none!important}
+.stable-mode .de-editor-btn{display:none!important}
+.stable-mode .arch-map-spot-cfg{display:none!important}
+.stable-mode [data-stab="specializations"]{display:none!important}
 input[type="checkbox"]{-webkit-appearance:none!important;-moz-appearance:none!important;appearance:none!important;width:18px!important;height:18px!important;min-width:18px;min-height:18px;border:none!important;background:url('html_tool_assets/cb_unchecked.png') no-repeat center/contain!important;accent-color:transparent!important;cursor:pointer;vertical-align:middle;flex-shrink:0;margin:0}
 input[type="checkbox"]:hover{background-image:url('html_tool_assets/cb_hover.png')!important}
 input[type="checkbox"]:checked{background-image:url('html_tool_assets/cb_checked.png')!important}
@@ -220,6 +227,9 @@ linear-gradient(to bottom,#0d0d0d,#0a0a0a)}
 .dlg-node-row-text:focus{color:#f0e8c0}
 .dlg-node-row.end-hub{background:rgba(20,50,30,.5);color:#80b870}
 .dlg-node-row.end-exit{background:rgba(60,20,20,.5);color:#b07060}
+.opener-row-num{display:inline-block;width:16px;text-align:center;font-size:9px;color:#888;flex-shrink:0;cursor:grab;user-select:none}
+.dlg-node-row[draggable="true"]:hover .opener-row-num{color:#ff8c00}
+.dlg-node-row[draggable="true"].drag-over{border-top:2px solid #ff8c00}
 
 /* Split "+ Add" row */
 .dlg-node-add-row{background:rgba(40,30,15,.6);border-top:1px dashed rgba(200,184,112,.15);display:flex;border-radius:0 0 2px 2px;overflow:hidden;font-size:10px}
@@ -302,7 +312,7 @@ linear-gradient(to bottom,#0d0d0d,#0a0a0a)}
 .cascade-del-opt:hover{background:#2a2a2a;color:#fff}
 .cascade-del-opt.danger{color:#f87171}.cascade-del-opt.danger:hover{background:#3a1818;color:#ff9999}
 /* ── Minimap ── */
-.dlg-minimap{position:fixed;width:160px;height:100px;background:rgba(10,10,10,.85);border:1px solid #444;border-radius:2px;overflow:hidden;cursor:crosshair;z-index:50;box-shadow:0 2px 8px rgba(0,0,0,.6);transition:width .15s,height .15s}
+.dlg-minimap{position:fixed;width:160px;height:100px;background:rgba(10,10,10,.85);border:1px solid #444;border-radius:2px;overflow:hidden;cursor:crosshair;z-index:210;box-shadow:0 2px 8px rgba(0,0,0,.6);transition:width .15s,height .15s}
 .dlg-minimap:hover,.dlg-minimap.drag-active{width:320px;height:200px}
 .dlg-minimap canvas{width:100%;height:100%;display:block}
 .dlg-minimap-viewport{position:absolute;border:1px solid rgba(255,140,0,.7);background:rgba(255,140,0,.08);pointer-events:none}
@@ -312,15 +322,18 @@ linear-gradient(to bottom,#0d0d0d,#0a0a0a)}
 .dlg-canvas:fullscreen,.dlg-canvas:-webkit-full-screen{width:100vw;height:100vh;min-height:100vh;border-radius:0}
 .dlg-canvas:fullscreen .dlg-node,.dlg-canvas:-webkit-full-screen .dlg-node{box-shadow:0 8px 20px rgba(0,0,0,.5)}
 /* Fullscreen toolbar overlay — position:absolute, JS updates top/left on scroll */
-.graph-fs-toolbar{display:none;position:absolute;top:0;left:0;right:0;z-index:200;background:rgba(18,18,18,.94);backdrop-filter:blur(6px);padding:6px 10px;gap:6px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #555;transform:translateY(-100%);transition:transform .22s ease;pointer-events:none}
+.graph-fs-toolbar{display:none;position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(18,18,18,.94);backdrop-filter:blur(6px);padding:6px 10px;gap:6px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #555;transform:translateY(-100%);transition:transform .22s ease;pointer-events:none}
 .graph-fs-toolbar.fs-active{display:flex}
 .graph-fs-toolbar.visible{transform:translateY(0);pointer-events:auto}
 .graph-fs-toolbar .btn{font-size:11px}
 .graph-fs-toolbar .fs-tree-tabs{display:flex;gap:4px;align-items:center;margin-left:12px;padding-left:12px;border-left:1px solid #444}
 .graph-fs-toolbar .fs-tree-tabs button{background:rgba(255,255,255,.06);border:1px solid #444;color:#ccc;padding:2px 10px;border-radius:2px;font-size:11px;cursor:pointer}
 .graph-fs-toolbar .fs-tree-tabs button.active{background:rgba(255,180,50,.15);border-color:#b08030;color:#ffe0a0}
+.graph-fs-toggle{display:none;position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:201;background:rgba(30,30,30,.85);border:1px solid #555;color:#ccc;padding:3px 14px;border-radius:0 0 6px 6px;font-size:11px;cursor:pointer;backdrop-filter:blur(4px);transition:opacity .2s}
+.graph-fs-toggle:hover{background:rgba(50,50,50,.95);color:#fff}
+.graph-fs-toggle.fs-active{display:block}
 /* Fullscreen error bar — position:absolute, JS updates bottom/left on scroll */
-.graph-fs-errors{display:none;position:absolute;bottom:0;left:0;right:0;z-index:200;background:rgba(18,18,18,.92);backdrop-filter:blur(6px);padding:8px 12px;border-top:1px solid rgba(248,113,113,.6);max-height:120px;overflow-y:auto;font-size:11px;color:#f87171}
+.graph-fs-errors{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(18,18,18,.92);backdrop-filter:blur(6px);padding:8px 12px;border-top:1px solid rgba(248,113,113,.6);max-height:120px;overflow-y:auto;font-size:11px;color:#f87171}
 .graph-fs-errors.has-errors{display:block}
 /* Node Edit Side Panel */
 .dlg-modal{position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;pointer-events:none}
@@ -666,6 +679,91 @@ input[type=number]{-moz-appearance:textfield}
 .de-panel-hint{color:#888;font-size:14px;text-align:center;padding:30px 10px;line-height:1.6}
 .de-btn-danger{background:rgba(140,30,30,.15);border:1px solid rgba(140,30,30,.4);color:#c06060;padding:7px 14px;font-family:inherit;font-size:13px;cursor:pointer;border-radius:2px}
 .de-btn-danger:hover{background:rgba(140,30,30,.3);color:#e87070}
+/* ── Binding picker popup (large modal with guide) ── */
+.de-bp-btn{width:100%;padding:7px 9px;background:#111;border:1px solid #333;color:#ccc;font-family:inherit;font-size:14px;border-radius:2px;cursor:pointer;text-align:left;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between}
+.de-bp-btn:hover{border-color:#ff8c00}
+.de-bp-btn .de-bp-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.de-bp-btn .de-bp-none{color:#666;font-style:italic}
+.de-bp-btn .de-bp-arrow{color:#666;font-size:10px;margin-left:6px;flex-shrink:0}
+.st-picker-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:10000;display:none;background:rgba(0,0,0,.5)}
+.st-picker{position:fixed;z-index:10001;background:#1a1a1a;border:1px solid #444;border-radius:6px;box-shadow:0 12px 48px rgba(0,0,0,.7);width:50vw;max-width:800px;max-height:70vh;display:none;flex-direction:column;overflow:hidden;top:50%;left:50%;transform:translate(-50%,-50%)}
+.st-picker-header{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #333;flex-shrink:0}
+.st-picker-body{overflow-y:auto;padding:10px 14px;flex:1}
+.st-picker-section{margin-bottom:12px}
+.st-picker-section-title{color:#ff8c00;font-size:12px;font-weight:bold;margin-bottom:6px;cursor:pointer;user-select:none}
+.st-picker-grid{display:flex;flex-wrap:wrap;gap:4px}
+.st-picker-pill{padding:3px 8px;font-size:11px;font-family:monospace;background:#222;color:#999;border:1px solid #333;border-radius:3px;cursor:pointer;transition:all .12s}
+.st-picker-pill:hover{color:#ccc;border-color:#555}
+.st-picker-pill.selected{background:#2d3a2d;color:#a5d6a7;border-color:#4caf50}
+.st-picker-footer{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid #333;flex-shrink:0}
+.de-bp-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:10000;display:none;background:rgba(0,0,0,.5)}
+.de-bp-popup{position:fixed;z-index:10001;background:#1a1a1a;border:1px solid #444;border-radius:6px;box-shadow:0 12px 48px rgba(0,0,0,.7);width:60vw;height:70vh;min-width:700px;min-height:400px;max-width:1100px;max-height:800px;display:none;flex-direction:column;overflow:hidden;top:50%;left:50%;transform:translate(-50%,-50%)}
+.de-bp-header{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #333;flex-shrink:0}
+.de-bp-header-title{color:#999;font-size:12px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+.de-bp-header-context{color:#ff8c00;font-size:12px;font-weight:bold;white-space:nowrap}
+/* Slot tabs (multi-slot mode) */
+.de-bp-slot-tabs{display:flex;gap:2px;flex-shrink:0}
+.de-bp-slot-tab{display:flex;flex-direction:column;align-items:flex-start;padding:5px 12px;background:rgba(255,255,255,.03);border:1px solid #333;border-radius:3px;color:#999;font-family:inherit;font-size:11px;cursor:pointer;min-width:100px;max-width:160px}
+.de-bp-slot-tab:hover{border-color:#666;color:#ccc}
+.de-bp-slot-tab.active{border-color:#ff8c00;background:rgba(255,140,0,.08);color:#ff8c00}
+.de-bp-slot-tab-label{font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:.3px;margin-bottom:1px}
+.de-bp-slot-tab-val{font-size:10px;color:#ccc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px;display:block}
+.de-bp-slot-tab.active .de-bp-slot-tab-val{color:#ffb74d}
+.de-bp-slot-tab-none{font-size:10px;color:#555;font-style:italic}
+.de-bp-slot-clear{color:#888;font-size:13px;margin-left:4px;cursor:pointer;line-height:1;padding:0 2px;display:inline-block}
+.de-bp-slot-clear:hover{color:#ff6060}
+.de-bp-toggle-vanilla{display:flex;align-items:center;padding:3px 8px;color:#999;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0;user-select:none}
+.de-bp-toggle-vanilla:hover{color:#ccc}
+.de-bp-show-all{padding:5px 10px;background:rgba(255,255,255,.05);border:1px solid #444;border-radius:3px;color:#999;font-family:inherit;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.de-bp-show-all:hover{border-color:#888;color:#ccc}
+.de-bp-show-all.active{background:rgba(255,140,0,.12);border-color:#ff8c00;color:#ff8c00}
+.de-bp-search{flex:1;padding:7px 10px;background:#111;border:1px solid #333;border-radius:3px;color:#ccc;font-family:inherit;font-size:13px;box-sizing:border-box;outline:none}
+.de-bp-search:focus{border-color:#ff8c00}
+.de-bp-patterns{display:flex;align-items:center;gap:6px;padding:6px 14px;border-bottom:1px solid #333;flex-shrink:0;flex-wrap:wrap;background:#1e1e1e}
+.de-bp-content{display:flex;flex:1;overflow:hidden;min-height:0}
+/* Left column: collapsible categories */
+.de-bp-cats{width:180px;border-right:1px solid #333;overflow-y:auto;flex-shrink:0;padding:6px 0}
+.de-bp-cat-group{margin-bottom:2px}
+.de-bp-cat-header{display:flex;align-items:center;width:100%;padding:5px 10px;background:none;border:none;color:#777;font-size:10px;text-transform:uppercase;letter-spacing:.4px;cursor:pointer;font-family:inherit;text-align:left;user-select:none}
+.de-bp-cat-header:hover{color:#aaa}
+.de-bp-cat-arrow{margin-right:5px;font-size:8px;transition:transform .15s;display:inline-block;width:10px}
+.de-bp-cat-arrow.collapsed{transform:rotate(-90deg)}
+.de-bp-cat{display:block;width:100%;padding:6px 10px 6px 22px;background:none;border:none;color:#999;font-size:12px;text-align:left;cursor:pointer;font-family:inherit;border-left:2px solid transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.de-bp-cat:hover{color:#ccc;background:rgba(255,255,255,.03)}
+.de-bp-cat.active{color:#ff8c00;border-left-color:#ff8c00;background:rgba(255,140,0,.06)}
+.de-bp-cat.dimmed{opacity:.4}
+.de-bp-cat-count{color:#555;font-size:10px;margin-left:3px}
+/* Middle column: binding list */
+.de-bp-items{width:260px;min-width:200px;overflow-y:auto;padding:4px 0;border-right:1px solid #333;flex-shrink:0}
+.de-bp-item{display:block;width:100%;padding:7px 10px;background:none;border:none;color:#bbb;font-size:13px;text-align:left;cursor:pointer;font-family:inherit;border-left:2px solid transparent;box-sizing:border-box}
+.de-bp-item:hover{color:#fff;background:rgba(255,255,255,.05)}
+.de-bp-item.selected{color:#ff8c00;border-left-color:#ff8c00;background:rgba(255,140,0,.06)}
+.de-bp-item.focused{background:rgba(255,140,0,.04);border-left-color:rgba(255,140,0,.4);color:#eee}
+.de-bp-item.unavailable{opacity:.35;cursor:default}
+.de-bp-item.unavailable:hover{color:#bbb;background:none}
+.de-bp-item-none{color:#666;font-style:italic}
+.de-bp-item-note{color:#666;font-size:11px;margin-top:1px}
+.de-bp-item-badge{display:inline-block;font-size:9px;padding:1px 5px;border-radius:2px;margin-left:6px;vertical-align:middle}
+.de-bp-item-badge.pre{background:rgba(130,177,255,.15);color:#82b1ff}
+.de-bp-item-badge.act{background:rgba(255,183,77,.15);color:#ffb74d}
+.de-bp-item-badge.txt{background:rgba(165,214,167,.15);color:#a5d6a7}
+.de-bp-empty{color:#555;font-size:12px;padding:12px;text-align:center}
+/* Right column: guide/description */
+.de-bp-guide{flex:1;overflow-y:auto;padding:16px 18px;min-width:0}
+.de-bp-guide-empty{color:#555;font-size:13px;text-align:center;padding:40px 16px;line-height:1.6}
+.de-bp-guide-title{color:#eee;font-size:15px;font-weight:bold;margin-bottom:4px;word-break:break-word}
+.de-bp-guide-id{color:#666;font-size:11px;font-family:monospace;margin-bottom:12px;word-break:break-all}
+.de-bp-guide-tags{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.de-bp-guide-tag{font-size:10px;padding:2px 8px;border-radius:3px;font-weight:bold;text-transform:uppercase;letter-spacing:.3px}
+.de-bp-guide-tag.valid{background:rgba(255,140,0,.15);color:#ff8c00;border:1px solid rgba(255,140,0,.3)}
+.de-bp-guide-tag.invalid{background:rgba(100,100,100,.1);color:#555;border:1px solid rgba(100,100,100,.2)}
+.de-bp-guide-section{margin-bottom:14px}
+.de-bp-guide-section-label{color:#888;font-size:11px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.de-bp-guide-desc{color:#ccc;font-size:13px;line-height:1.5}
+.de-bp-guide-usage{color:#a5d6a7;font-size:12px;line-height:1.5;background:rgba(165,214,167,.05);padding:8px 10px;border-radius:3px;border-left:2px solid rgba(165,214,167,.3)}
+.de-bp-guide-select{margin-top:16px;padding:8px 20px;background:#ff8c00;color:#111;border:none;font-family:inherit;font-size:13px;font-weight:bold;border-radius:3px;cursor:pointer}
+.de-bp-guide-select:hover{background:#ffa040}
+.de-bp-guide-select:disabled{background:#444;color:#777;cursor:default}
 /* Edge toggles on center when panels collapsed */
 .de-edge-toggle{position:fixed;z-index:2504;background:rgba(20,20,20,.9);border:1px solid #444;color:#bbb;width:32px;height:48px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;pointer-events:auto}
 .de-edge-toggle:hover{color:#ff8c00;border-color:#ff8c00}
@@ -1100,7 +1198,7 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
     <button onclick="adjustZoom(-0.1)" style="background:#1a1a1a;color:#999;border:none;padding:3px 7px;font-size:13px;cursor:pointer;line-height:1" title="Zoom out">−</button>
     <span id="globalZoomLabel" onclick="toggleGlobalZoomDropdown(this)" style="background:#111;color:#888;padding:3px 6px;font-size:10px;min-width:34px;text-align:center;cursor:pointer" title="Click to pick zoom level">100%</span>
     <button onclick="adjustZoom(0.1)" style="background:#1a1a1a;color:#999;border:none;padding:3px 7px;font-size:13px;cursor:pointer;line-height:1" title="Zoom in">+</button>
-</span></div></div>
+</span><button class="az-btn" onclick="openAnalyzerOverlay()" title="Pack Analyzer — probability analysis across all archetypes">Analyze</button></div></div>
 <div class="mode-bar" id="modeBar">
     <span class="mode-label">Editing:</span>
     <span class="mode-val" id="modeText">No group selected</span>
@@ -1112,6 +1210,7 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
     <button class="tb" data-tab="settings">Settings</button>
     <button class="tb" data-tab="trade">Trade</button>
     <button class="tb" data-tab="dialogs">Advanced</button>
+    <button class="tb" data-tab="export">Export</button>
 </div>
 <div class="tp" id="tipPop"><span class="tc2" onclick="closeTip()">✕</span><div class="tt" id="tipT"></div><div id="tipB"></div></div>
 
@@ -1120,7 +1219,7 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
     <div class="sec">
         <h2 class="st">Create Group <i class="ti" onclick="showTip(event,'Groups & Characters','Groups let you create multiple NPCs that share the same base settings (faction, location, trade). Each character in a group inherits the group defaults but can override any field.\n\nSolo Characters are standalone — each has its own settings with no shared defaults. Best for unique named NPCs like traders or quest givers.\n\nDrag character pills between groups, or drag to Solo to make them independent.')">?</i></h2>
         <div class="row3">
-            <div class="fg"><label>Group Name</label><input type="text" id="newGrpName" placeholder="e.g. bar_traders"></div>
+            <div class="fg"><label>Name</label><input type="text" id="newGrpName" placeholder="e.g. bar_traders or my_trader"></div>
             <div class="fg"><label>Characters</label><input type="number" id="newGrpCount" value="1" min="1" max="20"></div>
             <div class="fg" style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap">
                 <button class="btn" onclick="createGroup()">Create Group</button>
@@ -1140,6 +1239,16 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
         <div id="soloCharList" style="display:flex;flex-wrap:wrap;gap:6px;min-height:24px"></div>
     </div>
     <div id="groupList"></div>
+
+    <!-- ── Unique Vanilla NPCs ── -->
+    <details class="sec" id="storyNpcSection">
+        <summary class="st">Unique Vanilla NPCs <span style="color:#ff8c00;font-size:10px;font-weight:normal;margin-left:6px">⚠ needs testing</span> <i class="ti" onclick="showTip(event,'Unique Vanilla NPCs','Add dialogs and tasks to existing vanilla story NPCs — traders, mechanics, medics, barkeepers.\n\nThese NPCs are immortal, always at their location, and persist across saves. Perfect for narrative content.\n\nSelect an NPC from the dropdown and click Add. A solo character is created with assign_to pre-configured. Settings and Trade tabs are hidden since those belong to the vanilla NPC.')">?</i></summary>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+            <select id="storyNpcPicker" style="flex:1;max-width:400px;background:#1a1a1a;color:#ccc;border:1px solid #444;border-radius:3px;padding:6px 8px"></select>
+            <button class="btn b2" onclick="addStoryNpc()">+ Add NPC</button>
+        </div>
+        <div id="storyNpcList" style="display:flex;flex-wrap:wrap;gap:6px;min-height:8px"></div>
+    </details>
 
     <!-- ── Connected Archetypes ── -->
     <details class="sec" id="connectedArchSection">
@@ -1207,8 +1316,27 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
             <div class="fg"><label>Display Name</label><input type="text" id="f_displayName" oninput="saveField('displayName',this.value)"></div>
             <div class="fg"><label>Dialog ID</label><input type="text" id="f_dialogId" readonly></div>
         </div>
-        <div class="row">
-            <div class="fg"><label>Remove Auto-Dialogs <i class="ti" onclick="showTip(event,'Remove Auto-Dialogs','Comma-separated dialog IDs to suppress. Use to remove auto-generated task dialogs when tasks are offered through custom conversation flows instead.\n\nCommon values:\narch_task_offer_dialog — removes default pool &quot;Got any work?&quot;\narch_task_pool_advanced_dialog — removes advanced pool dialog\narch_task_pool_elite_dialog — removes elite pool dialog')">?</i></label><input type="text" id="f_dialogRemove" placeholder="e.g. arch_task_offer_dialog, arch_task_pool_advanced_dialog" oninput="saveField('dialogRemove',this.value)"></div>
+        <div class="row3">
+            <div class="fg arch-map-spot-cfg"><label>Map Spot <i class="ti" onclick="showTip(event,'Map Spot','PDA map icon shown for NPCs with this archetype.\n\narch_1 through arch_14 are colored ARCH markers.\nprimary = use the NPC\'s default map marker.\n\nLeave empty for no marker.')">?</i></label>
+                <select id="f_mapSpot" onchange="saveField('mapSpot',this.value)">
+                    <option value="">-- none --</option>
+                    <option value="primary">primary (default NPC marker)</option>
+                    <option value="arch_1">arch_1 -- Red</option>
+                    <option value="arch_2">arch_2 -- Orange</option>
+                    <option value="arch_3">arch_3 -- Yellow</option>
+                    <option value="arch_4">arch_4 -- Green</option>
+                    <option value="arch_5">arch_5 -- Teal</option>
+                    <option value="arch_6">arch_6 -- Blue</option>
+                    <option value="arch_7">arch_7 -- Purple</option>
+                    <option value="arch_8">arch_8 -- Pink</option>
+                    <option value="arch_9">arch_9 -- White</option>
+                    <option value="arch_10">arch_10 -- Gray</option>
+                    <option value="arch_11">arch_11</option>
+                    <option value="arch_12">arch_12</option>
+                    <option value="arch_13">arch_13</option>
+                    <option value="arch_14">arch_14</option>
+                </select>
+            </div>
         </div>
     </details>
 
@@ -1236,10 +1364,13 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
         </div>
         <div class="ms" id="filterComm"></div>
         <div style="display:flex;align-items:center;gap:10px;margin:10px 0 6px">
-            <label style="color:#aaa;font-size:12px">Location</label>
+            <label style="color:#aaa;font-size:12px">Location</label> <span style="color:#ff8c00;font-size:10px">⚠ smart terrains need testing</span>
             <div class="fm" id="modeLoc"><button onclick="setFM('Loc','all',this)" class="aa">All</button><button onclick="setFM('Loc','inc',this)">Include</button><button onclick="setFM('Loc','exc',this)">Exclude</button></div>
         </div>
         <div class="ms" id="filterLoc"></div>
+        <input type="hidden" id="f_smartTerrainInclude">
+        <input type="hidden" id="f_smartTerrainExclude">
+        <div id="smartTerrainChips" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;min-height:0"></div>
         <div style="display:flex;align-items:center;gap:10px;margin:10px 0 6px">
             <label style="color:#aaa;font-size:12px">Rank</label>
             <div class="fm" id="modeRank"><button onclick="setFM('Rank','all',this)" class="aa">All</button><button onclick="setFM('Rank','inc',this)">Include</button><button onclick="setFM('Rank','exc',this)">Exclude</button></div>
@@ -1247,7 +1378,7 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
         <div class="ms" id="filterRank"></div>
         <div style="display:flex;gap:16px;margin-top:10px">
             <label class="chk"><input type="checkbox" id="f_male" checked onchange="saveField('male',this.checked)"> Male</label>
-            <label class="chk"><input type="checkbox" id="f_female" checked onchange="saveField('female',this.checked)"> Female</label>
+            <label class="chk"><input type="checkbox" id="f_female" onchange="saveField('female',this.checked)"> Female</label>
             <i class="ti" onclick="showTip(event,'Gender Filter','Uncheck a gender to exclude NPCs of that gender from receiving this archetype.\n\nBoth checked = no gender filter.')">?</i>
         </div>
     </details>
@@ -1257,6 +1388,9 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
         <div class="row3">
             <div class="fg"><label>Buy Mod</label><input type="number" id="f_buyMod" value="0.85" step="0.05" onchange="saveField('buyMod',this.value)"></div>
             <div class="fg"><label>Sell Mod</label><input type="number" id="f_sellMod" value="1.15" step="0.05" onchange="saveField('sellMod',this.value)"></div>
+            <div class="fg"><label>Goodwill <i class="ti" onclick="showTip(event,'Goodwill','Set NPC goodwill toward the player when this archetype is assigned.\n\nPositive values make the NPC friendly and enable talk.\nDefault 0 = no change.\n\nExample: 1000 = friendly, 5000 = very friendly.')">?</i></label>
+                <input type="number" id="f_goodwill" value="" min="0" step="100" placeholder="0" onchange="saveField('goodwill',this.value)">
+            </div>
         </div>
         <div class="row3">
             <div class="fg"><label>Max Amount</label><input type="number" id="f_amount" value="1" min="1" onchange="saveField('amount',this.value)"></div>
@@ -1273,17 +1407,15 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
                 </select>
             </div>
             <div class="fg"><label>Chance <i class="ti" onclick="showTip(event,'Chance (Weight)','Random weight used when multiple archetypes compete in the same tier for the same NPC.\n\nHigher = more likely to win. Default 100.\nExample: chance 200 is twice as likely as chance 100.')">?</i></label><input type="number" id="f_chance" value="100" min="1" onchange="saveField('chance',this.value)"></div>
-            <div class="fg"><label>Available After Days <i class="ti" onclick="showTip(event,'Calendar Gate','Archetype is not eligible until this many in-game days have passed.\n\nDefault 0 (always available). Use to gradually unlock higher-tier archetypes as the game progresses.')">?</i></label><input type="number" id="f_availableAfterDays" value="0" min="0" onchange="saveField('availableAfterDays',this.value)"></div>
+            <div class="fg"><label>Available After Days <i class="ti" onclick="showTip(event,'Calendar Gate','Archetype is not eligible until this many in-game days have passed. Default 0 (always available).\n\nUseful for mid/late-game archetypes that shouldn\'t appear on day 1.')">?</i></label><input type="number" id="f_availableAfterDays" value="0" min="0" onchange="saveField('availableAfterDays',this.value)"></div>
         </div>
     </details>
 
+
     <details class="sec">
-        <summary class="st">Spawn Loadout <i class="ti" onclick="showTip(event,'Spawn Loadout','Add items (one per line) and inherit loadout from another archetype ID.')">?</i></summary>
-        <div class="fg" style="margin-bottom:8px">
-            <label>Inherit From Archetype ID <i class="ti" onclick="showTip(event,'Spawn Inherit','Copy another archetype\'s loadout as the base for this one.\n\nThe inherited loadout is applied first, then this archetype\'s items are added on top.\n\nUseful for faction-wide base loadouts.')">?</i> <span style="color:#aaa;font-size:10px">(optional)</span></label>
-            <input type="text" id="f_spawnInherit" placeholder="e.g. freedom_grunt" oninput="saveField('spawnInherit',this.value)">
-        </div>
-        <div class="fg"><label>Items <span style="color:#aaa;font-size:10px">(one per line — auto-sorted to Primary/Secondary/Extra on export)</span></label><textarea id="f_spawnAll" rows="6" placeholder="wpn_ak74:0:0:100&#10;wpn_pb:0:0:80&#10;bandage:100&#10;medkit:50" oninput="onSpawnAllChange(this.value)"></textarea></div>
+        <summary class="st">Spawn Loadout <i class="ti" onclick="showTip(event,'Spawn Loadout','Items the NPC spawns with. One per line.\n\nWeapons: item_id : attachment : ammo_type : chance%\nOther items: item_id : chance%\n\nChance = probability (0-100) that the item appears. 100 = always.\nItems are auto-sorted into Primary weapon, Secondary weapon, and Extra gear on export.')">?</i></summary>
+        <div style="font-size:10px;color:#888;margin-bottom:4px;font-family:monospace">Weapons: item_id : attachment : ammo_type : chance% | Other items: item_id : chance%</div>
+        <div class="fg"><textarea id="f_spawnAll" rows="6" placeholder="wpn_ak74:0:0:100&#10;wpn_pb:0:0:80&#10;bandage:100&#10;medkit:50" oninput="onSpawnAllChange(this.value)"></textarea></div>
         <div id="spawnSlotPreview" style="font-size:10px;color:#aaa;margin:-4px 0 8px;padding:4px 8px;background:#111;border:1px solid #1a1a1a;border-radius:2px"></div>
         <div style="font-size:10px;color:#f87171;padding:4px 0 6px">⚠ Loadout changes only apply when an NPC spawns. Already-spawned NPCs keep their current items until they die and respawn.</div>
         <!-- Weapon compat popup — shown when adding a weapon with known ammo/attachments -->
@@ -1326,15 +1458,11 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
 <!-- ═══ TRADE TAB ═══ -->
 <div class="tc" id="tab-trade">
     <div id="tradeContent">
-    <div class="sec"><h2 class="st">Trade Source <i class="ti" onclick="showTip(event,'Trade Source','Inherit: base item lists off another archetype loaded here, or a vanilla profile.\nLTX File: point directly at an existing trade LTX — auto-generation is skipped.\nLeave both empty to build trade entirely from the Buy/Sell/Supply lists below.')">?</i></h2>
-        <div class="row">
-            <div class="fg"><label>Inherit <label style="font-size:10px;color:#aaa;cursor:pointer;margin-left:4px"><input type="checkbox" id="f_showVanillaPresets" onchange="_rebuildTradeParentOptions()" style="accent-color:#888"> +vanilla</label></label>
-                <select id="f_tradeParent" onchange="if(TRADE_PRESETS[this.value])applyTradePreset(this.value);else saveTradeField('tradeParent',this.value)"><option value="">None</option></select></div>
-            <div class="fg"><label>Condition Factor</label><input type="number" id="f_tradeCond" value="0.5" step="0.1" onchange="saveTradeField('tradeCond',this.value)"></div>
-        </div>
-        <div class="row">
-            <div class="fg"><label>Buy Exponent</label><input type="number" id="f_tradeBuyExp" value="1.0" step="0.1" onchange="saveTradeField('tradeBuyExp',this.value)"></div>
-            <div class="fg"><label>Sell Exponent</label><input type="number" id="f_tradeSellExp" value="1.0" step="0.1" onchange="saveTradeField('tradeSellExp',this.value)"></div>
+    <div class="sec"><h2 class="st">Trade Source <i class="ti" onclick="showTip(event,'Trade Source','Configure how this NPC trades with the player.\n\nCondition Factor: minimum item condition (0.0-1.0) the NPC accepts when buying. Lower = accepts more damaged items.\n\nBuy/Sell Modifier: price multiplier. Buy 1.0 = full price paid to player. Sell 1.0 = full price charged.\n\nLTX File: point at an existing trade file to skip auto-generation.')">?</i></h2>
+        <div class="row3">
+            <div class="fg"><label>Condition Factor <i class="ti" onclick="showTip(event,'Condition Factor','Minimum item condition (0.0-1.0) the NPC will accept when buying from the player.\n\n0.5 = only items above 50% condition.\n0.0 = accepts anything, even broken items.\n1.0 = only pristine items.')">?</i></label><input type="number" id="f_tradeCond" value="0.5" step="0.1" min="0" max="1" onchange="saveTradeField('tradeCond',this.value)"></div>
+            <div class="fg"><label>Buy Price Modifier <i class="ti" onclick="showTip(event,'Buy Price Modifier','How much the NPC pays when buying items FROM the player.\n\n1.0 = pays full base price.\n0.5 = pays half price (cheap buyer).\n1.5 = pays 150% (generous buyer).\n\nThis scales all buy prices globally for this NPC.')">?</i></label><input type="number" id="f_tradeBuyExp" value="1.0" step="0.1" onchange="saveTradeField('tradeBuyExp',this.value)"></div>
+            <div class="fg"><label>Sell Price Modifier <i class="ti" onclick="showTip(event,'Sell Price Modifier','How much the NPC charges when selling items TO the player.\n\n1.0 = charges full base price.\n1.5 = charges 150% (expensive seller).\n0.8 = charges 80% (discount seller).\n\nThis scales all sell prices globally for this NPC.')">?</i></label><input type="number" id="f_tradeSellExp" value="1.0" step="0.1" onchange="saveTradeField('tradeSellExp',this.value)"></div>
         </div>
         <div class="row" style="align-items:flex-end">
             <div class="fg"><label>LTX File <i class="ti" onclick="showTip(event,'LTX File','Point this archetype at an existing trade LTX file instead of generating one.\n\nPath is relative to gamedata\\configs\\  e.g. items\\trade\\trade_barman.ltx\n\nLeave empty to auto-generate from Buy/Sell/Supply lists.')">?</i></label>
@@ -1344,20 +1472,23 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
         <div id="ltxFileBrowser" style="display:none;margin-top:6px;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:3px;max-height:200px;overflow-y:auto"></div>
     </div>
     <details class="sec" open>
-        <summary class="st">Buy List <i class="ti" onclick="showTip(event,'Buy List','Items this NPC will buy from the player.\n\nFormat: item_id:condition:price_factor\n\nCondition: 0.0–1.0 minimum condition to accept.\nPrice factor: multiplier on base price (1.0 = normal).')">?</i></summary>
+        <summary class="st">Buy List <i class="ti" onclick="showTip(event,'Buy List','Items this NPC will buy FROM the player.\n\nFormat: item_id : min_condition : price_multiplier\n\nExample: wpn_ak74:0.8:1.0\n  wpn_ak74 = item section name\n  0.8 = only buy if condition is 80% or better\n  1.0 = pay full base price (0.5 = half price, 1.5 = 150%)\n\nOne item per line.')">?</i></summary>
+        <div style="font-size:10px;color:#888;margin-bottom:4px;font-family:monospace">Format: item_id : min_condition (0-1) : price_multiplier (1.0 = full price)</div>
         <div class="fg"><textarea id="f_tradeBuyList" placeholder="wpn_ak74:0.8:1.0" oninput="saveTradeField('buyListRaw',this.value);_debouncedLint()"></textarea></div>
         <div class="task-ib-toggle collapsed" onclick="toggleTradeIb('ib_trade_buy')"><span class="task-section-arrow">&#9656;</span> Browse Items</div>
         <div id="ib_trade_buy" class="task-ib-host" style="display:none"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><button class="btn b2 bs" onclick="addSuggestedAmmoToTradeBuy()">+ Auto Add Ammo Line</button></div>
     </details>
     <details class="sec">
-        <summary class="st">Sell List <i class="ti" onclick="showTip(event,'Sell List','Items this NPC has for sale.\n\nFormat: item_id:condition:price_factor\n\nCondition: item quality (0.0–1.0).\nPrice factor: multiplier on base price (1.0 = normal).')">?</i></summary>
+        <summary class="st">Sell List <i class="ti" onclick="showTip(event,'Sell List','Items this NPC sells TO the player.\n\nFormat: item_id : item_condition : price_multiplier\n\nExample: ammo_5.45x39_fmj:1.0:1.0\n  ammo_5.45x39_fmj = item section name\n  1.0 = pristine condition\n  1.0 = sell at full base price (0.8 = 20% discount, 1.5 = 50% markup)\n\nOne item per line.')">?</i></summary>
+        <div style="font-size:10px;color:#888;margin-bottom:4px;font-family:monospace">Format: item_id : condition (0-1) : price_multiplier (1.0 = full price)</div>
         <div class="fg"><textarea id="f_tradeSellList" placeholder="ammo_5.45x39_fmj:1.0:1.0" oninput="saveTradeField('sellListRaw',this.value);_debouncedLint()"></textarea></div>
         <div class="task-ib-toggle collapsed" onclick="toggleTradeIb('ib_trade_sell')"><span class="task-section-arrow">&#9656;</span> Browse Items</div>
         <div id="ib_trade_sell" class="task-ib-host" style="display:none"></div>
     </details>
     <details class="sec">
-        <summary class="st">Supply List <i class="ti" onclick="showTip(event,'Supply List','Restocking supply items — NPC inventory refills over time.\n\nFormat: stock_N:restock_days:item_id:count:condition\n\nrestock_days: 0 = always available.\ncount: how many to stock.\ncondition: 0.0–1.0 item quality.')">?</i></summary>
+        <summary class="st">Supply List <i class="ti" onclick="showTip(event,'Supply List','Restocking inventory — items reappear in the NPC\'s shop over time.\n\nFormat: stock_name : restock_goodwill : item_id : quantity : condition\n\nExample: stock_0:0:medkit:1:0.4\n  stock_0 = supply tier name (any unique name)\n  0 = no goodwill requirement (100 = need 100+ goodwill)\n  medkit = item section\n  1 = stock 1 unit\n  0.4 = item at 40% condition\n\nOne item per line.')">?</i></summary>
+        <div style="font-size:10px;color:#888;margin-bottom:4px;font-family:monospace">Format: stock_name : min_goodwill : item_id : quantity : condition (0-1)</div>
         <div class="fg"><textarea id="f_tradeSupplyList" placeholder="stock_0:0:medkit:1:0.4&#10;stock_1:100:ammo_5.45x39_fmj:2:0.6" oninput="saveTradeField('supplyListRaw',this.value);_debouncedLint()"></textarea></div>
         <div class="task-ib-toggle collapsed" onclick="toggleTradeIb('ib_trade_supply')"><span class="task-section-arrow">&#9656;</span> Browse Items</div>
         <div id="ib_trade_supply" class="task-ib-host" style="display:none"></div>
@@ -1374,6 +1505,7 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
     <div class="dlg-subtab-bar">
         <button class="dlg-stab active" data-stab="graph" onclick="switchDlgSubtab('graph',this)">Node Graph</button>
         <button class="dlg-stab" data-stab="tasks" onclick="switchDlgSubtab('tasks',this)">Tasks</button>
+        <button class="dlg-stab" data-stab="flags" onclick="switchDlgSubtab('flags',this);renderFlags()">Flags</button>
         <button class="dlg-stab" data-stab="specializations" onclick="switchDlgSubtab('specializations',this)">Specializations</button>
         <button class="dlg-stab" data-stab="news" onclick="switchDlgSubtab('news',this)">Dynamic News</button>
     </div>
@@ -1393,10 +1525,10 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
             <span id="graphZoomLabel" style="color:#888;font-size:11px;margin-left:auto">100%  Shift+scroll to zoom</span>
         </div>
 
-        <!-- Validation strip -->
-        <div style="display:flex;gap:1px;max-height:80px;margin-bottom:6px">
-            <div id="dialogValidation" class="ec" style="flex:1;color:#ffd166;padding:4px 8px;font-size:11px;overflow-y:auto;max-height:80px"></div>
-            <div id="bindingValidation" class="ec" style="flex:1;padding:4px 8px;font-size:11px;overflow-y:auto;max-height:80px"></div>
+        <!-- Validation strip (hidden in normal mode, data read by fullscreen error bar) -->
+        <div style="display:none">
+            <div id="dialogValidation"></div>
+            <div id="bindingValidation"></div>
         </div>
 
         <!-- Graph fullscreen container -->
@@ -1411,6 +1543,7 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
             <span id="graphFsZoomLabel" style="color:#888;font-size:11px;margin-left:auto">100%</span>
             <button class="btn b2 bs" onclick="toggleGraphFullscreen()" style="margin-left:8px">✕ Exit</button>
         </div>
+        <button id="graphFsToggle" class="graph-fs-toggle" onclick="toggleGraphFsToolbar()">Menu</button>
         <!-- Graph canvas -->
         <div id="dialogGraphCanvas" class="dlg-canvas"><div class="dlg-canvas-hint" style="color:#888;font-size:12px;text-align:center;padding:40px 20px">Select a character to start building a dialog tree.<br>Scroll to zoom, drag to pan, click nodes to edit.</div></div>
         <div id="dialogMinimap" class="dlg-minimap" style="display:none" onmousedown="minimapStartDrag(event)">
@@ -1435,6 +1568,14 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
                 <button class="btn b2 bs" onclick="addTask('shopping')">+ Shopping List</button>
             </div>
             <div id="taskList"></div>
+        </div>
+    </div>
+
+    <!-- ══ SUBTAB: FLAGS ══ -->
+    <div class="dlg-stab-panel" id="dlgStab_flags" style="display:none">
+        <div class="sec">
+            <h2 class="st">Story Flags <i class="ti" onclick="showTip(event,'Story Flags','Flags are named checkpoints for your story. Create a flag like &quot;Quest Started&quot; or &quot;Met the Doctor&quot;, then pick it from dropdowns in dialog nodes.\n\nGreen dot = flag is given by a node. Blue dot = flag is checked by a node. Grey = unused.\n\nIn the engine, these become info portions (has_info / give_info in XML).')">?</i></h2>
+            <div id="flagsPanel"></div>
         </div>
     </div>
 
@@ -1488,35 +1629,327 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
     </div>
 </div>
 </div>
+<!-- Layer Panel + controls (OUTSIDE overlay so z-index works independently) -->
+<aside class="layer-panel" id="texLayerPanel" hidden>
+    <div class="layer-head" id="texLayerHead">
+        <strong id="texLayerTitle">Texture Layers</strong>
+        <div class="layer-head-controls">
+            <button class="tiny" id="texLayerUndoBtn">Undo</button>
+            <button class="tiny" id="texLayerRedoBtn">Redo</button>
+            <button class="tiny" id="texLayerHideBtn">✕</button>
+        </div>
+    </div>
+    <div class="layer-search-wrap">
+        <input class="layer-search" id="texLayerSearch" type="text" placeholder="Filter layers...">
+        <div class="layer-chip-row">
+            <span class="layer-chip" id="texLayerSceneChip">Scene: <strong>Settings</strong></span>
+            <span class="layer-chip" id="texLayerSelectionChip">Selected: <strong>0</strong></span>
+            <button class="layer-chip filter-btn" id="texFilterVisibleBtn" title="Show only visible layers">👁 Visible</button>
+            <button class="layer-chip filter-btn" id="texFilterLockedBtn" title="Show only locked layers">🔒 Locked</button>
+            <button id="texShowArchivedBtn" class="tiny" title="Show archived layers" style="opacity:0.6">👁 Archived</button>
+        </div>
+    </div>
+    <div class="layer-breadcrumb" id="texLayerBreadcrumb" hidden></div>
+    <div class="layer-tools">
+        <div class="layer-tools-row selection-tools" id="texLayerBasicToolbar" style="display:none">
+            <button class="tiny" id="texSoloToggleBtn">Solo / Unsolo</button>
+            <button class="tiny" id="texJumpGroupBtn">Jump Group</button>
+        </div>
+        <div class="layer-tools-row selection-tools" id="texLayerAlignToolbar" style="display:none">
+            <span class="tool-cluster">
+                <button class="tiny" id="texAlignLeftBtn">Align L</button>
+                <button class="tiny" id="texAlignCenterBtn">Align C</button>
+                <button class="tiny" id="texAlignRightBtn">Align R</button>
+            </span>
+            <span class="tool-cluster-sep"></span>
+            <span class="tool-cluster">
+                <button class="tiny" id="texAlignTopBtn">Align T</button>
+                <button class="tiny" id="texAlignMiddleBtn">Align M</button>
+                <button class="tiny" id="texAlignBottomBtn">Align B</button>
+            </span>
+            <span class="tool-cluster-sep"></span>
+            <span class="tool-cluster">
+                <button class="tiny" id="texDistributeHBtn">Dist H</button>
+                <button class="tiny" id="texDistributeVBtn">Dist V</button>
+            </span>
+        </div>
+        <div class="layer-tools-row utility-tools" id="texLayerUtilityToolbar">
+            <button class="layer-tool-icon-btn" id="texRulersToggleBtn" title="Rulers">⊟</button>
+            <button class="layer-tool-icon-btn" id="texGuidesToggleBtn" title="Guides">⊕</button>
+            <button class="layer-tool-icon-btn" id="texMeasureToggleBtn" title="Measure">⇔</button>
+            <button class="layer-tool-icon-btn" id="texHistoryPanelBtn" title="History">↩</button>
+            <button class="layer-tool-icon-btn" id="texDrawToggleBtn" title="Draw">✎</button>
+        </div>
+        <div class="draw-toolbar" id="texDrawToolbar" hidden>
+            <button class="tiny" id="texDrawModeFree" title="Freehand pen">Pen</button>
+            <button class="tiny draw-icon-btn" id="texDrawModeLine" title="Straight line A→B"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><line x1="2" y1="12" x2="12" y2="2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+            <button class="tiny draw-icon-btn" id="texDrawModeArrow" title="Arrow"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><line x1="2" y1="12" x2="11" y2="3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><polyline points="11,3 6,4 10,8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button>
+            <button class="tiny draw-icon-btn" id="texDrawModeCircle" title="Circle"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.8"/></svg></button>
+            <button class="tiny draw-icon-btn" id="texDrawModeXmark" title="X marker"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><line x1="3" y1="3" x2="11" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="11" y1="3" x2="3" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+            <button class="tiny draw-icon-btn" id="texDrawModeQmark" title="Question mark"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><text x="7" y="7.5" text-anchor="middle" dominant-baseline="middle" fill="currentColor" font-size="7" font-weight="bold" font-family="sans-serif">?</text></svg></button>
+            <button class="tiny" id="texDrawModePin" title="Place pin marker">Pin</button>
+            <button class="tiny" id="texDrawModeErase" title="Erase annotations">Erase</button>
+            <div class="draw-sep"></div>
+            <button class="draw-color-btn active" id="texDrawColorAmber" style="background:#d48c10" title="Amber" data-color="#d48c10"></button>
+            <button class="draw-color-btn" id="texDrawColorRed" style="background:#cc3838" title="Red" data-color="#cc3838"></button>
+            <button class="draw-color-btn" id="texDrawColorGreen" style="background:#3a9e4a" title="Green" data-color="#3a9e4a"></button>
+            <button class="draw-color-btn" id="texDrawColorBlue" style="background:#3a78cc" title="Blue" data-color="#3a78cc"></button>
+            <button class="draw-color-btn" id="texDrawColorWhite" style="background:#c8c0a8" title="White" data-color="#c8c0a8"></button>
+            <div class="draw-sep"></div>
+            <button class="tiny" id="texDrawWidthThin" title="Thin stroke" style="font-size:9px">─</button>
+            <button class="tiny" id="texDrawWidthMed" title="Medium stroke" style="font-size:11px">─</button>
+            <button class="tiny" id="texDrawWidthThick" title="Thick stroke" style="font-size:14px">─</button>
+            <div class="draw-sep"></div>
+            <button class="tiny" id="texDrawClearBtn">Clear</button>
+        </div>
+        <div class="layer-tools-row layer-context-meta" id="texLayerContextMeta">No selection</div>
+        <div class="layer-context-row" id="texLayerSingleContextRow" hidden>
+            <label class="layer-context-field">X<input class="tiny-input" id="texCtxX" type="text" placeholder="X"></label>
+            <label class="layer-context-field">Y<input class="tiny-input" id="texCtxY" type="text" placeholder="Y"></label>
+            <label class="layer-context-field">W<input class="tiny-input" id="texCtxW" type="text" placeholder="W"></label>
+            <label class="layer-context-field">H<input class="tiny-input" id="texCtxH" type="text" placeholder="H"></label>
+        </div>
+        <div class="layer-tools-row layer-context-adjust" id="texLayerContextAdjustRow" hidden>
+            <label>Opacity <input id="texCtxOpacity" type="range" min="0" max="100" step="1" value="100"></label>
+            <span id="texCtxOpacityVal" class="layer-context-meta">100%</span>
+            <label>Z <input class="tiny-input" id="texCtxZ" type="number" min="-10000" max="10000" step="1" value="0"></label>
+        </div>
+    </div>
+    <div class="layer-list-wrap">
+        <div class="layer-list" id="texLayerList"></div>
+    </div>
+    <div class="layer-minimap" id="texLayerMinimap">
+        <div class="layer-minimap-hdr">
+            <span class="layer-minimap-title">Scene Map</span>
+            <div class="layer-minimap-legend">
+                <span><i style="background:rgba(55,135,195,0.8)"></i>img</span>
+                <span><i style="background:rgba(200,165,40,0.8)"></i>text</span>
+                <span><i style="background:rgba(120,105,58,0.8)"></i>div</span>
+                <span><i style="background:rgba(90,170,110,0.8)"></i>input</span>
+            </div>
+        </div>
+        <canvas class="layer-minimap-canvas" id="texMinimapCanvas"></canvas>
+    </div>
+    <div class="layer-statusbar">
+        <div class="layer-status-meta" id="texLayerStats">0 layers · 0 selected · 0 hidden</div>
+        <div class="layer-status-actions">
+            <label class="snap-ctrl"><input type="checkbox" id="texSnapToggle"> Snap</label>
+            <input class="tiny-input" id="texSnapSizeInput" type="number" min="1" max="256" step="1" value="8" title="Snap grid size (px)">
+        </div>
+    </div>
+    <div class="layer-footer">
+        <div class="layer-footer-left">
+            <div class="layer-zoom-inline">
+                <button id="texZoomOutBtn">-</button>
+                <span id="texZoomLabel">100%</span>
+                <button id="texZoomInBtn">+</button>
+                <button id="texZoomResetBtn">Reset</button>
+            </div>
+        </div>
+        <div class="layer-footer-right">
+            <div class="layer-menu" id="texLayoutMenu">
+                <button class="tiny" id="texLayoutMenuBtn">Layout ▾</button>
+                <div class="layer-menu-pop" id="texLayoutMenuPop">
+                    <button class="tiny" id="texLayerSaveBtn">Save Layout File</button>
+                    <button class="tiny" id="texLayerLoadBtn">Load Layout File…</button>
+                    <button class="tiny" id="texLayerCopyBtn">Copy Layout JSON</button>
+                    <button class="tiny" id="texLayerPasteBtn">Paste Layout JSON</button>
+                    <button class="tiny" id="texLayerLoadDefaultBtn">Restore Original Positions</button>
+                    <button class="tiny" id="texLayerResetBtn">Reset Current Scene</button>
+                </div>
+            </div>
+            <button class="tiny" id="texLayerHelpBtn">?</button>
+        </div>
+    </div>
+    <div class="layer-shortcut-modal" id="texLayerHelpModal" aria-hidden="true">
+        <div class="layer-shortcut-card" role="dialog" aria-modal="true" aria-labelledby="texLayerHelpTitle">
+            <div class="layer-shortcut-head">
+                <strong id="texLayerHelpTitle">LAYER EDITOR HELP</strong>
+                <button class="tiny" id="texLayerHelpCloseBtn">Close</button>
+            </div>
+            <div class="layer-shortcut-body">
+                <div class="layer-help">Scene drag: left = move, right = resize, Alt+left = marquee select.</div>
+                <div class="layer-help">Panel move/resize: Shift+left-drag to move panel, Shift+right-drag to resize panel.</div>
+                <div class="layer-shortcut-grid">
+                    <code>Ctrl+Z</code><span>Undo</span>
+                    <code>Ctrl+Y</code><span>Redo</span>
+                    <code>Mouse4</code><span>Toggle panel visibility</span>
+                    <code>Escape</code><span>Clear search (when focused) / close help</span>
+                    <code>Ctrl+Wheel</code><span>Zoom active overlay scene</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <input id="texLayerLoadFile" type="file" accept="application/json,text/javascript,.json,.js" hidden>
+</aside>
+<canvas id="texDrawCanvas"></canvas>
+<div id="texDrawPinLayer"></div>
+<button class="layer-show-btn" id="texLayerShowBtn" hidden>Show Layers</button>
+<div class="tex-precision-overlay" id="texPrecisionOverlay" hidden>
+    <div class="tex-ruler top" id="texRulerTop" hidden></div>
+    <div class="tex-ruler left" id="texRulerLeft" hidden></div>
+    <div id="texGuideLayer"></div>
+    <div id="texMeasureLayer"></div>
+</div>
+<aside class="layer-history-panel" id="texLayerHistoryPanel" hidden>
+    <div class="layer-history-head">
+        <strong>History</strong>
+        <button class="tiny" id="texLayerHistoryCloseBtn">Close</button>
+    </div>
+    <div class="layer-history-list" id="texLayerHistoryList"></div>
+</aside>
+
+<!-- ═══ EXPORT TAB ═══ -->
+<div class="tc" id="tab-export">
+
+    <!-- ── Group selection ── -->
+    <details class="sec" open>
+        <summary class="st">Select Groups to Export <i class="ti" onclick="showTip(event,'Export Selection','Choose which groups, solo characters, or connection groups to include in this export.\n\nEach checked item becomes one creation pack (folder with scripts, configs, dialogs).\n\nConnection groups bundle multiple archetypes into a single pack — useful for NPCs that share tasks or dialogs.')">?</i></summary>
+        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+            <button class="btn b2 bs" onclick="exportSelectAll(true)">Select All</button>
+            <button class="btn b2 bs" onclick="exportSelectAll(false)">Deselect All</button>
+        </div>
+        <div id="exportGroupSelect" style="display:flex;flex-direction:column;gap:6px"></div>
+    </details>
+
+    <!-- ── Actions ── -->
+    <div class="sec" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn b2 bs" onclick="generatePreview()">Preview Code</button>
+        <button class="btn" style="background:#4caf50" onclick="downloadSelectedZips()">⬇ Download Selected ZIPs</button>
+    </div>
+
+    <!-- ── Code preview blocks ── -->
+    <div id="exportBlocks"></div>
+</div>
 <div id="archLockOverlay" hidden style="position:absolute;inset:0;z-index:165;cursor:not-allowed;background:rgba(0,0,0,0.07);box-shadow:inset 0 0 80px rgba(200,80,0,0.07)"></div>
 
 </div>
+<div id="archShowLayersBadge" hidden style="position:fixed;z-index:241;background:rgba(20,18,14,0.92);border:1px solid rgba(185,150,85,0.35);color:#c8b870;font-size:11px;padding:5px 10px;cursor:pointer;border-radius:3px;letter-spacing:0.3px;user-select:none">▤ Layers</div>
+<div id="archEditorOffBadge" hidden style="position:fixed;top:8px;right:8px;z-index:241;background:rgba(20,18,14,0.92);border:1px solid rgba(185,150,85,0.35);color:#c8b870;font-size:11px;padding:5px 10px;cursor:pointer;border-radius:3px;letter-spacing:0.3px;user-select:none">⊘ Editor OFF — F1</div>
+<button id="archUnlockBtn" hidden style="position:fixed;top:8px;right:8px;z-index:99999;background:rgba(180,60,40,0.85);border:1px solid rgba(255,100,60,0.6);border-radius:3px;color:#fff;font-size:12px;padding:5px 12px;cursor:pointer;letter-spacing:0.3px">🔓 Unlock</button>
+<div class="snap-zone snap-zone-left" id="snapZoneLeft" hidden></div>
+<div class="snap-zone snap-zone-right" id="snapZoneRight" hidden></div>
+<div class="snap-zone snap-zone-top" id="snapZoneTop" hidden></div>
+<div class="snap-zone snap-zone-bottom" id="snapZoneBottom" hidden></div>
 
 
 
+<!-- ═══ TUTORIAL MODAL ═══ -->
+<div id="tutModal" onclick="if(event.target.id==='tutModal')closeTutorial()">
+  <div class="tut-card" onclick="event.stopPropagation()">
+    <div class="tut-head">
+      <h2>HOW TO USE</h2>
+      <button class="tut-close" onclick="closeTutorial()">✕</button>
+    </div>
+    <div class="tut-body">
+      <nav class="tut-nav" id="tutNav"></nav>
+      <div class="tut-main">
+        <div class="tut-demo-wrap"><div class="tut-demo" id="tutDemo"></div></div>
+        <div class="tut-info">
+          <div class="tut-title" id="tutTitle"></div>
+          <div class="tut-desc" id="tutDesc"></div>
+        </div>
+      </div>
+    </div>
+    <div class="tut-foot">
+      <button id="tutPrev" onclick="_tutPrev()">← Prev</button>
+      <span class="tut-counter" id="tutCounter"></span>
+      <button id="tutNext" onclick="_tutNext()">Next →</button>
+    </div>
+  </div>
+</div>
 
+<!-- ═══ ANALYZER OVERLAY ═══ -->
+<div id="analyzerOverlay" onclick="if(event.target===this)closeAnalyzerOverlay()">
+    <div class="az-panel" onclick="event.stopPropagation()">
+        <div class="az-panel-header">
+            <h2>PACK ANALYZER <span style="font-size:11px;color:#888;font-weight:normal;letter-spacing:1px">— EXPERIMENTAL</span></h2>
+            <button class="az-close" onclick="closeAnalyzerOverlay()">✕</button>
+        </div>
+        <div class="az-panel-body">
+            <!-- Sources -->
+            <div class="az-section">
+                <div class="az-section-title">Archetype Sources</div>
+                <div class="az-row">
+                    <label><input type="checkbox" id="azIncludeEditor" checked onchange="_analyzerUpdatePoolSummary()"> Include editor archetypes</label>
+                </div>
+                <div class="az-row" style="margin-top:6px">
+                    <button class="az-btn" onclick="analyzerScanMO2()">Scan MO2 Folder…</button>
+                    <span id="azScanStatus"></span>
+                </div>
+                <div id="azDropZone" style="margin-top:8px"
+                     ondrop="analyzerHandleLtxDrop(event)"
+                     ondragover="analyzerHandleDragOver(event)"
+                     ondragleave="analyzerHandleDragLeave(event)"
+                     onclick="let i=document.createElement('input');i.type='file';i.multiple=true;i.accept='.ltx';i.onchange=e=>analyzerHandleLtxDrop({preventDefault(){},stopPropagation(){},dataTransfer:{files:e.target.files}});i.click()">
+                    Drop .ltx pack files here or click to browse
+                </div>
+                <div id="azExternalList"></div>
+                <div id="azPoolSummary"></div>
+            </div>
+
+            <!-- Settings -->
+            <div class="az-section">
+                <div class="az-section-title">Simulation Settings</div>
+                <div class="az-row">
+                    <label>Game day: <input type="number" id="azGameDays" value="0" min="0" max="999"></label>
+                </div>
+                <details style="margin-top:6px">
+                    <summary style="color:#888;font-size:11px;cursor:pointer;user-select:none">Tier Caps (MCM defaults)</summary>
+                    <div class="az-caps-grid" style="margin-top:6px">
+                        <div class="az-caps-hdr">Tier</div><div class="az-caps-hdr">Max/Level</div><div class="az-caps-hdr">Max/Faction</div>
+                        <div>T1 Highest</div><input type="number" id="azCapT1L" value="2" min="0"><input type="number" id="azCapT1F" value="3" min="0">
+                        <div>T2 High</div><input type="number" id="azCapT2L" value="5" min="0"><input type="number" id="azCapT2F" value="5" min="0">
+                        <div>T3 Normal</div><input type="number" id="azCapT3L" value="10" min="0"><input type="number" id="azCapT3F" value="8" min="0">
+                        <div>T4 Low</div><input type="number" id="azCapT4L" value="0" min="0"><input type="number" id="azCapT4F" value="0" min="0">
+                        <div>T5 Lowest</div><input type="number" id="azCapT5L" value="0" min="0"><input type="number" id="azCapT5F" value="0" min="0">
+                    </div>
+                    <div style="margin-top:4px"><button class="az-btn" onclick="_analyzerResetTierCaps()" style="font-size:10px">Reset to Defaults</button></div>
+                </details>
+            </div>
+
+            <!-- Run -->
+            <div class="az-section" style="text-align:center;padding:8px 0">
+                <button class="az-btn az-btn-primary" onclick="analyzerRunAndRender()">Run Analysis</button>
+            </div>
+
+            <!-- Report -->
+            <div class="az-section">
+                <div id="azReport"><div style="color:#aaa;font-size:12px;padding:16px 0;text-align:center">Add archetypes above, then click <b>Run Analysis</b> to see selection probability, tier competition, and issue detection for every archetype across all NPC combinations.</div></div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script src="./tool_config/vanilla_item_catalog.js?v=2"></script>
 <script src="./tool_config/weapon_compat.js"></script>
 <script src="./tool_config/arch_vanilla_topics_seed.js"></script>
 <script src="./tool_config/arch_vanilla_dialog_preview.js"></script>
 <script src="./tool_config/default_layout.js"></script>
-<script src="./scripts/core/data.js"></script>
-<script src="./scripts/core/data_access.js"></script>
+<script src="./scripts/core/data.js?v=20260321f"></script>
+<script src="./scripts/core/story_npcs.js?v=20260322a"></script>
+<script src="./scripts/core/data_access.js?v=20260321a"></script>
 <script src="./scripts/core/item_browser.js?v=3"></script>
-<script src="./scripts/core/lint.js?v=2"></script>
-<script src="./scripts/core/dialog_safety.js?v=1"></script>
+<script src="./scripts/core/lint.js?v=20260322a"></script>
+<script src="./scripts/core/flags.js?v=20260323"></script>
 <script src="./scripts/core/ux.js"></script>
-<script src="./scripts/dialogs/nodes.js"></script>
-<script src="./scripts/dialogs/dialog_editor.js"></script>
-<script src="./scripts/tabs/archetypes.js"></script>
-<script src="./scripts/tabs/settings.js?v=2"></script>
-<script src="./scripts/subtabs/graph.js"></script>
-<script src="./scripts/subtabs/preview.js"></script>
+<script src="./scripts/dialogs/nodes.js?v=20260321a"></script>
+<script src="./scripts/dialogs/dialog_editor.js?v=20260321d"></script>
+<script src="./scripts/tabs/archetypes.js?v=20260321c"></script>
+<script src="./scripts/tabs/settings.js?v=20260321b"></script>
+<script src="./scripts/tabs/export_generate.js?v=20260322a"></script>
+<script src="./scripts/tabs/export.js?v=20260322a"></script>
+<script src="./scripts/tabs/export_validate.js?v=20260322a"></script>
+<script src="./scripts/subtabs/graph_interact.js?v=20260322a"></script>
+<script src="./scripts/subtabs/graph_render.js?v=20260322a"></script>
+<script src="./scripts/subtabs/preview.js?v=20260322a"></script>
 <script src="./scripts/subtabs/tasks.js"></script>
 <script src="./scripts/subtabs/specializations.js"></script>
-<script src="./scripts/subtabs/news_preview.js"></script>
-<script src="./scripts/import/mo2_scanner.js?v=5"></script>
+<script src="./scripts/import/mo2_scanner.js?v=20260322a"></script>
+<script src="./scripts/import/mo2_parser.js?v=20260322a"></script>
+<script src="./scripts/import/analyzer.js"></script>
+<script src="./scripts/texture/layer_tagging.js"></script>
+<script src="./scripts/tutorial.js"></script>
 <script src="./scripts/core/init.js"></script>
 <!-- ── Sidebar toggle button ── -->
 <button id="sidebarToggleBtn" onclick="toggleSidebar()" title="Archetypes sidebar (N)">◀ ARCH</button>
@@ -1582,5 +2015,14 @@ body:not(.tex-editor-active) .tex-overlay-root .text-layer{pointer-events:none;u
 </div>
 
 
+<!-- Warning popup for first character creation -->
+<div id="archWarningOverlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);align-items:center;justify-content:center">
+<div style="background:#1a1a1a;border:2px solid #ff8c00;border-radius:10px;padding:36px 40px;max-width:520px;text-align:center;box-shadow:0 0 40px rgba(255,140,0,0.3)">
+<div style="font-size:22px;color:#ff8c00;font-weight:bold;margin-bottom:16px">⚠ Early Testing Build</div>
+<div style="color:#d4d4d4;font-size:14px;line-height:1.6;margin-bottom:20px">This HTML generator is still in <b style="color:#ff8c00">deep testing</b>. Features may break and data may be lost between updates.</div>
+<div style="color:#e8e0c8;font-size:14px;line-height:1.6;margin-bottom:24px">To make sure you don't lose your creations:<br><b>1.</b> Regularly download a <b>JSON backup</b> of your project<br><b>2.</b> Keep backups of your generated archetype packs</div>
+<button onclick="document.getElementById('archWarningOverlay').style.display='none';localStorage.setItem('arch_warning_seen','1')" style="padding:12px 32px;font-size:15px;font-weight:bold;background:#ff8c00;color:#1a1a1a;border:none;border-radius:5px;cursor:pointer">I understand</button>
+</div>
+</div>
 </body>
 </html>

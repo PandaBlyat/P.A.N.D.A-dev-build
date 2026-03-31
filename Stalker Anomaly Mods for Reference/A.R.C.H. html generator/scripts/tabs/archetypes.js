@@ -1,6 +1,11 @@
 // ═══════════════════════════════════════════
 // GROUP & CHARACTER MANAGEMENT
 // ═══════════════════════════════════════════
+function _showFirstCreateWarning(){
+    if(localStorage.getItem('arch_warning_seen')==='1')return;
+    var ov=document.getElementById('archWarningOverlay');
+    if(ov)ov.style.display='flex';
+}
 
 // ── Multi-select deletion ──
 let _multiSelectMode=false;
@@ -84,6 +89,7 @@ function createGroup(){
     const name=document.getElementById('newGrpName').value.trim();
     const count=Math.max(1,+document.getElementById('newGrpCount').value||1);
     if(!name){alert('Enter a group name.');return;}
+    _showFirstCreateWarning();
     const grp={name,defaults:mkDefaults(),chars:[]};
     for(let i=1;i<=count;i++){
         grp.chars.push({archId:name+'_'+i,displayName:'',ov:{}});
@@ -153,7 +159,12 @@ function updateModeBar(){
     const mb=document.getElementById('modeBtnBack');
     if(editMode==='solo'&&curSolo!==null){
         mb.style.display='inline-block';
-        mt.innerHTML='SOLO: <span style="color:#ff8c00">'+esc(soloChars[curSolo]?.archId||'?')+'</span>';
+        var _snpc=getCurrentStoryNpc();
+        if(_snpc){
+            mt.innerHTML='<span style="color:#ffe082">'+esc(_snpc.name)+'</span> <span style="color:#888">— '+esc(_snpc.role)+', '+esc(_snpc.loc)+'</span>';
+        } else {
+            mt.innerHTML='SOLO: <span style="color:#ff8c00">'+esc(soloChars[curSolo]?.archId||'?')+'</span>';
+        }
         return;
     }
     if(!editMode||curGrp===null){mt.textContent='No group selected';mb.style.display='none';return;}
@@ -228,6 +239,9 @@ function renderGroupList(){
     if(soloBox){
         soloBox.innerHTML='';
         soloChars.forEach((ch,si)=>{
+            // Story NPCs render in their own section
+            var _assignTo=(ch.ov&&ch.ov.settings&&ch.ov.settings.assignTo)||(ch.defaults&&ch.defaults.settings&&ch.defaults.settings.assignTo)||'';
+            if(_assignTo&&STORY_NPC_LOOKUP[_assignTo])return;
             const active=(editMode==='solo'&&curSolo===si)?'active':'';
             const dot=soloStatus(si);
             const dotTip=dot==='ok'?'Complete':'Missing community or LTX';
@@ -251,27 +265,63 @@ function renderGroupList(){
     }
     if(typeof autoSave==='function')autoSave();
     if(typeof renderSidebar==='function')renderSidebar();
+    // Story NPC section
+    renderStoryNpcList();
+    var _snpSel=document.getElementById('storyNpcPicker');
+    if(_snpSel){_snpSel.innerHTML='';populateStoryNpcPicker();}
     // keep export selector in sync whenever groups/solo change
     if(document.getElementById('tab-export')?.classList.contains('active'))renderExportGroupSelect();
 }
 
 // ── Solo character management ──
 function createSoloChar(){
-    const name=document.getElementById('newGrpName').value.trim()||'solo_char';
-    soloChars.push({archId:name+'_'+(soloChars.length+1),displayName:'',ov:{},_solo:true,defaults:mkDefaults()});
+    _showFirstCreateWarning();
+    const raw=document.getElementById('newGrpName').value.trim();
+    let archId;
+    if(raw){
+        archId=sanitizeLuaId(raw,'solo_char');
+        if(soloChars.find(c=>c.archId===archId)){let n=2;while(soloChars.find(c=>c.archId===archId+'_'+n))n++;archId=archId+'_'+n;}
+    }else{
+        archId='solo_char_'+(soloChars.length+1);
+    }
+    soloChars.push({archId,displayName:'',ov:{},_solo:true,defaults:mkDefaults()});
     renderGroupList();setStatus('Created solo character.','ok');
 }
 function rmSoloChar(si){
-    const removed=soloChars[si]?.archId||'character';
-    if(!confirm(`Delete solo character "${removed}"? This cannot be undone.`))return;
+    const ch=soloChars[si];
+    const _at=ch&&ch.ov&&ch.ov.settings&&ch.ov.settings.assignTo||'';
+    const _snpc=(_at&&typeof STORY_NPC_LOOKUP!=='undefined')?STORY_NPC_LOOKUP[_at]:null;
+    const removed=_snpc?_snpc.name:(ch?.archId||'character');
+    const label=_snpc?('story NPC "'+removed+'" ('+_snpc.loc+')'):('solo character "'+removed+'"');
+    if(!confirm('Delete '+label+'? This cannot be undone.'))return;
     soloChars.splice(si,1);
     if(editMode==='solo'&&curSolo===si){editMode=null;curSolo=null;updateModeBar();}
     else if(editMode==='solo'&&curSolo!==null&&curSolo>si){curSolo--;updateModeBar();}
-    renderGroupList();setStatus(`Deleted solo character '${removed}'.`,'warn');
+    renderGroupList();setStatus('Deleted '+label+'.','warn');
 }
+// Returns the STORY_NPC_LOOKUP entry if the current selection is a story NPC, else null
+function getCurrentStoryNpc(){
+    if(editMode!=='solo'||curSolo===null)return null;
+    var ch=soloChars[curSolo];if(!ch)return null;
+    var at=(ch.ov&&ch.ov.settings&&ch.ov.settings.assignTo)||(ch.defaults&&ch.defaults.settings&&ch.defaults.settings.assignTo)||'';
+    return(at&&typeof STORY_NPC_LOOKUP!=='undefined')?STORY_NPC_LOOKUP[at]||null:null;
+}
+
 function editSoloChar(si){
     editMode='solo';curSolo=si;curGrp=null;curChar=null;
-    updateModeBar();renderGroupList();switchTab('settings');
+    curVanillaServiceIdx=null;
+    var _at=(soloChars[si]&&soloChars[si].ov&&soloChars[si].ov.settings&&soloChars[si].ov.settings.assignTo)||'';
+    // Lazy-init vanilla services for story NPCs loaded from localStorage
+    if(_at&&typeof STORY_NPC_LOOKUP!=='undefined'&&STORY_NPC_LOOKUP[_at]){
+        var ch=soloChars[si];
+        var dlg=ch&&ch.ov&&ch.ov.dlg;
+        if(dlg&&!Array.isArray(dlg.vanillaServices)){
+            dlg.vanillaServices=_buildVanillaServiceTrees(_at,STORY_NPC_LOOKUP[_at].block);
+        }
+    }
+    updateAssignToTabVisibility(_at);
+    updateModeBar();renderGroupList();
+    switchTab(_at?'arch':'settings');
 }
 
 // ── Drag-and-drop between groups and solo ──
@@ -342,6 +392,341 @@ function onArchIdInput(raw){
     syncDialogId();updateModeBar();renderGroupList();
     if(typeof autoSave==='function')autoSave();
     if(typeof validateArchId==='function')validateArchId(raw);
+}
+
+// ═══════════════════════════════════════════
+// STORY NPC — Unique Vanilla NPCs
+// ═══════════════════════════════════════════
+
+function populateStoryNpcPicker(){
+    var sel=document.getElementById('storyNpcPicker');
+    if(!sel||sel.options.length>1)return;
+    sel.innerHTML='<option value="">-- Select a Vanilla NPC --</option>';
+    var locs={};
+    STORY_NPCS.forEach(function(n){
+        if(!locs[n.loc])locs[n.loc]=[];
+        locs[n.loc].push(n);
+    });
+    Object.keys(locs).forEach(function(loc){
+        var grp=document.createElement('optgroup');
+        grp.label=loc;
+        locs[loc].forEach(function(n){
+            var opt=document.createElement('option');
+            opt.value=n.id;
+            opt.textContent=n.name+' — '+n.role;
+            // Grey out already-added NPCs
+            if(soloChars.some(function(c){return c.ov&&c.ov.settings&&c.ov.settings.assignTo===n.id;}))
+                {opt.disabled=true;opt.textContent+=' (added)';}
+            grp.appendChild(opt);
+        });
+        sel.appendChild(grp);
+    });
+}
+
+// Convert vanilla dialog phrase data into generator dialog tree format
+function _buildStoryNpcDialogTrees(npcId,archId){
+    var vanillaData=STORY_NPC_VANILLA_DIALOG_DATA[npcId];
+    if(!vanillaData)return[];
+    var trees=[];
+    var treeIdx=0;
+    Object.keys(vanillaData).forEach(function(dialogId){
+        var dlg=vanillaData[dialogId];
+        var phrases=dlg.phrases||[];
+        if(!phrases.length)return;
+        // Build phrase lookup
+        var byId={};
+        phrases.forEach(function(p){byId[p.id]=p;});
+        // Phrase 0 is always the opener (actor or NPC)
+        var p0=byId['0'];
+        if(!p0)return;
+        // Determine dialog structure:
+        // Simple: opener (actor) -> response (NPC) -> end
+        // Hub: opener (actor) -> hub (NPC) -> choices -> nodes
+        var openerText=p0.text||dialogId;
+        // Find the hub phrase (first NPC response after opener)
+        var hubPhraseId=(p0.next&&p0.next[0])||null;
+        var hubPhrase=hubPhraseId?byId[hubPhraseId]:null;
+        var hubText=hubPhrase?(hubPhrase.text||'...'):'...';
+        // Build hub choices from hub's next refs
+        var hubChoices=[];
+        var nodes={};
+        var nodeCounter=1;
+        if(hubPhrase&&hubPhrase.next&&hubPhrase.next.length){
+            hubPhrase.next.forEach(function(nextId){
+                var choicePhrase=byId[nextId];
+                if(!choicePhrase)return;
+                var choiceText=choicePhrase.text||'...';
+                // Check if this choice leads to an NPC response
+                var responseId=(choicePhrase.next&&choicePhrase.next[0])||null;
+                var responsePhrase=responseId?byId[responseId]:null;
+                var choice={text:choiceText,next:'__end__'};
+                if(choicePhrase.action)choice.action=choicePhrase.action;
+                if(choicePhrase.precondition)choice.precondition=choicePhrase.precondition;
+                if(choicePhrase.has_info)choice.hasInfo=choicePhrase.has_info;
+                if(choicePhrase.dont_has_info)choice.dontHasInfo=choicePhrase.dont_has_info;
+                if(choicePhrase.give_info)choice.giveInfo=choicePhrase.give_info;
+                if(responsePhrase){
+                    var nodeId='n'+nodeCounter++;
+                    var npcResponse=responsePhrase.text||'...';
+                    var node={npc:npcResponse,label:'',choices:[{text:'Continue',next:'__hub__'}]};
+                    if(responsePhrase.action)node.action=responsePhrase.action;
+                    if(responsePhrase.give_info)node.giveInfo=responsePhrase.give_info;
+                    if(responsePhrase.has_info)node.hasInfo=responsePhrase.has_info;
+                    if(responsePhrase.dont_has_info)node.dontHasInfo=responsePhrase.dont_has_info;
+                    // Check if response leads to more choices (deeper tree)
+                    if(responsePhrase.next&&responsePhrase.next.length){
+                        var subChoices=[];
+                        responsePhrase.next.forEach(function(subNextId){
+                            var subPhrase=byId[subNextId];
+                            if(!subPhrase)return;
+                            var sc={text:subPhrase.text||'...',next:'__end__'};
+                            if(subPhrase.action)sc.action=subPhrase.action;
+                            if(subPhrase.precondition)sc.precondition=subPhrase.precondition;
+                            if(subPhrase.give_info)sc.giveInfo=subPhrase.give_info;
+                            // Check if sub-choice leads to another NPC response
+                            var subRespId=(subPhrase.next&&subPhrase.next[0])||null;
+                            var subResp=subRespId?byId[subRespId]:null;
+                            if(subResp){
+                                var subNodeId='n'+nodeCounter++;
+                                nodes[subNodeId]={npc:subResp.text||'...',label:'',choices:[{text:'OK',next:'__hub__'}]};
+                                if(subResp.action)nodes[subNodeId].action=subResp.action;
+                                if(subResp.give_info)nodes[subNodeId].giveInfo=subResp.give_info;
+                                sc.next=subNodeId;
+                            }
+                            subChoices.push(sc);
+                        });
+                        if(subChoices.length)node.choices=subChoices;
+                    }
+                    nodes[nodeId]=node;
+                    choice.next=nodeId;
+                }
+                hubChoices.push(choice);
+            });
+        }
+        // If no hub choices but hub has text, it's a simple linear dialog
+        if(!hubChoices.length&&hubText!=='...'){
+            hubChoices.push({text:'I see.',next:'__end__'});
+        }
+        treeIdx++;
+        var tree={
+            id:'dlg_'+treeIdx,
+            label:_formatDialogLabel(dialogId),
+            _sourceDialogId:dialogId,
+            opener:openerText,
+            hub:hubText,
+            hubChoices:hubChoices,
+            nodes:nodes,
+            layout:{}
+        };
+        // Carry dialog-level metadata
+        if(hubPhrase&&hubPhrase.action)tree.hubAction=hubPhrase.action;
+        if(hubPhrase&&hubPhrase.script_text)tree.hubScriptText=hubPhrase.script_text;
+        if(hubPhrase&&hubPhrase.give_info)tree.hubGiveInfo=hubPhrase.give_info;
+        trees.push(tree);
+    });
+    return trees;
+}
+function _formatDialogLabel(dialogId){
+    // Turn dialog_id into a readable label
+    return dialogId.replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}).replace(/^Sidorovich |^Sakharov |^Dushman |^Barkeep /,'');
+}
+
+// Build vanilla service dialog trees for a story NPC based on their actual dialog list
+function _buildVanillaServiceTrees(npcId,block){
+    if(typeof getStoryNpcServiceCategories!=='function')return[];
+    if(typeof STORY_NPC_SERVICE_TREES==='undefined')return[];
+    var cats=getStoryNpcServiceCategories(npcId);
+    var trees=[];
+    cats.forEach(function(cat){
+        var catTrees=STORY_NPC_SERVICE_TREES[cat.id];
+        if(!catTrees)return;
+        // Pick block-specific tree or _default
+        var treeData=catTrees[block]||catTrees._default;
+        if(!treeData)return;
+        trees.push({
+            id:'vsvc_'+cat.id,
+            label:cat.label,
+            _vanillaService:true,
+            _serviceCatId:cat.id,
+            opener:treeData.opener||'',
+            hub:treeData.hub||'',
+            hubChoices:dc(treeData.hubChoices||[]),
+            nodes:dc(treeData.nodes||{}),
+            layout:{}
+        });
+    });
+    return trees;
+}
+
+function addStoryNpc(){
+    _showFirstCreateWarning();
+    var sel=document.getElementById('storyNpcPicker');
+    if(!sel||!sel.value)return;
+    var npcId=sel.value;
+    var npc=STORY_NPC_LOOKUP[npcId];
+    if(!npc)return;
+    // Check if already added
+    if(soloChars.some(function(c){return c.ov&&c.ov.settings&&c.ov.settings.assignTo===npcId;})){
+        setStatus(npc.name+' is already added.','warn');return;
+    }
+    // Create solo character with assign_to pre-set
+    var archId=sanitizeLuaId('story_'+npcId,'story_npc');
+    var defaults=mkDefaults();
+    defaults.settings.assignTo=npcId;
+    defaults.settings.stripCategories=[];
+    var ch={archId:archId,displayName:npc.name,ov:{settings:{assignTo:npcId}},_solo:true,defaults:defaults};
+    // Story NPCs start with empty custom dialogs — no default "Dialog 1" opener.
+    var dlgData=dc(DEFAULT_DLG);
+    dlgData.dialogs=[];
+    // Pre-populate from vanilla dialog data if available
+    if(typeof STORY_NPC_VANILLA_DIALOG_DATA!=='undefined'&&STORY_NPC_VANILLA_DIALOG_DATA[npcId]){
+        dlgData.dialogs=_buildStoryNpcDialogTrees(npcId,archId);
+    }
+    // Build vanilla service trees for this NPC
+    dlgData.vanillaServices=_buildVanillaServiceTrees(npcId,npc.block);
+    ch.ov.dlg=dlgData;
+    soloChars.push(ch);
+    curSolo=soloChars.length-1;editMode='solo';curGrp=null;curChar=null;
+    autoSave();updateModeBar();renderGroupList();renderStoryNpcList();
+    updateAssignToTabVisibility(npcId);
+    // Reset picker
+    sel.innerHTML='';populateStoryNpcPicker();sel.value='';
+    setStatus('Added '+npc.name+' ('+npc.loc+')','ok');
+}
+
+function renderStoryNpcList(){
+    var el=document.getElementById('storyNpcList');
+    if(!el)return;
+    var html='';
+    soloChars.forEach(function(c,si){
+        var assignTo=(c.ov&&c.ov.settings&&c.ov.settings.assignTo)||(c.defaults&&c.defaults.settings&&c.defaults.settings.assignTo)||'';
+        if(!assignTo)return;
+        var npc=(typeof STORY_NPC_LOOKUP!=='undefined')?STORY_NPC_LOOKUP[assignTo]:null;
+        if(!npc)return;
+        var label=npc.name+' — '+npc.loc;
+        var active=editMode==='solo'&&curSolo===si;
+        var dlgCount=(typeof STORY_NPC_DIALOGS!=='undefined'&&STORY_NPC_DIALOGS[assignTo])?STORY_NPC_DIALOGS[assignTo].length:0;
+        var uniqueCount=(typeof getStoryNpcUniqueDialogs==='function')?getStoryNpcUniqueDialogs(assignTo).length:0;
+        var dlgBadge=dlgCount?'<span style="font-size:9px;color:#888;margin-left:4px" title="'+dlgCount+' vanilla dialogs ('+uniqueCount+' unique)">'+dlgCount+'d</span>':'';
+        html+='<span class="char-pill'+(active?' active':'')+'" onclick="editSoloChar('+si+')" style="cursor:pointer;padding:4px 10px">';
+        html+='<span style="color:'+(active?'#ffe082':'#ccc')+'">'+esc(label)+'</span>'+dlgBadge;
+        html+='<button class="char-del-btn" title="Remove" onclick="event.stopPropagation();rmSoloChar('+si+')">×</button>';
+        html+='</span>';
+    });
+    el.innerHTML=html;
+}
+
+function updateAssignToTabVisibility(val){
+    var isStory=!!(val&&typeof STORY_NPC_LOOKUP!=='undefined'&&STORY_NPC_LOOKUP[val]);
+    var settingsTab=document.querySelector('.tb[data-tab="settings"]');
+    var tradeTab=document.querySelector('.tb[data-tab="trade"]');
+    var dialogsTab=document.querySelector('.tb[data-tab="dialogs"]');
+    var _disTab=function(tab,hide){
+        if(!tab)return;
+        tab.disabled=hide;tab.style.opacity=hide?'0.35':'';
+        tab.style.pointerEvents=hide?'none':'';
+        tab.title=hide?'Not available for Unique Vanilla NPCs':'';
+    };
+    _disTab(settingsTab,isStory);
+    _disTab(tradeTab,isStory);
+    if(isStory){
+        var activeTab=document.querySelector('.tb.active');
+        if(activeTab&&(activeTab.dataset.tab==='settings'||activeTab.dataset.tab==='trade')){
+            var archTab=document.querySelector('.tb[data-tab="arch"]');
+            if(archTab)archTab.click();
+        }
+        renderStoryNpcInfoCard();
+    } else {
+        var card=document.getElementById('storyNpcInfoCard');
+        if(card)card.remove();
+    }
+}
+
+// ═══════════════════════════════════════════
+// STORY NPC INFO CARD
+// ═══════════════════════════════════════════
+
+function renderStoryNpcInfoCard(){
+    var npc=getCurrentStoryNpc();
+    if(!npc)return;
+    var el=document.getElementById('storyNpcInfoCard');
+    if(!el){
+        el=document.createElement('div');
+        el.id='storyNpcInfoCard';
+        // Insert at top of tab-arch, after the create/solo sections
+        var archTab=document.getElementById('tab-arch');
+        if(!archTab)return;
+        var storySection=document.getElementById('storyNpcSection');
+        if(storySection&&storySection.nextElementSibling){
+            archTab.insertBefore(el,storySection.nextElementSibling);
+        } else {
+            archTab.appendChild(el);
+        }
+    }
+
+    // Gather vanilla dialog info
+    var vanillaDlgs=(typeof STORY_NPC_DIALOGS!=='undefined')?STORY_NPC_DIALOGS[npc.id]||[]:[];
+    var uniqueDlgs=(typeof getStoryNpcUniqueDialogs==='function')?getStoryNpcUniqueDialogs(npc.id):[];
+    var commonDlgs=(typeof STORY_NPC_COMMON_DIALOGS!=='undefined')?STORY_NPC_COMMON_DIALOGS:{};
+
+    // Classify vanilla dialogs by category
+    var commonSet=new Set();
+    Object.values(commonDlgs).forEach(function(arr){arr.forEach(function(d){commonSet.add(d);});});
+
+    // Determine services from block and vanilla dialogs
+    var services=[];
+    if(npc.block==='trader')services.push('Trade');
+    if(npc.block==='tech')services.push('Repair/Upgrade');
+    if(npc.block==='medic')services.push('Healing');
+    if(npc.block==='barman')services.push('Food/Drink');
+    if(vanillaDlgs.indexOf('dm_ordered_task_dialog')>=0)services.push('Tasks');
+    if(vanillaDlgs.indexOf('dm_broker_dialog')>=0)services.push('Broker');
+
+    // Build service dialog list
+    var svcHtml='';
+    vanillaDlgs.forEach(function(d){
+        if(commonSet.has(d)||d.indexOf('_meet_dialog')>=0||d.indexOf('_game_start_dialog')>=0||d.indexOf('drx_sl_mechanic_task_dialog')>=0)return;
+        svcHtml+='<span style="display:inline-block;background:#2a2a2a;color:#bbb;padding:2px 8px;border-radius:3px;font-size:11px;margin:2px">'+esc(d)+'</span>';
+    });
+
+    var iconPath='icons/story_npcs/'+npc.id+'.png';
+    var h='<div style="background:#1a1a1a;border:1px solid #444;border-radius:6px;padding:16px;margin:12px 0">';
+    h+='<div style="display:flex;gap:14px;align-items:flex-start">';
+    h+='<img src="'+iconPath+'" alt="" style="width:123px;height:87px;border-radius:4px;border:1px solid #555;flex-shrink:0;image-rendering:pixelated" onerror="this.style.display=\'none\'">';
+    h+='<div style="flex:1;display:flex;justify-content:space-between;align-items:flex-start">';
+    h+='<div>';
+    h+='<div style="font-size:18px;font-weight:bold;color:#ffe082">'+esc(npc.name)+'</div>';
+    h+='<div style="color:#999;font-size:13px;margin-top:2px">'+esc(npc.role)+' — '+esc(npc.loc)+'</div>';
+    h+='</div>';
+    h+='<div style="text-align:right">';
+    h+='<div style="font-size:11px;color:#666">Archetype ID</div>';
+    h+='<div style="font-family:monospace;color:#82b1ff;font-size:12px">story_'+esc(npc.id)+'</div>';
+    h+='</div>';
+    h+='</div>';
+    h+='</div>';
+
+    // Services row
+    h+='<div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">';
+    services.forEach(function(s){
+        h+='<span style="background:#2d3a2d;color:#a5d6a7;padding:3px 10px;border-radius:12px;font-size:11px">'+esc(s)+'</span>';
+    });
+    h+='</div>';
+
+    // Vanilla dialogs
+    h+='<div style="margin-top:12px">';
+    h+='<div style="color:#888;font-size:11px;margin-bottom:4px">Vanilla dialogs ('+vanillaDlgs.length+' total, '+uniqueDlgs.length+' unique to this NPC)</div>';
+    if(svcHtml){
+        h+='<div style="display:flex;flex-wrap:wrap;gap:0">'+svcHtml+'</div>';
+    } else {
+        h+='<div style="color:#555;font-size:11px;font-style:italic">No unique dialogs</div>';
+    }
+    h+='</div>';
+
+    // Safety note
+    h+='<div style="margin-top:10px;color:#666;font-size:11px">This NPC is <span style="color:#a5d6a7">SAFE</span> — immortal, fixed location, persists across saves. Your pack adds dialogs and tasks on top of vanilla.</div>';
+
+    h+='</div>';
+    el.innerHTML=h;
 }
 
 // ═══════════════════════════════════════════

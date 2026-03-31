@@ -1,0 +1,396 @@
+-- arch_trade.script
+-- Trade system: trade_init wrapping, discount modifiers, visit tracking, trade presets.
+
+local _log = _G.arch_logger_module and type(_G.arch_logger_module.new) == "function" and _G.arch_logger_module.new("ARCHLOG") or nil
+local printf = (_log and _log.printf) or function(fmt, ...) if not _G.printf then return end; if select("#",...) > 0 then local ok,r = pcall(string.format,fmt,...); if ok then fmt = r end end; _G.printf("ARCHLOG %s", tostring(fmt)) end
+local tostr  = tostring
+
+-- ──────────────────────────────────────────────────
+-- Context (set by setup())
+-- ──────────────────────────────────────────────────
+
+local C = nil
+
+-- ──────────────────────────────────────────────────
+-- Trade Presets
+-- ──────────────────────────────────────────────────
+
+local ARCH_TRADE_PRESETS = {
+    generic = "items\\trade\\trade_generic.ltx",
+    scavenger = "items\\trade\\trade_scavenger.ltx",
+    scientist = "items\\trade\\trade_scientist.ltx",
+    field_medic = "items\\trade\\trade_arch_role_field_medic.ltx",
+    quartermaster = "items\\trade\\trade_arch_role_quartermaster.ltx",
+    gunsmith = "items\\trade\\trade_arch_role_gunsmith.ltx",
+    artifact_broker = "items\\trade\\trade_arch_role_artifact_broker.ltx",
+    role_scavenger = "items\\trade\\trade_arch_role_scavenger.ltx"
+}
+
+function resolve_trade_preset_ltx(preset_name)
+    local key = string.lower(tostring(preset_name or ""))
+    if key == "" then
+        return nil
+    end
+    return ARCH_TRADE_PRESETS[key]
+end
+
+function apply_trade_profile_defaults(arch_id, data)
+    if type(data) ~= "table" then
+        return
+    end
+    local preset_name = data.trade_preset
+    local preset_ltx = resolve_trade_preset_ltx(preset_name)
+    local has_ltx = (type(data.ltx) == "string" and data.ltx ~= "")
+    if has_ltx then
+        if preset_name and preset_ltx then
+            printf("[ARCH] INFO: Archetype '%s' has both ltx and trade_preset, using explicit ltx '%s'",
+                tostring(arch_id), tostring(data.ltx))
+        elseif preset_name and not preset_ltx then
+            printf("[ARCH] WARNING: Archetype '%s' has unknown trade_preset '%s' (ltx is used instead)",
+                tostring(arch_id), tostring(preset_name))
+        end
+        return
+    end
+    if preset_name and preset_ltx then
+        data.ltx = preset_ltx
+        printf("[ARCH] Applied trade_preset '%s' -> %s for archetype '%s'",
+            tostring(preset_name), tostring(data.ltx), tostring(arch_id))
+        return
+    end
+    if preset_name and not preset_ltx then
+        printf("[ARCH] WARNING: Archetype '%s' has unknown trade_preset '%s', fallback to generic trade",
+            tostring(arch_id), tostring(preset_name))
+    end
+    data.ltx = ARCH_TRADE_PRESETS.generic
+    printf("[ARCH] Applied default trade preset 'generic' for archetype '%s'", tostring(arch_id))
+end
+
+function get_trade_presets()
+    local out = {}
+    for key, value in pairs(ARCH_TRADE_PRESETS) do
+        out[key] = value
+    end
+    return out
+end
+
+-- ──────────────────────────────────────────────────
+-- Setup (called by archetype_core.on_game_start)
+-- ──────────────────────────────────────────────────
+
+function setup(ctx)
+    C = ctx
+end
+
+-- ──────────────────────────────────────────────────
+-- Trade Init Wrapping
+-- ──────────────────────────────────────────────────
+
+local original_trade_init = nil
+local trade_init_wrapped = false
+
+function wrap_trade_init()
+    if not trade_manager then
+        printf("[ARCH] ERROR: trade_manager not found!")
+        return
+    end
+    if trade_init_wrapped then
+        printf("[ARCH] trade_init already wrapped, skipping")
+        return
+    end
+    original_trade_init = trade_manager.trade_init
+    trade_manager.trade_init = function(npc, cfg)
+        arch_news.process_news_queue()
+        C.perf_add("trade_init_calls", 1)
+        if not npc or not db.actor then
+            C.perf_add("trade_init_skip_no_actor", 1)
+            return original_trade_init(npc, cfg)
+        end
+        local npc_id = npc:id()
+        local sim = alife()
+        local se_obj = sim and sim:object(npc_id) or nil
+        local st = nil
+        if cfg == "items\\trade\\trade_generic.ltx" and C.assigned_npc_ids[npc_id] ~= false then
+            st = C.get_npc_state(npc)
+            if st and st.arch_assigned then
+                C.assigned_npc_ids[npc_id] = true
+                if st.custom_name then
+                    C.apply_runtime_name(npc, st.custom_name)
+                end
+                local fast_cfg = C.try_upgrade_saved_assignment_to_archetype(
+                    npc,
+                    se_obj,
+                    st,
+                    C.get_filter_data(npc, se_obj),
+                    "trade_init_fast_upgrade_arch"
+                )
+                if fast_cfg then
+                    return original_trade_init(npc, fast_cfg)
+                end
+                if st.archetype_id then
+                    local arch = C.custom_archetypes[st.archetype_id]
+                    if arch and arch.ltx then
+                        if arch.name_format and not st.custom_name then
+                            C.apply_name_format(npc, arch.name_format)
+                        end
+                        C.maybe_announce(st, npc, st.archetype_id)
+                        C.perf_add("trade_init_fast_saved_arch", 1)
+                        return original_trade_init(npc, arch.ltx)
+                    end
+                end
+            else
+                C.assigned_npc_ids[npc_id] = false
+            end
+        end
+        local profile = se_obj and se_obj:section_name() or nil
+        local assign_to_arch_id = profile and C.assign_to_index[profile] or nil
+        if not assign_to_arch_id and se_obj and se_obj.profile_name then
+            local pname = se_obj:profile_name()
+            if pname and pname ~= "" then
+                assign_to_arch_id = C.assign_to_index[pname]
+                if assign_to_arch_id then
+                    profile = pname
+                end
+            end
+        end
+        if assign_to_arch_id and not (st and st.arch_assigned) then
+            local arch = C.custom_archetypes[assign_to_arch_id]
+            if arch then
+                st = C.get_npc_state_or_create(npc)
+                st.arch_assigned = true
+                st.archetype_id = assign_to_arch_id
+                st.arch_spawn_loadout_applied = nil
+                st.assignment_announced = false
+                C.assigned_npc_ids[npc_id] = true
+                if se_obj then
+                    C.register_character_archetype(profile, assign_to_arch_id)
+                end
+                if arch.amount and arch.amount > 0 then
+                    C.increment_arch_counter(assign_to_arch_id)
+                end
+                if arch.name_format and not st.custom_name then
+                    C.apply_name_format(npc, arch.name_format)
+                end
+                C.maybe_announce(st, npc, assign_to_arch_id)
+                C.logv("[ARCH] Assigned archetype '%s' to %s via assign_to (trade_init)", tostr(assign_to_arch_id), npc:name())
+                C.perf_add("trade_init_assign_to_direct", 1)
+                return original_trade_init(npc, arch.ltx or cfg)
+            end
+        end
+        if C.EXCLUDED_CONFIGS[cfg] then
+            C.logv("[ARCH] Blacklisted: %s, using vanilla", npc:name())
+            C.perf_add("trade_init_skip_blacklist", 1)
+            return original_trade_init(npc, cfg)
+        end
+        if cfg ~= "items\\trade\\trade_generic.ltx" then
+            C.logv("[ARCH] Special config: %s, skipping", npc:name())
+            C.perf_add("trade_init_skip_non_generic", 1)
+            return original_trade_init(npc, cfg)
+        end
+        local npc_community = npc:character_community()
+        if C.EXCLUDED_COMMUNITIES[npc_community] then
+            C.logv("[ARCH] Blacklisted community NPC: %s, using vanilla", npc:name())
+            C.perf_add("trade_init_skip_zombied", 1)
+            return original_trade_init(npc, cfg)
+        end
+        if C.is_unique_npc(profile, npc_id) then
+            C.logv("[ARCH] Skipped unique/story NPC: %s (section=%s), using vanilla", npc:name(), tostr(profile))
+            C.perf_add("trade_init_skip_unique_npc", 1)
+            return original_trade_init(npc, cfg)
+        end
+        st = st or C.get_npc_state(npc)
+        if st and st.arch_assigned then
+            C.assigned_npc_ids[npc_id] = true
+            if st.custom_name then
+                C.apply_runtime_name(npc, st.custom_name)
+            end
+            local saved_cfg = C.try_upgrade_saved_assignment_to_archetype(
+                npc,
+                se_obj,
+                st,
+                C.get_filter_data(npc, se_obj),
+                "trade_init_load_upgrade_arch"
+            )
+            if saved_cfg then
+                return original_trade_init(npc, saved_cfg)
+            end
+            if st.archetype_id then
+                local arch = C.custom_archetypes[st.archetype_id]
+                if arch then
+                    cfg = arch.ltx
+                    if arch.name_format and not st.custom_name then
+                        C.apply_name_format(npc, arch.name_format)
+                    end
+                    if se_obj then
+                        local character_id = se_obj:section_name()
+                        C.register_character_archetype(character_id, st.archetype_id)
+                    end
+                    C.maybe_announce(st, npc, st.archetype_id)
+                    C.logv("[ARCH] Loaded archetype '%s' for %s", st.archetype_id, npc:name())
+                    C.perf_add("trade_init_load_saved_arch", 1)
+                    return original_trade_init(npc, cfg)
+                end
+            end
+        end
+        if C.get_assignment_mode() == "strict_spawn_only" then
+            C.perf_add("trade_init_strict_skip_new_assignment", 1)
+            return original_trade_init(npc, cfg)
+        end
+        local filter_data = C.get_filter_data(npc, se_obj)
+        local arch_id, match_level, match_community = C.match_custom_archetype(npc, filter_data)
+        if arch_id then
+            local arch = C.custom_archetypes[arch_id]
+            if not arch or not arch.ltx then
+                C.perf_add("trade_init_skip_no_ltx", 1)
+                return original_trade_init(npc, cfg)
+            end
+            cfg = arch.ltx
+            st = C.get_npc_state_or_create(npc)
+            st.arch_assigned = true
+            st.archetype_id = arch_id
+            st.arch_spawn_loadout_applied = nil
+            st.assignment_announced = false
+            C.assigned_npc_ids[npc_id] = true
+            if se_obj then
+                local character_id = se_obj:section_name()
+                C.register_character_archetype(character_id, arch_id)
+            end
+            if arch.amount and arch.amount > 0 then
+                C.increment_arch_counter(arch_id)
+            end
+            C.update_tier_counters(arch_id, match_level, match_community)
+            if arch.name_format then
+                C.apply_name_format(npc, arch.name_format)
+            end
+            C.logv("[ARCH] Assigned UNIQUE archetype '%s' to %s", arch_id, npc:name())
+            C.perf_add("trade_init_new_arch", 1)
+            C.maybe_announce(st, npc, arch_id)
+            return original_trade_init(npc, cfg)
+        end
+        C.perf_add("trade_init_fallback_vanilla", 1)
+        return original_trade_init(npc, cfg)
+    end
+    trade_init_wrapped = true
+    printf("[ARCH] Wrapped trade_init")
+end
+
+-- ──────────────────────────────────────────────────
+-- Visit Tracking
+-- ──────────────────────────────────────────────────
+
+function on_trade_started_increment_visits()
+    local get_npc = mob_trade and mob_trade.GetTalkingNpc
+    if not get_npc then return end
+    local npc = get_npc()
+    if not npc then return end
+    local npc_id = npc:id()
+    if not C.assigned_npc_ids[npc_id] then return end
+    local st = C.get_npc_state(npc)
+    if not st or not st.arch_assigned or not st.archetype_id then return end
+    local spec = arch_relationships or (_G and _G.arch_relationships)
+    if spec then
+        spec.increment_visits(npc_id)
+        local visits = spec.get_visits(npc_id) or 0
+        C.logv("[ARCH][TRADE] Visit incremented for %s (npc_id=%s, visits=%s)", tostr(npc:name()), tostr(npc_id), tostr(visits))
+        local news = arch_news or (_G and _G.arch_news)
+        if news and news.enqueue_news then
+            local npc_name = npc:character_name() or npc:name()
+            local arch = C.custom_archetypes[st.archetype_id]
+            local threshold = arch and arch.regular_visit_threshold or 0
+            local msg
+            if threshold > 0 and visits >= threshold then
+                msg = string.format("[ARCH] %s recognizes you as a regular customer. (Visit %d)", npc_name, visits)
+            else
+                msg = string.format("[ARCH] Visited %s. (Visit %d)", npc_name, visits)
+            end
+            news.enqueue_news(msg, 7, 4000)
+        end
+    end
+end
+
+-- ──────────────────────────────────────────────────
+-- Discount Wrapping
+-- ──────────────────────────────────────────────────
+
+local original_get_buy_discount = nil
+local original_get_sell_discount = nil
+local discount_wrapped = false
+
+function wrap_discount_functions()
+    if not trade_manager then
+        printf("[ARCH] ERROR: trade_manager not found!")
+        return
+    end
+    if discount_wrapped then
+        printf("[ARCH] Discount functions already wrapped, skipping")
+        return
+    end
+    original_get_buy_discount = trade_manager.get_buy_discount
+    trade_manager.get_buy_discount = function(npc_id)
+        local base = original_get_buy_discount(npc_id)
+        local npc = level.object_by_id(npc_id)
+        if not npc then return base end
+        if C.assigned_npc_ids[npc_id] == false then return base end
+        local st = C.get_npc_state(npc)
+        if not st or not st.arch_assigned then
+            C.assigned_npc_ids[npc_id] = false
+            return base
+        end
+        C.assigned_npc_ids[npc_id] = true
+        if st.archetype_id then
+            local arch = C.custom_archetypes[st.archetype_id]
+            local result = base
+            if arch and arch.buy then
+                result = result * arch.buy
+            end
+            do local spec = arch_relationships or (_G and _G.arch_relationships)
+                local reward_buy = spec and spec.get_reward_buy_modifier(npc_id) or 0
+                if reward_buy ~= 0 then
+                    result = result + reward_buy
+                end
+            end
+            if result < 0.01 then result = 0.01 end
+            return result
+        end
+        return base
+    end
+    original_get_sell_discount = trade_manager.get_sell_discount
+    trade_manager.get_sell_discount = function(npc_id)
+        local base = original_get_sell_discount(npc_id)
+        local npc = level.object_by_id(npc_id)
+        if not npc then return base end
+        if C.assigned_npc_ids[npc_id] == false then return base end
+        local st = C.get_npc_state(npc)
+        if not st or not st.arch_assigned then
+            C.assigned_npc_ids[npc_id] = false
+            return base
+        end
+        C.assigned_npc_ids[npc_id] = true
+        if st.archetype_id then
+            local arch = C.custom_archetypes[st.archetype_id]
+            local result = base
+            if arch and arch.sell then
+                result = result * arch.sell
+            end
+            do local spec = arch_relationships or (_G and _G.arch_relationships)
+                local reward_sell = spec and spec.get_reward_sell_modifier(npc_id) or 0
+                if reward_sell ~= 0 then
+                    result = result - reward_sell
+                end
+            end
+            if result < 0.01 then result = 0.01 end
+            return result
+        end
+        return base
+    end
+    discount_wrapped = true
+    printf("[ARCH] Wrapped discount functions")
+end
+
+-- ──────────────────────────────────────────────────
+-- Convenience
+-- ──────────────────────────────────────────────────
+
+function wrap_all()
+    wrap_trade_init()
+    wrap_discount_functions()
+end

@@ -1,0 +1,453 @@
+-- A.R.C.H. Dialog Manager Module
+
+-- ══════════════════════════════════════════════════
+-- File I/O Helpers
+-- ══════════════════════════════════════════════════
+
+local sorted_keys = arch_filters.sorted_keys
+-- File I/O
+local function read_text_file(path)
+    if not io or not io.open then return nil end
+    local file = io.open(path, "r")
+    if not file then return nil end
+    local content = file:read("*a")
+    file:close()
+    return content
+end
+local function write_text_file(path, content)
+    local file, err = io.open(path, "w")
+    if not file then
+        return false, tostring(err or "open failed")
+    end
+    file:write(content or "")
+    file:close()
+    return true, nil
+end
+-- Path + scan helpers
+local function normalize_scan_path(path)
+    local p = string.lower(tostring(path or ""))
+    p = string.gsub(p, "\\", "/")
+    p = string.gsub(p, "/+", "/")
+    p = string.gsub(p, "/%./", "/")
+    local parts = {}
+    for part in string.gmatch(p, "[^/]+") do
+        if part == ".." then
+            if #parts > 0 and parts[#parts] ~= ".." then
+                table.remove(parts)
+            else
+                parts[#parts + 1] = part
+            end
+        elseif part ~= "." and part ~= "" then
+            parts[#parts + 1] = part
+        end
+    end
+    return table.concat(parts, "/")
+end
+local function path_locale_key(path)
+    local p = normalize_scan_path(path)
+    if string.find(p, "/text/eng/") then return "eng" end
+    if string.find(p, "/text/rus/") then return "rus" end
+    return "unknown"
+end
+local function content_signature(content)
+    if type(content) ~= "string" then
+        return ""
+    end
+    local len = #content
+    local head = string.sub(content, 1, 128)
+    local tail = string.sub(content, math.max(1, len - 127), len)
+    return tostring(len) .. "|" .. head .. "|" .. tail
+end
+local function path_candidates_for_config_rel(path)
+    local p = tostring(path or "")
+    if p == "" then
+        return {}
+    end
+    return {
+        p,
+        "configs\\" .. p,
+        "configs/" .. p,
+        "gamedata\\configs\\" .. p,
+        "gamedata/configs/" .. p,
+        "..\\" .. p,
+        "../" .. p,
+        "..\\configs\\" .. p,
+        "../configs/" .. p,
+        "..\\gamedata\\configs\\" .. p,
+        "../gamedata/configs/" .. p
+    }
+end
+
+-- ──────────────────────────────────────────────────
+-- Config Constants
+-- ──────────────────────────────────────────────────
+
+local XML_CONFLICT_SCAN_PATHS = {
+    "text\\eng\\st_dialog_manager_arch.xml",
+    "text/eng/st_dialog_manager_arch.xml",
+    "gamedata\\configs\\text\\eng\\st_dialog_manager_arch.xml",
+    "gamedata/configs/text/eng/st_dialog_manager_arch.xml",
+    "configs\\text\\eng\\st_dialog_manager_arch.xml",
+    "configs/text/eng/st_dialog_manager_arch.xml",
+    "..\\text\\eng\\st_dialog_manager_arch.xml",
+    "../text/eng/st_dialog_manager_arch.xml",
+    "..\\configs\\text\\eng\\st_dialog_manager_arch.xml",
+    "../configs/text/eng/st_dialog_manager_arch.xml",
+    "..\\gamedata\\configs\\text\\eng\\st_dialog_manager_arch.xml",
+    "../gamedata/configs/text/eng/st_dialog_manager_arch.xml",
+    "text\\rus\\st_dialog_manager_arch.xml",
+    "text/rus/st_dialog_manager_arch.xml",
+    "gamedata\\configs\\text\\rus\\st_dialog_manager_arch.xml",
+    "gamedata/configs/text/rus/st_dialog_manager_arch.xml",
+    "configs\\text\\rus\\st_dialog_manager_arch.xml",
+    "configs/text/rus/st_dialog_manager_arch.xml",
+    "..\\text\\rus\\st_dialog_manager_arch.xml",
+    "../text/rus/st_dialog_manager_arch.xml",
+    "..\\configs\\text\\rus\\st_dialog_manager_arch.xml",
+    "../configs/text/rus/st_dialog_manager_arch.xml",
+    "..\\gamedata\\configs\\text\\rus\\st_dialog_manager_arch.xml",
+    "../gamedata/configs/text/rus/st_dialog_manager_arch.xml"
+}
+local ARCH_DIALOG_MANAGER_LTX_WRITE_CANDIDATES = {
+    "gamedata\\configs\\misc\\mod_dialog_manager_arch.ltx",
+    "gamedata/configs/misc/mod_dialog_manager_arch.ltx",
+    "configs\\misc\\mod_dialog_manager_arch.ltx",
+    "configs/misc/mod_dialog_manager_arch.ltx"
+}
+local ARCH_DM_MERGE_BEGIN = "; >>> ARCH FRAMEWORK AUTO-MERGE BEGIN (do not edit inside this block)"
+local ARCH_DM_MERGE_END = "; <<< ARCH FRAMEWORK AUTO-MERGE END"
+
+-- ──────────────────────────────────────────────────
+-- Condlist Generation
+-- ──────────────────────────────────────────────────
+
+local function arch_dm_pick_single_include_or_all(list_value)
+    if type(list_value) ~= "table" then
+        return "all"
+    end
+    local single = nil
+    for i = 1, #list_value do
+        local value = tostring(list_value[i] or "")
+        if value ~= "" then
+            if single and single ~= value then
+                return "all"
+            end
+            single = value
+        end
+    end
+    return single or "all"
+end
+local function build_condlists_text(custom_archetypes)
+    local lines = {}
+    lines[#lines + 1] = "; A.R.C.H. framework-generated dialog-manager condlists"
+    lines[#lines + 1] = "; Generated from registered remake archetypes."
+    lines[#lines + 1] = "; Archetype ownership is gated by is_arch(<id>) conditions."
+    lines[#lines + 1] = ""
+    local categories = {
+        {"hello", "dm_hello_arch_%s_1", nil},
+        {"hello", "dm_hello_arch_%s_2", nil},
+        {"hello", "dm_hello_arch_%s_3", nil},
+        {"job", "dm_job_arch_%s_1", nil},
+        {"anomalies", "dm_anomalies_arch_%s_1", nil},
+        {"information", "dm_information_arch_%s_1", nil},
+        {"tips", "dm_tips_arch_%s_1", nil},
+        {"hello", "dm_hello_arch_%s_wounded", true}
+    }
+    local ids = sorted_keys(custom_archetypes)
+    local section_count = 0
+    for i = 1, #ids do
+        local arch_id = ids[i]
+        local data = custom_archetypes[arch_id]
+        if type(data) == "table" then
+            local npc_community = arch_dm_pick_single_include_or_all(data.community_include)
+            local level_val = arch_dm_pick_single_include_or_all(data.location_include)
+            local npc_rank = arch_dm_pick_single_include_or_all(data.rank_include)
+            for ci = 1, #categories do
+                local item = categories[ci]
+                local category = item[1]
+                local section_fmt = item[2]
+                local wounded = item[3]
+                local section_name = string.format(section_fmt, tostring(arch_id))
+                lines[#lines + 1] = string.format("@[%s]", section_name)
+                lines[#lines + 1] = string.format("category = %s", category)
+                lines[#lines + 1] = string.format("npc_community = %s", npc_community)
+                lines[#lines + 1] = "actor_community = all"
+                lines[#lines + 1] = string.format("level = %s", level_val)
+                lines[#lines + 1] = string.format("npc_rank = %s", npc_rank)
+                lines[#lines + 1] = "actor_rank = all"
+                if wounded == true then
+                    lines[#lines + 1] = "wounded = true"
+                end
+                lines[#lines + 1] = string.format("condition = {=is_arch(%s)} true, false", tostring(arch_id))
+                lines[#lines + 1] = ""
+                section_count = section_count + 1
+            end
+        end
+    end
+    return table.concat(lines, "\n"), section_count
+end
+local function compose_arch_dm_ltx_with_managed_block(existing_text, managed_text)
+    local text = type(existing_text) == "string" and existing_text or ""
+    local managed_body = type(managed_text) == "string" and managed_text or ""
+    local begin_pattern = ARCH_DM_MERGE_BEGIN
+    local end_pattern = ARCH_DM_MERGE_END
+    local begin_pos = string.find(text, begin_pattern, 1, true)
+    local end_pos = nil
+    if begin_pos then
+        end_pos = string.find(text, end_pattern, begin_pos, true)
+    end
+    local pre = text
+    local post = ""
+    if begin_pos and end_pos then
+        pre = string.sub(text, 1, begin_pos - 1)
+        post = string.sub(text, end_pos + #end_pattern)
+        post = string.gsub(post, "^\r?\n", "", 1)
+    end
+    local pre_trim = pre
+    pre_trim = string.gsub(pre_trim, "%s+$", "")
+    local post_trim = post
+    post_trim = string.gsub(post_trim, "^%s+", "")
+    local managed_block = ARCH_DM_MERGE_BEGIN .. "\n" .. managed_body .. "\n" .. ARCH_DM_MERGE_END
+    local out = {}
+    if pre_trim ~= "" then
+        out[#out + 1] = pre_trim
+        out[#out + 1] = ""
+    end
+    out[#out + 1] = managed_block
+    if post_trim ~= "" then
+        out[#out + 1] = ""
+        out[#out + 1] = post_trim
+    end
+    return table.concat(out, "\n") .. "\n"
+end
+
+-- ──────────────────────────────────────────────────
+-- Rebuild Condlists
+-- ──────────────────────────────────────────────────
+
+function rebuild_condlists(custom_archetypes, custom_archetype_count, reason)
+    if not io or not io.open then
+        printf("[ARCH] Dialog-manager condlist rebuild skipped (%s): io unavailable", tostring(reason or "unknown"))
+        return false
+    end
+    local existing_path = nil
+    local existing_text = nil
+    for i = 1, #ARCH_DIALOG_MANAGER_LTX_WRITE_CANDIDATES do
+        local candidate = ARCH_DIALOG_MANAGER_LTX_WRITE_CANDIDATES[i]
+        local text = read_text_file(candidate)
+        if text ~= nil then
+            existing_path = candidate
+            existing_text = text
+            break
+        end
+    end
+    if not existing_path then
+        existing_path = ARCH_DIALOG_MANAGER_LTX_WRITE_CANDIDATES[1]
+        existing_text = ""
+    end
+    local generated_text, generated_sections = build_condlists_text(custom_archetypes)
+    local composed = compose_arch_dm_ltx_with_managed_block(existing_text, generated_text)
+    if existing_text == composed then
+        printf("[ARCH] Dialog-manager condlist rebuild skipped (%s): no changes (sections=%s)",
+            tostring(reason or "unknown"), tonumber(generated_sections) or 0)
+        return false
+    end
+    local ok, err = write_text_file(existing_path, composed)
+    if not ok then
+        printe("[ARCH] Failed to write framework dialog-manager condlists (%s) to %s: %s",
+            tostring(reason or "unknown"), tostring(existing_path), tostring(err))
+        return false
+    end
+    printf("[ARCH] Rebuilt framework dialog-manager condlists (%s): file=%s sections=%s archetypes=%s",
+        tostring(reason or "unknown"),
+        tostring(existing_path),
+        tonumber(generated_sections) or 0,
+        tonumber(custom_archetype_count or 0) or 0)
+    return true
+end
+
+
+local SHARED_DIALOG_IDS = {
+    dm_init_mechanic = true,
+    dm_tech_repair = true,
+    dm_medic_general = true,
+    dm_init_trader = true,
+    dm_init_batender = true,
+    dm_init_medic = true,
+}
+local function validate_archetype_conflicts(custom_archetypes)
+    local issues = 0
+    local seen_dialog_ids = {}
+    local function check_dialog_id(arch_id, dialog_id)
+        if not dialog_id or dialog_id == "" then
+            return
+        end
+        if SHARED_DIALOG_IDS[dialog_id] then
+            return
+        end
+        local first_owner = seen_dialog_ids[dialog_id]
+        if first_owner and first_owner ~= arch_id then
+            printf("[ARCH] CONFLICT: dialog_id '%s' is used by both '%s' and '%s'",
+                tostring(dialog_id), tostring(first_owner), tostring(arch_id))
+            issues = issues + 1
+        else
+            seen_dialog_ids[dialog_id] = arch_id
+        end
+    end
+    for arch_id, data in pairs(custom_archetypes) do
+        if data then
+            check_dialog_id(arch_id, data.dialog_id)
+            if type(data.dialog_ids) == "table" then
+                for i = 1, #data.dialog_ids do
+                    check_dialog_id(arch_id, data.dialog_ids[i])
+                end
+            end
+        end
+    end
+    return issues
+end
+local function validate_dialog_runtime_bindings(custom_archetypes)
+    if not _G.modxml_arch_dialogs
+    or type(_G.modxml_arch_dialogs.get_available_dialog_ids) ~= "function"
+    then
+        printf("[ARCH] WARNING: Dialog runtime validation skipped (modxml_arch_dialogs unavailable)")
+        return 0
+    end
+    local available = _G.modxml_arch_dialogs.get_available_dialog_ids() or {}
+    local warnings = 0
+    local function check_dialog_id(arch_id, dialog_id)
+        local id = tostring(dialog_id or "")
+        if id == "" then
+            return
+        end
+        if not available[id] then
+            printf("[ARCH] WARNING: Archetype '%s' references missing runtime dialog id '%s'",
+                tostring(arch_id), id)
+            warnings = warnings + 1
+        end
+    end
+    for arch_id, data in pairs(custom_archetypes) do
+        if data then
+            check_dialog_id(arch_id, data.dialog_id)
+            if type(data.dialog_ids) == "table" then
+                for i = 1, #data.dialog_ids do
+                    check_dialog_id(arch_id, data.dialog_ids[i])
+                end
+            end
+        end
+    end
+    return warnings
+end
+local function validate_xml_name_conflicts()
+    if not io or not io.open then
+        printf("[ARCH] XML conflict check skipped (io library unavailable)")
+        return 0
+    end
+    local seen_ids = {}
+    local scanned_files = {}
+    local seen_file_keys = {}
+    local seen_content_signatures = {}
+    local issues = 0
+    local total_ids = 0
+    for i = 1, #XML_CONFLICT_SCAN_PATHS do
+        local path = tostring(XML_CONFLICT_SCAN_PATHS[i] or "")
+        local normalized_path = normalize_scan_path(path)
+        if not seen_file_keys[normalized_path] then
+            local content = read_text_file(path)
+            if content then
+                local signature = content_signature(content)
+                if not seen_content_signatures[signature] then
+                    seen_file_keys[normalized_path] = true
+                    seen_content_signatures[signature] = normalized_path
+                    scanned_files[#scanned_files + 1] = path
+                    local locale_key = path_locale_key(path)
+                    seen_ids[locale_key] = seen_ids[locale_key] or {}
+                    local locale_seen = seen_ids[locale_key]
+                    for string_id in string.gmatch(content, '<string%s+id%s*=%s*"([^"]+)"') do
+                        total_ids = total_ids + 1
+                        local first_owner = locale_seen[string_id]
+                        if first_owner and first_owner ~= path then
+                            printf("[ARCH] CONFLICT: XML string id '%s' is duplicated in '%s' and '%s'",
+                                tostring(string_id), tostring(first_owner), tostring(path))
+                            issues = issues + 1
+                        elseif first_owner == path then
+                            printf("[ARCH] CONFLICT: XML string id '%s' is duplicated inside '%s'",
+                                tostring(string_id), tostring(path))
+                            issues = issues + 1
+                        else
+                            locale_seen[string_id] = path
+                        end
+                    end
+                else
+                    seen_file_keys[normalized_path] = true
+                end
+            end
+        end
+    end
+    if #scanned_files == 0 then
+        printf("[ARCH] XML conflict check skipped (dialog text XML not accessible via io.open in current runtime)")
+    else
+        printf("[ARCH] XML conflict check: scanned=%s ids=%s conflicts=%s", #scanned_files, total_ids, issues)
+    end
+    return issues
+end
+local function validate_registered_pack_files()
+    if not _G.modxml_arch_dialogs
+    or type(_G.modxml_arch_dialogs.get_registered_pack_files) ~= "function"
+    then
+        return 0
+    end
+    if not io or not io.open then
+        printf("[ARCH] Pack file validation skipped (io library unavailable)")
+        return 0
+    end
+    local pack_files = _G.modxml_arch_dialogs.get_registered_pack_files() or {}
+    local warnings = 0
+    local checked = 0
+    local seen = {}
+    local function validate_one(path, category)
+        local normalized = normalize_scan_path(path)
+        local key = tostring(category) .. "|" .. normalized
+        if seen[key] then
+            return
+        end
+        seen[key] = true
+        checked = checked + 1
+        local candidates = path_candidates_for_config_rel(path)
+        local found = false
+        for i = 1, #candidates do
+            if read_text_file(candidates[i]) then
+                found = true
+                break
+            end
+        end
+        if not found then
+            printf("[ARCH] WARNING: Registered pack %s XML missing: %s", tostring(category), tostring(path))
+            warnings = warnings + 1
+        end
+    end
+    local dialog_xml = pack_files.dialog_xml or {}
+    local text_eng = pack_files.text_eng or {}
+    local text_rus = pack_files.text_rus or {}
+    for i = 1, #dialog_xml do
+        validate_one(dialog_xml[i], "dialog")
+    end
+    for i = 1, #text_eng do
+        validate_one(text_eng[i], "text_eng")
+    end
+    for i = 1, #text_rus do
+        validate_one(text_rus[i], "text_rus")
+    end
+    if checked > 0 then
+        printf("[ARCH] Pack file validation: checked=%s warnings=%s", checked, warnings)
+    end
+    return warnings
+end
+function validate_all(custom_archetypes)
+    local warnings = 0
+    warnings = warnings + validate_archetype_conflicts(custom_archetypes)
+    warnings = warnings + validate_dialog_runtime_bindings(custom_archetypes)
+    warnings = warnings + validate_xml_name_conflicts()
+    warnings = warnings + validate_registered_pack_files()
+    return warnings
+end

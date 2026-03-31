@@ -1,0 +1,1015 @@
+-- arch_pack_loader.script
+-- Creation pack registry, LTX parsing, config pack discovery, deferred queues.
+
+local _log = _G.arch_logger_module and type(_G.arch_logger_module.new) == "function" and _G.arch_logger_module.new("ARCHLOG") or nil
+local printf = (_log and _log.printf) or function(fmt, ...) if not _G.printf then return end; if select("#",...) > 0 then local ok,r = pcall(string.format,fmt,...); if ok then fmt = r end end; _G.printf("ARCHLOG %s", tostring(fmt)) end
+local tostr = tostring
+
+-- ──────────────────────────────────────────────────
+-- Context (set by setup())
+-- ──────────────────────────────────────────────────
+
+local C = nil
+
+function setup(ctx)
+    C = ctx
+end
+
+-- ──────────────────────────────────────────────────
+-- State (owned by this module)
+-- ──────────────────────────────────────────────────
+
+local archetypes_registered = false
+local creation_pack_registry = {}
+local creation_pack_order = {}
+local pending_creation_archetypes = {}
+local pending_creation_archetype_count = 0
+local queued_pack_file_registrations = {}
+local queued_universal_dialog_registrations = {}
+local queued_creation_task_pool_registrations = {}
+local pack_conflicts = {}
+local archetype_owner = {}  -- arch_id → pack_id that first registered it
+local warned_unsupported_creation_pack_fields = {}
+
+function set_archetypes_registered(value)
+    archetypes_registered = value == true
+end
+
+function is_archetypes_registered()
+    return archetypes_registered
+end
+
+function get_archetype_pack_id(arch_id)
+    return archetype_owner[arch_id]
+end
+
+function get_pending_archetypes()
+    return pending_creation_archetypes
+end
+
+function get_pending_count()
+    return pending_creation_archetype_count
+end
+
+function clear_pending()
+    pending_creation_archetypes = {}
+    pending_creation_archetype_count = 0
+end
+
+-- ──────────────────────────────────────────────────
+-- Utility helpers
+-- ──────────────────────────────────────────────────
+
+local function count_array(value)
+    return (type(value) == "table") and #value or 0
+end
+
+local function clone_array(value)
+    if type(value) ~= "table" then
+        return value
+    end
+    local out = {}
+    for i = 1, #value do
+        out[i] = value[i]
+    end
+    return out
+end
+
+local function clone_table_deep(value)
+    if type(value) ~= "table" then
+        return value
+    end
+    local out = {}
+    for k, v in pairs(value) do
+        out[k] = clone_table_deep(v)
+    end
+    return out
+end
+
+local function clone_pack_files_config(config)
+    if type(config) ~= "table" then
+        return nil
+    end
+    return {
+        archetypes_ltx = config.archetypes_ltx,
+        dialog_xml = clone_array(config.dialog_xml),
+        text_eng = clone_array(config.text_eng),
+        text_rus = clone_array(config.text_rus)
+    }
+end
+
+-- ──────────────────────────────────────────────────
+-- Queue management
+-- ──────────────────────────────────────────────────
+
+local function queue_pack_files_registration(config, source)
+    local cloned = clone_pack_files_config(config)
+    if not cloned then
+        return false
+    end
+    queued_pack_file_registrations[#queued_pack_file_registrations + 1] = {
+        config = cloned,
+        source = tostr(source or "unknown")
+    }
+    return true
+end
+
+local function queue_universal_dialog_registration(config, source)
+    if type(config) ~= "table" then
+        return false
+    end
+    queued_universal_dialog_registrations[#queued_universal_dialog_registrations + 1] = {
+        config = {
+            dialog_id = config.dialog_id,
+            dialog_priority = config.dialog_priority,
+            description = config.description
+        },
+        source = tostr(source or "unknown")
+    }
+    return true
+end
+
+local function queue_creation_task_pools_registration(pack_id, source_pools, source)
+    local pid = tostr(pack_id or "")
+    if pid == "" or type(source_pools) ~= "table" then
+        return false
+    end
+    queued_creation_task_pool_registrations[#queued_creation_task_pool_registrations + 1] = {
+        pack_id = pid,
+        source_pools = clone_table_deep(source_pools),
+        source = tostr(source or "unknown")
+    }
+    return true
+end
+
+-- ──────────────────────────────────────────────────
+-- Flush deferred registrations
+-- ──────────────────────────────────────────────────
+
+function try_flush_deferred_dialog_registrations(reason)
+    if not _G.modxml_arch_dialogs then
+        return false
+    end
+    local dxml = _G.modxml_arch_dialogs
+    local can_pack = type(dxml.register_pack_files) == "function"
+    local can_universal = type(dxml.register_universal_dialog) == "function"
+    if not can_pack and not can_universal then
+        return false
+    end
+    local flushed_pack = 0
+    if can_pack and #queued_pack_file_registrations > 0 then
+        for i = 1, #queued_pack_file_registrations do
+            local item = queued_pack_file_registrations[i]
+            if dxml.register_pack_files(item.config) == true then
+                flushed_pack = flushed_pack + 1
+            end
+        end
+        queued_pack_file_registrations = {}
+    end
+    local flushed_universal = 0
+    if can_universal and #queued_universal_dialog_registrations > 0 then
+        for i = 1, #queued_universal_dialog_registrations do
+            local item = queued_universal_dialog_registrations[i]
+            if dxml.register_universal_dialog(item.config) == true then
+                flushed_universal = flushed_universal + 1
+            end
+        end
+        queued_universal_dialog_registrations = {}
+    end
+    if flushed_pack > 0 or flushed_universal > 0 then
+        printf("[ARCH] Flushed deferred creation-pack dialog registrations (%s): pack_files=%s universal_dialogs=%s",
+            tostr(reason or "unknown"), flushed_pack, flushed_universal)
+    end
+    return (flushed_pack > 0) or (flushed_universal > 0)
+end
+
+function try_flush_deferred_task_registrations(reason)
+    local task_mod = (_G and _G.custom_tasks) or custom_tasks
+    if not task_mod or type(task_mod.register_creation_task_pools) ~= "function" then
+        return false
+    end
+    if #queued_creation_task_pool_registrations <= 0 then
+        return false
+    end
+    local flushed = 0
+    for i = 1, #queued_creation_task_pool_registrations do
+        local item = queued_creation_task_pool_registrations[i]
+        if task_mod.register_creation_task_pools(item.pack_id, item.source_pools) == true then
+            flushed = flushed + 1
+        end
+    end
+    queued_creation_task_pool_registrations = {}
+    if flushed > 0 then
+        printf("[ARCH] Flushed deferred creation-pack task registrations (%s): packs=%s",
+            tostr(reason or "unknown"), flushed)
+    end
+    return flushed > 0
+end
+
+function flush_pending_creation_pack_archetypes(reason)
+    if pending_creation_archetype_count <= 0 then
+        return false
+    end
+    if archetypes_registered then
+        printf("[ARCH] WARNING: Pending creation-pack archetypes could not be flushed (%s): archetypes already registered",
+            tostr(reason or "unknown"))
+        return false
+    end
+    local count = pending_creation_archetype_count
+    C.register_custom_archetypes(pending_creation_archetypes)
+    printf("[ARCH] Flushed pending creation-pack archetypes (%s): %s", tostr(reason or "unknown"), count)
+    pending_creation_archetypes = {}
+    pending_creation_archetype_count = 0
+    return true
+end
+
+-- ──────────────────────────────────────────────────
+-- Global block registration
+-- ──────────────────────────────────────────────────
+
+function register_global_block(name, filters)
+    if not name then
+        printf("[ARCH] ERROR: Global block needs a name!")
+        return
+    end
+    filters = filters or {}
+    C.validate_shared_filters("Global block '" .. tostr(name) .. "'", filters)
+    C.global_blocks[name] = C.compile_filter_cache(filters)
+    printf("[ARCH] Registered global block: %s", name)
+end
+
+-- ──────────────────────────────────────────────────
+-- LTX Pack Helpers
+-- ──────────────────────────────────────────────────
+
+local function warn_creation_pack_field_once(field_name)
+    local key = tostr(field_name or "")
+    if key == "" or warned_unsupported_creation_pack_fields[key] then
+        return
+    end
+    warned_unsupported_creation_pack_fields[key] = true
+    printf("[ARCH] WARNING: Creation-pack field '%s' is not supported yet and will be ignored in schema v1", key)
+end
+
+local function cp_trim_string(value)
+    local text = tostr(value or "")
+    text = string.gsub(text, "^%s+", "")
+    text = string.gsub(text, "%s+$", "")
+    return text
+end
+
+local function cp_split_csv(value)
+    local out = {}
+    local text = cp_trim_string(value)
+    if text == "" then
+        return out
+    end
+    for token in string.gmatch(text, "([^,]+)") do
+        local item = cp_trim_string(token)
+        if item ~= "" then
+            out[#out + 1] = item
+        end
+    end
+    return out
+end
+
+local function cp_ini_read_string(ini, section, key)
+    if not ini or not ini.line_exist or not ini.r_string then
+        return nil
+    end
+    if not ini:line_exist(section, key) then
+        return nil
+    end
+    -- Use r_string_wq (read without quotes) to preserve spaces in quoted values.
+    -- r_string_wq strips surrounding "" but preserves content. Falls back to r_string.
+    local reader = ini.r_string_wq or ini.r_string
+    local ok, value = pcall(reader, ini, section, key)
+    if not ok then
+        return nil
+    end
+    local text = cp_trim_string(value)
+    if text == "" then
+        return nil
+    end
+    return text
+end
+
+local function cp_ini_read_bool(ini, section, key)
+    local text = cp_ini_read_string(ini, section, key)
+    if not text then
+        return nil
+    end
+    text = string.lower(text)
+    if text == "true" or text == "1" or text == "yes" or text == "on" then return true end
+    if text == "false" or text == "0" or text == "no" or text == "off" then return false end
+    return nil
+end
+
+local function cp_ini_read_number(ini, section, key)
+    local text = cp_ini_read_string(ini, section, key)
+    if not text then
+        return nil
+    end
+    return tonumber(text)
+end
+
+local function cp_ini_read_list(ini, section, key)
+    if not ini or not ini.line_exist then
+        return nil
+    end
+    if not ini:line_exist(section, key) then
+        return nil
+    end
+    local text = cp_ini_read_string(ini, section, key)
+    if not text then
+        return {}
+    end
+    return cp_split_csv(text)
+end
+
+-- ──────────────────────────────────────────────────
+-- Specialization dialog ID mapping
+-- ──────────────────────────────────────────────────
+
+local CREATION_PACK_SPECIALIZATION_DIALOG_IDS = {
+    technician = {"dm_init_mechanic", "dm_tech_repair"},
+    tech = {"dm_init_mechanic", "dm_tech_repair"},
+    mechanic = {"dm_init_mechanic", "dm_tech_repair"},
+    field_medic = {"dm_medic_general"},
+    medic = {"dm_medic_general"},
+    doctor = {"dm_medic_general"},
+    healer = {"dm_medic_general"},
+    trader = {"dm_init_trader"},
+    merchant = {"dm_init_trader"},
+    vendor = {"dm_init_trader"},
+    bartender = {"dm_init_batender"},
+    barman = {"dm_init_batender"},
+    medic_trader = {"dm_init_medic"},
+}
+
+local function cp_append_unique_dialog_id(out, seen, value)
+    local id = cp_trim_string(value)
+    if id == "" or seen[id] then
+        return
+    end
+    seen[id] = true
+    out[#out + 1] = id
+end
+
+local function cp_append_specialization_dialog_ids(out, seen, specialization_value)
+    local function append_from_name(name)
+        local key = string.lower(cp_trim_string(name))
+        if key == "" then
+            return
+        end
+        key = string.gsub(key, "[^%w_]+", "_")
+        local ids = CREATION_PACK_SPECIALIZATION_DIALOG_IDS[key]
+        if type(ids) ~= "table" then
+            return
+        end
+        for i = 1, #ids do
+            cp_append_unique_dialog_id(out, seen, ids[i])
+        end
+    end
+    if type(specialization_value) == "string" then
+        append_from_name(specialization_value)
+        return
+    end
+    if type(specialization_value) == "table" then
+        for i = 1, #specialization_value do
+            append_from_name(specialization_value[i])
+        end
+    end
+end
+
+-- ──────────────────────────────────────────────────
+-- LTX Pack Loader
+-- ──────────────────────────────────────────────────
+
+function load_creation_pack_archetypes_ltx(pack_id, relative_path)
+    local rel = cp_trim_string(relative_path)
+    if rel == "" then
+        printf("[ARCH] ERROR: Creation pack '%s' files.archetypes_ltx is empty", tostr(pack_id))
+        return nil
+    end
+    if not ini_file then
+        printf("[ARCH] ERROR: Creation pack '%s' cannot load archetypes_ltx (ini_file unavailable): %s", tostr(pack_id), rel)
+        return nil
+    end
+    local ini = ini_file(rel)
+    if not ini or not ini.section_exist or not ini:section_exist("arch_runtime_pack") then
+        printf("[ARCH] ERROR: Creation pack '%s' archetypes_ltx missing [arch_runtime_pack]: %s", tostr(pack_id), rel)
+        return nil
+    end
+    local ids = cp_ini_read_list(ini, "arch_runtime_pack", "archetype_ids") or {}
+    local chunk_i = 2
+    while true do
+        local chunk = cp_ini_read_list(ini, "arch_runtime_pack", "archetype_ids_" .. chunk_i)
+        if not chunk or #chunk == 0 then break end
+        for ci = 1, #chunk do ids[#ids + 1] = chunk[ci] end
+        chunk_i = chunk_i + 1
+    end
+    local out = {}
+    for i = 1, #ids do
+        local arch_id = cp_trim_string(ids[i])
+        if arch_id ~= "" then
+            local section = "arch_runtime_" .. arch_id
+            if not ini:section_exist(section) then
+                printf("[ARCH] ERROR: Creation pack '%s' archetypes_ltx missing section [%s] in %s",
+                    tostr(pack_id), tostr(section), tostr(rel))
+                return nil
+            end
+            local data = {}
+            local enabled = cp_ini_read_bool(ini, section, "enabled")
+            if enabled ~= nil then data.enabled = enabled end
+            local list_fields = {
+                "community_include", "community_exclude",
+                "location_include", "location_exclude",
+                "rank_include", "rank_exclude",
+                "smart_terrain_include", "smart_terrain_exclude",
+                "dialog_ids",
+            }
+            for li = 1, #list_fields do
+                local field = list_fields[li]
+                local value = cp_ini_read_list(ini, section, field)
+                if value ~= nil then
+                    data[field] = value
+                end
+            end
+            local strip_cats_raw = cp_ini_read_list(ini, section, "strip_dialog_categories")
+            if strip_cats_raw and #strip_cats_raw > 0 then
+                local strip_set = {}
+                for sci = 1, #strip_cats_raw do
+                    local cat = string.lower(cp_trim_string(strip_cats_raw[sci]))
+                    if cat ~= "" then
+                        strip_set[cat] = true
+                    end
+                end
+                data.strip_dialog_categories = strip_set
+            end
+            local string_fields = {"ltx", "trade_preset", "dialog_id", "global_block", "news_on_death", "news_on_area", "news_icon", "assign_to", "intro_dialog", "intro_done_info", "map_spot", "on_death_info"}
+            for si = 1, #string_fields do
+                local field = string_fields[si]
+                local value = cp_ini_read_string(ini, section, field)
+                if value ~= nil then
+                    data[field] = value
+                end
+            end
+            local number_fields = {"buy", "sell", "amount", "tier", "chance", "dialog_priority", "regular_visit_threshold", "goodwill", "available_after_days"}
+            for ni = 1, #number_fields do
+                local field = number_fields[ni]
+                local value = cp_ini_read_number(ini, section, field)
+                if value ~= nil then
+                    data[field] = value
+                end
+            end
+            local respawn = cp_ini_read_bool(ini, section, "respawn")
+            if respawn ~= nil then data.respawn = respawn end
+            local male = cp_ini_read_bool(ini, section, "male")
+            if male ~= nil then data.male = male end
+            local female = cp_ini_read_bool(ini, section, "female")
+            if female ~= nil then data.female = female end
+            local name_type = cp_ini_read_string(ini, section, "name_format_type")
+            local name_text = cp_ini_read_string(ini, section, "name_format_text")
+            if name_type and name_text then
+                data.name_format = { type = name_type, text = name_text }
+            end
+            local spawn_primary = cp_ini_read_list(ini, section, "spawn_primary")
+            local spawn_secondary = cp_ini_read_list(ini, section, "spawn_secondary")
+            local spawn_extra = cp_ini_read_list(ini, section, "spawn_extra")
+            if (spawn_primary and #spawn_primary > 0) or (spawn_secondary and #spawn_secondary > 0) or (spawn_extra and #spawn_extra > 0) then
+                data.spawn_loadout = {}
+                if spawn_primary and #spawn_primary > 0 then data.spawn_loadout.primary = spawn_primary end
+                if spawn_secondary and #spawn_secondary > 0 then data.spawn_loadout.secondary = spawn_secondary end
+                if spawn_extra and #spawn_extra > 0 then data.spawn_loadout.extra = spawn_extra end
+            end
+            local specialization = cp_ini_read_list(ini, section, "specialization")
+            if specialization and #specialization > 0 then
+                data.specialization = specialization
+                local dialog_ids = {}
+                local seen_dialog_ids = {}
+                if type(data.dialog_ids) == "table" then
+                    for di = 1, #data.dialog_ids do
+                        cp_append_unique_dialog_id(dialog_ids, seen_dialog_ids, data.dialog_ids[di])
+                    end
+                end
+                cp_append_specialization_dialog_ids(dialog_ids, seen_dialog_ids, (#specialization == 1) and specialization[1] or specialization)
+                data.dialog_ids = dialog_ids
+                local dialog_add = type(data.dialog_add) == "table" and data.dialog_add or {}
+                for di = 1, #dialog_ids do
+                    local did = dialog_ids[di]
+                    if type(did) == "string" and string.sub(did, 1, 10) == "arch_spec_" then
+                        local already = false
+                        for ai = 1, #dialog_add do
+                            if dialog_add[ai] == did then already = true break end
+                        end
+                        if not already then
+                            dialog_add[#dialog_add + 1] = did
+                        end
+                    end
+                end
+                if #dialog_add > 0 then
+                    data.dialog_add = dialog_add
+                end
+            end
+            out[arch_id] = data
+        end
+    end
+    printf("[ARCH] Loaded %s archetype(s) from creation-pack LTX '%s' (%s)", #ids, tostr(pack_id), tostr(rel))
+    return out
+end
+
+-- ──────────────────────────────────────────────────
+-- Config-Only Pack Discovery (Part 4)
+-- ──────────────────────────────────────────────────
+
+local function load_task_pools_from_ltx(ini, pack_id)
+    local pool_ids = cp_ini_read_list(ini, "arch_pack_meta", "task_pool_ids")
+    if not pool_ids or #pool_ids == 0 then
+        return nil
+    end
+    local pools = {}
+    for pi = 1, #pool_ids do
+        local pool_id = cp_trim_string(pool_ids[pi])
+        if pool_id == "" then
+            printf("[ARCH] ERROR: Config pack '%s' has empty task_pool_id at index %s", tostr(pack_id), pi)
+            return nil
+        end
+        local pool_section = "arch_task_pool_" .. pool_id
+        if not ini:section_exist(pool_section) then
+            printf("[ARCH] ERROR: Config pack '%s' missing section [%s]", tostr(pack_id), pool_section)
+            return nil
+        end
+        local pool = {
+            archetype_id = cp_ini_read_string(ini, pool_section, "archetype_id") or pool_id,
+            pool_tag = cp_ini_read_string(ini, pool_section, "pool_tag") or "default",
+            enabled = cp_ini_read_bool(ini, pool_section, "enabled"),
+            cooldown_hours = cp_ini_read_number(ini, pool_section, "cooldown_hours") or 0,
+            dialog_open_text = cp_ini_read_string(ini, pool_section, "dialog_open_text"),
+            dialog_npc_prompt = cp_ini_read_string(ini, pool_section, "dialog_npc_prompt"),
+            personality_accept = cp_ini_read_string(ini, pool_section, "personality_accept"),
+            personality_decline = cp_ini_read_string(ini, pool_section, "personality_decline"),
+            personality_turnin_actor = cp_ini_read_string(ini, pool_section, "personality_turnin_actor"),
+            personality_turnin_npc = cp_ini_read_string(ini, pool_section, "personality_turnin_npc"),
+            tasks = {}
+        }
+        local task_ids = cp_ini_read_list(ini, pool_section, "task_ids")
+        if not task_ids or #task_ids == 0 then
+            printf("[ARCH] WARNING: Config pack '%s' task pool '%s' has no task_ids", tostr(pack_id), pool_id)
+        else
+            for ti = 1, #task_ids do
+                local task_id = cp_trim_string(task_ids[ti])
+                if task_id == "" then
+                    printf("[ARCH] ERROR: Config pack '%s' pool '%s' has empty task_id at index %s", tostr(pack_id), pool_id, ti)
+                    return nil
+                end
+                local task_section = "arch_task_" .. task_id
+                if not ini:section_exist(task_section) then
+                    printf("[ARCH] ERROR: Config pack '%s' missing section [%s]", tostr(pack_id), task_section)
+                    return nil
+                end
+                local task = {
+                    id = task_id,
+                    kind = cp_ini_read_string(ini, task_section, "kind") or "fetch",
+                    text_prefix = cp_ini_read_string(ini, task_section, "text_prefix"),
+                    item_section = cp_ini_read_string(ini, task_section, "item_section"),
+                    amount = cp_ini_read_number(ini, task_section, "amount"),
+                    weight = cp_ini_read_number(ini, task_section, "weight"),
+                    reward_money = cp_ini_read_number(ini, task_section, "reward_money"),
+                    reward_goodwill = cp_ini_read_number(ini, task_section, "reward_goodwill"),
+                    reward_goodwill_community = cp_ini_read_string(ini, task_section, "reward_goodwill_community"),
+                    reward_buy_modifier = cp_ini_read_number(ini, task_section, "reward_buy_modifier"),
+                    reward_sell_modifier = cp_ini_read_number(ini, task_section, "reward_sell_modifier"),
+                    reward_multiplier = cp_ini_read_number(ini, task_section, "reward_multiplier"),
+                    reward_cap = cp_ini_read_number(ini, task_section, "reward_cap"),
+                    item_category = cp_ini_read_string(ini, task_section, "item_category"),
+                    category_mode = cp_ini_read_string(ini, task_section, "category_mode"),
+                    items = cp_ini_read_string(ini, task_section, "items"),
+                    summary_text = cp_ini_read_string(ini, task_section, "summary_text"),
+                    details_text = cp_ini_read_string(ini, task_section, "details_text"),
+                    accepted_text = cp_ini_read_string(ini, task_section, "accepted_text"),
+                    completed_text = cp_ini_read_string(ini, task_section, "completed_text"),
+                    pda_icon = cp_ini_read_string(ini, task_section, "pda_icon"),
+                    pda_priority = cp_ini_read_number(ini, task_section, "pda_priority"),
+                    pda_task_id = cp_ini_read_string(ini, task_section, "pda_task_id"),
+                    min_rank = cp_ini_read_string(ini, task_section, "min_rank"),
+                    max_rank = cp_ini_read_string(ini, task_section, "max_rank"),
+                    cooldown_hours = cp_ini_read_number(ini, task_section, "cooldown_hours"),
+                    requires_trust = cp_ini_read_number(ini, task_section, "requires_trust"),
+                    requires_time = cp_ini_read_string(ini, task_section, "requires_time"),
+                    requires_item = cp_ini_read_string(ini, task_section, "requires_item"),
+                    requires_task_done = cp_ini_read_string(ini, task_section, "requires_task_done"),
+                    requires_task_done_by_npc = cp_ini_read_string(ini, task_section, "requires_task_done_by_npc"),
+                    requires_info = cp_ini_read_string(ini, task_section, "requires_info"),
+                    requires_min_goodwill = cp_ini_read_number(ini, task_section, "requires_min_goodwill"),
+                    requires_pool_unlock = cp_ini_read_string(ini, task_section, "requires_pool_unlock"),
+                    conditions = cp_ini_read_string(ini, task_section, "conditions"),
+                    on_complete_info = cp_ini_read_string(ini, task_section, "on_complete_info"),
+                    on_complete_task = cp_ini_read_string(ini, task_section, "on_complete_task"),
+                    on_fail_info = cp_ini_read_string(ini, task_section, "on_fail_info"),
+                    -- Death behavior fields
+                    on_giver_death = cp_ini_read_string(ini, task_section, "on_giver_death"),
+                    on_giver_death_transfer_to = cp_ini_read_string(ini, task_section, "on_giver_death_transfer_to"),
+                    on_target_death = cp_ini_read_string(ini, task_section, "on_target_death"),
+                    on_death_task = cp_ini_read_string(ini, task_section, "on_death_task"),
+                    on_death_info = cp_ini_read_string(ini, task_section, "on_death_info"),
+                    -- Delivery fields
+                    deliver_item = cp_ini_read_string(ini, task_section, "deliver_item"),
+                    deliver_amount = cp_ini_read_number(ini, task_section, "deliver_amount"),
+                    deliver_to_archetype = cp_ini_read_string(ini, task_section, "deliver_to_archetype"),
+                    deliver_to_community = cp_ini_read_string(ini, task_section, "deliver_to_community"),
+                    deliver_to_rank = cp_ini_read_string(ini, task_section, "deliver_to_rank"),
+                    deliver_to_location = cp_ini_read_string(ini, task_section, "deliver_to_location"),
+                    -- Talk task fields
+                    talk_to_giver = cp_ini_read_bool(ini, task_section, "talk_to_giver"),
+                    talk_to_archetype = cp_ini_read_string(ini, task_section, "talk_to_archetype"),
+                    -- Collect task fields
+                    collect_from_archetype = cp_ini_read_string(ini, task_section, "collect_from_archetype"),
+                    collect_from_community = cp_ini_read_string(ini, task_section, "collect_from_community"),
+                    collect_from_rank = cp_ini_read_string(ini, task_section, "collect_from_rank"),
+                    collect_from_location = cp_ini_read_string(ini, task_section, "collect_from_location"),
+                    collect_item = cp_ini_read_string(ini, task_section, "collect_item"),
+                    collect_amount = cp_ini_read_number(ini, task_section, "collect_amount"),
+                }
+                local repeatable = cp_ini_read_bool(ini, task_section, "repeatable")
+                if repeatable ~= nil then task.repeatable = repeatable end
+                local once_per_actor = cp_ini_read_bool(ini, task_section, "once_per_actor")
+                if once_per_actor ~= nil then task.once_per_actor = once_per_actor end
+                local use_pda_task = cp_ini_read_bool(ini, task_section, "use_pda_task")
+                if use_pda_task ~= nil then task.use_pda_task = use_pda_task end
+                local enabled = cp_ini_read_bool(ini, task_section, "enabled")
+                if enabled ~= nil then task.enabled = enabled end
+                local reward_items = cp_ini_read_list(ini, task_section, "reward_items")
+                if reward_items and #reward_items > 0 then
+                    task.reward_items = reward_items
+                end
+                pool.tasks[#pool.tasks + 1] = task
+            end
+        end
+        pools[#pools + 1] = pool
+    end
+    printf("[ARCH] Loaded %s task pool(s) from config pack '%s'", #pools, tostr(pack_id))
+    return pools
+end
+
+local function load_global_blocks_from_ltx(ini, pack_id)
+    local block_ids = cp_ini_read_list(ini, "arch_pack_meta", "global_block_ids")
+    if not block_ids or #block_ids == 0 then
+        return nil
+    end
+    local blocks = {}
+    for bi = 1, #block_ids do
+        local block_id = cp_trim_string(block_ids[bi])
+        if block_id == "" then
+            printf("[ARCH] ERROR: Config pack '%s' has empty global_block_id at index %s", tostr(pack_id), bi)
+            return nil
+        end
+        local section = "arch_global_block_" .. block_id
+        if not ini:section_exist(section) then
+            printf("[ARCH] ERROR: Config pack '%s' missing section [%s]", tostr(pack_id), section)
+            return nil
+        end
+        local block = {}
+        local list_fields = {
+            "community_include", "community_exclude",
+            "location_include", "location_exclude",
+            "rank_include", "rank_exclude",
+            "smart_terrain_include", "smart_terrain_exclude",
+        }
+        for li = 1, #list_fields do
+            local field = list_fields[li]
+            local value = cp_ini_read_list(ini, section, field)
+            if value ~= nil then
+                block[field] = value
+            end
+        end
+        local strip_cats = cp_ini_read_list(ini, section, "strip_dialog_categories")
+        if strip_cats and #strip_cats > 0 then
+            block.strip_dialog_categories = strip_cats
+        end
+        blocks[block_id] = block
+    end
+    printf("[ARCH] Loaded %s global block(s) from config pack '%s'", #block_ids, tostr(pack_id))
+    return blocks
+end
+
+function discover_and_register_config_packs()
+    if not getFS or not FS or not bit_or then
+        printf("[ARCH] Config pack discovery skipped: filesystem API unavailable")
+        return 0
+    end
+    local fs = getFS()
+    if not fs or not fs.file_list_open then
+        printf("[ARCH] Config pack discovery skipped: file_list_open unavailable")
+        return 0
+    end
+    local ok, flist = pcall(fs.file_list_open, fs, "$game_config$", "misc\\", bit_or(FS.FS_ListFiles, FS.FS_RootOnly))
+    if not ok or not flist then
+        printf("[ARCH] Config pack discovery: no files in misc/ or scan failed")
+        return 0
+    end
+    local count = flist.Size and flist:Size() or 0
+    local pack_files = {}
+    for i = 0, count - 1 do
+        local fname = flist:GetAt(i)
+        if type(fname) == "string" and string.sub(fname, 1, 10) == "arch_pack_" and string.sub(fname, -4) == ".ltx" then
+            pack_files[#pack_files + 1] = fname
+        end
+    end
+    if #pack_files == 0 then
+        printf("[ARCH] Config pack discovery: no arch_pack_*.ltx files found in misc/")
+        return 0
+    end
+    printf("[ARCH] Config pack discovery: found %s candidate file(s)", #pack_files)
+    local registered = 0
+    for fi = 1, #pack_files do
+        local fname = pack_files[fi]
+        local rel = "misc\\" .. fname
+        local ini = ini_file(rel)
+        if not ini or not ini.section_exist then
+            printf("[ARCH] WARNING: Config pack '%s' could not be loaded as ini_file", rel)
+        elseif not ini:section_exist("arch_pack_meta") then
+            printf("[ARCH] WARNING: Config pack '%s' missing [arch_pack_meta] section, skipping", rel)
+        else
+            local pack_id = cp_ini_read_string(ini, "arch_pack_meta", "pack_id")
+            if not pack_id then
+                printf("[ARCH] WARNING: Config pack '%s' missing pack_id in [arch_pack_meta], skipping", rel)
+            elseif creation_pack_registry[pack_id] then
+                printf("[ARCH] Config pack '%s' already registered (pack_id=%s), skipping", rel, pack_id)
+            else
+                local schema_version = cp_ini_read_number(ini, "arch_pack_meta", "schema_version") or 1
+                local dialog_xml_raw = cp_ini_read_string(ini, "arch_pack_meta", "dialog_xml")
+                local text_eng_raw = cp_ini_read_string(ini, "arch_pack_meta", "text_eng")
+                local text_rus_raw = cp_ini_read_string(ini, "arch_pack_meta", "text_rus")
+                local files = { archetypes_ltx = rel }
+                if dialog_xml_raw then
+                    files.dialog_xml = cp_split_csv(dialog_xml_raw)
+                end
+                if text_eng_raw then
+                    files.text_eng = cp_split_csv(text_eng_raw)
+                end
+                if text_rus_raw then
+                    files.text_rus = cp_split_csv(text_rus_raw)
+                end
+                local block_ids = cp_ini_read_list(ini, "arch_pack_meta", "global_block_ids")
+                if block_ids and #block_ids > 0 then
+                    local blocks = load_global_blocks_from_ltx(ini, pack_id)
+                    if blocks then
+                        for block_name, block_data in pairs(blocks) do
+                            register_global_block(block_name, block_data)
+                        end
+                    end
+                end
+                local manifest = {
+                    pack_id = pack_id,
+                    schema_version = schema_version,
+                    features = {"config_pack"},
+                    files = files,
+                }
+                local task_pools = load_task_pools_from_ltx(ini, pack_id)
+                if task_pools then
+                    manifest.task_pools = task_pools
+                end
+                local reg_ok = register_creation_pack(manifest)
+                if reg_ok then
+                    registered = registered + 1
+                    printf("[ARCH] Registered config pack '%s' from %s", pack_id, rel)
+                else
+                    printf("[ARCH] ERROR: Failed to register config pack '%s' from %s", pack_id, rel)
+                end
+            end
+        end
+    end
+    printf("[ARCH] Config pack discovery complete: %s pack(s) registered", registered)
+    return registered
+end
+
+-- ──────────────────────────────────────────────────
+-- Creation Pack API
+-- ──────────────────────────────────────────────────
+
+function register_pack_files(config)
+    if _G.modxml_arch_dialogs and type(_G.modxml_arch_dialogs.register_pack_files) == "function" then
+        return _G.modxml_arch_dialogs.register_pack_files(config) == true
+    end
+    if queue_pack_files_registration(config, "register_pack_files") then
+        printf("[ARCH] Dialog manager not loaded yet, queued pack file registration")
+        return true
+    end
+    printf("[ARCH] WARNING: Dialog manager not loaded yet, invalid pack file registration payload")
+    return false
+end
+
+function register_universal_dialog(config)
+    if not config or not config.dialog_id then
+        printf("[ARCH] ERROR: Invalid universal dialog config")
+        return false
+    end
+    if _G.modxml_arch_dialogs and _G.modxml_arch_dialogs.register_universal_dialog then
+        return _G.modxml_arch_dialogs.register_universal_dialog(config) == true
+    else
+        if queue_universal_dialog_registration(config, "register_universal_dialog") then
+            printf("[ARCH] Dialog manager not loaded yet, queued universal dialog registration: %s", tostr(config.dialog_id))
+            return true
+        end
+        printf("[ARCH] WARNING: Dialog manager not loaded yet, universal dialog registration delayed")
+        return false
+    end
+end
+
+function register_creation_pack(manifest)
+    if type(manifest) ~= "table" then
+        printf("[ARCH] ERROR: register_creation_pack requires a table manifest")
+        return false
+    end
+    local pack_id = tostr(manifest.pack_id or manifest.id or "")
+    if pack_id == "" then
+        printf("[ARCH] ERROR: Creation pack manifest missing pack_id")
+        return false
+    end
+    if creation_pack_registry[pack_id] then
+        printf("[ARCH] Creation pack '%s' already registered, skipping duplicate callback", pack_id)
+        return false
+    end
+    local schema_version = tonumber(manifest.schema_version or manifest.version or 1) or 1
+    if schema_version ~= 1 then
+        printf("[ARCH] WARNING: Creation pack '%s' uses schema_version=%s (expected 1); attempting best-effort load",
+            pack_id, tostr(schema_version))
+    end
+    local inline_archetypes = manifest.archetypes or manifest.custom_archetypes
+    if inline_archetypes ~= nil and type(inline_archetypes) ~= "table" then
+        printf("[ARCH] ERROR: Creation pack '%s' field 'archetypes' must be a table", pack_id)
+        return false
+    end
+    local manifest_task_pools = manifest.task_pools
+    if manifest_task_pools == nil then
+        manifest_task_pools = manifest.tasks
+    end
+    if manifest_task_pools == nil then
+        manifest_task_pools = manifest.custom_tasks
+    end
+    if manifest_task_pools ~= nil and type(manifest_task_pools) ~= "table" then
+        printf("[ARCH] ERROR: Creation pack '%s' field 'task_pools' (or alias) must be an array table", pack_id)
+        return false
+    end
+    local files = manifest.files or manifest.pack_files
+    local has_pack_files = false
+    local ltx_archetypes = nil
+    if type(files) == "table" then
+        has_pack_files = (files.archetypes_ltx ~= nil) or (files.dialog_xml ~= nil) or (files.text_eng ~= nil) or (files.text_rus ~= nil)
+        if has_pack_files then
+            register_pack_files(files)
+        end
+        if files.archetypes_ltx ~= nil then
+            ltx_archetypes = load_creation_pack_archetypes_ltx(pack_id, files.archetypes_ltx)
+            if ltx_archetypes == nil then
+                return false
+            end
+        end
+        if files.archetypes_xml ~= nil then
+            warn_creation_pack_field_once("files.archetypes_xml")
+        end
+    elseif files ~= nil then
+        printf("[ARCH] ERROR: Creation pack '%s' field 'files' must be a table", pack_id)
+        return false
+    end
+    local archetypes = nil
+    if inline_archetypes or ltx_archetypes then
+        archetypes = {}
+        if inline_archetypes then
+            for arch_id, data in pairs(inline_archetypes) do
+                local id = tostr(arch_id or "")
+                if id ~= "" then
+                    archetypes[id] = data
+                end
+            end
+        end
+        if ltx_archetypes then
+            for arch_id, data in pairs(ltx_archetypes) do
+                local id = tostr(arch_id or "")
+                if id ~= "" then
+                    if archetypes[id] ~= nil then
+                        printf("[ARCH] ERROR: Creation pack '%s' duplicate archetype id '%s' across inline+archetypes_ltx", pack_id, id)
+                        return false
+                    end
+                    archetypes[id] = data
+                end
+            end
+        end
+    end
+    if archetypes and archetypes_registered then
+        printf("[ARCH] ERROR: Creation pack '%s' tried to register archetypes after archetype registry lock (likely startup/load order issue)", pack_id)
+        return false
+    end
+    local added_archetypes = 0
+    local archetype_ids = {}
+    if archetypes then
+        for arch_id, data in pairs(archetypes) do
+            local id = tostr(arch_id or "")
+            if id ~= "" then
+                -- Check if archetype is a locked story NPC
+                local story_mod = arch_story_npcs or (_G and _G.arch_story_npcs)
+                if story_mod and story_mod.is_locked and story_mod.is_locked(id) then
+                    printf("[ARCH] REJECTED: Creation pack '%s' cannot redefine locked story NPC '%s'", pack_id, id)
+                    return false
+                end
+                if pending_creation_archetypes[id] or C.custom_archetypes[id] then
+                    local owner = archetype_owner[id] or "unknown"
+                    printf("[ARCH] ERROR: Creation pack '%s' duplicate archetype id '%s' (already registered by '%s')", pack_id, id, owner)
+                    pack_conflicts[#pack_conflicts + 1] = {
+                        arch_id = id,
+                        pack_rejected = pack_id,
+                        pack_owner = owner
+                    }
+                    return false
+                end
+                pending_creation_archetypes[id] = data
+                pending_creation_archetype_count = pending_creation_archetype_count + 1
+                added_archetypes = added_archetypes + 1
+                archetype_ids[#archetype_ids + 1] = id
+                archetype_owner[id] = pack_id
+            end
+        end
+    end
+    table.sort(archetype_ids)
+    local task_pool_count = 0
+    if type(manifest_task_pools) == "table" then
+        task_pool_count = count_array(manifest_task_pools)
+        local task_mod = (_G and _G.custom_tasks) or custom_tasks
+        if task_mod and type(task_mod.register_creation_task_pools) == "function" then
+            if task_mod.register_creation_task_pools(pack_id, manifest_task_pools) ~= true then
+                printf("[ARCH] ERROR: Creation pack '%s' task pool registration failed", pack_id)
+                return false
+            end
+        else
+            if queue_creation_task_pools_registration(pack_id, manifest_task_pools, "register_creation_pack") then
+                printf("[ARCH] custom_tasks not loaded yet, queued task pool registration for '%s' (%s pool(s))",
+                    pack_id, task_pool_count)
+            else
+                printf("[ARCH] ERROR: Creation pack '%s' task pool payload invalid for queue", pack_id)
+                return false
+            end
+        end
+    end
+    local universal_count = 0
+    if manifest.universal_dialog then
+        if register_universal_dialog(manifest.universal_dialog) then
+            universal_count = universal_count + 1
+        end
+    end
+    if type(manifest.universal_dialogs) == "table" then
+        for i = 1, #manifest.universal_dialogs do
+            if register_universal_dialog(manifest.universal_dialogs[i]) then
+                universal_count = universal_count + 1
+            end
+        end
+    elseif manifest.universal_dialogs ~= nil then
+        printf("[ARCH] ERROR: Creation pack '%s' field 'universal_dialogs' must be an array table", pack_id)
+        return false
+    end
+    creation_pack_registry[pack_id] = {
+        pack_id = pack_id,
+        schema_version = schema_version,
+        archetype_count = added_archetypes,
+        archetype_ids = archetype_ids,
+        task_pool_count = task_pool_count,
+        pack_files = has_pack_files and clone_pack_files_config(files) or nil,
+        universal_dialog_count = universal_count,
+        features = clone_array(manifest.features)
+    }
+    creation_pack_order[#creation_pack_order + 1] = pack_id
+    printf("[ARCH] Registered creation pack '%s' (schema=%s, archetypes=%s, task_pools=%s, pack_files=%s, universal_dialogs=%s)",
+        pack_id, tostr(schema_version), added_archetypes, task_pool_count, has_pack_files and "yes" or "no", universal_count)
+    return true
+end
+
+function update_pack_task_pool_count(pack_id, count)
+    if creation_pack_registry[pack_id] then
+        creation_pack_registry[pack_id].task_pool_count = count
+    end
+end
+
+function get_pack_conflicts()
+    return pack_conflicts
+end
+
+function get_registered_creation_packs()
+    local out = {}
+    for i = 1, #creation_pack_order do
+        local pack_id = creation_pack_order[i]
+        local item = creation_pack_registry[pack_id]
+        if item then
+            out[#out + 1] = {
+                pack_id = item.pack_id,
+                schema_version = item.schema_version,
+                archetype_count = item.archetype_count,
+                archetype_ids = item.archetype_ids or {},
+                task_pool_count = item.task_pool_count,
+                universal_dialog_count = item.universal_dialog_count,
+                pack_files = item.pack_files and clone_pack_files_config(item.pack_files) or nil,
+                features = clone_array(item.features)
+            }
+        end
+    end
+    return out
+end

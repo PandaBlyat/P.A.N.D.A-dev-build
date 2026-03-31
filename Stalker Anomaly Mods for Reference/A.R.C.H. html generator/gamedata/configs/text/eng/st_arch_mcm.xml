@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<string_table>
+    <!-- Main menu -->
+    <string id="ui_mcm_menu_arch"><text>A.R.C.H.</text></string>
+    <string id="ui_mcm_menu_arch_creations"><text>Creations</text></string>
+    <string id="ui_mcm_menu_arch_creations_general"><text>General</text></string>
+    <string id="ui_mcm_menu_arch_creations_tier_1"><text>Tier 1 - Highest</text></string>
+    <string id="ui_mcm_menu_arch_creations_tier_2"><text>Tier 2 - High</text></string>
+    <string id="ui_mcm_menu_arch_creations_tier_3"><text>Tier 3 - Normal</text></string>
+    <string id="ui_mcm_menu_arch_creations_tier_4"><text>Tier 4 - Low</text></string>
+    <string id="ui_mcm_menu_arch_creations_tier_5"><text>Tier 5 - Lowest</text></string>
+    <string id="ui_mcm_menu_arch_pack_browser"><text>Pack Browser</text></string>
+    <string id="ui_mcm_menu_arch_tasks"><text>Tasks</text></string>
+    <string id="ui_mcm_menu_arch_tier_caps"><text>Tier Caps</text></string>
+    <string id="ui_mcm_menu_arch_debug"><text>Debug</text></string>
+
+    <!-- -- Creations > General ------------------------------- -->
+    <string id="ui_mcm_title_arch_cr_general"><text>A.R.C.H. Creations - General</text></string>
+    <string id="ui_mcm_desc_arch_cr_general"><text>Global settings that affect how all archetypes are assigned and displayed. Use the tier sub-tabs to manage individual archetypes.</text></string>
+
+    <string id="ui_mcm_arch_creations_general_assignment_mode"><text>Assignment Mode</text></string>
+    <string id="ui_mcm_arch_creations_general_assignment_mode_desc"><text>How NPCs receive their archetypes. Hybrid (recommended): assigns on spawn, with fallback recovery when you talk to an NPC. Strict Spawn-Only: only on spawn - if missed, that NPC stays generic. Online-Only: assigns when you enter an NPC's area.</text></string>
+
+    <string id="ui_mcm_arch_creations_general_assignment_notifications"><text>Assignment News</text></string>
+    <string id="ui_mcm_arch_creations_general_assignment_notifications_desc"><text>Show a brief PDA message when an NPC receives an archetype assignment. Useful to see the system working; disable for a cleaner HUD.</text></string>
+
+    <string id="ui_mcm_arch_creations_general_dynamic_news"><text>Dynamic News</text></string>
+    <string id="ui_mcm_arch_creations_general_dynamic_news_desc"><text>Show PDA news when an archetyped NPC dies or you enter an area where one operates. Each archetype defines its own news text in its creation pack.</text></string>
+
+    <string id="ui_mcm_arch_creations_general_strip_vanilla_dialogs"><text>Strip Vanilla Dialogs</text></string>
+    <string id="ui_mcm_arch_creations_general_strip_vanilla_dialogs_desc"><text>Remove vanilla dialog options (trade, repair, guide, etc.) from archetyped NPCs based on their creation pack settings. Disable to keep all vanilla dialogs alongside ARCH ones.</text></string>
+
+    <string id="ui_mcm_desc_arch_cr_clear_all"><text>Removes archetype assignments from ALL NPCs. IMPORTANT: NPC LOADOUT (weapons, armor) WILL NOT CHANGE -- items already in their inventory stay. Names and trade presets reset after SAVE AND RELOAD. For a clean slate, clear assignments then save and reload.</text></string>
+    <string id="ui_mcm_arch_creations_general_clear_all"><text>Clear All Assignments</text></string>
+    <string id="ui_mcm_arch_creations_general_clear_all_desc"><text>Click to remove all archetype assignments from every NPC in the game. Story NPCs (medics, techs, barmen) are preserved. NPC LOADOUT WILL STAY THE SAME -- spawned items cannot be removed. Save and reload for names and trade presets to fully reset.</text></string>
+
+    <string id="ui_mcm_desc_arch_cr_clear_story"><text>Removes archetype assignments from story NPCs only (medics, techs, barmen targeted via assign_to). Use this if a story quest is broken due to an ARCH assignment. Regular NPC assignments are not affected.</text></string>
+    <string id="ui_mcm_arch_creations_general_clear_story_npcs"><text>Clear Story NPC Assignments</text></string>
+    <string id="ui_mcm_arch_creations_general_clear_story_npcs_desc"><text>Click to remove archetype assignments from story NPCs (vanilla medics, techs, barmen). Their native dialogs will be fully restored after save and reload. They will be re-assigned on next encounter unless the Story NPC pack is disabled.</text></string>
+
+    <string id="ui_mcm_desc_arch_cr_reassign"><text>Clears all assignments and immediately re-rolls archetypes for every online NPC. IMPORTANT: For reassignment to fully take effect, SAVE AND RELOAD after clicking. NPC LOADOUT WILL STAY THE SAME -- spawned weapons and armor cannot be removed from NPCs.</text></string>
+    <string id="ui_mcm_arch_creations_general_reassign_all"><text>Reassign All NPCs</text></string>
+    <string id="ui_mcm_arch_creations_general_reassign_all_desc"><text>Click to clear and immediately reassign archetypes to all online NPCs. Offline NPCs get assigned on next spawn. SAVE AND RELOAD for names and trade to fully update. NPC LOADOUT (weapons, armor) WILL NOT CHANGE for currently alive NPCs.</text></string>
+
+    <string id="ui_mcm_lst_arch_assignment_strict_spawn_only"><text>Strict Spawn-Only</text></string>
+    <string id="ui_mcm_lst_arch_assignment_hybrid"><text>Hybrid (Recommended)</text></string>
+    <string id="ui_mcm_lst_arch_assignment_online_only"><text>Online-Only</text></string>
+
+    <string id="ui_mcm_desc_arch_stats"><text>Live assignment statistics. Shows how many NPCs have archetypes, broken down by tier, faction, and location. Refreshes each time you open MCM.</text></string>
+
+    <!-- -- Creations > Tier sub-tabs ------------------------- -->
+    <string id="ui_mcm_desc_arch_cr_tier_1_header"><text>Tier 1 - Highest Priority Archetypes</text></string>
+    <string id="ui_mcm_desc_arch_cr_tier_2_header"><text>Tier 2 - High Priority Archetypes</text></string>
+    <string id="ui_mcm_desc_arch_cr_tier_3_header"><text>Tier 3 - Normal Priority Archetypes</text></string>
+    <string id="ui_mcm_desc_arch_cr_tier_4_header"><text>Tier 4 - Low Priority Archetypes</text></string>
+    <string id="ui_mcm_desc_arch_cr_tier_5_header"><text>Tier 5 - Lowest Priority Archetypes</text></string>
+    <string id="ui_mcm_desc_arch_cr_tier_list"><text>Enable or disable individual archetypes and adjust their selection chance. Use the Clear button to remove assignments for a specific archetype. Changes to chance take effect on next assignment (save and reload recommended).</text></string>
+    <string id="ui_mcm_desc_arch_cr_tier_empty"><text>No archetypes registered at this tier. Load a save with creation packs enabled to see archetypes here.</text></string>
+
+    <!-- Per-archetype dynamic controls (shared labels via hint override) -->
+    <string id="ui_mcm_arch_cr_enabled"><text>Enabled</text></string>
+    <string id="ui_mcm_arch_cr_enabled_desc"><text>Enable or disable this archetype. Disabled archetypes will not be assigned to any NPC.</text></string>
+    <string id="ui_mcm_arch_cr_chance"><text>Chance</text></string>
+    <string id="ui_mcm_arch_cr_chance_desc"><text>Selection weight when multiple archetypes compete for the same NPC. Higher = more likely to be picked. 0 = never assigned.</text></string>
+    <string id="ui_mcm_arch_cr_clear"><text>Clear Assignments</text></string>
+    <string id="ui_mcm_arch_cr_clear_desc"><text>Remove this archetype from all NPCs that currently have it. They will be eligible for reassignment on next encounter.</text></string>
+
+    <!-- -- Tasks --------------------------------------------- -->
+    <string id="ui_mcm_title_arch_tasks"><text>A.R.C.H. Tasks</text></string>
+    <string id="ui_mcm_desc_arch_tasks"><text>Settings for the ARCH task system (fetch, delivery, talk, collect) - map markers and completion alerts.</text></string>
+
+    <string id="ui_mcm_arch_tasks_turnin_marker"><text>Turn-in Map Marker</text></string>
+    <string id="ui_mcm_arch_tasks_turnin_marker_desc"><text>Show a PDA map marker on the task giver when you have all the required items and the task is ready to turn in.</text></string>
+
+    <string id="ui_mcm_arch_tasks_turnin_news"><text>Turn-in Ready Alert</text></string>
+    <string id="ui_mcm_arch_tasks_turnin_news_desc"><text>Show a one-time PDA notification when a fetch task becomes ready to complete (all items collected).</text></string>
+
+    <!-- -- Tier Caps ----------------------------------------- -->
+    <string id="ui_mcm_title_arch_tier_caps"><text>A.R.C.H. Tier Caps</text></string>
+    <string id="ui_mcm_desc_arch_tier_caps"><text>Limit how many archetypes of each tier can be active per map level and per faction. Tier 1 is the highest priority, Tier 5 is the lowest. Set 0 for unlimited. Lower caps mean more variety; higher caps let more NPCs share the same archetype tier.</text></string>
+
+    <string id="ui_mcm_desc_arch_tier_1_header"><text>-- Tier 1 (Highest Priority) --</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_1_max_level"><text>Tier 1 - Max per Level</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_1_max_level_desc"><text>Maximum number of Tier 1 archetypes that can be assigned on a single map level. 0 = unlimited.</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_1_max_faction"><text>Tier 1 - Max per Faction</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_1_max_faction_desc"><text>Maximum number of Tier 1 archetypes that can be assigned within a single faction. 0 = unlimited.</text></string>
+
+    <string id="ui_mcm_desc_arch_tier_2_header"><text>-- Tier 2 (High Priority) --</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_2_max_level"><text>Tier 2 - Max per Level</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_2_max_level_desc"><text>Maximum number of Tier 2 archetypes that can be assigned on a single map level. 0 = unlimited.</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_2_max_faction"><text>Tier 2 - Max per Faction</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_2_max_faction_desc"><text>Maximum number of Tier 2 archetypes that can be assigned within a single faction. 0 = unlimited.</text></string>
+
+    <string id="ui_mcm_desc_arch_tier_3_header"><text>-- Tier 3 (Normal Priority) --</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_3_max_level"><text>Tier 3 - Max per Level</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_3_max_level_desc"><text>Maximum number of Tier 3 archetypes that can be assigned on a single map level. 0 = unlimited.</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_3_max_faction"><text>Tier 3 - Max per Faction</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_3_max_faction_desc"><text>Maximum number of Tier 3 archetypes that can be assigned within a single faction. 0 = unlimited.</text></string>
+
+    <string id="ui_mcm_desc_arch_tier_4_header"><text>-- Tier 4 (Low Priority) --</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_4_max_level"><text>Tier 4 - Max per Level</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_4_max_level_desc"><text>Maximum number of Tier 4 archetypes that can be assigned on a single map level. 0 = unlimited.</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_4_max_faction"><text>Tier 4 - Max per Faction</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_4_max_faction_desc"><text>Maximum number of Tier 4 archetypes that can be assigned within a single faction. 0 = unlimited.</text></string>
+
+    <string id="ui_mcm_desc_arch_tier_5_header"><text>-- Tier 5 (Lowest Priority) --</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_5_max_level"><text>Tier 5 - Max per Level</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_5_max_level_desc"><text>Maximum number of Tier 5 archetypes that can be assigned on a single map level. 0 = unlimited.</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_5_max_faction"><text>Tier 5 - Max per Faction</text></string>
+    <string id="ui_mcm_arch_creations_tier_caps_tier_5_max_faction_desc"><text>Maximum number of Tier 5 archetypes that can be assigned within a single faction. 0 = unlimited.</text></string>
+
+    <!-- -- Debug --------------------------------------------- -->
+    <string id="ui_mcm_title_arch_debug"><text>A.R.C.H. Debug</text></string>
+    <string id="ui_mcm_desc_arch_debug"><text>Developer and diagnostic tools. Most players can leave these at defaults.</text></string>
+
+    <string id="ui_mcm_arch_debug_interaction_notifications"><text>Interaction Popups</text></string>
+    <string id="ui_mcm_arch_debug_interaction_notifications_desc"><text>Show a small on-screen popup with the NPC's archetype ID when you interact with them. Helpful for verifying assignments.</text></string>
+
+    <string id="ui_mcm_arch_debug_custom_script_logs"><text>Script Logs</text></string>
+    <string id="ui_mcm_arch_debug_custom_script_logs_desc"><text>Write ARCH runtime log messages to the game log file. Disable to reduce log noise if everything is working.</text></string>
+
+    <string id="ui_mcm_arch_debug_verbose_interaction_logs"><text>Verbose Interaction Logs</text></string>
+    <string id="ui_mcm_arch_debug_verbose_interaction_logs_desc"><text>Log detailed data every time you interact with an NPC - archetype state, dialog data, trade profile. Generates significant log output.</text></string>
+
+    <string id="ui_mcm_arch_debug_perf_profiling"><text>Performance Counters</text></string>
+    <string id="ui_mcm_arch_debug_perf_profiling_desc"><text>Track internal performance statistics (assignment counts, timing, cache hits). Use with the console command debug_helper.print_perf_stats() to view results.</text></string>
+
+    <string id="ui_mcm_arch_debug_startup_validation"><text>Startup Validation</text></string>
+    <string id="ui_mcm_arch_debug_startup_validation_desc"><text>Run a consistency check on all loaded archetypes when the game starts. Reports problems to the log. Adds a brief delay on first load.</text></string>
+</string_table>

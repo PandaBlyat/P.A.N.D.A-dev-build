@@ -1,0 +1,1187 @@
+-- A.R.C.H. DXML Dialog System
+
+-- ══════════════════════════════════════════════════
+-- Logger and Globals
+-- ══════════════════════════════════════════════════
+
+local _log = _G.arch_logger_module and type(_G.arch_logger_module.new) == "function" and _G.arch_logger_module.new("ARCHLOG") or nil
+local printf = (_log and _log.printf) or function(fmt, ...) if not _G.printf then return end; if select("#",...) > 0 then local ok,r = pcall(string.format,fmt,...); if ok then fmt = r end end; _G.printf("ARCHLOG %s", tostring(fmt)) end
+local printe = (_log and _log.printe) or function(fmt, ...) local fn = type(_G.printe)=="function" and _G.printe or _G.printf; if not fn then return end; if select("#",...) > 0 then local ok,r = pcall(string.format,fmt,...); if ok then fmt = r end end; fn("ARCHLOG %s", tostring(fmt)) end
+local tostr = tostring
+local UNIVERSAL_DIALOGS = {}
+local CACHED_DIALOG_CONFIGS = nil
+local CACHED_DIALOG_LOOKUPS = nil
+local DIALOG_CONFIG_CACHE_DIRTY = true
+local RUNTIME_REBUILT = false
+local RUNTIME_DIRTY = true
+local AVAILABLE_DIALOG_IDS = {}
+local AVAILABLE_ACTOR_DIALOG_IDS = {}
+local DISCOVERED_LTX_PACK_DIALOG_IDS = {}
+local DIALOG_CALLBACK_TRACE_SEEN = {}
+local DXML_TRACE_DIALOG_CALLBACK = false
+local ARCH_DIALOGS_XML_RELATIVE = [[misc\dialogs_arch.xml]]
+local ARCH_DIALOGS_BRANCHES_XML_RELATIVE = [[misc\dialogs_arch_branches.xml]]
+local ARCH_TEXT_BRANCHES_ENG_XML_RELATIVE = [[text\eng\st_dialog_manager_arch_branches.xml]]
+local ARCH_TEXT_BRANCHES_RUS_XML_RELATIVE = [[text\rus\st_dialog_manager_arch_branches.xml]]
+local DEFAULT_DIALOG_XML_KEYS = {}
+local DEFAULT_TEXT_ENG_KEYS = {}
+local DEFAULT_TEXT_RUS_KEYS = {}
+local REGISTERED_PACK_DIALOG_XML = {}
+local REGISTERED_PACK_TEXT_ENG_XML = {}
+local REGISTERED_PACK_TEXT_RUS_XML = {}
+local REGISTERED_PACK_DIALOG_XML_SEEN = {}
+local REGISTERED_PACK_TEXT_ENG_XML_SEEN = {}
+local REGISTERED_PACK_TEXT_RUS_XML_SEEN = {}
+local DISCOVERED_PACK_DIALOG_XML = {}
+local DISCOVERED_PACK_DIALOG_XML_SEEN = {}
+local DISCOVERED_PACK_DIALOG_XML_SCAN_DONE = false
+-- CORE_ARCH_DIALOG_IDS: dialog IDs that must be present in the DXML tree and CPhraseDialog registry.
+-- IMPORTANT: on_dialog_list_handler adds all IDs here (except arch_task_offer_dialog) to EVERY NPC.
+-- Pool tag dialog IDs must NOT go here — they are added only to NPCs with matching archetypes
+-- via the config.dialog_id path in on_dialog_list_handler. Adding them here would cause AddAvailableDialog
+-- to be called for every NPC, crashing because misc/dialogs_arch.xml is not in the CPhraseDialog registry.
+local CORE_ARCH_DIALOG_IDS = {
+    arch_task_offer_dialog = true,
+    arch_custom_pool_dialog = true,
+}
+-- Pool tag dialog IDs: used for AVAILABLE_DIALOG_IDS membership check only.
+-- NOT added to CORE_ARCH_DIALOG_IDS — see comment above.
+local POOL_TAG_DIALOG_IDS = {
+    arch_task_pool_pool_1_dialog   = true,
+    arch_task_pool_pool_2_dialog   = true,
+    arch_task_pool_pool_3_dialog   = true,
+    arch_task_pool_pool_4_dialog   = true,
+    arch_task_pool_pool_5_dialog   = true,
+    arch_task_pool_pool_6_dialog   = true,
+    arch_task_pool_pool_7_dialog   = true,
+    arch_task_pool_pool_8_dialog   = true,
+    arch_task_pool_pool_9_dialog   = true,
+    arch_task_pool_pool_10_dialog  = true,
+}
+-- Global dialogs: injected into character_dialogs.xml as <actor_dialog> (available on ALL NPCs).
+-- Preconditions gate visibility. Follows vanilla dm_delivery_dialog pattern.
+local GLOBAL_DIALOG_IDS = {
+    arch_delivery_turnin_global = true,
+}
+-- Vanilla service dialogs gated by specialization.
+-- Injected into character_dialogs.xml via DXML. Gate preconditions in archetype_core
+-- check NPC has matching spec before showing. See DIALOG_CATEGORY_GATE medic/repair.
+local SPEC_SERVICE_DIALOGS = {
+    dm_medic_general = {field_medic = true, medic = true, doctor = true, healer = true},
+    dm_init_mechanic = {technician = true, tech = true, mechanic = true},
+    dm_tech_repair   = {technician = true, tech = true, mechanic = true},
+}
+-- Tracks which templates got spec dialogs injected (vs natively present).
+-- Gates in archetype_core use this to block non-ARCH NPCs from showing injected services.
+local SPEC_SERVICE_INJECTED = {}
+function was_spec_dialog_injected(character_id, dialog_id)
+    return SPEC_SERVICE_INJECTED[character_id] and SPEC_SERVICE_INJECTED[character_id][dialog_id] or false
+end
+-- Vanilla dialog category gate
+
+-- ──────────────────────────────────────────────────
+-- Dialog Category Gates
+-- ──────────────────────────────────────────────────
+
+local DIALOG_CATEGORY_GATE = {
+    trade = {
+        precondition = "dialogs.arch_gate_trade",
+        dialog_ids = {
+            "dm_init_trader",
+            "dm_init_stalker_trade",
+            "dm_init_medic",
+            "dm_init_mechanic",
+            "dm_init_batender",
+            "dm_companion_trade",
+            "dm_add_trade",
+        },
+    },
+    tasks = {
+        precondition = "dialogs.arch_gate_tasks",
+        dialog_ids = {
+            "dm_ordered_task_dialog",
+            "dm_ordered_task_dialog2",
+            "dm_sim_ordered_task_dialog",
+            "dm_sim_ordered_task_dialog2",
+            "dm_ordered_task_completed_dialog",
+            "dm_sim_ordered_task_completed_dialog",
+            "dm_ordered_task_cancel_dialog",
+            "dm_sim_ordered_task_cancel_dialog",
+        },
+    },
+    repair = {
+        precondition = "dialogs.arch_gate_repair",
+        dialog_ids = {
+            "dm_init_mechanic",
+            "dm_add_repair",
+            "dm_tech_repair",
+        },
+    },
+    guide = {
+        precondition = "dialogs.arch_gate_guide",
+        dialog_ids = {
+            "dm_guide_job",
+        },
+    },
+    companion = {
+        precondition = "dialogs.arch_gate_companion",
+        dialog_ids = {
+            "dm_actor_become_guide_to_companion_dialog",
+            "dm_actor_become_guide_to_companion_dialog2",
+            "dm_is_actor_companion_dialog",
+            "dm_is_actor_companion_dialog2",
+            "dm_companion_trade",
+            "dm_companion_patrol",
+            "dm_companion_patrol2",
+            "dm_companion_leave",
+            "dm_companion_leave2",
+        },
+    },
+    paid_escort = {
+        precondition = "dialogs.arch_gate_paid_escort",
+        dialog_ids = {
+            "paid_companion_dialog",
+        },
+    },
+    bribe = {
+        precondition = "dialogs.arch_gate_bribe",
+        dialog_ids = {
+            "dm_bribe",
+        },
+    },
+    lifestyle = {
+        precondition = "dialogs.arch_gate_lifestyle",
+        dialog_ids = {
+            "dm_lifestyle",
+        },
+    },
+    medic = {
+        precondition = "dialogs.arch_gate_medic",
+        dialog_ids = {
+            "dm_medic_general",
+        },
+    },
+    info = {
+        precondition = "dialogs.arch_gate_info",
+        dialog_ids = {
+            "dm_universal_dialog",
+            "dm_universal_dialog2",
+        },
+    },
+}
+-- Perf counters + dialog cache
+
+-- ──────────────────────────────────────────────────
+-- Dialog Configuration
+-- ──────────────────────────────────────────────────
+
+local function arch_perf_add(name, value)
+    if type(_G.perf_add) == "function" then
+        _G.perf_add(name, value)
+    end
+end
+local function arch_perf_max(name, value)
+    if type(_G.perf_max) == "function" then
+        _G.perf_max(name, value)
+    end
+end
+local function invalidate_dialog_config_cache()
+    CACHED_DIALOG_CONFIGS = nil
+    CACHED_DIALOG_LOOKUPS = nil
+    DIALOG_CONFIG_CACHE_DIRTY = true
+    RUNTIME_DIRTY = true
+end
+function invalidate_dialog_cache()
+    invalidate_dialog_config_cache()
+end
+local function build_dialog_lookups(configs)
+    local lookup = {
+        always = {},
+        all_arch = {},
+        by_arch = {}
+    }
+    for i = 1, #configs do
+        local cfg = configs[i]
+        if cfg.archetype_id then
+            lookup.all_arch[#lookup.all_arch + 1] = cfg
+            local arch_key = tostring(cfg.archetype_id)
+            local by_arch = lookup.by_arch[arch_key]
+            if not by_arch then
+                by_arch = {}
+                lookup.by_arch[arch_key] = by_arch
+            end
+            by_arch[#by_arch + 1] = cfg
+        else
+            lookup.always[#lookup.always + 1] = cfg
+        end
+    end
+    return lookup
+end
+local function build_dialog_configs()
+    if not DIALOG_CONFIG_CACHE_DIRTY and CACHED_DIALOG_CONFIGS then
+        return CACHED_DIALOG_CONFIGS
+    end
+    local configs = {}
+    local seen = {}
+    local function append_dialog_config(dialog_id, priority, description, archetype_id)
+        local id = tostr(dialog_id or "")
+        if id == "" then
+            return
+        end
+        local key = id .. "|" .. tostr(priority or 99)
+        if seen[key] then
+            return
+        end
+        seen[key] = true
+        configs[#configs + 1] = {
+            seq = #configs + 1,
+            dialog_id = id,
+            description = description or id,
+            priority = priority or 99,
+            archetype_id = archetype_id and tostr(archetype_id) or nil
+        }
+    end
+    if archetype_core and archetype_core.get_all_archetypes then
+        local all_archetypes = archetype_core.get_all_archetypes() or {}
+        for arch_id, data in pairs(all_archetypes) do
+            if type(data.dialog_ids) == "table" then
+                for i = 1, #data.dialog_ids do
+                    append_dialog_config(data.dialog_ids[i], data.dialog_priority, arch_id, arch_id)
+                end
+            end
+            append_dialog_config(data.dialog_id, data.dialog_priority, arch_id, arch_id)
+        end
+    end
+    -- Pack-meta dialog_ids: not tied to a specific archetype. Preconditions on the
+    -- dialog XML handle NPC filtering. Only inject ARCH dialogs (arch_ prefix) to
+    -- prevent vanilla dialog IDs from leaking onto all NPCs.
+    local pack_meta_count = 0
+    for dlg_id in pairs(DISCOVERED_LTX_PACK_DIALOG_IDS) do
+        if string.sub(dlg_id, 1, 5) == "arch_" and not seen[dlg_id .. "|99"] then
+            append_dialog_config(dlg_id, 99, "pack_meta")
+            pack_meta_count = pack_meta_count + 1
+        end
+    end
+    printf("[ARCH][DXML] build_dialog_configs: pack_meta dialogs=%s", pack_meta_count)
+    for i = 1, #UNIVERSAL_DIALOGS do
+        local cfg = UNIVERSAL_DIALOGS[i]
+        append_dialog_config(cfg.dialog_id, cfg.priority, cfg.description)
+    end
+    CACHED_DIALOG_CONFIGS = configs
+    CACHED_DIALOG_LOOKUPS = build_dialog_lookups(configs)
+    DIALOG_CONFIG_CACHE_DIRTY = false
+    return configs
+end
+local function get_dialog_lookups()
+    if DIALOG_CONFIG_CACHE_DIRTY or not CACHED_DIALOG_LOOKUPS then
+        build_dialog_configs()
+    end
+    return CACHED_DIALOG_LOOKUPS or {
+        always = {},
+        all_arch = {},
+        by_arch = {},
+    }
+end
+
+-- ──────────────────────────────────────────────────
+-- Dialog Registry
+-- ──────────────────────────────────────────────────
+
+function register_universal_dialog(config)
+    if not config or not config.dialog_id then
+        printf("[ARCH][DXML] ERROR: Invalid universal dialog config")
+        return false
+    end
+    local dialog_id = tostr(config.dialog_id)
+    local dialog_priority = tonumber(config.dialog_priority) or 99
+    for i = 1, #UNIVERSAL_DIALOGS do
+        local existing = UNIVERSAL_DIALOGS[i]
+        local same_id = tostr(existing.dialog_id or "") == dialog_id
+        local same_priority = (tonumber(existing.priority) or 99) == dialog_priority
+        if same_id and same_priority then
+            printf("[ARCH][DXML] Universal dialog already registered: %s", dialog_id)
+            return false
+        end
+    end
+    UNIVERSAL_DIALOGS[#UNIVERSAL_DIALOGS + 1] = {
+        dialog_id = dialog_id,
+        description = config.description or dialog_id,
+        priority = dialog_priority
+    }
+    invalidate_dialog_config_cache()
+    printf("[ARCH][DXML] Registered universal dialog: " .. dialog_id)
+    return true
+end
+-- XML path utilities
+local function normalize_xml_path(path)
+    if not path then return "" end
+    path = string.lower(tostring(path))
+    path = string.gsub(path, "\\", "/")
+    path = string.gsub(path, "/+", "/")
+    return path
+end
+DEFAULT_DIALOG_XML_KEYS[normalize_xml_path(ARCH_DIALOGS_XML_RELATIVE)] = true
+DEFAULT_DIALOG_XML_KEYS[normalize_xml_path(ARCH_DIALOGS_BRANCHES_XML_RELATIVE)] = true
+DEFAULT_TEXT_ENG_KEYS[normalize_xml_path(ARCH_TEXT_BRANCHES_ENG_XML_RELATIVE)] = true
+DEFAULT_TEXT_RUS_KEYS[normalize_xml_path(ARCH_TEXT_BRANCHES_RUS_XML_RELATIVE)] = true
+
+-- ──────────────────────────────────────────────────
+-- DXML Injection
+-- ──────────────────────────────────────────────────
+
+local function is_target_xml(xml_file_name, suffix)
+    local path = normalize_xml_path(xml_file_name)
+    local target = normalize_xml_path(suffix)
+    if path == target then return true end
+    if #path >= #target and string.sub(path, -#target) == target then return true end
+    local file_name = string.match(path, "([^/]+)$")
+    local target_name = string.match(target, "([^/]+)$")
+    return file_name ~= nil and target_name ~= nil and file_name == target_name
+end
+local function copy_array(src)
+    local out = {}
+    for i = 1, #src do
+        out[i] = src[i]
+    end
+    return out
+end
+local function append_unique_xml_path(out, seen, path)
+    local value = tostring(path or "")
+    if value == "" then
+        return false
+    end
+    local key = normalize_xml_path(value)
+    if key == "" or seen[key] then
+        return false
+    end
+    seen[key] = true
+    out[#out + 1] = value
+    return true
+end
+local function append_paths_from_config(out, seen, value, blocked_keys)
+    local changed = false
+    local function append_if_allowed(path_value)
+        local key = normalize_xml_path(path_value)
+        if blocked_keys and blocked_keys[key] then
+            return false
+        end
+        return append_unique_xml_path(out, seen, path_value)
+    end
+    if type(value) == "string" then
+        changed = append_if_allowed(value) or changed
+        return changed
+    end
+    if type(value) == "table" then
+        for i = 1, #value do
+            changed = append_if_allowed(value[i]) or changed
+        end
+    end
+    return changed
+end
+-- File I/O + pack discovery
+local function read_text_file(path)
+    local f = io.open(path, "r")
+    if not f then
+        return nil
+    end
+    local text = f:read("*a")
+    f:close()
+    return text
+end
+local DISCOVERED_LTX_PACK_DIALOG_XML = {}
+local DISCOVERED_LTX_PACK_DIALOG_XML_SEEN = {}
+local DISCOVERED_LTX_PACK_SCAN_DONE = false
+local DISCOVERED_LTX_PACK_TEXT_ENG = {}
+local DISCOVERED_LTX_PACK_TEXT_ENG_SEEN = {}
+-- DISCOVERED_LTX_PACK_DIALOG_IDS declared at top of file (must be in scope for build_dialog_configs)
+local function discover_pack_dialog_xml_from_ltx()
+    if DISCOVERED_LTX_PACK_SCAN_DONE then
+        local out = {}
+        for i = 1, #DISCOVERED_LTX_PACK_DIALOG_XML do
+            out[i] = DISCOVERED_LTX_PACK_DIALOG_XML[i]
+        end
+        return out
+    end
+    DISCOVERED_LTX_PACK_SCAN_DONE = true
+    if not getFS or not FS or not bit_or then
+        printf("[ARCH][DXML][DISCOVER] LTX pack scan skipped: filesystem API unavailable")
+        return {}
+    end
+    local fs = getFS()
+    if not fs or not fs.file_list_open then
+        printf("[ARCH][DXML][DISCOVER] LTX pack scan skipped: file_list_open unavailable")
+        return {}
+    end
+    local ok_list, flist = pcall(fs.file_list_open, fs, "$game_config$", "misc\\", bit_or(FS.FS_ListFiles, FS.FS_RootOnly))
+    if not ok_list or not flist then
+        printf("[ARCH][DXML][DISCOVER] LTX pack scan: no files in misc/ or scan failed")
+        return {}
+    end
+    local count = flist.Size and flist:Size() or 0
+    local scanned = 0
+    local found = 0
+    for it = 0, count - 1 do
+        local fname = flist:GetAt(it)
+        if type(fname) == "string" and string.sub(fname, 1, 10) == "arch_pack_" and string.sub(fname, -4) == ".ltx" then
+            scanned = scanned + 1
+            local ltx_path = "misc\\" .. fname
+            local ok_ini, ini = pcall(ini_file, ltx_path)
+            if ok_ini and ini and ini.section_exist and ini:section_exist("arch_pack_meta") then
+                local ok_dxml, dxml_val = pcall(function()
+                    return ini:r_string_ex("arch_pack_meta", "dialog_xml")
+                end)
+                if ok_dxml and type(dxml_val) == "string" and dxml_val ~= "" then
+                    for path in string.gmatch(dxml_val, "([^,]+)") do
+                        path = string.match(path, "^%s*(.-)%s*$")
+                        if path ~= "" then
+                            if append_unique_xml_path(DISCOVERED_LTX_PACK_DIALOG_XML, DISCOVERED_LTX_PACK_DIALOG_XML_SEEN, path) then
+                                found = found + 1
+                            end
+                        end
+                    end
+                end
+                local ok_text, text_val = pcall(function()
+                    return ini:r_string_ex("arch_pack_meta", "text_eng")
+                end)
+                if ok_text and type(text_val) == "string" and text_val ~= "" then
+                    for path in string.gmatch(text_val, "([^,]+)") do
+                        path = string.match(path, "^%s*(.-)%s*$")
+                        if path ~= "" then
+                            append_unique_xml_path(DISCOVERED_LTX_PACK_TEXT_ENG, DISCOVERED_LTX_PACK_TEXT_ENG_SEEN, path)
+                        end
+                    end
+                end
+                -- Extract dialog_ids from archetype runtime sections
+                local ok_arch_ids, arch_ids_val = pcall(function()
+                    if ini:section_exist("arch_runtime_pack") then
+                        return ini:r_string_ex("arch_runtime_pack", "archetype_ids")
+                    end
+                    return nil
+                end)
+                -- Standalone dialog_ids at pack meta level (for packs that extend core archetypes)
+                local ok_pack_dlg, pack_dlg_val = pcall(function()
+                    return ini:r_string_ex("arch_pack_meta", "dialog_ids")
+                end)
+                if ok_pack_dlg and type(pack_dlg_val) == "string" and pack_dlg_val ~= "" then
+                    for dlg_id in string.gmatch(pack_dlg_val, "([^,%s]+)") do
+                        DISCOVERED_LTX_PACK_DIALOG_IDS[dlg_id] = true
+                    end
+                end
+                if ok_arch_ids and type(arch_ids_val) == "string" and arch_ids_val ~= "" then
+                    for arch_id in string.gmatch(arch_ids_val, "([^,%s]+)") do
+                        local section = "arch_runtime_" .. arch_id
+                        local ok_dlg, dlg_val = pcall(function()
+                            if ini:section_exist(section) then
+                                return ini:r_string_ex(section, "dialog_ids")
+                            end
+                            return nil
+                        end)
+                        if ok_dlg and type(dlg_val) == "string" and dlg_val ~= "" then
+                            for dlg_id in string.gmatch(dlg_val, "([^,%s]+)") do
+                                DISCOVERED_LTX_PACK_DIALOG_IDS[dlg_id] = true
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    local discovered_dialog_id_count = 0
+    for _ in pairs(DISCOVERED_LTX_PACK_DIALOG_IDS) do discovered_dialog_id_count = discovered_dialog_id_count + 1 end
+    printf("[ARCH][DXML][DISCOVER] LTX pack scan: files=%s dialog_xml=%s text_eng=%s dialog_ids=%s",
+        scanned, #DISCOVERED_LTX_PACK_DIALOG_XML, #DISCOVERED_LTX_PACK_TEXT_ENG, discovered_dialog_id_count)
+    if #DISCOVERED_LTX_PACK_DIALOG_XML > 0 then
+        printf("[ARCH][DXML][DISCOVER] LTX pack dialog sources: %s",
+            table.concat(DISCOVERED_LTX_PACK_DIALOG_XML, ", "))
+    end
+    local out = {}
+    for i = 1, #DISCOVERED_LTX_PACK_DIALOG_XML do
+        out[i] = DISCOVERED_LTX_PACK_DIALOG_XML[i]
+    end
+    return out
+end
+local function discover_pack_dialog_xml_sources_from_manifests()
+    local function copy_discovered()
+        local out = {}
+        for i = 1, #DISCOVERED_PACK_DIALOG_XML do
+            out[i] = DISCOVERED_PACK_DIALOG_XML[i]
+        end
+        return out
+    end
+    if DISCOVERED_PACK_DIALOG_XML_SCAN_DONE then
+        return copy_discovered()
+    end
+    DISCOVERED_PACK_DIALOG_XML_SCAN_DONE = true
+    if type(getFS) ~= "function" then
+        printe("[ARCH][DXML][DISCOVER] getFS unavailable; skipping pre-parse pack dialog manifest discovery")
+        return copy_discovered()
+    end
+    local fs = getFS()
+    if not fs or type(fs.file_list_open_ex) ~= "function" then
+        printe("[ARCH][DXML][DISCOVER] file_list_open_ex unavailable; skipping pre-parse pack dialog manifest discovery")
+        return copy_discovered()
+    end
+    local flags = 0
+    if _G.FS and _G.FS.FS_ListFiles then
+        flags = _G.FS.FS_ListFiles
+        if _G.FS.FS_RootOnly then
+            if type(bit_or) == "function" then
+                flags = bit_or(flags, _G.FS.FS_RootOnly)
+            else
+                flags = flags + _G.FS.FS_RootOnly
+            end
+        end
+    end
+    local ok_list, flist = pcall(function()
+        return fs:file_list_open_ex("$game_scripts$", flags, "custom_archetypes_*.script")
+    end)
+    if not ok_list or not flist then
+        printe("[ARCH][DXML][DISCOVER] Could not list custom_archetypes_*.script for pre-parse dialog discovery")
+        return copy_discovered()
+    end
+    local scripts_root = ""
+    if type(fs.update_path) == "function" then
+        local ok_root, root_or_err = pcall(function()
+            return fs:update_path("$game_scripts$", "")
+        end)
+        if ok_root and type(root_or_err) == "string" then
+            scripts_root = root_or_err
+        end
+    end
+    local scanned_scripts = 0
+    local extracted_paths = 0
+    local file_count = (type(flist.Size) == "function") and (flist:Size() or 0) or 0
+    for it = 0, file_count - 1 do
+        local file = (type(flist.GetAt) == "function") and flist:GetAt(it) or nil
+        local file_name = file and type(file.NameShort) == "function" and file:NameShort() or nil
+        if type(file_name) == "string" and file_name ~= "" then
+            scanned_scripts = scanned_scripts + 1
+            local script_path = scripts_root ~= "" and (scripts_root .. file_name) or file_name
+            local text = read_text_file(script_path)
+            if type(text) == "string" and text ~= "" then
+                for block in string.gmatch(text, "dialog_xml%s*=%s*{([%s%S]-)}") do
+                    for rel_path in string.gmatch(block, "\"([^\"]+%.xml)\"") do
+                        rel_path = string.gsub(rel_path, "\\\\", "\\")
+                        if append_unique_xml_path(DISCOVERED_PACK_DIALOG_XML, DISCOVERED_PACK_DIALOG_XML_SEEN, rel_path) then
+                            extracted_paths = extracted_paths + 1
+                        end
+                    end
+                end
+                for rel_path in string.gmatch(text, "dialog_xml%s*=%s*\"([^\"]+%.xml)\"") do
+                    rel_path = string.gsub(rel_path, "\\\\", "\\")
+                    if append_unique_xml_path(DISCOVERED_PACK_DIALOG_XML, DISCOVERED_PACK_DIALOG_XML_SEEN, rel_path) then
+                        extracted_paths = extracted_paths + 1
+                    end
+                end
+            end
+        end
+    end
+    if #DISCOVERED_PACK_DIALOG_XML > 0 then
+        local filtered = {}
+        local filtered_seen = {}
+        for i = 1, #DISCOVERED_PACK_DIALOG_XML do
+            append_paths_from_config(filtered, filtered_seen, DISCOVERED_PACK_DIALOG_XML[i], DEFAULT_DIALOG_XML_KEYS)
+        end
+        DISCOVERED_PACK_DIALOG_XML = filtered
+        DISCOVERED_PACK_DIALOG_XML_SEEN = filtered_seen
+    end
+    printf(string.format(
+        "[ARCH][DXML][DISCOVER] Pre-parse manifest scan: scripts=%s discovered_pack_dialog_xml=%s extracted=%s",
+        tostring(scanned_scripts),
+        tostring(#DISCOVERED_PACK_DIALOG_XML),
+        tostring(extracted_paths)
+    ))
+    if #DISCOVERED_PACK_DIALOG_XML > 0 then
+        printf("[ARCH][DXML][DISCOVER] Pack dialog XML sources (manifest pre-parse): %s",
+            table.concat(DISCOVERED_PACK_DIALOG_XML, ", "))
+    end
+    return copy_discovered()
+end
+-- Pack file registration
+local function get_dialog_xml_sources()
+    local out = {
+        ARCH_DIALOGS_XML_RELATIVE,
+        ARCH_DIALOGS_BRANCHES_XML_RELATIVE
+    }
+    return out
+end
+local function get_pack_dialog_xml_sources()
+    local out = {}
+    local seen = {}
+    append_paths_from_config(out, seen, discover_pack_dialog_xml_sources_from_manifests(), DEFAULT_DIALOG_XML_KEYS)
+    append_paths_from_config(out, seen, discover_pack_dialog_xml_from_ltx(), DEFAULT_DIALOG_XML_KEYS)
+    append_paths_from_config(out, seen, REGISTERED_PACK_DIALOG_XML, DEFAULT_DIALOG_XML_KEYS)
+    return out
+end
+local function get_registered_text_sources(is_eng)
+    if is_eng then
+        local out = copy_array(REGISTERED_PACK_TEXT_ENG_XML)
+        for i = 1, #DISCOVERED_LTX_PACK_TEXT_ENG do
+            local path = DISCOVERED_LTX_PACK_TEXT_ENG[i]
+            local dup = false
+            for j = 1, #out do
+                if out[j] == path then dup = true break end
+            end
+            if not dup then
+                out[#out + 1] = path
+            end
+        end
+        return out
+    end
+    local list = REGISTERED_PACK_TEXT_RUS_XML
+    return copy_array(list)
+end
+local function register_pack_files(config)
+    if type(config) ~= "table" then
+        return false
+    end
+    local changed = false
+    changed = append_paths_from_config(REGISTERED_PACK_DIALOG_XML, REGISTERED_PACK_DIALOG_XML_SEEN, config.dialog_xml, DEFAULT_DIALOG_XML_KEYS) or changed
+    changed = append_paths_from_config(REGISTERED_PACK_TEXT_ENG_XML, REGISTERED_PACK_TEXT_ENG_XML_SEEN, config.text_eng, DEFAULT_TEXT_ENG_KEYS) or changed
+    changed = append_paths_from_config(REGISTERED_PACK_TEXT_RUS_XML, REGISTERED_PACK_TEXT_RUS_XML_SEEN, config.text_rus, DEFAULT_TEXT_RUS_KEYS) or changed
+    if changed then
+        invalidate_dialog_config_cache()
+        printf("[ARCH][DXML] Registered pack files: dialog=%s text_eng=%s text_rus=%s",
+            #REGISTERED_PACK_DIALOG_XML, #REGISTERED_PACK_TEXT_ENG_XML, #REGISTERED_PACK_TEXT_RUS_XML)
+    end
+    return changed
+end
+local function get_registered_pack_files()
+    return {
+        dialog_xml = copy_array(REGISTERED_PACK_DIALOG_XML),
+        text_eng = copy_array(REGISTERED_PACK_TEXT_ENG_XML),
+        text_rus = copy_array(REGISTERED_PACK_TEXT_RUS_XML)
+    }
+end
+local function collect_required_dialog_ids()
+    local required = {}
+    local configs = build_dialog_configs()
+    for i = 1, #configs do
+        local dialog_id = tostring(configs[i].dialog_id or "")
+        if dialog_id ~= "" then
+            required[dialog_id] = true
+        end
+    end
+    for core_id in pairs(CORE_ARCH_DIALOG_IDS) do
+        required[core_id] = true
+    end
+    for spec_dialog_id in pairs(SPEC_SERVICE_DIALOGS) do
+        required[spec_dialog_id] = true
+    end
+    for pool_id in pairs(POOL_TAG_DIALOG_IDS) do
+        required[pool_id] = true
+    end
+    for global_id in pairs(GLOBAL_DIALOG_IDS) do
+        required[global_id] = true
+    end
+    for dlg_id in pairs(DISCOVERED_LTX_PACK_DIALOG_IDS) do
+        required[dlg_id] = true
+    end
+    return required
+end
+-- DXML injection
+local function xml_has_dialog(xml_obj, dialog_id)
+    local id = tostring(dialog_id or "")
+    if id == "" or not xml_obj then
+        return false
+    end
+    local function node_id_matches(node)
+        if not node then return false end
+        if type(node.attr) == "function" then
+            local ok_attr, value = pcall(node.attr, node, "id")
+            if ok_attr and tostring(value or "") == id then
+                return true
+            end
+        end
+        return true
+    end
+    local quoted = "dialog[id=\"" .. id .. "\"]"
+    local ok_query, result = pcall(function()
+        return xml_obj:query(quoted)
+    end)
+    if ok_query and result and result[1] ~= nil and node_id_matches(result[1]) then
+        return true
+    end
+    local unquoted = "dialog[id=" .. id .. "]"
+    ok_query, result = pcall(function()
+        return xml_obj:query(unquoted)
+    end)
+    if ok_query and result and result[1] ~= nil and node_id_matches(result[1]) then
+        return true
+    end
+    return false
+end
+local function try_insert_xml_file(xml_obj, relative_path, parent_elem, insert_index)
+    if not xml_obj or type(xml_obj.insertFromXMLFile) ~= "function" then
+        return false, "insertFromXMLFile unavailable"
+    end
+    local ok, err = pcall(function()
+        xml_obj:insertFromXMLFile(relative_path, parent_elem, insert_index, true)
+    end)
+    if ok then
+        return true, nil
+    end
+    return false, tostring(err)
+end
+local function inject_dialogs(xml_obj)
+    local base_already_loaded = xml_has_dialog(xml_obj, "arch_task_offer_dialog")
+    local base_dialog_sources = get_dialog_xml_sources()
+    local pack_dialog_sources = get_pack_dialog_xml_sources()
+    local loaded_count = 0
+    local pack_dialog_merge_count = 0
+    if base_already_loaded then
+        printf("[ARCH][DXML] inject_dialogs: base dialogs already present — skipping base sources, loading pack sources only")
+        loaded_count = #base_dialog_sources
+    else
+        for i = 1, #base_dialog_sources do
+            local source_path = base_dialog_sources[i]
+            local loaded, err = try_insert_xml_file(xml_obj, source_path)
+            if loaded then
+                loaded_count = loaded_count + 1
+            elseif err then
+                printe("[ARCH][DXML] insertFromXMLFile failed for %s: %s", tostring(source_path), tostring(err))
+            end
+        end
+    end
+    for i = 1, #pack_dialog_sources do
+        local source_path = pack_dialog_sources[i]
+        printf("[ARCH][DXML] Loading pack dialog XML: %s (no root_elem, same as base)", tostring(source_path))
+        local loaded, engine_err = try_insert_xml_file(xml_obj, source_path)
+        if loaded then
+            pack_dialog_merge_count = pack_dialog_merge_count + 1
+            loaded_count = loaded_count + 1
+            printf("[ARCH][DXML] Loaded pack dialog XML %s", tostring(source_path))
+        else
+            printe("[ARCH][DXML] Failed to load pack dialog XML %s: %s", tostring(source_path), tostring(engine_err))
+        end
+    end
+    local required_ids = collect_required_dialog_ids()
+    local available = {}
+    local available_count = 0
+    local missing_count = 0
+    for dialog_id in pairs(required_ids) do
+        if xml_has_dialog(xml_obj, dialog_id) then
+            available[dialog_id] = true
+            available_count = available_count + 1
+        else
+            missing_count = missing_count + 1
+            printe("[ARCH][DXML] Missing dialog in XML, skipping id '" .. tostring(dialog_id) .. "'")
+        end
+    end
+    AVAILABLE_DIALOG_IDS = available
+    printf("[ARCH][DXML] Dialog XML load: base_sources=%s pack_sources=%s loaded=%s pack_merged=%s available=%s missing=%s",
+        #base_dialog_sources, #pack_dialog_sources, loaded_count, pack_dialog_merge_count, available_count, missing_count)
+end
+local function inject_text_strings(xml_obj, xml_file_name)
+    local is_eng = is_target_xml(xml_file_name, "text\\eng\\st_dialog_manager_arch.xml")
+    local branches_target = is_eng and ARCH_TEXT_BRANCHES_ENG_XML_RELATIVE or ARCH_TEXT_BRANCHES_RUS_XML_RELATIVE
+    local branches_ok, branches_err = try_insert_xml_file(xml_obj, branches_target)
+    if not branches_ok and not is_eng then
+        local fallback_ok, fallback_err = try_insert_xml_file(xml_obj, ARCH_TEXT_BRANCHES_ENG_XML_RELATIVE)
+        if fallback_ok then
+            branches_ok = true
+            printf("[ARCH][DXML] Loaded fallback text XML %s into %s", ARCH_TEXT_BRANCHES_ENG_XML_RELATIVE, tostr(xml_file_name))
+        elseif fallback_err then
+            branches_err = fallback_err
+        end
+    end
+    if branches_ok then
+        printf("[ARCH][DXML] Loaded dialog text XML %s into %s", tostr(branches_target), tostr(xml_file_name))
+    elseif branches_err then
+        printe("[ARCH][DXML] insertFromXMLFile failed for %s: %s", tostr(branches_target), tostr(branches_err))
+    end
+    local extra_sources = get_registered_text_sources(is_eng)
+    local extra_loaded = 0
+    for i = 1, #extra_sources do
+        local extra_path = extra_sources[i]
+        local ok, err = try_insert_xml_file(xml_obj, extra_path)
+        if ok then
+            extra_loaded = extra_loaded + 1
+            printf("[ARCH][DXML] Loaded pack text XML %s into %s", tostr(extra_path), tostr(xml_file_name))
+        elseif err then
+            printe("[ARCH][DXML] insertFromXMLFile failed for %s: %s", tostr(extra_path), tostr(err))
+        end
+    end
+    if #extra_sources > 0 then
+        printf("[ARCH][DXML] Pack text XML load (%s): sources=%s loaded=%s",
+            is_eng and "eng" or "rus", #extra_sources, extra_loaded)
+    end
+end
+local function inject_actor_dialog_list(xml_obj)
+    local required_ids = AVAILABLE_DIALOG_IDS
+    local added = 0
+    local available_count = 0
+    local existing = {}
+    local actor_available = {}
+    local nodes = xml_obj:query("actor_dialog")
+    if nodes then
+        for i = 1, #nodes do
+            local node_text = tostring(xml_obj:getText(nodes[i]) or "")
+            if node_text ~= "" then
+                existing[node_text] = true
+                actor_available[node_text] = true
+            end
+        end
+    end
+    for dialog_id in pairs(required_ids) do
+        available_count = available_count + 1
+        -- Skip dialogs handled per-NPC via on_dialog_list_handler callback.
+        -- dialog_list:has() can't see globally-injected entries, so global + per-NPC = duplicates.
+        local skip = CORE_ARCH_DIALOG_IDS[dialog_id] or POOL_TAG_DIALOG_IDS[dialog_id]
+        local target_id = tostring(dialog_id)
+        if not skip and not existing[target_id] then
+            xml_obj:insertFromXMLString("<actor_dialog>" .. target_id .. "</actor_dialog>")
+            existing[target_id] = true
+            actor_available[target_id] = true
+            added = added + 1
+        end
+    end
+    AVAILABLE_ACTOR_DIALOG_IDS = actor_available
+    printf("[ARCH][DXML] Ensured actor_dialog entries: +%s (available=%s)", added, available_count)
+end
+local CATEGORY_GATES_INJECTED = false
+local function inject_dialog_category_gates(xml_obj)
+    if CATEGORY_GATES_INJECTED then
+        printf("[ARCH][DXML] inject_dialog_category_gates: skipping — already injected this session")
+        return
+    end
+    if not xml_obj or type(xml_obj.query) ~= "function" then
+        printe("[ARCH][DXML] Cannot inject category gates: xml_obj.query unavailable")
+        return
+    end
+    CATEGORY_GATES_INJECTED = true
+    local injected = 0
+    local missed = 0
+    for category, cfg in pairs(DIALOG_CATEGORY_GATE) do
+        local precondition_fn = cfg.precondition
+        local ids = cfg.dialog_ids
+        for i = 1, #ids do
+            local dialog_id = ids[i]
+            local node = nil
+            local ok, res = pcall(function()
+                return xml_obj:query("dialog[id=\"" .. dialog_id .. "\"]")
+            end)
+            if ok and res and res[1] then
+                node = res[1]
+            else
+                ok, res = pcall(function()
+                    return xml_obj:query("dialog[id=" .. dialog_id .. "]")
+                end)
+                if ok and res and res[1] then
+                    node = res[1]
+                end
+            end
+            if node then
+                local insert_ok, insert_err = pcall(function()
+                    xml_obj:insertFromXMLString(
+                        "<precondition>" .. precondition_fn .. "</precondition>",
+                        node
+                    )
+                end)
+                if insert_ok then
+                    injected = injected + 1
+                else
+                    printe("[ARCH][DXML] Failed to inject precondition into %s: %s",
+                        tostring(dialog_id), tostring(insert_err))
+                    missed = missed + 1
+                end
+            else
+                missed = missed + 1
+            end
+        end
+    end
+    printf("[ARCH][DXML] Category gate preconditions injected: %s ok, %s missed", injected, missed)
+end
+local function on_xml_read_handler(xml_file_name, xml_obj)
+    if not xml_obj or not xml_file_name then return end
+    if is_target_xml(xml_file_name, "gameplay\\dialogs.xml") then
+        inject_dialogs(xml_obj)
+        inject_dialog_category_gates(xml_obj)
+        return
+    end
+    if is_target_xml(xml_file_name, "gameplay\\character_dialogs.xml") then
+        inject_actor_dialog_list(xml_obj)
+        return
+    end
+    if is_target_xml(xml_file_name, "text\\eng\\st_dialog_manager_arch.xml")
+    or is_target_xml(xml_file_name, "text\\rus\\st_dialog_manager_arch.xml")
+    then
+        inject_text_strings(xml_obj, xml_file_name)
+        return
+    end
+end
+local dxml_callback_registered = false
+function on_xml_read()
+    if (dxml_callback_registered) then
+        return
+    end
+    RegisterScriptCallback("on_xml_read", on_xml_read_handler)
+    dxml_callback_registered = true
+    printf("[ARCH][DXML] Registered on_xml_read handler")
+end
+local function trigger_dxml()
+    if not CScriptXmlInit then return end
+    local xml = CScriptXmlInit()
+    xml:ParseDirFile([[gameplay]], "dialogs.xml")
+    xml:ParseDirFile([[gameplay]], "character_dialogs.xml")
+    xml = nil
+    printf("[ARCH][DXML] Triggered gameplay XML re-parse")
+end
+local function rebuild_dialog_runtime()
+    if not RUNTIME_DIRTY and RUNTIME_REBUILT then
+        return
+    end
+    invalidate_dialog_config_cache()
+    trigger_dxml()
+    RUNTIME_REBUILT = true
+    RUNTIME_DIRTY = false
+end
+-- Dialog list runtime
+local function dialog_list_has(dialog_list, dialog_id)
+    if not dialog_list or type(dialog_list.has) ~= "function" or not dialog_id then
+        return false
+    end
+    return dialog_list:has(tostring(dialog_id)) ~= nil
+end
+local function is_arch_managed_dialog_id(dialog_id)
+    local id = tostring(dialog_id or "")
+    if string.sub(id, 1, 5) ~= "arch_" then
+        return false
+    end
+    return AVAILABLE_DIALOG_IDS[id] == true
+end
+local function reconcile_arch_custom_dialogs(dialog_list, selected_arch_dialog_ids)
+    if not dialog_list
+    or type(dialog_list.get_dialogs) ~= "function"
+    or type(dialog_list.remove) ~= "function"
+    then
+        return 0
+    end
+    local dialogs = dialog_list:get_dialogs()
+    if type(dialogs) ~= "table" then
+        return 0
+    end
+    local removed = 0
+    for i = 1, #dialogs do
+        local dialog_id = tostring(dialogs[i] or "")
+        if is_arch_managed_dialog_id(dialog_id) and not selected_arch_dialog_ids[dialog_id] then
+            dialog_list:remove(dialog_id)
+            removed = removed + 1
+        end
+    end
+    return removed
+end
+local function append_unique_candidate(out, seen, config)
+    if not config then
+        return
+    end
+    local seq = tonumber(config.seq) or 0
+    if seen[seq] then
+        return
+    end
+    seen[seq] = true
+    out[#out + 1] = config
+end
+local function summarize_dialog_configs(configs, limit)
+    local out = {}
+    local max_items = tonumber(limit) or 6
+    for i = 1, math.min(#configs, max_items) do
+        local cfg = configs[i] or {}
+        local dialog_id = tostring(cfg.dialog_id or "")
+        local src_arch = tostring(cfg.archetype_id or cfg.description or "")
+        local available = AVAILABLE_DIALOG_IDS[dialog_id] and "yes" or "no"
+        out[#out + 1] = dialog_id .. "{arch=" .. src_arch .. ",avail=" .. available .. "}"
+    end
+    if #configs > max_items then
+        out[#out + 1] = "...+" .. tostring(#configs - max_items)
+    end
+    return table.concat(out, "; ")
+end
+local function is_universal_task_only_selection(configs)
+    if type(configs) ~= "table" or #configs ~= 1 then
+        return false
+    end
+    local cfg = configs[1]
+    return tostring(cfg and cfg.dialog_id or "") == "arch_task_offer_dialog"
+end
+local function is_safe_nil_arch_fallback_dialog(cfg)
+    local dialog_id = tostring(cfg and cfg.dialog_id or "")
+    if string.sub(dialog_id, 1, 5) ~= "arch_" then
+        return false
+    end
+    if string.sub(dialog_id, 1, 10) == "arch_spec_" then
+        return false
+    end
+    return true
+end
+local function maybe_log_dialog_callback_trace(character_id, character_id_lc, npc_arch_id, lookups, configs)
+    if not DXML_TRACE_DIALOG_CALLBACK then
+        return
+    end
+    local cid = tostring(character_id or "")
+    if cid == "" then
+        return
+    end
+    local key = cid
+    if DIALOG_CALLBACK_TRACE_SEEN[key] then
+        return
+    end
+    local by_arch_count = 0
+    if npc_arch_id then
+        local by_arch = lookups.by_arch[tostring(npc_arch_id)]
+        by_arch_count = by_arch and #by_arch or 0
+    end
+    if not npc_arch_id and #configs == 0 then
+        return
+    end
+    if not npc_arch_id
+    and is_universal_task_only_selection(configs)
+    then
+        return
+    end
+    DIALOG_CALLBACK_TRACE_SEEN[key] = true
+    printf(string.format(
+        "[ARCH][DXML][TRACE] char='%s' npc_arch='%s' by_arch=%s selected=%s",
+        cid,
+        tostring(npc_arch_id),
+        tostring(by_arch_count),
+        tostring(#configs)
+    ))
+    if #configs > 0 then
+        printf("[ARCH][DXML][TRACE] selected dialogs for '%s': %s",
+            cid, summarize_dialog_configs(configs, 8))
+    end
+end
+local function collect_candidate_configs(character_id_lc, npc_arch_id, lookups)
+    local out = {}
+    local seen = {}
+    local tested = 0
+    for i = 1, #lookups.always do
+        tested = tested + 1
+        append_unique_candidate(out, seen, lookups.always[i])
+    end
+    if npc_arch_id then
+        arch_perf_add("dxml_lookup_by_arch_calls", 1)
+        local by_arch = lookups.by_arch[tostring(npc_arch_id)]
+        if by_arch then
+            arch_perf_add("dxml_lookup_by_arch_hits", 1)
+            for i = 1, #by_arch do
+                tested = tested + 1
+                append_unique_candidate(out, seen, by_arch[i])
+            end
+        end
+    else
+        arch_perf_add("dxml_lookup_all_arch_fallback_calls", 1)
+        for i = 1, #lookups.all_arch do
+            tested = tested + 1
+            local cfg = lookups.all_arch[i]
+            if is_safe_nil_arch_fallback_dialog(cfg) then
+                append_unique_candidate(out, seen, cfg)
+            end
+        end
+    end
+    if #out > 1 then
+        table.sort(out, function(a, b)
+            return (tonumber(a.seq) or 0) < (tonumber(b.seq) or 0)
+        end)
+    end
+    arch_perf_add("dxml_candidates_tested_total", tested)
+    arch_perf_max("dxml_candidates_tested_max", tested)
+    arch_perf_add("dxml_candidates_selected_total", #out)
+    arch_perf_max("dxml_candidates_selected_max", #out)
+    return out
+end
+local function on_dialog_list_handler(character_id, dialog_list)
+    arch_perf_add("dxml_dialog_list_callback_calls", 1)
+    local character_id_lc = string.lower(tostr(character_id or ""))
+    local lookups = get_dialog_lookups()
+    local npc_arch_id = nil
+    if archetype_core and archetype_core.get_npc_archetype_by_id then
+        npc_arch_id = archetype_core.get_npc_archetype_by_id(character_id)
+    end
+    local configs = collect_candidate_configs(character_id_lc, npc_arch_id, lookups)
+    maybe_log_dialog_callback_trace(character_id, character_id_lc, npc_arch_id, lookups, configs)
+    local added = 0
+    local selected_arch_dialog_ids = {}
+    for i = 1, #configs do
+        local config = configs[i]
+        local dialog_id = tostr(config and config.dialog_id or "")
+        if is_arch_managed_dialog_id(dialog_id) then
+            selected_arch_dialog_ids[dialog_id] = true
+        end
+        if AVAILABLE_DIALOG_IDS[config.dialog_id] and not dialog_list_has(dialog_list, config.dialog_id) then
+            if config.priority == 1 then
+                dialog_list:add_first(config.dialog_id)
+            else
+                dialog_list:add(config.dialog_id, config.priority or 99)
+            end
+            added = added + 1
+        end
+    end
+    local removed = reconcile_arch_custom_dialogs(dialog_list, selected_arch_dialog_ids)
+    -- Spec service dialogs (medic/repair) — per-NPC injection with tracking
+    local spec_added = 0
+    for spec_dialog_id in pairs(SPEC_SERVICE_DIALOGS) do
+        if not dialog_list_has(dialog_list, spec_dialog_id) then
+            dialog_list:add(spec_dialog_id)
+            SPEC_SERVICE_INJECTED[character_id] = SPEC_SERVICE_INJECTED[character_id] or {}
+            SPEC_SERVICE_INJECTED[character_id][spec_dialog_id] = true
+            spec_added = spec_added + 1
+        end
+    end
+    -- Delivery turnin dialog: injected globally via character_dialogs.xml (GLOBAL_DIALOG_IDS).
+    -- No per-NPC injection needed — follows vanilla dm_delivery_dialog pattern.
+    arch_perf_add("dxml_dialogs_added_total", added + spec_added)
+    arch_perf_max("dxml_dialogs_added_max", added + spec_added)
+    arch_perf_add("dxml_dialogs_removed_total", removed)
+    arch_perf_max("dxml_dialogs_removed_max", removed)
+    -- Intro dialog handled via xr_meet.override_dialog in archetype_core.on_npc_net_spawn
+end
+-- Startup + public API
+local dialog_list_cb_registered = false
+local function assign_dialogs_to_profiles()
+    if (dialog_list_cb_registered) then
+        return
+    end
+    RegisterScriptCallback("on_specific_character_dialog_list", on_dialog_list_handler)
+    dialog_list_cb_registered = true
+end
+local game_load_cb_registered = false
+local function on_game_load_handler()
+    rebuild_dialog_runtime()
+end
+
+-- ──────────────────────────────────────────────────
+-- Game Start
+-- ──────────────────────────────────────────────────
+
+function on_game_start()
+    on_xml_read()
+    assign_dialogs_to_profiles()
+    rebuild_dialog_runtime()
+    if (not game_load_cb_registered) then
+        RegisterScriptCallback("on_game_load", on_game_load_handler)
+        game_load_cb_registered = true
+    end
+    printf("[ARCH][DXML] Dialog system initialized")
+end
+local function get_available_dialog_ids()
+    local out = {}
+    for dialog_id, value in pairs(AVAILABLE_DIALOG_IDS) do
+        out[dialog_id] = value
+    end
+    return out
+end
+local function is_runtime_rebuilt()
+    return RUNTIME_REBUILT == true
+end
+if not _G.modxml_arch_dialogs then
+    _G.modxml_arch_dialogs = {}
+end
+_G.modxml_arch_dialogs.register_universal_dialog = register_universal_dialog
+_G.modxml_arch_dialogs.register_pack_files = register_pack_files
+_G.modxml_arch_dialogs.get_registered_pack_files = get_registered_pack_files
+_G.modxml_arch_dialogs.invalidate_dialog_cache = invalidate_dialog_config_cache
+_G.modxml_arch_dialogs.rebuild_dialog_runtime = rebuild_dialog_runtime
+_G.modxml_arch_dialogs.get_available_dialog_ids = get_available_dialog_ids
+_G.modxml_arch_dialogs.is_runtime_rebuilt = is_runtime_rebuilt

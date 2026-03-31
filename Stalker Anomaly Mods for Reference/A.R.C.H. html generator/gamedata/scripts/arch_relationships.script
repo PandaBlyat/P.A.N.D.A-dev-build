@@ -1,0 +1,179 @@
+-- A.R.C.H. Specializations Module
+local tostr = tostring
+local tonum = tonumber
+
+-- ══════════════════════════════════════════════════
+-- Text and CSV Helpers
+-- ══════════════════════════════════════════════════
+
+local function tr(text_id)
+    local id = tostring(text_id or "")
+    if id == "" then
+        return ""
+    end
+    if game and game.translate_string then
+        local translated = game.translate_string(id)
+        if translated and translated ~= "" and translated ~= id then
+            return translated
+        end
+    end
+    return id
+end
+local function split_csv_tokens(value)
+    local tokens = {}
+    local s = tostring(value or "")
+    if s == "" then
+        return tokens
+    end
+    for token in string.gmatch(s, "([^,]+)") do
+        token = string.gsub(token, "^%s+", "")
+        token = string.gsub(token, "%s+$", "")
+        tokens[#tokens + 1] = token
+    end
+    return tokens
+end
+local function section_exists(section)
+    if type(section) ~= "string" or section == "" then
+        return false
+    end
+    if ini_sys and ini_sys.section_exist then
+        local ok, exists = pcall(ini_sys.section_exist, ini_sys, section)
+        return ok and exists == true
+    end
+    return false
+end
+
+-- ──────────────────────────────────────────────────
+-- Relationship Tracker
+-- ──────────────────────────────────────────────────
+
+local DEFAULT_REGULAR_THRESHOLD = 5
+
+local function rel_get(prefix, npc_id)
+    if not npc_id or not db.actor then return 0 end
+    return load_var(db.actor, prefix .. tostr(npc_id), 0) or 0
+end
+local function rel_set(prefix, npc_id, value)
+    if not npc_id or not db.actor then return end
+    save_var(db.actor, prefix .. tostr(npc_id), tonum(value) or 0)
+end
+
+-- ──────────────────────────────────────────────────
+-- Relationship Public API
+-- ──────────────────────────────────────────────────
+
+function get_visits(npc_id) return rel_get("arch_rel_visits_", npc_id) end
+function increment_visits(npc_id) local v = get_visits(npc_id) + 1; rel_set("arch_rel_visits_", npc_id, v); return v end
+function get_trust(npc_id) return rel_get("arch_rel_trust_", npc_id) end
+function increment_trust(npc_id) local v = get_trust(npc_id) + 1; rel_set("arch_rel_trust_", npc_id, v); return v end
+function get_reward_buy_modifier(npc_id) return rel_get("arch_reward_buy_mod_", npc_id) end
+function set_reward_buy_modifier(npc_id, value) rel_set("arch_reward_buy_mod_", npc_id, value) end
+function get_reward_sell_modifier(npc_id) return rel_get("arch_reward_sell_mod_", npc_id) end
+function set_reward_sell_modifier(npc_id, value) rel_set("arch_reward_sell_mod_", npc_id, value) end
+function apply_reward_buy_modifier(npc_id, delta)
+    local current = get_reward_buy_modifier(npc_id)
+    local new_val = current + (tonum(delta) or 0)
+    rel_set("arch_reward_buy_mod_", npc_id, new_val)
+    printf("[ARCH] Reward buy modifier for npc %s: %.3f -> %.3f", tostr(npc_id), current, new_val)
+end
+function apply_reward_sell_modifier(npc_id, delta)
+    local current = get_reward_sell_modifier(npc_id)
+    local new_val = current + (tonum(delta) or 0)
+    rel_set("arch_reward_sell_mod_", npc_id, new_val)
+    printf("[ARCH] Reward sell modifier for npc %s: %.3f -> %.3f", tostr(npc_id), current, new_val)
+end
+function get_default_regular_threshold()
+    return DEFAULT_REGULAR_THRESHOLD
+end
+
+-- ──────────────────────────────────────────────────
+-- Dialog Item Helpers
+-- ──────────────────────────────────────────────────
+
+local function actor_has_any_section(first_speaker, second_speaker, sections)
+    if not dialogs or type(dialogs.actor_has_item) ~= "function" then
+        return false
+    end
+    for i = 1, #sections do
+        if dialogs.actor_has_item(first_speaker, second_speaker, sections[i]) then
+            return true
+        end
+    end
+    return false
+end
+local function actor_has_section(first_speaker, second_speaker, section)
+    if not dialogs or type(dialogs.actor_has_item) ~= "function" then
+        return false
+    end
+    if type(section) ~= "string" or section == "" then
+        return false
+    end
+    return dialogs.actor_has_item(first_speaker, second_speaker, section) == true
+end
+
+-- ──────────────────────────────────────────────────
+-- Inventory Picker System
+-- ──────────────────────────────────────────────────
+
+local INVENTORY_PICKERS = {}
+function register_inventory_picker(config)
+    if not config or not config.id then return end
+    INVENTORY_PICKERS[config.id] = config
+end
+function get_inventory_picker(picker_id)
+    return INVENTORY_PICKERS[picker_id]
+end
+function get_all_inventory_pickers()
+    return INVENTORY_PICKERS
+end
+function picker_get_item_count(picker_id)
+    local p = INVENTORY_PICKERS[picker_id]
+    return p and p.items and #p.items or 0
+end
+function picker_has_input(picker_id, index, fs, ss)
+    local p = INVENTORY_PICKERS[picker_id]
+    if not p or not p.items or not p.items[index] then return false end
+    if p.has_item_fn then
+        return p.has_item_fn(p.items[index].section, fs, ss)
+    end
+    return actor_has_section(fs, ss, p.items[index].section)
+end
+function picker_action(picker_id, index, fs, ss)
+    local p = INVENTORY_PICKERS[picker_id]
+    if not p or not p.items or not p.items[index] then return true end
+    if p.action_fn then
+        return p.action_fn(p.items[index].section, fs, ss)
+    end
+    return true
+end
+function picker_has_none(picker_id, fs, ss)
+    local p = INVENTORY_PICKERS[picker_id]
+    if not p then return true end
+    if p.has_none_fn then
+        return p.has_none_fn(fs, ss)
+    end
+    if p.items then
+        for i = 1, #p.items do
+            if actor_has_section(fs, ss, p.items[i].section) then
+                return false
+            end
+        end
+    end
+    return true
+end
+function picker_no_items_action(picker_id, fs, ss)
+    local p = INVENTORY_PICKERS[picker_id]
+    if not p then return true end
+    if p.no_items_fn then
+        return p.no_items_fn(fs, ss)
+    end
+    return true
+end
+function picker_result_text(picker_id, fs, ss)
+    local p = INVENTORY_PICKERS[picker_id]
+    if not p then return "" end
+    if p.result_text_fn then
+        return p.result_text_fn(fs, ss)
+    end
+    return ""
+end

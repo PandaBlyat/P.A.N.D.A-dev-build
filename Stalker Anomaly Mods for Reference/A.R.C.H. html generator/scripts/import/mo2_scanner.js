@@ -37,8 +37,8 @@ async function processMO2DirectoryHandle(rootDir){
         if(modEntry.kind!=='directory')continue;
         scanned++;
         // Support both legacy and canonical script naming.
-        const scriptsByPrefix=await findFilesRecursive(modEntry,'custom_archetypes_','.script');
-        const scriptsByName=await findFilesByExactNameRecursive(modEntry,['custom_archetypes.script']);
+        const scriptsByPrefix=await findFilesRecursive(modEntry,'arch_bootstrap_','.script');
+        const scriptsByName=await findFilesByExactNameRecursive(modEntry,['arch_bootstrap.script']);
         const scriptsByPath=new Map();
         [...scriptsByPrefix,...scriptsByName].forEach(f=>{
             const key=f.path||f.name;
@@ -127,7 +127,7 @@ async function processMO2FileList(fileList){
         const fileName=parts[parts.length-1];
         modMap[modName]=modMap[modName]||{scripts:[],filesByPath:new Map()};
         if(relPath)modMap[modName].filesByPath.set(importNormPath(relPath),file);
-        const isArchScript=(fileName==='custom_archetypes.script')||(fileName.startsWith('custom_archetypes_')&&fileName.endsWith('.script'));
+        const isArchScript=(fileName==='arch_bootstrap.script')||(fileName.startsWith('arch_bootstrap_')&&fileName.endsWith('.script'));
         const isPackLtx=fileName.startsWith('arch_pack_')&&fileName.endsWith('.ltx');
         if(!isArchScript&&!isPackLtx)continue;
         if(isArchScript)modMap[modName].scripts.push({name:fileName,file,path:relPath||fileName});
@@ -333,6 +333,54 @@ function finishMO2Import(importedGroups,importedSolos,statusEl,reportEl,log){
     importedSolos.forEach(ch=>{
         soloChars.push(ch);
     });
+    // Auto-discover info portion flags from imported dialogs
+    if(typeof collectUsedInfoPortions==='function'){
+        allCharsFlat.forEach(function(ch){
+            var dlg=ch.ov&&ch.ov.dlg;
+            if(!dlg)return;
+            if(!Array.isArray(dlg.flags))dlg.flags=[];
+            var existing=new Set(dlg.flags.map(function(f){return f.id;}));
+            var usage=collectUsedInfoPortions.call?null:null;
+            // Scan this char's dialog trees for info portions
+            var found=new Set();
+            function scanTree(t){
+                if(!t)return;
+                var nodes=t.nodes||{};
+                Object.keys(nodes).forEach(function(nid){
+                    var n=nodes[nid];
+                    if(n.hasInfo)n.hasInfo.split(';').forEach(function(v){if(v.trim())found.add(v.trim());});
+                    if(n.dontHasInfo)n.dontHasInfo.split(';').forEach(function(v){if(v.trim())found.add(v.trim());});
+                    if(n.giveInfo)n.giveInfo.split(';').forEach(function(v){if(v.trim())found.add(v.trim());});
+                    (n.choices||[]).forEach(function(c){
+                        if(c.hasInfo)c.hasInfo.split(';').forEach(function(v){if(v.trim())found.add(v.trim());});
+                        if(c.dontHasInfo)c.dontHasInfo.split(';').forEach(function(v){if(v.trim())found.add(v.trim());});
+                        if(c.giveInfo)c.giveInfo.split(';').forEach(function(v){if(v.trim())found.add(v.trim());});
+                    });
+                });
+                (t.hubChoices||[]).forEach(function(c){
+                    if(c.hasInfo)c.hasInfo.split(';').forEach(function(v){if(v.trim())found.add(v.trim());});
+                    if(c.dontHasInfo)c.dontHasInfo.split(';').forEach(function(v){if(v.trim())found.add(v.trim());});
+                    if(c.giveInfo)c.giveInfo.split(';').forEach(function(v){if(v.trim())found.add(v.trim());});
+                });
+            }
+            (dlg.dialogs||[]).forEach(scanTree);
+            if(dlg.introDialog)scanTree(dlg.introDialog);
+            (dlg.taskPools||[]).forEach(function(p){(p.dialogTrees||[]).forEach(scanTree);});
+            (dlg.customPools||[]).forEach(function(p){(p.dialogTrees||[]).forEach(scanTree);});
+            // Add discovered flags
+            var added=0;
+            found.forEach(function(id){
+                if(existing.has(id))return;
+                // Skip vanilla info portions
+                if(/^(npc_|bar_|story_|actor_|sim_|esc_|agr_|val_|mil_|jup_|zat_|pri_|mar_|cit_)/.test(id))return;
+                existing.add(id);
+                var name=id.replace(/^arch_\w+_/,'').replace(/_/g,' ');
+                dlg.flags.push({name:name,id:id});
+                added++;
+            });
+            if(added)log('  Discovered '+added+' info flag(s) for '+ch.archId);
+        });
+    }
     // Auto-create connected archetype groups from task target references
     _autoConnectTaskTargets(importedGroups,importedSolos);
     renderGroupList();renderExportGroupSelect();
@@ -409,7 +457,7 @@ async function findFilesByExactNameRecursive(dirHandle,names,relPath=''){
     return results;
 }
 
-// Parse an ARCH-generated custom_archetypes*.script back into character objects
+// Parse an ARCH-generated arch_bootstrap*.script back into character objects
 async function parseArchScript(text,importCtx){
     const chars=[];
     const skipped=[];
@@ -480,25 +528,28 @@ const KNOWN_ARCHETYPE_KEYS=new Set([
     'spawn_extra','news_on_death','news_on_area','news_icon','specialization',
     'strip_dialog_categories','trade_preset','goodwill_mode','regular_visit_threshold',
     'buy_modifier_per_trust','sell_modifier_per_trust','assign_to','dialog_remove','dialog_add',
-    'global_block','intro_dialog','intro_done_info'
+    'global_block','intro_dialog','intro_done_info','map_spot','goodwill',
+    'smart_terrain_include','smart_terrain_exclude','on_death_info'
 ]);
 const KNOWN_TASK_KEYS=new Set([
     'kind','text_prefix','item_section','items','item_category','category_mode','amount',
-    'on_target_death',
+    'on_target_death','on_giver_death','on_giver_death_transfer_to',
+    'on_death_task','on_death_info','on_fail_info','on_complete_task','on_complete_info',
     'weight','pda_priority','repeatable','once_per_actor','cooldown_hours','enabled',
     'use_pda_task','pda_task_id','pda_icon',
     'reward_money','reward_items','reward_goodwill','reward_goodwill_community',
-    'reward_buy_modifier','reward_sell_modifier',
+    'reward_buy_modifier','reward_sell_modifier','reward_multiplier','reward_cap',
     'summary_text','details_text','accepted_text','completed_text',
-    'min_rank','max_rank','requires_trust',
-    'requires_task_done','requires_info',
-    'deliver_item','deliver_amount','deliver_to_archetype','on_complete_task','on_complete_info',
+    'min_rank','max_rank','requires_trust','requires_item','requires_time',
+    'requires_task_done','requires_task_done_by_npc','requires_info','requires_min_goodwill','requires_pool_unlock',
+    'conditions',
+    'deliver_item','deliver_amount','deliver_to_archetype','deliver_to_community','deliver_to_location','deliver_to_rank',
     'talk_to_archetype','talk_to_giver',
-    'collect_from_archetype','collect_item','collect_amount'
+    'collect_from_archetype','collect_from_community','collect_from_location','collect_from_rank','collect_item','collect_amount'
 ]);
 const KNOWN_META_KEYS=new Set([
     'pack_id','schema_version','dialog_xml','text_eng','text_rus',
-    'task_pool_ids','global_block_ids'
+    'task_pool_ids','global_block_ids','dialog_ids'
 ]);
 const KNOWN_POOL_KEYS=new Set([
     'archetype_id','enabled','cooldown_hours','task_ids','pool_tag',
@@ -603,9 +654,14 @@ function parseRuntimeArchetypesLtxToChars(ltxText){
         if(sec.regular_visit_threshold)s.regularVisitThreshold=String(sec.regular_visit_threshold);
         if(sec.buy_modifier_per_trust)s.buyModPerTrust=String(sec.buy_modifier_per_trust);
         if(sec.sell_modifier_per_trust)s.sellModPerTrust=String(sec.sell_modifier_per_trust);
+        if(sec.map_spot)s.mapSpot=sec.map_spot;
+        if(sec.goodwill)s.goodwill=String(sec.goodwill);
+        if(sec.smart_terrain_include)s.smartTerrainInclude=String(sec.smart_terrain_include);
+        if(sec.smart_terrain_exclude)s.smartTerrainExclude=String(sec.smart_terrain_exclude);
         if(sec.assign_to)s.assignTo=sec.assign_to;
         if(sec.intro_dialog)s.introDialog=sec.intro_dialog;
         if(sec.intro_done_info)s.introDoneInfo=sec.intro_done_info;
+        if(sec.on_death_info)s.onDeathInfo=sec.on_death_info;
         // Detect unrecognized archetype fields
         const warnings=[];
         Object.keys(sec).forEach(k=>{
@@ -655,7 +711,7 @@ function parseRuntimeArchetypesLtxToChars(ltxText){
     return chars;
 }
 
-// Auto-generated dialog pools: pool_tag_1..10. Narrative/custom pools: slot_1..20.
+// Auto-generated dialog pools: pool_1..10. Narrative/custom pools: slot_1..20.
 const _BUILTIN_POOL_TAGS=new Set();
 for(var _i=1;_i<=10;_i++)_BUILTIN_POOL_TAGS.add('pool_tag_'+_i);
 // Legacy builtin tags (still recognized for backwards compat)
@@ -693,6 +749,7 @@ function _parseTaskFromLtx(tid,ts,warnings){
         requiresTrust:Number(ts.requires_trust)||0,
         requiresTaskDone:ts.requires_task_done||'',
         requiresInfo:ts.requires_info||'',
+        requiresMinGoodwill:Number(ts.requires_min_goodwill)||0,
         textMode:'simple',
         openingDialogue:ts.summary_text||'',
         desc:ts.details_text||'',
@@ -713,6 +770,19 @@ function _parseTaskFromLtx(tid,ts,warnings){
     // Common chaining fields (all kinds)
     if(ts.on_complete_task)t.onCompleteTask=ts.on_complete_task;
     if(ts.on_complete_info)t.onCompleteInfo=ts.on_complete_info;
+    if(ts.on_target_death)t.onTargetDeath=ts.on_target_death;
+    if(ts.on_giver_death)t.onGiverDeath=ts.on_giver_death;
+    if(ts.on_giver_death_transfer_to)t.onGiverDeathTransferTo=ts.on_giver_death_transfer_to;
+    if(ts.on_death_task)t.onDeathTask=ts.on_death_task;
+    if(ts.on_death_info)t.onDeathInfoTask=ts.on_death_info;
+    if(ts.on_fail_info)t.onFailInfo=ts.on_fail_info;
+    if(ts.requires_item)t.requiresItem=ts.requires_item;
+    if(ts.requires_time)t.requiresTime=ts.requires_time;
+    if(ts.requires_pool_unlock)t.requiresPoolUnlock=ts.requires_pool_unlock;
+    if(ts.requires_task_done_by_npc)t.requiresTaskDoneByNpc=ts.requires_task_done_by_npc;
+    if(ts.reward_multiplier)t.rewardMultiplier=ts.reward_multiplier;
+    if(ts.reward_cap)t.rewardCap=ts.reward_cap;
+    if(ts.conditions)t.conditions=ts.conditions;
 
     if(kind==='delivery'){
         t.fetchMode=undefined;
@@ -1093,6 +1163,8 @@ async function hydrateImportedArchDialogs(chars,scriptText,importCtx){
                 dlg.introDialog.label='Intro';
             }
             dlg.vanilla=Object.assign({}, dlg.vanilla||ensureVanillaDlg(null), importedVanilla||{});
+            // Map hello1 text to openerNpc so export can emit dm_hello DM entry
+            if(importedVanilla&&importedVanilla.hello1&&!dlg.openerNpc)dlg.openerNpc=importedVanilla.hello1;
             dlg.graph=dlg.graph||{view:'tree'};
             ch.ov.dlg=dlg;
         }
@@ -1136,8 +1208,7 @@ function pickImportPackFiles(scriptText, availablePaths){
     }
     if(!out.text_eng.length){
         normPaths.forEach(p=>{
-            if(/gamedata\/configs\/text\/eng\/.*branches\.xml$/.test(p))out.text_eng.push(p);
-            if(/gamedata\/configs\/text\/eng\/.*(personality_edits|topic_strings)\.xml$/.test(p))out.text_eng.push(p);
+            if(/gamedata\/configs\/text\/eng\/.*\.xml$/.test(p)&&/st_arch/.test(p)&&out.text_eng.indexOf(p)<0)out.text_eng.push(p);
         });
     }
     if(!out.text_rus.length){
@@ -1152,7 +1223,10 @@ function pickImportPackFiles(scriptText, availablePaths){
 function parseDialogsXmlDoc(xmlText){
     if(!String(xmlText||'').trim())return null;
     try{
-        const doc=new DOMParser().parseFromString(xmlText,'application/xml');
+        var cleaned=String(xmlText).replace(/<!--([\s\S]*?)-->/g,function(m,body){
+            return '<!--'+body.replace(/--/g,'—')+'-->';
+        });
+        const doc=new DOMParser().parseFromString(cleaned,'application/xml');
         if(doc.querySelector('parsererror'))return null;
         return doc;
     }catch(_e){
@@ -1164,7 +1238,11 @@ function parseStringTableXmlMap(xmlText){
     const out={};
     if(!String(xmlText||'').trim())return out;
     try{
-        const doc=new DOMParser().parseFromString(xmlText,'application/xml');
+        // Fix common XML issues: -- inside comments is illegal XML
+        var cleaned=String(xmlText).replace(/<!--([\s\S]*?)-->/g,function(m,body){
+            return '<!--'+body.replace(/--/g,'—')+'-->';
+        });
+        const doc=new DOMParser().parseFromString(cleaned,'application/xml');
         if(doc.querySelector('parsererror'))return out;
         doc.querySelectorAll('string[id]').forEach(node=>{
             const id=String(node.getAttribute('id')||'').trim();
@@ -1189,7 +1267,11 @@ function collectImportedDialogsForArch(dialogDocs,textMap,archId){
     });
     dialogs.sort((a,b)=>String(a.getAttribute('id')||'').localeCompare(String(b.getAttribute('id')||'')));
     dialogs.forEach((dlgEl,idx)=>{
-        const parsed=parseGeneratedDialogPhraseListToFlat(dlgEl,textMap||{});
+        // Detect start_dialog (NPC-first): dialog ID contains "intro" and has dont_has_info
+        const _dlgId=String(dlgEl.getAttribute('id')||'');
+        const _dlgDhi=dlgEl.querySelector(':scope > dont_has_info');
+        const _isStartDialog=_dlgId.indexOf('intro')>=0&&!!(_dlgDhi&&String(_dlgDhi.textContent||'').trim());
+        const parsed=parseGeneratedDialogPhraseListToFlat(dlgEl,textMap||{},_isStartDialog);
         if(parsed){
             parsed.id=`dlg_${idx+1}`;
             parsed._sourceDialogId=String(dlgEl.getAttribute('id')||'');
@@ -1216,7 +1298,7 @@ function collectImportedDialogsForArch(dialogDocs,textMap,archId){
     return out;
 }
 
-function parseGeneratedDialogPhraseListToFlat(dialogEl,textMap){
+function parseGeneratedDialogPhraseListToFlat(dialogEl,textMap,forceNpcFirst){
     if(!dialogEl)return null;
     const phrases={};
     dialogEl.querySelectorAll('phrase[id]').forEach(ph=>{
@@ -1247,13 +1329,13 @@ function parseGeneratedDialogPhraseListToFlat(dialogEl,textMap){
     var _followId=phrases[1]?1:(_p0nexts.length?_p0nexts[0]:null);
     if(_followId==null||!phrases[_followId])return null;
 
-    const sidText=sid=>Object.prototype.hasOwnProperty.call(textMap,sid)?String(textMap[sid]||''):String(sid||'');
+    const sidText=sid=>{var t=Object.prototype.hasOwnProperty.call(textMap,sid)?String(textMap[sid]||''):String(sid||'');return t.replace(/\\n/g,'\n');};
 
     // Detect start_dialog (NPC speaks first) vs actor_dialog (player speaks first)
     // start_dialog: phrase 0 = NPC greeting, then actor responds
     // actor_dialog: phrase 0 = player opener, then NPC responds (hub)
-    var _isNpcFirst=false;
-    if(phrases[0].giveInfo||phrases[0].dontHasInfo||phrases[0].hasInfo){
+    var _isNpcFirst=!!forceNpcFirst;
+    if(!_isNpcFirst&&(phrases[0].giveInfo||phrases[0].dontHasInfo||phrases[0].hasInfo)){
         _isNpcFirst=true;
     }
 
@@ -1277,17 +1359,43 @@ function parseGeneratedDialogPhraseListToFlat(dialogEl,textMap){
         hub=sidText((phrases[hubId]||{}).sid)||'What do you want to know?';
     }
 
-    // Detect branched NPC responses: opener phrase 0 has multiple nexts that are ALL
-    // gated NPC phrases (turnin pattern). Capture extras as hub variations.
+    // Detect branched NPC responses: opener phrase 0 has multiple nexts where
+    // most are gated NPC phrases (turnin/report pattern). Capture gated ones as
+    // hub variations; use the first ungated one as hub (or keep current hub).
     var _hubVariations=[];
     if(!_isNpcFirst&&_p0nexts.length>1){
         var _extraNpcNexts=_p0nexts.filter(function(nx){return nx!==hubId&&phrases[nx];});
-        var _allGatedNpc=_extraNpcNexts.length>0&&_extraNpcNexts.every(function(nx){
+        var _gatedExtras=_extraNpcNexts.filter(function(nx){
             var ph=phrases[nx];
             return ph&&(ph.hasInfo||ph.dontHasInfo||ph.precondition);
         });
-        if(_allGatedNpc){
-            _extraNpcNexts.forEach(function(nx){
+        // If at least one extra next is gated, capture all gated ones as variations
+        if(_gatedExtras.length>0){
+            // If current hub is also gated, swap it out for an ungated one (fallback)
+            var _hubPh=phrases[hubId];
+            if(_hubPh&&(_hubPh.hasInfo||_hubPh.dontHasInfo||_hubPh.precondition)){
+                // Current hub is gated — find an ungated fallback among all nexts
+                var _ungated=_p0nexts.filter(function(nx){
+                    var ph=phrases[nx];
+                    return ph&&!ph.hasInfo&&!ph.dontHasInfo&&!ph.precondition;
+                });
+                if(_ungated.length){
+                    // Move current hub to variations, use ungated as new hub
+                    var _oldHubVo={text:sidText(_hubPh.sid)||'...'};
+                    if(_hubPh.hasInfo)_oldHubVo.hasInfo=_hubPh.hasInfo;
+                    if(_hubPh.dontHasInfo)_oldHubVo.dontHasInfo=_hubPh.dontHasInfo;
+                    if(_hubPh.giveInfo)_oldHubVo.giveInfo=_hubPh.giveInfo;
+                    if(_hubPh.action)_oldHubVo.action=_hubPh.action;
+                    if(_hubPh.precondition)_oldHubVo.precondition=_hubPh.precondition;
+                    _hubVariations.push(_oldHubVo);
+                    hubId=_ungated[0];
+                    hub=sidText((phrases[hubId]||{}).sid)||'...';
+                    // Remove the new hub from extras
+                    _extraNpcNexts=_extraNpcNexts.filter(function(nx){return nx!==hubId;});
+                    _gatedExtras=_gatedExtras.filter(function(nx){return nx!==hubId;});
+                }
+            }
+            _gatedExtras.forEach(function(nx){
                 var ph=phrases[nx];
                 var vo={text:sidText(ph.sid)||'...'};
                 if(ph.hasInfo)vo.hasInfo=ph.hasInfo;
@@ -1327,12 +1435,14 @@ function parseGeneratedDialogPhraseListToFlat(dialogEl,textMap){
             }
             if(nx===99||tgt.sid==='dm_universal_actor_exit'){
                 if(!addedEnd){
-                    const _exitCh={text:'I understand.',next:'__end__'};
+                    const _exitCh={text:sidText(tgt.sid)||'I understand.',next:'__end__'};
                     if(tgt.precondition)_exitCh.precondition=tgt.precondition;
                     if(tgt.hasInfo)_exitCh.hasInfo=tgt.hasInfo;
                     if(tgt.dontHasInfo)_exitCh.dontHasInfo=tgt.dontHasInfo;
+                    if(tgt.giveInfo)_exitCh.giveInfo=tgt.giveInfo;
+                    if(tgt.action)_exitCh.action=tgt.action;
                     choices.push(_exitCh);
-                    addedEnd=!tgt.precondition; // don't suppress further exits if this one is conditional
+                    addedEnd=!tgt.precondition;
                 }
                 continue;
             }
@@ -1392,6 +1502,33 @@ function parseGeneratedDialogPhraseListToFlat(dialogEl,textMap){
             if(tgt.giveInfo)_ch.giveInfo=tgt.giveInfo;
             if(tgt.disableInfo)_ch.disableInfo=tgt.disableInfo;
             choices.push(_ch);
+
+            // Preserve additional nexts from intermediate phrase (e.g. gated exits alongside task offer)
+            if(tgt.nexts&&tgt.nexts.length>1){
+                var _childNode=nodes[childKey];
+                if(_childNode){
+                    for(var _ei=1;_ei<tgt.nexts.length;_ei++){
+                        var _extraNx=tgt.nexts[_ei];
+                        var _extraPh=phrases[_extraNx];
+                        if(!_extraPh)continue;
+                        if(_extraNx===99||_extraPh.sid==='dm_universal_actor_exit'){
+                            var _exitExtra={text:sidText(_extraPh.sid)||'I understand.',next:'__end__'};
+                            if(_extraPh.precondition)_exitExtra.precondition=_extraPh.precondition;
+                            if(_extraPh.action)_exitExtra.action=_extraPh.action;
+                            if(_extraPh.giveInfo)_exitExtra.giveInfo=_extraPh.giveInfo;
+                            _childNode.choices.push(_exitExtra);
+                        } else {
+                            var _extraKey=ensureNodeFromNpc(_extraNx);
+                            if(_extraKey){
+                                var _extraCh={text:sidText(_extraPh.sid)||'...',next:_extraKey};
+                                if(_extraPh.precondition)_extraCh.precondition=_extraPh.precondition;
+                                if(_extraPh.action)_extraCh.action=_extraPh.action;
+                                _childNode.choices.push(_extraCh);
+                            }
+                        }
+                    }
+                }
+            }
         }
         if(!choices.length)choices.push({text:'I have another question.',next:'__hub__'});
         const _node={npc:npcText,choices};
@@ -1414,7 +1551,17 @@ function parseGeneratedDialogPhraseListToFlat(dialogEl,textMap){
     (hubPhrase.nexts||[]).forEach(nx=>{
         const tgt=phrases[nx];
         if(!tgt)return;
-        if(nx===99||tgt.sid==='dm_universal_actor_exit')return;
+        if(nx===99||tgt.sid==='dm_universal_actor_exit'){
+            // Only skip bare exits — preserve exits with bindings
+            if(tgt.action||tgt.giveInfo){
+                const _ech={text:sidText(tgt.sid)||'I understand.',next:'__end__'};
+                if(tgt.action)_ech.action=tgt.action;
+                if(tgt.giveInfo)_ech.giveInfo=tgt.giveInfo;
+                if(tgt.precondition)_ech.precondition=tgt.precondition;
+                hubChoices.push(_ech);
+            }
+            return;
+        }
         if(isReturnPhraseToHub(tgt,hubId,phrases))return;
         const choiceText=sidText(tgt.sid)||'...';
         const nextNpcId=(tgt.nexts&&tgt.nexts.length)?tgt.nexts[0]:null;
@@ -1506,7 +1653,7 @@ function isReturnPhraseToHub(phrase,hubId,phrases){
 }
 
 function collectImportedVanillaForArch(textMap,archId){
-    const get=k=>String(textMap[k]||'');
+    const get=k=>String(textMap[k]||'').replace(/\\n/g,'\n');
     return {
         hello1:get(`dm_hello_arch_${archId}_1`),
         hello2:get(`dm_hello_arch_${archId}_2`),
@@ -1549,13 +1696,18 @@ async function hydrateLtxPackDialogs(chars,ltxText,importCtx){
     const textEngPaths=[];
     if(meta.dialog_xml){const p=resolve(meta.dialog_xml);if(p)dialogXmlPaths.push(p);}
     if(meta.text_eng){const p=resolve(meta.text_eng);if(p)textEngPaths.push(p);}
-    // Fallback: find by naming convention
-    if(!dialogXmlPaths.length)normPaths.forEach(p=>{if(/mod_dialog_manager_arch[^/]*\.ltx$/.test(p))dialogXmlPaths.push(p);});
-    if(!textEngPaths.length)normPaths.forEach(p=>{if(/gamedata\/configs\/text\/eng\/st_arch_[^/]*\.xml$/.test(p))textEngPaths.push(p);});
-    if(!dialogXmlPaths.length&&!textEngPaths.length)return;
+    // Fallback: find dialog XML and text files by naming convention
+    if(!dialogXmlPaths.length)normPaths.forEach(p=>{if(/gamedata\/configs\/misc\/dialogs_arch[^/]*\.xml$/i.test(p))dialogXmlPaths.push(p);});
+    if(!textEngPaths.length)normPaths.forEach(p=>{if(/gamedata\/configs\/text\/eng\/st_arch[^/]*\.xml$/i.test(p)&&textEngPaths.indexOf(p)<0)textEngPaths.push(p);});
+    // Also always scan for ANY text files in eng/ that might have our strings
+    normPaths.forEach(p=>{if(/gamedata\/configs\/text\/eng\/.*\.xml$/i.test(p)&&textEngPaths.indexOf(p)<0)textEngPaths.push(p);});
+    console.log('[ARCH import] hydrateLtxPack: meta=',meta,'dialogXml=',dialogXmlPaths,'textEng=',textEngPaths);
+    if(!dialogXmlPaths.length){console.log('[ARCH import] No dialog XML found, skipping');return;}
     const dialogXmlTexts=await Promise.all(dialogXmlPaths.map(p=>safeImportRead(importCtx,p)));
     const textEngTexts=await Promise.all(textEngPaths.map(p=>safeImportRead(importCtx,p)));
+    console.log('[ARCH import] Read: dialogXml=',dialogXmlTexts.filter(Boolean).length,'textEng=',textEngTexts.filter(Boolean).length);
     const textMap=Object.assign({},...textEngTexts.map(parseStringTableXmlMap));
+    console.log('[ARCH import] textMap keys:',Object.keys(textMap).length,'sample:',Object.keys(textMap).slice(0,5));
     const dialogDocs=dialogXmlTexts.map(parseDialogsXmlDoc).filter(Boolean);
     chars.forEach(ch=>{
         if(!ch||!ch.archId)return;
@@ -1569,15 +1721,21 @@ async function hydrateLtxPackDialogs(chars,ltxText,importCtx){
             const introId=existingDlg.introDialogId||'';
             let introTree=null;
             const regularDialogs=[];
-            if(introId){
-                importedDialogs.forEach(function(d){
-                    if(d._sourceDialogId===introId)introTree=d;
-                    else regularDialogs.push(d);
-                });
-            } else {
-                regularDialogs.push.apply(regularDialogs,importedDialogs);
-            }
+            const companionDialogs=[];
+            importedDialogs.forEach(function(d){
+                if(introId&&d._sourceDialogId===introId){introTree=d;return;}
+                // Detect companion dialogs by arch_is_companion precondition
+                if(Array.isArray(d._dialogPreconditions)&&d._dialogPreconditions.some(function(p){return p==='dialogs.arch_is_companion';})){
+                    // Remove the companion precondition from the stored tree (it's auto-injected on export)
+                    d._dialogPreconditions=d._dialogPreconditions.filter(function(p){return p!=='dialogs.arch_is_companion';});
+                    if(!d._dialogPreconditions.length)delete d._dialogPreconditions;
+                    companionDialogs.push(d);
+                } else {
+                    regularDialogs.push(d);
+                }
+            });
             if(regularDialogs.length)dlg.dialogs=regularDialogs;
+            if(companionDialogs.length)dlg.companionDialogs=companionDialogs;
             if(introTree){
                 dlg.introDialog=introTree;
                 dlg.introDialog.label='Intro';
@@ -1586,6 +1744,7 @@ async function hydrateLtxPackDialogs(chars,ltxText,importCtx){
             if(introId)dlg.introDialogId=introId;
             if(existingDlg.introDoneInfo)dlg.introDoneInfo=existingDlg.introDoneInfo;
             dlg.vanilla=Object.assign({},dlg.vanilla||ensureVanillaDlg(null),importedVanilla||{});
+            if(importedVanilla&&importedVanilla.hello1&&!dlg.openerNpc)dlg.openerNpc=importedVanilla.hello1;
             dlg.graph=dlg.graph||{view:'tree'};
             // Preserve task pool data from LTX parsing
             if(Array.isArray(existingDlg.taskPools))dlg.taskPools=existingDlg.taskPools;
@@ -1610,516 +1769,3 @@ async function hydrateLtxPackDialogs(chars,ltxText,importCtx){
         }
     });
 }
-
-// ═══════════════════════════════════════════
-// MO2 ITEM SCANNER
-// ═══════════════════════════════════════════
-// Scans MO2 mods/ folder for modded item definitions (.ltx) and string tables (.xml).
-// Merges discovered items into ITEM_CATALOG so spawn loadout fields can reference them.
-
-const _MO2_ITEM_CATALOGS_KEY='arch_item_catalogs';
-
-function _mo2ItemScanSetBusy(busy){
-    const btn=document.getElementById('mo2ItemScanBtn');
-    const spinner=document.getElementById('mo2ItemScanSpinner');
-    if(btn)btn.disabled=busy;
-    if(spinner)spinner.style.display=busy?'':'none';
-}
-
-function scanMO2Items(){
-    const statusEl=document.getElementById('mo2ItemScanStatus');
-    _mo2ItemScanSetBusy(true);
-    if(window.showDirectoryPicker){
-        if(statusEl)statusEl.textContent='Opening folder picker…';
-        window.showDirectoryPicker({mode:'read'})
-            .then(async dir=>{
-                try{await _scanItemsFromDir(dir);}
-                catch(err){
-                    const r=document.getElementById('mo2ItemScanReport');
-                    if(statusEl)statusEl.textContent='Error — see log.';
-                    if(r){r.style.display='block';r.textContent+='\n\nERROR: '+String(err.message||err);}
-                    console.error('[ARCH] item scan error:',err);
-                } finally {_mo2ItemScanSetBusy(false);}
-            })
-            .catch(e=>{
-                _mo2ItemScanSetBusy(false);
-                if(e.name==='AbortError'){if(statusEl)statusEl.textContent='Cancelled.';}
-                else{if(statusEl)statusEl.textContent='Error: '+String(e.message||e);console.warn(e);}
-            });
-    } else {
-        if(statusEl)statusEl.textContent='Select your mods/ folder — browser will enumerate files (may take a minute for large modlists)…';
-        const inp=document.createElement('input');
-        inp.type='file';
-        inp.webkitdirectory=true;
-        inp.multiple=true;
-        inp.onchange=e=>{
-            _scanItemsFromFileList(e.target.files)
-                .catch(err=>{
-                    if(statusEl)statusEl.textContent='Error — see log.';
-                    const r=document.getElementById('mo2ItemScanReport');
-                    if(r){r.style.display='block';r.textContent+='\n\nERROR: '+String(err.message||err);}
-                    console.error('[ARCH] item scan error:',err);
-                })
-                .finally(()=>_mo2ItemScanSetBusy(false));
-        };
-        inp.click();
-    }
-}
-
-function clearMO2Items(){
-    const scannedCount=ITEM_CATALOG.filter(it=>it&&it._scanned).length;
-    if(scannedCount&&!confirm(`Remove all ${scannedCount} modded items from the catalog?`))return;
-    try{localStorage.removeItem(_MO2_ITEM_CATALOGS_KEY);}catch(_){}
-    // Remove scanned items from catalog
-    for(let i=ITEM_CATALOG.length-1;i>=0;i--){
-        if(ITEM_CATALOG[i]&&ITEM_CATALOG[i]._scanned)ITEM_CATALOG.splice(i,1);
-    }
-    _rebuildItemLookups();
-    const s=document.getElementById('mo2ItemScanStatus');
-    if(s)s.textContent='Cleared.';
-    const c=document.getElementById('mo2ItemCount');
-    if(c)c.textContent='No modded items loaded';
-    const r=document.getElementById('mo2ItemScanReport');
-    if(r){r.textContent='';r.style.display='none';}
-}
-
-async function _scanItemsFromDir(rootDir){
-    const statusEl=document.getElementById('mo2ItemScanStatus');
-    const reportEl=document.getElementById('mo2ItemScanReport');
-    if(statusEl)statusEl.textContent='Scanning…';
-    if(reportEl){reportEl.style.display='block';reportEl.textContent='';}
-    const log=msg=>{if(reportEl){reportEl.textContent+=msg+'\n';reportEl.scrollTop=reportEl.scrollHeight;}};
-    log(`Scanning: ${rootDir.name}/`);
-
-    const allItems=[];
-    const allDisabled=new Set();
-    let modsScanned=0,modsWithItems=0;
-    for await(const [modName,modEntry] of rootDir.entries()){
-        if(modEntry.kind!=='directory')continue;
-        modsScanned++;
-        if(statusEl)statusEl.textContent=`Scanning… (${modsScanned} mods checked, ${allItems.length} items found)`;
-        const ltxFiles=await _findLtxInItems(modEntry);
-        const xmlFiles=await _findStringTablesInMod(modEntry);
-        if(!ltxFiles.length)continue;
-        modsWithItems++;
-        // Parse string tables first for display names
-        const nameMap={};
-        for(const {handle} of xmlFiles){
-            const text=await handle.text();
-            Object.assign(nameMap,_parseStringTable(text));
-        }
-        // Parse LTX sections
-        let modItemCount=0;
-        for(const {name,handle} of ltxFiles){
-            const text=await handle.text();
-            const {sections,disabled}=_parseLtxSections(text);
-            disabled.forEach(id=>allDisabled.add(id));
-            for(const secId of Object.keys(sections)){
-                if(secId.startsWith('_')||secId.includes(':'))continue;
-                const cat=_classifyLtxSection(secId,sections[secId]);
-                if(!cat)continue;
-                const displayName=nameMap[`st_${secId}_name`]||nameMap[secId]||'';
-                allItems.push({id:secId,name:displayName||secId,cat,_scanned:true,_mod:modName});
-                modItemCount++;
-            }
-        }
-        if(modItemCount)log(`  📦 ${modName}: ${modItemCount} item(s)`);
-    }
-    // Remove items disabled by patch mods (;[section_id] in any LTX file)
-    const beforeCount=allItems.length;
-    const filtered=allDisabled.size?allItems.filter(it=>!allDisabled.has(it.id)):allItems;
-    const removedCount=beforeCount-filtered.length;
-    log(`\n──────────────────`);
-    log(`Scanned ${modsScanned} mod(s), items found in ${modsWithItems}.`);
-    log(`Total new items: ${filtered.length}${removedCount?` (${removedCount} disabled by patches)`:''}`);
-    if(!filtered.length){if(statusEl)statusEl.textContent='No new items found.';return;}
-    const nameEl=document.getElementById('mo2CatalogName');
-    const catalogName=(nameEl?nameEl.value.trim():'')||'Modlist';
-    const added=_mergeScannedItems(filtered,catalogName);
-    if(statusEl)statusEl.textContent=`Done — ${added} new items added to "${catalogName}".`;
-}
-
-async function _scanItemsFromFileList(fileList){
-    const statusEl=document.getElementById('mo2ItemScanStatus');
-    const reportEl=document.getElementById('mo2ItemScanReport');
-    if(!fileList||!fileList.length){if(statusEl)statusEl.textContent='No files selected.';return;}
-    if(statusEl)statusEl.textContent='Scanning…';
-    if(reportEl){reportEl.style.display='block';reportEl.textContent='';}
-    const log=msg=>{if(reportEl){reportEl.textContent+=msg+'\n';reportEl.scrollTop=reportEl.scrollHeight;}};
-
-    // Group files by mod folder
-    if(statusEl)statusEl.textContent='Grouping files…';
-    const modFiles={};
-    for(const file of fileList){
-        const parts=file.webkitRelativePath.split('/');
-        if(parts.length<2)continue;
-        const second=String(parts[1]||'').toLowerCase();
-        const singleMod=(second==='gamedata'||second==='meta.ini');
-        const modName=singleMod?parts[0]:parts[1];
-        const relPath=singleMod?parts.slice(1).join('/'):parts.slice(2).join('/');
-        modFiles[modName]=modFiles[modName]||[];
-        modFiles[modName].push({relPath:relPath.toLowerCase(),file});
-    }
-    const modNames=Object.keys(modFiles);
-    log(`Found ${fileList.length} files across ${modNames.length} mod folders.`);
-
-    const allItems=[];
-    const allDisabled=new Set();
-    let modsScanned=0,modsWithItems=0;
-    for(const [modName,files] of Object.entries(modFiles)){
-        modsScanned++;
-        if(statusEl)statusEl.textContent=`Scanning… (${modsScanned}/${modNames.length} mods, ${allItems.length} items)`;
-        const ltxFiles=files.filter(f=>/^gamedata\/configs\/items\/.*\.ltx$/i.test(f.relPath)&&
-            !/\/(?:settings|trade|npc_loadouts|parts_custom|upgrades|hideout_furniture|item_sounds|displays|presets)\//i.test(f.relPath));
-        const xmlFiles=files.filter(f=>/^gamedata\/configs\/text\/eng\/st_item.*\.xml$/i.test(f.relPath));
-        if(!ltxFiles.length)continue;
-        modsWithItems++;
-        const nameMap={};
-        for(const {file} of xmlFiles){
-            const text=await file.text();
-            Object.assign(nameMap,_parseStringTable(text));
-        }
-        let modItemCount=0;
-        for(const {file} of ltxFiles){
-            const text=await file.text();
-            const {sections,disabled}=_parseLtxSections(text);
-            disabled.forEach(id=>allDisabled.add(id));
-            for(const secId of Object.keys(sections)){
-                if(secId.startsWith('_')||secId.includes(':'))continue;
-                const cat=_classifyLtxSection(secId,sections[secId]);
-                if(!cat)continue;
-                const displayName=nameMap[`st_${secId}_name`]||nameMap[secId]||'';
-                allItems.push({id:secId,name:displayName||secId,cat,_scanned:true,_mod:modName});
-                modItemCount++;
-            }
-        }
-        if(modItemCount)log(`  📦 ${modName}: ${modItemCount} item(s)`);
-    }
-    // Remove items disabled by patch mods (;[section_id] in any LTX file)
-    const beforeCount=allItems.length;
-    const filtered=allDisabled.size?allItems.filter(it=>!allDisabled.has(it.id)):allItems;
-    const removedCount=beforeCount-filtered.length;
-    log(`\nScanned ${modsScanned} mod folder(s), items found in ${modsWithItems}.`);
-    log(`Total new items: ${filtered.length}${removedCount?` (${removedCount} disabled by patches)`:''}`);
-    if(!filtered.length){if(statusEl)statusEl.textContent='No new items found.';return;}
-    const nameEl=document.getElementById('mo2CatalogName');
-    const catalogName=(nameEl?nameEl.value.trim():'')||'Modlist';
-    const added=_mergeScannedItems(filtered,catalogName);
-    if(statusEl)statusEl.textContent=`Done — ${added} new items added to "${catalogName}".`;
-}
-
-function _parseLtxSections(text){
-    const sections={};
-    const disabled=new Set();
-    let current='';
-    String(text||'').split(/\r?\n/).forEach(raw=>{
-        const trimmed=raw.replace(/^\uFEFF/,'').trim();
-        // Detect commented-out section headers: ;[section_id] — item disabled by patch
-        const disSec=trimmed.match(/^;\s*\[([^\]]+)\]/);
-        if(disSec){disabled.add(disSec[1].trim());return;}
-        // Detect DLTX deletion: ![section_id] — standard Anomaly method to remove sections
-        const dltxDel=trimmed.match(/^!\[([^\]]+)\]/);
-        if(dltxDel){disabled.add(dltxDel[1].trim());return;}
-        let line=trimmed.replace(/;.*$/,'').trim();
-        if(!line)return;
-        const sec=line.match(/^\[([^\]]+)\]/);
-        if(sec){current=sec[1].trim();sections[current]=sections[current]||{};return;}
-        if(!current)return;
-        const eq=line.indexOf('=');
-        if(eq<0)return;
-        sections[current][line.slice(0,eq).trim()]=line.slice(eq+1).trim();
-    });
-    return {sections,disabled};
-}
-
-function _parseStringTable(xmlText){
-    const out={};
-    if(!String(xmlText||'').trim())return out;
-    try{
-        const doc=new DOMParser().parseFromString(xmlText,'application/xml');
-        if(doc.querySelector('parsererror'))return out;
-        doc.querySelectorAll('string[id]').forEach(node=>{
-            const id=String(node.getAttribute('id')||'').trim();
-            if(!id)return;
-            const textEl=node.querySelector('text');
-            out[id]=(textEl&&textEl.textContent!=null)?String(textEl.textContent):'';
-        });
-    }catch(_){}
-    return out;
-}
-
-// Dirs to skip under items/ — not item definitions
-const _ITEMS_SKIP_DIRS=new Set(['settings','trade','npc_loadouts','parts_custom','upgrades',
-    'hideout_furniture','item_sounds','displays','item_offsets','con_parts_list',
-    'nor_parts_list','presets','weapons.mohidden']);
-
-async function _findLtxInItems(modDirHandle){
-    const results=[];
-    // Navigate mod root → gamedata → configs → items, then walk everything below
-    async function walkNav(dirHandle,path,depth){
-        for await(const [name,entry] of dirHandle.entries()){
-            const fullPath=path?`${path}/${name}`:name;
-            if(entry.kind==='directory'){
-                const lower=name.toLowerCase();
-                if(depth===0&&lower==='gamedata') await walkNav(entry,fullPath,1);
-                else if(depth===1&&lower==='configs') await walkNav(entry,fullPath,2);
-                else if(depth===2&&lower==='items') await walkItemsDir(entry,fullPath);
-            }
-        }
-    }
-    // Once inside items/, walk all subdirs (except skipped ones)
-    async function walkItemsDir(dirHandle,path){
-        for await(const [name,entry] of dirHandle.entries()){
-            const fullPath=`${path}/${name}`;
-            if(entry.kind==='directory'){
-                if(!_ITEMS_SKIP_DIRS.has(name.toLowerCase()))
-                    await walkItemsDir(entry,fullPath);
-            } else if(entry.kind==='file'&&name.endsWith('.ltx')){
-                results.push({name,handle:await entry.getFile(),path:fullPath});
-            }
-        }
-    }
-    await walkNav(modDirHandle,'',0);
-    return results;
-}
-
-async function _findStringTablesInMod(modDirHandle){
-    const results=[];
-    async function walk(dirHandle,path){
-        for await(const [name,entry] of dirHandle.entries()){
-            const fullPath=path?`${path}/${name}`:name;
-            if(entry.kind==='directory'){
-                const lower=name.toLowerCase();
-                if(lower==='gamedata'||lower==='configs'||lower==='text'||lower==='eng')
-                    await walk(entry,fullPath);
-            } else if(entry.kind==='file'&&/^st_item.*\.xml$/i.test(name)){
-                if(/gamedata\/configs\/text\/eng\//i.test(fullPath)){
-                    results.push({name,handle:await entry.getFile(),path:fullPath});
-                }
-            }
-        }
-    }
-    await walk(modDirHandle,'');
-    return results;
-}
-
-// Map old cat strings (pre-fix) to proper _IB_CAT_OPTS keys
-const _CAT_LEGACY_MAP={
-    weapon:'w_rifle',grenade:'w_explosive',ammo:'w_ammo',addon:'i_attach',
-    outfit:'o_medium',artefact:'i_arty',food:'i_food',medical:'i_medical',
-    device:'i_device',mutant_part:'i_mutant_part',misc:'i_misc'
-};
-function _classifyLtxSection(secId,fields){
-    const id=secId.toLowerCase();
-    // Skip non-item engine sections
-    if(fields&&(fields['GroupControlSection']||'discovery_dependency' in fields))return null;
-    // Use weapon_class field when present for accurate weapon sub-type
-    const wc=((fields&&(fields['weapon_class']||fields['kind']))||'').toLowerCase();
-    // Weapons
-    if(id.startsWith('wpn_')){
-        if(wc==='pistol'||id.includes('pistol')||/_(pm|glock|usp|fort|sig|colt|beretta|desert|p226|rg6|mp443|tt|walther)(_|$)/.test(id))return 'w_pistol';
-        if(wc==='shotgun'||id.includes('shotgun')||/_(sg|spas|ksg|toz|bm16|mossberg|remington|saiga_sh|benelli|ithaca)(_|$)/.test(id))return 'w_shotgun';
-        if(wc==='smg'||id.includes('_smg')||/_(mp5|mp7|ump|pp19|pp2000|mac10|mp40|vityaz|kedr|bizon|scorpion_smg|p90)(_|$)/.test(id))return 'w_smg';
-        if(wc==='sniper'||id.includes('sniper')||/_(svd|svu|mosin|l96|ssg|dragunov|orsis|ots_03|vintorez|vss|m200|sv98)(_|$)/.test(id))return 'w_sniper';
-        if(wc==='knife'||wc==='melee'||id.includes('knife')||id.includes('_axe')||id.includes('_machete'))return 'w_melee';
-        return 'w_rifle';
-    }
-    if(id.startsWith('grenade_'))return 'w_explosive';
-    // Ammo
-    if(id.startsWith('ammo_'))return 'w_ammo';
-    // Magazines (Anomaly Magazines Redux)
-    if(id.startsWith('mag_')||id.startsWith('tch_mag'))return 'i_attach';
-    // Attachments / scopes
-    if(id.startsWith('addon_')||id.startsWith('scope_')||id.startsWith('sil_')||id.startsWith('suppressor_'))return 'i_attach';
-    // Outfits / helmets
-    if(id.startsWith('helm_')||id.startsWith('helmet_'))return 'o_helmet';
-    if(id.startsWith('outfit_')){
-        if(/exo|seva|_heavy|_e_exo/.test(id))return 'o_heavy';
-        return 'o_medium';
-    }
-    // Artefacts
-    if(id.startsWith('af_container_')||id.startsWith('artefact_container'))return 'i_arty_cont';
-    if(id.startsWith('af_')||id.startsWith('artefact_'))return 'i_arty';
-    // Food / drink / medical
-    if(id.startsWith('food_'))return 'i_food';
-    if(id.startsWith('drink_'))return 'i_drink';
-    if(id.startsWith('drug_')||id.startsWith('medkit')||id.startsWith('bandage')||
-       id.startsWith('antirad')||id.startsWith('stimpack'))return 'i_medical';
-    // Devices
-    if(id.startsWith('device_'))return 'i_device';
-    // Upgrades
-    if(id.startsWith('upgrade_'))return 'i_upgrade';
-    // Parts
-    if(id.startsWith('mutant_part_'))return 'i_mutant_part';
-    if(id.startsWith('part_'))return 'i_part';
-    // Misc items
-    if(id.startsWith('backpack_')||id.startsWith('item_')||id.startsWith('itm_'))return 'i_misc';
-    // Fallback: any section with inv_weight or cost is likely an item
-    if(fields&&(fields['inv_weight']||fields['cost']))return 'i_misc';
-    return null;
-}
-
-function _mergeScannedItems(items,catalogName){
-    if(!items||!items.length)return 0;
-    catalogName=String(catalogName||'Modlist').trim()||'Modlist';
-    // Deduplicate against existing catalog
-    const existingIds=new Set();
-    ITEM_CATALOG.forEach(it=>{if(it&&it.id)existingIds.add(it.id.toLowerCase());});
-    const newItems=[];
-    const seen=new Set();
-    items.forEach(it=>{
-        const key=it.id.toLowerCase();
-        if(existingIds.has(key)||seen.has(key))return;
-        seen.add(key);
-        it._source=catalogName;
-        newItems.push(it);
-    });
-    // Add to catalog and rebuild lookups
-    newItems.forEach(it=>ITEM_CATALOG.push(it));
-    if(newItems.length){
-        _rebuildItemLookups();
-        // Refresh any already-open item browsers so source filter appears
-        document.querySelectorAll('[data-ibuid]').forEach(el=>{
-            if(el._ibState&&typeof _ibRenderCatalog==='function')_ibRenderCatalog(el);
-        });
-        // Refresh spawn picker source dropdown
-        if(typeof _updateSpawnPickSrc==='function')_updateSpawnPickSrc();
-        if(typeof updateSpawnItemSelect==='function')updateSpawnItemSelect();
-    }
-    // Persist: load existing catalogs, add/merge this one
-    try{
-        let catalogs=[];
-        const raw=localStorage.getItem(_MO2_ITEM_CATALOGS_KEY);
-        if(raw)catalogs=JSON.parse(raw)||[];
-        const existing=catalogs.find(c=>c.name===catalogName);
-        if(existing)existing.items=[...existing.items,...newItems];
-        else catalogs.push({name:catalogName,items:newItems});
-        localStorage.setItem(_MO2_ITEM_CATALOGS_KEY,JSON.stringify(catalogs));
-    }catch(_){}
-    _updateMO2CountDisplay();
-    return newItems.length;
-}
-
-function _updateMO2CountDisplay(){
-    const c=document.getElementById('mo2ItemCount');
-    if(!c)return;
-    try{
-        const raw=localStorage.getItem(_MO2_ITEM_CATALOGS_KEY);
-        if(!raw){c.textContent='No modded items loaded';return;}
-        const catalogs=JSON.parse(raw)||[];
-        const total=catalogs.reduce((n,cat)=>n+(cat.items?cat.items.length:0),0);
-        if(!total){c.textContent='No modded items loaded';return;}
-        const names=catalogs.map(cat=>cat.name).join(', ');
-        c.textContent=`${total} modded items (${names})`;
-    }catch(_){c.textContent='Modded items loaded';}
-}
-
-function _rebuildItemLookups(){
-    // Clear existing lookups
-    Object.keys(ITEM_LOOKUP_BY_ID).forEach(k=>delete ITEM_LOOKUP_BY_ID[k]);
-    Object.keys(ITEM_LOOKUP_BY_NAME).forEach(k=>delete ITEM_LOOKUP_BY_NAME[k]);
-    Object.keys(ITEM_LOOKUP_BY_DISPLAY).forEach(k=>delete ITEM_LOOKUP_BY_DISPLAY[k]);
-    // Rebuild from catalog
-    ITEM_CATALOG.forEach(it=>{
-        const id=String((it&&it.id)||'').trim();
-        if(!id)return;
-        const name=String((it&&it.name)||id).trim()||id;
-        const key=id.toLowerCase();
-        if(!ITEM_LOOKUP_BY_ID[key])
-            ITEM_LOOKUP_BY_ID[key]={id,name,cat:String((it&&it.cat)||'misc')};
-        const nk=name.toLowerCase();
-        if(!ITEM_LOOKUP_BY_NAME[nk])ITEM_LOOKUP_BY_NAME[nk]=[];
-        ITEM_LOOKUP_BY_NAME[nk].push({id,name,cat:String((it&&it.cat)||'misc')});
-        const display=`${name} [${id}]`.toLowerCase();
-        ITEM_LOOKUP_BY_DISPLAY[display]=id;
-    });
-}
-
-// Auto-load persisted scanned items on startup
-function _loadPersistedMO2Items(){
-    try{
-        const raw=localStorage.getItem(_MO2_ITEM_CATALOGS_KEY);
-        if(!raw)return;
-        const catalogs=JSON.parse(raw);
-        if(!Array.isArray(catalogs)||!catalogs.length)return;
-        const existingIds=new Set();
-        ITEM_CATALOG.forEach(it=>{if(it&&it.id)existingIds.add(it.id.toLowerCase());});
-        let added=0;
-        catalogs.forEach(catalog=>{
-            const items=Array.isArray(catalog.items)?catalog.items:(Array.isArray(catalog)?catalog:[]);
-            const name=catalog.name||'Modlist';
-            items.forEach(it=>{
-                if(!it||!it.id)return;
-                const key=it.id.toLowerCase();
-                if(existingIds.has(key))return;
-                existingIds.add(key);
-                it._scanned=true;
-                it._source=it._source||name;
-                // Re-classify using ID (catches weapon sub-types, outfit types, etc.)
-                // Fall back to legacy map only if classifier returns null (no fields available at load time)
-                const reclassified=_classifyLtxSection(it.id,null);
-                if(reclassified) it.cat=reclassified;
-                else if(it.cat&&_CAT_LEGACY_MAP[it.cat])it.cat=_CAT_LEGACY_MAP[it.cat];
-                ITEM_CATALOG.push(it);
-                added++;
-            });
-        });
-        if(added)_rebuildItemLookups();
-        _updateMO2CountDisplay();
-    }catch(_){}
-}
-// ── LTX File Browser ──
-async function browseLtxFile(){
-    const browser=document.getElementById('ltxFileBrowser');
-    if(!browser)return;
-    browser.innerHTML='<div style="padding:6px;color:#aaa;font-size:11px">Pick the folder to browse (e.g. your mod\'s gamedata/configs/ or a mods/ root)…</div>';
-    browser.style.display='block';
-    let rootDir;
-    try{
-        if(window.showDirectoryPicker){
-            rootDir=await window.showDirectoryPicker({id:'ltxBrowse',mode:'read'});
-        } else {
-            browser.innerHTML='<div style="padding:6px;color:#f44;font-size:11px">Directory picker not supported in this browser.</div>';
-            return;
-        }
-    }catch(e){browser.style.display='none';return;}
-    browser.innerHTML='<div style="padding:6px;color:#aaa;font-size:11px">Scanning…</div>';
-    // Collect all .ltx files, compute path relative to picked root
-    const files=[];
-    async function walk(dir,relPath){
-        for await(const [name,entry] of dir.entries()){
-            const fp=relPath?relPath+'/'+name:name;
-            if(entry.kind==='directory') await walk(entry,fp);
-            else if(name.endsWith('.ltx')) files.push(fp);
-        }
-    }
-    await walk(rootDir,'');
-    if(!files.length){browser.innerHTML='<div style="padding:6px;color:#aaa;font-size:11px">No .ltx files found in that folder.</div>';return;}
-    // Find the "configs/" boundary to compute gamedata-relative path
-    function toGamedataRel(p){
-        const lower=p.toLowerCase();
-        const idx=lower.indexOf('configs/');
-        return idx>=0?p.slice(idx+8).replace(/\//g,'\\'):p.replace(/\//g,'\\');
-    }
-    let html='<div style="padding:4px 8px;font-size:10px;color:#555;border-bottom:1px solid #1e1e1e">'+files.length+' .ltx files — click to select</div>';
-    files.sort();
-    files.forEach(fp=>{
-        const rel=toGamedataRel(fp);
-        html+=`<div style="padding:3px 10px;font-size:11px;color:#aaa;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(rel)}" onmouseenter="this.style.background='#1e1e1e'" onmouseleave="this.style.background=''" onclick="_ltxFileSelect(${JSON.stringify(rel)})">${esc(rel)}</div>`;
-    });
-    browser.innerHTML=html;
-}
-function _ltxFileSelect(rel){
-    const inp=document.getElementById('f_ltxPath');
-    if(inp){inp.value=rel;saveField('ltxPath',rel);}
-    const browser=document.getElementById('ltxFileBrowser');
-    if(browser)browser.style.display='none';
-}
-
-// Run on load
-if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',_loadPersistedMO2Items);
-} else {
-    _loadPersistedMO2Items();
-}
-

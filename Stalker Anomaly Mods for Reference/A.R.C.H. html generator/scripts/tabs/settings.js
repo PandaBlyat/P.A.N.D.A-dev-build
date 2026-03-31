@@ -19,6 +19,9 @@ function refreshTab(tab){
             document.getElementById('f_displayName').value=ch.displayName||'';
             syncDialogId();
         }
+        // Story NPC tab visibility
+        if(typeof updateAssignToTabVisibility==='function')updateAssignToTabVisibility(s.assignTo||'');
+
         document.getElementById('f_namePrefix').value=s.namePrefix||'';
         document.getElementById('f_nameFullName').value=s.nameFullName||'';
         document.getElementById('f_nameSuffix').value=s.nameSuffix||'';
@@ -38,6 +41,11 @@ function refreshTab(tab){
         document.getElementById('f_respawn').checked=s.respawn!==false;
         const si=document.getElementById('f_spawnInherit');if(si)si.value=s.spawnInherit||'';
         const dr=document.getElementById('f_dialogRemove');if(dr)dr.value=s.dialogRemove||'';
+        const ms=document.getElementById('f_mapSpot');if(ms)ms.value=s.mapSpot||'';
+        const gw=document.getElementById('f_goodwill');if(gw)gw.value=s.goodwill||'';
+        const sti=document.getElementById('f_smartTerrainInclude');if(sti)sti.value=s.smartTerrainInclude||'';
+        const ste=document.getElementById('f_smartTerrainExclude');if(ste)ste.value=s.smartTerrainExclude||'';
+        renderSmartTerrainChips();
         // Merge 3 internal slots into unified textarea
         const spawnAll=document.getElementById('f_spawnAll');
         if(spawnAll) spawnAll.value=mergeSpawnSlots(s);
@@ -232,4 +240,118 @@ function setFM(cat,mode,btn){
     const box=document.getElementById(boxMap[cat]);
     if(mode==='all')box.querySelectorAll('input').forEach(cb=>cb.checked=false);
     box.querySelectorAll('.mi').forEach(el=>el.classList.toggle('exc',saveMode==='exc'));
+}
+
+// ═══════════════════════════════════════════
+// SMART TERRAIN PICKER POPUP
+// ═══════════════════════════════════════════
+function openSmartTerrainPicker(singleLoc){
+    if(typeof SMART_TERRAINS==='undefined')return;
+    var s=getD('settings')||{};
+    var locs=singleLoc?[singleLoc]:Object.keys(SMART_TERRAINS).sort();
+    // Get currently selected smart terrains from include field
+    var current=String(s.smartTerrainInclude||'').split(',').map(function(v){return v.trim();}).filter(Boolean);
+    var selected=new Set(current);
+
+    // Build popup DOM
+    var ov=document.getElementById('stPickerOverlay');
+    var popup=document.getElementById('stPickerPopup');
+    if(!ov){
+        ov=document.createElement('div');ov.id='stPickerOverlay';ov.className='st-picker-overlay';
+        ov.onclick=closeSmartTerrainPicker;document.body.appendChild(ov);
+    }
+    if(!popup){
+        popup=document.createElement('div');popup.id='stPickerPopup';popup.className='st-picker';
+        document.body.appendChild(popup);
+    }
+
+    // Location name lookup
+    var locNames={};
+    if(typeof LOCS!=='undefined')LOCS.forEach(function(l){locNames[l[0]]=l[1];});
+
+    var locLabel=singleLoc?(locNames[singleLoc]||singleLoc):'All Locations';
+    var h='<div class="st-picker-header">';
+    h+='<span style="color:#ff8c00;font-size:13px;font-weight:bold">Smart Terrains — '+esc(locLabel)+'</span>';
+    h+='<span style="color:#888;font-size:11px;margin-left:auto" id="stPickerCount">'+selected.size+' selected</span>';
+    h+='<button class="btn b2 bs" style="padding:2px 10px;font-size:11px" onclick="stPickerClear()">Clear All</button>';
+    h+='<button class="btn b2 bs" style="padding:2px 10px;font-size:11px;color:#ff8c00" onclick="stPickerApply()">Apply</button>';
+    h+='<button class="btn b2 bs" style="padding:2px 8px;font-size:11px" onclick="closeSmartTerrainPicker()">✕</button>';
+    h+='</div>';
+    h+='<div class="st-picker-body">';
+
+    locs.forEach(function(loc){
+        var terrains=SMART_TERRAINS[loc];
+        if(!terrains||!terrains.length)return;
+        h+='<div class="st-picker-section">';
+        if(!singleLoc){
+            var _ll=locNames[loc]||loc;
+            h+='<div class="st-picker-section-title">'+esc(_ll)+' <span style="color:#666;font-weight:normal;font-size:10px">('+terrains.length+')</span></div>';
+        }
+        h+='<div class="st-picker-grid">';
+        terrains.forEach(function(t){
+            var sel=selected.has(t);
+            h+='<span class="st-picker-pill'+(sel?' selected':'')+'" data-st="'+esc(t)+'" onclick="stPickerToggle(this,\''+esc(t)+'\')">'+esc(t)+'</span>';
+        });
+        h+='</div></div>';
+    });
+
+    h+='</div>';
+    popup.innerHTML=h;
+    popup.style.display='flex';ov.style.display='block';
+    // Store selected set for toggle/apply
+    popup._selected=selected;
+}
+
+function stPickerToggle(el,name){
+    var popup=document.getElementById('stPickerPopup');
+    if(!popup||!popup._selected)return;
+    if(popup._selected.has(name)){
+        popup._selected.delete(name);
+        el.classList.remove('selected');
+    } else {
+        popup._selected.add(name);
+        el.classList.add('selected');
+    }
+    var countEl=document.getElementById('stPickerCount');
+    if(countEl)countEl.textContent=popup._selected.size+' selected';
+}
+
+function stPickerClear(){
+    var popup=document.getElementById('stPickerPopup');
+    if(!popup||!popup._selected)return;
+    popup._selected.clear();
+    popup.querySelectorAll('.st-picker-pill.selected').forEach(function(el){el.classList.remove('selected');});
+    var countEl=document.getElementById('stPickerCount');
+    if(countEl)countEl.textContent='0 selected';
+}
+
+function stPickerApply(){
+    var popup=document.getElementById('stPickerPopup');
+    if(!popup||!popup._selected)return;
+    var vals=[...popup._selected].sort();
+    var input=document.getElementById('f_smartTerrainInclude');
+    if(input)input.value=vals.join(', ');
+    saveField('smartTerrainInclude',vals.join(', '));
+    closeSmartTerrainPicker();
+    renderSmartTerrainChips();
+}
+
+function renderSmartTerrainChips(){
+    var el=document.getElementById('smartTerrainChips');
+    if(!el)return;
+    var s=getD('settings')||{};
+    var vals=String(s.smartTerrainInclude||'').split(',').map(function(v){return v.trim();}).filter(Boolean);
+    if(!vals.length){el.innerHTML='';return;}
+    var h='<span style="color:#888;font-size:10px;margin-right:4px">Smart Terrains:</span>';
+    vals.forEach(function(v){
+        h+='<span style="display:inline-block;background:#2d3a2d;color:#a5d6a7;padding:2px 6px;border-radius:3px;font-size:10px;font-family:monospace">'+esc(v)+'</span>';
+    });
+    el.innerHTML=h;
+}
+
+function closeSmartTerrainPicker(){
+    var ov=document.getElementById('stPickerOverlay');
+    var popup=document.getElementById('stPickerPopup');
+    if(ov)ov.style.display='none';
+    if(popup)popup.style.display='none';
 }

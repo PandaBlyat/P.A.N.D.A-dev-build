@@ -1,0 +1,60 @@
+<?xml version='1.0' encoding='utf-8'?>
+<string_table>
+    <string id="st_arch_task_offer_open">
+        <text>Got any work for me?</text>
+    </string>
+    <string id="st_arch_task_details">
+        <text>Give me details.</text>
+    </string>
+    <string id="st_arch_task_accept">
+        <text>I will take it.</text>
+    </string>
+    <string id="st_arch_task_decline">
+        <text>Not now.</text>
+    </string>
+    <string id="st_arch_task_turnin">
+        <text>I completed your task.</text>
+    </string>
+    <string id="st_arch_task_complete">
+        <text>Here is what you asked for.</text>
+    </string>
+    <string id="dm_arch_task_no_available">
+        <text>Nothing right now. Come back later when conditions are better.</text>
+    </string>
+    <string id="dm_arch_task_no_active">
+        <text>You do not have an active contract with me right now.</text>
+    </string>
+    <string id="dm_arch_task_not_ready">
+        <text>Not yet. You still do not have what I asked for.</text>
+    </string>
+    <string id="dm_arch_task_accepted">
+        <text>Good. Task accepted. Do not waste my time.</text>
+    </string>
+    <string id="dm_arch_task_declined">
+        <text>Fine. Come back when you are ready to work.</text>
+    </string>
+    <string id="dm_arch_task_completed">
+        <text>Good work. Contract complete, payment transferred.</text>
+    </string>
+    <string id="st_arch_custom_pool_ask">
+        <text>Got any special work?</text>
+    </string>
+    <string id="st_arch_custom_pool_npc_response">
+        <text>Depends. What are you looking for?</text>
+    </string>
+    <string id="st_arch_pool_no_task_available">
+        <text>Nothing right now. Check back later.</text>
+    </string>
+    <string id="st_arch_delivery_ready">
+        <text>Deliver the items to the marked contact.</text>
+    </string>
+    <string id="st_arch_delivery_turnin_actor">
+        <text>I have a delivery for you.</text>
+    </string>
+    <string id="st_arch_story_duty_intel_offer">
+        <text>Actually... there is something else. Something that does not go through official channels.</text>
+    </string>
+    <string id="st_arch_story_csky_relic_offer">
+        <text>I need to speak with you about something. A Clear Sky matter. Private.</text>
+    </string>
+</string_table>

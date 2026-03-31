@@ -1,0 +1,591 @@
+-- ══════════════════════════════════════════════════
+-- Logger and State
+-- ══════════════════════════════════════════════════
+
+local _log = _G.arch_logger_module and type(_G.arch_logger_module.new) == "function" and _G.arch_logger_module.new("ARCHLOG") or nil
+local printf = (_log and _log.printf) or function(fmt, ...) if not _G.printf then return end; if select("#",...) > 0 then local ok,r = pcall(string.format,fmt,...); if ok then fmt = r end end; _G.printf("ARCHLOG %s", tostring(fmt)) end
+local tostr = tostring
+local mcm_callback_registered = false
+local warned_missing_mcm = false
+
+-- ══════════════════════════════════════════════════
+-- Default MCM Values
+-- ══════════════════════════════════════════════════
+
+local DEFAULTS = {
+    ["creations/general/assignment_mode"] = 1,
+    ["creations/general/assignment_notifications"] = true,
+    ["creations/general/dynamic_news"] = true,
+    ["creations/general/strip_vanilla_dialogs"] = true,
+    ["tasks/turnin_marker"] = true,
+    ["tasks/turnin_news"] = true,
+    ["creations/tier_caps/tier_1_max_level"] = 0,
+    ["creations/tier_caps/tier_1_max_faction"] = 0,
+    ["creations/tier_caps/tier_2_max_level"] = 0,
+    ["creations/tier_caps/tier_2_max_faction"] = 0,
+    ["creations/tier_caps/tier_3_max_level"] = 0,
+    ["creations/tier_caps/tier_3_max_faction"] = 0,
+    ["creations/tier_caps/tier_4_max_level"] = 0,
+    ["creations/tier_caps/tier_4_max_faction"] = 0,
+    ["creations/tier_caps/tier_5_max_level"] = 0,
+    ["creations/tier_caps/tier_5_max_faction"] = 0,
+    ["debug/interaction_notifications"] = true,
+    ["debug/custom_script_logs"] = true,
+    ["debug/verbose_interaction_logs"] = false,
+    ["debug/perf_profiling"] = false,
+    ["debug/startup_validation"] = false
+}
+
+-- ══════════════════════════════════════════════════
+-- Value Normalization
+-- ══════════════════════════════════════════════════
+
+local function normalize_bool(value, default_value)
+    if value == nil then
+        return default_value == true
+    end
+    if type(value) == "boolean" then
+        return value
+    end
+    if type(value) == "number" then
+        return value ~= 0
+    end
+    local text = string.lower(tostring(value))
+    return text == "true" or text == "1" or text == "on" or text == "yes"
+end
+local function normalize_assignment_mode(value)
+    if type(value) == "number" then
+        if value == 1 then
+            return "hybrid"
+        end
+        if value == 2 then
+            return "online_only"
+        end
+        return "strict_spawn_only"
+    end
+    local mode = string.lower(tostring(value or ""))
+    if mode == "hybrid" then
+        return "hybrid"
+    end
+    if mode == "online_only" then
+        return "online_only"
+    end
+    return "strict_spawn_only"
+end
+local function call_optional(module_name, fn_name, ...)
+    local mod = module_name and _G[module_name] or nil
+    if type(mod) == "table" and type(mod[fn_name]) == "function" then
+        mod[fn_name](...)
+        return true
+    end
+    local fn = _G[fn_name]
+    if type(fn) == "function" then
+        fn(...)
+        return true
+    end
+    return false
+end
+local function get_mcm_value(path)
+    local full_path = "arch/" .. tostring(path)
+    local fallback = DEFAULTS[path]
+    if ui_mcm and type(ui_mcm.get) == "function" then
+        local ok, value = pcall(ui_mcm.get, full_path)
+        if ok and value ~= nil then
+            return value
+        end
+    end
+    return fallback
+end
+-- Button functors (called by MCM button clicks)
+
+-- ══════════════════════════════════════════════════
+-- MCM Actions
+-- ══════════════════════════════════════════════════
+
+function on_clear_all_assignments()
+    if archetype_core and type(archetype_core.clear_all_assignments) == "function" then
+        local count = archetype_core.clear_all_assignments()
+        printf("[ARCH][MCM] Clear all assignments: %s removed", tostr(count or 0))
+    else
+        printf("[ARCH][MCM] ERROR: archetype_core.clear_all_assignments not available")
+    end
+end
+function on_clear_story_npc_assignments()
+    if archetype_core and type(archetype_core.clear_assign_to_assignments) == "function" then
+        local count = archetype_core.clear_assign_to_assignments()
+        printf("[ARCH][MCM] Clear story NPC assignments: %s removed", tostr(count or 0))
+    else
+        printf("[ARCH][MCM] ERROR: archetype_core.clear_assign_to_assignments not available")
+    end
+end
+function on_clear_archetype(arch_id)
+    if not arch_id then return end
+    if archetype_core and type(archetype_core.clear_archetype_assignments) == "function" then
+        local count = archetype_core.clear_archetype_assignments(arch_id)
+        printf("[ARCH][MCM] Clear '%s' assignments: %s removed", tostr(arch_id), tostr(count or 0))
+    else
+        printf("[ARCH][MCM] ERROR: archetype_core.clear_archetype_assignments not available")
+    end
+end
+function on_reassign_all()
+    if archetype_core and type(archetype_core.reassign_all_online) == "function" then
+        local count = archetype_core.reassign_all_online()
+        printf("[ARCH][MCM] Reassign all: %s NPCs reassigned", tostr(count or 0))
+    else
+        printf("[ARCH][MCM] ERROR: archetype_core.reassign_all_online not available")
+    end
+end
+-- Settings application
+
+-- ══════════════════════════════════════════════════
+-- Settings Application
+-- ══════════════════════════════════════════════════
+
+local function apply_settings(reason)
+    local assignment_mode = normalize_assignment_mode(get_mcm_value("creations/general/assignment_mode"))
+    local assignment_notifications = normalize_bool(get_mcm_value("creations/general/assignment_notifications"), DEFAULTS["creations/general/assignment_notifications"])
+    local dynamic_news = normalize_bool(get_mcm_value("creations/general/dynamic_news"), DEFAULTS["creations/general/dynamic_news"])
+    local turnin_marker = normalize_bool(get_mcm_value("tasks/turnin_marker"), DEFAULTS["tasks/turnin_marker"])
+    local turnin_news = normalize_bool(get_mcm_value("tasks/turnin_news"), DEFAULTS["tasks/turnin_news"])
+    local interaction_notifications = normalize_bool(get_mcm_value("debug/interaction_notifications"), DEFAULTS["debug/interaction_notifications"])
+    local custom_script_logs = normalize_bool(get_mcm_value("debug/custom_script_logs"), DEFAULTS["debug/custom_script_logs"])
+    local verbose_interaction_logs = normalize_bool(get_mcm_value("debug/verbose_interaction_logs"), DEFAULTS["debug/verbose_interaction_logs"])
+    local perf_enabled = normalize_bool(get_mcm_value("debug/perf_profiling"), DEFAULTS["debug/perf_profiling"])
+    local startup_validation = normalize_bool(get_mcm_value("debug/startup_validation"), DEFAULTS["debug/startup_validation"])
+    call_optional("archetype_core", "set_assignment_mode", assignment_mode)
+    call_optional("archetype_core", "set_assignment_news_enabled", assignment_notifications)
+    call_optional("archetype_core", "set_dynamic_news_enabled", dynamic_news)
+    call_optional("tasks_core", "set_turnin_tracker_enabled", turnin_marker)
+    call_optional("tasks_core", "set_turnin_news_enabled", turnin_news)
+    if interaction_notifications then
+        call_optional("debug_helper", "enable_notifications")
+    else
+        call_optional("debug_helper", "disable_notifications")
+    end
+    call_optional("debug_helper", "set_custom_script_logs", custom_script_logs)
+    if verbose_interaction_logs then
+        call_optional("debug_helper", "enable_debug_mode")
+    else
+        call_optional("debug_helper", "disable_debug_mode")
+    end
+    call_optional("archetype_core", "set_perf_enabled", perf_enabled)
+    call_optional("archetype_core", "set_startup_validation", startup_validation)
+    call_optional("archetype_core", "apply_mcm_archetype_overrides")
+    printf("[ARCH][MCM] Applied settings (%s): mode=%s assign_news=%s dynamic_news=%s marker=%s news=%s notify=%s custom_logs=%s verbose=%s perf=%s startup_val=%s",
+        tostr(reason or "unknown"),
+        tostr(assignment_mode),
+        tostr(assignment_notifications),
+        tostr(dynamic_news),
+        tostr(turnin_marker),
+        tostr(turnin_news),
+        tostr(interaction_notifications),
+        tostr(custom_script_logs),
+        tostr(verbose_interaction_logs),
+        tostr(perf_enabled),
+        tostr(startup_validation))
+end
+local function on_mcm_option_change(changes)
+    if type(changes) ~= "table" then
+        return
+    end
+    local has_arch_change = false
+    for path in pairs(changes) do
+        if type(path) == "string" and (path == "arch" or string.sub(path, 1, 5) == "arch/") then
+            has_arch_change = true
+            break
+        end
+    end
+    if has_arch_change then
+        apply_settings("mcm_option_change")
+    end
+end
+-- Dynamic tier sub-tab builder
+
+-- ══════════════════════════════════════════════════
+-- MCM UI Builders
+-- ══════════════════════════════════════════════════
+
+local TIER_NAMES = {
+    "Tier 1 — Highest",
+    "Tier 2 — High",
+    "Tier 3 — Normal",
+    "Tier 4 — Low",
+    "Tier 5 — Lowest"
+}
+local TIER_HEADERS = {
+    "ui_mcm_desc_arch_cr_tier_1_header",
+    "ui_mcm_desc_arch_cr_tier_2_header",
+    "ui_mcm_desc_arch_cr_tier_3_header",
+    "ui_mcm_desc_arch_cr_tier_4_header",
+    "ui_mcm_desc_arch_cr_tier_5_header"
+}
+local function build_tier_subtab(tier_num, archetypes_by_tier)
+    local controls = {
+        { id = "desc_cr_tier_" .. tier_num, type = "desc", text = "ui_mcm_desc_arch_cr_tier_list", clr = {255, 125, 175, 200} }
+    }
+    local tier_archs = archetypes_by_tier[tier_num]
+    if not tier_archs or #tier_archs == 0 then
+        controls[#controls + 1] = { id = "empty_tier_" .. tier_num, type = "desc", text = "ui_mcm_desc_arch_cr_tier_empty", clr = {255, 150, 150, 150} }
+        return controls
+    end
+    for i = 1, #tier_archs do
+        local arch = tier_archs[i]
+        local aid = arch.id
+        local label = aid:gsub("_", " ")
+        controls[#controls + 1] = { id = "ln_" .. aid, type = "line" }
+        controls[#controls + 1] = { id = "hdr_" .. aid, type = "title", text = label }
+        controls[#controls + 1] = { id = aid .. "_on", type = "check", val = 1, def = true, hint = "arch_cr_enabled" }
+        controls[#controls + 1] = { id = aid .. "_chance", type = "track", val = 2, def = arch.chance or 100, min = 0, max = 100, step = 1, hint = "arch_cr_chance" }
+        controls[#controls + 1] = { id = aid .. "_clear", type = "button", functor = {on_clear_archetype, aid}, hint = "arch_cr_clear" }
+    end
+    return controls
+end
+local function build_creations_tab()
+    local archetypes_by_tier = { {}, {}, {}, {}, {} }
+    local has_archetypes = false
+    local arch_count = 0
+    local pack_count = 0
+    if arch_pack_loader and type(arch_pack_loader.get_registered_creation_packs) == "function" then
+        pack_count = #(arch_pack_loader.get_registered_creation_packs() or {})
+    end
+    if archetype_core and type(archetype_core.get_all_archetypes) == "function" then
+        local all = archetype_core.get_all_archetypes()
+        if all then
+            local sorted_ids = {}
+            for arch_id in pairs(all) do
+                sorted_ids[#sorted_ids + 1] = arch_id
+            end
+            table.sort(sorted_ids)
+            for i = 1, #sorted_ids do
+                local arch_id = sorted_ids[i]
+                local data = all[arch_id]
+                local tier = data.tier or 3
+                if tier < 1 then tier = 1 end
+                if tier > 5 then tier = 5 end
+                local entry = { id = arch_id, chance = data.chance or 100, tier = tier }
+                archetypes_by_tier[tier][#archetypes_by_tier[tier] + 1] = entry
+                has_archetypes = true
+                arch_count = arch_count + 1
+            end
+        end
+    end
+    local version_text = string.format("A.R.C.H. 0.9  |  %d archetypes  |  %d packs loaded", arch_count, pack_count)
+    local creations_gr = {
+        {
+            id = "general",
+            sh = true,
+            text = "ui_mcm_menu_arch_creations_general",
+            gr = {
+                { id = "desc_cr_version", type = "desc", text = version_text, clr = {255, 200, 220, 255} },
+                { id = "desc_cr_general", type = "desc", text = "ui_mcm_desc_arch_cr_general", clr = {255, 125, 175, 200} },
+                {
+                    id = "assignment_mode",
+                    type = "list",
+                    val = 2,
+                    def = 1,
+                    content = {
+                        {0, "arch_assignment_strict_spawn_only"},
+                        {1, "arch_assignment_hybrid"},
+                        {2, "arch_assignment_online_only"}
+                    }
+                },
+                { id = "assignment_notifications", type = "check", val = 1, def = true },
+                { id = "dynamic_news", type = "check", val = 1, def = true },
+                { id = "strip_vanilla_dialogs", type = "check", val = 1, def = true },
+                { id = "line_clear", type = "line" },
+                { id = "desc_clear_all", type = "desc", text = "ui_mcm_desc_arch_cr_clear_all", clr = {255, 200, 130, 130} },
+                { id = "clear_all", type = "button", functor = {on_clear_all_assignments} },
+                { id = "line_clear_story", type = "line" },
+                { id = "desc_clear_story", type = "desc", text = "ui_mcm_desc_arch_cr_clear_story", clr = {255, 200, 160, 130} },
+                { id = "clear_story_npcs", type = "button", functor = {on_clear_story_npc_assignments} },
+                { id = "line_reassign", type = "line" },
+                { id = "desc_reassign", type = "desc", text = "ui_mcm_desc_arch_cr_reassign", clr = {255, 130, 180, 200} },
+                { id = "reassign_all", type = "button", functor = {on_reassign_all} }
+            }
+        }
+    }
+    for t = 1, 5 do
+        if #archetypes_by_tier[t] > 0 then
+            local tier_controls = build_tier_subtab(t, archetypes_by_tier)
+            creations_gr[#creations_gr + 1] = {
+                id = "tier_" .. t,
+                sh = true,
+                text = "ui_mcm_menu_arch_creations_tier_" .. t,
+                gr = tier_controls
+            }
+        end
+    end
+    -- Tier Caps sub-tab (after tier 5)
+    creations_gr[#creations_gr + 1] = {
+        id = "tier_caps",
+        sh = true,
+        text = "ui_mcm_menu_arch_tier_caps",
+        gr = {
+            { id = "desc_arch_tier_caps", type = "desc", text = "ui_mcm_desc_arch_tier_caps", clr = {255, 125, 175, 200} },
+            { id = "desc_tier_1", type = "desc", text = "ui_mcm_desc_arch_tier_1_header", clr = {255, 200, 180, 120} },
+            { id = "tier_1_max_level", type = "track", val = 2, def = 0, min = 0, max = 50, step = 1 },
+            { id = "tier_1_max_faction", type = "track", val = 2, def = 0, min = 0, max = 50, step = 1 },
+            { id = "desc_tier_2", type = "desc", text = "ui_mcm_desc_arch_tier_2_header", clr = {255, 200, 180, 120} },
+            { id = "tier_2_max_level", type = "track", val = 2, def = 0, min = 0, max = 50, step = 1 },
+            { id = "tier_2_max_faction", type = "track", val = 2, def = 0, min = 0, max = 50, step = 1 },
+            { id = "desc_tier_3", type = "desc", text = "ui_mcm_desc_arch_tier_3_header", clr = {255, 200, 180, 120} },
+            { id = "tier_3_max_level", type = "track", val = 2, def = 0, min = 0, max = 50, step = 1 },
+            { id = "tier_3_max_faction", type = "track", val = 2, def = 0, min = 0, max = 50, step = 1 },
+            { id = "desc_tier_4", type = "desc", text = "ui_mcm_desc_arch_tier_4_header", clr = {255, 200, 180, 120} },
+            { id = "tier_4_max_level", type = "track", val = 2, def = 0, min = 0, max = 50, step = 1 },
+            { id = "tier_4_max_faction", type = "track", val = 2, def = 0, min = 0, max = 50, step = 1 },
+            { id = "desc_tier_5", type = "desc", text = "ui_mcm_desc_arch_tier_5_header", clr = {255, 200, 180, 120} },
+            { id = "tier_5_max_level", type = "track", val = 2, def = 0, min = 0, max = 50, step = 1 },
+            { id = "tier_5_max_faction", type = "track", val = 2, def = 0, min = 0, max = 50, step = 1 }
+        }
+    }
+    return creations_gr
+end
+-- Pack browser builder
+
+-- ══════════════════════════════════════════════════
+-- Pack Browser Tab
+-- ══════════════════════════════════════════════════
+
+local function sorted_pairs(tbl)
+    local keys = {}
+    for k in pairs(tbl) do keys[#keys + 1] = k end
+    table.sort(keys)
+    local i = 0
+    return function()
+        i = i + 1
+        if keys[i] then return keys[i], tbl[keys[i]] end
+    end
+end
+
+local FACTION_LABELS = {
+    stalker = "Loner", dolg = "Duty", freedom = "Freedom", csky = "Clear Sky",
+    ecolog = "Ecolog", army = "Military", bandit = "Bandit", monolith = "Monolith",
+    killer = "Merc", renegade = "Renegade", greh = "Sin", isg = "ISG"
+}
+local LEVEL_LABELS = {
+    l01_escape = "Cordon", l02_garbage = "Garbage", l03_agroprom = "Agroprom",
+    l04_darkvalley = "Dark Valley", l05_bar = "Bar", l06_rostok = "Rostok",
+    l07_military = "Army Warehouses", l08_yantar = "Yantar", l09_deadcity = "Dead City",
+    l10_limansk = "Limansk", l10_radar = "Radar", l10_red_forest = "Red Forest",
+    l11_hospital = "Hospital", l11_pripyat = "Pripyat", l12_stancia = "CNPP",
+    l12_stancia_2 = "CNPP-2", l13_generators = "Generators", jupiter = "Jupiter",
+    zaton = "Zaton", pripyat = "Pripyat Outskirts", k00_marsh = "Great Swamp",
+    k01_darkscape = "Darkscape", k02_trucks_cemetery = "Truck Cemetery"
+}
+
+local function format_faction(community_list)
+    if not community_list or #community_list == 0 then return "Any" end
+    local parts = {}
+    for i = 1, #community_list do
+        parts[#parts + 1] = FACTION_LABELS[community_list[i]] or community_list[i]
+    end
+    return table.concat(parts, ", ")
+end
+local function format_location(location_list)
+    if not location_list or #location_list == 0 then return "Any" end
+    local parts = {}
+    for i = 1, #location_list do
+        parts[#parts + 1] = LEVEL_LABELS[location_list[i]] or location_list[i]
+    end
+    return table.concat(parts, ", ")
+end
+local function format_arch_id(id)
+    local s = string.gsub(id, "_", " ")
+    return string.gsub(s, "(%a)([%w]*)", function(a, b) return string.upper(a) .. b end)
+end
+local function build_pack_browser_tab()
+    local pack_subtabs = {}
+    local packs = {}
+    if arch_pack_loader and type(arch_pack_loader.get_registered_creation_packs) == "function" then
+        packs = arch_pack_loader.get_registered_creation_packs()
+    end
+    local all_archs = nil
+    if archetype_core and type(archetype_core.get_all_archetypes) == "function" then
+        all_archs = archetype_core.get_all_archetypes()
+    end
+    -- Stats overview sub-tab
+    local stats_controls = {
+        { id = "pb_stats_desc", type = "desc", text = "ui_mcm_desc_arch_stats", clr = {255, 125, 175, 200} }
+    }
+    local stats = archetype_core and type(archetype_core.get_assignment_stats) == "function" and archetype_core.get_assignment_stats() or nil
+    if stats then
+        stats_controls[#stats_controls + 1] = { id = "pb_st_overview", type = "desc",
+            text = string.format("Registered: %d archetypes  |  Assigned: %d NPCs  |  %d packs", stats.total_archetypes, stats.total_assigned, #packs),
+            clr = {255, 220, 220, 200} }
+        stats_controls[#stats_controls + 1] = { id = "pb_st_ln_tier", type = "line" }
+        local tier_parts = {}
+        for t = 1, 5 do
+            if stats.by_tier[t] > 0 then
+                tier_parts[#tier_parts + 1] = string.format("T%d: %d", t, stats.by_tier[t])
+            end
+        end
+        if #tier_parts > 0 then
+            stats_controls[#stats_controls + 1] = { id = "pb_st_tiers", type = "desc",
+                text = "By Tier:  " .. table.concat(tier_parts, "  |  "), clr = {255, 180, 180, 180} }
+        end
+        if stats.by_faction and next(stats.by_faction) then
+            local fac_parts = {}
+            for fac, count in sorted_pairs(stats.by_faction) do
+                fac_parts[#fac_parts + 1] = string.format("%s: %d", FACTION_LABELS[fac] or fac, count)
+            end
+            stats_controls[#stats_controls + 1] = { id = "pb_st_ln_fac", type = "line" }
+            stats_controls[#stats_controls + 1] = { id = "pb_st_fac_hdr", type = "desc", text = "By Faction:", clr = {255, 200, 180, 120} }
+            for fi = 1, #fac_parts do
+                stats_controls[#stats_controls + 1] = { id = "pb_st_fac_" .. fi, type = "desc",
+                    text = "    " .. fac_parts[fi], clr = {255, 180, 180, 180} }
+            end
+        end
+        if stats.by_location and next(stats.by_location) then
+            local loc_parts = {}
+            for loc, count in sorted_pairs(stats.by_location) do
+                loc_parts[#loc_parts + 1] = string.format("%s: %d", LEVEL_LABELS[loc] or loc, count)
+            end
+            stats_controls[#stats_controls + 1] = { id = "pb_st_ln_loc", type = "line" }
+            stats_controls[#stats_controls + 1] = { id = "pb_st_loc_hdr", type = "desc", text = "By Location:", clr = {255, 200, 180, 120} }
+            for li = 1, #loc_parts do
+                stats_controls[#stats_controls + 1] = { id = "pb_st_loc_" .. li, type = "desc",
+                    text = "    " .. loc_parts[li], clr = {255, 180, 180, 180} }
+            end
+        end
+    else
+        stats_controls[#stats_controls + 1] = { id = "pb_st_empty", type = "desc", text = "No assignment data available. Load a save first.", clr = {255, 150, 150, 150} }
+    end
+    pack_subtabs[#pack_subtabs + 1] = {
+        id = "overview", sh = true, text = "Overview",
+        gr = stats_controls
+    }
+    if #packs == 0 then
+        pack_subtabs[#pack_subtabs + 1] = {
+            id = "pb_empty", sh = true, text = "No Packs",
+            gr = {{ id = "pb_empty_desc", type = "desc", text = "No creation packs loaded. Load a save with creation packs enabled.", clr = {255, 150, 150, 150} }}
+        }
+        return pack_subtabs
+    end
+    for pi = 1, #packs do
+        local pack = packs[pi]
+        local pack_id = pack.pack_id or "unknown"
+        local arch_ids = pack.archetype_ids or {}
+        local task_pools = pack.task_pool_count or 0
+        local short_pack = string.gsub(pack_id, "^arch_pack_", "")
+        local header_text = string.format("Pack: %s  |  %d archetypes", format_arch_id(short_pack), #arch_ids)
+        if task_pools > 0 then
+            header_text = header_text .. string.format("  |  %d task pools", task_pools)
+        end
+        local pack_controls = {
+            { id = "pb_desc_" .. short_pack, type = "desc", text = header_text, clr = {255, 125, 175, 200} }
+        }
+        for ai = 1, #arch_ids do
+            local arch_id = arch_ids[ai]
+            local data = all_archs and all_archs[arch_id]
+            local faction = "?"
+            local location = "?"
+            local tier = "?"
+            local amount = "?"
+            local buy_pct = ""
+            local sell_pct = ""
+            local assigned = 0
+            if data then
+                faction = format_faction(data.community_include)
+                location = format_location(data.location_include)
+                tier = data.tier or 3
+                amount = data.amount or "unlimited"
+                if data.buy and data.buy ~= 1 then
+                    buy_pct = string.format("  |  Buy: %d%%", math.floor(data.buy * 100 + 0.5))
+                end
+                if data.sell and data.sell ~= 1 then
+                    sell_pct = string.format("  |  Sell: %d%%", math.floor(data.sell * 100 + 0.5))
+                end
+            end
+            if archetype_core and type(archetype_core.get_archetype_counter) == "function" then
+                assigned = archetype_core.get_archetype_counter(arch_id) or 0
+            end
+            pack_controls[#pack_controls + 1] = { id = "pb_ln_" .. arch_id, type = "line" }
+            pack_controls[#pack_controls + 1] = { id = "pb_hdr_" .. arch_id, type = "desc",
+                text = format_arch_id(arch_id), clr = {255, 220, 200, 140} }
+            pack_controls[#pack_controls + 1] = { id = "pb_info_" .. arch_id, type = "desc",
+                text = string.format("    Faction: %s  |  Location: %s", faction, location),
+                clr = {255, 180, 180, 180} }
+            pack_controls[#pack_controls + 1] = { id = "pb_stat_" .. arch_id, type = "desc",
+                text = string.format("    Tier: %s  |  Amount: %s  |  Assigned: %d%s%s", tostr(tier), tostr(amount), assigned, buy_pct, sell_pct),
+                clr = {255, 180, 180, 180} }
+        end
+        pack_subtabs[#pack_subtabs + 1] = {
+            id = short_pack,
+            sh = true,
+            text = format_arch_id(short_pack),
+            gr = pack_controls
+        }
+    end
+    return pack_subtabs
+end
+
+-- ══════════════════════════════════════════════════
+-- MCM Menu Definition
+-- ══════════════════════════════════════════════════
+
+function on_mcm_load()
+    local creations_gr = build_creations_tab()
+    local pack_browser_gr = build_pack_browser_tab()
+    return {
+        id = "arch",
+        gr = {
+            {
+                id = "creations",
+                text = "ui_mcm_menu_arch_creations",
+                gr = creations_gr
+            },
+            {
+                id = "pack_browser",
+                text = "ui_mcm_menu_arch_pack_browser",
+                gr = pack_browser_gr
+            },
+            {
+                id = "tasks",
+                sh = true,
+                text = "ui_mcm_menu_arch_tasks",
+                gr = {
+                    { id = "desc_arch_tasks", type = "desc", text = "ui_mcm_desc_arch_tasks", clr = {255, 125, 175, 200} },
+                    { id = "turnin_marker", type = "check", val = 1, def = true },
+                    { id = "turnin_news", type = "check", val = 1, def = true }
+                }
+            },
+            {
+                id = "debug",
+                sh = true,
+                text = "ui_mcm_menu_arch_debug",
+                gr = {
+                    { id = "desc_arch_debug", type = "desc", text = "ui_mcm_desc_arch_debug", clr = {255, 125, 175, 200} },
+                    { id = "interaction_notifications", type = "check", val = 1, def = true },
+                    { id = "custom_script_logs", type = "check", val = 1, def = true },
+                    { id = "verbose_interaction_logs", type = "check", val = 1, def = false },
+                    { id = "perf_profiling", type = "check", val = 1, def = false },
+                    { id = "startup_validation", type = "check", val = 1, def = false }
+                }
+            }
+        }
+    }
+end
+
+-- ══════════════════════════════════════════════════
+-- Public API and Game Start
+-- ══════════════════════════════════════════════════
+
+function get(path)
+    return get_mcm_value(path)
+end
+function on_game_start()
+    if not ui_mcm then
+        if not warned_missing_mcm then
+            warned_missing_mcm = true
+            printf("[ARCH][MCM] ui_mcm not found. ARCH gameplay continues with defaults; MCM controls disabled.")
+        end
+        return
+    end
+    if (not mcm_callback_registered) then
+        RegisterScriptCallback("mcm_option_change", on_mcm_option_change)
+        mcm_callback_registered = true
+        printf("[ARCH][MCM] Registered mcm_option_change callback")
+    end
+    apply_settings("game_start")
+end

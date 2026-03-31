@@ -60,11 +60,6 @@ document.addEventListener('DOMContentLoaded',()=>{
             const pal=document.getElementById('cmdPalette');
             if(pal&&!pal.classList.contains('hidden')){e.preventDefault();if(typeof closeCmdPalette==='function')closeCmdPalette();return;}
         }
-        // N: toggle sidebar
-        if(e.key==='n'&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey){
-            const tag=document.activeElement?document.activeElement.tagName:'';
-            if(tag!=='INPUT'&&tag!=='TEXTAREA'&&tag!=='SELECT'){e.preventDefault();if(typeof toggleSidebar==='function')toggleSidebar();return;}
-        }
         if(e.key==='F1'){
             const tag=document.activeElement?document.activeElement.tagName:'';
             if(tag!=='INPUT'&&tag!=='TEXTAREA'&&tag!=='SELECT'){
@@ -218,6 +213,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         renderGroupList();
         console.log('[ARCH] Auto-loaded',groups.length,'groups,',soloChars.length,'solo');
     }
+    if(typeof populateStoryNpcPicker==='function')populateStoryNpcPicker();
     if(typeof renderConnGroups==='function')renderConnGroups();
     setStatus('Ready.','ok');
     runTradeLoadoutLint();

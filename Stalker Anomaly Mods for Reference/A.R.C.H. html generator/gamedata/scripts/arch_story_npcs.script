@@ -1,0 +1,244 @@
+-- ══════════════════════════════════════════════════════════════════════════
+-- A.R.C.H. Story NPC System
+-- ══════════════════════════════════════════════════════════════════════════
+-- Hardcoded archetypes for vanilla story NPCs. These are locked — creation
+-- packs cannot redefine them. Packs add content (dialogs, tasks) by
+-- referencing the archetype ID: story_<profile_name>
+--
+-- To add a new NPC: add the profile name to the appropriate block below.
+-- To add a new block type: create a new table + register it in BLOCKS.
+-- NPC Blocks — one list per role
+-- ──────────────────────────────────────────────────
+-- Each entry is the vanilla profile_name (from character_desc XML).
+-- Archetype ID is auto-generated: "story_" .. profile_name
+
+local TRADER_NPCS = {
+    -- Cordon
+    "esc_2_12_stalker_trader",                      -- Sidorovich
+    "esc_main_base_trader_mlr",                     -- Loris
+    "esc_3_16_military_trader",                     -- Military Trader
+    -- Garbage
+    "hunter_gar_trader",                            -- Trader (Garbage)
+    "baraholka_trader",                             -- Flea Market Trader
+    "baraholka_trader_night",                       -- Night Trader
+    -- Bar
+    "bar_visitors_barman_stalker_trader",            -- Barkeeper
+    -- Agroprom
+    "agr_smart_terrain_1_6_army_trader_stalker",    -- Military Trader
+    -- Dark Valley
+    "val_smart_terrain_7_4_bandit_trader_stalker",  -- Bandit Trader
+    -- Army Warehouses
+    "mil_smart_terrain_7_10_freedom_trader_stalker", -- Freedom Trader
+    -- Yantar
+    "yan_stalker_sakharov",                         -- Sakharov (Scientist)
+    -- Great Swamp
+    "mar_smart_terrain_doc_doctor",                 -- Doctor (Doc)
+    "mar_base_owl_stalker_trader",                  -- Owl (Clear Sky Trader)
+    -- Dead City
+    "cit_killers_merc_trader_stalker",              -- Merc Trader
+    -- Zaton
+    "zat_b30_owl_stalker_trader",                   -- Owl (Zaton Trader)
+    -- Jupiter
+    "jup_a6_freedom_trader_ashot",                  -- Ashot (Freedom Trader)
+    -- Pripyat
+    "trader_pri_a15_mlr",                           -- Pripyat Trader
+}
+
+local MEDIC_NPCS = {
+    -- Cordon (none)
+    -- Bar
+    "bar_dolg_medic",                               -- Duty Medic
+    -- Agroprom
+    "agr_smart_terrain_1_6_army_medic_stalker",     -- Military Medic
+    "agr_1_6_medic_army_mlr",                       -- Military Medic (alternate)
+    -- Dark Valley
+    "bandit_main_base_medic_mlr",                   -- Bandit Medic
+    -- Army Warehouses
+    "mil_freedom_medic",                            -- Freedom Medic
+    -- Great Swamp
+    "mar_smart_terrain_base_doctor",                -- CS Base Doctor
+    -- Dead City
+    "cit_killers_merc_medic_stalker",               -- Merc Medic
+    -- Zaton
+    "zat_b22_stalker_medic",                        -- Medic (Zaton)
+    -- Jupiter
+    "jup_a6_stalker_medik",                         -- Medic (Jupiter)
+    -- Pripyat
+    "pri_medic_stalker",                            -- Medic (Pripyat)
+}
+
+local TECH_NPCS = {
+    -- Cordon
+    "esc_smart_terrain_5_7_loner_mechanic_stalker", -- Xenotech
+    "army_south_mechan_mlr",                        -- Military Mechanic
+    -- Bar
+    "bar_visitors_stalker_mechanic",                -- Mangun (Mechanic)
+    -- Agroprom
+    "agr_smart_terrain_1_6_army_mechanic_stalker",  -- Military Mechanic
+    -- Dark Valley
+    "val_smart_terrain_7_3_bandit_mechanic_stalker", -- Bandit Mechanic
+    -- Army Warehouses
+    "mil_smart_terrain_7_7_freedom_mechanic_stalker", -- Freedom Mechanic
+    -- Yantar
+    "mechanic_army_yan_mlr",                        -- Mechanic (Yantar)
+    -- Great Swamp
+    "mar_base_stalker_tech",                        -- Technician (Clear Sky)
+    -- Dead City
+    "cit_killers_merc_mechanic_stalker",            -- Merc Mechanic
+    -- Zaton
+    "zat_a2_stalker_mechanic",                      -- Mechanic (Zaton)
+    "zat_tech_mlr",                                 -- Technician (Zaton)
+    -- Jupiter
+    "jup_b217_stalker_tech",                        -- Technician (Jupiter)
+    -- Pripyat
+    "pri_a16_mech_mlr",                             -- Mechanic (Pripyat)
+}
+
+local BARMAN_NPCS = {
+    -- Agroprom
+    "agr_1_6_barman_army_mlr",                      -- Military Barkeeper
+    -- Army Warehouses
+    "mil_freedom_barman_mlr",                       -- Barkeeper (Freedom)
+    -- Yantar
+    "yan_povar_army_mlr",                           -- Cook (Yantar)
+    -- Great Swamp
+    "mar_base_stalker_barmen",                      -- Barkeeper (Clear Sky)
+    -- Dead City
+    "cit_killers_merc_barman_mlr",                  -- Barkeeper (Merc)
+    -- Zaton
+    "zat_a2_stalker_barmen",                        -- Barkeeper (Zaton)
+    -- Jupiter
+    "jup_a6_stalker_barmen",                        -- Barkeeper (Jupiter)
+}
+
+-- ──────────────────────────────────────────────────
+-- Block definitions — maps role to NPC list + config
+-- ──────────────────────────────────────────────────
+
+local BLOCKS = {
+    {
+        name = "trader",
+        npcs = TRADER_NPCS,
+        specialization = { "trader" },
+    },
+    {
+        name = "medic",
+        npcs = MEDIC_NPCS,
+        specialization = { "field_medic" },
+    },
+    {
+        name = "technician",
+        npcs = TECH_NPCS,
+        specialization = { "technician" },
+    },
+    {
+        name = "barman",
+        npcs = BARMAN_NPCS,
+        specialization = { "trader" },
+    },
+}
+
+-- ──────────────────────────────────────────────────
+-- Registration
+-- ──────────────────────────────────────────────────
+
+local registered = false
+local story_archetypes = {}  -- arch_id → { profile, block_name, data }
+
+local function make_arch_id(profile_name)
+    return "story_" .. profile_name
+end
+
+local function build_archetype_data(profile_name, block)
+    return {
+        enabled = true,
+        assign_to = profile_name,
+        specialization = block.specialization,
+        strip_dialog_categories = {},
+        amount = 1,
+        tier = 1,
+        chance = 100,
+        locked = true,
+    }
+end
+
+function register_story_npcs()
+    if registered then return end
+    registered = true
+
+    local C = archetype_core
+    if not C then
+        printf("[ARCH][STORY] ERROR: archetype_core not available")
+        return
+    end
+
+    local total = 0
+    for _, block in ipairs(BLOCKS) do
+        local block_count = 0
+        for _, profile in ipairs(block.npcs) do
+            local arch_id = make_arch_id(profile)
+
+            -- Check if already registered (by another pack or previous call)
+            if C.get_archetype_data and C.get_archetype_data(arch_id) then
+                printf("[ARCH][STORY] WARNING: archetype '%s' already exists, skipping", arch_id)
+            else
+                local data = build_archetype_data(profile, block)
+                story_archetypes[arch_id] = {
+                    profile = profile,
+                    block_name = block.name,
+                    data = data,
+                }
+                block_count = block_count + 1
+                total = total + 1
+            end
+        end
+        printf("[ARCH][STORY] Block '%s': %s NPCs registered", block.name, block_count)
+    end
+    printf("[ARCH][STORY] Total story NPCs: %s", total)
+end
+
+
+-- Returns the full table of story archetypes to register.
+-- Called by archetype_core during initialization, BEFORE pack discovery.
+function get_story_archetypes()
+    if not registered then
+        register_story_npcs()
+    end
+    return story_archetypes
+end
+
+-- Check if an archetype ID is a locked story NPC.
+function is_locked(arch_id)
+    return story_archetypes[arch_id] ~= nil
+end
+
+-- Get arch_id for a profile name.
+function get_arch_id_for_profile(profile_name)
+    return story_archetypes[make_arch_id(profile_name)] and make_arch_id(profile_name) or nil
+end
+
+-- Get block name for an arch_id (trader, medic, technician, etc.)
+function get_block_name(arch_id)
+    local entry = story_archetypes[arch_id]
+    return entry and entry.block_name or nil
+end
+
+-- Get all profile names for a block.
+function get_block_profiles(block_name)
+    for _, block in ipairs(BLOCKS) do
+        if block.name == block_name then
+            return block.npcs
+        end
+    end
+    return {}
+end
+
+-- Get all registered story archetype IDs.
+function get_all_story_arch_ids()
+    local ids = {}
+    for arch_id, _ in pairs(story_archetypes) do
+        ids[#ids + 1] = arch_id
+    end
+    table.sort(ids)
+    return ids
+end

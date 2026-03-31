@@ -480,95 +480,48 @@ function toggleGraphFullscreen(){
         else if(canvas.webkitRequestFullscreen)canvas.webkitRequestFullscreen();
     }
 }
-let _graphFsHideTimeout=null;
 document.addEventListener('fullscreenchange',_onGraphFsChange);
 document.addEventListener('webkitfullscreenchange',_onGraphFsChange);
 function _onGraphFsChange(){
     const canvas=document.getElementById('dialogGraphCanvas');
     const toolbar=document.getElementById('graphFsToolbar');
+    const toggleBtn=document.getElementById('graphFsToggle');
     const errBar=document.getElementById('graphFsErrors');
     const minimap=document.getElementById('dialogMinimap');
     if(!canvas||!toolbar)return;
     const fsEl=document.fullscreenElement||document.webkitFullscreenElement||null;
     const isFs=(fsEl===canvas);
     if(isFs){
-        // Move overlays inside the canvas
+        // Move overlays inside canvas so they're visible in fullscreen
         canvas.appendChild(toolbar);
+        if(toggleBtn)canvas.appendChild(toggleBtn);
         if(errBar)canvas.appendChild(errBar);
         if(minimap)canvas.appendChild(minimap);
         toolbar.classList.add('fs-active');
-        toolbar.classList.add('visible');
-        canvas.addEventListener('mousemove',_graphFsMouseMove);
-        canvas.addEventListener('scroll',_updateFsOverlayPositions,{passive:true});
+        toolbar.classList.remove('visible');
+        if(toggleBtn)toggleBtn.classList.add('fs-active');
         syncGraphFsErrors();
         syncGraphFsTreeTabs();
-        _updateFsOverlayPositions();
-        setTimeout(()=>{toolbar.classList.remove('visible');},1500);
         setTimeout(()=>{if(typeof updateMinimap==='function')updateMinimap();},50);
     }else{
         // Move overlays back to the container
         const container=document.getElementById('graphFsContainer');
         if(container){
             container.insertBefore(toolbar,canvas);
+            if(toggleBtn)container.insertBefore(toggleBtn,canvas);
             if(errBar)container.appendChild(errBar);
             if(minimap)container.appendChild(minimap);
         }
         toolbar.classList.remove('fs-active','visible');
-        toolbar.style.width='';toolbar.style.top='';toolbar.style.left='';
-        if(errBar){errBar.classList.remove('has-errors');errBar.style.width='';errBar.style.top='';errBar.style.left='';}
-        canvas.removeEventListener('mousemove',_graphFsMouseMove);
-        canvas.removeEventListener('scroll',_updateFsOverlayPositions);
-        clearTimeout(_graphFsHideTimeout);
-        _graphFsHideTimeout=null;
+        if(toggleBtn)toggleBtn.classList.remove('fs-active');
+        if(errBar)errBar.classList.remove('has-errors');
     }
     updateGraphFullscreenButton();
 }
-function _graphFsMouseMove(e){
+function toggleGraphFsToolbar(){
     const toolbar=document.getElementById('graphFsToolbar');
     if(!toolbar)return;
-    if(e.clientY<50){
-        toolbar.classList.add('visible');
-        clearTimeout(_graphFsHideTimeout);
-        _graphFsHideTimeout=null;
-    }else if(toolbar.classList.contains('visible')){
-        const tRect=toolbar.getBoundingClientRect();
-        if(e.clientY>tRect.bottom+20){
-            if(!_graphFsHideTimeout){
-                _graphFsHideTimeout=setTimeout(()=>{
-                    toolbar.classList.remove('visible');
-                    _graphFsHideTimeout=null;
-                },400);
-            }
-        }else{
-            clearTimeout(_graphFsHideTimeout);
-            _graphFsHideTimeout=null;
-        }
-    }
-}
-let _fsOverlayRaf=null;
-function _updateFsOverlayPositions(){
-    if(_fsOverlayRaf)return;
-    _fsOverlayRaf=requestAnimationFrame(_doUpdateFsOverlays);
-}
-function _doUpdateFsOverlays(){
-    _fsOverlayRaf=null;
-    const canvas=document.getElementById('dialogGraphCanvas');
-    if(!canvas)return;
-    const fsEl=document.fullscreenElement||document.webkitFullscreenElement||null;
-    if(fsEl!==canvas)return;
-    const sl=canvas.scrollLeft,st=canvas.scrollTop;
-    const cw=canvas.clientWidth,ch=canvas.clientHeight;
-    // Use transform instead of top/left to avoid layout reflow that steals focus
-    const toolbar=document.getElementById('graphFsToolbar');
-    if(toolbar){
-        toolbar.style.transform=toolbar.classList.contains('visible')?'translate('+sl+'px,'+st+'px)':'translate('+sl+'px,'+(st-toolbar.offsetHeight)+'px)';
-        toolbar.style.width=cw+'px';
-    }
-    const errBar=document.getElementById('graphFsErrors');
-    if(errBar&&errBar.classList.contains('has-errors')){
-        errBar.style.transform='translate('+sl+'px,'+(st+ch-errBar.offsetHeight)+'px)';
-        errBar.style.width=cw+'px';
-    }
+    toolbar.classList.toggle('visible');
 }
 function syncGraphFsTreeTabs(){
     const dst=document.getElementById('graphFsTreeTabs');
@@ -590,7 +543,8 @@ function syncGraphFsTreeTabs(){
     if(typeof STRIP_CATEGORIES!=='undefined'){
         STRIP_CATEGORIES.filter(c=>!stripped.includes(c.id)).forEach(cat=>{
             const active=!_mainTabActive&&curVanillaCat===cat.id;
-            html+=`<button class="${active?'active':''}" onclick="selectVanillaCat('${cat.id}')" style="color:${active?'#ffe082':'#999'}">${typeof esc==='function'?esc(cat.label):cat.label}</button>`;
+            const editable=typeof isVanillaCatEditable==='function'&&isVanillaCatEditable(cat.id);
+            html+=`<button class="${active?'active':''}" ${editable?`onclick="selectVanillaCat('${cat.id}')"`:'title="Vanilla — not editable"'} style="color:${active?'#ffe082':'#999'};${editable?'':'opacity:0.6;cursor:default;'}">${typeof esc==='function'?esc(cat.label):cat.label}</button>`;
         });
     }
     // Defined pools
@@ -606,12 +560,17 @@ function syncGraphFsTreeTabs(){
     dst.innerHTML=html;
 }
 function syncGraphFsErrors(){
-    const src=document.getElementById('dialogValidation');
     const dst=document.getElementById('graphFsErrors');
-    if(!src||!dst)return;
-    const issues=src.querySelectorAll('div');
-    if(issues.length>0){
-        dst.innerHTML=src.innerHTML;
+    if(!dst)return;
+    const fsEl=document.fullscreenElement||document.webkitFullscreenElement||null;
+    if(!fsEl){dst.innerHTML='';dst.classList.remove('has-errors');return;}
+    const src=document.getElementById('dialogValidation');
+    const bsrc=document.getElementById('bindingValidation');
+    let html='';
+    if(src&&src.innerHTML.trim())html+=src.innerHTML;
+    if(bsrc&&bsrc.innerHTML.trim())html+=bsrc.innerHTML;
+    if(html){
+        dst.innerHTML=html;
         dst.classList.add('has-errors');
     }else{
         dst.innerHTML='';
@@ -788,44 +747,8 @@ function showActionMenu(fromId,ci,btnEl){
     const d=getCurTree();
     const arr=(fromId==='__hub__')?(d.hubChoices||[]):(d.nodes[fromId]?.choices||[]);
     const ch=arr[ci];if(!ch)return;
-    const popup=document.createElement('div');
-    popup.className='action-picker';popup.id='actionPickerPopup';
-    let html='<div class="action-picker-title">Script Action</div>';
-    if(ch.action){
-        const names=String(ch.action).split(';').map(a=>{const t=a.trim();const def=DIALOG_ACTIONS.find(d=>d.id===t);return def?def.label:t;}).join(' + ');
-        html+=`<div style="color:#ffb347;font-size:10px;padding:4px 8px;border-bottom:1px solid #333">${esc(names)}</div>`;
-        html+=`<button class="action-opt clear" onclick="setChoiceActionFromMenu('${esc(fromId)}',${ci},'')">✕ Remove Action</button>`;
-        html+=`<div style="border-top:1px solid #333;margin:2px 0"></div>`;
-    }
-    const _activeSpecs=getActiveSpecializations();
-    DIALOG_ACTIONS.forEach(a=>{
-        if(!a.id)return;
-        if(a.spec&&!_activeSpecs.includes(a.spec))return;
-        const isCurrent=ch.action&&ch.action===a.id;
-        const catLabel=a.category?` <span style="color:#999;font-size:9px">[${a.category}]</span>`:'';
-        html+=`<button class="action-opt${isCurrent?' current':''}" onclick="setChoiceActionFromMenu('${esc(fromId)}',${ci},'${esc(a.id)}')" title="${esc(a.note||'')}">${esc(a.label)}${catLabel}</button>`;
-    });
-    const _archBA=buildArchBindings();
-    if(_archBA.actions.length){
-        html+=`<div style="border-top:1px solid #333;padding:4px 8px 2px;font-size:9px;color:#aaa;letter-spacing:.05em">ARCH BINDINGS</div>`;
-        let _lastAGrp='';
-        _archBA.actions.forEach(a=>{
-            if(a.group!==_lastAGrp){
-                html+=`<div style="padding:1px 8px;font-size:9px;color:#82b1ff">${esc(a.group)}</div>`;
-                _lastAGrp=a.group;
-            }
-            const isCurrent=ch.action&&ch.action===a.id;
-            html+=`<button class="action-opt${isCurrent?' current':''}" onclick="setChoiceActionFromMenu('${esc(fromId)}',${ci},'${esc(a.id)}')">${esc(a.label)}</button>`;
-        });
-    }
-    popup.innerHTML=html;
-    getPopupParent().appendChild(popup);
-    const rect=btnEl.getBoundingClientRect();
-    popup.style.position='fixed';
-    popup.style.left=Math.min(rect.left,window.innerWidth-260)+'px';
-    popup.style.top=Math.min(rect.bottom+4,window.innerHeight-popup.offsetHeight-8)+'px';
-    popup.style.zIndex='9999';
-    setTimeout(()=>document.addEventListener('click',_closeActionOnOutside,{once:true,capture:true}),10);
+    _deBpHandlers._graphAction=function(val){graphPushUndo();saveChoiceAction(fromId,ci,val);};
+    _deOpenBp('action',ch.action||'','_graphAction',btnEl);
 }
 function closeActionMenu(){const p=document.getElementById('actionPickerPopup');if(p)p.remove();}
 function _closeActionOnOutside(e){const p=document.getElementById('actionPickerPopup');if(p&&!p.contains(e.target))closeActionMenu();}
@@ -850,57 +773,23 @@ function saveChoiceAction(fromId,ci,action){
 function showNodeBindingMenu(nodeId,btnEl){
     closeActionMenu();
     const d=getCurTree();if(!d)return;
-    // For hub/opener, store bindings on the tree object with prefixed keys
     const isSpecial=(nodeId==='__hub__'||nodeId==='__opener__');
     const node=isSpecial?null:d.nodes[nodeId];
     if(!isSpecial&&!node)return;
-    // Resolve binding source: node object for regular nodes, tree-level prefixed keys for hub/opener
     const _pfx=nodeId==='__hub__'?'hub':nodeId==='__opener__'?'opener':null;
     const _src=isSpecial?{
         precondition:d[_pfx+'Precondition']||'',
         scriptText:d[_pfx+'ScriptText']||'',
         action:d[_pfx+'Action']||''
     }:node;
-    const popup=document.createElement('div');
-    popup.className='action-picker';popup.id='actionPickerPopup';
-    const archB=buildArchBindings();
-    let html='<div class="action-picker-title">'+(isSpecial?(_pfx.charAt(0).toUpperCase()+_pfx.slice(1)+' Bindings'):'Node Bindings')+'</div>';
-    if(_src.precondition)html+=`<div style="color:#ffb74d;font-size:10px;padding:2px 8px">⚙ ${esc(_src.precondition)}</div>`;
-    if(_src.scriptText)html+=`<div style="color:#ffb74d;font-size:10px;padding:2px 8px">📝 ${esc(_src.scriptText)}</div>`;
-    if(_src.action)html+=`<div style="color:#ffb74d;font-size:10px;padding:2px 8px">▶ ${esc(_src.action)}</div>`;
-    if(_src.precondition||_src.scriptText||_src.action){
-        html+=`<button class="action-opt clear" onclick="_clearNodeBindings('${esc(nodeId)}')">✕ Clear All</button>`;
-        html+=`<div style="border-top:1px solid #333;margin:2px 0"></div>`;
-    }
-    if(archB.preconditions.length){
-        html+=`<div style="padding:4px 8px 2px;font-size:9px;color:#aaa">PRECONDITIONS</div>`;
-        archB.preconditions.forEach(p=>{
-            const cur=_src.precondition===p.id;
-            html+=`<button class="action-opt${cur?' current':''}" onclick="_setNodeBinding('${esc(nodeId)}','precondition','${esc(p.id)}')">${esc(p.label)}</button>`;
-        });
-    }
-    if(archB.scriptTexts&&archB.scriptTexts.length){
-        html+=`<div style="border-top:1px solid #333;padding:4px 8px 2px;font-size:9px;color:#aaa">SCRIPT TEXT</div>`;
-        archB.scriptTexts.forEach(st=>{
-            const cur=_src.scriptText===st.id;
-            html+=`<button class="action-opt${cur?' current':''}" onclick="_setNodeBinding('${esc(nodeId)}','scriptText','${esc(st.id)}')">${esc(st.label)}</button>`;
-        });
-    }
-    if(archB.actions.length){
-        html+=`<div style="border-top:1px solid #333;padding:4px 8px 2px;font-size:9px;color:#aaa">ACTIONS</div>`;
-        archB.actions.forEach(a=>{
-            const cur=_src.action===a.id;
-            html+=`<button class="action-opt${cur?' current':''}" onclick="_setNodeBinding('${esc(nodeId)}','action','${esc(a.id)}')">${esc(a.label)}</button>`;
-        });
-    }
-    popup.innerHTML=html;
-    getPopupParent().appendChild(popup);
-    const rect=btnEl.getBoundingClientRect();
-    popup.style.position='fixed';
-    popup.style.left=Math.min(rect.left,window.innerWidth-260)+'px';
-    popup.style.top=Math.min(rect.bottom+4,window.innerHeight-popup.offsetHeight-8)+'px';
-    popup.style.zIndex='9999';
-    setTimeout(()=>document.addEventListener('click',_closeActionOnOutside,{once:true,capture:true}),10);
+    // Build multi-slot handlers
+    var slots={};
+    ['precondition','scriptText','action'].forEach(function(field){
+        var handlerName='_graphNodeBinding_'+field;
+        _deBpHandlers[handlerName]=function(val){graphPushUndo();_setNodeBinding(nodeId,field,val);};
+        slots[field]={val:_src[field]||'',handler:handlerName};
+    });
+    _deOpenBpMulti(slots,btnEl);
 }
 function _setNodeBinding(nodeId,field,val){
     closeActionMenu();

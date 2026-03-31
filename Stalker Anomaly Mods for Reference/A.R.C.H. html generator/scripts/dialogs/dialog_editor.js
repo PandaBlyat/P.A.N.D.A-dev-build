@@ -507,6 +507,839 @@ function _deRenderCenter(){
     choArea.innerHTML=html;
 }
 
+// ── Binding Picker Popup ──
+// Three-column modal: collapsible categories | binding list | guide/description panel.
+let _deBpHideVanilla=false;
+let _deBp={open:false,type:null,val:'',handler:null,items:[],cats:[],activeCat:null,anchor:null,search:'',focusedId:null,collapsedGroups:{},
+    // Multi-slot mode (node bindings): all 3 slots in one picker
+    multi:false,multiSlots:null,multiActiveSlot:null,
+    // Show All toggle: include bindings that require missing prerequisites
+    showAll:false};
+const _deBpHandlers={};
+
+// Build combined items for a picker type
+function _deBpBuildItems(type){
+    const archB=buildArchBindings();
+    const items=[];
+    if(type==='action'){
+        const specs=typeof getActiveSpecializations==='function'?getActiveSpecializations():[];
+        DIALOG_ACTIONS.forEach(a=>{
+            if(!a.id)return;
+            if(a.spec&&!specs.includes(a.spec)){
+                if(_deBp.showAll)items.push({id:a.id,label:a.label,group:'Vanilla: '+((a.category||'other').charAt(0).toUpperCase()+(a.category||'other').slice(1)),note:a.note||'',_unavailableReason:'Requires '+a.spec+' specialization. Add it in the Settings tab.'});
+                return;
+            }
+            const grp=a.category?'Vanilla: '+a.category.charAt(0).toUpperCase()+a.category.slice(1):'Vanilla';
+            items.push({id:a.id,label:a.label,group:grp,note:a.note||''});
+        });
+        items.push(...archB.actions);
+    }else if(type==='precondition'){
+        items.push(...archB.preconditions);
+    }else if(type==='scriptText'){
+        items.push(...archB.scriptTexts);
+    }
+    // When showAll is on, add ghost entries for missing prerequisites
+    if(_deBp.showAll){
+        _deBpAddGhostBindings(type,items);
+    }
+    // Filter out vanilla bindings when checkbox is checked
+    if(_deBpHideVanilla){
+        return items.filter(function(i){return !(i.group||'').startsWith('Vanilla');});
+    }
+    return items;
+}
+
+// Add "ghost" bindings for features that aren't configured yet
+function _deBpAddGhostBindings(type,items){
+    var existing={};items.forEach(function(i){existing[i.id]=true;});
+    var archId=getCurArchId();
+    var specs=typeof getActiveSpecializations==='function'?getActiveSpecializations():[];
+    var hasInformant=specs.indexOf('informant')>=0||specs.indexOf('intel')>=0;
+    var d=getDlg();
+    var hasPools=d&&((Array.isArray(d.taskPools)&&d.taskPools.length)||(Array.isArray(d.customPools)&&d.customPools.length));
+
+    function ghost(id,label,group,reason){
+        if(!existing[id])items.push({id:id,label:label,group:group,_unavailableReason:reason});
+    }
+
+    // Archetype identity
+    if(!archId&&type==='precondition'){
+        ghost('dialogs.arch_is_<archId>','NPC is <archetype>','Archetype','No archetype ID set. Enter one in the Archetypes tab.');
+    }
+
+    // Pool bindings (show generic examples when no pools exist)
+    if(!hasPools){
+        var grp='Task Flow (no pools yet)';
+        var reason='No task pools defined. Add a pool in the Tasks tab first.';
+        if(type==='precondition'){
+            ghost('dialogs.arch_has_task_pool','NPC has work available',grp,reason);
+            ghost('dialogs.arch_no_task_pool','NPC has no work right now',grp,reason);
+            ghost('dialogs.arch_has_active_task','Player is working on a task',grp,reason);
+            ghost('dialogs.arch_task_ready','Player has the required items',grp,reason);
+        }
+        if(type==='action'){
+            ghost('dialogs.arch_task_accept','Player agrees to do the job',grp,reason);
+            ghost('dialogs.arch_task_decline','Player says no thanks',grp,reason);
+            ghost('dialogs.arch_task_try_complete','Turn in the task (check items)',grp,reason);
+            ghost('dialogs.arch_task_deliver_rewards','Give player their reward',grp,reason);
+            ghost('dialogs.arch_delivery_try_complete','Complete delivery at this NPC',grp,reason);
+        }
+        if(type==='scriptText'){
+            ghost('dialogs.arch_text_task_offer_summary','Show what the task needs',grp,reason);
+            ghost('dialogs.arch_text_task_offer_details','Show full task details',grp,reason);
+            ghost('dialogs.arch_text_task_active_summary','Remind player what to do',grp,reason);
+            ghost('dialogs.arch_text_task_result','Show success or failure',grp,reason);
+            ghost('dialogs.arch_text_pool_open','NPC opens task conversation',grp,reason);
+        }
+    }
+
+    // Informant
+    if(!hasInformant){
+        var iReason='Requires informant specialization. Add it in the Settings tab.';
+        if(type==='precondition'){
+            ghost('dialogs.arch_informant_find_stalker','NPC spots a stalker nearby','Intel',iReason);
+            ghost('dialogs.arch_informant_find_mutant','NPC spots a mutant nearby','Intel',iReason);
+        }
+        if(type==='scriptText'){
+            ghost('dialogs.arch_text_informant_result','Show what NPC found','Intel',iReason);
+        }
+    }
+}
+
+// Toggle Show All
+function _deBpToggleVanilla(){
+    _deBpHideVanilla=!!(document.getElementById('deBpHideVanilla')||{}).checked;
+    _deBp.items=_deBpBuildItems(_deBp.type);
+    _deBp.cats=_deBpGetCats(_deBp.items);
+    if(_deBp.activeCat&&_deBp.activeCat.indexOf('Vanilla')===0)_deBp.activeCat=_deBp.cats.length?_deBp.cats[0].id:null;
+    _deBpRender();
+}
+function _deBpToggleShowAll(){
+    _deBp.showAll=!_deBp.showAll;
+    // Rebuild items for current type
+    _deBp.items=_deBpBuildItems(_deBp.type);
+    _deBp.cats=_deBpGetCats(_deBp.items);
+    if(!_deBp.activeCat&&_deBp.cats.length)_deBp.activeCat=_deBp.cats[0].id;
+    // Update toggle button
+    var btn=document.getElementById('deBpShowAllBtn');
+    if(btn){btn.classList.toggle('active',_deBp.showAll);btn.textContent=_deBp.showAll?'Show All: ON':'Show All';}
+    _deBpRender();
+}
+
+// Extract unique categories with counts, grouped by super-category
+function _deBpGetCats(items){
+    const seen=[];const cats=[];
+    items.forEach(i=>{
+        if(seen.indexOf(i.group)<0){
+            seen.push(i.group);
+            cats.push({id:i.group,label:i.group,count:items.filter(x=>x.group===i.group).length});
+        }
+    });
+    return cats;
+}
+
+// Group categories into super-groups for collapsible display
+const _BP_GROUP_TIPS={
+    'Tasks & Jobs':'Bindings for the quest/task system — offering work, accepting, declining, turning in, and rewards.',
+    'ARCH Conditions':'Check who this NPC is, whether the player has visited before, or if this is a first meeting.',
+    'ARCH Utility':'General tools — take money, make NPC hostile, show custom text, end conversation.',
+    'Vanilla: Player':'Check the player\'s faction, health, radiation, rank, or reputation. These are base-game conditions.',
+    'Vanilla: NPC':'Check the NPC\'s faction or state (wounded, friendly, etc.).',
+    'Vanilla: World & Items':'Check world state (emissions), player inventory (medkits, money), or transfer items.',
+    'General':'Miscellaneous bindings that don\'t fit other categories.'
+};
+const _BP_CAT_TIPS={
+    'Task Flow':'The core quest loop: offer a task, player accepts or declines, then turns it in for a reward.',
+    'Archetype':'Check if this NPC has a specific archetype assigned.',
+    'Who Is This NPC':'Check if the player has a delivery for this NPC, or other identity-based conditions.',
+    'Player History':'Track how many times the player has visited this NPC — first time, returning, or regular.',
+    'Utility':'Take money from the player, make the NPC hostile, show custom text, restore default greeting.',
+    'Item Picker':'For category fetch tasks where the player chooses which item type to bring.',
+    'Intel':'Informant NPC bindings — scan for nearby stalkers or mutants and report findings.',
+    'Companion':'Recruit or dismiss this NPC as a companion. Check if they\'re already following.',
+    'Vanilla: Player Faction':'Check which faction the player belongs to (Loner, Bandit, Duty, etc.).',
+    'Vanilla: NPC Faction':'Check which faction this NPC belongs to.',
+    'Vanilla: Player State':'Check the player\'s health, radiation, or injury status.',
+    'Vanilla: Player Reputation':'Check the player\'s rank/reputation level (rookie, experienced, veteran, etc.).',
+    'Vanilla: NPC State':'Check if NPC is wounded, friendly, or hostile.',
+    'Vanilla: Items':'Check if the player has specific items like medkits, bandages, or money.',
+    'Vanilla: World':'Check world conditions like active emissions.',
+    'Vanilla: Dialog':'End the conversation or prevent future dialog.'
+};
+function _deBpSuperGroups(cats){
+    const groups=[];const seen={};
+    cats.forEach(cat=>{
+        let superKey='General';
+        if(cat.id.indexOf('Task Flow')===0||cat.id.indexOf('Task:')===0)superKey='Tasks & Jobs';
+        else if(cat.id.indexOf('Personality')===0)superKey='Tasks & Jobs';
+        else if(cat.id==='Job Menu'||cat.id==='Item Picker')superKey='Tasks & Jobs';
+        else if(cat.id==='Who Is This NPC'||cat.id==='Player History'||cat.id==='Archetype')superKey='ARCH Conditions';
+        else if(cat.id==='Intel')superKey='ARCH Conditions';
+        else if(cat.id==='Companion')superKey='ARCH Conditions';
+        else if(cat.id==='Utility')superKey='ARCH Utility';
+        else if(cat.id.indexOf('Vanilla: Player')===0)superKey='Vanilla: Player';
+        else if(cat.id.indexOf('Vanilla: NPC')===0)superKey='Vanilla: NPC';
+        else if(cat.id.indexOf('Vanilla:')===0)superKey='Vanilla: World & Items';
+        if(!seen[superKey]){seen[superKey]=true;groups.push({key:superKey,cats:[]});}
+        groups.find(g=>g.key===superKey).cats.push(cat);
+    });
+    return groups;
+}
+
+// Find display label for a value
+function _deBpLabel(type,val){
+    if(!val)return '';
+    const items=_deBpBuildItems(type);
+    const found=items.find(i=>i.id===val);
+    if(found)return found.label;
+    return val.replace('dialogs.','');
+}
+
+// Check if a binding ID is valid for a given context type
+function _deBpIsValidIn(id,contextType){
+    const guide=getBindingGuide(id);
+    if(!guide)return true; // unknown bindings are allowed anywhere
+    if(guide.validIn.indexOf(contextType)>=0)return true;
+    // scriptText items are valid when shown inside the precondition tab
+    if(contextType==='precondition'&&guide.validIn.indexOf('scriptText')>=0)return true;
+    return false;
+}
+
+// Render a picker button (unchanged API)
+function _deBindingBtn(type,currentVal,handlerName){
+    const label=currentVal?_deBpLabel(type,currentVal):'';
+    const valJson=JSON.stringify(currentVal||'').replace(/'/g,'&#39;');
+    return '<button class="de-bp-btn" onclick="_deOpenBp(\''+type+'\','+valJson+',\''+handlerName+'\',this)">'+
+        '<span class="de-bp-label">'+(label?esc(label):'<span class="de-bp-none">None</span>')+'</span>'+
+        '<span class="de-bp-arrow">&#9660;</span></button>';
+}
+
+// Ensure popup DOM exists
+function _deBpEnsureEl(){
+    let el=document.getElementById('deBindingPopup');
+    if(el)return el;
+    const ov=document.createElement('div');
+    ov.id='deBindingOverlay';ov.className='de-bp-overlay';ov.onclick=_deCloseBp;
+    document.body.appendChild(ov);
+    el=document.createElement('div');
+    el.id='deBindingPopup';el.className='de-bp-popup';
+    el.innerHTML=
+        '<div class="de-bp-header">'+
+            '<span class="de-bp-header-title">Binding Picker</span>'+
+            '<span class="de-bp-header-context" id="deBpContext"></span>'+
+            '<div class="de-bp-slot-tabs" id="deBpSlotTabs"></div>'+
+            '<label class="de-bp-toggle-vanilla" title="Hide base-game bindings to reduce clutter"><input type="checkbox" id="deBpHideVanilla" onchange="_deBpToggleVanilla()" style="accent-color:#ff8c00;margin-right:4px">Hide Vanilla</label>'+
+            '<button class="de-bp-show-all" id="deBpShowAllBtn" onclick="_deBpToggleShowAll()" title="Show bindings that require features not yet configured">Show All</button>'+
+            '<input class="de-bp-search" placeholder="Search... (e.g. accept, first visit, reward, delivery)" oninput="_deBpFilter(this.value)">'+
+        '</div>'+
+        '<div class="de-bp-patterns" id="deBpPatterns" style="display:none"></div>'+
+        '<div class="de-bp-content">'+
+            '<div class="de-bp-cats" id="deBpCats"></div>'+
+            '<div class="de-bp-items" id="deBpItems"></div>'+
+            '<div class="de-bp-guide" id="deBpGuide"><div class="de-bp-guide-empty">Select a binding to see its description and usage guide.</div></div>'+
+        '</div>';
+    document.body.appendChild(el);
+    return el;
+}
+
+// Type label map
+const _deBpTypeLabels={action:'What happens',precondition:'When to show',scriptText:'NPC says'};
+const _deBpTypeShort={action:'Action',precondition:'Condition',scriptText:'NPC Text'};
+const _deBpTypeTips={action:'What should happen when the player picks this line? (open trade, accept task, end dialog, etc.)',precondition:'When should this dialog line be visible? (only on first visit, only when task is ready, etc.)',scriptText:'What should the NPC say here? Text is generated automatically at runtime (task details, reward info, etc.)'};
+
+// Open popup (centered modal) — single-slot mode
+function _deOpenBp(type,currentVal,handlerName,btnEl){
+    _deBp.multi=false;_deBp.multiSlots=null;_deBp.multiActiveSlot=null;
+    const el=_deBpEnsureEl();
+    const ov=document.getElementById('deBindingOverlay');
+    _deBp.type=type;_deBp.val=currentVal||'';_deBp.handler=handlerName;
+    _deBp.items=_deBpBuildItems(type);_deBp.cats=_deBpGetCats(_deBp.items);
+    _deBp.search='';_deBp.anchor=btnEl;_deBp.focusedId=currentVal||null;
+    _deBp.activeCat=null;
+    if(currentVal){const cur=_deBp.items.find(i=>i.id===currentVal);if(cur)_deBp.activeCat=cur.group;}
+    if(!_deBp.activeCat&&_deBp.cats.length)_deBp.activeCat=_deBp.cats[0].id;
+    // Show context type + hide slot tabs
+    var ctxEl=document.getElementById('deBpContext');
+    if(ctxEl)ctxEl.textContent=_deBpTypeLabels[type]||type;
+    var slotTabsEl=document.getElementById('deBpSlotTabs');
+    if(slotTabsEl)slotTabsEl.innerHTML='';
+    el.style.display='flex';ov.style.display='block';_deBp.open=true;
+    const si=el.querySelector('.de-bp-search');
+    if(si){si.value='';si.focus();}
+    document.addEventListener('keydown',_deBpKeyHandler,true);
+    _deBpRender();
+    _deBpRenderGuide(_deBp.focusedId);
+}
+
+// Open popup in multi-slot mode (node bindings: all 3 types in one picker)
+// slots: { precondition:{val,handler}, scriptText:{val,handler}, action:{val,handler} }
+function _deOpenBpMulti(slots,btnEl){
+    _deBp.multi=true;_deBp.multiSlots=slots;
+    // Start on first slot that has a value, or precondition
+    var startSlot='precondition';
+    if(slots.action&&slots.action.val)startSlot='action';
+    if(slots.scriptText&&slots.scriptText.val)startSlot='scriptText';
+    if(slots.precondition&&slots.precondition.val)startSlot='precondition';
+    _deBpSwitchSlot(startSlot,btnEl,true);
+}
+
+// Switch active slot in multi mode
+function _deBpSwitchSlot(slotType,btnEl,isInit){
+    _deBp.multiActiveSlot=slotType;
+    var slot=_deBp.multiSlots[slotType]||{val:'',handler:null};
+    var el=_deBpEnsureEl();
+    var ov=document.getElementById('deBindingOverlay');
+    _deBp.type=slotType;_deBp.val=slot.val||'';_deBp.handler=slot.handler;
+    // Precondition tab also shows scriptText bindings
+    var items=_deBpBuildItems(slotType);
+    if(slotType==='precondition'){
+        var stItems=_deBpBuildItems('scriptText');
+        stItems.forEach(function(i){i._isScriptText=true;});
+        items=items.concat(stItems);
+    }
+    _deBp.items=items;_deBp.cats=_deBpGetCats(_deBp.items);
+    if(isInit)_deBp.search='';
+    _deBp.anchor=btnEl;_deBp.focusedId=slot.val||null;
+    _deBp.activeCat=null;
+    if(slot.val){var cur=_deBp.items.find(function(i){return i.id===slot.val;});if(cur)_deBp.activeCat=cur.group;}
+    if(!_deBp.activeCat&&_deBp.cats.length)_deBp.activeCat=_deBp.cats[0].id;
+    // Hide single-mode context label
+    var ctxEl=document.getElementById('deBpContext');
+    if(ctxEl)ctxEl.textContent='';
+    // Render slot tabs + patterns bar
+    _deBpRenderSlotTabs();
+    _deBpRenderPatterns();
+    if(isInit){
+        el.style.display='flex';ov.style.display='block';_deBp.open=true;
+        var si=el.querySelector('.de-bp-search');
+        if(si){si.value='';si.focus();}
+        document.addEventListener('keydown',_deBpKeyHandler,true);
+    }
+    _deBpRender();
+    _deBpRenderGuide(_deBp.focusedId);
+}
+
+// Render the slot tabs in multi mode
+function _deBpRenderSlotTabs(){
+    var tabsEl=document.getElementById('deBpSlotTabs');
+    if(!tabsEl||!_deBp.multi)return;
+    var h='';
+    // 2 visible tabs: precondition (includes scriptText) and action
+    ['precondition','action'].forEach(function(t){
+        // Show scriptText value badge inside the precondition tab
+        var slot=_deBp.multiSlots[t]||{val:''};
+        var active=(_deBp.multiActiveSlot===t)||(t==='precondition'&&_deBp.multiActiveSlot==='scriptText');
+        var label=_deBpTypeLabels[t]||t;
+        var hasVal=!!slot.val;
+        var valLabel=hasVal?_deBpLabel(t,slot.val):'';
+        var tip=_deBpTypeTips[t]||'';
+        // For precondition tab, also check scriptText slot
+        var stSlot=t==='precondition'?(_deBp.multiSlots['scriptText']||{val:''}):null;
+        var stHasVal=stSlot&&!!stSlot.val;
+        var stLabel=stHasVal?_deBpLabel('scriptText',stSlot.val):'';
+        h+='<button class="de-bp-slot-tab'+(active?' active':'')+'" onclick="_deBpSwitchSlot(\''+t+'\',null,false)"'+(tip?' title="'+esc(tip)+'"':'')+'>';
+        h+='<span class="de-bp-slot-tab-label">'+esc(label)+'</span>';
+        if(hasVal){
+            h+='<span class="de-bp-slot-tab-val" title="'+esc(valLabel)+'">'+esc(valLabel)+'</span>';
+            h+='<span class="de-bp-slot-clear" onclick="event.stopPropagation();_deBpClearSlot(\''+t+'\')" title="Clear">&times;</span>';
+        } else if(!stHasVal){
+            h+='<span class="de-bp-slot-tab-none">None</span>';
+        }
+        if(stHasVal){
+            h+='<span class="de-bp-slot-tab-val" style="color:#64b5f6" title="NPC says: '+esc(stLabel)+'">'+esc(stLabel)+'</span>';
+            h+='<span class="de-bp-slot-clear" onclick="event.stopPropagation();_deBpClearSlot(\'scriptText\')" title="Clear NPC text">&times;</span>';
+        }
+        h+='</button>';
+    });
+    tabsEl.innerHTML=h;
+}
+
+// Clear a slot binding in multi mode
+function _deBpClearSlot(slotType){
+    if(!_deBp.multi||!_deBp.multiSlots||!_deBp.multiSlots[slotType])return;
+    var slot=_deBp.multiSlots[slotType];
+    slot.val='';
+    var fn=_deBpHandlers[slot.handler];
+    if(fn)fn('');
+    if(_deBp.multiActiveSlot===slotType)_deBp.val='';
+    _deBpRenderSlotTabs();
+    _deBpRender();
+    _deBpRenderGuide(null);
+}
+
+// Close popup
+function _deCloseBp(){
+    _deBp.open=false;
+    const el=document.getElementById('deBindingPopup');
+    const ov=document.getElementById('deBindingOverlay');
+    if(el)el.style.display='none';if(ov)ov.style.display='none';
+    document.removeEventListener('keydown',_deBpKeyHandler,true);
+}
+
+// Keyboard handler: Escape closes, arrows navigate, Enter selects
+function _deBpKeyHandler(e){
+    if(!_deBp.open)return;
+    if(e.key==='Escape'){e.stopPropagation();e.preventDefault();_deCloseBp();return;}
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+        e.stopPropagation();e.preventDefault();
+        var itemsEl=document.getElementById('deBpItems');
+        if(!itemsEl)return;
+        var btns=Array.from(itemsEl.querySelectorAll('.de-bp-item'));
+        if(!btns.length)return;
+        var curIdx=btns.findIndex(function(b){return b.dataset.bid===_deBp.focusedId;});
+        var nextIdx=e.key==='ArrowDown'?curIdx+1:curIdx-1;
+        if(nextIdx<0)nextIdx=btns.length-1;
+        if(nextIdx>=btns.length)nextIdx=0;
+        var bid=btns[nextIdx].dataset.bid||'';
+        _deBpFocus(bid);
+        btns[nextIdx].scrollIntoView({block:'nearest'});
+        return;
+    }
+    if(e.key==='Enter'&&_deBp.focusedId!=null){
+        e.stopPropagation();e.preventDefault();
+        if(_deBpIsValidIn(_deBp.focusedId,_deBp.type)||!_deBp.focusedId)_deBpSelect(_deBp.focusedId);
+        return;
+    }
+}
+
+// Search filter — matches name, id, group, AND description
+function _deBpFilter(query){
+    _deBp.search=query.toLowerCase().trim();
+    if(_deBp.search)_deBp.activeCat=null;
+    else if(!_deBp.activeCat&&_deBp.cats.length)_deBp.activeCat=_deBp.cats[0].id;
+    _deBpRender();
+}
+
+// Select category
+function _deBpSelectCat(catId){
+    _deBp.activeCat=catId;_deBp.search='';
+    const el=document.getElementById('deBindingPopup');
+    if(el){const s=el.querySelector('.de-bp-search');if(s)s.value='';}
+    _deBpRender();
+}
+
+// Toggle super-group collapse
+function _deBpToggleGroup(key){
+    _deBp.collapsedGroups[key]=!_deBp.collapsedGroups[key];
+    _deBpRender();
+}
+
+// Focus a binding (show in guide, highlight in list)
+function _deBpFocus(id){
+    _deBp.focusedId=id;
+    // Update item highlight
+    var itemsEl=document.getElementById('deBpItems');
+    if(itemsEl){
+        itemsEl.querySelectorAll('.de-bp-item').forEach(function(el){
+            el.classList.toggle('focused',el.dataset.bid===id&&!el.classList.contains('selected'));
+        });
+    }
+    _deBpRenderGuide(id);
+}
+
+// Select a binding (confirm choice)
+function _deBpSelect(id){
+    if(_deBp.multi){
+        // If selecting a scriptText binding from the precondition tab, route to scriptText slot
+        var targetSlot=_deBp.multiActiveSlot;
+        if(id&&targetSlot==='precondition'){
+            var selItem=_deBp.items.find(function(i){return i.id===id;});
+            if(selItem&&selItem._isScriptText)targetSlot='scriptText';
+        }
+        var fn=_deBpHandlers[(_deBp.multiSlots[targetSlot]||{}).handler];
+        if(fn)fn(id);
+        // Update slot value in state
+        var slot=_deBp.multiSlots[targetSlot];
+        if(slot)slot.val=id;
+        _deBp.val=id;
+        _deBpRenderSlotTabs();
+        _deBpRender();
+        _deBpRenderGuide(id||null);
+        return;
+    }
+    // Single-slot mode: apply and close
+    if(_deBp.anchor){
+        const span=_deBp.anchor.querySelector('.de-bp-label');
+        if(span){
+            if(id){const item=_deBp.items.find(i=>i.id===id);span.textContent=item?item.label:id;span.className='de-bp-label';}
+            else{span.innerHTML='<span class="de-bp-none">None</span>';}
+        }
+    }
+    var fn2=_deBpHandlers[_deBp.handler];
+    _deCloseBp();
+    if(fn2)fn2(id);
+}
+
+// Render guide panel for a binding
+// ── Common Patterns — one-click multi-binding presets (multi-slot mode only) ──
+var _deBpPatterns=[
+    {name:'Hand in quest items',desc:'Player gives items to NPC, NPC checks and pays reward',
+     slots:{action:'arch_task_try_complete',scriptText:'arch_text_task_result'},
+     extra:{action2:'arch_task_deliver_rewards'}},
+    {name:'Receive delivery',desc:'NPC receives a package and pays reward',
+     slots:{precondition:'arch_is_delivery_target',action:'arch_delivery_try_complete',scriptText:'arch_delivery_result_text'},
+     extra:{action2:'arch_delivery_deliver_rewards'}},
+    {name:'First meeting only',desc:'This line only appears the first time the player meets this NPC',
+     slots:{precondition:'arch_is_first_visit'}},
+    {name:'Offer a job',desc:'NPC describes available work when they have tasks',
+     slots:{precondition:'arch_has_task_pool',scriptText:'arch_text_task_offer_summary'}},
+    {name:'Pick up items',desc:'Player picks up collected items from this NPC',
+     slots:{precondition:'arch_is_delivery_target',action:'arch_collect_pickup'},
+     extra:{}}
+];
+
+function _deBpRenderPatterns(){
+    var el=document.getElementById('deBpPatterns');
+    if(!el)return;
+    if(!_deBp.multi){el.style.display='none';return;}
+    el.style.display='flex';
+    var h='<span style="color:#888;font-size:10px;margin-right:8px;white-space:nowrap" title="One-click presets that fill all 3 slots at once for common dialog setups">Quick setup:</span>';
+    _deBpPatterns.forEach(function(p,pi){
+        h+='<button class="btn b2 bs" style="padding:3px 10px;font-size:11px;white-space:nowrap" onclick="_deBpApplyPattern('+pi+')" title="'+esc(p.desc)+'">'+esc(p.name)+'</button>';
+    });
+    el.innerHTML=h;
+}
+
+function _deBpApplyPattern(pi){
+    var p=_deBpPatterns[pi];
+    if(!p||!_deBp.multi||!_deBp.multiSlots)return;
+    // Auto-detect pool suffix from context
+    var poolSuf='';
+    if(typeof curTaskPoolTag!=='undefined'&&curTaskPoolTag&&curTaskPoolTag!=='default'){
+        poolSuf='_'+curTaskPoolTag;
+    }
+    // Apply each slot
+    ['precondition','action','scriptText'].forEach(function(slot){
+        if(!p.slots[slot])return;
+        var suffix=p.slots[slot];
+        var items=_deBpBuildItems(slot);
+        // Try pool-suffixed version first, then generic
+        var match=poolSuf?items.find(function(i){return i.id.indexOf(suffix+poolSuf)>=0;}):null;
+        if(!match)match=items.find(function(i){return i.id.indexOf(suffix)>=0;});
+        if(match&&_deBp.multiSlots[slot]){
+            _deBp.multiSlots[slot].val=match.id;
+            if(_deBp.multiSlots[slot].handler&&typeof window[_deBp.multiSlots[slot].handler]==='function'){
+                window[_deBp.multiSlots[slot].handler](match.id);
+            }
+        }
+    });
+    // Handle extra bindings (e.g. action2 = deliver_rewards appended to action via semicolon)
+    if(p.extra&&p.extra.action2&&_deBp.multiSlots.action){
+        var curAction=_deBp.multiSlots.action.val||'';
+        var items2=_deBpBuildItems('action');
+        var match2=poolSuf?items2.find(function(i){return i.id.indexOf(p.extra.action2+poolSuf)>=0;}):null;
+        if(!match2)match2=items2.find(function(i){return i.id.indexOf(p.extra.action2)>=0;});
+        if(match2&&curAction&&curAction.indexOf(match2.id)<0){
+            var combined=curAction+';'+match2.id;
+            _deBp.multiSlots.action.val=combined;
+            if(_deBp.multiSlots.action.handler&&typeof window[_deBp.multiSlots.action.handler]==='function'){
+                window[_deBp.multiSlots.action.handler](combined);
+            }
+        }
+    }
+    // Refresh UI
+    _deBpSwitchSlot(_deBp.multiActiveSlot||'precondition',null,false);
+    setStatus('Applied pattern: '+p.name,'ok');
+}
+
+// Smart suggestions — recommend bindings based on what's already on the node
+function _deBpGetSuggestions(allItems){
+    var suggestions=[];
+    var seen={};
+    function suggest(id,reason){
+        if(seen[id])return;seen[id]=true;
+        var item=allItems.find(function(i){return i.id===id;});
+        if(item)suggestions.push({id:id,label:item.label,_reason:reason});
+    }
+    // Gather current node bindings
+    var nodeVals=[];
+    if(_deBp.multi&&_deBp.multiSlots){
+        ['precondition','action','scriptText'].forEach(function(slot){
+            var v=(_deBp.multiSlots[slot]||{}).val||'';
+            if(v)nodeVals.push(v);
+        });
+    } else if(_deBp.val){
+        nodeVals.push(_deBp.val);
+    }
+    var allV=nodeVals.join(' ');
+    var has=function(s){return allV.indexOf(s)>=0;};
+    var type=_deBp.type;
+    var curVal=_deBp.multi?(_deBp.multiSlots[type]||{}).val||'':_deBp.val||'';
+
+    // If node has try_complete → suggest deliver_rewards + task_result
+    if(has('try_complete')){
+        if(type==='action')suggest('dialogs.arch_task_deliver_rewards','pairs with turn-in');
+        if(type==='scriptText')suggest('dialogs.arch_text_task_result','shows outcome');
+    }
+    // If node has deliver_rewards → suggest try_complete + task_result
+    if(has('deliver_rewards')&&!has('try_complete')){
+        if(type==='action')suggest('dialogs.arch_task_try_complete','pairs with rewards');
+    }
+    // If node has delivery_try_complete → suggest delivery result
+    if(has('delivery_try_complete')){
+        if(type==='action')suggest('dialogs.arch_delivery_deliver_rewards','pairs with delivery');
+        if(type==='scriptText')suggest('dialogs.arch_delivery_result_text','shows outcome');
+    }
+    // If node has accept → no specific companion needed, but suggest offer_summary on adjacent
+    if(has('task_accept')&&type==='scriptText'){
+        suggest('dialogs.arch_text_task_offer_summary','describe what the task needs');
+    }
+    // If node has has_task_pool precondition → suggest offer summary text
+    if(has('has_task_pool')){
+        if(type==='scriptText')suggest('dialogs.arch_text_task_offer_summary','show what the job needs');
+        if(type==='scriptText')suggest('dialogs.arch_text_pool_open','NPC intro text');
+    }
+    // If node has has_active_task → suggest task_ready as precondition
+    if(has('has_active_task')&&type==='precondition'){
+        suggest('dialogs.arch_task_ready','check if player can turn in');
+    }
+    // Empty node — suggest common starting points by slot type
+    if(!nodeVals.length){
+        if(type==='precondition'){
+            suggest('dialogs.arch_is_first_visit','common: first meeting');
+            suggest('dialogs.arch_has_task_pool','common: offer work');
+            suggest('dialogs.arch_has_active_task','common: check progress');
+        }
+        if(type==='action'){
+            suggest('dialogs.arch_task_accept','common: player takes job');
+        }
+    }
+    return suggestions.slice(0,4);
+}
+
+// Check for missing companion bindings on the current node
+function _deBpCheckPairings(selectedId){
+    var warnings=[];
+    if(!_deBp.multi||!_deBp.multiSlots)return warnings;
+    // Gather all current+proposed bindings on this node
+    var nodeBindings={};
+    ['precondition','action','scriptText'].forEach(function(slot){
+        var v=(_deBp.multiSlots[slot]||{}).val||'';
+        if(v)nodeBindings[slot]=v;
+    });
+    // If the user is about to assign selectedId, simulate it
+    if(selectedId)nodeBindings[_deBp.type]=selectedId;
+    var allVals=Object.values(nodeBindings).join(' ');
+    var has=function(s){return allVals.indexOf(s)>=0;};
+
+    // try_complete needs deliver_rewards
+    if(has('try_complete')&&!has('deliver_rewards')){
+        warnings.push('This binding usually needs <b>"Give player their reward"</b> on the same node. Without it, the player won\'t get paid.');
+    }
+    // deliver_rewards needs try_complete
+    if(has('deliver_rewards')&&!has('try_complete')&&!has('delivery_try_complete')){
+        warnings.push('This gives rewards, but nothing checks if the task is actually done. Add <b>"Turn in the task"</b> on the same node.');
+    }
+    // try_complete + deliver_rewards should have task_result text
+    if(has('try_complete')&&has('deliver_rewards')&&!has('task_result')&&!has('delivery_result')){
+        warnings.push('Consider adding <b>"Show success or failure"</b> as auto-text so the NPC tells the player what happened.');
+    }
+    // delivery_try_complete should have arch_is_delivery_target somewhere
+    if(has('delivery_try_complete')&&!has('is_delivery_target')){
+        warnings.push('Delivery completion usually needs <b>"Player has a delivery for this NPC"</b> as a condition on the dialog to make sure the player is talking to the right NPC.');
+    }
+    // accept without offer summary nearby (not on same node, but worth noting)
+    if(has('arch_task_accept')&&!has('offer_summary')&&!has('offer_details')&&!has('personality_npc_prompt')){
+        warnings.push('The player is accepting a task — make sure an earlier node shows <b>what the task needs</b> (offer summary or details) so they know what they\'re agreeing to.');
+    }
+    return warnings;
+}
+
+function _deBpRenderGuide(id){
+    const guideEl=document.getElementById('deBpGuide');
+    if(!guideEl)return;
+    if(!id){
+        var hint=_deBp.multi
+            ?'Click any binding to see what it does.<br><br><span style="color:#888;font-size:11px">Double-click or Enter to assign. Tabs above switch between condition/action/text slots.<br>Arrow keys to navigate. Esc to close.</span>'
+            :'Click any binding to see what it does.<br><br><span style="color:#888;font-size:11px">Double-click or Enter to select. Arrow keys to navigate.</span>';
+        guideEl.innerHTML='<div class="de-bp-guide-empty">'+hint+'</div>';
+        return;
+    }
+    const item=_deBp.items.find(i=>i.id===id);
+    const guide=getBindingGuide(id);
+    const label=item?item.label:id.replace('dialogs.','');
+    const isCurrent=id===_deBp.val;
+    let h='';
+    if(isCurrent)h+='<div style="color:#ff8c00;font-size:11px;margin-bottom:6px;font-weight:bold">&#10003; Currently assigned</div>';
+    h+='<div class="de-bp-guide-title">'+esc(label)+'</div>';
+    h+='<div class="de-bp-guide-id">'+esc(id)+'</div>';
+    // Valid-in tags
+    h+='<div class="de-bp-guide-tags">';
+    ['precondition','action','scriptText'].forEach(function(t){
+        var tLabel=(_deBpTypeShort||_deBpTypeLabels)[t]||t;
+        var valid=guide?guide.validIn.indexOf(t)>=0:true;
+        var isCurrent=t===_deBp.type;
+        h+='<span class="de-bp-guide-tag '+(valid?'valid':'invalid')+'" style="'+(isCurrent?'outline:1px solid #ff8c00;':'')+'">'+esc(tLabel)+(valid?' ✓':' ✗')+'</span>';
+    });
+    h+='</div>';
+    // Unavailable warning (ghost binding)
+    var ghostReason=item&&item._unavailableReason;
+    if(ghostReason){
+        h+='<div class="de-bp-guide-section"><div style="color:#e05050;font-size:13px;line-height:1.5;background:rgba(224,80,80,.08);padding:10px 12px;border-radius:3px;border-left:3px solid #e05050">'+
+            '<strong>Not available</strong><br>'+esc(ghostReason)+'</div></div>';
+    }
+    if(guide){
+        h+='<div class="de-bp-guide-section"><div class="de-bp-guide-section-label">What it does</div><div class="de-bp-guide-desc">'+esc(guide.desc)+'</div></div>';
+        h+='<div class="de-bp-guide-section"><div class="de-bp-guide-section-label">How to use it</div><div class="de-bp-guide-usage">'+esc(guide.usage)+'</div></div>';
+    }else{
+        h+='<div class="de-bp-guide-section"><div class="de-bp-guide-desc" style="color:#888">No guide entry for this binding. It may be a dynamic or custom binding.</div></div>';
+        if(item&&item.note){
+            h+='<div class="de-bp-guide-section"><div class="de-bp-guide-section-label">Note</div><div class="de-bp-guide-desc">'+esc(item.note)+'</div></div>';
+        }
+    }
+    // Pairing warnings — check if common companion bindings are missing
+    var _pairWarnings=_deBpCheckPairings(id);
+    if(_pairWarnings.length){
+        h+='<div class="de-bp-guide-section">';
+        _pairWarnings.forEach(function(w){
+            h+='<div style="color:#e8c060;font-size:12px;line-height:1.4;background:rgba(232,192,96,.08);padding:8px 10px;border-radius:3px;border-left:3px solid #e8c060;margin-bottom:6px">'+w+'</div>';
+        });
+        h+='</div>';
+    }
+
+    // Select button + clear button
+    var valid=_deBpIsValidIn(id,_deBp.type)&&!ghostReason;
+    var idEsc=JSON.stringify(id).replace(/'/g,'&#39;');
+    var slotLabel=_deBpTypeLabels[_deBp.type]||_deBp.type;
+    var btnText=_deBp.multi
+        ?(valid?'Assign as '+slotLabel:'Assign Anyway (not recommended)')
+        :(valid?'Select This Binding':'Select Anyway (not recommended)');
+    h+='<div style="display:flex;gap:8px;margin-top:16px;align-items:center">';
+    h+='<button class="de-bp-guide-select" onclick="_deBpSelect('+idEsc+')"'+(valid?'':' title="This binding is not designed for '+esc(slotLabel)+' slots"')+'>'+esc(btnText)+'</button>';
+    if(_deBp.val)h+='<button class="de-bp-guide-select" style="background:#333;color:#ccc" onclick="_deBpSelect(\'\')">Clear</button>';
+    h+='</div>';
+    var footerHint=_deBp.multi
+        ?'double-click to assign &middot; switch slots with tabs above &middot; Esc to close'
+        :'or double-click in the list &middot; Enter to select &middot; Esc to cancel';
+    h+='<div style="color:#555;font-size:11px;margin-top:8px">'+footerHint+'</div>';
+    guideEl.innerHTML=h;
+}
+
+// Render popup contents
+function _deBpRender(){
+    const catsEl=document.getElementById('deBpCats');
+    const itemsEl=document.getElementById('deBpItems');
+    if(!catsEl||!itemsEl)return;
+    const q=_deBp.search;
+    let filtered=_deBp.items;
+    if(q){
+        filtered=_deBp.items.filter(function(i){
+            if(i.label.toLowerCase().indexOf(q)>=0)return true;
+            if(i.id.toLowerCase().indexOf(q)>=0)return true;
+            if((i.group||'').toLowerCase().indexOf(q)>=0)return true;
+            if((i.keywords||'').toLowerCase().indexOf(q)>=0)return true;
+            var guide=getBindingGuide(i.id);
+            if(guide){
+                if(guide.desc.toLowerCase().indexOf(q)>=0)return true;
+                if((guide.keywords||'').toLowerCase().indexOf(q)>=0)return true;
+            }
+            return false;
+        });
+    }
+    // Category counts
+    const cc={};filtered.forEach(i=>{cc[i.group]=(cc[i.group]||0)+1;});
+    // Render categories (collapsible super-groups)
+    const superGroups=_deBpSuperGroups(_deBp.cats);
+    let ch='';
+    if(q){
+        ch+='<button class="de-bp-cat active" onclick="_deBpSelectCat(null)">All Results <span class="de-bp-cat-count">'+filtered.length+'</span></button>';
+    }
+    superGroups.forEach(function(sg){
+        var groupHasResults=sg.cats.some(function(c){return(cc[c.id]||0)>0;});
+        if(q&&!groupHasResults)return;
+        var collapsed=!!_deBp.collapsedGroups[sg.key];
+        ch+='<div class="de-bp-cat-group">';
+        var _sgTip=_BP_GROUP_TIPS[sg.key]||'';
+        ch+='<button class="de-bp-cat-header" onclick="_deBpToggleGroup(\''+sg.key.replace(/'/g,"\\'")+'\')"'+(_sgTip?' title="'+esc(_sgTip)+'"':'')+'>';
+        ch+='<span class="de-bp-cat-arrow'+(collapsed?' collapsed':'')+'">&#9660;</span>'+esc(sg.key)+'</button>';
+        if(!collapsed){
+            sg.cats.forEach(function(cat){
+                var cnt=cc[cat.id]||0;
+                if(q&&!cnt)return;
+                var active=!q&&_deBp.activeCat===cat.id;
+                var dimmed=q&&!cnt;
+                var _catTip=_BP_CAT_TIPS[cat.id]||'';
+                ch+='<button class="de-bp-cat'+(active?' active':'')+(dimmed?' dimmed':'')+'" onclick="_deBpSelectCat(\''+cat.id.replace(/'/g,"\\'")+'\')" title="'+esc(_catTip||cat.label)+'">'+
+                    esc(cat.label)+' <span class="de-bp-cat-count">'+cnt+'</span></button>';
+            });
+        }
+        ch+='</div>';
+    });
+    catsEl.innerHTML=ch;
+    // Render items — single click = focus (show guide), double-click = select
+    const vis=q?filtered:filtered.filter(i=>i.group===_deBp.activeCat);
+    let ih='';
+    // Smart suggestions based on current node context
+    if(!q){
+        var suggestions=_deBpGetSuggestions(filtered);
+        if(suggestions.length){
+            ih+='<div style="padding:4px 8px;font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #333">Suggested</div>';
+            suggestions.forEach(function(s){
+                var sel=s.id===_deBp.val;
+                var focused=s.id===_deBp.focusedId;
+                var idJson=JSON.stringify(s.id).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+                var _sg=getBindingGuide(s.id);
+                var _st=_sg&&_sg.validIn?_sg.validIn[0]:'action';
+                var _dc=_st==='precondition'?'#66bb6a':_st==='scriptText'?'#64b5f6':'#ffa726';
+                var _sgTip=_sg&&_sg.desc?esc(_sg.desc):'';
+                ih+='<button class="de-bp-item'+(sel?' selected':'')+(focused&&!sel?' focused':'')+'" data-bid="'+esc(s.id)+'" style="border-left:2px solid #ff8c00" '+
+                    (_sgTip?'title="'+_sgTip+'" ':'')+
+                    'onclick="_deBpFocus('+idJson+')" ondblclick="_deBpSelect('+idJson+')">';
+                ih+='<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+_dc+';margin-right:5px;flex-shrink:0"></span>';
+                ih+=esc(s.label);
+                if(s._reason)ih+='<span style="color:#888;font-size:10px;margin-left:6px">'+esc(s._reason)+'</span>';
+                ih+='</button>';
+            });
+            ih+='<div style="height:1px;background:#333;margin:4px 0"></div>';
+        }
+    }
+    // "None" option
+    var noneIsCur=!_deBp.val;
+    var noneFocused=_deBp.focusedId==='';
+    ih+='<button class="de-bp-item de-bp-item-none'+(noneIsCur?' selected':'')+(noneFocused&&!noneIsCur?' focused':'')+'" data-bid="" onclick="_deBpFocus(\'\')" ondblclick="_deBpSelect(\'\')">'+
+        (noneIsCur?'&#10003; ':'')+'None</button>';
+    vis.forEach(function(i){
+        const sel=i.id===_deBp.val;
+        const focused=i.id===_deBp.focusedId;
+        const isGhost=!!i._unavailableReason;
+        const validSlot=_deBpIsValidIn(i.id,_deBp.type);
+        const usable=validSlot&&!isGhost;
+        var idJson=JSON.stringify(i.id).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        var _guide2=getBindingGuide(i.id);
+        var _tipText=_guide2&&_guide2.desc?esc(_guide2.desc):(i.note?esc(i.note):'');
+        ih+='<button class="de-bp-item'+(sel?' selected':'')+(focused&&!sel?' focused':'')+(!usable?' unavailable':'')+'" data-bid="'+esc(i.id)+'" '+
+            (_tipText?'title="'+_tipText+'" ':'')+
+            'onclick="_deBpFocus('+idJson+')" '+
+            (usable?'ondblclick="_deBpSelect('+idJson+')" ':'')+
+            '>';
+        if(sel)ih+='<span style="margin-right:4px">&#10003;</span>';
+        // Color dot by binding type
+        var _guide=getBindingGuide(i.id);
+        var _btype=_guide&&_guide.validIn?_guide.validIn[0]:'action';
+        var _dotColor=_btype==='precondition'?'#66bb6a':_btype==='scriptText'?'#64b5f6':'#ffa726';
+        ih+='<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+_dotColor+';margin-right:5px;flex-shrink:0"></span>';
+        ih+=esc(i.label);
+        if(isGhost)ih+='<span class="de-bp-item-badge" style="background:rgba(224,80,80,.15);color:#e05050">N/A</span>';
+        else if(!validSlot){
+            var guide=getBindingGuide(i.id);
+            var badgeType=guide&&guide.validIn?guide.validIn[0]:'action';
+            var badgeCls=badgeType==='scriptText'?'txt':badgeType==='precondition'?'pre':'act';
+            ih+='<span class="de-bp-item-badge '+badgeCls+'">'+esc(_deBpTypeLabels[badgeType]||'other')+'</span>';
+        }
+        ih+='</button>';
+    });
+    if(!vis.length&&q)ih='<div class="de-bp-empty">No matches for "'+esc(q)+'"</div>';
+    if(!vis.length&&!q)ih='<div class="de-bp-empty">No bindings in this category</div>';
+    itemsEl.innerHTML=ih;
+}
+
+// Register standard handlers
+_deBpHandlers.node_precondition=function(v){deUpdateNodeMeta('precondition',v);_deRenderLeftPanel();};
+_deBpHandlers.node_scriptText=function(v){deUpdateNodeScriptText(v);_deRenderLeftPanel();};
+_deBpHandlers.node_action=function(v){deUpdateNodeMeta('action',v);_deRenderLeftPanel();};
+_deBpHandlers.choice_precondition=function(v){deUpdateChoicePrecond(_deSelectedChoiceIdx,v);};
+_deBpHandlers.choice_action=function(v){deUpdateChoiceAction(_deSelectedChoiceIdx,v);};
+
 // ── Helper: render binding chips ──
 function _deRenderChips(bindings){
     var html='';
@@ -543,7 +1376,7 @@ function _deRenderLeftPanel(){
     const dlg=getDlg();
     if(curTaskPoolTag){
         // Pool mode: show pool dialog tree tabs + Add Opener
-        const pool=(Array.isArray(dlg?.customPools)?dlg.customPools:[]).find(p=>p.tag===curTaskPoolTag);
+        const pool=[...(Array.isArray(dlg?.taskPools)?dlg.taskPools:[]),...(Array.isArray(dlg?.customPools)?dlg.customPools:[])].find(p=>p.tag===curTaskPoolTag);
         if(pool){
             _migratePoolTrees(pool);
             pool.dialogTrees.forEach((t,i)=>{
@@ -613,63 +1446,14 @@ function _deRenderLeftPanel(){
         </div>`;
     }
 
-    // ── Node-level binding dropdowns (feature #5) ──
-    const _archB2=buildArchBindings();
-
-    // Precondition dropdown
+    // ── Node-level binding pickers (feature #5) ──
     if(!isHub&&n){
         html+=`<div class="de-section-title" style="margin-top:16px">Bindings</div>`;
         html+=`<div class="de-field-hint">ARCH bindings for this node.</div>`;
-
-        // Precondition
-        if(_archB2.preconditions.length){
-            const _curPrecond=n.precondition||'';
-            html+=`<div class="de-field">
-            <label>Precondition</label>
-            <select onchange="deUpdateNodeMeta('precondition',this.value)">
-                <option value="">None</option>`;
-            let _lpg='';
-            _archB2.preconditions.forEach(p=>{
-                if(p.group!==_lpg){if(_lpg)html+=`</optgroup>`;html+=`<optgroup label="${esc(p.group)}">`;_lpg=p.group;}
-                html+=`<option value="${esc(p.id)}"${_curPrecond===p.id?' selected':''}>${esc(p.label)}</option>`;
-            });
-            if(_lpg)html+=`</optgroup>`;
-            html+=`</select></div>`;
-        }
-
-        // Script Text dropdown
-        if(_archB2.scriptTexts.length){
-            const _curST=n.scriptText||'';
-            html+=`<div class="de-field">
-            <label>NPC Script Text</label>
-            <select onchange="deUpdateNodeScriptText(this.value)">
-                <option value="">&mdash; Plain text &mdash;</option>`;
-            let _lstg='';
-            _archB2.scriptTexts.forEach(st=>{
-                if(st.group!==_lstg){if(_lstg)html+=`</optgroup>`;html+=`<optgroup label="${esc(st.group)}">`;_lstg=st.group;}
-                html+=`<option value="${esc(st.id)}"${_curST===st.id?' selected':''}>${esc(st.label)}</option>`;
-            });
-            if(_lstg)html+=`</optgroup>`;
-            html+=`</select></div>`;
-        }
-
-        // Action dropdown
-        if(_archB2.actions.length){
-            const _curAction=n.action||'';
-            html+=`<div class="de-field">
-            <label>Action</label>
-            <select onchange="deUpdateNodeMeta('action',this.value)">
-                <option value="">None</option>`;
-            let _lag='';
-            _archB2.actions.forEach(a=>{
-                if(a.group!==_lag){if(_lag)html+=`</optgroup>`;html+=`<optgroup label="${esc(a.group)}">`;_lag=a.group;}
-                html+=`<option value="${esc(a.id)}"${_curAction===a.id?' selected':''}>${esc(a.label)}</option>`;
-            });
-            if(_lag)html+=`</optgroup>`;
-            html+=`</select></div>`;
-        }
-
-        // Binding chips (feature #7) — show current bindings as colored chips
+        html+=`<div class="de-field"><label>Precondition</label>${_deBindingBtn('precondition',n.precondition||'','node_precondition')}</div>`;
+        html+=`<div class="de-field"><label>NPC Script Text</label>${_deBindingBtn('scriptText',n.scriptText||'','node_scriptText')}</div>`;
+        html+=`<div class="de-field"><label>Action</label>${_deBindingBtn('action',n.action||'','node_action')}</div>`;
+        // Binding chips
         const chipHtml=_deRenderChips({precondition:n.precondition,scriptText:n.scriptText,action:n.action,hasInfo:n.hasInfo,dontHasInfo:n.dontHasInfo,giveInfo:n.giveInfo});
         if(chipHtml)html+=`<div style="margin:6px 0">${chipHtml}</div>`;
     }
@@ -692,16 +1476,16 @@ function _deRenderLeftPanel(){
     if(!isHub&&n){
         html+=`<div class="de-section-title" style="margin-top:16px">Info Portions</div>`;
         html+=`<div class="de-field">
-            <label>has_info</label>
-            <input type="text" value="${esc(n.hasInfo||'')}" placeholder="gate visibility" oninput="deUpdateNodeMeta('hasInfo',this.value)">
+            <label>🔒 Show when flag set</label>
+            ${flagPickerHtml('hasInfo',n.hasInfo||'',"deUpdateNodeMeta('hasInfo',this.value)")}
         </div>`;
         html+=`<div class="de-field">
-            <label>dont_has_info</label>
-            <input type="text" value="${esc(n.dontHasInfo||'')}" placeholder="hide when info set" oninput="deUpdateNodeMeta('dontHasInfo',this.value)">
+            <label>🚫 Hide when flag set</label>
+            ${flagPickerHtml('dontHasInfo',n.dontHasInfo||'',"deUpdateNodeMeta('dontHasInfo',this.value)")}
         </div>`;
         html+=`<div class="de-field">
-            <label>give_info</label>
-            <input type="text" value="${esc(n.giveInfo||'')}" placeholder="set on actor" oninput="deUpdateNodeMeta('giveInfo',this.value)">
+            <label>🔑 Set flag on actor</label>
+            ${flagPickerHtml('giveInfo',n.giveInfo||'',"deUpdateNodeMeta('giveInfo',this.value)")}
         </div>`;
         const choices=n.choices||[];
         html+=`<div class="de-field-hint" style="margin-top:8px">${choices.length} choice${choices.length!==1?'s':''}</div>`;
@@ -770,7 +1554,6 @@ function _deRenderRightPanel(){
     }
 
     const ci=_deSelectedChoiceIdx;
-    const archB=buildArchBindings();
     let html=`<div class="de-section-title">Choice ${ci+1} Config</div>`;
 
     // Choice reorder buttons (feature #12)
@@ -820,46 +1603,15 @@ function _deRenderRightPanel(){
         </div>`;
     }
 
-    // Precondition (ARCH)
-    const currentPrecond=ch.precondition||'';
-    if(archB.preconditions.length){
-        html+=`<div class="de-field">
-        <label>Precondition</label>
-        <select onchange="deUpdateChoicePrecond(${ci},this.value)">
-            <option value="">None</option>`;
-        let _lpg='';
-        archB.preconditions.forEach(p=>{
-            if(p.group!==_lpg){if(_lpg)html+=`</optgroup>`;html+=`<optgroup label="${esc(p.group)}">`;_lpg=p.group;}
-            html+=`<option value="${esc(p.id)}"${currentPrecond===p.id?' selected':''}>${esc(p.label)}</option>`;
-        });
-        if(_lpg)html+=`</optgroup>`;
-        html+=`</select></div>`;
-    }
+    // Precondition (ARCH) — picker
+    html+=`<div class="de-field"><label>Precondition</label>${_deBindingBtn('precondition',ch.precondition||'','choice_precondition')}</div>`;
 
-    // Action
-    const currentAction=ch.action||'';
-    html+=`<div class="de-field">
-        <label>Script Action</label>
-        <select onchange="deUpdateChoiceAction(${ci},this.value)">
-            <option value="">None</option>`;
-    const _activeSpecs=getActiveSpecializations();
-    DIALOG_ACTIONS.forEach(a=>{
-        if(!a.id)return;
-        if(a.spec&&!_activeSpecs.includes(a.spec))return;
-        html+=`<option value="${esc(a.id)}"${currentAction===a.id?' selected':''}>${esc(a.label)}</option>`;
-    });
-    if(archB.actions.length){
-        let _lag='';
-        archB.actions.forEach(a=>{
-            if(a.group!==_lag){if(_lag)html+=`</optgroup>`;html+=`<optgroup label="${esc(a.group)}">`;_lag=a.group;}
-            html+=`<option value="${esc(a.id)}"${currentAction===a.id?' selected':''}>${esc(a.label)}</option>`;
-        });
-        if(_lag)html+=`</optgroup>`;
-    }
-    html+=`</select></div>`;
+    // Action — picker (includes DIALOG_ACTIONS + ARCH bindings)
+    html+=`<div class="de-field"><label>Script Action</label>${_deBindingBtn('action',ch.action||'','choice_action')}</div>`;
 
-    if(currentAction){
-        const def=DIALOG_ACTIONS.find(a=>a.id===currentAction);
+    // Action note
+    if(ch.action){
+        const def=DIALOG_ACTIONS.find(a=>a.id===ch.action);
         if(def&&def.note){
             html+=`<div class="de-field-hint" style="color:#ffb347">${esc(def.note)}</div>`;
         }
@@ -870,22 +1622,22 @@ function _deRenderRightPanel(){
     if(choiceChips)html+=`<div style="margin:6px 0">${choiceChips}</div>`;
 
     // Info portions
-    html+=`<div class="de-section-title" style="margin-top:16px">Info Portions</div>`;
+    html+=`<div class="de-section-title" style="margin-top:16px">Story Flags</div>`;
     html+=`<div class="de-field">
-        <label>has_info</label>
-        <input type="text" value="${esc(ch.hasInfo||'')}" placeholder="requires info portion" oninput="deUpdateChoiceMeta(${ci},'hasInfo',this.value)">
+        <label>🔒 Show when flag set</label>
+        ${flagPickerHtml('hasInfo',ch.hasInfo||'',"deUpdateChoiceMeta("+ci+",'hasInfo',this.value)")}
     </div>`;
     html+=`<div class="de-field">
-        <label>dont_has_info</label>
-        <input type="text" value="${esc(ch.dontHasInfo||'')}" placeholder="requires NO info portion" oninput="deUpdateChoiceMeta(${ci},'dontHasInfo',this.value)">
+        <label>🚫 Hide when flag set</label>
+        ${flagPickerHtml('dontHasInfo',ch.dontHasInfo||'',"deUpdateChoiceMeta("+ci+",'dontHasInfo',this.value)")}
     </div>`;
     html+=`<div class="de-field">
-        <label>give_info</label>
-        <input type="text" value="${esc(ch.giveInfo||'')}" placeholder="sets info on actor" oninput="deUpdateChoiceMeta(${ci},'giveInfo',this.value)">
+        <label>🔑 Set flag</label>
+        ${flagPickerHtml('giveInfo',ch.giveInfo||'',"deUpdateChoiceMeta("+ci+",'giveInfo',this.value)")}
     </div>`;
     html+=`<div class="de-field">
-        <label>disable_info</label>
-        <input type="text" value="${esc(ch.disableInfo||'')}" placeholder="removes info from actor" oninput="deUpdateChoiceMeta(${ci},'disableInfo',this.value)">
+        <label>🔓 Remove flag</label>
+        ${flagPickerHtml('disableInfo',ch.disableInfo||'',"deUpdateChoiceMeta("+ci+",'disableInfo',this.value)")}
     </div>`;
 
     // Delete choice button
@@ -943,7 +1695,8 @@ function _deRenderPreviewChoices(){
     kept.forEach(cat=>{
         const defaults=(typeof VANILLA_DIALOG_DEFAULTS!=='undefined')?VANILLA_DIALOG_DEFAULTS[cat.id]:null;
         const opener=defaults&&defaults.opener?defaults.opener:cat.label;
-        html+=`<button class="sim-opt" onclick="dePreviewJumpToVanilla('${esc(cat.id)}')">${lineNo++}. ${esc(opener)}</button>`;
+        const _editable=typeof isVanillaCatEditable==='function'&&isVanillaCatEditable(cat.id);
+        html+=`<button class="sim-opt" ${_editable?`onclick="dePreviewJumpToVanilla('${esc(cat.id)}')"`:''} style="${_editable?'':'opacity:0.5;cursor:default;'}">${lineNo++}. ${esc(opener)}</button>`;
     });
     choArea.innerHTML=html;
 }
@@ -959,6 +1712,7 @@ function dePreviewJumpToDialog(dlgIdx,nodeId){
     _deRenderToolbar();
 }
 function dePreviewJumpToVanilla(catId){
+    if(typeof isVanillaCatEditable==='function'&&!isVanillaCatEditable(catId))return;
     _deNavPush();
     _dePreviewDrilled=true;
     _dePreviewMode=true;

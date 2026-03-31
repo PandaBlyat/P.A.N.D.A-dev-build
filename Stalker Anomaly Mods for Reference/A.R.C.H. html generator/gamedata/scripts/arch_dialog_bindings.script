@@ -1,0 +1,1134 @@
+-- arch_dialog_bindings.script
+-- Dialog precondition/action registrations into `dialogs.*` and `xr_conditions.*`.
+
+local _log = _G.arch_logger_module and type(_G.arch_logger_module.new) == "function" and _G.arch_logger_module.new("ARCHLOG") or nil
+local printf = (_log and _log.printf) or function(fmt, ...) if not _G.printf then return end; if select("#",...) > 0 then local ok,r = pcall(string.format,fmt,...); if ok then fmt = r end end; _G.printf("ARCHLOG %s", tostring(fmt)) end
+local tostr = tostring
+local tonum = tonumber
+
+local CUSTOM_POOL_TAGS = {}
+local HARDCODED_POOL_TAGS = {
+    pool_1 = true, pool_2 = true, pool_3 = true, pool_4 = true, pool_5 = true,
+    pool_6 = true, pool_7 = true, pool_8 = true, pool_9 = true, pool_10 = true,
+    slot_1 = true, slot_2 = true, slot_3 = true, slot_4 = true, slot_5 = true,
+    slot_6 = true, slot_7 = true, slot_8 = true, slot_9 = true, slot_10 = true,
+    slot_11 = true, slot_12 = true, slot_13 = true, slot_14 = true, slot_15 = true,
+    slot_16 = true, slot_17 = true, slot_18 = true, slot_19 = true, slot_20 = true,
+}
+local CACHED_CUSTOM_ARCHETYPES = nil
+
+-- ──────────────────────────────────────────────────
+-- Helpers (used internally)
+-- ──────────────────────────────────────────────────
+
+local function resolve_dialog_speaker_npc_strict(first_speaker, second_speaker)
+    local actor_id = db and db.actor and db.actor.id and db.actor:id() or nil
+    local function is_valid_npc(obj)
+        return obj and obj.id and obj:id() ~= actor_id and IsStalker and IsStalker(obj)
+    end
+    if dialogs and dialogs.who_is_npc and first_speaker then
+        local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+        if npc and is_valid_npc(npc) then
+            local npc_id = npc:id()
+            local fs_id = first_speaker and first_speaker.id and first_speaker:id()
+            local ss_id = second_speaker and second_speaker.id and second_speaker:id()
+            if npc_id == fs_id or npc_id == ss_id then
+                return npc
+            end
+        end
+    end
+    if is_valid_npc(first_speaker) then
+        return first_speaker
+    end
+    if is_valid_npc(second_speaker) then
+        return second_speaker
+    end
+    return nil
+end
+
+local function npc_has_specialization(first_speaker, second_speaker, spec_name)
+    if not spec_name then return false end
+    local npc = resolve_dialog_speaker_npc_strict(first_speaker, second_speaker)
+    if not npc then return false end
+    local arch_id = archetype_core and archetype_core.get_archetype_id and archetype_core.get_archetype_id(npc) or nil
+    if not arch_id then
+        local st = archetype_core and archetype_core.get_npc_state(npc) or nil
+        arch_id = st and st.archetype_id or nil
+    end
+    if not arch_id then return false end
+    local arch = archetype_core and archetype_core.get_archetype_data(arch_id) or nil
+    if type(arch) ~= "table" then return false end
+    if type(arch.specialization) == "table" then
+        for i = 1, #arch.specialization do
+            if arch.specialization[i] == spec_name then return true end
+        end
+    end
+    if db.actor then
+        local key = "arch_unlock_spec_npc_" .. tostr(npc:id()) .. "_" .. tostr(spec_name)
+        if load_var(db.actor, key, false) then return true end
+    end
+    return false
+end
+
+local function check_npc_is_arch(first_speaker, second_speaker, target_arch_id)
+    if not first_speaker then return false end
+    local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+    if not npc then return false end
+    local st = archetype_core and archetype_core.get_npc_state(npc) or nil
+    return st and st.archetype_id == target_arch_id
+end
+
+local function make_arch_check(target_arch_id)
+    return function(first_speaker, second_speaker)
+        return check_npc_is_arch(first_speaker, second_speaker, target_arch_id)
+    end
+end
+
+-- ──────────────────────────────────────────────────
+-- Condlist injection (xr_conditions)
+-- ──────────────────────────────────────────────────
+
+local function inject_condlist_functions(custom_archetypes)
+    if not xr_conditions then
+        printf("[ARCH] WARNING: xr_conditions not loaded yet!")
+        return
+    end
+    local safe_arch_suffix = arch_filters and arch_filters.safe_arch_suffix or function(id) return tostring(id) end
+    local injected_count = 0
+    for arch_id in pairs(custom_archetypes or {}) do
+        local fn_name = "is_arch_" .. safe_arch_suffix(arch_id)
+        xr_conditions[fn_name] = make_arch_check(arch_id)
+        injected_count = injected_count + 1
+    end
+    xr_conditions.is_arch = function(first_speaker, second_speaker, p)
+        if not p then return false end
+        return check_npc_is_arch(first_speaker, second_speaker, p[1])
+    end
+    injected_count = injected_count + 1
+    xr_conditions.has_any_archetype = function(first_speaker, second_speaker)
+        if not first_speaker then return false end
+        local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+        if not npc then return false end
+        return archetype_core and archetype_core.is_custom_archetype(npc) or false
+    end
+    injected_count = injected_count + 1
+    printf("[ARCH] Injected %s condlist functions into xr_conditions", injected_count)
+end
+
+-- ──────────────────────────────────────────────────
+-- Dialog precondition injection (dialogs namespace)
+-- ──────────────────────────────────────────────────
+
+local function inject_dialog_preconditions(custom_archetypes)
+    dialogs = dialogs or {}
+    local safe_arch_suffix = arch_filters and arch_filters.safe_arch_suffix or function(id) return tostring(id) end
+    for arch_id in pairs(custom_archetypes or {}) do
+        local fn_name = "arch_is_" .. safe_arch_suffix(arch_id)
+        dialogs[fn_name] = make_arch_check(arch_id)
+    end
+    dialogs.arch_is = function(first_speaker, second_speaker, arch_id)
+        if not arch_id then return false end
+        return check_npc_is_arch(first_speaker, second_speaker, arch_id)
+    end
+    dialogs.arch_has_task_pool = function(first_speaker, second_speaker)
+        if not tasks_core or not tasks_core.can_show_offer_dialog then
+            return false
+        end
+        return tasks_core.can_show_offer_dialog(first_speaker, second_speaker)
+    end
+    dialogs.arch_no_task_pool = function(first_speaker, second_speaker)
+        if not tasks_core or not tasks_core.can_show_offer_dialog then
+            return true
+        end
+        return not tasks_core.can_show_offer_dialog(first_speaker, second_speaker)
+    end
+    -- Static bindings for the 4 known pool tags.
+    -- These mirror arch_has_task_pool but for non-default pools.
+    -- Must be static (not dynamically generated) because on_game_start fires before packs register archetypes.
+    -- Dynamic generation at line 241+ supplements these for any custom pack-defined pool tags.
+    local STATIC_POOL_TAGS = {
+        "pool_1", "pool_2", "pool_3", "pool_4", "pool_5",
+        "pool_6", "pool_7", "pool_8", "pool_9", "pool_10",
+        "slot_1", "slot_2", "slot_3", "slot_4", "slot_5",
+        "slot_6", "slot_7", "slot_8", "slot_9", "slot_10",
+        "slot_11", "slot_12", "slot_13", "slot_14", "slot_15",
+        "slot_16", "slot_17", "slot_18", "slot_19", "slot_20",
+    }
+    for i = 1, #STATIC_POOL_TAGS do
+        local t = STATIC_POOL_TAGS[i]
+        if not dialogs["arch_has_task_pool_" .. t] then
+            dialogs["arch_has_task_pool_" .. t] = function(fs, ss)
+                if not fs or not tasks_core or not tasks_core.can_show_offer_dialog_tagged then return false end
+                return tasks_core.can_show_offer_dialog_tagged(fs, ss, t)
+            end
+        end
+        if not dialogs["arch_no_task_pool_" .. t] then
+            dialogs["arch_no_task_pool_" .. t] = function(fs, ss)
+                if not fs or not tasks_core or not tasks_core.can_show_offer_dialog_tagged then return true end
+                return not tasks_core.can_show_offer_dialog_tagged(fs, ss, t)
+            end
+        end
+        if not dialogs["arch_has_active_task_" .. t] then
+            dialogs["arch_has_active_task_" .. t] = function(fs, ss)
+                if not fs or not tasks_core or not tasks_core.has_active_for_dialog_tagged then return false end
+                return tasks_core.has_active_for_dialog_tagged(fs, ss, t)
+            end
+        end
+        if not dialogs["arch_task_has_offer_" .. t] then
+            dialogs["arch_task_has_offer_" .. t] = function(fs, ss)
+                if not fs or not tasks_core or not tasks_core.has_offer_for_dialog_tagged then return false end
+                return tasks_core.has_offer_for_dialog_tagged(fs, ss, t)
+            end
+        end
+        if not dialogs["arch_task_ready_" .. t] then
+            dialogs["arch_task_ready_" .. t] = function(fs, ss)
+                if not fs or not tasks_core or not tasks_core.is_active_task_ready_tagged then return false end
+                return tasks_core.is_active_task_ready_tagged(fs, ss, t)
+            end
+        end
+        if not dialogs["arch_text_pool_open_" .. t] then
+            dialogs["arch_text_pool_open_" .. t] = function(fs, ss)
+                if not fs or not tasks_core then return "Got any " .. t .. " work?" end
+                local npc = dialogs.who_is_npc(fs, ss)
+                local arch_id = npc and archetype_core and archetype_core.get_archetype_id(npc) or nil
+                if arch_id and tasks_core.get_pool_open_text then
+                    return tasks_core.get_pool_open_text(arch_id, t)
+                end
+                return "Got any " .. t .. " work?"
+            end
+        end
+        if not dialogs["arch_text_task_offer_summary_" .. t] then
+            dialogs["arch_text_task_offer_summary_" .. t] = function(fs, ss)
+                if not fs or not tasks_core or not tasks_core.get_offer_summary_text_tagged then return "" end
+                return tasks_core.get_offer_summary_text_tagged(fs, ss, t)
+            end
+        end
+        if not dialogs["arch_text_task_offer_details_" .. t] then
+            dialogs["arch_text_task_offer_details_" .. t] = function(fs, ss)
+                if not fs or not tasks_core or not tasks_core.get_offer_details_text_tagged then return "" end
+                return tasks_core.get_offer_details_text_tagged(fs, ss, t)
+            end
+        end
+        if not dialogs["arch_text_task_active_summary_" .. t] then
+            dialogs["arch_text_task_active_summary_" .. t] = function(fs, ss)
+                if not fs or not tasks_core or not tasks_core.get_active_summary_text_tagged then return "" end
+                return tasks_core.get_active_summary_text_tagged(fs, ss, t)
+            end
+        end
+        if not dialogs["arch_task_accept_" .. t] then
+            dialogs["arch_task_accept_" .. t] = function(fs, ss)
+                if not fs then return true end
+                if tasks_core and tasks_core.accept_offer_tagged then
+                    tasks_core.accept_offer_tagged(fs, ss, t)
+                end
+                return true
+            end
+        end
+        if not dialogs["arch_task_decline_" .. t] then
+            dialogs["arch_task_decline_" .. t] = function(fs, ss)
+                if not fs then return true end
+                if tasks_core and tasks_core.decline_offer_tagged then
+                    tasks_core.decline_offer_tagged(fs, ss, t)
+                end
+                return true
+            end
+        end
+        if not dialogs["arch_task_try_complete_" .. t] then
+            dialogs["arch_task_try_complete_" .. t] = function(fs, ss)
+                if not fs then return true end
+                if tasks_core and tasks_core.try_complete_active then
+                    tasks_core.try_complete_active(fs, ss, t)
+                end
+                return true
+            end
+        end
+        if not dialogs["arch_task_deliver_rewards_" .. t] then
+            dialogs["arch_task_deliver_rewards_" .. t] = function(fs, ss)
+                if not fs then return true end
+                if tasks_core and tasks_core.deliver_pending_rewards then
+                    tasks_core.deliver_pending_rewards(fs, ss)
+                end
+                return true
+            end
+        end
+        if not dialogs["arch_text_task_result_" .. t] then
+            dialogs["arch_text_task_result_" .. t] = function()
+                if not tasks_core or not tasks_core.get_result_text then return "" end
+                return tasks_core.get_result_text()
+            end
+        end
+    end
+    printf("[ARCH] Registered static pool tag bindings for: %s", table.concat(STATIC_POOL_TAGS, ", "))
+    dialogs.arch_has_active_task = function(first_speaker, second_speaker)
+        if not tasks_core or not tasks_core.has_active_for_dialog then
+            return false
+        end
+        if not tasks_core.has_active_for_dialog(first_speaker, second_speaker) then
+            return false
+        end
+        -- Skip if the active task belongs to a custom pool — those use _<tag> turnin bindings
+        if tasks_core.has_active_for_dialog_tagged then
+            for ctag in pairs(CUSTOM_POOL_TAGS) do
+                if tasks_core.has_active_for_dialog_tagged(first_speaker, second_speaker, ctag) then
+                    return false
+                end
+            end
+        end
+        return true
+    end
+    dialogs.arch_task_has_offer = function(first_speaker, second_speaker)
+        if not tasks_core or not tasks_core.has_offer_for_dialog then
+            return false
+        end
+        return tasks_core.has_offer_for_dialog(first_speaker, second_speaker)
+    end
+    dialogs.arch_task_ready = function(first_speaker, second_speaker)
+        if not tasks_core or not tasks_core.is_active_task_ready then
+            return false
+        end
+        -- Skip custom pool tasks — same logic as arch_has_active_task
+        if not tasks_core.is_active_task_ready(first_speaker, second_speaker) then
+            return false
+        end
+        if tasks_core.has_active_for_dialog_tagged then
+            for ctag in pairs(CUSTOM_POOL_TAGS) do
+                if tasks_core.has_active_for_dialog_tagged(first_speaker, second_speaker, ctag) then
+                    return false
+                end
+            end
+        end
+        return true
+    end
+    dialogs.arch_is_first_visit = function(first_speaker, second_speaker)
+        if not first_speaker then return false end
+        local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+        if not npc then return false end
+        local st = archetype_core and archetype_core.get_npc_state(npc) or nil
+        if not st or not st.archetype_id then return false end
+        local spec = arch_relationships or (_G and _G.arch_relationships)
+        return spec and spec.get_visits(npc:id()) <= 1 or false
+    end
+    dialogs.arch_is_returning = function(first_speaker, second_speaker)
+        if not first_speaker then return false end
+        local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+        if not npc then return false end
+        local st = archetype_core and archetype_core.get_npc_state(npc) or nil
+        if not st or not st.archetype_id then return false end
+        local spec = arch_relationships or (_G and _G.arch_relationships)
+        return spec and spec.get_visits(npc:id()) > 1 or false
+    end
+    dialogs.arch_is_regular = function(first_speaker, second_speaker)
+        if not first_speaker then return false end
+        local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+        if not npc then return false end
+        local st = archetype_core and archetype_core.get_npc_state(npc) or nil
+        if not st or not st.archetype_id then return false end
+        local arch = archetype_core and archetype_core.get_archetype_data(st.archetype_id) or nil
+        local spec = arch_relationships or (_G and _G.arch_relationships)
+        local threshold = (arch and tonum(arch.regular_visit_threshold)) or (spec and spec.get_default_regular_threshold()) or 5
+        return spec and spec.get_visits(npc:id()) >= threshold or false
+    end
+    dialogs.arch_text_task_offer_summary = function(first_speaker, second_speaker)
+        if not tasks_core or not tasks_core.get_offer_summary_text then
+            return "No tasks available."
+        end
+        return tasks_core.get_offer_summary_text(first_speaker, second_speaker)
+    end
+    dialogs.arch_text_task_offer_details = function(first_speaker, second_speaker)
+        if not tasks_core or not tasks_core.get_offer_details_text then
+            return "No task details available."
+        end
+        return tasks_core.get_offer_details_text(first_speaker, second_speaker)
+    end
+    dialogs.arch_text_task_active_summary = function(first_speaker, second_speaker)
+        if not tasks_core or not tasks_core.get_active_summary_text then
+            return "No active task."
+        end
+        return tasks_core.get_active_summary_text(first_speaker, second_speaker)
+    end
+    dialogs.arch_text_task_result = function()
+        if not tasks_core or not tasks_core.get_result_text then
+            return "Task action completed."
+        end
+        return tasks_core.get_result_text()
+    end
+    dialogs.arch_task_accept = function(first_speaker, second_speaker)
+        if tasks_core and tasks_core.accept_offer then
+            tasks_core.accept_offer(first_speaker, second_speaker)
+        end
+        return true
+    end
+    dialogs.arch_task_decline = function(first_speaker, second_speaker)
+        if tasks_core and tasks_core.decline_offer then
+            tasks_core.decline_offer(first_speaker, second_speaker)
+        end
+        return true
+    end
+    dialogs.arch_task_try_complete = function(first_speaker, second_speaker)
+        -- Skip if active task is in a custom pool
+        if tasks_core and tasks_core.has_active_for_dialog_tagged then
+            for ctag in pairs(CUSTOM_POOL_TAGS) do
+                if tasks_core.has_active_for_dialog_tagged(first_speaker, second_speaker, ctag) then
+                    return true
+                end
+            end
+        end
+        if tasks_core and tasks_core.try_complete_active then
+            tasks_core.try_complete_active(first_speaker, second_speaker)
+        end
+        return true
+    end
+    dialogs.arch_task_deliver_rewards = function(first_speaker, second_speaker)
+        -- Skip if active task is in a custom pool
+        if tasks_core and tasks_core.has_active_for_dialog_tagged then
+            for ctag in pairs(CUSTOM_POOL_TAGS) do
+                if tasks_core.has_active_for_dialog_tagged(first_speaker, second_speaker, ctag) then
+                    return true
+                end
+            end
+        end
+        if tasks_core and tasks_core.deliver_pending_rewards then
+            tasks_core.deliver_pending_rewards(first_speaker, second_speaker)
+        end
+        return true
+    end
+    dialogs.arch_task_not_cat_picker = function(fs, ss)
+        if tasks_core and tasks_core.is_cat_picker_task_for_dialog then
+            return not tasks_core.is_cat_picker_task_for_dialog(fs, ss)
+        end
+        return true
+    end
+    dialogs.arch_task_is_cat_picker = function(fs, ss)
+        if tasks_core and tasks_core.is_cat_picker_task_for_dialog then
+            return tasks_core.is_cat_picker_task_for_dialog(fs, ss)
+        end
+        return false
+    end
+    for i = 1, 8 do
+        local slot = i
+        dialogs["arch_task_cat_has_" .. slot] = function()
+            return tasks_core and tasks_core.cat_picker_has_slot and tasks_core.cat_picker_has_slot(slot) or false
+        end
+        dialogs["arch_text_task_cat_" .. slot] = function()
+            return tasks_core and tasks_core.cat_picker_slot_text and tasks_core.cat_picker_slot_text(slot) or ""
+        end
+        dialogs["arch_task_cat_select_" .. slot] = function(fs, ss)
+            if tasks_core and tasks_core.cat_picker_select then
+                tasks_core.cat_picker_select(slot, fs, ss)
+            end
+            return true
+        end
+    end
+    -- Tagged pool bindings (multi-pool tasks)
+    if tasks_core and tasks_core.get_pool_tags_for then
+        local all_tags = {}
+        CUSTOM_POOL_TAGS = {}
+        local tags_with_personality = {}
+        for arch_id in pairs(custom_archetypes or {}) do
+            local tags = tasks_core.get_pool_tags_for(arch_id)
+            for i = 1, #tags do
+                all_tags[tags[i]] = true
+                if not tags_with_personality[tags[i]] and tasks_core.get_pool_personality then
+                    local has_p = tasks_core.get_pool_personality(arch_id, tags[i], "dialog_open_text")
+                    if has_p then
+                        tags_with_personality[tags[i]] = true
+                    end
+                end
+            end
+        end
+        for tag in pairs(all_tags) do
+            if tag ~= "default" then
+                -- Track custom (non-hardcoded) pool tags for init_func dialog
+                if not HARDCODED_POOL_TAGS[tag] then
+                    CUSTOM_POOL_TAGS[tag] = true
+                end
+                local t = tag
+                if not dialogs["arch_has_task_pool_" .. t] then
+                    dialogs["arch_has_task_pool_" .. t] = function(fs, ss)
+                        if not fs then return false end
+                        return tasks_core.can_show_offer_dialog_tagged(fs, ss, t)
+                    end
+                end
+                if not dialogs["arch_no_task_pool_" .. t] then
+                    dialogs["arch_no_task_pool_" .. t] = function(fs, ss)
+                        if not fs then return true end
+                        return not tasks_core.can_show_offer_dialog_tagged(fs, ss, t)
+                    end
+                end
+                if not dialogs["arch_has_active_task_" .. t] then
+                    dialogs["arch_has_active_task_" .. t] = function(fs, ss)
+                        if not fs then return false end
+                        return tasks_core.has_active_for_dialog_tagged(fs, ss, t)
+                    end
+                end
+                if not dialogs["arch_task_ready_" .. t] then
+                    dialogs["arch_task_ready_" .. t] = function(fs, ss)
+                        if not fs or not tasks_core.is_active_task_ready_tagged then return false end
+                        return tasks_core.is_active_task_ready_tagged(fs, ss, t)
+                    end
+                end
+                if not dialogs["arch_text_pool_open_" .. t] then
+                    dialogs["arch_text_pool_open_" .. t] = function(fs, ss)
+                        if not fs then return "Got any " .. t .. " work?" end
+                        local npc = dialogs.who_is_npc(fs, ss)
+                        local arch_id = npc and archetype_core and archetype_core.get_archetype_id(npc) or nil
+                        if arch_id then
+                            return tasks_core.get_pool_open_text(arch_id, t)
+                        end
+                        return "Got any " .. t .. " work?"
+                    end
+                end
+                if not dialogs["arch_text_task_offer_summary_" .. t] then
+                    dialogs["arch_text_task_offer_summary_" .. t] = function(fs, ss)
+                        if not fs then return "" end
+                        return tasks_core.get_offer_summary_text_tagged(fs, ss, t)
+                    end
+                end
+                if not dialogs["arch_task_accept_" .. t] then
+                    dialogs["arch_task_accept_" .. t] = function(fs, ss)
+                        if not fs then return true end
+                        tasks_core.accept_offer_tagged(fs, ss, t)
+                        return true
+                    end
+                end
+                if not dialogs["arch_task_decline_" .. t] then
+                    dialogs["arch_task_decline_" .. t] = function(fs, ss)
+                        if not fs then return true end
+                        tasks_core.decline_offer_tagged(fs, ss, t)
+                        return true
+                    end
+                end
+                if not dialogs["arch_task_try_complete_" .. t] then
+                    dialogs["arch_task_try_complete_" .. t] = function(fs, ss)
+                        if not fs then return true end
+                        if tasks_core.try_complete_active then
+                            tasks_core.try_complete_active(fs, ss, t)
+                        end
+                        return true
+                    end
+                end
+                if not dialogs["arch_task_deliver_rewards_" .. t] then
+                    dialogs["arch_task_deliver_rewards_" .. t] = function(fs, ss)
+                        if not fs then return true end
+                        if tasks_core.deliver_pending_rewards then
+                            tasks_core.deliver_pending_rewards(fs, ss)
+                        end
+                        return true
+                    end
+                end
+                if not dialogs["arch_text_task_result_" .. t] then
+                    dialogs["arch_text_task_result_" .. t] = function()
+                        return tasks_core.get_result_text()
+                    end
+                end
+                -- Personality text bindings — only registered when pool defines personality text
+                if tags_with_personality[t] then
+                    if not dialogs["arch_text_personality_npc_prompt_" .. t] then
+                        dialogs["arch_text_personality_npc_prompt_" .. t] = function(fs, ss)
+                            local npc = dialogs.who_is_npc(fs, ss)
+                            local arch_id = npc and archetype_core and archetype_core.get_archetype_id(npc) or nil
+                            if arch_id then
+                                local text = tasks_core.get_pool_personality(arch_id, t, "dialog_npc_prompt")
+                                if text then return text end
+                            end
+                            return game.translate_string("st_arch_custom_pool_npc_response")
+                        end
+                    end
+                    if not dialogs["arch_text_personality_accept_" .. t] then
+                        dialogs["arch_text_personality_accept_" .. t] = function(fs, ss)
+                            local npc = dialogs.who_is_npc(fs, ss)
+                            local arch_id = npc and archetype_core and archetype_core.get_archetype_id(npc) or nil
+                            if arch_id then
+                                local text = tasks_core.get_pool_personality(arch_id, t, "personality_accept")
+                                if text then return text end
+                            end
+                            return game.translate_string("st_arch_task_accept")
+                        end
+                    end
+                    if not dialogs["arch_text_personality_decline_" .. t] then
+                        dialogs["arch_text_personality_decline_" .. t] = function(fs, ss)
+                            local npc = dialogs.who_is_npc(fs, ss)
+                            local arch_id = npc and archetype_core and archetype_core.get_archetype_id(npc) or nil
+                            if arch_id then
+                                local text = tasks_core.get_pool_personality(arch_id, t, "personality_decline")
+                                if text then return text end
+                            end
+                            return game.translate_string("st_arch_task_decline")
+                        end
+                    end
+                    if not dialogs["arch_text_personality_turnin_actor_" .. t] then
+                        dialogs["arch_text_personality_turnin_actor_" .. t] = function(fs, ss)
+                            local npc = dialogs.who_is_npc(fs, ss)
+                            local arch_id = npc and archetype_core and archetype_core.get_archetype_id(npc) or nil
+                            if arch_id then
+                                local text = tasks_core.get_pool_personality(arch_id, t, "personality_turnin_actor")
+                                if text then return text end
+                            end
+                            return game.translate_string("st_arch_task_turnin")
+                        end
+                    end
+                    if not dialogs["arch_text_personality_turnin_npc_" .. t] then
+                        dialogs["arch_text_personality_turnin_npc_" .. t] = function(fs, ss)
+                            local npc = dialogs.who_is_npc(fs, ss)
+                            local arch_id = npc and archetype_core and archetype_core.get_archetype_id(npc) or nil
+                            if arch_id then
+                                local text = tasks_core.get_pool_personality(arch_id, t, "personality_turnin_npc")
+                                if text then return text end
+                            end
+                            return tasks_core.get_result_text()
+                        end
+                    end
+                end
+                printf("[ARCH] Registered tagged dialog bindings for pool_tag '%s'", tostr(t))
+            end
+        end
+        -- Precondition for arch_custom_pool_dialog: true if NPC has ANY custom pool with offerable tasks
+        local custom_count = 0
+        for _ in pairs(CUSTOM_POOL_TAGS) do custom_count = custom_count + 1 end
+        if custom_count > 0 then
+            dialogs.arch_has_any_custom_pool_task = function(fs, ss)
+                if not fs then return false end
+                -- Show dialog if NPC has ANY custom pool (offer, active, or "nothing available")
+                local npc = dialogs.who_is_npc(fs, ss)
+                local arch_id = npc and archetype_core and archetype_core.get_archetype_id(npc) or nil
+                if arch_id then
+                    for ctag in pairs(CUSTOM_POOL_TAGS) do
+                        if tasks_core.has_pool(arch_id, ctag) then return true end
+                    end
+                end
+                return false
+            end
+            printf("[ARCH] Registered custom pool dialog precondition (%s custom pool_tags)", custom_count)
+        else
+            dialogs.arch_has_any_custom_pool_task = function() return false end
+        end
+    end
+    -- Delivery turnin bindings (global — works on any ARCH NPC that is a delivery target)
+    if tasks_core and tasks_core.is_npc_delivery_target then
+        dialogs.arch_is_delivery_target = function(fs, ss)
+            if not fs then return false end
+            return tasks_core.is_npc_delivery_target(fs, ss)
+        end
+        dialogs.arch_delivery_try_complete = function(fs, ss)
+            if not fs then return true end
+            if tasks_core.try_complete_delivery then
+                tasks_core.try_complete_delivery(fs, ss)
+            end
+            return true
+        end
+        dialogs.arch_delivery_deliver_rewards = function(fs, ss)
+            if not fs then return true end
+            if tasks_core.deliver_pending_rewards then
+                tasks_core.deliver_pending_rewards(fs, ss)
+            end
+            return true
+        end
+        dialogs.arch_delivery_result_text = function()
+            return tasks_core.get_result_text()
+        end
+        printf("[ARCH] Registered delivery turnin dialog bindings")
+    end
+    -- Per-task accept bindings: registered via register_per_task_accept_bindings()
+    -- Called from tasks_core after TASKS_READY = true (tasks must be populated first)
+    -- Story task by-id bindings: precondition checks availability, details/accept operate directly.
+    -- Usage in XML: <precondition>dialogs.arch_can_offer_task(task_id)</precondition>
+    --               <script_text>dialogs.arch_text_task_offer_details_by_id(task_id)</script_text>
+    --               <action>dialogs.arch_task_accept_by_id — BROKEN in actions (no param support)
+    if tasks_core then
+        dialogs.arch_can_offer_task = function(fs, ss, _did, _pid, _nid, p)
+            local task_id = p and p[1] or nil
+            if not task_id or not tasks_core.can_offer_task_by_id then return false end
+            return tasks_core.can_offer_task_by_id(task_id, fs, ss)
+        end
+        dialogs.arch_text_task_offer_details_by_id = function(fs, ss, _did, _pid, _nid, p)
+            local task_id = p and p[1] or nil
+            if not task_id or not tasks_core.get_offer_details_text_by_id then
+                return "No task details available."
+            end
+            return tasks_core.get_offer_details_text_by_id(task_id, fs, ss)
+        end
+        dialogs.arch_task_accept_by_id = function(fs, ss, _did, _pid, _nid, p)
+            local task_id = p and p[1] or nil
+            if task_id and tasks_core.accept_task_by_id then
+                tasks_core.accept_task_by_id(task_id, fs, ss)
+            end
+            return true
+        end
+        -- Parameters table is the 6th argument, not the 3rd
+        dialogs.arch_is_task_done = function(fs, ss, _did, _pid, _nid, p)
+            local task_id = p and p[1] or nil
+            if not task_id or not tasks_core.check_task_done then return false end
+            return tasks_core.check_task_done(task_id)
+        end
+        dialogs.arch_is_task_not_done = function(fs, ss, _did, _pid, _nid, p)
+            local task_id = p and p[1] or nil
+            if not task_id or not tasks_core.check_task_not_done then return true end
+            return tasks_core.check_task_not_done(task_id)
+        end
+        dialogs.arch_is_task_active = function(fs, ss, _did, _pid, _nid, p)
+            local task_id = p and p[1] or nil
+            if not task_id or not tasks_core.check_task_active then return false end
+            return tasks_core.check_task_active(task_id)
+        end
+        dialogs.arch_is_task_ready_for = function(fs, ss, _did, _pid, _nid, p)
+            local task_id = p and p[1] or nil
+            if not task_id or not tasks_core.check_task_ready_for then return false end
+            return tasks_core.check_task_ready_for(task_id, fs, ss)
+        end
+        printf("[ARCH] Registered story task by-id dialog bindings (arch_can_offer_task, arch_is_task_done, arch_is_task_not_done, arch_is_task_active, arch_is_task_ready_for, arch_text_task_offer_details_by_id, arch_task_accept_by_id)")
+    end
+    local spec = arch_relationships or (_G and _G.arch_relationships)
+    if spec then
+        local pickers = spec.get_all_inventory_pickers and spec.get_all_inventory_pickers() or {}
+        for picker_id, config in pairs(pickers) do
+            local prefix = config.dialog_prefix or ("arch_picker_" .. picker_id)
+            local count = config.items and #config.items or 0
+            for i = 1, count do
+                local idx = i
+                local pid = picker_id
+                dialogs[prefix .. "_has_input_" .. tostring(idx)] = function(fs, ss)
+                    return spec.picker_has_input(pid, idx, fs, ss)
+                end
+                dialogs[prefix .. "_cook_input_" .. tostring(idx)] = function(fs, ss)
+                    return spec.picker_action(pid, idx, fs, ss)
+                end
+            end
+            dialogs[prefix .. "_has_no_meat"] = function(fs, ss)
+                return spec.picker_has_none(picker_id, fs, ss)
+            end
+            dialogs[prefix .. "_no_meat"] = function(fs, ss)
+                return spec.picker_no_items_action(picker_id, fs, ss)
+            end
+            dialogs["arch_text_" .. picker_id .. "_result"] = function(fs, ss)
+                return spec.picker_result_text(picker_id, fs, ss)
+            end
+        end
+        dialogs.arch_informant_find_stalker = function(fs, ss) return spec.informant_find_stalker(fs, ss) end
+        dialogs.arch_informant_find_mutant = function(fs, ss) return spec.informant_find_mutant(fs, ss) end
+        dialogs.arch_text_informant_result = function(fs, ss) return spec.informant_result_text(fs, ss) end
+    end
+    -- Strip category gates
+    local function npc_strips_category(first_speaker, second_speaker, category)
+        if not first_speaker then return false end
+        -- Global MCM toggle
+        if arch_mcm and type(arch_mcm.get) == "function" then
+            local enabled = arch_mcm.get("creations/general/strip_vanilla_dialogs")
+            if enabled == false or enabled == 0 then return false end
+        end
+        if not dialogs or not dialogs.who_is_npc then return false end
+        local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+        if not npc then return false end
+        local st = archetype_core and archetype_core.get_npc_state(npc) or nil
+        if not st or not st.archetype_id then return false end
+        local arch = archetype_core and archetype_core.get_archetype_data(st.archetype_id) or nil
+        if not arch or not arch.strip_dialog_categories then return false end
+        return arch.strip_dialog_categories[category] == true
+    end
+    local function npc_has_spec(first_speaker, second_speaker, spec_keys)
+        if not first_speaker then return false end
+        if not dialogs or not dialogs.who_is_npc then return false end
+        local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+        if not npc then return false end
+        local st = archetype_core and archetype_core.get_npc_state(npc) or nil
+        if not st or not st.archetype_id then return false end
+        local arch = archetype_core and archetype_core.get_archetype_data(st.archetype_id) or nil
+        if not arch or type(arch.specialization) ~= "table" then return false end
+        for i = 1, #arch.specialization do
+            if spec_keys[arch.specialization[i]] then return true end
+        end
+        return false
+    end
+    dialogs.arch_gate_trade = function(fs, ss)
+        return not npc_strips_category(fs, ss, "trade")
+    end
+    dialogs.arch_gate_tasks = function(fs, ss)
+        return not npc_strips_category(fs, ss, "tasks")
+    end
+    local SPEC_REPAIR = {technician = true, tech = true, mechanic = true}
+    local SPEC_MEDIC = {field_medic = true, medic = true, doctor = true, healer = true}
+    dialogs.arch_gate_repair = function(fs, ss)
+        if npc_strips_category(fs, ss, "repair") then return false end
+        if npc_has_spec(fs, ss, SPEC_MEDIC) then return false end
+        local npc = dialogs.who_is_npc and dialogs.who_is_npc(fs, ss)
+        if npc and archetype_core and archetype_core.is_custom_archetype(npc) then
+            return npc_has_spec(fs, ss, SPEC_REPAIR)
+        end
+        return inventory_upgrades and inventory_upgrades.has_repair_info and inventory_upgrades.has_repair_info(fs, ss) or false
+    end
+    dialogs.arch_gate_guide = function(fs, ss)
+        return not npc_strips_category(fs, ss, "guide")
+    end
+    dialogs.arch_gate_companion = function(fs, ss)
+        return not npc_strips_category(fs, ss, "companion")
+    end
+    dialogs.arch_gate_bribe = function(fs, ss)
+        return not npc_strips_category(fs, ss, "bribe")
+    end
+    dialogs.arch_gate_lifestyle = function(fs, ss)
+        return not npc_strips_category(fs, ss, "lifestyle")
+    end
+    dialogs.arch_gate_medic = function(fs, ss)
+        if npc_strips_category(fs, ss, "medic") then return false end
+        if npc_has_spec(fs, ss, SPEC_REPAIR) then return false end
+        local npc = dialogs.who_is_npc and dialogs.who_is_npc(fs, ss)
+        if npc and archetype_core and archetype_core.is_custom_archetype(npc) then
+            return npc_has_spec(fs, ss, SPEC_MEDIC)
+        end
+        return false
+    end
+    dialogs.arch_gate_info = function(fs, ss)
+        return not npc_strips_category(fs, ss, "info")
+    end
+    dialogs.arch_gate_paid_escort = function(fs, ss)
+        return not npc_strips_category(fs, ss, "paid_escort")
+    end
+
+    -- ── Companion recruitment ──
+    dialogs.arch_can_recruit = function(fs, ss)
+        if not fs then return false end
+        if not axr_companions then return false end
+        local npc = dialogs.who_is_npc and dialogs.who_is_npc(fs, ss)
+        if not npc then return false end
+        -- Already a companion?
+        local squad = get_object_squad and get_object_squad(npc)
+        if squad and axr_companions.companion_squads and axr_companions.companion_squads[squad.id] then
+            return false
+        end
+        return true
+    end
+
+    dialogs.arch_recruit_companion = function(fs, ss)
+        if not axr_companions or not axr_companions.add_to_actor_squad then return end
+        local npc = dialogs.who_is_npc and dialogs.who_is_npc(fs, ss)
+        if not npc then return end
+        axr_companions.add_to_actor_squad(npc)
+    end
+
+    dialogs.arch_dismiss_companion = function(fs, ss)
+        if not axr_companions or not axr_companions.remove_from_actor_squad then return end
+        local npc = dialogs.who_is_npc and dialogs.who_is_npc(fs, ss)
+        if not npc then return end
+        axr_companions.remove_from_actor_squad(npc)
+    end
+
+    dialogs.arch_is_companion = function(fs, ss)
+        if not axr_companions then return false end
+        local npc = dialogs.who_is_npc and dialogs.who_is_npc(fs, ss)
+        if not npc then return false end
+        local squad = get_object_squad and get_object_squad(npc)
+        return squad and axr_companions.companion_squads and axr_companions.companion_squads[squad.id] == squad
+    end
+
+    printf("[ARCH] Injected dialog preconditions into dialogs namespace")
+end
+
+-- ──────────────────────────────────────────────────
+-- Public API (called by archetype_core.refresh_runtime_bindings)
+-- ──────────────────────────────────────────────────
+
+function inject_all(custom_archetypes)
+    CACHED_CUSTOM_ARCHETYPES = custom_archetypes
+    inject_dialog_preconditions(custom_archetypes)
+    inject_condlist_functions(custom_archetypes)
+end
+
+-- ──────────────────────────────────────────────────
+-- Generic text placeholder substitution
+-- Usage: <script_text>dialogs.arch_text(st_my_string_id)</script_text>
+-- Also works via SetScriptText("dialogs.arch_text(st_my_string_id)")
+--   (speaker1, speaker2, dialog_id, phrase_id, "", params_table)
+--   params_table[1] = the string inside parentheses
+-- Supported placeholders in the string table text:
+--   %name%     — player's character name
+--   %npc%      — NPC's character name
+--   %location% — current level name (translated)
+-- ──────────────────────────────────────────────────
+
+dialogs.arch_text = function(fs, ss, dialog_id, phrase_id, extra, params)
+    local str_id = type(params) == "table" and params[1] or nil
+    if not str_id or str_id == "" then return "" end
+    local text = game.translate_string(str_id)
+    if not text or text == str_id then return str_id end
+
+    local npc = dialogs.who_is_npc and dialogs.who_is_npc(fs, ss) or nil
+
+    local player_name = db.actor and db.actor.character_name and db.actor:character_name() or "Stalker"
+    local npc_name = npc and npc.character_name and npc:character_name() or "Stranger"
+
+    local location = "the Zone"
+    if level and level.name then
+        local lvl = level.name()
+        if lvl then
+            local translated = game.translate_string("st_" .. lvl .. "_name")
+            if translated and translated ~= ("st_" .. lvl .. "_name") then
+                location = translated
+            else
+                translated = game.translate_string(lvl)
+                if translated and translated ~= lvl then
+                    location = translated
+                end
+            end
+        end
+    end
+
+    text = text:gsub("%%name%%", player_name)
+    text = text:gsub("%%npc%%", npc_name)
+    text = text:gsub("%%location%%", location)
+    return text
+end
+
+-- Intro dialog: clear xr_meet override + restore default start_dialog after intro completes
+-- Usage in XML: <action>dialogs.arch_restore_start_dialog</action>
+if not dialogs.arch_restore_start_dialog then
+    dialogs.arch_restore_start_dialog = function(fs, ss)
+        local npc = dialogs and dialogs.who_is_npc and dialogs.who_is_npc(fs, ss) or nil
+        if not npc then return end
+        local npc_id = npc:id()
+        if xr_meet and xr_meet.restore_dialog then
+            xr_meet.restore_dialog(npc_id)
+        end
+        if npc.restore_default_start_dialog then
+            npc:restore_default_start_dialog()
+        end
+    end
+end
+
+-- ──────────────────────────────────────────────────
+-- Utility dialog bindings — money, relations
+-- ──────────────────────────────────────────────────
+
+-- Pay money from actor to NPC. Parameterized: arch_pay_money(amount)
+-- Usage: <action>dialogs.arch_pay_money(5000)</action>
+if not dialogs.arch_pay_money then
+    dialogs.arch_pay_money = function(fs, ss, _did, _pid, _nid, p)
+        local amount = p and tonumber(p[1]) or 0
+        if amount <= 0 then return end
+        if dialogs.relocate_money_from_actor then
+            dialogs.relocate_money_from_actor(fs, ss, amount)
+        end
+    end
+end
+
+-- Check if actor has enough money. Parameterized: arch_has_money(amount)
+-- Usage: <precondition>dialogs.arch_has_money(5000)</precondition>
+if not dialogs.arch_has_money then
+    dialogs.arch_has_money = function(fs, ss, _did, _pid, _nid, p)
+        local amount = p and tonumber(p[1]) or 0
+        if amount <= 0 then return true end
+        local actor = db and db.actor or nil
+        if not actor or not actor.money then return false end
+        return actor:money() >= amount
+    end
+end
+
+-- Usage: <action>dialogs.arch_make_enemy</action>
+if not dialogs.arch_make_enemy then
+    dialogs.arch_make_enemy = function(fs, ss)
+        local npc = dialogs and dialogs.who_is_npc and dialogs.who_is_npc(fs, ss) or nil
+        if not npc then return end
+        local actor = db.actor
+        if not actor then return end
+        -- Set on the NPC directly
+        if npc.force_set_goodwill then
+            npc:force_set_goodwill(-5000, actor)
+        end
+        -- Set on all squad members
+        local squad = get_object_squad and get_object_squad(npc) or nil
+        if squad and squad.squad_members then
+            local sim = alife()
+            for k in squad:squad_members() do
+                local se_obj = k.object or (k.id and sim and sim:object(k.id))
+                if se_obj and se_obj.force_set_goodwill then
+                    se_obj:force_set_goodwill(-5000, actor)
+                end
+            end
+        end
+    end
+end
+
+-- Transfer task giver to current dialog NPC. Parameterized: arch_transfer_task(task_id)
+-- Usage: <action>dialogs.arch_transfer_task(dl_send_zhuk)</action>
+if not dialogs.arch_transfer_task then
+    dialogs.arch_transfer_task = function(fs, ss, _did, _pid, _nid, p)
+        local task_id = p and p[1] or nil
+        if task_id and tasks_core and tasks_core.transfer_task_giver then
+            tasks_core.transfer_task_giver(task_id, fs, ss)
+        end
+    end
+end
+
+-- Standalone public API functions (also registered in archetype_core)
+function is_arch(first_speaker, second_speaker, arch_id)
+    if not first_speaker then return false end
+    if not dialogs or not dialogs.who_is_npc then
+        local actor_id = db and db.actor and db.actor.id and db.actor:id() or nil
+        local first_id = first_speaker and first_speaker.id and first_speaker:id() or nil
+        local npc = (actor_id ~= nil and first_id == actor_id) and second_speaker or first_speaker
+        if not npc or not arch_id then return false end
+        local st = archetype_core and archetype_core.get_npc_state(npc) or nil
+        return st and st.archetype_id == arch_id
+    end
+    local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+    if not npc or not arch_id then return false end
+    local st = archetype_core and archetype_core.get_npc_state(npc) or nil
+    return st and st.archetype_id == arch_id
+end
+
+function has_any_archetype(first_speaker, second_speaker)
+    if not first_speaker then return false end
+    if not dialogs or not dialogs.who_is_npc then
+        local actor_id = db and db.actor and db.actor.id and db.actor:id() or nil
+        local first_id = first_speaker and first_speaker.id and first_speaker:id() or nil
+        local npc = (actor_id ~= nil and first_id == actor_id) and second_speaker or first_speaker
+        if not npc then return false end
+        return archetype_core and archetype_core.is_custom_archetype(npc) or false
+    end
+    local npc = dialogs.who_is_npc(first_speaker, second_speaker)
+    if not npc then return false end
+    return archetype_core and archetype_core.is_custom_archetype(npc) or false
+end
+
+-- ──────────────────────────────────────────────────
+-- Custom pool init_func dialog builder
+-- Dynamically builds offer/turnin branches for each custom pool_tag.
+-- ──────────────────────────────────────────────────
+
+-- Local helpers for building dialog phrase trees (same logic as dialog_manager.add_dialog
+-- but using our own saved_dialog reference, since dialog_manager.saved_dialog is local/inaccessible)
+local _saved_dialog
+
+local function _add_phrase(p_id, id, text_key, cond, act)
+    if not _saved_dialog then return nil end
+    local phrase = _saved_dialog:AddPhrase(text_key, tostring(id), tostring(p_id), -10000)
+    if not phrase then return nil end
+    local script = phrase:GetPhraseScript()
+    if cond then
+        if type(cond) == "table" then
+            for _, v in ipairs(cond) do script:AddPrecondition(v) end
+        else
+            script:AddPrecondition(cond)
+        end
+    end
+    if act then
+        if type(act) == "table" then
+            for _, v in ipairs(act) do script:AddAction(v) end
+        else
+            script:AddAction(act)
+        end
+    end
+    return script
+end
+
+local function _add_script_phrase(p_id, id, text_func, cond, act)
+    local script = _add_phrase(p_id, id, text_func, cond, act)
+    if script then
+        script:SetScriptText(text_func)
+    end
+end
+
+function dm_init_custom_pool_dialog(dialog)
+    _saved_dialog = dialog
+
+    -- Collect sorted custom pool tags for deterministic phrase ID layout
+    -- Custom pool tags now use per-tag static XML dialogs generated at DXML time
+    -- (same pattern as hardcoded pools). This init_func is deprecated — just show exit.
+    _add_phrase("", 0, "dm_universal_actor_exit")
+end
+
+function get_custom_pool_tags()
+    return CUSTOM_POOL_TAGS
+end
+
+-- Called from tasks_core AFTER tasks are registered (TASKS_READY = true)
+function register_per_task_accept_bindings()
+    if not tasks_core or not tasks_core.accept_task_by_id or not tasks_core.get_pool_task_ids then
+        return
+    end
+    local archetypes = CACHED_CUSTOM_ARCHETYPES
+    if not archetypes then return end
+    local per_task_count = 0
+    for arch_id in pairs(archetypes) do
+        local tags = tasks_core.get_pool_tags_for and tasks_core.get_pool_tags_for(arch_id) or {}
+        for ti = 1, #tags do
+            local pool_tag = tags[ti]
+            local task_ids = tasks_core.get_pool_task_ids(arch_id, pool_tag)
+            if task_ids then
+                for i = 1, #task_ids do
+                    local tid = task_ids[i]
+                    if tid and not dialogs["arch_accept_" .. tid] then
+                        dialogs["arch_accept_" .. tid] = function(fs, ss)
+                            tasks_core.accept_task_by_id(tid, fs, ss)
+                            return true
+                        end
+                        per_task_count = per_task_count + 1
+                    end
+                    if tid and not dialogs["arch_fetch_complete_" .. tid] then
+                        dialogs["arch_fetch_complete_" .. tid] = function(fs, ss)
+                            tasks_core.complete_fetch_by_id(tid, fs, ss)
+                            return true
+                        end
+                    end
+                    if tid and not dialogs["arch_delivery_complete_" .. tid] then
+                        dialogs["arch_delivery_complete_" .. tid] = function(fs, ss)
+                            tasks_core.complete_delivery_by_id(tid, fs, ss)
+                            return true
+                        end
+                    end
+                    if tid and not dialogs["arch_talk_complete_" .. tid] then
+                        dialogs["arch_talk_complete_" .. tid] = function(fs, ss)
+                            tasks_core.complete_talk_by_id(tid, fs, ss)
+                            return true
+                        end
+                    end
+                    if tid and not dialogs["arch_cancel_" .. tid] then
+                        dialogs["arch_cancel_" .. tid] = function(fs, ss)
+                            tasks_core.cancel_task_by_id(tid, fs, ss)
+                            return true
+                        end
+                    end
+                    if tid and not dialogs["arch_collect_pickup_" .. tid] then
+                        dialogs["arch_collect_pickup_" .. tid] = function(fs, ss)
+                            tasks_core.collect_pickup_by_id(tid, fs, ss)
+                            return true
+                        end
+                    end
+                    if tid and not dialogs["arch_complete_" .. tid] then
+                        dialogs["arch_complete_" .. tid] = function(fs, ss)
+                            tasks_core.try_complete_by_id(tid, fs, ss)
+                            return true
+                        end
+                    end
+                    if tid and not dialogs["arch_rewards_" .. tid] then
+                        dialogs["arch_rewards_" .. tid] = function(fs, ss)
+                            if tasks_core.deliver_pending_rewards then
+                                tasks_core.deliver_pending_rewards(fs, ss)
+                            end
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+    end
+    if per_task_count > 0 then
+        printf("[ARCH] Registered %s per-task accept bindings (dialogs.arch_accept_<task_id>)", per_task_count)
+    end
+end
+
+-- ──────────────────────────────────────────────────
+-- DM monkey-patch: auto-apply arch_text to ARCH dialog_manager entries
+-- Wraps dialog_manager.add_dialog so entries with "_arch_" in the text key
+-- get SetScriptText("dialogs.arch_text(key)") for placeholder substitution.
+-- Covers all DM categories: hello, job, anomalies, information, tips.
+-- ──────────────────────────────────────────────────
+if dialog_manager and dialog_manager.add_dialog then
+    local _orig_dm_add_dialog = dialog_manager.add_dialog
+    dialog_manager.add_dialog = function(p_id, id, phrase_id, cond, act)
+        local script = _orig_dm_add_dialog(p_id, id, phrase_id, cond, act)
+        if script and type(phrase_id) == "string" and phrase_id:find("_arch_") then
+            script:SetScriptText("dialogs.arch_text(" .. phrase_id .. ")")
+        end
+        return script
+    end
+    printf("[ARCH] Patched dialog_manager.add_dialog for arch_text placeholder support")
+end

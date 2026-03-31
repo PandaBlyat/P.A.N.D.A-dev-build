@@ -353,7 +353,7 @@ function buildCmdIndex(){
     items.push({icon:'⚙',label:'Create New Group',hint:'',action:()=>{switchTab('arch');document.getElementById('newGrpName')?.focus();}});
     items.push({icon:'◈',label:'Create Solo Character',hint:'',action:()=>createSoloChar()});
     items.push({icon:'↓',label:'Export / Generate',hint:'Ctrl+Enter',action:()=>switchTab('export')});
-    items.push({icon:'◀',label:'Toggle Sidebar',hint:'N',action:()=>toggleSidebar()});
+    items.push({icon:'◀',label:'Toggle Sidebar',hint:'',action:()=>toggleSidebar()});
     items.push({icon:'S',label:'Settings Tab',hint:'',action:()=>switchTab('settings')});
     items.push({icon:'T',label:'Trade Tab',hint:'',action:()=>switchTab('trade')});
     items.push({icon:'D',label:'Advanced / Dialogs Tab',hint:'',action:()=>switchTab('dialogs')});

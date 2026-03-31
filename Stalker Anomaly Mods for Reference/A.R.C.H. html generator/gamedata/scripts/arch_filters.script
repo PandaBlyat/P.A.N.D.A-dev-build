@@ -1,0 +1,652 @@
+-- arch_filters.script
+-- NPC filter evaluation, server object property extraction, filter cache compilation.
+
+local sgsub = string.gsub
+
+-- Level name → level_targets ID mapping (hardcoded — level_names indices ≠ level_links IDs)
+local LEVEL_NAME_TO_ID = {
+    k00_marsh = 1, l01_escape = 2, l02_garbage = 3, l03_agroprom = 4,
+    k01_darkscape = 5, l04_darkvalley = 6, l05_bar = 7, l06_rostok = 8,
+    l07_military = 9, l08_yantar = 10, l09_deadcity = 11, l10_limansk = 12,
+    l10_radar = 13, l10_red_forest = 14, l11_hospital = 15, l11_pripyat = 16,
+    l12_stancia = 17, l12_stancia_2 = 18, l13_generators = 19,
+    zaton = 27, jupiter = 28, pripyat = 30,
+    k02_trucks_cemetery = 32,
+}
+-- Reverse lookup: level_targets ID → level name
+local LEVEL_ID_TO_NAME = {}
+for name, id in pairs(LEVEL_NAME_TO_ID) do
+    LEVEL_ID_TO_NAME[id] = name
+end
+
+-- ──────────────────────────────────────────────────
+-- Utility helpers
+-- ──────────────────────────────────────────────────
+
+function get_rank_name(npc)
+    if not npc then return "unknown" end
+    if ranks and ranks.get_obj_rank_name then
+        return ranks.get_obj_rank_name(npc)
+    end
+    return "unknown"
+end
+function is_in_table(tbl, value)
+    if not tbl then return false end
+    for _, v in pairs(tbl) do
+        if v == value then return true end
+    end
+    return false
+end
+function list_to_set(list)
+    if not list or is_empty(list) then return nil, 0 end
+    local set = {}
+    local count = 0
+    for _, value in pairs(list) do
+        if value ~= nil and set[value] == nil then
+            set[value] = true
+            count = count + 1
+        end
+    end
+    if count == 0 then return nil, 0 end
+    return set, count
+end
+function get_list_count(list)
+    if not list then return 0 end
+    local count = 0
+    for _ in pairs(list) do count = count + 1 end
+    return count
+end
+function sorted_keys(tbl)
+    local keys = {}
+    for key in pairs(tbl or {}) do keys[#keys + 1] = key end
+    table.sort(keys)
+    return keys
+end
+function safe_arch_suffix(arch_id)
+    local suffix = string.lower(tostring(arch_id or ""))
+    suffix = sgsub(suffix, "[^a-z0-9_]", "_")
+    suffix = sgsub(suffix, "_+", "_")
+    suffix = sgsub(suffix, "^_+", "")
+    suffix = sgsub(suffix, "_+$", "")
+    if suffix == "" then
+        suffix = "arch"
+    end
+    if string.match(suffix, "^[0-9]") then
+        suffix = "id_" .. suffix
+    end
+    return suffix
+end
+function select_weighted_entry(weight_map, total_weight, fallback_name)
+    if not weight_map then
+        return fallback_name
+    end
+    local total = tonumber(total_weight) or 0
+    if total <= 0 then
+        return fallback_name
+    end
+    local roll = math.random() * total
+    local current = 0
+    local selected = fallback_name
+    for name, weight in pairs(weight_map) do
+        local w = tonumber(weight) or 0
+        if w > 0 then
+            current = current + w
+        end
+        if roll <= current then
+            selected = name
+            break
+        end
+    end
+    return selected
+end
+
+-- ──────────────────────────────────────────────────
+-- Faction spawn level scanning (for T0 death respawn)
+-- ──────────────────────────────────────────────────
+
+-- Resolve which factions a smart terrain actually spawns.
+-- Covers both warfare (faction_controlled) and static (respawn_params) smarts.
+local function get_smart_spawn_factions(smart)
+    local factions = {}
+    if not smart or not smart.respawn_params then return factions end
+    for _, params in pairs(smart.respawn_params) do
+        if params.faction then
+            factions[params.faction] = true
+        elseif params.squads then
+            for _, squad_section in ipairs(params.squads) do
+                if ini_sys and ini_sys.r_string_ex then
+                    local ok, faction = pcall(ini_sys.r_string_ex, ini_sys, squad_section, "faction")
+                    if ok and faction and faction ~= "" then
+                        factions[faction] = true
+                    end
+                end
+            end
+        end
+    end
+    return factions
+end
+
+-- Scan SIMBOARD smart terrains to find which levels spawn a given community.
+-- Checks respawn_params (covers both warfare and static respawn smarts).
+-- Returns a set {level_name = true} or nil.
+function get_faction_spawn_levels(community)
+    if not community then return nil end
+    local sb = sim_board and sim_board.get_sim_board and sim_board.get_sim_board()
+    if not sb or not sb.smarts then return nil end
+    local sim = alife()
+    if not sim then return nil end
+    local gg = game_graph()
+    if not gg then return nil end
+    local levels = {}
+    local count = 0
+    for id, data in pairs(sb.smarts) do
+        local smart = data.smrt
+        if smart then
+            local spawn_factions = get_smart_spawn_factions(smart)
+            if spawn_factions[community] then
+                local gv = smart.m_game_vertex_id
+                if gv and gv < 65534 then
+                    local ok, lvl_name = pcall(function()
+                        return sim:level_name(gg:vertex(gv):level_id())
+                    end)
+                    if ok and lvl_name and not levels[lvl_name] then
+                        levels[lvl_name] = true
+                        count = count + 1
+                    end
+                end
+            end
+        end
+    end
+    if count == 0 then return nil end
+    return levels
+end
+
+-- Build the set of valid respawn levels for a T0 death respawn.
+-- Strategy: prefer death level + adjacent if the faction spawns there,
+-- otherwise open up to all levels where the faction spawns.
+function compute_death_respawn_levels(death_level, community)
+    local spawn_levels = get_faction_spawn_levels(community)
+    if not spawn_levels then
+        -- No faction_controlled data found — fall back to death level + adjacent
+        printf("[ARCH] T0 RESPAWN: no faction_controlled data for '%s', using death level + adjacent", tostring(community or ""))
+        return nil
+    end
+    -- Check if death level or adjacent levels are valid spawn locations
+    local nearby = {}
+    local nearby_count = 0
+    if spawn_levels[death_level] then
+        nearby[death_level] = true
+        nearby_count = nearby_count + 1
+    end
+    local death_id = LEVEL_NAME_TO_ID[death_level]
+    if death_id then
+        local links = level_targets and level_targets.level_links and level_targets.level_links[death_id]
+        if links then
+            for adj_id, _ in pairs(links) do
+                local adj_name = LEVEL_ID_TO_NAME[adj_id]
+                if adj_name and spawn_levels[adj_name] then
+                    nearby[adj_name] = true
+                    nearby_count = nearby_count + 1
+                end
+            end
+        end
+    end
+    if nearby_count > 0 then
+        printf("[ARCH] T0 RESPAWN: '%s' has %s nearby spawn levels for death level '%s'", tostring(community or ""), tostring(nearby_count), tostring(death_level or ""))
+        return nearby
+    end
+    -- No nearby levels support this faction — open to all spawn levels
+    local total = 0
+    for _ in pairs(spawn_levels) do total = total + 1 end
+    printf("[ARCH] T0 RESPAWN: '%s' cannot spawn near '%s' -- opened to %s faction levels", tostring(community or ""), tostring(death_level or ""), tostring(total))
+    return spawn_levels
+end
+
+-- ──────────────────────────────────────────────────
+-- Smart Respawn Predictor
+-- Scans smart terrains to predict when/where a T0 archetype will respawn.
+-- ──────────────────────────────────────────────────
+
+-- Check if a specific smart terrain can spawn a given community RIGHT NOW.
+-- Accounts for faction_controlled warfare override (vanilla try_respawn line 1667).
+-- Returns true + count of available spawn slots, or false.
+local function smart_can_spawn_community(smart, community)
+    if not smart or not smart.respawn_params or not smart.already_spawned then
+        return false, 0
+    end
+    local available = 0
+    for k, v in pairs(smart.respawn_params) do
+        if v.num and smart.already_spawned[k] and smart.already_spawned[k].num then
+            -- Faction gate: same logic as vanilla try_respawn
+            local faction_ok = false
+            if smart.faction_controlled == nil then
+                -- Not warfare-controlled: check if this entry's faction matches
+                if v.faction and v.faction == community then
+                    faction_ok = true
+                elseif not v.faction and v.squads then
+                    -- No explicit faction — check squad sections
+                    for _, sq in ipairs(v.squads) do
+                        if ini_sys and ini_sys.r_string_ex then
+                            local ok, fac = pcall(ini_sys.r_string_ex, ini_sys, sq, "faction")
+                            if ok and fac == community then
+                                faction_ok = true
+                                break
+                            end
+                        end
+                    end
+                end
+            else
+                -- Warfare-controlled: only current controlling faction spawns
+                if smart.faction and smart.faction == community and v.faction == smart.faction then
+                    faction_ok = true
+                end
+            end
+            if faction_ok then
+                local max_count = tonumber(xr_logic.pick_section_from_condlist(db.actor, smart, v.num) or 0) or 0
+                if max_count > smart.already_spawned[k].num then
+                    available = available + (max_count - smart.already_spawned[k].num)
+                end
+            end
+        end
+    end
+    return available > 0, available
+end
+
+-- Predict when and where the next NPC will spawn for a T0 death respawn.
+-- Returns: { smart_name, level_name, seconds_until, is_death_level } or nil.
+function predict_next_respawn(death_level, community)
+    if not death_level or not community then return nil end
+    local target_levels = compute_death_respawn_levels(death_level, community)
+    if not target_levels then
+        -- Fallback: death level only
+        target_levels = { [death_level] = true }
+    end
+    local sb = sim_board and sim_board.get_sim_board and sim_board.get_sim_board()
+    if not sb or not sb.smarts then return nil end
+    local sim = alife()
+    if not sim then return nil end
+    local gg = game_graph()
+    if not gg then return nil end
+    local curr_time = game.get_game_time()
+    local candidates = {}
+    for id, data in pairs(sb.smarts) do
+        local smart = data.smrt
+        if smart and smart.respawn_params and smart.already_spawned then
+            -- Get smart's level
+            local gv = smart.m_game_vertex_id
+            if gv and gv < 65534 then
+                local ok, lvl_name = pcall(function()
+                    return sim:level_name(gg:vertex(gv):level_id())
+                end)
+                if ok and lvl_name and target_levels[lvl_name] then
+                    -- Check if this smart can spawn our community
+                    local can_spawn, slots = smart_can_spawn_community(smart, community)
+                    if can_spawn then
+                        -- Compute time until next respawn tick
+                        local idle = smart.respawn_idle or 43200
+                        local seconds_until = 0
+                        if smart.last_respawn_update then
+                            local elapsed = curr_time:diffSec(smart.last_respawn_update)
+                            seconds_until = idle - elapsed
+                            if seconds_until < 0 then seconds_until = 0 end
+                        end
+                        -- seconds_until == 0 means overdue or never spawned — will fire next tick
+                        candidates[#candidates + 1] = {
+                            smart_name = smart:name(),
+                            level_name = lvl_name,
+                            seconds_until = seconds_until,
+                            is_death_level = (lvl_name == death_level),
+                            slots = slots,
+                        }
+                    end
+                end
+            end
+        end
+    end
+    if #candidates == 0 then
+        printf("[ARCH] RESPAWN PREDICT: no eligible smarts for '%s' on death_level '%s'", tostring(community), tostring(death_level))
+        return nil
+    end
+    -- Sort: death level first, then shortest time
+    table.sort(candidates, function(a, b)
+        if a.is_death_level ~= b.is_death_level then
+            return a.is_death_level
+        end
+        return a.seconds_until < b.seconds_until
+    end)
+    local best = candidates[1]
+    local hours = math.floor(best.seconds_until / 3600 * 10 + 0.5) / 10
+    printf("[ARCH] RESPAWN PREDICT: best='%s' level='%s' in ~%s hours (%s slots, death_level=%s) [%s candidates]",
+        tostring(best.smart_name), tostring(best.level_name), tostring(hours),
+        tostring(best.slots), tostring(best.is_death_level), tostring(#candidates))
+    -- Log runner-up if exists
+    if #candidates > 1 then
+        local second = candidates[2]
+        local h2 = math.floor(second.seconds_until / 3600 * 10 + 0.5) / 10
+        printf("[ARCH] RESPAWN PREDICT: runner-up='%s' level='%s' in ~%s hours", tostring(second.smart_name), tostring(second.level_name), tostring(h2))
+    end
+    return best
+end
+
+-- ──────────────────────────────────────────────────
+-- Validation helpers
+-- ──────────────────────────────────────────────────
+
+function normalize_string_list(data, field_name, owner_label)
+    local value = data[field_name]
+    if value == nil then
+        data[field_name] = {}
+        return data[field_name]
+    end
+    if type(value) ~= "table" then
+        printf("[ARCH] WARNING: %s '%s' must be a table, got %s (reset to empty)",
+            owner_label or "Entry", field_name, type(value))
+        data[field_name] = {}
+        return data[field_name]
+    end
+    local normalized = {}
+    for _, item in pairs(value) do
+        if type(item) == "string" and item ~= "" then
+            normalized[#normalized + 1] = item
+        else
+            printf("[ARCH] WARNING: %s '%s' has non-string value (%s), skipped",
+                owner_label or "Entry", field_name, type(item))
+        end
+    end
+    data[field_name] = normalized
+    return data[field_name]
+end
+function validate_shared_filters(owner_label, data)
+    if not data then return 0 end
+    local warnings = 0
+    local owner = owner_label or "Entry"
+    normalize_string_list(data, "rank_include", owner)
+    normalize_string_list(data, "rank_exclude", owner)
+    normalize_string_list(data, "location_include", owner)
+    normalize_string_list(data, "location_exclude", owner)
+    normalize_string_list(data, "community_include", owner)
+    normalize_string_list(data, "community_exclude", owner)
+    normalize_string_list(data, "smart_terrain_include", owner)
+    normalize_string_list(data, "smart_terrain_exclude", owner)
+    if data.male ~= nil and type(data.male) ~= "boolean" then
+        printf("[ARCH] WARNING: %s 'male' must be boolean, got %s (ignored)", owner, type(data.male))
+        data.male = nil
+        warnings = warnings + 1
+    end
+    if data.female ~= nil and type(data.female) ~= "boolean" then
+        printf("[ARCH] WARNING: %s 'female' must be boolean, got %s (ignored)", owner, type(data.female))
+        data.female = nil
+        warnings = warnings + 1
+    end
+    if data.male == false and data.female == false then
+        printf("[ARCH] WARNING: %s blocks both genders (male=false and female=false)", owner)
+        warnings = warnings + 1
+    end
+    if data.male == true and data.female == true then
+        printf("[ARCH] WARNING: %s sets both genders to true (male=true and female=true)", owner)
+        warnings = warnings + 1
+    end
+    local function check_overlap(include_key, exclude_key, label)
+        local include_set = list_to_set(data[include_key])
+        if not include_set then return end
+        for _, value in pairs(data[exclude_key] or {}) do
+            if include_set[value] then
+                printf("[ARCH] WARNING: %s %s include/exclude overlap on '%s'", owner, label, tostring(value))
+                warnings = warnings + 1
+            end
+        end
+    end
+    check_overlap("rank_include", "rank_exclude", "rank")
+    check_overlap("location_include", "location_exclude", "location")
+    check_overlap("community_include", "community_exclude", "community")
+    check_overlap("smart_terrain_include", "smart_terrain_exclude", "smart_terrain")
+    return warnings
+end
+function validate_unknown_keys(owner_label, data, allowed_keys)
+    if not data or not allowed_keys then return 0 end
+    local warnings = 0
+    for key in pairs(data) do
+        local key_str = tostring(key)
+        if not allowed_keys[key] and not string.find(key_str, "^_") then
+            printf("[ARCH] WARNING: %s has unknown key '%s'", owner_label or "Entry", key_str)
+            warnings = warnings + 1
+        end
+    end
+    return warnings
+end
+
+-- ──────────────────────────────────────────────────
+-- Filter system
+-- ──────────────────────────────────────────────────
+
+function compile_filter_cache(filters)
+    if not filters then return nil end
+    if not filters.rank_include then filters.rank_include = {} end
+    if not filters.rank_exclude then filters.rank_exclude = {} end
+    if not filters.location_include then filters.location_include = {} end
+    if not filters.location_exclude then filters.location_exclude = {} end
+    if not filters.community_include then filters.community_include = {} end
+    if not filters.community_exclude then filters.community_exclude = {} end
+    if not filters.smart_terrain_include then filters.smart_terrain_include = {} end
+    if not filters.smart_terrain_exclude then filters.smart_terrain_exclude = {} end
+    filters._rank_include_set, filters._rank_include_count = list_to_set(filters.rank_include)
+    filters._rank_exclude_set, filters._rank_exclude_count = list_to_set(filters.rank_exclude)
+    filters._location_include_set, filters._location_include_count = list_to_set(filters.location_include)
+    filters._location_exclude_set, filters._location_exclude_count = list_to_set(filters.location_exclude)
+    filters._community_include_set, filters._community_include_count = list_to_set(filters.community_include)
+    filters._community_exclude_set, filters._community_exclude_count = list_to_set(filters.community_exclude)
+    filters._smart_terrain_include_set, filters._smart_terrain_include_count = list_to_set(filters.smart_terrain_include)
+    filters._smart_terrain_exclude_set, filters._smart_terrain_exclude_count = list_to_set(filters.smart_terrain_exclude)
+    return filters
+end
+function get_primary_filter_index(filters)
+    if not filters then return nil, nil, 0 end
+    local best_field = nil
+    local best_values = nil
+    local best_count = nil
+    local function consider(field, values, count)
+        if values and count and count > 0 then
+            if not best_count or count < best_count then
+                best_field = field
+                best_values = values
+                best_count = count
+            end
+        end
+    end
+    consider("rank", filters.rank_include, filters._rank_include_count or get_list_count(filters.rank_include))
+    consider("location", filters.location_include, filters._location_include_count or get_list_count(filters.location_include))
+    consider("community", filters.community_include, filters._community_include_count or get_list_count(filters.community_include))
+    consider("smart_terrain", filters.smart_terrain_include, filters._smart_terrain_include_count or get_list_count(filters.smart_terrain_include))
+    local gender_values = nil
+    if filters.male == false or filters.female == true then
+        gender_values = {"female"}
+    elseif filters.female == false or filters.male == true then
+        gender_values = {"male"}
+    end
+    consider("gender", gender_values, gender_values and #gender_values or 0)
+    return best_field, best_values, best_count or 0
+end
+function get_npc_gender(npc, se_obj)
+    if not se_obj and npc then
+        local sim = alife()
+        se_obj = sim and sim:object(npc:id()) or nil
+    end
+    if not se_obj then return "male" end
+    -- Check 1: section_name patterns (vanilla stalker sections with _f_ prefix)
+    local profile = se_obj:section_name()
+    if profile then
+        local lower = string.lower(profile)
+        if string.find(lower, "_f_") then return "female" end
+        if string.find(lower, "_female_") then return "female" end
+        if string.find(lower, "_woman_") then return "female" end
+        if string.sub(lower, 1, 2) == "f_" then return "female" end
+    end
+    -- Check 2: visual model (catches WOTZ/Dux female models)
+    -- Game object: npc:get_visual_name()
+    -- Server object: utils_stpk.get_stalker_data(se_obj).visual_name
+    local visual = nil
+    if npc and type(npc.get_visual_name) == "function" then
+        visual = npc:get_visual_name()
+    end
+    if not visual and utils_stpk and type(utils_stpk.get_stalker_data) == "function" then
+        local ok, data = pcall(utils_stpk.get_stalker_data, se_obj)
+        if ok and data then
+            visual = data.visual_name
+        end
+    end
+    if visual then
+        local vl = string.lower(visual)
+        -- WOTZ: actors\mnp_npc_remeik\girl*, actors\woman\woman_*
+        -- Dux: actors\stalker_*\stalker_f_*
+        if string.find(vl, "girl") then return "female" end
+        if string.find(vl, "woman") then return "female" end
+        if string.find(vl, "stalker_f_") then return "female" end
+    end
+    return "male"
+end
+function get_level_name_from_server_object(se_obj)
+    if not se_obj or not se_obj.m_game_vertex_id then
+        return nil
+    end
+    local gg = game_graph and game_graph() or nil
+    local sim = alife and alife() or nil
+    if not gg or not sim or not gg.valid_vertex_id or not gg:valid_vertex_id(se_obj.m_game_vertex_id) then
+        return nil
+    end
+    local vertex = gg:vertex(se_obj.m_game_vertex_id)
+    if not vertex then
+        return nil
+    end
+    local level_id = vertex:level_id()
+    if level_id == nil or not sim.level_name then
+        return nil
+    end
+    return sim:level_name(level_id)
+end
+function get_server_community(se_obj)
+    -- Crash was from calling on non-stalker objects. IsStalker() guards against that.
+    if not se_obj then return nil end
+    if IsStalker(nil, se_obj:clsid()) and type(se_obj.community) == "function" then
+        return se_obj:community()
+    end
+    return nil
+end
+function get_rank_name_from_server_object(se_obj)
+    if not se_obj then
+        return "unknown"
+    end
+    if ranks and type(ranks.get_obj_rank_name) == "function" then
+        local value = ranks.get_obj_rank_name(se_obj)
+        if type(value) == "string" and value ~= "" then
+            return value
+        end
+    end
+    return "unknown"
+end
+function get_filter_data(npc, se_obj)
+    if not npc and not se_obj then return nil end
+    if not se_obj and npc then
+        local sim = alife()
+        se_obj = sim and sim:object(npc:id()) or nil
+    end
+    local filter_data = {}
+    local server_location = (not npc) and get_level_name_from_server_object(se_obj) or nil
+    local server_community = (not npc) and get_server_community(se_obj) or nil
+    filter_data.rank = npc and get_rank_name(npc) or get_rank_name_from_server_object(se_obj)
+    filter_data.location = npc and level.name() or server_location or "unknown"
+    filter_data.location_known = npc and true or (server_location ~= nil and server_location ~= "")
+    filter_data.community = npc and npc:character_community() or server_community or "unknown"
+    filter_data.community_known = npc and true or (server_community ~= nil and server_community ~= "")
+    filter_data.gender = get_npc_gender(npc, se_obj)
+    -- Smart terrain: from server object m_smart_terrain_id (65535 = unassigned)
+    local smart_id = se_obj and se_obj.m_smart_terrain_id
+    if smart_id and smart_id ~= 65535 then
+        local sim = alife()
+        local smart_obj = sim and sim:object(smart_id)
+        filter_data.smart_terrain = smart_obj and smart_obj:name() or ""
+    else
+        filter_data.smart_terrain = ""
+    end
+    return filter_data
+end
+local function check_filter_dim(npc_val, filters, dim)
+    local inc     = dim .. "_include"
+    local exc     = dim .. "_exclude"
+    local inc_set = "_" .. dim .. "_include_set"
+    local exc_set = "_" .. dim .. "_exclude_set"
+    if filters[inc_set] then
+        if not filters[inc_set][npc_val] then return false end
+    elseif not is_empty(filters[inc]) then
+        if not is_in_table(filters[inc], npc_val) then return false end
+    end
+    if filters[exc_set] then
+        if filters[exc_set][npc_val] then return false end
+    elseif is_in_table(filters[exc], npc_val) then
+        return false
+    end
+    return true
+end
+function check_filters(npc, filters, filter_data)
+    if not filters then return true end
+    if not npc and not filter_data then return true end
+    local npc_rank = (filter_data and filter_data.rank) or get_rank_name(npc)
+    if not check_filter_dim(npc_rank, filters, "rank") then return false end
+    local npc_location = (filter_data and filter_data.location) or level.name()
+    -- T0 (death respawn): restrict to death level + adjacent levels.
+    -- After 48 game hours: drop all level restrictions (last resort).
+    if filters.tier == 0 and filters._death_level then
+        local t0_unrestricted = false
+        if filters._t0_death_time then
+            local elapsed = game.get_game_time():diffSec(filters._t0_death_time)
+            if elapsed > 172800 then -- 48 game hours
+                if not filters._t0_unrestricted_logged then
+                    filters._t0_unrestricted_logged = true
+                    printf("[ARCH] T0 UNRESTRICTED: '%s' waited 48h+ — accepting any level", tostring(filters._death_level))
+                end
+                t0_unrestricted = true
+            end
+        end
+        if not t0_unrestricted then
+            -- Lazy-compute respawn levels on first check
+            if not filters._death_respawn_levels then
+                local community = filters.community_include and filters.community_include[1]
+                local respawn_levels = compute_death_respawn_levels(filters._death_level, community)
+                filters._death_respawn_levels = respawn_levels or "_fallback"
+            end
+            if filters._death_respawn_levels ~= "_fallback" then
+                if not filters._death_respawn_levels[npc_location] then
+                    return false
+                end
+            else
+                -- Fallback: death level + adjacent (no faction_controlled data)
+                local death_id = LEVEL_NAME_TO_ID[filters._death_level]
+                local npc_level_id = LEVEL_NAME_TO_ID[npc_location]
+                if death_id and npc_level_id then
+                    if death_id ~= npc_level_id then
+                        local links = level_targets and level_targets.level_links and level_targets.level_links[death_id]
+                        if not (links and links[npc_level_id]) then
+                            return false
+                        end
+                    end
+                elseif npc_location ~= filters._death_level then
+                    return false
+                end
+            end
+        end
+        -- T0: skip normal location and smart_terrain checks (handled above)
+    else
+        if not check_filter_dim(npc_location, filters, "location") then return false end
+        local npc_smart = (filter_data and filter_data.smart_terrain) or ""
+        if not check_filter_dim(npc_smart, filters, "smart_terrain") then return false end
+    end
+    local npc_community = (filter_data and filter_data.community) or npc:character_community()
+    if not check_filter_dim(npc_community, filters, "community") then return false end
+    local npc_gender = (filter_data and filter_data.gender) or get_npc_gender(npc)
+    -- male=false or female=true → reject males (female-only)
+    -- female=false or male=true → reject females (male-only)
+    if filters.male   == false and npc_gender == "male"   then return false end
+    if filters.female == false and npc_gender == "female" then return false end
+    if filters.female == true  and npc_gender ~= "female" then return false end
+    if filters.male   == true  and npc_gender ~= "male"   then return false end
+    return true
+end

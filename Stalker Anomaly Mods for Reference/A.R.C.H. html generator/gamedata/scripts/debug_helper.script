@@ -1,0 +1,339 @@
+-- A.R.C.H. Debug Helper
+-- Logger bootstrap
+-- Provide arch_logger_module here so other ARCH scripts can use consistent prefixed
+if not (_G and _G.arch_logger_module and type(_G.arch_logger_module.new) == "function") then
+    local M = {}
+    local function format_message(token, token_len, fmt, ...)
+        local argc = select("#", ...)
+        local text = nil
+        if argc > 0 and type(fmt) == "string" then
+            local ok, result = pcall(string.format, fmt, ...)
+            text = ok and result or fmt
+        else
+            text = type(fmt) == "string" and fmt or tostring(fmt)
+        end
+        if string.sub(text, 1, token_len) ~= token then
+            text = token .. " " .. text
+        end
+        return text
+    end
+    local function call_logger(fn, token, token_len, fmt, ...)
+        if type(fn) ~= "function" then
+            return
+        end
+        return fn(format_message(token, token_len, fmt, ...))
+    end
+    function M.new(token)
+        local prefix = type(token) == "string" and token ~= "" and token or "ARCHLOG"
+        local prefix_len = #prefix
+        return {
+            printf = function(fmt, ...)
+                return call_logger(_G.printf, prefix, prefix_len, fmt, ...)
+            end,
+            printe = function(fmt, ...)
+                if type(_G.printe) == "function" then
+                    return call_logger(_G.printe, prefix, prefix_len, fmt, ...)
+                end
+                return call_logger(_G.printf, prefix, prefix_len, fmt, ...)
+            end
+        }
+    end
+    _G.arch_logger_module = M
+end
+
+-- ══════════════════════════════════════════════════
+-- Logger Factory
+-- ══════════════════════════════════════════════════
+
+local _log = _G.arch_logger_module and type(_G.arch_logger_module.new) == "function" and _G.arch_logger_module.new("ARCHLOG") or nil
+local printf = (_log and _log.printf) or function(fmt, ...) if not _G.printf then return end; if select("#",...) > 0 then local ok,r = pcall(string.format,fmt,...); if ok then fmt = r end end; _G.printf("ARCHLOG %s", tostring(fmt)) end
+local printe = (_log and _log.printe) or function(fmt, ...) local fn = type(_G.printe)=="function" and _G.printe or _G.printf; if not fn then return end; if select("#",...) > 0 then local ok,r = pcall(string.format,fmt,...); if ok then fmt = r end end; fn("ARCHLOG %s", tostring(fmt)) end
+-- Notification hook + logger
+local original_notify = nil
+local warned_missing_xr_meet = false
+local last_hook_check_ms = 0
+local HOOK_CHECK_INTERVAL_MS = 5000
+local LOGGER_CONFIG = {
+    show_on_interaction = true,
+    verbose_logging = false,
+    custom_script_logs = true
+}
+local function logger_emit(tag, fmt, ...)
+    local label = tostring(tag or "LOGGER")
+    if type(fmt) == "string" then
+        local ok, out = pcall(string.format, fmt, ...)
+        if ok then
+            printf("[%s] %s", label, tostring(out))
+        else
+            printf("[%s] %s", label, tostring(fmt))
+        end
+    else
+        printf("[%s] %s", label, tostring(fmt))
+    end
+end
+function set_custom_script_logs(enabled)
+    LOGGER_CONFIG.custom_script_logs = enabled == true
+    logger_emit("LOGGER", "Custom script logs %s", LOGGER_CONFIG.custom_script_logs and "ENABLED" or "DISABLED")
+end
+function custom_script_log(tag, fmt, ...)
+    if not LOGGER_CONFIG.custom_script_logs then
+        return
+    end
+    logger_emit(tag or "CUSTOM", fmt, ...)
+end
+
+-- ──────────────────────────────────────────────────
+-- Notification Hooks
+-- ──────────────────────────────────────────────────
+
+local function ensure_interaction_hook(reason)
+    if not xr_meet or type(xr_meet.notify_on_use) ~= "function" then
+        if not warned_missing_xr_meet then
+            warned_missing_xr_meet = true
+            logger_emit("LOGGER", "WARNING: xr_meet not found, notifications won't work!")
+        end
+        return false
+    end
+    warned_missing_xr_meet = false
+    if xr_meet.notify_on_use ~= notify_on_use_hook then
+        original_notify = xr_meet.notify_on_use
+        xr_meet.notify_on_use = notify_on_use_hook
+        logger_emit("LOGGER", "Interaction hook registered (%s)", tostring(reason or "unknown"))
+    elseif LOGGER_CONFIG.verbose_logging then
+        logger_emit("LOGGER", "Interaction hook already active (%s)", tostring(reason or "unknown"))
+    end
+    return true
+end
+function notify_on_use_hook(victim, who)
+    if victim and victim:alive() and who and db.actor and who:id() == db.actor:id() then
+        if LOGGER_CONFIG.show_on_interaction then
+            local arch_id = nil
+            if archetype_core and archetype_core.get_archetype_id then
+                arch_id = archetype_core.get_archetype_id(victim)
+            end
+            if arch_id then
+                local text = string.format("[ARCH] %s -> Archetype: %s", victim:name(), arch_id)
+                db.actor:give_game_news("st_tip", text, "ui_iconsTotal_grouping", 0, 5000, 0)
+            else
+                local text = string.format("[ARCH] %s -> archetype=none", victim:name())
+                db.actor:give_game_news("st_tip", text, "ui_iconsTotal_grouping", 0, 5000, 0)
+            end
+            if LOGGER_CONFIG.verbose_logging then
+                logger_emit("LOGGER", "Showed notification for %s", victim:name())
+            end
+        end
+    end
+    if original_notify then
+        original_notify(victim, who)
+    end
+end
+function enable_notifications()
+    LOGGER_CONFIG.show_on_interaction = true
+    logger_emit("LOGGER", "Notifications ENABLED")
+end
+function disable_notifications()
+    LOGGER_CONFIG.show_on_interaction = false
+    logger_emit("LOGGER", "Notifications DISABLED")
+end
+function enable_debug_mode()
+    LOGGER_CONFIG.verbose_logging = true
+    logger_emit("LOGGER", "Debug mode ENABLED")
+end
+function disable_debug_mode()
+    LOGGER_CONFIG.verbose_logging = false
+    logger_emit("LOGGER", "Debug mode DISABLED")
+end
+local logger_callbacks_registered = false
+
+-- ──────────────────────────────────────────────────
+-- Logger Callbacks
+-- ──────────────────────────────────────────────────
+
+local function on_first_update_logger()
+    ensure_interaction_hook("first_update")
+end
+local function on_update_logger()
+    local now = time_global and time_global() or 0
+    if (now < last_hook_check_ms + HOOK_CHECK_INTERVAL_MS) then
+        return
+    end
+    last_hook_check_ms = now
+    ensure_interaction_hook("heartbeat")
+end
+local function init_dynamic_news_features()
+    ensure_interaction_hook("game_start")
+    if (not logger_callbacks_registered) then
+        RegisterScriptCallback("actor_on_first_update", on_first_update_logger)
+        RegisterScriptCallback("actor_on_update", on_update_logger)
+        logger_callbacks_registered = true
+    end
+    logger_emit("LOGGER", "Logger initialized (notifications: %s, debug: %s, custom_logs: %s)",
+        tostring(LOGGER_CONFIG.show_on_interaction), tostring(LOGGER_CONFIG.verbose_logging), tostring(LOGGER_CONFIG.custom_script_logs))
+end
+-- Debug console commands
+
+-- ──────────────────────────────────────────────────
+-- Debug Console Commands
+-- ──────────────────────────────────────────────────
+
+function print_current_level()
+    local level_name = level.name()
+    printf("═══════════════════════════════════════")
+    printf("DEBUG: Current level name: %s", level_name)
+    printf("Use this exact name in location_include/exclude!")
+    printf("═══════════════════════════════════════")
+    if db.actor then
+        local text = string.format("Current level: %s", level_name)
+        db.actor:give_game_news("st_tip", text, "ui_iconsTotal_grouping", 0, 7000, 0)
+    end
+end
+function print_npc_info()
+    if not db.actor then
+        printf("ERROR: Actor not found!")
+        return
+    end
+    local obj = level.get_target_obj()
+    if not obj then
+        printf("ERROR: Not looking at any NPC!")
+        if db.actor then
+            db.actor:give_game_news("st_tip", "Look at an NPC first!", "ui_iconsTotal_grouping", 0, 5000, 0)
+        end
+        return
+    end
+    if not IsStalker(obj) then
+        printf("ERROR: Target is not a stalker!")
+        return
+    end
+    local npc_name = obj:name()
+    local npc_rank_points = obj:character_rank()
+    local npc_community = obj:character_community()
+    local npc_location = level.name()
+    local npc_rank = "unknown"
+    if arch_filters and arch_filters.get_rank_name then
+        npc_rank = arch_filters.get_rank_name(obj)
+    end
+    local npc_gender = "unknown"
+    local npc_profile = "unknown"
+    local npc_arch_id = nil
+    local sim = alife()
+    local se_obj = sim and sim:object(obj:id()) or nil
+    local st = nil
+    if se_obj then
+        st = alife_storage_manager.get_se_obj_state(se_obj)
+        npc_profile = se_obj:section_name()
+    end
+    if arch_filters and arch_filters.get_npc_gender then
+        npc_gender = arch_filters.get_npc_gender(obj)
+    end
+    if archetype_core and archetype_core.get_archetype_id then
+        npc_arch_id = archetype_core.get_archetype_id(obj)
+    end
+    printf("═══════════════════════════════════════")
+    printf("DEBUG NPC INFO:")
+    printf("  Name: %s", npc_name)
+    printf("  Profile: %s", npc_profile)
+    printf("  Gender: %s", npc_gender)
+    printf("  Rank: %s (points: %d)", npc_rank, npc_rank_points)
+    printf("  Community: %s", npc_community)
+    printf("  Location: %s", npc_location)
+    printf("  Archetype: %s", tostring(npc_arch_id or "none"))
+    if st then
+        printf("  arch_assigned: %s", tostring(st.arch_assigned))
+    end
+    printf("═══════════════════════════════════════")
+    printf("Use these exact values in your filters!")
+    local text = string.format("NPC: %s\nGender: %s\nRank: %s\nFaction: %s\nLocation: %s\nArchetype: %s",
+        npc_name, npc_gender, npc_rank, npc_community, npc_location, tostring(npc_arch_id or "none"))
+    db.actor:give_game_news("st_tip", text, "ui_iconsTotal_grouping", 0, 10000, 0)
+end
+function set_target_name(new_name)
+    if not db.actor then
+        printf("ERROR: Actor not found!")
+        return
+    end
+    if not archetype_core or not archetype_core.set_custom_name then
+        printf("ERROR: archetype_core.set_custom_name not available!")
+        return
+    end
+    if not new_name or new_name == "" then
+        printf("ERROR: Provide a non-empty name string")
+        return
+    end
+    local obj = level.get_target_obj()
+    if not obj or not IsStalker(obj) then
+        printf("ERROR: Look at a stalker NPC first!")
+        return
+    end
+    local old_name = obj:character_name()
+    archetype_core.set_custom_name(obj, tostring(new_name))
+    local final_name = obj:character_name()
+    printf("DEBUG: Renamed NPC '%s' -> '%s'", old_name, final_name)
+    db.actor:give_game_news("st_tip", string.format("Renamed: %s", final_name), "ui_iconsTotal_grouping", 0, 6000, 0)
+end
+-- Proxy functions — short console names that delegate to archetype_core
+-- validate_arch_state has custom return logging, kept as explicit function
+function validate_arch_state()
+    if not archetype_core or not archetype_core.validate_loaded_npc_states then
+        printf("ERROR: archetype_core.validate_loaded_npc_states not available!")
+        return
+    end
+    local checked, issues = archetype_core.validate_loaded_npc_states()
+    printf("[DEBUG] ARCH state validation finished: checked=%d issues=%d", checked or 0, issues or 0)
+end
+function run_startup_validation()
+    if not archetype_core or not archetype_core.run_startup_validation then
+        printf("ERROR: archetype_core.run_startup_validation not available!")
+        return
+    end
+    local warnings = archetype_core.run_startup_validation()
+    printf("[DEBUG] Startup validation finished: warnings=%d", warnings or 0)
+end
+-- Simple proxies generated via loop
+do
+    local proxies = {
+        {"set_startup_validation", "set_startup_validation"},
+        {"set_perf_profiling", "set_perf_enabled"},
+        {"print_perf_stats", "print_perf_stats"},
+        {"reset_perf_stats", "reset_perf_stats"},
+        {"print_spawn_assignment_stats", "print_spawn_assignment_stats"},
+        {"print_tier_summary", "print_tier_summary"},
+        {"reset_spawn_assignment_stats", "reset_spawn_assignment_stats"},
+        {"arch_diagnostic", "dump_diagnostic"},
+    }
+    for i = 1, #proxies do
+        local console_name = proxies[i][1]
+        local core_name = proxies[i][2]
+        _G[console_name] = function(...)
+            if not archetype_core or type(archetype_core[core_name]) ~= "function" then
+                printf("ERROR: archetype_core.%s not available!", core_name)
+                return
+            end
+            return archetype_core[core_name](...)
+        end
+    end
+end
+
+-- ──────────────────────────────────────────────────
+-- Game Start
+-- ──────────────────────────────────────────────────
+
+function on_game_start()
+    init_dynamic_news_features()
+    printf("[DEBUG_HELPER] Registered console commands:")
+    printf("  debug_helper.print_current_level() - Show current level name")
+    printf("  debug_helper.print_npc_info() - Show info about NPC you're looking at (archetype/gender)")
+    printf("  debug_helper.enable_notifications()/disable_notifications() - Interaction popup toggles")
+    printf("  debug_helper.enable_debug_mode()/disable_debug_mode() - Verbose interaction logger")
+    printf("  debug_helper.set_custom_script_logs(true/false) - Toggle custom script logs")
+    printf("  debug_helper.set_target_name(\"Name\") - Rename NPC you're looking at")
+    printf("  debug_helper.validate_arch_state() - Validate loaded NPC state references")
+    printf("  debug_helper.set_perf_profiling(true/false) - Enable/disable perf counters")
+    printf("  debug_helper.print_perf_stats() - Print perf counters")
+    printf("  debug_helper.reset_perf_stats() - Reset perf counters")
+    printf("  debug_helper.print_spawn_assignment_stats() - Print spawn assignment counters")
+    printf("  debug_helper.reset_spawn_assignment_stats() - Reset spawn assignment counters")
+    printf("  debug_helper.print_tier_summary() - Print assigned archetype count by tier")
+    printf("  debug_helper.arch_diagnostic() - Dump structured diagnostic data for Python analyzer")
+    printf("  debug_helper.run_startup_validation() - Run startup validation manually")
+    printf("  debug_helper.set_startup_validation(true/false) - Toggle validation on first update")
+end

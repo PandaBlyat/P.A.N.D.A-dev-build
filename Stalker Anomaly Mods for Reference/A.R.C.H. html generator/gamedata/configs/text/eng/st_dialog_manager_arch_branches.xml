@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='utf-8'?>
+<string_table>
+    <string id="st_arch_task_turnin_hint_prefix">
+        <text>Task ready: return to</text>
+    </string>
+    <string id="st_arch_task_turnin_hint_generic">
+        <text>Task ready: return to task giver</text>
+    </string>
+    <string id="st_arch_task_turnin_news">
+        <text>Task is ready to turn in. Check PDA marker for the giver.</text>
+    </string>
+    <string id="st_arch_task_cat_pick_prompt">
+        <text>Which item do you want to hand over?</text>
+    </string>
+</string_table>

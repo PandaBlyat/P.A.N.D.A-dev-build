@@ -1,0 +1,161 @@
+-- A.R.C.H. Bootstrap
+arch_bootstrap = arch_bootstrap or {}
+local printf = function(fmt, ...) if not _G.printf then return end; if select("#",...) > 0 then local ok,r = pcall(string.format,fmt,...); if ok then fmt = r end end; _G.printf("%s", tostring(fmt)) end
+
+-- ══════════════════════════════════════════════════
+-- Module Bootstrap
+-- ══════════════════════════════════════════════════
+
+local function bootstrap_require_arch_module(name)
+    local req = _G and _G.require or nil
+    if not req or type(name) ~= "string" or name == "" then
+        return false
+    end
+    local ok, err = pcall(req, name)
+    return ok
+end
+do
+    bootstrap_require_arch_module("archetype_core")
+    bootstrap_require_arch_module("modxml_arch_dialogs")
+    bootstrap_require_arch_module("tasks_core")
+    bootstrap_require_arch_module("custom_tasks")
+    bootstrap_require_arch_module("arch_mcm")
+end
+-- Convert any text into a safe lowercase slug:
+
+-- ──────────────────────────────────────────────────
+-- Shared Utilities
+-- ──────────────────────────────────────────────────
+
+local function sanitize_slug(value, fallback)
+    local text = string.lower(tostring(value or ""))
+    text = string.gsub(text, "[^a-z0-9]+", "_")
+    text = string.gsub(text, "^_+", "")
+    text = string.gsub(text, "_+$", "")
+    if text == "" then
+        return fallback or "entry"
+    end
+    return text
+end
+local function sanitize_identifier(value, fallback)
+    local text = sanitize_slug(value, fallback)
+    if string.match(text, "^[0-9]") then
+        text = "id_" .. text
+    end
+    return text
+end
+local function as_non_empty_string(value)
+    if type(value) ~= "string" then
+        return nil
+    end
+    if value == "" then
+        return nil
+    end
+    return value
+end
+arch_bootstrap.sanitize_slug = sanitize_slug
+arch_bootstrap.sanitize_identifier = sanitize_identifier
+arch_bootstrap.as_non_empty_string = as_non_empty_string
+local PACK_FILES = {
+    dialog_xml = {
+    },
+    text_eng = {
+    },
+    text_rus = {
+    }
+}
+local ARCHETYPE_REMAP_SOURCE = {
+}
+local COMPILED_REMAP_CACHE = nil
+
+function arch_bootstrap.invalidate_compiled_cache()
+    COMPILED_REMAP_CACHE = nil
+end
+function arch_bootstrap.get_pack_files()
+    return PACK_FILES
+end
+function arch_bootstrap.get_source_archetype_remap()
+    return ARCHETYPE_REMAP_SOURCE
+end
+function arch_bootstrap.get_compiled_task_pools()
+    if _G.custom_tasks and _G.custom_tasks.get_compiled_task_pools then
+        return _G.custom_tasks.get_compiled_task_pools()
+    end
+    return {}
+end
+function arch_bootstrap.get_compiled_archetype_remap()
+    if COMPILED_REMAP_CACHE then
+        return COMPILED_REMAP_CACHE
+    end
+    local compiled = {}
+    for source_id, target_id in pairs(ARCHETYPE_REMAP_SOURCE or {}) do
+        local old_id = sanitize_identifier(source_id, "")
+        if old_id ~= "" then
+            if target_id == false then
+                compiled[old_id] = false
+            else
+                local target_text = as_non_empty_string(target_id)
+                if target_text then
+                    compiled[old_id] = sanitize_identifier(target_text, "")
+                end
+            end
+        end
+    end
+    COMPILED_REMAP_CACHE = compiled
+    return compiled
+end
+do
+    _G.ARCH_TASK_POOLS_DATA = _G.ARCH_TASK_POOLS_DATA or {}
+    _G.ARCH_ARCHETYPE_REMAP_DATA = arch_bootstrap.get_compiled_archetype_remap()
+end
+
+-- ──────────────────────────────────────────────────
+-- Game Start
+-- ──────────────────────────────────────────────────
+
+function on_game_start()
+    if not archetype_core then
+        if printf then
+            printf("[ARCH] WARNING: arch_bootstrap.on_game_start skipped (archetype_core not loaded)")
+        end
+        return
+    end
+    local pack_files_changed = false
+    if archetype_core.register_pack_files then
+        pack_files_changed = archetype_core.register_pack_files(arch_bootstrap.get_pack_files()) == true
+    end
+    local universal_dialog_changed = false
+    if archetype_core.register_universal_dialog then
+        if archetype_core.register_universal_dialog({
+            dialog_id = "arch_task_offer_dialog",
+            dialog_priority = 2
+        }) then
+            universal_dialog_changed = true
+        end
+        -- Register hardcoded pool tag dialogs as universal — preconditions gate visibility at interaction time
+        local pool_tags = {"pool_1", "pool_2", "pool_3", "pool_4", "pool_5", "pool_6", "pool_7", "pool_8", "pool_9", "pool_10"}
+        for i = 1, #pool_tags do
+            if archetype_core.register_universal_dialog({
+                dialog_id = "arch_task_pool_" .. pool_tags[i] .. "_dialog",
+                dialog_priority = 3
+            }) then
+                universal_dialog_changed = true
+            end
+        end
+        -- Custom pool tag dialogs: registered as universal by modxml_arch_dialogs.on_game_start
+        -- AFTER DXML discovery. Cannot be done here — this script runs before discovery.
+
+        -- Delivery turnin dialog — NOT universal. Pack authors add arch_delivery_turnin_global
+        -- to dialog_ids on target NPCs that need the generic turnin. NPCs with custom
+        -- turnin dialogs (e.g. Byk, Adjutant) use their own dialog instead.
+    end
+    _G.ARCH_ARCHETYPE_REMAP_DATA = arch_bootstrap.get_compiled_archetype_remap()
+    if (pack_files_changed or universal_dialog_changed)
+    and _G.modxml_arch_dialogs
+    and _G.modxml_arch_dialogs.rebuild_dialog_runtime
+    and _G.modxml_arch_dialogs.is_runtime_rebuilt
+    and _G.modxml_arch_dialogs.is_runtime_rebuilt()
+    then
+        _G.modxml_arch_dialogs.rebuild_dialog_runtime()
+    end
+end

@@ -1,0 +1,4214 @@
+-- A.R.C.H. Task Core
+
+-- ══════════════════════════════════════════════════
+-- Logger and Constants
+-- ══════════════════════════════════════════════════
+
+local _log = _G.arch_logger_module and type(_G.arch_logger_module.new) == "function" and _G.arch_logger_module.new("ARCHLOG") or nil
+local printf = (_log and _log.printf) or function(fmt, ...) if not _G.printf then return end; if select("#",...) > 0 then local ok,r = pcall(string.format,fmt,...); if ok then fmt = r end end; _G.printf("ARCHLOG %s", tostring(fmt)) end
+local printe = (_log and _log.printe) or function(fmt, ...) local fn = type(_G.printe)=="function" and _G.printe or _G.printf; if not fn then return end; if select("#",...) > 0 then local ok,r = pcall(string.format,fmt,...); if ok then fmt = r end end; fn("ARCHLOG %s", tostring(fmt)) end
+local DEBUG_VERBOSE = false
+local function logv(fmt, ...) if DEBUG_VERBOSE then printf(fmt, ...) end end
+local tostr = tostring
+local tonum = tonumber
+local type_ = type
+local TASK_POOLS = {}
+local TASK_BY_ID = {}
+local TASK_WARNINGS = 0
+local TASK_COUNT = 0
+local TASK_POOL_COUNT = 0
+local TASKS_READY = false
+local CATEGORY_POOLS = {}
+local CATEGORIES_LOADED = false
+local CATEGORY_LTX_PATH = [[misc\arch_fetch_categories.ltx]]
+local OFFER_CACHE = {}
+local DIALOG_PINNED_OFFER = {}
+local RESULT_CACHE = {}
+local OFFER_CACHE_TTL_MS = 15000
+local CAT_PICKER_SLOTS = {}
+local CAT_PICKER_MAX = 8
+local TRACKER_SPOT_ID = "ui_pda2_quest_npc_location"
+local TRACKER_UPDATE_INTERVAL_MS = 1500
+local TRACKER_RESYNC_INTERVAL_MS = 30000
+local TRACKER_HINT_ACTIVE_PREFIX_ID = "st_arch_task_active_hint_prefix"
+local TRACKER_HINT_ACTIVE_PREFIX_FALLBACK = "Active task:"
+local TRACKER_HINT_READY_PREFIX_ID = "st_arch_task_turnin_hint_prefix"
+local TRACKER_HINT_READY_PREFIX_FALLBACK = "Task ready: return to"
+local TRACKER_HINT_GENERIC_ID = "st_arch_task_turnin_hint_generic"
+local TRACKER_HINT_GENERIC_FALLBACK = "Task ready: return to task giver"
+local TRACKER_READY_NEWS_ID = "st_arch_task_turnin_news"
+local TRACKER_READY_NEWS_FALLBACK = "Task is ready to turn in. Check PDA marker for the giver."
+local TRACKER_MARKER_ENABLED = true
+local TRACKER_READY_NEWS_ENABLED = true
+local generate_pda_task_ltx
+local tracker_next_update_ms = 0
+local tracker_next_resync_ms = 0
+local callbacks_registered = false
+local ACTIVE_TASK_IDS = {}
+local _ini_file = ini_file  -- cache engine binding at module load time (nil inside functions otherwise)
+local TASK_TYPES = {
+    fetch = true,
+    delivery = true,
+    talk = true,
+    collect = true,
+}
+local TASK_ALLOWED_KEYS = {
+    id = true,
+    arch_id = true,
+    enabled = true,
+    kind = true,
+    weight = true,
+    once_per_actor = true,
+    repeatable = true,
+    min_rank = true,
+    max_rank = true,
+    item_section = true,
+    amount = true,
+    reward_money = true,
+    reward_items = true,
+    text_prefix = true,
+    summary_text = true,
+    details_text = true,
+    accepted_text = true,
+    completed_text = true,
+    cooldown_hours = true,
+    pda_task_id = true,
+    use_pda_task = true,
+    reward_goodwill = true,
+    reward_goodwill_community = true,
+    item_category = true,
+    category_mode = true,
+    reward_multiplier = true,
+    reward_cap = true,
+    items = true,
+    reward_buy_modifier = true,
+    reward_sell_modifier = true,
+    requires_trust = true,
+    requires_time = true,
+    requires_item = true,
+    requires_task_done = true,
+    requires_task_done_by_npc = true,
+    requires_info = true,
+    requires_min_goodwill = true,
+    requires_pool_unlock = true,
+    conditions = true,
+    on_complete_info = true,
+    on_complete_task = true,
+    on_fail_info = true,
+    -- Death behavior fields
+    on_giver_death = true,
+    on_giver_death_transfer_to = true,
+    on_target_death = true,
+    on_death_task = true,
+    on_death_info = true,
+    pda_icon = true,
+    pda_priority = true,
+    -- Delivery task fields
+    deliver_item = true,
+    deliver_amount = true,
+    deliver_to_archetype = true,
+    deliver_to_community = true,
+    deliver_to_rank = true,
+    deliver_to_location = true,
+    -- Talk task fields
+    talk_to_giver = true,
+    talk_to_archetype = true,
+    -- Collect task fields
+    collect_from_archetype = true,
+    collect_from_community = true,
+    collect_from_rank = true,
+    collect_from_location = true,
+    collect_item = true,
+    collect_amount = true,
+}
+local RANK_ORDER = {
+    rookie = 1,
+    novice = 1,
+    experienced = 2,
+    veteran = 3,
+    master = 4,
+    legend = 5
+}
+local ARTY_FETCH_CONTAINERS = {
+    "lead_box",
+    "af_aam",
+    "af_aac",
+    "af_iam"
+}
+
+-- ──────────────────────────────────────────────────
+-- Helper Functions
+-- ──────────────────────────────────────────────────
+
+local function is_npc(obj)
+    if not obj or not obj.id then return false end
+    local c = obj:clsid()
+    return c and (c == clsid.script_stalker or c == clsid.script_trader or c == clsid.stalker) or false
+end
+local function resolve_dialog_npc(a, b)
+    local actor_id = db and db.actor and db.actor.id and db.actor:id() or nil
+    if a and a.id and a:id() ~= actor_id and is_npc(a) then
+        return a
+    end
+    if b and b.id and b:id() ~= actor_id and is_npc(b) then
+        return b
+    end
+    if level and level.get_target_obj then
+        local target = level.get_target_obj()
+        if target and IsStalker and IsStalker(target) then
+            return target
+        end
+    end
+    return nil
+end
+local function get_actor()
+    return db and db.actor or nil
+end
+local function get_actor_id()
+    local actor = get_actor()
+    if actor and actor.id then
+        return actor:id()
+    end
+    return 0
+end
+local function get_task_manager_instance()
+    if task_manager and task_manager.get_task_manager then
+        return task_manager.get_task_manager()
+    end
+    return nil
+end
+local function now_ms()
+    if time_global then
+        return time_global()
+    end
+    return 0
+end
+local function game_time_sec()
+    if not game or not game.get_game_time then return 0 end
+    local gt = game.get_game_time()
+    if not gt or not gt.get then return 0 end
+    local Y, M, D, h, m, s, ms = 0, 0, 0, 0, 0, 0, 0
+    Y, M, D, h, m, s, ms = gt:get(Y, M, D, h, m, s, ms)
+    return ((Y * 365 + (M - 1) * 30 + (D - 1)) * 86400) + (h * 3600) + (m * 60) + s
+end
+local function load_number(key, default_value)
+    local actor = get_actor()
+    if not actor or not load_var then return default_value end
+    local v = load_var(actor, key, default_value)
+    if v ~= nil then
+        local n = tonumber(v)
+        if n ~= nil then
+            return n
+        end
+    end
+    return default_value
+end
+local function save_number(key, value)
+    local actor = get_actor()
+    if actor and save_var then
+        save_var(actor, key, tonumber(value) or 0)
+    end
+end
+local function load_string(key, default_value)
+    local actor = get_actor()
+    if not actor or not load_var then
+        return default_value
+    end
+    local v = load_var(actor, key, default_value)
+    if v == nil then
+        return default_value
+    end
+    return tostring(v)
+end
+local function save_string(key, value)
+    local actor = get_actor()
+    if actor and save_var then
+        save_var(actor, key, value and tostring(value) or "")
+    end
+end
+local function load_bool(key)
+    return load_number(key, 0) ~= 0
+end
+local function save_bool(key, value)
+    save_number(key, value and 1 or 0)
+end
+local function translate(string_id)
+    if (not string_id) or (not game) or (not game.translate_string) then
+        return nil
+    end
+    local text = game.translate_string(string_id)
+    if (text and text ~= "" and text ~= string_id) then
+        return text
+    end
+    return nil
+end
+local function tr(primary, fallback)
+    local text = translate(primary)
+    if text then return text end
+    text = translate(fallback)
+    if text then return text end
+    return fallback or primary or ""
+end
+local function rank_value(rank_name)
+    if not rank_name then return nil end
+    return RANK_ORDER[string.lower(tostring(rank_name))]
+end
+local function actor_passes_rank(task)
+    local actor = get_actor()
+    if not actor then return true end
+    local rank_name = "unknown"
+    if arch_filters and arch_filters.get_rank_name then
+        rank_name = arch_filters.get_rank_name(actor)
+    elseif ranks and ranks.get_obj_rank_name then
+        rank_name = ranks.get_obj_rank_name(actor)
+    end
+    local rv = rank_value(rank_name)
+    if not rv then return true end
+    local min_r = rank_value(task.min_rank)
+    local max_r = rank_value(task.max_rank)
+    if min_r and rv < min_r then return false end
+    if max_r and rv > max_r then return false end
+    return true
+end
+local function resolve_arch_id(npc)
+    if not npc then return nil end
+    if archetype_core then
+        if archetype_core.get_archetype_id then
+            return archetype_core.get_archetype_id(npc)
+        end
+    end
+    return nil
+end
+-- Task state
+
+-- ──────────────────────────────────────────────────
+-- Task State Persistence
+-- ──────────────────────────────────────────────────
+
+local function task_key(prefix, task_id)
+    return "arch_task_" .. tostring(prefix) .. "_" .. tostring(get_actor_id()) .. "_" .. tostring(task_id)
+end
+local function arch_key(prefix, arch_id)
+    return "arch_task_" .. tostring(prefix) .. "_" .. tostring(get_actor_id()) .. "_" .. tostring(arch_id)
+end
+local function npc_key(prefix, npc_id)
+    return "arch_task_" .. tostring(prefix) .. "_" .. tostring(get_actor_id()) .. "_npc_" .. tostring(npc_id)
+end
+local function get_active_task_id_for_npc(npc_id)
+    if not npc_id or npc_id <= 0 then return nil end
+    local value = load_string(npc_key("active_id", npc_id), "")
+    if value == nil or value == "" then
+        return nil
+    end
+    value = tostring(value)
+    if TASK_BY_ID[value] then
+        return value
+    end
+    return nil
+end
+local function set_active_task_id_for_npc(npc_id, task_id)
+    if not npc_id or npc_id <= 0 then return end
+    if task_id then
+        save_string(npc_key("active_id", npc_id), tostring(task_id))
+    else
+        save_string(npc_key("active_id", npc_id), "")
+    end
+end
+local function get_active_task_id(arch_id)
+    local value = load_string(arch_key("active_id", arch_id), "")
+    if value == nil or value == "" then
+        return nil
+    end
+    value = tostring(value)
+    if TASK_BY_ID[value] then
+        return value
+    end
+    return nil
+end
+local function set_active_task_id(arch_id, task_id)
+    if task_id then
+        save_string(arch_key("active_id", arch_id), tostring(task_id))
+    else
+        save_string(arch_key("active_id", arch_id), "")
+    end
+end
+local function is_task_done(task_id)
+    return load_bool(task_key("done", task_id))
+end
+local function set_task_done(task_id, value)
+    save_bool(task_key("done", task_id), value)
+end
+local function is_task_done_for_npc(task_id, npc_id)
+    if not npc_id or npc_id <= 0 then return is_task_done(task_id) end
+    return load_bool(npc_key("done_" .. tostring(task_id), npc_id))
+end
+local function set_task_done_for_npc(task_id, npc_id, value)
+    if not npc_id or npc_id <= 0 then return end
+    save_bool(npc_key("done_" .. tostring(task_id), npc_id), value)
+end
+local function is_task_active(task_id)
+    return load_bool(task_key("active", task_id))
+end
+local function set_task_active(task_id, value)
+    save_bool(task_key("active", task_id), value)
+end
+local function set_task_active_index(task_id, value)
+    if not task_id then
+        return
+    end
+    if value then
+        ACTIVE_TASK_IDS[task_id] = true
+    else
+        ACTIVE_TASK_IDS[task_id] = nil
+    end
+end
+local function rebuild_active_task_index()
+    ACTIVE_TASK_IDS = {}
+    for task_id in pairs(TASK_BY_ID) do
+        if is_task_active(task_id) then
+            ACTIVE_TASK_IDS[task_id] = true
+        end
+    end
+end
+local function task_cd_until(task_id, npc_id)
+    if npc_id then
+        return load_number(task_key("cd", task_id .. "_" .. tostring(npc_id)), 0)
+    end
+    return load_number(task_key("cd", task_id), 0)
+end
+local function set_task_cd(task_id, until_ms, npc_id)
+    if npc_id then
+        save_number(task_key("cd", task_id .. "_" .. tostring(npc_id)), until_ms or 0)
+    else
+        save_number(task_key("cd", task_id), until_ms or 0)
+    end
+end
+local function get_last_offer_task_id(arch_id)
+    local value = load_string(arch_key("last_offer", arch_id), "")
+    if value == nil or value == "" then
+        return nil
+    end
+    return tostring(value)
+end
+local function set_last_offer_task_id(arch_id, task_id)
+    save_string(arch_key("last_offer", arch_id), task_id and tostring(task_id) or "")
+end
+local function get_task_giver_id(task_id)
+    return load_number(task_key("giver", task_id), 0)
+end
+local function set_task_giver_id(task_id, giver_id)
+    save_number(task_key("giver", task_id), tonumber(giver_id) or 0)
+end
+local function get_task_giver_community(task_id)
+    return load_string(task_key("giver_comm", task_id), nil)
+end
+local function set_task_giver_community(task_id, community)
+    save_string(task_key("giver_comm", task_id), community or "")
+end
+local function was_turnin_ready(task_id)
+    return load_bool(task_key("turnin_ready", task_id))
+end
+local function set_turnin_ready(task_id, value)
+    save_bool(task_key("turnin_ready", task_id), value == true)
+end
+local function is_turnin_marker_owned(task_id)
+    return load_bool(task_key("turnin_marker_owned", task_id))
+end
+local function set_turnin_marker_owned(task_id, value)
+    save_bool(task_key("turnin_marker_owned", task_id), value == true)
+end
+local function get_pda_task_id(task)
+    if not task then return nil end
+    if task.kind ~= "fetch" and task.kind ~= "delivery" and task.kind ~= "talk" and task.kind ~= "collect" then return nil end
+    if task.use_pda_task == false then
+        return nil
+    end
+    return task.pda_task_id or task.id
+end
+local function get_pda_task_stage(task)
+    local pda_task_id = get_pda_task_id(task)
+    local tm = get_task_manager_instance()
+    local tsk = tm and tm.task_info and pda_task_id and tm.task_info[pda_task_id] or nil
+    return tsk and tonumber(tsk.stage) or 0
+end
+local function pda_task_section_exists(task_id)
+    if not task_id then return false end
+    if not (task_manager and task_manager.task_ini and task_manager.task_ini.section_exist) then
+        return true
+    end
+    return task_manager.task_ini:section_exist(task_id)
+end
+local function inject_pda_task_section(pda_task_id, task)
+    if not task_manager or not task_manager.task_ini then return false end
+    local ti = task_manager.task_ini
+    if not ti.set_readonly or not ti.w_string then
+        printf("[TASK] task_ini lacks write methods; PDA section '%s' needs restart", tostr(pda_task_id))
+        return false
+    end
+    local ok_ro, err_ro = pcall(ti.set_readonly, ti, false)
+    if not ok_ro then
+        printf("[TASK] set_readonly failed: %s", tostr(err_ro))
+        return false
+    end
+    local icon = task and task.pda_icon or "ui_inGame2_Pripasi"
+    local prior = tostring(task and task.pda_priority or 25)
+    pcall(ti.w_string, ti, pda_task_id, "icon", icon)
+    pcall(ti.w_string, ti, pda_task_id, "storyline", "false")
+    pcall(ti.w_string, ti, pda_task_id, "prior", prior)
+    pcall(ti.w_string, ti, pda_task_id, "title", "st_arch_pda_task_title")
+    pcall(ti.w_string, ti, pda_task_id, "title_functor", "arch_fetch_task")
+    pcall(ti.w_string, ti, pda_task_id, "descr", "st_arch_pda_task_descr")
+    pcall(ti.w_string, ti, pda_task_id, "descr_functor", "arch_fetch_task")
+    pcall(ti.w_string, ti, pda_task_id, "target_functor", "arch_fetch_task")
+    pcall(ti.w_string, ti, pda_task_id, "status_functor", "arch_fetch_task_status")
+    pcall(ti.w_string, ti, pda_task_id, "dont_send_update_news", "true")
+    pcall(ti.w_string, ti, pda_task_id, "stage_complete", "1")
+    pcall(ti.set_readonly, ti, true)
+    if ti:section_exist(pda_task_id) then
+        printf("[TASK] Injected PDA section '%s' at runtime", tostr(pda_task_id))
+        return true
+    end
+    printf("[TASK] Runtime injection of '%s' failed; needs restart", tostr(pda_task_id))
+    return false
+end
+local function ensure_pda_task_started(task, npc)
+    local pda_task_id = get_pda_task_id(task)
+    if not pda_task_id then
+        return true
+    end
+    if not pda_task_section_exists(pda_task_id) then
+        logv("[TASK] PDA section '%s' not found (available after restart)", tostr(pda_task_id))
+        return true
+    end
+    local tm = get_task_manager_instance()
+    if not tm then
+        printf("[TASK] task_manager unavailable; skipping PDA task '%s'", tostr(pda_task_id))
+        return true
+    end
+    if not (tm.task_info and tm.task_info[pda_task_id]) then
+        local npc_id = npc and npc.id and npc:id() or nil
+        logv("[TASK] PDA give_task attempt: task=%s npc_id=%s", tostr(pda_task_id), tostr(npc_id))
+        local ok, err = pcall(tm.give_task, tm, pda_task_id, npc_id)
+        if ok then
+            logv("[TASK] PDA task started: %s", tostr(pda_task_id))
+        else
+            printf("[TASK] PDA give_task failed: %s err=%s", tostr(pda_task_id), tostr(err))
+        end
+    else
+        logv("[TASK] PDA task already active: %s (skipping give_task)", tostr(pda_task_id))
+    end
+    local actor = get_actor()
+    if actor and actor.get_task and actor.set_active_task then
+        local ok, eng_task = pcall(actor.get_task, actor, tostr(pda_task_id), true)
+        if ok and eng_task then
+            pcall(actor.set_active_task, actor, eng_task)
+        end
+    end
+    return true
+end
+-- Item checking
+
+-- ──────────────────────────────────────────────────
+-- Item Checking
+-- ──────────────────────────────────────────────────
+
+local function actor_item_count(section)
+    local actor = get_actor()
+    if not actor or not section or section == "" then
+        return 0
+    end
+    if utils_item and utils_item.get_amount then
+        return tonumber(utils_item.get_amount(actor, section, 0)) or 0
+    end
+    local count = 0
+    if actor.inventory_for_each then
+        actor:inventory_for_each(function(itm)
+            if itm and itm.section and itm:section() == section then
+                count = count + 1
+            end
+            return false
+        end)
+    elseif actor.iterate_inventory then
+        actor:iterate_inventory(function(_, itm)
+            if itm and itm.section and itm:section() == section then
+                count = count + 1
+            end
+            return false
+        end, nil)
+    elseif actor.object and actor:object(section) then
+        count = 1
+    end
+    return count
+end
+local function actor_artifact_container_count(section)
+    local actor = get_actor()
+    if not actor or not section then
+        return 0
+    end
+    local expected = {}
+    for i = 1, #ARTY_FETCH_CONTAINERS do
+        expected[section .. "_" .. ARTY_FETCH_CONTAINERS[i]] = true
+    end
+    local count = 0
+    if actor.inventory_for_each then
+        actor:inventory_for_each(function(itm)
+            if itm and itm.section and expected[itm:section()] then
+                count = count + 1
+            end
+            return false
+        end)
+    elseif actor.iterate_inventory then
+        actor:iterate_inventory(function(_, itm)
+            if itm and itm.section and expected[itm:section()] then
+                count = count + 1
+            end
+            return false
+        end, nil)
+    else
+        for i = 1, #ARTY_FETCH_CONTAINERS do
+            if actor.object and actor:object(section .. "_" .. ARTY_FETCH_CONTAINERS[i]) then
+                count = count + 1
+            end
+        end
+    end
+    return count
+end
+-- Category pool system
+
+-- ──────────────────────────────────────────────────
+-- Category Pool System
+-- ──────────────────────────────────────────────────
+
+local function split_csv_trimmed(text)
+    if not text or text == "" then return {} end
+    local result = {}
+    for token in string.gmatch(tostr(text), "[^,]+") do
+        local trimmed = string.match(token, "^%s*(.-)%s*$")
+        if trimmed and trimmed ~= "" then
+            result[#result + 1] = trimmed
+        end
+    end
+    return result
+end
+local function get_item_base_cost(section)
+    if not section or section == "" then return 0 end
+    if not ini_sys or not ini_sys.section_exist or not ini_sys:section_exist(section) then return 0 end
+    if not ini_sys.r_float_ex then return 0 end
+    return ini_sys:r_float_ex(section, "cost") or 0
+end
+local CATEGORY_INDEX_SECTION = "arch_fetch_category_index"
+local function load_single_category(ini, section)
+    if not ini:section_exist(section) then
+        printf("[TASK] WARNING: Category section '%s' not found in LTX", section)
+        return false
+    end
+    if not ini:line_exist(section, "items") then
+        printf("[TASK] WARNING: Category '%s' has no items field", section)
+        return false
+    end
+    local items_raw = ini:r_string(section, "items")
+    if not items_raw or items_raw == "" then
+        printf("[TASK] WARNING: Category '%s' has empty items field", section)
+        return false
+    end
+    local item_list = split_csv_trimmed(items_raw)
+    local min_condition = 0
+    local max_cost = 0
+    local min_cost = 0
+    local exclude_set = {}
+    if ini:line_exist(section, "min_condition") then
+        min_condition = tonum(ini:r_string(section, "min_condition")) or 0
+    end
+    if ini:line_exist(section, "max_cost") then
+        max_cost = tonum(ini:r_string(section, "max_cost")) or 0
+    end
+    if ini:line_exist(section, "min_cost") then
+        min_cost = tonum(ini:r_string(section, "min_cost")) or 0
+    end
+    if ini:line_exist(section, "exclude") then
+        local excl = split_csv_trimmed(ini:r_string(section, "exclude"))
+        for ei = 1, #excl do
+            exclude_set[excl[ei]] = true
+        end
+    end
+    local valid_items = {}
+    for ii = 1, #item_list do
+        local item = item_list[ii]
+        if not exclude_set[item] then
+            local cost = get_item_base_cost(item)
+            local pass = true
+            if max_cost > 0 and cost > max_cost then pass = false end
+            if min_cost > 0 and cost < min_cost then pass = false end
+            if pass then
+                valid_items[#valid_items + 1] = item
+            else
+                printf("[TASK] Category '%s': pruned '%s' (cost=%s, min=%s, max=%s)",
+                    section, item, cost, min_cost, max_cost)
+            end
+        else
+            printf("[TASK] Category '%s': excluded '%s'", section, item)
+        end
+    end
+    if #valid_items == 0 then
+        printf("[TASK] WARNING: Category '%s' has no valid items after filtering", section)
+        return false
+    end
+    CATEGORY_POOLS[section] = {
+        items = valid_items,
+        min_condition = min_condition,
+        max_cost = max_cost,
+        min_cost = min_cost,
+        exclude = exclude_set
+    }
+    return true
+end
+local function load_category_pools()
+    if CATEGORIES_LOADED then return end
+    CATEGORIES_LOADED = true
+    if not ini_file then
+        printf("[TASK] WARNING: ini_file unavailable, cannot load category pools")
+        return
+    end
+    local ini = ini_file(CATEGORY_LTX_PATH)
+    if not ini then
+        printf("[TASK] WARNING: Category config not found: %s", CATEGORY_LTX_PATH)
+        return
+    end
+    if not ini.section_exist or not ini:section_exist(CATEGORY_INDEX_SECTION) then
+        printf("[TASK] WARNING: Category index section '%s' not found", CATEGORY_INDEX_SECTION)
+        return
+    end
+    local line_count = ini:line_count(CATEGORY_INDEX_SECTION) or 0
+    local loaded = 0
+    for li = 0, line_count - 1 do
+        local _, category_name, _ = ini:r_line(CATEGORY_INDEX_SECTION, li, "", "")
+        if category_name and category_name ~= "" then
+            if load_single_category(ini, category_name) then
+                loaded = loaded + 1
+            end
+        end
+    end
+    printf("[TASK] Loaded %s category pools from %s", loaded, CATEGORY_LTX_PATH)
+end
+local function get_category_pool(category_name)
+    load_category_pools()
+    return CATEGORY_POOLS[category_name] or nil
+end
+local function resolve_category_item(category_name)
+    local pool = get_category_pool(category_name)
+    if not pool or #pool.items == 0 then return nil end
+    local idx = math.random(1, #pool.items)
+    return pool.items[idx]
+end
+local function get_resolved_item_section(task_id)
+    return load_string(task_key("resolved_item", task_id), nil)
+end
+local function set_resolved_item_section(task_id, section)
+    save_string(task_key("resolved_item", task_id), section or "")
+end
+local function get_effective_item_section(task)
+    if task.item_category and task.item_category ~= "" then
+        local resolved = get_resolved_item_section(task.id)
+        if resolved and resolved ~= "" then
+            return resolved
+        end
+        for _, cached in pairs(OFFER_CACHE) do
+            if cached and cached.task_id == task.id and cached.resolved_item and cached.resolved_item ~= "" then
+                return cached.resolved_item
+            end
+        end
+        return nil
+    end
+    return task.item_section
+end
+local function check_single_item_requirement(section, required)
+    if not section or section == "" then return false end
+    local count = actor_item_count(section)
+    if string.sub(section, 1, 3) == "af_" then
+        count = count + actor_artifact_container_count(section)
+    end
+    return count >= required
+end
+local function has_required_fetch_items(task)
+    if not task or task.kind ~= "fetch" then
+        return false
+    end
+    if get_pda_task_stage(task) >= 1 then
+        return true
+    end
+    if type_(task.items) == "table" and #task.items > 0 then
+        for i = 1, #task.items do
+            local entry = task.items[i]
+            local required = tonum(entry.amount) or 1
+            if not check_single_item_requirement(entry.section, required) then
+                return false
+            end
+        end
+        return true
+    end
+    local cm = task.category_mode
+    if task.item_category and task.item_category ~= ""
+       and (cm == "player_choice" or cm == "player_choice_strict") then
+        if get_pda_task_stage(task) >= 1 then return true end
+        local pool = get_category_pool(task.item_category)
+        if not pool or #pool.items == 0 then return false end
+        local required = tonumber(task.amount) or 1
+        if cm == "player_choice_strict" then
+            for _, section in ipairs(pool.items) do
+                local count = actor_item_count(section)
+                if string.sub(section, 1, 3) == "af_" then
+                    count = count + actor_artifact_container_count(section)
+                end
+                if count >= required then return true end
+            end
+            return false
+        end
+        local total = 0
+        for _, section in ipairs(pool.items) do
+            total = total + actor_item_count(section)
+            if string.sub(section, 1, 3) == "af_" then
+                total = total + actor_artifact_container_count(section)
+            end
+            if total >= required then return true end
+        end
+        return false
+    end
+    local required = tonumber(task.amount) or 1
+    if required <= 0 then required = 1 end
+    local section = get_effective_item_section(task)
+    return check_single_item_requirement(section, required)
+end
+local function complete_pda_task(task)
+    local pda_task_id = get_pda_task_id(task)
+    if not pda_task_id then
+        return true
+    end
+    local tm = get_task_manager_instance()
+    if tm and tm.set_task_completed then
+        local ok, err = pcall(tm.set_task_completed, tm, pda_task_id)
+        if ok then
+            logv("[TASK] PDA task completed: %s", tostr(pda_task_id))
+        else
+            printf("[TASK] PDA set_task_completed failed: %s err=%s", tostr(pda_task_id), tostr(err))
+        end
+    else
+        printf("[TASK] task_manager unavailable; PDA task '%s' not completed (non-blocking)", tostr(pda_task_id))
+    end
+    return true
+end
+
+-- ──────────────────────────────────────────────────
+-- Delivery Task System
+-- ──────────────────────────────────────────────────
+local give_item_reward  -- forward declaration (defined in Reward section below)
+
+-- Persistent delivery state: { [task_id] = { target_id, item_section, item_amount } }
+local DELIVERY_STATE = {}
+
+local function save_delivery_state(task_id, target_id, item_section, item_amount)
+    DELIVERY_STATE[task_id] = { target_id = target_id, item_section = item_section, item_amount = item_amount }
+    local actor = get_actor()
+    if actor and save_var then
+        save_var(actor, "arch_dlv_tgt_" .. task_id, tostring(target_id or 0))
+        save_var(actor, "arch_dlv_itm_" .. task_id, tostring(item_section or ""))
+        save_var(actor, "arch_dlv_amt_" .. task_id, tostring(item_amount or 0))
+    end
+end
+local function mark_collect_picked_up(task_id)
+    local state = DELIVERY_STATE[task_id]
+    if state then state.picked_up = true end
+    local actor = get_actor()
+    if actor and save_var then
+        save_var(actor, "arch_dlv_pck_" .. task_id, "1")
+    end
+end
+local function load_delivery_state(task_id)
+    if DELIVERY_STATE[task_id] then return DELIVERY_STATE[task_id] end
+    local actor = get_actor()
+    if not actor or not load_var then return nil end
+    local target_str = load_var(actor, "arch_dlv_tgt_" .. task_id, nil)
+    if not target_str or target_str == "" then return nil end
+    local state = {
+        target_id = tonumber(target_str) or 0,
+        item_section = load_var(actor, "arch_dlv_itm_" .. task_id, "") or "",
+        item_amount = tonumber(load_var(actor, "arch_dlv_amt_" .. task_id, "0")) or 0,
+        picked_up = load_var(actor, "arch_dlv_pck_" .. task_id, nil) == "1",
+    }
+    DELIVERY_STATE[task_id] = state
+    return state
+end
+local function clear_delivery_state(task_id)
+    DELIVERY_STATE[task_id] = nil
+    local actor = get_actor()
+    if actor and save_var then
+        save_var(actor, "arch_dlv_tgt_" .. task_id, "")
+        save_var(actor, "arch_dlv_itm_" .. task_id, "")
+        save_var(actor, "arch_dlv_amt_" .. task_id, "")
+        save_var(actor, "arch_dlv_pck_" .. task_id, "")
+    end
+end
+
+local function se_obj_matches_delivery_filters(se_obj, task)
+    -- Check if a server entity matches ALL target filters (delivery or talk)
+    local target_arch = task.deliver_to_archetype or task.talk_to_archetype
+    local target_comm = task.deliver_to_community or task.talk_to_community
+    local target_rank = task.deliver_to_rank or task.talk_to_rank
+    local target_loc = task.deliver_to_location or task.talk_to_location
+    if target_arch and target_arch ~= "" then
+        local arch_core = archetype_core or (_G and _G.archetype_core)
+        local npc_arch = nil
+        if arch_core then
+            -- Try online object first
+            local obj = db and db.storage and db.storage[se_obj.id] and db.storage[se_obj.id].object
+            if obj then
+                npc_arch = arch_core.get_archetype_id(obj)
+            else
+                -- Offline: check character_archetypes registry
+                local se_section = se_obj.section_name and se_obj:section_name() or nil
+                if se_section and arch_core.get_npc_archetype_by_id then
+                    npc_arch = arch_core.get_npc_archetype_by_id(se_section)
+                end
+            end
+        end
+        if npc_arch ~= target_arch then return false end
+    end
+    if target_comm and target_comm ~= "" then
+        local comm = alife_character_community(se_obj)
+        if not comm or comm ~= target_comm then return false end
+    end
+    if target_rank and target_rank ~= "" then
+        local rank_val = se_obj.rank and se_obj:rank() or nil
+        local rank_name = nil
+        if rank_val and game_relations and game_relations.get_rank_name then
+            rank_name = game_relations.get_rank_name(rank_val)
+        end
+        if not rank_name or rank_name ~= target_rank then return false end
+    end
+    if target_loc and target_loc ~= "" then
+        local gg = game_graph()
+        local gvid = se_obj.m_game_vertex_id
+        local obj_level = nil
+        if gg and gvid and gg:valid_vertex_id(gvid) then
+            obj_level = alife():level_name(gg:vertex(gvid):level_id())
+        end
+        if not obj_level or obj_level ~= target_loc then return false end
+    end
+    return true
+end
+
+local function resolve_delivery_target(task)
+    -- Fast path: if deliver_to_archetype is set, use direct archetype lookup (no 65k scan)
+    local target_arch = task.deliver_to_archetype or task.talk_to_archetype
+    if target_arch and target_arch ~= "" then
+        local arch_core = archetype_core or (_G and _G.archetype_core)
+        if arch_core and arch_core.find_npc_id_by_archetype then
+            local target_id = arch_core.find_npc_id_by_archetype(target_arch)
+            if target_id then
+                logv("[TASK] Target resolved via archetype '%s': NPC %s for task '%s'",
+                    target_arch, target_id, tostr(task.id))
+                return target_id
+            end
+            logv("[TASK] Target resolution: no NPC with archetype '%s' for task '%s'",
+                target_arch, tostr(task.id))
+            return nil
+        end
+    end
+
+    -- Slow path: 65k alife scan for community/rank/location filters
+    local candidates = {}
+    local sim = alife()
+    if not sim then return nil end
+    local actor = get_actor()
+    local actor_id = actor and actor:id() or 0
+
+    for i = 1, 65534 do
+        local se_obj = sim:object(i)
+        if se_obj and se_obj.id ~= actor_id and IsStalker(nil, se_obj:clsid()) and se_obj:alive() then
+            if se_obj_matches_delivery_filters(se_obj, task) then
+                candidates[#candidates + 1] = se_obj.id
+            end
+        end
+    end
+    if #candidates == 0 then
+        logv("[TASK] Delivery target resolution found 0 candidates for task '%s'", tostr(task.id))
+        return nil
+    end
+    local idx = math.random(1, #candidates)
+    logv("[TASK] Delivery target resolved: NPC %s (from %s candidates) for task '%s'",
+        candidates[idx], #candidates, tostr(task.id))
+    return candidates[idx]
+end
+
+local function accept_delivery_task(task, npc)
+    local section = task.deliver_item
+    local amount = tonum(task.deliver_amount) or 1
+    if not section or section == "" then
+        logv("[TASK] Delivery task '%s' has no deliver_item", tostr(task.id))
+        return false
+    end
+    -- Spawn delivery items on player (basic=true: spawn individual objects, not multiuse)
+    local granted = give_item_reward(section, amount, true)
+    if granted < amount then
+        printf("[TASK] WARNING: delivery '%s' spawned %s/%s of '%s'", tostr(task.id), granted, amount, section)
+    else
+        logv("[TASK] Delivery '%s': spawned %s x '%s' on player", tostr(task.id), granted, section)
+    end
+    -- Resolve target NPC
+    local target_id = resolve_delivery_target(task)
+    save_delivery_state(task.id, target_id, section, amount)
+    return true
+end
+
+local function accept_talk_task(task, npc)
+    -- Resolve target NPC — no items, no 65k scan
+    local target_id = nil
+    if task.talk_to_giver then
+        -- Report back to the giver NPC
+        local giver_id = npc and npc.id and (type(npc.id) == "function" and npc:id() or npc.id) or 0
+        if giver_id > 0 then
+            target_id = giver_id
+        end
+    elseif task.talk_to_archetype and task.talk_to_archetype ~= "" then
+        -- Find NPC by archetype via assigned_npc_ids (fast, no 65k scan)
+        local arch_core = archetype_core or (_G and _G.archetype_core)
+        if arch_core and arch_core.find_npc_id_by_archetype then
+            target_id = arch_core.find_npc_id_by_archetype(task.talk_to_archetype)
+        end
+    end
+    save_delivery_state(task.id, target_id, "", 0)
+    if target_id then
+        logv("[TASK] Talk task '%s': target NPC %s resolved", tostr(task.id), target_id)
+    else
+        logv("[TASK] Talk task '%s': no target resolved", tostr(task.id))
+    end
+    return true
+end
+
+local function accept_collect_task(task, npc)
+    -- Resolve source NPC — the person we're collecting FROM
+    -- Uses same filter stack as delivery: archetype (fast) or community/rank/location (scan)
+    local source_id = nil
+    if task.collect_from_archetype and task.collect_from_archetype ~= "" then
+        local arch_core = archetype_core or (_G and _G.archetype_core)
+        if arch_core and arch_core.find_npc_id_by_archetype then
+            source_id = arch_core.find_npc_id_by_archetype(task.collect_from_archetype)
+        end
+    elseif (task.collect_from_community and task.collect_from_community ~= "")
+        or (task.collect_from_rank and task.collect_from_rank ~= "")
+        or (task.collect_from_location and task.collect_from_location ~= "") then
+        -- Build a temporary filter table matching delivery format for se_obj_matches_delivery_filters
+        local filter = {
+            deliver_to_archetype = nil,
+            deliver_to_community = task.collect_from_community,
+            deliver_to_rank = task.collect_from_rank,
+            deliver_to_location = task.collect_from_location,
+        }
+        local sim = alife()
+        if sim then
+            local giver_id = npc and npc.id and (type_(npc.id) == "function" and npc:id() or npc.id) or 0
+            for i = 1, 65534 do
+                local se_obj = sim:object(i)
+                if se_obj and se_obj.id ~= giver_id and IsStalker(nil, se_obj:clsid()) and se_obj:alive() then
+                    if se_obj_matches_delivery_filters(se_obj, filter) then
+                        source_id = se_obj.id
+                        break
+                    end
+                end
+            end
+        end
+    end
+    -- Store source as "target" in delivery state — reuse same infrastructure
+    -- Item info stored but NOT spawned yet (spawned on pickup at source NPC)
+    -- source_id may be nil if archetype NPC hasn't spawned yet — target_functor
+    -- resolves dynamically via get_delivery_target_id → find_npc_id_by_archetype
+    local section = task.collect_item or ""
+    local amount = tonum(task.collect_amount) or 1
+    save_delivery_state(task.id, source_id, section, amount)
+    if source_id then
+        logv("[TASK] Collect task '%s': source NPC %s resolved, item '%s' x%s",
+            tostr(task.id), source_id, section, amount)
+    else
+        logv("[TASK] Collect task '%s': no source NPC yet (archetype '%s') — marker will update when assigned, item '%s' x%s",
+            tostr(task.id), tostr(task.collect_from_archetype), section, amount)
+    end
+    return true
+end
+
+local function has_delivery_items(task)
+    local state = load_delivery_state(task.id)
+    if not state then return false end
+    local section = state.item_section
+    local amount = state.item_amount
+    if not section or section == "" or amount <= 0 then return false end
+    return check_single_item_requirement(section, amount)
+end
+
+local function npc_matches_delivery_filters(task, npc)
+    -- Check if NPC matches the task's target filters (delivery, talk, or collect).
+    -- Any matching NPC can receive the interaction — not locked to one specific NPC ID.
+    if not npc then return false end
+    local target_arch = task.deliver_to_archetype or task.talk_to_archetype or task.collect_from_archetype
+    local target_comm = task.deliver_to_community or task.talk_to_community or task.collect_from_community
+    local target_rank = task.deliver_to_rank or task.talk_to_rank or task.collect_from_rank
+    local target_loc = task.deliver_to_location or task.talk_to_location or task.collect_from_location
+    if target_arch and target_arch ~= "" then
+        local npc_arch = archetype_core and archetype_core.get_archetype_id(npc) or nil
+        if npc_arch ~= target_arch then return false end
+    end
+    if target_comm and target_comm ~= "" then
+        local comm = nil
+        if npc.character_community then
+            local ok, c = pcall(npc.character_community, npc)
+            if ok then comm = c end
+        end
+        if not comm or comm ~= target_comm then return false end
+    end
+    if target_rank and target_rank ~= "" then
+        local rank = nil
+        if npc.character_rank then
+            local ok, r = pcall(npc.character_rank, npc)
+            if ok and r then
+                rank = game_relations and game_relations.get_rank_name and game_relations.get_rank_name(r) or nil
+            end
+        end
+        if not rank or rank ~= target_rank then return false end
+    end
+    if target_loc and target_loc ~= "" then
+        local obj_level = level and level.name and level.name() or nil
+        if not obj_level or obj_level ~= target_loc then return false end
+    end
+    return true
+end
+local function get_npc_archetype_id(npc)
+    local arch_core = archetype_core or (_G and _G.archetype_core)
+    if not arch_core or not arch_core.get_archetype_id then return nil end
+    if not npc then return nil end
+    return arch_core.get_archetype_id(npc)
+end
+
+local function get_task_target_archetype(task)
+    return task.talk_to_archetype or task.deliver_to_archetype or task.collect_from_archetype or nil
+end
+
+local function is_delivery_target_npc(task, npc)
+    -- Archetype-targeted tasks: check by archetype (survives death/reassignment)
+    local target_arch = get_task_target_archetype(task)
+    if target_arch and target_arch ~= "" then
+        local npc_arch = get_npc_archetype_id(npc)
+        return npc_arch == target_arch
+    end
+    -- Filter-targeted tasks: check by stored NPC ID
+    local state = load_delivery_state(task.id)
+    if not state or not state.target_id or state.target_id == 0 then
+        return false
+    end
+    local npc_id = npc and npc.id and (type(npc.id) == "function" and npc:id() or npc.id) or 0
+    return npc_id == state.target_id
+end
+
+local function get_delivery_target_id(task_id)
+    -- Archetype-targeted tasks: resolve current holder dynamically
+    -- Returns nil if no living NPC holds the archetype (marker disappears)
+    local task = TASK_BY_ID[task_id]
+    if task then
+        local target_arch = get_task_target_archetype(task)
+        if target_arch and target_arch ~= "" then
+            local arch_core = archetype_core or (_G and _G.archetype_core)
+            if arch_core and arch_core.find_npc_id_by_archetype then
+                local npc_id = arch_core.find_npc_id_by_archetype(target_arch)
+                if npc_id and npc_id > 0 then
+                    return npc_id
+                end
+            end
+            -- Archetype task but no living holder — return nil, not stale stored ID
+            return nil
+        end
+    end
+    -- Filter-targeted tasks: return stored ID
+    local state = load_delivery_state(task_id)
+    return state and state.target_id or nil
+end
+
+-- ──────────────────────────────────────────────────
+-- Map Markers and Tracker
+-- ──────────────────────────────────────────────────
+
+local function can_use_map_spots()
+    return level
+        and type(level.map_has_object_spot) == "function"
+        and type(level.map_remove_object_spot) == "function"
+        and (type(level.map_add_object_spot_ser) == "function"
+            or type(level.map_add_object_spot) == "function")
+end
+local function map_spot_add(id, spot, hint)
+    local ok, err
+    if type(level.map_add_object_spot_ser) == "function" then
+        ok, err = pcall(level.map_add_object_spot_ser, id, spot, hint)
+    elseif type(level.map_add_object_spot) == "function" then
+        ok, err = pcall(level.map_add_object_spot, id, spot, hint)
+    else
+        printf("[TASK] map_spot_add: no map_add function available")
+        return false
+    end
+    if not ok then
+        printf("[TASK] map_spot_add FAILED: id=%s spot=%s err=%s", tostr(id), tostr(spot), tostr(err))
+        return false
+    end
+    return true
+end
+local function map_spot_exists(id, spot)
+    local ok, result = pcall(level.map_has_object_spot, id, spot)
+    if not ok then return false end
+    return result and result ~= 0
+end
+-- Map markers
+local function build_task_marker_hint(task, arch_id, giver_id, ready)
+    local name = nil
+    if level and level.object_by_id then
+        local obj = level.object_by_id(giver_id)
+        if obj and obj.character_name then
+            name = obj:character_name()
+        end
+    end
+    local prefix
+    if ready then
+        prefix = tr(TRACKER_HINT_READY_PREFIX_ID, TRACKER_HINT_READY_PREFIX_FALLBACK)
+    else
+        prefix = tr(TRACKER_HINT_ACTIVE_PREFIX_ID, TRACKER_HINT_ACTIVE_PREFIX_FALLBACK)
+    end
+    if name and name ~= "" then
+        return tostr(prefix) .. " " .. tostr(name)
+    end
+    if arch_id and arch_id ~= "" then
+        return tostr(prefix) .. " " .. tostr(arch_id)
+    end
+    return tr(TRACKER_HINT_GENERIC_ID, TRACKER_HINT_GENERIC_FALLBACK)
+end
+local function remove_task_marker(task_id)
+    if not can_use_map_spots() then
+        return
+    end
+    if not is_turnin_marker_owned(task_id) then
+        return
+    end
+    local giver_id = get_task_giver_id(task_id)
+    if giver_id > 0 and map_spot_exists(giver_id, TRACKER_SPOT_ID) then
+        level.map_remove_object_spot(giver_id, TRACKER_SPOT_ID)
+    end
+    set_turnin_marker_owned(task_id, false)
+end
+local function ensure_task_marker(task, arch_id, ready)
+    if not task or not can_use_map_spots() or not TRACKER_MARKER_ENABLED then
+        logv("[TASK] ensure_task_marker: bail (task=%s spots=%s enabled=%s)",
+            tostr(task and task.id), tostr(can_use_map_spots()), tostr(TRACKER_MARKER_ENABLED))
+        return
+    end
+    local giver_id = get_task_giver_id(task.id)
+    if giver_id <= 0 then
+        logv("[TASK] ensure_task_marker: giver_id <= 0 for '%s' (giver=%s)", tostr(task.id), tostr(giver_id))
+        return
+    end
+    local was_ready = was_turnin_ready(task.id)
+    if is_turnin_marker_owned(task.id) and ready ~= was_ready then
+        if map_spot_exists(giver_id, TRACKER_SPOT_ID) then
+            level.map_remove_object_spot(giver_id, TRACKER_SPOT_ID)
+        end
+        set_turnin_marker_owned(task.id, false)
+    end
+    if not map_spot_exists(giver_id, TRACKER_SPOT_ID) then
+        local hint = build_task_marker_hint(task, arch_id, giver_id, ready)
+        local added = map_spot_add(giver_id, TRACKER_SPOT_ID, hint)
+        if added then
+            set_turnin_marker_owned(task.id, true)
+            if not task._marker_logged then
+                task._marker_logged = true
+                logv("[TASK] MARKER ADDED: task=%s giver=%s spot=%s hint=%s",
+                    tostr(task.id), giver_id, TRACKER_SPOT_ID, tostr(hint))
+            end
+        end
+    end
+end
+local function notify_turnin_ready(task)
+    if not TRACKER_READY_NEWS_ENABLED then
+        return
+    end
+    local actor = get_actor()
+    if not actor or not actor.give_game_news then
+        return
+    end
+    actor:give_game_news(
+        "st_tip",
+        tr(TRACKER_READY_NEWS_ID, TRACKER_READY_NEWS_FALLBACK),
+        "ui_iconsTotal_grouping",
+        0,
+        5000,
+        0
+    )
+    logv("[TASK] READY TO TURN IN: %s", tostring(task and task.id or "unknown"))
+end
+local function update_turnin_tracker_for_task(task, arch_id, suppress_notify)
+    if not task or task.kind ~= "fetch" then
+        return
+    end
+    local ready = has_required_fetch_items(task)
+    local was_ready = was_turnin_ready(task.id)
+    ensure_task_marker(task, arch_id, ready)
+    if ready and not was_ready then
+        set_turnin_ready(task.id, true)
+        if not suppress_notify then
+            notify_turnin_ready(task)
+        end
+    elseif not ready and was_ready then
+        set_turnin_ready(task.id, false)
+    end
+end
+local function update_all_turnin_trackers(suppress_notify)
+    ensure_registered()
+    for task_id in pairs(ACTIVE_TASK_IDS) do
+        local task = TASK_BY_ID[task_id]
+        if task and is_task_active(task_id) then
+            update_turnin_tracker_for_task(task, task.arch_id, suppress_notify)
+        else
+            set_task_active_index(task_id, false)
+            set_turnin_ready(task_id, false)
+            remove_task_marker(task_id)
+        end
+    end
+end
+local function cleanup_inactive_trackers()
+    for task_id in pairs(TASK_BY_ID) do
+        if not ACTIVE_TASK_IDS[task_id] then
+            set_turnin_ready(task_id, false)
+            remove_task_marker(task_id)
+        end
+    end
+end
+
+-- ──────────────────────────────────────────────────
+-- Offer Cache and Pool Access
+-- ──────────────────────────────────────────────────
+
+local function set_result(string_id)
+    RESULT_CACHE[get_actor_id()] = string_id or "dm_arch_task_declined"
+end
+local function get_result()
+    return RESULT_CACHE[get_actor_id()]
+end
+local function get_pool(arch_id, pool_tag)
+    local arch_pools = TASK_POOLS[arch_id]
+    if not arch_pools then return nil end
+    return arch_pools[pool_tag or "default"]
+end
+local function get_any_pool(arch_id)
+    local arch_pools = TASK_POOLS[arch_id]
+    if not arch_pools then return nil end
+    for tag, pool in pairs(arch_pools) do
+        if pool and pool.tasks and #pool.tasks > 0 then
+            return pool
+        end
+    end
+    return nil
+end
+local function has_pool_internal(arch_id, pool_tag)
+    ensure_registered()
+    if pool_tag then
+        local pool = get_pool(arch_id, pool_tag)
+        return pool and pool.tasks and #pool.tasks > 0
+    end
+    return get_any_pool(arch_id) ~= nil
+end
+-- Returns true if the pool has at least one task with weight > 0 (randomly offerable).
+-- Pin-only pools (all weight=0) return false — they shouldn't show "Got any X work?" dialogs.
+-- pool_has_offerable_tasks moved below can_offer_task (line ~1420) for proper scoping
+local function get_pool_tags(arch_id)
+    ensure_registered()
+    local arch_pools = TASK_POOLS[arch_id]
+    if not arch_pools then return {} end
+    local tags = {}
+    for tag in pairs(arch_pools) do
+        tags[#tags + 1] = tag
+    end
+    table.sort(tags)
+    return tags
+end
+function ensure_registered()
+    if TASKS_READY then
+        return true
+    end
+    local bootstrap = _G and _G.ARCH_TASK_POOLS_DATA or nil
+    if type(bootstrap) ~= "table" then
+        return false
+    end
+    local has_bootstrap = false
+    for _ in pairs(bootstrap) do
+        has_bootstrap = true
+        break
+    end
+    if not has_bootstrap then
+        return false
+    end
+    if type(register_custom_tasks) == "function" then
+        printf("[TASK] Rebuilding task pools from ARCH_TASK_POOLS_DATA")
+        register_custom_tasks(bootstrap)
+        return true
+    end
+    return false
+end
+
+-- ──────────────────────────────────────────────────
+-- Task Validation
+-- ──────────────────────────────────────────────────
+
+local function parse_items_list(raw)
+    if not raw then return nil end
+    if type_(raw) == "string" and raw ~= "" then
+        local entries = split_csv_trimmed(raw)
+        if #entries == 0 then return nil end
+        local result = {}
+        for i = 1, #entries do
+            local section, count_str = string.match(entries[i], "^([^:,%s]+)%s*:?%s*(%d*)$")
+            if section and section ~= "" then
+                result[#result + 1] = {
+                    section = section,
+                    amount = tonum(count_str) or 1
+                }
+            end
+        end
+        return #result > 0 and result or nil
+    end
+    if type_(raw) == "table" then
+        local result = {}
+        for i = 1, #raw do
+            local entry = raw[i]
+            if type_(entry) == "string" then
+                local section, count_str = string.match(entry, "^%s*([^:,%s]+)%s*:?%s*(%d*)%s*$")
+                if section and section ~= "" then
+                    result[#result + 1] = {
+                        section = section,
+                        amount = tonum(count_str) or 1
+                    }
+                end
+            elseif type_(entry) == "table" then
+                local section = entry.section or entry[1]
+                local amount = tonum(entry.amount or entry[2]) or 1
+                if type_(section) == "string" and section ~= "" then
+                    result[#result + 1] = {
+                        section = tostr(section),
+                        amount = amount > 0 and amount or 1
+                    }
+                end
+            end
+        end
+        return #result > 0 and result or nil
+    end
+    return nil
+end
+local function normalize_reward_items(data)
+    if data.reward_items == nil then
+        data.reward_items = {}
+        return
+    end
+    if type(data.reward_items) ~= "table" then
+        printf("[TASK] WARNING: task '%s' reward_items must be table", tostring(data.id))
+        data.reward_items = {}
+        TASK_WARNINGS = TASK_WARNINGS + 1
+        return
+    end
+end
+local function validate_task_shape(task_id, task)
+    local warnings = 0
+    if type_(task) ~= "table" then
+        printf("[TASK] VALIDATION ERROR: task '%s' must be a table", tostr(task_id))
+        return 1
+    end
+    for key in pairs(task) do
+        if not TASK_ALLOWED_KEYS[key] and not string.find(tostr(key), "^_") then
+            printf("[TASK] WARNING: task '%s' has unknown field '%s'", tostr(task_id), tostr(key))
+            warnings = warnings + 1
+        end
+    end
+    if not TASK_TYPES[task.kind] then
+        printf("[TASK] VALIDATION ERROR: task '%s' has invalid type '%s'", tostr(task_id), tostr(task.kind))
+        warnings = warnings + 1
+    end
+    local has_text_prefix = (type_(task.text_prefix) == "string" and task.text_prefix ~= "")
+    local has_inline_text = (
+        type_(task.summary_text) == "string" and task.summary_text ~= "" and
+        type_(task.details_text) == "string" and task.details_text ~= ""
+    )
+    if not has_text_prefix and not has_inline_text then
+        printf("[TASK] VALIDATION ERROR: task '%s' needs text_prefix or summary_text+details_text", tostr(task_id))
+        warnings = warnings + 1
+    end
+    if task.kind == "fetch" then
+        local has_section = (type_(task.item_section) == "string" and task.item_section ~= "")
+        local has_category = (type_(task.item_category) == "string" and task.item_category ~= "")
+        local has_items = (type_(task.items) == "table" and #task.items > 0)
+        if not has_section and not has_category and not has_items then
+            printf("[TASK] VALIDATION ERROR: task '%s' requires item_section, item_category, or items", tostr(task_id))
+            warnings = warnings + 1
+        end
+        if has_items then
+            for ii = 1, #task.items do
+                local entry = task.items[ii]
+                if type_(entry) ~= "table" or not entry.section or entry.section == "" then
+                    printf("[TASK] VALIDATION ERROR: task '%s' items[%s] has no section", tostr(task_id), ii)
+                    warnings = warnings + 1
+                elseif (tonum(entry.amount) or 0) <= 0 then
+                    printf("[TASK] VALIDATION ERROR: task '%s' items[%s] ('%s') has invalid amount", tostr(task_id), ii, tostr(entry.section))
+                    warnings = warnings + 1
+                end
+            end
+        end
+        if has_category and has_section then
+            printf("[TASK] WARNING: task '%s' has both item_section and item_category; item_category takes priority", tostr(task_id))
+        end
+        if has_category then
+            local pool = get_category_pool(task.item_category)
+            if not pool then
+                printf("[TASK] VALIDATION ERROR: task '%s' references unknown category '%s'", tostr(task_id), tostr(task.item_category))
+                warnings = warnings + 1
+            end
+        end
+        if not has_category and not has_items and (tonumber(task.amount) or 0) <= 0 then
+            printf("[TASK] VALIDATION ERROR: task '%s' requires amount > 0", tostr(task_id))
+            warnings = warnings + 1
+        end
+    end
+    if task.kind == "delivery" then
+        if not task.deliver_item or task.deliver_item == "" then
+            printf("[TASK] VALIDATION ERROR: delivery task '%s' requires deliver_item", tostr(task_id))
+            warnings = warnings + 1
+        end
+        if (tonum(task.deliver_amount) or 0) <= 0 then
+            printf("[TASK] VALIDATION ERROR: delivery task '%s' requires deliver_amount > 0", tostr(task_id))
+            warnings = warnings + 1
+        end
+        local has_target = (task.deliver_to_archetype and task.deliver_to_archetype ~= "")
+            or (task.deliver_to_community and task.deliver_to_community ~= "")
+            or (task.deliver_to_rank and task.deliver_to_rank ~= "")
+            or (task.deliver_to_location and task.deliver_to_location ~= "")
+        if not has_target then
+            printf("[TASK] VALIDATION ERROR: delivery task '%s' needs at least one deliver_to_* filter", tostr(task_id))
+            warnings = warnings + 1
+        end
+    end
+    if task.kind == "talk" then
+        local has_target = task.talk_to_giver
+            or (task.talk_to_archetype and task.talk_to_archetype ~= "")
+        if not has_target then
+            printf("[TASK] VALIDATION ERROR: talk task '%s' needs talk_to_giver or talk_to_archetype", tostr(task_id))
+            warnings = warnings + 1
+        end
+    end
+    if task.kind == "collect" then
+        local has_collect_target = (task.collect_from_archetype and task.collect_from_archetype ~= "")
+            or (task.collect_from_community and task.collect_from_community ~= "")
+            or (task.collect_from_rank and task.collect_from_rank ~= "")
+            or (task.collect_from_location and task.collect_from_location ~= "")
+        if not has_collect_target then
+            printf("[TASK] VALIDATION ERROR: collect task '%s' needs at least one collect_from_* filter", tostr(task_id))
+            warnings = warnings + 1
+        end
+        if not task.collect_item or task.collect_item == "" then
+            printf("[TASK] VALIDATION ERROR: collect task '%s' requires collect_item", tostr(task_id))
+            warnings = warnings + 1
+        end
+        if (tonum(task.collect_amount) or 0) <= 0 then
+            printf("[TASK] VALIDATION ERROR: collect task '%s' requires collect_amount > 0", tostr(task_id))
+            warnings = warnings + 1
+        end
+    end
+    return warnings
+end
+local function validate_pda_task_binding(task)
+    local pda_task_id = get_pda_task_id(task)
+    if not pda_task_id then
+        return 0
+    end
+    if not pda_task_section_exists(pda_task_id) then
+        printf("[TASK] PDA section '%s' pending (will be active after next load)",
+            tostring(pda_task_id))
+    end
+    return 0
+end
+-- Task normalization + registration
+
+-- ──────────────────────────────────────────────────
+-- Task Registration
+-- ──────────────────────────────────────────────────
+
+local function normalize_task(arch_id, task_id, data, pool_cd_hours)
+    data = data or {}
+    local task = {
+        id = tostr(task_id),
+        arch_id = tostr(arch_id),
+        enabled = (data.enabled ~= false),
+        kind = tostr(data.kind or data.type or ""),
+        weight = tonum(data.weight) or 1,
+        once_per_actor = (data.once_per_actor == true),
+        repeatable = (data.repeatable ~= false),
+        min_rank = data.min_rank,
+        max_rank = data.max_rank,
+        item_section = data.item_section,
+        amount = tonum(data.amount) or 1,
+        reward_money = tonum(data.reward_money) or 0,
+        reward_items = data.reward_items or {},
+        text_prefix = data.text_prefix and tostr(data.text_prefix) or "",
+        summary_text = data.summary_text and tostr(data.summary_text) or nil,
+        details_text = data.details_text and tostr(data.details_text) or nil,
+        accepted_text = data.accepted_text and tostr(data.accepted_text) or nil,
+        completed_text = data.completed_text and tostr(data.completed_text) or nil,
+        cooldown_hours = tonum(data.cooldown_hours) or tonum(pool_cd_hours) or 0,
+        use_pda_task = (data.use_pda_task ~= false),
+        pda_task_id = data.pda_task_id and tostr(data.pda_task_id) or tostr(task_id),
+        reward_goodwill = tonum(data.reward_goodwill) or 0,
+        reward_goodwill_community = data.reward_goodwill_community and tostr(data.reward_goodwill_community) or nil,
+        item_category = data.item_category and tostr(data.item_category) or nil,
+        category_mode = data.category_mode and tostr(data.category_mode) or "npc_choice",
+        reward_multiplier = tonum(data.reward_multiplier) or 1.0,
+        reward_cap = tonum(data.reward_cap) or 0,
+        items = parse_items_list(data.items),
+        reward_buy_modifier = tonum(data.reward_buy_modifier) or 0,
+        reward_sell_modifier = tonum(data.reward_sell_modifier) or 0,
+        pda_icon = data.pda_icon and tostr(data.pda_icon) or nil,
+        pda_priority = data.pda_priority and tonum(data.pda_priority) or nil,
+        requires_time = data.requires_time and tostr(data.requires_time) or nil,
+        requires_item = data.requires_item and tostr(data.requires_item) or nil,
+        requires_task_done = data.requires_task_done and tostr(data.requires_task_done) or nil,
+        requires_task_done_by_npc = data.requires_task_done_by_npc and tostr(data.requires_task_done_by_npc) or nil,
+        requires_info = data.requires_info and tostr(data.requires_info) or nil,
+        requires_min_goodwill = data.requires_min_goodwill and tonum(data.requires_min_goodwill) or nil,
+        requires_pool_unlock = data.requires_pool_unlock and tostr(data.requires_pool_unlock) or nil,
+        requires_trust = data.requires_trust and tonum(data.requires_trust) or nil,
+        conditions = data.conditions and tostr(data.conditions) or nil,
+        on_complete_info = data.on_complete_info and tostr(data.on_complete_info) or nil,
+        on_complete_task = data.on_complete_task and tostr(data.on_complete_task) or nil,
+        on_fail_info = data.on_fail_info and tostr(data.on_fail_info) or nil,
+        -- Death behavior fields
+        on_giver_death = data.on_giver_death and tostr(data.on_giver_death) or nil,
+        on_giver_death_transfer_to = data.on_giver_death_transfer_to and tostr(data.on_giver_death_transfer_to) or nil,
+        on_target_death = data.on_target_death and tostr(data.on_target_death) or nil,
+        on_death_task = data.on_death_task and tostr(data.on_death_task) or nil,
+        on_death_info = data.on_death_info and tostr(data.on_death_info) or nil,
+        -- Delivery fields
+        deliver_item = data.deliver_item and tostr(data.deliver_item) or nil,
+        deliver_amount = data.deliver_amount and tonum(data.deliver_amount) or nil,
+        deliver_to_archetype = data.deliver_to_archetype and tostr(data.deliver_to_archetype) or nil,
+        deliver_to_community = data.deliver_to_community and tostr(data.deliver_to_community) or nil,
+        deliver_to_rank = data.deliver_to_rank and tostr(data.deliver_to_rank) or nil,
+        deliver_to_location = data.deliver_to_location and tostr(data.deliver_to_location) or nil,
+        -- Talk fields
+        talk_to_giver = data.talk_to_giver or nil,
+        talk_to_archetype = data.talk_to_archetype and tostr(data.talk_to_archetype) or nil,
+        -- Collect fields
+        collect_from_archetype = data.collect_from_archetype and tostr(data.collect_from_archetype) or nil,
+        collect_from_community = data.collect_from_community and tostr(data.collect_from_community) or nil,
+        collect_from_rank = data.collect_from_rank and tostr(data.collect_from_rank) or nil,
+        collect_from_location = data.collect_from_location and tostr(data.collect_from_location) or nil,
+        collect_item = data.collect_item and tostr(data.collect_item) or nil,
+        collect_amount = data.collect_amount and tonum(data.collect_amount) or nil,
+    }
+    normalize_reward_items(task)
+    return task
+end
+function register_custom_tasks(tbl)
+    for old_task_id in pairs(TASK_BY_ID) do
+        remove_task_marker(old_task_id)
+    end
+    TASKS_READY = false
+    TASK_POOLS = {}
+    TASK_BY_ID = {}
+    TASK_WARNINGS = 0
+    TASK_COUNT = 0
+    TASK_POOL_COUNT = 0
+    local total = 0
+    local pools = 0
+    for arch_id, tagged_pools in pairs(tbl or {}) do
+        if type(tagged_pools) == "table" then
+            -- Support both old format (flat pool) and new format (tagged pools)
+            -- Old format: tagged_pools.tasks exists → wrap as { default = tagged_pools }
+            local pool_map = tagged_pools
+            if tagged_pools.tasks or tagged_pools.enabled ~= nil then
+                pool_map = { default = tagged_pools }
+            end
+            local arch_pool_set = {}
+            for pool_tag, pool in pairs(pool_map) do
+                if pool and pool.enabled ~= false then
+                    local pool_cd = tonumber(pool.cooldown_hours) or 0
+                    local auto_dialog = pool.auto_dialog
+                    if auto_dialog == false or auto_dialog == "false" then
+                        auto_dialog = false
+                    else
+                        auto_dialog = true
+                    end
+                    local normalized_pool = {
+                        cooldown_hours = pool_cd,
+                        pool_tag = tostring(pool_tag),
+                        auto_dialog = auto_dialog,
+                        dialog_open_text = pool.dialog_open_text,
+                        dialog_npc_prompt = pool.dialog_npc_prompt,
+                        personality_accept = pool.personality_accept,
+                        personality_decline = pool.personality_decline,
+                        personality_turnin_actor = pool.personality_turnin_actor,
+                        personality_turnin_npc = pool.personality_turnin_npc,
+                        tasks = {}
+                    }
+                    for task_id, raw_task in pairs(pool.tasks or {}) do
+                        local task = normalize_task(arch_id, task_id, raw_task, pool_cd)
+                        local warnings = validate_task_shape(task_id, task)
+                        validate_pda_task_binding(task)
+                        TASK_WARNINGS = TASK_WARNINGS + warnings
+                        if task.enabled and warnings == 0 then
+                            if TASK_BY_ID[task.id] then
+                                printf("[TASK] VALIDATION ERROR: duplicate task id '%s'", task.id)
+                                TASK_WARNINGS = TASK_WARNINGS + 1
+                            else
+                                TASK_BY_ID[task.id] = task
+                                task.pool_tag = tostring(pool_tag)
+                                normalized_pool.tasks[#normalized_pool.tasks + 1] = task.id
+                                total = total + 1
+                            end
+                        end
+                    end
+                    arch_pool_set[tostring(pool_tag)] = normalized_pool
+                    pools = pools + 1
+                end
+            end
+            local arch_key = tostring(arch_id)
+            if TASK_POOLS[arch_key] then
+                -- Merge: multiple packs adding pools to the same archetype
+                for tag, pool in pairs(arch_pool_set) do
+                    if TASK_POOLS[arch_key][tag] then
+                        printf("[TASK] WARNING: Pool tag '%s' on archetype '%s' already registered — skipping duplicate from second pack", tag, arch_key)
+                    else
+                        TASK_POOLS[arch_key][tag] = pool
+                    end
+                end
+            else
+                TASK_POOLS[arch_key] = arch_pool_set
+            end
+        end
+    end
+    TASK_COUNT = total
+    TASK_POOL_COUNT = pools
+    TASKS_READY = true
+    rebuild_active_task_index()
+    cleanup_inactive_trackers()
+    printf("[TASK] Registered %s tasks in %s archetype pools", total, get_pool_count())
+    if TASK_WARNINGS > 0 then
+        printf("[TASK] Validation warnings: %s", TASK_WARNINGS)
+    end
+    local ok_pda, err_pda = pcall(generate_pda_task_ltx)
+    if not ok_pda then
+        printe("[TASK] PDA task LTX generation failed (non-fatal): %s", tostr(err_pda))
+    end
+    -- Inject missing PDA sections directly into the existing task_manager.task_ini.
+    -- No ini_file constructor needed — modifies the live object in place via w_string.
+    -- Vanilla _g.script uses the same set_readonly/w_string pattern (line 1603).
+    local tm = task_manager or _G.task_manager
+    printf("[TASK] PDA inject check: task_manager=%s", tostr(tm ~= nil))
+    if tm and tm.task_ini then
+        local ti = tm.task_ini
+        if ti.set_readonly and ti.w_string then
+            local injected = 0
+            for task_id, task in pairs(TASK_BY_ID) do
+                if (task.kind == "fetch" or task.kind == "delivery" or task.kind == "talk" or task.kind == "collect") and not ti:section_exist(task_id) then
+                    pcall(ti.set_readonly, ti, false)
+                    pcall(ti.w_string, ti, task_id, "icon", task.pda_icon or "ui_inGame2_Pripasi")
+                    pcall(ti.w_string, ti, task_id, "storyline", "false")
+                    pcall(ti.w_string, ti, task_id, "prior", tostring(task.pda_priority or 25))
+                    pcall(ti.w_string, ti, task_id, "title", "st_arch_pda_task_title")
+                    pcall(ti.w_string, ti, task_id, "title_functor", "arch_fetch_task")
+                    pcall(ti.w_string, ti, task_id, "descr", "st_arch_pda_task_descr")
+                    pcall(ti.w_string, ti, task_id, "descr_functor", "arch_fetch_task")
+                    pcall(ti.w_string, ti, task_id, "target_functor", "arch_fetch_task")
+                    pcall(ti.w_string, ti, task_id, "status_functor", "arch_fetch_task_status")
+                    pcall(ti.w_string, ti, task_id, "dont_send_update_news", "true")
+                    pcall(ti.w_string, ti, task_id, "stage_complete", "1")
+                    pcall(ti.set_readonly, ti, true)
+                    injected = injected + 1
+                end
+            end
+            if injected > 0 then
+                printf("[TASK] Injected %s PDA sections into task_manager.task_ini", injected)
+            end
+        else
+            printf("[TASK] task_ini lacks set_readonly/w_string — PDA available after restart")
+        end
+    end
+end
+-- PDA TASK LTX GENERATION
+local PDA_LTX_PATH = [[gamedata\configs\misc\task\tm_arch_fetch_tasks.ltx]]
+local PDA_LTX_MANAGED_BEGIN = ";-- ARCH_MANAGED_BEGIN --"
+local PDA_LTX_MANAGED_END   = ";-- ARCH_MANAGED_END --"
+
+-- ──────────────────────────────────────────────────
+-- PDA Task LTX Generation
+-- ──────────────────────────────────────────────────
+
+local function build_pda_ltx_content()
+    local lines = {}
+    lines[#lines + 1] = PDA_LTX_MANAGED_BEGIN
+    lines[#lines + 1] = ";  Auto-generated by tasks_core — do not edit by hand"
+    lines[#lines + 1] = ""
+    local sorted_ids = {}
+    for task_id in pairs(TASK_BY_ID) do
+        sorted_ids[#sorted_ids + 1] = task_id
+    end
+    table.sort(sorted_ids)
+    for i = 1, #sorted_ids do
+        local task_id = sorted_ids[i]
+        local task = TASK_BY_ID[task_id]
+        if task and (task.kind == "fetch" or task.kind == "delivery" or task.kind == "talk" or task.kind == "collect") then
+            lines[#lines + 1] = "[" .. task_id .. "]"
+            lines[#lines + 1] = "icon = " .. (task.pda_icon or "ui_inGame2_Pripasi")
+            lines[#lines + 1] = "storyline = false"
+            lines[#lines + 1] = "prior = " .. tostring(task.pda_priority or 25)
+            lines[#lines + 1] = "title = st_arch_pda_task_title"
+            lines[#lines + 1] = "title_functor = arch_fetch_task"
+            lines[#lines + 1] = "descr = st_arch_pda_task_descr"
+            lines[#lines + 1] = "descr_functor = arch_fetch_task"
+            lines[#lines + 1] = "target_functor = arch_fetch_task"
+            lines[#lines + 1] = "status_functor = arch_fetch_task_status"
+            lines[#lines + 1] = "dont_send_update_news = true"
+            lines[#lines + 1] = "stage_complete = 1"
+            lines[#lines + 1] = ""
+        end
+    end
+    lines[#lines + 1] = PDA_LTX_MANAGED_END
+    return table.concat(lines, "\n")
+end
+local function read_text_file(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local text = f:read("*a")
+    f:close()
+    return text
+end
+local function write_text_file(path, content)
+    local f = io.open(path, "w")
+    if not f then return false end
+    f:write(content)
+    f:close()
+    return true
+end
+generate_pda_task_ltx = function()
+    if TASK_COUNT == 0 then return end
+    local managed = build_pda_ltx_content()
+    local full_path = nil
+    if getFS then
+        local ok, fs = pcall(getFS)
+        if ok and fs then
+            local upd = fs:update_path("$game_config$", "")
+            if upd and upd ~= "" then
+                full_path = upd .. "misc\\task\\tm_arch_fetch_tasks.ltx"
+            end
+        end
+    end
+    if not full_path then
+        full_path = PDA_LTX_PATH
+    end
+    local existing = read_text_file(full_path)
+    local old_managed = nil
+    if existing then
+        local s = string.find(existing, PDA_LTX_MANAGED_BEGIN, 1, true)
+        local e = string.find(existing, PDA_LTX_MANAGED_END, 1, true)
+        if s and e then
+            old_managed = string.sub(existing, s, e + #PDA_LTX_MANAGED_END - 1)
+        end
+    end
+    if old_managed == managed then
+        printf("[TASK] PDA task LTX unchanged (%s tasks)", TASK_COUNT)
+    else
+        local wrote = write_text_file(full_path, managed .. "\n")
+        if wrote then
+            printf("[TASK] PDA task LTX written (%s tasks) to %s", TASK_COUNT, tostr(full_path))
+        else
+            printe("[TASK] PDA task LTX WRITE FAILED: %s", tostr(full_path))
+        end
+    end
+end
+local function cooldown_ready(task, npc_id)
+    return game_time_sec() >= task_cd_until(task.id, npc_id)
+end
+local function npc_has_active_task(npc_id)
+    return get_active_task_id_for_npc(npc_id) ~= nil
+end
+local function npc_has_active_task_for_pool(npc_id, pool_tag)
+    local task_id = get_active_task_id_for_npc(npc_id)
+    if not task_id then return false end
+    local task = TASK_BY_ID[task_id]
+    if not task then return false end
+    return (task.pool_tag or "default") == (pool_tag or "default")
+end
+
+local function check_task_conditions(task)
+    if not task then return true end
+    local actor = db and db.actor or nil
+    if not actor then return true end
+    if task.requires_time then
+        local h = level and level.get_time_hours and level.get_time_hours() or 12
+        if task.requires_time == "night" then
+            if h >= 6 and h < 22 then return false end
+        elseif task.requires_time == "day" then
+            if h < 6 or h >= 22 then return false end
+        end
+    end
+    if task.requires_item then
+        if not actor:object(task.requires_item) then return false end
+    end
+    if task.requires_task_done then
+        if not is_task_done(task.requires_task_done) then return false end
+    end
+    if task.requires_info then
+        if not has_alife_info(task.requires_info) then return false end
+    end
+    if task.requires_min_goodwill then
+        local arch_core = archetype_core or (_G and _G.archetype_core)
+        local community = nil
+        if arch_core and arch_core.archetype_core_get_giver_community then
+            community = arch_core.archetype_core_get_giver_community(task.arch_id)
+        end
+        if community and community ~= "" then
+            local actor_id = actor:id()
+            if relation_registry and relation_registry.community_goodwill then
+                local gw = relation_registry.community_goodwill(community, actor_id) or 0
+                if gw < task.requires_min_goodwill then return false end
+            end
+        end
+    end
+    if task.requires_pool_unlock then
+        local key = "arch_unlock_pool_" .. tostr(task.arch_id) .. "_" .. tostr(task.requires_pool_unlock)
+        local unlocked = load_var(db.actor, key, false)
+        if not unlocked then return false end
+    end
+    if task.conditions then
+        local ok, parsed = pcall(function()
+            return xr_logic and xr_logic.parse_condlist(nil, "arch_task", "conditions", task.conditions)
+        end)
+        if ok and parsed then
+            local ok2, result = pcall(function()
+                return xr_logic.pick_section_from_condlist(db.actor, nil, parsed)
+            end)
+            if ok2 and (result == nil or result == "" or result == "false") then
+                return false
+            end
+        end
+    end
+    return true
+end
+-- Task offer + selection
+local function can_offer_task(task, npc_id)
+    if not task then return false end
+    if not cooldown_ready(task, npc_id) then return false end
+    if is_task_active(task.id) then return false end
+    if not task.repeatable and is_task_done_for_npc(task.id, npc_id) then
+        return false
+    end
+    if not actor_passes_rank(task) then return false end
+    if task.requires_trust and task.requires_trust > 0 and npc_id and npc_id > 0 then
+        local arch_core = archetype_core or (_G and _G.archetype_core)
+        if arch_core and arch_core.archetype_core_get_trust then
+            local trust = arch_core.archetype_core_get_trust(npc_id)
+            if (trust or 0) < task.requires_trust then
+                return false
+            end
+        end
+    end
+    if task.requires_task_done_by_npc and npc_id and npc_id > 0 then
+        if not is_task_done_for_npc(task.requires_task_done_by_npc, npc_id) then return false end
+    end
+    if not check_task_conditions(task) then return false end
+    -- Delivery tasks: check that at least one eligible target NPC exists
+    if task.kind == "delivery" then
+        local target_arch = task.deliver_to_archetype
+        if target_arch and target_arch ~= "" then
+            -- Fast path: direct archetype lookup
+            local arch_core = archetype_core or (_G and _G.archetype_core)
+            if not arch_core or not arch_core.find_npc_id_by_archetype then return false end
+            if not arch_core.find_npc_id_by_archetype(target_arch) then return false end
+        else
+            -- Slow path: 65k scan for community/rank/location filters
+            local has_target = false
+            local sim = alife()
+            if sim then
+                for i = 1, 65534 do
+                    local se_obj = sim:object(i)
+                    if se_obj and IsStalker(nil, se_obj:clsid()) and se_obj:alive() then
+                        if se_obj_matches_delivery_filters(se_obj, task) then
+                            has_target = true
+                            break
+                        end
+                    end
+                end
+            end
+            if not has_target then return false end
+        end
+    end
+    -- Talk tasks: fast archetype lookup (no 65k scan)
+    if task.kind == "talk" then
+        if task.talk_to_giver then
+            -- Report back to giver — always available if giver is alive
+            if npc_id and npc_id > 0 then
+                local sim = alife()
+                local se_giver = sim and sim:object(npc_id)
+                if not se_giver or not se_giver:alive() then return false end
+            end
+        elseif task.talk_to_archetype and task.talk_to_archetype ~= "" then
+            local arch_core = archetype_core or (_G and _G.archetype_core)
+            if not arch_core or not arch_core.find_npc_id_by_archetype then return false end
+            local target = arch_core.find_npc_id_by_archetype(task.talk_to_archetype)
+            if not target then return false end
+        end
+    end
+    -- Collect tasks: check that source NPC exists
+    if task.kind == "collect" then
+        if task.collect_from_archetype and task.collect_from_archetype ~= "" then
+            local arch_core = archetype_core or (_G and _G.archetype_core)
+            if not arch_core or not arch_core.find_npc_id_by_archetype then return false end
+            if not arch_core.find_npc_id_by_archetype(task.collect_from_archetype) then return false end
+        end
+    end
+    return true
+end
+local function pool_has_offerable_tasks(arch_id, pool_tag, npc_id)
+    local pool = get_pool(arch_id, pool_tag or "default")
+    if not pool or not pool.tasks then return false end
+    for i = 1, #pool.tasks do
+        local task = TASK_BY_ID[pool.tasks[i]]
+        if task and (tonumber(task.weight) or 1) > 0 then
+            if can_offer_task(task, npc_id) then
+                return true
+            else
+                printf("[ARCH][POOL] pool_has_offerable: REJECTED task '%s' pool=%s npc=%s", tostr(task.id), tostr(pool_tag), tostr(npc_id))
+            end
+        end
+    end
+    printf("[ARCH][POOL] pool_has_offerable: NO eligible tasks arch=%s pool=%s npc=%s", tostr(arch_id), tostr(pool_tag), tostr(npc_id))
+    return false
+end
+local function pick_weighted(valid_weights, total_weight)
+    if arch_filters and arch_filters.select_weighted_entry then
+        return arch_filters.select_weighted_entry(valid_weights, total_weight, nil)
+    end
+    if total_weight <= 0 then return nil end
+    local roll = math.random(1, total_weight)
+    local current = 0
+    for task_id, weight in pairs(valid_weights) do
+        current = current + weight
+        if roll <= current then
+            return task_id
+        end
+    end
+    return nil
+end
+local function offer_cache_key(npc_id, pool_tag)
+    return tostr(npc_id) .. "_" .. (pool_tag or "default")
+end
+local function choose_offer_for(arch_id, npc_id, pool_tag)
+    pool_tag = pool_tag or "default"
+    if not has_pool_internal(arch_id, pool_tag) then return nil end
+    if npc_has_active_task_for_pool(npc_id, pool_tag) then
+        local blocked_id = get_active_task_id_for_npc(npc_id)
+        logv("[ARCH][POOL] Offer blocked pool=%s npc=%s — active task '%s' in same pool", tostr(pool_tag), tostr(npc_id), tostr(blocked_id))
+        return nil
+    end
+    local cache_key = offer_cache_key(npc_id, pool_tag)
+    local cached = OFFER_CACHE[cache_key]
+    if cached and cached.arch_id == arch_id and cached.expires_ms >= now_ms() and TASK_BY_ID[cached.task_id] then
+        return cached.task_id
+    end
+    local pool = get_pool(arch_id, pool_tag)
+    if not pool then return nil end
+    local valid = {}
+    local total = 0
+    local valid_count = 0
+    local last_offer = get_last_offer_task_id(arch_id)
+    for i = 1, #pool.tasks do
+        local task_id = pool.tasks[i]
+        local task = TASK_BY_ID[task_id]
+        if can_offer_task(task, npc_id) then
+            valid[task_id] = tonumber(task.weight) or 1
+            total = total + valid[task_id]
+            valid_count = valid_count + 1
+        end
+    end
+    if valid_count == 0 then
+        OFFER_CACHE[cache_key] = nil
+        return nil
+    end
+    if valid_count > 1 and last_offer and valid[last_offer] then
+        total = total - valid[last_offer]
+        valid[last_offer] = nil
+    end
+    if total <= 0 then
+        -- All valid tasks have weight=0 (pin-only tasks). If there's no last_offer to fall back to,
+        -- return nil — these tasks are weight=0 story tasks, only accessible via arch_can_offer_task by-id dialogs.
+        if not last_offer then
+            OFFER_CACHE[cache_key] = nil
+            return nil
+        end
+        valid[last_offer] = TASK_BY_ID[last_offer] and (tonumber(TASK_BY_ID[last_offer].weight) or 1) or 1
+        total = valid[last_offer]
+    end
+    local selected = pick_weighted(valid, total)
+    if not selected then
+        OFFER_CACHE[cache_key] = nil
+        return nil
+    end
+    local resolved_item = nil
+    local task_data = TASK_BY_ID[selected]
+    if task_data and task_data.item_category and task_data.item_category ~= ""
+       and task_data.category_mode == "npc_choice" then
+        resolved_item = resolve_category_item(task_data.item_category)
+        if not resolved_item then
+            logv("[TASK] Category '%s' resolved to nil for task '%s', skipping offer",
+                tostr(task_data.item_category), tostr(selected))
+            OFFER_CACHE[cache_key] = nil
+            return nil
+        end
+        logv("[TASK] Category '%s' resolved to '%s' for offer '%s'",
+            tostr(task_data.item_category), tostr(resolved_item), tostr(selected))
+    end
+    OFFER_CACHE[cache_key] = {
+        arch_id = arch_id,
+        task_id = selected,
+        pool_tag = pool_tag,
+        expires_ms = now_ms() + OFFER_CACHE_TTL_MS,
+        resolved_item = resolved_item
+    }
+    return selected
+end
+local function current_offer_task(a, b, pool_tag)
+    local npc = resolve_dialog_npc(a, b)
+    if not npc or not npc.id then return nil, nil, nil end
+    local arch_id = resolve_arch_id(npc)
+    if not arch_id then return nil, nil, npc end
+    -- Check pinned offer first (set by pin approach or get_offer_summary_text_tagged).
+    -- This lets weight=0 story tasks show correct details/preconditions after being pinned.
+    local npc_id = npc:id()
+    local pinned = DIALOG_PINNED_OFFER[npc_id]
+    if pinned and pinned.task_id and pinned.arch_id == arch_id
+    and (pool_tag == nil or pinned.pool_tag == (pool_tag or "default"))
+    and TASK_BY_ID[pinned.task_id]
+    then
+        local task = TASK_BY_ID[pinned.task_id]
+        if can_offer_task(task, npc_id) then
+            printf("[ARCH][PIN] Using pinned task '%s' for arch=%s npc=%s pool=%s", tostr(task.id), tostr(arch_id), tostr(npc_id), tostr(pinned.pool_tag))
+            return task, arch_id, npc
+        end
+    end
+    local task_id = choose_offer_for(arch_id, npc_id, pool_tag)
+    local task = task_id and TASK_BY_ID[task_id] or nil
+    return task, arch_id, npc
+end
+-- Text system
+
+-- ──────────────────────────────────────────────────
+-- Text System and Resolution
+-- ──────────────────────────────────────────────────
+
+local function text_id(task, suffix)
+    local prefix = task and task.text_prefix or nil
+    if not prefix then return nil end
+    if prefix == "" then return nil end
+    return "dm_" .. prefix .. "_" .. suffix
+end
+local function get_item_display_name(section)
+    if not section or section == "" then return section end
+    if ui_item and ui_item.get_sec_name then
+        local name = ui_item.get_sec_name(section)
+        if name and name ~= "" and name ~= section then return name end
+    end
+    if game and game.translate_string then
+        local name = game.translate_string("st_" .. section)
+        if name and name ~= "" and name ~= ("st_" .. section) then return name end
+        name = game.translate_string(section)
+        if name and name ~= "" and name ~= section then return name end
+    end
+    return section
+end
+local function build_checklist_live(task)
+    if type_(task.items) ~= "table" or #task.items == 0 then return nil end
+    local parts = {}
+    for i = 1, #task.items do
+        local entry = task.items[i]
+        local name = get_item_display_name(entry.section)
+        local have = actor_item_count(entry.section)
+        local need = tonum(entry.amount) or 1
+        parts[#parts + 1] = tostr(name) .. " " .. tostr(have) .. "/" .. tostr(need)
+    end
+    return "Needed: " .. table.concat(parts, ", ")
+end
+local function build_checklist_static(task)
+    if type_(task.items) ~= "table" or #task.items == 0 then return nil end
+    local parts = {}
+    for i = 1, #task.items do
+        local entry = task.items[i]
+        local name = get_item_display_name(entry.section)
+        local amount = tonum(entry.amount) or 1
+        parts[#parts + 1] = tostr(amount) .. "x " .. tostr(name)
+    end
+    return "Bring: " .. table.concat(parts, ", ")
+end
+local function substitute_task_placeholders(text, task)
+    if not text or not task then return text end
+    if string.find(text, "%%item%%") then
+        local section = get_effective_item_section(task)
+        local item_name = section and get_item_display_name(section) or "an item"
+        local iname = tostr(item_name)
+        text = string.gsub(text, "%%item%%", function() return iname end)
+    end
+    if string.find(text, "%%checklist%%") then
+        local checklist = build_checklist_live(task) or ""
+        text = string.gsub(text, "%%checklist%%", function() return checklist end)
+    end
+    if string.find(text, "%%checklist_static%%") then
+        local checklist = build_checklist_static(task) or ""
+        text = string.gsub(text, "%%checklist_static%%", function() return checklist end)
+    end
+    if string.find(text, "%%category_items%%") then
+        local items_text = ""
+        if task.item_category and task.item_category ~= "" then
+            local pool = get_category_pool(task.item_category)
+            if pool and pool.items then
+                local names = {}
+                for i = 1, #pool.items do
+                    names[#names + 1] = get_item_display_name(pool.items[i]) or pool.items[i]
+                end
+                items_text = table.concat(names, ", ")
+            end
+        end
+        text = string.gsub(text, "%%category_items%%", function() return items_text end)
+    end
+    return text
+end
+local function resolve_task_text(task, suffix, fallback_id)
+    if task then
+        local inline_field = nil
+        if suffix == "summary" then inline_field = task.summary_text end
+        if suffix == "details" then inline_field = task.details_text end
+        if suffix == "accepted" then inline_field = task.accepted_text end
+        if suffix == "completed" then inline_field = task.completed_text end
+        if type(inline_field) == "string" and inline_field ~= "" then
+            return substitute_task_placeholders(inline_field, task)
+        end
+    end
+    local text = tr(text_id(task, suffix), fallback_id)
+    return substitute_task_placeholders(text, task)
+end
+
+-- ──────────────────────────────────────────────────
+-- Reward System
+-- ──────────────────────────────────────────────────
+
+local function task_accept_message(task)
+    return resolve_task_text(task, "accepted", "dm_arch_task_accepted")
+end
+local function task_complete_message(task)
+    return resolve_task_text(task, "completed", "dm_arch_task_completed")
+end
+local function get_active_task_for_arch(arch_id)
+    ensure_registered()
+    local task_id = get_active_task_id(arch_id)
+    if not task_id then return nil end
+    local task = TASK_BY_ID[task_id]
+    if not task then
+        set_active_task_id(arch_id, nil)
+        return nil
+    end
+    return task
+end
+local function get_active_task_for_arch_tagged(arch_id, pool_tag)
+    -- When pool_tag is nil, fall back to single-active-task lookup
+    if not pool_tag then return get_active_task_for_arch(arch_id) end
+    ensure_registered()
+    -- Search all active tasks for one matching this archetype + pool_tag
+    for task_id in pairs(ACTIVE_TASK_IDS) do
+        local task = TASK_BY_ID[task_id]
+        if task and task.arch_id == arch_id and task.pool_tag == pool_tag then
+            return task
+        end
+    end
+    return nil
+end
+local function parse_reward_item_entry(entry)
+    if type(entry) == "string" then
+        local section, count_str = string.match(entry, "^%s*([^:,%s]+)%s*:?%s*(%d*)%s*$")
+        if not section or section == "" then
+            return nil, 0
+        end
+        local count = tonumber(count_str) or 1
+        if count < 1 then count = 1 end
+        return section, math.floor(count)
+    end
+    if type(entry) == "table" then
+        local section = entry.section or entry[1]
+        local count = tonumber(entry.count or entry.amount or entry[2]) or 1
+        if type(section) ~= "string" or section == "" then
+            return nil, 0
+        end
+        if count < 1 then count = 1 end
+        return section, math.floor(count)
+    end
+    return nil, 0
+end
+-- Reward system
+give_item_reward = function(section, count, basic)
+    local actor = get_actor()
+    if not actor or not section or section == "" then
+        return 0
+    end
+    if utils_item and utils_item.create_amount then
+        local ok, err = pcall(utils_item.create_amount, actor, section, count, basic)
+        if ok then
+            return count
+        else
+            printe("[TASK] utils_item.create_amount failed for '%s' x%d: %s", section, count, tostr(err))
+            return 0
+        end
+    end
+    local granted = 0
+    for _ = 1, count do
+        local ok, spawned = pcall(alife_create_item, section, actor)
+        if ok and spawned then
+            granted = granted + 1
+        else
+            break
+        end
+    end
+    return granted
+end
+
+-- ──────────────────────────────────────────────────
+-- Item Consumption
+-- ──────────────────────────────────────────────────
+
+-- Deferred dialog notifications: stashed during task completion (player phrase action),
+-- delivered after the NPC's completion phrase is shown in dialog (phrase 510 action).
+-- Must be declared before consume_single_item so it can see them.
+local PENDING_REWARD = nil
+local PENDING_CONSUME = {}  -- { {section=, count=}, ... }
+local SUPPRESS_CONSUME_NEWS = false
+
+local function consume_single_item(actor, npc, section, required)
+    if not section or section == "" or required <= 0 then
+        return true
+    end
+    local expected = {}
+    expected[section] = true
+    if string.sub(section, 1, 3) == "af_" then
+        for i = 1, #ARTY_FETCH_CONTAINERS do
+            expected[section .. "_" .. ARTY_FETCH_CONTAINERS[i]] = true
+        end
+    end
+    local collected_ids = {}
+    if actor.iterate_inventory then
+        actor:iterate_inventory(function(_, itm)
+            if itm and itm.section and expected[itm:section()] then
+                collected_ids[#collected_ids + 1] = itm:id()
+            end
+            return false
+        end, nil)
+    elseif actor.inventory_for_each then
+        actor:inventory_for_each(function(itm)
+            if itm and itm.id and itm.section and expected[itm:section()] then
+                collected_ids[#collected_ids + 1] = itm:id()
+            end
+            return false
+        end)
+    end
+    if #collected_ids < required then
+        return false
+    end
+    local consumed = 0
+    for i = 1, required do
+        if i > #collected_ids then break end
+        local obj = level and level.object_by_id and level.object_by_id(collected_ids[i]) or nil
+        if obj then
+            if npc and actor.transfer_item then
+                actor:transfer_item(obj, npc)
+            elseif alife_release_id then
+                alife_release_id(obj:id())
+            elseif alife_release then
+                alife_release(obj)
+            end
+            consumed = consumed + 1
+        end
+    end
+    if consumed > 0 then
+        if SUPPRESS_CONSUME_NEWS then
+            PENDING_CONSUME[#PENDING_CONSUME + 1] = { section = section, count = consumed }
+        else
+            news_manager.relocate_item(db.actor, "out", section, consumed)
+        end
+    end
+    return consumed >= required, consumed
+end
+local function consume_category_items_player_choice(actor, npc, task, strict)
+    local pool = get_category_pool(task.item_category)
+    if not pool or #pool.items == 0 then return false end
+    local required = tonumber(task.amount) or 1
+    local expected = {}
+    for _, section in ipairs(pool.items) do
+        expected[section] = true
+        if string.sub(section, 1, 3) == "af_" then
+            for i = 1, #ARTY_FETCH_CONTAINERS do
+                expected[section .. "_" .. ARTY_FETCH_CONTAINERS[i]] = true
+            end
+        end
+    end
+    if strict then
+        local target_section = nil
+        for _, section in ipairs(pool.items) do
+            local count = actor_item_count(section)
+            if string.sub(section, 1, 3) == "af_" then
+                count = count + actor_artifact_container_count(section)
+            end
+            if count >= required then
+                target_section = section
+                break
+            end
+        end
+        if not target_section then return false end
+        return consume_single_item(actor, npc, target_section, required)
+    end
+    local collected = {}
+    local function collect_from_inventory(itm)
+        if itm and itm.section and expected[itm:section()] and #collected < required then
+            collected[#collected + 1] = { id = itm:id(), sec = itm:section() }
+        end
+        return false
+    end
+    if actor.iterate_inventory then
+        actor:iterate_inventory(function(_, itm) return collect_from_inventory(itm) end, nil)
+    elseif actor.inventory_for_each then
+        actor:inventory_for_each(collect_from_inventory)
+    end
+    if #collected < required then return false end
+    local consumed = 0
+    local consumed_by_section = {}
+    for i = 1, required do
+        if i > #collected then break end
+        local obj = level and level.object_by_id and level.object_by_id(collected[i].id) or nil
+        if obj then
+            if npc and actor.transfer_item then
+                actor:transfer_item(obj, npc)
+            elseif alife_release_id then
+                alife_release_id(obj:id())
+            elseif alife_release then
+                alife_release(obj)
+            end
+            consumed = consumed + 1
+            local sec = collected[i].sec
+            consumed_by_section[sec] = (consumed_by_section[sec] or 0) + 1
+        end
+    end
+    for sec, cnt in pairs(consumed_by_section) do
+        if SUPPRESS_CONSUME_NEWS then
+            PENDING_CONSUME[#PENDING_CONSUME + 1] = { section = sec, count = cnt }
+        else
+            news_manager.relocate_item(db.actor, "out", sec, cnt)
+        end
+    end
+    return consumed >= required
+end
+local function consume_fetch_items(task, npc)
+    if not task or task.kind ~= "fetch" then
+        return false
+    end
+    local actor = get_actor()
+    if not actor then
+        return false
+    end
+    local has_stage_completion = get_pda_task_stage(task) >= 1
+    if type_(task.items) == "table" and #task.items > 0 then
+        if has_stage_completion then
+            return true
+        end
+        for i = 1, #task.items do
+            local entry = task.items[i]
+            local required = tonum(entry.amount) or 1
+            if not check_single_item_requirement(entry.section, required) then
+                return false
+            end
+        end
+        for i = 1, #task.items do
+            local entry = task.items[i]
+            local ok, _ = consume_single_item(actor, npc, entry.section, tonum(entry.amount) or 1)
+            if not ok then return false end
+        end
+        return true
+    end
+    local cm = task.category_mode
+    if task.item_category and task.item_category ~= ""
+       and (cm == "player_choice" or cm == "player_choice_strict") then
+        if has_stage_completion then return true end
+        return consume_category_items_player_choice(
+            actor, npc, task, cm == "player_choice_strict"
+        )
+    end
+    local section = get_effective_item_section(task)
+    local required = tonumber(task.amount) or 1
+    if not section or section == "" then
+        return false
+    end
+    if required <= 0 then
+        return true
+    end
+    if has_stage_completion then
+        local count_now = actor_item_count(section)
+        if string.sub(section, 1, 3) == "af_" then
+            count_now = count_now + actor_artifact_container_count(section)
+        end
+        if count_now < required then
+            return true
+        end
+    end
+    return consume_single_item(actor, npc, section, required)
+end
+local complete_task
+-- Category Picker: player_choice turnin dialog
+-- Populate picker slots from player inventory for the active task's category
+
+-- ──────────────────────────────────────────────────
+-- Category Picker Dialog
+-- ──────────────────────────────────────────────────
+
+local function populate_cat_picker(task)
+    CAT_PICKER_SLOTS = {}
+    if not task or not task.item_category or task.item_category == "" then return end
+    local cm = task.category_mode
+    if cm ~= "player_choice" and cm ~= "player_choice_strict" then return end
+    local pool = get_category_pool(task.item_category)
+    if not pool or #pool.items == 0 then return end
+    local actor = get_actor()
+    if not actor then return end
+    local required = tonumber(task.amount) or 1
+    local seen = {}
+    local slot = 0
+    for _, section in ipairs(pool.items) do
+        if slot >= CAT_PICKER_MAX then break end
+        if not seen[section] then
+            local count = actor_item_count(section)
+            if string.sub(section, 1, 3) == "af_" then
+                count = count + actor_artifact_container_count(section)
+            end
+            if count >= required then
+                slot = slot + 1
+                local name = ui_item and ui_item.get_sec_name and ui_item.get_sec_name(section) or section
+                CAT_PICKER_SLOTS[slot] = { section = section, name = name, count = count }
+                seen[section] = true
+            end
+        end
+    end
+    if slot > 0 then
+        logv("[TASK] Category picker populated: %s slots for category '%s'", slot, tostr(task.item_category))
+    end
+end
+function is_cat_picker_task_for_dialog(a, b)
+    local npc = resolve_dialog_npc(a, b)
+    local arch_id = npc and resolve_arch_id(npc) or nil
+    local task = arch_id and get_active_task_for_arch(arch_id) or nil
+    if not task then return false end
+    local cm = task.category_mode
+    if (cm ~= "player_choice" and cm ~= "player_choice_strict") or not task.item_category or task.item_category == "" then
+        return false
+    end
+    populate_cat_picker(task)
+    return next(CAT_PICKER_SLOTS) ~= nil
+end
+function cat_picker_has_slot(slot_index)
+    return CAT_PICKER_SLOTS[slot_index] ~= nil
+end
+function cat_picker_slot_text(slot_index)
+    local slot = CAT_PICKER_SLOTS[slot_index]
+    if not slot then return "" end
+    return slot.name .. (slot.count > 1 and (" (have " .. tostring(slot.count) .. ")") or "")
+end
+function cat_picker_select(slot_index, a, b)
+    local slot = CAT_PICKER_SLOTS[slot_index]
+    if not slot then
+        set_result("dm_arch_task_not_ready")
+        return
+    end
+    local npc = resolve_dialog_npc(a, b)
+    local arch_id = npc and resolve_arch_id(npc) or nil
+    local task = arch_id and get_active_task_for_arch(arch_id) or nil
+    if not task or not npc then
+        set_result("dm_arch_task_not_ready")
+        return
+    end
+    local actor = get_actor()
+    if not actor then
+        set_result("dm_arch_task_not_ready")
+        return
+    end
+    if not complete_pda_task(task) then
+        set_result("dm_arch_task_not_ready")
+        return
+    end
+    local required = tonumber(task.amount) or 1
+    SUPPRESS_CONSUME_NEWS = true
+    PENDING_CONSUME = {}
+    local ok = consume_single_item(actor, npc, slot.section, required)
+    if not ok then
+        SUPPRESS_CONSUME_NEWS = false
+        PENDING_CONSUME = {}
+        set_result("dm_arch_task_not_ready")
+        return
+    end
+    SUPPRESS_CONSUME_NEWS = false
+    complete_task(task, arch_id, npc)
+    CAT_PICKER_SLOTS = {}
+end
+
+-- ──────────────────────────────────────────────────
+-- Reward Distribution
+-- ──────────────────────────────────────────────────
+
+-- (PENDING_REWARD, PENDING_CONSUME, SUPPRESS_CONSUME_NEWS declared above consume_single_item)
+
+local function reward_actor(task, giver_npc_id)
+    local actor = get_actor()
+    if not actor then return "" end
+    local parts = {}
+    -- Money reward via vanilla dialogs.relocate_money (gives money + shows notification)
+    if task.reward_money > 0 then
+        local money = task.reward_money
+        if game_difficulties and game_difficulties.get_eco_factor then
+            money = math.floor(money * (game_difficulties.get_eco_factor("rewards") or 1))
+        end
+        if dialogs and dialogs.relocate_money then
+            dialogs.relocate_money(nil, money, "in")
+        elseif actor.give_money then
+            actor:give_money(money)
+            if news_manager and news_manager.relocate_money then
+                news_manager.relocate_money(actor, "in", money)
+            end
+        end
+        parts[#parts + 1] = tostring(money) .. " RU"
+    end
+    -- Item rewards via vanilla dialogs.relocate_item_section (spawns items + shows notification)
+    if type(task.reward_items) == "table" then
+        for _, entry in pairs(task.reward_items) do
+            local section, count = parse_reward_item_entry(entry)
+            if section and count > 0 then
+                if dialogs and dialogs.relocate_item_section then
+                    dialogs.relocate_item_section(nil, section, "in", count)
+                else
+                    local granted = give_item_reward(section, count)
+                    if granted > 0 and news_manager and news_manager.relocate_item then
+                        news_manager.relocate_item(actor, "in", section, granted)
+                    end
+                end
+                local name = ui_item and ui_item.get_sec_name and ui_item.get_sec_name(section) or section
+                local text = count > 1 and (name .. " x" .. tostring(count)) or name
+                parts[#parts + 1] = text
+            else
+                printe("[TASK] Invalid reward_items entry for task '%s': %s", tostring(task.id), tostring(entry))
+            end
+        end
+    end
+    local gw_amount = tonumber(task.reward_goodwill) or 0
+    if gw_amount > 0 then
+        local community = task.reward_goodwill_community or get_task_giver_community(task.id)
+        if community and community ~= "" then
+            local actor_id = get_actor_id()
+            if game_difficulties and game_difficulties.get_eco_factor then
+                gw_amount = math.floor(gw_amount * (game_difficulties.get_eco_factor("goodwill") or 1))
+            end
+            if actor_id ~= nil then
+                local ok, err = pcall(function()
+                    if relation_registry and relation_registry.change_community_goodwill then
+                        relation_registry.change_community_goodwill(community, actor_id, gw_amount)
+                    end
+                end)
+                if ok then
+                    logv("[TASK] Goodwill reward: +%s to '%s'", gw_amount, community)
+                    parts[#parts + 1] = "+" .. tostring(gw_amount) .. " goodwill (" .. tostring(community) .. ")"
+                    local news = arch_news or (_G and _G.arch_news)
+                    if news and news.enqueue_news then
+                        local comm_name = game.translate_string(community) or community
+                        news.enqueue_news(string.format("[ARCH] Reputation with %s improved. (+%d goodwill)", comm_name, gw_amount), 7, 5000)
+                    end
+                else
+                    printf("[TASK] Goodwill reward FAILED for '%s': %s", tostr(task.id), tostr(err))
+                end
+            else
+                logv("[TASK] Goodwill reward skipped: actor_id=%s", tostr(actor_id))
+            end
+        else
+            logv("[TASK] Goodwill reward skipped for '%s': community='%s' (empty)", tostr(task.id), tostr(community))
+        end
+    end
+    local arch_core = archetype_core or (_G and _G.archetype_core)
+    if arch_core and task.arch_id and giver_npc_id and giver_npc_id > 0 then
+        if arch_core.archetype_core_increment_trust then
+            local new_trust = arch_core.archetype_core_increment_trust(giver_npc_id)
+            logv("[TASK] Trust incremented for npc %s (arch '%s'): now %s", giver_npc_id, tostr(task.arch_id), tonum(new_trust) or 0)
+            local news = arch_news or (_G and _G.arch_news)
+            if news and news.enqueue_news then
+                news.enqueue_news(string.format("[ARCH] Trust increased with this trader. (Trust: %d)", tonum(new_trust) or 0), 7, 4000)
+            end
+        end
+        if task.reward_buy_modifier and task.reward_buy_modifier ~= 0 then
+            if arch_core.archetype_core_apply_reward_buy_modifier then
+                arch_core.archetype_core_apply_reward_buy_modifier(giver_npc_id, task.reward_buy_modifier)
+            end
+        end
+        if task.reward_sell_modifier and task.reward_sell_modifier ~= 0 then
+            if arch_core.archetype_core_apply_reward_sell_modifier then
+                arch_core.archetype_core_apply_reward_sell_modifier(giver_npc_id, task.reward_sell_modifier)
+            end
+        end
+    end
+    return parts
+end
+
+function deliver_pending_rewards(a, b)
+    if not PENDING_REWARD then return end
+    local pending = PENDING_REWARD
+    PENDING_REWARD = nil
+    local consume = PENDING_CONSUME
+    PENDING_CONSUME = {}
+    -- Vanilla's task_callback fires "Mission complete" on the next engine tick.
+    -- Delay our consume+reward notifications so they appear AFTER it,
+    -- matching vanilla order: Mission complete → Item lost → Money received.
+    local task = pending.task
+    local giver_npc_id = pending.giver_npc_id
+    CreateTimeEvent("arch_deferred_rewards", "deliver", 0.3, function()
+        -- Consumed item notifications (item lost)
+        for i = 1, #consume do
+            local c = consume[i]
+            if c.section and c.count and c.count > 0 then
+                news_manager.relocate_item(db.actor, "out", c.section, c.count)
+            end
+        end
+        -- Reward notifications (money/items received)
+        reward_actor(task, giver_npc_id)
+        logv("[TASK] Deferred notifications delivered for task '%s'", tostr(task and task.id))
+        return true  -- remove timer
+    end)
+end
+
+-- ──────────────────────────────────────────────────
+-- Task Lifecycle
+-- ──────────────────────────────────────────────────
+
+complete_task = function(task, arch_id, npc)
+    remove_task_marker(task.id)
+    set_turnin_ready(task.id, false)
+    set_task_active_index(task.id, false)
+    set_task_active(task.id, false)
+    set_active_task_id(arch_id, nil)
+    set_task_done(task.id, true)
+    -- Resolve the ORIGINAL giver NPC ID (stored on accept), not the current dialog NPC.
+    -- For fetch tasks: npc IS the giver (turnin at giver). For delivery/talk/collect: npc
+    -- is the TARGET, not the giver. Always prefer the stored giver ID.
+    local stored_giver_id = get_task_giver_id(task.id)
+    local giver_npc_id = (stored_giver_id and stored_giver_id > 0) and stored_giver_id
+        or (npc and npc.id and (type(npc.id) == "function" and npc:id() or npc.id) or 0)
+    -- Clear offer cache for the GIVER (not the turnin NPC) so next offer picks fresh
+    local pool_tag = task.pool_tag or "default"
+    OFFER_CACHE[offer_cache_key(giver_npc_id, pool_tag)] = nil
+    set_task_done_for_npc(task.id, giver_npc_id, true)
+    local cd_hours = tonumber(task.cooldown_hours) or 0
+    if cd_hours > 0 then
+        set_task_cd(task.id, game_time_sec() + (cd_hours * 3600), giver_npc_id)
+    end
+    set_active_task_id_for_npc(giver_npc_id, nil)
+    -- Defer reward delivery until after NPC completion phrase is shown in dialog
+    PENDING_REWARD = { task = task, giver_npc_id = giver_npc_id }
+    set_task_giver_id(task.id, 0)
+    set_task_giver_community(task.id, "")
+    set_resolved_item_section(task.id, "")
+    set_result(task_complete_message(task))
+    logv("[TASK] COMPLETED: %s (giver=%s)", task.id, tostring(arch_id))
+    if task.on_complete_info and task.on_complete_info ~= "" and db.actor then
+        db.actor:give_info_portion(task.on_complete_info)
+        logv("[TASK] Info portion given: %s", task.on_complete_info)
+    end
+    -- Auto-accept follow-up task on completion (e.g. report-back after delivery)
+    if task.on_complete_task and task.on_complete_task ~= "" then
+        local follow_up = TASK_BY_ID[tostr(task.on_complete_task)]
+        if follow_up then
+            -- For follow-up tasks, resolve the ORIGINAL giver (not the current dialog NPC).
+            -- This is critical for report-back: if delivery completes at target NPC,
+            -- the report-back should point to the original giver, not the target.
+            -- giver_npc_id was captured before clearing (line above).
+            local original_giver_npc = nil
+            if giver_npc_id and giver_npc_id > 0 then
+                -- Try to get the game object for the original giver
+                local sim = alife and alife()
+                if sim then
+                    local se_obj = sim:object(giver_npc_id)
+                    if se_obj and db and db.storage and db.storage[giver_npc_id] then
+                        original_giver_npc = db.storage[giver_npc_id].object
+                    end
+                end
+            end
+            -- Use original giver if available, fall back to current dialog NPC
+            local follow_npc = original_giver_npc or npc
+            if follow_up.kind == "talk" then
+                accept_talk_task(follow_up, follow_npc)
+            elseif follow_up.kind == "delivery" then
+                accept_delivery_task(follow_up, follow_npc)
+            elseif follow_up.kind == "collect" then
+                accept_collect_task(follow_up, follow_npc)
+            end
+            if not ensure_pda_task_started(follow_up, follow_npc) then
+                printf("[TASK] WARNING: on_complete_task '%s' PDA start failed", follow_up.id)
+            end
+            set_task_active(follow_up.id, true)
+            set_task_active_index(follow_up.id, true)
+            set_active_task_id(follow_up.arch_id, follow_up.id)
+            -- Record the original giver as the follow-up's giver (not the turnin NPC)
+            if giver_npc_id and giver_npc_id > 0 then
+                set_active_task_id_for_npc(giver_npc_id, follow_up.id)
+                set_task_giver_id(follow_up.id, giver_npc_id)
+            else
+                local follow_npc_id = follow_npc and follow_npc.id and (type(follow_npc.id) == "function" and follow_npc:id() or follow_npc.id) or 0
+                if follow_npc_id > 0 then
+                    set_active_task_id_for_npc(follow_npc_id, follow_up.id)
+                    set_task_giver_id(follow_up.id, follow_npc_id)
+                end
+            end
+            logv("[TASK] Auto-accepted follow-up task '%s' after completing '%s' (giver=%s)", follow_up.id, task.id, tostr(giver_npc_id))
+        else
+            printf("[TASK] WARNING: on_complete_task '%s' not found in TASK_BY_ID", tostr(task.on_complete_task))
+        end
+    end
+end
+local function do_fail_task(task_id, task_def, arch_id, npc_id, reason)
+    set_task_active(task_id, false)
+    set_task_active_index(task_id, false)
+    if arch_id then
+        set_active_task_id(tostring(arch_id), nil)
+    end
+    if npc_id and npc_id > 0 then
+        set_active_task_id_for_npc(npc_id, nil)
+    end
+    set_task_giver_id(task_id, 0)
+    set_task_giver_community(task_id, "")
+    set_resolved_item_section(task_id, "")
+    remove_task_marker(task_id)
+    set_turnin_ready(task_id, false)
+    clear_delivery_state(task_id)
+    printf("[TASK] Task '%s' failed (%s)", task_id, reason or "unknown")
+    if not task_def then return end
+    -- Death-specific info portion (takes priority over generic on_fail_info)
+    if task_def.on_death_info and task_def.on_death_info ~= "" and db.actor then
+        db.actor:give_info_portion(task_def.on_death_info)
+        printf("[TASK] Death info portion given: %s", task_def.on_death_info)
+    elseif task_def.on_fail_info and task_def.on_fail_info ~= "" and db.actor then
+        db.actor:give_info_portion(task_def.on_fail_info)
+        printf("[TASK] Fail info portion given: %s", task_def.on_fail_info)
+    end
+    -- Death follow-up task
+    if task_def.on_death_task and task_def.on_death_task ~= "" then
+        local follow_up = TASK_BY_ID[task_def.on_death_task]
+        if follow_up and follow_up.arch_id then
+            local arch_core = archetype_core or (_G and _G.archetype_core)
+            local giver_npc_id = arch_core and arch_core.find_npc_id_by_archetype and arch_core.find_npc_id_by_archetype(follow_up.arch_id) or 0
+            if giver_npc_id and giver_npc_id > 0 then
+                local sim = alife()
+                local giver_obj = sim and db.storage[giver_npc_id] and db.storage[giver_npc_id].object or nil
+                accept_task_by_id(follow_up, giver_obj, giver_npc_id)
+                set_active_task_id(follow_up.arch_id, follow_up.id)
+                set_active_task_id_for_npc(giver_npc_id, follow_up.id)
+                printf("[TASK] Death follow-up task '%s' auto-accepted (giver=%s)", follow_up.id, giver_npc_id)
+            else
+                printf("[TASK] WARNING: Death follow-up '%s' has no available giver NPC (arch=%s)", task_def.on_death_task, tostr(follow_up.arch_id))
+            end
+        else
+            printf("[TASK] WARNING: on_death_task '%s' not found in TASK_BY_ID", tostr(task_def.on_death_task))
+        end
+    end
+end
+
+function fail_active_task_for_arch(arch_id, dead_npc_id)
+    if not arch_id then return end
+    ensure_registered()
+    -- Check ALL active tasks for this archetype (not just the single stored one)
+    local to_process = {}
+    for task_id in pairs(ACTIVE_TASK_IDS) do
+        local task = TASK_BY_ID[task_id]
+        if task and task.arch_id == tostring(arch_id) then
+            to_process[#to_process + 1] = task_id
+        end
+    end
+    for _, task_id in ipairs(to_process) do
+        local task_def = TASK_BY_ID[task_id]
+        local behavior = task_def and task_def.on_giver_death or "fail"
+        if behavior == "keep" then
+            -- Auto-transfer giver to fallback archetype if specified
+            local transfer_to = task_def.on_giver_death_transfer_to
+            if transfer_to and transfer_to ~= "" then
+                local arch_core = archetype_core or (_G and _G.archetype_core)
+                local new_id = arch_core and arch_core.find_npc_id_by_archetype and arch_core.find_npc_id_by_archetype(transfer_to) or nil
+                if new_id and new_id > 0 then
+                    set_task_giver_id(task_id, new_id)
+                    set_active_task_id_for_npc(dead_npc_id, nil)
+                    set_active_task_id_for_npc(new_id, task_id)
+                    remove_task_marker(task_id)
+                    printf("[TASK] Task '%s' giver died — AUTO-TRANSFER to '%s' (npc %s)", task_id, transfer_to, new_id)
+                else
+                    printf("[TASK] Task '%s' giver died — KEEP: target '%s' not found, stays active", task_id, tostr(transfer_to))
+                end
+            else
+                printf("[TASK] Task '%s' giver died — KEEP: task stays active", task_id)
+            end
+        elseif behavior == "reassign" then
+            printf("[TASK] Task '%s' giver died — REASSIGN: task stays active for archetype reassignment", task_id)
+        else
+            do_fail_task(task_id, task_def, arch_id, dead_npc_id, "giver_death")
+        end
+    end
+end
+
+function fail_tasks_targeting_npc(dead_npc_id)
+    if not dead_npc_id or dead_npc_id <= 0 then return end
+    ensure_registered()
+    -- Collect task IDs first to avoid modifying ACTIVE_TASK_IDS during iteration
+    local to_fail = {}
+    for task_id, _ in pairs(ACTIVE_TASK_IDS) do
+        local state = DELIVERY_STATE[task_id]
+        if not state then
+            state = load_delivery_state(task_id)
+        end
+        if state and state.target_id == dead_npc_id then
+            to_fail[#to_fail + 1] = task_id
+        end
+    end
+    for i = 1, #to_fail do
+        local task_id = to_fail[i]
+        local task = TASK_BY_ID[task_id]
+        if task then
+            local behavior = task.on_target_death or "fail"
+            if behavior == "reassign" then
+                -- Archetype-based targeting: task stays active, no action needed.
+                -- is_delivery_target_npc and get_delivery_target_id resolve by archetype
+                -- dynamically, so when a new NPC gets the archetype, everything works.
+                local target_arch = get_task_target_archetype(task)
+                printf("[TASK] Task '%s' target died — REASSIGN: task stays active, resolves by archetype '%s'", task_id, tostr(target_arch))
+            else
+                local giver_id = get_task_giver_id(task_id)
+                do_fail_task(task_id, task, task.arch_id, giver_id, "target_death")
+            end
+        end
+    end
+end
+
+
+function has_pool(arch_id, pool_tag)
+    return has_pool_internal(tostring(arch_id), pool_tag)
+end
+function get_pool_tags_for(arch_id)
+    return get_pool_tags(tostring(arch_id))
+end
+function get_pool_config(arch_id, pool_tag)
+    ensure_registered()
+    local pool = get_pool(tostring(arch_id), pool_tag or "default")
+    if not pool then return nil end
+    return {
+        pool_tag = pool.pool_tag or "default",
+        dialog_open_text = pool.dialog_open_text,
+        dialog_npc_prompt = pool.dialog_npc_prompt,
+        personality_accept = pool.personality_accept,
+        personality_decline = pool.personality_decline,
+        personality_turnin_actor = pool.personality_turnin_actor,
+        personality_turnin_npc = pool.personality_turnin_npc,
+        cooldown_hours = pool.cooldown_hours,
+        task_count = pool.tasks and #pool.tasks or 0
+    }
+end
+function get_pool_task_ids(arch_id, pool_tag)
+    ensure_registered()
+    local pool = get_pool(tostring(arch_id), pool_tag or "default")
+    if not pool or not pool.tasks then return {} end
+    return pool.tasks
+end
+function get_count()
+    ensure_registered()
+    return TASK_COUNT
+end
+function get_pool_count()
+    ensure_registered()
+    return TASK_POOL_COUNT
+end
+function validate_registered()
+    ensure_registered()
+    return TASK_WARNINGS
+end
+function print_summary()
+    printf("[TASK] Pools=%s Tasks=%s Warnings=%s", get_pool_count(), get_count(), TASK_WARNINGS)
+end
+function restore_unlocked_specializations()
+    return 0
+end
+function set_turnin_tracker_enabled(enabled)
+    local normalized = (enabled == true)
+    if TRACKER_MARKER_ENABLED == normalized then
+        return true
+    end
+    TRACKER_MARKER_ENABLED = normalized
+    printf("[TASK] Turn-in tracker markers: %s", TRACKER_MARKER_ENABLED and "ENABLED" or "DISABLED")
+    if not TRACKER_MARKER_ENABLED then
+        for task_id in pairs(TASK_BY_ID) do
+            remove_task_marker(task_id)
+        end
+    else
+        update_all_turnin_trackers(true)
+    end
+    return true
+end
+function is_turnin_tracker_enabled()
+    return TRACKER_MARKER_ENABLED
+end
+function set_turnin_news_enabled(enabled)
+    TRACKER_READY_NEWS_ENABLED = (enabled == true)
+    printf("[TASK] Turn-in ready news: %s", TRACKER_READY_NEWS_ENABLED and "ENABLED" or "DISABLED")
+    return true
+end
+function is_turnin_news_enabled()
+    return TRACKER_READY_NEWS_ENABLED
+end
+function get_active_task_info(arch_id)
+    ensure_registered()
+    local task_id = get_active_task_id(arch_id)
+    if not task_id then return nil end
+    local task = TASK_BY_ID[task_id]
+    if not task then return nil end
+    return {
+        id = task_id,
+        kind = task.kind or "fetch",
+        ready = has_required_fetch_items(task),
+    }
+end
+function get_pool_stats(arch_id, pool_tag)
+    ensure_registered()
+    local pool = get_pool(arch_id, pool_tag or "default")
+    if not pool or not pool.tasks then return nil end
+    local total = #pool.tasks
+    local available = 0
+    for i = 1, total do
+        local task = TASK_BY_ID[pool.tasks[i]]
+        if task and can_offer_task(task) then
+            available = available + 1
+        end
+    end
+    return { available = available, total = total }
+end
+function remap_arch_task_state(old_arch_id, new_arch_id)
+    local source_id = tostr(old_arch_id or "")
+    if source_id == "" then
+        return false
+    end
+    local target_id = nil
+    if type(new_arch_id) == "string" and new_arch_id ~= "" then
+        target_id = tostr(new_arch_id)
+    end
+    if target_id == source_id then
+        return false
+    end
+    local source_active = get_active_task_id(source_id)
+    local source_last_offer = get_last_offer_task_id(source_id)
+    if target_id then
+        local target_active = get_active_task_id(target_id)
+        if source_active and not target_active then
+            set_active_task_id(target_id, source_active)
+        elseif source_active and target_active and target_active ~= source_active then
+            printf("[TASK] WARNING: remap conflict active task (%s -> %s), keeping target active '%s'",
+                tostr(source_id), tostr(target_id), tostr(target_active))
+        end
+        local target_last_offer = get_last_offer_task_id(target_id)
+        if source_last_offer and not target_last_offer then
+            set_last_offer_task_id(target_id, source_last_offer)
+        end
+    end
+    set_active_task_id(source_id, nil)
+    set_last_offer_task_id(source_id, nil)
+    if source_active and TASK_BY_ID[source_active] and target_id then
+        TASK_BY_ID[source_active].arch_id = target_id
+    end
+    printf("[TASK] Remapped task state: %s -> %s", tostr(source_id), tostr(target_id or "nil"))
+    return true
+end
+-- ──────────────────────────────────────────────────
+-- Dialog Functors
+-- ──────────────────────────────────────────────────
+
+function can_show_offer_dialog(a, b)
+    return can_show_offer_dialog_tagged(a, b, "default")
+end
+function has_offer_for_dialog(a, b)
+    return has_offer_for_dialog_tagged(a, b, "default")
+end
+function get_offer_summary_text(a, b)
+    return get_offer_summary_text_tagged(a, b, "default")
+end
+function get_offer_details_text(a, b)
+    return get_offer_details_text_tagged(a, b, "default")
+end
+function accept_offer(a, b)
+    return accept_offer_tagged(a, b, "default")
+end
+function decline_offer(a, b)
+    return decline_offer_tagged(a, b, "default")
+end
+function has_active_for_dialog(a, b)
+    return has_active_for_dialog_tagged(a, b, nil)
+end
+function get_active_summary_text(a, b)
+    return get_active_summary_text_tagged(a, b, nil)
+end
+function try_complete_active(a, b, pool_tag)
+    local npc = resolve_dialog_npc(a, b)
+    local arch_id = npc and resolve_arch_id(npc) or nil
+    local task = arch_id and get_active_task_for_arch_tagged(arch_id, pool_tag) or nil
+    if not task or not npc then
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    local giver_id = get_task_giver_id(task.id)
+    -- For fetch tasks, turnin must be at the giver NPC
+    if task.kind == "fetch" then
+        if giver_id and giver_id ~= 0 and giver_id ~= npc:id() then
+            set_result("dm_arch_task_no_active")
+            return false
+        end
+        if not has_required_fetch_items(task) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        if not complete_pda_task(task) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        SUPPRESS_CONSUME_NEWS = true
+        PENDING_CONSUME = {}
+        if not consume_fetch_items(task, npc) then
+            SUPPRESS_CONSUME_NEWS = false
+            PENDING_CONSUME = {}
+            printe("[TASK] Failed to consume required items for task '%s'", tostring(task.id))
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        SUPPRESS_CONSUME_NEWS = false
+        complete_task(task, arch_id, npc)
+        return true
+    end
+    -- For delivery tasks, turnin is at the TARGET NPC (not the giver)
+    if task.kind == "delivery" then
+        if not is_delivery_target_npc(task, npc) then
+            set_result("dm_arch_task_no_active")
+            return false
+        end
+        if not has_delivery_items(task) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        if not complete_pda_task(task) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        -- Consume delivery items
+        local state = load_delivery_state(task.id)
+        SUPPRESS_CONSUME_NEWS = true
+        PENDING_CONSUME = {}
+        local ok = consume_single_item(get_actor(), npc, state.item_section, state.item_amount)
+        SUPPRESS_CONSUME_NEWS = false
+        if not ok then
+            PENDING_CONSUME = {}
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        clear_delivery_state(task.id)
+        complete_task(task, arch_id, npc)
+        return true
+    end
+    -- For talk tasks, turnin is at the TARGET NPC (not the giver), no items
+    if task.kind == "talk" then
+        if not is_delivery_target_npc(task, npc) then
+            set_result("dm_arch_task_no_active")
+            return false
+        end
+        if not complete_pda_task(task) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        clear_delivery_state(task.id)
+        complete_task(task, arch_id, npc)
+        return true
+    end
+    -- For collect tasks, turnin is at the GIVER (like fetch), consume collected items
+    if task.kind == "collect" then
+        if giver_id and giver_id ~= 0 and giver_id ~= npc:id() then
+            set_result("dm_arch_task_no_active")
+            return false
+        end
+        if not has_delivery_items(task) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        if not complete_pda_task(task) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        -- Consume collected items
+        local state = load_delivery_state(task.id)
+        SUPPRESS_CONSUME_NEWS = true
+        PENDING_CONSUME = {}
+        local ok = consume_single_item(get_actor(), npc, state.item_section, state.item_amount)
+        SUPPRESS_CONSUME_NEWS = false
+        if not ok then
+            PENDING_CONSUME = {}
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        clear_delivery_state(task.id)
+        complete_task(task, arch_id, npc)
+        return true
+    end
+    set_result("dm_arch_task_not_ready")
+    return false
+end
+function try_complete_by_id(task_id, a, b)
+    ensure_registered()
+    task_id = task_id and tostr(task_id) or nil
+    local task = task_id and TASK_BY_ID[task_id] or nil
+    if not task then
+        printf("[TASK] try_complete_by_id FAILED: task '%s' not found", tostr(task_id))
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    if not is_task_active(task_id) then
+        printf("[TASK] try_complete_by_id FAILED: task '%s' not active", task_id)
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    local npc = resolve_dialog_npc(a, b)
+    local arch_id = task.arch_id
+    if task.kind == "fetch" then
+        local giver_id = get_task_giver_id(task_id)
+        if giver_id and giver_id ~= 0 and npc and npc:id() ~= giver_id then
+            set_result("dm_arch_task_no_active")
+            return false
+        end
+        if not has_required_fetch_items(task) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        if not complete_pda_task(task) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        SUPPRESS_CONSUME_NEWS = true
+        PENDING_CONSUME = {}
+        if not consume_fetch_items(task, npc) then
+            SUPPRESS_CONSUME_NEWS = false
+            PENDING_CONSUME = {}
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        SUPPRESS_CONSUME_NEWS = false
+        complete_task(task, arch_id, npc)
+        return true
+    end
+    if task.kind == "delivery" then
+        if not has_delivery_items(task) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        if not complete_pda_task(task) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        local state = load_delivery_state(task_id)
+        SUPPRESS_CONSUME_NEWS = true
+        PENDING_CONSUME = {}
+        local ok = consume_single_item(get_actor(), npc, state.item_section, state.item_amount)
+        SUPPRESS_CONSUME_NEWS = false
+        if not ok then
+            PENDING_CONSUME = {}
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        clear_delivery_state(task_id)
+        complete_task(task, arch_id, npc)
+        return true
+    end
+    if task.kind == "talk" then
+        if not complete_pda_task(task) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        clear_delivery_state(task_id)
+        complete_task(task, arch_id, npc)
+        return true
+    end
+    if task.kind == "collect" then
+        if not has_delivery_items(task) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        if not complete_pda_task(task) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        local state = load_delivery_state(task_id)
+        SUPPRESS_CONSUME_NEWS = true
+        PENDING_CONSUME = {}
+        local ok = consume_single_item(get_actor(), npc, state.item_section, state.item_amount)
+        SUPPRESS_CONSUME_NEWS = false
+        if not ok then
+            PENDING_CONSUME = {}
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+        clear_delivery_state(task_id)
+        complete_task(task, arch_id, npc)
+        return true
+    end
+    set_result("dm_arch_task_not_ready")
+    return false
+end
+function get_result_text()
+    local result = get_result()
+    if not result or result == "" then
+        return tr(nil, "dm_arch_task_declined")
+    end
+    if type(result) == "string" and string.sub(result, 1, 3) == "dm_" then
+        return tr(result, "dm_arch_task_declined")
+    end
+    return tostring(result)
+end
+
+-- ──────────────────────────────────────────────────
+-- Tagged Dialog Functors (multi-pool)
+-- ──────────────────────────────────────────────────
+
+function can_show_offer_dialog_tagged(a, b, pool_tag)
+    local npc = resolve_dialog_npc(a, b)
+    local arch_id = npc and resolve_arch_id(npc) or nil
+    if not arch_id then return false end
+    if not has_pool_internal(arch_id, pool_tag) then return false end
+    local npc_id = npc and npc.id and npc:id() or nil
+    return pool_has_offerable_tasks(arch_id, pool_tag, npc_id)
+end
+function has_offer_for_dialog_tagged(a, b, pool_tag)
+    local task = current_offer_task(a, b, pool_tag)
+    return task ~= nil
+end
+function get_offer_summary_text_tagged(a, b, pool_tag)
+    -- Clear offer cache to force fresh pick (info portions may have changed since last cache)
+    local _npc = resolve_dialog_npc(a, b)
+    if _npc and _npc.id then
+        OFFER_CACHE[offer_cache_key(_npc:id(), pool_tag or "default")] = nil
+    end
+    local task, arch_id, npc = current_offer_task(a, b, pool_tag)
+    if not task then
+        return tr(nil, "dm_arch_task_no_available")
+    end
+    if npc and npc.id and task then
+        DIALOG_PINNED_OFFER[npc:id()] = { task_id = task.id, arch_id = arch_id, pool_tag = pool_tag }
+    end
+    return resolve_task_text(task, "summary", "dm_arch_task_no_available")
+end
+function get_offer_details_text_tagged(a, b, pool_tag)
+    local task = current_offer_task(a, b, pool_tag)
+    if not task then
+        return tr(nil, "dm_arch_task_no_available")
+    end
+    return resolve_task_text(task, "details", "dm_arch_task_no_available")
+end
+function accept_offer_tagged(a, b, pool_tag)
+    local npc = resolve_dialog_npc(a, b)
+    if not npc or not npc.id then
+        set_result("dm_arch_task_no_available")
+        return false
+    end
+    local npc_id = npc:id()
+    local task, arch_id
+    local pinned = DIALOG_PINNED_OFFER[npc_id]
+    if pinned and pinned.task_id and pinned.pool_tag == pool_tag and TASK_BY_ID[pinned.task_id] then
+        task = TASK_BY_ID[pinned.task_id]
+        arch_id = pinned.arch_id
+        logv("[TASK] Using pinned offer '%s' for tagged accept (pool=%s)", tostr(pinned.task_id), tostr(pool_tag))
+    else
+        task, arch_id, npc = current_offer_task(a, b, pool_tag)
+    end
+    DIALOG_PINNED_OFFER[npc_id] = nil
+    if not task or not arch_id then
+        set_result("dm_arch_task_no_available")
+        return false
+    end
+    local giver_id = npc and npc.id and npc:id() or 0
+    if npc_has_active_task_for_pool(giver_id, pool_tag) then
+        set_result("dm_arch_task_not_ready")
+        return false
+    end
+    if (task.kind == "fetch" or task.kind == "delivery" or task.kind == "talk" or task.kind == "collect") and not ensure_pda_task_started(task, npc) then
+        set_result("dm_arch_task_not_ready")
+        local cache_key = offer_cache_key(giver_id, pool_tag)
+        if giver_id > 0 then
+            OFFER_CACHE[cache_key] = nil
+        end
+        return false
+    end
+    if task.kind == "delivery" then
+        if not accept_delivery_task(task, npc) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+    end
+    if task.kind == "talk" then
+        if not accept_talk_task(task, npc) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+    end
+    if task.kind == "collect" then
+        if not accept_collect_task(task, npc) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+    end
+    set_task_active(task.id, true)
+    set_task_active_index(task.id, true)
+    set_active_task_id(arch_id, task.id)
+    set_active_task_id_for_npc(giver_id, task.id)
+    set_task_giver_id(task.id, giver_id)
+    local giver_comm = nil
+    if task.reward_goodwill_community then
+        giver_comm = task.reward_goodwill_community
+    elseif npc and npc.character_community then
+        local ok, comm = pcall(npc.character_community, npc)
+        if ok and comm and comm ~= "" then
+            giver_comm = tostr(comm)
+        end
+    end
+    if giver_comm then
+        set_task_giver_community(task.id, giver_comm)
+    end
+    if task.item_category and task.item_category ~= "" and npc and npc.id then
+        local cache_key = offer_cache_key(npc:id(), pool_tag)
+        local cached = OFFER_CACHE[cache_key]
+        if cached and cached.resolved_item and cached.resolved_item ~= "" then
+            set_resolved_item_section(task.id, cached.resolved_item)
+            logv("[TASK] Persisted resolved item '%s' for task '%s'",
+                tostr(cached.resolved_item), tostr(task.id))
+        end
+    end
+    set_turnin_ready(task.id, false)
+    set_turnin_marker_owned(task.id, false)
+    set_last_offer_task_id(arch_id, task.id)
+    if npc and npc.id then
+        local cache_key = offer_cache_key(npc:id(), pool_tag)
+        OFFER_CACHE[cache_key] = nil
+    end
+    set_result(task_accept_message(task))
+    update_turnin_tracker_for_task(task, arch_id, true)
+    logv("[TASK] ACCEPTED: %s (giver=%s pool=%s)", task.id, tostring(arch_id), tostring(pool_tag))
+    return true
+end
+function decline_offer_tagged(a, b, pool_tag)
+    local _, _, npc = current_offer_task(a, b, pool_tag)
+    if npc and npc.id then
+        local cache_key = offer_cache_key(npc:id(), pool_tag)
+        OFFER_CACHE[cache_key] = nil
+        DIALOG_PINNED_OFFER[npc:id()] = nil
+    end
+    set_result("dm_arch_task_declined")
+    return true
+end
+function has_active_for_dialog_tagged(a, b, pool_tag)
+    local npc = resolve_dialog_npc(a, b)
+    local arch_id = npc and resolve_arch_id(npc) or nil
+    if not arch_id then return false end
+    local task = get_active_task_for_arch_tagged(arch_id, pool_tag)
+    if not task then return false end
+    local giver_id = get_task_giver_id(task.id)
+    if giver_id and giver_id ~= 0 and npc and npc.id and giver_id ~= npc:id() then return false end
+    return true
+end
+function is_active_task_ready_tagged(a, b, pool_tag)
+    local npc = resolve_dialog_npc(a, b)
+    local arch_id = npc and resolve_arch_id(npc) or nil
+    if not arch_id then return false end
+    local task = get_active_task_for_arch_tagged(arch_id, pool_tag)
+    if not task then return false end
+    local giver_id = get_task_giver_id(task.id)
+    if task.kind == "delivery" then
+        -- Delivery turnin is at the target, not the giver — check target match instead
+        return is_delivery_target_npc(task, npc) and has_delivery_items(task)
+    end
+    if task.kind == "talk" then
+        -- Talk turnin is at the target — just check NPC match, no items
+        return is_delivery_target_npc(task, npc)
+    end
+    if task.kind == "collect" then
+        -- Collect turnin is at the giver — check giver match + player has picked up items
+        if giver_id and giver_id ~= 0 and npc and npc.id and giver_id ~= npc:id() then return false end
+        return has_delivery_items(task)
+    end
+    if giver_id and giver_id ~= 0 and npc and npc.id and giver_id ~= npc:id() then return false end
+    return has_required_fetch_items(task)
+end
+function is_active_task_ready(a, b)
+    return is_active_task_ready_tagged(a, b, nil)
+end
+function get_active_summary_text_tagged(a, b, pool_tag)
+    local npc = resolve_dialog_npc(a, b)
+    local arch_id = npc and resolve_arch_id(npc) or nil
+    local task = arch_id and get_active_task_for_arch_tagged(arch_id, pool_tag) or nil
+    if not task then
+        return tr(nil, "dm_arch_task_no_active")
+    end
+    return resolve_task_text(task, "summary", "dm_arch_task_no_active")
+end
+function get_pool_open_text(arch_id, pool_tag)
+    ensure_registered()
+    local pool = get_pool(tostring(arch_id), pool_tag or "default")
+    if pool and pool.dialog_open_text then
+        return pool.dialog_open_text
+    end
+    if pool_tag == "default" or not pool_tag then
+        return "Got any work?"
+    end
+    return "Got any " .. tostring(pool_tag) .. " work?"
+end
+function get_pool_personality(arch_id, pool_tag, field)
+    ensure_registered()
+    local pool = get_pool(tostring(arch_id), pool_tag or "default")
+    if pool and pool[field] then
+        return pool[field]
+    end
+    return nil
+end
+
+-- Delivery public API
+function is_npc_delivery_target(a, b)
+    -- Check if the NPC is the specific delivery target for ANY active delivery task.
+    local ok, result = pcall(function()
+        local npc = resolve_dialog_npc(a, b)
+        if not npc then return false end
+        for task_id, task in pairs(TASK_BY_ID) do
+            if task.kind == "delivery" and is_task_active(task_id) then
+                if is_delivery_target_npc(task, npc) and has_delivery_items(task) then
+                    return true
+                end
+            end
+            if task.kind == "talk" and is_task_active(task_id) then
+                if is_delivery_target_npc(task, npc) then
+                    return true
+                end
+            end
+            if task.kind == "collect" and is_task_active(task_id) then
+                -- Only show pickup dialog if player hasn't picked up yet
+                local cstate = load_delivery_state(task_id)
+                if is_delivery_target_npc(task, npc) and not (cstate and cstate.picked_up) then
+                    return true
+                end
+            end
+        end
+        return false
+    end)
+    if not ok then
+        printf("[TASK] is_npc_delivery_target error: %s", tostr(result))
+        return false
+    end
+    return result == true
+end
+function try_complete_delivery(a, b)
+    -- Find the matching delivery task for this target NPC and complete it.
+    -- Checks specific target NPC (from accept), falls back to filter match.
+    local npc = resolve_dialog_npc(a, b)
+    if not npc then
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    for task_id, task in pairs(TASK_BY_ID) do
+        -- Handle talk tasks — no items, just NPC match
+        if task.kind == "talk" and is_task_active(task_id) then
+            if is_delivery_target_npc(task, npc) then
+                if not complete_pda_task(task) then
+                    set_result("dm_arch_task_not_ready")
+                    return false
+                end
+                clear_delivery_state(task_id)
+                complete_task(task, task.arch_id, npc)
+                return true
+            end
+        end
+        if task.kind == "delivery" and is_task_active(task_id) then
+            if is_delivery_target_npc(task, npc) and has_delivery_items(task) then
+                if not complete_pda_task(task) then
+                    set_result("dm_arch_task_not_ready")
+                    return false
+                end
+                local section = task.deliver_item
+                local amount = tonum(task.deliver_amount) or 1
+                SUPPRESS_CONSUME_NEWS = true
+                PENDING_CONSUME = {}
+                local ok = consume_single_item(get_actor(), npc, section, amount)
+                SUPPRESS_CONSUME_NEWS = false
+                if not ok then
+                    PENDING_CONSUME = {}
+                    set_result("dm_arch_task_not_ready")
+                    return false
+                end
+                clear_delivery_state(task_id)
+                complete_task(task, task.arch_id, npc)
+                return true
+            end
+        end
+    end
+    set_result("dm_arch_task_no_active")
+    return false
+end
+function complete_delivery_by_id(task_id, a, b)
+    ensure_registered()
+    local task = task_id and TASK_BY_ID[tostr(task_id)] or nil
+    if not task then
+        printf("[TASK] complete_delivery_by_id FAILED: task '%s' not found", tostr(task_id))
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    if task.kind ~= "delivery" then
+        printf("[TASK] complete_delivery_by_id FAILED: task '%s' is kind '%s', not delivery", tostr(task_id), tostr(task.kind))
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    if not is_task_active(task_id) then
+        printf("[TASK] complete_delivery_by_id FAILED: task '%s' not active", tostr(task_id))
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    local npc = resolve_dialog_npc(a, b)
+    if not npc then
+        printf("[TASK] complete_delivery_by_id FAILED: NPC not resolved for task '%s'", tostr(task_id))
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    if not is_delivery_target_npc(task, npc) then
+        printf("[TASK] complete_delivery_by_id FAILED: NPC %s is not target for task '%s'", tostr(npc:id()), tostr(task_id))
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    if not has_delivery_items(task) then
+        printf("[TASK] complete_delivery_by_id FAILED: player lacks items for task '%s'", tostr(task_id))
+        set_result("dm_arch_task_not_ready")
+        return false
+    end
+    if not complete_pda_task(task) then
+        set_result("dm_arch_task_not_ready")
+        return false
+    end
+    local section = task.deliver_item
+    local amount = tonum(task.deliver_amount) or 1
+    SUPPRESS_CONSUME_NEWS = true
+    PENDING_CONSUME = {}
+    local ok = consume_single_item(get_actor(), npc, section, amount)
+    SUPPRESS_CONSUME_NEWS = false
+    if not ok then
+        PENDING_CONSUME = {}
+        set_result("dm_arch_task_not_ready")
+        return false
+    end
+    clear_delivery_state(task_id)
+    complete_task(task, task.arch_id, npc)
+    logv("[TASK] COMPLETED (delivery_by_id): %s", tostr(task_id))
+    return true
+end
+function get_delivery_target_for_task(task_id)
+    return get_delivery_target_id(task_id)
+end
+function complete_talk_by_id(task_id, a, b)
+    ensure_registered()
+    local task = task_id and TASK_BY_ID[tostr(task_id)] or nil
+    if not task then
+        printf("[TASK] complete_talk_by_id FAILED: task '%s' not found", tostr(task_id))
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    if task.kind ~= "talk" and task.kind ~= "collect" then
+        printf("[TASK] complete_talk_by_id FAILED: task '%s' is kind '%s', not talk/collect", tostr(task_id), tostr(task.kind))
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    if not is_task_active(task_id) then
+        printf("[TASK] complete_talk_by_id FAILED: task '%s' not active", tostr(task_id))
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    local npc = resolve_dialog_npc(a, b)
+    if not npc then
+        printf("[TASK] complete_talk_by_id FAILED: NPC not resolved for task '%s'", tostr(task_id))
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    if not is_delivery_target_npc(task, npc) then
+        printf("[TASK] complete_talk_by_id FAILED: NPC %s is not target for task '%s'", tostr(npc:id()), tostr(task_id))
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    -- Collect tasks completed via dialog: spawn collect items on player
+    -- (report-back delivery task needs these items in inventory)
+    if task.kind == "collect" then
+        local section = task.collect_item or ""
+        local amount = tonum(task.collect_amount) or 1
+        if section ~= "" and amount > 0 then
+            local granted = give_item_reward(section, amount, true)
+            if granted > 0 and news_manager and news_manager.relocate_item then
+                news_manager.relocate_item(db.actor, "in", section, granted)
+            end
+            logv("[TASK] Collect via dialog '%s': spawned %s x '%s' on player", tostr(task_id), granted, section)
+        end
+    end
+    if not complete_pda_task(task) then
+        set_result("dm_arch_task_not_ready")
+        return false
+    end
+    clear_delivery_state(task_id)
+    complete_task(task, task.arch_id, npc)
+    logv("[TASK] COMPLETED (talk_by_id): %s", tostr(task_id))
+    return true
+end
+
+-- Direct by-id approach: accept/details without pin state.
+-- Used by story task dialogs that know their task_id statically.
+function get_offer_details_text_by_id(task_id, a, b)
+    ensure_registered()
+    local task = task_id and TASK_BY_ID[tostr(task_id)] or nil
+    if not task then
+        return tr(nil, "dm_arch_task_no_available")
+    end
+    return resolve_task_text(task, "details", "dm_arch_task_no_available")
+end
+-- Check if a specific task has been completed (for dialog preconditions)
+function check_task_done(task_id)
+    ensure_registered()
+    if not task_id then return false end
+    return is_task_done(tostr(task_id))
+end
+-- Check if a specific task is currently active (for dialog preconditions)
+function check_task_active(task_id)
+    ensure_registered()
+    if not task_id then return false end
+    return is_task_active(tostr(task_id))
+end
+-- Check if a specific task has NOT been completed (inverse of check_task_done)
+function check_task_not_done(task_id)
+    ensure_registered()
+    if not task_id then return true end
+    return not is_task_done(tostr(task_id))
+end
+-- Check if a specific task is active AND the player meets completion conditions
+-- Works for all task kinds: fetch (has items + at giver), delivery (has items + at target),
+-- talk (at target), collect (has items + at giver)
+function check_task_ready_for(task_id, a, b)
+    ensure_registered()
+    if not task_id then
+        logv("[ARCH][DIAG] check_task_ready_for: nil task_id")
+        return false
+    end
+    task_id = tostr(task_id)
+    local task = TASK_BY_ID[task_id]
+    if not task then
+        logv("[ARCH][DIAG] check_task_ready_for(%s): task not in TASK_BY_ID", task_id)
+        return false
+    end
+    if not is_task_active(task_id) then
+        logv("[ARCH][DIAG] check_task_ready_for(%s): task not active", task_id)
+        return false
+    end
+    local npc = resolve_dialog_npc(a, b)
+    if not npc then
+        logv("[ARCH][DIAG] check_task_ready_for(%s): NPC not resolved", task_id)
+        return false
+    end
+    local giver_id = get_task_giver_id(task_id)
+    if task.kind == "fetch" then
+        if giver_id and giver_id ~= 0 and giver_id ~= npc:id() then
+            logv("[ARCH][DIAG] check_task_ready_for(%s): fetch giver mismatch giver=%s npc=%s", task_id, tostr(giver_id), tostr(npc:id()))
+            return false
+        end
+        local ready = has_required_fetch_items(task)
+        logv("[ARCH][DIAG] check_task_ready_for(%s): fetch has_items=%s", task_id, tostr(ready))
+        return ready
+    end
+    if task.kind == "delivery" then
+        local is_target = is_delivery_target_npc(task, npc)
+        local has_items = has_delivery_items(task)
+        logv("[ARCH][DIAG] check_task_ready_for(%s): delivery is_target=%s has_items=%s", task_id, tostr(is_target), tostr(has_items))
+        return is_target and has_items
+    end
+    if task.kind == "talk" then
+        local is_target = is_delivery_target_npc(task, npc)
+        logv("[ARCH][DIAG] check_task_ready_for(%s): talk is_target=%s", task_id, tostr(is_target))
+        return is_target
+    end
+    if task.kind == "collect" then
+        if giver_id and giver_id ~= 0 and giver_id ~= npc:id() then
+            logv("[ARCH][DIAG] check_task_ready_for(%s): collect giver mismatch giver=%s npc=%s", task_id, tostr(giver_id), tostr(npc:id()))
+            return false
+        end
+        local state = load_delivery_state(task_id)
+        local picked = state and state.picked_up or false
+        if not picked then
+            logv("[ARCH][DIAG] check_task_ready_for(%s): collect not picked up yet", task_id)
+            return false
+        end
+        local has_items = has_delivery_items(task)
+        logv("[ARCH][DIAG] check_task_ready_for(%s): collect has_items=%s picked=%s giver=%s npc=%s",
+            task_id, tostr(has_items), tostr(picked), tostr(giver_id), tostr(npc:id()))
+        return has_items
+    end
+    -- Unknown kind — fall back to fetch logic
+    if giver_id and giver_id ~= 0 and giver_id ~= npc:id() then return false end
+    return has_required_fetch_items(task)
+end
+-- Complete a specific fetch task by ID — per-task equivalent of pool-based try_complete_active for fetch
+function complete_fetch_by_id(task_id, a, b)
+    ensure_registered()
+    local task = task_id and TASK_BY_ID[tostr(task_id)] or nil
+    if not task then
+        printf("[TASK] complete_fetch_by_id FAILED: task '%s' not found", tostr(task_id))
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    if task.kind ~= "fetch" then
+        printf("[TASK] complete_fetch_by_id FAILED: task '%s' is kind '%s', not fetch", tostr(task_id), tostr(task.kind))
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    if not is_task_active(task_id) then
+        printf("[TASK] complete_fetch_by_id FAILED: task '%s' not active", tostr(task_id))
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    local npc = resolve_dialog_npc(a, b)
+    if not npc then
+        printf("[TASK] complete_fetch_by_id FAILED: NPC not resolved for task '%s'", tostr(task_id))
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    local giver_id = get_task_giver_id(task_id)
+    if giver_id and giver_id ~= 0 and giver_id ~= npc:id() then
+        printf("[TASK] complete_fetch_by_id FAILED: NPC %s is not giver %s for task '%s'", tostr(npc:id()), tostr(giver_id), tostr(task_id))
+        set_result("dm_arch_task_no_active")
+        return false
+    end
+    if not has_required_fetch_items(task) then
+        printf("[TASK] complete_fetch_by_id FAILED: player lacks items for task '%s'", tostr(task_id))
+        set_result("dm_arch_task_not_ready")
+        return false
+    end
+    if not complete_pda_task(task) then
+        set_result("dm_arch_task_not_ready")
+        return false
+    end
+    SUPPRESS_CONSUME_NEWS = true
+    PENDING_CONSUME = {}
+    if not consume_fetch_items(task, npc) then
+        SUPPRESS_CONSUME_NEWS = false
+        PENDING_CONSUME = {}
+        printe("[TASK] Failed to consume required items for task '%s'", tostr(task_id))
+        set_result("dm_arch_task_not_ready")
+        return false
+    end
+    SUPPRESS_CONSUME_NEWS = false
+    complete_task(task, task.arch_id, npc)
+    logv("[TASK] COMPLETED (fetch_by_id): %s", tostr(task_id))
+    return true
+end
+-- Cancel a specific task by ID — clears active state, delivery state, PDA, markers
+function cancel_task_by_id(task_id, a, b)
+    ensure_registered()
+    local task = task_id and TASK_BY_ID[tostr(task_id)] or nil
+    if not task then
+        printf("[TASK] cancel_task_by_id FAILED: task '%s' not found", tostr(task_id))
+        return false
+    end
+    if not is_task_active(task.id) then
+        printf("[TASK] cancel_task_by_id: task '%s' is not active", task.id)
+        return false
+    end
+    -- Notify PDA task manager (shows "Mission failed" + removes marker)
+    local pda_task_id = get_pda_task_id(task)
+    if pda_task_id then
+        local tm = get_task_manager_instance()
+        if tm and tm.set_task_cancelled then
+            pcall(tm.set_task_cancelled, tm, pda_task_id)
+            printf("[TASK] PDA task cancelled: %s", tostr(pda_task_id))
+        elseif tm and tm.set_task_failed then
+            pcall(tm.set_task_failed, tm, pda_task_id)
+            printf("[TASK] PDA task failed (cancel fallback): %s", tostr(pda_task_id))
+        end
+    end
+    remove_task_marker(task.id)
+    set_turnin_ready(task.id, false)
+    set_task_active_index(task.id, false)
+    set_task_active(task.id, false)
+    set_active_task_id(task.arch_id, nil)
+    local giver_id = get_task_giver_id(task.id)
+    if giver_id and giver_id > 0 then
+        set_active_task_id_for_npc(giver_id, nil)
+    end
+    set_task_giver_id(task.id, 0)
+    set_task_giver_community(task.id, "")
+    set_resolved_item_section(task.id, "")
+    -- Clear delivery/talk/collect state if applicable
+    if task.kind == "delivery" or task.kind == "talk" or task.kind == "collect" then
+        clear_delivery_state(task.id)
+    end
+    -- Clear offer cache
+    local pool_tag = task.pool_tag or "default"
+    if giver_id and giver_id > 0 then
+        OFFER_CACHE[offer_cache_key(giver_id, pool_tag)] = nil
+    end
+    printf("[TASK] CANCELLED: %s", task.id)
+    return true
+end
+-- Collect task pickup — called at the source NPC. Spawns items on player.
+function transfer_task_giver(task_id, a, b)
+    ensure_registered()
+    task_id = task_id and tostr(task_id) or nil
+    local task = task_id and TASK_BY_ID[task_id] or nil
+    if not task then
+        printf("[TASK] transfer_task_giver FAILED: task '%s' not found", tostr(task_id))
+        return false
+    end
+    if not is_task_active(task_id) then
+        printf("[TASK] transfer_task_giver FAILED: task '%s' not active", task_id)
+        return false
+    end
+    local npc = resolve_dialog_npc(a, b)
+    if not npc then
+        printf("[TASK] transfer_task_giver FAILED: NPC not resolved")
+        return false
+    end
+    local new_giver_id = npc:id()
+    local old_giver_id = get_task_giver_id(task_id)
+    -- Update giver
+    set_task_giver_id(task_id, new_giver_id)
+    -- Update giver community
+    if npc.character_community then
+        local ok, comm = pcall(npc.character_community, npc)
+        if ok and comm and comm ~= "" then
+            set_task_giver_community(task_id, tostr(comm))
+        end
+    end
+    -- Clear old NPC's active task
+    if old_giver_id and old_giver_id > 0 then
+        set_active_task_id_for_npc(old_giver_id, nil)
+    end
+    -- Set new NPC's active task
+    set_active_task_id_for_npc(new_giver_id, task_id)
+    -- Refresh marker
+    remove_task_marker(task_id)
+    printf("[TASK] TRANSFERRED: '%s' giver %s -> %s", task_id, tostr(old_giver_id), tostr(new_giver_id))
+    return true
+end
+function collect_pickup_by_id(task_id, a, b)
+    ensure_registered()
+    local task = task_id and TASK_BY_ID[tostr(task_id)] or nil
+    if not task then
+        printf("[TASK] collect_pickup_by_id FAILED: task '%s' not found", tostr(task_id))
+        return false
+    end
+    if task.kind ~= "collect" then
+        printf("[TASK] collect_pickup_by_id FAILED: task '%s' is kind '%s', not collect", tostr(task_id), tostr(task.kind))
+        return false
+    end
+    if not is_task_active(task.id) then
+        printf("[TASK] collect_pickup_by_id FAILED: task '%s' is not active", task.id)
+        return false
+    end
+    local state = load_delivery_state(task.id)
+    if not state then
+        printf("[TASK] collect_pickup_by_id FAILED: no delivery state for '%s'", task.id)
+        return false
+    end
+    -- Verify NPC is the source
+    local npc = resolve_dialog_npc(a, b)
+    if npc then
+        local npc_id = npc:id()
+        if state.target_id and state.target_id > 0 and npc_id ~= state.target_id then
+            logv("[TASK] collect_pickup_by_id: NPC %s is not source %s for task '%s'", npc_id, state.target_id, task.id)
+            return false
+        end
+    end
+    -- Spawn items on player
+    local section = state.item_section or task.collect_item or ""
+    local amount = state.item_amount or tonum(task.collect_amount) or 1
+    if section ~= "" and amount > 0 then
+        local granted = give_item_reward(section, amount, true)
+        if granted > 0 and news_manager and news_manager.relocate_item then
+            news_manager.relocate_item(db.actor, "in", section, granted)
+        end
+        logv("[TASK] Collect pickup '%s': spawned %s/%s x '%s' on player", task.id, granted, amount, section)
+    end
+    -- Mark as picked up so the source NPC pickup dialog won't show again
+    mark_collect_picked_up(task.id)
+    -- PDA stage will update automatically via status functor (has_delivery_items → stage 1 → marker switches to giver)
+    logv("[TASK] Collect pickup complete for '%s'", task.id)
+    return true
+end
+function accept_task_by_id(task_id, a, b)
+    ensure_registered()
+    local task = task_id and TASK_BY_ID[tostr(task_id)] or nil
+    if not task then
+        printf("[TASK] accept_task_by_id FAILED: task '%s' not found in TASK_BY_ID", tostr(task_id))
+        set_result("dm_arch_task_no_available")
+        return false
+    end
+    local npc = resolve_dialog_npc(a, b)
+    if not npc or not npc.id then
+        printf("[TASK] accept_task_by_id FAILED: NPC not resolved for task '%s'", tostr(task_id))
+        set_result("dm_arch_task_no_available")
+        return false
+    end
+    local npc_id = npc:id()
+    local arch_id = task.arch_id
+    local pool_tag = task.pool_tag or "default"
+    -- Per-task accept skips pool active-task check — narrative flow controls task sequencing
+    -- via requires_task_done / requires_info, not pool constraints.
+    if (task.kind == "fetch" or task.kind == "delivery" or task.kind == "talk" or task.kind == "collect") and not ensure_pda_task_started(task, npc) then
+        set_result("dm_arch_task_not_ready")
+        local cache_key = offer_cache_key(npc_id, pool_tag)
+        OFFER_CACHE[cache_key] = nil
+        return false
+    end
+    if task.kind == "delivery" then
+        if not accept_delivery_task(task, npc) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+    elseif task.kind == "talk" then
+        if not accept_talk_task(task, npc) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+    elseif task.kind == "collect" then
+        if not accept_collect_task(task, npc) then
+            set_result("dm_arch_task_not_ready")
+            return false
+        end
+    end
+    set_task_active(task.id, true)
+    set_task_active_index(task.id, true)
+    set_active_task_id(arch_id, task.id)
+    set_active_task_id_for_npc(npc_id, task.id)
+    set_task_giver_id(task.id, npc_id)
+    local giver_comm = nil
+    if task.reward_goodwill_community then
+        giver_comm = task.reward_goodwill_community
+    elseif npc.character_community then
+        local ok, comm = pcall(npc.character_community, npc)
+        if ok and comm and comm ~= "" then
+            giver_comm = tostr(comm)
+        end
+    end
+    if giver_comm then
+        set_task_giver_community(task.id, giver_comm)
+    end
+    if task.item_category and task.item_category ~= "" then
+        local cache_key = offer_cache_key(npc_id, pool_tag)
+        local cached = OFFER_CACHE[cache_key]
+        if cached and cached.resolved_item and cached.resolved_item ~= "" then
+            set_resolved_item_section(task.id, cached.resolved_item)
+        end
+    end
+    set_turnin_ready(task.id, false)
+    set_turnin_marker_owned(task.id, false)
+    set_last_offer_task_id(arch_id, task.id)
+    OFFER_CACHE[offer_cache_key(npc_id, pool_tag)] = nil
+    set_result(task_accept_message(task))
+    update_turnin_tracker_for_task(task, arch_id, true)
+    logv("[TASK] ACCEPTED (by_id): %s (arch=%s pool=%s)", task.id, tostring(arch_id), tostring(pool_tag))
+    return true
+end
+function can_offer_task_by_id(task_id, a, b)
+    ensure_registered()
+    local task = task_id and TASK_BY_ID[tostr(task_id)] or nil
+    if not task then
+        logv("[ARCH][PIN] can_offer_task_by_id: task '%s' not found in TASK_BY_ID", tostr(task_id))
+        return false
+    end
+    local npc = resolve_dialog_npc(a, b)
+    if not npc or not npc.id then
+        logv("[ARCH][PIN] can_offer_task_by_id: could not resolve NPC for task '%s'", tostr(task_id))
+        return false
+    end
+    local npc_id = npc:id()
+    if not can_offer_task(task, npc_id) then
+        logv("[ARCH][PIN] can_offer_task_by_id: can_offer_task returned false for task '%s' npc=%s", tostr(task_id), tostr(npc_id))
+        return false
+    end
+    if npc_has_active_task_for_pool(npc_id, task.pool_tag or "default") then
+        logv("[ARCH][PIN] can_offer_task_by_id: npc %s already has active task in pool '%s'", tostr(npc_id), tostr(task.pool_tag or "default"))
+        return false
+    end
+    logv("[ARCH][PIN] can_offer_task_by_id: OK task='%s' npc=%s", tostr(task_id), tostr(npc_id))
+    return true
+end
+
+-- ──────────────────────────────────────────────────
+-- Update Handlers
+-- ──────────────────────────────────────────────────
+
+local function actor_on_update_tasks_core()
+    if archetype_core and archetype_core.process_pending_news then
+        archetype_core.process_pending_news()
+    end
+    local now = now_ms()
+    if now >= tracker_next_resync_ms then
+        rebuild_active_task_index()
+        cleanup_inactive_trackers()
+        tracker_next_resync_ms = now + TRACKER_RESYNC_INTERVAL_MS
+    end
+    if now < tracker_next_update_ms then
+        return
+    end
+    tracker_next_update_ms = now + TRACKER_UPDATE_INTERVAL_MS
+    update_all_turnin_trackers(false)
+end
+local function on_game_load_tasks_core()
+    OFFER_CACHE = {}
+    DIALOG_PINNED_OFFER = {}
+    RESULT_CACHE = {}
+    CATEGORIES_LOADED = false
+    CATEGORY_POOLS = {}
+    tracker_next_update_ms = 0
+    tracker_next_resync_ms = 0
+    rebuild_active_task_index()
+    cleanup_inactive_trackers()
+    update_all_turnin_trackers(true)
+end
+-- PDA TASK FUNCTORS
+
+-- ──────────────────────────────────────────────────
+-- PDA Task Functors
+-- ──────────────────────────────────────────────────
+
+local function register_pda_functors()
+    if task_functor then
+        task_functor.arch_fetch_task = function(task_id, field, p, tsk)
+            local task = TASK_BY_ID[task_id]
+            if not task then return p end
+            if field == "title" then
+                local text = resolve_task_text(task, "summary", nil)
+                return text or game.translate_string(p) or p
+            elseif field == "descr" then
+                if tsk and tsk.stage and tsk.stage >= 1 then
+                    if task.kind == "delivery" then
+                        return game.translate_string("st_arch_delivery_ready") or "Deliver the items to the target."
+                    elseif task.kind == "talk" then
+                        return game.translate_string("st_arch_talk_ready") or "Go talk to the marked contact."
+                    elseif task.kind == "collect" then
+                        return game.translate_string("st_arch_collect_return") or "Bring the items back."
+                    end
+                    return game.translate_string("st_return_for_reward") or "Return for reward."
+                end
+                local text = resolve_task_text(task, "details", nil)
+                return text or game.translate_string(p) or p
+            elseif field == "target" then
+                -- Delivery/talk tasks: always point to target NPC (not giver)
+                if task.kind == "delivery" or task.kind == "talk" then
+                    local target_id = get_delivery_target_id(task_id)
+                    if target_id and target_id > 0 then
+                        return target_id
+                    end
+                    return nil
+                end
+                -- Collect tasks: stage 0 → source NPC, stage 1 → giver
+                if task.kind == "collect" then
+                    if tsk and tsk.stage and tsk.stage >= 1 then
+                        -- Has items, point to giver
+                        local giver_id = get_task_giver_id(task_id)
+                        if giver_id > 0 then return giver_id end
+                        if tsk.task_giver_id and tsk.task_giver_id > 0 then return tsk.task_giver_id end
+                    else
+                        -- Go to source NPC
+                        local source_id = get_delivery_target_id(task_id)
+                        if source_id and source_id > 0 then return source_id end
+                    end
+                    return nil
+                end
+                -- Fetch tasks: point to giver when items ready
+                if tsk and tsk.stage and tsk.stage >= 1 then
+                    local giver_id = get_task_giver_id(task_id)
+                    if giver_id > 0 then
+                        return giver_id
+                    end
+                    if tsk.task_giver_id and tsk.task_giver_id > 0 then
+                        return tsk.task_giver_id
+                    end
+                end
+                return nil
+            end
+            return p
+        end
+        printf("[TASK] Registered task_functor.arch_fetch_task")
+    end
+    if task_status_functor then
+        task_status_functor.arch_fetch_task_status = function(tsk, task_id)
+            local task = TASK_BY_ID[task_id]
+            if not task then return end
+            local ready = false
+            if task.kind == "fetch" then
+                ready = has_required_fetch_items(task)
+            elseif task.kind == "delivery" then
+                ready = has_delivery_items(task)
+            elseif task.kind == "talk" then
+                ready = true  -- talk tasks are always "ready" — just find the NPC
+            elseif task.kind == "collect" then
+                -- Only check inventory AFTER pickup from source NPC (picked_up flag)
+                -- Otherwise common loot items in inventory would trigger stage=1 prematurely
+                local cstate = load_delivery_state(task_id)
+                if cstate and cstate.picked_up then
+                    ready = has_delivery_items(task)
+                end
+            end
+            tsk.stage = ready and 1 or 0
+            -- Check giver alive — but respect on_giver_death = keep/reassign
+            local giver_death_behavior = task.on_giver_death or "fail"
+            if giver_death_behavior == "fail" then
+                local giver_id = get_task_giver_id(task_id)
+                if giver_id > 0 then
+                    local sim = alife and alife()
+                    local se_obj = sim and sim:object(giver_id) or nil
+                    if not se_obj then
+                        return "fail"
+                    end
+                    if se_obj.alive then
+                        local ok, val = pcall(se_obj.alive, se_obj)
+                        if ok and not val then
+                            return "fail"
+                        end
+                    end
+                end
+            end
+        end
+        printf("[TASK] Registered task_status_functor.arch_fetch_task_status")
+    end
+end
+
+-- ──────────────────────────────────────────────────
+-- Game Start
+-- ──────────────────────────────────────────────────
+
+function on_game_start()
+    if (callbacks_registered) then
+        return
+    end
+    register_pda_functors()
+    RegisterScriptCallback("actor_on_update", actor_on_update_tasks_core)
+    RegisterScriptCallback("on_game_load", on_game_load_tasks_core)
+    callbacks_registered = true
+    on_game_load_tasks_core()
+end

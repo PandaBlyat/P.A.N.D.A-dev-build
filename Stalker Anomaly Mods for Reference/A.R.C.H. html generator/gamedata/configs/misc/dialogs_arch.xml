@@ -1,0 +1,2091 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<game_dialogs>
+
+    <dialog id="arch_task_offer_dialog">
+        <precondition>dialogs.arch_has_task_pool</precondition>
+        <phrase_list>
+            <phrase id="0">
+                <text>st_arch_task_offer_open</text>
+                <next>1</next>
+            </phrase>
+            <phrase id="1">
+                <script_text>dialogs.arch_text_task_offer_summary</script_text>
+                <next>2</next>
+                <next>3</next>
+                <next>4</next>
+                <next>5</next>
+                <next>99</next>
+            </phrase>
+
+            <phrase id="2">
+                <precondition>dialogs.arch_task_has_offer</precondition>
+                <text>st_arch_task_details</text>
+                <next>20</next>
+            </phrase>
+            <phrase id="20">
+                <script_text>dialogs.arch_text_task_offer_details</script_text>
+                <next>21</next>
+                <next>22</next>
+            </phrase>
+            <phrase id="21">
+                <precondition>dialogs.arch_task_has_offer</precondition>
+                <text>st_arch_task_accept</text>
+                <action>dialogs.arch_task_accept</action>
+                <next>210</next>
+            </phrase>
+            <phrase id="210">
+                <script_text>dialogs.arch_text_task_result</script_text>
+            </phrase>
+            <phrase id="22">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline</action>
+                <next>220</next>
+            </phrase>
+            <phrase id="220">
+                <script_text>dialogs.arch_text_task_result</script_text>
+            </phrase>
+
+            <phrase id="3">
+                <precondition>dialogs.arch_task_has_offer</precondition>
+                <text>st_arch_task_accept</text>
+                <action>dialogs.arch_task_accept</action>
+                <next>30</next>
+            </phrase>
+            <phrase id="30">
+                <script_text>dialogs.arch_text_task_result</script_text>
+            </phrase>
+
+            <phrase id="4">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline</action>
+                <next>40</next>
+            </phrase>
+            <phrase id="40">
+                <script_text>dialogs.arch_text_task_result</script_text>
+            </phrase>
+
+            <phrase id="5">
+                <precondition>dialogs.arch_has_active_task</precondition>
+                <text>st_arch_task_turnin</text>
+                <next>50</next>
+            </phrase>
+            <phrase id="50">
+                <script_text>dialogs.arch_text_task_active_summary</script_text>
+                <next>60</next>
+                <next>51</next>
+                <next>52</next>
+            </phrase>
+            <phrase id="51">
+                <precondition>dialogs.arch_task_not_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <action>dialogs.arch_task_try_complete</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="510">
+                <script_text>dialogs.arch_text_task_result</script_text>
+                <action>dialogs.arch_task_deliver_rewards</action>
+            </phrase>
+            <phrase id="52">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <!-- Category picker: player_choice turnin -->
+            <!-- Player says they want to choose → NPC asks "which item?" → Player picks from 61-68 -->
+            <phrase id="60">
+                <precondition>dialogs.arch_task_is_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <next>600</next>
+            </phrase>
+            <phrase id="600">
+                <text>st_arch_task_cat_pick_prompt</text>
+                <next>61</next>
+                <next>62</next>
+                <next>63</next>
+                <next>64</next>
+                <next>65</next>
+                <next>66</next>
+                <next>67</next>
+                <next>68</next>
+                <next>69</next>
+            </phrase>
+            <phrase id="61">
+                <precondition>dialogs.arch_task_cat_has_1</precondition>
+                <script_text>dialogs.arch_text_task_cat_1</script_text>
+                <action>dialogs.arch_task_cat_select_1</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="62">
+                <precondition>dialogs.arch_task_cat_has_2</precondition>
+                <script_text>dialogs.arch_text_task_cat_2</script_text>
+                <action>dialogs.arch_task_cat_select_2</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="63">
+                <precondition>dialogs.arch_task_cat_has_3</precondition>
+                <script_text>dialogs.arch_text_task_cat_3</script_text>
+                <action>dialogs.arch_task_cat_select_3</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="64">
+                <precondition>dialogs.arch_task_cat_has_4</precondition>
+                <script_text>dialogs.arch_text_task_cat_4</script_text>
+                <action>dialogs.arch_task_cat_select_4</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="65">
+                <precondition>dialogs.arch_task_cat_has_5</precondition>
+                <script_text>dialogs.arch_text_task_cat_5</script_text>
+                <action>dialogs.arch_task_cat_select_5</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="66">
+                <precondition>dialogs.arch_task_cat_has_6</precondition>
+                <script_text>dialogs.arch_text_task_cat_6</script_text>
+                <action>dialogs.arch_task_cat_select_6</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="67">
+                <precondition>dialogs.arch_task_cat_has_7</precondition>
+                <script_text>dialogs.arch_text_task_cat_7</script_text>
+                <action>dialogs.arch_task_cat_select_7</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="68">
+                <precondition>dialogs.arch_task_cat_has_8</precondition>
+                <script_text>dialogs.arch_text_task_cat_8</script_text>
+                <action>dialogs.arch_task_cat_select_8</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="69">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="99">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <!-- Pool tag dialogs: static entries for predefined pool_tag vocabulary.
+         Engine InitInternal reads system.ltx [dialogs] files at first NPC interaction.
+         Only files listed there end up in CPhraseDialog registry — runtime-generated
+         files are never read by InitInternal regardless of DXML. These must be static. -->
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- GENERIC POOLS 1-10: same structure as advanced/rare/elite/special -->
+    <!-- Pack authors use pool_tag = pool_1 through pool_10 -->
+    <!-- Custom text via dialog_open_text, personality_accept, etc. -->
+    <!-- ═══════════════════════════════════════════════════ -->
+
+    <dialog id="arch_task_pool_pool_1_dialog">
+        <precondition>dialogs.arch_has_task_pool_pool_1</precondition>
+        <phrase_list>
+            <phrase id="0">
+                <script_text>dialogs.arch_text_pool_open_pool_1</script_text>
+                <next>1</next>
+            </phrase>
+            <phrase id="1">
+                <script_text>dialogs.arch_text_task_offer_summary_pool_1</script_text>
+                <next>2</next>
+                <next>3</next>
+                <next>4</next>
+                <next>5</next>
+                <next>99</next>
+            </phrase>
+
+            <phrase id="2">
+                <precondition>dialogs.arch_task_has_offer_pool_1</precondition>
+                <text>st_arch_task_details</text>
+                <next>20</next>
+            </phrase>
+            <phrase id="20">
+                <script_text>dialogs.arch_text_task_offer_details_pool_1</script_text>
+                <next>21</next>
+                <next>22</next>
+            </phrase>
+            <phrase id="21">
+                <precondition>dialogs.arch_task_has_offer_pool_1</precondition>
+                <text>st_arch_task_accept</text>
+                <next>210</next>
+            </phrase>
+            <phrase id="210">
+                <action>dialogs.arch_task_accept_pool_1</action>
+                <script_text>dialogs.arch_text_task_result_pool_1</script_text>
+            </phrase>
+            <phrase id="22">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_1</action>
+                <next>220</next>
+            </phrase>
+            <phrase id="220">
+                <script_text>dialogs.arch_text_task_result_pool_1</script_text>
+            </phrase>
+
+            <phrase id="3">
+                <precondition>dialogs.arch_task_has_offer_pool_1</precondition>
+                <text>st_arch_task_accept</text>
+                <next>30</next>
+            </phrase>
+            <phrase id="30">
+                <action>dialogs.arch_task_accept_pool_1</action>
+                <script_text>dialogs.arch_text_task_result_pool_1</script_text>
+            </phrase>
+
+            <phrase id="4">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_1</action>
+                <next>40</next>
+            </phrase>
+            <phrase id="40">
+                <script_text>dialogs.arch_text_task_result_pool_1</script_text>
+            </phrase>
+
+            <phrase id="5">
+                <precondition>dialogs.arch_has_active_task_pool_1</precondition>
+                <text>st_arch_task_turnin</text>
+                <next>50</next>
+            </phrase>
+            <phrase id="50">
+                <script_text>dialogs.arch_text_task_active_summary_pool_1</script_text>
+                <next>60</next>
+                <next>51</next>
+                <next>52</next>
+            </phrase>
+            <phrase id="51">
+                <precondition>dialogs.arch_task_not_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <action>dialogs.arch_task_try_complete_pool_1</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="510">
+                <script_text>dialogs.arch_text_task_result_pool_1</script_text>
+                <action>dialogs.arch_task_deliver_rewards_pool_1</action>
+            </phrase>
+            <phrase id="52">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="60">
+                <precondition>dialogs.arch_task_is_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <next>600</next>
+            </phrase>
+            <phrase id="600">
+                <text>st_arch_task_cat_pick_prompt</text>
+                <next>61</next>
+                <next>62</next>
+                <next>63</next>
+                <next>64</next>
+                <next>65</next>
+                <next>66</next>
+                <next>67</next>
+                <next>68</next>
+                <next>69</next>
+            </phrase>
+            <phrase id="61">
+                <precondition>dialogs.arch_task_cat_has_1</precondition>
+                <script_text>dialogs.arch_text_task_cat_1</script_text>
+                <action>dialogs.arch_task_cat_select_1</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="62">
+                <precondition>dialogs.arch_task_cat_has_2</precondition>
+                <script_text>dialogs.arch_text_task_cat_2</script_text>
+                <action>dialogs.arch_task_cat_select_2</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="63">
+                <precondition>dialogs.arch_task_cat_has_3</precondition>
+                <script_text>dialogs.arch_text_task_cat_3</script_text>
+                <action>dialogs.arch_task_cat_select_3</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="64">
+                <precondition>dialogs.arch_task_cat_has_4</precondition>
+                <script_text>dialogs.arch_text_task_cat_4</script_text>
+                <action>dialogs.arch_task_cat_select_4</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="65">
+                <precondition>dialogs.arch_task_cat_has_5</precondition>
+                <script_text>dialogs.arch_text_task_cat_5</script_text>
+                <action>dialogs.arch_task_cat_select_5</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="66">
+                <precondition>dialogs.arch_task_cat_has_6</precondition>
+                <script_text>dialogs.arch_text_task_cat_6</script_text>
+                <action>dialogs.arch_task_cat_select_6</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="67">
+                <precondition>dialogs.arch_task_cat_has_7</precondition>
+                <script_text>dialogs.arch_text_task_cat_7</script_text>
+                <action>dialogs.arch_task_cat_select_7</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="68">
+                <precondition>dialogs.arch_task_cat_has_8</precondition>
+                <script_text>dialogs.arch_text_task_cat_8</script_text>
+                <action>dialogs.arch_task_cat_select_8</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="69">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="99">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <dialog id="arch_task_pool_pool_2_dialog">
+        <precondition>dialogs.arch_has_task_pool_pool_2</precondition>
+        <phrase_list>
+            <phrase id="0">
+                <script_text>dialogs.arch_text_pool_open_pool_2</script_text>
+                <next>1</next>
+            </phrase>
+            <phrase id="1">
+                <script_text>dialogs.arch_text_task_offer_summary_pool_2</script_text>
+                <next>2</next>
+                <next>3</next>
+                <next>4</next>
+                <next>5</next>
+                <next>99</next>
+            </phrase>
+
+            <phrase id="2">
+                <precondition>dialogs.arch_task_has_offer_pool_2</precondition>
+                <text>st_arch_task_details</text>
+                <next>20</next>
+            </phrase>
+            <phrase id="20">
+                <script_text>dialogs.arch_text_task_offer_details_pool_2</script_text>
+                <next>21</next>
+                <next>22</next>
+            </phrase>
+            <phrase id="21">
+                <precondition>dialogs.arch_task_has_offer_pool_2</precondition>
+                <text>st_arch_task_accept</text>
+                <next>210</next>
+            </phrase>
+            <phrase id="210">
+                <action>dialogs.arch_task_accept_pool_2</action>
+                <script_text>dialogs.arch_text_task_result_pool_2</script_text>
+            </phrase>
+            <phrase id="22">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_2</action>
+                <next>220</next>
+            </phrase>
+            <phrase id="220">
+                <script_text>dialogs.arch_text_task_result_pool_2</script_text>
+            </phrase>
+
+            <phrase id="3">
+                <precondition>dialogs.arch_task_has_offer_pool_2</precondition>
+                <text>st_arch_task_accept</text>
+                <next>30</next>
+            </phrase>
+            <phrase id="30">
+                <action>dialogs.arch_task_accept_pool_2</action>
+                <script_text>dialogs.arch_text_task_result_pool_2</script_text>
+            </phrase>
+
+            <phrase id="4">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_2</action>
+                <next>40</next>
+            </phrase>
+            <phrase id="40">
+                <script_text>dialogs.arch_text_task_result_pool_2</script_text>
+            </phrase>
+
+            <phrase id="5">
+                <precondition>dialogs.arch_has_active_task_pool_2</precondition>
+                <text>st_arch_task_turnin</text>
+                <next>50</next>
+            </phrase>
+            <phrase id="50">
+                <script_text>dialogs.arch_text_task_active_summary_pool_2</script_text>
+                <next>60</next>
+                <next>51</next>
+                <next>52</next>
+            </phrase>
+            <phrase id="51">
+                <precondition>dialogs.arch_task_not_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <action>dialogs.arch_task_try_complete_pool_2</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="510">
+                <script_text>dialogs.arch_text_task_result_pool_2</script_text>
+                <action>dialogs.arch_task_deliver_rewards_pool_2</action>
+            </phrase>
+            <phrase id="52">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="60">
+                <precondition>dialogs.arch_task_is_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <next>600</next>
+            </phrase>
+            <phrase id="600">
+                <text>st_arch_task_cat_pick_prompt</text>
+                <next>61</next>
+                <next>62</next>
+                <next>63</next>
+                <next>64</next>
+                <next>65</next>
+                <next>66</next>
+                <next>67</next>
+                <next>68</next>
+                <next>69</next>
+            </phrase>
+            <phrase id="61">
+                <precondition>dialogs.arch_task_cat_has_1</precondition>
+                <script_text>dialogs.arch_text_task_cat_1</script_text>
+                <action>dialogs.arch_task_cat_select_1</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="62">
+                <precondition>dialogs.arch_task_cat_has_2</precondition>
+                <script_text>dialogs.arch_text_task_cat_2</script_text>
+                <action>dialogs.arch_task_cat_select_2</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="63">
+                <precondition>dialogs.arch_task_cat_has_3</precondition>
+                <script_text>dialogs.arch_text_task_cat_3</script_text>
+                <action>dialogs.arch_task_cat_select_3</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="64">
+                <precondition>dialogs.arch_task_cat_has_4</precondition>
+                <script_text>dialogs.arch_text_task_cat_4</script_text>
+                <action>dialogs.arch_task_cat_select_4</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="65">
+                <precondition>dialogs.arch_task_cat_has_5</precondition>
+                <script_text>dialogs.arch_text_task_cat_5</script_text>
+                <action>dialogs.arch_task_cat_select_5</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="66">
+                <precondition>dialogs.arch_task_cat_has_6</precondition>
+                <script_text>dialogs.arch_text_task_cat_6</script_text>
+                <action>dialogs.arch_task_cat_select_6</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="67">
+                <precondition>dialogs.arch_task_cat_has_7</precondition>
+                <script_text>dialogs.arch_text_task_cat_7</script_text>
+                <action>dialogs.arch_task_cat_select_7</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="68">
+                <precondition>dialogs.arch_task_cat_has_8</precondition>
+                <script_text>dialogs.arch_text_task_cat_8</script_text>
+                <action>dialogs.arch_task_cat_select_8</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="69">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="99">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <dialog id="arch_task_pool_pool_3_dialog">
+        <precondition>dialogs.arch_has_task_pool_pool_3</precondition>
+        <phrase_list>
+            <phrase id="0">
+                <script_text>dialogs.arch_text_pool_open_pool_3</script_text>
+                <next>1</next>
+            </phrase>
+            <phrase id="1">
+                <script_text>dialogs.arch_text_task_offer_summary_pool_3</script_text>
+                <next>2</next>
+                <next>3</next>
+                <next>4</next>
+                <next>5</next>
+                <next>99</next>
+            </phrase>
+
+            <phrase id="2">
+                <precondition>dialogs.arch_task_has_offer_pool_3</precondition>
+                <text>st_arch_task_details</text>
+                <next>20</next>
+            </phrase>
+            <phrase id="20">
+                <script_text>dialogs.arch_text_task_offer_details_pool_3</script_text>
+                <next>21</next>
+                <next>22</next>
+            </phrase>
+            <phrase id="21">
+                <precondition>dialogs.arch_task_has_offer_pool_3</precondition>
+                <text>st_arch_task_accept</text>
+                <next>210</next>
+            </phrase>
+            <phrase id="210">
+                <action>dialogs.arch_task_accept_pool_3</action>
+                <script_text>dialogs.arch_text_task_result_pool_3</script_text>
+            </phrase>
+            <phrase id="22">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_3</action>
+                <next>220</next>
+            </phrase>
+            <phrase id="220">
+                <script_text>dialogs.arch_text_task_result_pool_3</script_text>
+            </phrase>
+
+            <phrase id="3">
+                <precondition>dialogs.arch_task_has_offer_pool_3</precondition>
+                <text>st_arch_task_accept</text>
+                <next>30</next>
+            </phrase>
+            <phrase id="30">
+                <action>dialogs.arch_task_accept_pool_3</action>
+                <script_text>dialogs.arch_text_task_result_pool_3</script_text>
+            </phrase>
+
+            <phrase id="4">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_3</action>
+                <next>40</next>
+            </phrase>
+            <phrase id="40">
+                <script_text>dialogs.arch_text_task_result_pool_3</script_text>
+            </phrase>
+
+            <phrase id="5">
+                <precondition>dialogs.arch_has_active_task_pool_3</precondition>
+                <text>st_arch_task_turnin</text>
+                <next>50</next>
+            </phrase>
+            <phrase id="50">
+                <script_text>dialogs.arch_text_task_active_summary_pool_3</script_text>
+                <next>60</next>
+                <next>51</next>
+                <next>52</next>
+            </phrase>
+            <phrase id="51">
+                <precondition>dialogs.arch_task_not_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <action>dialogs.arch_task_try_complete_pool_3</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="510">
+                <script_text>dialogs.arch_text_task_result_pool_3</script_text>
+                <action>dialogs.arch_task_deliver_rewards_pool_3</action>
+            </phrase>
+            <phrase id="52">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="60">
+                <precondition>dialogs.arch_task_is_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <next>600</next>
+            </phrase>
+            <phrase id="600">
+                <text>st_arch_task_cat_pick_prompt</text>
+                <next>61</next>
+                <next>62</next>
+                <next>63</next>
+                <next>64</next>
+                <next>65</next>
+                <next>66</next>
+                <next>67</next>
+                <next>68</next>
+                <next>69</next>
+            </phrase>
+            <phrase id="61">
+                <precondition>dialogs.arch_task_cat_has_1</precondition>
+                <script_text>dialogs.arch_text_task_cat_1</script_text>
+                <action>dialogs.arch_task_cat_select_1</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="62">
+                <precondition>dialogs.arch_task_cat_has_2</precondition>
+                <script_text>dialogs.arch_text_task_cat_2</script_text>
+                <action>dialogs.arch_task_cat_select_2</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="63">
+                <precondition>dialogs.arch_task_cat_has_3</precondition>
+                <script_text>dialogs.arch_text_task_cat_3</script_text>
+                <action>dialogs.arch_task_cat_select_3</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="64">
+                <precondition>dialogs.arch_task_cat_has_4</precondition>
+                <script_text>dialogs.arch_text_task_cat_4</script_text>
+                <action>dialogs.arch_task_cat_select_4</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="65">
+                <precondition>dialogs.arch_task_cat_has_5</precondition>
+                <script_text>dialogs.arch_text_task_cat_5</script_text>
+                <action>dialogs.arch_task_cat_select_5</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="66">
+                <precondition>dialogs.arch_task_cat_has_6</precondition>
+                <script_text>dialogs.arch_text_task_cat_6</script_text>
+                <action>dialogs.arch_task_cat_select_6</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="67">
+                <precondition>dialogs.arch_task_cat_has_7</precondition>
+                <script_text>dialogs.arch_text_task_cat_7</script_text>
+                <action>dialogs.arch_task_cat_select_7</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="68">
+                <precondition>dialogs.arch_task_cat_has_8</precondition>
+                <script_text>dialogs.arch_text_task_cat_8</script_text>
+                <action>dialogs.arch_task_cat_select_8</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="69">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="99">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <dialog id="arch_task_pool_pool_4_dialog">
+        <precondition>dialogs.arch_has_task_pool_pool_4</precondition>
+        <phrase_list>
+            <phrase id="0">
+                <script_text>dialogs.arch_text_pool_open_pool_4</script_text>
+                <next>1</next>
+            </phrase>
+            <phrase id="1">
+                <script_text>dialogs.arch_text_task_offer_summary_pool_4</script_text>
+                <next>2</next>
+                <next>3</next>
+                <next>4</next>
+                <next>5</next>
+                <next>99</next>
+            </phrase>
+
+            <phrase id="2">
+                <precondition>dialogs.arch_task_has_offer_pool_4</precondition>
+                <text>st_arch_task_details</text>
+                <next>20</next>
+            </phrase>
+            <phrase id="20">
+                <script_text>dialogs.arch_text_task_offer_details_pool_4</script_text>
+                <next>21</next>
+                <next>22</next>
+            </phrase>
+            <phrase id="21">
+                <precondition>dialogs.arch_task_has_offer_pool_4</precondition>
+                <text>st_arch_task_accept</text>
+                <next>210</next>
+            </phrase>
+            <phrase id="210">
+                <action>dialogs.arch_task_accept_pool_4</action>
+                <script_text>dialogs.arch_text_task_result_pool_4</script_text>
+            </phrase>
+            <phrase id="22">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_4</action>
+                <next>220</next>
+            </phrase>
+            <phrase id="220">
+                <script_text>dialogs.arch_text_task_result_pool_4</script_text>
+            </phrase>
+
+            <phrase id="3">
+                <precondition>dialogs.arch_task_has_offer_pool_4</precondition>
+                <text>st_arch_task_accept</text>
+                <next>30</next>
+            </phrase>
+            <phrase id="30">
+                <action>dialogs.arch_task_accept_pool_4</action>
+                <script_text>dialogs.arch_text_task_result_pool_4</script_text>
+            </phrase>
+
+            <phrase id="4">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_4</action>
+                <next>40</next>
+            </phrase>
+            <phrase id="40">
+                <script_text>dialogs.arch_text_task_result_pool_4</script_text>
+            </phrase>
+
+            <phrase id="5">
+                <precondition>dialogs.arch_has_active_task_pool_4</precondition>
+                <text>st_arch_task_turnin</text>
+                <next>50</next>
+            </phrase>
+            <phrase id="50">
+                <script_text>dialogs.arch_text_task_active_summary_pool_4</script_text>
+                <next>60</next>
+                <next>51</next>
+                <next>52</next>
+            </phrase>
+            <phrase id="51">
+                <precondition>dialogs.arch_task_not_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <action>dialogs.arch_task_try_complete_pool_4</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="510">
+                <script_text>dialogs.arch_text_task_result_pool_4</script_text>
+                <action>dialogs.arch_task_deliver_rewards_pool_4</action>
+            </phrase>
+            <phrase id="52">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="60">
+                <precondition>dialogs.arch_task_is_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <next>600</next>
+            </phrase>
+            <phrase id="600">
+                <text>st_arch_task_cat_pick_prompt</text>
+                <next>61</next>
+                <next>62</next>
+                <next>63</next>
+                <next>64</next>
+                <next>65</next>
+                <next>66</next>
+                <next>67</next>
+                <next>68</next>
+                <next>69</next>
+            </phrase>
+            <phrase id="61">
+                <precondition>dialogs.arch_task_cat_has_1</precondition>
+                <script_text>dialogs.arch_text_task_cat_1</script_text>
+                <action>dialogs.arch_task_cat_select_1</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="62">
+                <precondition>dialogs.arch_task_cat_has_2</precondition>
+                <script_text>dialogs.arch_text_task_cat_2</script_text>
+                <action>dialogs.arch_task_cat_select_2</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="63">
+                <precondition>dialogs.arch_task_cat_has_3</precondition>
+                <script_text>dialogs.arch_text_task_cat_3</script_text>
+                <action>dialogs.arch_task_cat_select_3</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="64">
+                <precondition>dialogs.arch_task_cat_has_4</precondition>
+                <script_text>dialogs.arch_text_task_cat_4</script_text>
+                <action>dialogs.arch_task_cat_select_4</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="65">
+                <precondition>dialogs.arch_task_cat_has_5</precondition>
+                <script_text>dialogs.arch_text_task_cat_5</script_text>
+                <action>dialogs.arch_task_cat_select_5</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="66">
+                <precondition>dialogs.arch_task_cat_has_6</precondition>
+                <script_text>dialogs.arch_text_task_cat_6</script_text>
+                <action>dialogs.arch_task_cat_select_6</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="67">
+                <precondition>dialogs.arch_task_cat_has_7</precondition>
+                <script_text>dialogs.arch_text_task_cat_7</script_text>
+                <action>dialogs.arch_task_cat_select_7</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="68">
+                <precondition>dialogs.arch_task_cat_has_8</precondition>
+                <script_text>dialogs.arch_text_task_cat_8</script_text>
+                <action>dialogs.arch_task_cat_select_8</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="69">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="99">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <dialog id="arch_task_pool_pool_5_dialog">
+        <precondition>dialogs.arch_has_task_pool_pool_5</precondition>
+        <phrase_list>
+            <phrase id="0">
+                <script_text>dialogs.arch_text_pool_open_pool_5</script_text>
+                <next>1</next>
+            </phrase>
+            <phrase id="1">
+                <script_text>dialogs.arch_text_task_offer_summary_pool_5</script_text>
+                <next>2</next>
+                <next>3</next>
+                <next>4</next>
+                <next>5</next>
+                <next>99</next>
+            </phrase>
+
+            <phrase id="2">
+                <precondition>dialogs.arch_task_has_offer_pool_5</precondition>
+                <text>st_arch_task_details</text>
+                <next>20</next>
+            </phrase>
+            <phrase id="20">
+                <script_text>dialogs.arch_text_task_offer_details_pool_5</script_text>
+                <next>21</next>
+                <next>22</next>
+            </phrase>
+            <phrase id="21">
+                <precondition>dialogs.arch_task_has_offer_pool_5</precondition>
+                <text>st_arch_task_accept</text>
+                <next>210</next>
+            </phrase>
+            <phrase id="210">
+                <action>dialogs.arch_task_accept_pool_5</action>
+                <script_text>dialogs.arch_text_task_result_pool_5</script_text>
+            </phrase>
+            <phrase id="22">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_5</action>
+                <next>220</next>
+            </phrase>
+            <phrase id="220">
+                <script_text>dialogs.arch_text_task_result_pool_5</script_text>
+            </phrase>
+
+            <phrase id="3">
+                <precondition>dialogs.arch_task_has_offer_pool_5</precondition>
+                <text>st_arch_task_accept</text>
+                <next>30</next>
+            </phrase>
+            <phrase id="30">
+                <action>dialogs.arch_task_accept_pool_5</action>
+                <script_text>dialogs.arch_text_task_result_pool_5</script_text>
+            </phrase>
+
+            <phrase id="4">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_5</action>
+                <next>40</next>
+            </phrase>
+            <phrase id="40">
+                <script_text>dialogs.arch_text_task_result_pool_5</script_text>
+            </phrase>
+
+            <phrase id="5">
+                <precondition>dialogs.arch_has_active_task_pool_5</precondition>
+                <text>st_arch_task_turnin</text>
+                <next>50</next>
+            </phrase>
+            <phrase id="50">
+                <script_text>dialogs.arch_text_task_active_summary_pool_5</script_text>
+                <next>60</next>
+                <next>51</next>
+                <next>52</next>
+            </phrase>
+            <phrase id="51">
+                <precondition>dialogs.arch_task_not_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <action>dialogs.arch_task_try_complete_pool_5</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="510">
+                <script_text>dialogs.arch_text_task_result_pool_5</script_text>
+                <action>dialogs.arch_task_deliver_rewards_pool_5</action>
+            </phrase>
+            <phrase id="52">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="60">
+                <precondition>dialogs.arch_task_is_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <next>600</next>
+            </phrase>
+            <phrase id="600">
+                <text>st_arch_task_cat_pick_prompt</text>
+                <next>61</next>
+                <next>62</next>
+                <next>63</next>
+                <next>64</next>
+                <next>65</next>
+                <next>66</next>
+                <next>67</next>
+                <next>68</next>
+                <next>69</next>
+            </phrase>
+            <phrase id="61">
+                <precondition>dialogs.arch_task_cat_has_1</precondition>
+                <script_text>dialogs.arch_text_task_cat_1</script_text>
+                <action>dialogs.arch_task_cat_select_1</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="62">
+                <precondition>dialogs.arch_task_cat_has_2</precondition>
+                <script_text>dialogs.arch_text_task_cat_2</script_text>
+                <action>dialogs.arch_task_cat_select_2</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="63">
+                <precondition>dialogs.arch_task_cat_has_3</precondition>
+                <script_text>dialogs.arch_text_task_cat_3</script_text>
+                <action>dialogs.arch_task_cat_select_3</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="64">
+                <precondition>dialogs.arch_task_cat_has_4</precondition>
+                <script_text>dialogs.arch_text_task_cat_4</script_text>
+                <action>dialogs.arch_task_cat_select_4</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="65">
+                <precondition>dialogs.arch_task_cat_has_5</precondition>
+                <script_text>dialogs.arch_text_task_cat_5</script_text>
+                <action>dialogs.arch_task_cat_select_5</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="66">
+                <precondition>dialogs.arch_task_cat_has_6</precondition>
+                <script_text>dialogs.arch_text_task_cat_6</script_text>
+                <action>dialogs.arch_task_cat_select_6</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="67">
+                <precondition>dialogs.arch_task_cat_has_7</precondition>
+                <script_text>dialogs.arch_text_task_cat_7</script_text>
+                <action>dialogs.arch_task_cat_select_7</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="68">
+                <precondition>dialogs.arch_task_cat_has_8</precondition>
+                <script_text>dialogs.arch_text_task_cat_8</script_text>
+                <action>dialogs.arch_task_cat_select_8</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="69">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="99">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <dialog id="arch_task_pool_pool_6_dialog">
+        <precondition>dialogs.arch_has_task_pool_pool_6</precondition>
+        <phrase_list>
+            <phrase id="0">
+                <script_text>dialogs.arch_text_pool_open_pool_6</script_text>
+                <next>1</next>
+            </phrase>
+            <phrase id="1">
+                <script_text>dialogs.arch_text_task_offer_summary_pool_6</script_text>
+                <next>2</next>
+                <next>3</next>
+                <next>4</next>
+                <next>5</next>
+                <next>99</next>
+            </phrase>
+
+            <phrase id="2">
+                <precondition>dialogs.arch_task_has_offer_pool_6</precondition>
+                <text>st_arch_task_details</text>
+                <next>20</next>
+            </phrase>
+            <phrase id="20">
+                <script_text>dialogs.arch_text_task_offer_details_pool_6</script_text>
+                <next>21</next>
+                <next>22</next>
+            </phrase>
+            <phrase id="21">
+                <precondition>dialogs.arch_task_has_offer_pool_6</precondition>
+                <text>st_arch_task_accept</text>
+                <next>210</next>
+            </phrase>
+            <phrase id="210">
+                <action>dialogs.arch_task_accept_pool_6</action>
+                <script_text>dialogs.arch_text_task_result_pool_6</script_text>
+            </phrase>
+            <phrase id="22">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_6</action>
+                <next>220</next>
+            </phrase>
+            <phrase id="220">
+                <script_text>dialogs.arch_text_task_result_pool_6</script_text>
+            </phrase>
+
+            <phrase id="3">
+                <precondition>dialogs.arch_task_has_offer_pool_6</precondition>
+                <text>st_arch_task_accept</text>
+                <next>30</next>
+            </phrase>
+            <phrase id="30">
+                <action>dialogs.arch_task_accept_pool_6</action>
+                <script_text>dialogs.arch_text_task_result_pool_6</script_text>
+            </phrase>
+
+            <phrase id="4">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_6</action>
+                <next>40</next>
+            </phrase>
+            <phrase id="40">
+                <script_text>dialogs.arch_text_task_result_pool_6</script_text>
+            </phrase>
+
+            <phrase id="5">
+                <precondition>dialogs.arch_has_active_task_pool_6</precondition>
+                <text>st_arch_task_turnin</text>
+                <next>50</next>
+            </phrase>
+            <phrase id="50">
+                <script_text>dialogs.arch_text_task_active_summary_pool_6</script_text>
+                <next>60</next>
+                <next>51</next>
+                <next>52</next>
+            </phrase>
+            <phrase id="51">
+                <precondition>dialogs.arch_task_not_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <action>dialogs.arch_task_try_complete_pool_6</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="510">
+                <script_text>dialogs.arch_text_task_result_pool_6</script_text>
+                <action>dialogs.arch_task_deliver_rewards_pool_6</action>
+            </phrase>
+            <phrase id="52">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="60">
+                <precondition>dialogs.arch_task_is_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <next>600</next>
+            </phrase>
+            <phrase id="600">
+                <text>st_arch_task_cat_pick_prompt</text>
+                <next>61</next>
+                <next>62</next>
+                <next>63</next>
+                <next>64</next>
+                <next>65</next>
+                <next>66</next>
+                <next>67</next>
+                <next>68</next>
+                <next>69</next>
+            </phrase>
+            <phrase id="61">
+                <precondition>dialogs.arch_task_cat_has_1</precondition>
+                <script_text>dialogs.arch_text_task_cat_1</script_text>
+                <action>dialogs.arch_task_cat_select_1</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="62">
+                <precondition>dialogs.arch_task_cat_has_2</precondition>
+                <script_text>dialogs.arch_text_task_cat_2</script_text>
+                <action>dialogs.arch_task_cat_select_2</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="63">
+                <precondition>dialogs.arch_task_cat_has_3</precondition>
+                <script_text>dialogs.arch_text_task_cat_3</script_text>
+                <action>dialogs.arch_task_cat_select_3</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="64">
+                <precondition>dialogs.arch_task_cat_has_4</precondition>
+                <script_text>dialogs.arch_text_task_cat_4</script_text>
+                <action>dialogs.arch_task_cat_select_4</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="65">
+                <precondition>dialogs.arch_task_cat_has_5</precondition>
+                <script_text>dialogs.arch_text_task_cat_5</script_text>
+                <action>dialogs.arch_task_cat_select_5</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="66">
+                <precondition>dialogs.arch_task_cat_has_6</precondition>
+                <script_text>dialogs.arch_text_task_cat_6</script_text>
+                <action>dialogs.arch_task_cat_select_6</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="67">
+                <precondition>dialogs.arch_task_cat_has_7</precondition>
+                <script_text>dialogs.arch_text_task_cat_7</script_text>
+                <action>dialogs.arch_task_cat_select_7</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="68">
+                <precondition>dialogs.arch_task_cat_has_8</precondition>
+                <script_text>dialogs.arch_text_task_cat_8</script_text>
+                <action>dialogs.arch_task_cat_select_8</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="69">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="99">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <dialog id="arch_task_pool_pool_7_dialog">
+        <precondition>dialogs.arch_has_task_pool_pool_7</precondition>
+        <phrase_list>
+            <phrase id="0">
+                <script_text>dialogs.arch_text_pool_open_pool_7</script_text>
+                <next>1</next>
+            </phrase>
+            <phrase id="1">
+                <script_text>dialogs.arch_text_task_offer_summary_pool_7</script_text>
+                <next>2</next>
+                <next>3</next>
+                <next>4</next>
+                <next>5</next>
+                <next>99</next>
+            </phrase>
+
+            <phrase id="2">
+                <precondition>dialogs.arch_task_has_offer_pool_7</precondition>
+                <text>st_arch_task_details</text>
+                <next>20</next>
+            </phrase>
+            <phrase id="20">
+                <script_text>dialogs.arch_text_task_offer_details_pool_7</script_text>
+                <next>21</next>
+                <next>22</next>
+            </phrase>
+            <phrase id="21">
+                <precondition>dialogs.arch_task_has_offer_pool_7</precondition>
+                <text>st_arch_task_accept</text>
+                <next>210</next>
+            </phrase>
+            <phrase id="210">
+                <action>dialogs.arch_task_accept_pool_7</action>
+                <script_text>dialogs.arch_text_task_result_pool_7</script_text>
+            </phrase>
+            <phrase id="22">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_7</action>
+                <next>220</next>
+            </phrase>
+            <phrase id="220">
+                <script_text>dialogs.arch_text_task_result_pool_7</script_text>
+            </phrase>
+
+            <phrase id="3">
+                <precondition>dialogs.arch_task_has_offer_pool_7</precondition>
+                <text>st_arch_task_accept</text>
+                <next>30</next>
+            </phrase>
+            <phrase id="30">
+                <action>dialogs.arch_task_accept_pool_7</action>
+                <script_text>dialogs.arch_text_task_result_pool_7</script_text>
+            </phrase>
+
+            <phrase id="4">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_7</action>
+                <next>40</next>
+            </phrase>
+            <phrase id="40">
+                <script_text>dialogs.arch_text_task_result_pool_7</script_text>
+            </phrase>
+
+            <phrase id="5">
+                <precondition>dialogs.arch_has_active_task_pool_7</precondition>
+                <text>st_arch_task_turnin</text>
+                <next>50</next>
+            </phrase>
+            <phrase id="50">
+                <script_text>dialogs.arch_text_task_active_summary_pool_7</script_text>
+                <next>60</next>
+                <next>51</next>
+                <next>52</next>
+            </phrase>
+            <phrase id="51">
+                <precondition>dialogs.arch_task_not_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <action>dialogs.arch_task_try_complete_pool_7</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="510">
+                <script_text>dialogs.arch_text_task_result_pool_7</script_text>
+                <action>dialogs.arch_task_deliver_rewards_pool_7</action>
+            </phrase>
+            <phrase id="52">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="60">
+                <precondition>dialogs.arch_task_is_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <next>600</next>
+            </phrase>
+            <phrase id="600">
+                <text>st_arch_task_cat_pick_prompt</text>
+                <next>61</next>
+                <next>62</next>
+                <next>63</next>
+                <next>64</next>
+                <next>65</next>
+                <next>66</next>
+                <next>67</next>
+                <next>68</next>
+                <next>69</next>
+            </phrase>
+            <phrase id="61">
+                <precondition>dialogs.arch_task_cat_has_1</precondition>
+                <script_text>dialogs.arch_text_task_cat_1</script_text>
+                <action>dialogs.arch_task_cat_select_1</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="62">
+                <precondition>dialogs.arch_task_cat_has_2</precondition>
+                <script_text>dialogs.arch_text_task_cat_2</script_text>
+                <action>dialogs.arch_task_cat_select_2</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="63">
+                <precondition>dialogs.arch_task_cat_has_3</precondition>
+                <script_text>dialogs.arch_text_task_cat_3</script_text>
+                <action>dialogs.arch_task_cat_select_3</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="64">
+                <precondition>dialogs.arch_task_cat_has_4</precondition>
+                <script_text>dialogs.arch_text_task_cat_4</script_text>
+                <action>dialogs.arch_task_cat_select_4</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="65">
+                <precondition>dialogs.arch_task_cat_has_5</precondition>
+                <script_text>dialogs.arch_text_task_cat_5</script_text>
+                <action>dialogs.arch_task_cat_select_5</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="66">
+                <precondition>dialogs.arch_task_cat_has_6</precondition>
+                <script_text>dialogs.arch_text_task_cat_6</script_text>
+                <action>dialogs.arch_task_cat_select_6</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="67">
+                <precondition>dialogs.arch_task_cat_has_7</precondition>
+                <script_text>dialogs.arch_text_task_cat_7</script_text>
+                <action>dialogs.arch_task_cat_select_7</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="68">
+                <precondition>dialogs.arch_task_cat_has_8</precondition>
+                <script_text>dialogs.arch_text_task_cat_8</script_text>
+                <action>dialogs.arch_task_cat_select_8</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="69">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="99">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <dialog id="arch_task_pool_pool_8_dialog">
+        <precondition>dialogs.arch_has_task_pool_pool_8</precondition>
+        <phrase_list>
+            <phrase id="0">
+                <script_text>dialogs.arch_text_pool_open_pool_8</script_text>
+                <next>1</next>
+            </phrase>
+            <phrase id="1">
+                <script_text>dialogs.arch_text_task_offer_summary_pool_8</script_text>
+                <next>2</next>
+                <next>3</next>
+                <next>4</next>
+                <next>5</next>
+                <next>99</next>
+            </phrase>
+
+            <phrase id="2">
+                <precondition>dialogs.arch_task_has_offer_pool_8</precondition>
+                <text>st_arch_task_details</text>
+                <next>20</next>
+            </phrase>
+            <phrase id="20">
+                <script_text>dialogs.arch_text_task_offer_details_pool_8</script_text>
+                <next>21</next>
+                <next>22</next>
+            </phrase>
+            <phrase id="21">
+                <precondition>dialogs.arch_task_has_offer_pool_8</precondition>
+                <text>st_arch_task_accept</text>
+                <next>210</next>
+            </phrase>
+            <phrase id="210">
+                <action>dialogs.arch_task_accept_pool_8</action>
+                <script_text>dialogs.arch_text_task_result_pool_8</script_text>
+            </phrase>
+            <phrase id="22">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_8</action>
+                <next>220</next>
+            </phrase>
+            <phrase id="220">
+                <script_text>dialogs.arch_text_task_result_pool_8</script_text>
+            </phrase>
+
+            <phrase id="3">
+                <precondition>dialogs.arch_task_has_offer_pool_8</precondition>
+                <text>st_arch_task_accept</text>
+                <next>30</next>
+            </phrase>
+            <phrase id="30">
+                <action>dialogs.arch_task_accept_pool_8</action>
+                <script_text>dialogs.arch_text_task_result_pool_8</script_text>
+            </phrase>
+
+            <phrase id="4">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_8</action>
+                <next>40</next>
+            </phrase>
+            <phrase id="40">
+                <script_text>dialogs.arch_text_task_result_pool_8</script_text>
+            </phrase>
+
+            <phrase id="5">
+                <precondition>dialogs.arch_has_active_task_pool_8</precondition>
+                <text>st_arch_task_turnin</text>
+                <next>50</next>
+            </phrase>
+            <phrase id="50">
+                <script_text>dialogs.arch_text_task_active_summary_pool_8</script_text>
+                <next>60</next>
+                <next>51</next>
+                <next>52</next>
+            </phrase>
+            <phrase id="51">
+                <precondition>dialogs.arch_task_not_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <action>dialogs.arch_task_try_complete_pool_8</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="510">
+                <script_text>dialogs.arch_text_task_result_pool_8</script_text>
+                <action>dialogs.arch_task_deliver_rewards_pool_8</action>
+            </phrase>
+            <phrase id="52">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="60">
+                <precondition>dialogs.arch_task_is_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <next>600</next>
+            </phrase>
+            <phrase id="600">
+                <text>st_arch_task_cat_pick_prompt</text>
+                <next>61</next>
+                <next>62</next>
+                <next>63</next>
+                <next>64</next>
+                <next>65</next>
+                <next>66</next>
+                <next>67</next>
+                <next>68</next>
+                <next>69</next>
+            </phrase>
+            <phrase id="61">
+                <precondition>dialogs.arch_task_cat_has_1</precondition>
+                <script_text>dialogs.arch_text_task_cat_1</script_text>
+                <action>dialogs.arch_task_cat_select_1</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="62">
+                <precondition>dialogs.arch_task_cat_has_2</precondition>
+                <script_text>dialogs.arch_text_task_cat_2</script_text>
+                <action>dialogs.arch_task_cat_select_2</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="63">
+                <precondition>dialogs.arch_task_cat_has_3</precondition>
+                <script_text>dialogs.arch_text_task_cat_3</script_text>
+                <action>dialogs.arch_task_cat_select_3</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="64">
+                <precondition>dialogs.arch_task_cat_has_4</precondition>
+                <script_text>dialogs.arch_text_task_cat_4</script_text>
+                <action>dialogs.arch_task_cat_select_4</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="65">
+                <precondition>dialogs.arch_task_cat_has_5</precondition>
+                <script_text>dialogs.arch_text_task_cat_5</script_text>
+                <action>dialogs.arch_task_cat_select_5</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="66">
+                <precondition>dialogs.arch_task_cat_has_6</precondition>
+                <script_text>dialogs.arch_text_task_cat_6</script_text>
+                <action>dialogs.arch_task_cat_select_6</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="67">
+                <precondition>dialogs.arch_task_cat_has_7</precondition>
+                <script_text>dialogs.arch_text_task_cat_7</script_text>
+                <action>dialogs.arch_task_cat_select_7</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="68">
+                <precondition>dialogs.arch_task_cat_has_8</precondition>
+                <script_text>dialogs.arch_text_task_cat_8</script_text>
+                <action>dialogs.arch_task_cat_select_8</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="69">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="99">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <dialog id="arch_task_pool_pool_9_dialog">
+        <precondition>dialogs.arch_has_task_pool_pool_9</precondition>
+        <phrase_list>
+            <phrase id="0">
+                <script_text>dialogs.arch_text_pool_open_pool_9</script_text>
+                <next>1</next>
+            </phrase>
+            <phrase id="1">
+                <script_text>dialogs.arch_text_task_offer_summary_pool_9</script_text>
+                <next>2</next>
+                <next>3</next>
+                <next>4</next>
+                <next>5</next>
+                <next>99</next>
+            </phrase>
+
+            <phrase id="2">
+                <precondition>dialogs.arch_task_has_offer_pool_9</precondition>
+                <text>st_arch_task_details</text>
+                <next>20</next>
+            </phrase>
+            <phrase id="20">
+                <script_text>dialogs.arch_text_task_offer_details_pool_9</script_text>
+                <next>21</next>
+                <next>22</next>
+            </phrase>
+            <phrase id="21">
+                <precondition>dialogs.arch_task_has_offer_pool_9</precondition>
+                <text>st_arch_task_accept</text>
+                <next>210</next>
+            </phrase>
+            <phrase id="210">
+                <action>dialogs.arch_task_accept_pool_9</action>
+                <script_text>dialogs.arch_text_task_result_pool_9</script_text>
+            </phrase>
+            <phrase id="22">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_9</action>
+                <next>220</next>
+            </phrase>
+            <phrase id="220">
+                <script_text>dialogs.arch_text_task_result_pool_9</script_text>
+            </phrase>
+
+            <phrase id="3">
+                <precondition>dialogs.arch_task_has_offer_pool_9</precondition>
+                <text>st_arch_task_accept</text>
+                <next>30</next>
+            </phrase>
+            <phrase id="30">
+                <action>dialogs.arch_task_accept_pool_9</action>
+                <script_text>dialogs.arch_text_task_result_pool_9</script_text>
+            </phrase>
+
+            <phrase id="4">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_9</action>
+                <next>40</next>
+            </phrase>
+            <phrase id="40">
+                <script_text>dialogs.arch_text_task_result_pool_9</script_text>
+            </phrase>
+
+            <phrase id="5">
+                <precondition>dialogs.arch_has_active_task_pool_9</precondition>
+                <text>st_arch_task_turnin</text>
+                <next>50</next>
+            </phrase>
+            <phrase id="50">
+                <script_text>dialogs.arch_text_task_active_summary_pool_9</script_text>
+                <next>60</next>
+                <next>51</next>
+                <next>52</next>
+            </phrase>
+            <phrase id="51">
+                <precondition>dialogs.arch_task_not_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <action>dialogs.arch_task_try_complete_pool_9</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="510">
+                <script_text>dialogs.arch_text_task_result_pool_9</script_text>
+                <action>dialogs.arch_task_deliver_rewards_pool_9</action>
+            </phrase>
+            <phrase id="52">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="60">
+                <precondition>dialogs.arch_task_is_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <next>600</next>
+            </phrase>
+            <phrase id="600">
+                <text>st_arch_task_cat_pick_prompt</text>
+                <next>61</next>
+                <next>62</next>
+                <next>63</next>
+                <next>64</next>
+                <next>65</next>
+                <next>66</next>
+                <next>67</next>
+                <next>68</next>
+                <next>69</next>
+            </phrase>
+            <phrase id="61">
+                <precondition>dialogs.arch_task_cat_has_1</precondition>
+                <script_text>dialogs.arch_text_task_cat_1</script_text>
+                <action>dialogs.arch_task_cat_select_1</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="62">
+                <precondition>dialogs.arch_task_cat_has_2</precondition>
+                <script_text>dialogs.arch_text_task_cat_2</script_text>
+                <action>dialogs.arch_task_cat_select_2</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="63">
+                <precondition>dialogs.arch_task_cat_has_3</precondition>
+                <script_text>dialogs.arch_text_task_cat_3</script_text>
+                <action>dialogs.arch_task_cat_select_3</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="64">
+                <precondition>dialogs.arch_task_cat_has_4</precondition>
+                <script_text>dialogs.arch_text_task_cat_4</script_text>
+                <action>dialogs.arch_task_cat_select_4</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="65">
+                <precondition>dialogs.arch_task_cat_has_5</precondition>
+                <script_text>dialogs.arch_text_task_cat_5</script_text>
+                <action>dialogs.arch_task_cat_select_5</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="66">
+                <precondition>dialogs.arch_task_cat_has_6</precondition>
+                <script_text>dialogs.arch_text_task_cat_6</script_text>
+                <action>dialogs.arch_task_cat_select_6</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="67">
+                <precondition>dialogs.arch_task_cat_has_7</precondition>
+                <script_text>dialogs.arch_text_task_cat_7</script_text>
+                <action>dialogs.arch_task_cat_select_7</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="68">
+                <precondition>dialogs.arch_task_cat_has_8</precondition>
+                <script_text>dialogs.arch_text_task_cat_8</script_text>
+                <action>dialogs.arch_task_cat_select_8</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="69">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="99">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <dialog id="arch_task_pool_pool_10_dialog">
+        <precondition>dialogs.arch_has_task_pool_pool_10</precondition>
+        <phrase_list>
+            <phrase id="0">
+                <script_text>dialogs.arch_text_pool_open_pool_10</script_text>
+                <next>1</next>
+            </phrase>
+            <phrase id="1">
+                <script_text>dialogs.arch_text_task_offer_summary_pool_10</script_text>
+                <next>2</next>
+                <next>3</next>
+                <next>4</next>
+                <next>5</next>
+                <next>99</next>
+            </phrase>
+
+            <phrase id="2">
+                <precondition>dialogs.arch_task_has_offer_pool_10</precondition>
+                <text>st_arch_task_details</text>
+                <next>20</next>
+            </phrase>
+            <phrase id="20">
+                <script_text>dialogs.arch_text_task_offer_details_pool_10</script_text>
+                <next>21</next>
+                <next>22</next>
+            </phrase>
+            <phrase id="21">
+                <precondition>dialogs.arch_task_has_offer_pool_10</precondition>
+                <text>st_arch_task_accept</text>
+                <next>210</next>
+            </phrase>
+            <phrase id="210">
+                <action>dialogs.arch_task_accept_pool_10</action>
+                <script_text>dialogs.arch_text_task_result_pool_10</script_text>
+            </phrase>
+            <phrase id="22">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_10</action>
+                <next>220</next>
+            </phrase>
+            <phrase id="220">
+                <script_text>dialogs.arch_text_task_result_pool_10</script_text>
+            </phrase>
+
+            <phrase id="3">
+                <precondition>dialogs.arch_task_has_offer_pool_10</precondition>
+                <text>st_arch_task_accept</text>
+                <next>30</next>
+            </phrase>
+            <phrase id="30">
+                <action>dialogs.arch_task_accept_pool_10</action>
+                <script_text>dialogs.arch_text_task_result_pool_10</script_text>
+            </phrase>
+
+            <phrase id="4">
+                <text>st_arch_task_decline</text>
+                <action>dialogs.arch_task_decline_pool_10</action>
+                <next>40</next>
+            </phrase>
+            <phrase id="40">
+                <script_text>dialogs.arch_text_task_result_pool_10</script_text>
+            </phrase>
+
+            <phrase id="5">
+                <precondition>dialogs.arch_has_active_task_pool_10</precondition>
+                <text>st_arch_task_turnin</text>
+                <next>50</next>
+            </phrase>
+            <phrase id="50">
+                <script_text>dialogs.arch_text_task_active_summary_pool_10</script_text>
+                <next>60</next>
+                <next>51</next>
+                <next>52</next>
+            </phrase>
+            <phrase id="51">
+                <precondition>dialogs.arch_task_not_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <action>dialogs.arch_task_try_complete_pool_10</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="510">
+                <script_text>dialogs.arch_text_task_result_pool_10</script_text>
+                <action>dialogs.arch_task_deliver_rewards_pool_10</action>
+            </phrase>
+            <phrase id="52">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="60">
+                <precondition>dialogs.arch_task_is_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <next>600</next>
+            </phrase>
+            <phrase id="600">
+                <text>st_arch_task_cat_pick_prompt</text>
+                <next>61</next>
+                <next>62</next>
+                <next>63</next>
+                <next>64</next>
+                <next>65</next>
+                <next>66</next>
+                <next>67</next>
+                <next>68</next>
+                <next>69</next>
+            </phrase>
+            <phrase id="61">
+                <precondition>dialogs.arch_task_cat_has_1</precondition>
+                <script_text>dialogs.arch_text_task_cat_1</script_text>
+                <action>dialogs.arch_task_cat_select_1</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="62">
+                <precondition>dialogs.arch_task_cat_has_2</precondition>
+                <script_text>dialogs.arch_text_task_cat_2</script_text>
+                <action>dialogs.arch_task_cat_select_2</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="63">
+                <precondition>dialogs.arch_task_cat_has_3</precondition>
+                <script_text>dialogs.arch_text_task_cat_3</script_text>
+                <action>dialogs.arch_task_cat_select_3</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="64">
+                <precondition>dialogs.arch_task_cat_has_4</precondition>
+                <script_text>dialogs.arch_text_task_cat_4</script_text>
+                <action>dialogs.arch_task_cat_select_4</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="65">
+                <precondition>dialogs.arch_task_cat_has_5</precondition>
+                <script_text>dialogs.arch_text_task_cat_5</script_text>
+                <action>dialogs.arch_task_cat_select_5</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="66">
+                <precondition>dialogs.arch_task_cat_has_6</precondition>
+                <script_text>dialogs.arch_text_task_cat_6</script_text>
+                <action>dialogs.arch_task_cat_select_6</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="67">
+                <precondition>dialogs.arch_task_cat_has_7</precondition>
+                <script_text>dialogs.arch_text_task_cat_7</script_text>
+                <action>dialogs.arch_task_cat_select_7</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="68">
+                <precondition>dialogs.arch_task_cat_has_8</precondition>
+                <script_text>dialogs.arch_text_task_cat_8</script_text>
+                <action>dialogs.arch_task_cat_select_8</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="69">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="99">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+
+
+    <!-- Pin approach dialogs: unique entry phrases pin a specific task, then normal flow handles accept/decline/complete. -->
+    <!-- sdt_duty_story_intel has weight=0 so it never appears in random picker — only via pin phrase. -->
+
+    <dialog id="arch_story_duty_dialog">
+        <precondition>dialogs.arch_has_task_pool</precondition>
+        <phrase_list>
+            <phrase id="0">
+                <text>st_arch_task_offer_open</text>
+                <next>1</next>
+            </phrase>
+            <phrase id="1">
+                <script_text>dialogs.arch_text_task_offer_summary</script_text>
+                <next>10</next>
+                <next>5</next>
+                <next>99</next>
+            </phrase>
+
+            <!-- Story branch: Duty intel mission -->
+            <phrase id="10">
+                <precondition>dialogs.arch_can_offer_task:sdt_duty_story_intel</precondition>
+                <text>st_arch_story_duty_intel_offer</text>
+                <next>20</next>
+            </phrase>
+            <phrase id="20">
+                <script_text>dialogs.arch_text_task_offer_details_by_id:sdt_duty_story_intel</script_text>
+                <next>21</next>
+                <next>22</next>
+            </phrase>
+            <phrase id="21">
+                <precondition>dialogs.arch_can_offer_task:sdt_duty_story_intel</precondition>
+                <text>st_arch_task_accept</text>
+                <action>dialogs.arch_task_accept_by_id:sdt_duty_story_intel</action>
+                <next>210</next>
+            </phrase>
+            <phrase id="210">
+                <script_text>dialogs.arch_text_task_result</script_text>
+            </phrase>
+            <phrase id="22">
+                <text>st_arch_task_decline</text>
+                <next>220</next>
+            </phrase>
+            <phrase id="220">
+                <script_text>dialogs.arch_text_task_result</script_text>
+            </phrase>
+
+            <phrase id="5">
+                <precondition>dialogs.arch_has_active_task</precondition>
+                <text>st_arch_task_turnin</text>
+                <next>50</next>
+            </phrase>
+            <phrase id="50">
+                <script_text>dialogs.arch_text_task_active_summary</script_text>
+                <next>51</next>
+                <next>52</next>
+            </phrase>
+            <phrase id="51">
+                <precondition>dialogs.arch_task_not_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <action>dialogs.arch_task_try_complete</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="510">
+                <script_text>dialogs.arch_text_task_result</script_text>
+                <action>dialogs.arch_task_deliver_rewards</action>
+            </phrase>
+            <phrase id="52">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="99">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <dialog id="arch_story_csky_dialog">
+        <precondition>dialogs.arch_has_task_pool</precondition>
+        <phrase_list>
+            <phrase id="0">
+                <text>st_arch_task_offer_open</text>
+                <next>1</next>
+            </phrase>
+            <phrase id="1">
+                <script_text>dialogs.arch_text_task_offer_summary</script_text>
+                <next>10</next>
+                <next>5</next>
+                <next>99</next>
+            </phrase>
+
+            <!-- Story branch: Clear Sky relic recovery -->
+            <phrase id="10">
+                <precondition>dialogs.arch_can_offer_task:sdt_csky_story_relic</precondition>
+                <text>st_arch_story_csky_relic_offer</text>
+                <next>20</next>
+            </phrase>
+            <phrase id="20">
+                <script_text>dialogs.arch_text_task_offer_details_by_id:sdt_csky_story_relic</script_text>
+                <next>21</next>
+                <next>22</next>
+            </phrase>
+            <phrase id="21">
+                <precondition>dialogs.arch_can_offer_task:sdt_csky_story_relic</precondition>
+                <text>st_arch_task_accept</text>
+                <action>dialogs.arch_task_accept_by_id:sdt_csky_story_relic</action>
+                <next>210</next>
+            </phrase>
+            <phrase id="210">
+                <script_text>dialogs.arch_text_task_result</script_text>
+            </phrase>
+            <phrase id="22">
+                <text>st_arch_task_decline</text>
+                <next>220</next>
+            </phrase>
+            <phrase id="220">
+                <script_text>dialogs.arch_text_task_result</script_text>
+            </phrase>
+
+            <phrase id="5">
+                <precondition>dialogs.arch_has_active_task</precondition>
+                <text>st_arch_task_turnin</text>
+                <next>50</next>
+            </phrase>
+            <phrase id="50">
+                <script_text>dialogs.arch_text_task_active_summary</script_text>
+                <next>51</next>
+                <next>52</next>
+            </phrase>
+            <phrase id="51">
+                <precondition>dialogs.arch_task_not_cat_picker</precondition>
+                <text>st_arch_task_complete</text>
+                <action>dialogs.arch_task_try_complete</action>
+                <next>510</next>
+            </phrase>
+            <phrase id="510">
+                <script_text>dialogs.arch_text_task_result</script_text>
+                <action>dialogs.arch_task_deliver_rewards</action>
+            </phrase>
+            <phrase id="52">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+
+            <phrase id="99">
+                <text>dm_universal_actor_exit</text>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+
+    <!-- Pinned Stories: ps_loner_drifter — minimal test, one task branch -->
+    <!-- No dialog-level precondition: added per-NPC via callback (dialog_ids in archetype config), never globally injected -->
+    <dialog id="arch_ps_loner_dialog">
+        <phrase_list>
+            <phrase id="0">
+                <text>st_ps_loner_player_greet</text>
+                <next>1</next>
+            </phrase>
+            <phrase id="1">
+                <text>st_ps_loner_npc_greet</text>
+                <next>10</next>
+                <next>99</next>
+            </phrase>
+
+            <!-- Story branch: Lost Stash -->
+            <phrase id="10">
+                <precondition>dialogs.arch_can_offer_task:ps_loner_lost_stash</precondition>
+                <text>st_ps_loner_stash_ask</text>
+                <next>20</next>
+            </phrase>
+            <phrase id="20">
+                <script_text>dialogs.arch_text_task_offer_details_by_id:ps_loner_lost_stash</script_text>
+                <next>21</next>
+                <next>22</next>
+            </phrase>
+            <phrase id="21">
+                <precondition>dialogs.arch_can_offer_task:ps_loner_lost_stash</precondition>
+                <text>st_arch_task_accept</text>
+                <action>dialogs.arch_task_accept_by_id:ps_loner_lost_stash</action>
+                <next>210</next>
+            </phrase>
+            <phrase id="210">
+                <script_text>dialogs.arch_text_task_result</script_text>
+            </phrase>
+            <phrase id="22">
+                <text>st_arch_task_decline</text>
+                <next>220</next>
+            </phrase>
+            <phrase id="220">
+                <script_text>dialogs.arch_text_task_result</script_text>
+            </phrase>
+
+            <phrase id="99">
+                <text>st_ps_loner_exit</text>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <!-- Pinned Stories: ps_eco_analyst — minimal test, one task branch -->
+    <!-- No dialog-level precondition: added per-NPC via callback (dialog_ids in archetype config), never globally injected -->
+    <dialog id="arch_ps_eco_dialog">
+        <phrase_list>
+            <phrase id="0">
+                <text>st_ps_eco_player_greet</text>
+                <next>1</next>
+            </phrase>
+            <phrase id="1">
+                <text>st_ps_eco_npc_greet</text>
+                <next>10</next>
+                <next>99</next>
+            </phrase>
+
+            <!-- Story branch: Flesh Autopsy -->
+            <phrase id="10">
+                <precondition>dialogs.arch_can_offer_task:ps_eco_flesh_autopsy</precondition>
+                <text>st_ps_eco_flesh_ask</text>
+                <next>20</next>
+            </phrase>
+            <phrase id="20">
+                <script_text>dialogs.arch_text_task_offer_details_by_id:ps_eco_flesh_autopsy</script_text>
+                <next>21</next>
+                <next>22</next>
+            </phrase>
+            <phrase id="21">
+                <precondition>dialogs.arch_can_offer_task:ps_eco_flesh_autopsy</precondition>
+                <text>st_arch_task_accept</text>
+                <action>dialogs.arch_task_accept_by_id:ps_eco_flesh_autopsy</action>
+                <next>210</next>
+            </phrase>
+            <phrase id="210">
+                <script_text>dialogs.arch_text_task_result</script_text>
+            </phrase>
+            <phrase id="22">
+                <text>st_arch_task_decline</text>
+                <next>220</next>
+            </phrase>
+            <phrase id="220">
+                <script_text>dialogs.arch_text_task_result</script_text>
+            </phrase>
+
+            <phrase id="99">
+                <text>st_ps_eco_exit</text>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- CUSTOM POOL DIALOG — single init_func-based dialog -->
+    <!-- Dynamically builds branches for ALL custom pool_tags from creation packs. -->
+    <!-- No per-tag XML needed — pack authors just define pool_tag in LTX. -->
+    <!-- ═══════════════════════════════════════════════════ -->
+
+    <dialog id="arch_custom_pool_dialog">
+        <precondition>dialogs.arch_has_any_custom_pool_task</precondition>
+        <init_func>arch_dialog_bindings.dm_init_custom_pool_dialog</init_func>
+    </dialog>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- DELIVERY TURNIN — global dialog, injected on all   -->
+    <!-- ARCH NPCs. Only visible when NPC is the delivery   -->
+    <!-- target AND player has the delivery items.          -->
+    <!-- ═══════════════════════════════════════════════════ -->
+
+    <dialog id="arch_delivery_turnin_global">
+        <precondition>dialogs.arch_is_delivery_target</precondition>
+        <phrase_list>
+            <!-- 0: actor — "I have a delivery for you." -->
+            <phrase id="0">
+                <text>st_arch_delivery_turnin_actor</text>
+                <next>1</next>
+            </phrase>
+            <!-- 1: NPC — complete + rewards + result text -->
+            <phrase id="1">
+                <action>dialogs.arch_delivery_try_complete</action>
+                <action>dialogs.arch_delivery_deliver_rewards</action>
+                <script_text>dialogs.arch_delivery_result_text</script_text>
+            </phrase>
+        </phrase_list>
+    </dialog>
+
+</game_dialogs>

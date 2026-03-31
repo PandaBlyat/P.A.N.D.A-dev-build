@@ -8,7 +8,7 @@ const _taskIbOpen={};
 // Saved categories are in global `savedCategories` array (persisted in project data)
 let _catBrowserTaskIdx=-1; // which task has the category browser open
 const TASK_RANKS=[['','— none —'],['novice','Novice'],['trainee','Trainee'],['experienced','Experienced'],['professional','Professional'],['veteran','Veteran'],['expert','Expert'],['master','Master'],['legend','Legend']];
-const POOL_TAGS=['pool_tag_1','pool_tag_2','pool_tag_3','pool_tag_4','pool_tag_5','pool_tag_6','pool_tag_7','pool_tag_8','pool_tag_9','pool_tag_10'];
+const POOL_TAGS=['pool_1','pool_2','pool_3','pool_4','pool_5','pool_6','pool_7','pool_8','pool_9','pool_10'];
 let _taskSubTab='defined';    // 'defined' | 'custom'
 let _curTaskPoolIdx=0;
 let _curCustomPoolIdx=0;
@@ -201,7 +201,7 @@ function getTaskPools(){
     const d=getDlg();if(!d)return[];
     if(!Array.isArray(d.taskPools)){
         const legacy=Array.isArray(d.tasks)?d.tasks:[];
-        d.taskPools=[{tag:'default',enabled:true,cooldownHours:0,dialogOpenText:'',dialogNpcPrompt:'',tasks:legacy}];
+        d.taskPools=[{tag:'pool_1',enabled:true,cooldownHours:0,dialogOpenText:'',dialogNpcPrompt:'',tasks:legacy}];
         delete d.tasks;
     }
     return d.taskPools;
@@ -317,8 +317,8 @@ function addTask(kind){
     const id='task_'+kind+'_'+ts;
     var t={
         type:kind,id,enabled:true,weight:1,
-        moneyReward:0,reward:'',rewardGoodwill:0,rewardBuyMod:0,rewardSellMod:0,
-        repeatable:true,cooldownHours:0,minRank:'',maxRank:'',requiresTrust:0,
+        moneyReward:0,reward:'',rewardGoodwill:0,rewardGoodwillCommunity:'',rewardBuyMod:0,rewardSellMod:0,
+        repeatable:true,cooldownHours:0,minRank:'',maxRank:'',requiresTrust:0,requiresMinGoodwill:0,
         openingDialogue:'',desc:'',completionNode:''
     };
     if(kind==='fetch'){
@@ -403,12 +403,37 @@ function _getConnectedArchIds(){
 }
 function _targetArchSelect(i,field,current){
     var ids=_getConnectedArchIds();
+    // Include all story NPCs in the project as potential targets
+    var storyIds=[];
+    if(typeof soloChars!=='undefined'&&typeof STORY_NPC_LOOKUP!=='undefined'){
+        soloChars.forEach(function(c){
+            var at=(c.ov&&c.ov.settings&&c.ov.settings.assignTo)||'';
+            if(at&&STORY_NPC_LOOKUP[at]){
+                var aid=c.archId||('story_'+at);
+                if(ids.indexOf(aid)<0&&storyIds.indexOf(aid)<0)storyIds.push(aid);
+            }
+        });
+    }
     var h='<select class="task-input" onchange="saveTaskField('+i+',\''+field+'\',this.value)">';
-    h+='<option value="">— select archetype —</option>';
-    ids.forEach(function(aid){h+='<option value="'+esc(aid)+'"'+(aid===current?' selected':'')+'>'+esc(aid)+'</option>';});
-    h+='<option value="__custom__"'+(current&&ids.indexOf(current)<0&&current?' selected':'')+'>Custom...</option>';
+    h+='<option value="">-- select archetype --</option>';
+    if(ids.length){
+        h+='<optgroup label="Connected">';
+        ids.forEach(function(aid){h+='<option value="'+esc(aid)+'"'+(aid===current?' selected':'')+'>'+esc(aid)+'</option>';});
+        h+='</optgroup>';
+    }
+    if(storyIds.length){
+        h+='<optgroup label="Story NPCs">';
+        storyIds.forEach(function(aid){
+            var _at=aid.replace(/^story_/,'');
+            var _npc=(typeof STORY_NPC_LOOKUP!=='undefined')?STORY_NPC_LOOKUP[_at]:null;
+            var lbl=_npc?(aid+' ('+_npc.name+')'):aid;
+            h+='<option value="'+esc(aid)+'"'+(aid===current?' selected':'')+'>'+esc(lbl)+'</option>';
+        });
+        h+='</optgroup>';
+    }
+    h+='<option value="__custom__"'+(current&&ids.indexOf(current)<0&&storyIds.indexOf(current)<0&&current?' selected':'')+'>Custom...</option>';
     h+='</select>';
-    if(current&&ids.indexOf(current)<0&&current){
+    if(current&&ids.indexOf(current)<0&&storyIds.indexOf(current)<0&&current){
         h+='<input class="task-input" style="max-width:120px" value="'+esc(current)+'" oninput="saveTaskField('+i+',\''+field+'\',this.value)" placeholder="archetype_id">';
     }
     return h;
@@ -807,14 +832,10 @@ function _renderPoolPanel(p,idx,pools){
     if(pools.length>1)h+=`<button class="task-pool-remove" onclick="removeTaskPool(${idx})">Remove pool</button>`;
     h+='</div>';
 
-    // Dialog text inputs
-    h+='<div class="task-pool-dialogs">';
-    h+=`<div class="task-pool-dialog-field"><span class="task-pool-lbl">Player asks</span><input class="task-pool-text" placeholder='e.g. "Got any ${esc(p.tag)} work?"' value="${esc(p.dialogOpenText||'')}" oninput="savePoolField('dialogOpenText',this.value)"></div>`;
-    h+=`<div class="task-pool-dialog-field"><span class="task-pool-lbl">NPC responds</span><input class="task-pool-text" placeholder="(auto-generated if empty)" value="${esc(p.dialogNpcPrompt||'')}" oninput="savePoolField('dialogNpcPrompt',this.value)"></div>`;
-    h+='</div>';
+    h+='<div class="task-pool-hint" style="margin-top:6px">Edit dialog lines in the <b>Pool graph tab</b> (Node Graph &gt; Pools &gt; '+esc(p.tag.replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}))+').</div>';
 
     if(pools.length===1){
-        h+='<div class="task-pool-hint">Add more pools to offer different job tiers — each pool is a separate dialog entry point (e.g. &ldquo;Got any work?&rdquo; vs &ldquo;Got anything harder?&rdquo;).</div>';
+        h+='<div class="task-pool-hint">Add more pools to offer different job tiers — each pool is a separate dialog entry point.</div>';
     }
     h+='</div>';
     return h;
@@ -890,15 +911,23 @@ function renderTaskList(){
     });
 
     if(!tasks.length){
+        var _snpcHint='';
+        if(typeof getCurrentStoryNpc==='function'){
+            var _snpc=getCurrentStoryNpc();
+            if(_snpc)_snpcHint='<div style="font-size:11px;color:#ffe082;margin-bottom:10px;max-width:440px">'+esc(_snpc.name)+' is immortal and always at '+esc(_snpc.loc)+' — ideal for multi-step narrative chains. Use Delivery or Talk tasks to connect to other story NPCs.</div>';
+        }
         box.innerHTML=subTabsHtml+poolUi
             +'<div class="task-empty">'
             +'<div style="font-size:13px;color:#999;margin-bottom:8px">No tasks in this pool yet.</div>'
-            +'<div style="font-size:11px;color:#777;margin-bottom:10px">Tasks are fetch jobs this NPC gives to the player. What kind?</div>'
+            +_snpcHint
+            +'<div style="font-size:11px;color:#777;margin-bottom:10px">'
+            +(_taskSubTab==='custom'?'Narrative tasks use custom dialog nodes for accept and completion.':'The pool system handles offer, accept, and turn-in automatically.')
+            +'</div>'
             +'<div class="task-add-bar">'
             +'<button class="btn b2 bs" onclick="addTask(\'fetch\')"><i class="bi">🎒</i> Fetch</button>'
             +'<button class="btn b2 bs" onclick="addTask(\'delivery\')"><i class="bi">📦</i> Delivery</button>'
-            +'<button class="btn b2 bs" onclick="addTask(\'talk\')"><i class="bi">💬</i> Talk</button>'
             +'<button class="btn b2 bs" onclick="addTask(\'collect\')"><i class="bi">📋</i> Collect</button>'
+            +(_taskSubTab==='custom'?'<button class="btn b2 bs" onclick="addTask(\'talk\')"><i class="bi">💬</i> Talk</button>':'')
             +'</div></div>';
         if(typeof TexEditor!=='undefined'&&TexEditor.refreshLayers)TexEditor.refreshLayers('tex-screen-dialogue');
         return;
@@ -980,7 +1009,7 @@ function renderTaskList(){
         c+='<div class="task-kind-bar">'
           +_mBtn('<i class="bi">🎒</i> Fetch',kind==='fetch','setTaskKind('+i+',\'fetch\')')
           +_mBtn('<i class="bi">📦</i> Delivery',kind==='delivery','setTaskKind('+i+',\'delivery\')')
-          +_mBtn('<i class="bi">💬</i> Talk',kind==='talk','setTaskKind('+i+',\'talk\')')
+          +(_taskSubTab==='custom'?_mBtn('<i class="bi">💬</i> Talk',kind==='talk','setTaskKind('+i+',\'talk\')'):'')
           +_mBtn('<i class="bi">📋</i> Collect',kind==='collect','setTaskKind('+i+',\'collect\')')
           +'</div>';
 
@@ -994,26 +1023,62 @@ function renderTaskList(){
             c+=_ibBlock(i,'target',ibTargO);
             c+='<div class="task-row"><span class="task-label">Count</span>'
               +'<input class="task-input" style="max-width:55px" type="number" min="1" value="'+(t.deliverAmount||1)+'" oninput="saveTaskField('+i+',\'deliverAmount\',+this.value||1)"></div>';
-            c+='<div class="task-row"><span class="task-label"><i class="bi">📦</i> Target</span>'
-              +_targetArchSelect(i,'deliverToArchetype',t.deliverToArchetype||'')+'</div>';
-            if(t.deliverToArchetype)c+='<div class="task-row"><button class="btn b2 bs" style="font-size:10px" onclick="createTurninOnTarget('+i+')"><i class="bi">☑️</i> Create turnin on '+esc(t.deliverToArchetype)+'</button></div>';
+            c+='<div class="task-row"><label style="display:flex;align-items:center;gap:6px;cursor:pointer">'
+              +'<input type="checkbox" '+(t.talkToGiver?'checked':'')+' onchange="saveTaskField('+i+',\'talkToGiver\',this.checked);renderTaskList()" style="accent-color:#ff8c00">'
+              +'<span style="font-size:11px;color:#bbb">Report back to giver after delivery</span></label></div>';
+            if(!t.talkToGiver){
+                if(_taskSubTab==='custom'){
+                    // Narrative — target specific archetype
+                    c+='<div class="task-row"><span class="task-label"><i class="bi">📦</i> Deliver to</span>'
+                      +_targetArchSelect(i,'deliverToArchetype',t.deliverToArchetype||'')+'</div>';
+                    if(t.deliverToArchetype)c+='<div class="task-row"><button class="btn b2 bs" style="font-size:10px" onclick="createTurninOnTarget('+i+')"><i class="bi">☑️</i> Create turnin on '+esc(t.deliverToArchetype)+'</button></div>';
+                } else {
+                    // Defined — target by filters (faction, rank, location, or archetype)
+                    c+='<div class="task-row"><span class="task-label"><i class="bi">📦</i> Archetype</span>'
+                      +_targetArchSelect(i,'deliverToArchetype',t.deliverToArchetype||'')+'</div>';
+                    c+='<div class="task-row"><span class="task-label">Faction</span>'
+                      +'<select class="task-input" onchange="saveTaskField('+i+',\'deliverToCommunity\',this.value)">'
+                      +'<option value=""'+(!(t.deliverToCommunity)?' selected':'')+'>-- any --</option>'
+                      +COMM.map(function(f){return '<option value="'+f[0]+'"'+(t.deliverToCommunity===f[0]?' selected':'')+'>'+esc(f[1])+'</option>';}).join('')
+                      +'</select></div>';
+                    c+='<div class="task-row"><span class="task-label">Location</span>'
+                      +'<select class="task-input" onchange="saveTaskField('+i+',\'deliverToLocation\',this.value)">'
+                      +'<option value=""'+(!(t.deliverToLocation)?' selected':'')+'>-- any --</option>'
+                      +LOCS.map(function(l){return '<option value="'+l[0]+'"'+(t.deliverToLocation===l[0]?' selected':'')+'>'+esc(l[1])+'</option>';}).join('')
+                      +'</select></div>';
+                    c+='<div style="font-size:10px;color:#777;margin-top:4px">Filters combine (AND). Set archetype for a specific NPC, or use faction/location for any matching NPC.</div>';
+                }
+            }
 
         } else if(kind==='talk'){
             c+='<div class="task-area-label">Talk</div>';
-            c+='<div class="task-row"><label style="display:flex;align-items:center;gap:6px;cursor:pointer">'
-              +'<input type="checkbox" '+(t.talkToGiver?'checked':'')+' onchange="saveTaskField('+i+',\'talkToGiver\',this.checked);renderTaskList()" style="accent-color:#ff8c00">'
-              +'<span style="font-size:11px;color:#bbb">Return to giver (report back)</span></label></div>';
-            if(!t.talkToGiver){
-                c+='<div class="task-row"><span class="task-label"><i class="bi">💬</i> Target</span>'
-                  +_targetArchSelect(i,'talkToArchetype',t.talkToArchetype||'')+'</div>';
-                if(t.talkToArchetype)c+='<div class="task-row"><button class="btn b2 bs" style="font-size:10px" onclick="createTurninOnTarget('+i+')"><i class="bi">☑️</i> Create turnin on '+esc(t.talkToArchetype)+'</button></div>';
-            }
+            c+='<div class="task-row"><span class="task-label"><i class="bi">💬</i> Talk to</span>'
+              +_targetArchSelect(i,'talkToArchetype',t.talkToArchetype||'')+'</div>';
+            if(t.talkToArchetype)c+='<div class="task-row"><button class="btn b2 bs" style="font-size:10px" onclick="createTurninOnTarget('+i+')"><i class="bi">☑️</i> Create turnin on '+esc(t.talkToArchetype)+'</button></div>';
 
         } else if(kind==='collect'){
             c+='<div class="task-area-label">Collect</div>';
-            c+='<div class="task-row"><span class="task-label"><i class="bi">📋</i> Source</span>'
-              +_targetArchSelect(i,'collectFromArchetype',t.collectFromArchetype||'')+'</div>';
-            if(t.collectFromArchetype)c+='<div class="task-row"><button class="btn b2 bs" style="font-size:10px" onclick="createTurninOnTarget('+i+')"><i class="bi">☑️</i> Create pickup on '+esc(t.collectFromArchetype)+'</button></div>';
+            if(_taskSubTab==='custom'){
+                // Narrative — target specific archetype
+                c+='<div class="task-row"><span class="task-label"><i class="bi">📋</i> Source</span>'
+                  +_targetArchSelect(i,'collectFromArchetype',t.collectFromArchetype||'')+'</div>';
+                if(t.collectFromArchetype)c+='<div class="task-row"><button class="btn b2 bs" style="font-size:10px" onclick="createTurninOnTarget('+i+')"><i class="bi">☑️</i> Create pickup on '+esc(t.collectFromArchetype)+'</button></div>';
+            } else {
+                // Defined — target by filters (archetype, faction, rank, location)
+                c+='<div class="task-row"><span class="task-label"><i class="bi">📋</i> Archetype</span>'
+                  +_targetArchSelect(i,'collectFromArchetype',t.collectFromArchetype||'')+'</div>';
+                c+='<div class="task-row"><span class="task-label">Faction</span>'
+                  +'<select class="task-input" onchange="saveTaskField('+i+',\'collectFromCommunity\',this.value)">'
+                  +'<option value=""'+(!(t.collectFromCommunity)?' selected':'')+'>-- any --</option>'
+                  +COMM.map(function(f){return '<option value="'+f[0]+'"'+(t.collectFromCommunity===f[0]?' selected':'')+'>'+esc(f[1])+'</option>';}).join('')
+                  +'</select></div>';
+                c+='<div class="task-row"><span class="task-label">Location</span>'
+                  +'<select class="task-input" onchange="saveTaskField('+i+',\'collectFromLocation\',this.value)">'
+                  +'<option value=""'+(!(t.collectFromLocation)?' selected':'')+'>-- any --</option>'
+                  +LOCS.map(function(l){return '<option value="'+l[0]+'"'+(t.collectFromLocation===l[0]?' selected':'')+'>'+esc(l[1])+'</option>';}).join('')
+                  +'</select></div>';
+                c+='<div style="font-size:10px;color:#777;margin-top:4px">Filters combine (AND). Set archetype for a specific NPC, or use faction/location for any matching NPC.</div>';
+            }
             c+='<div class="task-row"><span class="task-label">Item</span>'
               +'<div id="taskChips_'+i+'_target" class="task-chips-area" style="flex:1">'+_chips(targetL,i,'target',true)+'</div></div>';
             c+=_ibBlock(i,'target',ibTargO);
@@ -1111,6 +1176,11 @@ function renderTaskList(){
           +'<div class="task-reward-field"><span class="task-label">Goodwill</span>'
           +'<input class="task-input" type="number" min="0" value="'+(t.rewardGoodwill||0)+'" oninput="saveTaskField('+i+',\'rewardGoodwill\',+this.value||0)">'
           +'<span style="font-size:10px;color:#888;flex-shrink:0">pts</span></div>'
+          +'<div class="task-reward-field"><span class="task-label">GW Community</span>'
+          +'<select class="task-input" onchange="saveTaskField('+i+',\'rewardGoodwillCommunity\',this.value)">'
+          +'<option value=""'+(!(t.rewardGoodwillCommunity)?' selected':'')+'>— giver\'s —</option>'
+          +COMM.map(function(c){return '<option value="'+c[0]+'"'+(t.rewardGoodwillCommunity===c[0]?' selected':'')+'>'+esc(c[1])+'</option>';}).join('')
+          +'</select></div>'
           +'</div>';
         c+='<div class="task-row">'
           +'<span class="task-label">Items</span>'
@@ -1146,9 +1216,14 @@ function renderTaskList(){
           +'<div class="task-row"><span class="task-label">Max Rank</span>'
           +'<select class="task-input task-rank-sel" data-ti="'+i+'" data-rf="maxRank" onchange="saveTaskField('+i+',\'maxRank\',this.value)">'+rankOpts+'</select></div>'
           +'</div>'
+          +'<div class="task-2col">'
           +'<div class="task-row"><span class="task-label">Trust req.</span>'
           +'<input class="task-input" type="number" min="0" style="max-width:55px" value="'+(t.requiresTrust||0)+'" oninput="saveTaskField('+i+',\'requiresTrust\',+this.value||0)">'
-          +'<span style="font-size:10px;color:#888;flex:1">completed tasks with this archetype</span></div>';
+          +'<span style="font-size:10px;color:#888">tasks done</span></div>'
+          +'<div class="task-row"><span class="task-label">Min goodwill</span>'
+          +'<input class="task-input" type="number" min="0" step="100" style="max-width:70px" value="'+(t.requiresMinGoodwill||0)+'" oninput="saveTaskField('+i+',\'requiresMinGoodwill\',+this.value||0)">'
+          +'<span style="font-size:10px;color:#888">pts</span></div>'
+          +'</div>';
 
         // Task chaining
         c+='<div class="task-det-section-lbl" style="margin-top:10px">Chaining</div>';
@@ -1174,14 +1249,24 @@ function renderTaskList(){
           +'<span style="font-size:10px;color:#888">%</span></div>'
           +'</div>';
 
-        // Dialog & flow
-        c+='<div class="task-det-section-lbl" style="margin-top:10px">Dialog & Flow</div>';
-        c+='<div class="task-row"><span class="task-label">Description</span>'
-          +'<input class="task-input" placeholder="Brief task description (optional — appears in task log)..." value="'+esc(t.desc||'')+'" oninput="saveTaskField('+i+',\'desc\',this.value)"></div>';
-        c+='<div class="task-row"><span class="task-label">On Complete</span>'
-          +'<select class="task-input task-compl-sel" data-ti="'+i+'" onchange="saveTaskField('+i+',\'completionNode\',this.value)">'
-          +'<option value="">\u2014 end conversation \u2014</option>'+nodeOpts+'</select></div>';
-        c+='<div style="font-size:10px;color:#777;margin-top:6px">Task ID: <code style="color:#aaa;font-size:10px">'+esc(t.id||'')+'</code> — reference in Node Graph hub to wire up dialog.</div>';
+        if(_taskSubTab==='custom'){
+            // Custom/narrative pools — dialog text lives in task card
+            c+='<div class="task-det-section-lbl" style="margin-top:10px">PDA Text</div>';
+            c+='<div class="task-row"><span class="task-label">Accepted</span>'
+              +'<input class="task-input" placeholder="Text shown when task is accepted" value="'+esc(t.acceptedText||'')+'" oninput="saveTaskField('+i+',\'acceptedText\',this.value)"></div>';
+            c+='<div class="task-row"><span class="task-label">Completed</span>'
+              +'<input class="task-input" placeholder="Text shown when task is completed" value="'+esc(t.completedText||'')+'" oninput="saveTaskField('+i+',\'completedText\',this.value)"></div>';
+            c+='<div class="task-det-section-lbl" style="margin-top:10px">Dialog & Flow</div>';
+            c+='<div class="task-row"><span class="task-label">Description</span>'
+              +'<input class="task-input" placeholder="Brief task description..." value="'+esc(t.desc||'')+'" oninput="saveTaskField('+i+',\'desc\',this.value)"></div>';
+            c+='<div class="task-row"><span class="task-label">On Complete</span>'
+              +'<select class="task-input task-compl-sel" data-ti="'+i+'" onchange="saveTaskField('+i+',\'completionNode\',this.value)">'
+              +'<option value="">\u2014 end conversation \u2014</option>'+nodeOpts+'</select></div>';
+            c+='<div style="font-size:10px;color:#777;margin-top:6px">Task ID: <code style="color:#aaa;font-size:10px">'+esc(t.id||'')+'</code> — wire up dialog in Node Graph.</div>';
+        } else {
+            // Defined pools — dialog lives in pool graph, card only shows ID
+            c+='<div style="font-size:10px;color:#777;margin-top:10px">Dialog flow is in the <b>Pool graph tab</b> above. Task ID: <code style="color:#aaa;font-size:10px">'+esc(t.id||'')+'</code></div>';
+        }
 
         c+='</div></div>'; // end details-body + task-details
         c+='</div>'; // end task-card
@@ -1237,8 +1322,8 @@ function renderTaskList(){
     const bottomBar='<div class="task-add-bar task-add-bar-bottom">'
         +'<button class="btn b2 bs" onclick="addTask(\'fetch\')"><i class="bi">🎒</i> Fetch</button>'
         +'<button class="btn b2 bs" onclick="addTask(\'delivery\')"><i class="bi">📦</i> Delivery</button>'
-        +'<button class="btn b2 bs" onclick="addTask(\'talk\')"><i class="bi">💬</i> Talk</button>'
         +'<button class="btn b2 bs" onclick="addTask(\'collect\')"><i class="bi">📋</i> Collect</button>'
+        +(_taskSubTab==='custom'?'<button class="btn b2 bs" onclick="addTask(\'talk\')"><i class="bi">💬</i> Talk</button>':'')
         +'</div>';
 
     // Build minimap

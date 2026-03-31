@@ -1,0 +1,318 @@
+-- arch_news.script
+-- News display, queue processing, dynamic area news, assignment notifications.
+
+local _log = _G.arch_logger_module and type(_G.arch_logger_module.new) == "function" and _G.arch_logger_module.new("ARCHLOG") or nil
+local printf = (_log and _log.printf) or function(fmt, ...) if not _G.printf then return end; if select("#",...) > 0 then local ok,r = pcall(string.format,fmt,...); if ok then fmt = r end end; _G.printf("ARCHLOG %s", tostring(fmt)) end
+local tostr  = tostring
+local tonum  = tonumber
+local type_  = type
+local sgsub  = string.gsub
+
+-- ──────────────────────────────────────────────────
+-- State (owned by this module)
+-- ──────────────────────────────────────────────────
+
+local NEWS_MIN_INTERVAL_MS = 500
+local NEWS_MAX_BATCH = 3
+local news_queue = {}
+local news_next_emit_ms = 0
+local SHOW_NOTIFICATIONS = true
+local SHOW_ASSIGNMENT_NEWS = true
+local SHOW_DYNAMIC_NEWS = true
+local DYNAMIC_NEWS_COOLDOWN_SEC = 300
+local dynamic_news_last_level = nil
+local dynamic_news_area_cooldowns = {}
+
+-- ──────────────────────────────────────────────────
+-- Settings (called by MCM / archetype_core)
+-- ──────────────────────────────────────────────────
+
+function set_notifications_enabled(enabled)
+    SHOW_NOTIFICATIONS = enabled == true
+end
+
+function get_notifications_enabled()
+    return SHOW_NOTIFICATIONS
+end
+
+function set_assignment_news_enabled(enabled)
+    SHOW_ASSIGNMENT_NEWS = enabled == true
+    printf("[ARCH] Assignment news: %s", tostring(SHOW_ASSIGNMENT_NEWS))
+end
+
+function get_assignment_news_enabled()
+    return SHOW_ASSIGNMENT_NEWS
+end
+
+function set_dynamic_news_enabled(enabled)
+    SHOW_DYNAMIC_NEWS = enabled == true
+    printf("[ARCH] Dynamic news: %s", tostring(SHOW_DYNAMIC_NEWS))
+end
+
+function get_dynamic_news_enabled()
+    return SHOW_DYNAMIC_NEWS
+end
+
+-- ──────────────────────────────────────────────────
+-- Display helpers
+-- ──────────────────────────────────────────────────
+
+function show_arch_news(text, timeout_ms, force_show)
+    if not db.actor or not text then return end
+    if not force_show and not SHOW_NOTIFICATIONS then return end
+    db.actor:give_game_news("st_tip", text, "ui_iconsTotal_grouping", 0, timeout_ms or 5000, 0)
+end
+
+function format_news_text(template, npc_name, location, extra)
+    if not template then return nil end
+    local text = template
+    if npc_name then
+        local n = tostr(npc_name)
+        text = sgsub(text, "%%name%%", function() return n end)
+    end
+    if location then
+        local loc = tostr(location)
+        text = sgsub(text, "%%location%%", function() return loc end)
+    end
+    if extra then
+        if extra.faction then
+            local f = tostr(extra.faction)
+            text = sgsub(text, "%%faction%%", function() return f end)
+        end
+        if extra.archetype then
+            local a = tostr(extra.archetype)
+            text = sgsub(text, "%%archetype%%", function() return a end)
+        end
+        if extra.rank then
+            local r = tostr(extra.rank)
+            text = sgsub(text, "%%rank%%", function() return r end)
+        end
+    end
+    return text
+end
+
+function resolve_news_icon(arch)
+    local hint = arch.news_icon or (type(arch.community_include) == "table" and arch.community_include[1]) or nil
+    if not hint or hint == "" then return nil end
+    local tips = news_manager and news_manager.tips_icons
+    if tips and tips[hint] then
+        return tips[hint]
+    end
+    return nil
+end
+
+function pick_random_template(field_value)
+    if not field_value or field_value == "" then return nil end
+    local templates = {}
+    for t in string.gmatch(field_value, "([^;]+)") do
+        local trimmed = string.match(t, "^%s*(.-)%s*$")
+        if trimmed and trimmed ~= "" then
+            templates[#templates + 1] = trimmed
+        end
+    end
+    if #templates == 0 then return nil end
+    return templates[math.random(#templates)]
+end
+
+-- ──────────────────────────────────────────────────
+-- Queue system
+-- ──────────────────────────────────────────────────
+
+function enqueue_news(text, priority, timeout_ms, sound, icon)
+    if type(text) ~= "string" or text == "" then
+        return
+    end
+    news_queue[#news_queue + 1] = { text = text, priority = priority or 6, timeout = timeout_ms or 5000, sound = sound or 0, icon = icon }
+end
+
+function process_news_queue()
+    if not db or not db.actor then
+        return
+    end
+    if #news_queue == 0 then
+        return
+    end
+    local now = time_global()
+    if now < news_next_emit_ms then
+        return
+    end
+    table.sort(news_queue, function(a, b) return a.priority < b.priority end)
+    if #news_queue > NEWS_MAX_BATCH then
+        local dropped = #news_queue - NEWS_MAX_BATCH
+        for i = #news_queue, NEWS_MAX_BATCH + 1, -1 do
+            news_queue[i] = nil
+        end
+        printf("[ARCH] News throttle: dropped %s lower-priority messages", dropped)
+    end
+    local item = news_queue[1]
+    table.remove(news_queue, 1)
+    if item and item.text and item.text ~= "" then
+        local ico = item.icon or "ui_iconsTotal_grouping"
+        db.actor:give_game_news("A.R.C.H.", item.text, ico, 0, item.timeout or 5000, item.sound or 0)
+    end
+    news_next_emit_ms = now + NEWS_MIN_INTERVAL_MS
+end
+
+function get_queue_length()
+    return #news_queue
+end
+
+-- ──────────────────────────────────────────────────
+-- Assignment news
+-- ──────────────────────────────────────────────────
+
+function maybe_announce_archetype_assignment(st, npc, arch_id)
+    if not SHOW_ASSIGNMENT_NEWS then
+        return
+    end
+    if not st or st.assignment_announced then
+        return
+    end
+    local npc_name = (npc and npc.name and npc:name()) or "NPC"
+    local text = string.format("[ARCH] %s -> Unique: %s", npc_name, tostring(arch_id))
+    show_arch_news(text, 5000, true)
+    st.assignment_announced = true
+end
+
+function queue_game_start_assignment_news()
+    if not SHOW_ASSIGNMENT_NEWS then
+        return
+    end
+    if not db or not db.storage then
+        return
+    end
+    local queued = 0
+    for _, entry in pairs(db.storage) do
+        local npc = entry and entry.object
+        if npc and IsStalker and IsStalker(npc) then
+            local st = archetype_core and archetype_core.get_npc_state(npc) or nil
+            if st and st.arch_assigned and st.archetype_id then
+                local npc_name = npc:name()
+                local text = string.format("[ARCH] %s -> Unique: %s", npc_name, tostring(st.archetype_id))
+                enqueue_news(text, 5, 5000)
+                queued = queued + 1
+            end
+        end
+    end
+    if queued > 0 then
+        printf("[ARCH] Queued %s assignment notifications for game start", queued)
+    end
+end
+
+-- ──────────────────────────────────────────────────
+-- Death news
+-- ──────────────────────────────────────────────────
+
+local function get_original_npc_name(npc)
+    if not npc then return "Unknown" end
+    local st = archetype_core and archetype_core.get_npc_state and archetype_core.get_npc_state(npc) or nil
+    if st and st.original_name and st.original_name ~= "" then
+        return st.original_name
+    end
+    if npc.character_name then
+        return npc:character_name() or "Unknown"
+    end
+    return "Unknown"
+end
+
+function on_death(arch, arch_id, npc)
+    if not arch or not arch.news_on_death then return end
+    if not SHOW_DYNAMIC_NEWS or not db.actor then return end
+    local npc_name = get_original_npc_name(npc)
+    local raw_level = level and level.name and level.name() or "unknown"
+    local location = game and game.translate_string and game.translate_string(raw_level) or raw_level
+    local template = pick_random_template(arch.news_on_death)
+    local extra = {
+        faction = npc and npc.character_community and npc:character_community() or nil,
+        archetype = arch_id,
+        rank = arch_filters and arch_filters.get_rank_name(npc) or "unknown"
+    }
+    local text = format_news_text(template, npc_name, location, extra)
+    if text then
+        enqueue_news(text, 1, 6000, 1, resolve_news_icon(arch))
+    end
+end
+
+-- ──────────────────────────────────────────────────
+-- Dynamic area news (level change)
+-- ──────────────────────────────────────────────────
+
+local function game_time_sec()
+    if not game or not game.get_game_time then return 0 end
+    local gt = game.get_game_time()
+    if not gt or not gt.get then return 0 end
+    local Y, M, D, h, m, s, ms = 0, 0, 0, 0, 0, 0, 0
+    Y, M, D, h, m, s, ms = gt:get(Y, M, D, h, m, s, ms)
+    return ((Y * 365 + (M - 1) * 30 + (D - 1)) * 86400) + (h * 3600) + (m * 60) + s
+end
+
+function on_update()
+    process_news_queue()
+    if not SHOW_DYNAMIC_NEWS or not db.actor then return end
+    local current_level = level and level.name and level.name() or nil
+    if not current_level then return end
+    if current_level == dynamic_news_last_level then return end
+    dynamic_news_last_level = current_level
+    local now = game_time_sec()
+    local custom_archetypes = archetype_core and archetype_core.get_all_archetypes() or {}
+    for arch_id, data in pairs(custom_archetypes) do
+        if data.news_on_area then
+            local matches_level = false
+            if type_(data.location_include) == "table" then
+                for li = 1, #data.location_include do
+                    if data.location_include[li] == current_level then
+                        matches_level = true
+                        break
+                    end
+                end
+            else
+                matches_level = true
+            end
+            if matches_level then
+                local last = dynamic_news_area_cooldowns[arch_id] or 0
+                if (now - last) >= DYNAMIC_NEWS_COOLDOWN_SEC then
+                    dynamic_news_area_cooldowns[arch_id] = now
+                    local location_name = game.translate_string(current_level) or current_level
+                    local template = pick_random_template(data.news_on_area)
+                    local extra = {
+                        faction = type_(data.community_include) == "table" and data.community_include[1] or nil,
+                        archetype = arch_id
+                    }
+                    local text = format_news_text(template, nil, location_name, extra)
+                    if text then
+                        enqueue_news(text, 6, 6000, 1, resolve_news_icon(data))
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- ──────────────────────────────────────────────────
+-- Game start summary
+-- ──────────────────────────────────────────────────
+
+function show_game_start_summary(spawn_assign_stats, assignment_mode)
+    local arch_count = archetype_core and archetype_core.get_count() or 0
+    local spawn_callbacks = tonum(spawn_assign_stats.spawn_callbacks) or 0
+    local assigned_arch = tonum(spawn_assign_stats.assigned_archetype) or 0
+    local upgraded = tonum(spawn_assign_stats.upgraded_to_archetype) or 0
+    local text = string.format(
+        "[A.R.C.H. 0.9] Loaded: %d archetypes (mode: %s, spawn callbacks=%d, arch=%d, upgrades=%d)",
+        arch_count, assignment_mode or "hybrid",
+        spawn_callbacks, assigned_arch, upgraded
+    )
+    show_arch_news(text, 5000, true)
+    printf("[ARCH] %s", text)
+end
+
+-- ──────────────────────────────────────────────────
+-- Reset (called on game load)
+-- ──────────────────────────────────────────────────
+
+function reset()
+    news_queue = {}
+    news_next_emit_ms = 0
+    dynamic_news_last_level = nil
+    dynamic_news_area_cooldowns = {}
+end
