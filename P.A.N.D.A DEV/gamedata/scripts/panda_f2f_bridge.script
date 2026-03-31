@@ -3568,6 +3568,13 @@ local function build_dialog_tree(dialog, state)
                     )
                 end
                 active_state.branch_committed = true
+                -- For F2F-direct conversations, record cooldown on branch commit (not at init time).
+                if active_state.f2f_direct == true then
+                    local f2f_direct_api = get_conv_api()
+                    if f2f_direct_api and type(f2f_direct_api.record_cooldown) == "function" then
+                        f2f_direct_api.record_cooldown(active_state.conv_id, active_state.faction, active_state.prefix or "task")
+                    end
+                end
                 -- Consume only after a player-selected branch is committed.
                 consume_pending_handoff_for_npc(
                     active_state.npc_se,
@@ -3986,18 +3993,36 @@ function panda_f2f_bridge.on_dialog_closed(npc_or_reason, reason, ...)
     end
 
     if resolved_npc_id then
-        local restore_owner = type(state) == "table" and state.route_restore_owner or nil
-        local restored = panda_f2f_bridge.restore_branch_route(resolved_npc_id, restore_owner)
-        bridge_warn(
-            "teardown restore_branch_route npc_id=%s reason=%s restored=%s owner=%s",
-            tostring(resolved_npc_id),
-            tostring(close_reason),
-            tostring(restored == true),
-            tostring(restore_owner or "nil")
-        )
-        -- Clear F2F-direct injection tracking so the next proactive scan can re-inject
-        -- if conditions still apply (e.g. player exited without completing the conversation)
-        f2f_direct_injected_npcs[resolved_npc_id] = nil
+        local is_f2f_direct_noncommit = type(state) == "table"
+            and state.f2f_direct == true
+            and state.branch_committed ~= true
+
+        if is_f2f_direct_noncommit then
+            -- F2F-direct non-commit: keep the dialog override so Wolf doesn't revert to vanilla.
+            -- If we remove the override here, xr_meet detects the dialog change while is_talking()
+            -- is still true and auto-opens the vanilla dialog.  Keeping the override means the
+            -- next player interaction will still show panda_f2f_direct_dialog; f2f_direct_precondition
+            -- re-populates f2f_direct_pending via a fresh scan (no cooldown since we moved
+            -- record_cooldown to branch commit).
+            bridge_warn(
+                "teardown f2f_direct_noncommit_keep_override npc_id=%s reason=%s",
+                tostring(resolved_npc_id),
+                tostring(close_reason)
+            )
+        else
+            local restore_owner = type(state) == "table" and state.route_restore_owner or nil
+            local restored = panda_f2f_bridge.restore_branch_route(resolved_npc_id, restore_owner)
+            bridge_warn(
+                "teardown restore_branch_route npc_id=%s reason=%s restored=%s owner=%s",
+                tostring(resolved_npc_id),
+                tostring(close_reason),
+                tostring(restored == true),
+                tostring(restore_owner or "nil")
+            )
+            -- Clear F2F-direct injection tracking so the next proactive scan can re-inject
+            -- if conditions still apply (e.g. conversation completed or non-f2f-direct exit)
+            f2f_direct_injected_npcs[resolved_npc_id] = nil
+        end
     else
         bridge_warn(
             "teardown restore_branch_route skipped reason=%s detail=%s",
@@ -4769,11 +4794,8 @@ function panda_f2f_bridge.f2f_direct_init_dialog(dialog, ...)
         return
     end
 
-    -- Record cooldown via API
-    local api = get_conv_api()
-    if api and type(api.record_cooldown) == "function" then
-        api.record_cooldown(selected.conv_id, selected.faction, selected.prefix or "task")
-    end
+    -- NOTE: cooldown is recorded on branch commit (in register_dispatcher), not here.
+    -- Recording it at init time would block re-injection if the player exits without committing.
 
     bridge_warn(
         "f2f_direct_init_dialog build_complete npc_id=%s conv_id=%s turn=%s branch_count=%s",
