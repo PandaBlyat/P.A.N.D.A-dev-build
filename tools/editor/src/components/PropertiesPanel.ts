@@ -857,6 +857,9 @@ function renderTurnProperties(
       const rawContinueChannel = choice.continueChannel ?? choice.continue_channel;
       const effectiveContinueChannel = normalizeChannel(rawContinueChannel, effectiveChoiceChannel);
       badge.textContent = `\u2192 ${channelLabel(effectiveContinueChannel)} to ${turnLabels.getLongLabel(choice.continueTo)}`;
+      if (choice.cont_npc_id) {
+        badge.textContent += ` \u2022 NPC: ${choice.cont_npc_id}`;
+      }
       card.appendChild(badge);
     }
 
@@ -1221,6 +1224,31 @@ function renderChoiceProperties(
   };
   pdaDelayField.appendChild(pdaDelayInput);
   continuationBody.appendChild(pdaDelayField);
+
+  // Multi-NPC handoff: pick a different NPC to deliver the next continuation turn
+  const contNpcField = document.createElement('div');
+  contNpcField.className = 'field';
+  const contNpcLabel = document.createElement('label');
+  contNpcLabel.textContent = 'Hand off to Different NPC';
+  contNpcField.appendChild(contNpcLabel);
+  const contNpcHint = document.createElement('div');
+  contNpcHint.className = 'field-hint';
+  contNpcHint.textContent = 'When this choice continues to the next branch, the specified NPC will send those messages instead of the current sender. Leave blank to keep the same NPC.';
+  contNpcField.appendChild(contNpcHint);
+  const contNpcEditor = createOptionPickerPanelEditor(
+    choice.cont_npc_id ?? '',
+    (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { cont_npc_id: value.trim() || undefined }),
+    getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'cont-npc-id'),
+    {
+      title: 'NPC Handoff Catalog',
+      subtitle: 'Select the NPC who should deliver the next branch.',
+      searchPlaceholder: 'Search by NPC id, faction, or role...',
+      emptyLabel: 'Same NPC continues',
+      options: STORY_NPC_OPTIONS,
+    },
+  );
+  contNpcField.appendChild(contNpcEditor);
+  continuationBody.appendChild(contNpcField);
 
   const { wrapper: choiceAdvancedWrapper, body: choiceAdvancedBody } = createCollapsibleSection(
     `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-advanced-channel-controls`,
