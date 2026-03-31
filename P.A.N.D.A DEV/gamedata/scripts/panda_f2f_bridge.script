@@ -34,6 +34,14 @@ local handoff_matches_talker_identity
 local build_callback_resolution_context
 local get_unique_actionable_pending_handoff
 
+-- F2F-direct injection state — forward-declared here so load_state_cb and
+-- actor_on_update_cb (defined early) can reference them.  Actual constant and
+-- function body are assigned further down in the F2F-direct section.
+local F2F_DIRECT_INJECT_INTERVAL_MS = 30 * 1000
+local f2f_direct_injected_npcs = {}   -- [npc_id] = true
+local f2f_direct_last_inject_at = 0
+local inject_f2f_direct_for_story_npcs  -- forward declaration; body assigned below
+
 local runtime = {
     state_by_id = {},
     latest_state = nil,
@@ -1050,6 +1058,9 @@ local function load_state_cb(m)
     runtime.override_owners = {}
     runtime.hub_dialog_cursor = normalize_hub_dialog_slot(m[SAVE_KEY_HUB_DIALOG_CURSOR]) or 0
     runtime.dialog_node_cursor = tonumber(m[SAVE_KEY_DIALOG_NODE_CURSOR]) or 0
+    -- Reset F2F-direct injection state so the first actor_on_update triggers a fresh scan
+    f2f_direct_injected_npcs = {}
+    f2f_direct_last_inject_at = 0
 end
 
 local function is_actor_dialog_active()
@@ -1082,6 +1093,15 @@ end
 local function actor_on_update_cb()
     if runtime.shutdown_in_progress == true then
         return
+    end
+
+    -- Periodic proactive injection: push panda_f2f_direct_dialog into story NPCs
+    -- that qualify for F2F-first conversations.  Story NPCs have custom dialog lists
+    -- that don't include character_dialogs.xml, so we must inject via override_dialog.
+    local now_ms = time_global and time_global() or 0
+    if now_ms - f2f_direct_last_inject_at >= F2F_DIRECT_INJECT_INTERVAL_MS then
+        f2f_direct_last_inject_at = now_ms
+        inject_f2f_direct_for_story_npcs()
     end
 
     local state = runtime.latest_state
@@ -3975,6 +3995,9 @@ function panda_f2f_bridge.on_dialog_closed(npc_or_reason, reason, ...)
             tostring(restored == true),
             tostring(restore_owner or "nil")
         )
+        -- Clear F2F-direct injection tracking so the next proactive scan can re-inject
+        -- if conditions still apply (e.g. player exited without completing the conversation)
+        f2f_direct_injected_npcs[resolved_npc_id] = nil
     else
         bridge_warn(
             "teardown restore_branch_route skipped reason=%s detail=%s",
@@ -4302,6 +4325,8 @@ end
 
 local F2F_DIRECT_DIALOG_ID = "panda_f2f_direct_dialog"
 local F2F_DIRECT_SCAN_CACHE_TTL_MS = 5000
+-- F2F_DIRECT_INJECT_INTERVAL_MS, f2f_direct_injected_npcs, f2f_direct_last_inject_at
+-- are forward-declared at the top of the file for scoping reasons.
 
 local f2f_direct_cache = {}
 -- Structure: f2f_direct_cache[npc_id] = { candidates = {...}, expires_at = time_global() + TTL }
@@ -4449,6 +4474,136 @@ local function scan_f2f_direct_conversations(npc_se)
         tostring(#candidates)
     )
     return candidates
+end
+
+-- Proactively inject panda_f2f_direct_dialog into story NPCs that qualify for an F2F-first
+-- conversation.  Story NPCs have custom dialog lists that don't include character_dialogs.xml,
+-- so the precondition callback never fires for them unless we push the override ourselves.
+-- NOTE: forward-declared at the top of the file so actor_on_update_cb can reference it.
+inject_f2f_direct_for_story_npcs = function()
+    if runtime.shutdown_in_progress == true then return end
+    if not xr_meet or type(xr_meet.override_dialog) ~= "function" then return end
+
+    local api = get_conv_api()
+    local cooldown_mode = 1
+    if PANDA and type(PANDA.get_config) == "function" then
+        cooldown_mode = tonumber(PANDA.get_config("cooldown_mode")) or 1
+    end
+
+    local faction = actor_faction_key()
+    local missing = 0
+    local now = time_global and time_global() or 0
+    local sim = alife and alife()
+    if not sim then return end
+
+    for cid = 1, MAX_CONV_SCAN do
+        local stem = string.format("st_pda_ic_%s_%d", faction, cid)
+        local open_key = stem .. "_open"
+
+        if not key_exists(open_key) then
+            missing = missing + 1
+            if missing >= MISSING_STOP then break end
+        else
+            missing = 0
+
+            -- Only process F2F-start conversations
+            local start_mode_key = stem .. "_start_mode"
+            local start_mode = tr(start_mode_key)
+            if start_mode == start_mode_key then start_mode = nil end
+
+            if start_mode == "f2f" then
+                local precond_key = stem .. "_precond"
+                if key_exists(precond_key) then
+                    -- Extract req_story_npc:<id> from precondition string
+                    local precond_str = tr(precond_key)
+                    local story_npc_sid_str = precond_str ~= precond_key
+                        and precond_str:match("req_story_npc:([%w_%-]+)")
+                        or nil
+
+                    if story_npc_sid_str then
+                        -- Resolve story NPC server object
+                        local numeric_sid = nil
+                        if type(get_story_object_id) == "function" then
+                            local ok_sid, raw_sid = pcall(get_story_object_id, story_npc_sid_str)
+                            if ok_sid then numeric_sid = tonumber(raw_sid) end
+                        end
+
+                        local npc_se = numeric_sid and sim:object(numeric_sid) or nil
+                        if npc_se then
+                            local npc_id = resolve_server_npc_id(npc_se, "inject_f2f_direct")
+
+                            if npc_id
+                                and not f2f_direct_injected_npcs[npc_id]
+                                and not runtime.f2f_direct_pending[npc_id]
+                                and not get_pending_handoff_for_npc(npc_se) then
+
+                                -- Sync tracking: if override_owners no longer has our entry,
+                                -- something else cleared it — allow re-injection
+                                local owner_rec = runtime.override_owners[tostring(npc_id)]
+                                if owner_rec and owner_rec.owner ~= "f2f_direct" then
+                                    -- Another system owns this NPC's override; skip
+                                else
+                                    -- Evaluate preconditions
+                                    local precond_ok = evaluate_shared_precondition(precond_key, npc_se, {
+                                        channel = "f2f", conv_id = cid, faction = faction,
+                                    }) == true
+
+                                    if precond_ok then
+                                        -- Check cooldown
+                                        local skip = false
+                                        if api and type(api.check_cooldown) == "function" then
+                                            local on_cd = api.check_cooldown(cid, faction, "task")
+                                            if on_cd and cooldown_mode == 1 then
+                                                skip = true
+                                            end
+                                        end
+
+                                        if not skip then
+                                            local f2f_turn = select_f2f_turn(stem, npc_se)
+                                            if f2f_turn then
+                                                -- Store pending context so init_dialog can consume it
+                                                runtime.f2f_direct_pending[npc_id] = {
+                                                    conv_id = cid,
+                                                    turn = f2f_turn,
+                                                    stem = stem,
+                                                    faction = faction,
+                                                    prefix = nil,
+                                                    weight = 100,
+                                                }
+
+                                                -- Inject override
+                                                local ok_ov = pcall(xr_meet.override_dialog, npc_id, F2F_DIRECT_DIALOG_ID)
+                                                if ok_ov then
+                                                    runtime.override_owners[tostring(npc_id)] = {
+                                                        owner = "f2f_direct",
+                                                        dialog = F2F_DIRECT_DIALOG_ID,
+                                                        started_at = now,
+                                                    }
+                                                    f2f_direct_injected_npcs[npc_id] = true
+                                                    bridge_debug(
+                                                        "inject_f2f_direct injected npc_id=%s conv_id=%s turn=%s story_npc=%s",
+                                                        tostring(npc_id), tostring(cid),
+                                                        tostring(f2f_turn), tostring(story_npc_sid_str)
+                                                    )
+                                                else
+                                                    -- override failed; clear pending so it is retried next scan
+                                                    runtime.f2f_direct_pending[npc_id] = nil
+                                                    bridge_warn(
+                                                        "inject_f2f_direct override_dialog failed npc_id=%s conv_id=%s",
+                                                        tostring(npc_id), tostring(cid)
+                                                    )
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
 end
 
 local function f2f_direct_weighted_select(candidates)
