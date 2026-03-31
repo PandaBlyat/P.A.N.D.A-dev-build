@@ -198,6 +198,7 @@ function createF2FRegistryPayload(conv: Conversation) {
         npcFactionFilters: choice.npc_faction_filters ?? [],
         npcProfileFilters: choice.npc_profile_filters ?? [],
         allowGenericStalker: choice.allow_generic_stalker ?? false,
+        contNpcId: choice.cont_npc_id ?? null,
       })),
     };
   });
@@ -315,6 +316,9 @@ function generateConversation(
               String(Math.floor(choice.pdaDelaySeconds)),
             ),
           );
+        }
+        if (choice.cont_npc_id) {
+          lines.push(emitString(`${prefix}${turnInfix}_cont_npc_${choice.index}`, choice.cont_npc_id));
         }
       }
     }

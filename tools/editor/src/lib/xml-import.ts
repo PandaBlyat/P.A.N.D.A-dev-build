@@ -20,6 +20,7 @@ interface ImportedF2FChoiceMetadata {
   npcFactionFilters?: string[];
   npcProfileFilters?: string[];
   allowGenericStalker?: boolean;
+  contNpcId?: string | null;
 }
 
 interface ImportedF2FTurnMetadata {
@@ -398,6 +399,7 @@ function applyTurnMetadata(
     choice.story_npc_id = choiceMeta.storyNpcId ?? undefined;
     choice.npc_faction_filters = (choiceMeta.npcFactionFilters ?? []).filter((faction): faction is FactionId => faction in FACTION_XML_KEYS);
     choice.npc_profile_filters = (choiceMeta.npcProfileFilters ?? []).filter((profile) => typeof profile === 'string' && profile.trim().length > 0);
+    choice.cont_npc_id = choiceMeta.contNpcId ?? undefined;
 
     if (choiceMeta.continueTo == null) {
       choice.continueTo = undefined;
@@ -597,6 +599,12 @@ function parseTurnChoices(strings: Map<string, string>, prefix: string, turnInfi
       if (Number.isFinite(parsedDelay) && parsedDelay >= 0) {
         choice.pdaDelaySeconds = Math.floor(parsedDelay);
       }
+    }
+
+    // Multi-NPC handoff: direct XML key (authoritative, overrides registry if present)
+    const contNpcStr = strings.get(`${prefix}${turnInfix}_cont_npc_${i}`);
+    if (contNpcStr && contNpcStr.trim()) {
+      choice.cont_npc_id = contNpcStr.trim();
     }
 
     choices.push(choice);

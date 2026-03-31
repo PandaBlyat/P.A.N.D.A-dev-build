@@ -109,6 +109,8 @@ export interface Choice {
   npc_faction_filters?: FactionId[];
   npc_profile_filters?: string[];
   allow_generic_stalker?: boolean;
+  /** Story NPC ID of the NPC who should deliver the next continuation turn (multi-NPC handoff). */
+  cont_npc_id?: string;
 }
 
 export interface Outcome {

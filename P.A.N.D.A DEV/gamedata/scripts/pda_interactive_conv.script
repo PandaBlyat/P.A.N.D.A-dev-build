@@ -6128,13 +6128,18 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact
             end
         end
 
+        local cont_npc_raw = game.translate_string(p.."_cont_npc_"..i)
+        local next_npc_id = (cont_npc_raw ~= p.."_cont_npc_"..i) and cont_npc_raw:match("^%s*(.-)%s*$") or nil
+        if next_npc_id == "" then next_npc_id = nil end
+
         choices[i] = {
             text = sub_placeholders(text, npc_name, faction, npc_se, contact_id),
             reply = sub_placeholders(reply_text, npc_name, faction, npc_se, contact_id),
             outcome = game.translate_string(p.."_outcome_"..i),
             next_turn = tonumber(game.translate_string(p.."_cont_"..i)) or nil,
             next_channel = normalize_choice_channel(cont_channel),
-            pda_delay_seconds = tonumber(game.translate_string(p.."_pda_delay_"..i)) or nil
+            pda_delay_seconds = tonumber(game.translate_string(p.."_pda_delay_"..i)) or nil,
+            next_npc_id = next_npc_id,
         }
         if choices[i].outcome == p.."_outcome_"..i then choices[i].outcome = "none" end
         count = i
@@ -6249,15 +6254,54 @@ function on_player_choice(idx, contact_id)
                     end
 
                     if ch.next_turn and continuation_channel == "pda" then
-                        local next_choices, num = load_choices_for_turn(c.prefix, c.faction, c.conv_id, ch.next_turn, npc_name, cid)
-                        if num > 0 then
-                            c.turn = ch.next_turn
-                            c.choices = next_choices
-                            c.num_choices = num
-                            c.reply_pending = false
-                            -- Re-register in multi-conv table
-                            active_conversations[cid] = c
-                            CONV = c
+                        -- Multi-NPC handoff: if the choice specifies a different NPC for the next turn,
+                        -- queue a PDA followup in the new NPC's contact thread instead of continuing inline.
+                        local handed_off = false
+                        if ch.next_npc_id and ch.next_npc_id ~= "" and type(get_story_se_object) == "function" then
+                            local ok_se, new_npc_se = pcall(get_story_se_object, ch.next_npc_id)
+                            local new_npc_id = ok_se and new_npc_se and tonumber(new_npc_se.id) or nil
+                            if new_npc_id and new_npc_id ~= tonumber(c.npc_id) then
+                                local ok_nn, new_name = pcall(function() return new_npc_se:character_name() end)
+                                local ok_ni, new_icon = pcall(function() return new_npc_se:character_icon() end)
+                                local resolved_name = (ok_nn and new_name and new_name ~= "") and new_name or "Unknown"
+                                local resolved_icon = (ok_ni and new_icon and new_icon ~= "") and new_icon or FALLBACK_NPC_ICON
+                                queue_pda_followup_internal({
+                                    npc_id        = new_npc_id,
+                                    contact_id    = tostring(new_npc_id),
+                                    npc_name      = resolved_name,
+                                    npc_icon      = resolved_icon,
+                                    faction       = c.faction,   -- keep original conv faction for XML key lookup
+                                    prefix        = c.prefix,
+                                    conv_id       = c.conv_id,
+                                    turn          = ch.next_turn,
+                                    delay_seconds = 0,
+                                    story_id      = ch.next_npc_id,
+                                    canonical_id  = ch.next_npc_id:lower(),
+                                    task_id       = c.task_id,
+                                    category      = c.category,
+                                    applied_outcomes = clone_plain_table(c.applied_outcomes) or {},
+                                })
+                                printf("PANDA_IC: multi-npc handoff pda contact_id=%s -> new_npc_id=%s story_id=%s conv_id=%s turn=%s",
+                                    tostring(cid), tostring(new_npc_id), tostring(ch.next_npc_id),
+                                    tostring(c.conv_id), tostring(ch.next_turn))
+                                handed_off = true
+                            else
+                                printf("PANDA_IC: multi-npc handoff pda failed to resolve story_npc_id=%s, falling back to same-npc continuation", tostring(ch.next_npc_id))
+                            end
+                        end
+
+                        if not handed_off then
+                            -- Same NPC: in-place continuation as before
+                            local next_choices, num = load_choices_for_turn(c.prefix, c.faction, c.conv_id, ch.next_turn, npc_name, cid)
+                            if num > 0 then
+                                c.turn = ch.next_turn
+                                c.choices = next_choices
+                                c.num_choices = num
+                                c.reply_pending = false
+                                -- Re-register in multi-conv table
+                                active_conversations[cid] = c
+                                CONV = c
+                            end
                         end
                     elseif ch.next_turn and continuation_channel == "f2f" then
                         c.pending_in_person_continuation = true
@@ -6288,8 +6332,18 @@ function on_player_choice(idx, contact_id)
                         c.pending_in_person_token = handoff_token
                         c.pending_in_person_story_id = handoff_identity.story_id
                         c.pending_in_person_canonical_id = handoff_identity.canonical_id
+                        -- Resolve the correct meet-target (may differ if cont_npc_id redirects to a new NPC)
                         local handoff_target_name = tostring(c.npc_name or "Unknown")
                         local handoff_target_id = tostring(c.npc_id or "Unknown")
+                        if ch.next_npc_id and ch.next_npc_id ~= "" and type(get_story_se_object) == "function" then
+                            local ok_ht, ht_se = pcall(get_story_se_object, ch.next_npc_id)
+                            if ok_ht and ht_se then
+                                local ht_id = tonumber(ht_se.id)
+                                if ht_id then handoff_target_id = tostring(ht_id) end
+                                local ok_htn, htn = pcall(function() return ht_se:character_name() end)
+                                if ok_htn and htn and htn ~= "" then handoff_target_name = htn end
+                            end
+                        end
                         pda_private_add_message(
                             cid,
                             npc_name,
@@ -6336,20 +6390,43 @@ function on_player_choice(idx, contact_id)
                             route_dialog = handoff_dialog,
                             route_status = "pending",
                         }
+
+                        -- Multi-NPC F2F handoff: if the choice targets a different NPC, override the
+                        -- handoff identity so the F2F bridge waits for the player to approach that NPC.
+                        if ch.next_npc_id and ch.next_npc_id ~= "" then
+                            handoff_row.story_id    = ch.next_npc_id
+                            handoff_row.canonical_id = ch.next_npc_id:lower()
+                            if type(get_story_se_object) == "function" then
+                                local ok_new, new_se = pcall(get_story_se_object, ch.next_npc_id)
+                                if ok_new and new_se then
+                                    local new_f2f_id = tonumber(new_se.id)
+                                    if new_f2f_id then
+                                        handoff_row.npc_id = new_f2f_id
+                                        local ok_nn, nn = pcall(function() return new_se:character_name() end)
+                                        local ok_ni, ni = pcall(function() return new_se:character_icon() end)
+                                        if ok_nn and nn and nn ~= "" then handoff_row.npc_name = nn end
+                                        if ok_ni and ni and ni ~= "" then handoff_row.npc_icon = ni end
+                                        printf("PANDA_IC: multi-npc handoff f2f contact_id=%s -> new_npc_id=%s story_id=%s",
+                                            tostring(cid), tostring(new_f2f_id), tostring(ch.next_npc_id))
+                                    end
+                                end
+                            end
+                        end
+
                         register_pending_f2f_handoff(cid, handoff_row)
 
                         local handoff_route = "no-route"
                         local owner_tag = string.format("pda_handoff_%s_%s_%s", tostring(cid), tostring(c.conv_id), tostring(ch.next_turn))
                         if bridge and type(bridge.hard_route_branch) == "function" then
-                            local ok_route_call, route_applied = pcall(bridge.hard_route_branch, c.npc_id, owner_tag, handoff_dialog)
+                            local ok_route_call, route_applied = pcall(bridge.hard_route_branch, handoff_row.npc_id, owner_tag, handoff_dialog)
                             if ok_route_call and route_applied == true then
                                 handoff_route = "bridge route"
                             end
                         end
 
                         if handoff_route ~= "bridge route" and xr_meet and type(xr_meet.override_dialog) == "function" then
-                            local ok_override_call = pcall(xr_meet.override_dialog, c.npc_id, handoff_dialog)
-                            if ok_override_call and has_xr_meet_dialog_override(c.npc_id, handoff_dialog) then
+                            local ok_override_call = pcall(xr_meet.override_dialog, handoff_row.npc_id, handoff_dialog)
+                            if ok_override_call and has_xr_meet_dialog_override(handoff_row.npc_id, handoff_dialog) then
                                 handoff_route = "xr_meet fallback"
                             end
                         end
@@ -6359,7 +6436,7 @@ function on_player_choice(idx, contact_id)
                         handoff_row.route_set_at = time_global and time_global() or c.pending_in_person_set_at
 
                         printf("PANDA_IC: f2f handoff registered npc_id=%s conv_id=%s turn=%s dialog=%s route=%s",
-                            tostring(c.npc_id), tostring(c.conv_id), tostring(ch.next_turn), tostring(handoff_dialog), handoff_route)
+                            tostring(handoff_row.npc_id), tostring(c.conv_id), tostring(ch.next_turn), tostring(handoff_dialog), handoff_route)
 
                         -- Re-register in active_conversations so the pending_in_person
                         -- markers are trackable by consume_pending_f2f_handoff_internal
