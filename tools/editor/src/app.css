@@ -3695,7 +3695,7 @@ body.use-custom-cursor * {
 
 .npc-builder-panel {
   width: min(760px, 95%); /* Slightly wider for better 3-column fit */
-  max-height: min(85vh, 980px);
+  max-height: min(85vh, 900px);
   display: flex;
   flex-direction: column;
   background: var(--bg-panel, #161719);
@@ -3707,7 +3707,7 @@ body.use-custom-cursor * {
 }
 
 .npc-builder-header {
-  padding: 16px 20px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border, #2a2b2d);
   background: rgba(255, 255, 255, 0.02);
   flex-shrink: 0;
@@ -3722,7 +3722,7 @@ body.use-custom-cursor * {
   padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px; /* More breathing room between sections */
+  gap: 4px; /* More breathing room between sections */
 }
 
 .npc-builder-footer {
