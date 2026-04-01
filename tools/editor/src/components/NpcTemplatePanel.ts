@@ -459,17 +459,18 @@ function openNpcBuilderPanel(options: {
     {
       const { wrap, content } = makeField('Trader');
       const checkRow = document.createElement('div');
-      checkRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding-top:4px;';
+      checkRow.className = 'npc-builder-checkbox-row'; // <-- Changed here
+      
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.id = `npc-b-trader-${triggerId}`;
       cb.checked = form.trader;
       cb.onchange = () => { form.trader = cb.checked; };
+      
       const cbLabel = document.createElement('label');
       cbLabel.htmlFor = cb.id;
-      cbLabel.className = 'command-description';
-      cbLabel.style.margin = '0';
       cbLabel.textContent = 'Mark as a trader NPC (can buy/sell items)';
+      
       checkRow.append(cb, cbLabel);
       content.appendChild(checkRow);
       row.appendChild(wrap);
@@ -486,7 +487,7 @@ function openNpcBuilderPanel(options: {
 
     const hint = document.createElement('div');
     hint.className = 'command-description';
-    hint.style.marginBottom = '8px';
+    hint.style.margin = '10px 16px 0'; // <-- Adjust margins for the hint
     hint.textContent = 'Items placed in the NPC\u2019s inventory on spawn. Format: item section + quantity.';
     sec.appendChild(hint);
 
@@ -496,8 +497,7 @@ function openNpcBuilderPanel(options: {
 
     const addBtn = document.createElement('button');
     addBtn.type = 'button';
-    addBtn.className = 'btn-sm';
-    addBtn.style.marginTop = '6px';
+    addBtn.className = 'btn-sm npc-builder-add-btn'; // <-- Added custom class
     addBtn.textContent = '+ Add Item';
     addBtn.onclick = () => {
       form.items.push({ section: '', count: '1' });
