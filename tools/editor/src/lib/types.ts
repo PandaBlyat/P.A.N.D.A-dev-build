@@ -1,9 +1,25 @@
 // P.A.N.D.A. Conversation Editor — Data Model
 
+export interface NpcTemplate {
+  id: string;
+  name: string;
+  faction: string;
+  rank?: string;
+  relation?: string;
+  primary?: string;
+  secondary?: string;
+  outfit?: string;
+  items?: string;
+  spawnDist?: number;
+  count?: number;
+  trader?: boolean;
+}
+
 export interface Project {
   version: string;
   faction: FactionId;
   conversations: Conversation[];
+  npcTemplates?: NpcTemplate[];
 }
 
 export type FactionId =

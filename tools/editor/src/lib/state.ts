@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Application State
 
-import type { Project, Conversation, Turn, Choice, ValidationMessage } from './types';
+import type { Project, Conversation, Turn, Choice, ValidationMessage, NpcTemplate } from './types';
 import { getConversationFaction } from './types';
 import { createEmptyProject, createConversation, createTurn, createChoice } from './xml-export';
 import { migrateLegacyF2FEntryOpenings } from './f2f-entry-migration';
@@ -1541,6 +1541,23 @@ class StateManager {
 
   clearConversationSourceMetadata(conversationId: number, options: { notify?: boolean } = {}): void {
     this.setConversationSourceMetadata(conversationId, null, options);
+  }
+
+  upsertNpcTemplate(template: NpcTemplate): void {
+    this.pushUndo();
+    const templates = [...(this.state.project.npcTemplates ?? [])];
+    const idx = templates.findIndex(t => t.id === template.id);
+    if (idx >= 0) templates[idx] = template;
+    else templates.push(template);
+    this.state.project = { ...this.state.project, npcTemplates: templates };
+    this.finishProjectMutation();
+  }
+
+  removeNpcTemplate(id: string): void {
+    this.pushUndo();
+    const templates = (this.state.project.npcTemplates ?? []).filter(t => t.id !== id);
+    this.state.project = { ...this.state.project, npcTemplates: templates };
+    this.finishProjectMutation();
   }
 
   setSystemString(key: string, value: string): void {
