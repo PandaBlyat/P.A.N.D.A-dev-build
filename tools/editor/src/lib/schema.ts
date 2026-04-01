@@ -223,24 +223,14 @@ const WATCH_TRIGGER_SUGGESTIONS: ParamOption[] = [
     keywords: ['teleport', 'npc', 'player'],
   },
   {
-    value: 'spawn_hostile:bandit:90',
-    label: 'Spawn a hostile squad near the player',
-    keywords: ['spawn', 'hostile', 'bandit'],
+    value: 'spawn_custom_npc:hired_guns',
+    label: 'Spawn a custom NPC near the player',
+    keywords: ['spawn', 'custom', 'npc', 'hired', 'guns'],
   },
   {
-    value: 'spawn_friendly:stalker:60',
-    label: 'Spawn a friendly squad near the player',
-    keywords: ['spawn', 'friendly', 'stalker'],
-  },
-  {
-    value: 'spawn_npc:dolg:45',
-    label: 'Spawn a faction squad near the player',
-    keywords: ['spawn', 'npc', 'duty', 'dolg'],
-  },
-  {
-    value: 'spawn_hostile_at_smart:bandit:%cordon_panda_st_key%',
-    label: 'Spawn hostiles at the watched smart terrain',
-    keywords: ['spawn', 'hostile', 'smart', 'bandit'],
+    value: 'spawn_custom_npc_at:hired_guns:%cordon_panda_st_key%',
+    label: 'Spawn a custom NPC at the watched smart terrain',
+    keywords: ['spawn', 'custom', 'npc', 'smart', 'location'],
   },
   {
     value: 'spawn_mutant:snork:90',
@@ -256,16 +246,6 @@ const WATCH_TRIGGER_SUGGESTIONS: ParamOption[] = [
     value: 'recruit_companion',
     label: 'Recruit the current NPC as a companion',
     keywords: ['recruit', 'companion'],
-  },
-  {
-    value: 'spawn_friendly_at_smart:stalker:%cordon_panda_st_key%',
-    label: 'Spawn friendlies at the watched smart terrain',
-    keywords: ['spawn', 'friendly', 'smart', 'stalker'],
-  },
-  {
-    value: 'spawn_companion_at_smart:stalker:%cordon_panda_st_key%',
-    label: 'Spawn companion at the watched smart terrain',
-    keywords: ['spawn', 'companion', 'smart'],
   },
   {
     value: 'set_npc_hostile',
@@ -1144,6 +1124,76 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
       { name: 'distance', type: 'number', required: true, label: 'Maximum Distance (m)', min: 1 },
     ],
   },
+
+  // ─── Custom NPCs ──────────────────────────────────────────────────────────
+  {
+    name: 'req_custom_npc_alive',
+    label: 'Custom NPC is Alive',
+    description: 'At least one spawned instance of the custom NPC template is alive',
+    category: 'Custom NPCs',
+    helpText:
+      'Checks whether a custom NPC spawned via spawn_custom_npc / spawn_custom_npc_at with this template ID currently exists and is alive in the world. ' +
+      'Use together with req_custom_npc_dead to build gated follow-up conversations.',
+    examples: ['req_custom_npc_alive:informant', 'req_custom_npc_alive:hired_guns'],
+    params: [
+      {
+        name: 'template_id',
+        type: 'string',
+        required: true,
+        label: 'Template ID',
+        placeholder: 'e.g. informant',
+        helpText: 'Must match the template_id used in the spawn_custom_npc outcome.',
+      },
+    ],
+  },
+  {
+    name: 'req_custom_npc_dead',
+    label: 'Custom NPC is Dead',
+    description: 'All spawned instances of the custom NPC template are dead or gone',
+    category: 'Custom NPCs',
+    helpText:
+      'Passes when every NPC spawned from this template has been killed or despawned. ' +
+      'Useful for follow-up conversations after the player eliminates a custom target.',
+    examples: ['req_custom_npc_dead:hired_guns', 'req_custom_npc_dead:escort'],
+    params: [
+      {
+        name: 'template_id',
+        type: 'string',
+        required: true,
+        label: 'Template ID',
+        placeholder: 'e.g. hired_guns',
+        helpText: 'Must match the template_id used in the spawn_custom_npc outcome.',
+      },
+    ],
+  },
+  {
+    name: 'req_custom_npc_near',
+    label: 'Custom NPC is Nearby',
+    description: 'At least one alive custom NPC of this template is within the specified distance of the player',
+    category: 'Custom NPCs',
+    helpText:
+      'Passes when a living custom NPC from the template is within the given radius of the player. ' +
+      'Use this to gate F2F conversations on whether the spawned NPC has actually been reached.',
+    examples: ['req_custom_npc_near:informant:15', 'req_custom_npc_near:weapons_dealer:20'],
+    params: [
+      {
+        name: 'template_id',
+        type: 'string',
+        required: true,
+        label: 'Template ID',
+        placeholder: 'e.g. informant',
+        helpText: 'Must match the template_id used in the spawn_custom_npc outcome.',
+      },
+      {
+        name: 'distance',
+        type: 'number',
+        required: true,
+        label: 'Distance (m)',
+        min: 1,
+        placeholder: '15',
+      },
+    ],
+  },
 ];
 
 // ─── Outcome Schemas ────────────────────────────────────────────────────────
@@ -1221,16 +1271,6 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
       { name: 'item', type: 'item_section', required: true, label: 'Item Section', editor: ITEM_PICKER_PANEL_EDITOR },
     ],
   },
-  {
-    name: 'courier_item',
-    label: 'Send Courier',
-    description: 'Spawn NPC courier to deliver item',
-    category: 'Items',
-    params: [
-      { name: 'item', type: 'item_section', required: false, label: 'Item Section', placeholder: 'medkit_army', editor: ITEM_PICKER_PANEL_EDITOR },
-    ],
-  },
-
   // Items (expanded)
   {
     name: 'take_item',
@@ -1324,43 +1364,47 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
 
   // Spawning
   {
-    name: 'spawn_hostile',
-    label: 'Spawn Hostiles',
-    description: 'Spawn hostile squad near player',
+    name: 'spawn_custom_npc',
+    label: 'Spawn Custom NPC (near player)',
+    description: 'Spawn a fully author-defined NPC near the player using a named template',
     category: 'Spawning',
-    params: [
-      { name: 'faction', type: 'faction', required: true, label: 'Faction' },
-      { name: 'distance', type: 'number', required: true, label: 'Distance (m)', min: 10 },
-      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '90', min: 0 },
-    ],
-  },
-  {
-    name: 'spawn_friendly',
-    label: 'Spawn Friendlies',
-    description: 'Spawn friendly squad near player',
-    category: 'Spawning',
-    params: [
-      { name: 'faction', type: 'faction', required: true, label: 'Faction' },
-      { name: 'distance', type: 'number', required: true, label: 'Distance (m)', min: 10 },
-      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '30', min: 0 },
-    ],
-  },
-  {
-    name: 'spawn_npc',
-    label: 'Spawn Faction Squad',
-    description: 'Spawn a specific NPC squad near player',
-    category: 'Spawning',
+    helpText:
+      'References an NPC template defined in XML as st_panda_npc_template_<id>. ' +
+      'The template controls name, faction, rank, primary/secondary weapon, outfit, extra items, relation, trader flag, count, and spawn distance. ' +
+      'Use req_custom_npc_alive / req_custom_npc_dead as preconditions to gate conversations on whether this NPC is still alive.',
+    examples: ['spawn_custom_npc:informant', 'spawn_custom_npc:hired_guns:10'],
     params: [
       {
-        name: 'squad_section',
+        name: 'template_id',
         type: 'string',
         required: true,
-        label: 'NPC Squad',
-        editor: { kind: 'searchable_select', options: NPC_SQUAD_OPTIONS, emptyLabel: '-- Select NPC squad --' },
-        helpText: 'Pick the exact NPC squad section to spawn.',
+        label: 'Template ID',
+        placeholder: 'e.g. informant',
+        helpText: 'Matches the XML key st_panda_npc_template_<id>. Define the template in your conversations XML file.',
       },
-      { name: 'distance', type: 'number', required: true, label: 'Distance (m)', min: 10 },
-      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '30', min: 0 },
+      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
+    ],
+  },
+  {
+    name: 'spawn_custom_npc_at',
+    label: 'Spawn Custom NPC at Location',
+    description: 'Spawn a fully author-defined NPC at a smart terrain using a named template',
+    category: 'Spawning',
+    helpText:
+      'Same as "Spawn Custom NPC" but places the NPC at a specific smart terrain instead of near the player. ' +
+      'Useful for ambushes, rendezvous, or scripted encounters at known map locations.',
+    examples: ['spawn_custom_npc_at:hired_guns:esc_smart_terrain_5_7', 'spawn_custom_npc_at:weapons_dealer:bar_visitors:5'],
+    params: [
+      {
+        name: 'template_id',
+        type: 'string',
+        required: true,
+        label: 'Template ID',
+        placeholder: 'e.g. hired_guns',
+        helpText: 'Matches the XML key st_panda_npc_template_<id>.',
+      },
+      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
+      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
     ],
   },
   {
@@ -1382,17 +1426,6 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     ],
   },
   {
-    name: 'spawn_hostile_at_smart',
-    label: 'Spawn Hostiles at Location',
-    description: 'Spawn hostile squad at smart terrain',
-    category: 'Spawning',
-    params: [
-      { name: 'faction', type: 'faction', required: true, label: 'Faction' },
-      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
-      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
-    ],
-  },
-  {
     name: 'spawn_mutant_at_smart',
     label: 'Spawn Mutants at Location',
     description: 'Spawn a specific mutant squad at smart terrain',
@@ -1406,51 +1439,6 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
         editor: { kind: 'searchable_select', options: MUTANT_SQUAD_OPTIONS, emptyLabel: '-- Select mutant squad --' },
         helpText: 'Pick the exact mutant squad section to spawn at the selected smart terrain.',
       },
-      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
-      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
-    ],
-  },
-  {
-    name: 'spawn_companion',
-    label: 'Spawn Companion',
-    description: 'Spawn companion squad near player',
-    category: 'Spawning',
-    params: [
-      { name: 'faction', type: 'faction', required: true, label: 'Faction' },
-      { name: 'distance', type: 'number', required: true, label: 'Distance (m)', min: 10 },
-      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '30', min: 0 },
-    ],
-  },
-
-  {
-    name: 'spawn_friendly_at_smart',
-    label: 'Spawn Friendlies at Location',
-    description: 'Spawn friendly squad at smart terrain',
-    category: 'Spawning',
-    params: [
-      { name: 'faction', type: 'faction', required: true, label: 'Faction' },
-      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
-      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
-    ],
-  },
-  {
-    name: 'spawn_squad_at_smart',
-    label: 'Spawn Squad at Location',
-    description: 'Spawn neutral faction squad at smart terrain',
-    category: 'Spawning',
-    params: [
-      { name: 'faction', type: 'faction', required: true, label: 'Faction' },
-      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
-      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
-    ],
-  },
-  {
-    name: 'spawn_companion_at_smart',
-    label: 'Spawn Companion at Location',
-    description: 'Spawn companion squad at smart terrain',
-    category: 'Spawning',
-    params: [
-      { name: 'faction', type: 'faction', required: true, label: 'Faction' },
       { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
     ],
@@ -1475,7 +1463,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     helpText: 'Build one or more outcome commands that should fire when the player reaches the watched smart terrain. Chain multiple commands with + so they execute as one deferred batch.',
     examples: [
       'teleport_npc_to_smart:%cordon_panda_st_key%+spawn_mutant_at_smart:snork:%cordon_panda_st_key%',
-      'spawn_hostile:bandit:90',
+      'spawn_custom_npc:hired_guns',
     ],
     params: [
       { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
@@ -1488,7 +1476,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
         helpText: 'Use normal outcome syntax here. The watched smart terrain can be referenced with a real key or a %<level>_panda_st_key% placeholder.',
         examples: [
           'teleport_npc_to_smart:%cordon_panda_st_key%+spawn_mutant_at_smart:snork:%cordon_panda_st_key%',
-          'spawn_hostile_at_smart:bandit:%cordon_panda_st_key%',
+          'spawn_custom_npc_at:hired_guns:%cordon_panda_st_key%',
         ],
       },
       { name: 'radius', type: 'number', required: false, label: 'Radius (m)', placeholder: '85', min: 1 },
@@ -1792,17 +1780,6 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
       { name: 'duration', type: 'number', required: true, label: 'Duration (s)', min: 1 },
     ],
   },
-  {
-    name: 'spawn_squad_for_npc',
-    label: 'Spawn Backup for NPC',
-    description: 'Spawn additional faction members near the conversation NPC',
-    category: 'Spawning',
-    params: [
-      { name: 'faction', type: 'faction', required: true, label: 'Faction' },
-      { name: 'count', type: 'number', required: false, label: 'Squad Count (1-5)', placeholder: '1', min: 1, max: 5 },
-    ],
-  },
-
   // ─── NEW: Faction & Relations ─────────────────────────────────────────
   {
     name: 'change_faction_relations',

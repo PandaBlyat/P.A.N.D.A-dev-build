@@ -283,17 +283,13 @@ const HELP_CONTENT = `
 <h3>Items</h3>
 <ul>
   <li><code>give_item:&lt;section_name&gt;</code></li>
-  <li><code>courier_item:&lt;section_name&gt;</code></li>
 </ul>
 <h3>Spawning</h3>
 <ul>
-  <li><code>spawn_hostile:&lt;faction&gt;:&lt;distance&gt;</code></li>
-  <li><code>spawn_friendly:&lt;faction&gt;:&lt;distance&gt;[:delay]</code></li>
-  <li><code>spawn_npc:&lt;squad_section_or_faction&gt;:&lt;distance&gt;[:delay]</code></li>
-  <li><code>spawn_mutant:&lt;mutant_squad_section_or_type&gt;:&lt;distance&gt;</code></li>
-  <li><code>spawn_mutant_at_smart:&lt;mutant_squad_section_or_type&gt;:&lt;smart_key&gt;[:delay]</code></li>
-  <li><code>spawn_hostile_at_smart:&lt;faction&gt;:&lt;smart_key&gt;[:delay]</code></li>
-  <li><code>spawn_companion:&lt;faction&gt;:&lt;distance&gt;</code></li>
+  <li><code>spawn_custom_npc:&lt;template_id&gt;[:delay]</code> — spawn author-defined NPC near player</li>
+  <li><code>spawn_custom_npc_at:&lt;template_id&gt;:&lt;smart_key&gt;[:delay]</code> — spawn author-defined NPC at location</li>
+  <li><code>spawn_mutant:&lt;mutant_squad_section&gt;:&lt;distance&gt;[:delay]</code></li>
+  <li><code>spawn_mutant_at_smart:&lt;mutant_squad_section&gt;:&lt;smart_key&gt;[:delay]</code></li>
 </ul>
 <h3>Stash &amp; location markers</h3>
 <ul>
