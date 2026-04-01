@@ -84,4 +84,45 @@
         <text>{&quot;schema&quot;:&quot;panda_f2f_bridge_registry_v1&quot;,&quot;conversationId&quot;:1,&quot;entryNodes&quot;:{&quot;pda&quot;:[1],&quot;f2f&quot;:[2]},&quot;turns&quot;:[{&quot;turnNumber&quot;:1,&quot;channel&quot;:&quot;pda&quot;,&quot;firstSpeaker&quot;:&quot;npc&quot;,&quot;requiresNpcFirst&quot;:null,&quot;pdaEntry&quot;:true,&quot;f2fEntry&quot;:false,&quot;choices&quot;:[{&quot;index&quot;:1,&quot;channel&quot;:&quot;pda&quot;,&quot;terminal&quot;:false,&quot;continueTo&quot;:2,&quot;continueChannel&quot;:&quot;f2f&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[],&quot;npcProfileFilters&quot;:[],&quot;allowGenericStalker&quot;:false},{&quot;index&quot;:2,&quot;channel&quot;:&quot;pda&quot;,&quot;terminal&quot;:false,&quot;continueTo&quot;:null,&quot;continueChannel&quot;:&quot;pda&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[],&quot;npcProfileFilters&quot;:[],&quot;allowGenericStalker&quot;:false}]},{&quot;turnNumber&quot;:2,&quot;channel&quot;:&quot;f2f&quot;,&quot;firstSpeaker&quot;:&quot;npc&quot;,&quot;requiresNpcFirst&quot;:true,&quot;pdaEntry&quot;:false,&quot;f2fEntry&quot;:true,&quot;choices&quot;:[{&quot;index&quot;:1,&quot;channel&quot;:&quot;f2f&quot;,&quot;terminal&quot;:false,&quot;continueTo&quot;:3,&quot;continueChannel&quot;:&quot;f2f&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[],&quot;npcProfileFilters&quot;:[],&quot;allowGenericStalker&quot;:false},{&quot;index&quot;:2,&quot;channel&quot;:&quot;f2f&quot;,&quot;terminal&quot;:false,&quot;continueTo&quot;:null,&quot;continueChannel&quot;:&quot;pda&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[],&quot;npcProfileFilters&quot;:[],&quot;allowGenericStalker&quot;:false}]},{&quot;turnNumber&quot;:3,&quot;channel&quot;:&quot;f2f&quot;,&quot;firstSpeaker&quot;:&quot;npc&quot;,&quot;requiresNpcFirst&quot;:true,&quot;pdaEntry&quot;:false,&quot;f2fEntry&quot;:false,&quot;choices&quot;:[{&quot;index&quot;:1,&quot;channel&quot;:&quot;f2f&quot;,&quot;terminal&quot;:false,&quot;continueTo&quot;:null,&quot;continueChannel&quot;:&quot;f2f&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[],&quot;npcProfileFilters&quot;:[],&quot;allowGenericStalker&quot;:false},{&quot;index&quot;:2,&quot;channel&quot;:&quot;f2f&quot;,&quot;terminal&quot;:false,&quot;continueTo&quot;:null,&quot;continueChannel&quot;:&quot;pda&quot;,&quot;storyNpcId&quot;:null,&quot;npcFactionFilters&quot;:[],&quot;npcProfileFilters&quot;:[],&quot;allowGenericStalker&quot;:false}]}]}</text>
     </string>
 
+    <!-- ============================================================ -->
+    <!-- PANDA NPC CREATOR — TEMPLATE EXAMPLES                        -->
+    <!-- Usage: spawn_custom_npc:<template_id>  or                    -->
+    <!--        spawn_custom_npc_at:<template_id>:<smart_ref>         -->
+    <!-- Format: pipe-separated key=value pairs                       -->
+    <!--   name        = display name shown on NPC                    -->
+    <!--   faction     = stalker|loner|freedom|duty|bandit|military   -->
+    <!--                 ecolog|merc|monolith|renegade                 -->
+    <!--   rank        = novice|stalker|veteran|master|legend         -->
+    <!--   primary     = section[:attachment[:ammo_idx]]              -->
+    <!--                 attachment: 0=none r=random                  -->
+    <!--                 ammo_idx:   0=first r=random 1+=specific     -->
+    <!--   secondary   = same format as primary                       -->
+    <!--   outfit      = item section name                            -->
+    <!--   items       = section:count,section:count,...              -->
+    <!--   trade       = section:count,section:count,...  (for sale)  -->
+    <!--   relation    = friendly|hostile|neutral|companion|default   -->
+    <!--   spawn_dist  = distance from player to spawn (default 30)   -->
+    <!--   count       = number of NPCs in squad (default 1)          -->
+    <!-- ============================================================ -->
+
+    <!-- TEMPLATE: informant — friendly veteran loner, no weapons, carries info supplies -->
+    <string id="st_panda_npc_template_informant">
+        <text>name=Yakov|faction=loner|rank=veteran|outfit=stalker_outfit_m1|items=medkit:2,antirad:1,bandage:3|relation=friendly|spawn_dist=35|count=1</text>
+    </string>
+
+    <!-- TEMPLATE: hired_guns — hostile bandit squad of 3, armed with shotguns -->
+    <string id="st_panda_npc_template_hired_guns">
+        <text>name=Hired Gun|faction=bandit|rank=stalker|primary=wpn_toz34:0:0|outfit=bandit_outfit|relation=hostile|spawn_dist=60|count=3</text>
+    </string>
+
+    <!-- TEMPLATE: weapons_dealer — neutral merc, pistol, sells ammo and repairs -->
+    <string id="st_panda_npc_template_weapons_dealer">
+        <text>name=Petrov|faction=merc|rank=master|primary=wpn_desert_eagle:r:0|outfit=merc_outfit_m1|items=medkit:3,kolbasa:2|trade=ammo_9x19_fmj:30,ammo_12x76_zhekan:20,repair_kit_weapon:2|relation=neutral|spawn_dist=25|count=1</text>
+    </string>
+
+    <!-- TEMPLATE: escort — friendly loner companion, AK-74 with scope, good armor -->
+    <string id="st_panda_npc_template_escort">
+        <text>name=Sidorov|faction=stalker|rank=veteran|primary=wpn_ak74:r:0|outfit=stalker_seva_suit|items=medkit:4,antirad:2,energy_drink:2|relation=companion|spawn_dist=20|count=1</text>
+    </string>
+
 </string_table>
