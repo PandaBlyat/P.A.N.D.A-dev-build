@@ -1,7 +1,7 @@
 // P.A.N.D.A. Conversation Editor — XML Export
 // Generates valid PANDA XML string table files from the editor data model.
 
-import type { Project, Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, Outcome, FactionId } from './types';
+import type { Project, Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, Outcome, FactionId, NpcTemplate } from './types';
 import { FACTION_XML_KEYS, getConversationFaction } from './types';
 import { getDefaultFlowTurnPosition } from './flow-layout';
 
@@ -228,6 +228,23 @@ function resolveContinueChannelForExport(
   return inferContinueChannelFromDestination(conv, choice, 'pda');
 }
 
+/** Encode an NpcTemplate to the pipe-separated key=value string expected by the Lua engine */
+export function encodeNpcTemplate(t: NpcTemplate): string {
+  const parts: string[] = [];
+  parts.push(`name=${t.name}`);
+  parts.push(`faction=${t.faction}`);
+  if (t.rank) parts.push(`rank=${t.rank}`);
+  if (t.primary) parts.push(`primary=${t.primary}`);
+  if (t.secondary) parts.push(`secondary=${t.secondary}`);
+  if (t.outfit) parts.push(`outfit=${t.outfit}`);
+  if (t.items) parts.push(`items=${t.items}`);
+  if (t.relation && t.relation !== 'default') parts.push(`relation=${t.relation}`);
+  if (t.spawnDist != null && t.spawnDist !== 50) parts.push(`spawn_dist=${t.spawnDist}`);
+  if (t.count != null && t.count > 1) parts.push(`count=${t.count}`);
+  if (t.trader) parts.push(`trader=1`);
+  return parts.join('|');
+}
+
 /** Generate system strings block */
 function generateSystemStrings(systemStrings: Map<string, string>): string {
   const lines: string[] = [];
@@ -366,6 +383,16 @@ export function generateXml(
   // System strings
   if (systemStrings && systemStrings.size > 0) {
     lines.push(generateSystemStrings(systemStrings));
+    lines.push('');
+  }
+
+  // NPC Templates (authored via the editor NPC builder)
+  if (project.npcTemplates && project.npcTemplates.length > 0) {
+    lines.push('    <!-- ═══ NPC TEMPLATES ═══ -->');
+    lines.push('    <!-- Edit these via the "Spawn Custom NPC" outcome in the editor. -->');
+    for (const template of project.npcTemplates) {
+      lines.push(emitString(`st_panda_npc_template_${template.id}`, encodeNpcTemplate(template)));
+    }
     lines.push('');
   }
 

@@ -1,7 +1,7 @@
 // P.A.N.D.A. Conversation Editor — XML Import
 // Parses existing PANDA XML string table files into the editor data model.
 
-import type { Project, Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, Outcome, FactionId } from './types';
+import type { Project, Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, Outcome, FactionId, NpcTemplate } from './types';
 import { FACTION_XML_KEYS } from './types';
 import { SYSTEM_STRING_IDS } from './constants';
 import { getDefaultFlowTurnPosition } from './flow-layout';
@@ -428,6 +428,31 @@ function extractSystemStrings(strings: Map<string, string>): Map<string, string>
   return system;
 }
 
+/** Decode a pipe-separated NPC template string back into an NpcTemplate object */
+function decodeNpcTemplate(id: string, raw: string): NpcTemplate {
+  const tpl: NpcTemplate = { id, name: '', faction: 'stalker' };
+  for (const pair of raw.split('|')) {
+    const eq = pair.indexOf('=');
+    if (eq < 0) continue;
+    const k = pair.slice(0, eq).trim();
+    const v = pair.slice(eq + 1).trim();
+    switch (k) {
+      case 'name': tpl.name = v; break;
+      case 'faction': tpl.faction = v; break;
+      case 'rank': tpl.rank = v; break;
+      case 'primary': tpl.primary = v; break;
+      case 'secondary': tpl.secondary = v; break;
+      case 'outfit': tpl.outfit = v; break;
+      case 'items': tpl.items = v; break;
+      case 'relation': tpl.relation = v; break;
+      case 'spawn_dist': { const n = parseInt(v, 10); if (!isNaN(n)) tpl.spawnDist = n; break; }
+      case 'count': { const n = parseInt(v, 10); if (!isNaN(n)) tpl.count = n; break; }
+      case 'trader': tpl.trader = v === '1' || v === 'true'; break;
+    }
+  }
+  return tpl;
+}
+
 /** Import a PANDA XML file into the editor data model */
 export function importXml(xmlText: string): { project: Project; systemStrings: Map<string, string> } | null {
   const strings = parseStringTable(xmlText);
@@ -524,10 +549,20 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
     convId++;
   }
 
+  // Parse NPC templates authored via the editor (st_panda_npc_template_<id>)
+  const npcTemplates: NpcTemplate[] = [];
+  for (const [key, value] of strings) {
+    const match = /^st_panda_npc_template_(.+)$/.exec(key);
+    if (match && match[1]) {
+      npcTemplates.push(decodeNpcTemplate(match[1], value));
+    }
+  }
+
   const importedProject = migrateLegacyF2FEntryOpenings({
     version: '2.0.0',
     faction: factionId,
     conversations,
+    ...(npcTemplates.length > 0 ? { npcTemplates } : {}),
   });
 
   return {

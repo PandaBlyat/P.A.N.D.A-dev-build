@@ -65,6 +65,9 @@ export type ParamEditor =
     kind: 'command_builder';
     suggestions: ParamOption[];
     chainSeparator?: string;
+  }
+  | {
+    kind: 'custom_npc_builder';
   };
 
 const FACTION_OPTIONS: ParamOption[] = FACTION_IDS.map((factionId) => ({
@@ -1369,8 +1372,8 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Spawn a fully author-defined NPC near the player using a named template',
     category: 'Spawning',
     helpText:
-      'References an NPC template defined in XML as st_panda_npc_template_<id>. ' +
-      'The template controls name, faction, rank, primary/secondary weapon, outfit, extra items, relation, trader flag, count, and spawn distance. ' +
+      'Configure the NPC template directly in the editor — name, faction, rank, weapons, outfit, items, relation, squad size and spawn distance. ' +
+      'The template is stored in your conversations XML as st_panda_npc_template_<id>. ' +
       'Use req_custom_npc_alive / req_custom_npc_dead as preconditions to gate conversations on whether this NPC is still alive.',
     examples: ['spawn_custom_npc:informant', 'spawn_custom_npc:hired_guns:10'],
     params: [
@@ -1378,9 +1381,9 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
         name: 'template_id',
         type: 'string',
         required: true,
-        label: 'Template ID',
+        label: 'NPC Template',
         placeholder: 'e.g. informant',
-        helpText: 'Matches the XML key st_panda_npc_template_<id>. Define the template in your conversations XML file.',
+        editor: { kind: 'custom_npc_builder' },
       },
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
     ],
@@ -1399,9 +1402,9 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
         name: 'template_id',
         type: 'string',
         required: true,
-        label: 'Template ID',
+        label: 'NPC Template',
         placeholder: 'e.g. hired_guns',
-        helpText: 'Matches the XML key st_panda_npc_template_<id>.',
+        editor: { kind: 'custom_npc_builder' },
       },
       { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },

@@ -30,6 +30,7 @@ import {
 } from '../lib/constants';
 import { createOnboardingNudge } from './Onboarding';
 import { createItemChainPickerPanelEditor, createItemPickerPanelEditor } from './ItemPickerPanel';
+import { createCustomNpcBuilderEditor } from './NpcTemplatePanel';
 import { formatGameItemLabel } from '../lib/item-catalog';
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { createBadge, createIcon, setButtonContent } from './icons';
@@ -1974,6 +1975,8 @@ function renderRichParamEditor(
       });
     case 'command_builder':
       return createCommandBuilderEditor(schema, paramDef, currentValue, onChange, fieldKey, editor.suggestions, editor.chainSeparator ?? '+');
+    case 'custom_npc_builder':
+      return createCustomNpcBuilderEditor(currentValue, onChange, fieldKey);
   }
 }
 
