@@ -3695,7 +3695,7 @@ body.use-custom-cursor * {
 
 .npc-builder-panel {
   width: min(760px, 95%); /* Slightly wider for better 3-column fit */
-  max-height: min(85vh, 880px);
+  max-height: min(85vh, 980px);
   display: flex;
   flex-direction: column;
   background: var(--bg-panel, #161719);
