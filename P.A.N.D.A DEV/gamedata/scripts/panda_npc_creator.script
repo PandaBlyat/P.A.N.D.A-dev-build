@@ -1,0 +1,531 @@
+-- ============================================================
+-- P.A.N.D.A. Custom NPC Creator
+-- ============================================================
+-- Handles on-demand spawning of author-defined NPC templates.
+-- Templates are defined in XML string keys:
+--   st_panda_npc_template_<id>
+-- Pipe-separated key=value format:
+--   name=Petrov|faction=stalker|rank=veteran|primary=wpn_val:r:0|...
+--
+-- New outcome commands:
+--   spawn_custom_npc:<template_id>[:<delay>]
+--   spawn_custom_npc_at:<template_id>:<smart_ref>[:<delay>]
+--
+-- New preconditions:
+--   req_custom_npc_alive:<template_id>
+--   req_custom_npc_dead:<template_id>
+--   req_custom_npc_near:<template_id>:<dist>
+-- ============================================================
+
+local initialized = false
+
+-- ============================================================
+-- STATE
+-- ============================================================
+
+local npc_templates          = {}   -- template_id -> parsed config
+local active_custom_npcs     = {}   -- template_id -> [{npc_id, squad_id, alive, spawned_at}]
+local pending_name_overrides  = {}   -- npc_id (number) -> name (string)
+
+-- ============================================================
+-- FACTION → SQUAD SECTION
+-- ============================================================
+
+local FACTION_SQUAD = {
+    stalker  = "stalker_sim_squad_advanced",
+    loner    = "stalker_sim_squad_advanced",
+    freedom  = "mil_freedom_squad_advanced",
+    duty     = "bar_dolg_squad_advanced",
+    dolg     = "bar_dolg_squad_advanced",
+    bandit   = "val_bandit_squad_advanced",
+    military = "agr_army_squad_advanced",
+    army     = "agr_army_squad_advanced",
+    ecolog   = "yan_stalker_squad_advanced",
+    cska     = "cska_sim_squad_advanced",
+    isg      = "isg_sim_squad_advanced",
+    merc     = "cit_killers_squad_advanced",
+    killer   = "cit_killers_squad_advanced",
+    monolith = "sim_monolith_squad",
+    renegade = "val_bandit_squad_advanced",
+}
+
+local function get_squad_section(faction)
+    if not faction then return "stalker_sim_squad_advanced" end
+    local fac = string.lower(tostring(faction))
+    if FACTION_SQUAD[fac] then return FACTION_SQUAD[fac] end
+    -- Try generic construction
+    local tiers = { "_sim_squad_advanced", "_squad_advanced", "_sim_squad_novice" }
+    for _, t in ipairs(tiers) do
+        local s = fac .. t
+        if ini_sys and ini_sys:section_exist(s) then
+            return s
+        end
+    end
+    printf("PANDA_NPC: no squad section for faction '%s', using stalker fallback", fac)
+    return "stalker_sim_squad_advanced"
+end
+
+-- ============================================================
+-- TEMPLATE PARSING
+-- ============================================================
+
+local function parse_template(template_id)
+    if npc_templates[template_id] then
+        return npc_templates[template_id]
+    end
+
+    local key = "st_panda_npc_template_" .. tostring(template_id)
+    local raw = game.translate_string(key)
+
+    if not raw or raw == key or raw == "" then
+        printf("PANDA_NPC: template '%s' not found (key=%s)", tostring(template_id), key)
+        return nil
+    end
+
+    local tpl = {
+        faction      = "stalker",
+        rank         = "veteran",
+        name         = nil,
+        primary      = nil,
+        secondary    = nil,
+        outfit       = nil,
+        items        = {},
+        relation     = "default",
+        count        = 1,
+        spawn_dist   = 50,
+        trader       = false,
+        trade_preset = nil,
+        buy          = nil,
+        sell         = nil,
+    }
+
+    for pair in string.gmatch(raw, "[^|]+") do
+        local k, v = string.match(pair, "^%s*([^=%s]+)%s*=%s*(.-)%s*$")
+        if k and v then
+            if     k == "name"         then tpl.name         = (v ~= "") and v or nil
+            elseif k == "faction"      then tpl.faction       = v
+            elseif k == "rank"         then tpl.rank          = v
+            elseif k == "primary"      then tpl.primary       = (v ~= "") and v or nil
+            elseif k == "secondary"    then tpl.secondary     = (v ~= "") and v or nil
+            elseif k == "outfit"       then tpl.outfit        = (v ~= "") and v or nil
+            elseif k == "relation"     then tpl.relation      = v
+            elseif k == "count"        then tpl.count         = math.max(1, math.min(5, tonumber(v) or 1))
+            elseif k == "spawn_dist"   then tpl.spawn_dist    = math.max(10, tonumber(v) or 50)
+            elseif k == "trader"       then tpl.trader        = (v == "1" or v == "true")
+            elseif k == "trade_preset" then tpl.trade_preset  = v
+            elseif k == "buy"          then tpl.buy           = tonumber(v)
+            elseif k == "sell"         then tpl.sell          = tonumber(v)
+            elseif k == "items" then
+                tpl.items = {}
+                for item_entry in string.gmatch(v, "[^,]+") do
+                    local sec, cnt = string.match(item_entry, "^%s*([^:%s]+)%s*:?%s*(%d*)%s*$")
+                    if sec and sec ~= "" then
+                        table.insert(tpl.items, {
+                            section = sec,
+                            count   = math.max(1, tonumber(cnt) or 1),
+                        })
+                    end
+                end
+            end
+        end
+    end
+
+    npc_templates[template_id] = tpl
+    return tpl
+end
+
+-- ============================================================
+-- WEAPON / ITEM HELPERS (adapted from A.R.C.H.)
+-- ============================================================
+
+local function resolve_addon_flags(section, attachment_str)
+    if not attachment_str or attachment_str == "0" or attachment_str == "" then
+        return 0
+    end
+    if attachment_str == "r" then
+        local flag = 0
+        if ini_sys and ini_sys:section_exist(section) then
+            if ini_sys:r_string_ex(section, "scope_status")             then flag = flag + 1 end
+            if ini_sys:r_string_ex(section, "grenade_launcher_status")  then flag = flag + 2 end
+            if ini_sys:r_string_ex(section, "silencer_status")          then flag = flag + 4 end
+        end
+        return (flag > 0) and math.random(0, flag) or 0
+    end
+    return tonumber(attachment_str) or 0
+end
+
+local function resolve_ammo_type(section, ammo_str)
+    if not ammo_str or ammo_str == "0" or ammo_str == "" then return 0 end
+    if ammo_str == "r" then
+        if ini_sys and ini_sys:section_exist(section) then
+            local ammo_class = ini_sys:r_string_ex(section, "ammo_class") or ""
+            local count = 0
+            for _ in string.gmatch(ammo_class, "[^,]+") do count = count + 1 end
+            return (count > 1) and math.random(0, count - 1) or 0
+        end
+        return 0
+    end
+    return math.max(0, (tonumber(ammo_str) or 1) - 1)
+end
+
+local function give_weapon(se_obj, weapon_str)
+    if not weapon_str or weapon_str == "" then return end
+    local parts = {}
+    for token in string.gmatch(weapon_str, "[^:]+") do parts[#parts + 1] = token end
+    local section    = parts[1]
+    local attach_str = parts[2] or "0"
+    local ammo_str   = parts[3] or "0"
+    if not section or not ini_sys or not ini_sys:section_exist(section) then
+        if section then printf("PANDA_NPC: weapon section '%s' not found, skipping", section) end
+        return
+    end
+    local ok, se_wpn = pcall(alife_create_item, section, se_obj)
+    if not ok or not se_wpn then
+        printf("PANDA_NPC: failed to create weapon '%s'", tostring(section))
+        return
+    end
+    if utils_stpk and utils_stpk.get_weapon_data and utils_stpk.set_weapon_data then
+        local data = utils_stpk.get_weapon_data(se_wpn)
+        if data then
+            data.addon_flags = resolve_addon_flags(section, attach_str)
+            data.ammo_type   = resolve_ammo_type(section, ammo_str)
+            utils_stpk.set_weapon_data(data, se_wpn)
+        end
+    end
+end
+
+local function give_outfit(se_obj, outfit_section)
+    if not outfit_section or outfit_section == "" then return end
+    if not ini_sys or not ini_sys:section_exist(outfit_section) then
+        printf("PANDA_NPC: outfit section '%s' not found, skipping", tostring(outfit_section))
+        return
+    end
+    local ok = pcall(alife_create_item, outfit_section, se_obj)
+    if not ok then printf("PANDA_NPC: failed to create outfit '%s'", tostring(outfit_section)) end
+end
+
+local function give_items(se_obj, items_list)
+    for _, entry in ipairs(items_list) do
+        if ini_sys and ini_sys:section_exist(entry.section) then
+            for i = 1, entry.count do
+                local ok = pcall(alife_create_item, entry.section, se_obj)
+                if not ok then
+                    printf("PANDA_NPC: failed to create item '%s' (copy %d)", tostring(entry.section), i)
+                end
+            end
+        else
+            printf("PANDA_NPC: item section '%s' not found, skipping", tostring(entry.section))
+        end
+    end
+end
+
+-- ============================================================
+-- RELATION / COMPANION APPLICATION
+-- ============================================================
+
+local function apply_squad_relation(squad_obj, relation)
+    if not squad_obj or not db.actor then return end
+    relation = tostring(relation or "default"):lower()
+
+    if relation == "hostile" then
+        squad_obj:set_squad_relation("enemy")
+        squad_obj.scripted_target = "actor"
+        squad_obj.rush_to_target  = true
+    elseif relation == "friendly" or relation == "companion" then
+        squad_obj:set_squad_relation("friend")
+        squad_obj.scripted_target = nil
+        squad_obj.rush_to_target  = false
+    end
+
+    if relation == "hostile" then
+        for k in squad_obj:squad_members() do
+            local o = level.object_by_id(k.id)
+            if o then
+                o:set_relation(game_object.enemy, db.actor)
+                o:force_set_goodwill(-5000, db.actor)
+            end
+        end
+    elseif relation == "friendly" or relation == "companion" then
+        for k in squad_obj:squad_members() do
+            local o = level.object_by_id(k.id)
+            if o then
+                o:set_relation(game_object.friend, db.actor)
+                o:force_set_goodwill(5000, db.actor)
+            end
+        end
+    end
+end
+
+local function register_as_companion(squad_obj, squad_id)
+    if axr_companions then
+        if axr_companions.companion_squads then
+            axr_companions.companion_squads[squad_id] = squad_obj
+        end
+        if axr_companions.add_companion_squad then
+            pcall(axr_companions.add_companion_squad, squad_id)
+        end
+    end
+    for m in squad_obj:squad_members() do
+        local se = alife_object(m.id)
+        if se then
+            pcall(se_save_var, se.id, se:name(), "companion",               true)
+            pcall(se_save_var, se.id, se:name(), "companion_cannot_dismiss", true)
+        end
+    end
+    if squad_obj.set_follow_distance then
+        squad_obj:set_follow_distance(10)
+    end
+end
+
+-- ============================================================
+-- SMART TERRAIN RESOLUTION (inlined to avoid local-function deps)
+-- ============================================================
+
+local function resolve_smart_terrain(smart_ref)
+    if not smart_ref or smart_ref == "" then return nil end
+    if not SIMBOARD or not SIMBOARD.get_smart_by_name then return nil end
+    -- strip "panda_st_" prefix if present (PANDA smart reference convention)
+    local name = smart_ref
+    local stripped = string.match(smart_ref, "_panda_st_(.+)$")
+    if stripped then name = stripped end
+    local smart = SIMBOARD:get_smart_by_name(name)
+    if not smart and name ~= smart_ref then
+        smart = SIMBOARD:get_smart_by_name(smart_ref)
+    end
+    return smart
+end
+
+local function get_obj_position(obj)
+    if not obj then return nil end
+    if type(obj.position) == "function" then return obj:position() end
+    return obj.position
+end
+
+-- ============================================================
+-- CORE SPAWN FUNCTION
+-- ============================================================
+
+function spawn_custom_npc(template_id, context)
+    context = context or {}
+    local tpl = parse_template(template_id)
+    if not tpl then
+        printf("PANDA_NPC: spawn_custom_npc aborted — template '%s' missing", tostring(template_id))
+        return
+    end
+    if not db.actor then
+        printf("PANDA_NPC: spawn_custom_npc aborted — no actor")
+        return
+    end
+
+    -- Resolve spawn position
+    local pos, lvid, gvid
+    local smart_obj = nil
+    if context.smart_ref and context.smart_ref ~= "" then
+        smart_obj = resolve_smart_terrain(context.smart_ref)
+        if smart_obj then
+            local sp = get_obj_position(smart_obj)
+            local sl = smart_obj.m_level_vertex_id
+            local sg = smart_obj.m_game_vertex_id
+            if sp and sl and sg then
+                pos, lvid, gvid = find_spawn_point_near_smart(10, 20, sp, sl, sg)
+            end
+        end
+        if not pos then
+            printf("PANDA_NPC: smart terrain '%s' not found, falling back to player pos", context.smart_ref)
+        end
+    end
+    if not pos then
+        local dist = tpl.spawn_dist or 50
+        pos, lvid, gvid = find_spawn_point_near_player(dist, dist)
+    end
+
+    -- Create squad
+    local sec = get_squad_section(tpl.faction)
+    local squad = create_squad_safely(sec, pos, lvid, gvid)
+    if not squad or squad:clsid() ~= clsid.online_offline_group_s then
+        printf("PANDA_NPC: create_squad_safely failed for template '%s' (section=%s)", tostring(template_id), tostring(sec))
+        return
+    end
+    local squad_id = squad.id
+
+    -- Assign to smart terrain
+    if smart_obj and SIMBOARD and SIMBOARD.assign_squad_to_smart then
+        SIMBOARD:assign_squad_to_smart(squad, smart_obj.id)
+    end
+
+    -- Apply relation
+    apply_squad_relation(squad, tpl.relation)
+
+    -- Companion integration
+    if string.lower(tpl.relation or "") == "companion" then
+        register_as_companion(squad, squad_id)
+    end
+
+    -- Apply loadout + name to each member
+    local member_count = 0
+    for k in squad:squad_members() do
+        member_count = member_count + 1
+        local se_obj = alife_object(k.id)
+        if se_obj then
+            give_weapon(se_obj, tpl.primary)
+            give_weapon(se_obj, tpl.secondary)
+            give_outfit(se_obj, tpl.outfit)
+            give_items(se_obj, tpl.items)
+
+            -- Apply name: try directly on server object first
+            if tpl.name and tpl.name ~= "" then
+                if se_obj.set_character_name then
+                    pcall(function() se_obj:set_character_name(tpl.name) end)
+                end
+                -- Register as fallback for when NPC goes online
+                pending_name_overrides[k.id] = tpl.name
+            end
+        end
+
+        -- Track NPC
+        if not active_custom_npcs[template_id] then
+            active_custom_npcs[template_id] = {}
+        end
+        table.insert(active_custom_npcs[template_id], {
+            npc_id     = k.id,
+            squad_id   = squad_id,
+            alive      = true,
+            spawned_at = time_global and time_global() or 0,
+        })
+    end
+
+    printf("PANDA_NPC: spawned template '%s' squad_id=%d section=%s relation=%s members=%d",
+        tostring(template_id), squad_id, tostring(sec), tostring(tpl.relation), member_count)
+end
+
+-- ============================================================
+-- PRECONDITION HELPERS
+-- ============================================================
+
+local function get_alive_entries(template_id)
+    local entries = active_custom_npcs[template_id]
+    if not entries then return {} end
+    local alive = {}
+    for _, e in ipairs(entries) do
+        if e.alive then
+            -- Validate against alife
+            local se = alife_object(e.npc_id)
+            if not se then
+                e.alive = false
+            else
+                alive[#alive + 1] = e
+            end
+        end
+    end
+    return alive
+end
+
+function is_template_npc_alive(template_id)
+    return #get_alive_entries(template_id) > 0
+end
+
+function is_template_npc_dead(template_id)
+    return not is_template_npc_alive(template_id)
+end
+
+function is_template_npc_near(template_id, dist)
+    if not db.actor then return false end
+    dist = tonumber(dist) or 50
+    local actor_pos = db.actor:position()
+    for _, e in ipairs(get_alive_entries(template_id)) do
+        local obj = level.object_by_id(e.npc_id)
+        if obj and obj:alive() then
+            if obj:position():distance_to(actor_pos) <= dist then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Returns the first alive NPC id for this template (used for F2F target resolution).
+function get_active_npc_id(template_id)
+    local entries = get_alive_entries(template_id)
+    if #entries > 0 then return entries[1].npc_id end
+    return nil
+end
+
+-- Returns the alife server object for the first alive NPC of this template.
+function get_active_npc_se(template_id)
+    local id = get_active_npc_id(template_id)
+    if id then return alife_object(id) end
+    return nil
+end
+
+-- ============================================================
+-- SAVE / LOAD
+-- ============================================================
+
+function save_state(m)
+    local save_npcs = {}
+    for tpl_id, entries in pairs(active_custom_npcs) do
+        local valid = {}
+        for _, e in ipairs(entries) do
+            if e.alive then
+                valid[#valid + 1] = {
+                    npc_id     = e.npc_id,
+                    squad_id   = e.squad_id,
+                    alive      = true,
+                    spawned_at = e.spawned_at,
+                }
+            end
+        end
+        if #valid > 0 then
+            save_npcs[tpl_id] = valid
+        end
+    end
+    m.panda_custom_npcs          = save_npcs
+    m.panda_npc_name_overrides   = pending_name_overrides
+end
+
+function load_state(m)
+    active_custom_npcs    = m.panda_custom_npcs        or {}
+    pending_name_overrides = m.panda_npc_name_overrides or {}
+end
+
+-- ============================================================
+-- CALLBACKS
+-- ============================================================
+
+local function on_npc_net_spawn(obj)
+    local npc_id = obj:id()
+    if pending_name_overrides[npc_id] then
+        local name = pending_name_overrides[npc_id]
+        local sim  = alife()
+        local se   = sim and sim:object(npc_id)
+        if se and se.set_character_name then
+            pcall(function() se:set_character_name(name) end)
+        end
+        pending_name_overrides[npc_id] = nil
+        printf("PANDA_NPC: applied name '%s' to npc_id=%d (deferred)", tostring(name), npc_id)
+    end
+end
+
+local function on_npc_death(obj, killer)
+    local npc_id = obj:id()
+    for tpl_id, entries in pairs(active_custom_npcs) do
+        for _, e in ipairs(entries) do
+            if e.npc_id == npc_id and e.alive then
+                e.alive = false
+                printf("PANDA_NPC: npc_id=%d (template '%s') marked dead", npc_id, tostring(tpl_id))
+            end
+        end
+    end
+end
+
+-- ============================================================
+-- INITIALIZATION
+-- ============================================================
+
+function on_game_start()
+    if initialized then return end
+    initialized = true
+    RegisterScriptCallback("npc_on_net_spawn",       on_npc_net_spawn)
+    RegisterScriptCallback("npc_on_death_callback",  on_npc_death)
+    printf("PANDA_NPC: initialized")
+end

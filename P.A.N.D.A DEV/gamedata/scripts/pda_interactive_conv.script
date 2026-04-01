@@ -3650,6 +3650,26 @@ local function evaluate_precondition_entry(entry, npc_se, act, get_goodwill_acto
             return false, "story npc mismatch (need " .. required_sid .. "; checked " .. checked .. ")"
         end
 
+    -- ========== CUSTOM NPC TEMPLATE PRECONDITIONS ==========
+    elseif cmd == "req_custom_npc_alive" then
+        local tpl_id = parts[2]
+        if not tpl_id or tpl_id == "" then return false, "missing template_id" end
+        result = panda_npc_creator.is_template_npc_alive(tpl_id)
+        if not result then return false, "custom npc '" .. tpl_id .. "' not alive" end
+
+    elseif cmd == "req_custom_npc_dead" then
+        local tpl_id = parts[2]
+        if not tpl_id or tpl_id == "" then return false, "missing template_id" end
+        result = panda_npc_creator.is_template_npc_dead(tpl_id)
+        if not result then return false, "custom npc '" .. tpl_id .. "' still alive" end
+
+    elseif cmd == "req_custom_npc_near" then
+        local tpl_id = parts[2]
+        local dist   = tonumber(parts[3]) or 50
+        if not tpl_id or tpl_id == "" then return false, "missing template_id" end
+        result = panda_npc_creator.is_template_npc_near(tpl_id, dist)
+        if not result then return false, "custom npc '" .. tpl_id .. "' not within " .. dist .. "m" end
+
     else
         return nil, "unknown command"
     end
@@ -4090,27 +4110,47 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             end
             push_money_notification(-removed)
 
-        -- Spawn commands now use: <cmd>:<faction_or_type>:<distance>[:<delay_seconds>]
+        -- Custom NPC spawn (replaces spawn_hostile / spawn_friendly / spawn_npc / spawn_companion).
+        -- Template defined in XML: st_panda_npc_template_<id>
         -- Examples:
-        --   spawn_hostile:bandit:80           (spawn ~80m away, default delay)
-        --   spawn_friendly:stalker:60:5       (spawn friendly squad ~60m away after 5s)
-        --   spawn_npc:dolg:45                 (spawn faction-default squad ~45m away)
-        --   spawn_mutant:boar:120:10          (spawn ~120m away, 10s delay)
-        --   spawn_companion:stalker:35:3      (spawn ~35m away, 3s delay)
-        elseif cmd == "spawn_hostile" then
-            local distance = tonumber(parts[3])
-            local delay = tonumber(parts[4]) or 90
-            spawn_hunting_squad(parts[2] or "bandit", distance, false, delay, "hostile")
+        --   spawn_custom_npc:informant              (near player, immediate)
+        --   spawn_custom_npc:hired_guns:5           (near player, 5s delay)
+        --   spawn_custom_npc_at:dealer:bar_arena_base
+        --   spawn_custom_npc_at:bouncer:esc_smart:3
+        elseif cmd == "spawn_custom_npc" then
+            local tpl_id = parts[2]
+            local delay  = tonumber(parts[3]) or 0
+            if not tpl_id or tpl_id == "" then
+                printf("PANDA_IC: spawn_custom_npc missing template_id in '%s'", tostring(cmd_str))
+            elseif delay > 0 then
+                local ev_key = "panda_cnpc_" .. tostring(math.random(100000))
+                CreateTimeEvent("panda_cnpc_spawn", ev_key, delay, function()
+                    if not db.actor then return true end
+                    panda_npc_creator.spawn_custom_npc(tpl_id, { use_player_pos = true, conv_data = conv_data })
+                    return true
+                end)
+            else
+                panda_npc_creator.spawn_custom_npc(tpl_id, { use_player_pos = true, conv_data = conv_data })
+            end
 
-        elseif cmd == "spawn_friendly" then
-            local distance = tonumber(parts[3])
-            local delay = tonumber(parts[4]) or 30
-            spawn_hunting_squad(parts[2] or "stalker", distance, false, delay, "friendly")
-
-        elseif cmd == "spawn_npc" then
-            local distance = tonumber(parts[3])
-            local delay = tonumber(parts[4]) or 30
-            spawn_hunting_squad(parts[2] or "stalker", distance, false, delay, "default")
+        elseif cmd == "spawn_custom_npc_at" then
+            local tpl_id    = parts[2]
+            local smart_ref = parts[3]
+            local delay     = tonumber(parts[4]) or 0
+            if not tpl_id or tpl_id == "" then
+                printf("PANDA_IC: spawn_custom_npc_at missing template_id in '%s'", tostring(cmd_str))
+            elseif not smart_ref or smart_ref == "" then
+                printf("PANDA_IC: spawn_custom_npc_at missing smart_ref in '%s'", tostring(cmd_str))
+            elseif delay > 0 then
+                local ev_key = "panda_cnpc_at_" .. tostring(math.random(100000))
+                CreateTimeEvent("panda_cnpc_spawn", ev_key, delay, function()
+                    if not db.actor then return true end
+                    panda_npc_creator.spawn_custom_npc(tpl_id, { smart_ref = smart_ref, conv_data = conv_data })
+                    return true
+                end)
+            else
+                panda_npc_creator.spawn_custom_npc(tpl_id, { smart_ref = smart_ref, conv_data = conv_data })
+            end
 
         elseif cmd == "spawn_mutant" then
             local distance = tonumber(parts[3])
@@ -4126,21 +4166,6 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             else
                 printf("PANDA_IC: spawn_mutant_at_smart missing smart reference in '%s'", tostring(cmd_str))
             end
-
-        elseif cmd == "spawn_hostile_at_smart" then
-            local hostile_faction = normalize_faction(parts[2] or "bandit")
-            local smart_ref = parts[3]
-            local delay = tonumber(parts[4]) or 0
-            if smart_ref and smart_ref ~= "" then
-                spawn_squad_at_smart_terrain(hostile_faction, smart_ref, false, delay, sender_contact_id, "hostile")
-            else
-                printf("PANDA_IC: spawn_hostile_at_smart missing smart reference in '%s'", tostring(cmd_str))
-            end
-
-        elseif cmd == "spawn_companion" then
-            local distance = tonumber(parts[3])
-            local delay = tonumber(parts[4]) or 30
-            spawn_native_companion(parts[2] or "stalker", distance, delay)
 
         elseif cmd == "reward_rep" then
             db.actor:change_character_reputation(tonumber(parts[2]) or 0)
@@ -4168,9 +4193,6 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                 )
                 dynamic_news_helper.send_tip(msg, "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc")
             end
-
-        elseif cmd == "courier_item" then
-            spawn_native_courier(parts[2] or "medkit_army")
 
         elseif cmd == "reward_stash" then
             queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sender_contact_id)
@@ -4431,36 +4453,6 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                 end
             end
 
-        -- ========== SPAWN AT SMART (friendly / neutral) ==========
-        elseif cmd == "spawn_friendly_at_smart" then
-            local friendly_faction = normalize_faction(parts[2] or "stalker")
-            local smart_ref = parts[3]
-            local delay = tonumber(parts[4]) or 0
-            if smart_ref and smart_ref ~= "" then
-                spawn_squad_at_smart_terrain(friendly_faction, smart_ref, false, delay, sender_contact_id, "friendly")
-            else
-                printf("PANDA_IC: spawn_friendly_at_smart missing smart reference in '%s'", tostring(cmd_str))
-            end
-        elseif cmd == "spawn_squad_at_smart" then
-            local faction = normalize_faction(parts[2] or "stalker")
-            local smart_ref = parts[3]
-            local delay = tonumber(parts[4]) or 0
-            if smart_ref and smart_ref ~= "" then
-                spawn_squad_at_smart_terrain(faction, smart_ref, false, delay, sender_contact_id, "default")
-            else
-                printf("PANDA_IC: spawn_squad_at_smart missing smart reference in '%s'", tostring(cmd_str))
-            end
-
-        elseif cmd == "spawn_companion_at_smart" then
-            local faction = normalize_faction(parts[2] or "stalker")
-            local smart_ref = parts[3]
-            local delay = tonumber(parts[4]) or 0
-            if smart_ref and smart_ref ~= "" then
-                spawn_squad_at_smart_terrain(faction, smart_ref, false, delay, sender_contact_id, "companion")
-            else
-                printf("PANDA_IC: spawn_companion_at_smart missing smart reference in '%s'", tostring(cmd_str))
-            end
-
         -- ─── NEW OUTCOME HANDLERS ────────────────────────────────────────────
 
         -- Player Effects: hunger
@@ -4602,19 +4594,6 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                     end
                     return true
                 end)
-            end
-
-        -- NPC: spawn backup near NPC
-        elseif cmd == "spawn_squad_for_npc" then
-            local faction = normalize_faction(parts[2] or "stalker")
-            local count = tonumber(parts[3]) or 1
-            if sender_npc_id then
-                local npc_obj = level.object_by_id(sender_npc_id)
-                if npc_obj then
-                    for i = 1, math.min(count, 5) do
-                        spawn_hunting_squad(faction, 30, false, i * 5, "default")
-                    end
-                end
             end
 
         -- Faction relations
@@ -5129,130 +5108,6 @@ local function apply_spawned_faction_relation(obj, relation_mode)
     end
 end
 
-local function get_faction_spawn_notification_keys(relation_mode)
-    if relation_mode == "hostile" then
-        return "st_pda_ic_outcome_hostile_warn", "st_pda_ic_outcome_hostile_arrive"
-    elseif relation_mode == "friendly" then
-        return "st_pda_ic_outcome_friendly_warn", "st_pda_ic_outcome_friendly_arrive"
-    end
-
-    return nil, nil
-end
-
-local function spawn_faction_squad_near_player(fac, distance, delay, relation_mode)
-    delay = tonumber(delay) or 30
-    fac = normalize_faction(fac)
-    local sec = find_squad_section(fac)
-    if not sec then
-        printf("No squad section found for faction %s", tostring(fac))
-        return
-    end
-
-    local sender = game.translate_string("st_pda_ic_outcome_sender")
-    local warn_key, arrive_key = get_faction_spawn_notification_keys(relation_mode)
-
-    if warn_key and PANDA.get_config("show_hunt_notifications") then
-        dynamic_news_helper.send_tip(
-            game.translate_string(warn_key),
-            sender, 2, 10, FALLBACK_NPC_ICON, relation_mode == "hostile" and "danger" or "beep_1", "gr"
-        )
-    end
-
-    local key = "spawn_faction_" .. tostring(math.random(100000))
-    track_panda_ic_event("pda_ic_spawn", key)
-    CreateTimeEvent("pda_ic_spawn", key, delay, function()
-        if not db.actor then return true end
-
-        local min_dist, max_dist
-        local dist = tonumber(distance)
-        if dist and dist > 0 then
-            min_dist, max_dist = dist, dist
-        else
-            min_dist, max_dist = get_spawn_distance_range("spawn_distance_min", "spawn_distance_max", 30, 60)
-        end
-
-        local pos, l, g = find_spawn_point_near_player(min_dist, max_dist)
-        local obj = create_squad_safely(sec, pos, l, g)
-
-        if obj and obj:clsid() == clsid.online_offline_group_s then
-            local squad_id = obj.id
-            if relation_mode == "hostile" then
-                obj.scripted_target = "actor"
-                obj.rush_to_target = true
-            else
-                obj.scripted_target = nil
-                obj.rush_to_target = false
-            end
-
-            apply_spawned_faction_relation(obj, relation_mode)
-
-            if arrive_key then
-                local arrival_event = "arrival_" .. squad_id
-                track_panda_ic_event("pda_ic_spawn", arrival_event)
-                CreateTimeEvent("pda_ic_spawn", arrival_event, math.random(5, 10), function()
-                    if not db.actor then return true end
-                    local s = alife_object(squad_id)
-                    if not s then return true end
-                    local commander = level.object_by_id(s:commander_id())
-                    if commander and commander:alive() then
-                        local actor_dist = commander:position():distance_to(db.actor:position())
-                        if actor_dist < 150 and PANDA.get_config("show_hunt_notifications") then
-                            dynamic_news_helper.send_tip(
-                                game.translate_string(arrive_key),
-                                sender, 0, 10, FALLBACK_NPC_ICON,
-                                relation_mode == "hostile" and "danger" or "beep_1", "gr"
-                            )
-                        end
-                    end
-                    return true
-                end)
-            end
-
-            if relation_mode == "hostile" then
-                local start_time = game.get_game_time()
-                local monitor_event = "monitor_" .. squad_id
-                track_panda_ic_event("pda_ic_spawn", monitor_event)
-                CreateTimeEvent("pda_ic_spawn", monitor_event, 30, function()
-                    if not db.actor then return true end
-                    local s = alife_object(squad_id)
-                    if not s then return true end
-
-                    local any_alive = false
-                    for k in s:squad_members() do
-                        local o = level.object_by_id(k.id)
-                        if o and o:alive() then
-                            any_alive = true
-                            break
-                        end
-                    end
-
-                    if not any_alive then
-                        return true
-                    end
-
-                    local elapsed_min = game.get_game_time():diffSec(start_time) / 60
-                    if elapsed_min > 10 then
-                        if PANDA.get_config("show_hunt_notifications") then
-                            dynamic_news_helper.send_tip(
-                                game.translate_string("st_pda_ic_hunt_timeout"),
-                                sender, 0, 10, FALLBACK_NPC_ICON, "attention", "gr"
-                            )
-                        end
-                        if alife() and alife().release then
-                            alife():release(s, true)
-                        end
-                        return true
-                    end
-                    return false
-                end)
-            end
-        else
-            printf("Failed to create faction squad for relation mode '%s'.", tostring(relation_mode))
-        end
-        return true
-    end)
-end
-
 spawn_squad_at_smart_terrain = function(squad_key, smart_ref, is_mutant, delay, job_contact_id, relation_mode)
     delay = tonumber(delay) or 0
     relation_mode = relation_mode or "default"
@@ -5428,11 +5283,10 @@ function create_squad_safely(sec, pos, lvid, gvid)
     return obj
 end
 
+-- spawn_hunting_squad: mutant-only (NPC faction spawning moved to panda_npc_creator)
 function spawn_hunting_squad(fac, distance, is_mutant, delay, relation_mode)
-    relation_mode = relation_mode or "hostile"
-
     if not is_mutant then
-        spawn_faction_squad_near_player(fac, distance, delay, relation_mode)
+        printf("PANDA_IC: spawn_hunting_squad called for non-mutant '%s' — use spawn_custom_npc instead", tostring(fac))
         return
     end
 
@@ -5545,263 +5399,6 @@ function spawn_hunting_squad(fac, distance, is_mutant, delay, relation_mode)
         end
         return true
     end)
-end
-
-function spawn_native_companion(fac, distance, delay)
-    delay = tonumber(delay) or 30
-
-    -- Check companion limit
-    local comps = 0
-    if axr_companions and axr_companions.companion_squads then
-        for _ in pairs(axr_companions.companion_squads) do
-            comps = comps + 1
-        end
-    end
-    local max_comps = PANDA.get_config("companion_limit") or 4
-    if comps >= max_comps then
-        printf("Companion limit reached (%d/%d), cannot spawn more.", comps, max_comps)
-        return
-    end
-
-    fac = normalize_faction(fac)
-    local sec = find_squad_section(fac)
-    if not sec then
-        printf("No squad section found for faction %s", fac)
-        return
-    end
-
-    local sender = game.translate_string("st_pda_ic_outcome_sender")
-    if PANDA.get_config("show_companion_notifications") then
-        dynamic_news_helper.send_tip(
-            game.translate_string("st_pda_ic_outcome_friendly_warn"),
-            sender, 2, 10, FALLBACK_NPC_ICON, "beep_1", "gr"
-        )
-    end
-
-    local spawn_comp_event = "spawn_comp_"..math.random(100000)
-    track_panda_ic_event("pda_ic_spawn", spawn_comp_event)
-    CreateTimeEvent("pda_ic_spawn", spawn_comp_event, delay, function()
-        if not db.actor then return true end
-
-        local min_dist, max_dist
-        local dist = tonumber(distance)
-        if dist and dist > 0 then
-            min_dist, max_dist = dist, dist
-        else
-            min_dist, max_dist = get_spawn_distance_range("companion_spawn_min", "companion_spawn_max", 20, 50)
-        end
-        local pos, l, g = find_spawn_point_near_player(min_dist, max_dist)
-
-        local sq = create_squad_safely(sec, pos, l, g)
-        if not sq or sq:clsid() ~= clsid.online_offline_group_s then
-            printf("Failed to create companion squad.")
-            return true
-        end
-
-        axr_companions.companion_squads[sq.id] = sq
-
-        local companion_name = nil
-        for m in sq:squad_members() do
-            local se = alife_object(m.id)
-            if se then
-                se_save_var(se.id, se:name(), "companion", true)
-                se_save_var(se.id, se:name(), "companion_cannot_dismiss", true)
-                if not companion_name then
-                    companion_name = se:character_name() or game.translate_string("st_pda_ic_companion_default")
-                end
-            end
-        end
-
-        sq.scripted_target = "actor"
-        sq.rush_to_target = false
-        if sq.set_follow_distance then
-            sq:set_follow_distance(10)
-        end
-
-        local squad_id = sq.id
-        local arrival_checked = false
-        local function check_arrival()
-            if not db.actor then return true end
-            local s = alife_object(squad_id)
-            if not s then return true end
-
-            local commander = level.object_by_id(s:commander_id())
-            if not commander or not commander:alive() then
-                axr_companions.companion_squads[squad_id] = nil
-                return true
-            end
-
-            local dist = commander:position():distance_to(db.actor:position())
-            if dist < 30 and not arrival_checked then
-                arrival_checked = true
-                local name = companion_name or commander:character_name() or game.translate_string("st_pda_ic_companion_default")
-                if PANDA.get_config("show_companion_notifications") then
-                    dynamic_news_helper.send_tip(
-                        game.translate_string("st_pda_ic_outcome_companion_arrive_named"):gsub("%$name", name),
-                        sender, 0, 10,
-                        commander:character_icon() or fac,
-                        "beep_1", "gr"
-                    )
-                end
-                return true
-            elseif dist >= 30 then
-                return false
-            else
-                return true
-            end
-        end
-
-        local companion_arrival_event = "arrival_"..squad_id
-        track_panda_ic_event("pda_ic_companion", companion_arrival_event)
-        CreateTimeEvent("pda_ic_companion", companion_arrival_event, 2, check_arrival)
-
-        local function cleanup_companion()
-            axr_companions.companion_squads[squad_id] = nil
-            printf("Companion squad %d removed.", squad_id)
-        end
-
-        local companion_monitor_event = "monitor_"..squad_id
-        track_panda_ic_event("pda_ic_companion", companion_monitor_event)
-        CreateTimeEvent("pda_ic_companion", companion_monitor_event, 10, function()
-            if not db.actor then return true end
-            local s = alife_object(squad_id)
-            if not s then
-                cleanup_companion()
-                return true
-            end
-            return false
-        end)
-
-        return true
-    end)
-end
-
-function spawn_native_courier(item_sec)
-    local fac = normalize_faction(get_actor_true_community() or "stalker")
-    local sec = find_squad_section(fac)
-    local sender = game.translate_string("st_pda_ic_outcome_sender")
-    local courier_title = game.translate_string("st_pda_ic_courier_title")
-
-    if PANDA.get_config("show_courier_notifications") then
-        dynamic_news_helper.send_tip(
-            game.translate_string("st_pda_ic_outcome_courier_warn"),
-            sender, 2, 10, FALLBACK_NPC_ICON, "beep_1", "gr"
-        )
-    end
-
-    local min, max = get_spawn_distance_range("companion_spawn_min", "companion_spawn_max", 20, 50)
-    local pos, l, g = find_spawn_point_near_player(min, max)
-
-    local sq = create_squad_safely(sec, pos, l, g)
-    if not sq or sq:clsid() ~= clsid.online_offline_group_s then return end
-
-    sq.scripted_target = "actor"
-    -- IMPROVEMENT 1: Make them actually jog/sprint to the player instead of casually walking
-    sq.rush_to_target = true 
-    
-    local squad_id = sq.id
-    local check_interval = 2
-    -- IMPROVEMENT 2: Give them 2 full minutes (60 checks) to navigate anomalies/mutants
-    local max_checks = 60 
-    local check_count = 0
-
-    -- Helper function to make the courier become a normal stalker instead of deleting them
-    local function release_to_alife(squad)
-        squad.scripted_target = nil
-        squad.rush_to_target = false
-        -- Give them back to the Zone's simulation board so they wander off to a camp
-        if SIMBOARD then
-            SIMBOARD:assign_squad_to_smart(squad, nil)
-        end
-    end
-
-    local function monitor_courier()
-        if not db.actor then return true end
-        local s = alife_object(squad_id)
-        
-        -- Squad was wiped out or deleted by engine
-        if not s then return true end
-
-        local commander = level.object_by_id(s:commander_id())
-        
-        -- IMPROVEMENT 3: Handle Courier Death! Adds immersion.
-        if not commander or not commander:alive() then
-            if PANDA.get_config("show_courier_notifications") then
-                dynamic_news_helper.send_tip(
-                    game.translate_string("st_pda_ic_courier_died") or "PDA signal lost... the courier didn't make it.", 
-                    "System", 0, 10, FALLBACK_NPC_ICON, "danger", "gr"
-                )
-            end
-            return true 
-        end
-
-        local dist = commander:position():distance_to(db.actor:position())
-
-        if dist < 15 then -- Closer threshold for better interaction feel
-            local name = commander:character_name() or courier_title
-            
-            if PANDA.get_config("show_courier_notifications") then
-                dynamic_news_helper.send_tip(
-                    game.translate_string("st_pda_ic_courier_arrived"),
-                    name, 0, 10,
-                    commander:character_icon() or FALLBACK_NPC_ICON,
-                    "news", "npc"
-                )
-            end
-
-            -- IMPROVEMENT 4: Guaranteed delivery once they arrive. No failing because the player stepped backward.
-            local courier_deliver_event = "deliver_"..squad_id
-            track_panda_ic_event("pda_ic_courier", courier_deliver_event)
-            CreateTimeEvent("pda_ic_courier", courier_deliver_event, 2, function()
-                if not db.actor then return true end
-                
-                if ini_sys:section_exist(item_sec) then
-                    alife_create_item(item_sec, db.actor)
-                end
-                
-                local msg = utils_data.parse_string_keys(
-                    game.translate_string("st_pda_ic_outcome_item_gain"),
-                    {["what"] = ui_item.get_sec_name(item_sec)}
-                )
-                
-                if PANDA.get_config("show_courier_notifications") then
-                    dynamic_news_helper.send_tip(
-                        msg,
-                        name, 0, 12,
-                        commander:character_icon() or FALLBACK_NPC_ICON,
-                        "beep_1", "npc"
-                    )
-                end
-                
-                -- IMPROVEMENT 5: Release to A-Life instead of deleting them in front of the player
-                local final_sq = alife_object(squad_id)
-                if final_sq then release_to_alife(final_sq) end
-                
-                return true
-            end)
-            
-            return true -- End monitoring
-        else
-            -- Still approaching, handle timeout
-            check_count = check_count + 1
-            if check_count > max_checks then
-                if PANDA.get_config("show_courier_notifications") then
-                    dynamic_news_helper.send_tip(
-                        game.translate_string("st_pda_ic_courier_timeout"),
-                        courier_title, 0, 10, FALLBACK_NPC_ICON, "attention", "gr"
-                    )
-                end
-                -- Player ran too far away / ignored them. Release them to A-Life.
-                release_to_alife(s)
-                return true
-            end
-            return false
-        end
-    end
-
-    local courier_check_event = "check_"..squad_id
-    track_panda_ic_event("pda_ic_courier", courier_check_event)
-    CreateTimeEvent("pda_ic_courier", courier_check_event, check_interval, monitor_courier)
 end
 
 -- ============================================================
@@ -6257,37 +5854,45 @@ function on_player_choice(idx, contact_id)
                         -- Multi-NPC handoff: if the choice specifies a different NPC for the next turn,
                         -- queue a PDA followup in the new NPC's contact thread instead of continuing inline.
                         local handed_off = false
-                        if ch.next_npc_id and ch.next_npc_id ~= "" and type(get_story_se_object) == "function" then
-                            local ok_se, new_npc_se = pcall(get_story_se_object, ch.next_npc_id)
-                            local new_npc_id = ok_se and new_npc_se and tonumber(new_npc_se.id) or nil
-                            if new_npc_id and new_npc_id ~= tonumber(c.npc_id) then
-                                local ok_nn, new_name = pcall(function() return new_npc_se:character_name() end)
-                                local ok_ni, new_icon = pcall(function() return new_npc_se:character_icon() end)
-                                local resolved_name = (ok_nn and new_name and new_name ~= "") and new_name or "Unknown"
-                                local resolved_icon = (ok_ni and new_icon and new_icon ~= "") and new_icon or FALLBACK_NPC_ICON
-                                queue_pda_followup_internal({
-                                    npc_id        = new_npc_id,
-                                    contact_id    = tostring(new_npc_id),
-                                    npc_name      = resolved_name,
-                                    npc_icon      = resolved_icon,
-                                    faction       = c.faction,   -- keep original conv faction for XML key lookup
-                                    prefix        = c.prefix,
-                                    conv_id       = c.conv_id,
-                                    turn          = ch.next_turn,
-                                    delay_seconds = 0,
-                                    story_id      = ch.next_npc_id,
-                                    canonical_id  = ch.next_npc_id:lower(),
-                                    task_id       = c.task_id,
-                                    category      = c.category,
-                                    applied_outcomes = clone_plain_table(c.applied_outcomes) or {},
-                                })
-                                printf("PANDA_IC: multi-npc handoff pda contact_id=%s -> new_npc_id=%s story_id=%s conv_id=%s turn=%s",
-                                    tostring(cid), tostring(new_npc_id), tostring(ch.next_npc_id),
-                                    tostring(c.conv_id), tostring(ch.next_turn))
-                                handed_off = true
-                            else
-                                printf("PANDA_IC: multi-npc handoff pda failed to resolve story_npc_id=%s, falling back to same-npc continuation", tostring(ch.next_npc_id))
+                        local new_npc_se, new_npc_id
+                        if ch.next_npc_id and ch.next_npc_id ~= "" then
+                            if ch.next_npc_id:sub(1,4) == "npc:" and panda_npc_creator then
+                                local tpl = ch.next_npc_id:sub(5)
+                                new_npc_se = panda_npc_creator.get_active_npc_se(tpl)
+                                new_npc_id = new_npc_se and tonumber(new_npc_se.id) or nil
+                            elseif type(get_story_se_object) == "function" then
+                                local ok_se, se = pcall(get_story_se_object, ch.next_npc_id)
+                                new_npc_se = ok_se and se or nil
+                                new_npc_id = new_npc_se and tonumber(new_npc_se.id) or nil
                             end
+                        end
+                        if new_npc_id and new_npc_id ~= tonumber(c.npc_id) then
+                            local ok_nn, new_name = pcall(function() return new_npc_se:character_name() end)
+                            local ok_ni, new_icon = pcall(function() return new_npc_se:character_icon() end)
+                            local resolved_name = (ok_nn and new_name and new_name ~= "") and new_name or "Unknown"
+                            local resolved_icon = (ok_ni and new_icon and new_icon ~= "") and new_icon or FALLBACK_NPC_ICON
+                            queue_pda_followup_internal({
+                                npc_id        = new_npc_id,
+                                contact_id    = tostring(new_npc_id),
+                                npc_name      = resolved_name,
+                                npc_icon      = resolved_icon,
+                                faction       = c.faction,   -- keep original conv faction for XML key lookup
+                                prefix        = c.prefix,
+                                conv_id       = c.conv_id,
+                                turn          = ch.next_turn,
+                                delay_seconds = 0,
+                                story_id      = ch.next_npc_id,
+                                canonical_id  = ch.next_npc_id:lower(),
+                                task_id       = c.task_id,
+                                category      = c.category,
+                                applied_outcomes = clone_plain_table(c.applied_outcomes) or {},
+                            })
+                            printf("PANDA_IC: multi-npc handoff pda contact_id=%s -> new_npc_id=%s story_id=%s conv_id=%s turn=%s",
+                                tostring(cid), tostring(new_npc_id), tostring(ch.next_npc_id),
+                                tostring(c.conv_id), tostring(ch.next_turn))
+                            handed_off = true
+                        elseif ch.next_npc_id and ch.next_npc_id ~= "" then
+                            printf("PANDA_IC: multi-npc handoff pda failed to resolve story_npc_id=%s, falling back to same-npc continuation", tostring(ch.next_npc_id))
                         end
 
                         if not handed_off then
@@ -6335,14 +5940,20 @@ function on_player_choice(idx, contact_id)
                         -- Resolve the correct meet-target (may differ if cont_npc_id redirects to a new NPC)
                         local handoff_target_name = tostring(c.npc_name or "Unknown")
                         local handoff_target_id = tostring(c.npc_id or "Unknown")
-                        if ch.next_npc_id and ch.next_npc_id ~= "" and type(get_story_se_object) == "function" then
-                            local ok_ht, ht_se = pcall(get_story_se_object, ch.next_npc_id)
-                            if ok_ht and ht_se then
-                                local ht_id = tonumber(ht_se.id)
-                                if ht_id then handoff_target_id = tostring(ht_id) end
-                                local ok_htn, htn = pcall(function() return ht_se:character_name() end)
-                                if ok_htn and htn and htn ~= "" then handoff_target_name = htn end
+                        local ht_se
+                        if ch.next_npc_id and ch.next_npc_id ~= "" then
+                            if ch.next_npc_id:sub(1,4) == "npc:" and panda_npc_creator then
+                                ht_se = panda_npc_creator.get_active_npc_se(ch.next_npc_id:sub(5))
+                            elseif type(get_story_se_object) == "function" then
+                                local ok_ht, _ht = pcall(get_story_se_object, ch.next_npc_id)
+                                ht_se = ok_ht and _ht or nil
                             end
+                        end
+                        if ht_se then
+                            local ht_id = tonumber(ht_se.id)
+                            if ht_id then handoff_target_id = tostring(ht_id) end
+                            local ok_htn, htn = pcall(function() return ht_se:character_name() end)
+                            if ok_htn and htn and htn ~= "" then handoff_target_name = htn end
                         end
                         pda_private_add_message(
                             cid,
@@ -6396,19 +6007,23 @@ function on_player_choice(idx, contact_id)
                         if ch.next_npc_id and ch.next_npc_id ~= "" then
                             handoff_row.story_id    = ch.next_npc_id
                             handoff_row.canonical_id = ch.next_npc_id:lower()
-                            if type(get_story_se_object) == "function" then
-                                local ok_new, new_se = pcall(get_story_se_object, ch.next_npc_id)
-                                if ok_new and new_se then
-                                    local new_f2f_id = tonumber(new_se.id)
-                                    if new_f2f_id then
-                                        handoff_row.npc_id = new_f2f_id
-                                        local ok_nn, nn = pcall(function() return new_se:character_name() end)
-                                        local ok_ni, ni = pcall(function() return new_se:character_icon() end)
-                                        if ok_nn and nn and nn ~= "" then handoff_row.npc_name = nn end
-                                        if ok_ni and ni and ni ~= "" then handoff_row.npc_icon = ni end
-                                        printf("PANDA_IC: multi-npc handoff f2f contact_id=%s -> new_npc_id=%s story_id=%s",
-                                            tostring(cid), tostring(new_f2f_id), tostring(ch.next_npc_id))
-                                    end
+                            local new_se
+                            if ch.next_npc_id:sub(1,4) == "npc:" and panda_npc_creator then
+                                new_se = panda_npc_creator.get_active_npc_se(ch.next_npc_id:sub(5))
+                            elseif type(get_story_se_object) == "function" then
+                                local ok_new, _se = pcall(get_story_se_object, ch.next_npc_id)
+                                new_se = ok_new and _se or nil
+                            end
+                            if new_se then
+                                local new_f2f_id = tonumber(new_se.id)
+                                if new_f2f_id then
+                                    handoff_row.npc_id = new_f2f_id
+                                    local ok_nn, nn = pcall(function() return new_se:character_name() end)
+                                    local ok_ni, ni = pcall(function() return new_se:character_icon() end)
+                                    if ok_nn and nn and nn ~= "" then handoff_row.npc_name = nn end
+                                    if ok_ni and ni and ni ~= "" then handoff_row.npc_icon = ni end
+                                    printf("PANDA_IC: multi-npc handoff f2f contact_id=%s -> new_npc_id=%s story_id=%s",
+                                        tostring(cid), tostring(new_f2f_id), tostring(ch.next_npc_id))
                                 end
                             end
                         end
@@ -8271,6 +7886,10 @@ function save_state(m)
     if adapter and adapter.save_state then
         adapter.save_state(m)
     end
+
+    if panda_npc_creator and type(panda_npc_creator.save_state) == "function" then
+        panda_npc_creator.save_state(m)
+    end
 end
 
 function load_state(m)
@@ -8438,6 +8057,10 @@ function load_state(m)
         recovered_handoffs, pending_contacts_str)
 
     sweep_expired_f2f_pending_markers("load_state")
+
+    if panda_npc_creator and type(panda_npc_creator.load_state) == "function" then
+        panda_npc_creator.load_state(m)
+    end
 end
 
 -- ============================================================
@@ -8482,6 +8105,10 @@ function on_game_start()
     schedule_job_checker()
     -- Schedule delayed F2F -> PDA follow-up delivery
     schedule_pda_followup_checker()
+
+    if panda_npc_creator and type(panda_npc_creator.on_game_start) == "function" then
+        panda_npc_creator.on_game_start()
+    end
 
     _callbacks_registered = true
 end
