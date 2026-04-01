@@ -26,13 +26,10 @@ const KNOWN_SMART_TERRAINS = new Set(ALL_SMART_TERRAIN_IDS);
 const KNOWN_FACTIONS = new Set([...FACTION_IDS, ...Object.keys(FACTION_ALIASES)]);
 const KNOWN_STORY_NPCS = new Set(STORY_NPC_OPTIONS.map((option) => option.value));
 const SPAWN_JOB_OUTCOMES = new Set([
-  'spawn_hostile',
-  'spawn_friendly',
-  'spawn_npc',
+  'spawn_custom_npc',
+  'spawn_custom_npc_at',
   'spawn_mutant',
-  'spawn_hostile_at_smart',
   'spawn_mutant_at_smart',
-  'spawn_companion',
 ]);
 
 /** Task outcome commands that have success_turn and fail_turn params (value = [successParamIndex, failParamIndex, timeoutParamIndex]). */

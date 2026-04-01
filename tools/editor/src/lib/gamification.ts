@@ -955,14 +955,13 @@ export function evaluatePublishGamification(
   const uniqueFactionCount = new Set(publishedFactions).size;
   const loginStreak = getLoginStreak().currentStreak;
   const uncommonOutcomeTypes = new Set([
-    'spawn_squad_at_smart',
-    'spawn_companion_at_smart',
+    'spawn_custom_npc',
+    'spawn_custom_npc_at',
     'teleport_npc_to_smart',
     'teleport_player_to_smart',
     'set_weather',
     'give_game_news',
     'give_task',
-    'spawn_squad_for_npc',
   ]);
   const currentHour = new Date().getHours();
 
