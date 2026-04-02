@@ -92,7 +92,6 @@ local function parse_template(template_id)
         outfit       = nil,
         items        = {},
         relation     = "default",
-        count        = 1,
         spawn_dist   = 50,
         trader       = false,
         trade_preset = nil,
@@ -110,7 +109,7 @@ local function parse_template(template_id)
             elseif k == "secondary"    then tpl.secondary     = (v ~= "") and v or nil
             elseif k == "outfit"       then tpl.outfit        = (v ~= "") and v or nil
             elseif k == "relation"     then tpl.relation      = v
-            elseif k == "count"        then tpl.count         = math.max(1, math.min(5, tonumber(v) or 1))
+            elseif k == "count"        then -- deprecated: custom NPC templates now always spawn one character
             elseif k == "spawn_dist"   then tpl.spawn_dist    = math.max(10, tonumber(v) or 50)
             elseif k == "trader"       then tpl.trader        = (v == "1" or v == "true")
             elseif k == "trade_preset" then tpl.trade_preset  = v

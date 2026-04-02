@@ -6,7 +6,6 @@ import { store } from '../lib/state';
 import type { NpcTemplate } from '../lib/types';
 import { FACTION_DISPLAY_NAMES } from '../lib/types';
 import { FACTION_IDS, RANKS } from '../lib/constants';
-import { GAME_ITEM_CATALOG } from '../lib/item-catalog';
 import { trapFocus } from '../lib/focus-trap';
 import { createItemPickerPanelEditor } from './ItemPickerPanel';
 
@@ -45,7 +44,6 @@ export function encodeNpcTemplate(t: NpcTemplate): string {
   if (t.items) parts.push(`items=${t.items}`);
   if (t.relation && t.relation !== 'default') parts.push(`relation=${t.relation}`);
   if (t.spawnDist != null && t.spawnDist !== 50) parts.push(`spawn_dist=${t.spawnDist}`);
-  if (t.count != null && t.count > 1) parts.push(`count=${t.count}`);
   if (t.trader) parts.push(`trader=1`);
   return parts.join('|');
 }
@@ -94,7 +92,6 @@ function getTemplateSummary(t: NpcTemplate): string {
   parts.push(factionLabel);
   if (t.rank) parts.push(t.rank);
   if (t.relation && t.relation !== 'default') parts.push(t.relation);
-  if (t.count && t.count > 1) parts.push(`×${t.count}`);
   return parts.join(' · ');
 }
 
@@ -108,6 +105,7 @@ let activeTrigger: HTMLElement | null = null;
 function openNpcBuilderPanel(options: {
   trigger: HTMLElement;
   existingTemplateId: string;
+  showSpawnDistance: boolean;
   onSave: (template: NpcTemplate) => void;
   onDelete: (id: string) => void;
 }): void {
@@ -137,7 +135,6 @@ function openNpcBuilderPanel(options: {
     outfit: existing?.outfit ?? '',
     items: parseItemsList(existing?.items ?? ''),
     spawnDist: String(existing?.spawnDist ?? 50),
-    count: String(existing?.count ?? 1),
     trader: existing?.trader ?? false,
     idManual: !!existing,
   };
@@ -184,7 +181,9 @@ function openNpcBuilderPanel(options: {
 
   const subtitleEl = document.createElement('div');
   subtitleEl.className = 'item-picker-subtitle';
-  subtitleEl.textContent = 'Configure name, faction, weapons, outfit, items, and spawn settings. Saved to your conversations XML.';
+  subtitleEl.textContent = options.showSpawnDistance
+    ? 'Configure name, faction, weapons, outfit, inventory, and near-player spawn settings. Saved to your conversations XML.'
+    : 'Configure name, faction, weapons, outfit, and inventory. Smart terrain placement comes from the command or precondition.';
 
   titleWrap.append(titleEl, subtitleEl);
 
@@ -513,10 +512,10 @@ function openNpcBuilderPanel(options: {
 
   {
     const sec = makeSection('Inventory (Extra Items)');
+    const triggerId = options.trigger.id || fieldKeyFromTrigger(options.trigger);
 
     const hint = document.createElement('div');
     hint.className = 'command-description';
-    hint.style.margin = '10px 16px 0'; // <-- Adjust margins for the hint
     hint.textContent = 'Items placed in the NPC\u2019s inventory on spawn. Format: item section + quantity.';
     sec.appendChild(hint);
 
@@ -540,13 +539,16 @@ function openNpcBuilderPanel(options: {
         const row = document.createElement('div');
         row.className = 'npc-builder-item-row';
 
-        const sectionInput = document.createElement('input');
-        sectionInput.type = 'text';
-        sectionInput.className = 'npc-builder-input';
-        sectionInput.value = item.section;
-        sectionInput.placeholder = 'item section id…';
-        sectionInput.setAttribute('list', 'npc-b-items-dl');
-        sectionInput.oninput = () => { form.items[idx].section = sectionInput.value; };
+        const itemPicker = createItemPickerPanelEditor(
+          item.section,
+          (value) => { form.items[idx].section = value; },
+          `npc-b-extra-item-${triggerId}-${idx}`,
+          {
+            allowEmpty: true,
+            placeholder: 'Search or type an item section id...',
+          },
+        );
+        itemPicker.classList.add('npc-builder-item-picker');
 
         const countInput = document.createElement('input');
         countInput.type = 'number';
@@ -554,6 +556,7 @@ function openNpcBuilderPanel(options: {
         countInput.value = item.count;
         countInput.min = '1';
         countInput.max = '99';
+        countInput.placeholder = 'Qty';
         countInput.title = 'Quantity';
         countInput.oninput = () => { form.items[idx].count = countInput.value; };
 
@@ -567,7 +570,7 @@ function openNpcBuilderPanel(options: {
           rebuildItems();
         };
 
-        row.append(sectionInput, countInput, removeBtn);
+        row.append(itemPicker, countInput, removeBtn);
         listEl.appendChild(row);
       });
     }
@@ -578,28 +581,10 @@ function openNpcBuilderPanel(options: {
 
   // ── § 6 — Spawn Config ───────────────────────────────────────────────────
 
-  {
+  if (options.showSpawnDistance) {
     const sec = makeSection('Spawn Configuration');
     const row = document.createElement('div');
     row.className = 'npc-builder-row';
-
-    // Squad count
-    {
-      const { wrap, content } = makeField('Squad Size');
-      const input = document.createElement('input');
-      input.type = 'number';
-      input.className = 'npc-builder-input';
-      input.value = form.count;
-      input.min = '1';
-      input.max = '5';
-      input.placeholder = '1';
-      input.oninput = () => { form.count = input.value; };
-      const hint = document.createElement('div');
-      hint.className = 'command-description';
-      hint.textContent = '1\u20135 NPCs per squad. Default: 1.';
-      content.append(input, hint);
-      row.appendChild(wrap);
-    }
 
     // Spawn distance
     {
@@ -623,16 +608,6 @@ function openNpcBuilderPanel(options: {
   }
 
   // ── Shared datalist for item autocomplete ─────────────────────────────────
-
-  const datalist = document.createElement('datalist');
-  datalist.id = 'npc-b-items-dl';
-  for (const entry of GAME_ITEM_CATALOG) {
-    const opt = document.createElement('option');
-    opt.value = entry.section;
-    if (entry.displayName) opt.label = entry.displayName;
-    datalist.appendChild(opt);
-  }
-  panel.appendChild(datalist);
 
   // ── Footer ────────────────────────────────────────────────────────────────
 
@@ -680,7 +655,6 @@ function openNpcBuilderPanel(options: {
     }
 
     const spawnDist = parseInt(form.spawnDist, 10);
-    const count = parseInt(form.count, 10);
 
     const template: NpcTemplate = {
       id,
@@ -696,8 +670,9 @@ function openNpcBuilderPanel(options: {
         : {}),
       ...(form.outfit ? { outfit: form.outfit } : {}),
       ...(buildItemsList(form.items) ? { items: buildItemsList(form.items) } : {}),
-      ...(!isNaN(spawnDist) && spawnDist !== 50 ? { spawnDist } : {}),
-      ...(!isNaN(count) && count > 1 ? { count } : {}),
+      ...(options.showSpawnDistance
+        ? (!isNaN(spawnDist) && spawnDist !== 50 ? { spawnDist } : {})
+        : (existing?.spawnDist != null && existing.spawnDist !== 50 ? { spawnDist: existing.spawnDist } : {})),
       ...(form.trader ? { trader: true } : {}),
     };
 
@@ -746,6 +721,9 @@ export function createCustomNpcBuilderEditor(
   currentTemplateId: string,
   onChange: (templateId: string) => void,
   fieldKey: string,
+  options: {
+    showSpawnDistance: boolean;
+  },
 ): HTMLElement {
   // Track the live ID so re-build closures see the latest value
   let liveId = currentTemplateId;
@@ -798,6 +776,7 @@ export function createCustomNpcBuilderEditor(
       openNpcBuilderPanel({
         trigger: launchBtn,
         existingTemplateId: liveId,
+        showSpawnDistance: options.showSpawnDistance,
         onSave: (saved) => {
           store.upsertNpcTemplate(saved);
           liveId = saved.id;

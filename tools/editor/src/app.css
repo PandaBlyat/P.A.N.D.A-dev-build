@@ -3987,8 +3987,17 @@ body.use-custom-cursor * {
   flex-wrap: wrap;
 }
 
-.npc-builder-item-row .npc-builder-input {
-  flex: 1 1 auto;
+.npc-builder-item-picker {
+  flex: 1 1 360px;
+  min-width: min(100%, 280px);
+}
+
+.npc-builder-item-picker .rich-editor-toolbar {
+  margin-bottom: 0;
+}
+
+.npc-builder-item-picker .command-description {
+  margin-top: 4px;
 }
 
 .npc-builder-count {
@@ -4079,7 +4088,8 @@ body.use-custom-cursor * {
 
   .npc-builder-weapon-picker,
   .npc-builder-weapon-meta,
-  .npc-builder-meta-field {
+  .npc-builder-meta-field,
+  .npc-builder-item-picker {
     width: 100%;
     min-width: 0;
   }

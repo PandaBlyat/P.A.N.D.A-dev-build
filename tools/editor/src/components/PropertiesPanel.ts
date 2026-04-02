@@ -1976,7 +1976,9 @@ function renderRichParamEditor(
     case 'command_builder':
       return createCommandBuilderEditor(schema, paramDef, currentValue, onChange, fieldKey, editor.suggestions, editor.chainSeparator ?? '+');
     case 'custom_npc_builder':
-      return createCustomNpcBuilderEditor(currentValue, onChange, fieldKey);
+      return createCustomNpcBuilderEditor(currentValue, onChange, fieldKey, {
+        showSpawnDistance: schema?.name === 'spawn_custom_npc',
+      });
   }
 }
 
@@ -2717,16 +2719,18 @@ function createSmartTerrainEditor(
     return [...curated, ...extras];
   };
 
-  const applySelection = () => {
+  const getCommittedValue = () => {
     if (!levelSelect.value) {
-      onChange('');
-      return;
+      return '';
     }
     if (selectionMode === 'placeholder' && levelSelect.value !== '__all__') {
-      onChange(`%${levelSelect.value}_panda_st_key%`);
-      return;
+      return `%${levelSelect.value}_panda_st_key%`;
     }
-    onChange(selectedTerrain || '');
+    return selectionMode === 'exact' ? (selectedTerrain || '') : '';
+  };
+
+  const commitSelection = () => {
+    onChange(getCommittedValue());
   };
 
   const renderTerrainList = () => {
@@ -2764,7 +2768,7 @@ function createSmartTerrainEditor(
       btn.onclick = () => {
         selectedTerrain = entry.id;
         selectionMode = 'exact';
-        applySelection();
+        commitSelection();
         updateSummary();
         renderTerrainList();
       };
@@ -2800,13 +2804,22 @@ function createSmartTerrainEditor(
     }
     summary.textContent = selectedTerrain
       ? `Using exact smart terrain key ${selectedTerrain}.`
-      : 'Choose a smart terrain key for this level.';
+      : options.allowPlaceholder
+        ? 'Choose a smart terrain key for this level or switch back to the dynamic placeholder.'
+        : 'Choose a smart terrain key for this level. The field updates after you pick an exact terrain.';
   };
 
   levelSelect.onchange = () => {
     selectedTerrain = '';
-    selectionMode = options.allowPlaceholder && levelSelect.value && levelSelect.value !== '__all__' ? 'placeholder' : '';
-    applySelection();
+    if (!levelSelect.value) {
+      selectionMode = '';
+      commitSelection();
+    } else if (options.allowPlaceholder && levelSelect.value !== '__all__') {
+      selectionMode = 'placeholder';
+      commitSelection();
+    } else {
+      selectionMode = '';
+    }
     renderTerrainList();
     updateSummary();
   };
@@ -2816,14 +2829,14 @@ function createSmartTerrainEditor(
     if (!levelSelect.value || levelSelect.value === '__all__') return;
     selectionMode = 'placeholder';
     selectedTerrain = '';
-    applySelection();
+    commitSelection();
     updateSummary();
     renderTerrainList();
   };
   clearButton.onclick = () => {
     selectionMode = '';
     selectedTerrain = '';
-    applySelection();
+    onChange('');
     updateSummary();
     renderTerrainList();
   };

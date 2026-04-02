@@ -240,7 +240,6 @@ export function encodeNpcTemplate(t: NpcTemplate): string {
   if (t.items) parts.push(`items=${t.items}`);
   if (t.relation && t.relation !== 'default') parts.push(`relation=${t.relation}`);
   if (t.spawnDist != null && t.spawnDist !== 50) parts.push(`spawn_dist=${t.spawnDist}`);
-  if (t.count != null && t.count > 1) parts.push(`count=${t.count}`);
   if (t.trader) parts.push(`trader=1`);
   return parts.join('|');
 }
