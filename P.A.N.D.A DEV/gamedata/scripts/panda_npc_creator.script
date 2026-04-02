@@ -284,14 +284,29 @@ end
 local function resolve_smart_terrain(smart_ref)
     if not smart_ref or smart_ref == "" then return nil end
     if not SIMBOARD or not SIMBOARD.get_smart_by_name then return nil end
-    -- strip "panda_st_" prefix if present (PANDA smart reference convention)
+    
     local name = smart_ref
-    local stripped = string.match(smart_ref, "_panda_st_(.+)$")
+    
+    -- 1. Strip "panda_st_" prefix if present (PANDA smart reference convention)
+    local stripped = string.match(name, "_panda_st_(.+)$")
     if stripped then name = stripped end
+
+    -- 2. Strip "st_" prefix (Common STALKER localization prefix)
+    -- "^st_" means "st_" at the very beginning of the string
+    name = string.gsub(name, "^st_", "")
+
+    -- 3. Strip "_name" suffix (Common STALKER localization suffix)
+    -- "_name$" means "_name" at the very end of the string
+    name = string.gsub(name, "_name$", "")
+
+    -- Try to get the smart terrain with the cleaned up name
     local smart = SIMBOARD:get_smart_by_name(name)
+    
+    -- Fallback: If it didn't find it, try the original unedited string just in case
     if not smart and name ~= smart_ref then
         smart = SIMBOARD:get_smart_by_name(smart_ref)
     end
+    
     return smart
 end
 
