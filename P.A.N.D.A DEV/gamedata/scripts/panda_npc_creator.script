@@ -12,6 +12,7 @@
 --   spawn_custom_npc_at:<template_id>:<smart_ref>[:<delay>]
 --
 -- New preconditions:
+--   req_custom_story_npc:<template_id>:<smart_ref>
 --   req_custom_npc_alive:<template_id>
 --   req_custom_npc_dead:<template_id>
 --   req_custom_npc_near:<template_id>:<dist>
@@ -457,6 +458,97 @@ function get_active_npc_se(template_id)
     return nil
 end
 
+local function normalize_faction_key(faction)
+    if not faction then
+        return "loner"
+    end
+
+    local fac = string.lower(tostring(faction))
+    fac = string.gsub(fac, "^actor_", "")
+    if fac == "stalker" then
+        return "loner"
+    end
+
+    return fac
+end
+
+local function actor_faction_key()
+    if db and db.actor and db.actor.character_community then
+        local fac = db.actor:character_community()
+        if fac and fac ~= "" then
+            return normalize_faction_key(fac)
+        end
+    end
+    return "loner"
+end
+
+local function extract_custom_story_target(precond_str)
+    if not precond_str or precond_str == "" then
+        return nil, nil
+    end
+    return string.match(precond_str, "req_custom_story_npc:([%w_%-]+):([^,%)]+)")
+end
+
+local function has_spawn_record(template_id)
+    local entries = active_custom_npcs[template_id]
+    return entries ~= nil and #entries > 0
+end
+
+function ensure_story_target_spawned(template_id, smart_ref, context)
+    context = context or {}
+
+    if not template_id or template_id == "" then
+        return nil
+    end
+
+    local existing = get_active_npc_se(template_id)
+    if existing then
+        return existing
+    end
+
+    if has_spawn_record(template_id) then
+        return nil
+    end
+
+    if not smart_ref or smart_ref == "" then
+        printf("PANDA_NPC: story target '%s' missing smart_ref", tostring(template_id))
+        return nil
+    end
+
+    spawn_custom_npc(template_id, {
+        smart_ref = smart_ref,
+        conv_data = context.conv_data,
+    })
+
+    return get_active_npc_se(template_id)
+end
+
+local function spawn_story_target_templates_for_faction(xml_fac)
+    if not xml_fac or xml_fac == "" then
+        return
+    end
+
+    local cid = 1
+    while true do
+        local stem = "st_pda_ic_" .. tostring(xml_fac) .. "_" .. tostring(cid)
+        local open_key = stem .. "_open"
+        if game.translate_string(open_key) == open_key then
+            break
+        end
+
+        local precond_key = stem .. "_precond"
+        local precond_val = game.translate_string(precond_key)
+        if precond_val ~= precond_key then
+            local tpl_id, smart_ref = extract_custom_story_target(precond_val)
+            if tpl_id and smart_ref then
+                ensure_story_target_spawned(tpl_id, smart_ref)
+            end
+        end
+
+        cid = cid + 1
+    end
+end
+
 -- ============================================================
 -- SAVE / LOAD
 -- ============================================================
@@ -527,5 +619,6 @@ function on_game_start()
     initialized = true
     RegisterScriptCallback("npc_on_net_spawn",       on_npc_net_spawn)
     RegisterScriptCallback("npc_on_death_callback",  on_npc_death)
+    spawn_story_target_templates_for_faction(actor_faction_key())
     printf("PANDA_NPC: initialized")
 end

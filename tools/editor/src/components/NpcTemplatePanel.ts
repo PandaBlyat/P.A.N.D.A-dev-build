@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — NPC Template Panel
 // Modal panel for authoring custom NPC templates inline.
-// Opened from spawn_custom_npc / spawn_custom_npc_at outcome params.
+// Opened from custom NPC outcome params and custom-NPC precondition params.
 
 import { store } from '../lib/state';
 import type { NpcTemplate } from '../lib/types';
@@ -203,6 +203,35 @@ function openNpcBuilderPanel(options: {
 
   const body = document.createElement('div');
   body.className = 'npc-builder-body';
+
+  const hero = document.createElement('div');
+  hero.className = 'npc-builder-hero';
+
+  const heroEyebrow = document.createElement('div');
+  heroEyebrow.className = 'npc-builder-hero-eyebrow';
+  heroEyebrow.textContent = existing ? 'Project NPC template' : 'Reusable story cast template';
+
+  const heroTitle = document.createElement('div');
+  heroTitle.className = 'npc-builder-hero-title';
+  heroTitle.textContent = existing
+    ? `Editing ${existing.name || existing.id}`
+    : 'Build a custom NPC once, reuse it anywhere.';
+
+  const heroCopy = document.createElement('div');
+  heroCopy.className = 'npc-builder-hero-copy';
+  heroCopy.textContent = 'Templates can drive spawn outcomes, custom story targets, and follow-up preconditions without duplicating setup.';
+
+  const heroChips = document.createElement('div');
+  heroChips.className = 'npc-builder-hero-chips';
+  ['Saved into XML', 'Reusable in outcomes', 'Reusable in story targets'].forEach((text) => {
+    const chip = document.createElement('span');
+    chip.className = 'npc-builder-hero-chip';
+    chip.textContent = text;
+    heroChips.appendChild(chip);
+  });
+
+  hero.append(heroEyebrow, heroTitle, heroCopy, heroChips);
+  body.appendChild(hero);
 
   // Helper: make a section card
   function makeSection(sectionTitle: string): HTMLElement {
@@ -459,7 +488,7 @@ function openNpcBuilderPanel(options: {
     {
       const { wrap, content } = makeField('Trader');
       const checkRow = document.createElement('div');
-      checkRow.className = 'npc-builder-checkbox-row'; // <-- Changed here
+      checkRow.className = 'npc-builder-checkbox-row';
       
       const cb = document.createElement('input');
       cb.type = 'checkbox';
@@ -495,9 +524,9 @@ function openNpcBuilderPanel(options: {
     listEl.className = 'npc-builder-item-list';
     sec.appendChild(listEl);
 
-    const addBtn = document.createElement('button');
-    addBtn.type = 'button';
-    addBtn.className = 'btn-sm npc-builder-add-btn'; // <-- Added custom class
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'btn-sm npc-builder-add-btn';
     addBtn.textContent = '+ Add Item';
     addBtn.onclick = () => {
       form.items.push({ section: '', count: '1' });
@@ -791,7 +820,7 @@ export function createCustomNpcBuilderEditor(
       clearBtn.type = 'button';
       clearBtn.className = 'btn-sm';
       clearBtn.textContent = 'Clear';
-      clearBtn.title = 'Unlink this outcome from its NPC template';
+      clearBtn.title = 'Clear this NPC template reference';
       clearBtn.onclick = () => {
         liveId = '';
         onChange('');

@@ -907,6 +907,35 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
       },
     ],
   },
+  {
+    name: 'req_custom_story_npc',
+    label: 'Custom NPC Target',
+    description: 'Conversation must be triggered by a specific author-defined custom NPC template, spawned once at the chosen smart terrain.',
+    category: 'NPC State',
+    helpText:
+      'Use this when a storyline belongs to a custom character instead of a vanilla story NPC. ' +
+      'The template comes from your project NPC library, and the runtime will spawn that NPC once at the chosen smart terrain so the same character can own the conversation chain.',
+    examples: ['req_custom_story_npc:informant:bar_visitors', 'req_custom_story_npc:weapons_dealer:esc_smart_terrain_5_7'],
+    params: [
+      {
+        name: 'template_id',
+        type: 'string',
+        required: true,
+        label: 'NPC Template',
+        placeholder: 'e.g. informant',
+        editor: { kind: 'custom_npc_builder' },
+        helpText: 'Choose an existing custom NPC template or create one inline.',
+      },
+      {
+        name: 'smart_terrain',
+        type: 'smart_terrain',
+        required: true,
+        label: 'Spawn Smart Terrain',
+        editor: { kind: 'smart_terrain_picker', allowPlaceholder: false },
+        helpText: 'Pick the exact smart terrain where this storyline character should appear at the start of the game.',
+      },
+    ],
+  },
 
   // Game Progress
   {
@@ -1145,6 +1174,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
         required: true,
         label: 'Template ID',
         placeholder: 'e.g. informant',
+        editor: { kind: 'custom_npc_builder' },
         helpText: 'Must match the template_id used in the spawn_custom_npc outcome.',
       },
     ],
@@ -1165,6 +1195,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
         required: true,
         label: 'Template ID',
         placeholder: 'e.g. hired_guns',
+        editor: { kind: 'custom_npc_builder' },
         helpText: 'Must match the template_id used in the spawn_custom_npc outcome.',
       },
     ],
@@ -1185,6 +1216,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
         required: true,
         label: 'Template ID',
         placeholder: 'e.g. informant',
+        editor: { kind: 'custom_npc_builder' },
         helpText: 'Must match the template_id used in the spawn_custom_npc outcome.',
       },
       {

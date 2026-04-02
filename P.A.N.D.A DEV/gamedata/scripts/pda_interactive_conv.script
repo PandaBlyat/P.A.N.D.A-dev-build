@@ -3650,6 +3650,50 @@ local function evaluate_precondition_entry(entry, npc_se, act, get_goodwill_acto
             return false, "story npc mismatch (need " .. required_sid .. "; checked " .. checked .. ")"
         end
 
+    elseif cmd == "req_custom_story_npc" then
+        local tpl_id = parts[2]
+        local smart_ref = parts[3]
+        if not tpl_id or tpl_id == "" then return false, "missing template_id" end
+        if not npc_se then return false, "npc missing" end
+        if not panda_npc_creator or type(panda_npc_creator.get_active_npc_se) ~= "function" then
+            return false, "custom npc creator unavailable"
+        end
+
+        local target_se = panda_npc_creator.get_active_npc_se(tpl_id)
+        if not target_se
+            and smart_ref and smart_ref ~= ""
+            and type(panda_npc_creator.ensure_story_target_spawned) == "function"
+        then
+            local ok_spawn, spawned_se = pcall(panda_npc_creator.ensure_story_target_spawned, tpl_id, smart_ref)
+            if ok_spawn then
+                target_se = spawned_se
+            end
+        end
+        if not target_se then
+            return false, "custom story npc '" .. tpl_id .. "' not available"
+        end
+
+        local function resolve_server_id(se_obj)
+            if not se_obj then
+                return nil
+            end
+
+            local sid = tonumber(se_obj.id)
+            if not sid and type(se_obj.id) == "function" then
+                local ok_sid, sid_from_fn = pcall(function() return se_obj:id() end)
+                if ok_sid then
+                    sid = tonumber(sid_from_fn)
+                end
+            end
+            return sid
+        end
+
+        local required_id = resolve_server_id(target_se)
+        local current_id = resolve_server_id(npc_se)
+        if not required_id or not current_id or required_id ~= current_id then
+            return false, "custom story npc mismatch (" .. tostring(tpl_id) .. ")"
+        end
+
     -- ========== CUSTOM NPC TEMPLATE PRECONDITIONS ==========
     elseif cmd == "req_custom_npc_alive" then
         local tpl_id = parts[2]
@@ -7225,7 +7269,7 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
 end
 
 -- ============================================================
--- STORY NPC CONVERSATION SCANNING
+-- TARGETED NPC CONVERSATION SCANNING
 -- ============================================================
 -- Extracts req_story_npc:<id> from a precondition string.
 -- Returns the story_id or nil if not present.
@@ -7234,9 +7278,15 @@ local function extract_story_npc_id(precond_str)
     return string.match(precond_str, "req_story_npc:([%w_%-]+)")
 end
 
+local function extract_custom_story_target(precond_str)
+    if not precond_str or precond_str == "" then return nil, nil end
+    return string.match(precond_str, "req_custom_story_npc:([%w_%-]+):([^,%)]+)")
+end
+
 -- Scans all conversations for a faction and finds those that require a specific
--- story NPC.  For each, looks up the story NPC in alife and checks whether all
--- preconditions pass.  Returns a list of {npc_se, conv_id} tables.
+-- story NPC or custom story target. For each, resolves the NPC in alife and
+-- checks whether all preconditions pass. Returns a list of {npc_se, conv_id}
+-- tables.
 local function collect_story_npc_conversations(xml_fac)
     local results = {}
     local base = "st_pda_ic_"
@@ -7264,15 +7314,32 @@ local function collect_story_npc_conversations(xml_fac)
         if precond_val == precond_key then precond_val = "" end
 
         local story_id = extract_story_npc_id(precond_val)
-        if story_id then
-            local npc_se = get_story_se_object(story_id)
+        local custom_tpl_id, custom_smart_ref = extract_custom_story_target(precond_val)
+        if story_id or custom_tpl_id then
+            local npc_se = nil
+            local target_desc = nil
+            if story_id then
+                npc_se = get_story_se_object(story_id)
+                target_desc = "story_id=" .. tostring(story_id)
+            elseif custom_tpl_id then
+                target_desc = "template_id=" .. tostring(custom_tpl_id)
+                if panda_npc_creator and type(panda_npc_creator.ensure_story_target_spawned) == "function" then
+                    pcall(panda_npc_creator.ensure_story_target_spawned, custom_tpl_id, custom_smart_ref)
+                end
+                if panda_npc_creator and type(panda_npc_creator.get_active_npc_se) == "function" then
+                    local ok_custom, custom_se = pcall(panda_npc_creator.get_active_npc_se, custom_tpl_id)
+                    if ok_custom then
+                        npc_se = custom_se
+                    end
+                end
+            end
             if npc_se and npc_se:alive() then
                 local identity_in_use, identity_reason, owner_key = is_conversation_identity_in_use(npc_se)
                 if identity_in_use then
                     printf(
-                        "PANDA_IC: skip story NPC candidate npc_id=%s story_id=%s conv_id=%s reason=%s owner=%s",
+                        "PANDA_IC: skip targeted NPC candidate npc_id=%s target=%s conv_id=%s reason=%s owner=%s",
                         tostring(tonumber(npc_se.id) or 0),
-                        tostring(story_id),
+                        tostring(target_desc or "unknown"),
                         tostring(tonumber(cid) or 0),
                         tostring(identity_reason or "identity_in_use"),
                         tostring(owner_key or "nil")
@@ -7301,17 +7368,17 @@ local function collect_story_npc_conversations(xml_fac)
                     end
 
                     if not skip then
-                        -- Full precondition check (including req_story_npc itself)
+                        -- Full precondition check (including req_story_npc / req_custom_story_npc itself)
                         if check_preconditions_generic(precond_key, npc_se) then
                             table.insert(results, {npc_se = npc_se, conv_id = cid, weight = weight})
                             printf("Story NPC conv %s matched — NPC %s (story_id=%s, weight=%s)",
                                 tostring(tonumber(cid) or 0),
                                 tostring(npc_se:character_name()),
-                                tostring(story_id),
+                                tostring(target_desc or "target"),
                                 tostring(tonumber(weight) or 0))
                             printf("TRACE story-match npc_sid=%s story_id=%s conv_id=%s next_turn=%s channel=%s",
                                 tostring(tonumber(npc_se.id) or 0),
-                                tostring(story_id),
+                                tostring(target_desc or "target"),
                                 tostring(tonumber(cid) or 0),
                                 tostring("n/a"),
                                 tostring("pda"))
@@ -7343,9 +7410,9 @@ local function attempt_interactive_conversation()
     local player_comm = get_actor_true_community() or "stalker"
     local xml_fac = (player_comm == "stalker") and "loner" or player_comm
 
-    -- Phase 1: Collect story NPC conversation candidates
+    -- Phase 1: Collect targeted NPC conversation candidates
     local story_matches = collect_story_npc_conversations(xml_fac)
-    printf(string.format("Found %d story NPC conversation candidates", #story_matches))
+    printf(string.format("Found %d targeted NPC conversation candidates", #story_matches))
 
     -- Phase 2: Collect simulated NPC conversation candidates (existing flow)
     local sim_matches = {}

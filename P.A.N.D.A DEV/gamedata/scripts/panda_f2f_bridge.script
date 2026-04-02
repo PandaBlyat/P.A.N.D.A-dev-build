@@ -1334,6 +1334,17 @@ local function extract_req_story_npc_id_from_key(precond_key)
     return raw:match("req_story_npc:([%w_%-]+)")
 end
 
+local function extract_req_custom_story_npc_from_key(precond_key)
+    if not precond_key or precond_key == "" then
+        return nil, nil
+    end
+    local raw = tr(precond_key)
+    if raw == precond_key then
+        return nil, nil
+    end
+    return raw:match("req_custom_story_npc:([%w_%-]+):([^,%)]+)")
+end
+
 local function decode_registry_json(raw)
     if not raw or raw == "" then
         return nil
@@ -4592,21 +4603,44 @@ inject_f2f_direct_for_story_npcs = function()
             if start_mode == "f2f" then
                 local precond_key = stem .. "_precond"
                 if key_exists(precond_key) then
-                    -- Extract req_story_npc:<id> from precondition string
+                    -- Extract req_story_npc / req_custom_story_npc from precondition string
                     local precond_str = tr(precond_key)
                     local story_npc_sid_str = precond_str ~= precond_key
                         and precond_str:match("req_story_npc:([%w_%-]+)")
                         or nil
+                    local custom_tpl_id = nil
+                    local custom_smart_ref = nil
+                    if precond_str ~= precond_key then
+                        custom_tpl_id, custom_smart_ref = precond_str:match("req_custom_story_npc:([%w_%-]+):([^,%)]+)")
+                    end
 
-                    if story_npc_sid_str then
+                    if story_npc_sid_str or custom_tpl_id then
+                        local npc_se = nil
+                        local target_label = nil
+
                         -- Resolve story NPC server object
                         local numeric_sid = nil
-                        if type(get_story_object_id) == "function" then
+                        if story_npc_sid_str and type(get_story_object_id) == "function" then
                             local ok_sid, raw_sid = pcall(get_story_object_id, story_npc_sid_str)
                             if ok_sid then numeric_sid = tonumber(raw_sid) end
                         end
 
-                        local npc_se = numeric_sid and sim:object(numeric_sid) or nil
+                        if story_npc_sid_str then
+                            npc_se = numeric_sid and sim:object(numeric_sid) or nil
+                            target_label = story_npc_sid_str
+                        elseif custom_tpl_id then
+                            target_label = "custom:" .. tostring(custom_tpl_id)
+                            if panda_npc_creator and type(panda_npc_creator.ensure_story_target_spawned) == "function" then
+                                pcall(panda_npc_creator.ensure_story_target_spawned, custom_tpl_id, custom_smart_ref)
+                            end
+                            if panda_npc_creator and type(panda_npc_creator.get_active_npc_se) == "function" then
+                                local ok_custom, custom_se = pcall(panda_npc_creator.get_active_npc_se, custom_tpl_id)
+                                if ok_custom then
+                                    npc_se = custom_se
+                                end
+                            end
+                        end
+
                         if npc_se then
                             local npc_id = resolve_server_npc_id(npc_se, "inject_f2f_direct")
 
@@ -4659,9 +4693,9 @@ inject_f2f_direct_for_story_npcs = function()
                                                     }
                                                     f2f_direct_injected_npcs[npc_id] = true
                                                     bridge_debug(
-                                                        "inject_f2f_direct injected npc_id=%s conv_id=%s turn=%s story_npc=%s",
+                                                        "inject_f2f_direct injected npc_id=%s conv_id=%s turn=%s target=%s",
                                                         tostring(npc_id), tostring(cid),
-                                                        tostring(f2f_turn), tostring(story_npc_sid_str)
+                                                        tostring(f2f_turn), tostring(target_label or story_npc_sid_str)
                                                     )
                                                 else
                                                     -- override failed; clear pending so it is retried next scan

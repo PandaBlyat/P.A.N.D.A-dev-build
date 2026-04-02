@@ -158,6 +158,11 @@ export function getOutcomeChanceFieldKey(conversationId: number, turnNumber: num
 /** Validate the entire project and return all messages. */
 export function validate(project: Project): ValidationMessage[] {
   const messages: ValidationMessage[] = [];
+  const knownNpcTemplateIds = new Set(
+    (project.npcTemplates ?? [])
+      .map((template) => template.id.trim())
+      .filter((id) => id.length > 0),
+  );
 
   const ids = project.conversations.map(c => c.id).sort((a, b) => a - b);
   for (let i = 0; i < ids.length; i++) {
@@ -176,13 +181,13 @@ export function validate(project: Project): ValidationMessage[] {
   }
 
   for (const conv of project.conversations) {
-    validateConversation(conv, messages);
+    validateConversation(conv, knownNpcTemplateIds, messages);
   }
 
   return messages;
 }
 
-function validateConversation(conv: Conversation, messages: ValidationMessage[]): void {
+function validateConversation(conv: Conversation, knownNpcTemplateIds: Set<string>, messages: ValidationMessage[]): void {
   if (conv.preconditions.length === 0) {
     pushMessage(messages, {
       code: 'missing-preconditions',
@@ -197,7 +202,7 @@ function validateConversation(conv: Conversation, messages: ValidationMessage[])
     });
   } else {
     conv.preconditions.forEach((entry, idx) => {
-      validatePrecondition(entry, idx, conv.id, messages);
+      validatePrecondition(entry, idx, conv.id, knownNpcTemplateIds, messages);
     });
   }
 
@@ -285,7 +290,7 @@ function validateConversation(conv: Conversation, messages: ValidationMessage[])
   const turnLabels = createTurnDisplayLabeler(conv);
 
   for (const turn of conv.turns) {
-    validateTurn(conv, turn, turnNumbers, turnLabels, messages);
+    validateTurn(conv, turn, turnNumbers, turnLabels, knownNpcTemplateIds, messages);
   }
 
   if (conv.turns.length > 1) {
@@ -358,6 +363,7 @@ function validateTurn(
   turn: Conversation['turns'][number],
   turnNumbers: Set<number>,
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
+  knownNpcTemplateIds: Set<string>,
   messages: ValidationMessage[],
 ): void {
   for (const warning of turn.migrationWarnings ?? []) {
@@ -458,17 +464,24 @@ function validateTurn(
     }
 
     choice.outcomes.forEach((outcome, outcomeIndex) => {
-      validateOutcome(conv, turn, choice, outcome, outcomeIndex, turnNumbers, turnLabels, messages);
+      validateOutcome(conv, turn, choice, outcome, outcomeIndex, turnNumbers, turnLabels, knownNpcTemplateIds, messages);
     });
   }
 }
 
-function validatePrecondition(entry: PreconditionEntry, preconditionIndex: number, conversationId: number, messages: ValidationMessage[]): void {
+function validatePrecondition(
+  entry: PreconditionEntry,
+  preconditionIndex: number,
+  conversationId: number,
+  knownNpcTemplateIds: Set<string>,
+  messages: ValidationMessage[],
+): void {
   if (entry.type === 'simple') {
+    const schema = PRECONDITION_COMMANDS.get(entry.command);
     validateSimpleCommand({
       command: entry.command,
       params: entry.params,
-      schema: PRECONDITION_COMMANDS.get(entry.command),
+      schema,
       registryName: 'precondition',
       schemaLookup: PRECONDITION_SCHEMAS,
       context: {
@@ -480,11 +493,24 @@ function validatePrecondition(entry: PreconditionEntry, preconditionIndex: numbe
       getParamFieldKey: paramIndex => getPreconditionParamFieldKey(conversationId, preconditionIndex, paramIndex),
       messages,
     });
+    validateCustomNpcTemplateReference({
+      registryName: 'precondition',
+      schema,
+      params: entry.params,
+      knownNpcTemplateIds,
+      context: {
+        conversationId,
+        preconditionIndex,
+        propertiesTab: 'conversation',
+      },
+      getParamFieldKey: paramIndex => getPreconditionParamFieldKey(conversationId, preconditionIndex, paramIndex),
+      messages,
+    });
     return;
   }
 
   if (entry.type === 'not') {
-    validatePrecondition(entry.inner, preconditionIndex, conversationId, messages);
+    validatePrecondition(entry.inner, preconditionIndex, conversationId, knownNpcTemplateIds, messages);
     return;
   }
 
@@ -506,10 +532,10 @@ function validatePrecondition(entry: PreconditionEntry, preconditionIndex: numbe
 
   group.options.forEach((option) => {
     if (option.type === 'all') {
-      option.entries.forEach((entry) => validatePrecondition(entry, preconditionIndex, conversationId, messages));
+      option.entries.forEach((entry) => validatePrecondition(entry, preconditionIndex, conversationId, knownNpcTemplateIds, messages));
       return;
     }
-    validatePrecondition(option, preconditionIndex, conversationId, messages);
+    validatePrecondition(option, preconditionIndex, conversationId, knownNpcTemplateIds, messages);
   });
 }
 
@@ -521,12 +547,14 @@ function validateOutcome(
   outcomeIndex: number,
   turnNumbers: Set<number>,
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
+  knownNpcTemplateIds: Set<string>,
   messages: ValidationMessage[],
 ): void {
+  const schema = OUTCOME_COMMANDS.get(outcome.command);
   validateSimpleCommand({
     command: outcome.command,
     params: outcome.params,
-    schema: OUTCOME_COMMANDS.get(outcome.command),
+    schema,
     registryName: 'outcome',
     schemaLookup: OUTCOME_SCHEMAS,
     context: {
@@ -537,6 +565,21 @@ function validateOutcome(
       propertiesTab: 'selection',
     },
     getItemFieldKey: () => getOutcomeItemFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex),
+    getParamFieldKey: paramIndex => getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, paramIndex),
+    messages,
+  });
+  validateCustomNpcTemplateReference({
+    registryName: 'outcome',
+    schema,
+    params: outcome.params,
+    knownNpcTemplateIds,
+    context: {
+      conversationId: conv.id,
+      turnNumber: turn.turnNumber,
+      choiceIndex: choice.index,
+      outcomeIndex,
+      propertiesTab: 'selection',
+    },
     getParamFieldKey: paramIndex => getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, paramIndex),
     messages,
   });
@@ -840,6 +883,26 @@ function validateParamValue(options: {
     return;
   }
 
+  if (
+    paramDef.type === 'smart_terrain'
+    && paramDef.editor?.kind === 'smart_terrain_picker'
+    && paramDef.editor.allowPlaceholder === false
+    && isSmartTerrainPlaceholder(rawValue)
+  ) {
+    pushMessage(messages, {
+      ...context,
+      code: `${registryName}-placeholder-not-allowed`,
+      group: 'schema',
+      scope: registryName,
+      level: 'error',
+      paramIndex,
+      fieldKey,
+      fieldLabel: paramDef.label,
+      message: `${schema.label}: "${paramDef.label}" must use an exact smart terrain id here, not a dynamic placeholder.`,
+    });
+    return;
+  }
+
   const normalized = normalizeParamValue(paramDef.type, rawValue);
   if (normalized == null) {
     const allowedValues = describeAllowedValues(paramDef.type, schemaLookup);
@@ -855,6 +918,40 @@ function validateParamValue(options: {
       message: `${schema.label}: \"${paramDef.label}\" has an unknown value \"${rawValue}\"${allowedValues ? `. Expected ${allowedValues}.` : '.'}`,
     });
   }
+}
+
+function validateCustomNpcTemplateReference(options: {
+  registryName: 'precondition' | 'outcome';
+  schema: CommandSchema | undefined;
+  params: string[];
+  knownNpcTemplateIds: Set<string>;
+  context: ValidationContext;
+  getParamFieldKey: (paramIndex: number) => string;
+  messages: ValidationMessage[];
+}): void {
+  const { registryName, schema, params, knownNpcTemplateIds, context, getParamFieldKey, messages } = options;
+  if (!schema) return;
+
+  const templateParamIndex = schema.params.findIndex((param) =>
+    param.name === 'template_id'
+    || param.editor?.kind === 'custom_npc_builder');
+
+  if (templateParamIndex < 0) return;
+
+  const templateId = (params[templateParamIndex] ?? '').trim();
+  if (templateId === '' || knownNpcTemplateIds.has(templateId)) return;
+
+  pushMessage(messages, {
+    ...context,
+    code: `${registryName}-unknown-custom-npc-template`,
+    group: 'schema',
+    scope: registryName,
+    level: 'error',
+    paramIndex: templateParamIndex,
+    fieldKey: getParamFieldKey(templateParamIndex),
+    fieldLabel: schema.params[templateParamIndex]?.label ?? 'NPC Template',
+    message: `${schema.label}: Custom NPC template "${templateId}" is not defined in this project yet.`,
+  });
 }
 
 function validateConversationPreconditionLogic(conv: Conversation, messages: ValidationMessage[]): void {
