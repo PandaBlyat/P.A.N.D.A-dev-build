@@ -9,6 +9,7 @@ import {
   type StateChange,
 } from './lib/state';
 import { clearDraft, persistDraft, readDraft } from './lib/draft-storage';
+import { measurePerf } from './lib/perf';
 
 import {
   getRenderRoot,
@@ -201,9 +202,13 @@ function flushAutosave(): void {
   const state = store.get();
   const isPristineEmptyState = state.project.conversations.length === 0 && state.systemStrings.size === 0 && !state.dirty;
   if (isPristineEmptyState) {
-    clearDraft();
+    measurePerf('state.autosavePersist', () => clearDraft(), { mode: 'clear' });
   } else {
-    persistDraft(state.project, state.systemStrings);
+    measurePerf('state.autosavePersist', () => persistDraft(state.project, state.systemStrings), {
+      mode: 'persist',
+      conversationCount: state.project.conversations.length,
+      systemStringCount: state.systemStrings.size,
+    });
   }
 
   lastPersistedProjectRevision = queuedAutosave.projectRevision;
@@ -235,6 +240,8 @@ function scheduleAutosave(): void {
 }
 
 window.addEventListener('beforeunload', () => {
+  flushAllDebounced();
+  store.commitPendingTextEdits();
   flushAutosave();
 });
 
@@ -328,6 +335,50 @@ function mergeStateChanges(current: StateChange | null, incoming: StateChange): 
   return merged;
 }
 
+function cloneChangeForTargets(change: StateChange, targets: readonly RenderTarget[]): StateChange | null {
+  if (targets.length === 0) return null;
+  const next = targets.includes('appShell')
+    ? { ...FULL_APP_RENDER }
+    : createStateChange(...targets);
+  next.projectChanged = change.projectChanged;
+  next.systemStringsChanged = change.systemStringsChanged;
+  next.validationChanged = change.validationChanged;
+  return next;
+}
+
+function splitChangeForActiveEditor(change: StateChange, active: Element | null): { immediate: StateChange | null; deferred: StateChange | null } | null {
+  if (!shouldDeferRenderForActiveElement(active) || !app.contains(active)) {
+    return null;
+  }
+  if (change.targets.includes('appShell')) {
+    return {
+      immediate: null,
+      deferred: { ...change },
+    };
+  }
+
+  const immediateTargets: RenderTarget[] = [];
+  const deferredTargets: RenderTarget[] = [];
+
+  for (const target of change.targets) {
+    if (target === 'appShell') {
+      deferredTargets.push(target);
+      continue;
+    }
+    const root = getRenderRoot(app, target);
+    if (root && root.contains(active)) {
+      deferredTargets.push(target);
+    } else {
+      immediateTargets.push(target);
+    }
+  }
+
+  return {
+    immediate: cloneChangeForTargets(change, immediateTargets),
+    deferred: cloneChangeForTargets(change, deferredTargets),
+  };
+}
+
 function renderTarget(target: RenderTarget): void {
   const root = target === 'appShell' ? app : getRenderRoot(app, target);
   if (!root) return;
@@ -384,12 +435,20 @@ store.subscribe((change) => {
     scheduleAutosave();
   }
 
-  if (shouldDeferRenderForActiveElement(document.activeElement) && app.contains(document.activeElement)) {
-    pendingChange = mergeStateChanges(pendingChange, change);
+  const splitChange = splitChangeForActiveEditor(change, document.activeElement);
+  if (splitChange) {
+    if (splitChange.deferred) {
+      pendingChange = mergeStateChanges(pendingChange, splitChange.deferred);
+    }
+    if (splitChange.immediate) {
+      flushRender(splitChange.immediate);
+    }
     return;
   }
+
+  const nextChange = pendingChange ? mergeStateChanges(pendingChange, change) : change;
   pendingChange = null;
-  flushRender(change);
+  flushRender(nextChange);
 });
 
 // When the user leaves an input, flush any deferred render —
@@ -421,6 +480,7 @@ document.addEventListener('keydown', (e) => {
         active.blur(); // remove focus so the render isn't deferred
       }
       flushAllDebounced();
+      store.commitPendingTextEdits();
       const change = pendingChange ?? FULL_APP_RENDER;
       pendingChange = null;
       flushRender(change);
@@ -429,10 +489,14 @@ document.addEventListener('keydown', (e) => {
   }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
     e.preventDefault();
+    flushAllDebounced();
+    store.commitPendingTextEdits();
     store.undo();
   }
   if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
     e.preventDefault();
+    flushAllDebounced();
+    store.commitPendingTextEdits();
     store.redo();
   }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {

@@ -6,6 +6,7 @@ import { createEmptyProject, createConversation, createTurn, createChoice } from
 import { migrateLegacyF2FEntryOpenings } from './f2f-entry-migration';
 import { validate } from './validation';
 import { estimateFlowNodeHeight, getDefaultFlowTurnPosition, getFlowAutoLayoutSpacing, getFlowNodeLayout } from './flow-layout';
+import { measurePerf } from './perf';
 
 export type PropertiesTab = 'conversation' | 'selection';
 export type FlowDensity = 'compact' | 'standard' | 'detailed';
@@ -95,6 +96,7 @@ export function createStateChange(...targets: RenderTarget[]): StateChange {
 
 export const FULL_APP_RENDER = createStateChange('appShell');
 export const SELECTION_RENDER = createStateChange('flowEditor', 'propertiesPanel');
+const VALIDATION_RENDER = createStateChange('conversationList');
 
 function inferTurnFirstSpeaker(
   turn: Pick<Turn, 'firstSpeaker' | 'f2f_entry' | 'channel'>,
@@ -127,6 +129,15 @@ function normalizeOptionalNonNegativeInteger(value: unknown): number | undefined
   return normalized >= 0 ? normalized : undefined;
 }
 
+function hasOwnUpdates<T extends object>(target: T, updates: Partial<T>): boolean {
+  for (const key of Object.keys(updates) as Array<keyof T>) {
+    if (!Object.is(target[key], updates[key])) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function normalizeTurnEntryFlags(turn: Turn, options: { inferDefaults?: boolean } = {}): void {
   turn.channel = normalizeChannelValue(turn.channel, 'pda');
   const inferDefaults = options.inferDefaults ?? true;
@@ -153,6 +164,7 @@ function computeSegmentStartFlag(sourceChannel: 'pda' | 'f2f', destinationChanne
 }
 
 const VALIDATION_DEBOUNCE_MS = 120;
+const TEXT_EDIT_IDLE_VALIDATION_MS = 1200;
 
 type TurnPositionUpdate = {
   turnNumber: number;
@@ -179,6 +191,19 @@ type ChoiceClipboard = {
   choice: Choice;
 };
 
+type TextSession = {
+  key: string;
+  change: StateChange;
+  projectChanged: boolean;
+  systemStringsChanged: boolean;
+};
+
+type MutationOptions = {
+  change?: StateChange;
+  revalidate?: boolean;
+  textSessionKey?: string;
+};
+
 export type ConversationSourceMetadata = {
   sourceCommunityId: string;
   sourcePublisherId: string;
@@ -199,8 +224,10 @@ class StateManager {
   private state: AppState;
   private listeners: Set<Listener> = new Set();
   private validationTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingValidationChange: StateChange | null = null;
   private batchDepth = 0;
   private batchedChange: StateChange | null = null;
+  private textSessions: Map<string, TextSession> = new Map();
 
   constructor() {
     const cursorPrefs = loadCursorPrefs();
@@ -272,10 +299,56 @@ class StateManager {
     this.state.systemStringsRevision += 1;
   }
 
+  private clearScheduledValidation(): void {
+    if (this.validationTimer != null) {
+      clearTimeout(this.validationTimer);
+      this.validationTimer = null;
+    }
+    this.pendingValidationChange = null;
+  }
+
+  private clearPendingTextSessions(): void {
+    this.textSessions.clear();
+  }
+
+  private prepareChange(
+    change: StateChange,
+    flags: {
+      projectChanged?: boolean;
+      systemStringsChanged?: boolean;
+      validationChanged?: boolean;
+    } = {},
+  ): StateChange {
+    let prepared = change.targets.includes('appShell')
+      ? { ...FULL_APP_RENDER }
+      : createStateChange(...change.targets);
+
+    if ((flags.projectChanged ?? false) && this.state.showXmlPreview) {
+      prepared = mergeChanges(prepared, createStateChange('bottomWorkspace'));
+    }
+
+    if ((flags.systemStringsChanged ?? false) && this.state.showSystemStringsPanel) {
+      prepared = mergeChanges(prepared, createStateChange('bottomWorkspace'));
+    }
+
+    if (flags.validationChanged ?? false) {
+      prepared = mergeChanges(prepared, VALIDATION_RENDER);
+    }
+
+    prepared.projectChanged = flags.projectChanged ?? false;
+    prepared.systemStringsChanged = flags.systemStringsChanged ?? false;
+    prepared.validationChanged = flags.validationChanged ?? false;
+    return prepared;
+  }
+
   private pushUndo(): void {
-    this.state.undoStack.push(JSON.stringify(this.state.project));
-    if (this.state.undoStack.length > 50) this.state.undoStack.shift();
-    this.state.redoStack = [];
+    measurePerf('state.undoSnapshot', () => {
+      this.state.undoStack.push(JSON.stringify(this.state.project));
+      if (this.state.undoStack.length > 50) this.state.undoStack.shift();
+      this.state.redoStack = [];
+    }, {
+      conversations: this.state.project.conversations.length,
+    });
   }
 
   private getConversationById(conversationId: number): Conversation | null {
@@ -296,46 +369,166 @@ class StateManager {
     this.state.dirty = true;
     if (projectChanged) this.markProjectChanged();
     if (systemStringsChanged) this.markSystemStringsChanged();
-    if (revalidate) this.scheduleValidation(change);
-    this.notify({ ...change, projectChanged, systemStringsChanged });
+    const preparedChange = this.prepareChange(change, { projectChanged, systemStringsChanged });
+    if (revalidate) this.scheduleValidation(preparedChange);
+    this.notify(preparedChange);
+  }
+
+  private createTextSession(
+    sessionKey: string,
+    change: StateChange,
+    options: { projectChanged?: boolean; systemStringsChanged?: boolean } = {},
+  ): TextSession {
+    const projectChanged = options.projectChanged ?? true;
+    const systemStringsChanged = options.systemStringsChanged ?? false;
+    const preparedChange = this.prepareChange(change, { projectChanged, systemStringsChanged });
+    const existing = this.textSessions.get(sessionKey);
+
+    if (existing) {
+      existing.change = mergeChanges(existing.change, preparedChange);
+      existing.projectChanged = existing.projectChanged || projectChanged;
+      existing.systemStringsChanged = existing.systemStringsChanged || systemStringsChanged;
+      existing.change.projectChanged = existing.projectChanged;
+      existing.change.systemStringsChanged = existing.systemStringsChanged;
+      return existing;
+    }
+
+    this.pushUndo();
+    const session: TextSession = {
+      key: sessionKey,
+      change: preparedChange,
+      projectChanged,
+      systemStringsChanged,
+    };
+    this.textSessions.set(sessionKey, session);
+    return session;
+  }
+
+  private scheduleTextSessionValidation(): void {
+    if (this.textSessions.size === 0) return;
+
+    let combined: StateChange | null = null;
+    for (const session of this.textSessions.values()) {
+      combined = combined ? mergeChanges(combined, session.change) : { ...session.change };
+    }
+
+    if (combined) {
+      this.scheduleValidation(combined, TEXT_EDIT_IDLE_VALIDATION_MS);
+    }
+  }
+
+  private applyTextMutation(
+    sessionKey: string,
+    change: StateChange,
+    mutator: () => void,
+    options: { projectChanged?: boolean; systemStringsChanged?: boolean } = {},
+  ): void {
+    this.state.dirty = true;
+    this.createTextSession(sessionKey, change, options);
+    mutator();
+    this.scheduleTextSessionValidation();
+  }
+
+  private finalizeTextSessions(keys?: Iterable<string>): void {
+    const targetKeys = keys ? [...keys] : [...this.textSessions.keys()];
+    if (targetKeys.length === 0) return;
+
+    let combined: TextSession | null = null;
+    for (const key of targetKeys) {
+      const session = this.textSessions.get(key);
+      if (!session) continue;
+      this.textSessions.delete(key);
+
+      if (!combined) {
+        combined = {
+          key: session.key,
+          change: { ...session.change },
+          projectChanged: session.projectChanged,
+          systemStringsChanged: session.systemStringsChanged,
+        };
+      } else {
+        combined.change = mergeChanges(combined.change, session.change);
+        combined.projectChanged = combined.projectChanged || session.projectChanged;
+        combined.systemStringsChanged = combined.systemStringsChanged || session.systemStringsChanged;
+      }
+    }
+
+    if (!combined) return;
+
+    this.clearScheduledValidation();
+
+    if (combined.projectChanged) this.markProjectChanged();
+    if (combined.systemStringsChanged) this.markSystemStringsChanged();
+
+    const validationChange = this.revalidate(combined.change, { notify: false });
+    const commitChange = validationChange ? mergeChanges(combined.change, validationChange) : { ...combined.change };
+    commitChange.projectChanged = combined.projectChanged;
+    commitChange.systemStringsChanged = combined.systemStringsChanged;
+    commitChange.validationChanged = validationChange?.validationChanged ?? false;
+    this.notify(commitChange);
+
+    this.scheduleTextSessionValidation();
   }
 
   undo(): void {
+    this.clearScheduledValidation();
+    this.clearPendingTextSessions();
     const prev = this.state.undoStack.pop();
     if (!prev) return;
     this.state.redoStack.push(JSON.stringify(this.state.project));
     this.state.project = JSON.parse(prev);
     this.markProjectChanged();
-    this.revalidate();
-    this.notify({ ...FULL_APP_RENDER, projectChanged: true });
+    const baseChange = this.prepareChange(FULL_APP_RENDER, { projectChanged: true });
+    const validationChange = this.revalidate(baseChange, { notify: false });
+    const nextChange = validationChange ? mergeChanges(baseChange, validationChange) : baseChange;
+    nextChange.projectChanged = true;
+    nextChange.validationChanged = validationChange?.validationChanged ?? false;
+    this.notify(nextChange);
   }
 
   redo(): void {
+    this.clearScheduledValidation();
+    this.clearPendingTextSessions();
     const next = this.state.redoStack.pop();
     if (!next) return;
     this.state.undoStack.push(JSON.stringify(this.state.project));
     this.state.project = JSON.parse(next);
     this.markProjectChanged();
-    this.revalidate();
-    this.notify({ ...FULL_APP_RENDER, projectChanged: true });
+    const baseChange = this.prepareChange(FULL_APP_RENDER, { projectChanged: true });
+    const validationChange = this.revalidate(baseChange, { notify: false });
+    const nextChange = validationChange ? mergeChanges(baseChange, validationChange) : baseChange;
+    nextChange.projectChanged = true;
+    nextChange.validationChanged = validationChange?.validationChanged ?? false;
+    this.notify(nextChange);
   }
 
-  private scheduleValidation(change: StateChange = FULL_APP_RENDER): void {
+  private scheduleValidation(change: StateChange = FULL_APP_RENDER, delayMs = VALIDATION_DEBOUNCE_MS): void {
+    const preparedChange = this.prepareChange(change);
+    this.pendingValidationChange = this.pendingValidationChange
+      ? mergeChanges(this.pendingValidationChange, preparedChange)
+      : { ...preparedChange };
+
     if (this.validationTimer != null) {
       clearTimeout(this.validationTimer);
     }
+
     this.validationTimer = setTimeout(() => {
       this.validationTimer = null;
-      this.revalidate(change);
-    }, VALIDATION_DEBOUNCE_MS);
+      const validationChange = this.pendingValidationChange ?? preparedChange;
+      this.pendingValidationChange = null;
+      this.revalidate(validationChange);
+    }, delayMs);
   }
 
-  private revalidate(change: StateChange = FULL_APP_RENDER): void {
+  private revalidate(change: StateChange = FULL_APP_RENDER, options: { notify?: boolean } = {}): StateChange | null {
     const previousMessages = JSON.stringify(this.state.validationMessages);
     const previousShowValidationPanel = this.state.showValidationPanel;
     const previousBottomWorkspaceTab = this.state.bottomWorkspaceTab;
 
-    this.state.validationMessages = validate(this.state.project);
+    this.state.validationMessages = measurePerf('state.validation', () => validate(this.state.project), {
+      conversations: this.state.project.conversations.length,
+      turns: this.state.project.conversations.reduce((sum, conversation) => sum + conversation.turns.length, 0),
+    });
     if (this.state.validationMessages.length === 0) {
       this.state.showValidationPanel = false;
     }
@@ -346,10 +539,22 @@ class StateManager {
       || previousShowValidationPanel !== this.state.showValidationPanel
       || previousBottomWorkspaceTab !== this.state.bottomWorkspaceTab;
 
-    if (!validationChanged) return;
+    if (!validationChanged) return null;
 
     this.state.validationRevision += 1;
-    this.notify({ ...change, validationChanged: true });
+    const validationChange = this.prepareChange(change, { validationChanged: true });
+    if (options.notify ?? true) {
+      this.notify(validationChange);
+    }
+    return validationChange;
+  }
+
+  commitTextEdit(sessionKey: string): void {
+    this.finalizeTextSessions([sessionKey]);
+  }
+
+  commitPendingTextEdits(): void {
+    this.finalizeTextSessions();
   }
 
   private getOpenBottomWorkspaceTabs(): BottomWorkspaceTab[] {
@@ -725,6 +930,8 @@ class StateManager {
   }
 
   loadProject(project: Project, systemStrings: Map<string, string>): void {
+    this.clearScheduledValidation();
+    this.clearPendingTextSessions();
     const sanitizedProject = migrateLegacyF2FEntryOpenings(project);
     this.state.project = {
       ...sanitizedProject,
@@ -782,8 +989,13 @@ class StateManager {
     this.state.conversationSourceMetadata = new Map();
     this.markProjectChanged();
     this.markSystemStringsChanged();
-    this.revalidate();
-    this.notify({ ...FULL_APP_RENDER, projectChanged: true, systemStringsChanged: true });
+    const baseChange = this.prepareChange(FULL_APP_RENDER, { projectChanged: true, systemStringsChanged: true });
+    const validationChange = this.revalidate(baseChange, { notify: false });
+    const nextChange = validationChange ? mergeChanges(baseChange, validationChange) : baseChange;
+    nextChange.projectChanged = true;
+    nextChange.systemStringsChanged = true;
+    nextChange.validationChanged = validationChange?.validationChanged ?? false;
+    this.notify(nextChange);
   }
 
   setFaction(faction: Project['faction']): void {
@@ -1026,12 +1238,26 @@ class StateManager {
     this.finishProjectMutation();
   }
 
-  updateConversation(id: number, updates: Partial<Conversation>): void {
+  updateConversation(id: number, updates: Partial<Conversation>, options: MutationOptions = {}): void {
     const conv = this.state.project.conversations.find(c => c.id === id);
     if (!conv) return;
+    if (!hasOwnUpdates(conv, updates)) return;
+
+    const apply = () => {
+      Object.assign(conv, updates);
+    };
+
+    if (options.textSessionKey) {
+      this.applyTextMutation(options.textSessionKey, options.change ?? FULL_APP_RENDER, apply);
+      return;
+    }
+
     this.pushUndo();
-    Object.assign(conv, updates);
-    this.finishProjectMutation();
+    apply();
+    this.finishProjectMutation({
+      revalidate: options.revalidate ?? true,
+      change: options.change ?? FULL_APP_RENDER,
+    });
   }
 
   autoLayoutConversation(conversationId: number): void {
@@ -1202,21 +1428,35 @@ class StateManager {
     this.finishProjectMutation();
   }
 
-  updateTurn(conversationId: number, turnNumber: number, updates: Partial<Turn>): void {
+  updateTurn(conversationId: number, turnNumber: number, updates: Partial<Turn>, options: MutationOptions = {}): void {
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
     const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
     if (!turn) return;
-    this.pushUndo();
-    const previousChannel = normalizeChannelValue(turn.channel, 'pda');
-    Object.assign(turn, updates);
-    normalizeTurnEntryFlags(turn);
-    const normalizedTurnChannel = normalizeChannelValue(turn.channel, 'pda');
-    if (normalizedTurnChannel !== previousChannel || updates.channel != null) {
-      for (const choice of turn.choices) {
-        choice.channel = normalizedTurnChannel;
+    if (!hasOwnUpdates(turn, updates)) return;
+
+    const apply = () => {
+      const previousChannel = normalizeChannelValue(turn.channel, 'pda');
+      Object.assign(turn, updates);
+      normalizeTurnEntryFlags(turn);
+      const normalizedTurnChannel = normalizeChannelValue(turn.channel, 'pda');
+      if (normalizedTurnChannel !== previousChannel || updates.channel != null) {
+        for (const choice of turn.choices) {
+          choice.channel = normalizedTurnChannel;
+        }
       }
+    };
+
+    if (options.textSessionKey) {
+      this.applyTextMutation(options.textSessionKey, options.change ?? FULL_APP_RENDER, apply);
+      return;
     }
-    this.finishProjectMutation();
+
+    this.pushUndo();
+    apply();
+    this.finishProjectMutation({
+      revalidate: options.revalidate ?? true,
+      change: options.change ?? FULL_APP_RENDER,
+    });
   }
 
   updateTurnPosition(conversationId: number, turnNumber: number, position: { x: number; y: number }): void {
@@ -1369,30 +1609,50 @@ class StateManager {
     this.finishProjectMutation();
   }
 
-  updateChoice(conversationId: number, turnNumber: number, choiceIndex: number, updates: Partial<Choice>): void {
+  updateChoice(
+    conversationId: number,
+    turnNumber: number,
+    choiceIndex: number,
+    updates: Partial<Choice>,
+    options: MutationOptions = {},
+  ): void {
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
     const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
     const choice = turn?.choices.find(c => c.index === choiceIndex);
     if (!choice || !turn) return;
-    this.pushUndo();
-    Object.assign(choice, updates);
-    choice.pdaDelaySeconds = normalizeOptionalNonNegativeInteger(choice.pdaDelaySeconds);
-    if (choice.continueTo == null) {
-      choice.terminal = true;
-      delete choice.continueChannel;
-      delete choice.continue_channel;
-    } else {
-      choice.terminal = false;
-      const normalizedTurnChannel = normalizeChannelValue(turn.channel, 'pda');
-      const normalizedContinuationChannel = normalizeChannelValue(
-        choice.continueChannel ?? choice.continue_channel,
-        normalizedTurnChannel,
-      );
-      choice.continueChannel = normalizedContinuationChannel;
-      choice.continue_channel = normalizedContinuationChannel;
+    if (!hasOwnUpdates(choice, updates)) return;
+
+    const apply = () => {
+      Object.assign(choice, updates);
+      choice.pdaDelaySeconds = normalizeOptionalNonNegativeInteger(choice.pdaDelaySeconds);
+      if (choice.continueTo == null) {
+        choice.terminal = true;
+        delete choice.continueChannel;
+        delete choice.continue_channel;
+      } else {
+        choice.terminal = false;
+        const normalizedTurnChannel = normalizeChannelValue(turn.channel, 'pda');
+        const normalizedContinuationChannel = normalizeChannelValue(
+          choice.continueChannel ?? choice.continue_channel,
+          normalizedTurnChannel,
+        );
+        choice.continueChannel = normalizedContinuationChannel;
+        choice.continue_channel = normalizedContinuationChannel;
+      }
+      choice.channel = normalizeChannelValue(turn.channel, 'pda');
+    };
+
+    if (options.textSessionKey) {
+      this.applyTextMutation(options.textSessionKey, options.change ?? FULL_APP_RENDER, apply);
+      return;
     }
-    choice.channel = normalizeChannelValue(turn.channel, 'pda');
-    this.finishProjectMutation();
+
+    this.pushUndo();
+    apply();
+    this.finishProjectMutation({
+      revalidate: options.revalidate ?? true,
+      change: options.change ?? FULL_APP_RENDER,
+    });
   }
 
   setChoiceContinuationChannel(conversationId: number, turnNumber: number, choiceIndex: number, nextChannel: 'pda' | 'f2f'): void {

@@ -11,6 +11,7 @@ import { createFlowCursorSystem, type FlowCursorSystem } from './FlowCursor';
 import type { Choice, Conversation, ConversationChannel, Turn } from '../lib/types';
 import { getConversationFaction } from '../lib/types';
 import type { FlowDensity } from '../lib/state';
+import { measurePerf, recordPerf } from '../lib/perf';
 
 type TurnPositionMap = Map<number, { x: number; y: number }>;
 type EdgeKind = 'continue' | 'pause-success' | 'pause-fail';
@@ -49,6 +50,8 @@ type ConnectionPreview = {
   invalidTarget: boolean;
 };
 
+type FlowGraphSize = 'normal' | 'large' | 'huge';
+
 declare global {
   interface Window {
     PANDA_FEATURE_FLAGS?: {
@@ -75,6 +78,10 @@ const CONNECTION_DROP_RADIUS = 42;
 const CONNECTION_SNAP_RADIUS = 18;
 const EDGE_MIN_CLEARANCE = 24;
 const DEPTH_OF_FIELD_ZOOM_THRESHOLD = 0.62;
+const LARGE_GRAPH_TURN_THRESHOLD = 60;
+const LARGE_GRAPH_EDGE_THRESHOLD = 90;
+const HUGE_GRAPH_TURN_THRESHOLD = 120;
+const HUGE_GRAPH_EDGE_THRESHOLD = 180;
 const DEFAULT_VIEW_STATE: ViewState = {
   panX: 40,
   panY: 40,
@@ -113,8 +120,6 @@ export function updateFlowSelection(): boolean {
   // If structure changed, we need a full rebuild
   if (state.projectRevision !== liveFlow.projectRevision) return false;
 
-  const prevSelected = liveFlow.selectedTurnNumber;
-  const prevChoiceIndex = liveFlow.selectedChoiceIndex;
   const nextSelected = state.selectedTurnNumber;
   const nextChoiceIndex = state.selectedChoiceIndex;
 
@@ -136,11 +141,16 @@ export function updateFlowSelection(): boolean {
   }
 
   // Update edge highlights
+  const activeTurnNumbers = new Set<number>();
   for (const edge of liveFlow.edges) {
     const newHighlight = getEdgeHighlightState(
       edge.sourceTurnNumber, edge.sourceChoiceIndex, edge.targetTurnNumber,
       nextSelected, nextChoiceIndex,
     );
+    if (newHighlight === 'active') {
+      activeTurnNumbers.add(edge.sourceTurnNumber);
+      activeTurnNumbers.add(edge.targetTurnNumber);
+    }
     const key = edgeKey(edge);
     const group = liveFlow.edgeElements.get(key);
     if (group) {
@@ -150,6 +160,11 @@ export function updateFlowSelection(): boolean {
       if (path) {
         path.classList.toggle('is-active', newHighlight === 'active');
         path.classList.toggle('is-muted', newHighlight === 'muted');
+      }
+      const packet = group.querySelector('.flow-edge-packet');
+      if (packet) {
+        packet.classList.toggle('is-active', newHighlight === 'active');
+        packet.classList.toggle('is-muted', newHighlight === 'muted');
       }
       const label = group.querySelector('.flow-edge-label');
       if (label) {
@@ -162,10 +177,7 @@ export function updateFlowSelection(): boolean {
 
   // Update path-active on turn nodes
   for (const [turnNumber, node] of liveFlow.nodeElements) {
-    const isPathActive = liveFlow.edges.some(
-      edge => edge.highlight === 'active' && (edge.sourceTurnNumber === turnNumber || edge.targetTurnNumber === turnNumber),
-    );
-    node.classList.toggle('path-active', isPathActive);
+    node.classList.toggle('path-active', activeTurnNumbers.has(turnNumber));
   }
 
   return true;
@@ -242,6 +254,16 @@ function memoKey(convId: number, projectRevision: number, density: FlowDensity):
   return `${convId}:${projectRevision}:${density}`;
 }
 
+function getFlowGraphSize(turnCount: number, edgeCount: number): FlowGraphSize {
+  if (turnCount >= HUGE_GRAPH_TURN_THRESHOLD || edgeCount >= HUGE_GRAPH_EDGE_THRESHOLD) {
+    return 'huge';
+  }
+  if (turnCount >= LARGE_GRAPH_TURN_THRESHOLD || edgeCount >= LARGE_GRAPH_EDGE_THRESHOLD) {
+    return 'large';
+  }
+  return 'normal';
+}
+
 export function renderFlowEditor(container: HTMLElement): void {
   flowCursorSystem?.destroy();
   flowCursorSystem = null;
@@ -261,6 +283,8 @@ export function renderFlowEditor(container: HTMLElement): void {
     }));
     return;
   }
+
+  const renderStart = performance.now();
 
   const conversationId = conv.id;
   const mk = memoKey(conversationId, state.projectRevision, density);
@@ -287,10 +311,14 @@ export function renderFlowEditor(container: HTMLElement): void {
     edges = buildEdgeDescriptors(conv, state.selectedTurnNumber, state.selectedChoiceIndex, factionColor);
     memoEdges = { key: mk, edges };
   }
+  const graphSize = getFlowGraphSize(conv.turns.length, edges.length);
   const nodeElements = new Map<number, HTMLElement>();
 
   const shell = document.createElement('div');
-  shell.className = `flow-shell density-${density}`;
+  const shellClasses = ['flow-shell', `density-${density}`];
+  if (graphSize !== 'normal') shellClasses.push('is-large-graph');
+  if (graphSize === 'huge') shellClasses.push('is-huge-graph');
+  shell.className = shellClasses.join(' ');
 
   const canvas = document.createElement('div');
   canvas.className = 'flow-canvas';
@@ -377,14 +405,20 @@ export function renderFlowEditor(container: HTMLElement): void {
   const runDraw = (): void => {
     drawFrame = 0;
     updateConnectionTargetHighlights();
-    drawEdges({
-      svg,
-      conv,
-      edges,
-      nodeElements,
-      positionOverrides: pendingPositionOverrides,
-      turnLabels,
-      factionColor,
+    measurePerf('flow.edgeDraw', () => {
+      drawEdges({
+        svg,
+        conv,
+        edges,
+        nodeElements,
+        positionOverrides: pendingPositionOverrides,
+        turnLabels,
+        factionColor,
+      });
+    }, {
+      turnCount: conv.turns.length,
+      edgeCount: edges.length,
+      graphSize,
     });
     drawConnectionPreview({
       svg: previewSvg,
@@ -765,6 +799,13 @@ export function renderFlowEditor(container: HTMLElement): void {
       return;
     }
     applyView();
+  });
+
+  recordPerf('flow.render', performance.now() - renderStart, {
+    turnCount: conv.turns.length,
+    edgeCount: edges.length,
+    graphSize,
+    density,
   });
 }
 

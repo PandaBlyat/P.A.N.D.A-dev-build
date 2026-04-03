@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Properties Panel (Right Panel)
 
-import { store } from '../lib/state';
+import { createStateChange, store } from '../lib/state';
 import type { PropertiesTab } from '../lib/state';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import type { Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, SimplePrecondition, Outcome, FactionId } from '../lib/types';
@@ -58,6 +58,10 @@ let activeCommandPickerTrigger: HTMLElement | null = null;
 let activeOptionPickerCleanup: (() => void) | null = null;
 let activeOptionPickerTrigger: HTMLElement | null = null;
 let collapsibleSectionId = 0;
+
+const CONVERSATION_TEXT_RENDER = createStateChange('conversationList', 'propertiesPanel');
+const PROPERTIES_TEXT_RENDER = createStateChange('propertiesPanel');
+const SELECTION_TEXT_RENDER = createStateChange('flowEditor', 'propertiesPanel');
 
 function createCollapsibleSection(
   key: string,
@@ -156,15 +160,22 @@ function debounced(key: string, fn: () => void, delay = 300): void {
   }, delay));
 }
 
+function flushDebounced(key: string): void {
+  const timer = debounceTimers.get(key);
+  if (timer != null) {
+    clearTimeout(timer);
+  }
+  debounceTimers.delete(key);
+  const fn = debounceFns.get(key);
+  debounceFns.delete(key);
+  if (fn) fn();
+}
+
 /** Immediately execute all pending debounced callbacks (used when Enter is pressed). */
 export function flushAllDebounced(): void {
-  for (const [key, timer] of debounceTimers) {
-    clearTimeout(timer);
-    const fn = debounceFns.get(key);
-    if (fn) fn();
+  for (const key of [...debounceTimers.keys()]) {
+    flushDebounced(key);
   }
-  debounceTimers.clear();
-  debounceFns.clear();
 }
 
 export function renderPropertiesPanel(container: HTMLElement): void {
@@ -252,9 +263,15 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   container.appendChild(sectionTitle);
 
   // Label
+  const conversationLabelFieldKey = getConversationFieldKey(conv.id, 'label');
   const labelField = createField('Label', 'text', conv.label, (val) => {
-    store.updateConversation(conv.id, { label: val });
-  }, 'A short name for this story (only used in the editor)', getConversationFieldKey(conv.id, 'label'));
+    store.updateConversation(conv.id, { label: val }, {
+      change: CONVERSATION_TEXT_RENDER,
+      textSessionKey: conversationLabelFieldKey,
+    });
+  }, 'A short name for this story (only used in the editor)', conversationLabelFieldKey, {
+    onCommit: () => store.commitTextEdit(conversationLabelFieldKey),
+  });
   container.appendChild(labelField);
 
   // Start Mode — controls how this conversation is triggered
@@ -365,9 +382,15 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   }, 'Auto-close story after this many seconds (leave empty for no timeout)', getConversationFieldKey(conv.id, 'timeout'));
   timeoutBody.appendChild(timeoutField);
 
+  const timeoutMessageFieldKey = getConversationFieldKey(conv.id, 'timeout-message');
   const timeoutMsgField = createField('Timeout Message', 'textarea', conv.timeoutMessage || '', (val) => {
-    store.updateConversation(conv.id, { timeoutMessage: val || undefined });
-  }, 'Message shown when the story times out', getConversationFieldKey(conv.id, 'timeout-message'));
+    store.updateConversation(conv.id, { timeoutMessage: val || undefined }, {
+      change: PROPERTIES_TEXT_RENDER,
+      textSessionKey: timeoutMessageFieldKey,
+    });
+  }, 'Message shown when the story times out', timeoutMessageFieldKey, {
+    onCommit: () => store.commitTextEdit(timeoutMessageFieldKey),
+  });
   timeoutBody.appendChild(timeoutMsgField);
   container.appendChild(timeoutWrapper);
 }
@@ -633,9 +656,15 @@ function renderTurnProperties(
   const hasOpeningText = (turn.openingMessage ?? '').trim().length > 0;
 
   if (isSegmentStartTurn) {
+    const openingMessageFieldKey = getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message');
     const msgField = createField('Opening Message', 'textarea', turn.openingMessage || '', (val) => {
-      store.updateTurn(conv.id, turn.turnNumber, { openingMessage: val });
-    }, 'Opening text for this segment start turn. Re-enter opener text only when the flow starts a new channel segment.', getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'));
+      store.updateTurn(conv.id, turn.turnNumber, { openingMessage: val }, {
+        change: SELECTION_TEXT_RENDER,
+        textSessionKey: openingMessageFieldKey,
+      });
+    }, 'Opening text for this segment start turn. Re-enter opener text only when the flow starts a new channel segment.', openingMessageFieldKey, {
+      onCommit: () => store.commitTextEdit(openingMessageFieldKey),
+    });
     container.appendChild(msgField);
   } else {
     const openerHintField = document.createElement('div');
@@ -922,15 +951,27 @@ function renderChoiceProperties(
   container.appendChild(title);
 
   // Choice text
+  const choiceTextFieldKey = getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'text');
   const textField = createField('Player Choice Text', 'textarea', choice.text, (val) => {
-    store.updateChoice(conv.id, turn.turnNumber, choice.index, { text: val });
-  }, 'What the player says when choosing this option', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'text'));
+    store.updateChoice(conv.id, turn.turnNumber, choice.index, { text: val }, {
+      change: SELECTION_TEXT_RENDER,
+      textSessionKey: choiceTextFieldKey,
+    });
+  }, 'What the player says when choosing this option', choiceTextFieldKey, {
+    onCommit: () => store.commitTextEdit(choiceTextFieldKey),
+  });
   container.appendChild(textField);
 
   // NPC Reply
+  const choiceReplyFieldKey = getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply');
   const replyField = createField('NPC Reply', 'textarea', choice.reply, (val) => {
-    store.updateChoice(conv.id, turn.turnNumber, choice.index, { reply: val });
-  }, 'The NPC\'s response to this choice', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply'));
+    store.updateChoice(conv.id, turn.turnNumber, choice.index, { reply: val }, {
+      change: SELECTION_TEXT_RENDER,
+      textSessionKey: choiceReplyFieldKey,
+    });
+  }, 'The NPC\'s response to this choice', choiceReplyFieldKey, {
+    onCommit: () => store.commitTextEdit(choiceReplyFieldKey),
+  });
   container.appendChild(replyField);
 
   renderPlaceholderPicker(container, `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-dynamic-placeholders`);
@@ -942,14 +983,26 @@ function renderChoiceProperties(
     { defaultCollapsed: true },
   );
 
+  const replyRelHighFieldKey = getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-rel-high');
   const relHighField = createField('Reply (High Relationship, \u2265300)', 'textarea', choice.replyRelHigh || '', (val) => {
-    store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyRelHigh: val || undefined });
-  }, 'Alternative reply when relationship score is 300 or higher (optional)', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-rel-high'));
+    store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyRelHigh: val || undefined }, {
+      change: PROPERTIES_TEXT_RENDER,
+      textSessionKey: replyRelHighFieldKey,
+    });
+  }, 'Alternative reply when relationship score is 300 or higher (optional)', replyRelHighFieldKey, {
+    onCommit: () => store.commitTextEdit(replyRelHighFieldKey),
+  });
   replyVariantsBody.appendChild(relHighField);
 
+  const replyRelLowFieldKey = getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-rel-low');
   const relLowField = createField('Reply (Low Relationship, \u2264-300)', 'textarea', choice.replyRelLow || '', (val) => {
-    store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyRelLow: val || undefined });
-  }, 'Alternative reply when relationship score is -300 or lower (optional)', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-rel-low'));
+    store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyRelLow: val || undefined }, {
+      change: PROPERTIES_TEXT_RENDER,
+      textSessionKey: replyRelLowFieldKey,
+    });
+  }, 'Alternative reply when relationship score is -300 or lower (optional)', replyRelLowFieldKey, {
+    onCommit: () => store.commitTextEdit(replyRelLowFieldKey),
+  });
   replyVariantsBody.appendChild(relLowField);
   container.appendChild(replyVariantsWrapper);
 
@@ -3481,10 +3534,26 @@ function createPlaceholderSmartTerrainEditor(container: HTMLElement, triggerButt
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
-function createField(labelText: string, type: string, value: string, onChange: (val: string) => void, hint?: string, fieldKey?: string): HTMLElement {
+type FieldOptions = {
+  onCommit?: (value: string) => void;
+};
+
+function createField(
+  labelText: string,
+  type: string,
+  value: string,
+  onChange: (val: string) => void,
+  hint?: string,
+  fieldKey?: string,
+  options: FieldOptions = {},
+): HTMLElement {
   const field = document.createElement('div');
   field.className = 'field';
   const resolvedFieldKey = fieldKey || 'field-' + labelText.replace(/\s+/g, '-').toLowerCase();
+  const commitField = (nextValue: string): void => {
+    flushDebounced(resolvedFieldKey);
+    options.onCommit?.(nextValue);
+  };
 
   const label = document.createElement('label');
   label.textContent = labelText;
@@ -3504,6 +3573,7 @@ function createField(labelText: string, type: string, value: string, onChange: (
     textarea.oninput = () => {
       debounced(resolvedFieldKey, () => onChange(textarea.value));
     };
+    textarea.onblur = () => commitField(textarea.value);
     // Drag-drop support for placeholders
     textarea.addEventListener('dragover', (e) => {
       if (e.dataTransfer?.types.includes('application/x-panda-placeholder')) {
@@ -3545,6 +3615,7 @@ function createField(labelText: string, type: string, value: string, onChange: (
     input.oninput = () => {
       debounced(resolvedFieldKey, () => onChange(input.value));
     };
+    input.onblur = () => commitField(input.value);
     field.appendChild(input);
   }
 

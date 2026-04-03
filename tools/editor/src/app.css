@@ -2493,6 +2493,82 @@ body.use-custom-cursor * {
   opacity: 0.22;
 }
 
+.flow-shell.is-large-graph .flow-canvas.is-depth-blur::before {
+  filter: none;
+  transition: none;
+}
+
+.flow-shell.is-large-graph .flow-edge-path:not(.edge-preview) {
+  animation: none;
+  stroke-dashoffset: 0;
+}
+
+.flow-shell.is-large-graph .flow-edge-path:not(.edge-preview).is-active,
+.flow-shell.is-large-graph .flow-edge-path:not(.edge-preview):hover,
+.flow-shell.is-large-graph .flow-edge-label:hover {
+  filter: none;
+}
+
+.flow-shell.is-large-graph .flow-edge-packet:not(.flow-edge-preview-packet) {
+  animation: none;
+  filter: none;
+}
+
+.flow-shell.is-large-graph .turn-node,
+.flow-shell.is-large-graph .turn-node:hover,
+.flow-shell.is-large-graph .turn-node.selected,
+.flow-shell.is-large-graph .turn-node.connection-target-active,
+.flow-shell.is-large-graph .turn-node.is-dragging-node {
+  transform: none;
+}
+
+.flow-shell.is-large-graph .turn-node::before {
+  box-shadow: none;
+}
+
+.flow-shell.is-large-graph .turn-label {
+  text-shadow: none;
+}
+
+.flow-shell.is-large-graph .turn-node:hover {
+  border-color: color-mix(in srgb, var(--branch-color) 48%, transparent);
+  box-shadow: var(--shadow-md);
+}
+
+.flow-shell.is-large-graph .turn-node.selected {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--branch-color) 24%, transparent), var(--shadow-md);
+}
+
+.flow-shell.is-large-graph .turn-node.connection-target-active {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--branch-color) 26%, transparent), var(--shadow-md);
+}
+
+.flow-shell.is-large-graph .turn-node.is-dragging-node {
+  box-shadow: 0 12px 22px rgba(0,0,0,0.36), var(--shadow-md);
+}
+
+.flow-shell.is-huge-graph .flow-edge-packet:not(.flow-edge-preview-packet) {
+  opacity: 0;
+}
+
+.flow-shell.is-huge-graph .flow-edge.is-active .flow-edge-packet:not(.flow-edge-preview-packet) {
+  opacity: 0.72;
+}
+
+.flow-shell.is-huge-graph .flow-edge-label {
+  opacity: 0.14;
+  stroke-width: 1.5px;
+}
+
+.flow-shell.is-huge-graph .flow-edge-label.is-active {
+  opacity: 1;
+  stroke-width: 2.4px;
+}
+
+.flow-shell.is-huge-graph .flow-edge-label.is-muted {
+  opacity: 0.08;
+}
+
 /* ─── Properties Panel ─────────────────────────────────── */
 
 .precond-list, .outcome-list {
