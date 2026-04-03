@@ -1908,6 +1908,10 @@ body.use-custom-cursor * {
   z-index: 1;
 }
 
+.flow-shell.is-interacting .flow-content {
+  will-change: transform;
+}
+
 .flow-content.animated-view {
   transition: transform 0.18s ease;
 }
@@ -2491,6 +2495,49 @@ body.use-custom-cursor * {
 
 .flow-edge-label.is-muted {
   opacity: 0.22;
+}
+
+.flow-shell.is-interacting .flow-canvas.is-depth-blur::before {
+  filter: none;
+  transition: none;
+}
+
+.flow-shell.is-interacting .flow-edge-path:not(.edge-preview) {
+  animation: none !important;
+  stroke-dashoffset: 0;
+  filter: none;
+}
+
+.flow-shell.is-interacting .flow-edge-packet:not(.flow-edge-preview-packet) {
+  animation: none !important;
+  filter: none;
+}
+
+.flow-shell.is-interacting .turn-node,
+.flow-shell.is-interacting .turn-choice-item {
+  transition: none;
+}
+
+.flow-shell.is-interacting .turn-node:hover,
+.flow-shell.is-interacting .turn-node.selected,
+.flow-shell.is-interacting .turn-node.connection-target-active,
+.flow-shell.is-interacting .turn-node.is-dragging-node {
+  transform: none;
+}
+
+.flow-shell.is-interacting .turn-node:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.flow-shell.is-interacting .turn-node.selected,
+.flow-shell.is-interacting .turn-node.connection-target-active {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--branch-color, var(--accent)) 24%, transparent), var(--shadow-md);
+}
+
+.flow-shell.is-interacting .turn-node::before,
+.flow-shell.is-interacting .turn-label {
+  box-shadow: none;
+  text-shadow: none;
 }
 
 .flow-shell.is-large-graph .flow-canvas.is-depth-blur::before {

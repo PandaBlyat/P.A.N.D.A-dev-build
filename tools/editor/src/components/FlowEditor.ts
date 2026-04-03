@@ -78,10 +78,10 @@ const CONNECTION_DROP_RADIUS = 42;
 const CONNECTION_SNAP_RADIUS = 18;
 const EDGE_MIN_CLEARANCE = 24;
 const DEPTH_OF_FIELD_ZOOM_THRESHOLD = 0.62;
-const LARGE_GRAPH_TURN_THRESHOLD = 60;
-const LARGE_GRAPH_EDGE_THRESHOLD = 90;
-const HUGE_GRAPH_TURN_THRESHOLD = 120;
-const HUGE_GRAPH_EDGE_THRESHOLD = 180;
+const LARGE_GRAPH_TURN_THRESHOLD = 10;
+const LARGE_GRAPH_EDGE_THRESHOLD = 14;
+const HUGE_GRAPH_TURN_THRESHOLD = 20;
+const HUGE_GRAPH_EDGE_THRESHOLD = 28;
 const DEFAULT_VIEW_STATE: ViewState = {
   panX: 40,
   panY: 40,
@@ -313,6 +313,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   }
   const graphSize = getFlowGraphSize(conv.turns.length, edges.length);
   const nodeElements = new Map<number, HTMLElement>();
+  const edgeElements = new Map<string, SVGGElement>();
 
   const shell = document.createElement('div');
   const shellClasses = ['flow-shell', `density-${density}`];
@@ -345,6 +346,26 @@ export function renderFlowEditor(container: HTMLElement): void {
 
   let viewAdjusted = false;
   let connectionPreview: ConnectionPreview | null = null;
+  let interactionReleaseTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const setInteractionActive = (active: boolean, releaseDelayMs = 0): void => {
+    if (interactionReleaseTimer) {
+      clearTimeout(interactionReleaseTimer);
+      interactionReleaseTimer = null;
+    }
+    if (active) {
+      shell.classList.add('is-interacting');
+      return;
+    }
+    if (releaseDelayMs > 0) {
+      interactionReleaseTimer = window.setTimeout(() => {
+        interactionReleaseTimer = null;
+        shell.classList.remove('is-interacting');
+      }, releaseDelayMs);
+      return;
+    }
+    shell.classList.remove('is-interacting');
+  };
 
   const updateConnectionTargetHighlights = (): void => {
     for (const [turnNumber, node] of nodeElements) {
@@ -375,7 +396,7 @@ export function renderFlowEditor(container: HTMLElement): void {
       density,
       viewState,
       turnLabels,
-      onPreviewPosition: (previewPositions) => draw(previewPositions),
+      onPreviewPosition: (previewPositions, affectedTurnNumbers) => draw(previewPositions, affectedTurnNumbers),
       onChoicePortDragStart: (choiceIndex, event) => {
         store.batch(() => {
           store.selectTurn(turn.turnNumber);
@@ -391,7 +412,10 @@ export function renderFlowEditor(container: HTMLElement): void {
       },
       onFocusTurn: (turnNumber) => focusTurn(turnNumber, { center: true }),
       onKeyboardShortcut: (turnNumber, key) => handleTurnShortcut(turnNumber, key),
-      onDragStateChange: (active) => dispatchCursorState(canvas, 'dragging', active),
+      onDragStateChange: (active) => {
+        dispatchCursorState(canvas, 'dragging', active);
+        setInteractionActive(active);
+      },
     });
     nodeElements.set(turn.turnNumber, node);
     content.appendChild(node);
@@ -401,25 +425,31 @@ export function renderFlowEditor(container: HTMLElement): void {
 
   let drawFrame = 0;
   let pendingPositionOverrides: TurnPositionMap | undefined;
+  let pendingAffectedTurnNumbers: ReadonlySet<number> | undefined;
+  let pendingEdgeRedraw = true;
 
   const runDraw = (): void => {
     drawFrame = 0;
     updateConnectionTargetHighlights();
-    measurePerf('flow.edgeDraw', () => {
-      drawEdges({
-        svg,
-        conv,
-        edges,
-        nodeElements,
-        positionOverrides: pendingPositionOverrides,
-        turnLabels,
-        factionColor,
+    if (pendingEdgeRedraw) {
+      measurePerf('flow.edgeDraw', () => {
+        drawEdges({
+          svg,
+          conv,
+          edges,
+          nodeElements,
+          edgeElements,
+          positionOverrides: pendingPositionOverrides,
+          turnLabels,
+          factionColor,
+          onlyTurnNumbers: pendingAffectedTurnNumbers,
+        });
+      }, {
+        turnCount: conv.turns.length,
+        edgeCount: edges.length,
+        graphSize,
       });
-    }, {
-      turnCount: conv.turns.length,
-      edgeCount: edges.length,
-      graphSize,
-    });
+    }
     drawConnectionPreview({
       svg: previewSvg,
       conv,
@@ -428,10 +458,18 @@ export function renderFlowEditor(container: HTMLElement): void {
       preview: connectionPreview,
       factionColor,
     });
+    pendingAffectedTurnNumbers = undefined;
+    pendingEdgeRedraw = true;
   };
 
-  const draw = (positionOverrides?: TurnPositionMap): void => {
+  const draw = (
+    positionOverrides?: TurnPositionMap,
+    affectedTurnNumbers?: ReadonlySet<number>,
+    redrawEdges = true,
+  ): void => {
     pendingPositionOverrides = positionOverrides;
+    pendingAffectedTurnNumbers = affectedTurnNumbers;
+    pendingEdgeRedraw = redrawEdges;
     if (drawFrame !== 0) return;
     drawFrame = window.requestAnimationFrame(runDraw);
   };
@@ -539,6 +577,11 @@ export function renderFlowEditor(container: HTMLElement): void {
     }
   };
 
+  let lastAppliedPanX: number | null = null;
+  let lastAppliedPanY: number | null = null;
+  let lastAppliedZoom: number | null = null;
+  let lastDepthBlur: boolean | null = null;
+
   const applyView = (): void => {
     // Snap pan to physical device pixels to prevent subpixel blurriness.
     // Keep zoom separate from translate so Chromium can rasterize branch text
@@ -546,10 +589,21 @@ export function renderFlowEditor(container: HTMLElement): void {
     const dpr = window.devicePixelRatio || 1;
     const snapX = Math.round(viewState.panX * dpr) / dpr;
     const snapY = Math.round(viewState.panY * dpr) / dpr;
-    content.style.transform = `translate(${snapX}px, ${snapY}px)`;
-    content.style.zoom = String(viewState.zoom);
-    canvas.classList.toggle('is-depth-blur', viewState.zoom <= DEPTH_OF_FIELD_ZOOM_THRESHOLD);
-    zoomValue.textContent = `${Math.round(viewState.zoom * 100)}%`;
+    const depthBlur = viewState.zoom <= DEPTH_OF_FIELD_ZOOM_THRESHOLD;
+    if (lastAppliedPanX !== snapX || lastAppliedPanY !== snapY) {
+      content.style.transform = `translate3d(${snapX}px, ${snapY}px, 0)`;
+      lastAppliedPanX = snapX;
+      lastAppliedPanY = snapY;
+    }
+    if (lastAppliedZoom !== viewState.zoom) {
+      content.style.zoom = String(viewState.zoom);
+      zoomValue.textContent = `${Math.round(viewState.zoom * 100)}%`;
+      lastAppliedZoom = viewState.zoom;
+    }
+    if (lastDepthBlur !== depthBlur) {
+      canvas.classList.toggle('is-depth-blur', depthBlur);
+      lastDepthBlur = depthBlur;
+    }
     viewStateByConversation.set(conversationId, { ...viewState });
   };
 
@@ -689,7 +743,7 @@ export function renderFlowEditor(container: HTMLElement): void {
         hoveredTargetPortTurnNumber: hovered.hoveredPortTurnNumber,
         invalidTarget: hovered.invalidTarget,
       };
-      draw();
+      draw(undefined, undefined, false);
     };
 
     const finishConnectionDrag = (targetTurnNumber: number | null = null): void => {
@@ -702,6 +756,7 @@ export function renderFlowEditor(container: HTMLElement): void {
       }
       sourceNode?.classList.remove('connection-source');
       dispatchCursorState(canvas, 'linking', false);
+      setInteractionActive(false, 120);
 
       if (targetTurnNumber != null) {
         store.connectChoiceToTurn(conversationId, sourceTurnNumber, sourceChoiceIndex, targetTurnNumber);
@@ -710,7 +765,7 @@ export function renderFlowEditor(container: HTMLElement): void {
       }
 
       connectionPreview = null;
-      draw();
+      draw(undefined, undefined, false);
     };
 
     const onMove = (moveEvent: PointerEvent) => {
@@ -735,6 +790,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     sourcePort?.setPointerCapture(pointerId);
     sourceNode?.classList.add('connection-source');
     dispatchCursorState(canvas, 'linking', true);
+    setInteractionActive(true);
     sourcePort?.addEventListener('pointermove', onMove);
     sourcePort?.addEventListener('pointerup', onUp);
     sourcePort?.addEventListener('pointercancel', onCancel);
@@ -754,6 +810,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     viewState,
     applyView,
     onBackgroundClick: () => store.clearSelection(),
+    onInteractionStateChange: setInteractionActive,
   });
 
   flowCursorSystem = createFlowCursorSystem({
@@ -777,7 +834,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     conversationId,
     projectRevision: state.projectRevision,
     nodeElements,
-    edgeElements: new Map(),
+    edgeElements,
     edges,
     svg,
     selectedTurnNumber: state.selectedTurnNumber,
@@ -790,10 +847,6 @@ export function renderFlowEditor(container: HTMLElement): void {
 
   requestAnimationFrame(() => {
     runDraw();
-    // Populate edge element references after first draw
-    if (liveFlow?.conversationId === conversationId) {
-      indexEdgeElements(svg, liveFlow.edgeElements);
-    }
     if (!existingView && !viewAdjusted) {
       fitContent(false);
       return;
@@ -926,7 +979,7 @@ function renderTurnNode(options: {
   density: FlowDensity;
   viewState: ViewState;
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
-  onPreviewPosition: (positions?: TurnPositionMap) => void;
+  onPreviewPosition: (positions?: TurnPositionMap, affectedTurnNumbers?: ReadonlySet<number>) => void;
   onChoicePortDragStart: (choiceIndex: number, event: PointerEvent) => void;
   onCreateConnectedTurn: (choiceIndex: number) => void;
   onFocusTurn: (turnNumber: number) => void;
@@ -1094,7 +1147,7 @@ function renderTurnNode(options: {
       lastMoveAt = now;
       lastClientX = ev.clientX;
       lastClientY = ev.clientY;
-      onPreviewPosition(new Map([[turn.turnNumber, nextPosition]]));
+      onPreviewPosition(new Map([[turn.turnNumber, nextPosition]]), new Set([turn.turnNumber]));
     };
 
     const onUp = () => {
@@ -1487,11 +1540,13 @@ function drawEdges(options: {
   conv: Conversation;
   edges: EdgeDescriptor[];
   nodeElements: Map<number, HTMLElement>;
+  edgeElements: Map<string, SVGGElement>;
   positionOverrides?: TurnPositionMap;
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
   factionColor: string;
+  onlyTurnNumbers?: ReadonlySet<number>;
 }): void {
-  const { svg, conv, edges, nodeElements, positionOverrides, turnLabels, factionColor } = options;
+  const { svg, conv, edges, nodeElements, edgeElements, positionOverrides, turnLabels, factionColor, onlyTurnNumbers } = options;
   const defs = svg.querySelector('defs');
   const turnsByNumber = new Map(conv.turns.map(turn => [turn.turnNumber, turn]));
   const choiceAnchorCache = new Map<string, { x: number; y: number } | null>();
@@ -1512,19 +1567,10 @@ function drawEdges(options: {
     return anchor;
   };
 
-  // Build a set of current edge keys and update/create edge groups incrementally
-  const currentEdgeKeys = new Set<string>();
-  const existingGroups = new Map<string, SVGGElement>();
-  for (const group of svg.querySelectorAll<SVGGElement>('g.flow-edge')) {
-    const p = group.querySelector('.flow-edge-path') as SVGPathElement | null;
-    if (p?.dataset.sourceTurnNumber && p.dataset.sourceChoiceIndex && p.dataset.targetTurnNumber) {
-      const kind = p.classList.contains('edge-pause-success') ? 'pause-success'
-        : p.classList.contains('edge-pause-fail') ? 'pause-fail' : 'continue';
-      existingGroups.set(`${p.dataset.sourceTurnNumber}:${p.dataset.sourceChoiceIndex}:${p.dataset.targetTurnNumber}:${kind}`, group);
-    }
-  }
-
   for (const edge of edges) {
+    if (onlyTurnNumbers && !onlyTurnNumbers.has(edge.sourceTurnNumber) && !onlyTurnNumbers.has(edge.targetTurnNumber)) {
+      continue;
+    }
     const sourceTurn = turnsByNumber.get(edge.sourceTurnNumber);
     const targetTurn = turnsByNumber.get(edge.targetTurnNumber);
     if (!sourceTurn || !targetTurn) continue;
@@ -1534,12 +1580,11 @@ function drawEdges(options: {
     if (!sourceAnchor || !targetAnchor) continue;
 
     const key = edgeKey(edge);
-    currentEdgeKeys.add(key);
     const pathD = buildEdgePath(sourceAnchor, targetAnchor, edge.offsetIndex);
     const labelAnchor = getLabelAnchor(sourceAnchor, targetAnchor, edge.offsetIndex);
     const highlightSuffix = edge.highlight !== 'normal' ? ` is-${edge.highlight}` : '';
 
-    const existing = existingGroups.get(key);
+    const existing = edgeElements.get(key);
     if (existing) {
       // Update existing group in-place (path + label position + highlight)
       existing.setAttribute('class', `flow-edge${highlightSuffix}`);
@@ -1617,16 +1662,9 @@ function drawEdges(options: {
       group.appendChild(labelButton);
 
       svg.appendChild(group);
+      edgeElements.set(key, group);
     }
   }
-
-  // Remove stale edge groups
-  for (const [key, group] of existingGroups) {
-    if (!currentEdgeKeys.has(key)) {
-      group.remove();
-    }
-  }
-
 }
 
 function drawConnectionPreview(options: {
@@ -1955,8 +1993,9 @@ function wireCanvasInteractions(options: {
   viewState: ViewState;
   applyView: () => void;
   onBackgroundClick: () => void;
+  onInteractionStateChange: (active: boolean, releaseDelayMs?: number) => void;
 }): void {
-  const { canvas, viewState, applyView, onBackgroundClick } = options;
+  const { canvas, viewState, applyView, onBackgroundClick, onInteractionStateChange } = options;
 
   canvas.onmousedown = (event) => {
     const target = event.target as HTMLElement;
@@ -1971,6 +2010,7 @@ function wireCanvasInteractions(options: {
 
     canvas.classList.add('is-panning');
     dispatchCursorState(canvas, 'panning', true);
+    onInteractionStateChange(true);
     event.preventDefault();
 
     let panFrame = 0;
@@ -1997,6 +2037,7 @@ function wireCanvasInteractions(options: {
       applyView();
       canvas.classList.remove('is-panning');
       dispatchCursorState(canvas, 'panning', false);
+      onInteractionStateChange(false, 100);
       if (!moved) onBackgroundClick();
     };
 
@@ -2007,6 +2048,7 @@ function wireCanvasInteractions(options: {
   let wheelFrame = 0;
   canvas.onwheel = (event) => {
     event.preventDefault();
+    onInteractionStateChange(true);
     const factor = event.deltaY > 0 ? 1 / 1.1 : 1.1;
     const rect = canvas.getBoundingClientRect();
     const ox = event.clientX - rect.left;
@@ -2019,6 +2061,7 @@ function wireCanvasInteractions(options: {
         });
       }
     });
+    onInteractionStateChange(false, 120);
   };
 }
 
