@@ -291,6 +291,7 @@ const HELP_CONTENT = `
   <li><code>spawn_mutant:&lt;mutant_squad_section&gt;:&lt;distance&gt;[:delay]</code></li>
   <li><code>spawn_mutant_at_smart:&lt;mutant_squad_section&gt;:&lt;smart_key&gt;[:delay]</code></li>
 </ul>
+<p><code>spawn_custom_npc</code> always creates a roaming NPC near the player. Use <code>spawn_custom_npc_at</code> when a custom NPC needs to stay locked to a smart terrain position.</p>
 <h3>Stash &amp; location markers</h3>
 <ul>
   <li><code>reward_stash</code></li>

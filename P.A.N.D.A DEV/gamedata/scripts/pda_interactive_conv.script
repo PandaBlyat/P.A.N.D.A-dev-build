@@ -1759,6 +1759,9 @@ local function printf(fmt, ...)
 end
 
 local DIALOG_NPC_ANIMATION_EVENT_GROUP = "panda_ic_npc_anim"
+local DIALOG_NPC_ANIMATION_HOLD_EVENT_GROUP = "panda_ic_npc_anim_hold"
+local DIALOG_NPC_ANIMATION_HOLD_INTERVAL = 0.15
+local DIALOG_NPC_ANIMATION_DRIFT_THRESHOLD = 0.35
 local DIALOG_NPC_ANIMATION_PRESETS = {
     smoke_stand = { state = "smoking_stand", default_duration = 18, terrain_sensitive = false },
     smoke_sit = { state = "smoking_sit", default_duration = 18, terrain_sensitive = false },
@@ -1827,8 +1830,167 @@ local function resolve_dialog_npc_state_mgr(npc)
     return storage and storage.state_mgr or nil
 end
 
+local function get_dialog_npc_runtime_position(obj)
+    if not obj then
+        return nil
+    end
+
+    local ok, pos = pcall(function()
+        if type(obj.position) == "function" then
+            return obj:position()
+        end
+        return obj.position
+    end)
+
+    return ok and pos or nil
+end
+
+local function dialog_vector_to_table(vec)
+    if not vec then
+        return nil
+    end
+
+    return {
+        x = vec.x or 0,
+        y = vec.y or 0,
+        z = vec.z or 0,
+    }
+end
+
+local function dialog_table_to_vector(tbl)
+    if not tbl then
+        return nil
+    end
+
+    return vector():set(tbl.x or 0, tbl.y or 0, tbl.z or 0)
+end
+
+local function pump_dialog_npc_state_mgr(mgr, passes)
+    if not mgr or not mgr.update then
+        return
+    end
+
+    for _ = 1, tonumber(passes) or 3 do
+        pcall(function()
+            mgr:update()
+        end)
+    end
+end
+
+local function resolve_dialog_npc_state_descriptor(state_name)
+    local states = state_lib and state_lib.states or nil
+    if not states then
+        return nil
+    end
+
+    local descriptor = states[tostring(state_name or "")]
+    return type(descriptor) == "table" and descriptor or nil
+end
+
+local function prime_dialog_npc_pose(npc, mgr, state_name)
+    local descriptor = resolve_dialog_npc_state_descriptor(state_name)
+    if not npc or not descriptor then
+        return false
+    end
+
+    if descriptor.movement ~= nil and npc.set_movement_type then
+        pcall(function()
+            npc:set_movement_type(descriptor.movement)
+        end)
+    end
+
+    if descriptor.mental ~= nil and npc.set_mental_state then
+        pcall(function()
+            npc:set_mental_state(descriptor.mental)
+        end)
+    end
+
+    if descriptor.bodystate ~= nil and npc.set_body_state then
+        pcall(function()
+            npc:set_body_state(descriptor.bodystate)
+        end)
+    end
+
+    if mgr then
+        pcall(function()
+            if mgr.animstate and mgr.animstate.set_state then
+                mgr.animstate:set_state(descriptor.animstate, true)
+            end
+            if mgr.animstate and mgr.animstate.set_control then
+                mgr.animstate:set_control()
+            end
+            if mgr.animation and mgr.animation.set_state then
+                mgr.animation:set_state(descriptor.animation, true)
+            end
+            if mgr.animation and mgr.animation.set_control then
+                mgr.animation:set_control()
+            end
+        end)
+    end
+
+    return true
+end
+
 local function clear_dialog_npc_animation_timer(npc_id)
     safe_remove_time_event(DIALOG_NPC_ANIMATION_EVENT_GROUP, tostring(npc_id))
+end
+
+local function clear_dialog_npc_animation_hold_timer(npc_id)
+    safe_remove_time_event(DIALOG_NPC_ANIMATION_HOLD_EVENT_GROUP, tostring(npc_id))
+end
+
+local function lock_dialog_npc_position(npc, hold_pos, allow_teleport)
+    local desired_pos = dialog_table_to_vector(hold_pos)
+    if not npc or not desired_pos then
+        return false
+    end
+
+    local no_path = game_object and game_object.no_path or nil
+    if npc.set_path_type and no_path ~= nil then
+        pcall(function()
+            npc:set_path_type(no_path)
+        end)
+    end
+
+    if npc.set_desired_position then
+        pcall(function()
+            npc:set_desired_position(desired_pos)
+        end)
+    end
+
+    if allow_teleport == true and npc.set_npc_position then
+        local current_pos = get_dialog_npc_runtime_position(npc)
+        if current_pos and current_pos.distance_to then
+            local ok_dist, dist = pcall(function()
+                return current_pos:distance_to(desired_pos)
+            end)
+            if ok_dist and dist and dist > DIALOG_NPC_ANIMATION_DRIFT_THRESHOLD then
+                pcall(function()
+                    npc:set_npc_position(desired_pos)
+                end)
+                if npc.set_desired_position then
+                    pcall(function()
+                        npc:set_desired_position(desired_pos)
+                    end)
+                end
+            end
+        end
+    end
+
+    return true
+end
+
+local function restore_dialog_npc_pathing(npc)
+    local level_path = game_object and game_object.level_path or nil
+    if not npc or not npc.set_path_type or level_path == nil then
+        return false
+    end
+
+    pcall(function()
+        npc:set_path_type(level_path)
+    end)
+
+    return true
 end
 
 local function clear_dialog_npc_animation_runtime(npc_id, reason)
@@ -1840,6 +2002,7 @@ local function clear_dialog_npc_animation_runtime(npc_id, reason)
     local active_entry = dialog_npc_animation_active[numeric_id]
     dialog_npc_animation_active[numeric_id] = nil
     clear_dialog_npc_animation_timer(numeric_id)
+    clear_dialog_npc_animation_hold_timer(numeric_id)
 
     local npc = select(1, resolve_live_npc_for_dialog_animation(numeric_id))
     if not npc then
@@ -1858,6 +2021,8 @@ local function clear_dialog_npc_animation_runtime(npc_id, reason)
             npc:clear_animations()
         end)
     end
+
+    restore_dialog_npc_pathing(npc)
 
     local mgr = resolve_dialog_npc_state_mgr(npc)
     if mgr then
@@ -1886,13 +2051,7 @@ local function clear_dialog_npc_animation_runtime(npc_id, reason)
         end) == true
     end
 
-    if mgr and mgr.update then
-        for _ = 1, 3 do
-            pcall(function()
-                mgr:update()
-            end)
-        end
-    end
+    pump_dialog_npc_state_mgr(mgr, 5)
 
     printf(
         "PANDA_IC: dialog_npc_animation cleared npc_id=%s reason=%s preset=%s reset_ok=%s",
@@ -1915,6 +2074,32 @@ local function schedule_dialog_npc_animation_reset(npc_id, preset_id, duration)
     clear_dialog_npc_animation_timer(numeric_id)
     CreateTimeEvent(DIALOG_NPC_ANIMATION_EVENT_GROUP, tostring(numeric_id), reset_after, function()
         clear_dialog_npc_animation_runtime(numeric_id, "timer_elapsed:" .. tostring(preset_id or "unknown"))
+        return true
+    end)
+
+    return true
+end
+
+local function schedule_dialog_npc_animation_hold(npc_id)
+    local numeric_id = tonumber(npc_id)
+    if not numeric_id or not CreateTimeEvent then
+        return false
+    end
+
+    clear_dialog_npc_animation_hold_timer(numeric_id)
+    CreateTimeEvent(DIALOG_NPC_ANIMATION_HOLD_EVENT_GROUP, tostring(numeric_id), DIALOG_NPC_ANIMATION_HOLD_INTERVAL, function()
+        local active_entry = dialog_npc_animation_active[numeric_id]
+        if not active_entry then
+            return true
+        end
+
+        local npc = select(1, resolve_live_npc_for_dialog_animation(numeric_id))
+        if npc then
+            lock_dialog_npc_position(npc, active_entry.hold_pos, true)
+            pump_dialog_npc_state_mgr(resolve_dialog_npc_state_mgr(npc), 2)
+        end
+
+        schedule_dialog_npc_animation_hold(numeric_id)
         return true
     end)
 
@@ -1948,6 +2133,17 @@ local function apply_dialog_npc_animation_now(npc_id, preset_id, duration, conte
     local resolved_duration = tonumber(duration) or preset.default_duration
     local apply_ok = false
     local mgr = resolve_dialog_npc_state_mgr(npc)
+    local hold_pos = dialog_vector_to_table(get_dialog_npc_runtime_position(npc))
+    local state_descriptor = resolve_dialog_npc_state_descriptor(preset.state)
+
+    if npc.clear_animations then
+        pcall(function()
+            npc:clear_animations()
+        end)
+    end
+
+    lock_dialog_npc_position(npc, hold_pos, false)
+
     if state_mgr and type(state_mgr.set_state) == "function" then
         apply_ok = pcall(state_mgr.set_state, npc, preset.state, nil, nil, nil, { fast_set = true, animation = true }) == true
     elseif mgr and mgr.set_state then
@@ -1956,29 +2152,39 @@ local function apply_dialog_npc_animation_now(npc_id, preset_id, duration, conte
         end) == true
     end
 
+    if state_descriptor then
+        prime_dialog_npc_pose(npc, mgr, preset.state)
+        apply_ok = true
+    end
+
     if not apply_ok then
         printf(
             "PANDA_IC: dialog_npc_animation apply failed npc_id=%s preset=%s state=%s detail=%s",
             tostring(numeric_id),
             tostring(normalized_preset_id),
             tostring(preset.state),
-            "state_mgr_unavailable"
+            state_descriptor and "state_mgr_unavailable" or "state_descriptor_missing"
         )
-        return false, "state_mgr_unavailable"
+        return false, state_descriptor and "state_mgr_unavailable" or "state_descriptor_missing"
     end
 
     clear_dialog_npc_animation_timer(numeric_id)
+    clear_dialog_npc_animation_hold_timer(numeric_id)
     dialog_npc_animation_active[numeric_id] = {
         preset_id = normalized_preset_id,
         state = preset.state,
         duration = resolved_duration,
         started_at = time_global and time_global() or 0,
+        hold_pos = hold_pos,
         channel = context and context.channel or "pda",
         source = context and context.source or "unspecified",
         session_token = context and context.session_token or nil,
     }
     dialog_npc_animation_deferred[numeric_id] = nil
+    pump_dialog_npc_state_mgr(mgr, 5)
+    lock_dialog_npc_position(npc, hold_pos, true)
     schedule_dialog_npc_animation_reset(numeric_id, normalized_preset_id, resolved_duration)
+    schedule_dialog_npc_animation_hold(numeric_id)
 
     printf(
         "PANDA_IC: dialog_npc_animation applied npc_id=%s preset=%s state=%s duration=%s source=%s channel=%s session=%s terrain_sensitive=%s",
@@ -2130,6 +2336,7 @@ local function reset_all_dialog_npc_animation_state(reason)
 
     for npc_id in pairs(dialog_npc_animation_deferred) do
         clear_dialog_npc_animation_timer(npc_id)
+        clear_dialog_npc_animation_hold_timer(npc_id)
         dialog_npc_animation_deferred[npc_id] = nil
     end
 
@@ -2161,6 +2368,7 @@ local function panda_dialog_npc_animation_on_death(obj)
     end
 
     clear_dialog_npc_animation_timer(npc_id)
+    clear_dialog_npc_animation_hold_timer(npc_id)
     dialog_npc_animation_active[npc_id] = nil
     dialog_npc_animation_deferred[npc_id] = nil
 end

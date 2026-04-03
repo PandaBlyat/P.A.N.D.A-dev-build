@@ -119,6 +119,7 @@ function openNpcBuilderPanel(options: {
   const existing = options.existingTemplateId
     ? (store.get().project.npcTemplates ?? []).find(t => t.id === options.existingTemplateId) ?? null
     : null;
+  const showMovementLock = !options.showSpawnDistance;
 
   // Mutable local form state
   const form = {
@@ -184,8 +185,8 @@ function openNpcBuilderPanel(options: {
   const subtitleEl = document.createElement('div');
   subtitleEl.className = 'item-picker-subtitle';
   subtitleEl.textContent = options.showSpawnDistance
-    ? 'Configure name, faction, weapons, outfit, inventory, and near-player spawn settings. Saved to your conversations XML.'
-    : 'Configure name, faction, weapons, outfit, and inventory. Smart terrain placement comes from the command or precondition.';
+    ? 'Configure name, faction, weapons, outfit, inventory, and near-player spawn distance. Near-player spawns always roam. Saved to your conversations XML.'
+    : 'Configure name, faction, weapons, outfit, inventory, and optional smart-terrain locking. Placement comes from the command or precondition.';
 
   titleWrap.append(titleEl, subtitleEl);
 
@@ -433,10 +434,10 @@ function openNpcBuilderPanel(options: {
 
     sec.appendChild(row);
 
-    const behaviorRow = document.createElement('div');
-    behaviorRow.className = 'npc-builder-row';
+    if (showMovementLock) {
+      const behaviorRow = document.createElement('div');
+      behaviorRow.className = 'npc-builder-row';
 
-    {
       const { wrap, content } = makeField('Movement');
       const checkRow = document.createElement('div');
       checkRow.className = 'npc-builder-checkbox-row';
@@ -449,18 +450,18 @@ function openNpcBuilderPanel(options: {
 
       const cbLabel = document.createElement('label');
       cbLabel.htmlFor = cb.id;
-      cbLabel.textContent = 'Allow roaming and smart-terrain AI';
+      cbLabel.textContent = 'Allow roaming after spawn';
 
       const hint = document.createElement('div');
       hint.className = 'command-description';
-      hint.textContent = 'Turn this off to keep the NPC at its spawn spot like a story NPC.';
+      hint.textContent = 'Turn this off to lock the NPC to the chosen smart terrain position.';
 
       checkRow.append(cb, cbLabel);
       content.append(checkRow, hint);
       behaviorRow.appendChild(wrap);
+      sec.appendChild(behaviorRow);
     }
 
-    sec.appendChild(behaviorRow);
     body.appendChild(sec);
   }
 
@@ -629,7 +630,7 @@ function openNpcBuilderPanel(options: {
       input.oninput = () => { form.spawnDist = input.value; };
       const hint = document.createElement('div');
       hint.className = 'command-description';
-      hint.textContent = 'Distance from player in meters. Min\u00a010, default\u00a050.';
+      hint.textContent = 'Distance from player in meters. Min\u00a010, default\u00a050. Near-player spawns always roam after spawning.';
       content.append(input, hint);
       row.appendChild(wrap);
     }

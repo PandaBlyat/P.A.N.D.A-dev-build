@@ -1422,7 +1422,8 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Spawn a fully author-defined NPC near the player using a named template',
     category: 'Spawning',
     helpText:
-      'Configure the NPC template directly in the editor — name, faction, rank, weapons, outfit, items, relation, roaming behavior, and optional near-player spawn distance. ' +
+      'Configure the NPC template directly in the editor — name, faction, rank, weapons, outfit, items, relation, and optional near-player spawn distance. ' +
+      'Near-player spawns always roam after spawning; if you need a fixed custom NPC, use "Spawn Custom NPC at Location" with a smart terrain instead. ' +
       'The template is stored in your conversations XML as st_panda_npc_template_<id>. ' +
       'Use req_custom_npc_alive / req_custom_npc_dead as preconditions to gate conversations on whether this NPC is still alive.',
     examples: ['spawn_custom_npc:informant', 'spawn_custom_npc:hired_guns:10'],
@@ -1441,11 +1442,12 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   {
     name: 'spawn_custom_npc_at',
     label: 'Spawn Custom NPC at Location',
-    description: 'Spawn a fully author-defined NPC at a smart terrain using a named template',
+    description: 'Spawn a fully author-defined NPC at a smart terrain position using a named template',
     category: 'Spawning',
     helpText:
-      'Same as "Spawn Custom NPC" but places the NPC at a specific smart terrain instead of near the player. ' +
-      'Useful for ambushes, rendezvous, or scripted encounters at known map locations. The smart terrain is chosen on this command, so the template builder hides near-player spawn settings here.',
+      'Same as "Spawn Custom NPC" but places the NPC at the chosen smart terrain position instead of near the player. ' +
+      'Use this path when you want a custom NPC to stay locked to a location: turn roaming off in the template builder and the runtime will anchor that NPC to this smart terrain position. ' +
+      'The smart terrain is chosen on this command, so the template builder hides near-player spawn distance and keeps the movement lock option here.',
     examples: ['spawn_custom_npc_at:hired_guns:esc_smart_terrain_5_7', 'spawn_custom_npc_at:weapons_dealer:bar_visitors:5'],
     params: [
       {
