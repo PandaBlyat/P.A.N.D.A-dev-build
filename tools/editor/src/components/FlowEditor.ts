@@ -346,11 +346,11 @@ export function renderFlowEditor(container: HTMLElement): void {
 
   let viewAdjusted = false;
   let connectionPreview: ConnectionPreview | null = null;
-  let interactionReleaseTimer: ReturnType<typeof setTimeout> | null = null;
+  let interactionReleaseTimer: number | null = null;
 
   const setInteractionActive = (active: boolean, releaseDelayMs = 0): void => {
     if (interactionReleaseTimer) {
-      clearTimeout(interactionReleaseTimer);
+      window.clearTimeout(interactionReleaseTimer);
       interactionReleaseTimer = null;
     }
     if (active) {
