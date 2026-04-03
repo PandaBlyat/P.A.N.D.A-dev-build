@@ -45,6 +45,7 @@ export function encodeNpcTemplate(t: NpcTemplate): string {
   if (t.relation && t.relation !== 'default') parts.push(`relation=${t.relation}`);
   if (t.spawnDist != null && t.spawnDist !== 50) parts.push(`spawn_dist=${t.spawnDist}`);
   if (t.trader) parts.push(`trader=1`);
+  if (t.allowRoam === false) parts.push('roam=0');
   return parts.join('|');
 }
 
@@ -136,6 +137,7 @@ function openNpcBuilderPanel(options: {
     items: parseItemsList(existing?.items ?? ''),
     spawnDist: String(existing?.spawnDist ?? 50),
     trader: existing?.trader ?? false,
+    allowRoam: existing?.allowRoam ?? true,
     idManual: !!existing,
   };
 
@@ -430,6 +432,35 @@ function openNpcBuilderPanel(options: {
     }
 
     sec.appendChild(row);
+
+    const behaviorRow = document.createElement('div');
+    behaviorRow.className = 'npc-builder-row';
+
+    {
+      const { wrap, content } = makeField('Movement');
+      const checkRow = document.createElement('div');
+      checkRow.className = 'npc-builder-checkbox-row';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.id = `npc-b-roam-${fieldKeyFromTrigger(options.trigger)}`;
+      cb.checked = form.allowRoam;
+      cb.onchange = () => { form.allowRoam = cb.checked; };
+
+      const cbLabel = document.createElement('label');
+      cbLabel.htmlFor = cb.id;
+      cbLabel.textContent = 'Allow roaming and smart-terrain AI';
+
+      const hint = document.createElement('div');
+      hint.className = 'command-description';
+      hint.textContent = 'Turn this off to keep the NPC at its spawn spot like a story NPC.';
+
+      checkRow.append(cb, cbLabel);
+      content.append(checkRow, hint);
+      behaviorRow.appendChild(wrap);
+    }
+
+    sec.appendChild(behaviorRow);
     body.appendChild(sec);
   }
 
@@ -674,6 +705,7 @@ function openNpcBuilderPanel(options: {
         ? (!isNaN(spawnDist) && spawnDist !== 50 ? { spawnDist } : {})
         : (existing?.spawnDist != null && existing.spawnDist !== 50 ? { spawnDist: existing.spawnDist } : {})),
       ...(form.trader ? { trader: true } : {}),
+      ...(form.allowRoam === false ? { allowRoam: false } : {}),
     };
 
     options.onSave(template);

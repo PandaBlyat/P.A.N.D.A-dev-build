@@ -13,6 +13,7 @@ export interface NpcTemplate {
   spawnDist?: number;
   count?: number;
   trader?: boolean;
+  allowRoam?: boolean;
 }
 
 export interface Project {

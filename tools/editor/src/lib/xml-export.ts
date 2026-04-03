@@ -241,6 +241,7 @@ export function encodeNpcTemplate(t: NpcTemplate): string {
   if (t.relation && t.relation !== 'default') parts.push(`relation=${t.relation}`);
   if (t.spawnDist != null && t.spawnDist !== 50) parts.push(`spawn_dist=${t.spawnDist}`);
   if (t.trader) parts.push(`trader=1`);
+  if (t.allowRoam === false) parts.push(`roam=0`);
   return parts.join('|');
 }
 

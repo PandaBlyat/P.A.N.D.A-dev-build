@@ -448,6 +448,7 @@ function decodeNpcTemplate(id: string, raw: string): NpcTemplate {
       case 'spawn_dist': { const n = parseInt(v, 10); if (!isNaN(n)) tpl.spawnDist = n; break; }
       case 'count': { const n = parseInt(v, 10); if (!isNaN(n)) tpl.count = n; break; }
       case 'trader': tpl.trader = v === '1' || v === 'true'; break;
+      case 'roam': tpl.allowRoam = !(v === '0' || v === 'false'); break;
     }
   }
   return tpl;
