@@ -1,0 +1,18 @@
+local SINGLETON = nil
+function get_ui()
+	SINGLETON = SINGLETON or pda_monolitch_tab()
+	return SINGLETON
+end
+
+class "pda_monolitch_tab" (CUIScriptWnd)
+function pda_monolitch_tab:__init() super()
+    self:InitControls()
+end
+
+function pda_monolitch_tab:InitControls()
+    self:SetWndRect(Frect():set(0,0,1024,768))
+	local xml               = CScriptXmlInit()
+	xml:ParseFile("pda_errors.xml")
+	self.picture			= xml:InitStatic("picture_base",self)
+	self.picture:InitTexture ("ui\\monolith\\pda_monolith")
+end

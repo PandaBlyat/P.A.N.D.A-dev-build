@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+<string_table>
+	<string id="ui_mcm_menu_fatal_error">
+		<text>Фатальна помилка</text>
+	</string>
+	<string id="ui_mcm_menu_fe_pdas">
+		<text>Поломка КПК</text>
+	</string>
+	<string id="ui_mcm_menu_fe_devices">
+		<text>Поломка пристроїв</text>
+	</string>
+	<string id="ui_mcm_menu_fe_other">
+		<text>Інші параметри</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_emission_delay">
+		<text>Частота перевірки КПК на шанс "згоріти" (сек.)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_emission_delay_desc">
+		<text>Часовий інтервал, під час вибуху або псі-шторма, через який гра буде перевіряти на пошкодження КПК та пристрої.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_devices_devices_emission">
+		<text>Шанс пристроїв згоріти (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_devices_devices_electra">
+		<text>Шанс пристроїв згоріти від електричного впливу (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_devices_devices_radiation">
+		<text>Коефіцієнт шансу пристроїв згоріти від радіації (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_devices_devices_emission_desc">
+		<text>Шанс того, що пристрій вийде з ладу під час вибуху або псі-шторма.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_devices_devices_electra_desc">
+		<text>Шанс того, що пристрій вийде з ладу через вплив електричних аномалій.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_devices_devices_radiation_desc">
+		<text>Наприклад, якщо кількість накопиченої радіації дорівнює 10, а коефіцієнт рівний 0.10, тоді шанс пристроїв згоріти буде 1%.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda0_emission">
+		<text>Шанс КПК I покоління згоріти (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda1_emission">
+		<text>Шанс КПК II покоління згоріти (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda2_emission">
+		<text>Шанс КПК III покоління згоріти (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda3_emission">
+		<text>Шанс КПК IV покоління згоріти (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda4_emission">
+		<text>Шанс КПК V покоління згоріти (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda0_bsod">
+		<text>Шанс BSOD для КПК I покоління (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda1_bsod">
+		<text>Шанс BSOD для КПК II покоління (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda2_bsod">
+		<text>Шанс BSOD для КПК III покоління (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda3_bsod">
+		<text>Шанс BSOD для КПК IV покоління (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda4_bsod">
+		<text>Шанс BSOD для КПК V покоління (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda0_bsod_desc">
+		<text>Шанс того, що після вибуху або псі-шторма КПК I покоління тимчасово буде зламаний.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda1_bsod_desc">
+		<text>Шанс того, що після вибуху або псі-шторма КПК II покоління тимчасово буде зламаний.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda2_bsod_desc">
+		<text>Шанс того, що після вибуху або псі-шторма КПК III покоління тимчасово буде зламаний.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda3_bsod_desc">
+		<text>Шанс того, що після вибуху або псі-шторма КПК IV покоління тимчасово буде зламаний.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda4_bsod_desc">
+		<text>Шанс того, що після вибуху або псі-шторма КПК V покоління тимчасово буде зламаний.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda0_electra">
+		<text>Шанс КПК I покоління згоріти від електричного впливу (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda1_electra">
+		<text>Шанс КПК II покоління згоріти від електричного впливу (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda2_electra">
+		<text>Шанс КПК III покоління згоріти від електричного впливу (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda3_electra">
+		<text>Шанс КПК IV покоління згоріти від електричного впливу (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda4_electra">
+		<text>Шанс КПК V покоління згоріти від електричного впливу (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda0_electra_desc">
+		<text>Шанс того, що КПК I покоління вийде з ладу через вплив електричних аномалій.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda1_electra_desc">
+		<text>Шанс того, що КПК II покоління вийде з ладу через вплив електричних аномалій.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda2_electra_desc">
+		<text>Шанс того, що КПК III покоління вийде з ладу через вплив електричних аномалій.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda3_electra_desc">
+		<text>Шанс того, що КПК IV покоління вийде з ладу через вплив електричних аномалій.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda4_electra_desc">
+		<text>Шанс того, що КПК V покоління вийде з ладу через вплив електричних аномалій.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda0_emission_desc">
+		<text>Шанс того, що КПК I покоління вийде з ладу під час вибуху або псі-шторма.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda1_emission_desc">
+		<text>Шанс того, що КПК II покоління вийде з ладу під час вибуху або псі-шторма.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda2_emission_desc">
+		<text>Шанс того, що КПК III покоління вийде з ладу під час вибуху або псі-шторма.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda3_emission_desc">
+		<text>Шанс того, що КПК IV покоління вийде з ладу під час вибуху або псі-шторма.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda4_emission_desc">
+		<text>Шанс того, що КПК V покоління вийде з ладу під час вибуху або псі-шторма.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda0_radiation">
+		<text>Коефіцієнт шансу КПК I покоління згоріти від радіації (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda1_radiation">
+		<text>Коефіцієнт шансу КПК II покоління згоріти від радіації (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda2_radiation">
+		<text>Коефіцієнт шансу КПК III покоління згоріти від радіації (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda3_radiation">
+		<text>Коефіцієнт шансу КПК IV покоління згоріти від радіації (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda4_radiation">
+		<text>Коефіцієнт шансу КПК V покоління згоріти від радіації (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda0_radiation_desc">
+		<text>Наприклад, якщо кількість накопиченої радіації дорівнює 10, а коефіцієнт рівний 1, тоді шанс КПК I покоління згоріти буде 10%.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda1_radiation_desc">
+		<text>Наприклад, якщо кількість накопиченої радіації дорівнює 10, а коефіцієнт рівний 0.75, тоді шанс КПК II покоління згоріти буде 7%.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda2_radiation_desc">
+		<text>Наприклад, якщо кількість накопиченої радіації дорівнює 10, а коефіцієнт рівний 0.50, тоді шанс КПК III покоління згоріти буде 5%.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda3_radiation_desc">
+		<text>Наприклад, якщо кількість накопиченої радіації дорівнює 10, а коефіцієнт рівний 0.25, тоді шанс КПК IV покоління згоріти буде 2%.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda4_radiation_desc">
+		<text>Наприклад, якщо кількість накопиченої радіації дорівнює 10, а коефіцієнт рівний 0.10, тоді шанс КПК V покоління згоріти буде 1%.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_amount_to_fry">
+		<text>Мінімальна кількість накопиченої радіації</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_amount_to_fry_desc">
+		<text>Якщо накопичена радіація більша, ніж мінімальна кількість накопиченої радіації, тоді гра спробує зламати ваш КПК або пристрій.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_delay">
+		<text>Частота перевірки на шанс поломки від радіації (сек.)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_delay_desc">
+		<text>Якщо накопичена радіація більша, ніж мінімальна кількість накопиченої радіації, тоді гра спробує зламати ваш КПК або пристрій через кожне це значення секунд.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_glitch_scale">
+		<text>Коефіцієнт шуму для КПК від радіації</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_glitch_scale_desc">
+		<text>Наприклад, 1 - величезна кількість шуму навіть від маленької дози радіації, 0 - жодного шуму, навіть посеред Реактора №4 ЧАЕС.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_scale">
+		<text>Коефіцієнт накопиченої радіації</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_scale_desc">
+		<text>По суті, кількість накопиченої радіації за одиницю радіації. Чим більше, тим швидше ви накопичуєте радіацію, і навпаки.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_amount_lower">
+		<text>Зниження накопиченої радіації</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_amount_lower_desc">
+		<text>Кількість накопиченої радіації, яка зменшиться через певний проміжок часу.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_reboot_time_min">
+		<text>Мінімальний час перезавантаження (сек.)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_reboot_time_min_desc">
+		<text>Мінімальний час перезавантаження після вибуху або псі-шторма. Має бути менше, ніж максимальний час перезавантаження.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_reboot_time_max">
+		<text>Максимальний час перезавантаження (сек.)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_reboot_time_max_desc">
+		<text>Максимальний час перезавантаження після вибуху або псі-шторма. Має бути більше, ніж мінімальний час перезавантаження.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_chance_for_pda_to_damage">
+		<text>Шанс пошкодження КПК (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_chance_for_pda_to_damage_desc">
+		<text>Шанс того, що після отримання фізичного пошкодження ваш КПК буде пошкоджений.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_chance_for_device_to_break">
+		<text>Шанс зламати пристрій на голові (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_chance_for_device_to_break_desc">
+		<text>Шанс того, що після отримання фізичного пошкодження в голову пристрій на голові зламається.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_light_reboot">
+		<text>Оптимізоване перезавантаження КПК</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_light_reboot_desc">
+		<text>Якщо у вас є фризи під час перезавантаження або слабкий ПК, увімкніть цю опцію.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_beep_radius">
+		<text>Радіус "Біпалки" КПК</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_beep_radius_desc">
+		<text>Якщо в цьому радіусі є сталкери, КПК подасть звуковий сигнал. Працює тільки на пізніх моделях КПК.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_reboot_key">
+		<text>Клавіша перезавантаження КПК</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_reboot_key_desc">
+		<text>Виберіть клавішу для перезавантаження КПК.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_devices_unreliability">
+		<text>Ненадійність пристроїв</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_devices_unreliability_desc">
+		<text>При значенні більше 0 навіть непошкоджені пристрої мають невеликий шанс на деякий час відключитись. Це також призводить до пасивного шуму для КПК, який буде присутній завжди.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_shutdown_min_time">
+		<text>Мінімальний час несправності (сек.)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_shutdown_min_time_desc">
+		<text>Мінімальний час несправності пристрою. Має бути меншим, ніж Максимальний час несправності.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_shutdown_max_time">
+		<text>Максимальний час несправності (сек.)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_shutdown_max_time_desc">
+		<text>Максимальний час несправності пристрою. Має бути більшим, ніж Мінімальний час несправності.</text>
+	</string>
+</string_table>

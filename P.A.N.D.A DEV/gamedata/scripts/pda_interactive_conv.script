@@ -23,12 +23,15 @@ local CHOICE_KEYS = { [DIK_1]=1, [DIK_2]=2, [DIK_3]=3, [DIK_4]=4 }
 local FALLBACK_NPC_ICON = "ui_inGame2_neutral_1"
 local F2F_SCANNER_SUPPRESS_LOG_WINDOW_MS = 15000
 local F2F_HANDOFF_ACTIONABLE_GRACE_MS = 2 * 60 * 1000
+local PRIVATE_MESSAGES_SECTION = "eptPrivateMessages"
+local LEGACY_PRIVATE_MESSAGES_SECTION = "eptPrivate"
 
 local safe_remove_time_event
 local _panda_f2f_bridge_checked = false
 local _panda_npc_creator_checked = false
 local _f2f_scanner_suppress_last_log_at = nil
 local _f2f_scanner_suppress_last_source = nil
+local _private_messages_section_alias_installed = false
 local build_f2f_handoff_identity
 local make_f2f_handoff_token
 local has_xr_meet_dialog_override
@@ -1657,7 +1660,10 @@ is_panda_ic_shutdown_in_progress = function()
     return panda_ic_shutdown_in_progress == true
 end
 
-function cleanup_panda_ic_events()
+function cleanup_panda_ic_events(options)
+    options = type(options) == "table" and options or {}
+    local preserve_active_conversations = options.preserve_active_conversations == true
+
     -- Repeating scheduler groups
     safe_remove_time_event("pda_ic_trigger", "tick")
     safe_remove_time_event("pda_ic_timeout", "check")
@@ -1690,6 +1696,9 @@ function cleanup_panda_ic_events()
                 safe_remove_time_event(ev_prefix, "npc_reply")
                 safe_remove_time_event(ev_prefix, "outcome")
             end
+            if type(convo) == "table" then
+                convo.reply_pending = false
+            end
             clear_npc_typing_message(contact_id)
         end
     end
@@ -1703,19 +1712,28 @@ function cleanup_panda_ic_events()
     end
 
     -- Conversation runtime state reset (idempotent)
-    active_conversations = {}
+    if not preserve_active_conversations then
+        active_conversations = {}
+    end
     pda_reply_pending = false
     CONV = nil
 end
 
 function on_game_shutdown_cb()
+    if panda_ic_shutdown_in_progress == true then
+        return
+    end
+
     panda_ic_shutdown_in_progress = true
+    cleanup_panda_ic_events({
+        preserve_active_conversations = true,
+    })
 
     local bridge = ensure_panda_f2f_bridge()
-    if bridge and type(bridge.mark_shutdown_in_progress) == "function" then
-        pcall(bridge.mark_shutdown_in_progress, "on_game_shutdown")
-    elseif bridge and type(bridge.begin_shutdown_cleanup) == "function" then
+    if bridge and type(bridge.begin_shutdown_cleanup) == "function" then
         pcall(bridge.begin_shutdown_cleanup, "on_game_shutdown")
+    elseif bridge and type(bridge.mark_shutdown_in_progress) == "function" then
+        pcall(bridge.mark_shutdown_in_progress, "on_game_shutdown")
     end
 end
 
@@ -5804,6 +5822,22 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact
         return nil
     end
 
+    local function resolve_choice_precond_key(choice_idx)
+        local authored_key = p .. "_choice_" .. tostring(choice_idx) .. "_precond"
+        local authored_val = game.translate_string(authored_key)
+        if authored_val ~= authored_key then
+            return authored_key
+        end
+
+        local legacy_key = p .. "_choice_precond_" .. tostring(choice_idx)
+        local legacy_val = game.translate_string(legacy_key)
+        if legacy_val ~= legacy_key then
+            return legacy_key
+        end
+
+        return authored_key
+    end
+
     if not check_preconditions_generic(p .. "_branch_precond", npc_se) then
         return choices, count
     end
@@ -5816,7 +5850,7 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact
         local text = game.translate_string(key)
         if text == key then break end
 
-        local choice_precond_key = p .. "_choice_precond_" .. i
+        local choice_precond_key = resolve_choice_precond_key(i)
         if check_preconditions_generic(choice_precond_key, npc_se) then
             local reply_key = p.."_reply_"..i
             local reply_text = game.translate_string(reply_key)
@@ -8237,19 +8271,82 @@ function on_game_start()
     ensure_panda_f2f_bridge()
 
     -- Add the private tab to the PDA via mac_mcm
-    if mac_mcm then
+    local function ensure_private_messages_mac_app()
+        if not mac_mcm or type(mac_mcm.add_app) ~= "function" then
+            printf("PANDA_IC: MAC not found, private tab not registered.")
+            return false
+        end
+
+        local private_tab_func = pda_private_tab and pda_private_tab.get_ui or nil
+        if type(private_tab_func) ~= "function" then
+            printf("PANDA_IC: pda_private_tab.get_ui unavailable, private tab not registered.")
+            return false
+        end
+
+        local apps = mac_mcm.PDA_APPS or {}
+        local current_app = apps.pda_private
+        local legacy_app = apps.app_privatee
+        local has_legacy_alias = legacy_app
+            and (legacy_app.tab == LEGACY_PRIVATE_MESSAGES_SECTION
+                or legacy_app.tab == PRIVATE_MESSAGES_SECTION
+                or legacy_app.func == private_tab_func)
+
+        local current_is_normalized = current_app
+            and current_app.name == "st_pda_private_tab"
+            and current_app.texture == "ui_pda_private_app"
+            and current_app.tab == PRIVATE_MESSAGES_SECTION
+            and current_app.func == private_tab_func
+
+        if current_is_normalized and not has_legacy_alias then
+            return true
+        end
+
+        if has_legacy_alias and type(mac_mcm.remove_app) == "function" and apps.app_privatee then
+            mac_mcm.remove_app("app_privatee")
+        end
+
+        if current_app and type(mac_mcm.remove_app) == "function" then
+            mac_mcm.remove_app("pda_private")
+        end
+
         mac_mcm.add_app("pda_private", {
-            name = "st_pda_private_tab",        -- unlocalized string; define in your XML
-            texture = "ui_pda_private_app",    -- texture name (create or reuse)
-            tab = "eptPrivate",                  -- must match the button id in pda.xml
-            func = pda_private_tab.get_ui        -- the getter function
+            name = "st_pda_private_tab",
+            texture = "ui_pda_private_app",
+            -- Fatal Error's hidden PDA button is named eptPrivateMessages.
+            tab = PRIVATE_MESSAGES_SECTION,
+            func = private_tab_func
         })
-    else
-        printf("PANDA_IC: MAC not found, private tab not registered.")
+
+        return true
     end
+
+    local function install_private_messages_section_alias()
+        if _private_messages_section_alias_installed then
+            return
+        end
+
+        if not pda or type(pda.set_active_subdialog) ~= "function" then
+            return
+        end
+
+        local prev_set_active_subdialog = pda.set_active_subdialog
+        pda.set_active_subdialog = function(section)
+            if section == LEGACY_PRIVATE_MESSAGES_SECTION then
+                section = PRIVATE_MESSAGES_SECTION
+            end
+
+            return prev_set_active_subdialog(section)
+        end
+
+        _private_messages_section_alias_installed = true
+    end
+
+    ensure_private_messages_mac_app()
 
     -- Register essential callbacks
     RegisterScriptCallback("actor_on_first_update", setup_engine_overrides)
+    RegisterScriptCallback("actor_on_first_update", ensure_private_messages_mac_app)
+    RegisterScriptCallback("actor_on_first_update", install_private_messages_section_alias)
     RegisterScriptCallback("on_key_press", on_key_press_cb)
     RegisterScriptCallback("save_state", save_state)
     RegisterScriptCallback("load_state", load_state)

@@ -1,0 +1,177 @@
+<string_table>
+	<string id="st_tool_fix_pda">
+		<text>Device Repair kit</text>
+	</string>
+	<string id="st_tool_fix_pda_desc">
+		<text>A small box containing different screwdrivers, resistors, transistors, capacitors and copper wire, which allows you to replace broken components of any device and fully restore its functionality.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		</text>
+	</string>
+	<string id="st_pda_0_name">
+        <text>PDA (Version 0.1)</text>
+    </string>
+	<string id="st_pda_1_name">
+        <text>PDA (HP iPAQ h1945 Pocket PC)</text>
+    </string>
+	<string id="st_pda_4_name">
+        <text>PDA (MilDEF DB6M)</text>
+    </string>
+	<string id="st_pda_mil_name">
+        <text>PDA (Advantech P37B)</text>
+    </string>
+	<string id="st_pda_getac_name">
+		<text>PDA (GETAC PS535E)</text>
+	</string>
+	<string id="st_device_pda_new_name">
+		<text>PDA (MT-55 Kulon)</text>
+	</string>
+	<string id="st_pda_0_descr">
+		<text>A very old PDA with the most basic functions, which has already gone out of fashion among many stalkers. The PDA is essential for daily information sharing. It comes with pre-installed GPS module to provide geolocation and time information to the user. Its main advantage is its low energy consumption.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological item\n
+		%c[d_blue] • %c[ui_gray_2] very low electric power consumption\n
+		</text>
+	</string>
+	<string id="st_pda_1_descr">
+		<text>The HP iPAQ h1945 Pocket PC is a slightly outdated PDA with basic functions that many stalkers still use today. The device is known for its compact size, light weight, and ergonomic design. It is an indispensable tool for daily news exchange. Many years ago, the HP iPAQ h1945 Pocket PC was recognized as a highly successful device, combining cutting-edge technology for its time, excellent performance, an ergonomic design, and an affordable price, making it appealing to a wide range of users. The PDA features a 266 MHz Samsung S3C2410 processor, 64 MB of RAM, 32 MB of ROM, built-in Class 1 Bluetooth, and an SD/MMC slot with SDIO support. It includes a built-in GPS module for determining the user's time and location, as well as providing other geo-data.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological item\n
+		%c[d_blue] • %c[ui_gray_2] low electric power consumption\n
+		</text>
+	</string>
+	<string id="st_pda_2_descr">
+		<text>A pocket-sized electronic device meant to encompass the basic and most vital functions of a computer. The PDA is essential for daily information sharing. It comes with pre-installed GPS module to provide geolocation and time information to the user. The module in this version has been improved to retrieve and process the position of other modules connected to the network in a radius of 300 meters, which makes this PDA compelling among stalkers.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological item\n
+		%c[d_blue] • %c[ui_gray_2] moderate electric power consumption\n
+		</text>
+	</string>
+	<string id="st_pda_3_descr">
+		<text>A pocket-sized electronic device meant to encompass the basic and most vital functions of a computer. The PDA is essential for daily information sharing. It comes with pre-installed GPS module to provide geolocation and time information to the user. The module in this version has been greatly improved to retrieve and process the position of other modules connected to the network, which makes this PDA compelling among stalkers. Unlike usual GPS modules, this one relies on sets of codes that allows the module to acquire special privileges on the connected channel to acquire more information.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological item\n
+		%c[d_blue] • %c[ui_gray_2] above moderate electric power consumption\n
+		</text>
+	</string>
+	<string id="st_pda_4_descr">
+		<text>The MilDEF DB6M is a PDA from American Reliance, originally manufactured for the U.S. military, which somehow found its way into the Zone. Its advantage over all other models lies in its exceptional durability and ability to withstand even the most extreme operating conditions. The device's casing is waterproof and features shock protection—the MilDEF DB6M can easily survive a direct bullet hit, take a swim in water, endure a hard fall onto concrete from a significant height, and resist wind, dust, rain, and temperature fluctuations. Additionally, the PDA is equipped with a GPS receiver, a 3.5G modem, Bluetooth and Wi-Fi modules, and a fingerprint scanner. The device is fully compliant with the FIPS 140-2 encryption standard and provides the best information protection among similar devices. This model also retains all the functions of PDA 3.1. It is the most coveted model among stalkers.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological item\n
+		%c[d_blue] • %c[ui_gray_2] high electric power consumption\n
+		</text>
+	</string>
+	<string id="st_pda_mil_descr">
+        <text>The PDA Advantech P37B is an ultra-rugged mobile computer designed for industrial, public safety, and military applications. It is built on the Marvell PXA270 processor running at 624 MHz, features a 3.7-inch transflective TFT LCD display (with a resolution of 640x480 pixels), and is equipped with 256 MB of RAM, 1 GB of built-in flash memory, and two expansion slots—microSD and CompactFlash. The device includes multiple wired and wireless interfaces, such as USB, RS-232, Ethernet (10/100 Mbps), Wi-Fi (802.11b/g), and Bluetooth. It also comes with a built-antenna GPS & GALILEO module. Additionally, a 3.5G cellular modem supporting GSM/GPRS/WCDMA/HSDPA can be installed. The PDA's sealed casing is resistant to dirt, dust, and water, meeting the IP67 protection rating. Furthermore, the P37B can withstand multiple drops from a height of 1.5 meters and vibrations in compliance with MIL-STD-810F and MIL-STD-461E standards. It is capable of operating in temperatures ranging from -20°C to +60°C. This model features the most advanced algorithm for detecting and transmitting data from other PDAs within a 300-meter radius. Unlike conventional GPS modules, the one in this PDA relies on key sets that allow direct access to network-connected devices for data retrieval. The combination of these capabilities and features makes this PDA model highly sought after among all stalkers, though only a few manage to acquire it.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological item\n
+		%c[d_blue] • %c[ui_gray_2] high electric power consumption\n
+		</text>
+    </string>
+	<string id="st_pda_getac_desc">
+		<text>An industrial-grade military model of the GETAC PS535E PDA, originally used by military engineering units and reconnaissance personnel for field operations in harsh but predictable conditions, is built with a reinforced housing and a weather-resistant display. The manufacturer of the PDA is the Taiwanese company Mitac Technology Corporation, which has long specialized in the development and production of military-grade devices. PDA GETAC PS535E can intercepts cellular and network traffic of other PDAs in order to display precise location of stalkers. The device remains reliable under normal field exposure but proves totally unfit for the Zone's environment. Its power consumption is significantly higher than most other PDAs and it can only be recharged by an UPD. Technicians never repair this model due to its complexity - and, as a result, it cannot be upgraded in any way. Rarely seen around the Zone, typically used by military personnel, or occasionally supplied by high-ranking military officials and covert operatives.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological item\n
+		%c[d_blue] • %c[ui_gray_2] high electric power consumption\n
+		%c[d_red] • %c[ui_gray_2] not suited for the Zone environment\n
+		</text>
+	</string>
+	<string id="st_device_pda_new_desc">
+		<text>An extremely rare and unique model of the Kulon PDA, which can only be obtained on the Mainland. This model is ideal for the harsh conditions of the Zone - the PDA is made of a metal case with full electromagnetic shielding and total protection from moisture and dust, which is why its breakage is possible only in theory, and the touchscreen display is made of triplex glass, which makes it impossible to damage it, and is also covered with a special weatherproof film on which among other things, there are no traces and scratches. This model also has extremely low energy consumption, which allows it to run for up to a week on a single pair of batteries. All ports for communication with the outside world (USB, PCMCIA slot, memory card ports) are covered with special plugs, and the main focus in communication with the outside world is on wireless communication - for this purpose, a special encryption key is used that cannot be hacked and thanks to which the PDA cannot be detected - however, this entails the main disadvantage of this PDA, which is that unlike the Model 2.0 and Model 3.1 PDAs, the Kulon PDA cannot rely on encryption key sets, thereby it cannot gain direct access to network-connected devices to receive data, but, it can intercept and redirect other special encryption keys, and as a result, gain access to victim GPS.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological item\n
+		%c[d_blue] • %c[ui_gray_2] extremely low electric power consumption\n
+		</text>
+	</string>
+	<string id="st_batteries_aaa">
+		<text>Battery pack (AAA)</text>
+	</string>
+	<string id="st_batteries_aaa_descr">
+		<text>Lightweight and compact batteries, suitable for small-sized electronics. They are most often used in old-style PDAs, pocket flashlights, and in the simplest artefact detectors. They do not have a large capacity, but they can be found almost everywhere.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological item\n
+		</text>
+	</string>
+	<string id="st_batteries_aa">
+	<text>Battery pack (AA)</text>
+	</string>
+	<string id="st_batteries_aa_descr">
+		<text>A standard power cell, widely used in the Zone. Suitable for most portable devices: PDAs, headlamps, electronic compasses, and outdated detectors. Reliable, but they drain fairly quickly in high-drain devices.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological device\n
+		</text>
+	</string>
+	<string id="st_batteries_c">
+		<text>Battery pack (C)</text>
+	</string>
+	<string id="st_batteries_c_descr">
+		<text>A rather powerful power cell, common in the Zone, but still in high demand. Suitable for most portable devices: modern PDAs, 1st-gen NVGs, and detectors. Reliable, they last quite a long time in high-drain devices.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological device\n
+		</text>
+	</string>
+	<string id="st_batteries_d">
+		<text>Battery pack (D)</text>
+	</string>
+	<string id="st_batteries_d_descr">
+		<text>Powerful batteries designed for energy-intensive equipment. They are used in modern artefact detectors, sophisticated PDAs, 2nd generation NVGs and long-range field radios. In the Zone, it is appreciated by stalkers for its long service life - one battery is enough for several long expeditions.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological item\n
+		</text>
+	</string>
+	<string id="st_batteries_f">
+		<text>Battery pack (F)</text>
+	</string>
+	<string id="st_batteries_f_descr">
+		<text>Serious battery pack, often used in military units. They are very valuable and in high demand due to the constant shortage of batteries in the Zone. F batteries is used by all factions and stalkers of all ranks: from novices to masters. They are supplied by corrupt officers of military units trying to earn extra money in the Zone. They are used in the latest NVGs, PDAs and detectors.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological item\n
+		</text>
+	</string>
+	<string id="st_batteries_universal_charger">
+		<text>UPD</text>
+	</string>
+	<string id="st_batteries_universal_charger_descr">
+		<text>The Universal Power Device is a portable power unit about the size of a small walkie-talkie. Accepts almost any type of batteries. Utilizes every bit of energy from inserted batteries and can transfer it to other batteries through the included small thin wires. These can be connected to almost any battery, regardless of its size and typical capacity. Allows stalkers to use and handle numerous electronic devices even if they have only one battery.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological item\n
+		%c[d_blue] • %c[ui_gray_2] can transfer power\n
+		</text>
+	</string>
+	<string id="st_batteries_car_battery">
+		<text>Car battery</text>
+	</string>
+	<string id="st_batteries_car_battery_descr">
+		<text>Old, rusty, but still working. Once it started cars, now it starts devices or feeds the UPD of stalkers. It's a useful thing in the Zone - unless, of course, it's discharged to zero and acid has leaked all over the backpack. There are also very ancient specimens with faded labels and swollen walls. It is better not to joke with it - you never know what has accumulated inside over the years under radiation. Take care of the terminals from oxidation, and yourself from sudden discharges.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological item\n
+		</text>
+	</string>
+	<string id="st_geiger">
+		<text>"Pripyat" RKS-20.03 Radiometer</text>
+	</string>
+	<string id="st_geiger_descr">
+		<text>An electronic measuring device originally produced in the Ukrainian SSR and still manufactured in modern Ukraine. Designed for individual and collective use in measuring the equivalent dose rate of background ionizing radiation, beta radiation flux density, and specific activity in liquid and bulk substances. The device was developed in the late 1980s to early 1990s at the Korolyov Factory in Kyiv. One of the most popular household radiometers since the 1990s to the present day.\n \n
+		%c[0,56,166,209]Features%c[ui_gray_1]:
+		\n• Displays real-time radiation background levels and accumulated radiation when held in hand - switching between modes is done using "SHIFT+8".
+		\n• Displays values when the hotkey "8" (default) is pressed while the counter is in the inventory.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological device \n
+		%c[d_orange] • %c[ui_gray_2] measures the level of radioactive contamination\n
+		%c[d_blue] • %c[ui_gray_2] moderate electric power consumption\n
+		</text>
+	</string>
+	<string id="st_geiger_new">
+		<text>Device for measuring ionizing radiation RKSB-104</text>
+	</string>
+	<string id="st_geiger_new_descr">
+		<text>The device "RKSB-104" was produced since 1991. The "RKSB-104" device is designed to measure the ambient dose equivalent rate of gamma radiation, measure the flux density of beta radiation from surfaces of clothing contaminated with radionuclides, inspect residential and utility premises, food products, forest gifts, and measure the specific activity of the radionuclide cesium-137 in substances.\n \n
+		%c[0,56,166,209]Features%c[ui_gray_1]:
+		\n• Displays real-time radiation background levels and accumulated radiation when held in hand - switching between modes is done using "SHIFT+8".
+		\n• Displays values when the hotkey "8" (default) is pressed while the counter is in the inventory.\n \n
+		%c[ui_gray_3]PROPERTIES:\n
+		%c[d_blue] • %c[ui_gray_2] technological device \n
+		%c[d_orange] • %c[ui_gray_2] measures the level of radioactive contamination\n
+		%c[d_blue] • %c[ui_gray_2] low electric power consumption\n
+		</text>
+	</string>
+</string_table>

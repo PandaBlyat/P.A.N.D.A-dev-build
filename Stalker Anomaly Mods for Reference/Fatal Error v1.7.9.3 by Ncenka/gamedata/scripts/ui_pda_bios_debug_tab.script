@@ -1,0 +1,101 @@
+local SINGLETON = nil
+local text = {}
+local full_text
+
+function get_ui()
+	SINGLETON = SINGLETON or pda_bios_debug_tab()
+	SINGLETON:Reset()
+	return SINGLETON
+end
+
+class "pda_bios_debug_tab" (CUIScriptWnd)
+function pda_bios_debug_tab:__init() super()
+    self:InitControls()
+	self:InitCallbacks()
+end
+
+function pda_bios_debug_tab:InitControls()
+    self:SetWndRect(Frect():set(0,0,1024,768))
+	local xml               		= CScriptXmlInit()
+	xml:ParseFile("pda_errors.xml")
+	
+	self.picture					= xml:InitStatic("picture_base",self)
+	
+	if get_aoe_version then
+		self.picture:InitTexture ("ui\\mnogopotok_dark")
+	else
+		self.picture:InitTexture ("ui\\blue_screen")
+	end
+	
+	self.picture2					= xml:InitStatic("bios",self)
+	self.picture2:InitTexture ("ui\\bios_setup2")
+	self.upper_text 		= xml:InitTextWnd("bios:upper_text", self)
+	self.bottom_text 		= xml:InitTextWnd("bios:bottom_text", self)
+	
+	self.main = xml:Init3tButton("bios:main", self)
+	self:Register(self.main, "main")
+	
+	self.boot = xml:Init3tButton("bios:boot", self)
+	self:Register(self.boot, "boot")
+
+	self.debug = xml:Init3tButton("bios:debug", self)
+	self:Register(self.debug, "debug")
+	
+	self.debug_text = xml:InitTextWnd("bios:debug_text", self)
+
+	if not get_aoe_version then
+		self.bottom_text:SetText("Version 1.7.9.3 Copyright (C) 2026 S.P.E.C.T.R. Development Team")
+	end
+	
+end
+
+function pda_bios_debug_tab:Update()	
+	full_text = table.concat(text, "\\n")
+	self.debug_text:SetText(full_text)
+	CUIScriptWnd.Update(self)
+end
+
+function pda_bios_debug_tab:InitCallbacks()
+	self:AddCallback("main",			ui_events.BUTTON_CLICKED, self.On_main,				self)
+	self:AddCallback("boot",			ui_events.BUTTON_CLICKED, self.On_boot,				self)
+end
+
+function pda_bios_debug_tab:On_main()
+	ActorMenu.get_pda_menu():SetActiveSubdialog("eptBios")
+end
+
+function pda_bios_debug_tab:On_boot()
+	ActorMenu.get_pda_menu():SetActiveSubdialog("eptBiosBoot")
+end
+
+function pda_bios_debug_tab:Reset()
+	
+	----------------------------------------------------------------------------------------------------
+	-- BIOS Options
+	----------------------------------------------------------------------------------------------------
+	
+	full_text = table.concat(text, "\\n")
+	self.debug_text:SetText(full_text)
+	self.debug_text:SetTextColor(GetARGB(255, 100, 200, 255))
+	
+end
+
+function create_overrides_fatal_error_bios()
+	
+	local printf_bios = _G.printf
+    _G.printf = function (fmt,...)
+
+		table.insert(text, fmt)
+
+        if #text > 39 then
+            table.remove(text, 1)
+        end
+
+		return printf_bios(fmt,...)
+
+	end
+end
+
+function on_game_start()
+	RegisterScriptCallback("on_game_load", create_overrides_fatal_error_bios)
+end

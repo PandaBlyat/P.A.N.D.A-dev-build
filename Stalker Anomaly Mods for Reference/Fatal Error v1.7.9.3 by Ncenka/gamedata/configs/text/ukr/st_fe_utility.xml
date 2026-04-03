@@ -1,0 +1,125 @@
+<string id="st_batt">
+		<text>батареї:</text>
+	</string>
+	<string id="st_batt_aaa">
+		<text>AAA</text>
+	</string>
+	<string id="st_batt_aa">
+		<text>AA</text>
+	</string>
+	<string id="st_batt_c">
+		<text>C</text>
+	</string>
+	<string id="st_batt_d">
+		<text>D</text>
+	</string>
+	<string id="st_batt_f">
+		<text>F</text>
+	</string>
+	<string id="st_batt_none">
+		<text>вбудовані</text>
+	</string>
+	<string id="st_batt_error">
+		<text>Помилка - відповідні батареї не знайдено. Повідомте про це на Moddb Fatal Error у коментарях</text>
+	</string>
+	<string id="st_amper">
+		<text>типова ємність:</text>
+	</string>
+	<string id="st_mah">
+		<text>мА/г</text>
+	</string>
+	<string id="st_broken">
+		<text>ламається, підлягає ремонту</text>
+	</string>
+	<string id="st_show_map_squads_faction">
+		<text>відображає місцеположення загонів фракції гравця</text>
+	</string>
+	<string id="st_show_map_squads_neutral">
+		<text>відображає місцеположення нейтральних загонів</text>
+	</string>
+	<string id="st_show_map_squads_all">
+		<text>відображає місцеположення всіх загонів</text>
+	</string>
+	<string id="st_show_map_squads_enemies">
+		<text>відображає місцеположення тільки ворожих загонів</text>
+	</string>
+	<string id="st_show_map_squads_error">
+		<text>Помилка - неправильні налаштування відображення загонів. Повідомте про це на Moddb Fatal Error у коментарях</text>
+	</string>
+	<string id="st_can_beep">
+		<text>виділяє звуковий сигнал, якщо в радіусі 50 метрів є сталкери</text>
+	</string>
+	<string id="st_can_break">
+		<text>не може зламатися</text>
+	</string>
+	<string id="st_broken_header">
+		<text>(Зламаний)</text>
+	</string>
+	<string id="st_damaged">
+		<text>пошкоджено, підлягає ремонту</text>
+	</string>
+	<string id="st_damaged_header">
+		<text>(Пошкоджений)</text>
+	</string>
+	<string id="st_encrypted_header">
+		<text>(Зашифрований)</text>
+	</string>
+	<string id="st_batt_empty">
+		<text>Батарея повністю розряджена</text>
+	</string>
+	<string id="st_batt_full">
+		<text>Батарея повністю заряджена</text>
+	</string>
+	<string id="st_no_batt">
+		<text>У пристрої відсутня батарея</text>
+	</string>
+	<string id="st_upd_full">
+		<text>УЗП повністю заряджено</text>
+	</string>
+	<string id="st_upd_empty">
+		<text>УЗП повністю розряджено</text>
+	</string>
+	<string id="st_fe_map_off">
+		<text>GPS сигнал втрачено.</text>
+	</string>
+	<string id="st_fe_map_on">
+		<text>GPS сигнал встановлено.</text>
+	</string>
+	<string id="st_fe_mon_jam_dis">
+		<text>Глушилка "Моноліта" відключена в локації:</text>
+	</string>
+	<string id="st_interactive_unavaible">
+		<text>функція "Інтерактив" недоступна</text>
+	</string>
+	<string id="st_taskboard_unavaible">
+		<text>функція "Оголошення" недоступна</text>
+	</string>
+	<string id="st_autocomplete_unavaible">
+		<text>не підтримує електронні грошові перекази</text>
+	</string>
+	<string id="st_cartography_unavaible">
+		<text>не підтримує розширені картографічні функції</text>
+	</string>
+	<string id="st_pda_gen">
+		<text>покоління:</text>
+	</string>
+	<string id="st_fe_modded_exes">
+		<text>Якщо ви це читаєте, значить, ваша версія Modded Exes застаріла і несумісна із аддоном Fatal Error. Тепер Fatal Error потребує версію Modded Exes від 23 серпня 2025 року (2025.8.23) або новіше. Якщо ви використовуєте AOEngine, попросіть v2v3v4 оновити AOEngine до останньої версії Modded Exes. Посилання на останні Modded Exes: https://github.com/themrdemonized/xray-monolith</text>
+	</string>
+	<string id="st_fe_item_device">
+		<text>Якщо ти це читаєш, значить, ти неправильно встановив додаток Fatal Error. Fatal Error має перезаписувати ВСЕ (навіть твої (і мої) улюблені НПО Біфа), особливо item_device.script. Тож зміни порядок завантаження в MO2 і спробуй запустити гру знову.</text>
+	</string>
+	<string id="st_fe_error">
+		<text>Додаток Fatal Error виявив проблему та запобіг краху гри. Гра може продовжити роботу.</text>
+	</string>
+	<string id="st_fe_error_cpu">
+		<text>Помилка: Не вдалося визначити процесор.</text>
+	</string>
+	<string id="st_fe_error_storyline">
+    	<text>Помилка: Не вдалося виконати скрипт або функцію Storyline. Для спроби вирішення проблеми запущено резервний скрипт.</text>
+	</string>
+	<string id="st_fe_error_end">
+		<text>Маркер помилки було встановлено. Ця конкретна помилка більше не з'явиться у вашому поточному проходженні. Будь ласка, повідомте про цю проблему в темах додатка Fatal Error на серверах Discord Anomaly або G.A.M.M.A. Не забудьте додати до звіту свій файл журналу (лог).</text>
+	</string>
+</string_table>
+ 

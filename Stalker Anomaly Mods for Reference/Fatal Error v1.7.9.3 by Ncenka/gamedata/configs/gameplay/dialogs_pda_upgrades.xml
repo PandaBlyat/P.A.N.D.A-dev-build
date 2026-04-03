@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+<game_dialogs>
+	<dialog id="pda_upgrade">
+	<precondition>fatal_error_mcm.check_pda</precondition>
+		<phrase_list>
+			
+			<phrase id="0">
+				<text>pda_start_1</text>
+				<next>1</next>
+			</phrase>
+			
+			<phrase id="1">
+				<text>pda_start_2</text>
+				<next>2</next>
+				<next>11</next>
+				<next>18</next>
+				<next>17</next>
+			</phrase>
+				
+			<phrase id="2">
+				<text>pda_fix_1</text>
+				<next>3</next>
+				<precondition>fatal_error_mcm.fix_pda_check_pda</precondition>
+			</phrase>
+			<phrase id="3">
+				<text>pda_fix_2</text>
+				<next>4</next>
+				<next>5</next>
+				<next>6</next>
+				<next>7</next>
+				<next>10</next>
+			</phrase>
+			
+			<phrase id="4">
+				<text>pda_fix_3</text>
+				<precondition>fatal_error_mcm.fix_pda_1_check_money</precondition>
+				<action>fatal_error_mcm.fix_pda1_give_money</action>
+				<next>8</next>
+			</phrase>
+			<phrase id="5">
+				<text>pda_fix_4</text>
+				<precondition>fatal_error_mcm.fix_pda_2_check_money</precondition>
+				<action>fatal_error_mcm.fix_pda2_give_money</action>
+				<next>8</next>
+			</phrase>
+			<phrase id="6">
+				<text>pda_fix_5</text>
+				<precondition>fatal_error_mcm.fix_pda_3_check_money</precondition>
+				<action>fatal_error_mcm.fix_pda3_give_money</action>
+				<next>8</next>
+			</phrase>
+			<phrase id="7">
+				<text>pda_fix_6</text>
+				<next>9</next>
+			</phrase>
+			<phrase id="8">
+				<text>pda_fix_7</text>
+			</phrase>
+			<phrase id="9">
+				<text>pda_fix_8</text>
+			</phrase>
+
+			<phrase id="10">
+				<text>pda_fix_9</text>
+				<precondition>fatal_error_mcm.fix_pda_0_check_money</precondition>
+				<action>fatal_error_mcm.fix_pda0_give_money</action>
+				<next>8</next>
+			</phrase>
+
+			<phrase id="11">
+				<text>pda_fix_screen_1</text>
+				<next>12</next>
+				<precondition>fatal_error_mcm.fix_pda_screen_check</precondition>
+			</phrase>
+			<phrase id="12">
+				<text>pda_fix_screen_2</text>
+				<next>13</next>
+				<next>15</next>
+			</phrase>
+
+			<phrase id="13">
+				<text>pda_fix_screen_3</text>
+				<precondition>fatal_error_mcm.fix_pda_screen_check_money</precondition>
+				<action>fatal_error_mcm.fix_pda_screen</action>
+				<next>14</next>
+			</phrase>
+				
+			<phrase id="14">
+				<text>pda_fix_screen_4</text>
+			</phrase>
+				
+			<phrase id="15">
+				<text>pda_fix_screen_5</text>
+				<next>16</next>
+			</phrase>
+				
+			<phrase id="16">
+				<text>pda_fix_screen_6</text>
+			</phrase>
+			
+			<phrase id="17">
+				<text>pda_start_3</text>
+			</phrase>
+
+			<phrase id="18">
+				<text>pda_fix_bsod_1</text>
+				<precondition>fatal_error_mcm.fix_pda_check_bsod</precondition>
+				<next>19</next>
+			</phrase>
+			<phrase id="19">
+				<text>pda_fix_bsod_2</text>
+				<next>20</next>
+				<next>21</next>
+			</phrase>
+
+			<phrase id="20">
+				<text>pda_fix_bsod_3</text>
+				<precondition>fatal_error_mcm.fix_pda_bsod_check_money</precondition>
+				<next>22</next>
+			</phrase>
+
+			<phrase id="21">
+				<text>pda_fix_bsod_4</text>
+				<next>23</next>
+			</phrase>
+
+			<phrase id="22">
+				<text>pda_fix_bsod_5</text>
+				<action>fatal_error_mcm.fix_pda_bsod</action>
+			</phrase>
+
+			<phrase id="23">
+				<text>pda_fix_bsod_6</text>
+			</phrase>
+		</phrase_list>
+	</dialog>
+	
+	<dialog id="pda_decypher">
+	<precondition>fatal_error_mcm.has_getac</precondition>
+	
+		<phrase_list>			
+			<phrase id="0">
+				<text>pda_decypher_0</text>
+				<next>1</next>
+			</phrase>
+				
+			<phrase id="1">
+				<text>pda_decypher_1</text>
+				<next>2</next>
+				<next>4</next>
+				<next>6</next>
+			</phrase>
+				
+			<phrase id="2">
+				<precondition>fatal_error_mcm.check_money_25k</precondition>
+				<text>pda_decypher_2</text>
+				<next>3</next>
+			</phrase>
+				
+			<phrase id="3">
+				<text>pda_decypher_3</text>
+				<action>fatal_error_mcm.decypher_getac</action>
+			</phrase>
+				
+			<phrase id="4">
+				<text>pda_decypher_4</text>
+				<next>5</next>
+			</phrase>
+				
+			<phrase id="5">
+				<text>pda_decypher_5</text>
+			</phrase>
+
+			<phrase id="6">
+				<text>pda_decypher_6</text>
+				<next>7</next>
+			</phrase>
+
+			<phrase id="7">
+				<text>pda_decypher_7</text>
+				<action>fatal_error_mcm.getac_sell</action>
+			</phrase>
+				
+		</phrase_list>
+	</dialog>
+</game_dialogs>

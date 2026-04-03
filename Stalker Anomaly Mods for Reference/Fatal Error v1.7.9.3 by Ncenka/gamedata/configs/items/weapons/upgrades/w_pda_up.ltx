@@ -1,0 +1,168 @@
+[up_sect_firsta_pda]
+cost                                            = 12500
+inv_weight										= +0.1
+
+[up_sect_firstc_pda]
+cost                                            = 25000
+inv_weight										= +0.1
+
+[up_sect_firste_pda]
+cost                                            = 50000
+inv_weight										= +0.1
+
+[up_sect_secona_pda]
+cost                                            = 7500
+inv_weight										= +0.1
+
+[up_sect_seconc_pda]
+cost                                            = 10000
+inv_weight										= +0.1
+
+[up_sect_thirda_pda]
+cost                                            = 5000
+
+;----------------------------------------------------------------------
+
+[up_firsta_pda]
+scheme_index            = 0, 0
+known                   = 1
+effects                 = up_gr_firstcd_pda
+section                 = up_sect_firsta_pda
+
+precondition_functor    = inventory_upgrades.precondition_functor_a
+precondition_parameter  = a & b
+effect_functor          = inventory_upgrades.effect_functor_a
+effect_parameter        = something_here
+prereq_functor          = inventory_upgrades.prereq_functor_a
+prereq_tooltip_functor  = inventory_upgrades.prereq_tooltip_functor_a
+prereq_params           =
+
+property                = prop_radio
+
+name                    = st_radiation_upgrade
+description             = st_radiation_upgrade_descr
+icon                    = ui_inGame2_upgrade_outfit_rad_1
+
+[up_firstc_pda]
+scheme_index            = 0, 0
+known                   = 1
+effects                 = up_gr_firstef_pda
+section                 = up_sect_firstc_pda
+
+precondition_functor    = inventory_upgrades.precondition_functor_a
+precondition_parameter  = a & b
+effect_functor          = inventory_upgrades.effect_functor_a
+effect_parameter        = something_here
+prereq_functor          = inventory_upgrades.prereq_functor_a
+prereq_tooltip_functor  = inventory_upgrades.prereq_tooltip_functor_a
+prereq_params           =
+
+property                = prop_electro
+
+name                    = st_electra_upgrade
+description             = st_electra_upgrade_descr
+icon                    = ui_inGame2_upgrade_outfit_shock_1
+
+[up_firste_pda]
+scheme_index            = 0, 0
+known                   = 1
+effects                 = 
+section                 = up_sect_firste_pda
+
+precondition_functor    = inventory_upgrades.precondition_functor_a
+precondition_parameter  = a & b
+effect_functor          = inventory_upgrades.effect_functor_a
+effect_parameter        = something_here
+prereq_functor          = inventory_upgrades.prereq_functor_a
+prereq_tooltip_functor  = inventory_upgrades.prereq_tooltip_functor_a
+prereq_params           =
+
+property                = prop_psy
+
+name                    = st_emission_upgrade
+description             = st_emission_upgrade_descr
+icon                    = ui_inGame2_upgrade_outfit_psi_1
+
+;----------------------------------------------------------------------
+
+[up_secona_pda]
+scheme_index            = 0, 0
+known                   = 1
+effects                 = up_gr_seconcd_pda
+section                 = up_sect_secona_pda
+
+precondition_functor    = inventory_upgrades.precondition_functor_a
+precondition_parameter  = a & b
+effect_functor          = inventory_upgrades.effect_functor_a
+effect_parameter        = something_here
+prereq_functor          = inventory_upgrades.prereq_functor_a
+prereq_tooltip_functor  = inventory_upgrades.prereq_tooltip_functor_a
+prereq_params           =
+
+property                = prop_reliability
+
+name                    = st_no_map_zones_upgrade
+description             = st_no_map_zones_upgrade_descr
+icon                    = ui_inGame2_upgrade_outfit_durability_1
+
+[up_seconc_pda]
+scheme_index            = 0, 0
+known                   = 1
+effects                 =
+section                 = up_sect_seconc_pda
+
+precondition_functor    = inventory_upgrades.precondition_functor_a
+precondition_parameter  = a & b
+effect_functor          = inventory_upgrades.effect_functor_a
+effect_parameter        = something_here
+prereq_functor          = inventory_upgrades.prereq_functor_a
+prereq_tooltip_functor  = inventory_upgrades.prereq_tooltip_functor_a
+prereq_params           =
+
+property                = prop_reliability
+
+name                    = st_monolitch_hackers_upgrade
+description             = st_monolitch_hackers_upgrade_descr
+icon                    = ui_inGame2_upgrade_outfit_durability_2
+
+;---------------------------------------------------------------------
+
+[up_thirda_pda]
+scheme_index            = 0, 0
+known                   = 1
+effects                 =
+section                 = up_sect_thirda_pda
+
+precondition_functor    = inventory_upgrades.precondition_functor_a
+precondition_parameter  = a & b
+effect_functor          = inventory_upgrades.effect_functor_a
+effect_parameter        = something_here
+prereq_functor          = inventory_upgrades.prereq_functor_a
+prereq_tooltip_functor  = inventory_upgrades.prereq_tooltip_functor_a
+prereq_params           =
+
+property                = prop_reliability
+
+name                    = st_interface_upgrade
+description             = st_interface_upgrade_descr
+icon                    = ui_inGame2_upgrade_outfit_durability_2
+
+;----------------------------------------------------------------------
+
+[up_gr_firstab_pda]
+elements                = up_firsta_pda
+
+[up_gr_firstcd_pda]
+elements                = up_firstc_pda
+
+[up_gr_firstef_pda]
+elements                = up_firste_pda
+
+[up_gr_seconab_pda]
+elements                = up_secona_pda
+
+[up_gr_seconcd_pda]
+elements                = up_seconc_pda
+
+[up_gr_thirdab_pda]
+elements                = up_thirda_pda

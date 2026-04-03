@@ -1,0 +1,20 @@
+<string_table>
+	<string id="st_pda_error_603">
+		<text>FATAL ERROR: ERROR CODE 603 - REBOOT THE DEVICE</text>
+	</string>
+	<string id="st_pda_error_map">
+		<text>FATAL ERROR: SATELLITE IMAGE NOT AVAILABLE</text>
+	</string>
+	<string id="st_pda_no_map">
+		<text>NO SIGNAL</text>
+	</string>
+	<string id="st_pda_no">
+		<text>ERROR: THIS FEATURE IS NOT AVAILABLE ON THIS PDA MODEL.</text>
+	</string>
+	<string id="st_blocked">
+		<text>FATAL ERROR: USER INTERFACE IS NOT AVAILABLE</text>
+	</string>
+	<string id="st_pda_monolitch_hackers">
+		<text>FATAL ERROR: FUNCTION SET_ACTIVE_SUBDIALOG(SECTION) NOT AVAILABLE \nUNKNOWN UNAUTHORIZED ACCESS: MONOLITH_TRACKING.SCRIPT \nUNKNOWN UNAUTHORIZED REQUEST: SEND_LOCAL_POS TO MONOLITH_ALPHA_SQUAD \n!ERROR !ERROR !ERROR !ERROR !ERROR !ERROR !ERROR !ERROR \nUNKNOWN UNAUTHORIZED MESSAGE: FOR MONOLITH! YOU WILL BE EXECUTED, WORM! \n!ERROR !ERROR !ERROR !ERROR !ERROR !ERROR !ERROR !ERROR</text>
+	</string>
+</string_table>

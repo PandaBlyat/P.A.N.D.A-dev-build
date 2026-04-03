@@ -1,0 +1,591 @@
+if not z_pda_hacking then return end
+
+script_table = {}
+local gc = game.translate_string
+local parse_keys = utils_data.parse_string_keys
+local monolith_tab = ui_pda_monolitch_hackers_tab.pda_monolitch_hackers_tab
+
+name_key = {
+	["CommandUp"] = "cmdup",
+	["Decrypt"] = "decrypt",
+	["Re-Scan"] = "rescan",
+	["Nuke"] = "nuke",
+	["BruteForce"] = "bruteforce",
+	["SkeletonKey"] = "skey",
+}
+
+colors_str = {
+	["decrypt"] = "%c[255, 123, 217, 76]",
+	["cmdup"] = "%c[255, 63, 192, 255]",
+	["rescan"] = "%c[255, 54, 217, 136]",
+	["nuke"] = "%c[255, 255, 255, 255]",
+	["bruteforce"] = "%c[255, 255, 255, 63]",
+	["skey"] = "%c[255, 0, 0, 0]",
+	["terminal"] = "%c[255, 150, 150, 150]",
+	["failed"] = "%c[255, 238, 28, 36]",
+}
+
+colors_argb = {
+	["decrypt"] = GetARGB(255, 123, 217, 76),
+	["cmdup"] = GetARGB(255, 63, 192, 255),
+	["rescan"] = GetARGB(255, 54, 217, 136),
+	["nuke"] = GetARGB(255, 255, 255, 255),
+	["bruteforce"] = GetARGB(255, 255, 255, 63),
+	["skey"] = GetARGB(255, 0, 0, 0),
+	["failed"] = GetARGB(255, 238, 28, 36),
+}
+
+-- Override Reset to add hacking functionality
+local base_monolith_reset = monolith_tab.Reset
+function monolith_tab:Reset()
+	base_monolith_reset(self)
+	-- Reset hack components
+	if self.form_hack then
+		self.form_hack:Show(false)
+	end
+	if self.hack_button then
+		self.hack_button:Show(false)
+	end
+	if self.dark_overlay then
+		self.dark_overlay:Show(false)
+	end
+
+	RemoveTimeEvent("monolithhack", "setfail")
+	RemoveTimeEvent("monolithhack", "set_decrypt_bar")
+	RemoveTimeEvent("monolithhack", "unlockmonolith")
+
+	if self.snd_skey and self.snd_skey:playing() then
+		self.snd_skey:stop()
+	end
+
+	-- Find the best hacking device
+	local best_hack_device = { ["section"] = nil, ["commands"] = 0, ["scripts"] = 0 }
+	db.actor:iterate_inventory(function(npc, item)
+		local sec = item:section()
+		local cmd_points = SYS_GetParam(2, sec, "command_points", 0)
+		if cmd_points > best_hack_device.commands then
+			best_hack_device.commands = cmd_points
+			best_hack_device.scripts = SYS_GetParam(2, sec, "initial_scripts", 0)
+		end
+	end)
+
+	if best_hack_device.commands == 0 then return end
+
+	-- Initialize hack UI
+	self:InitHackUI(best_hack_device)
+end
+
+function monolith_tab:InitHackUI(best_hack_device)
+	local obj = db.actor:item_in_slot(8)
+	if not obj then return end
+	if not self.hack_xml then
+		self.hack_xml = CScriptXmlInit()
+		self.hack_xml:ParseFile("ui_pda_hacking.xml")
+	end
+	self.snd_failed = xr_sound.get_safe_sound_object("device\\pda_bsod_failure")
+	self.snd_beep = xr_sound.get_safe_sound_object("device\\pda_beep")
+	self.snd_skey = xr_sound.get_safe_sound_object("pda_hacking\\normal_hacking_sound")
+
+	self.hack_button = self.hack_button or self.hack_xml:Init3tButton("form:hack_button", self)
+	self:Register(self.hack_button, "hack_button")
+	self:AddCallback("hack_button", ui_events.BUTTON_CLICKED, self.Start_Hack, self)
+	self.hack_button:InitTexture("bios_button")
+	self.hack_button:Show(true)
+
+
+	self.cmds_remaining = best_hack_device.commands
+	self.encryption_strength_base = 25 - ini_sys:r_float_ex(obj:section(), "tier") * 5
+	self.encryption_strength = self.encryption_strength_base
+	self.encryption_strength_visual = self.encryption_strength_base
+	self.data_decrypted = 0
+	self.data_decrypted_target = 0
+	self.scripts_to_add = 0
+	self.skey_unlock = false
+
+	self.form_hack = self.form_hack or self.hack_xml:InitStatic("form", self)
+	self.form_hack.border = self.form_hack.border or self.hack_xml:InitFrame("form:border", self.form_hack)
+
+	self.cmd_wnd = self.cmd_wnd or self.hack_xml:InitStatic("form:cmd_wnd", self.form_hack)
+	self.cmd_wnd.title = self.cmd_wnd.title or self.hack_xml:InitTextWnd("form:cmd_wnd:title", self.cmd_wnd)
+	self.cmd_wnd.title:SetFont(get_font("large"))
+	self.cmd_wnd.icon = self.cmd_wnd.icon or self.hack_xml:InitStatic("form:cmd_wnd:icon", self.cmd_wnd)
+	self.cmd_wnd.number = self.cmd_wnd.number or self.hack_xml:InitTextWnd("form:cmd_wnd:number", self.cmd_wnd)
+	self.cmd_wnd.number:SetText(self.cmds_remaining)
+	self.cmd_wnd.number:SetFont(get_font("huge"))
+
+	self.cmd_wnd.cost_line = self.cmd_wnd.cost_line or self.hack_xml:InitStatic("form:cmd_wnd:cost_line", self.cmd_wnd)
+	self.cmd_wnd.cost_line.cost_text = self.cmd_wnd.cost_line.cost_text or
+	self.hack_xml:InitStatic("form:cmd_wnd:cost_line:cost_text", self.cmd_wnd.cost_line)
+	self.cmd_wnd.cost_line.icon = self.cmd_wnd.cost_line.icon or
+	self.hack_xml:InitStatic("form:cmd_wnd:cost_line:icon", self.cmd_wnd.cost_line)
+	self.cmd_wnd.cost_line.cost = self.cmd_wnd.cost_line.cost or
+	self.hack_xml:InitStatic("form:cmd_wnd:cost_line:cost", self.cmd_wnd.cost_line)
+	self.cmd_wnd.cost_line.cost_text:TextControl():SetFont(get_font("large"))
+	self.cmd_wnd.cost_line.cost:TextControl():SetFont(get_font("large"))
+
+	self.script_wnd = self.script_wnd or self.hack_xml:InitStatic("form:script_wnd", self.form_hack)
+	self.script_wnd.title = self.script_wnd.title or self.hack_xml:InitStatic("form:script_wnd:title", self.script_wnd)
+	self.script_wnd.title:TextControl():SetFont(get_font("large"))
+	self.script_wnd.scriptname = self.script_wnd.scriptname or
+	self.hack_xml:InitTextWnd("form:script_wnd:scriptname", self.script_wnd)
+	self.script_wnd.scriptname:SetFont(get_font("large"))
+	self.script_wnd.powertxt = self.script_wnd.powertxt or
+	self.hack_xml:InitStatic("form:script_wnd:powertxt", self.script_wnd)
+	self.script_wnd.powertxt:TextControl():SetFont(get_font("large"))
+	self.script_wnd.powernumber = self.script_wnd.powernumber or
+	self.hack_xml:InitStatic("form:script_wnd:powernumber", self.script_wnd)
+	self.script_wnd.powernumber:TextControl():SetFont(get_font("large"))
+	self.script_wnd:Show(false)
+
+	self.script_list_wnd = self.script_list_wnd or self.hack_xml:InitStatic("form:script_list_wnd", self.form_hack)
+	self.script_list_wnd.title = self.script_list_wnd.title or
+	self.hack_xml:InitStatic("form:script_list_wnd:title", self.script_list_wnd)
+	self.script_list_wnd.title:TextControl():SetFont(get_font("large"))
+	self.hack_script_list = self.hack_script_list or
+	self.hack_xml:InitListBox("form:script_list_wnd:list", self.script_list_wnd)
+	self:Register(self.hack_script_list, "hack_script_list")
+	self:AddCallback("hack_script_list", ui_events.LIST_ITEM_CLICKED, self.OnSelectScript, self)
+	self.hack_script_list:RemoveAll()
+
+	self.cmd_list_wnd = self.cmd_list_wnd or self.hack_xml:InitStatic("form:cmd_list_wnd", self.form_hack)
+	self.cmd_list_wnd.title = self.cmd_list_wnd.title or
+	self.hack_xml:InitStatic("form:cmd_list_wnd:title", self.cmd_list_wnd)
+	self.cmd_list_wnd.title:TextControl():SetFont(get_font("large"))
+	self.command_list = self.command_list or self.hack_xml:InitListBox("form:cmd_list_wnd:list", self.cmd_list_wnd)
+	self:Register(self.command_list, "command_list")
+	self:AddCallback("command_list", ui_events.LIST_ITEM_CLICKED, self.OnSelectCommand, self)
+	self.command_list:RemoveAll()
+	self.cmd_list_wnd:Show(false)
+
+	self.terminal_form = self.terminal_form or self.hack_xml:InitStatic("form:terminal_wnd", self.form_hack)
+	self.terminal = self.terminal or self.hack_xml:InitStatic("form:terminal_wnd:terminal", self.terminal_form)
+	self.terminal.prompt_wnd = self.terminal.prompt_wnd or
+	self.hack_xml:InitTextWnd("form:terminal_wnd:terminal:prompt_wnd", self.terminal)
+	self.terminal.prompt_wnd:SetFont(get_font("medium"))
+	self.terminal.prompt_wnd:SetEllipsis(true)
+
+	self.terminal.text_wnd = self.terminal.text_wnd or
+	self.hack_xml:InitTextWnd("form:terminal_wnd:terminal:text_wnd", nil)
+	self.terminal.text_wnd:SetFont(get_font("medium"))
+	self.terminal.text_wnd:SetText(gc("ui_st_pdahacking_welcome"))
+	if not self.terminal_scroll then
+		self.terminal_scroll = self.hack_xml:InitScrollView("form:terminal_wnd:terminal:terminal_scroll", self.terminal)
+		self.terminal_scroll:AddWindow(self.terminal.text_wnd, true)
+		self.terminal.text_wnd:SetAutoDelete(false)
+	end
+
+	self.decrypt_wnd = self.decrypt_wnd or self.hack_xml:InitStatic("form:decrypt_wnd", self.form_hack)
+	self.decrypt_wnd.bg = self.decrypt_wnd.bg or self.hack_xml:InitStatic("form:decrypt_wnd:prog_back", self.decrypt_wnd)
+	self.decrypt_wnd.bar = self.decrypt_wnd.bar or
+	self.hack_xml:InitProgressBar("form:decrypt_wnd:decrypt_bar", self.decrypt_wnd)
+	self.decrypt_wnd.bar:SetProgressPos(0)
+
+	self.decrypt_wnd.title = self.decrypt_wnd.title or
+	self.hack_xml:InitStatic("form:decrypt_wnd:title", self.decrypt_wnd)
+	self.decrypt_wnd.title:TextControl():SetFont(get_font("large"))
+	self.decrypt_wnd.encr_str = self.decrypt_wnd.encr_str or
+	self.hack_xml:InitStatic("form:decrypt_wnd:encr_str", self.decrypt_wnd)
+	self.decrypt_wnd.encr_str.icon = self.decrypt_wnd.encr_str.icon or
+	self.hack_xml:InitStatic("form:decrypt_wnd:encr_str:icon", self.decrypt_wnd.encr_str)
+	self.decrypt_wnd.encr_str.pct = self.decrypt_wnd.encr_str.pct or
+	self.hack_xml:InitTextWnd("form:decrypt_wnd:encr_str:str_pct", self.decrypt_wnd.encr_str)
+	self.decrypt_wnd.encr_str.pct:SetText(self.encryption_strength .. "%")
+	self.decrypt_wnd.encr_str.pct:SetFont(get_font("large"))
+
+	self.decrypt_wnd.rarity_title = self.decrypt_wnd.rarity_title or
+	self.hack_xml:InitStatic("form:decrypt_wnd:rarity_title", self.decrypt_wnd)
+	self.decrypt_wnd.rarity_title:TextControl():SetFont(get_font("large"))
+	self.decrypt_wnd.rarity_title:TextControl():SetText(gc("monolith") ..
+	", " .. gc(ini_sys:r_string_ex(obj:section(), "inv_name_short")))
+
+	self.decrypt_wnd.decrypted = self.decrypt_wnd.decrypted or
+	self.hack_xml:InitStatic("form:decrypt_wnd:decrypted", self.decrypt_wnd)
+	self.decrypt_wnd.decrypted.title = self.decrypt_wnd.decrypted.title or
+	self.hack_xml:InitStatic("form:decrypt_wnd:decrypted:title", self.decrypt_wnd.decrypted)
+	self.decrypt_wnd.decrypted.title:TextControl():SetFont(get_font("large"))
+	self.decrypt_wnd.decrypted.pct_bg = self.decrypt_wnd.decrypted.pct_bg or
+	self.hack_xml:InitStatic("form:decrypt_wnd:decrypted:pct_bg", self.decrypt_wnd.decrypted)
+	self.decrypt_wnd.decrypted.pct_bg:TextControl():SetFont(get_font("huge"))
+	self.decrypt_wnd.decrypted.pct_bg:TextControl():SetText(round_idp(self.data_decrypted, 1) .. "%")
+
+	self.dark_overlay = self.dark_overlay or self.hack_xml:InitStatic("dark_overlay", self)
+	self.dark_overlay.status_title = self.dark_overlay.status_title or
+	self.hack_xml:InitStatic("dark_overlay:status_title", self.dark_overlay)
+	self.dark_overlay.status_title:TextControl():SetFont(get_font("huge"))
+	self.dark_overlay:Show(false)
+
+	self.form_hack:Show(false)
+
+	-- Build table of scripts from Anomaly install. Includes both vanilla and mod scripts
+	script_table = {}
+	local temp_script_t = {} -- keep track of duplicates
+	for k, v in pairs(_G) do
+		if type(_G[k]) == "table" then
+			local script_name = k:gsub("_mcm", "")
+			script_name = script_name:gsub("^(z+_)+", "")
+			--script_name = script_name:gsub("^z+_", "")
+
+			if not temp_script_t[script_name] and script_name:len() >= 3 then
+				temp_script_t[script_name] = true
+				script_table[#script_table + 1] = script_name
+			end
+		end
+	end
+
+	self:Generate_Scripts(best_hack_device.scripts)
+end
+
+base_update = monolith_tab.Update
+function monolith_tab:Update()
+	base_update(self)
+
+	if not (self.form_hack and self.form_hack:IsShown()) then return end
+
+	local prompt_set = false
+	if self.command_list then
+		for i = 0, self.command_list:GetSize() do
+			local item = self.command_list:GetItemByIndex(i)
+			if item and item.name == "SkeletonKey" and round(z_pda_hacking.get_time_elapsed() * 55) % 5 == 0 then
+				item.str_title:SetText(z_pda_hacking.scramble_string(gc("ui_st_pdahacking_skey") .. "#&$"))
+			end
+			if item and item:IsCursorOverWindow() then
+				if item.name == "SkeletonKey" then
+					if round(z_pda_hacking.get_time_elapsed() * 50) % 5 == 0 then
+						self.terminal.prompt_wnd:SetText(gc("ui_st_pdahacking_preprompt") ..
+						parse_keys(gc("ui_st_pdahacking_run"),
+							{ ["name"] = z_pda_hacking.scramble_string(gc("ui_st_pdahacking_skey")) }))
+					end
+					prompt_set = true
+				else
+					self.terminal.prompt_wnd:SetText(gc("ui_st_pdahacking_preprompt") ..
+					parse_keys(gc("ui_st_pdahacking_run"), { ["name"] = gc("ui_st_pdahacking_" .. name_key[item.name]) }))
+					prompt_set = true
+				end
+			end
+		end
+	end
+
+	if self.terminal and self.terminal.prompt_wnd and not prompt_set then
+		local mod = round(z_pda_hacking.get_time_elapsed() * 4) % 4
+		if mod == 0 or mod == 2 then
+			self.terminal.prompt_wnd:SetText(gc("ui_st_pdahacking_preprompt"))
+		else
+			self.terminal.prompt_wnd:SetText(gc("ui_st_pdahacking_preprompt_us"))
+		end
+	end
+
+	if self.hack_script_list then
+		for i = 0, self.hack_script_list:GetSize() do
+			local item = self.hack_script_list:GetItemByIndex(i)
+			if item and item:IsCursorOverWindow() then
+				self.terminal.prompt_wnd:SetText(gc("ui_st_pdahacking_preprompt") ..
+				parse_keys(gc("ui_st_pdahacking_load"), { ["script"] = item.name }))
+			end
+		end
+	end
+end
+
+function monolith_tab:OnSelectScript()
+	if self.data_decrypted_target >= 100 then return end
+	if self.scripts_to_add > 0 then return end
+	if self.loaded_script and self.loaded_script.name == self.hack_script_list:GetSelectedItem().name then return end
+	if self.cmds_remaining <= 0 then return end
+
+	self.command_list:RemoveAll()
+
+	if self.loaded_script then
+		self.loaded_script.str_title:SetTextColor(GetARGB(255, 255, 255, 255))
+	end
+	self.loaded_script = self.hack_script_list:GetSelectedItem()
+	self.loaded_script.str_title:SetTextColor(colors_argb.rescan)
+
+	self.script_wnd.scriptname:SetText(self.loaded_script.name .. ".script")
+	self.script_wnd.powernumber:TextControl():SetText(self.loaded_script.power)
+	self.script_wnd:Show(true)
+
+	local total_power = self.loaded_script.power
+
+	math.randomseed(self.loaded_script.seed)
+
+	if math.random() <= 0.40 then
+		self.command_list:AddExistingItem(z_pda_hacking.command_entry("CommandUp", total_power))
+	end
+	if math.random() <= 0.40 then
+		self.command_list:AddExistingItem(z_pda_hacking.command_entry("Re-Scan", total_power))
+	end
+	if math.random() <= 0.40 then
+		self.command_list:AddExistingItem(z_pda_hacking.command_entry("BruteForce", total_power))
+	end
+	if math.random() <= 0.40 and self.encryption_strength > 0 then
+		self.command_list:AddExistingItem(z_pda_hacking.command_entry("Nuke", total_power, self.encryption_strength))
+	end
+	if math.random() <= 0.01 then
+		self.command_list:AddExistingItem(z_pda_hacking.command_entry("SkeletonKey", total_power))
+	end
+	if math.random() <= 0.40 or self.command_list:GetSize() == 0 then
+		self.command_list:AddExistingItem(z_pda_hacking.command_entry("Decrypt", total_power, self.encryption_strength))
+	end
+
+	self.cmd_list_wnd:Show(true)
+	self:Change_Commands(-1)
+
+	local text = parse_keys(gc("ui_st_pdahacking_loaded"), { ["script"] = self.loaded_script.name })
+	self:Write_Terminal(text)
+end
+
+function monolith_tab:OnSelectCommand()
+	if self.data_decrypted_target >= 100 then return end
+	local item = self.command_list:GetSelectedItem()
+	if item.name ~= "CommandUp" and self.cmds_remaining <= 0 then return end
+
+	if item.name == "Nuke" then
+		local nuke_effect = z_pda_hacking.get_nuke_effect(item.power, self.encryption_strength)
+		self:Change_Encryption(nuke_effect)
+		self.hack_script_list:RemoveItem(self.loaded_script)
+
+		local effect_str = "%" .. colors_str.nuke .. "-" .. round_idp(nuke_effect, 1) .. "%%%" .. colors_str.terminal
+		self:Write_Terminal(parse_keys(gc("ui_st_pdahacking_running"),
+			{ ["name"] = gc("ui_st_pdahacking_" .. name_key[item.name]), ["effect"] = effect_str }))
+	elseif item.name == "Decrypt" then
+		local decrypt_effect = z_pda_hacking.get_decrypt_effect(item.power, self.encryption_strength)
+		if decrypt_effect <= 0 then return end
+		self:Set_Data_Decrypted(self.data_decrypted + decrypt_effect)
+		self.hack_script_list:RemoveItem(self.loaded_script)
+
+		local effect_str = "%" ..
+		colors_str.decrypt .. "+" .. round_idp(decrypt_effect, 1) .. "%%%" .. colors_str.terminal
+		self:Write_Terminal(parse_keys(gc("ui_st_pdahacking_running"),
+			{ ["name"] = gc("ui_st_pdahacking_" .. name_key[item.name]), ["effect"] = effect_str }))
+	elseif item.name == "Re-Scan" then
+		self.hack_script_list:RemoveItem(self.loaded_script)
+		local gen_count = z_pda_hacking.get_rescan_count(item.power)
+		self:Generate_Scripts(gen_count)
+		self.hack_script_list:Show(true)
+
+		local effect_str = "%" .. colors_str.rescan .. "+" .. gen_count .. "%" .. colors_str.terminal
+		self:Write_Terminal(parse_keys(gc("ui_st_pdahacking_running"),
+			{ ["name"] = gc("ui_st_pdahacking_" .. name_key[item.name]), ["effect"] = effect_str }))
+	elseif item.name == "CommandUp" then
+		local cmd_bonus = z_pda_hacking.get_command_up(item.power)
+		self:Change_Commands(cmd_bonus)
+		self.hack_script_list:RemoveItem(self.loaded_script)
+
+		local effect_str = "%" .. colors_str.cmdup .. "+" .. cmd_bonus .. "%" .. colors_str.terminal
+		self:Write_Terminal(parse_keys(gc("ui_st_pdahacking_running"),
+			{ ["name"] = gc("ui_st_pdahacking_" .. name_key[item.name]), ["effect"] = effect_str }))
+	elseif item.name == "BruteForce" then
+		local chance = z_pda_hacking.get_brute_chance(item.power)
+		local effect_str = "%" .. colors_str.bruteforce .. round_idp(chance, 1) .. "%%%" .. colors_str.terminal
+		local text = parse_keys(gc("ui_st_pdahacking_running"),
+			{ ["name"] = gc("ui_st_pdahacking_" .. name_key[item.name]), ["effect"] = effect_str })
+
+		if chance > (math.random() * 100) then
+			self:Set_Data_Decrypted(100)
+			text = text .. "... " .. colors_str.decrypt .. gc("ui_st_pdahacking_bruteforce_success")
+		else
+			text = text .. "... " .. colors_str.failed .. gc("ui_st_pdahacking_bruteforce_fail")
+		end
+		self:Write_Terminal(text)
+		self.hack_script_list:RemoveItem(self.loaded_script)
+	elseif item.name == "SkeletonKey" then
+		self:Set_Data_Decrypted(100)
+		self.skey_unlock = true
+		item_device.dev_items[db.actor:active_item():id()].is_overclocked = true
+
+		fe_utils.invoke("skey_glitch", 1, function()
+			fatal_error_mcm.ELECTRA_GLITCH_VALUE = 5
+		end)
+
+		fe_utils.invoke("skey_shutdown", 2, function()
+			fatal_error_mcm.process_shutdown()
+		end)
+	end
+
+	self.loaded_script = nil
+	self.command_list:RemoveAll()
+	if not (item.name == "CommandUp") then
+		self:Change_Commands(-1)
+	end
+	self.cmd_list_wnd:Show(false)
+	self.script_wnd:Show(false)
+
+	if self.hack_script_list:GetSize() == 0 and self.data_decrypted_target < 100 and self.scripts_to_add <= 0 then
+		self:HackFailed()
+	end
+end
+
+function monolith_tab:Start_Hack()
+	self.hack_button:Show(false)
+	self.form_hack:Show(true)
+	self.hack_script_list:Show(true)
+end
+
+function monolith_tab:Change_Commands(change)
+	if change < 0 then
+		self.cmd_wnd.number:SetText(self.cmds_remaining .. " -1")
+		self.cmds_remaining = self.cmds_remaining + change
+		CreateTimeEvent("monolithhack", "set_cmd_text", 0.4, function()
+			self.cmd_wnd.number:SetText(self.cmds_remaining)
+			return true
+		end)
+
+		local cmd_up_in_list = false
+		for i = 0, self.command_list:GetSize() do
+			local cmd_item = self.command_list:GetItemByIndex(i)
+			if cmd_item and cmd_item.name == "CommandUp" then
+				cmd_up_in_list = true
+				break
+			end
+		end
+		if self.cmds_remaining <= 0 and self.data_decrypted_target < 100 and not cmd_up_in_list then
+			self:HackFailed()
+		end
+	elseif change > 0 then
+		self.cmd_wnd.number:SetText(self.cmds_remaining .. " +" .. change)
+		self.cmds_remaining = self.cmds_remaining + change
+		CreateTimeEvent("monolithhack", "set_cmd_text", 0.4, function()
+			self.cmd_wnd.number:SetText(self.cmds_remaining)
+			return true
+		end)
+	end
+end
+
+function monolith_tab:HackFailed()
+	self.script_wnd:Show(false)
+	self.hack_script_list:Show(false)
+	self.cmd_list_wnd:Show(false)
+	local obj = db.actor:active_item()
+
+	CreateTimeEvent("monolithhack", "darkoverlay", 1, function()
+		if self.snd_failed and settings.soundfx_volume > 0 then
+			self.snd_failed.volume = 1 * settings.soundfx_volume
+			self.snd_failed:play(db.actor, 0, sound_object.s2d)
+		end
+
+		self.dark_overlay:Show(true)
+		self.dark_overlay:InitTexture("ui\\pda_dead")
+		self.dark_overlay:SetTextureColor(GetARGB(255, 255, 255, 255))
+		return true
+	end)
+
+	CreateTimeEvent("monolithhack", "setfail", 2, function()
+		fe_utils.set_broken(obj, 1)
+		return true
+	end)
+	CreateTimeEvent("monolithhack", "set_fail", 3, function()
+		self:Reset()
+		return true
+	end)
+end
+
+function monolith_tab:Write_Terminal(text)
+	self.terminal_scroll:RemoveWindow(self.terminal.text_wnd)
+	self.terminal_scroll:Clear()
+
+	local console_text = self.terminal.text_wnd:GetText()
+	console_text = console_text .. "\\n" .. colors_str.terminal .. text
+	self.terminal.text_wnd:SetText(console_text)
+
+	local scroll_height = self.terminal_scroll:GetHeight()
+	self.terminal.text_wnd:AdjustHeightToText()
+	local term_text_height = self.terminal.text_wnd:GetHeight()
+
+	if term_text_height < scroll_height then
+		local width = self.terminal.text_wnd:GetWidth()
+		self.terminal.text_wnd:SetWndSize(vector2():set(width, scroll_height))
+	end
+
+	self.terminal_scroll:AddWindow(self.terminal.text_wnd, true)
+	self.terminal.text_wnd:SetAutoDelete(false)
+	self.terminal_scroll:ScrollToEnd()
+end
+
+function monolith_tab:Set_Data_Decrypted(data)
+	self.data_decrypted_target = clamp(data, self.data_decrypted_target, 100)
+	if self.data_decrypted_target == 100 then
+		self.script_wnd:Show(false)
+		self.hack_script_list:Show(false)
+		if fatal_error_mcm.MONOLITH_HACKERS[level.name()] then
+			fatal_error_mcm.MONOLITH_HACKERS[level.name()] = false
+		end
+		fe_utils.invoke("unlockmonolith", 1, function()
+			self.dark_overlay:SetTextureColor(GetARGB(255, 0, 0, 0))
+			self.dark_overlay:Show(true)
+			self.snd_beep:play(db.actor, 0, sound_object.s2d)
+			news_manager.send_tip(db.actor, gc("st_fe_mon_jam_dis") .. " " .. gc(level.name()) .. ".", nil, default, 10000)
+		end)
+	end
+
+	CreateTimeEvent("monolithhack", "set_hack_bar", 0, function()
+		self.data_decrypted = z_pda_hacking.lerpup(self.data_decrypted, self.data_decrypted_target, 0.75)
+		self.decrypt_wnd.bar:SetProgressPos(self.data_decrypted)
+		self.decrypt_wnd.decrypted.pct_bg:TextControl():SetText(round_idp(self.data_decrypted, 1) .. "%")
+
+		if self.data_decrypted >= 100 then
+			if not self.skey_unlock then
+				fe_utils.invoke("hacked_monolith", 4, function()
+					ui_pda_reboot_tab.OS_LOADING = true
+					fe_utils.reboot_call(20)
+					self:Reset()
+				end)
+			else
+				fe_utils.invoke("hacked_monolith", 4, function()
+					fe_utils.reboot_call(5)
+					self:Reset()
+				end)
+			end
+
+			return true
+		elseif self.data_decrypted >= self.data_decrypted_target then
+			return true
+		end
+	end)
+end
+
+function monolith_tab:Change_Encryption(change)
+	self.encryption_strength = self.encryption_strength - change
+
+	CreateTimeEvent("monolithhack", "set_encrypt", 0, function()
+		self.encryption_strength_visual = z_pda_hacking.lerpdown(self.encryption_strength_visual,
+			self.encryption_strength, 0.1)
+		self.decrypt_wnd.encr_str.pct:SetText(round_idp(self.encryption_strength_visual, 1) .. "%")
+		if self.encryption_strength_visual <= self.encryption_strength then
+			return true
+		end
+	end)
+end
+
+function monolith_tab:Generate_Scripts(count)
+	self.scripts_to_add = self.scripts_to_add + count
+	CreateTimeEvent("monolithhack", "genscript", 0.1, function()
+		local index = math.random(#script_table)
+
+		local script_name = script_table[index]
+		table.remove(script_table, index)
+
+		local seed = z_pda_hacking.get_seed_from_string(script_name)
+		math.randomseed(seed + 1)
+		local rnd = math.random()
+		local min_power = settings.script_power_min                                        --25
+		local max_power = clamp(settings.script_power_max, min_power, settings.script_power_max) --100
+		local power = (rnd * (max_power - min_power)) + min_power
+		power = round(power)
+
+		local item = z_pda_hacking.script_message_entry(script_name, power, seed)
+		self.hack_script_list:AddExistingItem(item)
+
+		self.scripts_to_add = self.scripts_to_add - 1
+		if self.scripts_to_add == 0 then return true end
+		ResetTimeEvent("monolithhack", "genscript", 0.1)
+	end)
+end
+
+function get_font(font)
+	if settings.use_high_res_font and device().height > 1080 and device().width > 1920 then
+		return z_pda_hacking.fonts["high_res"][font]
+	else
+		return z_pda_hacking.fonts["normal_res"][font]
+	end
+end
+
+settings = z_pda_hacking.load_defaults()

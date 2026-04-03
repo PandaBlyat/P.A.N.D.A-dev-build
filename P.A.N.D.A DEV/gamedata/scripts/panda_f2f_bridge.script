@@ -48,6 +48,7 @@ local runtime = {
     pending_state = nil,
     active_token = nil,
     override_owners = {},
+    saved_override_owners = nil,
     hub_dialog_cursor = 0,
     dialog_node_cursor = 0,
     shutdown_in_progress = false,
@@ -949,6 +950,32 @@ local function clear_runtime_transient_state()
     runtime.active_token = nil
 end
 
+local function clone_override_owners(owners)
+    if type(owners) ~= "table" then
+        return {}
+    end
+
+    local clone = {}
+    for npc_id, rec in pairs(owners) do
+        if type(rec) == "table" then
+            local cloned_rec = {}
+            for field_name, field_value in pairs(rec) do
+                cloned_rec[field_name] = field_value
+            end
+            clone[npc_id] = cloned_rec
+        else
+            clone[npc_id] = rec
+        end
+    end
+
+    return clone
+end
+
+local function snapshot_override_owners_for_save()
+    runtime.saved_override_owners = clone_override_owners(runtime.override_owners)
+    return runtime.saved_override_owners
+end
+
 local function cleanup_all_runtime_handlers()
     local seen = {}
     local function cleanup_state_candidate(candidate)
@@ -1045,13 +1072,18 @@ local function make_override_owner_tag(state, branch)
 end
 
 local function save_state_cb(m)
-    m[SAVE_KEY_OVERRIDE_OWNERS] = runtime.override_owners
+    local owners = runtime.override_owners
+    if runtime.shutdown_in_progress == true and next(runtime.saved_override_owners or {}) ~= nil then
+        owners = runtime.saved_override_owners
+    end
+    m[SAVE_KEY_OVERRIDE_OWNERS] = clone_override_owners(owners)
     m[SAVE_KEY_HUB_DIALOG_CURSOR] = runtime.hub_dialog_cursor
     m[SAVE_KEY_DIALOG_NODE_CURSOR] = runtime.dialog_node_cursor
 end
 
 local function load_state_cb(m)
     local saved_override_owners = m[SAVE_KEY_OVERRIDE_OWNERS] or {}
+    runtime.saved_override_owners = nil
     runtime.shutdown_in_progress = false
     restore_override_owners(saved_override_owners)
     clear_runtime_transient_state()
@@ -1276,6 +1308,20 @@ local function key_exists(key)
     end
 
     return true
+end
+
+local function resolve_choice_precond_key(turn_stem, choice_idx)
+    local authored_key = string.format("%s_choice_%d_precond", tostring(turn_stem or ""), tonumber(choice_idx) or 0)
+    if key_exists(authored_key) then
+        return authored_key
+    end
+
+    local legacy_key = string.format("%s_choice_precond_%d", tostring(turn_stem or ""), tonumber(choice_idx) or 0)
+    if key_exists(legacy_key) then
+        return legacy_key
+    end
+
+    return authored_key
 end
 
 local function evaluate_shared_precondition(precond_key, npc_se, context)
@@ -2460,6 +2506,7 @@ function panda_f2f_bridge.reset_runtime(reason)
     local restored = restore_override_owners(runtime.override_owners)
     clear_runtime_transient_state()
     runtime.override_owners = {}
+    runtime.saved_override_owners = nil
     bridge_warn(
         "reset_runtime reason=%s restored_overrides=%s",
         tostring(reason_s),
@@ -2472,6 +2519,7 @@ function panda_f2f_bridge.begin_shutdown_cleanup(reason)
     ensure_callbacks_registered()
 
     local reason_s = tostring(reason or "unknown")
+    snapshot_override_owners_for_save()
     runtime.shutdown_in_progress = true
 
     cleanup_all_runtime_handlers()
@@ -2489,6 +2537,7 @@ end
 
 function panda_f2f_bridge.mark_shutdown_in_progress(reason)
     ensure_callbacks_registered()
+    snapshot_override_owners_for_save()
     runtime.shutdown_in_progress = true
     bridge_warn(
         "mark_shutdown_in_progress reason=%s",
@@ -2698,7 +2747,7 @@ local function collect_branches(npc_se, forced_context)
                 total_choices_loaded = total_choices_loaded + 1
                 local reply_key = turn_stem .. "_reply_" .. idx
                 local outcome_key = turn_stem .. "_outcome_" .. idx
-                local choice_precond_key = turn_stem .. "_choice_" .. idx .. "_precond"
+                local choice_precond_key = resolve_choice_precond_key(turn_stem, idx)
                 local hard_route_key = turn_stem .. "_choice_" .. idx .. BRANCH_HARD_ROUTE_SUFFIX
                 local keep_hub_override_key = turn_stem .. "_choice_" .. idx .. "_keep_hub_override"
                 local cont_turn_key = turn_stem .. "_cont_" .. idx
@@ -2707,7 +2756,8 @@ local function collect_branches(npc_se, forced_context)
 
                 local show = true
                 local choice_reason = nil
-                if key_exists(choice_precond_key) then
+                local has_choice_precond = key_exists(choice_precond_key)
+                if has_choice_precond then
                     show, choice_reason = evaluate_shared_precondition(choice_precond_key, npc_se, {
                         channel = "f2f",
                         conv_id = cid,
@@ -2721,13 +2771,13 @@ local function collect_branches(npc_se, forced_context)
                         show = true
                         choice_reason = "relaxed-duplicate-req_story_npc:" .. tostring(choice_req_story_npc)
                     end
-                    if not show and not first_missing_key and key_exists(choice_precond_key) then
+                    if not show and not first_missing_key and has_choice_precond then
                         first_missing_key = choice_precond_key
                     end
                 end
                 bridge_debug(
                     "collect_branches choice-precond key=%s result=%s reason=%s conv_id=%s turn=%s choice=%s",
-                    tostring(key_exists(choice_precond_key) and choice_precond_key or "<none>"),
+                    tostring(has_choice_precond and choice_precond_key or "<none>"),
                     tostring(show),
                     tostring(choice_reason),
                     tostring(cid),
@@ -2809,7 +2859,7 @@ local function collect_branches(npc_se, forced_context)
                         choice_key = choice_key,
                         reply_key = key_exists(reply_key) and reply_key or nil,
                         outcome = key_exists(outcome_key) and tr(outcome_key) or "none",
-                        precond_key = key_exists(choice_precond_key) and choice_precond_key or nil,
+                        precond_key = has_choice_precond and choice_precond_key or nil,
                         hard_route = hard_route,
                         keep_hub_override = keep_hub_override,
                         next_turn = next_turn,

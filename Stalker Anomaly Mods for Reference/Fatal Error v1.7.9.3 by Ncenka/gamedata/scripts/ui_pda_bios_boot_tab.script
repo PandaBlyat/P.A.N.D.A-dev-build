@@ -1,0 +1,119 @@
+local SINGLETON = nil
+local hint_text = {
+    text1_l = "Save all configuration changes and exit BIOS to start the operating system with selected settings.",
+    text2_l = "Save all configuration changes and exit BIOS to start the operating system with selected settings in Safe Mode.",
+}
+
+function get_ui()
+	SINGLETON = SINGLETON or pda_bios_boot_tab()
+	return SINGLETON
+end
+
+class "pda_bios_boot_tab" (CUIScriptWnd)
+function pda_bios_boot_tab:__init() super()
+    self:InitControls()
+	self:InitCallbacks()
+end
+
+function pda_bios_boot_tab:InitControls()
+    self:SetWndRect(Frect():set(0,0,1024,768))
+	local xml               		= CScriptXmlInit()
+	xml:ParseFile("pda_errors.xml")
+	
+	self.picture					= xml:InitStatic("picture_base",self)
+
+	if get_aoe_version then
+		self.picture:InitTexture ("ui\\mnogopotok_dark")
+	else
+		self.picture:InitTexture ("ui\\blue_screen")
+	end
+	
+	self.picture2					= xml:InitStatic("bios",self)
+	self.picture2:InitTexture ("ui\\bios_setup1")
+	self.upper_text 		= xml:InitTextWnd("bios:upper_text", self)
+	self.bottom_text 		= xml:InitTextWnd("bios:bottom_text", self)
+	
+	self.main = xml:Init3tButton("bios:main", self)
+	self:Register(self.main, "main")
+	
+	self.boot = xml:Init3tButton("bios:boot", self)
+	self:Register(self.boot, "boot")
+
+	if DEV_DEBUG or DEV_DEBUG_DEV then
+		self.debug = xml:Init3tButton("bios:debug", self)
+		self:Register(self.debug, "debug")
+	end
+
+	self.button_1 = xml:Init3tButton("bios:button_1", self)
+	self:Register(self.button_1, "exit")
+	self.text1_l 		= xml:InitTextWnd("bios:text1_l", self)
+	
+	self.button_2 = xml:Init3tButton("bios:button_2", self)
+	self:Register(self.button_2, "safe_mode_exit")
+	self.text2_l 		= xml:InitTextWnd("bios:text2_l", self)
+	
+	self.hint = xml:InitTextWnd("bios:hint", self)
+	self.help = xml:InitTextWnd("bios:help", self)
+
+	if not get_aoe_version then
+		self.bottom_text:SetText("Version 1.7.9.3 Copyright (C) 2026 S.P.E.C.T.R. Development Team")
+	end
+	
+	----------------------------------------------------------------------------------------------------
+	-- BIOS Options
+	----------------------------------------------------------------------------------------------------
+	
+	self.text1_l:SetText("Save & Default Boot")
+	
+	self.text2_l:SetText("Save & Safe Mode Boot")
+
+end
+
+function pda_bios_boot_tab:Update()
+	
+	local elements = {
+        { button = self.button_1, id = "text1_l" },
+        { button = self.button_2, id = "text2_l" },
+    }
+	
+	local hint_shown = false
+    for _, elem in ipairs(elements) do
+        if elem.button:IsCursorOverWindow() then
+            self.hint:SetText(hint_text[elem.id])
+            self.hint:Show(true)
+            hint_shown = true
+            break
+        end
+    end
+	
+	if not hint_shown then
+        self.hint:Show(false)
+    end
+	
+	CUIScriptWnd.Update(self)
+end
+
+function pda_bios_boot_tab:InitCallbacks()
+	self:AddCallback("main",					ui_events.BUTTON_CLICKED, self.On_main,						self)
+	self:AddCallback("debug",					ui_events.BUTTON_CLICKED, self.On_debug,					self)
+	self:AddCallback("exit",					ui_events.BUTTON_CLICKED, self.On_exit,						self)
+	self:AddCallback("safe_mode_exit",			ui_events.BUTTON_CLICKED, self.On_safe_mode_exit,			self)
+end
+
+function pda_bios_boot_tab:On_main()
+	ActorMenu.get_pda_menu():SetActiveSubdialog("eptBios")
+end
+
+function pda_bios_boot_tab:On_debug()
+	ActorMenu.get_pda_menu():SetActiveSubdialog("eptBiosDebug")
+end
+
+function pda_bios_boot_tab:On_exit()
+	fe_utils.reboot_call(15)
+end
+
+function pda_bios_boot_tab:On_safe_mode_exit()
+	if not z_pda_hacking then fe_utils.set_bsod(db.actor:active_item(), false) end
+	ui_pda_reboot_tab.OS_LOADING = true
+	fe_utils.reboot_call(30)
+end

@@ -1,0 +1,31 @@
+local SINGLETON = nil
+function get_ui()
+	SINGLETON = SINGLETON or pda_bsod_tab()
+	SINGLETON:Reset()
+	return SINGLETON
+end
+
+class "pda_bsod_tab" (CUIScriptWnd)
+function pda_bsod_tab:__init() super()
+    self:InitControls()
+end
+
+function pda_bsod_tab:InitControls()
+    self:SetWndRect(Frect():set(0,0,1024,768))
+	local xml               = CScriptXmlInit()
+	xml:ParseFile("pda_errors.xml")
+	self.picture			= xml:InitStatic("picture_bsod",self)
+	if get_aoe_version then
+		self.picture:InitTexture ("ui\\mnogopotok")
+	else
+		self.picture:InitTexture ("ui\\blue_death_screen")
+	end
+	
+end
+
+function pda_bsod_tab:Update()
+	CUIScriptWnd.Update(self)
+end
+
+function pda_bsod_tab:Reset()
+end

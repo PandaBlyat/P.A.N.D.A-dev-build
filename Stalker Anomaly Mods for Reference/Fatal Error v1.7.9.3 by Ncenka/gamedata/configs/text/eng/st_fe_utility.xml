@@ -1,0 +1,125 @@
+<string_table>
+	<string id="st_batt">
+		<text>batteries:</text>
+	</string>
+	<string id="st_batt_aaa">
+		<text>AAA</text>
+	</string>
+	<string id="st_batt_aa">
+		<text>AA</text>
+	</string>
+	<string id="st_batt_c">
+		<text>C</text>
+	</string>
+	<string id="st_batt_d">
+		<text>D</text>
+	</string>
+	<string id="st_batt_f">
+		<text>F</text>
+	</string>
+	<string id="st_batt_none">
+		<text>built-in</text>
+	</string>
+	<string id="st_batt_error">
+		<text>Error - no suitable config string for batteries detected. Write a bugreport to Moddb Fatal Error comment section</text>
+	</string>
+	<string id="st_amper">
+		<text>typical capacity:</text>
+	</string>
+	<string id="st_mah">
+		<text>mAh</text>
+	</string>
+		<string id="st_broken">
+		<text>broken, can be repaired</text>
+	</string>
+	<string id="st_show_map_squads_faction">
+		<text>shows location of nearby squads from your faction</text>
+	</string>
+	<string id="st_show_map_squads_neutral">
+		<text>shows location of nearby neutral squads</text>
+	</string>
+	<string id="st_show_map_squads_all">
+		<text>shows location of all nearby squads.</text>
+	</string>
+	<string id="st_show_map_squads_enemies">
+		<text>show location of only enemies squads nearby</text>
+	</string>
+	<string id="st_show_map_squads_error">
+		<text>Error - no suitable config string for squads detected. Write a bugreport to Moddb Fatal Error comment section</text>
+	</string>
+	<string id="st_can_beep">
+		<text>make beep-sound if there are stalker in 50 meters radius</text>
+	</string>
+	<string id="st_can_break">
+		<text>cannot break</text>
+	</string>
+	<string id="st_broken_header">
+		<text>(Broken)</text>
+	</string>
+	<string id="st_damaged">
+		<text>damaged, can be repaired</text>
+	</string>
+	<string id="st_damaged_header">
+		<text>(Damaged)</text>
+	</string>
+	<string id="st_encrypted_header">
+		<text>(Encrypted)</text>
+	</string>
+	<string id="st_batt_empty">
+		<text>Battery has no power</text>
+	</string>
+	<string id="st_batt_full">
+		<text>Battery is fully charged</text>
+	</string>
+	<string id="st_no_batt">
+		<text>There is no battery in the device</text>
+	</string>
+	<string id="st_upd_full">
+		<text>UPD is fully charged</text>
+	</string>
+	<string id="st_upd_empty">
+		<text>UPD has no power</text>
+	</string>
+	<string id="st_fe_map_off">
+		<text>GPS signal lost.</text>
+	</string>
+	<string id="st_fe_map_on">
+		<text>GPS signal established.</text>
+	</string>
+	<string id="st_fe_mon_jam_dis">
+		<text>The Monolith jammer is disabled in the location:</text>
+	</string>
+	<string id="st_interactive_unavaible">
+		<text>"Interactive" feature is not available</text>
+	</string>
+	<string id="st_taskboard_unavaible">
+		<text>"Taskboard" feature is not available</text>
+	</string>
+	<string id="st_autocomplete_unavaible">
+		<text>does not support electronic money transfers</text>
+	</string>
+	<string id="st_cartography_unavaible">
+		<text>does not support advanced cartography functions</text>
+	</string>
+	<string id="st_pda_gen">
+		<text>generation:</text>
+	</string>
+	<string id="st_fe_modded_exes">
+		<text>If you're reading this, it means your Modded Exes are outdated and not compatible with the Fatal Error addon. Fatal Error now requires Modded Exes from August 23, 2025 (2025.8.23) or later. If you use AOEngine ask v2v3v4 to update it to latest Modded Exes version. Link to the latest Modded Exes: https://github.com/themrdemonized/xray-monolith</text>
+	</string>
+	<string id="st_fe_item_device">
+		<text>If you're reading this, it means you installed Fatal Error addon wrong. Fatal Error should overwrite EVERYTHING (even your (and my) beloved Beef's NVGs), especially item_device.script. So, change your MO2 load order, and try launching the game once again.</text>
+	</string>
+	<string id="st_fe_error">
+    	<text>Fatal Error Addon has detected an issue and prevented a game crash. The game can continue running.</text>
+	</string>
+	<string id="st_fe_error_cpu">
+		<text>Error: Failed to detect CPU.</text>
+	</string>
+	<string id="st_fe_error_storyline">
+    	<text>Error: Failed to execute a Storyline script or function. A reserve script has been initiated to try to fix the problem.</text>
+	</string>
+	<string id="st_fe_error_end">
+		<text>An error marker has been placed. This specific error will not reappear in your current playthrough. Please report this issue in the Fatal Error Addon topics on either the Anomaly or G.A.M.M.A. Discord servers. Remember to include your log file with the report.</text>
+	</string>
+</string_table>

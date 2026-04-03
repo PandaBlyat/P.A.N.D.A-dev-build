@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+<string_table>
+	<string id="st_batt">
+		<text>батарейки:</text>
+	</string>
+	<string id="st_batt_aaa">
+		<text>AAA</text>
+	</string>
+	<string id="st_batt_aa">
+		<text>AA</text>
+	</string>
+	<string id="st_batt_c">
+		<text>C</text>
+	</string>
+	<string id="st_batt_d">
+		<text>D</text>
+	</string>
+	<string id="st_batt_f">
+		<text>F</text>
+	</string>
+	<string id="st_batt_none">
+		<text>встроенные</text>
+	</string>
+	<string id="st_batt_error">
+		<text>Ошибка - подходящие батарейки не найдены. Сообщите об этом на Moddb Fatal Error в комментариях</text>
+	</string>
+	<string id="st_amper">
+		<text>типовая ёмкость:</text>
+	</string>
+	<string id="st_mah">
+		<text>мА·ч</text>
+	</string>
+	<string id="st_broken">
+		<text>сломано, подлежит ремонту</text>
+	</string>
+	<string id="st_show_map_squads_faction">
+		<text>отображает местоположение отрядов фракции игрока</text>
+	</string>
+	<string id="st_show_map_squads_neutral">
+		<text>отображает местоположение нейтральных отрядов</text>
+	</string>
+	<string id="st_show_map_squads_all">
+		<text>отображает местоположение всех отрядов</text>
+	</string>
+	<string id="st_show_map_squads_enemies">
+		<text>отображает местоположение только враждебных отрядов</text>
+	</string>
+	<string id="st_show_map_squads_error">
+		<text>Ошибка - неправильная настройка отображаемых отрядов. Сообщите об этом на Moddb Fatal Error в комментариях</text>
+	</string>
+	<string id="st_can_beep">
+		<text>издаёт звуковой сигнал если в радиусе 50 метров есть сталкеры</text>
+	</string>
+	<string id="st_can_break">
+		<text>не может сломаться</text>
+	</string>
+	<string id="st_broken_header">
+		<text>(Сломанный)</text>
+	</string>
+	<string id="st_damaged">
+		<text>повреждено, подлежит ремонту</text>
+	</string>
+	<string id="st_damaged_header">
+		<text>(Повреждённый)</text>
+	</string>
+	<string id="st_encrypted_header">
+		<text>(Зашифрованный)</text>
+	</string>
+	<string id="st_batt_empty">
+		<text>Батарея полностью разряжена</text>
+	</string>
+	<string id="st_batt_full">
+		<text>Батарея полностью заряжена</text>
+	</string>
+	<string id="st_no_batt">
+		<text>В устройстве отсутствует батарея</text>
+	</string>
+	<string id="st_upd_full">
+		<text>УЗУ полностью заряжено</text>
+	</string>
+	<string id="st_upd_empty">
+		<text>УЗУ полностью разряжено</text>
+	</string>
+	<string id="st_fe_map_off">
+		<text>GPS сигнал потерян.</text>
+	</string>
+	<string id="st_fe_map_on">
+		<text>GPS cигнал установлен.</text>
+	</string>
+	<string id="st_fe_mon_jam_dis">
+		<text>Глушилка «Монолита» отключена в локации:</text>
+	</string>
+	<string id="st_interactive_unavaible">
+		<text>функция "Интерактив" недоступна</text>
+	</string>
+	<string id="st_taskboard_unavaible">
+		<text>функция "Объявления" недоступна</text>
+	</string>
+	<string id="st_autocomplete_unavaible">
+		<text>не поддерживает электронные денежные переводы</text>
+	</string>
+	<string id="st_cartography_unavaible">
+		<text>не поддерживает продвинутые картографические функции</text>
+	</string>
+	<string id="st_pda_gen">
+		<text>поколение:</text>
+	</string>
+	<string id="st_fe_modded_exes">
+		<text>Если вы это читаете, значит, ваша версия Modded Exes устарела и несовместима с аддоном Fatal Error. Теперь Fatal Error требует Modded Exes версии от 23 августа 2025 года (2025.8.23) или новее. Если вы используете AOEngine, попросите v2v3v4 обновить AOEngine до последней версии Modded Exes. Ссылка на GitHub с самыми новыми Modded Exes: https://github.com/themrdemonized/xray-monolith</text>
+	</string>
+	<string id="st_fe_item_device">
+		<text>Если ты это читаешь, значит, ты неправильно установил аддон Fatal Error. Fatal Error должен перезаписывать ВСЁ (даже твой (и мой) любимый Beef's NVGs), в особенности item_device.script. Так что измени порядок загрузки в MO2 и попробуй запустить игру снова.</text>
+	</string>
+	<string id="st_fe_error">
+    	<text>Аддон Fatal Error обнаружил проблему и предотвратил вылет игры. Игра может продолжить работу.</text>
+	</string>
+	<string id="st_fe_error_cpu">
+		<text>Ошибка: Не удалось определить процессор.</text>
+	</string>
+	<string id="st_fe_error_storyline">
+    	<text>Ошибка: Не удалось выполнить скрипт или функцию Storyline. Для попытки устранения проблемы запущен резервный скрипт.</text>
+	</string>
+	<string id="st_fe_error_end">
+		<text>Маркер ошибки был установлен. Данная конкретная ошибка больше не появится в вашем текущем прохождении. Пожалуйста, сообщите об этой проблеме в темах аддона Fatal Error на серверах Discord Anomaly или G.A.M.M.A. Не забудьте приложить к багрепорту свой лог-файл.</text>
+	</string>
+</string_table>

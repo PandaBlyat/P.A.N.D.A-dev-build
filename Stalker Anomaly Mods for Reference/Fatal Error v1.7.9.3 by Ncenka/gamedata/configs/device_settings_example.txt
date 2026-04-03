@@ -1,0 +1,27 @@
+[device_your_device]:device_which_device_settings_to_inherent
+
+;Shared Settings
+battery 											   = batteries_d ; Which batteries to use. Use "none" to make device with built-in battery.
+amper_amount					                       = 5000        ; Use ONLY if battery "none". Amount of power device have.
+can_break                                              = false       ; Can Device break? True by default.
+
+;PDA Settings
+tier                                                   = 1           ; Generation of PDA.
+encrypted                                              = true        ; Does PDA encrypted by default? Use this if you want to make player unable to use it (e.g. PDA for a quest).
+tab_taskboard 										   = false       ; Does PDA support Taskboard addon?
+tab_interactive 									   = false       ; Does PDA support PDA Interactive addon?
+tab_relations 										   = false       ; Does PDA support Relations tab?
+tab_contacts 										   = false       ; Does PDA support Contacts tab?
+tab_ranking 										   = false       ; Does PDA support Ranking tab?
+cartography                                            = false       ; Does PAW functions allowed?
+autocomplete 										   = false       ; Does Autocomplete functions allowed?
+show_player											   = 0           ; Player marker on map. 0 - none, 1 - marker, 2 - arrow, 3 - companions. Note: 1 does not work for base G.A.M.M.A..
+show_map_squads										   = all         ; Which squads to show? Use: all, faction, neutral, enemies. Leave empty to show none.
+can_beep											   = true        ; Does PDA beep when someone nearby?
+damage                                                 = 0           ; Does PDA damaged by default? Use number between 0-5.
+interface                                              = pda         ; What xml file interface to load?
+
+;Advanced Settings
+upgrades								               = up_gr_firstab_pda, up_gr_seconab_pda ; What upgrades can be installed on Device\PDA?
+repair_type                                            = device                               ; What toolkit to use for upgades?
+is_upd							                       = true                                 ; Can this Device\Batteries\Item work as UPD?

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+<string_table>
+	<string id="st_pda_error_603">
+		<text>ФАТАЛЬНА ПОМИЛКА: КОД ПОМИЛКИ 603 - ПЕРЕЗАВАНТАЖТЕ ПРИСТРІЙ</text>
+	</string>
+	<string id="st_pda_error_map">
+		<text>ФАТАЛЬНА ПОМИЛКА: СУПУТНИКОВА МАПА НЕДОСТУПНА</text>
+	</string>
+	<string id="st_pda_no_map">
+		<text>НЕМАЄ СИГНАЛУ</text>
+	</string>
+	<string id="st_pda_no">
+		<text>ПОМИЛКА: ДАНА ФУНКЦІЯ НЕДОСТУПНА НА ДАНІЙ МОДЕЛІ КПК</text>
+	</string>
+	<string id="st_blocked">
+		<text>ФАТАЛЬНА ПОМИЛКА: КОРИСТУВАЦЬКИЙ ІНТЕРФЕЙС НЕДОСТУПНИЙ</text>
+	</string>
+	<string id="st_pda_monolitch_hackers">
+		<text>ФАТАЛЬНА ПОМИЛКА: ФУНКЦІЯ SET_ACTIVE_SUBDIALOG(SECTION) НЕДОСТУПНА \nНЕВІДОМИЙ НЕАВТОРИЗОВАНИЙ ДОСТУП: MONOLITH_TRACKING.SCRIPT \nНЕВІДОМИЙ НЕАВТОРИЗОВАНИЙ ЗАПИТ: SEND_LOCAL_POS ДО MONOLITH_ALPHA_SQUAD \n!ПОМИЛКА !ПОМИЛКА !ПОМИЛКА !ПОМИЛКА !ПОМИЛКА !ПОМИЛКА !ПОМИЛКА \nНЕВІДОМЕ НЕАВТОРИЗОВАНЕ ПОВІДОМЛЕННЯ: ЗА МОНОЛІТ! ТЕБЕ БУДЕ ЗНИЩЕНО, ЧЕРВ'ЯК! \n!ПОМИЛКА !ПОМИЛКА !ПОМИЛКА !ПОМИЛКА !ПОМИЛКА !ПОМИЛКА !ПОМИЛКА</text>
+	</string>
+</string_table>
+ 

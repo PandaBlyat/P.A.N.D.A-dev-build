@@ -1,0 +1,108 @@
+#include "common.h"
+
+struct v2p
+{
+    float2 tc0: TEXCOORD0;
+    float4 c0: COLOR0;
+};
+
+// Основные параметры
+#define EFFECTS_MULTIPLIER 1.60 // Общий множитель интенсивности эффектов
+#define SCANLINE_THRESHOLD 0.30 // Порог активации движущейся линии (0-1)
+#define ARTIFACT_THRESHOLD 0.15 // Порог активации артефактов (0-1)
+#define STATIC_AMOUNT 0.20     // Базовое количество статического шума
+
+// Параметры для RGB-сдвига
+#define GLITCH_INTENSITY 20.0
+#define GLITCH_DIVISOR 100.0
+
+// Параметры смещения каналов (горизонтальное, вертикальное)
+#define CHANNEL_R_OFFSET float2(-1.0, 0.4)    // X, Y смещение для красного
+#define CHANNEL_G_OFFSET float2(1.0, 0.4)     // X, Y смещение для зеленого
+#define CHANNEL_B_OFFSET float2(0.0, -1.0)    // X, Y смещение для синего
+#define ARTIFACT_CHANCE 0.99                  // Шанс появления артефактов (тем меньше, тем чаще)
+
+// Параметры движущейся линии
+#define SCANLINE_SPEED 0.20       // Скорость движения линии
+#define SCANLINE_WIDTH 0.0025     // Толщина линии
+#define SCANLINE_DISTORT 0.02    // Сила искажения от линии
+
+sampler2D s_pdascreen;
+sampler2D s_noise_colored;
+float4 pda_params; // x:alpha, y:glitch_amount, z:brightness
+
+// Генерация статического шума
+float3 staticNoise(float2 uv) {
+    return tex2D(s_noise_colored, uv * 10.0).rgb * STATIC_AMOUNT;
+}
+
+// Движущаяся линия
+float2 scanlineDistortion(float2 uv, float time, float intensity)
+{
+    // Проверяем, превышен ли порог для активации линии
+    if (intensity > SCANLINE_THRESHOLD)
+    {
+        float linePos = frac(time * SCANLINE_SPEED);
+        float dist = abs(uv.y - linePos);
+        
+        if (dist < SCANLINE_WIDTH) 
+        {
+            float distortAmount = (1.0 - dist/SCANLINE_WIDTH) * SCANLINE_DISTORT;
+            uv.x += sin(uv.y * 100.0 + time * 10.0) * distortAmount;
+        }
+    }
+    return uv;
+}
+
+// RGB-сдвиг с учетом множителя интенсивности
+float3 glitchClassic(float2 tc, float intensity)
+{
+    float3 img = float3(0, 0, 0);
+    
+    // Базовый глитч
+    float amount = hash(timers.x) * GLITCH_INTENSITY * intensity;
+    amount *= sqrt(hash(tc.y));
+    amount *= noise(tc);
+    amount /= GLITCH_DIVISOR;
+
+    // Рассчитываем смещения для каждого канала
+    float2 offsetR = CHANNEL_R_OFFSET * amount;
+    float2 offsetG = CHANNEL_G_OFFSET * amount;
+    float2 offsetB = CHANNEL_B_OFFSET * amount;
+
+    img.r = tex2D(s_pdascreen, tc + offsetR).r;
+    img.g = tex2D(s_pdascreen, tc + offsetG).g;
+    img.b = tex2D(s_pdascreen, tc + offsetB).b;
+    
+    if (intensity > ARTIFACT_THRESHOLD)
+    {
+        // Случайные артефакты
+        if (hash(timers.x) > ARTIFACT_CHANCE)
+        {
+            img = float3(0, 0, 0); // черные вспышки
+        }
+    }
+
+    return img;
+}
+
+float4 main(v2p I): COLOR
+{
+    // Рассчитываем итоговую интенсивность эффектов
+    float effectsIntensity = pda_params.y * EFFECTS_MULTIPLIER;
+    
+    // Применяем искажение только если интенсивность выше порога
+    float2 finalUV = scanlineDistortion(I.tc0, timers.x, pda_params.y);
+    
+    float4 original = tex2D(s_pdascreen, finalUV);
+    float3 glitched = glitchClassic(finalUV, effectsIntensity);
+    
+    // Смешивание с оригиналом с учетом множителя
+    float3 finalColor = lerp(original.rgb, glitched, effectsIntensity);
+    
+    // Добавляем статический шум, масштабированный по интенсивности
+    finalColor += staticNoise(I.tc0) * effectsIntensity;
+    
+    // Финальная коррекция яркости и прозрачности
+    return float4(finalColor * pda_params.z, pda_params.x);
+}

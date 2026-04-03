@@ -1,0 +1,248 @@
+<string_table>
+	<string id="ui_mcm_menu_fatal_error">
+		<text>Fatal Error</text>
+	</string>
+	<string id="ui_mcm_menu_fe_pdas">
+		<text>PDA Frying</text>
+	</string>
+	<string id="ui_mcm_menu_fe_devices">
+		<text>Device Frying</text>
+	</string>
+	<string id="ui_mcm_menu_fe_other">
+		<text>Other Settings</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_emission_delay">
+		<text>Frequency of checking PDA for "frying" (sec.)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_emission_delay_desc">
+		<text>The time interval during a surge or psi storm after what game will try to break your PDA or Devices.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_devices_devices_emission">
+		<text>Chance for Devices to fry (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_devices_devices_electra">
+		<text>Chance for Devices to fry from electric damage (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_devices_devices_radiation">
+		<text>Factor for Devices to fry from radiation (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_devices_devices_emission_desc">
+		<text>Chance that Devices will break during an emission or psi storm.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_devices_devices_electra_desc">
+		<text>Chance that Devices will break from damage from Electras and Pulse anomalies.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_devices_devices_radiation_desc">
+		<text>For example, if Accumulated Radiation is 10, and Factor for Devices is 0.10, then chance for Devices to break will equal 1%.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda0_emission">
+		<text>Chance of I-st generation PDA to fry (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda1_emission">
+		<text>Chance of II-nd generation PDA to fry (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda2_emission">
+		<text>Chance of III-rd generation PDA to fry (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda3_emission">
+		<text>Chance of IV-th generation PDA to fry (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda4_emission">
+		<text>Chance of V-th generation PDA to fry (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda0_bsod">
+		<text>Chance of I-st generation PDA to BSOD (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda1_bsod">
+		<text>Chance of II-nd generation PDA to BSOD (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda2_bsod">
+		<text>Chance of III-rd generation PDA to BSOD (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda3_bsod">
+		<text>Chance of IV-th generation PDA to BSOD (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda4_bsod">
+		<text>Chance of V-th generation PDA to BSOD (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda0_bsod_desc">
+		<text>Chance that I-st generation PDA will temporary break after an emission or psi storm.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda1_bsod_desc">
+		<text>Chance that II-nd generation PDA will temporary break after an emission or psi storm.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda2_bsod_desc">
+		<text>Chance that III-rd generation PDA will temporary break after an emission or psi storm.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda3_bsod_desc">
+		<text>Chance that IV-th generation PDA will temporary break after an emission or psi storm.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda4_bsod_desc">
+		<text>Chance that V-th generation PDA will temporary break after an emission or psi storm.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda0_electra">
+		<text>Chance of I-st generation PDA to fry from electric damage (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda1_electra">
+		<text>Chance of II-nd generation PDA to fry from electric damage (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda2_electra">
+		<text>Chance of III-rd generation PDA to fry from electric damage (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda3_electra">
+		<text>Chance of IV-th generation PDA to fry from electric damage (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda4_electra">
+		<text>Chance of V-th generation PDA to fry from electric damage (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda0_electra_desc">
+		<text>Chance that the I-st generation PDA will break from damage from Electras and Pulse anomalies.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda1_electra_desc">
+		<text>Chance that the II-nd generation PDA will break from damage from Electras and Pulse anomalies.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda2_electra_desc">
+		<text>Chance that the III-rd generation PDA will break from damage from Electras and Pulse anomalies.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda3_electra_desc">
+		<text>Chance that the IV-th generation PDA will break from damage from Electras and Pulse anomalies.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda4_electra_desc">
+		<text>Chance that the V-th generation PDA will break from damage from Electras and Pulse anomalies.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda0_emission_desc">
+		<text>Chance that the I-st generation PDA will break during an emission or psi storm.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda1_emission_desc">
+		<text>Chance that the II-nd generation PDA will break during an emission or psi storm.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda2_emission_desc">
+		<text>Chance that the III-rd generation PDA will break during an emission or psi storm.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda3_emission_desc">
+		<text>Chance that the IV-th generation PDA will break during an emission or psi storm.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda4_emission_desc">
+		<text>Chance that the V-th generation PDA will break during an emission or psi storm.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda0_radiation">
+		<text>Factor for I-st generation PDA to fry from radiation (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda1_radiation">
+		<text>Factor for II-nd generation PDA to fry from radiation (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda2_radiation">
+		<text>Factor for III-rd generation PDA to fry from radiation (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda3_radiation">
+		<text>Factor for IV-th generation PDA to fry from radiation (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda4_radiation">
+		<text>Factor for V-th generation PDA to fry from radiation (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda0_radiation_desc">
+		<text>For example, if Accumulated Radiation is 10, and Factor for PDA is 1, then chance for I-st generation PDA to break will equal 10%.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda1_radiation_desc">
+		<text>For example, if Accumulated Radiation is 10, and Factor for PDA is 0.75, then chance for II-nd generation PDA to break will equal 7%.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda2_radiation_desc">
+		<text>For example, if Accumulated Radiation is 10, and Factor for PDA is 0.50, then chance for III-rd generation PDA to break will equal 5%.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda3_radiation_desc">
+		<text>For example, if Accumulated Radiation is 10, and Factor for PDA is 0.25, then chance for IV-th generation PDA to break will equal 2%.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_pdas_pda4_radiation_desc">
+		<text>For example, if Accumulated Radiation is 10, and Factor for PDA is 0.10, then chance for V-th generation PDA to break will equal 1%.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_amount_to_fry">
+		<text>Minimal Amount of Accumulated Radiation</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_amount_to_fry_desc">
+		<text>If Accumulated Radiation is more than Minimal Amount of Accumulated Radiation, then game will try to break your PDA or Devices.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_delay">
+		<text>Frequency of checking for breaking from radiation (sec.)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_delay_desc">
+		<text>If Accumulated Radiation is more than Minimal Amount of Accumulated Radiation, then game will try to break your PDA or Devices every this amount of seconds.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_glitch_scale">
+		<text>Glitch scale for PDA from radiation.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_glitch_scale_desc">
+		<text>For example, 1 - a lot of glitch from minor dose of radiation, 0 - no glitch even at the centre of Reactor No. 4.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_scale">
+		<text>Accumulated Radiation scale</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_scale_desc">
+		<text>Scales how much Accumulated Radiation you get.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_amount_lower">
+		<text>Accumulated Radiation lower amount</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_radiation_amount_lower_desc">
+		<text>The amount of Accumulated Radiation you lose over time.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_reboot_time_min">
+		<text>Minimal time for reboot (sec.)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_reboot_time_min_desc">
+		<text>The minimal time for reboot after emission or psi storm. Must be lower than Maximum time for reboot.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_reboot_time_max">
+		<text>Maximum time for reboot (sec.)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_reboot_time_max_desc">
+		<text>The maximum time for reboot after emission or psi storm. Must be higher than Minimal time for reboot.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_chance_for_pda_to_damage">
+		<text>Chance for PDA to get damaged (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_chance_for_pda_to_damage_desc">
+		<text>The chance for PDA to get damaged after receiving physical damage.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_chance_for_device_to_break">
+		<text>Chance for Head Device to get broken (%)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_chance_for_device_to_break_desc">
+		<text>The chance for Head Device to get broken after receiving physical damage to the head.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_light_reboot">
+		<text>Light Reboot Mode</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_light_reboot_desc">
+		<text>If you have friezes or weak PC enable this option.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_beep_radius">
+		<text>PDA "Beep" radius</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_beep_radius_desc">
+		<text>If there are stalkers within this radius, the PDA will emit an audible signal. Works only on later PDA models.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_reboot_key">
+		<text>Key to reboot PDA</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_reboot_key_desc">
+		<text>Select key for rebooting PDA.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_devices_unreliability">
+		<text>Unreliability of devices</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_devices_unreliability_desc">
+		<text>When more then 0, even undamaged devices have a small chance to turn off for some time. This also causes passive glitchiness for PDAs.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_shutdown_min_time">
+		<text>Minimum shutdown time (sec.)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_shutdown_min_time_desc">
+		<text>Minimum device shutdown time. Must be less than the Maximum shutdown time.</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_shutdown_max_time">
+		<text>Maximum shutdown time (sec.)</text>
+	</string>
+	<string id="ui_mcm_fatal_error_fe_other_shutdown_max_time_desc">
+		<text>Maximum device shutdown time. Must be greater than the Minimum shutdown time.</text>
+	</string>
+</string_table>

@@ -1,0 +1,61 @@
+#include "common.h"
+
+struct v2p
+{
+    float2 tc0: TEXCOORD0;
+    float4 c0: COLOR0;
+};
+
+// Основные параметры
+#define EFFECTS_MULTIPLIER 1.00 // Общий множитель интенсивности эффектов
+#define SCANLINE_THRESHOLD 0.75 // Порог активации движущейся линии (0-1)
+#define STATIC_AMOUNT 0.50     // Базовое количество статического шума
+
+// Параметры движущейся линии
+#define SCANLINE_SPEED 0.20       // Скорость движения линии
+#define SCANLINE_WIDTH 0.0025     // Толщина линии
+#define SCANLINE_DISTORT 0.02    // Сила искажения от линии
+
+sampler2D s_pdascreen;
+sampler2D s_noise;
+float4 pda_params; // x:alpha, y:glitch_amount, z:brightness
+
+// Генерация статического шума
+float3 staticNoise(float2 uv) {
+    return tex2D(s_noise, uv * 10.0).rgb * STATIC_AMOUNT;
+}
+
+// Движущаяся линия
+float2 scanlineDistortion(float2 uv, float time, float intensity)
+{
+    // Проверяем, превышен ли порог для активации линии
+    if (intensity > SCANLINE_THRESHOLD)
+    {
+        float linePos = frac(time * SCANLINE_SPEED);
+        float dist = abs(uv.y - linePos);
+        
+        if (dist < SCANLINE_WIDTH) 
+        {
+            float distortAmount = (1.0 - dist/SCANLINE_WIDTH) * SCANLINE_DISTORT;
+            uv.x += sin(uv.y * 100.0 + time * 10.0) * distortAmount;
+        }
+    }
+    return uv;
+}
+
+float4 main(v2p I): COLOR
+{
+    // Рассчитываем итоговую интенсивность эффектов
+    float effectsIntensity = pda_params.y * EFFECTS_MULTIPLIER;
+    
+    // Применяем искажение только если интенсивность выше порога
+    float2 finalUV = scanlineDistortion(I.tc0, timers.x, pda_params.y);
+    
+    float4 original = tex2D(s_pdascreen, finalUV);
+    
+    // Добавляем статический шум, масштабированный по интенсивности
+    float3 finalColor = original.rgb + staticNoise(I.tc0) * effectsIntensity;
+    
+    // Финальная коррекция яркости и прозрачности
+    return float4(finalColor * pda_params.z, pda_params.x);
+}

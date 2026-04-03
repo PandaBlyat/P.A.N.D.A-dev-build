@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+<string_table>
+	<string id="st_pda_error_603">
+		<text>ФАТАЛЬНАЯ ОШИБКА: КОД ОШИБКИ 603 - ПЕРЕЗАГРУЗИТЕ УСТРОЙСТВО</text>
+	</string>
+	<string id="st_pda_error_map">
+		<text>ФАТАЛЬНАЯ ОШИБКА: СПУТНИКОВАЯ КАРТА НЕДОСТУПНА</text>
+	</string>
+	<string id="st_pda_no_map">
+		<text>НЕТ СИГНАЛА</text>
+	</string>
+	<string id="st_pda_no">
+		<text>ОШИБКА: ДАННАЯ ФУНКЦИЯ НЕДОСТУПНА НА ДАННОЙ МОДЕЛИ КПК</text>
+	</string>
+	<string id="st_blocked">
+		<text>ФАТАЛЬНАЯ ОШИБКА: ПОЛЬЗОВАТЕЛЬСКИЙ ИНТЕРФЕЙС НЕДОСТУПЕН</text>
+	</string>
+	<string id="st_pda_monolitch_hackers">
+		<text>FATAL ERROR: FUNCTION SET_ACTIVE_SUBDIALOG(SECTION) NOT AVAILABLE \nUNKNOWN UNAUTHORIZED ACCESS: MONOLITH_TRACKING.SCRIPT \nUNKNOWN UNAUTHORIZED REQUEST: SEND_LOCAL_POS TO MONOLITH_ALPHA_SQUAD \n!ERROR !ERROR !ERROR !ERROR !ERROR !ERROR !ERROR !ERROR \nUNKNOWN UNAUTHORIZED MESSAGE: ЗА МОНОЛИТ! ТЫ БУДЕШЬ УНИЧТОЖЕН, ЧЕРВЬ! \n!ERROR !ERROR !ERROR !ERROR !ERROR !ERROR !ERROR !ERROR</text>
+	</string>
+</string_table>

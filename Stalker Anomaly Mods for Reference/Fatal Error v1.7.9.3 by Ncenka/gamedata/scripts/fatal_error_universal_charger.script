@@ -1,0 +1,109 @@
+-- Used DeepSeek to write about 75% of this code
+local function universal_charge_handler(obj_b, obj_d, slot_from, slot_to)
+
+    -- Определяем, что является батареей/устройством, а что - зарядным устройством
+    local charger, target
+    local sec_b = obj_b:section()
+    local sec_d = obj_d:section()
+	
+    -- Проверяем первый вариант: батарея -> зарядное устройство
+    if IsItem("battery",sec_b) and ini_sys:r_bool_ex(sec_d,"is_upd") == true then
+        target = obj_b
+        charger = obj_d
+		
+    -- Проверяем второй вариант: зарядное устройство -> батарея/устройство
+    elseif ini_sys:r_bool_ex(sec_b,"is_upd") == true and (IsItem("battery",sec_d) or IsItem("device",sec_d)) then
+        charger = obj_b
+        target = obj_d
+    else
+        return -- Неподходящая комбинация предметов
+    end
+
+    -- Получаем секции для конфигов
+    local target_sec = target:section()
+    local charger_sec = charger:section()
+    
+    -- Обработка случая, когда target - это устройство с батареей
+    if IsItem("device",target_sec) then
+        local battery = ini_sys:r_string_ex(target_sec, "battery")
+        if battery == "none" then
+            battery = target_sec
+        end
+        target_sec = battery
+        
+        -- Проверяем, есть ли батарея в устройстве
+        if target:condition() <= 0.0001 and battery ~= "none" then
+			news_manager.send_tip(db.actor, game.translate_string("st_no_batt"), nil, default, 3000)
+            return
+        end
+    end
+    
+    -- Получаем максимальные значения заряда
+    local target_max = ini_sys:r_float_ex(target_sec, "amper_amount") or 540
+    local charger_max = ini_sys:r_float_ex(charger_sec, "amper_amount") or 5000
+    
+    -- Получаем текущие уровни заряда (0-1)
+    local target_charge = target:condition()
+    local charger_charge = charger:condition()
+    
+    -- Рассчитываем текущие значения в mAh
+    local target_current = target_charge * target_max
+    local charger_current = charger_charge * charger_max
+    
+    -- Определяем направление передачи энергии
+    if ini_sys:r_bool_ex(sec_d,"is_upd") == true then
+        -- Батарея заряжает УЗУ
+        if target_current <= 0 then
+			news_manager.send_tip(db.actor, game.translate_string("st_batt_empty"), nil, default, 3000)
+            return
+        end
+        
+        if charger_current >= charger_max then
+			news_manager.send_tip(db.actor, game.translate_string("st_upd_full"), nil, default, 3000)
+            return
+        end
+        
+        -- Рассчитываем количество для передачи
+        local transfer_amount = math.min(target_current, charger_max - charger_current)
+        
+        -- Обновляем значения заряда
+        local new_target_charge = (target_current - transfer_amount) / target_max
+        local new_charger_charge = (charger_current + transfer_amount) / charger_max
+        
+        -- Применяем изменения
+        alife_process_item(target_sec, target:id(), {cond = new_target_charge})
+        alife_process_item(charger_sec, charger:id(), {cond = new_charger_charge})
+
+    else
+        -- УЗУ заряжает батарею
+        if charger_current <= 0 then			
+			news_manager.send_tip(db.actor, game.translate_string("st_upd_empty"), nil, default, 3000)
+            return
+        end
+        
+        if target_current >= target_max then
+			news_manager.send_tip(db.actor, game.translate_string("st_batt_full"), nil, default, 3000)
+            return
+        end
+        
+        -- Рассчитываем количество для передачи
+        local transfer_amount = math.min(charger_current, target_max - target_current)
+        
+        -- Обновляем значения заряда
+        local new_target_charge = (target_current + transfer_amount) / target_max
+        local new_charger_charge = (charger_current - transfer_amount) / charger_max
+        
+        -- Применяем изменения
+        alife_process_item(target_sec, target:id(), {cond = new_target_charge})
+        alife_process_item(charger_sec, charger:id(), {cond = new_charger_charge})
+
+    end
+    
+    -- Воспроизводим эффекты и звук
+    actor_effects.play_item_fx(item_device.device_battery)
+    utils_obj.play_sound("interface\\inv_batt")
+end
+
+function on_game_start()
+    RegisterScriptCallback("ActorMenu_on_item_drag_drop", universal_charge_handler)
+end

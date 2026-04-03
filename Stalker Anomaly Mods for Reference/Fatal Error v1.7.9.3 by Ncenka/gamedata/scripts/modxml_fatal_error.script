@@ -1,0 +1,27 @@
+function on_game_start()
+    RegisterScriptCallback("on_specific_character_dialog_list", function(character_id, dialog_list)
+        local mechanics = {
+            "jup_cont_mech_bandit",
+            "mechanic_monolith_kbo",
+            "zat_tech_mlr",
+            "esc_smart_terrain_5_7_loner_mechanic_stalker",
+            "jup_b217_stalker_tech",
+            "jup_b6_scientist_tech",
+            "bar_visitors_stalker_mechanic",
+            "mar_base_stalker_tech",
+            "cit_killers_merc_mechanic_stalker",
+            "mil_smart_terrain_7_7_freedom_mechanic_stalker",
+            "agr_smart_terrain_1_6_army_mechanic_stalker",
+            "val_smart_terrain_7_3_bandit_mechanic_stalker",
+            "pri_monolith_monolith_mechanic_stalker",
+            "mechanic_army_yan_mlr"
+        }
+        
+        for _, mechanic_id in ipairs(mechanics) do
+            if character_id == mechanic_id then
+                local res1 = dialog_list:add("pda_upgrade")
+                local res2 = dialog_list:add("pda_decypher")
+            end
+        end
+    end)
+end

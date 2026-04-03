@@ -1,0 +1,19 @@
+local SINGLETON = nil
+function get_ui()
+	SINGLETON = SINGLETON or pda_blocked_tab()
+	return SINGLETON
+end
+
+class "pda_blocked_tab" (CUIScriptWnd)
+function pda_blocked_tab:__init() super()
+    self:InitControls()
+end
+
+function pda_blocked_tab:InitControls()
+    self:SetWndRect(Frect():set(0,0,1024,768))
+	local xml               = CScriptXmlInit()
+	xml:ParseFile("pda_errors.xml")
+	self.text 			= xml:InitTextWnd("text_center", self)
+	self.text:SetText(game.translate_string("st_blocked"))
+    self.text:SetTextColor(GetARGB(255, 255, 255, 0))
+end

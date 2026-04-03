@@ -1,0 +1,22 @@
+<w>
+	<file name="ui\settings">
+		<texture id="settings_e" x="0" y="0" width="256" height="257" />
+		<texture id="settings_h" x="256" y="0" width="256" height="257" />
+		<texture id="settings_t" x="0" y="256" width="256" height="257" />
+		<texture id="settings_d" x="0" y="256" width="256" height="257" />
+	</file>
+  
+	<file name="ui\bios_button_colors">
+		<texture id="bios_button_colors_e" x="0" y="0" width="5" height="5" />
+		<texture id="bios_button_colors_h" x="0" y="35" width="5" height="5" />
+		<texture id="bios_button_colors_t" x="0" y="55" width="5" height="5" />
+		<texture id="bios_button_colors_d" x="0" y="0" width="5" height="5" />
+	</file>
+  
+	<file name="ui\bios_button">
+		<texture id="bios_button_e" x="-1" y="0" width="201" height="50" />
+		<texture id="bios_button_h" x="-1" y="50" width="201" height="50" />
+		<texture id="bios_button_t" x="-1" y="100" width="201" height="50" />
+		<texture id="bios_button_d" x="-1" y="0" width="201" height="50" />
+	</file>
+</w>

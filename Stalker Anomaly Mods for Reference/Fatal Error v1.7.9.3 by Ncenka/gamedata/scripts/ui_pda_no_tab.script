@@ -1,0 +1,19 @@
+local SINGLETON = nil
+function get_ui()
+	SINGLETON = SINGLETON or pda_no_tab()
+	return SINGLETON
+end
+
+class "pda_no_tab" (CUIScriptWnd)
+function pda_no_tab:__init() super()
+    self:InitControls()
+end
+
+function pda_no_tab:InitControls()
+    self:SetWndRect(Frect():set(0,0,1024,768))
+	local xml               = CScriptXmlInit()
+	xml:ParseFile("pda_errors.xml")
+	self.text 			= xml:InitTextWnd("text_center", self)
+	self.text:SetText(game.translate_string("st_pda_no"))
+    self.text:SetTextColor(GetARGB(255, 255, 255, 0))
+end
