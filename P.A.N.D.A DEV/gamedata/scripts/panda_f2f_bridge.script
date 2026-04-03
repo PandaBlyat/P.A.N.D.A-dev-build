@@ -1690,6 +1690,7 @@ local function execute_shared_outcome(branch, state)
         conv_id = state.conv_id,
         prefix = state.prefix,
         turn = state.turn or 1,
+        f2f_session_token = state.active_token or state.handoff_token,
     }
 
     return api.apply_outcome(
@@ -4056,12 +4057,14 @@ function panda_f2f_bridge.on_dialog_closed(npc_or_reason, reason, ...)
     local consume_turn = nil
     local consume_token = nil
     local consume_set_at = nil
+    local animation_session_token = nil
     if type(state) == "table" then
         consume_npc_ref = state.npc_se or consume_npc_ref
         consume_conv_id = state.handoff_conv_id or state.conv_id
         consume_turn = state.handoff_turn or state.turn
         consume_token = state.handoff_token
         consume_set_at = state.handoff_set_at
+        animation_session_token = state.active_token or state.handoff_token
     end
 
     bridge_warn(
@@ -4178,6 +4181,38 @@ function panda_f2f_bridge.on_dialog_closed(npc_or_reason, reason, ...)
                 tostring(discarded == true)
             )
         end
+    end
+
+    if resolved_npc_id and conv_api and type(conv_api.on_f2f_dialog_closed) == "function" then
+        local ok_anim, anim_summary = pcall(conv_api.on_f2f_dialog_closed, resolved_npc_id, animation_session_token, close_reason)
+        if ok_anim and type(anim_summary) == "table" then
+            bridge_warn(
+                "teardown npc_animation npc_id=%s reason=%s status=%s action=%s preset=%s duration=%s session=%s",
+                tostring(resolved_npc_id or "nil"),
+                tostring(close_reason),
+                tostring(anim_summary.status or "nil"),
+                tostring(anim_summary.action or "nil"),
+                tostring(anim_summary.preset_id or "nil"),
+                tostring(anim_summary.duration or "nil"),
+                tostring(animation_session_token or "nil")
+            )
+        else
+            bridge_warn(
+                "teardown npc_animation skipped npc_id=%s reason=%s detail=%s session=%s",
+                tostring(resolved_npc_id or "nil"),
+                tostring(close_reason),
+                tostring(ok_anim and "invalid_summary" or "call_failed"),
+                tostring(animation_session_token or "nil")
+            )
+        end
+    elseif resolved_npc_id then
+        bridge_warn(
+            "teardown npc_animation skipped npc_id=%s reason=%s detail=%s session=%s",
+            tostring(resolved_npc_id or "nil"),
+            tostring(close_reason),
+            "api_unavailable",
+            tostring(animation_session_token or "nil")
+        )
     end
 
     if type(state) == "table" and state.branch_committed == true then

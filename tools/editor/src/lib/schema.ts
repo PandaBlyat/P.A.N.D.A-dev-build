@@ -145,6 +145,24 @@ const COMPANION_STATE_OPTIONS: ParamOption[] = COMPANION_STATES.map((s) => ({
   keywords: [s, COMPANION_STATE_DISPLAY_NAMES[s] ?? ''],
 }));
 
+export const NPC_ANIMATION_PRESET_OPTIONS: ParamOption[] = [
+  { value: 'smoke_stand', label: 'Smoke Standing', keywords: ['smoke', 'standing', 'cigarette', 'smoking_stand'] },
+  { value: 'smoke_sit', label: 'Smoke Sitting', keywords: ['smoke', 'sitting', 'cigarette', 'smoking_sit'] },
+  { value: 'use_pda', label: 'Use PDA', keywords: ['pda', 'use', 'device', 'use_pda'] },
+  { value: 'guard_attention', label: 'Guard Attention', keywords: ['guard', 'attention', 'stay_smirno', 'salute'] },
+  { value: 'sit_ground', label: 'Sit on Ground (terrain-sensitive)', keywords: ['sit', 'ground', 'terrain', 'sit_korta'] },
+  { value: 'sit_chair', label: 'Sit on Chair', keywords: ['sit', 'chair', 'seat', 'sit_ass'] },
+  { value: 'sit_knee', label: 'Sit on Knee', keywords: ['sit', 'knee', 'sit_knee'] },
+  { value: 'sleep_ground', label: 'Sleep on Ground (terrain-sensitive)', keywords: ['sleep', 'ground', 'terrain', 'sleep'] },
+  { value: 'sleep_sit', label: 'Sleep Sitting (terrain-sensitive)', keywords: ['sleep', 'sit', 'terrain', 'sleep_sit'] },
+  { value: 'wounded_heavy_1', label: 'Wounded Heavy 1 (terrain-sensitive)', keywords: ['wounded', 'injured', 'terrain', 'wounded_heavy'] },
+  { value: 'wounded_heavy_2', label: 'Wounded Heavy 2 (terrain-sensitive)', keywords: ['wounded', 'injured', 'terrain', 'wounded_heavy_2'] },
+  { value: 'wounded_heavy_3', label: 'Wounded Heavy 3 (terrain-sensitive)', keywords: ['wounded', 'injured', 'terrain', 'wounded_heavy_3'] },
+  { value: 'drink_vodka_stand', label: 'Drink Vodka Standing', keywords: ['drink', 'vodka', 'standing', 'drink_vodka_stand'] },
+  { value: 'drunk_stand', label: 'Drunk Standing', keywords: ['drunk', 'standing', 'drunk_stand'] },
+  { value: 'laugh', label: 'Laugh', keywords: ['laugh', 'smeh'] },
+];
+
 const MONTH_OPTIONS: ParamOption[] = Array.from({ length: 12 }, (_, i) => ({
   value: String(i + 1),
   label: MONTH_NAMES[i + 1],
@@ -1814,6 +1832,40 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     params: [
       { name: 'duration', type: 'number', required: true, label: 'Duration (s)', min: 1 },
     ],
+  },
+  {
+    name: 'set_npc_animation',
+    label: 'Set NPC Animation',
+    description: 'Play a curated vanilla animation preset on the conversation NPC',
+    category: 'NPC',
+    helpText: 'Targets the active conversation NPC only. In F2F, the preset is queued and starts after the vanilla dialogue panel closes. Terrain-sensitive presets like sleep, wounded, and sit_ground need enough flat space to look right.',
+    params: [
+      {
+        name: 'preset_id',
+        type: 'string',
+        required: true,
+        label: 'Animation Preset',
+        editor: { kind: 'searchable_select', options: NPC_ANIMATION_PRESET_OPTIONS, emptyLabel: '-- Select animation preset --' },
+        helpText: 'Curated safe presets only. sleep_*, wounded_*, and sit_ground are terrain-sensitive and may clip or fail on uneven ground.',
+      },
+      {
+        name: 'duration',
+        type: 'number',
+        required: false,
+        label: 'Duration Override (s)',
+        placeholder: 'Use preset default',
+        min: 0.1,
+        helpText: 'Optional. Leave empty to use the preset default duration.',
+      },
+    ],
+  },
+  {
+    name: 'clear_npc_animation',
+    label: 'Clear NPC Animation',
+    description: 'Stop the current dialogue-driven animation on the conversation NPC',
+    category: 'NPC',
+    helpText: 'Clears the active dialogue-driven pose for the conversation NPC. In F2F, the clear is applied after the dialogue panel closes.',
+    params: [],
   },
   // ─── NEW: Faction & Relations ─────────────────────────────────────────
   {

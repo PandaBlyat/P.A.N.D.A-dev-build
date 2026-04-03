@@ -2,7 +2,7 @@
 
 import { ALL_SMART_TERRAIN_IDS, FACTION_ALIASES, FACTION_IDS, LEVEL_DISPLAY_NAMES, MUTANT_TYPES, RANKS } from './constants';
 import { LEGACY_F2F_OPENING_WARNINGS } from './f2f-entry-migration';
-import { findSchema, OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from './schema';
+import { findSchema, NPC_ANIMATION_PRESET_OPTIONS, OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from './schema';
 import { createTurnDisplayLabeler } from './turn-labels';
 import { STORY_NPC_OPTIONS } from './generated/story-npc-catalog';
 import type { CommandSchema, ParamDef } from './schema';
@@ -25,6 +25,7 @@ const KNOWN_LEVELS = new Set(Object.keys(LEVEL_DISPLAY_NAMES));
 const KNOWN_SMART_TERRAINS = new Set(ALL_SMART_TERRAIN_IDS);
 const KNOWN_FACTIONS = new Set([...FACTION_IDS, ...Object.keys(FACTION_ALIASES)]);
 const KNOWN_STORY_NPCS = new Set(STORY_NPC_OPTIONS.map((option) => option.value));
+const KNOWN_NPC_ANIMATION_PRESETS = new Set(NPC_ANIMATION_PRESET_OPTIONS.map((option) => option.value.toLowerCase()));
 const SPAWN_JOB_OUTCOMES = new Set([
   'spawn_custom_npc',
   'spawn_custom_npc_at',
@@ -682,6 +683,20 @@ function validateOutcome(
     getParamFieldKey: paramIndex => getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, paramIndex),
     messages,
   });
+  validateNpcAnimationPresetReference({
+    command: outcome.command,
+    schema,
+    params: outcome.params,
+    context: {
+      conversationId: conv.id,
+      turnNumber: turn.turnNumber,
+      choiceIndex: choice.index,
+      outcomeIndex,
+      propertiesTab: 'selection',
+    },
+    getParamFieldKey: paramIndex => getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, paramIndex),
+    messages,
+  });
 
   if (outcome.chancePercent != null && (!Number.isFinite(outcome.chancePercent) || outcome.chancePercent < 1 || outcome.chancePercent > 100)) {
     pushMessage(messages, {
@@ -1050,6 +1065,37 @@ function validateCustomNpcTemplateReference(options: {
     fieldKey: getParamFieldKey(templateParamIndex),
     fieldLabel: schema.params[templateParamIndex]?.label ?? 'NPC Template',
     message: `${schema.label}: Custom NPC template "${templateId}" is not defined in this project yet.`,
+  });
+}
+
+function validateNpcAnimationPresetReference(options: {
+  command: string;
+  schema: CommandSchema | undefined;
+  params: string[];
+  context: ValidationContext;
+  getParamFieldKey: (paramIndex: number) => string;
+  messages: ValidationMessage[];
+}): void {
+  const { command, schema, params, context, getParamFieldKey, messages } = options;
+  if (command !== 'set_npc_animation' || !schema) {
+    return;
+  }
+
+  const presetId = (params[0] ?? '').trim();
+  if (presetId === '' || KNOWN_NPC_ANIMATION_PRESETS.has(presetId.toLowerCase())) {
+    return;
+  }
+
+  pushMessage(messages, {
+    ...context,
+    code: 'outcome-unknown-npc-animation-preset',
+    group: 'schema',
+    scope: 'outcome',
+    level: 'error',
+    paramIndex: 0,
+    fieldKey: getParamFieldKey(0),
+    fieldLabel: schema.params[0]?.label ?? 'Animation Preset',
+    message: `${schema.label}: Animation preset "${presetId}" is not in the curated preset catalog.`,
   });
 }
 

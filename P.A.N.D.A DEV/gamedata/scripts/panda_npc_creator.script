@@ -286,6 +286,8 @@ function install_engine_guards()
 
                 if (smart) then
                     self.smart_id = smart.id
+                else
+                    self.smart_id = nil
                 end
 
                 for k in self:squad_members() do
@@ -1202,13 +1204,19 @@ local function get_server_object_smart_id(se_obj)
     return smart_id
 end
 
-local function configure_stationary_squad(squad_obj)
+local function detach_stationary_squad_from_simboard(squad_obj, old_smart_id)
     if not squad_obj then
         return false
     end
 
+    local detached_via_api = false
+    if SIMBOARD and type(SIMBOARD.assign_squad_to_smart) == "function" then
+        detached_via_api = pcall(function()
+            SIMBOARD:assign_squad_to_smart(squad_obj, nil)
+        end) == true
+    end
+
     local squad_id = squad_obj.id
-    local old_smart_id = squad_obj.smart_id
     if old_smart_id and SIMBOARD and SIMBOARD.smarts and SIMBOARD.smarts[old_smart_id] then
         local board_entry = SIMBOARD.smarts[old_smart_id]
         if board_entry.squads and board_entry.squads[squad_id] then
@@ -1224,9 +1232,43 @@ local function configure_stationary_squad(squad_obj)
         end
     end
 
+    return detached_via_api
+end
+
+local function configure_stationary_squad(squad_obj, reason)
+    if not squad_obj then
+        return false
+    end
+
+    local squad_id = squad_obj.id
+    local reason_text = tostring(reason or "unspecified")
+    local old_smart_id = squad_obj.smart_id
+    local expected_scripted_target = tostring(squad_id)
+
+    if old_smart_id or squad_obj.task_target_id ~= nil
+        or tostring(squad_obj.scripted_target or "") ~= expected_scripted_target
+        or squad_obj.assigned_target_id ~= squad_id
+        or squad_obj.current_target_id ~= squad_id
+        or squad_obj.current_action ~= 0
+        or squad_obj.rush_to_target ~= false then
+        printf(
+            "PANDA_NPC: stationary squad reassert squad_id=%s reason=%s smart_id=%s scripted_target=%s assigned_target_id=%s current_target_id=%s current_action=%s rush_to_target=%s task_target_id=%s",
+            tostring(squad_id),
+            reason_text,
+            tostring(old_smart_id or "nil"),
+            tostring(squad_obj.scripted_target or "nil"),
+            tostring(squad_obj.assigned_target_id or "nil"),
+            tostring(squad_obj.current_target_id or "nil"),
+            tostring(squad_obj.current_action or "nil"),
+            tostring(squad_obj.rush_to_target),
+            tostring(squad_obj.task_target_id or "nil")
+        )
+    end
+
+    detach_stationary_squad_from_simboard(squad_obj, old_smart_id)
     squad_obj.smart_id = nil
     squad_obj.task_target_id = nil
-    squad_obj.scripted_target = tostring(squad_id)
+    squad_obj.scripted_target = expected_scripted_target
     squad_obj.assigned_target_id = squad_id
     squad_obj.current_target_id = squad_id
     squad_obj.current_action = 0
@@ -1235,12 +1277,120 @@ local function configure_stationary_squad(squad_obj)
     for member in squad_obj:squad_members() do
         local se_member = alife_object(member.id)
         if se_member then
+            local member_smart_id = nil
+            if se_member.smart_terrain_id then
+                local ok_member_smart, resolved_member_smart = pcall(function()
+                    return se_member:smart_terrain_id()
+                end)
+                if ok_member_smart then
+                    member_smart_id = resolved_member_smart
+                end
+            end
+
+            if member_smart_id == nil then
+                member_smart_id = se_member.m_smart_terrain_id
+            end
+
+            if member_smart_id and member_smart_id ~= 65535 then
+                printf(
+                    "PANDA_NPC: stationary member scrub npc_id=%s squad_id=%s reason=%s smart_id=%s",
+                    tostring(member.id),
+                    tostring(squad_id),
+                    reason_text,
+                    tostring(member_smart_id)
+                )
+            end
+
             if se_member.clear_smart_terrain then
                 pcall(function()
                     se_member:clear_smart_terrain()
                 end)
             end
             se_member.m_smart_terrain_id = 65535
+        end
+    end
+
+    return true
+end
+
+local function enforce_stationary_npc_anchor(npc_id, reason)
+    local anchor = stationary_custom_npcs[npc_id]
+    if not anchor then
+        return false
+    end
+
+    local reason_text = tostring(reason or "unspecified")
+    if anchor.squad_id then
+        local squad_obj = alife_object(anchor.squad_id)
+        if squad_obj then
+            configure_stationary_squad(squad_obj, reason_text)
+        else
+            printf(
+                "PANDA_NPC: stationary anchor missing squad npc_id=%s squad_id=%s reason=%s",
+                tostring(npc_id),
+                tostring(anchor.squad_id),
+                reason_text
+            )
+        end
+    end
+
+    local npc = level.object_by_id(npc_id)
+    local desired_pos = table_to_vector(anchor.pos)
+    if not npc or not desired_pos or not npc.alive or not npc:alive() then
+        return false
+    end
+
+    local path_type = game_object and (game_object.no_path or game_object.level_path) or nil
+    if npc.set_path_type then
+        pcall(function()
+            if path_type then
+                npc:set_path_type(path_type)
+            end
+        end)
+    end
+    if anchor.lvid and npc.set_dest_level_vertex_id then
+        pcall(function()
+            npc:set_dest_level_vertex_id(anchor.lvid)
+        end)
+    end
+    if anchor.gvid and npc.set_dest_game_vertex_id then
+        pcall(function()
+            npc:set_dest_game_vertex_id(anchor.gvid)
+        end)
+    end
+    if npc.set_desired_position then
+        pcall(function()
+            npc:set_desired_position(desired_pos)
+        end)
+    end
+    if npc.set_movement_type then
+        pcall(function()
+            npc:set_movement_type(move.stand)
+        end)
+    end
+    if npc.set_mental_state then
+        pcall(function()
+            npc:set_mental_state(anim.free)
+        end)
+    end
+
+    local current_pos = get_runtime_position(npc)
+    if current_pos and current_pos.distance_to and npc.set_npc_position then
+        local ok_dist, dist = pcall(function()
+            return current_pos:distance_to(desired_pos)
+        end)
+        if ok_dist and dist and dist > STATIONARY_TELEPORT_THRESHOLD then
+            printf(
+                "PANDA_NPC: stationary anchor drift npc_id=%s squad_id=%s reason=%s dist=%.2f threshold=%.2f",
+                tostring(npc_id),
+                tostring(anchor.squad_id or "nil"),
+                reason_text,
+                dist,
+                STATIONARY_TELEPORT_THRESHOLD
+            )
+            pcall(function()
+                npc:set_npc_position(desired_pos)
+            end)
         end
     end
 
@@ -1262,62 +1412,7 @@ local function schedule_stationary_anchor_enforcement(npc_id)
             return true
         end
 
-        if current.squad_id then
-            local squad_obj = alife_object(current.squad_id)
-            if squad_obj then
-                configure_stationary_squad(squad_obj)
-            end
-        end
-
-        local npc = level.object_by_id(npc_id)
-        local desired_pos = table_to_vector(current.pos)
-        if npc and desired_pos and npc.alive and npc:alive() then
-            local path_type = game_object and (game_object.no_path or game_object.level_path) or nil
-            if npc.set_path_type then
-                pcall(function()
-                    if path_type then
-                        npc:set_path_type(path_type)
-                    end
-                end)
-            end
-            if current.lvid and npc.set_dest_level_vertex_id then
-                pcall(function()
-                    npc:set_dest_level_vertex_id(current.lvid)
-                end)
-            end
-            if current.gvid and npc.set_dest_game_vertex_id then
-                pcall(function()
-                    npc:set_dest_game_vertex_id(current.gvid)
-                end)
-            end
-            if npc.set_desired_position then
-                pcall(function()
-                    npc:set_desired_position()
-                end)
-            end
-            if npc.set_movement_type then
-                pcall(function()
-                    npc:set_movement_type(move.stand)
-                end)
-            end
-            if npc.set_mental_state then
-                pcall(function()
-                    npc:set_mental_state(anim.free)
-                end)
-            end
-
-            local current_pos = get_runtime_position(npc)
-            if current_pos and current_pos.distance_to and npc.set_npc_position then
-                local ok_dist, dist = pcall(function()
-                    return current_pos:distance_to(desired_pos)
-                end)
-                if ok_dist and dist and dist > STATIONARY_TELEPORT_THRESHOLD then
-                    pcall(function()
-                        npc:set_npc_position(desired_pos)
-                    end)
-                end
-            end
-        end
+        enforce_stationary_npc_anchor(npc_id, "anchor_timer")
 
         schedule_stationary_anchor_enforcement(npc_id)
         return true
@@ -1663,6 +1758,7 @@ function spawn_custom_npc(template_id, context)
                 gvid = gvid,
                 squad_id = squad_id,
             }
+            enforce_stationary_npc_anchor(member_id, "spawn_custom_npc")
             schedule_stationary_anchor_enforcement(member_id)
         else
             stationary_custom_npcs[member_id] = nil
@@ -1958,7 +2054,20 @@ function load_state(m)
     pending_rank_overrides = m.panda_npc_rank_overrides or {}
     pending_relation_overrides = m.panda_npc_relation_overrides or {}
     pending_loadout_overrides = m.panda_npc_loadout_overrides or {}
-    stationary_custom_npcs = m.panda_npc_stationary_anchors or {}
+    stationary_custom_npcs = {}
+    if type(m.panda_npc_stationary_anchors) == "table" then
+        for raw_npc_id, anchor in pairs(m.panda_npc_stationary_anchors) do
+            local npc_id = tonumber(raw_npc_id)
+            if npc_id and type(anchor) == "table" then
+                stationary_custom_npcs[npc_id] = {
+                    pos = anchor.pos,
+                    lvid = tonumber(anchor.lvid) or anchor.lvid,
+                    gvid = tonumber(anchor.gvid) or anchor.gvid,
+                    squad_id = tonumber(anchor.squad_id) or anchor.squad_id,
+                }
+            end
+        end
+    end
     stationary_anchor_scheduled = {}
     pending_story_targets = {}
     story_target_retry_scheduled = false
@@ -2018,13 +2127,7 @@ local function on_npc_net_spawn(obj, se_obj)
     end
 
     if stationary_custom_npcs[npc_id] then
-        local anchor = stationary_custom_npcs[npc_id]
-        if anchor and anchor.squad_id then
-            local squad_obj = alife_object(anchor.squad_id)
-            if squad_obj then
-                configure_stationary_squad(squad_obj)
-            end
-        end
+        enforce_stationary_npc_anchor(npc_id, "npc_on_net_spawn")
         schedule_stationary_anchor_enforcement(npc_id)
     end
 end
@@ -2072,13 +2175,7 @@ function on_game_start()
         schedule_online_loadout_activation(npc_id)
     end
     for npc_id in pairs(stationary_custom_npcs) do
-        local anchor = stationary_custom_npcs[npc_id]
-        if anchor and anchor.squad_id then
-            local squad_obj = alife_object(anchor.squad_id)
-            if squad_obj then
-                configure_stationary_squad(squad_obj)
-            end
-        end
+        enforce_stationary_npc_anchor(npc_id, "on_game_start_restore")
         schedule_stationary_anchor_enforcement(npc_id)
     end
     printf("PANDA_NPC: initialized")

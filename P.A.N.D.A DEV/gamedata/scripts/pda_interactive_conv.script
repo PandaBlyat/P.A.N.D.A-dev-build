@@ -1728,6 +1728,7 @@ function on_game_shutdown_cb()
     cleanup_panda_ic_events({
         preserve_active_conversations = true,
     })
+    reset_all_dialog_npc_animation_state("on_game_shutdown")
 
     local bridge = ensure_panda_f2f_bridge()
     if bridge and type(bridge.begin_shutdown_cleanup) == "function" then
@@ -1755,6 +1756,413 @@ local function printf(fmt, ...)
         end
         _G.printf(normalized_fmt, ...)
     end
+end
+
+local DIALOG_NPC_ANIMATION_EVENT_GROUP = "panda_ic_npc_anim"
+local DIALOG_NPC_ANIMATION_PRESETS = {
+    smoke_stand = { state = "smoking_stand", default_duration = 18, terrain_sensitive = false },
+    smoke_sit = { state = "smoking_sit", default_duration = 18, terrain_sensitive = false },
+    use_pda = { state = "use_pda", default_duration = 8, terrain_sensitive = false },
+    guard_attention = { state = "stay_smirno", default_duration = 10, terrain_sensitive = false },
+    sit_ground = { state = "sit_korta", default_duration = 12, terrain_sensitive = true },
+    sit_chair = { state = "sit_ass", default_duration = 12, terrain_sensitive = false },
+    sit_knee = { state = "sit_knee", default_duration = 12, terrain_sensitive = false },
+    sleep_ground = { state = "sleep", default_duration = 20, terrain_sensitive = true },
+    sleep_sit = { state = "sleep_sit", default_duration = 20, terrain_sensitive = true },
+    wounded_heavy_1 = { state = "wounded_heavy", default_duration = 20, terrain_sensitive = true },
+    wounded_heavy_2 = { state = "wounded_heavy_2", default_duration = 20, terrain_sensitive = true },
+    wounded_heavy_3 = { state = "wounded_heavy_3", default_duration = 20, terrain_sensitive = true },
+    drink_vodka_stand = { state = "drink_vodka_stand", default_duration = 6, terrain_sensitive = false },
+    drunk_stand = { state = "drunk_stand", default_duration = 12, terrain_sensitive = false },
+    laugh = { state = "smeh", default_duration = 4, terrain_sensitive = false },
+}
+local dialog_npc_animation_active = {}
+local dialog_npc_animation_deferred = {}
+
+local function resolve_dialog_npc_animation_preset(preset_id)
+    local normalized_id = tostring(preset_id or ""):match("^%s*(.-)%s*$"):lower()
+    if normalized_id == "" then
+        return nil, nil
+    end
+
+    return DIALOG_NPC_ANIMATION_PRESETS[normalized_id], normalized_id
+end
+
+local function resolve_dialog_npc_animation_duration(raw_duration, preset)
+    local parsed_duration = tonumber(raw_duration)
+    if parsed_duration and parsed_duration > 0 then
+        return parsed_duration, true
+    end
+
+    return tonumber(preset and preset.default_duration) or 0, false
+end
+
+local function resolve_live_npc_for_dialog_animation(npc_id)
+    local numeric_id = tonumber(npc_id)
+    if not numeric_id or not level or not level.object_by_id then
+        return nil, numeric_id
+    end
+
+    local npc = level.object_by_id(numeric_id)
+    if npc and npc.alive and npc:alive() then
+        return npc, numeric_id
+    end
+
+    return nil, numeric_id
+end
+
+local function resolve_dialog_npc_state_mgr(npc)
+    if not npc or not npc.id or not db or not db.storage then
+        return nil
+    end
+
+    local ok_id, npc_id = pcall(function()
+        return npc:id()
+    end)
+    if not ok_id or npc_id == nil then
+        return nil
+    end
+
+    local storage = db.storage[npc_id]
+    return storage and storage.state_mgr or nil
+end
+
+local function clear_dialog_npc_animation_timer(npc_id)
+    safe_remove_time_event(DIALOG_NPC_ANIMATION_EVENT_GROUP, tostring(npc_id))
+end
+
+local function clear_dialog_npc_animation_runtime(npc_id, reason)
+    local numeric_id = tonumber(npc_id)
+    if not numeric_id then
+        return false, "invalid_npc_id"
+    end
+
+    local active_entry = dialog_npc_animation_active[numeric_id]
+    dialog_npc_animation_active[numeric_id] = nil
+    clear_dialog_npc_animation_timer(numeric_id)
+
+    local npc = select(1, resolve_live_npc_for_dialog_animation(numeric_id))
+    if not npc then
+        printf(
+            "PANDA_IC: dialog_npc_animation clear skipped npc_id=%s reason=%s detail=%s active_preset=%s",
+            tostring(numeric_id),
+            tostring(reason or "unspecified"),
+            "npc_offline",
+            tostring(active_entry and active_entry.preset_id or "nil")
+        )
+        return true, "npc_offline"
+    end
+
+    if npc.clear_animations then
+        pcall(function()
+            npc:clear_animations()
+        end)
+    end
+
+    local mgr = resolve_dialog_npc_state_mgr(npc)
+    if mgr then
+        pcall(function()
+            if mgr.animation and mgr.animation.set_state then
+                mgr.animation:set_state(nil, true)
+            end
+            if mgr.animation and mgr.animation.set_control then
+                mgr.animation:set_control()
+            end
+            if mgr.animstate and mgr.animstate.set_state then
+                mgr.animstate:set_state(nil, true)
+            end
+            if mgr.animstate and mgr.animstate.set_control then
+                mgr.animstate:set_control()
+            end
+        end)
+    end
+
+    local reset_ok = false
+    if state_mgr and type(state_mgr.set_state) == "function" then
+        reset_ok = pcall(state_mgr.set_state, npc, "idle", nil, nil, nil, { fast_set = true }) == true
+    elseif mgr and mgr.set_state then
+        reset_ok = pcall(function()
+            mgr:set_state("idle", nil, nil, nil, { fast_set = true })
+        end) == true
+    end
+
+    if mgr and mgr.update then
+        for _ = 1, 3 do
+            pcall(function()
+                mgr:update()
+            end)
+        end
+    end
+
+    printf(
+        "PANDA_IC: dialog_npc_animation cleared npc_id=%s reason=%s preset=%s reset_ok=%s",
+        tostring(numeric_id),
+        tostring(reason or "unspecified"),
+        tostring(active_entry and active_entry.preset_id or "nil"),
+        tostring(reset_ok)
+    )
+
+    return true, reset_ok and "cleared" or "idle_reset_failed"
+end
+
+local function schedule_dialog_npc_animation_reset(npc_id, preset_id, duration)
+    local numeric_id = tonumber(npc_id)
+    local reset_after = tonumber(duration)
+    if not numeric_id or not CreateTimeEvent or not reset_after or reset_after <= 0 then
+        return false
+    end
+
+    clear_dialog_npc_animation_timer(numeric_id)
+    CreateTimeEvent(DIALOG_NPC_ANIMATION_EVENT_GROUP, tostring(numeric_id), reset_after, function()
+        clear_dialog_npc_animation_runtime(numeric_id, "timer_elapsed:" .. tostring(preset_id or "unknown"))
+        return true
+    end)
+
+    return true
+end
+
+local function apply_dialog_npc_animation_now(npc_id, preset_id, duration, context)
+    local preset, normalized_preset_id = resolve_dialog_npc_animation_preset(preset_id)
+    local numeric_id = tonumber(npc_id)
+    if not numeric_id or not preset then
+        printf(
+            "PANDA_IC: dialog_npc_animation apply skipped npc_id=%s preset=%s detail=%s",
+            tostring(npc_id or "nil"),
+            tostring(preset_id or "nil"),
+            preset and "invalid_npc_id" or "unknown_preset"
+        )
+        return false, preset and "invalid_npc_id" or "unknown_preset"
+    end
+
+    local npc = select(1, resolve_live_npc_for_dialog_animation(numeric_id))
+    if not npc then
+        printf(
+            "PANDA_IC: dialog_npc_animation apply skipped npc_id=%s preset=%s detail=%s",
+            tostring(numeric_id),
+            tostring(normalized_preset_id),
+            "npc_offline"
+        )
+        return false, "npc_offline"
+    end
+
+    local resolved_duration = tonumber(duration) or preset.default_duration
+    local apply_ok = false
+    local mgr = resolve_dialog_npc_state_mgr(npc)
+    if state_mgr and type(state_mgr.set_state) == "function" then
+        apply_ok = pcall(state_mgr.set_state, npc, preset.state, nil, nil, nil, { fast_set = true, animation = true }) == true
+    elseif mgr and mgr.set_state then
+        apply_ok = pcall(function()
+            mgr:set_state(preset.state, nil, nil, nil, { fast_set = true, animation = true })
+        end) == true
+    end
+
+    if not apply_ok then
+        printf(
+            "PANDA_IC: dialog_npc_animation apply failed npc_id=%s preset=%s state=%s detail=%s",
+            tostring(numeric_id),
+            tostring(normalized_preset_id),
+            tostring(preset.state),
+            "state_mgr_unavailable"
+        )
+        return false, "state_mgr_unavailable"
+    end
+
+    clear_dialog_npc_animation_timer(numeric_id)
+    dialog_npc_animation_active[numeric_id] = {
+        preset_id = normalized_preset_id,
+        state = preset.state,
+        duration = resolved_duration,
+        started_at = time_global and time_global() or 0,
+        channel = context and context.channel or "pda",
+        source = context and context.source or "unspecified",
+        session_token = context and context.session_token or nil,
+    }
+    dialog_npc_animation_deferred[numeric_id] = nil
+    schedule_dialog_npc_animation_reset(numeric_id, normalized_preset_id, resolved_duration)
+
+    printf(
+        "PANDA_IC: dialog_npc_animation applied npc_id=%s preset=%s state=%s duration=%s source=%s channel=%s session=%s terrain_sensitive=%s",
+        tostring(numeric_id),
+        tostring(normalized_preset_id),
+        tostring(preset.state),
+        tostring(resolved_duration),
+        tostring(context and context.source or "unspecified"),
+        tostring(context and context.channel or "pda"),
+        tostring(context and context.session_token or "nil"),
+        tostring(preset.terrain_sensitive == true)
+    )
+
+    return true, "applied"
+end
+
+local function queue_dialog_npc_animation_request(npc_id, action, preset_id, duration, context)
+    local numeric_id = tonumber(npc_id)
+    if not numeric_id then
+        return false, "invalid_npc_id"
+    end
+
+    dialog_npc_animation_deferred[numeric_id] = {
+        action = action,
+        preset_id = preset_id,
+        duration = duration,
+        queued_at = time_global and time_global() or 0,
+        channel = context and context.channel or "f2f",
+        source = context and context.source or "unspecified",
+        session_token = context and context.session_token or nil,
+    }
+
+    printf(
+        "PANDA_IC: dialog_npc_animation queued npc_id=%s action=%s preset=%s duration=%s source=%s session=%s",
+        tostring(numeric_id),
+        tostring(action or "nil"),
+        tostring(preset_id or "nil"),
+        tostring(duration or "nil"),
+        tostring(context and context.source or "unspecified"),
+        tostring(context and context.session_token or "nil")
+    )
+
+    return true, "queued"
+end
+
+local function request_dialog_npc_animation(npc_id, preset_id, raw_duration, context)
+    local preset, normalized_preset_id = resolve_dialog_npc_animation_preset(preset_id)
+    if not preset then
+        printf(
+            "PANDA_IC: dialog_npc_animation ignored npc_id=%s preset=%s detail=%s",
+            tostring(npc_id or "nil"),
+            tostring(preset_id or "nil"),
+            "unknown_preset"
+        )
+        return false, "unknown_preset"
+    end
+
+    local resolved_duration, used_override = resolve_dialog_npc_animation_duration(raw_duration, preset)
+    if context and context.channel == "f2f" then
+        return queue_dialog_npc_animation_request(npc_id, "set", normalized_preset_id, resolved_duration, context)
+    end
+
+    local applied, status = apply_dialog_npc_animation_now(npc_id, normalized_preset_id, resolved_duration, context)
+    if applied then
+        printf(
+            "PANDA_IC: dialog_npc_animation duration_source npc_id=%s preset=%s override_used=%s",
+            tostring(tonumber(npc_id) or npc_id or "nil"),
+            tostring(normalized_preset_id),
+            tostring(used_override)
+        )
+    end
+
+    return applied, status
+end
+
+local function request_dialog_npc_animation_clear(npc_id, context)
+    local numeric_id = tonumber(npc_id)
+    if not numeric_id then
+        return false, "invalid_npc_id"
+    end
+
+    if context and context.channel == "f2f" then
+        return queue_dialog_npc_animation_request(numeric_id, "clear", nil, nil, context)
+    end
+
+    dialog_npc_animation_deferred[numeric_id] = nil
+    return clear_dialog_npc_animation_runtime(numeric_id, context and context.source or "clear_outcome")
+end
+
+local function flush_deferred_dialog_npc_animation(npc_id, session_token, reason)
+    local numeric_id = tonumber(npc_id)
+    if not numeric_id then
+        return { status = "invalid_npc_id" }
+    end
+
+    local entry = dialog_npc_animation_deferred[numeric_id]
+    if type(entry) ~= "table" then
+        return { status = "none" }
+    end
+
+    if entry.session_token and tostring(entry.session_token) ~= tostring(session_token or "") then
+        dialog_npc_animation_deferred[numeric_id] = nil
+        printf(
+            "PANDA_IC: dialog_npc_animation dropped npc_id=%s reason=%s detail=%s queued_session=%s close_session=%s",
+            tostring(numeric_id),
+            tostring(reason or "unspecified"),
+            "session_mismatch",
+            tostring(entry.session_token),
+            tostring(session_token)
+        )
+        return {
+            status = "dropped_session_mismatch",
+            action = entry.action,
+            preset_id = entry.preset_id,
+        }
+    end
+
+    dialog_npc_animation_deferred[numeric_id] = nil
+    if entry.action == "clear" then
+        local ok, status = clear_dialog_npc_animation_runtime(numeric_id, "f2f_dialog_closed:" .. tostring(reason or "unspecified"))
+        return {
+            status = ok and status or "clear_failed",
+            action = "clear",
+        }
+    end
+
+    local applied, status = apply_dialog_npc_animation_now(numeric_id, entry.preset_id, entry.duration, {
+        channel = "f2f",
+        source = "f2f_dialog_closed:" .. tostring(reason or "unspecified"),
+        session_token = session_token,
+    })
+    return {
+        status = applied and status or "apply_failed",
+        action = entry.action,
+        preset_id = entry.preset_id,
+        duration = entry.duration,
+    }
+end
+
+local function reset_all_dialog_npc_animation_state(reason)
+    local active_ids = {}
+    for npc_id in pairs(dialog_npc_animation_active) do
+        active_ids[#active_ids + 1] = npc_id
+    end
+
+    for _, npc_id in ipairs(active_ids) do
+        clear_dialog_npc_animation_runtime(npc_id, reason or "reset_all")
+    end
+
+    for npc_id in pairs(dialog_npc_animation_deferred) do
+        clear_dialog_npc_animation_timer(npc_id)
+        dialog_npc_animation_deferred[npc_id] = nil
+    end
+
+    dialog_npc_animation_active = {}
+    dialog_npc_animation_deferred = {}
+end
+
+local function resolve_dialog_animation_callback_npc_id(obj)
+    if not obj then
+        return nil
+    end
+
+    if type(obj.id) == "function" then
+        local ok_id, npc_id = pcall(function()
+            return obj:id()
+        end)
+        if ok_id then
+            return tonumber(npc_id) or npc_id
+        end
+    end
+
+    return tonumber(obj.id) or obj.id
+end
+
+local function panda_dialog_npc_animation_on_death(obj)
+    local npc_id = resolve_dialog_animation_callback_npc_id(obj)
+    if not npc_id then
+        return
+    end
+
+    clear_dialog_npc_animation_timer(npc_id)
+    dialog_npc_animation_active[npc_id] = nil
+    dialog_npc_animation_deferred[npc_id] = nil
 end
 
 local function str_explode(str, sep)
@@ -4738,6 +5146,28 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                 end)
             end
 
+        elseif cmd == "set_npc_animation" then
+            if sender_npc_id then
+                request_dialog_npc_animation(sender_npc_id, parts[2], parts[3], {
+                    channel = resolved_channel,
+                    source = "outcome:set_npc_animation",
+                    session_token = conv_data and (conv_data.f2f_session_token or conv_data.session_token) or nil,
+                })
+            else
+                printf("PANDA_IC: set_npc_animation missing npc_id in '%s'", tostring(cmd_str))
+            end
+
+        elseif cmd == "clear_npc_animation" then
+            if sender_npc_id then
+                request_dialog_npc_animation_clear(sender_npc_id, {
+                    channel = resolved_channel,
+                    source = "outcome:clear_npc_animation",
+                    session_token = conv_data and (conv_data.f2f_session_token or conv_data.session_token) or nil,
+                })
+            else
+                printf("PANDA_IC: clear_npc_animation missing npc_id in '%s'", tostring(cmd_str))
+            end
+
         -- Faction relations
         elseif cmd == "change_faction_relations" then
             local f1 = normalize_faction(parts[2] or "stalker")
@@ -7248,6 +7678,10 @@ function PANDA_CONV_API.apply_outcome(outcome_str, sender_npc_name, sender_facti
     )
 end
 
+function PANDA_CONV_API.on_f2f_dialog_closed(npc_id, session_token, reason)
+    return flush_deferred_dialog_npc_animation(npc_id, session_token, reason)
+end
+
 function PANDA_CONV_API.queue_pda_followup(followup)
     return queue_pda_followup_internal(followup)
 end
@@ -8089,6 +8523,7 @@ end
 
 function load_state(m)
     panda_ic_shutdown_in_progress = false
+    reset_all_dialog_npc_animation_state("load_state")
     if m.pda_ic_cooldowns then conv_last_played = m.pda_ic_cooldowns end
     if m.pda_ic_npc_cooldowns then npc_last_used = m.pda_ic_npc_cooldowns end
     if m.pda_npc_relationship_scores then npc_relationship_scores = m.pda_npc_relationship_scores end
@@ -8352,6 +8787,8 @@ function on_game_start()
     RegisterScriptCallback("load_state", load_state)
     RegisterScriptCallback("on_game_end", on_game_shutdown_cb)
     RegisterScriptCallback("npc_on_before_hit", panda_npc_invulnerability_check)
+    RegisterScriptCallback("npc_on_death_callback", panda_dialog_npc_animation_on_death)
+    reset_all_dialog_npc_animation_state("script_init")
 
     -- Schedule the first trigger
     schedule_next_trigger(1)
