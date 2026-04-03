@@ -279,6 +279,10 @@ function generateConversation(
     const isEntryTurn = isEntryTurnForExport(turn);
     const isNonEntryF2FTurn = normalizeChannel(turn.channel, 'pda') === 'f2f' && !isEntryTurn;
 
+    if (turn.preconditions.length > 0) {
+      lines.push(emitString(`${prefix}${turnInfix}_branch_precond`, serializePreconditions(turn.preconditions)));
+    }
+
     // Opening message export:
     // - Export all non-F2F turns as before.
     // - Export F2F opener only for entry turns (initial NPC-first handoff/start).
@@ -306,6 +310,9 @@ function generateConversation(
 
       lines.push(emitString(choiceKey, choice.text));
       lines.push(emitString(replyKey, choice.reply));
+      if (choice.preconditions.length > 0) {
+        lines.push(emitString(`${prefix}${turnInfix}_choice_precond_${choice.index}`, serializePreconditions(choice.preconditions)));
+      }
 
       // Relationship reply variants
       if (choice.replyRelHigh) {
@@ -445,6 +452,7 @@ export function createTurn(turnNumber: number): Turn {
   return {
     turnNumber,
     openingMessage: turnNumber === 1 ? '' : undefined,
+    preconditions: [],
     channel: 'pda',
     requiresNpcFirst: undefined,
     firstSpeaker: 'npc',
@@ -461,6 +469,7 @@ export function createChoice(index: number): Choice {
     index,
     text: '',
     channel: 'pda',
+    preconditions: [],
     reply: '',
     outcomes: [],
     terminal: true,

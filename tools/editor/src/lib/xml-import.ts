@@ -519,6 +519,7 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
     const turn1: Turn = {
       turnNumber: 1,
       openingMessage: strings.get(openKey) || '',
+      preconditions: parsePreconditions(strings.get(`${prefix}_branch_precond`) || ''),
       choices: parseTurnChoices(strings, prefix, ''),
       position: getDefaultFlowTurnPosition(1),
     };
@@ -536,6 +537,7 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
       const turn: Turn = {
         turnNumber: turnNum,
         openingMessage: strings.get(`${prefix}${turnInfix}_open`) || '',
+        preconditions: parsePreconditions(strings.get(`${prefix}${turnInfix}_branch_precond`) || ''),
         choices: parseTurnChoices(strings, prefix, turnInfix),
         position: getDefaultFlowTurnPosition(turnNum),
       };
@@ -611,6 +613,7 @@ function parseTurnChoices(strings: Map<string, string>, prefix: string, turnInfi
     const choice: Choice = {
       index: i,
       text: choiceText,
+      preconditions: parsePreconditions(strings.get(`${prefix}${turnInfix}_choice_precond_${i}`) || ''),
       reply: strings.get(replyKey) || '',
       outcomes: parseOutcomes(strings.get(outcomeKey) || 'none'),
       terminal: true,

@@ -358,7 +358,7 @@ function createFallbackConversation(): Conversation {
     id: 0,
     label: 'Untitled',
     preconditions: [],
-    turns: [{ turnNumber: 1, choices: [], position: { x: 0, y: 0 } }],
+    turns: [{ turnNumber: 1, preconditions: [], choices: [], position: { x: 0, y: 0 } }],
   };
 }
 

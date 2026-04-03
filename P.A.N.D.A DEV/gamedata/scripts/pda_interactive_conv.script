@@ -1173,7 +1173,7 @@ local function job_resume_conversation(job, turn, is_success)
     end
 
     -- Load the choices for the target turn
-    local choices, num = load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, cid)
+    local choices, num = load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, cid, resolve_runtime_npc_se(nil, job.npc_id))
     if num == 0 then
         printf("PANDA_IC: Job #%d resume failed — no choices for turn %d", job.id, turn)
         return
@@ -1373,6 +1373,44 @@ local function build_turn_string_prefix(prefix, faction, conv_id, turn)
     end
 
     return base_key
+end
+
+local function resolve_runtime_npc_se(npc_se, npc_id)
+    if npc_se then
+        return npc_se
+    end
+
+    local sid = tonumber(npc_id)
+    if sid and sid > 0 and alife_object then
+        local se = alife_object(sid)
+        if se then
+            return se
+        end
+    end
+
+    return nil
+end
+
+local function resolve_handoff_target_se(story_npc_id, fallback_npc_se)
+    if not story_npc_id or story_npc_id == "" then
+        return fallback_npc_se
+    end
+
+    if story_npc_id:sub(1, 4) == "npc:" and panda_npc_creator and type(panda_npc_creator.get_active_npc_se) == "function" then
+        local ok_custom, custom_se = pcall(panda_npc_creator.get_active_npc_se, story_npc_id:sub(5))
+        if ok_custom and custom_se then
+            return custom_se
+        end
+    end
+
+    if type(get_story_se_object) == "function" then
+        local ok_story, story_se = pcall(get_story_se_object, story_npc_id)
+        if ok_story and story_se then
+            return story_se
+        end
+    end
+
+    return fallback_npc_se
 end
 
 local function queue_pda_followup_internal(raw_entry)
@@ -3174,10 +3212,6 @@ local function evaluate_precondition_entry(entry, npc_se, act, get_goodwill_acto
             return false, "detector tier below requirement"
         end
 
-    -- ========== DISTANCE TO NPC ==========
-    elseif cmd == "req_distance_max" or cmd == "req_distance_min" then
-        -- Checked elsewhere during NPC filtering.
-
     -- ========== COMPANIONS ==========
     elseif cmd == "req_companions" then
         local comps = 0
@@ -3909,6 +3943,10 @@ function pick_random_conv_id_generic(prefix, xml_fac, category, npc_se)
         if not skip then
             local precond_key = base .. xml_fac .. "_" .. tostring(cid) .. "_precond"
             if not check_preconditions_generic(precond_key, npc_se) then skip = true end
+        end
+        if not skip then
+            local branch_precond_key = base .. xml_fac .. "_" .. tostring(cid) .. "_branch_precond"
+            if not check_preconditions_generic(branch_precond_key, npc_se) then skip = true end
         end
 
         -- Category filtering for task conversations
@@ -5725,18 +5763,10 @@ end
 -- ============================================================
 
 function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact_id, npc_se)
-    local base_key
-    if prefix == "task" or not prefix then
-        base_key = "st_pda_ic_"..faction.."_"..tostring(conv_id)
-    else
-        base_key = "st_pda_ic_"..prefix.."_"..faction.."_"..tostring(conv_id)
-    end
-
-    local p = base_key
-    if turn > 1 then
-        p = p.."_t"..tostring(turn)
-    end
+    local base_key = build_turn_string_prefix(prefix, faction, conv_id, 1)
+    local p = build_turn_string_prefix(prefix, faction, conv_id, turn)
     local choices, count = {}, 0
+    npc_se = resolve_runtime_npc_se(npc_se, contact_id)
 
     local function normalize_choice_channel(value)
         if not value then
@@ -5774,6 +5804,10 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact
         return nil
     end
 
+    if not check_preconditions_generic(p .. "_branch_precond", npc_se) then
+        return choices, count
+    end
+
     -- Get relationship score for reply variant selection
     local rel = contact_id and get_npc_relationship(contact_id) or 0
 
@@ -5782,50 +5816,64 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact
         local text = game.translate_string(key)
         if text == key then break end
 
-        local reply_key = p.."_reply_"..i
-        local reply_text = game.translate_string(reply_key)
-        if reply_text == reply_key then reply_text = "" end
+        local choice_precond_key = p .. "_choice_precond_" .. i
+        if check_preconditions_generic(choice_precond_key, npc_se) then
+            local reply_key = p.."_reply_"..i
+            local reply_text = game.translate_string(reply_key)
+            if reply_text == reply_key then reply_text = "" end
 
-        -- Check for relationship-conditional reply variants
-        if reply_text ~= "" and contact_id then
-            if rel >= 300 then
-                local high_key = p.."_reply_"..i.."_rel_high"
-                local high_text = game.translate_string(high_key)
-                if high_text ~= high_key then
-                    reply_text = high_text
-                end
-            elseif rel <= -300 then
-                local low_key = p.."_reply_"..i.."_rel_low"
-                local low_text = game.translate_string(low_key)
-                if low_text ~= low_key then
-                    reply_text = low_text
+            -- Check for relationship-conditional reply variants
+            if reply_text ~= "" and contact_id then
+                if rel >= 300 then
+                    local high_key = p.."_reply_"..i.."_rel_high"
+                    local high_text = game.translate_string(high_key)
+                    if high_text ~= high_key then
+                        reply_text = high_text
+                    end
+                elseif rel <= -300 then
+                    local low_key = p.."_reply_"..i.."_rel_low"
+                    local low_text = game.translate_string(low_key)
+                    if low_text ~= low_key then
+                        reply_text = low_text
+                    end
                 end
             end
-        end
 
-        local cont_channel = game.translate_string(p.."_cont_channel_"..i)
-        if cont_channel == p.."_cont_channel_"..i then
-            cont_channel = game.translate_string(p.."_channel_"..i)
-            if cont_channel == p.."_channel_"..i then
-                cont_channel = load_registry_continue_channel(i)
+            local cont_channel = game.translate_string(p.."_cont_channel_"..i)
+            if cont_channel == p.."_cont_channel_"..i then
+                cont_channel = game.translate_string(p.."_channel_"..i)
+                if cont_channel == p.."_channel_"..i then
+                    cont_channel = load_registry_continue_channel(i)
+                end
+            end
+
+            local cont_npc_raw = game.translate_string(p.."_cont_npc_"..i)
+            local next_npc_id = (cont_npc_raw ~= p.."_cont_npc_"..i) and cont_npc_raw:match("^%s*(.-)%s*$") or nil
+            if next_npc_id == "" then next_npc_id = nil end
+            local next_turn = tonumber(game.translate_string(p.."_cont_"..i)) or nil
+            local branch_visible = true
+            if next_turn then
+                local next_turn_key = build_turn_string_prefix(prefix, faction, conv_id, next_turn)
+                local next_turn_npc_se = resolve_handoff_target_se(next_npc_id, npc_se)
+                branch_visible = check_preconditions_generic(next_turn_key .. "_branch_precond", next_turn_npc_se)
+            end
+
+            if branch_visible then
+                local visible_index = count + 1
+                choices[visible_index] = {
+                    source_choice_index = i,
+                    text = sub_placeholders(text, npc_name, faction, npc_se, contact_id),
+                    reply = sub_placeholders(reply_text, npc_name, faction, npc_se, contact_id),
+                    outcome = game.translate_string(p.."_outcome_"..i),
+                    next_turn = next_turn,
+                    next_channel = normalize_choice_channel(cont_channel),
+                    pda_delay_seconds = tonumber(game.translate_string(p.."_pda_delay_"..i)) or nil,
+                    next_npc_id = next_npc_id,
+                }
+                if choices[visible_index].outcome == p.."_outcome_"..i then choices[visible_index].outcome = "none" end
+                count = visible_index
             end
         end
-
-        local cont_npc_raw = game.translate_string(p.."_cont_npc_"..i)
-        local next_npc_id = (cont_npc_raw ~= p.."_cont_npc_"..i) and cont_npc_raw:match("^%s*(.-)%s*$") or nil
-        if next_npc_id == "" then next_npc_id = nil end
-
-        choices[i] = {
-            text = sub_placeholders(text, npc_name, faction, npc_se, contact_id),
-            reply = sub_placeholders(reply_text, npc_name, faction, npc_se, contact_id),
-            outcome = game.translate_string(p.."_outcome_"..i),
-            next_turn = tonumber(game.translate_string(p.."_cont_"..i)) or nil,
-            next_channel = normalize_choice_channel(cont_channel),
-            pda_delay_seconds = tonumber(game.translate_string(p.."_pda_delay_"..i)) or nil,
-            next_npc_id = next_npc_id,
-        }
-        if choices[i].outcome == p.."_outcome_"..i then choices[i].outcome = "none" end
-        count = i
     end
     return choices, count
 end
@@ -5856,7 +5904,8 @@ function on_player_choice(idx, contact_id)
     if CONV and CONV.contact_id == cid then CONV = nil end
 
     -- Check if outcome has already been triggered in this conversation
-    local outcome_key = tostring(c.turn) .. "_" .. tostring(idx)
+    local authored_choice_index = ch.source_choice_index or idx
+    local outcome_key = tostring(c.turn) .. "_" .. tostring(authored_choice_index)
     local has_outcome = ch.outcome and ch.outcome ~= "none"
     local should_apply_outcome = false
 
@@ -5983,7 +6032,7 @@ function on_player_choice(idx, contact_id)
 
                         if not handed_off then
                             -- Same NPC: in-place continuation as before
-                            local next_choices, num = load_choices_for_turn(c.prefix, c.faction, c.conv_id, ch.next_turn, npc_name, cid)
+                            local next_choices, num = load_choices_for_turn(c.prefix, c.faction, c.conv_id, ch.next_turn, npc_name, cid, resolve_runtime_npc_se(nil, c.npc_id))
                             if num > 0 then
                                 c.turn = ch.next_turn
                                 c.choices = next_choices
@@ -7411,7 +7460,10 @@ local function collect_story_npc_conversations(xml_fac)
 
                     if not skip then
                         -- Full precondition check (including req_story_npc / req_custom_story_npc itself)
-                        if check_preconditions_generic(precond_key, npc_se) then
+                        local branch_precond_key = base .. xml_fac .. "_" .. tostring(cid) .. "_branch_precond"
+                        if check_preconditions_generic(precond_key, npc_se)
+                            and check_preconditions_generic(branch_precond_key, npc_se)
+                        then
                             table.insert(results, {npc_se = npc_se, conv_id = cid, weight = weight})
                             printf("Story NPC conv %s matched — NPC %s (story_id=%s, weight=%s)",
                                 tostring(tonumber(cid) or 0),
@@ -8123,7 +8175,7 @@ function load_state(m)
             saved.contact_id = cid
             if not is_contact_blocked(cid) then
                 local choices, num = load_choices_for_turn(
-                    saved.prefix, saved.faction, saved.conv_id, saved.turn, saved.npc_name, cid
+                    saved.prefix, saved.faction, saved.conv_id, saved.turn, saved.npc_name, cid, resolve_runtime_npc_se(nil, saved.npc_id)
                 )
                 if num > 0 then
                     saved.choices = choices

@@ -1408,6 +1408,14 @@ function renderTurnNode(options: {
       item.appendChild(pauseBadge);
     }
 
+    if ((choice.preconditions ?? []).length > 0) {
+      const precondBadge = document.createElement('span');
+      precondBadge.className = 'choice-branch-badge';
+      precondBadge.textContent = `${choice.preconditions.length} cond`;
+      precondBadge.title = `${choice.preconditions.length} choice precondition${choice.preconditions.length === 1 ? '' : 's'}`;
+      item.appendChild(precondBadge);
+    }
+
     const choiceChannelBadge = document.createElement('span');
     choiceChannelBadge.className = 'flow-channel-badge';
     choiceChannelBadge.textContent = channelBadgeLabel(effectiveChoiceChannel);
@@ -1468,10 +1476,14 @@ function renderTurnNode(options: {
     const footer = document.createElement('div');
     footer.className = 'turn-footer';
     const precondCount = conv.preconditions.length;
+    const branchPrecondCount = turn.preconditions?.length ?? 0;
     const totalOutcomes = turn.choices.reduce((s, c) => s + c.outcomes.length, 0);
     footer.textContent = `${turn.choices.length} choice${turn.choices.length !== 1 ? 's' : ''} · ${outgoingCount} link${outgoingCount !== 1 ? 's' : ''} · ${totalOutcomes} outcome${totalOutcomes !== 1 ? 's' : ''}`;
     if (turn.turnNumber === 1 && precondCount > 0) {
       footer.textContent += ` · ${precondCount} precond`;
+    }
+    if (branchPrecondCount > 0) {
+      footer.textContent += ` · ${branchPrecondCount} branch cond`;
     }
     body.appendChild(footer);
   }

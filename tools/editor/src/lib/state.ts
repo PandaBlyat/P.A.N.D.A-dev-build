@@ -884,6 +884,7 @@ class StateManager {
     const choice = createChoice(index);
     choice.text = sourceChoice.text;
     choice.channel = parentTurnChannel;
+    choice.preconditions = JSON.parse(JSON.stringify(sourceChoice.preconditions ?? [])) as Choice['preconditions'];
     choice.reply = sourceChoice.reply;
     if (sourceChoice.replyRelHigh != null) choice.replyRelHigh = sourceChoice.replyRelHigh;
     if (sourceChoice.replyRelLow != null) choice.replyRelLow = sourceChoice.replyRelLow;
@@ -914,6 +915,7 @@ class StateManager {
   ): Turn {
     const turn = createTurn(turnNumber);
     turn.openingMessage = sourceTurn.openingMessage;
+    turn.preconditions = JSON.parse(JSON.stringify(sourceTurn.preconditions ?? [])) as Turn['preconditions'];
     turn.channel = normalizeChannelValue(sourceTurn.channel, 'pda');
     turn.requiresNpcFirst = sourceTurn.requiresNpcFirst;
     turn.pda_entry = sourceTurn.pda_entry ?? turnNumber === 1;
@@ -944,6 +946,7 @@ class StateManager {
           const normalizedTurn: Turn = {
             ...turn,
             channel: parentTurnChannel,
+            preconditions: JSON.parse(JSON.stringify(turn.preconditions ?? [])) as Turn['preconditions'],
             requiresNpcFirst: typeof turn.requiresNpcFirst === 'boolean'
               ? turn.requiresNpcFirst
               : undefined,
@@ -955,6 +958,7 @@ class StateManager {
               ...choice,
               index: choice.index ?? choiceIndex + 1,
               channel: parentTurnChannel,
+              preconditions: JSON.parse(JSON.stringify(choice.preconditions ?? [])) as Choice['preconditions'],
               terminal: choice.terminal ?? choice.continueTo == null,
               continueChannel: (() => {
                 const sourceContinueChannel = choice.continueChannel ?? choice.continue_channel;

@@ -8,12 +8,16 @@ import { FACTION_DISPLAY_NAMES } from '../lib/types';
 import { PRECONDITION_SCHEMAS, OUTCOME_SCHEMAS, groupByCategory } from '../lib/schema';
 import {
   getChoiceFieldKey,
+  getChoicePreconditionItemFieldKey,
+  getChoicePreconditionParamFieldKey,
   getConversationFieldKey,
   getOutcomeChanceFieldKey,
   getOutcomeItemFieldKey,
   getOutcomeParamFieldKey,
   getPreconditionItemFieldKey,
   getPreconditionParamFieldKey,
+  getTurnPreconditionItemFieldKey,
+  getTurnPreconditionParamFieldKey,
   getTurnFieldKey,
 } from '../lib/validation';
 import type { CommandSchema, ParamDef, ParamOption } from '../lib/schema';
@@ -37,6 +41,10 @@ import { createBadge, createIcon, setButtonContent } from './icons';
 import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
 
 const ADDABLE_PRECONDITION_SCHEMAS = PRECONDITION_SCHEMAS.filter((schema) => !schema.pickerHidden);
+const NESTED_PRECONDITION_BLOCKLIST = new Set([
+  'req_story_npc',
+  'req_custom_story_npc',
+]);
 const CHANNEL_OPTIONS: Array<{ value: 'pda' | 'f2f'; label: string }> = [
   { value: 'pda', label: 'PDA' },
   { value: 'f2f', label: 'In-person (F2F)' },
@@ -365,7 +373,7 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
     hint.textContent = 'No preconditions set — this story will trigger for any NPC. Click "+ Add" to add conditions.';
     precondBody.appendChild(hint);
   } else {
-    renderPreconditionList(precondBody, conv);
+    renderPreconditionList(precondBody, createConversationPreconditionOwner(conv));
   }
   container.appendChild(precondWrapper);
 
@@ -703,6 +711,37 @@ function renderTurnProperties(
   }
 
   renderPlaceholderPicker(container, `conv-${conv.id}-turn-${turn.turnNumber}-dynamic-placeholders`);
+
+  const { wrapper: branchPrecondWrapper, body: branchPrecondBody } = createCollapsibleSection(
+    `conv-${conv.id}-turn-${turn.turnNumber}-preconditions`,
+    `Branch Preconditions (${(turn.preconditions ?? []).length})`,
+    (trigger) => {
+      showCommandPicker(trigger, getAddablePreconditionSchemas('turn'), (schema) => {
+        const newPrecond: SimplePrecondition = {
+          type: 'simple',
+          command: schema.name,
+          params: schema.params.map(p => p.placeholder || ''),
+        };
+        const nextPreconditions = [...(turn.preconditions ?? []), newPrecond];
+        store.updateTurn(conv.id, turn.turnNumber, { preconditions: nextPreconditions });
+      }, {
+        title: 'Add branch precondition',
+        searchPlaceholder: 'Search branch preconditions...',
+        emptyMessage: 'No matching branch preconditions',
+      });
+    },
+    { defaultCollapsed: true },
+  );
+  if ((turn.preconditions ?? []).length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'empty-hint';
+    hint.textContent = 'No branch preconditions — this branch is available whenever the story reaches it.';
+    branchPrecondBody.appendChild(hint);
+  } else {
+    renderPreconditionList(branchPrecondBody, createTurnPreconditionOwner(conv, turn));
+  }
+  container.appendChild(branchPrecondWrapper);
+
   const pdaEntryAllowed = currentTurnChannel !== 'f2f';
   const f2fEntryAllowed = currentTurnChannel !== 'pda';
 
@@ -1005,6 +1044,36 @@ function renderChoiceProperties(
   });
   replyVariantsBody.appendChild(relLowField);
   container.appendChild(replyVariantsWrapper);
+
+  const { wrapper: choicePrecondWrapper, body: choicePrecondBody } = createCollapsibleSection(
+    `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-preconditions`,
+    `Choice Preconditions (${(choice.preconditions ?? []).length})`,
+    (trigger) => {
+      showCommandPicker(trigger, getAddablePreconditionSchemas('choice'), (schema) => {
+        const newPrecond: SimplePrecondition = {
+          type: 'simple',
+          command: schema.name,
+          params: schema.params.map(p => p.placeholder || ''),
+        };
+        const nextPreconditions = [...(choice.preconditions ?? []), newPrecond];
+        store.updateChoice(conv.id, turn.turnNumber, choice.index, { preconditions: nextPreconditions });
+      }, {
+        title: 'Add choice precondition',
+        searchPlaceholder: 'Search choice preconditions...',
+        emptyMessage: 'No matching choice preconditions',
+      });
+    },
+    { defaultCollapsed: true },
+  );
+  if ((choice.preconditions ?? []).length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'empty-hint';
+    hint.textContent = 'No choice preconditions — this option is always visible when this branch is active.';
+    choicePrecondBody.appendChild(hint);
+  } else {
+    renderPreconditionList(choicePrecondBody, createChoicePreconditionOwner(conv, turn, choice));
+  }
+  container.appendChild(choicePrecondWrapper);
 
   const { wrapper: targetingWrapper, body: targetingBody } = createCollapsibleSection(
     `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-f2f-targeting`,
@@ -1341,8 +1410,59 @@ function renderChoiceProperties(
 type PreconditionPathSegment = number | 'inner' | 'options' | 'entries';
 type PreconditionPath = PreconditionPathSegment[];
 
+type PreconditionScope = 'conversation' | 'turn' | 'choice';
+
+type PreconditionOwner = {
+  scope: PreconditionScope;
+  conversation: Conversation;
+  entries: PreconditionEntry[];
+  updateEntries: (entries: PreconditionEntry[]) => void;
+  getItemFieldKey: (preconditionIndex: number) => string;
+  getParamFieldKey: (preconditionIndex: number, paramIndex: number) => string;
+};
+
 function clonePreconditions(entries: PreconditionEntry[]): PreconditionEntry[] {
   return JSON.parse(JSON.stringify(entries)) as PreconditionEntry[];
+}
+
+function getAddablePreconditionSchemas(scope: PreconditionScope): CommandSchema[] {
+  if (scope === 'conversation') {
+    return ADDABLE_PRECONDITION_SCHEMAS;
+  }
+  return ADDABLE_PRECONDITION_SCHEMAS.filter((schema) => !NESTED_PRECONDITION_BLOCKLIST.has(schema.name));
+}
+
+function createConversationPreconditionOwner(conv: Conversation): PreconditionOwner {
+  return {
+    scope: 'conversation',
+    conversation: conv,
+    entries: conv.preconditions,
+    updateEntries: (entries) => store.updateConversation(conv.id, { preconditions: entries }),
+    getItemFieldKey: (preconditionIndex) => getPreconditionItemFieldKey(conv.id, preconditionIndex),
+    getParamFieldKey: (preconditionIndex, paramIndex) => getPreconditionParamFieldKey(conv.id, preconditionIndex, paramIndex),
+  };
+}
+
+function createTurnPreconditionOwner(conv: Conversation, turn: Turn): PreconditionOwner {
+  return {
+    scope: 'turn',
+    conversation: conv,
+    entries: turn.preconditions ?? [],
+    updateEntries: (entries) => store.updateTurn(conv.id, turn.turnNumber, { preconditions: entries }),
+    getItemFieldKey: (preconditionIndex) => getTurnPreconditionItemFieldKey(conv.id, turn.turnNumber, preconditionIndex),
+    getParamFieldKey: (preconditionIndex, paramIndex) => getTurnPreconditionParamFieldKey(conv.id, turn.turnNumber, preconditionIndex, paramIndex),
+  };
+}
+
+function createChoicePreconditionOwner(conv: Conversation, turn: Turn, choice: Choice): PreconditionOwner {
+  return {
+    scope: 'choice',
+    conversation: conv,
+    entries: choice.preconditions ?? [],
+    updateEntries: (entries) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { preconditions: entries }),
+    getItemFieldKey: (preconditionIndex) => getChoicePreconditionItemFieldKey(conv.id, turn.turnNumber, choice.index, preconditionIndex),
+    getParamFieldKey: (preconditionIndex, paramIndex) => getChoicePreconditionParamFieldKey(conv.id, turn.turnNumber, choice.index, preconditionIndex, paramIndex),
+  };
 }
 
 function getPreconditionValueAtPath(root: PreconditionEntry[], path: PreconditionPath): unknown {
@@ -1381,16 +1501,14 @@ function normalizePrecondition(entry: PreconditionEntry): PreconditionEntry {
   }
 }
 
-function updatePreconditionTree(conv: Conversation, mutate: (entries: PreconditionEntry[]) => void): void {
-  const updated = clonePreconditions(conv.preconditions);
+function updatePreconditionTree(owner: PreconditionOwner, mutate: (entries: PreconditionEntry[]) => void): void {
+  const updated = clonePreconditions(owner.entries);
   mutate(updated);
-  store.updateConversation(conv.id, {
-    preconditions: updated.map(normalizePrecondition),
-  });
+  owner.updateEntries(updated.map(normalizePrecondition));
 }
 
-function removePreconditionAtPath(conv: Conversation, path: PreconditionPath): void {
-  updatePreconditionTree(conv, (entries) => {
+function removePreconditionAtPath(owner: PreconditionOwner, path: PreconditionPath): void {
+  updatePreconditionTree(owner, (entries) => {
     const container = path.length === 1 ? entries : getPreconditionValueAtPath(entries, path.slice(0, -1));
     const index = path[path.length - 1];
     if (Array.isArray(container) && typeof index === 'number') {
@@ -1399,8 +1517,8 @@ function removePreconditionAtPath(conv: Conversation, path: PreconditionPath): v
   });
 }
 
-function updatePreconditionAtPath(conv: Conversation, path: PreconditionPath, updater: (entry: PreconditionEntry) => PreconditionEntry): void {
-  updatePreconditionTree(conv, (entries) => {
+function updatePreconditionAtPath(owner: PreconditionOwner, path: PreconditionPath, updater: (entry: PreconditionEntry) => PreconditionEntry): void {
+  updatePreconditionTree(owner, (entries) => {
     const container = path.length === 1 ? entries : getPreconditionValueAtPath(entries, path.slice(0, -1));
     const index = path[path.length - 1];
     if (Array.isArray(container) && typeof index === 'number') {
@@ -1409,14 +1527,14 @@ function updatePreconditionAtPath(conv: Conversation, path: PreconditionPath, up
   });
 }
 
-function renderPreconditionList(container: HTMLElement, conv: Conversation): void {
+function renderPreconditionList(container: HTMLElement, owner: PreconditionOwner): void {
   const list = document.createElement('div');
   list.className = 'precond-list';
 
   let dragSrcIdx: number | null = null;
 
-  conv.preconditions.forEach((entry, idx) => {
-    const editorEl = renderPreconditionEditor(conv, entry, [idx], 0, true);
+  owner.entries.forEach((entry, idx) => {
+    const editorEl = renderPreconditionEditor(owner, entry, [idx], 0, true);
     editorEl.classList.add('precond-entry-shell');
 
     // Add drag handle to top-level preconditions
@@ -1451,10 +1569,10 @@ function renderPreconditionList(container: HTMLElement, conv: Conversation): voi
       e.preventDefault();
       editorEl.classList.remove('drag-over');
       if (dragSrcIdx === null || dragSrcIdx === idx) return;
-      const reordered = [...conv.preconditions];
+      const reordered = [...owner.entries];
       const [moved] = reordered.splice(dragSrcIdx, 1);
       reordered.splice(idx, 0, moved);
-      store.updateConversation(conv.id, { preconditions: reordered });
+      owner.updateEntries(reordered.map(normalizePrecondition));
     };
 
     list.appendChild(editorEl);
@@ -1464,7 +1582,7 @@ function renderPreconditionList(container: HTMLElement, conv: Conversation): voi
 }
 
 function renderPreconditionEditor(
-  conv: Conversation,
+  owner: PreconditionOwner,
   entry: PreconditionEntry,
   path: PreconditionPath,
   depth: number,
@@ -1484,7 +1602,7 @@ function renderPreconditionEditor(
 
   const item = document.createElement('div');
   item.className = 'precond-item clickable';
-  item.setAttribute('data-field-key', getPreconditionItemFieldKey(conv.id, path[0] as number));
+  item.setAttribute('data-field-key', owner.getItemFieldKey(path[0] as number));
 
   const indexBadge = document.createElement('span');
   indexBadge.className = 'logic-row-index';
@@ -1498,13 +1616,13 @@ function renderPreconditionEditor(
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-icon btn-sm';
     delBtn.textContent = '×';
-    delBtn.title = 'Remove this precondition';
-    delBtn.style.color = 'var(--danger)';
-    delBtn.onclick = (e) => {
-      e.stopPropagation();
-      removePreconditionAtPath(conv, path);
-    };
-    item.appendChild(delBtn);
+      delBtn.title = 'Remove this precondition';
+      delBtn.style.color = 'var(--danger)';
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        removePreconditionAtPath(owner, path);
+      };
+      item.appendChild(delBtn);
   }
 
   wrapper.appendChild(item);
@@ -1519,10 +1637,10 @@ function renderPreconditionEditor(
 
       if (schema.params.length > 0) {
         const paramsDiv = renderParamEditors(schema, entry.params, (newParams) => {
-          updatePreconditionAtPath(conv, path, (current) => current.type === 'simple'
+          updatePreconditionAtPath(owner, path, (current) => current.type === 'simple'
             ? { ...current, params: newParams }
             : current);
-        }, (paramIndex) => getPreconditionParamFieldKey(conv.id, path[0] as number, paramIndex), conv);
+        }, (paramIndex) => owner.getParamFieldKey(path[0] as number, paramIndex), owner.conversation);
         wrapper.appendChild(paramsDiv);
       }
     }
@@ -1545,7 +1663,7 @@ function renderPreconditionEditor(
   }
 
   if (entry.type === 'not') {
-    wrapper.appendChild(renderPreconditionEditor(conv, entry.inner, [...path, 'inner'], depth + 1, false, 'NOT branch'));
+    wrapper.appendChild(renderPreconditionEditor(owner, entry.inner, [...path, 'inner'], depth + 1, false, 'NOT branch'));
     return wrapper;
   }
 
@@ -1571,20 +1689,20 @@ function renderPreconditionEditor(
       delBtn.style.color = 'var(--danger)';
       delBtn.onclick = (e) => {
         e.stopPropagation();
-        removePreconditionAtPath(conv, optionPath);
+        removePreconditionAtPath(owner, optionPath);
       };
       groupHeader.appendChild(delBtn);
       groupWrap.appendChild(groupHeader);
 
       option.entries.forEach((groupEntry, groupIdx) => {
-        groupWrap.appendChild(renderPreconditionEditor(conv, groupEntry, [...optionPath, 'entries', groupIdx], depth + 2, true, `Condition ${groupIdx + 1}`));
+        groupWrap.appendChild(renderPreconditionEditor(owner, groupEntry, [...optionPath, 'entries', groupIdx], depth + 2, true, `Condition ${groupIdx + 1}`));
       });
 
       wrapper.appendChild(groupWrap);
       return;
     }
 
-    wrapper.appendChild(renderPreconditionEditor(conv, option, optionPath, depth + 1, true, `Option ${idx + 1}`));
+    wrapper.appendChild(renderPreconditionEditor(owner, option, optionPath, depth + 1, true, `Option ${idx + 1}`));
   });
 
   return wrapper;

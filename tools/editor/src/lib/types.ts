@@ -86,6 +86,8 @@ export interface InvalidPrecondition {
 export interface Turn {
   turnNumber: number;
   openingMessage?: string;
+  /** Preconditions required before this branch turn can be entered. */
+  preconditions: PreconditionEntry[];
   /** Internal marker used by legacy F2F opening migration. */
   openingMessagePlaceholder?: string;
   channel?: ConversationChannel;
@@ -110,6 +112,8 @@ export interface Choice {
   index: number;
   text: string;
   channel?: ConversationChannel;
+  /** Preconditions required before this choice is shown to the player. */
+  preconditions: PreconditionEntry[];
   reply: string;
   replyRelHigh?: string;
   replyRelLow?: string;

@@ -76,6 +76,10 @@ const PRECONDITION_RANGE_PAIRS: Array<{ minCommand: string; maxCommand: string; 
   { minCommand: 'req_rank', maxCommand: 'req_rank_max', label: 'player rank', rankBased: true },
   { minCommand: 'req_npc_rank', maxCommand: 'req_npc_rank_max', label: 'NPC rank', rankBased: true },
 ] as const;
+const NESTED_PRECONDITION_UNSUPPORTED_COMMANDS = new Set([
+  'req_story_npc',
+  'req_custom_story_npc',
+]);
 
 type ConversationField = 'label' | 'initial-channel' | 'start-mode' | 'timeout' | 'timeout-message' | 'preconditions';
 type TurnField = 'opening-message' | 'channel' | 'pda-entry' | 'f2f-entry' | 'requires-npc-first' | 'first-speaker';
@@ -122,6 +126,15 @@ interface FlattenedPrecondition {
   raw: string;
 }
 
+interface PreconditionValidationOwner {
+  conversationId: number;
+  propertiesTab: 'conversation' | 'selection';
+  turnNumber?: number;
+  choiceIndex?: number;
+  getItemFieldKey: (preconditionIndex: number) => string;
+  getParamFieldKey: (preconditionIndex: number, paramIndex: number) => string;
+}
+
 /** Field keys shared by the properties panel and validation bar navigation. */
 export function getConversationFieldKey(conversationId: number, field: ConversationField): string {
   return `conversation-${conversationId}-${field}`;
@@ -133,6 +146,22 @@ export function getPreconditionItemFieldKey(conversationId: number, precondition
 
 export function getPreconditionParamFieldKey(conversationId: number, preconditionIndex: number, paramIndex: number): string {
   return `${getPreconditionItemFieldKey(conversationId, preconditionIndex)}-param-${paramIndex}`;
+}
+
+export function getTurnPreconditionItemFieldKey(conversationId: number, turnNumber: number, preconditionIndex: number): string {
+  return `conversation-${conversationId}-turn-${turnNumber}-precondition-${preconditionIndex}`;
+}
+
+export function getTurnPreconditionParamFieldKey(conversationId: number, turnNumber: number, preconditionIndex: number, paramIndex: number): string {
+  return `${getTurnPreconditionItemFieldKey(conversationId, turnNumber, preconditionIndex)}-param-${paramIndex}`;
+}
+
+export function getChoicePreconditionItemFieldKey(conversationId: number, turnNumber: number, choiceIndex: number, preconditionIndex: number): string {
+  return `conversation-${conversationId}-turn-${turnNumber}-choice-${choiceIndex}-precondition-${preconditionIndex}`;
+}
+
+export function getChoicePreconditionParamFieldKey(conversationId: number, turnNumber: number, choiceIndex: number, preconditionIndex: number, paramIndex: number): string {
+  return `${getChoicePreconditionItemFieldKey(conversationId, turnNumber, choiceIndex, preconditionIndex)}-param-${paramIndex}`;
 }
 
 export function getTurnFieldKey(conversationId: number, turnNumber: number, field: TurnField): string {
@@ -202,7 +231,12 @@ function validateConversation(conv: Conversation, knownNpcTemplateIds: Set<strin
     });
   } else {
     conv.preconditions.forEach((entry, idx) => {
-      validatePrecondition(entry, idx, conv.id, knownNpcTemplateIds, messages);
+      validatePrecondition(entry, idx, {
+        conversationId: conv.id,
+        propertiesTab: 'conversation',
+        getItemFieldKey: (preconditionIndex) => getPreconditionItemFieldKey(conv.id, preconditionIndex),
+        getParamFieldKey: (preconditionIndex, paramIndex) => getPreconditionParamFieldKey(conv.id, preconditionIndex, paramIndex),
+      }, knownNpcTemplateIds, messages);
     });
   }
 
@@ -255,7 +289,12 @@ function validateConversation(conv: Conversation, knownNpcTemplateIds: Set<strin
     }
   }
 
-  validateConversationPreconditionLogic(conv, messages);
+  validatePreconditionLogic(conv.preconditions, {
+    conversationId: conv.id,
+    propertiesTab: 'conversation',
+    getItemFieldKey: (preconditionIndex) => getPreconditionItemFieldKey(conv.id, preconditionIndex),
+    getParamFieldKey: (preconditionIndex, paramIndex) => getPreconditionParamFieldKey(conv.id, preconditionIndex, paramIndex),
+  }, messages);
   validateConversationAnomalyArtifactSafety(conv, messages);
   validateConversationF2FAndChannelFlow(conv, messages);
 
@@ -398,7 +437,45 @@ function validateTurn(
     return;
   }
 
+  const turnPreconditions = turn.preconditions ?? [];
+  turnPreconditions.forEach((entry, idx) => {
+    validatePrecondition(entry, idx, {
+      conversationId: conv.id,
+      turnNumber: turn.turnNumber,
+      propertiesTab: 'selection',
+      getItemFieldKey: (preconditionIndex) => getTurnPreconditionItemFieldKey(conv.id, turn.turnNumber, preconditionIndex),
+      getParamFieldKey: (preconditionIndex, paramIndex) => getTurnPreconditionParamFieldKey(conv.id, turn.turnNumber, preconditionIndex, paramIndex),
+    }, knownNpcTemplateIds, messages);
+  });
+  validatePreconditionLogic(turnPreconditions, {
+    conversationId: conv.id,
+    turnNumber: turn.turnNumber,
+    propertiesTab: 'selection',
+    getItemFieldKey: (preconditionIndex) => getTurnPreconditionItemFieldKey(conv.id, turn.turnNumber, preconditionIndex),
+    getParamFieldKey: (preconditionIndex, paramIndex) => getTurnPreconditionParamFieldKey(conv.id, turn.turnNumber, preconditionIndex, paramIndex),
+  }, messages);
+
   for (const choice of turn.choices) {
+    const choicePreconditions = choice.preconditions ?? [];
+    choicePreconditions.forEach((entry, idx) => {
+      validatePrecondition(entry, idx, {
+        conversationId: conv.id,
+        turnNumber: turn.turnNumber,
+        choiceIndex: choice.index,
+        propertiesTab: 'selection',
+        getItemFieldKey: (preconditionIndex) => getChoicePreconditionItemFieldKey(conv.id, turn.turnNumber, choice.index, preconditionIndex),
+        getParamFieldKey: (preconditionIndex, paramIndex) => getChoicePreconditionParamFieldKey(conv.id, turn.turnNumber, choice.index, preconditionIndex, paramIndex),
+      }, knownNpcTemplateIds, messages);
+    });
+    validatePreconditionLogic(choicePreconditions, {
+      conversationId: conv.id,
+      turnNumber: turn.turnNumber,
+      choiceIndex: choice.index,
+      propertiesTab: 'selection',
+      getItemFieldKey: (preconditionIndex) => getChoicePreconditionItemFieldKey(conv.id, turn.turnNumber, choice.index, preconditionIndex),
+      getParamFieldKey: (preconditionIndex, paramIndex) => getChoicePreconditionParamFieldKey(conv.id, turn.turnNumber, choice.index, preconditionIndex, paramIndex),
+    }, messages);
+
     if (!choice.text || choice.text.trim() === '') {
       pushMessage(messages, {
         code: 'missing-choice-text',
@@ -472,12 +549,28 @@ function validateTurn(
 function validatePrecondition(
   entry: PreconditionEntry,
   preconditionIndex: number,
-  conversationId: number,
+  owner: PreconditionValidationOwner,
   knownNpcTemplateIds: Set<string>,
   messages: ValidationMessage[],
 ): void {
   if (entry.type === 'simple') {
     const schema = PRECONDITION_COMMANDS.get(entry.command);
+    if ((owner.turnNumber != null || owner.choiceIndex != null) && NESTED_PRECONDITION_UNSUPPORTED_COMMANDS.has(entry.command)) {
+      pushMessage(messages, {
+        code: 'unsupported-nested-precondition',
+        group: 'logic',
+        scope: 'precondition',
+        level: 'error',
+        conversationId: owner.conversationId,
+        turnNumber: owner.turnNumber,
+        choiceIndex: owner.choiceIndex,
+        preconditionIndex,
+        propertiesTab: owner.propertiesTab,
+        fieldKey: owner.getItemFieldKey(preconditionIndex),
+        message: `${schema?.label ?? entry.command} is only supported as a story-level targeting precondition, not on branch or choice visibility.`,
+      });
+      return;
+    }
     validateSimpleCommand({
       command: entry.command,
       params: entry.params,
@@ -485,12 +578,14 @@ function validatePrecondition(
       registryName: 'precondition',
       schemaLookup: PRECONDITION_SCHEMAS,
       context: {
-        conversationId,
+        conversationId: owner.conversationId,
+        turnNumber: owner.turnNumber,
+        choiceIndex: owner.choiceIndex,
         preconditionIndex,
-        propertiesTab: 'conversation',
+        propertiesTab: owner.propertiesTab,
       },
-      getItemFieldKey: () => getPreconditionItemFieldKey(conversationId, preconditionIndex),
-      getParamFieldKey: paramIndex => getPreconditionParamFieldKey(conversationId, preconditionIndex, paramIndex),
+      getItemFieldKey: () => owner.getItemFieldKey(preconditionIndex),
+      getParamFieldKey: paramIndex => owner.getParamFieldKey(preconditionIndex, paramIndex),
       messages,
     });
     validateCustomNpcTemplateReference({
@@ -499,18 +594,20 @@ function validatePrecondition(
       params: entry.params,
       knownNpcTemplateIds,
       context: {
-        conversationId,
+        conversationId: owner.conversationId,
+        turnNumber: owner.turnNumber,
+        choiceIndex: owner.choiceIndex,
         preconditionIndex,
-        propertiesTab: 'conversation',
+        propertiesTab: owner.propertiesTab,
       },
-      getParamFieldKey: paramIndex => getPreconditionParamFieldKey(conversationId, preconditionIndex, paramIndex),
+      getParamFieldKey: paramIndex => owner.getParamFieldKey(preconditionIndex, paramIndex),
       messages,
     });
     return;
   }
 
   if (entry.type === 'not') {
-    validatePrecondition(entry.inner, preconditionIndex, conversationId, knownNpcTemplateIds, messages);
+    validatePrecondition(entry.inner, preconditionIndex, owner, knownNpcTemplateIds, messages);
     return;
   }
 
@@ -521,10 +618,12 @@ function validatePrecondition(
       group: 'logic',
       scope: 'precondition',
       level: 'warning',
-      conversationId,
+      conversationId: owner.conversationId,
+      turnNumber: owner.turnNumber,
+      choiceIndex: owner.choiceIndex,
       preconditionIndex,
-      propertiesTab: 'conversation',
-      fieldKey: getPreconditionItemFieldKey(conversationId, preconditionIndex),
+      propertiesTab: owner.propertiesTab,
+      fieldKey: owner.getItemFieldKey(preconditionIndex),
       message: 'ANY precondition group is empty and can never match.',
     });
     return;
@@ -532,10 +631,10 @@ function validatePrecondition(
 
   group.options.forEach((option) => {
     if (option.type === 'all') {
-      option.entries.forEach((entry) => validatePrecondition(entry, preconditionIndex, conversationId, knownNpcTemplateIds, messages));
+      option.entries.forEach((entry) => validatePrecondition(entry, preconditionIndex, owner, knownNpcTemplateIds, messages));
       return;
     }
-    validatePrecondition(option, preconditionIndex, conversationId, knownNpcTemplateIds, messages);
+    validatePrecondition(option, preconditionIndex, owner, knownNpcTemplateIds, messages);
   });
 }
 
@@ -954,8 +1053,12 @@ function validateCustomNpcTemplateReference(options: {
   });
 }
 
-function validateConversationPreconditionLogic(conv: Conversation, messages: ValidationMessage[]): void {
-  const flat = conv.preconditions.flatMap((entry, index) => flattenTopLevelPrecondition(entry, index));
+function validatePreconditionLogic(
+  entries: PreconditionEntry[],
+  owner: PreconditionValidationOwner,
+  messages: ValidationMessage[],
+): void {
+  const flat = entries.flatMap((entry, index) => flattenTopLevelPrecondition(entry, index));
   const seen = new Map<string, FlattenedPrecondition>();
 
   for (const item of flat) {
@@ -967,10 +1070,12 @@ function validateConversationPreconditionLogic(conv: Conversation, messages: Val
         group: 'logic',
         scope: 'precondition',
         level: 'warning',
-        conversationId: conv.id,
+        conversationId: owner.conversationId,
+        turnNumber: owner.turnNumber,
+        choiceIndex: owner.choiceIndex,
         preconditionIndex: item.index,
-        propertiesTab: 'conversation',
-        fieldKey: getPreconditionItemFieldKey(conv.id, item.index),
+        propertiesTab: owner.propertiesTab,
+        fieldKey: owner.getItemFieldKey(item.index),
         message: `Duplicate precondition: ${item.raw}.`,
       });
     } else {
@@ -984,18 +1089,20 @@ function validateConversationPreconditionLogic(conv: Conversation, messages: Val
         group: 'logic',
         scope: 'precondition',
         level: 'warning',
-        conversationId: conv.id,
+        conversationId: owner.conversationId,
+        turnNumber: owner.turnNumber,
+        choiceIndex: owner.choiceIndex,
         preconditionIndex: item.index,
-        propertiesTab: 'conversation',
-        fieldKey: getPreconditionItemFieldKey(conv.id, item.index),
-        message: `Contradictory precondition: ${item.raw} conflicts with another condition in this conversation.`,
+        propertiesTab: owner.propertiesTab,
+        fieldKey: owner.getItemFieldKey(item.index),
+        message: `Contradictory precondition: ${item.raw} conflicts with another condition in the same scope.`,
       });
     }
   }
 
   for (const pair of PRECONDITION_RANGE_PAIRS) {
-    const mins = collectRangeConstraints(conv.preconditions, pair.minCommand);
-    const maxes = collectRangeConstraints(conv.preconditions, pair.maxCommand);
+    const mins = collectRangeConstraints(entries, pair.minCommand);
+    const maxes = collectRangeConstraints(entries, pair.maxCommand);
 
     for (const minConstraint of mins) {
       for (const maxConstraint of maxes) {
@@ -1012,10 +1119,12 @@ function validateConversationPreconditionLogic(conv: Conversation, messages: Val
           group: 'logic',
           scope: 'precondition',
           level: 'warning',
-          conversationId: conv.id,
+          conversationId: owner.conversationId,
+          turnNumber: owner.turnNumber,
+          choiceIndex: owner.choiceIndex,
           preconditionIndex: maxConstraint.index,
-          propertiesTab: 'conversation',
-          fieldKey: getPreconditionItemFieldKey(conv.id, maxConstraint.index),
+          propertiesTab: owner.propertiesTab,
+          fieldKey: owner.getItemFieldKey(maxConstraint.index),
           message: `Contradictory ${pair.label} limits: minimum ${minConstraint.rawValue} is greater than maximum ${maxConstraint.rawValue}.`,
         });
       }
@@ -1872,7 +1981,13 @@ function pushMessage(messages: ValidationMessage[], message: ValidationMessage):
     } else if (message.scope === 'outcome' && message.turnNumber != null && message.choiceIndex != null && message.outcomeIndex != null) {
       message.fieldPath = `turns[${message.turnNumber}].choices[${message.choiceIndex}].outcomes[${message.outcomeIndex}]`;
     } else if (message.scope === 'precondition' && message.preconditionIndex != null) {
-      message.fieldPath = `preconditions[${message.preconditionIndex}]`;
+      if (message.turnNumber != null && message.choiceIndex != null) {
+        message.fieldPath = `turns[${message.turnNumber}].choices[${message.choiceIndex}].preconditions[${message.preconditionIndex}]`;
+      } else if (message.turnNumber != null) {
+        message.fieldPath = `turns[${message.turnNumber}].preconditions[${message.preconditionIndex}]`;
+      } else {
+        message.fieldPath = `preconditions[${message.preconditionIndex}]`;
+      }
     }
   }
   messages.push(message);

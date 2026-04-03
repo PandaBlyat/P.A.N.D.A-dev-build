@@ -27,6 +27,7 @@ local initialized = false
 local npc_templates          = {}   -- template_id -> parsed config
 local active_custom_npcs     = {}   -- template_id -> [{npc_id, squad_id, alive, spawned_at}]
 local pending_name_overrides  = {}   -- npc_id (number) -> name (string)
+local pending_rank_overrides  = {}   -- npc_id (number) -> rank name (string)
 local pending_relation_overrides = {} -- npc_id (number) -> relation key
 local pending_loadout_overrides = {} -- npc_id (number) -> { primary, secondary, outfit, visual, tries }
 local pending_story_targets   = {}   -- template_id -> { smart_ref, attempts, last_reason }
@@ -46,6 +47,16 @@ local STATIONARY_ANCHOR_INTERVAL = 0.35
 local STATIONARY_TELEPORT_THRESHOLD = 0.6
 local LOADOUT_RETRY_INTERVAL = 0.25
 local LOADOUT_RETRY_LIMIT = 24
+local FALLBACK_RANK_POINTS = {
+    novice = 0,
+    trainee = 15,
+    experienced = 45,
+    professional = 90,
+    veteran = 180,
+    expert = 360,
+    master = 720,
+    legend = 1440,
+}
 
 local function ensure_script_global(script_name)
     local existing = rawget(_G, script_name)
@@ -653,6 +664,69 @@ local function parse_template(template_id)
 
     npc_templates[template_id] = tpl
     return tpl
+end
+
+local function normalize_rank_name(rank_name)
+    if not rank_name then
+        return nil
+    end
+
+    local normalized = string.lower(tostring(rank_name))
+    normalized = string.gsub(normalized, "^%s+", "")
+    normalized = string.gsub(normalized, "%s+$", "")
+    if normalized == "" then
+        return nil
+    end
+
+    return normalized
+end
+
+local function resolve_rank_points(rank_name)
+    local normalized = normalize_rank_name(rank_name)
+    if not normalized then
+        return nil
+    end
+
+    local rank_module = rawget(_G, "ranks") or ensure_script_global("ranks")
+    if rank_module and type(rank_module.get_rank_interval) == "function" then
+        local ok_interval, interval = pcall(rank_module.get_rank_interval, normalized)
+        if ok_interval and type(interval) == "table" then
+            local min_rank = tonumber(interval[1] or interval.min or interval.low or interval.from)
+            local max_rank = tonumber(interval[2] or interval.max or interval.high or interval.to)
+            if min_rank then
+                if max_rank and max_rank > min_rank then
+                    return math.floor((min_rank + max_rank) * 0.5)
+                end
+                return min_rank
+            end
+        end
+    end
+
+    return FALLBACK_RANK_POINTS[normalized]
+end
+
+local function apply_rank_to_server_object(se_obj, rank_name)
+    local rank_points = resolve_rank_points(rank_name)
+    if not se_obj or not rank_points or not se_obj.set_rank then
+        return false, rank_points
+    end
+
+    local ok = pcall(function()
+        se_obj:set_rank(rank_points)
+    end)
+    return ok, rank_points
+end
+
+local function apply_rank_to_game_object(obj, rank_name)
+    local rank_points = resolve_rank_points(rank_name)
+    if not obj or not rank_points or not obj.set_character_rank then
+        return false, rank_points
+    end
+
+    local ok = pcall(function()
+        obj:set_character_rank(rank_points)
+    end)
+    return ok, rank_points
 end
 
 -- ============================================================
@@ -1545,6 +1619,26 @@ function spawn_custom_npc(template_id, context)
                 pending_name_overrides[member_id] = tpl.name
             end
 
+            if tpl.rank and tpl.rank ~= "" then
+                local applied_server, rank_points = apply_rank_to_server_object(se_obj, tpl.rank)
+                local online_obj = level and level.object_by_id and level.object_by_id(member_id) or nil
+                local applied_online = false
+                if online_obj then
+                    applied_online = select(1, apply_rank_to_game_object(online_obj, tpl.rank))
+                end
+                pending_rank_overrides[member_id] = tpl.rank
+                printf(
+                    "PANDA_NPC: queued rank '%s' for npc_id=%d points=%s server=%s online=%s",
+                    tostring(tpl.rank),
+                    member_id,
+                    tostring(rank_points or "nil"),
+                    tostring(applied_server),
+                    tostring(applied_online)
+                )
+            else
+                pending_rank_overrides[member_id] = nil
+            end
+
             if tpl.relation and tpl.relation ~= "" then
                 pending_relation_overrides[member_id] = string.lower(tostring(tpl.relation))
             end
@@ -1852,6 +1946,7 @@ function save_state(m)
     end
     m.panda_custom_npcs          = save_npcs
     m.panda_npc_name_overrides   = pending_name_overrides
+    m.panda_npc_rank_overrides   = pending_rank_overrides
     m.panda_npc_relation_overrides = pending_relation_overrides
     m.panda_npc_loadout_overrides = pending_loadout_overrides
     m.panda_npc_stationary_anchors = stationary_custom_npcs
@@ -1860,6 +1955,7 @@ end
 function load_state(m)
     active_custom_npcs    = m.panda_custom_npcs        or {}
     pending_name_overrides = m.panda_npc_name_overrides or {}
+    pending_rank_overrides = m.panda_npc_rank_overrides or {}
     pending_relation_overrides = m.panda_npc_relation_overrides or {}
     pending_loadout_overrides = m.panda_npc_loadout_overrides or {}
     stationary_custom_npcs = m.panda_npc_stationary_anchors or {}
@@ -1887,6 +1983,28 @@ local function on_npc_net_spawn(obj, se_obj)
         end
         pending_name_overrides[npc_id] = nil
         printf("PANDA_NPC: applied name '%s' to npc_id=%d (deferred)", tostring(name), npc_id)
+    end
+
+    if pending_rank_overrides[npc_id] then
+        local rank_name = pending_rank_overrides[npc_id]
+        local sim = alife()
+        local se = se_obj or (sim and sim:object(npc_id))
+        local applied_server, rank_points = apply_rank_to_server_object(se, rank_name)
+        local applied_online = false
+        if obj then
+            applied_online = select(1, apply_rank_to_game_object(obj, rank_name))
+        end
+        if applied_server or applied_online then
+            pending_rank_overrides[npc_id] = nil
+        end
+        printf(
+            "PANDA_NPC: applied deferred rank '%s' to npc_id=%d points=%s server=%s online=%s",
+            tostring(rank_name),
+            npc_id,
+            tostring(rank_points or "nil"),
+            tostring(applied_server),
+            tostring(applied_online)
+        )
     end
 
     if pending_relation_overrides[npc_id] then
@@ -1918,6 +2036,7 @@ local function on_npc_death(obj, killer)
     end
 
     pending_name_overrides[npc_id] = nil
+    pending_rank_overrides[npc_id] = nil
     pending_relation_overrides[npc_id] = nil
     pending_loadout_overrides[npc_id] = nil
     stationary_custom_npcs[npc_id] = nil
