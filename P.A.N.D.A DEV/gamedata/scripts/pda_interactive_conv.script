@@ -26,6 +26,7 @@ local F2F_HANDOFF_ACTIONABLE_GRACE_MS = 2 * 60 * 1000
 
 local safe_remove_time_event
 local _panda_f2f_bridge_checked = false
+local _panda_npc_creator_checked = false
 local _f2f_scanner_suppress_last_log_at = nil
 local _f2f_scanner_suppress_last_source = nil
 local build_f2f_handoff_identity
@@ -72,6 +73,47 @@ local function ensure_panda_f2f_bridge()
 
     return panda_f2f_bridge
 end
+
+local function ensure_panda_npc_creator()
+    if panda_npc_creator and type(panda_npc_creator.install_engine_guards) == "function" then
+        _panda_npc_creator_checked = true
+        pcall(panda_npc_creator.install_engine_guards)
+        return panda_npc_creator
+    end
+
+    if _panda_npc_creator_checked then
+        return panda_npc_creator
+    end
+
+    _panda_npc_creator_checked = true
+
+    if not panda_npc_creator then
+        local ok = pcall(function()
+            if require then
+                require("panda_npc_creator")
+            end
+        end)
+
+        if not ok then
+            pcall(function()
+                dofile("gamedata\\scripts\\panda_npc_creator.script")
+            end)
+        end
+    end
+
+    if panda_npc_creator and type(panda_npc_creator.install_engine_guards) == "function" then
+        pcall(panda_npc_creator.install_engine_guards)
+    end
+
+    if not panda_npc_creator then
+        printf("PANDA_IC: warning: panda_npc_creator unavailable after module load")
+        return nil
+    end
+
+    return panda_npc_creator
+end
+
+ensure_panda_npc_creator()
 
 local function get_anomaly_artifact_adapter()
     if panda_anomaly_artifact_adapter and panda_anomaly_artifact_adapter.ensure_state then
@@ -8173,8 +8215,9 @@ function on_game_start()
     -- Schedule delayed F2F -> PDA follow-up delivery
     schedule_pda_followup_checker()
 
-    if panda_npc_creator and type(panda_npc_creator.on_game_start) == "function" then
-        panda_npc_creator.on_game_start()
+    local panda_npc_creator_mod = ensure_panda_npc_creator()
+    if panda_npc_creator_mod and type(panda_npc_creator_mod.on_game_start) == "function" then
+        panda_npc_creator_mod.on_game_start()
     end
 
     _callbacks_registered = true

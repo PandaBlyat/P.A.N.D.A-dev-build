@@ -35,6 +35,270 @@ local stationary_anchor_scheduled = {} -- npc_id (number) -> true while an ancho
 local story_target_retry_scheduled = false
 local xr_visual_ini_cache = false
 local xr_visual_lookup_cache = {}
+local death_outfits_ini_cache = false
+local engine_guard_bootstrap = {
+    se_stalker = false,
+    sim_squad_scripted = false,
+}
+local logged_bad_unregister_refs = {}
+
+local STATIONARY_ANCHOR_INTERVAL = 0.35
+local STATIONARY_TELEPORT_THRESHOLD = 0.6
+local LOADOUT_RETRY_INTERVAL = 0.25
+local LOADOUT_RETRY_LIMIT = 24
+
+local function ensure_script_global(script_name)
+    local existing = rawget(_G, script_name)
+    if existing then
+        return existing
+    end
+
+    if require then
+        pcall(function()
+            require(script_name)
+        end)
+    end
+
+    existing = rawget(_G, script_name)
+    if existing then
+        return existing
+    end
+
+    pcall(function()
+        dofile("gamedata\\scripts\\" .. tostring(script_name) .. ".script")
+    end)
+
+    return rawget(_G, script_name)
+end
+
+local function safe_server_object_name(obj)
+    if not obj or not obj.name then
+        return "<nil>"
+    end
+
+    local ok, value = pcall(function()
+        return obj:name()
+    end)
+
+    return ok and tostring(value) or "<error>"
+end
+
+local function safe_server_object_section(obj)
+    if not obj or not obj.section_name then
+        return "<unknown>"
+    end
+
+    local ok, value = pcall(function()
+        return obj:section_name()
+    end)
+
+    return ok and tostring(value) or "<error>"
+end
+
+local function scrub_invalid_smart_reference(obj, bad_smart_id)
+    if not obj then
+        return
+    end
+
+    if obj.smart_id ~= nil and (bad_smart_id == nil or obj.smart_id == bad_smart_id) then
+        obj.smart_id = nil
+    end
+
+    if obj.m_smart_terrain_id ~= nil and (bad_smart_id == nil or obj.m_smart_terrain_id == bad_smart_id) then
+        obj.m_smart_terrain_id = 65535
+    end
+
+    if obj.clear_smart_terrain then
+        pcall(function()
+            obj:clear_smart_terrain()
+        end)
+    end
+end
+
+local function safe_unregister_from_smart(smart_obj, npc_obj, context, smart_id)
+    if not smart_obj then
+        scrub_invalid_smart_reference(npc_obj, smart_id)
+        return false
+    end
+
+    local unregister_fn = smart_obj.unregister_npc
+    if type(unregister_fn) ~= "function" then
+        scrub_invalid_smart_reference(npc_obj, smart_id)
+
+        local key = tostring(context) .. ":" .. tostring(smart_id)
+        if not logged_bad_unregister_refs[key] then
+            logged_bad_unregister_refs[key] = true
+            printf(
+                "PANDA_NPC: skipped unregister_npc in %s for invalid smart id=%s name=%s section=%s",
+                tostring(context),
+                tostring(smart_id),
+                safe_server_object_name(smart_obj),
+                safe_server_object_section(smart_obj)
+            )
+        end
+
+        return false
+    end
+
+    local ok, err = pcall(unregister_fn, smart_obj, npc_obj)
+    if not ok then
+        scrub_invalid_smart_reference(npc_obj, smart_id)
+
+        local key = tostring(context) .. ":" .. tostring(smart_id) .. ":pcall"
+        if not logged_bad_unregister_refs[key] then
+            logged_bad_unregister_refs[key] = true
+            printf(
+                "PANDA_NPC: unregister_npc failed in %s for smart id=%s: %s",
+                tostring(context),
+                tostring(smart_id),
+                tostring(err)
+            )
+        end
+
+        return false
+    end
+
+    return true
+end
+
+function install_engine_guards()
+    if not engine_guard_bootstrap.se_stalker then
+        local stalker_class = ensure_script_global("se_stalker")
+        if stalker_class then
+            function se_stalker:on_unregister()
+                --utils_data.debug_write("se_stalker:on_unregister()")
+                local strn_id = self:smart_terrain_id()
+                if strn_id ~= 65535 then
+                    safe_unregister_from_smart(alife_object(strn_id), self, "se_stalker:on_unregister", strn_id)
+                end
+                db.offline_objects[self.id] = nil
+                -- If object unregisters before saving, it means it was removed from game
+                --alife_storage_manager.get_state().se_object[self.id] = nil
+                SendScriptCallback("server_entity_on_unregister",self,"se_stalker")
+                cse_alife_human_stalker.on_unregister(self)
+            end
+
+            engine_guard_bootstrap.se_stalker = true
+        end
+    end
+
+    if not engine_guard_bootstrap.sim_squad_scripted then
+        local squad_class = ensure_script_global("sim_squad_scripted")
+        if squad_class then
+            function sim_squad_scripted:remove_squad()
+                --utils_data.debug_write(strformat("START sim_squad_scripted:remove_squad %s",self:name()))
+
+                self.current_action = nil
+                SIMBOARD:assign_squad_to_smart(self, nil)
+                SIMBOARD.squads[self.id] = nil
+
+                local squad_npcs = {}
+                for k in self:squad_members() do
+                    squad_npcs[k.id] = true
+                end
+
+                local sim = alife()
+                for id,v in pairs(squad_npcs) do
+                    local se_obj = sim:object(id)
+                    if (se_obj) then
+                        local smart_id = se_obj.m_smart_terrain_id --se_obj:smart_terrain_id()
+                        if (smart_id and smart_id ~= 65535) then
+                            safe_unregister_from_smart(alife_object(smart_id), self, "sim_squad_scripted:remove_squad", smart_id)
+                        end
+                        self:unregister_member(id)
+                        safe_release_manager.release(se_obj)
+                    end
+                end
+                self:hide()
+                safe_release_manager.release(self)
+                --utils_data.debug_write(strformat("END sim_squad_scripted:remove_squad %s",self:name()))
+            end
+
+            function sim_squad_scripted:remove_npc(npc_id, force)
+                --utils_data.debug_write(strformat("%s:remove_npc %s",self:name(),npc_id))
+
+                local se_obj = alife_object(npc_id)
+                if (se_obj) then
+                    local smart_id = se_obj:smart_terrain_id()
+                    if smart_id ~= 65535 then
+                        safe_unregister_from_smart(alife_object(smart_id), self, "sim_squad_scripted:remove_npc", smart_id)
+                    end
+
+                    self:unregister_member(npc_id)
+                    if force or (not se_obj.online) then
+                        safe_release_manager.release(se_obj)
+                    end
+                end
+
+                if self:npc_count() > 0 then
+                    self:refresh()
+                else
+                    self.current_action = nil
+                    if (self.death_condlist) then
+                        xr_logic.pick_section_from_condlist(db.actor, self, self.death_condlist)
+                    end
+
+                    SIMBOARD:assign_squad_to_smart(self, nil)
+                    SIMBOARD.squads[self.id] = nil
+
+                    self:hide()
+                    safe_release_manager.release(self)
+                end
+            end
+
+            function sim_squad_scripted:assign_squad_member_to_smart(member_id, smart, old_smart_id)
+                local sim = alife()
+                local obj = sim:object(member_id)
+                if obj ~= nil then
+                    --printf("    npc [%s] smart [%s]", obj:name(), tostring(obj.m_smart_terrain_id))
+                    --utils_data.debug_write(strformat("sim_squad_scripted:assign_squad_member_to_smart npc=%s smart=%s",obj and obj:name(),smart and smart:name()))
+                    if obj.m_smart_terrain_id == self.smart_id then
+                        return
+                    end
+
+                    if obj.m_smart_terrain_id ~= 65535 and old_smart_id ~= nil and (obj.m_smart_terrain_id == old_smart_id) and SIMBOARD.smarts[old_smart_id] ~= nil then
+                        safe_unregister_from_smart(SIMBOARD.smarts[old_smart_id].smrt, obj, "sim_squad_scripted:assign_squad_member_to_smart", old_smart_id)
+                    end
+
+                    if smart ~= nil then
+                        smart:register_npc(obj)
+                    end
+                end
+            end
+
+            function sim_squad_scripted:assign_smart(smart,old_smart_id)
+                --utils_data.debug_write(strformat("%s:assign_smart %s",self:name(),smart and smart:name()))
+                local old_smart = old_smart_id and old_smart_id ~= 65535 and alife_object(old_smart_id)
+                if (smart == nil and old_smart == nil) then
+                    return
+                end
+
+                if (smart) then
+                    self.smart_id = smart.id
+                end
+
+                for k in self:squad_members() do
+                    local se_obj = alife_object(k.id)
+                    if (se_obj) then
+                        if (old_smart) then
+                            safe_unregister_from_smart(old_smart, se_obj, "sim_squad_scripted:assign_smart", old_smart_id)
+                        end
+
+                        if (smart) then
+                            smart:register_npc(se_obj)
+                        end
+                    end
+                end
+            end
+
+            engine_guard_bootstrap.sim_squad_scripted = true
+        end
+    end
+
+    return engine_guard_bootstrap.se_stalker and engine_guard_bootstrap.sim_squad_scripted
+end
+
+install_engine_guards()
 
 -- ============================================================
 -- FACTION → SQUAD SECTION
@@ -116,6 +380,144 @@ local function get_xr_visual_ini()
     return xr_visual_ini_cache
 end
 
+local function get_death_outfits_ini()
+    if death_outfits_ini_cache ~= false then
+        return death_outfits_ini_cache
+    end
+
+    death_outfits_ini_cache = nil
+    if ini_file then
+        local ok, ini = pcall(ini_file, "items\\settings\\death_outfits.ltx")
+        if ok and ini then
+            death_outfits_ini_cache = ini
+        end
+    end
+
+    return death_outfits_ini_cache
+end
+
+local VISUAL_BASE_PREFIXES = {
+    { "^stalker_dolg",      "actors\\stalker_dolg\\" },
+    { "^light_dolg",        "actors\\stalker_dolg\\" },
+    { "^stalker_freedom",   "actors\\stalker_freedom\\" },
+    { "^light_free",        "actors\\stalker_freedom\\" },
+    { "^stalker_merc",      "actors\\stalker_merc\\" },
+    { "^stalker_ki",        "actors\\stalker_merc\\" },
+    { "^light_merc",        "actors\\stalker_merc\\" },
+    { "^stalker_monolith",  "actors\\stalker_monolith\\" },
+    { "^light_mono",        "actors\\stalker_monolith\\" },
+    { "^stalker_soldier",   "actors\\stalker_soldier\\" },
+    { "^soldier_",          "actors\\stalker_soldier\\" },
+    { "^light_voen",        "actors\\stalker_soldier\\" },
+    { "^stalker_military",  "actors\\stalker_soldier\\" },
+    { "^stalker_bandit",    "actors\\stalker_bandit\\" },
+    { "^light_bandit",      "actors\\stalker_bandit\\" },
+    { "^stalker_neutral",   "actors\\stalker_neutral\\" },
+    { "^light_neutral",     "actors\\stalker_neutral\\" },
+    { "^stalker_nebo",      "actors\\stalker_nebo\\" },
+    { "^stalker_radexo",    "actors\\stalker_nebo\\" },
+    { "^stalker_ecolog",    "actors\\stalker_ecologist\\" },
+    { "^stalker_nauchniy",  "actors\\stalker_ecologist\\" },
+    { "^stalker_greh",      "actors\\stalker_greh\\" },
+    { "^stalker_isg",       "actors\\stalker_isg\\" },
+    { "^light_isg",         "actors\\stalker_isg\\" },
+    { "^stalker_renegade",  "actors\\stalker_renegade\\" },
+}
+
+local function infer_visual_path_from_base(visual_base)
+    if not visual_base or visual_base == "" then
+        return nil
+    end
+    if string.find(visual_base, "\\") then
+        return visual_base
+    end
+
+    local lower = string.lower(tostring(visual_base))
+    for _, entry in ipairs(VISUAL_BASE_PREFIXES) do
+        if string.find(lower, entry[1]) then
+            return entry[2] .. tostring(visual_base)
+        end
+    end
+
+    return nil
+end
+
+local function resolve_visual_from_death_outfits(outfit_section)
+    if not outfit_section or outfit_section == "" then
+        return nil
+    end
+
+    local ini = get_death_outfits_ini()
+    if not ini or not ini.section_exist or not ini.line_count or not ini.r_line then
+        return nil
+    end
+    if not ini:section_exist("outfit_by_visual") then
+        return nil
+    end
+
+    local line_count = ini:line_count("outfit_by_visual") or 0
+    for line_index = 0, line_count - 1 do
+        local ok, _, visual_base, value = pcall(function()
+            return ini:r_line("outfit_by_visual", line_index, "", "")
+        end)
+        if ok and visual_base and value then
+            local mapped_outfit = string.match(tostring(value), "^%s*([^,%s]+)")
+            if mapped_outfit == outfit_section then
+                return infer_visual_path_from_base(visual_base)
+            end
+        end
+    end
+
+    return nil
+end
+
+local function infer_outfit_visual_community(faction, outfit_section)
+    local lower = string.lower(tostring(outfit_section or ""))
+    if string.find(lower, "dolg") or string.find(lower, "duty") then return "dolg" end
+    if string.find(lower, "svoboda") or string.find(lower, "freedom") then return "freedom" end
+    if string.find(lower, "merc") or string.find(lower, "killer") then return "killer" end
+    if string.find(lower, "monolith") then return "monolith" end
+    if string.find(lower, "army") or string.find(lower, "military") or string.find(lower, "specops") then return "army" end
+    if string.find(lower, "ecolog") or string.find(lower, "scientific") or string.find(lower, "ssp") then return "ecolog" end
+    if string.find(lower, "bandit") or string.find(lower, "renegade") then return "bandit" end
+    if string.find(lower, "isg") then return "killer" end
+    return normalize_visual_community(faction)
+end
+
+local function normalize_outfit_visual_key(outfit_section)
+    local lower = string.lower(tostring(outfit_section or ""))
+    if lower == "" then
+        return nil
+    end
+    if lower == "novice_outfit" or string.find(lower, "novice") then
+        return "novice_outfit"
+    end
+    if string.find(lower, "exo") or string.find(lower, "nosorog") then
+        return "exo_outfit"
+    end
+    if string.find(lower, "seva") or string.find(lower, "scientific") or string.find(lower, "ssp")
+        or string.find(lower, "proto") or string.find(lower, "nbc") or string.find(lower, "radiation") then
+        return "scientific_outfit"
+    end
+    if string.find(lower, "clearsky") or string.find(lower, "csky") or string.find(lower, "cs_")
+        or string.find(lower, "nebo") then
+        return "cs_heavy_outfit"
+    end
+    if string.find(lower, "army") or string.find(lower, "military") or string.find(lower, "specops") then
+        return "military_outfit"
+    end
+    if string.find(lower, "dolg") or string.find(lower, "duty") then
+        return string.find(lower, "heavy") and "dolg_heavy_outfit" or "dolg_outfit"
+    end
+    if string.find(lower, "svoboda") or string.find(lower, "freedom") then
+        return string.find(lower, "heavy") and "svoboda_heavy_outfit" or "svoboda_light_outfit"
+    end
+    if string.find(lower, "stalker") or string.find(lower, "loner") or string.find(lower, "neutral") then
+        return "stalker_outfit"
+    end
+    return nil
+end
+
 local function resolve_outfit_visual(faction, outfit_section)
     if not outfit_section or outfit_section == "" then
         return nil
@@ -126,6 +528,12 @@ local function resolve_outfit_visual(faction, outfit_section)
         return xr_visual_lookup_cache[cache_key] ~= false and xr_visual_lookup_cache[cache_key] or nil
     end
 
+    local death_visual = resolve_visual_from_death_outfits(outfit_section)
+    if death_visual and death_visual ~= "" then
+        xr_visual_lookup_cache[cache_key] = death_visual
+        return death_visual
+    end
+
     local ini = get_xr_visual_ini()
     if not ini or not ini.section_exist then
         xr_visual_lookup_cache[cache_key] = false
@@ -133,14 +541,14 @@ local function resolve_outfit_visual(faction, outfit_section)
     end
 
     local tried = {}
-    local function try_section(section)
+    local function try_section(section, outfit_key)
         if not section or section == "" or tried[section] then
             return nil
         end
         tried[section] = true
         if ini:section_exist(section) then
             local ok, visual = pcall(function()
-                return ini:r_string_ex(section, outfit_section)
+                return ini:r_string_ex(section, outfit_key)
             end)
             if ok and visual and visual ~= "" then
                 return visual
@@ -149,15 +557,27 @@ local function resolve_outfit_visual(faction, outfit_section)
         return nil
     end
 
-    local visual = try_section(normalize_visual_community(faction))
-        or try_section("stalker")
-        or try_section("bandit")
-        or try_section("killer")
-        or try_section("army")
-        or try_section("dolg")
-        or try_section("freedom")
-        or try_section("ecolog")
-        or try_section("monolith")
+    local fallback_key = normalize_outfit_visual_key(outfit_section)
+    local preferred_community = infer_outfit_visual_community(faction, outfit_section)
+
+    local function try_common_sections(outfit_key)
+        return try_section(preferred_community, outfit_key)
+            or try_section(normalize_visual_community(faction), outfit_key)
+            or try_section("stalker", outfit_key)
+            or try_section("bandit", outfit_key)
+            or try_section("killer", outfit_key)
+            or try_section("army", outfit_key)
+            or try_section("dolg", outfit_key)
+            or try_section("freedom", outfit_key)
+            or try_section("ecolog", outfit_key)
+            or try_section("monolith", outfit_key)
+    end
+
+    local visual = try_common_sections(outfit_section)
+    if (not visual) and fallback_key and fallback_key ~= outfit_section then
+        tried = {}
+        visual = try_common_sections(fallback_key)
+    end
 
     xr_visual_lookup_cache[cache_key] = visual or false
     return visual
@@ -586,6 +1006,30 @@ local function apply_online_visual_override(obj, visual_name)
     return ok
 end
 
+local function normalize_visual_name(value)
+    local normalized = string.lower(tostring(value or ""))
+    normalized = string.gsub(normalized, "%.ogf$", "")
+    return normalized
+end
+
+local function is_visual_applied(obj, desired_visual)
+    if not obj or not desired_visual or desired_visual == "" then
+        return true
+    end
+    if not obj.get_visual_name then
+        return false
+    end
+
+    local ok, current_visual = pcall(function()
+        return obj:get_visual_name()
+    end)
+    if not ok or not current_visual or current_visual == "" then
+        return false
+    end
+
+    return normalize_visual_name(current_visual) == normalize_visual_name(desired_visual)
+end
+
 local function find_inventory_item_by_section(obj, section)
     if not obj or not section or not obj.iterate_inventory then
         return nil
@@ -647,6 +1091,88 @@ local function table_to_vector(tbl)
     return vector():set(tbl.x or 0, tbl.y or 0, tbl.z or 0)
 end
 
+local function get_runtime_position(obj)
+    if not obj then
+        return nil
+    end
+
+    local ok, pos = pcall(function()
+        if type(obj.position) == "function" then
+            return obj:position()
+        end
+        return obj.position
+    end)
+
+    return ok and pos or nil
+end
+
+local function get_server_object_smart_id(se_obj)
+    if not se_obj then
+        return nil
+    end
+
+    local smart_id = se_obj.m_smart_terrain_id
+    if smart_id == nil and se_obj.smart_terrain_id then
+        local ok, resolved_id = pcall(function()
+            return se_obj:smart_terrain_id()
+        end)
+        if ok then
+            smart_id = resolved_id
+        end
+    end
+
+    if smart_id == 65535 then
+        return nil
+    end
+
+    return smart_id
+end
+
+local function configure_stationary_squad(squad_obj)
+    if not squad_obj then
+        return false
+    end
+
+    local squad_id = squad_obj.id
+    local old_smart_id = squad_obj.smart_id
+    if old_smart_id and SIMBOARD and SIMBOARD.smarts and SIMBOARD.smarts[old_smart_id] then
+        local board_entry = SIMBOARD.smarts[old_smart_id]
+        if board_entry.squads and board_entry.squads[squad_id] then
+            board_entry.squads[squad_id] = nil
+            if smart_terrain and smart_terrain.smart_terrain_squad_count then
+                local ok_population, population = pcall(function()
+                    return smart_terrain.smart_terrain_squad_count(board_entry.squads)
+                end)
+                if ok_population then
+                    board_entry.population = population
+                end
+            end
+        end
+    end
+
+    squad_obj.smart_id = nil
+    squad_obj.task_target_id = nil
+    squad_obj.scripted_target = tostring(squad_id)
+    squad_obj.assigned_target_id = squad_id
+    squad_obj.current_target_id = squad_id
+    squad_obj.current_action = 0
+    squad_obj.rush_to_target = false
+
+    for member in squad_obj:squad_members() do
+        local se_member = alife_object(member.id)
+        if se_member then
+            if se_member.clear_smart_terrain then
+                pcall(function()
+                    se_member:clear_smart_terrain()
+                end)
+            end
+            se_member.m_smart_terrain_id = 65535
+        end
+    end
+
+    return true
+end
+
 local function schedule_stationary_anchor_enforcement(npc_id)
     local anchor = stationary_custom_npcs[npc_id]
     if not anchor or not CreateTimeEvent or stationary_anchor_scheduled[npc_id] then
@@ -654,7 +1180,7 @@ local function schedule_stationary_anchor_enforcement(npc_id)
     end
 
     stationary_anchor_scheduled[npc_id] = true
-    CreateTimeEvent("panda_npc_anchor", tostring(npc_id), 2, function()
+    CreateTimeEvent("panda_npc_anchor", tostring(npc_id), STATIONARY_ANCHOR_INTERVAL, function()
         stationary_anchor_scheduled[npc_id] = nil
 
         local current = stationary_custom_npcs[npc_id]
@@ -662,12 +1188,22 @@ local function schedule_stationary_anchor_enforcement(npc_id)
             return true
         end
 
+        if current.squad_id then
+            local squad_obj = alife_object(current.squad_id)
+            if squad_obj then
+                configure_stationary_squad(squad_obj)
+            end
+        end
+
         local npc = level.object_by_id(npc_id)
         local desired_pos = table_to_vector(current.pos)
         if npc and desired_pos and npc.alive and npc:alive() then
+            local path_type = game_object and (game_object.no_path or game_object.level_path) or nil
             if npc.set_path_type then
                 pcall(function()
-                    npc:set_path_type(game_object.level_path)
+                    if path_type then
+                        npc:set_path_type(path_type)
+                    end
                 end)
             end
             if current.lvid and npc.set_dest_level_vertex_id then
@@ -682,7 +1218,7 @@ local function schedule_stationary_anchor_enforcement(npc_id)
             end
             if npc.set_desired_position then
                 pcall(function()
-                    npc:set_desired_position(desired_pos)
+                    npc:set_desired_position()
                 end)
             end
             if npc.set_movement_type then
@@ -694,6 +1230,18 @@ local function schedule_stationary_anchor_enforcement(npc_id)
                 pcall(function()
                     npc:set_mental_state(anim.free)
                 end)
+            end
+
+            local current_pos = get_runtime_position(npc)
+            if current_pos and current_pos.distance_to and npc.set_npc_position then
+                local ok_dist, dist = pcall(function()
+                    return current_pos:distance_to(desired_pos)
+                end)
+                if ok_dist and dist and dist > STATIONARY_TELEPORT_THRESHOLD then
+                    pcall(function()
+                        npc:set_npc_position(desired_pos)
+                    end)
+                end
             end
         end
 
@@ -708,7 +1256,7 @@ local function schedule_online_loadout_activation(npc_id)
         return
     end
 
-    CreateTimeEvent("panda_npc_loadout", tostring(npc_id), 1, function()
+    CreateTimeEvent("panda_npc_loadout", tostring(npc_id), LOADOUT_RETRY_INTERVAL, function()
         local override = pending_loadout_overrides[npc_id]
         if not override then
             return true
@@ -728,7 +1276,7 @@ local function schedule_online_loadout_activation(npc_id)
         local npc = level.object_by_id(npc_id)
         if not npc then
             override.tries = (override.tries or 0) + 1
-            if override.tries < 10 then
+            if override.tries < LOADOUT_RETRY_LIMIT then
                 schedule_online_loadout_activation(npc_id)
             end
             return true
@@ -743,8 +1291,10 @@ local function schedule_online_loadout_activation(npc_id)
             outfit_applied = is_outfit_equipped(npc, override.outfit)
         end
 
+        local visual_applied = not (override.visual and override.visual ~= "")
         if override.visual and override.visual ~= "" then
             apply_online_visual_override(npc, override.visual)
+            visual_applied = is_visual_applied(npc, override.visual)
         end
 
         local weapon_applied = not ((override.primary and override.primary ~= "") or (override.secondary and override.secondary ~= ""))
@@ -766,11 +1316,11 @@ local function schedule_online_loadout_activation(npc_id)
             weapon_applied = true
         end
 
-        if outfit_applied and weapon_applied then
+        if outfit_applied and weapon_applied and visual_applied then
             pending_loadout_overrides[npc_id] = nil
         else
             override.tries = (override.tries or 0) + 1
-            if override.tries < 10 then
+            if override.tries < LOADOUT_RETRY_LIMIT then
                 schedule_online_loadout_activation(npc_id)
             else
                 printf("PANDA_NPC: timed out applying custom loadout to npc_id=%d (primary=%s secondary=%s outfit=%s visual=%s)",
@@ -960,8 +1510,7 @@ function spawn_custom_npc(template_id, context)
     apply_squad_relation(squad, tpl.relation)
 
     if not allow_roam then
-        squad.scripted_target = tostring(squad_id)
-        squad.rush_to_target = false
+        configure_stationary_squad(squad)
     end
 
     -- Companion integration
@@ -1351,6 +1900,13 @@ local function on_npc_net_spawn(obj, se_obj)
     end
 
     if stationary_custom_npcs[npc_id] then
+        local anchor = stationary_custom_npcs[npc_id]
+        if anchor and anchor.squad_id then
+            local squad_obj = alife_object(anchor.squad_id)
+            if squad_obj then
+                configure_stationary_squad(squad_obj)
+            end
+        end
         schedule_stationary_anchor_enforcement(npc_id)
     end
 end
@@ -1397,6 +1953,13 @@ function on_game_start()
         schedule_online_loadout_activation(npc_id)
     end
     for npc_id in pairs(stationary_custom_npcs) do
+        local anchor = stationary_custom_npcs[npc_id]
+        if anchor and anchor.squad_id then
+            local squad_obj = alife_object(anchor.squad_id)
+            if squad_obj then
+                configure_stationary_squad(squad_obj)
+            end
+        end
         schedule_stationary_anchor_enforcement(npc_id)
     end
     printf("PANDA_NPC: initialized")
