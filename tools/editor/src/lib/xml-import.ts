@@ -449,6 +449,13 @@ function decodeNpcTemplate(id: string, raw: string): NpcTemplate {
       case 'count': { const n = parseInt(v, 10); if (!isNaN(n)) tpl.count = n; break; }
       case 'trader': tpl.trader = v === '1' || v === 'true'; break;
       case 'roam': tpl.allowRoam = !(v === '0' || v === 'false'); break;
+      case 'smart_job':
+      case 'stationary_job':
+      case 'job_behavior':
+      case 'behavior':
+      case 'job':
+        tpl.stationaryJob = v;
+        break;
     }
   }
   return tpl;

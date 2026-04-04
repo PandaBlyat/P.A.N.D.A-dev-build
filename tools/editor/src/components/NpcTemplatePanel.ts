@@ -19,6 +19,18 @@ const RELATION_OPTIONS = [
   { value: 'companion', label: 'Companion (follows player)' },
 ];
 
+const STATIONARY_JOB_OPTIONS = [
+  { value: 'auto', label: 'Auto (best smart job)' },
+  { value: 'guard', label: 'Guard' },
+  { value: 'animpoint', label: 'Animpoint / Smartcover' },
+  { value: 'walker', label: 'Walker' },
+  { value: 'patrol', label: 'Patrol' },
+  { value: 'camper', label: 'Camper' },
+  { value: 'sniper', label: 'Sniper' },
+  { value: 'sleeper', label: 'Sleeper' },
+  { value: 'beh', label: 'Beh / Point Job' },
+];
+
 const ATTACHMENT_OPTIONS = [
   { value: '0', label: 'None' },
   { value: 'r', label: 'Random' },
@@ -46,6 +58,7 @@ export function encodeNpcTemplate(t: NpcTemplate): string {
   if (t.spawnDist != null && t.spawnDist !== 50) parts.push(`spawn_dist=${t.spawnDist}`);
   if (t.trader) parts.push(`trader=1`);
   if (t.allowRoam === false) parts.push('roam=0');
+  if (t.allowRoam === false && t.stationaryJob && t.stationaryJob !== 'auto') parts.push(`smart_job=${t.stationaryJob}`);
   return parts.join('|');
 }
 
@@ -139,6 +152,7 @@ function openNpcBuilderPanel(options: {
     spawnDist: String(existing?.spawnDist ?? 50),
     trader: existing?.trader ?? false,
     allowRoam: existing?.allowRoam ?? true,
+    stationaryJob: existing?.stationaryJob ?? 'auto',
     idManual: !!existing,
   };
 
@@ -186,7 +200,7 @@ function openNpcBuilderPanel(options: {
   subtitleEl.className = 'item-picker-subtitle';
   subtitleEl.textContent = options.showSpawnDistance
     ? 'Configure name, faction, weapons, outfit, inventory, and near-player spawn distance. Near-player spawns always roam. Saved to your conversations XML.'
-    : 'Configure name, faction, weapons, outfit, inventory, and optional smart-terrain locking. Fixed NPCs need a compatible exclusive stalker story job on that smart terrain. Placement comes from the command or precondition.';
+    : 'Configure name, faction, weapons, outfit, inventory, and optional smart-terrain locking. Fixed NPCs can bind to vanilla smart-job behaviors on the chosen smart terrain. Placement comes from the command or precondition.';
 
   titleWrap.append(titleEl, subtitleEl);
 
@@ -454,12 +468,41 @@ function openNpcBuilderPanel(options: {
 
       const hint = document.createElement('div');
       hint.className = 'command-description';
-      hint.textContent = 'Turn this off to lock the NPC to a compatible stalker idle job on the chosen smart terrain. Not every smart terrain supports fixed stalker NPCs.';
+      hint.textContent = 'Turn this off to lock the NPC to a vanilla smart-terrain job on the chosen smart. When possible, PANDA will reserve an authored job or create a dedicated story slot from an existing vanilla job path/animpoint.';
 
       checkRow.append(cb, cbLabel);
       content.append(checkRow, hint);
       behaviorRow.appendChild(wrap);
       sec.appendChild(behaviorRow);
+
+      const jobRow = document.createElement('div');
+      jobRow.className = 'npc-builder-row';
+
+      const jobField = makeField('Fixed Job');
+      const jobSelect = document.createElement('select');
+      jobSelect.className = 'npc-builder-select';
+      for (const { value, label } of STATIONARY_JOB_OPTIONS) {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = label;
+        opt.selected = form.stationaryJob === value;
+        jobSelect.appendChild(opt);
+      }
+      jobSelect.disabled = form.allowRoam;
+      jobSelect.onchange = () => { form.stationaryJob = jobSelect.value; };
+
+      const jobHint = document.createElement('div');
+      jobHint.className = 'command-description';
+      jobHint.textContent = 'Choose which vanilla smart-job family to use when roaming is disabled. Auto prefers the strongest available fit on that smart terrain.';
+
+      cb.onchange = () => {
+        form.allowRoam = cb.checked;
+        jobSelect.disabled = form.allowRoam;
+      };
+
+      jobField.content.append(jobSelect, jobHint);
+      jobRow.appendChild(jobField.wrap);
+      sec.appendChild(jobRow);
     }
 
     body.appendChild(sec);
@@ -707,6 +750,7 @@ function openNpcBuilderPanel(options: {
         : (existing?.spawnDist != null && existing.spawnDist !== 50 ? { spawnDist: existing.spawnDist } : {})),
       ...(form.trader ? { trader: true } : {}),
       ...(form.allowRoam === false ? { allowRoam: false } : {}),
+      ...(form.allowRoam === false && form.stationaryJob && form.stationaryJob !== 'auto' ? { stationaryJob: form.stationaryJob } : {}),
     };
 
     options.onSave(template);

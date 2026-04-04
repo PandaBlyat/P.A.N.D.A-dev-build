@@ -32,7 +32,7 @@ local pending_rank_overrides  = {}   -- npc_id (number) -> rank name (string)
 local pending_relation_overrides = {} -- npc_id (number) -> relation key
 local pending_loadout_overrides = {} -- npc_id (number) -> { primary, secondary, outfit, visual, tries }
 local pending_story_targets   = {}   -- template_id -> { smart_ref, attempts, last_reason }
-local stationary_custom_npcs  = {}   -- npc_id (number) -> { mode="anchor"|"smart_job", pos={x,y,z}, lvid, gvid, squad_id, smart_id, job_section }
+local stationary_custom_npcs  = {}   -- npc_id (number) -> { mode="anchor"|"smart_job", pos={x,y,z}, lvid, gvid, squad_id, smart_id, job_section, source_job_section, job_behavior }
 local stationary_custom_squads = {}  -- squad_id (number) -> true
 local stationary_anchor_scheduled = {} -- npc_id (number) -> true while an anchor timer is queued
 local story_target_retry_scheduled = false
@@ -54,6 +54,7 @@ local LOADOUT_RETRY_LIMIT = 24
 local STORY_SQUAD_IDLE_TIME = 31536000
 local STATIONARY_JOB_PRIORITY_BOOST = 250
 local STATIONARY_CUSTOM_JOB_PREFIX = "panda_stationary_"
+local DEFAULT_STATIONARY_JOB_BEHAVIOR = "auto"
 local STATIONARY_JOB_SCHEME_PRIORITY = {
     animpoint = 500,
     smartcover = 480,
@@ -62,6 +63,8 @@ local STATIONARY_JOB_SCHEME_PRIORITY = {
     camper = 400,
     guard = 390,
     walker = 360,
+    patrol = 350,
+    beh = 320,
 }
 local FALLBACK_RANK_POINTS = {
     novice = 0,
@@ -737,6 +740,7 @@ local function parse_template(template_id)
         spawn_dist   = 50,
         trader       = false,
         allow_roam   = true,
+        stationary_job = DEFAULT_STATIONARY_JOB_BEHAVIOR,
         trade_preset = nil,
         buy          = nil,
         sell         = nil,
@@ -762,6 +766,8 @@ local function parse_template(template_id)
                 tpl.allow_roam = not (lower_v == "0" or lower_v == "false")
             elseif key == "stay_put" or key == "stayput" then
                 tpl.allow_roam = not (lower_v == "1" or lower_v == "true")
+            elseif key == "smart_job" or key == "stationary_job" or key == "job_behavior" or key == "behavior" or key == "job" then
+                tpl.stationary_job = lower_v
             elseif key == "trade_preset" then tpl.trade_preset = v
             elseif key == "buy"          then tpl.buy          = tonumber(v)
             elseif key == "sell"         then tpl.sell         = tonumber(v)
@@ -778,6 +784,10 @@ local function parse_template(template_id)
                 end
             end
         end
+    end
+
+    if not tpl.stationary_job or tpl.stationary_job == "" then
+        tpl.stationary_job = DEFAULT_STATIONARY_JOB_BEHAVIOR
     end
 
     npc_templates[template_id] = tpl
@@ -1561,6 +1571,104 @@ local function get_stationary_job_prefix(job)
     return nil
 end
 
+local function normalize_stationary_job_behavior(value)
+    local behavior = string.lower(tostring(value or DEFAULT_STATIONARY_JOB_BEHAVIOR))
+    if behavior == "" or behavior == "nil" then
+        return DEFAULT_STATIONARY_JOB_BEHAVIOR
+    end
+
+    if behavior == "smartcover" or behavior == "cover" then
+        behavior = "animpoint"
+    elseif behavior == "idle" or behavior == "fixed" or behavior == "stationary" or behavior == "stay_put" or behavior == "stayput" then
+        behavior = "guard"
+    end
+
+    return STATIONARY_JOB_SCHEME_PRIORITY[behavior] and behavior or DEFAULT_STATIONARY_JOB_BEHAVIOR
+end
+
+local function get_stationary_job_field(ltx, section, field)
+    if not ltx or not section or not field or not ltx.r_string_ex then
+        return nil
+    end
+
+    if ltx.section_exist then
+        local ok_exist, exists = pcall(function()
+            return ltx:section_exist(section)
+        end)
+        if ok_exist and not exists then
+            return nil
+        end
+    end
+
+    local ok_value, value = pcall(function()
+        return ltx:r_string_ex(section, field)
+    end)
+    if ok_value and value ~= nil and value ~= "" then
+        return tostring(value)
+    end
+
+    return nil
+end
+
+local function get_stationary_job_behavior(job, smart_obj)
+    if not job then
+        return nil
+    end
+
+    local job_type_id = tonumber(job.job_type_id)
+    if job_type_id == 3 then
+        return "sleeper"
+    elseif job_type_id == 5 then
+        return "walker"
+    elseif job_type_id == 6 then
+        return "patrol"
+    elseif job_type_id == 7 or job_type_id == 8 then
+        return "animpoint"
+    elseif job_type_id == 9 or job_type_id == 10 then
+        return "guard"
+    elseif job_type_id == 11 then
+        return "sniper"
+    elseif job_type_id == 12 then
+        return "camper"
+    elseif job_type_id == 13 or job_type_id == 14 or job_type_id == 15 or job_type_id == 16 then
+        return "beh"
+    end
+
+    local scheme = get_stationary_job_scheme(job, smart_obj)
+    if not scheme then
+        return nil
+    end
+
+    if scheme == "smartcover" then
+        return "animpoint"
+    elseif scheme == "animpoint" then
+        return "animpoint"
+    elseif scheme == "patrol" then
+        return "patrol"
+    elseif scheme == "sleeper" then
+        return "sleeper"
+    elseif scheme == "beh" or scheme == "remark" then
+        return "beh"
+    elseif scheme == "camper" then
+        local active_section = get_stationary_job_active_section(job, smart_obj)
+        local sniper_flag = get_stationary_job_field(get_stationary_job_ltx(job, smart_obj), active_section, "sniper")
+        if sniper_flag == "true" or string.find(tostring(job.section or ""), "_sniper_") then
+            return "sniper"
+        end
+        return "camper"
+    elseif scheme == "walker" then
+        local active_section = get_stationary_job_active_section(job, smart_obj)
+        local path_walk = string.lower(tostring(get_stationary_job_field(get_stationary_job_ltx(job, smart_obj), active_section, "path_walk") or ""))
+        local section_name = string.lower(tostring(job.section or ""))
+        if string.find(section_name, "follower_") or string.find(section_name, "_guard_") or string.find(path_walk, "guard_") then
+            return "guard"
+        end
+        return "walker"
+    end
+
+    return nil
+end
+
 local function is_stationary_story_job_scheme(scheme)
     return scheme ~= nil and STATIONARY_JOB_SCHEME_PRIORITY[scheme] ~= nil
 end
@@ -1581,55 +1689,67 @@ local function stationary_reserved_job_precondition(se_obj, _smart, job)
     return se_obj ~= nil and job ~= nil and job._panda_reserved_npc_id == se_obj.id
 end
 
-local function build_stationary_custom_job_ltx(smart_obj, npc_id)
-    local smart_name = smart_obj and smart_obj.name and smart_obj:name() or nil
-    if not smart_name or smart_name == "" then
+local function copy_stationary_section_fields(lines, ltx, source_section, skip_keys)
+    if not lines or not ltx or not source_section or not ltx.line_count or not ltx.r_line then
+        return false
+    end
+
+    local ok_count, line_count = pcall(function()
+        return ltx:line_count(source_section)
+    end)
+    if not ok_count or not line_count then
+        return false
+    end
+
+    skip_keys = skip_keys or {}
+    for index = 0, line_count - 1 do
+        local ok_line, result, key, value = pcall(function()
+            return ltx:r_line(source_section, index, "", "")
+        end)
+        if ok_line and result and key and key ~= "" and not skip_keys[tostring(key)] then
+            if value ~= nil and tostring(value) ~= "" then
+                lines[#lines + 1] = tostring(key) .. " = " .. tostring(value)
+            else
+                lines[#lines + 1] = tostring(key) .. " ="
+            end
+        end
+    end
+
+    return true
+end
+
+local function build_stationary_custom_job_ltx(smart_obj, npc_id, source_job)
+    if not smart_obj or not npc_id or not source_job then
+        return nil, nil
+    end
+
+    local source_ltx = get_stationary_job_ltx(source_job, smart_obj)
+    local source_logic_section = source_job.section
+    local source_active_section = get_stationary_job_active_section(source_job, smart_obj)
+    local source_scheme = get_stationary_job_scheme(source_job, smart_obj)
+    if not source_ltx or not source_logic_section or not source_active_section or not source_scheme then
         return nil, nil
     end
 
     local job_name = get_stationary_custom_job_name(smart_obj, npc_id)
+    local active_section = tostring(source_scheme) .. "@" .. job_name
     local lines = {
         "[logic@" .. job_name .. "]",
         "prior = " .. tostring(STATIONARY_JOB_PRIORITY_BOOST),
-        "active = cover@" .. job_name,
+        "active = " .. active_section,
         "",
-        "[cover@" .. job_name .. "]",
-        "smart = " .. smart_name,
-        "radius_min = 0",
-        "radius_max = 0",
-        "use_attack_direction = false",
-        "anim = guard",
-        "meet = meet",
-        "gather_items_enabled = false",
-        "help_wounded_enabled = false",
-        "corpse_detection_enabled = false",
     }
 
-    if smart_obj.def_restr then
-        lines[#lines + 1] = "out_restr = " .. tostring(smart_obj.def_restr)
-    end
-
-    if smart_obj.ignore_zone then
-        lines[#lines + 1] = "combat_ignore_cond = {=npc_in_zone(" .. tostring(smart_obj.ignore_zone) .. ")} true"
-        lines[#lines + 1] = "combat_ignore_keep_when_attacked = true"
-    end
-
+    copy_stationary_section_fields(lines, source_ltx, source_logic_section, {
+        active = true,
+        prior = true,
+        suitable = true,
+    })
     lines[#lines + 1] = ""
-    lines[#lines + 1] = "[meet]"
-    lines[#lines + 1] = "close_anim = nil"
-    lines[#lines + 1] = "close_victim = nil"
-    lines[#lines + 1] = "far_anim = nil"
-    lines[#lines + 1] = "far_victim = nil"
-    lines[#lines + 1] = "close_distance = 0"
-    lines[#lines + 1] = "far_distance = 0"
-    lines[#lines + 1] = "close_snd_distance = 3"
-    lines[#lines + 1] = "abuse = false"
-    lines[#lines + 1] = "use = {=actor_enemy} false, true"
-    lines[#lines + 1] = "allow_break = false"
-    lines[#lines + 1] = "meet_on_talking = false"
-    lines[#lines + 1] = "trade_enable = false"
+    lines[#lines + 1] = "[" .. active_section .. "]"
+    copy_stationary_section_fields(lines, source_ltx, source_active_section, nil)
 
-    return table.concat(lines, "\n"), job_name
+    return table.concat(lines, "\n"), job_name, active_section
 end
 
 local function ensure_stationary_custom_job_task(smart_obj, job)
@@ -1719,8 +1839,8 @@ local function remove_stationary_custom_job(smart_obj, job)
     return true
 end
 
-local function ensure_stationary_custom_job(smart_obj, npc_id, entry)
-    if not smart_obj or not npc_id or not create_ini_file or not db then
+local function ensure_stationary_custom_job(smart_obj, npc_id, entry, source_job)
+    if not smart_obj or not npc_id or not source_job or not create_ini_file or not db then
         return nil
     end
 
@@ -1738,7 +1858,7 @@ local function ensure_stationary_custom_job(smart_obj, npc_id, entry)
         end
     end
 
-    local ltx_text, job_name = build_stationary_custom_job_ltx(smart_obj, npc_id)
+    local ltx_text, job_name = build_stationary_custom_job_ltx(smart_obj, npc_id, source_job)
     if not ltx_text or not job_name then
         return nil
     end
@@ -1750,39 +1870,41 @@ local function ensure_stationary_custom_job(smart_obj, npc_id, entry)
         section = logic_section,
         ini_path = "*" .. job_name,
         ltx = db.dynamic_ltx[job_name],
-        job_type = "point_job",
+        job_type = get_stationary_job_type(source_job) or "path_job",
         prior = STATIONARY_JOB_PRIORITY_BOOST,
-        prefix_name = "",
+        prefix_name = get_stationary_job_prefix(source_job),
         exclusive = true,
         precondition_function = stationary_reserved_job_precondition,
         _panda_dynamic = true,
         _panda_dynamic_key = job_name,
         _panda_reserved_npc_id = npc_id,
         _panda_stationary_story_job = true,
+        _panda_source_job_section = source_job.section,
+        alife_task = source_job.alife_task,
+        game_vertex_id = source_job.game_vertex_id,
+        level_id = source_job.level_id,
+        position = source_job.position,
     }
 
     if entry then
         entry.job_section = logic_section
+        entry.source_job_section = source_job.section
     end
 
     printf(
-        "PANDA_NPC: created stationary fallback smart job npc_id=%s smart_id=%s section=%s",
+        "PANDA_NPC: created stationary story job npc_id=%s smart_id=%s section=%s source=%s behavior=%s",
         tostring(npc_id),
         tostring(smart_obj.id or "nil"),
-        tostring(logic_section)
+        tostring(logic_section),
+        tostring(source_job.section or "nil"),
+        tostring(entry and entry.job_behavior or get_stationary_job_behavior(source_job, smart_obj) or "auto")
     )
 
     return insert_stationary_custom_job(smart_obj, job)
 end
 
-local function score_stationary_smart_job(job, smart_obj)
+local function score_stationary_smart_job(job, smart_obj, requested_behavior)
     if not job or job._panda_dynamic or is_stationary_custom_job_section(job.section) then
-        return nil
-    end
-
-    -- Vanilla story/static NPCs are held by authored exclusive jobs, not the
-    -- generic auto-generated walker/guard slots every smart can synthesize.
-    if not job.exclusive then
         return nil
     end
 
@@ -1794,12 +1916,17 @@ local function score_stationary_smart_job(job, smart_obj)
         return nil
     end
 
-    local scheme = get_stationary_job_scheme(job, smart_obj)
-    if not is_stationary_story_job_scheme(scheme) then
+    local behavior = get_stationary_job_behavior(job, smart_obj)
+    if not behavior then
         return nil
     end
 
-    local score = scheme and STATIONARY_JOB_SCHEME_PRIORITY[scheme] or nil
+    local normalized_behavior = normalize_stationary_job_behavior(requested_behavior)
+    if normalized_behavior ~= DEFAULT_STATIONARY_JOB_BEHAVIOR and behavior ~= normalized_behavior then
+        return nil
+    end
+
+    local score = STATIONARY_JOB_SCHEME_PRIORITY[behavior] or nil
     if not score then
         return nil
     end
@@ -1829,7 +1956,7 @@ local function stationary_job_available_to_npc(smart_obj, npc_info, job)
     return ok_available and available == true
 end
 
-local function count_authored_stationary_smart_jobs(smart_obj)
+local function count_available_stationary_smart_jobs(smart_obj, requested_behavior)
     local jobs = smart_obj and smart_obj.stalker_jobs
     if type(jobs) ~= "table" then
         return nil
@@ -1837,7 +1964,7 @@ local function count_authored_stationary_smart_jobs(smart_obj)
 
     local count = 0
     for _, job in ipairs(jobs) do
-        if score_stationary_smart_job(job, smart_obj) then
+        if score_stationary_smart_job(job, smart_obj, requested_behavior) then
             count = count + 1
         end
     end
@@ -1851,28 +1978,42 @@ local function find_stationary_smart_job_for_npc(smart_obj, npc_info, preferred_
         return nil
     end
 
+    local requested_behavior = normalize_stationary_job_behavior(entry and entry.job_behavior)
+
+    local function job_is_available(job)
+        local section = job and job.section
+        local owner = section and smart_obj.npc_by_job_section and smart_obj.npc_by_job_section[section] or nil
+        return section
+            and score_stationary_smart_job(job, smart_obj, requested_behavior)
+            and (owner == nil or owner == npc_info.se_obj.id)
+            and stationary_job_available_to_npc(smart_obj, npc_info, job)
+    end
+
     if preferred_section and preferred_section ~= "" and not is_stationary_custom_job_section(preferred_section) and smart_obj.find_job_by_section then
         local ok_preferred, preferred_job = pcall(function()
             return smart_obj:find_job_by_section(preferred_section)
         end)
-        if ok_preferred and preferred_job and preferred_job.section then
-            local preferred_owner = smart_obj.npc_by_job_section and smart_obj.npc_by_job_section[preferred_job.section] or nil
-            if (preferred_owner == nil or preferred_owner == npc_info.se_obj.id)
-                and stationary_job_available_to_npc(smart_obj, npc_info, preferred_job)
-                and score_stationary_smart_job(preferred_job, smart_obj) then
-                return preferred_job
-            end
+        if ok_preferred and job_is_available(preferred_job) then
+            return preferred_job
+        end
+    end
+
+    local preferred_source_section = entry and entry.source_job_section
+    if preferred_source_section and preferred_source_section ~= preferred_section
+        and preferred_source_section ~= "" and smart_obj.find_job_by_section then
+        local ok_source, source_job = pcall(function()
+            return smart_obj:find_job_by_section(preferred_source_section)
+        end)
+        if ok_source and job_is_available(source_job) then
+            return source_job
         end
     end
 
     local best_job = nil
     local best_score = nil
     for _, job in ipairs(jobs) do
-        local section = job and job.section
-        local owner = section and smart_obj.npc_by_job_section and smart_obj.npc_by_job_section[section] or nil
-        local score = score_stationary_smart_job(job, smart_obj)
-        if section and score and (owner == nil or owner == npc_info.se_obj.id)
-            and stationary_job_available_to_npc(smart_obj, npc_info, job) then
+        local score = score_stationary_smart_job(job, smart_obj, requested_behavior)
+        if score and job_is_available(job) then
             if not best_job or score > best_score then
                 best_job = job
                 best_score = score
@@ -2043,8 +2184,13 @@ local function release_stationary_smart_job(npc_id)
         end
     end
 
-    if smart_obj.npc_by_job_section and entry.job_section and smart_obj.npc_by_job_section[entry.job_section] == npc_id then
-        smart_obj.npc_by_job_section[entry.job_section] = nil
+    if smart_obj.npc_by_job_section then
+        if entry.job_section and smart_obj.npc_by_job_section[entry.job_section] == npc_id then
+            smart_obj.npc_by_job_section[entry.job_section] = nil
+        end
+        if entry.source_job_section and smart_obj.npc_by_job_section[entry.source_job_section] == npc_id then
+            smart_obj.npc_by_job_section[entry.source_job_section] = nil
+        end
     end
 
     if smart_obj.npc_info and smart_obj.npc_info[npc_id] and smart_obj.npc_info[npc_id].job
@@ -2062,6 +2208,7 @@ local function release_stationary_smart_job(npc_id)
     end
 
     entry.job_section = nil
+    entry.source_job_section = nil
 
     return true
 end
@@ -2118,23 +2265,72 @@ local function ensure_stationary_smart_job_binding(npc_id, live_npc, reason)
         return false
     end
 
-    local job = find_stationary_smart_job_for_npc(smart_obj, npc_info, entry.job_section, entry)
-    if not job then
-        printf(
-            "PANDA_NPC: no free stationary smart job for npc_id=%s smart=%s reason=%s",
-            tostring(npc_id),
-            tostring(smart_obj.name and smart_obj:name() or entry.smart_id or "nil"),
-            tostring(reason or "unspecified")
-        )
-        return false
+    local requested_behavior = normalize_stationary_job_behavior(entry.job_behavior)
+    entry.job_behavior = requested_behavior
+
+    local job = nil
+    if entry.job_section and smart_obj.find_job_by_section then
+        local ok_job, resolved_job = pcall(function()
+            return smart_obj:find_job_by_section(entry.job_section)
+        end)
+        if ok_job and resolved_job then
+            job = resolved_job
+        end
     end
 
-    promote_stationary_smart_job(job, npc_id)
+    local source_job = nil
+    if not job or (requested_behavior ~= DEFAULT_STATIONARY_JOB_BEHAVIOR
+        and get_stationary_job_behavior(job, smart_obj) ~= requested_behavior) then
+        source_job = find_stationary_smart_job_for_npc(
+            smart_obj,
+            npc_info,
+            entry.source_job_section or entry.job_section,
+            entry
+        )
+        if not source_job then
+            printf(
+                "PANDA_NPC: no compatible stationary smart job for npc_id=%s smart=%s behavior=%s reason=%s",
+                tostring(npc_id),
+                tostring(smart_obj.name and smart_obj:name() or entry.smart_id or "nil"),
+                tostring(requested_behavior),
+                tostring(reason or "unspecified")
+            )
+            return false
+        end
+
+        entry.source_job_section = source_job.section
+        if source_job.exclusive then
+            job = source_job
+            entry.job_section = source_job.section
+        else
+            job = ensure_stationary_custom_job(smart_obj, npc_id, entry, source_job)
+            if not job then
+                printf(
+                    "PANDA_NPC: failed to build stationary story job for npc_id=%s smart=%s source=%s behavior=%s reason=%s",
+                    tostring(npc_id),
+                    tostring(smart_obj.name and smart_obj:name() or entry.smart_id or "nil"),
+                    tostring(source_job.section or "nil"),
+                    tostring(requested_behavior),
+                    tostring(reason or "unspecified")
+                )
+                return false
+            end
+        end
+    end
+
+    if job._panda_dynamic then
+        job._panda_reserved_npc_id = npc_id
+    else
+        promote_stationary_smart_job(job, npc_id)
+    end
     if smart_obj.npc_by_job_section then
         for section, owner_id in pairs(smart_obj.npc_by_job_section) do
-            if owner_id == npc_id and section ~= job.section then
+            if owner_id == npc_id and section ~= job.section and section ~= entry.source_job_section then
                 smart_obj.npc_by_job_section[section] = nil
             end
+        end
+        if entry.source_job_section then
+            smart_obj.npc_by_job_section[entry.source_job_section] = npc_id
         end
         smart_obj.npc_by_job_section[job.section] = npc_id
     end
@@ -2162,11 +2358,13 @@ local function ensure_stationary_smart_job_binding(npc_id, live_npc, reason)
     end
 
     printf(
-        "PANDA_NPC: stationary smart job bound npc_id=%s squad_id=%s smart_id=%s job=%s reason=%s",
+        "PANDA_NPC: stationary smart job bound npc_id=%s squad_id=%s smart_id=%s job=%s source=%s behavior=%s reason=%s",
         tostring(npc_id),
         tostring(entry.squad_id or "nil"),
         tostring(entry.smart_id or "nil"),
         tostring(entry.job_section or "nil"),
+        tostring(entry.source_job_section or entry.job_section or "nil"),
+        tostring(entry.job_behavior or DEFAULT_STATIONARY_JOB_BEHAVIOR),
         tostring(reason or "unspecified")
     )
 
@@ -2831,6 +3029,7 @@ function spawn_custom_npc(template_id, context)
     local needs_smart = context.smart_ref and context.smart_ref ~= ""
     local wants_stationary_anchor = tpl and needs_smart and tpl.allow_roam == false
     local allow_roam = tpl and not wants_stationary_anchor
+    local stationary_behavior = normalize_stationary_job_behavior(tpl and tpl.stationary_job)
     if not tpl then
         printf("PANDA_NPC: spawn_custom_npc aborted — template '%s' missing", tostring(template_id))
         return
@@ -2863,11 +3062,12 @@ function spawn_custom_npc(template_id, context)
         return
     end
     if wants_stationary_anchor and smart_obj then
-        local authored_stationary_jobs = count_authored_stationary_smart_jobs(smart_obj)
-        if authored_stationary_jobs == 0 then
+        local available_stationary_jobs = count_available_stationary_smart_jobs(smart_obj, stationary_behavior)
+        if available_stationary_jobs == 0 then
             printf(
-                "PANDA_NPC: stationary template '%s' requires a smart terrain with an authored exclusive stalker story job; smart '%s' has none, aborting fixed-position spawn",
+                "PANDA_NPC: stationary template '%s' requires a compatible stalker smart job for behavior '%s'; smart '%s' has none, aborting fixed-position spawn",
                 tostring(template_id),
+                tostring(stationary_behavior),
                 tostring(smart_obj.name and smart_obj:name() or context.smart_ref or "nil")
             )
             return
@@ -2959,6 +3159,8 @@ function spawn_custom_npc(template_id, context)
                     squad_id = squad_id,
                     smart_id = anchor_smart_id,
                     job_section = nil,
+                    source_job_section = nil,
+                    job_behavior = stationary_behavior,
                 }
                 if not ensure_stationary_smart_job_binding(member_id, nil, "spawn_custom_npc") then
                     cleanup_failed_stationary_spawn(
@@ -2967,7 +3169,7 @@ function spawn_custom_npc(template_id, context)
                         squad,
                         smart_obj,
                         member_id,
-                        "no compatible authored stationary smart job"
+                        "no compatible stationary smart job for requested behavior"
                     )
                     return
                 end
@@ -3222,13 +3424,15 @@ function ensure_story_target_spawned(template_id, smart_ref, context)
 
     if not squad then
         local tpl = parse_template(template_id)
+        local stationary_behavior = normalize_stationary_job_behavior(tpl and tpl.stationary_job)
         local smart_obj = tpl and tpl.allow_roam == false and resolve_smart_terrain(smart_ref) or nil
-        if smart_obj and count_authored_stationary_smart_jobs(smart_obj) == 0 then
+        if smart_obj and count_available_stationary_smart_jobs(smart_obj, stationary_behavior) == 0 then
             pending_story_targets[template_id] = nil
             printf(
-                "PANDA_NPC: story target '%s' will not retry fixed-position spawn; smart '%s' has no authored exclusive stalker story job",
+                "PANDA_NPC: story target '%s' will not retry fixed-position spawn; smart '%s' has no compatible stalker smart job for behavior '%s'",
                 tostring(template_id),
-                tostring(smart_obj.name and smart_obj:name() or smart_ref or "nil")
+                tostring(smart_obj.name and smart_obj:name() or smart_ref or "nil"),
+                tostring(stationary_behavior)
             )
         else
             queue_story_target_spawn(template_id, smart_ref, "spawn_deferred")
@@ -3361,6 +3565,8 @@ function load_state(m)
                     squad_id = squad_id,
                     smart_id = smart_id,
                     job_section = anchor.job_section,
+                    source_job_section = anchor.source_job_section,
+                    job_behavior = normalize_stationary_job_behavior(anchor.job_behavior),
                 }
                 if squad_id and tostring(mode) == "anchor" then
                     stationary_custom_squads[squad_id] = true

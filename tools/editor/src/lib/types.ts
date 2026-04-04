@@ -14,6 +14,7 @@ export interface NpcTemplate {
   count?: number;
   trader?: boolean;
   allowRoam?: boolean;
+  stationaryJob?: string;
 }
 
 export interface Project {

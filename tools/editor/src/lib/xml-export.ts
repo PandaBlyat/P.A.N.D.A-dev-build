@@ -242,6 +242,7 @@ export function encodeNpcTemplate(t: NpcTemplate): string {
   if (t.spawnDist != null && t.spawnDist !== 50) parts.push(`spawn_dist=${t.spawnDist}`);
   if (t.trader) parts.push(`trader=1`);
   if (t.allowRoam === false) parts.push(`roam=0`);
+  if (t.allowRoam === false && t.stationaryJob && t.stationaryJob !== 'auto') parts.push(`smart_job=${t.stationaryJob}`);
   return parts.join('|');
 }
 
