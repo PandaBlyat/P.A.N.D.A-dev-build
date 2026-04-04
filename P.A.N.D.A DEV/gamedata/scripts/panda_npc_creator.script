@@ -1780,6 +1780,12 @@ local function score_stationary_smart_job(job, smart_obj)
         return nil
     end
 
+    -- Vanilla story/static NPCs are held by authored exclusive jobs, not the
+    -- generic auto-generated walker/guard slots every smart can synthesize.
+    if not job.exclusive then
+        return nil
+    end
+
     if smart_obj then
         job = ensure_stationary_custom_job_task(smart_obj, job) or job
     end
@@ -2860,7 +2866,7 @@ function spawn_custom_npc(template_id, context)
         local authored_stationary_jobs = count_authored_stationary_smart_jobs(smart_obj)
         if authored_stationary_jobs == 0 then
             printf(
-                "PANDA_NPC: stationary template '%s' requires a smart terrain with an authored stalker idle job; smart '%s' has none, aborting fixed-position spawn",
+                "PANDA_NPC: stationary template '%s' requires a smart terrain with an authored exclusive stalker story job; smart '%s' has none, aborting fixed-position spawn",
                 tostring(template_id),
                 tostring(smart_obj.name and smart_obj:name() or context.smart_ref or "nil")
             )
@@ -3215,8 +3221,19 @@ function ensure_story_target_spawned(template_id, smart_ref, context)
     end
 
     if not squad then
-        queue_story_target_spawn(template_id, smart_ref, "spawn_deferred")
-        schedule_story_target_retry(5)
+        local tpl = parse_template(template_id)
+        local smart_obj = tpl and tpl.allow_roam == false and resolve_smart_terrain(smart_ref) or nil
+        if smart_obj and count_authored_stationary_smart_jobs(smart_obj) == 0 then
+            pending_story_targets[template_id] = nil
+            printf(
+                "PANDA_NPC: story target '%s' will not retry fixed-position spawn; smart '%s' has no authored exclusive stalker story job",
+                tostring(template_id),
+                tostring(smart_obj.name and smart_obj:name() or smart_ref or "nil")
+            )
+        else
+            queue_story_target_spawn(template_id, smart_ref, "spawn_deferred")
+            schedule_story_target_retry(5)
+        end
     end
 
     return nil
