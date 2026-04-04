@@ -32,13 +32,15 @@ local pending_rank_overrides  = {}   -- npc_id (number) -> rank name (string)
 local pending_relation_overrides = {} -- npc_id (number) -> relation key
 local pending_loadout_overrides = {} -- npc_id (number) -> { primary, secondary, outfit, visual, tries }
 local pending_story_targets   = {}   -- template_id -> { smart_ref, attempts, last_reason }
-local stationary_custom_npcs  = {}   -- npc_id (number) -> { pos={x,y,z}, lvid, gvid, squad_id }
+local stationary_custom_npcs  = {}   -- npc_id (number) -> { mode="anchor"|"smart_job", pos={x,y,z}, lvid, gvid, squad_id, smart_id, job_section }
 local stationary_custom_squads = {}  -- squad_id (number) -> true
 local stationary_anchor_scheduled = {} -- npc_id (number) -> true while an anchor timer is queued
 local story_target_retry_scheduled = false
 local xr_visual_ini_cache = false
 local xr_visual_lookup_cache = {}
 local death_outfits_ini_cache = false
+local configure_stationary_squad
+local attach_stationary_squad_to_smart
 local engine_guard_bootstrap = {
     se_stalker = false,
     sim_squad_scripted = false,
@@ -49,6 +51,18 @@ local STATIONARY_ANCHOR_INTERVAL = 0.15
 local STATIONARY_TELEPORT_THRESHOLD = 0.35
 local LOADOUT_RETRY_INTERVAL = 0.25
 local LOADOUT_RETRY_LIMIT = 24
+local STORY_SQUAD_IDLE_TIME = 31536000
+local STATIONARY_JOB_PRIORITY_BOOST = 250
+local STATIONARY_CUSTOM_JOB_PREFIX = "panda_stationary_"
+local STATIONARY_JOB_SCHEME_PRIORITY = {
+    animpoint = 500,
+    smartcover = 480,
+    sleeper = 430,
+    sniper = 410,
+    camper = 400,
+    guard = 390,
+    walker = 360,
+}
 local FALLBACK_RANK_POINTS = {
     novice = 0,
     trainee = 15,
@@ -207,7 +221,7 @@ function install_engine_guards()
                     return false
                 end
 
-                return stationary_custom_squads[squad_obj.id] == true or squad_obj.panda_stationary == true
+                return stationary_custom_squads[squad_obj.id] == true
             end
 
             local function reassert_stationary_custom_squad(squad_obj, reason)
@@ -218,11 +232,16 @@ function install_engine_guards()
                 stationary_custom_squads[squad_obj.id] = true
                 squad_obj.panda_stationary = true
                 configure_stationary_squad(squad_obj, reason or "simboard_update")
-                squad_obj.assigned_target_id = squad_obj.id
-                squad_obj.current_target_id = squad_obj.id
+                local target_id = squad_obj.smart_id or squad_obj.id
+                squad_obj.scripted_target = tostring(target_id)
+                squad_obj.assigned_target_id = target_id
+                squad_obj.current_target_id = target_id
                 squad_obj.current_action = 1
                 squad_obj.task_target_id = nil
                 squad_obj.rush_to_target = false
+                if game and game.get_game_time then
+                    squad_obj.stay_time = game.get_game_time()
+                end
                 return true
             end
 
@@ -244,7 +263,7 @@ function install_engine_guards()
                     if (se_obj) then
                         local smart_id = se_obj.m_smart_terrain_id --se_obj:smart_terrain_id()
                         if (smart_id and smart_id ~= 65535) then
-                            safe_unregister_from_smart(alife_object(smart_id), self, "sim_squad_scripted:remove_squad", smart_id)
+                            safe_unregister_from_smart(alife_object(smart_id), se_obj, "sim_squad_scripted:remove_squad", smart_id)
                         end
                         self:unregister_member(id)
                         safe_release_manager.release(se_obj)
@@ -262,7 +281,7 @@ function install_engine_guards()
                 if (se_obj) then
                     local smart_id = se_obj:smart_terrain_id()
                     if smart_id ~= 65535 then
-                        safe_unregister_from_smart(alife_object(smart_id), self, "sim_squad_scripted:remove_npc", smart_id)
+                        safe_unregister_from_smart(alife_object(smart_id), se_obj, "sim_squad_scripted:remove_npc", smart_id)
                     end
 
                     self:unregister_member(npc_id)
@@ -336,7 +355,7 @@ function install_engine_guards()
 
             function sim_squad_scripted:get_script_target()
                 if reassert_stationary_custom_squad(self, "get_script_target") then
-                    return self.id
+                    return self.smart_id or self.id
                 end
 
                 return base_get_script_target(self)
@@ -403,6 +422,45 @@ local function get_squad_section(faction)
     end
     printf("PANDA_NPC: no squad section for faction '%s', using stalker fallback", fac)
     return "stalker_sim_squad_advanced"
+end
+
+local function get_single_member_spawn_section(squad_section)
+    if not squad_section or not ini_sys or not ini_sys.section_exist or not ini_sys:section_exist(squad_section) then
+        return nil
+    end
+
+    local function first_list_entry(value)
+        if not value or value == "" then
+            return nil
+        end
+
+        if parse_names then
+            local entries = parse_names(value)
+            if entries and #entries > 0 then
+                return entries[1]
+            end
+        end
+
+        return string.match(tostring(value), "^%s*([^,%s]+)")
+    end
+
+    local ok_npc, npc_value = pcall(function()
+        return ini_sys:r_string_ex(squad_section, "npc")
+    end)
+    local npc_section = ok_npc and first_list_entry(npc_value) or nil
+    if npc_section then
+        return npc_section
+    end
+
+    local ok_random, random_value = pcall(function()
+        return ini_sys:r_string_ex(squad_section, "npc_random")
+    end)
+    local random_section = ok_random and first_list_entry(random_value) or nil
+    if random_section then
+        return random_section
+    end
+
+    return nil
 end
 
 local FACTION_VISUAL_COMMUNITY = {
@@ -1025,14 +1083,31 @@ local function prune_squad_to_single_member(squad_obj, template_id)
     end
 
     for i = 2, #member_ids do
-        local se_member = alife_object(member_ids[i])
-        if se_member then
-            release_server_object(se_member, "PANDA_NPC extra squad member for " .. tostring(template_id))
+        local member_id = member_ids[i]
+        if squad_obj and squad_obj.remove_npc then
+            pcall(function()
+                squad_obj:remove_npc(member_id, true)
+            end)
+        else
+            local se_member = alife_object(member_id)
+            if se_member then
+                if squad_obj and squad_obj.unregister_member then
+                    pcall(function()
+                        squad_obj:unregister_member(member_id)
+                    end)
+                end
+                release_server_object(se_member, "PANDA_NPC extra squad member for " .. tostring(template_id))
+            end
         end
     end
 
-    printf("PANDA_NPC: pruned template '%s' squad_id=%s from %d members down to 1",
-        tostring(template_id), tostring(squad_obj and squad_obj.id), #member_ids)
+    printf("PANDA_NPC: pruned template '%s' squad_id=%s from %s members down to 1",
+        tostring(template_id), tostring(squad_obj and squad_obj.id), tostring(#member_ids))
+
+    local remaining_ids = collect_squad_member_ids(squad_obj)
+    if #remaining_ids > 0 then
+        return { remaining_ids[1] }
+    end
 
     return { member_ids[1] }
 end
@@ -1252,67 +1327,6 @@ local function get_live_npc_object(npc_id)
     return nil
 end
 
-local function set_stationary_npc_idle_state(npc, force_reset)
-    if not npc then
-        return false
-    end
-
-    local npc_id = nil
-    if npc.id then
-        local ok_id, resolved_id = pcall(function()
-            return npc:id()
-        end)
-        if ok_id then
-            npc_id = resolved_id
-        end
-    end
-
-    local storage = npc_id and db and db.storage and db.storage[npc_id] or nil
-    local state_mgr = storage and storage.state_mgr or nil
-    if not state_mgr then
-        return false
-    end
-
-    if force_reset then
-        if state_mgr.animation and state_mgr.animation.set_state then
-            pcall(function()
-                state_mgr.animation:set_state(nil, true)
-            end)
-        end
-        if state_mgr.animation and state_mgr.animation.set_control then
-            pcall(function()
-                state_mgr.animation:set_control()
-            end)
-        end
-        if state_mgr.animstate and state_mgr.animstate.set_state then
-            pcall(function()
-                state_mgr.animstate:set_state(nil, true)
-            end)
-        end
-        if state_mgr.animstate and state_mgr.animstate.set_control then
-            pcall(function()
-                state_mgr.animstate:set_control()
-            end)
-        end
-    end
-
-    if state_mgr.set_state then
-        pcall(function()
-            state_mgr:set_state("idle", nil, nil, nil, { fast_set = true })
-        end)
-    end
-
-    if force_reset and state_mgr.update then
-        for _ = 1, 4 do
-            pcall(function()
-                state_mgr:update()
-            end)
-        end
-    end
-
-    return true
-end
-
 local function apply_stationary_npc_runtime_lock(npc, anchor, _reason, force_idle_reset)
     if not npc then
         return false
@@ -1321,9 +1335,6 @@ local function apply_stationary_npc_runtime_lock(npc, anchor, _reason, force_idl
     local desired_pos = anchor and table_to_vector(anchor.pos) or nil
     local path_type = game_object and game_object.no_path or nil
     local move_enum = rawget(_G, "move")
-    local anim_enum = rawget(_G, "anim")
-
-    set_stationary_npc_idle_state(npc, force_idle_reset == true)
 
     if npc.set_path_type and path_type ~= nil then
         pcall(function()
@@ -1350,16 +1361,6 @@ local function apply_stationary_npc_runtime_lock(npc, anchor, _reason, force_idl
             npc:set_movement_type(move_enum.stand)
         end)
     end
-    if move_enum and move_enum.standing and npc.set_body_state then
-        pcall(function()
-            npc:set_body_state(move_enum.standing)
-        end)
-    end
-    if anim_enum and anim_enum.free and npc.set_mental_state then
-        pcall(function()
-            npc:set_mental_state(anim_enum.free)
-        end)
-    end
 
     return true
 end
@@ -1383,6 +1384,858 @@ local function get_server_object_smart_id(se_obj)
         return nil
     end
 
+    return smart_id
+end
+
+local function get_stationary_entry_mode(entry)
+    if not entry or entry.mode == nil or entry.mode == "" then
+        if entry and (entry.smart_id == nil or entry.smart_id == "") and entry.squad_id then
+            local squad_obj = alife_object(entry.squad_id)
+            local inferred_smart_id = squad_obj and squad_obj.smart_id or nil
+            if inferred_smart_id and inferred_smart_id ~= 65535 then
+                entry.smart_id = inferred_smart_id
+            end
+        end
+
+        return (entry and entry.smart_id) and "smart_job" or "anchor"
+    end
+
+    return tostring(entry.mode)
+end
+
+local function get_stationary_smart_object(entry, npc_id)
+    local smart_id = entry and (tonumber(entry.smart_id) or entry.smart_id) or nil
+    if not smart_id and npc_id then
+        smart_id = get_server_object_smart_id(alife_object(npc_id))
+    end
+
+    if not smart_id or smart_id == 65535 then
+        return nil
+    end
+
+    local smart_obj = alife_object(smart_id)
+    if not smart_obj or (smart_obj.clsid and smart_obj:clsid() ~= clsid.smart_terrain) then
+        return nil
+    end
+
+    if entry then
+        entry.smart_id = smart_id
+    end
+
+    return smart_obj
+end
+
+local function get_stationary_job_ltx(job, smart_obj)
+    if job and job.ltx then
+        return job.ltx
+    end
+
+    if smart_obj then
+        return smart_obj.ltx
+    end
+
+    return nil
+end
+
+local function get_stationary_job_active_section(job, smart_obj)
+    local ltx = get_stationary_job_ltx(job, smart_obj)
+    if not ltx or not job or not job.section or not ltx.r_string_ex then
+        return nil
+    end
+
+    if ltx.section_exist then
+        local ok_exist, exists = pcall(function()
+            return ltx:section_exist(job.section)
+        end)
+        if ok_exist and not exists then
+            return nil
+        end
+    end
+
+    local ok_active, active_section = pcall(function()
+        return ltx:r_string_ex(job.section, "active")
+    end)
+
+    if ok_active and active_section and active_section ~= "" and active_section ~= "nil" then
+        return active_section
+    end
+
+    return nil
+end
+
+local function get_stationary_job_scheme(job, smart_obj)
+    local active_section = get_stationary_job_active_section(job, smart_obj)
+    if not active_section then
+        return nil
+    end
+
+    if utils_data and utils_data.get_scheme_by_section then
+        local ok_scheme, scheme = pcall(function()
+            return utils_data.get_scheme_by_section(active_section)
+        end)
+        if ok_scheme and scheme and scheme ~= "" and scheme ~= "nil" then
+            return scheme
+        end
+    end
+
+    return string.match(tostring(active_section), "^(%w+)@")
+end
+
+local function get_stationary_job_priority(job)
+    if not job then
+        return nil
+    end
+
+    if gulag_general and gulag_general.get_job_prior then
+        local ok_priority, priority = pcall(function()
+            return gulag_general.get_job_prior(job)
+        end)
+        if ok_priority then
+            return tonumber(priority) or priority
+        end
+    end
+
+    return tonumber(job.prior) or job.prior
+end
+
+local function get_stationary_job_type(job)
+    if not job then
+        return nil
+    end
+
+    if job.job_type then
+        return job.job_type
+    end
+
+    if gulag_general and gulag_general.get_job_type then
+        local ok_type, job_type = pcall(function()
+            return gulag_general.get_job_type(job)
+        end)
+        if ok_type then
+            return job_type
+        end
+    end
+
+    return nil
+end
+
+local function get_stationary_job_precondition(job)
+    if not job then
+        return nil
+    end
+
+    if job.precondition_function then
+        return job.precondition_function
+    end
+
+    if gulag_general and gulag_general.get_job_precondition then
+        local ok_precond, precond = pcall(function()
+            return gulag_general.get_job_precondition(job)
+        end)
+        if ok_precond then
+            return precond
+        end
+    end
+
+    return nil
+end
+
+local function get_stationary_job_prefix(job)
+    if not job then
+        return nil
+    end
+
+    if job.prefix_name then
+        return job.prefix_name
+    end
+
+    if gulag_general and gulag_general.get_job_prefix_name then
+        local ok_prefix, prefix = pcall(function()
+            return gulag_general.get_job_prefix_name(job)
+        end)
+        if ok_prefix then
+            return prefix
+        end
+    end
+
+    return nil
+end
+
+local function is_stationary_story_job_scheme(scheme)
+    return scheme ~= nil and STATIONARY_JOB_SCHEME_PRIORITY[scheme] ~= nil
+end
+
+local function get_stationary_custom_job_name(smart_obj, npc_id)
+    return STATIONARY_CUSTOM_JOB_PREFIX .. tostring(smart_obj and smart_obj.id or "smart") .. "_" .. tostring(npc_id)
+end
+
+local function get_stationary_custom_job_section(smart_obj, npc_id)
+    return "logic@" .. get_stationary_custom_job_name(smart_obj, npc_id)
+end
+
+local function is_stationary_custom_job_section(section)
+    return type(section) == "string" and string.find(section, "^logic@" .. STATIONARY_CUSTOM_JOB_PREFIX) ~= nil
+end
+
+local function stationary_reserved_job_precondition(se_obj, _smart, job)
+    return se_obj ~= nil and job ~= nil and job._panda_reserved_npc_id == se_obj.id
+end
+
+local function build_stationary_custom_job_ltx(smart_obj, npc_id)
+    local smart_name = smart_obj and smart_obj.name and smart_obj:name() or nil
+    if not smart_name or smart_name == "" then
+        return nil, nil
+    end
+
+    local job_name = get_stationary_custom_job_name(smart_obj, npc_id)
+    local lines = {
+        "[logic@" .. job_name .. "]",
+        "prior = " .. tostring(STATIONARY_JOB_PRIORITY_BOOST),
+        "active = cover@" .. job_name,
+        "",
+        "[cover@" .. job_name .. "]",
+        "smart = " .. smart_name,
+        "radius_min = 0",
+        "radius_max = 0",
+        "use_attack_direction = false",
+        "anim = guard",
+        "meet = meet",
+        "gather_items_enabled = false",
+        "help_wounded_enabled = false",
+        "corpse_detection_enabled = false",
+    }
+
+    if smart_obj.def_restr then
+        lines[#lines + 1] = "out_restr = " .. tostring(smart_obj.def_restr)
+    end
+
+    if smart_obj.ignore_zone then
+        lines[#lines + 1] = "combat_ignore_cond = {=npc_in_zone(" .. tostring(smart_obj.ignore_zone) .. ")} true"
+        lines[#lines + 1] = "combat_ignore_keep_when_attacked = true"
+    end
+
+    lines[#lines + 1] = ""
+    lines[#lines + 1] = "[meet]"
+    lines[#lines + 1] = "close_anim = nil"
+    lines[#lines + 1] = "close_victim = nil"
+    lines[#lines + 1] = "far_anim = nil"
+    lines[#lines + 1] = "far_victim = nil"
+    lines[#lines + 1] = "close_distance = 0"
+    lines[#lines + 1] = "far_distance = 0"
+    lines[#lines + 1] = "close_snd_distance = 3"
+    lines[#lines + 1] = "abuse = false"
+    lines[#lines + 1] = "use = {=actor_enemy} false, true"
+    lines[#lines + 1] = "allow_break = false"
+    lines[#lines + 1] = "meet_on_talking = false"
+    lines[#lines + 1] = "trade_enable = false"
+
+    return table.concat(lines, "\n"), job_name
+end
+
+local function ensure_stationary_custom_job_task(smart_obj, job)
+    if not smart_obj or not job then
+        return nil
+    end
+
+    if not job.alife_task then
+        if smart_obj.smart_alife_task then
+            job.alife_task = smart_obj.smart_alife_task
+        elseif CALifeSmartTerrainTask then
+            local ok_task, task = pcall(function()
+                return CALifeSmartTerrainTask(smart_obj.m_game_vertex_id, smart_obj.m_level_vertex_id)
+            end)
+            if ok_task then
+                job.alife_task = task
+            end
+        end
+    end
+
+    if job.alife_task then
+        local ok_gvid, game_vertex_id = pcall(function()
+            return job.alife_task:game_vertex_id()
+        end)
+        local ok_pos, position = pcall(function()
+            return job.alife_task:position()
+        end)
+        local gg = game_graph and game_graph() or nil
+
+        if ok_gvid and game_vertex_id then
+            job.game_vertex_id = game_vertex_id
+            if gg and gg.vertex then
+                local ok_level, level_vertex = pcall(function()
+                    return gg:vertex(game_vertex_id)
+                end)
+                if ok_level and level_vertex and level_vertex.level_id then
+                    job.level_id = level_vertex:level_id()
+                end
+            end
+        end
+        if ok_pos and position then
+            job.position = position
+        end
+    end
+
+    return job
+end
+
+local function insert_stationary_custom_job(smart_obj, job)
+    if not smart_obj or not job then
+        return nil
+    end
+
+    smart_obj.stalker_jobs = smart_obj.stalker_jobs or {}
+    for _, existing in ipairs(smart_obj.stalker_jobs) do
+        if existing == job or existing.section == job.section then
+            return ensure_stationary_custom_job_task(smart_obj, existing)
+        end
+    end
+
+    smart_obj.stalker_jobs[#smart_obj.stalker_jobs + 1] = job
+    table.sort(smart_obj.stalker_jobs, function(a, b)
+        return (tonumber(get_stationary_job_priority(a)) or 0) > (tonumber(get_stationary_job_priority(b)) or 0)
+    end)
+
+    return ensure_stationary_custom_job_task(smart_obj, job)
+end
+
+local function remove_stationary_custom_job(smart_obj, job)
+    if not smart_obj or not job or not job._panda_dynamic then
+        return false
+    end
+
+    if smart_obj.stalker_jobs then
+        for index = #smart_obj.stalker_jobs, 1, -1 do
+            local existing = smart_obj.stalker_jobs[index]
+            if existing == job or existing.section == job.section then
+                table.remove(smart_obj.stalker_jobs, index)
+            end
+        end
+    end
+
+    if db and db.dynamic_ltx and job._panda_dynamic_key then
+        db.dynamic_ltx[job._panda_dynamic_key] = nil
+    end
+
+    return true
+end
+
+local function ensure_stationary_custom_job(smart_obj, npc_id, entry)
+    if not smart_obj or not npc_id or not create_ini_file or not db then
+        return nil
+    end
+
+    local logic_section = get_stationary_custom_job_section(smart_obj, npc_id)
+    if smart_obj.find_job_by_section then
+        local ok_existing, existing_job = pcall(function()
+            return smart_obj:find_job_by_section(logic_section)
+        end)
+        if ok_existing and existing_job then
+            existing_job._panda_dynamic = true
+            existing_job._panda_dynamic_key = get_stationary_custom_job_name(smart_obj, npc_id)
+            existing_job._panda_stationary_story_job = true
+            existing_job._panda_reserved_npc_id = npc_id
+            return ensure_stationary_custom_job_task(smart_obj, existing_job)
+        end
+    end
+
+    local ltx_text, job_name = build_stationary_custom_job_ltx(smart_obj, npc_id)
+    if not ltx_text or not job_name then
+        return nil
+    end
+
+    db.dynamic_ltx = db.dynamic_ltx or {}
+    db.dynamic_ltx[job_name] = create_ini_file(ltx_text)
+
+    local job = {
+        section = logic_section,
+        ini_path = "*" .. job_name,
+        ltx = db.dynamic_ltx[job_name],
+        job_type = "point_job",
+        prior = STATIONARY_JOB_PRIORITY_BOOST,
+        prefix_name = "",
+        exclusive = true,
+        precondition_function = stationary_reserved_job_precondition,
+        _panda_dynamic = true,
+        _panda_dynamic_key = job_name,
+        _panda_reserved_npc_id = npc_id,
+        _panda_stationary_story_job = true,
+    }
+
+    if entry then
+        entry.job_section = logic_section
+    end
+
+    printf(
+        "PANDA_NPC: created stationary fallback smart job npc_id=%s smart_id=%s section=%s",
+        tostring(npc_id),
+        tostring(smart_obj.id or "nil"),
+        tostring(logic_section)
+    )
+
+    return insert_stationary_custom_job(smart_obj, job)
+end
+
+local function score_stationary_smart_job(job, smart_obj)
+    if not job or job._panda_dynamic or is_stationary_custom_job_section(job.section) then
+        return nil
+    end
+
+    if smart_obj then
+        job = ensure_stationary_custom_job_task(smart_obj, job) or job
+    end
+
+    if not job or not job.section or not job.alife_task then
+        return nil
+    end
+
+    local scheme = get_stationary_job_scheme(job, smart_obj)
+    if not is_stationary_story_job_scheme(scheme) then
+        return nil
+    end
+
+    local score = scheme and STATIONARY_JOB_SCHEME_PRIORITY[scheme] or nil
+    if not score then
+        return nil
+    end
+
+    local priority = get_stationary_job_priority(job)
+    if priority then
+        score = score + math.min(tonumber(priority) or 0, 40)
+    end
+    if job.exclusive then
+        score = score + 35
+    end
+
+    return score
+end
+
+local function stationary_job_available_to_npc(smart_obj, npc_info, job)
+    if not smart_obj or not npc_info or not npc_info.se_obj or not job then
+        return false
+    end
+
+    local precondition = get_stationary_job_precondition(job)
+    if not precondition then
+        return true
+    end
+
+    local ok_available, available = pcall(precondition, npc_info.se_obj, smart_obj, job, npc_info)
+    return ok_available and available == true
+end
+
+local function count_authored_stationary_smart_jobs(smart_obj)
+    local jobs = smart_obj and smart_obj.stalker_jobs
+    if type(jobs) ~= "table" then
+        return nil
+    end
+
+    local count = 0
+    for _, job in ipairs(jobs) do
+        if score_stationary_smart_job(job, smart_obj) then
+            count = count + 1
+        end
+    end
+
+    return count
+end
+
+local function find_stationary_smart_job_for_npc(smart_obj, npc_info, preferred_section, entry)
+    local jobs = smart_obj and smart_obj.stalker_jobs
+    if type(jobs) ~= "table" then
+        return nil
+    end
+
+    if preferred_section and preferred_section ~= "" and not is_stationary_custom_job_section(preferred_section) and smart_obj.find_job_by_section then
+        local ok_preferred, preferred_job = pcall(function()
+            return smart_obj:find_job_by_section(preferred_section)
+        end)
+        if ok_preferred and preferred_job and preferred_job.section then
+            local preferred_owner = smart_obj.npc_by_job_section and smart_obj.npc_by_job_section[preferred_job.section] or nil
+            if (preferred_owner == nil or preferred_owner == npc_info.se_obj.id)
+                and stationary_job_available_to_npc(smart_obj, npc_info, preferred_job)
+                and score_stationary_smart_job(preferred_job, smart_obj) then
+                return preferred_job
+            end
+        end
+    end
+
+    local best_job = nil
+    local best_score = nil
+    for _, job in ipairs(jobs) do
+        local section = job and job.section
+        local owner = section and smart_obj.npc_by_job_section and smart_obj.npc_by_job_section[section] or nil
+        local score = score_stationary_smart_job(job, smart_obj)
+        if section and score and (owner == nil or owner == npc_info.se_obj.id)
+            and stationary_job_available_to_npc(smart_obj, npc_info, job) then
+            if not best_job or score > best_score then
+                best_job = job
+                best_score = score
+            end
+        end
+    end
+
+    if best_job then
+        return best_job
+    end
+
+    return nil
+end
+
+local function promote_stationary_smart_job(job, npc_id)
+    if not job then
+        return false
+    end
+
+    if job._panda_dynamic then
+        job._panda_reserved_npc_id = npc_id
+        job.prior = math.max(tonumber(job.prior) or 0, STATIONARY_JOB_PRIORITY_BOOST)
+        return true
+    end
+
+    if job._panda_reserved_npc_id and job._panda_reserved_npc_id ~= npc_id then
+        return false
+    end
+
+    if job._panda_reserved_npc_id ~= npc_id then
+        job._panda_original_exclusive = job.exclusive
+        job._panda_original_prior = job.prior
+        job._panda_original_job_type = job.job_type
+        job._panda_original_precondition_function = job.precondition_function
+        job._panda_original_prefix_name = job.prefix_name
+    end
+
+    local current_priority = tonumber(job.prior) or tonumber(get_stationary_job_priority(job)) or 0
+    job._panda_reserved_npc_id = npc_id
+    job.exclusive = true
+    job.prior = math.max(current_priority, STATIONARY_JOB_PRIORITY_BOOST)
+
+    local job_type = get_stationary_job_type(job)
+    if job_type then
+        job.job_type = job_type
+    end
+
+    local precondition = get_stationary_job_precondition(job)
+    if precondition then
+        job.precondition_function = precondition
+    end
+
+    local prefix_name = get_stationary_job_prefix(job)
+    if prefix_name then
+        job.prefix_name = prefix_name
+    end
+
+    return true
+end
+
+local function restore_stationary_smart_job(job, npc_id)
+    if not job or job._panda_reserved_npc_id ~= npc_id then
+        return false
+    end
+
+    if job._panda_dynamic then
+        job._panda_reserved_npc_id = nil
+        return true
+    end
+
+    job.exclusive = job._panda_original_exclusive
+    job.prior = job._panda_original_prior
+    job.job_type = job._panda_original_job_type
+    job.precondition_function = job._panda_original_precondition_function
+    job.prefix_name = job._panda_original_prefix_name
+    job._panda_reserved_npc_id = nil
+    job._panda_original_exclusive = nil
+    job._panda_original_prior = nil
+    job._panda_original_job_type = nil
+    job._panda_original_precondition_function = nil
+    job._panda_original_prefix_name = nil
+
+    return true
+end
+
+local function move_server_object_to_stationary_job(se_obj, _squad_obj, job, entry)
+    if not se_obj or not job or not job.alife_task then
+        return false
+    end
+
+    local task = job.alife_task
+    local ok_pos, position = pcall(function()
+        return task:position()
+    end)
+    if not ok_pos or not position then
+        return false
+    end
+
+    local ok_lvid, lvid = pcall(function()
+        return task:level_vertex_id()
+    end)
+    local ok_gvid, gvid = pcall(function()
+        return task:game_vertex_id()
+    end)
+
+    -- Vanilla smart terrain setup does not force-move squads here; it only hints the
+    -- spawn vertex and lets smart/job logic place the NPC when the object comes online.
+    if ok_lvid and lvid and db and db.spawned_vertex_by_id then
+        db.spawned_vertex_by_id[se_obj.id] = lvid
+    end
+
+    if entry then
+        if ok_pos and position then
+            entry.pos = vector_to_table(position)
+        elseif not entry.pos and se_obj.position then
+            entry.pos = vector_to_table(se_obj.position)
+        end
+        entry.lvid = ok_lvid and lvid or entry.lvid
+        entry.gvid = ok_gvid and gvid or entry.gvid
+    end
+
+    return true
+end
+
+local function configure_story_style_squad_target(squad_obj, smart_obj)
+    if not squad_obj or not smart_obj then
+        return false
+    end
+
+    stationary_custom_squads[squad_obj.id] = nil
+    squad_obj.panda_stationary = nil
+    attach_stationary_squad_to_smart(squad_obj, { smart_id = smart_obj.id })
+    squad_obj.always_arrived = true
+    squad_obj.scripted_target = tostring(smart_obj.id)
+    squad_obj.assigned_target_id = smart_obj.id
+    squad_obj.current_target_id = smart_obj.id
+    squad_obj.current_action = 1
+    squad_obj.task_target_id = nil
+    squad_obj.rush_to_target = false
+    if (tonumber(squad_obj.idle_time) or 0) < STORY_SQUAD_IDLE_TIME then
+        squad_obj.idle_time = STORY_SQUAD_IDLE_TIME
+    end
+    if game and game.get_game_time then
+        squad_obj.stay_time = game.get_game_time()
+    end
+
+    return true
+end
+
+local function release_stationary_smart_job(npc_id)
+    local entry = stationary_custom_npcs[npc_id]
+    if not entry or get_stationary_entry_mode(entry) ~= "smart_job" then
+        return false
+    end
+
+    local smart_obj = get_stationary_smart_object(entry, npc_id)
+    if not smart_obj then
+        return false
+    end
+
+    local job = nil
+    if entry.job_section and smart_obj.find_job_by_section then
+        local ok_job, resolved_job = pcall(function()
+            return smart_obj:find_job_by_section(entry.job_section)
+        end)
+        if ok_job then
+            job = resolved_job
+        end
+    end
+
+    if smart_obj.npc_by_job_section and entry.job_section and smart_obj.npc_by_job_section[entry.job_section] == npc_id then
+        smart_obj.npc_by_job_section[entry.job_section] = nil
+    end
+
+    if smart_obj.npc_info and smart_obj.npc_info[npc_id] and smart_obj.npc_info[npc_id].job
+        and entry.job_section and smart_obj.npc_info[npc_id].job.section == entry.job_section then
+        smart_obj.npc_info[npc_id].job = nil
+        smart_obj.npc_info[npc_id].begin_job = false
+    end
+
+    if job then
+        if job._panda_dynamic then
+            remove_stationary_custom_job(smart_obj, job)
+        else
+            restore_stationary_smart_job(job, npc_id)
+        end
+    end
+
+    entry.job_section = nil
+
+    return true
+end
+
+local function ensure_stationary_smart_job_binding(npc_id, live_npc, reason)
+    local entry = stationary_custom_npcs[npc_id]
+    if not entry or get_stationary_entry_mode(entry) ~= "smart_job" then
+        return false
+    end
+
+    local se_obj = alife_object(npc_id)
+    local smart_obj = get_stationary_smart_object(entry, npc_id)
+    if not se_obj or not smart_obj then
+        return false
+    end
+
+    local squad_obj = entry.squad_id and alife_object(entry.squad_id) or nil
+    if not squad_obj and se_obj.group_id and se_obj.group_id ~= 65535 then
+        squad_obj = alife_object(se_obj.group_id)
+        if squad_obj then
+            entry.squad_id = squad_obj.id
+        end
+    end
+
+    if squad_obj then
+        configure_story_style_squad_target(squad_obj, smart_obj)
+    end
+
+    if smart_obj.register_npc and (not smart_obj.npc_info or not smart_obj.npc_info[npc_id]) then
+        pcall(function()
+            smart_obj:register_npc(se_obj)
+        end)
+    end
+
+    local npc_info = smart_obj.npc_info and smart_obj.npc_info[npc_id] or nil
+    if not npc_info and smart_obj.fill_npc_info then
+        local ok_info, filled_info = pcall(function()
+            return smart_obj:fill_npc_info(se_obj)
+        end)
+        if ok_info and filled_info then
+            smart_obj.npc_info = smart_obj.npc_info or {}
+            smart_obj.npc_info[npc_id] = filled_info
+            npc_info = filled_info
+        end
+    end
+
+    if not npc_info then
+        printf(
+            "PANDA_NPC: stationary smart job bind postponed npc_id=%s reason=%s smart_id=%s (npc_info missing)",
+            tostring(npc_id),
+            tostring(reason or "unspecified"),
+            tostring(entry.smart_id or "nil")
+        )
+        return false
+    end
+
+    local job = find_stationary_smart_job_for_npc(smart_obj, npc_info, entry.job_section, entry)
+    if not job then
+        printf(
+            "PANDA_NPC: no free stationary smart job for npc_id=%s smart=%s reason=%s",
+            tostring(npc_id),
+            tostring(smart_obj.name and smart_obj:name() or entry.smart_id or "nil"),
+            tostring(reason or "unspecified")
+        )
+        return false
+    end
+
+    promote_stationary_smart_job(job, npc_id)
+    if smart_obj.npc_by_job_section then
+        for section, owner_id in pairs(smart_obj.npc_by_job_section) do
+            if owner_id == npc_id and section ~= job.section then
+                smart_obj.npc_by_job_section[section] = nil
+            end
+        end
+        smart_obj.npc_by_job_section[job.section] = npc_id
+    end
+
+    npc_info.need_job = "nil"
+    npc_info.job = job
+    npc_info.current_index = 1
+    npc_info.begin_job = false
+
+    entry.mode = "smart_job"
+    entry.smart_id = smart_obj.id
+    entry.job_section = job.section
+    move_server_object_to_stationary_job(se_obj, squad_obj, job, entry)
+
+    if live_npc and smart_obj.setup_logic then
+        npc_info.begin_job = true
+        if db and db.offline_objects and db.offline_objects[npc_id] and empty_table then
+            pcall(function()
+                empty_table(db.offline_objects[npc_id])
+            end)
+        end
+        pcall(function()
+            smart_obj:setup_logic(live_npc)
+        end)
+    end
+
+    printf(
+        "PANDA_NPC: stationary smart job bound npc_id=%s squad_id=%s smart_id=%s job=%s reason=%s",
+        tostring(npc_id),
+        tostring(entry.squad_id or "nil"),
+        tostring(entry.smart_id or "nil"),
+        tostring(entry.job_section or "nil"),
+        tostring(reason or "unspecified")
+    )
+
+    return true
+end
+
+local function get_stationary_anchor_for_squad(squad_obj)
+    if not squad_obj then
+        return nil
+    end
+
+    for member in squad_obj:squad_members() do
+        local anchor = stationary_custom_npcs[member.id]
+        if anchor and get_stationary_entry_mode(anchor) == "anchor" then
+            return anchor
+        end
+    end
+
+    return nil
+end
+
+local function resolve_stationary_anchor_smart_id(anchor, squad_obj)
+    local smart_id = anchor and (tonumber(anchor.smart_id) or anchor.smart_id) or nil
+    if smart_id then
+        return smart_id
+    end
+
+    if squad_obj and squad_obj.smart_id then
+        return squad_obj.smart_id
+    end
+
+    if not squad_obj then
+        return nil
+    end
+
+    for member in squad_obj:squad_members() do
+        local member_smart_id = get_server_object_smart_id(alife_object(member.id))
+        if member_smart_id then
+            return member_smart_id
+        end
+    end
+
+    return nil
+end
+
+attach_stationary_squad_to_smart = function(squad_obj, anchor)
+    if not squad_obj then
+        return nil
+    end
+
+    local smart_id = resolve_stationary_anchor_smart_id(anchor, squad_obj)
+    if not smart_id then
+        return nil
+    end
+
+    if anchor then
+        anchor.smart_id = smart_id
+    end
+
+    if squad_obj.smart_id ~= smart_id then
+        if SIMBOARD and type(SIMBOARD.assign_squad_to_smart) == "function" then
+            pcall(function()
+                SIMBOARD:assign_squad_to_smart(squad_obj, smart_id)
+            end)
+        else
+            local smart_obj = alife_object(smart_id)
+            if smart_obj and squad_obj.assign_smart then
+                pcall(function()
+                    squad_obj:assign_smart(smart_obj, squad_obj.smart_id)
+                end)
+            end
+        end
+    end
+
+    squad_obj.smart_id = smart_id
     return smart_id
 end
 
@@ -1417,23 +2270,27 @@ local function detach_stationary_squad_from_simboard(squad_obj, old_smart_id)
     return detached_via_api
 end
 
-local function configure_stationary_squad(squad_obj, reason)
+configure_stationary_squad = function(squad_obj, reason)
     if not squad_obj then
         return false
     end
 
     local squad_id = squad_obj.id
+    local anchor = get_stationary_anchor_for_squad(squad_obj)
+    local target_smart_id = resolve_stationary_anchor_smart_id(anchor, squad_obj)
     stationary_custom_squads[squad_id] = true
     squad_obj.panda_stationary = true
     local reason_text = tostring(reason or "unspecified")
     local old_smart_id = squad_obj.smart_id
-    local expected_scripted_target = tostring(squad_id)
+    local expected_target_id = target_smart_id or squad_id
+    local expected_scripted_target = tostring(expected_target_id)
+    local expected_current_action = target_smart_id and 1 or 0
 
-    if old_smart_id or squad_obj.task_target_id ~= nil
+    if old_smart_id ~= target_smart_id or squad_obj.task_target_id ~= nil
         or tostring(squad_obj.scripted_target or "") ~= expected_scripted_target
-        or squad_obj.assigned_target_id ~= squad_id
-        or squad_obj.current_target_id ~= squad_id
-        or squad_obj.current_action ~= 0
+        or squad_obj.assigned_target_id ~= expected_target_id
+        or squad_obj.current_target_id ~= expected_target_id
+        or squad_obj.current_action ~= expected_current_action
         or squad_obj.rush_to_target ~= false then
         printf(
             "PANDA_NPC: stationary squad reassert squad_id=%s reason=%s smart_id=%s scripted_target=%s assigned_target_id=%s current_target_id=%s current_action=%s rush_to_target=%s task_target_id=%s",
@@ -1449,13 +2306,27 @@ local function configure_stationary_squad(squad_obj, reason)
         )
     end
 
+    if target_smart_id then
+        attach_stationary_squad_to_smart(squad_obj, anchor)
+        squad_obj.task_target_id = nil
+        squad_obj.scripted_target = expected_scripted_target
+        squad_obj.assigned_target_id = expected_target_id
+        squad_obj.current_target_id = expected_target_id
+        squad_obj.current_action = 1
+        squad_obj.rush_to_target = false
+        if game and game.get_game_time then
+            squad_obj.stay_time = game.get_game_time()
+        end
+        return true
+    end
+
     detach_stationary_squad_from_simboard(squad_obj, old_smart_id)
     squad_obj.smart_id = nil
     squad_obj.task_target_id = nil
     squad_obj.scripted_target = expected_scripted_target
-    squad_obj.assigned_target_id = squad_id
-    squad_obj.current_target_id = squad_id
-    squad_obj.current_action = 0
+    squad_obj.assigned_target_id = expected_target_id
+    squad_obj.current_target_id = expected_target_id
+    squad_obj.current_action = expected_current_action
     squad_obj.rush_to_target = false
 
     for member in squad_obj:squad_members() do
@@ -1503,6 +2374,10 @@ local function enforce_stationary_npc_anchor(npc_id, reason)
         return false
     end
 
+    if get_stationary_entry_mode(anchor) == "smart_job" then
+        return ensure_stationary_smart_job_binding(npc_id, get_live_npc_object(npc_id), reason or "smart_job_runtime")
+    end
+
     local reason_text = tostring(reason or "unspecified")
     local squad_obj = nil
     if anchor.squad_id then
@@ -1537,14 +2412,14 @@ local function enforce_stationary_npc_anchor(npc_id, reason)
         local ok_dist, dist = pcall(function()
             return current_pos:distance_to(desired_pos)
         end)
-        if ok_dist and dist and dist > STATIONARY_TELEPORT_THRESHOLD then
+        if ok_dist and dist and dist > STATIONARY_TELEPORT_THRESHOLD and reason_text ~= "npc_on_net_spawn" then
             printf(
-                "PANDA_NPC: stationary anchor drift npc_id=%s squad_id=%s reason=%s dist=%.2f threshold=%.2f",
+                "PANDA_NPC: stationary anchor drift npc_id=%s squad_id=%s reason=%s dist=%s threshold=%s",
                 tostring(npc_id),
                 tostring(anchor.squad_id or "nil"),
                 reason_text,
-                dist,
-                STATIONARY_TELEPORT_THRESHOLD
+                tostring(dist),
+                tostring(STATIONARY_TELEPORT_THRESHOLD)
             )
 
             local snapped_with_squad = false
@@ -1569,7 +2444,7 @@ end
 
 local function schedule_stationary_anchor_enforcement(npc_id)
     local anchor = stationary_custom_npcs[npc_id]
-    if not anchor or not CreateTimeEvent or stationary_anchor_scheduled[npc_id] then
+    if not anchor or get_stationary_entry_mode(anchor) ~= "anchor" or not CreateTimeEvent or stationary_anchor_scheduled[npc_id] then
         return
     end
 
@@ -1813,7 +2688,7 @@ local function find_spawn_point_near_player_local(min, max)
     return p, l, g
 end
 
-local function create_squad_safely_local(sec, pos, lvid, gvid)
+local function create_squad_safely_local(sec, pos, lvid, gvid, spawn_smart, single_member_section)
     local sim = alife()
     if not sim or not sim.create or not sec or not pos or not lvid or not gvid then
         return nil
@@ -1821,8 +2696,38 @@ local function create_squad_safely_local(sec, pos, lvid, gvid)
 
     local obj = sim:create(sec, pos, lvid, gvid)
     if obj and obj:clsid() == clsid.online_offline_group_s then
-        if obj.create_npc then
-            obj:create_npc(nil, pos, lvid, gvid)
+        if spawn_smart and spawn_smart.id then
+            obj.smart_id = spawn_smart.id
+        end
+
+        local spawned_single_member = false
+        local added_member_id = nil
+        if single_member_section and obj.add_squad_member then
+            local ok_add, new_member_id = pcall(function()
+                return obj:add_squad_member(single_member_section, pos, lvid, gvid)
+            end)
+            added_member_id = ok_add and new_member_id or nil
+            spawned_single_member = added_member_id ~= nil
+            if not spawned_single_member then
+                printf(
+                    "PANDA_NPC: failed to add single member '%s' to squad section '%s'; falling back to create_npc",
+                    tostring(single_member_section),
+                    tostring(sec)
+                )
+            end
+        end
+
+        if not spawned_single_member and obj.create_npc then
+            obj:create_npc(spawn_smart, pos, lvid, gvid)
+        end
+
+        if spawned_single_member and spawn_smart and spawn_smart.register_npc and added_member_id then
+            local added_member = sim:object(added_member_id)
+            if added_member then
+                pcall(function()
+                    spawn_smart:register_npc(added_member)
+                end)
+            end
         end
 
         if SIMBOARD and SIMBOARD.setup_squad_and_group then
@@ -1836,6 +2741,78 @@ local function create_squad_safely_local(sec, pos, lvid, gvid)
     end
 
     return obj
+end
+
+local function create_single_npc_safely_local(sec, pos, lvid, gvid, spawn_smart)
+    local sim = alife()
+    if not sim or not sim.create or not sec or not pos or not lvid or not gvid then
+        return nil
+    end
+
+    local obj = sim:create(sec, pos, lvid, gvid)
+    if not obj then
+        return nil
+    end
+
+    if spawn_smart and spawn_smart.register_npc then
+        pcall(function()
+            spawn_smart:register_npc(obj)
+        end)
+    end
+
+    if SIMBOARD and SIMBOARD.setup_squad_and_group then
+        pcall(function()
+            SIMBOARD:setup_squad_and_group(obj)
+        end)
+    end
+
+    return obj
+end
+
+local function cleanup_failed_stationary_spawn(template_id, se_obj, squad_obj, smart_obj, npc_id, reason)
+    if npc_id then
+        pending_name_overrides[npc_id] = nil
+        pending_rank_overrides[npc_id] = nil
+        pending_relation_overrides[npc_id] = nil
+        pending_loadout_overrides[npc_id] = nil
+        stationary_custom_npcs[npc_id] = nil
+        stationary_anchor_scheduled[npc_id] = nil
+    end
+
+    if squad_obj then
+        stationary_custom_squads[squad_obj.id] = nil
+        if SIMBOARD and SIMBOARD.remove_squad then
+            pcall(function()
+                SIMBOARD:remove_squad(squad_obj)
+            end)
+        elseif squad_obj.remove_squad then
+            pcall(function()
+                squad_obj:remove_squad()
+            end)
+        end
+
+        printf(
+            "PANDA_NPC: aborted stationary template '%s'; cleaned up squad_id=%s reason=%s",
+            tostring(template_id),
+            tostring(squad_obj.id or "nil"),
+            tostring(reason or "unknown")
+        )
+        return
+    end
+
+    if se_obj then
+        local smart_id = get_server_object_smart_id(se_obj) or (smart_obj and smart_obj.id) or nil
+        if smart_id and smart_id ~= 65535 then
+            safe_unregister_from_smart(alife_object(smart_id), se_obj, "PANDA_NPC stationary spawn cleanup", smart_id)
+        end
+        release_server_object(se_obj, "PANDA_NPC stationary spawn cleanup for " .. tostring(template_id))
+        printf(
+            "PANDA_NPC: aborted stationary template '%s'; released npc_id=%s reason=%s",
+            tostring(template_id),
+            tostring(se_obj.id or npc_id or "nil"),
+            tostring(reason or "unknown")
+        )
+    end
 end
 
 -- ============================================================
@@ -1879,6 +2856,17 @@ function spawn_custom_npc(template_id, context)
     if needs_smart and not pos then
         return
     end
+    if wants_stationary_anchor and smart_obj then
+        local authored_stationary_jobs = count_authored_stationary_smart_jobs(smart_obj)
+        if authored_stationary_jobs == 0 then
+            printf(
+                "PANDA_NPC: stationary template '%s' requires a smart terrain with an authored stalker idle job; smart '%s' has none, aborting fixed-position spawn",
+                tostring(template_id),
+                tostring(smart_obj.name and smart_obj:name() or context.smart_ref or "nil")
+            )
+            return
+        end
+    end
     if not pos and not needs_smart then
         local dist = tpl.spawn_dist or 50
         pos, lvid, gvid = find_spawn_point_near_player_local(dist, dist)
@@ -1886,29 +2874,59 @@ function spawn_custom_npc(template_id, context)
 
     -- Create squad
     local sec = get_squad_section(tpl.faction)
-    local squad = create_squad_safely_local(sec, pos, lvid, gvid)
-    if not squad or squad:clsid() ~= clsid.online_offline_group_s then
-        printf("PANDA_NPC: create_squad_safely failed for template '%s' (section=%s)", tostring(template_id), tostring(sec))
-        return
+    local single_member_section = get_single_member_spawn_section(sec)
+    local squad = nil
+    local squad_id = nil
+    local member_ids = {}
+    local spawned_single_npc = nil
+
+    if wants_stationary_anchor and single_member_section then
+        spawned_single_npc = create_single_npc_safely_local(single_member_section, pos, lvid, gvid, smart_obj)
+        if not spawned_single_npc then
+            printf(
+                "PANDA_NPC: failed to create direct stationary npc '%s' from section '%s'; falling back to squad spawn",
+                tostring(template_id),
+                tostring(single_member_section)
+            )
+        end
     end
-    local squad_id = squad.id
-    local member_ids = prune_squad_to_single_member(squad, template_id)
+
+    if spawned_single_npc then
+        member_ids = { spawned_single_npc.id }
+    else
+        squad = create_squad_safely_local(sec, pos, lvid, gvid, smart_obj, single_member_section)
+        if not squad or squad:clsid() ~= clsid.online_offline_group_s then
+            printf("PANDA_NPC: create_squad_safely failed for template '%s' (section=%s)", tostring(template_id), tostring(sec))
+            return
+        end
+        squad_id = squad.id
+        member_ids = prune_squad_to_single_member(squad, template_id)
+    end
 
     -- Assign to smart terrain
-    if allow_roam and smart_obj and SIMBOARD and SIMBOARD.assign_squad_to_smart then
+    if squad and smart_obj and SIMBOARD and SIMBOARD.assign_squad_to_smart then
         SIMBOARD:assign_squad_to_smart(squad, smart_obj.id)
     end
 
     -- Apply relation
-    apply_squad_relation(squad, tpl.relation)
+    if squad then
+        apply_squad_relation(squad, tpl.relation)
+    end
 
-    if wants_stationary_anchor then
-        configure_stationary_squad(squad, "spawn_custom_npc")
+    if wants_stationary_anchor and squad then
+        configure_story_style_squad_target(squad, smart_obj)
     end
 
     -- Companion integration
     if string.lower(tpl.relation or "") == "companion" then
-        register_as_companion(squad, squad_id)
+        if squad then
+            register_as_companion(squad, squad_id)
+        elseif wants_stationary_anchor then
+            printf(
+                "PANDA_NPC: stationary template '%s' was spawned as a single npc; companion squad integration was skipped",
+                tostring(template_id)
+            )
+        end
     end
 
     -- Apply loadout + name to each member
@@ -1917,7 +2935,40 @@ function spawn_custom_npc(template_id, context)
     for _, member_id in ipairs(member_ids) do
         member_count = member_count + 1
         local se_obj = alife_object(member_id)
+        local anchor_pos = pos
+        local anchor_lvid = lvid
+        local anchor_gvid = gvid
         if se_obj then
+            if wants_stationary_anchor then
+                anchor_pos = get_obj_position(se_obj) or anchor_pos
+                anchor_lvid = get_obj_level_vertex_id(se_obj) or anchor_lvid
+                anchor_gvid = get_obj_game_vertex_id(se_obj) or anchor_gvid
+
+                local anchor_smart_id = smart_obj and smart_obj.id or get_server_object_smart_id(se_obj)
+                stationary_custom_npcs[member_id] = {
+                    mode = "smart_job",
+                    pos = vector_to_table(anchor_pos),
+                    lvid = anchor_lvid,
+                    gvid = anchor_gvid,
+                    squad_id = squad_id,
+                    smart_id = anchor_smart_id,
+                    job_section = nil,
+                }
+                if not ensure_stationary_smart_job_binding(member_id, nil, "spawn_custom_npc") then
+                    cleanup_failed_stationary_spawn(
+                        template_id,
+                        spawned_single_npc or se_obj,
+                        squad,
+                        smart_obj,
+                        member_id,
+                        "no compatible authored stationary smart job"
+                    )
+                    return
+                end
+            else
+                stationary_custom_npcs[member_id] = nil
+            end
+
             local primary_section = parse_weapon_tokens(tpl.primary)
             local secondary_section = parse_weapon_tokens(tpl.secondary)
             clear_npc_generated_loadout(se_obj, tpl)
@@ -1975,19 +3026,6 @@ function spawn_custom_npc(template_id, context)
             end
         end
 
-        if wants_stationary_anchor then
-            stationary_custom_npcs[member_id] = {
-                pos = vector_to_table(pos),
-                lvid = lvid,
-                gvid = gvid,
-                squad_id = squad_id,
-            }
-            enforce_stationary_npc_anchor(member_id, "spawn_custom_npc")
-            schedule_stationary_anchor_enforcement(member_id)
-        else
-            stationary_custom_npcs[member_id] = nil
-        end
-
         -- Track NPC
         if not active_custom_npcs[template_id] then
             active_custom_npcs[template_id] = {}
@@ -2000,9 +3038,10 @@ function spawn_custom_npc(template_id, context)
         })
     end
 
-    printf("PANDA_NPC: spawned template '%s' squad_id=%d section=%s relation=%s members=%d",
-        tostring(template_id), squad_id, tostring(sec), tostring(tpl.relation), member_count)
-    return squad
+    printf("PANDA_NPC: spawned template '%s' squad_id=%s section=%s relation=%s members=%s member_section=%s spawn_mode=%s",
+        tostring(template_id), tostring(squad_id), tostring(sec), tostring(tpl.relation), tostring(member_count), tostring(single_member_section or "fallback"),
+        spawned_single_npc and "single_npc" or "squad")
+    return spawned_single_npc or squad
 end
 
 -- ============================================================
@@ -2285,13 +3324,28 @@ function load_state(m)
             local npc_id = tonumber(raw_npc_id)
             if npc_id and type(anchor) == "table" then
                 local squad_id = tonumber(anchor.squad_id) or anchor.squad_id
+                local smart_id = tonumber(anchor.smart_id) or anchor.smart_id
+                if not smart_id and squad_id then
+                    local squad_obj = alife_object(squad_id)
+                    local inferred_smart_id = squad_obj and squad_obj.smart_id or nil
+                    if inferred_smart_id and inferred_smart_id ~= 65535 then
+                        smart_id = inferred_smart_id
+                    end
+                end
+                local mode = anchor.mode
+                if not mode or mode == "" then
+                    mode = smart_id and "smart_job" or "anchor"
+                end
                 stationary_custom_npcs[npc_id] = {
+                    mode = tostring(mode),
                     pos = anchor.pos,
                     lvid = tonumber(anchor.lvid) or anchor.lvid,
                     gvid = tonumber(anchor.gvid) or anchor.gvid,
                     squad_id = squad_id,
+                    smart_id = smart_id,
+                    job_section = anchor.job_section,
                 }
-                if squad_id then
+                if squad_id and tostring(mode) == "anchor" then
                     stationary_custom_squads[squad_id] = true
                 end
             end
@@ -2356,8 +3410,16 @@ local function on_npc_net_spawn(obj, se_obj)
     end
 
     if stationary_custom_npcs[npc_id] then
-        enforce_stationary_npc_anchor(npc_id, "npc_on_net_spawn")
-        schedule_stationary_anchor_enforcement(npc_id)
+        local anchor = stationary_custom_npcs[npc_id]
+        if get_stationary_entry_mode(anchor) == "smart_job" then
+            ensure_stationary_smart_job_binding(npc_id, obj, "npc_on_net_spawn")
+        elseif anchor and anchor.squad_id then
+            local squad_obj = alife_object(anchor.squad_id)
+            if squad_obj then
+                configure_stationary_squad(squad_obj, "npc_on_net_spawn")
+            end
+            schedule_stationary_anchor_enforcement(npc_id)
+        end
     end
 end
 
@@ -2368,6 +3430,7 @@ local function on_npc_death(obj, killer)
     end
 
     local stationary_anchor = stationary_custom_npcs[npc_id]
+    release_stationary_smart_job(npc_id)
 
     pending_name_overrides[npc_id] = nil
     pending_rank_overrides[npc_id] = nil
@@ -2394,11 +3457,23 @@ local function enforce_stationary_squad_runtime(squad_obj, reason)
     end
 
     local anchored_member = false
+    local smart_job_member = false
     for member in squad_obj:squad_members() do
-        if stationary_custom_npcs[member.id] then
-            anchored_member = true
-            enforce_stationary_npc_anchor(member.id, reason)
+        local entry = stationary_custom_npcs[member.id]
+        if entry then
+            if get_stationary_entry_mode(entry) == "anchor" then
+                anchored_member = true
+                enforce_stationary_npc_anchor(member.id, reason)
+            else
+                smart_job_member = true
+            end
         end
+    end
+
+    if smart_job_member and not anchored_member then
+        stationary_custom_squads[squad_obj.id] = nil
+        squad_obj.panda_stationary = nil
+        return
     end
 
     if not anchored_member then
@@ -2436,9 +3511,13 @@ function on_game_start()
     for npc_id in pairs(pending_loadout_overrides) do
         schedule_online_loadout_activation(npc_id)
     end
-    for npc_id in pairs(stationary_custom_npcs) do
-        enforce_stationary_npc_anchor(npc_id, "on_game_start_restore")
-        schedule_stationary_anchor_enforcement(npc_id)
+    for npc_id, entry in pairs(stationary_custom_npcs) do
+        if get_stationary_entry_mode(entry) == "smart_job" then
+            ensure_stationary_smart_job_binding(npc_id, get_live_npc_object(npc_id), "on_game_start_restore")
+        else
+            enforce_stationary_npc_anchor(npc_id, "on_game_start_restore")
+            schedule_stationary_anchor_enforcement(npc_id)
+        end
     end
     printf("PANDA_NPC: initialized")
 end

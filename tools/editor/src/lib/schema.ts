@@ -1446,7 +1446,8 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     category: 'Spawning',
     helpText:
       'Same as "Spawn Custom NPC" but places the NPC at the chosen smart terrain position instead of near the player. ' +
-      'Use this path when you want a custom NPC to stay locked to a location: turn roaming off in the template builder and the runtime will anchor that NPC to this smart terrain position. ' +
+      'Use this path when you want a custom NPC to stay locked to a location: turn roaming off in the template builder and the runtime will bind that NPC to a compatible stalker job on the chosen smart terrain. ' +
+      'Not every smart terrain has a valid fixed-position stalker job, so choose a human-capable smart terrain for non-roamable NPCs. ' +
       'The smart terrain is chosen on this command, so the template builder hides near-player spawn distance and keeps the movement lock option here.',
     examples: ['spawn_custom_npc_at:hired_guns:esc_smart_terrain_5_7', 'spawn_custom_npc_at:weapons_dealer:bar_visitors:5'],
     params: [

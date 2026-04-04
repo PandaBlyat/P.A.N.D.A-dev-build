@@ -186,7 +186,7 @@ function openNpcBuilderPanel(options: {
   subtitleEl.className = 'item-picker-subtitle';
   subtitleEl.textContent = options.showSpawnDistance
     ? 'Configure name, faction, weapons, outfit, inventory, and near-player spawn distance. Near-player spawns always roam. Saved to your conversations XML.'
-    : 'Configure name, faction, weapons, outfit, inventory, and optional smart-terrain locking. Placement comes from the command or precondition.';
+    : 'Configure name, faction, weapons, outfit, inventory, and optional smart-terrain locking. Fixed NPCs need a compatible stalker smart-terrain job. Placement comes from the command or precondition.';
 
   titleWrap.append(titleEl, subtitleEl);
 
@@ -454,7 +454,7 @@ function openNpcBuilderPanel(options: {
 
       const hint = document.createElement('div');
       hint.className = 'command-description';
-      hint.textContent = 'Turn this off to lock the NPC to the chosen smart terrain position.';
+      hint.textContent = 'Turn this off to lock the NPC to a compatible stalker idle job on the chosen smart terrain. Not every smart terrain supports fixed stalker NPCs.';
 
       checkRow.append(cb, cbLabel);
       content.append(checkRow, hint);
