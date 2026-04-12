@@ -2,6 +2,7 @@
 
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon } from './icons';
+import { resetBeginnerTooltipDismissals } from '../lib/beginner-tooltips';
 
 let modalElement: HTMLElement | null = null;
 let focusTrap: FocusTrapController | null = null;
@@ -47,6 +48,23 @@ export function openHelpModal(): void {
   body.className = 'help-modal-body';
   body.innerHTML = HELP_CONTENT;
   modal.appendChild(body);
+
+  const footer = document.createElement('div');
+  footer.className = 'help-modal-footer';
+
+  const resetTipsBtn = document.createElement('button');
+  resetTipsBtn.type = 'button';
+  resetTipsBtn.className = 'btn-sm';
+  resetTipsBtn.textContent = 'Show beginner tips again';
+  resetTipsBtn.onclick = () => {
+    resetBeginnerTooltipDismissals();
+    resetTipsBtn.textContent = 'Beginner tips reset';
+    window.setTimeout(() => {
+      resetTipsBtn.textContent = 'Show beginner tips again';
+    }, 1400);
+  };
+  footer.appendChild(resetTipsBtn);
+  modal.appendChild(footer);
 
   overlay.appendChild(modal);
   document.body.appendChild(overlay);

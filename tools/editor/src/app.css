@@ -7325,6 +7325,97 @@ strong.support-upvote-count {
 /* HELP MODAL                                                                  */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
+.beginner-tooltip {
+  position: fixed;
+  z-index: 2500;
+  width: min(340px, calc(100vw - 16px));
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 10px;
+  padding: 12px;
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border-light));
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 9%, transparent) 0%, transparent 72%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 94%, #000 6%) 0%, color-mix(in srgb, var(--bg-panel) 92%, #000 8%) 100%);
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.48),
+    0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent),
+    0 0 24px color-mix(in srgb, var(--accent-glow) 80%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.beginner-tooltip-marker {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, rgba(255, 255, 255, 0.16));
+  border-radius: 6px;
+  color: var(--accent-hover);
+  background: color-mix(in srgb, var(--accent) 12%, rgba(255, 255, 255, 0.03));
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.beginner-tooltip-copy {
+  min-width: 0;
+}
+
+.beginner-tooltip-title {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text-bright);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.beginner-tooltip-body {
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.beginner-tooltip-shortcut {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 8px;
+  padding: 2px 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 6px;
+  color: color-mix(in srgb, var(--accent-hover) 78%, white 22%);
+  background: color-mix(in srgb, var(--accent) 9%, rgba(255, 255, 255, 0.02));
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.beginner-tooltip-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.beginner-tooltip-close,
+.beginner-tooltip-dismiss {
+  min-height: 28px;
+}
+
+.help-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-darkest) 78%, transparent);
+}
+
 .help-overlay {
   position: fixed;
   inset: 0;

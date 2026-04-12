@@ -11,6 +11,7 @@ import { createIcon, setButtonContent, type IconName } from './icons';
 import { clearDraft } from '../lib/draft-storage';
 import { createEmptyProject } from '../lib/xml-export';
 import { renderProfileBadge } from './ProfileBadge';
+import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 
 type SearchResult = {
   label: string;
@@ -93,14 +94,19 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   branding.appendChild(brandCopy);
 
   const openBtn = btn('open', 'Open', importFromJson, 'Open a saved .panda/.json project or import a PANDA XML file');
+  setBeginnerTooltip(openBtn, 'toolbar-open');
   const saveBtn = btn('save', 'Save', exportProjectJson, 'Save as .panda project file (preserves editor data)');
+  setBeginnerTooltip(saveBtn, 'toolbar-save');
   const importBtn = btn('import', 'Import', importFromXml, 'Import stories from an existing game XML file');
+  setBeginnerTooltip(importBtn, 'toolbar-import');
   const exportXmlBtn = btn('export', 'Export XML', exportXml, 'Export as game-ready XML file for S.T.A.L.K.E.R. Anomaly', {
     classes: ['btn-subtle'],
   });
+  setBeginnerTooltip(exportXmlBtn, 'toolbar-export-xml');
   const communityBtn = btn('share', 'Community', openSharePanel, 'Browse, import, and publish community stories', {
     classes: ['btn-community', 'toolbar-button-primary'],
   });
+  setBeginnerTooltip(communityBtn, 'toolbar-community');
   const supportBtn = btn('support', 'Support', openSupportPanel, 'Support the Creator', {
     classes: ['toolbar-support-trigger'],
   });
@@ -109,6 +115,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
     ariaLabel: 'Open P.A.N.D.A. quick-start guide',
     icon: null,
   });
+  setBeginnerTooltip(helpBtn, 'toolbar-help');
   const loginAction = getLoginAction();
   const loginBtn = loginAction
     ? btn('user', 'Log In', loginAction, 'Log in or create a callsign to track your XP and level in the Zone.', {
@@ -146,6 +153,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
     const densitySelect = document.createElement('select');
     densitySelect.className = 'toolbar-density-select toolbar-select-quiet';
     densitySelect.title = 'Adjust how much information each turn card shows in the flow editor.';
+    setBeginnerTooltip(densitySelect, 'toolbar-density');
     const densityOptions: FlowDensity[] = ['compact', 'standard', 'detailed'];
     for (const density of densityOptions) {
       const option = document.createElement('option');
@@ -157,6 +165,8 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
     densitySelect.onchange = () => store.setFlowDensity(densitySelect.value as FlowDensity);
     const undoBtn = iconBtn('undo', () => store.undo(), 'Undo', 'Undo last change (Ctrl+Z)');
     const redoBtn = iconBtn('redo', () => store.redo(), 'Redo', 'Redo last undone change (Ctrl+Y)');
+    setBeginnerTooltip(undoBtn, 'toolbar-undo');
+    setBeginnerTooltip(redoBtn, 'toolbar-redo');
     undoBtn.disabled = state.undoStack.length === 0;
     redoBtn.disabled = state.redoStack.length === 0;
     const historyGroup = document.createElement('div');
@@ -262,6 +272,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   const densitySelect = document.createElement('select');
   densitySelect.className = 'toolbar-density-select toolbar-select-quiet';
   densitySelect.title = 'Adjust how much information each turn card shows in the flow editor.';
+  setBeginnerTooltip(densitySelect, 'toolbar-density');
   const densityOptions: FlowDensity[] = ['compact', 'standard', 'detailed'];
   for (const density of densityOptions) {
     const option = document.createElement('option');
@@ -274,6 +285,8 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
 
   const undoBtn = iconBtn('undo', () => store.undo(), 'Undo', 'Undo last change (Ctrl+Z)');
   const redoBtn = iconBtn('redo', () => store.redo(), 'Redo', 'Redo last undone change (Ctrl+Y)');
+  setBeginnerTooltip(undoBtn, 'toolbar-undo');
+  setBeginnerTooltip(redoBtn, 'toolbar-redo');
   undoBtn.disabled = state.undoStack.length === 0;
   redoBtn.disabled = state.redoStack.length === 0;
 
@@ -370,6 +383,7 @@ function renderQuickSearch(): HTMLElement {
   input.placeholder = 'Jump to convo, turn, string…';
   input.title = 'Quick navigation across stories, choices, commands, and system strings (Ctrl/Cmd+P)';
   input.setAttribute('data-global-search', 'true');
+  setBeginnerTooltip(input, 'toolbar-search');
 
   const results = document.createElement('div');
   results.className = 'toolbar-search-results';
@@ -505,6 +519,7 @@ function createOverflowMenu(label: string, actions: OverflowAction[]): HTMLEleme
   summary.textContent = label;
   summary.setAttribute('role', 'button');
   summary.setAttribute('aria-label', `${label} menu`);
+  setBeginnerTooltip(summary, 'toolbar-more');
   details.appendChild(summary);
 
   const menu = document.createElement('div');
@@ -517,6 +532,7 @@ function createOverflowMenu(label: string, actions: OverflowAction[]): HTMLEleme
     setButtonContent(item, action.icon, action.label);
     item.title = action.title ?? action.label;
     item.disabled = Boolean(action.disabled);
+    setBeginnerTooltip(item, action.label === 'Reset Intro' ? 'toolbar-reset-intro' : action.label === 'Help' ? 'toolbar-help' : 'toolbar-more');
     item.onclick = () => {
       details.open = false;
       action.onclick();
@@ -629,6 +645,11 @@ function toggleBtn(
   tooltip?: string,
 ): HTMLButtonElement {
   const b = btn(icon, label, onclick, tooltip, { classes: ['toolbar-toggle-button'] });
+  if (icon === 'xml') {
+    setBeginnerTooltip(b, 'toolbar-toggle-xml');
+  } else if (icon === 'strings') {
+    setBeginnerTooltip(b, 'toolbar-toggle-strings');
+  }
   if (active) {
     b.classList.add('is-active');
     b.setAttribute('aria-pressed', 'true');

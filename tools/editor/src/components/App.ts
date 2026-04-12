@@ -17,6 +17,7 @@ import { createBlankProject } from '../lib/project-io';
 import { setButtonContent, createIcon } from './icons';
 import { getFactionThemeVariables } from '../lib/faction-colors';
 import { getConversationFaction } from '../lib/types';
+import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 
 const PANEL_MIN_WIDTH = 220;
 const PANEL_MAX_WIDTH = 520;
@@ -344,6 +345,7 @@ function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSel
     const autoLayoutBtn = document.createElement('button');
     autoLayoutBtn.className = 'btn-sm';
     setButtonContent(autoLayoutBtn, 'locate', 'Auto Layout');
+    setBeginnerTooltip(autoLayoutBtn, 'flow-auto-layout');
     autoLayoutBtn.onclick = () => store.autoLayoutConversation(conv.id);
 
     const addTurnBtn = document.createElement('button');
@@ -351,6 +353,7 @@ function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSel
     setButtonContent(addTurnBtn, 'add', '+ Turn');
     addTurnBtn.title = 'Add a new turn to create another branch';
     addTurnBtn.setAttribute('aria-label', addTurnBtn.title);
+    setBeginnerTooltip(addTurnBtn, 'flow-add-turn');
     addTurnBtn.onclick = () => store.addTurn(conv.id);
 
     shell.centerActions.append(autoLayoutBtn, addTurnBtn);
@@ -448,6 +451,7 @@ function createAddConversationButton(): HTMLButtonElement {
   addBtn.appendChild(createIcon('add'));
   addBtn.title = 'New story';
   addBtn.setAttribute('aria-label', 'New story');
+  setBeginnerTooltip(addBtn, 'story-new');
   addBtn.onclick = () => createBlankProject();
   return addBtn;
 }
@@ -467,6 +471,13 @@ function createSelectedConversationActionButton(
   button.title = title;
   button.setAttribute('aria-label', title);
   button.disabled = disabled;
+  if (title.startsWith('Center')) {
+    setBeginnerTooltip(button, 'story-center');
+  } else if (title.startsWith('Duplicate')) {
+    setBeginnerTooltip(button, 'story-duplicate');
+  } else if (title.startsWith('Delete')) {
+    setBeginnerTooltip(button, 'story-delete');
+  }
   button.onclick = onClick;
   return button;
 }
@@ -478,6 +489,7 @@ function createPanelLauncherButton(side: 'left' | 'right', label: string): HTMLB
   button.textContent = label;
   button.title = `Open ${label.toLowerCase()}`;
   button.setAttribute('aria-label', button.title);
+  setBeginnerTooltip(button, 'panel-toggle');
   button.onclick = () => toggleDrawer(side);
   return button;
 }
@@ -498,6 +510,7 @@ function createPanelToggleButton(side: 'left' | 'right'): HTMLButtonElement {
   }
 
   button.setAttribute('aria-label', button.title);
+  setBeginnerTooltip(button, 'panel-toggle');
   button.onclick = () => {
     if (layoutState.responsiveMode !== 'desktop') {
       toggleDrawer(side);
@@ -519,6 +532,7 @@ function createSplitter(side: 'left' | 'right', main: HTMLElement): HTMLDivEleme
   splitter.className = 'panel-splitter';
   splitter.dataset.side = side;
   splitter.title = `Drag to resize the ${side === 'left' ? 'story list' : 'properties panel'}`;
+  setBeginnerTooltip(splitter, 'panel-resize');
   splitter.onpointerdown = (event) => startPanelResize(event, side, main);
   return splitter;
 }
@@ -696,6 +710,7 @@ function createUtilityRailButton(
   button.type = 'button';
   button.className = 'utility-rail-button';
   button.disabled = disabled;
+  setBeginnerTooltip(button, label === 'Issues' ? 'story-issues' : label === 'XML' || label === 'Strings' ? 'workspace-tab' : 'panel-toggle');
   button.onclick = onclick;
 
   const labelEl = document.createElement('span');
@@ -723,6 +738,7 @@ function renderToolbarToggle(shell: AppShell): void {
   toggle.title = layoutState.toolbarHidden ? 'Show toolbar' : 'Hide toolbar';
   toggle.setAttribute('aria-label', toggle.title);
   toggle.textContent = layoutState.toolbarHidden ? '▼' : '▲';
+  setBeginnerTooltip(toggle, 'panel-toggle');
   toggle.onclick = () => {
     layoutState.toolbarHidden = !layoutState.toolbarHidden;
     renderApp(shell.container);

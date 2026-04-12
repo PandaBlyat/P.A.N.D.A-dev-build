@@ -5,6 +5,7 @@ import { store } from '../lib/state';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import type { ValidationMessage } from '../lib/types';
 import { createBadge, createControlContent, setButtonContent } from './icons';
+import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 
 export function renderValidationBar(container: HTMLElement): void {
   const state = store.get();
@@ -46,6 +47,7 @@ export function renderValidationBar(container: HTMLElement): void {
       item.setAttribute('aria-label', `${leading} at ${formatLocation(msg)}. ${formatMessage(msg)}`);
       item.innerHTML = `<strong>${leading} · ${formatLocation(msg)}</strong><span>${escapeHtml(formatMessage(msg))}</span>`;
       item.title = buildTooltip(msg);
+      setBeginnerTooltip(item, 'validation-message');
       item.onclick = () => navigateToMessage(msg);
       highlights.appendChild(item);
     }
@@ -89,6 +91,7 @@ export function createValidationWorkspaceContent(messages: ValidationMessage[]):
       item.className = `validation-drawer-item ${msg.level}`;
       item.setAttribute('aria-label', `${level === 'error' ? 'Error' : 'Warning'} at ${formatLocation(msg)}. ${formatMessage(msg)}`);
       item.innerHTML = `<strong>${formatLocation(msg)}</strong><span>${escapeHtml(formatMessage(msg))}</span><small>${escapeHtml(msg.code)}</small>`;
+      setBeginnerTooltip(item, 'validation-message');
       item.onclick = () => navigateToMessage(msg);
       list.appendChild(item);
     }

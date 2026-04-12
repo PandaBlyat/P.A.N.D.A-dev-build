@@ -12,6 +12,7 @@ import type { Choice, Conversation, ConversationChannel, Turn } from '../lib/typ
 import { getConversationFaction } from '../lib/types';
 import type { FlowDensity } from '../lib/state';
 import { measurePerf, recordPerf } from '../lib/perf';
+import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 
 type TurnPositionMap = Map<number, { x: number; y: number }>;
 type EdgeKind = 'continue' | 'pause-success' | 'pause-fail';
@@ -325,6 +326,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   canvas.className = 'flow-canvas';
   canvas.setAttribute('role', 'region');
   canvas.setAttribute('aria-label', `Story ${conv.id} flow graph`);
+  setBeginnerTooltip(canvas, 'flow-canvas');
 
   const content = document.createElement('div');
   content.className = 'flow-content';
@@ -881,6 +883,7 @@ function renderControls(options: {
   zoomOut.className = 'btn-sm';
   zoomOut.textContent = '−';
   zoomOut.title = 'Zoom out';
+  setBeginnerTooltip(zoomOut, 'flow-zoom');
   zoomOut.onclick = options.onZoomOut;
 
   const zoomIn = document.createElement('button');
@@ -888,6 +891,7 @@ function renderControls(options: {
   zoomIn.className = 'btn-sm';
   zoomIn.textContent = '+';
   zoomIn.title = 'Zoom in';
+  setBeginnerTooltip(zoomIn, 'flow-zoom');
   zoomIn.onclick = options.onZoomIn;
 
   const fit = document.createElement('button');
@@ -895,6 +899,7 @@ function renderControls(options: {
   fit.className = 'btn-sm';
   fit.textContent = 'Fit';
   fit.title = 'Fit conversation to viewport';
+  setBeginnerTooltip(fit, 'flow-fit');
   fit.onclick = options.onFit;
 
   const reset = document.createElement('button');
@@ -902,6 +907,7 @@ function renderControls(options: {
   reset.className = 'btn-sm';
   reset.textContent = 'Reset';
   reset.title = 'Reset pan and zoom';
+  setBeginnerTooltip(reset, 'flow-reset');
   reset.onclick = options.onReset;
 
   const cursorToggle = document.createElement('label');
@@ -1023,6 +1029,7 @@ function renderTurnNode(options: {
   node.setAttribute('role', 'button');
   node.setAttribute('aria-label', buildTurnAriaLabel(turn, turnLabels));
   node.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  setBeginnerTooltip(node, 'flow-turn-node');
   node.style.left = `${turn.position.x}px`;
   node.style.top = `${turn.position.y}px`;
   node.style.width = `${nodeWidth}px`;
@@ -1172,6 +1179,7 @@ function renderTurnNode(options: {
   inputPort.className = 'turn-input-port';
   inputPort.title = `Incoming connections for ${turnLabels.getLongLabel(turn.turnNumber)}. Drop a dragged choice here to connect it, or press Escape to cancel the drag.`;
   inputPort.setAttribute('aria-label', `Incoming connections for ${turnLabels.getLongLabel(turn.turnNumber)}. Drag a choice connector here to link it, then release to connect or press Escape to cancel.`);
+  setBeginnerTooltip(inputPort, 'flow-input-port');
   inputPort.style.background = `linear-gradient(180deg, ${branchColor}cc, ${branchColor}99)`;
   inputPort.onclick = (event) => {
     event.stopPropagation();
@@ -1189,6 +1197,7 @@ function renderTurnNode(options: {
   labelSpan.textContent = turnLabels.getLongLabel(turn.turnNumber);
   labelSpan.title = 'Click to rename this turn';
   labelSpan.style.cursor = 'pointer';
+  setBeginnerTooltip(labelSpan, 'flow-turn-label');
   labelSpan.onclick = (e) => {
     e.stopPropagation();
     labelSpan.style.display = 'none';
@@ -1240,6 +1249,7 @@ function renderTurnNode(options: {
   colorDot.className = 'turn-color-input';
   colorDot.value = branchColor;
   colorDot.title = 'Change branch color';
+  setBeginnerTooltip(colorDot, 'flow-turn-color');
   const applyTurnColor = (event: Event) => {
     event.stopPropagation();
     store.setTurnColor(conv.id, turn.turnNumber, colorDot.value);
@@ -1260,17 +1270,20 @@ function renderTurnNode(options: {
   const duplicateBtn = createTurnActionButton('Duplicate turn', () => {
     onKeyboardShortcut(turn.turnNumber, 'duplicate-turn');
   });
+  setBeginnerTooltip(duplicateBtn, 'flow-turn-actions');
   duplicateBtn.appendChild(createIcon('duplicate'));
   turnActions.appendChild(duplicateBtn);
 
   const copyBtn = createTurnActionButton('Copy turn', () => {
     onKeyboardShortcut(turn.turnNumber, 'copy-turn');
   }, 'Copy');
+  setBeginnerTooltip(copyBtn, 'flow-turn-actions');
   turnActions.appendChild(copyBtn);
 
   const pasteBtn = createTurnActionButton('Paste copied turn after this one', () => {
     onKeyboardShortcut(turn.turnNumber, 'paste-turn');
   }, 'Paste');
+  setBeginnerTooltip(pasteBtn, 'flow-turn-actions');
   pasteBtn.disabled = !canPasteTurn;
   turnActions.appendChild(pasteBtn);
 
@@ -1280,6 +1293,7 @@ function renderTurnNode(options: {
     delBtn.textContent = '×';
     delBtn.title = 'Delete turn';
     delBtn.style.color = 'var(--danger)';
+    setBeginnerTooltip(delBtn, 'flow-turn-actions');
     delBtn.onclick = (e) => {
       e.stopPropagation();
       store.deleteTurn(conv.id, turn.turnNumber);
@@ -1313,6 +1327,7 @@ function renderTurnNode(options: {
     item.className = 'turn-choice-item' + (choiceActive ? ' selected' : '');
     item.style.setProperty('--choice-branch-color', choiceBranchColor);
     item.style.setProperty('--choice-branch-glow', `${choiceBranchColor}40`);
+    setBeginnerTooltip(item, 'flow-choice-row');
     item.onclick = (e) => {
       e.stopPropagation();
       store.batch(() => {
@@ -1336,6 +1351,7 @@ function renderTurnNode(options: {
     port.setAttribute('aria-label', choice.continueTo != null
       ? `Connection handle for choice ${choice.index}. Drag to retarget this link, double-click to create a new connected turn, or use the unlink button to disconnect.`
       : `Connection handle for choice ${choice.index}. Drag to connect it to another turn, or double-click to create a new connected turn.`);
+    setBeginnerTooltip(port, 'flow-output-port');
     port.title = choice.continueTo != null
       ? `Drag to change the destination for Choice ${choice.index}. Double-click to create a new connected turn, or use Unlink to disconnect. Press Escape to cancel a drag.`
       : `Drag to connect Choice ${choice.index} to another turn. Double-click to create a new connected turn. Press Escape to cancel a drag.`;
@@ -1381,6 +1397,7 @@ function renderTurnNode(options: {
       unlinkButton.textContent = 'Unlink';
       unlinkButton.title = `Disconnect Choice ${choice.index} from ${turnLabels.getLongLabel(choice.continueTo)}`;
       unlinkButton.setAttribute('aria-label', `Disconnect choice ${choice.index} from ${turnLabels.getLongLabel(choice.continueTo)}`);
+      setBeginnerTooltip(unlinkButton, 'flow-unlink');
       unlinkButton.onclick = (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -1436,6 +1453,7 @@ function renderTurnNode(options: {
     branchButton.textContent = '+';
     branchButton.title = `Create a new turn for Choice ${choice.index}`;
     branchButton.setAttribute('aria-label', `Create a new branch turn for choice ${choice.index}`);
+    setBeginnerTooltip(branchButton, 'flow-branch-add');
     branchButton.onclick = (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -1630,6 +1648,7 @@ function drawEdges(options: {
       path.dataset.sourceTurnNumber = String(edge.sourceTurnNumber);
       path.dataset.sourceChoiceIndex = String(edge.sourceChoiceIndex);
       path.dataset.targetTurnNumber = String(edge.targetTurnNumber);
+      setBeginnerTooltip(path as unknown as HTMLElement, 'flow-edge');
       const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
       title.textContent = edge.kind === 'continue'
         ? `Choice ${edge.sourceChoiceIndex} → ${turnLabels.getLongLabel(edge.targetTurnNumber)} (click to select, right-click to disconnect)`

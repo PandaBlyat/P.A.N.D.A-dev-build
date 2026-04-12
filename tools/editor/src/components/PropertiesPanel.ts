@@ -39,6 +39,7 @@ import { formatGameItemLabel } from '../lib/item-catalog';
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { createBadge, createIcon, setButtonContent } from './icons';
 import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
+import { setBeginnerTooltip, type BeginnerTooltipPresetId } from '../lib/beginner-tooltips';
 
 const ADDABLE_PRECONDITION_SCHEMAS = PRECONDITION_SCHEMAS.filter((schema) => !schema.pickerHidden);
 const NESTED_PRECONDITION_BLOCKLIST = new Set([
@@ -71,6 +72,35 @@ const CONVERSATION_TEXT_RENDER = createStateChange('conversationList', 'properti
 const PROPERTIES_TEXT_RENDER = createStateChange('propertiesPanel');
 const SELECTION_TEXT_RENDER = createStateChange('flowEditor', 'propertiesPanel');
 
+function slugTooltipId(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'field';
+}
+
+function getFieldTooltipPreset(labelText: string): BeginnerTooltipPresetId | null {
+  const normalized = labelText.toLowerCase();
+  if (normalized === 'label') return 'field-label';
+  if (normalized === 'opening message') return 'field-opening-message';
+  if (normalized === 'player choice text') return 'field-choice-text';
+  if (normalized === 'npc reply') return 'field-npc-reply';
+  if (normalized === 'continue as') return 'field-continue-as';
+  return null;
+}
+
+function getSectionTooltipPreset(title: string): BeginnerTooltipPresetId | null {
+  const normalized = title.toLowerCase();
+  if (normalized.includes('dynamic placeholders')) return 'section-placeholders';
+  if (normalized.includes('relationship variant')) return 'section-reply-variants';
+  if (normalized.includes('available when talking to')) return 'section-f2f-targeting';
+  if (normalized.includes('advanced channel')) return 'section-advanced-channel';
+  if (normalized.includes('branch preconditions')) return 'section-branch-preconditions';
+  if (normalized.includes('choice preconditions')) return 'section-choice-preconditions';
+  if (normalized.includes('preconditions')) return 'section-preconditions';
+  if (normalized.includes('outcomes')) return 'section-outcomes';
+  if (normalized.includes('continuation')) return 'section-continuation';
+  if (normalized.includes('timeout')) return 'section-timeout';
+  return null;
+}
+
 function createCollapsibleSection(
   key: string,
   title: string,
@@ -89,6 +119,10 @@ function createCollapsibleSection(
   const isCollapsed = collapsedSections.has(key);
   const wrapper = document.createElement('div');
   wrapper.className = `props-collapsible${isCollapsed ? ' is-collapsed' : ''}`;
+  const tooltipPreset = getSectionTooltipPreset(title);
+  if (tooltipPreset) {
+    setBeginnerTooltip(wrapper, tooltipPreset);
+  }
 
   const header = document.createElement('div');
   header.className = 'props-collapsible-header';
@@ -211,6 +245,7 @@ export function renderPropertiesPanel(container: HTMLElement): void {
   convTab.className = 'tab' + (activeTab === 'conversation' ? ' active' : '');
   convTab.textContent = 'Story';
   convTab.title = 'Edit story label, preconditions & settings';
+  setBeginnerTooltip(convTab, 'inspector-story-tab');
   convTab.onclick = () => store.setPropertiesTab('conversation');
   tabBar.appendChild(convTab);
 
@@ -225,6 +260,7 @@ export function renderPropertiesPanel(container: HTMLElement): void {
     selTab.textContent = 'Turn / Choice';
   }
   selTab.title = turn ? 'Edit selected turn or choice properties' : 'Select a turn in the flow editor';
+  setBeginnerTooltip(selTab, 'inspector-selection-tab');
   selTab.onclick = () => {
     if (turn) {
       store.setPropertiesTab('selection');
@@ -285,6 +321,7 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   // Start Mode — controls how this conversation is triggered
   const startModeField = document.createElement('div');
   startModeField.className = 'field';
+  setBeginnerTooltip(startModeField, 'field-start-mode');
   const startModeLabel = document.createElement('label');
   startModeLabel.textContent = 'Start Mode';
   startModeField.appendChild(startModeLabel);
@@ -315,6 +352,7 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
 
   const initialChannelField = document.createElement('div');
   initialChannelField.className = 'field';
+  setBeginnerTooltip(initialChannelField, 'field-initial-channel');
   const initialChannelLabel = document.createElement('label');
   initialChannelLabel.textContent = 'Initial Conversation Channel';
   initialChannelField.appendChild(initialChannelLabel);
@@ -1272,6 +1310,7 @@ function renderChoiceProperties(
   const currentContinuationChannel = normalizeChannel(choice.continueChannel ?? choice.continue_channel, currentChoiceChannel);
   const continueAsField = document.createElement('div');
   continueAsField.className = 'field';
+  setBeginnerTooltip(continueAsField, 'field-continue-as');
   const continueAsLabel = document.createElement('label');
   continueAsLabel.textContent = 'Continue As';
   continueAsField.appendChild(continueAsLabel);
@@ -1603,6 +1642,7 @@ function renderPreconditionEditor(
   const item = document.createElement('div');
   item.className = 'precond-item clickable';
   item.setAttribute('data-field-key', owner.getItemFieldKey(path[0] as number));
+  setBeginnerTooltip(item, 'command-row');
 
   const indexBadge = document.createElement('span');
   indexBadge.className = 'logic-row-index';
@@ -1772,6 +1812,7 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
     item.draggable = true;
     item.dataset.outcomeIdx = String(idx);
     item.setAttribute('data-field-key', getOutcomeItemFieldKey(conv.id, turn.turnNumber, choice.index, idx));
+    setBeginnerTooltip(item, 'command-row');
 
     // Drag handle
     const handle = document.createElement('span');
@@ -1948,6 +1989,13 @@ function renderParamEditors(
     const field = document.createElement('div');
     field.className = 'param-editor-field';
     field.style.cssText = 'display:flex; flex-direction:column; align-items:stretch; gap:4px; margin-bottom:8px;';
+    setBeginnerTooltip(field, {
+      id: `command-param-${schema.name}-${paramDef.name}`,
+      title: paramDef.label,
+      body: paramDef.helpText
+        ?? (paramDef.examples?.length ? `Example: ${paramDef.examples[0]}` : 'Command parameter exported into generated PANDA command syntax.'),
+      placement: 'left',
+    });
 
     const label = document.createElement('label');
     label.textContent = paramDef.label;
@@ -3245,6 +3293,7 @@ function showCommandPicker(
   searchInput.type = 'text';
   searchInput.placeholder = options.searchPlaceholder ?? 'Search commands...';
   searchInput.className = 'dropdown-search command-picker-search';
+  setBeginnerTooltip(searchInput, 'command-picker-search');
   panel.appendChild(searchInput);
 
   const content = document.createElement('div');
@@ -3289,6 +3338,7 @@ function showCommandPicker(
       button.type = 'button';
       button.className = `command-picker-category${category === activeCategory ? ' is-active' : ''}`;
       button.innerHTML = `<span>${category}</span><span class="command-picker-category-count">${items.length}</span>`;
+      setBeginnerTooltip(button, 'command-picker-category');
       button.onclick = () => {
         activeCategory = category;
         renderPicker(filter);
@@ -3331,6 +3381,12 @@ function showCommandPicker(
       const card = document.createElement('button');
       card.type = 'button';
       card.className = 'command-picker-card';
+      setBeginnerTooltip(card, {
+        id: `command-picker-card-${schema.name}`,
+        title: schema.label,
+        body: schema.helpText ?? schema.description,
+        placement: 'left',
+      });
       const paramsSummary = schema.params.length > 0
         ? `${schema.params.length} param${schema.params.length === 1 ? '' : 's'}`
         : 'No params';
@@ -3667,6 +3723,17 @@ function createField(
 ): HTMLElement {
   const field = document.createElement('div');
   field.className = 'field';
+  const tooltipPreset = getFieldTooltipPreset(labelText);
+  if (tooltipPreset) {
+    setBeginnerTooltip(field, tooltipPreset);
+  } else if (hint) {
+    setBeginnerTooltip(field, {
+      id: `field-${slugTooltipId(labelText)}`,
+      title: labelText,
+      body: hint,
+      placement: 'left',
+    });
+  }
   const resolvedFieldKey = fieldKey || 'field-' + labelText.replace(/\s+/g, '-').toLowerCase();
   const commitField = (nextValue: string): void => {
     flushDebounced(resolvedFieldKey);

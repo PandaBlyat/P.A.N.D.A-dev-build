@@ -3,6 +3,7 @@ import type { BottomWorkspaceTab } from '../lib/state';
 import { createSystemStringsPanelContent } from './SystemStringsPanel';
 import { createXmlPreviewContent, updateXmlPreviewContent } from './XmlPreview';
 import { createControlContent, setButtonContent } from './icons';
+import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 
 type WorkspaceItem = {
   key: BottomWorkspaceTab;
@@ -56,6 +57,7 @@ function getWorkspaceShell(container: HTMLElement): WorkspaceShell {
   const resizeHandle = document.createElement('div');
   resizeHandle.className = 'bottom-workspace-resize-handle';
   resizeHandle.title = 'Drag to resize the bottom workspace';
+  setBeginnerTooltip(resizeHandle, 'workspace-resize');
   resizeHandle.onmousedown = (event) => startResize(event);
   root.appendChild(resizeHandle);
 
@@ -114,6 +116,7 @@ function updateWorkspaceHeader(shell: WorkspaceShell, items: WorkspaceItem[], ac
       tab.type = 'button';
       tab.className = `bottom-workspace-tab${item.key === activeItem.key ? ' is-active' : ''}`;
       tab.appendChild(createControlContent(item.icon, item.label));
+      setBeginnerTooltip(tab, 'workspace-tab');
       tab.onclick = () => store.setBottomWorkspaceTab(item.key);
       shell.tabs.appendChild(tab);
     }
@@ -128,6 +131,7 @@ function updateWorkspaceHeader(shell: WorkspaceShell, items: WorkspaceItem[], ac
   closeBtn.type = 'button';
   closeBtn.className = 'btn-sm';
   setButtonContent(closeBtn, 'close', `Close ${activeItem.label}`);
+  setBeginnerTooltip(closeBtn, 'workspace-close');
   closeBtn.onclick = () => store.closeBottomWorkspaceTab(activeItem.key);
   shell.actions.appendChild(closeBtn);
 }
@@ -200,6 +204,7 @@ function createAddStringButton(): HTMLButtonElement {
   addBtn.type = 'button';
   addBtn.className = 'btn-sm';
   setButtonContent(addBtn, 'add', 'Add string');
+  setBeginnerTooltip(addBtn, 'workspace-add-string');
   addBtn.onclick = () => {
     const currentState = store.get();
     let nextIndex = currentState.systemStrings.size + 1;

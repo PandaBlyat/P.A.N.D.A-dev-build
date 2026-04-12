@@ -9,6 +9,7 @@ import { createValidationWorkspaceContent } from './ValidationBar';
 import { createOnboardingNudge } from './Onboarding';
 import { createIcon, setButtonContent } from './icons';
 import { openPlayPanel } from './PlayPanel';
+import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 
 export function centerConversationSelection(conversationId: number): void {
   const currentState = store.get();
@@ -70,6 +71,7 @@ export function renderConversationList(container: HTMLElement): void {
     const conversationFaction = getConversationFaction(conv, state.project.faction);
     item.style.setProperty('--conversation-faction-color', FACTION_COLORS[conversationFaction]);
     item.setAttribute('aria-label', `${conversationLabel}, ${FACTION_DISPLAY_NAMES[conversationFaction]}, ${conv.turns.length} turns`);
+    setBeginnerTooltip(item, 'story-select');
     item.onclick = () => {
       store.selectConversation(conv.id);
     };
@@ -171,6 +173,7 @@ export function renderConversationList(container: HTMLElement): void {
     ? (state.showValidationPanel ? 'Hide current issues' : `Show current issues (${issueCount})`)
     : 'No current issues';
   toggle.disabled = issueCount === 0;
+  setBeginnerTooltip(toggle, 'story-issues');
   toggle.onclick = () => store.toggleValidationPanel();
   issuesFooter.appendChild(toggle);
 

@@ -40,6 +40,8 @@ import { openUsernameModal, isUsernameModalOpen } from './components/UsernameMod
 import { recordDailyLogin } from './lib/gamification';
 import { showXpToast } from './components/XpToast';
 import { showGamificationToast } from './components/AchievementToast';
+import { installBeginnerTooltipBridge } from './components/BeginnerTooltip';
+import { mountBeginnerTooltipController } from './lib/beginner-tooltips';
 
 type IdleCallbackHandle = number;
 type IdleCallbackDeadline = { didTimeout: boolean; timeRemaining: () => number };
@@ -48,11 +50,13 @@ type IdleCallbackCanceller = (handle: IdleCallbackHandle) => void;
 
 // Boot
 const app = document.getElementById('app')!;
+installBeginnerTooltipBridge();
 const restoredDraft = readDraft();
 if (restoredDraft) {
   store.loadProject(restoredDraft.project, restoredDraft.systemStrings);
 }
 renderApp(app);
+mountBeginnerTooltipController(document.body);
 
 // Track site visitor (best-effort, fire-and-forget)
 void trackSiteVisitor();
