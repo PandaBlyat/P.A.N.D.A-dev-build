@@ -20,8 +20,10 @@ import {
   renderPropertiesPanel,
   renderToolbar,
   tryFastFlowUpdate,
+  trySyncFlowEditor,
 } from './components/App';
 import { flushAllDebounced } from './components/PropertiesPanel';
+import { installPerfBenchmark } from './lib/perf-benchmark';
 import {
   trackSiteVisitor,
   fetchVisitorCount,
@@ -56,6 +58,7 @@ if (restoredDraft) {
   store.loadProject(restoredDraft.project, restoredDraft.systemStrings);
 }
 renderApp(app);
+installPerfBenchmark();
 mountBeginnerTooltipController(document.body);
 
 // Track site visitor (best-effort, fire-and-forget)
@@ -336,7 +339,26 @@ function mergeStateChanges(current: StateChange | null, incoming: StateChange): 
   merged.projectChanged = current.projectChanged || incoming.projectChanged;
   merged.systemStringsChanged = current.systemStringsChanged || incoming.systemStringsChanged;
   merged.validationChanged = current.validationChanged || incoming.validationChanged;
+  merged.reason = mergeRenderReason(current.reason, incoming.reason);
+  merged.flow = mergeFlowMeta(current.flow, incoming.flow);
   return merged;
+}
+
+function mergeRenderReason(a: StateChange['reason'], b: StateChange['reason']): StateChange['reason'] {
+  if (a === b) return a;
+  if (a === 'structure' || b === 'structure') return 'structure';
+  if (a === 'position' || b === 'position') return 'position';
+  if (a === 'text-content' || b === 'text-content') return 'text-content';
+  if (a === 'settings' || b === 'settings') return 'settings';
+  if (a === 'validation' || b === 'validation') return 'validation';
+  if (a === 'selection' || b === 'selection') return 'selection';
+  return 'generic';
+}
+
+function mergeFlowMeta(a: StateChange['flow'], b: StateChange['flow']): StateChange['flow'] {
+  if (!a) return b ? { ...b } : undefined;
+  if (!b) return { ...a };
+  return { kind: mergeRenderReason(a.kind, b.kind) as NonNullable<StateChange['flow']>['kind'] };
 }
 
 function cloneChangeForTargets(change: StateChange, targets: readonly RenderTarget[]): StateChange | null {
@@ -347,6 +369,8 @@ function cloneChangeForTargets(change: StateChange, targets: readonly RenderTarg
   next.projectChanged = change.projectChanged;
   next.systemStringsChanged = change.systemStringsChanged;
   next.validationChanged = change.validationChanged;
+  next.reason = change.reason;
+  next.flow = change.flow ? { ...change.flow } : undefined;
   return next;
 }
 
@@ -422,6 +446,8 @@ function flushRender(change: StateChange): void {
   let flowHandled = false;
   if (isSelectionOnlyChange(change)) {
     flowHandled = tryFastFlowUpdate();
+  } else if (change.targets.includes('flowEditor')) {
+    flowHandled = trySyncFlowEditor(change);
   }
 
   for (const target of change.targets) {

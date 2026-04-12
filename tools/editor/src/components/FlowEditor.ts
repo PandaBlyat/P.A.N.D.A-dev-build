@@ -1,11 +1,12 @@
 // P.A.N.D.A. Conversation Editor — Visual Flow Editor (Center Panel)
 
-import { store } from '../lib/state';
+import { store, type StateChange } from '../lib/state';
 import { requestFlowCenter, setActiveFlowViewport, type FlowViewportApi } from '../lib/flow-navigation';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { createOnboardingNudge } from './Onboarding';
 import { FACTION_COLORS } from '../lib/faction-colors';
 import { estimateFlowNodeHeight, FLOW_WORKSPACE_MIN_HEIGHT, FLOW_WORKSPACE_MIN_WIDTH, getFlowNodeLayout } from '../lib/flow-layout';
+import { buildFlowGraphModel, getVisibleFlowItems, type FlowGraphModel } from '../lib/flow-graph-model';
 import { createIcon } from './icons';
 import { createFlowCursorSystem, type FlowCursorSystem } from './FlowCursor';
 import type { Choice, Conversation, ConversationChannel, Turn } from '../lib/types';
@@ -104,6 +105,10 @@ type LiveFlowState = {
   factionColor: string;
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
   portOffsetCache: Map<string, { left: number; top: number; width: number; height: number }>;
+  canvas: HTMLElement;
+  viewState: ViewState;
+  density: FlowDensity;
+  graphModel: FlowGraphModel;
 };
 let liveFlow: LiveFlowState | null = null;
 let flowCursorSystem: FlowCursorSystem | null = null;
@@ -180,8 +185,62 @@ export function updateFlowSelection(): boolean {
   for (const [turnNumber, node] of liveFlow.nodeElements) {
     node.classList.toggle('path-active', activeTurnNumbers.has(turnNumber));
   }
+  syncLiveViewportVisibility(liveFlow);
 
   return true;
+}
+
+export function mountFlowEditor(container: HTMLElement): void {
+  renderFlowEditor(container);
+}
+
+export function syncFlowEditor(change: StateChange): boolean {
+  if (!liveFlow) return false;
+  const state = store.get();
+  const conv = store.getSelectedConversation();
+  if (!conv || conv.id !== liveFlow.conversationId) return false;
+
+  const kind = change.flow?.kind ?? change.reason;
+  if (kind === 'validation') return true;
+  if (kind === 'selection') return updateFlowSelection();
+
+  if (kind === 'position') {
+    liveFlow.projectRevision = state.projectRevision;
+    for (const turn of conv.turns) {
+      const node = liveFlow.nodeElements.get(turn.turnNumber);
+      if (!node) continue;
+      node.style.left = `${turn.position.x}px`;
+      node.style.top = `${turn.position.y}px`;
+    }
+    liveFlow.graphModel = buildFlowGraphModel(conv, liveFlow.density, liveFlow.factionColor);
+    redrawLiveEdges(liveFlow);
+    syncLiveViewportVisibility(liveFlow);
+    return true;
+  }
+
+  if (kind === 'text-content') {
+    liveFlow.projectRevision = state.projectRevision;
+    liveFlow.turnLabels = createTurnDisplayLabeler(conv);
+    for (const turn of conv.turns) {
+      const node = liveFlow.nodeElements.get(turn.turnNumber);
+      if (!node) continue;
+      patchTurnNodeText(node, conv, turn, liveFlow.density, liveFlow.turnLabels);
+    }
+    redrawLiveEdges(liveFlow);
+    syncLiveViewportVisibility(liveFlow);
+    return true;
+  }
+
+  if (kind === 'settings' && !change.projectChanged) {
+    flowCursorSystem?.updateSettings({
+      enabled: state.customCursorEnabled,
+      animationIntensity: state.cursorAnimationIntensity,
+      size: state.cursorSize,
+    });
+    return true;
+  }
+
+  return false;
 }
 
 function edgeKey(edge: EdgeDescriptor): string {
@@ -300,6 +359,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   memoBounds = { key: mk, bounds };
 
   const factionColor = FACTION_COLORS[getConversationFaction(conv, state.project.faction)];
+  const graphModel = buildFlowGraphModel(conv, density, factionColor);
 
   // Reuse cached structural edges; only recompute highlight state
   let edges: EdgeDescriptor[];
@@ -319,6 +379,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   const shell = document.createElement('div');
   const shellClasses = ['flow-shell', `density-${density}`];
   if (graphSize !== 'normal') shellClasses.push('is-large-graph');
+  if (graphSize !== 'normal') shellClasses.push('is-perf-mode');
   if (graphSize === 'huge') shellClasses.push('is-huge-graph');
   shell.className = shellClasses.join(' ');
 
@@ -607,6 +668,15 @@ export function renderFlowEditor(container: HTMLElement): void {
       lastDepthBlur = depthBlur;
     }
     viewStateByConversation.set(conversationId, { ...viewState });
+    syncViewportVisibility({
+      canvas,
+      viewState,
+      graphModel,
+      nodeElements,
+      edgeElements,
+      selectedTurnNumber: store.get().selectedTurnNumber,
+      selectedChoiceIndex: store.get().selectedChoiceIndex,
+    });
   };
 
   const centerWorldPoint = (worldX: number, worldY: number, animate = true): void => {
@@ -678,24 +748,32 @@ export function renderFlowEditor(container: HTMLElement): void {
     const sourceChoice = sourceConversation?.turns
       .find((turn) => turn.turnNumber === sourceTurnNumber)
       ?.choices.find((choice) => choice.index === sourceChoiceIndex);
+    type InputPortCandidate = { turnNumber: number; port: HTMLElement; x: number; y: number };
+    let inputPortCandidates: InputPortCandidate[] = [];
     const getInputPortCenter = (port: HTMLElement): { x: number; y: number } => {
       const rect = port.getBoundingClientRect();
       return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
     };
-    const getClosestInputPort = (clientX: number, clientY: number, restrictToTurn?: number): { turnNumber: number; port: HTMLElement; distance: number } | null => {
-      let best: { turnNumber: number; port: HTMLElement; distance: number } | null = null;
-      const candidates = restrictToTurn != null
-        ? [nodeElements.get(restrictToTurn)].filter(Boolean) as HTMLElement[]
-        : [...nodeElements.values()];
-      for (const node of candidates) {
+    const refreshInputPortCandidates = (): void => {
+      inputPortCandidates = [];
+      for (const node of nodeElements.values()) {
         const turnNumber = Number(node.dataset.turnNumber);
         if (Number.isNaN(turnNumber)) continue;
         const port = node.querySelector('.turn-input-port') as HTMLElement | null;
         if (!port) continue;
         const center = getInputPortCenter(port);
-        const distance = Math.hypot(center.x - clientX, center.y - clientY);
+        inputPortCandidates.push({ turnNumber, port, x: center.x, y: center.y });
+      }
+    };
+    const getClosestInputPort = (clientX: number, clientY: number, restrictToTurn?: number): { turnNumber: number; port: HTMLElement; distance: number } | null => {
+      let best: { turnNumber: number; port: HTMLElement; distance: number } | null = null;
+      const candidates = restrictToTurn != null
+        ? inputPortCandidates.filter(candidate => candidate.turnNumber === restrictToTurn)
+        : inputPortCandidates;
+      for (const candidate of candidates) {
+        const distance = Math.hypot(candidate.x - clientX, candidate.y - clientY);
         if (!best || distance < best.distance) {
-          best = { turnNumber, port, distance };
+          best = { turnNumber: candidate.turnNumber, port: candidate.port, distance };
         }
       }
       return best;
@@ -788,6 +866,7 @@ export function renderFlowEditor(container: HTMLElement): void {
       finishConnectionDrag();
     };
 
+    refreshInputPortCandidates();
     updatePreview(event.clientX, event.clientY);
     sourcePort?.setPointerCapture(pointerId);
     sourceNode?.classList.add('connection-source');
@@ -845,6 +924,10 @@ export function renderFlowEditor(container: HTMLElement): void {
     factionColor,
     turnLabels,
     portOffsetCache: new Map(),
+    canvas,
+    viewState,
+    density,
+    graphModel,
   };
 
   requestAnimationFrame(() => {
@@ -1325,6 +1408,7 @@ function renderTurnNode(options: {
     item.setAttribute('aria-label', `Choice ${choice.index}`);
     const choiceActive = selected && state.selectedChoiceIndex === choice.index;
     item.className = 'turn-choice-item' + (choiceActive ? ' selected' : '');
+    item.dataset.choiceIndex = String(choice.index);
     item.style.setProperty('--choice-branch-color', choiceBranchColor);
     item.style.setProperty('--choice-branch-glow', `${choiceBranchColor}40`);
     setBeginnerTooltip(item, 'flow-choice-row');
@@ -1470,6 +1554,7 @@ function renderTurnNode(options: {
     if (choice.reply && density !== 'compact') {
       const replyRow = document.createElement('li');
       replyRow.className = 'turn-npc-reply';
+      replyRow.dataset.choiceIndex = String(choice.index);
       replyRow.onclick = (e) => {
         e.stopPropagation();
         store.batch(() => {
@@ -1698,6 +1783,100 @@ function drawEdges(options: {
   }
 }
 
+function redrawLiveEdges(flow: LiveFlowState): void {
+  invalidatePortOffsetCache();
+  const conv = store.getSelectedConversation();
+  if (!conv) return;
+  drawEdges({
+    svg: flow.svg,
+    conv,
+    edges: flow.edges,
+    nodeElements: flow.nodeElements,
+    edgeElements: flow.edgeElements,
+    turnLabels: flow.turnLabels,
+    factionColor: flow.factionColor,
+  });
+}
+
+function patchTurnNodeText(
+  node: HTMLElement,
+  conv: Conversation,
+  turn: Turn,
+  density: FlowDensity,
+  turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
+): void {
+  const layout = getFlowNodeLayout(density);
+  const turnIndex = conv.turns.indexOf(turn);
+  const factionColor = FACTION_COLORS[getConversationFaction(conv, store.get().project.faction)];
+  const branchColor = getBranchColor(turn, turnIndex, factionColor);
+  const hasWarning = turn.choices.some(choice => !choice.text && !choice.reply);
+  const label = node.querySelector('.turn-label');
+  if (label) label.textContent = turnLabels.getLongLabel(turn.turnNumber);
+  const stats = node.querySelector('.turn-stats');
+  if (stats) {
+    const outgoingCount = turn.choices.filter(choice => choice.continueTo != null || hasPauseOutcome(choice)).length;
+    stats.textContent = `${turn.choices.length}C · ${outgoingCount}L`;
+  }
+  const opening = node.querySelector('.turn-npc-message');
+  if (opening) {
+    opening.textContent = truncate(turn.openingMessage ?? '', layout.messageChars);
+  }
+  node.classList.toggle('has-warning', hasWarning);
+  node.setAttribute('aria-label', buildTurnAriaLabel(turn, turnLabels));
+  node.style.width = `${getFlowNodeWidth(turn, turnLabels.getLongLabel(turn.turnNumber), density)}px`;
+  node.style.setProperty('--branch-color', branchColor);
+  node.style.setProperty('--branch-glow', branchColor + '40');
+
+  for (const choice of turn.choices) {
+    const item = node.querySelector(`.turn-choice-item[data-choice-index="${choice.index}"]`) as HTMLElement | null;
+    const preview = item?.querySelector('.choice-preview');
+    if (preview) preview.textContent = choice.text || '(empty)';
+    const reply = node.querySelector(`.turn-npc-reply[data-choice-index="${choice.index}"] .npc-reply-text`);
+    if (reply) reply.textContent = truncate(choice.reply, density === 'detailed' ? layout.messageChars : 60);
+  }
+}
+
+function syncLiveViewportVisibility(flow: LiveFlowState): void {
+  syncViewportVisibility({
+    canvas: flow.canvas,
+    viewState: flow.viewState,
+    graphModel: flow.graphModel,
+    nodeElements: flow.nodeElements,
+    edgeElements: flow.edgeElements,
+    selectedTurnNumber: flow.selectedTurnNumber,
+    selectedChoiceIndex: flow.selectedChoiceIndex,
+  });
+}
+
+function syncViewportVisibility(options: {
+  canvas: HTMLElement;
+  viewState: ViewState;
+  graphModel: FlowGraphModel;
+  nodeElements: Map<number, HTMLElement>;
+  edgeElements: Map<string, SVGGElement>;
+  selectedTurnNumber: number | null;
+  selectedChoiceIndex: number | null;
+}): void {
+  const { canvas, viewState, graphModel, nodeElements, edgeElements, selectedTurnNumber } = options;
+  const keepMounted = new Set<number>();
+  if (selectedTurnNumber != null) keepMounted.add(selectedTurnNumber);
+  const viewport = {
+    left: (0 - viewState.panX) / viewState.zoom,
+    top: (0 - viewState.panY) / viewState.zoom,
+    right: (canvas.clientWidth - viewState.panX) / viewState.zoom,
+    bottom: (canvas.clientHeight - viewState.panY) / viewState.zoom,
+  };
+  const visible = getVisibleFlowItems(graphModel, viewport, keepMounted);
+  for (const [turnNumber, node] of nodeElements) {
+    const isVisible = visible.turnNumbers.has(turnNumber);
+    node.style.visibility = isVisible ? '' : 'hidden';
+    node.style.pointerEvents = isVisible ? '' : 'none';
+  }
+  for (const [key, edge] of edgeElements) {
+    edge.style.display = visible.edgeKeys.has(key) ? '' : 'none';
+  }
+}
+
 function drawConnectionPreview(options: {
   svg: SVGSVGElement;
   conv: Conversation;
@@ -1829,6 +2008,8 @@ function buildEdgeDescriptors(
 ): EdgeDescriptor[] {
   const edges: EdgeDescriptor[] = [];
   const pairCounts = new Map<string, number>();
+  const turnByNumber = new Map(conv.turns.map(turn => [turn.turnNumber, turn] as const));
+  const turnIndexByNumber = new Map(conv.turns.map((turn, index) => [turn.turnNumber, index] as const));
 
   for (const turn of conv.turns) {
     for (const choice of turn.choices) {
@@ -1838,8 +2019,8 @@ function buildEdgeDescriptors(
         const offsetIndex = pairCounts.get(pairKey) ?? 0;
         pairCounts.set(pairKey, offsetIndex + 1);
 
-        const targetTurn = conv.turns.find(t => t.turnNumber === target.turnNumber);
-        const targetTurnIndex = targetTurn ? conv.turns.indexOf(targetTurn) : 0;
+        const targetTurn = turnByNumber.get(target.turnNumber);
+        const targetTurnIndex = turnIndexByNumber.get(target.turnNumber) ?? 0;
         const targetBranchColor = targetTurn ? getBranchColor(targetTurn, targetTurnIndex, factionColor) : factionColor;
 
         edges.push({

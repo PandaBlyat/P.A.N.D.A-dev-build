@@ -76,7 +76,6 @@ function getSharedPointerTracker(): SharedPointerTracker {
     lastPosition = { x: event.clientX, y: event.clientY };
   };
 
-  document.addEventListener('pointermove', updatePointer, { passive: true });
   document.addEventListener('pointerdown', updatePointer, { passive: true });
 
   const tracker: SharedPointerTracker = {
@@ -84,7 +83,6 @@ function getSharedPointerTracker(): SharedPointerTracker {
       return lastPosition;
     },
     dispose() {
-      document.removeEventListener('pointermove', updatePointer);
       document.removeEventListener('pointerdown', updatePointer);
       delete globalWindow[POINTER_TRACKING_NAMESPACE];
     },
@@ -408,7 +406,6 @@ class CursorInteractionAdapter {
     this.canvas.addEventListener('pointerenter', this.onPointerEnter);
     this.canvas.addEventListener('pointerleave', this.onPointerLeave);
     this.canvas.addEventListener('pointermove', this.onPointerMove, { passive: true });
-    document.addEventListener('pointermove', this.onPointerMove, { passive: true });
     document.addEventListener('pointerdown', this.onPointerDown);
     document.addEventListener('pointerup', this.onPointerUp);
     this.canvas.addEventListener('flow-cursor-state', this.onCanvasStateEvent as EventListener);
@@ -423,7 +420,6 @@ class CursorInteractionAdapter {
     this.canvas.removeEventListener('pointerenter', this.onPointerEnter);
     this.canvas.removeEventListener('pointerleave', this.onPointerLeave);
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
-    document.removeEventListener('pointermove', this.onPointerMove);
     document.removeEventListener('pointerdown', this.onPointerDown);
     document.removeEventListener('pointerup', this.onPointerUp);
     this.canvas.removeEventListener('flow-cursor-state', this.onCanvasStateEvent as EventListener);

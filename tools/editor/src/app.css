@@ -2594,6 +2594,49 @@ body.use-custom-cursor * {
   box-shadow: 0 12px 22px rgba(0,0,0,0.36), var(--shadow-md);
 }
 
+.flow-shell.is-perf-mode .flow-canvas.is-depth-blur::before {
+  filter: none;
+  transition: none;
+}
+
+.flow-shell.is-perf-mode .flow-edge-path:not(.edge-preview) {
+  animation: none;
+  filter: none;
+  stroke-dashoffset: 0;
+  transition: none;
+}
+
+.flow-shell.is-perf-mode .flow-edge-packet:not(.flow-edge-preview-packet) {
+  display: none;
+}
+
+.flow-shell.is-perf-mode .turn-node,
+.flow-shell.is-perf-mode .turn-choice-item,
+.flow-shell.is-perf-mode .flow-edge-label {
+  transition: none;
+}
+
+.flow-shell.is-perf-mode .turn-node,
+.flow-shell.is-perf-mode .turn-node:hover,
+.flow-shell.is-perf-mode .turn-node.selected,
+.flow-shell.is-perf-mode .turn-node.connection-target-active,
+.flow-shell.is-perf-mode .turn-node.is-dragging-node {
+  transform: none;
+}
+
+.flow-shell.is-perf-mode .turn-node::before,
+.flow-shell.is-perf-mode .turn-label {
+  box-shadow: none;
+  text-shadow: none;
+}
+
+.flow-shell.is-perf-mode .turn-node:hover,
+.flow-shell.is-perf-mode .turn-node.selected,
+.flow-shell.is-perf-mode .turn-node.connection-target-active,
+.flow-shell.is-perf-mode .turn-node.is-dragging-node {
+  box-shadow: var(--shadow-md);
+}
+
 .flow-shell.is-huge-graph .flow-edge-packet:not(.flow-edge-preview-packet) {
   opacity: 0;
 }

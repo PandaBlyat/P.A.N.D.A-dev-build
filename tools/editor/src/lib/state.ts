@@ -4,9 +4,14 @@ import type { Project, Conversation, Turn, Choice, ValidationMessage, NpcTemplat
 import { getConversationFaction } from './types';
 import { createEmptyProject, createConversation, createTurn, createChoice } from './xml-export';
 import { migrateLegacyF2FEntryOpenings } from './f2f-entry-migration';
-import { validate } from './validation';
 import { estimateFlowNodeHeight, getDefaultFlowTurnPosition, getFlowAutoLayoutSpacing, getFlowNodeLayout } from './flow-layout';
 import { measurePerf } from './perf';
+import {
+  cancelPendingValidation,
+  flushValidation,
+  scheduleValidation as scheduleWorkerValidation,
+  type ValidationMode,
+} from './validation-client';
 
 export type PropertiesTab = 'conversation' | 'selection';
 export type FlowDensity = 'compact' | 'standard' | 'detailed';
@@ -65,6 +70,9 @@ export interface AppState {
   projectRevision: number;
   systemStringsRevision: number;
   validationRevision: number;
+  flowContentRevision: number;
+  flowStructureRevision: number;
+  flowPositionRevision: number;
   conversationSourceMetadata: Map<number, ConversationSourceMetadata>;
 }
 
@@ -81,6 +89,10 @@ export interface StateChange {
   projectChanged: boolean;
   systemStringsChanged: boolean;
   validationChanged: boolean;
+  reason: 'generic' | 'selection' | 'text-content' | 'structure' | 'position' | 'validation' | 'settings';
+  flow?: {
+    kind: 'selection' | 'text-content' | 'structure' | 'position' | 'validation' | 'settings';
+  };
 }
 
 type Listener = (change: StateChange) => void;
@@ -91,12 +103,31 @@ export function createStateChange(...targets: RenderTarget[]): StateChange {
     projectChanged: false,
     systemStringsChanged: false,
     validationChanged: false,
+    reason: 'generic',
   };
 }
 
-export const FULL_APP_RENDER = createStateChange('appShell');
-export const SELECTION_RENDER = createStateChange('flowEditor', 'propertiesPanel');
-const VALIDATION_RENDER = createStateChange('conversationList');
+export function createFlowChange(
+  kind: NonNullable<StateChange['flow']>['kind'],
+  ...targets: RenderTarget[]
+): StateChange {
+  const change = createStateChange(...targets);
+  change.reason = kind;
+  change.flow = { kind };
+  return change;
+}
+
+export function createValidationChange(): StateChange {
+  const change = createStateChange('conversationList');
+  change.reason = 'validation';
+  change.validationChanged = true;
+  change.flow = { kind: 'validation' };
+  return change;
+}
+
+export const FULL_APP_RENDER = createFlowChange('structure', 'appShell');
+export const SELECTION_RENDER = createFlowChange('selection', 'flowEditor', 'propertiesPanel');
+const VALIDATION_RENDER = createValidationChange();
 
 function inferTurnFirstSpeaker(
   turn: Pick<Turn, 'firstSpeaker' | 'f2f_entry' | 'channel'>,
@@ -217,7 +248,26 @@ function mergeChanges(a: StateChange, b: StateChange): StateChange {
   merged.projectChanged = a.projectChanged || b.projectChanged;
   merged.systemStringsChanged = a.systemStringsChanged || b.systemStringsChanged;
   merged.validationChanged = a.validationChanged || b.validationChanged;
+  merged.reason = mergeReason(a.reason, b.reason);
+  merged.flow = mergeFlow(a.flow, b.flow);
   return merged;
+}
+
+function mergeReason(a: StateChange['reason'], b: StateChange['reason']): StateChange['reason'] {
+  if (a === b) return a;
+  if (a === 'structure' || b === 'structure') return 'structure';
+  if (a === 'position' || b === 'position') return 'position';
+  if (a === 'text-content' || b === 'text-content') return 'text-content';
+  if (a === 'settings' || b === 'settings') return 'settings';
+  if (a === 'validation' || b === 'validation') return 'validation';
+  if (a === 'selection' || b === 'selection') return 'selection';
+  return 'generic';
+}
+
+function mergeFlow(a: StateChange['flow'], b: StateChange['flow']): StateChange['flow'] {
+  if (!a) return b ? { ...b } : undefined;
+  if (!b) return { ...a };
+  return { kind: mergeReason(a.kind, b.kind) as NonNullable<StateChange['flow']>['kind'] };
 }
 
 class StateManager {
@@ -225,6 +275,7 @@ class StateManager {
   private listeners: Set<Listener> = new Set();
   private validationTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingValidationChange: StateChange | null = null;
+  private validationRequestRevision = 0;
   private batchDepth = 0;
   private batchedChange: StateChange | null = null;
   private textSessions: Map<string, TextSession> = new Map();
@@ -256,6 +307,9 @@ class StateManager {
       projectRevision: 0,
       systemStringsRevision: 0,
       validationRevision: 0,
+      flowContentRevision: 0,
+      flowStructureRevision: 0,
+      flowPositionRevision: 0,
       conversationSourceMetadata: new Map(),
     };
   }
@@ -295,6 +349,21 @@ class StateManager {
     this.state.projectRevision += 1;
   }
 
+  private markFlowChanged(kind: NonNullable<StateChange['flow']>['kind'] | undefined): void {
+    if (!kind) return;
+    if (kind === 'text-content') {
+      this.state.flowContentRevision += 1;
+      return;
+    }
+    if (kind === 'position') {
+      this.state.flowPositionRevision += 1;
+      return;
+    }
+    if (kind === 'structure') {
+      this.state.flowStructureRevision += 1;
+    }
+  }
+
   private markSystemStringsChanged(): void {
     this.state.systemStringsRevision += 1;
   }
@@ -305,6 +374,7 @@ class StateManager {
       this.validationTimer = null;
     }
     this.pendingValidationChange = null;
+    cancelPendingValidation();
   }
 
   private clearPendingTextSessions(): void {
@@ -322,6 +392,8 @@ class StateManager {
     let prepared = change.targets.includes('appShell')
       ? { ...FULL_APP_RENDER }
       : createStateChange(...change.targets);
+    prepared.reason = change.reason;
+    prepared.flow = change.flow ? { ...change.flow } : undefined;
 
     if ((flags.projectChanged ?? false) && this.state.showXmlPreview) {
       prepared = mergeChanges(prepared, createStateChange('bottomWorkspace'));
@@ -370,6 +442,7 @@ class StateManager {
     if (projectChanged) this.markProjectChanged();
     if (systemStringsChanged) this.markSystemStringsChanged();
     const preparedChange = this.prepareChange(change, { projectChanged, systemStringsChanged });
+    if (projectChanged) this.markFlowChanged(preparedChange.flow?.kind ?? (preparedChange.targets.includes('flowEditor') || preparedChange.targets.includes('appShell') ? 'structure' : undefined));
     if (revalidate) this.scheduleValidation(preparedChange);
     this.notify(preparedChange);
   }
@@ -381,6 +454,9 @@ class StateManager {
   ): TextSession {
     const projectChanged = options.projectChanged ?? true;
     const systemStringsChanged = options.systemStringsChanged ?? false;
+    if (projectChanged && change.targets.includes('flowEditor')) {
+      change = createFlowChange('text-content', ...change.targets);
+    }
     const preparedChange = this.prepareChange(change, { projectChanged, systemStringsChanged });
     const existing = this.textSessions.get(sessionKey);
 
@@ -459,6 +535,7 @@ class StateManager {
 
     if (combined.projectChanged) this.markProjectChanged();
     if (combined.systemStringsChanged) this.markSystemStringsChanged();
+    if (combined.projectChanged) this.markFlowChanged(combined.change.flow?.kind);
 
     const validationChange = this.revalidate(combined.change, { notify: false });
     const commitChange = validationChange ? mergeChanges(combined.change, validationChange) : { ...combined.change };
@@ -521,14 +598,32 @@ class StateManager {
   }
 
   private revalidate(change: StateChange = FULL_APP_RENDER, options: { notify?: boolean } = {}): StateChange | null {
+    const revision = ++this.validationRequestRevision;
+    const mode: ValidationMode = options.notify === false ? 'immediate' : 'idle';
+    const projectSnapshot = JSON.parse(JSON.stringify(this.state.project)) as Project;
+    const callback = (result: { revision: number; messages: ValidationMessage[]; durationMs: number }) => {
+      if (result.revision !== this.validationRequestRevision) return;
+      measurePerf('state.validation.apply', () => {
+        this.applyValidationMessages(result.messages);
+      }, {
+        conversations: projectSnapshot.conversations.length,
+        turns: projectSnapshot.conversations.reduce((sum, conversation) => sum + conversation.turns.length, 0),
+      });
+    };
+    if (mode === 'immediate') {
+      flushValidation(projectSnapshot, revision, callback);
+    } else {
+      scheduleWorkerValidation(projectSnapshot, revision, mode, callback, 0);
+    }
+    return null;
+  }
+
+  private applyValidationMessages(messages: ValidationMessage[]): void {
     const previousMessages = JSON.stringify(this.state.validationMessages);
     const previousShowValidationPanel = this.state.showValidationPanel;
     const previousBottomWorkspaceTab = this.state.bottomWorkspaceTab;
 
-    this.state.validationMessages = measurePerf('state.validation', () => validate(this.state.project), {
-      conversations: this.state.project.conversations.length,
-      turns: this.state.project.conversations.reduce((sum, conversation) => sum + conversation.turns.length, 0),
-    });
+    this.state.validationMessages = messages;
     if (this.state.validationMessages.length === 0) {
       this.state.showValidationPanel = false;
     }
@@ -539,14 +634,9 @@ class StateManager {
       || previousShowValidationPanel !== this.state.showValidationPanel
       || previousBottomWorkspaceTab !== this.state.bottomWorkspaceTab;
 
-    if (!validationChanged) return null;
-
+    if (!validationChanged) return;
     this.state.validationRevision += 1;
-    const validationChange = this.prepareChange(change, { validationChanged: true });
-    if (options.notify ?? true) {
-      this.notify(validationChange);
-    }
-    return validationChange;
+    this.notify(this.prepareChange(createValidationChange(), { validationChanged: true }));
   }
 
   commitTextEdit(sessionKey: string): void {
@@ -993,6 +1083,7 @@ class StateManager {
     this.state.conversationSourceMetadata = new Map();
     this.markProjectChanged();
     this.markSystemStringsChanged();
+    this.markFlowChanged('structure');
     const baseChange = this.prepareChange(FULL_APP_RENDER, { projectChanged: true, systemStringsChanged: true });
     const validationChange = this.revalidate(baseChange, { notify: false });
     const nextChange = validationChange ? mergeChanges(baseChange, validationChange) : baseChange;
@@ -1143,7 +1234,7 @@ class StateManager {
       animationIntensity: this.state.cursorAnimationIntensity,
       size: this.state.cursorSize,
     });
-    this.notify(createStateChange('flowEditor'));
+    this.notify(createFlowChange('settings', 'flowEditor'));
   }
 
   setCursorAnimationIntensity(intensity: CursorAnimationIntensity): void {
@@ -1154,7 +1245,7 @@ class StateManager {
       animationIntensity: this.state.cursorAnimationIntensity,
       size: this.state.cursorSize,
     });
-    this.notify(createStateChange('flowEditor'));
+    this.notify(createFlowChange('settings', 'flowEditor'));
   }
 
   setCursorSize(size: number): void {
@@ -1166,7 +1257,7 @@ class StateManager {
       animationIntensity: this.state.cursorAnimationIntensity,
       size: this.state.cursorSize,
     });
-    this.notify(createStateChange('flowEditor'));
+    this.notify(createFlowChange('settings', 'flowEditor'));
   }
 
   getSelectedConversation(): Conversation | null {
@@ -1475,7 +1566,7 @@ class StateManager {
     this.pushUndo();
     turn.position.x = nextX;
     turn.position.y = nextY;
-    this.finishProjectMutation({ revalidate: false });
+    this.finishProjectMutation({ revalidate: false, change: createFlowChange('position', 'flowEditor') });
   }
 
   batchUpdateTurnPositions(conversationId: number, updates: TurnPositionUpdate[]): void {
@@ -1500,7 +1591,7 @@ class StateManager {
     }
 
     if (!changed) return;
-    this.finishProjectMutation({ revalidate: false });
+    this.finishProjectMutation({ revalidate: false, change: createFlowChange('position', 'flowEditor') });
   }
 
   setTurnCustomLabel(conversationId: number, turnNumber: number, label: string): void {

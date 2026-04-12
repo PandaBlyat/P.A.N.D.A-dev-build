@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Root App Component
 
-import { store, type BottomWorkspaceTab, type AppState, type RenderTarget } from '../lib/state';
+import { store, type BottomWorkspaceTab, type AppState, type RenderTarget, type StateChange } from '../lib/state';
 import { renderToolbar as renderToolbarContent } from './Toolbar';
 import {
   centerConversationSelection,
@@ -8,7 +8,7 @@ import {
   duplicateConversationSelection,
   renderConversationList as renderConversationListContent,
 } from './ConversationList';
-import { renderFlowEditor as renderFlowEditorContent, updateFlowSelection } from './FlowEditor';
+import { renderFlowEditor as renderFlowEditorContent, syncFlowEditor, updateFlowSelection } from './FlowEditor';
 import { renderPropertiesPanel as renderPropertiesPanelContent } from './PropertiesPanel';
 import { renderBottomWorkspace as renderBottomWorkspaceContent } from './BottomWorkspace';
 import { mountMotivationTicker } from './MotivationTicker';
@@ -118,6 +118,10 @@ export function renderFlowEditor(container: HTMLElement): void {
  */
 export function tryFastFlowUpdate(): boolean {
   return updateFlowSelection();
+}
+
+export function trySyncFlowEditor(change: StateChange): boolean {
+  return syncFlowEditor(change);
 }
 
 export function renderPropertiesPanel(container: HTMLElement): void {
