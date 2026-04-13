@@ -232,21 +232,58 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
 
   const fileGroup = document.createElement('div');
   fileGroup.className = 'toolbar-group toolbar-group-project';
+  if (isMobile) {
+    fileGroup.append(
+      openBtn,
+      exportXmlBtn,
+      createOverflowMenu('More', [
+        { icon: 'save', label: 'Save', title: saveBtn.title, onclick: exportProjectJson },
+        { icon: 'import', label: 'Import XML', title: importBtn.title, onclick: importFromXml },
+        { icon: 'share', label: 'Community', title: communityBtn.title, onclick: openSharePanel },
+        { icon: 'support', label: 'Support', title: supportBtn.title, onclick: openSupportPanel },
+        { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
+        { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },
+      ]),
+    );
+    projectTier.appendChild(fileGroup);
+    toolbar.appendChild(projectTier);
+
+    const editTier = document.createElement('div');
+    editTier.className = 'toolbar-tier toolbar-tier-edit';
+    const undoBtn = iconBtn('undo', () => store.undo(), 'Undo', 'Undo last change (Ctrl+Z)');
+    const redoBtn = iconBtn('redo', () => store.redo(), 'Redo', 'Redo last undone change (Ctrl+Y)');
+    setBeginnerTooltip(undoBtn, 'toolbar-undo');
+    setBeginnerTooltip(redoBtn, 'toolbar-redo');
+    undoBtn.disabled = state.undoStack.length === 0;
+    redoBtn.disabled = state.redoStack.length === 0;
+    const quickActions = document.createElement('div');
+    quickActions.className = 'toolbar-group toolbar-group-compact toolbar-group-history';
+    quickActions.append(undoBtn, redoBtn);
+    editTier.appendChild(quickActions);
+    editTier.appendChild(createOverflowMenu('Tools', [
+      {
+        icon: 'locate',
+        label: `Density: ${state.flowDensity}`,
+        title: 'Cycle the amount of information shown on flow nodes',
+        onclick: () => store.setFlowDensity(nextDensity(state.flowDensity)),
+      },
+    ]));
+    toolbar.appendChild(editTier);
+    return toolbar;
+  }
+
   if (isCompact) {
     const projectOverflowActions: OverflowAction[] = [];
-    if (isMobile) {
-      projectOverflowActions.push({ icon: 'save', label: 'Save', title: saveBtn.title, onclick: exportProjectJson });
-    }
     projectOverflowActions.push(
       { icon: 'import', label: 'Import XML', title: importBtn.title, onclick: importFromXml },
       { icon: 'share', label: 'Community', title: communityBtn.title, onclick: openSharePanel },
     );
 
     fileGroup.appendChild(openBtn);
-    if (!isMobile) fileGroup.appendChild(saveBtn);
+    fileGroup.appendChild(saveBtn);
     fileGroup.appendChild(exportXmlBtn);
     fileGroup.appendChild(helpBtn);
-    fileGroup.appendChild(createOverflowMenu(isMobile ? 'Project' : 'More', projectOverflowActions));
+    fileGroup.appendChild(createOverflowMenu('More', projectOverflowActions));
   } else {
     fileGroup.appendChild(openBtn);
     fileGroup.appendChild(importBtn);

@@ -5226,20 +5226,57 @@ hr {
   }
 
   .toolbar {
-    max-height: 38dvh;
+    max-height: 112px;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: max(8px, env(safe-area-inset-top)) 10px 8px;
+    gap: 6px;
+    padding: max(6px, env(safe-area-inset-top)) 8px 6px;
   }
 
   .toolbar-title {
-    width: 100%;
-    justify-content: center;
+    width: auto;
+    min-width: 132px;
+    padding: 5px 8px;
     border-radius: var(--radius);
   }
 
   .toolbar-title-primary {
-    letter-spacing: 0.1em;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+
+  .toolbar-title .ui-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .toolbar.toolbar-mobile .toolbar-tier-project,
+  .toolbar.toolbar-mobile .toolbar-tier-edit {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(132px, auto) minmax(0, 1fr);
+    align-items: center;
+    gap: 6px;
+  }
+
+  .toolbar.toolbar-mobile .toolbar-tier-edit {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .toolbar.toolbar-mobile .toolbar-branding {
+    min-width: 0;
+  }
+
+  .toolbar.toolbar-mobile .toolbar-group {
+    width: auto;
+    min-width: 0;
+    gap: 4px;
+    padding: 2px;
+  }
+
+  .toolbar.toolbar-mobile .toolbar-group-project,
+  .toolbar.toolbar-mobile .toolbar-group-history {
+    justify-content: stretch;
   }
 
   .toolbar.toolbar-mobile .toolbar-button,
@@ -5247,7 +5284,28 @@ hr {
   .toolbar.toolbar-mobile .toolbar-icon-button,
   .toolbar.toolbar-mobile select,
   .toolbar.toolbar-mobile input {
-    min-height: 40px;
+    min-height: 34px;
+    padding-block: 4px;
+  }
+
+  .toolbar.toolbar-mobile .toolbar-button,
+  .toolbar.toolbar-mobile .toolbar-overflow-toggle {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .toolbar.toolbar-mobile .toolbar-group-project .toolbar-button .ui-control-label,
+  .toolbar.toolbar-mobile .toolbar-overflow-toggle {
+    font-size: 11px;
+  }
+
+  .toolbar.toolbar-mobile .toolbar-button .ui-icon {
+    width: 15px;
+    height: 15px;
+  }
+
+  .toolbar.toolbar-mobile .toolbar-group-history {
+    width: fit-content;
   }
 
   .toolbar-overflow {
@@ -5291,7 +5349,29 @@ hr {
   }
 
   .main-layout[data-layout-mode="mobile"] .panel-center {
-    padding-bottom: calc(62px + env(safe-area-inset-bottom));
+    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+
+  .main-layout[data-layout-mode="mobile"] .panel-center > .panel-header {
+    min-height: 0;
+    padding: 6px 8px;
+  }
+
+  .main-layout[data-layout-mode="mobile"] .panel-center > .panel-header > span:first-child {
+    display: none;
+  }
+
+  .main-layout[data-layout-mode="mobile"] .panel-center .panel-header-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .main-layout[data-layout-mode="mobile"] .panel-center .panel-header-actions .btn-sm {
+    min-height: 34px;
+    padding-inline: 6px;
+    font-size: 11px;
   }
 
   .layout-scrim {
@@ -5303,8 +5383,8 @@ hr {
     right: 8px;
     bottom: max(8px, env(safe-area-inset-bottom));
     flex-direction: row;
-    gap: 6px;
-    padding: 6px;
+    gap: 4px;
+    padding: 5px;
     overflow-x: auto;
     border: 1px solid color-mix(in srgb, var(--accent) 22%, rgba(255,255,255,0.08));
     border-radius: var(--radius);
@@ -5315,35 +5395,50 @@ hr {
   }
 
   .utility-rail-button {
-    min-height: 44px;
+    min-height: 38px;
     min-width: max-content;
     flex: 1 0 auto;
     border-radius: var(--radius);
-    padding: 8px 10px;
+    padding: 6px 8px;
+  }
+
+  .utility-rail-label {
+    font-size: 10px;
+    letter-spacing: 0.08em;
   }
 
   .flow-controls {
-    left: 8px;
+    left: auto;
     right: 8px;
     top: 8px;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 5px;
-    max-width: calc(100% - 16px);
-    padding: 6px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    max-width: 56px;
+    padding: 4px;
+    border-radius: var(--radius);
   }
 
   .flow-controls .btn-sm,
   .flow-controls button,
   .flow-controls input,
   .flow-controls label {
-    min-height: 38px;
+    min-height: 34px;
+    min-width: 44px;
+    padding-inline: 6px;
   }
 
+  .flow-zoom-value,
+  .flow-controls label,
   .flow-controls input[type="range"],
+  .flow-controls button:nth-of-type(4),
   .flow-minimap,
   .flow-shell-mobile .flow-minimap {
     display: none;
+  }
+
+  .flow-controls button:nth-of-type(3) {
+    font-size: 10px;
   }
 
   .flow-canvas {
@@ -5367,6 +5462,10 @@ hr {
 
   .app-bottom-region {
     border-top: 0;
+  }
+
+  .app-ticker-region {
+    display: none;
   }
 
   .bottom-workspace {
