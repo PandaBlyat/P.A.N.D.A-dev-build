@@ -338,7 +338,7 @@ function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSel
   shell.centerTitle.textContent = `Flow Editor${conv ? ` — ${conv.label}` : ''}`;
   shell.centerActions.replaceChildren();
 
-  if (!firstRun && layoutState.responsiveMode !== 'desktop') {
+  if (!firstRun && layoutState.responsiveMode === 'tablet') {
     shell.centerActions.append(
       createPanelLauncherButton('left', 'Stories'),
       createPanelLauncherButton('right', 'Inspector'),
@@ -411,6 +411,7 @@ function renderUtilityRail(shell: AppShell, firstRun = false): void {
   );
   issueButton.title = issueCount > 0 ? `Open issues (${issueCount})` : 'No project issues';
 
+  const inspectorLabel = layoutState.responsiveMode === 'mobile' ? 'Inspect' : 'Inspector';
   const stringsButton = createUtilityRailButton('Strings', undefined, false, () => activateWorkspaceTab('strings'));
   stringsButton.title = state.showSystemStringsPanel ? 'Focus system strings workspace' : 'Open system strings workspace';
 
@@ -419,7 +420,7 @@ function renderUtilityRail(shell: AppShell, firstRun = false): void {
 
   shell.utilityRail.append(
     createUtilityRailButton('Stories', undefined, false, () => toggleDrawer('left')),
-    createUtilityRailButton('Inspector', undefined, false, () => toggleDrawer('right')),
+    createUtilityRailButton(inspectorLabel, undefined, false, () => toggleDrawer('right')),
     issueButton,
     stringsButton,
     xmlButton,
