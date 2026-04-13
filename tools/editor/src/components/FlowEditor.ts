@@ -333,6 +333,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   const state = store.get();
   const density = getEffectiveFlowDensity(state.flowDensity);
   const isMobileViewport = isCompactViewport();
+  const mobilePerformanceMode = isMobileViewport;
 
   // Full rebuild invalidates cached port offsets
   invalidatePortOffsetCache();
@@ -381,6 +382,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   const shell = document.createElement('div');
   const shellClasses = ['flow-shell', `density-${density}`];
   if (isMobileViewport) shellClasses.push('flow-shell-mobile');
+  if (mobilePerformanceMode) shellClasses.push('is-mobile-performance');
   if (graphSize !== 'normal') shellClasses.push('is-large-graph');
   if (graphSize !== 'normal') shellClasses.push('is-perf-mode');
   if (graphSize === 'huge') shellClasses.push('is-huge-graph');
@@ -427,10 +429,12 @@ export function renderFlowEditor(container: HTMLElement): void {
       interactionReleaseTimer = window.setTimeout(() => {
         interactionReleaseTimer = null;
         shell.classList.remove('is-interacting');
+        if (mobilePerformanceMode) requestAnimationFrame(() => applyView());
       }, releaseDelayMs);
       return;
     }
     shell.classList.remove('is-interacting');
+    if (mobilePerformanceMode) requestAnimationFrame(() => applyView());
   };
 
   const updateConnectionTargetHighlights = (): void => {
@@ -462,7 +466,8 @@ export function renderFlowEditor(container: HTMLElement): void {
       density,
       viewState,
       turnLabels,
-      onPreviewPosition: (previewPositions, affectedTurnNumbers) => draw(previewPositions, affectedTurnNumbers),
+      mobilePerformanceMode,
+      onPreviewPosition: (previewPositions, affectedTurnNumbers, redrawEdges) => draw(previewPositions, affectedTurnNumbers, redrawEdges),
       onChoicePortDragStart: (choiceIndex, event) => {
         store.batch(() => {
           store.selectTurn(turn.turnNumber);
@@ -509,6 +514,7 @@ export function renderFlowEditor(container: HTMLElement): void {
           turnLabels,
           factionColor,
           onlyTurnNumbers: pendingAffectedTurnNumbers,
+          renderPackets: !mobilePerformanceMode,
         });
       }, {
         turnCount: conv.turns.length,
@@ -523,6 +529,7 @@ export function renderFlowEditor(container: HTMLElement): void {
       positionOverrides: pendingPositionOverrides,
       preview: connectionPreview,
       factionColor,
+      renderPacket: !mobilePerformanceMode,
     });
     pendingAffectedTurnNumbers = undefined;
     pendingEdgeRedraw = true;
@@ -543,6 +550,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   const controls = renderControls({
     customCursorEnabled: state.customCursorEnabled,
     cursorSize: state.cursorSize,
+    mobilePerformanceMode,
     zoomValue,
     onZoomIn: () => zoomAtViewportPoint(canvas, viewState, 1.12, canvas.clientWidth / 2, canvas.clientHeight / 2, applyView),
     onZoomOut: () => zoomAtViewportPoint(canvas, viewState, 1 / 1.12, canvas.clientWidth / 2, canvas.clientHeight / 2, applyView),
@@ -647,6 +655,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   let lastAppliedPanY: number | null = null;
   let lastAppliedZoom: number | null = null;
   let lastDepthBlur: boolean | null = null;
+  let lastViewportSyncAt = 0;
 
   const applyView = (): void => {
     // Snap pan to physical device pixels to prevent subpixel blurriness.
@@ -655,7 +664,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     const dpr = window.devicePixelRatio || 1;
     const snapX = Math.round(viewState.panX * dpr) / dpr;
     const snapY = Math.round(viewState.panY * dpr) / dpr;
-    const depthBlur = viewState.zoom <= DEPTH_OF_FIELD_ZOOM_THRESHOLD;
+    const depthBlur = !mobilePerformanceMode && viewState.zoom <= DEPTH_OF_FIELD_ZOOM_THRESHOLD;
     if (lastAppliedPanX !== snapX || lastAppliedPanY !== snapY) {
       content.style.transform = `translate3d(${snapX}px, ${snapY}px, 0)`;
       lastAppliedPanX = snapX;
@@ -671,15 +680,20 @@ export function renderFlowEditor(container: HTMLElement): void {
       lastDepthBlur = depthBlur;
     }
     viewStateByConversation.set(conversationId, { ...viewState });
-    syncViewportVisibility({
-      canvas,
-      viewState,
-      graphModel,
-      nodeElements,
-      edgeElements,
-      selectedTurnNumber: store.get().selectedTurnNumber,
-      selectedChoiceIndex: store.get().selectedChoiceIndex,
-    });
+    const now = performance.now();
+    const interacting = shell.classList.contains('is-interacting');
+    if (!mobilePerformanceMode || !interacting || now - lastViewportSyncAt >= 120) {
+      lastViewportSyncAt = now;
+      syncViewportVisibility({
+        canvas,
+        viewState,
+        graphModel,
+        nodeElements,
+        edgeElements,
+        selectedTurnNumber: store.get().selectedTurnNumber,
+        selectedChoiceIndex: store.get().selectedChoiceIndex,
+      });
+    }
   };
 
   const centerWorldPoint = (worldX: number, worldY: number, animate = true): void => {
@@ -897,18 +911,20 @@ export function renderFlowEditor(container: HTMLElement): void {
     onInteractionStateChange: setInteractionActive,
   });
 
-  flowCursorSystem = createFlowCursorSystem({
-    canvas,
-    settings: {
-      enabled: state.customCursorEnabled,
-      animationIntensity: state.cursorAnimationIntensity,
-      size: state.cursorSize,
-    },
-    telemetry: (event, payload) => {
-      if (window.PANDA_FEATURE_FLAGS?.cursorTelemetry !== true) return;
-      window.dispatchEvent(new CustomEvent('panda:cursor-telemetry', { detail: { event, ...payload } }));
-    },
-  });
+  if (!mobilePerformanceMode) {
+    flowCursorSystem = createFlowCursorSystem({
+      canvas,
+      settings: {
+        enabled: state.customCursorEnabled,
+        animationIntensity: state.cursorAnimationIntensity,
+        size: state.cursorSize,
+      },
+      telemetry: (event, payload) => {
+        if (window.PANDA_FEATURE_FLAGS?.cursorTelemetry !== true) return;
+        window.dispatchEvent(new CustomEvent('panda:cursor-telemetry', { detail: { event, ...payload } }));
+      },
+    });
+  }
 
   runDraw();
   applyView();
@@ -961,6 +977,7 @@ function getEffectiveFlowDensity(preferredDensity: FlowDensity): FlowDensity {
 function renderControls(options: {
   customCursorEnabled: boolean;
   cursorSize: number;
+  mobilePerformanceMode: boolean;
   zoomValue: HTMLElement;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -1024,6 +1041,11 @@ function renderControls(options: {
   sizeInput.title = 'Cursor size';
   sizeInput.oninput = () => options.onSetCursorSize(Number(sizeInput.value));
 
+  if (options.mobilePerformanceMode) {
+    controls.append(zoomOut, zoomIn, fit);
+    return controls;
+  }
+
   controls.append(zoomOut, options.zoomValue, zoomIn, fit, reset, cursorToggle, sizeInput);
   return controls;
 }
@@ -1078,8 +1100,9 @@ function renderTurnNode(options: {
   edges: EdgeDescriptor[];
   density: FlowDensity;
   viewState: ViewState;
+  mobilePerformanceMode: boolean;
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
-  onPreviewPosition: (positions?: TurnPositionMap, affectedTurnNumbers?: ReadonlySet<number>) => void;
+  onPreviewPosition: (positions?: TurnPositionMap, affectedTurnNumbers?: ReadonlySet<number>, redrawEdges?: boolean) => void;
   onChoicePortDragStart: (choiceIndex: number, event: PointerEvent) => void;
   onCreateConnectedTurn: (choiceIndex: number) => void;
   onFocusTurn: (turnNumber: number) => void;
@@ -1093,6 +1116,7 @@ function renderTurnNode(options: {
     edges,
     density,
     viewState,
+    mobilePerformanceMode,
     turnLabels,
     onPreviewPosition,
     onChoicePortDragStart,
@@ -1244,14 +1268,16 @@ function renderTurnNode(options: {
       const velocityY = (ev.clientY - lastClientY) / elapsed;
       const tiltY = clamp(velocityX * 14, -3.2, 3.2);
       const tiltX = clamp(-velocityY * 14, -3.2, 3.2);
-      node.style.setProperty('--drag-tilt-x', `${tiltX.toFixed(2)}deg`);
-      node.style.setProperty('--drag-tilt-y', `${tiltY.toFixed(2)}deg`);
+      if (!mobilePerformanceMode) {
+        node.style.setProperty('--drag-tilt-x', `${tiltX.toFixed(2)}deg`);
+        node.style.setProperty('--drag-tilt-y', `${tiltY.toFixed(2)}deg`);
+      }
       node.classList.add('is-dragging-node');
 
       lastMoveAt = now;
       lastClientX = ev.clientX;
       lastClientY = ev.clientY;
-      onPreviewPosition(new Map([[turn.turnNumber, nextPosition]]), new Set([turn.turnNumber]));
+      onPreviewPosition(new Map([[turn.turnNumber, nextPosition]]), new Set([turn.turnNumber]), !(mobilePerformanceMode && ev.pointerType === 'touch'));
     };
 
     const onUp = () => {
@@ -1679,8 +1705,9 @@ function drawEdges(options: {
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
   factionColor: string;
   onlyTurnNumbers?: ReadonlySet<number>;
+  renderPackets?: boolean;
 }): void {
-  const { svg, conv, edges, nodeElements, edgeElements, positionOverrides, turnLabels, factionColor, onlyTurnNumbers } = options;
+  const { svg, conv, edges, nodeElements, edgeElements, positionOverrides, turnLabels, factionColor, onlyTurnNumbers, renderPackets = true } = options;
   const defs = svg.querySelector('defs');
   const turnsByNumber = new Map(conv.turns.map(turn => [turn.turnNumber, turn]));
   const choiceAnchorCache = new Map<string, { x: number; y: number } | null>();
@@ -1728,9 +1755,11 @@ function drawEdges(options: {
         path.setAttribute('class', `flow-edge-path ${edge.pathClassName}${highlightSuffix}`);
       }
       const packet = existing.querySelector('.flow-edge-packet') as SVGPathElement | null;
-      if (packet) {
+      if (packet && renderPackets) {
         packet.setAttribute('d', pathD);
         packet.setAttribute('class', `flow-edge-packet ${edge.pathClassName}${highlightSuffix}`);
+      } else if (packet && !renderPackets) {
+        packet.remove();
       }
       const label = existing.querySelector('.flow-edge-label') as SVGTextElement | null;
       if (label) {
@@ -1772,12 +1801,14 @@ function drawEdges(options: {
       };
       group.appendChild(path);
 
-      const packetPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      packetPath.setAttribute('d', pathD);
-      packetPath.setAttribute('class', `flow-edge-packet ${edge.pathClassName}${highlightSuffix}`);
-      packetPath.style.setProperty('--flow-edge-color', edge.color);
-      packetPath.setAttribute('aria-hidden', 'true');
-      group.appendChild(packetPath);
+      if (renderPackets) {
+        const packetPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        packetPath.setAttribute('d', pathD);
+        packetPath.setAttribute('class', `flow-edge-packet ${edge.pathClassName}${highlightSuffix}`);
+        packetPath.style.setProperty('--flow-edge-color', edge.color);
+        packetPath.setAttribute('aria-hidden', 'true');
+        group.appendChild(packetPath);
+      }
 
       const labelButton = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       labelButton.setAttribute('x', String(labelAnchor.x));
@@ -1903,8 +1934,9 @@ function drawConnectionPreview(options: {
   positionOverrides?: TurnPositionMap;
   preview: ConnectionPreview | null;
   factionColor: string;
+  renderPacket?: boolean;
 }): void {
-  const { svg, conv, nodeElements, positionOverrides, preview, factionColor } = options;
+  const { svg, conv, nodeElements, positionOverrides, preview, factionColor, renderPacket = true } = options;
   const defs = svg.querySelector('defs');
   const turnsByNumber = new Map(conv.turns.map(turn => [turn.turnNumber, turn]));
 
@@ -1933,12 +1965,14 @@ function drawConnectionPreview(options: {
   previewPath.setAttribute('marker-end', `url(#${ensureMarker(defs, 'continue', previewColor)})`);
   svg.appendChild(previewPath);
 
-  const previewPacket = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  previewPacket.setAttribute('d', buildEdgePath(sourceAnchor, previewTarget, 0));
-  previewPacket.setAttribute('class', `flow-edge-packet flow-edge-preview-packet edge-preview${preview.invalidTarget ? ' edge-preview-invalid' : ''}`);
-  previewPacket.style.setProperty('--flow-edge-color', previewColor);
-  previewPacket.setAttribute('aria-hidden', 'true');
-  svg.appendChild(previewPacket);
+  if (renderPacket) {
+    const previewPacket = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    previewPacket.setAttribute('d', buildEdgePath(sourceAnchor, previewTarget, 0));
+    previewPacket.setAttribute('class', `flow-edge-packet flow-edge-preview-packet edge-preview${preview.invalidTarget ? ' edge-preview-invalid' : ''}`);
+    previewPacket.style.setProperty('--flow-edge-color', previewColor);
+    previewPacket.setAttribute('aria-hidden', 'true');
+    svg.appendChild(previewPacket);
+  }
 }
 
 /**

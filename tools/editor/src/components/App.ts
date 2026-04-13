@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Root App Component
 
-import { store, type BottomWorkspaceTab, type AppState, type RenderTarget, type StateChange } from '../lib/state';
+import { store, type BottomWorkspaceTab, type AppState, type FlowDensity, type RenderTarget, type StateChange } from '../lib/state';
 import { renderToolbar as renderToolbarContent } from './Toolbar';
 import {
   centerConversationSelection,
@@ -11,13 +11,21 @@ import {
 import { renderFlowEditor as renderFlowEditorContent, syncFlowEditor, updateFlowSelection } from './FlowEditor';
 import { renderPropertiesPanel as renderPropertiesPanelContent } from './PropertiesPanel';
 import { renderBottomWorkspace as renderBottomWorkspaceContent } from './BottomWorkspace';
+import { createSystemStringsPanelContent } from './SystemStringsPanel';
+import { createXmlPreviewContent } from './XmlPreview';
+import { createValidationWorkspaceContent } from './ValidationBar';
 import { mountMotivationTicker } from './MotivationTicker';
 import { shouldShowFirstRunExperience, renderFirstRunExperience } from './Onboarding';
-import { createBlankProject } from '../lib/project-io';
+import { createBlankProject, exportProjectJson, exportXml, importFromJson, importFromXml } from '../lib/project-io';
 import { setButtonContent, createIcon } from './icons';
 import { getFactionThemeVariables } from '../lib/faction-colors';
 import { getConversationFaction } from '../lib/types';
 import { setBeginnerTooltip } from '../lib/beginner-tooltips';
+import { openSharePanel } from './SharePanel';
+import { openHelpModal } from './HelpModal';
+import { openSupportPanel } from './SupportPanel';
+import { clearDraft } from '../lib/draft-storage';
+import { createEmptyProject } from '../lib/xml-export';
 
 const PANEL_MIN_WIDTH = 220;
 const PANEL_MAX_WIDTH = 520;
@@ -27,6 +35,8 @@ const MOBILE_BREAKPOINT = 760;
 
 type ResponsiveLayoutMode = 'desktop' | 'tablet' | 'mobile';
 type DrawerSide = 'left' | 'right' | null;
+type MobileSheetId = 'stories' | 'inspector' | 'issues' | 'strings' | 'xml' | 'more';
+type ActiveMobileSheet = MobileSheetId | null;
 
 type LayoutDefaults = {
   leftWidth: number;
@@ -42,6 +52,7 @@ const layoutState = {
   rightCollapsed: false,
   responsiveMode: 'desktop' as ResponsiveLayoutMode,
   activeDrawer: null as DrawerSide,
+  activeMobileSheet: null as ActiveMobileSheet,
   toolbarHidden: false,
   wasFirstRun: false,
 };
@@ -68,11 +79,14 @@ type AppShell = {
   bottomRegion: HTMLDivElement;
   workspaceRegion: HTMLDivElement;
   tickerRegion: HTMLDivElement;
+  mobileSheetScrim: HTMLButtonElement;
+  mobileSheet: HTMLElement;
   modalHost: HTMLDivElement;
 };
 
 let appShell: AppShell | null = null;
 let resizeListenerAttached = false;
+let mobileSheetKeyboardAttached = false;
 
 type AppRenderContext = {
   shell: AppShell;
@@ -92,19 +106,23 @@ export function renderApp(container: HTMLElement): void {
   renderPropertiesPanel(container);
   renderBottomWorkspace(container);
   renderUtilityRail(shell, firstRun);
+  renderMobileSheet(shell, firstRun);
   renderToolbarToggle(shell);
   updateOverlayState(shell);
 }
 
 export function renderToolbar(container: HTMLElement): void {
   const { shell } = getRenderContext(container);
-  shell.toolbarRegion.replaceChildren(renderToolbarContent(layoutState.responsiveMode));
+  shell.toolbarRegion.replaceChildren(renderToolbarContent(layoutState.responsiveMode, {
+    onOpenMobileSheet: () => openMobileSheet('more'),
+  }));
   shell.toolbarRegion.hidden = layoutState.toolbarHidden;
 }
 
 export function renderConversationList(container: HTMLElement): void {
   const { shell, firstRun } = getRenderContext(container);
   renderLeftPanel(shell, firstRun);
+  renderMobileSheet(shell, firstRun);
 }
 
 export function renderFlowEditor(container: HTMLElement): void {
@@ -127,11 +145,13 @@ export function trySyncFlowEditor(change: StateChange): boolean {
 export function renderPropertiesPanel(container: HTMLElement): void {
   const { shell, firstRun } = getRenderContext(container);
   renderRightPanel(shell, firstRun);
+  renderMobileSheet(shell, firstRun);
 }
 
 export function renderBottomWorkspace(container: HTMLElement): void {
   const { shell, firstRun } = getRenderContext(container);
   renderBottomRegion(shell, firstRun);
+  renderMobileSheet(shell, firstRun);
 }
 
 export function getRenderRoot(container: HTMLElement, target: Exclude<RenderTarget, 'appShell'>): HTMLElement | null {
@@ -262,12 +282,26 @@ function getAppShell(container: HTMLElement): AppShell {
   tickerRegion.className = 'app-ticker-region';
   bottomRegion.append(workspaceRegion, tickerRegion);
 
+  const mobileSheetScrim = document.createElement('button');
+  mobileSheetScrim.type = 'button';
+  mobileSheetScrim.className = 'mobile-sheet-scrim';
+  mobileSheetScrim.title = 'Close mobile panel';
+  mobileSheetScrim.setAttribute('aria-label', 'Close mobile panel');
+  mobileSheetScrim.hidden = true;
+  mobileSheetScrim.onclick = () => closeMobileSheet();
+
+  const mobileSheet = document.createElement('section');
+  mobileSheet.className = 'mobile-sheet';
+  mobileSheet.setAttribute('aria-modal', 'true');
+  mobileSheet.setAttribute('role', 'dialog');
+  mobileSheet.hidden = true;
+
   const modalHost = document.createElement('div');
   modalHost.className = 'app-modal-host';
   modalHost.id = 'app-modal-host';
   modalHost.setAttribute('aria-hidden', 'true');
 
-  container.replaceChildren(toolbarRegion, mainLayout, bottomRegion, modalHost);
+  container.replaceChildren(toolbarRegion, mainLayout, bottomRegion, mobileSheetScrim, mobileSheet, modalHost);
 
   // The ticker has entirely self-contained lifecycle logic (its own rotation
   // timer and DOM state). Mount it once here so it is never touched by the
@@ -297,6 +331,8 @@ function getAppShell(container: HTMLElement): AppShell {
     bottomRegion,
     workspaceRegion,
     tickerRegion,
+    mobileSheetScrim,
+    mobileSheet,
     modalHost,
   };
 
@@ -304,6 +340,14 @@ function getAppShell(container: HTMLElement): AppShell {
 }
 
 function renderLeftPanel(shell: AppShell, firstRun = false): void {
+  if (layoutState.responsiveMode === 'mobile') {
+    shell.leftPanel.hidden = true;
+    shell.leftPanel.setAttribute('aria-hidden', 'true');
+    shell.leftActions.replaceChildren();
+    shell.leftBody.replaceChildren();
+    return;
+  }
+
   const isOverlay = layoutState.responsiveMode !== 'desktop';
   const isDrawerOpen = isOverlay && layoutState.activeDrawer === 'left';
   const selectedConversationId = store.get().selectedConversationId;
@@ -372,6 +416,14 @@ function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSel
 }
 
 function renderRightPanel(shell: AppShell, firstRun = false): void {
+  if (layoutState.responsiveMode === 'mobile') {
+    shell.rightPanel.hidden = true;
+    shell.rightPanel.setAttribute('aria-hidden', 'true');
+    shell.rightActions.replaceChildren();
+    shell.rightBody.replaceChildren();
+    return;
+  }
+
   const isOverlay = layoutState.responsiveMode !== 'desktop';
   const isDrawerOpen = isOverlay && layoutState.activeDrawer === 'right';
 
@@ -392,6 +444,11 @@ function renderBottomRegion(shell: AppShell, firstRun = false): void {
     shell.workspaceRegion.replaceChildren();
     return;
   }
+  if (layoutState.responsiveMode === 'mobile') {
+    shell.bottomRegion.hidden = true;
+    shell.workspaceRegion.replaceChildren();
+    return;
+  }
   renderBottomWorkspaceContent(shell.workspaceRegion);
 }
 
@@ -403,6 +460,20 @@ function renderUtilityRail(shell: AppShell, firstRun = false): void {
   if (!isCompact) return;
 
   const issueCount = state.validationMessages.length;
+  if (layoutState.responsiveMode === 'mobile') {
+    const navItems: Array<{ sheet: MobileSheetId; label: string; badge?: string }> = [
+      { sheet: 'stories', label: 'Stories' },
+      { sheet: 'inspector', label: 'Inspect' },
+      { sheet: 'issues', label: 'Issues', badge: issueCount > 0 ? `${issueCount}` : undefined },
+      { sheet: 'strings', label: 'Strings' },
+      { sheet: 'xml', label: 'XML' },
+    ];
+    shell.utilityRail.append(
+      ...navItems.map(item => createMobileNavButton(item.sheet, item.label, item.badge)),
+    );
+    return;
+  }
+
   const issueButton = createUtilityRailButton(
     'Issues',
     issueCount > 0 ? `${issueCount}` : undefined,
@@ -411,7 +482,6 @@ function renderUtilityRail(shell: AppShell, firstRun = false): void {
   );
   issueButton.title = issueCount > 0 ? `Open issues (${issueCount})` : 'No project issues';
 
-  const inspectorLabel = layoutState.responsiveMode === 'mobile' ? 'Inspect' : 'Inspector';
   const stringsButton = createUtilityRailButton('Strings', undefined, false, () => activateWorkspaceTab('strings'));
   stringsButton.title = state.showSystemStringsPanel ? 'Focus system strings workspace' : 'Open system strings workspace';
 
@@ -420,7 +490,7 @@ function renderUtilityRail(shell: AppShell, firstRun = false): void {
 
   shell.utilityRail.append(
     createUtilityRailButton('Stories', undefined, false, () => toggleDrawer('left')),
-    createUtilityRailButton(inspectorLabel, undefined, false, () => toggleDrawer('right')),
+    createUtilityRailButton('Inspector', undefined, false, () => toggleDrawer('right')),
     issueButton,
     stringsButton,
     xmlButton,
@@ -429,7 +499,7 @@ function renderUtilityRail(shell: AppShell, firstRun = false): void {
 
 function updateOverlayState(shell: AppShell): void {
   const isOverlay = layoutState.responsiveMode !== 'desktop';
-  const drawerOpen = isOverlay && layoutState.activeDrawer !== null;
+  const drawerOpen = isOverlay && layoutState.responsiveMode !== 'mobile' && layoutState.activeDrawer !== null;
   shell.mainLayout.dataset.layoutMode = layoutState.responsiveMode;
   shell.mainLayout.dataset.drawerOpen = String(drawerOpen);
   shell.mainLayout.classList.toggle('has-open-drawer', drawerOpen);
@@ -626,6 +696,7 @@ function applyLayoutDefaults(mode: ResponsiveLayoutMode): void {
   layoutState.leftCollapsed = defaults.leftCollapsed;
   layoutState.rightCollapsed = defaults.rightCollapsed;
   layoutState.activeDrawer = null;
+  layoutState.activeMobileSheet = null;
 }
 
 function getLayoutDefaults(mode: ResponsiveLayoutMode, viewportWidth: number): LayoutDefaults {
@@ -658,6 +729,11 @@ function getLayoutDefaults(mode: ResponsiveLayoutMode, viewportWidth: number): L
 }
 
 function toggleConversationIssues(state: AppState = store.get()): void {
+  if (layoutState.responsiveMode === 'mobile') {
+    openMobileSheet('issues');
+    return;
+  }
+
   if (state.validationMessages.length === 0) return;
 
   if (layoutState.responsiveMode !== 'desktop') {
@@ -687,6 +763,11 @@ function ensureResponsiveListener(container: HTMLElement): void {
 }
 
 function activateWorkspaceTab(tab: BottomWorkspaceTab): void {
+  if (layoutState.responsiveMode === 'mobile') {
+    openMobileSheet(tab);
+    return;
+  }
+
   const state = store.get();
 
   if (tab === 'strings') {
@@ -703,6 +784,187 @@ function activateWorkspaceTab(tab: BottomWorkspaceTab): void {
     return;
   }
   store.setBottomWorkspaceTab('xml');
+}
+
+function renderMobileSheet(shell: AppShell, firstRun = false): void {
+  ensureMobileSheetKeyboardListener();
+  const isMobile = layoutState.responsiveMode === 'mobile';
+  const activeSheet = isMobile && !firstRun ? layoutState.activeMobileSheet : null;
+  const sheetOpen = activeSheet != null;
+
+  shell.mobileSheet.hidden = !sheetOpen;
+  shell.mobileSheetScrim.hidden = !sheetOpen;
+  shell.mobileSheet.dataset.sheet = activeSheet ?? '';
+  shell.mobileSheetScrim.dataset.sheetOpen = String(sheetOpen);
+  shell.mainLayout.dataset.mobileSheetOpen = String(sheetOpen);
+  document.body.classList.toggle('mobile-sheet-open', sheetOpen);
+
+  if (!sheetOpen) {
+    shell.mobileSheet.replaceChildren();
+    return;
+  }
+
+  const header = document.createElement('div');
+  header.className = 'mobile-sheet-header';
+
+  const grip = document.createElement('span');
+  grip.className = 'mobile-sheet-grip';
+  grip.setAttribute('aria-hidden', 'true');
+
+  const title = document.createElement('strong');
+  title.className = 'mobile-sheet-title';
+  title.textContent = getMobileSheetTitle(activeSheet);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'btn-sm mobile-sheet-close';
+  setButtonContent(closeBtn, 'close', 'Close');
+  closeBtn.onclick = () => closeMobileSheet();
+
+  header.append(grip, title, closeBtn);
+
+  const body = document.createElement('div');
+  body.className = 'mobile-sheet-body';
+  renderMobileSheetBody(activeSheet, body);
+
+  shell.mobileSheet.replaceChildren(header, body);
+}
+
+function renderMobileSheetBody(sheet: MobileSheetId, body: HTMLElement): void {
+  switch (sheet) {
+    case 'stories':
+      renderConversationListContent(body);
+      return;
+    case 'inspector':
+      renderPropertiesPanelContent(body);
+      return;
+    case 'issues': {
+      const messages = store.get().validationMessages;
+      if (messages.length === 0) {
+        body.appendChild(createMobileEmptyState('No issues', 'Current project passes validation.'));
+        return;
+      }
+      body.appendChild(createValidationWorkspaceContent(messages));
+      return;
+    }
+    case 'strings':
+      body.appendChild(createSystemStringsPanelContent());
+      return;
+    case 'xml':
+      body.appendChild(createXmlPreviewContent());
+      return;
+    case 'more':
+      renderMobileMoreActions(body);
+      return;
+  }
+}
+
+function renderMobileMoreActions(body: HTMLElement): void {
+  const state = store.get();
+  const actions = document.createElement('div');
+  actions.className = 'mobile-more-actions';
+
+  const resetIntro = (): void => {
+    if (state.dirty && !window.confirm('You have unsaved changes. Clear workspace and return to the intro?')) return;
+    clearDraft();
+    store.loadProject(createEmptyProject('stalker'), new Map());
+    closeMobileSheet();
+  };
+
+  actions.append(
+    createMobileSheetAction('open', 'Open Project', () => { closeMobileSheet(); importFromJson(); }),
+    createMobileSheetAction('save', 'Save Project', () => { closeMobileSheet(); exportProjectJson(); }),
+    createMobileSheetAction('import', 'Import XML', () => { closeMobileSheet(); importFromXml(); }),
+    createMobileSheetAction('export', 'Export XML', () => { closeMobileSheet(); exportXml(); }),
+    createMobileSheetAction('undo', 'Undo', () => store.undo(), state.undoStack.length === 0),
+    createMobileSheetAction('redo', 'Redo', () => store.redo(), state.redoStack.length === 0),
+    createMobileSheetAction('share', 'Community', () => { closeMobileSheet(); openSharePanel(); }),
+    createMobileSheetAction('support', 'Support', () => { closeMobileSheet(); openSupportPanel(); }),
+    createMobileSheetAction('help', 'Help', () => { closeMobileSheet(); openHelpModal(); }),
+    createMobileSheetAction('locate', `Density: ${state.flowDensity}`, () => store.setFlowDensity(nextDensity(state.flowDensity))),
+    createMobileSheetAction('brand', 'Reset Intro', resetIntro),
+  );
+
+  body.appendChild(actions);
+}
+
+function createMobileSheetAction(
+  icon: Parameters<typeof setButtonContent>[1],
+  label: string,
+  onClick: () => void,
+  disabled = false,
+): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'mobile-sheet-action';
+  button.disabled = disabled;
+  setButtonContent(button, icon, label);
+  button.onclick = onClick;
+  return button;
+}
+
+function createMobileEmptyState(title: string, body: string): HTMLElement {
+  const empty = document.createElement('div');
+  empty.className = 'mobile-sheet-empty';
+  const heading = document.createElement('strong');
+  heading.textContent = title;
+  const copy = document.createElement('p');
+  copy.textContent = body;
+  empty.append(heading, copy);
+  return empty;
+}
+
+function getMobileSheetTitle(sheet: MobileSheetId): string {
+  switch (sheet) {
+    case 'stories':
+      return 'Stories';
+    case 'inspector':
+      return 'Inspector';
+    case 'issues':
+      return 'Issues';
+    case 'strings':
+      return 'Strings';
+    case 'xml':
+      return 'XML';
+    case 'more':
+      return 'More';
+  }
+}
+
+function createMobileNavButton(sheet: MobileSheetId, label: string, badge?: string): HTMLButtonElement {
+  const button = createUtilityRailButton(label, badge, false, () => openMobileSheet(sheet));
+  button.classList.toggle('is-active', layoutState.activeMobileSheet === sheet);
+  button.setAttribute('aria-pressed', String(layoutState.activeMobileSheet === sheet));
+  return button;
+}
+
+function openMobileSheet(sheet: MobileSheetId): void {
+  if (layoutState.responsiveMode !== 'mobile') return;
+  layoutState.activeDrawer = null;
+  layoutState.activeMobileSheet = layoutState.activeMobileSheet === sheet ? null : sheet;
+  renderApp(document.getElementById('app')!);
+}
+
+function closeMobileSheet(): void {
+  if (layoutState.activeMobileSheet == null) return;
+  layoutState.activeMobileSheet = null;
+  renderApp(document.getElementById('app')!);
+}
+
+function ensureMobileSheetKeyboardListener(): void {
+  if (mobileSheetKeyboardAttached) return;
+  mobileSheetKeyboardAttached = true;
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || layoutState.activeMobileSheet == null) return;
+    event.preventDefault();
+    closeMobileSheet();
+  }, true);
+}
+
+function nextDensity(current: FlowDensity): FlowDensity {
+  const densityOptions: FlowDensity[] = ['compact', 'standard', 'detailed'];
+  const index = densityOptions.indexOf(current);
+  return densityOptions[(index + 1) % densityOptions.length];
 }
 
 function createUtilityRailButton(
@@ -737,6 +999,8 @@ function renderToolbarToggle(shell: AppShell): void {
   const existingToggle = shell.mainLayout.querySelector('.toolbar-visibility-toggle');
   if (existingToggle) existingToggle.remove();
 
+  if (layoutState.responsiveMode === 'mobile') return;
+
   const toggle = document.createElement('button');
   toggle.type = 'button';
   toggle.className = 'toolbar-visibility-toggle';
@@ -753,6 +1017,10 @@ function renderToolbarToggle(shell: AppShell): void {
 
 function toggleDrawer(side: 'left' | 'right'): void {
   if (layoutState.responsiveMode === 'desktop') return;
+  if (layoutState.responsiveMode === 'mobile') {
+    openMobileSheet(side === 'left' ? 'stories' : 'inspector');
+    return;
+  }
   layoutState.activeDrawer = layoutState.activeDrawer === side ? null : side;
   renderApp(document.getElementById('app')!);
 }

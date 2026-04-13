@@ -27,6 +27,9 @@ type ToolbarButtonOptions = {
 };
 
 type ToolbarLayoutMode = 'desktop' | 'tablet' | 'mobile';
+type ToolbarRenderOptions = {
+  onOpenMobileSheet?: (sheet: 'more') => void;
+};
 
 type OverflowAction = {
   icon: IconName;
@@ -48,7 +51,7 @@ function accent(value: string): HTMLSpanElement {
   return span;
 }
 
-export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLElement {
+export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options: ToolbarRenderOptions = {}): HTMLElement {
   const state = store.get();
   const isCompact = layoutMode !== 'desktop';
   const isMobile = layoutMode === 'mobile';
@@ -233,37 +236,14 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop'): HTMLEl
   const fileGroup = document.createElement('div');
   fileGroup.className = 'toolbar-group toolbar-group-project';
   if (isMobile) {
-    const mobileExportBtn = btn('export', 'Export', exportXml, exportXmlBtn.title, {
-      classes: ['btn-subtle'],
+    const moreBtn = btn('help', 'More', () => options.onOpenMobileSheet?.('more'), 'Open file, export, and editor actions', {
+      icon: null,
     });
-    setBeginnerTooltip(mobileExportBtn, 'toolbar-export-xml');
-
-    const undoBtn = iconBtn('undo', () => store.undo(), 'Undo', 'Undo last change (Ctrl+Z)');
-    const redoBtn = iconBtn('redo', () => store.redo(), 'Redo', 'Redo last undone change (Ctrl+Y)');
-    setBeginnerTooltip(undoBtn, 'toolbar-undo');
-    setBeginnerTooltip(redoBtn, 'toolbar-redo');
-    undoBtn.disabled = state.undoStack.length === 0;
-    redoBtn.disabled = state.redoStack.length === 0;
-
+    moreBtn.classList.add('toolbar-mobile-more-button');
+    setBeginnerTooltip(moreBtn, 'toolbar-more');
     fileGroup.append(
-      openBtn,
-      mobileExportBtn,
-      undoBtn,
-      createOverflowMenu('More', [
-        { icon: 'redo', label: 'Redo', title: redoBtn.title, onclick: () => store.redo(), disabled: redoBtn.disabled },
-        { icon: 'save', label: 'Save', title: saveBtn.title, onclick: exportProjectJson },
-        { icon: 'import', label: 'Import XML', title: importBtn.title, onclick: importFromXml },
-        { icon: 'share', label: 'Community', title: communityBtn.title, onclick: openSharePanel },
-        { icon: 'support', label: 'Support', title: supportBtn.title, onclick: openSupportPanel },
-        { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
-        {
-          icon: 'locate',
-          label: `Density: ${state.flowDensity}`,
-          title: 'Cycle the amount of information shown on flow nodes',
-          onclick: () => store.setFlowDensity(nextDensity(state.flowDensity)),
-        },
-        { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },
-      ]),
+      communityBtn,
+      moreBtn,
     );
     projectTier.appendChild(fileGroup);
     toolbar.appendChild(projectTier);
