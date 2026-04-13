@@ -1,6 +1,7 @@
 import { hasDraft } from '../lib/draft-storage';
-import { createBlankProject, importFromXml, loadOnboardingSamplePack } from '../lib/project-io';
+import { importFromXml, loadOnboardingSamplePack } from '../lib/project-io';
 import { createIcon, setButtonContent, type IconName } from './icons';
+import { openStoryWizard } from './StoryWizard';
 
 type OnboardingCardOptions = {
   title: string;
@@ -29,12 +30,12 @@ type FirstRunCta = {
 
 const FIRST_RUN_CTAS: FirstRunCta[] = [
   {
-    title: 'Start Blank Project',
-    description: 'Spin up a clean dialogue workspace and start sketching encounters, branches, and logic from zero.',
+    title: 'Make New Story',
+    description: 'Choose start, speaker, and recipe. Editor creates safe first draft.',
     icon: 'add',
     tone: 'blank',
-    actionLabel: 'Deploy Workspace',
-    onClick: () => createBlankProject(),
+    actionLabel: 'Open Story Builder',
+    onClick: () => openStoryWizard(),
   },
   {
     title: 'Sample Pack',
@@ -185,7 +186,7 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   const subcopy = document.createElement('p');
   subcopy.className = 'first-run-subcopy hidden';
-  subcopy.textContent = "It won't make you a towel, but it will get you straight into a blank project once you are ready to start. Which is, on balance, preferable.";
+  subcopy.textContent = 'Start with guided story builder, inspect sample, or import existing XML.';
 
   missionPanel.append(missionEyebrow, intro, subcopy);
 
@@ -453,8 +454,8 @@ export function createOnboardingNudge(options: OnboardingCardOptions): HTMLEleme
 
   const blankBtn = document.createElement('button');
   blankBtn.className = 'btn btn-sm btn-primary';
-  setButtonContent(blankBtn, 'add', 'Blank Project');
-  blankBtn.onclick = () => createBlankProject();
+  setButtonContent(blankBtn, 'add', 'Make Story');
+  blankBtn.onclick = () => openStoryWizard();
 
   const sampleBtn = document.createElement('button');
   sampleBtn.className = 'btn btn-sm';

@@ -44,8 +44,9 @@ export function renderValidationBar(container: HTMLElement): void {
       item.type = 'button';
       item.className = `validation-msg ${msg.level}`;
       const leading = msg.level === 'error' ? 'Error' : 'Warning';
-      item.setAttribute('aria-label', `${leading} at ${formatLocation(msg)}. ${formatMessage(msg)}`);
-      item.innerHTML = `<strong>${leading} · ${formatLocation(msg)}</strong><span>${escapeHtml(formatMessage(msg))}</span>`;
+      const authorMessage = getAuthorMessage(msg);
+      item.setAttribute('aria-label', `${leading} at ${formatLocation(msg)}. ${authorMessage}`);
+      item.innerHTML = `<strong>${leading} · ${formatLocation(msg)}</strong><span>${escapeHtml(authorMessage)}</span>`;
       item.title = buildTooltip(msg);
       setBeginnerTooltip(item, 'validation-message');
       item.onclick = () => navigateToMessage(msg);
@@ -86,14 +87,27 @@ export function createValidationWorkspaceContent(messages: ValidationMessage[]):
     list.setAttribute('role', 'list');
 
     for (const msg of group) {
+      const row = document.createElement('div');
+      row.className = 'validation-drawer-row';
       const item = document.createElement('button');
       item.type = 'button';
       item.className = `validation-drawer-item ${msg.level}`;
-      item.setAttribute('aria-label', `${level === 'error' ? 'Error' : 'Warning'} at ${formatLocation(msg)}. ${formatMessage(msg)}`);
-      item.innerHTML = `<strong>${formatLocation(msg)}</strong><span>${escapeHtml(formatMessage(msg))}</span><small>${escapeHtml(msg.code)}</small>`;
+      item.setAttribute('aria-label', `${level === 'error' ? 'Error' : 'Warning'} at ${formatLocation(msg)}. ${getAuthorMessage(msg)}`);
+      item.innerHTML = `<strong>${formatLocation(msg)}</strong><span>${escapeHtml(getAuthorMessage(msg))}</span><small>${escapeHtml(msg.code)}</small>`;
       setBeginnerTooltip(item, 'validation-message');
       item.onclick = () => navigateToMessage(msg);
-      list.appendChild(item);
+      row.appendChild(item);
+
+      const quickFix = getQuickFix(msg);
+      if (quickFix) {
+        const fixBtn = document.createElement('button');
+        fixBtn.type = 'button';
+        fixBtn.className = 'btn-sm validation-quick-fix';
+        fixBtn.textContent = quickFix.label;
+        fixBtn.onclick = quickFix.apply;
+        row.appendChild(fixBtn);
+      }
+      list.appendChild(row);
     }
 
     section.appendChild(list);
@@ -114,6 +128,69 @@ function formatLocation(msg: ValidationMessage): string {
 
 function formatMessage(msg: ValidationMessage): string {
   return msg.message;
+}
+
+function getAuthorMessage(msg: ValidationMessage): string {
+  switch (msg.code) {
+    case 'missing-preconditions':
+      return 'Add at least one start rule so author controls who can trigger story.';
+    case 'missing-choice-text':
+      return 'Write player reply text for this choice.';
+    case 'missing-choice-reply':
+      return 'Write NPC response after player picks this reply.';
+    case 'missing-continue-target':
+      return 'Pick next scene, create follow-up scene, or mark reply as ending story.';
+    case 'f2f-start-mode-no-entry-turn':
+      return 'Face-to-face story needs one in-person entry scene.';
+    case 'missing-choices':
+      return 'Add at least one player reply to this scene.';
+    default:
+      return msg.message;
+  }
+}
+
+function getQuickFix(msg: ValidationMessage): { label: string; apply: () => void } | null {
+  if (msg.code === 'missing-preconditions') {
+    return {
+      label: 'Add friendly NPC rule',
+      apply: () => {
+        const conv = store.get().project.conversations.find(item => item.id === msg.conversationId);
+        if (!conv) return;
+        store.updateConversation(conv.id, {
+          preconditions: [...conv.preconditions, { type: 'simple', command: 'req_npc_friendly', params: [] }],
+        });
+      },
+    };
+  }
+
+  if (msg.turnNumber == null || msg.choiceIndex == null) return null;
+
+  if (msg.code === 'missing-choice-text') {
+    return {
+      label: 'Add placeholder',
+      apply: () => store.updateChoice(msg.conversationId, msg.turnNumber!, msg.choiceIndex!, {
+        text: 'Tell me more.',
+      }),
+    };
+  }
+
+  if (msg.code === 'missing-choice-reply') {
+    return {
+      label: 'Add placeholder',
+      apply: () => store.updateChoice(msg.conversationId, msg.turnNumber!, msg.choiceIndex!, {
+        reply: 'I will explain.',
+      }),
+    };
+  }
+
+  if (msg.code === 'missing-continue-target') {
+    return {
+      label: 'End story here',
+      apply: () => store.clearChoiceContinuation(msg.conversationId, msg.turnNumber!, msg.choiceIndex!),
+    };
+  }
+
+  return null;
 }
 
 function buildTooltip(msg: ValidationMessage): string {

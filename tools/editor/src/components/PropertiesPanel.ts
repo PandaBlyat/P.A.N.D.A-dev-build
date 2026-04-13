@@ -4,7 +4,7 @@ import { createStateChange, store } from '../lib/state';
 import type { PropertiesTab } from '../lib/state';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import type { Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, SimplePrecondition, Outcome, FactionId } from '../lib/types';
-import { FACTION_DISPLAY_NAMES } from '../lib/types';
+import { FACTION_DISPLAY_NAMES, getConversationFaction } from '../lib/types';
 import { PRECONDITION_SCHEMAS, OUTCOME_SCHEMAS, groupByCategory } from '../lib/schema';
 import {
   getChoiceFieldKey,
@@ -300,6 +300,7 @@ export function renderPropertiesPanel(container: HTMLElement): void {
 
 function renderConversationProperties(container: HTMLElement, conv: Conversation): void {
   const turnLabels = createTurnDisplayLabeler(conv);
+  const advancedMode = store.get().advancedMode;
   // Section title
   const sectionTitle = document.createElement('div');
   sectionTitle.className = 'props-section-intro';
@@ -350,6 +351,7 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   startModeField.appendChild(startModeSelect);
   container.appendChild(startModeField);
 
+  if (advancedMode) {
   const initialChannelField = document.createElement('div');
   initialChannelField.className = 'field';
   setBeginnerTooltip(initialChannelField, 'field-initial-channel');
@@ -381,11 +383,12 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   advancedBody.appendChild(advancedHint);
   renderF2FEntrySection(advancedBody, conv, turnLabels);
   container.appendChild(advancedWrapper);
+  }
 
   // Preconditions — collapsible section
   const { wrapper: precondWrapper, body: precondBody } = createCollapsibleSection(
     `conv-${conv.id}-preconditions`,
-    `Preconditions (${conv.preconditions.length})`,
+    advancedMode ? `Preconditions (${conv.preconditions.length})` : `When Can This Start? (${conv.preconditions.length})`,
     (trigger) => {
       showCommandPicker(trigger, ADDABLE_PRECONDITION_SCHEMAS, (schema) => {
         const newPrecond: SimplePrecondition = {
@@ -402,13 +405,19 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
         emptyMessage: 'No matching preconditions',
       });
     },
-    { defaultCollapsed: true },
+    { defaultCollapsed: advancedMode },
   );
 
+  if (!advancedMode) {
+    renderStartRuleShortcuts(precondBody, conv);
+  }
   if (conv.preconditions.length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
     hint.textContent = 'No preconditions set — this story will trigger for any NPC. Click "+ Add" to add conditions.';
+    if (!advancedMode) {
+      hint.textContent = 'Pick who can start this story. Friendly NPC is safest first rule.';
+    }
     precondBody.appendChild(hint);
   } else {
     renderPreconditionList(precondBody, createConversationPreconditionOwner(conv));
@@ -439,6 +448,65 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   });
   timeoutBody.appendChild(timeoutMsgField);
   container.appendChild(timeoutWrapper);
+}
+
+function renderStartRuleShortcuts(container: HTMLElement, conv: Conversation): void {
+  const faction = getConversationFaction(conv);
+  const cards = createAuthorShortcutGrid();
+  cards.append(
+    createAuthorShortcutCard({
+      title: 'Any friendly NPC',
+      body: 'Story can start from NPCs not hostile to player.',
+      onClick: () => addConversationRule(conv, { type: 'simple', command: 'req_npc_friendly', params: [] }),
+    }),
+    createAuthorShortcutCard({
+      title: `Friendly ${FACTION_DISPLAY_NAMES[faction]}`,
+      body: `Story can start from friendly ${FACTION_DISPLAY_NAMES[faction]} NPCs only.`,
+      onClick: () => {
+        const nextRules: PreconditionEntry[] = [
+          ...conv.preconditions,
+          { type: 'simple', command: 'req_npc_friendly', params: [faction] },
+          { type: 'simple', command: 'req_npc_faction', params: [faction] },
+        ];
+        store.updateConversation(conv.id, { preconditions: nextRules });
+      },
+    }),
+    createAuthorShortcutCard({
+      title: 'Named story NPC',
+      body: 'Adds named NPC rule. Pick NPC from catalog after card appears.',
+      onClick: () => addConversationRule(conv, { type: 'simple', command: 'req_story_npc', params: [''] }),
+    }),
+  );
+  container.appendChild(cards);
+}
+
+function addConversationRule(conv: Conversation, rule: PreconditionEntry): void {
+  store.updateConversation(conv.id, {
+    preconditions: [...conv.preconditions, rule],
+  });
+}
+
+function createAuthorShortcutGrid(): HTMLElement {
+  const grid = document.createElement('div');
+  grid.className = 'author-shortcut-grid';
+  return grid;
+}
+
+function createAuthorShortcutCard(options: {
+  title: string;
+  body: string;
+  onClick: () => void;
+}): HTMLButtonElement {
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'author-shortcut-card';
+  const title = document.createElement('strong');
+  title.textContent = options.title;
+  const body = document.createElement('span');
+  body.textContent = options.body;
+  card.append(title, body);
+  card.onclick = options.onClick;
+  return card;
 }
 
 function normalizeChannel(channel: Choice['channel'] | Choice['continue_channel'] | Turn['channel'] | undefined, fallback: 'pda' | 'f2f'): 'pda' | 'f2f' {
@@ -690,6 +758,7 @@ function renderTurnProperties(
   const segmentStartTurns = collectSegmentStartTurns(conv);
   const isSegmentStartTurn = segmentStartTurns.has(turn.turnNumber);
   const canPasteChoice = store.hasCopiedChoice(conv.id) && turn.choices.length < 4;
+  const advancedMode = store.get().advancedMode;
   const title = document.createElement('div');
   title.className = 'section-header';
   const titleSpan = document.createElement('span');
@@ -752,7 +821,7 @@ function renderTurnProperties(
 
   const { wrapper: branchPrecondWrapper, body: branchPrecondBody } = createCollapsibleSection(
     `conv-${conv.id}-turn-${turn.turnNumber}-preconditions`,
-    `Branch Preconditions (${(turn.preconditions ?? []).length})`,
+    advancedMode ? `Branch Preconditions (${(turn.preconditions ?? []).length})` : `When Can This Scene Happen? (${(turn.preconditions ?? []).length})`,
     (trigger) => {
       showCommandPicker(trigger, getAddablePreconditionSchemas('turn'), (schema) => {
         const newPrecond: SimplePrecondition = {
@@ -768,7 +837,7 @@ function renderTurnProperties(
         emptyMessage: 'No matching branch preconditions',
       });
     },
-    { defaultCollapsed: true },
+    { defaultCollapsed: advancedMode },
   );
   if ((turn.preconditions ?? []).length === 0) {
     const hint = document.createElement('div');
@@ -807,6 +876,7 @@ function renderTurnProperties(
     return wrapper;
   };
 
+  if (advancedMode) {
   const { wrapper: turnAdvancedWrapper, body: turnAdvancedBody } = createCollapsibleSection(
     `conv-${conv.id}-turn-${turn.turnNumber}-advanced-channel-controls`,
     'Advanced Channel Controls',
@@ -850,6 +920,7 @@ function renderTurnProperties(
   entryScopeField.appendChild(entryScopeRow);
   turnAdvancedBody.appendChild(entryScopeField);
   container.appendChild(turnAdvancedWrapper);
+  }
 
   const { wrapper: turnActionsWrapper, body: turnActionsBody } = createCollapsibleSection(
     `conv-${conv.id}-turn-${turn.turnNumber}-actions`,
@@ -987,6 +1058,7 @@ function renderChoiceProperties(
 ): void {
   const canDuplicateChoice = turn.choices.length < 4;
   const canPasteChoice = store.hasCopiedChoice(conv.id) && turn.choices.length < 4;
+  const advancedMode = store.get().advancedMode;
   // Back button
   const backBtn = document.createElement('button');
   backBtn.className = 'btn-sm';
@@ -1085,7 +1157,7 @@ function renderChoiceProperties(
 
   const { wrapper: choicePrecondWrapper, body: choicePrecondBody } = createCollapsibleSection(
     `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-preconditions`,
-    `Choice Preconditions (${(choice.preconditions ?? []).length})`,
+    advancedMode ? `Choice Preconditions (${(choice.preconditions ?? []).length})` : `When Can This Reply Show? (${(choice.preconditions ?? []).length})`,
     (trigger) => {
       showCommandPicker(trigger, getAddablePreconditionSchemas('choice'), (schema) => {
         const newPrecond: SimplePrecondition = {
@@ -1101,7 +1173,7 @@ function renderChoiceProperties(
         emptyMessage: 'No matching choice preconditions',
       });
     },
-    { defaultCollapsed: true },
+    { defaultCollapsed: advancedMode },
   );
   if ((choice.preconditions ?? []).length === 0) {
     const hint = document.createElement('div');
@@ -1113,6 +1185,7 @@ function renderChoiceProperties(
   }
   container.appendChild(choicePrecondWrapper);
 
+  if (advancedMode) {
   const { wrapper: targetingWrapper, body: targetingBody } = createCollapsibleSection(
     `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-f2f-targeting`,
     'Available When Talking To',
@@ -1208,11 +1281,12 @@ function renderChoiceProperties(
   broadScopeField.appendChild(broadScopeToggle);
   targetingBody.appendChild(broadScopeField);
   container.appendChild(targetingWrapper);
+  }
 
   // Outcomes — collapsible section
   const { wrapper: outcomeWrapper, body: outcomeBody } = createCollapsibleSection(
     `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-outcomes`,
-    `Outcomes (${choice.outcomes.length})`,
+    advancedMode ? `Outcomes (${choice.outcomes.length})` : `What Happens After This Reply? (${choice.outcomes.length})`,
     (trigger) => {
       showCommandPicker(trigger, OUTCOME_SCHEMAS, (schema) => {
         const newOutcome: Outcome = {
@@ -1228,9 +1302,12 @@ function renderChoiceProperties(
         emptyMessage: 'No matching outcomes',
       });
     },
-    { defaultCollapsed: true },
+    { defaultCollapsed: advancedMode },
   );
 
+  if (!advancedMode) {
+    renderEffectShortcuts(outcomeBody, conv, turn, choice);
+  }
   if (choice.outcomes.length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
@@ -1243,10 +1320,16 @@ function renderChoiceProperties(
 
   const { wrapper: continuationWrapper, body: continuationBody } = createCollapsibleSection(
     `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-continuation`,
-    'Continuation / Branching',
+    advancedMode ? 'Continuation / Branching' : 'Next Scene',
     undefined,
-    { defaultCollapsed: true },
+    { defaultCollapsed: advancedMode },
   );
+
+  if (!advancedMode) {
+    renderAuthorContinuationControls(continuationBody, conv, turn, choice, turnLabels);
+    container.appendChild(continuationWrapper);
+    return;
+  }
 
   // Continuation
   const contField = document.createElement('div');
@@ -1442,6 +1525,87 @@ function renderChoiceProperties(
   continuationBody.appendChild(choiceAdvancedWrapper);
 
   container.appendChild(continuationWrapper);
+}
+
+function renderEffectShortcuts(container: HTMLElement, conv: Conversation, turn: Turn, choice: Choice): void {
+  const addOutcome = (outcome: Outcome): void => {
+    store.updateChoice(conv.id, turn.turnNumber, choice.index, {
+      outcomes: [...choice.outcomes, outcome],
+    });
+  };
+
+  const cards = createAuthorShortcutGrid();
+  cards.append(
+    createAuthorShortcutCard({
+      title: 'Give 500 RU',
+      body: 'Reward player with money after this reply.',
+      onClick: () => addOutcome({ command: 'reward_money', params: ['500'] }),
+    }),
+    createAuthorShortcutCard({
+      title: 'Give medkit',
+      body: 'Put a basic medkit in player inventory.',
+      onClick: () => addOutcome({ command: 'give_item', params: ['medkit'] }),
+    }),
+    createAuthorShortcutCard({
+      title: 'Send to location',
+      body: 'Mark Cordon location on map. Author can change place after.',
+      onClick: () => addOutcome({ command: 'watch_location', params: ['%cordon_panda_st_key%', '85'] }),
+    }),
+    createAuthorShortcutCard({
+      title: 'Improve goodwill',
+      body: 'Make chosen faction like player a bit more.',
+      onClick: () => addOutcome({ command: 'reward_gw', params: ['50', getConversationFaction(conv)] }),
+    }),
+  );
+  container.appendChild(cards);
+}
+
+function renderAuthorContinuationControls(
+  container: HTMLElement,
+  conv: Conversation,
+  turn: Turn,
+  choice: Choice,
+  turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
+): void {
+  const field = document.createElement('div');
+  field.className = 'field';
+  const label = document.createElement('label');
+  label.textContent = 'Next scene';
+  field.appendChild(label);
+
+  const summary = document.createElement('div');
+  summary.className = 'field-hint';
+  if (choice.continueTo == null) {
+    summary.textContent = 'This reply ends story. Add follow-up scene to continue branch.';
+  } else {
+    const channel = normalizeChannel(choice.continueChannel ?? choice.continue_channel, normalizeChannel(turn.channel, 'pda'));
+    summary.textContent = `Continues as ${channelLabel(channel)} to ${turnLabels.getLongLabel(choice.continueTo)}.`;
+  }
+  field.appendChild(summary);
+
+  const row = document.createElement('div');
+  row.className = 'inspector-action-row inspector-action-row-wrap';
+
+  const addFollowUp = (channel: 'pda' | 'f2f'): void => {
+    const createdTurnNumber = store.ensureChoiceContinuationTurn(conv.id, turn.turnNumber, choice.index, channel);
+    if (createdTurnNumber != null) {
+      requestFlowCenter({ conversationId: conv.id, turnNumber: createdTurnNumber });
+    }
+  };
+  row.append(
+    createActionButton('Add PDA follow-up', 'Create or retarget next scene as PDA message', () => addFollowUp('pda'), 'add'),
+    createActionButton('Add in-person follow-up', 'Create or retarget next scene as face-to-face talk', () => addFollowUp('f2f'), 'add'),
+  );
+
+  if (choice.continueTo != null) {
+    const endHere = createActionButton('End story here', 'Remove next scene link from this reply', () => {
+      store.clearChoiceContinuation(conv.id, turn.turnNumber, choice.index);
+    }, 'delete');
+    row.appendChild(endHere);
+  }
+
+  field.appendChild(row);
+  container.appendChild(field);
 }
 
 // ─── Precondition List ────────────────────────────────────────────────────
@@ -3313,6 +3477,7 @@ function showCommandPicker(
   const viewportGap = 12;
   let isClosed = false;
   let activeCategory = groups[0]?.[0] ?? '';
+  const advancedMode = store.get().advancedMode;
 
   const matchesFilter = (schema: CommandSchema, filter: string) => {
     if (!filter) return true;
@@ -3395,7 +3560,7 @@ function showCommandPicker(
           <span class="command-picker-card-title">${schema.label}</span>
           <span class="command-picker-card-pill">${paramsSummary}</span>
         </span>
-        <span class="command-picker-card-name">${schema.name}</span>
+        ${advancedMode ? `<span class="command-picker-card-name">${schema.name}</span>` : ''}
         <span class="command-picker-card-desc">${schema.description}</span>
       `;
       card.onclick = () => {

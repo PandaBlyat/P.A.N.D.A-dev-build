@@ -2,9 +2,10 @@
 
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import type { Conversation, Choice, Outcome } from '../lib/types';
-import { findSchema, OUTCOME_SCHEMAS } from '../lib/schema';
+import { findSchema, OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from '../lib/schema';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { createIcon } from './icons';
+import { store } from '../lib/state';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,7 +38,7 @@ interface SimState {
   turnLabels: TurnLabeler;
   timeoutSeconds: number | null;
   timeoutMessage: string | null;
-  mode: 'runtime-parity' | 'authoring-raw';
+  mode: 'author' | 'runtime-parity' | 'authoring-raw';
 }
 
 // ---------------------------------------------------------------------------
@@ -104,7 +105,7 @@ export function openPlayPanel(conversation: Conversation): void {
   const disclaimer = document.createElement('div');
   disclaimer.className = 'play-disclaimer';
   disclaimer.id = 'play-panel-disclaimer';
-  disclaimer.textContent = 'Preview mode \u2014 Preconditions, dynamic references, chance-based outcomes, and relationship variants are not simulated. This shows conversation structure only.';
+  disclaimer.textContent = 'Author Preview shows story structure, replies, next scenes, relationship variants, and effects. Game-only checks like live preconditions and random chance are not simulated.';
   panel.appendChild(disclaimer);
 
   // -- status strip --
@@ -137,28 +138,37 @@ export function openPlayPanel(conversation: Conversation): void {
   const footerLeft = document.createElement('div');
   footerLeft.className = 'play-footer-left';
 
-  const modeWrapper = document.createElement('label');
-  modeWrapper.className = 'play-mode-select-wrap';
-  const modeLabel = document.createElement('span');
-  modeLabel.className = 'play-mode-select-label';
-  modeLabel.textContent = 'Opening message view';
-  const modeSelect = document.createElement('select');
-  modeSelect.className = 'play-mode-select';
-  modeSelect.setAttribute('aria-label', 'Opening message display mode');
-  const runtimeOption = document.createElement('option');
-  runtimeOption.value = 'runtime-parity';
-  runtimeOption.textContent = 'Runtime-accurate parity mode';
-  const rawOption = document.createElement('option');
-  rawOption.value = 'authoring-raw';
-  rawOption.textContent = 'Authoring raw mode';
-  modeSelect.append(runtimeOption, rawOption);
-  modeSelect.onchange = () => {
-    if (!simState) return;
-    simState.mode = modeSelect.value === 'authoring-raw' ? 'authoring-raw' : 'runtime-parity';
-    restartSimulation();
-  };
-  modeWrapper.append(modeLabel, modeSelect);
-  footerLeft.appendChild(modeWrapper);
+  if (store.get().advancedMode) {
+    const modeWrapper = document.createElement('label');
+    modeWrapper.className = 'play-mode-select-wrap';
+    const modeLabel = document.createElement('span');
+    modeLabel.className = 'play-mode-select-label';
+    modeLabel.textContent = 'Opening message view';
+    const modeSelect = document.createElement('select');
+    modeSelect.className = 'play-mode-select';
+    modeSelect.setAttribute('aria-label', 'Opening message display mode');
+    const authorOption = document.createElement('option');
+    authorOption.value = 'author';
+    authorOption.textContent = 'Author Preview';
+    const runtimeOption = document.createElement('option');
+    runtimeOption.value = 'runtime-parity';
+    runtimeOption.textContent = 'Runtime-accurate parity mode';
+    const rawOption = document.createElement('option');
+    rawOption.value = 'authoring-raw';
+    rawOption.textContent = 'Authoring raw mode';
+    modeSelect.append(authorOption, runtimeOption, rawOption);
+    modeSelect.onchange = () => {
+      if (!simState) return;
+      simState.mode = modeSelect.value === 'authoring-raw'
+        ? 'authoring-raw'
+        : modeSelect.value === 'runtime-parity'
+          ? 'runtime-parity'
+          : 'author';
+      restartSimulation();
+    };
+    modeWrapper.append(modeLabel, modeSelect);
+    footerLeft.appendChild(modeWrapper);
+  }
 
   // Timeout trigger button (only if timeout configured)
   const hasTimeout = conversation.timeout != null && conversation.timeout > 0;
@@ -217,7 +227,7 @@ export function openPlayPanel(conversation: Conversation): void {
     turnLabels,
     timeoutSeconds: hasTimeout ? conversation.timeout! : null,
     timeoutMessage: hasTimeout ? (conversation.timeoutMessage ?? null) : null,
-    mode: 'runtime-parity',
+    mode: 'author',
   };
 
   if (conversation.turns.length === 0) {
@@ -370,6 +380,7 @@ function isEntryTurn(turn: Conversation['turns'][number]): boolean {
 
 function shouldDisplayOpeningMessage(turn: Conversation['turns'][number]): boolean {
   if (!simState) return false;
+  if (simState.mode === 'author') return true;
   if (simState.mode === 'authoring-raw') return true;
   return isEntryTurn(turn);
 }
@@ -596,6 +607,15 @@ function renderChoices(choices: Choice[]): void {
       meta.appendChild(relEl);
     }
 
+    const visibilityRules = choice.preconditions ?? [];
+    if (visibilityRules.length > 0) {
+      const ruleEl = document.createElement('span');
+      ruleEl.className = 'play-choice-badge play-choice-conditional';
+      ruleEl.textContent = `${visibilityRules.length} show rule${visibilityRules.length === 1 ? '' : 's'}`;
+      ruleEl.title = visibilityRules.map(formatPreconditionPreview).join('\n');
+      meta.appendChild(ruleEl);
+    }
+
     btn.appendChild(meta);
     choicesEl.appendChild(btn);
   }
@@ -603,4 +623,17 @@ function renderChoices(choices: Choice[]): void {
   // Focus the first choice for keyboard accessibility
   const firstBtn = choicesEl.querySelector('button');
   if (firstBtn) firstBtn.focus();
+}
+
+function formatPreconditionPreview(entry: NonNullable<Choice['preconditions']>[number]): string {
+  if (entry.type === 'simple') {
+    const schema = findSchema(PRECONDITION_SCHEMAS, entry.command);
+    const params = entry.params.length > 0 ? `: ${entry.params.join(', ')}` : '';
+    return `${schema?.label ?? entry.command}${params}`;
+  }
+  if (entry.type === 'not') return `Not ${formatPreconditionPreview(entry.inner)}`;
+  if (entry.type === 'any') {
+    return `${entry.options.length} rule option${entry.options.length === 1 ? '' : 's'}`;
+  }
+  return entry.raw;
 }

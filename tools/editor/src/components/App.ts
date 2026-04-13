@@ -14,9 +14,10 @@ import { renderBottomWorkspace as renderBottomWorkspaceContent } from './BottomW
 import { createSystemStringsPanelContent } from './SystemStringsPanel';
 import { createXmlPreviewContent } from './XmlPreview';
 import { createValidationWorkspaceContent } from './ValidationBar';
+import { openStoryWizard } from './StoryWizard';
 import { mountMotivationTicker } from './MotivationTicker';
 import { shouldShowFirstRunExperience, renderFirstRunExperience } from './Onboarding';
-import { createBlankProject, exportProjectJson, exportXml, importFromJson, importFromXml } from '../lib/project-io';
+import { exportProjectJson, exportXml, importFromJson, importFromXml } from '../lib/project-io';
 import { setButtonContent, createIcon } from './icons';
 import { getFactionThemeVariables } from '../lib/faction-colors';
 import { getConversationFaction } from '../lib/types';
@@ -465,9 +466,13 @@ function renderUtilityRail(shell: AppShell, firstRun = false): void {
       { sheet: 'stories', label: 'Stories' },
       { sheet: 'inspector', label: 'Inspect' },
       { sheet: 'issues', label: 'Issues', badge: issueCount > 0 ? `${issueCount}` : undefined },
-      { sheet: 'strings', label: 'Strings' },
-      { sheet: 'xml', label: 'XML' },
     ];
+    if (state.advancedMode) {
+      navItems.push(
+        { sheet: 'strings', label: 'Strings' },
+        { sheet: 'xml', label: 'XML' },
+      );
+    }
     shell.utilityRail.append(
       ...navItems.map(item => createMobileNavButton(item.sheet, item.label, item.badge)),
     );
@@ -482,19 +487,21 @@ function renderUtilityRail(shell: AppShell, firstRun = false): void {
   );
   issueButton.title = issueCount > 0 ? `Open issues (${issueCount})` : 'No project issues';
 
-  const stringsButton = createUtilityRailButton('Strings', undefined, false, () => activateWorkspaceTab('strings'));
-  stringsButton.title = state.showSystemStringsPanel ? 'Focus system strings workspace' : 'Open system strings workspace';
-
-  const xmlButton = createUtilityRailButton('XML', undefined, false, () => activateWorkspaceTab('xml'));
-  xmlButton.title = state.showXmlPreview ? 'Focus XML preview workspace' : 'Open XML preview workspace';
-
-  shell.utilityRail.append(
+  const utilityButtons = [
     createUtilityRailButton('Stories', undefined, false, () => toggleDrawer('left')),
     createUtilityRailButton('Inspector', undefined, false, () => toggleDrawer('right')),
     issueButton,
-    stringsButton,
-    xmlButton,
-  );
+  ];
+  if (state.advancedMode) {
+    const stringsButton = createUtilityRailButton('Strings', undefined, false, () => activateWorkspaceTab('strings'));
+    stringsButton.title = state.showSystemStringsPanel ? 'Focus system strings workspace' : 'Open system strings workspace';
+
+    const xmlButton = createUtilityRailButton('XML', undefined, false, () => activateWorkspaceTab('xml'));
+    xmlButton.title = state.showXmlPreview ? 'Focus XML preview workspace' : 'Open XML preview workspace';
+    utilityButtons.push(stringsButton, xmlButton);
+  }
+
+  shell.utilityRail.append(...utilityButtons);
 }
 
 function updateOverlayState(shell: AppShell): void {
@@ -527,7 +534,7 @@ function createAddConversationButton(): HTMLButtonElement {
   addBtn.title = 'New story';
   addBtn.setAttribute('aria-label', 'New story');
   setBeginnerTooltip(addBtn, 'story-new');
-  addBtn.onclick = () => createBlankProject();
+  addBtn.onclick = () => openStoryWizard();
   return addBtn;
 }
 
@@ -881,6 +888,7 @@ function renderMobileMoreActions(body: HTMLElement): void {
     createMobileSheetAction('share', 'Community', () => { closeMobileSheet(); openSharePanel(); }),
     createMobileSheetAction('support', 'Support', () => { closeMobileSheet(); openSupportPanel(); }),
     createMobileSheetAction('help', 'Help', () => { closeMobileSheet(); openHelpModal(); }),
+    createMobileSheetAction('eye', state.advancedMode ? 'Advanced On' : 'Author Mode', () => store.toggleAdvancedMode()),
     createMobileSheetAction('locate', `Density: ${state.flowDensity}`, () => store.setFlowDensity(nextDensity(state.flowDensity))),
     createMobileSheetAction('brand', 'Reset Intro', resetIntro),
   );

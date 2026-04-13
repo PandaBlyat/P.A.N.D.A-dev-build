@@ -153,6 +153,15 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
 
     const editorGroup = document.createElement('div');
     editorGroup.className = 'toolbar-group toolbar-group-edit';
+    const advancedBtn = toggleBtn(
+      'eye',
+      state.advancedMode ? 'Advanced On' : 'Author Mode',
+      state.advancedMode,
+      () => store.toggleAdvancedMode(),
+      state.advancedMode
+        ? 'Show full technical controls'
+        : 'Author Mode hides technical controls until needed',
+    );
     const densitySelect = document.createElement('select');
     densitySelect.className = 'toolbar-density-select toolbar-select-quiet';
     densitySelect.title = 'Adjust how much information each turn card shows in the flow editor.';
@@ -175,26 +184,28 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     const historyGroup = document.createElement('div');
     historyGroup.className = 'toolbar-group toolbar-group-compact toolbar-group-history';
     historyGroup.append(undoBtn, redoBtn);
-    editorGroup.append(densitySelect, sep(), historyGroup);
+    editorGroup.append(advancedBtn, densitySelect, sep(), historyGroup);
     rightZone.appendChild(editorGroup);
 
-    const viewGroup = document.createElement('div');
-    viewGroup.className = 'toolbar-group toolbar-group-segmented';
-    viewGroup.appendChild(toggleBtn(
-      'xml',
-      'XML',
-      state.showXmlPreview,
-      () => store.toggleXmlPreview(),
-      state.showXmlPreview ? 'Hide the live XML preview panel' : 'Show the live XML preview panel',
-    ));
-    viewGroup.appendChild(toggleBtn(
-      'strings',
-      'Strings',
-      state.showSystemStringsPanel,
-      () => store.toggleSystemStringsPanel(),
-      state.showSystemStringsPanel ? 'Hide the shared system strings manager' : 'Show the shared system strings manager',
-    ));
-    rightZone.appendChild(viewGroup);
+    if (state.advancedMode) {
+      const viewGroup = document.createElement('div');
+      viewGroup.className = 'toolbar-group toolbar-group-segmented';
+      viewGroup.appendChild(toggleBtn(
+        'xml',
+        'XML',
+        state.showXmlPreview,
+        () => store.toggleXmlPreview(),
+        state.showXmlPreview ? 'Hide the live XML preview panel' : 'Show the live XML preview panel',
+      ));
+      viewGroup.appendChild(toggleBtn(
+        'strings',
+        'Strings',
+        state.showSystemStringsPanel,
+        () => store.toggleSystemStringsPanel(),
+        state.showSystemStringsPanel ? 'Hide the shared system strings manager' : 'Show the shared system strings manager',
+      ));
+      rightZone.appendChild(viewGroup);
+    }
 
     const status = document.createElement('span');
     status.className = 'toolbar-status';
@@ -282,8 +293,17 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   const search = renderQuickSearch();
   editTier.appendChild(search);
 
-  const editGroup = document.createElement('div');
-  editGroup.className = 'toolbar-group toolbar-group-edit';
+    const editGroup = document.createElement('div');
+    editGroup.className = 'toolbar-group toolbar-group-edit';
+  const advancedBtn = toggleBtn(
+    'eye',
+    state.advancedMode ? 'Advanced On' : 'Author Mode',
+    state.advancedMode,
+    () => store.toggleAdvancedMode(),
+    state.advancedMode
+      ? 'Show full technical controls'
+      : 'Author Mode hides technical controls until needed',
+  );
   const densitySelect = document.createElement('select');
   densitySelect.className = 'toolbar-density-select toolbar-select-quiet';
   densitySelect.title = 'Adjust how much information each turn card shows in the flow editor.';
@@ -312,6 +332,12 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     editTier.appendChild(quickActions);
     editTier.appendChild(createOverflowMenu('Editor', [
       {
+        icon: 'eye',
+        label: state.advancedMode ? 'Advanced On' : 'Author Mode',
+        title: 'Toggle technical controls',
+        onclick: () => store.toggleAdvancedMode(),
+      },
+      {
         icon: 'locate',
         label: `Density: ${state.flowDensity}`,
         title: 'Cycle the amount of information shown on flow nodes',
@@ -319,6 +345,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
       },
     ]));
   } else {
+    editGroup.appendChild(advancedBtn);
     editGroup.appendChild(densitySelect);
     editGroup.appendChild(sep());
 
@@ -335,7 +362,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   const utilityTier = document.createElement('div');
   utilityTier.className = 'toolbar-tier toolbar-tier-utility';
 
-  if (!isCompact) {
+  if (!isCompact && state.advancedMode) {
     const utilityGroup = document.createElement('div');
     utilityGroup.className = 'toolbar-group toolbar-group-segmented';
     utilityGroup.appendChild(toggleBtn(

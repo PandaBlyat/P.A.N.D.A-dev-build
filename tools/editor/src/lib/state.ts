@@ -19,6 +19,7 @@ export type BottomWorkspaceTab = 'strings' | 'xml';
 export type CursorAnimationIntensity = 'low' | 'medium' | 'high';
 
 const CURSOR_PREFS_KEY = 'panda:cursor-prefs:v1';
+const ADVANCED_MODE_KEY = 'panda:advanced-mode:v1';
 
 type CursorPrefs = {
   enabled: boolean;
@@ -45,6 +46,16 @@ function persistCursorPrefs(prefs: CursorPrefs): void {
   window.localStorage.setItem(CURSOR_PREFS_KEY, JSON.stringify(prefs));
 }
 
+function loadAdvancedMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(ADVANCED_MODE_KEY) === 'true';
+}
+
+function persistAdvancedMode(enabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(ADVANCED_MODE_KEY, String(enabled));
+}
+
 export interface AppState {
   project: Project;
   systemStrings: Map<string, string>;
@@ -56,6 +67,7 @@ export interface AppState {
   showXmlPreview: boolean;
   showSystemStringsPanel: boolean;
   showValidationPanel: boolean;
+  advancedMode: boolean;
   bottomWorkspaceTab: BottomWorkspaceTab | null;
   bottomWorkspaceHeight: number;
   flowDensity: FlowDensity;
@@ -293,6 +305,7 @@ class StateManager {
       showXmlPreview: false,
       showSystemStringsPanel: false,
       showValidationPanel: false,
+      advancedMode: loadAdvancedMode(),
       bottomWorkspaceTab: null,
       bottomWorkspaceHeight: 280,
       flowDensity: 'standard',
@@ -1177,6 +1190,22 @@ class StateManager {
     this.notify(FULL_APP_RENDER);
   }
 
+  setAdvancedMode(enabled: boolean): void {
+    if (this.state.advancedMode === enabled) return;
+    this.state.advancedMode = enabled;
+    persistAdvancedMode(enabled);
+    if (!enabled) {
+      this.state.showXmlPreview = false;
+      this.state.showSystemStringsPanel = false;
+      this.syncBottomWorkspaceTab();
+    }
+    this.notify(FULL_APP_RENDER);
+  }
+
+  toggleAdvancedMode(): void {
+    this.setAdvancedMode(!this.state.advancedMode);
+  }
+
   setBottomWorkspaceTab(tab: BottomWorkspaceTab): void {
     if (this.getOpenBottomWorkspaceTabs().includes(tab)) {
       this.state.bottomWorkspaceTab = tab;
@@ -1293,6 +1322,33 @@ class StateManager {
     conv.faction = getConversationFaction(this.getSelectedConversation(), this.state.project.faction);
     this.state.project.conversations.push(conv);
     this.state.selectedConversationId = conv.id;
+    this.clearSelection({ notify: false });
+    this.finishProjectMutation();
+  }
+
+  addConversationFromTemplate(conversation: Conversation, npcTemplates: NpcTemplate[] = []): void {
+    this.pushUndo();
+    const maxId = this.state.project.conversations.reduce((max, item) => Math.max(max, item.id), 0);
+    const nextConversation: Conversation = JSON.parse(JSON.stringify(conversation));
+    nextConversation.id = maxId + 1;
+    nextConversation.faction = getConversationFaction(nextConversation, this.state.project.faction);
+    nextConversation.turns.forEach((turn, index) => {
+      turn.turnNumber = index + 1;
+      turn.choices = turn.choices.map((choice, choiceIndex) => ({
+        ...choice,
+        index: choiceIndex + 1,
+      }));
+      normalizeTurnEntryFlags(turn);
+    });
+    this.state.project.conversations.push(nextConversation);
+    if (npcTemplates.length > 0) {
+      const existing = new Map((this.state.project.npcTemplates ?? []).map((template) => [template.id, template]));
+      for (const template of npcTemplates) {
+        existing.set(template.id, JSON.parse(JSON.stringify(template)) as NpcTemplate);
+      }
+      this.state.project.npcTemplates = [...existing.values()];
+    }
+    this.state.selectedConversationId = nextConversation.id;
     this.clearSelection({ notify: false });
     this.finishProjectMutation();
   }
