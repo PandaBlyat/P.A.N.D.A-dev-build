@@ -89,6 +89,7 @@ const DEFAULT_VIEW_STATE: ViewState = {
   panY: 40,
   zoom: 1,
 };
+const MOBILE_VIEWPORT_QUERY = '(max-width: 760px)';
 const viewStateByConversation = new Map<number, ViewState>();
 
 // ── Live flow editor state for incremental updates ──
@@ -330,7 +331,8 @@ export function renderFlowEditor(container: HTMLElement): void {
 
   const conv = store.getSelectedConversation();
   const state = store.get();
-  const density = state.flowDensity;
+  const density = getEffectiveFlowDensity(state.flowDensity);
+  const isMobileViewport = isCompactViewport();
 
   // Full rebuild invalidates cached port offsets
   invalidatePortOffsetCache();
@@ -378,6 +380,7 @@ export function renderFlowEditor(container: HTMLElement): void {
 
   const shell = document.createElement('div');
   const shellClasses = ['flow-shell', `density-${density}`];
+  if (isMobileViewport) shellClasses.push('flow-shell-mobile');
   if (graphSize !== 'normal') shellClasses.push('is-large-graph');
   if (graphSize !== 'normal') shellClasses.push('is-perf-mode');
   if (graphSize === 'huge') shellClasses.push('is-huge-graph');
@@ -947,6 +950,14 @@ export function renderFlowEditor(container: HTMLElement): void {
   });
 }
 
+function isCompactViewport(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia(MOBILE_VIEWPORT_QUERY).matches;
+}
+
+function getEffectiveFlowDensity(preferredDensity: FlowDensity): FlowDensity {
+  return isCompactViewport() ? 'compact' : preferredDensity;
+}
+
 function renderControls(options: {
   customCursorEnabled: boolean;
   cursorSize: number;
@@ -1198,8 +1209,8 @@ function renderTurnNode(options: {
 
   let dragPosition: { x: number; y: number } | null = null;
 
-  node.onmousedown = (e) => {
-    if (e.button !== 0) return;
+  node.onpointerdown = (e) => {
+    if (e.button !== 0 || e.pointerType === 'touch' && !e.isPrimary) return;
     const target = e.target as HTMLElement;
     if (target.closest('.turn-choice-item, .choice-output-port, .turn-input-port, .turn-label-input, .turn-color-input')) return;
 
@@ -1207,14 +1218,17 @@ function renderTurnNode(options: {
     const startY = e.clientY;
     const origX = turn.position.x;
     const origY = turn.position.y;
+    const pointerId = e.pointerId;
     e.preventDefault();
     e.stopPropagation();
+    node.setPointerCapture(pointerId);
 
     let lastMoveAt = performance.now();
     let lastClientX = startX;
     let lastClientY = startY;
 
-    const onMove = (ev: MouseEvent) => {
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
       onDragStateChange(true);
       const nextPosition = {
         x: Math.max(0, origX + (ev.clientX - startX) / viewState.zoom),
@@ -1241,8 +1255,12 @@ function renderTurnNode(options: {
     };
 
     const onUp = () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+      node.removeEventListener('pointermove', onMove);
+      node.removeEventListener('pointerup', onUp);
+      node.removeEventListener('pointercancel', onUp);
+      if (node.hasPointerCapture(pointerId)) {
+        node.releasePointerCapture(pointerId);
+      }
       onDragStateChange(false);
       onPreviewPosition();
       node.classList.remove('is-dragging-node');
@@ -1253,8 +1271,9 @@ function renderTurnNode(options: {
       dragPosition = null;
     };
 
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    node.addEventListener('pointermove', onMove);
+    node.addEventListener('pointerup', onUp);
+    node.addEventListener('pointercancel', onUp);
   };
 
   const inputPort = document.createElement('button');
@@ -2209,11 +2228,95 @@ function wireCanvasInteractions(options: {
 }): void {
   const { canvas, viewState, applyView, onBackgroundClick, onInteractionStateChange } = options;
 
-  canvas.onmousedown = (event) => {
+  type ActivePointer = { clientX: number; clientY: number };
+  const activePointers = new Map<number, ActivePointer>();
+  let panPointerId: number | null = null;
+  let pinchState: {
+    distance: number;
+    zoom: number;
+    worldX: number;
+    worldY: number;
+    centerX: number;
+    centerY: number;
+  } | null = null;
+  let panFrame = 0;
+  const scheduleView = (): void => {
+    if (panFrame !== 0) return;
+    panFrame = requestAnimationFrame(() => {
+      panFrame = 0;
+      applyView();
+    });
+  };
+  const getPinchMetrics = (): { distance: number; centerX: number; centerY: number } | null => {
+    if (activePointers.size < 2) return null;
+    const [first, second] = [...activePointers.values()];
+    if (!first || !second) return null;
+    const rect = canvas.getBoundingClientRect();
+    const centerClientX = (first.clientX + second.clientX) / 2;
+    const centerClientY = (first.clientY + second.clientY) / 2;
+    return {
+      distance: Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY),
+      centerX: centerClientX - rect.left,
+      centerY: centerClientY - rect.top,
+    };
+  };
+  const beginPinch = (): void => {
+    const metrics = getPinchMetrics();
+    if (!metrics || metrics.distance === 0) return;
+    pinchState = {
+      distance: metrics.distance,
+      zoom: viewState.zoom,
+      worldX: (metrics.centerX - viewState.panX) / viewState.zoom,
+      worldY: (metrics.centerY - viewState.panY) / viewState.zoom,
+      centerX: metrics.centerX,
+      centerY: metrics.centerY,
+    };
+    canvas.classList.add('is-panning');
+    dispatchCursorState(canvas, 'panning', true);
+    onInteractionStateChange(true);
+  };
+  const updatePinch = (): void => {
+    if (!pinchState) return;
+    const metrics = getPinchMetrics();
+    if (!metrics || pinchState.distance === 0) return;
+    const nextZoom = clamp(pinchState.zoom * (metrics.distance / pinchState.distance), MIN_ZOOM, MAX_ZOOM);
+    viewState.zoom = nextZoom;
+    viewState.panX = metrics.centerX - pinchState.worldX * nextZoom;
+    viewState.panY = metrics.centerY - pinchState.worldY * nextZoom;
+    pinchState.centerX = metrics.centerX;
+    pinchState.centerY = metrics.centerY;
+    scheduleView();
+  };
+  const endInteractionIfIdle = (): void => {
+    if (activePointers.size > 0) return;
+    if (panFrame !== 0) {
+      cancelAnimationFrame(panFrame);
+      panFrame = 0;
+    }
+    applyView();
+    canvas.classList.remove('is-panning');
+    dispatchCursorState(canvas, 'panning', false);
+    onInteractionStateChange(false, 100);
+    panPointerId = null;
+    pinchState = null;
+  };
+
+  canvas.onpointerdown = (event) => {
     const target = event.target as HTMLElement;
     if (event.button !== 0 && event.button !== 1) return;
     if (target.closest('.turn-node, .flow-controls, .flow-edge')) return;
 
+    activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+    canvas.setPointerCapture(event.pointerId);
+
+    if (activePointers.size === 2) {
+      beginPinch();
+      event.preventDefault();
+      return;
+    }
+
+    if (activePointers.size > 1) return;
+    panPointerId = event.pointerId;
     const startPanX = event.clientX;
     const startPanY = event.clientY;
     const originPanX = viewState.panX;
@@ -2225,36 +2328,75 @@ function wireCanvasInteractions(options: {
     onInteractionStateChange(true);
     event.preventDefault();
 
-    let panFrame = 0;
-
-    const onMove = (moveEvent: MouseEvent) => {
+    const onMove = (moveEvent: PointerEvent) => {
+      const activePointer = activePointers.get(moveEvent.pointerId);
+      if (!activePointer) return;
+      activePointers.set(moveEvent.pointerId, { clientX: moveEvent.clientX, clientY: moveEvent.clientY });
+      if (pinchState) {
+        updatePinch();
+        return;
+      }
+      if (moveEvent.pointerId !== panPointerId) return;
       moved = true;
       viewState.panX = originPanX + (moveEvent.clientX - startPanX);
       viewState.panY = originPanY + (moveEvent.clientY - startPanY);
-      if (panFrame === 0) {
-        panFrame = requestAnimationFrame(() => {
-          panFrame = 0;
-          applyView();
-        });
-      }
+      scheduleView();
     };
 
-    const onUp = () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      if (panFrame !== 0) {
-        cancelAnimationFrame(panFrame);
-        panFrame = 0;
+    const onUp = (upEvent: PointerEvent) => {
+      activePointers.delete(upEvent.pointerId);
+      if (canvas.hasPointerCapture(upEvent.pointerId)) {
+        canvas.releasePointerCapture(upEvent.pointerId);
       }
-      applyView();
-      canvas.classList.remove('is-panning');
-      dispatchCursorState(canvas, 'panning', false);
-      onInteractionStateChange(false, 100);
-      if (!moved) onBackgroundClick();
+      if (activePointers.size === 1 && pinchState) {
+        pinchState = null;
+        const [remainingId, remainingPointer] = [...activePointers.entries()][0]!;
+        panPointerId = remainingId;
+        viewState.panX = viewState.panX;
+        viewState.panY = viewState.panY;
+        moved = true;
+        const resumeStartX = remainingPointer.clientX;
+        const resumeStartY = remainingPointer.clientY;
+        const resumeOriginX = viewState.panX;
+        const resumeOriginY = viewState.panY;
+        const resumeMove = (resumeEvent: PointerEvent) => {
+          const current = activePointers.get(resumeEvent.pointerId);
+          if (!current) return;
+          activePointers.set(resumeEvent.pointerId, { clientX: resumeEvent.clientX, clientY: resumeEvent.clientY });
+          if (pinchState) {
+            updatePinch();
+            return;
+          }
+          if (resumeEvent.pointerId !== panPointerId) return;
+          viewState.panX = resumeOriginX + (resumeEvent.clientX - resumeStartX);
+          viewState.panY = resumeOriginY + (resumeEvent.clientY - resumeStartY);
+          scheduleView();
+        };
+        canvas.removeEventListener('pointermove', onMove);
+        canvas.addEventListener('pointermove', resumeMove);
+        const cleanupResume = (resumeEndEvent: PointerEvent) => {
+          activePointers.delete(resumeEndEvent.pointerId);
+          canvas.removeEventListener('pointermove', resumeMove);
+          canvas.removeEventListener('pointerup', cleanupResume);
+          canvas.removeEventListener('pointercancel', cleanupResume);
+          endInteractionIfIdle();
+        };
+        canvas.removeEventListener('pointerup', onUp);
+        canvas.removeEventListener('pointercancel', onUp);
+        canvas.addEventListener('pointerup', cleanupResume);
+        canvas.addEventListener('pointercancel', cleanupResume);
+        return;
+      }
+      canvas.removeEventListener('pointermove', onMove);
+      canvas.removeEventListener('pointerup', onUp);
+      canvas.removeEventListener('pointercancel', onUp);
+      endInteractionIfIdle();
+      if (!moved && activePointers.size === 0) onBackgroundClick();
     };
 
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    canvas.addEventListener('pointermove', onMove);
+    canvas.addEventListener('pointerup', onUp);
+    canvas.addEventListener('pointercancel', onUp);
   };
 
   let wheelFrame = 0;

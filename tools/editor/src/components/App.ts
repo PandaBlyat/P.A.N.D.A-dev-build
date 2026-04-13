@@ -418,7 +418,7 @@ function renderUtilityRail(shell: AppShell, firstRun = false): void {
   xmlButton.title = state.showXmlPreview ? 'Focus XML preview workspace' : 'Open XML preview workspace';
 
   shell.utilityRail.append(
-    createUtilityRailButton('List', undefined, false, () => toggleDrawer('left')),
+    createUtilityRailButton('Stories', undefined, false, () => toggleDrawer('left')),
     createUtilityRailButton('Inspector', undefined, false, () => toggleDrawer('right')),
     issueButton,
     stringsButton,

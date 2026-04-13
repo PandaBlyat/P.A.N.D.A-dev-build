@@ -106,6 +106,14 @@ html, body {
   flex-direction: column;
 }
 
+@supports (height: 100dvh) {
+  html,
+  body,
+  #app {
+    height: 100dvh;
+  }
+}
+
 /* ─── Toolbar ──────────────────────────────────────────── */
 
 .toolbar {
@@ -1752,6 +1760,7 @@ label {
   overflow: hidden;
   background: transparent;
   cursor: grab;
+  touch-action: none;
 }
 
 .flow-canvas::before {
@@ -2037,6 +2046,7 @@ body.use-custom-cursor * {
   border: 1px solid var(--node-border);
   border-radius: var(--radius-lg);
   cursor: pointer;
+  touch-action: none;
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
   box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.03);
   contain: layout style;
@@ -5205,6 +5215,276 @@ hr {
 
   .system-strings-search {
     width: 100%;
+  }
+
+  html,
+  body,
+  #app {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .toolbar {
+    max-height: 38dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: max(8px, env(safe-area-inset-top)) 10px 8px;
+  }
+
+  .toolbar-title {
+    width: 100%;
+    justify-content: center;
+    border-radius: var(--radius);
+  }
+
+  .toolbar-title-primary {
+    letter-spacing: 0.1em;
+  }
+
+  .toolbar.toolbar-mobile .toolbar-button,
+  .toolbar.toolbar-mobile .toolbar-overflow-toggle,
+  .toolbar.toolbar-mobile .toolbar-icon-button,
+  .toolbar.toolbar-mobile select,
+  .toolbar.toolbar-mobile input {
+    min-height: 40px;
+  }
+
+  .toolbar-overflow {
+    min-width: 0;
+  }
+
+  .toolbar-overflow-menu {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    top: auto;
+    width: auto;
+    max-height: min(58dvh, 420px);
+    overflow: auto;
+  }
+
+  .main-layout {
+    min-height: 0;
+  }
+
+  .main-layout[data-layout-mode="mobile"] .panel-left,
+  .main-layout[data-layout-mode="mobile"] .panel-right {
+    top: 0;
+    bottom: 0;
+    width: min(360px, calc(100vw - 20px));
+    max-width: calc(100vw - 20px);
+    min-width: 0;
+  }
+
+  .main-layout[data-layout-mode="mobile"] .panel.is-drawer-open {
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.54);
+  }
+
+  .main-layout[data-layout-mode="mobile"] .panel-header {
+    min-height: 48px;
+  }
+
+  .main-layout[data-layout-mode="mobile"] .panel-body {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .main-layout[data-layout-mode="mobile"] .panel-center {
+    padding-bottom: calc(62px + env(safe-area-inset-bottom));
+  }
+
+  .layout-scrim {
+    touch-action: manipulation;
+  }
+
+  .utility-rail {
+    left: 8px;
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    flex-direction: row;
+    gap: 6px;
+    padding: 6px;
+    overflow-x: auto;
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, rgba(255,255,255,0.08));
+    border-radius: var(--radius);
+    background: rgba(8, 10, 12, 0.88);
+    box-shadow: 0 16px 30px rgba(0, 0, 0, 0.36);
+    -webkit-backdrop-filter: blur(14px) saturate(135%);
+    backdrop-filter: blur(14px) saturate(135%);
+  }
+
+  .utility-rail-button {
+    min-height: 44px;
+    min-width: max-content;
+    flex: 1 0 auto;
+    border-radius: var(--radius);
+    padding: 8px 10px;
+  }
+
+  .flow-controls {
+    left: 8px;
+    right: 8px;
+    top: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    max-width: calc(100% - 16px);
+    padding: 6px;
+  }
+
+  .flow-controls .btn-sm,
+  .flow-controls button,
+  .flow-controls input,
+  .flow-controls label {
+    min-height: 38px;
+  }
+
+  .flow-controls input[type="range"],
+  .flow-minimap,
+  .flow-shell-mobile .flow-minimap {
+    display: none;
+  }
+
+  .flow-canvas {
+    min-height: 240px;
+  }
+
+  .turn-node {
+    min-width: 220px;
+  }
+
+  .turn-input-port,
+  .choice-output-port {
+    min-width: 28px;
+    min-height: 28px;
+  }
+
+  .choice-output-port-dot {
+    width: 18px;
+    height: 18px;
+  }
+
+  .app-bottom-region {
+    border-top: 0;
+  }
+
+  .bottom-workspace {
+    position: relative;
+    height: min(52dvh, max(220px, var(--bottom-workspace-height)));
+    max-height: calc(100dvh - 120px);
+    min-height: 210px;
+    border-top-left-radius: var(--radius);
+    border-top-right-radius: var(--radius);
+  }
+
+  .bottom-workspace-resize-handle {
+    display: none;
+  }
+
+  .bottom-workspace-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 10px;
+  }
+
+  .bottom-workspace-controls,
+  .bottom-workspace-tabs,
+  .bottom-workspace-actions {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .bottom-workspace-tab,
+  .bottom-workspace-actions .btn-sm {
+    min-height: 38px;
+  }
+
+  .bottom-workspace-body,
+  .system-strings-list,
+  .xml-preview-content {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .system-string-key-row {
+    flex-wrap: wrap;
+  }
+
+  .system-string-key,
+  .system-string-meta {
+    flex: 1 1 100%;
+  }
+
+  .xml-preview-content {
+    white-space: pre;
+    overflow: auto;
+    max-width: 100%;
+  }
+
+  .tab-bar {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--bg-panel);
+  }
+
+  .tab,
+  .inspector-action-btn,
+  .props-collapsible-toggle,
+  .props-collapsible-actions .btn-sm,
+  input,
+  select,
+  textarea,
+  button,
+  .btn {
+    min-height: 40px;
+  }
+
+  .command-picker-panel,
+  .item-picker-panel,
+  .help-modal,
+  .share-modal,
+  .username-modal-card,
+  .public-profile-modal {
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    overflow: auto;
+  }
+
+  .item-picker-overlay,
+  .share-overlay,
+  .help-overlay,
+  .username-modal-overlay,
+  .public-profile-overlay {
+    padding: 8px;
+  }
+
+  .item-picker-header,
+  .item-picker-actions,
+  .command-picker-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .item-picker-list {
+    max-height: 42dvh;
+  }
+
+  .npc-builder-body,
+  .smart-terrain-placeholder-controls,
+  .rich-editor-toolbar {
+    max-width: 100%;
+  }
+
+  .field,
+  .props-collapsible,
+  .command-row,
+  .outcome-item,
+  .precond-item {
+    min-width: 0;
   }
 }
 
