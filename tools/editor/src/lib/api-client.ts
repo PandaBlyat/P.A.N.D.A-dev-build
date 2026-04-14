@@ -800,28 +800,30 @@ function normalizeActiveUsernames(payload: unknown): string[] {
 }
 
 export async function fetchActiveEditorUsernames(): Promise<string[]> {
-  const users = await fetchActiveEditorUsers();
-  const namesFromUsers = Array.from(new Set(users.map(user => user.username?.trim() ?? '').filter(Boolean)));
-  if (namesFromUsers.length > 0) return namesFromUsers;
-
   try {
     const response = await fetchFromApi<{ usernames?: string[] } | string[]>('/api/active-users');
-    return normalizeActiveUsernames(response);
+    const apiNames = normalizeActiveUsernames(response);
+    const users = await fetchActiveEditorUsers();
+    const directNames = Array.from(new Set(users.map(user => user.username?.trim() ?? '').filter(Boolean)));
+    const merged = Array.from(new Set([...apiNames, ...directNames]));
+    if (merged.length > 0) return merged;
   } catch {
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_active_creator_usernames`, {
-        method: 'POST',
-        headers: sbHeaders(),
-        body: JSON.stringify({
-          stale_after_seconds: ACTIVE_EDITOR_STALE_SECONDS,
-        }),
-      });
-      if (!res.ok) return [];
-      const payload = await res.json() as unknown;
-      return normalizeActiveUsernames(payload);
-    } catch {
-      return [];
-    }
+    // Fall through to direct RPC fallback.
+  }
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_active_creator_usernames`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({
+        stale_after_seconds: ACTIVE_EDITOR_STALE_SECONDS,
+      }),
+    });
+    if (!res.ok) return [];
+    const payload = await res.json() as unknown;
+    return normalizeActiveUsernames(payload);
+  } catch {
+    return [];
   }
 }
 
