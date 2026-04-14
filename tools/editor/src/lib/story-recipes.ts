@@ -4,6 +4,10 @@ import { createChoice, createConversation, createTurn } from './xml-export';
 
 export type StoryStartPattern = 'pda' | 'f2f' | 'pda_to_f2f' | 'f2f_to_pda';
 export type StorySpeakerTarget = 'any_friendly' | 'friendly_faction' | 'named_npc' | 'custom_npc';
+export type StoryStructureId = 'one_shot' | 'two_step' | 'three_act' | 'branching' | 'task';
+export type StoryBranchStyle = 'simple' | 'ask_more' | 'negotiation' | 'betrayal';
+export type StoryToneId = 'gritty' | 'mystery' | 'military' | 'scientific' | 'black_market';
+export type StoryConsequenceId = 'none' | 'goodwill_gain' | 'goodwill_loss' | 'rep_gain' | 'rep_loss' | 'weather_shift' | 'news_broadcast';
 export type StoryRecipeId =
   | 'rumor'
   | 'job_offer'
@@ -16,15 +20,20 @@ export type StoryRecipeId =
   | 'supply_gift'
   | 'paid_info'
   | 'fetch_task'
+  | 'delivery_task'
   | 'dead_drop'
   | 'bounty_hunt'
-  | 'escort_npc';
+  | 'eliminate_squad'
+  | 'artifact_hunt'
+  | 'escort_npc'
+  | 'rescue'
+  | 'betrayal';
 
 export type StoryRecipe = {
   id: StoryRecipeId;
   title: string;
   description: string;
-  group: 'Simple' | 'Exchange' | 'Task' | 'Handoff';
+  group: 'Simple' | 'Exchange' | 'Task' | 'Handoff' | 'Setpiece';
 };
 
 export type StoryStartOption = {
@@ -71,6 +80,54 @@ export type StoryRecipeBuildResult = {
   npcTemplates?: NpcTemplate[];
 };
 
+export type StoryWizardDraft = {
+  faction: FactionId;
+  title: string;
+  premise: string;
+  tone: StoryToneId;
+  stakes: string;
+  startPattern: StoryStartPattern;
+  speakerTarget: StorySpeakerTarget;
+  structureId: StoryStructureId;
+  branchStyle: StoryBranchStyle;
+  recipeId: StoryRecipeId;
+  storyNpcId: string;
+  handoffNpcId: string;
+  customNpcTemplateId: string;
+  customNpcName: string;
+  customNpcSmartTerrain: string;
+  itemId: string;
+  itemCount: string;
+  rewardMoney: string;
+  rewardItemId: string;
+  stashItems: string;
+  locationId: string;
+  secondaryLocationId: string;
+  enemySquadId: string;
+  targetFaction: FactionId;
+  targetRank: string;
+  timeoutSeconds: string;
+  priceMoney: string;
+  infoId: string;
+  goodwillAmount: string;
+  reputationAmount: string;
+  consequenceId: StoryConsequenceId;
+  weatherId: string;
+};
+
+export type StoryBeatSpec = {
+  turnNumber: number;
+  title: string;
+  channel: 'pda' | 'f2f';
+  choices: string[];
+};
+
+export type StoryGenerationResult = {
+  conversation: Conversation;
+  npcTemplates?: NpcTemplate[];
+  beats: StoryBeatSpec[];
+};
+
 export const STORY_START_OPTIONS: StoryStartOption[] = [
   { id: 'pda', title: 'PDA message', description: 'Remote opener. Good for rumors, jobs, warnings, and map markers.' },
   { id: 'f2f', title: 'Face-to-face talk', description: 'Player sees dialogue option when talking to NPC.' },
@@ -85,6 +142,39 @@ export const STORY_TARGET_OPTIONS: StoryTargetOption[] = [
   { id: 'custom_npc', title: 'Custom NPC', description: 'Creates default Informant template at Cordon location.' },
 ];
 
+export const STORY_STRUCTURE_OPTIONS: StoryWizardOption[] = [
+  { id: 'one_shot', title: 'One-shot', description: 'Fast scene with accept, ask, and refuse choices.' },
+  { id: 'two_step', title: 'Two-step handoff', description: 'Starts one channel, continues through second channel.' },
+  { id: 'three_act', title: 'Three-act quest', description: 'Setup, job, aftermath turns with success and failure.' },
+  { id: 'branching', title: 'Branching choice', description: 'Adds negotiation or distrust path for richer roleplay.' },
+  { id: 'task', title: 'Task-ready', description: 'Builds success/fail task scaffolding and map objective.' },
+];
+
+export const STORY_BRANCH_OPTIONS: StoryWizardOption[] = [
+  { id: 'simple', title: 'Simple', description: 'Accept, ask more, refuse.' },
+  { id: 'ask_more', title: 'Ask more', description: 'Extra explanation turn before accepting.' },
+  { id: 'negotiation', title: 'Negotiation', description: 'Adds better-pay branch gated by goodwill.' },
+  { id: 'betrayal', title: 'Betrayal', description: 'Adds suspicious path with ambush consequence.' },
+];
+
+export const STORY_TONE_OPTIONS: StoryWizardOption[] = [
+  { id: 'gritty', title: 'Gritty survival', description: 'Sparse, tense, grounded Zone dialogue.' },
+  { id: 'mystery', title: 'Mystery', description: 'Unknown signal, hidden stash, strange witness.' },
+  { id: 'military', title: 'Military op', description: 'Orders, patrols, chain-of-command pressure.' },
+  { id: 'scientific', title: 'Scientific', description: 'Anomalies, samples, field observation.' },
+  { id: 'black_market', title: 'Black market', description: 'Deals, debts, paid information.' },
+];
+
+export const STORY_CONSEQUENCE_OPTIONS: StoryWizardOption[] = [
+  { id: 'none', title: 'No extra consequence', description: 'Recipe effects only.' },
+  { id: 'goodwill_gain', title: 'Faction approves', description: 'Adds goodwill with story faction.' },
+  { id: 'goodwill_loss', title: 'Faction angered', description: 'Removes goodwill with story faction.' },
+  { id: 'rep_gain', title: 'Reputation gain', description: 'Player reputation increases.' },
+  { id: 'rep_loss', title: 'Reputation loss', description: 'Player reputation decreases.' },
+  { id: 'weather_shift', title: 'Weather hook', description: 'Gives a weather info flag for follow-up logic.' },
+  { id: 'news_broadcast', title: 'News hook', description: 'Gives a news info flag for follow-up logic.' },
+];
+
 export const STORY_RECIPES: StoryRecipe[] = [
   { id: 'rumor', title: 'Rumor', description: 'Small flavor exchange with no gameplay effect.', group: 'Simple' },
   { id: 'faction_warning', title: 'Faction warning', description: 'Warning from faction contact, with optional goodwill.', group: 'Simple' },
@@ -95,9 +185,14 @@ export const STORY_RECIPES: StoryRecipe[] = [
   { id: 'go_to_location', title: 'Go to location', description: 'NPC marks destination for player.', group: 'Task' },
   { id: 'spawn_ambush', title: 'Spawn ambush', description: 'Player reaches marker, then enemies spawn there.', group: 'Task' },
   { id: 'fetch_task', title: 'Fetch item task', description: 'Starts tracked task: find item before timeout.', group: 'Task' },
+  { id: 'delivery_task', title: 'Delivery task', description: 'Courier delivery to a marked smart terrain.', group: 'Task' },
   { id: 'dead_drop', title: 'Dead drop task', description: 'Starts tracked task: bring item to location.', group: 'Task' },
   { id: 'bounty_hunt', title: 'Bounty hunt', description: 'Starts tracked task: spawn and kill target.', group: 'Task' },
+  { id: 'eliminate_squad', title: 'Eliminate squad', description: 'Spawns selected squad and tracks elimination.', group: 'Task' },
+  { id: 'artifact_hunt', title: 'Artifact hunt', description: 'Creates level-based anomaly artifact hunt.', group: 'Task' },
   { id: 'escort_npc', title: 'Escort NPC', description: 'Conversation NPC joins player, destination and fail state included.', group: 'Task' },
+  { id: 'rescue', title: 'Rescue survivor', description: 'Clear enemy squad near a pinned custom NPC.', group: 'Setpiece' },
+  { id: 'betrayal', title: 'Betrayal setup', description: 'Deal goes wrong and creates ambush consequence.', group: 'Setpiece' },
   { id: 'meet_in_person', title: 'Meet in person', description: 'PDA opener turns into face-to-face scene.', group: 'Handoff' },
   { id: 'multi_npc_handoff', title: 'Multi-NPC handoff', description: 'First NPC points player toward another named NPC.', group: 'Handoff' },
 ];
@@ -163,7 +258,7 @@ export const DEFAULT_STORY_DETAILS: StoryDetailOptions = {
   rewardMoney: '750',
   rewardItemId: '',
   locationId: '%cordon_panda_st_key%',
-  enemyId: 'snork',
+  enemyId: 'jup_b209_squad_snork_1',
   handoffNpcId: 'yan_stalker_sakharov',
   targetFaction: 'bandit',
   targetRank: '',
@@ -171,26 +266,552 @@ export const DEFAULT_STORY_DETAILS: StoryDetailOptions = {
   infoId: 'panda_story_info',
 };
 
+export const DEFAULT_STORY_DRAFT: StoryWizardDraft = {
+  faction: 'stalker',
+  title: '',
+  premise: '',
+  tone: 'gritty',
+  stakes: 'Keep this quiet until you know who benefits.',
+  startPattern: 'pda',
+  speakerTarget: 'any_friendly',
+  structureId: 'branching',
+  branchStyle: 'ask_more',
+  recipeId: 'fetch_task',
+  storyNpcId: 'bar_visitors_barman_stalker_trader',
+  handoffNpcId: 'yan_stalker_sakharov',
+  customNpcTemplateId: 'informant',
+  customNpcName: 'Informant',
+  customNpcSmartTerrain: '%cordon_panda_st_key%',
+  itemId: 'medkit',
+  itemCount: '1',
+  rewardMoney: '750',
+  rewardItemId: '',
+  stashItems: '',
+  locationId: '%cordon_panda_st_key%',
+  secondaryLocationId: 'st_gar_smart_terrain_3_5_name',
+  enemySquadId: 'jup_b209_squad_snork_1',
+  targetFaction: 'bandit',
+  targetRank: '',
+  timeoutSeconds: '600',
+  priceMoney: '750',
+  infoId: 'panda_story_info',
+  goodwillAmount: '25',
+  reputationAmount: '15',
+  consequenceId: 'goodwill_gain',
+  weatherId: 'w_storm1',
+};
+
+export function createDefaultStoryDraft(project?: Project): StoryWizardDraft {
+  return {
+    ...DEFAULT_STORY_DRAFT,
+    faction: project?.faction ?? DEFAULT_STORY_DRAFT.faction,
+  };
+}
+
 export function buildStoryRecipe(project: Project, options: StoryRecipeBuildOptions): StoryRecipeBuildResult {
   const details = normalizeDetails(options.details);
-  const startPattern = normalizeStartPatternForRecipe(options.recipeId, options.startPattern);
+  const draft = createDefaultStoryDraft(project);
+  const result = buildStoryFromDraft(project, {
+    ...draft,
+    recipeId: options.recipeId,
+    startPattern: options.startPattern,
+    speakerTarget: options.speakerTarget,
+    structureId: isDraftTaskRecipe(options.recipeId) ? 'task' : draft.structureId,
+    itemId: details.itemId,
+    itemCount: details.itemCount,
+    rewardMoney: details.rewardMoney,
+    priceMoney: options.recipeId === 'paid_info' ? details.rewardMoney : draft.priceMoney,
+    rewardItemId: details.rewardItemId,
+    locationId: details.locationId,
+    enemySquadId: details.enemyId,
+    handoffNpcId: details.handoffNpcId,
+    targetFaction: details.targetFaction,
+    targetRank: details.targetRank,
+    timeoutSeconds: details.timeoutSeconds,
+    infoId: details.infoId,
+  });
+  return { conversation: result.conversation, npcTemplates: result.npcTemplates };
+}
+
+export function buildStoryFromDraft(project: Project, input: StoryWizardDraft): StoryGenerationResult {
+  const draft = normalizeStoryDraft(project, input);
+  const startPattern = normalizeStartPatternForDraft(draft);
   const conversation = createConversation(project);
-  const faction = getConversationFaction(conversation, project.faction);
-  conversation.label = STORY_RECIPES.find((recipe) => recipe.id === options.recipeId)?.title ?? 'New Story';
-  conversation.faction = faction;
-  conversation.preconditions = createTargetRules(options.speakerTarget, faction);
-  addRecipeStartRules(conversation, options.recipeId, details);
+  conversation.label = draft.title || recipeTitle(draft.recipeId);
+  conversation.faction = draft.faction;
+  conversation.preconditions = createDraftTargetRules(draft);
+  addDraftStartRules(conversation, draft);
   conversation.startMode = startPattern === 'f2f' || startPattern === 'f2f_to_pda' ? 'f2f' : 'pda';
   conversation.initialChannel = conversation.startMode;
   conversation.turns = createStartTurns(startPattern);
 
-  applyRecipeContent(conversation, options.recipeId, faction, details);
+  applyDraftContent(conversation, draft);
 
-  const npcTemplates = options.speakerTarget === 'custom_npc'
-    ? [createDefaultNpcTemplate()]
+  const npcTemplates = draft.speakerTarget === 'custom_npc' || draft.recipeId === 'rescue'
+    ? [createDraftNpcTemplate(draft)]
     : undefined;
 
-  return { conversation, npcTemplates };
+  return {
+    conversation,
+    npcTemplates,
+    beats: conversation.turns.map((turn) => ({
+      turnNumber: turn.turnNumber,
+      title: turn.customLabel ?? `Beat ${turn.turnNumber}`,
+      channel: turn.channel ?? 'pda',
+      choices: turn.choices.map((choice) => choice.text),
+    })),
+  };
+}
+
+function normalizeStoryDraft(project: Project, input: StoryWizardDraft): StoryWizardDraft {
+  const base = createDefaultStoryDraft(project);
+  const merged = { ...base, ...input };
+  return {
+    ...merged,
+    title: merged.title.trim(),
+    premise: merged.premise.trim(),
+    stakes: merged.stakes.trim(),
+    itemCount: positiveString(merged.itemCount, '1'),
+    rewardMoney: nonNegativeString(merged.rewardMoney, '0'),
+    priceMoney: nonNegativeString(merged.priceMoney, '0'),
+    goodwillAmount: nonNegativeString(merged.goodwillAmount, '25'),
+    reputationAmount: nonNegativeString(merged.reputationAmount, '15'),
+    timeoutSeconds: Math.max(30, parseInt(merged.timeoutSeconds, 10) || 600).toString(),
+    customNpcTemplateId: slugifyDraftId(merged.customNpcTemplateId || merged.customNpcName || 'informant'),
+    customNpcName: merged.customNpcName.trim() || 'Informant',
+  };
+}
+
+function positiveString(value: string, fallback: string): string {
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? String(parsed) : fallback;
+}
+
+function nonNegativeString(value: string, fallback: string): string {
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? String(parsed) : fallback;
+}
+
+function slugifyDraftId(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 48) || 'informant';
+}
+
+function normalizeStartPatternForDraft(draft: StoryWizardDraft): StoryStartPattern {
+  if (draft.structureId === 'two_step' && draft.startPattern === 'pda') return 'pda_to_f2f';
+  if (draft.recipeId === 'meet_in_person') return 'pda_to_f2f';
+  if ((draft.recipeId === 'item_request' || draft.recipeId === 'escort_npc') && draft.startPattern === 'pda') return 'pda_to_f2f';
+  return draft.startPattern;
+}
+
+function createDraftTargetRules(draft: StoryWizardDraft): PreconditionEntry[] {
+  switch (draft.speakerTarget) {
+    case 'friendly_faction':
+      return [
+        simpleRule('req_npc_friendly', draft.faction),
+        simpleRule('req_npc_faction', draft.faction),
+      ];
+    case 'named_npc':
+      return [simpleRule('req_story_npc', draft.storyNpcId || 'bar_visitors_barman_stalker_trader')];
+    case 'custom_npc':
+      return [simpleRule('req_custom_story_npc', draft.customNpcTemplateId, draft.customNpcSmartTerrain)];
+    case 'any_friendly':
+    default:
+      return [simpleRule('req_npc_friendly')];
+  }
+}
+
+function addDraftStartRules(conversation: Conversation, draft: StoryWizardDraft): void {
+  if (draft.recipeId === 'item_request') conversation.preconditions.push(simpleRule('req_has_item', draft.itemId));
+  if (draft.recipeId === 'paid_info') conversation.preconditions.push(simpleRule('req_money', draft.priceMoney));
+}
+
+function applyDraftContent(conversation: Conversation, draft: StoryWizardDraft): void {
+  const actionTurn = pickDraftActionTurn(conversation, draft);
+  configureDraftTransition(conversation, actionTurn, draft);
+  actionTurn.customLabel = recipeTitle(draft.recipeId);
+  actionTurn.openingMessage = draftOpeningFor(draft);
+  actionTurn.choices = [];
+
+  let successTurn: Turn | undefined;
+  let failTurn: Turn | undefined;
+  if (isDraftTaskRecipe(draft.recipeId)) {
+    successTurn = appendTerminalTurn(conversation, actionTurn.channel ?? 'pda', 'Task complete. Payment is ready.', 'Done.');
+    successTurn.customLabel = 'Success';
+    failTurn = appendTerminalTurn(conversation, actionTurn.channel ?? 'pda', 'Time ran out. Job is off.', 'Understood.');
+    failTurn.customLabel = 'Failure';
+  }
+
+  const getOutcomes = (): Outcome[] => draftActionOutcomesFor(draft, successTurn, failTurn);
+
+  const accept = ensureChoice(actionTurn, 1);
+  accept.text = draftAcceptTextFor(draft);
+  accept.reply = draftAcceptReplyFor(draft);
+  accept.preconditions = draftActionPreconditionsFor(draft);
+  accept.outcomes = getOutcomes();
+  accept.terminal = true;
+  if (draft.recipeId === 'multi_npc_handoff') accept.cont_npc_id = draft.handoffNpcId;
+
+  const details = appendDraftDetailTurn(conversation, draft, actionTurn.channel ?? 'pda', getOutcomes);
+  const ask = ensureChoice(actionTurn, 2);
+  ask.text = 'Tell me what this really is.';
+  ask.reply = 'Fine. Details first, decision after.';
+  ask.outcomes = [];
+  ask.preconditions = [];
+  ask.terminal = false;
+  ask.continueTo = details.turnNumber;
+  ask.continueChannel = details.channel;
+  ask.continue_channel = details.channel;
+
+  const refuse = ensureChoice(actionTurn, 3);
+  refuse.text = 'Find someone else.';
+  refuse.reply = draftRefusalReplyFor(draft);
+  refuse.outcomes = draftRefusalOutcomesFor(draft);
+  refuse.preconditions = [];
+  refuse.terminal = true;
+
+  if (draft.branchStyle === 'negotiation' || draft.structureId === 'branching') {
+    const negotiate = ensureChoice(actionTurn, 4);
+    negotiate.text = 'Pay better and I listen.';
+    negotiate.reply = 'You drive hard bargain. Extra pay if you finish.';
+    negotiate.preconditions = [simpleRule('req_goodwill', '0', draft.faction)];
+    negotiate.outcomes = [...getOutcomes(), ...draftMoneyReward(draft.rewardMoney)];
+    negotiate.terminal = true;
+  }
+
+  if (draft.branchStyle === 'betrayal') {
+    const suspicious = ensureChoice(actionTurn, 4);
+    suspicious.text = 'This smells like a trap.';
+    suspicious.reply = 'Then walk into it with eyes open.';
+    suspicious.preconditions = [];
+    suspicious.outcomes = draftBetrayalOutcomesFor(draft);
+    suspicious.terminal = true;
+  }
+
+  if (!isDraftTaskRecipe(draft.recipeId) && draft.structureId === 'three_act') {
+    const aftermath = appendTerminalTurn(conversation, actionTurn.channel ?? 'pda', 'If this goes right, people will talk.', 'I will remember that.');
+    aftermath.customLabel = 'Aftermath';
+    for (const choice of actionTurn.choices.filter((item) => item.outcomes.length > 0)) {
+      choice.terminal = false;
+      choice.continueTo = aftermath.turnNumber;
+      choice.continueChannel = aftermath.channel;
+      choice.continue_channel = aftermath.channel;
+    }
+  }
+}
+
+function pickDraftActionTurn(conversation: Conversation, draft: StoryWizardDraft): Turn {
+  if (draft.recipeId === 'item_request' || draft.recipeId === 'escort_npc' || draft.recipeId === 'meet_in_person') {
+    return conversation.turns.find((turn) => turn.channel === 'f2f') ?? conversation.turns[conversation.turns.length - 1]!;
+  }
+  return conversation.turns[conversation.turns.length - 1]!;
+}
+
+function configureDraftTransition(conversation: Conversation, actionTurn: Turn, draft: StoryWizardDraft): void {
+  const firstTurn = conversation.turns[0];
+  if (!firstTurn || firstTurn === actionTurn) return;
+  firstTurn.customLabel = 'Hook';
+  firstTurn.openingMessage = draftTransitionOpeningFor(draft);
+  const firstChoice = ensureChoice(firstTurn, 1);
+  firstChoice.text = draftTransitionChoiceTextFor(draft);
+  firstChoice.reply = draftTransitionReplyFor(draft);
+  firstChoice.outcomes = [];
+  firstChoice.preconditions = [];
+  firstChoice.terminal = false;
+  firstChoice.continueTo = actionTurn.turnNumber;
+  firstChoice.continueChannel = actionTurn.channel;
+  firstChoice.continue_channel = actionTurn.channel;
+}
+
+function appendDraftDetailTurn(
+  conversation: Conversation,
+  draft: StoryWizardDraft,
+  channel: 'pda' | 'f2f',
+  getOutcomes: () => Outcome[],
+): Turn {
+  const turn = appendTerminalTurn(conversation, channel, draftDetailOpeningFor(draft), draftAcceptReplyFor(draft));
+  turn.customLabel = 'Details';
+  const accept = ensureChoice(turn, 1);
+  accept.text = draftAcceptTextFor(draft);
+  accept.reply = draftAcceptReplyFor(draft);
+  accept.preconditions = draftActionPreconditionsFor(draft);
+  accept.outcomes = getOutcomes();
+  accept.terminal = true;
+
+  const refuse = ensureChoice(turn, 2);
+  refuse.text = 'No. Too many unknowns.';
+  refuse.reply = draftRefusalReplyFor(draft);
+  refuse.preconditions = [];
+  refuse.outcomes = draftRefusalOutcomesFor(draft);
+  refuse.terminal = true;
+  return turn;
+}
+
+function isDraftTaskRecipe(recipeId: StoryRecipeId): boolean {
+  return recipeId === 'fetch_task'
+    || recipeId === 'delivery_task'
+    || recipeId === 'dead_drop'
+    || recipeId === 'bounty_hunt'
+    || recipeId === 'eliminate_squad'
+    || recipeId === 'artifact_hunt'
+    || recipeId === 'escort_npc'
+    || recipeId === 'rescue';
+}
+
+function draftActionOutcomesFor(draft: StoryWizardDraft, successTurn?: Turn, failTurn?: Turn): Outcome[] {
+  const success = String(successTurn?.turnNumber ?? '');
+  const fail = String(failTurn?.turnNumber ?? '');
+  const base = draftBaseOutcomesFor(draft, success, fail);
+  return [...base, ...draftConsequenceOutcomesFor(draft)];
+}
+
+function draftBaseOutcomesFor(draft: StoryWizardDraft, successTurn: string, failTurn: string): Outcome[] {
+  switch (draft.recipeId) {
+    case 'job_offer':
+      return draftMoneyReward(draft.rewardMoney);
+    case 'faction_warning':
+      return [outcome('reward_gw', draft.goodwillAmount, draft.faction)];
+    case 'item_request':
+      return [outcome('take_item', draft.itemId), ...draftMoneyReward(draft.rewardMoney)];
+    case 'go_to_location':
+      return [outcome('watch_location', draft.locationId, '85')];
+    case 'spawn_ambush':
+      return [outcome('watch_location_trigger', draft.locationId, `spawn_mutant_at_smart:${draft.enemySquadId}:${draft.locationId}:0`, '85')];
+    case 'supply_gift':
+      return [...draftMoneyReward(draft.rewardMoney), ...draftItemReward(draft.rewardItemId), ...draftStashReward(draft.stashItems)];
+    case 'paid_info':
+      return [outcome('punish_money', draft.priceMoney), outcome('give_info', draft.infoId)];
+    case 'fetch_task':
+      return [outcome('panda_task_fetch', draft.itemId, draft.itemCount, draft.timeoutSeconds, successTurn, failTurn)];
+    case 'delivery_task':
+      return [outcome('panda_task_delivery', draft.itemId, draft.locationId, draft.timeoutSeconds, successTurn, failTurn)];
+    case 'dead_drop':
+      return [outcome('panda_task_dead_drop', draft.itemId, draft.locationId, draft.timeoutSeconds, successTurn, failTurn)];
+    case 'bounty_hunt':
+      return [outcome('panda_task_bounty', draft.targetFaction, draft.targetRank, draft.locationId, draft.timeoutSeconds, successTurn, failTurn)];
+    case 'eliminate_squad':
+      return [outcome('panda_task_eliminate', draft.enemySquadId, draft.locationId, '100', draft.timeoutSeconds, successTurn, failTurn)];
+    case 'artifact_hunt':
+      return [outcome('panda_task_artifact', draft.itemId || 'random', 'random_level', draftArtifactLevelToken(draft.locationId), 'basic', draft.timeoutSeconds, successTurn, failTurn)];
+    case 'escort_npc':
+      return [outcome('panda_task_escort', draft.locationId, draft.timeoutSeconds, successTurn, failTurn)];
+    case 'rescue':
+      return [
+        outcome('spawn_custom_npc_at', draft.customNpcTemplateId, draft.locationId, '0'),
+        outcome('panda_task_eliminate', draft.enemySquadId, draft.locationId, '100', draft.timeoutSeconds, successTurn, failTurn),
+      ];
+    case 'betrayal':
+      return draftBetrayalOutcomesFor(draft);
+    default:
+      return [];
+  }
+}
+
+function draftActionPreconditionsFor(draft: StoryWizardDraft): PreconditionEntry[] {
+  if (draft.recipeId === 'item_request') return [simpleRule('req_has_item', draft.itemId)];
+  if (draft.recipeId === 'paid_info') return [simpleRule('req_money', draft.priceMoney)];
+  return [];
+}
+
+function draftMoneyReward(amount: string): Outcome[] {
+  return amount === '0' || amount.trim() === '' ? [] : [outcome('reward_money', amount)];
+}
+
+function draftItemReward(itemId: string): Outcome[] {
+  return itemId.trim() === '' ? [] : [outcome('give_item', itemId)];
+}
+
+function draftStashReward(items: string): Outcome[] {
+  return items.trim() === '' ? [] : [outcome('reward_stash_items', items.trim())];
+}
+
+function draftConsequenceOutcomesFor(draft: StoryWizardDraft): Outcome[] {
+  switch (draft.consequenceId) {
+    case 'goodwill_gain':
+      return [outcome('reward_gw', draft.goodwillAmount, draft.faction)];
+    case 'goodwill_loss':
+      return [outcome('punish_gw', draft.goodwillAmount, draft.faction)];
+    case 'rep_gain':
+      return [outcome('reward_rep', draft.reputationAmount)];
+    case 'rep_loss':
+      return [outcome('punish_rep', draft.reputationAmount)];
+    case 'weather_shift':
+      return [outcome('give_info', `${draft.infoId}_weather`)];
+    case 'news_broadcast':
+      return [outcome('give_info', `${draft.infoId}_news`)];
+    case 'none':
+    default:
+      return [];
+  }
+}
+
+function draftRefusalOutcomesFor(draft: StoryWizardDraft): Outcome[] {
+  return draft.branchStyle === 'betrayal'
+    ? [outcome('punish_gw', '10', draft.faction)]
+    : [];
+}
+
+function draftBetrayalOutcomesFor(draft: StoryWizardDraft): Outcome[] {
+  return [
+    outcome('watch_location_trigger', draft.locationId, `spawn_mutant_at_smart:${draft.enemySquadId}:${draft.locationId}:0`, '85'),
+    outcome('punish_gw', draft.goodwillAmount, draft.faction),
+  ];
+}
+
+function draftArtifactLevelToken(locationId: string): string {
+  const match = /^%([a-z_]+)_panda_st_key%$/.exec(locationId);
+  if (match?.[1]) return `level:${draftLevelToken(match[1])}`;
+  if (locationId.includes('gar_')) return 'level:gar';
+  if (locationId.includes('yan_')) return 'level:yan';
+  if (locationId.includes('zat_')) return 'level:zat';
+  if (locationId.includes('mil_')) return 'level:mil';
+  if (locationId.includes('val_')) return 'level:val';
+  return 'level:esc';
+}
+
+function draftLevelToken(level: string): string {
+  const map: Record<string, string> = {
+    cordon: 'esc',
+    garbage: 'gar',
+    agroprom: 'agr',
+    dark_valley: 'val',
+    yantar: 'yan',
+    rostok: 'bar',
+    swamp: 'mar',
+    jupiter: 'jup',
+    zaton: 'zat',
+    pripyat: 'pri',
+  };
+  return map[level] ?? level.slice(0, 3);
+}
+
+function draftTransitionOpeningFor(draft: StoryWizardDraft): string {
+  if (draft.recipeId === 'item_request') return `I need ${itemLabel(draft.itemId)}. Bring it in person and I pay.`;
+  if (draft.recipeId === 'escort_npc') return 'I need feet on the ground for this. Meet me and we move.';
+  if (draft.recipeId === 'meet_in_person') return 'Not over PDA. Meet me and we talk properly.';
+  if (draft.recipeId === 'multi_npc_handoff') return 'I am not right contact. I can put you through.';
+  return `Meet me, then we talk about ${locationLabel(draft.locationId)}.`;
+}
+
+function draftTransitionChoiceTextFor(draft: StoryWizardDraft): string {
+  if (draft.recipeId === 'item_request') return 'I can bring it.';
+  if (draft.recipeId === 'meet_in_person') return 'Where do we meet?';
+  if (draft.recipeId === 'multi_npc_handoff') return 'Put them through.';
+  return 'Send meeting point.';
+}
+
+function draftTransitionReplyFor(draft: StoryWizardDraft): string {
+  if (draft.recipeId === 'item_request') return 'Come by and we settle up.';
+  if (draft.recipeId === 'meet_in_person') return 'Old bridge. Come alone.';
+  if (draft.recipeId === 'multi_npc_handoff') return 'Stand by.';
+  return 'We continue there.';
+}
+
+function draftOpeningFor(draft: StoryWizardDraft): string {
+  const premise = draft.premise || draftFallbackPremise(draft);
+  const factionName = FACTION_DISPLAY_NAMES[draft.faction];
+  switch (draft.recipeId) {
+    case 'job_offer':
+      return `${premise} ${factionName} pays ${draft.rewardMoney} RU if you take it.`;
+    case 'faction_warning':
+      return `${factionName} patrols saw movement near ${locationLabel(draft.locationId)}. ${draft.stakes}`;
+    case 'item_request':
+      return `You carrying ${itemLabel(draft.itemId)}? ${premise}`;
+    case 'go_to_location':
+      return `${premise} I marked ${locationLabel(draft.locationId)}.`;
+    case 'spawn_ambush':
+      return `${premise} Road near ${locationLabel(draft.locationId)} is wrong.`;
+    case 'supply_gift':
+      return `${premise} Take supplies and stay alive.`;
+    case 'paid_info':
+      return `${premise} Information costs ${draft.priceMoney} RU.`;
+    case 'fetch_task':
+      return `${premise} Find ${draft.itemCount} ${itemLabel(draft.itemId)} before time runs out.`;
+    case 'delivery_task':
+      return `${premise} Bring ${itemLabel(draft.itemId)} to ${locationLabel(draft.locationId)}.`;
+    case 'dead_drop':
+      return `${premise} Leave ${itemLabel(draft.itemId)} at ${locationLabel(draft.locationId)}.`;
+    case 'bounty_hunt':
+      return `${premise} Target faction is ${FACTION_DISPLAY_NAMES[draft.targetFaction]}. Location: ${locationLabel(draft.locationId)}.`;
+    case 'eliminate_squad':
+      return `${premise} Eliminate squad at ${locationLabel(draft.locationId)}.`;
+    case 'artifact_hunt':
+      return `${premise} Anomaly field should have artifact signature.`;
+    case 'escort_npc':
+      return `${premise} Escort me to ${locationLabel(draft.locationId)}.`;
+    case 'meet_in_person':
+      return 'You came. Good. Keep voice low.';
+    case 'multi_npc_handoff':
+      return `This is ${npcLabel(draft.handoffNpcId)}. I hear you need work.`;
+    default:
+      return premise;
+  }
+}
+
+function draftDetailOpeningFor(draft: StoryWizardDraft): string {
+  const factionName = FACTION_DISPLAY_NAMES[draft.faction];
+  return `${factionName} angle: ${draft.stakes || 'someone benefits if player walks away blind.'} Setup already added: targets, branches, and effects.`;
+}
+
+function draftFallbackPremise(draft: StoryWizardDraft): string {
+  switch (draft.tone) {
+    case 'mystery':
+      return 'Strange signal came through last night and someone wants it buried.';
+    case 'military':
+      return 'Patrol route went dark and command wants quiet response.';
+    case 'scientific':
+      return 'Field readings changed where no anomaly should exist.';
+    case 'black_market':
+      return 'Someone is selling truth before wrong buyer arrives.';
+    case 'gritty':
+    default:
+      return 'Zone handed us problem. You look alive enough to solve it.';
+  }
+}
+
+function draftAcceptTextFor(draft: StoryWizardDraft): string {
+  if (isDraftTaskRecipe(draft.recipeId)) return 'I will take the job.';
+  if (draft.recipeId === 'paid_info') return 'Pay for information.';
+  if (draft.recipeId === 'item_request') return `Hand over ${itemLabel(draft.itemId)}.`;
+  if (draft.recipeId === 'go_to_location' || draft.recipeId === 'spawn_ambush') return 'Send marker.';
+  return 'I am in.';
+}
+
+function draftAcceptReplyFor(draft: StoryWizardDraft): string {
+  if (isDraftTaskRecipe(draft.recipeId)) return 'Job started. Do not waste time.';
+  if (draft.recipeId === 'paid_info') return 'Payment received. Info sent.';
+  if (draft.recipeId === 'item_request') return 'Good. Payment is yours.';
+  if (draft.recipeId === 'supply_gift') return 'Take it and stay alive.';
+  return 'Then listen carefully.';
+}
+
+function draftRefusalReplyFor(draft: StoryWizardDraft): string {
+  return draft.branchStyle === 'betrayal'
+    ? 'Bad choice. People remember cowardice.'
+    : 'Your funeral, your schedule.';
+}
+
+function recipeTitle(recipeId: StoryRecipeId): string {
+  return STORY_RECIPES.find((recipe) => recipe.id === recipeId)?.title ?? 'New Story';
+}
+
+function npcLabel(npcId: string): string {
+  return STORY_HANDOFF_NPC_OPTIONS.find((npc) => npc.id === npcId)?.title ?? npcId;
+}
+
+function createDraftNpcTemplate(draft: StoryWizardDraft): NpcTemplate {
+  return {
+    id: draft.customNpcTemplateId,
+    name: draft.customNpcName,
+    faction: draft.faction,
+    rank: 'experienced',
+    relation: 'neutral',
+    primary: 'wpn_ak74',
+    outfit: 'stalker_outfit',
+    items: 'medkit:1,bandage:2',
+    spawnDist: 8,
+    count: 1,
+    allowRoam: false,
+  };
 }
 
 function normalizeDetails(input: Partial<StoryDetailOptions> | undefined): StoryDetailOptions {
@@ -325,8 +946,11 @@ function configureTransitionIfNeeded(conversation: Conversation, recipeId: Story
 
 function isTaskRecipe(recipeId: StoryRecipeId): boolean {
   return recipeId === 'fetch_task'
+    || recipeId === 'delivery_task'
     || recipeId === 'dead_drop'
     || recipeId === 'bounty_hunt'
+    || recipeId === 'eliminate_squad'
+    || recipeId === 'artifact_hunt'
     || recipeId === 'escort_npc';
 }
 

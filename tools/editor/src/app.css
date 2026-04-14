@@ -14296,3 +14296,378 @@ strong.support-upvote-count {
     justify-content: center;
   }
 }
+
+.story-forge-overlay {
+  background:
+    radial-gradient(circle at 22% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 30%),
+    rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(10px);
+}
+
+.story-forge-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(1240px, calc(100vw - 28px));
+  max-height: min(92vh, 900px);
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, rgba(11, 15, 19, 0.98)), rgba(8, 10, 12, 0.98)),
+    var(--bg-darkest);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.62),
+    0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 0 36px color-mix(in srgb, var(--accent-glow) 80%, transparent);
+}
+
+.story-forge-header {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 48%),
+    rgba(10, 14, 18, 0.94);
+}
+
+.story-forge-title-block {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.story-forge-kicker {
+  width: fit-content;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 8px;
+  color: color-mix(in srgb, var(--accent-hover) 82%, white);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.story-forge-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-bright);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.story-forge-title-block p {
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.story-forge-step-rail {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.story-forge-step {
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--border-light) 72%, transparent);
+  border-radius: 8px;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.story-forge-step.is-active {
+  color: var(--text-bright);
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent-glow) 80%, transparent);
+}
+
+.story-forge-step.is-done {
+  color: color-mix(in srgb, var(--accent-hover) 74%, white);
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+.story-forge-close {
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.story-forge-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
+}
+
+.story-forge-content {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.story-forge-section-intro,
+.story-forge-field-block,
+.story-forge-field,
+.story-forge-preview,
+.story-forge-checklist {
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+    rgba(12, 17, 22, 0.82);
+}
+
+.story-forge-section-intro {
+  grid-column: 1 / -1;
+  padding: 14px;
+}
+
+.story-forge-section-intro h3 {
+  margin: 0 0 4px;
+  color: var(--text-bright);
+  font-size: 18px;
+}
+
+.story-forge-section-intro p {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.story-forge-faction-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 8px;
+}
+
+.story-forge-faction {
+  min-height: 52px;
+  justify-content: flex-start;
+  border-color: color-mix(in srgb, var(--faction-tile-color) 30%, var(--border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--faction-tile-color) 10%, transparent), rgba(15, 20, 25, 0.94));
+  color: var(--text-bright);
+  font-weight: 800;
+}
+
+.story-forge-faction.is-selected {
+  border-color: var(--faction-tile-color);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--faction-tile-color) 38%, transparent), 0 0 18px color-mix(in srgb, var(--faction-tile-color) 20%, transparent);
+}
+
+.story-forge-field-block {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.story-forge-field-block h4,
+.story-forge-recipe-group > strong,
+.story-forge-field > span {
+  color: var(--text-bright);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.story-forge-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.story-forge-card {
+  min-height: 82px;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 5px;
+  padding: 11px;
+  border-radius: 8px;
+  text-align: left;
+  white-space: normal;
+}
+
+.story-forge-card strong,
+.story-forge-card span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.story-forge-card span {
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.story-forge-card.is-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, var(--bg-panel));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.story-forge-recipe-groups {
+  display: grid;
+  gap: 12px;
+}
+
+.story-forge-recipe-group {
+  display: grid;
+  gap: 7px;
+}
+
+.story-forge-field {
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+}
+
+.story-forge-field-wide,
+.story-forge-picker-field {
+  grid-column: 1 / -1;
+}
+
+.story-forge-field input,
+.story-forge-field textarea,
+.story-forge-field select {
+  width: 100%;
+  min-width: 0;
+}
+
+.story-forge-preview {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+
+.story-forge-preview-node {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  min-height: 76px;
+  padding: 11px;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.story-forge-preview-node::after {
+  content: '';
+  position: absolute;
+  right: -11px;
+  top: 50%;
+  width: 10px;
+  height: 1px;
+  background: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.story-forge-preview-node:last-child::after {
+  display: none;
+}
+
+.story-forge-preview-node span {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.story-forge-checklist {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+}
+
+.story-forge-checklist span {
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: color-mix(in srgb, var(--accent-hover) 75%, white);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.story-forge-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 26%, var(--border));
+  background: rgba(8, 11, 14, 0.96);
+}
+
+.story-forge-primary {
+  min-width: 140px;
+}
+
+@media (max-width: 760px) {
+  .story-forge-overlay {
+    padding: 0;
+  }
+
+  .story-forge-panel {
+    width: 100vw;
+    max-height: 100dvh;
+    height: 100dvh;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .story-forge-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: max(12px, env(safe-area-inset-top)) 10px 10px;
+  }
+
+  .story-forge-step-rail {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .story-forge-step {
+    flex: 0 0 auto;
+    max-width: 160px;
+  }
+
+  .story-forge-body {
+    padding: 10px;
+  }
+
+  .story-forge-content,
+  .story-forge-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .story-forge-field,
+  .story-forge-field-block,
+  .story-forge-section-intro,
+  .story-forge-preview,
+  .story-forge-checklist {
+    grid-column: 1;
+    box-shadow: none;
+  }
+
+  .story-forge-footer {
+    padding: 10px max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  }
+
+  .story-forge-footer .btn-sm {
+    min-height: 42px;
+  }
+}
