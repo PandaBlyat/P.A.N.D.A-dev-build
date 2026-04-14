@@ -4,6 +4,20 @@ export type CatalogPickerOption = {
   value: string;
   label: string;
   keywords?: string[];
+  /** Optional display fields consumed by the richer story-NPC row layout. */
+  characterName?: string;
+  faction?: string;
+  level?: string;
+  role?: string;
+};
+
+export type CatalogPickerFacet = {
+  label: string;
+  allLabel: string;
+  /** Field name on the option to filter by — falls back to `keywordIndex` when omitted. */
+  field?: 'faction' | 'level' | 'role';
+  /** Legacy fallback: read a value from `option.keywords[keywordIndex]`. */
+  keywordIndex?: number;
 };
 
 let activeCleanup: (() => void) | null = null;
@@ -27,9 +41,19 @@ export function createCatalogPickerPanelEditor(
     emptyLabel: string;
     browseLabel: string;
     options: CatalogPickerOption[];
-    facets?: Array<{ label: string; keywordIndex: number; allLabel: string }>;
+    facets?: CatalogPickerFacet[];
+    /**
+     * When true, renders the richer two-line row (character name + profile id + tag pills)
+     * and groups results by level. Enabled automatically when the options carry any
+     * rich metadata (characterName/faction/level/role).
+     */
+    richRows?: boolean;
   },
 ): HTMLElement {
+  const hasRichMetadata = config.options.some(
+    (option) => option.characterName || option.faction || option.level || option.role,
+  );
+  const useRichRows = config.richRows ?? hasRichMetadata;
   const wrapper = document.createElement('div');
   wrapper.className = 'rich-editor rich-editor-item-picker';
 
@@ -55,21 +79,40 @@ export function createCatalogPickerPanelEditor(
   const summary = document.createElement('div');
   summary.className = 'command-description';
 
+  const describeOption = (option: CatalogPickerOption): string => {
+    if (option.characterName) {
+      return `${option.characterName} (${option.value})`;
+    }
+    return option.label || option.value;
+  };
+
   const syncUi = (value: string): void => {
     rawInput.value = value;
     const selected = config.options.find((option) => option.value === value);
     browseButton.textContent = '';
     const label = document.createElement('span');
     label.className = 'item-picker-launcher-label';
-    label.textContent = selected ? selected.label : config.browseLabel;
+    label.textContent = selected ? describeOption(selected) : config.browseLabel;
     const icon = document.createElement('span');
     icon.className = 'item-picker-launcher-icon';
     icon.textContent = 'v';
     browseButton.append(label, icon);
     summary.textContent = selected
-      ? `Selected ${selected.label} (${selected.value}).`
+      ? `Selected ${describeOption(selected)}.`
       : 'Use picker or type custom id manually.';
     clearButton.disabled = value.length === 0;
+  };
+
+  const readFacetValue = (option: CatalogPickerOption, facet: CatalogPickerFacet): string => {
+    if (facet.field) {
+      const value = option[facet.field];
+      if (typeof value === 'string' && value.trim().length > 0) return value.trim();
+    }
+    if (typeof facet.keywordIndex === 'number') {
+      const raw = option.keywords?.[facet.keywordIndex]?.trim();
+      if (raw) return raw;
+    }
+    return 'Unknown';
   };
 
   const openPicker = (): void => {
@@ -116,13 +159,21 @@ export function createCatalogPickerPanelEditor(
     searchWrap.append(searchIcon, searchInput);
     panel.appendChild(searchWrap);
 
+    const totalCountBadge = document.createElement('div');
+    totalCountBadge.className = 'item-picker-total';
+    panel.appendChild(totalCountBadge);
+
+    const facets = config.facets ?? [];
     const facetValues = new Map<number, string>();
     const facetButtons: Array<Map<string, HTMLButtonElement>> = [];
-    for (const [facetIndex, facet] of (config.facets ?? []).entries()) {
+    const facetBars: HTMLElement[] = [];
+    for (const [facetIndex, facet] of facets.entries()) {
       const bar = document.createElement('div');
       bar.className = `item-picker-chip-bar${facetIndex > 0 ? ' item-picker-subchip-bar' : ''}`;
       const buttons = new Map<string, HTMLButtonElement>();
-      const values = Array.from(new Set(config.options.map((option) => option.keywords?.[facet.keywordIndex]?.trim() || 'Unknown'))).sort();
+      const values = Array.from(
+        new Set(config.options.map((option) => readFacetValue(option, facet))),
+      ).sort((a, b) => a.localeCompare(b));
       addFacetChip(bar, buttons, facet.allLabel, '', () => {
         facetValues.set(facetIndex, '');
         renderList();
@@ -134,6 +185,7 @@ export function createCatalogPickerPanelEditor(
         });
       }
       facetButtons.push(buttons);
+      facetBars.push(bar);
       panel.appendChild(bar);
     }
 
@@ -143,50 +195,180 @@ export function createCatalogPickerPanelEditor(
     listContent.className = 'item-picker-list-content item-picker-list-content-static';
     const empty = document.createElement('div');
     empty.className = 'item-picker-empty';
-    empty.textContent = 'No matches.';
+    empty.textContent = 'No matches. Try clearing a filter chip or the search box.';
     empty.hidden = true;
     list.append(listContent, empty);
     panel.appendChild(list);
+
+    const renderOptionRow = (option: CatalogPickerOption): HTMLButtonElement => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'item-picker-option item-picker-option-static';
+      if (option.value === rawInput.value) row.classList.add('is-selected');
+
+      if (useRichRows) {
+        row.classList.add('item-picker-option-rich');
+        const primary = document.createElement('span');
+        primary.className = 'item-picker-option-primary';
+
+        const title = document.createElement('span');
+        title.className = 'item-picker-option-title';
+        title.textContent = option.characterName || (option.label || option.value);
+        primary.appendChild(title);
+
+        const id = document.createElement('span');
+        id.className = 'item-picker-option-meta';
+        id.textContent = option.value;
+        primary.appendChild(id);
+
+        row.appendChild(primary);
+
+        const tags = document.createElement('span');
+        tags.className = 'item-picker-option-tags';
+        const pushTag = (text: string | undefined, modifier: string): void => {
+          if (!text) return;
+          const pill = document.createElement('span');
+          pill.className = `item-picker-tag item-picker-tag-${modifier}`;
+          pill.textContent = text;
+          tags.appendChild(pill);
+        };
+        pushTag(option.faction, 'faction');
+        pushTag(option.role, 'role');
+        pushTag(option.level, 'level');
+        if (tags.childElementCount > 0) row.appendChild(tags);
+      } else {
+        const title = document.createElement('span');
+        title.className = 'item-picker-option-title';
+        title.textContent = option.label;
+        const meta = document.createElement('span');
+        meta.className = 'item-picker-option-meta';
+        meta.textContent = option.value;
+        row.append(title, meta);
+      }
+
+      row.onclick = () => {
+        cleanup();
+        syncUi(option.value);
+        onChange(option.value);
+      };
+      return row;
+    };
+
+    const groupByLevel = (matches: CatalogPickerOption[]): Map<string, CatalogPickerOption[]> => {
+      const groups = new Map<string, CatalogPickerOption[]>();
+      for (const option of matches) {
+        const key = option.level?.trim() || 'Other';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(option);
+      }
+      return groups;
+    };
 
     const renderList = (): void => {
       const query = searchInput.value.trim().toLowerCase();
       const matches = config.options.filter((option) => {
         for (const [facetIndex, activeValue] of facetValues.entries()) {
           if (!activeValue) continue;
-          const facet = config.facets?.[facetIndex];
-          const actual = facet ? option.keywords?.[facet.keywordIndex]?.trim() || 'Unknown' : '';
-          if (actual !== activeValue) return false;
+          const facet = facets[facetIndex];
+          if (!facet) continue;
+          if (readFacetValue(option, facet) !== activeValue) return false;
         }
         if (!query) return true;
-        return [option.label, option.value, ...(option.keywords ?? [])].join(' ').toLowerCase().includes(query);
+        const haystack = [
+          option.label,
+          option.value,
+          option.characterName,
+          option.faction,
+          option.level,
+          option.role,
+          ...(option.keywords ?? []),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(query);
       });
 
       listContent.innerHTML = '';
       empty.hidden = matches.length !== 0;
-      for (const option of matches.slice(0, 260)) {
-        const row = document.createElement('button');
-        row.type = 'button';
-        row.className = 'item-picker-option item-picker-option-static';
-        if (option.value === rawInput.value) row.classList.add('is-selected');
-        row.innerHTML = `<span class="item-picker-option-title">${escapeHtml(option.label)}</span><span class="item-picker-option-meta">${escapeHtml(option.value)}</span>`;
-        row.onclick = () => {
-          cleanup();
-          syncUi(option.value);
-          onChange(option.value);
-        };
-        listContent.appendChild(row);
+      const MAX_RENDERED = 260;
+
+      if (useRichRows) {
+        const groups = groupByLevel(matches.slice(0, MAX_RENDERED));
+        const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
+          if (a === 'Other') return 1;
+          if (b === 'Other') return -1;
+          return a.localeCompare(b);
+        });
+        for (const key of sortedKeys) {
+          const entries = groups.get(key) ?? [];
+          const heading = document.createElement('div');
+          heading.className = 'item-picker-group-heading';
+          heading.textContent = `${key} · ${entries.length}`;
+          listContent.appendChild(heading);
+          for (const option of entries) {
+            listContent.appendChild(renderOptionRow(option));
+          }
+        }
+      } else {
+        for (const option of matches.slice(0, MAX_RENDERED)) {
+          listContent.appendChild(renderOptionRow(option));
+        }
       }
-      if (matches.length > 260) {
+
+      if (matches.length > MAX_RENDERED) {
         const overflow = document.createElement('div');
         overflow.className = 'command-description';
-        overflow.textContent = `Showing 260 of ${matches.length}. Keep typing to narrow.`;
+        overflow.textContent = `Showing ${MAX_RENDERED} of ${matches.length}. Keep typing to narrow.`;
         listContent.appendChild(overflow);
       }
 
+      totalCountBadge.textContent = `${matches.length} of ${config.options.length} match current filters.`;
+
       for (const [facetIndex, buttons] of facetButtons.entries()) {
         const active = facetValues.get(facetIndex) ?? '';
+        const facet = facets[facetIndex];
+        const counts = new Map<string, number>();
+        if (facet) {
+          // Count options that satisfy every OTHER active facet + the search,
+          // so users see an accurate remaining cardinality per chip.
+          for (const option of config.options) {
+            let keep = true;
+            for (const [otherIndex, otherValue] of facetValues.entries()) {
+              if (otherIndex === facetIndex) continue;
+              if (!otherValue) continue;
+              const otherFacet = facets[otherIndex];
+              if (otherFacet && readFacetValue(option, otherFacet) !== otherValue) {
+                keep = false;
+                break;
+              }
+            }
+            if (!keep) continue;
+            if (query) {
+              const haystack = [
+                option.label,
+                option.value,
+                option.characterName,
+                option.faction,
+                option.level,
+                option.role,
+                ...(option.keywords ?? []),
+              ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+              if (!haystack.includes(query)) continue;
+            }
+            const bucket = readFacetValue(option, facet);
+            counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
+            counts.set('', (counts.get('') ?? 0) + 1);
+          }
+        }
         for (const [value, button] of buttons) {
           button.classList.toggle('is-active', value === active);
+          const countEl = button.querySelector('.item-picker-chip-count');
+          const count = counts.get(value);
+          if (countEl) countEl.textContent = typeof count === 'number' ? String(count) : '';
         }
       }
     };
@@ -249,7 +431,12 @@ function addFacetChip(parent: HTMLElement, buttons: Map<string, HTMLButtonElemen
   const chip = document.createElement('button');
   chip.type = 'button';
   chip.className = 'item-picker-chip';
-  chip.textContent = label;
+  const chipLabel = document.createElement('span');
+  chipLabel.className = 'item-picker-chip-label';
+  chipLabel.textContent = label;
+  const chipCount = document.createElement('span');
+  chipCount.className = 'item-picker-chip-count';
+  chip.append(chipLabel, chipCount);
   chip.onclick = onClick;
   buttons.set(value, chip);
   parent.appendChild(chip);

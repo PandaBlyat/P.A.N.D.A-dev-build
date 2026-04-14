@@ -238,14 +238,15 @@ function renderForgeCast(wrap: HTMLElement, draft: StoryWizardDraft, setDraft: (
   if (draft.speakerTarget === 'named_npc') {
     wrap.appendChild(createForgePickerShell('Story NPC', createCatalogPickerPanelEditor(draft.storyNpcId, (storyNpcId) => setDraft({ storyNpcId }), 'story-forge-story-npc', {
       title: 'Browse story NPCs',
-      subtitle: 'Search vanilla story NPC ids by faction, level, or role.',
-      searchPlaceholder: 'Search story NPC...',
+      subtitle: 'Every vanilla Anomaly story NPC — search by character name, profile id, faction, level, or role.',
+      searchPlaceholder: 'Search by name (Sidorovich), id, faction, or level...',
       emptyLabel: '-- Story NPC --',
       browseLabel: 'Browse story NPCs...',
       options: STORY_NPC_OPTIONS,
       facets: [
-        { label: 'Faction', keywordIndex: 1, allLabel: 'All factions' },
-        { label: 'Role', keywordIndex: 3, allLabel: 'All roles' },
+        { label: 'Faction', field: 'faction', allLabel: 'All factions' },
+        { label: 'Role', field: 'role', allLabel: 'All roles' },
+        { label: 'Level', field: 'level', allLabel: 'All levels' },
       ],
     })));
   }
@@ -259,12 +260,16 @@ function renderForgeCast(wrap: HTMLElement, draft: StoryWizardDraft, setDraft: (
   if (draft.recipeId === 'multi_npc_handoff' || draft.structureId === 'two_step') {
     wrap.appendChild(createForgePickerShell('Handoff NPC', createCatalogPickerPanelEditor(draft.handoffNpcId, (handoffNpcId) => setDraft({ handoffNpcId }), 'story-forge-handoff-npc', {
       title: 'Browse handoff NPCs',
-      subtitle: 'Pick second speaker for continuation.',
-      searchPlaceholder: 'Search story NPC...',
+      subtitle: 'Pick the second speaker (character name, id, faction, level, or role).',
+      searchPlaceholder: 'Search by name, id, faction, or level...',
       emptyLabel: '-- Handoff NPC --',
       browseLabel: 'Browse handoff NPCs...',
       options: STORY_NPC_OPTIONS,
-      facets: [{ label: 'Role', keywordIndex: 3, allLabel: 'All roles' }],
+      facets: [
+        { label: 'Faction', field: 'faction', allLabel: 'All factions' },
+        { label: 'Role', field: 'role', allLabel: 'All roles' },
+        { label: 'Level', field: 'level', allLabel: 'All levels' },
+      ],
     })));
   }
 }

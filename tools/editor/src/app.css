@@ -3964,6 +3964,101 @@ body.use-custom-cursor * {
   font-size: 10px;
 }
 
+/* ─── Rich option rows (story-NPC catalog picker) ─────── */
+
+.item-picker-option.item-picker-option-rich {
+  gap: 6px;
+  padding: 10px 12px;
+  min-height: 56px;
+}
+
+.item-picker-option-primary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.item-picker-option-rich .item-picker-option-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-picker-option-rich .item-picker-option-meta {
+  font-size: 10.5px;
+  opacity: 0.8;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.item-picker-option-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.item-picker-tag {
+  font-size: 10px;
+  font-family: var(--font-sans);
+  line-height: 1.4;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.item-picker-tag-faction {
+  color: var(--accent);
+  border-color: rgba(94, 170, 58, 0.4);
+  background: rgba(94, 170, 58, 0.08);
+}
+
+.item-picker-tag-role {
+  color: #d9b26a;
+  border-color: rgba(217, 178, 106, 0.4);
+  background: rgba(217, 178, 106, 0.06);
+}
+
+.item-picker-tag-level {
+  color: #8fa8d6;
+  border-color: rgba(143, 168, 214, 0.4);
+  background: rgba(143, 168, 214, 0.06);
+}
+
+.item-picker-group-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-dim, var(--accent));
+  border-bottom: 1px solid var(--border);
+  margin-top: 6px;
+}
+
+.item-picker-group-heading:first-child {
+  margin-top: 0;
+}
+
+.item-picker-chip-label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.item-picker-chip .item-picker-chip-count:empty {
+  display: none;
+}
+
 .smart-terrain-placeholder-card {
   margin-top: 8px;
   padding: 8px;
