@@ -718,6 +718,10 @@ export type ActiveEditorUser = {
   lastSeenAt: string;
 };
 
+export function getActiveEditorLocalUserId(): string {
+  return getOrCreateActiveEditorUserId();
+}
+
 export async function touchActiveEditorUser(): Promise<number> {
   if (typeof window === 'undefined') return 0;
   try {
@@ -757,6 +761,14 @@ export async function fetchActiveEditorUserCount(): Promise<number> {
 
 export async function fetchActiveEditorUsers(): Promise<ActiveEditorUser[]> {
   try {
+    const payload = await fetchFromApi<unknown>('/api/active-users');
+    const apiUsers = normalizeActiveUsers(payload);
+    if (apiUsers.length > 0) return apiUsers;
+  } catch {
+    // Fall through to direct RPC fallback.
+  }
+
+  try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_active_creator_users`, {
       method: 'POST',
       headers: sbHeaders(),
@@ -775,6 +787,46 @@ export async function fetchActiveEditorUsers(): Promise<ActiveEditorUser[]> {
   } catch {
     return [];
   }
+}
+
+function normalizeActiveUsers(payload: unknown): ActiveEditorUser[] {
+  const entries = Array.isArray(payload)
+    ? payload
+    : (payload && typeof payload === 'object' && Array.isArray((payload as { users?: unknown }).users))
+      ? (payload as { users: unknown[] }).users
+      : (payload && typeof payload === 'object' && Array.isArray((payload as { usernames?: unknown }).usernames))
+        ? (payload as { usernames: unknown[] }).usernames
+        : [];
+
+  const users: ActiveEditorUser[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of entries) {
+    let userId = '';
+    let username: string | null = null;
+    let lastSeenAt = '';
+
+    if (typeof entry === 'string') {
+      username = entry.trim() || null;
+      userId = username ? `username:${username.toLowerCase()}` : '';
+    } else if (entry && typeof entry === 'object') {
+      const record = entry as Record<string, unknown>;
+      const rawUserId = record.user_id ?? record.userId ?? record.id;
+      const rawUsername = record.username ?? record.usernames ?? record.name;
+      const rawLastSeen = record.last_seen_at ?? record.lastSeenAt ?? record.last_seen;
+      userId = typeof rawUserId === 'string' ? rawUserId.trim() : '';
+      username = typeof rawUsername === 'string' && rawUsername.trim() ? rawUsername.trim() : null;
+      lastSeenAt = typeof rawLastSeen === 'string' ? rawLastSeen : '';
+    }
+
+    if (!userId && username) userId = `username:${username.toLowerCase()}`;
+    if (!userId) continue;
+    if (seen.has(userId)) continue;
+    seen.add(userId);
+    users.push({ userId, username, lastSeenAt });
+  }
+
+  return users;
 }
 
 function normalizeActiveUsernames(payload: unknown): string[] {

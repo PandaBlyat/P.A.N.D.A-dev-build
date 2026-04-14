@@ -588,9 +588,19 @@ function getSmartTerrainOptions(level: string): SmartTerrainOption[] {
 }
 
 function parseSmartTerrainReference(value: string): { level: string; terrain: string; usesPlaceholder: boolean } {
-  const placeholder = /^%([a-z_]+)_panda_st_key%$/.exec(value.trim());
+  const trimmed = value.trim();
+  const placeholder = /^%([a-z_]+)_panda_st(?:_key)?%$/.exec(trimmed);
   if (placeholder?.[1]) return { level: placeholder[1], terrain: '', usesPlaceholder: true };
-  return { level: '', terrain: value.trim(), usesPlaceholder: false };
+  if (!trimmed) return { level: '', terrain: '', usesPlaceholder: false };
+
+  for (const [levelKey, terrainKeys] of Object.entries(SMART_TERRAIN_LEVELS)) {
+    if (terrainKeys.includes(trimmed)) {
+      return { level: levelKey, terrain: trimmed, usesPlaceholder: false };
+    }
+  }
+
+  const catalogEntry = SMART_TERRAIN_OPTIONS_ALL.find((entry) => entry.id === trimmed);
+  return { level: catalogEntry?.level && catalogEntry.level !== 'other' ? catalogEntry.level : '', terrain: trimmed, usesPlaceholder: false };
 }
 
 function addOption(select: HTMLSelectElement, value: string, label: string): void {

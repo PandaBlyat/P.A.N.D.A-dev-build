@@ -28,13 +28,14 @@ import {
   trackSiteVisitor,
   fetchVisitorCount,
   fetchActiveEditorUserCount,
-  fetchActiveEditorUsernames,
+  fetchActiveEditorUsers,
   startActiveEditorPresenceTracking,
   fetchUserProfile,
   getStoredUsername,
   clearStoredUsername,
   awardXpCapped,
   updateUserStreak,
+  type ActiveEditorUser,
   type UserProfile,
   type UserStreakState,
 } from './lib/api-client';
@@ -74,14 +75,16 @@ void fetchVisitorCount().then(count => {
 
 (globalThis as any).__pandaActiveUserCount = 0;
 (globalThis as any).__pandaActiveUsernames = [] as string[];
+(globalThis as any).__pandaActiveUsers = [] as ActiveEditorUser[];
 
 async function refreshActiveUsersInToolbar(countOverride?: number): Promise<void> {
-  const [count, usernames] = await Promise.all([
+  const [count, users] = await Promise.all([
     typeof countOverride === 'number' ? Promise.resolve(countOverride) : fetchActiveEditorUserCount(),
-    fetchActiveEditorUsernames(),
+    fetchActiveEditorUsers(),
   ]);
-  (globalThis as any).__pandaActiveUserCount = count;
-  (globalThis as any).__pandaActiveUsernames = usernames;
+  (globalThis as any).__pandaActiveUserCount = Math.max(count, users.length);
+  (globalThis as any).__pandaActiveUsers = users;
+  (globalThis as any).__pandaActiveUsernames = users.map(user => user.username ?? '').filter(Boolean);
   renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
 }
 

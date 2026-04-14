@@ -920,3 +920,21 @@ BEGIN
   WHERE up.publisher_id = p_publisher_id;
 END;
 $$;
+-- Compatibility helper for older API code. Prefer get_active_creator_users
+-- when callers need anonymous guest sessions too.
+CREATE OR REPLACE FUNCTION get_active_creator_usernames(stale_after_seconds INT DEFAULT 120)
+RETURNS TABLE (username TEXT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  DELETE FROM creator_active_users
+  WHERE last_seen_at < now() - make_interval(secs => GREATEST(stale_after_seconds, 30));
+
+  RETURN QUERY
+    SELECT u.username
+    FROM creator_active_users u
+    WHERE u.username IS NOT NULL
+    ORDER BY u.username ASC;
+END;
+$$;

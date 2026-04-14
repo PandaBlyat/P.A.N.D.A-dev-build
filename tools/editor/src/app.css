@@ -2991,6 +2991,7 @@ body.use-custom-cursor * {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
   gap: 12px;
   padding: 10px 12px;
   cursor: pointer;
@@ -3022,6 +3023,10 @@ body.use-custom-cursor * {
 }
 .props-collapsible-actions {
   flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+  max-width: 100%;
 }
 .props-collapsible-chevron {
   display: inline-flex;
@@ -3293,8 +3298,13 @@ body.use-custom-cursor * {
 
 .inspector-action-btn {
   min-height: 30px;
+  min-width: 0;
+  max-width: 100%;
   padding: 5px 10px;
   border-radius: 999px;
+  white-space: normal;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
   border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border-light));
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, rgba(28, 36, 48, 0.96)) 0%, rgba(18, 24, 32, 0.96) 100%);
@@ -3326,6 +3336,17 @@ body.use-custom-cursor * {
 
 .inspector-action-btn .ui-control-content {
   gap: 0.42rem;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.inspector-action-btn .ui-control-label {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .inspector-action-btn .ui-icon {

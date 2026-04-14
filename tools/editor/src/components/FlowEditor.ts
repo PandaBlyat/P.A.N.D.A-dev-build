@@ -1236,7 +1236,7 @@ function renderTurnNode(options: {
   node.onpointerdown = (e) => {
     if (e.button !== 0 || e.pointerType === 'touch' && !e.isPrimary) return;
     const target = e.target as HTMLElement;
-    if (target.closest('.turn-choice-item, .choice-output-port, .turn-input-port, .turn-label-input, .turn-color-input')) return;
+    if (target.closest('.turn-choice-item, .choice-output-port, .turn-input-port, .turn-label-input, .turn-color-input, .turn-actions, button, input, select, textarea')) return;
 
     const startX = e.clientX;
     const startY = e.clientY;
@@ -1656,7 +1656,11 @@ function createTurnActionButton(title: string, onClick: () => void, label?: stri
   button.title = title;
   button.setAttribute('aria-label', title);
   if (label) button.textContent = label;
+  button.onpointerdown = (event) => {
+    event.stopPropagation();
+  };
   button.onclick = (event) => {
+    event.preventDefault();
     event.stopPropagation();
     onClick();
   };

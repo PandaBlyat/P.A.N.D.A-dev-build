@@ -196,6 +196,26 @@ function normalizeMissionRow(row: Record<string, unknown>): UserMissionProgressR
   };
 }
 
+function normalizeActiveUsernamePayload(payload: unknown): string[] {
+  const entries = Array.isArray(payload)
+    ? payload
+    : (payload && typeof payload === 'object' && Array.isArray((payload as { usernames?: unknown }).usernames))
+      ? (payload as { usernames: unknown[] }).usernames
+      : [];
+
+  return Array.from(new Set(entries
+    .map((entry) => {
+      if (typeof entry === 'string') return entry.trim();
+      if (entry && typeof entry === 'object') {
+        const record = entry as Record<string, unknown>;
+        const candidate = record.username ?? record.usernames ?? record.name;
+        return typeof candidate === 'string' ? candidate.trim() : '';
+      }
+      return '';
+    })
+    .filter(Boolean)));
+}
+
 function createCommunityMission(slot: MissionSlot, goal: number, xp: number, type: MissionEventType): MissionDefinition {
   return {
     id: `${slot}-${type === 'upvote_received' ? 'upvotes' : 'downloads'}-${goal}`,
@@ -522,40 +542,46 @@ app.get('/api/support/upvotes', async (_req, res) => {
 
 app.get('/api/active-users', async (_req, res) => {
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_active_creator_usernames`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_active_creator_users`, {
       method: 'POST',
       headers: sbHeaders(),
       body: JSON.stringify({ stale_after_seconds: 120 }),
     });
 
     if (!response.ok) {
-      // Keep endpoint stable even if RPC is unavailable in current DB schema.
-      res.json({ usernames: [] });
+      const fallback = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_active_creator_usernames`, {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({ stale_after_seconds: 120 }),
+      });
+      if (!fallback.ok) {
+        // Keep endpoint stable even if RPC is unavailable in current DB schema.
+        res.json({ count: 0, users: [], usernames: [] });
+        return;
+      }
+      const fallbackPayload = await fallback.json() as unknown;
+      const usernames = normalizeActiveUsernamePayload(fallbackPayload);
+      res.json({ count: usernames.length, users: usernames.map(username => ({ user_id: `username:${username.toLowerCase()}`, username, last_seen_at: '' })), usernames });
       return;
     }
 
-    const payload = await response.json() as unknown;
-    const entries = Array.isArray(payload)
-      ? payload
-      : (payload && typeof payload === 'object' && Array.isArray((payload as { usernames?: unknown }).usernames))
-        ? (payload as { usernames: unknown[] }).usernames
-        : [];
-
-    const usernames = Array.from(new Set(entries
-      .map((entry) => {
-        if (typeof entry === 'string') return entry.trim();
-        if (entry && typeof entry === 'object') {
-          const record = entry as Record<string, unknown>;
-          const candidate = record.username ?? record.usernames ?? record.name;
-          return typeof candidate === 'string' ? candidate.trim() : '';
-        }
-        return '';
-      })
-      .filter(Boolean)));
-
-    res.json({ usernames });
+    const rows = await response.json() as Array<Record<string, unknown>>;
+    const users = Array.isArray(rows)
+      ? rows
+        .map((row) => ({
+          user_id: typeof row.user_id === 'string' ? row.user_id : '',
+          username: typeof row.username === 'string' && row.username.trim() ? row.username.trim() : null,
+          last_seen_at: typeof row.last_seen_at === 'string' ? row.last_seen_at : '',
+        }))
+        .filter((row) => row.user_id)
+      : [];
+    res.json({
+      count: users.length,
+      users,
+      usernames: users.map(user => user.username).filter(Boolean),
+    });
   } catch {
-    res.json({ usernames: [] });
+    res.json({ count: 0, users: [], usernames: [] });
   }
 });
 

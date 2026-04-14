@@ -12,7 +12,7 @@ import { clearDraft } from '../lib/draft-storage';
 import { createEmptyProject } from '../lib/xml-export';
 import { renderProfileBadge } from './ProfileBadge';
 import { setBeginnerTooltip } from '../lib/beginner-tooltips';
-import { getStoredUsername } from '../lib/api-client';
+import { getActiveEditorLocalUserId, getStoredUsername, type ActiveEditorUser } from '../lib/api-client';
 
 type SearchResult = {
   label: string;
@@ -615,11 +615,14 @@ function renderVisitorCounter(compact?: boolean): HTMLElement | null {
 function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
   const rawCount = (globalThis as any).__pandaActiveUserCount ?? 0;
   const rawUsernames = ((globalThis as any).__pandaActiveUsernames as string[] | undefined) ?? [];
+  const rawUsers = ((globalThis as any).__pandaActiveUsers as ActiveEditorUser[] | undefined) ?? [];
   const localUsername = getStoredUsername();
-  const resolvedUsernames = Array.from(new Set(rawUsernames.map(name => name.trim()).filter(Boolean)));
-  if (localUsername && !resolvedUsernames.includes(localUsername)) resolvedUsernames.unshift(localUsername);
-  const usernameCount = resolvedUsernames.length;
-  const count = Math.max(rawCount, usernameCount);
+  const localUserId = getActiveEditorLocalUserId();
+  const remoteUsers = normalizeToolbarActiveUsers(rawUsers, rawUsernames);
+  if (localUsername && !remoteUsers.some(user => user.username === localUsername || user.userId === localUserId)) {
+    remoteUsers.unshift({ userId: localUserId, username: localUsername, lastSeenAt: '' });
+  }
+  const count = Math.max(rawCount, remoteUsers.length);
 
   const details = document.createElement('details');
   details.className = 'toolbar-overflow toolbar-active-users';
@@ -645,26 +648,36 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
   title.textContent = 'Active Users';
   menu.appendChild(title);
 
-  const usernames = resolvedUsernames;
+  const users = remoteUsers;
 
-  if (usernames.length === 0) {
+  if (users.length === 0 && count === 0) {
     const empty = document.createElement('div');
     empty.className = 'toolbar-active-users-empty';
-    empty.textContent = 'Usernames not available.';
+    empty.textContent = 'No active users.';
     menu.appendChild(empty);
   } else {
     const list = document.createElement('div');
     list.className = 'toolbar-active-users-list';
-    usernames.slice(0, 12).forEach((username) => {
+    const visibleUsers = users.slice(0, 12);
+    visibleUsers.forEach((user, index) => {
       const item = document.createElement('div');
-      item.className = 'toolbar-active-users-item';
-      item.textContent = localUsername && username === localUsername ? `${username} (you)` : username;
+      const isGuest = !user.username;
+      item.className = `toolbar-active-users-item${isGuest ? ' toolbar-active-users-item-guest' : ''}`;
+      const dot = document.createElement('span');
+      dot.className = 'toolbar-active-users-dot';
+      const name = document.createElement('span');
+      name.className = 'toolbar-active-users-name';
+      const isLocal = user.userId === localUserId || (localUsername && user.username === localUsername);
+      name.textContent = `${getActiveUserDisplayName(user, index)}${isLocal ? ' (you)' : ''}`;
+      item.append(dot, name);
       list.appendChild(item);
     });
-    if (usernames.length > 12) {
+    const hiddenKnownUsers = Math.max(0, users.length - visibleUsers.length);
+    const hiddenCount = Math.max(hiddenKnownUsers, count - visibleUsers.length);
+    if (hiddenCount > 0) {
       const more = document.createElement('div');
       more.className = 'toolbar-active-users-empty';
-      more.textContent = `+${usernames.length - 12} more`;
+      more.textContent = `+${hiddenCount} more`;
       list.appendChild(more);
     }
     menu.appendChild(list);
@@ -672,6 +685,34 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
 
   details.append(summary, menu);
   return details;
+}
+
+function normalizeToolbarActiveUsers(users: ActiveEditorUser[], usernames: string[]): ActiveEditorUser[] {
+  const normalized: ActiveEditorUser[] = [];
+  const seen = new Set<string>();
+  for (const user of users) {
+    const userId = user.userId?.trim();
+    if (!userId || seen.has(userId)) continue;
+    seen.add(userId);
+    normalized.push({
+      userId,
+      username: user.username?.trim() || null,
+      lastSeenAt: user.lastSeenAt,
+    });
+  }
+  for (const username of usernames.map(name => name.trim()).filter(Boolean)) {
+    const userId = `username:${username.toLowerCase()}`;
+    if (seen.has(userId) || normalized.some(user => user.username === username)) continue;
+    seen.add(userId);
+    normalized.push({ userId, username, lastSeenAt: '' });
+  }
+  return normalized;
+}
+
+function getActiveUserDisplayName(user: ActiveEditorUser, index: number): string {
+  if (user.username) return user.username;
+  const suffix = user.userId.replace(/[^a-z0-9]/gi, '').slice(-4).toUpperCase();
+  return suffix ? `Guest ${suffix}` : `Guest ${index + 1}`;
 }
 
 function nextDensity(current: FlowDensity): FlowDensity {

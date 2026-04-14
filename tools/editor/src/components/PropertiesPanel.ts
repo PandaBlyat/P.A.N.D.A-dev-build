@@ -3131,7 +3131,12 @@ function parseSmartTerrainReference(value: string): {
     }
   }
 
-  return { level: '', terrain: value, usesPlaceholder: false };
+  const catalogEntry = SMART_TERRAIN_OPTIONS_ALL.find((entry) => entry.id === value);
+  return {
+    level: catalogEntry?.level && catalogEntry.level !== 'other' ? catalogEntry.level : '',
+    terrain: value,
+    usesPlaceholder: false,
+  };
 }
 
 // ─── Command Picker Dropdown ──────────────────────────────────────────────
