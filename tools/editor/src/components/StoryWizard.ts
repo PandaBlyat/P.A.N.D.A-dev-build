@@ -508,11 +508,11 @@ function findOptionTitle(options: Array<{ id: string; title: string }>, id: stri
 
 function createForgeOptionGrid<T extends { id: string; title: string; description: string }>(title: string, options: T[], selectedId: string, onSelect: (id: string) => void, eyebrow = 'Pick one'): HTMLElement {
   const section = document.createElement('section');
-  section.className = 'story-forge-field-block';
+  section.className = `story-forge-field-block story-forge-option-block story-forge-option-${slugForge(title)}`;
   const heading = document.createElement('h4');
   heading.innerHTML = `<span>${escapeForge(eyebrow)}</span>${escapeForge(title)}`;
   const grid = document.createElement('div');
-  grid.className = 'story-forge-card-grid';
+  grid.className = `story-forge-card-grid ${getForgeGridDensityClass(title, options.length)}`;
   for (const option of options) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -528,7 +528,7 @@ function createForgeOptionGrid<T extends { id: string; title: string; descriptio
 
 function createForgeRecipeGrid(selectedId: StoryRecipeId, onSelect: (id: StoryRecipeId) => void): HTMLElement {
   const section = document.createElement('section');
-  section.className = 'story-forge-field-block';
+  section.className = 'story-forge-field-block story-forge-recipe-block';
   const heading = document.createElement('h4');
   heading.innerHTML = '<span>Pick one</span>Story recipe';
   const groups = new Map<string, typeof STORY_RECIPES>();
@@ -545,7 +545,7 @@ function createForgeRecipeGrid(selectedId: StoryRecipeId, onSelect: (id: StoryRe
     const label = document.createElement('strong');
     label.textContent = group;
     const cards = document.createElement('div');
-    cards.className = 'story-forge-card-grid';
+    cards.className = 'story-forge-card-grid story-forge-recipe-card-grid';
     for (const recipe of recipes) {
       const button = document.createElement('button');
       button.type = 'button';
@@ -579,6 +579,12 @@ function getForgeOptionBadges(title: string, id: string): string[] {
   if (title === 'Start pattern') return id.includes('f2f') ? ['face-to-face'] : ['PDA'];
   if (title === 'Structure') return id === 'task' ? ['task turns'] : ['turns'];
   return [];
+}
+
+function getForgeGridDensityClass(title: string, optionCount: number): string {
+  if (title === 'Tone' || title === 'Branch style' || title === 'Start gate') return 'story-forge-card-grid-compact';
+  if (optionCount <= 4) return 'story-forge-card-grid-medium';
+  return '';
 }
 
 function getForgeRecipeBadges(id: StoryRecipeId): string[] {
