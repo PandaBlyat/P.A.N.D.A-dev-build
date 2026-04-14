@@ -1050,28 +1050,107 @@ function buildFeaturedBadgeStrip(unlockedIds: string[]): HTMLElement | null {
   return strip;
 }
 
+type AchievementFilter = 'all' | 'unlocked' | 'locked' | 'rare' | 'hidden';
+
 function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLElement {
   const section = document.createElement('div');
-  section.className = 'profile-popover-achievements profile-surface-section';
+  section.className = 'profile-popover-achievements profile-surface-section profile-popover-achievements-v2';
   section.classList.add('profile-dashboard-card', 'profile-dashboard-achievements');
 
-  const header = document.createElement('div');
-  header.className = 'profile-popover-section-header';
-  const medalIcon = createIcon('medal');
-  const title = document.createElement('span');
   const unlocked = getUnlockedAchievementIdsForProfile(profile);
-  title.textContent = `Achievements (${unlocked.length}/${ACHIEVEMENTS.length})`;
-  header.append(medalIcon, title);
-  section.appendChild(header);
-
   const visibleGoalCount = getVisibleAchievementCatalog().length;
   const hiddenGoalCount = ACHIEVEMENTS.filter(achievement => achievement.hidden).length;
   const rareUnlockedCount = getRareAchievementCount(unlocked);
+  const xpFromAchievements = ACHIEVEMENTS.reduce(
+    (sum, a) => sum + (unlocked.includes(a.id) ? a.xp : 0),
+    0,
+  );
+  const totalXpPossible = ACHIEVEMENTS.reduce((sum, a) => sum + a.xp, 0);
+  const progressRatio = unlocked.length / Math.max(ACHIEVEMENTS.length, 1);
 
+  // ── Enhanced hero header with progress ring ───────────────────────────────
+  const hero = document.createElement('div');
+  hero.className = 'profile-achievements-hero';
+
+  const ring = buildAchievementProgressRing(progressRatio, unlocked.length, ACHIEVEMENTS.length);
+  hero.appendChild(ring);
+
+  const heroText = document.createElement('div');
+  heroText.className = 'profile-achievements-hero-text';
+
+  const heroHeader = document.createElement('div');
+  heroHeader.className = 'profile-popover-section-header';
+  const medalIcon = createIcon('medal');
+  const title = document.createElement('span');
+  title.textContent = 'Achievements';
+  heroHeader.append(medalIcon, title);
+  heroText.appendChild(heroHeader);
+
+  const heroSub = document.createElement('div');
+  heroSub.className = 'profile-achievements-hero-sub';
+  heroSub.textContent = `${unlocked.length} of ${ACHIEVEMENTS.length} unlocked · ${xpFromAchievements} / ${totalXpPossible} XP earned`;
+  heroText.appendChild(heroSub);
+
+  // Tier pill strip: Bronze / Silver / Gold unlocked counts
+  const tierStrip = buildTierSummaryStrip(unlocked);
+  heroText.appendChild(tierStrip);
+
+  hero.appendChild(heroText);
+  section.appendChild(hero);
+
+  // ── Filter chips ──────────────────────────────────────────────────────────
+  const filterBar = document.createElement('div');
+  filterBar.className = 'profile-achievements-filter-bar';
+  filterBar.setAttribute('role', 'tablist');
+
+  const filters: Array<{ id: AchievementFilter; label: string; count: number; tone?: 'accent' | 'muted' }> = [
+    { id: 'all', label: 'All', count: ACHIEVEMENTS.length },
+    { id: 'unlocked', label: 'Unlocked', count: unlocked.length, tone: 'accent' },
+    { id: 'locked', label: 'Locked', count: ACHIEVEMENTS.length - unlocked.length, tone: 'muted' },
+    { id: 'rare', label: 'Rare', count: rareUnlockedCount },
+    { id: 'hidden', label: 'Surprise', count: hiddenGoalCount, tone: 'muted' },
+  ];
+
+  const filterState: { current: AchievementFilter } = { current: 'all' };
+  const filterButtons: HTMLButtonElement[] = [];
+
+  for (const f of filters) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `profile-achievements-filter-chip${f.tone === 'accent' ? ' is-accent' : ''}${f.tone === 'muted' ? ' is-muted' : ''}`;
+    btn.dataset.filter = f.id;
+    btn.setAttribute('role', 'tab');
+    btn.setAttribute('aria-selected', f.id === 'all' ? 'true' : 'false');
+    if (f.id === 'all') btn.classList.add('is-active');
+
+    const chipLabel = document.createElement('span');
+    chipLabel.className = 'profile-achievements-filter-chip-label';
+    chipLabel.textContent = f.label;
+
+    const chipCount = document.createElement('span');
+    chipCount.className = 'profile-achievements-filter-chip-count';
+    chipCount.textContent = String(f.count);
+
+    btn.append(chipLabel, chipCount);
+    btn.addEventListener('click', () => {
+      filterState.current = f.id;
+      for (const b of filterButtons) {
+        const active = b.dataset.filter === f.id;
+        b.classList.toggle('is-active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+      }
+      applyAchievementFilter(section, f.id);
+    });
+    filterButtons.push(btn);
+    filterBar.appendChild(btn);
+  }
+
+  section.appendChild(filterBar);
+
+  // Keep a small summary row in muted style for at-a-glance meta beyond chips
   const summaryRow = document.createElement('div');
   summaryRow.className = 'profile-achievement-summary-row';
   summaryRow.append(
-    createMetaChip('Earned', String(unlocked.length)),
     createMetaChip('Rare', String(rareUnlockedCount), rareUnlockedCount > 0 ? 'accent' : 'default'),
     createMetaChip('Visible', String(visibleGoalCount), 'muted'),
     createMetaChip('Surprise', String(hiddenGoalCount), 'muted'),
@@ -1143,8 +1222,13 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
     categoryAchievements.forEach((achievement) => {
       const isUnlocked = unlocked.includes(achievement.id);
       const isHiddenLocked = achievement.hidden && !isUnlocked;
+      const isRare = isAchievementRare(achievement);
       const cell = document.createElement('button');
       cell.type = 'button';
+      cell.dataset.state = isUnlocked ? 'unlocked' : 'locked';
+      cell.dataset.tier = achievement.tier;
+      cell.dataset.rare = isRare ? '1' : '0';
+      cell.dataset.hiddenAchievement = achievement.hidden ? '1' : '0';
       cell.className = `profile-achievement-cell profile-achievement-cell-${achievement.tier}${isUnlocked ? ' profile-achievement-unlocked' : ' profile-achievement-locked'}${achievement.hidden ? ' profile-achievement-hidden' : ''}${!isUnlocked && !achievement.hidden ? ' profile-achievement-visible-locked' : ''}`;
       cell.title = isUnlocked
         ? `${achievement.name} — ${achievement.description} (+${achievement.xp} XP)`
@@ -1196,6 +1280,123 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
 
   section.appendChild(categoryGrid);
   return section;
+}
+
+function buildAchievementProgressRing(ratio: number, unlocked: number, total: number): HTMLElement {
+  const svgNs = 'http://www.w3.org/2000/svg';
+  const wrap = document.createElement('div');
+  wrap.className = 'profile-achievements-ring';
+
+  const size = 72;
+  const stroke = 6;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.max(0, Math.min(1, ratio));
+  const dashOffset = circumference * (1 - clamped);
+
+  const svg = document.createElementNS(svgNs, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+  svg.setAttribute('width', String(size));
+  svg.setAttribute('height', String(size));
+  svg.setAttribute('aria-hidden', 'true');
+  svg.classList.add('profile-achievements-ring-svg');
+
+  const track = document.createElementNS(svgNs, 'circle');
+  track.setAttribute('cx', String(size / 2));
+  track.setAttribute('cy', String(size / 2));
+  track.setAttribute('r', String(radius));
+  track.setAttribute('fill', 'none');
+  track.setAttribute('stroke-width', String(stroke));
+  track.classList.add('profile-achievements-ring-track');
+
+  const fill = document.createElementNS(svgNs, 'circle');
+  fill.setAttribute('cx', String(size / 2));
+  fill.setAttribute('cy', String(size / 2));
+  fill.setAttribute('r', String(radius));
+  fill.setAttribute('fill', 'none');
+  fill.setAttribute('stroke-width', String(stroke));
+  fill.setAttribute('stroke-linecap', 'round');
+  fill.setAttribute('stroke-dasharray', String(circumference));
+  fill.setAttribute('stroke-dashoffset', String(dashOffset));
+  fill.setAttribute('transform', `rotate(-90 ${size / 2} ${size / 2})`);
+  fill.classList.add('profile-achievements-ring-fill');
+
+  svg.append(track, fill);
+  wrap.appendChild(svg);
+
+  const center = document.createElement('div');
+  center.className = 'profile-achievements-ring-center';
+
+  const pct = document.createElement('span');
+  pct.className = 'profile-achievements-ring-percent';
+  pct.textContent = `${Math.round(clamped * 100)}%`;
+
+  const sub = document.createElement('span');
+  sub.className = 'profile-achievements-ring-sub';
+  sub.textContent = `${unlocked}/${total}`;
+
+  center.append(pct, sub);
+  wrap.appendChild(center);
+
+  return wrap;
+}
+
+function buildTierSummaryStrip(unlocked: string[]): HTMLElement {
+  const strip = document.createElement('div');
+  strip.className = 'profile-achievements-tier-strip';
+
+  const tiers: Array<{ id: 'bronze' | 'silver' | 'gold'; label: string }> = [
+    { id: 'bronze', label: 'Bronze' },
+    { id: 'silver', label: 'Silver' },
+    { id: 'gold', label: 'Gold' },
+  ];
+
+  for (const tier of tiers) {
+    const tierAchievements = ACHIEVEMENTS.filter(a => a.tier === tier.id);
+    const tierUnlocked = tierAchievements.filter(a => unlocked.includes(a.id)).length;
+    const pill = document.createElement('div');
+    pill.className = `profile-achievements-tier-pill profile-achievements-tier-pill-${tier.id}`;
+
+    const dot = document.createElement('span');
+    dot.className = 'profile-achievements-tier-dot';
+
+    const text = document.createElement('span');
+    text.className = 'profile-achievements-tier-text';
+    text.textContent = `${tier.label} ${tierUnlocked}/${tierAchievements.length}`;
+
+    pill.append(dot, text);
+    strip.appendChild(pill);
+  }
+
+  return strip;
+}
+
+function applyAchievementFilter(section: HTMLElement, filter: AchievementFilter): void {
+  const cells = section.querySelectorAll<HTMLElement>('.profile-achievement-cell');
+  const categoryDetails = section.querySelectorAll<HTMLDetailsElement>('.profile-achievement-category-details');
+
+  cells.forEach((cell) => {
+    const state = cell.dataset.state;
+    const rare = cell.dataset.rare === '1';
+    const isHidden = cell.dataset.hiddenAchievement === '1';
+
+    let visible = true;
+    switch (filter) {
+      case 'all': visible = true; break;
+      case 'unlocked': visible = state === 'unlocked'; break;
+      case 'locked': visible = state === 'locked'; break;
+      case 'rare': visible = rare; break;
+      case 'hidden': visible = isHidden; break;
+    }
+    cell.classList.toggle('is-filtered-out', !visible);
+  });
+
+  // Auto-open categories that have any visible cells and collapse those that don't
+  categoryDetails.forEach((det) => {
+    const anyVisible = det.querySelector('.profile-achievement-cell:not(.is-filtered-out)') !== null;
+    det.classList.toggle('is-empty', !anyVisible);
+    if (filter !== 'all') det.open = anyVisible;
+  });
 }
 
 function getProfileMissions(profile: UserProfile, isSelfProfile: boolean): ActiveMission[] {
@@ -1424,26 +1625,28 @@ function buildLeaderboardSection(profile: UserProfile): HTMLElement {
 
 function buildSelfProfileContent(profile: UserProfile): HTMLElement {
   const shell = document.createElement('div');
-  shell.className = 'profile-popover-shell';
+  shell.className = 'profile-popover-shell profile-popover-shell-v2';
 
   const body = document.createElement('div');
-  body.className = 'profile-popover-body';
+  body.className = 'profile-popover-body profile-popover-body-v2';
 
   const heroRow = document.createElement('div');
-  heroRow.className = 'profile-popover-hero-row';
-  heroRow.append(buildProfileHeader(profile), buildNextGoalsPanel(profile));
+  heroRow.className = 'profile-popover-hero-row profile-popover-hero-row-v2';
+  heroRow.append(buildProfileHeader(profile));
 
-  const actionRow = document.createElement('div');
-  actionRow.className = 'profile-popover-dashboard-grid';
-  actionRow.append(
-    buildStreakChallengeSection(profile),
-    buildAchievementsSection(profile),
+  const achievementsRow = document.createElement('div');
+  achievementsRow.className = 'profile-popover-achievements-row';
+  achievementsRow.appendChild(buildAchievementsSection(profile));
+
+  const sideRow = document.createElement('div');
+  sideRow.className = 'profile-popover-side-grid';
+  sideRow.append(
     buildLeaderboardSection(profile),
     buildStatsSection(profile),
     buildXpBreakdownSection(),
   );
 
-  body.append(heroRow, actionRow);
+  body.append(heroRow, achievementsRow, sideRow);
   shell.append(body);
   return shell;
 }

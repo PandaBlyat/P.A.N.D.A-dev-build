@@ -75,7 +75,28 @@ export type AchievementId =
   | 'silver_complete'
   | 'faction_complete'
   | 'night_shift'
-  | 'zone_whisperer';
+  | 'zone_whisperer'
+  // ─── Extended catalog ────────────────────────────────────────────────────
+  | 'callsign_chosen'
+  | 'login_streak_7'
+  | 'login_streak_30'
+  | 'weekend_warrior'
+  | 'dawn_patrol'
+  | 'iron_scribe'
+  | 'commentator'
+  | 'library_patron'
+  | 'first_friend'
+  | 'download_centurion'
+  | 'download_legion'
+  | 'upvote_legend'
+  | 'artifact_hunter'
+  | 'mutant_mythographer'
+  | 'zone_lorekeeper'
+  | 'gold_circuit'
+  | 'hidden_circuit'
+  | 'chaos_director'
+  | 'ironclad_finish'
+  | 'speedrunner';
 
 export type Achievement = {
   id: AchievementId;
@@ -134,6 +155,31 @@ export const ACHIEVEMENTS: Achievement[] = [
 
   { id: 'night_shift', name: 'Night Shift', description: 'Publish when the Zone should be asleep', xp: 45, icon: '\u{1F319}', tier: 'silver', category: 'discovery', hidden: true },
   { id: 'zone_whisperer', name: 'Zone Whisperer', description: 'Uncover one of the Zone\'s stranger secrets', xp: 125, icon: '\u{1F47B}', tier: 'gold', category: 'collection', hidden: true },
+
+  // ─── Extended catalog ──────────────────────────────────────────────────────
+  { id: 'callsign_chosen', name: 'Callsign Chosen', description: 'Set a community display name so stalkers know who they\'re hailing', xp: 15, icon: '\u{1F4DB}', tier: 'bronze', category: 'onboarding' },
+  { id: 'login_streak_7', name: 'Weeklong Watch', description: 'Log in for 7 consecutive days', xp: 70, icon: '\u{1F5D3}', tier: 'silver', category: 'onboarding' },
+  { id: 'login_streak_30', name: 'Zone Resident', description: 'Log in for 30 consecutive days', xp: 260, icon: '\u{1F3E0}', tier: 'gold', category: 'onboarding', featured: true },
+  { id: 'weekend_warrior', name: 'Weekend Warrior', description: 'Publish on both Saturday and Sunday of the same week', xp: 40, icon: '\u{1F3D5}', tier: 'silver', category: 'discovery' },
+  { id: 'dawn_patrol', name: 'Dawn Patrol', description: 'Publish a conversation between 04:00 and 07:00 local time', xp: 50, icon: '\u{1F305}', tier: 'silver', category: 'discovery', hidden: true },
+  { id: 'iron_scribe', name: 'Iron Scribe', description: 'Publish 25 conversations without missing a quality check', xp: 200, icon: '\u{1F4DC}', tier: 'gold', category: 'mastery' },
+
+  { id: 'commentator', name: 'Commentator', description: 'Leave constructive feedback on 10 community cards', xp: 50, icon: '\u{1F4AC}', tier: 'bronze', category: 'social' },
+  { id: 'library_patron', name: 'Library Patron', description: 'Import a published flow and star the original', xp: 40, icon: '\u{1F4D6}', tier: 'bronze', category: 'social' },
+  { id: 'first_friend', name: 'First Friend', description: 'Gain your first community follower', xp: 35, icon: '\u{1F91D}', tier: 'bronze', category: 'social' },
+  { id: 'download_centurion', name: 'Download Centurion', description: 'Surpass 100 total downloads across your cards', xp: 180, icon: '\u{1F6F0}', tier: 'silver', category: 'social' },
+  { id: 'download_legion', name: 'Download Legion', description: 'Surpass 500 total downloads across your cards', xp: 450, icon: '\u{1F6F8}', tier: 'gold', category: 'social', featured: true },
+  { id: 'upvote_legend', name: 'Upvote Legend', description: 'Receive 250 total upvotes', xp: 400, icon: '\u{1F451}', tier: 'gold', category: 'social', featured: true },
+
+  { id: 'artifact_hunter', name: 'Artifact Hunter', description: 'Reference 10 distinct artifact item IDs across your conversations', xp: 85, icon: '\u{1F52E}', tier: 'silver', category: 'discovery' },
+  { id: 'mutant_mythographer', name: 'Mutant Mythographer', description: 'Mention every mutant type at least once across your published cards', xp: 160, icon: '\u{1F43A}', tier: 'gold', category: 'discovery' },
+  { id: 'zone_lorekeeper', name: 'Zone Lorekeeper', description: 'Publish conversations set in 5 different Zone locations', xp: 110, icon: '\u{1F5FA}', tier: 'silver', category: 'discovery' },
+
+  { id: 'gold_circuit', name: 'Gold Circuit', description: 'Unlock every gold-tier achievement', xp: 500, icon: '\u{1F3C5}', tier: 'gold', category: 'collection', featured: true },
+  { id: 'hidden_circuit', name: 'Hidden Circuit', description: 'Uncover every hidden achievement', xp: 300, icon: '\u{1F5DD}', tier: 'gold', category: 'collection', hidden: true },
+  { id: 'chaos_director', name: 'Chaos Director', description: 'Publish a single conversation with 12+ branches and 6+ outcome types', xp: 180, icon: '\u{1F39E}', tier: 'gold', category: 'mastery' },
+  { id: 'ironclad_finish', name: 'Ironclad Finish', description: 'Publish 5 conversations in a row that all earn a quality score of 5', xp: 220, icon: '\u{1F6E1}', tier: 'gold', category: 'mastery', featured: true },
+  { id: 'speedrunner', name: 'Speedrunner', description: 'Publish three conversations in a single day without dropping quality', xp: 120, icon: '\u{23F1}', tier: 'silver', category: 'mastery' },
 ];
 
 export function getAchievementById(id: AchievementId): Achievement | undefined {

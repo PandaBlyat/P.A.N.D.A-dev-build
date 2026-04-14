@@ -738,14 +738,30 @@ function getActiveEditorPresenceUserId(): string {
 
 export async function touchActiveEditorUser(): Promise<number> {
   if (typeof window === 'undefined') return 0;
+  const userId = getActiveEditorPresenceUserId();
+  const username = getStoredUsername();
+
+  // Prefer the API so presence persists even when the browser can't reach
+  // Supabase directly (CORS, RLS, or missing RPC in self-hosted setups).
+  try {
+    const payload = await fetchFromApi<{ count?: number }>('/api/active-users/touch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, username }),
+    });
+    if (typeof payload?.count === 'number') return payload.count;
+  } catch {
+    // Fall through to direct Supabase RPC fallback.
+  }
+
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/touch_creator_active_user`, {
       method: 'POST',
       headers: sbHeaders(),
       body: JSON.stringify({
-        active_user_id: getActiveEditorPresenceUserId(),
+        active_user_id: userId,
         stale_after_seconds: ACTIVE_EDITOR_STALE_SECONDS,
-        active_username: getStoredUsername(),
+        active_username: username,
       }),
     });
     if (!res.ok) throw new Error(`Failed to update active editor presence (${res.status})`);
