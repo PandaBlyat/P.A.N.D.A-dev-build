@@ -613,7 +613,10 @@ function renderVisitorCounter(compact?: boolean): HTMLElement | null {
 }
 
 function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
-  const count = (globalThis as any).__pandaActiveUserCount ?? 0;
+  const rawCount = (globalThis as any).__pandaActiveUserCount ?? 0;
+  const rawUsernames = ((globalThis as any).__pandaActiveUsernames as string[] | undefined) ?? [];
+  const usernameCount = Array.from(new Set(rawUsernames.map(name => name.trim()).filter(Boolean))).length;
+  const count = Math.max(rawCount, usernameCount);
 
   const details = document.createElement('details');
   details.className = 'toolbar-overflow toolbar-active-users';
@@ -639,7 +642,6 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
   title.textContent = 'Active Users';
   menu.appendChild(title);
 
-  const rawUsernames = ((globalThis as any).__pandaActiveUsernames as string[] | undefined) ?? [];
   const usernames = Array.from(new Set(rawUsernames.map(name => name.trim()).filter(Boolean)));
   const localUsername = getStoredUsername();
   if (localUsername && !usernames.includes(localUsername)) usernames.unshift(localUsername);
