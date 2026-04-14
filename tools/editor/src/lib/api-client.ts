@@ -777,6 +777,54 @@ export async function fetchActiveEditorUsers(): Promise<ActiveEditorUser[]> {
   }
 }
 
+function normalizeActiveUsernames(payload: unknown): string[] {
+  const entries = Array.isArray(payload)
+    ? payload
+    : (payload && typeof payload === 'object' && Array.isArray((payload as { usernames?: unknown }).usernames))
+      ? (payload as { usernames: unknown[] }).usernames
+      : [];
+
+  const usernames = entries
+    .map((entry) => {
+      if (typeof entry === 'string') return entry.trim();
+      if (entry && typeof entry === 'object') {
+        const record = entry as Record<string, unknown>;
+        const candidate = record.username ?? record.usernames ?? record.name;
+        return typeof candidate === 'string' ? candidate.trim() : '';
+      }
+      return '';
+    })
+    .filter(Boolean);
+
+  return Array.from(new Set(usernames));
+}
+
+export async function fetchActiveEditorUsernames(): Promise<string[]> {
+  const users = await fetchActiveEditorUsers();
+  const namesFromUsers = Array.from(new Set(users.map(user => user.username?.trim() ?? '').filter(Boolean)));
+  if (namesFromUsers.length > 0) return namesFromUsers;
+
+  try {
+    const response = await fetchFromApi<{ usernames?: string[] } | string[]>('/api/active-users');
+    return normalizeActiveUsernames(response);
+  } catch {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_active_creator_usernames`, {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({
+          stale_after_seconds: ACTIVE_EDITOR_STALE_SECONDS,
+        }),
+      });
+      if (!res.ok) return [];
+      const payload = await res.json() as unknown;
+      return normalizeActiveUsernames(payload);
+    } catch {
+      return [];
+    }
+  }
+}
+
 export function startActiveEditorPresenceTracking(onUpdate: (count: number) => void): () => void {
   if (typeof window === 'undefined') return () => {};
 
