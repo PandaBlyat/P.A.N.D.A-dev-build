@@ -615,7 +615,10 @@ function renderVisitorCounter(compact?: boolean): HTMLElement | null {
 function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
   const rawCount = (globalThis as any).__pandaActiveUserCount ?? 0;
   const rawUsernames = ((globalThis as any).__pandaActiveUsernames as string[] | undefined) ?? [];
-  const usernameCount = Array.from(new Set(rawUsernames.map(name => name.trim()).filter(Boolean))).length;
+  const localUsername = getStoredUsername();
+  const resolvedUsernames = Array.from(new Set(rawUsernames.map(name => name.trim()).filter(Boolean)));
+  if (localUsername && !resolvedUsernames.includes(localUsername)) resolvedUsernames.unshift(localUsername);
+  const usernameCount = resolvedUsernames.length;
   const count = Math.max(rawCount, usernameCount);
 
   const details = document.createElement('details');
@@ -642,9 +645,7 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
   title.textContent = 'Active Users';
   menu.appendChild(title);
 
-  const usernames = Array.from(new Set(rawUsernames.map(name => name.trim()).filter(Boolean)));
-  const localUsername = getStoredUsername();
-  if (localUsername && !usernames.includes(localUsername)) usernames.unshift(localUsername);
+  const usernames = resolvedUsernames;
 
   if (usernames.length === 0) {
     const empty = document.createElement('div');
