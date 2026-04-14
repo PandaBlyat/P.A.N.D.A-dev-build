@@ -712,6 +712,12 @@ function getOrCreateActiveEditorUserId(): string {
   return generated;
 }
 
+export type ActiveEditorUser = {
+  userId: string;
+  username: string | null;
+  lastSeenAt: string;
+};
+
 export async function touchActiveEditorUser(): Promise<number> {
   if (typeof window === 'undefined') return 0;
   try {
@@ -721,6 +727,7 @@ export async function touchActiveEditorUser(): Promise<number> {
       body: JSON.stringify({
         active_user_id: getOrCreateActiveEditorUserId(),
         stale_after_seconds: ACTIVE_EDITOR_STALE_SECONDS,
+        active_username: getStoredUsername(),
       }),
     });
     if (!res.ok) throw new Error(`Failed to update active editor presence (${res.status})`);
@@ -745,6 +752,28 @@ export async function fetchActiveEditorUserCount(): Promise<number> {
     return typeof count === 'number' ? count : 0;
   } catch {
     return 0;
+  }
+}
+
+export async function fetchActiveEditorUsers(): Promise<ActiveEditorUser[]> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_active_creator_users`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({
+        stale_after_seconds: ACTIVE_EDITOR_STALE_SECONDS,
+      }),
+    });
+    if (!res.ok) throw new Error(`Failed to fetch active editor users (${res.status})`);
+    const rows = await res.json() as Array<{ user_id: string; username: string | null; last_seen_at: string }> | null;
+    if (!Array.isArray(rows)) return [];
+    return rows.map(row => ({
+      userId: row.user_id,
+      username: row.username?.trim() ? row.username.trim() : null,
+      lastSeenAt: row.last_seen_at,
+    }));
+  } catch {
+    return [];
   }
 }
 

@@ -317,9 +317,14 @@ $$;
 -- Active editor user presence counter
 CREATE TABLE IF NOT EXISTS creator_active_users (
   user_id TEXT PRIMARY KEY,
+  username TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Backfill column for existing installs
+ALTER TABLE creator_active_users
+  ADD COLUMN IF NOT EXISTS username TEXT;
 
 ALTER TABLE creator_active_users ENABLE ROW LEVEL SECURITY;
 
@@ -358,7 +363,8 @@ $$;
 
 CREATE OR REPLACE FUNCTION touch_creator_active_user(
   active_user_id TEXT,
-  stale_after_seconds INT DEFAULT 120
+  stale_after_seconds INT DEFAULT 120,
+  active_username TEXT DEFAULT NULL
 )
 RETURNS INT
 LANGUAGE plpgsql
@@ -366,18 +372,22 @@ SECURITY DEFINER
 AS $$
 DECLARE
   normalized_user_id TEXT;
+  normalized_username TEXT;
   active_count INT;
 BEGIN
   normalized_user_id := nullif(btrim(active_user_id), '');
+  normalized_username := nullif(btrim(active_username), '');
 
   IF normalized_user_id IS NULL THEN
     RETURN 0;
   END IF;
 
-  INSERT INTO creator_active_users (user_id, last_seen_at)
-  VALUES (normalized_user_id, now())
+  INSERT INTO creator_active_users (user_id, username, last_seen_at)
+  VALUES (normalized_user_id, normalized_username, now())
   ON CONFLICT (user_id)
-  DO UPDATE SET last_seen_at = now();
+  DO UPDATE SET
+    last_seen_at = now(),
+    username = COALESCE(EXCLUDED.username, creator_active_users.username);
 
   DELETE FROM creator_active_users
   WHERE last_seen_at < now() - make_interval(secs => GREATEST(stale_after_seconds, 30));
@@ -400,6 +410,27 @@ BEGIN
 
   SELECT count(*)::INT INTO active_count FROM creator_active_users;
   RETURN coalesce(active_count, 0);
+END;
+$$;
+
+-- Returns the list of currently-active editor users (callsigns when registered,
+-- NULL for anonymous "guest" sessions). Prunes stale rows before returning.
+CREATE OR REPLACE FUNCTION get_active_creator_users(stale_after_seconds INT DEFAULT 120)
+RETURNS TABLE (user_id TEXT, username TEXT, last_seen_at TIMESTAMPTZ)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  DELETE FROM creator_active_users
+  WHERE last_seen_at < now() - make_interval(secs => GREATEST(stale_after_seconds, 30));
+
+  RETURN QUERY
+    SELECT u.user_id, u.username, u.last_seen_at
+    FROM creator_active_users u
+    ORDER BY
+      CASE WHEN u.username IS NULL THEN 1 ELSE 0 END,
+      u.username ASC NULLS LAST,
+      u.last_seen_at DESC;
 END;
 $$;
 

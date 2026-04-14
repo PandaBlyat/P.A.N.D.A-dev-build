@@ -12,6 +12,7 @@ import { clearDraft } from '../lib/draft-storage';
 import { createEmptyProject } from '../lib/xml-export';
 import { renderProfileBadge } from './ProfileBadge';
 import { setBeginnerTooltip } from '../lib/beginner-tooltips';
+import { fetchActiveEditorUsers, type ActiveEditorUser } from '../lib/api-client';
 
 type SearchResult = {
   label: string;
@@ -615,9 +616,12 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
   const count = (globalThis as any).__pandaActiveUserCount ?? 0;
   if (count <= 0) return null;
 
-  const el = document.createElement('span');
-  el.className = 'toolbar-visitor-counter toolbar-active-user-counter';
-  el.title = 'Current active users in the P.A.N.D.A. editor';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'toolbar-visitor-counter toolbar-active-user-counter';
+  btn.title = 'Current active users in the P.A.N.D.A. editor — click to see who\u2019s online';
+  btn.setAttribute('aria-haspopup', 'dialog');
+  btn.setAttribute('aria-expanded', 'false');
 
   const icon = createIcon('user');
   const label = document.createElement('span');
@@ -625,8 +629,188 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
     ? new Intl.NumberFormat().format(count)
     : `${new Intl.NumberFormat().format(count)} active`;
 
-  el.append(icon, label);
-  return el;
+  btn.append(icon, label);
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    toggleActiveUsersPopover(btn);
+  };
+  return btn;
+}
+
+// ─── Active Users Popover ─────────────────────────────────────────────────
+
+let activeUsersPopover: HTMLElement | null = null;
+let activeUsersAnchor: HTMLElement | null = null;
+let activeUsersPopoverCleanup: (() => void) | null = null;
+
+function toggleActiveUsersPopover(anchor: HTMLElement): void {
+  if (activeUsersPopover) {
+    closeActiveUsersPopover();
+    return;
+  }
+  openActiveUsersPopover(anchor);
+}
+
+function openActiveUsersPopover(anchor: HTMLElement): void {
+  closeActiveUsersPopover();
+  activeUsersAnchor = anchor;
+  anchor.setAttribute('aria-expanded', 'true');
+
+  const popover = document.createElement('div');
+  popover.className = 'toolbar-active-users-popover';
+  popover.setAttribute('role', 'dialog');
+  popover.setAttribute('aria-label', 'Active users in the P.A.N.D.A. editor');
+
+  const header = document.createElement('div');
+  header.className = 'toolbar-active-users-header';
+  const title = document.createElement('span');
+  title.className = 'toolbar-active-users-title';
+  title.textContent = 'Active users';
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'toolbar-active-users-close';
+  closeBtn.setAttribute('aria-label', 'Close active users list');
+  closeBtn.textContent = '\u00d7';
+  closeBtn.onclick = () => closeActiveUsersPopover();
+  header.append(title, closeBtn);
+
+  const body = document.createElement('div');
+  body.className = 'toolbar-active-users-body';
+  const loading = document.createElement('div');
+  loading.className = 'toolbar-active-users-loading';
+  loading.textContent = 'Loading\u2026';
+  body.appendChild(loading);
+
+  popover.append(header, body);
+  document.body.appendChild(popover);
+  activeUsersPopover = popover;
+  positionActiveUsersPopover(popover, anchor);
+
+  const onDocClick = (ev: MouseEvent): void => {
+    const target = ev.target as Node | null;
+    if (!target) return;
+    if (popover.contains(target)) return;
+    if (anchor.contains(target)) return;
+    closeActiveUsersPopover();
+  };
+  const onEsc = (ev: KeyboardEvent): void => {
+    if (ev.key === 'Escape') {
+      closeActiveUsersPopover();
+      anchor.focus();
+    }
+  };
+  const onResize = (): void => {
+    if (activeUsersPopover && activeUsersAnchor) {
+      positionActiveUsersPopover(activeUsersPopover, activeUsersAnchor);
+    }
+  };
+  document.addEventListener('mousedown', onDocClick);
+  document.addEventListener('keydown', onEsc);
+  window.addEventListener('resize', onResize);
+  window.addEventListener('scroll', onResize, true);
+  activeUsersPopoverCleanup = () => {
+    document.removeEventListener('mousedown', onDocClick);
+    document.removeEventListener('keydown', onEsc);
+    window.removeEventListener('resize', onResize);
+    window.removeEventListener('scroll', onResize, true);
+  };
+
+  void fetchActiveEditorUsers().then(users => {
+    if (activeUsersPopover !== popover) return;
+    renderActiveUsersList(body, users);
+  });
+}
+
+function closeActiveUsersPopover(): void {
+  if (!activeUsersPopover) return;
+  activeUsersPopover.remove();
+  activeUsersPopover = null;
+  if (activeUsersAnchor) {
+    activeUsersAnchor.setAttribute('aria-expanded', 'false');
+    activeUsersAnchor = null;
+  }
+  if (activeUsersPopoverCleanup) {
+    activeUsersPopoverCleanup();
+    activeUsersPopoverCleanup = null;
+  }
+}
+
+function positionActiveUsersPopover(popover: HTMLElement, anchor: HTMLElement): void {
+  const rect = anchor.getBoundingClientRect();
+  const margin = 8;
+  popover.style.position = 'fixed';
+  popover.style.visibility = 'hidden';
+  popover.style.top = '0px';
+  popover.style.left = '0px';
+  // Ensure measurements reflect actual size
+  const width = popover.offsetWidth || 240;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  let left = rect.right - width;
+  if (left + width + margin > viewportWidth) left = viewportWidth - width - margin;
+  if (left < margin) left = margin;
+
+  let top = rect.bottom + 6;
+  const height = popover.offsetHeight || 200;
+  if (top + height + margin > viewportHeight) {
+    // Flip above anchor if there's more room
+    const above = rect.top - height - 6;
+    if (above >= margin) top = above;
+  }
+
+  popover.style.left = `${Math.round(left)}px`;
+  popover.style.top = `${Math.round(top)}px`;
+  popover.style.visibility = 'visible';
+}
+
+function renderActiveUsersList(container: HTMLElement, users: ActiveEditorUser[]): void {
+  container.innerHTML = '';
+
+  if (users.length === 0) {
+    // Fall back to the known count if the list fetch returned nothing (e.g. RPC
+    // hasn't been migrated yet). Show a graceful notice.
+    const fallbackCount = (globalThis as any).__pandaActiveUserCount ?? 0;
+    const empty = document.createElement('div');
+    empty.className = 'toolbar-active-users-empty';
+    empty.textContent = fallbackCount > 0
+      ? `${fallbackCount} active — usernames unavailable`
+      : 'No one else is here right now.';
+    container.appendChild(empty);
+    return;
+  }
+
+  const named = users.filter(u => !!u.username);
+  const guests = users.filter(u => !u.username);
+
+  const list = document.createElement('ul');
+  list.className = 'toolbar-active-users-list';
+
+  for (const user of named) {
+    list.appendChild(createActiveUserItem(user.username as string, false));
+  }
+  if (guests.length > 0) {
+    const label = guests.length === 1 ? 'Guest' : `Guest \u00d7 ${guests.length}`;
+    list.appendChild(createActiveUserItem(label, true));
+  }
+
+  container.appendChild(list);
+}
+
+function createActiveUserItem(label: string, isGuest: boolean): HTMLLIElement {
+  const li = document.createElement('li');
+  li.className = 'toolbar-active-users-item' + (isGuest ? ' toolbar-active-users-item-guest' : '');
+
+  const dot = document.createElement('span');
+  dot.className = 'toolbar-active-users-dot';
+  dot.setAttribute('aria-hidden', 'true');
+
+  const name = document.createElement('span');
+  name.className = 'toolbar-active-users-name';
+  name.textContent = label;
+
+  li.append(dot, name);
+  return li;
 }
 
 function nextDensity(current: FlowDensity): FlowDensity {
