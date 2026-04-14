@@ -3,14 +3,18 @@ import {
   buildStoryFromDraft,
   createDefaultStoryDraft,
   STORY_BRANCH_OPTIONS,
+  STORY_ACCESS_RULE_OPTIONS,
   STORY_CONSEQUENCE_OPTIONS,
+  STORY_LEVEL_OPTIONS,
   STORY_RECIPES,
+  STORY_RANK_OPTIONS,
   STORY_REWARD_OPTIONS,
   STORY_START_OPTIONS,
   STORY_STRUCTURE_OPTIONS,
   STORY_TONE_OPTIONS,
   STORY_TARGET_OPTIONS,
   STORY_TIMEOUT_OPTIONS,
+  type StoryAccessRuleId,
   type StoryBranchStyle,
   type StoryConsequenceId,
   type StoryRecipeId,
@@ -64,9 +68,6 @@ function openStoryForgeWizard(): void {
 
   const overlay = document.createElement('div');
   overlay.className = 'story-wizard-overlay story-forge-overlay';
-  overlay.onclick = (event) => {
-    if (event.target === overlay) closeStoryWizard();
-  };
 
   const panel = document.createElement('div');
   panel.className = 'story-wizard-panel story-forge-panel';
@@ -103,7 +104,7 @@ function openStoryForgeWizard(): void {
   const render = (): void => {
     applyTheme();
     header.replaceChildren(createForgeTitle(draft), createForgeStepRail(stepIndex), createForgeCloseButton());
-    body.replaceChildren(createForgeContent(stepIndex, draft, setDraft));
+    body.replaceChildren(createForgeDraftSummary(draft), createForgeContent(stepIndex, draft, setDraft));
     footer.replaceChildren(
       createForgeBackButton(stepIndex, () => {
         stepIndex = Math.max(0, stepIndex - 1);
@@ -127,7 +128,6 @@ function openStoryForgeWizard(): void {
   render();
   focusTrap = trapFocus(panel, {
     restoreFocus: document.activeElement instanceof HTMLElement ? document.activeElement : null,
-    onEscape: closeStoryWizard,
   });
 }
 
@@ -142,7 +142,7 @@ function createForgeTitle(draft: StoryWizardDraft): HTMLElement {
   title.className = 'story-forge-title';
   title.append(createIcon('sparkle'), document.createTextNode('Make Story'));
   const copy = document.createElement('p');
-  copy.textContent = 'Build branches, rules, rewards, task logic, and cast before writing final dialogue.';
+  copy.textContent = 'Build dossier first. Write final dialogue after generated flow exists.';
   wrap.append(kicker, title, copy);
   return wrap;
 }
@@ -173,8 +173,9 @@ function createForgeBackButton(stepIndex: number, onBack: () => void): HTMLButto
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'btn-sm';
-  button.textContent = stepIndex === 0 ? 'Cancel' : 'Back';
-  button.onclick = stepIndex === 0 ? closeStoryWizard : onBack;
+  button.textContent = 'Back';
+  button.disabled = stepIndex === 0;
+  button.onclick = onBack;
   return button;
 }
 
@@ -203,11 +204,12 @@ function createForgeContent(stepIndex: number, draft: StoryWizardDraft, setDraft
   if (stepIndex === 3) renderForgeGameplay(wrap, draft, setDraft);
   if (stepIndex === 4) renderForgeRewards(wrap, draft, setDraft);
   if (stepIndex === 5) renderForgeReview(wrap, draft);
+  if (stepIndex !== 5) wrap.appendChild(createForgeImpactPanel(draft));
   return wrap;
 }
 
 function renderForgePremise(wrap: HTMLElement, draft: StoryWizardDraft, setDraft: (patch: Partial<StoryWizardDraft>) => void): void {
-  wrap.appendChild(createForgeSectionIntro('Faction & Premise', 'Pick faction first. Wizard theme and generated story faction follow it.'));
+  wrap.appendChild(createForgeSectionIntro('Faction & Premise', 'Pick faction, title, and tone. Blank premise uses generated hook.'));
   const factionGrid = document.createElement('div');
   factionGrid.className = 'story-forge-faction-grid';
   for (const faction of FACTION_IDS) {
@@ -221,16 +223,18 @@ function renderForgePremise(wrap: HTMLElement, draft: StoryWizardDraft, setDraft
   }
   wrap.appendChild(factionGrid);
   wrap.append(
-    createForgeTextField('Story title', draft.title, 'e.g. Echoes at the Garbage Depot', (title) => setDraft({ title })),
-    createForgeTextArea('Premise', draft.premise, 'One sentence author-facing hook. Leave blank for generated placeholder.', (premise) => setDraft({ premise })),
-    createForgeOptionGrid('Tone', STORY_TONE_OPTIONS, draft.tone, (tone) => setDraft({ tone: tone as StoryToneId })),
-    createForgeTextField('Stakes', draft.stakes, 'What happens if player ignores this?', (stakes) => setDraft({ stakes })),
+    createForgeFieldGroup('Details', 'Author-facing hook fields.', [
+      createForgeTextField('Story title', draft.title, 'e.g. Echoes at the Garbage Depot', (title) => setDraft({ title })),
+      createForgeTextArea('Premise', draft.premise, 'One sentence hook. Blank uses generated placeholder.', (premise) => setDraft({ premise })),
+      createForgeTextField('Stakes', draft.stakes, 'What happens if player ignores this?', (stakes) => setDraft({ stakes })),
+    ]),
+    createForgeOptionGrid('Tone', STORY_TONE_OPTIONS, draft.tone, (tone) => setDraft({ tone: tone as StoryToneId }), 'Pick one'),
   );
 }
 
 function renderForgeCast(wrap: HTMLElement, draft: StoryWizardDraft, setDraft: (patch: Partial<StoryWizardDraft>) => void): void {
-  wrap.appendChild(createForgeSectionIntro('Cast', 'Choose who can start story. Use exact catalogs when story belongs to named or custom character.'));
-  wrap.appendChild(createForgeOptionGrid('Starter', STORY_TARGET_OPTIONS, draft.speakerTarget, (speakerTarget) => setDraft({ speakerTarget: speakerTarget as StorySpeakerTarget })));
+  wrap.appendChild(createForgeSectionIntro('Cast', 'Choose story speaker. Exact catalogs appear only when needed.'));
+  wrap.appendChild(createForgeOptionGrid('Starter', STORY_TARGET_OPTIONS, draft.speakerTarget, (speakerTarget) => setDraft({ speakerTarget: speakerTarget as StorySpeakerTarget }), 'Pick one'));
   if (draft.speakerTarget === 'named_npc') {
     wrap.appendChild(createForgePickerShell('Story NPC', createCatalogPickerPanelEditor(draft.storyNpcId, (storyNpcId) => setDraft({ storyNpcId }), 'story-forge-story-npc', {
       title: 'Browse story NPCs',
@@ -266,16 +270,18 @@ function renderForgeCast(wrap: HTMLElement, draft: StoryWizardDraft, setDraft: (
 }
 
 function renderForgeStructure(wrap: HTMLElement, draft: StoryWizardDraft, setDraft: (patch: Partial<StoryWizardDraft>) => void): void {
-  wrap.appendChild(createForgeSectionIntro('Structure', 'Pick flow shape and start channel. Generator adds branch links and entry flags.'));
+  wrap.appendChild(createForgeSectionIntro('Structure', 'Pick flow, branch flavor, and optional start gate.'));
   wrap.append(
-    createForgeOptionGrid('Start pattern', STORY_START_OPTIONS, draft.startPattern, (startPattern) => setDraft({ startPattern: startPattern as StoryStartPattern })),
-    createForgeOptionGrid('Structure', STORY_STRUCTURE_OPTIONS, draft.structureId, (structureId) => setDraft({ structureId: structureId as StoryStructureId })),
-    createForgeOptionGrid('Branch style', STORY_BRANCH_OPTIONS, draft.branchStyle, (branchStyle) => setDraft({ branchStyle: branchStyle as StoryBranchStyle })),
+    createForgeOptionGrid('Start pattern', STORY_START_OPTIONS, draft.startPattern, (startPattern) => setDraft({ startPattern: startPattern as StoryStartPattern }), 'Pick one'),
+    createForgeOptionGrid('Structure', STORY_STRUCTURE_OPTIONS, draft.structureId, (structureId) => setDraft({ structureId: structureId as StoryStructureId }), 'Flow shape'),
+    createForgeOptionGrid('Branch style', STORY_BRANCH_OPTIONS, draft.branchStyle, (branchStyle) => setDraft({ branchStyle: branchStyle as StoryBranchStyle }), 'Roleplay path'),
+    createForgeOptionGrid('Start gate', STORY_ACCESS_RULE_OPTIONS, draft.accessRuleId, (accessRuleId) => setDraft({ accessRuleId: accessRuleId as StoryAccessRuleId }), 'Optional rule'),
   );
+  wrap.appendChild(createForgeAccessRuleFields(draft, setDraft));
 }
 
 function renderForgeGameplay(wrap: HTMLElement, draft: StoryWizardDraft, setDraft: (patch: Partial<StoryWizardDraft>) => void): void {
-  wrap.appendChild(createForgeSectionIntro('Gameplay', 'Pick author goal. Fields below use real item, smart terrain, NPC, and squad catalogs.'));
+  wrap.appendChild(createForgeSectionIntro('Gameplay', 'Pick goal. Needed catalogs appear after recipe selection.'));
   wrap.appendChild(createForgeRecipeGrid(draft.recipeId, (recipeId) => setDraft({ recipeId })));
   if (forgeUsesItem(draft.recipeId)) {
     wrap.appendChild(createForgePickerShell('Item', createItemPickerPanelEditor(draft.itemId, (itemId) => setDraft({ itemId }), 'story-forge-item', { allowEmpty: false, placeholder: 'Item section' })));
@@ -297,6 +303,14 @@ function renderForgeGameplay(wrap: HTMLElement, draft: StoryWizardDraft, setDraf
       facets: [{ label: 'Faction', keywordIndex: 1, allLabel: 'All factions' }],
     })));
   }
+  if (draft.recipeId === 'custom_npc_encounter') {
+    wrap.append(
+      createForgeFieldGroup('Custom NPC', 'NPC generated for this encounter.', [
+        createForgeTextField('Custom NPC name', draft.customNpcName, 'Informant', (customNpcName) => setDraft({ customNpcName, customNpcTemplateId: slugForge(customNpcName || draft.customNpcTemplateId) })),
+        createForgePickerShell('Custom NPC template', createCustomNpcBuilderEditor(draft.customNpcTemplateId, (customNpcTemplateId) => setDraft({ customNpcTemplateId }), 'story-forge-encounter-npc', { showSpawnDistance: false })),
+      ]),
+    );
+  }
   if (draft.recipeId === 'bounty_hunt') {
     wrap.append(
       createForgeFactionSelect('Target faction', draft.targetFaction, (targetFaction) => setDraft({ targetFaction })),
@@ -309,22 +323,26 @@ function renderForgeGameplay(wrap: HTMLElement, draft: StoryWizardDraft, setDraf
 }
 
 function renderForgeRewards(wrap: HTMLElement, draft: StoryWizardDraft, setDraft: (patch: Partial<StoryWizardDraft>) => void): void {
-  wrap.appendChild(createForgeSectionIntro('Rewards & Consequences', 'Set technical effects now, so author mostly writes dialogue later.'));
+  wrap.appendChild(createForgeSectionIntro('Rewards & Consequences', 'Set player payout and follow-up effects.'));
   wrap.append(
-    createForgeSelectField('Money reward', STORY_REWARD_OPTIONS, draft.rewardMoney, (rewardMoney) => setDraft({ rewardMoney })),
-    createForgeTextField('Price', draft.priceMoney, '750', (priceMoney) => setDraft({ priceMoney })),
-    createForgePickerShell('Item reward', createItemPickerPanelEditor(draft.rewardItemId, (rewardItemId) => setDraft({ rewardItemId }), 'story-forge-reward-item', { allowEmpty: true, placeholder: 'Optional item reward' })),
-    createForgePickerShell('Stash items', createItemChainPickerPanelEditor(draft.stashItems, (stashItems) => setDraft({ stashItems }), 'story-forge-stash-items', { placeholder: 'Optional stash items', chainSeparator: '+' })),
-    createForgeTextField('Info portion', draft.infoId, 'panda_story_info', (infoId) => setDraft({ infoId })),
-    createForgeSelectField('Consequence', STORY_CONSEQUENCE_OPTIONS, draft.consequenceId, (consequenceId) => setDraft({ consequenceId: consequenceId as StoryConsequenceId })),
-    createForgeTextField('Goodwill amount', draft.goodwillAmount, '25', (goodwillAmount) => setDraft({ goodwillAmount })),
-    createForgeTextField('Reputation amount', draft.reputationAmount, '15', (reputationAmount) => setDraft({ reputationAmount })),
+    createForgeFieldGroup('Payout', 'Money, item, and stash reward options.', [
+      createForgeSelectField('Money reward', STORY_REWARD_OPTIONS, draft.rewardMoney, (rewardMoney) => setDraft({ rewardMoney })),
+      createForgePickerShell('Item reward', createItemPickerPanelEditor(draft.rewardItemId, (rewardItemId) => setDraft({ rewardItemId }), 'story-forge-reward-item', { allowEmpty: true, placeholder: 'Optional item reward' })),
+      createForgePickerShell('Stash items', createItemChainPickerPanelEditor(draft.stashItems, (stashItems) => setDraft({ stashItems }), 'story-forge-stash-items', { placeholder: 'Optional stash items', chainSeparator: '+' })),
+    ]),
+    createForgeFieldGroup('Advanced effects', 'Used by paid info, goodwill, reputation, and follow-up info hooks.', [
+      createForgeTextField('Price', draft.priceMoney, '750', (priceMoney) => setDraft({ priceMoney })),
+      createForgeTextField('Info portion', draft.infoId, 'panda_story_info', (infoId) => setDraft({ infoId })),
+      createForgeSelectField('Consequence', STORY_CONSEQUENCE_OPTIONS, draft.consequenceId, (consequenceId) => setDraft({ consequenceId: consequenceId as StoryConsequenceId })),
+      createForgeTextField('Goodwill amount', draft.goodwillAmount, '25', (goodwillAmount) => setDraft({ goodwillAmount })),
+      createForgeTextField('Reputation amount', draft.reputationAmount, '15', (reputationAmount) => setDraft({ reputationAmount })),
+    ]),
   );
 }
 
 function renderForgeReview(wrap: HTMLElement, draft: StoryWizardDraft): void {
   const result = buildStoryFromDraft(store.get().project, draft);
-  wrap.appendChild(createForgeSectionIntro('Review', 'Generated story below. Create, then write final dialogue in flow editor.'));
+  wrap.appendChild(createForgeSectionIntro('Review', 'Check generated flow, effects, and author follow-up.'));
   const preview = document.createElement('div');
   preview.className = 'story-forge-preview';
   for (const beat of result.beats) {
@@ -346,7 +364,7 @@ function renderForgeReview(wrap: HTMLElement, draft: StoryWizardDraft): void {
     item.textContent = text;
     checklist.appendChild(item);
   });
-  wrap.append(preview, checklist);
+  wrap.append(preview, checklist, createForgeEffectSummary(result.conversation), createForgeFollowupPanel());
 }
 
 function createForgeSectionIntro(title: string, copy: string): HTMLElement {
@@ -360,18 +378,147 @@ function createForgeSectionIntro(title: string, copy: string): HTMLElement {
   return intro;
 }
 
-function createForgeOptionGrid<T extends { id: string; title: string; description: string }>(title: string, options: T[], selectedId: string, onSelect: (id: string) => void): HTMLElement {
+function createForgeDraftSummary(draft: StoryWizardDraft): HTMLElement {
+  const summary = document.createElement('aside');
+  summary.className = 'story-forge-summary';
+  [
+    ['Faction', FACTION_DISPLAY_NAMES[draft.faction]],
+    ['Starter', findOptionTitle(STORY_TARGET_OPTIONS, draft.speakerTarget)],
+    ['Recipe', findOptionTitle(STORY_RECIPES, draft.recipeId)],
+    ['Flow', findOptionTitle(STORY_STRUCTURE_OPTIONS, draft.structureId)],
+    ['Reward', findOptionTitle(STORY_REWARD_OPTIONS, draft.rewardMoney)],
+    ['Effect', findOptionTitle(STORY_CONSEQUENCE_OPTIONS, draft.consequenceId)],
+  ].forEach(([label, value]) => {
+    const item = document.createElement('span');
+    item.innerHTML = `<strong>${escapeForge(label)}</strong>${escapeForge(value)}`;
+    summary.appendChild(item);
+  });
+  return summary;
+}
+
+function createForgeFieldGroup(title: string, copy: string, children: HTMLElement[]): HTMLElement {
+  const group = document.createElement('section');
+  group.className = 'story-forge-field-block story-forge-field-group';
+  const heading = document.createElement('h4');
+  heading.textContent = title;
+  const text = document.createElement('p');
+  text.className = 'story-forge-field-copy';
+  text.textContent = copy;
+  const grid = document.createElement('div');
+  grid.className = 'story-forge-field-grid';
+  grid.append(...children);
+  group.append(heading, text, grid);
+  return group;
+}
+
+function createForgeAccessRuleFields(draft: StoryWizardDraft, setDraft: (patch: Partial<StoryWizardDraft>) => void): HTMLElement {
+  const fields: HTMLElement[] = [];
+  if (draft.accessRuleId === 'player_faction' || draft.accessRuleId === 'not_player_faction') {
+    fields.push(createForgeFactionSelect('Player faction', draft.accessFaction, (accessFaction) => setDraft({ accessFaction })));
+  }
+  if (draft.accessRuleId === 'rank_min') {
+    fields.push(createForgeSelectField('Minimum rank', STORY_RANK_OPTIONS, draft.accessRank, (accessRank) => setDraft({ accessRank })));
+  }
+  if (draft.accessRuleId === 'goodwill_min') {
+    fields.push(createForgeTextField('Goodwill minimum', draft.accessGoodwill, '0', (accessGoodwill) => setDraft({ accessGoodwill })));
+  }
+  if (draft.accessRuleId === 'level' || draft.accessRuleId === 'not_level') {
+    fields.push(createForgeSelectField('Level', STORY_LEVEL_OPTIONS, draft.accessLevel, (accessLevel) => setDraft({ accessLevel })));
+  }
+  if (draft.accessRuleId === 'has_item' || draft.accessRuleId === 'lacks_item') {
+    fields.push(createForgePickerShell('Gate item', createItemPickerPanelEditor(draft.accessItemId, (accessItemId) => setDraft({ accessItemId }), 'story-forge-access-item', { allowEmpty: false, placeholder: 'Required item' })));
+  }
+  if (fields.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'story-forge-empty-note';
+    empty.textContent = 'No extra start gate selected.';
+    fields.push(empty);
+  }
+  return createForgeFieldGroup('Gate details', 'Optional conditions added to conversation preconditions.', fields);
+}
+
+function createForgeImpactPanel(draft: StoryWizardDraft): HTMLElement {
+  const result = buildStoryFromDraft(store.get().project, draft);
+  const panel = document.createElement('section');
+  panel.className = 'story-forge-field-block story-forge-impact';
+  const heading = document.createElement('h4');
+  heading.textContent = 'Generated impact';
+  const chips = document.createElement('div');
+  chips.className = 'story-forge-chip-row';
+  [
+    `${result.conversation.preconditions.length} starter rule(s)`,
+    `${result.conversation.turns.length} turn(s)`,
+    `${collectForgeOutcomes(result.conversation).length} effect(s)`,
+    isForgeTaskRecipe(draft.recipeId) ? 'success/fail task turns' : 'dialogue flow',
+  ].forEach((text) => chips.appendChild(createForgeChip(text)));
+  panel.append(heading, chips);
+  return panel;
+}
+
+function createForgeEffectSummary(conversation: ReturnType<typeof buildStoryFromDraft>['conversation']): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'story-forge-field-block story-forge-effect-summary';
+  const heading = document.createElement('h4');
+  heading.textContent = 'Effect summary';
+  const chips = document.createElement('div');
+  chips.className = 'story-forge-chip-row';
+  const outcomes = collectForgeOutcomes(conversation);
+  if (outcomes.length === 0) {
+    chips.appendChild(createForgeChip('No direct effects'));
+  } else {
+    outcomes.slice(0, 18).forEach((outcome) => chips.appendChild(createForgeChip(outcome)));
+    if (outcomes.length > 18) chips.appendChild(createForgeChip(`+${outcomes.length - 18} more`));
+  }
+  section.append(heading, chips);
+  return section;
+}
+
+function createForgeFollowupPanel(): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'story-forge-field-block story-forge-followup';
+  const heading = document.createElement('h4');
+  heading.textContent = 'Author follow-up';
+  const list = document.createElement('div');
+  list.className = 'story-forge-followup-list';
+  ['Write final dialogue', 'Check generated branches', 'Adjust rewards if needed'].forEach((text) => {
+    const item = document.createElement('span');
+    item.textContent = text;
+    list.appendChild(item);
+  });
+  section.append(heading, list);
+  return section;
+}
+
+function createForgeChip(text: string): HTMLElement {
+  const chip = document.createElement('span');
+  chip.className = 'story-forge-chip';
+  chip.textContent = text;
+  return chip;
+}
+
+function collectForgeOutcomes(conversation: ReturnType<typeof buildStoryFromDraft>['conversation']): string[] {
+  return conversation.turns.flatMap((turn) => turn.choices.flatMap((choice) => (
+    choice.outcomes.map((outcome) => outcome.params.length > 0 ? `${outcome.command}:${outcome.params.join(':')}` : outcome.command)
+  )));
+}
+
+function findOptionTitle(options: Array<{ id: string; title: string }>, id: string): string {
+  return options.find((option) => option.id === id)?.title ?? id;
+}
+
+function createForgeOptionGrid<T extends { id: string; title: string; description: string }>(title: string, options: T[], selectedId: string, onSelect: (id: string) => void, eyebrow = 'Pick one'): HTMLElement {
   const section = document.createElement('section');
   section.className = 'story-forge-field-block';
   const heading = document.createElement('h4');
-  heading.textContent = title;
+  heading.innerHTML = `<span>${escapeForge(eyebrow)}</span>${escapeForge(title)}`;
   const grid = document.createElement('div');
   grid.className = 'story-forge-card-grid';
   for (const option of options) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `story-forge-card${option.id === selectedId ? ' is-selected' : ''}`;
-    button.innerHTML = `<strong>${escapeForge(option.title)}</strong><span>${escapeForge(option.description)}</span>`;
+    const badges = getForgeOptionBadges(title, option.id);
+    button.innerHTML = `<strong>${escapeForge(option.title)}</strong><span>${escapeForge(option.description)}</span>${badges.length > 0 ? `<em>${badges.map(escapeForge).join('</em><em>')}</em>` : ''}`;
     button.onclick = () => onSelect(option.id);
     grid.appendChild(button);
   }
@@ -383,7 +530,7 @@ function createForgeRecipeGrid(selectedId: StoryRecipeId, onSelect: (id: StoryRe
   const section = document.createElement('section');
   section.className = 'story-forge-field-block';
   const heading = document.createElement('h4');
-  heading.textContent = 'Story recipe';
+  heading.innerHTML = '<span>Pick one</span>Story recipe';
   const groups = new Map<string, typeof STORY_RECIPES>();
   for (const recipe of STORY_RECIPES) {
     const list = groups.get(recipe.group) ?? [];
@@ -403,7 +550,8 @@ function createForgeRecipeGrid(selectedId: StoryRecipeId, onSelect: (id: StoryRe
       const button = document.createElement('button');
       button.type = 'button';
       button.className = `story-forge-card${recipe.id === selectedId ? ' is-selected' : ''}`;
-      button.innerHTML = `<strong>${escapeForge(recipe.title)}</strong><span>${escapeForge(recipe.description)}</span>`;
+      const badges = getForgeRecipeBadges(recipe.id);
+      button.innerHTML = `<strong>${escapeForge(recipe.title)}</strong><span>${escapeForge(recipe.description)}</span><em>${badges.map(escapeForge).join('</em><em>')}</em>`;
       button.onclick = () => onSelect(recipe.id);
       cards.appendChild(button);
     }
@@ -412,6 +560,36 @@ function createForgeRecipeGrid(selectedId: StoryRecipeId, onSelect: (id: StoryRe
   }
   section.append(heading, grid);
   return section;
+}
+
+function getForgeOptionBadges(title: string, id: string): string[] {
+  if (title === 'Start gate') {
+    if (id === 'none') return ['optional'];
+    if (id === 'has_item' || id === 'lacks_item') return ['needs item'];
+    if (id === 'player_faction' || id === 'not_player_faction') return ['faction rule'];
+    return ['precondition'];
+  }
+  if (title === 'Branch style') {
+    if (id === 'bribe') return ['needs money'];
+    if (id === 'double_cross' || id === 'betrayal') return ['ambush'];
+    if (id === 'lie') return ['info flag'];
+    return ['choice'];
+  }
+  if (title === 'Tone') return ['opening text'];
+  if (title === 'Start pattern') return id.includes('f2f') ? ['face-to-face'] : ['PDA'];
+  if (title === 'Structure') return id === 'task' ? ['task turns'] : ['turns'];
+  return [];
+}
+
+function getForgeRecipeBadges(id: StoryRecipeId): string[] {
+  if (isForgeTaskRecipe(id)) return ['task', 'timer'];
+  if (id === 'paid_info' || id === 'paid_stash_lead') return ['needs money', 'effect'];
+  if (id === 'item_request') return ['needs item', 'handoff'];
+  if (id === 'spawn_ambush' || id === 'ambush_warning' || id === 'betrayal') return ['trigger', 'squad'];
+  if (id === 'custom_npc_encounter') return ['custom NPC', 'spawn'];
+  if (id === 'marked_threat' || id === 'go_to_location') return ['map marker'];
+  if (id === 'artifact_lead') return ['info flag'];
+  return ['dialogue'];
 }
 
 function createForgeTextField(labelText: string, value: string, placeholder: string, onChange: (value: string) => void): HTMLElement {
@@ -491,11 +669,11 @@ function forgeUsesItem(recipeId: StoryRecipeId): boolean {
 }
 
 function forgeUsesLocation(recipeId: StoryRecipeId): boolean {
-  return recipeId === 'faction_warning' || recipeId === 'go_to_location' || recipeId === 'spawn_ambush' || recipeId === 'delivery_task' || recipeId === 'dead_drop' || recipeId === 'bounty_hunt' || recipeId === 'eliminate_squad' || recipeId === 'artifact_hunt' || recipeId === 'escort_npc' || recipeId === 'rescue' || recipeId === 'betrayal';
+  return recipeId === 'faction_warning' || recipeId === 'marked_threat' || recipeId === 'ambush_warning' || recipeId === 'artifact_lead' || recipeId === 'go_to_location' || recipeId === 'spawn_ambush' || recipeId === 'delivery_task' || recipeId === 'dead_drop' || recipeId === 'bounty_hunt' || recipeId === 'eliminate_squad' || recipeId === 'artifact_hunt' || recipeId === 'escort_npc' || recipeId === 'rescue' || recipeId === 'betrayal' || recipeId === 'custom_npc_encounter';
 }
 
 function forgeUsesSquad(recipeId: StoryRecipeId): boolean {
-  return recipeId === 'spawn_ambush' || recipeId === 'eliminate_squad' || recipeId === 'rescue' || recipeId === 'betrayal';
+  return recipeId === 'spawn_ambush' || recipeId === 'ambush_warning' || recipeId === 'eliminate_squad' || recipeId === 'rescue' || recipeId === 'betrayal';
 }
 
 function forgeUsesTimeout(recipeId: StoryRecipeId): boolean {

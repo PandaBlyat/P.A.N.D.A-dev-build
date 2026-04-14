@@ -1,3 +1,4 @@
+import { RANKS, LEVEL_DISPLAY_NAMES } from './constants';
 import type { Conversation, FactionId, NpcTemplate, Outcome, PreconditionEntry, Project, Turn, Choice } from './types';
 import { FACTION_DISPLAY_NAMES, getConversationFaction } from './types';
 import { createChoice, createConversation, createTurn } from './xml-export';
@@ -5,9 +6,21 @@ import { createChoice, createConversation, createTurn } from './xml-export';
 export type StoryStartPattern = 'pda' | 'f2f' | 'pda_to_f2f' | 'f2f_to_pda';
 export type StorySpeakerTarget = 'any_friendly' | 'friendly_faction' | 'named_npc' | 'custom_npc';
 export type StoryStructureId = 'one_shot' | 'two_step' | 'three_act' | 'branching' | 'task';
-export type StoryBranchStyle = 'simple' | 'ask_more' | 'negotiation' | 'betrayal';
-export type StoryToneId = 'gritty' | 'mystery' | 'military' | 'scientific' | 'black_market';
+export type StoryBranchStyle = 'simple' | 'ask_more' | 'negotiation' | 'betrayal' | 'intimidate' | 'bribe' | 'lie' | 'mercy' | 'double_cross';
+export type StoryToneId = 'gritty' | 'mystery' | 'military' | 'scientific' | 'black_market' | 'horror' | 'political' | 'personal_debt' | 'treasure_hunt' | 'mutant_threat' | 'anomaly_weirdness';
 export type StoryConsequenceId = 'none' | 'goodwill_gain' | 'goodwill_loss' | 'rep_gain' | 'rep_loss' | 'weather_shift' | 'news_broadcast';
+export type StoryAccessRuleId =
+  | 'none'
+  | 'player_faction'
+  | 'not_player_faction'
+  | 'rank_min'
+  | 'goodwill_min'
+  | 'level'
+  | 'not_level'
+  | 'day'
+  | 'night'
+  | 'has_item'
+  | 'lacks_item';
 export type StoryRecipeId =
   | 'rumor'
   | 'job_offer'
@@ -27,7 +40,12 @@ export type StoryRecipeId =
   | 'artifact_hunt'
   | 'escort_npc'
   | 'rescue'
-  | 'betrayal';
+  | 'betrayal'
+  | 'paid_stash_lead'
+  | 'marked_threat'
+  | 'ambush_warning'
+  | 'custom_npc_encounter'
+  | 'artifact_lead';
 
 export type StoryRecipe = {
   id: StoryRecipeId;
@@ -113,6 +131,12 @@ export type StoryWizardDraft = {
   reputationAmount: string;
   consequenceId: StoryConsequenceId;
   weatherId: string;
+  accessRuleId: StoryAccessRuleId;
+  accessFaction: FactionId;
+  accessRank: string;
+  accessGoodwill: string;
+  accessLevel: string;
+  accessItemId: string;
 };
 
 export type StoryBeatSpec = {
@@ -155,6 +179,11 @@ export const STORY_BRANCH_OPTIONS: StoryWizardOption[] = [
   { id: 'ask_more', title: 'Ask more', description: 'Extra explanation turn before accepting.' },
   { id: 'negotiation', title: 'Negotiation', description: 'Adds better-pay branch gated by goodwill.' },
   { id: 'betrayal', title: 'Betrayal', description: 'Adds suspicious path with ambush consequence.' },
+  { id: 'intimidate', title: 'Intimidate', description: 'Adds hard-pressure reply with small reputation gate.' },
+  { id: 'bribe', title: 'Bribe', description: 'Player can pay to unlock cleaner details or shortcut.' },
+  { id: 'lie', title: 'Lie', description: 'Adds deceptive path and info flag for later fallout.' },
+  { id: 'mercy', title: 'Mercy', description: 'Adds spare/help path with small goodwill gain.' },
+  { id: 'double_cross', title: 'Double-cross', description: 'Adds hostile twist using ambush consequence.' },
 ];
 
 export const STORY_TONE_OPTIONS: StoryWizardOption[] = [
@@ -163,7 +192,39 @@ export const STORY_TONE_OPTIONS: StoryWizardOption[] = [
   { id: 'military', title: 'Military op', description: 'Orders, patrols, chain-of-command pressure.' },
   { id: 'scientific', title: 'Scientific', description: 'Anomalies, samples, field observation.' },
   { id: 'black_market', title: 'Black market', description: 'Deals, debts, paid information.' },
+  { id: 'horror', title: 'Horror', description: 'Body-horror clues, silence, and bad places.' },
+  { id: 'political', title: 'Faction politics', description: 'Rival claims, leverage, deniable favors.' },
+  { id: 'personal_debt', title: 'Personal debt', description: 'Old favor, saved life, or unpaid promise.' },
+  { id: 'treasure_hunt', title: 'Treasure hunt', description: 'Stash rumor, coded lead, hidden payout.' },
+  { id: 'mutant_threat', title: 'Mutant threat', description: 'Fresh tracks, missing squads, animal panic.' },
+  { id: 'anomaly_weirdness', title: 'Anomaly weirdness', description: 'Wrong physics, readings, and impossible signs.' },
 ];
+
+export const STORY_ACCESS_RULE_OPTIONS: StoryWizardOption[] = [
+  { id: 'none', title: 'No extra gate', description: 'Starter rules only.' },
+  { id: 'player_faction', title: 'Player faction only', description: 'Requires player faction match.' },
+  { id: 'not_player_faction', title: 'Block faction', description: 'Hides story from selected player faction.' },
+  { id: 'rank_min', title: 'Rank minimum', description: 'Requires selected player rank or better.' },
+  { id: 'goodwill_min', title: 'Goodwill minimum', description: 'Requires goodwill with story faction.' },
+  { id: 'level', title: 'Current level', description: 'Only appears on selected map.' },
+  { id: 'not_level', title: 'Not on level', description: 'Hidden while player is on selected map.' },
+  { id: 'day', title: 'Daytime only', description: 'Requires day.' },
+  { id: 'night', title: 'Night only', description: 'Requires night.' },
+  { id: 'has_item', title: 'Has item', description: 'Requires item in player inventory.' },
+  { id: 'lacks_item', title: 'Lacks item', description: 'Requires item to be absent.' },
+];
+
+export const STORY_RANK_OPTIONS: StoryWizardOption[] = RANKS.map((rank) => ({
+  id: rank,
+  title: rank,
+  description: `Player rank ${rank} or better.`,
+}));
+
+export const STORY_LEVEL_OPTIONS: StoryWizardOption[] = Object.entries(LEVEL_DISPLAY_NAMES).map(([id, title]) => ({
+  id,
+  title,
+  description: `Gate story on ${title}.`,
+}));
 
 export const STORY_CONSEQUENCE_OPTIONS: StoryWizardOption[] = [
   { id: 'none', title: 'No extra consequence', description: 'Recipe effects only.' },
@@ -178,8 +239,12 @@ export const STORY_CONSEQUENCE_OPTIONS: StoryWizardOption[] = [
 export const STORY_RECIPES: StoryRecipe[] = [
   { id: 'rumor', title: 'Rumor', description: 'Small flavor exchange with no gameplay effect.', group: 'Simple' },
   { id: 'faction_warning', title: 'Faction warning', description: 'Warning from faction contact, with optional goodwill.', group: 'Simple' },
+  { id: 'marked_threat', title: 'Marked threat', description: 'Marks suspicious place without starting task.', group: 'Simple' },
+  { id: 'ambush_warning', title: 'Ambush warning', description: 'Marks place, then spawns threat when player arrives.', group: 'Simple' },
+  { id: 'artifact_lead', title: 'Artifact lead', description: 'Points author toward level-based artifact hunt.', group: 'Simple' },
   { id: 'supply_gift', title: 'Give supplies', description: 'NPC gives item, money, or both after reply.', group: 'Exchange' },
   { id: 'paid_info', title: 'Sell information', description: 'Requires money, takes payment, gives info portion.', group: 'Exchange' },
+  { id: 'paid_stash_lead', title: 'Paid stash lead', description: 'Requires money, then gives stash or item-stash lead.', group: 'Exchange' },
   { id: 'job_offer', title: 'Job offer', description: 'NPC offers work and pays money when accepted.', group: 'Exchange' },
   { id: 'item_request', title: 'NPC asks for item', description: 'Checks inventory, then takes item on in-person handoff.', group: 'Exchange' },
   { id: 'go_to_location', title: 'Go to location', description: 'NPC marks destination for player.', group: 'Task' },
@@ -193,6 +258,7 @@ export const STORY_RECIPES: StoryRecipe[] = [
   { id: 'escort_npc', title: 'Escort NPC', description: 'Conversation NPC joins player, destination and fail state included.', group: 'Task' },
   { id: 'rescue', title: 'Rescue survivor', description: 'Clear enemy squad near a pinned custom NPC.', group: 'Setpiece' },
   { id: 'betrayal', title: 'Betrayal setup', description: 'Deal goes wrong and creates ambush consequence.', group: 'Setpiece' },
+  { id: 'custom_npc_encounter', title: 'Custom NPC encounter', description: 'Spawns custom NPC at selected smart terrain.', group: 'Setpiece' },
   { id: 'meet_in_person', title: 'Meet in person', description: 'PDA opener turns into face-to-face scene.', group: 'Handoff' },
   { id: 'multi_npc_handoff', title: 'Multi-NPC handoff', description: 'First NPC points player toward another named NPC.', group: 'Handoff' },
 ];
@@ -216,10 +282,10 @@ export const STORY_LOCATION_OPTIONS: StoryWizardOption[] = [
 
 export const STORY_REWARD_OPTIONS: StoryWizardOption[] = [
   { id: '0', title: 'No money', description: 'Conversation or task only.' },
-  { id: '500', title: '500 RU', description: 'Small payment.' },
-  { id: '750', title: '750 RU', description: 'Item handoff default.' },
-  { id: '1500', title: '1500 RU', description: 'Moderate job payment.' },
-  { id: '3000', title: '3000 RU', description: 'High-risk job payment.' },
+  { id: '500', title: 'Small - 500 RU', description: 'Small favor payment.' },
+  { id: '750', title: 'Fair - 750 RU', description: 'Default handoff payment.' },
+  { id: '1500', title: 'Risky - 1500 RU', description: 'Moderate job payment.' },
+  { id: '3000', title: 'High - 3000 RU', description: 'High-risk payout.' },
 ];
 
 export const STORY_REWARD_ITEM_OPTIONS: StoryWizardOption[] = [
@@ -299,6 +365,12 @@ export const DEFAULT_STORY_DRAFT: StoryWizardDraft = {
   reputationAmount: '15',
   consequenceId: 'goodwill_gain',
   weatherId: 'w_storm1',
+  accessRuleId: 'none',
+  accessFaction: 'stalker',
+  accessRank: 'experienced',
+  accessGoodwill: '0',
+  accessLevel: 'cordon',
+  accessItemId: 'medkit',
 };
 
 export function createDefaultStoryDraft(project?: Project): StoryWizardDraft {
@@ -347,7 +419,7 @@ export function buildStoryFromDraft(project: Project, input: StoryWizardDraft): 
 
   applyDraftContent(conversation, draft);
 
-  const npcTemplates = draft.speakerTarget === 'custom_npc' || draft.recipeId === 'rescue'
+  const npcTemplates = draft.speakerTarget === 'custom_npc' || draft.recipeId === 'rescue' || draft.recipeId === 'custom_npc_encounter'
     ? [createDraftNpcTemplate(draft)]
     : undefined;
 
@@ -376,9 +448,13 @@ function normalizeStoryDraft(project: Project, input: StoryWizardDraft): StoryWi
     priceMoney: nonNegativeString(merged.priceMoney, '0'),
     goodwillAmount: nonNegativeString(merged.goodwillAmount, '25'),
     reputationAmount: nonNegativeString(merged.reputationAmount, '15'),
+    accessGoodwill: nonNegativeString(merged.accessGoodwill, '0'),
     timeoutSeconds: Math.max(30, parseInt(merged.timeoutSeconds, 10) || 600).toString(),
     customNpcTemplateId: slugifyDraftId(merged.customNpcTemplateId || merged.customNpcName || 'informant'),
     customNpcName: merged.customNpcName.trim() || 'Informant',
+    accessRank: merged.accessRank.trim() || 'experienced',
+    accessLevel: merged.accessLevel.trim() || 'cordon',
+    accessItemId: merged.accessItemId.trim() || 'medkit',
   };
 }
 
@@ -422,7 +498,42 @@ function createDraftTargetRules(draft: StoryWizardDraft): PreconditionEntry[] {
 
 function addDraftStartRules(conversation: Conversation, draft: StoryWizardDraft): void {
   if (draft.recipeId === 'item_request') conversation.preconditions.push(simpleRule('req_has_item', draft.itemId));
-  if (draft.recipeId === 'paid_info') conversation.preconditions.push(simpleRule('req_money', draft.priceMoney));
+  if (draft.recipeId === 'paid_info' || draft.recipeId === 'paid_stash_lead') conversation.preconditions.push(simpleRule('req_money', draft.priceMoney));
+  switch (draft.accessRuleId) {
+    case 'player_faction':
+      conversation.preconditions.push(simpleRule('req_faction', draft.accessFaction));
+      break;
+    case 'not_player_faction':
+      conversation.preconditions.push(simpleRule('req_not_faction', draft.accessFaction));
+      break;
+    case 'rank_min':
+      conversation.preconditions.push(simpleRule('req_rank', draft.accessRank));
+      break;
+    case 'goodwill_min':
+      conversation.preconditions.push(simpleRule('req_goodwill', draft.accessGoodwill, draft.faction));
+      break;
+    case 'level':
+      conversation.preconditions.push(simpleRule('req_level', draft.accessLevel));
+      break;
+    case 'not_level':
+      conversation.preconditions.push(simpleRule('req_not_level', draft.accessLevel));
+      break;
+    case 'day':
+      conversation.preconditions.push(simpleRule('req_time_day'));
+      break;
+    case 'night':
+      conversation.preconditions.push(simpleRule('req_time_night'));
+      break;
+    case 'has_item':
+      conversation.preconditions.push(simpleRule('req_has_item', draft.accessItemId));
+      break;
+    case 'lacks_item':
+      conversation.preconditions.push(simpleRule('req_not_has_item', draft.accessItemId));
+      break;
+    case 'none':
+    default:
+      break;
+  }
 }
 
 function applyDraftContent(conversation: Conversation, draft: StoryWizardDraft): void {
@@ -469,7 +580,7 @@ function applyDraftContent(conversation: Conversation, draft: StoryWizardDraft):
   refuse.preconditions = [];
   refuse.terminal = true;
 
-  if (draft.branchStyle === 'negotiation' || draft.structureId === 'branching') {
+  if (draft.branchStyle === 'negotiation') {
     const negotiate = ensureChoice(actionTurn, 4);
     negotiate.text = 'Pay better and I listen.';
     negotiate.reply = 'You drive hard bargain. Extra pay if you finish.';
@@ -486,6 +597,8 @@ function applyDraftContent(conversation: Conversation, draft: StoryWizardDraft):
     suspicious.outcomes = draftBetrayalOutcomesFor(draft);
     suspicious.terminal = true;
   }
+
+  appendDraftBranchStyleChoice(actionTurn, draft, getOutcomes);
 
   if (!isDraftTaskRecipe(draft.recipeId) && draft.structureId === 'three_act') {
     const aftermath = appendTerminalTurn(conversation, actionTurn.channel ?? 'pda', 'If this goes right, people will talk.', 'I will remember that.');
@@ -557,6 +670,49 @@ function isDraftTaskRecipe(recipeId: StoryRecipeId): boolean {
     || recipeId === 'rescue';
 }
 
+function appendDraftBranchStyleChoice(actionTurn: Turn, draft: StoryWizardDraft, getOutcomes: () => Outcome[]): void {
+  if (draft.branchStyle === 'simple' || draft.branchStyle === 'ask_more' || draft.branchStyle === 'negotiation' || draft.branchStyle === 'betrayal') return;
+
+  const choice = ensureChoice(actionTurn, 4);
+  choice.preconditions = [];
+  choice.terminal = true;
+
+  switch (draft.branchStyle) {
+    case 'intimidate':
+      choice.text = 'Talk straight or I walk.';
+      choice.reply = 'Fine. No riddles. You get facts.';
+      choice.preconditions = [simpleRule('req_rep', '0')];
+      choice.outcomes = getOutcomes();
+      break;
+    case 'bribe':
+      choice.text = `I can pay ${draft.priceMoney} RU for cleaner details.`;
+      choice.reply = 'Now you are speaking my language.';
+      choice.preconditions = [simpleRule('req_money', draft.priceMoney)];
+      choice.outcomes = [outcome('punish_money', draft.priceMoney), ...getOutcomes()];
+      break;
+    case 'lie':
+      choice.text = 'I know more than you think.';
+      choice.reply = 'Then you know this conversation never happened.';
+      choice.outcomes = [outcome('give_info', `${draft.infoId}_lied`), ...getOutcomes()];
+      break;
+    case 'mercy':
+      choice.text = 'Nobody else dies for this.';
+      choice.reply = 'Mercy costs more than bullets. Prove it.';
+      choice.outcomes = [outcome('reward_gw', '10', draft.faction), ...getOutcomes()];
+      break;
+    case 'double_cross':
+      choice.text = 'I take payment, then I choose side.';
+      choice.reply = 'Wrong answer. Now everyone chooses for you.';
+      choice.outcomes = draftBetrayalOutcomesFor(draft);
+      break;
+    default:
+      choice.text = 'I choose another way.';
+      choice.reply = 'Then own it.';
+      choice.outcomes = getOutcomes();
+      break;
+  }
+}
+
 function draftActionOutcomesFor(draft: StoryWizardDraft, successTurn?: Turn, failTurn?: Turn): Outcome[] {
   const success = String(successTurn?.turnNumber ?? '');
   const fail = String(failTurn?.turnNumber ?? '');
@@ -570,6 +726,12 @@ function draftBaseOutcomesFor(draft: StoryWizardDraft, successTurn: string, fail
       return draftMoneyReward(draft.rewardMoney);
     case 'faction_warning':
       return [outcome('reward_gw', draft.goodwillAmount, draft.faction)];
+    case 'marked_threat':
+      return [outcome('watch_location', draft.locationId, '85')];
+    case 'ambush_warning':
+      return [outcome('watch_location_trigger', draft.locationId, `spawn_mutant_at_smart:${draft.enemySquadId}:${draft.locationId}:0`, '85')];
+    case 'artifact_lead':
+      return [outcome('give_info', `${draft.infoId}_artifact_lead`)];
     case 'item_request':
       return [outcome('take_item', draft.itemId), ...draftMoneyReward(draft.rewardMoney)];
     case 'go_to_location':
@@ -580,6 +742,11 @@ function draftBaseOutcomesFor(draft: StoryWizardDraft, successTurn: string, fail
       return [...draftMoneyReward(draft.rewardMoney), ...draftItemReward(draft.rewardItemId), ...draftStashReward(draft.stashItems)];
     case 'paid_info':
       return [outcome('punish_money', draft.priceMoney), outcome('give_info', draft.infoId)];
+    case 'paid_stash_lead':
+      return [
+        outcome('punish_money', draft.priceMoney),
+        ...(draft.stashItems.trim() ? draftStashReward(draft.stashItems) : [outcome('reward_stash')]),
+      ];
     case 'fetch_task':
       return [outcome('panda_task_fetch', draft.itemId, draft.itemCount, draft.timeoutSeconds, successTurn, failTurn)];
     case 'delivery_task':
@@ -601,6 +768,8 @@ function draftBaseOutcomesFor(draft: StoryWizardDraft, successTurn: string, fail
       ];
     case 'betrayal':
       return draftBetrayalOutcomesFor(draft);
+    case 'custom_npc_encounter':
+      return [outcome('spawn_custom_npc_at', draft.customNpcTemplateId, draft.locationId, '0')];
     default:
       return [];
   }
@@ -608,7 +777,7 @@ function draftBaseOutcomesFor(draft: StoryWizardDraft, successTurn: string, fail
 
 function draftActionPreconditionsFor(draft: StoryWizardDraft): PreconditionEntry[] {
   if (draft.recipeId === 'item_request') return [simpleRule('req_has_item', draft.itemId)];
-  if (draft.recipeId === 'paid_info') return [simpleRule('req_money', draft.priceMoney)];
+  if (draft.recipeId === 'paid_info' || draft.recipeId === 'paid_stash_lead') return [simpleRule('req_money', draft.priceMoney)];
   return [];
 }
 
@@ -689,6 +858,7 @@ function draftTransitionOpeningFor(draft: StoryWizardDraft): string {
   if (draft.recipeId === 'escort_npc') return 'I need feet on the ground for this. Meet me and we move.';
   if (draft.recipeId === 'meet_in_person') return 'Not over PDA. Meet me and we talk properly.';
   if (draft.recipeId === 'multi_npc_handoff') return 'I am not right contact. I can put you through.';
+  if (draft.recipeId === 'custom_npc_encounter') return `Someone waits near ${locationLabel(draft.locationId)}. Go in person.`;
   return `Meet me, then we talk about ${locationLabel(draft.locationId)}.`;
 }
 
@@ -714,6 +884,12 @@ function draftOpeningFor(draft: StoryWizardDraft): string {
       return `${premise} ${factionName} pays ${draft.rewardMoney} RU if you take it.`;
     case 'faction_warning':
       return `${factionName} patrols saw movement near ${locationLabel(draft.locationId)}. ${draft.stakes}`;
+    case 'marked_threat':
+      return `${premise} I marked ${locationLabel(draft.locationId)}. Go look, but do not announce yourself.`;
+    case 'ambush_warning':
+      return `${premise} Road near ${locationLabel(draft.locationId)} has bait written all over it.`;
+    case 'artifact_lead':
+      return `${premise} Artifact sign points toward ${locationLabel(draft.locationId)}.`;
     case 'item_request':
       return `You carrying ${itemLabel(draft.itemId)}? ${premise}`;
     case 'go_to_location':
@@ -724,6 +900,8 @@ function draftOpeningFor(draft: StoryWizardDraft): string {
       return `${premise} Take supplies and stay alive.`;
     case 'paid_info':
       return `${premise} Information costs ${draft.priceMoney} RU.`;
+    case 'paid_stash_lead':
+      return `${premise} Stash coordinates cost ${draft.priceMoney} RU.`;
     case 'fetch_task':
       return `${premise} Find ${draft.itemCount} ${itemLabel(draft.itemId)} before time runs out.`;
     case 'delivery_task':
@@ -742,6 +920,8 @@ function draftOpeningFor(draft: StoryWizardDraft): string {
       return 'You came. Good. Keep voice low.';
     case 'multi_npc_handoff':
       return `This is ${npcLabel(draft.handoffNpcId)}. I hear you need work.`;
+    case 'custom_npc_encounter':
+      return `${premise} ${draft.customNpcName} waits near ${locationLabel(draft.locationId)}.`;
     default:
       return premise;
   }
@@ -762,6 +942,18 @@ function draftFallbackPremise(draft: StoryWizardDraft): string {
       return 'Field readings changed where no anomaly should exist.';
     case 'black_market':
       return 'Someone is selling truth before wrong buyer arrives.';
+    case 'horror':
+      return 'Nobody screams from that place anymore, and that is worse.';
+    case 'political':
+      return 'Two factions want same secret, and neither wants witness.';
+    case 'personal_debt':
+      return 'Old debt came due, and wrong person remembered your name.';
+    case 'treasure_hunt':
+      return 'Stash lead surfaced with enough truth to be dangerous.';
+    case 'mutant_threat':
+      return 'Fresh tracks circle camp, but no beast walks like that.';
+    case 'anomaly_weirdness':
+      return 'Bolts fall upward there and radios whisper back.';
     case 'gritty':
     default:
       return 'Zone handed us problem. You look alive enough to solve it.';
@@ -771,16 +963,20 @@ function draftFallbackPremise(draft: StoryWizardDraft): string {
 function draftAcceptTextFor(draft: StoryWizardDraft): string {
   if (isDraftTaskRecipe(draft.recipeId)) return 'I will take the job.';
   if (draft.recipeId === 'paid_info') return 'Pay for information.';
+  if (draft.recipeId === 'paid_stash_lead') return 'Buy stash lead.';
   if (draft.recipeId === 'item_request') return `Hand over ${itemLabel(draft.itemId)}.`;
-  if (draft.recipeId === 'go_to_location' || draft.recipeId === 'spawn_ambush') return 'Send marker.';
+  if (draft.recipeId === 'go_to_location' || draft.recipeId === 'spawn_ambush' || draft.recipeId === 'marked_threat' || draft.recipeId === 'ambush_warning') return 'Send marker.';
+  if (draft.recipeId === 'custom_npc_encounter') return 'Send them out.';
   return 'I am in.';
 }
 
 function draftAcceptReplyFor(draft: StoryWizardDraft): string {
   if (isDraftTaskRecipe(draft.recipeId)) return 'Job started. Do not waste time.';
   if (draft.recipeId === 'paid_info') return 'Payment received. Info sent.';
+  if (draft.recipeId === 'paid_stash_lead') return 'Payment received. Coordinates attached.';
   if (draft.recipeId === 'item_request') return 'Good. Payment is yours.';
   if (draft.recipeId === 'supply_gift') return 'Take it and stay alive.';
+  if (draft.recipeId === 'custom_npc_encounter') return 'They are moving now.';
   return 'Then listen carefully.';
 }
 

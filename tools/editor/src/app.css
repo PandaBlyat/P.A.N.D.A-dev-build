@@ -14671,3 +14671,505 @@ strong.support-upvote-count {
     min-height: 42px;
   }
 }
+
+/* Dossier upgrade for Make Story wizard */
+.story-forge-overlay {
+  padding: clamp(12px, 2vw, 24px);
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.88)),
+    radial-gradient(circle at 16% 0%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 34%),
+    radial-gradient(circle at 85% 10%, rgba(155, 64, 52, 0.16), transparent 28%);
+  backdrop-filter: blur(12px) saturate(110%);
+}
+
+.story-forge-panel {
+  width: min(1320px, calc(100vw - 32px));
+  height: min(900px, calc(100dvh - 32px));
+  max-height: calc(100dvh - 32px);
+  border-radius: 8px;
+  border-color: color-mix(in srgb, var(--accent) 48%, rgba(255, 255, 255, 0.12));
+  background:
+    linear-gradient(180deg, rgba(17, 20, 24, 0.98), rgba(8, 10, 12, 0.99)),
+    var(--bg-darkest);
+  box-shadow:
+    0 26px 90px rgba(0, 0, 0, 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 0 42px color-mix(in srgb, var(--accent-glow) 70%, transparent);
+}
+
+.story-forge-panel::before {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 10%, transparent) 0 1px, transparent 1px 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 32%);
+  background-size: 28px 100%, 100% 100%;
+  opacity: 0.22;
+}
+
+.story-forge-header,
+.story-forge-body,
+.story-forge-footer {
+  position: relative;
+}
+
+.story-forge-header {
+  grid-template-columns: minmax(220px, 0.7fr) minmax(460px, 1.4fr) auto;
+  gap: 18px;
+  padding: 16px 18px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 16%, rgba(19, 23, 28, 0.98)), rgba(9, 12, 15, 0.96)),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 32px);
+}
+
+.story-forge-title-block {
+  gap: 6px;
+}
+
+.story-forge-kicker {
+  border-radius: 6px;
+  color: var(--text-bright);
+  background: color-mix(in srgb, var(--accent) 38%, rgba(0, 0, 0, 0.52));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent-glow) 48%, transparent);
+}
+
+.story-forge-title {
+  font-size: 22px;
+}
+
+.story-forge-title .ui-icon svg {
+  color: var(--accent);
+}
+
+.story-forge-title-block p {
+  max-width: 38ch;
+  color: color-mix(in srgb, var(--text-dim) 82%, white);
+}
+
+.story-forge-step-rail {
+  align-items: stretch;
+  gap: 8px;
+}
+
+.story-forge-step {
+  position: relative;
+  min-height: 36px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
+    rgba(11, 15, 19, 0.82);
+  font-size: 10px;
+  text-align: left;
+}
+
+.story-forge-step::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 4px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.story-forge-step.is-active {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 26%, rgba(255, 255, 255, 0.08)), rgba(15, 20, 25, 0.94));
+}
+
+.story-forge-step.is-active::before,
+.story-forge-step.is-done::before {
+  background: var(--accent);
+}
+
+.story-forge-close {
+  border-radius: 6px;
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+}
+
+.story-forge-body {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 28%),
+    rgba(6, 8, 10, 0.44);
+}
+
+.story-forge-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--border));
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 40%),
+    rgba(12, 16, 20, 0.9);
+}
+
+.story-forge-summary span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--text-bright);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.story-forge-summary strong {
+  color: color-mix(in srgb, var(--accent-hover) 75%, white);
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.story-forge-content {
+  min-height: 0;
+  overflow: auto;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 12px;
+  padding-right: 2px;
+}
+
+.story-forge-section-intro,
+.story-forge-field-block,
+.story-forge-field,
+.story-forge-preview,
+.story-forge-checklist {
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.016)),
+    rgba(13, 17, 21, 0.9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 30px rgba(0, 0, 0, 0.18);
+}
+
+.story-forge-section-intro,
+.story-forge-faction-grid,
+.story-forge-field-block,
+.story-forge-preview,
+.story-forge-checklist,
+.story-forge-impact,
+.story-forge-effect-summary,
+.story-forge-followup {
+  grid-column: 1 / -1;
+}
+
+.story-forge-section-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.story-forge-section-intro h3 {
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.story-forge-section-intro p {
+  max-width: 66ch;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.story-forge-faction-grid {
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+}
+
+.story-forge-faction {
+  min-height: 48px;
+  border-radius: 6px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--faction-tile-color) 18%, rgba(255, 255, 255, 0.06)), rgba(14, 18, 22, 0.94) 58%),
+    rgba(14, 18, 22, 0.94);
+}
+
+.story-forge-faction.is-selected {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--faction-tile-color) 30%, rgba(255, 255, 255, 0.08)), rgba(17, 20, 24, 0.96) 60%),
+    rgba(17, 20, 24, 0.96);
+}
+
+.story-forge-field-block {
+  padding: 12px;
+}
+
+.story-forge-field-block h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-bright);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.story-forge-field-block h4 > span {
+  padding: 3px 6px;
+  border-radius: 5px;
+  color: color-mix(in srgb, var(--accent-hover) 75%, white);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.story-forge-recipe-group > strong,
+.story-forge-field > span {
+  color: color-mix(in srgb, var(--accent-hover) 66%, white);
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.story-forge-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 9px;
+}
+
+.story-forge-card {
+  position: relative;
+  min-height: 100px;
+  display: grid;
+  grid-template-rows: auto minmax(34px, 1fr) auto;
+  gap: 7px;
+  padding: 12px;
+  border-radius: 8px;
+  border-color: rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
+    rgba(20, 26, 31, 0.86);
+}
+
+.story-forge-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, rgba(255, 255, 255, 0.14));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, rgba(255, 255, 255, 0.06)), rgba(20, 26, 31, 0.9));
+}
+
+.story-forge-card::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+}
+
+.story-forge-card.is-selected::after {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-glow) 80%, transparent);
+}
+
+.story-forge-card strong {
+  padding-right: 18px;
+  color: var(--text-bright);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.story-forge-card span {
+  font-size: 12px;
+  line-height: 1.42;
+}
+
+.story-forge-card em {
+  display: inline-flex;
+  width: fit-content;
+  margin-right: 5px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  color: color-mix(in srgb, var(--accent-hover) 78%, white);
+  background: color-mix(in srgb, var(--accent) 13%, rgba(255, 255, 255, 0.04));
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.story-forge-card.is-selected {
+  border-color: var(--accent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 22%, rgba(255, 255, 255, 0.07)), rgba(21, 24, 28, 0.96));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent),
+    0 0 22px color-mix(in srgb, var(--accent-glow) 52%, transparent);
+}
+
+.story-forge-recipe-groups {
+  gap: 14px;
+}
+
+.story-forge-recipe-group {
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.story-forge-field-copy {
+  margin: -2px 0 0;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.story-forge-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.story-forge-field {
+  border-radius: 8px;
+  background: rgba(8, 12, 16, 0.72);
+}
+
+.story-forge-field input,
+.story-forge-field textarea,
+.story-forge-field select {
+  min-height: 34px;
+}
+
+.story-forge-empty-note {
+  grid-column: 1 / -1;
+  padding: 12px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 26%, var(--border));
+  border-radius: 8px;
+  color: var(--text-dim);
+  background: rgba(0, 0, 0, 0.16);
+  font-size: 12px;
+}
+
+.story-forge-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.story-forge-chip,
+.story-forge-checklist span {
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  border-radius: 6px;
+  color: color-mix(in srgb, var(--accent-hover) 74%, white);
+  background: color-mix(in srgb, var(--accent) 10%, rgba(0, 0, 0, 0.24));
+  font-size: 12px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.story-forge-preview {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.story-forge-preview-node {
+  min-height: 92px;
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(0, 0, 0, 0.18)),
+    rgba(8, 12, 16, 0.78);
+}
+
+.story-forge-preview-node strong {
+  color: var(--text-bright);
+}
+
+.story-forge-followup-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.story-forge-followup-list span {
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+  border-radius: 8px;
+  color: var(--text-bright);
+  background: rgba(0, 0, 0, 0.18);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.story-forge-footer {
+  position: sticky;
+  bottom: 0;
+}
+
+.story-forge-footer .btn-sm:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 980px) {
+  .story-forge-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .story-forge-step-rail {
+    grid-column: 1 / -1;
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .story-forge-step {
+    flex: 0 0 min(180px, 42vw);
+  }
+
+  .story-forge-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .story-forge-overlay {
+    padding: 0;
+  }
+
+  .story-forge-panel {
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .story-forge-body {
+    padding: 10px;
+  }
+
+  .story-forge-summary,
+  .story-forge-field-grid,
+  .story-forge-followup-list {
+    grid-template-columns: 1fr;
+  }
+
+  .story-forge-content {
+    grid-template-columns: 1fr;
+  }
+
+  .story-forge-card-grid,
+  .story-forge-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .story-forge-section-intro {
+    grid-template-columns: 1fr;
+  }
+}
