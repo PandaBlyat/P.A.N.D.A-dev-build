@@ -560,7 +560,24 @@ function applyDraftContent(conversation: Conversation, draft: StoryWizardDraft):
   accept.preconditions = draftActionPreconditionsFor(draft);
   accept.outcomes = getOutcomes();
   accept.terminal = true;
-  if (draft.recipeId === 'multi_npc_handoff') accept.cont_npc_id = draft.handoffNpcId;
+  if (draft.recipeId === 'multi_npc_handoff' && draft.handoffNpcId) {
+    // The accept choice hands the player off to a second NPC. Attribute the
+    // NPC on the reply and flow into a dedicated handoff turn so the second
+    // speaker actually takes the floor rather than leaving the conversation
+    // dangling at the original NPC.
+    const handoff = appendTerminalTurn(
+      conversation,
+      actionTurn.channel ?? 'pda',
+      `${npcLabel(draft.handoffNpcId)}: I take it from here. ${draft.stakes || 'Stay sharp.'}`,
+      'Understood.',
+    );
+    handoff.customLabel = `Handoff: ${npcLabel(draft.handoffNpcId)}`;
+    accept.cont_npc_id = draft.handoffNpcId;
+    accept.terminal = false;
+    accept.continueTo = handoff.turnNumber;
+    accept.continueChannel = handoff.channel;
+    accept.continue_channel = handoff.channel;
+  }
 
   const details = appendDraftDetailTurn(conversation, draft, actionTurn.channel ?? 'pda', getOutcomes);
   const ask = ensureChoice(actionTurn, 2);
@@ -584,7 +601,9 @@ function applyDraftContent(conversation: Conversation, draft: StoryWizardDraft):
     const negotiate = ensureChoice(actionTurn, 4);
     negotiate.text = 'Pay better and I listen.';
     negotiate.reply = 'You drive hard bargain. Extra pay if you finish.';
-    negotiate.preconditions = [simpleRule('req_goodwill', '0', draft.faction)];
+    // Require the NPC's faction to already like the player a little — a stranger
+    // wouldn't get room to haggle. req_goodwill '0' was effectively no-op.
+    negotiate.preconditions = [simpleRule('req_goodwill', '25', draft.faction)];
     negotiate.outcomes = [...getOutcomes(), ...draftMoneyReward(draft.rewardMoney)];
     negotiate.terminal = true;
   }
@@ -598,12 +617,18 @@ function applyDraftContent(conversation: Conversation, draft: StoryWizardDraft):
     suspicious.terminal = true;
   }
 
-  appendDraftBranchStyleChoice(actionTurn, draft, getOutcomes);
+  appendDraftBranchStyleChoice(conversation, actionTurn, draft, getOutcomes);
 
   if (!isDraftTaskRecipe(draft.recipeId) && draft.structureId === 'three_act') {
     const aftermath = appendTerminalTurn(conversation, actionTurn.channel ?? 'pda', 'If this goes right, people will talk.', 'I will remember that.');
     aftermath.customLabel = 'Aftermath';
-    for (const choice of actionTurn.choices.filter((item) => item.outcomes.length > 0)) {
+    // Route every choice that stays in this conversation (anything not already
+    // re-targeted to a handoff turn) to the aftermath turn. Previously only
+    // choices with non-empty outcomes were redirected, which broke the
+    // three-act flow for refusals — they'd end the conversation instead of
+    // closing out through the aftermath beat.
+    for (const choice of actionTurn.choices) {
+      if (choice.continueTo && choice.continueTo !== aftermath.turnNumber) continue;
       choice.terminal = false;
       choice.continueTo = aftermath.turnNumber;
       choice.continueChannel = aftermath.channel;
@@ -633,6 +658,15 @@ function configureDraftTransition(conversation: Conversation, actionTurn: Turn, 
   firstChoice.continueTo = actionTurn.turnNumber;
   firstChoice.continueChannel = actionTurn.channel;
   firstChoice.continue_channel = actionTurn.channel;
+
+  // Two-step handoff structure: the first speaker routes the player to a
+  // different NPC for the second step. The wizard exposes a "Handoff NPC"
+  // picker in this case; wire it into the transition so the action turn is
+  // attributed to the chosen NPC at runtime.
+  if (draft.structureId === 'two_step' && draft.handoffNpcId) {
+    firstChoice.cont_npc_id = draft.handoffNpcId;
+    actionTurn.customLabel = `Handoff: ${npcLabel(draft.handoffNpcId)}`;
+  }
 }
 
 function appendDraftDetailTurn(
@@ -670,8 +704,52 @@ function isDraftTaskRecipe(recipeId: StoryRecipeId): boolean {
     || recipeId === 'rescue';
 }
 
-function appendDraftBranchStyleChoice(actionTurn: Turn, draft: StoryWizardDraft, getOutcomes: () => Outcome[]): void {
-  if (draft.branchStyle === 'simple' || draft.branchStyle === 'ask_more' || draft.branchStyle === 'negotiation' || draft.branchStyle === 'betrayal') return;
+function appendDraftBranchStyleChoice(
+  conversation: Conversation,
+  actionTurn: Turn,
+  draft: StoryWizardDraft,
+  getOutcomes: () => Outcome[],
+): void {
+  if (draft.branchStyle === 'simple' || draft.branchStyle === 'negotiation' || draft.branchStyle === 'betrayal') return;
+
+  if (draft.branchStyle === 'ask_more') {
+    // Ask-more adds a dedicated "press for extra context" beat before the
+    // accept/refuse — a non-terminal continuation to a small clarifier turn
+    // that re-offers accept/refuse with the same outcomes.
+    const clarifier = appendTerminalTurn(
+      conversation,
+      actionTurn.channel ?? 'pda',
+      'Keep it simple: who, what, where, why. Then decide.',
+      'Good — now I will say yes without flinching.',
+    );
+    clarifier.customLabel = 'Ask more';
+    const more = ensureChoice(actionTurn, 4);
+    more.text = 'Slower. Break it down for me.';
+    more.reply = 'Right. From the top:';
+    more.outcomes = [];
+    more.preconditions = [];
+    more.terminal = false;
+    more.continueTo = clarifier.turnNumber;
+    more.continueChannel = clarifier.channel;
+    more.continue_channel = clarifier.channel;
+    // Replace the auto-generated "Continue." choice on the clarifier with an
+    // explicit accept / refuse pair so the extra turn actually exposes the
+    // decision again (instead of dead-ending after the explanation).
+    clarifier.choices = [];
+    const clarifyAccept = ensureChoice(clarifier, 1);
+    clarifyAccept.text = 'Clear enough. I am in.';
+    clarifyAccept.reply = 'Then move.';
+    clarifyAccept.preconditions = draftActionPreconditionsFor(draft);
+    clarifyAccept.outcomes = getOutcomes();
+    clarifyAccept.terminal = true;
+    const clarifyDrop = ensureChoice(clarifier, 2);
+    clarifyDrop.text = 'Still not my fight.';
+    clarifyDrop.reply = draftRefusalReplyFor(draft);
+    clarifyDrop.preconditions = [];
+    clarifyDrop.outcomes = draftRefusalOutcomesFor(draft);
+    clarifyDrop.terminal = true;
+    return;
+  }
 
   const choice = ensureChoice(actionTurn, 4);
   choice.preconditions = [];
@@ -770,6 +848,17 @@ function draftBaseOutcomesFor(draft: StoryWizardDraft, successTurn: string, fail
       return draftBetrayalOutcomesFor(draft);
     case 'custom_npc_encounter':
       return [outcome('spawn_custom_npc_at', draft.customNpcTemplateId, draft.locationId, '0')];
+    case 'meet_in_person':
+      // In-person meet keeps no gameplay reward but records a flag so authors
+      // can gate follow-ups on "player met this NPC".
+      return [outcome('give_info', `${draft.infoId}_met_in_person`)];
+    case 'multi_npc_handoff':
+      // Flag the handoff so the second NPC's follow-up can key off it, plus the
+      // cont_npc_id on the accept choice routes the conversation to them.
+      return [outcome('give_info', `${draft.infoId}_handoff_${draft.handoffNpcId || 'npc'}`)];
+    case 'rumor':
+      // Flavor exchange: no reward, just a flag so later stories can react.
+      return [outcome('give_info', `${draft.infoId}_rumor`)];
     default:
       return [];
   }
@@ -922,6 +1011,8 @@ function draftOpeningFor(draft: StoryWizardDraft): string {
       return `This is ${npcLabel(draft.handoffNpcId)}. I hear you need work.`;
     case 'custom_npc_encounter':
       return `${premise} ${draft.customNpcName} waits near ${locationLabel(draft.locationId)}.`;
+    case 'rumor':
+      return `${premise} Just talk, no contract. Keep ears open.`;
     default:
       return premise;
   }
