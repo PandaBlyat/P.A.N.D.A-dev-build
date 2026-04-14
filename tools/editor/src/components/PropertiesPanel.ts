@@ -34,6 +34,7 @@ import {
 } from '../lib/constants';
 import { createOnboardingNudge } from './Onboarding';
 import { createItemChainPickerPanelEditor, createItemPickerPanelEditor } from './ItemPickerPanel';
+import { createCatalogPickerPanelEditor, type CatalogPickerOption } from './CatalogPickerPanel';
 import { createCustomNpcBuilderEditor } from './NpcTemplatePanel';
 import { formatGameItemLabel } from '../lib/item-catalog';
 import { requestFlowCenter } from '../lib/flow-navigation';
@@ -2459,308 +2460,38 @@ function createOptionPickerPanelEditor(
     options: ParamOption[];
   },
 ): HTMLElement {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'rich-editor rich-editor-item-picker';
-
-  const launcherRow = document.createElement('div');
-  launcherRow.className = 'rich-editor-toolbar item-picker-toolbar';
-
-  const browseButton = document.createElement('button');
-  browseButton.type = 'button';
-  browseButton.className = 'item-picker-launcher';
-
-  const clearButton = document.createElement('button');
-  clearButton.type = 'button';
-  clearButton.className = 'btn-sm';
-  clearButton.textContent = 'Clear';
-
-  const rawInput = document.createElement('input');
-  rawInput.type = 'text';
-  rawInput.className = 'rich-editor-input';
-  rawInput.value = currentValue;
-  rawInput.placeholder = config.emptyLabel;
-  rawInput.setAttribute('data-field-key', fieldKey);
-
-  const summary = document.createElement('div');
-  summary.className = 'command-description';
-
-  const readFacet = (option: ParamOption, index: number, fallback: string): string => {
-    const facet = option.keywords?.[index]?.trim();
-    return facet ? facet : fallback;
-  };
-
-  const storyNpcMeta = config.options.map((option) => ({
-    option,
-    faction: readFacet(option, 1, 'Unknown faction'),
-    role: readFacet(option, 3, 'Other role'),
-  }));
-
-  const factions = Array.from(new Set(storyNpcMeta.map((entry) => entry.faction))).sort((a, b) => a.localeCompare(b));
-  const roles = Array.from(new Set(storyNpcMeta.map((entry) => entry.role))).sort((a, b) => a.localeCompare(b));
-
-  const syncUi = (value: string): void => {
-    rawInput.value = value;
-    const selected = config.options.find((option) => option.value === value);
-
-    browseButton.textContent = '';
-    const label = document.createElement('span');
-    label.className = 'item-picker-launcher-label';
-    label.textContent = selected ? selected.label : 'Browse story NPCs…';
-    const icon = document.createElement('span');
-    icon.className = 'item-picker-launcher-icon';
-    icon.textContent = '▾';
-    browseButton.append(label, icon);
-
-    summary.textContent = selected
-      ? `Selected ${selected.label} (${selected.value}).`
-      : 'Pick a story NPC from the searchable panel or type a custom story id manually.';
-
-    clearButton.disabled = value.length === 0;
-  };
-
-  const openPicker = (): void => {
-    if (activeOptionPickerCleanup) {
-      const shouldToggleClosed = activeOptionPickerTrigger === browseButton;
-      activeOptionPickerCleanup();
-      if (shouldToggleClosed) return;
-    }
-
-    const overlay = document.createElement('div');
-    overlay.className = 'item-picker-overlay';
-    overlay.setAttribute('role', 'presentation');
-
-    const panel = document.createElement('div');
-    panel.className = 'item-picker-panel';
-    panel.setAttribute('role', 'dialog');
-    panel.setAttribute('aria-modal', 'true');
-    panel.onclick = (event) => event.stopPropagation();
-
-    const header = document.createElement('div');
-    header.className = 'item-picker-header';
-
-    const titleWrap = document.createElement('div');
-    titleWrap.className = 'item-picker-title-wrap';
-
-    const title = document.createElement('div');
-    title.className = 'item-picker-title';
-    title.textContent = config.title;
-
-    const subtitle = document.createElement('div');
-    subtitle.className = 'item-picker-subtitle';
-    subtitle.textContent = config.subtitle;
-
-    const closeButton = document.createElement('button');
-    closeButton.className = 'btn-icon btn-sm';
-    closeButton.textContent = '×';
-    closeButton.title = 'Close story NPC picker';
-
-    titleWrap.append(title, subtitle);
-    header.append(titleWrap, closeButton);
-    panel.appendChild(header);
-
-    const searchWrap = document.createElement('div');
-    searchWrap.className = 'item-picker-search-wrap';
-
-    const searchIcon = document.createElement('span');
-    searchIcon.className = 'item-picker-search-icon';
-    searchIcon.textContent = '⌕';
-    searchIcon.setAttribute('aria-hidden', 'true');
-
-    const searchInput = document.createElement('input');
-    searchInput.type = 'text';
-    searchInput.className = 'dropdown-search item-picker-search';
-    searchInput.placeholder = config.searchPlaceholder;
-
-    searchWrap.append(searchIcon, searchInput);
-    panel.appendChild(searchWrap);
-
-    const factionChipBar = document.createElement('div');
-    factionChipBar.className = 'item-picker-chip-bar';
-
-    const roleChipBar = document.createElement('div');
-    roleChipBar.className = 'item-picker-chip-bar item-picker-subchip-bar';
-
-    panel.append(factionChipBar, roleChipBar);
-
-    const list = document.createElement('div');
-    list.className = 'item-picker-list';
-
-    const listContent = document.createElement('div');
-    listContent.className = 'item-picker-list-content item-picker-list-content-static';
-
-    const empty = document.createElement('div');
-    empty.className = 'item-picker-empty';
-    empty.textContent = 'No story NPCs match this search.';
-    empty.hidden = true;
-
-    list.append(listContent, empty);
-    panel.appendChild(list);
-
-    let activeFaction = '';
-    let activeRole = '';
-    const factionButtons = new Map<string, HTMLButtonElement>();
-    const roleButtons = new Map<string, HTMLButtonElement>();
-
-    const renderList = (): void => {
-      const query = searchInput.value.trim().toLowerCase();
-      const maxRenderedOptions = 250;
-
-      const matches = storyNpcMeta.filter(({ option, faction, role }) => {
-        if (activeFaction && faction !== activeFaction) return false;
-        if (activeRole && role !== activeRole) return false;
-        if (!query) return true;
-        const haystack = [option.label, option.value, ...(option.keywords ?? [])].join(' ').toLowerCase();
-        return haystack.includes(query);
-      });
-
-      listContent.innerHTML = '';
-      empty.hidden = matches.length !== 0;
-
-      const fragment = document.createDocumentFragment();
-      for (const { option } of matches.slice(0, maxRenderedOptions)) {
-        const row = document.createElement('button');
-        row.type = 'button';
-        row.className = 'item-picker-option item-picker-option-static';
-        if (option.value === rawInput.value) row.classList.add('is-selected');
-        row.innerHTML = `<span class="item-picker-option-title">${option.label}</span><span class="item-picker-option-meta">${option.value}</span>`;
-        row.onclick = () => {
-          cleanup();
-          syncUi(option.value);
-          onChange(option.value);
-        };
-        fragment.appendChild(row);
-      }
-      listContent.appendChild(fragment);
-
-      if (matches.length > maxRenderedOptions) {
-        const overflow = document.createElement('div');
-        overflow.className = 'command-description';
-        overflow.textContent = `Showing ${maxRenderedOptions} of ${matches.length} story NPCs. Keep typing to narrow results.`;
-        listContent.appendChild(overflow);
-      }
-
-      const factionCounts = new Map<string, number>();
-      const roleCounts = new Map<string, number>();
-
-      for (const { faction, role } of storyNpcMeta) {
-        if (!activeRole || role === activeRole) {
-          factionCounts.set(faction, (factionCounts.get(faction) ?? 0) + 1);
-          factionCounts.set('', (factionCounts.get('') ?? 0) + 1);
-        }
-        if (!activeFaction || faction === activeFaction) {
-          roleCounts.set(role, (roleCounts.get(role) ?? 0) + 1);
-          roleCounts.set('', (roleCounts.get('') ?? 0) + 1);
-        }
-      }
-
-      for (const [value, button] of factionButtons) {
-        const count = factionCounts.get(value) ?? 0;
-        button.classList.toggle('is-active', value === activeFaction);
-        const countEl = button.querySelector('.item-picker-chip-count');
-        if (countEl) countEl.textContent = String(count);
-      }
-
-      for (const [value, button] of roleButtons) {
-        const count = roleCounts.get(value) ?? 0;
-        button.classList.toggle('is-active', value === activeRole);
-        const countEl = button.querySelector('.item-picker-chip-count');
-        if (countEl) countEl.textContent = String(count);
-      }
+  // Story-NPC picker: delegate to the shared CatalogPickerPanel so this
+  // panel (used inside the Properties panel) and the Story Wizard picker
+  // share a single richer implementation with level grouping, chip
+  // counts, and character-name forward rendering.
+  const options: CatalogPickerOption[] = config.options.map((option) => {
+    const rich = option as CatalogPickerOption;
+    return {
+      value: option.value,
+      label: option.label,
+      keywords: option.keywords,
+      characterName: rich.characterName,
+      faction: rich.faction,
+      level: rich.level,
+      role: rich.role,
     };
-
-    const addChip = (
-      parent: HTMLElement,
-      label: string,
-      value: string,
-      onClick: (nextValue: string) => void,
-      store: Map<string, HTMLButtonElement>,
-    ): void => {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'item-picker-chip';
-      chip.innerHTML = `${label} <span class="item-picker-chip-count"></span>`;
-      chip.onclick = () => {
-        onClick(value);
-        renderList();
-      };
-      store.set(value, chip);
-      parent.appendChild(chip);
-    };
-
-    addChip(factionChipBar, 'All factions', '', (nextValue) => {
-      activeFaction = nextValue;
-    }, factionButtons);
-    for (const faction of factions) {
-      addChip(factionChipBar, faction, faction, (nextValue) => {
-        activeFaction = nextValue;
-      }, factionButtons);
-    }
-
-    addChip(roleChipBar, 'All roles', '', (nextValue) => {
-      activeRole = nextValue;
-    }, roleButtons);
-    for (const role of roles) {
-      addChip(roleChipBar, role, role, (nextValue) => {
-        activeRole = nextValue;
-      }, roleButtons);
-    }
-
-    let isClosed = false;
-    const cleanup = (): void => {
-      if (isClosed) return;
-      isClosed = true;
-      overlay.remove();
-      document.removeEventListener('keydown', handleEscape, true);
-      if (activeOptionPickerCleanup === cleanup) {
-        activeOptionPickerCleanup = null;
-        activeOptionPickerTrigger = null;
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      cleanup();
-      browseButton.focus();
-    };
-
-    closeButton.onclick = () => {
-      cleanup();
-      browseButton.focus();
-    };
-    overlay.onclick = (event) => {
-      if (event.target === overlay) cleanup();
-    };
-    searchInput.oninput = renderList;
-
-    overlay.appendChild(panel);
-    document.body.appendChild(overlay);
-    activeOptionPickerCleanup = cleanup;
-    activeOptionPickerTrigger = browseButton;
-
-    renderList();
-    requestAnimationFrame(() => searchInput.focus());
-    document.addEventListener('keydown', handleEscape, true);
-  };
-
-  browseButton.onclick = openPicker;
-  clearButton.onclick = () => {
-    syncUi('');
-    onChange('');
-    rawInput.focus();
-  };
-  rawInput.oninput = () => onChange(rawInput.value);
-  rawInput.onchange = () => {
-    syncUi(rawInput.value);
-    onChange(rawInput.value);
-  };
-  rawInput.addEventListener('input', () => syncUi(rawInput.value));
-
-  launcherRow.append(browseButton, clearButton);
-  wrapper.append(launcherRow, rawInput, summary);
-
-  syncUi(currentValue);
-  return wrapper;
+  });
+  const hasRichMetadata = options.some((option) => option.characterName || option.faction || option.level || option.role);
+  return createCatalogPickerPanelEditor(currentValue, onChange, fieldKey, {
+    title: config.title,
+    subtitle: config.subtitle,
+    searchPlaceholder: config.searchPlaceholder,
+    emptyLabel: config.emptyLabel,
+    browseLabel: 'Browse story NPCs…',
+    options,
+    facets: hasRichMetadata
+      ? [
+          { label: 'Faction', field: 'faction', allLabel: 'All factions' },
+          { label: 'Role', field: 'role', allLabel: 'All roles' },
+          { label: 'Level', field: 'level', allLabel: 'All levels' },
+        ]
+      : [],
+  });
 }
 
 function createLevelOptionPickerPanelEditor(
