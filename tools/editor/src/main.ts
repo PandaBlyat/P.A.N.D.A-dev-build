@@ -28,14 +28,14 @@ import {
   trackSiteVisitor,
   fetchVisitorCount,
   fetchRecentVisitors,
-  fetchActiveEditorUserCount,
-  fetchActiveEditorUsers,
+  fetchActiveEditorPresence,
   startActiveEditorPresenceTracking,
   fetchUserProfile,
   getStoredUsername,
   clearStoredUsername,
   awardXpCapped,
   updateUserStreak,
+  type ActiveEditorPresence,
   type ActiveEditorUser,
   type RecentVisitor,
   type UserProfile,
@@ -87,21 +87,18 @@ void trackSiteVisitor().finally(() => {
 (globalThis as any).__pandaActiveUsernames = [] as string[];
 (globalThis as any).__pandaActiveUsers = [] as ActiveEditorUser[];
 
-async function refreshActiveUsersInToolbar(countOverride?: number): Promise<void> {
-  const [count, users] = await Promise.all([
-    typeof countOverride === 'number' ? Promise.resolve(countOverride) : fetchActiveEditorUserCount(),
-    fetchActiveEditorUsers(),
-  ]);
-  (globalThis as any).__pandaActiveUserCount = Math.max(count, users.length);
-  (globalThis as any).__pandaActiveUsers = users;
-  (globalThis as any).__pandaActiveUsernames = users.map(user => user.username ?? '').filter(Boolean);
+async function refreshActiveUsersInToolbar(presenceOverride?: ActiveEditorPresence): Promise<void> {
+  const presence = presenceOverride ?? await fetchActiveEditorPresence();
+  (globalThis as any).__pandaActiveUserCount = Math.max(presence.count, presence.users.length);
+  (globalThis as any).__pandaActiveUsers = presence.users;
+  (globalThis as any).__pandaActiveUsernames = presence.usernames;
   renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
 }
 
 void refreshActiveUsersInToolbar();
 
-const stopPresenceTracking = startActiveEditorPresenceTracking((count) => {
-  void refreshActiveUsersInToolbar(count);
+const stopPresenceTracking = startActiveEditorPresenceTracking((presence) => {
+  void refreshActiveUsersInToolbar(presence);
   void refreshVisitorsInToolbar();
 });
 

@@ -40,6 +40,7 @@ export type IconName =
   | 'shield'
   | 'target'
   | 'medal'
+  | 'bug'
   | 'sparkle';
 
 const BASE_ICON_ATTRS = {
@@ -294,6 +295,19 @@ const ICONS: Record<IconName, IconDef> = {
       { tag: 'path', d: 'M8.5 3h7l-2 6h-3z' },
       { tag: 'circle', cx: '12', cy: '14', r: '5' },
       { tag: 'path', d: 'm10 13 1.2 1.2 2.8-2.8' },
+    ],
+  },
+  bug: {
+    paths: [
+      { tag: 'path', d: 'M8 8.5a4 4 0 0 1 8 0v6a4 4 0 0 1-8 0z' },
+      { tag: 'path', d: 'M9 5.5 7 3.8' },
+      { tag: 'path', d: 'm15 5.5 2-1.7' },
+      { tag: 'path', d: 'M4.5 10h3' },
+      { tag: 'path', d: 'M16.5 10h3' },
+      { tag: 'path', d: 'M4.5 15h3' },
+      { tag: 'path', d: 'M16.5 15h3' },
+      { tag: 'path', d: 'M12 8.5v9' },
+      { tag: 'path', d: 'M9.5 12h5' },
     ],
   },
   sparkle: {

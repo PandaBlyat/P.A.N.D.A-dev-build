@@ -56,6 +56,14 @@ function formatRelativeDate(isoDate: string): string {
   return `${Math.round(deltaDays / 365)} years ago`;
 }
 
+function cleanPublicProfileText(value: string): string {
+  return value
+    .replace(/\u00e2\u02dc\u2026/g, '-star')
+    .replace(/\u00e2\u2020\u2018/g, 'Up ')
+    .replace(/\u00e2\u2020\u201c/g, 'Down ')
+    .replace(/\s*\u00b7\s*/g, ' - ');
+}
+
 function getUnlockedAchievements(profileData: PublicProfileData): string[] {
   return profileData.profile.achievements ?? [];
 }
@@ -104,7 +112,7 @@ function buildHeader(data: PublicProfileData): HTMLElement {
 
   const eyebrow = document.createElement('div');
   eyebrow.className = 'public-profile-eyebrow';
-  eyebrow.textContent = 'Public stalker profile';
+  eyebrow.textContent = 'Stalker dossier';
 
   const title = document.createElement('h3');
   title.className = 'public-profile-name';
@@ -112,7 +120,7 @@ function buildHeader(data: PublicProfileData): HTMLElement {
 
   const subtitle = document.createElement('div');
   subtitle.className = 'public-profile-title';
-  subtitle.textContent = `${resolvedCurrentTitle} · ${profile.xp.toLocaleString()} XP · ${publish_count} publishes`;
+  subtitle.textContent = `${resolvedCurrentTitle} - ${profile.xp.toLocaleString()} XP - ${publish_count} publishes`;
 
   const memberSince = document.createElement('div');
   memberSince.className = 'public-profile-member-since';
@@ -146,7 +154,7 @@ function buildHeader(data: PublicProfileData): HTMLElement {
   progressMeta.className = 'public-profile-progress-meta';
   progressMeta.textContent = nextThreshold
     ? `${profile.xp.toLocaleString()} / ${nextThreshold.xp.toLocaleString()} XP to ${getLevelTitle(nextThreshold.level) || nextThreshold.title}`
-    : `${profile.xp.toLocaleString()} XP · max level reached`;
+    : `${profile.xp.toLocaleString()} XP - max level reached`;
 
   const progressTrack = document.createElement('div');
   progressTrack.className = 'public-profile-progress-track';
@@ -216,7 +224,7 @@ function buildSection(titleText: string, iconName: Parameters<typeof createIcon>
 }
 
 function buildPrestigeSummary(data: PublicProfileData, leaderboardRank?: number | null): HTMLElement {
-  const section = buildSection('Prestige summary', 'trophy', 'Compact bragging rights that make leaderboard clicks worth opening.');
+  const section = buildSection('Prestige summary', 'trophy', 'Rank, quality, streaks, and rare unlocks.');
   const metrics = document.createElement('div');
   metrics.className = 'public-profile-prestige-grid';
 
@@ -245,7 +253,7 @@ function buildPrestigeSummary(data: PublicProfileData, leaderboardRank?: number 
     value.textContent = item.value;
     const label = document.createElement('div');
     label.className = 'public-profile-prestige-label';
-    label.textContent = item.label;
+    label.textContent = cleanPublicProfileText(item.label);
     card.append(icon, value, label);
     metrics.appendChild(card);
   });
@@ -255,7 +263,7 @@ function buildPrestigeSummary(data: PublicProfileData, leaderboardRank?: number 
 }
 
 function buildAchievementsSection(data: PublicProfileData): HTMLElement {
-  const section = buildSection('Featured achievements', 'medal', 'Rarest or most visible badges unlocked by this creator.');
+  const section = buildSection('Featured achievements', 'medal', 'Rare, gold, and spotlight badge unlocks.');
   const featured = getFeaturedAchievements(data);
   const badges = document.createElement('div');
   badges.className = 'public-profile-badge-grid';
@@ -280,7 +288,7 @@ function buildAchievementsSection(data: PublicProfileData): HTMLElement {
   if (featured.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'public-profile-empty';
-    empty.textContent = 'No featured badges visible yet.';
+    empty.textContent = 'No featured badges unlocked yet.';
     section.appendChild(empty);
     return section;
   }
@@ -315,7 +323,7 @@ function buildAchievementsSection(data: PublicProfileData): HTMLElement {
 }
 
 function buildFactionBreakdown(data: PublicProfileData): HTMLElement {
-  const section = buildSection('Faction specialty breakdown', 'target', 'Where this publisher spends most of their creative energy.');
+  const section = buildSection('Faction breakdown', 'target', 'Published work by faction.');
   const rows = document.createElement('div');
   rows.className = 'public-profile-faction-list';
 
@@ -328,7 +336,7 @@ function buildFactionBreakdown(data: PublicProfileData): HTMLElement {
   if (total === 0) {
     const empty = document.createElement('div');
     empty.className = 'public-profile-empty';
-    empty.textContent = 'No published faction history available yet.';
+    empty.textContent = 'No faction history yet.';
     section.appendChild(empty);
     return section;
   }
@@ -372,7 +380,7 @@ function buildFactionBreakdown(data: PublicProfileData): HTMLElement {
 }
 
 function buildStreakHighlights(data: PublicProfileData): HTMLElement {
-  const section = buildSection('Streak highlights', 'flame', 'Consistency signals that hint at whether this creator is actively shipping.');
+  const section = buildSection('Streak highlights', 'flame', 'Publish and login rhythm.');
   const grid = document.createElement('div');
   grid.className = 'public-profile-streak-grid';
 
@@ -401,7 +409,7 @@ function buildStreakHighlights(data: PublicProfileData): HTMLElement {
 }
 
 function buildRecentCards(data: PublicProfileData): HTMLElement {
-  const section = buildSection('Recently published', 'export', 'Browse the latest work from this stalker without leaving the leaderboard context.');
+  const section = buildSection('Recently published', 'export', 'Latest public conversations.');
   const cards = document.createElement('div');
   cards.className = 'public-profile-recent-grid';
 
@@ -451,7 +459,7 @@ function buildRecentCards(data: PublicProfileData): HTMLElement {
       `↓${conversation.downloads}`,
     ];
     if (qualityStars) parts.push(`${qualityStars}★ quality`);
-    meta.textContent = parts.join(' · ');
+    meta.textContent = cleanPublicProfileText(parts.join(' · '));
 
     const footer = document.createElement('div');
     footer.className = 'public-profile-recent-footer';
@@ -481,7 +489,7 @@ function buildRecentCards(data: PublicProfileData): HTMLElement {
 }
 
 function buildConversationSummarySection(data: PublicProfileData): HTMLElement {
-  const section = buildSection('Publishing footprint', 'clock', 'High-level context before you dive into individual conversation cards.');
+  const section = buildSection('Publishing footprint', 'clock', 'Catalog range and branch density.');
   const strip = document.createElement('div');
   strip.className = 'public-profile-footprint-strip';
 

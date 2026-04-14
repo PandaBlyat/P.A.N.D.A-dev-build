@@ -107,6 +107,34 @@ export type PublicProfileData = {
   authored_conversations: CommunityConversation[];
 };
 
+export type ActiveEditorPresence = {
+  count: number;
+  users: ActiveEditorUser[];
+  usernames: string[];
+};
+
+export type BugReportStatus = 'all' | 'open' | 'closed' | 'fixed';
+
+export type EditorBugReport = {
+  id: string;
+  subject: string;
+  message: string;
+  author_username: string | null;
+  author_publisher_id: string | null;
+  status: Exclude<BugReportStatus, 'all'>;
+  admin_reply: string;
+  admin_publisher_id: string | null;
+  admin_username: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BugReportsResponse = {
+  reports: EditorBugReport[];
+  viewer_can_admin: boolean;
+};
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string | undefined;
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -115,6 +143,7 @@ const SUPPORT_TABLE = 'creator_support_metrics';
 const ACTIVE_USERS_TABLE = 'creator_active_users';
 const STREAKS_TABLE = 'user_streaks';
 const MISSIONS_TABLE = 'user_mission_progress';
+const BUG_REPORTS_TABLE = 'editor_bug_reports';
 const SUPPORT_ROW_ID = 'global';
 const LOCAL_PUBLISH_COOLDOWN_MS = 60_000;
 const LOCAL_PUBLISH_KEY = 'panda-community-last-publish-at';
@@ -258,6 +287,10 @@ function getPublisherId(): string {
 
   window.localStorage.setItem(LOCAL_PUBLISHER_ID_KEY, generated);
   return generated;
+}
+
+export function getLocalPublisherId(): string {
+  return getPublisherId();
 }
 
 export function deriveConversationComplexity(branchCount: number): ConversationComplexity {
@@ -736,68 +769,23 @@ function getActiveEditorPresenceUserId(): string {
   return getStoredUsername() ? getPublisherId() : getOrCreateActiveEditorUserId();
 }
 
-export async function touchActiveEditorUser(): Promise<number> {
-  if (typeof window === 'undefined') return 0;
-  const userId = getActiveEditorPresenceUserId();
-  const username = getStoredUsername();
-
-  // Prefer the API so presence persists even when the browser can't reach
-  // Supabase directly (CORS, RLS, or missing RPC in self-hosted setups).
-  try {
-    const payload = await fetchFromApi<{ count?: number }>('/api/active-users/touch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, username }),
-    });
-    if (typeof payload?.count === 'number') return payload.count;
-  } catch {
-    // Fall through to direct Supabase RPC fallback.
-  }
-
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/touch_creator_active_user`, {
-      method: 'POST',
-      headers: sbHeaders(),
-      body: JSON.stringify({
-        active_user_id: userId,
-        stale_after_seconds: ACTIVE_EDITOR_STALE_SECONDS,
-        active_username: username,
-      }),
-    });
-    if (!res.ok) throw new Error(`Failed to update active editor presence (${res.status})`);
-    const count = await res.json() as number | null;
-    return typeof count === 'number' ? count : 0;
-  } catch {
-    return 0;
-  }
+function normalizeActivePresence(payload: unknown): ActiveEditorPresence {
+  const count = payload && typeof payload === 'object' && typeof (payload as { count?: unknown }).count === 'number'
+    ? Math.max(0, (payload as { count: number }).count)
+    : 0;
+  const users = normalizeActiveUsers(payload);
+  const usernames = Array.from(new Set([
+    ...normalizeActiveUsernames(payload),
+    ...users.map(user => user.username ?? '').filter(Boolean),
+  ]));
+  return {
+    count: Math.max(count, users.length),
+    users,
+    usernames,
+  };
 }
 
-export async function fetchActiveEditorUserCount(): Promise<number> {
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_active_creator_user_count`, {
-      method: 'POST',
-      headers: sbHeaders(),
-      body: JSON.stringify({
-        stale_after_seconds: ACTIVE_EDITOR_STALE_SECONDS,
-      }),
-    });
-    if (!res.ok) throw new Error(`Failed to fetch active editor users (${res.status})`);
-    const count = await res.json() as number | null;
-    return typeof count === 'number' ? count : 0;
-  } catch {
-    return 0;
-  }
-}
-
-export async function fetchActiveEditorUsers(): Promise<ActiveEditorUser[]> {
-  try {
-    const payload = await fetchFromApi<unknown>('/api/active-users');
-    const apiUsers = normalizeActiveUsers(payload);
-    if (apiUsers.length > 0) return apiUsers;
-  } catch {
-    // Fall through to direct RPC fallback.
-  }
-
+async function fetchActiveEditorUsersFromRpc(): Promise<ActiveEditorUser[]> {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_active_creator_users`, {
       method: 'POST',
@@ -815,8 +803,89 @@ export async function fetchActiveEditorUsers(): Promise<ActiveEditorUser[]> {
       lastSeenAt: row.last_seen_at,
     })));
   } catch {
-    return fetchActiveEditorUsersFromTable();
+    return [];
   }
+}
+
+export async function fetchActiveEditorPresence(): Promise<ActiveEditorPresence> {
+  try {
+    const payload = await fetchFromApi<unknown>('/api/active-users');
+    const presence = normalizeActivePresence(payload);
+    if (presence.count > 0 || presence.users.length > 0) return presence;
+  } catch {
+    // Fall through to direct Supabase reads.
+  }
+
+  const rpcUsers = await fetchActiveEditorUsersFromRpc();
+  if (rpcUsers.length > 0) {
+    return {
+      count: rpcUsers.length,
+      users: rpcUsers,
+      usernames: rpcUsers.map(user => user.username ?? '').filter(Boolean),
+    };
+  }
+
+  const tableUsers = await fetchActiveEditorUsersFromTable();
+  return {
+    count: tableUsers.length,
+    users: tableUsers,
+    usernames: tableUsers.map(user => user.username ?? '').filter(Boolean),
+  };
+}
+
+export async function touchActiveEditorUser(): Promise<ActiveEditorPresence> {
+  if (typeof window === 'undefined') return { count: 0, users: [], usernames: [] };
+  const userId = getActiveEditorPresenceUserId();
+  const username = getStoredUsername();
+
+  // Prefer the API so presence persists even when the browser can't reach
+  // Supabase directly (CORS, RLS, or missing RPC in self-hosted setups).
+  try {
+    const payload = await fetchFromApi<unknown>('/api/active-users/touch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, username }),
+    });
+    const presence = normalizeActivePresence(payload);
+    if (presence.count > 0 || presence.users.length > 0) return presence;
+  } catch {
+    // Fall through to direct Supabase RPC fallback.
+  }
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/touch_creator_active_user`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({
+        active_user_id: userId,
+        stale_after_seconds: ACTIVE_EDITOR_STALE_SECONDS,
+        active_username: username,
+      }),
+    });
+    if (!res.ok) throw new Error(`Failed to update active editor presence (${res.status})`);
+    const count = await res.json() as number | null;
+    const presence = await fetchActiveEditorPresence();
+    return { ...presence, count: Math.max(typeof count === 'number' ? count : 0, presence.count) };
+  } catch {
+    return { count: 0, users: [], usernames: [] };
+  }
+}
+
+export async function fetchActiveEditorUserCount(): Promise<number> {
+  return (await fetchActiveEditorPresence()).count;
+}
+
+export async function fetchActiveEditorUsers(): Promise<ActiveEditorUser[]> {
+  try {
+    const payload = await fetchFromApi<unknown>('/api/active-users');
+    const apiUsers = normalizeActiveUsers(payload);
+    if (apiUsers.length > 0) return apiUsers;
+  } catch {
+    // Fall through to direct RPC fallback.
+  }
+
+  const rpcUsers = await fetchActiveEditorUsersFromRpc();
+  return rpcUsers.length > 0 ? rpcUsers : fetchActiveEditorUsersFromTable();
 }
 
 function normalizeActiveUsers(payload: unknown): ActiveEditorUser[] {
@@ -987,6 +1056,123 @@ function normalizeRecentVisitors(payload: unknown): RecentVisitor[] {
     .slice(0, 10);
 }
 
+function isBugReportStatus(value: unknown): value is Exclude<BugReportStatus, 'all'> {
+  return value === 'open' || value === 'closed' || value === 'fixed';
+}
+
+function normalizeBugReport(row: Record<string, unknown>): EditorBugReport | null {
+  const id = typeof row.id === 'string' ? row.id : '';
+  if (!id) return null;
+  return {
+    id,
+    subject: typeof row.subject === 'string' ? row.subject : '',
+    message: typeof row.message === 'string' ? row.message : '',
+    author_username: typeof row.author_username === 'string' ? row.author_username : null,
+    author_publisher_id: typeof row.author_publisher_id === 'string' ? row.author_publisher_id : null,
+    status: isBugReportStatus(row.status) ? row.status : 'open',
+    admin_reply: typeof row.admin_reply === 'string' ? row.admin_reply : '',
+    admin_publisher_id: typeof row.admin_publisher_id === 'string' ? row.admin_publisher_id : null,
+    admin_username: typeof row.admin_username === 'string' ? row.admin_username : null,
+    metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata as Record<string, unknown> : {},
+    created_at: typeof row.created_at === 'string' ? row.created_at : '',
+    updated_at: typeof row.updated_at === 'string' ? row.updated_at : '',
+  };
+}
+
+function normalizeBugReportsResponse(payload: unknown): BugReportsResponse {
+  const records = payload && typeof payload === 'object' && Array.isArray((payload as { reports?: unknown }).reports)
+    ? (payload as { reports: unknown[] }).reports
+    : Array.isArray(payload)
+      ? payload
+      : [];
+  const reports = records
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object')
+    .map(normalizeBugReport)
+    .filter((report): report is EditorBugReport => Boolean(report));
+  const viewerCanAdmin = Boolean(payload && typeof payload === 'object' && (payload as { viewer_can_admin?: unknown }).viewer_can_admin);
+  return { reports, viewer_can_admin: viewerCanAdmin };
+}
+
+export async function fetchBugReports(status: BugReportStatus = 'all', viewerPublisherId = getPublisherId()): Promise<BugReportsResponse> {
+  const normalizedStatus = isBugReportStatus(status) ? status : 'all';
+  const query = new URLSearchParams({
+    status: normalizedStatus,
+    viewer_publisher_id: viewerPublisherId,
+  });
+
+  try {
+    return normalizeBugReportsResponse(await fetchFromApi<unknown>(`/api/bug-reports?${query}`));
+  } catch {
+    const params = new URLSearchParams({
+      select: 'id,subject,message,author_username,author_publisher_id,status,admin_reply,admin_publisher_id,admin_username,metadata,created_at,updated_at',
+      order: 'updated_at.desc',
+      limit: '100',
+    });
+    if (normalizedStatus !== 'all') params.set('status', `eq.${normalizedStatus}`);
+    try {
+      const res = await fetch(`${sbEndpoint(BUG_REPORTS_TABLE)}?${params}`, { headers: sbHeaders() });
+      if (!res.ok) throw new Error(await readErrorMessage(res));
+      return normalizeBugReportsResponse(await res.json());
+    } catch {
+      return { reports: [], viewer_can_admin: false };
+    }
+  }
+}
+
+export async function submitBugReport(payload: {
+  subject: string;
+  message: string;
+  author_username?: string | null;
+  author_publisher_id?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<EditorBugReport | null> {
+  try {
+    const response = await fetchFromApi<{ report?: unknown }>('/api/bug-reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return response.report && typeof response.report === 'object'
+      ? normalizeBugReport(response.report as Record<string, unknown>)
+      : null;
+  } catch {
+    const body = {
+      subject: payload.subject.trim().slice(0, 120),
+      message: payload.message.trim().slice(0, 2500),
+      author_username: payload.author_username?.trim() || null,
+      author_publisher_id: payload.author_publisher_id?.trim() || null,
+      metadata: payload.metadata ?? {},
+    };
+    const res = await fetch(sbEndpoint(BUG_REPORTS_TABLE), {
+      method: 'POST',
+      headers: { ...sbHeaders(), Prefer: 'return=representation' },
+      body: JSON.stringify([body]),
+    });
+    if (!res.ok) throw new Error(await readErrorMessage(res));
+    const rows = await res.json() as Array<Record<string, unknown>>;
+    return rows[0] ? normalizeBugReport(rows[0]) : null;
+  }
+}
+
+export async function updateBugReportAdmin(
+  reportId: string,
+  payload: {
+    publisher_id: string;
+    username?: string | null;
+    status: Exclude<BugReportStatus, 'all'>;
+    admin_reply: string;
+  },
+): Promise<EditorBugReport | null> {
+  const response = await fetchFromApi<{ report?: unknown }>(`/api/bug-reports/${encodeURIComponent(reportId)}/admin`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return response.report && typeof response.report === 'object'
+    ? normalizeBugReport(response.report as Record<string, unknown>)
+    : null;
+}
+
 function normalizeActiveUsernames(payload: unknown): string[] {
   const entries = Array.isArray(payload)
     ? payload
@@ -1037,15 +1223,15 @@ export async function fetchActiveEditorUsernames(): Promise<string[]> {
   }
 }
 
-export function startActiveEditorPresenceTracking(onUpdate: (count: number) => void): () => void {
+export function startActiveEditorPresenceTracking(onUpdate: (presence: ActiveEditorPresence) => void): () => void {
   if (typeof window === 'undefined') return () => {};
 
   let stopped = false;
   let timer: number | null = null;
 
   const ping = async (): Promise<void> => {
-    const count = await touchActiveEditorUser();
-    if (!stopped) onUpdate(count);
+    const presence = await touchActiveEditorUser();
+    if (!stopped) onUpdate(presence);
   };
 
   void ping();

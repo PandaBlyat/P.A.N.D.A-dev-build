@@ -25,6 +25,7 @@ import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 import { openSharePanel } from './SharePanel';
 import { openHelpModal } from './HelpModal';
 import { openSupportPanel } from './SupportPanel';
+import { openBugReportsPanel } from './BugReportsPanel';
 import { clearDraft } from '../lib/draft-storage';
 import { createEmptyProject } from '../lib/xml-export';
 
@@ -886,6 +887,7 @@ function renderMobileMoreActions(body: HTMLElement): void {
     createMobileSheetAction('undo', 'Undo', () => store.undo(), state.undoStack.length === 0),
     createMobileSheetAction('redo', 'Redo', () => store.redo(), state.redoStack.length === 0),
     createMobileSheetAction('share', 'Community', () => { closeMobileSheet(); openSharePanel(); }),
+    createMobileSheetAction('bug', 'Reports', () => { closeMobileSheet(); openBugReportsPanel(); }),
     createMobileSheetAction('support', 'Support', () => { closeMobileSheet(); openSupportPanel(); }),
     createMobileSheetAction('help', 'Help', () => { closeMobileSheet(); openHelpModal(); }),
     createMobileSheetAction('eye', state.advancedMode ? 'Advanced On' : 'Author Mode', () => store.toggleAdvancedMode()),

@@ -14,7 +14,14 @@ const ACTIVE_USERS_TABLE = 'creator_active_users';
 const PROFILES_TABLE = 'user_profiles';
 const STREAKS_TABLE = 'user_streaks';
 const MISSIONS_TABLE = 'user_mission_progress';
+const BUG_REPORTS_TABLE = 'editor_bug_reports';
 const SUPPORT_ROW_ID = 'global';
+const ADMIN_PUBLISHER_IDS = new Set(
+  (process.env.ADMIN_PUBLISHER_IDS ?? '')
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean),
+);
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
 const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'upvotes', 'updated_at', 'publisher_id'] as const;
 
@@ -50,6 +57,23 @@ type PublicProfileData = {
   profile: Record<string, unknown>;
   publish_count: number;
   authored_conversations: ReturnType<typeof normalizeConversationRow>[];
+};
+
+type BugReportStatus = 'open' | 'closed' | 'fixed';
+
+type EditorBugReport = {
+  id: string;
+  subject: string;
+  message: string;
+  author_username: string | null;
+  author_publisher_id: string | null;
+  status: BugReportStatus;
+  admin_reply: string;
+  admin_publisher_id: string | null;
+  admin_username: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
 };
 
 type MissionSlot = 'daily_easy' | 'daily_medium' | 'daily_hard' | 'weekly';
@@ -235,6 +259,35 @@ async function fetchPublisherIdsByUsername(usernames: string[]): Promise<Map<str
     if (username && publisherId) ids.set(username, publisherId);
   }
   return ids;
+}
+
+function isBugReportStatus(value: unknown): value is BugReportStatus {
+  return value === 'open' || value === 'closed' || value === 'fixed';
+}
+
+function isAdminPublisherId(value: unknown): boolean {
+  return typeof value === 'string' && ADMIN_PUBLISHER_IDS.has(value.trim());
+}
+
+function normalizeBugReport(row: Record<string, unknown>): EditorBugReport {
+  return {
+    id: typeof row.id === 'string' ? row.id : '',
+    subject: typeof row.subject === 'string' ? row.subject : '',
+    message: typeof row.message === 'string' ? row.message : '',
+    author_username: typeof row.author_username === 'string' ? row.author_username : null,
+    author_publisher_id: typeof row.author_publisher_id === 'string' ? row.author_publisher_id : null,
+    status: isBugReportStatus(row.status) ? row.status : 'open',
+    admin_reply: typeof row.admin_reply === 'string' ? row.admin_reply : '',
+    admin_publisher_id: typeof row.admin_publisher_id === 'string' ? row.admin_publisher_id : null,
+    admin_username: typeof row.admin_username === 'string' ? row.admin_username : null,
+    metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata as Record<string, unknown> : {},
+    created_at: typeof row.created_at === 'string' ? row.created_at : '',
+    updated_at: typeof row.updated_at === 'string' ? row.updated_at : '',
+  };
+}
+
+function sanitizeBugReportText(value: unknown, maxLength: number): string {
+  return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
 }
 
 function createCommunityMission(slot: MissionSlot, goal: number, xp: number, type: MissionEventType): MissionDefinition {
@@ -569,25 +622,59 @@ type ActiveUserRow = {
   last_seen_at: string;
 };
 
-async function fetchActiveUsersFromTable(): Promise<ActiveUserRow[]> {
-  const cutoff = new Date(Date.now() - ACTIVE_USER_STALE_SECONDS * 1000).toISOString();
-  const params = new URLSearchParams({
-    select: 'user_id,username,last_seen_at',
-    last_seen_at: `gte.${cutoff}`,
-    order: 'last_seen_at.desc',
-    limit: '100',
-  });
-  const response = await fetch(`${sbEndpoint(ACTIVE_USERS_TABLE)}?${params}`, { headers: sbHeaders() });
-  if (!response.ok) return [];
-  const rows = await response.json() as Array<Record<string, unknown>>;
-  if (!Array.isArray(rows)) return [];
+type ActiveUsersPayload = {
+  count: number;
+  users: Array<ActiveUserRow & { publisher_id?: string }>;
+  usernames: string[];
+};
+
+function normalizeActiveUserRows(rows: Array<Record<string, unknown>>, includeUsername: boolean): ActiveUserRow[] {
   return rows
     .map((row) => ({
       user_id: typeof row.user_id === 'string' ? row.user_id : '',
-      username: typeof row.username === 'string' && row.username.trim() ? row.username.trim() : null,
+      username: includeUsername && typeof row.username === 'string' && row.username.trim() ? row.username.trim() : null,
       last_seen_at: typeof row.last_seen_at === 'string' ? row.last_seen_at : '',
     }))
     .filter((row) => row.user_id);
+}
+
+function sortActiveUsers(users: ActiveUserRow[]): ActiveUserRow[] {
+  return [...users].sort((a, b) => {
+    const aName = a.username?.toLowerCase() ?? '';
+    const bName = b.username?.toLowerCase() ?? '';
+    if (aName && bName && aName !== bName) return aName.localeCompare(bName);
+    if (aName && !bName) return -1;
+    if (!aName && bName) return 1;
+    return (b.last_seen_at || '').localeCompare(a.last_seen_at || '');
+  });
+}
+
+async function fetchActiveUsersFromTable(): Promise<ActiveUserRow[]> {
+  const cutoff = new Date(Date.now() - ACTIVE_USER_STALE_SECONDS * 1000).toISOString();
+  const baseParams = {
+    last_seen_at: `gte.${cutoff}`,
+    order: 'last_seen_at.desc',
+    limit: '100',
+  };
+
+  const params = new URLSearchParams({
+    ...baseParams,
+    select: 'user_id,username,last_seen_at',
+  });
+  const response = await fetch(`${sbEndpoint(ACTIVE_USERS_TABLE)}?${params}`, { headers: sbHeaders() });
+  if (response.ok) {
+    const rows = await response.json() as Array<Record<string, unknown>>;
+    return Array.isArray(rows) ? normalizeActiveUserRows(rows, true) : [];
+  }
+
+  const fallbackParams = new URLSearchParams({
+    ...baseParams,
+    select: 'user_id,last_seen_at',
+  });
+  const fallbackResponse = await fetch(`${sbEndpoint(ACTIVE_USERS_TABLE)}?${fallbackParams}`, { headers: sbHeaders() });
+  if (!fallbackResponse.ok) return [];
+  const fallbackRows = await fallbackResponse.json() as Array<Record<string, unknown>>;
+  return Array.isArray(fallbackRows) ? normalizeActiveUserRows(fallbackRows, false) : [];
 }
 
 async function fetchActiveUsersFromRpc(): Promise<ActiveUserRow[] | null> {
@@ -600,69 +687,72 @@ async function fetchActiveUsersFromRpc(): Promise<ActiveUserRow[] | null> {
     if (!response.ok) return null;
     const rows = await response.json() as Array<Record<string, unknown>>;
     if (!Array.isArray(rows)) return null;
-    return rows
-      .map((row) => ({
-        user_id: typeof row.user_id === 'string' ? row.user_id : '',
-        username: typeof row.username === 'string' && row.username.trim() ? row.username.trim() : null,
-        last_seen_at: typeof row.last_seen_at === 'string' ? row.last_seen_at : '',
-      }))
-      .filter((row) => row.user_id);
+    return normalizeActiveUserRows(rows, true);
   } catch {
     return null;
   }
 }
 
+async function buildActiveUsersPayload(): Promise<ActiveUsersPayload> {
+  const [tableRows, rpcRows] = await Promise.all([
+    fetchActiveUsersFromTable().catch((): ActiveUserRow[] => []),
+    fetchActiveUsersFromRpc(),
+  ]);
+
+  const combined = new Map<string, ActiveUserRow>();
+  for (const source of [rpcRows ?? [], tableRows]) {
+    for (const row of source) {
+      if (!row.user_id) continue;
+      const existing = combined.get(row.user_id);
+      if (!existing || (row.last_seen_at && row.last_seen_at > existing.last_seen_at)) {
+        combined.set(row.user_id, row);
+      } else if (row.username && !existing.username) {
+        combined.set(row.user_id, { ...existing, username: row.username });
+      }
+    }
+  }
+
+  let users = sortActiveUsers(Array.from(combined.values()));
+
+  if (users.length === 0) {
+    const fallback = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_active_creator_usernames`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ stale_after_seconds: ACTIVE_USER_STALE_SECONDS }),
+    }).catch(() => null);
+    if (fallback?.ok) {
+      const fallbackPayload = await fallback.json().catch(() => null) as unknown;
+      const usernames = normalizeActiveUsernamePayload(fallbackPayload);
+      users = usernames.map(username => ({
+        user_id: `username:${username.toLowerCase()}`,
+        username,
+        last_seen_at: '',
+      }));
+    }
+  }
+
+  const profileIds = await fetchPublisherIdsByUsername(users.map(user => user.username ?? '')).catch(() => new Map<string, string>());
+  const enrichedUsers = users.map(user => {
+    const publisherId = user.username ? profileIds.get(user.username.toLowerCase()) : null;
+    return publisherId ? { ...user, publisher_id: publisherId } : user;
+  });
+
+  return {
+    count: enrichedUsers.length,
+    users: enrichedUsers,
+    usernames: enrichedUsers.map(user => user.username).filter((username): username is string => Boolean(username)),
+  };
+}
+
+    res.json(await buildActiveUsersPayload());
+  } catch {
+    res.json({ count: 0, users: [], usernames: [] });
+  }
+});
+
 app.get('/api/active-users', async (_req, res) => {
   try {
-    // Prefer direct table read — it works even if the RPC helper hasn't been
-    // migrated yet. Merge with the RPC result when both respond so presence
-    // survives schema drift.
-    const [tableRows, rpcRows] = await Promise.all([
-      fetchActiveUsersFromTable().catch((): ActiveUserRow[] => []),
-      fetchActiveUsersFromRpc(),
-    ]);
-
-    const combined = new Map<string, ActiveUserRow>();
-    for (const source of [rpcRows ?? [], tableRows]) {
-      for (const row of source) {
-        if (!row.user_id) continue;
-        const existing = combined.get(row.user_id);
-        if (!existing || (row.last_seen_at && row.last_seen_at > existing.last_seen_at)) {
-          combined.set(row.user_id, row);
-        }
-      }
-    }
-
-    let users = Array.from(combined.values());
-
-    if (users.length === 0) {
-      const fallback = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_active_creator_usernames`, {
-        method: 'POST',
-        headers: sbHeaders(),
-        body: JSON.stringify({ stale_after_seconds: ACTIVE_USER_STALE_SECONDS }),
-      }).catch(() => null);
-      if (fallback?.ok) {
-        const fallbackPayload = await fallback.json().catch(() => null) as unknown;
-        const usernames = normalizeActiveUsernamePayload(fallbackPayload);
-        users = usernames.map(username => ({
-          user_id: `username:${username.toLowerCase()}`,
-          username,
-          last_seen_at: '',
-        }));
-      }
-    }
-
-    const profileIds = await fetchPublisherIdsByUsername(users.map(user => user.username ?? '')).catch(() => new Map<string, string>());
-    const enrichedUsers = users.map(user => {
-      const publisherId = user.username ? profileIds.get(user.username.toLowerCase()) : null;
-      return publisherId ? { ...user, publisher_id: publisherId } : user;
-    });
-
-    res.json({
-      count: enrichedUsers.length,
-      users: enrichedUsers,
-      usernames: enrichedUsers.map(user => user.username).filter(Boolean),
-    });
+    res.json(await buildActiveUsersPayload());
   } catch {
     res.json({ count: 0, users: [], usernames: [] });
   }
@@ -694,8 +784,6 @@ app.post('/api/active-users/touch', async (req, res) => {
       const count = await rpc.json().catch(() => 0);
       if (typeof count === 'number') activeCount = count;
     } else {
-      // RPC missing or errored — fall back to a raw upsert so other clients can
-      // still see the user as active.
       const nowIso = new Date().toISOString();
       await fetch(sbEndpoint(ACTIVE_USERS_TABLE), {
         method: 'POST',
@@ -704,7 +792,7 @@ app.post('/api/active-users/touch', async (req, res) => {
       }).catch(() => undefined);
     }
   } catch {
-    // Swallow — presence is best-effort.
+    // Presence is best-effort.
   }
 
   if (activeCount === 0) {
@@ -712,7 +800,12 @@ app.post('/api/active-users/touch', async (req, res) => {
     activeCount = tableRows.length;
   }
 
-  res.json({ count: activeCount });
+  try {
+    const payload = await buildActiveUsersPayload();
+    res.json({ ...payload, count: Math.max(activeCount, payload.count) });
+  } catch {
+    res.json({ count: activeCount, users: [], usernames: [] });
+  }
 });
 
 app.post('/api/conversations', async (req, res) => {
@@ -998,6 +1091,116 @@ app.post('/api/visitor', async (_req, res) => {
 });
 
 // ─── User Profiles & Gamification ────────────────────────────────────────
+
+app.get('/api/bug-reports', async (req, res) => {
+  try {
+    const rawStatus = typeof req.query.status === 'string' ? req.query.status : 'all';
+    const status = isBugReportStatus(rawStatus) ? rawStatus : 'all';
+    const viewerPublisherId = typeof req.query.viewer_publisher_id === 'string' ? req.query.viewer_publisher_id : '';
+    const params = new URLSearchParams({
+      select: 'id,subject,message,author_username,author_publisher_id,status,admin_reply,admin_publisher_id,admin_username,metadata,created_at,updated_at',
+      order: 'updated_at.desc',
+      limit: '100',
+    });
+    if (status !== 'all') params.set('status', `eq.${status}`);
+
+    const response = await fetch(`${sbEndpoint(BUG_REPORTS_TABLE)}?${params}`, { headers: sbHeaders() });
+    if (!response.ok) {
+      res.status(response.status).json({ error: await readErrorMessage(response) });
+      return;
+    }
+
+    const rows = await response.json() as Array<Record<string, unknown>>;
+    res.json({
+      reports: Array.isArray(rows) ? rows.map(normalizeBugReport).filter(report => report.id) : [],
+      viewer_can_admin: isAdminPublisherId(viewerPublisherId),
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/bug-reports', async (req, res) => {
+  try {
+    const body = req.body ?? {};
+    const subject = sanitizeBugReportText(body.subject, 120);
+    const message = sanitizeBugReportText(body.message, 2500);
+    if (!subject || !message) {
+      res.status(400).json({ error: 'Missing required fields: subject, message' });
+      return;
+    }
+
+    const payload = {
+      subject,
+      message,
+      author_username: sanitizeBugReportText(body.author_username, 40) || null,
+      author_publisher_id: sanitizeBugReportText(body.author_publisher_id, 120) || null,
+      metadata: body.metadata && typeof body.metadata === 'object' ? body.metadata : {},
+    };
+
+    const response = await fetch(sbEndpoint(BUG_REPORTS_TABLE), {
+      method: 'POST',
+      headers: { ...sbHeaders(), Prefer: 'return=representation' },
+      body: JSON.stringify([payload]),
+    });
+    if (!response.ok) {
+      res.status(response.status).json({ error: await readErrorMessage(response) });
+      return;
+    }
+
+    const rows = await response.json() as Array<Record<string, unknown>>;
+    res.json({ report: rows[0] ? normalizeBugReport(rows[0]) : null });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.patch('/api/bug-reports/:id/admin', async (req, res) => {
+  try {
+    const reportId = req.params.id.trim();
+    const body = req.body ?? {};
+    const adminPublisherId = sanitizeBugReportText(body.publisher_id, 120);
+    const adminUsername = sanitizeBugReportText(body.username, 40) || null;
+    const status = isBugReportStatus(body.status) ? body.status : null;
+    const adminReply = sanitizeBugReportText(body.admin_reply, 2500);
+
+    if (!reportId) {
+      res.status(400).json({ error: 'Missing report id.' });
+      return;
+    }
+
+    if (!isAdminPublisherId(adminPublisherId)) {
+      res.status(403).json({ error: 'Admin publisher id is not allowed.' });
+      return;
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      admin_publisher_id: adminPublisherId,
+      admin_username: adminUsername,
+      admin_reply: adminReply,
+    };
+    if (status) updatePayload.status = status;
+
+    const params = new URLSearchParams({
+      id: `eq.${reportId}`,
+      select: 'id,subject,message,author_username,author_publisher_id,status,admin_reply,admin_publisher_id,admin_username,metadata,created_at,updated_at',
+    });
+    const response = await fetch(`${sbEndpoint(BUG_REPORTS_TABLE)}?${params}`, {
+      method: 'PATCH',
+      headers: { ...sbHeaders(), Prefer: 'return=representation' },
+      body: JSON.stringify(updatePayload),
+    });
+    if (!response.ok) {
+      res.status(response.status).json({ error: await readErrorMessage(response) });
+      return;
+    }
+
+    const rows = await response.json() as Array<Record<string, unknown>>;
+    res.json({ report: rows[0] ? normalizeBugReport(rows[0]) : null });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
 
 app.post('/api/profile/register', async (req, res) => {
   try {

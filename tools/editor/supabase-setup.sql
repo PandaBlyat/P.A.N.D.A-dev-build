@@ -938,3 +938,122 @@ BEGIN
     ORDER BY u.username ASC;
 END;
 $$;
+
+-- Editor bug reports / complaints
+CREATE TABLE IF NOT EXISTS editor_bug_reports (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  subject TEXT NOT NULL,
+  message TEXT NOT NULL,
+  author_username TEXT,
+  author_publisher_id TEXT,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed', 'fixed')),
+  admin_reply TEXT NOT NULL DEFAULT '',
+  admin_publisher_id TEXT,
+  admin_username TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE editor_bug_reports
+  ADD COLUMN IF NOT EXISTS subject TEXT,
+  ADD COLUMN IF NOT EXISTS message TEXT,
+  ADD COLUMN IF NOT EXISTS author_username TEXT,
+  ADD COLUMN IF NOT EXISTS author_publisher_id TEXT,
+  ADD COLUMN IF NOT EXISTS status TEXT,
+  ADD COLUMN IF NOT EXISTS admin_reply TEXT,
+  ADD COLUMN IF NOT EXISTS admin_publisher_id TEXT,
+  ADD COLUMN IF NOT EXISTS admin_username TEXT,
+  ADD COLUMN IF NOT EXISTS metadata JSONB,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+
+ALTER TABLE editor_bug_reports
+  ALTER COLUMN status SET DEFAULT 'open',
+  ALTER COLUMN admin_reply SET DEFAULT '',
+  ALTER COLUMN metadata SET DEFAULT '{}'::jsonb,
+  ALTER COLUMN created_at SET DEFAULT now(),
+  ALTER COLUMN updated_at SET DEFAULT now();
+
+UPDATE editor_bug_reports
+SET
+  subject = coalesce(subject, ''),
+  message = coalesce(message, ''),
+  status = CASE WHEN status IN ('open', 'closed', 'fixed') THEN status ELSE 'open' END,
+  admin_reply = coalesce(admin_reply, ''),
+  metadata = coalesce(metadata, '{}'::jsonb),
+  created_at = coalesce(created_at, now()),
+  updated_at = coalesce(updated_at, created_at, now());
+
+ALTER TABLE editor_bug_reports
+  ALTER COLUMN subject SET NOT NULL,
+  ALTER COLUMN message SET NOT NULL,
+  ALTER COLUMN status SET NOT NULL,
+  ALTER COLUMN admin_reply SET NOT NULL,
+  ALTER COLUMN metadata SET NOT NULL,
+  ALTER COLUMN created_at SET NOT NULL,
+  ALTER COLUMN updated_at SET NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'editor_bug_reports_status_check'
+  ) THEN
+    ALTER TABLE editor_bug_reports
+      ADD CONSTRAINT editor_bug_reports_status_check
+      CHECK (status IN ('open', 'closed', 'fixed'));
+  END IF;
+END;
+$$;
+
+CREATE INDEX IF NOT EXISTS idx_editor_bug_reports_status ON editor_bug_reports (status);
+CREATE INDEX IF NOT EXISTS idx_editor_bug_reports_created ON editor_bug_reports (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_editor_bug_reports_updated ON editor_bug_reports (updated_at DESC);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'trg_editor_bug_reports_updated_at'
+  ) THEN
+    CREATE TRIGGER trg_editor_bug_reports_updated_at
+    BEFORE UPDATE ON editor_bug_reports
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at_timestamp();
+  END IF;
+END;
+$$;
+
+ALTER TABLE editor_bug_reports ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'editor_bug_reports'
+      AND policyname = 'Public bug report read'
+  ) THEN
+    CREATE POLICY "Public bug report read"
+      ON editor_bug_reports FOR SELECT
+      USING (true);
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'editor_bug_reports'
+      AND policyname = 'Public bug report insert'
+  ) THEN
+    CREATE POLICY "Public bug report insert"
+      ON editor_bug_reports FOR INSERT
+      WITH CHECK (true);
+  END IF;
+END;
+$$;

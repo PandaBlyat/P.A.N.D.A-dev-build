@@ -1115,6 +1115,7 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
   const filterButtons: HTMLButtonElement[] = [];
 
   for (const f of filters) {
+    if (f.id !== 'all' && f.count === 0) continue;
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `profile-achievements-filter-chip${f.tone === 'accent' ? ' is-accent' : ''}${f.tone === 'muted' ? ' is-muted' : ''}`;
@@ -1214,7 +1215,7 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
     categoryHeader.appendChild(categoryTitle);
     categorySummary.append(categoryHeader, categoryStatus);
     categoryDetails.appendChild(categorySummary);
-    categoryDetails.open = unlockedCount > 0;
+    categoryDetails.open = true;
 
     const grid = document.createElement('div');
     grid.className = 'profile-popover-achievement-grid profile-achievement-category-rail';

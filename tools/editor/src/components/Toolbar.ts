@@ -7,6 +7,7 @@ import { exportProjectJson, exportXml, importFromXml, importFromJson } from '../
 import { openSharePanel } from './SharePanel';
 import { openHelpModal } from './HelpModal';
 import { openSupportPanel } from './SupportPanel';
+import { openBugReportsPanel } from './BugReportsPanel';
 import { createIcon, setButtonContent, type IconName } from './icons';
 import { clearDraft } from '../lib/draft-storage';
 import { createEmptyProject } from '../lib/xml-export';
@@ -120,6 +121,9 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     icon: null,
   });
   setBeginnerTooltip(helpBtn, 'toolbar-help');
+  const reportsBtn = btn('bug', 'Reports', openBugReportsPanel, 'Report editor bugs or read existing reports', {
+    classes: ['toolbar-report-trigger'],
+  });
   const loginAction = getLoginAction();
   const loginBtn = loginAction
     ? btn('user', 'Log In', loginAction, 'Log in or create a callsign to track your XP and level in the Zone.', {
@@ -143,7 +147,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
 
     const projectGroup = document.createElement('div');
     projectGroup.className = 'toolbar-group toolbar-group-project';
-    projectGroup.append(openBtn, importBtn, saveBtn, exportXmlBtn, communityBtn, helpBtn);
+    projectGroup.append(openBtn, importBtn, saveBtn, exportXmlBtn, communityBtn, reportsBtn, helpBtn);
     centerZone.appendChild(projectGroup);
 
     const rightZone = document.createElement('div');
@@ -221,6 +225,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     rightZone.append(status, supportBtn);
 
     rightZone.appendChild(createOverflowMenu('More', [
+      { icon: 'bug', label: 'Reports', title: reportsBtn.title, onclick: openBugReportsPanel },
       { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
       { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },
     ]));
@@ -267,11 +272,13 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     projectOverflowActions.push(
       { icon: 'import', label: 'Import XML', title: importBtn.title, onclick: importFromXml },
       { icon: 'share', label: 'Community', title: communityBtn.title, onclick: openSharePanel },
+      { icon: 'bug', label: 'Reports', title: reportsBtn.title, onclick: openBugReportsPanel },
     );
 
     fileGroup.appendChild(openBtn);
     fileGroup.appendChild(saveBtn);
     fileGroup.appendChild(exportXmlBtn);
+    fileGroup.appendChild(reportsBtn);
     fileGroup.appendChild(helpBtn);
     fileGroup.appendChild(createOverflowMenu('More', projectOverflowActions));
   } else {
@@ -282,6 +289,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     fileGroup.appendChild(exportXmlBtn);
     fileGroup.appendChild(sep());
     fileGroup.appendChild(communityBtn);
+    fileGroup.appendChild(reportsBtn);
     fileGroup.appendChild(helpBtn);
   }
 
