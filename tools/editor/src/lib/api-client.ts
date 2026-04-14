@@ -112,6 +112,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 const TABLE = 'community_conversations';
 const SUPPORT_TABLE = 'creator_support_metrics';
+const ACTIVE_USERS_TABLE = 'creator_active_users';
 const STREAKS_TABLE = 'user_streaks';
 const MISSIONS_TABLE = 'user_mission_progress';
 const SUPPORT_ROW_ID = 'global';
@@ -716,10 +717,23 @@ export type ActiveEditorUser = {
   userId: string;
   username: string | null;
   lastSeenAt: string;
+  publisherId?: string | null;
+};
+
+export type RecentVisitor = {
+  userId: string;
+  username: string | null;
+  lastSeenAt: string;
+  firstSeenAt: string;
+  publisherId?: string | null;
 };
 
 export function getActiveEditorLocalUserId(): string {
-  return getOrCreateActiveEditorUserId();
+  return getActiveEditorPresenceUserId();
+}
+
+function getActiveEditorPresenceUserId(): string {
+  return getStoredUsername() ? getPublisherId() : getOrCreateActiveEditorUserId();
 }
 
 export async function touchActiveEditorUser(): Promise<number> {
@@ -729,7 +743,7 @@ export async function touchActiveEditorUser(): Promise<number> {
       method: 'POST',
       headers: sbHeaders(),
       body: JSON.stringify({
-        active_user_id: getOrCreateActiveEditorUserId(),
+        active_user_id: getActiveEditorPresenceUserId(),
         stale_after_seconds: ACTIVE_EDITOR_STALE_SECONDS,
         active_username: getStoredUsername(),
       }),
@@ -779,13 +793,13 @@ export async function fetchActiveEditorUsers(): Promise<ActiveEditorUser[]> {
     if (!res.ok) throw new Error(`Failed to fetch active editor users (${res.status})`);
     const rows = await res.json() as Array<{ user_id: string; username: string | null; last_seen_at: string }> | null;
     if (!Array.isArray(rows)) return [];
-    return rows.map(row => ({
+    return enrichActiveUsersWithPublisherIds(rows.map(row => ({
       userId: row.user_id,
       username: row.username?.trim() ? row.username.trim() : null,
       lastSeenAt: row.last_seen_at,
-    }));
+    })));
   } catch {
-    return [];
+    return fetchActiveEditorUsersFromTable();
   }
 }
 
@@ -814,9 +828,18 @@ function normalizeActiveUsers(payload: unknown): ActiveEditorUser[] {
       const rawUserId = record.user_id ?? record.userId ?? record.id;
       const rawUsername = record.username ?? record.usernames ?? record.name;
       const rawLastSeen = record.last_seen_at ?? record.lastSeenAt ?? record.last_seen;
+      const rawPublisherId = record.publisher_id ?? record.publisherId;
       userId = typeof rawUserId === 'string' ? rawUserId.trim() : '';
       username = typeof rawUsername === 'string' && rawUsername.trim() ? rawUsername.trim() : null;
       lastSeenAt = typeof rawLastSeen === 'string' ? rawLastSeen : '';
+      const publisherId = typeof rawPublisherId === 'string' && rawPublisherId.trim() ? rawPublisherId.trim() : null;
+      if (publisherId && !userId) userId = publisherId;
+      if (publisherId) {
+        if (seen.has(userId)) continue;
+        seen.add(userId);
+        users.push({ userId, username, lastSeenAt, publisherId });
+        continue;
+      }
     }
 
     if (!userId && username) userId = `username:${username.toLowerCase()}`;
@@ -827,6 +850,125 @@ function normalizeActiveUsers(payload: unknown): ActiveEditorUser[] {
   }
 
   return users;
+}
+
+async function fetchActiveEditorUsersFromTable(limit = 50): Promise<ActiveEditorUser[]> {
+  try {
+    const cutoff = new Date(Date.now() - ACTIVE_EDITOR_STALE_SECONDS * 1000).toISOString();
+    const params = new URLSearchParams({
+      select: 'user_id,username,last_seen_at,created_at',
+      last_seen_at: `gte.${cutoff}`,
+      order: 'last_seen_at.desc',
+      limit: String(limit),
+    });
+    const res = await fetch(`${sbEndpoint(ACTIVE_USERS_TABLE)}?${params}`, { headers: sbHeaders() });
+    if (!res.ok) return [];
+    const rows = await res.json() as Array<{ user_id: string; username: string | null; last_seen_at: string }> | null;
+    if (!Array.isArray(rows)) return [];
+    return enrichActiveUsersWithPublisherIds(rows.map(row => ({
+      userId: row.user_id,
+      username: row.username?.trim() ? row.username.trim() : null,
+      lastSeenAt: row.last_seen_at,
+    })));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchPublisherIdsByUsername(usernames: string[]): Promise<Map<string, string>> {
+  const names = Array.from(new Set(usernames.map(name => name.trim()).filter(Boolean)));
+  const profileIds = new Map<string, string>();
+  if (names.length === 0) return profileIds;
+
+  try {
+    const params = new URLSearchParams({
+      select: 'publisher_id,username',
+      username: `in.(${names.map(name => `"${name.replace(/"/g, '')}"`).join(',')})`,
+    });
+    const res = await fetch(`${sbEndpoint('user_profiles')}?${params}`, { headers: sbHeaders() });
+    if (!res.ok) return profileIds;
+    const rows = await res.json() as Array<{ publisher_id?: string; username?: string }> | null;
+    if (!Array.isArray(rows)) return profileIds;
+    for (const row of rows) {
+      if (row.username && row.publisher_id) {
+        profileIds.set(row.username.trim().toLowerCase(), row.publisher_id.trim());
+      }
+    }
+  } catch {
+    // Best-effort enrichment only.
+  }
+
+  return profileIds;
+}
+
+async function enrichActiveUsersWithPublisherIds(users: ActiveEditorUser[]): Promise<ActiveEditorUser[]> {
+  const profileIds = await fetchPublisherIdsByUsername(users.map(user => user.username ?? ''));
+  return users.map(user => {
+    const publisherId = user.publisherId ?? (user.username ? profileIds.get(user.username.toLowerCase()) : null);
+    return publisherId ? { ...user, publisherId } : user;
+  });
+}
+
+export async function fetchRecentVisitors(): Promise<RecentVisitor[]> {
+  try {
+    const payload = await fetchFromApi<unknown>('/api/visitors/recent');
+    const visitors = normalizeRecentVisitors(payload);
+    if (visitors.length > 0) return visitors;
+  } catch {
+    // Fall through to direct table read.
+  }
+
+  try {
+    const params = new URLSearchParams({
+      select: 'user_id,username,last_seen_at,created_at',
+      order: 'last_seen_at.desc',
+      limit: '10',
+    });
+    const res = await fetch(`${sbEndpoint(ACTIVE_USERS_TABLE)}?${params}`, { headers: sbHeaders() });
+    if (!res.ok) return [];
+    const rows = await res.json() as Array<{ user_id: string; username: string | null; last_seen_at: string; created_at: string }> | null;
+    const visitors = normalizeRecentVisitors(rows ?? []);
+    const profileIds = await fetchPublisherIdsByUsername(visitors.map(visitor => visitor.username ?? ''));
+    return visitors.map(visitor => {
+      const publisherId = visitor.publisherId ?? (visitor.username ? profileIds.get(visitor.username.toLowerCase()) : null);
+      return publisherId ? { ...visitor, publisherId } : visitor;
+    });
+  } catch {
+    return [];
+  }
+}
+
+function normalizeRecentVisitors(payload: unknown): RecentVisitor[] {
+  const entries = Array.isArray(payload)
+    ? payload
+    : (payload && typeof payload === 'object' && Array.isArray((payload as { visitors?: unknown }).visitors))
+      ? (payload as { visitors: unknown[] }).visitors
+      : [];
+
+  return entries
+    .map((entry): RecentVisitor | null => {
+      if (!entry || typeof entry !== 'object') return null;
+      const record = entry as Record<string, unknown>;
+      const userId = typeof (record.user_id ?? record.userId ?? record.id) === 'string'
+        ? String(record.user_id ?? record.userId ?? record.id).trim()
+        : '';
+      const username = typeof (record.username ?? record.name) === 'string' && String(record.username ?? record.name).trim()
+        ? String(record.username ?? record.name).trim()
+        : null;
+      const lastSeenAt = typeof (record.last_seen_at ?? record.lastSeenAt ?? record.visited_at ?? record.visitedAt) === 'string'
+        ? String(record.last_seen_at ?? record.lastSeenAt ?? record.visited_at ?? record.visitedAt)
+        : '';
+      const firstSeenAt = typeof (record.created_at ?? record.firstSeenAt) === 'string'
+        ? String(record.created_at ?? record.firstSeenAt)
+        : lastSeenAt;
+      const publisherId = typeof (record.publisher_id ?? record.publisherId) === 'string' && String(record.publisher_id ?? record.publisherId).trim()
+        ? String(record.publisher_id ?? record.publisherId).trim()
+        : null;
+      if (!userId && !username) return null;
+      return { userId: userId || `username:${username?.toLowerCase()}`, username, lastSeenAt, firstSeenAt, publisherId };
+    })
+    .filter((visitor): visitor is RecentVisitor => Boolean(visitor))
+    .slice(0, 10);
 }
 
 function normalizeActiveUsernames(payload: unknown): string[] {

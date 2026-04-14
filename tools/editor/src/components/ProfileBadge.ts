@@ -1625,6 +1625,10 @@ async function openPublicProfileOverlay(publisherId: string, trigger: HTMLButton
   }
 }
 
+export async function openPublicProfile(publisherId: string, trigger: HTMLButtonElement, leaderboardRank?: number): Promise<void> {
+  await openPublicProfileOverlay(publisherId, trigger, leaderboardRank);
+}
+
 function closePublicProfileOverlay(): void {
   activePublicProfilePublisherId = null;
   publicProfileFocusTrap?.release();

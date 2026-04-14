@@ -595,7 +595,17 @@ button.toolbar-active-user-counter:active {
   gap: 6px;
 }
 
+.toolbar-visitors-menu {
+  min-width: 250px;
+  max-width: 320px;
+  gap: 6px;
+}
+
 .toolbar-active-users > summary {
+  cursor: pointer;
+}
+
+.toolbar-visitors > summary {
   cursor: pointer;
 }
 
@@ -624,8 +634,44 @@ button.toolbar-active-user-counter:active {
   color: var(--text);
 }
 
+.toolbar-active-users-profile-link {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  white-space: normal;
+  box-shadow: none;
+}
+
+.toolbar-active-users-profile-link:hover,
+.toolbar-active-users-profile-link:focus-visible {
+  color: var(--text-bright);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  transform: none;
+}
+
 .toolbar-active-users-empty {
   color: var(--text-dim);
+}
+
+.toolbar-visitors-item {
+  align-items: flex-start;
+}
+
+.toolbar-visitors-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.toolbar-visitors-time,
+.toolbar-visitors-note {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.toolbar-visitors-note {
+  padding: 2px 4px 0;
+  text-align: center;
 }
 
 .toolbar-overflow[open] .toolbar-overflow-toggle {

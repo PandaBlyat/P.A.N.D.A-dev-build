@@ -10,6 +10,7 @@ const PORT = parseInt(process.env.PORT ?? '3001', 10);
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? 'http://localhost:5173';
 const TABLE = 'community_conversations';
 const SUPPORT_TABLE = 'creator_support_metrics';
+const ACTIVE_USERS_TABLE = 'creator_active_users';
 const PROFILES_TABLE = 'user_profiles';
 const STREAKS_TABLE = 'user_streaks';
 const MISSIONS_TABLE = 'user_mission_progress';
@@ -214,6 +215,26 @@ function normalizeActiveUsernamePayload(payload: unknown): string[] {
       return '';
     })
     .filter(Boolean)));
+}
+
+async function fetchPublisherIdsByUsername(usernames: string[]): Promise<Map<string, string>> {
+  const names = Array.from(new Set(usernames.map(name => name.trim()).filter(Boolean)));
+  const ids = new Map<string, string>();
+  if (names.length === 0) return ids;
+
+  const params = new URLSearchParams({
+    select: 'publisher_id,username',
+    username: `in.(${names.map(name => `"${name.replace(/"/g, '')}"`).join(',')})`,
+  });
+  const response = await fetch(`${sbEndpoint(PROFILES_TABLE)}?${params}`, { headers: sbHeaders() });
+  if (!response.ok) return ids;
+  const rows = await response.json() as Array<{ publisher_id?: string; username?: string }>;
+  for (const row of rows) {
+    const username = row.username?.trim().toLowerCase();
+    const publisherId = row.publisher_id?.trim();
+    if (username && publisherId) ids.set(username, publisherId);
+  }
+  return ids;
 }
 
 function createCommunityMission(slot: MissionSlot, goal: number, xp: number, type: MissionEventType): MissionDefinition {
@@ -575,10 +596,15 @@ app.get('/api/active-users', async (_req, res) => {
         }))
         .filter((row) => row.user_id)
       : [];
+    const profileIds = await fetchPublisherIdsByUsername(users.map(user => user.username ?? '')).catch(() => new Map<string, string>());
+    const enrichedUsers = users.map(user => {
+      const publisherId = user.username ? profileIds.get(user.username.toLowerCase()) : null;
+      return publisherId ? { ...user, publisher_id: publisherId } : user;
+    });
     res.json({
-      count: users.length,
-      users,
-      usernames: users.map(user => user.username).filter(Boolean),
+      count: enrichedUsers.length,
+      users: enrichedUsers,
+      usernames: enrichedUsers.map(user => user.username).filter(Boolean),
     });
   } catch {
     res.json({ count: 0, users: [], usernames: [] });
@@ -815,6 +841,42 @@ app.get('/api/visitor', async (_req, res) => {
     res.json({ visitors: rows[0]?.visitors ?? 0 });
   } catch (err) {
     res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/visitors/recent', async (_req, res) => {
+  try {
+    const params = new URLSearchParams({
+      select: 'user_id,username,last_seen_at,created_at',
+      order: 'last_seen_at.desc',
+      limit: '10',
+    });
+    const response = await fetch(`${sbEndpoint(ACTIVE_USERS_TABLE)}?${params}`, { headers: sbHeaders() });
+    if (!response.ok) {
+      res.json({ visitors: [] });
+      return;
+    }
+
+    const rows = await response.json() as Array<Record<string, unknown>>;
+    const visitors = Array.isArray(rows)
+      ? rows
+        .map((row) => ({
+          user_id: typeof row.user_id === 'string' ? row.user_id : '',
+          username: typeof row.username === 'string' && row.username.trim() ? row.username.trim() : null,
+          last_seen_at: typeof row.last_seen_at === 'string' ? row.last_seen_at : '',
+          created_at: typeof row.created_at === 'string' ? row.created_at : '',
+        }))
+        .filter((row) => row.user_id || row.username)
+      : [];
+    const profileIds = await fetchPublisherIdsByUsername(visitors.map(visitor => visitor.username ?? '')).catch(() => new Map<string, string>());
+    res.json({
+      visitors: visitors.map(visitor => {
+        const publisherId = visitor.username ? profileIds.get(visitor.username.toLowerCase()) : null;
+        return publisherId ? { ...visitor, publisher_id: publisherId } : visitor;
+      }),
+    });
+  } catch {
+    res.json({ visitors: [] });
   }
 });
 

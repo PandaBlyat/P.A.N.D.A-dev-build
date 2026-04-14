@@ -10,9 +10,9 @@ import { openSupportPanel } from './SupportPanel';
 import { createIcon, setButtonContent, type IconName } from './icons';
 import { clearDraft } from '../lib/draft-storage';
 import { createEmptyProject } from '../lib/xml-export';
-import { renderProfileBadge } from './ProfileBadge';
+import { openPublicProfile, renderProfileBadge } from './ProfileBadge';
 import { setBeginnerTooltip } from '../lib/beginner-tooltips';
-import { getActiveEditorLocalUserId, getStoredUsername, type ActiveEditorUser } from '../lib/api-client';
+import { getActiveEditorLocalUserId, getStoredUsername, type ActiveEditorUser, type RecentVisitor, type UserProfile } from '../lib/api-client';
 
 type SearchResult = {
   label: string;
@@ -596,11 +596,17 @@ function formatStatus(convCount: number, stringCount: number, compact: boolean, 
 
 function renderVisitorCounter(compact?: boolean): HTMLElement | null {
   const count = (globalThis as any).__pandaVisitorCount ?? 0;
+  const recentVisitors = ((globalThis as any).__pandaRecentVisitors as RecentVisitor[] | undefined) ?? [];
   if (count <= 0) return null;
 
-  const el = document.createElement('span');
-  el.className = 'toolbar-visitor-counter';
-  el.title = 'Total unique visitors to the P.A.N.D.A. editor';
+  const details = document.createElement('details');
+  details.className = 'toolbar-overflow toolbar-visitors';
+
+  const summary = document.createElement('summary');
+  summary.className = 'toolbar-visitor-counter';
+  summary.setAttribute('role', 'button');
+  summary.setAttribute('aria-label', 'Show recent visitors');
+  summary.title = 'Total unique visitors to the P.A.N.D.A. editor';
 
   const icon = createIcon('eye');
   const label = document.createElement('span');
@@ -608,8 +614,37 @@ function renderVisitorCounter(compact?: boolean): HTMLElement | null {
     ? new Intl.NumberFormat().format(count)
     : `${new Intl.NumberFormat().format(count)} visitor${count !== 1 ? 's' : ''}`;
 
-  el.append(icon, label);
-  return el;
+  summary.append(icon, label);
+
+  const menu = document.createElement('div');
+  menu.className = 'toolbar-overflow-menu toolbar-visitors-menu';
+
+  const title = document.createElement('div');
+  title.className = 'toolbar-active-users-title';
+  title.textContent = 'Recent Visitors';
+  menu.appendChild(title);
+
+  if (recentVisitors.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'toolbar-active-users-empty';
+    empty.textContent = 'Recent visitor timestamps unavailable.';
+    menu.appendChild(empty);
+  } else {
+    const list = document.createElement('div');
+    list.className = 'toolbar-active-users-list toolbar-visitors-list';
+    recentVisitors.slice(0, 10).forEach((visitor, index) => {
+      list.appendChild(createVisitorListItem(visitor, index, details));
+    });
+    menu.appendChild(list);
+  }
+
+  const note = document.createElement('div');
+  note.className = 'toolbar-visitors-note';
+  note.textContent = 'Based on latest editor sessions.';
+  menu.appendChild(note);
+
+  details.append(summary, menu);
+  return details;
 }
 
 function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
@@ -618,9 +653,10 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
   const rawUsers = ((globalThis as any).__pandaActiveUsers as ActiveEditorUser[] | undefined) ?? [];
   const localUsername = getStoredUsername();
   const localUserId = getActiveEditorLocalUserId();
+  const localProfile = (globalThis as any).__pandaUserProfile as UserProfile | null | undefined;
   const remoteUsers = normalizeToolbarActiveUsers(rawUsers, rawUsernames);
   if (localUsername && !remoteUsers.some(user => user.username === localUsername || user.userId === localUserId)) {
-    remoteUsers.unshift({ userId: localUserId, username: localUsername, lastSeenAt: '' });
+    remoteUsers.unshift({ userId: localUserId, username: localUsername, lastSeenAt: '', publisherId: localProfile?.publisher_id ?? null });
   }
   const count = Math.max(rawCount, remoteUsers.length);
 
@@ -660,9 +696,18 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
     list.className = 'toolbar-active-users-list';
     const visibleUsers = users.slice(0, 12);
     visibleUsers.forEach((user, index) => {
-      const item = document.createElement('div');
+      const item = user.publisherId ? document.createElement('button') : document.createElement('div');
       const isGuest = !user.username;
       item.className = `toolbar-active-users-item${isGuest ? ' toolbar-active-users-item-guest' : ''}`;
+      if (item instanceof HTMLButtonElement) {
+        item.type = 'button';
+        item.classList.add('toolbar-active-users-profile-link');
+        item.title = `Open ${user.username ?? 'user'} profile`;
+        item.onclick = () => {
+          details.open = false;
+          void openPublicProfile(user.publisherId!, item);
+        };
+      }
       const dot = document.createElement('span');
       dot.className = 'toolbar-active-users-dot';
       const name = document.createElement('span');
@@ -687,23 +732,65 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
   return details;
 }
 
+function createVisitorListItem(visitor: RecentVisitor, index: number, details: HTMLDetailsElement): HTMLElement {
+  const item = visitor.publisherId ? document.createElement('button') : document.createElement('div');
+  item.className = 'toolbar-active-users-item toolbar-visitors-item';
+  if (!visitor.username) item.classList.add('toolbar-active-users-item-guest');
+  if (item instanceof HTMLButtonElement) {
+    item.type = 'button';
+    item.classList.add('toolbar-active-users-profile-link');
+    item.title = `Open ${visitor.username ?? 'visitor'} profile`;
+    item.onclick = () => {
+      details.open = false;
+      void openPublicProfile(visitor.publisherId!, item);
+    };
+  }
+
+  const dot = document.createElement('span');
+  dot.className = 'toolbar-active-users-dot toolbar-visitors-dot';
+
+  const copy = document.createElement('span');
+  copy.className = 'toolbar-visitors-copy';
+
+  const name = document.createElement('span');
+  name.className = 'toolbar-active-users-name';
+  name.textContent = visitor.username || getVisitorDisplayName(visitor, index);
+
+  const time = document.createElement('span');
+  time.className = 'toolbar-visitors-time';
+  time.textContent = formatRecentVisitorTime(visitor.lastSeenAt);
+  time.title = formatRecentVisitorExactTime(visitor.lastSeenAt);
+
+  copy.append(name, time);
+  item.append(dot, copy);
+  return item;
+}
+
 function normalizeToolbarActiveUsers(users: ActiveEditorUser[], usernames: string[]): ActiveEditorUser[] {
   const normalized: ActiveEditorUser[] = [];
   const seen = new Set<string>();
+  const seenUsernames = new Set<string>();
   for (const user of users) {
     const userId = user.userId?.trim();
     if (!userId || seen.has(userId)) continue;
+    const username = user.username?.trim() || null;
+    const usernameKey = username?.toLowerCase() ?? '';
+    if (usernameKey && seenUsernames.has(usernameKey)) continue;
     seen.add(userId);
+    if (usernameKey) seenUsernames.add(usernameKey);
     normalized.push({
       userId,
-      username: user.username?.trim() || null,
+      username,
       lastSeenAt: user.lastSeenAt,
+      publisherId: user.publisherId?.trim() || null,
     });
   }
   for (const username of usernames.map(name => name.trim()).filter(Boolean)) {
     const userId = `username:${username.toLowerCase()}`;
-    if (seen.has(userId) || normalized.some(user => user.username === username)) continue;
+    const usernameKey = username.toLowerCase();
+    if (seen.has(userId) || seenUsernames.has(usernameKey)) continue;
     seen.add(userId);
+    seenUsernames.add(usernameKey);
     normalized.push({ userId, username, lastSeenAt: '' });
   }
   return normalized;
@@ -713,6 +800,31 @@ function getActiveUserDisplayName(user: ActiveEditorUser, index: number): string
   if (user.username) return user.username;
   const suffix = user.userId.replace(/[^a-z0-9]/gi, '').slice(-4).toUpperCase();
   return suffix ? `Guest ${suffix}` : `Guest ${index + 1}`;
+}
+
+function getVisitorDisplayName(visitor: RecentVisitor, index: number): string {
+  const suffix = visitor.userId.replace(/[^a-z0-9]/gi, '').slice(-4).toUpperCase();
+  return suffix ? `Visitor ${suffix}` : `Visitor ${index + 1}`;
+}
+
+function formatRecentVisitorTime(isoDate: string): string {
+  const timestamp = new Date(isoDate).getTime();
+  if (Number.isNaN(timestamp)) return 'Unknown time';
+  const deltaSeconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+  if (deltaSeconds < 60) return 'Now';
+  const deltaMinutes = Math.round(deltaSeconds / 60);
+  if (deltaMinutes < 60) return `${deltaMinutes}m ago`;
+  const deltaHours = Math.round(deltaMinutes / 60);
+  if (deltaHours < 24) return `${deltaHours}h ago`;
+  const deltaDays = Math.round(deltaHours / 24);
+  if (deltaDays < 7) return `${deltaDays}d ago`;
+  return new Date(timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatRecentVisitorExactTime(isoDate: string): string {
+  const timestamp = new Date(isoDate).getTime();
+  if (Number.isNaN(timestamp)) return 'Unknown time';
+  return new Date(timestamp).toLocaleString();
 }
 
 function nextDensity(current: FlowDensity): FlowDensity {

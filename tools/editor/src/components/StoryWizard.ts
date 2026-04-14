@@ -51,6 +51,11 @@ function closeStoryWizard(): void {
   overlayEl = null;
 }
 
+function startBlankStoryFromWizard(): void {
+  store.addConversation();
+  closeStoryWizard();
+}
+
 const FORGE_STEPS = [
   'Faction & Premise',
   'Cast',
@@ -110,6 +115,7 @@ function openStoryForgeWizard(): void {
         stepIndex = Math.max(0, stepIndex - 1);
         render();
       }),
+      createForgeStartBlankButton(stepIndex),
       createForgeCreateButton(stepIndex, draft, () => {
         const result = buildStoryFromDraft(store.get().project, draft);
         store.addConversationFromTemplate(result.conversation, result.npcTemplates);
@@ -152,8 +158,8 @@ function createForgeCloseButton(): HTMLButtonElement {
   closeBtn.type = 'button';
   closeBtn.className = 'btn-icon story-forge-close';
   closeBtn.appendChild(createIcon('close'));
-  closeBtn.title = 'Close';
-  closeBtn.onclick = closeStoryWizard;
+  closeBtn.title = 'Start blank story';
+  closeBtn.onclick = startBlankStoryFromWizard;
   return closeBtn;
 }
 
@@ -176,6 +182,17 @@ function createForgeBackButton(stepIndex: number, onBack: () => void): HTMLButto
   button.textContent = 'Back';
   button.disabled = stepIndex === 0;
   button.onclick = onBack;
+  return button;
+}
+
+function createForgeStartBlankButton(stepIndex: number): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn-sm story-forge-blank';
+  setButtonContent(button, 'add', 'Start Blank');
+  button.title = 'Skip builder and create one empty story branch';
+  button.hidden = stepIndex !== 0;
+  button.onclick = startBlankStoryFromWizard;
   return button;
 }
 

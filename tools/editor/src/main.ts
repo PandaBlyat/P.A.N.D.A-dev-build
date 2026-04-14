@@ -27,6 +27,7 @@ import { installPerfBenchmark } from './lib/perf-benchmark';
 import {
   trackSiteVisitor,
   fetchVisitorCount,
+  fetchRecentVisitors,
   fetchActiveEditorUserCount,
   fetchActiveEditorUsers,
   startActiveEditorPresenceTracking,
@@ -36,6 +37,7 @@ import {
   awardXpCapped,
   updateUserStreak,
   type ActiveEditorUser,
+  type RecentVisitor,
   type UserProfile,
   type UserStreakState,
 } from './lib/api-client';
@@ -63,14 +65,22 @@ renderApp(app);
 installPerfBenchmark();
 mountBeginnerTooltipController(document.body);
 
-// Track site visitor (best-effort, fire-and-forget)
-void trackSiteVisitor();
-
-// Fetch visitor count and expose it for the toolbar via global bridge
+// Track visitor and expose visitor state for toolbar.
 (globalThis as any).__pandaVisitorCount = 0;
-void fetchVisitorCount().then(count => {
+(globalThis as any).__pandaRecentVisitors = [] as RecentVisitor[];
+
+async function refreshVisitorsInToolbar(): Promise<void> {
+  const [count, visitors] = await Promise.all([
+    fetchVisitorCount(),
+    fetchRecentVisitors(),
+  ]);
   (globalThis as any).__pandaVisitorCount = count;
+  (globalThis as any).__pandaRecentVisitors = visitors;
   renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
+}
+
+void trackSiteVisitor().finally(() => {
+  void refreshVisitorsInToolbar();
 });
 
 (globalThis as any).__pandaActiveUserCount = 0;
@@ -92,6 +102,7 @@ void refreshActiveUsersInToolbar();
 
 const stopPresenceTracking = startActiveEditorPresenceTracking((count) => {
   void refreshActiveUsersInToolbar(count);
+  void refreshVisitorsInToolbar();
 });
 window.addEventListener('pagehide', () => {
   stopPresenceTracking();
