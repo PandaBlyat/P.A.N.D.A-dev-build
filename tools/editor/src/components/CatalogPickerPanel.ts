@@ -1,4 +1,5 @@
 import { LEVEL_DISPLAY_NAMES, SMART_TERRAIN_LEVELS, SMART_TERRAIN_OPTIONS_ALL, SMART_TERRAIN_OPTIONS_BY_LEVEL, type SmartTerrainOption } from '../lib/constants';
+import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 
 export type CatalogPickerOption = {
   value: string;
@@ -374,9 +375,12 @@ export function createCatalogPickerPanelEditor(
     };
 
     let closed = false;
+    let focusTrapController: FocusTrapController | null = null;
     const cleanup = (): void => {
       if (closed) return;
       closed = true;
+      focusTrapController?.release();
+      focusTrapController = null;
       overlay.remove();
       document.removeEventListener('keydown', handleEscape, true);
       activeCleanup = null;
@@ -404,6 +408,14 @@ export function createCatalogPickerPanelEditor(
     activeCleanup = cleanup;
     activeTrigger = browseButton;
     renderList();
+    focusTrapController = trapFocus(panel, {
+      restoreFocus: browseButton,
+      initialFocus: searchInput,
+      onEscape: () => {
+        cleanup();
+        browseButton.focus();
+      },
+    });
     requestAnimationFrame(() => searchInput.focus());
     document.addEventListener('keydown', handleEscape, true);
   };
