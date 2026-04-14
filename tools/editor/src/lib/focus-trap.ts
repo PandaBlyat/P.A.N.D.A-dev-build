@@ -11,6 +11,8 @@ const FOCUSABLE_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ');
 
+const activeTrapStack: symbol[] = [];
+
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
   return [...container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)]
     .filter((element) => !element.hasAttribute('hidden') && element.getAttribute('aria-hidden') !== 'true');
@@ -24,6 +26,11 @@ export function trapFocus(
     onEscape?: () => void;
   } = {},
 ): FocusTrapController {
+  const trapToken = Symbol('focus-trap');
+  activeTrapStack.push(trapToken);
+
+  const isTopTrap = (): boolean => activeTrapStack[activeTrapStack.length - 1] === trapToken;
+
   const restoreTarget = options.restoreFocus ?? null;
 
   const focusFirst = (): void => {
@@ -35,6 +42,8 @@ export function trapFocus(
   };
 
   const onKeydown = (event: KeyboardEvent): void => {
+    if (!isTopTrap()) return;
+
     if (event.key === 'Escape') {
       event.preventDefault();
       options.onEscape?.();
@@ -62,6 +71,7 @@ export function trapFocus(
   };
 
   const onFocusIn = (event: FocusEvent): void => {
+    if (!isTopTrap()) return;
     const target = event.target as Node | null;
     if (!target || container.contains(target)) return;
     focusFirst();
@@ -75,6 +85,8 @@ export function trapFocus(
     release: () => {
       document.removeEventListener('keydown', onKeydown);
       document.removeEventListener('focusin', onFocusIn);
+      const trapIndex = activeTrapStack.lastIndexOf(trapToken);
+      if (trapIndex >= 0) activeTrapStack.splice(trapIndex, 1);
       if (restoreTarget?.isConnected) restoreTarget.focus();
     },
   };

@@ -520,6 +520,45 @@ app.get('/api/support/upvotes', async (_req, res) => {
   }
 });
 
+app.get('/api/active-users', async (_req, res) => {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_active_creator_usernames`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ stale_after_seconds: 120 }),
+    });
+
+    if (!response.ok) {
+      // Keep endpoint stable even if RPC is unavailable in current DB schema.
+      res.json({ usernames: [] });
+      return;
+    }
+
+    const payload = await response.json() as unknown;
+    const entries = Array.isArray(payload)
+      ? payload
+      : (payload && typeof payload === 'object' && Array.isArray((payload as { usernames?: unknown }).usernames))
+        ? (payload as { usernames: unknown[] }).usernames
+        : [];
+
+    const usernames = Array.from(new Set(entries
+      .map((entry) => {
+        if (typeof entry === 'string') return entry.trim();
+        if (entry && typeof entry === 'object') {
+          const record = entry as Record<string, unknown>;
+          const candidate = record.username ?? record.usernames ?? record.name;
+          return typeof candidate === 'string' ? candidate.trim() : '';
+        }
+        return '';
+      })
+      .filter(Boolean)));
+
+    res.json({ usernames });
+  } catch {
+    res.json({ usernames: [] });
+  }
+});
+
 app.post('/api/conversations', async (req, res) => {
   try {
     const { faction, label, description, summary, author, data, tags, branch_count, complexity, publisher_id } = req.body ?? {};

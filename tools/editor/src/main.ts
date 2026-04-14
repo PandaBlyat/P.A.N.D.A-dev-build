@@ -28,6 +28,7 @@ import {
   trackSiteVisitor,
   fetchVisitorCount,
   fetchActiveEditorUserCount,
+  fetchActiveEditorUsernames,
   startActiveEditorPresenceTracking,
   fetchUserProfile,
   getStoredUsername,
@@ -72,14 +73,22 @@ void fetchVisitorCount().then(count => {
 });
 
 (globalThis as any).__pandaActiveUserCount = 0;
-void fetchActiveEditorUserCount().then(count => {
+(globalThis as any).__pandaActiveUsernames = [] as string[];
+
+async function refreshActiveUsersInToolbar(countOverride?: number): Promise<void> {
+  const [count, usernames] = await Promise.all([
+    typeof countOverride === 'number' ? Promise.resolve(countOverride) : fetchActiveEditorUserCount(),
+    fetchActiveEditorUsernames(),
+  ]);
   (globalThis as any).__pandaActiveUserCount = count;
+  (globalThis as any).__pandaActiveUsernames = usernames;
   renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
-});
+}
+
+void refreshActiveUsersInToolbar();
 
 const stopPresenceTracking = startActiveEditorPresenceTracking((count) => {
-  (globalThis as any).__pandaActiveUserCount = count;
-  renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
+  void refreshActiveUsersInToolbar(count);
 });
 window.addEventListener('pagehide', () => {
   stopPresenceTracking();

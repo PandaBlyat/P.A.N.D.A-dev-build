@@ -589,6 +589,45 @@ button.toolbar-active-user-counter:active {
   z-index: 30;
 }
 
+.toolbar-active-users-menu {
+  min-width: 220px;
+  max-width: 280px;
+  gap: 6px;
+}
+
+.toolbar-active-users > summary {
+  cursor: pointer;
+}
+
+.toolbar-active-users-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-bright);
+  text-transform: uppercase;
+}
+
+.toolbar-active-users-list {
+  display: grid;
+  gap: 4px;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.toolbar-active-users-item,
+.toolbar-active-users-empty {
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--border-light) 62%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-card) 85%, transparent);
+  font-size: 11px;
+  color: var(--text);
+}
+
+.toolbar-active-users-empty {
+  color: var(--text-dim);
+}
+
 .toolbar-overflow[open] .toolbar-overflow-toggle {
   border-color: color-mix(in srgb, var(--accent) 35%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent);
