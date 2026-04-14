@@ -561,46 +561,103 @@ app.get('/api/support/upvotes', async (_req, res) => {
   }
 });
 
-app.get('/api/active-users', async (_req, res) => {
+const ACTIVE_USER_STALE_SECONDS = 120;
+
+type ActiveUserRow = {
+  user_id: string;
+  username: string | null;
+  last_seen_at: string;
+};
+
+async function fetchActiveUsersFromTable(): Promise<ActiveUserRow[]> {
+  const cutoff = new Date(Date.now() - ACTIVE_USER_STALE_SECONDS * 1000).toISOString();
+  const params = new URLSearchParams({
+    select: 'user_id,username,last_seen_at',
+    last_seen_at: `gte.${cutoff}`,
+    order: 'last_seen_at.desc',
+    limit: '100',
+  });
+  const response = await fetch(`${sbEndpoint(ACTIVE_USERS_TABLE)}?${params}`, { headers: sbHeaders() });
+  if (!response.ok) return [];
+  const rows = await response.json() as Array<Record<string, unknown>>;
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => ({
+      user_id: typeof row.user_id === 'string' ? row.user_id : '',
+      username: typeof row.username === 'string' && row.username.trim() ? row.username.trim() : null,
+      last_seen_at: typeof row.last_seen_at === 'string' ? row.last_seen_at : '',
+    }))
+    .filter((row) => row.user_id);
+}
+
+async function fetchActiveUsersFromRpc(): Promise<ActiveUserRow[] | null> {
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_active_creator_users`, {
       method: 'POST',
       headers: sbHeaders(),
-      body: JSON.stringify({ stale_after_seconds: 120 }),
+      body: JSON.stringify({ stale_after_seconds: ACTIVE_USER_STALE_SECONDS }),
     });
+    if (!response.ok) return null;
+    const rows = await response.json() as Array<Record<string, unknown>>;
+    if (!Array.isArray(rows)) return null;
+    return rows
+      .map((row) => ({
+        user_id: typeof row.user_id === 'string' ? row.user_id : '',
+        username: typeof row.username === 'string' && row.username.trim() ? row.username.trim() : null,
+        last_seen_at: typeof row.last_seen_at === 'string' ? row.last_seen_at : '',
+      }))
+      .filter((row) => row.user_id);
+  } catch {
+    return null;
+  }
+}
 
-    if (!response.ok) {
+app.get('/api/active-users', async (_req, res) => {
+  try {
+    // Prefer direct table read — it works even if the RPC helper hasn't been
+    // migrated yet. Merge with the RPC result when both respond so presence
+    // survives schema drift.
+    const [tableRows, rpcRows] = await Promise.all([
+      fetchActiveUsersFromTable().catch((): ActiveUserRow[] => []),
+      fetchActiveUsersFromRpc(),
+    ]);
+
+    const combined = new Map<string, ActiveUserRow>();
+    for (const source of [rpcRows ?? [], tableRows]) {
+      for (const row of source) {
+        if (!row.user_id) continue;
+        const existing = combined.get(row.user_id);
+        if (!existing || (row.last_seen_at && row.last_seen_at > existing.last_seen_at)) {
+          combined.set(row.user_id, row);
+        }
+      }
+    }
+
+    let users = Array.from(combined.values());
+
+    if (users.length === 0) {
       const fallback = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_active_creator_usernames`, {
         method: 'POST',
         headers: sbHeaders(),
-        body: JSON.stringify({ stale_after_seconds: 120 }),
-      });
-      if (!fallback.ok) {
-        // Keep endpoint stable even if RPC is unavailable in current DB schema.
-        res.json({ count: 0, users: [], usernames: [] });
-        return;
+        body: JSON.stringify({ stale_after_seconds: ACTIVE_USER_STALE_SECONDS }),
+      }).catch(() => null);
+      if (fallback?.ok) {
+        const fallbackPayload = await fallback.json().catch(() => null) as unknown;
+        const usernames = normalizeActiveUsernamePayload(fallbackPayload);
+        users = usernames.map(username => ({
+          user_id: `username:${username.toLowerCase()}`,
+          username,
+          last_seen_at: '',
+        }));
       }
-      const fallbackPayload = await fallback.json() as unknown;
-      const usernames = normalizeActiveUsernamePayload(fallbackPayload);
-      res.json({ count: usernames.length, users: usernames.map(username => ({ user_id: `username:${username.toLowerCase()}`, username, last_seen_at: '' })), usernames });
-      return;
     }
 
-    const rows = await response.json() as Array<Record<string, unknown>>;
-    const users = Array.isArray(rows)
-      ? rows
-        .map((row) => ({
-          user_id: typeof row.user_id === 'string' ? row.user_id : '',
-          username: typeof row.username === 'string' && row.username.trim() ? row.username.trim() : null,
-          last_seen_at: typeof row.last_seen_at === 'string' ? row.last_seen_at : '',
-        }))
-        .filter((row) => row.user_id)
-      : [];
     const profileIds = await fetchPublisherIdsByUsername(users.map(user => user.username ?? '')).catch(() => new Map<string, string>());
     const enrichedUsers = users.map(user => {
       const publisherId = user.username ? profileIds.get(user.username.toLowerCase()) : null;
       return publisherId ? { ...user, publisher_id: publisherId } : user;
     });
+
     res.json({
       count: enrichedUsers.length,
       users: enrichedUsers,
@@ -609,6 +666,53 @@ app.get('/api/active-users', async (_req, res) => {
   } catch {
     res.json({ count: 0, users: [], usernames: [] });
   }
+});
+
+app.post('/api/active-users/touch', async (req, res) => {
+  const body = req.body ?? {};
+  const userId = typeof body.user_id === 'string' ? body.user_id.trim() : '';
+  const rawUsername = typeof body.username === 'string' ? body.username.trim() : '';
+  const username = rawUsername ? rawUsername : null;
+
+  if (!userId) {
+    res.status(400).json({ error: 'Missing required field: user_id' });
+    return;
+  }
+
+  let activeCount = 0;
+  try {
+    const rpc = await fetch(`${SUPABASE_URL}/rest/v1/rpc/touch_creator_active_user`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({
+        active_user_id: userId,
+        stale_after_seconds: ACTIVE_USER_STALE_SECONDS,
+        active_username: username,
+      }),
+    });
+    if (rpc.ok) {
+      const count = await rpc.json().catch(() => 0);
+      if (typeof count === 'number') activeCount = count;
+    } else {
+      // RPC missing or errored — fall back to a raw upsert so other clients can
+      // still see the user as active.
+      const nowIso = new Date().toISOString();
+      await fetch(sbEndpoint(ACTIVE_USERS_TABLE), {
+        method: 'POST',
+        headers: { ...sbHeaders(), Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify([{ user_id: userId, username, last_seen_at: nowIso }]),
+      }).catch(() => undefined);
+    }
+  } catch {
+    // Swallow — presence is best-effort.
+  }
+
+  if (activeCount === 0) {
+    const tableRows = await fetchActiveUsersFromTable().catch((): ActiveUserRow[] => []);
+    activeCount = tableRows.length;
+  }
+
+  res.json({ count: activeCount });
 });
 
 app.post('/api/conversations', async (req, res) => {

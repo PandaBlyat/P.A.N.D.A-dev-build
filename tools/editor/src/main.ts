@@ -104,8 +104,28 @@ const stopPresenceTracking = startActiveEditorPresenceTracking((count) => {
   void refreshActiveUsersInToolbar(count);
   void refreshVisitorsInToolbar();
 });
+
+// Refresh the active users list on its own cadence so remote joiners appear
+// within ~20s without waiting for the local presence ping cycle.
+const ACTIVE_USERS_POLL_MS = 20_000;
+let activeUsersPollTimer: number | null = window.setInterval(() => {
+  if (document.visibilityState !== 'visible') return;
+  void refreshActiveUsersInToolbar();
+}, ACTIVE_USERS_POLL_MS);
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    void refreshActiveUsersInToolbar();
+    void refreshVisitorsInToolbar();
+  }
+});
+
 window.addEventListener('pagehide', () => {
   stopPresenceTracking();
+  if (activeUsersPollTimer != null) {
+    window.clearInterval(activeUsersPollTimer);
+    activeUsersPollTimer = null;
+  }
 }, { once: true });
 
 // ─── User Profile / Gamification Bootstrap ─────────────────────────────────
