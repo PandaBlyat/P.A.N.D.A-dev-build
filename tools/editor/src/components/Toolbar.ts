@@ -614,7 +614,6 @@ function renderVisitorCounter(compact?: boolean): HTMLElement | null {
 
 function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
   const count = (globalThis as any).__pandaActiveUserCount ?? 0;
-  if (count <= 0) return null;
 
   const details = document.createElement('details');
   details.className = 'toolbar-overflow toolbar-active-users';
