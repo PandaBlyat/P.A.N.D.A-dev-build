@@ -1562,9 +1562,9 @@ BEGIN
   FROM per_conversation pc;
 
   WITH convs AS (
-    SELECT created_at
-    FROM community_conversations
-    WHERE publisher_id = p_publisher_id
+    SELECT c.created_at
+    FROM community_conversations c
+    WHERE c.publisher_id = p_publisher_id
   ),
   weekend_weeks AS (
     SELECT
