@@ -27,12 +27,12 @@ export type AvatarColorPreset = {
 export type AvatarFramePreset = {
   id: string;
   label: string;
-  /** Optional lock: only unlocked for users at or above this level. */
   minLevel?: number;
-  /** Triggers the rotating spin animation in CSS */
   isAnimated?: boolean;
-  /** Visual variant id consumed by CSS (maps to .pa-avatar-frame-${variant}). */
-  variant: 'none' | 'hex' | 'runic' | 'halo' | 'monolith' | 'radioactive' | 'cyber' | 'plasma' | 'blood' | 'void' | 'legend';
+  variant: 
+    | 'none' | 'hex' | 'runic' | 'halo' | 'monolith' 
+    | 'radioactive' | 'cyber' | 'plasma' | 'blood' | 'void' | 'legend'
+    | 'neon' | 'crystal' | 'inferno' | 'frost' | 'corrupted' | 'celestial' | 'omega';
 };
 
 export type AvatarBannerPreset = {
