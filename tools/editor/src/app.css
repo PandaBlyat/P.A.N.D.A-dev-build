@@ -16918,7 +16918,36 @@ strong.support-upvote-count {
   font-size: 0.64rem;
 }
 
-/* Leaderboard overlay */
+
+Here is a completely overhauled, modernized, and highly polished version of your leaderboard CSS.
+I focused on adding depth, premium metallic finishes, glassmorphism, spring-based animations, and fluid micro-interactions while keeping your core layout intact so it perfectly drops right into your existing code.
+Summary of Improvements:
+Spring Animations: Swapped basic ease-out for custom cubic-bezier spring curves. The modal and rows now "pop" into place fluidly.
+True Metallic Tiers: 1st (Gold), 2nd (Silver), and 3rd (Bronze) now have distinct, premium color palettes with rich radial glows, inset lighting, and gradient borders.
+Glassmorphism Depth: Increased backdrop blur slightly and added ambient lighting behind the modal and podium cards to give them physical depth.
+Enhanced Hover States: Rows no longer just shift right. They slightly scale up, illuminate via a sweeping gradient, and lift up with a beautiful drop shadow.
+Shimmer Effects: Added a continuous, ultra-smooth premium shimmer sweep to the Champion cards and rows.
+Animated Borders: The rotating gradient border on the 1st place card is smoother and better blended.
+The Upgraded CSS:
+code
+CSS
+/* =========================================================================
+   P.A.N.D.A — Leaderboard Overlay (Ultra-Premium Overhaul)
+   ========================================================================= */
+
+/* --- Variables & Theming --- */
+:root {
+  --tier-gold: #f4d03f;
+  --tier-gold-dark: #b7950b;
+  --tier-silver: #e5e7e9;
+  --tier-silver-dark: #909497;
+  --tier-bronze: #d35400;
+  --tier-bronze-dark: #873600;
+  --spring-easing: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --smooth-easing: cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* --- Backdrop & Container --- */
 .panda-leaderboard-backdrop {
   position: fixed;
   inset: 0;
@@ -16927,28 +16956,33 @@ strong.support-upvote-count {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(4, 7, 12, 0.78);
-  backdrop-filter: blur(9px);
-  animation: leaderboardBackdropIn 160ms ease-out both;
+  background: rgba(4, 7, 12, 0.65);
+  backdrop-filter: blur(16px) saturate(120%);
+  animation: leaderboardBackdropIn 300ms var(--smooth-easing) both;
 }
 
 .panda-leaderboard-dialog {
-  width: min(980px, calc(100vw - 32px));
+  width: min(1080px, calc(100vw - 32px));
   max-height: min(88vh, 860px);
   display: grid;
   grid-template-rows: auto auto auto auto minmax(0, 1fr);
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border-light));
-  border-radius: 8px;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, rgba(255,255,255,0.1));
+  border-radius: 16px;
   background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 14%, transparent), transparent 44%),
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 96%, black 4%), color-mix(in srgb, var(--bg-dark) 94%, black 6%));
-  box-shadow: 0 32px 90px rgba(0,0,0,0.66), inset 0 1px 0 rgba(255,255,255,0.045);
+    radial-gradient(120% 120% at 50% -10%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 60%),
+    linear-gradient(180deg, rgba(16, 20, 24, 0.95), rgba(8, 10, 12, 0.98)),
+    var(--bg-panel);
+  box-shadow: 
+    0 40px 100px rgba(0, 0, 0, 0.8), 
+    0 0 40px color-mix(in srgb, var(--accent) 15%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   overflow: hidden;
-  animation: leaderboardDialogIn 180ms ease-out both;
+  animation: leaderboardDialogIn 500ms var(--spring-easing) both;
 }
 
+/* --- Header & Controls --- */
 .panda-leaderboard-header,
 .panda-leaderboard-title-wrap,
 .panda-leaderboard-controls,
@@ -16958,859 +16992,420 @@ strong.support-upvote-count {
   align-items: center;
 }
 
-.panda-leaderboard-header {
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.panda-leaderboard-title-wrap {
-  gap: 10px;
-  min-width: 0;
-}
+.panda-leaderboard-header { justify-content: space-between; gap: 16px; }
+.panda-leaderboard-title-wrap { gap: 12px; min-width: 0; }
 
 .panda-leaderboard-title-icon {
-  width: 34px;
-  height: 34px;
-  color: color-mix(in srgb, var(--accent) 76%, white 24%);
+  width: 38px;
+  height: 38px;
+  color: var(--tier-gold);
+  filter: drop-shadow(0 0 12px rgba(244, 208, 63, 0.4));
+  animation: iconFloat 4s ease-in-out infinite alternate;
 }
 
 .panda-leaderboard-title-heading {
   margin: 0;
-  color: var(--text-bright);
-  font-size: 1.12rem;
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
 }
 
 .panda-leaderboard-subtitle {
-  margin: 3px 0 0;
-  color: var(--text-dim);
-  font-size: 0.82rem;
+  margin: 2px 0 0;
+  color: color-mix(in srgb, var(--text-dim) 80%, white);
+  font-size: 0.85rem;
 }
 
+/* --- Buttons & Inputs --- */
 .panda-leaderboard-close,
 .panda-leaderboard-action,
-.panda-leaderboard-scope-button {
-  min-height: 32px;
-  border: 1px solid color-mix(in srgb, var(--border-light) 76%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg-card) 86%, transparent);
+.panda-leaderboard-scope-button,
+.panda-leaderboard-search,
+.panda-leaderboard-sort {
+  min-height: 36px;
+  border: 1px solid color-mix(in srgb, var(--border-light) 40%, transparent);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
   color: var(--text);
   font: inherit;
-  font-weight: 800;
-  letter-spacing: 0;
-  cursor: pointer;
-  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, color 140ms ease;
+  font-weight: 700;
+  transition: all 200ms var(--smooth-easing);
+  backdrop-filter: blur(8px);
 }
 
-.panda-leaderboard-close {
-  width: 34px;
+.panda-leaderboard-search:focus,
+.panda-leaderboard-sort:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
 }
+
+.panda-leaderboard-close { width: 36px; display: grid; place-items: center; }
 
 .panda-leaderboard-close:hover,
 .panda-leaderboard-action:hover,
 .panda-leaderboard-scope-button:hover,
 .panda-leaderboard-scope-button.is-active {
-  border-color: color-mix(in srgb, var(--accent) 44%, var(--border-light));
-  background: color-mix(in srgb, var(--accent) 14%, var(--bg-hover));
-  color: var(--text-bright);
-  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border-light));
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.3);
 }
 
-.panda-leaderboard-action:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  transform: none;
+.panda-leaderboard-action:active,
+.panda-leaderboard-scope-button:active {
+  transform: translateY(0) scale(0.96);
 }
 
-.panda-leaderboard-controls {
-  flex-wrap: wrap;
-  gap: 8px;
-}
+.panda-leaderboard-action:disabled { opacity: 0.4; pointer-events: none; }
+.panda-leaderboard-controls { flex-wrap: wrap; gap: 10px; }
+.panda-leaderboard-search { flex: 1 1 240px; padding: 0 14px; }
+.panda-leaderboard-sort { padding: 0 12px; cursor: pointer; }
+.panda-leaderboard-scope { gap: 6px; }
+.panda-leaderboard-action, .panda-leaderboard-scope-button { padding: 0 14px; cursor: pointer; }
+.panda-leaderboard-action { display: inline-flex; align-items: center; gap: 8px; }
 
-.panda-leaderboard-search,
-.panda-leaderboard-sort {
-  min-height: 34px;
-  border: 1px solid color-mix(in srgb, var(--border-light) 72%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg-input) 92%, transparent);
-  color: var(--text);
-  font: inherit;
-}
-
-.panda-leaderboard-search {
-  flex: 1 1 240px;
-  padding: 0 10px;
-}
-
-.panda-leaderboard-sort {
-  padding: 0 8px;
-}
-
-.panda-leaderboard-scope {
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.panda-leaderboard-scope-button,
-.panda-leaderboard-action {
-  padding: 0 10px;
-}
-
-.panda-leaderboard-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.panda-leaderboard-action .ui-icon svg {
-  width: 14px;
-  height: 14px;
-}
-
+/* --- Stats Bar --- */
 .panda-leaderboard-stats {
   justify-content: space-between;
-  gap: 12px;
-  padding: 9px 11px;
-  border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--border));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg-card) 74%, transparent);
+  padding: 10px 16px;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.02), transparent);
 }
 
-.panda-leaderboard-count {
-  color: var(--text-bright);
-  font-weight: 900;
-}
+.panda-leaderboard-count { color: #fff; font-weight: 800; }
+.panda-leaderboard-status { color: var(--text-dim); font-size: 0.85rem; }
 
-.panda-leaderboard-status {
-  color: var(--text-dim);
-  font-size: 0.82rem;
-  text-align: right;
-}
-
+/* =========================================================================
+   P.A.N.D.A — Premium Podium (1st, 2nd, 3rd)
+   ========================================================================= */
 .panda-leaderboard-podium {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 16px;
+  padding: 10px 0;
 }
 
 .panda-leaderboard-podium-card {
-  min-width: 0;
-  display: grid;
-  gap: 4px;
-  padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--border));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg-card) 80%, transparent);
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-  transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
-}
-
-.panda-leaderboard-podium-card:hover,
-.panda-leaderboard-podium-card:focus-visible {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--border-light));
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
-}
-
-.panda-leaderboard-podium-card-1 {
-  background: color-mix(in srgb, var(--warning) 12%, var(--bg-card));
-  border-color: color-mix(in srgb, var(--warning) 34%, var(--border));
-}
-
-.panda-leaderboard-podium-rank {
-  color: color-mix(in srgb, var(--warning) 80%, white 20%);
-  font-weight: 900;
-}
-
-.panda-leaderboard-podium-name,
-.panda-leaderboard-name {
-  min-width: 0;
-  color: var(--text-bright);
-  font-weight: 900;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.panda-leaderboard-podium-xp,
-.panda-leaderboard-title,
-.panda-leaderboard-level {
-  color: var(--text-dim);
-  font-size: 0.78rem;
-}
-
-.panda-leaderboard-list {
-  min-height: 0;
-  display: grid;
-  gap: 6px;
-  overflow: auto;
-  padding-right: 3px;
-  scrollbar-width: thin;
-}
-
-.panda-leaderboard-row {
-  width: 100%;
-  min-height: 48px;
-  display: grid;
-  grid-template-columns: 48px 34px minmax(0, 1fr) auto auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--accent) 10%, var(--border));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg-card) 76%, transparent);
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-  animation: leaderboardRowIn 180ms ease-out both;
-  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
-}
-
-.panda-leaderboard-row:hover,
-.panda-leaderboard-row:focus-visible {
-  transform: translateX(2px);
-  border-color: color-mix(in srgb, var(--accent) 34%, var(--border-light));
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
-}
-
-.panda-leaderboard-row.is-viewer,
-.panda-leaderboard-podium-card.is-viewer {
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 80%, white 20%);
-}
-
-.panda-leaderboard-rank {
-  color: color-mix(in srgb, var(--accent) 72%, white 28%);
-  font-weight: 900;
-}
-
-.panda-leaderboard-avatar {
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 18%, var(--bg-panel));
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  color: var(--text-bright);
-  font-weight: 900;
-}
-
-.panda-leaderboard-identity {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.panda-leaderboard-xp {
-  color: color-mix(in srgb, var(--warning) 82%, white 18%);
-  font-weight: 900;
-  white-space: nowrap;
-}
-
-.panda-leaderboard-level {
-  white-space: nowrap;
-}
-
-.panda-leaderboard-empty,
-.panda-leaderboard-skeleton,
-.panda-leaderboard-viewer-note {
-  padding: 18px;
-  border: 1px dashed color-mix(in srgb, var(--accent) 18%, var(--border));
-  border-radius: 8px;
-  color: var(--text-dim);
   text-align: center;
-  background: color-mix(in srgb, var(--bg-card) 62%, transparent);
-}
-
-@keyframes leaderboardBackdropIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes leaderboardDialogIn {
-  from { opacity: 0; transform: translateY(10px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@keyframes leaderboardRowIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@media (max-width: 900px) {
-  .profile-popover-side-grid,
-  .profile-popover-meta-row,
-  .public-profile-body-single,
-  .panda-leaderboard-podium {
-    grid-template-columns: 1fr;
-  }
-
-  .public-profile-body-single .public-profile-section {
-    grid-column: 1 / -1;
-  }
-
-  .panda-leaderboard-row {
-    grid-template-columns: 42px 32px minmax(0, 1fr);
-  }
-
-  .panda-leaderboard-xp,
-  .panda-leaderboard-level {
-    grid-column: 3;
-  }
-}
-
-@media (max-width: 640px) {
-  .panda-leaderboard-backdrop {
-    align-items: stretch;
-    padding: 8px;
-  }
-
-  .panda-leaderboard-dialog {
-    width: 100%;
-    max-height: calc(100dvh - 16px);
-    padding: 12px;
-  }
-
-  .panda-leaderboard-controls {
-    align-items: stretch;
-  }
-
-  .panda-leaderboard-search,
-  .panda-leaderboard-sort,
-  .panda-leaderboard-scope,
-  .panda-leaderboard-action {
-    flex: 1 1 100%;
-  }
-
-  .profile-popover-tabbar {
-    padding-inline: 8px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .profile-popover-pane,
-  .profile-popover-progress::after,
-  .panda-leaderboard-backdrop,
-  .panda-leaderboard-dialog,
-  .panda-leaderboard-row {
-    animation: none !important;
-    transition-duration: 1ms !important;
-  }
-}
-
-/* Profile + leaderboard final polish */
-.profile-popover,
-.public-profile-modal {
-  width: min(1280px, calc(100vw - 28px)) !important;
-  max-height: calc(100dvh - 28px) !important;
-}
-
-.profile-popover {
-  overflow: hidden;
-}
-
-.profile-popover-shell-dossier {
-  min-height: 0;
-  overflow: auto;
-  animation: profilePaneIn 180ms ease-out both;
-}
-
-.profile-popover-shell-dossier .public-profile-view {
-  padding: 12px;
-}
-
-.public-profile-modal {
-  border-color: color-mix(in srgb, var(--accent) 34%, var(--border-light));
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, rgba(18, 23, 29, 0.98)), rgba(10, 13, 17, 0.99)),
-    var(--bg-panel);
-  box-shadow:
-    0 26px 90px rgba(0, 0, 0, 0.72),
-    inset 0 1px 0 rgba(255, 255, 255, 0.055),
-    0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
-}
-
-.public-profile-view-single {
-  --profile-accent: var(--accent, #5eaa3a);
-  color: var(--text, #d7dee7);
-  animation: profilePaneIn 180ms ease-out both;
-}
-
-.public-profile-view .public-profile-hero,
-.public-profile-view .public-profile-section,
-.panda-leaderboard-dialog,
-.panda-leaderboard-row,
-.panda-leaderboard-podium-card {
-  border-color: color-mix(in srgb, var(--accent) 18%, var(--border, #333));
-}
-
-.public-profile-hero {
-  position: relative;
-  overflow: hidden;
-  background:
-    linear-gradient(115deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 42%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012)),
-    color-mix(in srgb, var(--bg-card) 88%, transparent);
-}
-
-.public-profile-hero::after,
-.public-profile-badge-tile-unlocked::after,
-.panda-leaderboard-row[data-rank-tier='champion']::after,
-.panda-leaderboard-podium-card[data-rank-tier='champion']::after {
-  content: '';
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(105deg, transparent 0 38%, rgba(255, 255, 255, 0.085) 48%, transparent 58% 100%);
-  transform: translateX(-120%);
-  animation: profileSweep 5s ease-in-out infinite;
-}
-
-.public-profile-featured-badges {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
-.public-profile-featured-label {
-  color: var(--text-dim);
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.public-profile-featured-badge {
-  min-height: 32px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px 4px 5px;
-  border: 1px solid color-mix(in srgb, var(--badge-accent, var(--accent)) 44%, var(--border));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--badge-accent, var(--accent)) 12%, var(--bg-card));
-  color: var(--text-bright);
-  font-size: 0.76rem;
-  font-weight: 800;
-  box-shadow: 0 0 16px color-mix(in srgb, var(--badge-accent, var(--accent)) 14%, transparent);
-}
-
-.public-profile-featured-badge .panda-badge-icon {
-  color: var(--badge-accent, var(--accent));
-}
-
-@media (min-width: 1180px) {
-  .public-profile-body-single {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .public-profile-body-single .public-profile-section:nth-child(5) {
-    grid-column: span 3;
-  }
-
-  .public-profile-body-single .public-profile-section:nth-child(6) {
-    grid-column: span 1;
-  }
-}
-
-.public-profile-body-single {
-  align-items: start;
-}
-
-.public-profile-view .public-profile-section {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
-    color-mix(in srgb, var(--bg-card) 84%, transparent);
-}
-
-.public-profile-badge-wall {
-  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-  gap: 8px;
-  max-height: none;
-  overflow: visible;
-  padding-right: 0;
-}
-
-.public-profile-badge-tile {
-  position: relative;
-  min-height: 104px;
-  gap: 6px;
-  padding: 9px 7px;
-  overflow: hidden;
-}
-
-.public-profile-badge-tile-unlocked {
-  border-color: color-mix(in srgb, var(--badge-accent, var(--accent)) 48%, var(--border));
-  background:
-    radial-gradient(circle at 50% 8%, color-mix(in srgb, var(--badge-accent, var(--accent)) 16%, transparent), transparent 46%),
-    linear-gradient(180deg, color-mix(in srgb, var(--badge-accent, var(--accent)) 10%, rgba(255, 255, 255, 0.04)), rgba(255, 255, 255, 0.014)),
-    color-mix(in srgb, var(--bg-card) 88%, transparent);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 0 16px color-mix(in srgb, var(--badge-accent, var(--accent)) 15%, transparent);
-}
-
-.public-profile-badge-tile-unlocked .public-profile-badge-icon-wrap,
-.public-profile-badge-tile-unlocked .panda-badge-icon {
-  color: var(--badge-accent, var(--accent));
-  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--badge-accent, var(--accent)) 44%, transparent));
-  animation: badgePulse 3.6s ease-in-out infinite;
-  animation-delay: var(--badge-pulse-delay, 0ms);
-}
-
-.public-profile-badge-tile-locked-visible,
-.public-profile-badge-tile-locked-hidden {
-  background: color-mix(in srgb, var(--bg-panel) 76%, transparent);
-}
-
-.public-profile-badge-name,
-.public-profile-badge-meta {
-  white-space: normal;
-  text-overflow: clip;
-  line-height: 1.2;
-}
-
-.public-profile-badge-name {
-  display: -webkit-box;
-  min-height: 2.05em;
-  font-size: 0.84rem;
-  font-weight: 900;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.public-profile-badge-hover {
-  position: absolute;
-  left: 7px;
-  right: 7px;
-  bottom: 7px;
-  max-height: calc(100% - 14px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px;
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--bg-dark, #10141a) 92%, transparent);
-  color: var(--text-bright, #f3f6f8);
-  font-size: 0.7rem;
-  font-weight: 700;
-  line-height: 1.25;
-  opacity: 0;
-  transform: translateY(4px);
-  pointer-events: none;
-  transition: opacity 150ms ease, transform 150ms ease;
-}
-
-.public-profile-badge-tile:hover .public-profile-badge-hover,
-.public-profile-badge-tile:focus-visible .public-profile-badge-hover {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.public-profile-badge-meta {
-  font-size: 0.72rem;
-  color: color-mix(in srgb, var(--text-dim) 84%, white);
-}
-
-.panda-leaderboard-dialog {
-  width: min(1280px, calc(100vw - 32px));
-  max-height: calc(100dvh - 32px);
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 40%),
-    linear-gradient(180deg, rgba(19, 24, 30, 0.98), rgba(8, 11, 14, 0.99)),
-    var(--bg-panel);
-}
-
-.panda-leaderboard-row,
-.panda-leaderboard-podium-card {
-  --rank-color: var(--accent, #5eaa3a);
-  position: relative;
-  overflow: hidden;
-}
-
-.panda-leaderboard-row {
-  grid-template-columns: 58px 38px minmax(0, 1fr) auto auto;
-  min-height: 54px;
-  animation-delay: var(--rank-delay, 0ms);
-}
-
-.panda-leaderboard-row::before,
-.panda-leaderboard-podium-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
-  background: var(--rank-color);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--rank-color) 50%, transparent);
-}
-
-.panda-leaderboard-row[data-rank-tier='champion'],
-.panda-leaderboard-podium-card[data-rank-tier='champion'] {
-  --rank-color: var(--warning, #d7ba59);
-  border-color: color-mix(in srgb, var(--rank-color) 58%, var(--border));
-  background:
-    radial-gradient(circle at 12% 50%, color-mix(in srgb, var(--rank-color) 20%, transparent), transparent 34%),
-    color-mix(in srgb, var(--rank-color) 12%, var(--bg-card));
-}
-
-.panda-leaderboard-row[data-rank-tier='podium'],
-.panda-leaderboard-podium-card[data-rank-tier='podium'] {
-  --rank-color: color-mix(in srgb, var(--accent) 54%, #d7dce5 46%);
-  border-color: color-mix(in srgb, var(--rank-color) 46%, var(--border));
-  background: color-mix(in srgb, var(--rank-color) 9%, var(--bg-card));
-}
-
-.panda-leaderboard-row[data-rank-tier='elite'] {
-  --rank-color: color-mix(in srgb, var(--accent) 78%, #e6c66a 22%);
-  border-color: color-mix(in srgb, var(--rank-color) 34%, var(--border));
-}
-
-.panda-leaderboard-row[data-rank-tier='veteran'] {
-  --rank-color: color-mix(in srgb, var(--accent) 82%, #7fb2e8 18%);
-}
-
-.panda-leaderboard-rank {
-  color: var(--rank-color);
-}
-
-.panda-leaderboard-avatar {
-  border-color: color-mix(in srgb, var(--rank-color) 42%, transparent);
-  background: color-mix(in srgb, var(--rank-color) 18%, var(--bg-panel));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
-}
-
-.panda-leaderboard-name-line {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.panda-leaderboard-badges {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.panda-leaderboard-badge {
-  width: 24px;
-  height: 24px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid color-mix(in srgb, var(--rank-color) 24%, var(--border));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg-panel) 76%, transparent);
-}
-
-.panda-leaderboard-badge-gold {
-  color: var(--warning, #d7ba59);
-  border-color: color-mix(in srgb, var(--warning, #d7ba59) 44%, var(--border));
-}
-
-.panda-leaderboard-badge-silver {
-  color: #d1d7df;
-  border-color: color-mix(in srgb, #d1d7df 32%, var(--border));
-}
-
-.panda-leaderboard-badge-bronze {
-  color: #d87861;
-  border-color: color-mix(in srgb, #d87861 36%, var(--border));
-}
-
-.panda-leaderboard-badge .panda-badge-icon {
-  width: 18px;
-  height: 18px;
-}
-
-.panda-leaderboard-podium-card {
-  min-height: 98px;
-  padding-left: 16px;
-}
-
-.panda-leaderboard-podium-card-1 {
-  transform: translateY(-2px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 0 26px color-mix(in srgb, var(--warning, #d7ba59) 18%, transparent);
-}
-
-.panda-leaderboard-podium-card:hover,
-.panda-leaderboard-row:hover {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 12px 28px rgba(0, 0, 0, 0.26),
-    0 0 18px color-mix(in srgb, var(--rank-color) 16%, transparent);
-}
-
-@keyframes badgePulse {
-  0%, 100% {
-    transform: translateY(0) scale(1);
-  }
-  50% {
-    transform: translateY(-1px) scale(1.06);
-  }
-}
-
-@media (max-width: 900px) {
-  .profile-popover,
-  .public-profile-modal,
-  .panda-leaderboard-dialog {
-    width: calc(100vw - 16px) !important;
-    max-height: calc(100dvh - 16px) !important;
-  }
-
-  .public-profile-badge-wall {
-    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  }
-
-  .panda-leaderboard-row {
-    grid-template-columns: 42px 34px minmax(0, 1fr);
-  }
-
-  .panda-leaderboard-name-line {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 4px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .profile-popover-shell-dossier,
-  .public-profile-view-single,
-  .public-profile-hero::after,
-  .public-profile-badge-tile-unlocked::after,
-  .public-profile-badge-tile-unlocked .panda-badge-icon,
-  .panda-leaderboard-row[data-rank-tier='champion']::after,
-  .panda-leaderboard-podium-card[data-rank-tier='champion']::after {
-    animation: none !important;
-  }
-}
-
-
-/* =========================================================================
-   P.A.N.D.A — Leaderboard throne overhaul
-   ========================================================================= */
-
-.panda-leaderboard-podium-avatar.pa-avatar {
-  margin: 6px auto 4px;
-  --pa-avatar-size: 56px;
-  --pa-avatar-font: 22px;
-}
-.panda-leaderboard-podium-card-1 .panda-leaderboard-podium-avatar.pa-avatar {
-  --pa-avatar-size: 72px;
-  --pa-avatar-font: 30px;
-}
-
-.panda-leaderboard-podium-level {
-  display: block;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: color-mix(in srgb, var(--text-secondary, #a6b1a0) 90%, white 10%);
-  margin-top: 2px;
-  text-align: center;
-}
-
-.panda-leaderboard-podium-crown {
-  position: absolute;
-  top: -18px;
-  left: 50%;
-  transform: translateX(-50%) rotate(-4deg);
-  font-size: 24px;
-  color: #f3cf5e;
-  text-shadow:
-    0 0 10px rgba(243, 207, 94, 0.65),
-    0 2px 2px rgba(0, 0, 0, 0.55);
-  filter: drop-shadow(0 0 6px rgba(243, 207, 94, 0.55));
-  pointer-events: none;
-  animation: paCrownFloat 3.6s ease-in-out infinite;
-  z-index: 3;
-}
-
-@keyframes paCrownFloat {
-  0%, 100% { transform: translateX(-50%) rotate(-4deg) translateY(0); }
-  50%      { transform: translateX(-50%) rotate(3deg) translateY(-3px); }
-}
-
-.panda-leaderboard-podium-card {
-  position: relative;
+  padding: 24px 16px 20px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 24px rgba(0,0,0,0.4);
+  cursor: pointer;
+  transition: all 300ms var(--spring-easing);
   overflow: visible;
 }
 
-.panda-leaderboard-podium-card-1 {
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(243, 207, 94, 0.22), transparent 60%),
-    linear-gradient(165deg, color-mix(in srgb, #c4a040 16%, var(--bg-card, #141811)) 0%, color-mix(in srgb, #5eaa3a 8%, var(--bg-card, #141811)) 95%);
-  border-color: color-mix(in srgb, #c4a040 50%, rgba(255, 255, 255, 0.08));
-  box-shadow:
-    0 10px 30px rgba(196, 160, 64, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 0 40px rgba(196, 160, 64, 0.08);
-  transform: translateY(-6px);
+.panda-leaderboard-podium-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  z-index: 10;
 }
 
+/* 1st Place - The Gold Standard */
+.panda-leaderboard-podium-card-1 {
+  background: 
+    radial-gradient(circle at top, rgba(244, 208, 63, 0.15) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(20, 20, 20, 0.8), rgba(10, 10, 10, 0.95));
+  border-color: rgba(244, 208, 63, 0.4);
+  box-shadow: 
+    0 16px 40px rgba(244, 208, 63, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 0 30px rgba(244, 208, 63, 0.05);
+  transform: translateY(-12px); /* Natural lift for 1st place */
+}
+.panda-leaderboard-podium-card-1:hover {
+  transform: translateY(-18px) scale(1.04);
+  box-shadow: 0 24px 60px rgba(244, 208, 63, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* Animated Gold Border using Masking */
 .panda-leaderboard-podium-card-1::before {
   content: '';
   position: absolute;
   inset: -2px;
   border-radius: inherit;
   padding: 2px;
-  background: conic-gradient(from 180deg, #c4a040, #f3cf5e 18%, #c4a040 36%, rgba(196, 160, 64, 0.2) 50%, #c4a040 70%, #f3cf5e 86%, #c4a040 100%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  background: conic-gradient(from 0deg, var(--tier-gold-dark), var(--tier-gold), white, var(--tier-gold), var(--tier-gold-dark));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
-          mask-composite: exclude;
+  mask-composite: exclude;
   pointer-events: none;
-  animation: paAvatarSpin 12s linear infinite;
-  z-index: 0;
+  animation: borderSpin 4s linear infinite;
 }
 
+/* 2nd Place - Silver */
+.panda-leaderboard-podium-card-2 {
+  background: radial-gradient(circle at top, rgba(229, 231, 233, 0.1) 0%, transparent 60%), linear-gradient(180deg, rgba(20,20,20,0.8), rgba(10,10,10,0.95));
+  border-color: rgba(229, 231, 233, 0.3);
+}
+.panda-leaderboard-podium-card-2:hover {
+  box-shadow: 0 20px 50px rgba(229, 231, 233, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* 3rd Place - Bronze */
+.panda-leaderboard-podium-card-3 {
+  background: radial-gradient(circle at top, rgba(211, 84, 0, 0.1) 0%, transparent 60%), linear-gradient(180deg, rgba(20,20,20,0.8), rgba(10,10,10,0.95));
+  border-color: rgba(211, 84, 0, 0.3);
+}
+.panda-leaderboard-podium-card-3:hover {
+  box-shadow: 0 20px 50px rgba(211, 84, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Podium Typography & Avatars */
+.panda-leaderboard-podium-rank {
+  font-size: 1.2rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+.panda-leaderboard-podium-card-1 .panda-leaderboard-podium-rank { color: var(--tier-gold); text-shadow: 0 0 12px rgba(244, 208, 63, 0.6); }
+.panda-leaderboard-podium-card-2 .panda-leaderboard-podium-rank { color: var(--tier-silver); text-shadow: 0 0 12px rgba(229, 231, 233, 0.5); }
+.panda-leaderboard-podium-card-3 .panda-leaderboard-podium-rank { color: var(--tier-bronze); text-shadow: 0 0 12px rgba(211, 84, 0, 0.5); }
+
+.panda-leaderboard-podium-avatar.pa-avatar {
+  --pa-avatar-size: 64px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  margin-bottom: 12px;
+  transition: transform 300ms var(--spring-easing);
+}
+.panda-leaderboard-podium-card-1 .panda-leaderboard-podium-avatar.pa-avatar {
+  --pa-avatar-size: 86px;
+  box-shadow: 0 12px 32px rgba(244, 208, 63, 0.3);
+}
+.panda-leaderboard-podium-card:hover .panda-leaderboard-podium-avatar.pa-avatar {
+  transform: scale(1.1);
+}
+
+/* The Crown */
+.panda-leaderboard-podium-crown {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  font-size: 32px;
+  color: var(--tier-gold);
+  text-shadow: 0 4px 12px rgba(244, 208, 63, 0.8), 0 0 40px rgba(244, 208, 63, 0.6);
+  pointer-events: none;
+  animation: paCrownFloat 3.5s ease-in-out infinite;
+  z-index: 20;
+}
+
+.panda-leaderboard-podium-name { color: #fff; font-size: 1.1rem; font-weight: 900; margin-bottom: 4px; }
+.panda-leaderboard-podium-level { color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; margin-bottom: 12px; }
+.panda-leaderboard-podium-xp { 
+  color: var(--tier-gold); 
+  font-size: 1rem; 
+  font-weight: 900; 
+  background: rgba(0,0,0,0.3); 
+  padding: 4px 12px; 
+  border-radius: 20px; 
+  margin-top: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* =========================================================================
+   P.A.N.D.A — List View (Ranks 4+)
+   ========================================================================= */
+.panda-leaderboard-list {
+  min-height: 0;
+  display: grid;
+  gap: 8px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Custom Premium Scrollbar */
+.panda-leaderboard-list::-webkit-scrollbar { width: 6px; }
+.panda-leaderboard-list::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 10px; }
+.panda-leaderboard-list::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--accent) 50%, transparent); border-radius: 10px; }
+.panda-leaderboard-list::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+.panda-leaderboard-row {
+  position: relative;
+  width: 100%;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: 50px 44px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.02) 0%, rgba(0,0,0,0.2) 100%);
+  color: var(--text);
+  cursor: pointer;
+  overflow: hidden;
+  animation: leaderboardRowIn 400ms var(--spring-easing) both;
+  animation-delay: var(--rank-delay, 0ms);
+  transition: all 250ms var(--smooth-easing);
+}
+
+/* Left Indicator Strip */
+.panda-leaderboard-row::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--rank-color, var(--accent));
+  box-shadow: 0 0 12px var(--rank-color, var(--accent));
+  transition: width 200ms ease;
+}
+
+.panda-leaderboard-row:hover {
+  transform: translateX(4px) scale(1.01);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--rank-color, var(--accent)) 10%, transparent) 0%, rgba(0,0,0,0.4) 100%);
+  border-color: color-mix(in srgb, var(--rank-color, var(--accent)) 40%, transparent);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+}
+.panda-leaderboard-row:hover::before { width: 6px; }
+
+/* Dynamic List Tiers */
+.panda-leaderboard-row[data-rank="1"] { --rank-color: var(--tier-gold); }
+.panda-leaderboard-row[data-rank="2"] { --rank-color: var(--tier-silver); }
+.panda-leaderboard-row[data-rank="3"] { --rank-color: var(--tier-bronze); }
+
+.panda-leaderboard-rank {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--rank-color, color-mix(in srgb, var(--accent) 80%, white));
+}
+
+.panda-leaderboard-avatar {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  border: 2px solid color-mix(in srgb, var(--rank-color, var(--accent)) 40%, transparent);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+}
+
+.panda-leaderboard-name { color: #fff; font-size: 1.05rem; font-weight: 800; }
+.panda-leaderboard-title { color: var(--text-dim); font-size: 0.85rem; margin-top: 2px;}
+.panda-leaderboard-identity { display: flex; flex-direction: column; justify-content: center; }
+
+.panda-leaderboard-xp {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--tier-gold);
+  font-variant-numeric: tabular-nums;
+  background: rgba(0,0,0,0.3);
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(244, 208, 63, 0.1);
+}
+
+.panda-leaderboard-level {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Viewer Highlight */
+.panda-leaderboard-row.is-viewer {
+  background: linear-gradient(90deg, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.2) 100%);
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.panda-leaderboard-row.is-viewer::before {
+  background: #fff;
+  box-shadow: 0 0 16px #fff;
+}
+
+/* Shimmer Sweep Effect for Champions */
+.panda-leaderboard-row[data-rank="1"]::after,
 .panda-leaderboard-podium-card-1::after {
   content: '';
   position: absolute;
-  inset: 12% 24%;
-  bottom: auto;
-  top: -14px;
-  height: 30px;
-  background: radial-gradient(ellipse at center, rgba(243, 207, 94, 0.55), transparent 70%);
-  filter: blur(6px);
+  inset: 0;
+  background: linear-gradient(105deg, transparent 20%, rgba(255, 255, 255, 0.15) 50%, transparent 80%);
+  transform: translateX(-150%);
+  animation: premiumShimmer 6s infinite;
   pointer-events: none;
-  z-index: 0;
-  animation: paThroneShine 4s ease-in-out infinite alternate;
 }
 
-@keyframes paThroneShine {
-  from { opacity: 0.55; transform: scale(0.96); }
-  to   { opacity: 0.95; transform: scale(1.08); }
+/* =========================================================================
+   Animations
+   ========================================================================= */
+@keyframes leaderboardBackdropIn {
+  from { opacity: 0; backdrop-filter: blur(0px); }
+  to { opacity: 1; backdrop-filter: blur(16px); }
 }
 
-.panda-leaderboard-podium-card-2 {
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(210, 215, 223, 0.14), transparent 65%),
-    linear-gradient(165deg, color-mix(in srgb, #d1d7df 10%, var(--bg-card, #141811)) 0%, var(--bg-card, #141811) 95%);
-  border-color: color-mix(in srgb, #d1d7df 35%, rgba(255, 255, 255, 0.06));
+@keyframes leaderboardDialogIn {
+  from { opacity: 0; transform: scale(0.92) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-.panda-leaderboard-podium-card-3 {
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(184, 115, 51, 0.16), transparent 65%),
-    linear-gradient(165deg, color-mix(in srgb, #b87333 10%, var(--bg-card, #141811)) 0%, var(--bg-card, #141811) 95%);
-  border-color: color-mix(in srgb, #b87333 38%, rgba(255, 255, 255, 0.06));
+@keyframes leaderboardRowIn {
+  from { opacity: 0; transform: translateX(-20px) scale(0.98); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
 }
 
-.panda-leaderboard-podium-rank {
-  display: inline-block;
-  letter-spacing: 0.08em;
-  color: color-mix(in srgb, var(--accent, #5eaa3a) 85%, white 15%);
-}
-.panda-leaderboard-podium-card-1 .panda-leaderboard-podium-rank {
-  color: #f3cf5e;
-  text-shadow: 0 0 8px rgba(243, 207, 94, 0.5);
+@keyframes premiumShimmer {
+  0% { transform: translateX(-150%) skewX(-15deg); }
+  20%, 100% { transform: translateX(200%) skewX(-15deg); }
 }
 
+@keyframes borderSpin {
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes paCrownFloat {
+  0%, 100% { transform: translateX(-50%) rotate(-6deg) translateY(0); }
+  50% { transform: translateX(-50%) rotate(4deg) translateY(-6px); filter: drop-shadow(0 8px 12px rgba(244, 208, 63, 0.6)); }
+}
+
+@keyframes iconFloat {
+  from { transform: translateY(-2px); }
+  to { transform: translateY(2px); filter: drop-shadow(0 4px 16px rgba(244, 208, 63, 0.6)); }
+}
+
+/* =========================================================================
+   Responsive
+   ========================================================================= */
+@media (max-width: 900px) {
+  .panda-leaderboard-row {
+    grid-template-columns: 40px 36px minmax(0, 1fr);
+    padding: 10px 12px;
+  }
+  .panda-leaderboard-xp, .panda-leaderboard-level { grid-column: 3; margin-top: 4px; }
+  .panda-leaderboard-xp { display: inline-block; width: fit-content; padding: 4px 10px; font-size: 0.9rem;}
+}
+
+@media (max-width: 640px) {
+  .panda-leaderboard-podium { grid-template-columns: 1fr; gap: 12px; }
+  .panda-leaderboard-podium-card { padding: 16px; flex-direction: row; text-align: left; gap: 16px; }
+  .panda-leaderboard-podium-card-1 { transform: translateY(0); }
+  .panda-leaderboard-podium-card:hover { transform: scale(1.02); }
+  .panda-leaderboard-podium-crown { left: 40px; top: -10px; font-size: 24px; }
+  .panda-leaderboard-podium-avatar.pa-avatar { margin-bottom: 0; --pa-avatar-size: 56px; }
+  .panda-leaderboard-podium-xp { margin-top: 0; }
+  
+  .panda-leaderboard-dialog {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+    border-radius: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panda-leaderboard-backdrop, .panda-leaderboard-dialog, .panda-leaderboard-row {
+    animation: none !important; transition: none !important;
+  }
+  .panda-leaderboard-podium-card-1::before, .panda-leaderboard-podium-crown, .panda-leaderboard-title-icon {
+    animation: none !important;
+  }
+}
 
 /* =========================================================================
    P.A.N.D.A — Avatar system (shared renderer + cosmetics)
