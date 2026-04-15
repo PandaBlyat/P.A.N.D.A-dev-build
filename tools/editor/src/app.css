@@ -18526,3 +18526,194 @@ button.pa-avatar:focus-visible {
     animation: none !important;
   }
 }
+
+/* Profile dossier responsive layout: height-aware, no hidden lower sections. */
+.profile-popover,
+.public-profile-modal {
+  width: min(1320px, calc(100vw - 20px)) !important;
+  max-height: calc(100dvh - 20px) !important;
+}
+
+.public-profile-modal-body,
+.profile-popover-shell-dossier {
+  min-height: 0;
+  overflow: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+.profile-popover-shell-dossier {
+  max-height: calc(100dvh - 26px);
+}
+
+.public-profile-view-single {
+  min-width: 0;
+  padding: 10px !important;
+}
+
+.public-profile-view .public-profile-hero,
+.public-profile-view .public-profile-section,
+.public-profile-view .public-profile-recent-card,
+.public-profile-view .public-profile-badge-tile {
+  min-width: 0;
+}
+
+.public-profile-view .public-profile-recent-grid {
+  overflow-x: hidden;
+}
+
+.public-profile-view .public-profile-recent-card {
+  overflow: hidden;
+}
+
+.public-profile-recent-meta,
+.public-profile-recent-footer,
+.public-profile-recent-tags {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.public-profile-badge-wall {
+  max-height: min(42vh, 420px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
+
+@media (min-width: 1180px) {
+  .public-profile-body-single {
+    grid-template-columns: minmax(280px, 0.95fr) minmax(280px, 0.95fr) minmax(320px, 1fr) !important;
+    gap: 10px !important;
+    align-items: start;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(1) {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(2) {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(3) {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(4) {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(5) {
+    grid-column: 1 / span 2 !important;
+    grid-row: 3 !important;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(6) {
+    grid-column: 3 !important;
+    grid-row: 1 / span 3 !important;
+    min-height: 0;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(6) .public-profile-recent-grid {
+    grid-template-columns: 1fr !important;
+    max-height: min(66vh, 650px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+    scrollbar-width: thin;
+  }
+}
+
+@media (max-width: 1179px) and (min-width: 901px) {
+  .public-profile-body-single {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr) !important;
+    gap: 10px !important;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(1),
+  .public-profile-body-single .public-profile-section:nth-child(2),
+  .public-profile-body-single .public-profile-section:nth-child(3),
+  .public-profile-body-single .public-profile-section:nth-child(4) {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(5) {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(6) {
+    grid-column: 2 !important;
+    grid-row: 1 / span 4 !important;
+    min-height: 0;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(6) .public-profile-recent-grid {
+    grid-template-columns: 1fr !important;
+    max-height: min(60vh, 560px);
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}
+
+@media (max-height: 900px) and (min-width: 901px) {
+  .public-profile-view .public-profile-hero {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .public-profile-avatar.pa-avatar {
+    --pa-avatar-size: 64px;
+    --pa-avatar-font: 24px;
+  }
+
+  .public-profile-view .public-profile-section {
+    padding: 10px;
+    gap: 7px;
+  }
+
+  .public-profile-badge-wall {
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    max-height: min(36vh, 330px);
+  }
+
+  .public-profile-badge-tile {
+    min-height: 88px;
+    padding: 7px 6px;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(6) .public-profile-recent-grid {
+    max-height: calc(100dvh - 250px);
+  }
+}
+
+@media (max-width: 900px) {
+  .profile-popover,
+  .public-profile-modal {
+    width: calc(100vw - 10px) !important;
+    max-height: calc(100dvh - 10px) !important;
+  }
+
+  .public-profile-body-single,
+  .public-profile-body-single .public-profile-section {
+    grid-template-columns: 1fr !important;
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(6) .public-profile-recent-grid {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .public-profile-badge-wall {
+    max-height: 360px;
+  }
+}
