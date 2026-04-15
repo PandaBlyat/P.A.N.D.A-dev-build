@@ -16632,3 +16632,670 @@ strong.support-upvote-count {
     grid-template-columns: 1fr;
   }
 }
+
+/* Profile menu polish */
+.profile-popover {
+  width: min(1120px, calc(100vw - 24px));
+}
+
+.profile-popover-shell-tabbed {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.profile-popover-tabbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 12%, var(--border));
+  background: color-mix(in srgb, var(--bg-dark) 88%, transparent);
+}
+
+.profile-popover-tab-pill {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--border-light) 72%, transparent);
+  border-bottom-color: transparent;
+  border-radius: 8px 8px 0 0;
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.profile-popover-tab-pill:hover,
+.profile-popover-tab-pill:focus-visible {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-hover));
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border-light));
+  color: var(--text-bright);
+  transform: translateY(-1px);
+}
+
+.profile-popover-tab-pill.is-active {
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-panel));
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-light));
+  color: var(--text-bright);
+  box-shadow: inset 0 2px 0 color-mix(in srgb, var(--accent) 70%, white 30%);
+}
+
+.profile-popover-body-v2 {
+  max-height: calc(100vh - 116px);
+  overflow: hidden;
+}
+
+.profile-popover-body-v2.allow-scroll {
+  overflow-y: auto;
+}
+
+.profile-popover-pane {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  animation: profilePaneIn 180ms ease-out both;
+}
+
+.profile-popover-side-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.profile-popover-header {
+  max-width: 100%;
+}
+
+.profile-popover-meta-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+}
+
+.profile-popover-progress {
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-popover-progress::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 0 38%, rgba(255,255,255,0.055) 48%, transparent 58% 100%);
+  transform: translateX(-120%);
+  animation: profileSweep 4s ease-in-out infinite;
+}
+
+.profile-popover-achievements-v2 {
+  padding: 10px;
+}
+
+.profile-achievements-hero {
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.profile-achievements-ring {
+  width: 58px;
+  height: 58px;
+}
+
+.profile-achievements-ring-percent {
+  font-size: 0.82rem;
+}
+
+.profile-achievements-ring-sub,
+.profile-achievements-hero-sub {
+  font-size: 0.68rem;
+}
+
+.profile-achievements-filter-bar,
+.profile-achievement-summary-row,
+.profile-achievements-tier-strip {
+  gap: 5px;
+}
+
+.profile-achievements-filter-chip,
+.profile-achievements-tier-pill {
+  min-height: 26px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  letter-spacing: 0;
+}
+
+.profile-achievement-summary-row {
+  margin-bottom: 6px;
+}
+
+.profile-popover-achievements-v2 .profile-achievement-category-grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 6px;
+}
+
+.profile-achievement-category-details > summary {
+  min-height: 42px;
+  padding: 7px 8px;
+}
+
+.profile-achievement-category-status {
+  margin-top: 0;
+}
+
+.profile-achievement-category-progress {
+  height: 4px;
+}
+
+.profile-popover-achievements-v2 .profile-popover-achievement-grid {
+  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+  gap: 5px;
+  padding: 7px;
+}
+
+.profile-achievement-cell {
+  min-height: 44px;
+}
+
+.profile-achievement-badge {
+  min-height: 44px;
+}
+
+@keyframes profilePaneIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes profileSweep {
+  0%, 58% { transform: translateX(-120%); }
+  78%, 100% { transform: translateX(120%); }
+}
+
+/* Public profile: single dossier page */
+.public-profile-view-single {
+  gap: 10px !important;
+}
+
+.public-profile-body-single {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.public-profile-body-single .public-profile-section:nth-child(5),
+.public-profile-body-single .public-profile-section:nth-child(6) {
+  grid-column: 1 / -1;
+}
+
+.public-profile-view .public-profile-section {
+  padding: 12px;
+  gap: 8px;
+}
+
+.public-profile-view .public-profile-section-subtitle {
+  display: none;
+}
+
+.public-profile-badge-wall {
+  --badge-bg: color-mix(in srgb, var(--bg-card) 82%, transparent);
+  --badge-border: color-mix(in srgb, var(--profile-accent) 28%, var(--border));
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 7px;
+  max-height: 260px;
+  overflow: auto;
+  padding-right: 3px;
+  scrollbar-width: thin;
+}
+
+.public-profile-badge-tile {
+  min-width: 0;
+  min-height: 84px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 5px;
+  padding: 7px 6px;
+  border: 1px solid color-mix(in srgb, var(--profile-accent) 12%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
+  color: var(--text);
+  text-align: center;
+  transition: transform 150ms ease, border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+.public-profile-badge-tile:hover,
+.public-profile-badge-tile:focus-visible {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--profile-accent) 38%, var(--border-light));
+  background: color-mix(in srgb, var(--profile-accent) 10%, var(--bg-panel));
+  box-shadow: 0 10px 18px rgba(0,0,0,0.24);
+}
+
+.public-profile-badge-icon-wrap,
+.panda-badge-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.public-profile-badge-icon-wrap {
+  color: color-mix(in srgb, var(--profile-accent) 70%, white 30%);
+}
+
+.public-profile-badge-tile-locked-visible,
+.public-profile-badge-tile-locked-hidden {
+  opacity: 0.72;
+}
+
+.panda-badge-icon {
+  width: 34px;
+  height: 34px;
+}
+
+.panda-badge-icon[data-state='locked-visible'] {
+  opacity: 0.42;
+  filter: grayscale(1);
+}
+
+.panda-badge-icon[data-state='locked-hidden'] {
+  opacity: 0.48;
+  filter: grayscale(1) blur(0.2px);
+}
+
+.public-profile-badge-name,
+.public-profile-badge-meta {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.public-profile-badge-name {
+  font-size: 0.72rem;
+}
+
+.public-profile-badge-meta {
+  font-size: 0.64rem;
+}
+
+/* Leaderboard overlay */
+.panda-leaderboard-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1450;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(4, 7, 12, 0.78);
+  backdrop-filter: blur(9px);
+  animation: leaderboardBackdropIn 160ms ease-out both;
+}
+
+.panda-leaderboard-dialog {
+  width: min(980px, calc(100vw - 32px));
+  max-height: min(88vh, 860px);
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border-light));
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 14%, transparent), transparent 44%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 96%, black 4%), color-mix(in srgb, var(--bg-dark) 94%, black 6%));
+  box-shadow: 0 32px 90px rgba(0,0,0,0.66), inset 0 1px 0 rgba(255,255,255,0.045);
+  overflow: hidden;
+  animation: leaderboardDialogIn 180ms ease-out both;
+}
+
+.panda-leaderboard-header,
+.panda-leaderboard-title-wrap,
+.panda-leaderboard-controls,
+.panda-leaderboard-scope,
+.panda-leaderboard-stats {
+  display: flex;
+  align-items: center;
+}
+
+.panda-leaderboard-header {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.panda-leaderboard-title-wrap {
+  gap: 10px;
+  min-width: 0;
+}
+
+.panda-leaderboard-title-icon {
+  width: 34px;
+  height: 34px;
+  color: color-mix(in srgb, var(--accent) 76%, white 24%);
+}
+
+.panda-leaderboard-title-heading {
+  margin: 0;
+  color: var(--text-bright);
+  font-size: 1.12rem;
+}
+
+.panda-leaderboard-subtitle {
+  margin: 3px 0 0;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+}
+
+.panda-leaderboard-close,
+.panda-leaderboard-action,
+.panda-leaderboard-scope-button {
+  min-height: 32px;
+  border: 1px solid color-mix(in srgb, var(--border-light) 76%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-card) 86%, transparent);
+  color: var(--text);
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.panda-leaderboard-close {
+  width: 34px;
+}
+
+.panda-leaderboard-close:hover,
+.panda-leaderboard-action:hover,
+.panda-leaderboard-scope-button:hover,
+.panda-leaderboard-scope-button.is-active {
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--border-light));
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-hover));
+  color: var(--text-bright);
+  transform: translateY(-1px);
+}
+
+.panda-leaderboard-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.panda-leaderboard-controls {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.panda-leaderboard-search,
+.panda-leaderboard-sort {
+  min-height: 34px;
+  border: 1px solid color-mix(in srgb, var(--border-light) 72%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-input) 92%, transparent);
+  color: var(--text);
+  font: inherit;
+}
+
+.panda-leaderboard-search {
+  flex: 1 1 240px;
+  padding: 0 10px;
+}
+
+.panda-leaderboard-sort {
+  padding: 0 8px;
+}
+
+.panda-leaderboard-scope {
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.panda-leaderboard-scope-button,
+.panda-leaderboard-action {
+  padding: 0 10px;
+}
+
+.panda-leaderboard-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.panda-leaderboard-action .ui-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.panda-leaderboard-stats {
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-card) 74%, transparent);
+}
+
+.panda-leaderboard-count {
+  color: var(--text-bright);
+  font-weight: 900;
+}
+
+.panda-leaderboard-status {
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  text-align: right;
+}
+
+.panda-leaderboard-podium {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.panda-leaderboard-podium-card {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-card) 80%, transparent);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+
+.panda-leaderboard-podium-card:hover,
+.panda-leaderboard-podium-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border-light));
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
+}
+
+.panda-leaderboard-podium-card-1 {
+  background: color-mix(in srgb, var(--warning) 12%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--warning) 34%, var(--border));
+}
+
+.panda-leaderboard-podium-rank {
+  color: color-mix(in srgb, var(--warning) 80%, white 20%);
+  font-weight: 900;
+}
+
+.panda-leaderboard-podium-name,
+.panda-leaderboard-name {
+  min-width: 0;
+  color: var(--text-bright);
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panda-leaderboard-podium-xp,
+.panda-leaderboard-title,
+.panda-leaderboard-level {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
+.panda-leaderboard-list {
+  min-height: 0;
+  display: grid;
+  gap: 6px;
+  overflow: auto;
+  padding-right: 3px;
+  scrollbar-width: thin;
+}
+
+.panda-leaderboard-row {
+  width: 100%;
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: 48px 34px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 10%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-card) 76%, transparent);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  animation: leaderboardRowIn 180ms ease-out both;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.panda-leaderboard-row:hover,
+.panda-leaderboard-row:focus-visible {
+  transform: translateX(2px);
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border-light));
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
+}
+
+.panda-leaderboard-row.is-viewer,
+.panda-leaderboard-podium-card.is-viewer {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 80%, white 20%);
+}
+
+.panda-leaderboard-rank {
+  color: color-mix(in srgb, var(--accent) 72%, white 28%);
+  font-weight: 900;
+}
+
+.panda-leaderboard-avatar {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-panel));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--text-bright);
+  font-weight: 900;
+}
+
+.panda-leaderboard-identity {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.panda-leaderboard-xp {
+  color: color-mix(in srgb, var(--warning) 82%, white 18%);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.panda-leaderboard-level {
+  white-space: nowrap;
+}
+
+.panda-leaderboard-empty,
+.panda-leaderboard-skeleton,
+.panda-leaderboard-viewer-note {
+  padding: 18px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 18%, var(--border));
+  border-radius: 8px;
+  color: var(--text-dim);
+  text-align: center;
+  background: color-mix(in srgb, var(--bg-card) 62%, transparent);
+}
+
+@keyframes leaderboardBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes leaderboardDialogIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes leaderboardRowIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 900px) {
+  .profile-popover-side-grid,
+  .profile-popover-meta-row,
+  .public-profile-body-single,
+  .panda-leaderboard-podium {
+    grid-template-columns: 1fr;
+  }
+
+  .public-profile-body-single .public-profile-section {
+    grid-column: 1 / -1;
+  }
+
+  .panda-leaderboard-row {
+    grid-template-columns: 42px 32px minmax(0, 1fr);
+  }
+
+  .panda-leaderboard-xp,
+  .panda-leaderboard-level {
+    grid-column: 3;
+  }
+}
+
+@media (max-width: 640px) {
+  .panda-leaderboard-backdrop {
+    align-items: stretch;
+    padding: 8px;
+  }
+
+  .panda-leaderboard-dialog {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+    padding: 12px;
+  }
+
+  .panda-leaderboard-controls {
+    align-items: stretch;
+  }
+
+  .panda-leaderboard-search,
+  .panda-leaderboard-sort,
+  .panda-leaderboard-scope,
+  .panda-leaderboard-action {
+    flex: 1 1 100%;
+  }
+
+  .profile-popover-tabbar {
+    padding-inline: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-popover-pane,
+  .profile-popover-progress::after,
+  .panda-leaderboard-backdrop,
+  .panda-leaderboard-dialog,
+  .panda-leaderboard-row {
+    animation: none !important;
+    transition-duration: 1ms !important;
+  }
+}

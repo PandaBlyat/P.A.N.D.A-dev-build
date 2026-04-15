@@ -1172,6 +1172,8 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
     const categoryDetails = document.createElement('details');
     categoryDetails.className = 'profile-achievement-category-details';
     categoryDetails.style.setProperty('--category-accent', ACHIEVEMENT_CATEGORY_COLORS[category]);
+    const defaultOpen = unlockedCount > 0;
+    categoryDetails.dataset.defaultOpen = defaultOpen ? '1' : '0';
 
     const categorySummary = document.createElement('summary');
 
@@ -1215,7 +1217,7 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
     categoryHeader.appendChild(categoryTitle);
     categorySummary.append(categoryHeader, categoryStatus);
     categoryDetails.appendChild(categorySummary);
-    categoryDetails.open = true;
+    categoryDetails.open = defaultOpen;
 
     const grid = document.createElement('div');
     grid.className = 'profile-popover-achievement-grid profile-achievement-category-rail';
@@ -1396,7 +1398,9 @@ function applyAchievementFilter(section: HTMLElement, filter: AchievementFilter)
   categoryDetails.forEach((det) => {
     const anyVisible = det.querySelector('.profile-achievement-cell:not(.is-filtered-out)') !== null;
     det.classList.toggle('is-empty', !anyVisible);
-    if (filter !== 'all') det.open = anyVisible;
+    det.open = filter === 'all'
+      ? det.dataset.defaultOpen === '1'
+      : anyVisible;
   });
 }
 

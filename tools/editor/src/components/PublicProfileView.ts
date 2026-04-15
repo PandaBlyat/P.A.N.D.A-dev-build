@@ -1,5 +1,4 @@
 import {
-  type CommunityConversation,
   type PublicProfileData,
   deriveLevelMetadata,
   getLevelTitle,
@@ -544,97 +543,25 @@ function buildConversationSummarySection(data: PublicProfileData): HTMLElement {
   return section;
 }
 
-type PublicProfileTabId = 'dossier' | 'badges' | 'stories' | 'faction';
-
-type PublicProfileTabDef = {
-  id: PublicProfileTabId;
-  label: string;
-  allowScroll: boolean;
-  build: (data: PublicProfileData, leaderboardRank?: number | null) => HTMLElement;
-};
-
-function buildDossierPane(data: PublicProfileData, leaderboardRank?: number | null): HTMLElement {
-  const pane = document.createElement('div');
-  pane.className = 'public-profile-pane public-profile-pane-dossier';
-  pane.append(
+function buildPublicProfileBody(data: PublicProfileData, leaderboardRank?: number | null): HTMLElement {
+  const body = document.createElement('div');
+  body.className = 'public-profile-body public-profile-body-single';
+  body.append(
     buildPrestigeSummary(data, leaderboardRank ?? undefined),
     buildStreakHighlights(data),
-  );
-  return pane;
-}
-
-function buildBadgesPane(data: PublicProfileData): HTMLElement {
-  const pane = document.createElement('div');
-  pane.className = 'public-profile-pane public-profile-pane-badges public-profile-pane-scroll';
-  pane.appendChild(buildAchievementsSection(data));
-  return pane;
-}
-
-function buildStoriesPane(data: PublicProfileData): HTMLElement {
-  const pane = document.createElement('div');
-  pane.className = 'public-profile-pane public-profile-pane-stories public-profile-pane-scroll';
-  pane.append(
     buildConversationSummarySection(data),
+    buildFactionBreakdown(data),
+    buildAchievementsSection(data),
     buildRecentCards(data),
   );
-  return pane;
+  return body;
 }
-
-function buildFactionPane(data: PublicProfileData): HTMLElement {
-  const pane = document.createElement('div');
-  pane.className = 'public-profile-pane public-profile-pane-faction public-profile-pane-scroll';
-  pane.appendChild(buildFactionBreakdown(data));
-  return pane;
-}
-
-const PUBLIC_PROFILE_TABS: PublicProfileTabDef[] = [
-  { id: 'dossier', label: 'Dossier', allowScroll: false, build: buildDossierPane },
-  { id: 'badges', label: 'Badges', allowScroll: true, build: (data) => buildBadgesPane(data) },
-  { id: 'stories', label: 'Stories', allowScroll: true, build: (data) => buildStoriesPane(data) },
-  { id: 'faction', label: 'Faction', allowScroll: true, build: (data) => buildFactionPane(data) },
-];
 
 export function renderPublicProfileView(options: PublicProfileViewOptions): HTMLElement {
   const root = document.createElement('div');
-  root.className = 'public-profile-view public-profile-view-tabbed';
+  root.className = 'public-profile-view public-profile-view-single';
 
   root.appendChild(buildHeader(options.data));
-
-  const tabBar = document.createElement('div');
-  tabBar.className = 'public-profile-tabbar';
-  tabBar.setAttribute('role', 'tablist');
-
-  const body = document.createElement('div');
-  body.className = 'public-profile-body';
-
-  const pills: HTMLButtonElement[] = [];
-  const activate = (index: number): void => {
-    const tab = PUBLIC_PROFILE_TABS[index];
-    for (let i = 0; i < pills.length; i++) {
-      const isActive = i === index;
-      pills[i].classList.toggle('is-active', isActive);
-      pills[i].setAttribute('aria-selected', String(isActive));
-      pills[i].tabIndex = isActive ? 0 : -1;
-    }
-    body.textContent = '';
-    body.dataset.tab = tab.id;
-    body.classList.toggle('allow-scroll', tab.allowScroll);
-    body.appendChild(tab.build(options.data, options.leaderboardRank));
-  };
-
-  PUBLIC_PROFILE_TABS.forEach((tab, index) => {
-    const pill = document.createElement('button');
-    pill.type = 'button';
-    pill.className = 'public-profile-tab-pill';
-    pill.setAttribute('role', 'tab');
-    pill.dataset.tab = tab.id;
-    pill.textContent = tab.label;
-    pill.addEventListener('click', () => activate(index));
-    pills.push(pill);
-    tabBar.appendChild(pill);
-  });
-
-  root.append(tabBar, body);
-  activate(0);
+  root.appendChild(buildPublicProfileBody(options.data, options.leaderboardRank));
   return root;
 }
