@@ -1537,16 +1537,16 @@ BEGIN
   )
   SELECT
     count(*)::INT,
-    count(DISTINCT nullif(faction, ''))::INT,
-    coalesce(max(branch_score), 0),
-    coalesce(max(turn_count), 0),
-    coalesce(max(precondition_count), 0),
-    coalesce(max(outcome_type_count), 0),
-    coalesce(max(CASE WHEN outcome_type_count >= 4 THEN precondition_count ELSE 0 END), 0),
-    coalesce(max(CASE WHEN precondition_count >= 3 THEN outcome_type_count ELSE 0 END), 0),
-    coalesce(bool_or(has_uncommon), false),
-    coalesce(bool_or(EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC'))::INT >= 22 OR EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC'))::INT < 5), false),
-    coalesce(bool_or(EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC'))::INT >= 4 AND EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC'))::INT < 7), false)
+    count(DISTINCT nullif(pc.faction, ''))::INT,
+    coalesce(max(pc.branch_score), 0),
+    coalesce(max(pc.turn_count), 0),
+    coalesce(max(pc.precondition_count), 0),
+    coalesce(max(pc.outcome_type_count), 0),
+    coalesce(max(CASE WHEN pc.outcome_type_count >= 4 THEN pc.precondition_count ELSE 0 END), 0),
+    coalesce(max(CASE WHEN pc.precondition_count >= 3 THEN pc.outcome_type_count ELSE 0 END), 0),
+    coalesce(bool_or(pc.has_uncommon), false),
+    coalesce(bool_or(EXTRACT(HOUR FROM (pc.created_at AT TIME ZONE 'UTC'))::INT >= 22 OR EXTRACT(HOUR FROM (pc.created_at AT TIME ZONE 'UTC'))::INT < 5), false),
+    coalesce(bool_or(EXTRACT(HOUR FROM (pc.created_at AT TIME ZONE 'UTC'))::INT >= 4 AND EXTRACT(HOUR FROM (pc.created_at AT TIME ZONE 'UTC'))::INT < 7), false)
   INTO
     total_publishes,
     distinct_factions,
@@ -1559,7 +1559,7 @@ BEGIN
     has_uncommon,
     has_night_publish,
     has_dawn_publish
-  FROM per_conversation;
+  FROM per_conversation pc;
 
   WITH convs AS (
     SELECT created_at
