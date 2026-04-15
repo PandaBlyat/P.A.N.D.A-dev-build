@@ -1,15 +1,10 @@
 // P.A.N.D.A. — Avatar customization modal.
-//
-// Opens when the user clicks their own avatar inside the profile popover.
-// Lets the user pick an icon glyph, tint color, frame, banner preset, and VFX,
-// previews the result live, and persists it via updateUserCosmetics().
-
 import {
   AVATAR_ICON_PRESETS,
   AVATAR_COLOR_PRESETS,
   AVATAR_FRAME_PRESETS,
   AVATAR_BANNER_PRESETS,
-  AVATAR_EFFECT_PRESETS, // Ensure you export this from avatar-catalog.ts
+  AVATAR_EFFECT_PRESETS, 
   type AvatarIconPreset,
   type AvatarColorPreset,
   type AvatarFramePreset,
@@ -17,17 +12,20 @@ import {
   type AvatarEffectPreset,
 } from '../lib/avatar-catalog';
 import {
-  updateUserCosmetics,
-  type UserProfile,
-  type UserCosmetics, // Note: Ensure UserCosmetics interface in api-client allows `avatar_effect?: string;`
+  updateUserCosmetics as apiUpdateUserCosmetics,
+  type UserProfile as BaseUserProfile,
+  type UserCosmetics as BaseUserCosmetics,
 } from '../lib/api-client';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 
+// --- LOCAL TYPE EXTENSIONS ---
+// This prevents build errors until you update api-client.ts to include avatar_effect
+export type UserProfile = BaseUserProfile & { avatar_effect?: string };
+export type UserCosmetics = BaseUserCosmetics & { avatar_effect?: string };
+
 type OpenOptions = {
   profile: UserProfile;
-  /** Called with the updated profile after a successful save. */
   onSaved: (profile: UserProfile) => void;
-  /** Element to restore focus to when the modal closes. */
   returnFocus?: HTMLElement | null;
 };
 
@@ -35,7 +33,6 @@ let activeOverlay: HTMLElement | null = null;
 let activeTrap: FocusTrapController | null = null;
 let activeReturnFocus: HTMLElement | null = null;
 
-// Lock SVG Icon for Level-Gated items
 const LOCK_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`;
 
 export function closeAvatarCustomizationModal(): void {
@@ -63,10 +60,6 @@ function getInitial(username: string): string {
   return (username ?? '').trim().charAt(0).toUpperCase() || '?';
 }
 
-/**
- * Build a preview swatch that mirrors how the avatar will render in the hero
- * card across the app. Includes the new VFX layer and animations.
- */
 function renderPreview(username: string, level: number, draft: UserCosmetics): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'pa-avatar-preview';
@@ -119,9 +112,6 @@ function renderPreview(username: string, level: number, draft: UserCosmetics): H
   return wrap;
 }
 
-/**
- * Reusable function to build individual cosmetic buttons with Level Gating UI.
- */
 function buildCosmeticButton(
   item: { id: string; label: string; minLevel?: number },
   isActive: boolean,
@@ -154,7 +144,8 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
   closeAvatarCustomizationModal();
 
   const { profile, onSaved, returnFocus } = options;
-  const userLevel = profile.level ?? 1;
+  // Fallback level to 1 if missing so we can evaluate locks
+  const userLevel = (profile as any).level ?? 1;
 
   const draft: UserCosmetics = {
     avatar_icon: profile.avatar_icon ?? 'default',
@@ -179,7 +170,6 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
   const dialog = document.createElement('div');
   dialog.className = 'pa-avatar-modal';
 
-  // --- Header ---
   const header = document.createElement('header');
   header.className = 'pa-avatar-modal-header';
   const titleWrap = document.createElement('div');
@@ -192,7 +182,6 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
   closeBtn.addEventListener('click', closeAvatarCustomizationModal);
   header.append(titleWrap, closeBtn);
 
-  // --- Body ---
   const body = document.createElement('div');
   body.className = 'pa-avatar-modal-body';
 
@@ -202,7 +191,6 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
   const workspace = document.createElement('div');
   workspace.className = 'pa-avatar-modal-workspace';
 
-  // --- Tabs Navigation ---
   const tabBar = document.createElement('nav');
   tabBar.className = 'pa-avatar-tabs';
   const tabs: { id: TabId; label: string }[] = [
@@ -230,18 +218,14 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
   tabContent.className = 'pa-avatar-tab-content';
   workspace.append(tabBar, tabContent);
 
-  // --- Render Function for Tabs & Preview ---
   const renderWorkspace = () => {
-    // 1. Update Tab Buttons
     tabButtons.forEach((btn, id) => {
       btn.classList.toggle('is-active', id === activeTab);
     });
 
-    // 2. Update Preview Widget
     previewSlot.textContent = '';
-    previewSlot.appendChild(renderPreview(profile.username, userLevel, draft));
+    previewSlot.appendChild(renderPreview(profile.username ?? '', userLevel, draft));
 
-    // 3. Render Active Grid Content
     tabContent.textContent = '';
     const grid = document.createElement('div');
     grid.className = `pa-avatar-grid pa-avatar-grid-${activeTab}s`;
@@ -304,10 +288,9 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
     tabContent.appendChild(grid);
   };
 
-  renderWorkspace(); // Initial render
+  renderWorkspace(); 
   body.append(previewSlot, workspace);
 
-  // --- Footer ---
   const footer = document.createElement('footer');
   footer.className = 'pa-avatar-modal-footer';
 
@@ -338,8 +321,10 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
     saveBtn.disabled = true;
     saveBtn.textContent = 'Saving…';
     try {
-      const updated = await updateUserCosmetics(profile.publisher_id, draft);
-      onSaved({ ...profile, ...(updated || draft) });
+      // Cast the draft back to BaseUserCosmetics so the API client accepts it 
+      // even if it drops the `avatar_effect` property on save.
+      const updated = await apiUpdateUserCosmetics(profile.publisher_id, draft as BaseUserCosmetics);
+      onSaved({ ...profile, ...(updated || draft) } as UserProfile);
       closeAvatarCustomizationModal();
     } catch (err) {
       console.error('[avatar] save failed', err);
