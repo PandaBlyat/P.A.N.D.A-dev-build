@@ -1485,7 +1485,7 @@ function buildMissionCard(mission: ActiveMission, isSelfProfile: boolean): HTMLE
   return card;
 }
 
-function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTMLElement {
+function buildStreakChallengeSection(profile: UserProfile = cachedProfile!, options: { compact?: boolean } = {}): HTMLElement {
   const section = document.createElement('section');
   section.className = 'profile-popover-streak-challenge profile-surface-section';
   section.classList.add('profile-dashboard-card', 'profile-dashboard-streak-challenge');
@@ -1522,7 +1522,9 @@ function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTM
   heading.className = 'profile-popover-section-header';
   const headingIcon = createIcon('target');
   const headingTitle = document.createElement('span');
-  headingTitle.textContent = isSelfProfile ? 'Mission board' : 'Mission snapshot';
+  headingTitle.textContent = options.compact
+    ? (isSelfProfile ? 'Next objective' : 'Mission snapshot')
+    : (isSelfProfile ? 'Mission board' : 'Mission snapshot');
   heading.append(headingIcon, headingTitle);
   sectionHeading.append(heading);
 
@@ -1563,7 +1565,9 @@ function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTM
   missionTitleRow.className = 'profile-mission-title-row';
   const missionTitle = document.createElement('div');
   missionTitle.className = 'profile-challenge-header';
-  missionTitle.textContent = isSelfProfile ? 'Priority objectives' : 'Visible objectives';
+  missionTitle.textContent = options.compact
+    ? (isSelfProfile ? 'Priority objective' : 'Visible objective')
+    : (isSelfProfile ? 'Priority objectives' : 'Visible objectives');
   const resetInfo = getMissionResetInfo();
   const cadence = document.createElement('span');
   cadence.className = 'profile-mission-reset';
@@ -1575,7 +1579,10 @@ function buildStreakChallengeSection(profile: UserProfile = cachedProfile!): HTM
   const missionList = document.createElement('div');
   missionList.className = 'profile-mission-list';
   const missions = getProfileMissions(profile, isSelfProfile);
-  missions.forEach(mission => missionList.appendChild(buildMissionCard(mission, isSelfProfile)));
+  const visibleMissions = options.compact
+    ? [...missions].sort((a, b) => Number(a.completed) - Number(b.completed)).slice(0, 1)
+    : missions;
+  visibleMissions.forEach(mission => missionList.appendChild(buildMissionCard(mission, isSelfProfile)));
 
   missionPanel.append(missionHeader, missionList);
 
@@ -1646,7 +1653,7 @@ function buildOverviewTab(profile: UserProfile): HTMLElement {
   // full catalog. The full badge wall lives on the Badges tab.
   const sideRow = document.createElement('div');
   sideRow.className = 'profile-popover-side-grid';
-  sideRow.append(buildStatsSection(profile), buildMissionCard(profile));
+  sideRow.append(buildStatsSection(profile), buildStreakChallengeSection(profile, { compact: true }));
 
   pane.append(heroRow, sideRow);
   return pane;
@@ -1662,7 +1669,7 @@ function buildBadgesTab(profile: UserProfile): HTMLElement {
 function buildMissionsTab(profile: UserProfile): HTMLElement {
   const pane = document.createElement('div');
   pane.className = 'profile-popover-pane profile-popover-pane-missions profile-popover-pane-scroll';
-  pane.append(buildMissionCard(profile), buildStreakChallengeSection(profile));
+  pane.appendChild(buildStreakChallengeSection(profile));
   return pane;
 }
 
