@@ -752,7 +752,7 @@ DECLARE
 BEGIN
   INSERT INTO user_achievements (publisher_id, achievement_id)
   VALUES (p_publisher_id, p_achievement_id)
-  ON CONFLICT (publisher_id, achievement_id) DO NOTHING;
+  ON CONFLICT ON CONSTRAINT user_achievements_pkey DO NOTHING;
 
   GET DIAGNOSTICS was_new = ROW_COUNT;
   RETURN was_new > 0;
@@ -765,10 +765,10 @@ RETURNS TABLE(achievement_id TEXT, unlocked_at TIMESTAMPTZ)
 LANGUAGE sql
 SECURITY DEFINER
 AS $$
-  SELECT achievement_id, unlocked_at
-  FROM user_achievements
-  WHERE publisher_id = p_publisher_id
-  ORDER BY unlocked_at ASC;
+  SELECT ua.achievement_id, ua.unlocked_at
+  FROM user_achievements ua
+  WHERE ua.publisher_id = p_publisher_id
+  ORDER BY ua.unlocked_at ASC;
 $$;
 
 -- Per-user streak tracking (server-side backup)
@@ -1143,7 +1143,7 @@ DECLARE
 BEGIN
   INSERT INTO user_achievements (publisher_id, achievement_id)
   VALUES (p_publisher_id, p_achievement_id)
-  ON CONFLICT (publisher_id, achievement_id) DO NOTHING;
+  ON CONFLICT ON CONSTRAINT user_achievements_pkey DO NOTHING;
   GET DIAGNOSTICS inserted_row = ROW_COUNT;
   v_was_new := inserted_row > 0;
 
