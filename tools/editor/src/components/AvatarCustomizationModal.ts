@@ -298,8 +298,27 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
         const btn = buildCosmeticButton(preset, isActive, userLevel, 'pa-avatar-chip-frame', isAdmin, () => {
           draft.avatar_frame = preset.id; renderWorkspace();
         });
+        // Build a real mini-avatar so variant-specific CSS (ornaments, ::after
+        // crests, animated borders) actually renders in the picker.
+        const sampleWrap = document.createElement('span');
+        sampleWrap.className = 'pa-avatar-chip-frame-sample-wrap';
+        const sampleAvatar = document.createElement('span');
         const isAnim = preset.isAnimated ? ' pa-anim-frame' : '';
-        btn.innerHTML += `<span class="pa-avatar-chip-frame-sample pa-avatar-frame-${preset.variant}${isAnim}"></span><span class="pa-avatar-chip-label">${preset.label}</span>`;
+        sampleAvatar.className = `pa-avatar pa-avatar-sm pa-avatar-frame-${preset.variant} pa-avatar-chip-frame-sample${isAnim}`;
+        const glyph = document.createElement('span');
+        glyph.className = 'pa-avatar-glyph';
+        glyph.textContent = 'A';
+        sampleAvatar.appendChild(glyph);
+        const ornament = document.createElement('span');
+        ornament.className = 'pa-avatar-ornament';
+        ornament.setAttribute('aria-hidden', 'true');
+        sampleAvatar.appendChild(ornament);
+        sampleWrap.appendChild(sampleAvatar);
+        btn.appendChild(sampleWrap);
+        const label = document.createElement('span');
+        label.className = 'pa-avatar-chip-label';
+        label.textContent = preset.label;
+        btn.appendChild(label);
         grid.appendChild(btn);
       }
     }
@@ -311,7 +330,20 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
           draft.avatar_banner = preset.id; renderWorkspace();
         });
         const isAnim = preset.isAnimated ? ' pa-anim-bg' : '';
-        btn.innerHTML += `<span class="pa-avatar-chip-banner-sample${isAnim}" style="background: ${preset.gradient || ''}" data-banner="${preset.id}"></span><span class="pa-avatar-chip-label">${preset.label}</span>`;
+        // Layer the (often translucent) gradient over a solid dark base so
+        // every banner reads distinctly in the picker, not just on preview.
+        const sample = document.createElement('span');
+        sample.className = `pa-avatar-chip-banner-sample${isAnim}`;
+        sample.setAttribute('data-banner', preset.id);
+        const background = preset.gradient
+          ? `${preset.gradient}, linear-gradient(140deg, #1a1e18, #0c0f0a)`
+          : 'linear-gradient(140deg, #1a1e18, #0c0f0a)';
+        sample.style.background = background;
+        btn.appendChild(sample);
+        const label = document.createElement('span');
+        label.className = 'pa-avatar-chip-label';
+        label.textContent = preset.label;
+        btn.appendChild(label);
         grid.appendChild(btn);
       }
     }
@@ -322,7 +354,20 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
         const btn = buildCosmeticButton(preset, isActive, userLevel, 'pa-avatar-chip-effect', isAdmin, () => {
           draft.avatar_effect = preset.id; renderWorkspace();
         });
-        btn.innerHTML += `<span class="pa-avatar-chip-effect-sample" data-effect="${preset.id}"></span><span class="pa-avatar-chip-label">${preset.label}</span>`;
+        // Wrap the effect layer inside a faux avatar tile so the overlay
+        // has a background to paint onto (many effects use `mix-blend: screen`
+        // and look invisible on transparent backgrounds).
+        const wrap = document.createElement('span');
+        wrap.className = 'pa-avatar-chip-effect-wrap';
+        const inner = document.createElement('span');
+        inner.className = 'pa-avatar-chip-effect-sample';
+        inner.setAttribute('data-effect', preset.id);
+        wrap.appendChild(inner);
+        btn.appendChild(wrap);
+        const label = document.createElement('span');
+        label.className = 'pa-avatar-chip-label';
+        label.textContent = preset.label;
+        btn.appendChild(label);
         grid.appendChild(btn);
       }
     }

@@ -10,7 +10,7 @@ import { ACHIEVEMENTS, isAchievementRare, type AchievementId } from '../lib/gami
 import { createAchievementBadge } from './AchievementIcons';
 import { openPublicProfile } from './ProfileBadge';
 import { createIcon } from './icons';
-import { renderAvatar } from './AvatarRenderer';
+import { renderAvatar, getBannerBackground } from './AvatarRenderer';
 
 function getLeaderboardAccent(level: number): string {
   if (level >= 91) return 'var(--warning, #c4a040)';
@@ -146,14 +146,15 @@ function hydrateLeaderboardBadges(entry: LeaderboardEntry, container: HTMLElemen
   });
 }
 
-function buildRow(ranked: RankedEntry, viewerId: string): HTMLButtonElement {
+function buildRow(ranked: RankedEntry, viewerId: string, staggerIndex: number): HTMLButtonElement {
   const { entry, rank } = ranked;
   const row = document.createElement('button');
   row.type = 'button';
   row.className = 'panda-leaderboard-row';
   row.dataset.rank = String(rank);
   row.dataset.rankTier = getRankTier(rank);
-  row.style.setProperty('--rank-delay', `${Math.min(rank, 32) * 18}ms`);
+  // Stagger by list position (not absolute rank) so filtered/near-me views animate cleanly.
+  row.style.setProperty('--rank-delay', `${Math.min(staggerIndex, 24) * 30}ms`);
   const isViewer = entry.publisher_id === viewerId;
   if (isViewer) row.classList.add('is-viewer');
 
@@ -170,10 +171,12 @@ function buildRow(ranked: RankedEntry, viewerId: string): HTMLButtonElement {
       avatar_color: entry.avatar_color,
       avatar_frame: entry.avatar_frame,
       avatar_banner: entry.avatar_banner,
+      avatar_effect: entry.avatar_effect,
     },
     {
       extraClass: 'panda-leaderboard-avatar',
       size: 'sm',
+      showLevel: true,
     },
   );
 
@@ -275,18 +278,44 @@ function renderPodium(refs: OverlayRefs): void {
   const podium = refs.entries.slice(0, 3);
   if (podium.length === 0) return;
 
+  // Visual order mimics a real podium: 2nd — 1st — 3rd.
+  // Rendering order is kept by rank (1, 2, 3) so the middle column (1st)
+  // uses grid-column-start to land in the centre regardless of insertion order.
   for (const ranked of podium) {
     const { entry, rank } = ranked;
     const card = document.createElement('button');
     card.type = 'button';
     card.className = `panda-leaderboard-podium-card panda-leaderboard-podium-card-${rank}`;
     card.dataset.rankTier = getRankTier(rank);
+    // Stagger entrance, reveal 2nd + 3rd slightly before the champion.
+    const delayMs = rank === 1 ? 180 : rank === 2 ? 60 : 120;
+    card.style.setProperty('--podium-delay', `${delayMs}ms`);
+
     if (entry.publisher_id === refs.viewerId) card.classList.add('is-viewer');
     card.addEventListener('click', () => {
       const restoreTarget = activeOverlay?.trigger ?? card;
       closeOverlay();
       void openPublicProfile(entry.publisher_id, restoreTarget, rank);
     });
+
+    // Banner + effect backdrop — mirrors the customized profile dossier hero.
+    const banner = document.createElement('span');
+    banner.className = 'panda-leaderboard-podium-banner';
+    banner.setAttribute('aria-hidden', 'true');
+    const bannerBg = getBannerBackground(entry.avatar_banner);
+    if (bannerBg) {
+      banner.style.background = bannerBg;
+      banner.dataset.banner = String(entry.avatar_banner);
+    }
+    card.appendChild(banner);
+
+    if (entry.avatar_effect && entry.avatar_effect !== 'none') {
+      const effect = document.createElement('span');
+      effect.className = 'panda-leaderboard-podium-effect';
+      effect.setAttribute('aria-hidden', 'true');
+      effect.dataset.effect = String(entry.avatar_effect);
+      card.appendChild(effect);
+    }
 
     const medal = document.createElement('span');
     medal.className = 'panda-leaderboard-podium-rank';
@@ -309,10 +338,12 @@ function renderPodium(refs: OverlayRefs): void {
         avatar_color: entry.avatar_color,
         avatar_frame: entry.avatar_frame,
         avatar_banner: entry.avatar_banner,
+        avatar_effect: entry.avatar_effect,
       },
       {
         extraClass: 'panda-leaderboard-podium-avatar',
         size: 'lg',
+        showLevel: true,
       },
     );
 
@@ -345,12 +376,23 @@ function updateLeaderboardView(refs: OverlayRefs): void {
     refs.count.textContent = '0 shown';
     refs.status.textContent = '';
     refs.jumpSelf.disabled = true;
+    refs.podium.textContent = '';
     refs.list.appendChild(buildEmpty());
     return;
   }
 
   renderPodium(refs);
+  const searchActive = refs.search.value.trim().length > 0;
   const rows = getScopedEntries(refs);
+
+  // When the podium is visible AND no active search/sort override is in play,
+  // drop ranks 1-3 from the scrollable list so they aren't duplicated underneath.
+  const sortValue = (refs.sort.value as LeaderboardSort);
+  const podiumShowing = refs.entries.length >= 1 && !searchActive && sortValue === 'xp';
+  const listRows = podiumShowing
+    ? rows.filter(r => r.rank > 3)
+    : rows;
+
   refs.count.textContent = refs.scope === 'all'
     ? `${rows.length}/${refs.entries.length} shown`
     : `${rows.length} shown`;
@@ -361,20 +403,23 @@ function updateLeaderboardView(refs: OverlayRefs): void {
     ? `Your rank: #${viewer.rank} with ${viewer.entry.xp.toLocaleString()} XP`
     : `${refs.entries.length} ranked stalkers loaded`;
 
-  if (rows.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'panda-leaderboard-empty';
-    empty.textContent = 'No stalkers match current filters.';
-    refs.list.appendChild(empty);
+  if (listRows.length === 0) {
+    // Avoid a confusing empty-state when only the podium is present.
+    if (!podiumShowing) {
+      const empty = document.createElement('div');
+      empty.className = 'panda-leaderboard-empty';
+      empty.textContent = 'No stalkers match current filters.';
+      refs.list.appendChild(empty);
+    }
     return;
   }
 
   let viewerRow: HTMLButtonElement | null = null;
-  for (const row of rows) {
-    const node = buildRow(row, refs.viewerId);
+  listRows.forEach((row, index) => {
+    const node = buildRow(row, refs.viewerId, index);
     if (row.entry.publisher_id === refs.viewerId) viewerRow = node;
     refs.list.appendChild(node);
-  }
+  });
 
   if (refs.scope === 'nearMe' && viewerRow) {
     queueMicrotask(() => {
@@ -410,57 +455,6 @@ async function populateList(container: HTMLDivElement) {
   activeRefs.entries = rankEntries(loadedEntries);
   activeRefs.podium.textContent = '';
   updateLeaderboardView(activeRefs);
-  return;
-
-  container.innerHTML = '';
-  const skeleton = document.createElement('div');
-  skeleton.className = 'panda-leaderboard-skeleton';
-  skeleton.textContent = 'Loading stalker ranks…';
-  container.appendChild(skeleton);
-
-  let entries: LeaderboardEntry[] = [];
-  try {
-    entries = await fetchLeaderboard(50);
-  } catch {
-    entries = [];
-  }
-
-  const refs = activeOverlay!;
-  if (!refs || refs.list !== container) return;
-  refs.refresh.disabled = false;
-  refs.entries = rankEntries(entries);
-  refs.podium.textContent = '';
-  updateLeaderboardView(refs);
-  return;
-
-  container.innerHTML = '';
-  if (entries.length === 0) {
-    container.appendChild(buildEmpty());
-    return;
-  }
-
-  const viewerId = getLocalPublisherId() ?? '';
-  let rank = 0;
-  let viewerRow: HTMLButtonElement | null = null;
-  for (const entry of entries) {
-    rank += 1;
-    const row = buildRow({ entry, rank }, viewerId);
-    if (entry.publisher_id === viewerId) viewerRow = row;
-    container.appendChild(row);
-  }
-
-  if (viewerRow) {
-    // Scroll the viewer's row into view for quick orientation.
-    queueMicrotask(() => {
-      try { viewerRow?.scrollIntoView({ block: 'nearest' }); } catch { /* noop */ }
-    });
-  } else if (viewerId) {
-    // Viewer not in top N; show a note + a "Jump to my profile" shortcut.
-    const note = document.createElement('div');
-    note.className = 'panda-leaderboard-viewer-note';
-    note.textContent = 'You are not in the top yet — keep publishing to climb.';
-    container.appendChild(note);
-  }
 }
 
 /**
