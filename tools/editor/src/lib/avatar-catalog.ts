@@ -57,7 +57,7 @@ export type AvatarEffectPreset = {
 // 1. ICONS (Massively Expanded)
 // ---------------------------------------------------------------------------
 export const AVATAR_ICON_PRESETS: AvatarIconPreset[] = [
-  // ==================== DEFAULT / STARTER ====================
+  // Default / Starter
   { id: 'default',   label: 'Initial',        glyph: '',   category: 'default' },
   { id: 'panda',     label: 'Panda',          glyph: '🐼', category: 'default' },
   { id: 'stalker',   label: 'Stalker',        glyph: '🕶️', category: 'default' },
@@ -74,7 +74,7 @@ export const AVATAR_ICON_PRESETS: AvatarIconPreset[] = [
   { id: 'sun',       label: 'Solar',          glyph: '☀️', category: 'default' },
   { id: 'cloud',     label: 'Cloud',          glyph: '☁️', category: 'default' },
 
-  // ==================== GEAR ====================
+  // Gear
   { id: 'helmet',    label: 'Exoskeleton',    glyph: '⛑️', category: 'gear' },
   { id: 'shield',    label: 'Guardian',       glyph: '🛡️', category: 'gear' },
   { id: 'compass',   label: 'Pathfinder',     glyph: '🧭', category: 'gear' },
@@ -94,13 +94,41 @@ export const AVATAR_ICON_PRESETS: AvatarIconPreset[] = [
   { id: 'goggles',   label: 'Scavenger',      glyph: '🥽', category: 'gear', minLevel: 3 },
   { id: 'backpack',  label: 'Pack',           glyph: '🎒', category: 'gear', minLevel: 2 },
   { id: 'battery',   label: 'Charged',        glyph: '🔋', category: 'gear', minLevel: 6 },
-  { id: 'flare',     label: 'Signal',         glyph: '📡', category: 'gear', minLevel: 7 }, // same glyph as radio, but different id
+  { id: 'flare',     label: 'Signal',         glyph: '📡', category: 'gear', minLevel: 7 },
   { id: 'antenna',   label: 'Receiver',       glyph: '📶', category: 'gear', minLevel: 9 },
   { id: 'cable',     label: 'Link',           glyph: '🔌', category: 'gear', minLevel: 4 },
   { id: 'boots',     label: 'Trekker',        glyph: '👢', category: 'gear', minLevel: 1 },
   { id: 'vest',      label: 'Plated',         glyph: '🦺', category: 'gear', minLevel: 12 },
+  
+  // Combat -> Gear
+  { id: 'sword',     label: 'Blade',          glyph: '🗡️', category: 'gear', minLevel: 2 },
+  { id: 'spear',     label: 'Lancer',         glyph: '🔱', category: 'gear', minLevel: 8 },
+  { id: 'bow',       label: 'Archer',         glyph: '🏹', category: 'gear', minLevel: 6 },
+  { id: 'gun',       label: 'Gunslinger',     glyph: '🔫', category: 'gear', minLevel: 12 },
+  { id: 'grenade',   label: 'Demolisher',     glyph: '💣', category: 'gear', minLevel: 15 },
+  { id: 'shield_cross',label: 'Crusader',     glyph: '⚔️🛡️', category: 'gear', minLevel: 20 },
+  { id: 'mace',      label: 'Bonecrusher',    glyph: '🔨', category: 'gear', minLevel: 10 },
+  { id: 'dagger',    label: 'Assassin',       glyph: '🗡️', category: 'gear', minLevel: 14 },
+  
+  // Tech -> Gear
+  { id: 'cpu',       label: 'Processor',      glyph: '🖥️', category: 'gear', minLevel: 5 },
+  { id: 'microchip', label: 'Microchip',      glyph: '💠', category: 'gear', minLevel: 8 },
+  { id: 'drone',     label: 'Drone',          glyph: '🚁', category: 'gear', minLevel: 12 },
+  { id: 'hacker',    label: 'Hacker',         glyph: '💻', category: 'gear', minLevel: 10 },
+  { id: 'gamepad',   label: 'Gamer',          glyph: '🎮', category: 'gear', minLevel: 3 },
+  { id: 'vr',        label: 'Virtual',        glyph: '🥽', category: 'gear', minLevel: 15 },
+  { id: 'headset',   label: 'Commander',      glyph: '🎧', category: 'gear', minLevel: 7 },
+  { id: 'radar_dish',label: 'Radar',          glyph: '📡', category: 'gear', minLevel: 9 },
+  
+  // Survival -> Gear
+  { id: 'tent',      label: 'Camper',         glyph: '⛺', category: 'gear', minLevel: 3 },
+  { id: 'firewood',  label: 'Pyre',           glyph: '🪵', category: 'gear', minLevel: 4 },
+  { id: 'canteen',   label: 'Hydrator',       glyph: '🧴', category: 'gear', minLevel: 5 },
+  { id: 'rope',      label: 'Rigger',         glyph: '🪢', category: 'gear', minLevel: 6 },
+  { id: 'first_aid', label: 'Medic',          glyph: '🩹', category: 'gear', minLevel: 8 },
+  { id: 'radar',     label: 'Tracker',        glyph: '📡', category: 'gear', minLevel: 10 },
 
-  // ==================== FACTION / FLORA & FAUNA ====================
+  // Faction / Flora & Fauna
   { id: 'wolf',      label: 'Wolf',           glyph: '🐺', category: 'faction' },
   { id: 'bear',      label: 'Bear',           glyph: '🐻', category: 'faction' },
   { id: 'radio',     label: 'Operator',       glyph: '📡', category: 'faction' },
@@ -119,11 +147,11 @@ export const AVATAR_ICON_PRESETS: AvatarIconPreset[] = [
   { id: 'shark',     label: 'Predator',       glyph: '🦈', category: 'faction', minLevel: 25 },
   { id: 'whale',     label: 'Leviathan',      glyph: '🐋', category: 'faction', minLevel: 30 },
   { id: 'octopus',   label: 'Kraken',         glyph: '🐙', category: 'faction', minLevel: 28 },
-  { id: 'phoenix',   label: 'Phoenix',        glyph: '🐦‍🔥', category: 'faction', minLevel: 45 }, // new emoji
-  { id: 'griffin',   label: 'Griffin',        glyph: '🦅🏛️', category: 'faction', minLevel: 40 }, // composite, but unique
+  { id: 'phoenix',   label: 'Phoenix',        glyph: '🐦‍🔥', category: 'faction', minLevel: 45 },
+  { id: 'griffin',   label: 'Griffin',        glyph: '🦅🏛️', category: 'faction', minLevel: 40 },
   { id: 'pegasus',   label: 'Pegasus',        glyph: '🐴✨', category: 'faction', minLevel: 42 },
 
-  // ==================== RANKS ====================
+  // Ranks
   { id: 'star',      label: 'Star',           glyph: '⭐', category: 'ranks' },
   { id: 'medal',     label: 'Medalist',       glyph: '🎖️', category: 'ranks', minLevel: 5 },
   { id: 'trophy',    label: 'Trophy',         glyph: '🏆', category: 'ranks', minLevel: 10 },
@@ -140,7 +168,7 @@ export const AVATAR_ICON_PRESETS: AvatarIconPreset[] = [
   { id: 'ribbon',    label: 'Commendation',   glyph: '🎗️', category: 'ranks', minLevel: 6 },
   { id: 'key',       label: 'Gatekeeper',     glyph: '🔑', category: 'ranks', minLevel: 14 },
 
-  // ==================== THE ZONE / ELEMENTS ====================
+  // The Zone / Elements (nature moved here)
   { id: 'flame',     label: 'Ember',          glyph: '🔥', category: 'zone' },
   { id: 'atom',      label: 'Radiant',        glyph: '☢️', category: 'zone', minLevel: 5 },
   { id: 'bio',       label: 'Biohazard',      glyph: '☣️', category: 'zone', minLevel: 10 },
@@ -156,8 +184,18 @@ export const AVATAR_ICON_PRESETS: AvatarIconPreset[] = [
   { id: 'fungal',    label: 'Fungal',         glyph: '🍄', category: 'zone', minLevel: 16 },
   { id: 'hurricane', label: 'Cyclone',        glyph: '🌀', category: 'zone', minLevel: 28 },
   { id: 'abyss',     label: 'Abyss',          glyph: '🕳️', category: 'zone', minLevel: 35 },
+  
+  // Nature -> Zone
+  { id: 'leaf',      label: 'Verdant',        glyph: '🍃', category: 'zone', minLevel: 2 },
+  { id: 'seedling',  label: 'Bloom',          glyph: '🌱', category: 'zone', minLevel: 1 },
+  { id: 'mushroom',  label: 'Mycelial',       glyph: '🍄', category: 'zone', minLevel: 8 },
+  { id: 'mountain',  label: 'Peak',           glyph: '🏔️', category: 'zone', minLevel: 10 },
+  { id: 'river',     label: 'Current',        glyph: '🌊', category: 'zone', minLevel: 6 },
+  { id: 'desert',    label: 'Dune',           glyph: '🏜️', category: 'zone', minLevel: 12 },
+  { id: 'forest',    label: 'Wildwood',       glyph: '🌲', category: 'zone', minLevel: 5 },
+  { id: 'cave',      label: 'Deep Cavern',    glyph: '🪨', category: 'zone', minLevel: 14 },
 
-  // ==================== MYSTIC / ANOMALOUS ====================
+  // Mystic / Anomalous (occult moved here)
   { id: 'crystal',   label: 'Artefact',       glyph: '🔮', category: 'mystic' },
   { id: 'eye',       label: 'All-seeing',     glyph: '👁️', category: 'mystic', minLevel: 8 },
   { id: 'ghost',     label: 'Specter',        glyph: '👻', category: 'mystic', minLevel: 12 },
@@ -175,8 +213,16 @@ export const AVATAR_ICON_PRESETS: AvatarIconPreset[] = [
   { id: 'vampire',   label: 'Bloodletter',    glyph: '🧛', category: 'mystic', minLevel: 28 },
   { id: 'witch',     label: 'Hex',            glyph: '🧙', category: 'mystic', minLevel: 18 },
   { id: 'rune',      label: 'Runic',          glyph: '🔣', category: 'mystic', minLevel: 25 },
+  
+  // Occult -> Mystic
+  { id: 'pentacle',  label: 'Pentacle',       glyph: '⭐', category: 'mystic', minLevel: 20 },
+  { id: 'ouija',     label: 'Planchette',     glyph: '🔮', category: 'mystic', minLevel: 18 },
+  { id: 'candle',    label: 'Candlelight',    glyph: '🕯️', category: 'mystic', minLevel: 12 },
+  { id: 'mirror',    label: 'Reflection',     glyph: '🪞', category: 'mystic', minLevel: 16 },
+  { id: 'skull_candle',label: 'Necromancer',  glyph: '💀🕯️', category: 'mystic', minLevel: 30 },
+  { id: 'tome',      label: 'Grimoire',       glyph: '📖', category: 'mystic', minLevel: 22 },
 
-  // ==================== LEGENDS (HIGH TIER) ====================
+  // Legends (High Tier)
   { id: 'galaxy',    label: 'The Void',       glyph: '🌌', category: 'legend', minLevel: 40 },
   { id: 'hamsa',     label: 'Oasis',          glyph: '🪬', category: 'legend', minLevel: 45 },
   { id: 'trident',   label: 'Warlord',        glyph: '🔱', category: 'legend', minLevel: 50 },
@@ -186,54 +232,8 @@ export const AVATAR_ICON_PRESETS: AvatarIconPreset[] = [
   { id: 'titan',     label: 'Titan',          glyph: '🗿', category: 'legend', minLevel: 42 },
   { id: 'angel',     label: 'Seraph',         glyph: '👼', category: 'legend', minLevel: 38 },
   { id: 'reaper',    label: 'Mortis',         glyph: '⚰️', category: 'legend', minLevel: 48 },
-  { id: 'phoenix_leg',label: 'Rebirth',       glyph: '🐦‍🔥', category: 'legend', minLevel: 52 }, // duplicate but higher level
+  { id: 'phoenix_leg',label: 'Rebirth',       glyph: '🐦‍🔥', category: 'legend', minLevel: 52 },
   { id: 'voidwalker',label: 'Voidwalker',     glyph: '🌑', category: 'legend', minLevel: 58 },
-
-  // ==================== COMBAT (new category) ====================
-  { id: 'sword',     label: 'Blade',          glyph: '🗡️', category: 'combat', minLevel: 2 },
-  { id: 'spear',     label: 'Lancer',         glyph: '🔱', category: 'combat', minLevel: 8 },
-  { id: 'bow',       label: 'Archer',         glyph: '🏹', category: 'combat', minLevel: 6 },
-  { id: 'gun',       label: 'Gunslinger',     glyph: '🔫', category: 'combat', minLevel: 12 },
-  { id: 'grenade',   label: 'Demolisher',     glyph: '💣', category: 'combat', minLevel: 15 },
-  { id: 'shield_cross',label: 'Crusader',     glyph: '⚔️🛡️', category: 'combat', minLevel: 20 },
-  { id: 'mace',      label: 'Bonecrusher',    glyph: '🔨', category: 'combat', minLevel: 10 },
-  { id: 'dagger',    label: 'Assassin',       glyph: '🗡️', category: 'combat', minLevel: 14 }, // duplicate glyph but different label
-
-  // ==================== TECH (new category) ====================
-  { id: 'cpu',       label: 'Processor',      glyph: '🖥️', category: 'tech', minLevel: 5 },
-  { id: 'microchip', label: 'Microchip',      glyph: '💠', category: 'tech', minLevel: 8 },
-  { id: 'drone',     label: 'Drone',          glyph: '🚁', category: 'tech', minLevel: 12 },
-  { id: 'hacker',    label: 'Hacker',         glyph: '💻', category: 'tech', minLevel: 10 },
-  { id: 'gamepad',   label: 'Gamer',          glyph: '🎮', category: 'tech', minLevel: 3 },
-  { id: 'vr',        label: 'Virtual',        glyph: '🥽', category: 'tech', minLevel: 15 },
-  { id: 'headset',   label: 'Commander',      glyph: '🎧', category: 'tech', minLevel: 7 },
-  { id: 'radar_dish',label: 'Radar',          glyph: '📡', category: 'tech', minLevel: 9 },
-
-  // ==================== NATURE (new category) ====================
-  { id: 'leaf',      label: 'Verdant',        glyph: '🍃', category: 'nature', minLevel: 2 },
-  { id: 'seedling',  label: 'Bloom',          glyph: '🌱', category: 'nature', minLevel: 1 },
-  { id: 'mushroom',  label: 'Mycelial',       glyph: '🍄', category: 'nature', minLevel: 8 },
-  { id: 'mountain',  label: 'Peak',           glyph: '🏔️', category: 'nature', minLevel: 10 },
-  { id: 'river',     label: 'Current',        glyph: '🌊', category: 'nature', minLevel: 6 },
-  { id: 'desert',    label: 'Dune',           glyph: '🏜️', category: 'nature', minLevel: 12 },
-  { id: 'forest',    label: 'Wildwood',       glyph: '🌲', category: 'nature', minLevel: 5 },
-  { id: 'cave',      label: 'Deep Cavern',    glyph: '🪨', category: 'nature', minLevel: 14 },
-
-  // ==================== OCCULT (new category) ====================
-  { id: 'pentacle',  label: 'Pentacle',       glyph: '⭐', category: 'occult', minLevel: 20 }, // reused star
-  { id: 'ouija',     label: 'Planchette',     glyph: '🔮', category: 'occult', minLevel: 18 },
-  { id: 'candle',    label: 'Candlelight',    glyph: '🕯️', category: 'occult', minLevel: 12 },
-  { id: 'mirror',    label: 'Reflection',     glyph: '🪞', category: 'occult', minLevel: 16 },
-  { id: 'skull_candle',label: 'Necromancer',  glyph: '💀🕯️', category: 'occult', minLevel: 30 },
-  { id: 'tome',      label: 'Grimoire',       glyph: '📖', category: 'occult', minLevel: 22 },
-
-  // ==================== SURVIVAL (new category) ====================
-  { id: 'tent',      label: 'Camper',         glyph: '⛺', category: 'survival', minLevel: 3 },
-  { id: 'firewood',  label: 'Pyre',           glyph: '🪵', category: 'survival', minLevel: 4 },
-  { id: 'canteen',   label: 'Hydrator',       glyph: '🧴', category: 'survival', minLevel: 5 },
-  { id: 'rope',      label: 'Rigger',         glyph: '🪢', category: 'survival', minLevel: 6 },
-  { id: 'first_aid', label: 'Medic',          glyph: '🩹', category: 'survival', minLevel: 8 },
-  { id: 'radar',     label: 'Tracker',        glyph: '📡', category: 'survival', minLevel: 10 },
 ];
 
 // ---------------------------------------------------------------------------
