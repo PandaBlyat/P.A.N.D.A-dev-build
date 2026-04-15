@@ -1798,19 +1798,32 @@ function openPopover(anchor: HTMLElement): void {
 
   const popover = document.createElement('div');
   popover.className = 'profile-popover';
-  popover.onclick = (e: MouseEvent) => e.stopPropagation();
+  // Stop ALL pointer events from bubbling past the popover element so the
+  // outside-click listener below never fires for interactions inside.
+  popover.addEventListener('click', (e: MouseEvent) => e.stopPropagation());
+  popover.addEventListener('pointerdown', (e: PointerEvent) => e.stopPropagation());
   popover.appendChild(buildSelfProfileContent(cachedProfile));
 
   anchor.appendChild(popover);
   popoverOpen = true;
 
+  // Close on outside click/tap — guard with an existence check so stale
+  // handlers don't fire after the popover has already been removed.
   const close = (e: MouseEvent) => {
+    // If the popover is no longer in the DOM, just clean up.
+    if (!document.body.contains(popover)) {
+      document.removeEventListener('click', close, true);
+      return;
+    }
     if (!anchor.contains(e.target as Node)) {
       closePopover();
-      document.removeEventListener('click', close);
+      document.removeEventListener('click', close, true);
     }
   };
-  setTimeout(() => document.addEventListener('click', close), 0);
+  // Use capture=true so the handler runs before stopPropagation on inner elements,
+  // but we still check containment — clicks inside the popover (which also bubble
+  // in capture phase through the popover) will pass the anchor.contains() check.
+  setTimeout(() => document.addEventListener('click', close, true), 0);
 }
 
 function renderLeaderboardList(container: HTMLElement, entries: LeaderboardEntry[]): void {

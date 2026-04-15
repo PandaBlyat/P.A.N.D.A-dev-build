@@ -56,6 +56,7 @@ type LeaderboardEntry = {
   avatar_color?: string | null;
   avatar_frame?: string | null;
   avatar_banner?: string | null;
+  avatar_effect?: string | null;
 };
 
 type PublicProfileData = {
@@ -1641,7 +1642,7 @@ app.post('/api/profile/award-xp-capped', async (req, res) => {
 app.post('/api/profile/:publisherId/cosmetics', async (req, res) => {
   try {
     const { publisherId } = req.params;
-    const { avatar_icon, avatar_color, avatar_frame, avatar_banner } = req.body ?? {};
+    const { avatar_icon, avatar_color, avatar_frame, avatar_banner, avatar_effect } = req.body ?? {};
 
     const nullish = (value: unknown): string | null => {
       if (value === null || value === undefined) return null;
@@ -1662,6 +1663,7 @@ app.post('/api/profile/:publisherId/cosmetics', async (req, res) => {
         p_avatar_color: nullish(avatar_color),
         p_avatar_frame: nullish(avatar_frame),
         p_avatar_banner: nullish(avatar_banner),
+        p_avatar_effect: nullish(avatar_effect),
       }),
     });
 
@@ -1708,6 +1710,7 @@ app.get('/api/leaderboard', async (req, res) => {
       avatar_color: typeof row.avatar_color === 'string' ? row.avatar_color : null,
       avatar_frame: typeof row.avatar_frame === 'string' ? row.avatar_frame : null,
       avatar_banner: typeof row.avatar_banner === 'string' ? row.avatar_banner : null,
+      avatar_effect: typeof row.avatar_effect === 'string' ? row.avatar_effect : null,
     }));
 
     res.json(leaderboard);

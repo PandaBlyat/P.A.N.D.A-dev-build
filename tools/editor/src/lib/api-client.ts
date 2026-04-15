@@ -103,6 +103,7 @@ export type UserCosmetics = {
   avatar_color?: string | null;
   avatar_frame?: string | null;
   avatar_banner?: string | null;
+  avatar_effect?: string | null;
 };
 
 export type UserProfile = {
@@ -1477,6 +1478,7 @@ export async function updateUserCosmetics(publisherId: string, cosmetics: UserCo
     avatar_color: cosmetics.avatar_color ?? null,
     avatar_frame: cosmetics.avatar_frame ?? null,
     avatar_banner: cosmetics.avatar_banner ?? null,
+    avatar_effect: cosmetics.avatar_effect ?? null,
   };
   try {
     return await fetchFromApi<UserProfile | null>(`/api/profile/${encodeURIComponent(publisherId)}/cosmetics`, {
@@ -1495,6 +1497,7 @@ export async function updateUserCosmetics(publisherId: string, cosmetics: UserCo
           p_avatar_color: body.avatar_color,
           p_avatar_frame: body.avatar_frame,
           p_avatar_banner: body.avatar_banner,
+          p_avatar_effect: body.avatar_effect,
         }),
       });
       if (!res.ok) return null;

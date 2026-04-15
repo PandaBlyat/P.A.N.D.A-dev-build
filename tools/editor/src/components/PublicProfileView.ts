@@ -389,6 +389,95 @@ function buildAchievementsSection(data: PublicProfileData): HTMLElement {
   return section;
 }
 
+// ---------------------------------------------------------------------------
+// Badge detail tooltip — floats near the clicked tile (body-appended, fixed).
+// ---------------------------------------------------------------------------
+let badgeTooltip: HTMLElement | null = null;
+let badgeTooltipTile: HTMLElement | null = null;
+
+function collapseBadge(): void {
+  badgeTooltip?.remove();
+  badgeTooltip = null;
+  badgeTooltipTile?.classList.remove('is-badge-active');
+  badgeTooltipTile = null;
+}
+
+function showBadgeTooltip(
+  tile: HTMLElement,
+  id: AchievementId | null,
+  name: string,
+  description: string,
+  state: 'unlocked' | 'locked-visible' | 'locked-hidden',
+  meta: string,
+): void {
+  collapseBadge();
+  tile.classList.add('is-badge-active');
+  badgeTooltipTile = tile;
+
+  const tooltip = document.createElement('div');
+  tooltip.className = `public-profile-badge-tooltip public-profile-badge-tooltip-${state}`;
+  tooltip.setAttribute('role', 'dialog');
+  tooltip.setAttribute('aria-label', name);
+
+  const iconEl = document.createElement('div');
+  iconEl.className = 'public-profile-badge-tooltip-icon';
+  iconEl.appendChild(createAchievementBadge(id, state, 88));
+
+  const nameEl = document.createElement('div');
+  nameEl.className = 'public-profile-badge-tooltip-name';
+  nameEl.textContent = state === 'locked-hidden' ? '???' : name;
+
+  const metaEl = document.createElement('div');
+  metaEl.className = 'public-profile-badge-tooltip-meta';
+  metaEl.textContent = meta;
+
+  const descEl = document.createElement('p');
+  descEl.className = 'public-profile-badge-tooltip-desc';
+  descEl.textContent = state === 'locked-hidden'
+    ? 'Unlock condition hidden — keep exploring the Zone.'
+    : description;
+
+  tooltip.append(iconEl, nameEl, metaEl, descEl);
+
+  // Position the tooltip near the tile.
+  document.body.appendChild(tooltip);
+  badgeTooltip = tooltip;
+
+  const tileRect = tile.getBoundingClientRect();
+  const ttRect = tooltip.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const margin = 10;
+
+  // Prefer above the tile; fall back to below if not enough space.
+  let top = tileRect.top - ttRect.height - margin;
+  if (top < margin) top = tileRect.bottom + margin;
+  // Clamp vertically.
+  top = Math.max(margin, Math.min(top, vh - ttRect.height - margin));
+
+  // Centre horizontally on the tile; clamp to viewport.
+  let left = tileRect.left + tileRect.width / 2 - ttRect.width / 2;
+  left = Math.max(margin, Math.min(left, vw - ttRect.width - margin));
+
+  tooltip.style.top = `${top}px`;
+  tooltip.style.left = `${left}px`;
+
+  // Close on click outside.
+  const onOutsideClick = (e: MouseEvent) => {
+    if (!tooltip.contains(e.target as Node) && e.target !== tile) {
+      collapseBadge();
+      document.removeEventListener('click', onOutsideClick, true);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', onOutsideClick, true), 0);
+
+  // Close on Escape.
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') { collapseBadge(); document.removeEventListener('keydown', onKey); }
+  };
+  document.addEventListener('keydown', onKey);
+}
+
 function buildBadgeTile(
   id: AchievementId | null,
   name: string,
@@ -403,8 +492,9 @@ function buildBadgeTile(
     tile.style.setProperty('--badge-pulse-delay', getAchievementAnimationDelay(id));
   }
   tile.setAttribute('aria-label', state === 'locked-hidden' ? 'Hidden badge, not yet unlocked' : `${name}, ${state === 'unlocked' ? 'unlocked' : 'locked'}`);
+  tile.setAttribute('role', 'button');
   tile.tabIndex = 0;
-  tile.title = state === 'locked-hidden' ? 'Hidden badge — keep exploring.' : `${name}\n${description}`;
+  tile.title = state === 'locked-hidden' ? 'Click to inspect' : `Click to inspect · ${name}`;
 
   const iconWrap = document.createElement('div');
   iconWrap.className = 'public-profile-badge-icon-wrap';
@@ -425,6 +515,22 @@ function buildBadgeTile(
     : description;
 
   tile.append(iconWrap, nameEl, metaEl, hover);
+
+  const handleOpen = (e: Event) => {
+    e.stopPropagation();
+    if (badgeTooltipTile === tile) {
+      collapseBadge();
+      return;
+    }
+    showBadgeTooltip(tile, id, name, description, state, meta);
+  };
+
+  tile.addEventListener('click', handleOpen);
+  tile.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleOpen(e); }
+    else if (e.key === 'Escape') collapseBadge();
+  });
+
   return tile;
 }
 

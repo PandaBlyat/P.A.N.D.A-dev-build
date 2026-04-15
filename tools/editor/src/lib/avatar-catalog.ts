@@ -13,6 +13,8 @@ export type AvatarIconPreset = {
   category: 'default' | 'faction' | 'ranks' | 'gear' | 'zone' | 'mystic' | 'legend';
   /** Optional lock: only unlocked for users at or above this level. */
   minLevel?: number;
+  /** If true, this icon is only available to the specific user with this reserved name. */
+  pandaOnly?: boolean;
 };
 
 export type AvatarColorPreset = {
@@ -59,7 +61,7 @@ export type AvatarEffectPreset = {
 export const AVATAR_ICON_PRESETS: AvatarIconPreset[] = [
   // Default / Starter
   { id: 'default',   label: 'Initial',        glyph: '',   category: 'default' },
-  { id: 'panda',     label: 'Panda',          glyph: '🐼', category: 'default' },
+  { id: 'panda',     label: 'Panda',          glyph: '🐼', category: 'default', pandaOnly: true },
   { id: 'stalker',   label: 'Stalker',        glyph: '🕶️', category: 'default' },
   { id: 'smiley',    label: 'Happy',          glyph: '😊', category: 'default' },
   { id: 'robot',     label: 'Bot',            glyph: '🤖', category: 'default' },
