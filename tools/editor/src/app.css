@@ -16839,27 +16839,28 @@ strong.support-upvote-count {
   --badge-bg: color-mix(in srgb, var(--bg-card) 82%, transparent);
   --badge-border: color-mix(in srgb, var(--profile-accent) 28%, var(--border));
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
-  gap: 7px;
-  max-height: 260px;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+  max-height: 320px;
   overflow: auto;
-  padding-right: 3px;
+  padding-right: 4px;
   scrollbar-width: thin;
 }
 
 .public-profile-badge-tile {
   min-width: 0;
-  min-height: 84px;
+  min-height: 98px;
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: 5px;
-  padding: 7px 6px;
+  gap: 6px;
+  padding: 10px 8px;
   border: 1px solid color-mix(in srgb, var(--profile-accent) 12%, var(--border));
   border-radius: 8px;
   background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
   color: var(--text);
   text-align: center;
+  overflow: hidden;
   transition: transform 150ms ease, border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
 }
 
@@ -16906,16 +16907,25 @@ strong.support-upvote-count {
 .public-profile-badge-meta {
   max-width: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
 }
 
 .public-profile-badge-name {
   font-size: 0.72rem;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  max-height: 2.4em;
 }
 
 .public-profile-badge-meta {
   font-size: 0.64rem;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  max-height: 1.2em;
 }
 
 /* =========================================================================
@@ -16949,12 +16959,12 @@ strong.support-upvote-count {
 }
 
 .panda-leaderboard-dialog {
-  width: min(1080px, calc(100vw - 32px));
-  max-height: min(88vh, 860px);
+  width: min(1180px, calc(100vw - 32px));
+  max-height: min(92vh, 920px);
   display: grid;
   grid-template-rows: auto auto auto auto minmax(0, 1fr);
   gap: 16px;
-  padding: 20px;
+  padding: 22px;
   border: 1px solid color-mix(in srgb, var(--accent) 30%, rgba(255,255,255,0.1));
   border-radius: 16px;
   background:
@@ -17084,14 +17094,40 @@ strong.support-upvote-count {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 24px 16px 20px;
+  padding: 28px 18px 22px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 24px rgba(0,0,0,0.4);
   cursor: pointer;
-  transition: all 300ms var(--spring-easing);
-  overflow: visible;
+  transition: transform 300ms var(--spring-easing), box-shadow 300ms var(--spring-easing), border-color 300ms var(--spring-easing);
+  overflow: hidden;
+  isolation: isolate;
+  min-width: 0;
+  animation: leaderboardPodiumIn 620ms var(--spring-easing) both;
+  animation-delay: var(--podium-delay, 0ms);
+}
+
+/* Banner + effect overlays on the podium (mirrors customized dossier hero). */
+.panda-leaderboard-podium-banner {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.85;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent 60%);
+}
+.panda-leaderboard-podium-effect {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.7;
+}
+.panda-leaderboard-podium-card > :not(.panda-leaderboard-podium-banner):not(.panda-leaderboard-podium-effect) {
+  position: relative;
+  z-index: 2;
 }
 
 .panda-leaderboard-podium-card:hover {
@@ -17188,17 +17224,57 @@ strong.support-upvote-count {
   z-index: 20;
 }
 
-.panda-leaderboard-podium-name { color: #fff; font-size: 1.1rem; font-weight: 900; margin-bottom: 4px; }
-.panda-leaderboard-podium-level { color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; margin-bottom: 12px; }
-.panda-leaderboard-podium-xp { 
-  color: var(--tier-gold); 
-  font-size: 1rem; 
-  font-weight: 900; 
-  background: rgba(0,0,0,0.3); 
-  padding: 4px 12px; 
-  border-radius: 20px; 
+.panda-leaderboard-podium-name {
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 900;
+  margin-bottom: 4px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+.panda-leaderboard-podium-level {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  margin-bottom: 12px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+  padding: 0 4px;
+}
+.panda-leaderboard-podium-xp {
+  color: var(--tier-gold);
+  font-size: 1rem;
+  font-weight: 900;
+  background: rgba(0,0,0,0.45);
+  padding: 5px 14px;
+  border-radius: 20px;
   margin-top: auto;
   font-variant-numeric: tabular-nums;
+  border: 1px solid rgba(244, 208, 63, 0.18);
+  box-shadow: inset 0 0 12px rgba(0,0,0,0.35);
+}
+.panda-leaderboard-podium-card-2 .panda-leaderboard-podium-xp { color: var(--tier-silver); border-color: rgba(229, 231, 233, 0.2); }
+.panda-leaderboard-podium-card-3 .panda-leaderboard-podium-xp { color: var(--tier-bronze); border-color: rgba(211, 84, 0, 0.22); }
+
+/* Badge strip under the podium — spaced so the pills don't clip the XP chip. */
+.panda-leaderboard-podium-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  max-width: 100%;
+  margin-bottom: 10px;
+  min-height: 0;
+}
+.panda-leaderboard-podium-badges:empty { display: none; }
+
+.panda-leaderboard-podium-card.is-viewer {
+  outline: 2px solid color-mix(in srgb, var(--accent) 80%, white);
+  outline-offset: -2px;
 }
 
 /* =========================================================================
@@ -17268,16 +17344,61 @@ strong.support-upvote-count {
   color: var(--rank-color, color-mix(in srgb, var(--accent) 80%, white));
 }
 
-.panda-leaderboard-avatar {
-  width: 44px; height: 44px;
-  border-radius: 12px;
-  border: 2px solid color-mix(in srgb, var(--rank-color, var(--accent)) 40%, transparent);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+/* Row avatars keep the shared .pa-avatar visuals (so cosmetics like frames +
+   icons carry over). We only add a subtle shadow + tier-color outline glow. */
+.panda-leaderboard-avatar.pa-avatar {
+  --pa-avatar-size: 46px;
+  box-shadow:
+    0 4px 10px rgba(0,0,0,0.45),
+    0 0 0 2px color-mix(in srgb, var(--rank-color, var(--pa-avatar-color)) 30%, transparent);
+}
+.panda-leaderboard-avatar .pa-avatar-level-chip {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  font-size: 9px;
+  padding: 2px 6px;
+  letter-spacing: 0.04em;
 }
 
-.panda-leaderboard-name { color: #fff; font-size: 1.05rem; font-weight: 800; }
-.panda-leaderboard-title { color: var(--text-dim); font-size: 0.85rem; margin-top: 2px;}
-.panda-leaderboard-identity { display: flex; flex-direction: column; justify-content: center; }
+.panda-leaderboard-name {
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.panda-leaderboard-title {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.panda-leaderboard-identity {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+.panda-leaderboard-name-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.panda-leaderboard-name-line .panda-leaderboard-name { flex: 0 1 auto; min-width: 0; }
+.panda-leaderboard-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.panda-leaderboard-badges:empty { display: none; }
 
 .panda-leaderboard-xp {
   font-size: 1.1rem;
@@ -17336,6 +17457,18 @@ strong.support-upvote-count {
 @keyframes leaderboardRowIn {
   from { opacity: 0; transform: translateX(-20px) scale(0.98); }
   to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes leaderboardPodiumIn {
+  from { opacity: 0; transform: translateY(28px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 1st-place lift must cooperate with the entrance animation so it doesn't snap. */
+.panda-leaderboard-podium-card-1 { animation-name: leaderboardPodiumChampionIn; }
+@keyframes leaderboardPodiumChampionIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(-12px) scale(1); }
 }
 
 @keyframes premiumShimmer {
@@ -17975,20 +18108,77 @@ button.pa-avatar:focus-visible {
   box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.2), inset 0 -4px 10px rgba(0, 0, 0, 0.4), 0 4px 10px rgba(0, 0, 0, 0.5);
   z-index: 2;
 }
-.pa-avatar-chip-frame-sample {
-  --pa-avatar-color: var(--pa-accent); --pa-avatar-size: 48px;
-  position: relative; width: var(--pa-avatar-size); height: var(--pa-avatar-size); border-radius: 50%;
-  background: var(--pa-bg-base); border: 2px solid var(--pa-avatar-color); z-index: 2;
-  box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+/* Frame picker sample — reuses the full .pa-avatar rendering so variants
+   (ornaments, ::after crests, animated borders) paint exactly as in-game. */
+.pa-avatar-chip-frame-sample-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  z-index: 2;
+  /* Room for frames that render outside the circle (halo, crown, omega). */
+  margin-top: 6px;
+  padding-top: 4px;
 }
-.pa-avatar-chip-banner-sample { 
-  display: block; width: 100%; height: 48px; border-radius: 6px; 
-  border: 1px solid rgba(255, 255, 255, 0.1); z-index: 2;
-  box-shadow: inset 0 2px 10px rgba(0,0,0,0.3);
+.pa-avatar-chip-frame-sample.pa-avatar {
+  --pa-avatar-color: var(--pa-accent);
+  --pa-avatar-size: 48px;
+  --pa-avatar-font: 18px;
+  box-shadow:
+    inset 0 0 8px rgba(0, 0, 0, 0.65),
+    0 3px 8px rgba(0, 0, 0, 0.45);
 }
-.pa-avatar-chip-effect-sample { 
-  width: 48px; height: 48px; border-radius: 8px; background: var(--pa-bg-base); 
-  position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); z-index: 2;
+.pa-avatar-chip-frame-sample.pa-avatar .pa-avatar-glyph {
+  font-size: 16px;
+  font-weight: 800;
+  opacity: 0.85;
+}
+
+/* Banner picker sample — solid dark base layered behind the gradient so
+   translucent presets still read distinctly in the picker. */
+.pa-avatar-chip-banner-sample {
+  display: block;
+  width: 100%;
+  height: 54px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 2;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Effect picker sample — wrap gives the effect layer a body to paint on. */
+.pa-avatar-chip-effect-wrap {
+  position: relative;
+  display: inline-flex;
+  width: 54px;
+  height: 54px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: radial-gradient(circle at 35% 30%, rgba(109, 191, 67, 0.18), transparent 65%),
+              linear-gradient(150deg, #1a2018, #0a0c09);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+.pa-avatar-chip-effect-sample {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+.pa-avatar-chip-effect-sample[data-effect='none']::after {
+  content: 'CLEAR';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--pa-text-secondary);
 }
 
 /* -------------------------------------------------------------------------
@@ -18319,7 +18509,7 @@ button.pa-avatar:focus-visible {
 /* Profile dossier responsive layout: height-aware, no hidden lower sections. */
 .profile-popover,
 .public-profile-modal {
-  width: min(1320px, calc(100vw - 20px)) !important;
+  width: min(1420px, calc(100vw - 20px)) !important;
   max-height: calc(100dvh - 20px) !important;
 }
 
@@ -18815,17 +19005,17 @@ button.pa-avatar:focus-visible {
   }
 
   .public-profile-badge-wall {
-    grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)) !important;
-    gap: 5px;
+    grid-template-columns: repeat(auto-fill, minmax(82px, 1fr)) !important;
+    gap: 6px;
     max-height: none !important;
     overflow: visible !important;
     padding-right: 0;
   }
 
   .public-profile-badge-tile {
-    min-height: 58px !important;
-    padding: 5px 4px !important;
-    gap: 2px;
+    min-height: 84px !important;
+    padding: 7px 6px !important;
+    gap: 3px;
   }
 
   .public-profile-badge-icon-wrap .panda-badge-icon,
@@ -18836,14 +19026,15 @@ button.pa-avatar:focus-visible {
 
   .public-profile-badge-name {
     min-height: 0;
-    font-size: 0.62rem;
-    line-height: 1.05;
+    font-size: 0.66rem;
+    line-height: 1.12;
     -webkit-line-clamp: 2;
+    max-height: 2.2em;
   }
 
   .public-profile-badge-meta {
-    font-size: 0.53rem;
-    line-height: 1;
+    font-size: 0.56rem;
+    line-height: 1.1;
   }
 }
 
