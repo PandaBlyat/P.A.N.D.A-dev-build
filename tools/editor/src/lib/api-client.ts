@@ -118,6 +118,7 @@ export type LeaderboardEntry = {
   xp: number;
   level: number;
   title: string;
+  achievements?: string[];
 };
 
 export type PublicProfileData = {

@@ -51,6 +51,7 @@ type LeaderboardEntry = {
   xp: number;
   level: number;
   title: string;
+  achievements?: string[];
 };
 
 type PublicProfileData = {
@@ -1575,7 +1576,9 @@ app.post('/api/profile/award-xp-capped', async (req, res) => {
 
 app.get('/api/leaderboard', async (req, res) => {
   try {
-    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? '10'), 10) || 10, 1), 50);
+    const limitQuery = String(req.query.limit ?? '10').toLowerCase();
+    const requestedLimit = limitQuery === 'all' ? 1000 : parseInt(limitQuery, 10) || 10;
+    const limit = Math.min(Math.max(requestedLimit, 1), 1000);
     const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_leaderboard`, {
       method: 'POST',
       headers: sbHeaders(),
@@ -1594,6 +1597,9 @@ app.get('/api/leaderboard', async (req, res) => {
       xp: typeof row.xp === 'number' ? row.xp : 0,
       level: typeof row.level === 'number' ? row.level : 0,
       title: typeof row.title === 'string' ? row.title : '',
+      achievements: Array.isArray(row.achievements)
+        ? row.achievements.filter((item): item is string => typeof item === 'string')
+        : undefined,
     }));
 
     res.json(leaderboard);

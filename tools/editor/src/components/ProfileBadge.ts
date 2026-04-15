@@ -2,9 +2,11 @@
 // Shows the user's level, title, and XP progress in a compact toolbar element.
 
 import {
+  type PublicProfileData,
   type UserProfile,
   type LeaderboardEntry,
   deriveLevelMetadata,
+  fetchAuthoredCommunityConversations,
   fetchLeaderboard,
   fetchPublicProfileData,
   fetchUserPublishCount,
@@ -46,6 +48,7 @@ let publicProfileOverlay: HTMLElement | null = null;
 let publicProfileFocusTrap: FocusTrapController | null = null;
 let activePublicProfilePublisherId: string | null = null;
 let activeLeaderboardRow: HTMLButtonElement | null = null;
+let selfProfileDataCache: PublicProfileData | null = null;
 
 const ACHIEVEMENT_CATEGORY_ICONS: Record<AchievementCategory, IconName> = {
   onboarding: 'sparkle',
@@ -90,6 +93,7 @@ export function setProfileForBadge(profile: UserProfile | null): void {
     missions: profile.missions ?? [],
   } : null);
   publishCountCache = null; // invalidate on profile update
+  selfProfileDataCache = null;
 }
 
 export function renderProfileBadge(): HTMLElement | null {
@@ -1635,7 +1639,7 @@ function buildLeaderboardSection(profile: UserProfile): HTMLElement {
   return leaderboardSection;
 }
 
-type SelfProfileTabId = 'overview' | 'badges' | 'missions' | 'activity';
+type SelfProfileTabId = 'overview' | 'badges' | 'activity';
 
 type SelfProfileTab = {
   id: SelfProfileTabId;
@@ -1670,13 +1674,6 @@ function buildBadgesTab(profile: UserProfile): HTMLElement {
   return pane;
 }
 
-function buildMissionsTab(profile: UserProfile): HTMLElement {
-  const pane = document.createElement('div');
-  pane.className = 'profile-popover-pane profile-popover-pane-missions profile-popover-pane-scroll';
-  pane.appendChild(buildStreakChallengeSection(profile));
-  return pane;
-}
-
 function buildActivityTab(profile: UserProfile): HTMLElement {
   const pane = document.createElement('div');
   pane.className = 'profile-popover-pane profile-popover-pane-activity profile-popover-pane-scroll';
@@ -1687,67 +1684,49 @@ function buildActivityTab(profile: UserProfile): HTMLElement {
 const SELF_PROFILE_TABS: SelfProfileTab[] = [
   { id: 'overview', label: 'Overview', build: buildOverviewTab, allowScroll: false },
   { id: 'badges', label: 'Badges', build: buildBadgesTab, allowScroll: true },
-  { id: 'missions', label: 'Missions', build: buildMissionsTab, allowScroll: true },
   { id: 'activity', label: 'Activity', build: buildActivityTab, allowScroll: true },
 ];
 
 let lastActiveSelfTab: SelfProfileTabId = 'overview';
 
-function buildSelfProfileContent(profile: UserProfile): HTMLElement {
-  const shell = document.createElement('div');
-  shell.className = 'profile-popover-shell profile-popover-shell-v2 profile-popover-shell-tabbed';
+async function resolveSelfProfileData(profile: UserProfile): Promise<PublicProfileData> {
+  if (selfProfileDataCache?.profile.publisher_id === profile.publisher_id) {
+    return selfProfileDataCache;
+  }
 
-  const tabBar = document.createElement('div');
-  tabBar.className = 'profile-popover-tabbar';
-  tabBar.setAttribute('role', 'tablist');
-
-  const body = document.createElement('div');
-  body.className = 'profile-popover-body profile-popover-body-v2';
-
-  const pills: HTMLButtonElement[] = [];
-  const activate = (index: number) => {
-    const tab = SELF_PROFILE_TABS[index];
-    lastActiveSelfTab = tab.id;
-    for (let i = 0; i < pills.length; i++) {
-      const isActive = i === index;
-      pills[i].classList.toggle('is-active', isActive);
-      pills[i].setAttribute('aria-selected', String(isActive));
-      pills[i].tabIndex = isActive ? 0 : -1;
-    }
-    body.textContent = '';
-    body.dataset.tab = tab.id;
-    body.classList.toggle('allow-scroll', tab.allowScroll);
-    body.appendChild(tab.build(profile));
+  const [publishCount, authoredConversations] = await Promise.all([
+    publishCountCache !== null ? Promise.resolve(publishCountCache) : fetchUserPublishCount(profile.publisher_id),
+    fetchAuthoredCommunityConversations(profile.publisher_id),
+  ]);
+  publishCountCache = publishCount;
+  selfProfileDataCache = {
+    profile,
+    publish_count: publishCount,
+    authored_conversations: authoredConversations,
   };
+  return selfProfileDataCache;
+}
 
-  SELF_PROFILE_TABS.forEach((tab, index) => {
-    const pill = document.createElement('button');
-    pill.type = 'button';
-    pill.className = 'profile-popover-tab-pill';
-    pill.setAttribute('role', 'tab');
-    pill.dataset.tab = tab.id;
-    pill.textContent = tab.label;
-    pill.addEventListener('click', () => activate(index));
-    pill.addEventListener('keydown', (event) => {
-      if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        activate((index + 1) % SELF_PROFILE_TABS.length);
-        pills[(index + 1) % SELF_PROFILE_TABS.length].focus();
-      } else if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        const prev = (index - 1 + SELF_PROFILE_TABS.length) % SELF_PROFILE_TABS.length;
-        activate(prev);
-        pills[prev].focus();
-      }
-    });
-    pills.push(pill);
-    tabBar.appendChild(pill);
+function buildSelfProfileContent(profile: UserProfile, leaderboardRank?: number | null): HTMLElement {
+  const shell = document.createElement('div');
+  shell.className = 'profile-popover-shell profile-popover-shell-dossier';
+
+  const loading = document.createElement('div');
+  loading.className = 'public-profile-empty profile-self-loading';
+  loading.textContent = 'Loading dossier...';
+  shell.appendChild(loading);
+
+  void resolveSelfProfileData(profile).then((data) => {
+    shell.textContent = '';
+    shell.appendChild(renderPublicProfileView({ data, leaderboardRank }));
+  }).catch(() => {
+    shell.textContent = '';
+    const error = document.createElement('div');
+    error.className = 'public-profile-empty';
+    error.textContent = 'Profile dossier unavailable.';
+    shell.appendChild(error);
   });
 
-  shell.append(tabBar, body);
-
-  const initial = Math.max(0, SELF_PROFILE_TABS.findIndex(tab => tab.id === lastActiveSelfTab));
-  activate(initial);
   return shell;
 }
 
@@ -1913,7 +1892,7 @@ async function openPublicProfileOverlay(publisherId: string, trigger: HTMLButton
 
     if (cachedProfile && profile.publisher_id === cachedProfile.publisher_id) {
       subtitle.textContent = 'This is you';
-      body.appendChild(buildSelfProfileContent(profile));
+      body.appendChild(buildSelfProfileContent(profile, leaderboardRank));
       return;
     }
 

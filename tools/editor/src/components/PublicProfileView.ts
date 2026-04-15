@@ -9,6 +9,7 @@ import {
   calculateQualityScore,
   getWallAchievementCatalog,
   type AchievementId,
+  type AchievementTier,
 } from '../lib/gamification';
 import { createAchievementBadge } from './AchievementIcons';
 import { FACTION_DISPLAY_NAMES, type FactionId } from '../lib/types';
@@ -27,10 +28,41 @@ type ProfilePrestigeStat = {
 };
 
 function getLevelTierColor(level: number): string {
-  if (level >= 91) return '#c4a040';
-  if (level >= 71) return '#8a5eaa';
-  if (level >= 51) return '#3aaa8a';
-  return '#5eaa3a';
+  if (level >= 91) return 'var(--warning, #c4a040)';
+  if (level >= 71) return 'color-mix(in srgb, var(--accent, #5eaa3a) 72%, #d9e6d0 28%)';
+  if (level >= 51) return 'color-mix(in srgb, var(--accent, #5eaa3a) 84%, #86c7d4 16%)';
+  return 'var(--accent, #5eaa3a)';
+}
+
+const BADGE_ACCENTS = [
+  '#8fd46a',
+  '#d7ba59',
+  '#7fb2e8',
+  '#d87861',
+  '#6fc5b7',
+  '#b38ad9',
+  '#e09b5b',
+  '#9ccf74',
+  '#d1d7df',
+  '#e6c66a',
+];
+
+function getAchievementAccent(id: AchievementId | null, tier?: AchievementTier): string {
+  if (!id) return 'var(--profile-accent)';
+  let hash = tier === 'gold' ? 11 : tier === 'silver' ? 7 : 3;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) % 997;
+  }
+  return BADGE_ACCENTS[hash % BADGE_ACCENTS.length];
+}
+
+function getAchievementAnimationDelay(id: AchievementId | null): string {
+  if (!id) return '0ms';
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash + id.charCodeAt(i) * (i + 1)) % 1600;
+  }
+  return `${hash}ms`;
 }
 
 function getUserInitial(username: string): string {
@@ -149,6 +181,27 @@ function buildHeader(data: PublicProfileData): HTMLElement {
     spotlight.appendChild(pill);
   });
 
+  const featured = getFeaturedAchievements(data);
+  const featuredStrip = document.createElement('div');
+  featuredStrip.className = 'public-profile-featured-badges';
+  if (featured.length > 0) {
+    const label = document.createElement('span');
+    label.className = 'public-profile-featured-label';
+    label.textContent = 'Signature badges';
+    featuredStrip.appendChild(label);
+    featured.forEach((achievement) => {
+      const badge = document.createElement('span');
+      badge.className = 'public-profile-featured-badge';
+      badge.style.setProperty('--badge-accent', getAchievementAccent(achievement.id, achievement.tier));
+      badge.title = `${achievement.name}: ${achievement.description}`;
+      badge.append(createAchievementBadge(achievement.id, 'unlocked', 30));
+      const badgeName = document.createElement('span');
+      badgeName.textContent = achievement.name;
+      badge.appendChild(badgeName);
+      featuredStrip.appendChild(badge);
+    });
+  }
+
   const progressWrap = document.createElement('div');
   progressWrap.className = 'public-profile-progress';
 
@@ -166,7 +219,9 @@ function buildHeader(data: PublicProfileData): HTMLElement {
   progressTrack.appendChild(progressFill);
   progressWrap.append(progressMeta, progressTrack);
 
-  copy.append(eyebrow, title, subtitle, memberSince, spotlight, progressWrap);
+  copy.append(eyebrow, title, subtitle, memberSince, spotlight);
+  if (featured.length > 0) copy.appendChild(featuredStrip);
+  copy.appendChild(progressWrap);
   identity.append(avatar, copy);
 
   const stats = document.createElement('div');
@@ -324,6 +379,10 @@ function buildBadgeTile(
 ): HTMLElement {
   const tile = document.createElement('article');
   tile.className = `public-profile-badge-tile public-profile-badge-tile-${state}`;
+  if (state === 'unlocked') {
+    tile.style.setProperty('--badge-accent', getAchievementAccent(id));
+    tile.style.setProperty('--badge-pulse-delay', getAchievementAnimationDelay(id));
+  }
   tile.setAttribute('aria-label', state === 'locked-hidden' ? 'Hidden badge, not yet unlocked' : `${name}, ${state === 'unlocked' ? 'unlocked' : 'locked'}`);
   tile.tabIndex = 0;
   tile.title = state === 'locked-hidden' ? 'Hidden badge — keep exploring.' : `${name}\n${description}`;

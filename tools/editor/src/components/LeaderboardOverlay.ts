@@ -5,12 +5,20 @@
 // Shows top stalkers by XP, highlights the viewer, and opens a public
 // profile when a row is clicked.
 
-import { fetchLeaderboard, getLocalPublisherId, type LeaderboardEntry } from '../lib/api-client';
+import { fetchLeaderboard, fetchUserAchievements, getLocalPublisherId, type LeaderboardEntry } from '../lib/api-client';
+import { ACHIEVEMENTS, isAchievementRare, type AchievementId } from '../lib/gamification';
+import { createAchievementBadge } from './AchievementIcons';
 import { openPublicProfile } from './ProfileBadge';
 import { createIcon } from './icons';
 
 type LeaderboardScope = 'top10' | 'all' | 'nearMe';
 type LeaderboardSort = 'xp' | 'level' | 'name';
+
+const LEADERBOARD_LOAD_LIMIT = 1000;
+const LEADERBOARD_BADGE_LIMIT = 5;
+const ACHIEVEMENT_BY_ID = new Map(ACHIEVEMENTS.map(achievement => [achievement.id, achievement]));
+const leaderboardBadgeCache = new Map<string, AchievementId[]>();
+const leaderboardBadgePending = new Map<string, Promise<AchievementId[]>>();
 
 type RankedEntry = {
   entry: LeaderboardEntry;
@@ -59,12 +67,85 @@ function formatTitle(entry: LeaderboardEntry): string {
   return entry.title || `Level ${entry.level} operative`;
 }
 
+function getRankTier(rank: number): string {
+  if (rank === 1) return 'champion';
+  if (rank <= 3) return 'podium';
+  if (rank <= 10) return 'elite';
+  if (rank <= 50) return 'veteran';
+  return 'field';
+}
+
+function achievementScore(id: AchievementId): number {
+  const achievement = ACHIEVEMENT_BY_ID.get(id);
+  if (!achievement) return 0;
+  const tierScore = achievement.tier === 'gold' ? 300 : achievement.tier === 'silver' ? 200 : 100;
+  return tierScore + (isAchievementRare(achievement) ? 1000 : 0) + achievement.xp;
+}
+
+function selectLeaderboardBadges(ids: string[] | undefined): AchievementId[] {
+  if (!ids || ids.length === 0) return [];
+  const unique = Array.from(new Set(ids))
+    .filter((id): id is AchievementId => ACHIEVEMENT_BY_ID.has(id as AchievementId));
+  unique.sort((a, b) => achievementScore(b) - achievementScore(a));
+  return unique.slice(0, LEADERBOARD_BADGE_LIMIT);
+}
+
+function renderBadgeStrip(container: HTMLElement, ids: AchievementId[]): void {
+  container.textContent = '';
+  container.hidden = ids.length === 0;
+  for (const id of ids) {
+    const achievement = ACHIEVEMENT_BY_ID.get(id);
+    if (!achievement) continue;
+    const badge = document.createElement('span');
+    badge.className = `panda-leaderboard-badge panda-leaderboard-badge-${achievement.tier}`;
+    badge.title = achievement.name;
+    badge.appendChild(createAchievementBadge(id, 'unlocked', 20));
+    container.appendChild(badge);
+  }
+}
+
+function hydrateLeaderboardBadges(entry: LeaderboardEntry, container: HTMLElement): void {
+  const directBadges = selectLeaderboardBadges(entry.achievements);
+  if (directBadges.length > 0) {
+    renderBadgeStrip(container, directBadges);
+    return;
+  }
+
+  const cached = leaderboardBadgeCache.get(entry.publisher_id);
+  if (cached) {
+    renderBadgeStrip(container, cached);
+    return;
+  }
+
+  container.hidden = true;
+  let pending = leaderboardBadgePending.get(entry.publisher_id);
+  if (!pending) {
+    pending = fetchUserAchievements(entry.publisher_id)
+      .then(records => selectLeaderboardBadges(records.map(record => record.achievement_id)))
+      .catch(() => [])
+      .then((ids) => {
+        leaderboardBadgeCache.set(entry.publisher_id, ids);
+        leaderboardBadgePending.delete(entry.publisher_id);
+        return ids;
+      });
+    leaderboardBadgePending.set(entry.publisher_id, pending);
+  }
+
+  void pending.then((ids) => {
+    if (document.body.contains(container)) {
+      renderBadgeStrip(container, ids);
+    }
+  });
+}
+
 function buildRow(ranked: RankedEntry, viewerId: string): HTMLButtonElement {
   const { entry, rank } = ranked;
   const row = document.createElement('button');
   row.type = 'button';
   row.className = 'panda-leaderboard-row';
   row.dataset.rank = String(rank);
+  row.dataset.rankTier = getRankTier(rank);
+  row.style.setProperty('--rank-delay', `${Math.min(rank, 32) * 18}ms`);
   const isViewer = entry.publisher_id === viewerId;
   if (isViewer) row.classList.add('is-viewer');
 
@@ -80,13 +161,21 @@ function buildRow(ranked: RankedEntry, viewerId: string): HTMLButtonElement {
   nameEl.className = 'panda-leaderboard-name';
   nameEl.textContent = entry.username || 'Unknown Stalker';
 
+  const badges = document.createElement('span');
+  badges.className = 'panda-leaderboard-badges';
+  hydrateLeaderboardBadges(entry, badges);
+
+  const nameLine = document.createElement('span');
+  nameLine.className = 'panda-leaderboard-name-line';
+  nameLine.append(nameEl, badges);
+
   const titleEl = document.createElement('span');
   titleEl.className = 'panda-leaderboard-title';
   titleEl.textContent = formatTitle(entry);
 
   const identity = document.createElement('span');
   identity.className = 'panda-leaderboard-identity';
-  identity.append(nameEl, titleEl);
+  identity.append(nameLine, titleEl);
 
   const xpEl = document.createElement('span');
   xpEl.className = 'panda-leaderboard-xp';
@@ -171,6 +260,7 @@ function renderPodium(refs: OverlayRefs): void {
     const card = document.createElement('button');
     card.type = 'button';
     card.className = `panda-leaderboard-podium-card panda-leaderboard-podium-card-${rank}`;
+    card.dataset.rankTier = getRankTier(rank);
     if (entry.publisher_id === refs.viewerId) card.classList.add('is-viewer');
     card.addEventListener('click', () => {
       const restoreTarget = activeOverlay?.trigger ?? card;
@@ -186,11 +276,15 @@ function renderPodium(refs: OverlayRefs): void {
     name.className = 'panda-leaderboard-podium-name';
     name.textContent = entry.username || 'Unknown Stalker';
 
+    const badges = document.createElement('span');
+    badges.className = 'panda-leaderboard-badges panda-leaderboard-podium-badges';
+    hydrateLeaderboardBadges(entry, badges);
+
     const xp = document.createElement('span');
     xp.className = 'panda-leaderboard-podium-xp';
     xp.textContent = `${entry.xp.toLocaleString()} XP`;
 
-    card.append(medal, name, xp);
+    card.append(medal, name, badges, xp);
     refs.podium.appendChild(card);
   }
 }
@@ -209,7 +303,9 @@ function updateLeaderboardView(refs: OverlayRefs): void {
 
   renderPodium(refs);
   const rows = getScopedEntries(refs);
-  refs.count.textContent = `${rows.length} shown`;
+  refs.count.textContent = refs.scope === 'all'
+    ? `${rows.length}/${refs.entries.length} shown`
+    : `${rows.length} shown`;
 
   const viewer = refs.entries.find(row => row.entry.publisher_id === refs.viewerId);
   refs.jumpSelf.disabled = !viewer;
@@ -246,7 +342,7 @@ async function populateList(container: HTMLDivElement) {
   activeRefs.refresh.disabled = true;
   activeRefs.podium.textContent = '';
   activeRefs.count.textContent = 'Loading';
-  activeRefs.status.textContent = 'Loading ranks...';
+  activeRefs.status.textContent = 'Loading all ranks...';
   container.textContent = '';
 
   const loading = document.createElement('div');
@@ -256,7 +352,7 @@ async function populateList(container: HTMLDivElement) {
 
   let loadedEntries: LeaderboardEntry[] = [];
   try {
-    loadedEntries = await fetchLeaderboard(50);
+    loadedEntries = await fetchLeaderboard(LEADERBOARD_LOAD_LIMIT);
   } catch {
     loadedEntries = [];
   }

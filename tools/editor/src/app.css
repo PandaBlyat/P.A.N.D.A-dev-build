@@ -17299,3 +17299,365 @@ strong.support-upvote-count {
     transition-duration: 1ms !important;
   }
 }
+
+/* Profile + leaderboard final polish */
+.profile-popover,
+.public-profile-modal {
+  width: min(1280px, calc(100vw - 28px)) !important;
+  max-height: calc(100dvh - 28px) !important;
+}
+
+.profile-popover {
+  overflow: hidden;
+}
+
+.profile-popover-shell-dossier {
+  min-height: 0;
+  overflow: auto;
+  animation: profilePaneIn 180ms ease-out both;
+}
+
+.profile-popover-shell-dossier .public-profile-view {
+  padding: 12px;
+}
+
+.public-profile-modal {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border-light));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, rgba(18, 23, 29, 0.98)), rgba(10, 13, 17, 0.99)),
+    var(--bg-panel);
+  box-shadow:
+    0 26px 90px rgba(0, 0, 0, 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.public-profile-view-single {
+  --profile-accent: var(--accent, #5eaa3a);
+  color: var(--text, #d7dee7);
+  animation: profilePaneIn 180ms ease-out both;
+}
+
+.public-profile-view .public-profile-hero,
+.public-profile-view .public-profile-section,
+.panda-leaderboard-dialog,
+.panda-leaderboard-row,
+.panda-leaderboard-podium-card {
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--border, #333));
+}
+
+.public-profile-hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(115deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012)),
+    color-mix(in srgb, var(--bg-card) 88%, transparent);
+}
+
+.public-profile-hero::after,
+.public-profile-badge-tile-unlocked::after,
+.panda-leaderboard-row[data-rank-tier='champion']::after,
+.panda-leaderboard-podium-card[data-rank-tier='champion']::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 0 38%, rgba(255, 255, 255, 0.085) 48%, transparent 58% 100%);
+  transform: translateX(-120%);
+  animation: profileSweep 5s ease-in-out infinite;
+}
+
+.public-profile-featured-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.public-profile-featured-label {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.public-profile-featured-badge {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 5px;
+  border: 1px solid color-mix(in srgb, var(--badge-accent, var(--accent)) 44%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--badge-accent, var(--accent)) 12%, var(--bg-card));
+  color: var(--text-bright);
+  font-size: 0.76rem;
+  font-weight: 800;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--badge-accent, var(--accent)) 14%, transparent);
+}
+
+.public-profile-featured-badge .panda-badge-icon {
+  color: var(--badge-accent, var(--accent));
+}
+
+@media (min-width: 1180px) {
+  .public-profile-body-single {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(5) {
+    grid-column: span 3;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(6) {
+    grid-column: span 1;
+  }
+}
+
+.public-profile-body-single {
+  align-items: start;
+}
+
+.public-profile-view .public-profile-section {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    color-mix(in srgb, var(--bg-card) 84%, transparent);
+}
+
+.public-profile-badge-wall {
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 8px;
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+.public-profile-badge-tile {
+  position: relative;
+  min-height: 104px;
+  gap: 6px;
+  padding: 9px 7px;
+  overflow: hidden;
+}
+
+.public-profile-badge-tile-unlocked {
+  border-color: color-mix(in srgb, var(--badge-accent, var(--accent)) 48%, var(--border));
+  background:
+    radial-gradient(circle at 50% 8%, color-mix(in srgb, var(--badge-accent, var(--accent)) 16%, transparent), transparent 46%),
+    linear-gradient(180deg, color-mix(in srgb, var(--badge-accent, var(--accent)) 10%, rgba(255, 255, 255, 0.04)), rgba(255, 255, 255, 0.014)),
+    color-mix(in srgb, var(--bg-card) 88%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 16px color-mix(in srgb, var(--badge-accent, var(--accent)) 15%, transparent);
+}
+
+.public-profile-badge-tile-unlocked .public-profile-badge-icon-wrap,
+.public-profile-badge-tile-unlocked .panda-badge-icon {
+  color: var(--badge-accent, var(--accent));
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--badge-accent, var(--accent)) 44%, transparent));
+  animation: badgePulse 3.6s ease-in-out infinite;
+  animation-delay: var(--badge-pulse-delay, 0ms);
+}
+
+.public-profile-badge-tile-locked-visible,
+.public-profile-badge-tile-locked-hidden {
+  background: color-mix(in srgb, var(--bg-panel) 76%, transparent);
+}
+
+.public-profile-badge-name,
+.public-profile-badge-meta {
+  white-space: normal;
+  text-overflow: clip;
+  line-height: 1.2;
+}
+
+.public-profile-badge-name {
+  display: -webkit-box;
+  min-height: 2.05em;
+  font-size: 0.84rem;
+  font-weight: 900;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.public-profile-badge-meta {
+  font-size: 0.72rem;
+  color: color-mix(in srgb, var(--text-dim) 84%, white);
+}
+
+.panda-leaderboard-dialog {
+  width: min(1280px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 40%),
+    linear-gradient(180deg, rgba(19, 24, 30, 0.98), rgba(8, 11, 14, 0.99)),
+    var(--bg-panel);
+}
+
+.panda-leaderboard-row,
+.panda-leaderboard-podium-card {
+  --rank-color: var(--accent, #5eaa3a);
+  position: relative;
+  overflow: hidden;
+}
+
+.panda-leaderboard-row {
+  grid-template-columns: 58px 38px minmax(0, 1fr) auto auto;
+  min-height: 54px;
+  animation-delay: var(--rank-delay, 0ms);
+}
+
+.panda-leaderboard-row::before,
+.panda-leaderboard-podium-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--rank-color);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--rank-color) 50%, transparent);
+}
+
+.panda-leaderboard-row[data-rank-tier='champion'],
+.panda-leaderboard-podium-card[data-rank-tier='champion'] {
+  --rank-color: var(--warning, #d7ba59);
+  border-color: color-mix(in srgb, var(--rank-color) 58%, var(--border));
+  background:
+    radial-gradient(circle at 12% 50%, color-mix(in srgb, var(--rank-color) 20%, transparent), transparent 34%),
+    color-mix(in srgb, var(--rank-color) 12%, var(--bg-card));
+}
+
+.panda-leaderboard-row[data-rank-tier='podium'],
+.panda-leaderboard-podium-card[data-rank-tier='podium'] {
+  --rank-color: color-mix(in srgb, var(--accent) 54%, #d7dce5 46%);
+  border-color: color-mix(in srgb, var(--rank-color) 46%, var(--border));
+  background: color-mix(in srgb, var(--rank-color) 9%, var(--bg-card));
+}
+
+.panda-leaderboard-row[data-rank-tier='elite'] {
+  --rank-color: color-mix(in srgb, var(--accent) 78%, #e6c66a 22%);
+  border-color: color-mix(in srgb, var(--rank-color) 34%, var(--border));
+}
+
+.panda-leaderboard-row[data-rank-tier='veteran'] {
+  --rank-color: color-mix(in srgb, var(--accent) 82%, #7fb2e8 18%);
+}
+
+.panda-leaderboard-rank {
+  color: var(--rank-color);
+}
+
+.panda-leaderboard-avatar {
+  border-color: color-mix(in srgb, var(--rank-color) 42%, transparent);
+  background: color-mix(in srgb, var(--rank-color) 18%, var(--bg-panel));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+.panda-leaderboard-name-line {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panda-leaderboard-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.panda-leaderboard-badge {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--rank-color) 24%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-panel) 76%, transparent);
+}
+
+.panda-leaderboard-badge-gold {
+  color: var(--warning, #d7ba59);
+  border-color: color-mix(in srgb, var(--warning, #d7ba59) 44%, var(--border));
+}
+
+.panda-leaderboard-badge-silver {
+  color: #d1d7df;
+  border-color: color-mix(in srgb, #d1d7df 32%, var(--border));
+}
+
+.panda-leaderboard-badge-bronze {
+  color: #d87861;
+  border-color: color-mix(in srgb, #d87861 36%, var(--border));
+}
+
+.panda-leaderboard-badge .panda-badge-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.panda-leaderboard-podium-card {
+  min-height: 98px;
+  padding-left: 16px;
+}
+
+.panda-leaderboard-podium-card-1 {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 26px color-mix(in srgb, var(--warning, #d7ba59) 18%, transparent);
+}
+
+.panda-leaderboard-podium-card:hover,
+.panda-leaderboard-row:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 28px rgba(0, 0, 0, 0.26),
+    0 0 18px color-mix(in srgb, var(--rank-color) 16%, transparent);
+}
+
+@keyframes badgePulse {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-1px) scale(1.06);
+  }
+}
+
+@media (max-width: 900px) {
+  .profile-popover,
+  .public-profile-modal,
+  .panda-leaderboard-dialog {
+    width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+  }
+
+  .public-profile-badge-wall {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  }
+
+  .panda-leaderboard-row {
+    grid-template-columns: 42px 34px minmax(0, 1fr);
+  }
+
+  .panda-leaderboard-name-line {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-popover-shell-dossier,
+  .public-profile-view-single,
+  .public-profile-hero::after,
+  .public-profile-badge-tile-unlocked::after,
+  .public-profile-badge-tile-unlocked .panda-badge-icon,
+  .panda-leaderboard-row[data-rank-tier='champion']::after,
+  .panda-leaderboard-podium-card[data-rank-tier='champion']::after {
+    animation: none !important;
+  }
+}
