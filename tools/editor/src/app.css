@@ -17784,6 +17784,10 @@ button.pa-avatar:focus-visible {
   white-space: nowrap;
 }
 
+/* =========================================================================
+   FRAME ORNAMENTS & ANIMATIONS
+   ========================================================================= */
+
 .pa-avatar-ornament {
   position: absolute;
   inset: -6px;
@@ -17794,10 +17798,16 @@ button.pa-avatar:focus-visible {
   transition: opacity 200ms ease;
 }
 
-/* Frame: none (just the base) */
-.pa-avatar-frame-none .pa-avatar-ornament {
-  display: none;
+/* Base Keyframes */
+@keyframes paAvatarSpin { to { transform: rotate(360deg); } }
+@keyframes paAvatarSpinRev { to { transform: rotate(-360deg); } }
+@keyframes paAvatarPulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.04); }
 }
+
+/* Frame: none */
+.pa-avatar-frame-none .pa-avatar-ornament { display: none; }
 
 /* Frame: hex — crisp plated ring */
 .pa-avatar-frame-hex {
@@ -17817,8 +17827,7 @@ button.pa-avatar:focus-visible {
 .pa-avatar-frame-runic .pa-avatar-ornament {
   opacity: 1;
   inset: -7px;
-  background:
-    conic-gradient(from 0deg, color-mix(in srgb, var(--pa-avatar-color) 80%, transparent), transparent 35%, color-mix(in srgb, var(--pa-avatar-color) 55%, transparent) 68%, transparent);
+  background: conic-gradient(from 0deg, color-mix(in srgb, var(--pa-avatar-color) 80%, transparent), transparent 35%, color-mix(in srgb, var(--pa-avatar-color) 55%, transparent) 68%, transparent);
   -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%, #000 82%, transparent 85%);
           mask: radial-gradient(circle, transparent 58%, #000 60%, #000 82%, transparent 85%);
   animation: paAvatarSpin 14s linear infinite;
@@ -17831,75 +17840,115 @@ button.pa-avatar:focus-visible {
     0 0 24px color-mix(in srgb, var(--pa-avatar-color) 42%, transparent);
 }
 .pa-avatar-frame-halo .pa-avatar-ornament {
-  opacity: 1;
-  inset: -10px;
-  border-radius: 999px;
+  opacity: 1; inset: -10px; border-radius: 999px;
   background: radial-gradient(circle, color-mix(in srgb, var(--pa-avatar-color) 45%, transparent) 0%, transparent 68%);
   animation: paAvatarPulse 3.4s ease-in-out infinite;
 }
 
-/* Frame: radioactive — green/gold swirl + sweeping shine */
+/* Frame: radioactive — green/gold swirl */
 .pa-avatar-frame-radioactive {
   border-color: color-mix(in srgb, var(--pa-avatar-color) 70%, #c4a040 30%);
 }
 .pa-avatar-frame-radioactive .pa-avatar-ornament {
-  opacity: 1;
-  inset: -8px;
-  background:
-    conic-gradient(from 0deg, #c4a040, transparent 30%, #5eaa3a 55%, transparent 75%, #c4a040 100%);
+  opacity: 1; inset: -8px;
+  background: conic-gradient(from 0deg, #c4a040, transparent 30%, #5eaa3a 55%, transparent 75%, #c4a040 100%);
   -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 82%, transparent 86%);
           mask: radial-gradient(circle, transparent 55%, #000 58%, #000 82%, transparent 86%);
   animation: paAvatarSpin 9s linear infinite;
   filter: drop-shadow(0 0 6px rgba(196, 160, 64, 0.35));
 }
 
-/* Frame: monolith — crown-like prismatic shimmer */
+/* Frame: cyber — dashed tech outline with fast scanner */
+.pa-avatar-frame-cyber {
+  border-width: 2px;
+  border-style: dashed;
+  border-color: var(--pa-avatar-color);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--pa-avatar-color) 40%, transparent);
+}
+.pa-avatar-frame-cyber .pa-avatar-ornament {
+  opacity: 1; inset: -6px;
+  background: conic-gradient(from 0deg, transparent 70%, var(--pa-avatar-color) 100%);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
+          mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
+  animation: paAvatarSpin 3s linear infinite;
+}
+
+/* Frame: plasma — super thick glow */
+.pa-avatar-frame-plasma {
+  border-width: 2px;
+  border-color: var(--pa-avatar-color);
+  box-shadow: 0 0 15px var(--pa-avatar-color), inset 0 0 10px var(--pa-avatar-color);
+}
+.pa-avatar-frame-plasma .pa-avatar-ornament {
+  opacity: 1; inset: -8px;
+  background: conic-gradient(from 0deg, var(--pa-avatar-color), #fff 10%, var(--pa-avatar-color) 20%, transparent 50%, var(--pa-avatar-color), #fff 60%, var(--pa-avatar-color) 70%, transparent);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
+          mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
+  animation: paAvatarSpin 2.5s linear infinite;
+}
+
+/* Frame: blood — deep pulsing red */
+.pa-avatar-frame-blood {
+  border-color: #991b1b;
+  box-shadow: 0 0 15px #e05555, inset 0 0 15px #991b1b;
+}
+.pa-avatar-frame-blood .pa-avatar-ornament {
+  opacity: 1; inset: -12px;
+  background: radial-gradient(circle, rgba(153, 27, 27, 0.8) 40%, transparent 70%);
+  animation: paAvatarPulse 2s ease-in-out infinite;
+}
+
+/* Frame: void — reverse spin, dark inner shadow */
+.pa-avatar-frame-void {
+  border-color: #4c1d95;
+  box-shadow: inset 0 0 25px #000, 0 0 20px #1e3a8a;
+}
+.pa-avatar-frame-void .pa-avatar-ornament {
+  opacity: 1; inset: -8px;
+  background: conic-gradient(from 0deg, #1e3a8a, #4c1d95, #000, #4c1d95, #1e3a8a);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
+          mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
+  animation: paAvatarSpinRev 8s linear infinite;
+}
+
+/* Frame: monolith — prismatic shimmer with crest */
 .pa-avatar-frame-monolith {
   border-color: #c4a040;
-  box-shadow:
-    inset 0 0 0 2px rgba(196, 160, 64, 0.22),
-    0 0 22px rgba(196, 160, 64, 0.32);
+  box-shadow: inset 0 0 0 2px rgba(196, 160, 64, 0.22), 0 0 22px rgba(196, 160, 64, 0.32);
 }
 .pa-avatar-frame-monolith .pa-avatar-ornament {
-  opacity: 1;
-  inset: -10px;
-  border-radius: 999px;
-  background:
-    conic-gradient(from 45deg,
-      #c4a040 0deg,
-      rgba(196, 160, 64, 0.15) 40deg,
-      #a855f7 90deg,
-      rgba(168, 85, 247, 0.1) 130deg,
-      #c4a040 180deg,
-      rgba(196, 160, 64, 0.1) 220deg,
-      #5eaa3a 270deg,
-      rgba(94, 170, 58, 0.1) 310deg,
-      #c4a040 360deg);
+  opacity: 1; inset: -10px; border-radius: 999px;
+  background: conic-gradient(from 45deg, #c4a040 0deg, rgba(196, 160, 64, 0.15) 40deg, #a855f7 90deg, rgba(168, 85, 247, 0.1) 130deg, #c4a040 180deg, rgba(196, 160, 64, 0.1) 220deg, #5eaa3a 270deg, rgba(94, 170, 58, 0.1) 310deg, #c4a040 360deg);
   -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 78%, transparent 82%);
           mask: radial-gradient(circle, transparent 55%, #000 58%, #000 78%, transparent 82%);
   animation: paAvatarSpin 20s linear infinite;
 }
-.pa-avatar-frame-monolith::before {
-  content: '';
-  position: absolute;
-  top: -12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 16px;
-  height: 10px;
+.pa-avatar-frame-monolith::after {
+  content: ''; position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  width: 16px; height: 10px;
   background: linear-gradient(180deg, #e7c661 0%, #c4a040 100%);
   clip-path: polygon(0% 100%, 20% 20%, 40% 60%, 50% 0%, 60% 60%, 80% 20%, 100% 100%);
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.55));
-  pointer-events: none;
-  z-index: 4;
+  pointer-events: none; z-index: 4;
 }
 
-@keyframes paAvatarSpin {
-  to { transform: rotate(360deg); }
+/* Frame: legend — double gold rings + spinning starburst */
+.pa-avatar-frame-legend {
+  border: 3px double #fbbf24;
+  box-shadow: 0 0 20px #c4a040, inset 0 0 15px #fbbf24;
 }
-@keyframes paAvatarPulse {
-  0%, 100% { opacity: 0.55; transform: scale(1); }
-  50%      { opacity: 1;    transform: scale(1.04); }
+.pa-avatar-frame-legend .pa-avatar-ornament {
+  opacity: 1; inset: -12px;
+  background: conic-gradient(from 0deg, #fbbf24, #fff, #fbbf24, transparent 25%, #fbbf24 50%, #fff, #fbbf24, transparent 75%, #fbbf24);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
+          mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
+  animation: paAvatarSpin 6s linear infinite;
+}
+.pa-avatar-frame-legend::after {
+  content: '★'; position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+  color: #fff; font-size: 22px; line-height: 1;
+  text-shadow: 0 0 10px #fbbf24, 0 0 20px #fbbf24;
+  pointer-events: none; z-index: 4;
 }
 
 /* Shared avatar integration into existing surfaces */
@@ -17917,6 +17966,15 @@ button.pa-avatar:focus-visible {
   bottom: -2px;
   font-size: 11px;
   padding: 3px 7px;
+}
+/* Ensure the crown/star pseudo-elements scale up on larger avatars */
+.public-profile-avatar.pa-avatar-frame-monolith::after {
+  transform: translateX(-50%) scale(1.5);
+  top: -18px;
+}
+.public-profile-avatar.pa-avatar-frame-legend::after {
+  font-size: 32px;
+  top: -24px;
 }
 
 /* =========================================================================
@@ -18092,16 +18150,8 @@ button.pa-avatar:focus-visible {
   z-index: 0;
   pointer-events: none;
 }
-/* Existing Banner Backgrounds */
-.pa-avatar-preview-banner[data-banner='zone-dawn'], .pa-avatar-chip-banner-sample[data-banner='zone-dawn'] { background: linear-gradient(120deg, rgba(94,170,58,0.22), rgba(212,163,75,0.12) 55%, transparent 82%); }
-.pa-avatar-preview-banner[data-banner='radiation'], .pa-avatar-chip-banner-sample[data-banner='radiation'] { background: linear-gradient(125deg, rgba(196,160,64,0.28), rgba(94,170,58,0.12) 52%, transparent 82%); }
-.pa-avatar-preview-banner[data-banner='monolith'], .pa-avatar-chip-banner-sample[data-banner='monolith']  { background: linear-gradient(120deg, rgba(168,85,247,0.22), rgba(94,170,58,0.10) 55%, transparent 82%); }
-.pa-avatar-preview-banner[data-banner='duty'], .pa-avatar-chip-banner-sample[data-banner='duty']      { background: linear-gradient(118deg, rgba(216,120,97,0.22), rgba(55,62,78,0.22) 55%, transparent 84%); }
-.pa-avatar-preview-banner[data-banner='freedom'], .pa-avatar-chip-banner-sample[data-banner='freedom']   { background: linear-gradient(120deg, rgba(143,212,106,0.28), rgba(212,163,75,0.14) 52%, transparent 82%); }
-.pa-avatar-preview-banner[data-banner='nightshift'], .pa-avatar-chip-banner-sample[data-banner='nightshift'] { background: linear-gradient(120deg, rgba(34,211,238,0.22), rgba(94,170,58,0.10) 52%, transparent 86%); }
-.pa-avatar-preview-banner[data-banner='crimson'], .pa-avatar-chip-banner-sample[data-banner='crimson']   { background: linear-gradient(120deg, rgba(224,85,85,0.28), rgba(94,170,58,0.10) 60%, transparent 84%); }
 
-/* VFX / Overlays (New Feature) */
+/* VFX / Overlays */
 .pa-avatar-preview-effect {
   position: absolute;
   inset: 0;
@@ -18109,35 +18159,85 @@ button.pa-avatar:focus-visible {
   pointer-events: none;
   mix-blend-mode: screen;
 }
-.pa-avatar-preview-effect[data-effect='scanlines'] {
+
+/* Scanlines (Lv 5) */
+.pa-avatar-preview-effect[data-effect='scanlines'], .pa-avatar-chip-effect-sample[data-effect='scanlines'] {
   background: linear-gradient(to bottom, rgba(255,255,255,0) 50%, rgba(94,170,58,0.08) 50%);
   background-size: 100% 4px;
   animation: scrollDown 10s linear infinite;
 }
-.pa-avatar-preview-effect[data-effect='glitch'] {
+/* Spores (Lv 10) */
+.pa-avatar-preview-effect[data-effect='spores'], .pa-avatar-chip-effect-sample[data-effect='spores'] {
+  background-image: radial-gradient(circle at 50% 50%, rgba(143, 212, 106, 0.25) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+  animation: floatUp 5s linear infinite;
+}
+/* Acid Rain (Lv 15) */
+.pa-avatar-preview-effect[data-effect='rain'], .pa-avatar-chip-effect-sample[data-effect='rain'] {
+  background: repeating-linear-gradient(15deg, transparent, transparent 15px, rgba(143, 212, 106, 0.15) 15px, rgba(143, 212, 106, 0.15) 16px);
+  background-size: 100% 200%;
+  animation: rainFall 1.5s linear infinite;
+}
+/* Embers (Lv 25) */
+.pa-avatar-preview-effect[data-effect='embers'], .pa-avatar-chip-effect-sample[data-effect='embers'] {
+  background-image: radial-gradient(circle, rgba(224, 85, 85, 0.6) 1.5px, transparent 1.5px);
+  background-size: 20px 30px;
+  animation: embersFloat 3s infinite linear;
+}
+/* Glitch (Lv 30) */
+.pa-avatar-preview-effect[data-effect='glitch'], .pa-avatar-chip-effect-sample[data-effect='glitch'] {
   background: rgba(34, 211, 238, 0.05);
   animation: glitchFlash 3s infinite;
   box-shadow: inset 0 0 20px rgba(34, 211, 238, 0.15);
 }
-.pa-avatar-preview-effect[data-effect='spores'] {
-  background-image: radial-gradient(circle at 50% 50%, rgba(143, 212, 106, 0.25) 1px, transparent 1px);
-  background-size: 24px 24px;
-  animation: floatUp 5s linear infinite;
+/* Data-Stream (Lv 40) */
+.pa-avatar-preview-effect[data-effect='matrix'], .pa-avatar-chip-effect-sample[data-effect='matrix'] {
+  background: repeating-linear-gradient(to bottom, transparent, transparent 4px, rgba(34, 197, 94, 0.25) 4px, rgba(34, 197, 94, 0.25) 5px);
+  background-size: 100% 80px;
+  animation: rainFall 0.8s linear infinite;
+}
+/* Void Wisps (Lv 45) */
+.pa-avatar-preview-effect[data-effect='wisps'], .pa-avatar-chip-effect-sample[data-effect='wisps'] {
+  background: radial-gradient(circle at 20% 80%, rgba(168, 85, 247, 0.2), transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(30, 58, 138, 0.2), transparent 50%);
+  animation: wispSwirl 6s ease-in-out infinite alternate;
+}
+/* Overcharge (Lv 50) */
+.pa-avatar-preview-effect[data-effect='overcharge'], .pa-avatar-chip-effect-sample[data-effect='overcharge'] {
+  box-shadow: inset 0 0 40px rgba(57, 255, 20, 0.3);
+  background: rgba(57, 255, 20, 0.05);
+  animation: pulseOvercharge 0.4s infinite alternate;
 }
 
-@keyframes scrollDown {
-  from { background-position: 0 0; }
-  to { background-position: 0 100vh; }
-}
+/* Keyframes for VFX */
+@keyframes scrollDown { from { background-position: 0 0; } to { background-position: 0 100vh; } }
 @keyframes glitchFlash {
   0%, 96%, 98% { opacity: 1; transform: translateX(0); }
   97% { opacity: 0.7; transform: translateX(-2px); }
   99% { opacity: 0.9; transform: translateX(2px); }
 }
 @keyframes floatUp {
-  0% { transform: translateY(0) scale(1); opacity: 0;}
+  0% { transform: translateY(0); opacity: 0;}
   50% { opacity: 1; }
-  100% { transform: translateY(-40px) scale(1.5); opacity: 0; }
+  100% { transform: translateY(-40px); opacity: 0; }
+}
+@keyframes rainFall {
+  0% { background-position: 0% 0%; }
+  100% { background-position: -20% 100%; }
+}
+@keyframes embersFloat {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  25% { opacity: 1; transform: translateX(5px); }
+  75% { transform: translateX(-5px); }
+  100% { transform: translateY(-50px) translateX(0); opacity: 0; }
+}
+@keyframes wispSwirl {
+  0% { transform: scale(1) rotate(0deg); opacity: 0.6; }
+  100% { transform: scale(1.2) rotate(15deg); opacity: 1; }
+}
+@keyframes pulseOvercharge {
+  0% { opacity: 0.6; box-shadow: inset 0 0 20px rgba(57, 255, 20, 0.2); }
+  100% { opacity: 1; box-shadow: inset 0 0 60px rgba(57, 255, 20, 0.6); }
 }
 
 .pa-avatar-preview-circle-wrap {
@@ -18275,6 +18375,8 @@ button.pa-avatar:focus-visible {
   background: var(--pa-swatch, #5eaa3a);
   box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(0, 0, 0, 0.35);
 }
+
+/* --- FRAME CSS CLASSES --- */
 .pa-avatar-chip-frame-sample {
   --pa-avatar-color: var(--accent, #5eaa3a);
   --pa-avatar-size: 42px;
@@ -18283,8 +18385,37 @@ button.pa-avatar:focus-visible {
   height: var(--pa-avatar-size);
   border-radius: 999px;
   background: radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--pa-avatar-color) 40%, transparent), transparent 60%), #1b2018;
+}
+/* Base */
+.pa-avatar-frame-hex, .pa-avatar-frame-runic, .pa-avatar-frame-halo {
   border: 1.5px solid color-mix(in srgb, var(--pa-avatar-color) 70%, transparent);
 }
+/* Cyber */
+.pa-avatar-frame-cyber {
+  border: 2px dashed var(--pa-avatar-color);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--pa-avatar-color) 40%, transparent);
+}
+/* Plasma */
+.pa-avatar-frame-plasma {
+  border: 2px solid var(--pa-avatar-color);
+  box-shadow: 0 0 15px var(--pa-avatar-color), inset 0 0 10px var(--pa-avatar-color);
+}
+/* Blood */
+.pa-avatar-frame-blood {
+  border: 2px solid #991b1b;
+  box-shadow: 0 0 15px #e05555, inset 0 0 15px #991b1b;
+}
+/* Void */
+.pa-avatar-frame-void {
+  border: 2px solid #4c1d95;
+  box-shadow: 0 0 25px #000 inset, 0 0 20px #1e3a8a;
+}
+/* Legend (Gold double layer) */
+.pa-avatar-frame-legend {
+  border: 3px double #fbbf24;
+  box-shadow: 0 0 20px #c4a040, inset 0 0 15px #fbbf24;
+}
+
 .pa-avatar-chip-banner-sample {
   display: block;
   width: 100%;
@@ -18300,16 +18431,6 @@ button.pa-avatar:focus-visible {
   position: relative;
   overflow: hidden;
   border: 1px solid rgba(255,255,255,0.1);
-}
-.pa-avatar-chip-effect-sample[data-effect="scanlines"] {
-  background: linear-gradient(to bottom, transparent 50%, rgba(94,170,58,0.4) 50%); background-size: 100% 4px;
-}
-.pa-avatar-chip-effect-sample[data-effect="glitch"] {
-  box-shadow: inset 0 0 10px rgba(34, 211, 238, 0.6);
-}
-.pa-avatar-chip-effect-sample[data-effect="spores"] {
-  background-image: radial-gradient(circle at 50% 50%, rgba(143, 212, 106, 0.6) 1.5px, transparent 1.5px);
-  background-size: 8px 8px;
 }
 
 /* Animations Classes */
@@ -18337,6 +18458,65 @@ button.pa-avatar:focus-visible {
 }
 .pa-anim-frame::after {
   content: '';
+  position: absolute;
+  inset: 2px;
+  background: #1b2018; /* Inner cover to make it a stroke */
+  border-radius: 50%;
+  z-index: -1;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Footer Actions */
+.pa-avatar-modal-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 16px 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--bg-card, #141811) 96%, transparent);
+}
+.pa-avatar-modal-action {
+  appearance: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--bg-panel, #141811) 95%, transparent);
+  color: var(--text-primary, #f5f7f0);
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+.pa-avatar-modal-action:hover,
+.pa-avatar-modal-action:focus-visible {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent, #5eaa3a) 55%, transparent);
+  outline: none;
+}
+.pa-avatar-modal-action-ghost {
+  margin-right: auto;
+  background: transparent;
+  color: var(--text-secondary, #a6b1a0);
+  border-color: transparent;
+}
+.pa-avatar-modal-action-ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.pa-avatar-modal-action-primary {
+  background: linear-gradient(160deg, var(--accent, #5eaa3a), color-mix(in srgb, var(--accent, #5eaa3a) 60%, #1b2018));
+  border-color: color-mix(in srgb, var(--accent, #5eaa3a) 70%, transparent);
+  color: #0b120b;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent, #5eaa3a) 35%, transparent);
+}
+.pa-avatar-modal-action-primary:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
 
 /* =========================================================================
    P.A.N.D.A — Leaderboard throne overhaul
