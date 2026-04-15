@@ -208,6 +208,23 @@ function buildRow(ranked: RankedEntry, viewerId: string, staggerIndex: number): 
   levelEl.className = 'panda-leaderboard-level';
   levelEl.textContent = `Lv ${entry.level}`;
 
+  // Banner tint — applied via CSS custom property so it sits inside the
+  // background stack without z-index fighting grid children.
+  const bannerBg = getBannerBackground(entry.avatar_banner);
+  if (bannerBg) {
+    row.style.setProperty('--row-banner', bannerBg);
+  }
+
+  // VFX overlay — absolutely positioned, very low opacity so text stays legible.
+  // pa-avatar-chip-effect-sample is added so the shared data-effect CSS applies.
+  if (entry.avatar_effect && entry.avatar_effect !== 'none') {
+    const rowEffect = document.createElement('span');
+    rowEffect.className = 'panda-leaderboard-row-effect pa-avatar-chip-effect-sample';
+    rowEffect.setAttribute('aria-hidden', 'true');
+    rowEffect.dataset.effect = String(entry.avatar_effect);
+    row.appendChild(rowEffect);
+  }
+
   row.append(rankEl, avatar, identity, xpEl, levelEl);
 
   row.addEventListener('click', () => {
@@ -311,7 +328,9 @@ function renderPodium(refs: OverlayRefs): void {
 
     if (entry.avatar_effect && entry.avatar_effect !== 'none') {
       const effect = document.createElement('span');
-      effect.className = 'panda-leaderboard-podium-effect';
+      // pa-avatar-chip-effect-sample is added so the shared [data-effect='...']
+      // CSS selectors (defined for chip previews) apply here too.
+      effect.className = 'panda-leaderboard-podium-effect pa-avatar-chip-effect-sample';
       effect.setAttribute('aria-hidden', 'true');
       effect.dataset.effect = String(entry.avatar_effect);
       card.appendChild(effect);

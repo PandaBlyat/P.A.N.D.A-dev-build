@@ -504,17 +504,9 @@ function buildBadgeTile(
   nameEl.className = 'public-profile-badge-name';
   nameEl.textContent = state === 'locked-hidden' ? '???' : name;
 
-  const metaEl = document.createElement('div');
-  metaEl.className = 'public-profile-badge-meta';
-  metaEl.textContent = meta;
-
-  const hover = document.createElement('div');
-  hover.className = 'public-profile-badge-hover';
-  hover.textContent = state === 'locked-hidden'
-    ? 'Unlock condition hidden.'
-    : description;
-
-  tile.append(iconWrap, nameEl, metaEl, hover);
+  // Tile shows only icon + name. Description/meta expand via the tooltip popup
+  // (showBadgeTooltip) on click so nothing clips or overflows the compact tile.
+  tile.append(iconWrap, nameEl);
 
   const handleOpen = (e: Event) => {
     e.stopPropagation();
