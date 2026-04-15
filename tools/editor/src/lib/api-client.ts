@@ -98,6 +98,13 @@ export type CreatorSupportStats = {
   updated_at: string;
 };
 
+export type UserCosmetics = {
+  avatar_icon?: string | null;
+  avatar_color?: string | null;
+  avatar_frame?: string | null;
+  avatar_banner?: string | null;
+};
+
 export type UserProfile = {
   publisher_id: string;
   username: string;
@@ -110,7 +117,7 @@ export type UserProfile = {
   achievement_records?: UserAchievement[];
   streaks?: UserStreakState | null;
   missions?: UserMissionProgressRecord[];
-};
+} & UserCosmetics;
 
 export type LeaderboardEntry = {
   publisher_id: string;
@@ -119,7 +126,7 @@ export type LeaderboardEntry = {
   level: number;
   title: string;
   achievements?: string[];
-};
+} & UserCosmetics;
 
 export type PublicProfileData = {
   profile: UserProfile;
@@ -1462,6 +1469,42 @@ export function setStoredUsername(username: string): void {
 export function clearStoredUsername(): void {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(LOCAL_USERNAME_KEY);
+}
+
+export async function updateUserCosmetics(publisherId: string, cosmetics: UserCosmetics): Promise<UserProfile | null> {
+  const body = {
+    avatar_icon: cosmetics.avatar_icon ?? null,
+    avatar_color: cosmetics.avatar_color ?? null,
+    avatar_frame: cosmetics.avatar_frame ?? null,
+    avatar_banner: cosmetics.avatar_banner ?? null,
+  };
+  try {
+    return await fetchFromApi<UserProfile | null>(`/api/profile/${encodeURIComponent(publisherId)}/cosmetics`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/update_user_cosmetics`, {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({
+          p_publisher_id: publisherId,
+          p_avatar_icon: body.avatar_icon,
+          p_avatar_color: body.avatar_color,
+          p_avatar_frame: body.avatar_frame,
+          p_avatar_banner: body.avatar_banner,
+        }),
+      });
+      if (!res.ok) return null;
+      const rows = await res.json() as UserProfile[] | UserProfile | null;
+      if (!rows) return null;
+      return Array.isArray(rows) ? rows[0] ?? null : rows;
+    } catch {
+      return null;
+    }
+  }
 }
 
 export async function registerUsername(publisherId: string, username: string): Promise<UserProfile> {

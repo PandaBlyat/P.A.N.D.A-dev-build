@@ -17661,3 +17661,770 @@ strong.support-upvote-count {
     animation: none !important;
   }
 }
+
+/* =========================================================================
+   P.A.N.D.A — Avatar system (shared renderer + cosmetics)
+   ========================================================================= */
+
+.pa-avatar {
+  --pa-avatar-color: var(--accent, #5eaa3a);
+  --pa-avatar-size: 44px;
+  --pa-avatar-font: 18px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--pa-avatar-size);
+  height: var(--pa-avatar-size);
+  border-radius: 999px;
+  background:
+    radial-gradient(ellipse at 35% 30%, color-mix(in srgb, var(--pa-avatar-color) 50%, transparent) 0%, transparent 62%),
+    linear-gradient(155deg, color-mix(in srgb, var(--pa-avatar-color) 55%, #1b2018 75%) 0%, color-mix(in srgb, var(--pa-avatar-color) 18%, #0f130c) 100%);
+  border: 1.5px solid color-mix(in srgb, var(--pa-avatar-color) 70%, transparent);
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--pa-avatar-color) 18%, transparent),
+    0 2px 10px rgba(0, 0, 0, 0.36);
+  color: #f5f7f0;
+  font-weight: 700;
+  font-family: inherit;
+  font-size: var(--pa-avatar-font);
+  letter-spacing: 0.02em;
+  overflow: visible;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  cursor: default;
+  padding: 0;
+}
+
+button.pa-avatar {
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+button.pa-avatar:hover,
+button.pa-avatar:focus-visible {
+  transform: translateY(-1px) scale(1.035);
+  border-color: color-mix(in srgb, var(--pa-avatar-color) 92%, white 8%);
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--pa-avatar-color) 28%, transparent),
+    0 6px 22px color-mix(in srgb, var(--pa-avatar-color) 40%, transparent);
+  outline: none;
+}
+
+button.pa-avatar:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--pa-avatar-color) 80%, white);
+  outline-offset: 3px;
+}
+
+.pa-avatar-sm { --pa-avatar-size: 30px; --pa-avatar-font: 13px; }
+.pa-avatar-md { --pa-avatar-size: 44px; --pa-avatar-font: 18px; }
+.pa-avatar-lg { --pa-avatar-size: 72px; --pa-avatar-font: 28px; }
+
+.pa-avatar-glyph {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-size: var(--pa-avatar-font);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  user-select: none;
+}
+
+.pa-avatar-glyph-emoji {
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+  font-size: calc(var(--pa-avatar-font) * 1.05);
+}
+
+.pa-avatar-level-chip {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  z-index: 3;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pa-avatar-color) 88%, #0b0e08 12%);
+  border: 1.5px solid color-mix(in srgb, var(--pa-avatar-color) 35%, #0b0e08);
+  color: #f5f7f0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.pa-avatar-ornament {
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+/* Frame: none (just the base) */
+.pa-avatar-frame-none .pa-avatar-ornament {
+  display: none;
+}
+
+/* Frame: hex — crisp plated ring */
+.pa-avatar-frame-hex {
+  border-width: 2px;
+  border-style: double;
+}
+.pa-avatar-frame-hex .pa-avatar-ornament {
+  opacity: 1;
+  border-radius: 14px;
+  inset: -5px;
+  clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--pa-avatar-color) 60%, transparent), transparent 55%);
+  border: 1px solid color-mix(in srgb, var(--pa-avatar-color) 55%, transparent);
+}
+
+/* Frame: runic — subtle rotation aura */
+.pa-avatar-frame-runic .pa-avatar-ornament {
+  opacity: 1;
+  inset: -7px;
+  background:
+    conic-gradient(from 0deg, color-mix(in srgb, var(--pa-avatar-color) 80%, transparent), transparent 35%, color-mix(in srgb, var(--pa-avatar-color) 55%, transparent) 68%, transparent);
+  -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%, #000 82%, transparent 85%);
+          mask: radial-gradient(circle, transparent 58%, #000 60%, #000 82%, transparent 85%);
+  animation: paAvatarSpin 14s linear infinite;
+}
+
+/* Frame: halo — gentle glow pulse */
+.pa-avatar-frame-halo {
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--pa-avatar-color) 28%, transparent),
+    0 0 24px color-mix(in srgb, var(--pa-avatar-color) 42%, transparent);
+}
+.pa-avatar-frame-halo .pa-avatar-ornament {
+  opacity: 1;
+  inset: -10px;
+  border-radius: 999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--pa-avatar-color) 45%, transparent) 0%, transparent 68%);
+  animation: paAvatarPulse 3.4s ease-in-out infinite;
+}
+
+/* Frame: radioactive — green/gold swirl + sweeping shine */
+.pa-avatar-frame-radioactive {
+  border-color: color-mix(in srgb, var(--pa-avatar-color) 70%, #c4a040 30%);
+}
+.pa-avatar-frame-radioactive .pa-avatar-ornament {
+  opacity: 1;
+  inset: -8px;
+  background:
+    conic-gradient(from 0deg, #c4a040, transparent 30%, #5eaa3a 55%, transparent 75%, #c4a040 100%);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 82%, transparent 86%);
+          mask: radial-gradient(circle, transparent 55%, #000 58%, #000 82%, transparent 86%);
+  animation: paAvatarSpin 9s linear infinite;
+  filter: drop-shadow(0 0 6px rgba(196, 160, 64, 0.35));
+}
+
+/* Frame: monolith — crown-like prismatic shimmer */
+.pa-avatar-frame-monolith {
+  border-color: #c4a040;
+  box-shadow:
+    inset 0 0 0 2px rgba(196, 160, 64, 0.22),
+    0 0 22px rgba(196, 160, 64, 0.32);
+}
+.pa-avatar-frame-monolith .pa-avatar-ornament {
+  opacity: 1;
+  inset: -10px;
+  border-radius: 999px;
+  background:
+    conic-gradient(from 45deg,
+      #c4a040 0deg,
+      rgba(196, 160, 64, 0.15) 40deg,
+      #a855f7 90deg,
+      rgba(168, 85, 247, 0.1) 130deg,
+      #c4a040 180deg,
+      rgba(196, 160, 64, 0.1) 220deg,
+      #5eaa3a 270deg,
+      rgba(94, 170, 58, 0.1) 310deg,
+      #c4a040 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 78%, transparent 82%);
+          mask: radial-gradient(circle, transparent 55%, #000 58%, #000 78%, transparent 82%);
+  animation: paAvatarSpin 20s linear infinite;
+}
+.pa-avatar-frame-monolith::before {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 10px;
+  background: linear-gradient(180deg, #e7c661 0%, #c4a040 100%);
+  clip-path: polygon(0% 100%, 20% 20%, 40% 60%, 50% 0%, 60% 60%, 80% 20%, 100% 100%);
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.55));
+  pointer-events: none;
+  z-index: 4;
+}
+
+@keyframes paAvatarSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes paAvatarPulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.04); }
+}
+
+/* Shared avatar integration into existing surfaces */
+.panda-leaderboard-avatar.pa-avatar {
+  flex-shrink: 0;
+}
+.public-profile-avatar.pa-avatar {
+  --pa-avatar-size: 78px;
+  --pa-avatar-font: 30px;
+  --pa-avatar-color: var(--tier-color, var(--accent, #5eaa3a));
+  align-self: flex-start;
+}
+.public-profile-avatar.pa-avatar .pa-avatar-level-chip {
+  right: -2px;
+  bottom: -2px;
+  font-size: 11px;
+  padding: 3px 7px;
+}
+
+/* =========================================================================
+   P.A.N.D.A — Avatar customization modal
+   ========================================================================= */
+
+.pa-avatar-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: radial-gradient(ellipse at 50% 20%, rgba(94, 170, 58, 0.12), transparent 60%), rgba(5, 7, 4, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: paModalFade 180ms ease both;
+}
+
+@keyframes paModalFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.pa-avatar-modal {
+  width: min(860px, 100%);
+  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--bg-card, #1b1f18) 94%, #5eaa3a 6%) 0%, var(--bg-card, #1b1f18) 85%);
+  border: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 28%, rgba(255, 255, 255, 0.06));
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(196, 160, 64, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  animation: paModalRise 220ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+@keyframes paModalRise {
+  from { opacity: 0; transform: translateY(18px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.pa-avatar-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent, #5eaa3a) 10%, transparent), transparent 100%);
+}
+.pa-avatar-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+  color: var(--text-primary, #f5f7f0);
+}
+.pa-avatar-modal-subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary, #a6b1a0);
+}
+.pa-avatar-modal-close {
+  appearance: none;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary, #a6b1a0);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+.pa-avatar-modal-close:hover,
+.pa-avatar-modal-close:focus-visible {
+  background: rgba(224, 85, 85, 0.12);
+  border-color: rgba(224, 85, 85, 0.35);
+  color: #f5f7f0;
+  outline: none;
+}
+
+.pa-avatar-modal-body {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 18px;
+  padding: 18px 22px;
+  overflow-y: auto;
+  max-height: calc(100dvh - 220px);
+}
+
+.pa-avatar-modal-preview-slot {
+  position: sticky;
+  top: 0;
+  align-self: start;
+}
+
+.pa-avatar-preview {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 14px 14px;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(94, 170, 58, 0.08), transparent 70%),
+    color-mix(in srgb, var(--bg-panel, #141811) 92%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+.pa-avatar-preview-banner {
+  position: absolute;
+  inset: 0;
+  background: var(--panel-banner, linear-gradient(115deg, rgba(94, 170, 58, 0.18), transparent 55%));
+  z-index: 0;
+  pointer-events: none;
+}
+.pa-avatar-preview-banner[data-banner='zone-dawn'] { background: linear-gradient(120deg, rgba(94,170,58,0.22), rgba(212,163,75,0.12) 55%, transparent 82%); }
+.pa-avatar-preview-banner[data-banner='radiation'] { background: linear-gradient(125deg, rgba(196,160,64,0.28), rgba(94,170,58,0.12) 52%, transparent 82%); }
+.pa-avatar-preview-banner[data-banner='monolith']  { background: linear-gradient(120deg, rgba(168,85,247,0.22), rgba(94,170,58,0.10) 55%, transparent 82%); }
+.pa-avatar-preview-banner[data-banner='duty']      { background: linear-gradient(118deg, rgba(216,120,97,0.22), rgba(55,62,78,0.22) 55%, transparent 84%); }
+.pa-avatar-preview-banner[data-banner='freedom']   { background: linear-gradient(120deg, rgba(143,212,106,0.28), rgba(212,163,75,0.14) 52%, transparent 82%); }
+.pa-avatar-preview-banner[data-banner='nightshift'] { background: linear-gradient(120deg, rgba(34,211,238,0.22), rgba(94,170,58,0.10) 52%, transparent 86%); }
+.pa-avatar-preview-banner[data-banner='crimson']   { background: linear-gradient(120deg, rgba(224,85,85,0.28), rgba(94,170,58,0.10) 60%, transparent 84%); }
+
+.pa-avatar-preview-circle {
+  position: relative;
+  z-index: 1;
+  --pa-avatar-size: 96px;
+  --pa-avatar-font: 40px;
+}
+.pa-avatar-preview-copy {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+.pa-avatar-preview-name {
+  font-weight: 700;
+  color: var(--text-primary, #f5f7f0);
+  letter-spacing: 0.02em;
+}
+.pa-avatar-preview-caption {
+  font-size: 11px;
+  color: var(--text-secondary, #a6b1a0);
+  margin-top: 2px;
+}
+
+.pa-avatar-modal-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pa-avatar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pa-avatar-section-head h4 {
+  margin: 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-primary, #f5f7f0);
+}
+.pa-avatar-section-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary, #a6b1a0);
+  margin-top: 2px;
+}
+
+.pa-avatar-grid {
+  display: grid;
+  gap: 8px;
+}
+.pa-avatar-grid-icons   { grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); }
+.pa-avatar-grid-colors  { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
+.pa-avatar-grid-frames  { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+.pa-avatar-grid-banners { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+
+.pa-avatar-chip {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
+  background: color-mix(in srgb, var(--bg-panel, #141811) 90%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  color: var(--text-secondary, #a6b1a0);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+.pa-avatar-chip:hover,
+.pa-avatar-chip:focus-visible {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent, #5eaa3a) 45%, transparent);
+  color: var(--text-primary, #f5f7f0);
+  outline: none;
+}
+.pa-avatar-chip.is-active {
+  border-color: color-mix(in srgb, var(--accent, #5eaa3a) 80%, white 20%);
+  background: color-mix(in srgb, var(--accent, #5eaa3a) 14%, var(--bg-panel, #141811));
+  color: var(--text-primary, #f5f7f0);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent, #5eaa3a) 40%, transparent), 0 4px 12px color-mix(in srgb, var(--accent, #5eaa3a) 18%, transparent);
+}
+.pa-avatar-chip.is-locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: saturate(0.5);
+}
+.pa-avatar-chip-label {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-align: center;
+  line-height: 1.2;
+}
+.pa-avatar-chip-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent, #5eaa3a) 10%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 20px;
+}
+.pa-avatar-chip-swatch {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--pa-swatch, #5eaa3a);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+.pa-avatar-chip-frame-sample {
+  --pa-avatar-color: var(--accent, #5eaa3a);
+  --pa-avatar-size: 40px;
+  position: relative;
+  width: var(--pa-avatar-size);
+  height: var(--pa-avatar-size);
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--pa-avatar-color) 40%, transparent), transparent 60%), #1b2018;
+  border: 1.5px solid color-mix(in srgb, var(--pa-avatar-color) 70%, transparent);
+}
+.pa-avatar-chip-banner-sample {
+  display: block;
+  width: 100%;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pa-avatar-modal-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 14px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--bg-card, #141811) 96%, transparent);
+}
+.pa-avatar-modal-action {
+  appearance: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--bg-panel, #141811) 95%, transparent);
+  color: var(--text-primary, #f5f7f0);
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+.pa-avatar-modal-action:hover,
+.pa-avatar-modal-action:focus-visible {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent, #5eaa3a) 55%, transparent);
+  outline: none;
+}
+.pa-avatar-modal-action-ghost {
+  margin-right: auto;
+  background: transparent;
+  color: var(--text-secondary, #a6b1a0);
+}
+.pa-avatar-modal-action-primary {
+  background: linear-gradient(160deg, var(--accent, #5eaa3a), color-mix(in srgb, var(--accent, #5eaa3a) 60%, #1b2018));
+  border-color: color-mix(in srgb, var(--accent, #5eaa3a) 70%, transparent);
+  color: #0b120b;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent, #5eaa3a) 35%, transparent);
+}
+.pa-avatar-modal-action-primary:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* =========================================================================
+   P.A.N.D.A — Leaderboard throne overhaul
+   ========================================================================= */
+
+.panda-leaderboard-podium-avatar.pa-avatar {
+  margin: 6px auto 4px;
+  --pa-avatar-size: 56px;
+  --pa-avatar-font: 22px;
+}
+.panda-leaderboard-podium-card-1 .panda-leaderboard-podium-avatar.pa-avatar {
+  --pa-avatar-size: 72px;
+  --pa-avatar-font: 30px;
+}
+
+.panda-leaderboard-podium-level {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--text-secondary, #a6b1a0) 90%, white 10%);
+  margin-top: 2px;
+  text-align: center;
+}
+
+.panda-leaderboard-podium-crown {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-4deg);
+  font-size: 24px;
+  color: #f3cf5e;
+  text-shadow:
+    0 0 10px rgba(243, 207, 94, 0.65),
+    0 2px 2px rgba(0, 0, 0, 0.55);
+  filter: drop-shadow(0 0 6px rgba(243, 207, 94, 0.55));
+  pointer-events: none;
+  animation: paCrownFloat 3.6s ease-in-out infinite;
+  z-index: 3;
+}
+
+@keyframes paCrownFloat {
+  0%, 100% { transform: translateX(-50%) rotate(-4deg) translateY(0); }
+  50%      { transform: translateX(-50%) rotate(3deg) translateY(-3px); }
+}
+
+.panda-leaderboard-podium-card {
+  position: relative;
+  overflow: visible;
+}
+
+.panda-leaderboard-podium-card-1 {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(243, 207, 94, 0.22), transparent 60%),
+    linear-gradient(165deg, color-mix(in srgb, #c4a040 16%, var(--bg-card, #141811)) 0%, color-mix(in srgb, #5eaa3a 8%, var(--bg-card, #141811)) 95%);
+  border-color: color-mix(in srgb, #c4a040 50%, rgba(255, 255, 255, 0.08));
+  box-shadow:
+    0 10px 30px rgba(196, 160, 64, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 40px rgba(196, 160, 64, 0.08);
+  transform: translateY(-6px);
+}
+
+.panda-leaderboard-podium-card-1::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(from 180deg, #c4a040, #f3cf5e 18%, #c4a040 36%, rgba(196, 160, 64, 0.2) 50%, #c4a040 70%, #f3cf5e 86%, #c4a040 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+  animation: paAvatarSpin 12s linear infinite;
+  z-index: 0;
+}
+
+.panda-leaderboard-podium-card-1::after {
+  content: '';
+  position: absolute;
+  inset: 12% 24%;
+  bottom: auto;
+  top: -14px;
+  height: 30px;
+  background: radial-gradient(ellipse at center, rgba(243, 207, 94, 0.55), transparent 70%);
+  filter: blur(6px);
+  pointer-events: none;
+  z-index: 0;
+  animation: paThroneShine 4s ease-in-out infinite alternate;
+}
+
+@keyframes paThroneShine {
+  from { opacity: 0.55; transform: scale(0.96); }
+  to   { opacity: 0.95; transform: scale(1.08); }
+}
+
+.panda-leaderboard-podium-card-2 {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(210, 215, 223, 0.14), transparent 65%),
+    linear-gradient(165deg, color-mix(in srgb, #d1d7df 10%, var(--bg-card, #141811)) 0%, var(--bg-card, #141811) 95%);
+  border-color: color-mix(in srgb, #d1d7df 35%, rgba(255, 255, 255, 0.06));
+}
+
+.panda-leaderboard-podium-card-3 {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(184, 115, 51, 0.16), transparent 65%),
+    linear-gradient(165deg, color-mix(in srgb, #b87333 10%, var(--bg-card, #141811)) 0%, var(--bg-card, #141811) 95%);
+  border-color: color-mix(in srgb, #b87333 38%, rgba(255, 255, 255, 0.06));
+}
+
+.panda-leaderboard-podium-rank {
+  display: inline-block;
+  letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--accent, #5eaa3a) 85%, white 15%);
+}
+.panda-leaderboard-podium-card-1 .panda-leaderboard-podium-rank {
+  color: #f3cf5e;
+  text-shadow: 0 0 8px rgba(243, 207, 94, 0.5);
+}
+
+/* =========================================================================
+   P.A.N.D.A — 1080p / responsive profile fixes
+   ========================================================================= */
+
+/* 1080p window: constrain popover width, relax cramped grids. */
+@media (max-width: 1366px) and (min-width: 901px) {
+  .profile-popover,
+  .public-profile-modal {
+    width: min(calc(100vw - 32px), 980px) !important;
+    max-height: calc(100dvh - 32px) !important;
+  }
+  .public-profile-body-single {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    gap: 14px !important;
+  }
+  .public-profile-body-single .public-profile-section:nth-child(5),
+  .public-profile-body-single .public-profile-section:nth-child(6) {
+    grid-column: 1 / -1 !important;
+  }
+  .public-profile-hero-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+  .public-profile-prestige-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  .public-profile-streak-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .public-profile-badge-wall {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  }
+  .public-profile-recent-grid {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+  .panda-leaderboard-podium {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+}
+
+@media (max-width: 1200px) and (min-width: 901px) {
+  .public-profile-hero {
+    flex-wrap: wrap;
+  }
+  .public-profile-hero-stats {
+    width: 100%;
+  }
+  .pa-avatar-modal-body {
+    grid-template-columns: 220px 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .pa-avatar-modal-body {
+    grid-template-columns: 1fr;
+  }
+  .pa-avatar-modal-preview-slot {
+    position: relative;
+  }
+}
+
+/* =========================================================================
+   P.A.N.D.A — Achievement toast polish (multi-unlock stack)
+   ========================================================================= */
+
+.achievement-toast-gold {
+  position: relative;
+  overflow: hidden;
+}
+.achievement-toast-gold::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(243, 207, 94, 0.4) 0%, transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(196, 160, 64, 0.3) 0%, transparent 40%);
+  opacity: 0;
+  animation: paToastShine 1.2s ease-out 120ms both;
+  border-radius: inherit;
+  z-index: 0;
+}
+.achievement-toast-gold .achievement-toast-emoji,
+.achievement-toast-gold .achievement-toast-body {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes paToastShine {
+  0%   { opacity: 0; }
+  35%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pa-avatar-frame-runic .pa-avatar-ornament,
+  .pa-avatar-frame-radioactive .pa-avatar-ornament,
+  .pa-avatar-frame-monolith .pa-avatar-ornament,
+  .pa-avatar-frame-halo .pa-avatar-ornament,
+  .panda-leaderboard-podium-crown,
+  .panda-leaderboard-podium-card-1::before,
+  .panda-leaderboard-podium-card-1::after,
+  .achievement-toast-gold::before {
+    animation: none !important;
+  }
+}

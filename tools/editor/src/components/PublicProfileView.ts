@@ -15,6 +15,7 @@ import { createAchievementBadge } from './AchievementIcons';
 import { FACTION_DISPLAY_NAMES, type FactionId } from '../lib/types';
 import { FACTION_COLORS } from '../lib/faction-colors';
 import { createIcon } from './icons';
+import { renderAvatar, getBannerBackground } from './AvatarRenderer';
 
 type PublicProfileViewOptions = {
   data: PublicProfileData;
@@ -63,10 +64,6 @@ function getAchievementAnimationDelay(id: AchievementId | null): string {
     hash = (hash + id.charCodeAt(i) * (i + 1)) % 1600;
   }
   return `${hash}ms`;
-}
-
-function getUserInitial(username: string): string {
-  return username.trim().charAt(0).toUpperCase() || '?';
 }
 
 function formatDate(isoDate: string): string {
@@ -127,19 +124,33 @@ function buildHeader(data: PublicProfileData): HTMLElement {
 
   const header = document.createElement('section');
   header.className = 'public-profile-hero';
+  const bannerBg = getBannerBackground(profile.avatar_banner);
+  if (bannerBg) {
+    header.style.background = bannerBg;
+    header.dataset.customBanner = String(profile.avatar_banner);
+  }
 
   const identity = document.createElement('div');
   identity.className = 'public-profile-identity';
 
-  const avatar = document.createElement('div');
-  avatar.className = 'public-profile-avatar';
-  avatar.style.setProperty('--tier-color', getLevelTierColor(currentThreshold.level));
-  avatar.textContent = getUserInitial(profile.username);
-
-  const avatarLevel = document.createElement('span');
-  avatarLevel.className = 'public-profile-avatar-level';
-  avatarLevel.textContent = `Lv.${currentThreshold.level}`;
-  avatar.appendChild(avatarLevel);
+  const tierColor = getLevelTierColor(currentThreshold.level);
+  const avatar = renderAvatar(
+    {
+      username: profile.username,
+      level: currentThreshold.level,
+      fallbackColor: tierColor,
+      avatar_icon: profile.avatar_icon,
+      avatar_color: profile.avatar_color,
+      avatar_frame: profile.avatar_frame,
+      avatar_banner: profile.avatar_banner,
+    },
+    {
+      extraClass: 'public-profile-avatar',
+      showLevel: true,
+      size: 'lg',
+    },
+  );
+  avatar.style.setProperty('--tier-color', tierColor);
 
   const copy = document.createElement('div');
   copy.className = 'public-profile-identity-copy';
