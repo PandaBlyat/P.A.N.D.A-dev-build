@@ -1,28 +1,4 @@
-To transform your customization menu from "bland" to a premium, AAA-game UI experience (leaning into the S.T.A.L.K.E.R. / tactical PDA "dossier" aesthetic you’ve established), we need to introduce depth, staggered animations, better glassmorphism, tech-UI accents, and high-contrast glowing elements.
 
-Here is the visually upgraded code.
-
-What's new in this visual upgrade:
-
-Staggered Animations: Items in the cosmetic grids now cascade/slide in smoothly when switching tabs.
-
-PDA/Dossier Styling: The live preview card now features "tech brackets", a faux barcode, and a CRT scanline overlay to truly feel like a Stalker dossier.
-
-Tactical UI Accents: Styled scrollbars, glowing active states, clipped corners, and dynamic hovering (scaling + 3D shadow lifts).
-
-Holographic Glassmorphism: Deepened the backdrop blurs, added noise/grid patterns, and introduced light-catching borders on panels.
-
-Interactive Buttons: The "Save" button now has an animated shine passing over it, and the tabs feature a sleek sliding-style underline.
-
-1. The Updated TypeScript (app.ts)
-
-I've added staggering logic (style.animationDelay) to the grids, and injected decorative DOM elements to the Live Preview to make it pop.
-
-code
-TypeScript
-download
-content_copy
-expand_less
 // P.A.N.D.A. — Avatar customization modal.
 import {
   AVATAR_ICON_PRESETS,
