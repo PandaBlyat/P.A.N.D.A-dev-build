@@ -96,9 +96,14 @@ export function renderAvatar(input: AvatarRenderInput, options: AvatarRenderOpti
 /**
  * Produce a CSS `background` value for the hero banner based on the user's
  * chosen banner preset, or null to keep the original default.
+ *
+ * A neutral dark base is layered beneath the (usually semi-transparent) gradient
+ * so the main theme accent colour doesn't bleed through custom banners.
  */
 export function getBannerBackground(avatarBanner: string | null | undefined): string | null {
   const preset = getAvatarBannerPreset(avatarBanner);
   if (!preset || preset.id === 'default') return null;
-  return preset.gradient;
+  // Layer gradient over a near-opaque dark base to prevent theme-accent bleed.
+  const base = 'color-mix(in srgb, var(--bg-card, #1a2030) 97%, transparent)';
+  return `${preset.gradient}, ${base}`;
 }
