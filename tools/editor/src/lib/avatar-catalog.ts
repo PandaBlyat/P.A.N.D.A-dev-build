@@ -2,8 +2,7 @@
 //
 // Defines the presets a user can choose from when customizing their dossier
 // avatar. Presets are stored as short string IDs on the user_profiles row
-// (avatar_icon, avatar_color, avatar_frame, avatar_banner). Rendering falls
-// back gracefully if a preset id is unknown.
+// (avatar_icon, avatar_color, avatar_frame, avatar_banner, avatar_effect).
 
 export type AvatarIconPreset = {
   id: string;
@@ -26,6 +25,8 @@ export type AvatarFramePreset = {
   label: string;
   /** Optional lock: only unlocked for users at or above this level. */
   minLevel?: number;
+  /** Triggers the rotating spin animation in CSS */
+  isAnimated?: boolean;
   /** Visual variant id consumed by CSS (maps to .pa-avatar-frame-${variant}). */
   variant: 'none' | 'hex' | 'runic' | 'halo' | 'monolith' | 'radioactive';
 };
@@ -35,6 +36,17 @@ export type AvatarBannerPreset = {
   label: string;
   /** Gradient or color used behind the hero header. */
   gradient: string;
+  /** Optional lock: only unlocked for users at or above this level. */
+  minLevel?: number;
+  /** Triggers the slow background panning animation in CSS */
+  isAnimated?: boolean;
+};
+
+export type AvatarEffectPreset = {
+  id: string;
+  label: string;
+  /** Optional lock: only unlocked for users at or above this level. */
+  minLevel?: number;
 };
 
 export const AVATAR_ICON_PRESETS: AvatarIconPreset[] = [
@@ -88,8 +100,8 @@ export const AVATAR_FRAME_PRESETS: AvatarFramePreset[] = [
   { id: 'hex',         label: 'Hex plating',      variant: 'hex' },
   { id: 'runic',       label: 'Runic ring',       variant: 'runic', minLevel: 3 },
   { id: 'halo',        label: 'Halo',             variant: 'halo',  minLevel: 5 },
-  { id: 'radioactive', label: 'Radioactive ring', variant: 'radioactive', minLevel: 7 },
-  { id: 'monolith',    label: 'Monolith crown',   variant: 'monolith', minLevel: 9 },
+  { id: 'radioactive', label: 'Radioactive ring', variant: 'radioactive', minLevel: 7, isAnimated: true },
+  { id: 'monolith',    label: 'Monolith crown',   variant: 'monolith', minLevel: 9, isAnimated: true },
 ];
 
 export const AVATAR_BANNER_PRESETS: AvatarBannerPreset[] = [
@@ -107,11 +119,13 @@ export const AVATAR_BANNER_PRESETS: AvatarBannerPreset[] = [
     id: 'radiation',
     label: 'Radiation',
     gradient: 'linear-gradient(125deg, rgba(196,160,64,0.28), rgba(94,170,58,0.12) 52%, rgba(0,0,0,0) 82%)',
+    isAnimated: true,
   },
   {
     id: 'monolith',
     label: 'Monolith',
     gradient: 'linear-gradient(120deg, rgba(168,85,247,0.22), rgba(94,170,58,0.10) 55%, rgba(0,0,0,0) 82%)',
+    isAnimated: true,
   },
   {
     id: 'duty',
@@ -127,12 +141,20 @@ export const AVATAR_BANNER_PRESETS: AvatarBannerPreset[] = [
     id: 'nightshift',
     label: 'Night shift',
     gradient: 'linear-gradient(120deg, rgba(34,211,238,0.22), rgba(94,170,58,0.10) 52%, rgba(0,0,0,0) 86%)',
+    isAnimated: true,
   },
   {
     id: 'crimson',
     label: 'Crimson storm',
     gradient: 'linear-gradient(120deg, rgba(224,85,85,0.28), rgba(94,170,58,0.10) 60%, rgba(0,0,0,0) 84%)',
   },
+];
+
+export const AVATAR_EFFECT_PRESETS: AvatarEffectPreset[] = [
+  { id: 'none', label: 'Clear' },
+  { id: 'scanlines', label: 'Term/Link', minLevel: 5 },
+  { id: 'spores', label: 'Irradiated', minLevel: 10 },
+  { id: 'glitch', label: 'Psy-Storm', minLevel: 20 },
 ];
 
 export function getAvatarIconPreset(id: string | null | undefined): AvatarIconPreset | null {
@@ -155,19 +177,11 @@ export function getAvatarBannerPreset(id: string | null | undefined): AvatarBann
   return AVATAR_BANNER_PRESETS.find(preset => preset.id === id) ?? null;
 }
 
-/**
- * Resolve the color used to tint the avatar. Custom color preset wins; then
- * level-tier fallback.
- */
 export function resolveAvatarColor(avatarColor: string | null | undefined, levelFallbackColor: string): string {
   const preset = getAvatarColorPreset(avatarColor);
   return preset ? preset.color : levelFallbackColor;
 }
 
-/**
- * Resolve the glyph shown inside the avatar circle. An empty string signals
- * "render the user's initial letter instead".
- */
 export function resolveAvatarGlyph(avatarIcon: string | null | undefined): string {
   const preset = getAvatarIconPreset(avatarIcon);
   if (!preset || preset.id === 'default') return '';
