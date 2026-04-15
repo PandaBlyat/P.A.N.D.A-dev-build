@@ -18838,3 +18838,236 @@ button.pa-avatar:focus-visible {
     grid-row: auto !important;
   }
 }
+
+/* No-scroll profile density pass for 1080p and short desktop viewports. */
+@media (min-width: 901px) {
+  .public-profile-modal-body,
+  .profile-popover-shell-dossier,
+  .public-profile-section-recent .public-profile-recent-grid,
+  .public-profile-badge-wall {
+    scrollbar-width: none;
+  }
+
+  .public-profile-modal-body::-webkit-scrollbar,
+  .profile-popover-shell-dossier::-webkit-scrollbar,
+  .public-profile-section-recent .public-profile-recent-grid::-webkit-scrollbar,
+  .public-profile-badge-wall::-webkit-scrollbar {
+    display: none;
+  }
+
+  .public-profile-view-single {
+    gap: 7px !important;
+    padding: 7px !important;
+  }
+
+  .public-profile-view .public-profile-hero {
+    min-height: 0;
+    padding: 10px 14px;
+    gap: 12px;
+    grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.9fr) !important;
+  }
+
+  .public-profile-identity {
+    gap: 10px;
+  }
+
+  .public-profile-avatar.pa-avatar {
+    --pa-avatar-size: 58px;
+    --pa-avatar-font: 22px;
+  }
+
+  .public-profile-identity-copy {
+    gap: 3px;
+  }
+
+  .public-profile-name {
+    font-size: 1.08rem;
+    line-height: 1.12;
+  }
+
+  .public-profile-title,
+  .public-profile-member-since,
+  .public-profile-progress-meta {
+    font-size: 0.72rem;
+    line-height: 1.2;
+  }
+
+  .public-profile-summary-stats,
+  .public-profile-featured-badges {
+    gap: 4px;
+  }
+
+  .public-profile-summary-pill,
+  .public-profile-featured-badge,
+  .public-profile-recent-tag,
+  .public-profile-recent-published {
+    min-height: 20px;
+    padding: 2px 7px;
+    font-size: 0.66rem;
+  }
+
+  .public-profile-progress {
+    gap: 4px;
+    margin-top: 2px;
+  }
+
+  .public-profile-progress-track,
+  .public-profile-faction-bar {
+    height: 7px;
+  }
+
+  .public-profile-hero-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 7px;
+    align-content: start;
+  }
+
+  .public-profile-stat-card,
+  .public-profile-prestige-card,
+  .public-profile-streak-card,
+  .public-profile-footprint-card {
+    min-height: 54px;
+    padding: 8px 9px !important;
+    gap: 4px;
+  }
+
+  .public-profile-stat-icon svg,
+  .public-profile-prestige-icon svg,
+  .public-profile-section-title-row .ui-icon svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .public-profile-stat-value,
+  .public-profile-prestige-value,
+  .public-profile-streak-value,
+  .public-profile-footprint-value {
+    font-size: 0.9rem;
+    line-height: 1.1;
+  }
+
+  .public-profile-stat-label,
+  .public-profile-prestige-label,
+  .public-profile-streak-label,
+  .public-profile-footprint-label,
+  .public-profile-badge-meta {
+    font-size: 0.62rem;
+    line-height: 1.15;
+  }
+
+  .public-profile-body-single {
+    gap: 7px !important;
+    grid-template-columns: minmax(260px, 0.86fr) minmax(260px, 0.86fr) minmax(330px, 1fr) !important;
+  }
+
+  .public-profile-view .public-profile-section {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .public-profile-section-title-row {
+    gap: 6px;
+  }
+
+  .public-profile-section-title {
+    font-size: 0.82rem;
+    line-height: 1.15;
+  }
+
+  .public-profile-prestige-grid,
+  .public-profile-streak-grid,
+  .public-profile-footprint-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px;
+  }
+
+  .public-profile-faction-row {
+    padding: 7px 9px !important;
+    gap: 5px;
+  }
+
+  .public-profile-section-recent:not(.public-profile-section-recent-empty) .public-profile-recent-grid {
+    max-height: none !important;
+    overflow: visible !important;
+    padding-right: 0 !important;
+    gap: 8px;
+  }
+
+  .public-profile-recent-card {
+    min-height: 0 !important;
+    padding: 8px 10px !important;
+    gap: 5px !important;
+  }
+
+  .public-profile-recent-top,
+  .public-profile-recent-footer {
+    gap: 5px;
+  }
+
+  .public-profile-recent-title {
+    font-size: 0.82rem;
+    line-height: 1.2;
+  }
+
+  .public-profile-recent-summary {
+    display: -webkit-box;
+    font-size: 0.72rem;
+    line-height: 1.25;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .public-profile-recent-meta,
+  .public-profile-recent-date,
+  .public-profile-recent-faction {
+    font-size: 0.64rem;
+    line-height: 1.15;
+  }
+
+  .public-profile-badge-wall {
+    grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)) !important;
+    gap: 5px;
+    max-height: none !important;
+    overflow: visible !important;
+    padding-right: 0;
+  }
+
+  .public-profile-badge-tile {
+    min-height: 58px !important;
+    padding: 5px 4px !important;
+    gap: 2px;
+  }
+
+  .public-profile-badge-icon-wrap .panda-badge-icon,
+  .public-profile-badge-tile .panda-badge-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .public-profile-badge-name {
+    min-height: 0;
+    font-size: 0.62rem;
+    line-height: 1.05;
+    -webkit-line-clamp: 2;
+  }
+
+  .public-profile-badge-meta {
+    font-size: 0.53rem;
+    line-height: 1;
+  }
+}
+
+@media (max-width: 1179px) and (min-width: 901px) {
+  .public-profile-view .public-profile-hero {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .public-profile-hero-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .public-profile-body-single {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.92fr) !important;
+  }
+}
