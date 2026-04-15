@@ -10,6 +10,14 @@ import { ACHIEVEMENTS, isAchievementRare, type AchievementId } from '../lib/gami
 import { createAchievementBadge } from './AchievementIcons';
 import { openPublicProfile } from './ProfileBadge';
 import { createIcon } from './icons';
+import { renderAvatar } from './AvatarRenderer';
+
+function getLeaderboardAccent(level: number): string {
+  if (level >= 91) return 'var(--warning, #c4a040)';
+  if (level >= 71) return 'color-mix(in srgb, var(--accent, #5eaa3a) 72%, #d9e6d0 28%)';
+  if (level >= 51) return 'color-mix(in srgb, var(--accent, #5eaa3a) 84%, #86c7d4 16%)';
+  return 'var(--accent, #5eaa3a)';
+}
 
 type LeaderboardScope = 'top10' | 'all' | 'nearMe';
 type LeaderboardSort = 'xp' | 'level' | 'name';
@@ -153,9 +161,21 @@ function buildRow(ranked: RankedEntry, viewerId: string): HTMLButtonElement {
   rankEl.className = 'panda-leaderboard-rank';
   rankEl.textContent = rank === 1 ? 'I' : rank === 2 ? 'II' : rank === 3 ? 'III' : `#${rank}`;
 
-  const avatar = document.createElement('span');
-  avatar.className = 'panda-leaderboard-avatar';
-  avatar.textContent = (entry.username || '?').trim().charAt(0).toUpperCase() || '?';
+  const avatar = renderAvatar(
+    {
+      username: entry.username || '?',
+      level: entry.level,
+      fallbackColor: getLeaderboardAccent(entry.level),
+      avatar_icon: entry.avatar_icon,
+      avatar_color: entry.avatar_color,
+      avatar_frame: entry.avatar_frame,
+      avatar_banner: entry.avatar_banner,
+    },
+    {
+      extraClass: 'panda-leaderboard-avatar',
+      size: 'sm',
+    },
+  );
 
   const nameEl = document.createElement('span');
   nameEl.className = 'panda-leaderboard-name';
@@ -272,6 +292,30 @@ function renderPodium(refs: OverlayRefs): void {
     medal.className = 'panda-leaderboard-podium-rank';
     medal.textContent = rank === 1 ? 'I' : rank === 2 ? 'II' : 'III';
 
+    if (rank === 1) {
+      const crown = document.createElement('span');
+      crown.className = 'panda-leaderboard-podium-crown';
+      crown.setAttribute('aria-hidden', 'true');
+      crown.textContent = '\u265B'; // ornate queen/crown glyph
+      card.appendChild(crown);
+    }
+
+    const podiumAvatar = renderAvatar(
+      {
+        username: entry.username || '?',
+        level: entry.level,
+        fallbackColor: getLeaderboardAccent(entry.level),
+        avatar_icon: entry.avatar_icon,
+        avatar_color: entry.avatar_color,
+        avatar_frame: entry.avatar_frame,
+        avatar_banner: entry.avatar_banner,
+      },
+      {
+        extraClass: 'panda-leaderboard-podium-avatar',
+        size: 'lg',
+      },
+    );
+
     const name = document.createElement('span');
     name.className = 'panda-leaderboard-podium-name';
     name.textContent = entry.username || 'Unknown Stalker';
@@ -284,7 +328,11 @@ function renderPodium(refs: OverlayRefs): void {
     xp.className = 'panda-leaderboard-podium-xp';
     xp.textContent = `${entry.xp.toLocaleString()} XP`;
 
-    card.append(medal, name, badges, xp);
+    const level = document.createElement('span');
+    level.className = 'panda-leaderboard-podium-level';
+    level.textContent = `Lv ${entry.level} · ${entry.title || 'Stalker'}`;
+
+    card.append(medal, podiumAvatar, name, level, badges, xp);
     refs.podium.appendChild(card);
   }
 }

@@ -37,6 +37,8 @@ import {
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon, type IconName } from './icons';
 import { renderPublicProfileView } from './PublicProfileView';
+import { renderAvatar } from './AvatarRenderer';
+import { openAvatarCustomizationModal } from './AvatarCustomizationModal';
 
 const PROFILE_MODAL_MOUNT_ID = 'app-modal-host';
 
@@ -105,10 +107,18 @@ export function renderProfileBadge(): HTMLElement | null {
 
   const tierColor = getLevelTierColor(cachedProfile.level);
 
-  const levelIcon = document.createElement('span');
-  levelIcon.className = 'profile-badge-level';
-  levelIcon.textContent = getUserInitial(cachedProfile.username);
-  levelIcon.style.background = tierColor;
+  const levelIcon = renderAvatar({
+    username: cachedProfile.username,
+    level: cachedProfile.level,
+    fallbackColor: tierColor,
+    avatar_icon: cachedProfile.avatar_icon,
+    avatar_color: cachedProfile.avatar_color,
+    avatar_frame: cachedProfile.avatar_frame,
+    avatar_banner: cachedProfile.avatar_banner,
+  }, {
+    extraClass: 'profile-badge-level',
+    size: 'sm',
+  });
 
   const levelBadge = document.createElement('span');
   levelBadge.className = 'profile-badge-level-num';
@@ -210,15 +220,42 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   const identity = document.createElement('div');
   identity.className = 'profile-popover-identity';
 
-  const avatarCircle = document.createElement('div');
-  avatarCircle.className = 'profile-popover-avatar-circle';
-  avatarCircle.style.setProperty('--tier-color', tierColor);
-  avatarCircle.title = isSelfProfile ? 'Profile completion ring' : 'Operative status';
-
-  const avatarInitial = document.createElement('span');
-  avatarInitial.className = 'profile-popover-avatar-initial';
-  avatarInitial.textContent = getUserInitial(profile.username);
-  avatarCircle.appendChild(avatarInitial);
+  const avatarCircle = renderAvatar({
+    username: profile.username,
+    level: profile.level,
+    fallbackColor: tierColor,
+    avatar_icon: profile.avatar_icon,
+    avatar_color: profile.avatar_color,
+    avatar_frame: profile.avatar_frame,
+    avatar_banner: profile.avatar_banner,
+  }, {
+    extraClass: 'profile-popover-avatar-circle',
+    size: 'lg',
+    title: isSelfProfile ? 'Click to customize your avatar' : 'Operative status',
+    onClick: isSelfProfile ? (event) => {
+      event.stopPropagation();
+      openAvatarCustomizationModal({
+        profile,
+        returnFocus: avatarCircle,
+        onSaved: (updated) => {
+          setProfileForBadge(updated);
+          (globalThis as any).__pandaUserProfile = updated;
+          // Refresh the popover so the new avatar/banner shows immediately.
+          const popover = document.querySelector('.profile-popover') as HTMLElement | null;
+          if (popover) {
+            popover.textContent = '';
+            popover.appendChild(buildSelfProfileContent(updated));
+          }
+          // Refresh the toolbar badge in place.
+          const badge = document.querySelector('.profile-badge') as HTMLElement | null;
+          badge?.dispatchEvent(new CustomEvent('profile-refresh'));
+        },
+      });
+    } : undefined,
+  });
+  if (isSelfProfile) {
+    avatarCircle.classList.add('profile-popover-avatar-circle-interactive');
+  }
 
   const statusRing = document.createElement('span');
   statusRing.className = 'profile-popover-avatar-status-ring';

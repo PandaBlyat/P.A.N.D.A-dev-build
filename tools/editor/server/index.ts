@@ -52,6 +52,10 @@ type LeaderboardEntry = {
   level: number;
   title: string;
   achievements?: string[];
+  avatar_icon?: string | null;
+  avatar_color?: string | null;
+  avatar_frame?: string | null;
+  avatar_banner?: string | null;
 };
 
 type PublicProfileData = {
@@ -605,6 +609,10 @@ async function fetchHydratedUserProfile(publisherId: string) {
 
   return {
     ...profile,
+    avatar_icon: typeof profile.avatar_icon === 'string' ? profile.avatar_icon : null,
+    avatar_color: typeof profile.avatar_color === 'string' ? profile.avatar_color : null,
+    avatar_frame: typeof profile.avatar_frame === 'string' ? profile.avatar_frame : null,
+    avatar_banner: typeof profile.avatar_banner === 'string' ? profile.avatar_banner : null,
     achievement_records: achievements,
     achievements: achievements.map(record => record.achievement_id),
     streaks,
@@ -1574,6 +1582,47 @@ app.post('/api/profile/award-xp-capped', async (req, res) => {
   }
 });
 
+// Update a publisher's cosmetic avatar fields.
+app.post('/api/profile/:publisherId/cosmetics', async (req, res) => {
+  try {
+    const { publisherId } = req.params;
+    const { avatar_icon, avatar_color, avatar_frame, avatar_banner } = req.body ?? {};
+
+    const nullish = (value: unknown): string | null => {
+      if (value === null || value === undefined) return null;
+      if (typeof value !== 'string') return null;
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      // Guard size to prevent abuse (colors are 7-char hex, ids are short slugs).
+      if (trimmed.length > 64) return trimmed.slice(0, 64);
+      return trimmed;
+    };
+
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/update_user_cosmetics`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({
+        p_publisher_id: publisherId,
+        p_avatar_icon: nullish(avatar_icon),
+        p_avatar_color: nullish(avatar_color),
+        p_avatar_frame: nullish(avatar_frame),
+        p_avatar_banner: nullish(avatar_banner),
+      }),
+    });
+
+    if (!r.ok) {
+      res.status(r.status).json({ error: await readErrorMessage(r) });
+      return;
+    }
+
+    const rows = await r.json();
+    const profile = Array.isArray(rows) ? rows[0] : rows;
+    res.json(profile ?? null);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const limitQuery = String(req.query.limit ?? '10').toLowerCase();
@@ -1600,6 +1649,10 @@ app.get('/api/leaderboard', async (req, res) => {
       achievements: Array.isArray(row.achievements)
         ? row.achievements.filter((item): item is string => typeof item === 'string')
         : undefined,
+      avatar_icon: typeof row.avatar_icon === 'string' ? row.avatar_icon : null,
+      avatar_color: typeof row.avatar_color === 'string' ? row.avatar_color : null,
+      avatar_frame: typeof row.avatar_frame === 'string' ? row.avatar_frame : null,
+      avatar_banner: typeof row.avatar_banner === 'string' ? row.avatar_banner : null,
     }));
 
     res.json(leaderboard);
