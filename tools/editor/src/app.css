@@ -17481,6 +17481,34 @@ strong.support-upvote-count {
   -webkit-box-orient: vertical;
 }
 
+.public-profile-badge-hover {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  bottom: 7px;
+  max-height: calc(100% - 14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--bg-dark, #10141a) 92%, transparent);
+  color: var(--text-bright, #f3f6f8);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.25;
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+
+.public-profile-badge-tile:hover .public-profile-badge-hover,
+.public-profile-badge-tile:focus-visible .public-profile-badge-hover {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .public-profile-badge-meta {
   font-size: 0.72rem;
   color: color-mix(in srgb, var(--text-dim) 84%, white);
@@ -18364,13 +18392,83 @@ button.pa-avatar:focus-visible {
 
 @media (max-width: 1200px) and (min-width: 901px) {
   .public-profile-hero {
-    flex-wrap: wrap;
+    grid-template-columns: 1fr !important;
   }
   .public-profile-hero-stats {
     width: 100%;
   }
   .pa-avatar-modal-body {
     grid-template-columns: 220px 1fr;
+  }
+}
+
+/* Public profile focal layout: keep recent work prominent and stop 1080p squeeze. */
+@media (min-width: 901px) {
+  .public-profile-body-single {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(300px, 0.9fr) !important;
+    align-items: start;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(5) {
+    grid-column: 1 / span 2 !important;
+    grid-row: 3 !important;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(6) {
+    grid-column: 3 !important;
+    grid-row: 1 / span 3 !important;
+    min-height: 0;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(6) .public-profile-recent-grid {
+    grid-template-columns: 1fr;
+    max-height: min(62vh, 640px);
+    overflow: auto;
+    padding-right: 4px;
+    scrollbar-width: thin;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(6) .public-profile-recent-card {
+    min-height: 132px;
+  }
+}
+
+@media (max-width: 1366px) and (min-width: 1101px) {
+  .public-profile-body-single {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.92fr) !important;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(1),
+  .public-profile-body-single .public-profile-section:nth-child(2),
+  .public-profile-body-single .public-profile-section:nth-child(3),
+  .public-profile-body-single .public-profile-section:nth-child(4) {
+    grid-column: 1 !important;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(5) {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(6) {
+    grid-column: 2 !important;
+    grid-row: 1 / span 4 !important;
+  }
+}
+
+@media (max-width: 1100px) {
+  .public-profile-body-single,
+  .public-profile-body-single .public-profile-section:nth-child(5),
+  .public-profile-body-single .public-profile-section:nth-child(6) {
+    grid-template-columns: 1fr !important;
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+
+  .public-profile-body-single .public-profile-section:nth-child(6) .public-profile-recent-grid {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
   }
 }
 

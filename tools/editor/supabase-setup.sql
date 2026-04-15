@@ -1438,6 +1438,241 @@ BEGIN
 END;
 $$;
 
+-- Re-check historical publish data for users who published before
+-- server-side achievement evaluation existed. This awards achievement XP only;
+-- it does not replay per-publish XP.
+CREATE OR REPLACE FUNCTION recheck_publish_achievements(p_publisher_id TEXT)
+RETURNS TABLE(
+  publisher_id TEXT,
+  achievement_xp INT,
+  newly_unlocked JSONB
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  total_publishes INT := 0;
+  distinct_factions INT := 0;
+  max_branch_score INT := 0;
+  max_turn_count INT := 0;
+  max_precondition_count INT := 0;
+  max_outcome_type_count INT := 0;
+  max_combo_outcomes INT := 0;
+  max_combo_preconditions INT := 0;
+  has_uncommon BOOLEAN := false;
+  has_night_publish BOOLEAN := false;
+  has_dawn_publish BOOLEAN := false;
+  has_weekend_pair BOOLEAN := false;
+  longest_publish_streak INT := 0;
+  v_ach_xp INT := 0;
+  unlocked JSONB := '[]'::jsonb;
+  candidate RECORD;
+  ach RECORD;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.publisher_id = p_publisher_id) THEN
+    RETURN;
+  END IF;
+
+  WITH convs AS (
+    SELECT
+      c.id,
+      c.faction,
+      c.branch_count,
+      c.created_at,
+      coalesce(c.data->'conversations'->0, c.data) AS conv_json
+    FROM community_conversations c
+    WHERE c.publisher_id = p_publisher_id
+  ),
+  turn_stats AS (
+    SELECT
+      c.id,
+      CASE
+        WHEN jsonb_typeof(c.conv_json->'turns') = 'array' THEN jsonb_array_length(c.conv_json->'turns')
+        ELSE 0
+      END AS turn_count,
+      CASE
+        WHEN jsonb_typeof(c.conv_json->'preconditions') = 'array' THEN jsonb_array_length(c.conv_json->'preconditions')
+        ELSE 0
+      END AS precondition_count
+    FROM convs c
+  ),
+  outcome_counts AS (
+    SELECT
+      c.id,
+      count(DISTINCT nullif(outcome_obj.outcome_json->>'command', ''))::INT AS outcome_type_count,
+      bool_or((outcome_obj.outcome_json->>'command') IN (
+        'spawn_custom_npc',
+        'spawn_custom_npc_at',
+        'teleport_npc_to_smart',
+        'teleport_player_to_smart',
+        'set_weather',
+        'give_game_news',
+        'give_task'
+      )) AS has_uncommon
+    FROM convs c
+    CROSS JOIN LATERAL jsonb_array_elements(
+      CASE WHEN jsonb_typeof(c.conv_json->'turns') = 'array' THEN c.conv_json->'turns' ELSE '[]'::jsonb END
+    ) AS turn_obj(turn_json)
+    CROSS JOIN LATERAL jsonb_array_elements(
+      CASE WHEN jsonb_typeof(turn_obj.turn_json->'choices') = 'array' THEN turn_obj.turn_json->'choices' ELSE '[]'::jsonb END
+    ) AS choice_obj(choice_json)
+    CROSS JOIN LATERAL jsonb_array_elements(
+      CASE WHEN jsonb_typeof(choice_obj.choice_json->'outcomes') = 'array' THEN choice_obj.choice_json->'outcomes' ELSE '[]'::jsonb END
+    ) AS outcome_obj(outcome_json)
+    GROUP BY c.id
+  ),
+  per_conversation AS (
+    SELECT
+      c.id,
+      c.faction,
+      c.created_at,
+      greatest(coalesce(c.branch_count, 0), coalesce(ts.turn_count, 0)) AS branch_score,
+      coalesce(ts.turn_count, 0) AS turn_count,
+      coalesce(ts.precondition_count, 0) AS precondition_count,
+      coalesce(oc.outcome_type_count, 0) AS outcome_type_count,
+      coalesce(oc.has_uncommon, false) AS has_uncommon
+    FROM convs c
+    LEFT JOIN turn_stats ts ON ts.id = c.id
+    LEFT JOIN outcome_counts oc ON oc.id = c.id
+  )
+  SELECT
+    count(*)::INT,
+    count(DISTINCT nullif(faction, ''))::INT,
+    coalesce(max(branch_score), 0),
+    coalesce(max(turn_count), 0),
+    coalesce(max(precondition_count), 0),
+    coalesce(max(outcome_type_count), 0),
+    coalesce(max(CASE WHEN outcome_type_count >= 4 THEN precondition_count ELSE 0 END), 0),
+    coalesce(max(CASE WHEN precondition_count >= 3 THEN outcome_type_count ELSE 0 END), 0),
+    coalesce(bool_or(has_uncommon), false),
+    coalesce(bool_or(EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC'))::INT >= 22 OR EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC'))::INT < 5), false),
+    coalesce(bool_or(EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC'))::INT >= 4 AND EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC'))::INT < 7), false)
+  INTO
+    total_publishes,
+    distinct_factions,
+    max_branch_score,
+    max_turn_count,
+    max_precondition_count,
+    max_outcome_type_count,
+    max_combo_preconditions,
+    max_combo_outcomes,
+    has_uncommon,
+    has_night_publish,
+    has_dawn_publish
+  FROM per_conversation;
+
+  WITH convs AS (
+    SELECT created_at
+    FROM community_conversations
+    WHERE publisher_id = p_publisher_id
+  ),
+  weekend_weeks AS (
+    SELECT
+      date_trunc('week', created_at) AS publish_week,
+      bool_or(EXTRACT(DOW FROM created_at)::INT = 6) AS has_saturday,
+      bool_or(EXTRACT(DOW FROM created_at)::INT = 0) AS has_sunday
+    FROM convs
+    GROUP BY date_trunc('week', created_at)
+  )
+  SELECT EXISTS (
+    SELECT 1 FROM weekend_weeks WHERE has_saturday AND has_sunday
+  ) INTO has_weekend_pair;
+
+  SELECT greatest(coalesce(s.longest_streak, 0), coalesce(s.publish_streak, 0))
+  INTO longest_publish_streak
+  FROM user_streaks s
+  WHERE s.publisher_id = p_publisher_id;
+  longest_publish_streak := coalesce(longest_publish_streak, 0);
+
+  FOR candidate IN
+    SELECT *
+    FROM (VALUES
+      ('first_publish', 25, total_publishes >= 1),
+      ('first_patrol', 20, total_publishes >= 2),
+      ('cartographer', 65, total_publishes >= 5),
+      ('prolific_writer', 150, total_publishes >= 10),
+      ('zone_veteran', 500, total_publishes >= 50),
+      ('branching_out', 30, max_branch_score >= 5),
+      ('branch_architect', 70, max_branch_score >= 8),
+      ('web_of_lies', 40, max_turn_count >= 10),
+      ('story_weaver', 70, max_turn_count >= 15),
+      ('new_faction_scout', 35, distinct_factions >= 1),
+      ('faction_diplomat', 75, distinct_factions >= 3),
+      ('zone_encyclopedist', 200, distinct_factions >= 13),
+      ('night_shift', 45, has_night_publish),
+      ('dawn_patrol', 50, has_dawn_publish),
+      ('weekend_warrior', 40, has_weekend_pair),
+      ('uncommon_operator', 60, has_uncommon),
+      ('outcome_engineer', 50, max_outcome_type_count >= 4),
+      ('precondition_master', 50, max_precondition_count >= 5),
+      ('precondition_tactician', 95, max_precondition_count >= 8),
+      ('systems_polymath', 85, max_combo_outcomes >= 4 AND max_combo_preconditions >= 3),
+      ('chaos_director', 180, max_branch_score >= 12 AND max_outcome_type_count >= 6),
+      ('streak_3', 100, longest_publish_streak >= 3),
+      ('streak_10', 500, longest_publish_streak >= 10)
+    ) AS checks(achievement_id, xp, should_unlock)
+  LOOP
+    IF candidate.should_unlock THEN
+      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, candidate.achievement_id, candidate.xp);
+      IF ach.was_new THEN
+        v_ach_xp := v_ach_xp + ach.awarded_xp;
+        unlocked := unlocked || jsonb_build_object('achievement_id', candidate.achievement_id, 'xp', ach.awarded_xp);
+      END IF;
+    END IF;
+  END LOOP;
+
+  RETURN QUERY SELECT p_publisher_id, v_ach_xp, unlocked;
+END;
+$$;
+
+-- Re-check every known profile. Includes publish-derived achievements plus
+-- metric achievements so older downloaded/upvoted work catches up too.
+CREATE OR REPLACE FUNCTION recheck_all_user_achievements()
+RETURNS TABLE(
+  publisher_id TEXT,
+  achievement_xp INT,
+  newly_unlocked JSONB
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  profile_row RECORD;
+  publish_result RECORD;
+  metric_result RECORD;
+BEGIN
+  FOR profile_row IN
+    SELECT up.publisher_id FROM user_profiles up WHERE nullif(btrim(up.publisher_id), '') IS NOT NULL
+  LOOP
+    publisher_id := profile_row.publisher_id;
+    achievement_xp := 0;
+    newly_unlocked := '[]'::jsonb;
+
+    SELECT * INTO publish_result FROM recheck_publish_achievements(profile_row.publisher_id) LIMIT 1;
+    IF FOUND THEN
+      achievement_xp := achievement_xp + coalesce(publish_result.achievement_xp, 0);
+      newly_unlocked := newly_unlocked || coalesce(publish_result.newly_unlocked, '[]'::jsonb);
+    END IF;
+
+    SELECT * INTO metric_result FROM apply_metric_rewards(profile_row.publisher_id, 'both') LIMIT 1;
+    IF FOUND THEN
+      achievement_xp := achievement_xp + coalesce(metric_result.achievement_xp, 0);
+      newly_unlocked := newly_unlocked || coalesce(metric_result.newly_unlocked, '[]'::jsonb);
+    END IF;
+
+    RETURN NEXT;
+  END LOOP;
+END;
+$$;
+
+-- One-time historical catch-up. Safe to run repeatedly because each unlock is
+-- idempotent and XP is awarded only on first insert.
+DO $$
+BEGIN
+  PERFORM recheck_all_user_achievements();
+END;
+$$;
+
 -- Record a daily login. Advances the login streak by 1 on a fresh day,
 -- resets if a day was skipped. Unlocks login-streak achievements at
 -- known thresholds and returns the new streak + any unlocks.

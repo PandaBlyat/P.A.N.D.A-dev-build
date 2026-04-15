@@ -20,6 +20,7 @@ import { renderAvatar, getBannerBackground } from './AvatarRenderer';
 type PublicProfileViewOptions = {
   data: PublicProfileData;
   leaderboardRank?: number | null;
+  onAvatarClick?: (event: MouseEvent, avatar: HTMLElement) => void;
 };
 
 type ProfilePrestigeStat = {
@@ -115,7 +116,7 @@ function getRareBadgeCount(profileData: PublicProfileData): number {
   return ACHIEVEMENTS.filter(achievement => unlocked.has(achievement.id) && isAchievementRare(achievement)).length;
 }
 
-function buildHeader(data: PublicProfileData): HTMLElement {
+function buildHeader(data: PublicProfileData, onAvatarClick?: (event: MouseEvent, avatar: HTMLElement) => void): HTMLElement {
   const { profile, publish_count } = data;
   const levelMeta = deriveLevelMetadata(profile.xp);
   const currentThreshold = levelMeta.currentLevelThreshold;
@@ -134,7 +135,8 @@ function buildHeader(data: PublicProfileData): HTMLElement {
   identity.className = 'public-profile-identity';
 
   const tierColor = getLevelTierColor(currentThreshold.level);
-  const avatar = renderAvatar(
+  let avatar: HTMLElement | null = null;
+  avatar = renderAvatar(
     {
       username: profile.username,
       level: currentThreshold.level,
@@ -148,6 +150,10 @@ function buildHeader(data: PublicProfileData): HTMLElement {
       extraClass: 'public-profile-avatar',
       showLevel: true,
       size: 'lg',
+      title: onAvatarClick ? 'Customize your avatar' : undefined,
+      onClick: onAvatarClick ? (event) => {
+        if (avatar) onAvatarClick(event, avatar);
+      } : undefined,
     },
   );
   avatar.style.setProperty('--tier-color', tierColor);
@@ -410,7 +416,13 @@ function buildBadgeTile(
   metaEl.className = 'public-profile-badge-meta';
   metaEl.textContent = meta;
 
-  tile.append(iconWrap, nameEl, metaEl);
+  const hover = document.createElement('div');
+  hover.className = 'public-profile-badge-hover';
+  hover.textContent = state === 'locked-hidden'
+    ? 'Unlock condition hidden.'
+    : description;
+
+  tile.append(iconWrap, nameEl, metaEl, hover);
   return tile;
 }
 
@@ -631,7 +643,7 @@ export function renderPublicProfileView(options: PublicProfileViewOptions): HTML
   const root = document.createElement('div');
   root.className = 'public-profile-view public-profile-view-single';
 
-  root.appendChild(buildHeader(options.data));
+  root.appendChild(buildHeader(options.data, options.onAvatarClick));
   root.appendChild(buildPublicProfileBody(options.data, options.leaderboardRank));
   return root;
 }

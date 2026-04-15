@@ -52,6 +52,14 @@ let activePublicProfilePublisherId: string | null = null;
 let activeLeaderboardRow: HTMLButtonElement | null = null;
 let selfProfileDataCache: PublicProfileData | null = null;
 
+function refreshDetachedProfileBadges(skip?: HTMLElement | null): void {
+  document.querySelectorAll('.profile-badge').forEach((badge) => {
+    if (skip && badge === skip) return;
+    const next = renderProfileBadge();
+    if (next) badge.replaceWith(next);
+  });
+}
+
 const ACHIEVEMENT_CATEGORY_ICONS: Record<AchievementCategory, IconName> = {
   onboarding: 'sparkle',
   social: 'user',
@@ -1755,7 +1763,24 @@ function buildSelfProfileContent(profile: UserProfile, leaderboardRank?: number 
 
   void resolveSelfProfileData(profile).then((data) => {
     shell.textContent = '';
-    shell.appendChild(renderPublicProfileView({ data, leaderboardRank }));
+    shell.appendChild(renderPublicProfileView({
+      data,
+      leaderboardRank,
+      onAvatarClick: (event, avatar) => {
+        event.stopPropagation();
+        openAvatarCustomizationModal({
+          profile,
+          returnFocus: avatar,
+          onSaved: (updated) => {
+            const anchor = shell.closest('.profile-badge') as HTMLElement | null;
+            setProfileForBadge(updated);
+            (globalThis as any).__pandaUserProfile = updated;
+            shell.replaceWith(buildSelfProfileContent(updated, leaderboardRank));
+            refreshDetachedProfileBadges(anchor);
+          },
+        });
+      },
+    }));
   }).catch(() => {
     shell.textContent = '';
     const error = document.createElement('div');

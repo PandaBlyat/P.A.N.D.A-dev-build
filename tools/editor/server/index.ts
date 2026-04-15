@@ -837,12 +837,6 @@ async function buildActiveUsersPayload(): Promise<ActiveUsersPayload> {
   };
 }
 
-    res.json(await buildActiveUsersPayload());
-  } catch {
-    res.json({ count: 0, users: [], usernames: [] });
-  }
-});
-
 app.get('/api/active-users', async (_req, res) => {
   try {
     res.json(await buildActiveUsersPayload());
@@ -1436,6 +1430,67 @@ app.post('/api/profile/:publisherId/achievements/unlock', async (req, res) => {
     const payload = await r.json() as boolean | boolean[];
     const unlocked = Array.isArray(payload) ? Boolean(payload[0]) : Boolean(payload);
     res.json({ unlocked });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// Admin-only historical catch-up for users who published before reward checks existed.
+app.post('/api/profile/achievements/recheck', async (req, res) => {
+  try {
+    const adminPublisherId = typeof req.body?.publisher_id === 'string' ? req.body.publisher_id : '';
+    if (!isAdminPublisherId(adminPublisherId)) {
+      res.status(403).json({ error: 'Admin publisher id is not allowed.' });
+      return;
+    }
+
+    const targetPublisherId = typeof req.body?.target_publisher_id === 'string'
+      ? req.body.target_publisher_id.trim()
+      : '';
+
+    const rows: Array<Record<string, unknown>> = [];
+    if (targetPublisherId) {
+      const publishResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/recheck_publish_achievements`, {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({ p_publisher_id: targetPublisherId }),
+      });
+      if (!publishResponse.ok) {
+        res.status(publishResponse.status).json({ error: await readErrorMessage(publishResponse) });
+        return;
+      }
+      const publishRows = await publishResponse.json() as Array<Record<string, unknown>>;
+      rows.push(...(Array.isArray(publishRows) ? publishRows : []));
+
+      const metricResult = await applyMetricRewards(targetPublisherId, 'both').catch(() => null);
+      if (metricResult) {
+        rows.push({
+          publisher_id: targetPublisherId,
+          achievement_xp: metricResult.achievement_xp,
+          newly_unlocked: metricResult.unlocked,
+        });
+      }
+    } else {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/recheck_all_user_achievements`, {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({}),
+      });
+      if (!r.ok) {
+        res.status(r.status).json({ error: await readErrorMessage(r) });
+        return;
+      }
+      const payload = await r.json() as Array<Record<string, unknown>>;
+      rows.push(...(Array.isArray(payload) ? payload : []));
+    }
+
+    const summary = rows.reduce<{ achievement_xp: number; newly_unlocked: number }>((acc, row) => {
+      acc.achievement_xp += typeof row.achievement_xp === 'number' ? row.achievement_xp : 0;
+      acc.newly_unlocked += Array.isArray(row.newly_unlocked) ? row.newly_unlocked.length : 0;
+      return acc;
+    }, { achievement_xp: 0, newly_unlocked: 0 });
+
+    res.json({ ok: true, summary, rows });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
