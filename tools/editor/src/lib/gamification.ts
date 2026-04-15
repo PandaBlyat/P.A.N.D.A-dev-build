@@ -108,7 +108,57 @@ export type Achievement = {
   category: AchievementCategory;
   hidden?: boolean;
   featured?: boolean;
+  /**
+   * True when the achievement exists in the catalog but the server does not
+   * yet evaluate an unlock trigger for it. These are rendered as
+   * locked-hidden (mystery glyph) on the badge wall to avoid promising
+   * a reward with no path to earning it, while preserving the ID so any
+   * previously awarded unlock records stay intact.
+   */
+  unimplemented?: boolean;
 };
+
+/**
+ * Achievement IDs that are present in the catalog but have no server-side
+ * unlock trigger yet. We keep them listed (so historical unlocks remain
+ * attributable) but filter them out of the visible badge wall. Update this
+ * set when new server triggers ship.
+ */
+export const UNIMPLEMENTED_ACHIEVEMENT_IDS: ReadonlySet<AchievementId> = new Set<AchievementId>([
+  'upvote_wave',
+  'profile_spotlight',
+  'story_weaver',
+  'web_of_lies',
+  'zone_encyclopedist',
+  'flow_restorer',
+  'uncommon_operator',
+  'outcome_engineer',
+  'precondition_master',
+  'precondition_tactician',
+  'quality_crafter',
+  'systems_polymath',
+  'clean_publish_streak',
+  'four_star_streak',
+  'streak_3',
+  'streak_10',
+  'weekend_warrior',
+  'dawn_patrol',
+  'iron_scribe',
+  'commentator',
+  'library_patron',
+  'first_friend',
+  'artifact_hunter',
+  'mutant_mythographer',
+  'zone_lorekeeper',
+  'chaos_director',
+  'ironclad_finish',
+  'speedrunner',
+  'mission_apprentice',
+]);
+
+export function isAchievementUnimplemented(achievement: Achievement): boolean {
+  return Boolean(achievement.unimplemented) || UNIMPLEMENTED_ACHIEVEMENT_IDS.has(achievement.id);
+}
 
 export const ACHIEVEMENTS: Achievement[] = [
   { id: 'first_patrol', name: 'First Patrol', description: 'Publish 2 conversations to establish your workflow', xp: 20, icon: '\u{1F6B6}', tier: 'bronze', category: 'onboarding', featured: true },
@@ -195,7 +245,15 @@ export function isAchievementRare(achievement: Achievement): boolean {
 }
 
 export function getVisibleAchievementCatalog(): Achievement[] {
-  return ACHIEVEMENTS.filter(achievement => !achievement.hidden);
+  return ACHIEVEMENTS.filter(achievement => !achievement.hidden && !isAchievementUnimplemented(achievement));
+}
+
+/**
+ * Full catalog minus `unimplemented`. Hidden rewards stay included so the
+ * mystery silhouettes still render on the wall.
+ */
+export function getWallAchievementCatalog(): Achievement[] {
+  return ACHIEVEMENTS.filter(achievement => !isAchievementUnimplemented(achievement));
 }
 
 // ─── Local Achievement Storage (anti-abuse: tracked locally + server) ────────

@@ -12,6 +12,7 @@ import { createIcon, setButtonContent, type IconName } from './icons';
 import { clearDraft } from '../lib/draft-storage';
 import { createEmptyProject } from '../lib/xml-export';
 import { openPublicProfile, renderProfileBadge } from './ProfileBadge';
+import { openLeaderboardOverlay } from './LeaderboardOverlay';
 import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 import { getActiveEditorLocalUserId, getStoredUsername, type ActiveEditorUser, type RecentVisitor, type UserProfile } from '../lib/api-client';
 
@@ -114,6 +115,10 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   setBeginnerTooltip(communityBtn, 'toolbar-community');
   const supportBtn = btn('support', 'Support', openSupportPanel, 'Support the Creator', {
     classes: ['toolbar-support-trigger'],
+  });
+  let leadersBtn: HTMLButtonElement;
+  leadersBtn = btn('trophy', 'Leaders', () => openLeaderboardOverlay(leadersBtn), 'Open the community leaderboard', {
+    classes: ['toolbar-leaders-trigger'],
   });
   const helpBtn = btn('help', '?', openHelpModal, 'New here? Open the quick-start guide to preconditions, dynamic references, outcomes, and story design.', {
     classes: ['toolbar-help-trigger'],
@@ -222,9 +227,10 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     } else {
       status.textContent = formatStatus(convCount, stringCount, false, false);
     }
-    rightZone.append(status, supportBtn);
+    rightZone.append(status, leadersBtn, supportBtn);
 
     rightZone.appendChild(createOverflowMenu('More', [
+      { icon: 'trophy', label: 'Leaders', title: leadersBtn.title, onclick: () => openLeaderboardOverlay(null) },
       { icon: 'bug', label: 'Reports', title: reportsBtn.title, onclick: openBugReportsPanel },
       { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
       { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },

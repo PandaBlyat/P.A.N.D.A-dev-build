@@ -1624,31 +1624,119 @@ function buildLeaderboardSection(profile: UserProfile): HTMLElement {
   return leaderboardSection;
 }
 
-function buildSelfProfileContent(profile: UserProfile): HTMLElement {
-  const shell = document.createElement('div');
-  shell.className = 'profile-popover-shell profile-popover-shell-v2';
+type SelfProfileTabId = 'overview' | 'badges' | 'missions' | 'activity';
 
-  const body = document.createElement('div');
-  body.className = 'profile-popover-body profile-popover-body-v2';
+type SelfProfileTab = {
+  id: SelfProfileTabId;
+  label: string;
+  build: (profile: UserProfile) => HTMLElement;
+  /** Overview is the default "fits without scrolling" tab; others may scroll. */
+  allowScroll: boolean;
+};
+
+function buildOverviewTab(profile: UserProfile): HTMLElement {
+  const pane = document.createElement('div');
+  pane.className = 'profile-popover-pane profile-popover-pane-overview';
 
   const heroRow = document.createElement('div');
   heroRow.className = 'profile-popover-hero-row profile-popover-hero-row-v2';
   heroRow.append(buildProfileHeader(profile));
 
-  const achievementsRow = document.createElement('div');
-  achievementsRow.className = 'profile-popover-achievements-row';
-  achievementsRow.appendChild(buildAchievementsSection(profile));
-
+  // Compact "next goal" + mission snapshot + stats — no leaderboard, no
+  // full catalog. The full badge wall lives on the Badges tab.
   const sideRow = document.createElement('div');
   sideRow.className = 'profile-popover-side-grid';
-  sideRow.append(
-    buildLeaderboardSection(profile),
-    buildStatsSection(profile),
-    buildXpBreakdownSection(),
-  );
+  sideRow.append(buildStatsSection(profile), buildMissionCard(profile));
 
-  body.append(heroRow, achievementsRow, sideRow);
-  shell.append(body);
+  pane.append(heroRow, sideRow);
+  return pane;
+}
+
+function buildBadgesTab(profile: UserProfile): HTMLElement {
+  const pane = document.createElement('div');
+  pane.className = 'profile-popover-pane profile-popover-pane-badges profile-popover-pane-scroll';
+  pane.appendChild(buildAchievementsSection(profile));
+  return pane;
+}
+
+function buildMissionsTab(profile: UserProfile): HTMLElement {
+  const pane = document.createElement('div');
+  pane.className = 'profile-popover-pane profile-popover-pane-missions profile-popover-pane-scroll';
+  pane.append(buildMissionCard(profile), buildStreakChallengeSection(profile));
+  return pane;
+}
+
+function buildActivityTab(profile: UserProfile): HTMLElement {
+  const pane = document.createElement('div');
+  pane.className = 'profile-popover-pane profile-popover-pane-activity profile-popover-pane-scroll';
+  pane.append(buildXpBreakdownSection(), buildStatsSection(profile));
+  return pane;
+}
+
+const SELF_PROFILE_TABS: SelfProfileTab[] = [
+  { id: 'overview', label: 'Overview', build: buildOverviewTab, allowScroll: false },
+  { id: 'badges', label: 'Badges', build: buildBadgesTab, allowScroll: true },
+  { id: 'missions', label: 'Missions', build: buildMissionsTab, allowScroll: true },
+  { id: 'activity', label: 'Activity', build: buildActivityTab, allowScroll: true },
+];
+
+let lastActiveSelfTab: SelfProfileTabId = 'overview';
+
+function buildSelfProfileContent(profile: UserProfile): HTMLElement {
+  const shell = document.createElement('div');
+  shell.className = 'profile-popover-shell profile-popover-shell-v2 profile-popover-shell-tabbed';
+
+  const tabBar = document.createElement('div');
+  tabBar.className = 'profile-popover-tabbar';
+  tabBar.setAttribute('role', 'tablist');
+
+  const body = document.createElement('div');
+  body.className = 'profile-popover-body profile-popover-body-v2';
+
+  const pills: HTMLButtonElement[] = [];
+  const activate = (index: number) => {
+    const tab = SELF_PROFILE_TABS[index];
+    lastActiveSelfTab = tab.id;
+    for (let i = 0; i < pills.length; i++) {
+      const isActive = i === index;
+      pills[i].classList.toggle('is-active', isActive);
+      pills[i].setAttribute('aria-selected', String(isActive));
+      pills[i].tabIndex = isActive ? 0 : -1;
+    }
+    body.textContent = '';
+    body.dataset.tab = tab.id;
+    body.classList.toggle('allow-scroll', tab.allowScroll);
+    body.appendChild(tab.build(profile));
+  };
+
+  SELF_PROFILE_TABS.forEach((tab, index) => {
+    const pill = document.createElement('button');
+    pill.type = 'button';
+    pill.className = 'profile-popover-tab-pill';
+    pill.setAttribute('role', 'tab');
+    pill.dataset.tab = tab.id;
+    pill.textContent = tab.label;
+    pill.addEventListener('click', () => activate(index));
+    pill.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        activate((index + 1) % SELF_PROFILE_TABS.length);
+        pills[(index + 1) % SELF_PROFILE_TABS.length].focus();
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        const prev = (index - 1 + SELF_PROFILE_TABS.length) % SELF_PROFILE_TABS.length;
+        activate(prev);
+        pills[prev].focus();
+      }
+    });
+    pills.push(pill);
+    tabBar.appendChild(pill);
+  });
+
+  shell.append(tabBar, body);
+
+  const initial = Math.max(0, SELF_PROFILE_TABS.findIndex(tab => tab.id === lastActiveSelfTab));
+  activate(initial);
   return shell;
 }
 
