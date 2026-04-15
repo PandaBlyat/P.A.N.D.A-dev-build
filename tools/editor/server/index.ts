@@ -372,6 +372,90 @@ async function upsertMissionProgress(records: Array<UserMissionProgressRecord & 
   }
 }
 
+type RewardProfileSnapshot = {
+  publisher_id: string;
+  username: string;
+  xp: number;
+  level: number;
+  title: string;
+};
+
+export type ServerProfileRewardResult = {
+  profile: RewardProfileSnapshot | null;
+  unlocked: UserAchievement[];
+  publish_xp: number;
+  achievement_xp: number;
+  mission_xp: number;
+  total_xp: number;
+};
+
+async function applyPublishRewards(conversationId: string): Promise<ServerProfileRewardResult | null> {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/apply_publish_rewards`, {
+    method: 'POST',
+    headers: sbHeaders(),
+    body: JSON.stringify({ p_conversation_id: conversationId }),
+  });
+  if (!r.ok) return null;
+  const rows = await r.json() as Array<Record<string, unknown>>;
+  const row = Array.isArray(rows) ? rows[0] : null;
+  if (!row) return null;
+
+  const unlockedRaw = Array.isArray(row.newly_unlocked) ? row.newly_unlocked as Array<Record<string, unknown>> : [];
+  const unlocked: UserAchievement[] = unlockedRaw
+    .map((entry) => typeof entry?.achievement_id === 'string' ? ({
+      achievement_id: String(entry.achievement_id),
+      unlocked_at: new Date().toISOString(),
+    }) : null)
+    .filter((entry): entry is UserAchievement => Boolean(entry));
+
+  const profile: RewardProfileSnapshot | null = typeof row.publisher_id === 'string' ? {
+    publisher_id: String(row.publisher_id),
+    username: typeof row.username === 'string' ? row.username : '',
+    xp: typeof row.xp === 'number' ? row.xp : 0,
+    level: typeof row.level === 'number' ? row.level : 1,
+    title: typeof row.title === 'string' ? row.title : '',
+  } : null;
+
+  const publishXp = typeof row.publish_xp === 'number' ? row.publish_xp : 0;
+  const achXp = typeof row.achievement_xp === 'number' ? row.achievement_xp : 0;
+  return {
+    profile,
+    unlocked,
+    publish_xp: publishXp,
+    achievement_xp: achXp,
+    mission_xp: 0,
+    total_xp: publishXp + achXp,
+  };
+}
+
+async function applyMetricRewards(publisherId: string, metricType: 'downloads' | 'upvotes' | 'both'): Promise<ServerProfileRewardResult | null> {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/apply_metric_rewards`, {
+    method: 'POST',
+    headers: sbHeaders(),
+    body: JSON.stringify({ p_publisher_id: publisherId, p_metric_type: metricType }),
+  });
+  if (!r.ok) return null;
+  const rows = await r.json() as Array<Record<string, unknown>>;
+  const row = Array.isArray(rows) ? rows[0] : null;
+  if (!row) return null;
+  const unlockedRaw = Array.isArray(row.newly_unlocked) ? row.newly_unlocked as Array<Record<string, unknown>> : [];
+  const unlocked: UserAchievement[] = unlockedRaw
+    .map((entry) => typeof entry?.achievement_id === 'string' ? ({
+      achievement_id: String(entry.achievement_id),
+      unlocked_at: new Date().toISOString(),
+    }) : null)
+    .filter((entry): entry is UserAchievement => Boolean(entry));
+  const achXp = typeof row.achievement_xp === 'number' ? row.achievement_xp : 0;
+  return {
+    profile: null,
+    unlocked,
+    publish_xp: 0,
+    achievement_xp: achXp,
+    mission_xp: 0,
+    total_xp: achXp,
+  };
+}
+
 async function advanceCommunityMissionProgress(publisherId: string, event: { type: MissionEventType; total: number }): Promise<void> {
   const activeMissions = getActiveMissionDefinitions();
   if (activeMissions.length === 0) return;
@@ -831,7 +915,10 @@ app.post('/api/conversations', async (req, res) => {
       }
     }
 
-    const headers = { ...sbHeaders(), Prefer: 'return=minimal' };
+    // Use return=representation so we can pluck the inserted row's ID and
+    // then invoke apply_publish_rewards for server-authoritative rewards.
+    const headers = { ...sbHeaders(), Prefer: 'return=representation' };
+    const normalizedPublisherId = typeof publisher_id === 'string' && publisher_id.trim() ? publisher_id.trim() : null;
     const publishBody = {
       faction,
       label: normalizedLabel,
@@ -841,7 +928,7 @@ app.post('/api/conversations', async (req, res) => {
       tags: Array.isArray(tags) ? tags : [],
       branch_count: typeof branch_count === 'number' ? branch_count : null,
       complexity: typeof complexity === 'string' ? complexity : null,
-      publisher_id: typeof publisher_id === 'string' && publisher_id.trim() ? publisher_id.trim() : null,
+      publisher_id: normalizedPublisherId,
       data,
     };
 
@@ -880,7 +967,23 @@ app.post('/api/conversations', async (req, res) => {
       res.status(r.status).json({ error: await readErrorMessage(r) });
       return;
     }
-    res.status(201).json({ ok: true });
+
+    // Parse inserted row to pick up conversation id for reward flow.
+    let insertedId: string | undefined;
+    try {
+      const rows = await r.json() as Array<{ id?: string }>;
+      insertedId = Array.isArray(rows) && rows[0] ? rows[0].id : undefined;
+    } catch {
+      insertedId = undefined;
+    }
+
+    // Apply server-authoritative publish rewards. Silently best-effort:
+    // a failure here must not roll back the publish.
+    const rewards = insertedId && normalizedPublisherId
+      ? await applyPublishRewards(insertedId).catch(() => null)
+      : null;
+
+    res.status(201).json({ ok: true, conversation_id: insertedId ?? null, rewards });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -1329,6 +1432,42 @@ app.post('/api/profile/:publisherId/achievements/unlock', async (req, res) => {
   }
 });
 
+// Record a daily login and unlock login_streak milestone achievements.
+app.post('/api/profile/:publisherId/login', async (req, res) => {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/record_daily_login`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ p_publisher_id: req.params.publisherId }),
+    });
+    if (!r.ok) {
+      res.status(r.status).json({ error: await readErrorMessage(r) });
+      return;
+    }
+    const rows = await r.json() as Array<Record<string, unknown>>;
+    const row = Array.isArray(rows) ? rows[0] : null;
+    if (!row) {
+      res.json({ login_streak: 0, newly_unlocked: [], achievement_xp: 0 });
+      return;
+    }
+    const unlockedRaw = Array.isArray(row.newly_unlocked) ? row.newly_unlocked as Array<Record<string, unknown>> : [];
+    const unlocked = unlockedRaw
+      .map((entry) => typeof entry?.achievement_id === 'string' ? ({
+        achievement_id: String(entry.achievement_id),
+        unlocked_at: new Date().toISOString(),
+      }) : null)
+      .filter((entry): entry is UserAchievement => Boolean(entry));
+    res.json({
+      login_streak: typeof row.login_streak === 'number' ? row.login_streak : 0,
+      last_login_date: typeof row.last_login_date === 'string' ? row.last_login_date : '',
+      newly_unlocked: unlocked,
+      achievement_xp: typeof row.achievement_xp === 'number' ? row.achievement_xp : 0,
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 app.get('/api/profile/:publisherId/streak', async (req, res) => {
   try {
     res.json(await fetchUserStreakState(req.params.publisherId));
@@ -1474,36 +1613,29 @@ app.patch('/api/conversations/:id/download', async (req, res) => {
       body: JSON.stringify({ conv_id: id }),
     });
 
-    // Look up publisher_id and award XP
+    // Look up publisher_id and apply metric rewards server-side.
     const lookupParams = new URLSearchParams({
-      select: 'publisher_id',
+      select: 'publisher_id,downloads',
       id: `eq.${id}`,
       limit: '1',
     });
     const lookup = await fetch(`${sbEndpoint(TABLE)}?${lookupParams}`, { headers: sbHeaders() });
     if (lookup.ok) {
-      const rows = await lookup.json() as Array<{ publisher_id?: string }>;
+      const rows = await lookup.json() as Array<{ publisher_id?: string; downloads?: number }>;
       const pubId = rows[0]?.publisher_id;
       if (pubId) {
+        // Small per-event XP is still awarded for immediate feedback.
         await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp`, {
           method: 'POST',
           headers: sbHeaders(),
           body: JSON.stringify({ p_publisher_id: pubId, p_amount: 5 }),
         });
-
-        const totalsParams = new URLSearchParams({
-          select: 'downloads',
-          id: `eq.${id}`,
-          limit: '1',
-        });
-        const totalsLookup = await fetch(`${sbEndpoint(TABLE)}?${totalsParams}`, { headers: sbHeaders() });
-        if (totalsLookup.ok) {
-          const totalsRows = await totalsLookup.json() as Array<{ downloads?: number }>;
-          await advanceCommunityMissionProgress(pubId, {
-            type: 'download_milestone_reached',
-            total: totalsRows[0]?.downloads ?? 0,
-          }).catch(() => undefined);
-        }
+        // Server-authoritative milestone achievement unlocks.
+        await applyMetricRewards(pubId, 'downloads').catch(() => null);
+        await advanceCommunityMissionProgress(pubId, {
+          type: 'download_milestone_reached',
+          total: rows[0]?.downloads ?? 0,
+        }).catch(() => undefined);
       }
     }
   } catch {
@@ -1527,15 +1659,15 @@ app.patch('/api/conversations/:id/upvote', async (req, res) => {
       return;
     }
 
-    // Look up publisher_id and award XP
+    // Look up publisher_id and apply metric rewards server-side.
     const lookupParams = new URLSearchParams({
-      select: 'publisher_id',
+      select: 'publisher_id,upvotes',
       id: `eq.${id}`,
       limit: '1',
     });
     const lookup = await fetch(`${sbEndpoint(TABLE)}?${lookupParams}`, { headers: sbHeaders() });
     if (lookup.ok) {
-      const rows = await lookup.json() as Array<{ publisher_id?: string }>;
+      const rows = await lookup.json() as Array<{ publisher_id?: string; upvotes?: number }>;
       const pubId = rows[0]?.publisher_id;
       if (pubId) {
         await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp`, {
@@ -1543,20 +1675,11 @@ app.patch('/api/conversations/:id/upvote', async (req, res) => {
           headers: sbHeaders(),
           body: JSON.stringify({ p_publisher_id: pubId, p_amount: 10 }),
         });
-
-        const totalsParams = new URLSearchParams({
-          select: 'upvotes',
-          id: `eq.${id}`,
-          limit: '1',
-        });
-        const totalsLookup = await fetch(`${sbEndpoint(TABLE)}?${totalsParams}`, { headers: sbHeaders() });
-        if (totalsLookup.ok) {
-          const totalsRows = await totalsLookup.json() as Array<{ upvotes?: number }>;
-          await advanceCommunityMissionProgress(pubId, {
-            type: 'upvote_received',
-            total: totalsRows[0]?.upvotes ?? 0,
-          }).catch(() => undefined);
-        }
+        await applyMetricRewards(pubId, 'upvotes').catch(() => null);
+        await advanceCommunityMissionProgress(pubId, {
+          type: 'upvote_received',
+          total: rows[0]?.upvotes ?? 0,
+        }).catch(() => undefined);
       }
     }
   } catch (err) {

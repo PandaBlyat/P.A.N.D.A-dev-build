@@ -8,7 +8,10 @@ import {
   ACHIEVEMENTS,
   isAchievementRare,
   calculateQualityScore,
+  getWallAchievementCatalog,
+  type AchievementId,
 } from '../lib/gamification';
+import { createAchievementBadge } from './AchievementIcons';
 import { FACTION_DISPLAY_NAMES, type FactionId } from '../lib/types';
 import { FACTION_COLORS } from '../lib/faction-colors';
 import { createIcon } from './icons';
@@ -263,63 +266,83 @@ function buildPrestigeSummary(data: PublicProfileData, leaderboardRank?: number 
 }
 
 function buildAchievementsSection(data: PublicProfileData): HTMLElement {
-  const section = buildSection('Featured achievements', 'medal', 'Rare, gold, and spotlight badge unlocks.');
-  const featured = getFeaturedAchievements(data);
-  const badges = document.createElement('div');
-  badges.className = 'public-profile-badge-grid';
+  const section = buildSection('Badge wall', 'medal', 'Unlocked badges are highlighted. Silhouettes are visible badges not yet earned; question marks are still a mystery.');
+  const unlocked = new Set(getUnlockedAchievements(data));
+
+  const catalog = getWallAchievementCatalog();
+  const unlockedCount = catalog.filter(a => unlocked.has(a.id)).length;
 
   const summary = document.createElement('div');
   summary.className = 'public-profile-summary-stats';
-
   [
-    `${getUnlockedAchievements(data).length}/${ACHIEVEMENTS.length} unlocked`,
-    `${featured.length} spotlight badge${featured.length === 1 ? '' : 's'}`,
+    `${unlockedCount}/${catalog.length} unlocked`,
     `${getRareBadgeCount(data)} rare`,
   ].forEach((item, index) => {
     const pill = document.createElement('span');
     pill.className = 'public-profile-summary-pill';
-    if (index === 2) pill.classList.add('public-profile-summary-pill-rare');
+    if (index === 1) pill.classList.add('public-profile-summary-pill-rare');
     pill.textContent = item;
     summary.appendChild(pill);
   });
-
   section.appendChild(summary);
 
-  if (featured.length === 0) {
+  const wall = document.createElement('div');
+  wall.className = 'public-profile-badge-wall';
+
+  // Unlocked first, then visible locked, then hidden mystery.
+  const unlockedAchievements = catalog.filter(a => unlocked.has(a.id));
+  const visibleLocked = catalog.filter(a => !unlocked.has(a.id) && !a.hidden);
+  const hiddenLocked = catalog.filter(a => !unlocked.has(a.id) && a.hidden);
+
+  for (const achievement of unlockedAchievements) {
+    wall.appendChild(buildBadgeTile(achievement.id as AchievementId, achievement.name, achievement.description, 'unlocked', `${achievement.tier} · +${achievement.xp} XP`));
+  }
+  for (const achievement of visibleLocked) {
+    wall.appendChild(buildBadgeTile(achievement.id as AchievementId, achievement.name, achievement.description, 'locked-visible', `${achievement.tier} · Locked`));
+  }
+  for (const _achievement of hiddenLocked) {
+    wall.appendChild(buildBadgeTile(null, 'Mystery badge', 'Discover hidden challenges to unlock.', 'locked-hidden', 'Hidden'));
+  }
+
+  if (catalog.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'public-profile-empty';
-    empty.textContent = 'No featured badges unlocked yet.';
+    empty.textContent = 'No badges available yet.';
     section.appendChild(empty);
     return section;
   }
 
-  featured.forEach((achievement) => {
-    const card = document.createElement('article');
-    card.className = `public-profile-badge-card public-profile-badge-card-${achievement.tier}`;
-    const top = document.createElement('div');
-    top.className = 'public-profile-badge-top';
-    const icon = document.createElement('span');
-    icon.className = 'public-profile-badge-icon';
-    icon.textContent = achievement.icon;
-    const name = document.createElement('div');
-    name.className = 'public-profile-badge-name';
-    name.textContent = achievement.name;
-    const rarity = document.createElement('span');
-    rarity.className = 'public-profile-badge-tier';
-    rarity.textContent = achievement.tier;
-    top.append(icon, name, rarity);
-    const desc = document.createElement('p');
-    desc.className = 'public-profile-badge-desc';
-    desc.textContent = achievement.description;
-    const meta = document.createElement('div');
-    meta.className = 'public-profile-badge-meta';
-    meta.textContent = `+${achievement.xp} XP · ${achievement.featured ? 'Featured' : 'Rare unlock'}`;
-    card.append(top, desc, meta);
-    badges.appendChild(card);
-  });
-
-  section.appendChild(badges);
+  section.appendChild(wall);
   return section;
+}
+
+function buildBadgeTile(
+  id: AchievementId | null,
+  name: string,
+  description: string,
+  state: 'unlocked' | 'locked-visible' | 'locked-hidden',
+  meta: string,
+): HTMLElement {
+  const tile = document.createElement('article');
+  tile.className = `public-profile-badge-tile public-profile-badge-tile-${state}`;
+  tile.setAttribute('aria-label', state === 'locked-hidden' ? 'Hidden badge, not yet unlocked' : `${name}, ${state === 'unlocked' ? 'unlocked' : 'locked'}`);
+  tile.tabIndex = 0;
+  tile.title = state === 'locked-hidden' ? 'Hidden badge — keep exploring.' : `${name}\n${description}`;
+
+  const iconWrap = document.createElement('div');
+  iconWrap.className = 'public-profile-badge-icon-wrap';
+  iconWrap.appendChild(createAchievementBadge(id, state, 48));
+
+  const nameEl = document.createElement('div');
+  nameEl.className = 'public-profile-badge-name';
+  nameEl.textContent = state === 'locked-hidden' ? '???' : name;
+
+  const metaEl = document.createElement('div');
+  metaEl.className = 'public-profile-badge-meta';
+  metaEl.textContent = meta;
+
+  tile.append(iconWrap, nameEl, metaEl);
+  return tile;
 }
 
 function buildFactionBreakdown(data: PublicProfileData): HTMLElement {
@@ -521,17 +544,97 @@ function buildConversationSummarySection(data: PublicProfileData): HTMLElement {
   return section;
 }
 
+type PublicProfileTabId = 'dossier' | 'badges' | 'stories' | 'faction';
+
+type PublicProfileTabDef = {
+  id: PublicProfileTabId;
+  label: string;
+  allowScroll: boolean;
+  build: (data: PublicProfileData, leaderboardRank?: number | null) => HTMLElement;
+};
+
+function buildDossierPane(data: PublicProfileData, leaderboardRank?: number | null): HTMLElement {
+  const pane = document.createElement('div');
+  pane.className = 'public-profile-pane public-profile-pane-dossier';
+  pane.append(
+    buildPrestigeSummary(data, leaderboardRank ?? undefined),
+    buildStreakHighlights(data),
+  );
+  return pane;
+}
+
+function buildBadgesPane(data: PublicProfileData): HTMLElement {
+  const pane = document.createElement('div');
+  pane.className = 'public-profile-pane public-profile-pane-badges public-profile-pane-scroll';
+  pane.appendChild(buildAchievementsSection(data));
+  return pane;
+}
+
+function buildStoriesPane(data: PublicProfileData): HTMLElement {
+  const pane = document.createElement('div');
+  pane.className = 'public-profile-pane public-profile-pane-stories public-profile-pane-scroll';
+  pane.append(
+    buildConversationSummarySection(data),
+    buildRecentCards(data),
+  );
+  return pane;
+}
+
+function buildFactionPane(data: PublicProfileData): HTMLElement {
+  const pane = document.createElement('div');
+  pane.className = 'public-profile-pane public-profile-pane-faction public-profile-pane-scroll';
+  pane.appendChild(buildFactionBreakdown(data));
+  return pane;
+}
+
+const PUBLIC_PROFILE_TABS: PublicProfileTabDef[] = [
+  { id: 'dossier', label: 'Dossier', allowScroll: false, build: buildDossierPane },
+  { id: 'badges', label: 'Badges', allowScroll: true, build: (data) => buildBadgesPane(data) },
+  { id: 'stories', label: 'Stories', allowScroll: true, build: (data) => buildStoriesPane(data) },
+  { id: 'faction', label: 'Faction', allowScroll: true, build: (data) => buildFactionPane(data) },
+];
+
 export function renderPublicProfileView(options: PublicProfileViewOptions): HTMLElement {
   const root = document.createElement('div');
-  root.className = 'public-profile-view';
-  root.append(
-    buildHeader(options.data),
-    buildPrestigeSummary(options.data, options.leaderboardRank),
-    buildAchievementsSection(options.data),
-    buildConversationSummarySection(options.data),
-    buildRecentCards(options.data),
-    buildFactionBreakdown(options.data),
-    buildStreakHighlights(options.data),
-  );
+  root.className = 'public-profile-view public-profile-view-tabbed';
+
+  root.appendChild(buildHeader(options.data));
+
+  const tabBar = document.createElement('div');
+  tabBar.className = 'public-profile-tabbar';
+  tabBar.setAttribute('role', 'tablist');
+
+  const body = document.createElement('div');
+  body.className = 'public-profile-body';
+
+  const pills: HTMLButtonElement[] = [];
+  const activate = (index: number): void => {
+    const tab = PUBLIC_PROFILE_TABS[index];
+    for (let i = 0; i < pills.length; i++) {
+      const isActive = i === index;
+      pills[i].classList.toggle('is-active', isActive);
+      pills[i].setAttribute('aria-selected', String(isActive));
+      pills[i].tabIndex = isActive ? 0 : -1;
+    }
+    body.textContent = '';
+    body.dataset.tab = tab.id;
+    body.classList.toggle('allow-scroll', tab.allowScroll);
+    body.appendChild(tab.build(options.data, options.leaderboardRank));
+  };
+
+  PUBLIC_PROFILE_TABS.forEach((tab, index) => {
+    const pill = document.createElement('button');
+    pill.type = 'button';
+    pill.className = 'public-profile-tab-pill';
+    pill.setAttribute('role', 'tab');
+    pill.dataset.tab = tab.id;
+    pill.textContent = tab.label;
+    pill.addEventListener('click', () => activate(index));
+    pills.push(pill);
+    tabBar.appendChild(pill);
+  });
+
+  root.append(tabBar, body);
+  activate(0);
   return root;
 }

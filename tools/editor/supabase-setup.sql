@@ -1057,3 +1057,518 @@ BEGIN
   END IF;
 END;
 $$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Profile / Achievement Overhaul — Server-Authoritative Reward Helpers
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Unlock an achievement AND award its XP in one transaction. Returns whether
+-- the achievement was newly unlocked and the updated profile. XP is only
+-- awarded when the unlock is new, preventing re-award via replay.
+CREATE OR REPLACE FUNCTION unlock_achievement_rewarded(
+  p_publisher_id TEXT,
+  p_achievement_id TEXT,
+  p_xp INT DEFAULT 0
+)
+RETURNS TABLE(
+  was_new BOOLEAN,
+  achievement_id TEXT,
+  awarded_xp INT,
+  publisher_id TEXT,
+  username TEXT,
+  xp INT,
+  level INT,
+  title TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  inserted_row BIGINT;
+  v_was_new BOOLEAN := false;
+  v_awarded INT := 0;
+  computed RECORD;
+  new_xp INT;
+BEGIN
+  INSERT INTO user_achievements (publisher_id, achievement_id)
+  VALUES (p_publisher_id, p_achievement_id)
+  ON CONFLICT (publisher_id, achievement_id) DO NOTHING;
+  GET DIAGNOSTICS inserted_row = ROW_COUNT;
+  v_was_new := inserted_row > 0;
+
+  IF v_was_new AND p_xp > 0 THEN
+    UPDATE user_profiles
+    SET xp = user_profiles.xp + p_xp
+    WHERE user_profiles.publisher_id = p_publisher_id
+    RETURNING user_profiles.xp INTO new_xp;
+
+    IF FOUND THEN
+      SELECT * INTO computed FROM compute_level_and_title(new_xp);
+      UPDATE user_profiles
+      SET level = computed.new_level, title = computed.new_title
+      WHERE user_profiles.publisher_id = p_publisher_id;
+      v_awarded := p_xp;
+    END IF;
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    v_was_new,
+    p_achievement_id,
+    v_awarded,
+    up.publisher_id,
+    up.username,
+    up.xp,
+    up.level,
+    up.title
+  FROM user_profiles up
+  WHERE up.publisher_id = p_publisher_id;
+END;
+$$;
+
+-- Evaluate and apply all publish-related rewards after a conversation is
+-- saved. Returns an aggregate row including any newly unlocked achievements
+-- (as JSONB array) and the updated profile snapshot.
+CREATE OR REPLACE FUNCTION apply_publish_rewards(p_conversation_id UUID)
+RETURNS TABLE(
+  publisher_id TEXT,
+  username TEXT,
+  xp INT,
+  level INT,
+  title TEXT,
+  publish_xp INT,
+  achievement_xp INT,
+  newly_unlocked JSONB
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  conv RECORD;
+  pub_id TEXT;
+  complexity_xp INT := 150;
+  total_publishes INT := 0;
+  distinct_factions INT := 0;
+  faction_list TEXT[];
+  branch_count INT := 0;
+  v_publish_xp INT := 0;
+  v_ach_xp INT := 0;
+  unlocked JSONB := '[]'::jsonb;
+  ach RECORD;
+  hour_utc INT;
+  computed RECORD;
+  new_xp INT;
+BEGIN
+  SELECT c.publisher_id, c.branch_count, c.faction, c.complexity, c.created_at
+    INTO conv
+  FROM community_conversations c
+  WHERE c.id = p_conversation_id
+  LIMIT 1;
+
+  IF NOT FOUND OR conv.publisher_id IS NULL OR conv.publisher_id = '' THEN
+    RETURN;
+  END IF;
+
+  pub_id := conv.publisher_id;
+  branch_count := coalesce(conv.branch_count, 0);
+
+  -- Publish XP by complexity
+  IF conv.complexity = 'long' THEN complexity_xp := 300;
+  ELSIF conv.complexity = 'medium' THEN complexity_xp := 225;
+  ELSE complexity_xp := 150;
+  END IF;
+
+  -- Ensure profile row exists; skip rewards if missing (unregistered).
+  IF NOT EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.publisher_id = pub_id) THEN
+    RETURN;
+  END IF;
+
+  -- Award publish XP
+  UPDATE user_profiles
+  SET xp = user_profiles.xp + complexity_xp
+  WHERE user_profiles.publisher_id = pub_id
+  RETURNING user_profiles.xp INTO new_xp;
+  SELECT * INTO computed FROM compute_level_and_title(new_xp);
+  UPDATE user_profiles
+  SET level = computed.new_level, title = computed.new_title
+  WHERE user_profiles.publisher_id = pub_id;
+  v_publish_xp := complexity_xp;
+
+  -- Publisher totals
+  SELECT count(*)::INT, array_agg(DISTINCT c.faction)
+    INTO total_publishes, faction_list
+  FROM community_conversations c
+  WHERE c.publisher_id = pub_id;
+  distinct_factions := coalesce(array_length(faction_list, 1), 0);
+
+  hour_utc := EXTRACT(HOUR FROM (conv.created_at AT TIME ZONE 'UTC'))::INT;
+
+  -- Candidate achievements
+  -- (id, xp) pairs evaluated in order; each uses unlock_achievement_rewarded
+  -- which skips re-awards.
+  IF total_publishes >= 1 THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'first_publish', 25);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','first_publish','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+  IF total_publishes >= 2 THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'first_patrol', 20);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','first_patrol','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+  IF total_publishes >= 5 THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'cartographer', 65);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','cartographer','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+  IF total_publishes >= 10 THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'prolific_writer', 150);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','prolific_writer','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+  IF total_publishes >= 50 THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'zone_veteran', 500);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','zone_veteran','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+  IF branch_count >= 5 THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'branching_out', 30);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','branching_out','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+  IF branch_count >= 8 THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'branch_architect', 70);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','branch_architect','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+  IF distinct_factions >= 1 THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'new_faction_scout', 35);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','new_faction_scout','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+  IF distinct_factions >= 3 THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'faction_diplomat', 75);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','faction_diplomat','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+  IF hour_utc >= 22 OR hour_utc < 5 THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'night_shift', 45);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','night_shift','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+
+  RETURN QUERY
+  SELECT up.publisher_id, up.username, up.xp, up.level, up.title,
+         v_publish_xp, v_ach_xp, unlocked
+  FROM user_profiles up
+  WHERE up.publisher_id = pub_id;
+END;
+$$;
+
+-- Re-evaluate aggregate metric achievements (downloads / upvotes) for a
+-- publisher after their metrics change. Idempotent — re-award is suppressed.
+CREATE OR REPLACE FUNCTION apply_metric_rewards(p_publisher_id TEXT, p_metric_type TEXT)
+RETURNS TABLE(
+  publisher_id TEXT,
+  xp INT,
+  level INT,
+  title TEXT,
+  achievement_xp INT,
+  newly_unlocked JSONB
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  total_dl BIGINT := 0;
+  total_up BIGINT := 0;
+  v_ach_xp INT := 0;
+  unlocked JSONB := '[]'::jsonb;
+  ach RECORD;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.publisher_id = p_publisher_id) THEN
+    RETURN;
+  END IF;
+
+  IF p_metric_type = 'downloads' OR p_metric_type = 'both' THEN
+    SELECT coalesce(sum(c.downloads), 0) INTO total_dl
+    FROM community_conversations c
+    WHERE c.publisher_id = p_publisher_id;
+
+    IF total_dl >= 50 THEN
+      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'popular_stalker', 100);
+      IF ach.was_new THEN
+        v_ach_xp := v_ach_xp + ach.awarded_xp;
+        unlocked := unlocked || jsonb_build_object('achievement_id','popular_stalker','xp',ach.awarded_xp);
+      END IF;
+    END IF;
+    IF total_dl >= 100 THEN
+      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'download_centurion', 180);
+      IF ach.was_new THEN
+        v_ach_xp := v_ach_xp + ach.awarded_xp;
+        unlocked := unlocked || jsonb_build_object('achievement_id','download_centurion','xp',ach.awarded_xp);
+      END IF;
+    END IF;
+    IF total_dl >= 500 THEN
+      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'download_legion', 450);
+      IF ach.was_new THEN
+        v_ach_xp := v_ach_xp + ach.awarded_xp;
+        unlocked := unlocked || jsonb_build_object('achievement_id','download_legion','xp',ach.awarded_xp);
+      END IF;
+    END IF;
+  END IF;
+
+  IF p_metric_type = 'upvotes' OR p_metric_type = 'both' THEN
+    SELECT coalesce(sum(c.upvotes), 0) INTO total_up
+    FROM community_conversations c
+    WHERE c.publisher_id = p_publisher_id;
+
+    IF total_up >= 1 THEN
+      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'first_upvote_received', 20);
+      IF ach.was_new THEN
+        v_ach_xp := v_ach_xp + ach.awarded_xp;
+        unlocked := unlocked || jsonb_build_object('achievement_id','first_upvote_received','xp',ach.awarded_xp);
+      END IF;
+    END IF;
+    IF total_up >= 10 THEN
+      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'rising_signal', 45);
+      IF ach.was_new THEN
+        v_ach_xp := v_ach_xp + ach.awarded_xp;
+        unlocked := unlocked || jsonb_build_object('achievement_id','rising_signal','xp',ach.awarded_xp);
+      END IF;
+    END IF;
+    IF total_up >= 25 THEN
+      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'community_favorite', 100);
+      IF ach.was_new THEN
+        v_ach_xp := v_ach_xp + ach.awarded_xp;
+        unlocked := unlocked || jsonb_build_object('achievement_id','community_favorite','xp',ach.awarded_xp);
+      END IF;
+    END IF;
+    IF total_up >= 75 THEN
+      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'crowd_pleaser', 160);
+      IF ach.was_new THEN
+        v_ach_xp := v_ach_xp + ach.awarded_xp;
+        unlocked := unlocked || jsonb_build_object('achievement_id','crowd_pleaser','xp',ach.awarded_xp);
+      END IF;
+    END IF;
+    IF total_up >= 250 THEN
+      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'upvote_legend', 400);
+      IF ach.was_new THEN
+        v_ach_xp := v_ach_xp + ach.awarded_xp;
+        unlocked := unlocked || jsonb_build_object('achievement_id','upvote_legend','xp',ach.awarded_xp);
+      END IF;
+    END IF;
+  END IF;
+
+  RETURN QUERY
+  SELECT up.publisher_id, up.xp, up.level, up.title, v_ach_xp, unlocked
+  FROM user_profiles up
+  WHERE up.publisher_id = p_publisher_id;
+END;
+$$;
+
+-- Record a daily login. Advances the login streak by 1 on a fresh day,
+-- resets if a day was skipped. Unlocks login-streak achievements at
+-- known thresholds and returns the new streak + any unlocks.
+CREATE OR REPLACE FUNCTION record_daily_login(p_publisher_id TEXT)
+RETURNS TABLE(
+  publisher_id TEXT,
+  login_streak INT,
+  last_login_date TEXT,
+  newly_unlocked JSONB,
+  achievement_xp INT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  today_str TEXT := to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD');
+  prev_date TEXT;
+  prev_streak INT := 0;
+  new_streak INT;
+  v_ach_xp INT := 0;
+  unlocked JSONB := '[]'::jsonb;
+  ach RECORD;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.publisher_id = p_publisher_id) THEN
+    RETURN;
+  END IF;
+
+  SELECT s.last_login_date, s.login_streak INTO prev_date, prev_streak
+  FROM user_streaks s
+  WHERE s.publisher_id = p_publisher_id;
+
+  IF prev_date = today_str THEN
+    new_streak := GREATEST(prev_streak, 1);
+  ELSIF prev_date = to_char((now() AT TIME ZONE 'UTC')::date - 1, 'YYYY-MM-DD') THEN
+    new_streak := COALESCE(prev_streak, 0) + 1;
+  ELSE
+    new_streak := 1;
+  END IF;
+
+  INSERT INTO user_streaks (publisher_id, login_streak, last_login_date)
+  VALUES (p_publisher_id, new_streak, today_str)
+  ON CONFLICT (publisher_id) DO UPDATE SET
+    login_streak = GREATEST(user_streaks.login_streak, new_streak),
+    last_login_date = today_str,
+    updated_at = now();
+
+  -- Milestone unlocks
+  IF new_streak >= 1 THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'login_streak_1', 20);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','login_streak_1','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+  IF new_streak >= 7 THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'login_streak_7', 70);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','login_streak_7','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+  IF new_streak >= 30 THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'login_streak_30', 260);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','login_streak_30','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+
+  RETURN QUERY
+  SELECT p_publisher_id, new_streak, today_str, unlocked, v_ach_xp;
+END;
+$$;
+
+-- Evaluate tier / category collection completion achievements. Given the
+-- full set of achievement IDs, determines whether bronze_complete,
+-- silver_complete, gold_circuit, onboarding_complete, faction_complete,
+-- hidden_circuit should unlock for this user. Intended to be called after
+-- every unlock event.
+CREATE OR REPLACE FUNCTION apply_collection_rewards(
+  p_publisher_id TEXT,
+  p_bronze_ids TEXT[],
+  p_silver_ids TEXT[],
+  p_gold_ids TEXT[],
+  p_onboarding_ids TEXT[],
+  p_faction_ids TEXT[],
+  p_hidden_ids TEXT[]
+)
+RETURNS TABLE(newly_unlocked JSONB, achievement_xp INT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  owned TEXT[];
+  v_ach_xp INT := 0;
+  unlocked JSONB := '[]'::jsonb;
+  ach RECORD;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_profiles WHERE user_profiles.publisher_id = p_publisher_id) THEN
+    RETURN;
+  END IF;
+
+  SELECT array_agg(ua.achievement_id) INTO owned
+  FROM user_achievements ua
+  WHERE ua.publisher_id = p_publisher_id;
+  owned := COALESCE(owned, ARRAY[]::TEXT[]);
+
+  IF array_length(p_bronze_ids, 1) > 0 AND p_bronze_ids <@ owned THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'bronze_complete', 120);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','bronze_complete','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+  IF array_length(p_silver_ids, 1) > 0 AND p_silver_ids <@ owned THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'silver_complete', 220);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','silver_complete','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+  IF array_length(p_gold_ids, 1) > 0 AND p_gold_ids <@ owned THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'gold_circuit', 500);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','gold_circuit','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+  IF array_length(p_onboarding_ids, 1) > 0 AND p_onboarding_ids <@ owned THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'onboarding_complete', 140);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','onboarding_complete','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+  IF array_length(p_faction_ids, 1) > 0 AND p_faction_ids <@ owned THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'faction_complete', 180);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','faction_complete','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+  IF array_length(p_hidden_ids, 1) > 0 AND p_hidden_ids <@ owned THEN
+    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'hidden_circuit', 300);
+    IF ach.was_new THEN
+      v_ach_xp := v_ach_xp + ach.awarded_xp;
+      unlocked := unlocked || jsonb_build_object('achievement_id','hidden_circuit','xp',ach.awarded_xp);
+    END IF;
+  END IF;
+
+  RETURN QUERY SELECT unlocked, v_ach_xp;
+END;
+$$;
+
+-- Patch register_username to also unlock callsign_chosen (idempotent).
+-- We keep the original semantics and append the unlock side-effect.
+CREATE OR REPLACE FUNCTION register_username(p_publisher_id TEXT, p_username TEXT)
+RETURNS TABLE(publisher_id TEXT, username TEXT, xp INT, level INT, title TEXT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  clean_name TEXT := btrim(p_username);
+BEGIN
+  IF length(clean_name) < 3 OR length(clean_name) > 20 THEN
+    RAISE EXCEPTION 'Username must be 3–20 characters.';
+  END IF;
+  IF clean_name !~ '^[A-Za-z0-9_\-\.]+$' THEN
+    RAISE EXCEPTION 'Username may only contain letters, numbers, underscores, hyphens, and dots.';
+  END IF;
+
+  INSERT INTO user_profiles (publisher_id, username)
+  VALUES (p_publisher_id, clean_name)
+  ON CONFLICT ON CONSTRAINT user_profiles_pkey
+  DO UPDATE SET username = clean_name, updated_at = now();
+
+  -- Reward: callsign_chosen (idempotent, awards XP only on first unlock)
+  PERFORM unlock_achievement_rewarded(p_publisher_id, 'callsign_chosen', 15);
+
+  RETURN QUERY
+  SELECT up.publisher_id, up.username, up.xp, up.level, up.title, up.created_at, up.updated_at
+  FROM user_profiles up
+  WHERE up.publisher_id = p_publisher_id;
+END;
+$$;

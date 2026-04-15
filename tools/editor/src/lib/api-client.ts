@@ -65,6 +65,25 @@ export type PublishPayload = Omit<CommunityConversation, 'id' | 'downloads' | 'u
   replace_id?: string;
 };
 
+/**
+ * Server-authoritative reward payload returned from the publish / metric
+ * endpoints. The client should replace its cached profile state with
+ * `profile` and flash toasts for each entry in `unlocked`.
+ */
+export type ProfileRewardResult = {
+  profile: UserProfile | null;
+  unlocked: UserAchievement[];
+  publish_xp: number;
+  achievement_xp: number;
+  mission_xp: number;
+  total_xp: number;
+};
+
+export type PublishConversationResult = {
+  conversation_id?: string;
+  rewards?: ProfileRewardResult | null;
+};
+
 export type CommunityLibraryStats = {
   published_conversations: number;
   published_publishers: number;
@@ -406,7 +425,7 @@ export async function conversationLabelExists(label: string): Promise<boolean> {
   return rows.length > 0;
 }
 
-export async function publishConversation(payload: PublishPayload): Promise<void> {
+export async function publishConversation(payload: PublishPayload): Promise<PublishConversationResult> {
   const conversation = payload.data?.conversations?.[0];
   if (!conversation) {
     throw new PublishValidationError('No conversation selected to publish.', 'missing-conversation');
@@ -507,7 +526,14 @@ export async function publishConversation(payload: PublishPayload): Promise<void
         if (typeof window !== 'undefined') {
           window.localStorage.setItem(LOCAL_PUBLISH_KEY, String(Date.now()));
         }
-        return;
+        // Replacements do not award publish-rewards (they are for existing
+        // conversations). Return the conversation id if the server surfaced
+        // one, otherwise omit so callers know no rewards were applied.
+        const replaceJson = await res.json().catch(() => ({}));
+        return {
+          conversation_id: typeof replaceJson?.id === 'string' ? replaceJson.id : replaceId,
+          rewards: null,
+        };
       } catch (error) {
         lastError = error;
       }
@@ -557,11 +583,58 @@ export async function publishConversation(payload: PublishPayload): Promise<void
       if (typeof window !== 'undefined') {
         window.localStorage.setItem(LOCAL_PUBLISH_KEY, String(Date.now()));
       }
-      return;
+      return { conversation_id: replaceId, rewards: null };
     }
 
     throw lastError instanceof Error ? lastError : new Error('Failed to replace community conversation.');
   } else {
+    // Try the proxy server first — this is where server-authoritative reward
+    // evaluation happens. Fall back to direct Supabase for static-only
+    // deployments where no proxy is reachable (GitHub Pages, etc.).
+    let proxySucceeded = false;
+    let proxyResult: PublishConversationResult | null = null;
+    let lastProxyError: unknown = null;
+    for (const url of apiCandidates('/api/conversations')) {
+      try {
+        const proxyRes = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(publishBody),
+        });
+        if (proxyRes.status === 404 || proxyRes.status === 405) {
+          lastProxyError = new Error(`Proxy unavailable (${proxyRes.status})`);
+          continue;
+        }
+        if (!proxyRes.ok) {
+          const msg = await readErrorMessage(proxyRes).catch(() => `Publish failed (${proxyRes.status})`);
+          if (proxyRes.status === 409) {
+            throw new PublishValidationError('A community conversation with this title already exists.', 'duplicate-name');
+          }
+          throw new Error(msg);
+        }
+        const body = await proxyRes.json().catch(() => ({}));
+        const rewards = body && typeof body === 'object' && 'rewards' in body ? (body as { rewards: ProfileRewardResult | null }).rewards : null;
+        const conversationId = body && typeof body === 'object' && typeof (body as { conversation_id?: string }).conversation_id === 'string'
+          ? (body as { conversation_id: string }).conversation_id
+          : undefined;
+        proxyResult = { conversation_id: conversationId, rewards };
+        proxySucceeded = true;
+        break;
+      } catch (error) {
+        if (error instanceof PublishValidationError) throw error;
+        lastProxyError = error;
+      }
+    }
+
+    if (proxySucceeded && proxyResult) {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(LOCAL_PUBLISH_KEY, String(Date.now()));
+      }
+      return proxyResult;
+    }
+
+    // Static-mode fallback: write directly to Supabase. No server rewards
+    // are applied here; the client must rely on cached/local display state.
     const headers = { ...sbHeaders(), Prefer: 'return=minimal' };
     let res = await fetch(sbEndpoint(TABLE), {
       method: 'POST',
@@ -593,9 +666,15 @@ export async function publishConversation(payload: PublishPayload): Promise<void
           body: JSON.stringify(fallbackBody),
         });
         if (!res.ok) {
+          if (lastProxyError) {
+            // Surface the proxy error if Supabase also fails — it is usually
+            // more actionable than the REST error string.
+            throw lastProxyError instanceof Error ? lastProxyError : new Error(String(lastProxyError));
+          }
           throw new Error(await readErrorMessage(res));
         }
       } else {
+        if (lastProxyError instanceof PublishValidationError) throw lastProxyError;
         throw new Error(errorMessage);
       }
     }
@@ -603,6 +682,7 @@ export async function publishConversation(payload: PublishPayload): Promise<void
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(LOCAL_PUBLISH_KEY, String(Date.now()));
     }
+    return { conversation_id: undefined, rewards: null };
   }
 }
 
