@@ -5,6 +5,7 @@ import {
   AVATAR_FRAME_PRESETS,
   AVATAR_BANNER_PRESETS,
   AVATAR_EFFECT_PRESETS,
+  getAvatarColorPreset,
   type AvatarIconPreset,
   type AvatarColorPreset,
   type AvatarFramePreset,
@@ -101,7 +102,10 @@ function renderPreview(username: string, level: number, draft: UserCosmetics): H
   const avatar = document.createElement('div');
   avatar.className = `pa-avatar pa-avatar-preview-circle pa-avatar-frame-${frameId}${framePreset?.isAnimated ? ' pa-anim-frame' : ''}`;
 
-  if (draft.avatar_color) avatar.style.setProperty('--pa-avatar-color', String(draft.avatar_color));
+  // Resolve the actual hex color from the preset so CSS variables work correctly.
+  const colorPreset = getAvatarColorPreset(draft.avatar_color);
+  const colorValue = colorPreset?.color ?? '#5eaa3a';
+  avatar.style.setProperty('--pa-avatar-color', colorValue);
 
   const preset = AVATAR_ICON_PRESETS.find(item => item.id === draft.avatar_icon);
   const glyph = preset && preset.id !== 'default' ? preset.glyph : '';
@@ -109,6 +113,12 @@ function renderPreview(username: string, level: number, draft: UserCosmetics): H
   inner.className = 'pa-avatar-glyph';
   inner.textContent = glyph || getInitial(username);
   avatar.appendChild(inner);
+
+  // Ornament slot required for frame variants that use ::before/::after on it.
+  const previewOrnament = document.createElement('span');
+  previewOrnament.className = 'pa-avatar-ornament';
+  previewOrnament.setAttribute('aria-hidden', 'true');
+  avatar.appendChild(previewOrnament);
 
   const levelBadge = document.createElement('span');
   levelBadge.className = 'pa-avatar-level-chip';
@@ -304,7 +314,11 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
         sampleWrap.className = 'pa-avatar-chip-frame-sample-wrap';
         const sampleAvatar = document.createElement('span');
         const isAnim = preset.isAnimated ? ' pa-anim-frame' : '';
-        sampleAvatar.className = `pa-avatar pa-avatar-sm pa-avatar-frame-${preset.variant} pa-avatar-chip-frame-sample${isAnim}`;
+        sampleAvatar.className = `pa-avatar pa-avatar-frame-${preset.variant} pa-avatar-chip-frame-sample${isAnim}`;
+        // Apply the user's currently selected tint so color-dependent frames
+        // (radioactive, plasma, neon, etc.) show the right colour in the picker.
+        const chipColorPreset = getAvatarColorPreset(draft.avatar_color);
+        sampleAvatar.style.setProperty('--pa-avatar-color', chipColorPreset?.color ?? '#5eaa3a');
         const glyph = document.createElement('span');
         glyph.className = 'pa-avatar-glyph';
         glyph.textContent = 'A';

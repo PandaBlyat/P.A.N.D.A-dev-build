@@ -16847,20 +16847,23 @@ strong.support-upvote-count {
   scrollbar-width: thin;
 }
 
+/* Compact tile: icon on top, name below. All detail is in the tooltip popup. */
 .public-profile-badge-tile {
   min-width: 0;
-  min-height: 98px;
-  display: grid;
-  align-content: center;
-  justify-items: center;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 10px 8px;
+  padding: 10px 6px 8px;
   border: 1px solid color-mix(in srgb, var(--profile-accent) 12%, var(--border));
   border-radius: 8px;
   background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
   color: var(--text);
   text-align: center;
   overflow: hidden;
+  cursor: pointer;
   transition: transform 150ms ease, border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
 }
 
@@ -16870,6 +16873,13 @@ strong.support-upvote-count {
   border-color: color-mix(in srgb, var(--profile-accent) 38%, var(--border-light));
   background: color-mix(in srgb, var(--profile-accent) 10%, var(--bg-panel));
   box-shadow: 0 10px 18px rgba(0,0,0,0.24);
+}
+
+.public-profile-badge-tile.is-badge-active {
+  border-color: color-mix(in srgb, var(--profile-accent) 55%, var(--border-light));
+  background: color-mix(in srgb, var(--profile-accent) 14%, var(--bg-panel));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--profile-accent) 30%, transparent),
+              0 10px 22px rgba(0,0,0,0.28);
 }
 
 .public-profile-badge-icon-wrap,
@@ -16889,8 +16899,8 @@ strong.support-upvote-count {
 }
 
 .panda-badge-icon {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
 }
 
 .panda-badge-icon[data-state='locked-visible'] {
@@ -16903,29 +16913,76 @@ strong.support-upvote-count {
   filter: grayscale(1) blur(0.2px);
 }
 
-.public-profile-badge-name,
-.public-profile-badge-meta {
+/* Badge name: compact single line, ellipsis on overflow. */
+.public-profile-badge-name {
   max-width: 100%;
   overflow: hidden;
-  word-break: break-word;
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-dim);
+}
+
+/* -------------------------------------------------------------------------
+   Badge tooltip — body-appended fixed popup shown on tile click.
+   ------------------------------------------------------------------------- */
+.public-profile-badge-tooltip {
+  position: fixed;
+  z-index: 9900;
+  width: 260px;
+  background: var(--bg-panel, #1a1e18);
+  border: 1px solid color-mix(in srgb, var(--border, rgba(255,255,255,0.1)) 80%, transparent);
+  border-radius: 12px;
+  padding: 18px 16px 14px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  animation: badgeTooltipIn 180ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  pointer-events: auto;
+}
+
+@keyframes badgeTooltipIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.public-profile-badge-tooltip-unlocked {
+  border-color: color-mix(in srgb, var(--profile-accent, var(--accent)) 35%, var(--border));
+}
+
+.public-profile-badge-tooltip-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 6px;
+}
+
+.public-profile-badge-tooltip-name {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--text, #f0f0f0);
+  text-align: center;
   line-height: 1.2;
 }
 
-.public-profile-badge-name {
+.public-profile-badge-tooltip-meta {
   font-size: 0.72rem;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  max-height: 2.4em;
+  color: var(--text-dim, #a0a8a0);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
 }
 
-.public-profile-badge-meta {
-  font-size: 0.64rem;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
-  max-height: 1.2em;
+.public-profile-badge-tooltip-desc {
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--text-dim, #a0a8a0) 85%, transparent);
+  text-align: center;
+  line-height: 1.45;
+  margin: 4px 0 0;
 }
 
 /* =========================================================================
@@ -17305,13 +17362,40 @@ strong.support-upvote-count {
   padding: 12px 20px;
   border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 12px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.02) 0%, rgba(0,0,0,0.2) 100%);
+  /* User's banner gradient sits underneath the dark overlay so it shows as
+     a subtle colour tint without making the text unreadable. */
+  background:
+    linear-gradient(90deg, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.76) 100%),
+    var(--row-banner, linear-gradient(90deg, rgba(255,255,255,0.02) 0%, rgba(0,0,0,0.12) 100%));
   color: var(--text);
   cursor: pointer;
   overflow: hidden;
   animation: leaderboardRowIn 400ms var(--spring-easing) both;
   animation-delay: var(--rank-delay, 0ms);
   transition: all 250ms var(--smooth-easing);
+}
+
+/* VFX layer inside the row.  Shares the chip-effect-sample CSS for its
+   data-effect animations; opacity is kept very low so text stays legible. */
+.panda-leaderboard-row-effect {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.09;
+  mix-blend-mode: screen;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+/* Elevate all grid-child elements above the VFX layer. */
+.panda-leaderboard-row > .panda-leaderboard-rank,
+.panda-leaderboard-row > .pa-avatar,
+.panda-leaderboard-row > .panda-leaderboard-identity,
+.panda-leaderboard-row > .panda-leaderboard-xp,
+.panda-leaderboard-row > .panda-leaderboard-level {
+  position: relative;
+  z-index: 1;
 }
 
 /* Left Indicator Strip */
@@ -17327,7 +17411,9 @@ strong.support-upvote-count {
 
 .panda-leaderboard-row:hover {
   transform: translateX(4px) scale(1.01);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--rank-color, var(--accent)) 10%, transparent) 0%, rgba(0,0,0,0.4) 100%);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--rank-color, var(--accent)) 14%, rgba(0,0,0,0.5)) 0%, rgba(0,0,0,0.55) 100%),
+    var(--row-banner, transparent);
   border-color: color-mix(in srgb, var(--rank-color, var(--accent)) 40%, transparent);
   box-shadow: 0 10px 20px rgba(0,0,0,0.3);
 }
@@ -17978,11 +18064,14 @@ button.pa-avatar:focus-visible {
    ------------------------------------------------------------------------- */
 .pa-avatar-preview {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 16px;
-  padding: 32px 20px 24px; border-radius: 16px;
+  padding: 32px 24px 24px; border-radius: 16px;
   background: linear-gradient(145deg, var(--pa-bg-panel), var(--pa-bg-base));
   border: 1px solid var(--pa-border);
   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02), 0 10px 30px rgba(0,0,0,0.5);
-  overflow: hidden; isolation: isolate;
+  /* overflow: visible so frame ornaments (halo ring, omega burst etc.) that
+     extend outside the avatar circle are not clipped by this container. */
+  overflow: visible;
+  isolation: isolate;
 }
 .pa-avatar-preview::after {
   content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: 16px;
@@ -18003,10 +18092,12 @@ button.pa-avatar:focus-visible {
 .pa-avatar-preview-banner {
   position: absolute; inset: 0; z-index: 0; pointer-events: none;
   background: var(--panel-banner, linear-gradient(115deg, rgba(109, 191, 67, 0.15), transparent 60%));
+  border-radius: 16px;
+  overflow: hidden;
 }
 
 /* Avatar Elements inside Preview */
-.pa-avatar-preview-circle-wrap { position: relative; z-index: 5; display: flex; flex-direction: column; align-items: center; margin-top: 10px;}
+.pa-avatar-preview-circle-wrap { position: relative; z-index: 5; display: flex; flex-direction: column; align-items: center; margin-top: 16px; padding: 12px 12px 0; }
 .pa-avatar-preview-circle { 
   --pa-avatar-size: 104px; --pa-avatar-font: 44px; 
   box-shadow: 0 15px 35px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.8); 
@@ -18108,6 +18199,12 @@ button.pa-avatar:focus-visible {
   box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.2), inset 0 -4px 10px rgba(0, 0, 0, 0.4), 0 4px 10px rgba(0, 0, 0, 0.5);
   z-index: 2;
 }
+/* Frame chips need overflow: visible so ornament rings / crown crests that
+   extend outside the avatar circle aren't clipped by the chip boundary. */
+.pa-avatar-chip-frame {
+  overflow: visible;
+}
+
 /* Frame picker sample — reuses the full .pa-avatar rendering so variants
    (ornaments, ::after crests, animated borders) paint exactly as in-game. */
 .pa-avatar-chip-frame-sample-wrap {
@@ -18115,15 +18212,14 @@ button.pa-avatar:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
+  /* 72px gives breathing room for ornaments that extend up to 12px outside
+     a 48px circle (e.g. halo, omega), plus crown crests that sit above. */
+  width: 72px;
+  height: 72px;
   z-index: 2;
-  /* Room for frames that render outside the circle (halo, crown, omega). */
-  margin-top: 6px;
-  padding-top: 4px;
+  margin-top: 4px;
 }
 .pa-avatar-chip-frame-sample.pa-avatar {
-  --pa-avatar-color: var(--pa-accent);
   --pa-avatar-size: 48px;
   --pa-avatar-font: 18px;
   box-shadow:
@@ -18235,7 +18331,7 @@ button.pa-avatar:focus-visible {
    VFX & Effect Integrations (Preserving your existing data-effects)
    ========================================================================= */
 
-.pa-avatar-preview-effect { position: absolute; inset: 0; z-index: 1; pointer-events: none; mix-blend-mode: screen; }
+.pa-avatar-preview-effect { position: absolute; inset: 0; z-index: 1; pointer-events: none; mix-blend-mode: screen; border-radius: 16px; overflow: hidden; }
 
 /* STANDARD EFFECTS */
 .pa-avatar-preview-effect[data-effect='scanlines'], .pa-avatar-chip-effect-sample[data-effect='scanlines'] {
@@ -18663,8 +18759,7 @@ button.pa-avatar:focus-visible {
   }
 
   .public-profile-badge-tile {
-    min-height: 88px;
-    padding: 7px 6px;
+    padding: 8px 6px;
   }
 
   .public-profile-body-single .public-profile-section:nth-child(6) .public-profile-recent-grid {
@@ -19013,28 +19108,18 @@ button.pa-avatar:focus-visible {
   }
 
   .public-profile-badge-tile {
-    min-height: 84px !important;
-    padding: 7px 6px !important;
-    gap: 3px;
+    padding: 8px 5px !important;
+    gap: 4px;
   }
 
   .public-profile-badge-icon-wrap .panda-badge-icon,
   .public-profile-badge-tile .panda-badge-icon {
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
   }
 
   .public-profile-badge-name {
-    min-height: 0;
-    font-size: 0.66rem;
-    line-height: 1.12;
-    -webkit-line-clamp: 2;
-    max-height: 2.2em;
-  }
-
-  .public-profile-badge-meta {
-    font-size: 0.56rem;
-    line-height: 1.1;
+    font-size: 0.62rem;
   }
 }
 
