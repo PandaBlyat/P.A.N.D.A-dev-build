@@ -299,6 +299,7 @@ function buildSection(titleText: string, iconName: Parameters<typeof createIcon>
 
 function buildPrestigeSummary(data: PublicProfileData, leaderboardRank?: number | null): HTMLElement {
   const section = buildSection('Prestige summary', 'trophy', 'Rank, quality, streaks, and rare unlocks.');
+  section.classList.add('public-profile-section-prestige');
   const metrics = document.createElement('div');
   metrics.className = 'public-profile-prestige-grid';
 
@@ -338,6 +339,7 @@ function buildPrestigeSummary(data: PublicProfileData, leaderboardRank?: number 
 
 function buildAchievementsSection(data: PublicProfileData): HTMLElement {
   const section = buildSection('Badge wall', 'medal', 'Unlocked badges are highlighted. Silhouettes are visible badges not yet earned; question marks are still a mystery.');
+  section.classList.add('public-profile-section-badges');
   const unlocked = new Set(getUnlockedAchievements(data));
 
   const catalog = getWallAchievementCatalog();
@@ -428,6 +430,7 @@ function buildBadgeTile(
 
 function buildFactionBreakdown(data: PublicProfileData): HTMLElement {
   const section = buildSection('Faction breakdown', 'target', 'Published work by faction.');
+  section.classList.add('public-profile-section-faction');
   const rows = document.createElement('div');
   rows.className = 'public-profile-faction-list';
 
@@ -485,6 +488,7 @@ function buildFactionBreakdown(data: PublicProfileData): HTMLElement {
 
 function buildStreakHighlights(data: PublicProfileData): HTMLElement {
   const section = buildSection('Streak highlights', 'flame', 'Publish and login rhythm.');
+  section.classList.add('public-profile-section-streaks');
   const grid = document.createElement('div');
   grid.className = 'public-profile-streak-grid';
 
@@ -514,11 +518,13 @@ function buildStreakHighlights(data: PublicProfileData): HTMLElement {
 
 function buildRecentCards(data: PublicProfileData): HTMLElement {
   const section = buildSection('Recently published', 'export', 'Latest public conversations.');
+  section.classList.add('public-profile-section-recent');
   const cards = document.createElement('div');
   cards.className = 'public-profile-recent-grid';
 
   const recent = data.authored_conversations.slice(0, 4);
   if (recent.length === 0) {
+    section.classList.add('public-profile-section-recent-empty');
     const empty = document.createElement('div');
     empty.className = 'public-profile-empty';
     empty.textContent = 'No public conversations available from this publisher yet.';
@@ -594,6 +600,7 @@ function buildRecentCards(data: PublicProfileData): HTMLElement {
 
 function buildConversationSummarySection(data: PublicProfileData): HTMLElement {
   const section = buildSection('Publishing footprint', 'clock', 'Catalog range and branch density.');
+  section.classList.add('public-profile-section-footprint');
   const strip = document.createElement('div');
   strip.className = 'public-profile-footprint-strip';
 

@@ -18717,3 +18717,124 @@ button.pa-avatar:focus-visible {
     max-height: 360px;
   }
 }
+
+/* Class-based profile layout; overrides older nth-child positioning. */
+.public-profile-body-single {
+  align-items: start;
+}
+
+.public-profile-section-recent .public-profile-empty {
+  margin: 8px 14px 14px;
+}
+
+@media (min-width: 1180px) {
+  .public-profile-body-single {
+    grid-template-columns: minmax(250px, 0.82fr) minmax(250px, 0.82fr) minmax(340px, 1.05fr) !important;
+  }
+
+  .public-profile-section-prestige {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+  }
+
+  .public-profile-section-streaks {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+  }
+
+  .public-profile-section-footprint {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+  }
+
+  .public-profile-section-faction {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+  }
+
+  .public-profile-section-recent {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+  }
+
+  .public-profile-section-recent:not(.public-profile-section-recent-empty) {
+    grid-row: 1 / span 3 !important;
+  }
+
+  .public-profile-section-badges {
+    grid-column: 1 / span 2 !important;
+    grid-row: 3 !important;
+  }
+
+  .public-profile-section-recent-empty + .public-profile-section-badges,
+  .public-profile-section-badges {
+    min-height: 0;
+  }
+
+  .public-profile-section-recent:not(.public-profile-section-recent-empty) .public-profile-recent-grid {
+    max-height: min(62vh, 620px);
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .public-profile-section-recent-empty .public-profile-recent-grid {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 1179px) and (min-width: 901px) {
+  .public-profile-body-single {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.88fr) !important;
+  }
+
+  .public-profile-section-prestige,
+  .public-profile-section-streaks,
+  .public-profile-section-footprint,
+  .public-profile-section-faction {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+  }
+
+  .public-profile-section-recent {
+    grid-column: 2 !important;
+    grid-row: 1 / span 4 !important;
+  }
+
+  .public-profile-section-recent-empty {
+    grid-row: 1 !important;
+  }
+
+  .public-profile-section-badges {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+
+  .public-profile-section-recent:not(.public-profile-section-recent-empty) .public-profile-recent-grid {
+    max-height: min(58vh, 540px);
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}
+
+@media (min-width: 901px) and (max-height: 900px) {
+  .public-profile-badge-wall {
+    max-height: min(32vh, 300px);
+  }
+
+  .public-profile-section-recent:not(.public-profile-section-recent-empty) .public-profile-recent-grid {
+    max-height: calc(100dvh - 260px);
+  }
+}
+
+@media (max-width: 900px) {
+  .public-profile-section-prestige,
+  .public-profile-section-streaks,
+  .public-profile-section-footprint,
+  .public-profile-section-faction,
+  .public-profile-section-recent,
+  .public-profile-section-badges {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+}
