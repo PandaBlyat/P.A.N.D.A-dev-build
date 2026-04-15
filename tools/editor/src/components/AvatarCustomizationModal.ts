@@ -1,7 +1,7 @@
 // P.A.N.D.A. — Avatar customization modal.
 //
 // Opens when the user clicks their own avatar inside the profile popover.
-// Lets the user pick an icon glyph, tint color, frame, and banner preset,
+// Lets the user pick an icon glyph, tint color, frame, banner preset, and VFX,
 // previews the result live, and persists it via updateUserCosmetics().
 
 import {
@@ -9,15 +9,17 @@ import {
   AVATAR_COLOR_PRESETS,
   AVATAR_FRAME_PRESETS,
   AVATAR_BANNER_PRESETS,
+  AVATAR_EFFECT_PRESETS, // Ensure you export this from avatar-catalog.ts
   type AvatarIconPreset,
   type AvatarColorPreset,
   type AvatarFramePreset,
   type AvatarBannerPreset,
+  type AvatarEffectPreset,
 } from '../lib/avatar-catalog';
 import {
   updateUserCosmetics,
   type UserProfile,
-  type UserCosmetics,
+  type UserCosmetics, // Note: Ensure UserCosmetics interface in api-client allows `avatar_effect?: string;`
 } from '../lib/api-client';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 
@@ -33,7 +35,10 @@ let activeOverlay: HTMLElement | null = null;
 let activeTrap: FocusTrapController | null = null;
 let activeReturnFocus: HTMLElement | null = null;
 
-function closeModal() {
+// Lock SVG Icon for Level-Gated items
+const LOCK_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`;
+
+export function closeAvatarCustomizationModal(): void {
   if (!activeOverlay) return;
   activeTrap?.release();
   activeTrap = null;
@@ -50,7 +55,7 @@ function closeModal() {
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     event.preventDefault();
-    closeModal();
+    closeAvatarCustomizationModal();
   }
 }
 
@@ -60,25 +65,33 @@ function getInitial(username: string): string {
 
 /**
  * Build a preview swatch that mirrors how the avatar will render in the hero
- * card across the app. Keeps the visual language of the real avatar so the
- * user sees exactly what they'll get.
+ * card across the app. Includes the new VFX layer and animations.
  */
-function renderPreview(
-  username: string,
-  level: number,
-  draft: UserCosmetics,
-): HTMLElement {
+function renderPreview(username: string, level: number, draft: UserCosmetics): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'pa-avatar-preview';
 
+  const bannerPreset = AVATAR_BANNER_PRESETS.find(p => p.id === draft.avatar_banner);
   const banner = document.createElement('div');
-  banner.className = 'pa-avatar-preview-banner';
+  banner.className = `pa-avatar-preview-banner${bannerPreset?.isAnimated ? ' pa-anim-bg' : ''}`;
   if (draft.avatar_banner) banner.dataset.banner = String(draft.avatar_banner);
 
-  const avatar = document.createElement('div');
+  const effectLayer = document.createElement('div');
+  effectLayer.className = 'pa-avatar-preview-effect';
+  if (draft.avatar_effect && draft.avatar_effect !== 'none') {
+    effectLayer.dataset.effect = String(draft.avatar_effect);
+  }
+
+  const avatarWrap = document.createElement('div');
+  avatarWrap.className = 'pa-avatar-preview-circle-wrap';
+
+  const framePreset = AVATAR_FRAME_PRESETS.find(p => p.id === draft.avatar_frame);
   const frameId = typeof draft.avatar_frame === 'string' ? draft.avatar_frame : 'none';
-  avatar.className = `pa-avatar pa-avatar-preview-circle pa-avatar-frame-${frameId}`;
+  const avatar = document.createElement('div');
+  avatar.className = `pa-avatar pa-avatar-preview-circle pa-avatar-frame-${frameId}${framePreset?.isAnimated ? ' pa-anim-frame' : ''}`;
+  
   if (draft.avatar_color) avatar.style.setProperty('--pa-avatar-color', String(draft.avatar_color));
+  
   const preset = AVATAR_ICON_PRESETS.find(item => item.id === draft.avatar_icon);
   const glyph = preset && preset.id !== 'default' ? preset.glyph : '';
   const inner = document.createElement('span');
@@ -89,7 +102,8 @@ function renderPreview(
   const levelBadge = document.createElement('span');
   levelBadge.className = 'pa-avatar-level-chip';
   levelBadge.textContent = `Lv.${level}`;
-  avatar.appendChild(levelBadge);
+  
+  avatarWrap.append(avatar, levelBadge);
 
   const copy = document.createElement('div');
   copy.className = 'pa-avatar-preview-copy';
@@ -101,192 +115,57 @@ function renderPreview(
   caption.textContent = 'Preview — Stalker dossier header';
   copy.append(title, caption);
 
-  wrap.append(banner, avatar, copy);
+  wrap.append(banner, effectLayer, avatarWrap, copy);
   return wrap;
 }
 
-function renderIconSection(draft: UserCosmetics, rerender: () => void): HTMLElement {
-  const section = document.createElement('section');
-  section.className = 'pa-avatar-section';
-  const head = document.createElement('div');
-  head.className = 'pa-avatar-section-head';
-  const heading = document.createElement('h4');
-  heading.textContent = 'Icon';
-  const hint = document.createElement('span');
-  hint.textContent = 'Pick the glyph shown in your avatar circle.';
-  hint.className = 'pa-avatar-section-hint';
-  head.append(heading, hint);
+/**
+ * Reusable function to build individual cosmetic buttons with Level Gating UI.
+ */
+function buildCosmeticButton(
+  item: { id: string; label: string; minLevel?: number },
+  isActive: boolean,
+  userLevel: number,
+  baseClass: string,
+  onClick: () => void
+): HTMLButtonElement {
+  const locked = item.minLevel !== undefined && userLevel < item.minLevel;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `pa-avatar-chip ${baseClass}${isActive ? ' is-active' : ''}${locked ? ' is-locked' : ''}`;
+  button.setAttribute('aria-pressed', String(isActive));
+  button.disabled = locked;
 
-  const grid = document.createElement('div');
-  grid.className = 'pa-avatar-grid pa-avatar-grid-icons';
-
-  const byCategory = new Map<string, AvatarIconPreset[]>();
-  for (const preset of AVATAR_ICON_PRESETS) {
-    const list = byCategory.get(preset.category) ?? [];
-    list.push(preset);
-    byCategory.set(preset.category, list);
+  if (locked) {
+    const lockBadge = document.createElement('div');
+    lockBadge.className = 'pa-avatar-chip-lock';
+    lockBadge.innerHTML = LOCK_ICON;
+    button.appendChild(lockBadge);
+    button.title = `Unlocks at Level ${item.minLevel}`;
+  } else {
+    button.title = item.label;
+    button.addEventListener('click', onClick);
   }
 
-  byCategory.forEach((presets) => {
-    for (const preset of presets) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      const isActive = (draft.avatar_icon ?? 'default') === preset.id;
-      button.className = `pa-avatar-chip pa-avatar-chip-icon${isActive ? ' is-active' : ''}`;
-      button.title = preset.label;
-      button.setAttribute('aria-pressed', String(isActive));
-      const glyph = document.createElement('span');
-      glyph.className = 'pa-avatar-chip-glyph';
-      glyph.textContent = preset.id === 'default' ? 'A' : preset.glyph;
-      const label = document.createElement('span');
-      label.className = 'pa-avatar-chip-label';
-      label.textContent = preset.label;
-      button.append(glyph, label);
-      button.addEventListener('click', () => {
-        draft.avatar_icon = preset.id;
-        rerender();
-      });
-      grid.appendChild(button);
-    }
-  });
-
-  section.append(head, grid);
-  return section;
-}
-
-function renderColorSection(draft: UserCosmetics, rerender: () => void): HTMLElement {
-  const section = document.createElement('section');
-  section.className = 'pa-avatar-section';
-  const head = document.createElement('div');
-  head.className = 'pa-avatar-section-head';
-  const heading = document.createElement('h4');
-  heading.textContent = 'Tint';
-  const hint = document.createElement('span');
-  hint.textContent = 'Color your ring and frame.';
-  hint.className = 'pa-avatar-section-hint';
-  head.append(heading, hint);
-
-  const grid = document.createElement('div');
-  grid.className = 'pa-avatar-grid pa-avatar-grid-colors';
-
-  for (const preset of AVATAR_COLOR_PRESETS as AvatarColorPreset[]) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    const isActive = draft.avatar_color === preset.id;
-    button.className = `pa-avatar-chip pa-avatar-chip-color${isActive ? ' is-active' : ''}`;
-    button.title = preset.label;
-    button.setAttribute('aria-pressed', String(isActive));
-    button.style.setProperty('--pa-swatch', preset.color);
-    const swatch = document.createElement('span');
-    swatch.className = 'pa-avatar-chip-swatch';
-    const label = document.createElement('span');
-    label.className = 'pa-avatar-chip-label';
-    label.textContent = preset.label;
-    button.append(swatch, label);
-    button.addEventListener('click', () => {
-      draft.avatar_color = preset.id;
-      rerender();
-    });
-    grid.appendChild(button);
-  }
-
-  section.append(head, grid);
-  return section;
-}
-
-function renderFrameSection(draft: UserCosmetics, level: number, rerender: () => void): HTMLElement {
-  const section = document.createElement('section');
-  section.className = 'pa-avatar-section';
-  const head = document.createElement('div');
-  head.className = 'pa-avatar-section-head';
-  const heading = document.createElement('h4');
-  heading.textContent = 'Frame';
-  const hint = document.createElement('span');
-  hint.textContent = 'Higher levels unlock ornate frames.';
-  hint.className = 'pa-avatar-section-hint';
-  head.append(heading, hint);
-
-  const grid = document.createElement('div');
-  grid.className = 'pa-avatar-grid pa-avatar-grid-frames';
-
-  for (const preset of AVATAR_FRAME_PRESETS as AvatarFramePreset[]) {
-    const locked = preset.minLevel !== undefined && level < preset.minLevel;
-    const button = document.createElement('button');
-    button.type = 'button';
-    const isActive = (draft.avatar_frame ?? 'none') === preset.id;
-    button.className = `pa-avatar-chip pa-avatar-chip-frame${isActive ? ' is-active' : ''}${locked ? ' is-locked' : ''}`;
-    button.title = locked ? `Unlocks at Level ${preset.minLevel}` : preset.label;
-    button.setAttribute('aria-pressed', String(isActive));
-    button.disabled = locked;
-    const sample = document.createElement('span');
-    sample.className = `pa-avatar-chip-frame-sample pa-avatar-frame-${preset.variant}`;
-    const label = document.createElement('span');
-    label.className = 'pa-avatar-chip-label';
-    label.textContent = locked ? `${preset.label} · Lv.${preset.minLevel}` : preset.label;
-    button.append(sample, label);
-    button.addEventListener('click', () => {
-      if (locked) return;
-      draft.avatar_frame = preset.id;
-      rerender();
-    });
-    grid.appendChild(button);
-  }
-
-  section.append(head, grid);
-  return section;
-}
-
-function renderBannerSection(draft: UserCosmetics, rerender: () => void): HTMLElement {
-  const section = document.createElement('section');
-  section.className = 'pa-avatar-section';
-  const head = document.createElement('div');
-  head.className = 'pa-avatar-section-head';
-  const heading = document.createElement('h4');
-  heading.textContent = 'Banner';
-  const hint = document.createElement('span');
-  hint.textContent = 'Background behind your dossier hero.';
-  hint.className = 'pa-avatar-section-hint';
-  head.append(heading, hint);
-
-  const grid = document.createElement('div');
-  grid.className = 'pa-avatar-grid pa-avatar-grid-banners';
-
-  for (const preset of AVATAR_BANNER_PRESETS as AvatarBannerPreset[]) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    const isActive = (draft.avatar_banner ?? 'default') === preset.id;
-    button.className = `pa-avatar-chip pa-avatar-chip-banner${isActive ? ' is-active' : ''}`;
-    button.setAttribute('aria-pressed', String(isActive));
-    button.title = preset.label;
-    const swatch = document.createElement('span');
-    swatch.className = 'pa-avatar-chip-banner-sample';
-    swatch.style.background = preset.gradient;
-    const label = document.createElement('span');
-    label.className = 'pa-avatar-chip-label';
-    label.textContent = preset.label;
-    button.append(swatch, label);
-    button.addEventListener('click', () => {
-      draft.avatar_banner = preset.id;
-      rerender();
-    });
-    grid.appendChild(button);
-  }
-
-  section.append(head, grid);
-  return section;
+  return button;
 }
 
 export function openAvatarCustomizationModal(options: OpenOptions): void {
-  closeModal();
+  closeAvatarCustomizationModal();
 
   const { profile, onSaved, returnFocus } = options;
+  const userLevel = profile.level ?? 1;
 
   const draft: UserCosmetics = {
     avatar_icon: profile.avatar_icon ?? 'default',
     avatar_color: profile.avatar_color ?? 'loner',
     avatar_frame: profile.avatar_frame ?? 'none',
     avatar_banner: profile.avatar_banner ?? 'default',
+    avatar_effect: profile.avatar_effect ?? 'none',
   };
+
+  type TabId = 'icon' | 'color' | 'frame' | 'banner' | 'effect';
+  let activeTab: TabId = 'icon';
 
   const backdrop = document.createElement('div');
   backdrop.className = 'pa-avatar-modal-backdrop';
@@ -294,74 +173,162 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
   backdrop.setAttribute('aria-modal', 'true');
   backdrop.setAttribute('aria-label', 'Customize avatar');
   backdrop.addEventListener('click', (event) => {
-    if (event.target === backdrop) closeModal();
+    if (event.target === backdrop) closeAvatarCustomizationModal();
   });
 
   const dialog = document.createElement('div');
   dialog.className = 'pa-avatar-modal';
 
+  // --- Header ---
   const header = document.createElement('header');
   header.className = 'pa-avatar-modal-header';
-  const title = document.createElement('h3');
-  title.textContent = 'Customize your dossier';
-  const sub = document.createElement('p');
-  sub.className = 'pa-avatar-modal-subtitle';
-  sub.textContent = 'Dress the Zone — icon, tint, frame, and banner all update instantly.';
+  const titleWrap = document.createElement('div');
+  titleWrap.innerHTML = `<h3>Customize your dossier</h3><p class="pa-avatar-modal-subtitle">Dress the Zone — Icon, tint, frame, banner, and VFX.</p>`;
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'pa-avatar-modal-close';
   closeBtn.setAttribute('aria-label', 'Close');
   closeBtn.textContent = '\u2715';
-  closeBtn.addEventListener('click', closeModal);
-  const titleWrap = document.createElement('div');
-  titleWrap.append(title, sub);
+  closeBtn.addEventListener('click', closeAvatarCustomizationModal);
   header.append(titleWrap, closeBtn);
 
+  // --- Body ---
   const body = document.createElement('div');
   body.className = 'pa-avatar-modal-body';
 
   const previewSlot = document.createElement('div');
   previewSlot.className = 'pa-avatar-modal-preview-slot';
 
-  const sections = document.createElement('div');
-  sections.className = 'pa-avatar-modal-sections';
+  const workspace = document.createElement('div');
+  workspace.className = 'pa-avatar-modal-workspace';
 
-  const rerender = () => {
+  // --- Tabs Navigation ---
+  const tabBar = document.createElement('nav');
+  tabBar.className = 'pa-avatar-tabs';
+  const tabs: { id: TabId; label: string }[] = [
+    { id: 'icon', label: 'Icons' },
+    { id: 'color', label: 'Tints' },
+    { id: 'frame', label: 'Frames' },
+    { id: 'banner', label: 'Banners' },
+    { id: 'effect', label: 'VFX' },
+  ];
+
+  const tabButtons = new Map<TabId, HTMLButtonElement>();
+  tabs.forEach(tab => {
+    const btn = document.createElement('button');
+    btn.className = 'pa-avatar-tab-btn';
+    btn.textContent = tab.label;
+    btn.addEventListener('click', () => {
+      activeTab = tab.id;
+      renderWorkspace();
+    });
+    tabBar.appendChild(btn);
+    tabButtons.set(tab.id, btn);
+  });
+
+  const tabContent = document.createElement('div');
+  tabContent.className = 'pa-avatar-tab-content';
+  workspace.append(tabBar, tabContent);
+
+  // --- Render Function for Tabs & Preview ---
+  const renderWorkspace = () => {
+    // 1. Update Tab Buttons
+    tabButtons.forEach((btn, id) => {
+      btn.classList.toggle('is-active', id === activeTab);
+    });
+
+    // 2. Update Preview Widget
     previewSlot.textContent = '';
-    previewSlot.appendChild(renderPreview(profile.username, profile.level, draft));
-    sections.textContent = '';
-    sections.append(
-      renderIconSection(draft, rerender),
-      renderColorSection(draft, rerender),
-      renderFrameSection(draft, profile.level, rerender),
-      renderBannerSection(draft, rerender),
-    );
+    previewSlot.appendChild(renderPreview(profile.username, userLevel, draft));
+
+    // 3. Render Active Grid Content
+    tabContent.textContent = '';
+    const grid = document.createElement('div');
+    grid.className = `pa-avatar-grid pa-avatar-grid-${activeTab}s`;
+
+    if (activeTab === 'icon') {
+      for (const preset of AVATAR_ICON_PRESETS as AvatarIconPreset[]) {
+        const isActive = (draft.avatar_icon ?? 'default') === preset.id;
+        const btn = buildCosmeticButton(preset, isActive, userLevel, 'pa-avatar-chip-icon', () => {
+          draft.avatar_icon = preset.id; renderWorkspace();
+        });
+        const glyphTxt = preset.id === 'default' ? 'A' : preset.glyph;
+        btn.innerHTML += `<span class="pa-avatar-chip-glyph">${glyphTxt}</span><span class="pa-avatar-chip-label">${preset.label}</span>`;
+        grid.appendChild(btn);
+      }
+    } 
+    else if (activeTab === 'color') {
+      for (const preset of AVATAR_COLOR_PRESETS as AvatarColorPreset[]) {
+        const isActive = draft.avatar_color === preset.id;
+        const btn = buildCosmeticButton(preset, isActive, userLevel, 'pa-avatar-chip-color', () => {
+          draft.avatar_color = preset.id; renderWorkspace();
+        });
+        btn.style.setProperty('--pa-swatch', preset.color);
+        btn.innerHTML += `<span class="pa-avatar-chip-swatch"></span><span class="pa-avatar-chip-label">${preset.label}</span>`;
+        grid.appendChild(btn);
+      }
+    }
+    else if (activeTab === 'frame') {
+      for (const preset of AVATAR_FRAME_PRESETS as AvatarFramePreset[]) {
+        const isActive = (draft.avatar_frame ?? 'none') === preset.id;
+        const btn = buildCosmeticButton(preset, isActive, userLevel, 'pa-avatar-chip-frame', () => {
+          draft.avatar_frame = preset.id; renderWorkspace();
+        });
+        const isAnim = preset.isAnimated ? ' pa-anim-frame' : '';
+        btn.innerHTML += `<span class="pa-avatar-chip-frame-sample pa-avatar-frame-${preset.variant}${isAnim}"></span><span class="pa-avatar-chip-label">${preset.label}</span>`;
+        grid.appendChild(btn);
+      }
+    }
+    else if (activeTab === 'banner') {
+      for (const preset of AVATAR_BANNER_PRESETS as AvatarBannerPreset[]) {
+        const isActive = (draft.avatar_banner ?? 'default') === preset.id;
+        const btn = buildCosmeticButton(preset, isActive, userLevel, 'pa-avatar-chip-banner', () => {
+          draft.avatar_banner = preset.id; renderWorkspace();
+        });
+        const isAnim = preset.isAnimated ? ' pa-anim-bg' : '';
+        btn.innerHTML += `<span class="pa-avatar-chip-banner-sample${isAnim}" style="background: ${preset.gradient || ''}" data-banner="${preset.id}"></span><span class="pa-avatar-chip-label">${preset.label}</span>`;
+        grid.appendChild(btn);
+      }
+    }
+    else if (activeTab === 'effect') {
+      for (const preset of AVATAR_EFFECT_PRESETS as AvatarEffectPreset[]) {
+        const isActive = (draft.avatar_effect ?? 'none') === preset.id;
+        const btn = buildCosmeticButton(preset, isActive, userLevel, 'pa-avatar-chip-effect', () => {
+          draft.avatar_effect = preset.id; renderWorkspace();
+        });
+        btn.innerHTML += `<span class="pa-avatar-chip-effect-sample" data-effect="${preset.id}"></span><span class="pa-avatar-chip-label">${preset.label}</span>`;
+        grid.appendChild(btn);
+      }
+    }
+
+    tabContent.appendChild(grid);
   };
 
-  rerender();
+  renderWorkspace(); // Initial render
+  body.append(previewSlot, workspace);
 
-  body.append(previewSlot, sections);
-
+  // --- Footer ---
   const footer = document.createElement('footer');
   footer.className = 'pa-avatar-modal-footer';
 
   const resetBtn = document.createElement('button');
   resetBtn.type = 'button';
   resetBtn.className = 'pa-avatar-modal-action pa-avatar-modal-action-ghost';
-  resetBtn.textContent = 'Reset to defaults';
+  resetBtn.textContent = 'Reset defaults';
   resetBtn.addEventListener('click', () => {
     draft.avatar_icon = 'default';
     draft.avatar_color = 'loner';
     draft.avatar_frame = 'none';
     draft.avatar_banner = 'default';
-    rerender();
+    draft.avatar_effect = 'none';
+    renderWorkspace();
   });
 
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'pa-avatar-modal-action';
   cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', closeModal);
+  cancelBtn.addEventListener('click', closeAvatarCustomizationModal);
 
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
@@ -372,12 +339,8 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
     saveBtn.textContent = 'Saving…';
     try {
       const updated = await updateUserCosmetics(profile.publisher_id, draft);
-      if (updated) {
-        onSaved({ ...profile, ...updated });
-      } else {
-        onSaved({ ...profile, ...draft });
-      }
-      closeModal();
+      onSaved({ ...profile, ...(updated || draft) });
+      closeAvatarCustomizationModal();
     } catch (err) {
       console.error('[avatar] save failed', err);
       saveBtn.disabled = false;
@@ -402,8 +365,4 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
   queueMicrotask(() => {
     try { saveBtn.focus(); } catch { /* noop */ }
   });
-}
-
-export function closeAvatarCustomizationModal(): void {
-  closeModal();
 }
