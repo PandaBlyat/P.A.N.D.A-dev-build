@@ -104,6 +104,9 @@ export function setProfileForBadge(profile: UserProfile | null): void {
   } : null);
   publishCountCache = null; // invalidate on profile update
   selfProfileDataCache = null;
+  // Invalidate the leaderboard snapshot cache so the next leaderboard open
+  // reflects any cosmetic changes immediately.
+  leaderboardCache = null;
 }
 
 export function renderProfileBadge(): HTMLElement | null {
@@ -1815,7 +1818,13 @@ function openPopover(anchor: HTMLElement): void {
       document.removeEventListener('click', close, true);
       return;
     }
-    if (!anchor.contains(e.target as Node)) {
+    const target = e.target as Node | null;
+    // Don't close the badge popover when the user is interacting with the
+    // public-profile overlay or the avatar customization modal — both are
+    // mounted outside the anchor element but are conceptually "above" it.
+    if (target && publicProfileOverlay?.contains(target)) return;
+    if (target && document.querySelector('.pa-avatar-modal-backdrop')?.contains(target)) return;
+    if (!anchor.contains(target)) {
       closePopover();
       document.removeEventListener('click', close, true);
     }
@@ -2000,7 +2009,6 @@ function closePublicProfileOverlay(): void {
 function closePopover(): void {
   const existing = document.querySelector('.profile-popover');
   if (existing) existing.remove();
-  closePublicProfileOverlay();
   popoverOpen = false;
 }
 
