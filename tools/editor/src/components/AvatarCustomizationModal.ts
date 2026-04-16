@@ -493,7 +493,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
     // Render tweak panel
     tweakPanel.textContent = '';
     if (activeTab === 'effect' && selectedEffectOrFrame?.type === 'effect') {
-      const effectPreset = AVATAR_EFFECT_PRESETS.find(p => p.id === selectedEffectOrFrame.id);
+      const effectPreset = AVATAR_EFFECT_PRESETS.find(p => p.id === selectedEffectOrFrame!.id);
       if (effectPreset && effectPreset.id !== 'none') {
         const panelTitle = document.createElement('div');
         panelTitle.className = 'pa-tweak-panel-title';
@@ -569,7 +569,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
         tweakPanel.appendChild(controlsGrid);
       }
     } else if (activeTab === 'frame' && selectedEffectOrFrame?.type === 'frame') {
-      const framePreset = AVATAR_FRAME_PRESETS.find(p => p.id === selectedEffectOrFrame.id);
+      const framePreset = AVATAR_FRAME_PRESETS.find(p => p.id === selectedEffectOrFrame!.id);
       if (framePreset && framePreset.isAnimated && framePreset.id !== 'none') {
         const panelTitle = document.createElement('div');
         panelTitle.className = 'pa-tweak-panel-title';
