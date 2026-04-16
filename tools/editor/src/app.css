@@ -17176,8 +17176,8 @@ strong.support-upvote-count {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: end;
-  gap: 16px;
-  padding: 10px 0 0;
+  gap: 12px;
+  padding: 4px 0 0;
 }
 
 .panda-leaderboard-podium-card {
@@ -17186,7 +17186,7 @@ strong.support-upvote-count {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 28px 18px 22px;
+  padding: 16px 14px 14px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -17237,10 +17237,10 @@ strong.support-upvote-count {
     0 16px 40px rgba(244, 208, 63, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
     inset 0 0 30px rgba(244, 208, 63, 0.05);
-  transform: translateY(-12px); /* Natural lift for 1st place */
+  transform: translateY(-8px); /* Natural lift for 1st place */
 }
 .panda-leaderboard-podium-card-1:hover {
-  transform: translateY(-18px) scale(1.04);
+  transform: translateY(-12px) scale(1.04);
   box-shadow: 0 24px 60px rgba(244, 208, 63, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
@@ -17264,23 +17264,23 @@ strong.support-upvote-count {
 .panda-leaderboard-podium-card-2 {
   background: radial-gradient(circle at top, rgba(229, 231, 233, 0.1) 0%, transparent 60%), linear-gradient(180deg, rgba(20,20,20,0.8), rgba(10,10,10,0.95));
   border-color: rgba(229, 231, 233, 0.3);
-  padding: 22px 16px 18px;
+  padding: 14px 12px 12px;
   align-self: end;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .panda-leaderboard-podium-card-2:hover {
   box-shadow: 0 20px 50px rgba(229, 231, 233, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 /* 2nd place avatar slightly smaller than 1st */
 .panda-leaderboard-podium-card-2 .panda-leaderboard-podium-avatar.pa-avatar {
-  --pa-avatar-size: 68px;
+  --pa-avatar-size: 58px;
 }
 
 /* 3rd Place - Bronze (smallest card) */
 .panda-leaderboard-podium-card-3 {
   background: radial-gradient(circle at top, rgba(211, 84, 0, 0.1) 0%, transparent 60%), linear-gradient(180deg, rgba(20,20,20,0.8), rgba(10,10,10,0.95));
   border-color: rgba(211, 84, 0, 0.3);
-  padding: 18px 14px 14px;
+  padding: 12px 12px 10px;
   align-self: end;
 }
 .panda-leaderboard-podium-card-3:hover {
@@ -17288,28 +17288,28 @@ strong.support-upvote-count {
 }
 /* 3rd place avatar smallest */
 .panda-leaderboard-podium-card-3 .panda-leaderboard-podium-avatar.pa-avatar {
-  --pa-avatar-size: 54px;
+  --pa-avatar-size: 46px;
 }
 
 /* Podium Typography & Avatars */
 .panda-leaderboard-podium-rank {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 900;
   letter-spacing: 0.1em;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 .panda-leaderboard-podium-card-1 .panda-leaderboard-podium-rank { color: var(--tier-gold); text-shadow: 0 0 12px rgba(244, 208, 63, 0.6); }
 .panda-leaderboard-podium-card-2 .panda-leaderboard-podium-rank { color: var(--tier-silver); text-shadow: 0 0 12px rgba(229, 231, 233, 0.5); }
 .panda-leaderboard-podium-card-3 .panda-leaderboard-podium-rank { color: var(--tier-bronze); text-shadow: 0 0 12px rgba(211, 84, 0, 0.5); }
 
 .panda-leaderboard-podium-avatar.pa-avatar {
-  --pa-avatar-size: 64px;
+  --pa-avatar-size: 54px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   transition: transform 300ms var(--spring-easing);
 }
 .panda-leaderboard-podium-card-1 .panda-leaderboard-podium-avatar.pa-avatar {
-  --pa-avatar-size: 86px;
+  --pa-avatar-size: 70px;
   box-shadow: 0 12px 32px rgba(244, 208, 63, 0.3);
 }
 .panda-leaderboard-podium-card:hover .panda-leaderboard-podium-avatar.pa-avatar {
@@ -17340,11 +17340,11 @@ strong.support-upvote-count {
 }
 .panda-leaderboard-podium-level {
   color: var(--text-dim);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 700;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   max-width: 100%;
   overflow-wrap: anywhere;
   line-height: 1.25;
@@ -17388,7 +17388,7 @@ strong.support-upvote-count {
 .panda-leaderboard-list {
   min-height: 0;
   display: grid;
-  gap: 8px;
+  gap: 10px;
   overflow-y: auto;
   padding-right: 8px;
 }
@@ -17402,12 +17402,12 @@ strong.support-upvote-count {
 .panda-leaderboard-row {
   position: relative;
   width: 100%;
-  min-height: 64px;
+  min-height: 70px;
   display: grid;
-  grid-template-columns: 50px 44px minmax(0, 1fr) auto auto;
+  grid-template-columns: 50px 48px minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 16px;
-  padding: 12px 20px;
+  gap: 14px;
+  padding: 14px 20px;
   border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 12px;
   /* User's banner gradient sits underneath the dark overlay so it shows as
@@ -17448,8 +17448,11 @@ strong.support-upvote-count {
 
 /* Force vertical centering on the level column regardless of grid stretch. */
 .panda-leaderboard-row > .panda-leaderboard-level {
+  display: flex;
+  align-items: center;
   align-self: center;
   margin-block: auto;
+  height: fit-content;
 }
 
 /* Left Indicator Strip */
@@ -17534,9 +17537,10 @@ strong.support-upvote-count {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
 }
 .panda-leaderboard-badges:empty { display: none; }
 
@@ -18027,8 +18031,8 @@ button.pa-avatar:focus-visible {
 /* Backdrop: Added dark tech vignette and deeper blur */
 .pa-avatar-modal-backdrop {
   position: fixed; inset: 0; z-index: 1200;
-  background: 
-    radial-gradient(ellipse at 50% -20%, rgba(109, 191, 67, 0.15), transparent 70%), 
+  background:
+    radial-gradient(ellipse at 50% -20%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 70%),
     rgba(5, 7, 4, 0.85);
   backdrop-filter: blur(12px) saturate(120%); 
   -webkit-backdrop-filter: blur(12px);
@@ -18153,7 +18157,7 @@ button.pa-avatar:focus-visible {
 
 .pa-avatar-preview-banner {
   position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  background: var(--panel-banner, linear-gradient(115deg, rgba(109, 191, 67, 0.15), transparent 60%));
+  background: var(--panel-banner, linear-gradient(115deg, color-mix(in srgb, var(--accent) 15%, transparent), transparent 60%));
   border-radius: 16px;
   overflow: hidden;
 }
@@ -18365,16 +18369,16 @@ button.pa-avatar:focus-visible {
 .pa-avatar-chip:hover:not(.is-locked),
 .pa-avatar-chip:focus-visible:not(.is-locked) {
   transform: translateY(-4px) scale(1.02); 
-  border-color: rgba(109, 191, 67, 0.4); color: var(--pa-text-primary); outline: none;
-  box-shadow: 0 12px 24px rgba(0,0,0,0.4), 0 0 15px rgba(109, 191, 67, 0.1);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--pa-text-primary); outline: none;
+  box-shadow: 0 12px 24px rgba(0,0,0,0.4), 0 0 15px color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .pa-avatar-chip:hover::before { opacity: 1; }
 
 .pa-avatar-chip.is-active {
   border-color: var(--pa-accent);
-  background: linear-gradient(180deg, rgba(109, 191, 67, 0.1), var(--pa-bg-card));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), var(--pa-bg-card));
   color: var(--pa-text-primary);
-  box-shadow: inset 0 0 0 1px var(--pa-accent), 0 8px 20px rgba(109, 191, 67, 0.15);
+  box-shadow: inset 0 0 0 1px var(--pa-accent), 0 8px 20px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 .pa-avatar-chip.is-active::after {
   content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
@@ -18397,7 +18401,7 @@ button.pa-avatar:focus-visible {
 .pa-avatar-chip-glyph {
   display: inline-flex; align-items: center; justify-content: center;
   width: 46px; height: 46px; border-radius: 50%; font-size: 22px; font-weight: 800;
-  background: rgba(109, 191, 67, 0.08); border: 1px solid rgba(109, 191, 67, 0.2);
+  background: color-mix(in srgb, var(--accent) 8%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--pa-text-primary); box-shadow: inset 0 2px 5px rgba(0,0,0,0.5); z-index: 2;
 }
 .pa-avatar-chip-swatch {
@@ -18459,7 +18463,7 @@ button.pa-avatar:focus-visible {
   height: 54px;
   border-radius: 12px;
   overflow: hidden;
-  background: radial-gradient(circle at 35% 30%, rgba(109, 191, 67, 0.18), transparent 65%),
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 65%),
               linear-gradient(150deg, #1a2018, #0a0c09);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
@@ -18519,8 +18523,8 @@ button.pa-avatar:focus-visible {
 }
 .pa-avatar-modal-action-primary span { position: relative; z-index: 2; }
 .pa-avatar-modal-action-primary:hover, .pa-avatar-modal-action-primary:focus-visible {
-  background: #7dd94f; border-color: #7dd94f; transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(109, 191, 67, 0.5);
+  background: color-mix(in srgb, var(--accent) 80%, white); border-color: color-mix(in srgb, var(--accent) 80%, white); transform: translateY(-2px);
+  box-shadow: 0 8px 25px color-mix(in srgb, var(--accent) 50%, transparent);
 }
 .pa-avatar-modal-action-primary:disabled { opacity: 0.6; cursor: wait; transform: none; box-shadow: none; filter: grayscale(0.5); }
 
