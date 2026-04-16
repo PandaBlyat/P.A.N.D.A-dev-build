@@ -1480,33 +1480,53 @@ export async function updateUserCosmetics(publisherId: string, cosmetics: UserCo
     avatar_banner: cosmetics.avatar_banner ?? null,
     avatar_effect: cosmetics.avatar_effect ?? null,
   };
+
+  // 1. Try the proxy API (server-authoritative, handles auth/RLS).
   try {
     return await fetchFromApi<UserProfile | null>(`/api/profile/${encodeURIComponent(publisherId)}/cosmetics`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-  } catch {
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/update_user_cosmetics`, {
-        method: 'POST',
-        headers: sbHeaders(),
-        body: JSON.stringify({
-          p_publisher_id: publisherId,
-          p_avatar_icon: body.avatar_icon,
-          p_avatar_color: body.avatar_color,
-          p_avatar_frame: body.avatar_frame,
-          p_avatar_banner: body.avatar_banner,
-          p_avatar_effect: body.avatar_effect,
-        }),
-      });
-      if (!res.ok) return null;
-      const rows = await res.json() as UserProfile[] | UserProfile | null;
-      if (!rows) return null;
-      return Array.isArray(rows) ? rows[0] ?? null : rows;
-    } catch {
-      return null;
+  } catch { /* fall through */ }
+
+  // 2. Try Supabase RPC (may not exist in all deployments).
+  try {
+    const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/update_user_cosmetics`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({
+        p_publisher_id: publisherId,
+        p_avatar_icon: body.avatar_icon,
+        p_avatar_color: body.avatar_color,
+        p_avatar_frame: body.avatar_frame,
+        p_avatar_banner: body.avatar_banner,
+        p_avatar_effect: body.avatar_effect,
+      }),
+    });
+    if (rpcRes.ok) {
+      const rows = await rpcRes.json() as UserProfile[] | UserProfile | null;
+      if (rows) return Array.isArray(rows) ? rows[0] ?? null : rows;
     }
+  } catch { /* fall through */ }
+
+  // 3. Fallback: direct PATCH to the user_profiles table.
+  // Works in static deployments where neither proxy nor RPC is available.
+  try {
+    const patchRes = await fetch(
+      `${sbEndpoint('user_profiles')}?publisher_id=eq.${encodeURIComponent(publisherId)}`,
+      {
+        method: 'PATCH',
+        headers: { ...sbHeaders(), Prefer: 'return=representation' },
+        body: JSON.stringify(body),
+      },
+    );
+    if (!patchRes.ok) return null;
+    const rows = await patchRes.json() as UserProfile[] | UserProfile | null;
+    if (!rows) return null;
+    return Array.isArray(rows) ? rows[0] ?? null : rows;
+  } catch {
+    return null;
   }
 }
 

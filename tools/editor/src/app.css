@@ -16565,17 +16565,19 @@ strong.support-upvote-count {
 }
 
 .public-profile-modal {
-  width: min(1040px, calc(100vw - 24px)) !important;
+  width: min(1160px, calc(100vw - 24px)) !important;
+  max-height: min(94vh, 980px) !important;
   border-radius: 8px;
 }
 
 .public-profile-modal-header {
-  padding: 16px 18px;
+  padding: 18px 22px;
 }
 
 .public-profile-view {
-  gap: 12px !important;
-  padding: 14px !important;
+  gap: 14px !important;
+  padding: 16px 20px 20px !important;
+  font-size: 1.04rem;
 }
 
 .public-profile-view .public-profile-hero,
@@ -16608,6 +16610,14 @@ strong.support-upvote-count {
 .public-profile-view .public-profile-badge-name {
   overflow-wrap: anywhere;
   white-space: normal;
+}
+
+.public-profile-view .public-profile-name {
+  font-size: 1.6rem;
+}
+
+.public-profile-view .public-profile-title {
+  font-size: 1.02rem;
 }
 
 @media (max-width: 900px) {
@@ -17436,6 +17446,12 @@ strong.support-upvote-count {
   z-index: 1;
 }
 
+/* Force vertical centering on the level column regardless of grid stretch. */
+.panda-leaderboard-row > .panda-leaderboard-level {
+  align-self: center;
+  margin-block: auto;
+}
+
 /* Left Indicator Strip */
 .panda-leaderboard-row::before {
   content: '';
@@ -17974,12 +17990,12 @@ button.pa-avatar:focus-visible {
 /* Shared avatar integration */
 .panda-leaderboard-avatar.pa-avatar { flex-shrink: 0; }
 .public-profile-avatar.pa-avatar {
-  --pa-avatar-size: 100px;
-  --pa-avatar-font: 38px;
+  --pa-avatar-size: 110px;
+  --pa-avatar-font: 42px;
   --pa-avatar-color: var(--tier-color, var(--accent, #5eaa3a));
   align-self: flex-start;
 }
-.public-profile-avatar.pa-avatar .pa-avatar-level-chip { right: -3px; bottom: -3px; font-size: 12px; padding: 4px 9px; }
+.public-profile-avatar.pa-avatar .pa-avatar-level-chip { right: -3px; bottom: -3px; font-size: 13px; padding: 4px 10px; }
 
 /* Scale up the pseudo-element crests for High-Tier Avatars */
 .public-profile-avatar.pa-avatar-frame-monolith::after { transform: translateX(-50%) scale(1.5); top: -18px; }
@@ -17991,8 +18007,8 @@ button.pa-avatar:focus-visible {
    ========================================================================= */
 
 :root {
-  --pa-accent: #6dbf43;          /* Brighter toxic green */
-  --pa-accent-glow: #6dbf4366;
+  --pa-accent: var(--accent, #6dbf43);  /* Follow main UI theme accent */
+  --pa-accent-glow: color-mix(in srgb, var(--accent, #6dbf43) 40%, transparent);
   --pa-bg-base: #0a0c09;
   --pa-bg-panel: #141812;
   --pa-bg-card: #1b2118;
@@ -18030,15 +18046,15 @@ button.pa-avatar:focus-visible {
 .pa-avatar-modal {
   width: min(900px, 100%); max-height: calc(100dvh - 64px);
   display: flex; flex-direction: column;
-  background: 
+  background:
     linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 40%),
     var(--pa-bg-base);
-  border: 1px solid rgba(109, 191, 67, 0.2);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
   border-radius: 16px; overflow: hidden;
-  box-shadow: 
-    0 30px 60px rgba(0, 0, 0, 0.8), 
+  box-shadow:
+    0 30px 60px rgba(0, 0, 0, 0.8),
     0 0 0 1px rgba(255, 255, 255, 0.05) inset,
-    0 0 120px rgba(109, 191, 67, 0.05);
+    0 0 120px color-mix(in srgb, var(--accent) 5%, transparent);
   animation: paModalRise 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
   position: relative;
 }
@@ -18057,12 +18073,12 @@ button.pa-avatar:focus-visible {
 .pa-avatar-modal-header {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
   padding: 24px 28px 16px; border-bottom: 1px solid var(--pa-border);
-  background: linear-gradient(180deg, rgba(109, 191, 67, 0.08), transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent);
 }
-.pa-avatar-modal-header h3 { 
+.pa-avatar-modal-header h3 {
   margin: 0; font-size: 18px; font-weight: 700; font-family: monospace;
   text-transform: uppercase; letter-spacing: 0.1em; color: var(--pa-text-primary);
-  text-shadow: 0 0 10px rgba(109, 191, 67, 0.4);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 .pa-avatar-modal-subtitle { margin: 6px 0 0; font-size: 13px; color: var(--pa-text-secondary); }
 .pa-avatar-modal-close {
@@ -18259,6 +18275,34 @@ button.pa-avatar:focus-visible {
 .pa-preview-row-avatar.pa-avatar {
   --pa-avatar-size: 34px;
   --pa-avatar-font: 13px;
+}
+
+/* ── Preview tile: level-chip overrides ───────────────────────────────────
+   The global .pa-avatar-level-chip rule is styled for the large dossier
+   preview (margin-top:-14px, 12px font, 4px 12px padding).  Inside the
+   small podium/row preview tiles we need the compact leaderboard-corner
+   variant instead.                                                          */
+
+/* Podium tile: restore corner-chip aesthetics, ensure it sits above effect. */
+.pa-preview-podium-tile .pa-avatar-level-chip {
+  margin-top: 0;
+  font-size: 9px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pa-avatar-color, var(--accent)) 88%, #0b0e08 12%);
+  border: 1.5px solid color-mix(in srgb, var(--pa-avatar-color, var(--accent)) 35%, #0b0e08);
+  color: #f5f7f0;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.45);
+  display: block;
+  /* The podium avatar is a stacking-context (z-index:2 in the tile);
+     z-index:3 here keeps the chip above any ornament layers inside the avatar. */
+  z-index: 3;
+}
+
+/* Row tile: hide the level chip — the level is shown in the xp/rank column. */
+.pa-preview-row-tile .pa-avatar-level-chip {
+  display: none;
 }
 .pa-preview-row-identity {
   display: flex; flex-direction: column; gap: 2px; min-width: 0;
