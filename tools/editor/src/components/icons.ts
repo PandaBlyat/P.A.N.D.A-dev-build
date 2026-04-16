@@ -52,276 +52,275 @@ const BASE_ICON_ATTRS = {
 };
 
 const ICONS: Record<IconName, IconDef> = {
-  // Panda brand icon
   brand: {
     paths: [
-      // Face outline (circle)
-      { tag: 'circle', cx: '12', cy: '12', r: '10', stroke: 'currentColor', 'stroke-width': '2' },
-      // Left ear
-      { tag: 'circle', cx: '6', cy: '5', r: '3', fill: 'currentColor', stroke: 'none' },
+      // Face (larger circle)
+      { tag: 'circle', cx: '12', cy: '12', r: '11', stroke: 'currentColor', 'stroke-width': '2' },
+      // Left ear (larger, positioned outward)
+      { tag: 'circle', cx: '5.5', cy: '4.5', r: '3.5', fill: 'currentColor', stroke: 'none' },
       // Right ear
-      { tag: 'circle', cx: '18', cy: '5', r: '3', fill: 'currentColor', stroke: 'none' },
-      // Left eye patch (dark oval)
-      { tag: 'ellipse', cx: '8.5', cy: '11', rx: '2.2', ry: '2.8', fill: 'currentColor', stroke: 'none', transform: 'rotate(-15 8.5 11)' },
+      { tag: 'circle', cx: '18.5', cy: '4.5', r: '3.5', fill: 'currentColor', stroke: 'none' },
+      // Left eye patch
+      { tag: 'ellipse', cx: '8', cy: '11', rx: '2.5', ry: '3.2', fill: 'currentColor', stroke: 'none', transform: 'rotate(-15 8 11)' },
       // Right eye patch
-      { tag: 'ellipse', cx: '15.5', cy: '11', rx: '2.2', ry: '2.8', fill: 'currentColor', stroke: 'none', transform: 'rotate(15 15.5 11)' },
-      // Left eye (white highlight)
-      { tag: 'circle', cx: '9', cy: '10.5', r: '0.8', fill: 'white', stroke: 'none' },
-      // Right eye (white highlight)
-      { tag: 'circle', cx: '15', cy: '10.5', r: '0.8', fill: 'white', stroke: 'none' },
-      // Nose (small oval)
-      { tag: 'ellipse', cx: '12', cy: '14', rx: '1.5', ry: '1', fill: 'currentColor', stroke: 'none' },
-      // Mouth (smile arc)
-      { tag: 'path', d: 'M10 16 Q12 18, 14 16', stroke: 'currentColor', 'stroke-width': '1.8', fill: 'none' },
+      { tag: 'ellipse', cx: '16', cy: '11', rx: '2.5', ry: '3.2', fill: 'currentColor', stroke: 'none', transform: 'rotate(15 16 11)' },
+      // Left eye highlight
+      { tag: 'circle', cx: '8.6', cy: '10.3', r: '0.9', fill: 'white', stroke: 'none' },
+      // Right eye highlight
+      { tag: 'circle', cx: '15.4', cy: '10.3', r: '0.9', fill: 'white', stroke: 'none' },
+      // Nose
+      { tag: 'ellipse', cx: '12', cy: '14.5', rx: '1.8', ry: '1.2', fill: 'currentColor', stroke: 'none' },
+      // Mouth
+      { tag: 'path', d: 'M9.5 16.8 Q12 19, 14.5 16.8', stroke: 'currentColor', 'stroke-width': '1.8', fill: 'none' },
     ],
   },
   open: {
     paths: [
-      { tag: 'path', d: 'M2.5 7.5h6l2.5 2.5H21v8.5a2 2 0 0 1-2 2H4.5a2 2 0 0 1-2-2z' },
-      { tag: 'path', d: 'M2.5 7.5v-1.5a2 2 0 0 1 2-2h5.5l2.5 2.5H19a2 2 0 0 1 2 2v1' },
+      { tag: 'path', d: 'M2 7.5h6.5l2.5 2.5h9.5v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z' },
+      { tag: 'path', d: 'M2 7.5V6a2 2 0 0 1 2-2h6l2.5 2.5H19a2 2 0 0 1 2 2v1' },
     ],
   },
   import: {
     paths: [
-      { tag: 'path', d: 'M12 2.5v12' },
-      { tag: 'path', d: 'm7.5 7 4.5-4.5 4.5 4.5' },
-      { tag: 'path', d: 'M4.5 16v2.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V16' },
+      { tag: 'path', d: 'M12 2v13' },
+      { tag: 'path', d: 'm7 7 5-5 5 5' },
+      { tag: 'path', d: 'M4 16.5v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3' },
     ],
   },
   save: {
     paths: [
-      { tag: 'path', d: 'M4.5 3.5h12.5l3 3V20.5h-15.5z' },
-      { tag: 'path', d: 'M7.5 3.5v6h9' },
-      { tag: 'path', d: 'M7.5 19.5v-7h9v7' },
+      { tag: 'path', d: 'M4 3h13l3.5 3.5V21H4z' },
+      { tag: 'path', d: 'M7 3v6.5h10' },
+      { tag: 'path', d: 'M7 20v-7.5h10V20' },
     ],
   },
   export: {
     paths: [
-      { tag: 'path', d: 'M12 15.5V3.5' },
-      { tag: 'path', d: 'm7.5 11.5 4.5 4 4.5-4' },
-      { tag: 'path', d: 'M4.5 16.5v2.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2.5' },
+      { tag: 'path', d: 'M12 16V3' },
+      { tag: 'path', d: 'm7 11 5 5 5-5' },
+      { tag: 'path', d: 'M4 17v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3' },
     ],
   },
   xml: {
     paths: [
-      { tag: 'path', d: 'm8 7-5 5 5 5' },
-      { tag: 'path', d: 'm16 7 5 5-5 5' },
-      { tag: 'path', d: 'm14.5 5-5 14' },
+      { tag: 'path', d: 'm7.5 6.5-5.5 5.5 5.5 5.5' },
+      { tag: 'path', d: 'm16.5 6.5 5.5 5.5-5.5 5.5' },
+      { tag: 'path', d: 'm15 4.5-6 15' },
     ],
   },
   strings: {
     paths: [
-      { tag: 'path', d: 'M5.5 6.5h13' },
-      { tag: 'path', d: 'M5.5 12h13' },
-      { tag: 'path', d: 'M5.5 17.5h9' },
-      { tag: 'circle', cx: '4', cy: '6.5', r: '1.5', fill: 'currentColor', stroke: 'none' },
-      { tag: 'circle', cx: '4', cy: '12', r: '1.5', fill: 'currentColor', stroke: 'none' },
-      { tag: 'circle', cx: '4', cy: '17.5', r: '1.5', fill: 'currentColor', stroke: 'none' },
+      { tag: 'path', d: 'M5 6h14' },
+      { tag: 'path', d: 'M5 12h14' },
+      { tag: 'path', d: 'M5 18h10' },
+      { tag: 'circle', cx: '3.5', cy: '6', r: '1.8', fill: 'currentColor', stroke: 'none' },
+      { tag: 'circle', cx: '3.5', cy: '12', r: '1.8', fill: 'currentColor', stroke: 'none' },
+      { tag: 'circle', cx: '3.5', cy: '18', r: '1.8', fill: 'currentColor', stroke: 'none' },
     ],
   },
   undo: {
     paths: [
-      { tag: 'path', d: 'M9 6 4 11l5 5' },
-      { tag: 'path', d: 'M20 17a8 8 0 0 0-8-8H4' },
+      { tag: 'path', d: 'M9.5 5.5 4 11l5.5 5.5' },
+      { tag: 'path', d: 'M20.5 17.5a8.5 8.5 0 0 0-8.5-8.5H4' },
     ],
   },
   redo: {
     paths: [
-      { tag: 'path', d: 'm15 6 5 5-5 5' },
-      { tag: 'path', d: 'M4 17a8 8 0 0 1 8-8h8' },
+      { tag: 'path', d: 'm14.5 5.5 5.5 5.5-5.5 5.5' },
+      { tag: 'path', d: 'M3.5 17.5a8.5 8.5 0 0 1 8.5-8.5h8.5' },
     ],
   },
   locate: {
     paths: [
-      { tag: 'circle', cx: '12', cy: '12', r: '4' },
-      { tag: 'path', d: 'M12 2.5v3' },
-      { tag: 'path', d: 'M12 18.5V21.5' },
-      { tag: 'path', d: 'M2.5 12h3' },
-      { tag: 'path', d: 'M18.5 12h3' },
+      { tag: 'circle', cx: '12', cy: '12', r: '4.5' },
+      { tag: 'path', d: 'M12 2v3.5' },
+      { tag: 'path', d: 'M12 18.5V22' },
+      { tag: 'path', d: 'M2 12h3.5' },
+      { tag: 'path', d: 'M18.5 12H22' },
     ],
   },
   duplicate: {
     paths: [
-      { tag: 'rect', x: '7.5', y: '7.5', width: '12', height: '12', rx: '2.2' },
-      { tag: 'path', d: 'M5.5 16H4.5a2.5 2.5 0 0 1-2.5-2.5V4.5A2.5 2.5 0 0 1 4.5 2h9A2.5 2.5 0 0 1 16 4.5v1' },
+      { tag: 'rect', x: '7', y: '7', width: '13', height: '13', rx: '2.5' },
+      { tag: 'path', d: 'M5 16.5h-1A2.5 2.5 0 0 1 1.5 14V4A2.5 2.5 0 0 1 4 1.5h10A2.5 2.5 0 0 1 16.5 4v1' },
     ],
   },
   delete: {
     paths: [
-      { tag: 'path', d: 'M3.5 7h17' },
-      { tag: 'path', d: 'M8.5 7V4.5A1.5 1.5 0 0 1 10 3h4a1.5 1.5 0 0 1 1.5 1.5V7' },
-      { tag: 'path', d: 'M6.5 7.5 7.5 19.5a2 2 0 0 0 2 2h5a2 2 0 0 0 2-2l1-12' },
-      { tag: 'path', d: 'M9.5 10.5v6' },
-      { tag: 'path', d: 'M14.5 10.5v6' },
+      { tag: 'path', d: 'M3 7h18' },
+      { tag: 'path', d: 'M8.5 7V4a1.5 1.5 0 0 1 1.5-1.5h4A1.5 1.5 0 0 1 15.5 4v3' },
+      { tag: 'path', d: 'M6.5 7.5 7.5 20a2 2 0 0 0 2 2h5a2 2 0 0 0 2-2l1-12.5' },
+      { tag: 'path', d: 'M9.5 10.5v6.5' },
+      { tag: 'path', d: 'M14.5 10.5v6.5' },
     ],
   },
   success: {
     paths: [
-      { tag: 'circle', cx: '12', cy: '12', r: '10' },
-      { tag: 'path', d: 'm7.5 12.5 3 3 6-6' },
+      { tag: 'circle', cx: '12', cy: '12', r: '10.5' },
+      { tag: 'path', d: 'm7 12.5 3.5 3.5 6.5-6.5' },
     ],
   },
   check: {
     paths: [
-      { tag: 'circle', cx: '12', cy: '12', r: '10' },
-      { tag: 'path', d: 'm7.5 12.5 3 3 6-6' },
+      { tag: 'circle', cx: '12', cy: '12', r: '10.5' },
+      { tag: 'path', d: 'm7 12.5 3.5 3.5 6.5-6.5' },
     ],
   },
   warning: {
     paths: [
-      { tag: 'path', d: 'M12 3.5 22 19.5H2z' },
-      { tag: 'path', d: 'M12 9v5' },
-      { tag: 'circle', cx: '12', cy: '17', r: '1.2', fill: 'currentColor', stroke: 'none' },
+      { tag: 'path', d: 'M12 3 22.5 20H1.5z' },
+      { tag: 'path', d: 'M12 9v5.5' },
+      { tag: 'circle', cx: '12', cy: '17.5', r: '1.3', fill: 'currentColor', stroke: 'none' },
     ],
   },
   error: {
     paths: [
-      { tag: 'circle', cx: '12', cy: '12', r: '10' },
-      { tag: 'path', d: 'm8.5 8.5 7 7' },
-      { tag: 'path', d: 'm15.5 8.5-7 7' },
+      { tag: 'circle', cx: '12', cy: '12', r: '10.5' },
+      { tag: 'path', d: 'm8 8 8 8' },
+      { tag: 'path', d: 'm16 8-8 8' },
     ],
   },
   close: {
     paths: [
-      { tag: 'path', d: 'm6 6 12 12' },
-      { tag: 'path', d: 'M18 6 6 18' },
+      { tag: 'path', d: 'm5.5 5.5 13 13' },
+      { tag: 'path', d: 'M18.5 5.5l-13 13' },
     ],
   },
   add: {
     paths: [
-      { tag: 'path', d: 'M12 3.5v17' },
-      { tag: 'path', d: 'M3.5 12h17' },
+      { tag: 'path', d: 'M12 3v18' },
+      { tag: 'path', d: 'M3 12h18' },
     ],
   },
   share: {
     paths: [
-      { tag: 'path', d: 'M12 16V8' },
-      { tag: 'path', d: 'm8.5 11.5 3.5-3.5 3.5 3.5' },
-      { tag: 'path', d: 'M5.5 18A5.5 5.5 0 0 1 3.5 13a6 6 0 0 1 6-6h1' },
-      { tag: 'path', d: 'M18.5 18A5.5 5.5 0 0 0 20.5 13a6 6 0 0 0-6-6h-1' },
-      { tag: 'path', d: 'M8 21h8' },
+      { tag: 'path', d: 'M12 16.5V7.5' },
+      { tag: 'path', d: 'm8 11.5 4-4 4 4' },
+      { tag: 'path', d: 'M5 18.5A6 6 0 0 1 3 13a6.5 6.5 0 0 1 6.5-6.5h1.5' },
+      { tag: 'path', d: 'M19 18.5A6 6 0 0 0 21 13a6.5 6.5 0 0 0-6.5-6.5H13' },
+      { tag: 'path', d: 'M7.5 22h9' },
     ],
   },
   download: {
     paths: [
-      { tag: 'path', d: 'M12 8.5v8' },
-      { tag: 'path', d: 'm8.5 13.5 3.5 3 3.5-3' },
-      { tag: 'path', d: 'M5.5 18A5.5 5.5 0 0 1 3.5 13a6 6 0 0 1 6-6h1' },
-      { tag: 'path', d: 'M18.5 18A5.5 5.5 0 0 0 20.5 13a6 6 0 0 0-6-6h-1' },
+      { tag: 'path', d: 'M12 8v9' },
+      { tag: 'path', d: 'm8 13.5 4 4 4-4' },
+      { tag: 'path', d: 'M5 18.5A6 6 0 0 1 3 13a6.5 6.5 0 0 1 6.5-6.5h1.5' },
+      { tag: 'path', d: 'M19 18.5A6 6 0 0 0 21 13a6.5 6.5 0 0 0-6.5-6.5H13' },
     ],
   },
   database: {
     paths: [
-      { tag: 'ellipse', cx: '12', cy: '5', rx: '9', ry: '3.5' },
-      { tag: 'path', d: 'M3 5v5c0 1.9 4 3.5 9 3.5s9-1.6 9-3.5V5' },
-      { tag: 'path', d: 'M3 10v5c0 1.9 4 3.5 9 3.5s9-1.6 9-3.5V10' },
+      { tag: 'ellipse', cx: '12', cy: '4.5', rx: '9.5', ry: '4' },
+      { tag: 'path', d: 'M2.5 4.5v5.5c0 2.2 4.3 4 9.5 4s9.5-1.8 9.5-4V4.5' },
+      { tag: 'path', d: 'M2.5 10v5.5c0 2.2 4.3 4 9.5 4s9.5-1.8 9.5-4V10' },
     ],
   },
   help: {
     paths: [
-      { tag: 'circle', cx: '12', cy: '12', r: '10' },
-      { tag: 'path', d: 'M9.5 9.5a3 3 0 0 1 5.5 1.3c0 2.2-3.5 2.7-3.5 2.7' },
-      { tag: 'circle', cx: '12', cy: '17.5', r: '1.2', fill: 'currentColor', stroke: 'none' },
+      { tag: 'circle', cx: '12', cy: '12', r: '10.5' },
+      { tag: 'path', d: 'M9 9.5a3.5 3.5 0 0 1 6 1.3c0 2.5-4 3-4 3' },
+      { tag: 'circle', cx: '12', cy: '18', r: '1.3', fill: 'currentColor', stroke: 'none' },
     ],
   },
   support: {
     paths: [
-      { tag: 'path', d: 'M12 20.5s-7.5-4.5-9.5-9.5C.5 7.5 2.8 4.5 6.5 4.5c2.3 0 3.5 1.3 4.5 2.8 1-1.5 2.2-2.8 4.5-2.8 3.7 0 5.7 3 4.3 6.8C18 12.8 17 15 15.5 16.5' },
-      { tag: 'path', d: 'M19 4v4' },
-      { tag: 'path', d: 'M17 6h4' },
-      { tag: 'path', d: 'M5.5 3.5v3.5' },
+      { tag: 'path', d: 'M12 21s-8-5-10-10.5C0.5 7 3 3.5 7 3.5c2.5 0 4 1.5 5 3 1-1.5 2.5-3 5-3 4 0 6 3.5 4.5 7.5-1.5 4-2.5 6-4 7.5' },
+      { tag: 'path', d: 'M20 3.5v4.5' },
+      { tag: 'path', d: 'M17.5 5.5h5' },
+      { tag: 'path', d: 'M5 3v4' },
     ],
   },
   eye: {
     paths: [
-      { tag: 'path', d: 'M1 12s4.5-9 11-9 11 9 11 9-4.5 9-11 9-11-9-11-9z' },
-      { tag: 'circle', cx: '12', cy: '12', r: '4' },
+      { tag: 'path', d: 'M0.5 12S5.5 2 12 2s11.5 10 11.5 10S18.5 22 12 22 0.5 12 0.5 12z' },
+      { tag: 'circle', cx: '12', cy: '12', r: '4.5' },
     ],
   },
   play: {
     paths: [
-      { tag: 'path', d: 'M6.5 3.5v17l14-8.5z', fill: 'currentColor', stroke: 'none' },
+      { tag: 'path', d: 'M6 3v18l15-9z', fill: 'currentColor', stroke: 'none' },
     ],
   },
   restart: {
     paths: [
-      { tag: 'path', d: 'M2 12a10 10 0 0 1 17-7.5V2' },
-      { tag: 'path', d: 'M22 12a10 10 0 0 1-17 7.5V22' },
-      { tag: 'path', d: 'M19 5h-4v4' },
-      { tag: 'path', d: 'M5 19h4v-4' },
+      { tag: 'path', d: 'M1.5 12A10.5 10.5 0 0 1 19.5 4V1.5' },
+      { tag: 'path', d: 'M22.5 12a10.5 10.5 0 0 1-18 8v2.5' },
+      { tag: 'path', d: 'M19.5 4.5h-4.5v4.5' },
+      { tag: 'path', d: 'M4.5 19.5H9V15' },
     ],
   },
   clock: {
     paths: [
-      { tag: 'circle', cx: '12', cy: '12', r: '10' },
-      { tag: 'path', d: 'M12 6v6l4 4' },
+      { tag: 'circle', cx: '12', cy: '12', r: '10.5' },
+      { tag: 'path', d: 'M12 6v6.5l4.5 4.5' },
     ],
   },
   user: {
     paths: [
-      { tag: 'circle', cx: '12', cy: '7', r: '5' },
-      { tag: 'path', d: 'M3 21c0-5 4.5-8 9-8s9 3 9 8' },
+      { tag: 'circle', cx: '12', cy: '6.5', r: '5.5' },
+      { tag: 'path', d: 'M2.5 21.5c0-5.5 5-8.5 9.5-8.5s9.5 3 9.5 8.5' },
     ],
   },
   star: {
     paths: [
-      { tag: 'path', d: 'M12 2l3.2 6.8L22 9.5l-5 4.8 1.2 7.2-6.2-3.5-6.2 3.5 1.2-7.2-5-4.8 6.8-1.5z', fill: 'currentColor', 'stroke-width': '0' },
+      { tag: 'path', d: 'M12 1.5l3.5 7.5 7.5 1-5.5 5 1.5 7.5-7-4-7 4 1.5-7.5-5.5-5 7.5-1z', fill: 'currentColor', 'stroke-width': '0' },
     ],
   },
   trophy: {
     paths: [
-      { tag: 'path', d: 'M7 3h10v7a5 5 0 0 1-10 0z' },
-      { tag: 'path', d: 'M17 5h3a2 2 0 0 1 0 4h-3' },
-      { tag: 'path', d: 'M7 5H4a2 2 0 0 0 0 4h3' },
-      { tag: 'path', d: 'M12 14v4' },
-      { tag: 'path', d: 'M7 21h10' },
-      { tag: 'path', d: 'M10 18h4' },
+      { tag: 'path', d: 'M6.5 2.5h11v7.5a5.5 5.5 0 0 1-11 0z' },
+      { tag: 'path', d: 'M17.5 5h3.5a2 2 0 0 1 0 4h-3.5' },
+      { tag: 'path', d: 'M6.5 5H3a2 2 0 0 0 0 4h3.5' },
+      { tag: 'path', d: 'M12 14.5v4.5' },
+      { tag: 'path', d: 'M6.5 22h11' },
+      { tag: 'path', d: 'M9.5 18.5h5' },
     ],
   },
   flame: {
     paths: [
-      { tag: 'path', d: 'M12 1.5c0 4.5-4.5 6.5-4.5 11.5a4.5 4.5 0 0 0 9 0c0-5-4.5-7-4.5-11.5z', fill: 'currentColor', 'stroke-width': '0' },
-      { tag: 'path', d: 'M12 22.5a7 7 0 0 1-7-7c0-3.5 2-5.5 3.5-8 1 2.5 3.5 3.5 3.5 6a3.5 3.5 0 0 0 7 0c0-2.5-1.5-4-2.5-6 1.5 2.5 2.5 5 2.5 8a7 7 0 0 1-7 7z' },
+      { tag: 'path', d: 'M12 1c0 5-5 7-5 12.5a5 5 0 0 0 10 0c0-5.5-5-7.5-5-12.5z', fill: 'currentColor', 'stroke-width': '0' },
+      { tag: 'path', d: 'M12 23a7.5 7.5 0 0 1-7.5-7.5c0-4 2-6 4-9 1 3 4 4 4 7a3.5 3.5 0 0 0 7 0c0-3-1.5-5-2.5-7 1.5 3 3 5.5 3 9A7.5 7.5 0 0 1 12 23z' },
     ],
   },
   shield: {
     paths: [
-      { tag: 'path', d: 'M12 2 3 6.5v6c0 5 4 9 9 10 5-1 9-5 9-10v-6z' },
-      { tag: 'path', d: 'm8 12 3 3 6-6' },
+      { tag: 'path', d: 'M12 1.5 2.5 6.5v6.5c0 5.5 4.5 9.5 9.5 10.5 5-1 9.5-5 9.5-10.5V6.5z' },
+      { tag: 'path', d: 'm7.5 11.5 3.5 3.5 6.5-6.5' },
     ],
   },
   target: {
     paths: [
-      { tag: 'circle', cx: '12', cy: '12', r: '10' },
-      { tag: 'circle', cx: '12', cy: '12', r: '6' },
-      { tag: 'circle', cx: '12', cy: '12', r: '2', fill: 'currentColor', stroke: 'none' },
+      { tag: 'circle', cx: '12', cy: '12', r: '10.5' },
+      { tag: 'circle', cx: '12', cy: '12', r: '6.5' },
+      { tag: 'circle', cx: '12', cy: '12', r: '2.2', fill: 'currentColor', stroke: 'none' },
     ],
   },
   medal: {
     paths: [
-      { tag: 'path', d: 'M7.5 2.5h9l-2.5 7h-4z' },
-      { tag: 'circle', cx: '12', cy: '15', r: '6' },
-      { tag: 'path', d: 'm9.5 14 2 2 4-4' },
+      { tag: 'path', d: 'M7 2h10l-2.5 7.5h-5z' },
+      { tag: 'circle', cx: '12', cy: '15.5', r: '6.5' },
+      { tag: 'path', d: 'm9 14.5 2.5 2.5 4.5-4.5' },
     ],
   },
   bug: {
     paths: [
-      { tag: 'path', d: 'M7 8.5a5 5 0 0 1 10 0v7a5 5 0 0 1-10 0z' },
-      { tag: 'path', d: 'M9 4.5 6 2' },
-      { tag: 'path', d: 'm15 4.5 3-2.5' },
-      { tag: 'path', d: 'M2.5 10h4' },
-      { tag: 'path', d: 'M17.5 10h4' },
-      { tag: 'path', d: 'M2.5 16h4' },
-      { tag: 'path', d: 'M17.5 16h4' },
-      { tag: 'path', d: 'M12 8.5v11' },
-      { tag: 'path', d: 'M8.5 12h7' },
+      { tag: 'path', d: 'M6.5 8.5a5.5 5.5 0 0 1 11 0v7.5a5.5 5.5 0 0 1-11 0z' },
+      { tag: 'path', d: 'M9 4 5.5 1.5' },
+      { tag: 'path', d: 'm15 4 3.5-2.5' },
+      { tag: 'path', d: 'M2 10h4.5' },
+      { tag: 'path', d: 'M17.5 10H22' },
+      { tag: 'path', d: 'M2 16h4.5' },
+      { tag: 'path', d: 'M17.5 16H22' },
+      { tag: 'path', d: 'M12 8.5v11.5' },
+      { tag: 'path', d: 'M8 12h8' },
     ],
   },
   sparkle: {
     paths: [
-      { tag: 'path', d: 'M12 1l2 6 6 .5-4.5 4 1.5 6.5-5-3-5 3 1.5-6.5-4.5-4 6-.5z', fill: 'currentColor', 'stroke-width': '0' },
-      { tag: 'path', d: 'M19.5 14l1.5 3.5 3.5.5-2.5 1.5-1.5 3-1-3-2.5-1.5 3.5-.5z', fill: 'currentColor', 'stroke-width': '0' },
-      { tag: 'path', d: 'M2.5 16l1 3 3 .5-2 1.5-1 3-.5-3-2-1.5 3-.5z', fill: 'currentColor', 'stroke-width': '0' },
+      { tag: 'path', d: 'M12 0.5l2.5 7 7 1-5.5 5 1.5 7.5-5.5-3.5-5.5 3.5 1.5-7.5-5.5-5 7-1z', fill: 'currentColor', 'stroke-width': '0' },
+      { tag: 'path', d: 'M20 14l1.5 4 4 1-3 2-1.5 3.5-1-3.5-3-2 4-1z', fill: 'currentColor', 'stroke-width': '0' },
+      { tag: 'path', d: 'M2 16l1.5 3.5 3.5.5-2.5 2-1 3-.5-3-2.5-2 3.5-.5z', fill: 'currentColor', 'stroke-width': '0' },
     ],
   },
 };
