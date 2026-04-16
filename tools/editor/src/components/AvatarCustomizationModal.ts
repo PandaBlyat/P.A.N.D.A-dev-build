@@ -145,6 +145,12 @@ function renderPreview(username: string, level: number, draft: UserCosmetics): H
     const podiumEffect = document.createElement('span');
     podiumEffect.className = 'pa-preview-tile-effect pa-avatar-chip-effect-sample';
     podiumEffect.dataset.effect = String(draft.avatar_effect);
+    const effectPreset = AVATAR_EFFECT_PRESETS.find(p => p.id === draft.avatar_effect);
+    if (effectPreset) {
+      podiumEffect.style.setProperty('--pa-effect-color', draft.avatar_effect_color || effectPreset.defaultColor || '#5eaa3a');
+      podiumEffect.style.setProperty('--pa-effect-intensity', String((draft.avatar_effect_intensity ?? effectPreset.defaultIntensity ?? 75) / 100));
+      podiumEffect.style.setProperty('--pa-effect-speed', String(draft.avatar_effect_speed ?? effectPreset.defaultSpeed ?? 1.0));
+    }
     podiumTile.appendChild(podiumEffect);
   }
 
@@ -181,6 +187,12 @@ function renderPreview(username: string, level: number, draft: UserCosmetics): H
     const rowEffect = document.createElement('span');
     rowEffect.className = 'pa-preview-tile-row-effect pa-avatar-chip-effect-sample';
     rowEffect.dataset.effect = String(draft.avatar_effect);
+    const effectPreset = AVATAR_EFFECT_PRESETS.find(p => p.id === draft.avatar_effect);
+    if (effectPreset) {
+      rowEffect.style.setProperty('--pa-effect-color', draft.avatar_effect_color || effectPreset.defaultColor || '#5eaa3a');
+      rowEffect.style.setProperty('--pa-effect-intensity', String((draft.avatar_effect_intensity ?? effectPreset.defaultIntensity ?? 75) / 100));
+      rowEffect.style.setProperty('--pa-effect-speed', String(draft.avatar_effect_speed ?? effectPreset.defaultSpeed ?? 1.0));
+    }
     rowTile.appendChild(rowEffect);
   }
 
@@ -260,10 +272,15 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
     avatar_frame: profile.avatar_frame ?? 'none',
     avatar_banner: profile.avatar_banner ?? 'default',
     avatar_effect: profile.avatar_effect ?? 'none',
+    avatar_effect_color: profile.avatar_effect_color ?? undefined,
+    avatar_effect_intensity: profile.avatar_effect_intensity ?? undefined,
+    avatar_effect_speed: profile.avatar_effect_speed ?? undefined,
+    avatar_frame_intensity: profile.avatar_frame_intensity ?? undefined,
   };
 
   type TabId = 'icon' | 'color' | 'frame' | 'banner' | 'effect';
   let activeTab: TabId = 'icon';
+  let selectedEffectOrFrame: { type: 'effect' | 'frame'; id: string } | null = null;
 
   const backdrop = document.createElement('div');
   backdrop.className = 'pa-avatar-modal-backdrop';
@@ -318,6 +335,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
     btn.textContent = tab.label;
     btn.addEventListener('click', () => {
       activeTab = tab.id;
+      selectedEffectOrFrame = null;
       renderWorkspace();
     });
     tabBar.appendChild(btn);
@@ -326,7 +344,11 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
 
   const tabContent = document.createElement('div');
   tabContent.className = 'pa-avatar-tab-content';
-  workspace.append(tabBar, tabContent);
+
+  const tweakPanel = document.createElement('div');
+  tweakPanel.className = 'pa-avatar-tweak-panel';
+
+  workspace.append(tabBar, tabContent, tweakPanel);
 
   const renderWorkspace = () => {
     tabButtons.forEach((btn, id) => {
@@ -377,7 +399,9 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
       for (const preset of frames) {
         const isActive = (draft.avatar_frame ?? 'none') === preset.id;
         const btn = buildCosmeticButton(preset, isActive, userLevel, 'pa-avatar-chip-frame', isAdmin, () => {
-          draft.avatar_frame = preset.id; renderWorkspace();
+          draft.avatar_frame = preset.id;
+          selectedEffectOrFrame = { type: 'frame', id: preset.id };
+          renderWorkspace();
         });
         // Build a real mini-avatar so variant-specific CSS (ornaments, ::after
         // crests, animated borders) actually renders in the picker.
@@ -437,7 +461,9 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
       for (const preset of effects) {
         const isActive = (draft.avatar_effect ?? 'none') === preset.id;
         const btn = buildCosmeticButton(preset, isActive, userLevel, 'pa-avatar-chip-effect', isAdmin, () => {
-          draft.avatar_effect = preset.id; renderWorkspace();
+          draft.avatar_effect = preset.id;
+          selectedEffectOrFrame = { type: 'effect', id: preset.id };
+          renderWorkspace();
         });
         // Wrap the effect layer inside a faux avatar tile so the overlay
         // has a background to paint onto (many effects use `mix-blend: screen`
@@ -447,6 +473,11 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
         const inner = document.createElement('span');
         inner.className = 'pa-avatar-chip-effect-sample';
         inner.setAttribute('data-effect', preset.id);
+        if (preset.id !== 'none') {
+          inner.style.setProperty('--pa-effect-color', draft.avatar_effect_color || preset.defaultColor || '#5eaa3a');
+          inner.style.setProperty('--pa-effect-intensity', String((draft.avatar_effect_intensity ?? preset.defaultIntensity ?? 75) / 100));
+          inner.style.setProperty('--pa-effect-speed', String(draft.avatar_effect_speed ?? preset.defaultSpeed ?? 1.0));
+        }
         wrap.appendChild(inner);
         btn.appendChild(wrap);
         const label = document.createElement('span');
@@ -458,6 +489,121 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
     }
 
     tabContent.appendChild(grid);
+
+    // Render tweak panel
+    tweakPanel.textContent = '';
+    if (activeTab === 'effect' && selectedEffectOrFrame?.type === 'effect') {
+      const effectPreset = AVATAR_EFFECT_PRESETS.find(p => p.id === selectedEffectOrFrame.id);
+      if (effectPreset && effectPreset.id !== 'none') {
+        const panelTitle = document.createElement('div');
+        panelTitle.className = 'pa-tweak-panel-title';
+        panelTitle.textContent = `Customize: ${effectPreset.label}`;
+        tweakPanel.appendChild(panelTitle);
+
+        const controlsGrid = document.createElement('div');
+        controlsGrid.className = 'pa-tweak-controls-grid';
+
+        // Color control
+        if (effectPreset.defaultColor) {
+          const colorGroup = document.createElement('div');
+          colorGroup.className = 'pa-tweak-control-group';
+          const colorLabel = document.createElement('label');
+          colorLabel.textContent = 'Color';
+          const colorInput = document.createElement('input');
+          colorInput.type = 'color';
+          colorInput.className = 'pa-tweak-color-input';
+          colorInput.value = draft.avatar_effect_color || effectPreset.defaultColor;
+          colorInput.addEventListener('change', (e) => {
+            draft.avatar_effect_color = (e.target as HTMLInputElement).value;
+            renderWorkspace();
+          });
+          colorGroup.append(colorLabel, colorInput);
+          controlsGrid.appendChild(colorGroup);
+        }
+
+        // Intensity control
+        if (effectPreset.defaultIntensity !== undefined) {
+          const intensityGroup = document.createElement('div');
+          intensityGroup.className = 'pa-tweak-control-group';
+          const intensityLabel = document.createElement('label');
+          intensityLabel.textContent = `Intensity: ${draft.avatar_effect_intensity ?? effectPreset.defaultIntensity}%`;
+          intensityLabel.className = 'pa-tweak-label-with-value';
+          const intensitySlider = document.createElement('input');
+          intensitySlider.type = 'range';
+          intensitySlider.className = 'pa-tweak-slider';
+          intensitySlider.min = '0';
+          intensitySlider.max = '100';
+          intensitySlider.value = String(draft.avatar_effect_intensity ?? effectPreset.defaultIntensity);
+          intensitySlider.addEventListener('input', (e) => {
+            draft.avatar_effect_intensity = parseInt((e.target as HTMLInputElement).value);
+            intensityLabel.textContent = `Intensity: ${draft.avatar_effect_intensity}%`;
+            renderWorkspace();
+          });
+          intensityGroup.append(intensityLabel, intensitySlider);
+          controlsGrid.appendChild(intensityGroup);
+        }
+
+        // Speed control
+        if (effectPreset.defaultSpeed !== undefined) {
+          const speedGroup = document.createElement('div');
+          speedGroup.className = 'pa-tweak-control-group';
+          const speedLabel = document.createElement('label');
+          speedLabel.textContent = `Speed: ${(draft.avatar_effect_speed ?? effectPreset.defaultSpeed).toFixed(1)}x`;
+          speedLabel.className = 'pa-tweak-label-with-value';
+          const speedSlider = document.createElement('input');
+          speedSlider.type = 'range';
+          speedSlider.className = 'pa-tweak-slider';
+          speedSlider.min = '0.5';
+          speedSlider.max = '2.0';
+          speedSlider.step = '0.1';
+          speedSlider.value = String(draft.avatar_effect_speed ?? effectPreset.defaultSpeed);
+          speedSlider.addEventListener('input', (e) => {
+            draft.avatar_effect_speed = parseFloat((e.target as HTMLInputElement).value);
+            speedLabel.textContent = `Speed: ${draft.avatar_effect_speed.toFixed(1)}x`;
+            renderWorkspace();
+          });
+          speedGroup.append(speedLabel, speedSlider);
+          controlsGrid.appendChild(speedGroup);
+        }
+
+        tweakPanel.appendChild(controlsGrid);
+      }
+    } else if (activeTab === 'frame' && selectedEffectOrFrame?.type === 'frame') {
+      const framePreset = AVATAR_FRAME_PRESETS.find(p => p.id === selectedEffectOrFrame.id);
+      if (framePreset && framePreset.isAnimated && framePreset.id !== 'none') {
+        const panelTitle = document.createElement('div');
+        panelTitle.className = 'pa-tweak-panel-title';
+        panelTitle.textContent = `Customize: ${framePreset.label}`;
+        tweakPanel.appendChild(panelTitle);
+
+        const controlsGrid = document.createElement('div');
+        controlsGrid.className = 'pa-tweak-controls-grid';
+
+        // Intensity control for animated frames
+        if (framePreset.defaultIntensity !== undefined) {
+          const intensityGroup = document.createElement('div');
+          intensityGroup.className = 'pa-tweak-control-group';
+          const intensityLabel = document.createElement('label');
+          intensityLabel.textContent = `Animation Intensity: ${draft.avatar_frame_intensity ?? framePreset.defaultIntensity}%`;
+          intensityLabel.className = 'pa-tweak-label-with-value';
+          const intensitySlider = document.createElement('input');
+          intensitySlider.type = 'range';
+          intensitySlider.className = 'pa-tweak-slider';
+          intensitySlider.min = '0';
+          intensitySlider.max = '100';
+          intensitySlider.value = String(draft.avatar_frame_intensity ?? framePreset.defaultIntensity);
+          intensitySlider.addEventListener('input', (e) => {
+            draft.avatar_frame_intensity = parseInt((e.target as HTMLInputElement).value);
+            intensityLabel.textContent = `Animation Intensity: ${draft.avatar_frame_intensity}%`;
+            renderWorkspace();
+          });
+          intensityGroup.append(intensityLabel, intensitySlider);
+          controlsGrid.appendChild(intensityGroup);
+        }
+
+        tweakPanel.appendChild(controlsGrid);
+      }
+    }
   };
 
   renderWorkspace();

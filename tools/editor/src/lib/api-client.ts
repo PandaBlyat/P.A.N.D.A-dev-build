@@ -104,6 +104,10 @@ export type UserCosmetics = {
   avatar_frame?: string | null;
   avatar_banner?: string | null;
   avatar_effect?: string | null;
+  avatar_effect_color?: string | null;
+  avatar_effect_intensity?: number | null;
+  avatar_effect_speed?: number | null;
+  avatar_frame_intensity?: number | null;
 };
 
 export type UserProfile = {
