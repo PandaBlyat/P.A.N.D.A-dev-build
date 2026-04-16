@@ -457,7 +457,8 @@ ALTER TABLE user_profiles
   ADD COLUMN IF NOT EXISTS avatar_icon TEXT,
   ADD COLUMN IF NOT EXISTS avatar_color TEXT,
   ADD COLUMN IF NOT EXISTS avatar_frame TEXT,
-  ADD COLUMN IF NOT EXISTS avatar_banner TEXT;
+  ADD COLUMN IF NOT EXISTS avatar_banner TEXT,
+  ADD COLUMN IF NOT EXISTS avatar_effect TEXT;
 
 ALTER TABLE user_profiles
   ALTER COLUMN xp SET DEFAULT 0,
@@ -603,32 +604,36 @@ CREATE OR REPLACE FUNCTION get_user_profile(p_publisher_id TEXT)
 RETURNS TABLE(
   publisher_id TEXT, username TEXT, xp INT, level INT, title TEXT,
   created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ,
-  avatar_icon TEXT, avatar_color TEXT, avatar_frame TEXT, avatar_banner TEXT
+  avatar_icon TEXT, avatar_color TEXT, avatar_frame TEXT, avatar_banner TEXT, avatar_effect TEXT
 )
 LANGUAGE sql
 SECURITY DEFINER
 AS $$
   SELECT up.publisher_id, up.username, up.xp, up.level, up.title,
          up.created_at, up.updated_at,
-         up.avatar_icon, up.avatar_color, up.avatar_frame, up.avatar_banner
+         up.avatar_icon, up.avatar_color, up.avatar_frame, up.avatar_banner, up.avatar_effect
   FROM user_profiles up
   WHERE up.publisher_id = p_publisher_id
   LIMIT 1;
 $$;
 
--- Update user cosmetics (avatar icon, color, frame, banner).
+-- Update user cosmetics (avatar icon, color, frame, banner, effect).
 -- Any of the fields may be NULL/omitted; NULLs clear the value.
+-- Drop old signature first so we can add avatar_effect param and update return type.
+DROP FUNCTION IF EXISTS update_user_cosmetics(TEXT, TEXT, TEXT, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION update_user_cosmetics(
   p_publisher_id TEXT,
-  p_avatar_icon  TEXT DEFAULT NULL,
-  p_avatar_color TEXT DEFAULT NULL,
-  p_avatar_frame TEXT DEFAULT NULL,
-  p_avatar_banner TEXT DEFAULT NULL
+  p_avatar_icon   TEXT DEFAULT NULL,
+  p_avatar_color  TEXT DEFAULT NULL,
+  p_avatar_frame  TEXT DEFAULT NULL,
+  p_avatar_banner TEXT DEFAULT NULL,
+  p_avatar_effect TEXT DEFAULT NULL
 )
 RETURNS TABLE(
   publisher_id TEXT, username TEXT, xp INT, level INT, title TEXT,
   created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ,
-  avatar_icon TEXT, avatar_color TEXT, avatar_frame TEXT, avatar_banner TEXT
+  avatar_icon TEXT, avatar_color TEXT, avatar_frame TEXT, avatar_banner TEXT, avatar_effect TEXT
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -638,13 +643,14 @@ BEGIN
     avatar_icon   = p_avatar_icon,
     avatar_color  = p_avatar_color,
     avatar_frame  = p_avatar_frame,
-    avatar_banner = p_avatar_banner
+    avatar_banner = p_avatar_banner,
+    avatar_effect = p_avatar_effect
   WHERE up.publisher_id = p_publisher_id;
 
   RETURN QUERY
   SELECT up.publisher_id, up.username, up.xp, up.level, up.title,
          up.created_at, up.updated_at,
-         up.avatar_icon, up.avatar_color, up.avatar_frame, up.avatar_banner
+         up.avatar_icon, up.avatar_color, up.avatar_frame, up.avatar_banner, up.avatar_effect
   FROM user_profiles up
   WHERE up.publisher_id = p_publisher_id;
 END;
@@ -688,13 +694,13 @@ DROP FUNCTION IF EXISTS get_leaderboard(INT);
 CREATE OR REPLACE FUNCTION get_leaderboard(p_limit INT DEFAULT 10)
 RETURNS TABLE(
   publisher_id TEXT, username TEXT, xp INT, level INT, title TEXT,
-  avatar_icon TEXT, avatar_color TEXT, avatar_frame TEXT, avatar_banner TEXT
+  avatar_icon TEXT, avatar_color TEXT, avatar_frame TEXT, avatar_banner TEXT, avatar_effect TEXT
 )
 LANGUAGE sql
 SECURITY DEFINER
 AS $$
   SELECT publisher_id, username, xp, level, title,
-         avatar_icon, avatar_color, avatar_frame, avatar_banner
+         avatar_icon, avatar_color, avatar_frame, avatar_banner, avatar_effect
   FROM user_profiles
   WHERE xp > 0
   ORDER BY xp DESC, created_at ASC
