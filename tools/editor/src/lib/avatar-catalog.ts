@@ -156,111 +156,121 @@ export const AVATAR_ICON_PRESETS: AvatarIconPreset[] = [
 // 2. COLORS / TINTS
 // ---------------------------------------------------------------------------
 export const AVATAR_COLOR_PRESETS: AvatarColorPreset[] = [
-  // ==================== BASIC / FACTION (level 1–5) ====================
-  { id: 'loner',       label: 'Loner Green',     color: '#5eaa3a', minLevel: 1 },
-  { id: 'clearsky',    label: 'Clear Sky',       color: '#3aaa8a', minLevel: 1 },
-  { id: 'freedom',     label: 'Freedom',         color: '#8fd46a', minLevel: 1 },
-  { id: 'duty',        label: 'Duty',            color: '#d87861', minLevel: 1 },
-  { id: 'bandit',      label: 'Bandit',          color: '#7d6a52', minLevel: 1 },
-  { id: 'mercenary',   label: 'Mercenary',       color: '#6fa1d4', minLevel: 1 },
-  { id: 'ecologist',   label: 'Ecologist',       color: '#7fb2e8', minLevel: 1 },
-  { id: 'military',    label: 'Military',        color: '#a0a03a', minLevel: 1 },
-  { id: 'charcoal',    label: 'Charcoal',        color: '#36454f', minLevel: 1 },
-  { id: 'rust',        label: 'Rust',            color: '#b7410e', minLevel: 1 },
-  { id: 'mud',         label: 'Muddy',           color: '#6b4c3a', minLevel: 1 },
-  { id: 'ash',         label: 'Ash Gray',        color: '#9ca3af', minLevel: 1 },
-  { id: 'sand',        label: 'Desert Sand',     color: '#d2b48c', minLevel: 1 },
-  { id: 'olive',       label: 'Olive Drab',      color: '#6b8e23', minLevel: 1 },
-  { id: 'slate',       label: 'Slate',           color: '#708090', minLevel: 1 },
-  { id: 'cream',       label: 'Cream',           color: '#f5f5dc', minLevel: 1 },
+  // ==================== BASIC / FACTION (level 1–5) – muted, low saturation ====================
+  { id: 'loner',       label: 'Loner Green',     color: '#7c8a5e', minLevel: 1 },  // muted olive
+  { id: 'clearsky',    label: 'Clear Sky',       color: '#5a8a7a', minLevel: 1 },  // muted teal
+  { id: 'freedom',     label: 'Freedom',         color: '#9aaa7a', minLevel: 1 },  // muted light green
+  { id: 'duty',        label: 'Duty',            color: '#b88a7a', minLevel: 1 },  // muted brick
+  { id: 'bandit',      label: 'Bandit',          color: '#7a6a5a', minLevel: 1 },  // muted brown
+  { id: 'mercenary',   label: 'Mercenary',       color: '#7a9ab8', minLevel: 1 },  // muted blue
+  { id: 'ecologist',   label: 'Ecologist',       color: '#8aa8c8', minLevel: 1 },  // muted periwinkle
+  { id: 'military',    label: 'Military',        color: '#8a8a5a', minLevel: 1 },  // muted olive drab
+  { id: 'charcoal',    label: 'Charcoal',        color: '#3a4a55', minLevel: 1 },  // dark grey-blue
+  { id: 'rust',        label: 'Rust',            color: '#a87a5a', minLevel: 1 },  // muted burnt orange
+  { id: 'mud',         label: 'Muddy',           color: '#6a5a4a', minLevel: 1 },  // desaturated brown
+  { id: 'ash',         label: 'Ash Gray',        color: '#a0a5aa', minLevel: 1 },  // neutral grey
+  { id: 'sand',        label: 'Desert Sand',     color: '#c8b89a', minLevel: 1 },  // pale sand
+  { id: 'olive',       label: 'Olive Drab',      color: '#7a8a5a', minLevel: 1 },  // muted olive
+  { id: 'slate',       label: 'Slate',           color: '#708090', minLevel: 1 },  // standard slate
+  { id: 'cream',       label: 'Cream',           color: '#f5f5dc', minLevel: 1 },  // unchanged
 
-  // ==================== METALS & ALLOYS (level 8–35) ====================
-  { id: 'iron',        label: 'Forged Iron',     color: '#5c5c5c', minLevel: 8 },
-  { id: 'steel',       label: 'Zone Steel',      color: '#a0a8b8', minLevel: 10 },
-  { id: 'bronze',      label: 'Dusk Bronze',     color: '#cd7f32', minLevel: 12 },  // unique bronze
-  { id: 'copper',      label: 'Rusted Copper',   color: '#b87333', minLevel: 12 },
-  { id: 'silver',      label: 'Tarnished Silver',color: '#c0c0c0', minLevel: 15 },
-  { id: 'gold',        label: 'Rough Gold',      color: '#d4af37', minLevel: 20 },
-  { id: 'titanium',    label: 'Titanium',        color: '#878f99', minLevel: 25 },
-  { id: 'obsidian',    label: 'Obsidian Edge',   color: '#1f1f2b', minLevel: 30 },
-  { id: 'chromium',    label: 'Chrome Mirror',   color: '#dce4f0', minLevel: 35 },
-  { id: 'platinum',    label: 'True Platinum',   color: '#f3f4f6', minLevel: 50 },
+  // ==================== OCEAN / SKY (level 5–22) – low‑medium saturation ====================
+  { id: 'sky',         label: 'Sky Blue',        color: '#9ac0d0', minLevel: 5 },  // desaturated sky
+  { id: 'lichen',      label: 'Lichen',          color: '#bdc48e', minLevel: 5 },  // unchanged
+  { id: 'bark',        label: 'Bark',            color: '#7a4a3a', minLevel: 6 },  // slightly richer brown
+  { id: 'moss',        label: 'Moss',            color: '#7a9a4a', minLevel: 8 },  // medium green
+  { id: 'swamp',       label: 'Swamp',           color: '#6a6a3a', minLevel: 10 }, // muted swamp green
+  { id: 'teal',        label: 'Toxic Teal',      color: '#2a8a7a', minLevel: 12 }, // deeper teal
+  { id: 'pine',        label: 'Pine Green',      color: '#2a5a3a', minLevel: 12 }, // dark forest
+  { id: 'ocean',       label: 'Deep Ocean',      color: '#2a6a9a', minLevel: 15 }, // medium blue
+  { id: 'grave',       label: 'Grave Earth',     color: '#5a4a3a', minLevel: 15 }, // dark earth
+  { id: 'radar',       label: 'Radar Green',     color: '#2a9a6a', minLevel: 16 }, // emerald‑ish
+  { id: 'mushroom',    label: 'Fungal',          color: '#b87a5a', minLevel: 18 }, // warm orange‑brown
+  { id: 'navy',        label: 'Night Navy',      color: '#2a3a6a', minLevel: 18 }, // dark blue
+  { id: 'spore',       label: 'Spore Orange',    color: '#d87a2a', minLevel: 22 }, // medium orange
+  { id: 'ice',         label: 'Permafrost',      color: '#b0e0e6', minLevel: 22 }, // unchanged (pale cyan)
 
-  // ==================== OCEAN / SKY (level 5–45) ====================
-  { id: 'sky',         label: 'Sky Blue',        color: '#87ceeb', minLevel: 5 },
-  { id: 'ocean',       label: 'Deep Ocean',      color: '#0ea5e9', minLevel: 15 },
-  { id: 'teal',        label: 'Toxic Teal',      color: '#14b8a6', minLevel: 12 },
-  { id: 'navy',        label: 'Night Navy',      color: '#1e3a8a', minLevel: 18 },
-  { id: 'ice',         label: 'Permafrost',      color: '#b0e0e6', minLevel: 22 },
-  { id: 'cobalt',      label: 'Cobalt',          color: '#0047ab', minLevel: 28 },
-  { id: 'cyan_signal', label: 'Clear Signal',    color: '#22d3ee', minLevel: 30 },
-  { id: 'abyss',       label: 'Abyssal Blue',    color: '#0f172a', minLevel: 45 }, // darker, unique
+  // ==================== METALS & ALLOYS (level 8–50) – low saturation but increasing shine ====================
+  { id: 'iron',        label: 'Forged Iron',     color: '#6a6a6a', minLevel: 8 },  // neutral dark grey
+  { id: 'steel',       label: 'Zone Steel',      color: '#8a92a0', minLevel: 10 }, // slightly blue‑grey
+  { id: 'bronze',      label: 'Dusk Bronze',     color: '#b87a3a', minLevel: 12 }, // distinct bronze
+  { id: 'copper',      label: 'Rusted Copper',   color: '#b85a2a', minLevel: 12 }, // reddish copper
+  { id: 'silver',      label: 'Tarnished Silver',color: '#b0b8c0', minLevel: 15 }, // light grey
+  { id: 'gold',        label: 'Rough Gold',      color: '#c8a030', minLevel: 20 }, // muted gold
+  { id: 'titanium',    label: 'Titanium',        color: '#9aa2b0', minLevel: 25 }, // cool grey
+  { id: 'obsidian',    label: 'Obsidian Edge',   color: '#2a2a3a', minLevel: 30 }, // very dark purple‑black
+  { id: 'chromium',    label: 'Chrome Mirror',   color: '#d0d8e8', minLevel: 35 }, // bright silver
+  { id: 'platinum',    label: 'True Platinum',   color: '#e8eef4', minLevel: 50 }, // near‑white metallic
 
-  // ==================== FIRE / BLOOD / WARM (level 12–40) ====================
-  { id: 'sunset',      label: 'Sunset',          color: '#ff7f50', minLevel: 12 },
-  { id: 'fire',        label: 'Wildfire',        color: '#ff4500', minLevel: 15 },
-  { id: 'rust_burned', label: 'Burned Rust',     color: '#8b3a3a', minLevel: 18 },
-  { id: 'crimson',     label: 'Crimson Ember',   color: '#e05555', minLevel: 20 },
-  { id: 'cherry',      label: 'Cherry',          color: '#de3163', minLevel: 22 },
-  { id: 'magma',       label: 'Magma',           color: '#ff4d00', minLevel: 25 },
-  { id: 'scarlet',     label: 'Scarlet',         color: '#ff2400', minLevel: 30 },
-  { id: 'blood',       label: 'Fresh Blood',     color: '#991b1b', minLevel: 35 },
-  { id: 'vampire',     label: 'Vampire Red',     color: '#880000', minLevel: 40 },
+  // ==================== FIRE / BLOOD / WARM (level 12–45) – saturation increases with level ====================
+  { id: 'sunset',      label: 'Sunset',          color: '#e87a5a', minLevel: 12 }, // muted coral
+  { id: 'fire',        label: 'Wildfire',        color: '#e85a2a', minLevel: 15 }, // medium orange
+  { id: 'rust_burned', label: 'Burned Rust',     color: '#9a4a3a', minLevel: 18 }, // dark red‑brown
+  { id: 'crimson',     label: 'Crimson Ember',   color: '#d84a4a', minLevel: 20 }, // medium red
+  { id: 'cherry',      label: 'Cherry',          color: '#e84a6a', minLevel: 22 }, // pinkish red
+  { id: 'magma',       label: 'Magma',           color: '#f85a1a', minLevel: 25 }, // bright orange
+  { id: 'scarlet',     label: 'Scarlet',         color: '#f8301a', minLevel: 30 }, // vivid red
+  { id: 'blood',       label: 'Fresh Blood',     color: '#c82020', minLevel: 35 }, // intense dark red
+  { id: 'vampire',     label: 'Vampire Red',     color: '#a01020', minLevel: 40 }, // deep blood red
+  { id: 'phoenix',     label: 'Phoenix Fire',    color: '#ff6a1a', minLevel: 45 }, // bright fiery orange
 
-  // ==================== TOXIC / RADIOACTIVE (level 20–50) ====================
-  { id: 'waste',       label: 'Toxic Waste',     color: '#8fce00', minLevel: 20 },
-  { id: 'toxic',       label: 'Toxic Yellow',    color: '#eab308', minLevel: 25 },
-  { id: 'poison',      label: 'Poison Dart',     color: '#88ff11', minLevel: 27 },
-  { id: 'biohazard',   label: 'Biohazard Lime',  color: '#a3ff00', minLevel: 28 },
-  { id: 'glow',        label: 'Glowstick',       color: '#ccff00', minLevel: 30 },
-  { id: 'neon_green',  label: 'Neon Anomaly',    color: '#0eff00', minLevel: 35 },
-  { id: 'irradiated',  label: 'Irradiated',      color: '#c6ff00', minLevel: 42 },
-  { id: 'radioactive', label: 'Reactor Green',   color: '#39ff14', minLevel: 50 },
+  // ==================== TOXIC / RADIOACTIVE (level 20–55) – high saturation, neon ====================
+  { id: 'waste',       label: 'Toxic Waste',     color: '#9aba1a', minLevel: 20 }, // olive‑yellow
+  { id: 'toxic',       label: 'Toxic Yellow',    color: '#e8c81a', minLevel: 25 }, // golden yellow
+  { id: 'poison',      label: 'Poison Dart',     color: '#88ff11', minLevel: 27 }, // bright lime
+  { id: 'biohazard',   label: 'Biohazard Lime',  color: '#b0ff00', minLevel: 28 }, // chartreuse
+  { id: 'glow',        label: 'Glowstick',       color: '#daff00', minLevel: 30 }, // neon yellow
+  { id: 'neon_green',  label: 'Neon Anomaly',    color: '#1aff1a', minLevel: 35 }, // pure neon green
+  { id: 'irradiated',  label: 'Irradiated',      color: '#eaff00', minLevel: 42 }, // yellow‑green
+  { id: 'radioactive', label: 'Reactor Green',   color: '#39ff14', minLevel: 50 }, // intense green
+  { id: 'neon_cyan',   label: 'Toxic Cyan',      color: '#1affdd', minLevel: 55 }, // new – bright cyan
 
-  // ==================== MYSTIC / PSYCHIC (level 15–58) ====================
-  { id: 'lilac',       label: 'Lilac',           color: '#c8a2c8', minLevel: 15 },
-  { id: 'orchid',      label: 'Orchid',          color: '#da70d6', minLevel: 20 },
-  { id: 'purple_psi',  label: 'Psi Purple',      color: '#8b00ff', minLevel: 25 },
-  { id: 'neon_violet', label: 'Anomaly Violet',  color: '#a855f7', minLevel: 30 },
-  { id: 'amethyst',    label: 'Amethyst',        color: '#9966cc', minLevel: 32 },
-  { id: 'magenta',     label: 'Magenta Field',   color: '#ff00ff', minLevel: 38 },
-  { id: 'dark_purple', label: 'Void Purple',     color: '#301934', minLevel: 48 },
-  { id: 'cosmic',      label: 'Cosmic Violet',   color: '#4b0082', minLevel: 58 },
+  // ==================== MYSTIC / PSYCHIC (level 15–60) – increasingly saturated ====================
+  { id: 'lilac',       label: 'Lilac',           color: '#c8a8d0', minLevel: 15 }, // soft lavender
+  { id: 'orchid',      label: 'Orchid',          color: '#d87ad8', minLevel: 20 }, // medium pink‑purple
+  { id: 'purple_psi',  label: 'Psi Purple',      color: '#aa44ff', minLevel: 25 }, // vivid purple
+  { id: 'neon_violet', label: 'Anomaly Violet',  color: '#c060ff', minLevel: 30 }, // bright violet
+  { id: 'amethyst',    label: 'Amethyst',        color: '#b070e0', minLevel: 32 }, // rich purple
+  { id: 'magenta',     label: 'Magenta Field',   color: '#ff44ff', minLevel: 38 }, // pure magenta
+  { id: 'dark_purple', label: 'Void Purple',     color: '#4a1a6a', minLevel: 48 }, // deep dark purple
+  { id: 'cosmic',      label: 'Cosmic Violet',   color: '#6a1ac0', minLevel: 58 }, // intense indigo
+  { id: 'void_purple', label: 'Void Singularity',color: '#cc33ff', minLevel: 60 }, // new – very bright violet
 
-  // ==================== NATURE / ZONE (level 5–22) ====================
-  { id: 'lichen',      label: 'Lichen',          color: '#bdc48e', minLevel: 5 },
-  { id: 'bark',        label: 'Bark',            color: '#5c4033', minLevel: 6 },
-  { id: 'moss',        label: 'Moss',            color: '#8a9a5b', minLevel: 8 },
-  { id: 'swamp',       label: 'Swamp',           color: '#5c5c3b', minLevel: 10 },
-  { id: 'pine',        label: 'Pine Green',      color: '#014421', minLevel: 12 },
-  { id: 'grave',       label: 'Grave Earth',     color: '#4d3e2e', minLevel: 15 },
-  { id: 'mushroom',    label: 'Fungal',          color: '#c47e5a', minLevel: 18 },
-  { id: 'spore',       label: 'Spore Orange',    color: '#e67e22', minLevel: 22 },
+  // ==================== NATURE / ZONE (level 5–22) – already okay, minor tweaks ====================
+  { id: 'lichen',      label: 'Lichen',          color: '#bdc48e', minLevel: 5 },   // unchanged
+  { id: 'bark',        label: 'Bark',            color: '#7a4a3a', minLevel: 6 },   // tweaked above
+  { id: 'moss',        label: 'Moss',            color: '#7a9a4a', minLevel: 8 },   // tweaked above
+  { id: 'swamp',       label: 'Swamp',           color: '#6a6a3a', minLevel: 10 },  // tweaked above
+  { id: 'pine',        label: 'Pine Green',      color: '#2a5a3a', minLevel: 12 },  // tweaked above
+  { id: 'grave',       label: 'Grave Earth',     color: '#5a4a3a', minLevel: 15 },  // tweaked above
+  { id: 'mushroom',    label: 'Fungal',          color: '#b87a5a', minLevel: 18 },  // tweaked above
+  { id: 'spore',       label: 'Spore Orange',    color: '#d87a2a', minLevel: 22 },  // tweaked above
 
-  // ==================== RENEGADE / MONOLITH / LEGENDARY (level 20–70) ====================
-  { id: 'renegade',    label: 'Renegade',        color: '#b85a8c', minLevel: 20 },
-  { id: 'warlord',     label: 'Warlord Bronze',  color: '#cd7f32', minLevel: 30 },
-  { id: 'monolith',    label: 'Monolith Gold',   color: '#c4a040', minLevel: 40 },
-  { id: 'nebula',      label: 'Nebula',          color: '#dda0dd', minLevel: 50 },
-  { id: 'aurora',      label: 'Aurora',          color: '#00ffaa', minLevel: 52 },
-  { id: 'blackhole',   label: 'Black Hole',      color: '#111111', minLevel: 55 },
-  { id: 'white_dwarf', label: 'White Dwarf',     color: '#f0f0f0', minLevel: 55 },
-  { id: 'singularity', label: 'Singularity',     color: '#2b2b2b', minLevel: 60 },
-  { id: 'quasar',      label: 'Quasar',          color: '#ffdf00', minLevel: 65 },
-  { id: 'void',        label: 'The Void',        color: '#0a0a0a', minLevel: 70 },
+  // ==================== RENEGADE / MONOLITH / LEGENDARY (level 20–70) – high saturation ====================
+  { id: 'renegade',    label: 'Renegade',        color: '#d86a9a', minLevel: 20 }, // dusty rose
+  { id: 'warlord',     label: 'Warlord Bronze',  color: '#d89a3a', minLevel: 30 }, // warm bronze
+  { id: 'monolith',    label: 'Monolith Gold',   color: '#e8b830', minLevel: 40 }, // bright gold
+  { id: 'nebula',      label: 'Nebula',          color: '#e0aaff', minLevel: 50 }, // light violet
+  { id: 'aurora',      label: 'Aurora',          color: '#1affaa', minLevel: 52 }, // vivid mint
+  { id: 'blackhole',   label: 'Black Hole',      color: '#1a1a1a', minLevel: 55 }, // near black
+  { id: 'white_dwarf', label: 'White Dwarf',     color: '#f5f5ff', minLevel: 55 }, // pure white with hint
+  { id: 'singularity', label: 'Singularity',     color: '#4a4a5a', minLevel: 60 }, // dark grey
+  { id: 'quasar',      label: 'Quasar',          color: '#ffe66a', minLevel: 65 }, // intense yellow
+  { id: 'void',        label: 'The Void',        color: '#0a0a0a', minLevel: 70 }, // pure black
 
-  // ==================== EXTRA COOL / ANOMALOUS (level 24–45) ====================
-  { id: 'radar',       label: 'Radar Green',     color: '#00cc66', minLevel: 16 },
-  { id: 'emp',         label: 'EMP',             color: '#b0e0e6', minLevel: 24 },
-  { id: 'mirage',      label: 'Mirage Gold',     color: '#e6c200', minLevel: 24 },
-  { id: 'blizzard',    label: 'Blizzard',        color: '#e0ffff', minLevel: 26 },
-  { id: 'electric',    label: 'Electric Blue',   color: '#00bfff', minLevel: 28 },
-  { id: 'frostbite',   label: 'Frostbite',       color: '#00ffff', minLevel: 33 },
-  { id: 'nightshade',  label: 'Nightshade',      color: '#3c1e4a', minLevel: 34 },
-  { id: 'hologram',    label: 'Hologram',        color: '#e0b0ff', minLevel: 36 },
-  { id: 'inferno',     label: 'Inferno',         color: '#ff3300', minLevel: 38 },
-  { id: 'plasma',      label: 'Plasma',          color: '#e65c00', minLevel: 32 },
-  { id: 'phoenix',     label: 'Phoenix Fire',    color: '#ff8c00', minLevel: 45 },
+  // ==================== EXTRA COOL / ANOMALOUS (level 24–50) – vibrant, distinct ====================
+  { id: 'emp',         label: 'EMP',             color: '#7df9ff', minLevel: 24 }, // electric cyan (was duplicate)
+  { id: 'mirage',      label: 'Mirage Gold',     color: '#f0c040', minLevel: 24 }, // warmer gold
+  { id: 'blizzard',    label: 'Blizzard',        color: '#d0f0ff', minLevel: 26 }, // icy blue
+  { id: 'electric',    label: 'Electric Blue',   color: '#1aafff', minLevel: 28 }, // deep sky blue
+  { id: 'frostbite',   label: 'Frostbite',       color: '#1affff', minLevel: 33 }, // bright cyan
+  { id: 'nightshade',  label: 'Nightshade',      color: '#5a2a7a', minLevel: 34 }, // dark purple
+  { id: 'hologram',    label: 'Hologram',        color: '#e8ccff', minLevel: 36 }, // pale lavender
+  { id: 'inferno',     label: 'Inferno',         color: '#ff4a1a', minLevel: 38 }, // bright orange‑red
+  { id: 'plasma',      label: 'Plasma',          color: '#ff8c33', minLevel: 32 }, // vibrant orange
+  { id: 'sunflare',    label: 'Sunflare',        color: '#ffaa33', minLevel: 45 }, // new – golden orange
+  { id: 'plasma_blue', label: 'Plasma Blue',     color: '#3399ff', minLevel: 48 }, // new – intense blue
+  { id: 'crimson_dusk',label: 'Crimson Dusk',    color: '#ff3366', minLevel: 52 }, // new – hot pink/red
 ];
 
 // ---------------------------------------------------------------------------
@@ -619,6 +629,151 @@ export const AVATAR_BANNER_PRESETS: AvatarBannerPreset[] = [
     minLevel: 58,
     isAnimated: true,
     gradient: 'repeating-radial-gradient(circle at 30% 70%, rgba(0,255,255,0.15) 0px, rgba(0,255,255,0.15) 4px, transparent 4px, transparent 16px)',
+  },
+
+  // ==================== NEW BRIGHTER/DARKER & UNIQUE (level 15–90) ====================
+  {
+    id: 'neon-pulse',
+    label: 'Neon Pulse',
+    minLevel: 15,
+    isAnimated: true,
+    gradient: 'linear-gradient(115deg, rgba(255,0,255,0.4), rgba(0,255,255,0.3) 50%, rgba(255,255,0,0.1) 80%)',
+  },
+  {
+    id: 'electric-violet',
+    label: 'Electric Violet',
+    minLevel: 25,
+    isAnimated: true,
+    gradient: 'radial-gradient(circle at 70% 20%, rgba(180,0,255,0.45), rgba(30,0,60,0.35) 65%, transparent 90%)',
+  },
+  {
+    id: 'sunset-inferno',
+    label: 'Sunset Inferno',
+    minLevel: 32,
+    isAnimated: true,
+    gradient: 'linear-gradient(125deg, rgba(255,100,0,0.5), rgba(220,20,60,0.35) 45%, rgba(30,0,0,0.4) 80%)',
+  },
+  {
+    id: 'arctic-blast',
+    label: 'Arctic Blast',
+    minLevel: 20,
+    isAnimated: true,
+    gradient: 'linear-gradient(120deg, rgba(180,230,255,0.45), rgba(0,160,255,0.25) 55%, transparent 85%)',
+  },
+  {
+    id: 'toxic-waste',
+    label: 'Toxic Waste',
+    minLevel: 28,
+    isAnimated: true,
+    gradient: 'repeating-linear-gradient(135deg, rgba(57,255,20,0.3) 0px, rgba(57,255,20,0.3) 5px, rgba(0,80,0,0.4) 5px, rgba(0,80,0,0.4) 15px)',
+  },
+  {
+    id: 'voidwalker',
+    label: 'Voidwalker',
+    minLevel: 45,
+    gradient: 'linear-gradient(110deg, rgba(10,10,20,0.7), rgba(80,0,120,0.4) 60%, transparent 90%)',
+  },
+  {
+    id: 'prism-shard',
+    label: 'Prism Shard',
+    minLevel: 55,
+    isAnimated: true,
+    gradient: 'conic-gradient(from 120deg at 30% 40%, rgba(255,0,0,0.3), rgba(255,255,0,0.3), rgba(0,255,0,0.3), rgba(0,255,255,0.3), rgba(255,0,255,0.3), rgba(255,0,0,0.3))',
+  },
+  {
+    id: 'radiant-dawn',
+    label: 'Radiant Dawn',
+    minLevel: 60,
+    isAnimated: true,
+    gradient: 'radial-gradient(ellipse at 50% 100%, rgba(255,220,100,0.5), rgba(255,100,0,0.25) 50%, rgba(255,200,50,0.1) 80%, transparent 100%)',
+  },
+  {
+    id: 'shadowfell',
+    label: 'Shadowfell',
+    minLevel: 48,
+    isAnimated: true,
+    gradient: 'linear-gradient(130deg, rgba(0,0,0,0.6), rgba(50,0,50,0.4) 45%, rgba(100,0,0,0.2) 70%, transparent 90%)',
+  },
+  {
+    id: 'plasma-bolt',
+    label: 'Plasma Bolt',
+    minLevel: 38,
+    isAnimated: true,
+    gradient: 'radial-gradient(circle at 15% 85%, rgba(0,200,255,0.5), rgba(255,255,255,0.2) 40%, rgba(0,50,150,0.3) 70%, transparent 95%)',
+  },
+  {
+    id: 'candy-burst',
+    label: 'Candy Burst',
+    minLevel: 42,
+    isAnimated: true,
+    gradient: 'linear-gradient(115deg, rgba(255,20,147,0.4), rgba(255,255,0,0.35) 35%, rgba(0,255,200,0.2) 65%, transparent 85%)',
+  },
+  {
+    id: 'obsidian-edge',
+    label: 'Obsidian Edge',
+    minLevel: 62,
+    gradient: 'linear-gradient(155deg, rgba(15,15,20,0.7), rgba(30,30,40,0.5) 30%, rgba(0,0,0,0.8) 70%, transparent 90%)',
+  },
+  {
+    id: 'celestial-halo',
+    label: 'Celestial Halo',
+    minLevel: 66,
+    isAnimated: true,
+    gradient: 'radial-gradient(circle at 50% 50%, rgba(255,255,200,0.5), rgba(200,200,255,0.2) 35%, rgba(100,100,150,0.1) 60%, transparent 85%)',
+  },
+  {
+    id: 'glitch',
+    label: 'Glitch',
+    minLevel: 50,
+    isAnimated: true,
+    gradient: 'repeating-linear-gradient(45deg, rgba(255,0,255,0.2) 0px, rgba(255,0,255,0.2) 4px, rgba(0,255,255,0.1) 4px, rgba(0,255,255,0.1) 12px, rgba(255,255,0,0.05) 12px, rgba(255,255,0,0.05) 16px)',
+  },
+  {
+    id: 'hypernova',
+    label: 'Hypernova',
+    minLevel: 75,
+    isAnimated: true,
+    gradient: 'radial-gradient(circle at 25% 50%, rgba(255,255,180,0.6), rgba(255,80,0,0.4) 40%, rgba(100,0,200,0.3) 70%, transparent 100%)',
+  },
+  {
+    id: 'midnight-chrome',
+    label: 'Midnight Chrome',
+    minLevel: 68,
+    gradient: 'linear-gradient(135deg, rgba(60,60,80,0.6), rgba(100,100,140,0.3) 25%, rgba(20,20,30,0.7) 60%, transparent 90%)',
+  },
+  {
+    id: 'voltage-arc',
+    label: 'Voltage Arc',
+    minLevel: 44,
+    isAnimated: true,
+    gradient: 'conic-gradient(from 60deg at 80% 20%, rgba(0,255,255,0.4), rgba(255,0,255,0.3), rgba(0,255,255,0.4))',
+  },
+  {
+    id: 'deep-abyss',
+    label: 'Deep Abyss',
+    minLevel: 80,
+    gradient: 'radial-gradient(circle at 10% 90%, rgba(0,0,20,0.8), rgba(0,0,0,0.6) 50%, rgba(0,40,80,0.3) 80%, transparent 100%)',
+  },
+  {
+    id: 'solar-corona',
+    label: 'Solar Corona',
+    minLevel: 85,
+    isAnimated: true,
+    gradient: 'radial-gradient(circle at 60% 40%, rgba(255,200,0,0.5), rgba(255,50,0,0.3) 45%, rgba(255,255,150,0.2) 70%, transparent 95%)',
+  },
+  {
+    id: 'starlight-veil',
+    label: 'Starlight Veil',
+    minLevel: 78,
+    isAnimated: true,
+    gradient: 'repeating-radial-gradient(circle at 30% 60%, rgba(255,255,200,0.2) 0px, rgba(255,255,200,0.2) 2px, transparent 2px, transparent 12px)',
+  },
+  {
+    id: 'quantum-foam',
+    label: 'Quantum Foam',
+    minLevel: 90,
+    isAnimated: true,
+    gradient: 'repeating-conic-gradient(from 0deg, rgba(0,255,128,0.2) 0deg, rgba(255,0,128,0.2) 45deg, rgba(0,128,255,0.2) 90deg, rgba(255,128,0,0.2) 135deg, rgba(0,255,128,0.2) 180deg)',
   },
 ];
 
