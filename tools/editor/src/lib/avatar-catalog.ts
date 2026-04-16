@@ -32,10 +32,12 @@ export type AvatarFramePreset = {
     | 'radioactive' | 'cyber' | 'plasma' | 'blood' | 'void' | 'legend'
     | 'neon' | 'crystal' | 'inferno' | 'frost' | 'corrupted' | 'celestial' | 'omega'
     | 'sanctum' | 'nexus' | 'eclipse' | 'aurora' | 'venom' | 'torment' | 'seraph' | 'abyssal' | 'singularity'
-    // --- New Frames ---
     | 'scrapwork' | 'barbed_wire' | 'circuitry' | 'bio_organic' | 'arcane' | 'glacial'
     | 'holographic' | 'solar_flare' | 'geode' | 'starlight' | 'quantum'
-    | 'noosphere' | 'supernova' | 'event_horizon' | 'zone_heart';
+    | 'noosphere' | 'supernova' | 'event_horizon' | 'zone_heart'
+    // --- Newest Additions ---
+    | 'cogwork' | 'sonar_sweep' | 'containment_field' | 'gilded_serpent'
+    | 'reality_breach' | 'aether_weave' | 'world_eater' | 'c_consciousness';
   /** Default intensity for animated frames (0-100) */
   defaultIntensity?: number;
 };
@@ -311,6 +313,7 @@ export const AVATAR_FRAME_PRESETS: AvatarFramePreset[] = [
   // Basic Frames (Lv 5-15)
   { id: 'runic',       label: 'Runic Ring',       variant: 'runic', minLevel: 5 },
   { id: 'halo',        label: 'Halo',             variant: 'halo',  minLevel: 10 },
+  { id: 'cogwork',     label: 'Cogwork',          variant: 'cogwork',     minLevel: 12, isAnimated: true, defaultIntensity: 100 },
   { id: 'radioactive', label: 'Radioactive',      variant: 'radioactive', minLevel: 15, isAnimated: true, defaultIntensity: 75 },
 
   // Mid-Tier Frames (Lv 18-48)
@@ -318,11 +321,13 @@ export const AVATAR_FRAME_PRESETS: AvatarFramePreset[] = [
   { id: 'cyber',       label: 'Cyber-Link',       variant: 'cyber',       minLevel: 20, defaultIntensity: 70 },
   { id: 'barbed_wire', label: 'Barbed Wire',      variant: 'barbed_wire', minLevel: 22 },
   { id: 'plasma',      label: 'Plasma Coil',      variant: 'plasma',      minLevel: 25, isAnimated: true, defaultIntensity: 80 },
+  { id: 'sonar_sweep', label: 'Sonar Sweep',      variant: 'sonar_sweep', minLevel: 26, isAnimated: true, defaultIntensity: 90 },
   { id: 'circuitry',   label: 'Circuit Board',    variant: 'circuitry',   minLevel: 28, isAnimated: true, defaultIntensity: 75 },
   { id: 'blood',       label: 'Blood Pact',       variant: 'blood',       minLevel: 30 },
   { id: 'bio_organic', label: 'Biomass',          variant: 'bio_organic', minLevel: 32, isAnimated: true, defaultIntensity: 80 },
   { id: 'monolith',    label: 'Monolith Guard',   variant: 'monolith',    minLevel: 35, isAnimated: true, defaultIntensity: 85 },
   { id: 'arcane',      label: 'Arcane Sigil',     variant: 'arcane',      minLevel: 38, isAnimated: true, defaultIntensity: 82 },
+  { id: 'containment_field', label: 'Containment',variant: 'containment_field', minLevel: 40, isAnimated: true, defaultIntensity: 90 },
   { id: 'glacial',     label: 'Glacial Shard',    variant: 'glacial',     minLevel: 42, isAnimated: true, defaultIntensity: 85 },
   { id: 'void',        label: 'Void Drift',       variant: 'void',        minLevel: 45, isAnimated: true, defaultIntensity: 90 },
   { id: 'holographic', label: 'Hologram',         variant: 'holographic', minLevel: 48, isAnimated: true, defaultIntensity: 88 },
@@ -335,6 +340,7 @@ export const AVATAR_FRAME_PRESETS: AvatarFramePreset[] = [
   { id: 'crystal',     label: 'Prismatic',        variant: 'crystal',     minLevel: 60, isAnimated: true, defaultIntensity: 80 },
   { id: 'starlight',   label: 'Starlight Ring',   variant: 'starlight',   minLevel: 62, isAnimated: true, defaultIntensity: 88 },
   { id: 'sanctum',     label: 'Sanctum Ring',     variant: 'sanctum',     minLevel: 65, isAnimated: true, defaultIntensity: 84 },
+  { id: 'gilded_serpent', label: 'Ouroboros',     variant: 'gilded_serpent', minLevel: 66, isAnimated: true, defaultIntensity: 92 },
   { id: 'venom',       label: 'Venom Ring',       variant: 'venom',       minLevel: 68, isAnimated: true, defaultIntensity: 86 },
   { id: 'inferno',     label: 'Infernal Core',    variant: 'inferno',     minLevel: 70, isAnimated: true, defaultIntensity: 92 },
   
@@ -345,18 +351,22 @@ export const AVATAR_FRAME_PRESETS: AvatarFramePreset[] = [
   { id: 'eclipse',     label: 'Eclipse',          variant: 'eclipse',     minLevel: 78, isAnimated: true, defaultIntensity: 87 },
   { id: 'corrupted',   label: 'Corrupted Data',   variant: 'corrupted',   minLevel: 80, isAnimated: true, defaultIntensity: 95 },
   { id: 'aurora',      label: 'Aurora Crown',     variant: 'aurora',      minLevel: 82, isAnimated: true, defaultIntensity: 89 },
+  { id: 'reality_breach', label: 'Reality Breach',variant: 'reality_breach', minLevel: 84, isAnimated: true, defaultIntensity: 96 },
   { id: 'torment',     label: 'Torment',          variant: 'torment',     minLevel: 85, isAnimated: true, defaultIntensity: 94 },
   { id: 'noosphere',   label: 'Noosphere',        variant: 'noosphere',   minLevel: 86, isAnimated: true, defaultIntensity: 95 },
   { id: 'abyssal',     label: 'Abyssal Deep',     variant: 'abyssal',     minLevel: 88, isAnimated: true, defaultIntensity: 96 },
   { id: 'celestial',   label: 'Celestial',        variant: 'celestial',   minLevel: 90, isAnimated: true, defaultIntensity: 92 },
+  { id: 'aether_weave',label: 'Aether Weave',     variant: 'aether_weave', minLevel: 91, isAnimated: true, defaultIntensity: 95 },
   { id: 'seraph',      label: 'Seraph Halo',      variant: 'seraph',      minLevel: 92, isAnimated: true, defaultIntensity: 93 },
   { id: 'supernova',   label: 'Supernova',        variant: 'supernova',   minLevel: 94, isAnimated: true, defaultIntensity: 98 },
+  { id: 'world_eater', label: 'World Eater',      variant: 'world_eater', minLevel: 96, isAnimated: true, defaultIntensity: 100 },
   { id: 'event_horizon', label: 'Event Horizon',  variant: 'event_horizon', minLevel: 98, isAnimated: true, defaultIntensity: 100 },
   
   // Ultimate Frames (Lv 99+)
   { id: 'singularity', label: 'Singularity',      variant: 'singularity', minLevel: 99, isAnimated: true, defaultIntensity: 100 },
   { id: 'omega',       label: 'Omega Directive',  variant: 'omega',     minLevel: 100, isAnimated: true, defaultIntensity: 100 },
   { id: 'zone_heart',  label: 'Heart of the Zone',variant: 'zone_heart',  minLevel: 101, isAnimated: true, defaultIntensity: 100 },
+  { id: 'c_consciousness', label: 'C-Consciousness', variant: 'c_consciousness', minLevel: 102, isAnimated: true, defaultIntensity: 100 },
 ];
 
 // ---------------------------------------------------------------------------
