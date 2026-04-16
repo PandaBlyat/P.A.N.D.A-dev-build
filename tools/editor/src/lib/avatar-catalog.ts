@@ -52,16 +52,16 @@ export type AvatarEffectPreset = {
 };
 
 // ---------------------------------------------------------------------------
-// 1. ICONS (STALKER‑THEMED)
+// 1. ICONS (STALKER‑THEMED) – all glyphs unique
 // ---------------------------------------------------------------------------
 export const AVATAR_ICON_PRESETS: AvatarIconPreset[] = [
-  // ==================== DEFAULT / STARTER ====================
+  // DEFAULT / STARTER
   { id: 'default',   label: 'Anonymous',      glyph: '◉',   category: 'default' },
   { id: 'panda',     label: 'Panda',          glyph: '🐼',  category: 'default', pandaOnly: true },
   { id: 'stalker',   label: 'Stalker',        glyph: '🎭',  category: 'default' },
   { id: 'rookie',    label: 'Rookie',         glyph: '🌱',  category: 'default', minLevel: 1 },
 
-  // ==================== EQUIPMENT / GEAR (Level 1–15) ====================
+  // EQUIPMENT / GEAR
   { id: 'bolt',          label: 'Bolt',           glyph: '🔩', category: 'equipment', minLevel: 1 },
   { id: 'detector',      label: 'Detector',       glyph: '📡', category: 'equipment', minLevel: 2 },
   { id: 'backpack',      label: 'Backpack',       glyph: '🎒', category: 'equipment', minLevel: 2 },
@@ -74,29 +74,29 @@ export const AVATAR_ICON_PRESETS: AvatarIconPreset[] = [
   { id: 'svd',           label: 'SVD',            glyph: '🔫', category: 'equipment', minLevel: 12 },
   { id: 'rpg',           label: 'RPG',            glyph: '🚀', category: 'equipment', minLevel: 15 },
 
-  // ==================== ARTIFACTS (Level 5–35) ====================
+  // ARTIFACTS
   { id: 'stone_flower',  label: 'Stone Flower',   glyph: '🌸', category: 'artifact', minLevel: 5 },
   { id: 'jellyfish',     label: 'Jellyfish',      glyph: '🪼', category: 'artifact', minLevel: 7 },
   { id: 'sparkler',      label: 'Sparkler',       glyph: '✨', category: 'artifact', minLevel: 10 },
   { id: 'night_star',    label: 'Night Star',     glyph: '🌟', category: 'artifact', minLevel: 15 },
   { id: 'fireball',      label: 'Fireball',       glyph: '🔥', category: 'artifact', minLevel: 18 },
   { id: 'crystal',       label: 'Crystal Thorn',  glyph: '💎', category: 'artifact', minLevel: 22 },
-  { id: 'gravi',         label: 'Graviton',       glyph: '🪨', category: 'artifact', minLevel: 28 },
+  { id: 'gravi',         label: 'Graviton',       glyph: '⚫', category: 'artifact', minLevel: 28 },
   { id: 'goldfish',      label: 'Goldfish',       glyph: '🐟', category: 'artifact', minLevel: 35 },
 
-  // ==================== ANOMALIES (Level 8–40) ====================
+  // ANOMALIES
   { id: 'vortex',        label: 'Vortex',         glyph: '🌀', category: 'anomaly', minLevel: 8 },
   { id: 'springboard',   label: 'Springboard',    glyph: '🦘', category: 'anomaly', minLevel: 10 },
-  { id: 'burner',        label: 'Burner',         glyph: '🔥', category: 'anomaly', minLevel: 12 },
+  { id: 'burner',        label: 'Burner',         glyph: '🌋', category: 'anomaly', minLevel: 12 },
   { id: 'electro',       label: 'Electro',        glyph: '⚡', category: 'anomaly', minLevel: 15 },
   { id: 'fruit_punch',   label: 'Fruit Punch',    glyph: '🍎', category: 'anomaly', minLevel: 18 },
   { id: 'gas_cloud',     label: 'Gas Cloud',      glyph: '☠️', category: 'anomaly', minLevel: 20 },
   { id: 'space_bubble',  label: 'Space Bubble',   glyph: '🫧', category: 'anomaly', minLevel: 25 },
   { id: 'psi_field',     label: 'Psi‑Field',      glyph: '🧠', category: 'anomaly', minLevel: 30 },
-  { id: 'tremor',        label: 'Tremor',         glyph: '🌋', category: 'anomaly', minLevel: 35 },
-  { id: 'black_hole',    label: 'Black Hole',     glyph: '⚫', category: 'anomaly', minLevel: 40 },
+  { id: 'tremor',        label: 'Tremor',         glyph: '🌍', category: 'anomaly', minLevel: 35 },
+  { id: 'black_hole',    label: 'Black Hole',     glyph: '🌑', category: 'anomaly', minLevel: 40 },
 
-  // ==================== MUTANTS (Level 10–55) ====================
+  // MUTANTS
   { id: 'flesh',         label: 'Flesh',          glyph: '🐗', category: 'mutant', minLevel: 10 },
   { id: 'blind_dog',     label: 'Blind Dog',      glyph: '🐕', category: 'mutant', minLevel: 12 },
   { id: 'snork',         label: 'Snork',          glyph: '🏃', category: 'mutant', minLevel: 15 },
@@ -110,7 +110,7 @@ export const AVATAR_ICON_PRESETS: AvatarIconPreset[] = [
   { id: 'chimera',       label: 'Chimera',        glyph: '🐉', category: 'mutant', minLevel: 50 },
   { id: 'karlik',        label: 'Karlik',         glyph: '🪨', category: 'mutant', minLevel: 55 },
 
-  // ==================== FACTIONS (Level 1–30) ====================
+  // FACTIONS
   { id: 'loner',         label: 'Loner',          glyph: '🕊️', category: 'faction', minLevel: 1 },
   { id: 'duty',          label: 'Duty',           glyph: '🛡️', category: 'faction', minLevel: 1 },
   { id: 'freedom',       label: 'Freedom',        glyph: '🌿', category: 'faction', minLevel: 1 },
@@ -120,36 +120,36 @@ export const AVATAR_ICON_PRESETS: AvatarIconPreset[] = [
   { id: 'military',      label: 'Military',       glyph: '🎖️', category: 'faction', minLevel: 5 },
   { id: 'clear_sky',     label: 'Clear Sky',      glyph: '🌤️', category: 'faction', minLevel: 8 },
   { id: 'monolith',      label: 'Monolith',       glyph: '⛲', category: 'faction', minLevel: 20 },
-  { id: 'renegade',      label: 'Renegade',       glyph: '🔪', category: 'faction', minLevel: 12 },
+  { id: 'renegade',      label: 'Renegade',       glyph: '🗡️', category: 'faction', minLevel: 12 },
   { id: 'sin',           label: 'Sin',            glyph: '🐍', category: 'faction', minLevel: 25 },
-  { id: 'isg',           label: 'ISG',            glyph: '🌍', category: 'faction', minLevel: 30 },
+  { id: 'isg',           label: 'ISG',            glyph: '🌏', category: 'faction', minLevel: 30 },
 
-  // ==================== ZONE PHENOMENA / RANKS (Level 5–60) ====================
+  // ZONE PHENOMENA
   { id: 'emission',      label: 'Emission',       glyph: '🌅', category: 'zone', minLevel: 15 },
   { id: 'psi_storm',     label: 'Psi‑Storm',      glyph: '🌪️', category: 'zone', minLevel: 20 },
   { id: 'blowout',       label: 'Blowout',        glyph: '💥', category: 'zone', minLevel: 25 },
   { id: 'scorched_earth',label: 'Scorched Earth', glyph: '🏜️', category: 'zone', minLevel: 30 },
   { id: 'dead_city',     label: 'Dead City',      glyph: '🏚️', category: 'zone', minLevel: 18 },
-  { id: 'radar',         label: 'Radar',          glyph: '📡', category: 'zone', minLevel: 12 },
-  { id: 'brain_scorcher',label: 'Brain Scorcher', glyph: '🧠', category: 'zone', minLevel: 40 },
+  { id: 'radar',         label: 'Radar',          glyph: '🛸', category: 'zone', minLevel: 12 },
+  { id: 'brain_scorcher',label: 'Brain Scorcher', glyph: '🔮', category: 'zone', minLevel: 40 },
 
-  // ==================== RANKS / ACHIEVEMENTS (Level 5–70) ====================
-  { id: 'novice',        label: 'Novice',         glyph: '🌱', category: 'rank', minLevel: 5 },
-  { id: 'experienced',   label: 'Experienced',    glyph: '🌿', category: 'rank', minLevel: 10 },
+  // RANKS
+  { id: 'novice',        label: 'Novice',         glyph: '🍃', category: 'rank', minLevel: 5 },
+  { id: 'experienced',   label: 'Experienced',    glyph: '🍀', category: 'rank', minLevel: 10 },
   { id: 'veteran',       label: 'Veteran',        glyph: '⚙️', category: 'rank', minLevel: 20 },
   { id: 'expert',        label: 'Expert',         glyph: '🏅', category: 'rank', minLevel: 30 },
   { id: 'master',        label: 'Master',         glyph: '👑', category: 'rank', minLevel: 40 },
-  { id: 'legend',        label: 'Legend',         glyph: '🌟', category: 'rank', minLevel: 50 },
+  { id: 'legend',        label: 'Legend',         glyph: '⭐', category: 'rank', minLevel: 50 },
   { id: 'stalker_hero',  label: 'Hero of the Zone', glyph: '🦸', category: 'rank', minLevel: 60 },
-  { id: 'monolith_saint',label: 'Monolith Saint', glyph: '⛲', category: 'rank', minLevel: 70 },
+  { id: 'monolith_saint',label: 'Monolith Saint', glyph: '🙏', category: 'rank', minLevel: 70 },
 
-  // ==================== LEGENDARY / MYTHIC (Level 45–70) ====================
+  // LEGENDARY
   { id: 'chernobyl',     label: 'Chernobyl',      glyph: '☢️', category: 'legend', minLevel: 45 },
-  { id: 'wish_granter',  label: 'Wish Granter',   glyph: '💎', category: 'legend', minLevel: 50 },
+  { id: 'wish_granter',  label: 'Wish Granter',   glyph: '💫', category: 'legend', minLevel: 50 },
   { id: 'oasis',         label: 'Oasis',          glyph: '🏝️', category: 'legend', minLevel: 55 },
-  { id: 'golden_sphere', label: 'Golden Sphere',  glyph: '🔮', category: 'legend', minLevel: 60 },
+  { id: 'golden_sphere', label: 'Golden Sphere',  glyph: '🥚', category: 'legend', minLevel: 60 },
   { id: 'noosphere',     label: 'Noosphere',      glyph: '🌌', category: 'legend', minLevel: 65 },
-  { id: 'c_consciousness',label: 'C‑Consciousness', glyph: '🧠', category: 'legend', minLevel: 70 },
+  { id: 'c_consciousness',label: 'C‑Consciousness', glyph: '🧿', category: 'legend', minLevel: 70 },
 ];
 
 // ---------------------------------------------------------------------------
