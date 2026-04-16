@@ -18817,10 +18817,11 @@ button.pa-avatar:focus-visible {
 /* Shared Dummy anims */
 .pa-anim-bg { background-size: 200% 200% !important; animation: bgPan 6s ease-in-out infinite alternate; }
 @keyframes bgPan { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
-.pa-anim-frame { position: relative; overflow: hidden; border-color: transparent !important; }
+.pa-anim-frame { position: relative; overflow: hidden; border-color: transparent !important; --pa-frame-intensity: 0.85; }
 .pa-anim-frame::before {
   content: ''; position: absolute; inset: -50%; z-index: -1;
   background: conic-gradient(from 0deg, transparent 60%, var(--pa-avatar-color) 100%); animation: paAvatarSpin 3s linear infinite;
+  opacity: var(--pa-frame-intensity, 0.85);
 }
 .pa-anim-frame::after { content: ''; position: absolute; inset: 2px; background: var(--pa-bg-base); border-radius: 50%; z-index: -1; }
 

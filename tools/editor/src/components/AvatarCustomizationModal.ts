@@ -95,6 +95,9 @@ function buildPreviewAvatar(
     extraClass,
   ].filter(Boolean).join(' ');
   av.style.setProperty('--pa-avatar-color', colorValue);
+  if (framePreset?.isAnimated && framePreset.defaultIntensity !== undefined) {
+    av.style.setProperty('--pa-frame-intensity', String((draft.avatar_frame_intensity ?? framePreset.defaultIntensity ?? 85) / 100));
+  }
 
   const glyph = document.createElement('span');
   glyph.className = 'pa-avatar-glyph';
