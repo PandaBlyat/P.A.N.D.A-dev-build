@@ -17990,6 +17990,190 @@ button.pa-avatar:focus-visible {
   pointer-events: none; z-index: 5;
 }
 
+/* =========================================================================
+   ADDITIONAL THEMATIC FRAMES (Lv 18 – 101)
+   ========================================================================= */
+
+@keyframes paHeartbeat {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  30%      { transform: scale(1.08); opacity: 1; }
+  50%      { transform: scale(0.96); opacity: 0.85; }
+}
+
+@keyframes paHolographicFlicker {
+  0%, 100% { opacity: var(--pa-frame-intensity, 0.88); }
+  50% { opacity: 0.6; }
+  52% { clip-path: inset(20% 0 65% 0); }
+  54% { clip-path: inset(50% 0 10% 0); }
+  56% { clip-path: initial; }
+}
+
+@keyframes paQuantumJitter {
+  0%, 100% { transform: rotate(0deg) translate(0, 0); }
+  25% { transform: rotate(90deg) translate(1px, -1px); }
+  50% { transform: rotate(180deg) translate(-1px, 1px); }
+  75% { transform: rotate(270deg) translate(0px, -1px); }
+}
+
+@keyframes paSupernovaBurst {
+  0%, 100% { transform: scale(0.8); opacity: 0; filter: blur(10px) brightness(1); }
+  50%      { transform: scale(1.3); opacity: 1; filter: blur(2px) brightness(3); }
+  90%      { transform: scale(1.2); opacity: 0.5; filter: blur(5px) brightness(2); }
+}
+
+/* Frame: scrapwork (Lv 18) - Static */
+.pa-avatar-frame-scrapwork { border: 2px solid color-mix(in srgb, var(--pa-avatar-color) 70%, #8a6a5a); }
+.pa-avatar-frame-scrapwork .pa-avatar-ornament {
+  opacity: 1; inset: -6px; border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--pa-avatar-color) 40%, transparent);
+  background: linear-gradient(45deg, rgba(0,0,0,0.1) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.1) 75%),
+              linear-gradient(-45deg, rgba(0,0,0,0.1) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.1) 75%);
+  background-size: 8px 8px;
+  clip-path: polygon(0% 25%, 25% 0%, 75% 0%, 100% 25%, 100% 75%, 75% 100%, 25% 100%, 0% 75%);
+}
+
+/* Frame: barbed_wire (Lv 22) - Static */
+.pa-avatar-frame-barbed_wire { border: 1px solid color-mix(in srgb, var(--pa-avatar-color) 70%, #6b7280); }
+.pa-avatar-frame-barbed_wire::before, .pa-avatar-frame-barbed_wire::after {
+  content: ''; position: absolute; inset: -1px; border-radius: 50%;
+  border: 1px solid var(--pa-avatar-color);
+  background: conic-gradient(from 0deg, transparent 43deg, var(--pa-avatar-color) 44deg, var(--pa-avatar-color) 46deg, transparent 47deg);
+}
+.pa-avatar-frame-barbed_wire::after { transform: rotate(22.5deg) scale(0.95); }
+
+/* Frame: circuitry (Lv 28) */
+.pa-avatar-frame-circuitry { border: 1px solid var(--pa-avatar-color); }
+.pa-avatar-frame-circuitry .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.75); inset: -6px;
+  background: conic-gradient(from 0deg, transparent 0%, var(--pa-avatar-color) 15%, transparent 30%);
+  -webkit-mask-image:
+    repeating-linear-gradient(90deg, #000 0 1px, transparent 1px 10px),
+    repeating-linear-gradient(0deg, #000 0 1px, transparent 1px 10px),
+    radial-gradient(circle at 20% 20%, #000 1px, transparent 2px),
+    radial-gradient(circle at 80% 80%, #000 1px, transparent 2px);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: paAvatarSpinRev 4s linear infinite;
+}
+
+/* Frame: bio_organic (Lv 32) */
+.pa-avatar-frame-bio_organic { border: 2px solid color-mix(in srgb, var(--pa-avatar-color) 60%, #7f1d1d); }
+.pa-avatar-frame-bio_organic .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.80); inset: -10px;
+  background: radial-gradient(circle, var(--pa-avatar-color) 30%, transparent 65%);
+  filter: blur(2px) contrast(1.5);
+  animation: paAvatarPulse 4s ease-in-out infinite;
+}
+
+/* Frame: arcane (Lv 38) */
+.pa-avatar-frame-arcane { border: 1px solid var(--pa-avatar-color); box-shadow: 0 0 12px var(--pa-avatar-color); }
+.pa-avatar-frame-arcane .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.82); inset: -8px;
+  background: conic-gradient(from 0deg, transparent, var(--pa-avatar-color), transparent 20%, var(--pa-avatar-color), transparent 45%, var(--pa-avatar-color), transparent 78%, var(--pa-avatar-color), transparent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 0 L60 40 L100 50 L60 60 L50 100 L40 60 L0 50 L40 40 Z' fill='black'/%3E%3C/svg%3E");
+  -webkit-mask-size: 100% 100%;
+  animation: paAvatarSpin 18s linear infinite;
+}
+
+/* Frame: glacial (Lv 42) */
+.pa-avatar-frame-glacial { border: 2px solid color-mix(in srgb, var(--pa-avatar-color) 80%, #a5f3fc); }
+.pa-avatar-frame-glacial .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.85); inset: -7px;
+  border: 1px solid color-mix(in srgb, var(--pa-avatar-color) 60%, transparent);
+  background: linear-gradient(160deg, var(--pa-avatar-color), transparent 50%), linear-gradient(20deg, var(--pa-avatar-color), transparent 50%);
+  clip-path: polygon(50% 0%, 65% 15%, 85% 15%, 100% 50%, 85% 85%, 65% 85%, 50% 100%, 35% 85%, 15% 85%, 0% 50%, 15% 15%, 35% 15%);
+  animation: paAvatarSpin 25s linear infinite;
+}
+
+/* Frame: holographic (Lv 48) */
+.pa-avatar-frame-holographic { border: 2px solid transparent; }
+.pa-avatar-frame-holographic .pa-avatar-ornament {
+  inset: -6px; opacity: 1;
+  background: repeating-linear-gradient(0deg, var(--pa-avatar-color) 0, var(--pa-avatar-color) 1px, transparent 1px, transparent 4px);
+  animation: paHolographicFlicker 3s infinite;
+}
+
+/* Frame: solar_flare (Lv 52) */
+.pa-avatar-frame-solar_flare { border: 2px solid #f97316; box-shadow: 0 0 25px #f97316, inset 0 0 10px #fbbf24; }
+.pa-avatar-frame-solar_flare .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.90); inset: -15px;
+  background: radial-gradient(circle, #fbbf24 20%, #f97316 55%, transparent 70%);
+  filter: blur(4px) contrast(1.1);
+  animation: paInfernoFlicker 0.2s infinite alternate;
+}
+
+/* Frame: geode (Lv 58) */
+.pa-avatar-frame-geode { border: 2px solid color-mix(in srgb, var(--pa-avatar-color) 85%, #fff); }
+.pa-avatar-frame-geode .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.85); inset: -8px;
+  background: conic-gradient(from 0deg, var(--pa-avatar-color), #fff, var(--pa-avatar-color), #fff, var(--pa-avatar-color));
+  clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+  animation: paAvatarSpinRev 10s linear infinite;
+}
+
+/* Frame: starlight (Lv 62) */
+.pa-avatar-frame-starlight { border: 2px solid color-mix(in srgb, var(--pa-avatar-color) 30%, #e0e7ff); }
+.pa-avatar-frame-starlight .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.88); inset: -10px;
+  background: radial-gradient(ellipse, transparent, color-mix(in srgb, var(--pa-avatar-color) 40%, #000) 70%),
+              repeating-radial-gradient(circle at 20% 30%, #fff 0, #fff 1px, transparent 1px, transparent 20px),
+              repeating-radial-gradient(circle at 80% 70%, #fff 0, #fff 1px, transparent 1px, transparent 20px);
+  animation: paAvatarSpin 30s linear infinite;
+}
+
+/* Frame: quantum (Lv 76) */
+.pa-avatar-frame-quantum { border: 2px solid var(--pa-avatar-color); }
+.pa-avatar-frame-quantum .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.94); inset: -8px;
+  background: repeating-conic-gradient(from 0deg, var(--pa-avatar-color) 0deg 5deg, transparent 5deg 10deg, #0ea5e9 10deg 15deg, transparent 15deg 20deg);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
+  animation: paQuantumJitter 1s linear infinite;
+}
+
+/* Frame: noosphere (Lv 86) */
+.pa-avatar-frame-noosphere { border: 2px solid #8b5cf6; box-shadow: 0 0 30px #8b5cf6, inset 0 0 20px #1e1b4b; }
+.pa-avatar-frame-noosphere .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.95); inset: -14px;
+  background: conic-gradient(from 0deg, #a78bfa, #c4b5fd 120deg, #6d28d9 240deg, #a78bfa);
+  filter: blur(5px);
+  animation: paAvatarSpin 15s linear infinite;
+}
+.pa-avatar-frame-noosphere::after {
+  content: ''; position: absolute; inset: -14px; border-radius: 50%;
+  background: radial-gradient(circle, transparent 50%, #fff 51%, #fff 52%, transparent 54%);
+  animation: paAvatarSpinRev 10s linear infinite;
+}
+
+/* Frame: supernova (Lv 94) */
+.pa-avatar-frame-supernova { border: 3px solid #fff; box-shadow: 0 0 50px #fff; }
+.pa-avatar-frame-supernova .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.98); inset: -20px;
+  background: radial-gradient(circle, #fff, var(--pa-avatar-color), transparent 60%);
+  animation: paSupernovaBurst 2.5s ease-out infinite;
+}
+
+/* Frame: event_horizon (Lv 98) */
+.pa-avatar-frame-event_horizon { border: 2px solid #000; box-shadow: inset 0 0 30px #000, 0 0 20px #000; }
+.pa-avatar-frame-event_horizon .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 1.0); inset: -8px;
+  background: conic-gradient(from 0deg, #fde047, #f97316, #ef4444, #a855f7, #60a5fa, #fde047);
+  -webkit-mask: radial-gradient(circle, transparent 72%, #000 73%, #000 78%, transparent 79%);
+  animation: paAvatarSpin 1s linear infinite;
+}
+
+/* Frame: zone_heart (Lv 101) */
+.pa-avatar-frame-zone_heart { border: 3px solid #dc2626; box-shadow: 0 0 30px #ef4444, inset 0 0 20px #991b1b; }
+.pa-avatar-frame-zone_heart .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 1.0); inset: -12px;
+  background: radial-gradient(circle, #f87171 40%, transparent 68%);
+  animation: paHeartbeat 1.5s ease-in-out infinite;
+}
+.pa-avatar-frame-zone_heart::after {
+  content: ''; position: absolute; inset: -16px; border-radius: 50%;
+  background: conic-gradient(from 0deg, #ef4444, transparent, #ef4444, transparent, #ef4444);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
+  animation: paAvatarSpinRev 6s linear infinite;
+}
 
 /* =========================================================================
    EXOTIC / LEGENDARY FRAMES (Lv 65 – 99) — newly added variants
