@@ -853,47 +853,47 @@ export const AVATAR_BANNER_PRESETS: AvatarBannerPreset[] = [
 export const AVATAR_EFFECT_PRESETS: AvatarEffectPreset[] = [
   { id: 'none',         label: 'Clear' },
 
-  // Tier 1: Subtle & Clean (Lv. 5-15)
-  { id: 'scanlines',    label: 'Term/Link',        minLevel: 5,  defaultColor: '#22d3ee', defaultIntensity: 60, defaultSpeed: 1.0 },
-  { id: 'ash',          label: 'Volcanic Ash',     minLevel: 8,  defaultColor: '#9ca3af', defaultIntensity: 55, defaultSpeed: 0.8 },
-  { id: 'spores',       label: 'Irradiated',       minLevel: 10, defaultColor: '#84cc16', defaultIntensity: 65, defaultSpeed: 0.9 },
+  // Tier 1: Subtle Environmentals (Lv. 5-20)
+  { id: 'scanlines',    label: 'Scanlines',        minLevel: 5,  defaultColor: '#22d3ee', defaultIntensity: 60, defaultSpeed: 1.0 },
+  { id: 'ash',          label: 'Falling Ash',      minLevel: 8,  defaultColor: '#b0b8c0', defaultIntensity: 55, defaultSpeed: 0.8 },
+  { id: 'spores',       label: 'Bio-Spores',       minLevel: 10, defaultColor: '#84cc16', defaultIntensity: 65, defaultSpeed: 0.9 },
   { id: 'rain',         label: 'Acid Rain',        minLevel: 15, defaultColor: '#22c55e', defaultIntensity: 70, defaultSpeed: 1.2 },
+  { id: 'sandstorm',    label: 'Dust Devil',       minLevel: 18, defaultColor: '#eab308', defaultIntensity: 60, defaultSpeed: 1.5 },
+  { id: 'blizzard',     label: 'Blizzard',         minLevel: 20, defaultColor: '#e0f2fe', defaultIntensity: 75, defaultSpeed: 1.1 },
 
-  // Tier 2: Elemental (Lv. 18-35)
-  { id: 'blizzard',     label: 'Blizzard',         minLevel: 18, defaultColor: '#e0f2fe', defaultIntensity: 75, defaultSpeed: 1.1 },
-  { id: 'embers',       label: 'Ash & Ember',      minLevel: 25, defaultColor: '#f97316', defaultIntensity: 80, defaultSpeed: 0.7 },
-  { id: 'fireflies',    label: 'Fireflies',        minLevel: 28, defaultColor: '#facc15', defaultIntensity: 70, defaultSpeed: 1.4 },
+  // Tier 2: Energy & Particles (Lv. 22-40)
   { id: 'wind-shear',   label: 'Wind Shear',       minLevel: 22, defaultColor: '#0ea5e9', defaultIntensity: 65, defaultSpeed: 1.5 },
-
-  // Tier 3: Anomalous (Lv. 30-50)
-  { id: 'glitch',       label: 'Psy-Storm',        minLevel: 30, defaultColor: '#34e2ff', defaultIntensity: 85, defaultSpeed: 1.3 },
-  { id: 'toxic-gas',    label: 'Toxic Fumes',      minLevel: 38, defaultColor: '#84e215', defaultIntensity: 80, defaultSpeed: 0.9 },
-  { id: 'matrix',       label: 'Data-Stream',      minLevel: 40, defaultColor: '#10b981', defaultIntensity: 75, defaultSpeed: 1.6 },
-  { id: 'wisps',        label: 'Void Wisps',       minLevel: 45, defaultColor: '#a78bfa', defaultIntensity: 82, defaultSpeed: 1.1 },
+  { id: 'embers',       label: 'Embers',           minLevel: 25, defaultColor: '#f97316', defaultIntensity: 80, defaultSpeed: 0.7 },
+  { id: 'fireflies',    label: 'Fireflies',        minLevel: 28, defaultColor: '#facc15', defaultIntensity: 70, defaultSpeed: 1.4 },
+  { id: 'static_crackle',label: 'Static Field',    minLevel: 32, defaultColor: '#a78bfa', defaultIntensity: 75, defaultSpeed: 1.8 },
   { id: 'plasma-flow',  label: 'Plasma Flow',      minLevel: 35, defaultColor: '#ec4899', defaultIntensity: 88, defaultSpeed: 1.2 },
+  { id: 'matrix',       label: 'Data Stream',      minLevel: 40, defaultColor: '#10b981', defaultIntensity: 75, defaultSpeed: 1.6 },
 
-  // Tier 4: Hazardous (Lv. 50-75)
-  { id: 'overcharge',   label: 'Overcharge',       minLevel: 50, defaultColor: '#39ff14', defaultIntensity: 90, defaultSpeed: 0.8 },
-  { id: 'lightning',    label: 'Arc Flash',        minLevel: 55, defaultColor: '#7dd3fc', defaultIntensity: 92, defaultSpeed: 2.0 },
-  { id: 'cosmos',       label: 'Deep Space',       minLevel: 65, defaultColor: '#f5d4ff', defaultIntensity: 78, defaultSpeed: 0.6 },
+  // Tier 3: Anomalous & Psionic (Lv. 42-65)
+  { id: 'psi_waves',    label: 'Psi-Emitter',      minLevel: 42, defaultColor: '#c084fc', defaultIntensity: 80, defaultSpeed: 1.0 },
+  { id: 'wisps',        label: 'Void Wisps',       minLevel: 45, defaultColor: '#a78bfa', defaultIntensity: 82, defaultSpeed: 1.1 },
+  { id: 'vortex-spin',  label: 'Vortex',           minLevel: 48, defaultColor: '#8b5cf6', defaultIntensity: 83, defaultSpeed: 1.9 },
+  { id: 'toxic-gas',    label: 'Toxic Fumes',      minLevel: 50, defaultColor: '#84e215', defaultIntensity: 80, defaultSpeed: 0.9 },
+  { id: 'frost-aura',   label: 'Frost Aura',       minLevel: 52, defaultColor: '#0ea5e9', defaultIntensity: 81, defaultSpeed: 0.9 },
+  { id: 'nanites',      label: 'Nanite Swarm',     minLevel: 58, defaultColor: '#06b6d4', defaultIntensity: 85, defaultSpeed: 1.3 },
+  { id: 'glitch',       label: 'Psy-Glitch',       minLevel: 60, defaultColor: '#34e2ff', defaultIntensity: 85, defaultSpeed: 1.3 },
+  { id: 'cosmos',       label: 'Stardust',         minLevel: 65, defaultColor: '#f5d4ff', defaultIntensity: 78, defaultSpeed: 0.6 },
+  
+  // Tier 4: Hazardous & Exotic (Lv. 68-85)
+  { id: 'infernal-haze',label: 'Infernal Haze',    minLevel: 68, defaultColor: '#ef4444', defaultIntensity: 91, defaultSpeed: 1.1 },
+  { id: 'quantum-shimmer', label: 'Quantum Shimmer',minLevel: 72, defaultColor: '#22d3ee', defaultIntensity: 80, defaultSpeed: 1.7 },
   { id: 'blood-rain',   label: 'Blood Rain',       minLevel: 75, defaultColor: '#dc2626', defaultIntensity: 85, defaultSpeed: 1.0 },
-  { id: 'radiation',    label: 'Radiation Pulse',  minLevel: 58, defaultColor: '#facc15', defaultIntensity: 86, defaultSpeed: 0.5 },
-  { id: 'storm-core',   label: 'Storm Core',       minLevel: 62, defaultColor: '#60a5fa', defaultIntensity: 88, defaultSpeed: 1.4 },
+  { id: 'temporal-flux',label: 'Temporal Flux',    minLevel: 76, defaultColor: '#60a5fa', defaultIntensity: 84, defaultSpeed: 1.3 },
+  { id: 'stellar-bloom',label: 'Stellar Bloom',    minLevel: 78, defaultColor: '#fde047', defaultIntensity: 86, defaultSpeed: 0.7 },
+  { id: 'eclipse-aura', label: 'Eclipse Aura',     minLevel: 82, defaultColor: '#fde047', defaultIntensity: 87, defaultSpeed: 0.6 },
+  { id: 'reality_glitch',label: 'Reality Glitch',  minLevel: 85, defaultColor: '#f472b6', defaultIntensity: 94, defaultSpeed: 1.5 },
 
-  // Tier 5: Legendary (Lv. 80+)
-  { id: 'blackhole',    label: 'Event Horizon',    minLevel: 85, defaultColor: '#0c0a0a', defaultIntensity: 95, defaultSpeed: 0.7 },
-  { id: 'ascension',    label: 'Ascension',        minLevel: 95, defaultColor: '#fbbf24', defaultIntensity: 93, defaultSpeed: 0.8 },
-  { id: 'omega-burst',  label: 'Omega Shock',      minLevel: 100, defaultColor: '#f5d4ff', defaultIntensity: 100, defaultSpeed: 1.8 },
-
-  // New Exotic Effects
-  { id: 'void-fracture',label: 'Void Fracture',    minLevel: 70, defaultColor: '#3730a3', defaultIntensity: 89, defaultSpeed: 0.9 },
-  { id: 'temporal-flux', label: 'Temporal Flux',   minLevel: 76, defaultColor: '#1e40af', defaultIntensity: 84, defaultSpeed: 1.3 },
-  { id: 'eclipse-aura',  label: 'Eclipse Aura',    minLevel: 82, defaultColor: '#1f2937', defaultIntensity: 87, defaultSpeed: 0.6 },
-  { id: 'infernal-haze', label: 'Infernal Haze',   minLevel: 68, defaultColor: '#ff0000', defaultIntensity: 91, defaultSpeed: 1.1 },
-  { id: 'quantum-shimmer', label: 'Quantum Shimmer', minLevel: 72, defaultColor: '#00ffff', defaultIntensity: 80, defaultSpeed: 1.7 },
-  { id: 'stellar-bloom',  label: 'Stellar Bloom',   minLevel: 78, defaultColor: '#fde047', defaultIntensity: 86, defaultSpeed: 0.7 },
-  { id: 'vortex-spin',    label: 'Vortex Spin',     minLevel: 48, defaultColor: '#8b5cf6', defaultIntensity: 83, defaultSpeed: 1.9 },
-  { id: 'frost-aura',     label: 'Frost Aura',      minLevel: 52, defaultColor: '#0ea5e9', defaultIntensity: 81, defaultSpeed: 0.9 },
+  // Tier 5: Legendary (Lv. 88+)
+  { id: 'aurora',       label: 'Aurora Veil',      minLevel: 88, defaultColor: '#34d399', defaultIntensity: 90, defaultSpeed: 0.8 },
+  { id: 'unstable_core',label: 'Unstable Core',    minLevel: 92, defaultColor: '#fbbf24', defaultIntensity: 95, defaultSpeed: 1.1 },
+  { id: 'ascension',    label: 'Ascension',        minLevel: 95, defaultColor: '#fef08a', defaultIntensity: 93, defaultSpeed: 0.8 },
+  { id: 'blackhole',    label: 'Singularity',      minLevel: 98, defaultColor: '#d8b4fe', defaultIntensity: 95, defaultSpeed: 0.7 },
+  { id: 'omega-burst',  label: 'Omega Burst',      minLevel: 100, defaultColor: '#f5d4ff', defaultIntensity: 100, defaultSpeed: 1.8 },
 ];
 
 // ---------------------------------------------------------------------------
