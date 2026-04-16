@@ -108,6 +108,8 @@ export type UserCosmetics = {
   avatar_effect_intensity?: number | null;
   avatar_effect_speed?: number | null;
   avatar_frame_intensity?: number | null;
+  avatar_banner_opacity?: number | null;
+  avatar_banner_speed?: number | null;
 };
 
 export type UserProfile = {

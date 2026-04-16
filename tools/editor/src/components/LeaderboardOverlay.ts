@@ -11,6 +11,7 @@ import { createAchievementBadge } from './AchievementIcons';
 import { openPublicProfile } from './ProfileBadge';
 import { createIcon } from './icons';
 import { renderAvatar, getBannerBackground } from './AvatarRenderer';
+import { getAvatarBannerPreset, getAvatarEffectPreset } from '../lib/avatar-catalog';
 
 function getLeaderboardAccent(level: number): string {
   if (level >= 91) return 'var(--warning, #c4a040)';
@@ -213,6 +214,9 @@ function buildRow(ranked: RankedEntry, viewerId: string, staggerIndex: number): 
   const bannerBg = getBannerBackground(entry.avatar_banner);
   if (bannerBg) {
     row.style.setProperty('--row-banner', bannerBg);
+    if (getAvatarBannerPreset(entry.avatar_banner)?.isAnimated) {
+      row.classList.add('pa-anim-bg');
+    }
   }
 
   // VFX overlay — absolutely positioned, very low opacity so text stays legible.
@@ -222,6 +226,12 @@ function buildRow(ranked: RankedEntry, viewerId: string, staggerIndex: number): 
     rowEffect.className = 'panda-leaderboard-row-effect pa-avatar-chip-effect-sample';
     rowEffect.setAttribute('aria-hidden', 'true');
     rowEffect.dataset.effect = String(entry.avatar_effect);
+    const effectPreset = getAvatarEffectPreset(entry.avatar_effect);
+    if (effectPreset) {
+      rowEffect.style.setProperty('--pa-effect-color', entry.avatar_effect_color || effectPreset.defaultColor || '#5eaa3a');
+      rowEffect.style.setProperty('--pa-effect-intensity', String((entry.avatar_effect_intensity ?? effectPreset.defaultIntensity ?? 75) / 100));
+      rowEffect.style.setProperty('--pa-effect-speed', String(entry.avatar_effect_speed ?? effectPreset.defaultSpeed ?? 1.0));
+    }
     row.appendChild(rowEffect);
   }
 
@@ -325,16 +335,23 @@ function renderPodium(refs: OverlayRefs): void {
     if (bannerBg) {
       banner.style.background = bannerBg;
       banner.dataset.banner = String(entry.avatar_banner);
+      if (getAvatarBannerPreset(entry.avatar_banner)?.isAnimated) {
+        banner.classList.add('pa-anim-bg');
+      }
     }
     card.appendChild(banner);
 
     if (entry.avatar_effect && entry.avatar_effect !== 'none') {
       const effect = document.createElement('span');
-      // pa-avatar-chip-effect-sample is added so the shared [data-effect='...']
-      // CSS selectors (defined for chip previews) apply here too.
       effect.className = 'panda-leaderboard-podium-effect pa-avatar-chip-effect-sample';
       effect.setAttribute('aria-hidden', 'true');
       effect.dataset.effect = String(entry.avatar_effect);
+      const podiumEffectPreset = getAvatarEffectPreset(entry.avatar_effect);
+      if (podiumEffectPreset) {
+        effect.style.setProperty('--pa-effect-color', entry.avatar_effect_color || podiumEffectPreset.defaultColor || '#5eaa3a');
+        effect.style.setProperty('--pa-effect-intensity', String((entry.avatar_effect_intensity ?? podiumEffectPreset.defaultIntensity ?? 75) / 100));
+        effect.style.setProperty('--pa-effect-speed', String(entry.avatar_effect_speed ?? podiumEffectPreset.defaultSpeed ?? 1.0));
+      }
       card.appendChild(effect);
     }
 
