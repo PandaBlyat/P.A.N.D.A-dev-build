@@ -19094,10 +19094,11 @@ button.pa-avatar:focus-visible {
 }
 
 /* =========================================================================
-   VFX & EFFECT INTEGRATIONS (REVISED & EXPANDED)
+   VFX & EFFECT INTEGRATIONS (COMPLETE & REVISED)
    ========================================================================= */
 
-.pa-avatar-preview-effect {
+.pa-avatar-preview-effect,
+.pa-avatar-chip-effect-sample {
   position: absolute; inset: 0; z-index: 1; pointer-events: none; mix-blend-mode: screen; border-radius: 16px; overflow: hidden;
   --pa-effect-color: #5eaa3a;
   --pa-effect-intensity: 0.75;
@@ -19108,14 +19109,14 @@ button.pa-avatar:focus-visible {
 /* --- TIER 1: SUBTLE ENVIRONMENTALS --- */
 
 /* [REVISED] Scanlines: Smoother, more subtle scroll. */
-.pa-avatar-preview-effect[data-effect='scanlines'] {
+.pa-avatar-preview-effect[data-effect='scanlines'], .pa-avatar-chip-effect-sample[data-effect='scanlines'] {
   background: linear-gradient(to bottom, transparent 50%, color-mix(in srgb, var(--pa-effect-color) 12%, transparent) 51%);
   background-size: 100% 4px;
   animation: paVFX-scroll-down calc(8s / var(--pa-effect-speed, 1)) linear infinite;
 }
 
 /* [REVISED] Ash: More natural, drifting fall. */
-.pa-avatar-preview-effect[data-effect='ash'] {
+.pa-avatar-preview-effect[data-effect='ash'], .pa-avatar-chip-effect-sample[data-effect='ash'] {
   background-image:
     radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color) 80%, transparent) 1px, transparent 1.5px),
     radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color) 70%, transparent) 1px, transparent 1.5px);
@@ -19125,20 +19126,20 @@ button.pa-avatar:focus-visible {
 }
 
 /* [REVISED] Spores: Gentler floating motion. */
-.pa-avatar-preview-effect[data-effect='spores'] {
+.pa-avatar-preview-effect[data-effect='spores'], .pa-avatar-chip-effect-sample[data-effect='spores'] {
   background-image: radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color) 60%, transparent) 1.5px, transparent 2px);
   background-size: 30px 30px;
   animation: paVFX-float-up calc(5s / var(--pa-effect-speed, 1)) linear infinite;
 }
 
 /* [REVISED] Rain: Improved streaking and density. */
-.pa-avatar-preview-effect[data-effect='rain'] {
+.pa-avatar-preview-effect[data-effect='rain'], .pa-avatar-chip-effect-sample[data-effect='rain'] {
   background: repeating-linear-gradient(-20deg, transparent, transparent 4px, color-mix(in srgb, var(--pa-effect-color) 25%, transparent) 4px, color-mix(in srgb, var(--pa-effect-color) 25%, transparent) 5px);
   animation: paVFX-rain-fall calc(0.5s / var(--pa-effect-speed, 1)) linear infinite;
 }
 
 /* [NEW] Sandstorm: Gritty, horizontal particle flow. */
-.pa-avatar-preview-effect[data-effect='sandstorm'] {
+.pa-avatar-preview-effect[data-effect='sandstorm'], .pa-avatar-chip-effect-sample[data-effect='sandstorm'] {
   background-image:
     repeating-linear-gradient(95deg, color-mix(in srgb, var(--pa-effect-color) 20%, transparent), transparent 1px, transparent 10px),
     repeating-linear-gradient(85deg, color-mix(in srgb, var(--pa-effect-color) 15%, transparent), transparent 1px, transparent 8px);
@@ -19146,7 +19147,7 @@ button.pa-avatar:focus-visible {
 }
 
 /* [REVISED] Blizzard: Faster, more dense diagonal snow. */
-.pa-avatar-preview-effect[data-effect='blizzard'] {
+.pa-avatar-preview-effect[data-effect='blizzard'], .pa-avatar-chip-effect-sample[data-effect='blizzard'] {
   background: repeating-linear-gradient(-45deg, transparent, transparent 5px, color-mix(in srgb, var(--pa-effect-color) 50%, transparent) 5px, color-mix(in srgb, var(--pa-effect-color) 50%, transparent) 7px);
   animation: paVFX-blizzard-fly calc(0.6s / var(--pa-effect-speed, 1)) linear infinite;
 }
@@ -19154,20 +19155,20 @@ button.pa-avatar:focus-visible {
 /* --- TIER 2: ENERGY & PARTICLES --- */
 
 /* [REVISED] Wind Shear: Cleaner and faster lines. */
-.pa-avatar-preview-effect[data-effect='wind-shear'] {
+.pa-avatar-preview-effect[data-effect='wind-shear'], .pa-avatar-chip-effect-sample[data-effect='wind-shear'] {
   background: repeating-linear-gradient(75deg, transparent, transparent 10px, color-mix(in srgb, var(--pa-effect-color) 15%, transparent) 10px, color-mix(in srgb, var(--pa-effect-color) 15%, transparent) 11px);
   animation: paVFX-horizontal-flow calc(1s / var(--pa-effect-speed, 1)) linear infinite;
 }
 
 /* [REVISED] Embers: Added scaling and more dynamic float. */
-.pa-avatar-preview-effect[data-effect='embers'] {
+.pa-avatar-preview-effect[data-effect='embers'], .pa-avatar-chip-effect-sample[data-effect='embers'] {
   background-image: radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color) 90%, transparent) 1.5px, transparent 2px);
   background-size: 25px 35px;
   animation: paVFX-embers-float calc(3s / var(--pa-effect-speed, 1)) linear infinite;
 }
 
 /* [REVISED] Fireflies: More natural bobbing and glowing. */
-.pa-avatar-preview-effect[data-effect='fireflies'] {
+.pa-avatar-preview-effect[data-effect='fireflies'], .pa-avatar-chip-effect-sample[data-effect='fireflies'] {
   background-image:
     radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color) 95%, transparent) 2px, transparent 3px),
     radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color) 80%, transparent) 1.5px, transparent 2px);
@@ -19177,20 +19178,20 @@ button.pa-avatar:focus-visible {
 }
 
 /* [NEW] Static Crackle: Energetic, crackling field. */
-.pa-avatar-preview-effect[data-effect='static_crackle'] {
+.pa-avatar-preview-effect[data-effect='static_crackle'], .pa-avatar-chip-effect-sample[data-effect='static_crackle'] {
   background: repeating-conic-gradient(from 0deg, var(--pa-effect-color) 0deg 2deg, transparent 2deg 10deg, color-mix(in srgb, var(--pa-effect-color) 50%, transparent) 10deg 12deg, transparent 12deg 25deg);
   animation: paVFX-spin-fast calc(0.2s / var(--pa-effect-speed, 1)) steps(8) infinite, paVFX-flicker calc(0.5s / var(--pa-effect-speed, 1)) linear infinite;
 }
 
 /* [REVISED] Plasma Flow: Smoother, more fluid animation. */
-.pa-avatar-preview-effect[data-effect='plasma-flow'] {
+.pa-avatar-preview-effect[data-effect='plasma-flow'], .pa-avatar-chip-effect-sample[data-effect='plasma-flow'] {
   background: radial-gradient(ellipse at 20% 80%, color-mix(in srgb, var(--pa-effect-color) 40%, transparent) 0%, transparent 50%),
               radial-gradient(ellipse at 80% 20%, color-mix(in srgb, var(--pa-effect-color) 35%, transparent) 0%, transparent 40%);
   animation: paVFX-swirl calc(5s / var(--pa-effect-speed, 1)) ease-in-out infinite alternate;
 }
 
 /* [REVISED] Matrix: More varied code lengths for a classic look. */
-.pa-avatar-preview-effect[data-effect='matrix'] {
+.pa-avatar-preview-effect[data-effect='matrix'], .pa-avatar-chip-effect-sample[data-effect='matrix'] {
   background:
     repeating-linear-gradient(to bottom, transparent 0, transparent 5px, color-mix(in srgb, var(--pa-effect-color) 40%, transparent) 5px, color-mix(in srgb, var(--pa-effect-color) 40%, transparent) 10px),
     repeating-linear-gradient(to bottom, transparent 0, transparent 10px, color-mix(in srgb, var(--pa-effect-color) 30%, transparent) 10px, color-mix(in srgb, var(--pa-effect-color) 30%, transparent) 25px);
@@ -19202,14 +19203,14 @@ button.pa-avatar:focus-visible {
 /* --- TIER 3: ANOMALOUS & PSIONIC --- */
 
 /* [NEW] Psi-Waves: Outward pulsing psionic energy. */
-.pa-avatar-preview-effect[data-effect='psi_waves']::after {
+.pa-avatar-preview-effect[data-effect='psi_waves']::after, .pa-avatar-chip-effect-sample[data-effect='psi_waves']::after {
   content: ''; position: absolute; inset: 0; border-radius: 16px;
   border: 2px solid var(--pa-effect-color);
   animation: paVFX-sonar-pulse calc(2.5s / var(--pa-effect-speed, 1)) ease-out infinite;
 }
 
 /* [REVISED] Wisps: More ethereal with blur and smoother motion. */
-.pa-avatar-preview-effect[data-effect='wisps'] {
+.pa-avatar-preview-effect[data-effect='wisps'], .pa-avatar-chip-effect-sample[data-effect='wisps'] {
   background: radial-gradient(ellipse at 25% 75%, color-mix(in srgb, var(--pa-effect-color) 50%, transparent) 0%, transparent 40%),
               radial-gradient(ellipse at 75% 25%, color-mix(in srgb, var(--pa-effect-color) 45%, transparent) 0%, transparent 35%);
   filter: blur(2px);
@@ -19217,13 +19218,13 @@ button.pa-avatar:focus-visible {
 }
 
 /* [REVISED] Vortex Spin: Cleaner, more defined spiral. */
-.pa-avatar-preview-effect[data-effect='vortex-spin'] {
+.pa-avatar-preview-effect[data-effect='vortex-spin'], .pa-avatar-chip-effect-sample[data-effect='vortex-spin'] {
   background: conic-gradient(from 0deg, transparent, color-mix(in srgb, var(--pa-effect-color) 50%, transparent) 30%, transparent 60%);
   animation: paVFX-spin calc(1.5s / var(--pa-effect-speed, 1)) linear infinite;
 }
 
 /* [REVISED] Toxic Gas: Slower, more menacing swirl. */
-.pa-avatar-preview-effect[data-effect='toxic-gas'] {
+.pa-avatar-preview-effect[data-effect='toxic-gas'], .pa-avatar-chip-effect-sample[data-effect='toxic-gas'] {
   background: radial-gradient(ellipse at 30% 70%, color-mix(in srgb, var(--pa-effect-color) 30%, transparent) 0%, transparent 60%),
               radial-gradient(ellipse at 70% 30%, color-mix(in srgb, var(--pa-effect-color) 25%, transparent) 0%, transparent 50%);
   filter: blur(1px);
@@ -19231,13 +19232,13 @@ button.pa-avatar:focus-visible {
 }
 
 /* [REVISED] Frost Aura: Added shimmer and subtle pulse. */
-.pa-avatar-preview-effect[data-effect='frost-aura'] {
+.pa-avatar-preview-effect[data-effect='frost-aura'], .pa-avatar-chip-effect-sample[data-effect='frost-aura'] {
   background: radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color) 20%, transparent), transparent 60%);
   animation: paVFX-pulse calc(3s / var(--pa-effect-speed, 1)) ease-in-out infinite;
 }
 
 /* [NEW] Nanite Swarm: Microscopic robots crawling across the surface. */
-.pa-avatar-preview-effect[data-effect='nanites'] {
+.pa-avatar-preview-effect[data-effect='nanites'], .pa-avatar-chip-effect-sample[data-effect='nanites'] {
   background-image:
     radial-gradient(circle, var(--pa-effect-color) 1px, transparent 1px),
     radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color) 70%, transparent) 1px, transparent 1px);
@@ -19246,14 +19247,14 @@ button.pa-avatar:focus-visible {
 }
 
 /* [ENHANCED] Glitch: Now with clip-path tearing and color separation. */
-.pa-avatar-preview-effect[data-effect='glitch'] {
+.pa-avatar-preview-effect[data-effect='glitch'], .pa-avatar-chip-effect-sample[data-effect='glitch'] {
   background: color-mix(in srgb, var(--pa-effect-color) 10%, transparent);
   box-shadow: 2px 0 0 #ff00ff, -2px 0 0 #00ffff;
   animation: paVFX-glitch-tear calc(1.5s / var(--pa-effect-speed, 1)) steps(4) infinite;
 }
 
 /* [REVISED] Stardust: Slower, more majestic cosmic drift. */
-.pa-avatar-preview-effect[data-effect='cosmos'] {
+.pa-avatar-preview-effect[data-effect='cosmos'], .pa-avatar-chip-effect-sample[data-effect='cosmos'] {
   background-image:
     radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color) 90%, transparent) 1px, transparent 1.5px),
     radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color) 70%, transparent) 0.5px, transparent 1px);
@@ -19264,44 +19265,44 @@ button.pa-avatar:focus-visible {
 /* --- TIER 4: HAZARDOUS & EXOTIC --- */
 
 /* [REVISED] Infernal Haze: Rises like heat from below. */
-.pa-avatar-preview-effect[data-effect='infernal-haze'] {
+.pa-avatar-preview-effect[data-effect='infernal-haze'], .pa-avatar-chip-effect-sample[data-effect='infernal-haze'] {
   background: linear-gradient(to top, color-mix(in srgb, var(--pa-effect-color) 40%, transparent), transparent 70%);
   animation: paVFX-heat-rise calc(3s / var(--pa-effect-speed, 1)) ease-in-out infinite alternate;
 }
 
 /* [REVISED] Quantum Shimmer: Faster and more chaotic. */
-.pa-avatar-preview-effect[data-effect='quantum-shimmer'] {
+.pa-avatar-preview-effect[data-effect='quantum-shimmer'], .pa-avatar-chip-effect-sample[data-effect='quantum-shimmer'] {
   background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--pa-effect-color) 30%, transparent), transparent 1px, transparent 4px),
               repeating-linear-gradient(-45deg, color-mix(in srgb, var(--pa-effect-color) 30%, transparent), transparent 1px, transparent 4px);
   animation: paVFX-shimmer calc(0.3s / var(--pa-effect-speed, 1)) linear infinite;
 }
 
 /* [REVISED] Blood Rain: Thicker, more viscous look. */
-.pa-avatar-preview-effect[data-effect='blood-rain'] {
+.pa-avatar-preview-effect[data-effect='blood-rain'], .pa-avatar-chip-effect-sample[data-effect='blood-rain'] {
   background: repeating-linear-gradient(-10deg, transparent, transparent 5px, color-mix(in srgb, var(--pa-effect-color) 60%, #000 40%) 5px, color-mix(in srgb, var(--pa-effect-color) 60%, #000 40%) 7px);
   animation: paVFX-rain-fall calc(0.7s / var(--pa-effect-speed, 1)) linear infinite;
 }
 
 /* [REVISED] Temporal Flux: Distorting wave effect. */
-.pa-avatar-preview-effect[data-effect='temporal-flux'] {
+.pa-avatar-preview-effect[data-effect='temporal-flux'], .pa-avatar-chip-effect-sample[data-effect='temporal-flux'] {
   background: linear-gradient(to right, transparent, color-mix(in srgb, var(--pa-effect-color) 25%, transparent), transparent);
   animation: paVFX-temporal-wave calc(3s / var(--pa-effect-speed, 1)) ease-in-out infinite;
 }
 
 /* [REVISED] Stellar Bloom: A powerful, blooming glow. */
-.pa-avatar-preview-effect[data-effect='stellar-bloom'] {
+.pa-avatar-preview-effect[data-effect='stellar-bloom'], .pa-avatar-chip-effect-sample[data-effect='stellar-bloom'] {
   background: radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color) 50%, transparent), transparent 60%);
   animation: paVFX-bloom calc(4s / var(--pa-effect-speed, 1)) ease-in-out infinite;
 }
 
 /* [REVISED] Eclipse Aura: Now pulses from the edge, like a corona. */
-.pa-avatar-preview-effect[data-effect='eclipse-aura'] {
+.pa-avatar-preview-effect[data-effect='eclipse-aura'], .pa-avatar-chip-effect-sample[data-effect='eclipse-aura'] {
   background: radial-gradient(circle, transparent 40%, color-mix(in srgb, var(--pa-effect-color) 60%, transparent));
   animation: paVFX-pulse calc(3.5s / var(--pa-effect-speed, 1)) ease-in-out infinite alternate;
 }
 
 /* [NEW] Reality Glitch: Intense, screen-shattering digital corruption. */
-.pa-avatar-preview-effect[data-effect='reality_glitch'] {
+.pa-avatar-preview-effect[data-effect='reality_glitch'], .pa-avatar-chip-effect-sample[data-effect='reality_glitch'] {
   background: repeating-linear-gradient(90deg, #ff00ff, #00ffff 20px, #ff00ff 40px);
   animation: paVFX-reality-shatter calc(0.5s / var(--pa-effect-speed, 1)) linear infinite;
 }
@@ -19309,40 +19310,40 @@ button.pa-avatar:focus-visible {
 /* --- TIER 5: LEGENDARY --- */
 
 /* [NEW] Aurora: Shifting curtains of cosmic light. */
-.pa-avatar-preview-effect[data-effect='aurora'] {
+.pa-avatar-preview-effect[data-effect='aurora'], .pa-avatar-chip-effect-sample[data-effect='aurora'] {
   background: linear-gradient(160deg, color-mix(in srgb, var(--pa-effect-color) 30%, transparent) -20%, #8b5cf6 50%, color-mix(in srgb, var(--pa-effect-color) 30%, transparent) 120%);
   filter: blur(3px);
   animation: paVFX-aurora-shift calc(6s / var(--pa-effect-speed, 1)) ease-in-out infinite alternate;
 }
 
 /* [NEW] Unstable Core: A dangerously pulsing heart of energy. */
-.pa-avatar-preview-effect[data-effect='unstable_core'] {
+.pa-avatar-preview-effect[data-effect='unstable_core'], .pa-avatar-chip-effect-sample[data-effect='unstable_core'] {
   background: radial-gradient(circle, var(--pa-effect-color), color-mix(in srgb, var(--pa-effect-color) 10%, transparent) 70%);
   animation: paVFX-heartbeat calc(1.2s / var(--pa-effect-speed, 1)) ease-in-out infinite,
              paVFX-flicker calc(0.3s / var(--pa-effect-speed, 1)) linear infinite;
 }
 
 /* [REVISED] Ascension: Brighter, more defined rising energy. */
-.pa-avatar-preview-effect[data-effect='ascension'] {
+.pa-avatar-preview-effect[data-effect='ascension'], .pa-avatar-chip-effect-sample[data-effect='ascension'] {
   background: linear-gradient(to top, color-mix(in srgb, var(--pa-effect-color) 40%, transparent), transparent 80%);
   animation: paVFX-ascend calc(3s / var(--pa-effect-speed, 1)) linear infinite;
 }
 
 /* [ENHANCED] Singularity: Now with a gravitational lens effect. */
-.pa-avatar-preview-effect[data-effect='blackhole'] {
+.pa-avatar-preview-effect[data-effect='blackhole'], .pa-avatar-chip-effect-sample[data-effect='blackhole'] {
   background: radial-gradient(circle, transparent 35%, color-mix(in srgb, var(--pa-effect-color) 70%, #000) 36%, var(--pa-effect-color) 45%, transparent 60%);
   animation: paVFX-spin calc(4s / var(--pa-effect-speed, 1)) linear infinite;
 }
 
 /* [REVISED] Omega Burst: A more powerful and final explosion. */
-.pa-avatar-preview-effect[data-effect='omega-burst'] {
+.pa-avatar-preview-effect[data-effect='omega-burst'], .pa-avatar-chip-effect-sample[data-effect='omega-burst'] {
   background: radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color) 80%, #fff) 0%, transparent 60%);
   animation: paVFX-nova-burst calc(2s / var(--pa-effect-speed, 1)) ease-out infinite;
 }
 
-/* =========================
-   KEYFRAME DEFINITIONS
-   ========================= */
+/* =========================================================================
+   VFX KEYFRAME DEFINITIONS
+   ========================================================================= */
 
 /* Basic Movement */
 @keyframes paVFX-scroll-down { to { background-position: 0 100%; } }
@@ -19389,18 +19390,6 @@ button.pa-avatar:focus-visible {
 @keyframes paVFX-heat-rise { 0% { transform: translateY(15%); filter: brightness(1); } 100% { transform: translateY(-15%); filter: brightness(1.15); } }
 @keyframes paVFX-shimmer { to { background-position: 20px 20px, -20px -20px; } }
 @keyframes paVFX-aurora-shift { from { background-position: 0% 0%; } to { background-position: -200% 0%; } }
-
-/* Shared Dummy anims */
-.pa-anim-bg {
-  background-size: 200% 200% !important;
-  animation: bgPan calc(6s / var(--pa-banner-speed, 1.0)) ease-in-out infinite alternate;
-}
-@keyframes bgPan { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
-/* .pa-anim-frame: marker class that exposes --pa-frame-intensity default.
-   No pseudo-elements here — they would conflict with frame-specific ::after crests
-   (monolith crown, legend star, omega symbol, celestial ring) and border colors.
-   Each frame's .pa-avatar-ornament handles its own animation. */
-.pa-anim-frame { --pa-frame-intensity: 0.85; }
 
 /* =========================================================================
    P.A.N.D.A — 1080p / responsive profile fixes
