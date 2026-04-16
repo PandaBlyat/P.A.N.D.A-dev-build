@@ -18175,6 +18175,119 @@ button.pa-avatar:focus-visible {
   animation: paAvatarSpinRev 6s linear infinite;
 }
 
+
+/* =========================================================================
+   FURTHER EXPANSION FRAMES (Lv 12 - 102)
+   ========================================================================= */
+
+@keyframes paSonarPulse {
+  from { transform: scale(0.9); opacity: 0.7; }
+  to   { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes paFlowingGradient {
+  to { background-position: 200% center; }
+}
+
+@keyframes paRealityTear {
+  0%, 100% { clip-path: inset(0 0 0 0); }
+  20% { clip-path: polygon(0 0, 100% 0, 100% 40%, 60% 40%, 60% 60%, 100% 60%, 100% 100%, 0 100%); transform: translateX(-5px); }
+  40% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); transform: translateX(5px); }
+  60% { clip-path: polygon(40% 0, 100% 0, 100% 100%, 40% 100%, 40% 60%, 0 60%, 0 40%, 40% 40%); transform: translateY(5px); }
+  80% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); transform: translateY(-5px); }
+}
+
+/* Frame: cogwork (Lv 12) - Heavy, slow-turning gear */
+.pa-avatar-frame-cogwork { border: 3px solid color-mix(in srgb, var(--pa-avatar-color) 60%, #78716c); }
+.pa-avatar-frame-cogwork .pa-avatar-ornament {
+  opacity: 1; inset: -10px;
+  background: color-mix(in srgb, var(--pa-avatar-color) 40%, #a8a29e);
+  clip-path: polygon(50% 0%, 61% 5%, 68% 0%, 79% 5%, 85% 0%, 95% 9%, 100% 15%, 95% 21%, 100% 32%, 95% 39%, 100% 50%, 95% 61%, 100% 68%, 95% 79%, 100% 85%, 95% 91%, 85% 100%, 79% 95%, 68% 100%, 61% 95%, 50% 100%, 39% 95%, 32% 100%, 21% 95%, 15% 100%, 5% 91%, 0% 85%, 5% 79%, 0% 68%, 5% 61%, 0% 50%, 5% 39%, 0% 32%, 5% 21%, 0% 15%, 5% 9%, 15% 0%, 21% 5%, 32% 0%, 39% 5%);
+  animation: paAvatarSpin 30s linear infinite;
+}
+
+/* Frame: sonar_sweep (Lv 26) - Expanding pulse ring */
+.pa-avatar-frame-sonar_sweep { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--pa-avatar-color) 50%, transparent); }
+.pa-avatar-frame-sonar_sweep::after {
+  content: ''; position: absolute; inset: -6px; border-radius: 50%; pointer-events: none;
+  border: 2px solid var(--pa-avatar-color);
+  opacity: var(--pa-frame-intensity, 0.90);
+  animation: paSonarPulse 2.5s ease-out infinite;
+}
+
+/* Frame: containment_field (Lv 40) - High-energy field */
+.pa-avatar-frame-containment_field { border: 2px solid var(--pa-avatar-color); box-shadow: 0 0 15px var(--pa-avatar-color); }
+.pa-avatar-frame-containment_field .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.90); inset: -8px;
+  background: conic-gradient(from 0deg, transparent 80deg, var(--pa-avatar-color) 90deg, transparent 100deg, transparent 260deg, var(--pa-avatar-color) 270deg, transparent 280deg);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
+  animation: paAvatarSpin 2s linear infinite;
+}
+.pa-avatar-frame-containment_field::before {
+  content: ''; position: absolute; inset: -12px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--pa-avatar-color) 30%, transparent) 0%, transparent 68%);
+  animation: paAvatarPulse 3s ease-in-out infinite;
+}
+
+/* Frame: gilded_serpent (Lv 66) - Coiling Ouroboros */
+.pa-avatar-frame-gilded_serpent { border: 2px solid color-mix(in srgb, var(--pa-avatar-color) 70%, #ca8a04); }
+.pa-avatar-frame-gilded_serpent .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.92); inset: -8px;
+  background: linear-gradient(90deg, #fde047, var(--pa-avatar-color), #ca8a04, var(--pa-avatar-color), #fde047);
+  background-size: 200% auto;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M 50,2 A 48,48 0 0 1 98,50 M 50,98 A 48,48 0 0 1 2,50' stroke='black' stroke-width='14' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  animation: paFlowingGradient 3s linear infinite;
+}
+
+/* Frame: reality_breach (Lv 84) - Tearing, unstable frame */
+.pa-avatar-frame-reality_breach { border: 2px solid var(--pa-avatar-color); }
+.pa-avatar-frame-reality_breach .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.96); inset: -6px;
+  box-shadow: 2px 2px 0 #00ffff, -2px -2px 0 #ff00ff;
+  animation: paRealityTear 1.5s infinite;
+}
+
+/* Frame: aether_weave (Lv 91) - Ethereal, multi-layered rings */
+.pa-avatar-frame-aether_weave { border: 2px solid transparent; box-shadow: 0 0 30px color-mix(in srgb, var(--pa-avatar-color) 40%, #a78bfa); }
+.pa-avatar-frame-aether_weave .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.95); inset: -10px;
+  background: conic-gradient(from 0deg, #a5f3fc, #fbcfe8, #d8b4fe, #a5f3fc);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 70%, transparent 72%);
+  animation: paAvatarSpin 12s linear infinite;
+  filter: blur(1.5px);
+}
+.pa-avatar-frame-aether_weave::before {
+  content: ''; position: absolute; inset: -16px; border-radius: 50%;
+  border: 1px dashed color-mix(in srgb, var(--pa-avatar-color) 60%, #fff);
+  animation: paAvatarSpinRev 16s linear infinite;
+}
+
+/* Frame: world_eater (Lv 96) - Consuming cosmic energy */
+.pa-avatar-frame-world_eater { border: 3px solid #0c0a09; box-shadow: 0 0 40px #4c1d95, inset 0 0 25px #000; }
+.pa-avatar-frame-world_eater .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 1.0); inset: -14px;
+  background: radial-gradient(circle, transparent 40%, #0c0a09 70%),
+              conic-gradient(from 0deg, #dc2626, #4c1d95, #0891b2, #dc2626);
+  background-blend-mode: multiply;
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 78%, transparent 82%);
+  animation: paAvatarSpinRev 8s linear infinite;
+}
+
+/* Frame: c_consciousness (Lv 102) - Ultimate psionic field */
+.pa-avatar-frame-c_consciousness { border: 2px solid #0ea5e9; box-shadow: 0 0 40px #0ea5e9, 0 0 60px #fff, inset 0 0 20px #0ea5e9; }
+.pa-avatar-frame-c_consciousness .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 1.0); inset: -10px;
+  background: linear-gradient(0deg, #0ea5e9, #67e8f9, #0284c7, #67e8f9, #0ea5e9);
+  background-size: auto 200%;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.02 0.02' numOctaves='1' seed='2'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='8'/%3E%3C/defs%3E%3Ccircle cx='50' cy='50' r='40' stroke='black' stroke-width='8' fill='none' filter='url(%23w)'/%3E%3C/svg%3E");
+  animation: paFlowingGradient 4s linear infinite reverse;
+}
+.pa-avatar-frame-c_consciousness::after {
+  content: ''; position: absolute; inset: -20px; border-radius: 50%;
+  border: 1px dotted rgba(103, 232, 249, 0.7);
+  animation: paAvatarSpin 10s linear infinite;
+}
+
 /* =========================================================================
    EXOTIC / LEGENDARY FRAMES (Lv 65 – 99) — newly added variants
    ========================================================================= */
