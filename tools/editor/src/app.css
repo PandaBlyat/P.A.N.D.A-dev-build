@@ -18487,6 +18487,111 @@ button.pa-avatar:focus-visible {
   letter-spacing: 0.1em;
   color: var(--pa-text-secondary);
 }
+/* -------------------------------------------------------------------------
+   Tweaking Panel
+   ------------------------------------------------------------------------- */
+.pa-avatar-tweak-panel {
+  padding: 20px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  min-height: 0;
+}
+
+.pa-tweak-panel-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--pa-text-secondary);
+  margin-bottom: 14px;
+}
+
+.pa-tweak-controls-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.pa-tweak-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pa-tweak-control-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pa-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pa-tweak-label-with-value {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.pa-tweak-color-input {
+  appearance: none;
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--pa-border);
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--pa-bg-input);
+}
+
+.pa-tweak-color-input::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.pa-tweak-color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+
+.pa-tweak-slider {
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(94, 170, 58, 0.2), rgba(94, 170, 58, 0.4));
+  outline: none;
+  cursor: pointer;
+}
+
+.pa-tweak-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--pa-accent);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(94, 170, 58, 0.6);
+  transition: all 0.2s ease;
+}
+
+.pa-tweak-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--pa-accent);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(94, 170, 58, 0.6);
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.pa-tweak-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+  box-shadow: 0 0 12px rgba(94, 170, 58, 0.8);
+}
+
+.pa-tweak-slider::-moz-range-thumb:hover {
+  transform: scale(1.25);
+  box-shadow: 0 0 12px rgba(94, 170, 58, 0.8);
+}
 
 /* -------------------------------------------------------------------------
    Footer Actions
@@ -18542,67 +18647,138 @@ button.pa-avatar:focus-visible {
    VFX & Effect Integrations (Preserving your existing data-effects)
    ========================================================================= */
 
-.pa-avatar-preview-effect { position: absolute; inset: 0; z-index: 1; pointer-events: none; mix-blend-mode: screen; border-radius: 16px; overflow: hidden; }
+.pa-avatar-preview-effect {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none; mix-blend-mode: screen; border-radius: 16px; overflow: hidden;
+  --pa-effect-color: #5eaa3a;
+  --pa-effect-intensity: 0.75;
+  --pa-effect-speed: 1.0;
+}
+.pa-avatar-chip-effect-sample {
+  --pa-effect-color: #5eaa3a;
+  --pa-effect-intensity: 0.75;
+  --pa-effect-speed: 1.0;
+}
 
 /* STANDARD EFFECTS */
 .pa-avatar-preview-effect[data-effect='scanlines'], .pa-avatar-chip-effect-sample[data-effect='scanlines'] {
-  background: linear-gradient(to bottom, rgba(255,255,255,0) 50%, rgba(109,191,67,0.1) 50%); background-size: 100% 4px; animation: scrollDown 10s linear infinite;
+  background: linear-gradient(to bottom, rgba(255,255,255,0) 50%, color-mix(in srgb, var(--pa-effect-color, #5eaa3a) 10%, transparent) 50%); background-size: 100% 4px; animation: scrollDown calc(10s / var(--pa-effect-speed, 1)) linear infinite; opacity: var(--pa-effect-intensity, 0.6);
 }
 .pa-avatar-preview-effect[data-effect='spores'], .pa-avatar-chip-effect-sample[data-effect='spores'] {
-  background-image: radial-gradient(circle at 50% 50%, rgba(143, 212, 106, 0.4) 1.5px, transparent 1.5px); background-size: 24px 24px; animation: floatUp 5s linear infinite;
+  background-image: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--pa-effect-color, #84cc16) 40%, transparent), transparent 1.5px); background-size: 24px 24px; animation: floatUp calc(5s / var(--pa-effect-speed, 1)) linear infinite; opacity: var(--pa-effect-intensity, 0.65);
 }
 .pa-avatar-preview-effect[data-effect='rain'], .pa-avatar-chip-effect-sample[data-effect='rain'] {
-  background: repeating-linear-gradient(15deg, transparent, transparent 15px, rgba(143, 212, 106, 0.25) 15px, rgba(143, 212, 106, 0.25) 16px); background-size: 100% 200%; animation: rainFall 1.5s linear infinite;
+  background: repeating-linear-gradient(15deg, transparent, transparent 15px, color-mix(in srgb, var(--pa-effect-color, #22c55e) 25%, transparent) 15px, color-mix(in srgb, var(--pa-effect-color, #22c55e) 25%, transparent) 16px); background-size: 100% 200%; animation: rainFall calc(1.5s / var(--pa-effect-speed, 1)) linear infinite; opacity: var(--pa-effect-intensity, 0.70);
 }
 .pa-avatar-preview-effect[data-effect='embers'], .pa-avatar-chip-effect-sample[data-effect='embers'] {
-  background-image: radial-gradient(circle, rgba(255, 107, 107, 0.8) 1.5px, transparent 1.5px); background-size: 20px 30px; animation: embersFloat 3s infinite linear;
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color, #f97316) 80%, transparent), transparent 1.5px); background-size: 20px 30px; animation: embersFloat calc(3s / var(--pa-effect-speed, 1)) infinite linear; opacity: var(--pa-effect-intensity, 0.80);
 }
 .pa-avatar-preview-effect[data-effect='glitch'], .pa-avatar-chip-effect-sample[data-effect='glitch'] {
-  background: rgba(34, 211, 238, 0.08); animation: glitchFlash 3s infinite; box-shadow: inset 0 0 30px rgba(34, 211, 238, 0.2);
+  background: color-mix(in srgb, var(--pa-effect-color, #34e2ff) 8%, transparent); animation: glitchFlash calc(3s / var(--pa-effect-speed, 1)) infinite; box-shadow: inset 0 0 30px color-mix(in srgb, var(--pa-effect-color, #34e2ff) 20%, transparent); opacity: var(--pa-effect-intensity, 0.85);
 }
 .pa-avatar-preview-effect[data-effect='matrix'], .pa-avatar-chip-effect-sample[data-effect='matrix'] {
-  background: repeating-linear-gradient(to bottom, transparent, transparent 4px, rgba(34, 197, 94, 0.4) 4px, rgba(34, 197, 94, 0.4) 5px); background-size: 100% 80px; animation: rainFall 0.8s linear infinite;
+  background: repeating-linear-gradient(to bottom, transparent, transparent 4px, color-mix(in srgb, var(--pa-effect-color, #10b981) 40%, transparent) 4px, color-mix(in srgb, var(--pa-effect-color, #10b981) 40%, transparent) 5px); background-size: 100% 80px; animation: rainFall calc(0.8s / var(--pa-effect-speed, 1)) linear infinite; opacity: var(--pa-effect-intensity, 0.75);
 }
 .pa-avatar-preview-effect[data-effect='wisps'], .pa-avatar-chip-effect-sample[data-effect='wisps'] {
-  background: radial-gradient(circle at 20% 80%, rgba(168, 85, 247, 0.3), transparent 50%), radial-gradient(circle at 80% 20%, rgba(30, 58, 138, 0.3), transparent 50%); animation: wispSwirl 6s ease-in-out infinite alternate;
+  background: radial-gradient(circle at 20% 80%, color-mix(in srgb, var(--pa-effect-color, #a78bfa) 30%, transparent), transparent 50%), radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--pa-effect-color, #a78bfa) 30%, transparent), transparent 50%); animation: wispSwirl calc(6s / var(--pa-effect-speed, 1)) ease-in-out infinite alternate; opacity: var(--pa-effect-intensity, 0.82);
 }
 .pa-avatar-preview-effect[data-effect='overcharge'], .pa-avatar-chip-effect-sample[data-effect='overcharge'] {
-  box-shadow: inset 0 0 50px rgba(57, 255, 20, 0.4); background: rgba(57, 255, 20, 0.08); animation: pulseOvercharge 0.4s infinite alternate;
+  box-shadow: inset 0 0 50px color-mix(in srgb, var(--pa-effect-color, #39ff14) 40%, transparent); background: color-mix(in srgb, var(--pa-effect-color, #39ff14) 8%, transparent); animation: pulseOvercharge calc(0.4s / var(--pa-effect-speed, 1)) infinite alternate; opacity: var(--pa-effect-intensity, 0.90);
 }
 
 /* ADVANCED EFFECTS */
 .pa-avatar-preview-effect[data-effect='ash'], .pa-avatar-chip-effect-sample[data-effect='ash'] {
-  background-image: radial-gradient(circle, rgba(160, 160, 160, 0.8) 1.5px, transparent 1.5px); background-size: 20px 20px; animation: paAshFall 4s infinite linear;
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color, #9ca3af) 80%, transparent), transparent 1.5px); background-size: 20px 20px; animation: paAshFall calc(4s / var(--pa-effect-speed, 1)) infinite linear; opacity: var(--pa-effect-intensity, 0.55);
 }
 .pa-avatar-preview-effect[data-effect='blizzard'], .pa-avatar-chip-effect-sample[data-effect='blizzard'] {
-  background: repeating-linear-gradient(-45deg, transparent, transparent 10px, rgba(255,255,255,0.6) 10px, rgba(255,255,255,0.6) 12px); background-size: 200% 200%; animation: paBlizzardFly 0.8s infinite linear;
+  background: repeating-linear-gradient(-45deg, transparent, transparent 10px, color-mix(in srgb, var(--pa-effect-color, #e0f2fe) 60%, transparent) 10px, color-mix(in srgb, var(--pa-effect-color, #e0f2fe) 60%, transparent) 12px); background-size: 200% 200%; animation: paBlizzardFly calc(0.8s / var(--pa-effect-speed, 1)) infinite linear; opacity: var(--pa-effect-intensity, 0.75);
 }
 .pa-avatar-preview-effect[data-effect='fireflies'], .pa-avatar-chip-effect-sample[data-effect='fireflies'] {
-  background-image: radial-gradient(circle at 20% 30%, rgba(217, 249, 157, 0.9) 2px, transparent 2px), radial-gradient(circle at 70% 60%, rgba(253, 224, 71, 0.9) 2px, transparent 2px);
-  background-size: 40px 40px; animation: paFireflies 3s infinite alternate ease-in-out;
+  background-image: radial-gradient(circle at 20% 30%, color-mix(in srgb, var(--pa-effect-color, #facc15) 90%, transparent) 2px, transparent 2px), radial-gradient(circle at 70% 60%, color-mix(in srgb, var(--pa-effect-color, #facc15) 90%, transparent) 2px, transparent 2px);
+  background-size: 40px 40px; animation: paFireflies calc(3s / var(--pa-effect-speed, 1)) infinite alternate ease-in-out; opacity: var(--pa-effect-intensity, 0.70);
 }
 .pa-avatar-preview-effect[data-effect='toxic-gas'], .pa-avatar-chip-effect-sample[data-effect='toxic-gas'] {
-  background: radial-gradient(circle at 30% 70%, rgba(132, 204, 22, 0.3) 0%, transparent 50%), radial-gradient(circle at 70% 30%, rgba(234, 179, 8, 0.3) 0%, transparent 50%);
-  animation: paGasSwirl 8s infinite linear; mix-blend-mode: screen;
+  background: radial-gradient(circle at 30% 70%, color-mix(in srgb, var(--pa-effect-color, #84e215) 30%, transparent) 0%, transparent 50%), radial-gradient(circle at 70% 30%, color-mix(in srgb, var(--pa-effect-color, #84e215) 30%, transparent) 0%, transparent 50%);
+  animation: paGasSwirl calc(8s / var(--pa-effect-speed, 1)) infinite linear; mix-blend-mode: screen; opacity: var(--pa-effect-intensity, 0.80);
 }
 .pa-avatar-preview-effect[data-effect='lightning'], .pa-avatar-chip-effect-sample[data-effect='lightning'] {
-  background: rgba(125, 211, 252, 0); animation: paLightningStrike 3s infinite; box-shadow: inset 0 0 0 rgba(125,211,252,0);
+  background: color-mix(in srgb, var(--pa-effect-color, #7dd3fc) 0%, transparent); animation: paLightningStrike calc(3s / var(--pa-effect-speed, 1)) infinite; box-shadow: inset 0 0 0 color-mix(in srgb, var(--pa-effect-color, #7dd3fc) 0%, transparent); opacity: var(--pa-effect-intensity, 0.92);
 }
 .pa-avatar-preview-effect[data-effect='cosmos'], .pa-avatar-chip-effect-sample[data-effect='cosmos'] {
-  background-image: radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 1px); background-size: 30px 40px; animation: paCosmosMove 10s infinite linear;
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color, #f5d4ff) 90%, transparent) 1px, transparent 1px); background-size: 30px 40px; animation: paCosmosMove calc(10s / var(--pa-effect-speed, 1)) infinite linear; opacity: var(--pa-effect-intensity, 0.78);
 }
 .pa-avatar-preview-effect[data-effect='blood-rain'], .pa-avatar-chip-effect-sample[data-effect='blood-rain'] {
-  background: repeating-linear-gradient(5deg, transparent, transparent 10px, rgba(185, 28, 28, 0.6) 10px, rgba(185, 28, 28, 0.6) 11px); background-size: 100% 200%; animation: paBloodRain 0.6s infinite linear;
+  background: repeating-linear-gradient(5deg, transparent, transparent 10px, color-mix(in srgb, var(--pa-effect-color, #dc2626) 60%, transparent) 10px, color-mix(in srgb, var(--pa-effect-color, #dc2626) 60%, transparent) 11px); background-size: 100% 200%; animation: paBloodRain calc(0.6s / var(--pa-effect-speed, 1)) infinite linear; opacity: var(--pa-effect-intensity, 0.85);
 }
 .pa-avatar-preview-effect[data-effect='blackhole'], .pa-avatar-chip-effect-sample[data-effect='blackhole'] {
-  background: conic-gradient(from 0deg, rgba(0,0,0,0.8), rgba(88,28,135,0.5), rgba(0,0,0,0.8)); animation: paAvatarSpin 3s infinite linear; border-radius: 50%; mix-blend-mode: multiply;
+  background: conic-gradient(from 0deg, color-mix(in srgb, var(--pa-effect-color, #0c0a0a) 80%, transparent), color-mix(in srgb, var(--pa-effect-color, #0c0a0a) 50%, transparent), color-mix(in srgb, var(--pa-effect-color, #0c0a0a) 80%, transparent)); animation: paAvatarSpin calc(3s / var(--pa-effect-speed, 1)) infinite linear; border-radius: 50%; mix-blend-mode: multiply; opacity: var(--pa-effect-intensity, 0.95);
 }
 .pa-avatar-preview-effect[data-effect='ascension'], .pa-avatar-chip-effect-sample[data-effect='ascension'] {
-  background: linear-gradient(0deg, transparent, rgba(253, 224, 71, 0.2) 50%, transparent); background-size: 100% 200%;
-  animation: paAscensionRise 2s infinite linear; box-shadow: inset 0 -30px 40px rgba(253,224,71,0.3);
+  background: linear-gradient(0deg, transparent, color-mix(in srgb, var(--pa-effect-color, #fbbf24) 20%, transparent) 50%, transparent); background-size: 100% 200%;
+  animation: paAscensionRise calc(2s / var(--pa-effect-speed, 1)) infinite linear; box-shadow: inset 0 -30px 40px color-mix(in srgb, var(--pa-effect-color, #fbbf24) 30%, transparent); opacity: var(--pa-effect-intensity, 0.93);
 }
 .pa-avatar-preview-effect[data-effect='omega-burst'], .pa-avatar-chip-effect-sample[data-effect='omega-burst'] {
-  box-shadow: inset 0 0 0 rgba(236,72,153,0); animation: paOmegaBurst 1.5s infinite cubic-bezier(0.1, 0.8, 0.3, 1); border-radius: 50%; border: 1px solid rgba(255,255,255,0);
+  box-shadow: inset 0 0 0 color-mix(in srgb, var(--pa-effect-color, #f5d4ff) 0%, transparent); animation: paOmegaBurst calc(1.5s / var(--pa-effect-speed, 1)) infinite cubic-bezier(0.1, 0.8, 0.3, 1); border-radius: 50%; border: 1px solid rgba(255,255,255,0); opacity: var(--pa-effect-intensity, 1.0);
+}
+
+/* NEW EFFECTS */
+.pa-avatar-preview-effect[data-effect='wind-shear'], .pa-avatar-chip-effect-sample[data-effect='wind-shear'] {
+  background: repeating-linear-gradient(45deg, transparent, transparent 8px, color-mix(in srgb, var(--pa-effect-color, #0ea5e9) 30%, transparent) 8px, color-mix(in srgb, var(--pa-effect-color, #0ea5e9) 30%, transparent) 10px);
+  animation: windFlow calc(1.2s / var(--pa-effect-speed, 1)) linear infinite; opacity: var(--pa-effect-intensity, 0.65);
+}
+
+.pa-avatar-preview-effect[data-effect='plasma-flow'], .pa-avatar-chip-effect-sample[data-effect='plasma-flow'] {
+  background: radial-gradient(ellipse at 30% 50%, color-mix(in srgb, var(--pa-effect-color, #ec4899) 40%, transparent), transparent 60%);
+  animation: plasmaFlow calc(2.5s / var(--pa-effect-speed, 1)) ease-in-out infinite alternate; opacity: var(--pa-effect-intensity, 0.88);
+}
+
+.pa-avatar-preview-effect[data-effect='radiation'], .pa-avatar-chip-effect-sample[data-effect='radiation'] {
+  background: radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color, #facc15) 60%, transparent) 2px, transparent 2px);
+  background-size: 15px 15px; animation: radiationPulse calc(1.5s / var(--pa-effect-speed, 1)) ease-in-out infinite; opacity: var(--pa-effect-intensity, 0.86);
+}
+
+.pa-avatar-preview-effect[data-effect='storm-core'], .pa-avatar-chip-effect-sample[data-effect='storm-core'] {
+  background: conic-gradient(from 0deg, color-mix(in srgb, var(--pa-effect-color, #60a5fa) 35%, transparent), transparent 45%, color-mix(in srgb, var(--pa-effect-color, #60a5fa) 35%, transparent));
+  animation: stormSpin calc(2.2s / var(--pa-effect-speed, 1)) linear infinite; opacity: var(--pa-effect-intensity, 0.88);
+}
+
+.pa-avatar-preview-effect[data-effect='void-fracture'], .pa-avatar-chip-effect-sample[data-effect='void-fracture'] {
+  background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--pa-effect-color, #3730a3) 50%, transparent), transparent 2px, transparent 8px);
+  animation: fractureTear calc(0.8s / var(--pa-effect-speed, 1)) ease-in-out infinite; opacity: var(--pa-effect-intensity, 0.89);
+}
+
+.pa-avatar-preview-effect[data-effect='temporal-flux'], .pa-avatar-chip-effect-sample[data-effect='temporal-flux'] {
+  background: radial-gradient(circle at 25% 50%, color-mix(in srgb, var(--pa-effect-color, #1e40af) 45%, transparent) 0%, transparent 50%);
+  animation: temporalShift calc(1.8s / var(--pa-effect-speed, 1)) ease-in-out infinite alternate; opacity: var(--pa-effect-intensity, 0.84);
+}
+
+.pa-avatar-preview-effect[data-effect='eclipse-aura'], .pa-avatar-chip-effect-sample[data-effect='eclipse-aura'] {
+  background: radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color, #1f2937) 60%, transparent) 0%, transparent 70%);
+  animation: eclipsePulse calc(2.4s / var(--pa-effect-speed, 1)) ease-in-out infinite alternate; opacity: var(--pa-effect-intensity, 0.87);
+}
+
+.pa-avatar-preview-effect[data-effect='infernal-haze'], .pa-avatar-chip-effect-sample[data-effect='infernal-haze'] {
+  background: radial-gradient(circle at 50% 100%, color-mix(in srgb, var(--pa-effect-color, #ff0000) 50%, transparent) 0%, transparent 60%);
+  animation: infernoRise calc(1.5s / var(--pa-effect-speed, 1)) ease-in-out infinite alternate; opacity: var(--pa-effect-intensity, 0.91);
+}
+
+.pa-avatar-preview-effect[data-effect='quantum-shimmer'], .pa-avatar-chip-effect-sample[data-effect='quantum-shimmer'] {
+  background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--pa-effect-color, #00ffff) 40%, transparent), transparent 3px, transparent 6px);
+  animation: shimmerShift calc(1.4s / var(--pa-effect-speed, 1)) linear infinite; opacity: var(--pa-effect-intensity, 0.80);
+}
+
+.pa-avatar-preview-effect[data-effect='stellar-bloom'], .pa-avatar-chip-effect-sample[data-effect='stellar-bloom'] {
+  background: radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color, #fde047) 70%, transparent) 0%, transparent 50%);
+  animation: stellarBloom calc(2.0s / var(--pa-effect-speed, 1)) ease-in-out infinite alternate; opacity: var(--pa-effect-intensity, 0.86);
+}
+
+.pa-avatar-preview-effect[data-effect='vortex-spin'], .pa-avatar-chip-effect-sample[data-effect='vortex-spin'] {
+  background: conic-gradient(from 0deg at 50% 50%, color-mix(in srgb, var(--pa-effect-color, #8b5cf6) 50%, transparent), transparent 60%, color-mix(in srgb, var(--pa-effect-color, #8b5cf6) 50%, transparent));
+  animation: vortexSpin calc(1.3s / var(--pa-effect-speed, 1)) linear infinite; opacity: var(--pa-effect-intensity, 0.83);
+}
+
+.pa-avatar-preview-effect[data-effect='frost-aura'], .pa-avatar-chip-effect-sample[data-effect='frost-aura'] {
+  background: repeating-radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color, #0ea5e9) 35%, transparent) 0px, transparent 3px, transparent 8px);
+  animation: frostShimmer calc(1.6s / var(--pa-effect-speed, 1)) ease-in-out infinite; opacity: var(--pa-effect-intensity, 0.81);
 }
 
 /* Animations */
@@ -18623,6 +18799,20 @@ button.pa-avatar:focus-visible {
 @keyframes paAvatarSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes paAscensionRise { 0% { background-position: 0 200%; opacity: 0.5; } 50% { opacity: 1; } 100% { background-position: 0 0%; opacity: 0.5; } }
 @keyframes paOmegaBurst { 0% { transform: scale(0.8); opacity: 1; box-shadow: inset 0 0 60px rgba(236,72,153,0.9); border-color: rgba(255,255,255,0.9); } 100% { transform: scale(1.5); opacity: 0; box-shadow: inset 0 0 0 rgba(139,92,246,0); border-color: rgba(255,255,255,0); } }
+
+/* NEW EFFECT ANIMATIONS */
+@keyframes windFlow { 0% { transform: translateX(0) rotate(0deg); } 100% { transform: translateX(20px) rotate(5deg); } }
+@keyframes plasmaFlow { 0% { filter: blur(0px) brightness(1); } 50% { filter: blur(2px) brightness(1.3); } 100% { filter: blur(0px) brightness(1); } }
+@keyframes radiationPulse { 0% { opacity: 0.4; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1); } 100% { opacity: 0.4; transform: scale(0.9); } }
+@keyframes stormSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@keyframes fractureTear { 0% { clip-path: inset(0 0 100% 0); } 50% { clip-path: inset(0 0 50% 0); } 100% { clip-path: inset(0 0 0 0); } }
+@keyframes temporalShift { 0% { transform: translateX(-10%) scaleX(0.8); } 100% { transform: translateX(10%) scaleX(1.2); } }
+@keyframes eclipsePulse { 0% { transform: scale(0.8); opacity: 0.5; } 100% { transform: scale(1.2); opacity: 1; } }
+@keyframes infernoRise { 0% { transform: translateY(30px); opacity: 0.3; } 100% { transform: translateY(-30px); opacity: 0.8; } }
+@keyframes shimmerShift { 0% { background-position: 0 0; } 100% { background-position: 20px 20px; } }
+@keyframes stellarBloom { 0% { filter: brightness(0.7); } 100% { filter: brightness(1.3); } }
+@keyframes vortexSpin { 0% { transform: rotate(0deg) scale(1); } 100% { transform: rotate(360deg) scale(1); } }
+@keyframes frostShimmer { 0% { filter: brightness(0.8) hue-rotate(0deg); } 50% { filter: brightness(1.2) hue-rotate(5deg); } 100% { filter: brightness(0.8) hue-rotate(0deg); } }
 
 /* Shared Dummy anims */
 .pa-anim-bg { background-size: 200% 200% !important; animation: bgPan 6s ease-in-out infinite alternate; }
