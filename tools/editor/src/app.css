@@ -114,7 +114,7 @@ html, body {
   }
 }
 
-─── Toolbar ──────────────────────────────────────────── */
+/* ─── Toolbar ──────────────────────────────────────────── */
 
 .toolbar {
   display: flex;
@@ -151,7 +151,7 @@ html, body {
   min-width: 0;
 }
 
-Accent glow line under toolbar */
+/* Accent glow line under toolbar */
 .toolbar::after {
   content: '';
   position: absolute;
@@ -699,7 +699,7 @@ button.toolbar-active-user-counter:active {
   50% { opacity: 0.5; transform: scale(0.85); }
 }
 
-─── Buttons ──────────────────────────────────────────── */
+/* ─── Buttons ──────────────────────────────────────────── */
 
 .ui-control-content {
   display: inline-flex;
@@ -1142,7 +1142,7 @@ button:disabled:hover,
   min-width: 32px;
 }
 
-─── Inputs ───────────────────────────────────────────── */
+/* ─── Inputs ───────────────────────────────────────────── */
 
 input, select, textarea {
   font-family: var(--font-sans);
@@ -1227,7 +1227,7 @@ label {
 .field { margin-bottom: 10px; }
 .field input, .field select, .field textarea { width: 100%; }
 
-─── Layout ───────────────────────────────────────────── */
+/* ─── Layout ───────────────────────────────────────────── */
 
 .main-layout {
   --panel-left-effective-width: var(--panel-left-width);
@@ -1239,7 +1239,7 @@ label {
   min-height: 0;
 }
 
-Vignette overlay */
+/* Vignette overlay */
 .main-layout::before {
   content: '';
   position: absolute;
@@ -1643,7 +1643,7 @@ Vignette overlay */
   user-select: none !important;
 }
 
-─── Conversation List ────────────────────────────────── */
+/* ─── Conversation List ────────────────────────────────── */
 
 .conversation-list-shell {
   display: flex;
@@ -1958,7 +1958,7 @@ Vignette overlay */
   padding: 10px;
 }
 
-─── Flow Editor ──────────────────────────────────────── */
+/* ─── Flow Editor ──────────────────────────────────────── */
 
 .flow-shell {
   width: 100%;
@@ -2560,7 +2560,7 @@ body.use-custom-cursor * {
   background: var(--info-bg);
 }
 
-─── NPC Reply in Flow Node ──────────────────────────── */
+/* ─── NPC Reply in Flow Node ──────────────────────────── */
 
 .turn-npc-reply {
   display: flex;
@@ -2608,7 +2608,7 @@ body.use-custom-cursor * {
   background: color-mix(in srgb, var(--info) 6%, transparent) !important;
 }
 
-─── Turn Footer (detailed mode) ─────────────────────── */
+/* ─── Turn Footer (detailed mode) ─────────────────────── */
 
 .turn-footer {
   font-size: 10px;
@@ -2621,7 +2621,7 @@ body.use-custom-cursor * {
   opacity: 0.8;
 }
 
-─── SVG Edges ────────────────────────────────────────── */
+/* ─── SVG Edges ────────────────────────────────────────── */
 
 .flow-edges {
   position: absolute;
@@ -2883,7 +2883,7 @@ body.use-custom-cursor * {
   opacity: 0.08;
 }
 
-─── Properties Panel ─────────────────────────────────── */
+/* ─── Properties Panel ─────────────────────────────────── */
 
 .precond-list, .outcome-list {
   list-style: none;
@@ -2915,7 +2915,7 @@ body.use-custom-cursor * {
   box-shadow: inset 2px 0 6px -3px var(--accent-glow);
 }
 
-Drag-to-reorder */
+/* Drag-to-reorder */
 .precond-item .drag-handle,
 .outcome-item .drag-handle {
   cursor: grab;
@@ -3002,7 +3002,7 @@ Drag-to-reorder */
   text-transform: uppercase;
 }
 
-Collapsible sections */
+/* Collapsible sections */
 .props-collapsible {
   position: relative;
   border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-light));
@@ -3183,7 +3183,7 @@ Collapsible sections */
   transform: translateY(0) scale(0.96);
 }
 
-─── Validation Panel ─────────────────────────────────── */
+/* ─── Validation Panel ─────────────────────────────────── */
 
 .validation-bar {
   display: flex;
@@ -3272,7 +3272,7 @@ Collapsible sections */
   background: color-mix(in srgb, var(--warning) 5%, transparent);
 }
 
-─── XML Preview ──────────────────────────────────────── */
+/* ─── XML Preview ──────────────────────────────────────── */
 
 .xml-preview-panel {
   min-height: 0;
@@ -3295,7 +3295,7 @@ Collapsible sections */
 .xml-preview-content .xml-text { color: var(--text); }
 .xml-preview-content .xml-comment { color: var(--text-dim); font-style: italic; }
 
-─── Section Headers ──────────────────────────────────── */
+/* ─── Section Headers ──────────────────────────────────── */
 
 .section-header {
   display: flex;
@@ -3425,7 +3425,7 @@ Collapsible sections */
   padding-inline: 9px;
 }
 
-─── Command Picker Panel ─────────────────────────────── */
+/* ─── Command Picker Panel ─────────────────────────────── */
 
 .command-picker-panel {
   position: fixed;
@@ -3637,7 +3637,7 @@ Collapsible sections */
   text-align: center;
 }
 
-─── Tabs ─────────────────────────────────────────────── */
+/* ─── Tabs ─────────────────────────────────────────────── */
 
 .tab-bar {
   display: flex;
@@ -3683,7 +3683,7 @@ Collapsible sections */
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
-─── Scrollbar ────────────────────────────────────────── */
+/* ─── Scrollbar ────────────────────────────────────────── */
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -3693,7 +3693,7 @@ Collapsible sections */
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
 
-─── Choice Card in Properties ────────────────────────── */
+/* ─── Choice Card in Properties ────────────────────────── */
 
 .choice-card {
   background: linear-gradient(180deg, var(--bg-card) 0%, color-mix(in srgb, var(--bg-card) 90%, var(--bg-dark) 10%) 100%);
@@ -3741,7 +3741,7 @@ Collapsible sections */
   padding: 10px;
 }
 
-─── Field Hints ──────────────────────────────────────── */
+/* ─── Field Hints ──────────────────────────────────────── */
 
 .field-hint {
   font-size: 10px;
@@ -3981,7 +3981,7 @@ Collapsible sections */
   background: rgba(255,255,255,0.02);
 }
 
-─── Category chip bar ─────────────────────────────────── */
+/* ─── Category chip bar ─────────────────────────────────── */
 
 .item-picker-chip-bar {
   display: flex;
@@ -4039,7 +4039,7 @@ Collapsible sections */
   opacity: 0.8;
 }
 
-─── Group headers in results ──────────────────────────── */
+/* ─── Group headers in results ──────────────────────────── */
 
 .item-picker-group-header {
   position: absolute;
@@ -4057,7 +4057,7 @@ Collapsible sections */
   border-bottom: 1px solid var(--border);
 }
 
-─── Selected item highlight ───────────────────────────── */
+/* ─── Selected item highlight ───────────────────────────── */
 
 .item-picker-option.is-selected {
   background: rgba(94, 170, 58, 0.08);
@@ -4070,7 +4070,7 @@ Collapsible sections */
   font-size: 10px;
 }
 
-─── Rich option rows (story-NPC catalog picker) ─────── */
+/* ─── Rich option rows (story-NPC catalog picker) ─────── */
 
 .item-picker-option.item-picker-option-rich {
   gap: 6px;
@@ -4173,7 +4173,7 @@ Collapsible sections */
   background: rgba(0,0,0,0.18);
 }
 
-─── Empty Hints (inline) ────────────────────────────── */
+/* ─── Empty Hints (inline) ────────────────────────────── */
 
 .empty-hint {
   font-size: 11px;
@@ -4186,7 +4186,7 @@ Collapsible sections */
   line-height: 1.5;
 }
 
-─── NPC Template Builder Panel ────────────────────── */
+/* ─── NPC Template Builder Panel ────────────────────── */
 
 .npc-builder-overlay {
   position: fixed;
@@ -4307,7 +4307,7 @@ Collapsible sections */
   font-size: 11px;
 }
 
-── Section card ── */
+/* ── Section card ── */
 
 .npc-builder-section {
   position: relative;
@@ -4337,7 +4337,7 @@ Collapsible sections */
   padding-right: 0;
 }
 
-── Row / field layout ── */
+/* ── Row / field layout ── */
 
 .npc-builder-row {
   display: grid;
@@ -4367,7 +4367,7 @@ Collapsible sections */
   gap: 8px;
 }
 
-── Form controls ── */
+/* ── Form controls ── */
 
 .npc-builder-input,
 .npc-builder-select,
@@ -4406,7 +4406,7 @@ Collapsible sections */
   font-size: 12px;
 }
 
-── Weapon section ── */
+/* ── Weapon section ── */
 
 .npc-builder-weapon-group {
   padding: 16px 18px 18px;
@@ -4450,7 +4450,7 @@ Collapsible sections */
   font-weight: 600;
 }
 
-── Checkbox Row ── */
+/* ── Checkbox Row ── */
 
 .npc-builder-checkbox-row {
   display: flex;
@@ -4477,7 +4477,7 @@ Collapsible sections */
   font-style: italic;
 }
 
-── Inventory item rows ── */
+/* ── Inventory item rows ── */
 
 .npc-builder-item-list {
   display: flex;
@@ -4512,7 +4512,7 @@ Collapsible sections */
   text-align: center;
 }
 
-Button override for inventory */
+/* Button override for inventory */
 .npc-builder-add-btn {
   margin: 2px 18px 18px;
   align-self: flex-start;
@@ -4525,7 +4525,7 @@ Button override for inventory */
   opacity: 0.84;
 }
 
-─── Command Description ─────────────────────────────── */
+/* ─── Command Description ─────────────────────────────── */
 
 .command-description {
   font-size: 10px;
@@ -4649,13 +4649,13 @@ Button override for inventory */
   color: var(--text-dim);
 }
 
-─── Clickable items ─────────────────────────────────── */
+/* ─── Clickable items ─────────────────────────────────── */
 
 .precond-item.clickable, .outcome-item.clickable {
   cursor: default;
 }
 
-─── Dropdown search ─────────────────────────────────── */
+/* ─── Dropdown search ─────────────────────────────────── */
 
 .dropdown-search {
   border: 1px solid var(--border);
@@ -4696,7 +4696,7 @@ Button override for inventory */
   }
 }
 
-─── HR Improvements ─────────────────────────────────── */
+/* ─── HR Improvements ─────────────────────────────────── */
 
 hr {
   border: none;
@@ -4704,7 +4704,7 @@ hr {
   margin: 14px 0;
 }
 
-─── Empty State ──────────────────────────────────────── */
+/* ─── Empty State ──────────────────────────────────────── */
 
 .empty-state {
   display: flex;
@@ -4749,7 +4749,7 @@ hr {
   line-height: 1.5;
 }
 
-─── Scan-line Overlay ───────────────────────────────── */
+/* ─── Scan-line Overlay ───────────────────────────────── */
 
 #app::before {
   content: '';
@@ -4767,7 +4767,7 @@ hr {
   mix-blend-mode: multiply;
 }
 
-─── Precondition Section ────────────────────────────── */
+/* ─── Precondition Section ────────────────────────────── */
 
 .precond-section {
   margin-bottom: 4px;
