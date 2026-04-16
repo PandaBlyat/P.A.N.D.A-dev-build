@@ -142,6 +142,10 @@ function renderPreview(username: string, level: number, draft: UserCosmetics): H
   const podiumBanner = document.createElement('span');
   podiumBanner.className = `pa-preview-tile-banner${bannerPreset?.isAnimated ? ' pa-anim-bg' : ''}`;
   if (bannerBg) podiumBanner.style.background = bannerBg;
+  podiumBanner.style.opacity = String((draft.avatar_banner_opacity ?? 80) / 100);
+  if (bannerPreset?.isAnimated) {
+    podiumBanner.style.setProperty('--pa-banner-speed', String(draft.avatar_banner_speed ?? 1.0));
+  }
   podiumTile.appendChild(podiumBanner);
 
   if (hasEffect) {
@@ -182,8 +186,15 @@ function renderPreview(username: string, level: number, draft: UserCosmetics): H
 
   // ── Row tile ─────────────────────────────────────────────────────────────
   const rowTile = document.createElement('div');
-  rowTile.className = 'pa-preview-row-tile';
-  if (bannerBg) rowTile.style.setProperty('--row-banner', bannerBg);
+  rowTile.className = `pa-preview-row-tile${bannerPreset?.isAnimated ? ' pa-anim-bg' : ''}`;
+  if (bannerBg) {
+    rowTile.style.setProperty('--row-banner', bannerBg);
+    const bannerOpacity = (draft.avatar_banner_opacity ?? 80) / 100;
+    rowTile.style.setProperty('--pa-banner-row-opacity', String(bannerOpacity));
+    if (bannerPreset?.isAnimated) {
+      rowTile.style.setProperty('--pa-banner-speed', String(draft.avatar_banner_speed ?? 1.0));
+    }
+  }
   rowTile.style.setProperty('--pa-avatar-color', colorValue);
 
   if (hasEffect) {
@@ -284,6 +295,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
   type TabId = 'icon' | 'color' | 'frame' | 'banner' | 'effect';
   let activeTab: TabId = 'icon';
   let selectedEffectOrFrame: { type: 'effect' | 'frame'; id: string } | null = null;
+  let selectedBannerId: string | null = null;
 
   const backdrop = document.createElement('div');
   backdrop.className = 'pa-avatar-modal-backdrop';
@@ -339,6 +351,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
     btn.addEventListener('click', () => {
       activeTab = tab.id;
       selectedEffectOrFrame = null;
+      selectedBannerId = null;
       renderWorkspace();
     });
     tabBar.appendChild(btn);
@@ -418,6 +431,10 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
         // (radioactive, plasma, neon, etc.) show the right colour in the picker.
         const chipColorPreset = getAvatarColorPreset(draft.avatar_color);
         sampleAvatar.style.setProperty('--pa-avatar-color', chipColorPreset?.color ?? '#5eaa3a');
+        // Set per-preset default intensity so the chip matches the in-game default.
+        if (preset.isAnimated && preset.defaultIntensity !== undefined) {
+          sampleAvatar.style.setProperty('--pa-frame-intensity', String(preset.defaultIntensity / 100));
+        }
         const glyph = document.createElement('span');
         glyph.className = 'pa-avatar-glyph';
         glyph.textContent = 'A';
@@ -440,7 +457,9 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
       for (const preset of banners) {
         const isActive = (draft.avatar_banner ?? 'default') === preset.id;
         const btn = buildCosmeticButton(preset, isActive, userLevel, 'pa-avatar-chip-banner', isAdmin, () => {
-          draft.avatar_banner = preset.id; renderWorkspace();
+          draft.avatar_banner = preset.id;
+          selectedBannerId = preset.id;
+          renderWorkspace();
         });
         const isAnim = preset.isAnimated ? ' pa-anim-bg' : '';
         // Layer the (often translucent) gradient over a solid dark base so
@@ -583,7 +602,6 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
         const controlsGrid = document.createElement('div');
         controlsGrid.className = 'pa-tweak-controls-grid';
 
-        // Intensity control for animated frames
         if (framePreset.defaultIntensity !== undefined) {
           const intensityGroup = document.createElement('div');
           intensityGroup.className = 'pa-tweak-control-group';
@@ -603,6 +621,62 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
           });
           intensityGroup.append(intensityLabel, intensitySlider);
           controlsGrid.appendChild(intensityGroup);
+        }
+
+        tweakPanel.appendChild(controlsGrid);
+      }
+    } else if (activeTab === 'banner' && selectedBannerId) {
+      const bannerPreset = AVATAR_BANNER_PRESETS.find(p => p.id === selectedBannerId);
+      if (bannerPreset && bannerPreset.id !== 'default') {
+        const panelTitle = document.createElement('div');
+        panelTitle.className = 'pa-tweak-panel-title';
+        panelTitle.textContent = `Customize: ${bannerPreset.label}`;
+        tweakPanel.appendChild(panelTitle);
+
+        const controlsGrid = document.createElement('div');
+        controlsGrid.className = 'pa-tweak-controls-grid';
+
+        // Opacity control
+        const opacityGroup = document.createElement('div');
+        opacityGroup.className = 'pa-tweak-control-group';
+        const opacityLabel = document.createElement('label');
+        opacityLabel.textContent = `Opacity: ${draft.avatar_banner_opacity ?? 80}%`;
+        opacityLabel.className = 'pa-tweak-label-with-value';
+        const opacitySlider = document.createElement('input');
+        opacitySlider.type = 'range';
+        opacitySlider.className = 'pa-tweak-slider';
+        opacitySlider.min = '10';
+        opacitySlider.max = '100';
+        opacitySlider.value = String(draft.avatar_banner_opacity ?? 80);
+        opacitySlider.addEventListener('input', (e) => {
+          draft.avatar_banner_opacity = parseInt((e.target as HTMLInputElement).value);
+          opacityLabel.textContent = `Opacity: ${draft.avatar_banner_opacity}%`;
+          renderWorkspace();
+        });
+        opacityGroup.append(opacityLabel, opacitySlider);
+        controlsGrid.appendChild(opacityGroup);
+
+        // Speed control — only for animated banners
+        if (bannerPreset.isAnimated) {
+          const speedGroup = document.createElement('div');
+          speedGroup.className = 'pa-tweak-control-group';
+          const speedLabel = document.createElement('label');
+          speedLabel.textContent = `Speed: ${(draft.avatar_banner_speed ?? 1.0).toFixed(1)}x`;
+          speedLabel.className = 'pa-tweak-label-with-value';
+          const speedSlider = document.createElement('input');
+          speedSlider.type = 'range';
+          speedSlider.className = 'pa-tweak-slider';
+          speedSlider.min = '0.3';
+          speedSlider.max = '3.0';
+          speedSlider.step = '0.1';
+          speedSlider.value = String(draft.avatar_banner_speed ?? 1.0);
+          speedSlider.addEventListener('input', (e) => {
+            draft.avatar_banner_speed = parseFloat((e.target as HTMLInputElement).value);
+            speedLabel.textContent = `Speed: ${draft.avatar_banner_speed.toFixed(1)}x`;
+            renderWorkspace();
+          });
+          speedGroup.append(speedLabel, speedSlider);
+          controlsGrid.appendChild(speedGroup);
         }
 
         tweakPanel.appendChild(controlsGrid);

@@ -49,6 +49,10 @@ export type AvatarBannerPreset = {
   minLevel?: number;
   /** Triggers the slow background panning animation in CSS */
   isAnimated?: boolean;
+  /** Default opacity (0-100) for the banner, applies when no user override is set. */
+  defaultOpacity?: number;
+  /** Default animation speed (0.5-2.0) for animated banners. */
+  defaultSpeed?: number;
 };
 
 export type AvatarEffectPreset = {
@@ -876,6 +880,10 @@ export function getAvatarFramePreset(id: string | null | undefined): AvatarFrame
 export function getAvatarBannerPreset(id: string | null | undefined): AvatarBannerPreset | null {
   if (!id) return null;
   return AVATAR_BANNER_PRESETS.find(preset => preset.id === id) ?? null;
+}
+export function getAvatarEffectPreset(id: string | null | undefined): AvatarEffectPreset | null {
+  if (!id) return null;
+  return AVATAR_EFFECT_PRESETS.find(preset => preset.id === id) ?? null;
 }
 
 export function resolveAvatarColor(avatarColor: string | null | undefined, levelFallbackColor: string): string {

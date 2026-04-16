@@ -56,9 +56,14 @@ export function renderAvatar(input: AvatarRenderInput, options: AvatarRenderOpti
     'pa-avatar',
     `pa-avatar-${size}`,
     `pa-avatar-frame-${frameVariant}`,
+    framePreset?.isAnimated ? 'pa-anim-frame' : '',
     options.extraClass ?? '',
   ].filter(Boolean).join(' ');
   el.style.setProperty('--pa-avatar-color', color);
+  if (framePreset?.isAnimated) {
+    const intensity = (input.avatar_frame_intensity ?? framePreset.defaultIntensity ?? 85) / 100;
+    el.style.setProperty('--pa-frame-intensity', String(intensity));
+  }
   if (options.title) el.title = options.title;
 
   if (options.onClick) {

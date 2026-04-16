@@ -17828,7 +17828,7 @@ button.pa-avatar:focus-visible {
 /* Frame: radioactive (Green/gold swirl) */
 .pa-avatar-frame-radioactive { border-color: color-mix(in srgb, var(--pa-avatar-color) 70%, #c4a040 30%); }
 .pa-avatar-frame-radioactive .pa-avatar-ornament {
-  opacity: 1; inset: -8px;
+  opacity: var(--pa-frame-intensity, 0.75); inset: -8px;
   background: conic-gradient(from 0deg, #c4a040, transparent 30%, #5eaa3a 55%, transparent 75%, #c4a040 100%);
   -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 82%, transparent 86%);
   animation: paAvatarSpin 9s linear infinite;
@@ -17838,7 +17838,7 @@ button.pa-avatar:focus-visible {
 /* Frame: cyber (Dashed tech outline) */
 .pa-avatar-frame-cyber { border: 2px dashed var(--pa-avatar-color); box-shadow: 0 0 10px color-mix(in srgb, var(--pa-avatar-color) 40%, transparent); }
 .pa-avatar-frame-cyber .pa-avatar-ornament {
-  opacity: 1; inset: -6px;
+  opacity: var(--pa-frame-intensity, 0.70); inset: -6px;
   background: conic-gradient(from 0deg, transparent 70%, var(--pa-avatar-color) 100%);
   -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
   animation: paAvatarSpin 3s linear infinite;
@@ -17847,7 +17847,7 @@ button.pa-avatar:focus-visible {
 /* Frame: plasma (Super thick glow) */
 .pa-avatar-frame-plasma { border: 2px solid var(--pa-avatar-color); box-shadow: 0 0 15px var(--pa-avatar-color), inset 0 0 10px var(--pa-avatar-color); }
 .pa-avatar-frame-plasma .pa-avatar-ornament {
-  opacity: 1; inset: -8px;
+  opacity: var(--pa-frame-intensity, 0.80); inset: -8px;
   background: conic-gradient(from 0deg, var(--pa-avatar-color), #fff 10%, var(--pa-avatar-color) 20%, transparent 50%, var(--pa-avatar-color), #fff 60%, var(--pa-avatar-color) 70%, transparent);
   -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
   animation: paAvatarSpin 2.5s linear infinite;
@@ -17864,7 +17864,7 @@ button.pa-avatar:focus-visible {
 /* Frame: void (Reverse spin, dark shadow) */
 .pa-avatar-frame-void { border: 2px solid #4c1d95; box-shadow: inset 0 0 25px #000, 0 0 20px #1e3a8a; }
 .pa-avatar-frame-void .pa-avatar-ornament {
-  opacity: 1; inset: -8px;
+  opacity: var(--pa-frame-intensity, 0.90); inset: -8px;
   background: conic-gradient(from 0deg, #1e3a8a, #4c1d95, #000, #4c1d95, #1e3a8a);
   -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
   animation: paAvatarSpinRev 8s linear infinite;
@@ -17873,7 +17873,7 @@ button.pa-avatar:focus-visible {
 /* Frame: monolith (Prismatic shimmer with crest) */
 .pa-avatar-frame-monolith { border: 2px solid #c4a040; box-shadow: inset 0 0 0 2px rgba(196, 160, 64, 0.22), 0 0 22px rgba(196, 160, 64, 0.32); }
 .pa-avatar-frame-monolith .pa-avatar-ornament {
-  opacity: 1; inset: -10px; border-radius: 999px;
+  opacity: var(--pa-frame-intensity, 0.85); inset: -10px; border-radius: 999px;
   background: conic-gradient(from 45deg, #c4a040 0deg, rgba(196, 160, 64, 0.15) 40deg, #a855f7 90deg, rgba(168, 85, 247, 0.1) 130deg, #c4a040 180deg, rgba(196, 160, 64, 0.1) 220deg, #5eaa3a 270deg, rgba(94, 170, 58, 0.1) 310deg, #c4a040 360deg);
   -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 78%, transparent 82%);
   animation: paAvatarSpin 20s linear infinite;
@@ -17888,7 +17888,7 @@ button.pa-avatar:focus-visible {
 /* Frame: legend (Double gold rings + starburst) */
 .pa-avatar-frame-legend { border: 3px double #fbbf24; box-shadow: 0 0 20px #c4a040, inset 0 0 15px #fbbf24; }
 .pa-avatar-frame-legend .pa-avatar-ornament {
-  opacity: 1; inset: -12px;
+  opacity: var(--pa-frame-intensity, 0.88); inset: -12px;
   background: conic-gradient(from 0deg, #fbbf24, #fff, #fbbf24, transparent 25%, #fbbf24 50%, #fff, #fbbf24, transparent 75%, #fbbf24);
   -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
   animation: paAvatarSpin 6s linear infinite;
@@ -17906,7 +17906,7 @@ button.pa-avatar:focus-visible {
 /* Frame: neon (Lv 55) */
 .pa-avatar-frame-neon { border: 2px solid var(--pa-avatar-color); box-shadow: 0 0 15px var(--pa-avatar-color), inset 0 0 10px var(--pa-avatar-color); }
 .pa-avatar-frame-neon .pa-avatar-ornament {
-  opacity: 1; inset: -8px;
+  opacity: var(--pa-frame-intensity, 0.85); inset: -8px;
   background: conic-gradient(from 0deg, transparent 60%, var(--pa-avatar-color) 80%, #fff 100%);
   -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
   animation: paAvatarSpin 1.2s linear infinite;
@@ -17915,7 +17915,7 @@ button.pa-avatar:focus-visible {
 /* Frame: crystal (Lv 60) */
 .pa-avatar-frame-crystal { border: 2px solid color-mix(in srgb, var(--pa-avatar-color) 80%, white); box-shadow: inset 0 0 10px var(--pa-avatar-color); }
 .pa-avatar-frame-crystal .pa-avatar-ornament {
-  opacity: 1; inset: -8px; border-radius: 12px;
+  opacity: var(--pa-frame-intensity, 0.80); inset: -8px; border-radius: 12px;
   clip-path: polygon(50% -10%, 110% 50%, 50% 110%, -10% 50%);
   background: linear-gradient(135deg, color-mix(in srgb, var(--pa-avatar-color) 60%, transparent), transparent 40%, color-mix(in srgb, var(--pa-avatar-color) 40%, transparent) 60%, color-mix(in srgb, var(--pa-avatar-color) 80%, transparent));
   border: 2px solid color-mix(in srgb, var(--pa-avatar-color) 60%, white);
@@ -17925,7 +17925,7 @@ button.pa-avatar:focus-visible {
 /* Frame: inferno (Lv 70) */
 .pa-avatar-frame-inferno { border: 2px solid #ea580c; box-shadow: 0 0 20px #ea580c, inset 0 0 10px #f97316; }
 .pa-avatar-frame-inferno .pa-avatar-ornament {
-  opacity: 1; inset: -14px;
+  opacity: var(--pa-frame-intensity, 0.92); inset: -14px;
   background: radial-gradient(circle, #f97316 40%, transparent 65%);
   filter: blur(3px) contrast(1.2);
   animation: paInfernoFlicker 0.3s infinite alternate;
@@ -17935,7 +17935,7 @@ button.pa-avatar:focus-visible {
 /* Frame: frost (Lv 75) */
 .pa-avatar-frame-frost { border: 2px solid #a5f3fc; box-shadow: 0 0 15px #22d3ee, inset 0 0 15px #0891b2; }
 .pa-avatar-frame-frost .pa-avatar-ornament {
-  opacity: 1; inset: -10px;
+  opacity: var(--pa-frame-intensity, 0.88); inset: -10px;
   background: conic-gradient(from 0deg, #a5f3fc, transparent 20%, #22d3ee 40%, transparent 60%, #a5f3fc 80%, transparent 100%);
   -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
   animation: paAvatarSpinRev 12s linear infinite;
@@ -17944,7 +17944,7 @@ button.pa-avatar:focus-visible {
 /* Frame: corrupted (Lv 80) */
 .pa-avatar-frame-corrupted { border: 2px solid var(--pa-avatar-color); }
 .pa-avatar-frame-corrupted .pa-avatar-ornament {
-  opacity: 1; inset: -6px;
+  opacity: var(--pa-frame-intensity, 0.95); inset: -6px;
   box-shadow: 0 0 0 2px var(--pa-avatar-color), 0 0 15px var(--pa-avatar-color);
   animation: paGlitchBorder 2s infinite linear;
 }
@@ -17959,7 +17959,7 @@ button.pa-avatar:focus-visible {
 /* Frame: celestial (Lv 90) */
 .pa-avatar-frame-celestial { border: 3px solid #fef08a; box-shadow: 0 0 30px #fde047, inset 0 0 20px #ca8a04; }
 .pa-avatar-frame-celestial .pa-avatar-ornament {
-  opacity: 1; inset: -16px;
+  opacity: var(--pa-frame-intensity, 0.92); inset: -16px;
   background: conic-gradient(from 0deg, transparent, #fef08a, #fff, #fef08a, transparent);
   -webkit-mask: radial-gradient(circle, transparent 50%, #000 53%, #000 68%, transparent 70%);
   animation: paAvatarSpin 8s linear infinite;
@@ -17973,7 +17973,7 @@ button.pa-avatar:focus-visible {
 /* Frame: omega (Lv 100) */
 .pa-avatar-frame-omega { border: 2px solid #fff; box-shadow: 0 0 30px var(--pa-avatar-color), inset 0 0 20px var(--pa-avatar-color), 0 0 60px #fff; }
 .pa-avatar-frame-omega .pa-avatar-ornament {
-  opacity: 1; inset: -14px;
+  opacity: var(--pa-frame-intensity, 1.0); inset: -14px;
   background: conic-gradient(from 0deg, var(--pa-avatar-color), #fff, var(--pa-avatar-color), #000, var(--pa-avatar-color));
   -webkit-mask: radial-gradient(circle, transparent 48%, #000 50%, #000 68%, transparent 70%);
   animation: paAvatarSpin 3s linear infinite;
@@ -17990,6 +17990,159 @@ button.pa-avatar:focus-visible {
   pointer-events: none; z-index: 5;
 }
 
+
+/* =========================================================================
+   EXOTIC / LEGENDARY FRAMES (Lv 65 – 99) — newly added variants
+   ========================================================================= */
+
+/* Frame: venom (Lv 68) – Toxic Venom Ring */
+.pa-avatar-frame-venom { border: 2px solid #65a30d; box-shadow: 0 0 22px rgba(101,163,13,0.55), inset 0 0 14px rgba(101,163,13,0.2); }
+.pa-avatar-frame-venom .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.86); inset: -8px;
+  background: conic-gradient(from 0deg, #84cc16, #a3e635 25deg, rgba(101,163,13,0.3) 55deg, #84cc16 90deg, #a3e635 115deg, rgba(101,163,13,0.3) 145deg, #84cc16 180deg, #a3e635 205deg, rgba(101,163,13,0.3) 235deg, #84cc16 270deg, #a3e635 295deg, rgba(101,163,13,0.3) 325deg, #84cc16 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 54%, #000 57%, #000 80%, transparent 84%);
+  animation: paAvatarSpin 5s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(101,163,13,0.7));
+}
+.pa-avatar-frame-venom::after {
+  content: '☠'; position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+  color: #84cc16; font-size: 18px; line-height: 1;
+  text-shadow: 0 0 10px rgba(101,163,13,0.9), 0 0 20px #a3e635;
+  pointer-events: none; z-index: 4;
+}
+
+/* Frame: sanctum (Lv 65) – Sacred Order */
+.pa-avatar-frame-sanctum { border: 2px solid #fbbf24; box-shadow: 0 0 22px rgba(251,191,36,0.45), inset 0 0 14px rgba(251,191,36,0.15); }
+.pa-avatar-frame-sanctum .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.84); inset: -10px;
+  background: conic-gradient(from 0deg, #fbbf24 0deg, rgba(255,255,255,0.9) 14deg, #fbbf24 28deg, rgba(251,191,36,0.2) 50deg, #fbbf24 72deg, rgba(255,255,255,0.9) 86deg, #fbbf24 100deg, rgba(251,191,36,0.2) 135deg, #fbbf24 180deg, rgba(255,255,255,0.9) 194deg, #fbbf24 208deg, rgba(251,191,36,0.2) 225deg, #fbbf24 270deg, rgba(255,255,255,0.9) 284deg, #fbbf24 298deg, rgba(251,191,36,0.2) 315deg, #fbbf24 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 54%, #000 57%, #000 80%, transparent 84%);
+  animation: paAvatarSpin 16s linear infinite;
+  filter: drop-shadow(0 0 5px rgba(251,191,36,0.5));
+}
+.pa-avatar-frame-sanctum::after {
+  content: '✦'; position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+  color: #fbbf24; font-size: 18px; line-height: 1;
+  text-shadow: 0 0 10px #fbbf24, 0 0 22px #fff;
+  pointer-events: none; z-index: 4;
+}
+
+/* Frame: nexus (Lv 72) – Neural Nexus: segmented dual-ring */
+.pa-avatar-frame-nexus { border: 2px solid #06b6d4; box-shadow: 0 0 20px rgba(6,182,212,0.45), inset 0 0 12px rgba(6,182,212,0.1); }
+.pa-avatar-frame-nexus .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.91); inset: -12px;
+  background: conic-gradient(from 0deg, #06b6d4 0deg, transparent 18deg, #06b6d4 36deg, transparent 54deg, #06b6d4 72deg, transparent 90deg, #06b6d4 108deg, transparent 126deg, #06b6d4 144deg, transparent 162deg, #06b6d4 180deg, transparent 198deg, #06b6d4 216deg, transparent 234deg, #06b6d4 252deg, transparent 270deg, #06b6d4 288deg, transparent 306deg, #06b6d4 324deg, transparent 342deg, #06b6d4 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 52%, #000 55%, #000 80%, transparent 84%);
+  animation: paAvatarSpin 3s linear infinite;
+  filter: drop-shadow(0 0 6px rgba(6,182,212,0.6));
+}
+.pa-avatar-frame-nexus::before {
+  content: ''; position: absolute; inset: -20px; border-radius: 50%;
+  border: 1px dashed rgba(6,182,212,0.35);
+  animation: paAvatarSpinRev 6s linear infinite; pointer-events: none;
+}
+
+/* Frame: eclipse (Lv 78) – Eclipse Void */
+.pa-avatar-frame-eclipse { border: 2px solid #7c3aed; box-shadow: 0 0 28px rgba(124,58,237,0.5), inset 0 0 20px rgba(0,0,0,0.7); }
+.pa-avatar-frame-eclipse .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.87); inset: -12px;
+  background: conic-gradient(from 0deg, transparent 58%, rgba(124,58,237,0.8) 68%, rgba(167,139,250,1.0) 80%, rgba(124,58,237,0.8) 92%, transparent 102%);
+  -webkit-mask: radial-gradient(circle, transparent 52%, #000 55%, #000 82%, transparent 86%);
+  animation: paAvatarSpinRev 10s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(124,58,237,0.5));
+}
+.pa-avatar-frame-eclipse::after {
+  content: '🌙'; position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+  font-size: 16px; line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(124,58,237,0.9));
+  pointer-events: none; z-index: 4;
+}
+
+/* Frame: aurora (Lv 82) – Aurora Crown */
+.pa-avatar-frame-aurora { border: 2px solid #10b981; box-shadow: 0 0 22px rgba(16,185,129,0.4), inset 0 0 15px rgba(16,185,129,0.1); }
+.pa-avatar-frame-aurora .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.89); inset: -10px;
+  background: conic-gradient(from 0deg, #10b981, #06b6d4 60deg, #8b5cf6 120deg, #10b981 180deg, #06b6d4 240deg, #8b5cf6 300deg, #10b981 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 54%, #000 57%, #000 80%, transparent 84%);
+  animation: paAvatarSpin 8s linear infinite;
+  filter: blur(1px) drop-shadow(0 0 8px rgba(16,185,129,0.5));
+}
+
+/* Frame: torment (Lv 85) – Eternal Torment */
+.pa-avatar-frame-torment { border: 2px solid #b91c1c; box-shadow: 0 0 30px rgba(185,28,28,0.55), inset 0 0 20px rgba(100,0,0,0.5); }
+.pa-avatar-frame-torment .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.94); inset: -12px;
+  background: conic-gradient(from 0deg, #b91c1c, #7f1d1d 20deg, #dc2626 45deg, #450a0a 65deg, #b91c1c 90deg, #7f1d1d 115deg, #991b1b 140deg, #b91c1c 180deg, #7f1d1d 200deg, #dc2626 225deg, #450a0a 245deg, #b91c1c 270deg, #7f1d1d 295deg, #991b1b 320deg, #b91c1c 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 52%, #000 55%, #000 80%, transparent 84%);
+  animation: paAvatarSpin 4s linear infinite;
+  filter: drop-shadow(0 0 10px rgba(185,28,28,0.7));
+}
+.pa-avatar-frame-torment::after {
+  content: '⚔'; position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+  color: #dc2626; font-size: 18px; line-height: 1;
+  text-shadow: 0 0 12px rgba(185,28,28,0.9), 0 0 24px #ff0000;
+  pointer-events: none; z-index: 4;
+}
+
+/* Frame: abyssal (Lv 88) – Abyssal Deep */
+.pa-avatar-frame-abyssal { border: 2px solid #1e3a5f; box-shadow: 0 0 30px rgba(30,58,95,0.6), inset 0 0 25px rgba(0,0,40,0.8); }
+.pa-avatar-frame-abyssal .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.96); inset: -12px;
+  background: conic-gradient(from 0deg, #1e3a5f, #0f172a 30deg, #1e40af 60deg, #0f172a 90deg, #1e3a5f 120deg, #0f172a 150deg, #1e40af 180deg, #0f172a 210deg, #1e3a5f 240deg, #0f172a 270deg, #1e40af 300deg, #0f172a 330deg, #1e3a5f 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 52%, #000 55%, #000 80%, transparent 84%);
+  animation: paAvatarSpinRev 14s linear infinite;
+  filter: drop-shadow(0 0 12px rgba(30,64,175,0.5));
+}
+.pa-avatar-frame-abyssal::before {
+  content: ''; position: absolute; inset: -20px; border-radius: 50%;
+  border: 1px solid rgba(30,64,175,0.22);
+  animation: paAvatarSpin 20s linear infinite; pointer-events: none;
+}
+
+/* Frame: seraph (Lv 92) – Seraph Light */
+.pa-avatar-frame-seraph { border: 3px solid #fef9c3; box-shadow: 0 0 35px rgba(253,224,71,0.5), inset 0 0 25px rgba(255,255,255,0.2); }
+.pa-avatar-frame-seraph .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.93); inset: -14px;
+  background: conic-gradient(from 0deg, #fef9c3, #fff 10deg, #fde047 22deg, rgba(255,255,255,0.15) 40deg, #fef9c3 60deg, #fff 70deg, #fde047 82deg, rgba(255,255,255,0.15) 100deg, #fef9c3 120deg, #fff 130deg, #fde047 142deg, rgba(255,255,255,0.15) 160deg, #fef9c3 180deg, #fff 190deg, #fde047 202deg, rgba(255,255,255,0.15) 220deg, #fef9c3 240deg, #fff 250deg, #fde047 262deg, rgba(255,255,255,0.15) 280deg, #fef9c3 300deg, #fff 310deg, #fde047 322deg, rgba(255,255,255,0.15) 340deg, #fef9c3 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 50%, #000 53%, #000 72%, transparent 76%);
+  animation: paAvatarSpin 10s linear infinite;
+  filter: drop-shadow(0 0 12px rgba(253,224,71,0.7));
+}
+.pa-avatar-frame-seraph::after {
+  content: '🕊'; position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+  font-size: 18px; line-height: 1;
+  filter: drop-shadow(0 0 10px rgba(255,255,200,0.9));
+  pointer-events: none; z-index: 4;
+}
+
+/* Frame: singularity (Lv 99) – Event Singularity */
+.pa-avatar-frame-singularity { border: 2px solid #fff; box-shadow: 0 0 40px var(--pa-avatar-color), inset 0 0 30px var(--pa-avatar-color), 0 0 80px rgba(255,255,255,0.3); }
+.pa-avatar-frame-singularity .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 1.0); inset: -16px;
+  background: conic-gradient(from 0deg, var(--pa-avatar-color), #fff 10%, #ff0000 20%, #ff8800 30%, #ffff00 40%, #00ff00 50%, #00ffff 60%, #0088ff 70%, #ff00ff 80%, #fff 90%, var(--pa-avatar-color) 100%);
+  -webkit-mask: radial-gradient(circle, transparent 48%, #000 51%, #000 70%, transparent 74%);
+  animation: paAvatarSpin 2s linear infinite;
+  filter: drop-shadow(0 0 14px rgba(255,255,255,0.8));
+}
+.pa-avatar-frame-singularity::before {
+  content: ''; position: absolute; inset: -26px; border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.28);
+  animation: paAvatarSpinRev 3s linear infinite; pointer-events: none;
+}
+.pa-avatar-frame-singularity::after {
+  content: '∞'; position: absolute; top: -26px; left: 50%; transform: translateX(-50%);
+  color: #fff; font-size: 24px; font-weight: 900; line-height: 1;
+  text-shadow: 0 0 15px var(--pa-avatar-color), 0 0 30px #fff;
+  pointer-events: none; z-index: 5;
+}
+
+/* Scale up crests for the new exotic frames on the large public-profile avatar */
+.public-profile-avatar.pa-avatar-frame-venom::after,
+.public-profile-avatar.pa-avatar-frame-sanctum::after,
+.public-profile-avatar.pa-avatar-frame-eclipse::after,
+.public-profile-avatar.pa-avatar-frame-seraph::after { font-size: 28px; top: -26px; }
+.public-profile-avatar.pa-avatar-frame-torment::after { font-size: 26px; top: -28px; }
+.public-profile-avatar.pa-avatar-frame-singularity::after { font-size: 36px; top: -34px; }
 
 /* Shared avatar integration */
 .panda-leaderboard-avatar.pa-avatar { flex-shrink: 0; }
@@ -18701,7 +18854,10 @@ button.pa-avatar:focus-visible {
   animation: paGasSwirl calc(8s / var(--pa-effect-speed, 1)) infinite linear; mix-blend-mode: screen; opacity: var(--pa-effect-intensity, 0.80);
 }
 .pa-avatar-preview-effect[data-effect='lightning'], .pa-avatar-chip-effect-sample[data-effect='lightning'] {
-  background: color-mix(in srgb, var(--pa-effect-color, #7dd3fc) 0%, transparent); animation: paLightningStrike calc(3s / var(--pa-effect-speed, 1)) infinite; box-shadow: inset 0 0 0 color-mix(in srgb, var(--pa-effect-color, #7dd3fc) 0%, transparent); opacity: var(--pa-effect-intensity, 0.92);
+  background: color-mix(in srgb, var(--pa-effect-color, #7dd3fc) 5%, transparent);
+  animation: paLightningStrike calc(3s / var(--pa-effect-speed, 1)) infinite;
+  box-shadow: inset 0 0 8px color-mix(in srgb, var(--pa-effect-color, #7dd3fc) 20%, transparent);
+  opacity: var(--pa-effect-intensity, 0.92);
 }
 .pa-avatar-preview-effect[data-effect='cosmos'], .pa-avatar-chip-effect-sample[data-effect='cosmos'] {
   background-image: radial-gradient(circle, color-mix(in srgb, var(--pa-effect-color, #f5d4ff) 90%, transparent) 1px, transparent 1px); background-size: 30px 40px; animation: paCosmosMove calc(10s / var(--pa-effect-speed, 1)) infinite linear; opacity: var(--pa-effect-intensity, 0.78);
@@ -18710,14 +18866,20 @@ button.pa-avatar:focus-visible {
   background: repeating-linear-gradient(5deg, transparent, transparent 10px, color-mix(in srgb, var(--pa-effect-color, #dc2626) 60%, transparent) 10px, color-mix(in srgb, var(--pa-effect-color, #dc2626) 60%, transparent) 11px); background-size: 100% 200%; animation: paBloodRain calc(0.6s / var(--pa-effect-speed, 1)) infinite linear; opacity: var(--pa-effect-intensity, 0.85);
 }
 .pa-avatar-preview-effect[data-effect='blackhole'], .pa-avatar-chip-effect-sample[data-effect='blackhole'] {
-  background: conic-gradient(from 0deg, color-mix(in srgb, var(--pa-effect-color, #0c0a0a) 80%, transparent), color-mix(in srgb, var(--pa-effect-color, #0c0a0a) 50%, transparent), color-mix(in srgb, var(--pa-effect-color, #0c0a0a) 80%, transparent)); animation: paAvatarSpin calc(3s / var(--pa-effect-speed, 1)) infinite linear; border-radius: 50%; mix-blend-mode: multiply; opacity: var(--pa-effect-intensity, 0.95);
+  background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0.9) 25%, color-mix(in srgb, var(--pa-effect-color, #6d28d9) 60%, transparent) 55%, transparent 80%);
+  box-shadow: inset 0 0 40px color-mix(in srgb, var(--pa-effect-color, #6d28d9) 50%, transparent);
+  animation: paBlackholeVortex calc(3s / var(--pa-effect-speed, 1)) infinite linear; mix-blend-mode: screen; opacity: var(--pa-effect-intensity, 0.95);
 }
 .pa-avatar-preview-effect[data-effect='ascension'], .pa-avatar-chip-effect-sample[data-effect='ascension'] {
   background: linear-gradient(0deg, transparent, color-mix(in srgb, var(--pa-effect-color, #fbbf24) 20%, transparent) 50%, transparent); background-size: 100% 200%;
   animation: paAscensionRise calc(2s / var(--pa-effect-speed, 1)) infinite linear; box-shadow: inset 0 -30px 40px color-mix(in srgb, var(--pa-effect-color, #fbbf24) 30%, transparent); opacity: var(--pa-effect-intensity, 0.93);
 }
 .pa-avatar-preview-effect[data-effect='omega-burst'], .pa-avatar-chip-effect-sample[data-effect='omega-burst'] {
-  box-shadow: inset 0 0 0 color-mix(in srgb, var(--pa-effect-color, #f5d4ff) 0%, transparent); animation: paOmegaBurst calc(1.5s / var(--pa-effect-speed, 1)) infinite cubic-bezier(0.1, 0.8, 0.3, 1); border-radius: 50%; border: 1px solid rgba(255,255,255,0); opacity: var(--pa-effect-intensity, 1.0);
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--pa-effect-color, #f5d4ff) 60%, transparent) 0%, transparent 70%);
+  box-shadow: inset 0 0 30px color-mix(in srgb, var(--pa-effect-color, #f5d4ff) 40%, transparent);
+  animation: paOmegaBurst calc(1.5s / var(--pa-effect-speed, 1)) infinite cubic-bezier(0.1, 0.8, 0.3, 1);
+  border: 1px solid color-mix(in srgb, var(--pa-effect-color, #f5d4ff) 50%, transparent);
+  opacity: var(--pa-effect-intensity, 1.0);
 }
 
 /* NEW EFFECTS */
@@ -18793,7 +18955,18 @@ button.pa-avatar:focus-visible {
 @keyframes paBlizzardFly { 0% { background-position: 0 0; } 100% { background-position: -50px 50px; } }
 @keyframes paFireflies { 0% { transform: translateY(0) scale(0.8); opacity: 0.3; } 100% { transform: translateY(-10px) scale(1.2); opacity: 1; } }
 @keyframes paGasSwirl { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(1.5); } 100% { transform: rotate(360deg) scale(1); } }
-@keyframes paLightningStrike { 0%, 94%, 100% { background: rgba(125,211,252,0); box-shadow: inset 0 0 0 rgba(125,211,252,0); } 95% { background: rgba(125,211,252,0.3); box-shadow: inset 0 0 40px rgba(125,211,252,0.8); } 96% { background: rgba(125,211,252,0); box-shadow: inset 0 0 0 rgba(125,211,252,0); } 98% { background: rgba(125,211,252,0.5); box-shadow: inset 0 0 60px rgba(125,211,252,1); } }
+@keyframes paLightningStrike {
+  0%, 88%, 100% { background: color-mix(in srgb, var(--pa-effect-color, #7dd3fc) 3%, transparent); box-shadow: inset 0 0 8px color-mix(in srgb, var(--pa-effect-color, #7dd3fc) 15%, transparent); }
+  90% { background: color-mix(in srgb, var(--pa-effect-color, #7dd3fc) 35%, transparent); box-shadow: inset 0 0 50px color-mix(in srgb, var(--pa-effect-color, #7dd3fc) 90%, transparent); }
+  91% { background: color-mix(in srgb, var(--pa-effect-color, #7dd3fc) 5%, transparent); box-shadow: inset 0 0 8px color-mix(in srgb, var(--pa-effect-color, #7dd3fc) 15%, transparent); }
+  93% { background: color-mix(in srgb, var(--pa-effect-color, #7dd3fc) 60%, transparent); box-shadow: inset 0 0 70px color-mix(in srgb, var(--pa-effect-color, #7dd3fc) 100%, transparent); filter: brightness(1.5); }
+  95% { background: color-mix(in srgb, var(--pa-effect-color, #7dd3fc) 5%, transparent); box-shadow: inset 0 0 8px color-mix(in srgb, var(--pa-effect-color, #7dd3fc) 15%, transparent); filter: brightness(1); }
+}
+@keyframes paBlackholeVortex {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.05); }
+  100% { transform: rotate(360deg) scale(1); }
+}
 @keyframes paCosmosMove { 0% { background-position: 0 0; } 100% { background-position: 30px -80px; } }
 @keyframes paBloodRain { 0% { background-position: 0 0; } 100% { background-position: -10px 100px; } }
 @keyframes paAvatarSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -18815,15 +18988,16 @@ button.pa-avatar:focus-visible {
 @keyframes frostShimmer { 0% { filter: brightness(0.8) hue-rotate(0deg); } 50% { filter: brightness(1.2) hue-rotate(5deg); } 100% { filter: brightness(0.8) hue-rotate(0deg); } }
 
 /* Shared Dummy anims */
-.pa-anim-bg { background-size: 200% 200% !important; animation: bgPan 6s ease-in-out infinite alternate; }
-@keyframes bgPan { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
-.pa-anim-frame { position: relative; overflow: hidden; border-color: transparent !important; --pa-frame-intensity: 0.85; }
-.pa-anim-frame::before {
-  content: ''; position: absolute; inset: -50%; z-index: -1;
-  background: conic-gradient(from 0deg, transparent 60%, var(--pa-avatar-color) 100%); animation: paAvatarSpin 3s linear infinite;
-  opacity: var(--pa-frame-intensity, 0.85);
+.pa-anim-bg {
+  background-size: 200% 200% !important;
+  animation: bgPan calc(6s / var(--pa-banner-speed, 1.0)) ease-in-out infinite alternate;
 }
-.pa-anim-frame::after { content: ''; position: absolute; inset: 2px; background: var(--pa-bg-base); border-radius: 50%; z-index: -1; }
+@keyframes bgPan { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
+/* .pa-anim-frame: marker class that exposes --pa-frame-intensity default.
+   No pseudo-elements here — they would conflict with frame-specific ::after crests
+   (monolith crown, legend star, omega symbol, celestial ring) and border colors.
+   Each frame's .pa-avatar-ornament handles its own animation. */
+.pa-anim-frame { --pa-frame-intensity: 0.85; }
 
 /* =========================================================================
    P.A.N.D.A — 1080p / responsive profile fixes

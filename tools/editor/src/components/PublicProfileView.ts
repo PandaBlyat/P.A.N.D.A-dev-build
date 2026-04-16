@@ -16,6 +16,7 @@ import { FACTION_DISPLAY_NAMES, type FactionId } from '../lib/types';
 import { FACTION_COLORS } from '../lib/faction-colors';
 import { createIcon } from './icons';
 import { renderAvatar, getBannerBackground } from './AvatarRenderer';
+import { getAvatarBannerPreset, getAvatarEffectPreset } from '../lib/avatar-catalog';
 
 type PublicProfileViewOptions = {
   data: PublicProfileData;
@@ -129,6 +130,9 @@ function buildHeader(data: PublicProfileData, onAvatarClick?: (event: MouseEvent
   if (bannerBg) {
     header.style.background = bannerBg;
     header.dataset.customBanner = String(profile.avatar_banner);
+    if (getAvatarBannerPreset(profile.avatar_banner)?.isAnimated) {
+      header.classList.add('pa-anim-bg');
+    }
   }
 
   // VFX overlay — sits above the banner tint but behind grid content.
@@ -137,6 +141,12 @@ function buildHeader(data: PublicProfileData, onAvatarClick?: (event: MouseEvent
     effectLayer.className = 'public-profile-hero-effect pa-avatar-chip-effect-sample';
     effectLayer.setAttribute('aria-hidden', 'true');
     effectLayer.dataset.effect = String(profile.avatar_effect);
+    const heroEffectPreset = getAvatarEffectPreset(profile.avatar_effect);
+    if (heroEffectPreset) {
+      effectLayer.style.setProperty('--pa-effect-color', profile.avatar_effect_color || heroEffectPreset.defaultColor || '#5eaa3a');
+      effectLayer.style.setProperty('--pa-effect-intensity', String((profile.avatar_effect_intensity ?? heroEffectPreset.defaultIntensity ?? 75) / 100));
+      effectLayer.style.setProperty('--pa-effect-speed', String(profile.avatar_effect_speed ?? heroEffectPreset.defaultSpeed ?? 1.0));
+    }
     header.appendChild(effectLayer);
   }
 
