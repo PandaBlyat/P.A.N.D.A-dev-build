@@ -348,7 +348,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
   const tweakPanel = document.createElement('div');
   tweakPanel.className = 'pa-avatar-tweak-panel';
 
-  workspace.append(tabBar, tabContent, tweakPanel);
+  workspace.append(tabBar, tabContent);
 
   const renderWorkspace = () => {
     tabButtons.forEach((btn, id) => {
@@ -358,6 +358,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
     // Re-render preview on every selection change.
     previewSlot.textContent = '';
     previewSlot.appendChild(renderPreview(profile.username ?? '', userLevel, draft));
+    previewSlot.appendChild(tweakPanel);
 
     tabContent.textContent = '';
     const grid = document.createElement('div');

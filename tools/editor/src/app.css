@@ -18101,7 +18101,7 @@ button.pa-avatar:focus-visible {
   display: grid; grid-template-columns: 300px 1fr; gap: 28px; padding: 24px 28px;
   height: calc(100dvh - 180px); min-height: 460px; overflow: hidden;
 }
-.pa-avatar-modal-preview-slot { position: sticky; top: 0; align-self: start; }
+.pa-avatar-modal-preview-slot { display: flex; flex-direction: column; gap: 20px; position: sticky; top: 0; align-self: start; max-height: calc(100dvh - 180px); overflow-y: auto; }
 .pa-avatar-modal-workspace { display: flex; flex-direction: column; gap: 20px; overflow: hidden; }
 
 /* Tactical Tabs */
