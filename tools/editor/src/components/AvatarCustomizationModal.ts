@@ -72,71 +72,142 @@ function sortByLevel<T extends { minLevel?: number }>(presets: T[]): T[] {
   return [...presets].sort((a, b) => (a.minLevel ?? 0) - (b.minLevel ?? 0));
 }
 
-function renderPreview(username: string, level: number, draft: UserCosmetics): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'pa-avatar-preview';
-
-  const bannerPreset = AVATAR_BANNER_PRESETS.find(p => p.id === draft.avatar_banner);
-  const banner = document.createElement('div');
-  banner.className = `pa-avatar-preview-banner${bannerPreset?.isAnimated ? ' pa-anim-bg' : ''}`;
-
-  // Set the banner background directly so the preview always reflects the selection.
-  if (bannerPreset && bannerPreset.id !== 'default' && bannerPreset.gradient) {
-    // Add a dark neutral base behind the semi-transparent gradient so theme color
-    // doesn't bleed through in the preview.
-    banner.style.background = `${bannerPreset.gradient}, var(--bg-panel, #141811)`;
-  }
-  if (draft.avatar_banner) banner.dataset.banner = String(draft.avatar_banner);
-
-  const effectLayer = document.createElement('div');
-  effectLayer.className = 'pa-avatar-preview-effect';
-  if (draft.avatar_effect && draft.avatar_effect !== 'none') {
-    effectLayer.dataset.effect = String(draft.avatar_effect);
-  }
-
-  const avatarWrap = document.createElement('div');
-  avatarWrap.className = 'pa-avatar-preview-circle-wrap';
-
+/** Build a consistent mini-avatar element for use in both preview tiles. */
+function buildPreviewAvatar(
+  username: string,
+  level: number,
+  draft: UserCosmetics,
+  sizeClass: 'pa-avatar-sm' | 'pa-avatar-md' | 'pa-avatar-lg',
+  extraClass: string,
+): HTMLElement {
   const framePreset = AVATAR_FRAME_PRESETS.find(p => p.id === draft.avatar_frame);
   const frameId = typeof draft.avatar_frame === 'string' ? draft.avatar_frame : 'none';
-  const avatar = document.createElement('div');
-  avatar.className = `pa-avatar pa-avatar-preview-circle pa-avatar-frame-${frameId}${framePreset?.isAnimated ? ' pa-anim-frame' : ''}`;
-
-  // Resolve the actual hex color from the preset so CSS variables work correctly.
   const colorPreset = getAvatarColorPreset(draft.avatar_color);
   const colorValue = colorPreset?.color ?? '#5eaa3a';
-  avatar.style.setProperty('--pa-avatar-color', colorValue);
+  const iconPreset = AVATAR_ICON_PRESETS.find(item => item.id === draft.avatar_icon);
+  const glyphText = iconPreset && iconPreset.id !== 'default' ? iconPreset.glyph : getInitial(username);
 
-  const preset = AVATAR_ICON_PRESETS.find(item => item.id === draft.avatar_icon);
-  const glyph = preset && preset.id !== 'default' ? preset.glyph : '';
-  const inner = document.createElement('span');
-  inner.className = 'pa-avatar-glyph';
-  inner.textContent = glyph || getInitial(username);
-  avatar.appendChild(inner);
+  const av = document.createElement('div');
+  av.className = [
+    'pa-avatar', sizeClass,
+    `pa-avatar-frame-${frameId}`,
+    framePreset?.isAnimated ? 'pa-anim-frame' : '',
+    extraClass,
+  ].filter(Boolean).join(' ');
+  av.style.setProperty('--pa-avatar-color', colorValue);
 
-  // Ornament slot required for frame variants that use ::before/::after on it.
-  const previewOrnament = document.createElement('span');
-  previewOrnament.className = 'pa-avatar-ornament';
-  previewOrnament.setAttribute('aria-hidden', 'true');
-  avatar.appendChild(previewOrnament);
+  const glyph = document.createElement('span');
+  glyph.className = 'pa-avatar-glyph';
+  glyph.textContent = glyphText;
+  av.appendChild(glyph);
 
-  const levelBadge = document.createElement('span');
-  levelBadge.className = 'pa-avatar-level-chip';
-  levelBadge.textContent = `Lv.${level}`;
+  const ornament = document.createElement('span');
+  ornament.className = 'pa-avatar-ornament';
+  ornament.setAttribute('aria-hidden', 'true');
+  av.appendChild(ornament);
 
-  avatarWrap.append(avatar, levelBadge);
+  const chip = document.createElement('span');
+  chip.className = 'pa-avatar-level-chip';
+  chip.textContent = `Lv.${level}`;
+  av.appendChild(chip);
 
-  const copy = document.createElement('div');
-  copy.className = 'pa-avatar-preview-copy';
-  const title = document.createElement('div');
-  title.className = 'pa-avatar-preview-name';
-  title.textContent = username;
-  const caption = document.createElement('div');
-  caption.className = 'pa-avatar-preview-caption';
-  caption.textContent = 'Preview — Stalker dossier header';
-  copy.append(title, caption);
+  return av;
+}
 
-  wrap.append(banner, effectLayer, avatarWrap, copy);
+/**
+ * Render a dual-tile preview: a podium card on the left and a leaderboard
+ * row strip on the right, both reflecting the current draft cosmetics.
+ */
+function renderPreview(username: string, level: number, draft: UserCosmetics): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'pa-preview-dual';
+
+  const bannerPreset = AVATAR_BANNER_PRESETS.find(p => p.id === draft.avatar_banner);
+  const bannerBg = (bannerPreset && bannerPreset.id !== 'default' && bannerPreset.gradient)
+    ? `${bannerPreset.gradient}, #141811`
+    : undefined;
+  const colorPreset = getAvatarColorPreset(draft.avatar_color);
+  const colorValue = colorPreset?.color ?? '#5eaa3a';
+  const hasEffect = !!(draft.avatar_effect && draft.avatar_effect !== 'none');
+
+  // ── Podium card tile ─────────────────────────────────────────────────────
+  const podiumTile = document.createElement('div');
+  podiumTile.className = 'pa-preview-podium-tile';
+  if (bannerBg) podiumTile.style.setProperty('--pa-preview-banner', bannerBg);
+  podiumTile.style.setProperty('--pa-avatar-color', colorValue);
+
+  const podiumBanner = document.createElement('span');
+  podiumBanner.className = `pa-preview-tile-banner${bannerPreset?.isAnimated ? ' pa-anim-bg' : ''}`;
+  if (bannerBg) podiumBanner.style.background = bannerBg;
+  podiumTile.appendChild(podiumBanner);
+
+  if (hasEffect) {
+    const podiumEffect = document.createElement('span');
+    podiumEffect.className = 'pa-preview-tile-effect pa-avatar-chip-effect-sample';
+    podiumEffect.dataset.effect = String(draft.avatar_effect);
+    podiumTile.appendChild(podiumEffect);
+  }
+
+  const podiumRank = document.createElement('span');
+  podiumRank.className = 'pa-preview-podium-rank';
+  podiumRank.textContent = 'I';
+  podiumTile.appendChild(podiumRank);
+
+  podiumTile.appendChild(buildPreviewAvatar(username, level, draft, 'pa-avatar-lg', 'pa-preview-podium-avatar'));
+
+  const podiumName = document.createElement('span');
+  podiumName.className = 'pa-preview-podium-name';
+  podiumName.textContent = username;
+  podiumTile.appendChild(podiumName);
+
+  const podiumXp = document.createElement('span');
+  podiumXp.className = 'pa-preview-podium-xp';
+  podiumXp.textContent = '— XP';
+  podiumTile.appendChild(podiumXp);
+
+  // Label below the tile
+  const podiumLabel = document.createElement('p');
+  podiumLabel.className = 'pa-preview-tile-label';
+  podiumLabel.textContent = 'Podium card';
+  podiumTile.appendChild(podiumLabel);
+
+  // ── Row tile ─────────────────────────────────────────────────────────────
+  const rowTile = document.createElement('div');
+  rowTile.className = 'pa-preview-row-tile';
+  if (bannerBg) rowTile.style.setProperty('--row-banner', bannerBg);
+  rowTile.style.setProperty('--pa-avatar-color', colorValue);
+
+  if (hasEffect) {
+    const rowEffect = document.createElement('span');
+    rowEffect.className = 'pa-preview-tile-row-effect pa-avatar-chip-effect-sample';
+    rowEffect.dataset.effect = String(draft.avatar_effect);
+    rowTile.appendChild(rowEffect);
+  }
+
+  const rowRank = document.createElement('span');
+  rowRank.className = 'pa-preview-row-rank';
+  rowRank.textContent = '#1';
+  rowTile.appendChild(rowRank);
+
+  rowTile.appendChild(buildPreviewAvatar(username, level, draft, 'pa-avatar-sm', 'pa-preview-row-avatar'));
+
+  const rowIdentity = document.createElement('span');
+  rowIdentity.className = 'pa-preview-row-identity';
+  const rowName = document.createElement('span');
+  rowName.className = 'pa-preview-row-name';
+  rowName.textContent = username;
+  const rowTitle = document.createElement('span');
+  rowTitle.className = 'pa-preview-row-title';
+  rowTitle.textContent = 'Leaderboard row preview';
+  rowIdentity.append(rowName, rowTitle);
+  rowTile.appendChild(rowIdentity);
+
+  const rowXp = document.createElement('span');
+  rowXp.className = 'pa-preview-row-xp';
+  rowXp.textContent = '— XP';
+  rowTile.appendChild(rowXp);
+
+  wrap.append(podiumTile, rowTile);
   return wrap;
 }
 
@@ -423,7 +494,12 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
     saveBtn.textContent = 'Saving…';
     try {
       const updated = await apiUpdateUserCosmetics(profile.publisher_id, draft);
-      onSaved({ ...profile, ...(updated || draft) } as UserProfile);
+      if (!updated) {
+        // API returned null — the server didn't persist the changes.
+        // Surface the error so the user knows to retry.
+        throw new Error('Server returned no data');
+      }
+      onSaved({ ...profile, ...updated } as UserProfile);
       closeAvatarCustomizationModal();
     } catch (err) {
       console.error('[avatar] save failed', err);

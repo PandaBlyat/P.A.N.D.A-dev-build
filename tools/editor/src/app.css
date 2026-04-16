@@ -10480,8 +10480,8 @@ strong.support-upvote-count {
 }
 
 .public-profile-modal {
-  width: min(720px, 100%);
-  max-height: min(86vh, 860px);
+  width: min(860px, 100%);
+  max-height: min(92vh, 940px);
   display: flex;
   flex-direction: column;
   border: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 22%, var(--border, #333));
@@ -10603,6 +10603,30 @@ strong.support-upvote-count {
     radial-gradient(circle at top right, color-mix(in srgb, var(--profile-accent) 16%, transparent) 0%, transparent 34%),
     linear-gradient(145deg, color-mix(in srgb, var(--profile-accent) 10%, rgba(255,255,255,0.03)) 0%, transparent 58%),
     color-mix(in srgb, var(--profile-surface-fill) 94%, transparent);
+  /* required so the VFX overlay positions itself within the hero */
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* VFX effect layer inside the profile hero — uses the same data-effect CSS
+   as chip samples but with higher opacity and full-bleed coverage. */
+.public-profile-hero-effect {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.45;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+/* Keep grid children above the VFX overlay. */
+.public-profile-identity,
+.public-profile-hero-stats {
+  position: relative;
+  z-index: 1;
 }
 
 .public-profile-identity {
@@ -17141,8 +17165,9 @@ strong.support-upvote-count {
 .panda-leaderboard-podium {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
   gap: 16px;
-  padding: 10px 0;
+  padding: 10px 0 0;
 }
 
 .panda-leaderboard-podium-card {
@@ -17225,22 +17250,35 @@ strong.support-upvote-count {
   animation: borderSpin 4s linear infinite;
 }
 
-/* 2nd Place - Silver */
+/* 2nd Place - Silver (slightly smaller than 1st, taller than 3rd) */
 .panda-leaderboard-podium-card-2 {
   background: radial-gradient(circle at top, rgba(229, 231, 233, 0.1) 0%, transparent 60%), linear-gradient(180deg, rgba(20,20,20,0.8), rgba(10,10,10,0.95));
   border-color: rgba(229, 231, 233, 0.3);
+  padding: 22px 16px 18px;
+  align-self: end;
+  margin-bottom: 8px;
 }
 .panda-leaderboard-podium-card-2:hover {
   box-shadow: 0 20px 50px rgba(229, 231, 233, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
+/* 2nd place avatar slightly smaller than 1st */
+.panda-leaderboard-podium-card-2 .panda-leaderboard-podium-avatar.pa-avatar {
+  --pa-avatar-size: 68px;
+}
 
-/* 3rd Place - Bronze */
+/* 3rd Place - Bronze (smallest card) */
 .panda-leaderboard-podium-card-3 {
   background: radial-gradient(circle at top, rgba(211, 84, 0, 0.1) 0%, transparent 60%), linear-gradient(180deg, rgba(20,20,20,0.8), rgba(10,10,10,0.95));
   border-color: rgba(211, 84, 0, 0.3);
+  padding: 18px 14px 14px;
+  align-self: end;
 }
 .panda-leaderboard-podium-card-3:hover {
   box-shadow: 0 20px 50px rgba(211, 84, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+/* 3rd place avatar smallest */
+.panda-leaderboard-podium-card-3 .panda-leaderboard-podium-avatar.pa-avatar {
+  --pa-avatar-size: 54px;
 }
 
 /* Podium Typography & Avatars */
@@ -17376,13 +17414,13 @@ strong.support-upvote-count {
 }
 
 /* VFX layer inside the row.  Shares the chip-effect-sample CSS for its
-   data-effect animations; opacity is kept very low so text stays legible. */
+   data-effect animations; kept subtle so text stays legible. */
 .panda-leaderboard-row-effect {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.09;
+  opacity: 0.22;
   mix-blend-mode: screen;
   border-radius: inherit;
   overflow: hidden;
@@ -17503,6 +17541,9 @@ strong.support-upvote-count {
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  align-self: center;
 }
 
 /* Viewer Highlight */
@@ -17685,7 +17726,12 @@ button.pa-avatar:focus-visible {
 
 .pa-avatar-glyph-emoji {
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
-  font-size: calc(var(--pa-avatar-font) * 1.05);
+  /* Emoji can be wider than a single character; clamp them so they
+     never spill outside the avatar circle regardless of glyph width. */
+  font-size: calc(var(--pa-avatar-font) * 0.95);
+  max-width: var(--pa-avatar-size);
+  overflow: hidden;
+  line-height: 1;
 }
 
 .pa-avatar-level-chip {
@@ -17928,12 +17974,12 @@ button.pa-avatar:focus-visible {
 /* Shared avatar integration */
 .panda-leaderboard-avatar.pa-avatar { flex-shrink: 0; }
 .public-profile-avatar.pa-avatar {
-  --pa-avatar-size: 78px;
-  --pa-avatar-font: 30px;
+  --pa-avatar-size: 100px;
+  --pa-avatar-font: 38px;
   --pa-avatar-color: var(--tier-color, var(--accent, #5eaa3a));
   align-self: flex-start;
 }
-.public-profile-avatar.pa-avatar .pa-avatar-level-chip { right: -2px; bottom: -2px; font-size: 11px; padding: 3px 7px; }
+.public-profile-avatar.pa-avatar .pa-avatar-level-chip { right: -3px; bottom: -3px; font-size: 12px; padding: 4px 9px; }
 
 /* Scale up the pseudo-element crests for High-Tier Avatars */
 .public-profile-avatar.pa-avatar-frame-monolith::after { transform: translateX(-50%) scale(1.5); top: -18px; }
@@ -18115,6 +18161,122 @@ button.pa-avatar:focus-visible {
 .pa-avatar-preview-name { font-weight: 800; font-size: 18px; color: var(--pa-text-primary); letter-spacing: 0.05em; text-transform: uppercase; }
 .pa-avatar-preview-caption { font-size: 11px; color: var(--pa-text-secondary); margin-top: 4px; font-family: monospace; letter-spacing: 0.1em;}
 
+/* -------------------------------------------------------------------------
+   Dual preview: podium card (left) + leaderboard row strip (right)
+   ------------------------------------------------------------------------- */
+.pa-preview-dual {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+/* ── Podium card tile ─────────────────────────────────────────────────────── */
+.pa-preview-podium-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 14px 14px;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at top, rgba(244, 208, 63, 0.12) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(20,20,20,0.85), rgba(10,10,10,0.95));
+  border: 1px solid rgba(244, 208, 63, 0.35);
+  overflow: hidden;
+  isolation: isolate;
+  text-align: center;
+}
+.pa-preview-tile-banner {
+  position: absolute; inset: 0; pointer-events: none;
+  opacity: 0.8; z-index: 0;
+}
+.pa-preview-tile-effect {
+  position: absolute; inset: 0; pointer-events: none;
+  z-index: 1; mix-blend-mode: screen; opacity: 0.5; overflow: hidden;
+}
+.pa-preview-podium-tile > :not(.pa-preview-tile-banner):not(.pa-preview-tile-effect) {
+  position: relative; z-index: 2;
+}
+.pa-preview-podium-rank {
+  font-size: 1rem; font-weight: 900; letter-spacing: 0.05em;
+  color: var(--tier-gold, #f4d03f);
+  text-shadow: 0 0 10px rgba(244,208,63,0.5);
+  margin-bottom: 6px;
+}
+.pa-preview-podium-avatar.pa-avatar {
+  --pa-avatar-size: 72px;
+  --pa-avatar-font: 28px;
+  margin-bottom: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.pa-preview-podium-name {
+  font-weight: 800; font-size: 0.95rem; color: #fff;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+}
+.pa-preview-podium-xp {
+  font-size: 0.78rem; font-weight: 700;
+  color: var(--tier-gold, #f4d03f);
+  margin-top: 4px;
+}
+.pa-preview-tile-label {
+  font-size: 0.68rem; color: var(--pa-text-secondary, #8b97a3);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin: 8px 0 0; font-family: monospace;
+}
+
+/* ── Row tile ────────────────────────────────────────────────────────────── */
+.pa-preview-row-tile {
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px 36px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.76) 100%),
+    var(--row-banner, linear-gradient(90deg, rgba(255,255,255,0.02) 0%, rgba(0,0,0,0.12) 100%));
+  border: 1px solid rgba(255,255,255,0.06);
+  overflow: hidden;
+  isolation: isolate;
+}
+.pa-preview-tile-row-effect {
+  position: absolute; inset: 0; pointer-events: none;
+  z-index: 0; mix-blend-mode: screen; opacity: 0.22; overflow: hidden;
+  border-radius: inherit;
+}
+.pa-preview-row-tile > :not(.pa-preview-tile-row-effect) {
+  position: relative; z-index: 1;
+}
+.pa-preview-row-rank {
+  font-size: 1rem; font-weight: 900;
+  color: var(--tier-gold, #f4d03f);
+  text-align: center;
+}
+.pa-preview-row-avatar.pa-avatar {
+  --pa-avatar-size: 34px;
+  --pa-avatar-font: 13px;
+}
+.pa-preview-row-identity {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+}
+.pa-preview-row-name {
+  font-weight: 800; font-size: 0.88rem; color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pa-preview-row-title {
+  font-size: 0.72rem; color: var(--pa-text-secondary, #8b97a3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pa-preview-row-xp {
+  font-size: 0.85rem; font-weight: 900;
+  color: var(--tier-gold, #f4d03f);
+  white-space: nowrap;
+}
+
 /* Faux Barcode Decoration */
 .pa-preview-barcode {
   height: 24px; margin-top: 16px; opacity: 0.2;
@@ -18206,28 +18368,29 @@ button.pa-avatar:focus-visible {
 }
 
 /* Frame picker sample — reuses the full .pa-avatar rendering so variants
-   (ornaments, ::after crests, animated borders) paint exactly as in-game. */
+   (ornaments, ::after crests, animated borders) paint exactly as in-game.
+   Larger size (60px) gives better proportion matching the final preview. */
 .pa-avatar-chip-frame-sample-wrap {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* 72px gives breathing room for ornaments that extend up to 12px outside
-     a 48px circle (e.g. halo, omega), plus crown crests that sit above. */
-  width: 72px;
-  height: 72px;
+  /* 88px gives breathing room for ornaments that extend up to 16px outside
+     a 60px circle (e.g. halo, omega), plus crown crests that sit above. */
+  width: 88px;
+  height: 88px;
   z-index: 2;
   margin-top: 4px;
 }
 .pa-avatar-chip-frame-sample.pa-avatar {
-  --pa-avatar-size: 48px;
-  --pa-avatar-font: 18px;
+  --pa-avatar-size: 60px;
+  --pa-avatar-font: 22px;
   box-shadow:
     inset 0 0 8px rgba(0, 0, 0, 0.65),
     0 3px 8px rgba(0, 0, 0, 0.45);
 }
 .pa-avatar-chip-frame-sample.pa-avatar .pa-avatar-glyph {
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 800;
   opacity: 0.85;
 }

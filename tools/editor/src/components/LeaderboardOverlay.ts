@@ -295,15 +295,17 @@ function renderPodium(refs: OverlayRefs): void {
   const podium = refs.entries.slice(0, 3);
   if (podium.length === 0) return;
 
-  // Visual order mimics a real podium: 2nd — 1st — 3rd.
-  // Rendering order is kept by rank (1, 2, 3) so the middle column (1st)
-  // uses grid-column-start to land in the centre regardless of insertion order.
+  // Visual order: 2nd (left) — 1st (centre, tallest) — 3rd (right).
+  // Cards are inserted in rank order (1,2,3); CSS `order` repositions them
+  // in the 3-column grid without DOM reordering.
+  const podiumOrder: Record<number, number> = { 1: 2, 2: 1, 3: 3 };
   for (const ranked of podium) {
     const { entry, rank } = ranked;
     const card = document.createElement('button');
     card.type = 'button';
     card.className = `panda-leaderboard-podium-card panda-leaderboard-podium-card-${rank}`;
     card.dataset.rankTier = getRankTier(rank);
+    card.style.order = String(podiumOrder[rank] ?? rank);
     // Stagger entrance, reveal 2nd + 3rd slightly before the champion.
     const delayMs = rank === 1 ? 180 : rank === 2 ? 60 : 120;
     card.style.setProperty('--podium-delay', `${delayMs}ms`);

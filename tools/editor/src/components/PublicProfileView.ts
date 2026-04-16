@@ -131,20 +131,31 @@ function buildHeader(data: PublicProfileData, onAvatarClick?: (event: MouseEvent
     header.dataset.customBanner = String(profile.avatar_banner);
   }
 
+  // VFX overlay — sits above the banner tint but behind grid content.
+  if (profile.avatar_effect && profile.avatar_effect !== 'none') {
+    const effectLayer = document.createElement('div');
+    effectLayer.className = 'public-profile-hero-effect pa-avatar-chip-effect-sample';
+    effectLayer.setAttribute('aria-hidden', 'true');
+    effectLayer.dataset.effect = String(profile.avatar_effect);
+    header.appendChild(effectLayer);
+  }
+
   const identity = document.createElement('div');
   identity.className = 'public-profile-identity';
 
-  const tierColor = getLevelTierColor(currentThreshold.level);
+  // Use the API-authoritative level so it always matches the leaderboard.
+  const tierColor = getLevelTierColor(profile.level);
   let avatar: HTMLElement | null = null;
   avatar = renderAvatar(
     {
       username: profile.username,
-      level: currentThreshold.level,
+      level: profile.level,
       fallbackColor: tierColor,
       avatar_icon: profile.avatar_icon,
       avatar_color: profile.avatar_color,
       avatar_frame: profile.avatar_frame,
       avatar_banner: profile.avatar_banner,
+      avatar_effect: profile.avatar_effect,
     },
     {
       extraClass: 'public-profile-avatar',
