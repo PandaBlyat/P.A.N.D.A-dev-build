@@ -17615,7 +17615,7 @@ strong.support-upvote-count {
 .panda-leaderboard-podium-card-1 { animation-name: leaderboardPodiumChampionIn; }
 @keyframes leaderboardPodiumChampionIn {
   from { opacity: 0; transform: translateY(16px) scale(0.92); }
-  to   { opacity: 1; transform: translateY(-12px) scale(1); }
+  to   { opacity: 1; transform: translateY(-8px) scale(1); }
 }
 
 @keyframes premiumShimmer {
