@@ -60,7 +60,7 @@ class BeginnerTooltipController {
     window.addEventListener('resize', this.handleResize);
 
     this.mutationObserver = new MutationObserver(() => {
-      if (document.querySelector('[aria-modal="true"]')) {
+      if (document.querySelector('[aria-modal="true"]:not([hidden])')) {
         this.close();
         return;
       }
@@ -216,7 +216,7 @@ class BeginnerTooltipController {
   }
 
   private open(anchor: HTMLElement, config: BeginnerTooltipConfig, fallbackPoint: TooltipAnchorPoint): void {
-    if (document.querySelector('[aria-modal="true"]')) return;
+    if (document.querySelector('[aria-modal="true"]:not([hidden])')) return;
     if (isBeginnerTooltipDismissed(config.id)) return;
 
     this.close();

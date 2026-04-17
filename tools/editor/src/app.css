@@ -18042,6 +18042,21 @@ button.pa-avatar:focus-visible {
 }
 .pa-anim-bg {
   background-size: 200% 200%;
+  background-repeat: repeat;
+  animation: pa-banner-pan calc(18s / var(--pa-banner-speed, 1)) linear infinite;
+}
+
+/* Leaderboard row has a two-layer background (dark overlay + banner).
+   Only the second layer (the banner) should be sized at 200% for panning. */
+.panda-leaderboard-row.pa-anim-bg {
+  background-size: auto, 200% 200%;
+}
+
+/* The preview row-tile banner lives on ::before; animate that pseudo-element
+   when the tile itself carries the pa-anim-bg class. */
+.pa-preview-row-tile.pa-anim-bg::before {
+  background-size: 200% 200%;
+  background-repeat: repeat;
   animation: pa-banner-pan calc(18s / var(--pa-banner-speed, 1)) linear infinite;
 }
 
