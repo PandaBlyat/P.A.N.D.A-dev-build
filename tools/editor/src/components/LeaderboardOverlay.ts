@@ -180,8 +180,18 @@ function buildRow(ranked: RankedEntry, viewerId: string, staggerIndex: number): 
       avatar_icon: entry.avatar_icon,
       avatar_color: entry.avatar_color,
       avatar_frame: entry.avatar_frame,
+      avatar_frame_color: entry.avatar_frame_color,
+      avatar_frame_intensity: entry.avatar_frame_intensity,
       avatar_banner: entry.avatar_banner,
+      avatar_banner_opacity: entry.avatar_banner_opacity,
+      avatar_banner_speed: entry.avatar_banner_speed,
       avatar_effect: entry.avatar_effect,
+      avatar_effect_color: entry.avatar_effect_color,
+      avatar_effect_intensity: entry.avatar_effect_intensity,
+      avatar_effect_speed: entry.avatar_effect_speed,
+      avatar_effect_saturation: entry.avatar_effect_saturation,
+      avatar_effect_size: entry.avatar_effect_size,
+      avatar_effect_alpha: entry.avatar_effect_alpha,
     },
     {
       extraClass: 'panda-leaderboard-avatar',
@@ -225,6 +235,7 @@ function buildRow(ranked: RankedEntry, viewerId: string, staggerIndex: number): 
     row.style.setProperty('--row-banner', bannerBg);
     if (getAvatarBannerPreset(entry.avatar_banner)?.isAnimated) {
       row.classList.add('pa-anim-bg');
+      row.style.setProperty('--pa-banner-speed', String(entry.avatar_banner_speed ?? 1.0));
     }
   }
 
@@ -349,6 +360,8 @@ function renderPodium(refs: OverlayRefs): void {
       banner.dataset.banner = String(entry.avatar_banner);
       if (getAvatarBannerPreset(entry.avatar_banner)?.isAnimated) {
         banner.classList.add('pa-anim-bg');
+        banner.style.backgroundSize = '200% 200%';
+        banner.style.setProperty('--pa-banner-speed', String(entry.avatar_banner_speed ?? 1.0));
       }
     }
     card.appendChild(banner);
@@ -390,8 +403,18 @@ function renderPodium(refs: OverlayRefs): void {
         avatar_icon: entry.avatar_icon,
         avatar_color: entry.avatar_color,
         avatar_frame: entry.avatar_frame,
+        avatar_frame_color: entry.avatar_frame_color,
+        avatar_frame_intensity: entry.avatar_frame_intensity,
         avatar_banner: entry.avatar_banner,
+        avatar_banner_opacity: entry.avatar_banner_opacity,
+        avatar_banner_speed: entry.avatar_banner_speed,
         avatar_effect: entry.avatar_effect,
+        avatar_effect_color: entry.avatar_effect_color,
+        avatar_effect_intensity: entry.avatar_effect_intensity,
+        avatar_effect_speed: entry.avatar_effect_speed,
+        avatar_effect_saturation: entry.avatar_effect_saturation,
+        avatar_effect_size: entry.avatar_effect_size,
+        avatar_effect_alpha: entry.avatar_effect_alpha,
       },
       {
         extraClass: 'panda-leaderboard-podium-avatar',

@@ -1522,8 +1522,18 @@ export async function updateUserCosmetics(publisherId: string, cosmetics: UserCo
         p_avatar_icon: body.avatar_icon,
         p_avatar_color: body.avatar_color,
         p_avatar_frame: body.avatar_frame,
+        p_avatar_frame_color: body.avatar_frame_color,
+        p_avatar_frame_intensity: body.avatar_frame_intensity,
         p_avatar_banner: body.avatar_banner,
+        p_avatar_banner_opacity: body.avatar_banner_opacity,
+        p_avatar_banner_speed: body.avatar_banner_speed,
         p_avatar_effect: body.avatar_effect,
+        p_avatar_effect_color: body.avatar_effect_color,
+        p_avatar_effect_intensity: body.avatar_effect_intensity,
+        p_avatar_effect_speed: body.avatar_effect_speed,
+        p_avatar_effect_saturation: body.avatar_effect_saturation,
+        p_avatar_effect_size: body.avatar_effect_size,
+        p_avatar_effect_alpha: body.avatar_effect_alpha,
       }),
     });
     if (rpcRes.ok) {

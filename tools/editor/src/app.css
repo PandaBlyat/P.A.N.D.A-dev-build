@@ -16887,7 +16887,8 @@ select[data-beginner-tooltip-id] {
   --badge-border: color-mix(in srgb, var(--profile-accent) 28%, var(--border));
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: 8px;
+  row-gap: 5px;
+  column-gap: 8px;
   max-height: 320px;
   overflow: auto;
   padding-right: 4px;
@@ -16902,8 +16903,8 @@ select[data-beginner-tooltip-id] {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px 6px 8px;
+  gap: 4px;
+  padding: 6px 6px 5px;
   border: 1px solid color-mix(in srgb, var(--profile-accent) 12%, var(--border));
   border-radius: 8px;
   background: color-mix(in srgb, var(--bg-panel) 82%, transparent);

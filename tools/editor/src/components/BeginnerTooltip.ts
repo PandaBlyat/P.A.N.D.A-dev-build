@@ -143,6 +143,21 @@ class BeginnerTooltipController {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
     if (this.current?.element.contains(target)) return;
+
+    // If the user clicked a tooltip-annotated anchor, show its tip (don't just close).
+    const anchor = target.closest<HTMLElement>('[data-beginner-tooltip-id]');
+    if (anchor && this.root.contains(anchor)) {
+      const config = getBeginnerTooltipConfig(anchor);
+      if (config && !isBeginnerTooltipDismissed(config.id)) {
+        if (this.current?.anchor !== anchor) {
+          this.close();
+          const rect = anchor.getBoundingClientRect();
+          this.open(anchor, config, { x: rect.left + rect.width / 2, y: rect.top });
+        }
+        return;
+      }
+    }
+
     this.close();
   };
 

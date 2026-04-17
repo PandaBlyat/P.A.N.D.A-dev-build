@@ -157,6 +157,9 @@ function buildHeader(data: PublicProfileData, onAvatarClick?: (event: MouseEvent
     header.dataset.customBanner = String(profile.avatar_banner);
     if (getAvatarBannerPreset(profile.avatar_banner)?.isAnimated) {
       header.classList.add('pa-anim-bg');
+      // background shorthand resets background-size, so re-assert it after
+      header.style.backgroundSize = '200% 200%';
+      header.style.setProperty('--pa-banner-speed', String(profile.avatar_banner_speed ?? 1.0));
     }
   }
 
@@ -192,8 +195,18 @@ function buildHeader(data: PublicProfileData, onAvatarClick?: (event: MouseEvent
       avatar_icon: profile.avatar_icon,
       avatar_color: profile.avatar_color,
       avatar_frame: profile.avatar_frame,
+      avatar_frame_color: profile.avatar_frame_color,
+      avatar_frame_intensity: profile.avatar_frame_intensity,
       avatar_banner: profile.avatar_banner,
+      avatar_banner_opacity: profile.avatar_banner_opacity,
+      avatar_banner_speed: profile.avatar_banner_speed,
       avatar_effect: profile.avatar_effect,
+      avatar_effect_color: profile.avatar_effect_color,
+      avatar_effect_intensity: profile.avatar_effect_intensity,
+      avatar_effect_speed: profile.avatar_effect_speed,
+      avatar_effect_saturation: profile.avatar_effect_saturation,
+      avatar_effect_size: profile.avatar_effect_size,
+      avatar_effect_alpha: profile.avatar_effect_alpha,
     },
     {
       extraClass: 'public-profile-avatar',
@@ -557,7 +570,7 @@ function showBadgeTooltip(
     void fetchAchievementUnlockStats().then((stats) => {
       if (!document.body.contains(rarityEl)) return;
       const stat = stats.get(id);
-      if (!stat || stat.totalUsers <= 0) {
+      if (!stat || stat.percent <= 0) {
         rarityEl.textContent = 'Rarity: unknown';
         return;
       }
@@ -640,7 +653,7 @@ function buildBadgeTile(
     void fetchAchievementUnlockStats().then((stats) => {
       if (!document.body.contains(tile)) return;
       const stat = stats.get(id);
-      if (!stat || stat.totalUsers <= 0) return;
+      if (!stat || stat.percent <= 0) return;
       const tier = getRarityTier(stat.percent);
       tile.dataset.rarity = tier.id;
       tile.style.setProperty('--badge-rarity-color', tier.color);
