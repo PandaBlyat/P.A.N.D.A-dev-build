@@ -96,7 +96,27 @@ export type AchievementId =
   | 'hidden_circuit'
   | 'chaos_director'
   | 'ironclad_finish'
-  | 'speedrunner';
+  | 'speedrunner'
+  // ─── v2 additions ────────────────────────────────────────────────────────
+  | 'download_titan'
+  | 'zone_legend_reach'
+  | 'viral_content'
+  | 'first_fan'
+  | 'deep_branch'
+  | 'max_choices'
+  | 'solo_talker'
+  | 'early_bird'
+  | 'full_deck'
+  | 'chain_outcomes'
+  | 'precondition_grandmaster'
+  | 'streak_25'
+  | 'publish_marathon'
+  | 'midnight_writer'
+  | 'login_streak_100'
+  | 'all_categories_complete'
+  | 'full_collection'
+  | 'faction_master'
+  | 'quality_run';
 
 export type Achievement = {
   id: AchievementId;
@@ -154,6 +174,12 @@ export const UNIMPLEMENTED_ACHIEVEMENT_IDS: ReadonlySet<AchievementId> = new Set
   'ironclad_finish',
   'speedrunner',
   'mission_apprentice',
+  // v2 — no server trigger yet
+  'viral_content',
+  'first_fan',
+  'faction_master',
+  'quality_run',
+  'all_categories_complete',
 ]);
 
 export function isAchievementUnimplemented(achievement: Achievement): boolean {
@@ -230,6 +256,33 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'chaos_director', name: 'Chaos Director', description: 'Publish a single conversation with 12+ branches and 6+ outcome types', xp: 900, icon: '\u{1F39E}', tier: 'gold', category: 'mastery' },
   { id: 'ironclad_finish', name: 'Ironclad Finish', description: 'Publish 5 conversations in a row that all earn a quality score of 5', xp: 1100, icon: '\u{1F6E1}', tier: 'gold', category: 'mastery', featured: true },
   { id: 'speedrunner', name: 'Speedrunner', description: 'Publish three conversations in a single day without dropping quality', xp: 600, icon: '\u{23F1}', tier: 'silver', category: 'mastery' },
+
+  // ─── v2 Social ─────────────────────────────────────────────────────────────
+  { id: 'download_titan', name: 'Download Titan', description: 'Surpass 1000 total downloads across your published cards', xp: 3500, icon: '\u{1F6F8}', tier: 'gold', category: 'social', featured: true },
+  { id: 'zone_legend_reach', name: 'Zone Legend', description: 'Receive 500 total upvotes across your published work', xp: 2500, icon: '\u{1F451}', tier: 'gold', category: 'social', featured: true },
+  { id: 'viral_content', name: 'Viral Transmission', description: 'Have a single conversation reach 50 or more downloads', xp: 750, icon: '\u{1F4E1}', tier: 'silver', category: 'social' },
+  { id: 'first_fan', name: 'First Fan', description: 'Gain your first return visitor — someone who keeps coming back to your work', xp: 150, icon: '\u{1F48C}', tier: 'bronze', category: 'social' },
+
+  // ─── v2 Discovery ──────────────────────────────────────────────────────────
+  { id: 'deep_branch', name: 'Rabbit Hole', description: 'Publish a conversation with 20 or more turns', xp: 600, icon: '\u{1F407}', tier: 'gold', category: 'discovery' },
+  { id: 'max_choices', name: 'Decision Point', description: 'Use all 4 player choices in a single conversation turn', xp: 175, icon: '\u{1F500}', tier: 'bronze', category: 'discovery' },
+  { id: 'solo_talker', name: 'Pure Voice', description: 'Publish a conversation that uses no outcome commands — pure dialogue only', xp: 150, icon: '\u{1F3A4}', tier: 'bronze', category: 'discovery' },
+  { id: 'early_bird', name: 'Early Bird', description: 'Submit a conversation between 5 AM and 7 AM local time', xp: 200, icon: '\u{1F305}', tier: 'bronze', category: 'discovery', hidden: true },
+  { id: 'faction_master', name: 'Faction Master', description: 'Publish 5 or more conversations for the same faction', xp: 450, icon: '\u{2694}', tier: 'silver', category: 'discovery' },
+
+  // ─── v2 Mastery ────────────────────────────────────────────────────────────
+  { id: 'full_deck', name: 'Full Deck', description: 'Use 5 or more unique outcome types within a single conversation', xp: 400, icon: '\u{1F0CF}', tier: 'silver', category: 'mastery' },
+  { id: 'chain_outcomes', name: 'Chain Reaction', description: 'Stack 3 or more different outcome types on a single player choice', xp: 400, icon: '\u{26D3}', tier: 'silver', category: 'mastery' },
+  { id: 'precondition_grandmaster', name: 'Condition Grandmaster', description: 'Use 12 or more preconditions in one conversation', xp: 700, icon: '\u{1F510}', tier: 'gold', category: 'mastery' },
+  { id: 'streak_25', name: 'Steadfast Stalker', description: 'Maintain a 25-week publish streak', xp: 5000, icon: '\u{1F396}', tier: 'gold', category: 'mastery', featured: true },
+  { id: 'publish_marathon', name: 'Marathon Runner', description: 'Publish 100 conversations total', xp: 5000, icon: '\u{1F3C5}', tier: 'gold', category: 'mastery', featured: true },
+  { id: 'midnight_writer', name: 'Midnight Writer', description: 'Submit a conversation between midnight and 3 AM', xp: 275, icon: '\u{1F319}', tier: 'silver', category: 'mastery', hidden: true },
+  { id: 'login_streak_100', name: 'Long Patrol', description: 'Log in to the editor for 100 consecutive days', xp: 2000, icon: '\u{1F3D5}', tier: 'gold', category: 'onboarding', featured: true },
+  { id: 'quality_run', name: 'Quality Run', description: 'Publish 3 consecutive conversations all rated 4 stars or higher', xp: 650, icon: '\u{1F4AB}', tier: 'gold', category: 'mastery', hidden: true },
+
+  // ─── v2 Collection ─────────────────────────────────────────────────────────
+  { id: 'all_categories_complete', name: 'Zone Master', description: 'Unlock at least one achievement from every single category', xp: 800, icon: '\u{1F30D}', tier: 'gold', category: 'collection', hidden: true },
+  { id: 'full_collection', name: 'Complete Dossier', description: 'Unlock 30 or more achievements', xp: 1000, icon: '\u{1F4C2}', tier: 'gold', category: 'collection', featured: true },
 ];
 
 export function getAchievementById(id: AchievementId): Achievement | undefined {
@@ -1069,6 +1122,8 @@ export function evaluatePublishGamification(
   ]);
   const currentHour = new Date().getHours();
 
+  const allChoicesWithOutcomes = conversation.turns.flatMap(t => t.choices);
+
   const checks: Array<{ id: AchievementId; condition: boolean }> = [
     { id: 'first_patrol', condition: publishCount >= 2 },
     { id: 'login_streak_1', condition: loginStreak >= 1 },
@@ -1095,6 +1150,20 @@ export function evaluatePublishGamification(
     { id: 'prolific_writer', condition: publishCount >= 10 },
     { id: 'zone_veteran', condition: publishCount >= 50 },
     { id: 'quality_crafter', condition: quality.totalStars >= 5 },
+    // v2 checks
+    { id: 'download_titan', condition: totalDownloads >= 1000 },
+    { id: 'zone_legend_reach', condition: totalUpvotes >= 500 },
+    { id: 'deep_branch', condition: branchCount >= 20 },
+    { id: 'max_choices', condition: conversation.turns.some(t => t.choices.length >= 4) },
+    { id: 'solo_talker', condition: allOutcomes.length === 0 && branchCount >= 1 },
+    { id: 'early_bird', condition: currentHour >= 5 && currentHour <= 6 },
+    { id: 'full_deck', condition: outcomeTypes.length >= 5 },
+    { id: 'chain_outcomes', condition: allChoicesWithOutcomes.some(c => new Set(c.outcomes.map(o => o.command).filter(Boolean)).size >= 3) },
+    { id: 'precondition_grandmaster', condition: conversation.preconditions.length >= 12 },
+    { id: 'publish_marathon', condition: publishCount >= 100 },
+    { id: 'midnight_writer', condition: currentHour >= 0 && currentHour <= 2 },
+    { id: 'login_streak_100', condition: loginStreak >= 100 },
+    { id: 'full_collection', condition: getUnlockedAchievements().length >= 30 },
   ];
 
   for (const { id, condition } of checks) {
@@ -1121,6 +1190,13 @@ export function evaluatePublishGamification(
   }
   if (streak.currentStreak >= 10 && !isAchievementUnlocked('streak_10')) {
     const a = getAchievementById('streak_10');
+    if (a) {
+      achievementsUnlocked.push(a);
+      rawBonusXp += a.xp;
+    }
+  }
+  if (streak.currentStreak >= 25 && !isAchievementUnlocked('streak_25')) {
+    const a = getAchievementById('streak_25');
     if (a) {
       achievementsUnlocked.push(a);
       rawBonusXp += a.xp;
@@ -1176,6 +1252,12 @@ export function evaluatePublishGamification(
   queueCollectionAchievement('onboarding_complete', onboardingAchievementIds.every(id => unlockedAfterChecks.has(id)));
   queueCollectionAchievement('silver_complete', visibleSilverIds.every(id => unlockedAfterChecks.has(id)));
   queueCollectionAchievement('faction_complete', factionAchievementIds.every(id => unlockedAfterChecks.has(id)));
+
+  const categoryIds = ACHIEVEMENT_CATEGORY_ORDER;
+  const hasOneFromEachCategory = categoryIds.every(category =>
+    ACHIEVEMENTS.some(a => a.category === category && unlockedAfterChecks.has(a.id)),
+  );
+  queueCollectionAchievement('all_categories_complete', hasOneFromEachCategory);
 
   // ── Quality Score ──
   const qualityMultiplier = getQualityMultiplier(quality.totalStars);

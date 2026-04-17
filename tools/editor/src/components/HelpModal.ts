@@ -2,7 +2,7 @@
 
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon } from './icons';
-import { resetBeginnerTooltipDismissals } from '../lib/beginner-tooltips';
+import { resetBeginnerTooltipDismissals, mountBeginnerTooltipController } from '../lib/beginner-tooltips';
 
 let modalElement: HTMLElement | null = null;
 let focusTrap: FocusTrapController | null = null;
@@ -58,10 +58,11 @@ export function openHelpModal(): void {
   resetTipsBtn.textContent = 'Show beginner tips again';
   resetTipsBtn.onclick = () => {
     resetBeginnerTooltipDismissals();
-    resetTipsBtn.textContent = 'Beginner tips reset';
+    mountBeginnerTooltipController(document.body);
+    resetTipsBtn.textContent = 'Tips reset — close this modal to see them';
     window.setTimeout(() => {
       resetTipsBtn.textContent = 'Show beginner tips again';
-    }, 1400);
+    }, 2500);
   };
   footer.appendChild(resetTipsBtn);
   modal.appendChild(footer);

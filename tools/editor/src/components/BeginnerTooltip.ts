@@ -65,7 +65,7 @@ class BeginnerTooltipController {
         return;
       }
       if (this.current && !this.current.anchor.isConnected) {
-        this.positionCurrent();
+        this.close();
       }
     });
     this.mutationObserver.observe(document.body, { childList: true, subtree: true });

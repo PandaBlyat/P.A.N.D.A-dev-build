@@ -91,7 +91,16 @@ function achievementScore(id: AchievementId): number {
   return tierScore + (isAchievementRare(achievement) ? 1000 : 0) + achievement.xp;
 }
 
-function selectLeaderboardBadges(ids: string[] | undefined): AchievementId[] {
+function selectLeaderboardBadges(entry: LeaderboardEntry): AchievementId[] {
+  // Prefer the user's manually pinned set if available.
+  const pinned = entry.featured_achievements;
+  if (pinned && pinned.length > 0) {
+    const valid = pinned
+      .filter((id): id is AchievementId => ACHIEVEMENT_BY_ID.has(id as AchievementId))
+      .slice(0, LEADERBOARD_BADGE_LIMIT);
+    if (valid.length > 0) return valid;
+  }
+  const ids = entry.achievements;
   if (!ids || ids.length === 0) return [];
   const unique = Array.from(new Set(ids))
     .filter((id): id is AchievementId => ACHIEVEMENT_BY_ID.has(id as AchievementId));
@@ -114,7 +123,7 @@ function renderBadgeStrip(container: HTMLElement, ids: AchievementId[]): void {
 }
 
 function hydrateLeaderboardBadges(entry: LeaderboardEntry, container: HTMLElement): void {
-  const directBadges = selectLeaderboardBadges(entry.achievements);
+  const directBadges = selectLeaderboardBadges(entry);
   if (directBadges.length > 0) {
     renderBadgeStrip(container, directBadges);
     return;
@@ -130,7 +139,7 @@ function hydrateLeaderboardBadges(entry: LeaderboardEntry, container: HTMLElemen
   let pending = leaderboardBadgePending.get(entry.publisher_id);
   if (!pending) {
     pending = fetchUserAchievements(entry.publisher_id)
-      .then(records => selectLeaderboardBadges(records.map(record => record.achievement_id)))
+      .then(records => selectLeaderboardBadges({ ...entry, achievements: records.map(record => record.achievement_id) }))
       .catch(() => [])
       .then((ids) => {
         leaderboardBadgeCache.set(entry.publisher_id, ids);

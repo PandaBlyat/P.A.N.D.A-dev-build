@@ -2,7 +2,9 @@ import {
   type PublicProfileData,
   deriveLevelMetadata,
   fetchAchievementUnlockStats,
+  updateFeaturedAchievements,
   getLevelTitle,
+  getLocalPublisherId,
 } from '../lib/api-client';
 import {
   ACHIEVEMENTS,
@@ -23,6 +25,7 @@ type PublicProfileViewOptions = {
   data: PublicProfileData;
   leaderboardRank?: number | null;
   onAvatarClick?: (event: MouseEvent, avatar: HTMLElement) => void;
+  onProfileUpdated?: (profile: import('../lib/api-client').UserProfile) => void;
 };
 
 type ProfilePrestigeStat = {
@@ -114,13 +117,24 @@ function getUnlockedAchievements(profileData: PublicProfileData): string[] {
 
 function getFeaturedAchievements(profileData: PublicProfileData) {
   const unlocked = new Set(getUnlockedAchievements(profileData));
+
+  // If the user has manually pinned achievements, honour that list (up to 5).
+  const pinned = profileData.profile.featured_achievements;
+  if (pinned && pinned.length > 0) {
+    const pinnedAchievements = pinned
+      .map(id => ACHIEVEMENTS.find(a => a.id === id))
+      .filter((a): a is NonNullable<typeof a> => a != null && unlocked.has(a.id));
+    if (pinnedAchievements.length > 0) return pinnedAchievements.slice(0, 5);
+  }
+
+  // Auto-select: featured/rare, sorted by tier then XP, up to 5.
   return ACHIEVEMENTS
     .filter(achievement => unlocked.has(achievement.id) && (achievement.featured || isAchievementRare(achievement)))
     .sort((a, b) => {
       const tierDelta = (b.tier === 'gold' ? 3 : b.tier === 'silver' ? 2 : 1) - (a.tier === 'gold' ? 3 : a.tier === 'silver' ? 2 : 1);
       return tierDelta || b.xp - a.xp;
     })
-    .slice(0, 4);
+    .slice(0, 5);
 }
 
 function getRareBadgeCount(profileData: PublicProfileData): number {
@@ -372,7 +386,7 @@ function buildPrestigeSummary(data: PublicProfileData, leaderboardRank?: number 
   return section;
 }
 
-function buildAchievementsSection(data: PublicProfileData): HTMLElement {
+function buildAchievementsSection(data: PublicProfileData, ctx?: BadgeTooltipContext): HTMLElement {
   const section = buildSection('Badge wall', 'medal', 'Unlocked badges are highlighted. Silhouettes are visible badges not yet earned; question marks are still a mystery.');
   section.classList.add('public-profile-section-badges');
   const unlocked = new Set(getUnlockedAchievements(data));
@@ -382,10 +396,15 @@ function buildAchievementsSection(data: PublicProfileData): HTMLElement {
 
   const summary = document.createElement('div');
   summary.className = 'public-profile-summary-stats';
-  [
+  const summaryItems: string[] = [
     `${unlockedCount}/${catalog.length} unlocked`,
     `${getRareBadgeCount(data)} rare`,
-  ].forEach((item, index) => {
+  ];
+  if (ctx?.isOwnProfile) {
+    const pinnedCount = (data.profile.featured_achievements ?? []).length;
+    summaryItems.push(`${pinnedCount}/5 pinned to header`);
+  }
+  summaryItems.forEach((item, index) => {
     const pill = document.createElement('span');
     pill.className = 'public-profile-summary-pill';
     if (index === 1) pill.classList.add('public-profile-summary-pill-rare');
@@ -403,7 +422,7 @@ function buildAchievementsSection(data: PublicProfileData): HTMLElement {
   const hiddenLocked = catalog.filter(a => !unlocked.has(a.id) && a.hidden);
 
   for (const achievement of unlockedAchievements) {
-    wall.appendChild(buildBadgeTile(achievement.id as AchievementId, achievement.name, achievement.description, 'unlocked', `${achievement.tier} · +${achievement.xp} XP`));
+    wall.appendChild(buildBadgeTile(achievement.id as AchievementId, achievement.name, achievement.description, 'unlocked', `${achievement.tier} · +${achievement.xp} XP`, ctx));
   }
   for (const achievement of visibleLocked) {
     wall.appendChild(buildBadgeTile(achievement.id as AchievementId, achievement.name, achievement.description, 'locked-visible', `${achievement.tier} · Locked`));
@@ -437,6 +456,12 @@ function collapseBadge(): void {
   badgeTooltipTile = null;
 }
 
+type BadgeTooltipContext = {
+  profileData: PublicProfileData;
+  isOwnProfile: boolean;
+  onProfileUpdated?: (profile: import('../lib/api-client').UserProfile) => void;
+};
+
 function showBadgeTooltip(
   tile: HTMLElement,
   id: AchievementId | null,
@@ -444,6 +469,7 @@ function showBadgeTooltip(
   description: string,
   state: 'unlocked' | 'locked-visible' | 'locked-hidden',
   meta: string,
+  ctx?: BadgeTooltipContext,
 ): void {
   collapseBadge();
   tile.classList.add('is-badge-active');
@@ -477,6 +503,55 @@ function showBadgeTooltip(
   rarityEl.textContent = 'Loading rarity…';
 
   tooltip.append(iconEl, nameEl, metaEl, descEl, rarityEl);
+
+  // Pin-to-profile button (own profile + unlocked badge only).
+  if (id && state === 'unlocked' && ctx?.isOwnProfile) {
+    const profile = ctx.profileData.profile;
+    const currentPinned: string[] = Array.isArray(profile.featured_achievements) ? [...profile.featured_achievements] : [];
+    const isPinned = currentPinned.includes(id);
+
+    const pinBtn = document.createElement('button');
+    pinBtn.type = 'button';
+    pinBtn.className = `btn-sm public-profile-badge-pin-btn${isPinned ? ' is-pinned' : ''}`;
+    pinBtn.textContent = isPinned ? 'Remove from header display' : 'Display on profile header';
+    pinBtn.title = isPinned
+      ? 'Remove this badge from your profile header and leaderboard display'
+      : `Pin this badge to your profile header (max 5, currently ${currentPinned.length}/5)`;
+
+    pinBtn.onclick = async (e) => {
+      e.stopPropagation();
+      pinBtn.disabled = true;
+      pinBtn.textContent = 'Saving…';
+      try {
+        let nextPinned: string[];
+        if (isPinned) {
+          nextPinned = currentPinned.filter(p => p !== id);
+        } else {
+          if (currentPinned.length >= 5) {
+            pinBtn.textContent = 'Already 5 pinned — remove one first';
+            pinBtn.disabled = false;
+            return;
+          }
+          nextPinned = [...currentPinned, id];
+        }
+        const publisherId = profile.publisher_id;
+        const updated = await updateFeaturedAchievements(publisherId, nextPinned);
+        if (updated) {
+          profile.featured_achievements = nextPinned;
+          pinBtn.textContent = isPinned ? 'Removed from header' : 'Added to header!';
+          if (ctx.onProfileUpdated) ctx.onProfileUpdated(updated);
+        } else {
+          pinBtn.textContent = 'Save failed — try again';
+          pinBtn.disabled = false;
+        }
+      } catch {
+        pinBtn.textContent = 'Save failed — try again';
+        pinBtn.disabled = false;
+      }
+    };
+
+    tooltip.appendChild(pinBtn);
+  }
 
   if (id && state !== 'locked-hidden') {
     void fetchAchievementUnlockStats().then((stats) => {
@@ -544,6 +619,7 @@ function buildBadgeTile(
   description: string,
   state: 'unlocked' | 'locked-visible' | 'locked-hidden',
   meta: string,
+  ctx?: BadgeTooltipContext,
 ): HTMLElement {
   const tile = document.createElement('article');
   tile.className = `public-profile-badge-tile public-profile-badge-tile-${state}`;
@@ -568,6 +644,7 @@ function buildBadgeTile(
       const tier = getRarityTier(stat.percent);
       tile.dataset.rarity = tier.id;
       tile.style.setProperty('--badge-rarity-color', tier.color);
+      tile.style.setProperty('--badge-rarity-percent', String(stat.percent));
     }).catch(() => undefined);
   }
 
@@ -575,8 +652,17 @@ function buildBadgeTile(
   nameEl.className = 'public-profile-badge-name';
   nameEl.textContent = state === 'locked-hidden' ? '???' : name;
 
-  // Tile shows only icon + name. Description/meta expand via the tooltip popup
-  // (showBadgeTooltip) on click so nothing clips or overflows the compact tile.
+  // Show a small "pinned" indicator if this achievement is featured.
+  if (id && state === 'unlocked' && ctx?.isOwnProfile) {
+    const pinned = ctx.profileData.profile.featured_achievements ?? [];
+    if (pinned.includes(id)) {
+      const pinnedDot = document.createElement('span');
+      pinnedDot.className = 'public-profile-badge-pinned-dot';
+      pinnedDot.title = 'Displayed on your profile header';
+      iconWrap.appendChild(pinnedDot);
+    }
+  }
+
   tile.append(iconWrap, nameEl);
 
   const handleOpen = (e: Event) => {
@@ -585,7 +671,7 @@ function buildBadgeTile(
       collapseBadge();
       return;
     }
-    showBadgeTooltip(tile, id, name, description, state, meta);
+    showBadgeTooltip(tile, id, name, description, state, meta, ctx);
   };
 
   tile.addEventListener('click', handleOpen);
@@ -801,7 +887,7 @@ function buildConversationSummarySection(data: PublicProfileData): HTMLElement {
   return section;
 }
 
-function buildPublicProfileBody(data: PublicProfileData, leaderboardRank?: number | null): HTMLElement {
+function buildPublicProfileBody(data: PublicProfileData, leaderboardRank?: number | null, ctx?: BadgeTooltipContext): HTMLElement {
   const body = document.createElement('div');
   body.className = 'public-profile-body public-profile-body-single';
   body.append(
@@ -809,7 +895,7 @@ function buildPublicProfileBody(data: PublicProfileData, leaderboardRank?: numbe
     buildStreakHighlights(data),
     buildConversationSummarySection(data),
     buildFactionBreakdown(data),
-    buildAchievementsSection(data),
+    buildAchievementsSection(data, ctx),
     buildRecentCards(data),
   );
   return body;
@@ -819,7 +905,15 @@ export function renderPublicProfileView(options: PublicProfileViewOptions): HTML
   const root = document.createElement('div');
   root.className = 'public-profile-view public-profile-view-single';
 
+  const localId = getLocalPublisherId();
+  const isOwnProfile = localId === options.data.profile.publisher_id;
+  const ctx: BadgeTooltipContext = {
+    profileData: options.data,
+    isOwnProfile,
+    onProfileUpdated: options.onProfileUpdated,
+  };
+
   root.appendChild(buildHeader(options.data, options.onAvatarClick));
-  root.appendChild(buildPublicProfileBody(options.data, options.leaderboardRank));
+  root.appendChild(buildPublicProfileBody(options.data, options.leaderboardRank, ctx));
   return root;
 }

@@ -17046,14 +17046,216 @@ select[data-beginner-tooltip-id] {
   border: 1px solid color-mix(in srgb, var(--badge-rarity-color, var(--profile-accent, var(--accent))) 32%, transparent);
 }
 
+/* Base rarity tinting for all rated tiles */
 .public-profile-badge-tile[data-rarity] {
   border-color: color-mix(in srgb, var(--badge-rarity-color) 36%, var(--border));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--badge-rarity-color) 22%, transparent);
 }
 
-.public-profile-badge-tile[data-rarity="legendary"],
-.public-profile-badge-tile[data-rarity="epic"] {
+/* Uncommon — subtle green shimmer */
+.public-profile-badge-tile[data-rarity="uncommon"] {
+  background: color-mix(in srgb, var(--badge-rarity-color) 7%, var(--bg-panel));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--badge-rarity-color) 28%, transparent),
+    0 0 8px color-mix(in srgb, var(--badge-rarity-color) 12%, transparent);
+}
+.public-profile-badge-tile[data-rarity="uncommon"] .panda-badge-icon[data-state="unlocked"] {
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--badge-rarity-color) 45%, transparent));
+}
+
+/* Rare — blue glow with border animation */
+.public-profile-badge-tile[data-rarity="rare"] {
   background: color-mix(in srgb, var(--badge-rarity-color) 10%, var(--bg-panel));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--badge-rarity-color) 40%, transparent),
+    0 0 12px color-mix(in srgb, var(--badge-rarity-color) 22%, transparent),
+    0 2px 8px rgba(0,0,0,0.25);
+  animation: badge-rare-pulse 3s ease-in-out infinite;
+  animation-delay: var(--badge-pulse-delay, 0ms);
+}
+.public-profile-badge-tile[data-rarity="rare"] .panda-badge-icon[data-state="unlocked"] {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--badge-rarity-color) 60%, transparent))
+          drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+/* Epic — purple shimmer + stronger glow */
+.public-profile-badge-tile[data-rarity="epic"] {
+  background: color-mix(in srgb, var(--badge-rarity-color) 13%, var(--bg-panel));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--badge-rarity-color) 55%, transparent),
+    0 0 16px color-mix(in srgb, var(--badge-rarity-color) 30%, transparent),
+    0 0 32px color-mix(in srgb, var(--badge-rarity-color) 12%, transparent),
+    0 3px 10px rgba(0,0,0,0.3);
+  animation: badge-epic-shimmer 2.5s ease-in-out infinite;
+  animation-delay: var(--badge-pulse-delay, 0ms);
+}
+.public-profile-badge-tile[data-rarity="epic"] .panda-badge-icon[data-state="unlocked"] {
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--badge-rarity-color) 70%, transparent))
+          drop-shadow(0 0 16px color-mix(in srgb, var(--badge-rarity-color) 35%, transparent));
+}
+.public-profile-badge-tile[data-rarity="epic"]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--badge-rarity-color) 18%, transparent) 0%,
+    transparent 50%,
+    color-mix(in srgb, var(--badge-rarity-color) 10%, transparent) 100%
+  );
+  pointer-events: none;
+  animation: badge-epic-sweep 4s linear infinite;
+}
+
+/* Legendary — golden radiance + sparkle effect */
+.public-profile-badge-tile[data-rarity="legendary"] {
+  background: color-mix(in srgb, var(--badge-rarity-color) 16%, var(--bg-panel));
+  border-color: color-mix(in srgb, var(--badge-rarity-color) 65%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--badge-rarity-color) 70%, transparent),
+    0 0 20px color-mix(in srgb, var(--badge-rarity-color) 40%, transparent),
+    0 0 40px color-mix(in srgb, var(--badge-rarity-color) 18%, transparent),
+    0 0 60px color-mix(in srgb, var(--badge-rarity-color) 8%, transparent),
+    0 4px 12px rgba(0,0,0,0.4);
+  animation: badge-legendary-aura 2s ease-in-out infinite;
+  animation-delay: var(--badge-pulse-delay, 0ms);
+}
+.public-profile-badge-tile[data-rarity="legendary"] .panda-badge-icon[data-state="unlocked"] {
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--badge-rarity-color) 80%, transparent))
+          drop-shadow(0 0 20px color-mix(in srgb, var(--badge-rarity-color) 50%, transparent))
+          brightness(1.15);
+  animation: badge-legendary-icon-pulse 2s ease-in-out infinite;
+  animation-delay: var(--badge-pulse-delay, 0ms);
+}
+.public-profile-badge-tile[data-rarity="legendary"]::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from 0deg,
+    color-mix(in srgb, var(--badge-rarity-color) 35%, transparent),
+    transparent 30%,
+    color-mix(in srgb, var(--badge-rarity-color) 25%, transparent) 50%,
+    transparent 80%,
+    color-mix(in srgb, var(--badge-rarity-color) 35%, transparent) 100%
+  );
+  pointer-events: none;
+  animation: badge-legendary-rotate 5s linear infinite;
+  opacity: 0.8;
+}
+.public-profile-badge-tile[data-rarity="legendary"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    ellipse at 30% 30%,
+    color-mix(in srgb, var(--badge-rarity-color) 20%, transparent) 0%,
+    transparent 60%
+  );
+  pointer-events: none;
+  animation: badge-legendary-sparkle 1.8s ease-in-out infinite;
+  animation-delay: var(--badge-pulse-delay, 0ms);
+}
+
+/* Hover upgrades for rare+ tiles */
+.public-profile-badge-tile[data-rarity="rare"]:hover,
+.public-profile-badge-tile[data-rarity="rare"]:focus-visible {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--badge-rarity-color) 60%, transparent),
+    0 0 20px color-mix(in srgb, var(--badge-rarity-color) 35%, transparent);
+}
+.public-profile-badge-tile[data-rarity="epic"]:hover,
+.public-profile-badge-tile[data-rarity="epic"]:focus-visible {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--badge-rarity-color) 75%, transparent),
+    0 0 24px color-mix(in srgb, var(--badge-rarity-color) 50%, transparent),
+    0 0 48px color-mix(in srgb, var(--badge-rarity-color) 20%, transparent);
+}
+.public-profile-badge-tile[data-rarity="legendary"]:hover,
+.public-profile-badge-tile[data-rarity="legendary"]:focus-visible {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--badge-rarity-color) 90%, transparent),
+    0 0 32px color-mix(in srgb, var(--badge-rarity-color) 60%, transparent),
+    0 0 64px color-mix(in srgb, var(--badge-rarity-color) 28%, transparent);
+}
+
+/* Pinned indicator dot on own-profile tiles */
+.public-profile-badge-pinned-dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent, #5eaa3a);
+  border: 2px solid var(--bg-panel);
+  box-shadow: 0 0 4px var(--accent-glow, rgba(94,170,58,0.6));
+  pointer-events: none;
+}
+.public-profile-badge-icon-wrap {
+  position: relative;
+}
+
+/* Pin button in badge tooltip */
+.public-profile-badge-pin-btn {
+  width: 100%;
+  margin-top: 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  background: color-mix(in srgb, var(--accent, #5eaa3a) 14%, var(--bg-panel));
+  border: 1px solid color-mix(in srgb, var(--accent, #5eaa3a) 35%, var(--border));
+  color: var(--accent, #5eaa3a);
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 5px 8px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.public-profile-badge-pin-btn:hover {
+  background: color-mix(in srgb, var(--accent, #5eaa3a) 22%, var(--bg-panel));
+  border-color: color-mix(in srgb, var(--accent, #5eaa3a) 55%, var(--border));
+}
+.public-profile-badge-pin-btn.is-pinned {
+  background: color-mix(in srgb, #e06060 14%, var(--bg-panel));
+  border-color: color-mix(in srgb, #e06060 40%, var(--border));
+  color: #e07070;
+}
+.public-profile-badge-pin-btn.is-pinned:hover {
+  background: color-mix(in srgb, #e06060 22%, var(--bg-panel));
+}
+
+/* Rarity animations */
+@keyframes badge-rare-pulse {
+  0%, 100% { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--badge-rarity-color) 40%, transparent), 0 0 12px color-mix(in srgb, var(--badge-rarity-color) 22%, transparent); }
+  50% { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--badge-rarity-color) 55%, transparent), 0 0 20px color-mix(in srgb, var(--badge-rarity-color) 38%, transparent); }
+}
+@keyframes badge-epic-shimmer {
+  0%, 100% { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--badge-rarity-color) 55%, transparent), 0 0 16px color-mix(in srgb, var(--badge-rarity-color) 30%, transparent), 0 0 32px color-mix(in srgb, var(--badge-rarity-color) 12%, transparent); }
+  50% { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--badge-rarity-color) 75%, transparent), 0 0 24px color-mix(in srgb, var(--badge-rarity-color) 50%, transparent), 0 0 48px color-mix(in srgb, var(--badge-rarity-color) 22%, transparent); }
+}
+@keyframes badge-epic-sweep {
+  0% { opacity: 0; transform: rotate(0deg); }
+  25% { opacity: 1; }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(360deg); }
+}
+@keyframes badge-legendary-aura {
+  0%, 100% { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--badge-rarity-color) 70%, transparent), 0 0 20px color-mix(in srgb, var(--badge-rarity-color) 40%, transparent), 0 0 40px color-mix(in srgb, var(--badge-rarity-color) 18%, transparent); }
+  50% { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--badge-rarity-color) 90%, transparent), 0 0 32px color-mix(in srgb, var(--badge-rarity-color) 60%, transparent), 0 0 64px color-mix(in srgb, var(--badge-rarity-color) 28%, transparent); }
+}
+@keyframes badge-legendary-icon-pulse {
+  0%, 100% { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--badge-rarity-color) 80%, transparent)) drop-shadow(0 0 20px color-mix(in srgb, var(--badge-rarity-color) 50%, transparent)) brightness(1.15); }
+  50% { filter: drop-shadow(0 0 16px color-mix(in srgb, var(--badge-rarity-color) 100%, transparent)) drop-shadow(0 0 32px color-mix(in srgb, var(--badge-rarity-color) 65%, transparent)) brightness(1.25); }
+}
+@keyframes badge-legendary-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes badge-legendary-sparkle {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.05); }
 }
 
 /* =========================================================================
