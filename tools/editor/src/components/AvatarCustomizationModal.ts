@@ -159,6 +159,8 @@ function renderPreview(username: string, level: number, draft: UserCosmetics): H
   if (bannerBg) podiumBanner.style.background = bannerBg;
   podiumBanner.style.opacity = String((draft.avatar_banner_opacity ?? 80) / 100);
   if (bannerPreset?.isAnimated) {
+    // background shorthand resets background-size; re-assert it so the pan animation works.
+    podiumBanner.style.backgroundSize = '200% 200%';
     podiumBanner.style.setProperty('--pa-banner-speed', String(draft.avatar_banner_speed ?? 1.0));
   }
   podiumTile.appendChild(podiumBanner);

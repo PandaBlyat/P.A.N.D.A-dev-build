@@ -457,8 +457,18 @@ ALTER TABLE user_profiles
   ADD COLUMN IF NOT EXISTS avatar_icon TEXT,
   ADD COLUMN IF NOT EXISTS avatar_color TEXT,
   ADD COLUMN IF NOT EXISTS avatar_frame TEXT,
+  ADD COLUMN IF NOT EXISTS avatar_frame_color TEXT,
+  ADD COLUMN IF NOT EXISTS avatar_frame_intensity NUMERIC,
   ADD COLUMN IF NOT EXISTS avatar_banner TEXT,
-  ADD COLUMN IF NOT EXISTS avatar_effect TEXT;
+  ADD COLUMN IF NOT EXISTS avatar_banner_opacity NUMERIC,
+  ADD COLUMN IF NOT EXISTS avatar_banner_speed NUMERIC,
+  ADD COLUMN IF NOT EXISTS avatar_effect TEXT,
+  ADD COLUMN IF NOT EXISTS avatar_effect_color TEXT,
+  ADD COLUMN IF NOT EXISTS avatar_effect_intensity NUMERIC,
+  ADD COLUMN IF NOT EXISTS avatar_effect_speed NUMERIC,
+  ADD COLUMN IF NOT EXISTS avatar_effect_saturation NUMERIC,
+  ADD COLUMN IF NOT EXISTS avatar_effect_size NUMERIC,
+  ADD COLUMN IF NOT EXISTS avatar_effect_alpha NUMERIC;
 
 ALTER TABLE user_profiles
   ALTER COLUMN xp SET DEFAULT 0,
@@ -604,53 +614,94 @@ CREATE OR REPLACE FUNCTION get_user_profile(p_publisher_id TEXT)
 RETURNS TABLE(
   publisher_id TEXT, username TEXT, xp INT, level INT, title TEXT,
   created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ,
-  avatar_icon TEXT, avatar_color TEXT, avatar_frame TEXT, avatar_banner TEXT, avatar_effect TEXT
+  avatar_icon TEXT, avatar_color TEXT,
+  avatar_frame TEXT, avatar_frame_color TEXT, avatar_frame_intensity NUMERIC,
+  avatar_banner TEXT, avatar_banner_opacity NUMERIC, avatar_banner_speed NUMERIC,
+  avatar_effect TEXT, avatar_effect_color TEXT, avatar_effect_intensity NUMERIC,
+  avatar_effect_speed NUMERIC, avatar_effect_saturation NUMERIC,
+  avatar_effect_size NUMERIC, avatar_effect_alpha NUMERIC
 )
 LANGUAGE sql
 SECURITY DEFINER
 AS $$
   SELECT up.publisher_id, up.username, up.xp, up.level, up.title,
          up.created_at, up.updated_at,
-         up.avatar_icon, up.avatar_color, up.avatar_frame, up.avatar_banner, up.avatar_effect
+         up.avatar_icon, up.avatar_color,
+         up.avatar_frame, up.avatar_frame_color, up.avatar_frame_intensity,
+         up.avatar_banner, up.avatar_banner_opacity, up.avatar_banner_speed,
+         up.avatar_effect, up.avatar_effect_color, up.avatar_effect_intensity,
+         up.avatar_effect_speed, up.avatar_effect_saturation,
+         up.avatar_effect_size, up.avatar_effect_alpha
   FROM user_profiles up
   WHERE up.publisher_id = p_publisher_id
   LIMIT 1;
 $$;
 
--- Update user cosmetics (avatar icon, color, frame, banner, effect).
+-- Update user cosmetics (avatar icon, color, frame, banner, effect + all tweak fields).
 -- Any of the fields may be NULL/omitted; NULLs clear the value.
--- Drop old signature first so we can add avatar_effect param and update return type.
+-- Drop old signatures so we can widen the parameter list and return type.
 DROP FUNCTION IF EXISTS update_user_cosmetics(TEXT, TEXT, TEXT, TEXT, TEXT);
+DROP FUNCTION IF EXISTS update_user_cosmetics(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
 
 CREATE OR REPLACE FUNCTION update_user_cosmetics(
-  p_publisher_id TEXT,
-  p_avatar_icon   TEXT DEFAULT NULL,
-  p_avatar_color  TEXT DEFAULT NULL,
-  p_avatar_frame  TEXT DEFAULT NULL,
-  p_avatar_banner TEXT DEFAULT NULL,
-  p_avatar_effect TEXT DEFAULT NULL
+  p_publisher_id          TEXT,
+  p_avatar_icon           TEXT    DEFAULT NULL,
+  p_avatar_color          TEXT    DEFAULT NULL,
+  p_avatar_frame          TEXT    DEFAULT NULL,
+  p_avatar_frame_color    TEXT    DEFAULT NULL,
+  p_avatar_frame_intensity NUMERIC DEFAULT NULL,
+  p_avatar_banner         TEXT    DEFAULT NULL,
+  p_avatar_banner_opacity NUMERIC DEFAULT NULL,
+  p_avatar_banner_speed   NUMERIC DEFAULT NULL,
+  p_avatar_effect         TEXT    DEFAULT NULL,
+  p_avatar_effect_color   TEXT    DEFAULT NULL,
+  p_avatar_effect_intensity NUMERIC DEFAULT NULL,
+  p_avatar_effect_speed   NUMERIC DEFAULT NULL,
+  p_avatar_effect_saturation NUMERIC DEFAULT NULL,
+  p_avatar_effect_size    NUMERIC DEFAULT NULL,
+  p_avatar_effect_alpha   NUMERIC DEFAULT NULL
 )
 RETURNS TABLE(
   publisher_id TEXT, username TEXT, xp INT, level INT, title TEXT,
   created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ,
-  avatar_icon TEXT, avatar_color TEXT, avatar_frame TEXT, avatar_banner TEXT, avatar_effect TEXT
+  avatar_icon TEXT, avatar_color TEXT,
+  avatar_frame TEXT, avatar_frame_color TEXT, avatar_frame_intensity NUMERIC,
+  avatar_banner TEXT, avatar_banner_opacity NUMERIC, avatar_banner_speed NUMERIC,
+  avatar_effect TEXT, avatar_effect_color TEXT, avatar_effect_intensity NUMERIC,
+  avatar_effect_speed NUMERIC, avatar_effect_saturation NUMERIC,
+  avatar_effect_size NUMERIC, avatar_effect_alpha NUMERIC
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
   UPDATE user_profiles up SET
-    avatar_icon   = p_avatar_icon,
-    avatar_color  = p_avatar_color,
-    avatar_frame  = p_avatar_frame,
-    avatar_banner = p_avatar_banner,
-    avatar_effect = p_avatar_effect
+    avatar_icon              = p_avatar_icon,
+    avatar_color             = p_avatar_color,
+    avatar_frame             = p_avatar_frame,
+    avatar_frame_color       = p_avatar_frame_color,
+    avatar_frame_intensity   = p_avatar_frame_intensity,
+    avatar_banner            = p_avatar_banner,
+    avatar_banner_opacity    = p_avatar_banner_opacity,
+    avatar_banner_speed      = p_avatar_banner_speed,
+    avatar_effect            = p_avatar_effect,
+    avatar_effect_color      = p_avatar_effect_color,
+    avatar_effect_intensity  = p_avatar_effect_intensity,
+    avatar_effect_speed      = p_avatar_effect_speed,
+    avatar_effect_saturation = p_avatar_effect_saturation,
+    avatar_effect_size       = p_avatar_effect_size,
+    avatar_effect_alpha      = p_avatar_effect_alpha
   WHERE up.publisher_id = p_publisher_id;
 
   RETURN QUERY
   SELECT up.publisher_id, up.username, up.xp, up.level, up.title,
          up.created_at, up.updated_at,
-         up.avatar_icon, up.avatar_color, up.avatar_frame, up.avatar_banner, up.avatar_effect
+         up.avatar_icon, up.avatar_color,
+         up.avatar_frame, up.avatar_frame_color, up.avatar_frame_intensity,
+         up.avatar_banner, up.avatar_banner_opacity, up.avatar_banner_speed,
+         up.avatar_effect, up.avatar_effect_color, up.avatar_effect_intensity,
+         up.avatar_effect_speed, up.avatar_effect_saturation,
+         up.avatar_effect_size, up.avatar_effect_alpha
   FROM user_profiles up
   WHERE up.publisher_id = p_publisher_id;
 END;
@@ -694,13 +745,23 @@ DROP FUNCTION IF EXISTS get_leaderboard(INT);
 CREATE OR REPLACE FUNCTION get_leaderboard(p_limit INT DEFAULT 10)
 RETURNS TABLE(
   publisher_id TEXT, username TEXT, xp INT, level INT, title TEXT,
-  avatar_icon TEXT, avatar_color TEXT, avatar_frame TEXT, avatar_banner TEXT, avatar_effect TEXT
+  avatar_icon TEXT, avatar_color TEXT,
+  avatar_frame TEXT, avatar_frame_color TEXT, avatar_frame_intensity NUMERIC,
+  avatar_banner TEXT, avatar_banner_opacity NUMERIC, avatar_banner_speed NUMERIC,
+  avatar_effect TEXT, avatar_effect_color TEXT, avatar_effect_intensity NUMERIC,
+  avatar_effect_speed NUMERIC, avatar_effect_saturation NUMERIC,
+  avatar_effect_size NUMERIC, avatar_effect_alpha NUMERIC
 )
 LANGUAGE sql
 SECURITY DEFINER
 AS $$
   SELECT publisher_id, username, xp, level, title,
-         avatar_icon, avatar_color, avatar_frame, avatar_banner, avatar_effect
+         avatar_icon, avatar_color,
+         avatar_frame, avatar_frame_color, avatar_frame_intensity,
+         avatar_banner, avatar_banner_opacity, avatar_banner_speed,
+         avatar_effect, avatar_effect_color, avatar_effect_intensity,
+         avatar_effect_speed, avatar_effect_saturation,
+         avatar_effect_size, avatar_effect_alpha
   FROM user_profiles
   WHERE xp > 0
   ORDER BY xp DESC, created_at ASC
@@ -1863,4 +1924,37 @@ BEGIN
   FROM user_profiles up
   WHERE up.publisher_id = p_publisher_id;
 END;
+$$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Achievement Unlock Statistics (rarity calculation)
+-- Returns per-achievement unlock counts and the percentage of registered
+-- users who have unlocked each achievement.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION get_achievement_unlock_stats()
+RETURNS TABLE(
+  achievement_id TEXT,
+  unlock_count   BIGINT,
+  total_users    BIGINT,
+  percent        NUMERIC
+)
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  WITH total AS (
+    SELECT count(*)::BIGINT AS n FROM user_profiles
+  )
+  SELECT
+    ua.achievement_id,
+    count(*)::BIGINT                                       AS unlock_count,
+    (SELECT n FROM total)                                  AS total_users,
+    CASE
+      WHEN (SELECT n FROM total) > 0
+        THEN round((count(*)::NUMERIC / (SELECT n FROM total)::NUMERIC) * 100, 2)
+      ELSE 0
+    END                                                    AS percent
+  FROM user_achievements ua
+  GROUP BY ua.achievement_id
+  ORDER BY ua.achievement_id;
 $$;
