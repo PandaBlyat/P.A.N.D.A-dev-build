@@ -16897,6 +16897,7 @@ select[data-beginner-tooltip-id] {
 
 /* Compact tile: icon on top, name below. All detail is in the tooltip popup. */
 .public-profile-badge-tile {
+  position: relative;
   min-width: 0;
   min-height: 0;
   display: flex;
