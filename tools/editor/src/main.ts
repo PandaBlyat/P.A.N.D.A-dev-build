@@ -76,7 +76,9 @@ async function refreshVisitorsInToolbar(): Promise<void> {
   ]);
   (globalThis as any).__pandaVisitorCount = count;
   (globalThis as any).__pandaRecentVisitors = visitors;
-  renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
+  if (!document.querySelector('.profile-popover')) {
+    renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
+  }
 }
 
 void trackSiteVisitor().finally(() => {
@@ -92,7 +94,9 @@ async function refreshActiveUsersInToolbar(presenceOverride?: ActiveEditorPresen
   (globalThis as any).__pandaActiveUserCount = Math.max(presence.count, presence.users.length);
   (globalThis as any).__pandaActiveUsers = presence.users;
   (globalThis as any).__pandaActiveUsernames = presence.usernames;
-  renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
+  if (!document.querySelector('.profile-popover')) {
+    renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
+  }
 }
 
 void refreshActiveUsersInToolbar();
@@ -143,7 +147,9 @@ function getPublisherId(): string {
 
 function refreshToolbarProfile(): void {
   setProfileForBadge((globalThis as any).__pandaUserProfile);
-  renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
+  if (!document.querySelector('.profile-popover')) {
+    renderWithFocusPreserved(getRenderRoot(app, 'toolbar') ?? app, () => renderToolbar(app));
+  }
 }
 
 const publisherId = getPublisherId();
