@@ -1656,18 +1656,10 @@ label {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 6px;
-  border-radius: calc(var(--radius-xl) + 4px);
-  background:
-    radial-gradient(circle at top, color-mix(in srgb, var(--accent) 9%, transparent) 0%, transparent 52%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(12, 16, 21, 0.18) 100%),
-    color-mix(in srgb, var(--bg-panel) 92%, #06090d 8%);
-  border: 1px solid color-mix(in srgb, var(--border) 74%, var(--accent) 26%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2),
-    0 18px 34px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(10px);
+  padding: 4px 2px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .conv-list {
@@ -8096,6 +8088,26 @@ strong.support-upvote-count {
     0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent),
     0 0 24px color-mix(in srgb, var(--accent-glow) 80%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: beginner-tooltip-fade-in 140ms ease-out;
+}
+
+@keyframes beginner-tooltip-fade-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+[data-beginner-tooltip-id] {
+  cursor: help;
+}
+[data-beginner-tooltip-id] button,
+[data-beginner-tooltip-id] a,
+[data-beginner-tooltip-id] input,
+[data-beginner-tooltip-id] select,
+button[data-beginner-tooltip-id],
+a[data-beginner-tooltip-id],
+input[data-beginner-tooltip-id],
+select[data-beginner-tooltip-id] {
+  cursor: pointer;
 }
 
 .beginner-tooltip-marker {
@@ -10006,9 +10018,10 @@ strong.support-upvote-count {
   top: calc(100% + 10px);
   right: 0;
   z-index: 9000;
-  width: min(1440px, calc(100vw - 24px));
-  max-width: calc(100vw - 24px);
-  max-height: calc(100vh - 56px);
+  zoom: 1.25;
+  width: min(1152px, calc((100vw - 24px) / 1.25));
+  max-width: calc((100vw - 24px) / 1.25);
+  max-height: calc((100vh - 56px) / 1.25);
   display: flex;
   flex-direction: column;
   background:
@@ -17019,6 +17032,30 @@ strong.support-upvote-count {
   margin: 4px 0 0;
 }
 
+.public-profile-badge-tooltip-rarity {
+  margin-top: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--badge-rarity-color, color-mix(in srgb, var(--text-dim, #a0a8a0) 92%, transparent));
+  text-align: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--badge-rarity-color, var(--profile-accent, var(--accent))) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--badge-rarity-color, var(--profile-accent, var(--accent))) 32%, transparent);
+}
+
+.public-profile-badge-tile[data-rarity] {
+  border-color: color-mix(in srgb, var(--badge-rarity-color) 36%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--badge-rarity-color) 22%, transparent);
+}
+
+.public-profile-badge-tile[data-rarity="legendary"],
+.public-profile-badge-tile[data-rarity="epic"] {
+  background: color-mix(in srgb, var(--badge-rarity-color) 10%, var(--bg-panel));
+}
+
 /* =========================================================================
    P.A.N.D.A — Leaderboard Overlay (Ultra-Premium Overhaul)
    ========================================================================= */
@@ -17785,6 +17822,42 @@ button.pa-avatar:focus-visible {
   z-index: 1;
   opacity: 0;
   transition: opacity 200ms ease;
+}
+
+/* Frame color override — rescopes --pa-avatar-color inside the frame ornament
+   so color-sensitive frame variants (radioactive, plasma, neon, etc.) can be
+   tinted independently of the avatar body color. */
+.pa-avatar[style*="--pa-frame-color"] .pa-avatar-ornament {
+  --pa-avatar-color: var(--pa-frame-color);
+}
+
+/* Animated banner pan — consumes --pa-banner-speed so the customization slider
+   actually changes animation duration. */
+@keyframes pa-banner-pan {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+.pa-anim-bg {
+  background-size: 200% 200%;
+  animation: pa-banner-pan calc(18s / var(--pa-banner-speed, 1)) linear infinite;
+}
+
+/* Banner opacity — modal sliders set --pa-banner-opacity / --pa-banner-row-opacity.
+   Override hardcoded defaults so the slider actually takes effect. */
+.pa-preview-tile-banner {
+  opacity: var(--pa-banner-opacity, 0.8);
+}
+.pa-preview-row-tile {
+  --pa-banner-row-opacity: var(--pa-banner-row-opacity, 1);
+}
+.pa-preview-row-tile::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: var(--row-banner, transparent);
+  opacity: var(--pa-banner-row-opacity, 1);
+  pointer-events: none;
+  z-index: 0;
+  border-radius: inherit;
 }
 
 /* Base Keyframes */
@@ -18992,6 +19065,31 @@ button.pa-avatar:focus-visible {
   background: var(--pa-bg-input);
 }
 
+.pa-tweak-color-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.pa-tweak-reset {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-light, rgba(255,255,255,0.12));
+  background: rgba(255,255,255,0.04);
+  color: var(--text-dim, #8b97a3);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.pa-tweak-reset:hover,
+.pa-tweak-reset:focus-visible {
+  background: color-mix(in srgb, var(--accent) 16%, rgba(255,255,255,0.04));
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-light, rgba(255,255,255,0.12)));
+  color: var(--accent-hover, var(--accent));
+}
+
 .pa-tweak-color-input::-webkit-color-swatch-wrapper {
   padding: 2px;
 }
@@ -19103,7 +19201,13 @@ button.pa-avatar:focus-visible {
   --pa-effect-color: #5eaa3a;
   --pa-effect-intensity: 0.75;
   --pa-effect-speed: 1.0;
-  opacity: var(--pa-effect-intensity, 0.75);
+  --pa-effect-saturation: 1;
+  --pa-effect-size: 1;
+  --pa-effect-alpha: 1;
+  opacity: calc(var(--pa-effect-intensity, 0.75) * var(--pa-effect-alpha, 1));
+  filter: saturate(var(--pa-effect-saturation, 1));
+  transform: scale(var(--pa-effect-size, 1));
+  transform-origin: 50% 50%;
 }
 
 /* --- TIER 1: SUBTLE ENVIRONMENTALS --- */

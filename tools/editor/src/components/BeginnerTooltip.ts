@@ -18,6 +18,9 @@ type MountedTooltip = {
   fallbackPoint: TooltipAnchorPoint;
 };
 
+const HOVER_OPEN_DELAY_MS = 280;
+const HOVER_CLOSE_DELAY_MS = 120;
+
 let controller: BeginnerTooltipController | null = null;
 let mountListenerAttached = false;
 
@@ -41,9 +44,16 @@ export function mountBeginnerTooltipController(root: HTMLElement = document.body
 
 class BeginnerTooltipController {
   private current: MountedTooltip | null = null;
+  private hoveredAnchor: HTMLElement | null = null;
+  private openTimer: number | null = null;
+  private closeTimer: number | null = null;
   private mutationObserver: MutationObserver;
 
   constructor(private readonly root: HTMLElement) {
+    document.addEventListener('pointerover', this.handlePointerOver, true);
+    document.addEventListener('pointerout', this.handlePointerOut, true);
+    document.addEventListener('focusin', this.handleFocusIn, true);
+    document.addEventListener('focusout', this.handleFocusOut, true);
     document.addEventListener('click', this.handleDocumentClick, true);
     document.addEventListener('keydown', this.handleKeyDown, true);
     document.addEventListener('scroll', this.handleScroll, true);
@@ -62,7 +72,12 @@ class BeginnerTooltipController {
   }
 
   dispose(): void {
+    this.cancelTimers();
     this.close();
+    document.removeEventListener('pointerover', this.handlePointerOver, true);
+    document.removeEventListener('pointerout', this.handlePointerOut, true);
+    document.removeEventListener('focusin', this.handleFocusIn, true);
+    document.removeEventListener('focusout', this.handleFocusOut, true);
     document.removeEventListener('click', this.handleDocumentClick, true);
     document.removeEventListener('keydown', this.handleKeyDown, true);
     document.removeEventListener('scroll', this.handleScroll, true);
@@ -70,27 +85,65 @@ class BeginnerTooltipController {
     this.mutationObserver.disconnect();
   }
 
+  private handlePointerOver = (event: PointerEvent): void => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+
+    if (this.current?.element.contains(target)) {
+      this.cancelClose();
+      return;
+    }
+
+    const anchor = target.closest<HTMLElement>('[data-beginner-tooltip-id]');
+    if (!anchor || !this.root.contains(anchor)) return;
+
+    if (this.hoveredAnchor === anchor && this.current?.anchor === anchor) {
+      this.cancelClose();
+      return;
+    }
+
+    this.hoveredAnchor = anchor;
+    this.scheduleOpen(anchor, { x: event.clientX, y: event.clientY });
+  };
+
+  private handlePointerOut = (event: PointerEvent): void => {
+    const related = event.relatedTarget instanceof Element ? event.relatedTarget : null;
+    if (related && this.current?.element.contains(related)) return;
+    if (related && related.closest?.('[data-beginner-tooltip-id]') === this.hoveredAnchor) return;
+
+    if (this.hoveredAnchor) {
+      this.hoveredAnchor = null;
+      this.cancelOpen();
+    }
+    if (this.current) {
+      this.scheduleClose();
+    }
+  };
+
+  private handleFocusIn = (event: FocusEvent): void => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+    const anchor = target.closest<HTMLElement>('[data-beginner-tooltip-id]');
+    if (!anchor || !this.root.contains(anchor)) return;
+    const rect = anchor.getBoundingClientRect();
+    this.hoveredAnchor = anchor;
+    this.scheduleOpen(anchor, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+  };
+
+  private handleFocusOut = (event: FocusEvent): void => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+    const anchor = target.closest<HTMLElement>('[data-beginner-tooltip-id]');
+    if (!anchor) return;
+    if (this.hoveredAnchor === anchor) this.hoveredAnchor = null;
+    this.scheduleClose();
+  };
+
   private handleDocumentClick = (event: MouseEvent): void => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
     if (this.current?.element.contains(target)) return;
-
-    const anchor = target.closest<HTMLElement>('[data-beginner-tooltip-id]');
-    if (!anchor || !this.root.contains(anchor)) {
-      this.close();
-      return;
-    }
-
-    const config = getBeginnerTooltipConfig(anchor);
-    if (!config || isBeginnerTooltipDismissed(config.id)) {
-      this.close();
-      return;
-    }
-
-    const fallbackPoint = { x: event.clientX, y: event.clientY };
-    window.requestAnimationFrame(() => {
-      this.open(anchor, config, fallbackPoint);
-    });
+    this.close();
   };
 
   private handleKeyDown = (event: KeyboardEvent): void => {
@@ -106,6 +159,47 @@ class BeginnerTooltipController {
     this.close();
   };
 
+  private scheduleOpen(anchor: HTMLElement, fallbackPoint: TooltipAnchorPoint): void {
+    this.cancelClose();
+    this.cancelOpen();
+    const config = getBeginnerTooltipConfig(anchor);
+    if (!config || isBeginnerTooltipDismissed(config.id)) return;
+    if (this.current?.anchor === anchor) return;
+    this.openTimer = window.setTimeout(() => {
+      this.openTimer = null;
+      if (this.hoveredAnchor !== anchor) return;
+      this.open(anchor, config, fallbackPoint);
+    }, HOVER_OPEN_DELAY_MS);
+  }
+
+  private scheduleClose(): void {
+    this.cancelClose();
+    this.closeTimer = window.setTimeout(() => {
+      this.closeTimer = null;
+      if (this.hoveredAnchor) return;
+      this.close();
+    }, HOVER_CLOSE_DELAY_MS);
+  }
+
+  private cancelOpen(): void {
+    if (this.openTimer !== null) {
+      window.clearTimeout(this.openTimer);
+      this.openTimer = null;
+    }
+  }
+
+  private cancelClose(): void {
+    if (this.closeTimer !== null) {
+      window.clearTimeout(this.closeTimer);
+      this.closeTimer = null;
+    }
+  }
+
+  private cancelTimers(): void {
+    this.cancelOpen();
+    this.cancelClose();
+  }
+
   private open(anchor: HTMLElement, config: BeginnerTooltipConfig, fallbackPoint: TooltipAnchorPoint): void {
     if (document.querySelector('[aria-modal="true"]')) return;
     if (isBeginnerTooltipDismissed(config.id)) return;
@@ -118,12 +212,15 @@ class BeginnerTooltipController {
         this.close();
       },
     });
+    element.addEventListener('pointerenter', () => this.cancelClose());
+    element.addEventListener('pointerleave', () => this.scheduleClose());
     document.body.appendChild(element);
     this.current = { element, anchor, config, fallbackPoint };
     this.positionCurrent();
   }
 
   private close(): void {
+    this.cancelTimers();
     this.current?.element.remove();
     this.current = null;
   }
@@ -160,7 +257,7 @@ function createTooltipElement(
 ): HTMLElement {
   const tooltip = document.createElement('section');
   tooltip.className = 'beginner-tooltip';
-  tooltip.setAttribute('role', 'status');
+  tooltip.setAttribute('role', 'tooltip');
   tooltip.setAttribute('aria-live', 'polite');
   tooltip.dataset.tooltipId = config.id;
 

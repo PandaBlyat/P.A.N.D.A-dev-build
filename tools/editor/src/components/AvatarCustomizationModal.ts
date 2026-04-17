@@ -72,6 +72,17 @@ function sortByLevel<T extends { minLevel?: number }>(presets: T[]): T[] {
   return [...presets].sort((a, b) => (a.minLevel ?? 0) - (b.minLevel ?? 0));
 }
 
+/** Apply every effect tweak as CSS custom properties so render paths match the modal preview. */
+function applyEffectVars(el: HTMLElement, preset: AvatarEffectPreset | undefined, cosmetics: UserCosmetics): void {
+  if (!preset || preset.id === 'none') return;
+  el.style.setProperty('--pa-effect-color', cosmetics.avatar_effect_color || preset.defaultColor || 'var(--accent)');
+  el.style.setProperty('--pa-effect-intensity', String((cosmetics.avatar_effect_intensity ?? preset.defaultIntensity ?? 75) / 100));
+  el.style.setProperty('--pa-effect-speed', String(cosmetics.avatar_effect_speed ?? preset.defaultSpeed ?? 1.0));
+  el.style.setProperty('--pa-effect-saturation', String((cosmetics.avatar_effect_saturation ?? 100) / 100));
+  el.style.setProperty('--pa-effect-size', String((cosmetics.avatar_effect_size ?? 100) / 100));
+  el.style.setProperty('--pa-effect-alpha', String((cosmetics.avatar_effect_alpha ?? 100) / 100));
+}
+
 /** Build a consistent mini-avatar element for use in both preview tiles. */
 function buildPreviewAvatar(
   username: string,
@@ -83,7 +94,7 @@ function buildPreviewAvatar(
   const framePreset = AVATAR_FRAME_PRESETS.find(p => p.id === draft.avatar_frame);
   const frameId = typeof draft.avatar_frame === 'string' ? draft.avatar_frame : 'none';
   const colorPreset = getAvatarColorPreset(draft.avatar_color);
-  const colorValue = colorPreset?.color ?? '#5eaa3a';
+  const colorValue = colorPreset?.color ?? 'var(--accent)';
   const iconPreset = AVATAR_ICON_PRESETS.find(item => item.id === draft.avatar_icon);
   const glyphText = iconPreset && iconPreset.id !== 'default' ? iconPreset.glyph : getInitial(username);
 
@@ -95,6 +106,10 @@ function buildPreviewAvatar(
     extraClass,
   ].filter(Boolean).join(' ');
   av.style.setProperty('--pa-avatar-color', colorValue);
+  const frameColorValue = draft.avatar_frame_color && draft.avatar_frame_color !== ''
+    ? draft.avatar_frame_color
+    : colorValue;
+  av.style.setProperty('--pa-frame-color', frameColorValue);
   if (framePreset?.isAnimated && framePreset.defaultIntensity !== undefined) {
     av.style.setProperty('--pa-frame-intensity', String((draft.avatar_frame_intensity ?? framePreset.defaultIntensity ?? 85) / 100));
   }
@@ -130,7 +145,7 @@ function renderPreview(username: string, level: number, draft: UserCosmetics): H
     ? `${bannerPreset.gradient}, #141811`
     : undefined;
   const colorPreset = getAvatarColorPreset(draft.avatar_color);
-  const colorValue = colorPreset?.color ?? '#5eaa3a';
+  const colorValue = colorPreset?.color ?? 'var(--accent)';
   const hasEffect = !!(draft.avatar_effect && draft.avatar_effect !== 'none');
 
   // ── Podium card tile ─────────────────────────────────────────────────────
@@ -153,11 +168,7 @@ function renderPreview(username: string, level: number, draft: UserCosmetics): H
     podiumEffect.className = 'pa-preview-tile-effect pa-avatar-chip-effect-sample';
     podiumEffect.dataset.effect = String(draft.avatar_effect);
     const effectPreset = AVATAR_EFFECT_PRESETS.find(p => p.id === draft.avatar_effect);
-    if (effectPreset) {
-      podiumEffect.style.setProperty('--pa-effect-color', draft.avatar_effect_color || effectPreset.defaultColor || '#5eaa3a');
-      podiumEffect.style.setProperty('--pa-effect-intensity', String((draft.avatar_effect_intensity ?? effectPreset.defaultIntensity ?? 75) / 100));
-      podiumEffect.style.setProperty('--pa-effect-speed', String(draft.avatar_effect_speed ?? effectPreset.defaultSpeed ?? 1.0));
-    }
+    applyEffectVars(podiumEffect, effectPreset, draft);
     podiumTile.appendChild(podiumEffect);
   }
 
@@ -202,11 +213,7 @@ function renderPreview(username: string, level: number, draft: UserCosmetics): H
     rowEffect.className = 'pa-preview-tile-row-effect pa-avatar-chip-effect-sample';
     rowEffect.dataset.effect = String(draft.avatar_effect);
     const effectPreset = AVATAR_EFFECT_PRESETS.find(p => p.id === draft.avatar_effect);
-    if (effectPreset) {
-      rowEffect.style.setProperty('--pa-effect-color', draft.avatar_effect_color || effectPreset.defaultColor || '#5eaa3a');
-      rowEffect.style.setProperty('--pa-effect-intensity', String((draft.avatar_effect_intensity ?? effectPreset.defaultIntensity ?? 75) / 100));
-      rowEffect.style.setProperty('--pa-effect-speed', String(draft.avatar_effect_speed ?? effectPreset.defaultSpeed ?? 1.0));
-    }
+    applyEffectVars(rowEffect, effectPreset, draft);
     rowTile.appendChild(rowEffect);
   }
 
@@ -289,8 +296,15 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
     avatar_effect_color: profile.avatar_effect_color ?? undefined,
     avatar_effect_intensity: profile.avatar_effect_intensity ?? undefined,
     avatar_effect_speed: profile.avatar_effect_speed ?? undefined,
+    avatar_effect_saturation: profile.avatar_effect_saturation ?? undefined,
+    avatar_effect_size: profile.avatar_effect_size ?? undefined,
+    avatar_effect_alpha: profile.avatar_effect_alpha ?? undefined,
     avatar_frame_intensity: profile.avatar_frame_intensity ?? undefined,
+    avatar_frame_color: profile.avatar_frame_color ?? undefined,
+    avatar_banner_opacity: profile.avatar_banner_opacity ?? undefined,
+    avatar_banner_speed: profile.avatar_banner_speed ?? undefined,
   };
+
 
   type TabId = 'icon' | 'color' | 'frame' | 'banner' | 'effect';
   let activeTab: TabId = 'icon';
@@ -430,7 +444,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
         // Apply the user's currently selected tint so color-dependent frames
         // (radioactive, plasma, neon, etc.) show the right colour in the picker.
         const chipColorPreset = getAvatarColorPreset(draft.avatar_color);
-        sampleAvatar.style.setProperty('--pa-avatar-color', chipColorPreset?.color ?? '#5eaa3a');
+        sampleAvatar.style.setProperty('--pa-avatar-color', chipColorPreset?.color ?? 'var(--accent)');
         // Set per-preset default intensity so the chip matches the in-game default.
         if (preset.isAnimated && preset.defaultIntensity !== undefined) {
           sampleAvatar.style.setProperty('--pa-frame-intensity', String(preset.defaultIntensity / 100));
@@ -496,11 +510,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
         const inner = document.createElement('span');
         inner.className = 'pa-avatar-chip-effect-sample';
         inner.setAttribute('data-effect', preset.id);
-        if (preset.id !== 'none') {
-          inner.style.setProperty('--pa-effect-color', draft.avatar_effect_color || preset.defaultColor || '#5eaa3a');
-          inner.style.setProperty('--pa-effect-intensity', String((draft.avatar_effect_intensity ?? preset.defaultIntensity ?? 75) / 100));
-          inner.style.setProperty('--pa-effect-speed', String(draft.avatar_effect_speed ?? preset.defaultSpeed ?? 1.0));
-        }
+        applyEffectVars(inner, preset, draft);
         wrap.appendChild(inner);
         btn.appendChild(wrap);
         const label = document.createElement('span');
@@ -589,11 +599,77 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
           controlsGrid.appendChild(speedGroup);
         }
 
+        // Saturation control
+        {
+          const saturationGroup = document.createElement('div');
+          saturationGroup.className = 'pa-tweak-control-group';
+          const saturationLabel = document.createElement('label');
+          saturationLabel.textContent = `Saturation: ${draft.avatar_effect_saturation ?? 100}%`;
+          saturationLabel.className = 'pa-tweak-label-with-value';
+          const saturationSlider = document.createElement('input');
+          saturationSlider.type = 'range';
+          saturationSlider.className = 'pa-tweak-slider';
+          saturationSlider.min = '0';
+          saturationSlider.max = '200';
+          saturationSlider.value = String(draft.avatar_effect_saturation ?? 100);
+          saturationSlider.addEventListener('input', (e) => {
+            draft.avatar_effect_saturation = parseInt((e.target as HTMLInputElement).value);
+            saturationLabel.textContent = `Saturation: ${draft.avatar_effect_saturation}%`;
+            renderWorkspace();
+          });
+          saturationGroup.append(saturationLabel, saturationSlider);
+          controlsGrid.appendChild(saturationGroup);
+        }
+
+        // Size control
+        {
+          const sizeGroup = document.createElement('div');
+          sizeGroup.className = 'pa-tweak-control-group';
+          const sizeLabel = document.createElement('label');
+          sizeLabel.textContent = `Size: ${draft.avatar_effect_size ?? 100}%`;
+          sizeLabel.className = 'pa-tweak-label-with-value';
+          const sizeSlider = document.createElement('input');
+          sizeSlider.type = 'range';
+          sizeSlider.className = 'pa-tweak-slider';
+          sizeSlider.min = '50';
+          sizeSlider.max = '200';
+          sizeSlider.value = String(draft.avatar_effect_size ?? 100);
+          sizeSlider.addEventListener('input', (e) => {
+            draft.avatar_effect_size = parseInt((e.target as HTMLInputElement).value);
+            sizeLabel.textContent = `Size: ${draft.avatar_effect_size}%`;
+            renderWorkspace();
+          });
+          sizeGroup.append(sizeLabel, sizeSlider);
+          controlsGrid.appendChild(sizeGroup);
+        }
+
+        // Alpha / opacity control — distinct from intensity (which scales the effect visual weight).
+        {
+          const alphaGroup = document.createElement('div');
+          alphaGroup.className = 'pa-tweak-control-group';
+          const alphaLabel = document.createElement('label');
+          alphaLabel.textContent = `Alpha: ${draft.avatar_effect_alpha ?? 100}%`;
+          alphaLabel.className = 'pa-tweak-label-with-value';
+          const alphaSlider = document.createElement('input');
+          alphaSlider.type = 'range';
+          alphaSlider.className = 'pa-tweak-slider';
+          alphaSlider.min = '0';
+          alphaSlider.max = '100';
+          alphaSlider.value = String(draft.avatar_effect_alpha ?? 100);
+          alphaSlider.addEventListener('input', (e) => {
+            draft.avatar_effect_alpha = parseInt((e.target as HTMLInputElement).value);
+            alphaLabel.textContent = `Alpha: ${draft.avatar_effect_alpha}%`;
+            renderWorkspace();
+          });
+          alphaGroup.append(alphaLabel, alphaSlider);
+          controlsGrid.appendChild(alphaGroup);
+        }
+
         tweakPanel.appendChild(controlsGrid);
       }
     } else if (activeTab === 'frame' && selectedEffectOrFrame?.type === 'frame') {
       const framePreset = AVATAR_FRAME_PRESETS.find(p => p.id === selectedEffectOrFrame!.id);
-      if (framePreset && framePreset.isAnimated && framePreset.id !== 'none') {
+      if (framePreset && framePreset.id !== 'none') {
         const panelTitle = document.createElement('div');
         panelTitle.className = 'pa-tweak-panel-title';
         panelTitle.textContent = `Customize: ${framePreset.label}`;
@@ -602,7 +678,36 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
         const controlsGrid = document.createElement('div');
         controlsGrid.className = 'pa-tweak-controls-grid';
 
-        if (framePreset.defaultIntensity !== undefined) {
+        // Frame color override — applies to color-sensitive variants (plasma, neon, radioactive, etc.).
+        const colorGroup = document.createElement('div');
+        colorGroup.className = 'pa-tweak-control-group';
+        const colorLabel = document.createElement('label');
+        colorLabel.textContent = 'Frame color';
+        const colorRow = document.createElement('div');
+        colorRow.className = 'pa-tweak-color-row';
+        const colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.className = 'pa-tweak-color-input';
+        const currentColorPreset = getAvatarColorPreset(draft.avatar_color);
+        const themeAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5eaa3a';
+        colorInput.value = draft.avatar_frame_color || currentColorPreset?.color || themeAccent;
+        colorInput.addEventListener('input', (e) => {
+          draft.avatar_frame_color = (e.target as HTMLInputElement).value;
+          renderWorkspace();
+        });
+        const resetColor = document.createElement('button');
+        resetColor.type = 'button';
+        resetColor.className = 'pa-tweak-reset';
+        resetColor.textContent = 'Match tint';
+        resetColor.addEventListener('click', () => {
+          draft.avatar_frame_color = undefined;
+          renderWorkspace();
+        });
+        colorRow.append(colorInput, resetColor);
+        colorGroup.append(colorLabel, colorRow);
+        controlsGrid.appendChild(colorGroup);
+
+        if (framePreset.isAnimated && framePreset.defaultIntensity !== undefined) {
           const intensityGroup = document.createElement('div');
           intensityGroup.className = 'pa-tweak-control-group';
           const intensityLabel = document.createElement('label');

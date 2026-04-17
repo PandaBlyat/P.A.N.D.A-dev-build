@@ -10,6 +10,7 @@ import {
   getAvatarIconPreset,
   getAvatarFramePreset,
   getAvatarBannerPreset,
+  getAvatarEffectPreset,
 } from '../lib/avatar-catalog';
 
 export type AvatarRenderInput = {
@@ -60,6 +61,9 @@ export function renderAvatar(input: AvatarRenderInput, options: AvatarRenderOpti
     options.extraClass ?? '',
   ].filter(Boolean).join(' ');
   el.style.setProperty('--pa-avatar-color', color);
+  if (input.avatar_frame_color) {
+    el.style.setProperty('--pa-frame-color', input.avatar_frame_color);
+  }
   if (framePreset?.isAnimated) {
     const intensity = (input.avatar_frame_intensity ?? framePreset.defaultIntensity ?? 85) / 100;
     el.style.setProperty('--pa-frame-intensity', String(intensity));
@@ -94,6 +98,25 @@ export function renderAvatar(input: AvatarRenderInput, options: AvatarRenderOpti
   ornament.className = 'pa-avatar-ornament';
   ornament.setAttribute('aria-hidden', 'true');
   el.appendChild(ornament);
+
+  // VFX layer — gives the toolbar badge / profile popover the same look as
+  // the modal preview, leaderboard row, and public profile hero.
+  if (input.avatar_effect && input.avatar_effect !== 'none') {
+    const effectPreset = getAvatarEffectPreset(input.avatar_effect);
+    if (effectPreset) {
+      const effect = document.createElement('span');
+      effect.className = 'pa-avatar-chip-effect-sample pa-avatar-effect-layer';
+      effect.setAttribute('aria-hidden', 'true');
+      effect.dataset.effect = input.avatar_effect;
+      effect.style.setProperty('--pa-effect-color', input.avatar_effect_color || effectPreset.defaultColor || 'var(--accent)');
+      effect.style.setProperty('--pa-effect-intensity', String((input.avatar_effect_intensity ?? effectPreset.defaultIntensity ?? 75) / 100));
+      effect.style.setProperty('--pa-effect-speed', String(input.avatar_effect_speed ?? effectPreset.defaultSpeed ?? 1.0));
+      effect.style.setProperty('--pa-effect-saturation', String((input.avatar_effect_saturation ?? 100) / 100));
+      effect.style.setProperty('--pa-effect-size', String((input.avatar_effect_size ?? 100) / 100));
+      effect.style.setProperty('--pa-effect-alpha', String((input.avatar_effect_alpha ?? 100) / 100));
+      el.appendChild(effect);
+    }
+  }
 
   return el;
 }

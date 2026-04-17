@@ -5,7 +5,7 @@
 // Shows top stalkers by XP, highlights the viewer, and opens a public
 // profile when a row is clicked.
 
-import { fetchLeaderboard, fetchUserAchievements, getLocalPublisherId, type LeaderboardEntry } from '../lib/api-client';
+import { fetchLeaderboard, fetchUserAchievements, getLevelTitle, getLocalPublisherId, type LeaderboardEntry } from '../lib/api-client';
 import { ACHIEVEMENTS, isAchievementRare, type AchievementId } from '../lib/gamification';
 import { createAchievementBadge } from './AchievementIcons';
 import { openPublicProfile } from './ProfileBadge';
@@ -73,7 +73,7 @@ function handleKeydown(event: KeyboardEvent) {
 }
 
 function formatTitle(entry: LeaderboardEntry): string {
-  return entry.title || `Level ${entry.level} operative`;
+  return getLevelTitle(entry.level) || entry.title || `Level ${entry.level} operative`;
 }
 
 function getRankTier(rank: number): string {
@@ -228,9 +228,12 @@ function buildRow(ranked: RankedEntry, viewerId: string, staggerIndex: number): 
     rowEffect.dataset.effect = String(entry.avatar_effect);
     const effectPreset = getAvatarEffectPreset(entry.avatar_effect);
     if (effectPreset) {
-      rowEffect.style.setProperty('--pa-effect-color', entry.avatar_effect_color || effectPreset.defaultColor || '#5eaa3a');
+      rowEffect.style.setProperty('--pa-effect-color', entry.avatar_effect_color || effectPreset.defaultColor || 'var(--accent)');
       rowEffect.style.setProperty('--pa-effect-intensity', String((entry.avatar_effect_intensity ?? effectPreset.defaultIntensity ?? 75) / 100));
       rowEffect.style.setProperty('--pa-effect-speed', String(entry.avatar_effect_speed ?? effectPreset.defaultSpeed ?? 1.0));
+      rowEffect.style.setProperty('--pa-effect-saturation', String((entry.avatar_effect_saturation ?? 100) / 100));
+      rowEffect.style.setProperty('--pa-effect-size', String((entry.avatar_effect_size ?? 100) / 100));
+      rowEffect.style.setProperty('--pa-effect-alpha', String((entry.avatar_effect_alpha ?? 100) / 100));
     }
     row.appendChild(rowEffect);
   }
@@ -348,9 +351,12 @@ function renderPodium(refs: OverlayRefs): void {
       effect.dataset.effect = String(entry.avatar_effect);
       const podiumEffectPreset = getAvatarEffectPreset(entry.avatar_effect);
       if (podiumEffectPreset) {
-        effect.style.setProperty('--pa-effect-color', entry.avatar_effect_color || podiumEffectPreset.defaultColor || '#5eaa3a');
+        effect.style.setProperty('--pa-effect-color', entry.avatar_effect_color || podiumEffectPreset.defaultColor || 'var(--accent)');
         effect.style.setProperty('--pa-effect-intensity', String((entry.avatar_effect_intensity ?? podiumEffectPreset.defaultIntensity ?? 75) / 100));
         effect.style.setProperty('--pa-effect-speed', String(entry.avatar_effect_speed ?? podiumEffectPreset.defaultSpeed ?? 1.0));
+        effect.style.setProperty('--pa-effect-saturation', String((entry.avatar_effect_saturation ?? 100) / 100));
+        effect.style.setProperty('--pa-effect-size', String((entry.avatar_effect_size ?? 100) / 100));
+        effect.style.setProperty('--pa-effect-alpha', String((entry.avatar_effect_alpha ?? 100) / 100));
       }
       card.appendChild(effect);
     }
@@ -399,7 +405,7 @@ function renderPodium(refs: OverlayRefs): void {
 
     const level = document.createElement('span');
     level.className = 'panda-leaderboard-podium-level';
-    level.textContent = `Lv ${entry.level} · ${entry.title || 'Stalker'}`;
+    level.textContent = `Lv ${entry.level} · ${getLevelTitle(entry.level) || entry.title || 'Stalker'}`;
 
     card.append(medal, podiumAvatar, name, level, badges, xp);
     refs.podium.appendChild(card);
