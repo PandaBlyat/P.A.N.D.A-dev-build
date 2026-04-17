@@ -1552,6 +1552,11 @@ export async function updateUserCosmetics(publisherId: string, cosmetics: UserCo
   }
 }
 
+export async function updateFeaturedAchievements(publisherId: string, achievementIds: string[]): Promise<UserProfile | null> {
+  const clamped = achievementIds.slice(0, 5);
+  return updateUserCosmetics(publisherId, { featured_achievements: clamped });
+}
+
 export async function registerUsername(publisherId: string, username: string): Promise<UserProfile> {
   try {
     const profile = await fetchFromApi<UserProfile>('/api/profile/register', {
@@ -1746,6 +1751,7 @@ export async function unlockAchievement(publisherId: string, achievementId: stri
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ achievement_id: achievementId }),
     });
+    if (response.unlocked) _achievementStatsCache = null;
     return response.unlocked;
   } catch {
     try {
@@ -1756,7 +1762,9 @@ export async function unlockAchievement(publisherId: string, achievementId: stri
       });
       if (!res.ok) return false;
       const payload = await res.json() as boolean | boolean[];
-      return Array.isArray(payload) ? Boolean(payload[0]) : Boolean(payload);
+      const unlocked = Array.isArray(payload) ? Boolean(payload[0]) : Boolean(payload);
+      if (unlocked) _achievementStatsCache = null;
+      return unlocked;
     } catch {
       return false;
     }
