@@ -107,9 +107,14 @@ export type UserCosmetics = {
   avatar_effect_color?: string | null;
   avatar_effect_intensity?: number | null;
   avatar_effect_speed?: number | null;
+  avatar_effect_saturation?: number | null;
+  avatar_effect_size?: number | null;
+  avatar_effect_alpha?: number | null;
   avatar_frame_intensity?: number | null;
+  avatar_frame_color?: string | null;
   avatar_banner_opacity?: number | null;
   avatar_banner_speed?: number | null;
+  featured_achievements?: string[] | null;
 };
 
 export type UserProfile = {
@@ -1485,6 +1490,17 @@ export async function updateUserCosmetics(publisherId: string, cosmetics: UserCo
     avatar_frame: cosmetics.avatar_frame ?? null,
     avatar_banner: cosmetics.avatar_banner ?? null,
     avatar_effect: cosmetics.avatar_effect ?? null,
+    avatar_effect_color: cosmetics.avatar_effect_color ?? null,
+    avatar_effect_intensity: cosmetics.avatar_effect_intensity ?? null,
+    avatar_effect_speed: cosmetics.avatar_effect_speed ?? null,
+    avatar_effect_saturation: cosmetics.avatar_effect_saturation ?? null,
+    avatar_effect_size: cosmetics.avatar_effect_size ?? null,
+    avatar_effect_alpha: cosmetics.avatar_effect_alpha ?? null,
+    avatar_frame_intensity: cosmetics.avatar_frame_intensity ?? null,
+    avatar_frame_color: cosmetics.avatar_frame_color ?? null,
+    avatar_banner_opacity: cosmetics.avatar_banner_opacity ?? null,
+    avatar_banner_speed: cosmetics.avatar_banner_speed ?? null,
+    featured_achievements: cosmetics.featured_achievements ?? null,
   };
 
   // 1. Try the proxy API (server-authoritative, handles auth/RLS).
@@ -1662,6 +1678,65 @@ export async function fetchUserAchievements(publisherId: string): Promise<UserAc
       return [];
     }
   }
+}
+
+export type AchievementUnlockStat = {
+  achievementId: string;
+  unlockCount: number;
+  totalUsers: number;
+  percent: number;
+};
+
+let _achievementStatsCache: Map<string, AchievementUnlockStat> | null = null;
+let _achievementStatsCacheAt = 0;
+const ACHIEVEMENT_STATS_TTL_MS = 5 * 60 * 1000;
+
+export async function fetchAchievementUnlockStats(): Promise<Map<string, AchievementUnlockStat>> {
+  if (_achievementStatsCache && Date.now() - _achievementStatsCacheAt < ACHIEVEMENT_STATS_TTL_MS) {
+    return _achievementStatsCache;
+  }
+
+  const normalize = (rows: Array<Record<string, unknown>>): Map<string, AchievementUnlockStat> => {
+    const out = new Map<string, AchievementUnlockStat>();
+    for (const row of rows) {
+      const id = String(row.achievement_id ?? row.achievementId ?? '').trim();
+      if (!id) continue;
+      const unlockCount = Number(row.unlock_count ?? row.unlockCount ?? 0);
+      const totalUsers = Number(row.total_users ?? row.totalUsers ?? 0);
+      const percent = totalUsers > 0 ? (unlockCount / totalUsers) * 100 : Number(row.percent ?? 0);
+      out.set(id, { achievementId: id, unlockCount, totalUsers, percent });
+    }
+    return out;
+  };
+
+  try {
+    const payload = await fetchFromApi<Array<Record<string, unknown>>>('/api/achievements/stats');
+    const map = normalize(payload ?? []);
+    _achievementStatsCache = map;
+    _achievementStatsCacheAt = Date.now();
+    return map;
+  } catch {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_achievement_unlock_stats`, {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({}),
+      });
+      if (res.ok) {
+        const rows = await res.json() as Array<Record<string, unknown>>;
+        const map = normalize(rows ?? []);
+        _achievementStatsCache = map;
+        _achievementStatsCacheAt = Date.now();
+        return map;
+      }
+    } catch {
+      // Swallow — caller gets empty map and handles gracefully.
+    }
+  }
+
+  _achievementStatsCache = new Map();
+  _achievementStatsCacheAt = Date.now();
+  return _achievementStatsCache;
 }
 
 export async function unlockAchievement(publisherId: string, achievementId: string): Promise<boolean> {

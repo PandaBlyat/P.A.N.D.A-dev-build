@@ -1,6 +1,7 @@
 import {
   type PublicProfileData,
   deriveLevelMetadata,
+  fetchAchievementUnlockStats,
   getLevelTitle,
 } from '../lib/api-client';
 import {
@@ -29,6 +30,16 @@ type ProfilePrestigeStat = {
   label: string;
   value: string;
 };
+
+type RarityTier = { id: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'; label: string; color: string };
+
+function getRarityTier(percent: number): RarityTier {
+  if (percent < 1) return { id: 'legendary', label: 'Legendary', color: '#f59e0b' };
+  if (percent < 5) return { id: 'epic', label: 'Epic', color: '#a855f7' };
+  if (percent < 15) return { id: 'rare', label: 'Rare', color: '#3b82f6' };
+  if (percent < 40) return { id: 'uncommon', label: 'Uncommon', color: '#22c55e' };
+  return { id: 'common', label: 'Common', color: 'var(--text-dim, #8892a6)' };
+}
 
 function getLevelTierColor(level: number): string {
   if (level >= 91) return 'var(--warning, #c4a040)';
@@ -143,9 +154,12 @@ function buildHeader(data: PublicProfileData, onAvatarClick?: (event: MouseEvent
     effectLayer.dataset.effect = String(profile.avatar_effect);
     const heroEffectPreset = getAvatarEffectPreset(profile.avatar_effect);
     if (heroEffectPreset) {
-      effectLayer.style.setProperty('--pa-effect-color', profile.avatar_effect_color || heroEffectPreset.defaultColor || '#5eaa3a');
+      effectLayer.style.setProperty('--pa-effect-color', profile.avatar_effect_color || heroEffectPreset.defaultColor || 'var(--accent)');
       effectLayer.style.setProperty('--pa-effect-intensity', String((profile.avatar_effect_intensity ?? heroEffectPreset.defaultIntensity ?? 75) / 100));
       effectLayer.style.setProperty('--pa-effect-speed', String(profile.avatar_effect_speed ?? heroEffectPreset.defaultSpeed ?? 1.0));
+      effectLayer.style.setProperty('--pa-effect-saturation', String((profile.avatar_effect_saturation ?? 100) / 100));
+      effectLayer.style.setProperty('--pa-effect-size', String((profile.avatar_effect_size ?? 100) / 100));
+      effectLayer.style.setProperty('--pa-effect-alpha', String((profile.avatar_effect_alpha ?? 100) / 100));
     }
     header.appendChild(effectLayer);
   }
@@ -458,7 +472,32 @@ function showBadgeTooltip(
     ? 'Unlock condition hidden — keep exploring the Zone.'
     : description;
 
-  tooltip.append(iconEl, nameEl, metaEl, descEl);
+  const rarityEl = document.createElement('div');
+  rarityEl.className = 'public-profile-badge-tooltip-rarity';
+  rarityEl.textContent = 'Loading rarity…';
+
+  tooltip.append(iconEl, nameEl, metaEl, descEl, rarityEl);
+
+  if (id && state !== 'locked-hidden') {
+    void fetchAchievementUnlockStats().then((stats) => {
+      if (!document.body.contains(rarityEl)) return;
+      const stat = stats.get(id);
+      if (!stat || stat.totalUsers <= 0) {
+        rarityEl.textContent = 'Rarity: unknown';
+        return;
+      }
+      const pct = stat.percent;
+      const tier = getRarityTier(pct);
+      rarityEl.textContent = `Unlocked by ${pct.toFixed(pct < 1 ? 2 : 1)}% of stalkers · ${tier.label}`;
+      rarityEl.style.setProperty('--badge-rarity-color', tier.color);
+      rarityEl.dataset.rarity = tier.id;
+    }).catch(() => {
+      if (!document.body.contains(rarityEl)) return;
+      rarityEl.textContent = 'Rarity: unknown';
+    });
+  } else {
+    rarityEl.textContent = state === 'locked-hidden' ? 'Rarity: hidden' : 'Rarity: unknown';
+  }
 
   // Position the tooltip near the tile.
   document.body.appendChild(tooltip);
@@ -519,7 +558,18 @@ function buildBadgeTile(
 
   const iconWrap = document.createElement('div');
   iconWrap.className = 'public-profile-badge-icon-wrap';
-  iconWrap.appendChild(createAchievementBadge(id, state, 48));
+  iconWrap.appendChild(createAchievementBadge(id, state, 38));
+
+  if (id && state !== 'locked-hidden') {
+    void fetchAchievementUnlockStats().then((stats) => {
+      if (!document.body.contains(tile)) return;
+      const stat = stats.get(id);
+      if (!stat || stat.totalUsers <= 0) return;
+      const tier = getRarityTier(stat.percent);
+      tile.dataset.rarity = tier.id;
+      tile.style.setProperty('--badge-rarity-color', tier.color);
+    }).catch(() => undefined);
+  }
 
   const nameEl = document.createElement('div');
   nameEl.className = 'public-profile-badge-name';

@@ -126,6 +126,15 @@ export function renderProfileBadge(): HTMLElement | null {
     avatar_color: cachedProfile.avatar_color,
     avatar_frame: cachedProfile.avatar_frame,
     avatar_banner: cachedProfile.avatar_banner,
+    avatar_effect: cachedProfile.avatar_effect,
+    avatar_effect_color: cachedProfile.avatar_effect_color,
+    avatar_effect_intensity: cachedProfile.avatar_effect_intensity,
+    avatar_effect_speed: cachedProfile.avatar_effect_speed,
+    avatar_effect_saturation: cachedProfile.avatar_effect_saturation,
+    avatar_effect_size: cachedProfile.avatar_effect_size,
+    avatar_effect_alpha: cachedProfile.avatar_effect_alpha,
+    avatar_frame_intensity: cachedProfile.avatar_frame_intensity,
+    avatar_frame_color: cachedProfile.avatar_frame_color,
   }, {
     extraClass: 'profile-badge-level',
     size: 'sm',
@@ -239,6 +248,15 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
     avatar_color: profile.avatar_color,
     avatar_frame: profile.avatar_frame,
     avatar_banner: profile.avatar_banner,
+    avatar_effect: profile.avatar_effect,
+    avatar_effect_color: profile.avatar_effect_color,
+    avatar_effect_intensity: profile.avatar_effect_intensity,
+    avatar_effect_speed: profile.avatar_effect_speed,
+    avatar_effect_saturation: profile.avatar_effect_saturation,
+    avatar_effect_size: profile.avatar_effect_size,
+    avatar_effect_alpha: profile.avatar_effect_alpha,
+    avatar_frame_intensity: profile.avatar_frame_intensity,
+    avatar_frame_color: profile.avatar_frame_color,
   }, {
     extraClass: 'profile-popover-avatar-circle',
     size: 'lg',
@@ -1813,25 +1831,28 @@ function openPopover(anchor: HTMLElement): void {
   // Close on outside click/tap — guard with an existence check so stale
   // handlers don't fire after the popover has already been removed.
   const close = (e: MouseEvent) => {
-    // If the popover is no longer in the DOM, just clean up.
     if (!document.body.contains(popover)) {
       document.removeEventListener('click', close, true);
       return;
     }
-    const target = e.target as Node | null;
-    // Don't close the badge popover when the user is interacting with the
-    // public-profile overlay or the avatar customization modal — both are
-    // mounted outside the anchor element but are conceptually "above" it.
-    if (target && publicProfileOverlay?.contains(target)) return;
-    if (target && document.querySelector('.pa-avatar-modal-backdrop')?.contains(target)) return;
-    if (!anchor.contains(target)) {
+    const target = e.target as (Node & Partial<HTMLElement>) | null;
+    if (!target) return;
+    // Native portal-rendered UI (selects, colour pickers, etc.) reports
+    // targets outside the popover's DOM subtree. Treat those as "inside"
+    // so the popover doesn't get dismissed mid-interaction.
+    if (target instanceof HTMLElement) {
+      const tag = target.tagName;
+      if (tag === 'OPTION' || tag === 'SELECT') return;
+      if (target.matches?.('input[type="color"], input[type="file"], input[type="date"], input[type="time"]')) return;
+    }
+    if (publicProfileOverlay?.contains(target)) return;
+    if (document.querySelector('.pa-avatar-modal-backdrop')?.contains(target)) return;
+    if (document.querySelector('.public-profile-overlay')?.contains(target)) return;
+    if (!anchor.contains(target) && !popover.contains(target)) {
       closePopover();
       document.removeEventListener('click', close, true);
     }
   };
-  // Use capture=true so the handler runs before stopPropagation on inner elements,
-  // but we still check containment — clicks inside the popover (which also bubble
-  // in capture phase through the popover) will pass the anchor.contains() check.
   setTimeout(() => document.addEventListener('click', close, true), 0);
 }
 

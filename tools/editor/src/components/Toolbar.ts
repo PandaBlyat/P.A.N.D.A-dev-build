@@ -635,18 +635,32 @@ function renderVisitorCounter(compact?: boolean): HTMLElement | null {
 
   const title = document.createElement('div');
   title.className = 'toolbar-active-users-title';
-  title.textContent = 'Recent Visitors';
+  title.textContent = 'Last 10 Visitors';
   menu.appendChild(title);
 
   if (recentVisitors.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'toolbar-active-users-empty';
-    empty.textContent = 'Recent visitor timestamps unavailable.';
+    empty.textContent = 'No visitor history yet.';
     menu.appendChild(empty);
   } else {
+    const uniqueVisitors: RecentVisitor[] = [];
+    const seenIds = new Set<string>();
+    const seenNames = new Set<string>();
+    for (const visitor of recentVisitors) {
+      const idKey = visitor.userId;
+      const nameKey = visitor.username?.toLowerCase() ?? '';
+      if (seenIds.has(idKey)) continue;
+      if (nameKey && seenNames.has(nameKey)) continue;
+      seenIds.add(idKey);
+      if (nameKey) seenNames.add(nameKey);
+      uniqueVisitors.push(visitor);
+      if (uniqueVisitors.length >= 10) break;
+    }
+
     const list = document.createElement('div');
     list.className = 'toolbar-active-users-list toolbar-visitors-list';
-    recentVisitors.slice(0, 10).forEach((visitor, index) => {
+    uniqueVisitors.forEach((visitor, index) => {
       list.appendChild(createVisitorListItem(visitor, index, details));
     });
     menu.appendChild(list);
@@ -654,7 +668,7 @@ function renderVisitorCounter(compact?: boolean): HTMLElement | null {
 
   const note = document.createElement('div');
   note.className = 'toolbar-visitors-note';
-  note.textContent = 'Based on latest editor sessions.';
+  note.textContent = 'Unique visitors with last visit date.';
   menu.appendChild(note);
 
   details.append(summary, menu);
@@ -823,16 +837,22 @@ function getVisitorDisplayName(visitor: RecentVisitor, index: number): string {
 
 function formatRecentVisitorTime(isoDate: string): string {
   const timestamp = new Date(isoDate).getTime();
-  if (Number.isNaN(timestamp)) return 'Unknown time';
-  const deltaSeconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
-  if (deltaSeconds < 60) return 'Now';
-  const deltaMinutes = Math.round(deltaSeconds / 60);
-  if (deltaMinutes < 60) return `${deltaMinutes}m ago`;
-  const deltaHours = Math.round(deltaMinutes / 60);
-  if (deltaHours < 24) return `${deltaHours}h ago`;
-  const deltaDays = Math.round(deltaHours / 24);
-  if (deltaDays < 7) return `${deltaDays}d ago`;
-  return new Date(timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  if (Number.isNaN(timestamp)) return 'Unknown date';
+  const now = new Date();
+  const visit = new Date(timestamp);
+  const sameDay = now.toDateString() === visit.toDateString();
+  if (sameDay) {
+    return `Today, ${visit.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (yesterday.toDateString() === visit.toDateString()) {
+    return `Yesterday, ${visit.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+  }
+  const sameYear = now.getFullYear() === visit.getFullYear();
+  return visit.toLocaleDateString(undefined, sameYear
+    ? { month: 'short', day: 'numeric' }
+    : { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function formatRecentVisitorExactTime(isoDate: string): string {
