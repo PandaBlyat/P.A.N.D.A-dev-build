@@ -2137,6 +2137,7 @@ body.use-custom-cursor * {
   right: 12px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 5px 7px;
   background: rgba(8, 10, 12, 0.92);
@@ -2146,6 +2147,37 @@ body.use-custom-cursor * {
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   z-index: 4;
+}
+
+.flow-controls .flow-icon-button {
+  min-width: 26px;
+  padding-inline: 6px;
+}
+
+.flow-controls .flow-icon-button .ui-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.flow-controls .flow-mode-toggle {
+  min-width: 92px;
+}
+
+.flow-controls .flow-mode-toggle.is-active {
+  color: var(--accent-hover);
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border-light));
+  background: color-mix(in srgb, var(--accent) 14%, rgba(255, 255, 255, 0.04));
+}
+
+.flow-density-select {
+  height: 26px;
+  min-width: 94px;
+  padding: 2px 24px 2px 7px;
+  color: var(--text);
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  font-size: 11px;
 }
 
 .flow-cursor-setting {
@@ -5759,13 +5791,12 @@ hr {
   .flow-zoom-value,
   .flow-controls label,
   .flow-controls input[type="range"],
-  .flow-controls button:nth-of-type(4),
   .flow-minimap,
   .flow-shell-mobile .flow-minimap {
     display: none;
   }
 
-  .flow-controls button:nth-of-type(3) {
+  .flow-controls .flow-mode-toggle {
     font-size: 10px;
   }
 
@@ -13565,7 +13596,7 @@ select[data-beginner-tooltip-id] {
     min-height: 40px;
   }
 
-  .main-layout[data-layout-mode="mobile"] .flow-controls button:nth-of-type(3) {
+  .main-layout[data-layout-mode="mobile"] .flow-controls .flow-mode-toggle {
     font-size: 9px;
   }
 

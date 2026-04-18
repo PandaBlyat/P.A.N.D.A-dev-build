@@ -986,6 +986,7 @@ function renderControls(options: {
   onSetCursorEnabled: (enabled: boolean) => void;
   onSetCursorSize: (size: number) => void;
 }): HTMLElement {
+  const state = store.get();
   const controls = document.createElement('div');
   controls.className = 'flow-controls';
 
@@ -1021,6 +1022,51 @@ function renderControls(options: {
   setBeginnerTooltip(reset, 'flow-reset');
   reset.onclick = options.onReset;
 
+  const undo = document.createElement('button');
+  undo.type = 'button';
+  undo.className = 'btn-sm flow-icon-button';
+  undo.appendChild(createIcon('undo'));
+  undo.title = 'Undo last change (Ctrl+Z)';
+  undo.setAttribute('aria-label', 'Undo');
+  undo.disabled = state.undoStack.length === 0;
+  setBeginnerTooltip(undo, 'toolbar-undo');
+  undo.onclick = () => store.undo();
+
+  const redo = document.createElement('button');
+  redo.type = 'button';
+  redo.className = 'btn-sm flow-icon-button';
+  redo.appendChild(createIcon('redo'));
+  redo.title = 'Redo last undone change (Ctrl+Y)';
+  redo.setAttribute('aria-label', 'Redo');
+  redo.disabled = state.redoStack.length === 0;
+  setBeginnerTooltip(redo, 'toolbar-redo');
+  redo.onclick = () => store.redo();
+
+  const authorMode = document.createElement('button');
+  authorMode.type = 'button';
+  authorMode.className = 'btn-sm flow-mode-toggle';
+  authorMode.textContent = state.advancedMode ? 'Advanced On' : 'Author Mode';
+  authorMode.title = state.advancedMode
+    ? 'Show full technical controls'
+    : 'Author Mode hides technical controls until needed';
+  authorMode.setAttribute('aria-pressed', state.advancedMode ? 'true' : 'false');
+  authorMode.classList.toggle('is-active', state.advancedMode);
+  authorMode.onclick = () => store.toggleAdvancedMode();
+
+  const densitySelect = document.createElement('select');
+  densitySelect.className = 'flow-density-select';
+  densitySelect.title = 'Adjust how much information each turn card shows in the flow editor.';
+  setBeginnerTooltip(densitySelect, 'toolbar-density');
+  const densityOptions: FlowDensity[] = ['compact', 'standard', 'detailed'];
+  for (const density of densityOptions) {
+    const option = document.createElement('option');
+    option.value = density;
+    option.textContent = density[0].toUpperCase() + density.slice(1);
+    option.selected = density === state.flowDensity;
+    densitySelect.appendChild(option);
+  }
+  densitySelect.onchange = () => store.setFlowDensity(densitySelect.value as FlowDensity);
+
   const cursorToggle = document.createElement('label');
   cursorToggle.className = 'flow-cursor-setting';
   const cursorToggleInput = document.createElement('input');
@@ -1042,11 +1088,11 @@ function renderControls(options: {
   sizeInput.oninput = () => options.onSetCursorSize(Number(sizeInput.value));
 
   if (options.mobilePerformanceMode) {
-    controls.append(zoomOut, zoomIn, fit);
+    controls.append(zoomOut, zoomIn, undo, redo, fit, authorMode, densitySelect);
     return controls;
   }
 
-  controls.append(zoomOut, options.zoomValue, zoomIn, fit, reset, cursorToggle, sizeInput);
+  controls.append(zoomOut, options.zoomValue, zoomIn, undo, redo, fit, reset, authorMode, densitySelect, cursorToggle, sizeInput);
   return controls;
 }
 

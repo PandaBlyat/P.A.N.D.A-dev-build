@@ -1,7 +1,7 @@
 // P.A.N.D.A. Conversation Editor — Toolbar
 
 import { requestFlowCenter } from '../lib/flow-navigation';
-import { store, type FlowDensity } from '../lib/state';
+import { store } from '../lib/state';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { exportProjectJson, exportXml, importFromXml, importFromJson } from '../lib/project-io';
 import { openSharePanel } from './SharePanel';
@@ -166,42 +166,6 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     const search = renderQuickSearch();
     rightZone.appendChild(search);
 
-    const editorGroup = document.createElement('div');
-    editorGroup.className = 'toolbar-group toolbar-group-edit';
-    const advancedBtn = toggleBtn(
-      'eye',
-      state.advancedMode ? 'Advanced On' : 'Author Mode',
-      state.advancedMode,
-      () => store.toggleAdvancedMode(),
-      state.advancedMode
-        ? 'Show full technical controls'
-        : 'Author Mode hides technical controls until needed',
-    );
-    const densitySelect = document.createElement('select');
-    densitySelect.className = 'toolbar-density-select toolbar-select-quiet';
-    densitySelect.title = 'Adjust how much information each turn card shows in the flow editor.';
-    setBeginnerTooltip(densitySelect, 'toolbar-density');
-    const densityOptions: FlowDensity[] = ['compact', 'standard', 'detailed'];
-    for (const density of densityOptions) {
-      const option = document.createElement('option');
-      option.value = density;
-      option.textContent = density[0].toUpperCase() + density.slice(1);
-      option.selected = density === state.flowDensity;
-      densitySelect.appendChild(option);
-    }
-    densitySelect.onchange = () => store.setFlowDensity(densitySelect.value as FlowDensity);
-    const undoBtn = iconBtn('undo', () => store.undo(), 'Undo', 'Undo last change (Ctrl+Z)');
-    const redoBtn = iconBtn('redo', () => store.redo(), 'Redo', 'Redo last undone change (Ctrl+Y)');
-    setBeginnerTooltip(undoBtn, 'toolbar-undo');
-    setBeginnerTooltip(redoBtn, 'toolbar-redo');
-    undoBtn.disabled = state.undoStack.length === 0;
-    redoBtn.disabled = state.redoStack.length === 0;
-    const historyGroup = document.createElement('div');
-    historyGroup.className = 'toolbar-group toolbar-group-compact toolbar-group-history';
-    historyGroup.append(undoBtn, redoBtn);
-    editorGroup.append(advancedBtn, densitySelect, sep(), historyGroup);
-    rightZone.appendChild(editorGroup);
-
     if (state.advancedMode) {
       const viewGroup = document.createElement('div');
       viewGroup.className = 'toolbar-group toolbar-group-segmented';
@@ -222,17 +186,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
       rightZone.appendChild(viewGroup);
     }
 
-    const status = document.createElement('span');
-    status.className = 'toolbar-status';
-    const convCount = state.project.conversations.length;
-    const stringCount = state.systemStrings.size;
-    if (state.dirty) {
-      status.innerHTML = `<span class="unsaved-dot"></span> ${formatStatus(convCount, stringCount, false, true)}`;
-      status.style.color = 'var(--warning)';
-    } else {
-      status.textContent = formatStatus(convCount, stringCount, false, false);
-    }
-    rightZone.append(status, roadmapBtn, leadersBtn, supportBtn);
+    rightZone.append(roadmapBtn, leadersBtn, supportBtn);
 
     rightZone.appendChild(createOverflowMenu('More', [
       { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
@@ -314,70 +268,6 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   const search = renderQuickSearch();
   editTier.appendChild(search);
 
-    const editGroup = document.createElement('div');
-    editGroup.className = 'toolbar-group toolbar-group-edit';
-  const advancedBtn = toggleBtn(
-    'eye',
-    state.advancedMode ? 'Advanced On' : 'Author Mode',
-    state.advancedMode,
-    () => store.toggleAdvancedMode(),
-    state.advancedMode
-      ? 'Show full technical controls'
-      : 'Author Mode hides technical controls until needed',
-  );
-  const densitySelect = document.createElement('select');
-  densitySelect.className = 'toolbar-density-select toolbar-select-quiet';
-  densitySelect.title = 'Adjust how much information each turn card shows in the flow editor.';
-  setBeginnerTooltip(densitySelect, 'toolbar-density');
-  const densityOptions: FlowDensity[] = ['compact', 'standard', 'detailed'];
-  for (const density of densityOptions) {
-    const option = document.createElement('option');
-    option.value = density;
-    option.textContent = density[0].toUpperCase() + density.slice(1);
-    option.selected = density === state.flowDensity;
-    densitySelect.appendChild(option);
-  }
-  densitySelect.onchange = () => store.setFlowDensity(densitySelect.value as FlowDensity);
-
-  const undoBtn = iconBtn('undo', () => store.undo(), 'Undo', 'Undo last change (Ctrl+Z)');
-  const redoBtn = iconBtn('redo', () => store.redo(), 'Redo', 'Redo last undone change (Ctrl+Y)');
-  setBeginnerTooltip(undoBtn, 'toolbar-undo');
-  setBeginnerTooltip(redoBtn, 'toolbar-redo');
-  undoBtn.disabled = state.undoStack.length === 0;
-  redoBtn.disabled = state.redoStack.length === 0;
-
-  if (isCompact) {
-    const quickActions = document.createElement('div');
-    quickActions.className = 'toolbar-group toolbar-group-compact toolbar-group-history';
-    quickActions.append(undoBtn, redoBtn);
-    editTier.appendChild(quickActions);
-    editTier.appendChild(createOverflowMenu('Editor', [
-      {
-        icon: 'eye',
-        label: state.advancedMode ? 'Advanced On' : 'Author Mode',
-        title: 'Toggle technical controls',
-        onclick: () => store.toggleAdvancedMode(),
-      },
-      {
-        icon: 'locate',
-        label: `Density: ${state.flowDensity}`,
-        title: 'Cycle the amount of information shown on flow nodes',
-        onclick: () => store.setFlowDensity(nextDensity(state.flowDensity)),
-      },
-    ]));
-  } else {
-    editGroup.appendChild(advancedBtn);
-    editGroup.appendChild(densitySelect);
-    editGroup.appendChild(sep());
-
-    const histGroup = document.createElement('div');
-    histGroup.className = 'toolbar-group toolbar-group-compact';
-    histGroup.appendChild(undoBtn);
-    histGroup.appendChild(redoBtn);
-    editGroup.appendChild(histGroup);
-    editTier.appendChild(editGroup);
-  }
-
   toolbar.appendChild(editTier);
 
   const utilityTier = document.createElement('div');
@@ -403,17 +293,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     utilityTier.appendChild(utilityGroup);
   }
 
-  const status = document.createElement('span');
-  status.className = 'toolbar-status';
-  const convCount = state.project.conversations.length;
-  const stringCount = state.systemStrings.size;
-  if (state.dirty) {
-    status.innerHTML = `<span class="unsaved-dot"></span> ${formatStatus(convCount, stringCount, isMobile, true)}`;
-    status.style.color = 'var(--warning)';
-  } else {
-    status.textContent = formatStatus(convCount, stringCount, isMobile, false);
-  }
-  utilityTier.append(status, supportBtn);
+  utilityTier.appendChild(supportBtn);
   utilityTier.appendChild(createOverflowMenu('More', [
     { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
     { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
@@ -868,12 +748,6 @@ function formatRecentVisitorExactTime(isoDate: string): string {
   return new Date(timestamp).toLocaleString();
 }
 
-function nextDensity(current: FlowDensity): FlowDensity {
-  const densityOptions: FlowDensity[] = ['compact', 'standard', 'detailed'];
-  const index = densityOptions.indexOf(current);
-  return densityOptions[(index + 1) % densityOptions.length];
-}
-
 function truncate(value: string, max: number): string {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
@@ -904,17 +778,6 @@ function btn(
   b.onclick = onclick;
   b.title = options.tooltip ?? tooltip ?? label;
   if (options.ariaLabel) b.setAttribute('aria-label', options.ariaLabel);
-  return b;
-}
-
-function iconBtn(icon: IconName, onclick: () => void, ariaLabel: string, tooltip?: string): HTMLButtonElement {
-  const b = document.createElement('button');
-  b.type = 'button';
-  b.className = 'toolbar-button toolbar-icon-button btn-icon';
-  b.appendChild(createIcon(icon));
-  b.onclick = onclick;
-  b.title = tooltip ?? ariaLabel;
-  b.setAttribute('aria-label', ariaLabel);
   return b;
 }
 
