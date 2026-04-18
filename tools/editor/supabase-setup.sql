@@ -1958,3 +1958,149 @@ AS $$
   GROUP BY ua.achievement_id
   ORDER BY ua.achievement_id;
 $$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- PASSWORD AUTH — Add password_hash column to user_profiles
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Requires pgcrypto extension (enabled by default in Supabase)
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+ALTER TABLE user_profiles
+  ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
+-- Update register_username to optionally accept a password
+CREATE OR REPLACE FUNCTION register_username(
+  p_publisher_id TEXT,
+  p_username     TEXT,
+  p_password     TEXT DEFAULT NULL
+)
+RETURNS TABLE(publisher_id TEXT, username TEXT, xp INT, level INT, title TEXT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  clean_name TEXT := btrim(p_username);
+  pw_hash    TEXT := NULL;
+BEGIN
+  IF length(clean_name) < 3 OR length(clean_name) > 20 THEN
+    RAISE EXCEPTION 'Username must be 3–20 characters.';
+  END IF;
+  IF clean_name !~ '^[A-Za-z0-9_\-\.]+$' THEN
+    RAISE EXCEPTION 'Username may only contain letters, numbers, underscores, hyphens, and dots.';
+  END IF;
+
+  -- Hash the password if provided and at least 6 chars
+  IF p_password IS NOT NULL AND length(btrim(p_password)) >= 6 THEN
+    pw_hash := crypt(btrim(p_password), gen_salt('bf', 10));
+  END IF;
+
+  INSERT INTO user_profiles (publisher_id, username, password_hash)
+  VALUES (p_publisher_id, clean_name, pw_hash)
+  ON CONFLICT ON CONSTRAINT user_profiles_pkey
+  DO UPDATE SET
+    username      = clean_name,
+    password_hash = COALESCE(
+      CASE WHEN pw_hash IS NOT NULL THEN pw_hash ELSE NULL END,
+      user_profiles.password_hash
+    ),
+    updated_at    = now();
+
+  PERFORM unlock_achievement_rewarded(p_publisher_id, 'callsign_chosen', 15);
+
+  RETURN QUERY
+  SELECT up.publisher_id, up.username, up.xp, up.level, up.title, up.created_at, up.updated_at
+  FROM user_profiles up
+  WHERE up.publisher_id = p_publisher_id;
+END;
+$$;
+
+-- Login with username + password → returns profile or empty if credentials wrong
+CREATE OR REPLACE FUNCTION login_user(p_username TEXT, p_password TEXT)
+RETURNS TABLE(publisher_id TEXT, username TEXT, xp INT, level INT, title TEXT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT up.publisher_id, up.username, up.xp, up.level, up.title, up.created_at, up.updated_at
+  FROM user_profiles up
+  WHERE lower(up.username) = lower(btrim(p_username))
+    AND up.password_hash IS NOT NULL
+    AND up.password_hash = crypt(btrim(p_password), up.password_hash);
+END;
+$$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- ROADMAP
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS roadmap_items (
+  id          UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  title       TEXT        NOT NULL,
+  description TEXT        NOT NULL DEFAULT '',
+  status      TEXT        NOT NULL DEFAULT 'planned'
+                          CHECK (status IN ('development','planned','considering','completed','dropped')),
+  category    TEXT        NOT NULL DEFAULT 'feature'
+                          CHECK (category IN ('feature','improvement','community','bug')),
+  priority    INT         NOT NULL DEFAULT 0,
+  upvotes     INT         NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_roadmap_status    ON roadmap_items (status);
+CREATE INDEX IF NOT EXISTS idx_roadmap_priority  ON roadmap_items (priority DESC);
+CREATE INDEX IF NOT EXISTS idx_roadmap_created   ON roadmap_items (created_at DESC);
+
+-- Track which publisher_ids upvoted which items (prevents duplicate votes)
+CREATE TABLE IF NOT EXISTS roadmap_upvotes (
+  item_id      UUID  NOT NULL REFERENCES roadmap_items(id) ON DELETE CASCADE,
+  publisher_id TEXT  NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (item_id, publisher_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_roadmap_upvotes_item ON roadmap_upvotes (item_id);
+
+-- Auto-update updated_at
+CREATE OR REPLACE TRIGGER roadmap_items_updated_at
+  BEFORE UPDATE ON roadmap_items
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at_timestamp();
+
+-- RLS: public read, no direct write (admin writes via server-side API)
+ALTER TABLE roadmap_items  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE roadmap_upvotes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY IF NOT EXISTS roadmap_items_select
+  ON roadmap_items FOR SELECT USING (true);
+
+CREATE POLICY IF NOT EXISTS roadmap_upvotes_select
+  ON roadmap_upvotes FOR SELECT USING (true);
+
+-- Allow inserts into roadmap_upvotes (for upvoting)
+CREATE POLICY IF NOT EXISTS roadmap_upvotes_insert
+  ON roadmap_upvotes FOR INSERT WITH CHECK (true);
+
+-- Function: increment upvotes atomically (safe for concurrent calls)
+CREATE OR REPLACE FUNCTION increment_roadmap_upvote(p_item_id UUID, p_publisher_id TEXT DEFAULT NULL)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  -- Record the upvote (idempotent via ON CONFLICT DO NOTHING)
+  IF p_publisher_id IS NOT NULL AND p_publisher_id <> '' THEN
+    INSERT INTO roadmap_upvotes (item_id, publisher_id)
+    VALUES (p_item_id, p_publisher_id)
+    ON CONFLICT DO NOTHING;
+    -- Only increment if the insert was new (i.e., not a duplicate)
+    IF FOUND THEN
+      UPDATE roadmap_items SET upvotes = upvotes + 1, updated_at = now() WHERE id = p_item_id;
+    END IF;
+  ELSE
+    -- Anonymous upvote: just increment (best-effort, no dedup)
+    UPDATE roadmap_items SET upvotes = upvotes + 1, updated_at = now() WHERE id = p_item_id;
+  END IF;
+END;
+$$;

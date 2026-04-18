@@ -183,8 +183,11 @@ const ACTIVE_USERS_TABLE = 'creator_active_users';
 const STREAKS_TABLE = 'user_streaks';
 const MISSIONS_TABLE = 'user_mission_progress';
 const BUG_REPORTS_TABLE = 'editor_bug_reports';
+const ROADMAP_TABLE = 'roadmap_items';
+const ROADMAP_UPVOTES_TABLE = 'roadmap_upvotes';
 const SUPPORT_ROW_ID = 'global';
 const LOCAL_PUBLISH_COOLDOWN_MS = 60_000;
+const LOCAL_ROADMAP_UPVOTES_KEY = 'panda-roadmap-upvotes';
 const LOCAL_PUBLISH_KEY = 'panda-community-last-publish-at';
 const LOCAL_PUBLISHER_ID_KEY = 'panda-community-publisher-id';
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
@@ -1567,12 +1570,12 @@ export async function updateFeaturedAchievements(publisherId: string, achievemen
   return updateUserCosmetics(publisherId, { featured_achievements: clamped });
 }
 
-export async function registerUsername(publisherId: string, username: string): Promise<UserProfile> {
+export async function registerUsername(publisherId: string, username: string, password?: string): Promise<UserProfile> {
   try {
     const profile = await fetchFromApi<UserProfile>('/api/profile/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ publisher_id: publisherId, username }),
+      body: JSON.stringify({ publisher_id: publisherId, username, password }),
     });
     setStoredUsername(username);
     return profile;
@@ -1581,7 +1584,7 @@ export async function registerUsername(publisherId: string, username: string): P
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/register_username`, {
       method: 'POST',
       headers: sbHeaders(),
-      body: JSON.stringify({ p_publisher_id: publisherId, p_username: username }),
+      body: JSON.stringify({ p_publisher_id: publisherId, p_username: username, p_password: password ?? null }),
     });
     if (!res.ok) {
       const msg = await readErrorMessage(res);
@@ -1995,5 +1998,146 @@ export function getPublishXp(complexity: ConversationComplexity): number {
     case 'long': return XP_PUBLISH_LONG;
     case 'medium': return XP_PUBLISH_MEDIUM;
     default: return XP_PUBLISH_SHORT;
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ROADMAP
+// ════════════════════════════════════════════════════════════════════════════
+
+export type RoadmapStatus = 'development' | 'planned' | 'considering' | 'completed' | 'dropped';
+export type RoadmapCategory = 'feature' | 'improvement' | 'community' | 'bug';
+
+export type RoadmapItem = {
+  id: string;
+  title: string;
+  description: string;
+  status: RoadmapStatus;
+  category: RoadmapCategory;
+  priority: number;
+  upvotes: number;
+  created_at: string;
+  updated_at: string;
+};
+
+function getLocalUpvotedIds(): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(LOCAL_ROADMAP_UPVOTES_KEY);
+    if (!raw) return new Set();
+    return new Set(JSON.parse(raw) as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveLocalUpvotedId(itemId: string): void {
+  try {
+    const ids = getLocalUpvotedIds();
+    ids.add(itemId);
+    window.localStorage.setItem(LOCAL_ROADMAP_UPVOTES_KEY, JSON.stringify([...ids]));
+  } catch { /* ignore */ }
+}
+
+export function hasUpvotedRoadmapItem(itemId: string, publisherId: string | null): boolean {
+  if (getLocalUpvotedIds().has(itemId)) return true;
+  return false;
+}
+
+export async function fetchRoadmapItems(): Promise<RoadmapItem[]> {
+  try {
+    return await fetchFromApi<RoadmapItem[]>('/api/roadmap');
+  } catch {
+    try {
+      const params = new URLSearchParams({
+        select: 'id,title,description,status,category,priority,upvotes,created_at,updated_at',
+        order: 'priority.desc,created_at.asc',
+      });
+      const res = await fetch(`${sbEndpoint(ROADMAP_TABLE)}?${params}`, { headers: sbHeaders() });
+      if (!res.ok) return [];
+      return await res.json() as RoadmapItem[];
+    } catch {
+      return [];
+    }
+  }
+}
+
+export async function upvoteRoadmapItem(itemId: string, publisherId: string | null): Promise<void> {
+  saveLocalUpvotedId(itemId);
+  try {
+    await sendToApi(`/api/roadmap/${encodeURIComponent(itemId)}/upvote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publisher_id: publisherId }),
+    });
+    return;
+  } catch { /* fallthrough to direct Supabase */ }
+
+  try {
+    const res = await fetch(`${sbEndpoint(ROADMAP_TABLE)}?id=eq.${encodeURIComponent(itemId)}`, {
+      method: 'PATCH',
+      headers: { ...sbHeaders(), Prefer: 'return=minimal' },
+      body: JSON.stringify({ upvotes: { raw: 'upvotes + 1' } }),
+    });
+    if (!res.ok) {
+      await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_roadmap_upvote`, {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify({ p_item_id: itemId }),
+      });
+    }
+  } catch { /* best-effort */ }
+}
+
+export async function createRoadmapItem(
+  payload: Omit<RoadmapItem, 'id' | 'upvotes' | 'created_at' | 'updated_at'>,
+): Promise<RoadmapItem> {
+  return await fetchFromApi<RoadmapItem>('/api/roadmap', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateRoadmapItem(
+  itemId: string,
+  payload: Partial<Omit<RoadmapItem, 'id' | 'upvotes' | 'created_at' | 'updated_at'>>,
+): Promise<RoadmapItem> {
+  return await fetchFromApi<RoadmapItem>(`/api/roadmap/${encodeURIComponent(itemId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteRoadmapItem(itemId: string): Promise<void> {
+  await sendToApi(`/api/roadmap/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// PASSWORD LOGIN
+// ════════════════════════════════════════════════════════════════════════════
+
+export async function loginWithPassword(username: string, password: string): Promise<UserProfile> {
+  try {
+    return await fetchFromApi<UserProfile>('/api/profile/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+  } catch (apiError) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/login_user`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ p_username: username, p_password: password }),
+    });
+    if (!res.ok) {
+      const msg = await readErrorMessage(res);
+      throw new Error(msg);
+    }
+    const rows = await res.json() as UserProfile[] | UserProfile | null;
+    if (!rows) throw new Error('Invalid username or password.');
+    const profile = Array.isArray(rows) ? rows[0] : rows;
+    if (!profile) throw new Error('Invalid username or password.');
+    return profile;
   }
 }

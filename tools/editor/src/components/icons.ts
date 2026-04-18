@@ -41,7 +41,9 @@ export type IconName =
   | 'target'
   | 'medal'
   | 'bug'
-  | 'sparkle';
+  | 'sparkle'
+  | 'map'
+  | 'upvote';
 
 const BASE_ICON_ATTRS = {
   fill: 'none',
@@ -321,6 +323,19 @@ const ICONS: Record<IconName, IconDef> = {
       { tag: 'path', d: 'M12 0.5l2.5 7 7 1-5.5 5 1.5 7.5-5.5-3.5-5.5 3.5 1.5-7.5-5.5-5 7-1z', fill: 'currentColor', 'stroke-width': '0' },
       { tag: 'path', d: 'M20 14l1.5 4 4 1-3 2-1.5 3.5-1-3.5-3-2 4-1z', fill: 'currentColor', 'stroke-width': '0' },
       { tag: 'path', d: 'M2 16l1.5 3.5 3.5.5-2.5 2-1 3-.5-3-2.5-2 3.5-.5z', fill: 'currentColor', 'stroke-width': '0' },
+    ],
+  },
+  map: {
+    paths: [
+      { tag: 'polygon', points: '1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6' },
+      { tag: 'line', x1: '8', y1: '2', x2: '8', y2: '18' },
+      { tag: 'line', x1: '16', y1: '6', x2: '16', y2: '22' },
+    ],
+  },
+  upvote: {
+    paths: [
+      { tag: 'path', d: 'M12 19V6' },
+      { tag: 'path', d: 'M5 12l7-7 7 7' },
     ],
   },
 };
