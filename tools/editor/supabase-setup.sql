@@ -399,7 +399,7 @@ BEGIN
   DELETE FROM creator_active_users
   WHERE last_seen_at < now() - make_interval(secs => GREATEST(stale_after_seconds, 30));
 
-  SELECT count(*)::INT INTO active_count FROM creator_active_users;
+  active_count := (SELECT count(*)::INT FROM creator_active_users);
   RETURN coalesce(active_count, 0);
 END;
 $$;
@@ -415,7 +415,7 @@ BEGIN
   DELETE FROM creator_active_users
   WHERE last_seen_at < now() - make_interval(secs => GREATEST(stale_after_seconds, 30));
 
-  SELECT count(*)::INT INTO active_count FROM creator_active_users;
+  active_count := (SELECT count(*)::INT FROM creator_active_users);
   RETURN coalesce(active_count, 0);
 END;
 $$;
