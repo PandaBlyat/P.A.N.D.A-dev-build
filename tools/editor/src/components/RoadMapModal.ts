@@ -431,12 +431,26 @@ function openItemEditor(
   cancelBtn.type = 'button';
   cancelBtn.className = 'btn btn-subtle';
   cancelBtn.textContent = 'Cancel';
-  cancelBtn.onclick = () => { overlay.remove(); };
 
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
   saveBtn.className = 'btn btn-primary';
   saveBtn.textContent = existing ? 'Save Changes' : 'Add to Roadmap';
+
+  btnRow.append(cancelBtn, saveBtn);
+  form.append(formTitle, titleLabel, descLabel, statusLabel, catLabel, prioLabel, errorEl, btnRow);
+  overlay.appendChild(form);
+  document.body.appendChild(overlay);
+
+  const editorTrap = trapFocus(form);
+
+  function closeEditor(): void {
+    editorTrap.release();
+    overlay.remove();
+  }
+
+  cancelBtn.onclick = () => closeEditor();
+
   saveBtn.onclick = async () => {
     const title = titleInput.value.trim();
     if (!title) {
@@ -460,7 +474,7 @@ function openItemEditor(
       } else {
         await createRoadmapItem(payload);
       }
-      overlay.remove();
+      closeEditor();
       onSaved();
     } catch (err) {
       errorEl.textContent = err instanceof Error ? err.message : 'Failed to save.';
@@ -470,14 +484,8 @@ function openItemEditor(
     }
   };
 
-  btnRow.append(cancelBtn, saveBtn);
-  form.append(formTitle, titleLabel, descLabel, statusLabel, catLabel, prioLabel, errorEl, btnRow);
-  overlay.appendChild(form);
-  document.body.appendChild(overlay);
-  titleInput.focus();
-
   overlay.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') overlay.remove();
+    if (e.key === 'Escape') closeEditor();
   });
-  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  overlay.onclick = (e) => { if (e.target === overlay) closeEditor(); };
 }

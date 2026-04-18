@@ -1,4 +1,5 @@
 import {
+  deleteBugReport,
   fetchBugReports,
   getLocalPublisherId,
   getStoredUsername,
@@ -384,6 +385,25 @@ function buildAdminControls(report: EditorBugReport): HTMLElement {
     }
   };
 
-  controls.append(status, reply, save, note);
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'toolbar-button bug-report-admin-delete';
+  setButtonContent(deleteBtn, 'delete', 'Delete');
+
+  deleteBtn.onclick = async () => {
+    if (!confirm('Permanently delete this report?')) return;
+    deleteBtn.disabled = true;
+    note.textContent = 'Deleting...';
+    try {
+      await deleteBugReport(report.id, getLocalPublisherId());
+      reports = reports.filter(item => item.id !== report.id);
+      renderReportList();
+    } catch (error) {
+      note.textContent = error instanceof Error ? error.message : 'Delete failed.';
+      deleteBtn.disabled = false;
+    }
+  };
+
+  controls.append(status, reply, save, deleteBtn, note);
   return controls;
 }
