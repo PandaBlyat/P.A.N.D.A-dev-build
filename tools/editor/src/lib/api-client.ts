@@ -1110,7 +1110,7 @@ export async function fetchRecentVisitors(): Promise<RecentVisitor[]> {
     const params = new URLSearchParams({
       select: 'user_id,username,last_seen_at,created_at',
       order: 'last_seen_at.desc',
-      limit: '10',
+      limit: '100',
     });
     const res = await fetch(`${sbEndpoint('site_visitor_log')}?${params}`, { headers: sbHeaders() });
     if (!res.ok) return [];
