@@ -10138,10 +10138,9 @@ select[data-beginner-tooltip-id] {
   top: calc(100% + 10px);
   right: 0;
   z-index: 9000;
-  zoom: 1.25;
-  width: min(1152px, calc((100vw - 24px) / 1.25));
-  max-width: calc((100vw - 24px) / 1.25);
-  max-height: calc((100vh - 56px) / 1.25);
+  width: min(920px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 80px);
   display: flex;
   flex-direction: column;
   background:

@@ -1309,6 +1309,36 @@ app.patch('/api/bug-reports/:id/admin', async (req, res) => {
   }
 });
 
+app.delete('/api/bug-reports/:id', async (req, res) => {
+  try {
+    const reportId = req.params.id.trim();
+    const body = req.body ?? {};
+    const adminPublisherId = sanitizeBugReportText(body.publisher_id, 120);
+
+    if (!reportId) {
+      res.status(400).json({ error: 'Missing report id' });
+      return;
+    }
+    if (!isAdminPublisherId(adminPublisherId)) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    const params = new URLSearchParams({ id: `eq.${reportId}` });
+    const response = await fetch(`${sbEndpoint(BUG_REPORTS_TABLE)}?${params}`, {
+      method: 'DELETE',
+      headers: { ...sbHeaders(), Prefer: 'return=minimal' },
+    });
+    if (!response.ok) {
+      res.status(response.status).json({ error: await readErrorMessage(response) });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 app.post('/api/profile/register', async (req, res) => {
   try {
     const { publisher_id, username, password } = req.body ?? {};

@@ -1276,6 +1276,17 @@ export async function updateBugReportAdmin(
     : null;
 }
 
+export async function deleteBugReport(
+  reportId: string,
+  publisherId: string,
+): Promise<void> {
+  await fetchFromApi<unknown>(`/api/bug-reports/${encodeURIComponent(reportId)}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ publisher_id: publisherId }),
+  });
+}
+
 function normalizeActiveUsernames(payload: unknown): string[] {
   const entries = Array.isArray(payload)
     ? payload
