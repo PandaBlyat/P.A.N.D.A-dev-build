@@ -6579,8 +6579,8 @@ hr {
 }
 
 .share-modal {
-  width: clamp(920px, 84vw, 1180px);
-  height: min(760px, 94vh);
+  width: clamp(1060px, 90vw, 1440px);
+  height: min(900px, 96vh);
   border-radius: 22px;
   border: 1px solid color-mix(in srgb, var(--accent) 28%, rgba(255, 255, 255, 0.14));
   background: linear-gradient(180deg, rgba(17, 23, 31, 0.98) 0%, rgba(8, 12, 17, 0.98) 100%);
@@ -6675,7 +6675,7 @@ hr {
 }
 
 .share-sidebar {
-  width: 208px;
+  width: 232px;
   padding: 14px 10px;
   background: linear-gradient(180deg, rgba(10, 14, 19, 0.98) 0%, rgba(7, 10, 14, 0.98) 100%);
   border-right: 1px solid color-mix(in srgb, var(--accent) 12%, var(--border));
@@ -6683,9 +6683,10 @@ hr {
 
 .share-sidebar-tab {
   margin-bottom: 6px;
-  padding: 10px 12px;
+  padding: 11px 14px;
   border: 1px solid transparent;
   border-radius: 14px;
+  font-size: 13px;
 }
 
 .share-sidebar-tab.is-active {
@@ -6708,13 +6709,14 @@ hr {
 }
 
 .share-grid-wrap {
-  padding: 18px;
+  padding: 22px 24px;
   background: linear-gradient(180deg, rgba(8, 11, 16, 0.24) 0%, rgba(6, 9, 13, 0.06) 100%);
 }
 
 .share-state-banner {
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 14px 18px;
+  font-size: 13px;
   background: color-mix(in srgb, var(--accent) 10%, rgba(255, 255, 255, 0.03));
   border-color: color-mix(in srgb, var(--accent) 32%, rgba(255, 255, 255, 0.12));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -6730,8 +6732,8 @@ hr {
 }
 
 .share-card {
-  padding: 14px 16px;
-  gap: 10px;
+  padding: 18px 20px;
+  gap: 12px;
 }
 
 .share-list-row {
@@ -6740,13 +6742,90 @@ hr {
 }
 
 .share-preview-drawer {
-  padding: 18px;
+  padding: 24px 22px;
   border-radius: 18px;
 }
 
 .share-chip {
+  padding: 4px 10px;
+  font-size: 11.5px;
   background: rgba(255, 255, 255, 0.05);
   border-color: color-mix(in srgb, var(--accent) 16%, var(--border));
+}
+
+.share-library-layout {
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 20px;
+}
+
+.share-grid {
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 14px;
+}
+
+.share-faction-dot {
+  width: 10px;
+  height: 10px;
+}
+
+.share-card-faction-badge {
+  font-size: 11px;
+}
+
+.share-card-title {
+  font-size: 14px;
+}
+
+.share-card-meta {
+  font-size: 12px;
+}
+
+.share-card-desc {
+  font-size: 12px;
+  -webkit-line-clamp: 4;
+}
+
+.share-preview-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.share-preview-subtitle {
+  font-size: 12.5px;
+}
+
+.share-preview-summary {
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.share-preview-description {
+  font-size: 12.5px;
+}
+
+.share-preview-facts {
+  gap: 10px;
+}
+
+.share-preview-fact {
+  padding: 10px 12px;
+}
+
+.share-preview-fact span {
+  font-size: 10.5px;
+}
+
+.share-preview-fact strong {
+  font-size: 13px;
+}
+
+.share-preview-outline-row {
+  font-size: 12px;
+  padding-left: 10px;
+}
+
+.share-cards-column {
+  gap: 14px;
 }
 
 .share-publish-form {
