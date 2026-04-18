@@ -487,6 +487,11 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
           ? `${preset.gradient}, linear-gradient(140deg, #1a1e18, #0c0f0a)`
           : 'linear-gradient(140deg, #1a1e18, #0c0f0a)';
         sample.style.background = background;
+        if (preset.isAnimated) {
+          // background shorthand resets background-size; re-assert so the pan animation works.
+          sample.style.backgroundSize = '200% 200%';
+          sample.style.setProperty('--pa-banner-speed', String(draft.avatar_banner_speed ?? preset.defaultSpeed ?? 1.0));
+        }
         btn.appendChild(sample);
         const label = document.createElement('span');
         label.className = 'pa-avatar-chip-label';
