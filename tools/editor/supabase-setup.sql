@@ -2072,14 +2072,17 @@ CREATE OR REPLACE TRIGGER roadmap_items_updated_at
 ALTER TABLE roadmap_items  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE roadmap_upvotes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS roadmap_items_select
+DROP POLICY IF EXISTS roadmap_items_select  ON roadmap_items;
+CREATE POLICY roadmap_items_select
   ON roadmap_items FOR SELECT USING (true);
 
-CREATE POLICY IF NOT EXISTS roadmap_upvotes_select
+DROP POLICY IF EXISTS roadmap_upvotes_select ON roadmap_upvotes;
+CREATE POLICY roadmap_upvotes_select
   ON roadmap_upvotes FOR SELECT USING (true);
 
 -- Allow inserts into roadmap_upvotes (for upvoting)
-CREATE POLICY IF NOT EXISTS roadmap_upvotes_insert
+DROP POLICY IF EXISTS roadmap_upvotes_insert ON roadmap_upvotes;
+CREATE POLICY roadmap_upvotes_insert
   ON roadmap_upvotes FOR INSERT WITH CHECK (true);
 
 -- Function: increment upvotes atomically (safe for concurrent calls)
