@@ -1266,25 +1266,58 @@ export async function updateBugReportAdmin(
     admin_reply: string;
   },
 ): Promise<EditorBugReport | null> {
-  const response = await fetchFromApi<{ report?: unknown }>(`/api/bug-reports/${encodeURIComponent(reportId)}/admin`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+  try {
+    const response = await fetchFromApi<{ report?: unknown }>(`/api/bug-reports/${encodeURIComponent(reportId)}/admin`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return response.report && typeof response.report === 'object'
+      ? normalizeBugReport(response.report as Record<string, unknown>)
+      : null;
+  } catch (err) {
+    if (!isProxyUnavailableError(err)) throw err;
+  }
+  const updateBody: Record<string, unknown> = {
+    admin_publisher_id: payload.publisher_id,
+    admin_username: payload.username ?? null,
+    admin_reply: payload.admin_reply,
+    status: payload.status,
+  };
+  const params = new URLSearchParams({
+    id: `eq.${reportId}`,
+    select: 'id,subject,message,author_username,author_publisher_id,status,admin_reply,admin_publisher_id,admin_username,metadata,created_at,updated_at',
   });
-  return response.report && typeof response.report === 'object'
-    ? normalizeBugReport(response.report as Record<string, unknown>)
-    : null;
+  const res = await fetch(`${sbEndpoint(BUG_REPORTS_TABLE)}?${params}`, {
+    method: 'PATCH',
+    headers: { ...sbHeaders(), Prefer: 'return=representation' },
+    body: JSON.stringify(updateBody),
+  });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  const rows = await res.json() as Array<Record<string, unknown>>;
+  return rows[0] ? normalizeBugReport(rows[0]) : null;
 }
 
 export async function deleteBugReport(
   reportId: string,
   publisherId: string,
 ): Promise<void> {
-  await fetchFromApi<unknown>(`/api/bug-reports/${encodeURIComponent(reportId)}`, {
+  try {
+    await fetchFromApi<unknown>(`/api/bug-reports/${encodeURIComponent(reportId)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publisher_id: publisherId }),
+    });
+    return;
+  } catch (err) {
+    if (!isProxyUnavailableError(err)) throw err;
+  }
+  const params = new URLSearchParams({ id: `eq.${reportId}` });
+  const res = await fetch(`${sbEndpoint(BUG_REPORTS_TABLE)}?${params}`, {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ publisher_id: publisherId }),
+    headers: { ...sbHeaders(), Prefer: 'return=minimal' },
   });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
 }
 
 function normalizeActiveUsernames(payload: unknown): string[] {
@@ -2099,33 +2132,74 @@ export async function upvoteRoadmapItem(itemId: string, publisherId: string | nu
   } catch { /* best-effort */ }
 }
 
+function isProxyUnavailableError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : '';
+  return msg.includes('(405)') || msg.includes('(404)') || msg.startsWith('Unable to reach API endpoint');
+}
+
 export async function createRoadmapItem(
   payload: Omit<RoadmapItem, 'id' | 'upvotes' | 'created_at' | 'updated_at'>,
 ): Promise<RoadmapItem> {
-  return await fetchFromApi<RoadmapItem>('/api/roadmap', {
+  try {
+    return await fetchFromApi<RoadmapItem>('/api/roadmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, publisher_id: getPublisherId() }),
+    });
+  } catch (err) {
+    if (!isProxyUnavailableError(err)) throw err;
+  }
+  const res = await fetch(sbEndpoint(ROADMAP_TABLE), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...payload, publisher_id: getPublisherId() }),
+    headers: { ...sbHeaders(), Prefer: 'return=representation' },
+    body: JSON.stringify(payload),
   });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  const rows = await res.json() as RoadmapItem[];
+  if (!rows[0]) throw new Error('Failed to create roadmap item.');
+  return rows[0];
 }
 
 export async function updateRoadmapItem(
   itemId: string,
   payload: Partial<Omit<RoadmapItem, 'id' | 'upvotes' | 'created_at' | 'updated_at'>>,
 ): Promise<RoadmapItem> {
-  return await fetchFromApi<RoadmapItem>(`/api/roadmap/${encodeURIComponent(itemId)}`, {
+  try {
+    return await fetchFromApi<RoadmapItem>(`/api/roadmap/${encodeURIComponent(itemId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, publisher_id: getPublisherId() }),
+    });
+  } catch (err) {
+    if (!isProxyUnavailableError(err)) throw err;
+  }
+  const res = await fetch(`${sbEndpoint(ROADMAP_TABLE)}?id=eq.${encodeURIComponent(itemId)}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...payload, publisher_id: getPublisherId() }),
+    headers: { ...sbHeaders(), Prefer: 'return=representation' },
+    body: JSON.stringify(payload),
   });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  const rows = await res.json() as RoadmapItem[];
+  if (!rows[0]) throw new Error('Failed to update roadmap item.');
+  return rows[0];
 }
 
 export async function deleteRoadmapItem(itemId: string): Promise<void> {
-  await sendToApi(`/api/roadmap/${encodeURIComponent(itemId)}`, {
+  try {
+    await sendToApi(`/api/roadmap/${encodeURIComponent(itemId)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publisher_id: getPublisherId() }),
+    });
+    return;
+  } catch (err) {
+    if (!isProxyUnavailableError(err)) throw err;
+  }
+  const res = await fetch(`${sbEndpoint(ROADMAP_TABLE)}?id=eq.${encodeURIComponent(itemId)}`, {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ publisher_id: getPublisherId() }),
+    headers: { ...sbHeaders(), Prefer: 'return=minimal' },
   });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
 }
 
 // ════════════════════════════════════════════════════════════════════════════

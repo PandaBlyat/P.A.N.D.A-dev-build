@@ -1201,6 +1201,39 @@ BEGIN
 END;
 $$;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'editor_bug_reports'
+      AND policyname = 'Public bug report update'
+  ) THEN
+    CREATE POLICY "Public bug report update"
+      ON editor_bug_reports FOR UPDATE
+      USING (true)
+      WITH CHECK (true);
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'editor_bug_reports'
+      AND policyname = 'Public bug report delete'
+  ) THEN
+    CREATE POLICY "Public bug report delete"
+      ON editor_bug_reports FOR DELETE
+      USING (true);
+  END IF;
+END;
+$$;
+
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Profile / Achievement Overhaul — Server-Authoritative Reward Helpers
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -2104,6 +2137,19 @@ CREATE POLICY roadmap_items_select
 DROP POLICY IF EXISTS roadmap_upvotes_select ON roadmap_upvotes;
 CREATE POLICY roadmap_upvotes_select
   ON roadmap_upvotes FOR SELECT USING (true);
+
+-- Allow admin to write roadmap items via direct Supabase fallback
+DROP POLICY IF EXISTS roadmap_items_insert ON roadmap_items;
+CREATE POLICY roadmap_items_insert
+  ON roadmap_items FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS roadmap_items_update ON roadmap_items;
+CREATE POLICY roadmap_items_update
+  ON roadmap_items FOR UPDATE USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS roadmap_items_delete ON roadmap_items;
+CREATE POLICY roadmap_items_delete
+  ON roadmap_items FOR DELETE USING (true);
 
 -- Allow inserts into roadmap_upvotes (for upvoting)
 DROP POLICY IF EXISTS roadmap_upvotes_insert ON roadmap_upvotes;
