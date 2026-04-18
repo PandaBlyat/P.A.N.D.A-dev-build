@@ -16882,14 +16882,45 @@ select[data-beginner-tooltip-id] {
   display: none;
 }
 
+/* Badge wall sub-tabs (Unlocked / Locked) */
+.public-profile-badge-wall-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.public-profile-badge-wall-tab {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.public-profile-badge-wall-tab.is-active {
+  background: color-mix(in srgb, var(--profile-accent, var(--accent)) 16%, var(--bg-panel));
+  border-color: color-mix(in srgb, var(--profile-accent, var(--accent)) 45%, var(--border));
+  color: var(--text);
+}
+.public-profile-badge-wall-tab:hover:not(.is-active) {
+  background: color-mix(in srgb, var(--profile-accent, var(--accent)) 8%, var(--bg-panel));
+  border-color: color-mix(in srgb, var(--profile-accent, var(--accent)) 25%, var(--border));
+  color: var(--text);
+}
+
 .public-profile-badge-wall {
   --badge-bg: color-mix(in srgb, var(--bg-card) 82%, transparent);
   --badge-border: color-mix(in srgb, var(--profile-accent) 28%, var(--border));
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  row-gap: 5px;
-  column-gap: 8px;
-  max-height: 320px;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  row-gap: 3px;
+  column-gap: 6px;
+  max-height: 240px;
   overflow: auto;
   padding-right: 4px;
   scrollbar-width: thin;
@@ -16897,6 +16928,7 @@ select[data-beginner-tooltip-id] {
 
 /* Compact tile: icon on top, name below. All detail is in the tooltip popup. */
 .public-profile-badge-tile {
+  position: relative;
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -16904,7 +16936,7 @@ select[data-beginner-tooltip-id] {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 6px 6px 5px;
+  padding: 5px 5px 4px;
   border: 1px solid color-mix(in srgb, var(--profile-accent) 12%, var(--border));
   border-radius: 8px;
   background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
@@ -18040,6 +18072,82 @@ button.pa-avatar:focus-visible {
   0%   { background-position: 0% 50%; }
   100% { background-position: 200% 50%; }
 }
+@keyframes pa-banner-pulse {
+  0%, 100% { opacity: 0.75; background-position: 0% 50%; }
+  50%       { opacity: 1;    background-position: 100% 50%; }
+}
+@keyframes pa-banner-breathe {
+  0%, 100% { background-position: 0% 0%; filter: brightness(0.85) saturate(1); }
+  50%       { background-position: 100% 100%; filter: brightness(1.15) saturate(1.4); }
+}
+@keyframes pa-banner-strobe {
+  0%, 100% { background-position: 0% 50%; filter: hue-rotate(0deg); }
+  25%       { background-position: 50% 0%;  filter: hue-rotate(30deg); }
+  50%       { background-position: 100% 50%; filter: hue-rotate(60deg); }
+  75%       { background-position: 50% 100%; filter: hue-rotate(90deg); }
+}
+@keyframes pa-banner-flicker {
+  0%, 95%, 100% { opacity: 1; }
+  96%           { opacity: 0.6; }
+  97%           { opacity: 1; }
+  98%           { opacity: 0.7; }
+}
+@keyframes pa-banner-wave {
+  0%   { background-position: 0% 0%; }
+  33%  { background-position: 100% 50%; }
+  66%  { background-position: 0% 100%; }
+  100% { background-position: 0% 0%; }
+}
+@keyframes pa-banner-spiral {
+  0%   { background-position: 0% 50%; filter: hue-rotate(0deg) saturate(1); }
+  50%  { background-position: 200% 50%; filter: hue-rotate(180deg) saturate(1.5); }
+  100% { background-position: 400% 50%; filter: hue-rotate(360deg) saturate(1); }
+}
+
+/* Unique per-banner animation overrides via data-banner selector */
+[data-banner='neon-flicker'].pa-anim-bg,
+.pa-avatar-chip-banner-sample[data-banner='neon-flicker'].pa-anim-bg {
+  animation: pa-banner-pan calc(8s / var(--pa-banner-speed, 1)) linear infinite,
+             pa-banner-flicker calc(4s / var(--pa-banner-speed, 1)) step-end infinite;
+}
+[data-banner='plasma-storm'].pa-anim-bg,
+.pa-avatar-chip-banner-sample[data-banner='plasma-storm'].pa-anim-bg {
+  animation: pa-banner-strobe calc(6s / var(--pa-banner-speed, 1)) ease-in-out infinite;
+}
+[data-banner='zone-pulse'].pa-anim-bg,
+.pa-avatar-chip-banner-sample[data-banner='zone-pulse'].pa-anim-bg,
+[data-banner='echo-grid'].pa-anim-bg,
+.pa-avatar-chip-banner-sample[data-banner='echo-grid'].pa-anim-bg {
+  animation: pa-banner-breathe calc(4s / var(--pa-banner-speed, 1)) ease-in-out infinite;
+}
+[data-banner='blood-tide'].pa-anim-bg,
+.pa-avatar-chip-banner-sample[data-banner='blood-tide'].pa-anim-bg {
+  animation: pa-banner-pulse calc(3s / var(--pa-banner-speed, 1)) ease-in-out infinite;
+}
+[data-banner='matrix-rain'].pa-anim-bg,
+.pa-avatar-chip-banner-sample[data-banner='matrix-rain'].pa-anim-bg {
+  animation: pa-banner-wave calc(5s / var(--pa-banner-speed, 1)) linear infinite;
+}
+[data-banner='celestial-drift'].pa-anim-bg,
+.pa-avatar-chip-banner-sample[data-banner='celestial-drift'].pa-anim-bg,
+[data-banner='omega-cascade'].pa-anim-bg,
+.pa-avatar-chip-banner-sample[data-banner='omega-cascade'].pa-anim-bg {
+  animation: pa-banner-spiral calc(12s / var(--pa-banner-speed, 1)) linear infinite;
+}
+[data-banner='golden-shine'].pa-anim-bg,
+.pa-avatar-chip-banner-sample[data-banner='golden-shine'].pa-anim-bg {
+  animation: pa-banner-breathe calc(5s / var(--pa-banner-speed, 1)) ease-in-out infinite;
+}
+[data-banner='void-pulse'].pa-anim-bg,
+.pa-avatar-chip-banner-sample[data-banner='void-pulse'].pa-anim-bg {
+  animation: pa-banner-pulse calc(2s / var(--pa-banner-speed, 1)) ease-in-out infinite;
+}
+[data-banner='anomaly-flash'].pa-anim-bg,
+.pa-avatar-chip-banner-sample[data-banner='anomaly-flash'].pa-anim-bg {
+  animation: pa-banner-strobe calc(3s / var(--pa-banner-speed, 1)) ease-in-out infinite,
+             pa-banner-flicker calc(5s / var(--pa-banner-speed, 1)) step-end infinite;
+}
+
 .pa-anim-bg {
   background-size: 200% 200%;
   background-repeat: repeat;
@@ -18488,6 +18596,23 @@ button.pa-avatar:focus-visible {
   80% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); transform: translateY(-5px); }
 }
 
+/* Frame: ember_ring (Lv 4) - Warm ember glow, static */
+.pa-avatar-frame-ember_ring { border: 2px solid color-mix(in srgb, var(--pa-avatar-color) 55%, #e05522); box-shadow: 0 0 8px rgba(230,100,30,0.35), inset 0 0 5px rgba(230,80,10,0.2); }
+.pa-avatar-frame-ember_ring .pa-avatar-ornament {
+  opacity: 1; inset: -8px; border-radius: 999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--pa-avatar-color) 35%, #e05522 65%) 0%, transparent 65%);
+  animation: paAvatarPulse 4s ease-in-out infinite;
+}
+
+/* Frame: static_charge (Lv 14) - Electric jitter ring */
+.pa-avatar-frame-static_charge { border: 2px solid color-mix(in srgb, var(--pa-avatar-color) 60%, #60a5fa); box-shadow: 0 0 10px color-mix(in srgb, var(--pa-avatar-color) 50%, #60a5fa 50%), inset 0 0 6px rgba(96,165,250,0.18); }
+.pa-avatar-frame-static_charge .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.78); inset: -7px;
+  background: conic-gradient(from 0deg, transparent 65%, color-mix(in srgb, var(--pa-avatar-color) 60%, #93c5fd) 75%, rgba(255,255,255,0.85) 80%, transparent 90%);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 80%, transparent 85%);
+  animation: paAvatarSpin 0.8s linear infinite, paAvatarPulse 1.6s ease-in-out infinite;
+}
+
 /* Frame: cogwork (Lv 12) - Heavy, slow-turning gear */
 .pa-avatar-frame-cogwork { border: 3px solid color-mix(in srgb, var(--pa-avatar-color) 60%, #78716c); }
 .pa-avatar-frame-cogwork .pa-avatar-ornament {
@@ -18577,6 +18702,62 @@ button.pa-avatar:focus-visible {
   content: ''; position: absolute; inset: -20px; border-radius: 50%;
   border: 1px dotted rgba(103, 232, 249, 0.7);
   animation: paAvatarSpin 10s linear infinite;
+}
+
+/* Frame: jade_seal (Lv 54) – Ancient jade engraving ring */
+.pa-avatar-frame-jade_seal { border: 2px solid color-mix(in srgb, #22c55e 55%, #a7f3d0); box-shadow: 0 0 14px rgba(34,197,94,0.45), inset 0 0 8px rgba(34,197,94,0.15); }
+.pa-avatar-frame-jade_seal .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.85); inset: -9px;
+  background: conic-gradient(from 0deg, #22c55e, rgba(167,243,208,0.6) 20deg, rgba(20,83,45,0.8) 40deg, #22c55e 60deg, rgba(167,243,208,0.6) 80deg, rgba(20,83,45,0.8) 100deg, #22c55e 120deg, rgba(167,243,208,0.6) 140deg, rgba(20,83,45,0.8) 160deg, #22c55e 180deg, rgba(167,243,208,0.6) 200deg, rgba(20,83,45,0.8) 220deg, #22c55e 240deg, rgba(167,243,208,0.6) 260deg, rgba(20,83,45,0.8) 280deg, #22c55e 300deg, rgba(167,243,208,0.6) 320deg, rgba(20,83,45,0.8) 340deg, #22c55e);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%, #000 79%, transparent 83%);
+  animation: paAvatarSpinRev 22s linear infinite;
+  filter: drop-shadow(0 0 6px rgba(34,197,94,0.5));
+}
+
+/* Frame: chrono_rift (Lv 74) – Time distortion clock ring */
+@keyframes paChronoTick {
+  0%   { transform: rotate(0deg); }
+  8%   { transform: rotate(30deg); }
+  16%  { transform: rotate(60deg); }
+  25%  { transform: rotate(90deg); }
+  33%  { transform: rotate(120deg); }
+  41%  { transform: rotate(150deg); }
+  50%  { transform: rotate(180deg); }
+  58%  { transform: rotate(210deg); }
+  66%  { transform: rotate(240deg); }
+  75%  { transform: rotate(270deg); }
+  83%  { transform: rotate(300deg); }
+  91%  { transform: rotate(330deg); }
+  100% { transform: rotate(360deg); }
+}
+.pa-avatar-frame-chrono_rift { border: 2px solid color-mix(in srgb, var(--pa-avatar-color) 50%, #fde68a); box-shadow: 0 0 20px color-mix(in srgb, var(--pa-avatar-color) 40%, #fde68a 60%), inset 0 0 12px rgba(253,230,138,0.15); }
+.pa-avatar-frame-chrono_rift .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.93); inset: -9px;
+  background: conic-gradient(from 0deg, var(--pa-avatar-color) 0deg, #fde68a 8deg, transparent 16deg, transparent 22deg, var(--pa-avatar-color) 30deg, #fde68a 38deg, transparent 46deg, transparent 52deg, var(--pa-avatar-color) 60deg, #fde68a 68deg, transparent 76deg, transparent 82deg, var(--pa-avatar-color) 90deg, #fde68a 98deg, transparent 106deg, transparent 112deg, var(--pa-avatar-color) 120deg, #fde68a 128deg, transparent 136deg, transparent 142deg, var(--pa-avatar-color) 150deg, #fde68a 158deg, transparent 166deg, transparent 172deg, var(--pa-avatar-color) 180deg, #fde68a 188deg, transparent 196deg, transparent 202deg, var(--pa-avatar-color) 210deg, #fde68a 218deg, transparent 226deg, transparent 232deg, var(--pa-avatar-color) 240deg, #fde68a 248deg, transparent 256deg, transparent 262deg, var(--pa-avatar-color) 270deg, #fde68a 278deg, transparent 286deg, transparent 292deg, var(--pa-avatar-color) 300deg, #fde68a 308deg, transparent 316deg, transparent 322deg, var(--pa-avatar-color) 330deg, #fde68a 338deg, transparent 346deg, transparent 352deg, var(--pa-avatar-color) 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 54%, #000 57%, #000 80%, transparent 84%);
+  animation: paChronoTick 2s steps(12, end) infinite;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--pa-avatar-color) 60%, #fde68a 40%));
+}
+
+/* Frame: divine_mandate (Lv 87) – Sacred multi-ring halo */
+@keyframes paDivineExpand {
+  0%, 100% { transform: scale(1); opacity: var(--pa-frame-intensity, 0.97); }
+  50%       { transform: scale(1.04); opacity: 1; }
+}
+.pa-avatar-frame-divine_mandate { border: 2px solid #fef08a; box-shadow: 0 0 25px #fef08a, 0 0 50px rgba(254,240,138,0.3), inset 0 0 15px rgba(254,240,138,0.12); }
+.pa-avatar-frame-divine_mandate .pa-avatar-ornament {
+  opacity: var(--pa-frame-intensity, 0.97); inset: -12px; border-radius: 999px;
+  background: conic-gradient(from 0deg, #fef08a, rgba(255,255,255,0.9) 20deg, #fbbf24 60deg, rgba(255,255,255,0.7) 90deg, #fef08a 120deg, rgba(255,255,255,0.5) 150deg, #f59e0b 180deg, rgba(255,255,255,0.7) 210deg, #fef08a 240deg, rgba(255,255,255,0.9) 270deg, #fbbf24 300deg, rgba(255,255,255,0.7) 330deg, #fef08a 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 54%, #000 57%, #000 75%, transparent 78%);
+  animation: paAvatarSpin 8s linear infinite;
+  filter: drop-shadow(0 0 14px rgba(254,240,138,0.85));
+}
+.pa-avatar-frame-divine_mandate::after {
+  content: '✦'; position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+  color: #fef08a; font-size: 14px; line-height: 1;
+  text-shadow: 0 0 8px #fef08a, 0 0 16px #fbbf24;
+  animation: paDivineExpand 2s ease-in-out infinite;
+  pointer-events: none; z-index: 4;
 }
 
 /* =========================================================================

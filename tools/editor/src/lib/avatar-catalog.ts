@@ -37,7 +37,9 @@ export type AvatarFramePreset = {
     | 'noosphere' | 'supernova' | 'event_horizon' | 'zone_heart'
     // --- Newest Additions ---
     | 'cogwork' | 'sonar_sweep' | 'containment_field' | 'gilded_serpent'
-    | 'reality_breach' | 'aether_weave' | 'world_eater' | 'c_consciousness';
+    | 'reality_breach' | 'aether_weave' | 'world_eater' | 'c_consciousness'
+    // --- New Additions ---
+    | 'ember_ring' | 'static_charge' | 'jade_seal' | 'chrono_rift' | 'divine_mandate';
   /** Default intensity for animated frames (0-100) */
   defaultIntensity?: number;
 };
@@ -307,14 +309,16 @@ export const AVATAR_COLOR_PRESETS: AvatarColorPreset[] = [
 // ---------------------------------------------------------------------------
 export const AVATAR_FRAME_PRESETS: AvatarFramePreset[] = [
   // Starter Frames
-  { id: 'none',        label: 'No frame',         variant: 'none' },
-  { id: 'hex',         label: 'Hex plating',      variant: 'hex' },
+  { id: 'none',          label: 'No frame',         variant: 'none' },
+  { id: 'hex',           label: 'Hex plating',      variant: 'hex' },
+  { id: 'ember_ring',    label: 'Ember Ring',        variant: 'ember_ring', minLevel: 4 },
 
   // Basic Frames (Lv 5-15)
-  { id: 'runic',       label: 'Runic Ring',       variant: 'runic', minLevel: 5 },
-  { id: 'halo',        label: 'Halo',             variant: 'halo',  minLevel: 10 },
-  { id: 'cogwork',     label: 'Cogwork',          variant: 'cogwork',     minLevel: 12, isAnimated: true, defaultIntensity: 100 },
-  { id: 'radioactive', label: 'Radioactive',      variant: 'radioactive', minLevel: 15, isAnimated: true, defaultIntensity: 75 },
+  { id: 'runic',         label: 'Runic Ring',       variant: 'runic',        minLevel: 5 },
+  { id: 'halo',          label: 'Halo',             variant: 'halo',         minLevel: 10 },
+  { id: 'cogwork',       label: 'Cogwork',          variant: 'cogwork',      minLevel: 12, isAnimated: true, defaultIntensity: 100 },
+  { id: 'static_charge', label: 'Static Charge',    variant: 'static_charge',minLevel: 14, isAnimated: true, defaultIntensity: 78 },
+  { id: 'radioactive',   label: 'Radioactive',      variant: 'radioactive',  minLevel: 15, isAnimated: true, defaultIntensity: 75 },
 
   // Mid-Tier Frames (Lv 18-48)
   { id: 'scrapwork',   label: 'Junker\'s Guard',  variant: 'scrapwork',   minLevel: 18 },
@@ -335,6 +339,7 @@ export const AVATAR_FRAME_PRESETS: AvatarFramePreset[] = [
   // High-Tier Frames (Lv 50-70)
   { id: 'legend',      label: 'Living Legend',    variant: 'legend',      minLevel: 50, isAnimated: true, defaultIntensity: 88 },
   { id: 'solar_flare', label: 'Solar Flare',      variant: 'solar_flare', minLevel: 52, isAnimated: true, defaultIntensity: 90 },
+  { id: 'jade_seal',   label: 'Jade Seal',        variant: 'jade_seal',   minLevel: 54, isAnimated: true, defaultIntensity: 85 },
   { id: 'neon',        label: 'Neon Synapse',     variant: 'neon',        minLevel: 55, isAnimated: true, defaultIntensity: 85 },
   { id: 'geode',       label: 'Geode Cluster',    variant: 'geode',       minLevel: 58, isAnimated: true, defaultIntensity: 85 },
   { id: 'crystal',     label: 'Prismatic',        variant: 'crystal',     minLevel: 60, isAnimated: true, defaultIntensity: 80 },
@@ -346,6 +351,7 @@ export const AVATAR_FRAME_PRESETS: AvatarFramePreset[] = [
   
   // Exotic Frames (Lv 72-98)
   { id: 'nexus',       label: 'Nexus Core',       variant: 'nexus',       minLevel: 72, isAnimated: true, defaultIntensity: 91 },
+  { id: 'chrono_rift', label: 'Chrono Rift',      variant: 'chrono_rift', minLevel: 74, isAnimated: true, defaultIntensity: 93 },
   { id: 'frost',       label: 'Absolute Zero',    variant: 'frost',       minLevel: 75, isAnimated: true, defaultIntensity: 88 },
   { id: 'quantum',     label: 'Quantum Foam',     variant: 'quantum',     minLevel: 76, isAnimated: true, defaultIntensity: 94 },
   { id: 'eclipse',     label: 'Eclipse',          variant: 'eclipse',     minLevel: 78, isAnimated: true, defaultIntensity: 87 },
@@ -353,8 +359,9 @@ export const AVATAR_FRAME_PRESETS: AvatarFramePreset[] = [
   { id: 'aurora',      label: 'Aurora Crown',     variant: 'aurora',      minLevel: 82, isAnimated: true, defaultIntensity: 89 },
   { id: 'reality_breach', label: 'Reality Breach',variant: 'reality_breach', minLevel: 84, isAnimated: true, defaultIntensity: 96 },
   { id: 'torment',     label: 'Torment',          variant: 'torment',     minLevel: 85, isAnimated: true, defaultIntensity: 94 },
-  { id: 'noosphere',   label: 'Noosphere',        variant: 'noosphere',   minLevel: 86, isAnimated: true, defaultIntensity: 95 },
-  { id: 'abyssal',     label: 'Abyssal Deep',     variant: 'abyssal',     minLevel: 88, isAnimated: true, defaultIntensity: 96 },
+  { id: 'noosphere',      label: 'Noosphere',        variant: 'noosphere',      minLevel: 86, isAnimated: true, defaultIntensity: 95 },
+  { id: 'divine_mandate',label: 'Divine Mandate',  variant: 'divine_mandate', minLevel: 87, isAnimated: true, defaultIntensity: 97 },
+  { id: 'abyssal',       label: 'Abyssal Deep',    variant: 'abyssal',        minLevel: 88, isAnimated: true, defaultIntensity: 96 },
   { id: 'celestial',   label: 'Celestial',        variant: 'celestial',   minLevel: 90, isAnimated: true, defaultIntensity: 92 },
   { id: 'aether_weave',label: 'Aether Weave',     variant: 'aether_weave', minLevel: 91, isAnimated: true, defaultIntensity: 95 },
   { id: 'seraph',      label: 'Seraph Halo',      variant: 'seraph',      minLevel: 92, isAnimated: true, defaultIntensity: 93 },
@@ -844,6 +851,108 @@ export const AVATAR_BANNER_PRESETS: AvatarBannerPreset[] = [
     minLevel: 90,
     isAnimated: true,
     gradient: 'repeating-conic-gradient(from 0deg, rgba(0,255,128,0.2) 0deg, rgba(255,0,128,0.2) 45deg, rgba(0,128,255,0.2) 90deg, rgba(255,128,0,0.2) 135deg, rgba(0,255,128,0.2) 180deg)',
+  },
+
+  // ==================== NEW UNIQUE ANIMATED BANNERS (level 2–100) ====================
+  // Low tier — subtle breathe/pulse effects
+  {
+    id: 'zone-pulse',
+    label: 'Zone Pulse',
+    minLevel: 2,
+    isAnimated: true,
+    defaultSpeed: 1.2,
+    gradient: 'radial-gradient(circle at 50% 50%, rgba(94,170,58,0.4), rgba(40,70,20,0.2) 55%, transparent 80%)',
+  },
+  {
+    id: 'echo-grid',
+    label: 'Echo Grid',
+    minLevel: 6,
+    isAnimated: true,
+    defaultSpeed: 0.9,
+    gradient: 'repeating-radial-gradient(circle at 40% 60%, rgba(34,211,238,0.18) 0px, rgba(34,211,238,0.18) 2px, transparent 2px, transparent 14px)',
+  },
+  {
+    id: 'blood-tide',
+    label: 'Blood Tide',
+    minLevel: 10,
+    isAnimated: true,
+    defaultSpeed: 0.8,
+    gradient: 'radial-gradient(ellipse at 20% 80%, rgba(180,0,0,0.5), rgba(100,0,0,0.25) 50%, transparent 80%)',
+  },
+  // Mid tier — colour-shifting and strobe effects
+  {
+    id: 'neon-flicker',
+    label: 'Neon Flicker',
+    minLevel: 20,
+    isAnimated: true,
+    defaultSpeed: 1.5,
+    gradient: 'linear-gradient(110deg, rgba(255,0,200,0.5), rgba(0,255,255,0.4) 45%, rgba(255,200,0,0.3) 80%)',
+  },
+  {
+    id: 'matrix-rain',
+    label: 'Matrix Rain',
+    minLevel: 30,
+    isAnimated: true,
+    defaultSpeed: 1.6,
+    gradient: 'repeating-linear-gradient(180deg, rgba(0,255,50,0.22) 0px, rgba(0,255,50,0.22) 2px, transparent 2px, transparent 18px)',
+  },
+  {
+    id: 'plasma-storm',
+    label: 'Plasma Storm',
+    minLevel: 38,
+    isAnimated: true,
+    defaultSpeed: 1.3,
+    gradient: 'conic-gradient(from 0deg at 40% 60%, rgba(255,0,200,0.4), rgba(80,0,255,0.35), rgba(0,200,255,0.35), rgba(255,0,200,0.4))',
+  },
+  {
+    id: 'golden-shine',
+    label: 'Golden Shine',
+    minLevel: 46,
+    isAnimated: true,
+    defaultSpeed: 0.7,
+    gradient: 'linear-gradient(125deg, rgba(255,215,0,0.55), rgba(255,165,0,0.3) 40%, rgba(255,255,180,0.4) 65%, rgba(200,130,0,0.25) 90%)',
+  },
+  // High tier — dramatic, otherworldly effects
+  {
+    id: 'celestial-drift',
+    label: 'Celestial Drift',
+    minLevel: 58,
+    isAnimated: true,
+    defaultSpeed: 0.5,
+    gradient: 'conic-gradient(from 45deg at 30% 50%, rgba(100,0,255,0.35), rgba(0,100,255,0.3), rgba(0,255,200,0.25), rgba(255,100,0,0.2), rgba(100,0,255,0.35))',
+  },
+  {
+    id: 'anomaly-flash',
+    label: 'Anomaly Flash',
+    minLevel: 64,
+    isAnimated: true,
+    defaultSpeed: 2.0,
+    gradient: 'repeating-linear-gradient(72deg, rgba(255,0,255,0.35) 0px, rgba(255,0,255,0.35) 3px, rgba(0,255,255,0.25) 3px, rgba(0,255,255,0.25) 9px, transparent 9px, transparent 20px)',
+  },
+  {
+    id: 'void-pulse',
+    label: 'Void Pulse',
+    minLevel: 72,
+    isAnimated: true,
+    defaultSpeed: 0.6,
+    gradient: 'radial-gradient(circle at 50% 50%, rgba(80,0,180,0.6), rgba(0,0,0,0.5) 45%, rgba(40,0,80,0.3) 70%, transparent 90%)',
+  },
+  // Ultimate tier — endgame cosmetics
+  {
+    id: 'omega-cascade',
+    label: 'Omega Cascade',
+    minLevel: 88,
+    isAnimated: true,
+    defaultSpeed: 0.8,
+    gradient: 'conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,0.5), rgba(255,0,150,0.4), rgba(0,200,255,0.4), rgba(255,200,0,0.4), rgba(255,255,255,0.5))',
+  },
+  {
+    id: 'zone-heart-pulse',
+    label: 'Heart of the Zone',
+    minLevel: 100,
+    isAnimated: true,
+    defaultSpeed: 0.5,
+    gradient: 'radial-gradient(circle at 50% 50%, rgba(255,50,50,0.7), rgba(200,0,0,0.4) 30%, rgba(100,0,100,0.3) 60%, rgba(0,0,0,0.5) 90%)',
   },
 ];
 

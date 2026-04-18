@@ -155,6 +155,7 @@ function buildHeader(data: PublicProfileData, onAvatarClick?: (event: MouseEvent
   if (bannerBg) {
     header.style.background = bannerBg;
     header.dataset.customBanner = String(profile.avatar_banner);
+    if (profile.avatar_banner) header.setAttribute('data-banner', profile.avatar_banner);
     if (getAvatarBannerPreset(profile.avatar_banner)?.isAnimated) {
       header.classList.add('pa-anim-bg');
       // background shorthand resets background-size, so re-assert it after
@@ -426,24 +427,6 @@ function buildAchievementsSection(data: PublicProfileData, ctx?: BadgeTooltipCon
   });
   section.appendChild(summary);
 
-  const wall = document.createElement('div');
-  wall.className = 'public-profile-badge-wall';
-
-  // Unlocked first, then visible locked, then hidden mystery.
-  const unlockedAchievements = catalog.filter(a => unlocked.has(a.id));
-  const visibleLocked = catalog.filter(a => !unlocked.has(a.id) && !a.hidden);
-  const hiddenLocked = catalog.filter(a => !unlocked.has(a.id) && a.hidden);
-
-  for (const achievement of unlockedAchievements) {
-    wall.appendChild(buildBadgeTile(achievement.id as AchievementId, achievement.name, achievement.description, 'unlocked', `${achievement.tier} · +${achievement.xp} XP`, ctx));
-  }
-  for (const achievement of visibleLocked) {
-    wall.appendChild(buildBadgeTile(achievement.id as AchievementId, achievement.name, achievement.description, 'locked-visible', `${achievement.tier} · Locked`));
-  }
-  for (const _achievement of hiddenLocked) {
-    wall.appendChild(buildBadgeTile(null, 'Mystery badge', 'Discover hidden challenges to unlock.', 'locked-hidden', 'Hidden'));
-  }
-
   if (catalog.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'public-profile-empty';
@@ -452,7 +435,69 @@ function buildAchievementsSection(data: PublicProfileData, ctx?: BadgeTooltipCon
     return section;
   }
 
-  section.appendChild(wall);
+  // Partition achievements into unlocked vs locked.
+  const unlockedAchievements = catalog.filter(a => unlocked.has(a.id));
+  const visibleLocked = catalog.filter(a => !unlocked.has(a.id) && !a.hidden);
+  const hiddenLocked = catalog.filter(a => !unlocked.has(a.id) && a.hidden);
+  const lockedCount = visibleLocked.length + hiddenLocked.length;
+
+  // Tab bar
+  const tabBar = document.createElement('div');
+  tabBar.className = 'public-profile-badge-wall-tabs';
+
+  const unlockedTab = document.createElement('button');
+  unlockedTab.type = 'button';
+  unlockedTab.className = 'public-profile-badge-wall-tab is-active';
+  unlockedTab.textContent = `Unlocked (${unlockedAchievements.length})`;
+
+  const lockedTab = document.createElement('button');
+  lockedTab.type = 'button';
+  lockedTab.className = 'public-profile-badge-wall-tab';
+  lockedTab.textContent = `Locked (${lockedCount})`;
+
+  tabBar.append(unlockedTab, lockedTab);
+  section.appendChild(tabBar);
+
+  // Unlocked wall
+  const unlockedWall = document.createElement('div');
+  unlockedWall.className = 'public-profile-badge-wall';
+  for (const achievement of unlockedAchievements) {
+    unlockedWall.appendChild(buildBadgeTile(achievement.id as AchievementId, achievement.name, achievement.description, 'unlocked', `${achievement.tier} · +${achievement.xp} XP`, ctx));
+  }
+  if (unlockedAchievements.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'public-profile-empty';
+    empty.textContent = 'No badges unlocked yet — start publishing!';
+    empty.style.gridColumn = '1 / -1';
+    unlockedWall.appendChild(empty);
+  }
+
+  // Locked wall (initially hidden)
+  const lockedWall = document.createElement('div');
+  lockedWall.className = 'public-profile-badge-wall';
+  lockedWall.style.display = 'none';
+  for (const achievement of visibleLocked) {
+    lockedWall.appendChild(buildBadgeTile(achievement.id as AchievementId, achievement.name, achievement.description, 'locked-visible', `${achievement.tier} · Locked`));
+  }
+  for (const _achievement of hiddenLocked) {
+    lockedWall.appendChild(buildBadgeTile(null, 'Mystery badge', 'Discover hidden challenges to unlock.', 'locked-hidden', 'Hidden'));
+  }
+
+  // Tab switching
+  unlockedTab.addEventListener('click', () => {
+    unlockedTab.classList.add('is-active');
+    lockedTab.classList.remove('is-active');
+    unlockedWall.style.display = '';
+    lockedWall.style.display = 'none';
+  });
+  lockedTab.addEventListener('click', () => {
+    lockedTab.classList.add('is-active');
+    unlockedTab.classList.remove('is-active');
+    unlockedWall.style.display = 'none';
+    lockedWall.style.display = '';
+  });
+
+  section.append(unlockedWall, lockedWall);
   return section;
 }
 

@@ -116,7 +116,16 @@ export type AchievementId =
   | 'all_categories_complete'
   | 'full_collection'
   | 'faction_master'
-  | 'quality_run';
+  | 'quality_run'
+  // ─── v3 additions ────────────────────────────────────────────────────────
+  | 'long_runner'
+  | 'persistence'
+  | 'signal_relay'
+  | 'daily_devotee'
+  | 'zone_architect'
+  | 'night_owl'
+  | 'solo_legend'
+  | 'storyteller_supreme';
 
 export type Achievement = {
   id: AchievementId;
@@ -180,6 +189,15 @@ export const UNIMPLEMENTED_ACHIEVEMENT_IDS: ReadonlySet<AchievementId> = new Set
   'faction_master',
   'quality_run',
   'all_categories_complete',
+  // v3 — no server trigger yet
+  'long_runner',
+  'persistence',
+  'signal_relay',
+  'daily_devotee',
+  'zone_architect',
+  'night_owl',
+  'solo_legend',
+  'storyteller_supreme',
 ]);
 
 export function isAchievementUnimplemented(achievement: Achievement): boolean {
@@ -283,6 +301,16 @@ export const ACHIEVEMENTS: Achievement[] = [
   // ─── v2 Collection ─────────────────────────────────────────────────────────
   { id: 'all_categories_complete', name: 'Zone Master', description: 'Unlock at least one achievement from every single category', xp: 800, icon: '\u{1F30D}', tier: 'gold', category: 'collection', hidden: true },
   { id: 'full_collection', name: 'Complete Dossier', description: 'Unlock 30 or more achievements', xp: 1000, icon: '\u{1F4C2}', tier: 'gold', category: 'collection', featured: true },
+
+  // ─── v3 additions ──────────────────────────────────────────────────────────
+  { id: 'long_runner', name: 'Long Runner', description: 'Publish 75 conversations across your career', xp: 3500, icon: '\u{1F3C3}', tier: 'gold', category: 'mastery', featured: true },
+  { id: 'persistence', name: 'Persistence', description: 'Maintain a 15-week publish streak without missing a beat', xp: 2000, icon: '\u{1F9F1}', tier: 'gold', category: 'mastery', featured: true },
+  { id: 'signal_relay', name: 'Signal Relay', description: 'Accumulate 100 total upvotes across all your published work', xp: 1500, icon: '\u{1F4E1}', tier: 'gold', category: 'social' },
+  { id: 'daily_devotee', name: 'Daily Devotee', description: 'Maintain a 50-day consecutive login streak', xp: 1800, icon: '\u{1F4C5}', tier: 'gold', category: 'onboarding', featured: true },
+  { id: 'zone_architect', name: 'Zone Architect', description: 'Publish 5 separate conversations each containing 8 or more branches', xp: 1200, icon: '\u{1F3D7}', tier: 'gold', category: 'mastery', featured: true },
+  { id: 'night_owl', name: 'Night Owl', description: 'Submit a conversation between 1 AM and 4 AM local time', xp: 300, icon: '\u{1F989}', tier: 'silver', category: 'discovery', hidden: true },
+  { id: 'solo_legend', name: 'Solo Legend', description: 'Publish 10 conversations that use no outcome commands — pure dialogue', xp: 750, icon: '\u{1F399}', tier: 'gold', category: 'discovery' },
+  { id: 'storyteller_supreme', name: 'Storyteller Supreme', description: 'Have at least one conversation reach 200+ total downloads', xp: 2000, icon: '\u{1F4D6}', tier: 'gold', category: 'social', featured: true },
 ];
 
 export function getAchievementById(id: AchievementId): Achievement | undefined {
