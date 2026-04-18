@@ -1112,7 +1112,7 @@ export async function fetchRecentVisitors(): Promise<RecentVisitor[]> {
       order: 'last_seen_at.desc',
       limit: '10',
     });
-    const res = await fetch(`${sbEndpoint(ACTIVE_USERS_TABLE)}?${params}`, { headers: sbHeaders() });
+    const res = await fetch(`${sbEndpoint('site_visitor_log')}?${params}`, { headers: sbHeaders() });
     if (!res.ok) return [];
     const rows = await res.json() as Array<{ user_id: string; username: string | null; last_seen_at: string; created_at: string }> | null;
     const visitors = normalizeRecentVisitors(rows ?? []);
@@ -2105,7 +2105,7 @@ export async function createRoadmapItem(
   return await fetchFromApi<RoadmapItem>('/api/roadmap', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, publisher_id: getPublisherId() }),
   });
 }
 
@@ -2116,12 +2116,16 @@ export async function updateRoadmapItem(
   return await fetchFromApi<RoadmapItem>(`/api/roadmap/${encodeURIComponent(itemId)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, publisher_id: getPublisherId() }),
   });
 }
 
 export async function deleteRoadmapItem(itemId: string): Promise<void> {
-  await sendToApi(`/api/roadmap/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
+  await sendToApi(`/api/roadmap/${encodeURIComponent(itemId)}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ publisher_id: getPublisherId() }),
+  });
 }
 
 // ════════════════════════════════════════════════════════════════════════════
