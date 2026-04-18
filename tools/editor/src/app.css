@@ -4776,13 +4776,13 @@ hr {
 
 .toolbar-search {
   position: relative;
-  min-width: 160px;
+  min-width: 100px;
   flex: 0 1 220px;
   max-width: 234px;
 }
 
 .toolbar-search-input {
-  min-width: 140px;
+  min-width: 100px;
 }
 .toolbar-density-select {
   min-width: 78px;
