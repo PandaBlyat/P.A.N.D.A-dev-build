@@ -732,7 +732,7 @@ BEGIN
     RETURN;
   END IF;
 
-  SELECT * INTO computed FROM compute_level_and_title(new_xp);
+  computed := (SELECT t FROM compute_level_and_title(new_xp) AS t);
 
   UPDATE user_profiles
   SET level = computed.new_level, title = computed.new_title
@@ -1010,9 +1010,7 @@ BEGIN
     AND (user_profiles.daily_xp_date IS DISTINCT FROM today_str);
 
   -- Read current daily earned
-  SELECT coalesce(user_profiles.daily_xp_earned, 0) INTO current_daily
-  FROM user_profiles
-  WHERE user_profiles.publisher_id = p_publisher_id;
+  current_daily := (SELECT coalesce(user_profiles.daily_xp_earned, 0) FROM user_profiles WHERE user_profiles.publisher_id = p_publisher_id);
 
   IF NOT FOUND THEN RETURN; END IF;
 
@@ -1033,7 +1031,7 @@ BEGIN
   WHERE user_profiles.publisher_id = p_publisher_id
   RETURNING user_profiles.xp INTO new_xp;
 
-  SELECT * INTO computed FROM compute_level_and_title(new_xp);
+  computed := (SELECT t FROM compute_level_and_title(new_xp) AS t);
 
   UPDATE user_profiles
   SET level = computed.new_level, title = computed.new_title
@@ -1279,7 +1277,7 @@ BEGIN
     RETURNING user_profiles.xp INTO new_xp;
 
     IF FOUND THEN
-      SELECT * INTO computed FROM compute_level_and_title(new_xp);
+      computed := (SELECT t FROM compute_level_and_title(new_xp) AS t);
       UPDATE user_profiles
       SET level = computed.new_level, title = computed.new_title
       WHERE user_profiles.publisher_id = p_publisher_id;
@@ -1364,7 +1362,7 @@ BEGIN
   SET xp = user_profiles.xp + complexity_xp
   WHERE user_profiles.publisher_id = pub_id
   RETURNING user_profiles.xp INTO new_xp;
-  SELECT * INTO computed FROM compute_level_and_title(new_xp);
+  computed := (SELECT t FROM compute_level_and_title(new_xp) AS t);
   UPDATE user_profiles
   SET level = computed.new_level, title = computed.new_title
   WHERE user_profiles.publisher_id = pub_id;
@@ -1383,70 +1381,70 @@ BEGIN
   -- (id, xp) pairs evaluated in order; each uses unlock_achievement_rewarded
   -- which skips re-awards.
   IF total_publishes >= 1 THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'first_publish', 25);
+    ach := (SELECT t FROM unlock_achievement_rewarded(pub_id, 'first_publish', 25) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','first_publish','xp',ach.awarded_xp);
     END IF;
   END IF;
   IF total_publishes >= 2 THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'first_patrol', 20);
+    ach := (SELECT t FROM unlock_achievement_rewarded(pub_id, 'first_patrol', 20) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','first_patrol','xp',ach.awarded_xp);
     END IF;
   END IF;
   IF total_publishes >= 5 THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'cartographer', 65);
+    ach := (SELECT t FROM unlock_achievement_rewarded(pub_id, 'cartographer', 65) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','cartographer','xp',ach.awarded_xp);
     END IF;
   END IF;
   IF total_publishes >= 10 THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'prolific_writer', 150);
+    ach := (SELECT t FROM unlock_achievement_rewarded(pub_id, 'prolific_writer', 150) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','prolific_writer','xp',ach.awarded_xp);
     END IF;
   END IF;
   IF total_publishes >= 50 THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'zone_veteran', 500);
+    ach := (SELECT t FROM unlock_achievement_rewarded(pub_id, 'zone_veteran', 500) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','zone_veteran','xp',ach.awarded_xp);
     END IF;
   END IF;
   IF branch_count >= 5 THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'branching_out', 30);
+    ach := (SELECT t FROM unlock_achievement_rewarded(pub_id, 'branching_out', 30) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','branching_out','xp',ach.awarded_xp);
     END IF;
   END IF;
   IF branch_count >= 8 THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'branch_architect', 70);
+    ach := (SELECT t FROM unlock_achievement_rewarded(pub_id, 'branch_architect', 70) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','branch_architect','xp',ach.awarded_xp);
     END IF;
   END IF;
   IF distinct_factions >= 1 THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'new_faction_scout', 35);
+    ach := (SELECT t FROM unlock_achievement_rewarded(pub_id, 'new_faction_scout', 35) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','new_faction_scout','xp',ach.awarded_xp);
     END IF;
   END IF;
   IF distinct_factions >= 3 THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'faction_diplomat', 75);
+    ach := (SELECT t FROM unlock_achievement_rewarded(pub_id, 'faction_diplomat', 75) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','faction_diplomat','xp',ach.awarded_xp);
     END IF;
   END IF;
   IF hour_utc >= 22 OR hour_utc < 5 THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(pub_id, 'night_shift', 45);
+    ach := (SELECT t FROM unlock_achievement_rewarded(pub_id, 'night_shift', 45) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','night_shift','xp',ach.awarded_xp);
@@ -1487,26 +1485,24 @@ BEGIN
   END IF;
 
   IF p_metric_type = 'downloads' OR p_metric_type = 'both' THEN
-    SELECT coalesce(sum(c.downloads), 0) INTO total_dl
-    FROM community_conversations c
-    WHERE c.publisher_id = p_publisher_id;
+    total_dl := (SELECT coalesce(sum(c.downloads), 0) FROM community_conversations c WHERE c.publisher_id = p_publisher_id);
 
     IF total_dl >= 50 THEN
-      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'popular_stalker', 100);
+      ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'popular_stalker', 100) AS t);
       IF ach.was_new THEN
         v_ach_xp := v_ach_xp + ach.awarded_xp;
         unlocked := unlocked || jsonb_build_object('achievement_id','popular_stalker','xp',ach.awarded_xp);
       END IF;
     END IF;
     IF total_dl >= 100 THEN
-      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'download_centurion', 180);
+      ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'download_centurion', 180) AS t);
       IF ach.was_new THEN
         v_ach_xp := v_ach_xp + ach.awarded_xp;
         unlocked := unlocked || jsonb_build_object('achievement_id','download_centurion','xp',ach.awarded_xp);
       END IF;
     END IF;
     IF total_dl >= 500 THEN
-      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'download_legion', 450);
+      ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'download_legion', 450) AS t);
       IF ach.was_new THEN
         v_ach_xp := v_ach_xp + ach.awarded_xp;
         unlocked := unlocked || jsonb_build_object('achievement_id','download_legion','xp',ach.awarded_xp);
@@ -1515,40 +1511,38 @@ BEGIN
   END IF;
 
   IF p_metric_type = 'upvotes' OR p_metric_type = 'both' THEN
-    SELECT coalesce(sum(c.upvotes), 0) INTO total_up
-    FROM community_conversations c
-    WHERE c.publisher_id = p_publisher_id;
+    total_up := (SELECT coalesce(sum(c.upvotes), 0) FROM community_conversations c WHERE c.publisher_id = p_publisher_id);
 
     IF total_up >= 1 THEN
-      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'first_upvote_received', 20);
+      ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'first_upvote_received', 20) AS t);
       IF ach.was_new THEN
         v_ach_xp := v_ach_xp + ach.awarded_xp;
         unlocked := unlocked || jsonb_build_object('achievement_id','first_upvote_received','xp',ach.awarded_xp);
       END IF;
     END IF;
     IF total_up >= 10 THEN
-      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'rising_signal', 45);
+      ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'rising_signal', 45) AS t);
       IF ach.was_new THEN
         v_ach_xp := v_ach_xp + ach.awarded_xp;
         unlocked := unlocked || jsonb_build_object('achievement_id','rising_signal','xp',ach.awarded_xp);
       END IF;
     END IF;
     IF total_up >= 25 THEN
-      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'community_favorite', 100);
+      ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'community_favorite', 100) AS t);
       IF ach.was_new THEN
         v_ach_xp := v_ach_xp + ach.awarded_xp;
         unlocked := unlocked || jsonb_build_object('achievement_id','community_favorite','xp',ach.awarded_xp);
       END IF;
     END IF;
     IF total_up >= 75 THEN
-      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'crowd_pleaser', 160);
+      ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'crowd_pleaser', 160) AS t);
       IF ach.was_new THEN
         v_ach_xp := v_ach_xp + ach.awarded_xp;
         unlocked := unlocked || jsonb_build_object('achievement_id','crowd_pleaser','xp',ach.awarded_xp);
       END IF;
     END IF;
     IF total_up >= 250 THEN
-      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'upvote_legend', 400);
+      ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'upvote_legend', 400) AS t);
       IF ach.was_new THEN
         v_ach_xp := v_ach_xp + ach.awarded_xp;
         unlocked := unlocked || jsonb_build_object('achievement_id','upvote_legend','xp',ach.awarded_xp);
@@ -1738,7 +1732,7 @@ BEGIN
     ) AS checks(achievement_id, xp, should_unlock)
   LOOP
     IF candidate.should_unlock THEN
-      SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, candidate.achievement_id, candidate.xp);
+      ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, candidate.achievement_id, candidate.xp) AS t);
       IF ach.was_new THEN
         v_ach_xp := v_ach_xp + ach.awarded_xp;
         unlocked := unlocked || jsonb_build_object('achievement_id', candidate.achievement_id, 'xp', ach.awarded_xp);
@@ -1773,14 +1767,14 @@ BEGIN
     achievement_xp := 0;
     newly_unlocked := '[]'::jsonb;
 
-    SELECT * INTO publish_result FROM recheck_publish_achievements(profile_row.publisher_id) LIMIT 1;
-    IF FOUND THEN
+    publish_result := (SELECT t FROM recheck_publish_achievements(profile_row.publisher_id) AS t LIMIT 1);
+    IF publish_result IS NOT NULL THEN
       achievement_xp := achievement_xp + coalesce(publish_result.achievement_xp, 0);
       newly_unlocked := newly_unlocked || coalesce(publish_result.newly_unlocked, '[]'::jsonb);
     END IF;
 
-    SELECT * INTO metric_result FROM apply_metric_rewards(profile_row.publisher_id, 'both') LIMIT 1;
-    IF FOUND THEN
+    metric_result := (SELECT t FROM apply_metric_rewards(profile_row.publisher_id, 'both') AS t LIMIT 1);
+    IF metric_result IS NOT NULL THEN
       achievement_xp := achievement_xp + coalesce(metric_result.achievement_xp, 0);
       newly_unlocked := newly_unlocked || coalesce(metric_result.newly_unlocked, '[]'::jsonb);
     END IF;
@@ -1846,21 +1840,21 @@ BEGIN
 
   -- Milestone unlocks
   IF new_streak >= 1 THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'login_streak_1', 20);
+    ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'login_streak_1', 20) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','login_streak_1','xp',ach.awarded_xp);
     END IF;
   END IF;
   IF new_streak >= 7 THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'login_streak_7', 70);
+    ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'login_streak_7', 70) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','login_streak_7','xp',ach.awarded_xp);
     END IF;
   END IF;
   IF new_streak >= 30 THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'login_streak_30', 260);
+    ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'login_streak_30', 260) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','login_streak_30','xp',ach.awarded_xp);
@@ -1900,48 +1894,46 @@ BEGIN
     RETURN;
   END IF;
 
-  SELECT array_agg(ua.achievement_id) INTO owned
-  FROM user_achievements ua
-  WHERE ua.publisher_id = p_publisher_id;
+  owned := (SELECT array_agg(ua.achievement_id) FROM user_achievements ua WHERE ua.publisher_id = p_publisher_id);
   owned := COALESCE(owned, ARRAY[]::TEXT[]);
 
   IF array_length(p_bronze_ids, 1) > 0 AND p_bronze_ids <@ owned THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'bronze_complete', 120);
+    ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'bronze_complete', 120) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','bronze_complete','xp',ach.awarded_xp);
     END IF;
   END IF;
   IF array_length(p_silver_ids, 1) > 0 AND p_silver_ids <@ owned THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'silver_complete', 220);
+    ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'silver_complete', 220) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','silver_complete','xp',ach.awarded_xp);
     END IF;
   END IF;
   IF array_length(p_gold_ids, 1) > 0 AND p_gold_ids <@ owned THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'gold_circuit', 500);
+    ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'gold_circuit', 500) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','gold_circuit','xp',ach.awarded_xp);
     END IF;
   END IF;
   IF array_length(p_onboarding_ids, 1) > 0 AND p_onboarding_ids <@ owned THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'onboarding_complete', 140);
+    ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'onboarding_complete', 140) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','onboarding_complete','xp',ach.awarded_xp);
     END IF;
   END IF;
   IF array_length(p_faction_ids, 1) > 0 AND p_faction_ids <@ owned THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'faction_complete', 180);
+    ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'faction_complete', 180) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','faction_complete','xp',ach.awarded_xp);
     END IF;
   END IF;
   IF array_length(p_hidden_ids, 1) > 0 AND p_hidden_ids <@ owned THEN
-    SELECT * INTO ach FROM unlock_achievement_rewarded(p_publisher_id, 'hidden_circuit', 300);
+    ach := (SELECT t FROM unlock_achievement_rewarded(p_publisher_id, 'hidden_circuit', 300) AS t);
     IF ach.was_new THEN
       v_ach_xp := v_ach_xp + ach.awarded_xp;
       unlocked := unlocked || jsonb_build_object('achievement_id','hidden_circuit','xp',ach.awarded_xp);
