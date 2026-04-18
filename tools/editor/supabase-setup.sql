@@ -389,6 +389,13 @@ BEGIN
     last_seen_at = now(),
     username = COALESCE(EXCLUDED.username, creator_active_users.username);
 
+  -- Persist to history log so offline visitors remain visible
+  INSERT INTO site_visitor_log (user_id, username, last_seen_at)
+  VALUES (normalized_user_id, normalized_username, now())
+  ON CONFLICT (user_id) DO UPDATE SET
+    last_seen_at = now(),
+    username = COALESCE(EXCLUDED.username, site_visitor_log.username);
+
   DELETE FROM creator_active_users
   WHERE last_seen_at < now() - make_interval(secs => GREATEST(stale_after_seconds, 30));
 
@@ -1056,6 +1063,24 @@ BEGIN
     ORDER BY u.username ASC;
 END;
 $$;
+
+-- Persistent visitor history (never pruned, unlike creator_active_users)
+CREATE TABLE IF NOT EXISTS site_visitor_log (
+  user_id        TEXT PRIMARY KEY,
+  username       TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE site_visitor_log ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public visitor log read" ON site_visitor_log;
+CREATE POLICY "Public visitor log read"
+  ON site_visitor_log FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public visitor log write" ON site_visitor_log;
+CREATE POLICY "Public visitor log write"
+  ON site_visitor_log FOR ALL USING (true) WITH CHECK (true);
 
 -- Editor bug reports / complaints
 CREATE TABLE IF NOT EXISTS editor_bug_reports (

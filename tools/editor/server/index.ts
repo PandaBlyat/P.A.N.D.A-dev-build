@@ -275,6 +275,26 @@ function isAdminPublisherId(value: unknown): boolean {
   return typeof value === 'string' && ADMIN_PUBLISHER_IDS.has(value.trim());
 }
 
+async function verifyIsAdmin(publisherId: string): Promise<boolean> {
+  const trimmed = publisherId.trim();
+  if (!trimmed) return false;
+  if (ADMIN_PUBLISHER_IDS.size > 0) return ADMIN_PUBLISHER_IDS.has(trimmed);
+  try {
+    const params = new URLSearchParams({
+      publisher_id: `eq.${trimmed}`,
+      username: 'eq.panda',
+      select: 'publisher_id',
+      limit: '1',
+    });
+    const res = await fetch(`${sbEndpoint(PROFILES_TABLE)}?${params}`, { headers: sbHeaders() });
+    if (!res.ok) return false;
+    const rows = await res.json() as unknown[];
+    return Array.isArray(rows) && rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 function normalizeBugReport(row: Record<string, unknown>): EditorBugReport {
   return {
     id: typeof row.id === 'string' ? row.id : '',
@@ -1155,7 +1175,7 @@ app.get('/api/visitors/recent', async (_req, res) => {
       order: 'last_seen_at.desc',
       limit: '10',
     });
-    const response = await fetch(`${sbEndpoint(ACTIVE_USERS_TABLE)}?${params}`, { headers: sbHeaders() });
+    const response = await fetch(`${sbEndpoint('site_visitor_log')}?${params}`, { headers: sbHeaders() });
     if (!response.ok) {
       res.json({ visitors: [] });
       return;
@@ -1211,7 +1231,10 @@ app.get('/api/bug-reports', async (req, res) => {
     });
     if (status !== 'all') params.set('status', `eq.${status}`);
 
-    const response = await fetch(`${sbEndpoint(BUG_REPORTS_TABLE)}?${params}`, { headers: sbHeaders() });
+    const [response, isAdmin] = await Promise.all([
+      fetch(`${sbEndpoint(BUG_REPORTS_TABLE)}?${params}`, { headers: sbHeaders() }),
+      verifyIsAdmin(viewerPublisherId),
+    ]);
     if (!response.ok) {
       res.status(response.status).json({ error: await readErrorMessage(response) });
       return;
@@ -1220,7 +1243,7 @@ app.get('/api/bug-reports', async (req, res) => {
     const rows = await response.json() as Array<Record<string, unknown>>;
     res.json({
       reports: Array.isArray(rows) ? rows.map(normalizeBugReport).filter(report => report.id) : [],
-      viewer_can_admin: isAdminPublisherId(viewerPublisherId),
+      viewer_can_admin: isAdmin,
     });
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -1276,8 +1299,8 @@ app.patch('/api/bug-reports/:id/admin', async (req, res) => {
       return;
     }
 
-    if (!isAdminPublisherId(adminPublisherId)) {
-      res.status(403).json({ error: 'Admin publisher id is not allowed.' });
+    if (!(await verifyIsAdmin(adminPublisherId))) {
+      res.status(403).json({ error: 'Forbidden' });
       return;
     }
 
@@ -1319,7 +1342,7 @@ app.delete('/api/bug-reports/:id', async (req, res) => {
       res.status(400).json({ error: 'Missing report id' });
       return;
     }
-    if (!isAdminPublisherId(adminPublisherId)) {
+    if (!(await verifyIsAdmin(adminPublisherId))) {
       res.status(403).json({ error: 'Forbidden' });
       return;
     }
@@ -1883,10 +1906,9 @@ app.post('/api/profile/login', async (req, res) => {
 const ROADMAP_TABLE_NAME = 'roadmap_items';
 const ROADMAP_UPVOTES_TABLE_NAME = 'roadmap_upvotes';
 
-function isRoadmapAdmin(req: import('express').Request): boolean {
-  // Admin check: publisher_id must be in ADMIN_PUBLISHER_IDS
+async function isRoadmapAdmin(req: import('express').Request): Promise<boolean> {
   const publisherId = (req.body?.publisher_id ?? req.query?.publisher_id ?? '') as string;
-  return ADMIN_PUBLISHER_IDS.has(publisherId.trim());
+  return verifyIsAdmin(publisherId);
 }
 
 app.get('/api/roadmap', async (_req, res) => {
@@ -1910,7 +1932,7 @@ app.get('/api/roadmap', async (_req, res) => {
 });
 
 app.post('/api/roadmap', async (req, res) => {
-  if (!isRoadmapAdmin(req)) {
+  if (!(await isRoadmapAdmin(req))) {
     res.status(403).json({ error: 'Only the admin can create roadmap items.' });
     return;
   }
@@ -1938,7 +1960,7 @@ app.post('/api/roadmap', async (req, res) => {
 });
 
 app.patch('/api/roadmap/:itemId', async (req, res) => {
-  if (!isRoadmapAdmin(req)) {
+  if (!(await isRoadmapAdmin(req))) {
     res.status(403).json({ error: 'Only the admin can edit roadmap items.' });
     return;
   }
@@ -1970,7 +1992,7 @@ app.patch('/api/roadmap/:itemId', async (req, res) => {
 });
 
 app.delete('/api/roadmap/:itemId', async (req, res) => {
-  if (!isRoadmapAdmin(req)) {
+  if (!(await isRoadmapAdmin(req))) {
     res.status(403).json({ error: 'Only the admin can delete roadmap items.' });
     return;
   }
