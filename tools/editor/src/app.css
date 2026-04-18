@@ -4809,7 +4809,7 @@ hr {
 .toolbar-search {
   position: relative;
   min-width: 80px;
-  flex: 0 1 140px;
+  flex: 0 1 180px;
   max-width: 120px;
 }
 
