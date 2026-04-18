@@ -1311,7 +1311,7 @@ app.patch('/api/bug-reports/:id/admin', async (req, res) => {
 
 app.post('/api/profile/register', async (req, res) => {
   try {
-    const { publisher_id, username } = req.body ?? {};
+    const { publisher_id, username, password } = req.body ?? {};
     if (!publisher_id || !username) {
       res.status(400).json({ error: 'Missing required fields: publisher_id, username' });
       return;
@@ -1320,7 +1320,11 @@ app.post('/api/profile/register', async (req, res) => {
     const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/register_username`, {
       method: 'POST',
       headers: sbHeaders(),
-      body: JSON.stringify({ p_publisher_id: publisher_id, p_username: username }),
+      body: JSON.stringify({
+        p_publisher_id: publisher_id,
+        p_username: username,
+        p_password: password ?? null,
+      }),
     });
 
     if (!r.ok) {
@@ -1804,6 +1808,181 @@ app.patch('/api/conversations/:id/upvote', async (req, res) => {
     return;
   }
   res.json({ ok: true });
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// PASSWORD LOGIN
+// ──────────────────────────────────────────────────────────────────────────
+
+app.post('/api/profile/login', async (req, res) => {
+  try {
+    const { username, password } = req.body ?? {};
+    if (!username || !password) {
+      res.status(400).json({ error: 'Missing username or password.' });
+      return;
+    }
+
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/login_user`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ p_username: username, p_password: password }),
+    });
+
+    if (!r.ok) {
+      const msg = await readErrorMessage(r);
+      res.status(r.status).json({ error: msg });
+      return;
+    }
+
+    const rows = await r.json();
+    const profile = Array.isArray(rows) ? rows[0] : rows;
+    if (!profile || !profile.publisher_id) {
+      res.status(401).json({ error: 'Invalid callsign or password.' });
+      return;
+    }
+    res.json(profile);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// ROADMAP
+// ──────────────────────────────────────────────────────────────────────────
+
+const ROADMAP_TABLE_NAME = 'roadmap_items';
+const ROADMAP_UPVOTES_TABLE_NAME = 'roadmap_upvotes';
+
+function isRoadmapAdmin(req: import('express').Request): boolean {
+  // Admin check: publisher_id must be in ADMIN_PUBLISHER_IDS
+  const publisherId = (req.body?.publisher_id ?? req.query?.publisher_id ?? '') as string;
+  return ADMIN_PUBLISHER_IDS.has(publisherId.trim());
+}
+
+app.get('/api/roadmap', async (_req, res) => {
+  try {
+    const params = new URLSearchParams({
+      select: 'id,title,description,status,category,priority,upvotes,created_at,updated_at',
+      order: 'priority.desc,created_at.asc',
+    });
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${ROADMAP_TABLE_NAME}?${params}`, {
+      headers: sbHeaders(),
+    });
+    if (!r.ok) {
+      const msg = await readErrorMessage(r);
+      res.status(r.status).json({ error: msg });
+      return;
+    }
+    res.json(await r.json());
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/roadmap', async (req, res) => {
+  if (!isRoadmapAdmin(req)) {
+    res.status(403).json({ error: 'Only the admin can create roadmap items.' });
+    return;
+  }
+  try {
+    const { title, description = '', status = 'planned', category = 'feature', priority = 0 } = req.body ?? {};
+    if (!title?.trim()) {
+      res.status(400).json({ error: 'title is required.' });
+      return;
+    }
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${ROADMAP_TABLE_NAME}`, {
+      method: 'POST',
+      headers: { ...sbHeaders(), Prefer: 'return=representation' },
+      body: JSON.stringify({ title: title.trim(), description, status, category, priority }),
+    });
+    if (!r.ok) {
+      const msg = await readErrorMessage(r);
+      res.status(r.status).json({ error: msg });
+      return;
+    }
+    const rows = await r.json();
+    res.status(201).json(Array.isArray(rows) ? rows[0] : rows);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.patch('/api/roadmap/:itemId', async (req, res) => {
+  if (!isRoadmapAdmin(req)) {
+    res.status(403).json({ error: 'Only the admin can edit roadmap items.' });
+    return;
+  }
+  try {
+    const { itemId } = req.params;
+    const { title, description, status, category, priority } = req.body ?? {};
+    const patch: Record<string, unknown> = {};
+    if (title !== undefined) patch.title = title;
+    if (description !== undefined) patch.description = description;
+    if (status !== undefined) patch.status = status;
+    if (category !== undefined) patch.category = category;
+    if (priority !== undefined) patch.priority = priority;
+
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${ROADMAP_TABLE_NAME}?id=eq.${encodeURIComponent(itemId)}`, {
+      method: 'PATCH',
+      headers: { ...sbHeaders(), Prefer: 'return=representation' },
+      body: JSON.stringify(patch),
+    });
+    if (!r.ok) {
+      const msg = await readErrorMessage(r);
+      res.status(r.status).json({ error: msg });
+      return;
+    }
+    const rows = await r.json();
+    res.json(Array.isArray(rows) ? rows[0] : rows);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.delete('/api/roadmap/:itemId', async (req, res) => {
+  if (!isRoadmapAdmin(req)) {
+    res.status(403).json({ error: 'Only the admin can delete roadmap items.' });
+    return;
+  }
+  try {
+    const { itemId } = req.params;
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${ROADMAP_TABLE_NAME}?id=eq.${encodeURIComponent(itemId)}`, {
+      method: 'DELETE',
+      headers: sbHeaders(),
+    });
+    if (!r.ok) {
+      const msg = await readErrorMessage(r);
+      res.status(r.status).json({ error: msg });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/roadmap/:itemId/upvote', async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const { publisher_id } = req.body ?? {};
+
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_roadmap_upvote`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({
+        p_item_id: itemId,
+        p_publisher_id: publisher_id ?? null,
+      }),
+    });
+    if (!r.ok) {
+      const msg = await readErrorMessage(r);
+      res.status(r.status).json({ error: msg });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
 });
 
 app.listen(PORT, () => {

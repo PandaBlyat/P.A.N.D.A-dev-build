@@ -13,6 +13,7 @@ import { clearDraft } from '../lib/draft-storage';
 import { createEmptyProject } from '../lib/xml-export';
 import { openPublicProfile, renderProfileBadge } from './ProfileBadge';
 import { openLeaderboardOverlay } from './LeaderboardOverlay';
+import { openRoadMapModal } from './RoadMapModal';
 import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 import { getActiveEditorLocalUserId, getStoredUsername, type ActiveEditorUser, type RecentVisitor, type UserProfile } from '../lib/api-client';
 
@@ -119,6 +120,10 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   let leadersBtn: HTMLButtonElement;
   leadersBtn = btn('trophy', 'Leaders', () => openLeaderboardOverlay(leadersBtn), 'Open the community leaderboard', {
     classes: ['toolbar-leaders-trigger'],
+  });
+  let roadmapBtn: HTMLButtonElement;
+  roadmapBtn = btn('map', 'RoadMap', () => openRoadMapModal(roadmapBtn), 'View the P.A.N.D.A. editor development roadmap and upvote features', {
+    classes: ['toolbar-roadmap-trigger'],
   });
   const helpBtn = btn('help', '?', openHelpModal, 'New here? Open the quick-start guide to preconditions, dynamic references, outcomes, and story design.', {
     classes: ['toolbar-help-trigger'],
@@ -227,9 +232,10 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     } else {
       status.textContent = formatStatus(convCount, stringCount, false, false);
     }
-    rightZone.append(status, leadersBtn, supportBtn);
+    rightZone.append(status, roadmapBtn, leadersBtn, supportBtn);
 
     rightZone.appendChild(createOverflowMenu('More', [
+      { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
       { icon: 'trophy', label: 'Leaders', title: leadersBtn.title, onclick: () => openLeaderboardOverlay(null) },
       { icon: 'bug', label: 'Reports', title: reportsBtn.title, onclick: openBugReportsPanel },
       { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
@@ -409,6 +415,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   }
   utilityTier.append(status, supportBtn);
   utilityTier.appendChild(createOverflowMenu('More', [
+    { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
     { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
     { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },
   ]));
