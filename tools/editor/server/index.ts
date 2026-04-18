@@ -282,14 +282,14 @@ async function verifyIsAdmin(publisherId: string): Promise<boolean> {
   try {
     const params = new URLSearchParams({
       publisher_id: `eq.${trimmed}`,
-      username: 'eq.panda',
-      select: 'publisher_id',
+      select: 'username',
       limit: '1',
     });
     const res = await fetch(`${sbEndpoint(PROFILES_TABLE)}?${params}`, { headers: sbHeaders() });
     if (!res.ok) return false;
-    const rows = await res.json() as unknown[];
-    return Array.isArray(rows) && rows.length > 0;
+    const rows = await res.json() as Array<{ username?: string }>;
+    if (!Array.isArray(rows) || rows.length === 0) return false;
+    return (rows[0].username ?? '').toLowerCase() === 'panda';
   } catch {
     return false;
   }
