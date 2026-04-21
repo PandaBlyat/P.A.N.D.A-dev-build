@@ -21221,3 +21221,215 @@ button.pa-avatar:focus-visible {
 .toolbar-roadmap-trigger:hover {
   color: var(--info);
 }
+
+.conv-collab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, var(--info) 24%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--info) 8%, transparent);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.conv-collab-btn .ui-icon svg {
+  width: 10px;
+  height: 10px;
+}
+
+.conv-collab-btn:hover {
+  background: color-mix(in srgb, var(--info) 14%, transparent);
+  border-color: color-mix(in srgb, var(--info) 34%, transparent);
+  color: var(--info);
+}
+
+.collab-session-card {
+  width: min(420px, calc(100vw - 32px));
+  padding: 20px;
+}
+
+.collab-session-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.collab-session-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text-bright);
+}
+
+.collab-session-subtitle,
+.collab-empty {
+  margin: 0 0 12px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.collab-user-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.collab-user-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-panel) 86%, transparent);
+}
+
+.collab-invite-status {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.collab-invite-toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 12000;
+  width: min(320px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--info) 34%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-panel) 94%, black);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+  color: var(--text);
+}
+
+.collab-countdown {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.collab-toast-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.collab-roster {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--info) 24%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--info) 8%, transparent);
+}
+
+.collab-roster-chip,
+.collab-roster-status {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.collab-roster-chip.is-host {
+  color: var(--warning);
+}
+
+.collab-roster-chip.is-offline {
+  opacity: 0.55;
+}
+
+.collab-roster-status {
+  color: var(--text-dim);
+  background: transparent;
+}
+
+.collab-leave-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.collab-presence-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.collab-remote-cursor {
+  position: absolute;
+  width: 0;
+  height: 0;
+  color: var(--collab-color);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+}
+
+.collab-remote-cursor::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  border-left: 9px solid currentColor;
+  border-top: 6px solid currentColor;
+  border-right: 6px solid transparent;
+  border-bottom: 12px solid transparent;
+}
+
+.collab-remote-cursor span,
+.collab-lock-chip {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--collab-color);
+  color: white;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.collab-lock-chip {
+  z-index: 21;
+  left: auto;
+  top: auto;
+}
+
+.collab-field-locked {
+  opacity: 0.72;
+}
+
+.collab-input-locked {
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border)) !important;
+  background: color-mix(in srgb, var(--warning) 8%, var(--bg-input)) !important;
+}
+
+.share-preview-coauthors,
+.public-profile-recent-coauthors {
+  color: var(--text-dim);
+  font-size: 0.74rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}

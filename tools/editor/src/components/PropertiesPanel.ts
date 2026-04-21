@@ -38,6 +38,14 @@ import { createCatalogPickerPanelEditor, type CatalogPickerOption } from './Cata
 import { createCustomNpcBuilderEditor } from './NpcTemplatePanel';
 import { formatGameItemLabel } from '../lib/item-catalog';
 import { requestFlowCenter } from '../lib/flow-navigation';
+import {
+  acquireCollabLock,
+  collabCanEditPath,
+  getCollabFieldLock,
+  getCollabPathForFieldKey,
+  notifyCollabLocalEdit,
+  releaseCollabLock,
+} from '../lib/collab-session';
 import { createBadge, createIcon, setButtonContent } from './icons';
 import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
 import { setBeginnerTooltip, type BeginnerTooltipPresetId } from '../lib/beginner-tooltips';
@@ -3636,9 +3644,23 @@ function createField(
     });
   }
   const resolvedFieldKey = fieldKey || 'field-' + labelText.replace(/\s+/g, '-').toLowerCase();
+  const collabPath = getCollabPathForFieldKey(resolvedFieldKey);
+  const collabLock = getCollabFieldLock(collabPath);
+  const isLockedByRemote = Boolean(collabLock && collabLock.authorId !== store.get().collab.localPublisherId);
+  if (isLockedByRemote) {
+    field.classList.add('collab-field-locked');
+    field.title = `${collabLock?.username ?? 'Co-author'} editing`;
+  }
   const commitField = (nextValue: string): void => {
     flushDebounced(resolvedFieldKey);
     options.onCommit?.(nextValue);
+  };
+  const canWrite = (control: HTMLInputElement | HTMLTextAreaElement): boolean => {
+    if (collabCanEditPath(collabPath)) {
+      return true;
+    }
+    control.value = value;
+    return false;
   };
 
   const label = document.createElement('label');
@@ -3656,10 +3678,19 @@ function createField(
     const textarea = document.createElement('textarea');
     textarea.value = value;
     textarea.setAttribute('data-field-key', resolvedFieldKey);
+    textarea.classList.toggle('collab-input-locked', isLockedByRemote);
+    textarea.onfocus = () => acquireCollabLock(collabPath);
     textarea.oninput = () => {
-      debounced(resolvedFieldKey, () => onChange(textarea.value));
+      if (!canWrite(textarea)) return;
+      debounced(resolvedFieldKey, () => {
+        onChange(textarea.value);
+        notifyCollabLocalEdit();
+      });
     };
-    textarea.onblur = () => commitField(textarea.value);
+    textarea.onblur = () => {
+      releaseCollabLock(collabPath);
+      commitField(textarea.value);
+    };
     // Drag-drop support for placeholders
     textarea.addEventListener('dragover', (e) => {
       if (e.dataTransfer?.types.includes('application/x-panda-placeholder')) {
@@ -3690,7 +3721,9 @@ function createField(
       textarea.focus();
       const newPos = insertPos + (needsSpace ? 1 : 0) + text.length;
       textarea.setSelectionRange(newPos, newPos);
+      if (!canWrite(textarea)) return;
       onChange(textarea.value);
+      notifyCollabLocalEdit();
     });
     field.appendChild(textarea);
   } else {
@@ -3698,10 +3731,19 @@ function createField(
     input.type = type;
     input.value = value;
     input.setAttribute('data-field-key', resolvedFieldKey);
+    input.classList.toggle('collab-input-locked', isLockedByRemote);
+    input.onfocus = () => acquireCollabLock(collabPath);
     input.oninput = () => {
-      debounced(resolvedFieldKey, () => onChange(input.value));
+      if (!canWrite(input)) return;
+      debounced(resolvedFieldKey, () => {
+        onChange(input.value);
+        notifyCollabLocalEdit();
+      });
     };
-    input.onblur = () => commitField(input.value);
+    input.onblur = () => {
+      releaseCollabLock(collabPath);
+      commitField(input.value);
+    };
     field.appendChild(input);
   }
 

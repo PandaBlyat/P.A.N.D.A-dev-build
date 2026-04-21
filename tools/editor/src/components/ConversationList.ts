@@ -10,6 +10,8 @@ import { createOnboardingNudge } from './Onboarding';
 import { createIcon, setButtonContent } from './icons';
 import { openPlayPanel } from './PlayPanel';
 import { setBeginnerTooltip } from '../lib/beginner-tooltips';
+import { getStoredUsername } from '../lib/api-client';
+import { openCollabSessionModal } from './CollabSessionModal';
 
 export function centerConversationSelection(conversationId: number): void {
   const currentState = store.get();
@@ -121,6 +123,20 @@ export function renderConversationList(container: HTMLElement): void {
         openPlayPanel(conv);
       };
       badges.appendChild(playBtn);
+    }
+
+    if (getStoredUsername()) {
+      const collabBtn = document.createElement('button');
+      collabBtn.type = 'button';
+      collabBtn.className = 'conv-collab-btn';
+      collabBtn.title = 'Start multi-user session';
+      collabBtn.append(createIcon('users'), document.createTextNode('Collab'));
+      collabBtn.onpointerdown = (e) => e.stopPropagation();
+      collabBtn.onclick = (e) => {
+        e.stopPropagation();
+        openCollabSessionModal(conv);
+      };
+      badges.appendChild(collabBtn);
     }
 
     const textWrap = document.createElement('div');

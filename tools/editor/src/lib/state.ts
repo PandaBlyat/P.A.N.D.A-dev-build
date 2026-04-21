@@ -1,7 +1,9 @@
 // P.A.N.D.A. Conversation Editor — Application State
 
 import type { Project, Conversation, Turn, Choice, ValidationMessage, NpcTemplate } from './types';
+import type { CollabLock, CollabParticipant, CollabRemoteCursor } from './collab-protocol';
 import { getConversationFaction } from './types';
+import { cloneConversation } from './collab-protocol';
 import { createEmptyProject, createConversation, createTurn, createChoice } from './xml-export';
 import { migrateLegacyF2FEntryOpenings } from './f2f-entry-migration';
 import { estimateFlowNodeHeight, getDefaultFlowTurnPosition, getFlowAutoLayoutSpacing, getFlowNodeLayout } from './flow-layout';
@@ -86,6 +88,23 @@ export interface AppState {
   flowStructureRevision: number;
   flowPositionRevision: number;
   conversationSourceMetadata: Map<number, ConversationSourceMetadata>;
+  collab: CollabAppState;
+}
+
+export interface CollabAppState {
+  sessionId: string | null;
+  conversationId: number | null;
+  hostId: string | null;
+  localPublisherId: string | null;
+  participants: CollabParticipant[];
+  locks: Record<string, CollabLock>;
+  remoteCursors: Record<string, CollabRemoteCursor>;
+  pendingOps: number;
+  version: number;
+  isHost: boolean;
+  hostDisconnected: boolean;
+  guestEditCount: number;
+  statusMessage: string | null;
 }
 
 export type RenderTarget =
@@ -140,6 +159,24 @@ export function createValidationChange(): StateChange {
 export const FULL_APP_RENDER = createFlowChange('structure', 'appShell');
 export const SELECTION_RENDER = createFlowChange('selection', 'flowEditor', 'propertiesPanel');
 const VALIDATION_RENDER = createValidationChange();
+
+function createEmptyCollabState(): CollabAppState {
+  return {
+    sessionId: null,
+    conversationId: null,
+    hostId: null,
+    localPublisherId: null,
+    participants: [],
+    locks: {},
+    remoteCursors: {},
+    pendingOps: 0,
+    version: 0,
+    isHost: false,
+    hostDisconnected: false,
+    guestEditCount: 0,
+    statusMessage: null,
+  };
+}
 
 function inferTurnFirstSpeaker(
   turn: Pick<Turn, 'firstSpeaker' | 'f2f_entry' | 'channel'>,
@@ -250,6 +287,7 @@ type MutationOptions = {
 export type ConversationSourceMetadata = {
   sourceCommunityId: string;
   sourcePublisherId: string;
+  sourceCoAuthors?: string[];
   sourceUpdatedAt?: string;
 };
 
@@ -324,6 +362,7 @@ class StateManager {
       flowStructureRevision: 0,
       flowPositionRevision: 0,
       conversationSourceMetadata: new Map(),
+      collab: createEmptyCollabState(),
     };
   }
 
@@ -334,6 +373,97 @@ class StateManager {
   subscribe(fn: Listener): () => void {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
+  }
+
+  startCollabSession(options: {
+    sessionId: string;
+    conversationId: number;
+    hostId: string;
+    localPublisherId: string;
+    participants: CollabParticipant[];
+    version?: number;
+    isHost: boolean;
+  }): void {
+    this.state.collab = {
+      ...createEmptyCollabState(),
+      sessionId: options.sessionId,
+      conversationId: options.conversationId,
+      hostId: options.hostId,
+      localPublisherId: options.localPublisherId,
+      participants: options.participants,
+      version: options.version ?? 0,
+      isHost: options.isHost,
+    };
+    this.notify(createStateChange('toolbar', 'flowEditor', 'propertiesPanel'));
+  }
+
+  updateCollabSession(updates: Partial<CollabAppState>): void {
+    this.state.collab = {
+      ...this.state.collab,
+      ...updates,
+    };
+    this.notify(createStateChange('toolbar', 'flowEditor', 'propertiesPanel'));
+  }
+
+  endCollabSession(): void {
+    if (!this.state.collab.sessionId) return;
+    this.state.collab = createEmptyCollabState();
+    this.notify(createStateChange('toolbar', 'flowEditor', 'propertiesPanel'));
+  }
+
+  setCollabParticipants(participants: CollabParticipant[]): void {
+    this.state.collab.participants = participants;
+    this.notify(createStateChange('toolbar', 'flowEditor'));
+  }
+
+  upsertCollabLock(lock: CollabLock): void {
+    this.state.collab.locks = {
+      ...this.state.collab.locks,
+      [lock.path]: lock,
+    };
+    this.notify(createStateChange('flowEditor', 'propertiesPanel'));
+  }
+
+  removeCollabLock(path: string, authorId?: string): void {
+    const existing = this.state.collab.locks[path];
+    if (!existing || (authorId && existing.authorId !== authorId)) return;
+    const nextLocks = { ...this.state.collab.locks };
+    delete nextLocks[path];
+    this.state.collab.locks = nextLocks;
+    this.notify(createStateChange('flowEditor', 'propertiesPanel'));
+  }
+
+  setCollabRemoteCursor(cursor: CollabRemoteCursor): void {
+    if (cursor.authorId === this.state.collab.localPublisherId) return;
+    this.state.collab.remoteCursors = {
+      ...this.state.collab.remoteCursors,
+      [cursor.authorId]: cursor,
+    };
+    this.notify(createFlowChange('position', 'flowEditor'));
+  }
+
+  clearExpiredCollabPresence(now = Date.now()): void {
+    const nextLocks: Record<string, CollabLock> = {};
+    for (const [path, lock] of Object.entries(this.state.collab.locks)) {
+      if (lock.expiresAt > now) {
+        nextLocks[path] = lock;
+      }
+    }
+    const nextCursors: Record<string, CollabRemoteCursor> = {};
+    for (const [authorId, cursor] of Object.entries(this.state.collab.remoteCursors)) {
+      if (now - cursor.ts < 5000) {
+        nextCursors[authorId] = cursor;
+      }
+    }
+    if (
+      Object.keys(nextLocks).length === Object.keys(this.state.collab.locks).length &&
+      Object.keys(nextCursors).length === Object.keys(this.state.collab.remoteCursors).length
+    ) {
+      return;
+    }
+    this.state.collab.locks = nextLocks;
+    this.state.collab.remoteCursors = nextCursors;
+    this.notify(createStateChange('flowEditor', 'propertiesPanel'));
   }
 
   private notify(change: StateChange = FULL_APP_RENDER): void {
@@ -1094,6 +1224,7 @@ class StateManager {
     this.state.copiedTurn = null;
     this.state.copiedChoice = null;
     this.state.conversationSourceMetadata = new Map();
+    this.state.collab = createEmptyCollabState();
     this.markProjectChanged();
     this.markSystemStringsChanged();
     this.markFlowChanged('structure');
@@ -1102,6 +1233,34 @@ class StateManager {
     const nextChange = validationChange ? mergeChanges(baseChange, validationChange) : baseChange;
     nextChange.projectChanged = true;
     nextChange.systemStringsChanged = true;
+    nextChange.validationChanged = validationChange?.validationChanged ?? false;
+    this.notify(nextChange);
+  }
+
+  applyCollabConversationSnapshot(conversationId: number, conversation: Conversation, version: number): void {
+    this.clearPendingTextSessions();
+    const nextConversation = cloneConversation(conversation);
+    const existingIndex = this.state.project.conversations.findIndex((item) => item.id === conversationId);
+    if (existingIndex >= 0) {
+      this.state.project.conversations[existingIndex] = nextConversation;
+    } else {
+      this.state.project.conversations.push(nextConversation);
+    }
+    this.state.selectedConversationId = conversationId;
+    if (this.state.selectedTurnNumber != null && !nextConversation.turns.some((turn) => turn.turnNumber === this.state.selectedTurnNumber)) {
+      this.state.selectedTurnNumber = null;
+      this.state.selectedChoiceIndex = null;
+    }
+    this.state.dirty = true;
+    this.state.collab.version = Math.max(this.state.collab.version, version);
+    this.markProjectChanged();
+    this.markFlowChanged('structure');
+    const change = this.prepareChange(createFlowChange('structure', 'conversationList', 'flowEditor', 'propertiesPanel', 'toolbar'), {
+      projectChanged: true,
+    });
+    const validationChange = this.revalidate(change, { notify: false });
+    const nextChange = validationChange ? mergeChanges(change, validationChange) : change;
+    nextChange.projectChanged = true;
     nextChange.validationChanged = validationChange?.validationChanged ?? false;
     this.notify(nextChange);
   }
@@ -1942,6 +2101,7 @@ class StateManager {
       this.state.conversationSourceMetadata.set(conversationId, {
         sourceCommunityId: metadata.sourceCommunityId,
         sourcePublisherId: metadata.sourcePublisherId,
+        sourceCoAuthors: metadata.sourceCoAuthors ? [...metadata.sourceCoAuthors] : undefined,
         sourceUpdatedAt: metadata.sourceUpdatedAt,
       });
     } else {

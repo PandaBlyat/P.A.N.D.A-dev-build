@@ -38,3 +38,7 @@ make doctor-strict  # optional: fail fast if XML parse errors exist
 ## Notes for constrained CI/dev containers
 
 If package mirrors are blocked, `make setup-tools` may fail due to network policy. `make check` still works because `mod_doctor.py` only needs Python 3.
+
+## Web editor collaboration
+
+Pair-collab publish credit requires the editor Express proxy (`tools/editor/server`) to run. Supabase Realtime carries live edit traffic, but co-author verification, publish XP, daily co-author XP caps, and host/guest publish checks run server-side before writing `community_conversations`.

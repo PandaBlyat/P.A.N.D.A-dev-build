@@ -200,3 +200,13 @@ export const FACTION_XML_KEYS: Record<FactionId, string> = {
 export function getConversationFaction(conversation: Pick<Conversation, 'faction'> | null | undefined, fallback: FactionId = 'stalker'): FactionId {
   return conversation?.faction ?? fallback;
 }
+
+export type {
+  CollabFrame,
+  CollabLock,
+  CollabOp,
+  CollabParticipant,
+  CollabRemoteCursor,
+  CollabSession,
+  CollabSnapshot,
+} from './collab-protocol';

@@ -14,6 +14,8 @@ import { getConversationFaction } from '../lib/types';
 import type { FlowDensity } from '../lib/state';
 import { measurePerf, recordPerf } from '../lib/perf';
 import { setBeginnerTooltip } from '../lib/beginner-tooltips';
+import { createCollabPresenceLayer } from './CollabPresenceLayer';
+import { sendCollabCursorPing } from '../lib/collab-session';
 
 type TurnPositionMap = Map<number, { x: number; y: number }>;
 type EdgeKind = 'continue' | 'pause-success' | 'pause-fail';
@@ -493,6 +495,10 @@ export function renderFlowEditor(container: HTMLElement): void {
 
   }
   content.appendChild(previewSvg);
+  const collabLayer = createCollabPresenceLayer(conv);
+  if (collabLayer) {
+    content.appendChild(collabLayer);
+  }
 
   let drawFrame = 0;
   let pendingPositionOverrides: TurnPositionMap | undefined;
@@ -562,6 +568,9 @@ export function renderFlowEditor(container: HTMLElement): void {
 
 
   canvas.appendChild(content);
+  canvas.addEventListener('pointermove', (event) => {
+    sendCollabCursorPing(viewportToWorldPoint(canvas, viewState, event.clientX, event.clientY));
+  });
   shell.appendChild(canvas);
   shell.appendChild(controls);
   container.appendChild(shell);

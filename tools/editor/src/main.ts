@@ -48,6 +48,8 @@ import { showXpToast } from './components/XpToast';
 import { showGamificationToast } from './components/AchievementToast';
 import { installBeginnerTooltipBridge } from './components/BeginnerTooltip';
 import { mountBeginnerTooltipController } from './lib/beginner-tooltips';
+import { initializeCollabIdentity } from './lib/collab-session';
+import { showCollabInviteToast } from './components/CollabInviteToast';
 
 type IdleCallbackHandle = number;
 type IdleCallbackDeadline = { didTimeout: boolean; timeRemaining: () => number };
@@ -154,6 +156,9 @@ function refreshToolbarProfile(): void {
 
 const publisherId = getPublisherId();
 const storedUsername = getStoredUsername();
+if (storedUsername) {
+  initializeCollabIdentity({ publisherId, username: storedUsername }, showCollabInviteToast);
+}
 
 function setCurrentProfile(profile: UserProfile | null): void {
   (globalThis as any).__pandaUserProfile = profile;
@@ -172,6 +177,7 @@ function buildSyncedStreakPayload(profile: UserProfile, loginResult: ReturnType<
 
 function handleProfileRegistered(profile: UserProfile): void {
   setCurrentProfile(profile);
+  initializeCollabIdentity({ publisherId: profile.publisher_id, username: profile.username }, showCollabInviteToast);
 
   const loginResult = recordDailyLogin();
   if (!loginResult.isNew) return;

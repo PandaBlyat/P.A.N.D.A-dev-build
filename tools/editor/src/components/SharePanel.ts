@@ -49,6 +49,7 @@ import {
   unlockAchievementLocally,
 } from '../lib/gamification';
 import { showAchievementToasts, showGamificationToast } from './AchievementToast';
+import { flushCollabSessionForPublish, isCollabHost, isInCollabSession } from '../lib/collab-session';
 
 type SortMode = 'newest' | 'upvoted';
 type LengthFilter = 'all' | 'short' | 'medium' | 'long';
@@ -67,6 +68,7 @@ type NormalizedConversation = CommunityConversation & {
 type CommunitySourceMetadata = {
   id: string;
   publisher_id?: string;
+  co_authors?: string[];
 };
 type ConversationWithSource = Conversation & {
   community_source?: CommunitySourceMetadata;
@@ -90,8 +92,9 @@ function getCurrentPublisherIds(): string[] {
 
 function userOwnsConversation(conv: CommunityConversation): boolean {
   const publisherId = conv.publisher_id?.trim();
-  if (!publisherId) return false;
-  return getCurrentPublisherIds().includes(publisherId);
+  const currentIds = getCurrentPublisherIds();
+  if (publisherId && currentIds.includes(publisherId)) return true;
+  return (conv.co_authors ?? []).some((coAuthor) => currentIds.includes(coAuthor));
 }
 
 function attachCommunitySourceMetadata(conversation: Conversation, metadata: CommunitySourceMetadata): Conversation {
@@ -108,7 +111,14 @@ function getCommunitySourceMetadata(conversation: Conversation | null | undefine
   return {
     id: maybe.id.trim(),
     publisher_id: typeof maybe.publisher_id === 'string' ? maybe.publisher_id.trim() : undefined,
+    co_authors: Array.isArray(maybe.co_authors) ? maybe.co_authors.filter((id): id is string => typeof id === 'string' && id.trim().length > 0) : undefined,
   };
+}
+
+function getReplacementPublisherId(sourcePublisherId?: string, sourceCoAuthors: string[] = []): string | undefined {
+  const currentIds = getCurrentPublisherIds();
+  if (sourcePublisherId && currentIds.includes(sourcePublisherId)) return sourcePublisherId;
+  return currentIds.find((id) => sourceCoAuthors.includes(id));
 }
 
 
@@ -149,7 +159,7 @@ function isOwnedSelectedSourceMetadata(
   sourceMetadata: ReturnType<typeof store.getSelectedConversationSourceMetadata>,
 ): boolean {
   const sourcePublisherId = sourceMetadata?.sourcePublisherId?.trim();
-  return !!sourcePublisherId && getCurrentPublisherIds().includes(sourcePublisherId);
+  return Boolean(getReplacementPublisherId(sourcePublisherId, sourceMetadata?.sourceCoAuthors ?? []));
 }
 
 function getPrimaryPublishReplacementMode(): boolean {
@@ -173,6 +183,14 @@ function updateReplacementIntentState(): void {
 function refreshPrimaryPublishCta(): void {
   const publishBtn = overlayEl?.querySelector<HTMLButtonElement>('[data-share-publish]');
   if (!publishBtn) return;
+  if (isInCollabSession() && !isCollabHost()) {
+    setButtonContent(publishBtn, 'export', 'Publish');
+    publishBtn.title = 'Only the host can publish';
+    publishBtn.disabled = true;
+    publishBtn.onclick = null;
+    return;
+  }
+  publishBtn.disabled = false;
 
   const useUpdateMode = getPrimaryPublishReplacementMode();
   if (useUpdateMode) {
@@ -198,15 +216,20 @@ async function handlePrimaryPublishAction(triggerBtn?: HTMLButtonElement): Promi
   const sourceMetadata = store.getSelectedConversationSourceMetadata();
   const sourceCommunityId = sourceMetadata?.sourceCommunityId?.trim();
   const sourcePublisherId = sourceMetadata?.sourcePublisherId?.trim();
+  const replacementPublisherId = getReplacementPublisherId(sourcePublisherId, sourceMetadata?.sourceCoAuthors ?? []);
   const faction = getConversationFaction(conv, store.get().project.faction);
   if (!conv || !sourceCommunityId || !sourcePublisherId) {
     showPublishForm({ replacementContext: true });
     return;
   }
 
-  if (!getCurrentPublisherIds().includes(sourcePublisherId)) {
+  if (!replacementPublisherId) {
     alert('You can only update conversations published by your current publisher identity.');
     showPublishForm({ replacementContext: true });
+    return;
+  }
+  if (isInCollabSession() && !isCollabHost()) {
+    alert('Only the host can publish.');
     return;
   }
 
@@ -225,6 +248,7 @@ async function handlePrimaryPublishAction(triggerBtn?: HTMLButtonElement): Promi
   }
 
   try {
+    const collabSessionId = isInCollabSession() ? await flushCollabSessionForPublish() : null;
     await publishConversation({
       faction,
       label,
@@ -240,7 +264,8 @@ async function handlePrimaryPublishAction(triggerBtn?: HTMLButtonElement): Promi
         conversations: [conv],
       },
       replace_id: sourceCommunityId,
-      publisher_id: sourcePublisherId,
+      publisher_id: replacementPublisherId,
+      collab_session_id: collabSessionId ?? undefined,
     });
     loadNotice = 'Updated existing community story. Refreshing library…';
     loadError = '';
@@ -345,6 +370,8 @@ function normalizeConversation(entry: CommunityConversation, source: LibrarySour
     description: (entry.description || '').trim(),
     summary: (entry.summary || createSummaryFromConversation(conversation ?? createFallbackConversation())).trim(),
     tags: Array.from(new Set((entry.tags ?? []).map(tag => tag.trim()).filter(Boolean))).slice(0, 6),
+    co_authors: entry.co_authors ?? [],
+    co_author_usernames: entry.co_author_usernames ?? [],
     branch_count: branchCount,
     complexity: entry.complexity ?? deriveConversationComplexity(branchCount),
     upvotes: entry.upvotes ?? 0,
@@ -360,6 +387,16 @@ function createFallbackConversation(): Conversation {
     preconditions: [],
     turns: [{ turnNumber: 1, preconditions: [], choices: [], position: { x: 0, y: 0 } }],
   };
+}
+
+function getCollabCoAuthorNames(publisherId?: string): string[] {
+  const collab = store.get().collab;
+  if (!collab.sessionId) return [];
+  const ownerId = publisherId || collab.localPublisherId;
+  return collab.participants
+    .filter((participant) => participant.publisherId !== ownerId)
+    .map((participant) => participant.username)
+    .filter(Boolean);
 }
 
 function getBranchCount(conversation?: Conversation): number {
@@ -541,7 +578,12 @@ function buildHeader(): HTMLElement {
   publishBtn.dataset.sharePublish = 'true';
   setButtonContent(publishBtn, 'export', 'Publish');
   publishBtn.title = 'Publish the currently selected story to the Community Library';
-  publishBtn.onclick = () => showPublishForm();
+  if (isInCollabSession() && !isCollabHost()) {
+    publishBtn.disabled = true;
+    publishBtn.title = 'Only the host can publish';
+  } else {
+    publishBtn.onclick = () => showPublishForm();
+  }
   publishBtn.classList.add('share-publish-cta');
   publishSlot.appendChild(publishBtn);
   header.appendChild(publishSlot);
@@ -842,11 +884,15 @@ function buildCard(conv: NormalizedConversation): HTMLElement {
 
   const stats = document.createElement('div');
   stats.className = 'share-card-stats';
+  const coAuthorUsernames = conv.co_author_usernames ?? [];
   stats.append(
     buildChip(`${labelForComplexity(conv.complexity)} complexity`),
     buildChip(`↑ ${conv.upvotes}`),
     buildChip(`↓ ${conv.downloads}`),
   );
+  if (coAuthorUsernames.length > 0) {
+    stats.appendChild(buildChip(`+${coAuthorUsernames.length} co-author${coAuthorUsernames.length === 1 ? '' : 's'}`));
+  }
   card.appendChild(stats);
 
   if (conv.tags.length > 0) {
@@ -935,7 +981,9 @@ function buildListRow(conv: NormalizedConversation): HTMLElement {
 
   const meta = document.createElement('span');
   meta.className = 'share-list-row-meta';
-  meta.textContent = `${conv.author || 'Anonymous'} · ${conv.branch_count} branches · ↑${conv.upvotes} · ↓${conv.downloads}`;
+  const coAuthorUsernames = conv.co_author_usernames ?? [];
+  const coAuthorMeta = coAuthorUsernames.length > 0 ? ` · +${coAuthorUsernames.length} co-author${coAuthorUsernames.length === 1 ? '' : 's'}` : '';
+  meta.textContent = `${conv.author || 'Anonymous'}${coAuthorMeta} · ${conv.branch_count} branches · ↑${conv.upvotes} · ↓${conv.downloads}`;
 
   row.append(dot, title, meta);
   return row;
@@ -965,6 +1013,13 @@ function buildPreviewDrawer(conv: NormalizedConversation | null): HTMLElement {
   subtitle.textContent = `${FACTION_DISPLAY_NAMES[conv.faction]} · ${conv.author || 'Anonymous'} · Updated ${formatRelativeDate(conv.updated_at)}`;
 
   header.append(title, subtitle);
+  const coAuthorUsernames = conv.co_author_usernames ?? [];
+  if (coAuthorUsernames.length > 0) {
+    const coAuthors = document.createElement('div');
+    coAuthors.className = 'share-preview-coauthors';
+    coAuthors.textContent = `Co-authors: ${coAuthorUsernames.join(', ')}`;
+    header.appendChild(coAuthors);
+  }
   drawer.appendChild(header);
 
   const summary = document.createElement('div');
@@ -1098,6 +1153,7 @@ async function handleImportCard(conv: CommunityConversation, btn: HTMLButtonElem
   const imported = conversations.map(entry => attachCommunitySourceMetadata(entry, {
     id: conv.id,
     publisher_id: conv.publisher_id,
+    co_authors: conv.co_authors ?? [],
   }));
   importConversations(imported, conv.faction);
   incrementDownload(conv.id);
@@ -1125,10 +1181,11 @@ async function handleEditImport(conv: CommunityConversation, btn: HTMLButtonElem
   const importedConversationId = importConversations(conversations, conv.faction);
   if (importedConversationId != null) {
     store.setConversationSourceMetadata(importedConversationId, {
-      sourceCommunityId: conv.id,
-      sourcePublisherId: conv.publisher_id?.trim() || 'anonymous',
-      sourceUpdatedAt: conv.updated_at || undefined,
-    });
+    sourceCommunityId: conv.id,
+    sourcePublisherId: conv.publisher_id?.trim() || 'anonymous',
+    sourceCoAuthors: conv.co_authors ?? [],
+    sourceUpdatedAt: conv.updated_at || undefined,
+  });
     updateReplacementIntentState();
   }
   incrementDownload(conv.id);
@@ -1358,6 +1415,10 @@ function buildPublishFormLegacy(): HTMLElement {
       setStatus('Confirm the moderation checkbox before publishing.', 'danger');
       return;
     }
+    if (isInCollabSession() && !isCollabHost()) {
+      setStatus('Only the host can publish.', 'danger');
+      return;
+    }
 
     const label = titleInput.value.trim() || conv.label || 'Untitled';
     const author = authorInput.value.trim() || 'Anonymous';
@@ -1368,7 +1429,8 @@ function buildPublishFormLegacy(): HTMLElement {
     const branchCount = getBranchCount(conv);
     const selectedSourceMetadata = store.getSelectedConversationSourceMetadata();
     const selectedSourcePublisherId = selectedSourceMetadata?.sourcePublisherId?.trim();
-    const selectedOwnershipValid = !!selectedSourcePublisherId && getCurrentPublisherIds().includes(selectedSourcePublisherId);
+    const selectedReplacementPublisherId = getReplacementPublisherId(selectedSourcePublisherId, selectedSourceMetadata?.sourceCoAuthors ?? []);
+    const selectedOwnershipValid = Boolean(selectedReplacementPublisherId);
     const shouldUseReplacePayload = isReplacementCandidate && selectedOwnershipValid;
     const selectedReplaceId = shouldUseReplacePayload && replacementCommunityId
       ? replacementCommunityId
@@ -1376,11 +1438,12 @@ function buildPublishFormLegacy(): HTMLElement {
 
     const conversationSourceMetadata = getCommunitySourceMetadata(conv);
     const conversationSourcePublisherId = conversationSourceMetadata?.publisher_id?.trim();
-    const conversationOwnershipValid = !!conversationSourcePublisherId && getCurrentPublisherIds().includes(conversationSourcePublisherId);
+    const conversationReplacementPublisherId = getReplacementPublisherId(conversationSourcePublisherId, conversationSourceMetadata?.co_authors ?? []);
+    const conversationOwnershipValid = Boolean(conversationReplacementPublisherId);
     const replaceId = selectedReplaceId;
     const publisherId = selectedOwnershipValid
-      ? selectedSourcePublisherId
-      : (conversationOwnershipValid ? conversationSourcePublisherId : undefined);
+      ? selectedReplacementPublisherId
+      : (conversationOwnershipValid ? conversationReplacementPublisherId : undefined);
     const duplicateLocal = allResults.some(entry =>
       normalizeKey(entry.label) === normalizeKey(label)
       && (!replaceId || entry.id !== replaceId),
@@ -1395,6 +1458,7 @@ function buildPublishFormLegacy(): HTMLElement {
     setStatus('Validating title, abuse checks, and publish payload…', 'neutral');
 
     try {
+      const collabSessionId = isInCollabSession() ? await flushCollabSessionForPublish() : null;
       await publishConversation({
         faction,
         label,
@@ -1411,6 +1475,7 @@ function buildPublishFormLegacy(): HTMLElement {
         },
         replace_id: replaceId ?? undefined,
         publisher_id: publisherId,
+        collab_session_id: collabSessionId ?? undefined,
       });
       setStatus(replaceId
         ? 'Updated existing community story. Refreshing library…'
@@ -1894,6 +1959,10 @@ function buildPublishForm(): HTMLElement {
       setStatus('Confirm the moderation checkbox before publishing.', 'danger');
       return;
     }
+    if (isInCollabSession() && !isCollabHost()) {
+      setStatus('Only the host can publish.', 'danger');
+      return;
+    }
 
     const label = titleInput.value.trim() || conv.label || 'Untitled';
     const author = authorInput.value.trim() || 'Anonymous';
@@ -1904,7 +1973,8 @@ function buildPublishForm(): HTMLElement {
     const branchCount = getBranchCount(conv);
     const selectedSourceMetadata = store.getSelectedConversationSourceMetadata();
     const selectedSourcePublisherId = selectedSourceMetadata?.sourcePublisherId?.trim();
-    const selectedOwnershipValid = !!selectedSourcePublisherId && getCurrentPublisherIds().includes(selectedSourcePublisherId);
+    const selectedReplacementPublisherId = getReplacementPublisherId(selectedSourcePublisherId, selectedSourceMetadata?.sourceCoAuthors ?? []);
+    const selectedOwnershipValid = Boolean(selectedReplacementPublisherId);
     const shouldUseReplacePayload = isReplacementCandidate && selectedOwnershipValid;
     const selectedReplaceId = shouldUseReplacePayload && replacementCommunityId
       ? replacementCommunityId
@@ -1912,11 +1982,12 @@ function buildPublishForm(): HTMLElement {
 
     const conversationSourceMetadata = getCommunitySourceMetadata(conv);
     const conversationSourcePublisherId = conversationSourceMetadata?.publisher_id?.trim();
-    const conversationOwnershipValid = !!conversationSourcePublisherId && getCurrentPublisherIds().includes(conversationSourcePublisherId);
+    const conversationReplacementPublisherId = getReplacementPublisherId(conversationSourcePublisherId, conversationSourceMetadata?.co_authors ?? []);
+    const conversationOwnershipValid = Boolean(conversationReplacementPublisherId);
     const replaceId = selectedReplaceId;
     const publisherId = selectedOwnershipValid
-      ? selectedSourcePublisherId
-      : (conversationOwnershipValid ? conversationSourcePublisherId : undefined);
+      ? selectedReplacementPublisherId
+      : (conversationOwnershipValid ? conversationReplacementPublisherId : undefined);
     const duplicateLocal = allResults.some(entry =>
       normalizeKey(entry.label) === normalizeKey(label)
       && (!replaceId || entry.id !== replaceId),
@@ -1932,6 +2003,8 @@ function buildPublishForm(): HTMLElement {
     setStatus('Validating title, abuse checks, and publish payload...', 'neutral');
 
     try {
+      const coAuthorNames = getCollabCoAuthorNames(publisherId);
+      const collabSessionId = isInCollabSession() ? await flushCollabSessionForPublish() : null;
       await publishConversation({
         faction,
         label,
@@ -1948,6 +2021,7 @@ function buildPublishForm(): HTMLElement {
         },
         replace_id: replaceId ?? undefined,
         publisher_id: publisherId,
+        collab_session_id: collabSessionId ?? undefined,
       });
       setStatus(
         replaceId
@@ -2066,6 +2140,7 @@ function buildPublishForm(): HTMLElement {
         branchCount: publishPreview.branchCount,
         complexityLabel: labelForComplexity(publishPreview.complexity),
         isUpdate: Boolean(replaceId),
+        coAuthorNames,
       });
 
       if (publishToastMessage && publishPreview.publishXp > 0) {

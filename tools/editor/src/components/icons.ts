@@ -34,6 +34,7 @@ export type IconName =
   | 'restart'
   | 'clock'
   | 'user'
+  | 'users'
   | 'star'
   | 'trophy'
   | 'flame'
@@ -262,6 +263,14 @@ const ICONS: Record<IconName, IconDef> = {
     paths: [
       { tag: 'circle', cx: '12', cy: '6.5', r: '5.5' },
       { tag: 'path', d: 'M2.5 21.5c0-5.5 5-8.5 9.5-8.5s9.5 3 9.5 8.5' },
+    ],
+  },
+  users: {
+    paths: [
+      { tag: 'circle', cx: '9', cy: '7', r: '4' },
+      { tag: 'path', d: 'M2.5 20c0-4.5 3.5-7 6.5-7s6.5 2.5 6.5 7' },
+      { tag: 'circle', cx: '17', cy: '8.5', r: '3.2' },
+      { tag: 'path', d: 'M14.8 13.5c3.7.5 6.7 2.8 6.7 6.5' },
     ],
   },
   star: {

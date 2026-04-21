@@ -16,6 +16,7 @@ import { openLeaderboardOverlay } from './LeaderboardOverlay';
 import { openRoadMapModal } from './RoadMapModal';
 import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 import { getActiveEditorLocalUserId, getStoredUsername, type ActiveEditorUser, type RecentVisitor, type UserProfile } from '../lib/api-client';
+import { createCollabRoster } from './CollabRoster';
 
 type SearchResult = {
   label: string;
@@ -197,6 +198,10 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     ]));
 
     const profileBadge = renderProfileBadge();
+    const collabRoster = createCollabRoster();
+    if (collabRoster) {
+      rightZone.appendChild(collabRoster);
+    }
     if (profileBadge) {
       rightZone.appendChild(profileBadge);
     } else if (loginBtn) {
@@ -215,6 +220,10 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   const projectTier = document.createElement('div');
   projectTier.className = 'toolbar-tier toolbar-tier-project';
   projectTier.appendChild(branding);
+  const collabRoster = createCollabRoster();
+  if (collabRoster) {
+    projectTier.appendChild(collabRoster);
+  }
 
   const fileGroup = document.createElement('div');
   fileGroup.className = 'toolbar-group toolbar-group-project';

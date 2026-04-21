@@ -15,6 +15,7 @@ export type PublishCelebrationOptions = {
   branchCount: number;
   complexityLabel: string;
   isUpdate?: boolean;
+  coAuthorNames?: string[];
 };
 
 let containerEl: HTMLElement | null = null;
@@ -57,7 +58,9 @@ function getHeadline(options: PublishCelebrationOptions, tier: PublishCelebratio
 
 function getSubtitle(options: PublishCelebrationOptions): string {
   const storyLabel = options.title.trim() || 'Untitled';
-  return `${storyLabel} went live with ${options.branchCount} branches, ${options.qualityStars}-star quality, and a ${options.complexityLabel.toLowerCase()} publish profile.`;
+  const coAuthors = options.coAuthorNames?.filter(Boolean) ?? [];
+  const coAuthorText = coAuthors.length > 0 ? ` with ${coAuthors.join(', ')}` : '';
+  return `${storyLabel} went live${coAuthorText} with ${options.branchCount} branches, ${options.qualityStars}-star quality, and a ${options.complexityLabel.toLowerCase()} publish profile.`;
 }
 
 function getParticleCount(tier: PublishCelebrationTier): number {

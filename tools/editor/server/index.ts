@@ -3,12 +3,14 @@
 
 import express from 'express';
 import cors from 'cors';
+import { randomUUID } from 'node:crypto';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? 'http://localhost:5173';
 const TABLE = 'community_conversations';
+const COLLAB_TABLE = 'collab_sessions';
 const SUPPORT_TABLE = 'creator_support_metrics';
 const ACTIVE_USERS_TABLE = 'creator_active_users';
 const PROFILES_TABLE = 'user_profiles';
@@ -23,7 +25,7 @@ const ADMIN_PUBLISHER_IDS = new Set(
     .filter(Boolean),
 );
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
-const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'upvotes', 'updated_at', 'publisher_id'] as const;
+const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'upvotes', 'updated_at', 'publisher_id', 'co_authors', 'co_author_usernames'] as const;
 
 type CommunityLibraryStats = {
   published_conversations: number;
@@ -166,6 +168,8 @@ function escapeIlike(value: string): string {
 function normalizeConversationRow(row: Record<string, unknown>) {
   return {
     publisher_id: typeof row.publisher_id === 'string' ? row.publisher_id : '',
+    co_authors: Array.isArray(row.co_authors) ? row.co_authors.filter((id): id is string => typeof id === 'string') : [],
+    co_author_usernames: Array.isArray(row.co_author_usernames) ? row.co_author_usernames.filter((name): name is string => typeof name === 'string') : [],
     id: typeof row.id === 'string' ? row.id : '',
     faction: typeof row.faction === 'string' ? row.faction : '',
     label: typeof row.label === 'string' ? row.label : '',
@@ -185,6 +189,50 @@ function normalizeConversationRow(row: Record<string, unknown>) {
         : new Date(0).toISOString(),
     data: row.data ?? null,
   };
+}
+
+type CollabSessionRow = {
+  id: string;
+  host_publisher_id: string;
+  conversation_id: number;
+  conversation_label: string;
+  participants: string[];
+  participant_usernames: string[];
+  status: 'open' | 'closed' | 'published';
+  snapshot: unknown;
+  snapshot_version: number;
+  created_at: string;
+  updated_at: string;
+  closed_at: string | null;
+  max_users: number;
+  guest_edit_count: number;
+  last_guest_edit_at: string | null;
+};
+
+function normalizeCollabSessionRow(row: Record<string, unknown>): CollabSessionRow {
+  return {
+    id: typeof row.id === 'string' ? row.id : '',
+    host_publisher_id: typeof row.host_publisher_id === 'string' ? row.host_publisher_id : '',
+    conversation_id: typeof row.conversation_id === 'number' ? row.conversation_id : Number(row.conversation_id ?? 0),
+    conversation_label: typeof row.conversation_label === 'string' ? row.conversation_label : '',
+    participants: Array.isArray(row.participants) ? row.participants.filter((id): id is string => typeof id === 'string') : [],
+    participant_usernames: Array.isArray(row.participant_usernames)
+      ? row.participant_usernames.filter((name): name is string => typeof name === 'string')
+      : [],
+    status: row.status === 'closed' || row.status === 'published' ? row.status : 'open',
+    snapshot: row.snapshot ?? null,
+    snapshot_version: typeof row.snapshot_version === 'number' ? row.snapshot_version : 0,
+    created_at: typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
+    updated_at: typeof row.updated_at === 'string' ? row.updated_at : new Date().toISOString(),
+    closed_at: typeof row.closed_at === 'string' ? row.closed_at : null,
+    max_users: typeof row.max_users === 'number' ? row.max_users : 2,
+    guest_edit_count: typeof row.guest_edit_count === 'number' ? row.guest_edit_count : 0,
+    last_guest_edit_at: typeof row.last_guest_edit_at === 'string' ? row.last_guest_edit_at : null,
+  };
+}
+
+function sanitizeStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(item => typeof item === 'string' ? item.trim() : '').filter(Boolean) : [];
 }
 
 function normalizeUserStreak(row: Record<string, unknown> | null | undefined): UserStreakState | null {
@@ -454,6 +502,42 @@ async function applyPublishRewards(conversationId: string): Promise<ServerProfil
   };
 }
 
+async function awardXpCappedBucket(
+  publisherId: string,
+  amount: number,
+  bucket: string,
+  dailyCap: number,
+): Promise<ServerProfileRewardResult | null> {
+  if (amount <= 0) return null;
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp_capped_bucket`, {
+    method: 'POST',
+    headers: sbHeaders(),
+    body: JSON.stringify({
+      p_publisher_id: publisherId,
+      p_amount: amount,
+      p_bucket: bucket,
+      p_daily_cap: dailyCap,
+    }),
+  });
+  if (!r.ok) return null;
+  const rows = await r.json().catch(() => []) as Array<Record<string, unknown>>;
+  const row = Array.isArray(rows) ? rows[0] : null;
+  return {
+    profile: row && typeof row.publisher_id === 'string' ? {
+      publisher_id: String(row.publisher_id),
+      username: typeof row.username === 'string' ? row.username : '',
+      xp: typeof row.xp === 'number' ? row.xp : 0,
+      level: typeof row.level === 'number' ? row.level : 1,
+      title: typeof row.title === 'string' ? row.title : '',
+    } : null,
+    unlocked: [],
+    publish_xp: typeof row?.awarded === 'number' ? row.awarded : amount,
+    achievement_xp: 0,
+    mission_xp: 0,
+    total_xp: typeof row?.awarded === 'number' ? row.awarded : amount,
+  };
+}
+
 async function applyMetricRewards(publisherId: string, metricType: 'downloads' | 'upvotes' | 'both'): Promise<ServerProfileRewardResult | null> {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/apply_metric_rewards`, {
     method: 'POST',
@@ -579,17 +663,50 @@ async function fetchAuthoredConversations(publisherId: string) {
     order: 'created_at.desc',
   });
 
-  const response = await fetch(`${sbEndpoint(TABLE)}?${params}`, { headers: sbHeaders() });
+  let response = await fetch(`${sbEndpoint(TABLE)}?${params}`, { headers: sbHeaders() });
   if (!response.ok) {
     const errorMessage = await readErrorMessage(response);
     if (isMissingSchemaColumnError(errorMessage, 'publisher_id')) {
       return [];
     }
+    if (isCommunitySchemaMismatchError(errorMessage) || isMissingOptionalCommunityColumnError(errorMessage)) {
+      const fallbackParams = new URLSearchParams({
+        select: ['publisher_id', ...COMMUNITY_REQUIRED_COLUMNS].join(','),
+        publisher_id: `eq.${publisherId}`,
+        order: 'created_at.desc',
+      });
+      response = await fetch(`${sbEndpoint(TABLE)}?${fallbackParams}`, { headers: sbHeaders() });
+      if (!response.ok) return [];
+    } else {
+      throw new Error(errorMessage);
+    }
+  }
+  if (!response.ok) {
+    const errorMessage = await readErrorMessage(response);
     throw new Error(errorMessage);
   }
 
   const rows = await response.json() as Array<Record<string, unknown>>;
-  return rows.map(normalizeConversationRow);
+  const coAuthorParams = new URLSearchParams({
+    select: ['publisher_id', ...COMMUNITY_REQUIRED_COLUMNS, ...COMMUNITY_OPTIONAL_COLUMNS].join(','),
+    co_authors: `cs.{${publisherId}}`,
+    order: 'created_at.desc',
+  });
+  const coAuthorRows = await fetch(`${sbEndpoint(TABLE)}?${coAuthorParams}`, { headers: sbHeaders() })
+    .then(async (coAuthorResponse) => {
+      if (!coAuthorResponse.ok) return [] as Array<Record<string, unknown>>;
+      return await coAuthorResponse.json() as Array<Record<string, unknown>>;
+    })
+    .catch(() => [] as Array<Record<string, unknown>>);
+  const deduped = new Map<string, ReturnType<typeof normalizeConversationRow>>();
+  for (const row of [...rows, ...coAuthorRows].map(normalizeConversationRow)) {
+    deduped.set(row.id, row);
+  }
+  return Array.from(deduped.values()).sort((left, right) => {
+    const leftTime = Date.parse(left.updated_at ?? left.created_at);
+    const rightTime = Date.parse(right.updated_at ?? right.created_at);
+    return rightTime - leftTime;
+  });
 }
 
 async function fetchPublicProfileData(publisherId: string): Promise<PublicProfileData | null> {
@@ -603,7 +720,7 @@ async function fetchPublicProfileData(publisherId: string): Promise<PublicProfil
 
   return {
     profile,
-    publish_count: publishCount,
+    publish_count: Math.max(publishCount, authoredConversations.length),
     authored_conversations: authoredConversations,
   };
 }
@@ -916,9 +1033,227 @@ app.post('/api/active-users/touch', async (req, res) => {
   }
 });
 
+async function fetchCollabSessionById(id: string): Promise<CollabSessionRow | null> {
+  const params = new URLSearchParams({
+    select: '*',
+    id: `eq.${id}`,
+    limit: '1',
+  });
+  const response = await fetch(`${sbEndpoint(COLLAB_TABLE)}?${params}`, { headers: sbHeaders() });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+  const rows = await response.json() as Array<Record<string, unknown>>;
+  return rows[0] ? normalizeCollabSessionRow(rows[0]) : null;
+}
+
+async function updateCollabSession(id: string, body: Record<string, unknown>): Promise<CollabSessionRow> {
+  const response = await fetch(`${sbEndpoint(COLLAB_TABLE)}?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { ...sbHeaders(), Prefer: 'return=representation' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+  const rows = await response.json() as Array<Record<string, unknown>>;
+  if (!rows[0]) throw new Error('Collab session update returned no row.');
+  return normalizeCollabSessionRow(rows[0]);
+}
+
+app.post('/api/collab/sessions', async (req, res) => {
+  try {
+    const { host_publisher_id, conversation_id, conversation_label, snapshot, username } = req.body ?? {};
+    const host = typeof host_publisher_id === 'string' ? host_publisher_id.trim() : '';
+    const label = typeof conversation_label === 'string' ? conversation_label.trim() : '';
+    const conversationId = Number(conversation_id);
+    if (!host || !Number.isFinite(conversationId) || !label || !snapshot) {
+      res.status(400).json({ error: 'Missing required collab session fields.' });
+      return;
+    }
+    const body = {
+      id: randomUUID(),
+      host_publisher_id: host,
+      conversation_id: conversationId,
+      conversation_label: label,
+      participants: [host],
+      participant_usernames: [typeof username === 'string' && username.trim() ? username.trim() : host],
+      snapshot,
+      snapshot_version: 0,
+      status: 'open',
+      max_users: 2,
+    };
+    const response = await fetch(sbEndpoint(COLLAB_TABLE), {
+      method: 'POST',
+      headers: { ...sbHeaders(), Prefer: 'return=representation' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      res.status(response.status).json({ error: await readErrorMessage(response) });
+      return;
+    }
+    const rows = await response.json() as Array<Record<string, unknown>>;
+    res.status(201).json({ session: normalizeCollabSessionRow(rows[0] ?? {}) });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/collab/sessions/:id', async (req, res) => {
+  try {
+    const session = await fetchCollabSessionById(req.params.id);
+    if (!session) {
+      res.status(404).json({ error: 'Collab session not found.' });
+      return;
+    }
+    res.json({ session });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/collab/sessions/:id/join', async (req, res) => {
+  try {
+    const publisherId = typeof req.body?.publisher_id === 'string' ? req.body.publisher_id.trim() : '';
+    const username = typeof req.body?.username === 'string' && req.body.username.trim() ? req.body.username.trim() : publisherId;
+    if (!publisherId) {
+      res.status(400).json({ error: 'Missing publisher_id.' });
+      return;
+    }
+    const session = await fetchCollabSessionById(req.params.id);
+    if (!session || session.status !== 'open') {
+      res.status(404).json({ error: 'Open collab session not found.' });
+      return;
+    }
+    const participants = [...session.participants];
+    const usernames = [...session.participant_usernames];
+    const existingIndex = participants.indexOf(publisherId);
+    if (existingIndex < 0) {
+      if (participants.length >= session.max_users) {
+        res.status(409).json({ error: 'Collab session is full.' });
+        return;
+      }
+      participants.push(publisherId);
+      usernames.push(username);
+    } else {
+      usernames[existingIndex] = username;
+    }
+    const updated = await updateCollabSession(session.id, {
+      participants,
+      participant_usernames: usernames,
+      updated_at: new Date().toISOString(),
+    });
+    res.json({ session: updated });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/collab/sessions/:id/close', async (req, res) => {
+  try {
+    const caller = typeof req.body?.caller === 'string' ? req.body.caller.trim() : '';
+    const session = await fetchCollabSessionById(req.params.id);
+    if (!session) {
+      res.status(404).json({ error: 'Collab session not found.' });
+      return;
+    }
+    if (session.host_publisher_id !== caller) {
+      res.status(403).json({ error: 'Only host can close collab session.' });
+      return;
+    }
+    const updated = await updateCollabSession(session.id, {
+      status: 'closed',
+      snapshot: req.body?.snapshot ?? session.snapshot,
+      snapshot_version: typeof req.body?.snapshot_version === 'number' ? req.body.snapshot_version : session.snapshot_version,
+      guest_edit_count: typeof req.body?.guest_edit_count === 'number' ? req.body.guest_edit_count : session.guest_edit_count,
+      last_guest_edit_at: typeof req.body?.guest_edit_count === 'number' && req.body.guest_edit_count > 0 ? new Date().toISOString() : session.last_guest_edit_at,
+      closed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    res.json({ session: updated });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/collab/sessions/:id/promote-host', async (req, res) => {
+  try {
+    const newHostId = typeof req.body?.new_host_id === 'string' ? req.body.new_host_id.trim() : '';
+    const session = await fetchCollabSessionById(req.params.id);
+    if (!session || session.status !== 'open') {
+      res.status(404).json({ error: 'Open collab session not found.' });
+      return;
+    }
+    if (!session.participants.includes(newHostId)) {
+      res.status(403).json({ error: 'New host must be a participant.' });
+      return;
+    }
+    const updated = await updateCollabSession(session.id, {
+      host_publisher_id: newHostId,
+      updated_at: new Date().toISOString(),
+    });
+    res.json({ session: updated });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+async function resolveCollabPublishContext(collabSessionId: unknown, publisherId: string | null): Promise<{
+  session: CollabSessionRow | null;
+  coAuthors: string[];
+  coAuthorUsernames: string[];
+}> {
+  if (typeof collabSessionId !== 'string' || !collabSessionId.trim() || !publisherId) {
+    return { session: null, coAuthors: [], coAuthorUsernames: [] };
+  }
+  const session = await fetchCollabSessionById(collabSessionId.trim());
+  if (!session || (session.status !== 'open' && session.status !== 'closed')) {
+    throw new Error('Collab session is not publishable.');
+  }
+  if (session.host_publisher_id !== publisherId) {
+    throw new Error('Only the collab host can publish.');
+  }
+  const coAuthors = session.participants.filter(participant => participant && participant !== publisherId);
+  if (coAuthors.length === 0) {
+    return { session, coAuthors: [], coAuthorUsernames: [] };
+  }
+  const openForMs = Date.now() - Date.parse(session.created_at);
+  if (openForMs < 90_000) {
+    throw new Error('Collab session must be open for at least 90 seconds before co-author publish.');
+  }
+  if (session.guest_edit_count < 1) {
+    throw new Error('Guest must make at least one edit before co-author publish.');
+  }
+
+  const sinceUtc = new Date();
+  sinceUtc.setUTCHours(0, 0, 0, 0);
+  for (const coAuthor of coAuthors) {
+    const params = new URLSearchParams({
+      select: 'id',
+      publisher_id: `eq.${publisherId}`,
+      co_authors: `cs.{${coAuthor}}`,
+      created_at: `gte.${sinceUtc.toISOString()}`,
+      limit: '4',
+    });
+    const response = await fetch(`${sbEndpoint(TABLE)}?${params}`, { headers: sbHeaders() });
+    if (response.ok) {
+      const rows = await response.json() as Array<Record<string, unknown>>;
+      if (rows.length >= 3) {
+        throw new Error('This host and guest pair already co-published 3 times today.');
+      }
+    }
+  }
+
+  const coAuthorUsernames = coAuthors.map((coAuthor) => {
+    const index = session.participants.indexOf(coAuthor);
+    return session.participant_usernames[index] || coAuthor;
+  });
+  return { session, coAuthors, coAuthorUsernames };
+}
+
 app.post('/api/conversations', async (req, res) => {
   try {
-    const { faction, label, description, summary, author, data, tags, branch_count, complexity, publisher_id } = req.body ?? {};
+    const { faction, label, description, summary, author, data, tags, branch_count, complexity, publisher_id, collab_session_id } = req.body ?? {};
     const normalizedLabel = typeof label === 'string' ? label.trim() : '';
     if (!faction || !data || !normalizedLabel) {
       res.status(400).json({ error: 'Missing required fields: faction, label, data' });
@@ -943,6 +1278,13 @@ app.post('/api/conversations', async (req, res) => {
     // then invoke apply_publish_rewards for server-authoritative rewards.
     const headers = { ...sbHeaders(), Prefer: 'return=representation' };
     const normalizedPublisherId = typeof publisher_id === 'string' && publisher_id.trim() ? publisher_id.trim() : null;
+    let collabContext: Awaited<ReturnType<typeof resolveCollabPublishContext>>;
+    try {
+      collabContext = await resolveCollabPublishContext(collab_session_id, normalizedPublisherId);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
+      return;
+    }
     const publishBody = {
       faction,
       label: normalizedLabel,
@@ -953,6 +1295,8 @@ app.post('/api/conversations', async (req, res) => {
       branch_count: typeof branch_count === 'number' ? branch_count : null,
       complexity: typeof complexity === 'string' ? complexity : null,
       publisher_id: normalizedPublisherId,
+      co_authors: collabContext.coAuthors,
+      co_author_usernames: collabContext.coAuthorUsernames,
       data,
     };
 
@@ -969,6 +1313,8 @@ app.post('/api/conversations', async (req, res) => {
         || isMissingSchemaColumnError(errorMessage, 'summary')
         || isMissingSchemaColumnError(errorMessage, 'tags')
         || isMissingSchemaColumnError(errorMessage, 'publisher_id')
+        || isMissingSchemaColumnError(errorMessage, 'co_authors')
+        || isMissingSchemaColumnError(errorMessage, 'co_author_usernames')
         || isCommunitySchemaMismatchError(errorMessage)
       ) {
         const {
@@ -977,6 +1323,8 @@ app.post('/api/conversations', async (req, res) => {
           branch_count: _branchCount,
           complexity: _complexity,
           publisher_id: _publisherId,
+          co_authors: _coAuthors,
+          co_author_usernames: _coAuthorUsernames,
           ...fallbackBody
         } = publishBody;
         r = await fetch(sbEndpoint(TABLE), {
@@ -1006,8 +1354,22 @@ app.post('/api/conversations', async (req, res) => {
     const rewards = insertedId && normalizedPublisherId
       ? await applyPublishRewards(insertedId).catch(() => null)
       : null;
+    const coAuthorRewards: Array<{ publisher_id: string; rewards: ServerProfileRewardResult | null }> = [];
+    const publishXp = rewards?.publish_xp ?? 0;
+    if (publishXp > 0) {
+      for (const coAuthor of collabContext.coAuthors) {
+        const reward = await awardXpCappedBucket(coAuthor, publishXp, 'collab_coauthor_daily', 300).catch(() => null);
+        coAuthorRewards.push({ publisher_id: coAuthor, rewards: reward });
+      }
+    }
+    if (collabContext.session) {
+      await updateCollabSession(collabContext.session.id, {
+        status: 'published',
+        updated_at: new Date().toISOString(),
+      }).catch(() => null);
+    }
 
-    res.status(201).json({ ok: true, conversation_id: insertedId ?? null, rewards });
+    res.status(201).json({ ok: true, conversation_id: insertedId ?? null, rewards, co_author_rewards: coAuthorRewards });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -1036,22 +1398,30 @@ async function handleConversationReplace(req: express.Request, res: express.Resp
     }
 
     const existingParams = new URLSearchParams({
-      select: 'id,publisher_id',
+      select: 'id,publisher_id,co_authors',
       id: `eq.${id}`,
       limit: '1',
     });
-    const existingResponse = await fetch(`${sbEndpoint(TABLE)}?${existingParams}`, { headers: sbHeaders() });
+    let existingResponse = await fetch(`${sbEndpoint(TABLE)}?${existingParams}`, { headers: sbHeaders() });
+    if (!existingResponse.ok) {
+      const errorMessage = await readErrorMessage(existingResponse);
+      if (isMissingSchemaColumnError(errorMessage, 'co_authors')) {
+        existingParams.set('select', 'id,publisher_id');
+        existingResponse = await fetch(`${sbEndpoint(TABLE)}?${existingParams}`, { headers: sbHeaders() });
+      }
+    }
     if (!existingResponse.ok) {
       res.status(existingResponse.status).json({ error: await readErrorMessage(existingResponse) });
       return;
     }
-    const existingRows = await existingResponse.json() as Array<{ id: string; publisher_id?: string | null }>;
+    const existingRows = await existingResponse.json() as Array<{ id: string; publisher_id?: string | null; co_authors?: string[] | null }>;
     const existing = existingRows[0];
     if (!existing) {
       res.status(404).json({ error: 'Conversation not found.' });
       return;
     }
-    if ((existing.publisher_id ?? '').trim() !== normalizedPublisherId) {
+    const existingCoAuthors = Array.isArray(existing.co_authors) ? existing.co_authors : [];
+    if ((existing.publisher_id ?? '').trim() !== normalizedPublisherId && !existingCoAuthors.includes(normalizedPublisherId)) {
       res.status(403).json({ error: 'Forbidden: publisher mismatch.' });
       return;
     }

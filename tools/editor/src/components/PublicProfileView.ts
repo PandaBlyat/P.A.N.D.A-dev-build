@@ -870,6 +870,13 @@ function buildRecentCards(data: PublicProfileData): HTMLElement {
     title.className = 'public-profile-recent-title';
     title.textContent = conversation.label || 'Untitled conversation';
 
+    const authors = document.createElement('div');
+    authors.className = 'public-profile-recent-coauthors';
+    const coAuthorNames = conversation.co_author_usernames ?? [];
+    authors.textContent = coAuthorNames.length > 0
+      ? `Authors: ${[conversation.author || 'Anonymous', ...coAuthorNames].join(', ')}`
+      : '';
+
     const summary = document.createElement('p');
     summary.className = 'public-profile-recent-summary';
     summary.textContent = conversation.summary || conversation.description || 'No summary provided.';
@@ -903,7 +910,11 @@ function buildRecentCards(data: PublicProfileData): HTMLElement {
       footer.appendChild(tagRow);
     }
 
-    card.append(top, title, summary, meta, footer);
+    if (authors.textContent) {
+      card.append(top, title, authors, summary, meta, footer);
+    } else {
+      card.append(top, title, summary, meta, footer);
+    }
     cards.appendChild(card);
   });
 
