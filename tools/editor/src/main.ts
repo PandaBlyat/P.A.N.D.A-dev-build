@@ -48,7 +48,7 @@ import { showXpToast } from './components/XpToast';
 import { showGamificationToast } from './components/AchievementToast';
 import { installBeginnerTooltipBridge } from './components/BeginnerTooltip';
 import { mountBeginnerTooltipController } from './lib/beginner-tooltips';
-import { initializeCollabIdentity } from './lib/collab-session';
+import { initializeCollabIdentity, resumeStoredCollabSession } from './lib/collab-session';
 import { showCollabInviteToast } from './components/CollabInviteToast';
 
 type IdleCallbackHandle = number;
@@ -158,6 +158,7 @@ const publisherId = getPublisherId();
 const storedUsername = getStoredUsername();
 if (storedUsername) {
   initializeCollabIdentity({ publisherId, username: storedUsername }, showCollabInviteToast);
+  void resumeStoredCollabSession();
 }
 
 function setCurrentProfile(profile: UserProfile | null): void {
@@ -178,6 +179,7 @@ function buildSyncedStreakPayload(profile: UserProfile, loginResult: ReturnType<
 function handleProfileRegistered(profile: UserProfile): void {
   setCurrentProfile(profile);
   initializeCollabIdentity({ publisherId: profile.publisher_id, username: profile.username }, showCollabInviteToast);
+  void resumeStoredCollabSession();
 
   const loginResult = recordDailyLogin();
   if (!loginResult.isNew) return;

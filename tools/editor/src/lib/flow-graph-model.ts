@@ -34,8 +34,6 @@ export type FlowGraphModel = {
   bounds: { width: number; height: number };
 };
 
-const VIEWPORT_PADDING = 360;
-
 export function buildFlowGraphModel(
   conversation: Conversation,
   density: FlowDensity,
@@ -89,34 +87,12 @@ export function getVisibleFlowItems(
   viewport: FlowViewport,
   keepMounted: ReadonlySet<number> = new Set(),
 ): { turnNumbers: Set<number>; edgeKeys: Set<string> } {
-  const padded = {
-    left: viewport.left - VIEWPORT_PADDING,
-    top: viewport.top - VIEWPORT_PADDING,
-    right: viewport.right + VIEWPORT_PADDING,
-    bottom: viewport.bottom + VIEWPORT_PADDING,
+  void viewport;
+  void keepMounted;
+  return {
+    turnNumbers: new Set(model.nodes.keys()),
+    edgeKeys: new Set(model.edges.map(getFlowGraphEdgeKey)),
   };
-
-  const turnNumbers = new Set<number>(keepMounted);
-  for (const turnNumber of keepMounted) {
-    for (const neighbor of model.neighbors.get(turnNumber) ?? []) {
-      turnNumbers.add(neighbor);
-    }
-  }
-
-  for (const node of model.nodes.values()) {
-    if (rectIntersects(node, padded)) {
-      turnNumbers.add(node.turnNumber);
-    }
-  }
-
-  const edgeKeys = new Set<string>();
-  for (const edge of model.edges) {
-    if (turnNumbers.has(edge.sourceTurnNumber) || turnNumbers.has(edge.targetTurnNumber)) {
-      edgeKeys.add(getFlowGraphEdgeKey(edge));
-    }
-  }
-
-  return { turnNumbers, edgeKeys };
 }
 
 export function getFlowGraphEdgeKey(edge: FlowGraphEdge): string {
@@ -169,14 +145,4 @@ function addEdge(
   if (!neighbors.has(targetTurnNumber)) neighbors.set(targetTurnNumber, new Set());
   neighbors.get(sourceTurnNumber)!.add(targetTurnNumber);
   neighbors.get(targetTurnNumber)!.add(sourceTurnNumber);
-}
-
-function rectIntersects(
-  node: Pick<FlowGraphNode, 'x' | 'y' | 'width' | 'height'>,
-  viewport: FlowViewport,
-): boolean {
-  return node.x + node.width >= viewport.left
-    && node.x <= viewport.right
-    && node.y + node.height >= viewport.top
-    && node.y <= viewport.bottom;
 }

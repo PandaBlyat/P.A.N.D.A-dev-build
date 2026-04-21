@@ -248,6 +248,7 @@ async function handlePrimaryPublishAction(triggerBtn?: HTMLButtonElement): Promi
   }
 
   try {
+    const coAuthorFields = getCollabCoAuthorPublishFields(replacementPublisherId);
     const collabSessionId = isInCollabSession() ? await flushCollabSessionForPublish() : null;
     await publishConversation({
       faction,
@@ -265,6 +266,7 @@ async function handlePrimaryPublishAction(triggerBtn?: HTMLButtonElement): Promi
       },
       replace_id: sourceCommunityId,
       publisher_id: replacementPublisherId,
+      ...coAuthorFields,
       collab_session_id: collabSessionId ?? undefined,
     });
     loadNotice = 'Updated existing community story. Refreshing library…';
@@ -397,6 +399,17 @@ function getCollabCoAuthorNames(publisherId?: string): string[] {
     .filter((participant) => participant.publisherId !== ownerId)
     .map((participant) => participant.username)
     .filter(Boolean);
+}
+
+function getCollabCoAuthorPublishFields(publisherId?: string): { co_authors: string[]; co_author_usernames: string[] } {
+  const collab = store.get().collab;
+  if (!collab.sessionId) return { co_authors: [], co_author_usernames: [] };
+  const ownerId = publisherId || collab.localPublisherId;
+  const participants = collab.participants.filter((participant) => participant.publisherId && participant.publisherId !== ownerId);
+  return {
+    co_authors: participants.map((participant) => participant.publisherId),
+    co_author_usernames: participants.map((participant) => participant.username || participant.publisherId),
+  };
 }
 
 function getBranchCount(conversation?: Conversation): number {
@@ -1458,6 +1471,7 @@ function buildPublishFormLegacy(): HTMLElement {
     setStatus('Validating title, abuse checks, and publish payload…', 'neutral');
 
     try {
+      const coAuthorFields = getCollabCoAuthorPublishFields(publisherId);
       const collabSessionId = isInCollabSession() ? await flushCollabSessionForPublish() : null;
       await publishConversation({
         faction,
@@ -1475,6 +1489,7 @@ function buildPublishFormLegacy(): HTMLElement {
         },
         replace_id: replaceId ?? undefined,
         publisher_id: publisherId,
+        ...coAuthorFields,
         collab_session_id: collabSessionId ?? undefined,
       });
       setStatus(replaceId
@@ -2004,6 +2019,7 @@ function buildPublishForm(): HTMLElement {
 
     try {
       const coAuthorNames = getCollabCoAuthorNames(publisherId);
+      const coAuthorFields = getCollabCoAuthorPublishFields(publisherId);
       const collabSessionId = isInCollabSession() ? await flushCollabSessionForPublish() : null;
       await publishConversation({
         faction,
@@ -2021,6 +2037,7 @@ function buildPublishForm(): HTMLElement {
         },
         replace_id: replaceId ?? undefined,
         publisher_id: publisherId,
+        ...coAuthorFields,
         collab_session_id: collabSessionId ?? undefined,
       });
       setStatus(

@@ -13,6 +13,10 @@ import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 import { getStoredUsername } from '../lib/api-client';
 import { openCollabSessionModal } from './CollabSessionModal';
 
+type ConversationListTab = 'local' | 'collabs';
+
+let activeConversationListTab: ConversationListTab = 'local';
+
 export function centerConversationSelection(conversationId: number): void {
   const currentState = store.get();
   const selectedTurnNumber = currentState.selectedConversationId === conversationId
@@ -43,6 +47,14 @@ export function deleteConversationSelection(conversationId: number): void {
 export function renderConversationList(container: HTMLElement): void {
   const state = store.get();
   const convs = state.project.conversations;
+  const collabIds = new Set<number>();
+  if (state.collab.conversationId != null) {
+    collabIds.add(state.collab.conversationId);
+  }
+  const hasCollabTab = collabIds.size > 0;
+  const selectedIsCollab = state.selectedConversationId != null && collabIds.has(state.selectedConversationId);
+  activeConversationListTab = hasCollabTab && selectedIsCollab ? 'collabs' : activeConversationListTab;
+  if (!hasCollabTab) activeConversationListTab = 'local';
 
   if (convs.length === 0) {
     container.replaceChildren(createOnboardingNudge({
@@ -55,6 +67,31 @@ export function renderConversationList(container: HTMLElement): void {
   const shell = document.createElement('div');
   shell.className = 'conversation-list-shell';
 
+  if (hasCollabTab) {
+    const tabs = document.createElement('div');
+    tabs.className = 'conversation-list-tabs';
+    const localCount = convs.filter(conv => !collabIds.has(conv.id)).length;
+    const collabCount = convs.filter(conv => collabIds.has(conv.id)).length;
+    const createTab = (tab: ConversationListTab, label: string, count: number): HTMLButtonElement => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `conversation-list-tab${activeConversationListTab === tab ? ' is-active' : ''}`;
+      button.textContent = `${label} ${count}`;
+      button.setAttribute('aria-pressed', activeConversationListTab === tab ? 'true' : 'false');
+      button.onclick = () => {
+        activeConversationListTab = tab;
+        container.replaceChildren();
+        renderConversationList(container);
+      };
+      return button;
+    };
+    tabs.append(
+      createTab('local', 'Local', localCount),
+      createTab('collabs', 'Collabs', collabCount),
+    );
+    shell.appendChild(tabs);
+  }
+
   const listRegion = document.createElement('div');
   listRegion.className = 'conversation-list-region';
 
@@ -63,7 +100,27 @@ export function renderConversationList(container: HTMLElement): void {
   list.setAttribute('role', 'listbox');
   list.setAttribute('aria-label', 'Stories');
 
-  for (const conv of convs) {
+  const visibleConvs = hasCollabTab
+    ? convs.filter(conv => activeConversationListTab === 'collabs' ? collabIds.has(conv.id) : !collabIds.has(conv.id))
+    : convs;
+
+  if (visibleConvs.length === 0) {
+    const empty = createOnboardingNudge(activeConversationListTab === 'collabs'
+      ? {
+        title: 'No collabs yet',
+        body: 'Start or join a multi-user session to keep shared stories separate from local work.',
+      }
+      : {
+        title: 'No local stories',
+        body: 'Current active story is in Collabs. Add or import another story to keep local work separate.',
+      });
+    listRegion.appendChild(empty);
+    shell.appendChild(listRegion);
+    container.appendChild(shell);
+    return;
+  }
+
+  for (const conv of visibleConvs) {
     const conversationLabel = conv.label || `Story ${conv.id}`;
     const item = document.createElement('li');
     item.className = 'conv-item' + (conv.id === state.selectedConversationId ? ' selected' : '');

@@ -1251,6 +1251,12 @@ async function resolveCollabPublishContext(collabSessionId: unknown, publisherId
   return { session, coAuthors, coAuthorUsernames };
 }
 
+function getServerPublishXp(complexity: unknown): number {
+  if (complexity === 'long') return 300;
+  if (complexity === 'medium') return 225;
+  return 150;
+}
+
 app.post('/api/conversations', async (req, res) => {
   try {
     const { faction, label, description, summary, author, data, tags, branch_count, complexity, publisher_id, collab_session_id } = req.body ?? {};
@@ -1355,7 +1361,7 @@ app.post('/api/conversations', async (req, res) => {
       ? await applyPublishRewards(insertedId).catch(() => null)
       : null;
     const coAuthorRewards: Array<{ publisher_id: string; rewards: ServerProfileRewardResult | null }> = [];
-    const publishXp = rewards?.publish_xp ?? 0;
+    const publishXp = Math.max(rewards?.publish_xp ?? 0, getServerPublishXp(complexity));
     if (publishXp > 0) {
       for (const coAuthor of collabContext.coAuthors) {
         const reward = await awardXpCappedBucket(coAuthor, publishXp, 'collab_coauthor_daily', 300).catch(() => null);

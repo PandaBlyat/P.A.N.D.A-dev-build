@@ -4,6 +4,7 @@ import type { CollabParticipant, CollabSession } from './collab-protocol';
 import {
   closeCollabSession,
   createCollabSession,
+  fetchCollabSession,
   getLocalPublisherId,
   joinCollabSession,
   promoteCollabSessionHost,
@@ -23,6 +24,7 @@ const SNAPSHOT_INTERVAL_MS = 60_000;
 const HOST_GRACE_MS = 15_000;
 const LOCK_IDLE_MS = 10_000;
 const CURSOR_INTERVAL_MS = 200;
+const ACTIVE_SESSION_KEY = 'panda:collab-active-session:v1';
 
 type Runtime = {
   identity: CollabIdentity;
@@ -105,6 +107,35 @@ export function getActiveCollabSessionId(): string | null {
   return runtime?.session.id ?? null;
 }
 
+export async function resumeStoredCollabSession(): Promise<boolean> {
+  const stored = readStoredRuntimeSession();
+  if (!stored) return false;
+  if (runtime?.session.id === stored.sessionId) return true;
+  const currentIdentity = requireIdentity();
+  if (stored.publisherId !== currentIdentity.publisherId) {
+    clearStoredRuntimeSession();
+    return false;
+  }
+  const session = await fetchCollabSession(stored.sessionId).catch(() => null);
+  if (!session || session.status !== 'open' || !session.participants.includes(currentIdentity.publisherId)) {
+    clearStoredRuntimeSession();
+    return false;
+  }
+  const joined = await joinCollabSession(session.id, currentIdentity.publisherId, currentIdentity.username);
+  openRuntime(joined, joined.host_publisher_id === currentIdentity.publisherId, { select: true });
+  if (joined.snapshot) {
+    applySnapshot(joined.snapshot, joined.snapshot_version, { select: true });
+  } else {
+    void runtime?.channel?.send('snapshot:request', {
+      type: 'snapshot:request',
+      sessionId: joined.id,
+      authorId: currentIdentity.publisherId,
+      reason: 'resume',
+    });
+  }
+  return true;
+}
+
 export async function startHostCollabSession(conversation: Conversation): Promise<CollabSession> {
   const currentIdentity = requireIdentity();
   if (runtime?.session.conversation_id === conversation.id) {
@@ -117,7 +148,7 @@ export async function startHostCollabSession(conversation: Conversation): Promis
     snapshot: conversation,
     username: currentIdentity.username,
   });
-  openRuntime(session, true);
+  openRuntime(session, true, { select: true });
   return session;
 }
 
@@ -137,9 +168,9 @@ export async function inviteCollabUser(user: CollabParticipant, conversation: Co
 export async function acceptCollabInvite(offer: CollabInviteOffer): Promise<void> {
   const currentIdentity = requireIdentity();
   const session = await joinCollabSession(offer.sessionId, currentIdentity.publisherId, currentIdentity.username);
-  openRuntime(session, session.host_publisher_id === currentIdentity.publisherId);
+  openRuntime(session, session.host_publisher_id === currentIdentity.publisherId, { select: true });
   if (session.snapshot) {
-    applySnapshot(session.snapshot, session.snapshot_version);
+    applySnapshot(session.snapshot, session.snapshot_version, { select: true });
   } else {
     void runtime?.channel?.send('snapshot:request', {
       type: 'snapshot:request',
@@ -177,6 +208,7 @@ export async function leaveCollabSession(): Promise<void> {
     }
   }
   closeRuntime();
+  clearStoredRuntimeSession();
   store.endCollabSession();
 }
 
@@ -190,6 +222,7 @@ export async function flushCollabSessionForPublish(): Promise<string | null> {
   if (!snapshot) return null;
   const session = await closeCollabSession(runtime.session.id, runtime.identity.publisherId, snapshot, runtime.version, runtime.guestEditCount);
   runtime.session = session;
+  clearStoredRuntimeSession();
   return session.id;
 }
 
@@ -276,7 +309,7 @@ export function notifyCollabLocalEdit(): void {
   queueSnapshotFlush();
 }
 
-function openRuntime(session: CollabSession, asHost: boolean): void {
+function openRuntime(session: CollabSession, asHost: boolean, options: { select?: boolean } = {}): void {
   const currentIdentity = requireIdentity();
   closeRuntime();
   const participants = normalizeParticipants(session.participants, session.participant_usernames, session.host_publisher_id);
@@ -303,6 +336,10 @@ function openRuntime(session: CollabSession, asHost: boolean): void {
     version: session.snapshot_version,
     isHost: asHost,
   });
+  if (options.select) {
+    store.selectConversation(session.conversation_id);
+  }
+  persistRuntimeSession(session.id, currentIdentity);
   runtime.channel = openSession(session.id, currentIdentity, {
     onPresence: (onlineParticipants) => handlePresenceSync(onlineParticipants),
     onBroadcast: (event) => {
@@ -471,11 +508,11 @@ function sendSnapshotCommit(): void {
   });
 }
 
-function applySnapshot(conversation: Conversation, version: number): void {
+function applySnapshot(conversation: Conversation, version: number, options: { select?: boolean } = {}): void {
   if (!runtime) return;
   applyingRemoteSnapshot = true;
   try {
-    store.applyCollabConversationSnapshot(runtime.session.conversation_id, conversation, version);
+    store.applyCollabConversationSnapshot(runtime.session.conversation_id, conversation, version, options);
   } finally {
     applyingRemoteSnapshot = false;
   }
@@ -536,6 +573,37 @@ function requireIdentity(): CollabIdentity {
     throw new Error('Collab identity unavailable.');
   }
   return identity;
+}
+
+function persistRuntimeSession(sessionId: string, currentIdentity: CollabIdentity): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify({
+    sessionId,
+    publisherId: currentIdentity.publisherId,
+    username: currentIdentity.username,
+  }));
+}
+
+function readStoredRuntimeSession(): { sessionId: string; publisherId: string; username: string } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<{ sessionId: string; publisherId: string; username: string }>;
+    if (!parsed.sessionId || !parsed.publisherId) return null;
+    return {
+      sessionId: parsed.sessionId,
+      publisherId: parsed.publisherId,
+      username: parsed.username || parsed.publisherId,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearStoredRuntimeSession(): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(ACTIVE_SESSION_KEY);
 }
 
 function toChoiceFieldPath(field: string): string {

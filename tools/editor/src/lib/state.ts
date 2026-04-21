@@ -394,7 +394,7 @@ class StateManager {
       version: options.version ?? 0,
       isHost: options.isHost,
     };
-    this.notify(createStateChange('toolbar', 'flowEditor', 'propertiesPanel'));
+    this.notify(createStateChange('conversationList', 'toolbar', 'flowEditor', 'propertiesPanel'));
   }
 
   updateCollabSession(updates: Partial<CollabAppState>): void {
@@ -402,7 +402,7 @@ class StateManager {
       ...this.state.collab,
       ...updates,
     };
-    this.notify(createStateChange('toolbar', 'flowEditor', 'propertiesPanel'));
+    this.notify(createStateChange('conversationList', 'toolbar', 'flowEditor', 'propertiesPanel'));
   }
 
   endCollabSession(): void {
@@ -1237,7 +1237,12 @@ class StateManager {
     this.notify(nextChange);
   }
 
-  applyCollabConversationSnapshot(conversationId: number, conversation: Conversation, version: number): void {
+  applyCollabConversationSnapshot(
+    conversationId: number,
+    conversation: Conversation,
+    version: number,
+    options: { select?: boolean } = {},
+  ): void {
     this.clearPendingTextSessions();
     const nextConversation = cloneConversation(conversation);
     const existingIndex = this.state.project.conversations.findIndex((item) => item.id === conversationId);
@@ -1246,8 +1251,14 @@ class StateManager {
     } else {
       this.state.project.conversations.push(nextConversation);
     }
-    this.state.selectedConversationId = conversationId;
-    if (this.state.selectedTurnNumber != null && !nextConversation.turns.some((turn) => turn.turnNumber === this.state.selectedTurnNumber)) {
+    if (options.select || this.state.selectedConversationId == null) {
+      this.state.selectedConversationId = conversationId;
+    }
+    if (
+      this.state.selectedConversationId === conversationId
+      && this.state.selectedTurnNumber != null
+      && !nextConversation.turns.some((turn) => turn.turnNumber === this.state.selectedTurnNumber)
+    ) {
       this.state.selectedTurnNumber = null;
       this.state.selectedChoiceIndex = null;
     }
