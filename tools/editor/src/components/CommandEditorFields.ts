@@ -8,6 +8,7 @@ export {
   renderParamEditors,
   renderPlaceholderPicker,
   renderPreconditionList,
+  showCommandPicker,
   type PreconditionOwner,
   type PreconditionScope,
 } from './PropertiesPanel';

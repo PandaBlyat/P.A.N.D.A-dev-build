@@ -485,6 +485,8 @@ function isSelectionOnlyChange(change: StateChange): boolean {
   return !change.projectChanged
     && !change.systemStringsChanged
     && !change.validationChanged
+    && change.reason === 'selection'
+    && change.flow?.kind === 'selection'
     && change.targets.includes('flowEditor')
     && change.targets.includes('propertiesPanel')
     && !change.targets.includes('appShell');

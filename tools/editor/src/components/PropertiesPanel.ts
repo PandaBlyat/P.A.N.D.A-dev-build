@@ -1,7 +1,7 @@
 // P.A.N.D.A. Conversation Editor — Properties Panel (Right Panel)
 
 import { createStateChange, store } from '../lib/state';
-import type { PropertiesTab } from '../lib/state';
+import type { BranchInlinePanelState, PropertiesTab } from '../lib/state';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import type { Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, SimplePrecondition, Outcome, FactionId } from '../lib/types';
 import { FACTION_DISPLAY_NAMES, getConversationFaction } from '../lib/types';
@@ -287,7 +287,9 @@ export function renderPropertiesPanel(container: HTMLElement): void {
   const content = document.createElement('div');
   content.style.cssText = 'padding: 10px 12px; overflow-y: auto; flex: 1;';
 
-  if (activeTab === 'conversation') {
+  if (state.branchInlinePanel && activeTab === 'selection') {
+    renderBranchInlineInspectorSummary(content, conv, state.branchInlinePanel, turnLabels);
+  } else if (activeTab === 'conversation') {
     renderConversationProperties(content, conv);
   } else if (turn && choice) {
     renderChoiceProperties(content, conv, turn, choice, turnLabels);
@@ -303,6 +305,80 @@ export function renderPropertiesPanel(container: HTMLElement): void {
   }
 
   container.appendChild(content);
+}
+
+function renderBranchInlineInspectorSummary(
+  container: HTMLElement,
+  conv: Conversation,
+  inlinePanel: BranchInlinePanelState,
+  turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
+): void {
+  const turn = conv.turns.find((candidate) => candidate.turnNumber === inlinePanel.turnNumber);
+  const choice = inlinePanel.choiceIndex == null
+    ? null
+    : turn?.choices.find((candidate) => candidate.index === inlinePanel.choiceIndex) ?? null;
+
+  const section = document.createElement('div');
+  section.className = 'inline-inspector-summary';
+  const title = document.createElement('div');
+  title.className = 'section-title';
+  title.textContent = 'Branch Inline Editor';
+  section.appendChild(title);
+
+  const summary = document.createElement('div');
+  summary.className = 'field-hint';
+  if (!turn) {
+    summary.textContent = 'Inline branch panel points to branch that no longer exists.';
+  } else if (choice) {
+    summary.textContent = `${turnLabels.getLongLabel(turn.turnNumber)} / Choice ${choice.index}: editing ${inlinePanel.mode}.`;
+  } else {
+    summary.textContent = `${turnLabels.getLongLabel(turn.turnNumber)} opener: editing ${inlinePanel.mode === 'outcomes' ? 'preconditions' : inlinePanel.mode}.`;
+  }
+  section.appendChild(summary);
+
+  if (turn) {
+    const facts = document.createElement('div');
+    facts.className = 'inline-inspector-facts';
+    facts.append(
+      createInlineInspectorFact('Branch', turnLabels.getLongLabel(turn.turnNumber)),
+      createInlineInspectorFact('Mode', normalizeChannel(turn.channel, normalizeChannel(conv.initialChannel, 'pda')).toUpperCase()),
+      createInlineInspectorFact('Choices', String(turn.choices.length)),
+    );
+    if (choice) {
+      facts.append(
+        createInlineInspectorFact('Choice checks', String((choice.preconditions ?? []).length)),
+        createInlineInspectorFact('Outcomes', String(choice.outcomes.length)),
+        createInlineInspectorFact('Next', choice.continueTo == null ? 'Ends here' : turnLabels.getLongLabel(choice.continueTo)),
+      );
+    } else {
+      facts.append(createInlineInspectorFact('Opener checks', String((turn.preconditions ?? []).length)));
+    }
+    section.appendChild(facts);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'inspector-action-row inspector-action-row-wrap';
+  actions.appendChild(createActionButton('Advanced properties', 'Close inline editor and show full advanced properties for selected branch or choice', () => {
+    store.closeBranchInlinePanel();
+    if (turn) {
+      store.selectTurn(turn.turnNumber);
+      if (choice) store.selectChoice(choice.index);
+    }
+    store.setPropertiesTab('selection');
+  }, 'add'));
+  section.appendChild(actions);
+  container.appendChild(section);
+}
+
+function createInlineInspectorFact(label: string, value: string): HTMLElement {
+  const item = document.createElement('div');
+  item.className = 'inline-inspector-fact';
+  const labelEl = document.createElement('span');
+  labelEl.textContent = label;
+  const valueEl = document.createElement('strong');
+  valueEl.textContent = value;
+  item.append(labelEl, valueEl);
+  return item;
 }
 
 // ─── Conversation Properties ──────────────────────────────────────────────
@@ -3149,7 +3225,7 @@ function parseSmartTerrainReference(value: string): {
 
 // ─── Command Picker Dropdown ──────────────────────────────────────────────
 
-function showCommandPicker(
+export function showCommandPicker(
   trigger: HTMLElement,
   schemas: CommandSchema[],
   onSelect: (schema: CommandSchema) => void,
@@ -3399,12 +3475,12 @@ function showCommandPicker(
 
 // ─── Placeholder Picker ──────────────────────────────────────────────────
 
-export function renderPlaceholderPicker(container: HTMLElement, collapseKey: string): void {
+export function renderPlaceholderPicker(container: HTMLElement, collapseKey: string, options: { defaultCollapsed?: boolean } = {}): void {
   const { wrapper, body } = createCollapsibleSection(
     collapseKey,
     'Dynamic Placeholders',
     undefined,
-    { defaultCollapsed: true },
+    { defaultCollapsed: options.defaultCollapsed ?? true },
   );
 
   const helperCopy = document.createElement('div');

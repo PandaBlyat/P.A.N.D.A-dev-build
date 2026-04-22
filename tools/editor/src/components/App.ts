@@ -102,7 +102,7 @@ export function renderApp(container: HTMLElement): void {
 
   renderToolbar(container);
   shell.leftSplitter.hidden = firstRun;
-  shell.rightSplitter.hidden = firstRun;
+  shell.rightSplitter.hidden = firstRun || !store.get().advancedMode;
   renderConversationList(container);
   renderFlowEditor(container);
   renderPropertiesPanel(container);
@@ -385,10 +385,10 @@ function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSel
   shell.centerActions.replaceChildren();
 
   if (!firstRun && layoutState.responsiveMode === 'tablet') {
-    shell.centerActions.append(
-      createPanelLauncherButton('left', 'Stories'),
-      createPanelLauncherButton('right', 'Inspector'),
-    );
+    shell.centerActions.append(createPanelLauncherButton('left', 'Stories'));
+    if (store.get().advancedMode) {
+      shell.centerActions.append(createPanelLauncherButton('right', 'Inspector'));
+    }
   }
 
   if (conv) {
@@ -418,7 +418,8 @@ function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSel
 }
 
 function renderRightPanel(shell: AppShell, firstRun = false): void {
-  if (layoutState.responsiveMode === 'mobile') {
+  const state = store.get();
+  if (!state.advancedMode || layoutState.responsiveMode === 'mobile') {
     shell.rightPanel.hidden = true;
     shell.rightPanel.setAttribute('aria-hidden', 'true');
     shell.rightActions.replaceChildren();
@@ -465,11 +466,11 @@ function renderUtilityRail(shell: AppShell, firstRun = false): void {
   if (layoutState.responsiveMode === 'mobile') {
     const navItems: Array<{ sheet: MobileSheetId; label: string; badge?: string }> = [
       { sheet: 'stories', label: 'Stories' },
-      { sheet: 'inspector', label: 'Inspect' },
       { sheet: 'issues', label: 'Issues', badge: issueCount > 0 ? `${issueCount}` : undefined },
     ];
     if (state.advancedMode) {
       navItems.push(
+        { sheet: 'inspector', label: 'Inspect' },
         { sheet: 'strings', label: 'Strings' },
         { sheet: 'xml', label: 'XML' },
       );
@@ -490,10 +491,11 @@ function renderUtilityRail(shell: AppShell, firstRun = false): void {
 
   const utilityButtons = [
     createUtilityRailButton('Stories', undefined, false, () => toggleDrawer('left')),
-    createUtilityRailButton('Inspector', undefined, false, () => toggleDrawer('right')),
     issueButton,
   ];
   if (state.advancedMode) {
+    utilityButtons.splice(1, 0, createUtilityRailButton('Inspector', undefined, false, () => toggleDrawer('right')));
+
     const stringsButton = createUtilityRailButton('Strings', undefined, false, () => activateWorkspaceTab('strings'));
     stringsButton.title = state.showSystemStringsPanel ? 'Focus system strings workspace' : 'Open system strings workspace';
 
@@ -507,7 +509,10 @@ function renderUtilityRail(shell: AppShell, firstRun = false): void {
 
 function updateOverlayState(shell: AppShell): void {
   const isOverlay = layoutState.responsiveMode !== 'desktop';
-  const drawerOpen = isOverlay && layoutState.responsiveMode !== 'mobile' && layoutState.activeDrawer !== null;
+  const drawerOpen = isOverlay
+    && layoutState.responsiveMode !== 'mobile'
+    && layoutState.activeDrawer !== null
+    && (layoutState.activeDrawer !== 'right' || store.get().advancedMode);
   shell.mainLayout.dataset.layoutMode = layoutState.responsiveMode;
   shell.mainLayout.dataset.drawerOpen = String(drawerOpen);
   shell.mainLayout.classList.toggle('has-open-drawer', drawerOpen);
@@ -797,6 +802,9 @@ function activateWorkspaceTab(tab: BottomWorkspaceTab): void {
 function renderMobileSheet(shell: AppShell, firstRun = false): void {
   ensureMobileSheetKeyboardListener();
   const isMobile = layoutState.responsiveMode === 'mobile';
+  if (!store.get().advancedMode && layoutState.activeMobileSheet === 'inspector') {
+    layoutState.activeMobileSheet = null;
+  }
   const activeSheet = isMobile && !firstRun ? layoutState.activeMobileSheet : null;
   const sheetOpen = activeSheet != null;
 
@@ -890,7 +898,7 @@ function renderMobileMoreActions(body: HTMLElement): void {
     createMobileSheetAction('bug', 'Reports', () => { closeMobileSheet(); openBugReportsPanel(); }),
     createMobileSheetAction('support', 'Support', () => { closeMobileSheet(); openSupportPanel(); }),
     createMobileSheetAction('help', 'Help', () => { closeMobileSheet(); openHelpModal(); }),
-    createMobileSheetAction('eye', state.advancedMode ? 'Advanced On' : 'Author Mode', () => store.toggleAdvancedMode()),
+    createMobileSheetAction('eye', state.advancedMode ? 'Advanced On' : 'Advanced mode', () => store.toggleAdvancedMode()),
     createMobileSheetAction('locate', `Density: ${state.flowDensity}`, () => store.setFlowDensity(nextDensity(state.flowDensity))),
     createMobileSheetAction('brand', 'Reset Intro', resetIntro),
   );
@@ -1026,6 +1034,7 @@ function renderToolbarToggle(shell: AppShell): void {
 }
 
 function toggleDrawer(side: 'left' | 'right'): void {
+  if (side === 'right' && !store.get().advancedMode) return;
   if (layoutState.responsiveMode === 'desktop') return;
   if (layoutState.responsiveMode === 'mobile') {
     openMobileSheet(side === 'left' ? 'stories' : 'inspector');

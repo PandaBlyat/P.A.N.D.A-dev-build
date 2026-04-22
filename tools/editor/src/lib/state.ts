@@ -19,7 +19,7 @@ export type PropertiesTab = 'conversation' | 'selection';
 export type FlowDensity = 'compact' | 'standard' | 'detailed';
 export type BottomWorkspaceTab = 'strings' | 'xml';
 export type CursorAnimationIntensity = 'low' | 'medium' | 'high';
-export type BranchInlinePanelMode = 'opener' | 'choice' | 'outcomes' | 'continuation';
+export type BranchInlinePanelMode = 'dialogue' | 'outcomes' | 'continuation';
 
 export interface BranchInlinePanelState {
   mode: BranchInlinePanelMode;
@@ -950,9 +950,10 @@ class StateManager {
     const spacing = getFlowAutoLayoutSpacing(this.state.flowDensity);
     const sourceHeight = estimateFlowNodeHeight(sourceTurn, this.state.flowDensity);
     const newTurnHeight = estimateFlowNodeHeight(newTurn, this.state.flowDensity);
+    const sourceWidth = this.state.branchInlinePanel?.turnNumber === sourceTurn.turnNumber ? Math.max(layout.width, 920) : layout.width;
 
     return {
-      x: sourceTurn.position.x + layout.width + spacing.horizontalGutter,
+      x: sourceTurn.position.x + sourceWidth + spacing.horizontalGutter,
       y: Math.max(
         spacing.canvasPaddingY,
         sourceTurn.position.y + (sourceChoiceIndex - 1) * (newTurnHeight + spacing.siblingGap) - Math.round((newTurnHeight - sourceHeight) / 2),
@@ -1675,13 +1676,6 @@ class StateManager {
     sourceChoice.continueTo = nextTurnNumber;
     sourceChoice.terminal = false;
     conversation.turns.push(newTurn);
-    const partialUpdates = this.calculatePartialAutoLayoutUpdates(conversation, sourceTurnNumber, sourceTurnNumber);
-    for (const update of partialUpdates) {
-      const turn = conversation.turns.find(item => item.turnNumber === update.turnNumber);
-      if (!turn) continue;
-      turn.position.x = Math.max(0, Math.round(update.position.x));
-      turn.position.y = Math.max(0, Math.round(update.position.y));
-    }
     this.state.selectedConversationId = conversationId;
     this.state.selectedTurnNumber = nextTurnNumber;
     this.state.selectedChoiceIndex = null;

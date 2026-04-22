@@ -87,6 +87,12 @@ const BRANCH_PALETTE = [
   '#7ec850', // lime
 ];
 const CONTENT_PADDING = 120;
+const BRANCH_INLINE_PANEL_WIDTH = 920;
+const BRANCH_INLINE_PANEL_HEIGHTS: Record<BranchInlinePanelState['mode'], number> = {
+  dialogue: 420,
+  outcomes: 620,
+  continuation: 540,
+};
 const MIN_ZOOM = 0.35;
 const MAX_ZOOM = 1.8;
 const CONNECTION_DROP_RADIUS = 42;
@@ -346,8 +352,11 @@ let memoEdges: { key: string; edges: EdgeDescriptor[] } | null = null;
 let memoBounds: { key: string; bounds: ContentBounds } | null = null;
 let memoLabeler: { key: string; labeler: ReturnType<typeof createTurnDisplayLabeler> } | null = null;
 
-function memoKey(convId: number, projectRevision: number, density: FlowDensity): string {
-  return `${convId}:${projectRevision}:${density}`;
+function memoKey(convId: number, projectRevision: number, density: FlowDensity, branchInlinePanel: BranchInlinePanelState | null): string {
+  const inlineKey = branchInlinePanel
+    ? `${branchInlinePanel.turnNumber}:${branchInlinePanel.choiceIndex ?? 'opener'}:${branchInlinePanel.mode}:${branchInlinePanel.selectedOutcomeIndex ?? 'none'}`
+    : 'none';
+  return `${convId}:${projectRevision}:${density}:${inlineKey}`;
 }
 
 function getFlowGraphSize(turnCount: number, edgeCount: number): FlowGraphSize {
@@ -386,7 +395,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   const renderStart = performance.now();
 
   const conversationId = conv.id;
-  const mk = memoKey(conversationId, state.projectRevision, density);
+  const mk = memoKey(conversationId, state.projectRevision, density, state.branchInlinePanel);
 
   const turnLabels = memoLabeler?.key === mk ? memoLabeler.labeler : createTurnDisplayLabeler(conv);
   memoLabeler = { key: mk, labeler: turnLabels };
@@ -394,7 +403,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   const existingView = viewStateByConversation.get(conversationId);
   const viewState: ViewState = existingView ? { ...existingView } : { ...DEFAULT_VIEW_STATE };
 
-  const bounds = memoBounds?.key === mk ? memoBounds.bounds : calculateContentBounds(conv, density);
+  const bounds = memoBounds?.key === mk ? memoBounds.bounds : calculateContentBounds(conv, density, state.branchInlinePanel);
   memoBounds = { key: mk, bounds };
 
   const factionColor = FACTION_COLORS[getConversationFaction(conv, state.project.faction)];
@@ -1167,10 +1176,10 @@ function renderControls(options: {
   const authorMode = document.createElement('button');
   authorMode.type = 'button';
   authorMode.className = 'btn-sm flow-mode-toggle';
-  authorMode.textContent = state.advancedMode ? 'Advanced On' : 'Author Mode';
+  authorMode.textContent = state.advancedMode ? 'Advanced On' : 'Advanced mode';
   authorMode.title = state.advancedMode
     ? 'Show full technical controls'
-    : 'Author Mode hides technical controls until needed';
+    : 'Enable advanced mode to show properties panel and technical controls';
   authorMode.setAttribute('aria-pressed', state.advancedMode ? 'true' : 'false');
   authorMode.classList.toggle('is-active', state.advancedMode);
   authorMode.onclick = () => store.toggleAdvancedMode();
@@ -1502,7 +1511,7 @@ function autosizeAnnotationTextarea(textarea: HTMLTextAreaElement): void {
   textarea.style.height = `${Math.min(180, Math.max(54, textarea.scrollHeight))}px`;
 }
 
-function calculateContentBounds(conv: Conversation, density: FlowDensity): ContentBounds {
+function calculateContentBounds(conv: Conversation, density: FlowDensity, branchInlinePanel: BranchInlinePanelState | null = null): ContentBounds {
   const turnLabels = createTurnDisplayLabeler(conv);
 
   if (conv.turns.length === 0) {
@@ -1517,8 +1526,11 @@ function calculateContentBounds(conv: Conversation, density: FlowDensity): Conte
 
   for (const turn of conv.turns) {
     const turnWidth = getFlowNodeWidth(turn, turnLabels.getLongLabel(turn.turnNumber), density);
-    maxX = Math.max(maxX, turn.position.x + turnWidth);
-    maxY = Math.max(maxY, turn.position.y + estimateFlowNodeHeight(turn, density));
+    const inlineActive = branchInlinePanel?.conversationId === conv.id && branchInlinePanel.turnNumber === turn.turnNumber;
+    const renderedWidth = inlineActive ? Math.max(turnWidth, BRANCH_INLINE_PANEL_WIDTH) : turnWidth;
+    const renderedHeight = estimateFlowNodeHeight(turn, density) + (inlineActive ? BRANCH_INLINE_PANEL_HEIGHTS[branchInlinePanel.mode] : 0);
+    maxX = Math.max(maxX, turn.position.x + renderedWidth);
+    maxY = Math.max(maxY, turn.position.y + renderedHeight);
   }
 
   for (const annotation of conv.flowAnnotations ?? []) {
@@ -1592,6 +1604,7 @@ function renderTurnNode(options: {
     onDragStateChange,
   } = options;
   const state = store.get();
+  const isAdvancedMode = state.advancedMode;
   const canPasteTurn = store.hasCopiedTurn(conv.id);
   const layout = getFlowNodeLayout(density);
   const hasWarning = turn.choices.some(c => !c.text && !c.reply);
@@ -1622,11 +1635,40 @@ function renderTurnNode(options: {
   setBeginnerTooltip(node, 'flow-turn-node');
   node.style.left = `${turn.position.x}px`;
   node.style.top = `${turn.position.y}px`;
-  node.style.width = inlinePanelActive ? '760px' : `${nodeWidth}px`;
+  node.style.width = inlinePanelActive ? `${BRANCH_INLINE_PANEL_WIDTH}px` : selected ? `${Math.max(nodeWidth, 520)}px` : `${nodeWidth}px`;
   node.style.setProperty('--branch-color', branchColor);
   node.style.setProperty('--branch-glow', branchColor + '40');
   node.style.setProperty('--starter-branch-color', factionColor);
   node.style.setProperty('--starter-branch-glow', `${factionColor}40`);
+  node.addEventListener('pointerdown', (event) => {
+    const target = event.target as HTMLElement | null;
+    const actionEl = target?.closest('[data-branch-inline-action]') as HTMLElement | null;
+    if (!actionEl || !node.contains(actionEl)) return;
+
+    const action = actionEl.dataset.branchInlineAction;
+    const choiceIndex = actionEl.dataset.choiceIndex ? Number.parseInt(actionEl.dataset.choiceIndex, 10) : null;
+    if (action !== 'opener' && (choiceIndex == null || Number.isNaN(choiceIndex))) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    store.batch(() => {
+      store.selectTurn(turn.turnNumber);
+      if (choiceIndex != null && !Number.isNaN(choiceIndex)) {
+        store.selectChoice(choiceIndex);
+      }
+      store.openBranchInlinePanel({
+        conversationId: conv.id,
+        turnNumber: turn.turnNumber,
+        choiceIndex: action === 'opener' ? null : choiceIndex,
+        mode: action === 'outcomes' ? 'outcomes' : 'dialogue',
+        selectedOutcomeIndex: action === 'outcomes'
+          ? (turn.choices.find(candidate => candidate.index === choiceIndex)?.outcomes.length ? 0 : null)
+          : null,
+      });
+    });
+  }, { capture: true });
   node.onclick = (e) => {
     e.stopPropagation();
     const currentState = store.get();
@@ -1727,7 +1769,7 @@ function renderTurnNode(options: {
   node.onpointerdown = (e) => {
     if (e.button !== 0 || e.pointerType === 'touch' && !e.isPrimary) return;
     const target = e.target as HTMLElement;
-    if (target.closest('.turn-choice-item, .choice-output-port, .turn-input-port, .turn-label-input, .turn-color-input, .turn-actions, button, input, select, textarea')) return;
+    if (target.closest('.turn-choice-item, .choice-output-port, .turn-input-port, .turn-label, .turn-label-input, .turn-color-input, .turn-actions, .branch-inline-trigger, button, input, select, textarea')) return;
 
     const startX = e.clientX;
     const startY = e.clientY;
@@ -1817,8 +1859,10 @@ function renderTurnNode(options: {
   labelSpan.title = 'Click to rename this turn';
   labelSpan.style.cursor = 'pointer';
   setBeginnerTooltip(labelSpan, 'flow-turn-label');
-  labelSpan.onclick = (e) => {
+  const startLabelEdit = (e: Event) => {
+    e.preventDefault();
     e.stopPropagation();
+    e.stopImmediatePropagation();
     labelSpan.style.display = 'none';
     const input = document.createElement('input');
     input.type = 'text';
@@ -1854,6 +1898,8 @@ function renderTurnNode(options: {
     input.focus();
     input.select();
   };
+  labelSpan.onpointerdown = startLabelEdit;
+  labelSpan.onclick = startLabelEdit;
   header.appendChild(labelSpan);
 
   const channelToggle = createFlowChannelToggle({
@@ -1863,6 +1909,8 @@ function renderTurnNode(options: {
   });
   header.appendChild(channelToggle);
 
+  const outgoingCount = turn.choices.filter(choice => choice.continueTo != null || hasPauseOutcome(choice)).length;
+  if (isAdvancedMode) {
   const startMenuButton = createBranchAuthorChip(turn.turnNumber === 1 ? 'Start' : 'Mode', 'Open branch start/channel menu', (trigger) => {
     store.selectTurn(turn.turnNumber);
     showBranchAuthorPopup(trigger, {
@@ -1891,7 +1939,6 @@ function renderTurnNode(options: {
 
   const stats = document.createElement('span');
   stats.className = 'turn-stats';
-  const outgoingCount = turn.choices.filter(choice => choice.continueTo != null || hasPauseOutcome(choice)).length;
   stats.textContent = `${turn.choices.length}C · ${outgoingCount}L`;
   header.appendChild(stats);
 
@@ -1914,7 +1961,9 @@ function renderTurnNode(options: {
     };
     header.appendChild(branchCondBadge);
   }
+  }
 
+  if (isAdvancedMode) {
   const turnActions = document.createElement('div');
   turnActions.className = 'turn-actions';
 
@@ -1952,30 +2001,34 @@ function renderTurnNode(options: {
     turnActions.appendChild(delBtn);
   }
   header.appendChild(turnActions);
+  }
   node.appendChild(header);
 
   // ── Body ──
   const body = document.createElement('div');
   body.className = 'turn-body';
 
-  if ((turn.openingMessage || selected) && density !== 'compact') {
+  if (density !== 'compact' || selected || inlinePanelActive) {
     const openerCard = document.createElement('div');
     openerCard.className = 'branch-opener-card branch-inline-trigger';
+    openerCard.dataset.branchInlineAction = 'opener';
     openerCard.tabIndex = 0;
     openerCard.title = 'Open NPC opener editor below this branch';
     const openOpenerPanel = (event: Event): void => {
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation();
       store.batch(() => {
         store.selectTurn(turn.turnNumber);
         store.openBranchInlinePanel({
           conversationId: conv.id,
           turnNumber: turn.turnNumber,
           choiceIndex: null,
-          mode: 'opener',
+          mode: 'dialogue',
         });
       });
     };
+    openerCard.onpointerdown = (event) => event.stopPropagation();
     openerCard.onclick = openOpenerPanel;
     openerCard.onkeydown = (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -1984,14 +2037,16 @@ function renderTurnNode(options: {
     };
     const openerLabel = document.createElement('span');
     openerLabel.className = 'branch-opener-label';
-    openerLabel.textContent = `${channelBadgeLabel(normalizeChannel(turn.channel, normalizeChannel(conv.initialChannel, 'pda')))} opener`;
+    openerLabel.textContent = 'Opener';
     const openerText = document.createElement('span');
     openerText.className = 'branch-opener-text';
     openerText.textContent = truncate(turn.openingMessage || 'NPC opener message', layout.messageChars);
     const openerEdit = document.createElement('button');
     openerEdit.type = 'button';
     openerEdit.className = 'branch-inline-edit-btn';
+    openerEdit.dataset.branchInlineAction = 'opener';
     openerEdit.textContent = 'Edit';
+    openerEdit.onpointerdown = openOpenerPanel;
     openerEdit.onclick = openOpenerPanel;
     openerCard.append(openerLabel, openerText, openerEdit);
     body.appendChild(openerCard);
@@ -2020,7 +2075,7 @@ function renderTurnNode(options: {
           conversationId: conv.id,
           turnNumber: turn.turnNumber,
           choiceIndex: choice.index,
-          mode: 'choice',
+          mode: 'dialogue',
         });
       });
     };
@@ -2062,19 +2117,10 @@ function renderTurnNode(options: {
     num.className = 'choice-number';
     num.textContent = String(choice.index);
 
-    const preview = choiceActive
-      ? createInlineTextInput({
-        className: 'choice-preview flow-inline-choice-text',
-        value: choice.text,
-        placeholder: 'Player choice',
-        onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { text: value }),
-      })
-      : document.createElement('span');
-    preview.className = choiceActive ? preview.className : 'choice-preview';
-    if (!choiceActive) {
-      preview.textContent = choice.text || '(empty)';
-      preview.style.setProperty('-webkit-line-clamp', String(layout.previewLines));
-    }
+    const preview = document.createElement('span');
+    preview.className = 'choice-preview';
+    preview.textContent = choice.text || '(empty)';
+    preview.style.setProperty('-webkit-line-clamp', String(layout.previewLines));
 
     if (linkPointsBehind) {
       item.classList.add('choice-link-backward');
@@ -2086,11 +2132,14 @@ function renderTurnNode(options: {
     const editChoiceButton = document.createElement('button');
     editChoiceButton.type = 'button';
     editChoiceButton.className = 'branch-inline-edit-btn';
+    editChoiceButton.dataset.branchInlineAction = 'choice';
+    editChoiceButton.dataset.choiceIndex = String(choice.index);
     editChoiceButton.textContent = 'Edit';
     editChoiceButton.title = `Edit Choice ${choice.index} below this branch`;
-    editChoiceButton.onclick = (event) => {
+    const openChoicePanel = (event: Event): void => {
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation();
       store.batch(() => {
         store.selectTurn(turn.turnNumber);
         store.selectChoice(choice.index);
@@ -2098,17 +2147,46 @@ function renderTurnNode(options: {
           conversationId: conv.id,
           turnNumber: turn.turnNumber,
           choiceIndex: choice.index,
-          mode: 'choice',
+          mode: 'dialogue',
         });
       });
     };
+    editChoiceButton.onpointerdown = openChoicePanel;
+    editChoiceButton.onclick = openChoicePanel;
     item.appendChild(editChoiceButton);
+
+    const outcomesButton = document.createElement('button');
+    outcomesButton.type = 'button';
+    outcomesButton.className = 'branch-inline-edit-btn branch-inline-outcomes-btn';
+    outcomesButton.dataset.branchInlineAction = 'outcomes';
+    outcomesButton.dataset.choiceIndex = String(choice.index);
+    outcomesButton.textContent = choice.outcomes.length > 0 ? `Outcomes (${choice.outcomes.length})` : 'Outcomes';
+    outcomesButton.title = `Edit outcomes for Choice ${choice.index}`;
+    const openOutcomesPanel = (event: Event): void => {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      store.batch(() => {
+        store.selectTurn(turn.turnNumber);
+        store.selectChoice(choice.index);
+        store.openBranchInlinePanel({
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          mode: 'outcomes',
+          selectedOutcomeIndex: choice.outcomes.length > 0 ? 0 : null,
+        });
+      });
+    };
+    outcomesButton.onpointerdown = openOutcomesPanel;
+    outcomesButton.onclick = openOutcomesPanel;
+    item.appendChild(outcomesButton);
 
     // Badges
     const effectiveTurnChannel = normalizeChannel(turn.channel, 'pda');
     const effectiveChoiceChannel = normalizeChannel(choice.channel, effectiveTurnChannel);
 
-    if (choice.continueTo != null) {
+    if (isAdvancedMode && choice.continueTo != null) {
       const unlinkButton = document.createElement('button');
       unlinkButton.type = 'button';
       unlinkButton.className = 'choice-unlink-btn';
@@ -2136,14 +2214,14 @@ function renderTurnNode(options: {
       item.appendChild(handoffBadge);
     }
 
-    if (hasPauseOutcome(choice)) {
+    if (isAdvancedMode && hasPauseOutcome(choice)) {
       const pauseBadge = document.createElement('span');
       pauseBadge.className = 'choice-branch-badge';
       pauseBadge.textContent = 'pause';
       item.appendChild(pauseBadge);
     }
 
-    if ((choice.preconditions ?? []).length > 0) {
+    if (isAdvancedMode && (choice.preconditions ?? []).length > 0) {
       const precondBadge = document.createElement('span');
       precondBadge.className = 'choice-branch-badge';
       precondBadge.textContent = `${choice.preconditions.length} cond`;
@@ -2166,14 +2244,16 @@ function renderTurnNode(options: {
       item.appendChild(precondBadge);
     }
 
-    const choiceChannelBadge = document.createElement('span');
-    choiceChannelBadge.className = 'flow-channel-badge';
-    choiceChannelBadge.textContent = channelBadgeLabel(effectiveChoiceChannel);
-    choiceChannelBadge.title = `Choice visibility: ${choiceChannelBadge.textContent}`;
-    item.appendChild(choiceChannelBadge);
+    if (isAdvancedMode) {
+      const choiceChannelBadge = document.createElement('span');
+      choiceChannelBadge.className = 'flow-channel-badge';
+      choiceChannelBadge.textContent = channelBadgeLabel(effectiveChoiceChannel);
+      choiceChannelBadge.title = `Choice visibility: ${choiceChannelBadge.textContent}`;
+      item.appendChild(choiceChannelBadge);
+    }
 
     // Outcomes count (standard/detailed only)
-    if (density !== 'compact' && choice.outcomes.length > 0) {
+    if (isAdvancedMode && density !== 'compact' && choice.outcomes.length > 0) {
       const outBadge = document.createElement('span');
       outBadge.className = 'choice-outcome-badge';
       outBadge.textContent = `${choice.outcomes.length} out`;
@@ -2196,6 +2276,7 @@ function renderTurnNode(options: {
       item.appendChild(outBadge);
     }
 
+    if (isAdvancedMode) {
     const authorActions = document.createElement('span');
     authorActions.className = 'choice-author-actions';
     authorActions.append(
@@ -2239,6 +2320,7 @@ function renderTurnNode(options: {
       }),
     );
     item.appendChild(authorActions);
+    }
 
     if (!linkPointsBehind) {
       item.appendChild(port);
@@ -2259,7 +2341,7 @@ function renderTurnNode(options: {
             conversationId: conv.id,
             turnNumber: turn.turnNumber,
             choiceIndex: choice.index,
-            mode: 'choice',
+            mode: 'dialogue',
           });
         });
       };
@@ -2282,6 +2364,34 @@ function renderTurnNode(options: {
       choicesList.appendChild(replyRow);
     }
   }
+  if (turn.choices.length < 4) {
+    const addChoiceRow = document.createElement('li');
+    addChoiceRow.className = 'turn-choice-add-row';
+    const addChoiceButton = document.createElement('button');
+    addChoiceButton.type = 'button';
+    addChoiceButton.className = 'turn-choice-add-button';
+    addChoiceButton.textContent = '+';
+    addChoiceButton.title = 'Add player dialogue choice';
+    addChoiceButton.setAttribute('aria-label', 'Add player dialogue choice');
+    addChoiceButton.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const nextChoiceIndex = turn.choices.length + 1;
+      store.batch(() => {
+        store.addChoice(conv.id, turn.turnNumber);
+        store.selectTurn(turn.turnNumber);
+        store.selectChoice(nextChoiceIndex);
+        store.openBranchInlinePanel({
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: nextChoiceIndex,
+          mode: 'dialogue',
+        });
+      });
+    };
+    addChoiceRow.appendChild(addChoiceButton);
+    choicesList.appendChild(addChoiceRow);
+  }
   body.appendChild(choicesList);
 
   if (
@@ -2303,7 +2413,7 @@ function renderTurnNode(options: {
   }
 
   // ── Footer info (detailed mode) ──
-  if (density === 'detailed') {
+  if (isAdvancedMode && density === 'detailed') {
     const footer = document.createElement('div');
     footer.className = 'turn-footer';
     const precondCount = conv.preconditions.length;
@@ -3205,13 +3315,15 @@ function patchTurnNodeText(
     const outgoingCount = turn.choices.filter(choice => choice.continueTo != null || hasPauseOutcome(choice)).length;
     stats.textContent = `${turn.choices.length}C · ${outgoingCount}L`;
   }
-  const opening = node.querySelector('.turn-npc-message');
+  const opening = node.querySelector('.branch-opener-text, .turn-npc-message');
   if (opening) {
     opening.textContent = truncate(turn.openingMessage ?? '', layout.messageChars);
   }
   node.classList.toggle('has-warning', hasWarning);
   node.setAttribute('aria-label', buildTurnAriaLabel(turn, turnLabels));
-  node.style.width = `${getFlowNodeWidth(turn, turnLabels.getLongLabel(turn.turnNumber), density)}px`;
+  node.style.width = node.classList.contains('has-inline-panel')
+    ? `${BRANCH_INLINE_PANEL_WIDTH}px`
+    : `${getFlowNodeWidth(turn, turnLabels.getLongLabel(turn.turnNumber), density)}px`;
   node.style.setProperty('--branch-color', branchColor);
   node.style.setProperty('--branch-glow', branchColor + '40');
 
@@ -3773,6 +3885,10 @@ function wireCanvasInteractions(options: {
 
   let wheelFrame = 0;
   canvas.onwheel = (event) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('.branch-inline-panel, .command-picker-panel, .catalog-picker-panel, .item-picker-panel')) {
+      return;
+    }
     event.preventDefault();
     onInteractionStateChange(true);
     const factor = event.deltaY > 0 ? 1 / 1.1 : 1.1;
