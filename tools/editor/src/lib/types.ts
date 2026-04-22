@@ -43,7 +43,29 @@ export interface Conversation {
   preconditions: PreconditionEntry[];
   timeout?: number;
   timeoutMessage?: string;
+  flowAnnotations?: FlowAnnotation[];
   turns: Turn[];
+}
+
+export type FlowAnnotation = FlowLineAnnotation | FlowNoteAnnotation;
+
+export interface FlowAnnotationBase {
+  id: string;
+  color: string;
+  authorName?: string;
+  createdAt: string;
+}
+
+export interface FlowLineAnnotation extends FlowAnnotationBase {
+  type: 'line';
+  points: Array<{ x: number; y: number }>;
+}
+
+export interface FlowNoteAnnotation extends FlowAnnotationBase {
+  type: 'note';
+  x: number;
+  y: number;
+  text: string;
 }
 
 /** A single precondition expression used at the top level or inside nested groups. */

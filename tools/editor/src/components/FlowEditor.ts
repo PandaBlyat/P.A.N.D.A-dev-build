@@ -9,7 +9,7 @@ import { estimateFlowNodeHeight, FLOW_WORKSPACE_MIN_HEIGHT, FLOW_WORKSPACE_MIN_W
 import { buildFlowGraphModel, getVisibleFlowItems, type FlowGraphModel } from '../lib/flow-graph-model';
 import { createIcon } from './icons';
 import { createFlowCursorSystem, type FlowCursorSystem } from './FlowCursor';
-import type { Choice, Conversation, ConversationChannel, Turn } from '../lib/types';
+import type { Choice, Conversation, ConversationChannel, FlowAnnotation, FlowLineAnnotation, FlowNoteAnnotation, Turn } from '../lib/types';
 import { getConversationFaction } from '../lib/types';
 import type { FlowDensity } from '../lib/state';
 import { measurePerf, recordPerf } from '../lib/perf';
@@ -55,6 +55,7 @@ type ConnectionPreview = {
 };
 
 type FlowGraphSize = 'normal' | 'large' | 'huge';
+type FlowAnnotationTool = 'select' | 'draw' | 'text';
 
 declare global {
   interface Window {
@@ -92,7 +93,11 @@ const DEFAULT_VIEW_STATE: ViewState = {
   zoom: 1,
 };
 const MOBILE_VIEWPORT_QUERY = '(max-width: 760px)';
+const FLOW_ANNOTATION_COLORS = ['#ffd84d', '#7ce2ff', '#66d17a', '#ff7a7a', '#d990ff', '#ffffff'];
 const viewStateByConversation = new Map<number, ViewState>();
+let activeAnnotationTool: FlowAnnotationTool = 'select';
+let activeAnnotationColor = FLOW_ANNOTATION_COLORS[0];
+let pendingFocusAnnotationId: string | null = null;
 
 // ── Live flow editor state for incremental updates ──
 type LiveFlowState = {
@@ -392,6 +397,7 @@ export function renderFlowEditor(container: HTMLElement): void {
 
   const canvas = document.createElement('div');
   canvas.className = 'flow-canvas';
+  canvas.classList.toggle('is-annotating', activeAnnotationTool !== 'select');
   canvas.setAttribute('role', 'region');
   canvas.setAttribute('aria-label', `Story ${conv.id} flow graph`);
   setBeginnerTooltip(canvas, 'flow-canvas');
@@ -495,6 +501,15 @@ export function renderFlowEditor(container: HTMLElement): void {
 
   }
   content.appendChild(previewSvg);
+  const annotationLayer = createFlowAnnotationLayer({
+    conv,
+    bounds,
+    viewState,
+    canvas,
+    getTool: () => activeAnnotationTool,
+    getColor: () => activeAnnotationColor,
+  });
+  content.appendChild(annotationLayer);
   const collabLayer = createCollabPresenceLayer(conv);
   if (collabLayer) {
     content.appendChild(collabLayer);
@@ -920,6 +935,16 @@ export function renderFlowEditor(container: HTMLElement): void {
     onInteractionStateChange: setInteractionActive,
   });
 
+  if (pendingFocusAnnotationId) {
+    const focusId = pendingFocusAnnotationId;
+    pendingFocusAnnotationId = null;
+    requestAnimationFrame(() => {
+      const note = annotationLayer.querySelector(`[data-annotation-id="${CSS.escape(focusId)}"] textarea`) as HTMLTextAreaElement | null;
+      note?.focus();
+      note?.select();
+    });
+  }
+
   if (!mobilePerformanceMode) {
     flowCursorSystem = createFlowCursorSystem({
       canvas,
@@ -1051,6 +1076,64 @@ function renderControls(options: {
   setBeginnerTooltip(redo, 'toolbar-redo');
   redo.onclick = () => store.redo();
 
+  const annotationButtons: HTMLButtonElement[] = [];
+  const setAnnotationTool = (tool: FlowAnnotationTool): void => {
+    activeAnnotationTool = activeAnnotationTool === tool ? 'select' : tool;
+    annotationButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.annotationTool === activeAnnotationTool);
+      button.setAttribute('aria-pressed', button.dataset.annotationTool === activeAnnotationTool ? 'true' : 'false');
+    });
+    const active = activeAnnotationTool !== 'select';
+    document.querySelector('.flow-canvas')?.classList.toggle('is-annotating', active);
+  };
+
+  const drawButton = document.createElement('button');
+  drawButton.type = 'button';
+  drawButton.className = 'btn-sm flow-icon-button flow-annotation-tool';
+  drawButton.dataset.annotationTool = 'draw';
+  drawButton.appendChild(createIcon('draw'));
+  drawButton.title = 'Draw markup line on flow';
+  drawButton.setAttribute('aria-label', 'Draw markup line');
+  drawButton.setAttribute('aria-pressed', activeAnnotationTool === 'draw' ? 'true' : 'false');
+  drawButton.classList.toggle('is-active', activeAnnotationTool === 'draw');
+  drawButton.onclick = () => setAnnotationTool('draw');
+  annotationButtons.push(drawButton);
+
+  const textButton = document.createElement('button');
+  textButton.type = 'button';
+  textButton.className = 'btn-sm flow-icon-button flow-annotation-tool';
+  textButton.dataset.annotationTool = 'text';
+  textButton.appendChild(createIcon('comment'));
+  textButton.title = 'Add comment note to flow';
+  textButton.setAttribute('aria-label', 'Add comment note');
+  textButton.setAttribute('aria-pressed', activeAnnotationTool === 'text' ? 'true' : 'false');
+  textButton.classList.toggle('is-active', activeAnnotationTool === 'text');
+  textButton.onclick = () => setAnnotationTool('text');
+  annotationButtons.push(textButton);
+
+  const annotationColor = document.createElement('input');
+  annotationColor.type = 'color';
+  annotationColor.className = 'flow-annotation-color';
+  annotationColor.value = activeAnnotationColor;
+  annotationColor.title = 'Markup color';
+  annotationColor.setAttribute('aria-label', 'Markup color');
+  annotationColor.oninput = () => {
+    activeAnnotationColor = annotationColor.value;
+  };
+
+  const clearAnnotations = document.createElement('button');
+  clearAnnotations.type = 'button';
+  clearAnnotations.className = 'btn-sm flow-annotation-clear';
+  clearAnnotations.textContent = 'Clear Marks';
+  clearAnnotations.title = 'Remove all flow markup and comments';
+  clearAnnotations.disabled = !(store.getSelectedConversation()?.flowAnnotations?.length);
+  clearAnnotations.onclick = () => {
+    const selected = store.getSelectedConversation();
+    if (!selected?.flowAnnotations?.length) return;
+    if (!window.confirm('Remove all flow drawings and comments?')) return;
+    store.clearFlowAnnotations(selected.id);
+  };
+
   const authorMode = document.createElement('button');
   authorMode.type = 'button';
   authorMode.className = 'btn-sm flow-mode-toggle';
@@ -1097,12 +1180,296 @@ function renderControls(options: {
   sizeInput.oninput = () => options.onSetCursorSize(Number(sizeInput.value));
 
   if (options.mobilePerformanceMode) {
-    controls.append(zoomOut, zoomIn, undo, redo, fit, authorMode, densitySelect);
+    controls.append(zoomOut, zoomIn, undo, redo, drawButton, textButton, annotationColor, fit, authorMode, densitySelect);
     return controls;
   }
 
-  controls.append(zoomOut, options.zoomValue, zoomIn, undo, redo, fit, reset, authorMode, densitySelect, cursorToggle, sizeInput);
+  controls.append(zoomOut, options.zoomValue, zoomIn, undo, redo, drawButton, textButton, annotationColor, clearAnnotations, fit, reset, authorMode, densitySelect, cursorToggle, sizeInput);
   return controls;
+}
+
+function createFlowAnnotationLayer(options: {
+  conv: Conversation;
+  bounds: ContentBounds;
+  viewState: ViewState;
+  canvas: HTMLElement;
+  getTool: () => FlowAnnotationTool;
+  getColor: () => string;
+}): HTMLElement {
+  const { conv, bounds, viewState, canvas, getTool, getColor } = options;
+  const layer = document.createElement('div');
+  layer.className = 'flow-annotation-layer';
+  layer.style.width = `${bounds.width}px`;
+  layer.style.height = `${bounds.height}px`;
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.classList.add('flow-annotation-svg');
+  svg.setAttribute('width', String(bounds.width));
+  svg.setAttribute('height', String(bounds.height));
+
+  for (const annotation of conv.flowAnnotations ?? []) {
+    if (annotation.type === 'line') {
+      renderLineAnnotation(svg, layer, conv.id, annotation);
+    }
+  }
+
+  layer.appendChild(svg);
+
+  for (const annotation of conv.flowAnnotations ?? []) {
+    if (annotation.type === 'note') {
+      layer.appendChild(renderNoteAnnotation(conv.id, annotation, canvas, viewState));
+    }
+  }
+
+  let activeLine: { pointerId: number; points: Array<{ x: number; y: number }>; path: SVGPathElement } | null = null;
+
+  const updatePreviewPath = (): void => {
+    if (!activeLine) return;
+    activeLine.path.setAttribute('d', pointsToPath(activeLine.points));
+  };
+
+  const finishLine = (): void => {
+    if (!activeLine) return;
+    const line = activeLine;
+    activeLine = null;
+    line.path.remove();
+    if (line.points.length < 2) return;
+    const distance = Math.hypot(
+      line.points[line.points.length - 1].x - line.points[0].x,
+      line.points[line.points.length - 1].y - line.points[0].y,
+    );
+    if (distance < 6) return;
+    store.addFlowAnnotation(conv.id, {
+      id: createAnnotationId(),
+      type: 'line',
+      color: getColor(),
+      points: line.points.map(point => ({ x: Math.round(point.x), y: Math.round(point.y) })),
+      createdAt: new Date().toISOString(),
+    });
+  };
+
+  layer.onpointerdown = (event) => {
+    const tool = getTool();
+    if (tool === 'select') return;
+    const target = event.target as HTMLElement | SVGElement;
+    if (target.closest('.flow-annotation-note, .flow-annotation-delete')) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    const point = viewportToWorldPoint(canvas, viewState, event.clientX, event.clientY);
+
+    if (tool === 'text') {
+      const id = createAnnotationId();
+      pendingFocusAnnotationId = id;
+      activeAnnotationTool = 'select';
+      canvas.classList.remove('is-annotating');
+      store.addFlowAnnotation(conv.id, {
+        id,
+        type: 'note',
+        color: getColor(),
+        x: Math.round(point.x),
+        y: Math.round(point.y),
+        text: '',
+        createdAt: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('class', 'flow-annotation-line flow-annotation-line-preview');
+    path.style.setProperty('--annotation-color', getColor());
+    svg.appendChild(path);
+    activeLine = {
+      pointerId: event.pointerId,
+      points: [point],
+      path,
+    };
+    layer.setPointerCapture(event.pointerId);
+    canvas.classList.add('is-annotating-active');
+    updatePreviewPath();
+  };
+
+  layer.onpointermove = (event) => {
+    if (!activeLine || event.pointerId !== activeLine.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const point = viewportToWorldPoint(canvas, viewState, event.clientX, event.clientY);
+    const previous = activeLine.points[activeLine.points.length - 1];
+    if (Math.hypot(point.x - previous.x, point.y - previous.y) < 4) return;
+    activeLine.points.push(point);
+    updatePreviewPath();
+  };
+
+  const cancelLine = (event?: PointerEvent): void => {
+    if (event && activeLine && event.pointerId !== activeLine.pointerId) return;
+    activeLine?.path.remove();
+    activeLine = null;
+    canvas.classList.remove('is-annotating-active');
+  };
+
+  layer.onpointerup = (event) => {
+    if (!activeLine || event.pointerId !== activeLine.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (layer.hasPointerCapture(event.pointerId)) {
+      layer.releasePointerCapture(event.pointerId);
+    }
+    canvas.classList.remove('is-annotating-active');
+    finishLine();
+  };
+  layer.onpointercancel = cancelLine;
+
+  return layer;
+}
+
+function renderLineAnnotation(svg: SVGSVGElement, layer: HTMLElement, conversationId: number, annotation: FlowLineAnnotation): void {
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('class', 'flow-annotation-line');
+  path.setAttribute('d', pointsToPath(annotation.points));
+  path.style.setProperty('--annotation-color', annotation.color);
+  svg.appendChild(path);
+
+  const lastPoint = annotation.points[annotation.points.length - 1];
+  if (!lastPoint) return;
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'flow-annotation-delete flow-annotation-line-delete';
+  remove.textContent = 'x';
+  remove.title = 'Delete drawing';
+  remove.style.left = `${lastPoint.x}px`;
+  remove.style.top = `${lastPoint.y}px`;
+  remove.style.setProperty('--annotation-color', annotation.color);
+  remove.onpointerdown = (event) => event.stopPropagation();
+  remove.onclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    store.deleteFlowAnnotation(conversationId, annotation.id);
+  };
+  layer.appendChild(remove);
+}
+
+function renderNoteAnnotation(
+  conversationId: number,
+  annotation: FlowNoteAnnotation,
+  canvas: HTMLElement,
+  viewState: ViewState,
+): HTMLElement {
+  const note = document.createElement('div');
+  note.className = 'flow-annotation-note';
+  note.dataset.annotationId = annotation.id;
+  note.style.left = `${annotation.x}px`;
+  note.style.top = `${annotation.y}px`;
+  note.style.setProperty('--annotation-color', annotation.color);
+
+  const header = document.createElement('div');
+  header.className = 'flow-annotation-note-header';
+  const swatch = document.createElement('span');
+  swatch.className = 'flow-annotation-note-swatch';
+  const label = document.createElement('span');
+  label.textContent = 'Comment';
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'flow-annotation-delete';
+  remove.textContent = 'x';
+  remove.title = 'Delete comment';
+  remove.onpointerdown = (event) => event.stopPropagation();
+  remove.onclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    store.deleteFlowAnnotation(conversationId, annotation.id);
+  };
+  header.append(swatch, label, remove);
+
+  const textarea = document.createElement('textarea');
+  textarea.className = 'flow-annotation-note-input';
+  textarea.value = annotation.text;
+  textarea.placeholder = 'Comment';
+  textarea.rows = 3;
+  textarea.onpointerdown = (event) => event.stopPropagation();
+  textarea.oninput = () => autosizeAnnotationTextarea(textarea);
+  textarea.onkeydown = (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      textarea.blur();
+    }
+    if (event.key === 'Escape') {
+      textarea.value = annotation.text;
+      textarea.blur();
+    }
+  };
+  textarea.onblur = () => {
+    const nextText = textarea.value.trim();
+    if (!nextText) {
+      store.deleteFlowAnnotation(conversationId, annotation.id);
+      return;
+    }
+    if (nextText !== annotation.text) {
+      store.updateFlowAnnotation(conversationId, annotation.id, { text: nextText } as Partial<FlowAnnotation>);
+    }
+  };
+
+  let drag: { pointerId: number; startX: number; startY: number; originX: number; originY: number } | null = null;
+  header.onpointerdown = (event) => {
+    if ((event.target as HTMLElement).closest('button')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const point = viewportToWorldPoint(canvas, viewState, event.clientX, event.clientY);
+    drag = {
+      pointerId: event.pointerId,
+      startX: point.x,
+      startY: point.y,
+      originX: annotation.x,
+      originY: annotation.y,
+    };
+    header.setPointerCapture(event.pointerId);
+    note.classList.add('is-dragging');
+  };
+  header.onpointermove = (event) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const point = viewportToWorldPoint(canvas, viewState, event.clientX, event.clientY);
+    const x = Math.max(0, Math.round(drag.originX + point.x - drag.startX));
+    const y = Math.max(0, Math.round(drag.originY + point.y - drag.startY));
+    note.style.left = `${x}px`;
+    note.style.top = `${y}px`;
+  };
+  const finishDrag = (event: PointerEvent) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const point = viewportToWorldPoint(canvas, viewState, event.clientX, event.clientY);
+    const x = Math.max(0, Math.round(drag.originX + point.x - drag.startX));
+    const y = Math.max(0, Math.round(drag.originY + point.y - drag.startY));
+    drag = null;
+    note.classList.remove('is-dragging');
+    if (header.hasPointerCapture(event.pointerId)) {
+      header.releasePointerCapture(event.pointerId);
+    }
+    if (x !== annotation.x || y !== annotation.y) {
+      store.updateFlowAnnotation(conversationId, annotation.id, { x, y } as Partial<FlowAnnotation>);
+    }
+  };
+  header.onpointerup = finishDrag;
+  header.onpointercancel = finishDrag;
+
+  note.append(header, textarea);
+  requestAnimationFrame(() => autosizeAnnotationTextarea(textarea));
+  return note;
+}
+
+function pointsToPath(points: Array<{ x: number; y: number }>): string {
+  return points.map((point, index) => `${index === 0 ? 'M' : 'L'}${Math.round(point.x)},${Math.round(point.y)}`).join(' ');
+}
+
+function createAnnotationId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `annotation-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function autosizeAnnotationTextarea(textarea: HTMLTextAreaElement): void {
+  textarea.style.height = 'auto';
+  textarea.style.height = `${Math.min(180, Math.max(54, textarea.scrollHeight))}px`;
 }
 
 function calculateContentBounds(conv: Conversation, density: FlowDensity): ContentBounds {
@@ -1122,6 +1489,18 @@ function calculateContentBounds(conv: Conversation, density: FlowDensity): Conte
     const turnWidth = getFlowNodeWidth(turn, turnLabels.getLongLabel(turn.turnNumber), density);
     maxX = Math.max(maxX, turn.position.x + turnWidth);
     maxY = Math.max(maxY, turn.position.y + estimateFlowNodeHeight(turn, density));
+  }
+
+  for (const annotation of conv.flowAnnotations ?? []) {
+    if (annotation.type === 'line') {
+      for (const point of annotation.points) {
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+      }
+      continue;
+    }
+    maxX = Math.max(maxX, annotation.x + 220);
+    maxY = Math.max(maxY, annotation.y + 140);
   }
 
   return {

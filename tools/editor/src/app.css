@@ -2195,6 +2195,26 @@ body.use-custom-cursor * {
   background: color-mix(in srgb, var(--accent) 14%, rgba(255, 255, 255, 0.04));
 }
 
+.flow-controls .flow-annotation-tool.is-active {
+  color: var(--text-bright);
+  border-color: color-mix(in srgb, var(--warning) 56%, var(--border-light));
+  background: color-mix(in srgb, var(--warning) 16%, rgba(255, 255, 255, 0.04));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 12%, transparent), 0 0 14px rgba(255, 216, 77, 0.16);
+}
+
+.flow-annotation-color {
+  width: 28px;
+  height: 26px;
+  padding: 2px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+}
+
+.flow-annotation-clear {
+  color: var(--text-dim);
+}
+
 .flow-density-select {
   height: 26px;
   min-width: 94px;
@@ -2685,6 +2705,140 @@ body.use-custom-cursor * {
 
 .flow-edges-preview {
   z-index: 6;
+}
+
+.flow-annotation-layer {
+  position: absolute;
+  inset: 0 auto auto 0;
+  z-index: 7;
+  pointer-events: none;
+}
+
+.flow-canvas.is-annotating .flow-annotation-layer {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+.flow-canvas.is-annotating-active {
+  cursor: crosshair;
+}
+
+.flow-annotation-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.flow-annotation-line {
+  fill: none;
+  stroke: var(--annotation-color, var(--warning));
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.42));
+  pointer-events: none;
+}
+
+.flow-annotation-line-preview {
+  stroke-dasharray: 10 8;
+}
+
+.flow-annotation-delete {
+  position: absolute;
+  z-index: 9;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(8, 10, 12, 0.86);
+  color: var(--text-bright);
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+}
+
+.flow-annotation-delete:hover {
+  color: var(--danger-hover);
+  border-color: color-mix(in srgb, var(--danger) 58%, rgba(255, 255, 255, 0.16));
+}
+
+.flow-annotation-line-delete {
+  color: var(--annotation-color, var(--warning));
+}
+
+.flow-annotation-note {
+  position: absolute;
+  z-index: 8;
+  width: 210px;
+  border: 1px solid color-mix(in srgb, var(--annotation-color) 52%, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(18, 22, 28, 0.96), rgba(10, 13, 18, 0.96));
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.38), 0 0 14px color-mix(in srgb, var(--annotation-color) 18%, transparent);
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.flow-annotation-note.is-dragging {
+  opacity: 0.88;
+}
+
+.flow-annotation-note-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 6px 4px 8px;
+  background: color-mix(in srgb, var(--annotation-color) 14%, rgba(0, 0, 0, 0.36));
+  color: var(--text-bright);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: move;
+  user-select: none;
+}
+
+.flow-annotation-note-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--annotation-color);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--annotation-color) 55%, transparent);
+  flex: 0 0 auto;
+}
+
+.flow-annotation-note-header .flow-annotation-delete {
+  position: static;
+  margin-left: auto;
+  transform: none;
+}
+
+.flow-annotation-note-input {
+  width: 100%;
+  min-height: 54px;
+  max-height: 180px;
+  resize: none;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  padding: 8px 9px;
+  background: rgba(0, 0, 0, 0.12);
+  color: var(--text);
+  font: 12px/1.4 var(--font-sans);
+}
+
+.flow-annotation-note-input:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--annotation-color) 42%, transparent);
 }
 
 .flow-edge-path {

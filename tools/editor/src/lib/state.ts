@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Application State
 
-import type { Project, Conversation, Turn, Choice, ValidationMessage, NpcTemplate } from './types';
+import type { Project, Conversation, Turn, Choice, ValidationMessage, NpcTemplate, FlowAnnotation } from './types';
 import type { CollabLock, CollabParticipant, CollabRemoteCursor } from './collab-protocol';
 import { getConversationFaction } from './types';
 import { cloneConversation } from './collab-protocol';
@@ -1844,6 +1844,43 @@ class StateManager {
       turn.color = color;
     }
     this.finishProjectMutation({ revalidate: false });
+  }
+
+  addFlowAnnotation(conversationId: number, annotation: FlowAnnotation): void {
+    const conv = this.getConversationById(conversationId);
+    if (!conv) return;
+    this.pushUndo();
+    conv.flowAnnotations = [...(conv.flowAnnotations ?? []), cloneConversation(annotation)];
+    this.finishProjectMutation({ revalidate: false, change: createFlowChange('structure', 'flowEditor') });
+  }
+
+  updateFlowAnnotation(conversationId: number, annotationId: string, updates: Partial<FlowAnnotation>): void {
+    const conv = this.getConversationById(conversationId);
+    const annotation = conv?.flowAnnotations?.find(item => item.id === annotationId);
+    if (!conv || !annotation) return;
+    if (!hasOwnUpdates(annotation, updates)) return;
+    this.pushUndo();
+    Object.assign(annotation, cloneConversation(updates));
+    this.finishProjectMutation({ revalidate: false, change: createFlowChange('structure', 'flowEditor') });
+  }
+
+  deleteFlowAnnotation(conversationId: number, annotationId: string): void {
+    const conv = this.getConversationById(conversationId);
+    if (!conv?.flowAnnotations?.some(item => item.id === annotationId)) return;
+    this.pushUndo();
+    conv.flowAnnotations = conv.flowAnnotations.filter(item => item.id !== annotationId);
+    if (conv.flowAnnotations.length === 0) {
+      delete conv.flowAnnotations;
+    }
+    this.finishProjectMutation({ revalidate: false, change: createFlowChange('structure', 'flowEditor') });
+  }
+
+  clearFlowAnnotations(conversationId: number): void {
+    const conv = this.getConversationById(conversationId);
+    if (!conv?.flowAnnotations?.length) return;
+    this.pushUndo();
+    delete conv.flowAnnotations;
+    this.finishProjectMutation({ revalidate: false, change: createFlowChange('structure', 'flowEditor') });
   }
 
   addChoice(conversationId: number, turnNumber: number): void {

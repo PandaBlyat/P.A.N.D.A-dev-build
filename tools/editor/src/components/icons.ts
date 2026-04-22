@@ -44,6 +44,8 @@ export type IconName =
   | 'bug'
   | 'sparkle'
   | 'map'
+  | 'draw'
+  | 'comment'
   | 'upvote';
 
 const BASE_ICON_ATTRS = {
@@ -339,6 +341,20 @@ const ICONS: Record<IconName, IconDef> = {
       { tag: 'polygon', points: '1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6' },
       { tag: 'line', x1: '8', y1: '2', x2: '8', y2: '18' },
       { tag: 'line', x1: '16', y1: '6', x2: '16', y2: '22' },
+    ],
+  },
+  draw: {
+    paths: [
+      { tag: 'path', d: 'M4 20h4.5L20 8.5 15.5 4 4 15.5z' },
+      { tag: 'path', d: 'm13.5 6 4.5 4.5' },
+      { tag: 'path', d: 'M3 22h18' },
+    ],
+  },
+  comment: {
+    paths: [
+      { tag: 'path', d: 'M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H10l-5.5 4v-4A2.5 2.5 0 0 1 2 13.5v-8A2.5 2.5 0 0 1 4.5 3' },
+      { tag: 'path', d: 'M7 8h10' },
+      { tag: 'path', d: 'M7 12h6' },
     ],
   },
   upvote: {
