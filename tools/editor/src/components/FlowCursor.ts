@@ -46,8 +46,8 @@ const SHAPE_BY_STATE: Record<CursorState, CursorShape> = {
 };
 
 const TRIANGLE_HOTSPOT = {
-  x: 0.09,
-  y: 0.06,
+  x: 0.04,
+  y: 0.12,
 } as const;
 
 function getCursorHotspotOffset(shape: CursorShape, size: number): { x: number; y: number } {
