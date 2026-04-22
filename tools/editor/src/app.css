@@ -674,6 +674,271 @@ button.toolbar-active-user-counter:active {
   text-align: center;
 }
 
+.branch-author-popup {
+  position: fixed;
+  z-index: 1200;
+  width: min(380px, calc(100vw - 20px));
+  max-height: min(640px, calc(100vh - 20px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border-light) 78%, var(--accent) 22%);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgba(25, 32, 40, 0.98), rgba(14, 18, 24, 0.98));
+  box-shadow: var(--shadow-lg), 0 14px 40px rgba(0, 0, 0, 0.46);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.branch-author-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.branch-author-popup-title {
+  min-width: 0;
+  color: var(--text-bright);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-author-popup-close {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.branch-author-popup-close:hover {
+  color: var(--text-bright);
+  border-color: var(--accent);
+}
+
+.branch-author-popup-body {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  overflow: auto;
+}
+
+.branch-author-section {
+  display: grid;
+  gap: 7px;
+}
+
+.branch-author-section-title {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.branch-author-hint,
+.branch-author-summary {
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.branch-author-summary {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+}
+
+.branch-author-card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.branch-author-card {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.72fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  min-height: 46px;
+  padding: 8px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 5%, rgba(255, 255, 255, 0.025));
+  color: var(--text);
+  cursor: pointer;
+}
+
+.branch-author-card strong {
+  color: var(--text-bright);
+  font-size: 11px;
+}
+
+.branch-author-card span {
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.branch-link-list {
+  display: grid;
+  gap: 5px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.branch-link-button {
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text);
+  text-align: left;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.branch-link-button:hover,
+.branch-link-button:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border-light));
+  background: color-mix(in srgb, var(--accent) 8%, rgba(255, 255, 255, 0.035));
+}
+
+.branch-link-button.is-active {
+  color: var(--text-bright);
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border-light));
+  background: color-mix(in srgb, var(--accent) 12%, rgba(255, 255, 255, 0.04));
+}
+
+.branch-author-card:hover,
+.branch-author-card:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--border-light));
+  background: color-mix(in srgb, var(--accent) 10%, rgba(255, 255, 255, 0.04));
+}
+
+.branch-author-command-list {
+  display: grid;
+  gap: 5px;
+}
+
+.branch-author-command-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.15);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.branch-author-command-row span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.branch-author-remove {
+  width: 20px;
+  height: 20px;
+  border: 1px solid color-mix(in srgb, var(--danger) 42%, var(--border));
+  border-radius: var(--radius);
+  background: var(--danger-bg);
+  color: var(--danger-hover);
+  cursor: pointer;
+}
+
+.branch-author-search,
+.branch-author-select,
+.branch-author-field input {
+  width: 100%;
+  height: 28px;
+  padding: 4px 7px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.branch-author-schema-results {
+  display: grid;
+  gap: 5px;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.branch-author-schema-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.branch-author-schema-option strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.branch-author-schema-option span {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.branch-author-schema-option:hover,
+.branch-author-schema-option:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border-light));
+}
+
+.branch-author-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.branch-author-popup-action {
+  min-height: 26px;
+}
+
+.branch-author-field {
+  display: grid;
+  gap: 6px;
+}
+
+.branch-author-field label {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .toolbar-overflow[open] .toolbar-overflow-toggle {
   border-color: color-mix(in srgb, var(--accent) 35%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent);
@@ -2485,6 +2750,62 @@ body.use-custom-cursor * {
   color: color-mix(in srgb, var(--success) 78%, white 22%);
 }
 
+.flow-channel-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px;
+  border: 1px solid color-mix(in srgb, var(--branch-color, var(--accent)) 28%, var(--border));
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.flow-channel-toggle.is-compact {
+  flex: 0 0 auto;
+}
+
+.flow-channel-toggle-btn {
+  min-width: 30px;
+  height: 18px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.flow-channel-toggle-btn.is-active {
+  background: color-mix(in srgb, var(--branch-color, var(--accent)) 26%, rgba(255, 255, 255, 0.04));
+  color: color-mix(in srgb, var(--branch-color, var(--accent)) 72%, white 28%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--branch-color, var(--accent)) 38%, transparent);
+}
+
+.branch-author-chip {
+  flex: 0 0 auto;
+  height: 20px;
+  padding: 1px 7px;
+  border: 1px solid color-mix(in srgb, var(--branch-color, var(--accent)) 34%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--branch-color, var(--accent)) 10%, rgba(255, 255, 255, 0.03));
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.branch-author-chip:hover,
+.branch-author-chip:focus-visible {
+  color: var(--text-bright);
+  border-color: color-mix(in srgb, var(--branch-color, var(--accent)) 58%, var(--border-light));
+  background: color-mix(in srgb, var(--branch-color, var(--accent)) 16%, rgba(255, 255, 255, 0.04));
+}
+
 .turn-label-input {
   flex: 1 1 140px;
   min-width: 0;
@@ -2526,6 +2847,65 @@ body.use-custom-cursor * {
 
 .turn-body { padding: 8px 10px; }
 
+.flow-inline-editor {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--branch-color, var(--accent)) 28%, var(--border));
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.flow-inline-editor-label {
+  color: color-mix(in srgb, var(--branch-color, var(--accent)) 70%, white 30%);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.flow-inline-editor-control,
+.flow-inline-choice-text,
+.flow-inline-choice-reply {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  color: var(--text-bright);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.35;
+  outline: none;
+}
+
+.flow-inline-editor-control {
+  min-height: 48px;
+  padding: 5px 7px;
+  resize: vertical;
+}
+
+.flow-inline-choice-text {
+  flex: 1 1 120px;
+  height: 24px;
+  padding: 3px 6px;
+}
+
+.flow-inline-choice-reply {
+  flex: 1 1 auto;
+  height: 24px;
+  padding: 3px 6px;
+  font-style: normal;
+}
+
+.flow-inline-editor-control:focus,
+.flow-inline-choice-text:focus,
+.flow-inline-choice-reply:focus {
+  border-color: color-mix(in srgb, var(--branch-color, var(--accent)) 62%, var(--border-light));
+  box-shadow: 0 0 0 2px var(--branch-glow, var(--accent-glow));
+}
+
 .turn-message {
   font-size: 11px;
   color: var(--text-dim);
@@ -2549,6 +2929,7 @@ body.use-custom-cursor * {
   --choice-branch-glow: color-mix(in srgb, var(--choice-branch-color) 24%, transparent);
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
   min-width: 0;
   padding: 3px 6px;
@@ -2630,6 +3011,49 @@ body.use-custom-cursor * {
   background: var(--info-bg);
 }
 
+.choice-branch-badge.branch-cond-summary {
+  cursor: pointer;
+}
+
+.choice-author-actions {
+  display: none;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-left: auto;
+}
+
+.turn-choice-item:hover .choice-author-actions,
+.turn-choice-item.selected .choice-author-actions {
+  display: inline-flex;
+}
+
+.choice-author-action {
+  min-width: 42px;
+  height: 21px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--choice-branch-color, var(--accent)) 28%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--choice-branch-color, var(--accent)) 8%, rgba(255, 255, 255, 0.02));
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.choice-author-action:hover,
+.choice-author-action:focus-visible {
+  color: var(--text-bright);
+  border-color: color-mix(in srgb, var(--choice-branch-color, var(--accent)) 52%, var(--border-light));
+  background: color-mix(in srgb, var(--choice-branch-color, var(--accent)) 14%, rgba(255, 255, 255, 0.04));
+}
+
+.choice-author-action:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
 /* ─── NPC Reply in Flow Node ──────────────────────────── */
 
 .turn-npc-reply {
@@ -2705,6 +3129,12 @@ body.use-custom-cursor * {
 
 .flow-edges-preview {
   z-index: 6;
+}
+
+.turn-npc-reply.is-editing {
+  padding-left: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border);
 }
 
 .flow-annotation-layer {

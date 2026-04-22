@@ -1294,6 +1294,7 @@ class StateManager {
     const conv = this.state.project.conversations.find(c => c.id === id);
     if (!conv) return;
     this.pushUndo();
+    conv.startMode = channel;
     conv.initialChannel = channel;
     const firstTurn = conv.turns.find((turn) => turn.turnNumber === 1);
     if (firstTurn) {

@@ -9,13 +9,17 @@ import { estimateFlowNodeHeight, FLOW_WORKSPACE_MIN_HEIGHT, FLOW_WORKSPACE_MIN_W
 import { buildFlowGraphModel, getVisibleFlowItems, type FlowGraphModel } from '../lib/flow-graph-model';
 import { createIcon } from './icons';
 import { createFlowCursorSystem, type FlowCursorSystem } from './FlowCursor';
-import type { Choice, Conversation, ConversationChannel, FlowAnnotation, FlowLineAnnotation, FlowNoteAnnotation, Turn } from '../lib/types';
+import { createCatalogPickerPanelEditor } from './CatalogPickerPanel';
+import type { Choice, Conversation, ConversationChannel, FlowAnnotation, FlowLineAnnotation, FlowNoteAnnotation, Outcome, PreconditionEntry, SimplePrecondition, Turn } from '../lib/types';
 import { getConversationFaction } from '../lib/types';
 import type { FlowDensity } from '../lib/state';
+import type { CommandSchema } from '../lib/schema';
+import { OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from '../lib/schema';
 import { measurePerf, recordPerf } from '../lib/perf';
 import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 import { createCollabPresenceLayer } from './CollabPresenceLayer';
 import { sendCollabCursorPing } from '../lib/collab-session';
+import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
 
 type TurnPositionMap = Map<number, { x: number; y: number }>;
 type EdgeKind = 'continue' | 'pause-success' | 'pause-fail';
@@ -56,6 +60,11 @@ type ConnectionPreview = {
 
 type FlowGraphSize = 'normal' | 'large' | 'huge';
 type FlowAnnotationTool = 'select' | 'draw' | 'text';
+type BranchAuthorMenuKind = 'start' | 'conditions' | 'outcomes' | 'next';
+type BranchAuthorPopupScope = {
+  turnNumber: number;
+  choiceIndex: number | null;
+};
 
 declare global {
   interface Window {
@@ -98,6 +107,12 @@ const viewStateByConversation = new Map<number, ViewState>();
 let activeAnnotationTool: FlowAnnotationTool = 'select';
 let activeAnnotationColor = FLOW_ANNOTATION_COLORS[0];
 let pendingFocusAnnotationId: string | null = null;
+let activeBranchAuthorPopup: {
+  element: HTMLElement;
+  trigger: HTMLElement;
+  cleanup: () => void;
+  scope: BranchAuthorPopupScope;
+} | null = null;
 
 // ── Live flow editor state for incremental updates ──
 type LiveFlowState = {
@@ -136,6 +151,18 @@ export function updateFlowSelection(): boolean {
 
   const nextSelected = state.selectedTurnNumber;
   const nextChoiceIndex = state.selectedChoiceIndex;
+  if (
+    activeBranchAuthorPopup
+    && (
+      activeBranchAuthorPopup.scope.turnNumber !== nextSelected
+      || (
+        activeBranchAuthorPopup.scope.choiceIndex != null
+        && activeBranchAuthorPopup.scope.choiceIndex !== nextChoiceIndex
+      )
+    )
+  ) {
+    closeBranchAuthorPopup();
+  }
 
   liveFlow.selectedTurnNumber = nextSelected;
   liveFlow.selectedChoiceIndex = nextChoiceIndex;
@@ -292,7 +319,7 @@ function estimateChoiceRowWidth(choice: Choice, density: FlowDensity): number {
   const previewExtraWidth = Math.max(0, previewLength - previewFreeChars) * previewCharWidth;
   const previewWidthCap = density === 'compact' ? 120 : density === 'standard' ? 190 : 240;
 
-  let controlsWidth = 88; // index + add-branch + connector handle
+  let controlsWidth = 188; // index + authoring chips + connector handle
   if (choice.continueTo != null) controlsWidth += 104; // unlink + handoff badge
   controlsWidth += 48; // choice channel badge
   if (hasPauseOutcome(choice)) controlsWidth += 42;
@@ -333,6 +360,7 @@ function getFlowGraphSize(turnCount: number, edgeCount: number): FlowGraphSize {
 }
 
 export function renderFlowEditor(container: HTMLElement): void {
+  closeBranchAuthorPopup();
   flowCursorSystem?.destroy();
   flowCursorSystem = null;
 
@@ -1568,6 +1596,8 @@ function renderTurnNode(options: {
   const factionColor = FACTION_COLORS[getConversationFaction(conv, state.project.faction)];
   const branchColor = getBranchColor(turn, turnIndex, factionColor);
   const nodeWidth = getFlowNodeWidth(turn, turnLabels.getLongLabel(turn.turnNumber), density);
+  const segmentStartTurns = collectSegmentStartTurns(conv);
+  const isSegmentStartTurn = segmentStartTurns.has(turn.turnNumber);
 
   const node = document.createElement('div');
 
@@ -1591,6 +1621,12 @@ function renderTurnNode(options: {
   node.style.setProperty('--starter-branch-glow', `${factionColor}40`);
   node.onclick = (e) => {
     e.stopPropagation();
+    const currentState = store.get();
+    if (currentState.selectedTurnNumber === turn.turnNumber && currentState.selectedChoiceIndex == null) {
+      closeBranchAuthorPopup();
+      store.clearSelection();
+      return;
+    }
     store.selectTurn(turn.turnNumber);
   };
   node.onkeydown = (event) => {
@@ -1598,7 +1634,20 @@ function renderTurnNode(options: {
 
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      store.selectTurn(turn.turnNumber);
+      const currentState = store.get();
+      if (currentState.selectedTurnNumber === turn.turnNumber && currentState.selectedChoiceIndex == null) {
+        closeBranchAuthorPopup();
+        store.clearSelection();
+      } else {
+        store.selectTurn(turn.turnNumber);
+      }
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeBranchAuthorPopup();
+      store.clearSelection();
       return;
     }
 
@@ -1799,11 +1848,23 @@ function renderTurnNode(options: {
   };
   header.appendChild(labelSpan);
 
-  const turnChannelBadge = document.createElement('span');
-  turnChannelBadge.className = 'flow-channel-badge';
-  turnChannelBadge.textContent = channelBadgeLabel(normalizeChannel(turn.channel, 'pda'));
-  turnChannelBadge.title = `Turn visibility: ${turnChannelBadge.textContent}`;
-  header.appendChild(turnChannelBadge);
+  const channelToggle = createFlowChannelToggle({
+    current: normalizeChannel(turn.channel, normalizeChannel(conv.initialChannel, 'pda')),
+    onChange: (channel) => setTurnChannelFromFlow(conv, turn, channel),
+    compact: true,
+  });
+  header.appendChild(channelToggle);
+
+  const startMenuButton = createBranchAuthorChip(turn.turnNumber === 1 ? 'Start' : 'Mode', 'Open branch start/channel menu', (trigger) => {
+    store.selectTurn(turn.turnNumber);
+    showBranchAuthorPopup(trigger, {
+      kind: 'start',
+      conv,
+      turn,
+      turnLabels,
+    });
+  });
+  header.appendChild(startMenuButton);
 
   // Color picker (small dot, click to change branch color)
   const colorDot = document.createElement('input');
@@ -1825,6 +1886,26 @@ function renderTurnNode(options: {
   const outgoingCount = turn.choices.filter(choice => choice.continueTo != null || hasPauseOutcome(choice)).length;
   stats.textContent = `${turn.choices.length}C · ${outgoingCount}L`;
   header.appendChild(stats);
+
+  if ((turn.preconditions ?? []).length > 0) {
+    const branchCondBadge = document.createElement('button');
+    branchCondBadge.type = 'button';
+    branchCondBadge.className = 'choice-branch-badge branch-cond-summary';
+    branchCondBadge.textContent = `${turn.preconditions.length} cond`;
+    branchCondBadge.title = 'Open branch conditions menu';
+    branchCondBadge.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      store.selectTurn(turn.turnNumber);
+      showBranchAuthorPopup(branchCondBadge, {
+        kind: 'conditions',
+        conv,
+        turn,
+        turnLabels,
+      });
+    };
+    header.appendChild(branchCondBadge);
+  }
 
   const turnActions = document.createElement('div');
   turnActions.className = 'turn-actions';
@@ -1869,8 +1950,16 @@ function renderTurnNode(options: {
   const body = document.createElement('div');
   body.className = 'turn-body';
 
-  // Opening message (NPC message)
-  if (turn.openingMessage && density !== 'compact') {
+  if (selected && isSegmentStartTurn) {
+    body.appendChild(createInlineTextEditor({
+      className: 'flow-inline-opener',
+      label: `${channelBadgeLabel(normalizeChannel(turn.channel, 'pda'))} opener`,
+      value: turn.openingMessage ?? '',
+      placeholder: 'NPC opening line for this branch segment',
+      multiline: true,
+      onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingMessage: value }),
+    }));
+  } else if (turn.openingMessage && density !== 'compact') {
     const msg = document.createElement('div');
     msg.className = 'turn-message turn-npc-message';
     msg.textContent = truncate(turn.openingMessage, layout.messageChars);
@@ -1893,6 +1982,12 @@ function renderTurnNode(options: {
     setBeginnerTooltip(item, 'flow-choice-row');
     item.onclick = (e) => {
       e.stopPropagation();
+      const currentState = store.get();
+      if (currentState.selectedTurnNumber === turn.turnNumber && currentState.selectedChoiceIndex === choice.index) {
+        closeBranchAuthorPopup();
+        store.clearSelection();
+        return;
+      }
       store.batch(() => {
         store.selectTurn(turn.turnNumber);
         store.selectChoice(choice.index);
@@ -1936,11 +2031,19 @@ function renderTurnNode(options: {
     num.className = 'choice-number';
     num.textContent = String(choice.index);
 
-    // Player dialogue text
-    const preview = document.createElement('span');
-    preview.className = 'choice-preview';
-    preview.textContent = choice.text || '(empty)';
-    preview.style.setProperty('-webkit-line-clamp', String(layout.previewLines));
+    const preview = choiceActive
+      ? createInlineTextInput({
+        className: 'choice-preview flow-inline-choice-text',
+        value: choice.text,
+        placeholder: 'Player choice',
+        onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { text: value }),
+      })
+      : document.createElement('span');
+    preview.className = choiceActive ? preview.className : 'choice-preview';
+    if (!choiceActive) {
+      preview.textContent = choice.text || '(empty)';
+      preview.style.setProperty('-webkit-line-clamp', String(layout.previewLines));
+    }
 
     if (linkPointsBehind) {
       item.classList.add('choice-link-backward');
@@ -1992,7 +2095,22 @@ function renderTurnNode(options: {
       const precondBadge = document.createElement('span');
       precondBadge.className = 'choice-branch-badge';
       precondBadge.textContent = `${choice.preconditions.length} cond`;
-      precondBadge.title = `${choice.preconditions.length} choice precondition${choice.preconditions.length === 1 ? '' : 's'}`;
+      precondBadge.title = `${choice.preconditions.length} choice precondition${choice.preconditions.length === 1 ? '' : 's'} (open conditions menu)`;
+      precondBadge.onclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        store.batch(() => {
+          store.selectTurn(turn.turnNumber);
+          store.selectChoice(choice.index);
+        });
+        showBranchAuthorPopup(precondBadge, {
+          kind: 'conditions',
+          conv,
+          turn,
+          choice,
+          turnLabels,
+        });
+      };
       item.appendChild(precondBadge);
     }
 
@@ -2007,22 +2125,69 @@ function renderTurnNode(options: {
       const outBadge = document.createElement('span');
       outBadge.className = 'choice-outcome-badge';
       outBadge.textContent = `${choice.outcomes.length} out`;
+      outBadge.title = 'Open outcomes menu';
+      outBadge.onclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        store.batch(() => {
+          store.selectTurn(turn.turnNumber);
+          store.selectChoice(choice.index);
+        });
+        showBranchAuthorPopup(outBadge, {
+          kind: 'outcomes',
+          conv,
+          turn,
+          choice,
+          turnLabels,
+        });
+      };
       item.appendChild(outBadge);
     }
 
-    const branchButton = document.createElement('button');
-    branchButton.type = 'button';
-    branchButton.className = 'btn-icon btn-sm';
-    branchButton.textContent = '+';
-    branchButton.title = `Create a new turn for Choice ${choice.index}`;
-    branchButton.setAttribute('aria-label', `Create a new branch turn for choice ${choice.index}`);
-    setBeginnerTooltip(branchButton, 'flow-branch-add');
-    branchButton.onclick = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      onCreateConnectedTurn(choice.index);
-    };
-    item.appendChild(branchButton);
+    const authorActions = document.createElement('span');
+    authorActions.className = 'choice-author-actions';
+    authorActions.append(
+      createChoiceAuthorAction('Next', 'Open continuation and NPC handoff menu', (trigger) => {
+        store.batch(() => {
+          store.selectTurn(turn.turnNumber);
+          store.selectChoice(choice.index);
+        });
+        showBranchAuthorPopup(trigger, {
+          kind: 'next',
+          conv,
+          turn,
+          choice,
+          turnLabels,
+        });
+      }),
+      createChoiceAuthorAction('Rules', 'Open choice conditions menu', (trigger) => {
+        store.batch(() => {
+          store.selectTurn(turn.turnNumber);
+          store.selectChoice(choice.index);
+        });
+        showBranchAuthorPopup(trigger, {
+          kind: 'conditions',
+          conv,
+          turn,
+          choice,
+          turnLabels,
+        });
+      }),
+      createChoiceAuthorAction('Effects', 'Open choice outcomes menu', (trigger) => {
+        store.batch(() => {
+          store.selectTurn(turn.turnNumber);
+          store.selectChoice(choice.index);
+        });
+        showBranchAuthorPopup(trigger, {
+          kind: 'outcomes',
+          conv,
+          turn,
+          choice,
+          turnLabels,
+        });
+      }),
+    );
+    item.appendChild(authorActions);
 
     if (!linkPointsBehind) {
       item.appendChild(port);
@@ -2030,9 +2195,9 @@ function renderTurnNode(options: {
     choicesList.appendChild(item);
 
     // NPC Reply — show below player choice in standard/detailed modes
-    if (choice.reply && density !== 'compact') {
+    if ((choice.reply && density !== 'compact') || choiceActive) {
       const replyRow = document.createElement('li');
-      replyRow.className = 'turn-npc-reply';
+      replyRow.className = `turn-npc-reply${choiceActive ? ' is-editing' : ''}`;
       replyRow.dataset.choiceIndex = String(choice.index);
       replyRow.onclick = (e) => {
         e.stopPropagation();
@@ -2044,9 +2209,18 @@ function renderTurnNode(options: {
       const replyIcon = document.createElement('span');
       replyIcon.className = 'npc-reply-icon';
       replyIcon.textContent = 'NPC';
-      const replyText = document.createElement('span');
-      replyText.className = 'npc-reply-text';
-      replyText.textContent = truncate(choice.reply, density === 'detailed' ? layout.messageChars : 60);
+      const replyText = choiceActive
+        ? createInlineTextInput({
+          className: 'npc-reply-text flow-inline-choice-reply',
+          value: choice.reply,
+          placeholder: 'NPC reply',
+          onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { reply: value }),
+        })
+        : document.createElement('span');
+      replyText.className = choiceActive ? replyText.className : 'npc-reply-text';
+      if (!choiceActive) {
+        replyText.textContent = truncate(choice.reply, density === 'detailed' ? layout.messageChars : 60);
+      }
       replyRow.append(replyIcon, replyText);
       choicesList.appendChild(replyRow);
     }
@@ -2072,6 +2246,657 @@ function renderTurnNode(options: {
 
   node.appendChild(body);
   return node;
+}
+
+function createInlineTextInput(options: {
+  className: string;
+  value: string;
+  placeholder: string;
+  onCommit: (value: string) => void;
+}): HTMLInputElement {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = options.className;
+  input.value = options.value;
+  input.placeholder = options.placeholder;
+  wireInlineEditorEvents(input, options.onCommit);
+  return input;
+}
+
+function createInlineTextEditor(options: {
+  className: string;
+  label: string;
+  value: string;
+  placeholder: string;
+  multiline: boolean;
+  onCommit: (value: string) => void;
+}): HTMLElement {
+  const wrap = document.createElement('label');
+  wrap.className = `flow-inline-editor ${options.className}`;
+  const label = document.createElement('span');
+  label.className = 'flow-inline-editor-label';
+  label.textContent = options.label;
+  const control = options.multiline ? document.createElement('textarea') : document.createElement('input');
+  control.className = 'flow-inline-editor-control';
+  control.value = options.value;
+  control.placeholder = options.placeholder;
+  if (control instanceof HTMLInputElement) control.type = 'text';
+  wireInlineEditorEvents(control, options.onCommit);
+  wrap.append(label, control);
+  return wrap;
+}
+
+function wireInlineEditorEvents(
+  control: HTMLInputElement | HTMLTextAreaElement,
+  onCommit: (value: string) => void,
+): void {
+  let initialValue = control.value;
+  const commit = (): void => {
+    if (control.value === initialValue) return;
+    initialValue = control.value;
+    onCommit(control.value);
+  };
+  control.onpointerdown = (event) => event.stopPropagation();
+  control.onclick = (event) => event.stopPropagation();
+  control.onkeydown = (event) => {
+    event.stopPropagation();
+    if (event.key === 'Escape') {
+      control.value = initialValue;
+      control.blur();
+    }
+    if (event.key === 'Enter' && (control instanceof HTMLInputElement || event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      commit();
+      control.blur();
+    }
+  };
+  control.onblur = commit;
+}
+
+function createFlowChannelToggle(options: {
+  current: 'pda' | 'f2f';
+  onChange: (channel: 'pda' | 'f2f') => void;
+  compact?: boolean;
+}): HTMLElement {
+  const row = document.createElement('span');
+  row.className = `flow-channel-toggle${options.compact ? ' is-compact' : ''}`;
+  for (const channel of ['pda', 'f2f'] as const) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `flow-channel-toggle-btn${options.current === channel ? ' is-active' : ''}`;
+    button.textContent = channelBadgeLabel(channel);
+    button.setAttribute('aria-pressed', options.current === channel ? 'true' : 'false');
+    button.title = `Set branch channel to ${channelBadgeLabel(channel)}`;
+    button.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (options.current !== channel) options.onChange(channel);
+    };
+    row.appendChild(button);
+  }
+  return row;
+}
+
+function setTurnChannelFromFlow(conv: Conversation, turn: Turn, channel: 'pda' | 'f2f'): void {
+  if (turn.turnNumber === 1) {
+    store.setConversationInitialChannel(conv.id, channel);
+    return;
+  }
+  store.updateTurn(conv.id, turn.turnNumber, {
+    channel,
+    ...(channel === 'pda' ? { pda_entry: true, f2f_entry: false } : { f2f_entry: true, pda_entry: false }),
+  });
+}
+
+function createBranchAuthorChip(
+  label: string,
+  title: string,
+  onClick: (trigger: HTMLButtonElement) => void,
+): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'branch-author-chip';
+  button.textContent = label;
+  button.title = title;
+  button.onclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClick(button);
+  };
+  return button;
+}
+
+function createChoiceAuthorAction(
+  label: string,
+  title: string,
+  onClick: (trigger: HTMLButtonElement) => void,
+  disabled = false,
+): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'choice-author-action';
+  button.textContent = label;
+  button.title = title;
+  button.disabled = disabled;
+  button.onclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!button.disabled) onClick(button);
+  };
+  return button;
+}
+
+function showBranchAuthorPopup(
+  trigger: HTMLElement,
+  options: {
+    kind: BranchAuthorMenuKind;
+    conv: Conversation;
+    turn: Turn;
+    choice?: Choice;
+    turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
+  },
+): void {
+  closeBranchAuthorPopup();
+
+  const panel = document.createElement('div');
+  panel.className = 'branch-author-popup';
+  panel.onpointerdown = (event) => event.stopPropagation();
+  panel.onclick = (event) => event.stopPropagation();
+
+  const header = document.createElement('div');
+  header.className = 'branch-author-popup-header';
+  const title = document.createElement('div');
+  title.className = 'branch-author-popup-title';
+  title.textContent = getAuthorPopupTitle(options.kind, options.turn, options.choice, options.turnLabels);
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'branch-author-popup-close';
+  close.textContent = '×';
+  close.title = 'Close menu';
+  close.onclick = () => closeBranchAuthorPopup();
+  header.append(title, close);
+  panel.appendChild(header);
+
+  const body = document.createElement('div');
+  body.className = 'branch-author-popup-body';
+  if (options.kind === 'start') {
+    renderStartAuthorMenu(body, options.conv, options.turn);
+  } else if (options.kind === 'conditions') {
+    renderConditionsAuthorMenu(body, options.conv, options.turn, options.choice);
+  } else if (options.kind === 'outcomes') {
+    renderOutcomesAuthorMenu(body, options.conv, options.turn, options.choice);
+  } else {
+    renderNextAuthorMenu(body, options.conv, options.turn, options.choice, options.turnLabels);
+  }
+  panel.appendChild(body);
+
+  document.body.appendChild(panel);
+
+  const position = (): void => {
+    if (!panel.isConnected || !trigger.isConnected) return;
+    const rect = trigger.getBoundingClientRect();
+    const gap = 10;
+    const width = panel.offsetWidth || 360;
+    const height = panel.offsetHeight || 420;
+    let left = rect.right + gap;
+    if (left + width > window.innerWidth - gap) {
+      left = Math.max(gap, rect.left - width - gap);
+    }
+    let top = Math.max(gap, rect.top - 12);
+    if (top + height > window.innerHeight - gap) {
+      top = Math.max(gap, window.innerHeight - height - gap);
+    }
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+  };
+
+  const handlePointer = (event: MouseEvent): void => {
+    const target = event.target as Node | null;
+    if (target && (panel.contains(target) || trigger.contains(target))) return;
+    closeBranchAuthorPopup();
+  };
+  const handleKey = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape') closeBranchAuthorPopup();
+  };
+  const cleanup = (): void => {
+    panel.remove();
+    window.removeEventListener('resize', position);
+    document.removeEventListener('mousedown', handlePointer, true);
+    document.removeEventListener('keydown', handleKey, true);
+  };
+
+  activeBranchAuthorPopup = {
+    element: panel,
+    trigger,
+    cleanup,
+    scope: { turnNumber: options.turn.turnNumber, choiceIndex: options.choice?.index ?? null },
+  };
+  position();
+  window.addEventListener('resize', position);
+  setTimeout(() => {
+    document.addEventListener('mousedown', handlePointer, true);
+    document.addEventListener('keydown', handleKey, true);
+  }, 0);
+}
+
+function closeBranchAuthorPopup(): void {
+  if (!activeBranchAuthorPopup) return;
+  const popup = activeBranchAuthorPopup;
+  activeBranchAuthorPopup = null;
+  popup.cleanup();
+}
+
+function getAuthorPopupTitle(
+  kind: BranchAuthorMenuKind,
+  turn: Turn,
+  choice: Choice | undefined,
+  turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
+): string {
+  const scope = choice ? `${turnLabels.getLongLabel(turn.turnNumber)} / C${choice.index}` : turnLabels.getLongLabel(turn.turnNumber);
+  if (kind === 'start') return `${scope} Start`;
+  if (kind === 'conditions') return `${scope} Conditions`;
+  if (kind === 'outcomes') return `${scope} Outcomes`;
+  return `${scope} Next`;
+}
+
+function renderStartAuthorMenu(container: HTMLElement, conv: Conversation, turn: Turn): void {
+  const channel = normalizeChannel(turn.channel, normalizeChannel(conv.initialChannel, 'pda'));
+  container.appendChild(createAuthorMenuSection('Branch channel', [
+    createFlowChannelToggle({
+      current: channel,
+      onChange: (nextChannel) => setTurnChannelFromFlow(conv, turn, nextChannel),
+    }),
+    createAuthorHint(turn.turnNumber === 1
+      ? 'Root branch controls story start mode and first branch channel.'
+      : 'Branch channel controls whether this scene plays on PDA or face-to-face.'),
+  ]));
+
+  const segmentStarts = collectSegmentStartTurns(conv);
+  const entrySummary = document.createElement('div');
+  entrySummary.className = 'branch-author-summary';
+  entrySummary.textContent = segmentStarts.has(turn.turnNumber)
+    ? `Entry segment: ${channelBadgeLabel(channel)} opener active`
+    : `Continuation segment: inherits ${channelBadgeLabel(channel)} flow`;
+  container.appendChild(entrySummary);
+
+  if (turn.turnNumber === 1) {
+    const rootMode = normalizeChannel(conv.startMode ?? conv.initialChannel, channel);
+    container.appendChild(createAuthorMenuSection('Root start mode', [
+      createFlowChannelToggle({
+        current: rootMode,
+        onChange: (nextChannel) => store.setConversationInitialChannel(conv.id, nextChannel),
+      }),
+    ]));
+  }
+}
+
+function renderConditionsAuthorMenu(container: HTMLElement, conv: Conversation, turn: Turn, choice?: Choice): void {
+  const entries = choice ? (choice.preconditions ?? []) : (turn.preconditions ?? []);
+  const updateEntries = (nextEntries: PreconditionEntry[]): void => {
+    if (choice) {
+      store.updateChoice(conv.id, turn.turnNumber, choice.index, { preconditions: nextEntries });
+      return;
+    }
+    store.updateTurn(conv.id, turn.turnNumber, { preconditions: nextEntries });
+  };
+
+  const quick = document.createElement('div');
+  quick.className = 'branch-author-card-grid';
+  const quickRules: Array<{ title: string; body: string; entry: SimplePrecondition }> = choice
+    ? [
+      { title: 'Needs 1000 RU', body: 'Choice visible when player has money.', entry: { type: 'simple', command: 'req_money', params: ['1000'] } },
+      { title: 'Needs medkit', body: 'Choice visible when player has item.', entry: { type: 'simple', command: 'req_has_item', params: ['medkit'] } },
+      { title: 'Friendly NPC', body: 'Choice visible for friendly current NPC.', entry: { type: 'simple', command: 'req_npc_friendly', params: [] } },
+    ]
+    : [
+      { title: 'Friendly NPC', body: 'Branch can run for non-hostile NPC.', entry: { type: 'simple', command: 'req_npc_friendly', params: [] } },
+      { title: 'Same faction NPC', body: 'Branch gates to story faction NPC.', entry: { type: 'simple', command: 'req_npc_faction', params: [getConversationFaction(conv)] } },
+      { title: 'Named NPC', body: 'Branch gates to story NPC id.', entry: { type: 'simple', command: 'req_story_npc', params: [''] } },
+    ];
+  for (const rule of quickRules) {
+    quick.appendChild(createAuthorShortcutButton(rule.title, rule.body, () => updateEntries([...entries, rule.entry])));
+  }
+  container.appendChild(createAuthorMenuSection('Quick checks', [quick]));
+
+  container.appendChild(renderCommandSummaryList({
+    emptyText: choice ? 'No choice checks.' : 'No branch checks.',
+    entries,
+    getLabel: (entry) => formatPreconditionEntry(entry),
+    onRemove: (index) => updateEntries(entries.filter((_, idx) => idx !== index)),
+  }));
+
+  container.appendChild(createSchemaPicker({
+    title: 'All preconditions',
+    schemas: PRECONDITION_SCHEMAS.filter((schema) => !schema.pickerHidden),
+    onPick: (schema) => updateEntries([...entries, createSimplePrecondition(schema)]),
+  }));
+}
+
+function renderOutcomesAuthorMenu(container: HTMLElement, conv: Conversation, turn: Turn, choice?: Choice): void {
+  if (!choice) {
+    container.appendChild(createAuthorHint('Select choice row before adding outcomes.'));
+    return;
+  }
+  const outcomes = choice.outcomes ?? [];
+  const updateOutcomes = (nextOutcomes: Outcome[]): void => {
+    store.updateChoice(conv.id, turn.turnNumber, choice.index, { outcomes: nextOutcomes });
+  };
+
+  const quick = document.createElement('div');
+  quick.className = 'branch-author-card-grid';
+  const quickOutcomes: Array<{ title: string; body: string; outcome: Outcome }> = [
+    { title: 'Give 500 RU', body: 'Reward player money.', outcome: { command: 'reward_money', params: ['500'] } },
+    { title: 'Give medkit', body: 'Put medkit in inventory.', outcome: { command: 'give_item', params: ['medkit'] } },
+    { title: 'Improve goodwill', body: 'Add faction goodwill.', outcome: { command: 'reward_gw', params: ['50', getConversationFaction(conv)] } },
+    { title: 'Watch location', body: 'Mark Cordon location.', outcome: { command: 'watch_location', params: ['%cordon_panda_st_key%', '85'] } },
+  ];
+  for (const outcome of quickOutcomes) {
+    quick.appendChild(createAuthorShortcutButton(outcome.title, outcome.body, () => updateOutcomes([...outcomes, outcome.outcome])));
+  }
+  container.appendChild(createAuthorMenuSection('Quick outcomes', [quick]));
+
+  container.appendChild(renderCommandSummaryList({
+    emptyText: 'No outcomes.',
+    entries: outcomes,
+    getLabel: (outcome) => formatOutcomeEntry(outcome),
+    onRemove: (index) => updateOutcomes(outcomes.filter((_, idx) => idx !== index)),
+  }));
+
+  container.appendChild(createSchemaPicker({
+    title: 'All outcomes',
+    schemas: OUTCOME_SCHEMAS,
+    onPick: (schema) => updateOutcomes([...outcomes, createOutcome(schema)]),
+  }));
+}
+
+function renderNextAuthorMenu(
+  container: HTMLElement,
+  conv: Conversation,
+  turn: Turn,
+  choice: Choice | undefined,
+  turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
+): void {
+  if (!choice) {
+    container.appendChild(createAuthorHint('Select choice row before editing next branch.'));
+    return;
+  }
+
+  const currentChannel = normalizeChannel(choice.continueChannel ?? choice.continue_channel, normalizeChannel(turn.channel, 'pda'));
+  const summary = document.createElement('div');
+  summary.className = 'branch-author-summary';
+  summary.textContent = choice.continueTo == null
+    ? 'Ends here'
+    : `Continues ${channelBadgeLabel(currentChannel)} to ${turnLabels.getLongLabel(choice.continueTo)}`;
+  container.appendChild(summary);
+
+  const nextActions = document.createElement('div');
+  nextActions.className = 'branch-author-action-row';
+  for (const channel of ['pda', 'f2f'] as const) {
+    nextActions.appendChild(createAuthorPopupButton(`Next ${channelBadgeLabel(channel)}`, () => {
+      const createdTurnNumber = store.ensureChoiceContinuationTurn(conv.id, turn.turnNumber, choice.index, channel);
+      if (createdTurnNumber != null) {
+        requestFlowCenter({ conversationId: conv.id, turnNumber: createdTurnNumber });
+      }
+    }));
+  }
+  nextActions.appendChild(createAuthorPopupButton('End here', () => store.clearChoiceContinuation(conv.id, turn.turnNumber, choice.index), choice.continueTo == null));
+  container.appendChild(createAuthorMenuSection('Next action', [nextActions]));
+
+  const linkList = document.createElement('div');
+  linkList.className = 'branch-link-list';
+  const endLink = createBranchLinkButton('End story here', choice.continueTo == null, () => {
+    store.clearChoiceContinuation(conv.id, turn.turnNumber, choice.index);
+  });
+  linkList.appendChild(endLink);
+  for (const candidate of conv.turns) {
+    if (candidate.turnNumber === turn.turnNumber) continue;
+    linkList.appendChild(createBranchLinkButton(
+      turnLabels.getLongLabel(candidate.turnNumber),
+      choice.continueTo === candidate.turnNumber,
+      () => store.connectChoiceToTurn(conv.id, turn.turnNumber, choice.index, candidate.turnNumber),
+    ));
+  }
+  container.appendChild(createAuthorMenuSection('Link existing branch', [linkList]));
+
+  const npcField = document.createElement('div');
+  npcField.className = 'branch-author-field';
+  const npcLabel = document.createElement('label');
+  npcLabel.textContent = 'Hand off to NPC';
+  const npcPicker = createCatalogPickerPanelEditor(
+    choice.cont_npc_id ?? '',
+    (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { cont_npc_id: value.trim() || undefined }),
+    `flow-${conv.id}-${turn.turnNumber}-${choice.index}-cont-npc`,
+    {
+      title: 'NPC Handoff Catalog',
+      subtitle: 'Pick NPC who delivers next branch.',
+      searchPlaceholder: 'Search NPC id, faction, level, or role...',
+      emptyLabel: 'Same NPC continues',
+      browseLabel: 'Browse NPC catalog',
+      options: STORY_NPC_OPTIONS,
+      facets: [
+        { label: 'Faction', allLabel: 'All factions', field: 'faction', keywordIndex: 0 },
+        { label: 'Level', allLabel: 'All levels', field: 'level', keywordIndex: 1 },
+        { label: 'Role', allLabel: 'All roles', field: 'role', keywordIndex: 2 },
+      ],
+      richRows: true,
+    },
+  );
+  npcField.append(npcLabel, npcPicker);
+  container.appendChild(npcField);
+}
+
+function createBranchLinkButton(label: string, active: boolean, onClick: () => void): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `branch-link-button${active ? ' is-active' : ''}`;
+  button.textContent = label;
+  button.onclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClick();
+  };
+  return button;
+}
+
+function createAuthorMenuSection(title: string, children: HTMLElement[]): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'branch-author-section';
+  const header = document.createElement('div');
+  header.className = 'branch-author-section-title';
+  header.textContent = title;
+  section.appendChild(header);
+  section.append(...children);
+  return section;
+}
+
+function createAuthorHint(text: string): HTMLElement {
+  const hint = document.createElement('div');
+  hint.className = 'branch-author-hint';
+  hint.textContent = text;
+  return hint;
+}
+
+function createAuthorShortcutButton(title: string, body: string, onClick: () => void): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'branch-author-card';
+  const strong = document.createElement('strong');
+  strong.textContent = title;
+  const span = document.createElement('span');
+  span.textContent = body;
+  button.append(strong, span);
+  button.onclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClick();
+  };
+  return button;
+}
+
+function createAuthorPopupButton(label: string, onClick: () => void, disabled = false): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn-sm branch-author-popup-action';
+  button.textContent = label;
+  button.disabled = disabled;
+  button.onclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClick();
+  };
+  return button;
+}
+
+function renderCommandSummaryList<T>(options: {
+  emptyText: string;
+  entries: T[];
+  getLabel: (entry: T) => string;
+  onRemove: (index: number) => void;
+}): HTMLElement {
+  const list = document.createElement('div');
+  list.className = 'branch-author-command-list';
+  if (options.entries.length === 0) {
+    list.appendChild(createAuthorHint(options.emptyText));
+    return list;
+  }
+  options.entries.forEach((entry, index) => {
+    const row = document.createElement('div');
+    row.className = 'branch-author-command-row';
+    const label = document.createElement('span');
+    label.textContent = options.getLabel(entry);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'branch-author-remove';
+    remove.textContent = '×';
+    remove.title = 'Remove';
+    remove.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      options.onRemove(index);
+    };
+    row.append(label, remove);
+    list.appendChild(row);
+  });
+  return list;
+}
+
+function createSchemaPicker(options: {
+  title: string;
+  schemas: CommandSchema[];
+  onPick: (schema: CommandSchema) => void;
+}): HTMLElement {
+  const wrapper = document.createElement('section');
+  wrapper.className = 'branch-author-section branch-author-schema-picker';
+  const title = document.createElement('div');
+  title.className = 'branch-author-section-title';
+  title.textContent = options.title;
+  const search = document.createElement('input');
+  search.type = 'search';
+  search.className = 'branch-author-search';
+  search.placeholder = 'Search commands...';
+  const results = document.createElement('div');
+  results.className = 'branch-author-schema-results';
+
+  const render = (): void => {
+    results.innerHTML = '';
+    const filter = search.value.trim().toLowerCase();
+    const filtered = options.schemas
+      .filter((schema) => !filter
+        || schema.name.toLowerCase().includes(filter)
+        || schema.label.toLowerCase().includes(filter)
+        || schema.category.toLowerCase().includes(filter))
+      .slice(0, 90);
+    for (const schema of filtered) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'branch-author-schema-option';
+      button.innerHTML = `<strong>${schema.label}</strong><span>${schema.name}</span>`;
+      button.title = schema.description;
+      button.onclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        options.onPick(schema);
+      };
+      results.appendChild(button);
+    }
+    if (filtered.length === 0) results.appendChild(createAuthorHint('No matching commands.'));
+  };
+
+  search.oninput = render;
+  wrapper.append(title, search, results);
+  render();
+  return wrapper;
+}
+
+function createSimplePrecondition(schema: CommandSchema): SimplePrecondition {
+  return {
+    type: 'simple',
+    command: schema.name,
+    params: schema.params.map((param) => param.placeholder ?? ''),
+  };
+}
+
+function createOutcome(schema: CommandSchema): Outcome {
+  return {
+    command: schema.name,
+    params: schema.params.map((param) => param.placeholder ?? ''),
+  };
+}
+
+function formatPreconditionEntry(entry: PreconditionEntry): string {
+  if (entry.type === 'simple') {
+    const schema = PRECONDITION_SCHEMAS.find((candidate) => candidate.name === entry.command);
+    return formatCommandSummary(schema?.label ?? entry.command, entry.params);
+  }
+  if (entry.type === 'not') return 'NOT group';
+  if (entry.type === 'any') return `ANY (${entry.options.length})`;
+  return entry.raw || 'Invalid precondition';
+}
+
+function formatOutcomeEntry(outcome: Outcome): string {
+  const schema = OUTCOME_SCHEMAS.find((candidate) => candidate.name === outcome.command);
+  return formatCommandSummary(schema?.label ?? outcome.command, outcome.params);
+}
+
+function formatCommandSummary(label: string, params: string[]): string {
+  const filled = params.filter((param) => param.trim().length > 0);
+  if (filled.length === 0) return label;
+  return `${label}: ${filled.join(' : ')}`;
+}
+
+function collectSegmentStartTurns(conv: Conversation): Set<number> {
+  const segmentStarts = new Set<number>();
+  const turnByNumber = new Map(conv.turns.map((candidate) => [candidate.turnNumber, candidate] as const));
+
+  const firstPdaEntryTurn = conv.turns
+    .filter((candidate) => normalizeChannel(candidate.channel, 'pda') === 'pda' && candidate.pda_entry === true)
+    .sort((a, b) => a.turnNumber - b.turnNumber)[0];
+  if (firstPdaEntryTurn) {
+    segmentStarts.add(firstPdaEntryTurn.turnNumber);
+  } else if (turnByNumber.has(1)) {
+    segmentStarts.add(1);
+  }
+
+  const firstF2FEntryTurn = conv.turns
+    .filter((candidate) => normalizeChannel(candidate.channel, 'pda') === 'f2f' && candidate.f2f_entry === true)
+    .sort((a, b) => a.turnNumber - b.turnNumber)[0];
+  if (firstF2FEntryTurn) {
+    segmentStarts.add(firstF2FEntryTurn.turnNumber);
+  }
+
+  for (const sourceTurn of conv.turns) {
+    for (const choice of sourceTurn.choices) {
+      if (choice.terminal === true || choice.continueTo == null) continue;
+      const sourceChannel = normalizeChannel(choice.channel, 'pda');
+      const destinationChannel = normalizeChannel(choice.continueChannel ?? choice.continue_channel, 'pda');
+      if (sourceChannel === destinationChannel) continue;
+      if (turnByNumber.has(choice.continueTo)) {
+        segmentStarts.add(choice.continueTo);
+      }
+    }
+  }
+
+  return segmentStarts;
 }
 
 function buildTurnAriaLabel(
