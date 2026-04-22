@@ -1600,13 +1600,17 @@ function renderTurnNode(options: {
   const factionColor = FACTION_COLORS[getConversationFaction(conv, state.project.faction)];
   const branchColor = getBranchColor(turn, turnIndex, factionColor);
   const nodeWidth = getFlowNodeWidth(turn, turnLabels.getLongLabel(turn.turnNumber), density);
-  const segmentStartTurns = collectSegmentStartTurns(conv);
-  const isSegmentStartTurn = segmentStartTurns.has(turn.turnNumber);
+  const inlinePanelActive = Boolean(
+    branchInlinePanel
+    && branchInlinePanel.conversationId === conv.id
+    && branchInlinePanel.turnNumber === turn.turnNumber,
+  );
 
   const node = document.createElement('div');
 
   node.className = 'turn-node'
     + (selected ? ' selected' : '')
+    + (inlinePanelActive ? ' has-inline-panel' : '')
     + (hasWarning ? ' has-warning' : '')
     + (isPathActive ? ' path-active' : '')
     + (turn.turnNumber === 1 ? ' is-starter-turn' : '');
@@ -1618,7 +1622,7 @@ function renderTurnNode(options: {
   setBeginnerTooltip(node, 'flow-turn-node');
   node.style.left = `${turn.position.x}px`;
   node.style.top = `${turn.position.y}px`;
-  node.style.width = `${nodeWidth}px`;
+  node.style.width = inlinePanelActive ? '760px' : `${nodeWidth}px`;
   node.style.setProperty('--branch-color', branchColor);
   node.style.setProperty('--branch-glow', branchColor + '40');
   node.style.setProperty('--starter-branch-color', factionColor);
@@ -1954,13 +1958,12 @@ function renderTurnNode(options: {
   const body = document.createElement('div');
   body.className = 'turn-body';
 
-  if ((turn.openingMessage || selected) && isSegmentStartTurn && density !== 'compact') {
-    const msg = document.createElement('div');
-    msg.className = 'turn-message turn-npc-message branch-inline-trigger';
-    msg.tabIndex = 0;
-    msg.title = 'Open NPC opener editor below this branch';
-    msg.textContent = truncate(turn.openingMessage || 'NPC opener message', layout.messageChars);
-    msg.onclick = (event) => {
+  if ((turn.openingMessage || selected) && density !== 'compact') {
+    const openerCard = document.createElement('div');
+    openerCard.className = 'branch-opener-card branch-inline-trigger';
+    openerCard.tabIndex = 0;
+    openerCard.title = 'Open NPC opener editor below this branch';
+    const openOpenerPanel = (event: Event): void => {
       event.preventDefault();
       event.stopPropagation();
       store.batch(() => {
@@ -1973,12 +1976,25 @@ function renderTurnNode(options: {
         });
       });
     };
-    msg.onkeydown = (event) => {
+    openerCard.onclick = openOpenerPanel;
+    openerCard.onkeydown = (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();
-      msg.click();
+      openOpenerPanel(event);
     };
-    body.appendChild(msg);
+    const openerLabel = document.createElement('span');
+    openerLabel.className = 'branch-opener-label';
+    openerLabel.textContent = `${channelBadgeLabel(normalizeChannel(turn.channel, normalizeChannel(conv.initialChannel, 'pda')))} opener`;
+    const openerText = document.createElement('span');
+    openerText.className = 'branch-opener-text';
+    openerText.textContent = truncate(turn.openingMessage || 'NPC opener message', layout.messageChars);
+    const openerEdit = document.createElement('button');
+    openerEdit.type = 'button';
+    openerEdit.className = 'branch-inline-edit-btn';
+    openerEdit.textContent = 'Edit';
+    openerEdit.onclick = openOpenerPanel;
+    openerCard.append(openerLabel, openerText, openerEdit);
+    body.appendChild(openerCard);
   }
 
   // ── Choices ──
@@ -2066,6 +2082,27 @@ function renderTurnNode(options: {
     } else {
       item.append(num, preview);
     }
+
+    const editChoiceButton = document.createElement('button');
+    editChoiceButton.type = 'button';
+    editChoiceButton.className = 'branch-inline-edit-btn';
+    editChoiceButton.textContent = 'Edit';
+    editChoiceButton.title = `Edit Choice ${choice.index} below this branch`;
+    editChoiceButton.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      store.batch(() => {
+        store.selectTurn(turn.turnNumber);
+        store.selectChoice(choice.index);
+        store.openBranchInlinePanel({
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          mode: 'choice',
+        });
+      });
+    };
+    item.appendChild(editChoiceButton);
 
     // Badges
     const effectiveTurnChannel = normalizeChannel(turn.channel, 'pda');

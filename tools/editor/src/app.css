@@ -6000,6 +6000,11 @@ hr {
   padding-left: 12px;
 }
 
+.turn-node.has-inline-panel {
+  z-index: 12;
+  contain: none;
+}
+
 .turn-input-port {
   position: absolute;
   width: 14px;
@@ -6139,6 +6144,57 @@ hr {
   color: var(--text-bright);
   outline: none;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--branch-color, var(--accent)) 48%, transparent);
+}
+
+.branch-opener-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--branch-color, var(--accent)) 32%, var(--border));
+  border-left: 2px solid var(--info);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--info) 7%, rgba(0, 0, 0, 0.16));
+}
+
+.branch-opener-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--info);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.branch-opener-text {
+  min-width: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-inline-edit-btn {
+  min-height: 22px;
+  padding: 2px 10px;
+  border: 1px solid color-mix(in srgb, var(--branch-color, var(--accent)) 48%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--branch-color, var(--accent)) 14%, rgba(255, 255, 255, 0.03));
+  color: color-mix(in srgb, var(--branch-color, var(--accent)) 76%, white 24%);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.branch-inline-edit-btn:hover,
+.branch-inline-edit-btn:focus-visible {
+  color: white;
+  border-color: color-mix(in srgb, var(--branch-color, var(--accent)) 72%, var(--border-light));
+  background: color-mix(in srgb, var(--branch-color, var(--accent)) 24%, rgba(255, 255, 255, 0.05));
 }
 
 .turn-choice-item {
