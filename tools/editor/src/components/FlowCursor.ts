@@ -45,18 +45,17 @@ const SHAPE_BY_STATE: Record<CursorState, CursorShape> = {
   disabled: 'hidden',
 };
 
-const TRIANGLE_VISUAL_CENTER = {
-  x: 0.3274,
-  y: 0.4614,
+const TRIANGLE_HOTSPOT = {
+  x: 0.09,
+  y: 0.06,
 } as const;
 
 function getCursorHotspotOffset(shape: CursorShape, size: number): { x: number; y: number } {
   if (shape !== 'triangle') return { x: 0, y: 0 };
-  // The triangle glyph's visual center sits left/up of its bounding box center,
-  // so compensate here to keep the cursor hotspot centered on the pointer.
+  // Match native pointer behavior: click lands on triangle tip, not visual center.
   return {
-    x: (0.5 - TRIANGLE_VISUAL_CENTER.x) * size,
-    y: (0.5 - TRIANGLE_VISUAL_CENTER.y) * size,
+    x: (0.5 - TRIANGLE_HOTSPOT.x) * size,
+    y: (0.5 - TRIANGLE_HOTSPOT.y) * size,
   };
 }
 
