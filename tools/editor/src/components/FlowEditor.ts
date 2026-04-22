@@ -12,7 +12,7 @@ import { createFlowCursorSystem, type FlowCursorSystem } from './FlowCursor';
 import { createCatalogPickerPanelEditor } from './CatalogPickerPanel';
 import type { Choice, Conversation, ConversationChannel, FlowAnnotation, FlowLineAnnotation, FlowNoteAnnotation, Outcome, PreconditionEntry, SimplePrecondition, Turn } from '../lib/types';
 import { getConversationFaction } from '../lib/types';
-import type { FlowDensity } from '../lib/state';
+import type { BranchInlinePanelState, FlowDensity } from '../lib/state';
 import type { CommandSchema } from '../lib/schema';
 import { OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from '../lib/schema';
 import { measurePerf, recordPerf } from '../lib/perf';
@@ -20,6 +20,7 @@ import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 import { createCollabPresenceLayer } from './CollabPresenceLayer';
 import { sendCollabCursorPing } from '../lib/collab-session';
 import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
+import { renderBranchInlinePanel } from './BranchInlinePanel';
 
 type TurnPositionMap = Map<number, { x: number; y: number }>;
 type EdgeKind = 'continue' | 'pause-success' | 'pause-fail';
@@ -498,6 +499,7 @@ export function renderFlowEditor(container: HTMLElement): void {
       conv,
       turn,
       selected: state.selectedTurnNumber === turn.turnNumber,
+      branchInlinePanel: state.branchInlinePanel,
       edges,
       density,
       viewState,
@@ -1559,6 +1561,7 @@ function renderTurnNode(options: {
   conv: Conversation;
   turn: Turn;
   selected: boolean;
+  branchInlinePanel: BranchInlinePanelState | null;
   edges: EdgeDescriptor[];
   density: FlowDensity;
   viewState: ViewState;
@@ -1575,6 +1578,7 @@ function renderTurnNode(options: {
     conv,
     turn,
     selected,
+    branchInlinePanel,
     edges,
     density,
     viewState,
@@ -1950,19 +1954,30 @@ function renderTurnNode(options: {
   const body = document.createElement('div');
   body.className = 'turn-body';
 
-  if (selected && isSegmentStartTurn) {
-    body.appendChild(createInlineTextEditor({
-      className: 'flow-inline-opener',
-      label: `${channelBadgeLabel(normalizeChannel(turn.channel, 'pda'))} opener`,
-      value: turn.openingMessage ?? '',
-      placeholder: 'NPC opening line for this branch segment',
-      multiline: true,
-      onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingMessage: value }),
-    }));
-  } else if (turn.openingMessage && density !== 'compact') {
+  if ((turn.openingMessage || selected) && isSegmentStartTurn && density !== 'compact') {
     const msg = document.createElement('div');
-    msg.className = 'turn-message turn-npc-message';
-    msg.textContent = truncate(turn.openingMessage, layout.messageChars);
+    msg.className = 'turn-message turn-npc-message branch-inline-trigger';
+    msg.tabIndex = 0;
+    msg.title = 'Open NPC opener editor below this branch';
+    msg.textContent = truncate(turn.openingMessage || 'NPC opener message', layout.messageChars);
+    msg.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      store.batch(() => {
+        store.selectTurn(turn.turnNumber);
+        store.openBranchInlinePanel({
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: null,
+          mode: 'opener',
+        });
+      });
+    };
+    msg.onkeydown = (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      msg.click();
+    };
     body.appendChild(msg);
   }
 
@@ -1982,15 +1997,15 @@ function renderTurnNode(options: {
     setBeginnerTooltip(item, 'flow-choice-row');
     item.onclick = (e) => {
       e.stopPropagation();
-      const currentState = store.get();
-      if (currentState.selectedTurnNumber === turn.turnNumber && currentState.selectedChoiceIndex === choice.index) {
-        closeBranchAuthorPopup();
-        store.clearSelection();
-        return;
-      }
       store.batch(() => {
         store.selectTurn(turn.turnNumber);
         store.selectChoice(choice.index);
+        store.openBranchInlinePanel({
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          mode: 'choice',
+        });
       });
     };
 
@@ -2132,13 +2147,13 @@ function renderTurnNode(options: {
         store.batch(() => {
           store.selectTurn(turn.turnNumber);
           store.selectChoice(choice.index);
-        });
-        showBranchAuthorPopup(outBadge, {
-          kind: 'outcomes',
-          conv,
-          turn,
-          choice,
-          turnLabels,
+          store.openBranchInlinePanel({
+            conversationId: conv.id,
+            turnNumber: turn.turnNumber,
+            choiceIndex: choice.index,
+            mode: 'outcomes',
+            selectedOutcomeIndex: 0,
+          });
         });
       };
       item.appendChild(outBadge);
@@ -2151,13 +2166,12 @@ function renderTurnNode(options: {
         store.batch(() => {
           store.selectTurn(turn.turnNumber);
           store.selectChoice(choice.index);
-        });
-        showBranchAuthorPopup(trigger, {
-          kind: 'next',
-          conv,
-          turn,
-          choice,
-          turnLabels,
+          store.openBranchInlinePanel({
+            conversationId: conv.id,
+            turnNumber: turn.turnNumber,
+            choiceIndex: choice.index,
+            mode: 'continuation',
+          });
         });
       }),
       createChoiceAuthorAction('Rules', 'Open choice conditions menu', (trigger) => {
@@ -2177,13 +2191,13 @@ function renderTurnNode(options: {
         store.batch(() => {
           store.selectTurn(turn.turnNumber);
           store.selectChoice(choice.index);
-        });
-        showBranchAuthorPopup(trigger, {
-          kind: 'outcomes',
-          conv,
-          turn,
-          choice,
-          turnLabels,
+          store.openBranchInlinePanel({
+            conversationId: conv.id,
+            turnNumber: turn.turnNumber,
+            choiceIndex: choice.index,
+            mode: 'outcomes',
+            selectedOutcomeIndex: 0,
+          });
         });
       }),
     );
@@ -2204,6 +2218,12 @@ function renderTurnNode(options: {
         store.batch(() => {
           store.selectTurn(turn.turnNumber);
           store.selectChoice(choice.index);
+          store.openBranchInlinePanel({
+            conversationId: conv.id,
+            turnNumber: turn.turnNumber,
+            choiceIndex: choice.index,
+            mode: 'choice',
+          });
         });
       };
       const replyIcon = document.createElement('span');
@@ -2226,6 +2246,24 @@ function renderTurnNode(options: {
     }
   }
   body.appendChild(choicesList);
+
+  if (
+    branchInlinePanel
+    && branchInlinePanel.conversationId === conv.id
+    && branchInlinePanel.turnNumber === turn.turnNumber
+  ) {
+    const panelChoice = branchInlinePanel.choiceIndex == null
+      ? null
+      : turn.choices.find((candidate) => candidate.index === branchInlinePanel.choiceIndex) ?? null;
+    body.appendChild(renderBranchInlinePanel({
+      conv,
+      turn,
+      choice: panelChoice,
+      mode: branchInlinePanel.mode,
+      selectedOutcomeIndex: branchInlinePanel.selectedOutcomeIndex ?? null,
+      turnLabels,
+    }));
+  }
 
   // ── Footer info (detailed mode) ──
   if (density === 'detailed') {

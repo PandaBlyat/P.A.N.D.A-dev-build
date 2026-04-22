@@ -19,6 +19,15 @@ export type PropertiesTab = 'conversation' | 'selection';
 export type FlowDensity = 'compact' | 'standard' | 'detailed';
 export type BottomWorkspaceTab = 'strings' | 'xml';
 export type CursorAnimationIntensity = 'low' | 'medium' | 'high';
+export type BranchInlinePanelMode = 'opener' | 'choice' | 'outcomes' | 'continuation';
+
+export interface BranchInlinePanelState {
+  mode: BranchInlinePanelMode;
+  conversationId: number;
+  turnNumber: number;
+  choiceIndex: number | null;
+  selectedOutcomeIndex?: number | null;
+}
 
 const CURSOR_PREFS_KEY = 'panda:cursor-prefs:v1';
 const ADVANCED_MODE_KEY = 'panda:advanced-mode:v1';
@@ -72,6 +81,7 @@ export interface AppState {
   advancedMode: boolean;
   bottomWorkspaceTab: BottomWorkspaceTab | null;
   bottomWorkspaceHeight: number;
+  branchInlinePanel: BranchInlinePanelState | null;
   flowDensity: FlowDensity;
   customCursorEnabled: boolean;
   cursorAnimationIntensity: CursorAnimationIntensity;
@@ -346,6 +356,7 @@ class StateManager {
       advancedMode: loadAdvancedMode(),
       bottomWorkspaceTab: null,
       bottomWorkspaceHeight: 280,
+      branchInlinePanel: null,
       flowDensity: 'standard',
       customCursorEnabled: cursorPrefs.enabled,
       cursorAnimationIntensity: cursorPrefs.animationIntensity,
@@ -1218,6 +1229,7 @@ class StateManager {
     this.state.showValidationPanel = false;
     this.state.bottomWorkspaceTab = null;
     this.state.bottomWorkspaceHeight = 280;
+    this.state.branchInlinePanel = null;
     this.state.dirty = false;
     this.state.undoStack = [];
     this.state.redoStack = [];
@@ -1315,11 +1327,13 @@ class StateManager {
     this.state.selectedTurnNumber = null;
     this.state.selectedChoiceIndex = null;
     this.state.propertiesTab = 'conversation';
+    this.state.branchInlinePanel = null;
     if (options.notify ?? true) this.notify(SELECTION_RENDER);
   }
 
   selectConversation(id: number | null): void {
     this.state.selectedConversationId = id;
+    this.state.branchInlinePanel = null;
     this.clearSelection({ notify: false });
     this.notify(FULL_APP_RENDER);
   }
@@ -1335,6 +1349,32 @@ class StateManager {
     this.state.selectedChoiceIndex = index;
     if (index != null) this.state.propertiesTab = 'selection';
     this.notify(SELECTION_RENDER);
+  }
+
+  openBranchInlinePanel(panel: BranchInlinePanelState): void {
+    const normalized: BranchInlinePanelState = {
+      ...panel,
+      selectedOutcomeIndex: panel.selectedOutcomeIndex ?? null,
+    };
+    const current = this.state.branchInlinePanel;
+    if (
+      current
+      && current.mode === normalized.mode
+      && current.conversationId === normalized.conversationId
+      && current.turnNumber === normalized.turnNumber
+      && current.choiceIndex === normalized.choiceIndex
+      && (current.selectedOutcomeIndex ?? null) === (normalized.selectedOutcomeIndex ?? null)
+    ) {
+      return;
+    }
+    this.state.branchInlinePanel = normalized;
+    this.notify(createFlowChange('structure', 'flowEditor', 'propertiesPanel'));
+  }
+
+  closeBranchInlinePanel(): void {
+    if (!this.state.branchInlinePanel) return;
+    this.state.branchInlinePanel = null;
+    this.notify(createFlowChange('structure', 'flowEditor', 'propertiesPanel'));
   }
 
   setPropertiesTab(tab: PropertiesTab): void {

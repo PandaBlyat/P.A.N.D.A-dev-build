@@ -1622,9 +1622,9 @@ function renderAuthorContinuationControls(
 type PreconditionPathSegment = number | 'inner' | 'options' | 'entries';
 type PreconditionPath = PreconditionPathSegment[];
 
-type PreconditionScope = 'conversation' | 'turn' | 'choice';
+export type PreconditionScope = 'conversation' | 'turn' | 'choice';
 
-type PreconditionOwner = {
+export type PreconditionOwner = {
   scope: PreconditionScope;
   conversation: Conversation;
   entries: PreconditionEntry[];
@@ -1637,7 +1637,7 @@ function clonePreconditions(entries: PreconditionEntry[]): PreconditionEntry[] {
   return JSON.parse(JSON.stringify(entries)) as PreconditionEntry[];
 }
 
-function getAddablePreconditionSchemas(scope: PreconditionScope): CommandSchema[] {
+export function getAddablePreconditionSchemas(scope: PreconditionScope): CommandSchema[] {
   if (scope === 'conversation') {
     return ADDABLE_PRECONDITION_SCHEMAS;
   }
@@ -1655,7 +1655,7 @@ function createConversationPreconditionOwner(conv: Conversation): PreconditionOw
   };
 }
 
-function createTurnPreconditionOwner(conv: Conversation, turn: Turn): PreconditionOwner {
+export function createTurnPreconditionOwner(conv: Conversation, turn: Turn): PreconditionOwner {
   return {
     scope: 'turn',
     conversation: conv,
@@ -1666,7 +1666,7 @@ function createTurnPreconditionOwner(conv: Conversation, turn: Turn): Preconditi
   };
 }
 
-function createChoicePreconditionOwner(conv: Conversation, turn: Turn, choice: Choice): PreconditionOwner {
+export function createChoicePreconditionOwner(conv: Conversation, turn: Turn, choice: Choice): PreconditionOwner {
   return {
     scope: 'choice',
     conversation: conv,
@@ -1739,7 +1739,7 @@ function updatePreconditionAtPath(owner: PreconditionOwner, path: PreconditionPa
   });
 }
 
-function renderPreconditionList(container: HTMLElement, owner: PreconditionOwner): void {
+export function renderPreconditionList(container: HTMLElement, owner: PreconditionOwner): void {
   const list = document.createElement('div');
   list.className = 'precond-list';
 
@@ -2122,7 +2122,7 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
 
 // ─── Parameter Editors ────────────────────────────────────────────────────
 
-function renderParamEditors(
+export function renderParamEditors(
   schema: CommandSchema,
   currentParams: string[],
   onChange: (params: string[]) => void,
@@ -2456,7 +2456,7 @@ function createSearchableSelectEditor(
 }
 
 
-function createOptionPickerPanelEditor(
+export function createOptionPickerPanelEditor(
   currentValue: string,
   onChange: (value: string) => void,
   fieldKey: string,
@@ -3399,7 +3399,7 @@ function showCommandPicker(
 
 // ─── Placeholder Picker ──────────────────────────────────────────────────
 
-function renderPlaceholderPicker(container: HTMLElement, collapseKey: string): void {
+export function renderPlaceholderPicker(container: HTMLElement, collapseKey: string): void {
   const { wrapper, body } = createCollapsibleSection(
     collapseKey,
     'Dynamic Placeholders',
