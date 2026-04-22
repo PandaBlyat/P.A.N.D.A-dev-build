@@ -1,4 +1,5 @@
 import { store } from '../lib/state';
+import { requestFlowCenter } from '../lib/flow-navigation';
 import {
   buildStoryFromDraft,
   createDefaultStoryDraft,
@@ -53,7 +54,14 @@ function closeStoryWizard(): void {
 
 function startBlankStoryFromWizard(): void {
   store.addConversation();
+  centerCreatedStory();
   closeStoryWizard();
+}
+
+function centerCreatedStory(): void {
+  const conversationId = store.get().selectedConversationId;
+  if (conversationId == null) return;
+  requestFlowCenter({ conversationId, turnNumber: 1 });
 }
 
 const FORGE_STEPS = [
@@ -119,6 +127,7 @@ function openStoryForgeWizard(): void {
       createForgeCreateButton(stepIndex, draft, () => {
         const result = buildStoryFromDraft(store.get().project, draft);
         store.addConversationFromTemplate(result.conversation, result.npcTemplates);
+        centerCreatedStory();
         closeStoryWizard();
       }, () => {
         stepIndex = Math.min(FORGE_STEPS.length - 1, stepIndex + 1);

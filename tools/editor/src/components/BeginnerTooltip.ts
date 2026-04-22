@@ -60,7 +60,7 @@ class BeginnerTooltipController {
     window.addEventListener('resize', this.handleResize);
 
     this.mutationObserver = new MutationObserver(() => {
-      if (document.querySelector('[aria-modal="true"]:not([hidden])')) {
+      if (this.current && isBlockedByActiveModal(this.current.anchor)) {
         this.close();
         return;
       }
@@ -216,7 +216,7 @@ class BeginnerTooltipController {
   }
 
   private open(anchor: HTMLElement, config: BeginnerTooltipConfig, fallbackPoint: TooltipAnchorPoint): void {
-    if (document.querySelector('[aria-modal="true"]:not([hidden])')) return;
+    if (isBlockedByActiveModal(anchor)) return;
     if (isBeginnerTooltipDismissed(config.id)) return;
 
     this.close();
@@ -276,6 +276,12 @@ function createTooltipElement(
   tooltip.setAttribute('aria-live', 'polite');
   tooltip.dataset.tooltipId = config.id;
 
+  tooltip.addEventListener('pointerdown', stopTooltipEvent);
+  tooltip.addEventListener('mousedown', stopTooltipEvent);
+  tooltip.addEventListener('mouseup', stopTooltipEvent);
+  tooltip.addEventListener('click', stopTooltipEvent);
+  tooltip.addEventListener('dblclick', stopTooltipEvent);
+
   const marker = document.createElement('span');
   marker.className = 'beginner-tooltip-marker';
   marker.textContent = '?';
@@ -307,17 +313,38 @@ function createTooltipElement(
   close.type = 'button';
   close.className = 'btn-sm beginner-tooltip-close';
   close.textContent = 'Close';
-  close.onclick = actions.onClose;
+  close.addEventListener('click', (event) => {
+    stopTooltipEvent(event);
+    actions.onClose();
+  });
 
   const dismiss = document.createElement('button');
   dismiss.type = 'button';
   dismiss.className = 'btn-sm btn-primary beginner-tooltip-dismiss';
   dismiss.textContent = "Don't show again";
-  dismiss.onclick = actions.onDismiss;
+  dismiss.addEventListener('click', (event) => {
+    stopTooltipEvent(event);
+    actions.onDismiss();
+  });
 
   actionsRow.append(close, dismiss);
   tooltip.append(marker, copy, actionsRow);
   return tooltip;
+}
+
+function stopTooltipEvent(event: Event): void {
+  event.stopPropagation();
+}
+
+function getActiveModal(): HTMLElement | null {
+  const modals = [...document.querySelectorAll<HTMLElement>('[aria-modal="true"]')]
+    .filter((modal) => !modal.hidden && modal.isConnected);
+  return modals[modals.length - 1] ?? null;
+}
+
+function isBlockedByActiveModal(anchor: HTMLElement): boolean {
+  const activeModal = getActiveModal();
+  return Boolean(activeModal && !activeModal.contains(anchor));
 }
 
 function calculatePosition(

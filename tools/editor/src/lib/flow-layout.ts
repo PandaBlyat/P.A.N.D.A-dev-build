@@ -19,9 +19,12 @@ export type FlowAutoLayoutSpacing = {
 export const FLOW_WORKSPACE_MIN_WIDTH = 1400;
 export const FLOW_WORKSPACE_MIN_HEIGHT = 900;
 
+const FLOW_DEFAULT_NODE_WIDTH = 260;
+const FLOW_DEFAULT_NODE_HEIGHT = 140;
+
 export const FLOW_DEFAULT_TURN_POSITION = {
-  x: 640,
-  y: 360,
+  x: Math.round((FLOW_WORKSPACE_MIN_WIDTH - FLOW_DEFAULT_NODE_WIDTH) / 2),
+  y: Math.round((FLOW_WORKSPACE_MIN_HEIGHT - FLOW_DEFAULT_NODE_HEIGHT) / 2),
 } as const;
 
 const FLOW_NODE_LAYOUTS: Record<FlowDensity, FlowNodeLayout> = {
