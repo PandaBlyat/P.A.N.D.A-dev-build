@@ -207,36 +207,32 @@ function openItemPickerPanel(options: {
   panel.appendChild(searchWrap);
 
   /* ── Category chip bar ── */
-  const chipBar = document.createElement('div');
-  chipBar.className = 'item-picker-chip-bar';
+  const filterRail = document.createElement('div');
+  filterRail.className = 'item-picker-filter-rail';
 
-  const subchipBar = document.createElement('div');
-  subchipBar.className = 'item-picker-chip-bar item-picker-subchip-bar';
-  subchipBar.style.display = 'none';
+  const groupControl = document.createElement('label');
+  groupControl.className = 'item-picker-filter-group';
+  const groupLabel = document.createElement('span');
+  groupLabel.className = 'item-picker-filter-label';
+  groupLabel.textContent = 'Category';
+  const groupSelect = document.createElement('select');
+  groupSelect.className = 'item-picker-filter-select';
+  groupControl.append(groupLabel, groupSelect);
+
+  const subgroupControl = document.createElement('label');
+  subgroupControl.className = 'item-picker-filter-group';
+  const subgroupLabel = document.createElement('span');
+  subgroupLabel.className = 'item-picker-filter-label';
+  subgroupLabel.textContent = 'Subcategory';
+  const subgroupSelect = document.createElement('select');
+  subgroupSelect.className = 'item-picker-filter-select';
+  subgroupControl.append(subgroupLabel, subgroupSelect);
+
+  filterRail.append(groupControl, subgroupControl);
+  panel.appendChild(filterRail);
 
   let activeGroup: GameItemCategoryGroup | null = null;
   let activeSubgroup: GameItemPickerSubgroupId | null = null;
-  const chipElements = new Map<GameItemCategoryGroup | null, HTMLButtonElement>();
-  const subchipElements = new Map<GameItemPickerSubgroupId | null, HTMLButtonElement>();
-
-  const allChip = document.createElement('button');
-  allChip.type = 'button';
-  allChip.className = 'item-picker-chip is-active';
-  allChip.innerHTML = 'All <span class="item-picker-chip-count"></span>';
-  chipElements.set(null, allChip);
-  chipBar.appendChild(allChip);
-
-  for (const group of CATEGORY_GROUP_ORDER) {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'item-picker-chip';
-    chip.innerHTML = `${group} <span class="item-picker-chip-count"></span>`;
-    chipElements.set(group, chip);
-    chipBar.appendChild(chip);
-  }
-
-  panel.appendChild(chipBar);
-  panel.appendChild(subchipBar);
 
   /* ── Selection summary + actions ── */
   const selectedSummary = document.createElement('div');
@@ -418,63 +414,37 @@ function openItemPickerPanel(options: {
 
   /* ── Chip state management ── */
   const updateChipStates = (): void => {
-    chipElements.forEach((chip, group) => {
-      chip.classList.toggle('is-active', group === activeGroup);
-    });
+    groupSelect.value = activeGroup ?? '';
   };
 
   const rebuildSubchips = (): void => {
-    subchipBar.replaceChildren();
-    subchipElements.clear();
-
     const subgroupConfig = getSubgroupConfig(activeGroup);
+    subgroupSelect.replaceChildren();
     if (!subgroupConfig) return;
 
-    const allSubchip = document.createElement('button');
-    allSubchip.type = 'button';
-    allSubchip.className = 'item-picker-chip item-picker-subchip';
-    allSubchip.innerHTML = `${subgroupConfig.allLabel} <span class="item-picker-chip-count"></span>`;
-    allSubchip.onclick = () => {
-      if (activeSubgroup === null) return;
-      activeSubgroup = null;
-      updateSubchipStates();
-      renderList(searchInput.value);
-      setActiveIndexFromValue(options.currentValue);
-      updateActiveOption();
-    };
-    subchipElements.set(null, allSubchip);
-    subchipBar.appendChild(allSubchip);
+    const allOption = document.createElement('option');
+    allOption.value = '';
+    allOption.textContent = subgroupConfig.allLabel;
+    subgroupSelect.appendChild(allOption);
 
     for (const subgroup of subgroupConfig.groups) {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'item-picker-chip item-picker-subchip';
-      chip.innerHTML = `${subgroup.label} <span class="item-picker-chip-count"></span>`;
-      chip.onclick = () => {
-        if (activeSubgroup === subgroup.id) return;
-        activeSubgroup = subgroup.id;
-        updateSubchipStates();
-        renderList(searchInput.value);
-        setActiveIndexFromValue(options.currentValue);
-        updateActiveOption();
-      };
-      subchipElements.set(subgroup.id, chip);
-      subchipBar.appendChild(chip);
+      const optionEl = document.createElement('option');
+      optionEl.value = subgroup.id;
+      optionEl.textContent = subgroup.label;
+      subgroupSelect.appendChild(optionEl);
     }
   };
 
   const updateSubchipVisibility = (): void => {
     const subgroupConfig = getSubgroupConfig(activeGroup);
-    subchipBar.style.display = subgroupConfig ? '' : 'none';
+    subgroupControl.hidden = !subgroupConfig;
     if (!subgroupConfig && activeSubgroup !== null) {
       activeSubgroup = null;
     }
   };
 
   const updateSubchipStates = (): void => {
-    subchipElements.forEach((chip, subgroup) => {
-      chip.classList.toggle('is-active', subgroup === activeSubgroup);
-    });
+    subgroupSelect.value = activeSubgroup ?? '';
   };
 
   const updateChipCounts = (textFilteredEntries: CachedGameItemCatalogEntry[]): void => {
@@ -495,31 +465,41 @@ function openItemPickerPanel(options: {
       }
     }
 
-    chipElements.forEach((chip, group) => {
-      const countEl = chip.querySelector('.item-picker-chip-count');
-      if (!countEl) return;
-      if (group === null) {
-        countEl.textContent = String(textFilteredEntries.length);
-      } else {
-        const count = groupCounts.get(group) ?? 0;
-        countEl.textContent = String(count);
-        chip.style.display = count === 0 ? 'none' : '';
-      }
-    });
+    const currentGroup = activeGroup ?? '';
+    groupSelect.replaceChildren();
 
-    subchipElements.forEach((chip, subgroup) => {
-      const countEl = chip.querySelector('.item-picker-chip-count');
-      if (!countEl) return;
-      const subgroupCounts = activeGroup ? subgroupCountsByGroup.get(activeGroup) : null;
-      if (subgroup === null) {
-        countEl.textContent = String(activeGroup ? (groupCounts.get(activeGroup) ?? 0) : 0);
-        return;
-      }
+    const allGroupOption = document.createElement('option');
+    allGroupOption.value = '';
+    allGroupOption.textContent = `All (${textFilteredEntries.length})`;
+    groupSelect.appendChild(allGroupOption);
 
-      const count = subgroupCounts?.get(subgroup) ?? 0;
-      countEl.textContent = String(count);
-      chip.style.display = count === 0 ? 'none' : '';
-    });
+    for (const group of CATEGORY_GROUP_ORDER) {
+      const optionEl = document.createElement('option');
+      optionEl.value = group;
+      optionEl.textContent = `${group} (${groupCounts.get(group) ?? 0})`;
+      groupSelect.appendChild(optionEl);
+    }
+    groupSelect.value = currentGroup;
+
+    const subgroupConfig = getSubgroupConfig(activeGroup);
+    if (!subgroupConfig) return;
+
+    const subgroupCounts = activeGroup ? subgroupCountsByGroup.get(activeGroup) : null;
+    const currentSubgroup = activeSubgroup ?? '';
+    subgroupSelect.replaceChildren();
+
+    const allSubgroupOption = document.createElement('option');
+    allSubgroupOption.value = '';
+    allSubgroupOption.textContent = `${subgroupConfig.allLabel} (${activeGroup ? (groupCounts.get(activeGroup) ?? 0) : 0})`;
+    subgroupSelect.appendChild(allSubgroupOption);
+
+    for (const subgroup of subgroupConfig.groups) {
+      const optionEl = document.createElement('option');
+      optionEl.value = subgroup.id;
+      optionEl.textContent = `${subgroup.label} (${subgroupCounts?.get(subgroup.id) ?? 0})`;
+      subgroupSelect.appendChild(optionEl);
+    }
+    subgroupSelect.value = currentSubgroup;
   };
 
   /* ── Render the item list ── */
@@ -703,20 +683,24 @@ function openItemPickerPanel(options: {
   };
 
   /* ── Wire up chip clicks ── */
-  chipElements.forEach((chip, group) => {
-    chip.onclick = () => {
-      if (activeGroup === group) return;
-      activeGroup = group;
-      activeSubgroup = null;
-      rebuildSubchips();
-      updateChipStates();
-      updateSubchipVisibility();
-      updateSubchipStates();
-      renderList(searchInput.value);
-      setActiveIndexFromValue(options.currentValue);
-      updateActiveOption();
-    };
-  });
+  groupSelect.onchange = () => {
+    activeGroup = groupSelect.value ? groupSelect.value as GameItemCategoryGroup : null;
+    activeSubgroup = null;
+    rebuildSubchips();
+    updateChipStates();
+    updateSubchipVisibility();
+    updateSubchipStates();
+    renderList(searchInput.value);
+    setActiveIndexFromValue(options.currentValue);
+    updateActiveOption();
+  };
+  subgroupSelect.onchange = () => {
+    activeSubgroup = subgroupSelect.value ? subgroupSelect.value as GameItemPickerSubgroupId : null;
+    updateSubchipStates();
+    renderList(searchInput.value);
+    setActiveIndexFromValue(options.currentValue);
+    updateActiveOption();
+  };
 
   /* ── Wire up search input ── */
   searchInput.addEventListener('input', () => {

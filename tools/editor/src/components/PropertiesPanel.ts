@@ -2409,6 +2409,10 @@ function renderRichParamEditor(
         emptyLabel: editor.emptyLabel ?? (paramDef.required ? '-- Select --' : '(optional)'),
         placeholder: paramDef.placeholder ?? `Search ${paramDef.label.toLowerCase()}...`,
       });
+    case 'static_select':
+      return createStaticSelectEditor(editor.options, currentValue, onChange, fieldKey, {
+        emptyLabel: editor.emptyLabel ?? (paramDef.required ? '-- Select --' : '(optional)'),
+      });
     case 'smart_terrain_picker':
       return createSmartTerrainEditor(currentValue, onChange, fieldKey, {
         allowPlaceholder: editor.allowPlaceholder ?? true,
@@ -2432,6 +2436,23 @@ function renderRichParamEditor(
         searchPlaceholder: 'Search story NPC name or id...',
         emptyLabel: editor.emptyLabel ?? '-- Search for a story NPC --',
         options: editor.options,
+        facets: [
+          { label: 'Faction', field: 'faction', allLabel: 'All factions' },
+          { label: 'Role', field: 'role', allLabel: 'All roles' },
+          { label: 'Level', field: 'level', allLabel: 'All levels' },
+        ],
+        richRows: true,
+      });
+    case 'catalog_picker_panel':
+      return createOptionPickerPanelEditor(currentValue, onChange, fieldKey, {
+        title: editor.title,
+        subtitle: editor.subtitle,
+        searchPlaceholder: editor.searchPlaceholder,
+        emptyLabel: editor.emptyLabel ?? '-- Search options --',
+        browseLabel: editor.browseLabel ?? 'Browse catalog...',
+        options: editor.options,
+        facets: editor.facets,
+        richRows: editor.richRows,
       });
     case 'level_option_picker_panel':
       return createLevelOptionPickerPanelEditor(currentValue, onChange, fieldKey, {
@@ -2485,49 +2506,108 @@ function createSearchableSelectEditor(
   const wrapper = document.createElement('div');
   wrapper.className = 'rich-editor rich-editor-searchable';
 
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'rich-editor-input';
-  input.value = currentValue;
-  input.placeholder = config.placeholder;
-  input.setAttribute('data-field-key', fieldKey);
-
-  const listId = `${fieldKey}-options`;
-  input.setAttribute('list', listId);
-
-  const datalist = document.createElement('datalist');
-  datalist.id = listId;
+  const select = document.createElement('select');
+  select.className = 'rich-editor-input';
+  select.setAttribute('data-field-key', fieldKey);
 
   if (config.emptyLabel) {
     const emptyOption = document.createElement('option');
     emptyOption.value = '';
-    emptyOption.label = config.emptyLabel;
-    datalist.appendChild(emptyOption);
+    emptyOption.textContent = config.emptyLabel;
+    select.appendChild(emptyOption);
   }
 
   for (const option of options) {
     const item = document.createElement('option');
     item.value = option.value;
-    item.label = `${option.label} (${option.value})`;
-    datalist.appendChild(item);
+    item.textContent = option.label;
+    select.appendChild(item);
   }
 
-  input.oninput = () => debounced(fieldKey, () => onChange(input.value));
-  input.onchange = () => onChange(input.value);
+  if (currentValue && !options.some((option) => option.value === currentValue)) {
+    const customOption = document.createElement('option');
+    customOption.value = currentValue;
+    customOption.textContent = `Custom: ${currentValue}`;
+    select.appendChild(customOption);
+  }
+
+  select.value = currentValue;
 
   const summary = document.createElement('div');
   summary.className = 'command-description';
-  summary.textContent = options.find((option) => option.value === currentValue)?.label
-    ?? 'Type to filter available options.';
+  const updateSummary = (): void => {
+    const selected = options.find((option) => option.value === select.value);
+    summary.textContent = selected
+      ? selected.label
+      : (select.value ? `Using custom value ${select.value}.` : 'Select one vanilla option.');
+  };
 
-  input.addEventListener('input', () => {
-    const selected = options.find((option) => option.value === input.value);
-    summary.textContent = selected ? selected.label : 'Type to filter available options.';
-  });
+  select.onchange = () => {
+    onChange(select.value);
+    updateSummary();
+  };
 
-  wrapper.appendChild(input);
-  wrapper.appendChild(datalist);
-  wrapper.appendChild(summary);
+  updateSummary();
+  wrapper.append(select, summary);
+  return wrapper;
+}
+
+function createStaticSelectEditor(
+  options: ParamOption[],
+  currentValue: string,
+  onChange: (value: string) => void,
+  fieldKey: string,
+  config: {
+    emptyLabel: string;
+  },
+): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'rich-editor rich-editor-searchable';
+
+  const select = document.createElement('select');
+  select.className = 'rich-editor-input';
+  select.setAttribute('data-field-key', fieldKey);
+
+  if (config.emptyLabel) {
+    const emptyOption = document.createElement('option');
+    emptyOption.value = '';
+    emptyOption.textContent = config.emptyLabel;
+    select.appendChild(emptyOption);
+  }
+
+  for (const option of options) {
+    const item = document.createElement('option');
+    item.value = option.value;
+    item.textContent = option.label;
+    select.appendChild(item);
+  }
+
+  if (currentValue && !options.some((option) => option.value === currentValue)) {
+    const customOption = document.createElement('option');
+    customOption.value = currentValue;
+    customOption.textContent = `Custom: ${currentValue}`;
+    select.appendChild(customOption);
+  }
+
+  select.value = currentValue;
+
+  const summary = document.createElement('div');
+  summary.className = 'command-description';
+
+  const updateSummary = (): void => {
+    const selected = options.find((option) => option.value === select.value);
+    summary.textContent = selected
+      ? selected.label
+      : (select.value ? `Using custom value ${select.value}.` : 'Select one vanilla option.');
+  };
+
+  select.onchange = () => {
+    onChange(select.value);
+    updateSummary();
+  };
+
+  updateSummary();
+  wrapper.append(select, summary);
   return wrapper;
 }
 
@@ -2541,40 +2621,27 @@ export function createOptionPickerPanelEditor(
     subtitle: string;
     searchPlaceholder: string;
     emptyLabel: string;
+    browseLabel?: string;
     options: ParamOption[];
+    facets?: Array<{
+      label: string;
+      allLabel: string;
+      field?: string;
+      keywordIndex?: number;
+    }>;
+    richRows?: boolean;
   },
 ): HTMLElement {
-  // Story-NPC picker: delegate to the shared CatalogPickerPanel so this
-  // panel (used inside the Properties panel) and the Story Wizard picker
-  // share a single richer implementation with level grouping, chip
-  // counts, and character-name forward rendering.
-  const options: CatalogPickerOption[] = config.options.map((option) => {
-    const rich = option as CatalogPickerOption;
-    return {
-      value: option.value,
-      label: option.label,
-      keywords: option.keywords,
-      characterName: rich.characterName,
-      faction: rich.faction,
-      level: rich.level,
-      role: rich.role,
-    };
-  });
-  const hasRichMetadata = options.some((option) => option.characterName || option.faction || option.level || option.role);
+  const options: CatalogPickerOption[] = config.options.map((option) => ({ ...(option as CatalogPickerOption) }));
   return createCatalogPickerPanelEditor(currentValue, onChange, fieldKey, {
     title: config.title,
     subtitle: config.subtitle,
     searchPlaceholder: config.searchPlaceholder,
     emptyLabel: config.emptyLabel,
-    browseLabel: 'Browse story NPCs…',
     options,
-    facets: hasRichMetadata
-      ? [
-          { label: 'Faction', field: 'faction', allLabel: 'All factions' },
-          { label: 'Role', field: 'role', allLabel: 'All roles' },
-          { label: 'Level', field: 'level', allLabel: 'All levels' },
-        ]
-      : [],
+    browseLabel: config.browseLabel ?? 'Browse catalog...',
+    facets: config.facets,
+    richRows: config.richRows,
   });
 }
 

@@ -23,6 +23,17 @@ let overlayEl: HTMLElement | null = null;
 let focusTrap: FocusTrapController | null = null;
 let autoOpenSpeakerPicker = false;
 
+type StoryRecipeGroup = typeof STORY_RECIPES[number]['group'];
+
+const STORY_RECIPE_GROUP_ORDER: StoryRecipeGroup[] = ['Task', 'Exchange', 'Simple', 'Handoff', 'Setpiece'];
+const STORY_RECIPE_GROUP_COPY: Record<StoryRecipeGroup, string> = {
+  Task: 'Tracked jobs, objectives, fights, escorts.',
+  Exchange: 'Trade, payment, item asks, quick rewards.',
+  Simple: 'Short flavor beats, warnings, light setup.',
+  Handoff: 'Pass player to another NPC or face-to-face.',
+  Setpiece: 'Bigger scripted scenes, betrayal, rescue, custom encounter.',
+};
+
 export function openStoryWizard(): void {
   if (overlayEl) return;
 
@@ -160,16 +171,18 @@ function renderBody(draft: StoryWizardDraft, setDraft: (patch: Partial<StoryWiza
       setDraft({ speakerTarget: nextSpeakerTarget });
     }),
     renderSpeakerPicker(draft, setDraft),
-    renderSelectField('Story recipe', STORY_RECIPES.map(recipe => [recipe.id, recipe.title]), draft.recipeId, (recipeId) => setDraft({ recipeId: recipeId as StoryRecipeId })),
+    renderRecipePicker(draft.recipeId, (recipeId) => setDraft({ recipeId })),
   );
 
   const preview = document.createElement('div');
   preview.className = 'story-forge-simple-preview';
   const recipe = STORY_RECIPES.find(item => item.id === draft.recipeId);
+  const recipeGroup = recipe?.group ?? STORY_RECIPE_GROUP_ORDER[0];
   const speaker = STORY_TARGET_OPTIONS.find(item => item.id === draft.speakerTarget);
   preview.append(
     renderPreviewRow('Faction', FACTION_DISPLAY_NAMES[draft.faction]),
     renderPreviewRow('Speaker', speaker?.title ?? draft.speakerTarget),
+    renderPreviewRow('Goal', recipeGroup),
     renderPreviewRow('Flow', recipe?.description ?? recipe?.title ?? draft.recipeId),
   );
 
@@ -251,6 +264,52 @@ function renderSelectField(labelText: string, options: Array<[string, string]>, 
   select.onchange = () => onChange(select.value);
   label.append(span, select);
   return label;
+}
+
+function renderRecipePicker(value: StoryRecipeId, onChange: (value: StoryRecipeId) => void): HTMLElement {
+  const field = document.createElement('section');
+  field.className = 'story-forge-simple-field story-forge-simple-field-wide';
+
+  const label = document.createElement('span');
+  label.className = 'story-forge-simple-label';
+  label.textContent = 'Story Goal';
+
+  const currentRecipe = STORY_RECIPES.find((recipe) => recipe.id === value) ?? STORY_RECIPES[0];
+  const currentGroup = currentRecipe?.group ?? STORY_RECIPE_GROUP_ORDER[0];
+  const groupGrid = document.createElement('div');
+  groupGrid.className = 'story-forge-recipe-groups';
+
+  for (const group of STORY_RECIPE_GROUP_ORDER) {
+    const recipes = STORY_RECIPES.filter((recipe) => recipe.group === group);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `story-forge-recipe-group${group === currentGroup ? ' is-selected' : ''}`;
+    const title = document.createElement('strong');
+    title.className = 'story-forge-recipe-group-title';
+    title.textContent = `${group} (${recipes.length})`;
+    const copy = document.createElement('span');
+    copy.className = 'story-forge-recipe-group-copy';
+    copy.textContent = STORY_RECIPE_GROUP_COPY[group];
+    button.append(title, copy);
+    button.onclick = () => {
+      const nextRecipe = recipes[0];
+      if (nextRecipe) onChange(nextRecipe.id);
+    };
+    groupGrid.appendChild(button);
+  }
+
+  const recipesInGroup = STORY_RECIPES
+    .filter((recipe) => recipe.group === currentGroup)
+    .map((recipe) => [recipe.id, recipe.title] as [string, string]);
+  const recipeSelect = renderSelectField('Recipe', recipesInGroup, currentRecipe.id, (recipeId) => onChange(recipeId as StoryRecipeId));
+  recipeSelect.classList.add('story-forge-recipe-select');
+
+  const help = document.createElement('div');
+  help.className = 'story-forge-recipe-help';
+  help.textContent = currentRecipe.description;
+
+  field.append(label, groupGrid, recipeSelect, help);
+  return field;
 }
 
 function renderSpeakerPicker(draft: StoryWizardDraft, setDraft: (patch: Partial<StoryWizardDraft>) => void): HTMLElement {

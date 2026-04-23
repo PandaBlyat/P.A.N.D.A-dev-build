@@ -4,6 +4,7 @@
   "description": "Visual conversation editor for P.A.N.D.A. interactive PDA conversations",
   "type": "module",
   "scripts": {
+    "build:catalogs": "python ../build_editor_item_catalog.py && python ../build_editor_anomaly_catalog.py && python ../build_editor_story_npc_catalog.py && python ../build_editor_squad_catalog.py && python ../build_editor_task_catalog.py && python ../build_editor_info_portion_catalog.py && python ../build_editor_detector_tier_catalog.py",
     "dev": "vite",
     "build:item-catalog": "python ../build_editor_item_catalog.py",
     "build": "npm run validate:conversations && tsc && vite build",

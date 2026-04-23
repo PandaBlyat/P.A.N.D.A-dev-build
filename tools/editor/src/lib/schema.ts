@@ -11,7 +11,10 @@ import {
 import { FACTION_DISPLAY_NAMES } from './types';
 import { ALL_SQUAD_OPTIONS, MUTANT_SQUAD_OPTIONS, NPC_SQUAD_OPTIONS } from './generated/squad-catalog';
 import { ANOMALY_ZONE_ID_OPTIONS } from './generated/anomaly-zone-catalog';
+import { DETECTOR_TIER_OPTIONS } from './generated/detector-tier-catalog';
+import { VANILLA_INFO_PORTION_OPTIONS } from './generated/info-portion-catalog';
 import { STORY_NPC_OPTIONS } from './generated/story-npc-catalog';
+import { VANILLA_TASK_ID_OPTIONS } from './generated/task-catalog';
 
 export interface CommandSchema {
   name: string;
@@ -33,6 +36,11 @@ export interface ParamOption {
 export type ParamEditor =
   | {
     kind: 'searchable_select';
+    options: ParamOption[];
+    emptyLabel?: string;
+  }
+  | {
+    kind: 'static_select';
     options: ParamOption[];
     emptyLabel?: string;
   }
@@ -60,6 +68,22 @@ export type ParamEditor =
     kind: 'level_option_picker_panel';
     options: ParamOption[];
     emptyLabel?: string;
+  }
+  | {
+    kind: 'catalog_picker_panel';
+    title: string;
+    subtitle: string;
+    searchPlaceholder: string;
+    emptyLabel?: string;
+    browseLabel?: string;
+    options: ParamOption[];
+    facets?: Array<{
+      label: string;
+      allLabel: string;
+      field?: string;
+      keywordIndex?: number;
+    }>;
+    richRows?: boolean;
   }
   | {
     kind: 'command_builder';
@@ -169,13 +193,6 @@ const MONTH_OPTIONS: ParamOption[] = Array.from({ length: 12 }, (_, i) => ({
   keywords: [String(i + 1), MONTH_NAMES[i + 1]],
 }));
 
-const DETECTOR_TIER_OPTIONS: ParamOption[] = [
-  { value: 'basic', label: 'Basic', keywords: ['basic', 'simple', 'geiger', 'radio'] },
-  { value: 'advanced', label: 'Advanced', keywords: ['advanced'] },
-  { value: 'elite', label: 'Elite', keywords: ['elite'] },
-  { value: 'scientific', label: 'Scientific', keywords: ['scientific', 'svarog'] },
-];
-
 const ANOMALY_TASK_ID_OPTIONS: ParamOption[] = ANOMALY_ZONE_ID_OPTIONS
   .filter((option) => option.value.includes('anomal_zone'))
   .map((option) => ({
@@ -208,10 +225,56 @@ const ANOMALY_ZONE_PICKER_PANEL_EDITOR: ParamEditor = {
   emptyLabel: '-- Select anomaly zone id --',
 };
 
-const ANOMALY_TASK_ID_PICKER_PANEL_EDITOR: ParamEditor = {
-  kind: 'level_option_picker_panel',
-  options: ANOMALY_TASK_ID_OPTIONS,
-  emptyLabel: '-- Type custom id or pick vanilla pattern --',
+const TASK_ID_PICKER_PANEL_EDITOR: ParamEditor = {
+  kind: 'catalog_picker_panel',
+  title: 'Browse vanilla task ids',
+  subtitle: 'Pick bundled vanilla task ids fast. Open custom override only for modded tasks.',
+  searchPlaceholder: 'Search task id, title, or source map...',
+  emptyLabel: 'No task id selected',
+  browseLabel: 'Browse task ids',
+  options: VANILLA_TASK_ID_OPTIONS,
+  facets: [
+    { label: 'Source', allLabel: 'All sources', field: 'source' },
+  ],
+};
+
+const INFO_PORTION_PICKER_PANEL_EDITOR: ParamEditor = {
+  kind: 'catalog_picker_panel',
+  title: 'Browse info portions',
+  subtitle: 'Search bundled vanilla info portion ids. Use custom override only for modded flags.',
+  searchPlaceholder: 'Search info id or keywords...',
+  emptyLabel: 'No info portion selected',
+  browseLabel: 'Browse info ids',
+  options: VANILLA_INFO_PORTION_OPTIONS,
+};
+
+const SQUAD_PICKER_PANEL_EDITOR: ParamEditor = {
+  kind: 'catalog_picker_panel',
+  title: 'Browse vanilla squads',
+  subtitle: 'Pick bundled NPC or mutant squad sections with compact filters.',
+  searchPlaceholder: 'Search squad id, faction, source, or size...',
+  emptyLabel: 'No squad selected',
+  browseLabel: 'Browse squads',
+  options: ALL_SQUAD_OPTIONS,
+  facets: [
+    { label: 'Kind', allLabel: 'All kinds', field: 'kind' },
+    { label: 'Faction', allLabel: 'All factions', field: 'faction' },
+    { label: 'Source', allLabel: 'All sources', field: 'source' },
+  ],
+};
+
+const NPC_SQUAD_PICKER_PANEL_EDITOR: ParamEditor = {
+  kind: 'catalog_picker_panel',
+  title: 'Browse vanilla faction squads',
+  subtitle: 'Pick bundled vanilla NPC squad sections. Use custom override only for modded squads.',
+  searchPlaceholder: 'Search squad id, faction, source, or size...',
+  emptyLabel: 'No faction squad selected',
+  browseLabel: 'Browse faction squads',
+  options: NPC_SQUAD_OPTIONS,
+  facets: [
+    { label: 'Faction', allLabel: 'All factions', field: 'faction' },
+    { label: 'Source', allLabel: 'All sources', field: 'source' },
+  ],
 };
 
 const PANDA_ARTIFACT_LEVEL_TOKEN_OPTIONS: ParamOption[] = [
@@ -259,9 +322,19 @@ const WATCH_TRIGGER_SUGGESTIONS: ParamOption[] = [
     keywords: ['spawn', 'mutant', 'snork'],
   },
   {
+    value: 'spawn_npc_squad:army_sim_squad_novice:50:10',
+    label: 'Spawn vanilla faction squad near the player',
+    keywords: ['spawn', 'npc', 'squad', 'faction', 'player', 'distance', 'army'],
+  },
+  {
     value: 'spawn_mutant_at_smart:snork:%cordon_panda_st_key%',
     label: 'Spawn mutants at the watched smart terrain',
     keywords: ['spawn', 'mutant', 'smart', 'snork'],
+  },
+  {
+    value: 'spawn_npc_squad_at_smart:army_sim_squad_novice:%cordon_panda_st_key%',
+    label: 'Spawn vanilla faction squad at the watched smart terrain',
+    keywords: ['spawn', 'npc', 'squad', 'faction', 'smart', 'army'],
   },
   {
     value: 'recruit_companion',
@@ -571,7 +644,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     helpText: 'Use this precondition to gate dialogue or choices by detector progression.',
     examples: ['req_detector_tier:advanced', 'req_detector_tier:scientific'],
     params: [
-      { name: 'detector_tier', type: 'string', required: true, label: 'Detector Tier', editor: { kind: 'searchable_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
+      { name: 'detector_tier', type: 'string', required: true, label: 'Detector Tier', editor: { kind: 'static_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
     ],
   },
 
@@ -833,7 +906,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     category: 'Knowledge',
     helpText: 'Info portions are game knowledge flags. Check vanilla game files for available info IDs.',
     params: [
-      { name: 'info_id', type: 'string', required: true, label: 'Info Portion ID', placeholder: 'e.g. bar_deactivate_radar_done' },
+      { name: 'info_id', type: 'string', required: true, label: 'Info Portion ID', placeholder: 'e.g. bar_deactivate_radar_done', editor: INFO_PORTION_PICKER_PANEL_EDITOR },
     ],
   },
   {
@@ -842,7 +915,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     description: 'Player must NOT have a specific info portion',
     category: 'Knowledge',
     params: [
-      { name: 'info_id', type: 'string', required: true, label: 'Info Portion ID', placeholder: 'e.g. bar_deactivate_radar_done' },
+      { name: 'info_id', type: 'string', required: true, label: 'Info Portion ID', placeholder: 'e.g. bar_deactivate_radar_done', editor: INFO_PORTION_PICKER_PANEL_EDITOR },
     ],
   },
 
@@ -1365,7 +1438,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Give player an info portion (knowledge unlock)',
     category: 'Knowledge',
     params: [
-      { name: 'info_id', type: 'string', required: true, label: 'Info Portion ID',
+      { name: 'info_id', type: 'string', required: true, label: 'Info Portion ID', editor: INFO_PORTION_PICKER_PANEL_EDITOR,
         helpText: 'The info portion ID from configs/gameplay/info_portions.xml' },
     ],
   },
@@ -1375,7 +1448,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Remove info portion from player',
     category: 'Knowledge',
     params: [
-      { name: 'info_id', type: 'string', required: true, label: 'Info Portion ID' },
+      { name: 'info_id', type: 'string', required: true, label: 'Info Portion ID', editor: INFO_PORTION_PICKER_PANEL_EDITOR },
     ],
   },
 
@@ -1499,6 +1572,50 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
     ],
   },
+  {
+    name: 'spawn_npc_squad',
+    label: 'Spawn Vanilla Faction Squad (near player)',
+    description: 'Spawn a vanilla NPC faction squad near player',
+    category: 'Spawning',
+    helpText:
+      'Use bundled vanilla NPC squad sections when you want normal faction squads to appear near player instead of at a smart terrain. ' +
+      'Set spawn distance in meters and optional delay timer before squad appears.',
+    examples: ['spawn_npc_squad:army_sim_squad_novice:50', 'spawn_npc_squad:bandit_sim_squad_advanced:80:15'],
+    params: [
+      {
+        name: 'squad_section',
+        type: 'string',
+        required: true,
+        label: 'Faction Squad',
+        editor: NPC_SQUAD_PICKER_PANEL_EDITOR,
+        helpText: 'Pick exact vanilla NPC squad section to spawn near player.',
+      },
+      { name: 'distance', type: 'number', required: true, label: 'Distance (m)', min: 10 },
+      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
+    ],
+  },
+  {
+    name: 'spawn_npc_squad_at_smart',
+    label: 'Spawn Vanilla Faction Squad at Location',
+    description: 'Spawn a vanilla NPC faction squad at smart terrain',
+    category: 'Spawning',
+    helpText:
+      'Use bundled vanilla NPC squad sections instead of custom NPC templates when you want to drop regular faction squads onto a smart terrain. ' +
+      'Picker is limited to vanilla NPC squads only, so mutants and custom template ids stay out of list.',
+    examples: ['spawn_npc_squad_at_smart:army_sim_squad_novice:esc_smart_terrain_5_7', 'spawn_npc_squad_at_smart:bandit_sim_squad_advanced:gar_smart_terrain_1_7:10'],
+    params: [
+      {
+        name: 'squad_section',
+        type: 'string',
+        required: true,
+        label: 'Faction Squad',
+        editor: NPC_SQUAD_PICKER_PANEL_EDITOR,
+        helpText: 'Pick exact vanilla NPC squad section to spawn at selected smart terrain.',
+      },
+      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
+      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
+    ],
+  },
 
   // Location
   {
@@ -1615,9 +1732,9 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     pickerHidden: true,
     examples: ['start_anomaly_scan_task:scan_yan_01:labx18_2c_04_bioh_anomaly_spot:advanced:1800'],
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: ANOMALY_TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. Browse vanilla task ids or type a modded/custom id.' },
       { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name', editor: ANOMALY_ZONE_PICKER_PANEL_EDITOR },
-      { name: 'detector_tier', type: 'string', required: false, label: 'Detector Tier', placeholder: 'basic', editor: { kind: 'searchable_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
+      { name: 'detector_tier', type: 'string', required: false, label: 'Detector Tier', placeholder: 'basic', editor: { kind: 'static_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
       { name: 'expire_seconds', type: 'number', required: false, label: 'Expire After (s)', placeholder: '0', min: 0 },
     ],
   },
@@ -1629,10 +1746,10 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     pickerHidden: true,
     examples: ['start_artifact_retrieval_task:af_fetch_01:af_compass:red_smart_terrain_3_2_anomal_zone:elite:3600'],
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: ANOMALY_TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. Browse vanilla task ids or type a modded/custom id.' },
       { name: 'artifact_section', type: 'item_section', required: true, label: 'Artifact Section', editor: ITEM_PICKER_PANEL_EDITOR },
       { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name', editor: ANOMALY_ZONE_PICKER_PANEL_EDITOR },
-      { name: 'detector_tier', type: 'string', required: false, label: 'Detector Tier', placeholder: 'basic', editor: { kind: 'searchable_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
+      { name: 'detector_tier', type: 'string', required: false, label: 'Detector Tier', placeholder: 'basic', editor: { kind: 'static_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
       { name: 'expire_seconds', type: 'number', required: false, label: 'Expire After (s)', placeholder: '0', min: 0 },
     ],
   },
@@ -1643,7 +1760,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     category: 'Anomaly / Artifact',
     pickerHidden: true,
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: ANOMALY_TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. Browse vanilla task ids or type a modded/custom id.' },
       { name: 'target_npc_id', type: 'number', required: false, label: 'Target NPC ID', placeholder: 'conversation npc' },
       { name: 'artifact_section', type: 'item_section', required: true, label: 'Artifact Section', editor: ITEM_PICKER_PANEL_EDITOR },
     ],
@@ -1655,7 +1772,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     category: 'Anomaly / Artifact',
     pickerHidden: true,
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: ANOMALY_TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. Browse vanilla task ids or type a modded/custom id.' },
       { name: 'artifact_section', type: 'item_section', required: true, label: 'Artifact Section', editor: ITEM_PICKER_PANEL_EDITOR },
       { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name', editor: ANOMALY_ZONE_PICKER_PANEL_EDITOR },
     ],
@@ -1668,7 +1785,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     pickerHidden: true,
     helpText: 'Deprecated for new content: use req_detector_tier preconditions for gating. Keep this only for legacy conversation compatibility.',
     params: [
-      { name: 'detector_tier', type: 'string', required: true, label: 'Detector Tier', editor: { kind: 'searchable_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
+      { name: 'detector_tier', type: 'string', required: true, label: 'Detector Tier', editor: { kind: 'static_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
     ],
   },
   {
@@ -1678,7 +1795,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     category: 'Anomaly / Artifact',
     pickerHidden: true,
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: ANOMALY_TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. Browse vanilla task ids or type a modded/custom id.' },
       { name: 'artifact_section', type: 'item_section', required: false, label: 'Artifact Section (override)', editor: ITEM_PICKER_PANEL_EDITOR },
     ],
   },
@@ -1689,7 +1806,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     category: 'Anomaly / Artifact',
     pickerHidden: true,
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: ANOMALY_TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. Browse vanilla task ids or type a modded/custom id.' },
       { name: 'zone_name', type: 'string', required: true, label: 'Anomaly Zone Name', editor: ANOMALY_ZONE_PICKER_PANEL_EDITOR },
     ],
   },
@@ -1700,7 +1817,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     category: 'Anomaly / Artifact',
     pickerHidden: true,
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: ANOMALY_TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. These suggestions are based on vanilla anomaly zone ids for consistent naming.' },
+      { name: 'task_id', type: 'string', required: true, label: 'Runtime Task ID', editor: TASK_ID_PICKER_PANEL_EDITOR, helpText: 'Task IDs can be custom. Browse vanilla task ids or type a modded/custom id.' },
       { name: 'enabled', type: 'string', required: false, label: 'Enabled', placeholder: 'true' },
     ],
   },
@@ -1934,7 +2051,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     category: 'Knowledge',
     helpText: 'Task ID must match a valid task defined in the game task configs.',
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Task ID', placeholder: 'e.g. jup_b6_task' },
+      { name: 'task_id', type: 'string', required: true, label: 'Task ID', placeholder: 'e.g. jup_b6_task', editor: TASK_ID_PICKER_PANEL_EDITOR },
     ],
   },
   {
@@ -1943,7 +2060,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Mark a game task as completed',
     category: 'Knowledge',
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Task ID' },
+      { name: 'task_id', type: 'string', required: true, label: 'Task ID', editor: TASK_ID_PICKER_PANEL_EDITOR },
     ],
   },
   {
@@ -1952,7 +2069,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Mark a game task as failed',
     category: 'Knowledge',
     params: [
-      { name: 'task_id', type: 'string', required: true, label: 'Task ID' },
+      { name: 'task_id', type: 'string', required: true, label: 'Task ID', editor: TASK_ID_PICKER_PANEL_EDITOR },
     ],
   },
 
@@ -2034,7 +2151,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
       { name: 'zone_mode', type: 'string', required: true, label: 'Zone Mode', placeholder: 'random_level', examples: ['random_level'], helpText: 'Automatic. Artifact Hunt now always uses random_level and this field is managed by the editor.' },
       { name: 'zone_name', type: 'string', required: true, label: 'Target Level', editor: { kind: 'searchable_select', options: PANDA_ARTIFACT_LEVEL_TOKEN_OPTIONS, emptyLabel: '-- Select target level --' },
         helpText: 'Pick the level where the hunt should happen (example: level:gar). The system then chooses a random anomaly zone in that level.' },
-      { name: 'detector_tier', type: 'string', required: false, label: 'Detector Tier', placeholder: 'basic', editor: { kind: 'searchable_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
+      { name: 'detector_tier', type: 'string', required: false, label: 'Detector Tier', placeholder: 'basic', editor: { kind: 'static_select', options: DETECTOR_TIER_OPTIONS, emptyLabel: '-- Select detector tier --' } },
       { name: 'timeout', type: 'number', required: true, label: 'Timeout (s)', min: 30 },
       { name: 'success_turn', type: 'number', required: true, label: 'Success Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
       { name: 'fail_turn', type: 'number', required: true, label: 'Fail Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
@@ -2070,7 +2187,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
         type: 'string',
         required: true,
         label: 'Target Squad',
-        editor: { kind: 'searchable_select', options: ALL_SQUAD_OPTIONS, emptyLabel: '-- Select NPC or mutant squad --' },
+        editor: SQUAD_PICKER_PANEL_EDITOR,
         helpText: 'Pick the exact squad section that should be spawned for the elimination objective.',
       },
       { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Location', editor: SMART_TERRAIN_EDITOR },

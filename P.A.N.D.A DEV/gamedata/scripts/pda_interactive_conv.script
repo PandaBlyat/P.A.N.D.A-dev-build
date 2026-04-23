@@ -4875,6 +4875,8 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
         --   spawn_custom_npc:hired_guns:5           (near player, 5s delay)
         --   spawn_custom_npc_at:dealer:bar_arena_base
         --   spawn_custom_npc_at:bouncer:esc_smart:3
+        --   spawn_npc_squad:army_sim_squad_novice:50:10
+        --   spawn_npc_squad_at_smart:army_sim_squad_novice:esc_smart
         elseif cmd == "spawn_custom_npc" then
             local tpl_id = parts[2]
             local delay  = tonumber(parts[3]) or 0
@@ -4915,6 +4917,16 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             local delay = tonumber(parts[4]) or 90
             spawn_hunting_squad(parts[2] or "random", distance, true, delay)
 
+        elseif cmd == "spawn_npc_squad" then
+            local squad_section = parts[2]
+            local distance = tonumber(parts[3])
+            local delay = tonumber(parts[4]) or 0
+            if not squad_section or squad_section == "" then
+                printf("PANDA_IC: spawn_npc_squad missing squad section in '%s'", tostring(cmd_str))
+            else
+                spawn_npc_squad_near_player(squad_section, distance, delay)
+            end
+
         elseif cmd == "spawn_mutant_at_smart" then
             local mutant_type = parts[2] or "random"
             local smart_ref = parts[3]
@@ -4923,6 +4935,18 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                 spawn_squad_at_smart_terrain(mutant_type, smart_ref, true, delay, sender_contact_id)
             else
                 printf("PANDA_IC: spawn_mutant_at_smart missing smart reference in '%s'", tostring(cmd_str))
+            end
+
+        elseif cmd == "spawn_npc_squad_at_smart" then
+            local squad_section = parts[2]
+            local smart_ref = parts[3]
+            local delay = tonumber(parts[4]) or 0
+            if not squad_section or squad_section == "" then
+                printf("PANDA_IC: spawn_npc_squad_at_smart missing squad section in '%s'", tostring(cmd_str))
+            elseif not smart_ref or smart_ref == "" then
+                printf("PANDA_IC: spawn_npc_squad_at_smart missing smart reference in '%s'", tostring(cmd_str))
+            else
+                spawn_squad_at_smart_terrain(squad_section, smart_ref, false, delay, sender_contact_id)
             end
 
         elseif cmd == "reward_rep" then
@@ -5885,6 +5909,50 @@ local function apply_spawned_faction_relation(obj, relation_mode)
             o:set_relation(relation, db.actor)
             o:force_set_goodwill(goodwill, db.actor)
         end
+    end
+end
+
+local function spawn_npc_squad_near_player(squad_key, distance, delay, relation_mode)
+    delay = tonumber(delay) or 0
+    relation_mode = relation_mode or "default"
+
+    local function do_spawn()
+        if not db.actor then
+            return true
+        end
+
+        local sec = find_squad_section(squad_key)
+        if not sec then
+            printf("PANDA_IC: spawn near player failed â€” no NPC squad section for '%s'", tostring(squad_key))
+            return true
+        end
+
+        local dist = tonumber(distance)
+        local min, max
+        if dist and dist > 0 then
+            min, max = dist, dist
+        else
+            min, max = get_spawn_distance_range("npc_spawn_min", "npc_spawn_max", 40, 100)
+        end
+
+        local pos, lvid, gvid = find_spawn_point_near_player(min, max)
+        local obj = create_squad_safely(sec, pos, lvid, gvid)
+        if not obj or obj:clsid() ~= clsid.online_offline_group_s then
+            printf("PANDA_IC: spawn near player failed â€” could not create NPC squad '%s'", tostring(sec))
+            return true
+        end
+
+        obj.scripted_target = nil
+        obj.rush_to_target = false
+        apply_spawned_faction_relation(obj, relation_mode)
+        return true
+    end
+
+    if delay > 0 then
+        local ev_key = "panda_npc_squad_" .. tostring(math.random(100000))
+        CreateTimeEvent("panda_npc_squad_spawn", ev_key, delay, do_spawn)
+    else
+        do_spawn()
     end
 end
 

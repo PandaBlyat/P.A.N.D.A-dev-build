@@ -1,11 +1,13 @@
 import { LEVEL_DISPLAY_NAMES, SMART_TERRAIN_LEVELS, SMART_TERRAIN_OPTIONS_ALL, SMART_TERRAIN_OPTIONS_BY_LEVEL, type SmartTerrainOption } from '../lib/constants';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 
+const CATALOG_PICKER_MOUNT_ID = 'app-modal-host';
+const RICH_TAG_FIELDS = ['faction', 'role', 'level', 'kind', 'source', 'size'] as const;
+
 export type CatalogPickerOption = {
   value: string;
   label: string;
   keywords?: string[];
-  /** Optional display fields consumed by the richer story-NPC row layout. */
   characterName?: string;
   faction?: string;
   level?: string;
@@ -15,20 +17,57 @@ export type CatalogPickerOption = {
 export type CatalogPickerFacet = {
   label: string;
   allLabel: string;
-  /** Field name on the option to filter by — falls back to `keywordIndex` when omitted. */
-  field?: 'faction' | 'level' | 'role';
-  /** Legacy fallback: read a value from `option.keywords[keywordIndex]`. */
+  field?: string;
   keywordIndex?: number;
 };
 
 let activeCleanup: (() => void) | null = null;
 let activeTrigger: HTMLElement | null = null;
 
+function getMount(): HTMLElement {
+  return document.getElementById(CATALOG_PICKER_MOUNT_ID) ?? document.body;
+}
+
 function closeActive(trigger: HTMLElement): boolean {
   if (!activeCleanup) return false;
   const sameTrigger = activeTrigger === trigger;
   activeCleanup();
   return sameTrigger;
+}
+
+function readFacetValue(option: CatalogPickerOption, facet: CatalogPickerFacet): string {
+  if (facet.field) {
+    const value = (option as Record<string, unknown>)[facet.field];
+    if (typeof value === 'string' && value.trim().length > 0) return value.trim();
+  }
+  if (typeof facet.keywordIndex === 'number') {
+    const raw = option.keywords?.[facet.keywordIndex]?.trim();
+    if (raw) return raw;
+  }
+  return 'Unknown';
+}
+
+function buildHaystack(option: CatalogPickerOption): string {
+  return [
+    option.label,
+    option.value,
+    option.characterName,
+    ...RICH_TAG_FIELDS.map((field) => {
+      const value = (option as Record<string, unknown>)[field];
+      return typeof value === 'string' ? value : '';
+    }),
+    ...(option.keywords ?? []),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+function hasRichCatalogMetadata(option: CatalogPickerOption): boolean {
+  return ['characterName', ...RICH_TAG_FIELDS].some((field) => {
+    const value = (option as Record<string, unknown>)[field];
+    return typeof value === 'string' && value.trim().length > 0;
+  });
 }
 
 export function createCatalogPickerPanelEditor(
@@ -43,18 +82,11 @@ export function createCatalogPickerPanelEditor(
     browseLabel: string;
     options: CatalogPickerOption[];
     facets?: CatalogPickerFacet[];
-    /**
-     * When true, renders the richer two-line row (character name + profile id + tag pills)
-     * and groups results by level. Enabled automatically when the options carry any
-     * rich metadata (characterName/faction/level/role).
-     */
     richRows?: boolean;
   },
 ): HTMLElement {
-  const hasRichMetadata = config.options.some(
-    (option) => option.characterName || option.faction || option.level || option.role,
-  );
-  const useRichRows = config.richRows ?? hasRichMetadata;
+  const useRichRows = config.richRows ?? config.options.some((option) => hasRichCatalogMetadata(option));
+  const facets = config.facets ?? [];
   const wrapper = document.createElement('div');
   wrapper.className = 'rich-editor rich-editor-item-picker';
 
@@ -65,10 +97,17 @@ export function createCatalogPickerPanelEditor(
   browseButton.type = 'button';
   browseButton.className = 'item-picker-launcher';
 
+  const customToggleButton = document.createElement('button');
+  customToggleButton.type = 'button';
+  customToggleButton.className = 'btn-sm item-picker-inline-toggle';
+
   const clearButton = document.createElement('button');
   clearButton.type = 'button';
   clearButton.className = 'btn-sm';
   clearButton.textContent = 'Clear';
+
+  const rawWrap = document.createElement('div');
+  rawWrap.className = 'item-picker-inline-editor';
 
   const rawInput = document.createElement('input');
   rawInput.type = 'text';
@@ -76,20 +115,22 @@ export function createCatalogPickerPanelEditor(
   rawInput.value = currentValue;
   rawInput.placeholder = config.emptyLabel;
   rawInput.setAttribute('data-field-key', fieldKey);
+  rawWrap.appendChild(rawInput);
 
   const summary = document.createElement('div');
   summary.className = 'command-description';
 
+  let customMode = currentValue.length > 0 && !config.options.some((option) => option.value === currentValue);
+
   const describeOption = (option: CatalogPickerOption): string => {
-    if (option.characterName) {
-      return `${option.characterName} (${option.value})`;
-    }
+    if (option.characterName) return `${option.characterName} (${option.value})`;
     return option.label || option.value;
   };
 
   const syncUi = (value: string): void => {
     rawInput.value = value;
     const selected = config.options.find((option) => option.value === value);
+
     browseButton.textContent = '';
     const label = document.createElement('span');
     label.className = 'item-picker-launcher-label';
@@ -98,33 +139,26 @@ export function createCatalogPickerPanelEditor(
     icon.className = 'item-picker-launcher-icon';
     icon.textContent = 'v';
     browseButton.append(label, icon);
+
+    rawWrap.classList.toggle('is-visible', customMode);
+    rawInput.hidden = !customMode;
+    customToggleButton.textContent = customMode ? 'Hide custom' : 'Custom ID';
+    clearButton.disabled = value.length === 0;
+
     summary.textContent = selected
       ? `Selected ${describeOption(selected)}.`
-      : 'Use picker or type custom id manually.';
-    clearButton.disabled = value.length === 0;
-  };
-
-  const readFacetValue = (option: CatalogPickerOption, facet: CatalogPickerFacet): string => {
-    if (facet.field) {
-      const value = option[facet.field];
-      if (typeof value === 'string' && value.trim().length > 0) return value.trim();
-    }
-    if (typeof facet.keywordIndex === 'number') {
-      const raw = option.keywords?.[facet.keywordIndex]?.trim();
-      if (raw) return raw;
-    }
-    return 'Unknown';
+      : (value ? `Using custom id ${value}. Keep manual entry for modded content.` : 'Choose from vanilla catalog or open custom id.');
   };
 
   const openPicker = (): void => {
     if (closeActive(browseButton)) return;
 
     const overlay = document.createElement('div');
-    overlay.className = 'item-picker-overlay';
+    overlay.className = 'item-picker-overlay catalog-picker-overlay';
     overlay.setAttribute('role', 'presentation');
 
     const panel = document.createElement('div');
-    panel.className = 'item-picker-panel';
+    panel.className = 'item-picker-panel catalog-picker-panel';
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-modal', 'true');
     panel.onclick = (event) => event.stopPropagation();
@@ -160,35 +194,36 @@ export function createCatalogPickerPanelEditor(
     searchWrap.append(searchIcon, searchInput);
     panel.appendChild(searchWrap);
 
+    const filterRail = document.createElement('div');
+    filterRail.className = 'item-picker-filter-rail';
+    const facetControls: Array<{ facet: CatalogPickerFacet; select: HTMLSelectElement }> = [];
+    for (const facet of facets) {
+      const control = document.createElement('label');
+      control.className = 'item-picker-filter-group';
+      const caption = document.createElement('span');
+      caption.className = 'item-picker-filter-label';
+      caption.textContent = facet.label;
+      const select = document.createElement('select');
+      select.className = 'item-picker-filter-select';
+      control.append(caption, select);
+      filterRail.appendChild(control);
+      facetControls.push({ facet, select });
+    }
+    if (facetControls.length > 0) {
+      panel.appendChild(filterRail);
+    }
+
+    const metaRow = document.createElement('div');
+    metaRow.className = 'item-picker-meta-row';
+    const currentSelection = document.createElement('div');
+    currentSelection.className = 'item-picker-selection-summary';
+    currentSelection.textContent = currentValue
+      ? `Current: ${currentValue}`
+      : 'Current: none';
     const totalCountBadge = document.createElement('div');
     totalCountBadge.className = 'item-picker-total';
-    panel.appendChild(totalCountBadge);
-
-    const facets = config.facets ?? [];
-    const facetValues = new Map<number, string>();
-    const facetButtons: Array<Map<string, HTMLButtonElement>> = [];
-    const facetBars: HTMLElement[] = [];
-    for (const [facetIndex, facet] of facets.entries()) {
-      const bar = document.createElement('div');
-      bar.className = `item-picker-chip-bar${facetIndex > 0 ? ' item-picker-subchip-bar' : ''}`;
-      const buttons = new Map<string, HTMLButtonElement>();
-      const values = Array.from(
-        new Set(config.options.map((option) => readFacetValue(option, facet))),
-      ).sort((a, b) => a.localeCompare(b));
-      addFacetChip(bar, buttons, facet.allLabel, '', () => {
-        facetValues.set(facetIndex, '');
-        renderList();
-      });
-      for (const value of values) {
-        addFacetChip(bar, buttons, value, value, () => {
-          facetValues.set(facetIndex, value);
-          renderList();
-        });
-      }
-      facetButtons.push(buttons);
-      facetBars.push(bar);
-      panel.appendChild(bar);
-    }
+    metaRow.append(currentSelection, totalCountBadge);
+    panel.appendChild(metaRow);
 
     const list = document.createElement('div');
     list.className = 'item-picker-list';
@@ -196,12 +231,41 @@ export function createCatalogPickerPanelEditor(
     listContent.className = 'item-picker-list-content item-picker-list-content-static';
     const empty = document.createElement('div');
     empty.className = 'item-picker-empty';
-    empty.textContent = 'No matches. Try clearing a filter chip or the search box.';
+    empty.textContent = 'No matches. Clear filter or switch to custom id for modded content.';
     empty.hidden = true;
     list.append(listContent, empty);
     panel.appendChild(list);
 
-    const renderOptionRow = (option: CatalogPickerOption): HTMLButtonElement => {
+    const queryMatches = (option: CatalogPickerOption, query: string): boolean => {
+      if (!query) return true;
+      return buildHaystack(option).includes(query);
+    };
+
+    const matchesOtherFacets = (
+      option: CatalogPickerOption,
+      activeFilters: string[],
+      skipFacetIndex: number | null = null,
+    ): boolean => {
+      for (const [facetIndex, activeValue] of activeFilters.entries()) {
+        if (!activeValue) continue;
+        if (skipFacetIndex != null && facetIndex === skipFacetIndex) continue;
+        const facet = facets[facetIndex];
+        if (!facet) continue;
+        if (readFacetValue(option, facet) !== activeValue) return false;
+      }
+      return true;
+    };
+
+    const renderTag = (parent: HTMLElement, value: string, modifier = 'meta'): void => {
+      const pill = document.createElement('span');
+      pill.className = `item-picker-tag item-picker-tag-${modifier}`;
+      pill.textContent = value;
+      parent.appendChild(pill);
+    };
+
+    let visibleButtons: HTMLButtonElement[] = [];
+
+    const renderOptionRow = (option: CatalogPickerOption, rowIndex: number): HTMLButtonElement => {
       const row = document.createElement('button');
       row.type = 'button';
       row.className = 'item-picker-option item-picker-option-static';
@@ -212,90 +276,82 @@ export function createCatalogPickerPanelEditor(
         const primary = document.createElement('span');
         primary.className = 'item-picker-option-primary';
 
-        const title = document.createElement('span');
-        title.className = 'item-picker-option-title';
-        title.textContent = option.characterName || (option.label || option.value);
-        primary.appendChild(title);
+        const optionTitle = document.createElement('span');
+        optionTitle.className = 'item-picker-option-title';
+        optionTitle.textContent = option.characterName || option.label || option.value;
+        primary.appendChild(optionTitle);
 
-        const id = document.createElement('span');
-        id.className = 'item-picker-option-meta';
-        id.textContent = option.value;
-        primary.appendChild(id);
-
+        const meta = document.createElement('span');
+        meta.className = 'item-picker-option-meta';
+        meta.textContent = option.value;
+        primary.appendChild(meta);
         row.appendChild(primary);
 
         const tags = document.createElement('span');
         tags.className = 'item-picker-option-tags';
-        const pushTag = (text: string | undefined, modifier: string): void => {
-          if (!text) return;
-          const pill = document.createElement('span');
-          pill.className = `item-picker-tag item-picker-tag-${modifier}`;
-          pill.textContent = text;
-          tags.appendChild(pill);
-        };
-        pushTag(option.faction, 'faction');
-        pushTag(option.role, 'role');
-        pushTag(option.level, 'level');
+        for (const field of RICH_TAG_FIELDS) {
+          const raw = (option as Record<string, unknown>)[field];
+          if (typeof raw !== 'string' || raw.trim().length === 0) continue;
+          const modifier = field === 'faction' || field === 'role' || field === 'level' ? field : 'meta';
+          renderTag(tags, raw, modifier);
+        }
         if (tags.childElementCount > 0) row.appendChild(tags);
       } else {
-        const title = document.createElement('span');
-        title.className = 'item-picker-option-title';
-        title.textContent = option.label;
+        const optionTitle = document.createElement('span');
+        optionTitle.className = 'item-picker-option-title';
+        optionTitle.textContent = option.label;
         const meta = document.createElement('span');
         meta.className = 'item-picker-option-meta';
         meta.textContent = option.value;
-        row.append(title, meta);
+        row.append(optionTitle, meta);
       }
 
       row.onclick = () => {
-        cleanup();
+        customMode = false;
         syncUi(option.value);
         onChange(option.value);
+        cleanup();
+      };
+      row.onkeydown = (event) => {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          visibleButtons[Math.min(visibleButtons.length - 1, rowIndex + 1)]?.focus();
+        } else if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          if (rowIndex === 0) searchInput.focus();
+          else visibleButtons[Math.max(0, rowIndex - 1)]?.focus();
+        } else if (event.key === 'Home') {
+          event.preventDefault();
+          visibleButtons[0]?.focus();
+        } else if (event.key === 'End') {
+          event.preventDefault();
+          visibleButtons[visibleButtons.length - 1]?.focus();
+        }
       };
       return row;
     };
 
-    const groupByLevel = (matches: CatalogPickerOption[]): Map<string, CatalogPickerOption[]> => {
-      const groups = new Map<string, CatalogPickerOption[]>();
-      for (const option of matches) {
-        const key = option.level?.trim() || 'Other';
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key)!.push(option);
-      }
-      return groups;
-    };
-
     const renderList = (): void => {
       const query = searchInput.value.trim().toLowerCase();
-      const matches = config.options.filter((option) => {
-        for (const [facetIndex, activeValue] of facetValues.entries()) {
-          if (!activeValue) continue;
-          const facet = facets[facetIndex];
-          if (!facet) continue;
-          if (readFacetValue(option, facet) !== activeValue) return false;
-        }
-        if (!query) return true;
-        const haystack = [
-          option.label,
-          option.value,
-          option.characterName,
-          option.faction,
-          option.level,
-          option.role,
-          ...(option.keywords ?? []),
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
-        return haystack.includes(query);
-      });
+      const activeFilters = facetControls.map(({ select }) => select.value);
+      const matches = config.options.filter((option) => (
+        matchesOtherFacets(option, activeFilters) && queryMatches(option, query)
+      ));
 
       listContent.innerHTML = '';
       empty.hidden = matches.length !== 0;
+      visibleButtons = [];
       const MAX_RENDERED = 260;
+      const visibleMatches = matches.slice(0, MAX_RENDERED);
 
-      if (useRichRows) {
-        const groups = groupByLevel(matches.slice(0, MAX_RENDERED));
+      const shouldGroupByLevel = useRichRows && visibleMatches.some((option) => typeof option.level === 'string' && option.level.trim().length > 0);
+      if (shouldGroupByLevel) {
+        const groups = new Map<string, CatalogPickerOption[]>();
+        for (const option of visibleMatches) {
+          const key = typeof option.level === 'string' && option.level.trim().length > 0 ? option.level.trim() : 'Other';
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key)!.push(option);
+        }
         const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
           if (a === 'Other') return 1;
           if (b === 'Other') return -1;
@@ -305,15 +361,19 @@ export function createCatalogPickerPanelEditor(
           const entries = groups.get(key) ?? [];
           const heading = document.createElement('div');
           heading.className = 'item-picker-group-heading';
-          heading.textContent = `${key} · ${entries.length}`;
+          heading.textContent = `${key} | ${entries.length}`;
           listContent.appendChild(heading);
           for (const option of entries) {
-            listContent.appendChild(renderOptionRow(option));
+            const row = renderOptionRow(option, visibleButtons.length);
+            visibleButtons.push(row);
+            listContent.appendChild(row);
           }
         }
       } else {
-        for (const option of matches.slice(0, MAX_RENDERED)) {
-          listContent.appendChild(renderOptionRow(option));
+        for (const option of visibleMatches) {
+          const row = renderOptionRow(option, visibleButtons.length);
+          visibleButtons.push(row);
+          listContent.appendChild(row);
         }
       }
 
@@ -324,53 +384,35 @@ export function createCatalogPickerPanelEditor(
         listContent.appendChild(overflow);
       }
 
-      totalCountBadge.textContent = `${matches.length} of ${config.options.length} match current filters.`;
+      totalCountBadge.textContent = `${matches.length} / ${config.options.length} match`;
 
-      for (const [facetIndex, buttons] of facetButtons.entries()) {
-        const active = facetValues.get(facetIndex) ?? '';
-        const facet = facets[facetIndex];
+      for (const [facetIndex, control] of facetControls.entries()) {
         const counts = new Map<string, number>();
-        if (facet) {
-          // Count options that satisfy every OTHER active facet + the search,
-          // so users see an accurate remaining cardinality per chip.
-          for (const option of config.options) {
-            let keep = true;
-            for (const [otherIndex, otherValue] of facetValues.entries()) {
-              if (otherIndex === facetIndex) continue;
-              if (!otherValue) continue;
-              const otherFacet = facets[otherIndex];
-              if (otherFacet && readFacetValue(option, otherFacet) !== otherValue) {
-                keep = false;
-                break;
-              }
-            }
-            if (!keep) continue;
-            if (query) {
-              const haystack = [
-                option.label,
-                option.value,
-                option.characterName,
-                option.faction,
-                option.level,
-                option.role,
-                ...(option.keywords ?? []),
-              ]
-                .filter(Boolean)
-                .join(' ')
-                .toLowerCase();
-              if (!haystack.includes(query)) continue;
-            }
-            const bucket = readFacetValue(option, facet);
-            counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
-            counts.set('', (counts.get('') ?? 0) + 1);
-          }
+        for (const option of config.options) {
+          if (!matchesOtherFacets(option, activeFilters, facetIndex) || !queryMatches(option, query)) continue;
+          const bucket = readFacetValue(option, control.facet);
+          counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
+          counts.set('', (counts.get('') ?? 0) + 1);
         }
-        for (const [value, button] of buttons) {
-          button.classList.toggle('is-active', value === active);
-          const countEl = button.querySelector('.item-picker-chip-count');
-          const count = counts.get(value);
-          if (countEl) countEl.textContent = typeof count === 'number' ? String(count) : '';
+
+        const current = control.select.value;
+        const values = Array.from(new Set(config.options.map((option) => readFacetValue(option, control.facet))))
+          .sort((a, b) => a.localeCompare(b));
+        control.select.innerHTML = '';
+
+        const allOption = document.createElement('option');
+        allOption.value = '';
+        allOption.textContent = `${control.facet.allLabel} (${counts.get('') ?? 0})`;
+        control.select.appendChild(allOption);
+
+        for (const value of values) {
+          const optionEl = document.createElement('option');
+          optionEl.value = value;
+          optionEl.textContent = `${value} (${counts.get(value) ?? 0})`;
+          control.select.appendChild(optionEl);
         }
+
+        control.select.value = current;
       }
     };
 
@@ -402,9 +444,18 @@ export function createCatalogPickerPanelEditor(
       if (event.target === overlay) cleanup();
     };
     searchInput.oninput = renderList;
+    searchInput.onkeydown = (event) => {
+      if (event.key === 'ArrowDown' && visibleButtons.length > 0) {
+        event.preventDefault();
+        visibleButtons[0]?.focus();
+      }
+    };
+    for (const control of facetControls) {
+      control.select.onchange = renderList;
+    }
 
     overlay.appendChild(panel);
-    document.body.appendChild(overlay);
+    getMount().appendChild(overlay);
     activeCleanup = cleanup;
     activeTrigger = browseButton;
     renderList();
@@ -421,37 +472,31 @@ export function createCatalogPickerPanelEditor(
   };
 
   browseButton.onclick = openPicker;
+  customToggleButton.onclick = () => {
+    customMode = !customMode;
+    syncUi(rawInput.value);
+    if (customMode) requestAnimationFrame(() => rawInput.focus());
+  };
   clearButton.onclick = () => {
+    customMode = false;
     syncUi('');
     onChange('');
-    rawInput.focus();
   };
-  rawInput.oninput = () => onChange(rawInput.value);
+  rawInput.oninput = () => {
+    customMode = true;
+    onChange(rawInput.value);
+    syncUi(rawInput.value);
+  };
   rawInput.onchange = () => {
+    customMode = true;
     syncUi(rawInput.value);
     onChange(rawInput.value);
   };
-  rawInput.addEventListener('input', () => syncUi(rawInput.value));
 
-  launcherRow.append(browseButton, clearButton);
-  wrapper.append(launcherRow, rawInput, summary);
+  launcherRow.append(browseButton, customToggleButton, clearButton);
+  wrapper.append(launcherRow, rawWrap, summary);
   syncUi(currentValue);
   return wrapper;
-}
-
-function addFacetChip(parent: HTMLElement, buttons: Map<string, HTMLButtonElement>, label: string, value: string, onClick: () => void): void {
-  const chip = document.createElement('button');
-  chip.type = 'button';
-  chip.className = 'item-picker-chip';
-  const chipLabel = document.createElement('span');
-  chipLabel.className = 'item-picker-chip-label';
-  chipLabel.textContent = label;
-  const chipCount = document.createElement('span');
-  chipCount.className = 'item-picker-chip-count';
-  chip.append(chipLabel, chipCount);
-  chip.onclick = onClick;
-  buttons.set(value, chip);
-  parent.appendChild(chip);
 }
 
 export function createSmartTerrainPickerEditor(

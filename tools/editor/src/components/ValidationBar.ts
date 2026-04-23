@@ -1,7 +1,7 @@
 // P.A.N.D.A. Conversation Editor — Validation Bar
 
 import { requestFlowCenter } from '../lib/flow-navigation';
-import { store } from '../lib/state';
+import { store, type BranchInlinePanelMode } from '../lib/state';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import type { ValidationMessage } from '../lib/types';
 import { createBadge, createControlContent, setButtonContent } from './icons';
@@ -199,32 +199,101 @@ function buildTooltip(msg: ValidationMessage): string {
 }
 
 function navigateToMessage(msg: ValidationMessage): void {
-  store.selectConversation(msg.conversationId);
-  if (msg.turnNumber != null) {
-    store.selectTurn(msg.turnNumber);
-  }
-  if (msg.choiceIndex != null) {
-    store.selectChoice(msg.choiceIndex);
-  }
+  const branchPanel = getBranchInlineTarget(msg);
+
+  store.batch(() => {
+    store.selectConversation(msg.conversationId);
+    if (msg.turnNumber != null) {
+      store.selectTurn(msg.turnNumber);
+    }
+    if (msg.choiceIndex != null) {
+      store.selectChoice(msg.choiceIndex);
+    }
+
+    if (msg.propertiesTab) {
+      store.setPropertiesTab(msg.propertiesTab);
+    }
+
+    if (branchPanel) {
+      store.openBranchInlinePanel(branchPanel);
+    } else {
+      store.closeBranchInlinePanel();
+    }
+  });
 
   requestFlowCenter({
     conversationId: msg.conversationId,
     turnNumber: msg.turnNumber,
     fit: msg.turnNumber == null,
   });
-  if (msg.propertiesTab) {
-    store.setPropertiesTab(msg.propertiesTab);
-  }
 
   requestAnimationFrame(() => {
     if (!msg.fieldKey) return;
-    const field = document.querySelector(`[data-field-key="${CSS.escape(msg.fieldKey)}"]`) as HTMLElement | null;
+    const branchField = document.querySelector(`.branch-inline-modal-overlay [data-field-key="${CSS.escape(msg.fieldKey)}"]`) as HTMLElement | null;
+    const field = branchField ?? document.querySelector(`[data-field-key="${CSS.escape(msg.fieldKey)}"]`) as HTMLElement | null;
     if (!field) return;
     field.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
     if (isFocusable(field)) {
       field.focus();
     }
   });
+}
+
+function getBranchInlineTarget(msg: ValidationMessage): {
+  conversationId: number;
+  turnNumber: number;
+  choiceIndex: number | null;
+  mode: BranchInlinePanelMode;
+  selectedOutcomeIndex: number | null;
+} | null {
+  if (msg.turnNumber == null) return null;
+  if (msg.scope === 'project' || msg.scope === 'conversation') return null;
+
+  const mode = getBranchInlineMode(msg);
+  return {
+    conversationId: msg.conversationId,
+    turnNumber: msg.turnNumber,
+    choiceIndex: msg.choiceIndex ?? null,
+    mode,
+    selectedOutcomeIndex: getBranchInlineSelection(msg, mode),
+  };
+}
+
+function getBranchInlineMode(msg: ValidationMessage): BranchInlinePanelMode {
+  if (msg.scope === 'outcome' || msg.outcomeIndex != null) return 'outcomes';
+  if (msg.scope === 'precondition' || msg.preconditionIndex != null) return 'preconditions';
+
+  const key = msg.fieldKey ?? '';
+  if (
+    msg.code === 'missing-continue-target'
+    || key.includes('continue-to')
+    || key.includes('continue-channel')
+    || key.includes('pda-delay-seconds')
+    || key.includes('cont-npc-id')
+    || key.includes('npc-faction-filters')
+    || key.includes('npc-profile-filters')
+    || key.includes('allow-generic-stalker')
+  ) {
+    return 'continuation';
+  }
+
+  if (key.includes('precondition')) return 'preconditions';
+  return 'dialogue';
+}
+
+function getBranchInlineSelection(msg: ValidationMessage, mode: BranchInlinePanelMode): number | null {
+  if (mode === 'outcomes') {
+    return msg.outcomeIndex ?? 0;
+  }
+  if (mode === 'preconditions') {
+    const preconditionIndex = msg.preconditionIndex ?? 0;
+    return encodePreconditionIndex(preconditionIndex);
+  }
+  return null;
+}
+
+function encodePreconditionIndex(index: number): number {
+  return -index - 1;
 }
 
 function escapeHtml(value: string): string {
