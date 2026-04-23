@@ -3332,6 +3332,7 @@ body.use-custom-cursor * {
 
 .branch-inline-modal {
   width: clamp(360px, calc(100vw - 32px), 1100px);
+  height: auto;
   max-height: calc(100dvh - 32px);
   display: flex;
   min-width: 0;
@@ -3339,6 +3340,7 @@ body.use-custom-cursor * {
 
 .branch-inline-modal .branch-inline-panel {
   width: 100%;
+  height: auto;
   max-height: calc(100dvh - 32px);
   margin-top: 0;
   display: flex;
@@ -3346,8 +3348,12 @@ body.use-custom-cursor * {
   overflow: hidden;
 }
 
+.branch-inline-modal .branch-inline-workspace {
+  flex: 0 1 auto;
+}
+
 .branch-inline-modal .branch-inline-panel-body {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
   overflow: auto;
 }
@@ -3485,11 +3491,19 @@ body.use-custom-cursor * {
 }
 
 .branch-inline-schema-option span,
+.branch-inline-hint,
 .branch-inline-detail-desc,
 .branch-inline-empty {
   color: var(--text-dim);
   font-size: 11px;
   line-height: 1.35;
+}
+
+.branch-inline-hint {
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--branch-color, var(--accent)) 18%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--branch-color, var(--accent)) 7%, rgba(255, 255, 255, 0.02));
 }
 
 .branch-inline-current-outcome,
@@ -22844,12 +22858,13 @@ button.pa-avatar:focus-visible {
 
 .branch-inline-modal {
   width: min(1180px, calc(100vw - 32px));
-  height: min(760px, calc(100dvh - 32px));
+  height: auto;
   max-height: calc(100dvh - 32px);
 }
 
 .branch-inline-modal .branch-inline-panel {
-  max-height: none;
+  height: auto;
+  max-height: calc(100dvh - 32px);
 }
 
 .branch-opener-card,

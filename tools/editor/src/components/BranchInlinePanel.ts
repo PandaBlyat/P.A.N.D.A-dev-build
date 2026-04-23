@@ -189,6 +189,10 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
   grid.className = 'branch-inline-grid branch-inline-grid-two';
 
   const textPane = createPane(choice ? 'Dialogue Text' : 'NPC Opener');
+  textPane.appendChild(createHint(choice
+    ? 'Player Choice Text is what player clicks. NPC Reply is response shown after that choice.'
+    : 'NPC Opener starts this branch. PDA means distant message flow; F2F means face-to-face NPC dialogue.',
+  ));
   if (!choice) {
     textPane.appendChild(createTextarea({
       label: 'NPC Opener Message',
@@ -219,7 +223,7 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
   }
 
   const placeholderPane = createPane('Dynamic Placeholder List');
-  renderPlaceholderPicker(placeholderPane, `branch-inline-${conv.id}-${turn.turnNumber}-${choice?.index ?? 'opener'}-placeholders`, { defaultCollapsed: false });
+  renderPlaceholderPicker(placeholderPane, `branch-inline-${conv.id}-${turn.turnNumber}-${choice?.index ?? 'opener'}-placeholders`, { defaultCollapsed: true });
 
   const actionRow = document.createElement('div');
   actionRow.className = 'branch-inline-action-row branch-inline-stage-row';
@@ -392,6 +396,10 @@ function renderCommandPanel(
   grid.className = 'branch-inline-grid branch-inline-grid-outcomes';
 
   const listPane = createPane(choice ? 'Preconditions / Outcomes' : 'Opener Preconditions');
+  listPane.appendChild(createHint(choice
+    ? 'Preconditions gate whether player can see this choice. Outcomes run after player picks it.'
+    : 'Opener preconditions gate whether this branch can start.',
+  ));
   renderCommandAddControls(listPane, conv, turn, choice);
   renderCurrentCommandList(listPane, conv, turn, choice, selection);
 
@@ -420,6 +428,10 @@ function renderPreconditionsPanel(
   grid.className = 'branch-inline-grid branch-inline-grid-preconditions';
 
   const listPane = createPane(choice ? 'Choice Preconditions' : 'Opener Preconditions');
+  listPane.appendChild(createHint(choice
+    ? 'Preconditions are required checks. If any check fails, this choice stays hidden.'
+    : 'Opener preconditions are required checks before this branch can begin.',
+  ));
   renderPreconditionAddControls(listPane, conv, turn, choice);
   renderCurrentPreconditionList(listPane, conv, turn, choice, selection);
 
@@ -451,6 +463,7 @@ function renderOutcomesPanel(
   grid.className = 'branch-inline-grid branch-inline-grid-outcomes';
 
   const listPane = createPane('Choice Outcomes');
+  listPane.appendChild(createHint('Outcomes are effects after player picks this choice: money, items, reputation, tasks, spawns, teleport, and similar changes.'));
   renderOutcomeAddControls(listPane, conv, turn, choice);
   renderCurrentOutcomeList(listPane, conv, turn, choice, selection);
 
@@ -474,6 +487,7 @@ function renderContinuationPanel(container: HTMLElement, conv: Conversation, tur
   grid.className = 'branch-inline-grid branch-inline-grid-continuation';
 
   const pathPane = createPane('How Does This Dialogue Continue?');
+  pathPane.appendChild(createHint('Pick PDA to continue through distant messages. Pick F2F to continue through face-to-face NPC dialogue.'));
   const currentChannel = normalizeChannel(choice.continueChannel ?? choice.continue_channel, normalizeChannel(turn.channel, normalizeChannel(conv.initialChannel, 'pda')));
   const channelRow = document.createElement('div');
   channelRow.className = 'branch-inline-segmented branch-inline-large-segmented';
@@ -492,6 +506,7 @@ function renderContinuationPanel(container: HTMLElement, conv: Conversation, tur
   pathPane.appendChild(renderExistingBranchLinks(conv, turn, choice, turnLabels));
 
   const npcPane = createPane('Who Continues It?');
+  npcPane.appendChild(createHint('Same NPC keeps current speaker. New NPC hands next branch to story NPC, custom spawned NPC, or any matching sim NPC.'));
   renderNpcContinuationOptions(npcPane, conv, turn, choice);
 
   grid.append(npcPane, pathPane);
@@ -1213,6 +1228,13 @@ function createSegmentButton(label: string, active: boolean, onClick: () => void
   button.textContent = label;
   button.onclick = onClick;
   return button;
+}
+
+function createHint(text: string): HTMLElement {
+  const hint = document.createElement('div');
+  hint.className = 'branch-inline-hint';
+  hint.textContent = text;
+  return hint;
 }
 
 function createEmpty(text: string): HTMLElement {
