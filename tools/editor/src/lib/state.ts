@@ -19,7 +19,7 @@ export type PropertiesTab = 'conversation' | 'selection';
 export type FlowDensity = 'compact' | 'standard' | 'detailed';
 export type BottomWorkspaceTab = 'strings' | 'xml';
 export type CursorAnimationIntensity = 'low' | 'medium' | 'high';
-export type BranchInlinePanelMode = 'dialogue' | 'outcomes' | 'continuation';
+export type BranchInlinePanelMode = 'dialogue' | 'preconditions' | 'outcomes' | 'continuation';
 
 export interface BranchInlinePanelState {
   mode: BranchInlinePanelMode;
@@ -513,6 +513,10 @@ class StateManager {
 
   private markProjectChanged(): void {
     this.state.projectRevision += 1;
+  }
+
+  flushPendingTextEdits(): void {
+    this.finalizeTextSessions();
   }
 
   private markFlowChanged(kind: NonNullable<StateChange['flow']>['kind'] | undefined): void {
@@ -2201,23 +2205,23 @@ class StateManager {
   /**
    * Appends conversations from an external source into the current project,
    * re-assigning IDs to avoid conflicts with existing conversations.
-   * Returns the ID of the first imported conversation so callers can select it.
+   * Returns imported IDs in insertion order so callers can map metadata exactly.
    */
-  mergeConversations(incoming: Conversation[]): number | null {
-    if (incoming.length === 0) return null;
+  mergeConversations(incoming: Conversation[]): number[] {
+    if (incoming.length === 0) return [];
     this.pushUndo();
     const maxId = this.state.project.conversations.reduce((m, c) => Math.max(m, c.id), 0);
     let nextId = maxId + 1;
-    let firstId: number | null = null;
+    const importedIds: number[] = [];
     for (const conv of incoming) {
       const merged: Conversation = JSON.parse(JSON.stringify(conv));
       merged.id = nextId++;
-      if (firstId === null) firstId = merged.id;
+      importedIds.push(merged.id);
       this.state.project.conversations.push(merged);
       this.state.conversationSourceMetadata.delete(merged.id);
     }
     this.finishProjectMutation();
-    return firstId;
+    return importedIds;
   }
 
   getConversationSourceMetadata(conversationId: number | null | undefined): ConversationSourceMetadata | null {

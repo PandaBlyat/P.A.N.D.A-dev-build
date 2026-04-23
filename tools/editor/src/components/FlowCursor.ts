@@ -78,6 +78,7 @@ function getSharedPointerTracker(): SharedPointerTracker {
   };
 
   document.addEventListener('pointerdown', updatePointer, { passive: true });
+  document.addEventListener('pointermove', updatePointer, { capture: true, passive: true });
 
   const tracker: SharedPointerTracker = {
     get lastPosition() {
@@ -85,6 +86,7 @@ function getSharedPointerTracker(): SharedPointerTracker {
     },
     dispose() {
       document.removeEventListener('pointerdown', updatePointer);
+      document.removeEventListener('pointermove', updatePointer, { capture: true });
       delete globalWindow[POINTER_TRACKING_NAMESPACE];
     },
   };
@@ -325,6 +327,18 @@ class CursorInteractionAdapter {
     this.updateState();
   };
 
+  private onCapturedPointerMove = (event: PointerEvent): void => {
+    if (event.pointerType !== 'mouse') return;
+    const target = event.target as HTMLElement | null;
+    this.pointerX = event.clientX;
+    this.pointerY = event.clientY;
+    this.insideCanvas = Boolean(target && this.canvas.contains(target)) || this.drawing || this.panning || this.dragging || this.linking;
+    this.hoveringManipulationZone = this.detectManipulationZone(target);
+    this.inTextInput = this.detectTextInput(target);
+    this.queueRender();
+    this.updateState();
+  };
+
   private onDocumentPointerMove = (event: PointerEvent): void => {
     if (event.pointerType !== 'mouse') return;
     const target = event.target as Node | null;
@@ -424,6 +438,7 @@ class CursorInteractionAdapter {
     this.canvas.addEventListener('pointerenter', this.onPointerEnter);
     this.canvas.addEventListener('pointerleave', this.onPointerLeave);
     this.canvas.addEventListener('pointermove', this.onPointerMove, { passive: true });
+    document.addEventListener('pointermove', this.onCapturedPointerMove, { capture: true, passive: true });
     document.addEventListener('pointermove', this.onDocumentPointerMove, { passive: true });
     document.addEventListener('pointerdown', this.onPointerDown);
     document.addEventListener('pointerup', this.onPointerUp);
@@ -439,6 +454,7 @@ class CursorInteractionAdapter {
     this.canvas.removeEventListener('pointerenter', this.onPointerEnter);
     this.canvas.removeEventListener('pointerleave', this.onPointerLeave);
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
+    document.removeEventListener('pointermove', this.onCapturedPointerMove, { capture: true });
     document.removeEventListener('pointermove', this.onDocumentPointerMove);
     document.removeEventListener('pointerdown', this.onPointerDown);
     document.removeEventListener('pointerup', this.onPointerUp);

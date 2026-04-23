@@ -90,6 +90,7 @@ const CONTENT_PADDING = 120;
 const BRANCH_INLINE_PANEL_WIDTH = 920;
 const BRANCH_INLINE_PANEL_HEIGHTS: Record<BranchInlinePanelState['mode'], number> = {
   dialogue: 420,
+  preconditions: 620,
   outcomes: 620,
   continuation: 540,
 };
@@ -131,6 +132,10 @@ function openBranchInlinePanelWithFocus(trigger: HTMLElement | null, panel: Bran
 function closeBranchInlinePanelModal(): void {
   const restoreTarget = branchInlineModalRestoreFocus;
   branchInlineModalRestoreFocus = null;
+  store.flushPendingTextEdits();
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
   store.closeBranchInlinePanel();
   requestAnimationFrame(() => {
     if (restoreTarget?.isConnected) restoreTarget.focus();
@@ -169,6 +174,10 @@ type LiveFlowState = {
 };
 let liveFlow: LiveFlowState | null = null;
 let flowCursorSystem: FlowCursorSystem | null = null;
+
+export function resetFlowViewState(conversationId: number): void {
+  viewStateByConversation.delete(conversationId);
+}
 
 /**
  * Fast-path: update only selection-related visuals without rebuilding DOM.
@@ -2202,7 +2211,7 @@ function renderTurnNode(options: {
     openerCard.className = 'branch-opener-card branch-inline-trigger';
     openerCard.dataset.branchInlineAction = 'opener';
     openerCard.tabIndex = 0;
-    openerCard.title = 'Open NPC opener editor below this branch';
+    openerCard.title = 'Open NPC opener editor';
     const openOpenerPanel = (event: Event): void => {
       event.preventDefault();
       event.stopPropagation();
@@ -2217,8 +2226,6 @@ function renderTurnNode(options: {
         });
       });
     };
-    openerCard.onpointerdown = (event) => event.stopPropagation();
-    openerCard.onclick = openOpenerPanel;
     openerCard.onkeydown = (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();
@@ -2235,8 +2242,6 @@ function renderTurnNode(options: {
     openerEdit.className = 'branch-inline-edit-btn';
     openerEdit.dataset.branchInlineAction = 'opener';
     openerEdit.textContent = 'Edit';
-    openerEdit.onpointerdown = openOpenerPanel;
-    openerEdit.onclick = openOpenerPanel;
     openerCard.append(openerLabel, openerText, openerEdit);
     body.appendChild(openerCard);
   }

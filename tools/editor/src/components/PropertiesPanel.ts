@@ -332,7 +332,7 @@ function renderBranchInlineInspectorSummary(
   } else if (choice) {
     summary.textContent = `${turnLabels.getLongLabel(turn.turnNumber)} / Choice ${choice.index}: editing ${inlinePanel.mode}.`;
   } else {
-    summary.textContent = `${turnLabels.getLongLabel(turn.turnNumber)} opener: editing ${inlinePanel.mode === 'outcomes' ? 'preconditions' : inlinePanel.mode}.`;
+    summary.textContent = `${turnLabels.getLongLabel(turn.turnNumber)} opener: editing ${inlinePanel.mode}.`;
   }
   section.appendChild(summary);
 

@@ -58,25 +58,33 @@ export function renderBranchInlinePanel(options: {
   onClose?: () => void;
 }): HTMLElement {
   const { conv, turn, choice, mode, selectedOutcomeIndex, turnLabels, onClose } = options;
+  const safeMode: BranchInlinePanelMode = !choice && (mode === 'outcomes' || mode === 'continuation') ? 'preconditions' : mode;
   const panel = document.createElement('section');
-  panel.className = `branch-inline-panel branch-inline-panel-${mode}${choice ? ' is-choice-scope' : ' is-opener-scope'}`;
+  panel.className = `branch-inline-panel branch-inline-panel-${safeMode}${choice ? ' is-choice-scope' : ' is-opener-scope'}`;
   panel.onclick = (event) => event.stopPropagation();
   panel.onpointerdown = (event) => event.stopPropagation();
   panel.onwheel = (event) => event.stopPropagation();
 
-  panel.appendChild(renderHeader(conv, turn, choice, mode, turnLabels, onClose));
+  panel.appendChild(renderHeader(conv, turn, choice, safeMode, turnLabels, onClose, panel));
+  const workspace = document.createElement('div');
+  workspace.className = 'branch-inline-workspace';
+  workspace.appendChild(renderSidebar(conv, turn, choice, safeMode));
+
   const body = document.createElement('div');
   body.className = 'branch-inline-panel-body';
-  panel.appendChild(body);
+  workspace.appendChild(body);
+  panel.appendChild(workspace);
 
-  if (mode === 'dialogue') {
+  if (safeMode === 'dialogue') {
     renderDialoguePanel(body, conv, turn, choice);
-  } else if (mode === 'outcomes') {
-    renderCommandPanel(body, conv, turn, choice, selectedOutcomeIndex);
-  } else if (!choice) {
-    body.appendChild(createEmpty('Pick player choice before continuation.'));
-  } else {
+  } else if (safeMode === 'preconditions') {
+    renderPreconditionsPanel(body, conv, turn, choice, selectedOutcomeIndex);
+  } else if (safeMode === 'outcomes') {
+    renderOutcomesPanel(body, conv, turn, choice, selectedOutcomeIndex);
+  } else if (choice) {
     renderContinuationPanel(body, conv, turn, choice, turnLabels);
+  } else {
+    body.appendChild(createEmpty('Pick player choice before continuation.'));
   }
 
   return panel;
@@ -89,6 +97,7 @@ function renderHeader(
   mode: BranchInlinePanelMode,
   turnLabels: TurnLabels,
   onClose?: () => void,
+  panel?: HTMLElement,
 ): HTMLElement {
   const header = document.createElement('div');
   header.className = 'branch-inline-panel-header';
@@ -97,29 +106,6 @@ function renderHeader(
   title.className = 'branch-inline-panel-title';
   const scope = choice ? `${turnLabels.getLongLabel(turn.turnNumber)} / Choice ${choice.index}` : turnLabels.getLongLabel(turn.turnNumber);
   title.textContent = `${scope} - ${modeLabel(mode, choice)}`;
-
-  const steps = document.createElement('div');
-  steps.className = 'branch-inline-steps';
-  const stepLabels = choice
-    ? ['Dialogue Text', 'Preconditions / Outcomes', 'Continuation']
-    : ['Dialogue Text', 'Preconditions'];
-  for (const label of stepLabels) {
-    const step = document.createElement('button');
-    step.type = 'button';
-    step.className = `branch-inline-step${stepMatchesMode(label, mode) ? ' is-active' : ''}`;
-    step.textContent = label;
-    step.disabled = stepMatchesMode(label, mode);
-    step.onclick = () => {
-      if (label === 'Continuation' && choice) {
-        openPanel(conv.id, turn.turnNumber, choice.index, 'continuation');
-      } else if (label === 'Preconditions / Outcomes' || label === 'Preconditions') {
-        openPanel(conv.id, turn.turnNumber, choice?.index ?? null, 'outcomes', getInitialCommandSelection(turn, choice));
-      } else {
-        openPanel(conv.id, turn.turnNumber, choice?.index ?? null, 'dialogue');
-      }
-    };
-    steps.appendChild(step);
-  }
 
   const close = document.createElement('button');
   close.type = 'button';
@@ -130,6 +116,7 @@ function renderHeader(
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
+    flushBranchInlineEdits(panel ?? header.closest('.branch-inline-panel') ?? header);
     if (onClose) {
       onClose();
     } else {
@@ -141,8 +128,60 @@ function renderHeader(
   close.addEventListener('pointerup', closePanel, true);
   close.addEventListener('click', closePanel, true);
 
-  header.append(title, steps, close);
+  header.append(title, close);
   return header;
+}
+
+function renderSidebar(conv: Conversation, turn: Turn, choice: Choice | null, mode: BranchInlinePanelMode): HTMLElement {
+  const sidebar = document.createElement('nav');
+  sidebar.className = 'branch-inline-sidebar';
+  sidebar.setAttribute('aria-label', 'Branch editor sections');
+  const tabs: Array<{ mode: BranchInlinePanelMode; label: string; count?: number }> = choice
+    ? [
+      { mode: 'dialogue', label: 'Dialogue' },
+      { mode: 'preconditions', label: 'Preconditions', count: choice.preconditions?.length ?? 0 },
+      { mode: 'outcomes', label: 'Outcomes', count: choice.outcomes.length },
+      { mode: 'continuation', label: 'Continuation' },
+    ]
+    : [
+      { mode: 'dialogue', label: 'Dialogue' },
+      { mode: 'preconditions', label: 'Preconditions', count: turn.preconditions.length },
+    ];
+
+  for (const tabInfo of tabs) {
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = `branch-inline-sidebar-tab${mode === tabInfo.mode ? ' is-active' : ''}`;
+    tab.disabled = mode === tabInfo.mode;
+    tab.onclick = () => {
+      const initialSelection = tabInfo.mode === 'preconditions'
+        ? getInitialPreconditionSelection(turn, choice)
+        : tabInfo.mode === 'outcomes'
+        ? getInitialOutcomeSelection(choice)
+        : null;
+      openPanel(conv.id, turn.turnNumber, choice?.index ?? null, tabInfo.mode, initialSelection);
+    };
+    const label = document.createElement('span');
+    label.textContent = tabInfo.label;
+    tab.appendChild(label);
+    if (tabInfo.count != null) {
+      const badge = document.createElement('strong');
+      badge.textContent = String(tabInfo.count);
+      tab.appendChild(badge);
+    }
+    sidebar.appendChild(tab);
+  }
+  return sidebar;
+}
+
+function flushBranchInlineEdits(root: Element): void {
+  root.querySelectorAll('textarea').forEach((textarea) => {
+    textarea.dispatchEvent(new Event('branch-inline-commit'));
+  });
+  if (document.activeElement instanceof HTMLElement && root.contains(document.activeElement)) {
+    document.activeElement.blur();
+  }
+  store.flushPendingTextEdits();
 }
 
 function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: Turn, choice: Choice | null): void {
@@ -184,9 +223,14 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
 
   const actionRow = document.createElement('div');
   actionRow.className = 'branch-inline-action-row branch-inline-stage-row';
-  actionRow.append(createActionButton(choice ? `Outcomes (${choice.outcomes.length})` : `Preconditions (${turn.preconditions.length})`, () => {
-    openPanel(conv.id, turn.turnNumber, choice?.index ?? null, 'outcomes', getInitialCommandSelection(turn, choice));
+  actionRow.append(createActionButton(`Preconditions (${choice ? (choice.preconditions?.length ?? 0) : turn.preconditions.length})`, () => {
+    openPanel(conv.id, turn.turnNumber, choice?.index ?? null, 'preconditions', getInitialPreconditionSelection(turn, choice));
   }));
+  if (choice) {
+    actionRow.append(createActionButton(`Outcomes (${choice.outcomes.length})`, () => {
+      openPanel(conv.id, turn.turnNumber, choice.index, 'outcomes', getInitialOutcomeSelection(choice));
+    }));
+  }
   placeholderPane.appendChild(actionRow);
 
   grid.append(textPane, placeholderPane);
@@ -364,6 +408,67 @@ function renderCommandPanel(
   container.appendChild(grid);
 }
 
+function renderPreconditionsPanel(
+  container: HTMLElement,
+  conv: Conversation,
+  turn: Turn,
+  choice: Choice | null,
+  selectedOutcomeIndex: number | null,
+): void {
+  const selection = resolvePreconditionSelection(turn, choice, selectedOutcomeIndex);
+  const grid = document.createElement('div');
+  grid.className = 'branch-inline-grid branch-inline-grid-preconditions';
+
+  const listPane = createPane(choice ? 'Choice Preconditions' : 'Opener Preconditions');
+  renderPreconditionAddControls(listPane, conv, turn, choice);
+  renderCurrentPreconditionList(listPane, conv, turn, choice, selection);
+
+  const detailPane = createPane('Details / Properties');
+  if (selection == null) {
+    detailPane.appendChild(createEmpty(choice ? 'Pick or add precondition to edit properties here.' : 'Pick or add opener precondition to edit properties here.'));
+  } else {
+    renderPreconditionDetails(detailPane, conv, turn, choice, selection);
+  }
+
+  grid.append(listPane, detailPane);
+  container.appendChild(grid);
+}
+
+function renderOutcomesPanel(
+  container: HTMLElement,
+  conv: Conversation,
+  turn: Turn,
+  choice: Choice | null,
+  selectedOutcomeIndex: number | null,
+): void {
+  if (!choice) {
+    container.appendChild(createEmpty('Outcomes belong to player choices.'));
+    return;
+  }
+
+  const selection = resolveOutcomeSelection(choice, selectedOutcomeIndex);
+  const grid = document.createElement('div');
+  grid.className = 'branch-inline-grid branch-inline-grid-outcomes';
+
+  const listPane = createPane('Choice Outcomes');
+  renderOutcomeAddControls(listPane, conv, turn, choice);
+  renderCurrentOutcomeList(listPane, conv, turn, choice, selection);
+
+  const detailPane = createPane('Details / Properties');
+  if (selection == null) {
+    detailPane.appendChild(createEmpty('Pick or add outcome to edit properties here.'));
+  } else {
+    renderOutcomeDetails(detailPane, conv, turn, choice, selection);
+  }
+  const continueRow = document.createElement('div');
+  continueRow.className = 'branch-inline-action-row branch-inline-next-row';
+  continueRow.appendChild(createActionButton('Continuation', () => openPanel(conv.id, turn.turnNumber, choice.index, 'continuation')));
+  detailPane.appendChild(continueRow);
+
+  grid.append(listPane, detailPane);
+  container.appendChild(grid);
+}
+
 function renderContinuationPanel(container: HTMLElement, conv: Conversation, turn: Turn, choice: Choice, turnLabels: TurnLabels): void {
   const grid = document.createElement('div');
   grid.className = 'branch-inline-grid branch-inline-grid-continuation';
@@ -508,6 +613,108 @@ function renderCommandAddControls(container: HTMLElement, conv: Conversation, tu
   container.appendChild(controls);
 }
 
+function renderPreconditionAddControls(container: HTMLElement, conv: Conversation, turn: Turn, choice: Choice | null): void {
+  const controls = document.createElement('div');
+  controls.className = 'branch-inline-picker-actions';
+  const addPrecondition = createActionButton(choice ? 'Add Precondition' : 'Add Opener Precondition', () => undefined);
+  addPrecondition.onclick = () => {
+    showCommandPicker(addPrecondition, getAddablePreconditionSchemas(choice ? 'choice' : 'turn'), (schema) => {
+      addPreconditionEntry(conv, turn, choice, schema);
+    }, {
+      title: choice ? 'Add choice precondition' : 'Add opener precondition',
+      searchPlaceholder: 'Search preconditions...',
+      emptyMessage: 'No matching preconditions',
+    });
+  };
+  controls.appendChild(addPrecondition);
+  container.appendChild(controls);
+}
+
+function renderOutcomeAddControls(container: HTMLElement, conv: Conversation, turn: Turn, choice: Choice): void {
+  const controls = document.createElement('div');
+  controls.className = 'branch-inline-picker-actions';
+  const addOutcome = createActionButton('Add Outcome', () => undefined);
+  addOutcome.onclick = () => {
+    showCommandPicker(addOutcome, OUTCOME_SCHEMAS, (schema) => {
+      addOutcomeEntry(conv, turn, choice, schema);
+    }, {
+      title: 'Add outcome',
+      searchPlaceholder: 'Search outcomes...',
+      emptyMessage: 'No matching outcomes',
+    });
+  };
+  controls.appendChild(addOutcome);
+  container.appendChild(controls);
+}
+
+function renderCurrentPreconditionList(
+  container: HTMLElement,
+  conv: Conversation,
+  turn: Turn,
+  choice: Choice | null,
+  selectedIndex: number | null,
+): void {
+  const wrap = document.createElement('div');
+  wrap.className = 'branch-inline-current-outcomes';
+  const title = document.createElement('div');
+  title.className = 'branch-inline-subtitle';
+  title.textContent = 'Current Preconditions';
+  wrap.appendChild(title);
+
+  const entries = choice ? (choice.preconditions ?? []) : (turn.preconditions ?? []);
+  if (entries.length === 0) {
+    wrap.appendChild(createEmpty(choice ? 'No preconditions on this choice.' : 'No opener preconditions.'));
+    container.appendChild(wrap);
+    return;
+  }
+
+  entries.forEach((entry, index) => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = `branch-inline-current-outcome${selectedIndex === index ? ' is-active' : ''}`;
+    row.setAttribute('data-field-key', choice
+      ? getChoicePreconditionItemFieldKey(conv.id, turn.turnNumber, choice.index, index)
+      : getTurnPreconditionItemFieldKey(conv.id, turn.turnNumber, index));
+    row.textContent = `${index + 1}. ${formatPreconditionLabel(entry)}`;
+    row.onclick = () => openPanel(conv.id, turn.turnNumber, choice?.index ?? null, 'preconditions', encodePreconditionIndex(index));
+    wrap.appendChild(row);
+  });
+  container.appendChild(wrap);
+}
+
+function renderCurrentOutcomeList(
+  container: HTMLElement,
+  conv: Conversation,
+  turn: Turn,
+  choice: Choice,
+  selectedIndex: number | null,
+): void {
+  const wrap = document.createElement('div');
+  wrap.className = 'branch-inline-current-outcomes';
+  const title = document.createElement('div');
+  title.className = 'branch-inline-subtitle';
+  title.textContent = 'Current Outcomes';
+  wrap.appendChild(title);
+
+  if (choice.outcomes.length === 0) {
+    wrap.appendChild(createEmpty('No outcomes on this choice.'));
+    container.appendChild(wrap);
+    return;
+  }
+
+  choice.outcomes.forEach((outcome, index) => {
+    const schema = OUTCOME_SCHEMAS.find((candidate) => candidate.name === outcome.command);
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = `branch-inline-current-outcome${selectedIndex === index ? ' is-active' : ''}`;
+    row.setAttribute('data-field-key', getOutcomeItemFieldKey(conv.id, turn.turnNumber, choice.index, index));
+    row.textContent = `${index + 1}. ${schema?.label ?? outcome.command}`;
+    row.onclick = () => openPanel(conv.id, turn.turnNumber, choice.index, 'outcomes', index);
+    wrap.appendChild(row);
+  });
+  container.appendChild(wrap);
+}
+
 function renderCurrentCommandList(
   container: HTMLElement,
   conv: Conversation,
@@ -631,7 +838,7 @@ function renderPreconditionDetails(container: HTMLElement, conv: Conversation, t
     createActionButton('Move Down', () => movePrecondition(conv, turn, choice, preconditionIndex, 1), preconditionIndex >= entries.length - 1),
     createActionButton('Delete', () => {
       updatePreconditions(conv, turn, choice, entries.filter((_, index) => index !== preconditionIndex));
-      openPanel(conv.id, turn.turnNumber, choice?.index ?? null, 'outcomes', getInitialCommandSelectionAfterDelete(entries.length, preconditionIndex));
+      openPanel(conv.id, turn.turnNumber, choice?.index ?? null, 'preconditions', getInitialCommandSelectionAfterDelete(entries.length, preconditionIndex));
     }),
   );
   container.appendChild(actions);
@@ -693,7 +900,7 @@ function renderOutcomeDetails(container: HTMLElement, conv: Conversation, turn: 
     createActionButton('Delete', () => {
       const next = choice.outcomes.filter((_, index) => index !== outcomeIndex);
       store.updateChoice(conv.id, turn.turnNumber, choice.index, { outcomes: next });
-      openPanel(conv.id, turn.turnNumber, choice.index, 'outcomes', next.length > 0 ? Math.min(outcomeIndex, next.length - 1) : getInitialCommandSelection(turn, choice));
+      openPanel(conv.id, turn.turnNumber, choice.index, 'outcomes', next.length > 0 ? Math.min(outcomeIndex, next.length - 1) : null);
     }),
   );
   container.appendChild(actions);
@@ -709,7 +916,7 @@ function addPreconditionEntry(conv: Conversation, turn: Turn, choice: Choice | n
   const nextIndex = entries.length;
   store.batch(() => {
     updatePreconditions(conv, turn, choice, [...entries, entry]);
-    openPanel(conv.id, turn.turnNumber, choice?.index ?? null, 'outcomes', encodePreconditionIndex(nextIndex));
+    openPanel(conv.id, turn.turnNumber, choice?.index ?? null, 'preconditions', encodePreconditionIndex(nextIndex));
   });
 }
 
@@ -924,7 +1131,7 @@ function movePrecondition(conv: Conversation, turn: Turn, choice: Choice | null,
   next.splice(nextIndex, 0, moved);
   store.batch(() => {
     updatePreconditions(conv, turn, choice, next);
-    openPanel(conv.id, turn.turnNumber, choice?.index ?? null, 'outcomes', encodePreconditionIndex(nextIndex));
+    openPanel(conv.id, turn.turnNumber, choice?.index ?? null, 'preconditions', encodePreconditionIndex(nextIndex));
   });
 }
 
@@ -962,6 +1169,7 @@ function createTextarea(options: {
     options.onCommit(textarea.value);
   };
   textarea.onblur = commit;
+  textarea.addEventListener('branch-inline-commit', commit);
   textarea.onkeydown = (event) => {
     event.stopPropagation();
     if (event.key === 'Escape') {
@@ -1042,10 +1250,35 @@ function resolveCommandSelection(turn: Turn, choice: Choice | null, encodedIndex
   return null;
 }
 
+function resolvePreconditionSelection(turn: Turn, choice: Choice | null, encodedIndex: number | null): number | null {
+  const entries = choice ? (choice.preconditions ?? []) : (turn.preconditions ?? []);
+  if (entries.length === 0) return null;
+  if (encodedIndex != null && encodedIndex < 0) {
+    const index = decodePreconditionIndex(encodedIndex);
+    if (index >= 0 && index < entries.length) return index;
+  }
+  return 0;
+}
+
+function resolveOutcomeSelection(choice: Choice, encodedIndex: number | null): number | null {
+  if (choice.outcomes.length === 0) return null;
+  if (encodedIndex != null && encodedIndex >= 0 && encodedIndex < choice.outcomes.length) return encodedIndex;
+  return 0;
+}
+
 function getInitialCommandSelection(turn: Turn, choice: Choice | null): number | null {
   if (choice && choice.outcomes.length > 0) return 0;
   const entries = choice ? (choice.preconditions ?? []) : (turn.preconditions ?? []);
   return entries.length > 0 ? encodePreconditionIndex(0) : null;
+}
+
+function getInitialPreconditionSelection(turn: Turn, choice: Choice | null): number | null {
+  const entries = choice ? (choice.preconditions ?? []) : (turn.preconditions ?? []);
+  return entries.length > 0 ? encodePreconditionIndex(0) : null;
+}
+
+function getInitialOutcomeSelection(choice: Choice | null): number | null {
+  return choice && choice.outcomes.length > 0 ? 0 : null;
 }
 
 function getInitialCommandSelectionAfterDelete(lengthBeforeDelete: number, deletedIndex: number): number | null {
@@ -1072,14 +1305,16 @@ function formatPreconditionLabel(entry: PreconditionEntry): string {
 }
 
 function modeLabel(mode: BranchInlinePanelMode, choice: Choice | null): string {
-  if (mode === 'outcomes') return choice ? 'Preconditions / Outcomes' : 'Preconditions';
+  if (mode === 'preconditions') return 'Preconditions';
+  if (mode === 'outcomes') return 'Outcomes';
   if (mode === 'continuation') return 'Continuation';
   return 'Dialogue Text';
 }
 
 function stepMatchesMode(label: string, mode: BranchInlinePanelMode): boolean {
   if (label === 'Dialogue Text') return mode === 'dialogue';
-  if (label === 'Preconditions' || label === 'Preconditions / Outcomes') return mode === 'outcomes';
+  if (label === 'Preconditions') return mode === 'preconditions';
+  if (label === 'Outcomes') return mode === 'outcomes';
   if (label === 'Continuation') return mode === 'continuation';
   return false;
 }

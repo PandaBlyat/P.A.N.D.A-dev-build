@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Root App Component
 
-import { store, type BottomWorkspaceTab, type AppState, type FlowDensity, type RenderTarget, type StateChange } from '../lib/state';
+import { store, type BottomWorkspaceTab, type AppState, type ConversationSourceMetadata, type FlowDensity, type RenderTarget, type StateChange } from '../lib/state';
 import { renderToolbar as renderToolbarContent } from './Toolbar';
 import {
   centerConversationSelection,
@@ -8,7 +8,7 @@ import {
   duplicateConversationSelection,
   renderConversationList as renderConversationListContent,
 } from './ConversationList';
-import { renderFlowEditor as renderFlowEditorContent, syncFlowEditor, updateFlowSelection } from './FlowEditor';
+import { renderFlowEditor as renderFlowEditorContent, resetFlowViewState, syncFlowEditor, updateFlowSelection } from './FlowEditor';
 import { renderPropertiesPanel as renderPropertiesPanelContent } from './PropertiesPanel';
 import { renderBottomWorkspace as renderBottomWorkspaceContent } from './BottomWorkspace';
 import { createSystemStringsPanelContent } from './SystemStringsPanel';
@@ -1053,6 +1053,7 @@ function clampWidth(value: number): number {
 export function importConversations(
   conversations: import('../lib/types').Conversation[],
   faction?: import('../lib/types').FactionId,
+  sourceMetadata?: ConversationSourceMetadata,
 ): number | null {
   const currentProject = store.get().project;
   const normalizedProject = normalizeProjectData({
@@ -1064,15 +1065,19 @@ export function importConversations(
     ...conversation,
     faction: getConversationFaction(conversation, faction ?? currentProject.faction),
   }));
-  const firstId = store.mergeConversations(normalizedConversations);
-  if (firstId != null) {
-    const importedIds = normalizedConversations.map((_, index) => firstId + index);
-    store.batch(() => {
+  let importedIds: number[] = [];
+  store.batch(() => {
+    importedIds = store.mergeConversations(normalizedConversations);
+    if (importedIds.length > 0) {
       for (const importedId of importedIds) {
+        resetFlowViewState(importedId);
         store.autoLayoutConversation(importedId, { spacious: true, centerRoot: true });
+        if (sourceMetadata) {
+          store.setConversationSourceMetadata(importedId, sourceMetadata);
+        }
       }
-      store.selectConversation(firstId);
-    });
-  }
-  return firstId;
+      store.selectConversation(importedIds[0]!);
+    }
+  });
+  return importedIds[0] ?? null;
 }

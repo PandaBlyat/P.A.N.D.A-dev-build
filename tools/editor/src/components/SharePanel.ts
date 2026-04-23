@@ -1168,7 +1168,12 @@ async function handleImportCard(conv: CommunityConversation, btn: HTMLButtonElem
     publisher_id: conv.publisher_id,
     co_authors: conv.co_authors ?? [],
   }));
-  importConversations(imported, conv.faction);
+  importConversations(imported, conv.faction, {
+    sourceCommunityId: conv.id,
+    sourcePublisherId: conv.publisher_id?.trim() || 'anonymous',
+    sourceCoAuthors: conv.co_authors ?? [],
+    sourceUpdatedAt: conv.updated_at || undefined,
+  });
   incrementDownload(conv.id);
 
   const match = allResults.find(entry => entry.id === conv.id);
@@ -1191,14 +1196,18 @@ async function handleEditImport(conv: CommunityConversation, btn: HTMLButtonElem
     return;
   }
 
-  const importedConversationId = importConversations(conversations, conv.faction);
-  if (importedConversationId != null) {
-    store.setConversationSourceMetadata(importedConversationId, {
+  const imported = conversations.map(entry => attachCommunitySourceMetadata(entry, {
+    id: conv.id,
+    publisher_id: conv.publisher_id,
+    co_authors: conv.co_authors ?? [],
+  }));
+  const importedConversationId = importConversations(imported, conv.faction, {
     sourceCommunityId: conv.id,
     sourcePublisherId: conv.publisher_id?.trim() || 'anonymous',
     sourceCoAuthors: conv.co_authors ?? [],
     sourceUpdatedAt: conv.updated_at || undefined,
   });
+  if (importedConversationId != null) {
     updateReplacementIntentState();
   }
   incrementDownload(conv.id);
