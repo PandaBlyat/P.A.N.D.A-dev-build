@@ -219,6 +219,13 @@ function normalizeOptionalNonNegativeInteger(value: unknown): number | undefined
   return normalized >= 0 ? normalized : undefined;
 }
 
+function shouldCenterTemplateStartTurn(turn: Turn | undefined): boolean {
+  if (!turn?.position) return true;
+  const defaultPosition = getDefaultFlowTurnPosition(1);
+  if (turn.position.x === defaultPosition.x && turn.position.y === defaultPosition.y) return false;
+  return turn.position.x < 120 && turn.position.y < 120;
+}
+
 function hasOwnUpdates<T extends object>(target: T, updates: Partial<T>): boolean {
   for (const key of Object.keys(updates) as Array<keyof T>) {
     if (!Object.is(target[key], updates[key])) {
@@ -1552,6 +1559,19 @@ class StateManager {
       }));
       normalizeTurnEntryFlags(turn);
     });
+    const startTurn = nextConversation.turns.find((turn) => turn.turnNumber === 1);
+    if (shouldCenterTemplateStartTurn(startTurn)) {
+      const defaultPosition = getDefaultFlowTurnPosition(1);
+      const sourcePosition = startTurn?.position ?? { x: 0, y: 0 };
+      const deltaX = defaultPosition.x - sourcePosition.x;
+      const deltaY = defaultPosition.y - sourcePosition.y;
+      nextConversation.turns.forEach((turn) => {
+        turn.position = {
+          x: Math.max(0, Math.round((turn.position?.x ?? 0) + deltaX)),
+          y: Math.max(0, Math.round((turn.position?.y ?? 0) + deltaY)),
+        };
+      });
+    }
     this.state.project.conversations.push(nextConversation);
     if (npcTemplates.length > 0) {
       const existing = new Map((this.state.project.npcTemplates ?? []).map((template) => [template.id, template]));

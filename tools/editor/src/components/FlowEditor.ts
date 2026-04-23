@@ -5,7 +5,7 @@ import { requestFlowCenter, setActiveFlowViewport, type FlowViewportApi } from '
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { createOnboardingNudge } from './Onboarding';
 import { FACTION_COLORS } from '../lib/faction-colors';
-import { estimateFlowNodeHeight, FLOW_WORKSPACE_MIN_HEIGHT, FLOW_WORKSPACE_MIN_WIDTH, getFlowNodeLayout } from '../lib/flow-layout';
+import { estimateFlowNodeHeight, FLOW_DEFAULT_TURN_POSITION, FLOW_WORKSPACE_MIN_HEIGHT, FLOW_WORKSPACE_MIN_WIDTH, getFlowNodeLayout } from '../lib/flow-layout';
 import { buildFlowGraphModel, getVisibleFlowItems, type FlowGraphModel } from '../lib/flow-graph-model';
 import { createIcon } from './icons';
 import { createFlowCursorSystem, type FlowCursorSystem } from './FlowCursor';
@@ -120,6 +120,30 @@ let activeBranchAuthorPopup: {
   cleanup: () => void;
   scope: BranchAuthorPopupScope;
 } | null = null;
+let branchInlineModalRestoreFocus: HTMLElement | null = null;
+
+function openBranchInlinePanelWithFocus(trigger: HTMLElement | null, panel: BranchInlinePanelState): void {
+  branchInlineModalRestoreFocus = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+  store.openBranchInlinePanel(panel);
+}
+
+function closeBranchInlinePanelModal(): void {
+  const restoreTarget = branchInlineModalRestoreFocus;
+  branchInlineModalRestoreFocus = null;
+  store.closeBranchInlinePanel();
+  requestAnimationFrame(() => {
+    if (restoreTarget?.isConnected) restoreTarget.focus();
+  });
+}
+
+function syncAnnotationToolUi(canvas: HTMLElement | null, tool: FlowAnnotationTool): void {
+  canvas?.classList.toggle('is-annotating', tool !== 'select');
+  document.querySelectorAll<HTMLButtonElement>('.flow-annotation-tool').forEach((button) => {
+    const active = button.dataset.annotationTool === tool;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
 
 // ── Live flow editor state for incremental updates ──
 type LiveFlowState = {
@@ -543,9 +567,13 @@ export function renderFlowEditor(container: HTMLElement): void {
   const annotationLayer = createFlowAnnotationLayer({
     conv,
     bounds,
-    viewState,
     canvas,
+    content,
     getTool: () => activeAnnotationTool,
+    setTool: (tool) => {
+      activeAnnotationTool = tool;
+      syncAnnotationToolUi(canvas, activeAnnotationTool);
+    },
     getColor: () => activeAnnotationColor,
   });
   content.appendChild(annotationLayer);
@@ -607,11 +635,19 @@ export function renderFlowEditor(container: HTMLElement): void {
     drawFrame = window.requestAnimationFrame(runDraw);
   };
 
+  const setAnnotationTool = (tool: FlowAnnotationTool): FlowAnnotationTool => {
+    activeAnnotationTool = activeAnnotationTool === tool ? 'select' : tool;
+    syncAnnotationToolUi(canvas, activeAnnotationTool);
+    return activeAnnotationTool;
+  };
+
   const controls = renderControls({
     customCursorEnabled: state.customCursorEnabled,
     cursorSize: state.cursorSize,
     mobilePerformanceMode,
     zoomValue,
+    activeAnnotationTool,
+    onSetAnnotationTool: (tool) => setAnnotationTool(tool),
     onZoomIn: () => zoomAtViewportPoint(canvas, viewState, 1.12, canvas.clientWidth / 2, canvas.clientHeight / 2, applyView),
     onZoomOut: () => zoomAtViewportPoint(canvas, viewState, 1 / 1.12, canvas.clientWidth / 2, canvas.clientHeight / 2, applyView),
     onFit: () => fitContent(),
@@ -627,6 +663,12 @@ export function renderFlowEditor(container: HTMLElement): void {
   });
   shell.appendChild(canvas);
   shell.appendChild(controls);
+  const branchModal = renderBranchInlineModalOverlay({
+    conv,
+    branchInlinePanel: state.branchInlinePanel,
+    turnLabels,
+  });
+  if (branchModal) shell.appendChild(branchModal);
   container.appendChild(shell);
 
   const focusTurn = (turnNumber: number, options: { center?: boolean } = {}): void => {
@@ -1047,11 +1089,66 @@ function getEffectiveFlowDensity(preferredDensity: FlowDensity): FlowDensity {
   return isCompactViewport() ? 'compact' : preferredDensity;
 }
 
+function renderBranchInlineModalOverlay(options: {
+  conv: Conversation;
+  branchInlinePanel: BranchInlinePanelState | null;
+  turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
+}): HTMLElement | null {
+  const { conv, branchInlinePanel, turnLabels } = options;
+  if (!branchInlinePanel || branchInlinePanel.conversationId !== conv.id) return null;
+
+  const turn = conv.turns.find((candidate) => candidate.turnNumber === branchInlinePanel.turnNumber);
+  if (!turn) return null;
+  const choice = branchInlinePanel.choiceIndex == null
+    ? null
+    : turn.choices.find((candidate) => candidate.index === branchInlinePanel.choiceIndex) ?? null;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'branch-inline-modal-overlay';
+  overlay.setAttribute('role', 'presentation');
+  overlay.onclick = (event) => {
+    if (event.target === overlay) closeBranchInlinePanelModal();
+  };
+
+  const modal = document.createElement('div');
+  modal.className = 'branch-inline-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-label', 'Branch editor');
+  modal.onclick = (event) => event.stopPropagation();
+  modal.onkeydown = (event) => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    closeBranchInlinePanelModal();
+  };
+
+  modal.appendChild(renderBranchInlinePanel({
+    conv,
+    turn,
+    choice,
+    mode: branchInlinePanel.mode,
+    selectedOutcomeIndex: branchInlinePanel.selectedOutcomeIndex ?? null,
+    turnLabels,
+    onClose: closeBranchInlinePanelModal,
+  }));
+  overlay.appendChild(modal);
+
+  requestAnimationFrame(() => {
+    const focusTarget = modal.querySelector<HTMLElement>('input, textarea, select, button, [tabindex]:not([tabindex="-1"])');
+    focusTarget?.focus();
+  });
+
+  return overlay;
+}
+
 function renderControls(options: {
   customCursorEnabled: boolean;
   cursorSize: number;
   mobilePerformanceMode: boolean;
   zoomValue: HTMLElement;
+  activeAnnotationTool: FlowAnnotationTool;
+  onSetAnnotationTool: (tool: FlowAnnotationTool) => FlowAnnotationTool;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFit: () => void;
@@ -1117,13 +1214,11 @@ function renderControls(options: {
 
   const annotationButtons: HTMLButtonElement[] = [];
   const setAnnotationTool = (tool: FlowAnnotationTool): void => {
-    activeAnnotationTool = activeAnnotationTool === tool ? 'select' : tool;
+    const nextTool = options.onSetAnnotationTool(tool);
     annotationButtons.forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.annotationTool === activeAnnotationTool);
-      button.setAttribute('aria-pressed', button.dataset.annotationTool === activeAnnotationTool ? 'true' : 'false');
+      button.classList.toggle('is-active', button.dataset.annotationTool === nextTool);
+      button.setAttribute('aria-pressed', button.dataset.annotationTool === nextTool ? 'true' : 'false');
     });
-    const active = activeAnnotationTool !== 'select';
-    document.querySelector('.flow-canvas')?.classList.toggle('is-annotating', active);
   };
 
   const drawButton = document.createElement('button');
@@ -1133,8 +1228,8 @@ function renderControls(options: {
   drawButton.appendChild(createIcon('draw'));
   drawButton.title = 'Draw markup line on flow';
   drawButton.setAttribute('aria-label', 'Draw markup line');
-  drawButton.setAttribute('aria-pressed', activeAnnotationTool === 'draw' ? 'true' : 'false');
-  drawButton.classList.toggle('is-active', activeAnnotationTool === 'draw');
+  drawButton.setAttribute('aria-pressed', options.activeAnnotationTool === 'draw' ? 'true' : 'false');
+  drawButton.classList.toggle('is-active', options.activeAnnotationTool === 'draw');
   drawButton.onclick = () => setAnnotationTool('draw');
   annotationButtons.push(drawButton);
 
@@ -1145,8 +1240,8 @@ function renderControls(options: {
   textButton.appendChild(createIcon('comment'));
   textButton.title = 'Add comment note to flow';
   textButton.setAttribute('aria-label', 'Add comment note');
-  textButton.setAttribute('aria-pressed', activeAnnotationTool === 'text' ? 'true' : 'false');
-  textButton.classList.toggle('is-active', activeAnnotationTool === 'text');
+  textButton.setAttribute('aria-pressed', options.activeAnnotationTool === 'text' ? 'true' : 'false');
+  textButton.classList.toggle('is-active', options.activeAnnotationTool === 'text');
   textButton.onclick = () => setAnnotationTool('text');
   annotationButtons.push(textButton);
 
@@ -1230,12 +1325,13 @@ function renderControls(options: {
 function createFlowAnnotationLayer(options: {
   conv: Conversation;
   bounds: ContentBounds;
-  viewState: ViewState;
   canvas: HTMLElement;
+  content: HTMLElement;
   getTool: () => FlowAnnotationTool;
+  setTool: (tool: FlowAnnotationTool) => void;
   getColor: () => string;
 }): HTMLElement {
-  const { conv, bounds, viewState, canvas, getTool, getColor } = options;
+  const { conv, bounds, canvas, content, getTool, setTool, getColor } = options;
   const layer = document.createElement('div');
   layer.className = 'flow-annotation-layer';
   layer.style.width = `${bounds.width}px`;
@@ -1256,7 +1352,7 @@ function createFlowAnnotationLayer(options: {
 
   for (const annotation of conv.flowAnnotations ?? []) {
     if (annotation.type === 'note') {
-      layer.appendChild(renderNoteAnnotation(conv.id, annotation, canvas, viewState));
+      layer.appendChild(renderNoteAnnotation(conv.id, annotation, content));
     }
   }
 
@@ -1295,13 +1391,12 @@ function createFlowAnnotationLayer(options: {
 
     event.preventDefault();
     event.stopPropagation();
-    const point = viewportToWorldPoint(canvas, viewState, event.clientX, event.clientY);
+    const point = clientToFlowContentPoint(content, event.clientX, event.clientY);
 
     if (tool === 'text') {
       const id = createAnnotationId();
       pendingFocusAnnotationId = id;
-      activeAnnotationTool = 'select';
-      canvas.classList.remove('is-annotating');
+      setTool('select');
       store.addFlowAnnotation(conv.id, {
         id,
         type: 'note',
@@ -1332,7 +1427,7 @@ function createFlowAnnotationLayer(options: {
     if (!activeLine || event.pointerId !== activeLine.pointerId) return;
     event.preventDefault();
     event.stopPropagation();
-    const point = viewportToWorldPoint(canvas, viewState, event.clientX, event.clientY);
+    const point = clientToFlowContentPoint(content, event.clientX, event.clientY);
     const previous = activeLine.points[activeLine.points.length - 1];
     if (Math.hypot(point.x - previous.x, point.y - previous.y) < 4) return;
     activeLine.points.push(point);
@@ -1341,6 +1436,9 @@ function createFlowAnnotationLayer(options: {
 
   const cancelLine = (event?: PointerEvent): void => {
     if (event && activeLine && event.pointerId !== activeLine.pointerId) return;
+    if (event && layer.hasPointerCapture(event.pointerId)) {
+      layer.releasePointerCapture(event.pointerId);
+    }
     activeLine?.path.remove();
     activeLine = null;
     canvas.classList.remove('is-annotating-active');
@@ -1390,8 +1488,7 @@ function renderLineAnnotation(svg: SVGSVGElement, layer: HTMLElement, conversati
 function renderNoteAnnotation(
   conversationId: number,
   annotation: FlowNoteAnnotation,
-  canvas: HTMLElement,
-  viewState: ViewState,
+  content: HTMLElement,
 ): HTMLElement {
   const note = document.createElement('div');
   note.className = 'flow-annotation-note';
@@ -1452,7 +1549,7 @@ function renderNoteAnnotation(
     if ((event.target as HTMLElement).closest('button')) return;
     event.preventDefault();
     event.stopPropagation();
-    const point = viewportToWorldPoint(canvas, viewState, event.clientX, event.clientY);
+    const point = clientToFlowContentPoint(content, event.clientX, event.clientY);
     drag = {
       pointerId: event.pointerId,
       startX: point.x,
@@ -1467,7 +1564,7 @@ function renderNoteAnnotation(
     if (!drag || event.pointerId !== drag.pointerId) return;
     event.preventDefault();
     event.stopPropagation();
-    const point = viewportToWorldPoint(canvas, viewState, event.clientX, event.clientY);
+    const point = clientToFlowContentPoint(content, event.clientX, event.clientY);
     const x = Math.max(0, Math.round(drag.originX + point.x - drag.startX));
     const y = Math.max(0, Math.round(drag.originY + point.y - drag.startY));
     note.style.left = `${x}px`;
@@ -1475,7 +1572,7 @@ function renderNoteAnnotation(
   };
   const finishDrag = (event: PointerEvent) => {
     if (!drag || event.pointerId !== drag.pointerId) return;
-    const point = viewportToWorldPoint(canvas, viewState, event.clientX, event.clientY);
+    const point = clientToFlowContentPoint(content, event.clientX, event.clientY);
     const x = Math.max(0, Math.round(drag.originX + point.x - drag.startX));
     const y = Math.max(0, Math.round(drag.originY + point.y - drag.startY));
     drag = null;
@@ -1526,11 +1623,8 @@ function calculateContentBounds(conv: Conversation, density: FlowDensity, branch
 
   for (const turn of conv.turns) {
     const turnWidth = getFlowNodeWidth(turn, turnLabels.getLongLabel(turn.turnNumber), density);
-    const inlineActive = branchInlinePanel?.conversationId === conv.id && branchInlinePanel.turnNumber === turn.turnNumber;
-    const renderedWidth = inlineActive ? Math.max(turnWidth, BRANCH_INLINE_PANEL_WIDTH) : turnWidth;
-    const renderedHeight = estimateFlowNodeHeight(turn, density) + (inlineActive ? BRANCH_INLINE_PANEL_HEIGHTS[branchInlinePanel.mode] : 0);
-    maxX = Math.max(maxX, turn.position.x + renderedWidth);
-    maxY = Math.max(maxY, turn.position.y + renderedHeight);
+    maxX = Math.max(maxX, turn.position.x + turnWidth);
+    maxY = Math.max(maxY, turn.position.y + estimateFlowNodeHeight(turn, density));
   }
 
   for (const annotation of conv.flowAnnotations ?? []) {
@@ -1545,9 +1639,13 @@ function calculateContentBounds(conv: Conversation, density: FlowDensity, branch
     maxY = Math.max(maxY, annotation.y + 140);
   }
 
+  const defaultLayout = getFlowNodeLayout(density);
+  const centeredMinWidth = Math.ceil((FLOW_DEFAULT_TURN_POSITION.x + defaultLayout.width / 2) * 2);
+  const centeredMinHeight = Math.ceil((FLOW_DEFAULT_TURN_POSITION.y + defaultLayout.minHeight / 2) * 2);
+
   return {
-    width: Math.max(FLOW_WORKSPACE_MIN_WIDTH, maxX + CONTENT_PADDING),
-    height: Math.max(FLOW_WORKSPACE_MIN_HEIGHT, maxY + CONTENT_PADDING),
+    width: Math.max(FLOW_WORKSPACE_MIN_WIDTH, centeredMinWidth, maxX + CONTENT_PADDING),
+    height: Math.max(FLOW_WORKSPACE_MIN_HEIGHT, centeredMinHeight, maxY + CONTENT_PADDING),
   };
 }
 
@@ -1635,7 +1733,7 @@ function renderTurnNode(options: {
   setBeginnerTooltip(node, 'flow-turn-node');
   node.style.left = `${turn.position.x}px`;
   node.style.top = `${turn.position.y}px`;
-  node.style.width = inlinePanelActive ? `${BRANCH_INLINE_PANEL_WIDTH}px` : selected ? `${Math.max(nodeWidth, 520)}px` : `${nodeWidth}px`;
+  node.style.width = selected ? `${Math.max(nodeWidth, 520)}px` : `${nodeWidth}px`;
   node.style.setProperty('--branch-color', branchColor);
   node.style.setProperty('--branch-glow', branchColor + '40');
   node.style.setProperty('--starter-branch-color', factionColor);
@@ -1658,7 +1756,7 @@ function renderTurnNode(options: {
       if (choiceIndex != null && !Number.isNaN(choiceIndex)) {
         store.selectChoice(choiceIndex);
       }
-      store.openBranchInlinePanel({
+      openBranchInlinePanelWithFocus(actionEl, {
         conversationId: conv.id,
         turnNumber: turn.turnNumber,
         choiceIndex: action === 'opener' ? null : choiceIndex,
@@ -2020,7 +2118,7 @@ function renderTurnNode(options: {
       event.stopImmediatePropagation();
       store.batch(() => {
         store.selectTurn(turn.turnNumber);
-        store.openBranchInlinePanel({
+        openBranchInlinePanelWithFocus(openerCard, {
           conversationId: conv.id,
           turnNumber: turn.turnNumber,
           choiceIndex: null,
@@ -2071,7 +2169,7 @@ function renderTurnNode(options: {
       store.batch(() => {
         store.selectTurn(turn.turnNumber);
         store.selectChoice(choice.index);
-        store.openBranchInlinePanel({
+        openBranchInlinePanelWithFocus(item, {
           conversationId: conv.id,
           turnNumber: turn.turnNumber,
           choiceIndex: choice.index,
@@ -2143,7 +2241,7 @@ function renderTurnNode(options: {
       store.batch(() => {
         store.selectTurn(turn.turnNumber);
         store.selectChoice(choice.index);
-        store.openBranchInlinePanel({
+        openBranchInlinePanelWithFocus(editChoiceButton, {
           conversationId: conv.id,
           turnNumber: turn.turnNumber,
           choiceIndex: choice.index,
@@ -2169,7 +2267,7 @@ function renderTurnNode(options: {
       store.batch(() => {
         store.selectTurn(turn.turnNumber);
         store.selectChoice(choice.index);
-        store.openBranchInlinePanel({
+        openBranchInlinePanelWithFocus(outcomesButton, {
           conversationId: conv.id,
           turnNumber: turn.turnNumber,
           choiceIndex: choice.index,
@@ -2264,7 +2362,7 @@ function renderTurnNode(options: {
         store.batch(() => {
           store.selectTurn(turn.turnNumber);
           store.selectChoice(choice.index);
-          store.openBranchInlinePanel({
+          openBranchInlinePanelWithFocus(outBadge, {
             conversationId: conv.id,
             turnNumber: turn.turnNumber,
             choiceIndex: choice.index,
@@ -2284,7 +2382,7 @@ function renderTurnNode(options: {
         store.batch(() => {
           store.selectTurn(turn.turnNumber);
           store.selectChoice(choice.index);
-          store.openBranchInlinePanel({
+          openBranchInlinePanelWithFocus(trigger, {
             conversationId: conv.id,
             turnNumber: turn.turnNumber,
             choiceIndex: choice.index,
@@ -2309,7 +2407,7 @@ function renderTurnNode(options: {
         store.batch(() => {
           store.selectTurn(turn.turnNumber);
           store.selectChoice(choice.index);
-          store.openBranchInlinePanel({
+          openBranchInlinePanelWithFocus(trigger, {
             conversationId: conv.id,
             turnNumber: turn.turnNumber,
             choiceIndex: choice.index,
@@ -2337,7 +2435,7 @@ function renderTurnNode(options: {
         store.batch(() => {
           store.selectTurn(turn.turnNumber);
           store.selectChoice(choice.index);
-          store.openBranchInlinePanel({
+          openBranchInlinePanelWithFocus(replyRow, {
             conversationId: conv.id,
             turnNumber: turn.turnNumber,
             choiceIndex: choice.index,
@@ -2381,7 +2479,7 @@ function renderTurnNode(options: {
         store.addChoice(conv.id, turn.turnNumber);
         store.selectTurn(turn.turnNumber);
         store.selectChoice(nextChoiceIndex);
-        store.openBranchInlinePanel({
+        openBranchInlinePanelWithFocus(addChoiceButton, {
           conversationId: conv.id,
           turnNumber: turn.turnNumber,
           choiceIndex: nextChoiceIndex,
@@ -2393,24 +2491,6 @@ function renderTurnNode(options: {
     choicesList.appendChild(addChoiceRow);
   }
   body.appendChild(choicesList);
-
-  if (
-    branchInlinePanel
-    && branchInlinePanel.conversationId === conv.id
-    && branchInlinePanel.turnNumber === turn.turnNumber
-  ) {
-    const panelChoice = branchInlinePanel.choiceIndex == null
-      ? null
-      : turn.choices.find((candidate) => candidate.index === branchInlinePanel.choiceIndex) ?? null;
-    body.appendChild(renderBranchInlinePanel({
-      conv,
-      turn,
-      choice: panelChoice,
-      mode: branchInlinePanel.mode,
-      selectedOutcomeIndex: branchInlinePanel.selectedOutcomeIndex ?? null,
-      turnLabels,
-    }));
-  }
 
   // ── Footer info (detailed mode) ──
   if (isAdvancedMode && density === 'detailed') {
@@ -3682,6 +3762,16 @@ function viewportToWorldPoint(canvas: HTMLElement, viewState: ViewState, clientX
   return {
     x: (clientX - rect.left - viewState.panX) / viewState.zoom,
     y: (clientY - rect.top - viewState.panY) / viewState.zoom,
+  };
+}
+
+function clientToFlowContentPoint(content: HTMLElement, clientX: number, clientY: number): { x: number; y: number } {
+  const rect = content.getBoundingClientRect();
+  const scaleX = rect.width > 0 ? content.offsetWidth / rect.width : 1;
+  const scaleY = rect.height > 0 ? content.offsetHeight / rect.height : 1;
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY,
   };
 }
 

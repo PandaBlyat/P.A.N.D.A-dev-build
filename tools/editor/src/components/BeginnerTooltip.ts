@@ -15,7 +15,6 @@ type MountedTooltip = {
   element: HTMLElement;
   anchor: HTMLElement;
   config: BeginnerTooltipConfig;
-  fallbackPoint: TooltipAnchorPoint;
 };
 
 const HOVER_OPEN_DELAY_MS = 280;
@@ -45,6 +44,7 @@ export function mountBeginnerTooltipController(root: HTMLElement = document.body
 class BeginnerTooltipController {
   private current: MountedTooltip | null = null;
   private hoveredAnchor: HTMLElement | null = null;
+  private suppressedAnchor: HTMLElement | null = null;
   private openTimer: number | null = null;
   private closeTimer: number | null = null;
   private mutationObserver: MutationObserver;
@@ -95,7 +95,11 @@ class BeginnerTooltipController {
     }
 
     const anchor = target.closest<HTMLElement>('[data-beginner-tooltip-id]');
+    if (this.suppressedAnchor && anchor !== this.suppressedAnchor) {
+      this.suppressedAnchor = null;
+    }
     if (!anchor || !this.root.contains(anchor)) return;
+    if (this.suppressedAnchor === anchor) return;
 
     if (this.hoveredAnchor === anchor && this.current?.anchor === anchor) {
       this.cancelClose();
@@ -112,6 +116,9 @@ class BeginnerTooltipController {
     if (related && related.closest?.('[data-beginner-tooltip-id]') === this.hoveredAnchor) return;
 
     if (this.hoveredAnchor) {
+      if (this.hoveredAnchor === this.suppressedAnchor) {
+        this.suppressedAnchor = null;
+      }
       this.hoveredAnchor = null;
       this.cancelOpen();
     }
@@ -125,6 +132,7 @@ class BeginnerTooltipController {
     if (!target) return;
     const anchor = target.closest<HTMLElement>('[data-beginner-tooltip-id]');
     if (!anchor || !this.root.contains(anchor)) return;
+    if (this.suppressedAnchor === anchor) return;
     const rect = anchor.getBoundingClientRect();
     this.hoveredAnchor = anchor;
     this.scheduleOpen(anchor, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
@@ -135,6 +143,9 @@ class BeginnerTooltipController {
     if (!target) return;
     const anchor = target.closest<HTMLElement>('[data-beginner-tooltip-id]');
     if (!anchor) return;
+    if (this.suppressedAnchor === anchor) {
+      this.suppressedAnchor = null;
+    }
     if (this.hoveredAnchor === anchor) this.hoveredAnchor = null;
     this.scheduleClose();
   };
@@ -149,6 +160,7 @@ class BeginnerTooltipController {
     if (anchor && this.root.contains(anchor)) {
       const config = getBeginnerTooltipConfig(anchor);
       if (config && !isBeginnerTooltipDismissed(config.id)) {
+        if (this.suppressedAnchor === anchor) return;
         if (this.current?.anchor !== anchor) {
           this.close();
           const rect = anchor.getBoundingClientRect();
@@ -223,6 +235,9 @@ class BeginnerTooltipController {
     const element = createTooltipElement(config, {
       onClose: () => this.close(),
       onDismiss: () => {
+        this.suppressedAnchor = anchor;
+        this.hoveredAnchor = null;
+        this.cancelOpen();
         dismissBeginnerTooltip(config.id);
         this.close();
       },
@@ -230,22 +245,28 @@ class BeginnerTooltipController {
     element.addEventListener('pointerenter', () => this.cancelClose());
     element.addEventListener('pointerleave', () => this.scheduleClose());
     document.body.appendChild(element);
-    this.current = { element, anchor, config, fallbackPoint };
+    this.current = { element, anchor, config };
     this.positionCurrent();
   }
 
   private close(): void {
     this.cancelTimers();
+    if (this.current?.anchor) {
+      this.suppressedAnchor = this.current.anchor;
+    }
+    this.hoveredAnchor = null;
     this.current?.element.remove();
     this.current = null;
   }
 
   private positionCurrent(): void {
     if (!this.current) return;
-    const { element, anchor, config, fallbackPoint } = this.current;
-    const anchorRect = anchor.isConnected
-      ? anchor.getBoundingClientRect()
-      : createFallbackRect(fallbackPoint);
+    const { element, anchor, config } = this.current;
+    if (!anchor.isConnected) {
+      this.close();
+      return;
+    }
+    const anchorRect = anchor.getBoundingClientRect();
     const placement = config.placement ?? 'bottom';
     const gap = 10;
     const viewportGap = 8;
@@ -274,6 +295,7 @@ function createTooltipElement(
   tooltip.className = 'beginner-tooltip';
   tooltip.setAttribute('role', 'tooltip');
   tooltip.setAttribute('aria-live', 'polite');
+  tooltip.dataset.floatingUi = 'true';
   tooltip.dataset.tooltipId = config.id;
 
   tooltip.addEventListener('pointerdown', stopTooltipEvent);
@@ -376,10 +398,6 @@ function calculatePosition(
         top: anchorRect.bottom + gap,
       };
   }
-}
-
-function createFallbackRect(point: TooltipAnchorPoint): DOMRect {
-  return new DOMRect(point.x, point.y, 1, 1);
 }
 
 function clamp(value: number, min: number, max: number): number {

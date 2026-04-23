@@ -3439,6 +3439,7 @@ export function showCommandPicker(
   const handlePointerDown = (e: MouseEvent) => {
     const target = e.target as Node | null;
     if (target && (panel.contains(target) || trigger.contains(target))) return;
+    if (target instanceof Element && target.closest('.beginner-tooltip')) return;
     cleanup();
   };
 

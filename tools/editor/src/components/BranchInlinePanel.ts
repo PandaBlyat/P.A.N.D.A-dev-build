@@ -46,15 +46,16 @@ export function renderBranchInlinePanel(options: {
   mode: BranchInlinePanelMode;
   selectedOutcomeIndex: number | null;
   turnLabels: TurnLabels;
+  onClose?: () => void;
 }): HTMLElement {
-  const { conv, turn, choice, mode, selectedOutcomeIndex, turnLabels } = options;
+  const { conv, turn, choice, mode, selectedOutcomeIndex, turnLabels, onClose } = options;
   const panel = document.createElement('section');
   panel.className = `branch-inline-panel branch-inline-panel-${mode}${choice ? ' is-choice-scope' : ' is-opener-scope'}`;
   panel.onclick = (event) => event.stopPropagation();
   panel.onpointerdown = (event) => event.stopPropagation();
   panel.onwheel = (event) => event.stopPropagation();
 
-  panel.appendChild(renderHeader(conv, turn, choice, mode, turnLabels));
+  panel.appendChild(renderHeader(conv, turn, choice, mode, turnLabels, onClose));
   const body = document.createElement('div');
   body.className = 'branch-inline-panel-body';
   panel.appendChild(body);
@@ -78,6 +79,7 @@ function renderHeader(
   choice: Choice | null,
   mode: BranchInlinePanelMode,
   turnLabels: TurnLabels,
+  onClose?: () => void,
 ): HTMLElement {
   const header = document.createElement('div');
   header.className = 'branch-inline-panel-header';
@@ -118,6 +120,10 @@ function renderHeader(
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
+    if (onClose) {
+      onClose();
+      return;
+    }
     store.closeBranchInlinePanel();
   };
   close.onpointerdown = closePanel;
