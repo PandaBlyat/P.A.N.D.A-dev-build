@@ -47,7 +47,7 @@ export interface Conversation {
   turns: Turn[];
 }
 
-export type FlowAnnotation = FlowLineAnnotation | FlowNoteAnnotation;
+export type FlowAnnotation = FlowLineAnnotation | FlowLineSetAnnotation | FlowNoteAnnotation;
 
 export interface FlowAnnotationBase {
   id: string;
@@ -59,6 +59,11 @@ export interface FlowAnnotationBase {
 export interface FlowLineAnnotation extends FlowAnnotationBase {
   type: 'line';
   points: Array<{ x: number; y: number }>;
+}
+
+export interface FlowLineSetAnnotation extends FlowAnnotationBase {
+  type: 'line-set';
+  lines: Array<Array<{ x: number; y: number }>>;
 }
 
 export interface FlowNoteAnnotation extends FlowAnnotationBase {

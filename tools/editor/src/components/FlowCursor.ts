@@ -5,6 +5,7 @@ export type CursorState =
   | 'workspaceGrab'
   | 'dragging'
   | 'linking'
+  | 'drawing'
   | 'textInput'
   | 'disabled';
 
@@ -14,7 +15,7 @@ export type CursorSettings = {
   size: number;
 };
 
-type CursorShape = 'triangle' | 'circle' | 'hidden';
+type CursorShape = 'triangle' | 'circle' | 'cross' | 'hidden';
 
 type FlowCursorSystemOptions = {
   canvas: HTMLElement;
@@ -41,6 +42,7 @@ const SHAPE_BY_STATE: Record<CursorState, CursorShape> = {
   workspaceGrab: 'circle',
   dragging: 'circle',
   linking: 'circle',
+  drawing: 'cross',
   textInput: 'triangle',
   disabled: 'hidden',
 };
@@ -277,6 +279,7 @@ class CursorInteractionAdapter {
   private linking = false;
   private dragging = false;
   private panning = false;
+  private drawing = false;
   private hoveringManipulationZone = false;
   private inTextInput = false;
   private shouldDisable = false;
@@ -384,11 +387,12 @@ class CursorInteractionAdapter {
   };
 
   private onCanvasStateEvent = (event: Event): void => {
-    const detail = (event as CustomEvent<{ kind: 'panning' | 'dragging' | 'linking'; active: boolean }>).detail;
+    const detail = (event as CustomEvent<{ kind: 'panning' | 'dragging' | 'linking' | 'drawing'; active: boolean }>).detail;
     if (!detail) return;
     if (detail.kind === 'panning') this.panning = detail.active;
     if (detail.kind === 'dragging') this.dragging = detail.active;
     if (detail.kind === 'linking') this.linking = detail.active;
+    if (detail.kind === 'drawing') this.drawing = detail.active;
     this.updateState();
   };
 
@@ -396,6 +400,7 @@ class CursorInteractionAdapter {
     this.linking = false;
     this.dragging = false;
     this.panning = false;
+    this.drawing = false;
     this.updateState();
   };
 
@@ -479,6 +484,8 @@ class CursorInteractionAdapter {
       ? 'linking'
       : this.dragging || this.panning
       ? 'dragging'
+      : this.drawing
+      ? 'drawing'
       : this.hoveringManipulationZone
       ? 'workspaceGrab'
       : 'defaultPointer';

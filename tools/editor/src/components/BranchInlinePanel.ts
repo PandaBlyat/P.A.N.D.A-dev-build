@@ -16,6 +16,7 @@ import {
 } from '../lib/validation';
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
+import { createSmartTerrainPickerEditor } from './CatalogPickerPanel';
 import {
   createCustomNpcBuilderEditor,
   createOptionPickerPanelEditor,
@@ -35,6 +36,14 @@ type CommandSelection =
 
 type NpcContinuationSpeaker = 'same' | 'new';
 type NewNpcContinuationMode = 'story' | 'custom' | 'sim' | null;
+type OpenerNpcMode = 'friendly_faction' | 'story_npc' | 'custom_npc';
+type OpenerNpcTarget = {
+  mode: OpenerNpcMode;
+  faction: FactionId;
+  storyNpcId: string;
+  customNpcTemplateId: string;
+  customNpcSmartTerrain: string;
+};
 
 const npcContinuationSpeakerByChoice = new Map<string, NpcContinuationSpeaker>();
 const newNpcContinuationModeByChoice = new Map<string, NewNpcContinuationMode>();
@@ -116,18 +125,21 @@ function renderHeader(
   close.type = 'button';
   close.className = 'btn-sm branch-inline-close';
   close.textContent = 'Close';
+  close.setAttribute('aria-label', 'Close branch editor');
   const closePanel = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
     if (onClose) {
       onClose();
-      return;
+    } else {
+      store.closeBranchInlinePanel();
     }
-    store.closeBranchInlinePanel();
+    requestAnimationFrame(() => store.closeBranchInlinePanel());
   };
-  close.onpointerdown = closePanel;
-  close.onclick = closePanel;
+  close.addEventListener('pointerdown', closePanel, true);
+  close.addEventListener('pointerup', closePanel, true);
+  close.addEventListener('click', closePanel, true);
 
   header.append(title, steps, close);
   return header;
@@ -147,6 +159,9 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
       onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingMessage: value }),
     }));
     textPane.appendChild(createChannelControls(conv, turn));
+    if (turn.turnNumber === 1) {
+      textPane.appendChild(renderOpenerNpcTargetPanel(conv));
+    }
   } else {
     textPane.appendChild(createTextarea({
       label: 'Player Dialogue Choice',
@@ -176,6 +191,149 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
 
   grid.append(textPane, placeholderPane);
   container.appendChild(grid);
+}
+
+const OPENER_NPC_TARGET_COMMANDS = new Set([
+  'req_npc_friendly',
+  'req_npc_faction',
+  'req_story_npc',
+  'req_custom_story_npc',
+]);
+
+function renderOpenerNpcTargetPanel(conv: Conversation): HTMLElement {
+  const target = inferOpenerNpcTarget(conv);
+  const field = document.createElement('div');
+  field.className = 'branch-inline-field-block branch-inline-opener-target';
+
+  const label = document.createElement('div');
+  label.className = 'branch-inline-subtitle';
+  label.textContent = 'First Branch NPC';
+
+  const modeRow = document.createElement('div');
+  modeRow.className = 'branch-inline-npc-mode-row';
+  modeRow.append(
+    createSegmentButton('Any Friendly x Faction', target.mode === 'friendly_faction', () => updateOpenerNpcTarget(conv, {
+      ...target,
+      mode: 'friendly_faction',
+    })),
+    createSegmentButton('Story NPC', target.mode === 'story_npc', () => updateOpenerNpcTarget(conv, {
+      ...target,
+      mode: 'story_npc',
+    })),
+    createSegmentButton('Custom NPC', target.mode === 'custom_npc', () => updateOpenerNpcTarget(conv, {
+      ...target,
+      mode: 'custom_npc',
+    })),
+  );
+  field.append(label, modeRow);
+
+  if (target.mode === 'friendly_faction') {
+    const factionSelect = document.createElement('select');
+    for (const factionId of FACTION_IDS) {
+      const option = document.createElement('option');
+      option.value = factionId;
+      option.textContent = FACTION_DISPLAY_NAMES[factionId];
+      option.selected = target.faction === factionId;
+      factionSelect.appendChild(option);
+    }
+    factionSelect.onchange = () => updateOpenerNpcTarget(conv, {
+      ...target,
+      mode: 'friendly_faction',
+      faction: factionSelect.value as FactionId,
+    });
+    field.appendChild(factionSelect);
+    return field;
+  }
+
+  if (target.mode === 'story_npc') {
+    field.appendChild(createOptionPickerPanelEditor(
+      target.storyNpcId,
+      (storyNpcId) => updateOpenerNpcTarget(conv, {
+        ...target,
+        mode: 'story_npc',
+        storyNpcId: storyNpcId.trim() || 'bar_visitors_barman_stalker_trader',
+      }),
+      `branch-inline-opener-${conv.id}-story-npc`,
+      {
+        title: 'First Branch Story NPC',
+        subtitle: 'Pick existing story NPC who starts this storyline.',
+        searchPlaceholder: 'Search story NPC id, faction, level, or role...',
+        emptyLabel: 'Pick story NPC',
+        options: STORY_NPC_OPTIONS,
+      },
+    ));
+    return field;
+  }
+
+  field.appendChild(createCustomNpcBuilderEditor(
+    target.customNpcTemplateId,
+    (customNpcTemplateId) => updateOpenerNpcTarget(conv, {
+      ...target,
+      mode: 'custom_npc',
+      customNpcTemplateId,
+    }),
+    `branch-inline-opener-${conv.id}-custom-npc`,
+    { showSpawnDistance: false },
+  ));
+  const terrainLabel = document.createElement('div');
+  terrainLabel.className = 'branch-inline-subtitle';
+  terrainLabel.textContent = 'Spawn smart terrain';
+  field.append(
+    terrainLabel,
+    createSmartTerrainPickerEditor(
+      target.customNpcSmartTerrain,
+      (customNpcSmartTerrain) => updateOpenerNpcTarget(conv, {
+        ...target,
+        mode: 'custom_npc',
+        customNpcSmartTerrain,
+      }),
+      `branch-inline-opener-${conv.id}-custom-terrain`,
+      { allowPlaceholder: true },
+    ),
+  );
+  return field;
+}
+
+function inferOpenerNpcTarget(conv: Conversation): OpenerNpcTarget {
+  const entries = conv.preconditions ?? [];
+  const faction = getSimpleRuleParam(entries, 'req_npc_faction') as FactionId | null;
+  const storyNpcId = getSimpleRuleParam(entries, 'req_story_npc');
+  const customRule = entries.find((entry): entry is SimplePrecondition => entry.type === 'simple' && entry.command === 'req_custom_story_npc');
+  const fallbackFaction = faction && FACTION_IDS.includes(faction) ? faction : getConversationFaction(conv);
+  const base = {
+    faction: fallbackFaction,
+    storyNpcId: storyNpcId || 'bar_visitors_barman_stalker_trader',
+    customNpcTemplateId: customRule?.params[0] || 'informant',
+    customNpcSmartTerrain: customRule?.params[1] || '%cordon_panda_st_key%',
+  };
+  if (customRule) return { ...base, mode: 'custom_npc' };
+  if (storyNpcId) return { ...base, mode: 'story_npc' };
+  return { ...base, mode: 'friendly_faction' };
+}
+
+function updateOpenerNpcTarget(conv: Conversation, target: OpenerNpcTarget): void {
+  const kept = (conv.preconditions ?? []).filter((entry) => {
+    return !(entry.type === 'simple' && OPENER_NPC_TARGET_COMMANDS.has(entry.command));
+  });
+  const next: PreconditionEntry[] = [...kept];
+  if (target.mode === 'story_npc') {
+    next.push({ type: 'simple', command: 'req_story_npc', params: [target.storyNpcId || 'bar_visitors_barman_stalker_trader'] });
+  } else if (target.mode === 'custom_npc') {
+    next.push({
+      type: 'simple',
+      command: 'req_custom_story_npc',
+      params: [target.customNpcTemplateId || 'informant', target.customNpcSmartTerrain || '%cordon_panda_st_key%'],
+    });
+  } else {
+    next.push({ type: 'simple', command: 'req_npc_friendly', params: [] });
+    next.push({ type: 'simple', command: 'req_npc_faction', params: [target.faction || getConversationFaction(conv)] });
+  }
+  store.updateConversation(conv.id, { preconditions: next });
+}
+
+function getSimpleRuleParam(entries: PreconditionEntry[], command: string, paramIndex = 0): string | null {
+  const rule = entries.find((entry): entry is SimplePrecondition => entry.type === 'simple' && entry.command === command);
+  return rule?.params[paramIndex]?.trim() || null;
 }
 
 function renderCommandPanel(

@@ -117,7 +117,9 @@ function tryLoadProjectFile(raw: string, parseOrder: string[]): boolean {
     if (format === 'xml') {
       const result = importXml(raw);
       if (result) {
-        store.loadProject(normalizeProjectData(result.project), result.systemStrings);
+        const project = normalizeProjectData(result.project);
+        store.loadProject(project, result.systemStrings);
+        layoutImportedProject(project);
         return true;
       }
       continue;
@@ -128,7 +130,9 @@ function tryLoadProjectFile(raw: string, parseOrder: string[]): boolean {
         const data = JSON.parse(raw);
         const systemStrings = new Map<string, string>(Object.entries(data.systemStrings || {}));
         delete data.systemStrings;
-        store.loadProject(normalizeProjectData(data), systemStrings);
+        const project = normalizeProjectData(data);
+        store.loadProject(project, systemStrings);
+        layoutImportedProject(project);
         return true;
       } catch {
         continue;
@@ -137,6 +141,14 @@ function tryLoadProjectFile(raw: string, parseOrder: string[]): boolean {
   }
 
   return false;
+}
+
+function layoutImportedProject(project: Project): void {
+  store.batch(() => {
+    for (const conversation of project.conversations) {
+      store.autoLayoutConversation(conversation.id, { spacious: true, centerRoot: true });
+    }
+  });
 }
 
 function getFileExtension(filename: string): string | null {
@@ -399,7 +411,7 @@ function extractLegacyF2FEntryHints(conversation: Conversation): number[] {
   return [];
 }
 
-function normalizeProjectData(project: Project): Project {
+export function normalizeProjectData(project: Project): Project {
   const normalizationWarnings: LegacyChannelNormalizationWarning[] = [];
   const fallbackFaction = normalizeFaction(project.faction, 'stalker');
   const normalized: Project = {

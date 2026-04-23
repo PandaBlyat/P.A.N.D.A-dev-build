@@ -20,7 +20,8 @@ const MODAL_MOUNT_ID = 'app-modal-host';
 const ADMIN_USERNAME = 'panda';
 
 function isPandaAdmin(): boolean {
-  const username = getStoredUsername();
+  const profile = (globalThis as typeof globalThis & { __pandaUserProfile?: { username?: string } | null }).__pandaUserProfile;
+  const username = profile?.username?.trim() || getStoredUsername();
   return (username ?? '').trim().toLowerCase() === ADMIN_USERNAME;
 }
 
@@ -264,6 +265,32 @@ function buildCard(item: RoadmapItem, body: HTMLElement): HTMLElement {
     const adminActions = document.createElement('div');
     adminActions.className = 'roadmap-card-admin-actions';
 
+    const statusSelect = document.createElement('select');
+    statusSelect.className = 'roadmap-card-status-select';
+    statusSelect.title = 'Set roadmap status';
+    (['development', 'planned', 'considering', 'completed', 'dropped'] as RoadmapStatus[]).forEach((status) => {
+      const opt = document.createElement('option');
+      opt.value = status;
+      opt.textContent = STATUS_CONFIG[status].label;
+      opt.selected = status === item.status;
+      statusSelect.appendChild(opt);
+    });
+    statusSelect.onpointerdown = (event) => event.stopPropagation();
+    statusSelect.onclick = (event) => event.stopPropagation();
+    statusSelect.onchange = async () => {
+      const previous = item.status;
+      const next = statusSelect.value as RoadmapStatus;
+      statusSelect.disabled = true;
+      try {
+        await updateRoadmapItem(item.id, { status: next });
+        await reloadItems(body);
+      } catch {
+        statusSelect.value = previous;
+        statusSelect.disabled = false;
+        alert('Failed to update roadmap status.');
+      }
+    };
+
     const editBtn = document.createElement('button');
     editBtn.type = 'button';
     editBtn.className = 'roadmap-card-admin-btn';
@@ -286,7 +313,26 @@ function buildCard(item: RoadmapItem, body: HTMLElement): HTMLElement {
       }
     };
 
-    adminActions.append(editBtn, deleteBtn);
+    if (item.status !== 'completed') {
+      const completeBtn = document.createElement('button');
+      completeBtn.type = 'button';
+      completeBtn.className = 'roadmap-card-admin-btn roadmap-card-complete-btn';
+      completeBtn.title = 'Mark completed';
+      completeBtn.appendChild(createIcon('check'));
+      completeBtn.onclick = async () => {
+        completeBtn.disabled = true;
+        try {
+          await updateRoadmapItem(item.id, { status: 'completed' });
+          await reloadItems(body);
+        } catch {
+          completeBtn.disabled = false;
+          alert('Failed to mark completed.');
+        }
+      };
+      adminActions.appendChild(completeBtn);
+    }
+
+    adminActions.append(statusSelect, editBtn, deleteBtn);
     cardHeader.appendChild(adminActions);
   }
 

@@ -268,6 +268,11 @@ type TurnPositionUpdate = {
   position: { x: number; y: number };
 };
 
+type AutoLayoutOptions = {
+  spacious?: boolean;
+  centerRoot?: boolean;
+};
+
 type AutoLayoutNodeMeta = {
   turnNumber: number;
   depth: number;
@@ -827,7 +832,18 @@ class StateManager {
     this.state.bottomWorkspaceTab = openTabs[0] ?? null;
   }
 
-  private calculateAutoLayoutUpdates(conversation: Conversation, density: FlowDensity = 'standard'): TurnPositionUpdate[] {
+  private getAutoLayoutSpacing(density: FlowDensity, options: AutoLayoutOptions = {}): ReturnType<typeof getFlowAutoLayoutSpacing> {
+    const spacing = { ...getFlowAutoLayoutSpacing(density) };
+    if (!options.spacious) return spacing;
+    return {
+      ...spacing,
+      horizontalGutter: Math.round(spacing.horizontalGutter * 2.6),
+      siblingGap: Math.round(spacing.siblingGap * 2.2),
+      branchGroupGap: Math.round(spacing.branchGroupGap * 2.35),
+    };
+  }
+
+  private calculateAutoLayoutUpdates(conversation: Conversation, density: FlowDensity = 'standard', options: AutoLayoutOptions = {}): TurnPositionUpdate[] {
     const turnsByNumber = new Map(conversation.turns.map(turn => [turn.turnNumber, turn]));
     const metadata = new Map<number, AutoLayoutNodeMeta>();
     const queue: AutoLayoutNodeMeta[] = [];
@@ -917,7 +933,7 @@ class StateManager {
     }
 
     const layout = getFlowNodeLayout(density);
-    const spacing = getFlowAutoLayoutSpacing(density);
+    const spacing = this.getAutoLayoutSpacing(density, options);
     const positions = new Map<number, { x: number; y: number }>();
 
     for (const [depth, column] of [...orderedColumns.entries()].sort((a, b) => a[0] - b[0])) {
@@ -936,6 +952,21 @@ class StateManager {
 
         positions.set(meta.turnNumber, { x, y: cursorY });
         previousMeta = meta;
+      }
+    }
+
+    if (options.centerRoot && positions.size > 0) {
+      const rootPosition = positions.get(1) ?? positions.get(conversation.turns[0]?.turnNumber ?? 1);
+      if (rootPosition) {
+        const defaultRootPosition = getDefaultFlowTurnPosition(1);
+        const offsetX = defaultRootPosition.x - rootPosition.x;
+        const offsetY = defaultRootPosition.y - rootPosition.y;
+        for (const [turnNumber, position] of positions.entries()) {
+          positions.set(turnNumber, {
+            x: position.x + offsetX,
+            y: position.y + offsetY,
+          });
+        }
       }
     }
 
@@ -1643,10 +1674,13 @@ class StateManager {
     });
   }
 
-  autoLayoutConversation(conversationId: number): void {
+  autoLayoutConversation(conversationId: number, options: AutoLayoutOptions = {}): void {
     const conversation = this.getConversationById(conversationId);
     if (!conversation) return;
-    this.batchUpdateTurnPositions(conversationId, this.calculateAutoLayoutUpdates(conversation, this.state.flowDensity));
+    this.batchUpdateTurnPositions(conversationId, this.calculateAutoLayoutUpdates(conversation, this.state.flowDensity, {
+      centerRoot: true,
+      ...options,
+    }));
   }
 
   createConnectedTurn(

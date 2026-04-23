@@ -10,7 +10,7 @@ import { buildFlowGraphModel, getVisibleFlowItems, type FlowGraphModel } from '.
 import { createIcon } from './icons';
 import { createFlowCursorSystem, type FlowCursorSystem } from './FlowCursor';
 import { createCatalogPickerPanelEditor } from './CatalogPickerPanel';
-import type { Choice, Conversation, ConversationChannel, FlowAnnotation, FlowLineAnnotation, FlowNoteAnnotation, Outcome, PreconditionEntry, SimplePrecondition, Turn } from '../lib/types';
+import type { Choice, Conversation, ConversationChannel, FlowAnnotation, FlowLineAnnotation, FlowLineSetAnnotation, FlowNoteAnnotation, Outcome, PreconditionEntry, SimplePrecondition, Turn } from '../lib/types';
 import { getConversationFaction } from '../lib/types';
 import type { BranchInlinePanelState, FlowDensity } from '../lib/state';
 import type { CommandSchema } from '../lib/schema';
@@ -113,6 +113,7 @@ const FLOW_ANNOTATION_COLORS = ['#ffd84d', '#7ce2ff', '#66d17a', '#ff7a7a', '#d9
 const viewStateByConversation = new Map<number, ViewState>();
 let activeAnnotationTool: FlowAnnotationTool = 'select';
 let activeAnnotationColor = FLOW_ANNOTATION_COLORS[0];
+let activeDrawSet: { conversationId: number; annotationId: string } | null = null;
 let pendingFocusAnnotationId: string | null = null;
 let activeBranchAuthorPopup: {
   element: HTMLElement;
@@ -138,6 +139,8 @@ function closeBranchInlinePanelModal(): void {
 
 function syncAnnotationToolUi(canvas: HTMLElement | null, tool: FlowAnnotationTool): void {
   canvas?.classList.toggle('is-annotating', tool !== 'select');
+  canvas?.classList.toggle('is-drawing-annotation', tool === 'draw');
+  if (canvas) dispatchCursorState(canvas, 'drawing', tool === 'draw');
   document.querySelectorAll<HTMLButtonElement>('.flow-annotation-tool').forEach((button) => {
     const active = button.dataset.annotationTool === tool;
     button.classList.toggle('is-active', active);
@@ -398,8 +401,12 @@ export function renderFlowEditor(container: HTMLElement): void {
   flowCursorSystem?.destroy();
   flowCursorSystem = null;
 
-  const conv = store.getSelectedConversation();
+  let conv = store.getSelectedConversation();
   const state = store.get();
+  if (!conv && state.project.conversations.length > 0) {
+    store.selectConversation(state.project.conversations[0]!.id);
+    return;
+  }
   const density = getEffectiveFlowDensity(state.flowDensity);
   const isMobileViewport = isCompactViewport();
   const mobilePerformanceMode = isMobileViewport;
@@ -460,6 +467,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   const canvas = document.createElement('div');
   canvas.className = 'flow-canvas';
   canvas.classList.toggle('is-annotating', activeAnnotationTool !== 'select');
+  canvas.classList.toggle('is-drawing-annotation', activeAnnotationTool === 'draw');
   canvas.setAttribute('role', 'region');
   canvas.setAttribute('aria-label', `Story ${conv.id} flow graph`);
   setBeginnerTooltip(canvas, 'flow-canvas');
@@ -571,6 +579,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     content,
     getTool: () => activeAnnotationTool,
     setTool: (tool) => {
+      if (tool !== 'draw') activeDrawSet = null;
       activeAnnotationTool = tool;
       syncAnnotationToolUi(canvas, activeAnnotationTool);
     },
@@ -636,7 +645,10 @@ export function renderFlowEditor(container: HTMLElement): void {
   };
 
   const setAnnotationTool = (tool: FlowAnnotationTool): FlowAnnotationTool => {
-    activeAnnotationTool = activeAnnotationTool === tool ? 'select' : tool;
+    const nextTool = activeAnnotationTool === tool ? 'select' : tool;
+    if (nextTool !== 'draw') activeDrawSet = null;
+    if (nextTool === 'draw' && activeAnnotationTool !== 'draw') activeDrawSet = null;
+    activeAnnotationTool = nextTool;
     syncAnnotationToolUi(canvas, activeAnnotationTool);
     return activeAnnotationTool;
   };
@@ -1039,6 +1051,7 @@ export function renderFlowEditor(container: HTMLElement): void {
         window.dispatchEvent(new CustomEvent('panda:cursor-telemetry', { detail: { event, ...payload } }));
       },
     });
+    dispatchCursorState(canvas, 'drawing', activeAnnotationTool === 'draw');
   }
 
   runDraw();
@@ -1095,13 +1108,24 @@ function renderBranchInlineModalOverlay(options: {
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
 }): HTMLElement | null {
   const { conv, branchInlinePanel, turnLabels } = options;
-  if (!branchInlinePanel || branchInlinePanel.conversationId !== conv.id) return null;
+  if (!branchInlinePanel) return null;
+  if (branchInlinePanel.conversationId !== conv.id) {
+    requestAnimationFrame(() => store.closeBranchInlinePanel());
+    return null;
+  }
 
   const turn = conv.turns.find((candidate) => candidate.turnNumber === branchInlinePanel.turnNumber);
-  if (!turn) return null;
+  if (!turn) {
+    requestAnimationFrame(() => store.closeBranchInlinePanel());
+    return null;
+  }
   const choice = branchInlinePanel.choiceIndex == null
     ? null
     : turn.choices.find((candidate) => candidate.index === branchInlinePanel.choiceIndex) ?? null;
+  if (branchInlinePanel.choiceIndex != null && !choice) {
+    requestAnimationFrame(() => store.closeBranchInlinePanel());
+    return null;
+  }
 
   const overlay = document.createElement('div');
   overlay.className = 'branch-inline-modal-overlay';
@@ -1345,6 +1369,8 @@ function createFlowAnnotationLayer(options: {
   for (const annotation of conv.flowAnnotations ?? []) {
     if (annotation.type === 'line') {
       renderLineAnnotation(svg, layer, conv.id, annotation);
+    } else if (annotation.type === 'line-set') {
+      renderLineSetAnnotation(svg, layer, conv.id, annotation);
     }
   }
 
@@ -1374,18 +1400,13 @@ function createFlowAnnotationLayer(options: {
       line.points[line.points.length - 1].y - line.points[0].y,
     );
     if (distance < 6) return;
-    store.addFlowAnnotation(conv.id, {
-      id: createAnnotationId(),
-      type: 'line',
-      color: getColor(),
-      points: line.points.map(point => ({ x: Math.round(point.x), y: Math.round(point.y) })),
-      createdAt: new Date().toISOString(),
-    });
+    addLineToActiveDrawSet(conv.id, getColor(), line.points);
   };
 
   layer.onpointerdown = (event) => {
     const tool = getTool();
     if (tool === 'select') return;
+    if (event.button !== 0) return;
     const target = event.target as HTMLElement | SVGElement;
     if (target.closest('.flow-annotation-note, .flow-annotation-delete')) return;
 
@@ -1459,6 +1480,31 @@ function createFlowAnnotationLayer(options: {
   return layer;
 }
 
+function addLineToActiveDrawSet(conversationId: number, color: string, points: Array<{ x: number; y: number }>): void {
+  const rounded = points.map(point => ({ x: Math.round(point.x), y: Math.round(point.y) }));
+  const selected = store.get().project.conversations.find(item => item.id === conversationId);
+  const existing = activeDrawSet?.conversationId === conversationId
+    ? selected?.flowAnnotations?.find((annotation): annotation is FlowLineSetAnnotation => annotation.id === activeDrawSet?.annotationId && annotation.type === 'line-set')
+    : null;
+
+  if (existing) {
+    store.updateFlowAnnotation(conversationId, existing.id, {
+      lines: [...existing.lines, rounded],
+    } as Partial<FlowAnnotation>);
+    return;
+  }
+
+  const annotationId = createAnnotationId();
+  activeDrawSet = { conversationId, annotationId };
+  store.addFlowAnnotation(conversationId, {
+    id: annotationId,
+    type: 'line-set',
+    color,
+    lines: [rounded],
+    createdAt: new Date().toISOString(),
+  });
+}
+
 function renderLineAnnotation(svg: SVGSVGElement, layer: HTMLElement, conversationId: number, annotation: FlowLineAnnotation): void {
   const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
   path.setAttribute('class', 'flow-annotation-line');
@@ -1483,6 +1529,44 @@ function renderLineAnnotation(svg: SVGSVGElement, layer: HTMLElement, conversati
     store.deleteFlowAnnotation(conversationId, annotation.id);
   };
   layer.appendChild(remove);
+}
+
+function renderLineSetAnnotation(svg: SVGSVGElement, layer: HTMLElement, conversationId: number, annotation: FlowLineSetAnnotation): void {
+  for (const line of annotation.lines) {
+    if (line.length < 2) continue;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('class', 'flow-annotation-line');
+    path.setAttribute('d', pointsToPath(line));
+    path.style.setProperty('--annotation-color', annotation.color);
+    svg.appendChild(path);
+  }
+
+  const anchor = getLineSetDeleteAnchor(annotation);
+  if (!anchor) return;
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'flow-annotation-delete flow-annotation-line-delete';
+  remove.textContent = 'x';
+  remove.title = 'Delete drawing set';
+  remove.style.left = `${anchor.x}px`;
+  remove.style.top = `${anchor.y}px`;
+  remove.style.setProperty('--annotation-color', annotation.color);
+  remove.onpointerdown = (event) => event.stopPropagation();
+  remove.onclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (activeDrawSet?.annotationId === annotation.id) activeDrawSet = null;
+    store.deleteFlowAnnotation(conversationId, annotation.id);
+  };
+  layer.appendChild(remove);
+}
+
+function getLineSetDeleteAnchor(annotation: FlowLineSetAnnotation): { x: number; y: number } | null {
+  const points = annotation.lines.flat();
+  if (points.length === 0) return null;
+  const maxX = Math.max(...points.map(point => point.x));
+  const minY = Math.min(...points.map(point => point.y));
+  return { x: maxX + 10, y: Math.max(0, minY - 10) };
 }
 
 function renderNoteAnnotation(
@@ -1630,6 +1714,13 @@ function calculateContentBounds(conv: Conversation, density: FlowDensity, branch
   for (const annotation of conv.flowAnnotations ?? []) {
     if (annotation.type === 'line') {
       for (const point of annotation.points) {
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+      }
+      continue;
+    }
+    if (annotation.type === 'line-set') {
+      for (const point of annotation.lines.flat()) {
         maxX = Math.max(maxX, point.x);
         maxY = Math.max(maxY, point.y);
       }
@@ -3789,7 +3880,7 @@ function channelBadgeLabel(channel: 'pda' | 'f2f'): string {
   return 'F2F';
 }
 
-function dispatchCursorState(canvas: HTMLElement, kind: 'panning' | 'dragging' | 'linking', active: boolean): void {
+function dispatchCursorState(canvas: HTMLElement, kind: 'panning' | 'dragging' | 'linking' | 'drawing', active: boolean): void {
   canvas.dispatchEvent(new CustomEvent('flow-cursor-state', { detail: { kind, active } }));
 }
 

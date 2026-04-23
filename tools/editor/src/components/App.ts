@@ -17,7 +17,7 @@ import { createValidationWorkspaceContent } from './ValidationBar';
 import { openStoryWizard } from './StoryWizard';
 import { mountMotivationTicker } from './MotivationTicker';
 import { shouldShowFirstRunExperience, renderFirstRunExperience } from './Onboarding';
-import { exportProjectJson, exportXml, importFromJson, importFromXml } from '../lib/project-io';
+import { exportProjectJson, exportXml, importFromJson, importFromXml, normalizeProjectData } from '../lib/project-io';
 import { setButtonContent, createIcon } from './icons';
 import { getFactionThemeVariables } from '../lib/faction-colors';
 import { getConversationFaction } from '../lib/types';
@@ -1054,13 +1054,25 @@ export function importConversations(
   conversations: import('../lib/types').Conversation[],
   faction?: import('../lib/types').FactionId,
 ): number | null {
-  const normalizedConversations = conversations.map((conversation) => ({
+  const currentProject = store.get().project;
+  const normalizedProject = normalizeProjectData({
+    version: currentProject.version || '2.0.0',
+    faction: faction ?? currentProject.faction,
+    conversations,
+  });
+  const normalizedConversations = normalizedProject.conversations.map((conversation) => ({
     ...conversation,
-    faction: getConversationFaction(conversation, faction ?? store.get().project.faction),
+    faction: getConversationFaction(conversation, faction ?? currentProject.faction),
   }));
   const firstId = store.mergeConversations(normalizedConversations);
   if (firstId != null) {
-    store.selectConversation(firstId);
+    const importedIds = normalizedConversations.map((_, index) => firstId + index);
+    store.batch(() => {
+      for (const importedId of importedIds) {
+        store.autoLayoutConversation(importedId, { spacious: true, centerRoot: true });
+      }
+      store.selectConversation(firstId);
+    });
   }
   return firstId;
 }
