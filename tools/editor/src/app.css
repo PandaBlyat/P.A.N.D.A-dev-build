@@ -3158,6 +3158,10 @@ body.use-custom-cursor * {
   gap: 10px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(180deg, rgba(12, 16, 22, 0.98), rgba(9, 12, 17, 0.98));
 }
 
 .branch-inline-workspace {
@@ -3322,10 +3326,11 @@ body.use-custom-cursor * {
   inset: 0;
   z-index: 1100;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 16px;
-  overflow: auto;
+  padding: 72px 16px 24px;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: rgba(0, 0, 0, 0.64);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
@@ -3336,7 +3341,7 @@ body.use-custom-cursor * {
   min-width: min(360px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
   height: auto;
-  max-height: calc(100dvh - 32px);
+  max-height: calc(100dvh - 96px);
   display: flex;
   margin: 0;
 }
@@ -3345,7 +3350,7 @@ body.use-custom-cursor * {
   width: fit-content;
   max-width: 100%;
   height: auto;
-  max-height: calc(100dvh - 32px);
+  max-height: calc(100dvh - 96px);
   min-height: 0;
   margin-top: 0;
   display: flex;
@@ -3615,6 +3620,7 @@ body.use-custom-cursor * {
 
   .branch-inline-modal .branch-inline-panel {
     width: 100%;
+    max-height: calc(100dvh - 96px);
   }
 
   .branch-inline-panel-header,
@@ -6441,6 +6447,31 @@ hr {
   color: var(--text-bright);
   border-color: var(--border-light);
   background: var(--bg-hover);
+}
+
+.turn-compact-delete {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--danger) 12%, rgba(0, 0, 0, 0.18));
+  color: color-mix(in srgb, var(--danger) 76%, white 24%);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: color 0.1s, border-color 0.1s, background 0.1s, transform 0.1s;
+}
+
+.turn-compact-delete:hover,
+.turn-compact-delete:focus-visible {
+  color: color-mix(in srgb, var(--danger) 88%, white 12%);
+  border-color: color-mix(in srgb, var(--danger) 68%, white 12%);
+  background: color-mix(in srgb, var(--danger) 20%, rgba(255, 255, 255, 0.06));
+  transform: translateY(-1px);
 }
 
 .turn-body {
@@ -23092,9 +23123,10 @@ button.pa-avatar:focus-visible {
 }
 
 .branch-inline-modal-overlay {
-  padding: 16px;
-  align-items: center;
-  overflow: auto;
+  padding: 72px 16px 24px;
+  align-items: flex-start;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: rgba(0, 0, 0, 0.72);
   -webkit-backdrop-filter: blur(4px) grayscale(50%);
   backdrop-filter: blur(4px) grayscale(50%);
@@ -23105,7 +23137,7 @@ button.pa-avatar:focus-visible {
   min-width: min(360px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
   height: auto;
-  max-height: calc(100dvh - 32px);
+  max-height: calc(100dvh - 96px);
   margin: 0;
 }
 
@@ -23113,7 +23145,7 @@ button.pa-avatar:focus-visible {
   width: fit-content;
   max-width: 100%;
   height: auto;
-  max-height: calc(100dvh - 32px);
+  max-height: calc(100dvh - 96px);
   min-height: 0;
 }
 

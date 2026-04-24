@@ -1,10 +1,11 @@
 // P.A.N.D.A. Conversation Editor — Application State
 
-import type { Project, Conversation, Turn, Choice, ValidationMessage, NpcTemplate, FlowAnnotation } from './types';
+import type { Project, Conversation, Turn, Choice, Outcome, ValidationMessage, NpcTemplate, FlowAnnotation } from './types';
 import type { CollabLock, CollabParticipant, CollabRemoteCursor } from './collab-protocol';
 import { getConversationFaction } from './types';
 import { cloneConversation } from './collab-protocol';
 import { createEmptyProject, createConversation, createTurn, createChoice } from './xml-export';
+import { getOutcomeResumeTurnParamIndices } from './outcome-branching';
 import { migrateLegacyF2FEntryOpenings } from './f2f-entry-migration';
 import { estimateFlowNodeHeight, getDefaultFlowTurnPosition, getFlowAutoLayoutSpacing, getFlowNodeLayout } from './flow-layout';
 import { measurePerf } from './perf';
@@ -1103,10 +1104,11 @@ class StateManager {
       }
 
       for (const outcome of choice.outcomes) {
-        if (outcome.command !== 'pause_job') continue;
+        const indices = getOutcomeResumeTurnParamIndices(outcome.command);
+        if (!indices) continue;
 
-        const successTurn = parseInt(outcome.params[1], 10);
-        const failTurn = parseInt(outcome.params[2], 10);
+        const successTurn = parseInt(outcome.params[indices.successIndex], 10);
+        const failTurn = parseInt(outcome.params[indices.failIndex], 10);
 
         if (!Number.isNaN(successTurn)) {
           targets.push(successTurn);
@@ -1830,11 +1832,94 @@ class StateManager {
     this.finishProjectMutation();
   }
 
+  appendOutcomeToChoice(conversationId: number, turnNumber: number, choiceIndex: number, outcome: Outcome): number | null {
+    const conversation = this.getConversationById(conversationId);
+    const turn = conversation?.turns.find(item => item.turnNumber === turnNumber);
+    const choice = turn?.choices.find(item => item.index === choiceIndex);
+    if (!conversation || !turn || !choice) return null;
+
+    this.pushUndo();
+
+    const nextOutcome: Outcome = {
+      ...outcome,
+      params: [...outcome.params],
+    };
+    const resumeIndices = getOutcomeResumeTurnParamIndices(nextOutcome.command);
+    if (resumeIndices) {
+      const branchChannel = normalizeChannelValue(turn.channel, normalizeChannelValue(conversation.initialChannel, 'pda'));
+      const spacing = getFlowAutoLayoutSpacing(this.state.flowDensity);
+      const nextTurnNumber = () => conversation.turns.reduce((max, item) => Math.max(max, item.turnNumber), 0) + 1;
+      const existingTurnNumbers = new Set(conversation.turns.map(item => item.turnNumber));
+      const appendResumeTurn = (label: 'Success' | 'Fail', paramIndex: number, yOffset = 0): number | null => {
+        const currentValue = Number.parseInt(nextOutcome.params[paramIndex] ?? '', 10);
+        if (Number.isFinite(currentValue) && existingTurnNumbers.has(currentValue)) return currentValue;
+
+        const newTurn = createTurn(nextTurnNumber());
+        newTurn.customLabel = label;
+        newTurn.channel = branchChannel;
+        for (const newChoice of newTurn.choices) {
+          newChoice.channel = branchChannel;
+          newChoice.continueChannel = branchChannel;
+          newChoice.continue_channel = branchChannel;
+        }
+        normalizeTurnEntryFlags(newTurn);
+        const basePosition = this.getContextualTurnPlacement(conversation, newTurn, {
+          sourceTurnNumber: turnNumber,
+          sourceChoiceIndex: choiceIndex,
+        });
+        newTurn.position = {
+          x: basePosition.x,
+          y: Math.max(spacing.canvasPaddingY, basePosition.y + yOffset),
+        };
+        conversation.turns.push(newTurn);
+        existingTurnNumbers.add(newTurn.turnNumber);
+        nextOutcome.params[paramIndex] = String(newTurn.turnNumber);
+        return newTurn.turnNumber;
+      };
+
+      const successTurnNumber = appendResumeTurn('Success', resumeIndices.successIndex);
+      const successTurn = successTurnNumber == null
+        ? null
+        : conversation.turns.find(item => item.turnNumber === successTurnNumber) ?? null;
+      const successTurnHeight = successTurn ? estimateFlowNodeHeight(successTurn, this.state.flowDensity) : 0;
+      appendResumeTurn('Fail', resumeIndices.failIndex, successTurnHeight + spacing.siblingGap);
+    }
+
+    const nextIndex = choice.outcomes.length;
+    choice.outcomes = [...choice.outcomes, nextOutcome];
+    this.state.selectedConversationId = conversationId;
+    this.state.selectedTurnNumber = turnNumber;
+    this.state.selectedChoiceIndex = choiceIndex;
+    this.state.propertiesTab = 'selection';
+    this.finishProjectMutation();
+    return nextIndex;
+  }
+
   deleteTurn(conversationId: number, turnNumber: number): void {
     if (turnNumber === 1) return;
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
     if (!conv) return;
     this.pushUndo();
+    for (const turn of conv.turns) {
+      for (const choice of turn.choices) {
+        if (choice.continueTo === turnNumber) {
+          delete choice.continueTo;
+          choice.terminal = true;
+          delete choice.continueChannel;
+          delete choice.continue_channel;
+        }
+        for (const outcome of choice.outcomes) {
+          const indices = getOutcomeResumeTurnParamIndices(outcome.command);
+          if (!indices) continue;
+          if (Number.parseInt(outcome.params[indices.successIndex] ?? '', 10) === turnNumber) {
+            outcome.params[indices.successIndex] = '';
+          }
+          if (Number.parseInt(outcome.params[indices.failIndex] ?? '', 10) === turnNumber) {
+            outcome.params[indices.failIndex] = '';
+          }
+        }
+      }
+    }
     conv.turns = conv.turns.filter(t => t.turnNumber !== turnNumber);
     if (this.state.selectedTurnNumber === turnNumber) {
       this.clearSelection({ notify: false });

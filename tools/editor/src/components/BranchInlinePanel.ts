@@ -940,11 +940,10 @@ function addOutcomeEntry(conv: Conversation, turn: Turn, choice: Choice, schema:
     command: schema.name,
     params: schema.params.map((param) => param.placeholder || ''),
   };
-  const nextIndex = choice.outcomes.length;
-  store.batch(() => {
-    store.updateChoice(conv.id, turn.turnNumber, choice.index, { outcomes: [...choice.outcomes, outcome] });
+  const nextIndex = store.appendOutcomeToChoice(conv.id, turn.turnNumber, choice.index, outcome);
+  if (nextIndex != null) {
     openPanel(conv.id, turn.turnNumber, choice.index, 'outcomes', nextIndex);
-  });
+  }
 }
 
 function updatePreconditions(conv: Conversation, turn: Turn, choice: Choice | null, entries: PreconditionEntry[]): void {

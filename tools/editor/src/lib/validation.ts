@@ -2,6 +2,7 @@
 
 import { ALL_SMART_TERRAIN_IDS, FACTION_ALIASES, FACTION_IDS, LEVEL_DISPLAY_NAMES, MUTANT_TYPES, RANKS } from './constants';
 import { LEGACY_F2F_OPENING_WARNINGS } from './f2f-entry-migration';
+import { getOutcomeResumeTurnParamIndices, isTaskOutcomeCommand } from './outcome-branching';
 import { findSchema, NPC_ANIMATION_PRESET_OPTIONS, OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from './schema';
 import { createTurnDisplayLabeler } from './turn-labels';
 import { STORY_NPC_OPTIONS } from './generated/story-npc-catalog';
@@ -33,17 +34,6 @@ const SPAWN_JOB_OUTCOMES = new Set([
   'spawn_mutant_at_smart',
 ]);
 
-/** Task outcome commands that have success_turn and fail_turn params (value = [successParamIndex, failParamIndex, timeoutParamIndex]). */
-const TASK_OUTCOME_TURN_INDICES: Record<string, [number, number, number]> = {
-  'panda_task_delivery':  [3, 4, 2],
-  'panda_task_fetch':     [3, 4, 2],
-  'panda_task_bounty':    [4, 5, 3],
-  'panda_task_dead_drop': [3, 4, 2],
-  'panda_task_artifact':  [4, 5, 3],
-  'panda_task_escort':    [2, 3, 1],
-  'panda_task_eliminate': [4, 5, 3],
-};
-const TASK_OUTCOME_COMMANDS = new Set(Object.keys(TASK_OUTCOME_TURN_INDICES));
 const ANOMALY_ARTIFACT_OUTCOMES = new Set([
   'start_anomaly_scan_task',
   'start_artifact_retrieval_task',
@@ -717,18 +707,18 @@ function validateOutcome(
 
   // ── Validate pause_job and panda_task_* turn references & timeout ──
 
-  const taskIndices = TASK_OUTCOME_TURN_INDICES[outcome.command];
-  const isPauseJob = outcome.command === 'pause_job';
-  const isTask = taskIndices != null;
+  const resumeIndices = getOutcomeResumeTurnParamIndices(outcome.command);
+  const isPauseJob = resumeIndices?.kind === 'pause';
+  const isTask = resumeIndices?.kind === 'task';
 
-  if (!isPauseJob && !isTask) {
+  if (!resumeIndices) {
     return;
   }
 
   // Resolve param indices for success_turn, fail_turn, timeout
-  const successIdx = isPauseJob ? 1 : taskIndices![0];
-  const failIdx    = isPauseJob ? 2 : taskIndices![1];
-  const timeoutIdx = isPauseJob ? 0 : taskIndices![2];
+  const successIdx = resumeIndices.successIndex;
+  const failIdx = resumeIndices.failIndex;
+  const timeoutIdx = resumeIndices.timeoutIndex;
   const cmdLabel = outcome.command;
 
   const timeout = parseStrictNumber(outcome.params[timeoutIdx]);
@@ -840,7 +830,7 @@ function validateOutcome(
 
   // Task-specific: warn if multiple task outcomes on same choice
   if (isTask) {
-    const taskCount = choice.outcomes.filter(item => TASK_OUTCOME_COMMANDS.has(item.command)).length;
+    const taskCount = choice.outcomes.filter(item => isTaskOutcomeCommand(item.command)).length;
     if (taskCount > 1) {
       pushMessage(messages, {
         code: 'task-multiple',
@@ -1202,15 +1192,10 @@ function validateReachability(
         // Resolve success/fail turn indices for pause_job and panda_task_* commands
         let sIdx: number | undefined;
         let fIdx: number | undefined;
-        if (outcome.command === 'pause_job') {
-          sIdx = 1;
-          fIdx = 2;
-        } else {
-          const ti = TASK_OUTCOME_TURN_INDICES[outcome.command];
-          if (ti) {
-            sIdx = ti[0];
-            fIdx = ti[1];
-          }
+        const resumeIndices = getOutcomeResumeTurnParamIndices(outcome.command);
+        if (resumeIndices) {
+          sIdx = resumeIndices.successIndex;
+          fIdx = resumeIndices.failIndex;
         }
         if (sIdx == null) continue;
 
@@ -1542,11 +1527,12 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
           return true;
         }
         return choice.outcomes.some((outcome) => {
-          if (outcome.command === 'pause_job') {
-            return parseStrictInteger(outcome.params[1]) != null || parseStrictInteger(outcome.params[2]) != null;
-          }
-          const task = TASK_OUTCOME_TURN_INDICES[outcome.command];
-          return task != null && (parseStrictInteger(outcome.params[task[0]]) != null || parseStrictInteger(outcome.params[task[1]]) != null);
+          const resumeIndices = getOutcomeResumeTurnParamIndices(outcome.command);
+          return resumeIndices != null
+            && (
+              parseStrictInteger(outcome.params[resumeIndices.successIndex]) != null
+              || parseStrictInteger(outcome.params[resumeIndices.failIndex]) != null
+            );
         });
       });
 

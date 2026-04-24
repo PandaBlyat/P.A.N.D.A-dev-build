@@ -21,6 +21,7 @@ import { createCollabPresenceLayer } from './CollabPresenceLayer';
 import { sendCollabCursorPing } from '../lib/collab-session';
 import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
 import { renderBranchInlinePanel } from './BranchInlinePanel';
+import { parseOutcomeResumeTurnNumbers } from '../lib/outcome-branching';
 
 type TurnPositionMap = Map<number, { x: number; y: number }>;
 type EdgeKind = 'continue' | 'pause-success' | 'pause-fail';
@@ -673,6 +674,13 @@ export function renderFlowEditor(container: HTMLElement): void {
     onZoomOut: () => zoomAtViewportPoint(canvas, viewState, 1 / 1.12, canvas.clientWidth / 2, canvas.clientHeight / 2, applyView),
     onFit: () => fitContent(),
     onReset: () => resetView(),
+    onAddBranch: () => {
+      store.addTurn(conversationId);
+      requestAnimationFrame(() => {
+        const createdTurn = store.getSelectedTurn();
+        if (createdTurn) focusTurn(createdTurn.turnNumber, { center: true });
+      });
+    },
     onSetCursorEnabled: (enabled) => store.setCustomCursorEnabled(enabled),
     onSetCursorSize: (size) => store.setCursorSize(size),
   });
@@ -1168,6 +1176,8 @@ function renderBranchInlineModalOverlay(options: {
   overlay.appendChild(modal);
 
   requestAnimationFrame(() => {
+    const closeButton = modal.querySelector<HTMLElement>('.branch-inline-close');
+    closeButton?.scrollIntoView({ block: 'nearest' });
     const focusTarget = modal.querySelector<HTMLElement>('input, textarea, select, button, [tabindex]:not([tabindex="-1"])');
     focusTarget?.focus();
   });
@@ -1186,6 +1196,7 @@ function renderControls(options: {
   onZoomOut: () => void;
   onFit: () => void;
   onReset: () => void;
+  onAddBranch: () => void;
   onSetCursorEnabled: (enabled: boolean) => void;
   onSetCursorSize: (size: number) => void;
 }): HTMLElement {
@@ -1244,6 +1255,14 @@ function renderControls(options: {
   redo.disabled = state.redoStack.length === 0;
   setBeginnerTooltip(redo, 'toolbar-redo');
   redo.onclick = () => store.redo();
+
+  const addBranch = document.createElement('button');
+  addBranch.type = 'button';
+  addBranch.className = 'btn-sm flow-icon-button';
+  addBranch.appendChild(createIcon('add'));
+  addBranch.title = 'Add new empty branch';
+  addBranch.setAttribute('aria-label', 'Add new empty branch');
+  addBranch.onclick = options.onAddBranch;
 
   const annotationButtons: HTMLButtonElement[] = [];
   const setAnnotationTool = (tool: FlowAnnotationTool): void => {
@@ -1347,11 +1366,11 @@ function renderControls(options: {
   sizeInput.oninput = () => options.onSetCursorSize(Number(sizeInput.value));
 
   if (options.mobilePerformanceMode) {
-    controls.append(zoomOut, zoomIn, undo, redo, drawButton, textButton, annotationColor, fit, authorMode, densitySelect);
+    controls.append(zoomOut, zoomIn, undo, redo, addBranch, drawButton, textButton, annotationColor, fit, authorMode, densitySelect);
     return controls;
   }
 
-  controls.append(zoomOut, options.zoomValue, zoomIn, undo, redo, drawButton, textButton, annotationColor, clearAnnotations, fit, reset, authorMode, densitySelect, cursorToggle, sizeInput);
+  controls.append(zoomOut, options.zoomValue, zoomIn, undo, redo, addBranch, drawButton, textButton, annotationColor, clearAnnotations, fit, reset, authorMode, densitySelect, cursorToggle, sizeInput);
   return controls;
 }
 
@@ -2190,6 +2209,7 @@ function renderTurnNode(options: {
     delBtn.className = 'btn-icon btn-sm';
     delBtn.textContent = '×';
     delBtn.title = 'Delete turn';
+    delBtn.textContent = 'X';
     delBtn.style.color = 'var(--danger)';
     setBeginnerTooltip(delBtn, 'flow-turn-actions');
     delBtn.onclick = (e) => {
@@ -2199,6 +2219,22 @@ function renderTurnNode(options: {
     turnActions.appendChild(delBtn);
   }
   header.appendChild(turnActions);
+  }
+
+  if (!isAdvancedMode && turn.turnNumber > 1) {
+    const compactDelete = document.createElement('button');
+    compactDelete.type = 'button';
+    compactDelete.className = 'turn-compact-delete';
+    compactDelete.textContent = 'Ã—';
+    compactDelete.title = 'Delete branch';
+    compactDelete.textContent = 'X';
+    compactDelete.setAttribute('aria-label', `Delete branch ${turn.turnNumber}`);
+    compactDelete.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      store.deleteTurn(conv.id, turn.turnNumber);
+    };
+    header.appendChild(compactDelete);
   }
   node.appendChild(header);
 
@@ -2411,7 +2447,8 @@ function renderTurnNode(options: {
     if (isAdvancedMode && hasPauseOutcome(choice)) {
       const pauseBadge = document.createElement('span');
       pauseBadge.className = 'choice-branch-badge';
-      pauseBadge.textContent = 'pause';
+      pauseBadge.textContent = 'branch';
+      pauseBadge.title = 'Outcome adds success/fail branch targets';
       item.appendChild(pauseBadge);
     }
 
@@ -2939,6 +2976,9 @@ function renderOutcomesAuthorMenu(container: HTMLElement, conv: Conversation, tu
     return;
   }
   const outcomes = choice.outcomes ?? [];
+  const appendOutcome = (outcome: Outcome): void => {
+    store.appendOutcomeToChoice(conv.id, turn.turnNumber, choice.index, outcome);
+  };
   const updateOutcomes = (nextOutcomes: Outcome[]): void => {
     store.updateChoice(conv.id, turn.turnNumber, choice.index, { outcomes: nextOutcomes });
   };
@@ -2952,7 +2992,7 @@ function renderOutcomesAuthorMenu(container: HTMLElement, conv: Conversation, tu
     { title: 'Watch location', body: 'Mark Cordon location.', outcome: { command: 'watch_location', params: ['%cordon_panda_st_key%', '85'] } },
   ];
   for (const outcome of quickOutcomes) {
-    quick.appendChild(createAuthorShortcutButton(outcome.title, outcome.body, () => updateOutcomes([...outcomes, outcome.outcome])));
+    quick.appendChild(createAuthorShortcutButton(outcome.title, outcome.body, () => appendOutcome(outcome.outcome)));
   }
   container.appendChild(createAuthorMenuSection('Quick outcomes', [quick]));
 
@@ -2966,7 +3006,7 @@ function renderOutcomesAuthorMenu(container: HTMLElement, conv: Conversation, tu
   container.appendChild(createSchemaPicker({
     title: 'All outcomes',
     schemas: OUTCOME_SCHEMAS,
-    onPick: (schema) => updateOutcomes([...outcomes, createOutcome(schema)]),
+    onPick: (schema) => appendOutcome(createOutcome(schema)),
   }));
 }
 
@@ -3723,6 +3763,7 @@ function buildEdgeDescriptors(
 
 function getChoiceTargets(choice: Choice, conv: Conversation): Array<{ turnNumber: number; label: string; kind: EdgeKind }> {
   const targets: Array<{ turnNumber: number; label: string; kind: EdgeKind }> = [];
+  const validTurnNumbers = new Set(conv.turns.map(turn => turn.turnNumber));
 
   if (choice.continueTo != null) {
     targets.push({
@@ -3733,22 +3774,20 @@ function getChoiceTargets(choice: Choice, conv: Conversation): Array<{ turnNumbe
   }
 
   for (const outcome of choice.outcomes) {
-    if (outcome.command !== 'pause_job') continue;
+    const resumeTargets = parseOutcomeResumeTurnNumbers(outcome);
+    if (!resumeTargets) continue;
 
-    const successTurn = parseInt(outcome.params[1], 10);
-    const failTurn = parseInt(outcome.params[2], 10);
-
-    if (!Number.isNaN(successTurn)) {
+    if (resumeTargets.successTurn != null && validTurnNumbers.has(resumeTargets.successTurn)) {
       targets.push({
-        turnNumber: successTurn,
+        turnNumber: resumeTargets.successTurn,
         label: 'ok',
         kind: 'pause-success',
       });
     }
 
-    if (!Number.isNaN(failTurn)) {
+    if (resumeTargets.failTurn != null && validTurnNumbers.has(resumeTargets.failTurn)) {
       targets.push({
-        turnNumber: failTurn,
+        turnNumber: resumeTargets.failTurn,
         label: 'fail',
         kind: 'pause-fail',
       });
@@ -3775,7 +3814,7 @@ function getEdgeHighlightState(
 }
 
 function hasPauseOutcome(choice: Choice): boolean {
-  return choice.outcomes.some(outcome => outcome.command === 'pause_job');
+  return choice.outcomes.some(outcome => parseOutcomeResumeTurnNumbers(outcome) != null);
 }
 
 function buildEdgePath(source: { x: number; y: number }, target: { x: number; y: number }, laneOffset: number): string {

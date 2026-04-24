@@ -1378,9 +1378,7 @@ function renderChoiceProperties(
           command: schema.name,
           params: schema.params.map(p => p.placeholder || ''),
         };
-        store.updateChoice(conv.id, turn.turnNumber, choice.index, {
-          outcomes: [...choice.outcomes, newOutcome],
-        });
+        store.appendOutcomeToChoice(conv.id, turn.turnNumber, choice.index, newOutcome);
       }, {
         title: 'Add outcome',
         searchPlaceholder: 'Search outcomes...',
@@ -1614,9 +1612,7 @@ function renderChoiceProperties(
 
 function renderEffectShortcuts(container: HTMLElement, conv: Conversation, turn: Turn, choice: Choice): void {
   const addOutcome = (outcome: Outcome): void => {
-    store.updateChoice(conv.id, turn.turnNumber, choice.index, {
-      outcomes: [...choice.outcomes, outcome],
-    });
+    store.appendOutcomeToChoice(conv.id, turn.turnNumber, choice.index, outcome);
   };
 
   const cards = createAuthorShortcutGrid();
