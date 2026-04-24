@@ -358,8 +358,10 @@ function generateConversation(
   }
 
   // PANDA-managed F2F metadata registry payload (consumed by panda_f2f_bridge.script).
+  // Pretty-print so no single line exceeds X-Ray's 4096-char XML line buffer
+  // (IReader::r_string in xrXMLParser::ParseFile). Bridge regex tolerates whitespace.
   const registryPayload = createF2FRegistryPayload(conv);
-  lines.push(emitString(`${prefix}${PANDA_F2F_REGISTRY_SUFFIX}`, JSON.stringify(registryPayload)));
+  lines.push(emitString(`${prefix}${PANDA_F2F_REGISTRY_SUFFIX}`, JSON.stringify(registryPayload, null, 2)));
 
   // Start mode: tells the Lua runtime how this conversation is triggered.
   // Derived from the conversation's startMode field (authoritative) with fallback to entry nodes.
