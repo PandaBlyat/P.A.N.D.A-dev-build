@@ -214,10 +214,17 @@ function M.start_artifact_task(task_id, artifact_section, zone_name, detector_ti
 end
 
 function M.spawn_artifact_on_npc(task_id, artifact_section, target_npc_id)
-    local rec = M.get_record(task_id)
-    if not rec then return false, "task not found" end
     if not artifact_section or artifact_section == "" then return false, "missing artifact section" end
     if not target_npc_id then return false, "missing npc id" end
+
+    local rec = M.get_record(task_id)
+    if not rec then
+        rec = M.upsert_record(task_id, {
+            artifact_section = artifact_section,
+            stage = "artifact_started",
+            flags = { fail_if_artifact_lost = true },
+        })
+    end
 
     local se_npc = alife_object(target_npc_id)
     if not se_npc then
@@ -236,9 +243,17 @@ function M.spawn_artifact_on_npc(task_id, artifact_section, target_npc_id)
 end
 
 function M.spawn_artifact_in_zone(task_id, artifact_section, zone_name)
-    local rec = M.get_record(task_id)
-    if not rec then return false, "task not found" end
     if not zone_name or zone_name == "" then return false, "missing zone name" end
+
+    local rec = M.get_record(task_id)
+    if not rec then
+        rec = M.upsert_record(task_id, {
+            artifact_section = (artifact_section and artifact_section ~= "") and artifact_section or nil,
+            zone_name = zone_name,
+            stage = "artifact_started",
+            flags = { fail_if_artifact_lost = true },
+        })
+    end
 
     local zone = db and db.anomaly_by_name and db.anomaly_by_name[zone_name]
     if not zone then
@@ -317,14 +332,22 @@ function M.turn_in_artifact(task_id, artifact_section)
     rec.stage = "turned_in_pending"
     rec.last_known_owner_kind = "actor"
     rec.last_seen_ts = now_ts()
+    rec.flags = rec.flags or {}
+    rec.flags.fail_if_artifact_lost = false
     log("artifact turned in for task %s", tostring(task_id))
     return true
 end
 
 function M.set_anomaly_target(task_id, zone_name)
     local rec = M.get_record(task_id)
-    if not rec then return false, "task not found" end
     if not zone_name or zone_name == "" then return false, "missing zone" end
+    if not rec then
+        rec = M.upsert_record(task_id, {
+            zone_name = zone_name,
+            stage = "target_set",
+            flags = { fail_if_artifact_lost = false },
+        })
+    end
     rec.zone_name = zone_name
     rec.stage = "target_set"
     return true
@@ -332,7 +355,9 @@ end
 
 function M.set_fail_if_artifact_lost(task_id, enabled)
     local rec = M.get_record(task_id)
-    if not rec then return false, "task not found" end
+    if not rec then
+        rec = M.upsert_record(task_id, { flags = {} })
+    end
     rec.flags = rec.flags or {}
     rec.flags.fail_if_artifact_lost = enabled == true
     return true

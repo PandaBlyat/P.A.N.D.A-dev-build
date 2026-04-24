@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+
+<string_table>
+    <string id="st_panda_task_title_delivery">
+        <text>Deliver %s</text>
+    </string>
+    <string id="st_panda_task_title_fetch">
+        <text>Find %s</text>
+    </string>
+    <string id="st_panda_task_title_bounty">
+        <text>Eliminate %s</text>
+    </string>
+    <string id="st_panda_task_title_dead_drop">
+        <text>Dead Drop %s</text>
+    </string>
+    <string id="st_panda_task_title_escort">
+        <text>Escort %s</text>
+    </string>
+    <string id="st_panda_task_title_eliminate">
+        <text>Clear %s</text>
+    </string>
+    <string id="st_panda_task_title_artifact">
+        <text>Retrieve %s</text>
+    </string>
+    <string id="st_panda_task_title_scan">
+        <text>Scan %s</text>
+    </string>
+    <string id="st_panda_task_title_generic">
+        <text>Task</text>
+    </string>
+
+    <string id="st_panda_task_descr_delivery">
+        <text>Bring %s to %s.</text>
+    </string>
+    <string id="st_panda_task_descr_fetch">
+        <text>Acquire %s.</text>
+    </string>
+    <string id="st_panda_task_descr_bounty">
+        <text>Kill %s near %s.</text>
+    </string>
+    <string id="st_panda_task_descr_dead_drop">
+        <text>Stash %s at %s.</text>
+    </string>
+    <string id="st_panda_task_descr_escort">
+        <text>Escort %s to %s. Task fails if escort dies.</text>
+    </string>
+    <string id="st_panda_task_descr_eliminate">
+        <text>Eliminate hostile presence near %s.</text>
+    </string>
+    <string id="st_panda_task_descr_artifact">
+        <text>Recover %s near %s.</text>
+    </string>
+    <string id="st_panda_task_descr_artifact_npc">
+        <text>Recover %s from %s.</text>
+    </string>
+    <string id="st_panda_task_descr_artifact_return">
+        <text>Return %s to %s.</text>
+    </string>
+    <string id="st_panda_task_descr_scan">
+        <text>Reach %s with at least %s.</text>
+    </string>
+    <string id="st_panda_task_descr_generic">
+        <text>Complete task.</text>
+    </string>
+
+    <string id="st_panda_task_unknown_item">
+        <text>item</text>
+    </string>
+    <string id="st_panda_task_unknown_location">
+        <text>unknown location</text>
+    </string>
+    <string id="st_panda_task_unknown_stalker">
+        <text>stalker</text>
+    </string>
+    <string id="st_panda_task_bounty_target">
+        <text>target</text>
+    </string>
+
+    <string id="st_panda_task_detector_basic">
+        <text>basic detector</text>
+    </string>
+    <string id="st_panda_task_detector_advanced">
+        <text>advanced detector</text>
+    </string>
+    <string id="st_panda_task_detector_elite">
+        <text>elite detector</text>
+    </string>
+    <string id="st_panda_task_detector_scientific">
+        <text>scientific detector</text>
+    </string>
+</string_table>

@@ -1,0 +1,1679 @@
+panda_task_bridge = panda_task_bridge or {}
+
+local M = panda_task_bridge
+
+task_functor = task_functor or {}
+task_status_functor = task_status_functor or {}
+xr_effects = xr_effects or {}
+
+local SLOT_COUNT = 16
+local SCAN_RADIUS = 12
+local TARGET_RADIUS_DEFAULT = 50
+local ESCORT_RECOVER_INTERVAL_MS = 5000
+
+local FAMILY_ICONS = {
+    delivery = "ui_inGame2_Sdelka",
+    fetch = "ui_inGame2_Osobiy_zakaz",
+    bounty = "ui_inGame2_Odin_vistrel",
+    dead_drop = "ui_inGame2_Karti_mestnosti",
+    artifact = "ui_iconsTotal_artefact",
+    escort = "ui_inGame2_Mesta_evakuatsii",
+    eliminate = "ui_iconsTotal_mutant",
+    scan = "ui_inGame2_Issledovanie_anomaliy",
+}
+
+local FAMILIES = {
+    delivery = true,
+    fetch = true,
+    bounty = true,
+    dead_drop = true,
+    artifact = true,
+    escort = true,
+    eliminate = true,
+    scan = true,
+}
+
+local DETECTOR_TIERS = {
+    basic = { "detector_simple", "detector_radio", "detector_geiger" },
+    advanced = { "detector_advanced" },
+    elite = { "detector_elite" },
+    scientific = { "detector_scientific" },
+}
+
+local DETECTOR_LABELS = {
+    basic = "st_panda_task_detector_basic",
+    advanced = "st_panda_task_detector_advanced",
+    elite = "st_panda_task_detector_elite",
+    scientific = "st_panda_task_detector_scientific",
+}
+
+local DETECTOR_ORDER = {
+    basic = 1,
+    advanced = 2,
+    elite = 3,
+    scientific = 4,
+}
+
+local CONTAINER_SECTIONS = {
+    lead_box = true,
+    af_aam = true,
+    af_aac = true,
+    af_iam = true,
+}
+
+local function log(fmt, ...)
+    printf("PANDA_TASK: " .. tostring(fmt), ...)
+end
+
+local function actor()
+    return db and db.actor or nil
+end
+
+local function now_ms()
+    if time_global then
+        return time_global()
+    end
+    return 0
+end
+
+local function clone_plain(value)
+    if type(value) ~= "table" then
+        return value
+    end
+
+    local out = {}
+    for key, inner in pairs(value) do
+        local inner_type = type(inner)
+        if inner_type ~= "function" and inner_type ~= "userdata" and inner_type ~= "thread" then
+            out[key] = clone_plain(inner)
+        end
+    end
+    return out
+end
+
+local function tr(id, fallback)
+    if not id or id == "" then
+        return fallback or ""
+    end
+
+    if game and game.translate_string then
+        local text = game.translate_string(id)
+        if text and text ~= id then
+            return text
+        end
+    end
+
+    return fallback or id
+end
+
+local function safe_format(template, ...)
+    if not template or template == "" then
+        return ""
+    end
+
+    local ok, result = pcall(string.format, template, ...)
+    if ok and result then
+        return result
+    end
+
+    return template
+end
+
+local function section_name(section)
+    if not section or section == "" then
+        return tr("st_panda_task_unknown_item", "item")
+    end
+
+    local base_section = tostring(section)
+    if base_section:sub(1, 3) == "af_" then
+        local underscore = base_section:find("_", 4, true)
+        if underscore then
+            local suffix = base_section:sub(underscore + 1)
+            if CONTAINER_SECTIONS[suffix] then
+                base_section = base_section:sub(1, underscore - 1)
+            end
+        end
+    end
+
+    if ui_item and ui_item.get_sec_name then
+        local ok, translated = pcall(ui_item.get_sec_name, base_section)
+        if ok and translated and translated ~= "" then
+            return translated
+        end
+    end
+
+    return base_section
+end
+
+local function counted_item_name(section, count)
+    local base = section_name(section)
+    local amount = tonumber(count) or 1
+    if amount > 1 then
+        return string.format("%s x%d", base, amount)
+    end
+    return base
+end
+
+local function detector_name(tier)
+    return tr(DETECTOR_LABELS[tier or "basic"], tr("st_panda_task_detector_basic", "basic detector"))
+end
+
+local function ensure_state()
+    if type(M.state) ~= "table" then
+        M.state = {
+            alias_to_slot = {},
+            slot_to_alias = {},
+            records = {},
+            callbacks = {},
+        }
+    end
+    return M.state
+end
+
+local function slot_name(family, index)
+    return string.format("panda_%s_%02d", tostring(family), tonumber(index) or 0)
+end
+
+local function is_slot_name(value)
+    if not value then
+        return false
+    end
+    return tostring(value):match("^panda_[%w_]+_%d%d$") ~= nil
+end
+
+local function task_manager_ref()
+    if task_manager and task_manager.get_task_manager then
+        return task_manager.get_task_manager()
+    end
+    return nil
+end
+
+local function get_task_object(task_id)
+    local tm = task_manager_ref()
+    if tm and tm.task_info then
+        return tm.task_info[task_id]
+    end
+    return nil
+end
+
+local function get_actor_task(task_id)
+    local act = actor()
+    if act and act.get_task then
+        return act:get_task(task_id, true)
+    end
+    return nil
+end
+
+local function clear_slot_mapping(slot_id, record)
+    local state = ensure_state()
+    local alias = record and record.external_task_id or state.slot_to_alias[slot_id]
+    state.slot_to_alias[slot_id] = nil
+    if alias then
+        state.alias_to_slot[alias] = nil
+    end
+    state.records[slot_id] = nil
+end
+
+local function save_record(slot_id, record)
+    if not slot_id or type(record) ~= "table" then
+        return false
+    end
+
+    local state = ensure_state()
+    record.task_id = slot_id
+    if record.active == nil then
+        record.active = true
+    end
+
+    local alias = tostring(record.external_task_id or slot_id)
+    state.slot_to_alias[slot_id] = alias
+    state.alias_to_slot[alias] = slot_id
+    state.records[slot_id] = clone_plain(record)
+
+    local act = actor()
+    if act and save_var then
+        save_var(act, slot_id, clone_plain(record))
+    end
+
+    return true
+end
+
+local function load_record_by_slot(slot_id)
+    if not slot_id then
+        return nil
+    end
+
+    local state = ensure_state()
+    local rec = nil
+    local act = actor()
+    if act and load_var then
+        rec = load_var(act, slot_id)
+    end
+    if type(rec) ~= "table" then
+        rec = state.records[slot_id]
+    end
+    if type(rec) ~= "table" then
+        return nil
+    end
+
+    rec = clone_plain(rec)
+    rec.task_id = slot_id
+    state.records[slot_id] = clone_plain(rec)
+
+    local alias = tostring(rec.external_task_id or slot_id)
+    state.slot_to_alias[slot_id] = alias
+    state.alias_to_slot[alias] = slot_id
+    return rec
+end
+
+local function rebuild_alias_cache()
+    local state = ensure_state()
+    state.alias_to_slot = {}
+    state.slot_to_alias = {}
+
+    for family in pairs(FAMILIES) do
+        for index = 1, SLOT_COUNT do
+            local slot_id = slot_name(family, index)
+            local rec = load_record_by_slot(slot_id)
+            if type(rec) == "table" and rec.active ~= false then
+                local alias = tostring(rec.external_task_id or slot_id)
+                state.slot_to_alias[slot_id] = alias
+                state.alias_to_slot[alias] = slot_id
+                state.records[slot_id] = clone_plain(rec)
+            end
+        end
+    end
+end
+
+local function resolve_slot(task_or_alias)
+    if not task_or_alias then
+        return nil
+    end
+
+    local value = tostring(task_or_alias)
+    local state = ensure_state()
+    local mapped = state.alias_to_slot[value]
+    if mapped then
+        return mapped
+    end
+
+    if is_slot_name(value) then
+        return value
+    end
+
+    rebuild_alias_cache()
+    mapped = state.alias_to_slot[value]
+    if mapped then
+        return mapped
+    end
+
+    if is_slot_name(value) then
+        return value
+    end
+
+    return nil
+end
+
+local function get_record(task_or_alias)
+    local slot_id = resolve_slot(task_or_alias)
+    if not slot_id then
+        return nil
+    end
+    return load_record_by_slot(slot_id), slot_id
+end
+
+local function update_record(task_or_alias, patch)
+    local rec, slot_id = get_record(task_or_alias)
+    if not rec or not slot_id then
+        return nil
+    end
+
+    for key, value in pairs(patch or {}) do
+        rec[key] = value
+    end
+
+    save_record(slot_id, rec)
+    return rec, slot_id
+end
+
+local function allocate_slot(family, alias)
+    local existing_slot = alias and resolve_slot(alias) or nil
+    if existing_slot then
+        local existing = load_record_by_slot(existing_slot)
+        if existing and existing.active ~= false then
+            return existing_slot, existing, false
+        end
+        clear_slot_mapping(existing_slot, existing)
+    end
+
+    local tm = task_manager_ref()
+    for index = 1, SLOT_COUNT do
+        local slot_id = slot_name(family, index)
+        local rec = load_record_by_slot(slot_id)
+        local task_obj = tm and tm.task_info and tm.task_info[slot_id] or nil
+        local engine_task = get_actor_task(slot_id)
+        if not task_obj and not engine_task and not (rec and rec.active ~= false) then
+            return slot_id, nil, true
+        end
+    end
+
+    return nil, "slot_pool_exhausted"
+end
+
+local function give_task(slot_id, giver_id)
+    local tm = task_manager_ref()
+    if not tm or not tm.give_task then
+        return false, "task_manager_unavailable"
+    end
+
+    tm:give_task(slot_id, giver_id)
+    if tm.task_info and tm.task_info[slot_id] then
+        return true
+    end
+
+    return false, "task_give_failed"
+end
+
+local function get_position(obj)
+    if not obj then
+        return nil
+    end
+    if type(obj.position) == "function" then
+        return obj:position()
+    end
+    return obj.position
+end
+
+local function get_object_by_id(object_id)
+    if not object_id then
+        return nil
+    end
+
+    local obj = level and level.object_by_id and level.object_by_id(object_id) or nil
+    if obj then
+        return obj
+    end
+
+    if alife_object then
+        return alife_object(object_id)
+    end
+
+    return nil
+end
+
+local function get_object_position_by_id(object_id)
+    return get_position(get_object_by_id(object_id))
+end
+
+local function get_object_name_by_id(object_id)
+    local obj = get_object_by_id(object_id)
+    if not obj then
+        return nil
+    end
+
+    if type(obj.character_name) == "function" then
+        local ok, name = pcall(function()
+            return obj:character_name()
+        end)
+        if ok and name and name ~= "" then
+            return tostring(name)
+        end
+    end
+
+    if type(obj.name) == "function" then
+        local ok, name = pcall(function()
+            return obj:name()
+        end)
+        if ok and name and name ~= "" then
+            return tostring(name)
+        end
+    end
+
+    return nil
+end
+
+local function distance_between(a, b)
+    if not a or not b then
+        return nil
+    end
+
+    if a.distance_to then
+        return a:distance_to(b)
+    end
+
+    return nil
+end
+
+local function actor_near_position(position, radius)
+    local act = actor()
+    if not act or not position then
+        return false
+    end
+
+    local dist = distance_between(act:position(), position)
+    if not dist then
+        return false
+    end
+
+    return dist <= (tonumber(radius) or TARGET_RADIUS_DEFAULT)
+end
+
+local function actor_near_object(object_id, radius)
+    return actor_near_position(get_object_position_by_id(object_id), radius)
+end
+
+local function inventory_item_matches(item, section)
+    if not item or not section then
+        return false
+    end
+
+    local item_section = item:section()
+    if item_section == section then
+        return true
+    end
+
+    if tostring(section):sub(1, 3) == "af_" then
+        local prefix = tostring(section) .. "_"
+        return tostring(item_section):sub(1, #prefix) == prefix
+    end
+
+    return false
+end
+
+local function actor_has_item_count(section, count)
+    local act = actor()
+    if not act or not section then
+        return false
+    end
+
+    local found = 0
+    act:iterate_inventory(function(_, item)
+        if inventory_item_matches(item, section) then
+            found = found + 1
+        end
+    end, act)
+
+    return found >= (tonumber(count) or 1)
+end
+
+local function remove_actor_items(section, count)
+    local act = actor()
+    if not act or not section then
+        return 0
+    end
+
+    local remaining = tonumber(count) or 1
+    local to_remove = {}
+    act:iterate_inventory(function(_, item)
+        if remaining > 0 and inventory_item_matches(item, section) then
+            table.insert(to_remove, item:id())
+            remaining = remaining - 1
+        end
+    end, act)
+
+    local removed = 0
+    for _, object_id in ipairs(to_remove) do
+        local se_obj = alife_object and alife_object(object_id) or nil
+        if se_obj and alife_release then
+            alife_release(se_obj)
+            removed = removed + 1
+        end
+    end
+
+    return removed
+end
+
+local function best_detector_tier()
+    local highest = 0
+    local act = actor()
+    if not act then
+        return highest
+    end
+
+    for tier, sections in pairs(DETECTOR_TIERS) do
+        for _, section in ipairs(sections) do
+            if actor_has_item_count(section, 1) then
+                highest = math.max(highest, DETECTOR_ORDER[tier] or 0)
+            end
+        end
+    end
+
+    return highest
+end
+
+local function has_detector_tier(required_tier)
+    local required = DETECTOR_ORDER[required_tier or "basic"] or 1
+    return best_detector_tier() >= required
+end
+
+local function zone_object_id(zone_name)
+    local zone = db and db.anomaly_by_name and zone_name and db.anomaly_by_name[zone_name] or nil
+    return zone and zone.object and zone.object.id or nil
+end
+
+local function resolve_destination_ref(destination_ref)
+    if not destination_ref or destination_ref == "" then
+        return nil, nil
+    end
+
+    local map_id = nil
+    local label = nil
+    if type(get_smart_id_for_location_ref) == "function" then
+        local ok_map, resolved_map_id = pcall(get_smart_id_for_location_ref, destination_ref)
+        if ok_map and resolved_map_id then
+            map_id = resolved_map_id
+        end
+    end
+
+    if type(get_location_display_name) == "function" then
+        local ok_label, resolved_label = pcall(get_location_display_name, destination_ref)
+        if ok_label and resolved_label and resolved_label ~= "" then
+            label = resolved_label
+        end
+    end
+
+    return map_id, label
+end
+
+local function npc_alive(npc_id)
+    if not npc_id or not alife_object then
+        return false
+    end
+
+    local se_npc = alife_object(npc_id)
+    if not se_npc then
+        return false
+    end
+
+    local obj = level and level.object_by_id and level.object_by_id(npc_id) or nil
+    if obj then
+        return obj:alive()
+    end
+
+    if se_npc.alive then
+        local ok, alive = pcall(function()
+            return se_npc:alive()
+        end)
+        if ok then
+            return alive == true
+        end
+    end
+
+    return true
+end
+
+local function all_squads_dead(squad_ids)
+    if type(squad_ids) ~= "table" or #squad_ids == 0 then
+        return false
+    end
+
+    for _, squad_id in ipairs(squad_ids) do
+        local squad = alife_object and alife_object(squad_id) or nil
+        if squad then
+            for member in squad:squad_members() do
+                local obj = level and level.object_by_id and level.object_by_id(member.id) or nil
+                if obj and obj:alive() then
+                    return false
+                end
+
+                if not obj then
+                    local se_member = alife_object and alife_object(member.id) or nil
+                    if se_member then
+                        return false
+                    end
+                end
+            end
+        end
+    end
+
+    return true
+end
+
+local function squad_position(squad_id)
+    local squad = alife_object and alife_object(squad_id) or nil
+    if not squad then
+        return nil
+    end
+
+    if squad.commander_id then
+        local ok, commander_id = pcall(function()
+            return squad:commander_id()
+        end)
+        if ok and commander_id then
+            local commander_pos = get_object_position_by_id(commander_id)
+            if commander_pos then
+                return commander_pos
+            end
+        end
+    end
+
+    return get_position(squad)
+end
+
+local function ensure_artifact_adapter()
+    if panda_anomaly_artifact_adapter and panda_anomaly_artifact_adapter.ensure_state then
+        return panda_anomaly_artifact_adapter
+    end
+
+    local ok = pcall(function()
+        if require then
+            require("panda_anomaly_artifact_adapter")
+        end
+    end)
+
+    if not ok then
+        pcall(function()
+            dofile("gamedata\\scripts\\panda_anomaly_artifact_adapter.script")
+        end)
+    end
+
+    if panda_anomaly_artifact_adapter and panda_anomaly_artifact_adapter.ensure_state then
+        return panda_anomaly_artifact_adapter
+    end
+
+    return nil
+end
+
+local function cleanup_red_spots(record)
+    for _, squad_id in ipairs(record.target_squad_ids or {}) do
+        if level and level.map_has_object_spot and level.map_has_object_spot(squad_id, "red_location") ~= 0 then
+            level.map_remove_object_spot(squad_id, "red_location")
+        end
+    end
+end
+
+local function update_eliminate_spots(record)
+    local smart = record.destination_map_id and alife_object and alife_object(record.destination_map_id) or nil
+    if not smart or not smart.position then
+        return
+    end
+
+    for _, squad_id in ipairs(record.target_squad_ids or {}) do
+        local squad = alife_object and alife_object(squad_id) or nil
+        if squad and squad.position and level and level.map_has_object_spot then
+            local far_away = smart.position:distance_to_sqr(squad.position) > 2500
+            if far_away and level.map_has_object_spot(squad_id, "red_location") == 0 then
+                level.map_add_object_spot(squad_id, "red_location", tr("st_ui_pda_task_unknown_enemy", "Enemy"))
+            elseif (not far_away) and level.map_has_object_spot(squad_id, "red_location") ~= 0 then
+                level.map_remove_object_spot(squad_id, "red_location")
+            end
+        end
+    end
+end
+
+local function cleanup_escort_companion(record)
+    if record.family ~= "escort" then
+        return
+    end
+
+    local squad_id = tonumber(record.target_squad_id)
+    local npc_id = tonumber(record.target_npc_id)
+
+    if squad_id and axr_companions and axr_companions.companion_squads then
+        local squad = alife_object and alife_object(squad_id) or nil
+        axr_companions.companion_squads[squad_id] = nil
+        if squad then
+            squad.scripted_target = nil
+            squad.current_action = nil
+            if axr_companions.remove_from_actor_squad then
+                pcall(axr_companions.remove_from_actor_squad, squad)
+            end
+        end
+    end
+
+    if npc_id then
+        local npc_obj = level and level.object_by_id and level.object_by_id(npc_id) or nil
+        if npc_obj then
+            if xr_logic and xr_logic.restore_scheme_and_logic then
+                pcall(xr_logic.restore_scheme_and_logic, npc_obj)
+            end
+            pcall(function() npc_obj:disable_info_portion("npcx_is_companion") end)
+            pcall(function() npc_obj:disable_info_portion("npcx_beh_cannot_dismiss") end)
+        end
+
+        local se_npc = alife_object and alife_object(npc_id) or nil
+        if se_npc and se_save_var then
+            local npc_name = se_npc:name()
+            se_save_var(npc_id, npc_name, "companion", nil)
+            se_save_var(npc_id, npc_name, "companion_cannot_dismiss", nil)
+            se_save_var(npc_id, npc_name, "companion_cannot_teleport", nil)
+        end
+    end
+end
+
+local function maybe_recover_escort(record)
+    if record.family ~= "escort" or not record.target_squad_id or not TeleportSquad then
+        return
+    end
+
+    local npc_obj = record.target_npc_id and level and level.object_by_id and level.object_by_id(record.target_npc_id) or nil
+    if npc_obj then
+        return
+    end
+
+    local current_ms = now_ms()
+    if record.last_recover_at and (current_ms - record.last_recover_at) < ESCORT_RECOVER_INTERVAL_MS then
+        return
+    end
+
+    local squad = alife_object and alife_object(record.target_squad_id) or nil
+    local act = actor()
+    if squad and act then
+        TeleportSquad(squad, act:position(), act:level_vertex_id(), act:game_vertex_id())
+        record.last_recover_at = current_ms
+        save_record(record.task_id, record)
+    end
+end
+
+local function call_callback(name, ...)
+    local callbacks = ensure_state().callbacks or {}
+    local fn = callbacks[name]
+    if type(fn) ~= "function" then
+        return
+    end
+    pcall(fn, ...)
+end
+
+local function finalize_runtime_artifact_record(record, success)
+    local alias = record.external_task_id
+    if not alias then
+        return
+    end
+
+    local adapter = ensure_artifact_adapter()
+    if not adapter then
+        return
+    end
+
+    if success and adapter.complete_record then
+        pcall(adapter.complete_record, alias)
+    end
+    if adapter.remove_record then
+        pcall(adapter.remove_record, alias)
+    end
+end
+
+local function build_title(record, task)
+    local family = record.family
+    if family == "delivery" then
+        return safe_format(tr("st_panda_task_title_delivery", "Deliver %s"), counted_item_name(record.item_section, record.item_count))
+    elseif family == "fetch" then
+        return safe_format(tr("st_panda_task_title_fetch", "Find %s"), counted_item_name(record.item_section, record.item_count))
+    elseif family == "bounty" then
+        local target_label = record.target_label or tr("st_panda_task_bounty_target", "target")
+        return safe_format(tr("st_panda_task_title_bounty", "Eliminate %s"), target_label)
+    elseif family == "dead_drop" then
+        return safe_format(tr("st_panda_task_title_dead_drop", "Dead Drop %s"), counted_item_name(record.item_section, record.item_count))
+    elseif family == "escort" then
+        local target_label = record.target_label or record.npc_name or tr("st_panda_task_bounty_target", "target")
+        return safe_format(tr("st_panda_task_title_escort", "Escort %s"), target_label)
+    elseif family == "eliminate" then
+        local location_label = record.location_label or tr("st_panda_task_unknown_location", "target area")
+        return safe_format(tr("st_panda_task_title_eliminate", "Clear %s"), location_label)
+    elseif family == "artifact" then
+        return safe_format(tr("st_panda_task_title_artifact", "Retrieve %s"), counted_item_name(record.item_section, 1))
+    elseif family == "scan" then
+        local location_label = record.location_label or tr("st_panda_task_unknown_location", "anomaly")
+        return safe_format(tr("st_panda_task_title_scan", "Scan %s"), location_label)
+    end
+
+    return tr("st_panda_task_title_generic", "Task")
+end
+
+local function build_description(record, task)
+    local family = record.family
+    local location_label = record.location_label or record.destination_label or record.zone_label or tr("st_panda_task_unknown_location", "unknown location")
+    local giver_label = record.npc_name or tr("st_panda_task_unknown_stalker", "stalker")
+
+    if family == "delivery" then
+        return safe_format(
+            tr("st_panda_task_descr_delivery", "Bring %s to %s."),
+            counted_item_name(record.item_section, record.item_count),
+            location_label
+        )
+    elseif family == "fetch" then
+        return safe_format(
+            tr("st_panda_task_descr_fetch", "Acquire %s."),
+            counted_item_name(record.item_section, record.item_count)
+        )
+    elseif family == "bounty" then
+        local target_label = record.target_label or tr("st_panda_task_bounty_target", "target")
+        return safe_format(
+            tr("st_panda_task_descr_bounty", "Kill %s near %s."),
+            target_label,
+            location_label
+        )
+    elseif family == "dead_drop" then
+        return safe_format(
+            tr("st_panda_task_descr_dead_drop", "Stash %s at %s."),
+            counted_item_name(record.item_section, record.item_count),
+            location_label
+        )
+    elseif family == "escort" then
+        local target_label = record.target_label or giver_label
+        return safe_format(
+            tr("st_panda_task_descr_escort", "Escort %s to %s. Task fails if escort dies."),
+            target_label,
+            location_label
+        )
+    elseif family == "eliminate" then
+        return safe_format(
+            tr("st_panda_task_descr_eliminate", "Eliminate hostile presence near %s."),
+            location_label
+        )
+    elseif family == "artifact" then
+        if record.manual_turn_in and task and tonumber(task.stage) >= 1 then
+            return safe_format(
+                tr("st_panda_task_descr_artifact_return", "Return %s to %s."),
+                counted_item_name(record.item_section, 1),
+                giver_label
+            )
+        end
+
+        if record.target_npc_id then
+            local target_label = record.target_label or tr("st_panda_task_bounty_target", "carrier")
+            return safe_format(
+                tr("st_panda_task_descr_artifact_npc", "Recover %s from %s."),
+                counted_item_name(record.item_section, 1),
+                target_label
+            )
+        end
+
+        return safe_format(
+            tr("st_panda_task_descr_artifact", "Recover %s near %s."),
+            counted_item_name(record.item_section, 1),
+            location_label
+        )
+    elseif family == "scan" then
+        return safe_format(
+            tr("st_panda_task_descr_scan", "Reach %s with at least %s."),
+            location_label,
+            detector_name(record.detector_tier)
+        )
+    end
+
+    return tr("st_panda_task_descr_generic", "Complete task.")
+end
+
+local function build_target(record, task)
+    local family = record.family
+    local stage = tonumber(task and task.stage) or 0
+
+    if family == "artifact" then
+        if record.manual_turn_in and stage >= 1 then
+            return record.giver_id
+        end
+        return record.target_npc_id or record.zone_object_id or record.destination_map_id
+    elseif family == "scan" then
+        return record.zone_object_id or record.destination_map_id
+    elseif family == "delivery" or family == "dead_drop" or family == "escort" or family == "eliminate" then
+        return record.destination_map_id
+    elseif family == "bounty" then
+        return record.target_npc_id or record.destination_map_id
+    elseif family == "fetch" then
+        return nil
+    end
+
+    return record.destination_map_id or record.zone_object_id or record.target_npc_id
+end
+
+local function mark_stage(task, record, stage)
+    if not task or not record then
+        return
+    end
+
+    stage = tonumber(stage) or 0
+    if tonumber(task.stage) ~= stage or tonumber(record.stage) ~= stage then
+        task.stage = stage
+        record.stage = stage
+        save_record(record.task_id, record)
+    end
+end
+
+local function eval_timeout(record)
+    if record.expire_at and now_ms() > tonumber(record.expire_at) then
+        record.fail_reason = "expired"
+        save_record(record.task_id, record)
+        return "fail"
+    end
+    return nil
+end
+
+local function evaluate_status(task, task_id)
+    local record, slot_id = get_record(task_id)
+    if not record or not slot_id then
+        return "fail"
+    end
+
+    local timeout_result = eval_timeout(record)
+    if timeout_result then
+        return timeout_result
+    end
+
+    if record.family == "delivery" or record.family == "dead_drop" then
+        if actor_has_item_count(record.item_section, record.item_count or 1)
+            and actor_near_object(record.destination_map_id, record.target_radius or TARGET_RADIUS_DEFAULT)
+        then
+            return "complete"
+        end
+        return
+    end
+
+    if record.family == "fetch" then
+        if actor_has_item_count(record.item_section, record.item_count or 1) then
+            mark_stage(task, record, 1)
+            return "complete"
+        end
+        mark_stage(task, record, 0)
+        return
+    end
+
+    if record.family == "bounty" then
+        if not record.target_npc_id then
+            record.fail_reason = "missing_target"
+            save_record(record.task_id, record)
+            return "fail"
+        end
+
+        if not npc_alive(record.target_npc_id) then
+            mark_stage(task, record, 1)
+            return "complete"
+        end
+        return
+    end
+
+    if record.family == "escort" then
+        if not record.target_npc_id then
+            record.fail_reason = "missing_target"
+            save_record(record.task_id, record)
+            return "fail"
+        end
+
+        if not npc_alive(record.target_npc_id) then
+            record.fail_reason = "escort_dead"
+            save_record(record.task_id, record)
+            return "fail"
+        end
+
+        maybe_recover_escort(record)
+        local escort_pos = get_object_position_by_id(record.target_npc_id) or squad_position(record.target_squad_id)
+        local destination = get_object_position_by_id(record.destination_map_id)
+        if destination and escort_pos and distance_between(escort_pos, destination) and distance_between(escort_pos, destination) <= (record.target_radius or TARGET_RADIUS_DEFAULT) then
+            return "complete"
+        end
+        return
+    end
+
+    if record.family == "eliminate" then
+        if type(record.target_squad_ids) ~= "table" or #record.target_squad_ids == 0 then
+            record.fail_reason = "missing_targets"
+            save_record(record.task_id, record)
+            return "fail"
+        end
+
+        update_eliminate_spots(record)
+        if all_squads_dead(record.target_squad_ids) then
+            mark_stage(task, record, 1)
+            return "complete"
+        end
+        return
+    end
+
+    if record.family == "scan" then
+        if not has_detector_tier(record.detector_tier or "basic") then
+            return
+        end
+
+        if actor_near_object(record.zone_object_id or record.destination_map_id, record.scan_radius or SCAN_RADIUS) then
+            return "complete"
+        end
+        return
+    end
+
+    if record.family == "artifact" then
+        local adapter = ensure_artifact_adapter()
+        if adapter and adapter.evaluate_fail_state and record.external_task_id then
+            local failed, reason = adapter.evaluate_fail_state(record.external_task_id)
+            if failed then
+                record.fail_reason = reason or "artifact_failed"
+                save_record(record.task_id, record)
+                return "fail"
+            end
+        end
+
+        local has_artifact = actor_has_item_count(record.item_section, 1)
+        if record.manual_turn_in then
+            if has_artifact then
+                mark_stage(task, record, 1)
+            else
+                mark_stage(task, record, 0)
+                if record.fail_if_artifact_lost and tonumber(task.stage) >= 1 then
+                    record.fail_reason = "artifact_lost"
+                    save_record(record.task_id, record)
+                    return "fail"
+                end
+            end
+
+            if record.turn_in_requested == true then
+                return "complete"
+            end
+            return
+        end
+
+        if has_artifact then
+            return "complete"
+        end
+        return
+    end
+
+    return
+end
+
+local function apply_success_side_effects(record)
+    if not record then
+        return
+    end
+
+    if record.family == "delivery" or record.family == "dead_drop" or record.family == "fetch" then
+        if not record.item_consumed then
+            remove_actor_items(record.item_section, record.item_count or 1)
+        end
+    elseif record.family == "artifact" then
+        if not record.item_consumed and not record.manual_turn_in then
+            remove_actor_items(record.item_section, 1)
+        end
+    end
+
+    if record.family == "escort" then
+        cleanup_escort_companion(record)
+    elseif record.family == "eliminate" then
+        cleanup_red_spots(record)
+    end
+end
+
+local function apply_failure_side_effects(record)
+    if not record then
+        return
+    end
+
+    if record.family == "escort" then
+        cleanup_escort_companion(record)
+    elseif record.family == "eliminate" then
+        cleanup_red_spots(record)
+    end
+end
+
+function M.set_callbacks(callbacks)
+    local state = ensure_state()
+    state.callbacks = state.callbacks or {}
+    for key, value in pairs(callbacks or {}) do
+        if type(value) == "function" then
+            state.callbacks[key] = value
+        end
+    end
+end
+
+function M.is_task_family(job_type)
+    return FAMILIES[tostring(job_type or "")] == true
+end
+
+function M.create_task(params)
+    if type(params) ~= "table" then
+        return nil, "bad_params"
+    end
+
+    local family = tostring(params.family or "")
+    if not FAMILIES[family] then
+        return nil, "bad_family"
+    end
+
+    local external_task_id = tostring(params.external_task_id or params.runtime_task_id or params.alias_id or slot_name(family, math.random(1, SLOT_COUNT)))
+    local slot_id, existing_record, is_new = allocate_slot(family, external_task_id)
+    if not slot_id then
+        return nil, existing_record or "slot_pool_exhausted"
+    end
+
+    local record = existing_record or {}
+    record.family = family
+    record.active = true
+    record.external_task_id = external_task_id
+    record.giver_id = tonumber(params.giver_id or params.npc_id)
+    record.npc_id = tonumber(params.npc_id or params.giver_id)
+    record.contact_id = params.contact_id and tostring(params.contact_id) or (record.npc_id and tostring(record.npc_id)) or nil
+    record.npc_name = params.npc_name or record.npc_name
+    record.conv_icon = params.conv_icon or params.npc_icon or record.conv_icon or "ui_pda2_mtask_overlay"
+    record.faction = params.faction or record.faction
+    record.conv_prefix = params.conv_prefix or record.conv_prefix
+    record.conv_id = tonumber(params.conv_id) or record.conv_id
+    record.success_turn = tonumber(params.success_turn) or record.success_turn
+    record.fail_turn = tonumber(params.fail_turn) or record.fail_turn
+    record.channel = params.channel or record.channel or "pda"
+    record.applied_outcomes = clone_plain(params.applied_outcomes or record.applied_outcomes or {})
+    record.started_at = tonumber(record.started_at) or now_ms()
+    record.timeout_seconds = tonumber(params.timeout_seconds or params.timeout or record.timeout_seconds) or nil
+    record.expire_at = record.timeout_seconds and (record.started_at + (record.timeout_seconds * 1000)) or record.expire_at
+    record.stage = tonumber(record.stage) or 0
+
+    record.item_section = params.item_section or record.item_section
+    record.item_count = tonumber(params.item_count or record.item_count) or 1
+    if params.item_consumed ~= nil then
+        record.item_consumed = params.item_consumed == true
+    else
+        record.item_consumed = record.item_consumed == true
+    end
+
+    record.destination_ref = params.destination_ref or record.destination_ref
+    local resolved_destination_id, resolved_destination_label = resolve_destination_ref(record.destination_ref)
+    record.destination_map_id = tonumber(params.destination_map_id or record.destination_map_id or resolved_destination_id) or nil
+    record.destination_label = params.destination_label or record.destination_label or resolved_destination_label
+    record.location_label = params.location_label or params.destination_label or record.destination_label or params.zone_label or record.location_label
+    record.target_radius = tonumber(params.target_radius or record.target_radius) or TARGET_RADIUS_DEFAULT
+
+    record.zone_name = params.zone_name or record.zone_name
+    record.zone_object_id = tonumber(params.zone_object_id or record.zone_object_id) or zone_object_id(params.zone_name)
+    record.zone_label = params.zone_label or record.zone_label or record.zone_name
+    if record.zone_label and not record.location_label then
+        record.location_label = record.zone_label
+    end
+
+    record.target_npc_id = tonumber(params.target_npc_id or record.target_npc_id) or nil
+    record.target_squad_id = tonumber(params.target_squad_id or record.target_squad_id) or nil
+    record.target_squad_ids = clone_plain(params.target_squad_ids or record.target_squad_ids or {})
+    record.target_label = params.target_label or record.target_label
+    record.artifact_object_id = tonumber(params.artifact_object_id or record.artifact_object_id) or nil
+
+    record.detector_tier = params.detector_tier or record.detector_tier or "basic"
+    record.manual_turn_in = params.manual_turn_in == true or (params.manual_turn_in == nil and record.manual_turn_in == true)
+    record.fail_if_artifact_lost = params.fail_if_artifact_lost
+    if record.fail_if_artifact_lost == nil then
+        record.fail_if_artifact_lost = record.manual_turn_in == true
+    end
+    record.scan_radius = tonumber(params.scan_radius or record.scan_radius) or SCAN_RADIUS
+    record.target_icon = FAMILY_ICONS[family]
+
+    save_record(slot_id, record)
+
+    if is_new then
+        local ok, err = give_task(slot_id, record.giver_id)
+        if not ok then
+            local act = actor()
+            if act and save_var then
+                save_var(act, slot_id, nil)
+            end
+            clear_slot_mapping(slot_id, record)
+            return nil, err or "task_give_failed"
+        end
+    end
+
+    return slot_id, clone_plain(record)
+end
+
+function M.start_scan_task(task_id, zone_name, detector_tier, expire_seconds, sender_npc_id, extra)
+    local zone_id = zone_object_id(zone_name)
+    if not zone_id then
+        return nil, "zone_not_found"
+    end
+
+    local adapter = ensure_artifact_adapter()
+    if adapter and adapter.start_scan_task then
+        local ok, err = adapter.start_scan_task(task_id, zone_name, detector_tier, expire_seconds, sender_npc_id)
+        if not ok then
+            return nil, err
+        end
+    end
+
+    local params = clone_plain(extra or {})
+    params.family = "scan"
+    params.external_task_id = task_id
+    params.zone_name = zone_name
+    params.zone_object_id = zone_id
+    params.zone_label = params.zone_label or zone_name
+    params.location_label = params.location_label or params.zone_label
+    params.detector_tier = detector_tier or "basic"
+    params.timeout_seconds = expire_seconds
+    params.giver_id = sender_npc_id
+    params.npc_id = params.npc_id or sender_npc_id
+    return M.create_task(params)
+end
+
+function M.start_artifact_task(task_id, artifact_section, zone_name, detector_tier, expire_seconds, sender_npc_id, extra)
+    local adapter = ensure_artifact_adapter()
+    if adapter and adapter.start_artifact_task then
+        local ok, err = adapter.start_artifact_task(task_id, artifact_section, zone_name, detector_tier, expire_seconds, sender_npc_id)
+        if not ok then
+            return nil, err
+        end
+    end
+
+    local params = clone_plain(extra or {})
+    params.family = "artifact"
+    params.external_task_id = task_id
+    params.item_section = artifact_section
+    params.zone_name = zone_name
+    params.zone_object_id = zone_object_id(zone_name)
+    params.zone_label = params.zone_label or zone_name
+    params.location_label = params.location_label or params.zone_label
+    params.detector_tier = detector_tier or "basic"
+    params.timeout_seconds = expire_seconds
+    params.giver_id = sender_npc_id
+    params.npc_id = params.npc_id or sender_npc_id
+    params.manual_turn_in = params.manual_turn_in ~= false
+    if params.fail_if_artifact_lost == nil then
+        params.fail_if_artifact_lost = params.manual_turn_in == true
+    end
+    return M.create_task(params)
+end
+
+function M.start_auto_artifact_task(params)
+    if type(params) ~= "table" then
+        return nil, "bad_params"
+    end
+
+    local task_id = tostring(params.external_task_id or params.runtime_task_id or ("panda_artifact_" .. tostring(math.random(100000, 999999))))
+    local adapter = ensure_artifact_adapter()
+    if adapter and adapter.start_artifact_task then
+        local ok, err = adapter.start_artifact_task(task_id, params.item_section, params.zone_name, params.detector_tier, params.timeout_seconds, params.giver_id)
+        if not ok then
+            return nil, err
+        end
+    end
+
+    local final_section = params.item_section
+    local final_zone = params.zone_name
+    if adapter and final_zone and final_zone ~= "" and adapter.spawn_artifact_in_zone then
+        local ok, err, spawned_section = adapter.spawn_artifact_in_zone(task_id, params.item_section, final_zone)
+        if not ok then
+            if params.item_section and params.item_section ~= "" then
+                final_zone = nil
+            else
+                return nil, err
+            end
+        elseif spawned_section and spawned_section ~= "" then
+            final_section = spawned_section
+        end
+    end
+
+    params.family = "artifact"
+    params.external_task_id = task_id
+    params.item_section = final_section
+    params.zone_name = final_zone
+    params.zone_object_id = zone_object_id(final_zone)
+    params.zone_label = params.zone_label or final_zone
+    params.location_label = params.location_label or params.zone_label or final_zone
+    params.manual_turn_in = false
+    params.fail_if_artifact_lost = params.fail_if_artifact_lost == true
+    return M.create_task(params)
+end
+
+function M.spawn_artifact_in_zone(task_id, artifact_section, zone_name)
+    local adapter = ensure_artifact_adapter()
+    if not adapter then
+        return false, "adapter_unavailable"
+    end
+
+    if not adapter.get_record(task_id) and adapter.start_artifact_task then
+        adapter.start_artifact_task(task_id, artifact_section, zone_name, "basic", 0, nil)
+    end
+
+    local ok, err, spawned_section, artifact_object_id = adapter.spawn_artifact_in_zone(task_id, artifact_section, zone_name)
+    if not ok then
+        return false, err
+    end
+
+    local record = update_record(task_id, {
+        item_section = spawned_section or artifact_section,
+        zone_name = zone_name,
+        zone_object_id = zone_object_id(zone_name),
+        zone_label = zone_name,
+        location_label = zone_name,
+        artifact_object_id = artifact_object_id,
+    })
+    if not record then
+        local slot_id, err = M.create_task({
+            family = "artifact",
+            external_task_id = task_id,
+            item_section = spawned_section or artifact_section,
+            zone_name = zone_name,
+            zone_label = zone_name,
+            location_label = zone_name,
+            artifact_object_id = artifact_object_id,
+            manual_turn_in = true,
+            fail_if_artifact_lost = true,
+        })
+        if not slot_id then
+            return false, err
+        end
+        record = update_record(task_id, {
+            item_section = spawned_section or artifact_section,
+            zone_name = zone_name,
+            zone_object_id = zone_object_id(zone_name),
+            zone_label = zone_name,
+            location_label = zone_name,
+            artifact_object_id = artifact_object_id,
+        })
+    end
+
+    return true, nil, spawned_section or artifact_section, record and record.artifact_object_id or artifact_object_id
+end
+
+function M.spawn_artifact_on_npc(task_id, artifact_section, target_npc_id)
+    local adapter = ensure_artifact_adapter()
+    if not adapter then
+        return false, "adapter_unavailable"
+    end
+
+    if not adapter.get_record(task_id) and adapter.start_artifact_task then
+        adapter.start_artifact_task(task_id, artifact_section, nil, "basic", 0, nil)
+    end
+
+    local ok, err = adapter.spawn_artifact_on_npc(task_id, artifact_section, target_npc_id)
+    if not ok then
+        return false, err
+    end
+
+    local record = update_record(task_id, {
+        item_section = artifact_section,
+        target_npc_id = tonumber(target_npc_id),
+        target_label = get_object_name_by_id(target_npc_id),
+    })
+    if not record then
+        local slot_id, err = M.create_task({
+            family = "artifact",
+            external_task_id = task_id,
+            item_section = artifact_section,
+            target_npc_id = tonumber(target_npc_id),
+            target_label = get_object_name_by_id(target_npc_id),
+            manual_turn_in = true,
+            fail_if_artifact_lost = true,
+        })
+        if not slot_id then
+            return false, err
+        end
+    end
+
+    return true
+end
+
+function M.set_anomaly_target(task_id, zone_name)
+    local adapter = ensure_artifact_adapter()
+    if adapter and adapter.set_anomaly_target then
+        local ok, err = adapter.set_anomaly_target(task_id, zone_name)
+        if not ok then
+            return false, err
+        end
+    end
+
+    local record = update_record(task_id, {
+        zone_name = zone_name,
+        zone_object_id = zone_object_id(zone_name),
+        zone_label = zone_name,
+        location_label = zone_name,
+    })
+    if not record then
+        local slot_id, err = M.create_task({
+            family = "artifact",
+            external_task_id = task_id,
+            zone_name = zone_name,
+            zone_label = zone_name,
+            location_label = zone_name,
+            manual_turn_in = true,
+            fail_if_artifact_lost = false,
+        })
+        if not slot_id then
+            return false, err
+        end
+    end
+    return true
+end
+
+function M.set_fail_if_artifact_lost(task_id, enabled)
+    local adapter = ensure_artifact_adapter()
+    if adapter and adapter.set_fail_if_artifact_lost then
+        local ok, err = adapter.set_fail_if_artifact_lost(task_id, enabled == true)
+        if not ok then
+            return false, err
+        end
+    end
+
+    local record = update_record(task_id, { fail_if_artifact_lost = enabled == true })
+    if not record then
+        local slot_id, err = M.create_task({
+            family = "artifact",
+            external_task_id = task_id,
+            manual_turn_in = true,
+            fail_if_artifact_lost = enabled == true,
+        })
+        if not slot_id then
+            return false, err
+        end
+    end
+    return true
+end
+
+function M.turn_in_artifact(task_id, artifact_section)
+    local record, slot_id = get_record(task_id)
+    local required = artifact_section or (record and record.item_section) or nil
+    if not required or required == "" then
+        return false, "missing_artifact"
+    end
+
+    if not actor_has_item_count(required, 1) then
+        return false, "artifact_missing"
+    end
+
+    if not record or not slot_id then
+        local adapter_only = ensure_artifact_adapter()
+        if adapter_only and adapter_only.turn_in_artifact then
+            return adapter_only.turn_in_artifact(task_id, required)
+        end
+        return false, "task_not_found"
+    end
+
+    remove_actor_items(required, 1)
+    record.item_section = required
+    record.item_consumed = true
+    record.turn_in_requested = true
+    save_record(slot_id, record)
+
+    local adapter = ensure_artifact_adapter()
+    if adapter and adapter.turn_in_artifact then
+        adapter.turn_in_artifact(task_id, required)
+    end
+
+    local tm = task_manager_ref()
+    if tm and tm.set_task_completed then
+        tm:set_task_completed(slot_id)
+    end
+
+    return true
+end
+
+function M.finish_task(task_id, success, reason, suppress_followup)
+    local record, slot_id = get_record(task_id)
+    if not record or not slot_id then
+        return false, "task_not_found"
+    end
+
+    if success == true then
+        apply_success_side_effects(record)
+    else
+        record.fail_reason = reason or record.fail_reason
+        apply_failure_side_effects(record)
+    end
+
+    finalize_runtime_artifact_record(record, success == true)
+
+    local payload = clone_plain(record)
+    payload.slot_id = slot_id
+    payload.result = success == true and "success" or "fail"
+    payload.reason = reason or record.fail_reason
+    payload.suppress_followup = suppress_followup == true
+
+    clear_slot_mapping(slot_id, record)
+    local act = actor()
+    if act and save_var then
+        save_var(act, slot_id, nil)
+    end
+
+    call_callback("on_task_resolved", payload, success == true)
+    return true
+end
+
+function M.migrate_legacy_job(job)
+    if type(job) ~= "table" or not M.is_task_family(job.job_type) then
+        return false, "not_task_job"
+    end
+
+    local params = {
+        family = job.job_type,
+        external_task_id = string.format("legacy_%s_%s_%s", tostring(job.job_type), tostring(job.contact_id or "contact"), tostring(job.id or math.random(100000))),
+        contact_id = job.contact_id,
+        npc_id = job.npc_id,
+        giver_id = job.npc_id,
+        npc_name = job.npc_name,
+        conv_icon = job.conv_icon,
+        faction = job.faction,
+        conv_prefix = job.conv_prefix,
+        conv_id = job.conv_id,
+        success_turn = job.success_turn,
+        fail_turn = job.fail_turn,
+        channel = job.channel or "pda",
+        applied_outcomes = clone_plain(job.applied_outcomes or {}),
+        timeout_seconds = job.timeout,
+        target_radius = job.task_radius,
+        location_label = job.task_zone or job.task_destination,
+    }
+
+    if job.job_type == "delivery" or job.job_type == "dead_drop" then
+        params.item_section = job.task_item
+        params.item_count = 1
+    elseif job.job_type == "fetch" then
+        params.item_section = job.task_item
+        params.item_count = job.task_item_count or 1
+    elseif job.job_type == "bounty" then
+        params.target_npc_id = job.task_target_id
+        params.target_label = job.task_target_name
+    elseif job.job_type == "escort" then
+        params.target_npc_id = job.task_target_id
+        params.target_label = job.npc_name
+    elseif job.job_type == "eliminate" then
+        params.target_squad_ids = clone_plain(job.squad_ids or {})
+        if not params.target_squad_ids or #params.target_squad_ids == 0 then
+            return false, "no_tracked_squads"
+        end
+    elseif job.job_type == "artifact" then
+        params.family = "artifact"
+        params.external_task_id = job.task_runtime_id or params.external_task_id
+        params.item_section = job.task_item
+        params.zone_name = job.task_zone
+        params.zone_object_id = zone_object_id(job.task_zone)
+        params.zone_label = job.task_zone
+        params.detector_tier = job.task_detector_tier or "basic"
+        params.manual_turn_in = false
+        params.fail_if_artifact_lost = false
+    end
+
+    if job.task_destination then
+        params.destination_ref = job.task_destination
+    end
+
+    local _, err = M.create_task(params)
+    if err then
+        return false, err
+    end
+
+    return true
+end
+
+function M.save_state(m)
+    local state = ensure_state()
+    m.panda_task_bridge_state = {
+        alias_to_slot = clone_plain(state.alias_to_slot),
+        slot_to_alias = clone_plain(state.slot_to_alias),
+        records = clone_plain(state.records),
+    }
+end
+
+function M.load_state(m)
+    local existing_callbacks = type(M.state) == "table" and type(M.state.callbacks) == "table" and M.state.callbacks or {}
+    local saved = m and m.panda_task_bridge_state or nil
+    M.state = {
+        alias_to_slot = type(saved) == "table" and clone_plain(saved.alias_to_slot or {}) or {},
+        slot_to_alias = type(saved) == "table" and clone_plain(saved.slot_to_alias or {}) or {},
+        records = type(saved) == "table" and clone_plain(saved.records or {}) or {},
+        callbacks = existing_callbacks,
+    }
+    rebuild_alias_cache()
+end
+
+function M.get_record(task_id)
+    local record = get_record(task_id)
+    if type(record) ~= "table" then
+        return nil
+    end
+    return clone_plain(record)
+end
+
+function M.resolve_slot(task_id)
+    return resolve_slot(task_id)
+end
+
+task_functor.panda_task_title = function(task_id, field, p, task)
+    if field ~= "title" then
+        return p or ""
+    end
+
+    local record = get_record(task_id)
+    if type(record) ~= "table" then
+        return tr("st_panda_task_title_generic", "Task")
+    end
+
+    return build_title(record, task)
+end
+
+task_functor.panda_task_descr = function(task_id, field, p, task)
+    if field ~= "descr" then
+        return p or ""
+    end
+
+    local record = get_record(task_id)
+    if type(record) ~= "table" then
+        return tr("st_panda_task_descr_generic", "Complete task.")
+    end
+
+    return build_description(record, task)
+end
+
+task_functor.panda_task_target = function(task_id, field, p, task)
+    if field ~= "target" then
+        return nil
+    end
+
+    local record = get_record(task_id)
+    if type(record) ~= "table" then
+        return nil
+    end
+
+    return build_target(record, task)
+end
+
+task_status_functor.panda_task_status = function(task, task_id)
+    return evaluate_status(task, task_id)
+end
+
+function xr_effects.panda_task_complete(actor_obj, npc, p)
+    local task_id = p and p[1]
+    M.finish_task(task_id, true)
+end
+
+function xr_effects.panda_task_fail(actor_obj, npc, p)
+    local task_id = p and p[1]
+    M.finish_task(task_id, false)
+end
+
+function xr_effects.panda_task_cancel(actor_obj, npc, p)
+    local task_id = p and p[1]
+    M.finish_task(task_id, false, "cancelled", true)
+end
+
+return M

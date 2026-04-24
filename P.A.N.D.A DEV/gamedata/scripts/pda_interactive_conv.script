@@ -27,7 +27,9 @@ local PRIVATE_MESSAGES_SECTION = "eptPrivateMessages"
 local LEGACY_PRIVATE_MESSAGES_SECTION = "eptPrivate"
 
 local safe_remove_time_event
+local ensure_panda_task_bridge
 local _panda_f2f_bridge_checked = false
+local _panda_task_bridge_checked = false
 local _panda_npc_creator_checked = false
 local _f2f_scanner_suppress_last_log_at = nil
 local _f2f_scanner_suppress_last_source = nil
@@ -142,7 +144,7 @@ local function get_anomaly_artifact_adapter()
     return nil
 end
 
-local function make_artifact_runtime_task_id(conv_data)
+local function make_panda_runtime_task_id(family, conv_data)
     local conv_name = conv_data and (conv_data.conv_id or conv_data.prefix) or nil
     if not conv_name or conv_name == "" then
         conv_name = "conversation"
@@ -157,7 +159,20 @@ local function make_artifact_runtime_task_id(conv_data)
         conv_name = "conversation"
     end
 
-    return string.format("panda_artifact_%s_%d", conv_name, math.random(100000, 999999))
+    local family_name = tostring(family or "task")
+        :gsub("%W+", "_")
+        :gsub("^_+", "")
+        :gsub("_+$", "")
+
+    if family_name == "" then
+        family_name = "task"
+    end
+
+    return string.format("panda_%s_%s_%d", family_name, conv_name, math.random(100000, 999999))
+end
+
+local function make_artifact_runtime_task_id(conv_data)
+    return make_panda_runtime_task_id("artifact", conv_data)
 end
 
 
@@ -1037,6 +1052,7 @@ function create_pending_job(contact_id, npc_id, npc_name, faction, squad_ids, ti
         conv_prefix = conv and conv.prefix or nil,
         conv_id = conv and conv.conv_id or nil,
         conv_icon = conv and conv.npc_icon or FALLBACK_NPC_ICON,
+        channel = conv and conv.channel or "pda",
         applied_outcomes = conv and conv.applied_outcomes or {},
     }
 
@@ -1199,6 +1215,7 @@ local function job_resume_conversation(job, turn, is_success)
         applied_outcomes = job.applied_outcomes or {},
         started_at = time_global(),
         reply_pending = false,
+        channel = job.channel or "pda",
     }
 
     active_conversations[cid] = conv_data
@@ -1626,6 +1643,182 @@ local function check_pending_pda_followups()
     end
 end
 
+local function queue_panda_task_pda_followup(record, turn)
+    if type(record) ~= "table" then
+        return false, "bad_record"
+    end
+
+    local npc_id = tonumber(record.npc_id or record.giver_id)
+    local conv_id = tonumber(record.conv_id)
+    local next_turn = tonumber(turn)
+    local faction = record.faction
+    local contact_id = tostring(record.contact_id or npc_id or "")
+    if contact_id == "" or not npc_id or not conv_id or not next_turn or not faction then
+        return false, "missing_identity"
+    end
+
+    local ok = queue_pda_followup_internal({
+        npc_id = npc_id,
+        contact_id = contact_id,
+        npc_name = record.npc_name,
+        npc_icon = record.conv_icon,
+        faction = faction,
+        prefix = record.conv_prefix,
+        conv_id = conv_id,
+        turn = next_turn,
+        delay_seconds = 0,
+        applied_outcomes = clone_plain_table(record.applied_outcomes) or {},
+    })
+    if ok then
+        check_pending_pda_followups()
+        return true
+    end
+
+    return false, "queue_failed"
+end
+
+local function queue_panda_task_f2f_followup(record, turn)
+    if type(record) ~= "table" then
+        return false, "bad_record"
+    end
+
+    local npc_id = tonumber(record.npc_id or record.giver_id)
+    local conv_id = tonumber(record.conv_id)
+    local next_turn = tonumber(turn)
+    local contact_id = tostring(record.contact_id or npc_id or "")
+    if contact_id == "" or not npc_id or not conv_id or not next_turn then
+        return false, "missing_identity"
+    end
+
+    if type(register_pending_f2f_handoff) ~= "function" then
+        return false, "handoff_unavailable"
+    end
+
+    local npc_se = resolve_runtime_npc_se(nil, npc_id)
+    local set_at = time_global and time_global() or 0
+    local handoff_identity = type(build_f2f_handoff_identity) == "function"
+        and build_f2f_handoff_identity(npc_se, npc_id)
+        or { story_id = nil, canonical_id = nil, fallback_name = nil }
+    local handoff_token
+    if type(make_f2f_handoff_token) == "function" then
+        handoff_token = make_f2f_handoff_token(npc_id, conv_id, next_turn, set_at)
+    else
+        handoff_token = string.format("task_handoff_%s_%s_%s_%s", tostring(npc_id), tostring(conv_id), tostring(next_turn), tostring(set_at))
+    end
+
+    local handoff_dialog = "panda_f2f_hub_dialog"
+    local bridge = ensure_panda_f2f_bridge()
+    if bridge and type(bridge.allocate_hub_dialog_id) == "function" then
+        local ok_dialog, allocated_dialog = pcall(bridge.allocate_hub_dialog_id)
+        if ok_dialog and type(allocated_dialog) == "string" and allocated_dialog ~= "" then
+            handoff_dialog = allocated_dialog
+        end
+    end
+
+    local handoff_row = {
+        contact_id = contact_id,
+        npc_id = npc_id,
+        npc_name = record.npc_name,
+        npc_icon = record.conv_icon,
+        conv_id = conv_id,
+        turn = next_turn,
+        faction = record.faction,
+        prefix = record.conv_prefix,
+        channel = "f2f",
+        dialog = handoff_dialog,
+        set_at = set_at,
+        token = handoff_token,
+        story_id = handoff_identity.story_id,
+        canonical_id = handoff_identity.canonical_id,
+        fallback_name = handoff_identity.fallback_name,
+        applied_outcomes = clone_plain_table(record.applied_outcomes) or {},
+        route_owner = nil,
+        route_dialog = handoff_dialog,
+        route_status = "pending",
+    }
+
+    if not register_pending_f2f_handoff(contact_id, handoff_row) then
+        return false, "register_failed"
+    end
+
+    local owner_tag = string.format("task_handoff_%s_%s_%s", tostring(contact_id), tostring(conv_id), tostring(next_turn))
+    local handoff_route = "no-route"
+    if bridge and type(bridge.hard_route_branch) == "function" then
+        local ok_route_call, route_applied = pcall(bridge.hard_route_branch, handoff_row.npc_id, owner_tag, handoff_dialog)
+        if ok_route_call and route_applied == true then
+            handoff_route = "bridge route"
+        end
+    end
+
+    if handoff_route ~= "bridge route" and xr_meet and type(xr_meet.override_dialog) == "function" then
+        local ok_override_call = pcall(xr_meet.override_dialog, handoff_row.npc_id, handoff_dialog)
+        if ok_override_call and has_xr_meet_dialog_override(handoff_row.npc_id, handoff_dialog) then
+            handoff_route = "xr_meet fallback"
+        end
+    end
+
+    handoff_row.route_owner = owner_tag
+    handoff_row.route_status = handoff_route
+    handoff_row.route_set_at = set_at
+
+    pda_private_add_message(
+        contact_id,
+        record.npc_name,
+        "PDA System",
+        string.format("Meet %s to continue this conversation.", tostring(record.npc_name or "contact")),
+        record.conv_icon or FALLBACK_NPC_ICON,
+        false,
+        nil,
+        nil,
+        nil,
+        { skip_personality = true }
+    )
+
+    return true
+end
+
+local function handle_panda_task_resolution(record, success)
+    if type(record) ~= "table" or record.suppress_followup == true then
+        return
+    end
+
+    local next_turn = success and tonumber(record.success_turn) or tonumber(record.fail_turn)
+    if not next_turn then
+        return
+    end
+
+    local channel = tostring(record.channel or "pda")
+    local ok, reason
+    if channel == "f2f" then
+        ok, reason = queue_panda_task_f2f_followup(record, next_turn)
+    else
+        ok, reason = queue_panda_task_pda_followup(record, next_turn)
+    end
+
+    if not ok then
+        printf(
+            "PANDA_IC: task follow-up queue failed task_id=%s channel=%s success=%s reason=%s",
+            tostring(record.external_task_id or record.task_id or "nil"),
+            tostring(channel),
+            tostring(success == true),
+            tostring(reason or "unknown")
+        )
+    end
+end
+
+local function install_panda_task_bridge_callbacks()
+    local bridge = ensure_panda_task_bridge()
+    if not bridge or type(bridge.set_callbacks) ~= "function" then
+        return nil
+    end
+
+    bridge.set_callbacks({
+        on_task_resolved = handle_panda_task_resolution,
+    })
+
+    return bridge
+end
+
 local tracked_panda_ic_events = {
     pda_ic_spawn = {},
     pda_ic_courier = {},
@@ -1717,6 +1910,37 @@ function cleanup_panda_ic_events(options)
     end
     pda_reply_pending = false
     CONV = nil
+end
+
+ensure_panda_task_bridge = function()
+    if _panda_task_bridge_checked and panda_task_bridge and type(panda_task_bridge.set_callbacks) == "function" then
+        return panda_task_bridge
+    end
+
+    if not _panda_task_bridge_checked then
+        _panda_task_bridge_checked = true
+
+        if not panda_task_bridge then
+            local ok = pcall(function()
+                if require then
+                    require("panda_task_bridge")
+                end
+            end)
+
+            if not ok then
+                pcall(function()
+                    dofile("gamedata\\scripts\\panda_task_bridge.script")
+                end)
+            end
+        end
+    end
+
+    if not panda_task_bridge or type(panda_task_bridge.set_callbacks) ~= "function" then
+        printf("PANDA_IC: warning: panda_task_bridge unavailable after module load")
+        return nil
+    end
+
+    return panda_task_bridge
 end
 
 function on_game_shutdown_cb()
@@ -4725,6 +4949,52 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
         )
     end
 
+    local function build_bridge_task_params(family, extra)
+        local params = {
+            family = family,
+            external_task_id = make_panda_runtime_task_id(family, conv_data),
+            contact_id = sender_contact_id,
+            npc_id = sender_npc_id,
+            giver_id = sender_npc_id,
+            npc_name = sender_npc_name,
+            conv_icon = conv_data and conv_data.npc_icon or FALLBACK_NPC_ICON,
+            faction = sender_faction,
+            conv_prefix = conv_data and conv_data.prefix or nil,
+            conv_id = conv_data and conv_data.conv_id or nil,
+            channel = resolved_channel,
+            applied_outcomes = conv_data and conv_data.applied_outcomes or {},
+        }
+
+        if type(extra) == "table" then
+            for key, value in pairs(extra) do
+                params[key] = value
+            end
+        end
+
+        return params
+    end
+
+    local function push_task_start_message(text_id)
+        if not text_id or not sender_contact_id then
+            return
+        end
+
+        pda_private_add_message(
+            sender_contact_id,
+            sender_npc_name,
+            sender_npc_name,
+            game.translate_string(text_id),
+            conv_data and conv_data.npc_icon or FALLBACK_NPC_ICON,
+            false
+        )
+    end
+
+    local function get_smart_task_target(smart_ref)
+        local smart, smart_name = resolve_smart_from_reference(smart_ref)
+        local label = get_location_display_name(smart_ref) or smart_name or tostring(smart_ref or "")
+        return smart and smart.id or nil, label
+    end
+
     local function process_command(cmd_str)
         local chance_val, rest = string.match(cmd_str, "^chance:(%d+):(.+)$")
         if chance_val and rest then
@@ -4740,56 +5010,76 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
         local cmd = parts[1]
 
         if cmd == "start_anomaly_scan_task" then
-            local adapter = get_anomaly_artifact_adapter()
-            if adapter then
-                local ok, err = adapter.start_scan_task(
+            local bridge = ensure_panda_task_bridge()
+            if bridge then
+                local slot_id, err = bridge.start_scan_task(
                     parts[2],
                     parts[3],
                     parts[4] or "basic",
                     tonumber(parts[5]) or 0,
-                    sender_npc_id
+                    sender_npc_id,
+                    build_bridge_task_params("scan", {
+                        external_task_id = parts[2],
+                        zone_name = parts[3],
+                        zone_label = parts[3],
+                        location_label = parts[3],
+                    })
                 )
-                if not ok then
+                if not slot_id then
                     printf("PANDA_IC: start_anomaly_scan_task failed (%s)", tostring(err))
+                else
+                    task_given = true
                 end
             else
-                printf("PANDA_IC: start_anomaly_scan_task ignored (adapter unavailable)")
+                printf("PANDA_IC: start_anomaly_scan_task ignored (bridge unavailable)")
             end
 
         elseif cmd == "start_artifact_retrieval_task" then
-            local adapter = get_anomaly_artifact_adapter()
-            if adapter then
-                local ok, err = adapter.start_artifact_task(
+            local bridge = ensure_panda_task_bridge()
+            if bridge then
+                local slot_id, err = bridge.start_artifact_task(
                     parts[2],
                     parts[3],
                     parts[4],
                     parts[5] or "basic",
                     tonumber(parts[6]) or 0,
-                    sender_npc_id
+                    sender_npc_id,
+                    build_bridge_task_params("artifact", {
+                        external_task_id = parts[2],
+                        item_section = parts[3],
+                        zone_name = parts[4],
+                        zone_label = parts[4],
+                        location_label = parts[4],
+                        detector_tier = parts[5] or "basic",
+                        manual_turn_in = true,
+                        fail_if_artifact_lost = true,
+                    })
                 )
-                if not ok then
+                if not slot_id then
                     printf("PANDA_IC: start_artifact_retrieval_task failed (%s)", tostring(err))
+                else
+                    task_given = true
                 end
             else
-                printf("PANDA_IC: start_artifact_retrieval_task ignored (adapter unavailable)")
+                printf("PANDA_IC: start_artifact_retrieval_task ignored (bridge unavailable)")
             end
 
         elseif cmd == "spawn_artifact_on_npc" then
             -- Syntax: spawn_artifact_on_npc:<task_id>:<artifact_section>:<target_npc_id>
-            local adapter = get_anomaly_artifact_adapter()
-            if adapter then
+            local bridge = ensure_panda_task_bridge()
+            if bridge then
                 local artifact_sec = parts[3]
                 local target_npc_id = tonumber(parts[4]) or sender_npc_id
-                local ok, err = adapter.spawn_artifact_on_npc(parts[2], artifact_sec, target_npc_id)
+                local ok, err = bridge.spawn_artifact_on_npc(parts[2], artifact_sec, target_npc_id)
                 if not ok then
                     printf("PANDA_IC: spawn_artifact_on_npc failed (%s)", tostring(err))
                 end
             end
 
         elseif cmd == "spawn_artifact_in_zone" then
-            local adapter = get_anomaly_artifact_adapter()
-            if adapter then
-                local ok, err = adapter.spawn_artifact_in_zone(parts[2], parts[3], parts[4])
+            local bridge = ensure_panda_task_bridge()
+            if bridge then
+                local ok, err = bridge.spawn_artifact_in_zone(parts[2], parts[3], parts[4])
                 if not ok then
                     printf("PANDA_IC: spawn_artifact_in_zone failed (%s)", tostring(err))
                 end
@@ -4806,28 +5096,28 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             end
 
         elseif cmd == "turn_in_artifact" then
-            local adapter = get_anomaly_artifact_adapter()
-            if adapter then
-                local ok, err = adapter.turn_in_artifact(parts[2], parts[3])
+            local bridge = ensure_panda_task_bridge()
+            if bridge then
+                local ok, err = bridge.turn_in_artifact(parts[2], parts[3])
                 if not ok then
                     printf("PANDA_IC: turn_in_artifact failed (%s)", tostring(err))
                 end
             end
 
         elseif cmd == "set_anomaly_target" then
-            local adapter = get_anomaly_artifact_adapter()
-            if adapter then
-                local ok, err = adapter.set_anomaly_target(parts[2], parts[3])
+            local bridge = ensure_panda_task_bridge()
+            if bridge then
+                local ok, err = bridge.set_anomaly_target(parts[2], parts[3])
                 if not ok then
                     printf("PANDA_IC: set_anomaly_target failed (%s)", tostring(err))
                 end
             end
 
         elseif cmd == "fail_if_artifact_lost" then
-            local adapter = get_anomaly_artifact_adapter()
-            if adapter then
+            local bridge = ensure_panda_task_bridge()
+            if bridge then
                 local enabled = tostring(parts[3] or "true") ~= "false"
-                local ok, err = adapter.set_fail_if_artifact_lost(parts[2], enabled)
+                local ok, err = bridge.set_fail_if_artifact_lost(parts[2], enabled)
                 if not ok then
                     printf("PANDA_IC: fail_if_artifact_lost failed (%s)", tostring(err))
                 end
@@ -5466,8 +5756,7 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             end
 
         -- ========== CUSTOM TASKS ==========
-        -- Each panda_task_* command sets up its scenario and creates a pending job
-        -- with a job_type field for type-specific completion checks.
+        -- Each panda_task_* command creates real vanilla task-manager task slots.
 
         -- Delivery: courier spawns with item, player delivers to destination
         -- Syntax: panda_task_delivery:<item_section>:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
@@ -5480,24 +5769,34 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             if not item_sec or not dest_smart or not s_turn then
                 printf("PANDA_IC: panda_task_delivery missing params in '%s'", tostring(cmd_str))
             else
-                -- Spawn courier with the item
                 spawn_native_courier(item_sec)
-                -- Mark destination on PDA map
                 local radius = PANDA.get_config("location_watch_radius") or 50
-                register_location_reference(dest_smart, sender_npc_name, sender_npc_id, radius, sender_contact_id)
-                -- Notify player
-                local msg = game.translate_string("st_pda_ic_task_delivery_start")
-                pda_private_add_message(sender_contact_id, sender_npc_name, sender_npc_name, msg,
-                    conv_data and conv_data.npc_icon or FALLBACK_NPC_ICON, false)
-                -- Create job
-                create_pending_job(sender_contact_id, sender_npc_id, sender_npc_name, sender_faction,
-                    {}, timeout, s_turn, f_turn, conv_data, {
-                        job_type = "delivery",
-                        task_item = item_sec,
-                        task_destination = dest_smart,
-                        task_radius = radius,
-                        squads_registered = true,
-                    })
+                local destination_map_id, destination_label = get_smart_task_target(dest_smart)
+                local bridge = ensure_panda_task_bridge()
+                if not destination_map_id then
+                    printf("PANDA_IC: panda_task_delivery destination resolve failed for '%s'", tostring(dest_smart))
+                elseif not bridge then
+                    printf("PANDA_IC: panda_task_delivery ignored (bridge unavailable)")
+                else
+                    local slot_id, err = bridge.create_task(build_bridge_task_params("delivery", {
+                        item_section = item_sec,
+                        item_count = 1,
+                        destination_ref = dest_smart,
+                        destination_map_id = destination_map_id,
+                        destination_label = destination_label,
+                        location_label = destination_label,
+                        target_radius = radius,
+                        timeout_seconds = timeout,
+                        success_turn = s_turn,
+                        fail_turn = f_turn,
+                    }))
+                    if not slot_id then
+                        printf("PANDA_IC: panda_task_delivery failed (%s)", tostring(err))
+                    else
+                        task_given = true
+                        push_task_start_message("st_pda_ic_task_delivery_start")
+                    end
+                end
             end
 
         -- Fetch: player must find/collect items (periodic inventory check)
@@ -5511,18 +5810,24 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             if not item_sec or not s_turn then
                 printf("PANDA_IC: panda_task_fetch missing params in '%s'", tostring(cmd_str))
             else
-                -- Notify player
-                local msg = game.translate_string("st_pda_ic_task_fetch_start")
-                pda_private_add_message(sender_contact_id, sender_npc_name, sender_npc_name, msg,
-                    conv_data and conv_data.npc_icon or FALLBACK_NPC_ICON, false)
-                -- Create job (no squads, inventory-based check)
-                create_pending_job(sender_contact_id, sender_npc_id, sender_npc_name, sender_faction,
-                    {}, timeout, s_turn, f_turn, conv_data, {
-                        job_type = "fetch",
-                        task_item = item_sec,
-                        task_item_count = count,
-                        squads_registered = true,
-                    })
+                local bridge = ensure_panda_task_bridge()
+                if not bridge then
+                    printf("PANDA_IC: panda_task_fetch ignored (bridge unavailable)")
+                else
+                    local slot_id, err = bridge.create_task(build_bridge_task_params("fetch", {
+                        item_section = item_sec,
+                        item_count = count,
+                        timeout_seconds = timeout,
+                        success_turn = s_turn,
+                        fail_turn = f_turn,
+                    }))
+                    if not slot_id then
+                        printf("PANDA_IC: panda_task_fetch failed (%s)", tostring(err))
+                    else
+                        task_given = true
+                        push_task_start_message("st_pda_ic_task_fetch_start")
+                    end
+                end
             end
 
         -- Bounty: spawn target NPC at location, track kill
@@ -5537,7 +5842,6 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             if not target_fac or not smart_ref or not s_turn then
                 printf("PANDA_IC: panda_task_bounty missing params in '%s'", tostring(cmd_str))
             else
-                -- Spawn target at smart terrain
                 local target_id = nil
                 local sec = find_squad_section(target_fac)
                 if sec then
@@ -5559,20 +5863,55 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                         end
                     end
                 end
-                -- Mark location on PDA map
                 local radius = PANDA.get_config("location_watch_radius") or 85
-                register_location_reference(smart_ref, sender_npc_name, sender_npc_id, radius, sender_contact_id)
-                -- Notify player
-                local msg = game.translate_string("st_pda_ic_task_bounty_start")
-                pda_private_add_message(sender_contact_id, sender_npc_name, sender_npc_name, msg,
-                    conv_data and conv_data.npc_icon or FALLBACK_NPC_ICON, false)
-                -- Create job
-                create_pending_job(sender_contact_id, sender_npc_id, sender_npc_name, sender_faction,
-                    {}, timeout, s_turn, f_turn, conv_data, {
-                        job_type = "bounty",
-                        task_target_id = target_id,
-                        squads_registered = true,
-                    })
+                local destination_map_id, destination_label = get_smart_task_target(smart_ref)
+                local target_label = nil
+                if target_id then
+                    local target_obj = level.object_by_id(target_id)
+                    if target_obj and target_obj.character_name then
+                        local ok_name, resolved_name = pcall(function() return target_obj:character_name() end)
+                        if ok_name and resolved_name and resolved_name ~= "" then
+                            target_label = resolved_name
+                        end
+                    end
+                    if (not target_label or target_label == "") and alife_object then
+                        local target_se = alife_object(target_id)
+                        if target_se and target_se.character_name then
+                            local ok_name, resolved_name = pcall(function() return target_se:character_name() end)
+                            if ok_name and resolved_name and resolved_name ~= "" then
+                                target_label = resolved_name
+                            end
+                        end
+                    end
+                end
+
+                if not target_id then
+                    printf("PANDA_IC: panda_task_bounty failed to spawn target in '%s'", tostring(cmd_str))
+                else
+                    local bridge = ensure_panda_task_bridge()
+                    if not bridge then
+                        printf("PANDA_IC: panda_task_bounty ignored (bridge unavailable)")
+                    else
+                        local slot_id, err = bridge.create_task(build_bridge_task_params("bounty", {
+                            target_npc_id = target_id,
+                            target_label = target_label,
+                            destination_ref = smart_ref,
+                            destination_map_id = destination_map_id,
+                            destination_label = destination_label,
+                            location_label = destination_label,
+                            target_radius = radius,
+                            timeout_seconds = timeout,
+                            success_turn = s_turn,
+                            fail_turn = f_turn,
+                        }))
+                        if not slot_id then
+                            printf("PANDA_IC: panda_task_bounty failed (%s)", tostring(err))
+                        else
+                            task_given = true
+                            push_task_start_message("st_pda_ic_task_bounty_start")
+                        end
+                    end
+                end
             end
 
         -- Dead Drop: deposit item at marked stash location
@@ -5586,22 +5925,33 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             if not item_sec or not dest_smart or not s_turn then
                 printf("PANDA_IC: panda_task_dead_drop missing params in '%s'", tostring(cmd_str))
             else
-                -- Mark destination on PDA map
                 local radius = PANDA.get_config("location_watch_radius") or 50
-                register_location_reference(dest_smart, sender_npc_name, sender_npc_id, radius, sender_contact_id)
-                -- Notify player
-                local msg = game.translate_string("st_pda_ic_task_dead_drop_start")
-                pda_private_add_message(sender_contact_id, sender_npc_name, sender_npc_name, msg,
-                    conv_data and conv_data.npc_icon or FALLBACK_NPC_ICON, false)
-                -- Create job
-                create_pending_job(sender_contact_id, sender_npc_id, sender_npc_name, sender_faction,
-                    {}, timeout, s_turn, f_turn, conv_data, {
-                        job_type = "dead_drop",
-                        task_item = item_sec,
-                        task_destination = dest_smart,
-                        task_radius = radius,
-                        squads_registered = true,
-                    })
+                local destination_map_id, destination_label = get_smart_task_target(dest_smart)
+                local bridge = ensure_panda_task_bridge()
+                if not destination_map_id then
+                    printf("PANDA_IC: panda_task_dead_drop destination resolve failed for '%s'", tostring(dest_smart))
+                elseif not bridge then
+                    printf("PANDA_IC: panda_task_dead_drop ignored (bridge unavailable)")
+                else
+                    local slot_id, err = bridge.create_task(build_bridge_task_params("dead_drop", {
+                        item_section = item_sec,
+                        item_count = 1,
+                        destination_ref = dest_smart,
+                        destination_map_id = destination_map_id,
+                        destination_label = destination_label,
+                        location_label = destination_label,
+                        target_radius = radius,
+                        timeout_seconds = timeout,
+                        success_turn = s_turn,
+                        fail_turn = f_turn,
+                    }))
+                    if not slot_id then
+                        printf("PANDA_IC: panda_task_dead_drop failed (%s)", tostring(err))
+                    else
+                        task_given = true
+                        push_task_start_message("st_pda_ic_task_dead_drop_start")
+                    end
+                end
             end
 
         -- Escort: NPC becomes companion, escort to destination
@@ -5614,26 +5964,45 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             if not dest_smart or not s_turn then
                 printf("PANDA_IC: panda_task_escort missing params in '%s'", tostring(cmd_str))
             else
-                -- Recruit conversation NPC as companion
+                local escort_squad_id = nil
                 if sender_npc_id then
                     recruit_npc_as_companion(sender_npc_id, sender_npc_name, true)
+                    local npc_obj = level.object_by_id(sender_npc_id)
+                    local squad = npc_obj and get_object_squad and get_object_squad(npc_obj) or nil
+                    escort_squad_id = squad and squad.id or nil
                 end
-                -- Mark destination on PDA map
                 local radius = PANDA.get_config("location_watch_radius") or 50
-                register_location_reference(dest_smart, sender_npc_name, sender_npc_id, radius, sender_contact_id)
-                -- Notify player
-                local msg = game.translate_string("st_pda_ic_task_escort_start")
-                pda_private_add_message(sender_contact_id, sender_npc_name, sender_npc_name, msg,
-                    conv_data and conv_data.npc_icon or FALLBACK_NPC_ICON, false)
-                -- Create job
-                create_pending_job(sender_contact_id, sender_npc_id, sender_npc_name, sender_faction,
-                    {}, timeout, s_turn, f_turn, conv_data, {
-                        job_type = "escort",
-                        task_target_id = sender_npc_id,
-                        task_destination = dest_smart,
-                        task_radius = radius,
-                        squads_registered = true,
-                    })
+                local destination_map_id, destination_label = get_smart_task_target(dest_smart)
+                if not sender_npc_id then
+                    printf("PANDA_IC: panda_task_escort missing escort npc id in '%s'", tostring(cmd_str))
+                elseif not destination_map_id then
+                    printf("PANDA_IC: panda_task_escort destination resolve failed for '%s'", tostring(dest_smart))
+                else
+                    local bridge = ensure_panda_task_bridge()
+                    if not bridge then
+                        printf("PANDA_IC: panda_task_escort ignored (bridge unavailable)")
+                    else
+                        local slot_id, err = bridge.create_task(build_bridge_task_params("escort", {
+                            target_npc_id = sender_npc_id,
+                            target_squad_id = escort_squad_id,
+                            target_label = sender_npc_name,
+                            destination_ref = dest_smart,
+                            destination_map_id = destination_map_id,
+                            destination_label = destination_label,
+                            location_label = destination_label,
+                            target_radius = radius,
+                            timeout_seconds = timeout,
+                            success_turn = s_turn,
+                            fail_turn = f_turn,
+                        }))
+                        if not slot_id then
+                            printf("PANDA_IC: panda_task_escort failed (%s)", tostring(err))
+                        else
+                            task_given = true
+                            push_task_start_message("st_pda_ic_task_escort_start")
+                        end
+                    end
+                end
             end
 
         -- Elimination: spawn enemies at location, player clears them
@@ -5648,29 +6017,45 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             if not target_type or not smart_ref or not s_turn then
                 printf("PANDA_IC: panda_task_eliminate missing params in '%s'", tostring(cmd_str))
             else
-                -- Determine if target is an explicit mutant squad or an NPC squad/faction alias
                 local is_mutant = is_mutant_squad_key(target_type)
-                -- Spawn enemies at smart terrain (uses collector for squad tracking)
+                local collector_start = (_job_spawn_collector and #_job_spawn_collector) or 0
                 spawn_squad_at_smart_terrain(target_type, smart_ref, is_mutant, 0, sender_contact_id, "hostile")
-                -- Mark location on PDA map
-                register_location_reference(smart_ref, sender_npc_name, sender_npc_id, spawn_radius, sender_contact_id)
-                -- Notify player
-                local msg = game.translate_string("st_pda_ic_task_eliminate_start")
-                pda_private_add_message(sender_contact_id, sender_npc_name, sender_npc_name, msg,
-                    conv_data and conv_data.npc_icon or FALLBACK_NPC_ICON, false)
-                -- Note: For eliminate, we use the _job_spawn_collector pattern.
-                -- Store params so post-batch handler creates the job with collected squads.
-                _pending_job_params = {
-                    timeout = timeout,
-                    success_turn = s_turn,
-                    fail_turn = f_turn,
-                    sender_npc_id = sender_npc_id,
-                    sender_npc_name = sender_npc_name,
-                    sender_contact_id = sender_contact_id,
-                    sender_faction = sender_faction,
-                    conv_data = conv_data,
-                    extra = { job_type = "eliminate" },
-                }
+                local spawned_squad_ids = {}
+                if _job_spawn_collector then
+                    for i = collector_start + 1, #_job_spawn_collector do
+                        table.insert(spawned_squad_ids, _job_spawn_collector[i])
+                    end
+                end
+
+                if #spawned_squad_ids == 0 then
+                    printf("PANDA_IC: panda_task_eliminate failed to register spawned squads in '%s'", tostring(cmd_str))
+                else
+                    local destination_map_id, destination_label = get_smart_task_target(smart_ref)
+                    local bridge = ensure_panda_task_bridge()
+                    if not destination_map_id then
+                        printf("PANDA_IC: panda_task_eliminate destination resolve failed for '%s'", tostring(smart_ref))
+                    elseif not bridge then
+                        printf("PANDA_IC: panda_task_eliminate ignored (bridge unavailable)")
+                    else
+                        local slot_id, err = bridge.create_task(build_bridge_task_params("eliminate", {
+                            destination_ref = smart_ref,
+                            destination_map_id = destination_map_id,
+                            destination_label = destination_label,
+                            location_label = destination_label,
+                            target_radius = spawn_radius,
+                            timeout_seconds = timeout,
+                            success_turn = s_turn,
+                            fail_turn = f_turn,
+                            target_squad_ids = spawned_squad_ids,
+                        }))
+                        if not slot_id then
+                            printf("PANDA_IC: panda_task_eliminate failed (%s)", tostring(err))
+                        else
+                            task_given = true
+                            push_task_start_message("st_pda_ic_task_eliminate_start")
+                        end
+                    end
+                end
             end
 
         -- Artifact retrieval: player must find and return a specific artifact
@@ -5716,7 +6101,7 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             if not s_turn then
                 printf("PANDA_IC: panda_task_artifact missing params in '%s'", tostring(cmd_str))
             else
-                local adapter = get_anomaly_artifact_adapter()
+                local bridge = ensure_panda_task_bridge()
                 local task_runtime_id = make_artifact_runtime_task_id(conv_data)
                 local resolved_zone = nil
 
@@ -5728,54 +6113,55 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                     end
                 end
 
-                local spawned_artifact_section = artifact_sec
-                if adapter and resolved_zone then
-                    local spawn_ok, spawn_err, spawned_section = adapter.spawn_artifact_in_zone(
-                        task_runtime_id, artifact_sec, resolved_zone
-                    )
-                    if not spawn_ok then
-                        printf("PANDA_IC: panda_task_artifact zone spawn failed (%s), player must find naturally", tostring(spawn_err))
-                        resolved_zone = nil
-                    elseif spawned_section and spawned_section ~= "" then
-                        spawned_artifact_section = spawned_section
-                    end
-                elseif zone_name and zone_name ~= "" and zone_name ~= "any" and not resolved_zone then
+                if zone_name and zone_name ~= "" and zone_name ~= "any" and not resolved_zone then
                     printf("PANDA_IC: panda_task_artifact no resolved zone, player must find naturally")
                 end
 
+                if not artifact_sec or artifact_sec == "" then
+                    if not resolved_zone then
+                        printf("PANDA_IC: panda_task_artifact requires explicit artifact_section when zone spawn is unavailable")
+                        return
+                    end
+                end
+
+                if not bridge then
+                    printf("PANDA_IC: panda_task_artifact ignored (bridge unavailable)")
+                    return
+                end
+
+                local slot_id, record_or_err = bridge.start_auto_artifact_task(build_bridge_task_params("artifact", {
+                    external_task_id = task_runtime_id,
+                    item_section = artifact_sec,
+                    zone_name = resolved_zone,
+                    zone_label = resolved_zone or zone_name,
+                    location_label = resolved_zone or zone_name,
+                    detector_tier = detector_tier_meta,
+                    timeout_seconds = timeout,
+                    success_turn = s_turn,
+                    fail_turn = f_turn,
+                    manual_turn_in = false,
+                    fail_if_artifact_lost = false,
+                }))
+                if not slot_id then
+                    printf("PANDA_IC: panda_task_artifact failed (%s)", tostring(record_or_err))
+                    return
+                end
+
+                local task_record = nil
+                if type(record_or_err) == "table" then
+                    task_record = record_or_err
+                elseif type(bridge.get_record) == "function" then
+                    task_record = bridge.get_record(task_runtime_id)
+                end
+
+                local spawned_artifact_section = task_record and task_record.item_section or artifact_sec
                 if not spawned_artifact_section or spawned_artifact_section == "" then
                     printf("PANDA_IC: panda_task_artifact requires explicit artifact_section when zone spawn is unavailable")
                     return
                 end
 
-                -- Create adapter record for auxiliary tracking
-                if adapter then
-                    adapter.start_artifact_task(
-                        task_runtime_id, artifact_sec,
-                        resolved_zone,
-                        detector_tier_meta, timeout, sender_npc_id
-                    )
-                end
-                if resolved_zone then
-                    register_anomaly_zone_reference(resolved_zone, sender_npc_name, sender_npc_id, sender_contact_id)
-                end
-                -- Notify player
-                local msg = game.translate_string("st_pda_ic_task_artifact_start")
-                pda_private_add_message(sender_contact_id, sender_npc_name, sender_npc_name, msg,
-                    conv_data and conv_data.npc_icon or FALLBACK_NPC_ICON, false)
-                -- Create pending job (reuses existing job system for monitoring + conversation resume)
-                create_pending_job(sender_contact_id, sender_npc_id, sender_npc_name, sender_faction,
-                    {}, timeout, s_turn, f_turn, conv_data, {
-                        job_type = "artifact",
-                        task_item = spawned_artifact_section,
-                        task_runtime_id = task_runtime_id,
-                        task_zone = resolved_zone or zone_name,
-                        task_zone_mode = zone_mode,
-                        -- Metadata only (for PDA/job display). Do NOT use for gating:
-                        -- gate with req_detector_tier preconditions instead.
-                        task_detector_tier = detector_tier_meta,
-                        squads_registered = true,
-                    })
+                task_given = true
+                push_task_start_message("st_pda_ic_task_artifact_start")
             end
 
         else
@@ -8751,6 +9137,7 @@ function save_state(m)
                 npc_name = c.npc_name, npc_icon = c.npc_icon,
                 faction = c.faction, prefix = c.prefix, conv_id = c.conv_id,
                 turn = c.turn, task_id = c.task_id, category = c.category,
+                channel = c.channel,
                 applied_outcomes = c.applied_outcomes, started_at = c.started_at,
                 story_id = c.story_id, canonical_id = c.canonical_id, fallback_name = c.fallback_name,
                 pending_in_person_continuation = c.pending_in_person_continuation,
@@ -8790,6 +9177,11 @@ function save_state(m)
     local adapter = get_anomaly_artifact_adapter()
     if adapter and adapter.save_state then
         adapter.save_state(m)
+    end
+
+    local task_bridge = ensure_panda_task_bridge()
+    if task_bridge and type(task_bridge.save_state) == "function" then
+        task_bridge.save_state(m)
     end
 
     if panda_npc_creator and type(panda_npc_creator.save_state) == "function" then
@@ -8849,12 +9241,22 @@ function load_state(m)
         next_location_ref_id = m.pda_next_location_ref_id
     end
 
+    local task_bridge = install_panda_task_bridge_callbacks()
+    local legacy_task_jobs = {}
     if m.pda_pending_jobs then
-        pending_jobs = m.pda_pending_jobs
-        -- Reset started_at to now so timeout counting restarts from load
-        -- (prevents instant timeout after load)
-        for _, job in pairs(pending_jobs) do
-            job.started_at = time_global()
+        for key, job in pairs(m.pda_pending_jobs) do
+            if type(job) == "table" then
+                local cloned_job = clone_plain_table(job) or {}
+                cloned_job.channel = cloned_job.channel or "pda"
+                if task_bridge and type(task_bridge.is_task_family) == "function" and task_bridge.is_task_family(cloned_job.job_type) then
+                    table.insert(legacy_task_jobs, cloned_job)
+                else
+                    cloned_job.started_at = time_global()
+                    pending_jobs[key] = cloned_job
+                end
+            else
+                pending_jobs[key] = job
+            end
         end
     end
 
@@ -8912,6 +9314,39 @@ function load_state(m)
         adapter.load_state(m)
     end
 
+    if task_bridge and type(task_bridge.load_state) == "function" then
+        task_bridge.load_state(m)
+    end
+
+    if task_bridge and #legacy_task_jobs > 0 then
+        local migration_failures = 0
+        for _, job in ipairs(legacy_task_jobs) do
+            local ok, err = task_bridge.migrate_legacy_job(job)
+            if not ok then
+                migration_failures = migration_failures + 1
+                printf(
+                    "PANDA_IC: legacy task migration failed job_type=%s contact_id=%s job_id=%s reason=%s",
+                    tostring(job.job_type or "nil"),
+                    tostring(job.contact_id or "nil"),
+                    tostring(job.id or "nil"),
+                    tostring(err or "unknown")
+                )
+            end
+        end
+
+        if migration_failures > 0 then
+            dynamic_news_helper.send_tip(
+                "Some legacy P.A.N.D.A tasks could not be restored.",
+                "P.A.N.D.A",
+                0,
+                10,
+                FALLBACK_NPC_ICON,
+                "danger",
+                "npc"
+            )
+        end
+    end
+
     -- Restore active conversations and rebuild their choices
     if m.pda_active_conversations then
         for key, saved in pairs(m.pda_active_conversations) do
@@ -8926,6 +9361,7 @@ function load_state(m)
                     saved.choices = choices
                     saved.num_choices = num
                     saved.reply_pending = false
+                    saved.channel = saved.channel or "pda"
                     saved.pending_in_person_continuation = saved.pending_in_person_continuation == true
                     saved.pending_in_person_turn = saved.pending_in_person_turn
                     saved.pending_in_person_target = saved.pending_in_person_target
@@ -8980,6 +9416,7 @@ function on_game_start()
 
     -- Wire optional f2f bridge integration early at startup
     ensure_panda_f2f_bridge()
+    install_panda_task_bridge_callbacks()
 
     -- Add the private tab to the PDA via mac_mcm
     local function ensure_private_messages_mac_app()
