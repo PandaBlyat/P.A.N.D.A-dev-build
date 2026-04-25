@@ -250,7 +250,7 @@ export const STORY_RECIPES: StoryRecipe[] = [
   { id: 'go_to_location', title: 'Go to location', description: 'NPC marks destination for player.', group: 'Task' },
   { id: 'spawn_ambush', title: 'Spawn ambush', description: 'Player reaches marker, then enemies spawn there.', group: 'Task' },
   { id: 'fetch_task', title: 'Fetch item task', description: 'Starts tracked task: find item before timeout.', group: 'Task' },
-  { id: 'delivery_task', title: 'Delivery task', description: 'Deliver auto package to a marked smart terrain.', group: 'Task' },
+  { id: 'delivery_task', title: 'Delivery task', description: 'Deliver auto package to a randomly chosen NPC (engine picks recipient).', group: 'Task' },
   { id: 'dead_drop', title: 'Dead drop task', description: 'Starts tracked task: bring item to location.', group: 'Task' },
   { id: 'bounty_hunt', title: 'Bounty hunt', description: 'Starts tracked task: spawn and kill target.', group: 'Task' },
   { id: 'eliminate_squad', title: 'Eliminate squad', description: 'Spawns selected squad and tracks elimination.', group: 'Task' },
@@ -828,7 +828,11 @@ function draftBaseOutcomesFor(draft: StoryWizardDraft, successTurn: string, fail
     case 'fetch_task':
       return [outcome('panda_task_fetch', draft.itemId, draft.itemCount, draft.timeoutSeconds, successTurn, failTurn)];
     case 'delivery_task':
-      return [outcome('panda_task_delivery', draft.locationId, draft.timeoutSeconds, successTurn, failTurn)];
+      // Engine picks the recipient itself; locationId is optional bias only.
+      if (draft.locationId && draft.locationId.trim() !== '') {
+        return [outcome('panda_task_delivery', draft.locationId, draft.timeoutSeconds, successTurn, failTurn)];
+      }
+      return [outcome('panda_task_delivery', draft.timeoutSeconds, successTurn, failTurn)];
     case 'dead_drop':
       return [outcome('panda_task_dead_drop', draft.itemId, draft.locationId, draft.timeoutSeconds, successTurn, failTurn)];
     case 'bounty_hunt':
@@ -906,9 +910,20 @@ function draftRefusalOutcomesFor(draft: StoryWizardDraft): Outcome[] {
 }
 
 function draftBetrayalOutcomesFor(draft: StoryWizardDraft): Outcome[] {
+  // Betrayal is a multi-step gut punch, not just an ambush:
+  //  - NPC turns hostile and leaves (they sold you out, then bailed)
+  //  - Hostiles spawn near the player NOW (you walked into the trap)
+  //  - A second wave waits at the meeting spot (in case you push through)
+  //  - Standing with the giver's faction tanks (goodwill and reputation)
+  const goodwill = draft.goodwillAmount && draft.goodwillAmount.trim() !== '' ? draft.goodwillAmount : '50';
+  const enemy = draft.enemySquadId && draft.enemySquadId.trim() !== '' ? draft.enemySquadId : 'bandit_sim_squad_novice';
   return [
-    outcome('watch_location_trigger', draft.locationId, `spawn_mutant_at_smart:${draft.enemySquadId}:${draft.locationId}:0`, '85'),
-    outcome('punish_gw', draft.goodwillAmount, draft.faction),
+    outcome('set_npc_hostile'),
+    outcome('teleport_npc_to_smart', draft.locationId, '5'),
+    outcome('spawn_npc_squad', enemy, '25', '3'),
+    outcome('watch_location_trigger', draft.locationId, `spawn_npc_squad_at_smart:${enemy}:${draft.locationId}:0`, '85'),
+    outcome('punish_gw', goodwill, draft.faction),
+    outcome('punish_rep', '5'),
   ];
 }
 
@@ -995,7 +1010,9 @@ function draftOpeningFor(draft: StoryWizardDraft): string {
     case 'fetch_task':
       return `${premise} Find ${draft.itemCount} ${itemLabel(draft.itemId)} before time runs out.`;
     case 'delivery_task':
-      return `${premise} Bring package to ${locationLabel(draft.locationId)}.`;
+      return draft.locationId && draft.locationId.trim() !== ''
+        ? `${premise} Bring package to ${locationLabel(draft.locationId)}.`
+        : `${premise} Bring package to a stalker — engine picks recipient.`;
     case 'dead_drop':
       return `${premise} Leave ${itemLabel(draft.itemId)} at ${locationLabel(draft.locationId)}.`;
     case 'bounty_hunt':
@@ -1255,7 +1272,9 @@ function configureTaskResultTurns(conversation: Conversation, recipeId: StoryRec
       actionChoice.outcomes = [outcome('panda_task_fetch', details.itemId, details.itemCount, details.timeoutSeconds, success, fail)];
       break;
     case 'delivery_task':
-      actionChoice.outcomes = [outcome('panda_task_delivery', details.locationId, details.timeoutSeconds, success, fail)];
+      actionChoice.outcomes = details.locationId && details.locationId.trim() !== ''
+        ? [outcome('panda_task_delivery', details.locationId, details.timeoutSeconds, success, fail)]
+        : [outcome('panda_task_delivery', details.timeoutSeconds, success, fail)];
       break;
     case 'dead_drop':
       actionChoice.outcomes = [outcome('panda_task_dead_drop', details.itemId, details.locationId, details.timeoutSeconds, success, fail)];
