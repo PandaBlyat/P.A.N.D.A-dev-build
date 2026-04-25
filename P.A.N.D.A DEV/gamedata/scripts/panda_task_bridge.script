@@ -795,7 +795,37 @@ local function finalize_runtime_artifact_record(record, success)
     end
 end
 
+local function resolve_authored_string(value, record)
+    if type(value) ~= "string" or value == "" then
+        return nil
+    end
+
+    local resolved = value
+    if game and game.translate_string then
+        local translated = game.translate_string(value)
+        if translated and translated ~= value then
+            resolved = translated
+        end
+    end
+
+    if record then
+        resolved = resolved
+            :gsub("%$location", tostring(record.location_label or record.destination_label or record.zone_label or ""))
+            :gsub("%$target", tostring(record.target_label or record.npc_name or ""))
+            :gsub("%$item", tostring(counted_item_name(record.item_section, record.item_count or 1)))
+            :gsub("%$giver", tostring(record.npc_name or ""))
+    end
+
+    return resolved
+end
+
 local function build_title(record, task)
+    -- Author-supplied override beats auto-generated title (for hover/PDA list display).
+    local authored = resolve_authored_string(record.custom_title, record)
+    if authored and authored ~= "" then
+        return authored
+    end
+
     local family = record.family
     if family == "delivery" then
         return safe_format(tr("st_panda_task_title_delivery", "Deliver %s"), counted_item_name(record.item_section, record.item_count))
@@ -826,6 +856,12 @@ local function build_title(record, task)
 end
 
 local function build_description(record, task)
+    -- Author-supplied override beats auto-generated description.
+    local authored = resolve_authored_string(record.custom_description, record)
+    if authored and authored ~= "" then
+        return authored
+    end
+
     local family = record.family
     local location_label = record.location_label or record.destination_label or record.zone_label or tr("st_panda_task_unknown_location", "unknown location")
     local giver_label = record.npc_name or tr("st_panda_task_unknown_stalker", "stalker")
@@ -1207,6 +1243,16 @@ function M.create_task(params)
     end
     record.scan_radius = tonumber(params.scan_radius or record.scan_radius) or SCAN_RADIUS
     record.target_icon = FAMILY_ICONS[family]
+
+    -- Author-supplied PDA hover/list overrides. May be a literal string or an XML string id
+    -- from the conversation file. Placeholders ($location, $target, $item, $giver) are
+    -- substituted at display time.
+    if params.custom_title ~= nil then
+        record.custom_title = params.custom_title
+    end
+    if params.custom_description ~= nil then
+        record.custom_description = params.custom_description
+    end
 
     save_record(slot_id, record)
 

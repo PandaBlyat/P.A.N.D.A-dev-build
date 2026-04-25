@@ -3169,14 +3169,100 @@ function createCommandBuilderEditor(
   const wrapper = document.createElement('div');
   wrapper.className = 'rich-editor rich-editor-command-builder';
 
-  const textarea = document.createElement('textarea');
-  textarea.className = 'rich-editor-textarea';
-  textarea.rows = 3;
-  textarea.value = currentValue;
-  textarea.placeholder = paramDef.placeholder || 'teleport_npc_to_smart:%cordon_panda_st_key%+spawn_mutant_at_smart:snork:%cordon_panda_st_key%';
-  textarea.setAttribute('data-field-key', fieldKey);
-  textarea.oninput = () => debounced(fieldKey, () => onChange(textarea.value));
-  wrapper.appendChild(textarea);
+  const splitChain = (raw: string): string[] =>
+    raw.split(chainSeparator).map((s) => s.trim()).filter((s) => s.length > 0);
+  const joinChain = (parts: string[]): string =>
+    parts.map((s) => s.trim()).filter((s) => s.length > 0).join(chainSeparator);
+
+  let chain: string[] = splitChain(currentValue);
+
+  const commitChain = () => {
+    const next = joinChain(chain);
+    onChange(next);
+  };
+
+  const chainList = document.createElement('div');
+  chainList.className = 'command-builder-chain';
+  chainList.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
+
+  const renderChain = () => {
+    chainList.replaceChildren();
+    if (chain.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-hint';
+      empty.textContent = 'No trigger commands yet. Pick one below and click Add, or type one in the box.';
+      chainList.appendChild(empty);
+      return;
+    }
+    chain.forEach((cmd, index) => {
+      const row = document.createElement('div');
+      row.className = 'command-builder-chain-row';
+      row.style.cssText = 'display:flex; gap:6px; align-items:center;';
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'rich-editor-input';
+      input.style.flex = '1';
+      input.value = cmd;
+      input.setAttribute('data-field-key', `${fieldKey}-chain-${index}`);
+      input.oninput = () => debounced(`${fieldKey}-chain-${index}`, () => {
+        chain[index] = input.value;
+        commitChain();
+      });
+      row.appendChild(input);
+
+      const upBtn = document.createElement('button');
+      upBtn.type = 'button';
+      upBtn.className = 'btn-sm';
+      upBtn.textContent = '↑';
+      upBtn.title = 'Move up';
+      upBtn.disabled = index === 0;
+      upBtn.onclick = (e) => {
+        e.preventDefault();
+        if (index === 0) return;
+        const tmp = chain[index - 1];
+        chain[index - 1] = chain[index];
+        chain[index] = tmp;
+        commitChain();
+        renderChain();
+      };
+      row.appendChild(upBtn);
+
+      const downBtn = document.createElement('button');
+      downBtn.type = 'button';
+      downBtn.className = 'btn-sm';
+      downBtn.textContent = '↓';
+      downBtn.title = 'Move down';
+      downBtn.disabled = index === chain.length - 1;
+      downBtn.onclick = (e) => {
+        e.preventDefault();
+        if (index === chain.length - 1) return;
+        const tmp = chain[index + 1];
+        chain[index + 1] = chain[index];
+        chain[index] = tmp;
+        commitChain();
+        renderChain();
+      };
+      row.appendChild(downBtn);
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'btn-sm btn-danger';
+      delBtn.textContent = '✕';
+      delBtn.title = 'Remove this trigger command';
+      delBtn.onclick = (e) => {
+        e.preventDefault();
+        chain.splice(index, 1);
+        commitChain();
+        renderChain();
+      };
+      row.appendChild(delBtn);
+
+      chainList.appendChild(row);
+    });
+  };
+
+  wrapper.appendChild(chainList);
 
   const controls = document.createElement('div');
   controls.className = 'rich-editor-toolbar';
@@ -3185,7 +3271,7 @@ function createCommandBuilderEditor(
   suggestionSelect.className = 'rich-editor-input';
   const emptySuggestion = document.createElement('option');
   emptySuggestion.value = '';
-  emptySuggestion.textContent = 'Suggested trigger commands...';
+  emptySuggestion.textContent = 'Pick a suggested trigger command...';
   suggestionSelect.appendChild(emptySuggestion);
   for (const suggestion of suggestions) {
     const opt = document.createElement('option');
@@ -3237,39 +3323,54 @@ function createCommandBuilderEditor(
 
   suggestionSelect.onchange = renderSuggestionConfig;
 
-  const replaceBtn = document.createElement('button');
-  replaceBtn.className = 'btn-sm';
-  replaceBtn.textContent = 'Replace';
-  replaceBtn.onclick = () => {
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'btn-sm btn-primary';
+  addBtn.textContent = 'Add to chain';
+  addBtn.onclick = (e) => {
+    e.preventDefault();
     if (!suggestionSelect.value) return;
-    textarea.value = buildConfiguredCommand();
-    onChange(textarea.value);
-    textarea.focus();
+    chain.push(buildConfiguredCommand());
+    commitChain();
+    renderChain();
+  };
+  controls.appendChild(addBtn);
+
+  const replaceBtn = document.createElement('button');
+  replaceBtn.type = 'button';
+  replaceBtn.className = 'btn-sm';
+  replaceBtn.textContent = 'Replace chain';
+  replaceBtn.title = 'Discard the current chain and start over with the configured command';
+  replaceBtn.onclick = (e) => {
+    e.preventDefault();
+    if (!suggestionSelect.value) return;
+    chain = [buildConfiguredCommand()];
+    commitChain();
+    renderChain();
   };
   controls.appendChild(replaceBtn);
 
-  const appendBtn = document.createElement('button');
-  appendBtn.className = 'btn-sm';
-  appendBtn.textContent = `Append ${chainSeparator}`;
-  appendBtn.onclick = () => {
-    if (!suggestionSelect.value) return;
-    const nextCommand = buildConfiguredCommand();
-    textarea.value = textarea.value.trim()
-      ? `${textarea.value}${chainSeparator}${nextCommand}`
-      : nextCommand;
-    onChange(textarea.value);
-    textarea.focus();
+  const clearBtn = document.createElement('button');
+  clearBtn.type = 'button';
+  clearBtn.className = 'btn-sm';
+  clearBtn.textContent = 'Clear all';
+  clearBtn.onclick = (e) => {
+    e.preventDefault();
+    chain = [];
+    commitChain();
+    renderChain();
   };
-  controls.appendChild(appendBtn);
+  controls.appendChild(clearBtn);
 
   wrapper.appendChild(controls);
   wrapper.appendChild(configPanel);
 
   const builderHint = document.createElement('div');
   builderHint.className = 'command-description';
-  builderHint.textContent = `${schema.label} accepts normal outcome commands here. Use ${chainSeparator} to chain multiple deferred actions.`;
+  builderHint.textContent = `${schema.label}: each row is one trigger command. Picking a suggestion adds a new row; use the arrows to reorder and ✕ to remove a row. Multiple rows are joined with "${chainSeparator}".`;
   wrapper.appendChild(builderHint);
 
+  renderChain();
   return wrapper;
 }
 
