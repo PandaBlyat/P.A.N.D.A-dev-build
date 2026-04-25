@@ -1184,6 +1184,36 @@ local function pick_delivery_target_near_smart(smart_ref, radius)
     return candidates[math.random(#candidates)]
 end
 
+-- Pick a random eligible delivery target anywhere in the loaded world. Used when the
+-- author left the destination empty so the engine picks the recipient itself.
+local function pick_random_delivery_target()
+    if not db or not db.OnlineStalkers or not db.actor then
+        return nil
+    end
+
+    local candidates = {}
+    local actor_squad_id = db.actor.squad_id and db.actor:squad_id() or nil
+    for i = 1, #db.OnlineStalkers do
+        local id = db.OnlineStalkers[i]
+        local obj = level.object_by_id(id)
+        if obj and IsStalker(obj) and obj:alive() and not obj:is_talking() and not obj:best_enemy() then
+            local comm = obj:character_community()
+            if comm and comm ~= "actor" and comm ~= "zombied" and comm ~= "monolith" then
+                local se = alife_object(id)
+                if se and (not actor_squad_id or not se.squad_id or se.squad_id ~= actor_squad_id) then
+                    table.insert(candidates, { se = se, obj = obj })
+                end
+            end
+        end
+    end
+
+    if #candidates == 0 then
+        return nil
+    end
+
+    return candidates[math.random(#candidates)]
+end
+
 local function get_delivery_target_label(target)
     if not target then
         return nil
@@ -2662,6 +2692,31 @@ local function str_explode(str, sep)
         table.insert(t, s)
     end
     return t
+end
+
+-- Pulls trailing key=value author-meta tokens off a parts array (in place).
+-- Recognises: title=..., descr=... (and aliases description=, desc=).
+-- Multi-word values may include spaces (": " not allowed because parts split on ":").
+-- The "+" character escape ("title=Help+the+stalker") becomes a real space.
+local function extract_trailing_task_meta(parts)
+    local meta = {}
+    while #parts > 0 do
+        local tail = parts[#parts]
+        if type(tail) ~= "string" then break end
+        local key, value = tail:match("^([%a_][%w_]*)%s*=%s*(.*)$")
+        if not key then break end
+        local lower = key:lower()
+        if lower == "title" or lower == "name" then
+            meta.title = (value or ""):gsub("%+", " ")
+            table.remove(parts)
+        elseif lower == "descr" or lower == "desc" or lower == "description" then
+            meta.description = (value or ""):gsub("%+", " ")
+            table.remove(parts)
+        else
+            break
+        end
+    end
+    return meta
 end
 
 local function shuffle_table(t)
@@ -5007,6 +5062,11 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
         )
     end
 
+    -- Author title/description override pulled off the current command by
+    -- process_command. Reset for each command; merged automatically by
+    -- build_bridge_task_params so handlers don't have to plumb it manually.
+    local task_author_meta = {}
+
     local function build_bridge_task_params(family, extra)
         local params = {
             family = family,
@@ -5027,6 +5087,13 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             for key, value in pairs(extra) do
                 params[key] = value
             end
+        end
+
+        if task_author_meta.title and params.custom_title == nil then
+            params.custom_title = task_author_meta.title
+        end
+        if task_author_meta.description and params.custom_description == nil then
+            params.custom_description = task_author_meta.description
         end
 
         return params
@@ -5066,6 +5133,15 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
 
         local parts = str_explode(cmd_str, ":")
         local cmd = parts[1]
+
+        -- Author-supplied PDA task title / description override.
+        -- Stripped from `parts` so handlers can keep parsing positional params unchanged.
+        -- Pulled in for ALL panda_task_* commands; build_bridge_task_params merges them.
+        if cmd and (cmd:sub(1, 11) == "panda_task_" or cmd == "start_anomaly_scan_task") then
+            task_author_meta = extract_trailing_task_meta(parts)
+        else
+            task_author_meta = {}
+        end
 
         if cmd == "start_anomaly_scan_task" then
             local bridge = ensure_panda_task_bridge()
@@ -5326,6 +5402,54 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
 
         elseif cmd == "reward_stash" then
             queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sender_contact_id)
+
+        -- INTERNAL: deferred spawn for panda_task_eliminate. Not author-facing —
+        -- emitted by the eliminate handler into a watch zone trigger so the squad
+        -- is created only when the player approaches the marker.
+        elseif cmd == "_panda_eliminate_spawn_internal" then
+            local target_type = parts[2]
+            local smart_ref = parts[3]
+            local task_slot_id = parts[4]
+            if not target_type or not smart_ref or not task_slot_id then
+                printf("PANDA_IC: _panda_eliminate_spawn_internal malformed in '%s'", tostring(cmd_str))
+            else
+                local bridge = ensure_panda_task_bridge()
+                local rec = bridge and bridge.get_record and bridge.get_record(task_slot_id) or nil
+                if not bridge then
+                    printf("PANDA_IC: _panda_eliminate_spawn_internal bridge unavailable")
+                elseif not rec then
+                    printf("PANDA_IC: _panda_eliminate_spawn_internal task %s missing", tostring(task_slot_id))
+                elseif rec.spawn_pending ~= true then
+                    -- Already spawned (e.g. trigger fired twice). Skip.
+                else
+                    local is_mutant = is_mutant_squad_key(target_type)
+                    local collector_start = (_job_spawn_collector and #_job_spawn_collector) or 0
+                    local local_collector = false
+                    if not _job_spawn_collector then
+                        _job_spawn_collector = {}
+                        local_collector = true
+                        collector_start = 0
+                    end
+
+                    spawn_squad_at_smart_terrain(target_type, smart_ref, is_mutant, 0, sender_contact_id, "hostile")
+
+                    local spawned_squad_ids = {}
+                    if _job_spawn_collector then
+                        for i = collector_start + 1, #_job_spawn_collector do
+                            table.insert(spawned_squad_ids, _job_spawn_collector[i])
+                        end
+                    end
+                    if local_collector then
+                        _job_spawn_collector = nil
+                    end
+
+                    if #spawned_squad_ids == 0 then
+                        printf("PANDA_IC: _panda_eliminate_spawn_internal failed to spawn '%s'", tostring(target_type))
+                    elseif bridge.attach_target_squads then
+                        bridge.attach_target_squads(task_slot_id, spawned_squad_ids)
+                    end
+                end
+            end
 
         elseif cmd == "watch_location" then
             local location_ref = parts[2]
@@ -5816,62 +5940,91 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
         -- ========== CUSTOM TASKS ==========
         -- Each panda_task_* command creates real vanilla task-manager task slots.
 
-        -- Delivery: player receives an auto package and delivers it to destination
-        -- Syntax: panda_task_delivery:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
+        -- Delivery: player receives an auto package and delivers it to a randomly chosen NPC.
+        -- Destination smart terrain is OPTIONAL — if omitted (or empty), engine picks any
+        -- eligible online stalker anywhere as the recipient and tracks them on the map.
+        -- Syntax: panda_task_delivery:<timeout>:<success_turn>:<fail_turn>
+        -- Legacy: panda_task_delivery:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
         -- Legacy: panda_task_delivery:<item_section>:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
         elseif cmd == "panda_task_delivery" then
             local item_sec = "quest_package_" .. tostring(math.random(1, 8))
-            local dest_smart = parts[2]
-            local timeout = tonumber(parts[3]) or 600
-            local s_turn = tonumber(parts[4])
-            local f_turn = tonumber(parts[5])
-            if parts[3] and not tonumber(parts[3]) then
+            local dest_smart, timeout, s_turn, f_turn
+
+            if tonumber(parts[2]) and tonumber(parts[3]) and tonumber(parts[4]) and not parts[5] then
+                -- New no-destination form: panda_task_delivery:<timeout>:<s>:<f>
+                dest_smart = nil
+                timeout = tonumber(parts[2]) or 600
+                s_turn = tonumber(parts[3])
+                f_turn = tonumber(parts[4])
+            elseif parts[3] and not tonumber(parts[3]) then
+                -- Oldest legacy: panda_task_delivery:<item_section>:<destination_smart>:<timeout>:<s>:<f>
                 item_sec = parts[2] or item_sec
                 dest_smart = parts[3]
                 timeout = tonumber(parts[4]) or 600
                 s_turn = tonumber(parts[5])
                 f_turn = tonumber(parts[6])
+            else
+                -- Legacy: panda_task_delivery:<destination_smart>:<timeout>:<s>:<f>
+                dest_smart = parts[2]
+                timeout = tonumber(parts[3]) or 600
+                s_turn = tonumber(parts[4])
+                f_turn = tonumber(parts[5])
             end
-            if not item_sec or not dest_smart or not s_turn then
+
+            if not item_sec or not s_turn then
                 printf("PANDA_IC: panda_task_delivery missing params in '%s'", tostring(cmd_str))
             else
                 local radius = PANDA.get_config("location_watch_radius") or 50
-                local destination_map_id, destination_label = get_smart_task_target(dest_smart)
+                local destination_map_id, destination_label
+                if dest_smart and dest_smart ~= "" then
+                    destination_map_id, destination_label = get_smart_task_target(dest_smart)
+                end
+
                 local bridge = ensure_panda_task_bridge()
-                if not destination_map_id then
-                    printf("PANDA_IC: panda_task_delivery destination resolve failed for '%s'", tostring(dest_smart))
-                elseif not bridge then
+                if not bridge then
                     printf("PANDA_IC: panda_task_delivery ignored (bridge unavailable)")
                 else
-                    local delivery_target = pick_delivery_target_near_smart(dest_smart, math.max(radius * 2, 150))
+                    local delivery_target
+                    if dest_smart and dest_smart ~= "" then
+                        delivery_target = pick_delivery_target_near_smart(dest_smart, math.max(radius * 2, 150))
+                    end
+                    if not delivery_target then
+                        delivery_target = pick_random_delivery_target()
+                    end
+
                     local delivery_target_id = delivery_target and delivery_target.se and delivery_target.se.id or nil
                     local delivery_target_label = get_delivery_target_label(delivery_target)
                     local task_map_id = delivery_target_id or destination_map_id
                     local task_label = delivery_target_label or destination_label
-                    if type(spawn_native_courier) == "function" then
-                        spawn_native_courier(item_sec)
-                    elseif db.actor and alife_create_item then
-                        alife_create_item(item_sec, db.actor)
-                    end
-                    local slot_id, err = bridge.create_task(build_bridge_task_params("delivery", {
-                        item_section = item_sec,
-                        item_count = 1,
-                        destination_ref = dest_smart,
-                        destination_map_id = task_map_id,
-                        destination_label = task_label,
-                        location_label = destination_label,
-                        target_npc_id = delivery_target_id,
-                        target_label = delivery_target_label,
-                        target_radius = radius,
-                        timeout_seconds = timeout,
-                        success_turn = s_turn,
-                        fail_turn = f_turn,
-                    }))
-                    if not slot_id then
-                        printf("PANDA_IC: panda_task_delivery failed (%s)", tostring(err))
+
+                    if not task_map_id then
+                        printf("PANDA_IC: panda_task_delivery could not pick a recipient NPC")
                     else
-                        task_given = true
-                        push_task_start_message("st_pda_ic_task_delivery_start")
+                        if type(spawn_native_courier) == "function" then
+                            spawn_native_courier(item_sec)
+                        elseif db.actor and alife_create_item then
+                            alife_create_item(item_sec, db.actor)
+                        end
+                        local slot_id, err = bridge.create_task(build_bridge_task_params("delivery", {
+                            item_section = item_sec,
+                            item_count = 1,
+                            destination_ref = dest_smart,
+                            destination_map_id = task_map_id,
+                            destination_label = task_label,
+                            location_label = destination_label or task_label,
+                            target_npc_id = delivery_target_id,
+                            target_label = delivery_target_label,
+                            target_radius = radius,
+                            timeout_seconds = timeout,
+                            success_turn = s_turn,
+                            fail_turn = f_turn,
+                        }))
+                        if not slot_id then
+                            printf("PANDA_IC: panda_task_delivery failed (%s)", tostring(err))
+                        else
+                            task_given = true
+                            push_task_start_message("st_pda_ic_task_delivery_start")
+                        end
                     end
                 end
             end
@@ -6074,10 +6227,12 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                         if spos and sec then
                             local sp, sl, sg = find_spawn_point_near_smart(6, 12, spos, slvid, sgvid)
                             local survivor_squad = create_squad_safely(sec, sp or spos, sl or slvid, sg or sgvid)
-                            if survivor_squad then
+                            if survivor_squad and survivor_squad.clsid and survivor_squad:clsid() == clsid.online_offline_group_s then
                                 apply_spawned_faction_relation(survivor_squad, "friendly")
-                                for member in survivor_squad:squad_members() do
-                                    if not survivor_id then survivor_id = member.id end
+                                if type(survivor_squad.squad_members) == "function" then
+                                    for member in survivor_squad:squad_members() do
+                                        if not survivor_id then survivor_id = member.id end
+                                    end
                                 end
                             end
                         end
@@ -6211,8 +6366,10 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                 end
             end
 
-        -- Elimination: spawn enemies at location, player clears them
+        -- Elimination: spawn enemies at location WHEN player approaches, player clears them
         -- Syntax: panda_task_eliminate:<target_type>:<smart_terrain>:<radius>:<timeout>:<success_turn>:<fail_turn>
+        -- Squad spawn is deferred until the player enters the marker radius around the smart
+        -- terrain. The PDA task and map marker are created up-front.
         elseif cmd == "panda_task_eliminate" then
             local target_type = parts[2]
             local smart_ref = parts[3]
@@ -6223,42 +6380,40 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             if not target_type or not smart_ref or not s_turn then
                 printf("PANDA_IC: panda_task_eliminate missing params in '%s'", tostring(cmd_str))
             else
-                local is_mutant = is_mutant_squad_key(target_type)
-                local collector_start = (_job_spawn_collector and #_job_spawn_collector) or 0
-                spawn_squad_at_smart_terrain(target_type, smart_ref, is_mutant, 0, sender_contact_id, "hostile")
-                local spawned_squad_ids = {}
-                if _job_spawn_collector then
-                    for i = collector_start + 1, #_job_spawn_collector do
-                        table.insert(spawned_squad_ids, _job_spawn_collector[i])
-                    end
-                end
-
-                if #spawned_squad_ids == 0 then
-                    printf("PANDA_IC: panda_task_eliminate failed to register spawned squads in '%s'", tostring(cmd_str))
+                local destination_map_id, destination_label = get_smart_task_target(smart_ref)
+                local bridge = ensure_panda_task_bridge()
+                if not destination_map_id then
+                    printf("PANDA_IC: panda_task_eliminate destination resolve failed for '%s'", tostring(smart_ref))
+                elseif not bridge then
+                    printf("PANDA_IC: panda_task_eliminate ignored (bridge unavailable)")
                 else
-                    local destination_map_id, destination_label = get_smart_task_target(smart_ref)
-                    local bridge = ensure_panda_task_bridge()
-                    if not destination_map_id then
-                        printf("PANDA_IC: panda_task_eliminate destination resolve failed for '%s'", tostring(smart_ref))
-                    elseif not bridge then
-                        printf("PANDA_IC: panda_task_eliminate ignored (bridge unavailable)")
+                    local slot_id, err = bridge.create_task(build_bridge_task_params("eliminate", {
+                        destination_ref = smart_ref,
+                        destination_map_id = destination_map_id,
+                        destination_label = destination_label,
+                        location_label = destination_label,
+                        target_radius = spawn_radius,
+                        timeout_seconds = timeout,
+                        success_turn = s_turn,
+                        fail_turn = f_turn,
+                        target_squad_ids = {},
+                        spawn_pending = true,
+                    }))
+                    if not slot_id then
+                        printf("PANDA_IC: panda_task_eliminate failed (%s)", tostring(err))
                     else
-                        local slot_id, err = bridge.create_task(build_bridge_task_params("eliminate", {
-                            destination_ref = smart_ref,
-                            destination_map_id = destination_map_id,
-                            destination_label = destination_label,
-                            location_label = destination_label,
-                            target_radius = spawn_radius,
-                            timeout_seconds = timeout,
-                            success_turn = s_turn,
-                            fail_turn = f_turn,
-                            target_squad_ids = spawned_squad_ids,
-                        }))
-                        if not slot_id then
-                            printf("PANDA_IC: panda_task_eliminate failed (%s)", tostring(err))
-                        else
-                            task_given = true
-                            push_task_start_message("st_pda_ic_task_eliminate_start")
+                        task_given = true
+                        push_task_start_message("st_pda_ic_task_eliminate_start")
+
+                        -- Register a watch zone that fires the deferred squad spawn.
+                        local ref = register_location_reference(smart_ref, sender_npc_name, sender_npc_id, spawn_radius, sender_contact_id)
+                        if ref then
+                            table.insert(ref.trigger_cmds, table.concat({
+                                "_panda_eliminate_spawn_internal",
+                                tostring(target_type),
+                                tostring(smart_ref),
+                                tostring(slot_id),
+                            }, ":"))
                         end
                     end
                 end
@@ -6587,7 +6742,7 @@ function get_faction_spawn_notification_keys(relation_mode)
     return key
 end
 
-local function spawn_npc_squad_near_player(squad_key, distance, delay, relation_mode)
+function spawn_npc_squad_near_player(squad_key, distance, delay, relation_mode)
     delay = tonumber(delay) or 0
     relation_mode = relation_mode or "default"
 

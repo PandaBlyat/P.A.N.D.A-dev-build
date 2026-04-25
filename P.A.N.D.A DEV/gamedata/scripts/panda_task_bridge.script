@@ -1053,6 +1053,14 @@ local function evaluate_status(task, task_id)
     end
 
     if record.family == "eliminate" or record.family == "rescue" then
+        -- Spawn-on-arrival tasks deliberately start with no squads. Hold the
+        -- task in "in progress" until the watch zone trigger creates them.
+        if (type(record.target_squad_ids) ~= "table" or #record.target_squad_ids == 0)
+            and record.spawn_pending == true
+        then
+            return
+        end
+
         if type(record.target_squad_ids) ~= "table" or #record.target_squad_ids == 0 then
             record.fail_reason = "missing_targets"
             save_record(record.task_id, record)
@@ -1252,6 +1260,12 @@ function M.create_task(params)
     end
     if params.custom_description ~= nil then
         record.custom_description = params.custom_description
+    end
+
+    -- Spawn-on-arrival flag: tells evaluate_status not to fail an eliminate/rescue
+    -- task while the squad list is still empty. Cleared by attach_target_squads.
+    if params.spawn_pending ~= nil then
+        record.spawn_pending = params.spawn_pending == true
     end
 
     save_record(slot_id, record)
@@ -1679,6 +1693,33 @@ end
 
 function M.resolve_slot(task_id)
     return resolve_slot(task_id)
+end
+
+-- Attach (or replace) the target squad list on an existing eliminate/rescue task.
+-- Used when the task was created with spawn_pending=true and the actual spawn
+-- happens later (e.g. when the player enters a watch zone).
+function M.attach_target_squads(task_id, squad_ids)
+    if type(squad_ids) ~= "table" then
+        return false, "bad_squads"
+    end
+
+    local rec, slot_id = update_record(task_id, {
+        target_squad_ids = clone_plain(squad_ids),
+        spawn_pending = false,
+    })
+    if not rec or not slot_id then
+        return false, "task_not_found"
+    end
+    return true
+end
+
+-- Update arbitrary fields on a task record (e.g. custom_title, target_label).
+function M.update_record(task_id, patch)
+    local rec, slot_id = update_record(task_id, patch)
+    if not rec or not slot_id then
+        return false, "task_not_found"
+    end
+    return true
 end
 
 task_functor.panda_task_title = function(task_id, field, p, task)
