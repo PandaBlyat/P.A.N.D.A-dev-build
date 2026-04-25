@@ -2383,7 +2383,128 @@ export function renderParamEditors(
     div.appendChild(field);
   });
 
+  // Optional PDA hover/list overrides for panda_task_* outcomes. Authors can fill in
+  // the title and description that appear in the player's PDA when this task is
+  // active. Stored as trailing key=value tokens (title=..., descr=...) so the Lua
+  // side can pick them up without changing positional argument order.
+  if (schema.name.startsWith('panda_task_')) {
+    appendTaskAuthorMetaEditors(div, currentParams, schema.params.length, onChange, getFieldKey);
+  }
+
   return div;
+}
+
+const TASK_META_TITLE_PREFIX = 'title=';
+const TASK_META_DESCR_PREFIX = 'descr=';
+
+function decodeTaskMetaValue(raw: string): string {
+  return raw.replace(/\+/g, ' ');
+}
+
+function encodeTaskMetaValue(raw: string): string {
+  return raw.trim().replace(/[:+]/g, ' ').replace(/\s+/g, '+');
+}
+
+function splitTaskAuthorMeta(currentParams: string[], positionalCount: number): {
+  positional: string[];
+  title: string;
+  description: string;
+} {
+  const positional: string[] = [];
+  let title = '';
+  let description = '';
+  let cursor = 0;
+  for (const value of currentParams) {
+    if (cursor < positionalCount) {
+      positional.push(value ?? '');
+      cursor += 1;
+      continue;
+    }
+    const v = value ?? '';
+    if (v.startsWith(TASK_META_TITLE_PREFIX)) {
+      title = decodeTaskMetaValue(v.slice(TASK_META_TITLE_PREFIX.length));
+    } else if (v.startsWith(TASK_META_DESCR_PREFIX)) {
+      description = decodeTaskMetaValue(v.slice(TASK_META_DESCR_PREFIX.length));
+    } else if (v.startsWith('description=')) {
+      description = decodeTaskMetaValue(v.slice('description='.length));
+    } else if (v.startsWith('desc=')) {
+      description = decodeTaskMetaValue(v.slice('desc='.length));
+    } else {
+      // Unknown trailing token — keep it as positional for forward-compat.
+      positional.push(v);
+    }
+  }
+  return { positional, title, description };
+}
+
+function joinTaskAuthorMeta(positional: string[], title: string, description: string): string[] {
+  const out = [...positional];
+  if (title.trim() !== '') out.push(`${TASK_META_TITLE_PREFIX}${encodeTaskMetaValue(title)}`);
+  if (description.trim() !== '') out.push(`${TASK_META_DESCR_PREFIX}${encodeTaskMetaValue(description)}`);
+  return out;
+}
+
+function appendTaskAuthorMetaEditors(
+  container: HTMLElement,
+  currentParams: string[],
+  positionalCount: number,
+  onChange: (params: string[]) => void,
+  getFieldKey: (paramIndex: number) => string,
+): void {
+  const meta = splitTaskAuthorMeta(currentParams, positionalCount);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'task-meta-overrides';
+  wrap.style.cssText = 'margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border, #444);';
+
+  const heading = document.createElement('div');
+  heading.className = 'field-hint';
+  heading.style.cssText = 'font-weight: 600; margin-bottom: 4px;';
+  heading.textContent = 'PDA hover text (optional)';
+  wrap.appendChild(heading);
+
+  const help = document.createElement('div');
+  help.className = 'field-hint';
+  help.textContent = 'Override the title and description that appear in the player\'s PDA task list. Leave blank to use the auto-generated text. Placeholders: $location, $target, $item, $giver.';
+  wrap.appendChild(help);
+
+  const titleField = document.createElement('div');
+  titleField.className = 'field';
+  const titleLabel = document.createElement('label');
+  titleLabel.textContent = 'PDA Title';
+  titleField.appendChild(titleLabel);
+  const titleInput = document.createElement('input');
+  titleInput.type = 'text';
+  titleInput.className = 'rich-editor-input';
+  titleInput.value = meta.title;
+  titleInput.placeholder = 'e.g. Help the trapped stalker';
+  const titleKey = `${getFieldKey(positionalCount)}-meta-title`;
+  titleInput.setAttribute('data-field-key', titleKey);
+  titleInput.oninput = () => debounced(titleKey, () => {
+    onChange(joinTaskAuthorMeta(meta.positional, titleInput.value, descrInput.value));
+  });
+  titleField.appendChild(titleInput);
+  wrap.appendChild(titleField);
+
+  const descrField = document.createElement('div');
+  descrField.className = 'field';
+  const descrLabel = document.createElement('label');
+  descrLabel.textContent = 'PDA Description';
+  descrField.appendChild(descrLabel);
+  const descrInput = document.createElement('textarea');
+  descrInput.className = 'rich-editor-input';
+  descrInput.rows = 3;
+  descrInput.value = meta.description;
+  descrInput.placeholder = 'e.g. Bandits have $target pinned at $location. Get them out alive.';
+  const descrKey = `${getFieldKey(positionalCount + 1)}-meta-descr`;
+  descrInput.setAttribute('data-field-key', descrKey);
+  descrInput.oninput = () => debounced(descrKey, () => {
+    onChange(joinTaskAuthorMeta(meta.positional, titleInput.value, descrInput.value));
+  });
+  descrField.appendChild(descrInput);
+  wrap.appendChild(descrField);
+
+  container.appendChild(wrap);
 }
 
 function renderRichParamEditor(
@@ -3286,6 +3407,10 @@ function createCommandBuilderEditor(
   configPanel.className = 'command-builder-config';
   configPanel.style.cssText = 'display:none; margin-top:8px;';
 
+  const previewLine = document.createElement('div');
+  previewLine.className = 'field-hint';
+  previewLine.style.cssText = 'margin-top:6px; font-family: var(--font-mono, monospace); word-break: break-all;';
+
   const buildConfiguredCommand = (): string => configuredCommand || suggestionSelect.value;
 
   const renderSuggestionConfig = () => {
@@ -3294,30 +3419,47 @@ function createCommandBuilderEditor(
     const parsed = parseCommandBuilderSuggestion(suggestionSelect.value);
     if (!parsed) {
       configPanel.style.display = 'none';
+      previewLine.textContent = '';
       return;
     }
 
     const commandSchema = OUTCOME_SCHEMAS.find((item) => item.name === parsed.command);
     if (!commandSchema || commandSchema.params.length === 0) {
       configPanel.style.display = 'none';
+      configuredCommand = serializeCommandBuilderSuggestion(parsed.command, parsed.params);
+      previewLine.textContent = `Will add: ${configuredCommand}`;
       return;
     }
 
-    let configParams = parsed.params;
+    // configParams is mutated in place by renderInner so subsequent param edits
+    // see the latest snapshot — fixes a bug where picking a non-default value
+    // (e.g. a different vanilla squad) was overwritten back to the suggestion
+    // default when "Add to chain" fired.
+    const configParams: string[] = [...parsed.params];
     configuredCommand = serializeCommandBuilderSuggestion(parsed.command, configParams);
-    const header = document.createElement('div');
-    header.className = 'field-hint';
-    header.textContent = `Configure ${commandSchema.label}`;
-    configPanel.appendChild(header);
-    configPanel.appendChild(renderParamEditors(
-      commandSchema,
-      configParams,
-      (nextParams) => {
-        configParams = nextParams;
-        configuredCommand = serializeCommandBuilderSuggestion(parsed.command, configParams);
-      },
-      (paramIndex) => `${fieldKey}-suggestion-${parsed.command}-${paramIndex}`,
-    ));
+    previewLine.textContent = `Will add: ${configuredCommand}`;
+
+    const renderInner = () => {
+      const editorTree = document.createElement('div');
+      const header = document.createElement('div');
+      header.className = 'field-hint';
+      header.textContent = `Configure ${commandSchema.label}`;
+      editorTree.appendChild(header);
+      editorTree.appendChild(renderParamEditors(
+        commandSchema,
+        configParams,
+        (nextParams) => {
+          configParams.length = 0;
+          for (const value of nextParams) configParams.push(value);
+          configuredCommand = serializeCommandBuilderSuggestion(parsed.command, configParams);
+          previewLine.textContent = `Will add: ${configuredCommand}`;
+        },
+        (paramIndex) => `${fieldKey}-suggestion-${parsed.command}-${paramIndex}`,
+      ));
+      configPanel.replaceChildren(editorTree);
+    };
+
+    renderInner();
     configPanel.style.display = '';
   };
 
@@ -3363,6 +3505,7 @@ function createCommandBuilderEditor(
   controls.appendChild(clearBtn);
 
   wrapper.appendChild(controls);
+  wrapper.appendChild(previewLine);
   wrapper.appendChild(configPanel);
 
   const builderHint = document.createElement('div');

@@ -2078,12 +2078,15 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   {
     name: 'panda_task_delivery',
     label: 'Task: Delivery',
-    description: 'Player delivers an auto package to a destination',
+    description: 'Player delivers an auto package to a randomly chosen NPC',
     category: 'Tasks',
-    helpText: 'Framework picks the package automatically. Author only chooses destination; runtime tracks player reaching the destination with the generated package.',
-    examples: ['panda_task_delivery:st_esc_smart_terrain_5_4_name:600:3:4'],
+    helpText: 'Framework picks the package and the recipient automatically. Leave Destination empty for the engine to pick any eligible NPC anywhere; set a smart terrain to bias the recipient pick toward NPCs in that area.',
+    examples: [
+      'panda_task_delivery:600:3:4',
+      'panda_task_delivery:st_esc_smart_terrain_5_4_name:600:3:4',
+    ],
     params: [
-      { name: 'destination', type: 'smart_terrain', required: true, label: 'Destination', editor: SMART_TERRAIN_EDITOR },
+      { name: 'destination', type: 'smart_terrain', required: false, label: 'Destination (optional)', editor: SMART_TERRAIN_EDITOR, helpText: 'Optional. Leave blank to let the engine pick any random recipient.' },
       { name: 'timeout', type: 'number', required: true, label: 'Timeout (s)', min: 30 },
       { name: 'success_turn', type: 'number', required: true, label: 'Success Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
       { name: 'fail_turn', type: 'number', required: true, label: 'Fail Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
