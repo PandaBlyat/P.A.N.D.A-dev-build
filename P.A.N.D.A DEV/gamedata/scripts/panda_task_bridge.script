@@ -19,6 +19,7 @@ local FAMILY_ICONS = {
     artifact = "ui_iconsTotal_artefact",
     escort = "ui_inGame2_Mesta_evakuatsii",
     eliminate = "ui_iconsTotal_mutant",
+    rescue = "ui_inGame2_Zalozhnik",
     scan = "ui_inGame2_Issledovanie_anomaliy",
 }
 
@@ -30,6 +31,7 @@ local FAMILIES = {
     artifact = true,
     escort = true,
     eliminate = true,
+    rescue = true,
     scan = true,
 }
 
@@ -810,6 +812,9 @@ local function build_title(record, task)
     elseif family == "eliminate" then
         local location_label = record.location_label or tr("st_panda_task_unknown_location", "target area")
         return safe_format(tr("st_panda_task_title_eliminate", "Clear %s"), location_label)
+    elseif family == "rescue" then
+        local target_label = record.target_label or tr("st_panda_task_rescue_survivor", "survivor")
+        return safe_format(tr("st_panda_task_title_rescue", "Rescue %s"), target_label)
     elseif family == "artifact" then
         return safe_format(tr("st_panda_task_title_artifact", "Retrieve %s"), counted_item_name(record.item_section, 1))
     elseif family == "scan" then
@@ -861,6 +866,13 @@ local function build_description(record, task)
             tr("st_panda_task_descr_eliminate", "Eliminate hostile presence near %s."),
             location_label
         )
+    elseif family == "rescue" then
+        local target_label = record.target_label or tr("st_panda_task_rescue_survivor", "survivor")
+        return safe_format(
+            tr("st_panda_task_descr_rescue", "Clear hostiles near %s and keep %s alive."),
+            location_label,
+            target_label
+        )
     elseif family == "artifact" then
         if record.manual_turn_in and task and tonumber(task.stage) >= 1 then
             return safe_format(
@@ -906,7 +918,7 @@ local function build_target(record, task)
         return record.target_npc_id or record.zone_object_id or record.destination_map_id
     elseif family == "scan" then
         return record.zone_object_id or record.destination_map_id
-    elseif family == "delivery" or family == "dead_drop" or family == "escort" or family == "eliminate" then
+    elseif family == "delivery" or family == "dead_drop" or family == "escort" or family == "eliminate" or family == "rescue" then
         return record.destination_map_id
     elseif family == "bounty" then
         return record.target_npc_id or record.destination_map_id
@@ -1004,7 +1016,7 @@ local function evaluate_status(task, task_id)
         return
     end
 
-    if record.family == "eliminate" then
+    if record.family == "eliminate" or record.family == "rescue" then
         if type(record.target_squad_ids) ~= "table" or #record.target_squad_ids == 0 then
             record.fail_reason = "missing_targets"
             save_record(record.task_id, record)
@@ -1012,6 +1024,11 @@ local function evaluate_status(task, task_id)
         end
 
         update_eliminate_spots(record)
+        if record.family == "rescue" and record.target_npc_id and not npc_alive(record.target_npc_id) then
+            record.fail_reason = "survivor_dead"
+            save_record(record.task_id, record)
+            return "fail"
+        end
         if all_squads_dead(record.target_squad_ids) then
             mark_stage(task, record, 1)
             return "complete"
@@ -1086,7 +1103,7 @@ local function apply_success_side_effects(record)
 
     if record.family == "escort" then
         cleanup_escort_companion(record)
-    elseif record.family == "eliminate" then
+    elseif record.family == "eliminate" or record.family == "rescue" then
         cleanup_red_spots(record)
     end
 end
@@ -1098,7 +1115,7 @@ local function apply_failure_side_effects(record)
 
     if record.family == "escort" then
         cleanup_escort_companion(record)
-    elseif record.family == "eliminate" then
+    elseif record.family == "eliminate" or record.family == "rescue" then
         cleanup_red_spots(record)
     end
 end

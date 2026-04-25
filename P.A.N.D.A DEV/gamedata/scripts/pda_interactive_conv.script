@@ -49,6 +49,8 @@ local is_conversation_identity_in_use
 local record_npc_use
 local sub_placeholders
 local get_npc_rank_name
+local is_mutant_squad_key
+local apply_spawned_faction_relation
 
 local function ensure_panda_f2f_bridge()
     if _panda_f2f_bridge_checked then
@@ -1148,6 +1150,62 @@ local function job_player_near_smart(smart_ref, radius)
     local pos = resolve_smart_position_from_reference(smart_ref)
     if not pos then return false end
     return db.actor:position():distance_to(pos) <= (radius or 50)
+end
+
+local function pick_delivery_target_near_smart(smart_ref, radius)
+    local smart_pos = resolve_smart_position_from_reference(smart_ref)
+    if not smart_pos or not db or not db.OnlineStalkers then
+        return nil
+    end
+
+    local candidates = {}
+    local max_dist = tonumber(radius) or 150
+    for i = 1, #db.OnlineStalkers do
+        local id = db.OnlineStalkers[i]
+        local obj = level.object_by_id(id)
+        if obj and IsStalker(obj) and obj:alive() and not obj:is_talking() and not obj:best_enemy() then
+            local comm = obj:character_community()
+            if comm and comm ~= "actor" and comm ~= "zombied" and comm ~= "monolith" then
+                local obj_pos = get_position_from_object(obj)
+                if obj_pos and obj_pos:distance_to(smart_pos) <= max_dist then
+                    local se = alife_object(id)
+                    if se and (not se.squad_id or se.squad_id ~= db.actor:squad_id()) then
+                        table.insert(candidates, { se = se, obj = obj })
+                    end
+                end
+            end
+        end
+    end
+
+    if #candidates == 0 then
+        return nil
+    end
+
+    return candidates[math.random(#candidates)]
+end
+
+local function get_delivery_target_label(target)
+    if not target then
+        return nil
+    end
+
+    local obj = target.obj
+    if obj and obj.character_name then
+        local ok_name, resolved_name = pcall(function() return obj:character_name() end)
+        if ok_name and resolved_name and resolved_name ~= "" then
+            return resolved_name
+        end
+    end
+
+    local se = target.se
+    if se and se.character_name then
+        local ok_name, resolved_name = pcall(function() return se:character_name() end)
+        if ok_name and resolved_name and resolved_name ~= "" then
+            return resolved_name
+        end
+    end
+
+    return nil
 end
 
 -- Check if a specific NPC (by server ID) is dead.
@@ -5758,18 +5816,25 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
         -- ========== CUSTOM TASKS ==========
         -- Each panda_task_* command creates real vanilla task-manager task slots.
 
-        -- Delivery: courier spawns with item, player delivers to destination
-        -- Syntax: panda_task_delivery:<item_section>:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
+        -- Delivery: player receives an auto package and delivers it to destination
+        -- Syntax: panda_task_delivery:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
+        -- Legacy: panda_task_delivery:<item_section>:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
         elseif cmd == "panda_task_delivery" then
-            local item_sec = parts[2]
-            local dest_smart = parts[3]
-            local timeout = tonumber(parts[4]) or 600
-            local s_turn = tonumber(parts[5])
-            local f_turn = tonumber(parts[6])
+            local item_sec = "quest_package_" .. tostring(math.random(1, 8))
+            local dest_smart = parts[2]
+            local timeout = tonumber(parts[3]) or 600
+            local s_turn = tonumber(parts[4])
+            local f_turn = tonumber(parts[5])
+            if parts[3] and not tonumber(parts[3]) then
+                item_sec = parts[2] or item_sec
+                dest_smart = parts[3]
+                timeout = tonumber(parts[4]) or 600
+                s_turn = tonumber(parts[5])
+                f_turn = tonumber(parts[6])
+            end
             if not item_sec or not dest_smart or not s_turn then
                 printf("PANDA_IC: panda_task_delivery missing params in '%s'", tostring(cmd_str))
             else
-                spawn_native_courier(item_sec)
                 local radius = PANDA.get_config("location_watch_radius") or 50
                 local destination_map_id, destination_label = get_smart_task_target(dest_smart)
                 local bridge = ensure_panda_task_bridge()
@@ -5778,13 +5843,25 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                 elseif not bridge then
                     printf("PANDA_IC: panda_task_delivery ignored (bridge unavailable)")
                 else
+                    local delivery_target = pick_delivery_target_near_smart(dest_smart, math.max(radius * 2, 150))
+                    local delivery_target_id = delivery_target and delivery_target.se and delivery_target.se.id or nil
+                    local delivery_target_label = get_delivery_target_label(delivery_target)
+                    local task_map_id = delivery_target_id or destination_map_id
+                    local task_label = delivery_target_label or destination_label
+                    if type(spawn_native_courier) == "function" then
+                        spawn_native_courier(item_sec)
+                    elseif db.actor and alife_create_item then
+                        alife_create_item(item_sec, db.actor)
+                    end
                     local slot_id, err = bridge.create_task(build_bridge_task_params("delivery", {
                         item_section = item_sec,
                         item_count = 1,
                         destination_ref = dest_smart,
-                        destination_map_id = destination_map_id,
-                        destination_label = destination_label,
+                        destination_map_id = task_map_id,
+                        destination_label = task_label,
                         location_label = destination_label,
+                        target_npc_id = delivery_target_id,
+                        target_label = delivery_target_label,
                         target_radius = radius,
                         timeout_seconds = timeout,
                         success_turn = s_turn,
@@ -5831,7 +5908,8 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             end
 
         -- Bounty: spawn target NPC at location, track kill
-        -- Syntax: panda_task_bounty:<faction>:<rank>:<smart_terrain>:<timeout>:<success_turn>:<fail_turn>
+        -- Syntax: panda_task_bounty:<faction>:<smart_terrain>:<timeout>:<success_turn>:<fail_turn>
+        -- Legacy: panda_task_bounty:<faction>:<rank>:<smart_terrain>:<timeout>:<success_turn>:<fail_turn>
         elseif cmd == "panda_task_bounty" then
             local target_fac = parts[2]
             local target_rank = parts[3]
@@ -5839,6 +5917,13 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             local timeout = tonumber(parts[5]) or 900
             local s_turn = tonumber(parts[6])
             local f_turn = tonumber(parts[7])
+            if parts[3] and (parts[3]:find("^st_") or parts[3]:find("^%%") or tonumber(parts[4])) then
+                target_rank = nil
+                smart_ref = parts[3]
+                timeout = tonumber(parts[4]) or 900
+                s_turn = tonumber(parts[5])
+                f_turn = tonumber(parts[6])
+            end
             if not target_fac or not smart_ref or not s_turn then
                 printf("PANDA_IC: panda_task_bounty missing params in '%s'", tostring(cmd_str))
             else
@@ -5909,6 +5994,124 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                         else
                             task_given = true
                             push_task_start_message("st_pda_ic_task_bounty_start")
+                        end
+                    end
+                end
+            end
+
+        -- Rescue: keep survivor alive while hostile squads are cleared
+        -- Syntax: panda_task_rescue:<enemy_squad>:<smart_terrain>:<squad_count>:<survivor_template|random>:<timeout>:<success_turn>:<fail_turn>
+        elseif cmd == "panda_task_rescue" then
+            local enemy_squad = parts[2]
+            local smart_ref = parts[3]
+            local squad_count = 1
+            local survivor_template = "random"
+            local timeout = 900
+            local s_turn = nil
+            local f_turn = nil
+            local param_index = 4
+
+            if parts[param_index] and tonumber(parts[param_index]) and tonumber(parts[param_index]) <= 10 then
+                if parts[param_index + 1] and not tonumber(parts[param_index + 1]) then
+                    squad_count = math.max(1, tonumber(parts[param_index]) or 1)
+                    survivor_template = parts[param_index + 1]
+                    param_index = param_index + 2
+                elseif parts[param_index + 3] then
+                    squad_count = math.max(1, tonumber(parts[param_index]) or 1)
+                    param_index = param_index + 1
+                end
+            elseif parts[param_index] and not tonumber(parts[param_index]) then
+                survivor_template = parts[param_index]
+                param_index = param_index + 1
+            end
+
+            timeout = tonumber(parts[param_index]) or timeout
+            s_turn = tonumber(parts[param_index + 1])
+            f_turn = tonumber(parts[param_index + 2])
+
+            if not enemy_squad or not smart_ref or not s_turn then
+                printf("PANDA_IC: panda_task_rescue missing params in '%s'", tostring(cmd_str))
+            else
+                local collector_start = (_job_spawn_collector and #_job_spawn_collector) or 0
+                local local_collector = false
+                if not _job_spawn_collector then
+                    _job_spawn_collector = {}
+                    local_collector = true
+                    collector_start = 0
+                end
+
+                local is_mutant = is_mutant_squad_key(enemy_squad)
+                for _ = 1, squad_count do
+                    spawn_squad_at_smart_terrain(enemy_squad, smart_ref, is_mutant, 0, sender_contact_id, "hostile")
+                end
+
+                local spawned_squad_ids = {}
+                if _job_spawn_collector then
+                    for i = collector_start + 1, #_job_spawn_collector do
+                        table.insert(spawned_squad_ids, _job_spawn_collector[i])
+                    end
+                end
+
+                if local_collector then
+                    _job_spawn_collector = nil
+                end
+
+                local survivor_id = nil
+                local survivor_label = game.translate_string("st_panda_task_rescue_survivor")
+                if survivor_template and survivor_template ~= "" and survivor_template ~= "random" and panda_npc_creator and panda_npc_creator.spawn_custom_npc then
+                    panda_npc_creator.spawn_custom_npc(survivor_template, { smart_ref = smart_ref, conv_data = conv_data })
+                    if panda_npc_creator.get_active_npc_id then
+                        survivor_id = panda_npc_creator.get_active_npc_id(survivor_template)
+                    end
+                    survivor_label = survivor_template
+                else
+                    local smart = resolve_smart_from_reference(smart_ref)
+                    if smart then
+                        local spos = get_position_from_object(smart)
+                        local slvid = smart.m_level_vertex_id
+                        local sgvid = smart.m_game_vertex_id
+                        local sec = find_squad_section("stalker")
+                        if spos and sec then
+                            local sp, sl, sg = find_spawn_point_near_smart(6, 12, spos, slvid, sgvid)
+                            local survivor_squad = create_squad_safely(sec, sp or spos, sl or slvid, sg or sgvid)
+                            if survivor_squad then
+                                apply_spawned_faction_relation(survivor_squad, "friendly")
+                                for member in survivor_squad:squad_members() do
+                                    if not survivor_id then survivor_id = member.id end
+                                end
+                            end
+                        end
+                    end
+                end
+
+                if #spawned_squad_ids == 0 then
+                    printf("PANDA_IC: panda_task_rescue failed to register hostile squads in '%s'", tostring(cmd_str))
+                else
+                    local destination_map_id, destination_label = get_smart_task_target(smart_ref)
+                    local bridge = ensure_panda_task_bridge()
+                    if not destination_map_id then
+                        printf("PANDA_IC: panda_task_rescue destination resolve failed for '%s'", tostring(smart_ref))
+                    elseif not bridge then
+                        printf("PANDA_IC: panda_task_rescue ignored (bridge unavailable)")
+                    else
+                        local slot_id, err = bridge.create_task(build_bridge_task_params("rescue", {
+                            destination_ref = smart_ref,
+                            destination_map_id = destination_map_id,
+                            destination_label = destination_label,
+                            location_label = destination_label,
+                            target_radius = PANDA.get_config("location_watch_radius") or 85,
+                            timeout_seconds = timeout,
+                            success_turn = s_turn,
+                            fail_turn = f_turn,
+                            target_squad_ids = spawned_squad_ids,
+                            target_npc_id = survivor_id,
+                            target_label = survivor_label,
+                        }))
+                        if not slot_id then
+                            printf("PANDA_IC: panda_task_rescue failed (%s)", tostring(err))
+                        else
+                            task_given = true
+                            push_task_start_message("st_pda_ic_task_rescue_start")
                         end
                     end
                 end
@@ -6059,6 +6262,7 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             end
 
         -- Artifact retrieval: player must find and return a specific artifact
+        -- Syntax:          panda_task_artifact:<artifact_section>:<detector_tier>:<timeout>:<success_turn>:<fail_turn>
         -- Syntax (legacy): panda_task_artifact:<artifact_section>:<zone_name|any>:<detector_tier>:<timeout>:<success_turn>:<fail_turn>
         -- Syntax (v2):     panda_task_artifact:<artifact_section>:<zone_mode>:<zone_name>:<detector_tier>:<timeout>:<success_turn>:<fail_turn>
         -- zone_name supports deterministic level tokens like level:gar / level:esc.
@@ -6071,7 +6275,22 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             local s_turn
             local f_turn
 
-            if parts[3] == "specific" or parts[3] == "any" or parts[3] == "random_level" then
+            local detector_arg = parts[3]
+            if (detector_arg == "basic" or detector_arg == "advanced" or detector_arg == "elite" or detector_arg == "scientific") and tonumber(parts[4]) then
+                zone_mode = "natural"
+                zone_name = nil
+                detector_tier_meta = detector_arg
+                timeout = tonumber(parts[4]) or 900
+                s_turn = tonumber(parts[5])
+                f_turn = tonumber(parts[6])
+            elseif tonumber(parts[3]) then
+                zone_mode = "natural"
+                zone_name = nil
+                detector_tier_meta = "basic"
+                timeout = tonumber(parts[3]) or 900
+                s_turn = tonumber(parts[4])
+                f_turn = tonumber(parts[5])
+            elseif parts[3] == "specific" or parts[3] == "any" or parts[3] == "random_level" then
                 zone_mode = parts[3]
                 zone_name = parts[4]
                 local detector_index = 5
@@ -6247,7 +6466,7 @@ function resolve_mutant_section(mutant_type)
     return "simulation_bloodsucker_1_2" 
 end
 
-local function is_mutant_squad_key(target)
+is_mutant_squad_key = function(target)
     if not target or target == "" then
         return false
     end
@@ -6272,7 +6491,7 @@ local function is_mutant_squad_key(target)
     return false
 end
 
-local function apply_spawned_faction_relation(obj, relation_mode)
+apply_spawned_faction_relation = function(obj, relation_mode)
     if not obj or obj:clsid() ~= clsid.online_offline_group_s or not db.actor then
         return
     end

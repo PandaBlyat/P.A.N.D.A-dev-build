@@ -4,6 +4,7 @@ import {
   buildStoryFromDraft,
   createDefaultStoryDraft,
   STORY_RECIPES,
+  STORY_START_OPTIONS,
   STORY_TARGET_OPTIONS,
   type StoryRecipeId,
   type StorySpeakerTarget,
@@ -165,6 +166,11 @@ function renderBody(draft: StoryWizardDraft, setDraft: (patch: Partial<StoryWiza
   form.append(
     renderFactionPicker(draft.faction, (faction) => setDraft({ faction })),
     renderTextField('Title', draft.title, 'Supply run, missing courier, old debt...', (title) => setDraft({ title })),
+    renderSelectField('Start', STORY_START_OPTIONS
+      .filter((option) => option.id === 'pda' || option.id === 'f2f')
+      .map(option => [option.id, option.title]), draft.startPattern, (startPattern) => {
+        setDraft({ startPattern: startPattern as StoryWizardDraft['startPattern'] });
+      }),
     renderSelectField('Speaker', STORY_TARGET_OPTIONS.map(option => [option.id, option.title]), draft.speakerTarget, (speakerTarget) => {
       const nextSpeakerTarget = speakerTarget as StorySpeakerTarget;
       autoOpenSpeakerPicker = nextSpeakerTarget === 'named_npc' || nextSpeakerTarget === 'custom_npc';
@@ -181,6 +187,7 @@ function renderBody(draft: StoryWizardDraft, setDraft: (patch: Partial<StoryWiza
   const speaker = STORY_TARGET_OPTIONS.find(item => item.id === draft.speakerTarget);
   preview.append(
     renderPreviewRow('Faction', FACTION_DISPLAY_NAMES[draft.faction]),
+    renderPreviewRow('Start', draft.startPattern === 'f2f' ? 'Face-to-face talk' : 'PDA message'),
     renderPreviewRow('Speaker', speaker?.title ?? draft.speakerTarget),
     renderPreviewRow('Goal', recipeGroup),
     renderPreviewRow('Flow', recipe?.description ?? recipe?.title ?? draft.recipeId),

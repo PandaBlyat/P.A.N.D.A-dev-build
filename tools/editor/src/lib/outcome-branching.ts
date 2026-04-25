@@ -1,13 +1,14 @@
 import type { Outcome } from './types';
 
 const TASK_OUTCOME_TURN_INDICES: Record<string, [number, number, number]> = {
-  panda_task_delivery: [3, 4, 2],
+  panda_task_delivery: [2, 3, 1],
   panda_task_fetch: [3, 4, 2],
   panda_task_bounty: [4, 5, 3],
   panda_task_dead_drop: [3, 4, 2],
-  panda_task_artifact: [5, 6, 4],
+  panda_task_artifact: [3, 4, 2],
   panda_task_escort: [2, 3, 1],
   panda_task_eliminate: [4, 5, 3],
+  panda_task_rescue: [5, 6, 4],
 };
 
 export type OutcomeResumeBranchKind = 'pause' | 'task';

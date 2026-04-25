@@ -250,13 +250,13 @@ export const STORY_RECIPES: StoryRecipe[] = [
   { id: 'go_to_location', title: 'Go to location', description: 'NPC marks destination for player.', group: 'Task' },
   { id: 'spawn_ambush', title: 'Spawn ambush', description: 'Player reaches marker, then enemies spawn there.', group: 'Task' },
   { id: 'fetch_task', title: 'Fetch item task', description: 'Starts tracked task: find item before timeout.', group: 'Task' },
-  { id: 'delivery_task', title: 'Delivery task', description: 'Courier delivery to a marked smart terrain.', group: 'Task' },
+  { id: 'delivery_task', title: 'Delivery task', description: 'Deliver auto package to a marked smart terrain.', group: 'Task' },
   { id: 'dead_drop', title: 'Dead drop task', description: 'Starts tracked task: bring item to location.', group: 'Task' },
   { id: 'bounty_hunt', title: 'Bounty hunt', description: 'Starts tracked task: spawn and kill target.', group: 'Task' },
   { id: 'eliminate_squad', title: 'Eliminate squad', description: 'Spawns selected squad and tracks elimination.', group: 'Task' },
-  { id: 'artifact_hunt', title: 'Artifact hunt', description: 'Creates level-based anomaly artifact hunt.', group: 'Task' },
+  { id: 'artifact_hunt', title: 'Artifact hunt', description: 'Find specified artifact, no fixed location.', group: 'Task' },
   { id: 'escort_npc', title: 'Escort NPC', description: 'Conversation NPC joins player, destination and fail state included.', group: 'Task' },
-  { id: 'rescue', title: 'Rescue survivor', description: 'Clear enemy squad near a pinned custom NPC.', group: 'Setpiece' },
+  { id: 'rescue', title: 'Rescue survivor', description: 'Clear enemy squad near survivor; optional custom NPC.', group: 'Setpiece' },
   { id: 'betrayal', title: 'Betrayal setup', description: 'Deal goes wrong and creates ambush consequence.', group: 'Setpiece' },
   { id: 'custom_npc_encounter', title: 'Custom NPC encounter', description: 'Spawns custom NPC at selected smart terrain.', group: 'Setpiece' },
   { id: 'meet_in_person', title: 'Meet in person', description: 'PDA opener turns into face-to-face scene.', group: 'Handoff' },
@@ -419,7 +419,7 @@ export function buildStoryFromDraft(project: Project, input: StoryWizardDraft): 
 
   applyDraftContent(conversation, draft);
 
-  const npcTemplates = draft.speakerTarget === 'custom_npc' || draft.recipeId === 'rescue' || draft.recipeId === 'custom_npc_encounter'
+  const npcTemplates = draft.speakerTarget === 'custom_npc' || draft.recipeId === 'custom_npc_encounter'
     ? [createDraftNpcTemplate(draft)]
     : undefined;
 
@@ -828,7 +828,7 @@ function draftBaseOutcomesFor(draft: StoryWizardDraft, successTurn: string, fail
     case 'fetch_task':
       return [outcome('panda_task_fetch', draft.itemId, draft.itemCount, draft.timeoutSeconds, successTurn, failTurn)];
     case 'delivery_task':
-      return [outcome('panda_task_delivery', draft.itemId, draft.locationId, draft.timeoutSeconds, successTurn, failTurn)];
+      return [outcome('panda_task_delivery', draft.locationId, draft.timeoutSeconds, successTurn, failTurn)];
     case 'dead_drop':
       return [outcome('panda_task_dead_drop', draft.itemId, draft.locationId, draft.timeoutSeconds, successTurn, failTurn)];
     case 'bounty_hunt':
@@ -836,14 +836,11 @@ function draftBaseOutcomesFor(draft: StoryWizardDraft, successTurn: string, fail
     case 'eliminate_squad':
       return [outcome('panda_task_eliminate', draft.enemySquadId, draft.locationId, '100', draft.timeoutSeconds, successTurn, failTurn)];
     case 'artifact_hunt':
-      return [outcome('panda_task_artifact', draft.itemId || 'random', 'random_level', draftArtifactLevelToken(draft.locationId), 'basic', draft.timeoutSeconds, successTurn, failTurn)];
+      return [outcome('panda_task_artifact', draftArtifactSection(draft), 'basic', draft.timeoutSeconds, successTurn, failTurn)];
     case 'escort_npc':
       return [outcome('panda_task_escort', draft.locationId, draft.timeoutSeconds, successTurn, failTurn)];
     case 'rescue':
-      return [
-        outcome('spawn_custom_npc_at', draft.customNpcTemplateId, draft.locationId, '0'),
-        outcome('panda_task_eliminate', draft.enemySquadId, draft.locationId, '100', draft.timeoutSeconds, successTurn, failTurn),
-      ];
+      return [outcome('panda_task_rescue', draft.enemySquadId, draft.locationId, '1', 'random', draft.timeoutSeconds, successTurn, failTurn)];
     case 'betrayal':
       return draftBetrayalOutcomesFor(draft);
     case 'custom_npc_encounter':
@@ -926,6 +923,10 @@ function draftArtifactLevelToken(locationId: string): string {
   return 'level:esc';
 }
 
+function draftArtifactSection(draft: StoryWizardDraft): string {
+  return draft.itemId && draft.itemId.startsWith('af_') ? draft.itemId : 'af_medusa';
+}
+
 function draftLevelToken(level: string): string {
   const map: Record<string, string> = {
     cordon: 'esc',
@@ -994,7 +995,7 @@ function draftOpeningFor(draft: StoryWizardDraft): string {
     case 'fetch_task':
       return `${premise} Find ${draft.itemCount} ${itemLabel(draft.itemId)} before time runs out.`;
     case 'delivery_task':
-      return `${premise} Bring ${itemLabel(draft.itemId)} to ${locationLabel(draft.locationId)}.`;
+      return `${premise} Bring package to ${locationLabel(draft.locationId)}.`;
     case 'dead_drop':
       return `${premise} Leave ${itemLabel(draft.itemId)} at ${locationLabel(draft.locationId)}.`;
     case 'bounty_hunt':
@@ -1002,7 +1003,7 @@ function draftOpeningFor(draft: StoryWizardDraft): string {
     case 'eliminate_squad':
       return `${premise} Eliminate squad at ${locationLabel(draft.locationId)}.`;
     case 'artifact_hunt':
-      return `${premise} Anomaly field should have artifact signature.`;
+      return `${premise} Find ${itemLabel(draftArtifactSection(draft))}. No fixed location.`;
     case 'escort_npc':
       return `${premise} Escort me to ${locationLabel(draft.locationId)}.`;
     case 'meet_in_person':
@@ -1238,7 +1239,8 @@ function isTaskRecipe(recipeId: StoryRecipeId): boolean {
     || recipeId === 'bounty_hunt'
     || recipeId === 'eliminate_squad'
     || recipeId === 'artifact_hunt'
-    || recipeId === 'escort_npc';
+    || recipeId === 'escort_npc'
+    || recipeId === 'rescue';
 }
 
 function configureTaskResultTurns(conversation: Conversation, recipeId: StoryRecipeId, actionTurn: Turn, actionChoice: Choice, details: StoryDetailOptions): void {
@@ -1252,14 +1254,26 @@ function configureTaskResultTurns(conversation: Conversation, recipeId: StoryRec
     case 'fetch_task':
       actionChoice.outcomes = [outcome('panda_task_fetch', details.itemId, details.itemCount, details.timeoutSeconds, success, fail)];
       break;
+    case 'delivery_task':
+      actionChoice.outcomes = [outcome('panda_task_delivery', details.locationId, details.timeoutSeconds, success, fail)];
+      break;
     case 'dead_drop':
       actionChoice.outcomes = [outcome('panda_task_dead_drop', details.itemId, details.locationId, details.timeoutSeconds, success, fail)];
       break;
     case 'bounty_hunt':
       actionChoice.outcomes = [outcome('panda_task_bounty', details.targetFaction, details.targetRank, details.locationId, details.timeoutSeconds, success, fail)];
       break;
+    case 'eliminate_squad':
+      actionChoice.outcomes = [outcome('panda_task_eliminate', details.enemyId, details.locationId, '100', details.timeoutSeconds, success, fail)];
+      break;
+    case 'artifact_hunt':
+      actionChoice.outcomes = [outcome('panda_task_artifact', details.itemId.startsWith('af_') ? details.itemId : 'af_medusa', 'basic', details.timeoutSeconds, success, fail)];
+      break;
     case 'escort_npc':
       actionChoice.outcomes = [outcome('panda_task_escort', details.locationId, details.timeoutSeconds, success, fail)];
+      break;
+    case 'rescue':
+      actionChoice.outcomes = [outcome('panda_task_rescue', details.enemyId, details.locationId, '1', 'random', details.timeoutSeconds, success, fail)];
       break;
     default:
       break;

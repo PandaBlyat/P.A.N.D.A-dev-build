@@ -3195,12 +3195,54 @@ function createCommandBuilderEditor(
   }
   controls.appendChild(suggestionSelect);
 
+  let configuredCommand = '';
+  const configPanel = document.createElement('div');
+  configPanel.className = 'command-builder-config';
+  configPanel.style.cssText = 'display:none; margin-top:8px;';
+
+  const buildConfiguredCommand = (): string => configuredCommand || suggestionSelect.value;
+
+  const renderSuggestionConfig = () => {
+    configuredCommand = '';
+    configPanel.replaceChildren();
+    const parsed = parseCommandBuilderSuggestion(suggestionSelect.value);
+    if (!parsed) {
+      configPanel.style.display = 'none';
+      return;
+    }
+
+    const commandSchema = OUTCOME_SCHEMAS.find((item) => item.name === parsed.command);
+    if (!commandSchema || commandSchema.params.length === 0) {
+      configPanel.style.display = 'none';
+      return;
+    }
+
+    let configParams = parsed.params;
+    configuredCommand = serializeCommandBuilderSuggestion(parsed.command, configParams);
+    const header = document.createElement('div');
+    header.className = 'field-hint';
+    header.textContent = `Configure ${commandSchema.label}`;
+    configPanel.appendChild(header);
+    configPanel.appendChild(renderParamEditors(
+      commandSchema,
+      configParams,
+      (nextParams) => {
+        configParams = nextParams;
+        configuredCommand = serializeCommandBuilderSuggestion(parsed.command, configParams);
+      },
+      (paramIndex) => `${fieldKey}-suggestion-${parsed.command}-${paramIndex}`,
+    ));
+    configPanel.style.display = '';
+  };
+
+  suggestionSelect.onchange = renderSuggestionConfig;
+
   const replaceBtn = document.createElement('button');
   replaceBtn.className = 'btn-sm';
   replaceBtn.textContent = 'Replace';
   replaceBtn.onclick = () => {
     if (!suggestionSelect.value) return;
-    textarea.value = suggestionSelect.value;
+    textarea.value = buildConfiguredCommand();
     onChange(textarea.value);
     textarea.focus();
   };
@@ -3211,15 +3253,17 @@ function createCommandBuilderEditor(
   appendBtn.textContent = `Append ${chainSeparator}`;
   appendBtn.onclick = () => {
     if (!suggestionSelect.value) return;
+    const nextCommand = buildConfiguredCommand();
     textarea.value = textarea.value.trim()
-      ? `${textarea.value}${chainSeparator}${suggestionSelect.value}`
-      : suggestionSelect.value;
+      ? `${textarea.value}${chainSeparator}${nextCommand}`
+      : nextCommand;
     onChange(textarea.value);
     textarea.focus();
   };
   controls.appendChild(appendBtn);
 
   wrapper.appendChild(controls);
+  wrapper.appendChild(configPanel);
 
   const builderHint = document.createElement('div');
   builderHint.className = 'command-description';
@@ -3227,6 +3271,19 @@ function createCommandBuilderEditor(
   wrapper.appendChild(builderHint);
 
   return wrapper;
+}
+
+function parseCommandBuilderSuggestion(value: string): { command: string; params: string[] } | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parts = trimmed.split(':');
+  const command = parts.shift()?.trim();
+  if (!command) return null;
+  return { command, params: parts };
+}
+
+function serializeCommandBuilderSuggestion(command: string, params: string[]): string {
+  return [command, ...params.filter((param) => param.trim() !== '')].join(':');
 }
 
 function createInlineHelpBox(helpText?: string, examples?: string[]): HTMLElement {

@@ -65,12 +65,9 @@ function serializeOutcome(outcome: Outcome): string {
   const params = [...outcome.params];
 
   if (outcome.command === 'panda_task_artifact') {
-    // Keep slot stability: empty artifact section should still serialize as random.
     if (!params[0] || params[0].trim() === '') {
-      params[0] = 'random';
+      params[0] = 'af_medusa';
     }
-    // Artifact Hunt is level-based only; enforce random level mode on export.
-    params[1] = 'random_level';
   }
 
   const parts = [outcome.command, ...params.filter(p => p !== '')];
