@@ -612,7 +612,9 @@ local function all_squads_dead(squad_ids)
     for _, squad_id in ipairs(squad_ids) do
         local squad = alife_object and alife_object(squad_id) or nil
         if squad then
+            local saw_any_member = false
             for member in squad:squad_members() do
+                saw_any_member = true
                 local obj = level and level.object_by_id and level.object_by_id(member.id) or nil
                 if obj and obj:alive() then
                     return false
@@ -624,6 +626,14 @@ local function all_squads_dead(squad_ids)
                         return false
                     end
                 end
+            end
+
+            -- Squad alife object exists but member iterator yielded nothing.
+            -- This happens right after spawn while the squad is still binding members,
+            -- or for offline squads whose members haven't synced yet. Treat as alive
+            -- so the task is not falsely auto-completed.
+            if not saw_any_member then
+                return false
             end
         end
     end
@@ -844,6 +854,10 @@ local function build_title(record, task)
         return safe_format(tr("st_panda_task_title_eliminate", "Clear %s"), location_label)
     elseif family == "rescue" then
         local target_label = record.target_label or tr("st_panda_task_rescue_survivor", "survivor")
+        local location_label = record.location_label or record.destination_label
+        if location_label and location_label ~= "" and target_label ~= location_label then
+            return safe_format(tr("st_panda_task_title_rescue", "Rescue %s"), target_label .. " (" .. location_label .. ")")
+        end
         return safe_format(tr("st_panda_task_title_rescue", "Rescue %s"), target_label)
     elseif family == "artifact" then
         return safe_format(tr("st_panda_task_title_artifact", "Retrieve %s"), counted_item_name(record.item_section, 1))
@@ -1695,16 +1709,35 @@ function M.resolve_slot(task_id)
     return resolve_slot(task_id)
 end
 
--- Attach (or replace) the target squad list on an existing eliminate/rescue task.
--- Used when the task was created with spawn_pending=true and the actual spawn
--- happens later (e.g. when the player enters a watch zone).
+-- Attach the target squad list on an existing eliminate/rescue task.
+-- Appends to any existing list (multi-trigger rescue/eliminate fires this once
+-- per spawned squad). Clears spawn_pending so evaluate_status starts checking
+-- whether the squads are dead.
 function M.attach_target_squads(task_id, squad_ids)
     if type(squad_ids) ~= "table" then
         return false, "bad_squads"
     end
 
+    local existing_rec = get_record(task_id)
+    local merged = {}
+    local seen = {}
+    if type(existing_rec) == "table" and type(existing_rec.target_squad_ids) == "table" then
+        for _, sid in ipairs(existing_rec.target_squad_ids) do
+            if not seen[sid] then
+                table.insert(merged, sid)
+                seen[sid] = true
+            end
+        end
+    end
+    for _, sid in ipairs(squad_ids) do
+        if not seen[sid] then
+            table.insert(merged, sid)
+            seen[sid] = true
+        end
+    end
+
     local rec, slot_id = update_record(task_id, {
-        target_squad_ids = clone_plain(squad_ids),
+        target_squad_ids = merged,
         spawn_pending = false,
     })
     if not rec or not slot_id then

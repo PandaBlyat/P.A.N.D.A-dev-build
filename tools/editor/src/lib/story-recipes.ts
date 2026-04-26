@@ -806,16 +806,22 @@ function draftBaseOutcomesFor(draft: StoryWizardDraft, successTurn: string, fail
       return [outcome('reward_gw', draft.goodwillAmount, draft.faction)];
     case 'marked_threat':
       return [outcome('watch_location', draft.locationId, '85')];
-    case 'ambush_warning':
-      return [outcome('watch_location_trigger', draft.locationId, `spawn_mutant_at_smart:${draft.enemySquadId}:${draft.locationId}:0`, '85')];
+    case 'ambush_warning': {
+      const enemy = (draft.enemySquadId && draft.enemySquadId.trim()) || 'snork';
+      const loc = (draft.locationId && draft.locationId.trim()) || '%cordon_panda_st_key%';
+      return [outcome('watch_location_trigger', loc, `spawn_mutant_at_smart:${enemy}:${loc}:0`, '85')];
+    }
     case 'artifact_lead':
       return [outcome('give_info', `${draft.infoId}_artifact_lead`)];
     case 'item_request':
       return [outcome('take_item', draft.itemId), ...draftMoneyReward(draft.rewardMoney)];
     case 'go_to_location':
       return [outcome('watch_location', draft.locationId, '85')];
-    case 'spawn_ambush':
-      return [outcome('watch_location_trigger', draft.locationId, `spawn_mutant_at_smart:${draft.enemySquadId}:${draft.locationId}:0`, '85')];
+    case 'spawn_ambush': {
+      const enemy = (draft.enemySquadId && draft.enemySquadId.trim()) || 'snork';
+      const loc = (draft.locationId && draft.locationId.trim()) || '%cordon_panda_st_key%';
+      return [outcome('watch_location_trigger', loc, `spawn_mutant_at_smart:${enemy}:${loc}:0`, '85')];
+    }
     case 'supply_gift':
       return [...draftMoneyReward(draft.rewardMoney), ...draftItemReward(draft.rewardItemId), ...draftStashReward(draft.stashItems)];
     case 'paid_info':
@@ -1463,8 +1469,11 @@ function actionOutcomesFor(recipeId: StoryRecipeId, faction: FactionId, details:
       ];
     case 'go_to_location':
       return [outcome('watch_location', details.locationId, '85')];
-    case 'spawn_ambush':
-      return [outcome('watch_location_trigger', details.locationId, `spawn_mutant_at_smart:${details.enemyId}:${details.locationId}:0`, '85')];
+    case 'spawn_ambush': {
+      const enemy = (details.enemyId && details.enemyId.trim()) || 'snork';
+      const loc = (details.locationId && details.locationId.trim()) || '%cordon_panda_st_key%';
+      return [outcome('watch_location_trigger', loc, `spawn_mutant_at_smart:${enemy}:${loc}:0`, '85')];
+    }
     case 'supply_gift':
       return [
         ...moneyReward(details.rewardMoney),

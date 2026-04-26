@@ -39,11 +39,21 @@ function serializeAnyOption(option: AnyPreconditionOption): string {
   return serializePrecondition(option);
 }
 
+/** Trim trailing empty params only — preserves middle empties so positional
+ *  argument indices on the Lua side stay aligned. */
+function trimTrailingEmptyParams(params: string[]): string[] {
+  const out = [...params];
+  while (out.length > 0 && out[out.length - 1] === '') {
+    out.pop();
+  }
+  return out;
+}
+
 /** Serialize a precondition entry to the colon-delimited string format */
 function serializePrecondition(entry: PreconditionEntry): string {
   switch (entry.type) {
     case 'simple': {
-      const parts = [entry.command, ...entry.params.filter(p => p !== '')];
+      const parts = [entry.command, ...trimTrailingEmptyParams(entry.params)];
       return parts.join(':');
     }
     case 'not':
@@ -70,7 +80,7 @@ function serializeOutcome(outcome: Outcome): string {
     }
   }
 
-  const parts = [outcome.command, ...params.filter(p => p !== '')];
+  const parts = [outcome.command, ...trimTrailingEmptyParams(params)];
   const base = parts.join(':');
   if (outcome.chancePercent != null && outcome.chancePercent < 100) {
     return `chance:${outcome.chancePercent}:${base}`;
