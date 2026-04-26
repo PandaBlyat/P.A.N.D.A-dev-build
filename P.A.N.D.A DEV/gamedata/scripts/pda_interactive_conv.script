@@ -5137,7 +5137,9 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
         -- Author-supplied PDA task title / description override.
         -- Stripped from `parts` so handlers can keep parsing positional params unchanged.
         -- Pulled in for ALL panda_task_* commands; build_bridge_task_params merges them.
-        if cmd and (cmd:sub(1, 11) == "panda_task_" or cmd == "start_anomaly_scan_task") then
+        if cmd and (cmd:sub(1, 11) == "panda_task_"
+                    or cmd == "start_anomaly_scan_task"
+                    or cmd == "start_artifact_retrieval_task") then
             task_author_meta = extract_trailing_task_meta(parts)
         else
             task_author_meta = {}
@@ -5419,9 +5421,13 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                     printf("PANDA_IC: _panda_eliminate_spawn_internal bridge unavailable")
                 elseif not rec then
                     printf("PANDA_IC: _panda_eliminate_spawn_internal task %s missing", tostring(task_slot_id))
-                elseif rec.spawn_pending ~= true then
-                    -- Already spawned (e.g. trigger fired twice). Skip.
+                elseif rec.active == false then
+                    -- Task already finished (player completed/failed before squad spawned). Skip.
                 else
+                    -- NOTE: don't gate on rec.spawn_pending — rescue tasks register multiple
+                    -- trigger commands (one per squad_count) and only the first attach call
+                    -- clears spawn_pending. The watcher already removes its entry after the
+                    -- batch fires, so duplicate spawns across ticks aren't a concern.
                     local is_mutant = is_mutant_squad_key(target_type)
                     local collector_start = (_job_spawn_collector and #_job_spawn_collector) or 0
                     local local_collector = false
@@ -5465,7 +5471,7 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             local delayed_cmd = nil
             local radius = PANDA.get_config("location_watch_radius") or 85
 
-            if #parts >= 4 then
+            if #parts >= 3 then
                 local maybe_radius = tonumber(parts[#parts])
                 local cmd_end = #parts
                 if maybe_radius then
@@ -5478,18 +5484,25 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                 end
             end
 
-            if location_ref and location_ref ~= "" and delayed_cmd and delayed_cmd ~= "" then
+            if location_ref and location_ref ~= "" then
                 local ref = register_location_reference(location_ref, sender_npc_name, sender_npc_id, radius, sender_contact_id)
-                -- Support multiple trigger commands separated by "+"
-                -- Example: teleport_npc_to_smart:loc+spawn_mutant_at_smart:snork:loc
-                for sub_cmd in string.gmatch(delayed_cmd, "([^+]+)") do
-                    sub_cmd = sub_cmd:match("^%s*(.-)%s*$")
-                    if sub_cmd ~= "" then
-                        table.insert(ref.trigger_cmds, sub_cmd)
+                if delayed_cmd and delayed_cmd ~= "" then
+                    -- Support multiple trigger commands separated by "+"
+                    -- Example: teleport_npc_to_smart:loc+spawn_mutant_at_smart:snork:loc
+                    for sub_cmd in string.gmatch(delayed_cmd, "([^+]+)") do
+                        sub_cmd = sub_cmd:match("^%s*(.-)%s*$")
+                        if sub_cmd ~= "" then
+                            table.insert(ref.trigger_cmds, sub_cmd)
+                        end
                     end
+                else
+                    -- No trigger command supplied: behave like plain watch_location
+                    -- (map marker only). Authors who left the trigger blank in the editor
+                    -- still get a map spot instead of the malformed warning spam.
+                    printf("PANDA_IC: watch_location_trigger has no trigger command, registering as plain watch_location for '%s'", tostring(location_ref))
                 end
             else
-                printf("PANDA_IC: watch_location_trigger malformed in '%s'", tostring(cmd_str))
+                printf("PANDA_IC: watch_location_trigger missing smart terrain in '%s'", tostring(cmd_str))
             end
 
         -- ========== TELEPORT NPC (to smart terrain) ==========
@@ -6152,7 +6165,10 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                 end
             end
 
-        -- Rescue: keep survivor alive while hostile squads are cleared
+        -- Rescue: keep survivor alive while hostile squads are cleared.
+        -- Survivor spawns immediately at the smart terrain (kneeling, stationary).
+        -- Hostiles spawn ON ARRIVAL when the player enters the watch radius, so they
+        -- don't wander off across the map before the player ever shows up.
         -- Syntax: panda_task_rescue:<enemy_squad>:<smart_terrain>:<squad_count>:<survivor_template|random>:<timeout>:<success_turn>:<fail_turn>
         elseif cmd == "panda_task_rescue" then
             local enemy_squad = parts[2]
@@ -6185,30 +6201,8 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             if not enemy_squad or not smart_ref or not s_turn then
                 printf("PANDA_IC: panda_task_rescue missing params in '%s'", tostring(cmd_str))
             else
-                local collector_start = (_job_spawn_collector and #_job_spawn_collector) or 0
-                local local_collector = false
-                if not _job_spawn_collector then
-                    _job_spawn_collector = {}
-                    local_collector = true
-                    collector_start = 0
-                end
-
-                local is_mutant = is_mutant_squad_key(enemy_squad)
-                for _ = 1, squad_count do
-                    spawn_squad_at_smart_terrain(enemy_squad, smart_ref, is_mutant, 0, sender_contact_id, "hostile")
-                end
-
-                local spawned_squad_ids = {}
-                if _job_spawn_collector then
-                    for i = collector_start + 1, #_job_spawn_collector do
-                        table.insert(spawned_squad_ids, _job_spawn_collector[i])
-                    end
-                end
-
-                if local_collector then
-                    _job_spawn_collector = nil
-                end
-
+                -- Spawn the survivor IMMEDIATELY so they're at the location when the
+                -- player arrives (matches vanilla rescue setpiece pacing).
                 local survivor_id = nil
                 local survivor_label = game.translate_string("st_panda_task_rescue_survivor")
                 if survivor_template and survivor_template ~= "" and survivor_template ~= "random" and panda_npc_creator and panda_npc_creator.spawn_custom_npc then
@@ -6225,10 +6219,14 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                         local sgvid = smart.m_game_vertex_id
                         local sec = find_squad_section("stalker")
                         if spos and sec then
-                            local sp, sl, sg = find_spawn_point_near_smart(6, 12, spos, slvid, sgvid)
+                            local sp, sl, sg = find_spawn_point_near_smart(2, 4, spos, slvid, sgvid)
                             local survivor_squad = create_squad_safely(sec, sp or spos, sl or slvid, sg or sgvid)
                             if survivor_squad and survivor_squad.clsid and survivor_squad:clsid() == clsid.online_offline_group_s then
                                 apply_spawned_faction_relation(survivor_squad, "friendly")
+                                -- Pin the survivor squad to the smart terrain so they
+                                -- don't wander while the player heads over.
+                                survivor_squad.scripted_target = tostring(smart.id)
+                                survivor_squad.rush_to_target = false
                                 if type(survivor_squad.squad_members) == "function" then
                                     for member in survivor_squad:squad_members() do
                                         if not survivor_id then survivor_id = member.id end
@@ -6242,34 +6240,48 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                 -- Mimic vanilla rescue: put survivor in kneeling/hostage animation
                 apply_rescue_survivor_animation(survivor_id)
 
-                if #spawned_squad_ids == 0 then
-                    printf("PANDA_IC: panda_task_rescue failed to register hostile squads in '%s'", tostring(cmd_str))
+                local destination_map_id, destination_label = get_smart_task_target(smart_ref)
+                local bridge = ensure_panda_task_bridge()
+                if not destination_map_id then
+                    printf("PANDA_IC: panda_task_rescue destination resolve failed for '%s'", tostring(smart_ref))
+                elseif not bridge then
+                    printf("PANDA_IC: panda_task_rescue ignored (bridge unavailable)")
                 else
-                    local destination_map_id, destination_label = get_smart_task_target(smart_ref)
-                    local bridge = ensure_panda_task_bridge()
-                    if not destination_map_id then
-                        printf("PANDA_IC: panda_task_rescue destination resolve failed for '%s'", tostring(smart_ref))
-                    elseif not bridge then
-                        printf("PANDA_IC: panda_task_rescue ignored (bridge unavailable)")
+                    local spawn_radius = PANDA.get_config("location_watch_radius") or 85
+                    local slot_id, err = bridge.create_task(build_bridge_task_params("rescue", {
+                        destination_ref = smart_ref,
+                        destination_map_id = destination_map_id,
+                        destination_label = destination_label,
+                        location_label = destination_label,
+                        target_radius = spawn_radius,
+                        timeout_seconds = timeout,
+                        success_turn = s_turn,
+                        fail_turn = f_turn,
+                        target_squad_ids = {},
+                        target_npc_id = survivor_id,
+                        target_label = survivor_label,
+                        spawn_pending = true,
+                    }))
+                    if not slot_id then
+                        printf("PANDA_IC: panda_task_rescue failed (%s)", tostring(err))
                     else
-                        local slot_id, err = bridge.create_task(build_bridge_task_params("rescue", {
-                            destination_ref = smart_ref,
-                            destination_map_id = destination_map_id,
-                            destination_label = destination_label,
-                            location_label = destination_label,
-                            target_radius = PANDA.get_config("location_watch_radius") or 85,
-                            timeout_seconds = timeout,
-                            success_turn = s_turn,
-                            fail_turn = f_turn,
-                            target_squad_ids = spawned_squad_ids,
-                            target_npc_id = survivor_id,
-                            target_label = survivor_label,
-                        }))
-                        if not slot_id then
-                            printf("PANDA_IC: panda_task_rescue failed (%s)", tostring(err))
-                        else
-                            task_given = true
-                            push_task_start_message("st_pda_ic_task_rescue_start")
+                        task_given = true
+                        push_task_start_message("st_pda_ic_task_rescue_start")
+
+                        -- Defer hostile spawn until the player enters the smart terrain
+                        -- watch radius. Mirrors panda_task_eliminate. The internal trigger
+                        -- spawns one squad per registered command, so we register `squad_count`
+                        -- copies.
+                        local ref = register_location_reference(smart_ref, sender_npc_name, sender_npc_id, spawn_radius, sender_contact_id)
+                        if ref then
+                            for _ = 1, squad_count do
+                                table.insert(ref.trigger_cmds, table.concat({
+                                    "_panda_eliminate_spawn_internal",
+                                    tostring(enemy_squad),
+                                    tostring(smart_ref),
+                                    tostring(slot_id),
+                                }, ":"))
+                            end
                         end
                     end
                 end
@@ -6691,7 +6703,12 @@ function apply_rescue_survivor_animation(npc_id)
             return false
         end
         if state_mgr and state_mgr.set_state then
-            local ok = pcall(state_mgr.set_state, obj, "sit_knee")
+            -- Vanilla rescue uses `wait_anim = prisoner` (bound captive). Fall back to
+            -- sit_knee if prisoner state is unavailable on this Anomaly build.
+            local ok = pcall(state_mgr.set_state, obj, "prisoner")
+            if not ok then
+                ok = pcall(state_mgr.set_state, obj, "sit_knee")
+            end
             if ok then
                 if save_var then
                     save_var(obj, "task_target", "task_target_hostage")
