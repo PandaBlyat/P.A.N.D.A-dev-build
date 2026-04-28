@@ -6,6 +6,7 @@ import { findSchema, OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from '../lib/schema
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { createIcon } from './icons';
 import { store } from '../lib/state';
+import { PANDA_EMOJI_SHORTCODES, pandaEmojiPreviewUrl } from './PropertiesPanel';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -56,7 +57,6 @@ let messagesEl: HTMLElement | null = null;
 let choicesEl: HTMLElement | null = null;
 let statusEl: HTMLElement | null = null;
 let timeoutBtnEl: HTMLButtonElement | null = null;
-const PANDA_PREVIEW_EMOJI_SHORTCODES = new Set(['smile', 'sad', 'angry', 'ok', 'warning', 'radio', 'stash', 'target', 'artifact', 'money']);
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -478,11 +478,21 @@ function renderMessageText(container: HTMLElement, text: string): void {
       container.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
     }
     const shortcode = match[1].toLowerCase();
-    if (PANDA_PREVIEW_EMOJI_SHORTCODES.has(shortcode)) {
-      const chip = document.createElement('span');
-      chip.className = 'play-emoji-chip';
-      chip.textContent = `:${shortcode}:`;
-      container.appendChild(chip);
+    if (PANDA_EMOJI_SHORTCODES.has(shortcode)) {
+      const img = document.createElement('img');
+      img.className = 'panda-emoji-inline';
+      img.src = pandaEmojiPreviewUrl(shortcode);
+      img.alt = `:${shortcode}:`;
+      img.title = `:${shortcode}:`;
+      img.loading = 'lazy';
+      // If the PNG hasn't been authored yet, fall back to a chip with the shortcode text
+      img.onerror = () => {
+        const chip = document.createElement('span');
+        chip.className = 'play-emoji-chip';
+        chip.textContent = `:${shortcode}:`;
+        img.replaceWith(chip);
+      };
+      container.appendChild(img);
     } else {
       container.appendChild(document.createTextNode(match[0]));
     }

@@ -117,29 +117,64 @@ end
 
 local try_set_texture
 
+-- Held at module scope so the sound_object isn't garbage-collected before playback
+-- finishes. Mirrors utils_obj.play_sound's `local snd_obj` pattern.
+local panda_audio_snd_ref
+
+-- Each shortcode maps to its own DDS in gamedata/textures/ui/panda_emoji_<id>.dds,
+-- registered in configs/ui/textures_descr/ui_panda_emoji.xml. Source PNGs and the
+-- conversion workflow live under tools/emoji_source/.
 local PANDA_INLINE_EMOJI_TEXTURES = {
-    smile = "ui_panda_on_icon",
-    ok = "ui_panda_on_icon",
-    sad = "ui_panda_off_icon",
-    angry = "red_ruble",
-    warning = "panda_file",
-    radio = "panda_file",
-    stash = "panda_file",
-    target = "panda_file",
-    artifact = "panda_file",
-    money = "green_ruble",
+    smile     = "panda_emoji_smile",
+    laugh     = "panda_emoji_laugh",
+    wink      = "panda_emoji_wink",
+    ok        = "panda_emoji_ok",
+    sad       = "panda_emoji_sad",
+    cry       = "panda_emoji_cry",
+    angry     = "panda_emoji_angry",
+    fear      = "panda_emoji_fear",
+    love      = "panda_emoji_love",
+    thumbsup  = "panda_emoji_thumbsup",
+    thumbsdown= "panda_emoji_thumbsdown",
+    clap      = "panda_emoji_clap",
+    wave      = "panda_emoji_wave",
+    warning   = "panda_emoji_warning",
+    exclaim   = "panda_emoji_exclaim",
+    question  = "panda_emoji_question",
+    radio     = "panda_emoji_radio",
+    pda       = "panda_emoji_pda",
+    map       = "panda_emoji_map",
+    target    = "panda_emoji_target",
+    stash     = "panda_emoji_stash",
+    key       = "panda_emoji_key",
+    money     = "panda_emoji_money",
+    artifact  = "panda_emoji_artifact",
+    anomaly   = "panda_emoji_anomaly",
+    zone      = "panda_emoji_zone",
+    rad       = "panda_emoji_rad",
+    fire      = "panda_emoji_fire",
+    skull     = "panda_emoji_skull",
+    mutant    = "panda_emoji_mutant",
+    gun       = "panda_emoji_gun",
+    knife     = "panda_emoji_knife",
+    ammo      = "panda_emoji_ammo",
+    helmet    = "panda_emoji_helmet",
+    armor     = "panda_emoji_armor",
+    medkit    = "panda_emoji_medkit",
+    food      = "panda_emoji_food",
+    drink     = "panda_emoji_drink",
+    doc       = "panda_emoji_doc",
 }
+
+local PANDA_EMOJI_FALLBACK = "panda_emoji_question"
 
 local function strip_known_emoji_tokens(text)
     local tokens = {}
     local source = tostring(text or "")
     local clean = source:gsub(":([%w_%-]+):", function(shortcode)
-        local texture = PANDA_INLINE_EMOJI_TEXTURES[shortcode]
-        if texture then
-            table.insert(tokens, texture)
-            return ""
-        end
-        return ":" .. tostring(shortcode) .. ":"
+        local texture = PANDA_INLINE_EMOJI_TEXTURES[shortcode] or PANDA_EMOJI_FALLBACK
+        table.insert(tokens, texture)
+        return ""
     end)
     clean = clean:gsub("  +", " "):gsub("^%s+", ""):gsub("%s+$", "")
     return clean, tokens
@@ -161,7 +196,7 @@ local function render_inline_emoji_icons(parent, textures, x, y, max_w)
         local icon = CUIStatic()
         icon:SetWndSize(vector2():set(icon_size, icon_size))
         icon:SetWndPos(vector2():set(x + col * (icon_size + gap), y + row * (icon_size + gap)))
-        try_set_texture(icon, textures[i], "panda_file")
+        try_set_texture(icon, textures[i], PANDA_EMOJI_FALLBACK)
         icon:SetStretchTexture(true)
         parent:AttachChild(icon)
     end
@@ -1427,13 +1462,17 @@ function pda_private_tab:PlayAudioAttachment(audio_path)
         return
     end
 
-    if not utils_obj or type(utils_obj.play_sound) ~= "function" then
-        printf("PANDA_PRIVATE: utils_obj.play_sound unavailable for audio attachment '%s'", tostring(audio_path))
-        return
-    end
-
+    -- Mirror utils_obj.play_sound's two-step pattern so a missing file is surfaced
+    -- in the log instead of silently producing a nil sound_object.
     local ok, err = pcall(function()
-        utils_obj.play_sound(audio_path, 1)
+        local snd = sound_object(audio_path)
+        if not snd then
+            printf("PANDA_PRIVATE: audio file missing at gamedata/sounds/%s.ogg", tostring(audio_path))
+            return
+        end
+        snd:play(db.actor, 0, sound_object.s2d)
+        snd.volume = 1
+        panda_audio_snd_ref = snd
     end)
     if not ok then
         printf("PANDA_PRIVATE: failed to play audio attachment '%s': %s", tostring(audio_path), tostring(err))

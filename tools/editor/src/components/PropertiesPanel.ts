@@ -59,18 +59,70 @@ const CHANNEL_OPTIONS: Array<{ value: 'pda' | 'f2f'; label: string }> = [
   { value: 'pda', label: 'PDA' },
   { value: 'f2f', label: 'In-person (F2F)' },
 ];
-const PANDA_EMOJI_OPTIONS: Array<{ shortcode: string; label: string }> = [
-  { shortcode: ':smile:', label: 'Smile' },
-  { shortcode: ':sad:', label: 'Sad' },
-  { shortcode: ':angry:', label: 'Angry' },
-  { shortcode: ':ok:', label: 'OK' },
-  { shortcode: ':warning:', label: 'Warning' },
-  { shortcode: ':radio:', label: 'Radio' },
-  { shortcode: ':stash:', label: 'Stash' },
-  { shortcode: ':target:', label: 'Target' },
-  { shortcode: ':artifact:', label: 'Artifact' },
-  { shortcode: ':money:', label: 'Money' },
+// Editor-side mirror of PANDA_INLINE_EMOJI_TEXTURES in
+// gamedata/scripts/pda_private_tab.script. Each entry maps a shortcode to its
+// texture id (panda_emoji_<shortcode>, registered in
+// configs/ui/textures_descr/ui_panda_emoji.xml) and a 64x64 PNG preview shipped
+// under tools/editor/public/emoji/<shortcode>.png for in-browser rendering.
+// Keep this list, the Lua map, and the textures_descr XML in sync.
+export const PANDA_EMOJI_CATALOG: ReadonlyArray<{ shortcode: string; label: string }> = [
+  { shortcode: 'smile',      label: 'Smile' },
+  { shortcode: 'laugh',      label: 'Laugh' },
+  { shortcode: 'wink',       label: 'Wink' },
+  { shortcode: 'ok',         label: 'OK' },
+  { shortcode: 'sad',        label: 'Sad' },
+  { shortcode: 'cry',        label: 'Cry' },
+  { shortcode: 'angry',      label: 'Angry' },
+  { shortcode: 'fear',       label: 'Fear' },
+  { shortcode: 'love',       label: 'Love' },
+  { shortcode: 'thumbsup',   label: 'Thumbs up' },
+  { shortcode: 'thumbsdown', label: 'Thumbs down' },
+  { shortcode: 'clap',       label: 'Clap' },
+  { shortcode: 'wave',       label: 'Wave' },
+  { shortcode: 'warning',    label: 'Warning' },
+  { shortcode: 'exclaim',    label: 'Exclaim' },
+  { shortcode: 'question',   label: 'Question' },
+  { shortcode: 'radio',      label: 'Radio' },
+  { shortcode: 'pda',        label: 'PDA' },
+  { shortcode: 'map',        label: 'Map' },
+  { shortcode: 'target',     label: 'Target' },
+  { shortcode: 'stash',      label: 'Stash' },
+  { shortcode: 'key',        label: 'Key' },
+  { shortcode: 'money',      label: 'Money' },
+  { shortcode: 'artifact',   label: 'Artifact' },
+  { shortcode: 'anomaly',    label: 'Anomaly' },
+  { shortcode: 'zone',       label: 'Zone' },
+  { shortcode: 'rad',        label: 'Radiation' },
+  { shortcode: 'fire',       label: 'Fire' },
+  { shortcode: 'skull',      label: 'Skull' },
+  { shortcode: 'mutant',     label: 'Mutant' },
+  { shortcode: 'gun',        label: 'Gun' },
+  { shortcode: 'knife',      label: 'Knife' },
+  { shortcode: 'ammo',       label: 'Ammo' },
+  { shortcode: 'helmet',     label: 'Helmet' },
+  { shortcode: 'armor',      label: 'Armor' },
+  { shortcode: 'medkit',     label: 'Medkit' },
+  { shortcode: 'food',       label: 'Food' },
+  { shortcode: 'drink',      label: 'Drink' },
+  { shortcode: 'doc',        label: 'Document' },
 ];
+
+export const PANDA_EMOJI_FALLBACK_SHORTCODE = 'question';
+
+export const PANDA_EMOJI_SHORTCODES: ReadonlySet<string> = new Set(
+  PANDA_EMOJI_CATALOG.map((entry) => entry.shortcode),
+);
+
+export function pandaEmojiTextureId(shortcode: string): string {
+  return `panda_emoji_${shortcode}`;
+}
+
+export function pandaEmojiPreviewUrl(shortcode: string): string {
+  return `${import.meta.env.BASE_URL}emoji/${shortcode}.png`;
+}
+
+const PANDA_EMOJI_OPTIONS: Array<{ shortcode: string; label: string }> =
+  PANDA_EMOJI_CATALOG.map((entry) => ({ shortcode: `:${entry.shortcode}:`, label: entry.label }));
 
 const STORY_NPC_PROFILE_OPTIONS = Array.from(
   new Set(
@@ -3960,12 +4012,24 @@ export function renderEmojiPicker(container: HTMLElement, collapseKey: string, o
   picker.className = 'placeholder-picker emoji-picker';
 
   for (const option of PANDA_EMOJI_OPTIONS) {
+    const shortcode = option.shortcode.replace(/^:|:$/g, '');
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'placeholder-btn emoji-btn';
-    btn.textContent = option.shortcode;
-    btn.title = `${option.label} - click to insert or copy`;
+    btn.title = `${option.label} (${option.shortcode}) - click to insert`;
     btn.draggable = true;
+
+    const img = document.createElement('img');
+    img.className = 'emoji-btn-thumb';
+    img.src = pandaEmojiPreviewUrl(shortcode);
+    img.alt = option.shortcode;
+    img.loading = 'lazy';
+    img.onerror = () => {
+      // PNG not yet shipped (emoji art not authored); fall back to shortcode label
+      img.replaceWith(document.createTextNode(option.shortcode));
+    };
+    btn.appendChild(img);
+
     btn.addEventListener('dragstart', (e) => {
       e.dataTransfer!.setData('text/plain', option.shortcode);
       e.dataTransfer!.setData('application/x-panda-emoji', option.shortcode);
@@ -3989,6 +4053,19 @@ function insertOrCopyPlaceholder(container: HTMLElement, value: string, button: 
   if (inserted) return;
 
   navigator.clipboard.writeText(value).then(() => {
+    // Picker buttons that contain element children (e.g. emoji <img> thumbnails)
+    // can't have their textContent swapped without losing the visual. Use a
+    // transient class + title for those; fall back to text-swap otherwise.
+    if (button.firstElementChild) {
+      button.classList.add('placeholder-btn-copied');
+      const previousTitle = button.title;
+      button.title = `Copied ${value}`;
+      setTimeout(() => {
+        button.classList.remove('placeholder-btn-copied');
+        button.title = previousTitle;
+      }, 1000);
+      return;
+    }
     button.textContent = 'Copied!';
     button.style.color = 'var(--accent)';
     setTimeout(() => {
