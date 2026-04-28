@@ -4351,6 +4351,14 @@ body.use-custom-cursor * {
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
 }
 
+.emoji-picker {
+  align-items: center;
+}
+
+.emoji-btn {
+  font-family: var(--font-mono);
+}
+
 .placeholder-btn {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -10758,6 +10766,40 @@ select[data-beginner-tooltip-id] {
   line-height: 1.5;
   word-wrap: break-word;
   white-space: pre-wrap;
+}
+
+.play-emoji-chip {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 2px;
+  padding: 0 5px;
+  min-height: 18px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  vertical-align: baseline;
+}
+
+.play-audio-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.play-audio-attachment .ui-icon svg {
+  width: 12px;
+  height: 12px;
 }
 
 .play-msg-npc {

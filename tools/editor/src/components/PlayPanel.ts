@@ -20,6 +20,7 @@ interface StructuredOutcome {
 interface SimMessage {
   kind: 'branch-entry' | 'npc' | 'player' | 'system' | 'outcome' | 'timeout';
   text?: string;
+  audio?: string;
   turnNumber?: number;
   outcomes?: StructuredOutcome[];
 }
@@ -55,6 +56,7 @@ let messagesEl: HTMLElement | null = null;
 let choicesEl: HTMLElement | null = null;
 let statusEl: HTMLElement | null = null;
 let timeoutBtnEl: HTMLButtonElement | null = null;
+const PANDA_PREVIEW_EMOJI_SHORTCODES = new Set(['smile', 'sad', 'angry', 'ok', 'warning', 'radio', 'stash', 'target', 'artifact', 'money']);
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -298,7 +300,12 @@ function advanceTurn(turnNumber: number): void {
 
   if (turn.openingMessage && shouldDisplayOpeningMessage(turn)) {
     const openingSpeaker = turn.firstSpeaker === 'player' ? 'player' : 'npc';
-    pushMessage({ kind: openingSpeaker, text: turn.openingMessage, turnNumber });
+    pushMessage({
+      kind: openingSpeaker,
+      text: turn.openingMessage,
+      audio: openingSpeaker === 'npc' ? turn.openingAudio : undefined,
+      turnNumber,
+    });
   }
 
   if (turn.choices.length > 0) {
@@ -322,7 +329,7 @@ function handleChoice(choice: Choice): void {
 
   // NPC reply bubble
   if (choice.reply) {
-    pushMessage({ kind: 'npc', text: choice.reply });
+    pushMessage({ kind: 'npc', text: choice.reply, audio: choice.replyAudio });
   }
 
   // Note about relationship variants
@@ -452,8 +459,38 @@ function renderMessage(msg: SimMessage): HTMLElement {
 function renderBasicMessage(msg: SimMessage): HTMLElement {
   const div = document.createElement('div');
   div.className = `play-msg play-msg-${msg.kind}`;
-  div.textContent = msg.text ?? '';
+  renderMessageText(div, msg.text ?? '');
+  if (msg.kind === 'npc' && msg.audio) {
+    const audio = document.createElement('div');
+    audio.className = 'play-audio-attachment';
+    audio.append(createIcon('play'), document.createTextNode(msg.audio));
+    div.appendChild(audio);
+  }
   return div;
+}
+
+function renderMessageText(container: HTMLElement, text: string): void {
+  const tokenRe = /:([a-z0-9_-]+):/gi;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = tokenRe.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      container.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+    }
+    const shortcode = match[1].toLowerCase();
+    if (PANDA_PREVIEW_EMOJI_SHORTCODES.has(shortcode)) {
+      const chip = document.createElement('span');
+      chip.className = 'play-emoji-chip';
+      chip.textContent = `:${shortcode}:`;
+      container.appendChild(chip);
+    } else {
+      container.appendChild(document.createTextNode(match[0]));
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    container.appendChild(document.createTextNode(text.slice(lastIndex)));
+  }
 }
 
 function renderBranchEntry(msg: SimMessage): HTMLElement {

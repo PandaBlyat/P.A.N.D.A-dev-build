@@ -555,6 +555,7 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
       speaker_npc_faction_filters: parseFactionList(strings.get(`${prefix}_npc_factions`)),
       speaker_allow_generic_stalker: parseBoolString(strings.get(`${prefix}_npc_allow_generic`)),
       openingImage: strings.get(`${prefix}_open_image`)?.trim() || undefined,
+      openingAudio: strings.get(`${prefix}_open_audio`)?.trim() || undefined,
       preconditions: parsePreconditions(strings.get(`${prefix}_branch_precond`) || ''),
       choices: parseTurnChoices(strings, prefix, ''),
       position: getDefaultFlowTurnPosition(1),
@@ -577,6 +578,7 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
         speaker_npc_faction_filters: parseFactionList(strings.get(`${prefix}${turnInfix}_npc_factions`)),
         speaker_allow_generic_stalker: parseBoolString(strings.get(`${prefix}${turnInfix}_npc_allow_generic`)),
         openingImage: strings.get(`${prefix}${turnInfix}_open_image`)?.trim() || undefined,
+        openingAudio: strings.get(`${prefix}${turnInfix}_open_audio`)?.trim() || undefined,
         preconditions: parsePreconditions(strings.get(`${prefix}${turnInfix}_branch_precond`) || ''),
         choices: parseTurnChoices(strings, prefix, turnInfix),
         position: getDefaultFlowTurnPosition(turnNum),
@@ -656,6 +658,7 @@ function parseTurnChoices(strings: Map<string, string>, prefix: string, turnInfi
       preconditions: parsePreconditions(strings.get(`${prefix}${turnInfix}_choice_precond_${i}`) || ''),
       reply: strings.get(replyKey) || '',
       replyImage: strings.get(`${replyKey}_image`)?.trim() || undefined,
+      replyAudio: strings.get(`${replyKey}_audio`)?.trim() || undefined,
       outcomes: parseOutcomes(strings.get(outcomeKey) || 'none'),
       terminal: true,
     };

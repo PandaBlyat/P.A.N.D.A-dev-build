@@ -22,6 +22,7 @@ import {
   createOptionPickerPanelEditor,
   getAddablePreconditionSchemas,
   renderParamEditors,
+  renderEmojiPicker,
   renderPlaceholderPicker,
   showCommandPicker,
 } from './CommandEditorFields';
@@ -208,12 +209,21 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
       fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'),
       onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingMessage: value }),
     }));
+    renderEmojiPicker(textPane, `branch-inline-${conv.id}-${turn.turnNumber}-opener-emojis`, { defaultCollapsed: true });
     textPane.appendChild(createTextInput({
       label: 'Opener DDS Image',
       value: turn.openingImage ?? '',
       placeholder: 'panda_file',
       fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-image'),
       onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingImage: value.trim() || undefined }),
+    }));
+    textPane.appendChild(createTextInput({
+      label: 'Opener Audio',
+      value: turn.openingAudio ?? '',
+      placeholder: 'message_ping',
+      description: 'sound filename under gamedata/sounds/panda/audio',
+      fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-audio'),
+      onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingAudio: value.trim() || undefined }),
     }));
     textPane.appendChild(createChannelControls(conv, turn));
     if (turn.turnNumber === 1) {
@@ -229,6 +239,7 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
       fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'text'),
       onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { text: value }),
     }));
+    renderEmojiPicker(textPane, `branch-inline-${conv.id}-${turn.turnNumber}-${choice.index}-choice-emojis`, { defaultCollapsed: true });
     textPane.appendChild(createTextarea({
       label: 'NPC Reply',
       value: choice.reply,
@@ -236,6 +247,7 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
       fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply'),
       onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { reply: value }),
     }));
+    renderEmojiPicker(textPane, `branch-inline-${conv.id}-${turn.turnNumber}-${choice.index}-reply-emojis`, { defaultCollapsed: true });
     textPane.appendChild(createTextInput({
       label: 'NPC Reply DDS Image',
       value: choice.replyImage ?? '',
@@ -243,6 +255,14 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
       description: 'file name for dds image inside textures/ui',
       fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-image'),
       onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyImage: value.trim() || undefined }),
+    }));
+    textPane.appendChild(createTextInput({
+      label: 'NPC Reply Audio',
+      value: choice.replyAudio ?? '',
+      placeholder: 'message_ping',
+      description: 'sound filename under gamedata/sounds/panda/audio',
+      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-audio'),
+      onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyAudio: value.trim() || undefined }),
     }));
   }
 

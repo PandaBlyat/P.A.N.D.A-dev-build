@@ -321,6 +321,9 @@ function generateConversation(
       if (turn.openingImage) {
         lines.push(emitString(`${openingKey}_image`, turn.openingImage));
       }
+      if (turn.openingAudio) {
+        lines.push(emitString(`${openingKey}_audio`, turn.openingAudio));
+      }
     }
 
     // Choices
@@ -333,6 +336,9 @@ function generateConversation(
       lines.push(emitString(replyKey, choice.reply));
       if (choice.replyImage) {
         lines.push(emitString(`${replyKey}_image`, choice.replyImage));
+      }
+      if (choice.replyAudio) {
+        lines.push(emitString(`${replyKey}_audio`, choice.replyAudio));
       }
       if (choice.preconditions.length > 0) {
         lines.push(emitString(`${prefix}${turnInfix}_choice_precond_${choice.index}`, serializePreconditions(choice.preconditions)));

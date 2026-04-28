@@ -1176,6 +1176,7 @@ class StateManager {
     choice.preconditions = JSON.parse(JSON.stringify(sourceChoice.preconditions ?? [])) as Choice['preconditions'];
     choice.reply = sourceChoice.reply;
     if (sourceChoice.replyImage != null) choice.replyImage = sourceChoice.replyImage;
+    if (sourceChoice.replyAudio != null) choice.replyAudio = sourceChoice.replyAudio;
     if (sourceChoice.replyRelHigh != null) choice.replyRelHigh = sourceChoice.replyRelHigh;
     if (sourceChoice.replyRelLow != null) choice.replyRelLow = sourceChoice.replyRelLow;
     choice.outcomes = this.cloneOutcomeList(sourceChoice.outcomes);
@@ -1210,6 +1211,7 @@ class StateManager {
     turn.speaker_npc_faction_filters = sourceTurn.speaker_npc_faction_filters ? [...sourceTurn.speaker_npc_faction_filters] : undefined;
     turn.speaker_allow_generic_stalker = sourceTurn.speaker_allow_generic_stalker ?? false;
     turn.openingImage = sourceTurn.openingImage;
+    turn.openingAudio = sourceTurn.openingAudio;
     turn.preconditions = JSON.parse(JSON.stringify(sourceTurn.preconditions ?? [])) as Turn['preconditions'];
     turn.channel = normalizeChannelValue(sourceTurn.channel, 'pda');
     turn.requiresNpcFirst = sourceTurn.requiresNpcFirst;
@@ -1245,6 +1247,7 @@ class StateManager {
             speaker_npc_faction_filters: turn.speaker_npc_faction_filters?.filter((faction) => typeof faction === 'string'),
             speaker_allow_generic_stalker: turn.speaker_allow_generic_stalker ?? false,
             openingImage: typeof turn.openingImage === 'string' && turn.openingImage.trim() ? turn.openingImage.trim() : undefined,
+            openingAudio: typeof turn.openingAudio === 'string' && turn.openingAudio.trim() ? turn.openingAudio.trim() : undefined,
             preconditions: JSON.parse(JSON.stringify(turn.preconditions ?? [])) as Turn['preconditions'],
             requiresNpcFirst: typeof turn.requiresNpcFirst === 'boolean'
               ? turn.requiresNpcFirst
@@ -1269,6 +1272,7 @@ class StateManager {
               })(),
               pdaDelaySeconds: normalizeOptionalNonNegativeInteger(choice.pdaDelaySeconds),
               replyImage: typeof choice.replyImage === 'string' && choice.replyImage.trim() ? choice.replyImage.trim() : undefined,
+              replyAudio: typeof choice.replyAudio === 'string' && choice.replyAudio.trim() ? choice.replyAudio.trim() : undefined,
               allow_generic_stalker: choice.allow_generic_stalker ?? false,
             })),
           };

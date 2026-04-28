@@ -6,6 +6,7 @@ export {
   createTurnPreconditionOwner,
   getAddablePreconditionSchemas,
   renderParamEditors,
+  renderEmojiPicker,
   renderPlaceholderPicker,
   renderPreconditionList,
   showCommandPicker,

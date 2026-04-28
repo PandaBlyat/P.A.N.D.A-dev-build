@@ -78,11 +78,12 @@ const NESTED_PRECONDITION_UNSUPPORTED_COMMANDS = new Set([
 ]);
 
 type ConversationField = 'label' | 'initial-channel' | 'start-mode' | 'timeout' | 'timeout-message' | 'preconditions';
-type TurnField = 'opening-message' | 'opening-image' | 'speaker-npc-id' | 'channel' | 'pda-entry' | 'f2f-entry' | 'requires-npc-first' | 'first-speaker';
+type TurnField = 'opening-message' | 'opening-image' | 'opening-audio' | 'speaker-npc-id' | 'channel' | 'pda-entry' | 'f2f-entry' | 'requires-npc-first' | 'first-speaker';
 type ChoiceField =
   | 'text'
   | 'reply'
   | 'reply-image'
+  | 'reply-audio'
   | 'reply-rel-high'
   | 'reply-rel-low'
   | 'channel'
@@ -420,6 +421,16 @@ function validateTurn(
     });
   }
 
+  validatePandaAudioName({
+    value: turn.openingAudio,
+    fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-audio'),
+    fieldLabel: 'Opening Audio',
+    scope: 'turn',
+    conversationId: conv.id,
+    turnNumber: turn.turnNumber,
+    messages,
+  });
+
   if (turn.choices.length === 0) {
     pushMessage(messages, {
       code: 'missing-choices',
@@ -505,6 +516,17 @@ function validateTurn(
       });
     }
 
+    validatePandaAudioName({
+      value: choice.replyAudio,
+      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-audio'),
+      fieldLabel: 'NPC Reply Audio',
+      scope: 'choice',
+      conversationId: conv.id,
+      turnNumber: turn.turnNumber,
+      choiceIndex: choice.index,
+      messages,
+    });
+
     if (choice.continueTo != null) {
       if (choice.continueTo === turn.turnNumber) {
         pushMessage(messages, {
@@ -541,6 +563,42 @@ function validateTurn(
       validateOutcome(conv, turn, choice, outcome, outcomeIndex, turnNumbers, turnLabels, knownNpcTemplateIds, messages);
     });
   }
+}
+
+function isSafePandaAudioName(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed === '') return true;
+  if (trimmed.includes('..')) return false;
+  if (/^[\\/]/.test(trimmed)) return false;
+  if (/[A-Za-z]:/.test(trimmed)) return false;
+  return /^[A-Za-z0-9_./\\-]+$/.test(trimmed);
+}
+
+function validatePandaAudioName(options: {
+  value: string | undefined;
+  fieldKey: string;
+  fieldLabel: string;
+  scope: 'turn' | 'choice';
+  conversationId: number;
+  turnNumber: number;
+  choiceIndex?: number;
+  messages: ValidationMessage[];
+}): void {
+  const raw = options.value?.trim();
+  if (!raw || isSafePandaAudioName(raw)) return;
+  pushMessage(options.messages, {
+    code: 'invalid-chat-audio-name',
+    group: 'schema',
+    scope: options.scope,
+    level: 'error',
+    conversationId: options.conversationId,
+    turnNumber: options.turnNumber,
+    choiceIndex: options.choiceIndex,
+    propertiesTab: 'selection',
+    fieldKey: options.fieldKey,
+    fieldLabel: options.fieldLabel,
+    message: `${options.fieldLabel} must be a safe filename under gamedata/sounds/panda/audio. Use letters, numbers, _, -, /, or \\, with no drive letters or '..'.`,
+  });
 }
 
 function validatePrecondition(

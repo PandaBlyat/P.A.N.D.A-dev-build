@@ -59,6 +59,18 @@ const CHANNEL_OPTIONS: Array<{ value: 'pda' | 'f2f'; label: string }> = [
   { value: 'pda', label: 'PDA' },
   { value: 'f2f', label: 'In-person (F2F)' },
 ];
+const PANDA_EMOJI_OPTIONS: Array<{ shortcode: string; label: string }> = [
+  { shortcode: ':smile:', label: 'Smile' },
+  { shortcode: ':sad:', label: 'Sad' },
+  { shortcode: ':angry:', label: 'Angry' },
+  { shortcode: ':ok:', label: 'OK' },
+  { shortcode: ':warning:', label: 'Warning' },
+  { shortcode: ':radio:', label: 'Radio' },
+  { shortcode: ':stash:', label: 'Stash' },
+  { shortcode: ':target:', label: 'Target' },
+  { shortcode: ':artifact:', label: 'Artifact' },
+  { shortcode: ':money:', label: 'Money' },
+];
 
 const STORY_NPC_PROFILE_OPTIONS = Array.from(
   new Set(
@@ -98,6 +110,7 @@ function getFieldTooltipPreset(labelText: string): BeginnerTooltipPresetId | nul
 function getSectionTooltipPreset(title: string): BeginnerTooltipPresetId | null {
   const normalized = title.toLowerCase();
   if (normalized.includes('dynamic placeholders')) return 'section-placeholders';
+  if (normalized.includes('emoji')) return 'section-placeholders';
   if (normalized.includes('relationship variant')) return 'section-reply-variants';
   if (normalized.includes('available when talking to')) return 'section-f2f-targeting';
   if (normalized.includes('advanced channel')) return 'section-advanced-channel';
@@ -866,6 +879,14 @@ function renderTurnProperties(
       onCommit: () => store.commitTextEdit(openingMessageFieldKey),
     });
     container.appendChild(msgField);
+
+    renderEmojiPicker(container, `conv-${conv.id}-turn-${turn.turnNumber}-opening-emojis`);
+
+    const openingAudioFieldKey = getTurnFieldKey(conv.id, turn.turnNumber, 'opening-audio');
+    const openingAudioField = createField('Opening Audio', 'text', turn.openingAudio || '', (val) => {
+      store.updateTurn(conv.id, turn.turnNumber, { openingAudio: val.trim() || undefined });
+    }, 'Optional sound filename under gamedata/sounds/panda/audio. Extension is optional; playback waits for player click.', openingAudioFieldKey);
+    container.appendChild(openingAudioField);
   } else {
     const openerHintField = document.createElement('div');
     openerHintField.className = 'field';
@@ -1195,6 +1216,7 @@ function renderChoiceProperties(
     onCommit: () => store.commitTextEdit(choiceTextFieldKey),
   });
   container.appendChild(textField);
+  renderEmojiPicker(container, `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-text-emojis`);
 
   // NPC Reply
   const choiceReplyFieldKey = getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply');
@@ -1207,6 +1229,13 @@ function renderChoiceProperties(
     onCommit: () => store.commitTextEdit(choiceReplyFieldKey),
   });
   container.appendChild(replyField);
+  renderEmojiPicker(container, `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-reply-emojis`);
+
+  const replyAudioFieldKey = getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-audio');
+  const replyAudioField = createField('NPC Reply Audio', 'text', choice.replyAudio || '', (val) => {
+    store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyAudio: val.trim() || undefined });
+  }, 'Optional sound filename under gamedata/sounds/panda/audio. Extension is optional; playback waits for player click.', replyAudioFieldKey);
+  container.appendChild(replyAudioField);
 
   renderPlaceholderPicker(container, `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-dynamic-placeholders`);
 
@@ -3911,6 +3940,47 @@ export function renderPlaceholderPicker(container: HTMLElement, collapseKey: str
     body.appendChild(group);
   }
 
+  container.appendChild(wrapper);
+}
+
+export function renderEmojiPicker(container: HTMLElement, collapseKey: string, options: { defaultCollapsed?: boolean } = {}): void {
+  const { wrapper, body } = createCollapsibleSection(
+    collapseKey,
+    'Emoji Shortcodes',
+    undefined,
+    { defaultCollapsed: options.defaultCollapsed ?? true },
+  );
+
+  const helperCopy = document.createElement('div');
+  helperCopy.className = 'placeholder-helper-copy';
+  helperCopy.textContent = 'Picker inserts shortcode tokens. Game renders known tokens as PDA texture icons.';
+  body.appendChild(helperCopy);
+
+  const picker = document.createElement('div');
+  picker.className = 'placeholder-picker emoji-picker';
+
+  for (const option of PANDA_EMOJI_OPTIONS) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'placeholder-btn emoji-btn';
+    btn.textContent = option.shortcode;
+    btn.title = `${option.label} - click to insert or copy`;
+    btn.draggable = true;
+    btn.addEventListener('dragstart', (e) => {
+      e.dataTransfer!.setData('text/plain', option.shortcode);
+      e.dataTransfer!.setData('application/x-panda-emoji', option.shortcode);
+      e.dataTransfer!.effectAllowed = 'copy';
+      btn.classList.add('dragging');
+    });
+    btn.addEventListener('dragend', () => btn.classList.remove('dragging'));
+    btn.onclick = (e) => {
+      e.preventDefault();
+      insertOrCopyPlaceholder(container, option.shortcode, btn, option.shortcode);
+    };
+    picker.appendChild(btn);
+  }
+
+  body.appendChild(picker);
   container.appendChild(wrapper);
 }
 

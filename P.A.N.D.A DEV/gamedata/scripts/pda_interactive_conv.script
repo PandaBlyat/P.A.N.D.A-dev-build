@@ -1342,6 +1342,7 @@ end
 
 local build_turn_string_prefix
 local resolve_runtime_npc_se
+local get_audio_fields_for_string_key
 
 -- ============================================================
 -- TASK HELPERS: Completion checks for custom task types
@@ -1554,6 +1555,7 @@ local function job_resume_conversation(job, turn, is_success)
     CONV = conv_data
 
     if open_text and open_text ~= "" then
+        local open_audio_fields = get_audio_fields_for_string_key(open_key .. "_audio")
         dynamic_news_helper.send_tip(
             "You've received a Private Message from " .. tostring(resume_npc_name),
             "PDA Alert", 0, 10, resume_npc_icon, "news", "npc"
@@ -1564,7 +1566,11 @@ local function job_resume_conversation(job, turn, is_success)
             resume_npc_name,
             sub_placeholders(open_text, resume_npc_name, faction, resume_npc_se, resume_contact_id),
             resume_npc_icon,
-            false
+            false,
+            nil,
+            nil,
+            nil,
+            open_audio_fields
         )
     end
 
@@ -1813,6 +1819,46 @@ local function resolve_reply_image_texture(text, explicit_image)
     return nil
 end
 
+local function sanitize_pda_audio_name(value)
+    if not value then return nil end
+    local name = tostring(value):gsub("^%s+", ""):gsub("%s+$", "")
+    if name == "" then return nil end
+
+    name = name:gsub("/", "\\")
+    local lower = string.lower(name)
+    if lower:sub(-4) == ".ogg" or lower:sub(-4) == ".wav" then
+        name = name:sub(1, -5)
+    end
+
+    if name == "" or name:find("%.%.", 1, true) or name:find(":", 1, true) or name:sub(1, 1) == "\\" then
+        printf("PANDA_IC: rejected unsafe PDA audio attachment '%s'", tostring(value))
+        return nil
+    end
+
+    if not name:match("^[%w_%-\\]+$") then
+        printf("PANDA_IC: rejected unsafe PDA audio attachment '%s'", tostring(value))
+        return nil
+    end
+
+    return name
+end
+
+local function build_audio_fields(raw_audio)
+    local name = sanitize_pda_audio_name(raw_audio)
+    if not name then return nil end
+    return {
+        audio_name = name,
+        audio_path = "panda\\audio\\" .. name,
+    }
+end
+
+get_audio_fields_for_string_key = function(key)
+    if not key then return nil end
+    local audio_raw = game.translate_string(key)
+    if audio_raw == key then return nil end
+    return build_audio_fields(audio_raw)
+end
+
 local function queue_pda_followup_internal(raw_entry)
     if type(raw_entry) ~= "table" then
         return false
@@ -1979,7 +2025,11 @@ local function activate_pending_pda_followup(entry)
         npc_name,
         sub_placeholders(open_text, npc_name, entry.faction, npc_se, contact_id),
         npc_icon,
-        false
+        false,
+        nil,
+        nil,
+        nil,
+        get_audio_fields_for_string_key(open_key .. "_audio")
     )
 
     if get_ui then
@@ -7962,12 +8012,15 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact
             if branch_visible then
                 local reply_image_raw = game.translate_string(reply_key .. "_image")
                 if reply_image_raw == reply_key .. "_image" then reply_image_raw = nil end
+                local reply_audio_fields = get_audio_fields_for_string_key(reply_key .. "_audio")
                 local visible_index = count + 1
                 choices[visible_index] = {
                     source_choice_index = i,
                     text = sub_placeholders(text, npc_name, faction, npc_se, contact_id),
                     reply = sub_placeholders(reply_text, npc_name, faction, npc_se, contact_id),
                     reply_image = resolve_reply_image_texture(reply_text, reply_image_raw),
+                    reply_audio_name = reply_audio_fields and reply_audio_fields.audio_name or nil,
+                    reply_audio_path = reply_audio_fields and reply_audio_fields.audio_path or nil,
                     outcome = game.translate_string(p.."_outcome_"..i),
                     next_turn = next_turn,
                     next_channel = normalize_choice_channel(cont_channel),
@@ -8088,6 +8141,8 @@ function on_player_choice(idx, contact_id)
                         end
                         pda_private_add_message(cid, npc_name, npc_name, ch.reply, c.npc_icon, false, nil, nil, nil, {
                             reply_image_texture = ch.reply_image,
+                            audio_name = ch.reply_audio_name,
+                            audio_path = ch.reply_audio_path,
                             skip_personality = false,
                         })
                         c.started_at = time_global and time_global() or c.started_at
@@ -9486,7 +9541,18 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
     )
 
     -- Add the actual message directly into the custom Private PDA Log
-    pda_private_add_message(contact_id, name, name, sub_placeholders(msg, name, faction, npc_se, contact_id), conv_data.npc_icon, false)
+    pda_private_add_message(
+        contact_id,
+        name,
+        name,
+        sub_placeholders(msg, name, faction, npc_se, contact_id),
+        conv_data.npc_icon,
+        false,
+        nil,
+        nil,
+        nil,
+        get_audio_fields_for_string_key(key .. "_audio")
+    )
 
     -- Force refresh of UI if PDA is actively open so the message pops up immediately
     if get_ui then

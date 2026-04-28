@@ -117,6 +117,58 @@ end
 
 local try_set_texture
 
+local PANDA_INLINE_EMOJI_TEXTURES = {
+    smile = "ui_panda_on_icon",
+    ok = "ui_panda_on_icon",
+    sad = "ui_panda_off_icon",
+    angry = "red_ruble",
+    warning = "panda_file",
+    radio = "panda_file",
+    stash = "panda_file",
+    target = "panda_file",
+    artifact = "panda_file",
+    money = "green_ruble",
+}
+
+local function strip_known_emoji_tokens(text)
+    local tokens = {}
+    local source = tostring(text or "")
+    local clean = source:gsub(":([%w_%-]+):", function(shortcode)
+        local texture = PANDA_INLINE_EMOJI_TEXTURES[shortcode]
+        if texture then
+            table.insert(tokens, texture)
+            return ""
+        end
+        return ":" .. tostring(shortcode) .. ":"
+    end)
+    clean = clean:gsub("  +", " "):gsub("^%s+", ""):gsub("%s+$", "")
+    return clean, tokens
+end
+
+local function render_inline_emoji_icons(parent, textures, x, y, max_w)
+    if not textures or #textures == 0 then
+        return 0
+    end
+
+    local icon_size = 18
+    local gap = 4
+    local cols = math.max(1, math.floor((math.max(icon_size, max_w) + gap) / (icon_size + gap)))
+    local rows = math.ceil(#textures / cols)
+
+    for i = 1, #textures do
+        local row = math.floor((i - 1) / cols)
+        local col = (i - 1) % cols
+        local icon = CUIStatic()
+        icon:SetWndSize(vector2():set(icon_size, icon_size))
+        icon:SetWndPos(vector2():set(x + col * (icon_size + gap), y + row * (icon_size + gap)))
+        try_set_texture(icon, textures[i], "panda_file")
+        icon:SetStretchTexture(true)
+        parent:AttachChild(icon)
+    end
+
+    return rows * icon_size + math.max(0, rows - 1) * gap + 6
+end
+
 local function apply_actor_portrait_texture(static_wnd, previous_tex)
     local resolved_tex = resolve_actor_portrait_texture()
     if resolved_tex ~= previous_tex then
@@ -270,6 +322,7 @@ function pda_private_tab:__init()
     self.choice_btns = {}
     self.scroll_dynamic_windows = {}
     self.map_attach_btn_counter = 0
+    self.audio_attach_btn_counter = 0
     self.map_attach_icon_bindings = {}
     self.selected_choice_idx = nil
     self.pending_choice_idx = nil
@@ -1368,6 +1421,25 @@ function pda_private_tab:OnReplyTriggerClicked()
 end
 
 
+function pda_private_tab:PlayAudioAttachment(audio_path)
+    if type(audio_path) ~= "string" or audio_path == "" then
+        printf("PANDA_PRIVATE: missing audio attachment path")
+        return
+    end
+
+    if not utils_obj or type(utils_obj.play_sound) ~= "function" then
+        printf("PANDA_PRIVATE: utils_obj.play_sound unavailable for audio attachment '%s'", tostring(audio_path))
+        return
+    end
+
+    local ok, err = pcall(function()
+        utils_obj.play_sound(audio_path, 1)
+    end)
+    if not ok then
+        printf("PANDA_PRIVATE: failed to play audio attachment '%s': %s", tostring(audio_path), tostring(err))
+    end
+end
+
 -- Opens the PDA map tab and highlights the location referenced by location_ref.
 -- Adds a temporary blink marker so the spot stands out on the map.
 function pda_private_tab:NavigateToMapMarker(location_ref, map_spot_id, map_spot_type, attachment_entry)
@@ -1608,6 +1680,7 @@ function pda_private_tab:Reset(target_contact_id)
     self.npc_list:RemoveAll()
     self.scroll_dynamic_windows = {}
     self.map_attach_icon_bindings = {}
+    self.audio_attach_btn_counter = 0
     self.scrollbar:Clear()
     self.image_container:Show(false)
     self.header_name:SetText("")
@@ -1792,6 +1865,7 @@ function pda_private_tab:OnSelectNPC()
     self.empty_state:Show(false)
     self.scroll_dynamic_windows = {}
     self.map_attach_btn_counter = 0
+    self.audio_attach_btn_counter = 0
     self.map_attach_icon_bindings = {}
     self.scrollbar:Clear()
     self.quick_menu_open = false
@@ -2058,10 +2132,11 @@ function pda_private_tab:OnSelectNPC()
 				local phase = math.floor((current_time / 350) % 4)
 				body_text = "Typing" .. string.rep(".", phase)
 			end
+            local display_body_text, emoji_textures = strip_known_emoji_tokens(body_text)
 			local header_sender = is_player_lane and "You" or tostring(entry.sender or "Unknown")
 			local header_line = string.format("%s [%s]", header_sender, tostring(relative_time or "Unknown"))
 			local wrap_chars = math.max(28, math.floor((lane_max_w - 28) / 5.0))
-			local wrapped_body = wrap_plain_text(body_text, wrap_chars)
+			local wrapped_body = wrap_plain_text(display_body_text, wrap_chars)
 			local bubble_w = estimate_bubble_width(header_line, wrapped_body, 90, lane_max_w, 32)
 
 			if is_player_lane then
@@ -2125,6 +2200,13 @@ function pda_private_tab:OnSelectNPC()
                     status_wnd:SetWndPos(vector2():set(status_x, status_y))
                 end
 
+                local emoji_h = 0
+                if emoji_textures and #emoji_textures > 0 then
+                    local emoji_x = text_wnd:GetWndPos().x
+                    local emoji_y = text_wnd:GetWndPos().y + text_h + status_h + 5
+                    emoji_h = render_inline_emoji_icons(lane_root, emoji_textures, emoji_x, emoji_y, math.max(18, bubble_w - 28))
+                end
+
                 local image_h = 0
                 local image_wnd = nil
                 if type(entry.reply_image_texture) == "string" and entry.reply_image_texture ~= "" then
@@ -2132,7 +2214,7 @@ function pda_private_tab:OnSelectNPC()
                     image_wnd = CUIStatic()
                     image_wnd:SetWndSize(vector2():set(image_size, image_size))
                     local image_x = text_wnd:GetWndPos().x
-                    local image_y = text_wnd:GetWndPos().y + text_h + status_h + 6
+                    local image_y = text_wnd:GetWndPos().y + text_h + status_h + emoji_h + 6
                     image_wnd:SetWndPos(vector2():set(image_x, image_y))
                     try_set_texture(image_wnd, entry.reply_image_texture, "panda_file")
                     image_wnd:SetStretchTexture(true)
@@ -2140,9 +2222,53 @@ function pda_private_tab:OnSelectNPC()
                     image_h = image_size + 8
                 end
 
+                local audio_h = 0
+                if (not is_player_lane) and type(entry.audio_path) == "string" and entry.audio_path ~= "" then
+                    local row_h = 26
+                    local row_w = math.max(120, bubble_w - 28)
+                    local row_x = text_wnd:GetWndPos().x
+                    local row_y = text_wnd:GetWndPos().y + text_h + status_h + emoji_h + image_h + 4
+
+                    local audio_bg = CUIStatic()
+                    audio_bg:SetWndPos(vector2():set(row_x, row_y))
+                    audio_bg:SetWndSize(vector2():set(row_w, row_h))
+                    if audio_bg.SetTextureColor then
+                        audio_bg:SetTextureColor(GetARGB(125, 18, 32, 42))
+                    end
+                    lane_root:AttachChild(audio_bg)
+
+                    local audio_icon = CUIStatic()
+                    audio_icon:SetWndPos(vector2():set(row_x + 6, row_y + 4))
+                    audio_icon:SetWndSize(vector2():set(18, 18))
+                    try_set_texture(audio_icon, "ui_panda_on_icon", "panda_file")
+                    audio_icon:SetStretchTexture(true)
+                    lane_root:AttachChild(audio_icon)
+
+                    local audio_label = self.xml:InitTextWnd(template .. ":text_box", lane_root)
+                    audio_label:SetText("Play audio: " .. tostring(entry.audio_name or "attachment"))
+                    audio_label:SetTextColor(GetARGB(255, 190, 220, 255))
+                    audio_label:SetWndPos(vector2():set(row_x + 30, row_y + 6))
+                    audio_label:SetWndSize(vector2():set(math.max(10, row_w - 38), 14))
+
+                    self.audio_attach_btn_counter = (self.audio_attach_btn_counter or 0) + 1
+                    local btn_name = "panda_audio_btn_" .. self.audio_attach_btn_counter
+                    local audio_btn = CUI3tButton()
+                    audio_btn:SetWndPos(vector2():set(row_x, row_y))
+                    audio_btn:SetWndSize(vector2():set(row_w, row_h))
+                    if audio_btn.SetTextureColor then audio_btn:SetTextureColor(GetARGB(0, 0, 0, 0)) end
+                    lane_root:AttachChild(audio_btn)
+                    self:Register(audio_btn, btn_name)
+                    local cap_audio_path = entry.audio_path
+                    self:AddCallback(btn_name, ui_events.BUTTON_CLICKED, function()
+                        self:PlayAudioAttachment(cap_audio_path)
+                    end, self)
+
+                    audio_h = row_h + 8
+                end
+
                 style_message_lane(lane_root, lane_bg, is_player_lane, row_idx)
 
-	            local lane_h = text_h + status_h + image_h + 16
+	            local lane_h = text_h + status_h + emoji_h + image_h + audio_h + 16
 	            lane_bg:SetWndSize(vector2():set(bubble_w, lane_h))
 	            if notif_icon_wnd then
 	                if has_notification_icon then

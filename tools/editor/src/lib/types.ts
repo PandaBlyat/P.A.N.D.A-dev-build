@@ -122,6 +122,8 @@ export interface Turn {
   speaker_allow_generic_stalker?: boolean;
   /** DDS texture basename under gamedata/textures/ui attached to this branch opener. */
   openingImage?: string;
+  /** Sound basename under gamedata/sounds/panda/audio attached to this branch opener. */
+  openingAudio?: string;
   /** Preconditions required before this branch turn can be entered. */
   preconditions: PreconditionEntry[];
   /** Internal marker used by legacy F2F opening migration. */
@@ -153,6 +155,8 @@ export interface Choice {
   reply: string;
   /** DDS texture basename under gamedata/textures/ui attached to the NPC reply. */
   replyImage?: string;
+  /** Sound basename under gamedata/sounds/panda/audio attached to the NPC reply. */
+  replyAudio?: string;
   replyRelHigh?: string;
   replyRelLow?: string;
   outcomes: Outcome[];
