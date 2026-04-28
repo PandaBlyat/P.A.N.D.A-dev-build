@@ -28,12 +28,16 @@ local LEGACY_PRIVATE_MESSAGES_SECTION = "eptPrivate"
 
 local safe_remove_time_event
 local ensure_panda_task_bridge
-local _panda_f2f_bridge_checked = false
-local _panda_task_bridge_checked = false
-local _panda_npc_creator_checked = false
-local _f2f_scanner_suppress_last_log_at = nil
-local _f2f_scanner_suppress_last_source = nil
-local _private_messages_section_alias_installed = false
+-- Bundled module-state flags (kept in single table to stay under Lua's
+-- 200-locals-per-chunk hard limit).
+local _panda_state = {
+    f2f_bridge_checked = false,
+    task_bridge_checked = false,
+    npc_creator_checked = false,
+    f2f_scanner_suppress_last_log_at = nil,
+    f2f_scanner_suppress_last_source = nil,
+    private_messages_section_alias_installed = false,
+}
 local build_f2f_handoff_identity
 local make_f2f_handoff_token
 local has_xr_meet_dialog_override
@@ -53,11 +57,11 @@ local is_mutant_squad_key
 local apply_spawned_faction_relation
 
 local function ensure_panda_f2f_bridge()
-    if _panda_f2f_bridge_checked then
+    if _panda_state.f2f_bridge_checked then
         return panda_f2f_bridge
     end
 
-    _panda_f2f_bridge_checked = true
+    _panda_state.f2f_bridge_checked = true
 
     if not panda_f2f_bridge then
         local ok = pcall(function()
@@ -83,16 +87,16 @@ end
 
 local function ensure_panda_npc_creator()
     if panda_npc_creator and type(panda_npc_creator.install_engine_guards) == "function" then
-        _panda_npc_creator_checked = true
+        _panda_state.npc_creator_checked = true
         pcall(panda_npc_creator.install_engine_guards)
         return panda_npc_creator
     end
 
-    if _panda_npc_creator_checked then
+    if _panda_state.npc_creator_checked then
         return panda_npc_creator
     end
 
-    _panda_npc_creator_checked = true
+    _panda_state.npc_creator_checked = true
 
     if not panda_npc_creator then
         local ok = pcall(function()
@@ -2343,12 +2347,12 @@ function cleanup_panda_ic_events(options)
 end
 
 ensure_panda_task_bridge = function()
-    if _panda_task_bridge_checked and panda_task_bridge and type(panda_task_bridge.set_callbacks) == "function" then
+    if _panda_state.task_bridge_checked and panda_task_bridge and type(panda_task_bridge.set_callbacks) == "function" then
         return panda_task_bridge
     end
 
-    if not _panda_task_bridge_checked then
-        _panda_task_bridge_checked = true
+    if not _panda_state.task_bridge_checked then
+        _panda_state.task_bridge_checked = true
 
         if not panda_task_bridge then
             local ok = pcall(function()
@@ -10047,20 +10051,20 @@ end
 
 local function log_f2f_scanner_suppression_once(source_reason)
     local source = tostring(source_reason or "unknown")
-    local source_changed = source ~= _f2f_scanner_suppress_last_source
+    local source_changed = source ~= _panda_state.f2f_scanner_suppress_last_source
     local now = time_global and time_global() or nil
     if (not source_changed)
         and now
-        and _f2f_scanner_suppress_last_log_at
-        and (now - _f2f_scanner_suppress_last_log_at) < F2F_SCANNER_SUPPRESS_LOG_WINDOW_MS
+        and _panda_state.f2f_scanner_suppress_last_log_at
+        and (now - _panda_state.f2f_scanner_suppress_last_log_at) < F2F_SCANNER_SUPPRESS_LOG_WINDOW_MS
     then
         return
     end
 
-    _f2f_scanner_suppress_last_source = source
+    _panda_state.f2f_scanner_suppress_last_source = source
 
     if now then
-        _f2f_scanner_suppress_last_log_at = now
+        _panda_state.f2f_scanner_suppress_last_log_at = now
     end
 
     printf(
@@ -10542,7 +10546,7 @@ function on_game_start()
     end
 
     local function install_private_messages_section_alias()
-        if _private_messages_section_alias_installed then
+        if _panda_state.private_messages_section_alias_installed then
             return
         end
 
@@ -10559,7 +10563,7 @@ function on_game_start()
             return prev_set_active_subdialog(section)
         end
 
-        _private_messages_section_alias_installed = true
+        _panda_state.private_messages_section_alias_installed = true
     end
 
     ensure_private_messages_mac_app()
