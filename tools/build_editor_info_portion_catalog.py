@@ -13,6 +13,14 @@ OUTPUT_PATH = REPO_ROOT / "tools" / "editor" / "src" / "lib" / "generated" / "in
 INFO_RE = re.compile(r"<info_portion\s+id=\"([^\"]+)\"", re.IGNORECASE)
 
 
+def classify_info_portion(info_id: str) -> tuple[str, list[str]]:
+    if info_id.startswith("drx_sl_"):
+        return "Main Story Info", ["main story", "storyline", "living legend", "mortal sin", "operation afterglow"]
+    if any(token in info_id for token in ("wish_granter", "monolith", "radar", "x16", "x18", "sarcofag")):
+        return "Story Info", ["main story", "storyline"]
+    return "Info Portion", ["story flag"]
+
+
 def build_entries() -> list[tuple[str, str, list[str]]]:
     text = INFO_PORTIONS_XML.read_text(encoding="windows-1251", errors="ignore")
     entries: list[tuple[str, str, list[str]]] = []
@@ -20,8 +28,9 @@ def build_entries() -> list[tuple[str, str, list[str]]]:
         info_id = match.group(1).strip()
         if not info_id:
             continue
-        label = f"{info_id} - Info Portion"
-        keywords = [info_id, info_id.replace("_", " "), "info portion", "story flag"]
+        kind, extra_keywords = classify_info_portion(info_id)
+        label = f"{info_id} - {kind}"
+        keywords = [info_id, info_id.replace("_", " "), "info portion", *extra_keywords]
         entries.append((info_id, label, keywords))
     entries.sort(key=lambda entry: entry[0])
     return entries

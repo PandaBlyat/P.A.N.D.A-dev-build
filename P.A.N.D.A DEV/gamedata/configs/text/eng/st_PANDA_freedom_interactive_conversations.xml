@@ -1,0 +1,792 @@
+<?xml version="1.0" encoding="utf-8"?>
+<string_table>
+
+
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- CONVERSATION 1: Go to location -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <string id="st_pda_ic_freedom_1_precond">
+        <text>req_story_npc:mil_smart_terrain_7_7_freedom_leader_stalker</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_open">
+        <text>We have an urgent problem, meet me asap at HQ.
+
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_choice_1">
+        <text>I'm omw. give me a few minutes
+
+
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_reply_1">
+        <text>*thumbs up emoji*
+
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_outcome_1">
+        <text>watch_location:%cordon_panda_st_key%:85,reward_gw:25:freedom</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_cont_1">
+        <text>2</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_cont_channel_1">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_choice_2">
+        <text>Can I have the details sent over? I'll get on it. 
+
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_reply_2">
+        <text>NO HQ ASAP.
+
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_outcome_2">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_cont_2">
+        <text>3</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_cont_channel_2">
+        <text>pda</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_choice_3">
+        <text>I'm in the middle of something, sorry.
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_reply_3">
+        <text>You're in the middle of something?! Get your fucking ass here</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_outcome_3">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_cont_3">
+        <text>5</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_cont_channel_3">
+        <text>pda</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_choice_4">
+        <text>Jeez, slow down your horses. Details and I'll think about it
+
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_reply_4">
+        <text>Listen, kid. I don't have fucking time for jokes rn. You have 5 minutes to get your ass here before I send encouragement.
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_outcome_4">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_cont_4">
+        <text>6</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_cont_channel_4">
+        <text>pda</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t2_open">
+        <text>Glad you came, there's this new situation that I think might interest you, earn your keep in here.
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t2_choice_1">
+        <text>Sure, what do you got?
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t2_reply_1">
+        <text>I will explain.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t2_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t2_cont_1">
+        <text>14</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t2_cont_channel_1">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t3_open">
+        <text>test</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t3_choice_1">
+        <text>Roger, on it.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t3_reply_1">
+        <text>*Thumbs UP emoji*</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t3_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t3_cont_1">
+        <text>2</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t3_cont_channel_1">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t3_choice_2">
+        <text>Tell me more.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t3_reply_2">
+        <text>I will explain.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t3_outcome_2">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t5_open">
+        <text>test
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t5_choice_1">
+        <text>On it, apologies.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t5_reply_1">
+        <text>*thumbs up emoji*
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t5_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t5_cont_1">
+        <text>2</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t5_cont_channel_1">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t5_choice_2">
+        <text>I don't appreciate that tone Lukash </text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t5_reply_2">
+        <text>Do i need to remind your position?
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t5_outcome_2">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t5_cont_2">
+        <text>7</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t5_cont_channel_2">
+        <text>pda</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t6_open">
+        <text>test</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t6_choice_1">
+        <text>you can't be serious - you know that doesn't work on me, Lukash.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t6_reply_1">
+        <text>You've been on fucking thin ice and now this shit? Last chance, $player_name, before you become another forgotten name. Don't make me lose patience, kiddo.
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t6_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t6_cont_1">
+        <text>7</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t6_cont_channel_1">
+        <text>pda</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t6_choice_2">
+        <text>Okay-okay. I'm coming
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t6_reply_2">
+        <text>*Thumbs  UP emoji*
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t6_outcome_2">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t6_cont_2">
+        <text>8</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t6_cont_channel_2">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t6_choice_3">
+        <text>Sorry, Lukash. I don't know what I was thinking when typing that. I'm omw.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t6_reply_3">
+        <text>Good.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t6_outcome_3">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t6_cont_3">
+        <text>8</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t6_cont_channel_3">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t7_open">
+        <text>test</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t7_choice_1">
+        <text>getting bit sick of your empty threats</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t7_reply_1">
+        <text>You're done. </text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t7_outcome_1">
+        <text>pause_job:6000:9:10,spawn_npc_squad:freedom_sim_squad_advanced:75:120:1:hostile</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t7_cont_1">
+        <text>9</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t7_cont_channel_1">
+        <text>pda</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t8_open">
+        <text>Took you a while.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t8_choice_1">
+        <text>Apologies, I am ready. </text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t8_reply_1">
+        <text>I think you can handle this.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t8_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t8_cont_1">
+        <text>14</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t8_cont_channel_1">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t9_npc_factions">
+        <text>dolg</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t9_npc_allow_generic">
+        <text>1</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t9_open">
+        <text>Why did we just watch you kill some of your own!?</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t9_choice_1">
+        <text>Minor disagreement.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t9_reply_1">
+        <text>You want more of these in future?</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t9_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t9_cont_1">
+        <text>11</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t9_cont_channel_1">
+        <text>pda</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t9_choice_2">
+        <text>Had enough of Lukash and his shit</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t9_reply_2">
+        <text>Yea we can tell, you know you won't make it alone we could use a guy like you..potentially. </text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t9_outcome_2">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t10_open">
+        <text>test</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t10_choice_1">
+        <text>Tell me more.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t10_reply_1">
+        <text>I will explain.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t10_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t11_open">
+        <text>test</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t11_choice_1">
+        <text>What do you mean?</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t11_reply_1">
+        <text>Clearly, you have some issues with Lukash, and seeing how you handled those pricks - we could use guys like you in Duty, you know?</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t11_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t11_cont_1">
+        <text>12</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t11_cont_channel_1">
+        <text>pda</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t11_choice_2">
+        <text>I don't speak with Duty pigs, fuck off.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t11_reply_2">
+        <text>I just saw a bunch of freedomers hunting you, a freedomer, all across the Warehouses and you are telling me you okay with that and still hate Duty for your miserable life? Fuck, they must've brainwashed you hard.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t11_outcome_2">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t11_cont_2">
+        <text>12</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t11_cont_channel_2">
+        <text>pda</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t12_open">
+        <text>test</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t12_choice_1">
+        <text>I get what you saying, but I dont really have time to chit-chat with you now. Lukash will most likely send more people after me so I need to lay low.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t12_reply_1">
+        <text>Duty can help you with that. We'll send a patrol down the road to our checkpoint so it should be safe. I'll put in a good word for you - colonel will be waiting for you on Rostok. </text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t12_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t14_choice_1">
+        <text>Tell me more.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t14_reply_1">
+        <text>I will explain.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t14_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_timeout">
+        <text>600</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_panda_f2f_registry">
+        <text>{
+  &quot;schema&quot;: &quot;panda_f2f_bridge_registry_v1&quot;,
+  &quot;conversationId&quot;: 1,
+  &quot;entryNodes&quot;: {
+    &quot;pda&quot;: [
+      1
+    ],
+    &quot;f2f&quot;: [
+      2,
+      8
+    ]
+  },
+  &quot;turns&quot;: [
+    {
+      &quot;turnNumber&quot;: 1,
+      &quot;channel&quot;: &quot;pda&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: null,
+      &quot;pdaEntry&quot;: true,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 2,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 3,
+          &quot;continueChannel&quot;: &quot;pda&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 3,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 5,
+          &quot;continueChannel&quot;: &quot;pda&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 4,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 6,
+          &quot;continueChannel&quot;: &quot;pda&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 2,
+      &quot;channel&quot;: &quot;f2f&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: true,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: true,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 14,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 3,
+      &quot;channel&quot;: &quot;pda&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: null,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 2,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 5,
+      &quot;channel&quot;: &quot;pda&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: null,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 2,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 7,
+          &quot;continueChannel&quot;: &quot;pda&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 6,
+      &quot;channel&quot;: &quot;pda&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: null,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 7,
+          &quot;continueChannel&quot;: &quot;pda&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 8,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 3,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 8,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 7,
+      &quot;channel&quot;: &quot;pda&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: null,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 9,
+          &quot;continueChannel&quot;: &quot;pda&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [
+            &quot;dolg&quot;
+          ],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: true,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 8,
+      &quot;channel&quot;: &quot;f2f&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: true,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: true,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 14,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 9,
+      &quot;channel&quot;: &quot;pda&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [
+        &quot;dolg&quot;
+      ],
+      &quot;speakerAllowGenericStalker&quot;: true,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: null,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 11,
+          &quot;continueChannel&quot;: &quot;pda&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 10,
+      &quot;channel&quot;: &quot;pda&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: null,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 11,
+      &quot;channel&quot;: &quot;pda&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: null,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 12,
+          &quot;continueChannel&quot;: &quot;pda&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 12,
+          &quot;continueChannel&quot;: &quot;pda&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 12,
+      &quot;channel&quot;: &quot;pda&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: null,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 14,
+      &quot;channel&quot;: &quot;f2f&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: true,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    }
+  ]
+}</text>
+    </string>
+
+</string_table>

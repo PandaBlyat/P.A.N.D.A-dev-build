@@ -2125,9 +2125,24 @@ function pda_private_tab:OnSelectNPC()
                     status_wnd:SetWndPos(vector2():set(status_x, status_y))
                 end
 
+                local image_h = 0
+                local image_wnd = nil
+                if type(entry.reply_image_texture) == "string" and entry.reply_image_texture ~= "" then
+                    local image_size = math.max(64, math.min(140, bubble_w - 28))
+                    image_wnd = CUIStatic()
+                    image_wnd:SetWndSize(vector2():set(image_size, image_size))
+                    local image_x = text_wnd:GetWndPos().x
+                    local image_y = text_wnd:GetWndPos().y + text_h + status_h + 6
+                    image_wnd:SetWndPos(vector2():set(image_x, image_y))
+                    try_set_texture(image_wnd, entry.reply_image_texture, "panda_file")
+                    image_wnd:SetStretchTexture(true)
+                    lane_root:AttachChild(image_wnd)
+                    image_h = image_size + 8
+                end
+
                 style_message_lane(lane_root, lane_bg, is_player_lane, row_idx)
 
-	            local lane_h = text_h + status_h + 16
+	            local lane_h = text_h + status_h + image_h + 16
 	            lane_bg:SetWndSize(vector2():set(bubble_w, lane_h))
 	            if notif_icon_wnd then
 	                if has_notification_icon then

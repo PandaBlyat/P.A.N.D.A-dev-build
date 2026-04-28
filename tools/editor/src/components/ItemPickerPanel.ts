@@ -503,7 +503,7 @@ function openItemPickerPanel(options: {
   };
 
   /* ── Render the item list ── */
-  const renderList = (filterValue: string): void => {
+  const renderList = (filterValue: string, options: { resetScroll?: boolean } = {}): void => {
     const filter = normalizeFilter(filterValue);
 
     const textFilteredEntries = filter
@@ -553,6 +553,10 @@ function openItemPickerPanel(options: {
 
     filteredItems = orderedEntries.map((entry) => entry.item);
 
+    if (options.resetScroll) {
+      activeIndex = 0;
+      list.scrollTop = 0;
+    }
     if (filteredItems.length === 0) activeIndex = 0;
 
     totalLabel.textContent = `${filteredItems.length} / ${GAME_ITEM_CATALOG.length} items`;
@@ -690,22 +694,22 @@ function openItemPickerPanel(options: {
     updateChipStates();
     updateSubchipVisibility();
     updateSubchipStates();
-    renderList(searchInput.value);
-    setActiveIndexFromValue(options.currentValue);
+    renderList(searchInput.value, { resetScroll: true });
+    if (!options.currentValue) setActiveIndexFromValue(options.currentValue);
     updateActiveOption();
   };
   subgroupSelect.onchange = () => {
     activeSubgroup = subgroupSelect.value ? subgroupSelect.value as GameItemPickerSubgroupId : null;
     updateSubchipStates();
-    renderList(searchInput.value);
-    setActiveIndexFromValue(options.currentValue);
+    renderList(searchInput.value, { resetScroll: true });
+    if (!options.currentValue) setActiveIndexFromValue(options.currentValue);
     updateActiveOption();
   };
 
   /* ── Wire up search input ── */
   searchInput.addEventListener('input', () => {
-    renderList(searchInput.value);
-    setActiveIndexFromValue(options.currentValue);
+    renderList(searchInput.value, { resetScroll: true });
+    if (!options.currentValue) setActiveIndexFromValue(options.currentValue);
     updateActiveOption();
   });
   searchInput.addEventListener('keydown', handleKeyDown);

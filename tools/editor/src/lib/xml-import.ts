@@ -26,6 +26,9 @@ interface ImportedF2FChoiceMetadata {
 interface ImportedF2FTurnMetadata {
   turnNumber: number;
   channel?: 'pda' | 'f2f' | 'both';
+  speakerNpcId?: string | null;
+  speakerNpcFactionFilters?: string[];
+  speakerAllowGenericStalker?: boolean;
   npcOpenKey?: string | null;
   requiresNpcFirst?: boolean;
   firstSpeaker?: 'npc' | 'player';
@@ -60,6 +63,20 @@ function parseStringTable(xmlText: string): Map<string, string> {
     map.set(id, text);
   }
   return map;
+}
+
+function parseBoolString(value: string | undefined): boolean {
+  const normalized = (value ?? '').trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes';
+}
+
+function parseFactionList(value: string | undefined): FactionId[] | undefined {
+  if (!value?.trim()) return undefined;
+  const factions = value
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item): item is FactionId => item in FACTION_XML_KEYS);
+  return factions.length > 0 ? factions : undefined;
 }
 
 /** Detect faction from string table keys */
@@ -354,6 +371,14 @@ function applyTurnMetadata(
     ? metadata.requiresNpcFirst
     : (turn.channel === 'f2f' ? true : undefined);
   turn.firstSpeaker = inferFirstSpeaker(turn, metadata, f2fEntryTargets);
+  if (metadata?.speakerNpcId && metadata.speakerNpcId.trim()) {
+    turn.speaker_npc_id = metadata.speakerNpcId.trim();
+  }
+  if (metadata?.speakerAllowGenericStalker === true) {
+    turn.speaker_allow_generic_stalker = true;
+    turn.speaker_npc_faction_filters = (metadata.speakerNpcFactionFilters ?? [])
+      .filter((faction): faction is FactionId => faction in FACTION_XML_KEYS);
+  }
 
   if (turn.channel === 'pda') {
     turn.f2f_entry = false;
@@ -526,6 +551,10 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
     const turn1: Turn = {
       turnNumber: 1,
       openingMessage: strings.get(openKey) || '',
+      speaker_npc_id: strings.get(`${prefix}_npc`)?.trim() || undefined,
+      speaker_npc_faction_filters: parseFactionList(strings.get(`${prefix}_npc_factions`)),
+      speaker_allow_generic_stalker: parseBoolString(strings.get(`${prefix}_npc_allow_generic`)),
+      openingImage: strings.get(`${prefix}_open_image`)?.trim() || undefined,
       preconditions: parsePreconditions(strings.get(`${prefix}_branch_precond`) || ''),
       choices: parseTurnChoices(strings, prefix, ''),
       position: getDefaultFlowTurnPosition(1),
@@ -544,6 +573,10 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
       const turn: Turn = {
         turnNumber: turnNum,
         openingMessage: strings.get(`${prefix}${turnInfix}_open`) || '',
+        speaker_npc_id: strings.get(`${prefix}${turnInfix}_npc`)?.trim() || undefined,
+        speaker_npc_faction_filters: parseFactionList(strings.get(`${prefix}${turnInfix}_npc_factions`)),
+        speaker_allow_generic_stalker: parseBoolString(strings.get(`${prefix}${turnInfix}_npc_allow_generic`)),
+        openingImage: strings.get(`${prefix}${turnInfix}_open_image`)?.trim() || undefined,
         preconditions: parsePreconditions(strings.get(`${prefix}${turnInfix}_branch_precond`) || ''),
         choices: parseTurnChoices(strings, prefix, turnInfix),
         position: getDefaultFlowTurnPosition(turnNum),
@@ -622,6 +655,7 @@ function parseTurnChoices(strings: Map<string, string>, prefix: string, turnInfi
       text: choiceText,
       preconditions: parsePreconditions(strings.get(`${prefix}${turnInfix}_choice_precond_${i}`) || ''),
       reply: strings.get(replyKey) || '',
+      replyImage: strings.get(`${replyKey}_image`)?.trim() || undefined,
       outcomes: parseOutcomes(strings.get(outcomeKey) || 'none'),
       terminal: true,
     };

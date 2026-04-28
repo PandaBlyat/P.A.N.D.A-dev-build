@@ -30,8 +30,13 @@ const KNOWN_NPC_ANIMATION_PRESETS = new Set(NPC_ANIMATION_PRESET_OPTIONS.map((op
 const SPAWN_JOB_OUTCOMES = new Set([
   'spawn_custom_npc',
   'spawn_custom_npc_at',
+  'spawn_npc_squad',
+  'spawn_npc_squad_at_smart',
   'spawn_mutant',
   'spawn_mutant_at_smart',
+  'panda_task_eliminate',
+  'panda_task_rescue',
+  '_panda_eliminate_spawn_internal',
 ]);
 
 const ANOMALY_ARTIFACT_OUTCOMES = new Set([
@@ -73,10 +78,11 @@ const NESTED_PRECONDITION_UNSUPPORTED_COMMANDS = new Set([
 ]);
 
 type ConversationField = 'label' | 'initial-channel' | 'start-mode' | 'timeout' | 'timeout-message' | 'preconditions';
-type TurnField = 'opening-message' | 'channel' | 'pda-entry' | 'f2f-entry' | 'requires-npc-first' | 'first-speaker';
+type TurnField = 'opening-message' | 'opening-image' | 'speaker-npc-id' | 'channel' | 'pda-entry' | 'f2f-entry' | 'requires-npc-first' | 'first-speaker';
 type ChoiceField =
   | 'text'
   | 'reply'
+  | 'reply-image'
   | 'reply-rel-high'
   | 'reply-rel-low'
   | 'channel'

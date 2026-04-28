@@ -631,6 +631,7 @@ local next_pda_followup_id = 1
 local _job_spawn_collector = nil
 -- Temporary storage for pause_job params within an outcome batch
 local _pending_job_params = nil
+local has_values
 
 local function normalize_smart_name_from_ref(location_ref)
     if not location_ref or location_ref == "" then
@@ -1060,6 +1061,10 @@ function create_pending_job(contact_id, npc_id, npc_name, faction, squad_ids, ti
         conv_icon = conv and conv.npc_icon or FALLBACK_NPC_ICON,
         channel = conv and conv.channel or "pda",
         applied_outcomes = conv and conv.applied_outcomes or {},
+        resume_npc_id = conv and conv.pending_resume_npc_id or nil,
+        resume_npc_faction_filters = (conv and conv.pending_resume_allow_generic_stalker == true and has_values(conv.pending_resume_npc_faction_filters))
+            and conv.pending_resume_npc_faction_filters or nil,
+        resume_allow_generic_stalker = conv and conv.pending_resume_allow_generic_stalker == true and has_values(conv.pending_resume_npc_faction_filters),
     }
 
     -- Merge task-specific extra fields (job_type, task_item, task_destination, etc.)
@@ -1133,6 +1138,210 @@ local function job_all_squads_dead(job)
 
     return true
 end
+
+local function read_branch_speaker_npc_id(prefix, faction, conv_id, turn)
+    local base_key
+    if prefix == "task" or not prefix then
+        base_key = "st_pda_ic_" .. tostring(faction) .. "_" .. tostring(conv_id)
+    else
+        base_key = "st_pda_ic_" .. tostring(prefix) .. "_" .. tostring(faction) .. "_" .. tostring(conv_id)
+    end
+
+    local turn_number = tonumber(turn)
+    if turn_number and turn_number > 1 then
+        base_key = base_key .. "_t" .. tostring(turn_number)
+    end
+
+    local key = base_key .. "_npc"
+    local raw = game.translate_string(key)
+    if not raw or raw == key then
+        return nil
+    end
+
+    raw = tostring(raw):gsub("^%s+", ""):gsub("%s+$", "")
+    if raw == "" then
+        return nil
+    end
+    return raw
+end
+
+local function read_trimmed_string_key(key)
+    local raw = game.translate_string(key)
+    if not raw or raw == key then
+        return nil
+    end
+    raw = tostring(raw):gsub("^%s+", ""):gsub("%s+$", "")
+    if raw == "" then
+        return nil
+    end
+    return raw
+end
+
+local function parse_csv_list(raw)
+    local values = {}
+    if not raw or raw == "" then
+        return values
+    end
+    for value in tostring(raw):gmatch("([^,]+)") do
+        value = value:gsub("^%s+", ""):gsub("%s+$", "")
+        if value ~= "" then
+            table.insert(values, value)
+        end
+    end
+    return values
+end
+
+has_values = function(list)
+    return type(list) == "table" and #list > 0
+end
+
+local function read_branch_speaker_target(prefix, faction, conv_id, turn)
+    local base_key
+    if prefix == "task" or not prefix then
+        base_key = "st_pda_ic_" .. tostring(faction) .. "_" .. tostring(conv_id)
+    else
+        base_key = "st_pda_ic_" .. tostring(prefix) .. "_" .. tostring(faction) .. "_" .. tostring(conv_id)
+    end
+
+    local turn_number = tonumber(turn)
+    if turn_number and turn_number > 1 then
+        base_key = base_key .. "_t" .. tostring(turn_number)
+    end
+
+    local target = {
+        npc_id = read_branch_speaker_npc_id(prefix, faction, conv_id, turn),
+        allow_generic_stalker = false,
+        npc_faction_filters = {},
+    }
+
+    local allow_raw = read_trimmed_string_key(base_key .. "_npc_allow_generic")
+    if allow_raw then
+        allow_raw = allow_raw:lower()
+        target.allow_generic_stalker = allow_raw == "1" or allow_raw == "true" or allow_raw == "yes"
+    end
+
+    target.npc_faction_filters = parse_csv_list(read_trimmed_string_key(base_key .. "_npc_factions"))
+    return target
+end
+
+local function pick_sim_branch_speaker_se(faction_filters)
+    if type(faction_filters) ~= "table" or #faction_filters == 0 then
+        return nil
+    end
+    if not db or not db.OnlineStalkers or not level or not level.object_by_id then
+        return nil
+    end
+
+    local allowed = {}
+    for _, faction_id in ipairs(faction_filters) do
+        allowed[tostring(faction_id)] = true
+    end
+
+    local actor_pos = db.actor and get_position_from_object(db.actor) or nil
+    local near, any = {}, {}
+    for i = 1, #db.OnlineStalkers do
+        local id = db.OnlineStalkers[i]
+        local st = db.storage and db.storage[id] or nil
+        local obj = (st and st.object) or level.object_by_id(id)
+        if obj and IsStalker(obj, obj:clsid()) and obj:alive() and not get_object_story_id(id) then
+            local community = obj:character_community()
+            if community and allowed[community] then
+                local se = alife_object and alife_object(id) or nil
+                if se then
+                    local obj_pos = get_position_from_object(obj)
+                    local dist = (actor_pos and obj_pos) and obj_pos:distance_to(actor_pos) or 999999
+                    local row = { se = se, dist = dist }
+                    table.insert(any, row)
+                    if dist <= 150 then
+                        table.insert(near, row)
+                    end
+                end
+            end
+        end
+    end
+
+    local pool = (#near > 0) and near or any
+    if #pool == 0 then
+        return nil
+    end
+    table.sort(pool, function(a, b) return (a.dist or 999999) < (b.dist or 999999) end)
+    return pool[1].se
+end
+
+local function resolve_branch_speaker_npc(branch_target, fallback_npc_id, fallback_name, fallback_icon)
+    local branch_npc_id = nil
+    local faction_filters = nil
+    local allow_generic = false
+
+    if type(branch_target) == "table" then
+        branch_npc_id = branch_target.npc_id
+        faction_filters = branch_target.npc_faction_filters
+        allow_generic = branch_target.allow_generic_stalker == true
+    else
+        branch_npc_id = branch_target
+    end
+
+    local branch_se = nil
+    if allow_generic and faction_filters and #faction_filters > 0 then
+        branch_se = pick_sim_branch_speaker_se(faction_filters)
+        if not branch_se then
+            printf("PANDA_IC: Branch sim speaker did not resolve for factions '%s', using previous contact", table.concat(faction_filters, ","))
+        end
+    end
+
+    if branch_se then
+        local ok_id, resolved_id = pcall(function() return branch_se.id end)
+        local npc_id = ok_id and tonumber(resolved_id) or nil
+        if npc_id then
+            local ok_name, resolved_name = pcall(function() return branch_se:character_name() end)
+            local ok_icon, resolved_icon = pcall(function() return branch_se:character_icon() end)
+            return npc_id,
+                tostring(npc_id),
+                (ok_name and resolved_name and resolved_name ~= "") and resolved_name or fallback_name,
+                (ok_icon and resolved_icon and resolved_icon ~= "") and resolved_icon or (fallback_icon or FALLBACK_NPC_ICON),
+                branch_se
+        end
+    end
+
+    if not branch_npc_id or branch_npc_id == "" then
+        return fallback_npc_id, tostring(fallback_npc_id or ""), fallback_name, fallback_icon, nil
+    end
+
+    branch_se = nil
+    if branch_npc_id:sub(1, 4) == "npc:" and panda_npc_creator and type(panda_npc_creator.get_active_npc_se) == "function" then
+        local ok_custom, custom_se = pcall(panda_npc_creator.get_active_npc_se, branch_npc_id:sub(5))
+        if ok_custom and custom_se then
+            branch_se = custom_se
+        end
+    elseif type(get_story_se_object) == "function" then
+        local ok_story, story_se = pcall(get_story_se_object, branch_npc_id)
+        if ok_story and story_se then
+            branch_se = story_se
+        end
+    end
+
+    if not branch_se then
+        printf("PANDA_IC: Branch speaker '%s' did not resolve, using previous contact", tostring(branch_npc_id))
+        return fallback_npc_id, tostring(fallback_npc_id or ""), fallback_name, fallback_icon, nil
+    end
+
+    local ok_id, resolved_id = pcall(function() return branch_se.id end)
+    local npc_id = ok_id and tonumber(resolved_id) or nil
+    if not npc_id then
+        return fallback_npc_id, tostring(fallback_npc_id or ""), fallback_name, fallback_icon, nil
+    end
+
+    local ok_name, resolved_name = pcall(function() return branch_se:character_name() end)
+    local ok_icon, resolved_icon = pcall(function() return branch_se:character_icon() end)
+    return npc_id,
+        tostring(npc_id),
+        (ok_name and resolved_name and resolved_name ~= "") and resolved_name or fallback_name,
+        (ok_icon and resolved_icon and resolved_icon ~= "") and resolved_icon or (fallback_icon or FALLBACK_NPC_ICON),
+        branch_se
+end
+
+local build_turn_string_prefix
+local resolve_runtime_npc_se
 
 -- ============================================================
 -- TASK HELPERS: Completion checks for custom task types
@@ -1283,19 +1492,47 @@ local function job_resume_conversation(job, turn, is_success)
         return
     end
 
+    local branch_target = read_branch_speaker_target(prefix, faction, conv_id, turn)
+    local has_resume_override = (job.resume_npc_id and job.resume_npc_id ~= "")
+        or (job.resume_allow_generic_stalker == true and has_values(job.resume_npc_faction_filters))
+    if has_resume_override then
+        branch_target = {
+            npc_id = job.resume_npc_id,
+            allow_generic_stalker = job.resume_allow_generic_stalker == true,
+            npc_faction_filters = job.resume_npc_faction_filters or {},
+        }
+    end
+    local resume_npc_id, resume_contact_id, resume_npc_name, resume_npc_icon, resume_npc_se =
+        resolve_branch_speaker_npc(branch_target, job.npc_id, npc_name, npc_icon)
+
+    if branch_target and branch_target.allow_generic_stalker == true and has_values(branch_target.npc_faction_filters)
+        and tonumber(resume_npc_id) == tonumber(job.npc_id)
+    then
+        printf("PANDA_IC: Job #%d resume blocked — no sim speaker resolved for factions=%s turn=%s",
+            job.id, table.concat(branch_target.npc_faction_filters, ","), tostring(turn))
+        return
+    end
+
     -- Load the choices for the target turn
-    local choices, num = load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, cid, resolve_runtime_npc_se(nil, job.npc_id))
+    local choices, num = load_choices_for_turn(prefix, faction, conv_id, turn, resume_npc_name, resume_contact_id, resume_npc_se or resolve_runtime_npc_se(nil, resume_npc_id))
     if num == 0 then
         printf("PANDA_IC: Job #%d resume failed — no choices for turn %d", job.id, turn)
         return
     end
 
+    local prefix_key = build_turn_string_prefix(prefix, faction, conv_id, turn)
+    local open_key = prefix_key .. "_open"
+    local open_text = game.translate_string(open_key)
+    if open_text == open_key then
+        open_text = nil
+    end
+
     -- Create a fresh conversation entry in active_conversations
     local conv_data = {
-        npc_id = job.npc_id,
-        contact_id = cid,
-        npc_name = npc_name,
-        npc_icon = npc_icon,
+        npc_id = resume_npc_id,
+        contact_id = resume_contact_id,
+        npc_name = resume_npc_name,
+        npc_icon = resume_npc_icon,
         faction = faction,
         prefix = prefix,
         conv_id = conv_id,
@@ -1310,8 +1547,26 @@ local function job_resume_conversation(job, turn, is_success)
         channel = job.channel or "pda",
     }
 
-    active_conversations[cid] = conv_data
+    if resume_contact_id ~= cid then
+        active_conversations[cid] = nil
+    end
+    active_conversations[resume_contact_id] = conv_data
     CONV = conv_data
+
+    if open_text and open_text ~= "" then
+        dynamic_news_helper.send_tip(
+            "You've received a Private Message from " .. tostring(resume_npc_name),
+            "PDA Alert", 0, 10, resume_npc_icon, "news", "npc"
+        )
+        pda_private_add_message(
+            resume_contact_id,
+            resume_npc_name,
+            resume_npc_name,
+            sub_placeholders(open_text, resume_npc_name, faction, resume_npc_se, resume_contact_id),
+            resume_npc_icon,
+            false
+        )
+    end
 
     printf("PANDA_IC: Job #%d resumed conversation at turn %d (%s)",
         job.id, turn, is_success and "SUCCESS" or "FAIL/TIMEOUT")
@@ -1419,18 +1674,20 @@ function check_pending_jobs()
         pending_jobs[result.contact_id] = nil
 
         if result.success then
-            -- Send a system notification about job completion
-            local msg = game.translate_string("st_pda_ic_job_success")
-            pda_private_add_message(job.contact_id, job.npc_name, job.npc_name, msg, job.conv_icon, false)
+            if not job.success_turn then
+                local msg = game.translate_string("st_pda_ic_job_success")
+                pda_private_add_message(job.contact_id, job.npc_name, job.npc_name, msg, job.conv_icon, false)
+            end
 
             -- Resume at success turn
             if job.success_turn then
                 job_resume_conversation(job, job.success_turn, true)
             end
         else
-            -- Send timeout/failure notification
-            local msg = game.translate_string("st_pda_ic_job_fail")
-            pda_private_add_message(job.contact_id, job.npc_name, job.npc_name, msg, job.conv_icon, false)
+            if not job.fail_turn then
+                local msg = game.translate_string("st_pda_ic_job_fail")
+                pda_private_add_message(job.contact_id, job.npc_name, job.npc_name, msg, job.conv_icon, false)
+            end
 
             -- Resume at fail turn (if provided)
             if job.fail_turn then
@@ -1471,7 +1728,7 @@ local function clone_plain_table(src)
     return out
 end
 
-local function build_turn_string_prefix(prefix, faction, conv_id, turn)
+build_turn_string_prefix = function(prefix, faction, conv_id, turn)
     local base_key
     if prefix == "task" or not prefix then
         base_key = "st_pda_ic_" .. tostring(faction) .. "_" .. tostring(conv_id)
@@ -1487,10 +1744,10 @@ local function build_turn_string_prefix(prefix, faction, conv_id, turn)
     return base_key
 end
 
-local function resolve_runtime_npc_se(npc_se, npc_id)
+resolve_runtime_npc_se = function(npc_se, npc_id)
     if npc_se then
         return npc_se
-    end
+end
 
     local sid = tonumber(npc_id)
     if sid and sid > 0 and alife_object then
@@ -1523,6 +1780,37 @@ local function resolve_handoff_target_se(story_npc_id, fallback_npc_se)
     end
 
     return fallback_npc_se
+end
+
+local PANDA_EMOJI_REPLY_TEXTURES = {
+    artifact = "panda_file",
+    warning = "panda_file",
+    radio = "panda_file",
+    stash = "panda_file",
+    target = "panda_file",
+}
+
+local function sanitize_pda_ui_texture_name(value)
+    if not value then return nil end
+    local name = tostring(value):gsub("^%s+", ""):gsub("%s+$", "")
+    if name == "" then return nil end
+    name = name:gsub("%.dds$", "")
+    if not name:match("^[%w_%-]+$") then
+        printf("PANDA_IC: rejected unsafe PDA reply image texture '%s'", tostring(value))
+        return nil
+    end
+    return name
+end
+
+local function resolve_reply_image_texture(text, explicit_image)
+    local explicit = sanitize_pda_ui_texture_name(explicit_image)
+    if explicit then return explicit end
+
+    local shortcode = tostring(text or ""):match(":([%w_%-]+):")
+    if shortcode then
+        return PANDA_EMOJI_REPLY_TEXTURES[shortcode]
+    end
+    return nil
 end
 
 local function queue_pda_followup_internal(raw_entry)
@@ -5363,7 +5651,7 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                 printf("PANDA_IC: spawn_npc_squad missing squad section in '%s'", tostring(cmd_str))
             else
                 for _ = 1, count do
-                    spawn_npc_squad_near_player(squad_section, distance, delay, state)
+                    spawn_npc_squad_near_player(squad_section, distance, delay, state, sender_contact_id)
                 end
             end
 
@@ -6756,18 +7044,32 @@ is_mutant_squad_key = function(target)
     return false
 end
 
+local function normalize_spawn_relation_mode(relation_mode)
+    local normalized = tostring(relation_mode or "default"):lower():gsub("^%s+", ""):gsub("%s+$", "")
+    if normalized == "aggressive" or normalized == "agressive" or normalized == "enemy" then
+        return "hostile"
+    end
+    if normalized == "ally" or normalized == "friend" then
+        return "friendly"
+    end
+    if normalized == "" then
+        return "default"
+    end
+    return normalized
+end
+
 apply_spawned_faction_relation = function(obj, relation_mode)
     if not obj or obj:clsid() ~= clsid.online_offline_group_s or not db.actor then
         return
     end
 
-    relation_mode = relation_mode or "default"
+    relation_mode = normalize_spawn_relation_mode(relation_mode)
     if relation_mode == "hostile" then
-        obj:set_squad_relation("enemy")
+        pcall(function() obj:set_squad_relation("enemy") end)
     elseif relation_mode == "friendly" then
-        obj:set_squad_relation("friend")
+        pcall(function() obj:set_squad_relation("friend") end)
     elseif relation_mode == "neutral" then
-        obj:set_squad_relation("neutral")
+        pcall(function() obj:set_squad_relation("neutral") end)
     elseif relation_mode == "hostage" then
         -- Hostage squads stay neutral so the captor faction does not engage them.
         -- We disable combat AI per-member below so they don't shoot back either.
@@ -6795,12 +7097,31 @@ apply_spawned_faction_relation = function(obj, relation_mode)
     local relation = relation_mode == "hostile" and game_object.enemy or game_object.friend
     local goodwill = relation_mode == "hostile" and -5000 or 5000
 
-    for k in obj:squad_members() do
-        local o = level.object_by_id(k.id)
-        if o then
-            o:set_relation(relation, db.actor)
-            o:force_set_goodwill(goodwill, db.actor)
+    local function apply_member_relation()
+        local touched = 0
+        for k in obj:squad_members() do
+            local o = level.object_by_id(k.id)
+            if o then
+                pcall(function() o:set_relation(relation, db.actor) end)
+                pcall(function() o:force_set_goodwill(goodwill, db.actor) end)
+                if relation_mode == "hostile" then
+                    pcall(function() o:set_enemy(db.actor) end)
+                end
+                touched = touched + 1
+            end
         end
+        return touched
+    end
+
+    local touched = apply_member_relation()
+    if relation_mode == "hostile" and touched == 0 and CreateTimeEvent then
+        local attempts = 0
+        local ev_key = "panda_spawn_relation_" .. tostring(obj.id) .. "_" .. tostring(math.random(100000))
+        CreateTimeEvent("pda_ic_spawn", ev_key, 1, function()
+            attempts = attempts + 1
+            local retry_touched = apply_member_relation()
+            return retry_touched > 0 or attempts >= 10
+        end)
     end
 end
 
@@ -6919,9 +7240,9 @@ function get_faction_spawn_notification_keys(relation_mode)
     return key
 end
 
-function spawn_npc_squad_near_player(squad_key, distance, delay, relation_mode)
+function spawn_npc_squad_near_player(squad_key, distance, delay, relation_mode, job_contact_id)
     delay = tonumber(delay) or 0
-    relation_mode = relation_mode or "default"
+    relation_mode = normalize_spawn_relation_mode(relation_mode)
 
     local function do_spawn()
         if not db.actor then
@@ -6952,6 +7273,9 @@ function spawn_npc_squad_near_player(squad_key, distance, delay, relation_mode)
         obj.scripted_target = nil
         obj.rush_to_target = false
         apply_spawned_faction_relation(obj, relation_mode)
+        if job_contact_id and pending_jobs[job_contact_id] then
+            job_register_squads(job_contact_id, { obj.id })
+        end
         return true
     end
 
@@ -6965,7 +7289,7 @@ end
 
 spawn_squad_at_smart_terrain = function(squad_key, smart_ref, is_mutant, delay, job_contact_id, relation_mode)
     delay = tonumber(delay) or 0
-    relation_mode = relation_mode or "default"
+    relation_mode = normalize_spawn_relation_mode(relation_mode)
     local sender = game.translate_string("st_pda_ic_outcome_sender")
 
     local function do_spawn()
@@ -7512,7 +7836,7 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact
         return "pda"
     end
 
-    local function load_registry_continue_channel(choice_idx)
+    local function load_registry_choice_metadata(choice_idx)
         local registry_key = base_key .. "_panda_f2f_registry"
         local raw = game.translate_string(registry_key)
         if not raw or raw == registry_key then
@@ -7520,19 +7844,33 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact
         end
 
         raw = tostring(raw):gsub("&quot;", "\"")
-        local turn_block = raw:match("\"turnNumber\"%s*:%s*" .. tostring(turn) .. ".-\"choices\"%s*:%s*%[(.-)%]")
-        if not turn_block then
+        local turn_start = raw:find("\"turnNumber\"%s*:%s*" .. tostring(turn))
+        if not turn_start then
             return nil
         end
 
-        for choice_block in turn_block:gmatch("{(.-)}") do
-            local found_idx = tonumber(choice_block:match("\"index\"%s*:%s*(%d+)"))
-            if found_idx == choice_idx then
-                return choice_block:match("\"continueChannel\"%s*:%s*\"([%w_%-]+)\"")
-            end
+        local next_turn_start = raw:find("\"turnNumber\"%s*:%s*%d+", turn_start + 1)
+        local turn_block = raw:sub(turn_start, next_turn_start and (next_turn_start - 1) or #raw)
+        local choice_start = turn_block:find("\"index\"%s*:%s*" .. tostring(choice_idx))
+        if not choice_start then
+            return nil
         end
 
-        return nil
+        local next_choice_start = turn_block:find("\"index\"%s*:%s*%d+", choice_start + 1)
+        local choice_block = turn_block:sub(choice_start, next_choice_start and (next_choice_start - 1) or #turn_block)
+        local meta = {
+            continue_channel = choice_block:match("\"continueChannel\"%s*:%s*\"([%w_%-]+)\""),
+            cont_npc_id = choice_block:match("\"contNpcId\"%s*:%s*\"([^\"]+)\""),
+            allow_generic_stalker = choice_block:match("\"allowGenericStalker\"%s*:%s*true") ~= nil,
+            npc_faction_filters = {},
+        }
+        local factions_raw = choice_block:match("\"npcFactionFilters\"%s*:%s*%[(.-)%]")
+        if factions_raw then
+            for faction_id in factions_raw:gmatch("\"([^\"]+)\"") do
+                table.insert(meta.npc_faction_filters, faction_id)
+            end
+        end
+        return meta
     end
 
     local function resolve_choice_precond_key(choice_idx)
@@ -7590,32 +7928,53 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact
             if cont_channel == p.."_cont_channel_"..i then
                 cont_channel = game.translate_string(p.."_channel_"..i)
                 if cont_channel == p.."_channel_"..i then
-                    cont_channel = load_registry_continue_channel(i)
+                    local registry_meta = load_registry_choice_metadata(i)
+                    cont_channel = registry_meta and registry_meta.continue_channel or nil
                 end
             end
+
+            local registry_meta = load_registry_choice_metadata(i)
 
             local cont_npc_raw = game.translate_string(p.."_cont_npc_"..i)
             local next_npc_id = (cont_npc_raw ~= p.."_cont_npc_"..i) and cont_npc_raw:match("^%s*(.-)%s*$") or nil
             if next_npc_id == "" then next_npc_id = nil end
+            if not next_npc_id and registry_meta and registry_meta.cont_npc_id and registry_meta.cont_npc_id ~= "" then
+                next_npc_id = registry_meta.cont_npc_id
+            end
             local next_turn = tonumber(game.translate_string(p.."_cont_"..i)) or nil
             local branch_visible = true
+            local branch_speaker_target = nil
+            local next_npc_faction_filters = registry_meta and registry_meta.npc_faction_filters or nil
+            local next_allow_generic_stalker = registry_meta and registry_meta.allow_generic_stalker == true
             if next_turn then
                 local next_turn_key = build_turn_string_prefix(prefix, faction, conv_id, next_turn)
-                local next_turn_npc_se = resolve_handoff_target_se(next_npc_id, npc_se)
+                branch_speaker_target = read_branch_speaker_target(prefix, faction, conv_id, next_turn)
+                if (not next_allow_generic_stalker) and branch_speaker_target.allow_generic_stalker then
+                    next_npc_faction_filters = branch_speaker_target.npc_faction_filters
+                    next_allow_generic_stalker = true
+                end
+                local effective_next_npc_id = next_npc_id or branch_speaker_target.npc_id
+                local next_turn_npc_se = resolve_handoff_target_se(effective_next_npc_id, npc_se)
                 branch_visible = check_preconditions_generic(next_turn_key .. "_branch_precond", next_turn_npc_se)
+                next_npc_id = effective_next_npc_id
             end
 
             if branch_visible then
+                local reply_image_raw = game.translate_string(reply_key .. "_image")
+                if reply_image_raw == reply_key .. "_image" then reply_image_raw = nil end
                 local visible_index = count + 1
                 choices[visible_index] = {
                     source_choice_index = i,
                     text = sub_placeholders(text, npc_name, faction, npc_se, contact_id),
                     reply = sub_placeholders(reply_text, npc_name, faction, npc_se, contact_id),
+                    reply_image = resolve_reply_image_texture(reply_text, reply_image_raw),
                     outcome = game.translate_string(p.."_outcome_"..i),
                     next_turn = next_turn,
                     next_channel = normalize_choice_channel(cont_channel),
                     pda_delay_seconds = tonumber(game.translate_string(p.."_pda_delay_"..i)) or nil,
                     next_npc_id = next_npc_id,
+                    next_npc_faction_filters = next_npc_faction_filters,
+                    next_allow_generic_stalker = next_allow_generic_stalker,
                 }
                 if choices[visible_index].outcome == p.."_outcome_"..i then choices[visible_index].outcome = "none" end
                 count = visible_index
@@ -7645,6 +8004,7 @@ function on_player_choice(idx, contact_id)
 
     -- Add player choice to log, NO global tip
     pda_private_add_message(cid, npc_name, db.actor:character_name(), ch.text, db.actor:character_icon(), true, "sent")
+    c.started_at = time_global and time_global() or c.started_at
 
     -- Remove from active table to prevent button-mashing abuse
     active_conversations[cid] = nil
@@ -7654,7 +8014,17 @@ function on_player_choice(idx, contact_id)
     local authored_choice_index = ch.source_choice_index or idx
     local outcome_key = tostring(c.turn) .. "_" .. tostring(authored_choice_index)
     local has_outcome = ch.outcome and ch.outcome ~= "none"
+    local pauses_for_job = has_outcome and tostring(ch.outcome or ""):find("pause_job", 1, true) ~= nil
     local should_apply_outcome = false
+
+    c.pending_resume_npc_id = ch.next_npc_id
+    if ch.next_allow_generic_stalker == true and has_values(ch.next_npc_faction_filters) then
+        c.pending_resume_npc_faction_filters = ch.next_npc_faction_filters
+        c.pending_resume_allow_generic_stalker = true
+    else
+        c.pending_resume_npc_faction_filters = nil
+        c.pending_resume_allow_generic_stalker = false
+    end
 
     if has_outcome then
         c.applied_outcomes = c.applied_outcomes or {}
@@ -7716,7 +8086,11 @@ function on_player_choice(idx, contact_id)
                         else
                             printf("Global alert: New message from %s", npc_name)
                         end
-                        pda_private_add_message(cid, npc_name, npc_name, ch.reply, c.npc_icon, false)
+                        pda_private_add_message(cid, npc_name, npc_name, ch.reply, c.npc_icon, false, nil, nil, nil, {
+                            reply_image_texture = ch.reply_image,
+                            skip_personality = false,
+                        })
+                        c.started_at = time_global and time_global() or c.started_at
                         set_last_player_message_state(cid, "read")
                     end
 
@@ -7732,12 +8106,21 @@ function on_player_choice(idx, contact_id)
                         end)
                     end
 
+                    if pauses_for_job then
+                        c.reply_pending = false
+                        pda_reply_pending = false
+                        return true
+                    end
+
                     if ch.next_turn and continuation_channel == "pda" then
                         -- Multi-NPC handoff: if the choice specifies a different NPC for the next turn,
                         -- queue a PDA followup in the new NPC's contact thread instead of continuing inline.
                         local handed_off = false
                         local new_npc_se, new_npc_id
-                        if ch.next_npc_id and ch.next_npc_id ~= "" then
+                        if ch.next_allow_generic_stalker and ch.next_npc_faction_filters and #ch.next_npc_faction_filters > 0 then
+                            new_npc_se = pick_sim_branch_speaker_se(ch.next_npc_faction_filters)
+                            new_npc_id = new_npc_se and tonumber(new_npc_se.id) or nil
+                        elseif ch.next_npc_id and ch.next_npc_id ~= "" then
                             if ch.next_npc_id:sub(1,4) == "npc:" and panda_npc_creator then
                                 local tpl = ch.next_npc_id:sub(5)
                                 new_npc_se = panda_npc_creator.get_active_npc_se(tpl)
@@ -7763,8 +8146,8 @@ function on_player_choice(idx, contact_id)
                                 conv_id       = c.conv_id,
                                 turn          = ch.next_turn,
                                 delay_seconds = 0,
-                                story_id      = ch.next_npc_id,
-                                canonical_id  = ch.next_npc_id:lower(),
+                                story_id      = ch.next_npc_id or tostring(new_npc_id),
+                                canonical_id  = ch.next_npc_id and ch.next_npc_id:lower() or tostring(new_npc_id),
                                 task_id       = c.task_id,
                                 category      = c.category,
                                 applied_outcomes = clone_plain_table(c.applied_outcomes) or {},
@@ -7775,6 +8158,8 @@ function on_player_choice(idx, contact_id)
                             handed_off = true
                         elseif ch.next_npc_id and ch.next_npc_id ~= "" then
                             printf("PANDA_IC: multi-npc handoff pda failed to resolve story_npc_id=%s, falling back to same-npc continuation", tostring(ch.next_npc_id))
+                        elseif ch.next_allow_generic_stalker then
+                            printf("PANDA_IC: multi-npc handoff pda failed to resolve sim factions=%s, falling back to same-npc continuation", tostring(table.concat(ch.next_npc_faction_filters or {}, ",")))
                         end
 
                         if not handed_off then
@@ -7785,6 +8170,7 @@ function on_player_choice(idx, contact_id)
                                 c.choices = next_choices
                                 c.num_choices = num
                                 c.reply_pending = false
+                                c.started_at = time_global and time_global() or c.started_at
                                 -- Re-register in multi-conv table
                                 active_conversations[cid] = c
                                 CONV = c

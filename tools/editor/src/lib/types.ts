@@ -114,6 +114,14 @@ export interface InvalidPrecondition {
 export interface Turn {
   turnNumber: number;
   openingMessage?: string;
+  /** Story/custom NPC id that owns this branch when reached directly or by job resume. */
+  speaker_npc_id?: string;
+  /** Factions used when this branch should be delivered by any simulated NPC. */
+  speaker_npc_faction_filters?: FactionId[];
+  /** Allows the branch speaker to be resolved from simulated stalkers instead of story/custom ids. */
+  speaker_allow_generic_stalker?: boolean;
+  /** DDS texture basename under gamedata/textures/ui attached to this branch opener. */
+  openingImage?: string;
   /** Preconditions required before this branch turn can be entered. */
   preconditions: PreconditionEntry[];
   /** Internal marker used by legacy F2F opening migration. */
@@ -143,6 +151,8 @@ export interface Choice {
   /** Preconditions required before this choice is shown to the player. */
   preconditions: PreconditionEntry[];
   reply: string;
+  /** DDS texture basename under gamedata/textures/ui attached to the NPC reply. */
+  replyImage?: string;
   replyRelHigh?: string;
   replyRelLow?: string;
   outcomes: Outcome[];

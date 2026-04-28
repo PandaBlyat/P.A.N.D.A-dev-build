@@ -1175,6 +1175,7 @@ class StateManager {
     choice.channel = parentTurnChannel;
     choice.preconditions = JSON.parse(JSON.stringify(sourceChoice.preconditions ?? [])) as Choice['preconditions'];
     choice.reply = sourceChoice.reply;
+    if (sourceChoice.replyImage != null) choice.replyImage = sourceChoice.replyImage;
     if (sourceChoice.replyRelHigh != null) choice.replyRelHigh = sourceChoice.replyRelHigh;
     if (sourceChoice.replyRelLow != null) choice.replyRelLow = sourceChoice.replyRelLow;
     choice.outcomes = this.cloneOutcomeList(sourceChoice.outcomes);
@@ -1187,6 +1188,7 @@ class StateManager {
     choice.npc_faction_filters = sourceChoice.npc_faction_filters ? [...sourceChoice.npc_faction_filters] : undefined;
     choice.npc_profile_filters = sourceChoice.npc_profile_filters ? [...sourceChoice.npc_profile_filters] : undefined;
     choice.allow_generic_stalker = sourceChoice.allow_generic_stalker ?? false;
+    choice.cont_npc_id = sourceChoice.cont_npc_id;
 
     const continueTo = this.remapContinuationTarget(sourceChoice.continueTo, options);
     if (continueTo != null) choice.continueTo = continueTo;
@@ -1204,6 +1206,10 @@ class StateManager {
   ): Turn {
     const turn = createTurn(turnNumber);
     turn.openingMessage = sourceTurn.openingMessage;
+    turn.speaker_npc_id = sourceTurn.speaker_npc_id;
+    turn.speaker_npc_faction_filters = sourceTurn.speaker_npc_faction_filters ? [...sourceTurn.speaker_npc_faction_filters] : undefined;
+    turn.speaker_allow_generic_stalker = sourceTurn.speaker_allow_generic_stalker ?? false;
+    turn.openingImage = sourceTurn.openingImage;
     turn.preconditions = JSON.parse(JSON.stringify(sourceTurn.preconditions ?? [])) as Turn['preconditions'];
     turn.channel = normalizeChannelValue(sourceTurn.channel, 'pda');
     turn.requiresNpcFirst = sourceTurn.requiresNpcFirst;
@@ -1235,6 +1241,10 @@ class StateManager {
           const normalizedTurn: Turn = {
             ...turn,
             channel: parentTurnChannel,
+            speaker_npc_id: typeof turn.speaker_npc_id === 'string' && turn.speaker_npc_id.trim() ? turn.speaker_npc_id.trim() : undefined,
+            speaker_npc_faction_filters: turn.speaker_npc_faction_filters?.filter((faction) => typeof faction === 'string'),
+            speaker_allow_generic_stalker: turn.speaker_allow_generic_stalker ?? false,
+            openingImage: typeof turn.openingImage === 'string' && turn.openingImage.trim() ? turn.openingImage.trim() : undefined,
             preconditions: JSON.parse(JSON.stringify(turn.preconditions ?? [])) as Turn['preconditions'],
             requiresNpcFirst: typeof turn.requiresNpcFirst === 'boolean'
               ? turn.requiresNpcFirst
@@ -1258,6 +1268,7 @@ class StateManager {
                 return sourceContinueChannel == null ? undefined : normalizeChannelValue(sourceContinueChannel, parentTurnChannel);
               })(),
               pdaDelaySeconds: normalizeOptionalNonNegativeInteger(choice.pdaDelaySeconds),
+              replyImage: typeof choice.replyImage === 'string' && choice.replyImage.trim() ? choice.replyImage.trim() : undefined,
               allow_generic_stalker: choice.allow_generic_stalker ?? false,
             })),
           };

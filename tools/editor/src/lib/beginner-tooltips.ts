@@ -11,6 +11,7 @@ export type BeginnerTooltipConfig = {
 export type BeginnerTooltipPresetId = keyof typeof BEGINNER_TOOLTIP_PRESETS;
 
 export const BEGINNER_TOOLTIP_STORAGE_KEY = 'panda:beginner-tooltips-dismissed:v1';
+export const BEGINNER_TOOLTIP_DISABLED_KEY = 'panda:beginner-tooltips-disabled:v1';
 
 const DATA_ID = 'beginnerTooltipId';
 const DATA_TITLE = 'beginnerTooltipTitle';
@@ -433,6 +434,10 @@ export function setBeginnerTooltip(
   element: HTMLElement,
   config: BeginnerTooltipConfig | BeginnerTooltipPresetId,
 ): HTMLElement {
+  if (areBeginnerTooltipsDisabled()) {
+    clearBeginnerTooltip(element);
+    return element;
+  }
   const resolved: BeginnerTooltipConfig = typeof config === 'string'
     ? BEGINNER_TOOLTIP_PRESETS[config]
     : config;
@@ -453,6 +458,7 @@ export function setBeginnerTooltip(
 }
 
 export function getBeginnerTooltipConfig(element: HTMLElement): BeginnerTooltipConfig | null {
+  if (areBeginnerTooltipsDisabled()) return null;
   const id = element.dataset[DATA_ID];
   const title = element.dataset[DATA_TITLE];
   const body = element.dataset[DATA_BODY];
@@ -462,6 +468,25 @@ export function getBeginnerTooltipConfig(element: HTMLElement): BeginnerTooltipC
   const placement = isPlacement(placementValue) ? placementValue : undefined;
   const shortcut = element.dataset[DATA_SHORTCUT];
   return { id, title, body, placement, shortcut };
+}
+
+export function areBeginnerTooltipsDisabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(BEGINNER_TOOLTIP_DISABLED_KEY) === 'true';
+}
+
+export function setBeginnerTooltipsDisabled(disabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(BEGINNER_TOOLTIP_DISABLED_KEY, String(disabled));
+  document.body.classList.toggle('beginner-tooltips-disabled', disabled);
+}
+
+function clearBeginnerTooltip(element: HTMLElement): void {
+  delete element.dataset[DATA_ID];
+  delete element.dataset[DATA_TITLE];
+  delete element.dataset[DATA_BODY];
+  delete element.dataset[DATA_PLACEMENT];
+  delete element.dataset[DATA_SHORTCUT];
 }
 
 export function isBeginnerTooltipDismissed(id: string): boolean {

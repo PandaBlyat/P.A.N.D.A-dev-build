@@ -37,12 +37,19 @@ type CommandSelection =
 type NpcContinuationSpeaker = 'same' | 'new';
 type NewNpcContinuationMode = 'story' | 'custom' | 'sim' | null;
 type OpenerNpcMode = 'friendly_faction' | 'story_npc' | 'custom_npc';
+type BranchNpcMode = 'same' | 'sim' | 'story' | 'custom';
 type OpenerNpcTarget = {
   mode: OpenerNpcMode;
   faction: FactionId;
   storyNpcId: string;
   customNpcTemplateId: string;
   customNpcSmartTerrain: string;
+};
+type BranchNpcTarget = {
+  mode: BranchNpcMode;
+  faction: FactionId;
+  storyNpcId: string;
+  customNpcTemplateId: string;
 };
 
 const npcContinuationSpeakerByChoice = new Map<string, NpcContinuationSpeaker>();
@@ -201,9 +208,18 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
       fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'),
       onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingMessage: value }),
     }));
+    textPane.appendChild(createTextInput({
+      label: 'Opener DDS Image',
+      value: turn.openingImage ?? '',
+      placeholder: 'panda_file',
+      fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-image'),
+      onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingImage: value.trim() || undefined }),
+    }));
     textPane.appendChild(createChannelControls(conv, turn));
     if (turn.turnNumber === 1) {
       textPane.appendChild(renderOpenerNpcTargetPanel(conv));
+    } else {
+      textPane.appendChild(renderBranchNpcTargetPanel(conv, turn));
     }
   } else {
     textPane.appendChild(createTextarea({
@@ -219,6 +235,14 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
       placeholder: 'NPC response after player picks this choice',
       fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply'),
       onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { reply: value }),
+    }));
+    textPane.appendChild(createTextInput({
+      label: 'NPC Reply DDS Image',
+      value: choice.replyImage ?? '',
+      placeholder: 'panda_file',
+      description: 'file name for dds image inside textures/ui',
+      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-image'),
+      onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyImage: value.trim() || undefined }),
     }));
   }
 
@@ -377,6 +401,128 @@ function updateOpenerNpcTarget(conv: Conversation, target: OpenerNpcTarget): voi
     next.push({ type: 'simple', command: 'req_npc_faction', params: [target.faction || getConversationFaction(conv)] });
   }
   store.updateConversation(conv.id, { preconditions: next });
+}
+
+function renderBranchNpcTargetPanel(conv: Conversation, turn: Turn): HTMLElement {
+  const target = inferBranchNpcTarget(conv, turn);
+  const field = document.createElement('div');
+  field.className = 'branch-inline-field-block branch-inline-opener-target';
+
+  const label = document.createElement('div');
+  label.className = 'branch-inline-subtitle';
+  label.textContent = 'Branch NPC';
+
+  const modeRow = document.createElement('div');
+  modeRow.className = 'branch-inline-npc-mode-row';
+  modeRow.append(
+    createSegmentButton('Same NPC', target.mode === 'same', () => updateBranchNpcTarget(conv, turn, { ...target, mode: 'same' })),
+    createSegmentButton('Any Sim x Faction NPC', target.mode === 'sim', () => updateBranchNpcTarget(conv, turn, { ...target, mode: 'sim' })),
+    createSegmentButton('Story NPC', target.mode === 'story', () => updateBranchNpcTarget(conv, turn, { ...target, mode: 'story' })),
+    createSegmentButton('Custom NPC', target.mode === 'custom', () => updateBranchNpcTarget(conv, turn, { ...target, mode: 'custom' })),
+  );
+  field.append(label, modeRow);
+
+  if (target.mode === 'same') {
+    field.appendChild(createEmpty('Previous NPC delivers this branch.'));
+    return field;
+  }
+
+  if (target.mode === 'sim') {
+    const factionSelect = document.createElement('select');
+    for (const factionId of FACTION_IDS) {
+      const option = document.createElement('option');
+      option.value = factionId;
+      option.textContent = FACTION_DISPLAY_NAMES[factionId];
+      option.selected = target.faction === factionId;
+      factionSelect.appendChild(option);
+    }
+    factionSelect.onchange = () => updateBranchNpcTarget(conv, turn, {
+      ...target,
+      mode: 'sim',
+      faction: factionSelect.value as FactionId,
+    });
+    field.appendChild(factionSelect);
+    return field;
+  }
+
+  if (target.mode === 'story') {
+    field.appendChild(createOptionPickerPanelEditor(
+      target.storyNpcId,
+      (storyNpcId) => updateBranchNpcTarget(conv, turn, {
+        ...target,
+        mode: 'story',
+        storyNpcId: storyNpcId.trim() || 'bar_visitors_barman_stalker_trader',
+      }),
+      `branch-inline-branch-${conv.id}-${turn.turnNumber}-story-npc`,
+      {
+        title: 'Branch Story NPC',
+        subtitle: 'Pick existing story NPC who delivers this branch.',
+        searchPlaceholder: 'Search story NPC id, faction, level, or role...',
+        emptyLabel: 'Same NPC',
+        options: STORY_NPC_OPTIONS,
+      },
+    ));
+    return field;
+  }
+
+  field.appendChild(createCustomNpcBuilderEditor(
+    target.customNpcTemplateId,
+    (customNpcTemplateId) => updateBranchNpcTarget(conv, turn, {
+      ...target,
+      mode: 'custom',
+      customNpcTemplateId,
+    }),
+    `branch-inline-branch-${conv.id}-${turn.turnNumber}-custom-npc`,
+    { showSpawnDistance: false },
+  ));
+  return field;
+}
+
+function inferBranchNpcTarget(conv: Conversation, turn: Turn): BranchNpcTarget {
+  const fallbackFaction = turn.speaker_npc_faction_filters?.[0] ?? getConversationFaction(conv);
+  const base = {
+    faction: fallbackFaction,
+    storyNpcId: turn.speaker_npc_id?.startsWith('npc:') ? 'bar_visitors_barman_stalker_trader' : (turn.speaker_npc_id ?? 'bar_visitors_barman_stalker_trader'),
+    customNpcTemplateId: turn.speaker_npc_id?.startsWith('npc:') ? turn.speaker_npc_id.slice(4) : 'informant',
+  };
+  if (turn.speaker_allow_generic_stalker || (turn.speaker_npc_faction_filters?.length ?? 0) > 0) {
+    return { ...base, mode: 'sim' };
+  }
+  if (turn.speaker_npc_id?.startsWith('npc:')) return { ...base, mode: 'custom' };
+  if (turn.speaker_npc_id) return { ...base, mode: 'story' };
+  return { ...base, mode: 'same' };
+}
+
+function updateBranchNpcTarget(conv: Conversation, turn: Turn, target: BranchNpcTarget): void {
+  if (target.mode === 'same') {
+    store.updateTurn(conv.id, turn.turnNumber, {
+      speaker_npc_id: undefined,
+      speaker_npc_faction_filters: undefined,
+      speaker_allow_generic_stalker: false,
+    });
+    return;
+  }
+  if (target.mode === 'sim') {
+    store.updateTurn(conv.id, turn.turnNumber, {
+      speaker_npc_id: undefined,
+      speaker_npc_faction_filters: [target.faction || getConversationFaction(conv)],
+      speaker_allow_generic_stalker: true,
+    });
+    return;
+  }
+  if (target.mode === 'custom') {
+    store.updateTurn(conv.id, turn.turnNumber, {
+      speaker_npc_id: target.customNpcTemplateId ? `npc:${target.customNpcTemplateId}` : undefined,
+      speaker_npc_faction_filters: undefined,
+      speaker_allow_generic_stalker: false,
+    });
+    return;
+  }
+  store.updateTurn(conv.id, turn.turnNumber, {
+    speaker_npc_id: target.storyNpcId || 'bar_visitors_barman_stalker_trader',
+    speaker_npc_faction_filters: undefined,
+    speaker_allow_generic_stalker: false,
+  });
 }
 
 function getSimpleRuleParam(entries: PreconditionEntry[], command: string, paramIndex = 0): string | null {
@@ -1197,6 +1343,33 @@ function createTextarea(options: {
     }
   };
   field.append(label, textarea);
+  return field;
+}
+
+function createTextInput(options: {
+  label: string;
+  value: string;
+  placeholder: string;
+  description?: string;
+  fieldKey: string;
+  onCommit: (value: string) => void;
+}): HTMLElement {
+  const field = document.createElement('label');
+  field.className = 'branch-inline-field';
+  const label = document.createElement('span');
+  label.textContent = options.label;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = options.value;
+  input.placeholder = options.placeholder;
+  input.setAttribute('data-field-key', options.fieldKey);
+  const commit = (): void => options.onCommit(input.value);
+  input.onchange = commit;
+  input.onblur = commit;
+  field.append(label, input);
+  if (options.description) {
+    field.appendChild(createHint(options.description));
+  }
   return field;
 }
 

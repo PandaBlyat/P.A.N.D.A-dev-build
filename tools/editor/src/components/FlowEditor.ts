@@ -1147,9 +1147,7 @@ function renderBranchInlineModalOverlay(options: {
   const overlay = document.createElement('div');
   overlay.className = 'branch-inline-modal-overlay';
   overlay.setAttribute('role', 'presentation');
-  overlay.onclick = (event) => {
-    if (event.target === overlay) closeBranchInlinePanelModal();
-  };
+  overlay.onclick = (event) => event.stopPropagation();
 
   const modal = document.createElement('div');
   modal.className = 'branch-inline-modal';
@@ -1161,6 +1159,7 @@ function renderBranchInlineModalOverlay(options: {
     if (event.key !== 'Escape') return;
     event.preventDefault();
     event.stopPropagation();
+    store.flushPendingTextEdits();
     closeBranchInlinePanelModal();
   };
 

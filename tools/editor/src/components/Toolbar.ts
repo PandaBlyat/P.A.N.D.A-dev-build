@@ -14,7 +14,7 @@ import { createEmptyProject } from '../lib/xml-export';
 import { openPublicProfile, renderProfileBadge } from './ProfileBadge';
 import { openLeaderboardOverlay } from './LeaderboardOverlay';
 import { openRoadMapModal } from './RoadMapModal';
-import { setBeginnerTooltip } from '../lib/beginner-tooltips';
+import { areBeginnerTooltipsDisabled, setBeginnerTooltip, setBeginnerTooltipsDisabled } from '../lib/beginner-tooltips';
 import { getActiveEditorLocalUserId, getStoredUsername, type ActiveEditorUser, type RecentVisitor, type UserProfile } from '../lib/api-client';
 import { createCollabRoster } from './CollabRoster';
 
@@ -146,6 +146,12 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     clearDraft();
     store.loadProject(createEmptyProject('stalker'), new Map());
   };
+  const tooltipToggleAction: OverflowAction = {
+    icon: 'help',
+    label: areBeginnerTooltipsDisabled() ? 'Enable Tooltips' : 'Disable Tooltips',
+    title: 'Toggle editor tooltips',
+    onclick: () => setBeginnerTooltipsDisabled(!areBeginnerTooltipsDisabled()),
+  };
 
   if (!isCompact) {
     const leftZone = document.createElement('div');
@@ -190,6 +196,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     rightZone.append(roadmapBtn, leadersBtn, supportBtn);
 
     rightZone.appendChild(createOverflowMenu('More', [
+      tooltipToggleAction,
       { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
       { icon: 'trophy', label: 'Leaders', title: leadersBtn.title, onclick: () => openLeaderboardOverlay(null) },
       { icon: 'bug', label: 'Reports', title: reportsBtn.title, onclick: openBugReportsPanel },
@@ -245,6 +252,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   if (isCompact) {
     const projectOverflowActions: OverflowAction[] = [];
     projectOverflowActions.push(
+      tooltipToggleAction,
       { icon: 'import', label: 'Import XML', title: importBtn.title, onclick: importFromXml },
       { icon: 'share', label: 'Community', title: communityBtn.title, onclick: openSharePanel },
       { icon: 'bug', label: 'Reports', title: reportsBtn.title, onclick: openBugReportsPanel },
@@ -304,6 +312,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
 
   utilityTier.appendChild(supportBtn);
   utilityTier.appendChild(createOverflowMenu('More', [
+    tooltipToggleAction,
     { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
     { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
     { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },

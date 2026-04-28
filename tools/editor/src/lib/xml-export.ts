@@ -189,6 +189,9 @@ function createF2FRegistryPayload(conv: Conversation) {
     return {
       turnNumber: turn.turnNumber,
       channel: turnChannel,
+      speakerNpcId: turn.speaker_npc_id ?? null,
+      speakerNpcFactionFilters: turn.speaker_npc_faction_filters ?? [],
+      speakerAllowGenericStalker: turn.speaker_allow_generic_stalker ?? false,
       firstSpeaker: inferTurnFirstSpeaker(turn),
       requiresNpcFirst: turnChannel === 'f2f' ? (turn.requiresNpcFirst ?? true) : null,
       pdaEntry,
@@ -290,13 +293,20 @@ function generateConversation(
     if (turn.preconditions.length > 0) {
       lines.push(emitString(`${prefix}${turnInfix}_branch_precond`, serializePreconditions(turn.preconditions)));
     }
+    if (turn.speaker_npc_id) {
+      lines.push(emitString(`${prefix}${turnInfix}_npc`, turn.speaker_npc_id));
+    }
+    if (turn.speaker_allow_generic_stalker && turn.speaker_npc_faction_filters?.length) {
+      lines.push(emitString(`${prefix}${turnInfix}_npc_factions`, turn.speaker_npc_faction_filters.join(',')));
+      lines.push(emitString(`${prefix}${turnInfix}_npc_allow_generic`, '1'));
+    }
 
     // Opening message export:
     // - Export all non-F2F turns as before.
     // - Export F2F opener only for entry turns (initial NPC-first handoff/start).
     // This prevents authoring/runtime drift where continuation F2F branches carry
     // redundant per-branch opener strings.
-    if (!isNonEntryF2FTurn) {
+      if (!isNonEntryF2FTurn) {
       const openingKey = `${prefix}${turnInfix}_open`;
       let openingText = turn.openingMessage ?? '';
       const shouldAutofillMissingOpen =
@@ -308,6 +318,9 @@ function generateConversation(
         openingText = config.missingOpenPlaceholder;
       }
       lines.push(emitString(openingKey, openingText));
+      if (turn.openingImage) {
+        lines.push(emitString(`${openingKey}_image`, turn.openingImage));
+      }
     }
 
     // Choices
@@ -318,6 +331,9 @@ function generateConversation(
 
       lines.push(emitString(choiceKey, choice.text));
       lines.push(emitString(replyKey, choice.reply));
+      if (choice.replyImage) {
+        lines.push(emitString(`${replyKey}_image`, choice.replyImage));
+      }
       if (choice.preconditions.length > 0) {
         lines.push(emitString(`${prefix}${turnInfix}_choice_precond_${choice.index}`, serializePreconditions(choice.preconditions)));
       }
