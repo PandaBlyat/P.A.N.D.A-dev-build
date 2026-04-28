@@ -1,0 +1,56 @@
+<w>
+
+    <!--
+        P.A.N.D.A. inline emoji atlas.
+
+        Each shortcode :foo: in conversation text resolves to texture id
+        "panda_emoji_foo" (see PANDA_INLINE_EMOJI_TEXTURES in
+        gamedata/scripts/pda_private_tab.script). Source PNGs and the
+        PNG -> DDS conversion workflow live under tools/emoji_source/.
+
+        Sprites are 64x64 RGBA (DXT5). Add new shortcodes here AND in the
+        Lua map AND in tools/editor/src/components/PropertiesPanel.ts to
+        keep editor/runtime catalogs in sync.
+    -->
+
+    <file name="ui\panda_emoji_smile">     <texture id="panda_emoji_smile"      x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_laugh">     <texture id="panda_emoji_laugh"      x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_wink">      <texture id="panda_emoji_wink"       x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_ok">        <texture id="panda_emoji_ok"         x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_sad">       <texture id="panda_emoji_sad"        x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_cry">       <texture id="panda_emoji_cry"        x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_angry">     <texture id="panda_emoji_angry"      x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_fear">      <texture id="panda_emoji_fear"       x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_love">      <texture id="panda_emoji_love"       x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_thumbsup">  <texture id="panda_emoji_thumbsup"   x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_thumbsdown"><texture id="panda_emoji_thumbsdown" x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_clap">      <texture id="panda_emoji_clap"       x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_wave">      <texture id="panda_emoji_wave"       x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_warning">   <texture id="panda_emoji_warning"    x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_exclaim">   <texture id="panda_emoji_exclaim"    x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_question">  <texture id="panda_emoji_question"   x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_radio">     <texture id="panda_emoji_radio"      x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_pda">       <texture id="panda_emoji_pda"        x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_map">       <texture id="panda_emoji_map"        x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_target">    <texture id="panda_emoji_target"     x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_stash">     <texture id="panda_emoji_stash"      x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_key">       <texture id="panda_emoji_key"        x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_money">     <texture id="panda_emoji_money"      x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_artifact">  <texture id="panda_emoji_artifact"   x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_anomaly">   <texture id="panda_emoji_anomaly"    x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_zone">      <texture id="panda_emoji_zone"       x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_rad">       <texture id="panda_emoji_rad"        x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_fire">      <texture id="panda_emoji_fire"       x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_skull">     <texture id="panda_emoji_skull"      x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_mutant">    <texture id="panda_emoji_mutant"     x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_gun">       <texture id="panda_emoji_gun"        x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_knife">     <texture id="panda_emoji_knife"      x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_ammo">      <texture id="panda_emoji_ammo"       x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_helmet">    <texture id="panda_emoji_helmet"     x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_armor">     <texture id="panda_emoji_armor"      x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_medkit">    <texture id="panda_emoji_medkit"     x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_food">      <texture id="panda_emoji_food"       x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_drink">     <texture id="panda_emoji_drink"      x="0" y="0" width="64" height="64" /></file>
+    <file name="ui\panda_emoji_doc">       <texture id="panda_emoji_doc"        x="0" y="0" width="64" height="64" /></file>
+
+</w>
