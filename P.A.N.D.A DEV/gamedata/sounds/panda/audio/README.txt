@@ -23,9 +23,10 @@ Format requirements
 -------------------
 - Container/codec: OGG Vorbis (`.ogg`). The X-Ray engine plays this via
   `sound_object()` in 2D mode.
-- Channels: mono recommended (the player hears the message as 2D UI
-  audio; stereo files work but have no spatial benefit).
-- Sample rate: 22050 Hz or 44100 Hz.
+- Channels: mono (stereo works but gains nothing for 2D UI sounds).
+- Sample rate: **44100 Hz**. 22050 Hz is rejected by the engine with
+  "invalid source rate" in xray_*.log. Encode with `-r 44100` or
+  equivalent.
 - Length: keep short (<10 s). Long clips block the bubble UI flow.
 
 Sample
