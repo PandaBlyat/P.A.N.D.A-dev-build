@@ -32,7 +32,7 @@ const STORY_RECIPE_GROUP_COPY: Record<StoryRecipeGroup, string> = {
   Exchange: 'Trade, payment, item asks, quick rewards.',
   Simple: 'Short flavor beats, warnings, light setup.',
   Handoff: 'Pass player to another NPC or face-to-face.',
-  Setpiece: 'Bigger scripted scenes, betrayal, rescue, custom encounter.',
+  Setpiece: 'Bigger scripted scenes, rescue, custom encounter.',
 };
 
 export function openStoryWizard(): void {
@@ -125,7 +125,7 @@ function renderHeader(): HTMLElement {
   const title = document.createElement('div');
   title.id = 'story-wizard-title';
   title.className = 'story-forge-title';
-  title.append(createIcon('sparkle'), document.createTextNode('Make Story'));
+  title.append(createIcon('sparkle'), document.createTextNode('Create Story'));
 
   const copy = document.createElement('p');
   copy.textContent = 'Fast setup. Add detail after flow exists.';

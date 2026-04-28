@@ -6,7 +6,7 @@ import { createChoice, createConversation, createTurn } from './xml-export';
 export type StoryStartPattern = 'pda' | 'f2f' | 'pda_to_f2f' | 'f2f_to_pda';
 export type StorySpeakerTarget = 'any_friendly' | 'friendly_faction' | 'named_npc' | 'custom_npc';
 export type StoryStructureId = 'one_shot' | 'two_step' | 'three_act' | 'branching' | 'task';
-export type StoryBranchStyle = 'simple' | 'ask_more' | 'negotiation' | 'betrayal' | 'intimidate' | 'bribe' | 'lie' | 'mercy' | 'double_cross';
+export type StoryBranchStyle = 'simple' | 'ask_more' | 'negotiation' | 'intimidate' | 'bribe' | 'lie' | 'mercy' | 'double_cross';
 export type StoryToneId = 'gritty' | 'mystery' | 'military' | 'scientific' | 'black_market' | 'horror' | 'political' | 'personal_debt' | 'treasure_hunt' | 'mutant_threat' | 'anomaly_weirdness';
 export type StoryConsequenceId = 'none' | 'goodwill_gain' | 'goodwill_loss' | 'rep_gain' | 'rep_loss' | 'weather_shift' | 'news_broadcast';
 export type StoryAccessRuleId =
@@ -40,7 +40,6 @@ export type StoryRecipeId =
   | 'artifact_hunt'
   | 'escort_npc'
   | 'rescue'
-  | 'betrayal'
   | 'paid_stash_lead'
   | 'marked_threat'
   | 'ambush_warning'
@@ -178,7 +177,6 @@ export const STORY_BRANCH_OPTIONS: StoryWizardOption[] = [
   { id: 'simple', title: 'Simple', description: 'Accept, ask more, refuse.' },
   { id: 'ask_more', title: 'Ask more', description: 'Extra explanation turn before accepting.' },
   { id: 'negotiation', title: 'Negotiation', description: 'Adds better-pay branch gated by goodwill.' },
-  { id: 'betrayal', title: 'Betrayal', description: 'Adds suspicious path with ambush consequence.' },
   { id: 'intimidate', title: 'Intimidate', description: 'Adds hard-pressure reply with small reputation gate.' },
   { id: 'bribe', title: 'Bribe', description: 'Player can pay to unlock cleaner details or shortcut.' },
   { id: 'lie', title: 'Lie', description: 'Adds deceptive path and info flag for later fallout.' },
@@ -257,7 +255,6 @@ export const STORY_RECIPES: StoryRecipe[] = [
   { id: 'artifact_hunt', title: 'Artifact hunt', description: 'Find specified artifact, no fixed location.', group: 'Task' },
   { id: 'escort_npc', title: 'Escort NPC', description: 'Conversation NPC joins player, destination and fail state included.', group: 'Task' },
   { id: 'rescue', title: 'Rescue survivor', description: 'Clear enemy squad near survivor; optional custom NPC.', group: 'Setpiece' },
-  { id: 'betrayal', title: 'Betrayal setup', description: 'Deal goes wrong and creates ambush consequence.', group: 'Setpiece' },
   { id: 'custom_npc_encounter', title: 'Custom NPC encounter', description: 'Spawns custom NPC at selected smart terrain.', group: 'Setpiece' },
   { id: 'meet_in_person', title: 'Meet in person', description: 'PDA opener turns into face-to-face scene.', group: 'Handoff' },
   { id: 'multi_npc_handoff', title: 'Multi-NPC handoff', description: 'First NPC points player toward another named NPC.', group: 'Handoff' },
@@ -608,15 +605,6 @@ function applyDraftContent(conversation: Conversation, draft: StoryWizardDraft):
     negotiate.terminal = true;
   }
 
-  if (draft.branchStyle === 'betrayal') {
-    const suspicious = ensureChoice(actionTurn, 4);
-    suspicious.text = 'This smells like a trap.';
-    suspicious.reply = 'Then walk into it with eyes open.';
-    suspicious.preconditions = [];
-    suspicious.outcomes = draftBetrayalOutcomesFor(draft);
-    suspicious.terminal = true;
-  }
-
   appendDraftBranchStyleChoice(conversation, actionTurn, draft, getOutcomes);
 
   if (!isDraftTaskRecipe(draft.recipeId) && draft.structureId === 'three_act') {
@@ -710,7 +698,7 @@ function appendDraftBranchStyleChoice(
   draft: StoryWizardDraft,
   getOutcomes: () => Outcome[],
 ): void {
-  if (draft.branchStyle === 'simple' || draft.branchStyle === 'negotiation' || draft.branchStyle === 'betrayal') return;
+  if (draft.branchStyle === 'simple' || draft.branchStyle === 'negotiation') return;
 
   if (draft.branchStyle === 'ask_more') {
     // Ask-more adds a dedicated "press for extra context" beat before the
@@ -851,8 +839,6 @@ function draftBaseOutcomesFor(draft: StoryWizardDraft, successTurn: string, fail
       return [outcome('panda_task_escort', draft.locationId, draft.timeoutSeconds, successTurn, failTurn)];
     case 'rescue':
       return [outcome('panda_task_rescue', draft.enemySquadId, draft.locationId, '1', 'random', draft.timeoutSeconds, successTurn, failTurn)];
-    case 'betrayal':
-      return draftBetrayalOutcomesFor(draft);
     case 'custom_npc_encounter':
       return [outcome('spawn_custom_npc_at', draft.customNpcTemplateId, draft.locationId, '0')];
     case 'meet_in_person':
@@ -909,10 +895,8 @@ function draftConsequenceOutcomesFor(draft: StoryWizardDraft): Outcome[] {
   }
 }
 
-function draftRefusalOutcomesFor(draft: StoryWizardDraft): Outcome[] {
-  return draft.branchStyle === 'betrayal'
-    ? [outcome('punish_gw', '10', draft.faction)]
-    : [];
+function draftRefusalOutcomesFor(_draft: StoryWizardDraft): Outcome[] {
+  return [];
 }
 
 function draftBetrayalOutcomesFor(draft: StoryWizardDraft): Outcome[] {
@@ -1095,10 +1079,8 @@ function draftAcceptReplyFor(draft: StoryWizardDraft): string {
   return 'Then listen carefully.';
 }
 
-function draftRefusalReplyFor(draft: StoryWizardDraft): string {
-  return draft.branchStyle === 'betrayal'
-    ? 'Bad choice. People remember cowardice.'
-    : 'Your funeral, your schedule.';
+function draftRefusalReplyFor(_draft: StoryWizardDraft): string {
+  return 'Your funeral, your schedule.';
 }
 
 function recipeTitle(recipeId: StoryRecipeId): string {

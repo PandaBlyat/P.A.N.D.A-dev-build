@@ -169,6 +169,22 @@ const COMPANION_STATE_OPTIONS: ParamOption[] = COMPANION_STATES.map((s) => ({
   keywords: [s, COMPANION_STATE_DISPLAY_NAMES[s] ?? ''],
 }));
 
+// Spawned-squad relation modes used by spawn_npc_squad*, panda_task_eliminate,
+// and panda_task_rescue. "default" leaves the squad's faction relations alone.
+const SQUAD_STATE_OPTIONS: ParamOption[] = [
+  { value: 'hostile', label: 'Aggressive (hostile to player)', keywords: ['enemy', 'hostile', 'aggressive', 'attack'] },
+  { value: 'neutral', label: 'Neutral', keywords: ['neutral', 'passive', 'ignore'] },
+  { value: 'friendly', label: 'Friendly to player', keywords: ['friend', 'friendly', 'ally'] },
+  { value: 'default', label: 'Default (faction relation)', keywords: ['default', 'faction'] },
+];
+
+// Conversation-NPC relation toward the player for set_npc_state.
+const NPC_RELATION_STATE_OPTIONS: ParamOption[] = [
+  { value: 'hostile', label: 'Aggressive (enemy)', keywords: ['enemy', 'hostile', 'aggressive'] },
+  { value: 'neutral', label: 'Neutral', keywords: ['neutral'] },
+  { value: 'friendly', label: 'Friendly', keywords: ['friend', 'friendly'] },
+];
+
 export const NPC_ANIMATION_PRESET_OPTIONS: ParamOption[] = [
   { value: 'smoke_stand', label: 'Smoke Standing', keywords: ['smoke', 'standing', 'cigarette', 'smoking_stand'] },
   { value: 'smoke_sit', label: 'Smoke Sitting', keywords: ['smoke', 'sitting', 'cigarette', 'smoking_sit'] },
@@ -1552,6 +1568,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
       },
       { name: 'distance', type: 'number', required: true, label: 'Distance (m)', min: 10 },
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '90', min: 0 },
+      { name: 'count', type: 'number', required: false, label: 'Squad Count', placeholder: '1', min: 1, max: 10, helpText: 'Number of copies to spawn.' },
     ],
   },
   {
@@ -1570,6 +1587,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
       },
       { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
+      { name: 'count', type: 'number', required: false, label: 'Squad Count', placeholder: '1', min: 1, max: 10, helpText: 'Number of copies to spawn.' },
     ],
   },
   {
@@ -1580,7 +1598,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     helpText:
       'Use bundled vanilla NPC squad sections when you want normal faction squads to appear near player instead of at a smart terrain. ' +
       'Set spawn distance in meters and optional delay timer before squad appears.',
-    examples: ['spawn_npc_squad:army_sim_squad_novice:50', 'spawn_npc_squad:bandit_sim_squad_advanced:80:15'],
+    examples: ['spawn_npc_squad:army_sim_squad_novice:50', 'spawn_npc_squad:bandit_sim_squad_advanced:80:15:2:hostile'],
     params: [
       {
         name: 'squad_section',
@@ -1592,6 +1610,16 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
       },
       { name: 'distance', type: 'number', required: true, label: 'Distance (m)', min: 10 },
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
+      { name: 'count', type: 'number', required: false, label: 'Squad Count', placeholder: '1', min: 1, max: 10, helpText: 'Number of copies to spawn.' },
+      {
+        name: 'state',
+        type: 'string',
+        required: false,
+        label: 'Spawn State',
+        placeholder: 'default',
+        editor: { kind: 'static_select', options: SQUAD_STATE_OPTIONS, emptyLabel: '-- Faction default --' },
+        helpText: 'Sets relation each spawned squad has toward the player.',
+      },
     ],
   },
   {
@@ -1602,7 +1630,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     helpText:
       'Use bundled vanilla NPC squad sections instead of custom NPC templates when you want to drop regular faction squads onto a smart terrain. ' +
       'Picker is limited to vanilla NPC squads only, so mutants and custom template ids stay out of list.',
-    examples: ['spawn_npc_squad_at_smart:army_sim_squad_novice:esc_smart_terrain_5_7', 'spawn_npc_squad_at_smart:bandit_sim_squad_advanced:gar_smart_terrain_1_7:10'],
+    examples: ['spawn_npc_squad_at_smart:army_sim_squad_novice:esc_smart_terrain_5_7', 'spawn_npc_squad_at_smart:bandit_sim_squad_advanced:gar_smart_terrain_1_7:10:3:hostile'],
     params: [
       {
         name: 'squad_section',
@@ -1614,6 +1642,16 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
       },
       { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
+      { name: 'count', type: 'number', required: false, label: 'Squad Count', placeholder: '1', min: 1, max: 10, helpText: 'Number of copies to spawn.' },
+      {
+        name: 'state',
+        type: 'string',
+        required: false,
+        label: 'Spawn State',
+        placeholder: 'default',
+        editor: { kind: 'static_select', options: SQUAD_STATE_OPTIONS, emptyLabel: '-- Faction default --' },
+        helpText: 'Sets relation each spawned squad has toward the player.',
+      },
     ],
   },
 
@@ -1945,6 +1983,23 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     params: [],
   },
   {
+    name: 'set_npc_state',
+    label: 'Set NPC State',
+    description: 'Set the conversation NPC relation toward the player',
+    category: 'NPC',
+    helpText: 'Unified replacement for Set NPC Hostile/Friendly/Neutral. Use to make the story NPC the player is talking to aggressive, neutral, or friendly.',
+    examples: ['set_npc_state:hostile', 'set_npc_state:neutral', 'set_npc_state:friendly'],
+    params: [
+      {
+        name: 'state',
+        type: 'string',
+        required: true,
+        label: 'NPC State',
+        editor: { kind: 'static_select', options: NPC_RELATION_STATE_OPTIONS, emptyLabel: '-- Select state --' },
+      },
+    ],
+  },
+  {
     name: 'make_npc_invulnerable',
     label: 'Make NPC Invulnerable',
     description: 'Make the conversation NPC immune to damage for a duration',
@@ -2175,10 +2230,10 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     label: 'Task: Elimination',
     description: 'Spawn enemies at location; player must eliminate all',
     category: 'Tasks',
-    helpText: 'Spawns a specific NPC or mutant squad at the smart terrain and marks it on the PDA map. The player must kill all spawned enemies. Works like pause_job but with automatic spawning and map marker setup.',
+    helpText: 'Spawns one or more copies of the chosen squad at the smart terrain when the player approaches. Squad relation is configurable. The PDA task system places its own destination marker, so authors no longer need a separate watch-location.',
     examples: [
       'panda_task_eliminate:bandit:st_gar_smart_terrain_3_5_name:100:900:3:4',
-      'panda_task_eliminate:snork:st_yan_smart_terrain_6_4_name:80:600:3:4',
+      'panda_task_eliminate:snork:st_yan_smart_terrain_6_4_name:80:600:3:4:2:hostile',
     ],
     params: [
       {
@@ -2194,6 +2249,16 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
       { name: 'timeout', type: 'number', required: true, label: 'Timeout (s)', min: 30 },
       { name: 'success_turn', type: 'number', required: true, label: 'Success Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
       { name: 'fail_turn', type: 'number', required: true, label: 'Fail Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
+      { name: 'squad_count', type: 'number', required: false, label: 'Squad Count', placeholder: '1', min: 1, max: 10, helpText: 'How many copies of the squad to spawn at the location.' },
+      {
+        name: 'state',
+        type: 'string',
+        required: false,
+        label: 'Spawn State',
+        placeholder: 'hostile',
+        editor: { kind: 'static_select', options: SQUAD_STATE_OPTIONS, emptyLabel: '-- Aggressive (default) --' },
+        helpText: 'Relation each spawned squad has toward the player. Defaults to aggressive.',
+      },
     ],
   },
   {
@@ -2201,16 +2266,25 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     label: 'Task: Rescue Survivor',
     description: 'Spawn hostile squads and keep survivor alive',
     category: 'Tasks',
-    helpText: 'Spawns hostile squad(s) at the location and tracks them like a vanilla hostage job. Leave Survivor Template empty or random for generated survivor, or pick a custom NPC template.',
-    examples: ['panda_task_rescue:bandit_sim_squad_novice:st_gar_smart_terrain_3_5_name:2:random:900:3:4'],
+    helpText: 'Survivor spawns immediately as a stationary hostage (invulnerable, ignores combat) at the smart terrain. Enemy squads spawn only when the player enters the smart terrain watch radius. Leave Survivor Template empty or random for generated survivor, or pick a custom NPC template.',
+    examples: ['panda_task_rescue:bandit_sim_squad_novice:st_gar_smart_terrain_3_5_name:2:random:900:3:4:hostile'],
     params: [
       { name: 'enemy_squad', type: 'string', required: true, label: 'Enemy Squad', editor: SQUAD_PICKER_PANEL_EDITOR },
       { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Rescue Location', editor: SMART_TERRAIN_EDITOR },
-      { name: 'squad_count', type: 'number', required: false, label: 'Enemy Squad Count', placeholder: '1', min: 1, max: 6 },
+      { name: 'squad_count', type: 'number', required: false, label: 'Enemy Squad Count', placeholder: '1', min: 1, max: 10 },
       { name: 'survivor_template', type: 'string', required: false, label: 'Survivor Template', placeholder: 'random', editor: { kind: 'custom_npc_builder' } },
       { name: 'timeout', type: 'number', required: true, label: 'Timeout (s)', min: 30 },
       { name: 'success_turn', type: 'number', required: true, label: 'Success Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
       { name: 'fail_turn', type: 'number', required: true, label: 'Fail Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
+      {
+        name: 'state',
+        type: 'string',
+        required: false,
+        label: 'Enemy State',
+        placeholder: 'hostile',
+        editor: { kind: 'static_select', options: SQUAD_STATE_OPTIONS, emptyLabel: '-- Aggressive (default) --' },
+        helpText: 'Relation each spawned enemy squad has toward the player. Defaults to aggressive.',
+      },
     ],
   },
 
