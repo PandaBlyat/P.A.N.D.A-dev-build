@@ -778,10 +778,11 @@ local function remove_map_spot_for_id(obj_id, spot_type)
 end
 
 
-local function register_location_reference(location_ref, sender_npc_name, sender_npc_id, radius, sender_contact_id)
+local function register_location_reference(location_ref, sender_npc_name, sender_npc_id, radius, sender_contact_id, opts)
     local smart, smart_name = resolve_smart_from_reference(location_ref)
     local watch_id = next_location_ref_id
     next_location_ref_id = next_location_ref_id + 1
+    local skip_map_spot = type(opts) == "table" and opts.skip_map_spot == true
 
     local entry = {
         id = watch_id,
@@ -792,6 +793,7 @@ local function register_location_reference(location_ref, sender_npc_name, sender
         sender_contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id)),
         radius = radius,
         trigger_cmds = {},
+        skip_map_spot = skip_map_spot,
     }
 
     pending_location_refs[watch_id] = entry
@@ -800,8 +802,10 @@ local function register_location_reference(location_ref, sender_npc_name, sender
         printf("PANDA_IC: location reference queued but smart not yet resolved: %s", tostring(location_ref))
     end
 
-    -- Add a PDA map marker on the smart terrain so the player can find it
-    if smart then
+    -- Add a PDA map marker on the smart terrain so the player can find it.
+    -- Skip when the caller already creates a task-system marker (eliminate/rescue
+    -- tasks) — otherwise the smart terrain shows two stacked spots.
+    if smart and not skip_map_spot then
         local display_name = get_location_display_name(location_ref)
         local marker_hint = utils_data.parse_string_keys(
             game.translate_string("st_pda_ic_location_marker_hint"),
@@ -907,7 +911,7 @@ function check_location_references()
         local smart_pos = get_position_from_object(smart)
         if smart and smart_pos then
             -- If the smart was resolved late, place the PDA marker now
-            if not entry.map_spot_id then
+            if not entry.map_spot_id and not entry.skip_map_spot then
                 local display_name = get_location_display_name(entry.location_ref)
                 local marker_hint = utils_data.parse_string_keys(
                     game.translate_string("st_pda_ic_location_marker_hint"),
@@ -5339,40 +5343,60 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             end
 
         elseif cmd == "spawn_mutant" then
+            -- spawn_mutant:<mutant>:<distance>:<delay>[:<count>]
             local distance = tonumber(parts[3])
             local delay = tonumber(parts[4]) or 90
-            spawn_hunting_squad(parts[2] or "random", distance, true, delay)
+            local count = math.max(1, tonumber(parts[5]) or 1)
+            for _ = 1, count do
+                spawn_hunting_squad(parts[2] or "random", distance, true, delay)
+            end
 
         elseif cmd == "spawn_npc_squad" then
+            -- spawn_npc_squad:<squad>:<distance>:<delay>[:<count>][:<state>]
             local squad_section = parts[2]
             local distance = tonumber(parts[3])
             local delay = tonumber(parts[4]) or 0
+            local count = math.max(1, tonumber(parts[5]) or 1)
+            local state = parts[6]
+            if state == nil or state == "" then state = "default" end
             if not squad_section or squad_section == "" then
                 printf("PANDA_IC: spawn_npc_squad missing squad section in '%s'", tostring(cmd_str))
             else
-                spawn_npc_squad_near_player(squad_section, distance, delay)
+                for _ = 1, count do
+                    spawn_npc_squad_near_player(squad_section, distance, delay, state)
+                end
             end
 
         elseif cmd == "spawn_mutant_at_smart" then
+            -- spawn_mutant_at_smart:<mutant>:<smart>:<delay>[:<count>]
             local mutant_type = parts[2] or "random"
             local smart_ref = parts[3]
             local delay = tonumber(parts[4]) or 0
+            local count = math.max(1, tonumber(parts[5]) or 1)
             if smart_ref and smart_ref ~= "" then
-                spawn_squad_at_smart_terrain(mutant_type, smart_ref, true, delay, sender_contact_id)
+                for _ = 1, count do
+                    spawn_squad_at_smart_terrain(mutant_type, smart_ref, true, delay, sender_contact_id)
+                end
             else
                 printf("PANDA_IC: spawn_mutant_at_smart missing smart reference in '%s'", tostring(cmd_str))
             end
 
         elseif cmd == "spawn_npc_squad_at_smart" then
+            -- spawn_npc_squad_at_smart:<squad>:<smart>:<delay>[:<count>][:<state>]
             local squad_section = parts[2]
             local smart_ref = parts[3]
             local delay = tonumber(parts[4]) or 0
+            local count = math.max(1, tonumber(parts[5]) or 1)
+            local state = parts[6]
+            if state == nil or state == "" then state = "default" end
             if not squad_section or squad_section == "" then
                 printf("PANDA_IC: spawn_npc_squad_at_smart missing squad section in '%s'", tostring(cmd_str))
             elseif not smart_ref or smart_ref == "" then
                 printf("PANDA_IC: spawn_npc_squad_at_smart missing smart reference in '%s'", tostring(cmd_str))
             else
-                spawn_squad_at_smart_terrain(squad_section, smart_ref, false, delay, sender_contact_id)
+                for _ = 1, count do
+                    spawn_squad_at_smart_terrain(squad_section, smart_ref, false, delay, sender_contact_id, state)
+                end
             end
 
         elseif cmd == "reward_rep" then
@@ -5412,6 +5436,8 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             local target_type = parts[2]
             local smart_ref = parts[3]
             local task_slot_id = parts[4]
+            local relation_mode = parts[5]
+            if relation_mode == nil or relation_mode == "" then relation_mode = "hostile" end
             if not target_type or not smart_ref or not task_slot_id then
                 printf("PANDA_IC: _panda_eliminate_spawn_internal malformed in '%s'", tostring(cmd_str))
             else
@@ -5437,7 +5463,7 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                         collector_start = 0
                     end
 
-                    spawn_squad_at_smart_terrain(target_type, smart_ref, is_mutant, 0, sender_contact_id, "hostile")
+                    spawn_squad_at_smart_terrain(target_type, smart_ref, is_mutant, 0, sender_contact_id, relation_mode)
 
                     local spawned_squad_ids = {}
                     if _job_spawn_collector then
@@ -5684,6 +5710,42 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                         game.translate_string("st_pda_ic_outcome_npc_friendly"),
                         sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc"
                     )
+                end
+            end
+        elseif cmd == "set_npc_state" then
+            -- Unified replacement for set_npc_hostile/friendly/neutral.
+            -- Syntax: set_npc_state:<state>     state = hostile|friendly|neutral
+            local state = (parts[2] or "neutral"):lower()
+            if sender_npc_id then
+                local npc_obj = level.object_by_id(sender_npc_id)
+                if npc_obj then
+                    if state == "hostile" or state == "enemy" or state == "aggressive" then
+                        npc_obj:set_relation(game_object.enemy, db.actor)
+                        npc_obj:force_set_goodwill(-5000, db.actor)
+                        dynamic_news_helper.send_tip(
+                            game.translate_string("st_pda_ic_outcome_npc_hostile"),
+                            sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "danger", "npc"
+                        )
+                    elseif state == "friendly" or state == "friend" then
+                        npc_obj:set_relation(game_object.friend, db.actor)
+                        npc_obj:force_set_goodwill(5000, db.actor)
+                        dynamic_news_helper.send_tip(
+                            game.translate_string("st_pda_ic_outcome_npc_friendly"),
+                            sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc"
+                        )
+                    else
+                        npc_obj:set_relation(game_object.neutral, db.actor)
+                        npc_obj:force_set_goodwill(0, db.actor)
+                        local notify_key = "st_pda_ic_outcome_npc_neutral"
+                        local notify = game.translate_string(notify_key)
+                        if notify == notify_key then
+                            notify = "NPC is now neutral."
+                        end
+                        dynamic_news_helper.send_tip(
+                            notify,
+                            sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc"
+                        )
+                    end
                 end
             end
         elseif cmd == "kill_npc" then
@@ -6166,10 +6228,12 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             end
 
         -- Rescue: keep survivor alive while hostile squads are cleared.
-        -- Survivor spawns immediately at the smart terrain (kneeling, stationary).
-        -- Hostiles spawn ON ARRIVAL when the player enters the watch radius, so they
-        -- don't wander off across the map before the player ever shows up.
-        -- Syntax: panda_task_rescue:<enemy_squad>:<smart_terrain>:<squad_count>:<survivor_template|random>:<timeout>:<success_turn>:<fail_turn>
+        -- Survivor spawns immediately at the smart terrain (kneeling, hostage,
+        -- invulnerable, ignores combat). Hostiles spawn ON ARRIVAL when the player
+        -- enters the watch radius — they don't wander off and they don't kill the
+        -- hostage while the player heads over.
+        -- Syntax: panda_task_rescue:<enemy_squad>:<smart_terrain>:<squad_count>:<survivor_template|random>:<timeout>:<success_turn>:<fail_turn>[:<state>]
+        --   state (optional, default "hostile") sets enemy squad relation: hostile|friendly|neutral|default.
         elseif cmd == "panda_task_rescue" then
             local enemy_squad = parts[2]
             local smart_ref = parts[3]
@@ -6198,12 +6262,16 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             s_turn = tonumber(parts[param_index + 1])
             f_turn = tonumber(parts[param_index + 2])
 
+            local enemy_state = parts[param_index + 3]
+            if enemy_state == nil or enemy_state == "" then enemy_state = "hostile" end
+
             if not enemy_squad or not smart_ref or not s_turn then
                 printf("PANDA_IC: panda_task_rescue missing params in '%s'", tostring(cmd_str))
             else
                 -- Spawn the survivor IMMEDIATELY so they're at the location when the
                 -- player arrives (matches vanilla rescue setpiece pacing).
                 local survivor_id = nil
+                local survivor_squad_obj = nil
                 local survivor_label = game.translate_string("st_panda_task_rescue_survivor")
                 if survivor_template and survivor_template ~= "" and survivor_template ~= "random" and panda_npc_creator and panda_npc_creator.spawn_custom_npc then
                     panda_npc_creator.spawn_custom_npc(survivor_template, { smart_ref = smart_ref, conv_data = conv_data })
@@ -6222,7 +6290,7 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                             local sp, sl, sg = find_spawn_point_near_smart(2, 4, spos, slvid, sgvid)
                             local survivor_squad = create_squad_safely(sec, sp or spos, sl or slvid, sg or sgvid)
                             if survivor_squad and survivor_squad.clsid and survivor_squad:clsid() == clsid.online_offline_group_s then
-                                apply_spawned_faction_relation(survivor_squad, "friendly")
+                                survivor_squad_obj = survivor_squad
                                 -- Pin the survivor squad to the smart terrain so they
                                 -- don't wander while the player heads over.
                                 survivor_squad.scripted_target = tostring(smart.id)
@@ -6237,8 +6305,16 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                     end
                 end
 
-                -- Mimic vanilla rescue: put survivor in kneeling/hostage animation
+                -- Vanilla-style hostage: keep them out of combat with the captors.
+                -- Friendly relation made the captors and survivor enemies of each
+                -- other and they fought instead of holding. Apply hostage state
+                -- (neutral, invulnerable, ignores combat) so they sit in prisoner
+                -- pose until the player clears the area.
+                if survivor_squad_obj then
+                    apply_spawned_faction_relation(survivor_squad_obj, "hostage")
+                end
                 apply_rescue_survivor_animation(survivor_id)
+                mark_npc_as_hostage(survivor_id, smart_ref)
 
                 local destination_map_id, destination_label = get_smart_task_target(smart_ref)
                 local bridge = ensure_panda_task_bridge()
@@ -6271,8 +6347,12 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                         -- Defer hostile spawn until the player enters the smart terrain
                         -- watch radius. Mirrors panda_task_eliminate. The internal trigger
                         -- spawns one squad per registered command, so we register `squad_count`
-                        -- copies.
-                        local ref = register_location_reference(smart_ref, sender_npc_name, sender_npc_id, spawn_radius, sender_contact_id)
+                        -- copies. skip_map_spot=true so the rescue task's destination
+                        -- marker isn't duplicated by a primary_object spot.
+                        local ref = register_location_reference(
+                            smart_ref, sender_npc_name, sender_npc_id, spawn_radius, sender_contact_id,
+                            { skip_map_spot = true }
+                        )
                         if ref then
                             for _ = 1, squad_count do
                                 table.insert(ref.trigger_cmds, table.concat({
@@ -6280,6 +6360,7 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                                     tostring(enemy_squad),
                                     tostring(smart_ref),
                                     tostring(slot_id),
+                                    tostring(enemy_state),
                                 }, ":"))
                             end
                         end
@@ -6379,9 +6460,12 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             end
 
         -- Elimination: spawn enemies at location WHEN player approaches, player clears them
-        -- Syntax: panda_task_eliminate:<target_type>:<smart_terrain>:<radius>:<timeout>:<success_turn>:<fail_turn>
+        -- Syntax: panda_task_eliminate:<target_type>:<smart_terrain>:<radius>:<timeout>:<success_turn>:<fail_turn>[:<squad_count>][:<state>]
+        -- squad_count (optional, default 1) controls how many copies of the squad spawn.
+        -- state (optional, default "hostile") sets relation: hostile|friendly|neutral|default.
         -- Squad spawn is deferred until the player enters the marker radius around the smart
-        -- terrain. The PDA task and map marker are created up-front.
+        -- terrain. The PDA task creates its own map marker via the task system, so the
+        -- watch zone skips its duplicate spot.
         elseif cmd == "panda_task_eliminate" then
             local target_type = parts[2]
             local smart_ref = parts[3]
@@ -6389,6 +6473,9 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             local timeout = tonumber(parts[5]) or 900
             local s_turn = tonumber(parts[6])
             local f_turn = tonumber(parts[7])
+            local squad_count = math.max(1, tonumber(parts[8]) or 1)
+            local spawn_state = parts[9]
+            if spawn_state == nil or spawn_state == "" then spawn_state = "hostile" end
             if not target_type or not smart_ref or not s_turn then
                 printf("PANDA_IC: panda_task_eliminate missing params in '%s'", tostring(cmd_str))
             else
@@ -6418,14 +6505,22 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                         push_task_start_message("st_pda_ic_task_eliminate_start")
 
                         -- Register a watch zone that fires the deferred squad spawn.
-                        local ref = register_location_reference(smart_ref, sender_npc_name, sender_npc_id, spawn_radius, sender_contact_id)
+                        -- skip_map_spot=true so the task system's destination marker isn't
+                        -- duplicated by a second primary_object spot at the same smart.
+                        local ref = register_location_reference(
+                            smart_ref, sender_npc_name, sender_npc_id, spawn_radius, sender_contact_id,
+                            { skip_map_spot = true }
+                        )
                         if ref then
-                            table.insert(ref.trigger_cmds, table.concat({
-                                "_panda_eliminate_spawn_internal",
-                                tostring(target_type),
-                                tostring(smart_ref),
-                                tostring(slot_id),
-                            }, ":"))
+                            for _ = 1, squad_count do
+                                table.insert(ref.trigger_cmds, table.concat({
+                                    "_panda_eliminate_spawn_internal",
+                                    tostring(target_type),
+                                    tostring(smart_ref),
+                                    tostring(slot_id),
+                                    tostring(spawn_state),
+                                }, ":"))
+                            end
                         end
                     end
                 end
@@ -6671,6 +6766,28 @@ apply_spawned_faction_relation = function(obj, relation_mode)
         obj:set_squad_relation("enemy")
     elseif relation_mode == "friendly" then
         obj:set_squad_relation("friend")
+    elseif relation_mode == "neutral" then
+        obj:set_squad_relation("neutral")
+    elseif relation_mode == "hostage" then
+        -- Hostage squads stay neutral so the captor faction does not engage them.
+        -- We disable combat AI per-member below so they don't shoot back either.
+        if obj.set_squad_relation then
+            local ok = pcall(obj.set_squad_relation, obj, "neutral")
+            if not ok then
+                pcall(obj.set_squad_relation, obj, "friend")
+            end
+        end
+        for k in obj:squad_members() do
+            local o = level.object_by_id(k.id)
+            if o then
+                pcall(function() o:set_relation(game_object.neutral, db.actor) end)
+                pcall(function() o:force_set_goodwill(0, db.actor) end)
+                pcall(function() o:invulnerable(true) end)
+                pcall(function() o:give_info_portion("npcx_beh_ignore_combat") end)
+                pcall(function() o:give_info_portion("npcx_beh_ignore_actor_enemies") end)
+            end
+        end
+        return
     else
         return
     end
@@ -6685,6 +6802,49 @@ apply_spawned_faction_relation = function(obj, relation_mode)
             o:force_set_goodwill(goodwill, db.actor)
         end
     end
+end
+
+-- Hook the NPC into vanilla's hostage table so combat AI and task systems
+-- treat them as a captive — the engine refuses to spawn assault tasks on
+-- hostage NPCs, and other faction members keep their distance.
+function mark_npc_as_hostage(npc_id, smart_ref)
+    if not npc_id then
+        return
+    end
+
+    local function try_mark()
+        if not db.actor then
+            return true
+        end
+        local smart = resolve_smart_from_reference(smart_ref)
+        local smart_id = smart and smart.id or nil
+        if axr_task_manager and axr_task_manager.hostages_by_id then
+            axr_task_manager.hostages_by_id[npc_id] = smart_id or true
+        end
+        local obj = level.object_by_id(npc_id)
+        if obj then
+            pcall(function() obj:invulnerable(true) end)
+            pcall(function() obj:give_info_portion("npcx_beh_ignore_combat") end)
+            pcall(function() obj:give_info_portion("npcx_beh_ignore_actor_enemies") end)
+            return true
+        end
+        return false
+    end
+
+    if try_mark() then
+        return
+    end
+
+    local key = "rescue_hostage_" .. tostring(npc_id) .. "_" .. tostring(math.random(100000))
+    track_panda_ic_event("pda_ic_spawn", key)
+    local attempts = 0
+    CreateTimeEvent("pda_ic_spawn", key, 1, function()
+        attempts = attempts + 1
+        if try_mark() or attempts >= 10 then
+            return true
+        end
+        return false
+    end)
 end
 
 -- Force survivor NPC into kneeling/hostage idle, matching vanilla rescue tasks.

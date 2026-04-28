@@ -30,8 +30,8 @@ type FirstRunCta = {
 
 const FIRST_RUN_CTAS: FirstRunCta[] = [
   {
-    title: 'Make New Story',
-    description: 'Choose start, speaker, and recipe. Editor creates safe first draft.',
+    title: 'Create New Story',
+    description: 'Pick start, speaker, and recipe. Editor builds a safe first draft.',
     icon: 'add',
     tone: 'blank',
     actionLabel: 'Open Story Builder',
@@ -39,7 +39,7 @@ const FIRST_RUN_CTAS: FirstRunCta[] = [
   },
   {
     title: 'Sample Pack',
-    description: 'Load a ready-made story set to inspect structure, pacing, and branching patterns in the editor.',
+    description: 'Load ready-made stories to study structure, pacing, and branching.',
     icon: 'open',
     tone: 'sample',
     actionLabel: 'Open Sample Pack',
@@ -47,17 +47,17 @@ const FIRST_RUN_CTAS: FirstRunCta[] = [
   },
   {
     title: 'Import XML',
-    description: 'Bring existing story files aboard and convert them into an editable mission board immediately.',
+    description: 'Open existing story XML and edit it as a flow.',
     icon: 'import',
     tone: 'import',
-    actionLabel: 'Import Transmission',
+    actionLabel: 'Import XML',
     onClick: () => importFromXml(),
   },
 ];
 
 /*
- * The intro is structured in narrative "phases", each containing lines
- * delivered in the typewriter, punctuated by dramatic pauses.
+ * Short single-phase intro. One line, no chapters, no galactic asides — just
+ * tells the author what this editor does so they can pick a starting CTA.
  */
 
 type NarratorPhase = {
@@ -69,43 +69,15 @@ type NarratorPhase = {
 const NARRATOR_PHASES: NarratorPhase[] = [
   {
     lines: [
-      'It is an important and popular fact that things are not always what they seem.',
-      'For instance, on the planet Earth, a video game called S.T.A.L.K.E.R. Anomaly was long considered merely a game, when in fact, it was something more altogether.',
-      'And for the longest time NPC-Player dialogues have been mostly task driven, or just general flavour dialogues.',
+      'PANDA turns S.T.A.L.K.E.R. Anomaly NPC dialogue into branching stories with preconditions, choices, and outcomes.',
+      'This editor builds, validates, and exports them. Pick a path below to start.',
     ],
-    holdAfter: 1200,
-    shellClass: 'phase-opening',
-  },
-  {
-    lines: [
-      'This was, by any reasonable standard, a catastrophe.',
-      'An entire A-life system at our dysposal for new non-combat gameplay opportunities wasted. Entire factions with the conversational range of a damp teabag.',
-      'Modders tried to fix this, naturally. By diving into XML string tables by hand and keeping track of multiple files at once.',
-      'Most went quietly mad. Some were never heard from again.',
-    ],
-    holdAfter: 1400,
-    shellClass: 'phase-problem',
-  },
-  {
-    lines: [
-      'Well..no more! Panda is here.',
-      'PANDA mod takes advantage of A-life systems into a framework we can use for full branching stories. And this editor makes the process far easier. (hopefully)',
-    ],
-    holdAfter: 1200,
+    holdAfter: 400,
     shellClass: 'phase-solution',
-  },
-  {
-    lines: [
-      'Now. If you are reading this, it means you are precisely the sort of wonderfully improbable person who wants to make the Zone a more talkative/immersive place.',
-      'This puts you in extremely exclusive company. Galactically speaking, you are indeed one of the good ones and my favorite (dont tell the others).',
-      'So take a moment. Breathe... take your time and REMEMBER, above all else, the two most important words in the english language.......',
-    ],
-    holdAfter: 2000,
-    shellClass: 'phase-invite',
   },
 ];
 
-const PHASE_LABELS = ['Chapter I — Genesis', 'Chapter II — The Problem', 'Chapter III — The Solution', 'Chapter IV — You'];
+const PHASE_LABELS = ['Welcome'];
 
 const NARRATOR_PHASE_START_DELAY_MS = 60;
 const NARRATOR_CHARACTERS_PER_TICK = 1;
@@ -160,15 +132,15 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   const subtitle = document.createElement('p');
   subtitle.className = 'first-run-subtitle hidden';
-  subtitle.textContent = 'The P.A.N.D.A. Story Editor';
+  subtitle.textContent = 'P.A.N.D.A. Story Editor';
 
   const title = document.createElement('h2');
   title.className = 'first-run-title hidden';
-  title.innerHTML = `<span class="dont-word">DON'T</span> <span class="panic-word">PANIC</span>`;
+  title.textContent = 'Welcome';
 
   const tagline = document.createElement('p');
   tagline.className = 'first-run-tagline hidden';
-  tagline.textContent = 'The most improbably useful dialogue editor this side of the Horsehead Nebula. *NOW WITH DATABASE SUPPORT!';
+  tagline.textContent = 'Branching dialogue and tasks for S.T.A.L.K.E.R. Anomaly.';
 
   brandCopy.append(subtitle, title, tagline);
   brandPanel.append(brandEmblem, brandCopy);
@@ -178,15 +150,15 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   const missionEyebrow = document.createElement('p');
   missionEyebrow.className = 'first-run-panel-eyebrow';
-  missionEyebrow.textContent = 'Mission briefing';
+  missionEyebrow.textContent = 'How it works';
 
   const intro = document.createElement('p');
   intro.className = 'first-run-intro hidden';
-  intro.textContent = 'Map branching stories. Wire preconditions. Tune replies. Validate logic. Export game-ready XML. All without fumbling through string tables by hand — which, as anyone who has tried it will tell you, is only marginally more fun than being hit over the head with a slice of lemon wrapped around a large gold brick.';
+  intro.textContent = 'Build branching stories with preconditions, replies, choices, and outcomes. Validate the flow, then export game-ready XML.';
 
   const subcopy = document.createElement('p');
   subcopy.className = 'first-run-subcopy hidden';
-  subcopy.textContent = 'Start with guided story builder, inspect sample, or import existing XML.';
+  subcopy.textContent = 'Start with the guided builder, open a sample pack, or import existing XML.';
 
   missionPanel.append(missionEyebrow, intro, subcopy);
 
@@ -195,11 +167,11 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   const ctaLabel = document.createElement('p');
   ctaLabel.className = 'first-run-cta-label';
-  ctaLabel.textContent = 'Choose your insertion point';
+  ctaLabel.textContent = 'Pick a starting point';
 
   const ctaDescription = document.createElement('p');
   ctaDescription.className = 'first-run-cta-description';
-  ctaDescription.textContent = 'Ready to build? Start fresh, dissect an example, or uplink an existing XML payload.';
+  ctaDescription.textContent = 'Start fresh, study a sample pack, or import existing XML.';
 
   ctas.append(ctaLabel, ctaDescription);
   FIRST_RUN_CTAS.forEach(card => {
@@ -221,11 +193,11 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   const checklistTitle = document.createElement('div');
   checklistTitle.className = 'first-run-checklist-title';
-  checklistTitle.textContent = 'Zone uplink checklist';
+  checklistTitle.textContent = 'What you will do';
 
   const checklistLead = document.createElement('p');
   checklistLead.className = 'first-run-checklist-lead';
-  checklistLead.textContent = 'Everything you need to go from first contact to export-ready branching dialogue, laid out as a final systems pass.';
+  checklistLead.textContent = 'The full path from blank canvas to export-ready XML.';
 
   checklistBand.append(checklistTitle, checklistLead);
   checklistWrap.appendChild(checklistBand);
@@ -454,7 +426,7 @@ export function createOnboardingNudge(options: OnboardingCardOptions): HTMLEleme
 
   const blankBtn = document.createElement('button');
   blankBtn.className = 'btn btn-sm btn-primary';
-  setButtonContent(blankBtn, 'add', 'Make Story');
+  setButtonContent(blankBtn, 'add', 'Create Story');
   blankBtn.onclick = () => openStoryWizard();
 
   const sampleBtn = document.createElement('button');

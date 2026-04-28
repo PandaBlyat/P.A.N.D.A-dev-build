@@ -1144,6 +1144,25 @@ local function evaluate_status(task, task_id)
     return
 end
 
+local function release_rescue_hostage(record)
+    if not record or record.family ~= "rescue" then
+        return
+    end
+    local npc_id = tonumber(record.target_npc_id)
+    if not npc_id then
+        return
+    end
+    if axr_task_manager and axr_task_manager.hostages_by_id then
+        axr_task_manager.hostages_by_id[npc_id] = nil
+    end
+    local npc_obj = level and level.object_by_id and level.object_by_id(npc_id) or nil
+    if npc_obj then
+        pcall(function() npc_obj:invulnerable(false) end)
+        pcall(function() npc_obj:disable_info_portion("npcx_beh_ignore_combat") end)
+        pcall(function() npc_obj:disable_info_portion("npcx_beh_ignore_actor_enemies") end)
+    end
+end
+
 local function apply_success_side_effects(record)
     if not record then
         return
@@ -1163,6 +1182,7 @@ local function apply_success_side_effects(record)
         cleanup_escort_companion(record)
     elseif record.family == "eliminate" or record.family == "rescue" then
         cleanup_red_spots(record)
+        release_rescue_hostage(record)
     end
 end
 
@@ -1175,6 +1195,7 @@ local function apply_failure_side_effects(record)
         cleanup_escort_companion(record)
     elseif record.family == "eliminate" or record.family == "rescue" then
         cleanup_red_spots(record)
+        release_rescue_hostage(record)
     end
 end
 
