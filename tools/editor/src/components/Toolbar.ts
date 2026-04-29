@@ -37,12 +37,20 @@ type ToolbarRenderOptions = {
 };
 
 type OverflowAction = {
+  kind?: 'button';
   icon: IconName;
   label: string;
   title?: string;
   onclick: () => void;
   disabled?: boolean;
 };
+
+type OverflowCustomAction = {
+  kind: 'custom';
+  render: () => HTMLElement;
+};
+
+type OverflowMenuAction = OverflowAction | OverflowCustomAction;
 
 const GRAPHICS_QUALITY_OPTIONS: FlowGraphicsQuality[] = ['low', 'medium', 'high'];
 
@@ -168,13 +176,10 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
       : 'Hide far offscreen branches for faster large graphs',
     onclick: () => store.toggleFlowOcclusion(),
   };
-  const graphicsActions: OverflowAction[] = GRAPHICS_QUALITY_OPTIONS.map((quality) => ({
-    icon: 'eye',
-    label: `Graphics: ${graphicsQualityLabel(quality)}`,
-    title: `Use ${graphicsQualityLabel(quality)} editor graphics quality`,
-    onclick: () => store.setFlowGraphicsQuality(quality),
-    disabled: state.flowGraphicsQuality === quality,
-  }));
+  const graphicsQualityAction: OverflowCustomAction = {
+    kind: 'custom',
+    render: () => createGraphicsQualityPicker(state.flowGraphicsQuality),
+  };
 
   if (!isCompact) {
     const leftZone = document.createElement('div');
@@ -220,7 +225,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
 
     rightZone.appendChild(createOverflowMenu('More', [
       occlusionToggleAction,
-      ...graphicsActions,
+      graphicsQualityAction,
       tooltipToggleAction,
       { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
       { icon: 'trophy', label: 'Leaders', title: leadersBtn.title, onclick: () => openLeaderboardOverlay(null) },
@@ -275,10 +280,10 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   }
 
   if (isCompact) {
-    const projectOverflowActions: OverflowAction[] = [];
+    const projectOverflowActions: OverflowMenuAction[] = [];
     projectOverflowActions.push(
       occlusionToggleAction,
-      ...graphicsActions,
+      graphicsQualityAction,
       tooltipToggleAction,
       { icon: 'import', label: 'Import XML', title: importBtn.title, onclick: importFromXml },
       { icon: 'share', label: 'Community', title: communityBtn.title, onclick: openSharePanel },
@@ -340,7 +345,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   utilityTier.appendChild(supportBtn);
   utilityTier.appendChild(createOverflowMenu('More', [
     occlusionToggleAction,
-    ...graphicsActions,
+    graphicsQualityAction,
     tooltipToggleAction,
     { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
     { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
@@ -501,7 +506,34 @@ function buildSearchResults(query: string): SearchResult[] {
   return results;
 }
 
-function createOverflowMenu(label: string, actions: OverflowAction[]): HTMLElement {
+function createGraphicsQualityPicker(currentQuality: FlowGraphicsQuality): HTMLElement {
+  const row = document.createElement('label');
+  row.className = 'toolbar-overflow-select-row';
+
+  const text = document.createElement('span');
+  text.className = 'toolbar-overflow-select-label';
+  text.textContent = 'Graphics';
+
+  const select = document.createElement('select');
+  select.className = 'toolbar-overflow-select';
+  select.title = 'Editor graphics quality';
+  select.setAttribute('aria-label', 'Editor graphics quality');
+  for (const quality of GRAPHICS_QUALITY_OPTIONS) {
+    const option = document.createElement('option');
+    option.value = quality;
+    option.textContent = graphicsQualityLabel(quality);
+    option.selected = quality === currentQuality;
+    select.appendChild(option);
+  }
+  select.onchange = () => {
+    store.setFlowGraphicsQuality(select.value as FlowGraphicsQuality);
+  };
+
+  row.append(text, select);
+  return row;
+}
+
+function createOverflowMenu(label: string, actions: OverflowMenuAction[]): HTMLElement {
   const details = document.createElement('details');
   details.className = 'toolbar-overflow';
 
@@ -517,6 +549,11 @@ function createOverflowMenu(label: string, actions: OverflowAction[]): HTMLEleme
   menu.className = 'toolbar-overflow-menu';
 
   for (const action of actions) {
+    if (action.kind === 'custom') {
+      menu.appendChild(action.render());
+      continue;
+    }
+
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'toolbar-overflow-item';

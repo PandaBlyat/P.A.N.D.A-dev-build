@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Root App Component
 
-import { store, type BottomWorkspaceTab, type AppState, type ConversationSourceMetadata, type FlowDensity, type RenderTarget, type StateChange } from '../lib/state';
+import { store, type BottomWorkspaceTab, type AppState, type ConversationSourceMetadata, type FlowDensity, type FlowGraphicsQuality, type RenderTarget, type StateChange } from '../lib/state';
 import { renderToolbar as renderToolbarContent } from './Toolbar';
 import {
   centerConversationSelection,
@@ -34,6 +34,7 @@ const PANEL_MAX_WIDTH = 520;
 const PANEL_COLLAPSED_WIDTH = 52;
 const TABLET_BREAKPOINT = 1180;
 const MOBILE_BREAKPOINT = 760;
+const GRAPHICS_QUALITY_OPTIONS: FlowGraphicsQuality[] = ['low', 'medium', 'high'];
 
 type ResponsiveLayoutMode = 'desktop' | 'tablet' | 'mobile';
 type DrawerSide = 'left' | 'right' | null;
@@ -907,15 +908,44 @@ function renderMobileMoreActions(body: HTMLElement): void {
     createMobileSheetAction('support', 'Support', () => { closeMobileSheet(); openSupportPanel(); }),
     createMobileSheetAction('help', 'Help', () => { closeMobileSheet(); openHelpModal(); }),
     createMobileSheetAction('eye', `Occlusion: ${state.flowOcclusionEnabled ? 'On' : 'Off'}`, () => store.toggleFlowOcclusion()),
-    createMobileSheetAction('eye', `Graphics: Low${state.flowGraphicsQuality === 'low' ? ' (active)' : ''}`, () => store.setFlowGraphicsQuality('low'), state.flowGraphicsQuality === 'low'),
-    createMobileSheetAction('eye', `Graphics: Med${state.flowGraphicsQuality === 'medium' ? ' (active)' : ''}`, () => store.setFlowGraphicsQuality('medium'), state.flowGraphicsQuality === 'medium'),
-    createMobileSheetAction('eye', `Graphics: High${state.flowGraphicsQuality === 'high' ? ' (active)' : ''}`, () => store.setFlowGraphicsQuality('high'), state.flowGraphicsQuality === 'high'),
+    createMobileGraphicsQualityPicker(state.flowGraphicsQuality),
     createMobileSheetAction('eye', state.advancedMode ? 'Advanced On' : 'Advanced mode', () => store.toggleAdvancedMode()),
     createMobileSheetAction('locate', `Density: ${state.flowDensity}`, () => store.setFlowDensity(nextDensity(state.flowDensity))),
     createMobileSheetAction('brand', 'Reset Intro', resetIntro),
   );
 
   body.appendChild(actions);
+}
+
+function createMobileGraphicsQualityPicker(currentQuality: FlowGraphicsQuality): HTMLElement {
+  const row = document.createElement('label');
+  row.className = 'mobile-sheet-select-row';
+
+  const label = document.createElement('span');
+  label.textContent = 'Graphics';
+
+  const select = document.createElement('select');
+  select.className = 'mobile-sheet-select';
+  select.setAttribute('aria-label', 'Editor graphics quality');
+  for (const quality of GRAPHICS_QUALITY_OPTIONS) {
+    const option = document.createElement('option');
+    option.value = quality;
+    option.textContent = graphicsQualityLabel(quality);
+    option.selected = quality === currentQuality;
+    select.appendChild(option);
+  }
+  select.onchange = () => {
+    store.setFlowGraphicsQuality(select.value as FlowGraphicsQuality);
+  };
+
+  row.append(label, select);
+  return row;
+}
+
+function graphicsQualityLabel(quality: FlowGraphicsQuality): string {
+  if (quality === 'low') return 'Low';
+  if (quality === 'medium') return 'Med';
+  return 'High';
 }
 
 function createMobileSheetAction(

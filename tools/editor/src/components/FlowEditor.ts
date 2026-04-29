@@ -569,7 +569,7 @@ export function renderFlowEditor(container: HTMLElement): void {
 
   const segmentStartTurns = collectBranchSegmentStartTurns(conv);
   for (const turn of conv.turns) {
-    const node = renderTurnNode({
+    const nodeOptions: RenderTurnNodeOptions = {
       conv,
       turn,
       selected: state.selectedTurnNumber === turn.turnNumber,
@@ -600,7 +600,8 @@ export function renderFlowEditor(container: HTMLElement): void {
         dispatchCursorState(canvas, 'dragging', active);
         setInteractionActive(active);
       },
-    });
+    };
+    const node = renderTurnNode(nodeOptions);
     nodeElements.set(turn.turnNumber, node);
     content.appendChild(node);
 
@@ -819,6 +820,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   let lastAppliedPanY: number | null = null;
   let lastAppliedZoom: number | null = null;
   let lastDepthBlur: boolean | null = null;
+  let lastLowDetail: boolean | null = null;
   let lastViewportSyncAt = 0;
 
   const applyView = (): void => {
@@ -829,6 +831,9 @@ export function renderFlowEditor(container: HTMLElement): void {
     const snapX = Math.round(viewState.panX * dpr) / dpr;
     const snapY = Math.round(viewState.panY * dpr) / dpr;
     const depthBlur = !mobilePerformanceMode && !lowGraphicsMode && viewState.zoom <= DEPTH_OF_FIELD_ZOOM_THRESHOLD;
+    const lowDetail = lowGraphicsMode
+      ? viewState.zoom <= 0.82
+      : graphicsQuality === 'medium' && graphSize !== 'normal' && viewState.zoom <= 0.54;
     if (lastAppliedPanX !== snapX || lastAppliedPanY !== snapY) {
       content.style.transform = `translate3d(${snapX}px, ${snapY}px, 0)`;
       lastAppliedPanX = snapX;
@@ -843,10 +848,14 @@ export function renderFlowEditor(container: HTMLElement): void {
       canvas.classList.toggle('is-depth-blur', depthBlur);
       lastDepthBlur = depthBlur;
     }
+    if (lastLowDetail !== lowDetail) {
+      canvas.classList.toggle('is-low-detail', lowDetail);
+      lastLowDetail = lowDetail;
+    }
     viewStateByConversation.set(conversationId, { ...viewState });
     const now = performance.now();
     const interacting = shell.classList.contains('is-interacting');
-    const syncInterval = mobilePerformanceMode ? 120 : 80;
+    const syncInterval = lowGraphicsMode || graphSize === 'huge' ? 160 : mobilePerformanceMode ? 120 : 80;
     if (!interacting || now - lastViewportSyncAt >= syncInterval) {
       lastViewportSyncAt = now;
       syncViewportVisibility({
@@ -1827,7 +1836,7 @@ function getChoiceBranchColor(
   return getTurnBranchColor(conv, preferredTarget.turnNumber, factionColor) ?? parentBranchColor;
 }
 
-function renderTurnNode(options: {
+type RenderTurnNodeOptions = {
   conv: Conversation;
   turn: Turn;
   selected: boolean;
@@ -1844,7 +1853,209 @@ function renderTurnNode(options: {
   onFocusTurn: (turnNumber: number) => void;
   onKeyboardShortcut: (turnNumber: number, key: 'add-turn' | 'add-choice' | 'duplicate-turn' | 'copy-turn' | 'paste-turn' | 'connect-branch' | 'disconnect-branch') => void;
   onDragStateChange: (active: boolean) => void;
-}): HTMLElement {
+};
+
+function renderLiteTurnNode(options: RenderTurnNodeOptions): HTMLElement {
+  const {
+    conv,
+    turn,
+    selected,
+    segmentStartTurns,
+    edges,
+    density,
+    viewState,
+    turnLabels,
+    onPreviewPosition,
+    onChoicePortDragStart,
+    onCreateConnectedTurn,
+    onFocusTurn,
+    onKeyboardShortcut,
+    onDragStateChange,
+  } = options;
+  const state = store.get();
+  const hasWarning = turn.choices.some(c => !c.text && !c.reply);
+  const isPathActive = edges.some(edge => edge.highlight === 'active' && (edge.sourceTurnNumber === turn.turnNumber || edge.targetTurnNumber === turn.turnNumber));
+  const turnIndex = conv.turns.indexOf(turn);
+  const factionColor = FACTION_COLORS[getConversationFaction(conv, state.project.faction)];
+  const branchColor = getBranchColor(turn, turnIndex, factionColor);
+  const label = turnLabels.getLongLabel(turn.turnNumber);
+  const nodeWidth = Math.max(170, Math.min(260, getFlowNodeWidthForLabel(label, density) + 18));
+  const showOpener = segmentStartTurns.has(turn.turnNumber);
+
+  const node = document.createElement('div');
+  node.className = 'turn-node turn-node-lite'
+    + (selected ? ' selected' : '')
+    + (hasWarning ? ' has-warning' : '')
+    + (isPathActive ? ' path-active' : '')
+    + (turn.turnNumber === 1 ? ' is-starter-turn' : '');
+  node.dataset.turnNumber = String(turn.turnNumber);
+  node.tabIndex = 0;
+  node.setAttribute('role', 'button');
+  node.setAttribute('aria-label', buildTurnAriaLabel(turn, turnLabels, showOpener));
+  node.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  node.style.left = `${turn.position.x}px`;
+  node.style.top = `${turn.position.y}px`;
+  node.style.width = `${selected ? Math.max(nodeWidth, 220) : nodeWidth}px`;
+  node.style.setProperty('--branch-color', branchColor);
+  node.style.setProperty('--branch-glow', branchColor + '22');
+  node.style.setProperty('--starter-branch-color', factionColor);
+  node.style.setProperty('--starter-branch-glow', `${factionColor}22`);
+
+  node.onclick = (event) => {
+    event.stopPropagation();
+    const currentState = store.get();
+    if (currentState.selectedTurnNumber === turn.turnNumber && currentState.selectedChoiceIndex == null) {
+      closeBranchAuthorPopup();
+      store.clearSelection();
+      return;
+    }
+    store.selectTurn(turn.turnNumber);
+  };
+  node.onkeydown = (event) => {
+    if (event.target !== node) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      store.selectTurn(turn.turnNumber);
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeBranchAuthorPopup();
+      store.clearSelection();
+      return;
+    }
+    if (event.key === 'Backspace' || event.key === 'Delete') {
+      event.preventDefault();
+      if (turn.turnNumber > 1) store.deleteTurn(conv.id, turn.turnNumber);
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
+      const shortcut = event.key.toLowerCase();
+      if (shortcut === 'd' || shortcut === 'c' || shortcut === 'v') {
+        event.preventDefault();
+        onKeyboardShortcut(turn.turnNumber, shortcut === 'd' ? 'duplicate-turn' : shortcut === 'c' ? 'copy-turn' : 'paste-turn');
+        return;
+      }
+    }
+    if (event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      const shortcut = event.key.toLowerCase();
+      const action = shortcut === 't' ? 'add-turn'
+        : shortcut === 'c' ? 'add-choice'
+          : shortcut === 'l' ? 'connect-branch'
+            : shortcut === 'd' ? 'disconnect-branch'
+              : null;
+      if (action) {
+        event.preventDefault();
+        onKeyboardShortcut(turn.turnNumber, action);
+        return;
+      }
+    }
+    const direction = getArrowDirection(event.key);
+    if (!direction) return;
+    const nextTurn = findNearestTurn(conv.turns, turn.turnNumber, direction);
+    if (!nextTurn) return;
+    event.preventDefault();
+    onFocusTurn(nextTurn.turnNumber);
+  };
+
+  let dragPosition: { x: number; y: number } | null = null;
+  node.onpointerdown = (event) => {
+    if (event.button !== 0 || event.pointerType === 'touch' && !event.isPrimary) return;
+    const target = event.target as HTMLElement;
+    if (target.closest('.choice-output-port, .turn-input-port, button, input, select, textarea')) return;
+
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const origX = turn.position.x;
+    const origY = turn.position.y;
+    const pointerId = event.pointerId;
+    event.preventDefault();
+    event.stopPropagation();
+    node.setPointerCapture(pointerId);
+
+    const onMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      onDragStateChange(true);
+      const nextPosition = {
+        x: Math.max(0, origX + (moveEvent.clientX - startX) / viewState.zoom),
+        y: Math.max(0, origY + (moveEvent.clientY - startY) / viewState.zoom),
+      };
+      dragPosition = nextPosition;
+      node.style.left = `${nextPosition.x}px`;
+      node.style.top = `${nextPosition.y}px`;
+      node.classList.add('is-dragging-node');
+      onPreviewPosition(new Map([[turn.turnNumber, nextPosition]]), new Set([turn.turnNumber]), true);
+    };
+    const onUp = () => {
+      node.removeEventListener('pointermove', onMove);
+      node.removeEventListener('pointerup', onUp);
+      node.removeEventListener('pointercancel', onUp);
+      if (node.hasPointerCapture(pointerId)) node.releasePointerCapture(pointerId);
+      onDragStateChange(false);
+      onPreviewPosition();
+      node.classList.remove('is-dragging-node');
+      if (!dragPosition) return;
+      store.updateTurnPosition(conv.id, turn.turnNumber, dragPosition);
+      dragPosition = null;
+    };
+    node.addEventListener('pointermove', onMove);
+    node.addEventListener('pointerup', onUp);
+    node.addEventListener('pointercancel', onUp);
+  };
+
+  const inputPort = document.createElement('button');
+  inputPort.type = 'button';
+  inputPort.className = 'turn-input-port turn-lite-input-port';
+  inputPort.title = `Incoming connections for ${label}`;
+  inputPort.setAttribute('aria-label', `Incoming connections for ${label}`);
+  inputPort.style.background = branchColor;
+  inputPort.onclick = (event) => {
+    event.stopPropagation();
+    store.selectTurn(turn.turnNumber);
+  };
+  node.appendChild(inputPort);
+
+  const header = document.createElement('div');
+  header.className = 'turn-header turn-lite-header';
+  const labelSpan = document.createElement('span');
+  labelSpan.className = 'turn-label';
+  labelSpan.textContent = label;
+  const stats = document.createElement('span');
+  stats.className = 'turn-lite-meta';
+  stats.textContent = `${turn.choices.length}C`;
+  header.append(labelSpan, stats);
+  node.appendChild(header);
+
+  const portCount = Math.max(1, turn.choices.length);
+  for (const [visualIndex, choice] of turn.choices.entries()) {
+    const choiceBranchColor = getChoiceBranchColor(conv, choice, branchColor, factionColor);
+    const port = document.createElement('button');
+    port.type = 'button';
+    port.className = 'choice-output-port turn-lite-output-port';
+    port.dataset.choicePort = String(choice.index);
+    port.title = `Choice ${choice.index} connector`;
+    port.setAttribute('aria-label', `Connection handle for choice ${choice.index}`);
+    port.style.top = `${Math.round(((visualIndex + 1) / (portCount + 1)) * 100)}%`;
+    const dot = document.createElement('span');
+    dot.className = 'choice-output-port-dot';
+    dot.style.background = choiceBranchColor;
+    port.appendChild(dot);
+    port.onpointerdown = (event) => {
+      if (event.button !== 0) return;
+      onChoicePortDragStart(choice.index, event);
+    };
+    port.ondblclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onCreateConnectedTurn(choice.index);
+    };
+    node.appendChild(port);
+  }
+
+  return node;
+}
+
+function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
   const {
     conv,
     turn,

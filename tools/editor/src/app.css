@@ -3888,6 +3888,222 @@ body.use-custom-cursor * {
   opacity: 0.85;
 }
 
+/* Graphics/perf overrides. Final enforcement repeats at EOF after responsive rules. */
+.toolbar-overflow-select-row,
+.mobile-sheet-select-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text);
+}
+
+.toolbar-overflow-select-row {
+  min-height: 34px;
+  padding: 5px 6px 5px 10px;
+}
+
+.toolbar-overflow-select-label,
+.mobile-sheet-select-row > span {
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.toolbar-overflow-select,
+.mobile-sheet-select {
+  min-width: 86px;
+  min-height: 28px;
+  border: 1px solid var(--border-light);
+  border-radius: 5px;
+  background: var(--bg-dark);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mobile-sheet-select-row {
+  min-height: 48px;
+  padding: 8px 10px 8px 12px;
+}
+
+.mobile-sheet-select {
+  min-height: 34px;
+}
+
+.flow-shell.graphics-low,
+.flow-shell.graphics-low * {
+  animation: none !important;
+  transition: none !important;
+  text-shadow: none !important;
+}
+
+.flow-shell.graphics-low .flow-canvas,
+.flow-shell.graphics-low .flow-content,
+.flow-shell.graphics-low .turn-node,
+.flow-shell.graphics-low .flow-edge,
+.flow-shell.graphics-low .flow-edge-path {
+  filter: none !important;
+}
+
+.flow-shell.graphics-low .flow-canvas::before,
+.flow-shell.graphics-low .flow-canvas.is-depth-blur::before {
+  opacity: 0.36 !important;
+  filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.flow-shell.graphics-low .flow-edge-packet,
+.flow-shell.graphics-low .flow-edge-preview-packet,
+.flow-shell.graphics-low .flow-edge-label,
+.flow-shell.graphics-low .flow-depth-vignette,
+.flow-shell.graphics-low .flow-canvas.is-low-detail .branch-opener-card,
+.flow-shell.graphics-low .flow-canvas.is-low-detail .turn-body,
+.flow-shell.graphics-low .flow-canvas.is-low-detail .turn-actions,
+.flow-shell.graphics-low .flow-canvas.is-low-detail .turn-color-input,
+.flow-shell.graphics-low .flow-canvas.is-low-detail .flow-edge-bend-handle {
+  display: none !important;
+}
+
+.flow-shell.graphics-low .turn-node,
+.flow-shell.graphics-low .turn-node:hover,
+.flow-shell.graphics-low .turn-node.selected,
+.flow-shell.graphics-low .turn-node.has-inline-panel,
+.flow-shell.graphics-low .turn-node.path-active,
+.flow-shell.graphics-low .turn-node.connection-target-active,
+.flow-shell.graphics-low .turn-node.is-dragging-node {
+  min-height: 54px !important;
+  contain: layout paint style !important;
+  transform: none !important;
+  box-shadow: none !important;
+  border-color: color-mix(in srgb, var(--branch-color, var(--accent)) 34%, var(--node-border) 66%) !important;
+  background: rgba(17, 21, 26, 0.94) !important;
+}
+
+.flow-shell.graphics-low .turn-node.selected,
+.flow-shell.graphics-low .turn-node.connection-target-active {
+  border-color: var(--branch-color, var(--accent)) !important;
+  box-shadow: 0 0 0 1px var(--branch-color, var(--accent)) !important;
+}
+
+.flow-shell.graphics-low .turn-node::before {
+  width: 3px !important;
+  inset: 8px auto 8px 0 !important;
+  box-shadow: none !important;
+}
+
+.flow-shell.graphics-low .turn-node-lite {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 8px 10px 8px 14px !important;
+}
+
+.flow-shell.graphics-low .turn-lite-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 8px;
+  padding: 0;
+}
+
+.flow-shell.graphics-low .turn-lite-header .turn-label {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: none !important;
+}
+
+.flow-shell.graphics-low .turn-lite-meta {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.flow-shell.graphics-low .turn-lite-input-port {
+  top: 50% !important;
+  left: -7px !important;
+  width: 12px !important;
+  height: 12px !important;
+  min-width: 12px !important;
+  min-height: 12px !important;
+  transform: translateY(-50%) !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+}
+
+.flow-shell.graphics-low .turn-lite-output-port {
+  position: absolute !important;
+  right: -10px !important;
+  width: 20px !important;
+  height: 18px !important;
+  min-width: 20px !important;
+  min-height: 18px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: translateY(-50%) !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.flow-shell.graphics-low .turn-lite-output-port .choice-output-port-dot {
+  width: 10px !important;
+  height: 10px !important;
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.flow-shell.graphics-low .flow-edge-path,
+.flow-shell.graphics-low .flow-edge-path:hover,
+.flow-shell.graphics-low .flow-edge-path.is-active {
+  stroke-width: 2 !important;
+  filter: none !important;
+}
+
+.flow-shell.graphics-medium.is-large-graph .flow-edge-packet:not(.flow-edge-preview-packet),
+.flow-shell.graphics-medium.is-huge-graph .flow-edge-packet:not(.flow-edge-preview-packet),
+.flow-shell.graphics-medium.is-large-graph .flow-edge-bend-handle,
+.flow-shell.graphics-medium.is-huge-graph .flow-edge-bend-handle {
+  display: none !important;
+}
+
+.flow-shell.graphics-medium .flow-canvas.is-low-detail .branch-opener-card,
+.flow-shell.graphics-medium .flow-canvas.is-low-detail .turn-body,
+.flow-shell.graphics-medium .flow-canvas.is-low-detail .turn-actions,
+.flow-shell.graphics-medium .flow-canvas.is-low-detail .turn-color-input,
+.flow-shell.graphics-medium .flow-canvas.is-low-detail .flow-edge-label {
+  display: none !important;
+}
+
+.flow-shell.graphics-medium .flow-canvas.is-low-detail .turn-node,
+.flow-shell.graphics-medium .flow-canvas.is-low-detail .turn-node:hover,
+.flow-shell.graphics-medium .flow-canvas.is-low-detail .turn-node.selected {
+  min-height: 58px !important;
+  transform: none !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.graphics-low .toolbar-button,
+.graphics-low .toolbar-overflow-menu,
+.graphics-low .mobile-sheet,
+.graphics-low .flow-controls {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
 .flow-edge-bend-handle {
   fill: color-mix(in srgb, var(--flow-edge-color, var(--accent)) 84%, white 16%);
   stroke: rgba(5, 8, 12, 0.9);
@@ -23462,4 +23678,172 @@ button.pa-avatar:focus-visible {
     padding-top: 10px;
     padding-bottom: 10px;
   }
+}
+
+/* EOF graphics/perf enforcement after density and mobile overrides. */
+.flow-shell.graphics-low,
+.flow-shell.graphics-low * {
+  animation: none !important;
+  transition: none !important;
+  text-shadow: none !important;
+}
+
+.flow-shell.graphics-low .flow-canvas,
+.flow-shell.graphics-low .flow-content,
+.flow-shell.graphics-low .turn-node,
+.flow-shell.graphics-low .flow-edge,
+.flow-shell.graphics-low .flow-edge-path {
+  filter: none !important;
+}
+
+.flow-shell.graphics-low .flow-canvas::before,
+.flow-shell.graphics-low .flow-canvas.is-depth-blur::before {
+  opacity: 0.36 !important;
+  filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.flow-shell.graphics-low .flow-edge-packet,
+.flow-shell.graphics-low .flow-edge-preview-packet,
+.flow-shell.graphics-low .flow-edge-label,
+.flow-shell.graphics-low .flow-depth-vignette,
+.flow-shell.graphics-low .flow-canvas.is-low-detail .branch-opener-card,
+.flow-shell.graphics-low .flow-canvas.is-low-detail .turn-body,
+.flow-shell.graphics-low .flow-canvas.is-low-detail .turn-actions,
+.flow-shell.graphics-low .flow-canvas.is-low-detail .turn-color-input,
+.flow-shell.graphics-low .flow-canvas.is-low-detail .flow-edge-bend-handle {
+  display: none !important;
+}
+
+.flow-shell.graphics-low .turn-node,
+.flow-shell.graphics-low .turn-node:hover,
+.flow-shell.graphics-low .turn-node.selected,
+.flow-shell.graphics-low .turn-node.has-inline-panel,
+.flow-shell.graphics-low .turn-node.path-active,
+.flow-shell.graphics-low .turn-node.connection-target-active,
+.flow-shell.graphics-low .turn-node.is-dragging-node {
+  min-height: 54px !important;
+  contain: layout paint style !important;
+  transform: none !important;
+  box-shadow: none !important;
+  border-color: color-mix(in srgb, var(--branch-color, var(--accent)) 34%, var(--node-border) 66%) !important;
+  background: rgba(17, 21, 26, 0.94) !important;
+}
+
+.flow-shell.graphics-low .turn-node.selected,
+.flow-shell.graphics-low .turn-node.connection-target-active {
+  border-color: var(--branch-color, var(--accent)) !important;
+  box-shadow: 0 0 0 1px var(--branch-color, var(--accent)) !important;
+}
+
+.flow-shell.graphics-low .turn-node::before {
+  width: 3px !important;
+  inset: 8px auto 8px 0 !important;
+  box-shadow: none !important;
+}
+
+.flow-shell.graphics-low .turn-node-lite {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 8px 10px 8px 14px !important;
+}
+
+.flow-shell.graphics-low .turn-lite-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 8px;
+  padding: 0;
+}
+
+.flow-shell.graphics-low .turn-lite-header .turn-label {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: none !important;
+}
+
+.flow-shell.graphics-low .turn-lite-meta {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.flow-shell.graphics-low .turn-lite-input-port {
+  top: 50% !important;
+  left: -7px !important;
+  width: 12px !important;
+  height: 12px !important;
+  min-width: 12px !important;
+  min-height: 12px !important;
+  transform: translateY(-50%) !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+}
+
+.flow-shell.graphics-low .turn-lite-output-port {
+  position: absolute !important;
+  right: -10px !important;
+  width: 20px !important;
+  height: 18px !important;
+  min-width: 20px !important;
+  min-height: 18px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: translateY(-50%) !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.flow-shell.graphics-low .turn-lite-output-port .choice-output-port-dot {
+  width: 10px !important;
+  height: 10px !important;
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.flow-shell.graphics-low .flow-edge-path,
+.flow-shell.graphics-low .flow-edge-path:hover,
+.flow-shell.graphics-low .flow-edge-path.is-active {
+  stroke-width: 2 !important;
+  filter: none !important;
+}
+
+.flow-shell.graphics-medium.is-large-graph .flow-edge-packet:not(.flow-edge-preview-packet),
+.flow-shell.graphics-medium.is-huge-graph .flow-edge-packet:not(.flow-edge-preview-packet),
+.flow-shell.graphics-medium.is-large-graph .flow-edge-bend-handle,
+.flow-shell.graphics-medium.is-huge-graph .flow-edge-bend-handle {
+  display: none !important;
+}
+
+.flow-shell.graphics-medium .flow-canvas.is-low-detail .branch-opener-card,
+.flow-shell.graphics-medium .flow-canvas.is-low-detail .turn-body,
+.flow-shell.graphics-medium .flow-canvas.is-low-detail .turn-actions,
+.flow-shell.graphics-medium .flow-canvas.is-low-detail .turn-color-input,
+.flow-shell.graphics-medium .flow-canvas.is-low-detail .flow-edge-label {
+  display: none !important;
+}
+
+.flow-shell.graphics-medium .flow-canvas.is-low-detail .turn-node,
+.flow-shell.graphics-medium .flow-canvas.is-low-detail .turn-node:hover,
+.flow-shell.graphics-medium .flow-canvas.is-low-detail .turn-node.selected {
+  min-height: 58px !important;
+  transform: none !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.graphics-low .toolbar-button,
+.graphics-low .toolbar-overflow-menu,
+.graphics-low .mobile-sheet,
+.graphics-low .flow-controls {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: var(--shadow-sm) !important;
 }
