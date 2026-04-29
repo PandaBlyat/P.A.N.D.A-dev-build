@@ -1,7 +1,7 @@
 // P.A.N.D.A. Conversation Editor — Toolbar
 
 import { requestFlowCenter } from '../lib/flow-navigation';
-import { store } from '../lib/state';
+import { store, type FlowGraphicsQuality } from '../lib/state';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { exportProjectJson, exportXml, importFromXml, importFromJson } from '../lib/project-io';
 import { openSharePanel } from './SharePanel';
@@ -43,6 +43,14 @@ type OverflowAction = {
   onclick: () => void;
   disabled?: boolean;
 };
+
+const GRAPHICS_QUALITY_OPTIONS: FlowGraphicsQuality[] = ['low', 'medium', 'high'];
+
+function graphicsQualityLabel(quality: FlowGraphicsQuality): string {
+  if (quality === 'low') return 'Low';
+  if (quality === 'medium') return 'Med';
+  return 'High';
+}
 
 function getLoginAction(): (() => void) | null {
   const candidate = (globalThis as typeof globalThis & { __pandaOpenLoginModal?: unknown }).__pandaOpenLoginModal;
@@ -160,6 +168,13 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
       : 'Hide far offscreen branches for faster large graphs',
     onclick: () => store.toggleFlowOcclusion(),
   };
+  const graphicsActions: OverflowAction[] = GRAPHICS_QUALITY_OPTIONS.map((quality) => ({
+    icon: 'eye',
+    label: `Graphics: ${graphicsQualityLabel(quality)}`,
+    title: `Use ${graphicsQualityLabel(quality)} editor graphics quality`,
+    onclick: () => store.setFlowGraphicsQuality(quality),
+    disabled: state.flowGraphicsQuality === quality,
+  }));
 
   if (!isCompact) {
     const leftZone = document.createElement('div');
@@ -205,6 +220,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
 
     rightZone.appendChild(createOverflowMenu('More', [
       occlusionToggleAction,
+      ...graphicsActions,
       tooltipToggleAction,
       { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
       { icon: 'trophy', label: 'Leaders', title: leadersBtn.title, onclick: () => openLeaderboardOverlay(null) },
@@ -262,6 +278,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     const projectOverflowActions: OverflowAction[] = [];
     projectOverflowActions.push(
       occlusionToggleAction,
+      ...graphicsActions,
       tooltipToggleAction,
       { icon: 'import', label: 'Import XML', title: importBtn.title, onclick: importFromXml },
       { icon: 'share', label: 'Community', title: communityBtn.title, onclick: openSharePanel },
@@ -323,6 +340,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   utilityTier.appendChild(supportBtn);
   utilityTier.appendChild(createOverflowMenu('More', [
     occlusionToggleAction,
+    ...graphicsActions,
     tooltipToggleAction,
     { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
     { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },

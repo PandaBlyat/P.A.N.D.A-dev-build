@@ -18,6 +18,7 @@ import {
 
 export type PropertiesTab = 'conversation' | 'selection';
 export type FlowDensity = 'compact' | 'standard' | 'detailed';
+export type FlowGraphicsQuality = 'low' | 'medium' | 'high';
 export type BottomWorkspaceTab = 'strings' | 'xml';
 export type CursorAnimationIntensity = 'low' | 'medium' | 'high';
 export type BranchInlinePanelMode = 'dialogue' | 'preconditions' | 'outcomes' | 'continuation';
@@ -33,6 +34,7 @@ export interface BranchInlinePanelState {
 const CURSOR_PREFS_KEY = 'panda:cursor-prefs:v1';
 const ADVANCED_MODE_KEY = 'panda:advanced-mode:v1';
 const FLOW_OCCLUSION_KEY = 'panda:flow-occlusion:v1';
+const FLOW_GRAPHICS_QUALITY_KEY = 'panda:flow-graphics-quality:v1';
 
 type CursorPrefs = {
   enabled: boolean;
@@ -80,6 +82,21 @@ function persistFlowOcclusionEnabled(enabled: boolean): void {
   window.localStorage.setItem(FLOW_OCCLUSION_KEY, String(enabled));
 }
 
+function isFlowGraphicsQuality(value: unknown): value is FlowGraphicsQuality {
+  return value === 'low' || value === 'medium' || value === 'high';
+}
+
+function loadFlowGraphicsQuality(): FlowGraphicsQuality {
+  if (typeof window === 'undefined') return 'medium';
+  const raw = window.localStorage.getItem(FLOW_GRAPHICS_QUALITY_KEY);
+  return isFlowGraphicsQuality(raw) ? raw : 'medium';
+}
+
+function persistFlowGraphicsQuality(quality: FlowGraphicsQuality): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(FLOW_GRAPHICS_QUALITY_KEY, quality);
+}
+
 export interface AppState {
   project: Project;
   systemStrings: Map<string, string>;
@@ -97,6 +114,7 @@ export interface AppState {
   branchInlinePanel: BranchInlinePanelState | null;
   flowDensity: FlowDensity;
   flowOcclusionEnabled: boolean;
+  flowGraphicsQuality: FlowGraphicsQuality;
   customCursorEnabled: boolean;
   cursorAnimationIntensity: CursorAnimationIntensity;
   cursorSize: number;
@@ -398,6 +416,7 @@ class StateManager {
       branchInlinePanel: null,
       flowDensity: 'standard',
       flowOcclusionEnabled: loadFlowOcclusionEnabled(),
+      flowGraphicsQuality: loadFlowGraphicsQuality(),
       customCursorEnabled: cursorPrefs.enabled,
       cursorAnimationIntensity: cursorPrefs.animationIntensity,
       cursorSize: cursorPrefs.size,
@@ -1601,6 +1620,13 @@ class StateManager {
 
   toggleFlowOcclusion(): void {
     this.setFlowOcclusionEnabled(!this.state.flowOcclusionEnabled);
+  }
+
+  setFlowGraphicsQuality(quality: FlowGraphicsQuality): void {
+    if (!isFlowGraphicsQuality(quality) || this.state.flowGraphicsQuality === quality) return;
+    this.state.flowGraphicsQuality = quality;
+    persistFlowGraphicsQuality(quality);
+    this.notify(createFlowChange('structure', 'toolbar', 'flowEditor'));
   }
 
   setCustomCursorEnabled(enabled: boolean): void {

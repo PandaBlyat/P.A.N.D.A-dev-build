@@ -4105,6 +4105,83 @@ body.use-custom-cursor * {
   opacity: 0.08;
 }
 
+.flow-shell.graphics-low .flow-canvas::before {
+  background: rgba(8, 12, 16, 0.42);
+  filter: none !important;
+}
+
+.flow-shell.graphics-low .flow-edge-packet,
+.flow-shell.graphics-low .flow-edge-preview-packet {
+  display: none !important;
+}
+
+.flow-shell.graphics-low .flow-edge-path,
+.flow-shell.graphics-low .flow-edge-label,
+.flow-shell.graphics-low .turn-node,
+.flow-shell.graphics-low .turn-node::before,
+.flow-shell.graphics-low .turn-choice-item,
+.flow-shell.graphics-low .turn-input-port,
+.flow-shell.graphics-low .choice-output-port-dot,
+.flow-shell.graphics-low .flow-controls,
+.flow-shell.graphics-low .btn-sm {
+  animation: none !important;
+  filter: none !important;
+  text-shadow: none !important;
+  transition-duration: 1ms !important;
+}
+
+.flow-shell.graphics-low .turn-node,
+.flow-shell.graphics-low .turn-node:hover,
+.flow-shell.graphics-low .turn-node.selected,
+.flow-shell.graphics-low .turn-node.has-inline-panel,
+.flow-shell.graphics-low .turn-node.path-active,
+.flow-shell.graphics-low .turn-node.connection-target-active,
+.flow-shell.graphics-low .turn-node.is-dragging-node {
+  box-shadow: var(--shadow-sm) !important;
+  transform: none !important;
+}
+
+.flow-shell.graphics-low .turn-node.selected,
+.flow-shell.graphics-low .turn-node.has-inline-panel {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--branch-color) 34%, transparent), var(--shadow-sm) !important;
+}
+
+.flow-shell.graphics-low .turn-node::before,
+.flow-shell.graphics-low .turn-input-port,
+.flow-shell.graphics-low .choice-output-port-dot {
+  box-shadow: none !important;
+}
+
+.flow-shell.graphics-low .flow-edge-path.edge-preview,
+.flow-shell.graphics-low .flow-edge-path.edge-preview-invalid {
+  animation: none !important;
+  filter: none !important;
+}
+
+.flow-shell.graphics-low .flow-canvas.is-depth-blur::before {
+  filter: none !important;
+}
+
+.flow-shell.graphics-medium.is-large-graph .flow-edge-packet:not(.flow-edge-preview-packet),
+.flow-shell.graphics-medium.is-huge-graph .flow-edge-packet:not(.flow-edge-preview-packet) {
+  display: none !important;
+}
+
+.flow-shell.graphics-medium.is-large-graph .flow-edge-path:not(.edge-preview).is-active,
+.flow-shell.graphics-medium.is-large-graph .flow-edge-path:not(.edge-preview):hover,
+.flow-shell.graphics-medium.is-large-graph .flow-edge-label:hover {
+  filter: none;
+}
+
+.graphics-low .toolbar-button,
+.graphics-low .toolbar-overflow-menu,
+.graphics-low .mobile-sheet,
+.graphics-low .flow-controls {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
 /* ─── Properties Panel ─────────────────────────────────── */
 
 .precond-list, .outcome-list {

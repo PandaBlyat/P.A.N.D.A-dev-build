@@ -181,6 +181,9 @@ function getRenderContext(container: HTMLElement): AppRenderContext {
   const firstRun = state.project.conversations.length === 0 && shouldShowFirstRunExperience();
 
   applyFactionTheme(container, getConversationFaction(conv, state.project.faction));
+  container.classList.toggle('graphics-low', state.flowGraphicsQuality === 'low');
+  container.classList.toggle('graphics-medium', state.flowGraphicsQuality === 'medium');
+  container.classList.toggle('graphics-high', state.flowGraphicsQuality === 'high');
 
   if (firstRun) {
     layoutState.toolbarHidden = true;
@@ -904,6 +907,9 @@ function renderMobileMoreActions(body: HTMLElement): void {
     createMobileSheetAction('support', 'Support', () => { closeMobileSheet(); openSupportPanel(); }),
     createMobileSheetAction('help', 'Help', () => { closeMobileSheet(); openHelpModal(); }),
     createMobileSheetAction('eye', `Occlusion: ${state.flowOcclusionEnabled ? 'On' : 'Off'}`, () => store.toggleFlowOcclusion()),
+    createMobileSheetAction('eye', `Graphics: Low${state.flowGraphicsQuality === 'low' ? ' (active)' : ''}`, () => store.setFlowGraphicsQuality('low'), state.flowGraphicsQuality === 'low'),
+    createMobileSheetAction('eye', `Graphics: Med${state.flowGraphicsQuality === 'medium' ? ' (active)' : ''}`, () => store.setFlowGraphicsQuality('medium'), state.flowGraphicsQuality === 'medium'),
+    createMobileSheetAction('eye', `Graphics: High${state.flowGraphicsQuality === 'high' ? ' (active)' : ''}`, () => store.setFlowGraphicsQuality('high'), state.flowGraphicsQuality === 'high'),
     createMobileSheetAction('eye', state.advancedMode ? 'Advanced On' : 'Advanced mode', () => store.toggleAdvancedMode()),
     createMobileSheetAction('locate', `Density: ${state.flowDensity}`, () => store.setFlowDensity(nextDensity(state.flowDensity))),
     createMobileSheetAction('brand', 'Reset Intro', resetIntro),

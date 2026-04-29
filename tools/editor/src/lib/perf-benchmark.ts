@@ -1,5 +1,5 @@
 import { createFlowChange, store } from './state';
-import { createEmptyProject, createChoice, createTurn } from './xml-export';
+import { createEmptyProject, createChoice, createConversation, createTurn } from './xml-export';
 import { recordPerf } from './perf';
 import { validate } from './validation';
 import type { Project } from './types';
@@ -71,7 +71,8 @@ async function runBenchmark(): Promise<BenchmarkResult[]> {
 
 function createBenchmarkProject(turnCount: number): Project {
   const project = createEmptyProject('stalker');
-  const conversation = project.conversations[0]!;
+  const conversation = createConversation(project);
+  project.conversations.push(conversation);
   conversation.label = `Benchmark ${turnCount}`;
   conversation.turns = [];
 

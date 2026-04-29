@@ -12,7 +12,7 @@ import { createFlowCursorSystem, type FlowCursorSystem } from './FlowCursor';
 import { createCatalogPickerPanelEditor } from './CatalogPickerPanel';
 import type { Choice, Conversation, ConversationChannel, FlowAnnotation, FlowLineAnnotation, FlowLineSetAnnotation, FlowNoteAnnotation, Outcome, PreconditionEntry, SimplePrecondition, Turn } from '../lib/types';
 import { getConversationFaction } from '../lib/types';
-import type { BranchInlinePanelState, FlowDensity } from '../lib/state';
+import type { BranchInlinePanelState, FlowDensity, FlowGraphicsQuality } from '../lib/state';
 import type { CommandSchema } from '../lib/schema';
 import { OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from '../lib/schema';
 import { measurePerf, recordPerf } from '../lib/perf';
@@ -40,6 +40,13 @@ type EdgeDescriptor = {
   bend: number;
   highlight: HighlightState;
   kind: EdgeKind;
+};
+
+type EdgeElementRefs = {
+  path: SVGPathElement | null;
+  packet: SVGPathElement | null;
+  label: SVGTextElement | null;
+  handle: SVGCircleElement | null;
 };
 
 type ContentBounds = {
@@ -177,6 +184,7 @@ type LiveFlowState = {
 };
 let liveFlow: LiveFlowState | null = null;
 let flowCursorSystem: FlowCursorSystem | null = null;
+const edgeElementRefs = new WeakMap<SVGGElement, EdgeElementRefs>();
 
 export function resetFlowViewState(conversationId: number): void {
   viewStateByConversation.delete(conversationId);
@@ -243,17 +251,18 @@ export function updateFlowSelection(): boolean {
     if (group) {
       group.classList.toggle('is-active', newHighlight === 'active');
       group.classList.toggle('is-muted', newHighlight === 'muted');
-      const path = group.querySelector('.flow-edge-path');
+      const refs = getEdgeElementRefs(group);
+      const path = refs.path;
       if (path) {
         path.classList.toggle('is-active', newHighlight === 'active');
         path.classList.toggle('is-muted', newHighlight === 'muted');
       }
-      const packet = group.querySelector('.flow-edge-packet');
+      const packet = refs.packet;
       if (packet) {
         packet.classList.toggle('is-active', newHighlight === 'active');
         packet.classList.toggle('is-muted', newHighlight === 'muted');
       }
-      const label = group.querySelector('.flow-edge-label');
+      const label = refs.label;
       if (label) {
         label.classList.toggle('is-active', newHighlight === 'active');
         label.classList.toggle('is-muted', newHighlight === 'muted');
@@ -304,6 +313,7 @@ export function syncFlowEditor(change: StateChange): boolean {
   if (kind === 'text-content') {
     liveFlow.projectRevision = state.projectRevision;
     liveFlow.turnLabels = createTurnDisplayLabeler(conv);
+    invalidatePortOffsetCache();
     for (const turn of conv.turns) {
       const node = liveFlow.nodeElements.get(turn.turnNumber);
       if (!node) continue;
@@ -427,6 +437,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     return;
   }
   const density = getEffectiveFlowDensity(state.flowDensity);
+  const graphicsQuality = state.flowGraphicsQuality;
   const isMobileViewport = isCompactViewport();
   const mobilePerformanceMode = isMobileViewport;
 
@@ -471,15 +482,17 @@ export function renderFlowEditor(container: HTMLElement): void {
     memoEdges = { key: mk, edges };
   }
   const graphSize = getFlowGraphSize(conv.turns.length, edges.length);
+  const renderEdgePackets = shouldRenderEdgePackets(graphicsQuality, mobilePerformanceMode, graphSize);
+  const lowGraphicsMode = graphicsQuality === 'low';
   const nodeElements = new Map<number, HTMLElement>();
   const edgeElements = new Map<string, SVGGElement>();
 
   const shell = document.createElement('div');
-  const shellClasses = ['flow-shell', `density-${density}`];
+  const shellClasses = ['flow-shell', `density-${density}`, `graphics-${graphicsQuality}`];
   if (isMobileViewport) shellClasses.push('flow-shell-mobile');
   if (mobilePerformanceMode) shellClasses.push('is-mobile-performance');
   if (graphSize !== 'normal') shellClasses.push('is-large-graph');
-  if (graphSize !== 'normal') shellClasses.push('is-perf-mode');
+  if (graphSize !== 'normal' || lowGraphicsMode) shellClasses.push('is-perf-mode');
   if (graphSize === 'huge') shellClasses.push('is-huge-graph');
   shell.className = shellClasses.join(' ');
 
@@ -632,7 +645,7 @@ export function renderFlowEditor(container: HTMLElement): void {
           turnLabels,
           factionColor,
           onlyTurnNumbers: pendingAffectedTurnNumbers,
-          renderPackets: !mobilePerformanceMode && graphSize === 'normal',
+          renderPackets: renderEdgePackets,
         });
       }, {
         turnCount: conv.turns.length,
@@ -647,7 +660,7 @@ export function renderFlowEditor(container: HTMLElement): void {
       positionOverrides: pendingPositionOverrides,
       preview: connectionPreview,
       factionColor,
-      renderPacket: !mobilePerformanceMode && graphSize === 'normal',
+      renderPacket: renderEdgePackets,
     });
     pendingAffectedTurnNumbers = undefined;
     pendingEdgeRedraw = true;
@@ -698,7 +711,13 @@ export function renderFlowEditor(container: HTMLElement): void {
 
 
   canvas.appendChild(content);
+  let lastCollabCursorPingAt = 0;
   canvas.addEventListener('pointermove', (event) => {
+    const collab = store.get().collab;
+    if (!collab.sessionId || collab.conversationId !== conversationId) return;
+    const now = performance.now();
+    if (now - lastCollabCursorPingAt < 50) return;
+    lastCollabCursorPingAt = now;
     sendCollabCursorPing(viewportToWorldPoint(canvas, viewState, event.clientX, event.clientY));
   });
   shell.appendChild(canvas);
@@ -809,7 +828,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     const dpr = window.devicePixelRatio || 1;
     const snapX = Math.round(viewState.panX * dpr) / dpr;
     const snapY = Math.round(viewState.panY * dpr) / dpr;
-    const depthBlur = !mobilePerformanceMode && viewState.zoom <= DEPTH_OF_FIELD_ZOOM_THRESHOLD;
+    const depthBlur = !mobilePerformanceMode && !lowGraphicsMode && viewState.zoom <= DEPTH_OF_FIELD_ZOOM_THRESHOLD;
     if (lastAppliedPanX !== snapX || lastAppliedPanY !== snapY) {
       content.style.transform = `translate3d(${snapX}px, ${snapY}px, 0)`;
       lastAppliedPanX = snapX;
@@ -1068,7 +1087,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     });
   }
 
-  if (!mobilePerformanceMode) {
+  if (!mobilePerformanceMode && !lowGraphicsMode) {
     flowCursorSystem = createFlowCursorSystem({
       canvas,
       settings: {
@@ -1121,6 +1140,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     edgeCount: edges.length,
     graphSize,
     density,
+    graphicsQuality,
   });
 }
 
@@ -1130,6 +1150,15 @@ function isCompactViewport(): boolean {
 
 function getEffectiveFlowDensity(preferredDensity: FlowDensity): FlowDensity {
   return isCompactViewport() ? 'compact' : preferredDensity;
+}
+
+function shouldRenderEdgePackets(
+  graphicsQuality: FlowGraphicsQuality,
+  mobilePerformanceMode: boolean,
+  graphSize: FlowGraphSize,
+): boolean {
+  if (mobilePerformanceMode || graphicsQuality === 'low') return false;
+  return graphSize === 'normal';
 }
 
 function renderBranchInlineModalOverlay(options: {
@@ -3353,6 +3382,19 @@ function findNearestTurn(turns: Turn[], currentTurnNumber: number, direction: Ar
   return candidates[0]?.item ?? null;
 }
 
+function getEdgeElementRefs(group: SVGGElement): EdgeElementRefs {
+  const cached = edgeElementRefs.get(group);
+  if (cached) return cached;
+  const refs: EdgeElementRefs = {
+    path: group.querySelector('.flow-edge-path') as SVGPathElement | null,
+    packet: group.querySelector('.flow-edge-packet') as SVGPathElement | null,
+    label: group.querySelector('.flow-edge-label') as SVGTextElement | null,
+    handle: group.querySelector('.flow-edge-bend-handle') as SVGCircleElement | null,
+  };
+  edgeElementRefs.set(group, refs);
+  return refs;
+}
+
 function drawEdges(options: {
   svg: SVGSVGElement;
   conv: Conversation;
@@ -3409,19 +3451,21 @@ function drawEdges(options: {
     if (existing) {
       // Update existing group in-place (path + label position + highlight)
       existing.setAttribute('class', `flow-edge${highlightSuffix}`);
-      const path = existing.querySelector('.flow-edge-path') as SVGPathElement | null;
+      const refs = getEdgeElementRefs(existing);
+      const path = refs.path;
       if (path) {
         path.setAttribute('d', pathD);
         path.setAttribute('class', `flow-edge-path ${edge.pathClassName}${highlightSuffix}`);
       }
-      const packet = existing.querySelector('.flow-edge-packet') as SVGPathElement | null;
+      const packet = refs.packet;
       if (packet && renderPackets) {
         packet.setAttribute('d', pathD);
         packet.setAttribute('class', `flow-edge-packet ${edge.pathClassName}${highlightSuffix}`);
       } else if (packet && !renderPackets) {
         packet.remove();
+        refs.packet = null;
       }
-      const label = existing.querySelector('.flow-edge-label') as SVGTextElement | null;
+      const label = refs.label;
       if (label) {
         label.setAttribute('x', String(labelAnchor.x));
         label.setAttribute('y', String(labelAnchor.y));
@@ -3438,6 +3482,7 @@ function drawEdges(options: {
         pathD,
         show: showBendHandle,
         renderPackets,
+        refs,
       });
     } else {
       // Create new edge group
@@ -3499,6 +3544,13 @@ function drawEdges(options: {
       };
       group.appendChild(labelButton);
 
+      edgeElementRefs.set(group, {
+        path,
+        packet: renderPackets ? group.querySelector('.flow-edge-packet') as SVGPathElement | null : null,
+        label: labelButton,
+        handle: null,
+      });
+
       syncBendHandle(group, {
         svg,
         conv,
@@ -3510,6 +3562,7 @@ function drawEdges(options: {
         pathD,
         show: showBendHandle,
         renderPackets,
+        refs: getEdgeElementRefs(group),
       });
 
       svg.appendChild(group);
@@ -3519,9 +3572,9 @@ function drawEdges(options: {
 }
 
 function redrawLiveEdges(flow: LiveFlowState): void {
-  invalidatePortOffsetCache();
   const conv = store.getSelectedConversation();
   if (!conv) return;
+  const graphSize = getFlowGraphSize(conv.turns.length, flow.edges.length);
   drawEdges({
     svg: flow.svg,
     conv,
@@ -3530,7 +3583,7 @@ function redrawLiveEdges(flow: LiveFlowState): void {
     edgeElements: flow.edgeElements,
     turnLabels: flow.turnLabels,
     factionColor: flow.factionColor,
-    renderPackets: getFlowGraphSize(conv.turns.length, flow.edges.length) === 'normal',
+    renderPackets: shouldRenderEdgePackets(store.get().flowGraphicsQuality, isCompactViewport(), graphSize),
   });
 }
 
@@ -3545,11 +3598,14 @@ function syncBendHandle(group: SVGGElement, options: {
   pathD: string;
   show: boolean;
   renderPackets: boolean;
+  refs?: EdgeElementRefs;
 }): void {
   const { svg, conv, edge, sourceAnchor, targetAnchor, handleAnchor, show, renderPackets } = options;
-  let handle = group.querySelector('.flow-edge-bend-handle') as SVGCircleElement | null;
+  const refs = options.refs ?? getEdgeElementRefs(group);
+  let handle = refs.handle;
   if (!show) {
     handle?.remove();
+    refs.handle = null;
     return;
   }
   if (!handle) {
@@ -3561,6 +3617,7 @@ function syncBendHandle(group: SVGGElement, options: {
     handle.classList.add('flow-edge-bend-handle');
     handle.style.setProperty('--flow-edge-color', edge.color);
     group.appendChild(handle);
+    refs.handle = handle;
   }
   handle.setAttribute('cx', String(handleAnchor.x));
   handle.setAttribute('cy', String(handleAnchor.y));
@@ -3573,9 +3630,9 @@ function syncBendHandle(group: SVGGElement, options: {
     const pathD = buildEdgePath(sourceAnchor, targetAnchor, edge.offsetIndex, bend);
     const labelAnchor = getLabelAnchor(sourceAnchor, targetAnchor, edge.offsetIndex, bend);
     const nextHandleAnchor = getBendHandleAnchor(sourceAnchor, targetAnchor, edge.offsetIndex, bend);
-    const path = group.querySelector('.flow-edge-path') as SVGPathElement | null;
-    const packet = group.querySelector('.flow-edge-packet') as SVGPathElement | null;
-    const label = group.querySelector('.flow-edge-label') as SVGTextElement | null;
+    const path = refs.path;
+    const packet = refs.packet;
+    const label = refs.label;
     path?.setAttribute('d', pathD);
     if (packet && renderPackets) packet.setAttribute('d', pathD);
     label?.setAttribute('x', String(labelAnchor.x));
@@ -3772,12 +3829,19 @@ function padFlowViewport(viewport: FlowViewport, overscan: number): FlowViewport
 function getDomBackedNodeRect(node: HTMLElement, graphNode?: FlowGraphNode): FlowGraphNode {
   const left = Number.parseFloat(node.style.left) || graphNode?.x || 0;
   const top = Number.parseFloat(node.style.top) || graphNode?.y || 0;
+  if (graphNode) {
+    return {
+      ...graphNode,
+      x: left,
+      y: top,
+    };
+  }
   return {
-    turnNumber: graphNode?.turnNumber ?? Number.parseInt(node.dataset.turnNumber ?? '0', 10),
+    turnNumber: Number.parseInt(node.dataset.turnNumber ?? '0', 10),
     x: left,
     y: top,
-    width: node.offsetWidth || graphNode?.width || 0,
-    height: node.offsetHeight || graphNode?.height || 0,
+    width: node.offsetWidth,
+    height: node.offsetHeight,
   };
 }
 
@@ -3800,9 +3864,18 @@ function drawConnectionPreview(options: {
   const { svg, conv, nodeElements, positionOverrides, preview, factionColor, renderPacket = true } = options;
   const defs = svg.querySelector('defs');
   const turnsByNumber = new Map(conv.turns.map(turn => [turn.turnNumber, turn]));
+  let previewPath = svg.querySelector('.flow-edge-path.edge-preview') as SVGPathElement | null;
+  let previewPacket = svg.querySelector('.flow-edge-preview-packet') as SVGPathElement | null;
 
-  svg.querySelectorAll('.edge-preview, .flow-edge-preview-packet').forEach((element) => element.remove());
-  if (!preview) return;
+  const hidePreview = (): void => {
+    if (previewPath) previewPath.style.display = 'none';
+    if (previewPacket) previewPacket.style.display = 'none';
+  };
+
+  if (!preview) {
+    hidePreview();
+    return;
+  }
 
   const sourceAnchor = getChoiceAnchor(
     preview.sourceTurnNumber,
@@ -3812,27 +3885,38 @@ function drawConnectionPreview(options: {
     positionOverrides,
     turnsByNumber,
   );
-  if (!sourceAnchor) return;
+  if (!sourceAnchor) {
+    hidePreview();
+    return;
+  }
 
   const previewTarget = preview.hoveredTargetTurnNumber != null
     ? getTurnInputAnchor(preview.hoveredTargetTurnNumber, conv, nodeElements, positionOverrides, turnsByNumber) ?? preview.cursor
     : preview.cursor;
   const previewColor = getTurnBranchColor(conv, preview.sourceTurnNumber, factionColor) ?? BRANCH_PALETTE[0];
-  const previewPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  if (!previewPath) {
+    previewPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    svg.appendChild(previewPath);
+  }
   previewPath.setAttribute('d', buildEdgePath(sourceAnchor, previewTarget, 0));
   previewPath.setAttribute('class', `flow-edge-path edge-preview${preview.invalidTarget ? ' edge-preview-invalid' : ''}`);
   previewPath.setAttribute('stroke', previewColor);
   previewPath.style.setProperty('--flow-edge-color', previewColor);
+  previewPath.style.display = '';
   previewPath.setAttribute('marker-end', `url(#${ensureMarker(defs, 'continue', previewColor)})`);
-  svg.appendChild(previewPath);
 
   if (renderPacket) {
-    const previewPacket = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    if (!previewPacket) {
+      previewPacket = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      previewPacket.setAttribute('aria-hidden', 'true');
+      svg.appendChild(previewPacket);
+    }
     previewPacket.setAttribute('d', buildEdgePath(sourceAnchor, previewTarget, 0));
     previewPacket.setAttribute('class', `flow-edge-packet flow-edge-preview-packet edge-preview${preview.invalidTarget ? ' edge-preview-invalid' : ''}`);
     previewPacket.style.setProperty('--flow-edge-color', previewColor);
-    previewPacket.setAttribute('aria-hidden', 'true');
-    svg.appendChild(previewPacket);
+    previewPacket.style.display = '';
+  } else if (previewPacket) {
+    previewPacket.style.display = 'none';
   }
 }
 
