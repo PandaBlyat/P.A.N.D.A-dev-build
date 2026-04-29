@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS community_conversations (
   co_authors TEXT[] NOT NULL DEFAULT '{}'::text[],
   co_author_usernames TEXT[] NOT NULL DEFAULT '{}'::text[],
   tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+  library_section TEXT NOT NULL DEFAULT 'community' CHECK (library_section IN ('community', 'curated', 'demo')),
   branch_count INT,
   complexity TEXT,
   data JSONB NOT NULL,
@@ -29,6 +30,7 @@ ALTER TABLE community_conversations
   ADD COLUMN IF NOT EXISTS co_authors TEXT[],
   ADD COLUMN IF NOT EXISTS co_author_usernames TEXT[],
   ADD COLUMN IF NOT EXISTS tags JSONB,
+  ADD COLUMN IF NOT EXISTS library_section TEXT,
   ADD COLUMN IF NOT EXISTS branch_count INT,
   ADD COLUMN IF NOT EXISTS complexity TEXT,
   ADD COLUMN IF NOT EXISTS upvotes INT,
@@ -42,6 +44,7 @@ ALTER TABLE community_conversations
   ALTER COLUMN co_authors SET DEFAULT '{}'::text[],
   ALTER COLUMN co_author_usernames SET DEFAULT '{}'::text[],
   ALTER COLUMN tags SET DEFAULT '[]'::jsonb,
+  ALTER COLUMN library_section SET DEFAULT 'community',
   ALTER COLUMN downloads SET DEFAULT 0,
   ALTER COLUMN upvotes SET DEFAULT 0,
   ALTER COLUMN created_at SET DEFAULT now(),
@@ -60,6 +63,7 @@ SET
   co_authors = coalesce(co_authors, '{}'::text[]),
   co_author_usernames = coalesce(co_author_usernames, '{}'::text[]),
   tags = coalesce(tags, '[]'::jsonb),
+  library_section = CASE WHEN library_section IN ('community', 'curated', 'demo') THEN library_section ELSE 'community' END,
   downloads = coalesce(downloads, 0),
   upvotes = coalesce(upvotes, 0),
   created_at = coalesce(created_at, now()),
@@ -73,6 +77,7 @@ ALTER TABLE community_conversations
   ALTER COLUMN co_authors SET NOT NULL,
   ALTER COLUMN co_author_usernames SET NOT NULL,
   ALTER COLUMN tags SET NOT NULL,
+  ALTER COLUMN library_section SET NOT NULL,
   ALTER COLUMN data SET NOT NULL,
   ALTER COLUMN downloads SET NOT NULL,
   ALTER COLUMN upvotes SET NOT NULL,
@@ -84,7 +89,45 @@ CREATE INDEX IF NOT EXISTS idx_community_conv_created ON community_conversations
 CREATE INDEX IF NOT EXISTS idx_community_conv_updated ON community_conversations (updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_community_conv_publisher_id ON community_conversations (publisher_id);
 CREATE INDEX IF NOT EXISTS idx_community_conv_co_authors ON community_conversations USING GIN (co_authors);
+CREATE INDEX IF NOT EXISTS idx_community_conv_library_section ON community_conversations (library_section);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_community_conv_label_unique ON community_conversations (lower(label));
+
+CREATE TABLE IF NOT EXISTS editor_admins (
+  publisher_id TEXT PRIMARY KEY,
+  username TEXT NOT NULL,
+  granted_by TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE editor_admins
+  ADD COLUMN IF NOT EXISTS username TEXT,
+  ADD COLUMN IF NOT EXISTS granted_by TEXT,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ;
+
+ALTER TABLE editor_admins
+  ALTER COLUMN created_at SET DEFAULT now();
+
+UPDATE editor_admins SET
+  username = coalesce(username, publisher_id),
+  created_at = coalesce(created_at, now());
+
+ALTER TABLE editor_admins
+  ALTER COLUMN username SET NOT NULL,
+  ALTER COLUMN created_at SET NOT NULL;
+
+ALTER TABLE editor_admins ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'editor_admins' AND policyname = 'Public admin read'
+  ) THEN
+    CREATE POLICY "Public admin read"
+      ON editor_admins FOR SELECT USING (true);
+  END IF;
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION set_updated_at_timestamp()
 RETURNS TRIGGER

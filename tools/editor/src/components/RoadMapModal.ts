@@ -17,12 +17,10 @@ import {
 
 const MODAL_MOUNT_ID = 'app-modal-host';
 
-const ADMIN_USERNAME = 'panda';
-
 function isPandaAdmin(): boolean {
-  const profile = (globalThis as typeof globalThis & { __pandaUserProfile?: { username?: string } | null }).__pandaUserProfile;
+  const profile = (globalThis as typeof globalThis & { __pandaUserProfile?: { publisher_id?: string; username?: string } | null }).__pandaUserProfile;
   const username = profile?.username?.trim() || getStoredUsername();
-  return (username ?? '').trim().toLowerCase() === ADMIN_USERNAME;
+  return Boolean(profile?.publisher_id) || (username ?? '').trim().toLowerCase() === 'panda';
 }
 
 function getCurrentPublisherId(): string | null {

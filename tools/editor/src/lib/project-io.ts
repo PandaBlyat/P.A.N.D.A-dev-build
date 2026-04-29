@@ -128,11 +128,14 @@ function tryLoadProjectFile(raw: string, parseOrder: string[]): boolean {
     if (format === 'json' || format === 'panda') {
       try {
         const data = JSON.parse(raw);
+        const hasSavedLayout = projectHasSavedTurnPositions(data);
         const systemStrings = new Map<string, string>(Object.entries(data.systemStrings || {}));
         delete data.systemStrings;
         const project = normalizeProjectData(data);
         store.loadProject(project, systemStrings);
-        layoutImportedProject(project);
+        if (!hasSavedLayout) {
+          layoutImportedProject(project);
+        }
         return true;
       } catch {
         continue;
@@ -148,6 +151,24 @@ function layoutImportedProject(project: Project): void {
     for (const conversation of project.conversations) {
       store.autoLayoutConversation(conversation.id, { spacious: true, centerRoot: true });
     }
+  });
+}
+
+function projectHasSavedTurnPositions(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const project = value as { conversations?: unknown };
+  if (!Array.isArray(project.conversations)) return false;
+  return project.conversations.some((conversation) => {
+    if (!conversation || typeof conversation !== 'object') return false;
+    const turns = (conversation as { turns?: unknown }).turns;
+    if (!Array.isArray(turns)) return false;
+    return turns.some((turn) => {
+      if (!turn || typeof turn !== 'object') return false;
+      const position = (turn as { position?: unknown }).position;
+      if (!position || typeof position !== 'object') return false;
+      const { x, y } = position as { x?: unknown; y?: unknown };
+      return typeof x === 'number' && Number.isFinite(x) && typeof y === 'number' && Number.isFinite(y);
+    });
   });
 }
 

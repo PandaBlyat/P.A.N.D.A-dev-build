@@ -74,6 +74,7 @@ export interface FlowNoteAnnotation extends FlowAnnotationBase {
   x: number;
   y: number;
   text: string;
+  fontSize?: number;
 }
 
 /** A single precondition expression used at the top level or inside nested groups. */

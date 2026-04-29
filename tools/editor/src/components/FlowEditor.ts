@@ -121,6 +121,7 @@ const DEFAULT_VIEW_STATE: ViewState = {
 };
 const MOBILE_VIEWPORT_QUERY = '(max-width: 760px)';
 const FLOW_ANNOTATION_COLORS = ['#ffd84d', '#7ce2ff', '#66d17a', '#ff7a7a', '#d990ff', '#ffffff'];
+const FLOW_NOTE_FONT_SIZES = [12, 14, 16, 18, 20, 24, 28];
 const viewStateByConversation = new Map<number, ViewState>();
 let activeAnnotationTool: FlowAnnotationTool = 'select';
 let activeAnnotationColor = FLOW_ANNOTATION_COLORS[0];
@@ -1686,12 +1687,14 @@ function renderNoteAnnotation(
   annotation: FlowNoteAnnotation,
   content: HTMLElement,
 ): HTMLElement {
+  const fontSize = normalizeNoteFontSize(annotation.fontSize);
   const note = document.createElement('div');
   note.className = 'flow-annotation-note';
   note.dataset.annotationId = annotation.id;
   note.style.left = `${annotation.x}px`;
   note.style.top = `${annotation.y}px`;
   note.style.setProperty('--annotation-color', annotation.color);
+  note.style.setProperty('--note-font-size', `${fontSize}px`);
 
   const header = document.createElement('div');
   header.className = 'flow-annotation-note-header';
@@ -1699,6 +1702,26 @@ function renderNoteAnnotation(
   swatch.className = 'flow-annotation-note-swatch';
   const label = document.createElement('span');
   label.textContent = 'Comment';
+  const fontSelect = document.createElement('select');
+  fontSelect.className = 'flow-annotation-note-font';
+  fontSelect.title = 'Comment font size';
+  fontSelect.setAttribute('aria-label', 'Comment font size');
+  for (const size of FLOW_NOTE_FONT_SIZES) {
+    const option = document.createElement('option');
+    option.value = String(size);
+    option.textContent = `${size}px`;
+    fontSelect.appendChild(option);
+  }
+  fontSelect.value = String(fontSize);
+  fontSelect.onpointerdown = (event) => event.stopPropagation();
+  fontSelect.onchange = () => {
+    const nextFontSize = normalizeNoteFontSize(Number(fontSelect.value));
+    note.style.setProperty('--note-font-size', `${nextFontSize}px`);
+    autosizeAnnotationTextarea(textarea);
+    if (nextFontSize !== normalizeNoteFontSize(annotation.fontSize)) {
+      store.updateFlowAnnotation(conversationId, annotation.id, { fontSize: nextFontSize } as Partial<FlowAnnotation>);
+    }
+  };
   const remove = document.createElement('button');
   remove.type = 'button';
   remove.className = 'flow-annotation-delete';
@@ -1710,7 +1733,7 @@ function renderNoteAnnotation(
     event.stopPropagation();
     store.deleteFlowAnnotation(conversationId, annotation.id);
   };
-  header.append(swatch, label, remove);
+  header.append(swatch, label, fontSelect, remove);
 
   const textarea = document.createElement('textarea');
   textarea.className = 'flow-annotation-note-input';
@@ -1801,7 +1824,12 @@ function createAnnotationId(): string {
 
 function autosizeAnnotationTextarea(textarea: HTMLTextAreaElement): void {
   textarea.style.height = 'auto';
-  textarea.style.height = `${Math.min(180, Math.max(54, textarea.scrollHeight))}px`;
+  textarea.style.height = `${Math.min(320, Math.max(54, textarea.scrollHeight))}px`;
+}
+
+function normalizeNoteFontSize(value: unknown): number {
+  const raw = typeof value === 'number' && Number.isFinite(value) ? value : 14;
+  return Math.max(10, Math.min(36, Math.round(raw)));
 }
 
 function calculateContentBounds(conv: Conversation, density: FlowDensity, branchInlinePanel: BranchInlinePanelState | null = null): ContentBounds {

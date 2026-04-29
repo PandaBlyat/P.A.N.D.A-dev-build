@@ -1098,6 +1098,11 @@ export function importConversations(
   sourceMetadata?: ConversationSourceMetadata,
 ): number | null {
   const currentProject = store.get().project;
+  const conversationsWithSavedLayout = new Set(
+    conversations
+      .filter(conversationHasSavedTurnPositions)
+      .map((conversation) => conversation.id),
+  );
   const normalizedProject = normalizeProjectData({
     version: currentProject.version || '2.0.0',
     faction: faction ?? currentProject.faction,
@@ -1113,7 +1118,10 @@ export function importConversations(
     if (importedIds.length > 0) {
       for (const importedId of importedIds) {
         resetFlowViewState(importedId);
-        store.autoLayoutConversation(importedId, { spacious: true, centerRoot: true });
+        const imported = normalizedConversations[importedIds.indexOf(importedId)];
+        if (!imported || !conversationsWithSavedLayout.has(imported.id)) {
+          store.autoLayoutConversation(importedId, { spacious: true, centerRoot: true });
+        }
         if (sourceMetadata) {
           store.setConversationSourceMetadata(importedId, sourceMetadata);
         }
@@ -1122,4 +1130,12 @@ export function importConversations(
     }
   });
   return importedIds[0] ?? null;
+}
+
+function conversationHasSavedTurnPositions(conversation: import('../lib/types').Conversation): boolean {
+  return conversation.turns.some((turn) =>
+    turn.position
+    && Number.isFinite(turn.position.x)
+    && Number.isFinite(turn.position.y),
+  );
 }

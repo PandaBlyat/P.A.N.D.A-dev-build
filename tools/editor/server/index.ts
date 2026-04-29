@@ -14,6 +14,7 @@ const COLLAB_TABLE = 'collab_sessions';
 const SUPPORT_TABLE = 'creator_support_metrics';
 const ACTIVE_USERS_TABLE = 'creator_active_users';
 const PROFILES_TABLE = 'user_profiles';
+const ADMINS_TABLE = 'editor_admins';
 const STREAKS_TABLE = 'user_streaks';
 const MISSIONS_TABLE = 'user_mission_progress';
 const BUG_REPORTS_TABLE = 'editor_bug_reports';
@@ -25,7 +26,7 @@ const ADMIN_PUBLISHER_IDS = new Set(
     .filter(Boolean),
 );
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
-const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'upvotes', 'updated_at', 'publisher_id', 'co_authors', 'co_author_usernames'] as const;
+const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'library_section', 'upvotes', 'updated_at', 'publisher_id', 'co_authors', 'co_author_usernames'] as const;
 
 type CommunityLibraryStats = {
   published_conversations: number;
@@ -179,6 +180,7 @@ function normalizeConversationRow(row: Record<string, unknown>) {
     tags: Array.isArray(row.tags) ? row.tags.filter((tag): tag is string => typeof tag === 'string') : [],
     branch_count: typeof row.branch_count === 'number' ? row.branch_count : 0,
     complexity: typeof row.complexity === 'string' ? row.complexity : null,
+    library_section: row.library_section === 'curated' || row.library_section === 'demo' ? row.library_section : 'community',
     downloads: typeof row.downloads === 'number' ? row.downloads : 0,
     upvotes: typeof row.upvotes === 'number' ? row.upvotes : 0,
     created_at: typeof row.created_at === 'string' ? row.created_at : new Date(0).toISOString(),
@@ -328,6 +330,17 @@ async function verifyIsAdmin(publisherId: string): Promise<boolean> {
   if (!trimmed) return false;
   if (ADMIN_PUBLISHER_IDS.size > 0) return ADMIN_PUBLISHER_IDS.has(trimmed);
   try {
+    const adminParams = new URLSearchParams({
+      publisher_id: `eq.${trimmed}`,
+      select: 'publisher_id',
+      limit: '1',
+    });
+    const adminRes = await fetch(`${sbEndpoint(ADMINS_TABLE)}?${adminParams}`, { headers: sbHeaders() });
+    if (adminRes.ok) {
+      const adminRows = await adminRes.json() as Array<{ publisher_id?: string }>;
+      if (Array.isArray(adminRows) && adminRows.length > 0) return true;
+    }
+
     const params = new URLSearchParams({
       publisher_id: `eq.${trimmed}`,
       select: 'username',
@@ -341,6 +354,20 @@ async function verifyIsAdmin(publisherId: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function verifyIsPandaOwner(publisherId: string): Promise<boolean> {
+  const trimmed = publisherId.trim();
+  if (!trimmed) return false;
+  const params = new URLSearchParams({
+    publisher_id: `eq.${trimmed}`,
+    select: 'username',
+    limit: '1',
+  });
+  const res = await fetch(`${sbEndpoint(PROFILES_TABLE)}?${params}`, { headers: sbHeaders() });
+  if (!res.ok) return false;
+  const rows = await res.json() as Array<{ username?: string }>;
+  return (rows[0]?.username ?? '').trim().toLowerCase() === 'panda';
 }
 
 function normalizeBugReport(row: Record<string, unknown>): EditorBugReport {
@@ -983,6 +1010,80 @@ app.get('/api/active-users', async (_req, res) => {
   }
 });
 
+app.get('/api/admins', async (req, res) => {
+  try {
+    const publisherId = typeof req.query.publisher_id === 'string' ? req.query.publisher_id.trim() : '';
+    if (!(await verifyIsPandaOwner(publisherId))) {
+      res.status(403).json({ error: 'Only Panda can manage privileges.' });
+      return;
+    }
+    const params = new URLSearchParams({
+      select: 'publisher_id,username,granted_by,created_at',
+      order: 'created_at.desc',
+    });
+    const response = await fetch(`${sbEndpoint(ADMINS_TABLE)}?${params}`, { headers: sbHeaders() });
+    if (!response.ok) {
+      const message = await readErrorMessage(response);
+      if (isMissingSchemaColumnError(message, 'editor_admins') || response.status === 404) {
+        res.json({ admins: [] });
+        return;
+      }
+      res.status(response.status).json({ error: message });
+      return;
+    }
+    res.json({ admins: await response.json() });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/admins', async (req, res) => {
+  try {
+    const ownerPublisherId = typeof req.body?.publisher_id === 'string' ? req.body.publisher_id.trim() : '';
+    const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+    if (!(await verifyIsPandaOwner(ownerPublisherId))) {
+      res.status(403).json({ error: 'Only Panda can manage privileges.' });
+      return;
+    }
+    const match = await fetchPublisherIdsByUsername([username]);
+    const targetPublisherId = match.get(username.toLowerCase());
+    if (!targetPublisherId) {
+      res.status(404).json({ error: 'User profile not found.' });
+      return;
+    }
+    const response = await fetch(sbEndpoint(ADMINS_TABLE), {
+      method: 'POST',
+      headers: { ...sbHeaders(), Prefer: 'resolution=merge-duplicates,return=representation' },
+      body: JSON.stringify([{ publisher_id: targetPublisherId, username, granted_by: ownerPublisherId }]),
+    });
+    if (!response.ok) {
+      res.status(response.status).json({ error: await readErrorMessage(response) });
+      return;
+    }
+    res.status(201).json({ admins: await response.json() });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.delete('/api/admins/:publisherId', async (req, res) => {
+  try {
+    const ownerPublisherId = typeof req.body?.publisher_id === 'string' ? req.body.publisher_id.trim() : '';
+    const targetPublisherId = req.params.publisherId.trim();
+    if (!(await verifyIsPandaOwner(ownerPublisherId))) {
+      res.status(403).json({ error: 'Only Panda can manage privileges.' });
+      return;
+    }
+    await fetch(`${sbEndpoint(ADMINS_TABLE)}?publisher_id=eq.${encodeURIComponent(targetPublisherId)}`, {
+      method: 'DELETE',
+      headers: { ...sbHeaders(), Prefer: 'return=minimal' },
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 app.post('/api/active-users/touch', async (req, res) => {
   const body = req.body ?? {};
   const userId = typeof body.user_id === 'string' ? body.user_id.trim() : '';
@@ -1257,9 +1358,35 @@ function getServerPublishXp(complexity: unknown): number {
   return 150;
 }
 
+function getChoiceXp(value: unknown): number {
+  const amount = typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  return Math.max(0, Math.min(5000, Math.round(amount)));
+}
+
+async function resolveTaggedPublishers(usernames: unknown): Promise<{ publisherIds: string[]; displayNames: string[] }> {
+  if (!Array.isArray(usernames)) return { publisherIds: [], displayNames: [] };
+  const names = Array.from(new Set(usernames
+    .filter((name): name is string => typeof name === 'string')
+    .map(name => name.trim())
+    .filter(Boolean)))
+    .slice(0, 4);
+  if (names.length === 0) return { publisherIds: [], displayNames: [] };
+
+  const ids = await fetchPublisherIdsByUsername(names);
+  const publisherIds: string[] = [];
+  const displayNames: string[] = [];
+  for (const name of names) {
+    const id = ids.get(name.toLowerCase());
+    if (!id) continue;
+    publisherIds.push(id);
+    displayNames.push(name);
+  }
+  return { publisherIds, displayNames };
+}
+
 app.post('/api/conversations', async (req, res) => {
   try {
-    const { faction, label, description, summary, author, data, tags, branch_count, complexity, publisher_id, collab_session_id } = req.body ?? {};
+    const { faction, label, description, summary, author, data, tags, branch_count, complexity, library_section, publisher_id, collab_session_id, tagged_usernames, choice_xp } = req.body ?? {};
     const normalizedLabel = typeof label === 'string' ? label.trim() : '';
     if (!faction || !data || !normalizedLabel) {
       res.status(400).json({ error: 'Missing required fields: faction, label, data' });
@@ -1291,6 +1418,9 @@ app.post('/api/conversations', async (req, res) => {
       res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
       return;
     }
+    const tagged = await resolveTaggedPublishers(tagged_usernames).catch(() => ({ publisherIds: [], displayNames: [] }));
+    const coAuthors = Array.from(new Set([...collabContext.coAuthors, ...tagged.publisherIds].filter(id => id !== normalizedPublisherId)));
+    const coAuthorNames = Array.from(new Set([...collabContext.coAuthorUsernames, ...tagged.displayNames]));
     const publishBody = {
       faction,
       label: normalizedLabel,
@@ -1300,9 +1430,10 @@ app.post('/api/conversations', async (req, res) => {
       tags: Array.isArray(tags) ? tags : [],
       branch_count: typeof branch_count === 'number' ? branch_count : null,
       complexity: typeof complexity === 'string' ? complexity : null,
+      library_section: library_section === 'curated' || library_section === 'demo' ? library_section : 'community',
       publisher_id: normalizedPublisherId,
-      co_authors: collabContext.coAuthors,
-      co_author_usernames: collabContext.coAuthorUsernames,
+      co_authors: coAuthors,
+      co_author_usernames: coAuthorNames,
       data,
     };
 
@@ -1321,6 +1452,7 @@ app.post('/api/conversations', async (req, res) => {
         || isMissingSchemaColumnError(errorMessage, 'publisher_id')
         || isMissingSchemaColumnError(errorMessage, 'co_authors')
         || isMissingSchemaColumnError(errorMessage, 'co_author_usernames')
+        || isMissingSchemaColumnError(errorMessage, 'library_section')
         || isCommunitySchemaMismatchError(errorMessage)
       ) {
         const {
@@ -1331,6 +1463,7 @@ app.post('/api/conversations', async (req, res) => {
           publisher_id: _publisherId,
           co_authors: _coAuthors,
           co_author_usernames: _coAuthorUsernames,
+          library_section: _librarySection,
           ...fallbackBody
         } = publishBody;
         r = await fetch(sbEndpoint(TABLE), {
@@ -1361,10 +1494,10 @@ app.post('/api/conversations', async (req, res) => {
       ? await applyPublishRewards(insertedId).catch(() => null)
       : null;
     const coAuthorRewards: Array<{ publisher_id: string; rewards: ServerProfileRewardResult | null }> = [];
-    const publishXp = Math.max(rewards?.publish_xp ?? 0, getServerPublishXp(complexity));
+    const publishXp = Math.max(rewards?.publish_xp ?? 0, getServerPublishXp(complexity)) + getChoiceXp(choice_xp);
     if (publishXp > 0) {
-      for (const coAuthor of collabContext.coAuthors) {
-        const reward = await awardXpCappedBucket(coAuthor, publishXp, 'collab_coauthor_daily', 300).catch(() => null);
+      for (const coAuthor of coAuthors) {
+        const reward = await awardXpCappedBucket(coAuthor, publishXp, 'publish_coauthor_daily', 1000).catch(() => null);
         coAuthorRewards.push({ publisher_id: coAuthor, rewards: reward });
       }
     }
@@ -1391,6 +1524,7 @@ async function handleConversationReplace(req: express.Request, res: express.Resp
       tags,
       branch_count,
       complexity,
+      library_section,
       data,
       author,
       publisher_id,
@@ -1455,6 +1589,7 @@ async function handleConversationReplace(req: express.Request, res: express.Resp
       tags: Array.isArray(tags) ? tags : [],
       branch_count: typeof branch_count === 'number' ? branch_count : null,
       complexity: typeof complexity === 'string' ? complexity : null,
+      library_section: library_section === 'curated' || library_section === 'demo' ? library_section : 'community',
       data,
       author: typeof author === 'string' && author.trim() ? author.trim() : undefined,
     };
@@ -1471,6 +1606,7 @@ async function handleConversationReplace(req: express.Request, res: express.Resp
         || isMissingSchemaColumnError(errorMessage, 'complexity')
         || isMissingSchemaColumnError(errorMessage, 'summary')
         || isMissingSchemaColumnError(errorMessage, 'tags')
+        || isMissingSchemaColumnError(errorMessage, 'library_section')
         || isCommunitySchemaMismatchError(errorMessage)
       ) {
         const {
@@ -1478,6 +1614,7 @@ async function handleConversationReplace(req: express.Request, res: express.Resp
           tags: _tags,
           branch_count: _branchCount,
           complexity: _complexity,
+          library_section: _librarySection,
           ...fallbackBody
         } = updateBody;
         r = await fetch(`${sbEndpoint(TABLE)}?id=eq.${encodeURIComponent(id)}`, {
@@ -1502,6 +1639,43 @@ async function handleConversationReplace(req: express.Request, res: express.Resp
 app.patch('/api/conversations/:id', handleConversationReplace);
 app.post('/api/conversations/:id', handleConversationReplace);
 app.post('/api/conversations/:id/replace', handleConversationReplace);
+
+app.patch('/api/conversations/:id/library-section', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const publisherId = typeof req.body?.publisher_id === 'string' ? req.body.publisher_id.trim() : '';
+    const section = req.body?.library_section === 'curated' || req.body?.library_section === 'demo'
+      ? req.body.library_section
+      : 'community';
+    if (!id || !publisherId) {
+      res.status(400).json({ error: 'Missing required fields: id, publisher_id' });
+      return;
+    }
+    if (!(await verifyIsAdmin(publisherId))) {
+      res.status(403).json({ error: 'Only admins can curate community stories.' });
+      return;
+    }
+
+    let r = await fetch(`${sbEndpoint(TABLE)}?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { ...sbHeaders(), Prefer: 'return=representation' },
+      body: JSON.stringify({ library_section: section }),
+    });
+    if (!r.ok) {
+      const errorMessage = await readErrorMessage(r);
+      if (isMissingSchemaColumnError(errorMessage, 'library_section')) {
+        res.status(501).json({ error: 'Missing Supabase column: community_conversations.library_section' });
+        return;
+      }
+      res.status(r.status).json({ error: errorMessage });
+      return;
+    }
+    const rows = await r.json() as Array<Record<string, unknown>>;
+    res.json({ conversation: rows[0] ? normalizeConversationRow(rows[0]) : null });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
 
 // Download and upvote handlers moved below with XP-awarding versions.
 

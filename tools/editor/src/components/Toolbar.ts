@@ -14,6 +14,7 @@ import { createEmptyProject } from '../lib/xml-export';
 import { openPublicProfile, renderProfileBadge } from './ProfileBadge';
 import { openLeaderboardOverlay } from './LeaderboardOverlay';
 import { openRoadMapModal } from './RoadMapModal';
+import { canOpenPrivilegeModal, openPrivilegeModal } from './PrivilegeModal';
 import { areBeginnerTooltipsDisabled, setBeginnerTooltip, setBeginnerTooltipsDisabled } from '../lib/beginner-tooltips';
 import { getActiveEditorLocalUserId, getStoredUsername, type ActiveEditorUser, type RecentVisitor, type UserProfile } from '../lib/api-client';
 import { createCollabRoster } from './CollabRoster';
@@ -180,6 +181,9 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     kind: 'custom',
     render: () => createGraphicsQualityPicker(state.flowGraphicsQuality),
   };
+  const privilegeAction: OverflowAction | null = canOpenPrivilegeModal()
+    ? { icon: 'user', label: 'Privilage', title: 'Set editor admins', onclick: openPrivilegeModal }
+    : null;
 
   if (!isCompact) {
     const leftZone = document.createElement('div');
@@ -227,6 +231,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
       occlusionToggleAction,
       graphicsQualityAction,
       tooltipToggleAction,
+      ...(privilegeAction ? [privilegeAction] : []),
       { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
       { icon: 'trophy', label: 'Leaders', title: leadersBtn.title, onclick: () => openLeaderboardOverlay(null) },
       { icon: 'bug', label: 'Reports', title: reportsBtn.title, onclick: openBugReportsPanel },
@@ -342,12 +347,13 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     utilityTier.appendChild(utilityGroup);
   }
 
-  utilityTier.appendChild(supportBtn);
-  utilityTier.appendChild(createOverflowMenu('More', [
-    occlusionToggleAction,
-    graphicsQualityAction,
-    tooltipToggleAction,
-    { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
+    utilityTier.appendChild(supportBtn);
+    utilityTier.appendChild(createOverflowMenu('More', [
+      occlusionToggleAction,
+      graphicsQualityAction,
+      tooltipToggleAction,
+      ...(privilegeAction ? [privilegeAction] : []),
+      { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
     { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
     { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },
   ]));

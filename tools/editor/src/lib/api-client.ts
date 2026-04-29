@@ -17,6 +17,7 @@ export type UserStreakState = {
 };
 
 export type ConversationComplexity = 'short' | 'medium' | 'long';
+export type CommunityLibrarySection = 'community' | 'curated' | 'demo';
 
 export type PublishValidationErrorCode =
   | 'missing-conversation'
@@ -55,6 +56,7 @@ export type CommunityConversation = {
   tags?: string[];
   branch_count?: number;
   complexity?: ConversationComplexity;
+  library_section?: CommunityLibrarySection;
   downloads: number;
   upvotes?: number;
   created_at: string;
@@ -67,6 +69,7 @@ export type PublishPayload = Omit<CommunityConversation, 'id' | 'downloads' | 'u
   publisher_id?: string;
   replace_id?: string;
   collab_session_id?: string;
+  tagged_usernames?: string[];
 };
 
 /**
@@ -136,6 +139,13 @@ export type UserProfile = {
   missions?: UserMissionProgressRecord[];
 } & UserCosmetics;
 
+export type EditorAdmin = {
+  publisher_id: string;
+  username: string;
+  granted_by?: string | null;
+  created_at?: string | null;
+};
+
 export type LeaderboardEntry = {
   publisher_id: string;
   username: string;
@@ -197,7 +207,7 @@ const LOCAL_ROADMAP_UPVOTES_KEY = 'panda-roadmap-upvotes';
 const LOCAL_PUBLISH_KEY = 'panda-community-last-publish-at';
 const LOCAL_PUBLISHER_ID_KEY = 'panda-community-publisher-id';
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
-const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'upvotes', 'updated_at', 'publisher_id', 'co_authors', 'co_author_usernames'] as const;
+const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'library_section', 'upvotes', 'updated_at', 'publisher_id', 'co_authors', 'co_author_usernames'] as const;
 
 
 function apiCandidates(path: string): string[] {
@@ -306,6 +316,10 @@ function getConversationBranchCount(conversation: Conversation): number {
   return conversation.turns.length;
 }
 
+function getConversationChoiceCount(conversation: Conversation): number {
+  return conversation.turns.reduce((total, turn) => total + turn.choices.length, 0);
+}
+
 function getTodayDateString(date = new Date()): string {
   return date.toISOString().slice(0, 10);
 }
@@ -373,6 +387,7 @@ function normalizeConversationRow(row: Partial<CommunityConversation>): Communit
     tags: Array.isArray(row.tags) ? row.tags.filter((tag): tag is string => typeof tag === 'string') : [],
     branch_count: typeof row.branch_count === 'number' ? row.branch_count : 0,
     complexity: row.complexity,
+    library_section: row.library_section === 'curated' || row.library_section === 'demo' ? row.library_section : 'community',
     downloads: typeof row.downloads === 'number' ? row.downloads : 0,
     upvotes: typeof row.upvotes === 'number' ? row.upvotes : 0,
     created_at: typeof row.created_at === 'string' ? row.created_at : new Date(0).toISOString(),
@@ -631,7 +646,12 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
   const description = payload.description.trim();
   const summary = payload.summary?.trim() ?? '';
   const branchCount = payload.branch_count ?? getConversationBranchCount(conversation);
+  const choiceXp = getConversationChoiceCount(conversation) * 25;
   const tags = sanitizeTags(payload.tags ?? []);
+  const taggedUsernames = Array.from(new Set((payload.tagged_usernames ?? [])
+    .map(name => name.trim())
+    .filter(Boolean)))
+    .slice(0, 4);
 
   if (!label) throw new PublishValidationError('Add a title before publishing.', 'missing-title');
   if (label.length > 70) throw new PublishValidationError('Keep the title under 70 characters.', 'title-too-long');
@@ -665,7 +685,10 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
     tags,
     branch_count: branchCount,
     complexity: payload.complexity ?? deriveConversationComplexity(branchCount),
+    library_section: payload.library_section === 'curated' || payload.library_section === 'demo' ? payload.library_section : 'community',
     publisher_id: payload.publisher_id?.trim() || getPublisherId(),
+    tagged_usernames: taggedUsernames,
+    choice_xp: choiceXp,
   };
 
   const replaceId = payload.replace_id?.trim();
@@ -761,9 +784,10 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
           || isMissingSchemaColumnError(errorMessage, 'complexity')
           || isMissingSchemaColumnError(errorMessage, 'summary')
           || isMissingSchemaColumnError(errorMessage, 'tags')
+          || isMissingSchemaColumnError(errorMessage, 'library_section')
           || isCommunitySchemaMismatchError(errorMessage)
         ) {
-          const { summary: _s, tags: _t, branch_count: _b, complexity: _c, ...fallbackBody } = updateBody;
+          const { summary: _s, tags: _t, branch_count: _b, complexity: _c, library_section: _l, ...fallbackBody } = updateBody;
           res = await fetch(`${sbEndpoint(TABLE)}?id=eq.${encodeURIComponent(replaceId)}`, {
             method: 'PATCH',
             headers,
@@ -851,6 +875,9 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
         || isMissingSchemaColumnError(errorMessage, 'publisher_id')
         || isMissingSchemaColumnError(errorMessage, 'co_authors')
         || isMissingSchemaColumnError(errorMessage, 'co_author_usernames')
+        || isMissingSchemaColumnError(errorMessage, 'library_section')
+        || isMissingSchemaColumnError(errorMessage, 'tagged_usernames')
+        || isMissingSchemaColumnError(errorMessage, 'choice_xp')
         || isMissingSchemaColumnError(errorMessage, 'collab_session_id')
         || isCommunitySchemaMismatchError(errorMessage)
       ) {
@@ -862,6 +889,9 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
           publisher_id: _publisherId,
           co_authors: _coAuthors,
           co_author_usernames: _coAuthorUsernames,
+          library_section: _librarySection,
+          tagged_usernames: _taggedUsernames,
+          choice_xp: _choiceXp,
           ...fallbackBody
         } = directPublishBody;
         res = await fetch(sbEndpoint(TABLE), {
@@ -922,6 +952,22 @@ export async function incrementUpvote(id: string): Promise<void> {
     }
   }
 }
+
+export async function updateConversationLibrarySection(
+  id: string,
+  publisherId: string,
+  librarySection: CommunityLibrarySection,
+): Promise<CommunityConversation | null> {
+  const payload = await fetchFromApi<{ conversation?: unknown }>(`/api/conversations/${encodeURIComponent(id)}/library-section`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ publisher_id: publisherId, library_section: librarySection }),
+  });
+  return payload.conversation && typeof payload.conversation === 'object'
+    ? normalizeConversationRow(payload.conversation as Partial<CommunityConversation>)
+    : null;
+}
+
 export async function fetchCommunityLibraryStats(): Promise<CommunityLibraryStats> {
   try {
     return await fetchFromApi<CommunityLibraryStats>('/api/community/stats');
@@ -1114,6 +1160,47 @@ export async function fetchActiveEditorPresence(): Promise<ActiveEditorPresence>
     count: tableUsers.length,
     users: tableUsers,
     usernames: tableUsers.map(user => user.username ?? '').filter(Boolean),
+  };
+}
+
+export async function fetchEditorAdmins(publisherId: string): Promise<EditorAdmin[]> {
+  const params = new URLSearchParams({ publisher_id: publisherId });
+  const payload = await fetchFromApi<{ admins?: unknown }>(`/api/admins?${params}`);
+  return Array.isArray(payload.admins)
+    ? payload.admins.map(normalizeEditorAdmin).filter((admin): admin is EditorAdmin => Boolean(admin))
+    : [];
+}
+
+export async function grantEditorAdmin(publisherId: string, username: string): Promise<EditorAdmin[]> {
+  const payload = await fetchFromApi<{ admins?: unknown }>('/api/admins', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ publisher_id: publisherId, username }),
+  });
+  return Array.isArray(payload.admins)
+    ? payload.admins.map(normalizeEditorAdmin).filter((admin): admin is EditorAdmin => Boolean(admin))
+    : [];
+}
+
+export async function revokeEditorAdmin(publisherId: string, targetPublisherId: string): Promise<void> {
+  await fetchFromApi(`/api/admins/${encodeURIComponent(targetPublisherId)}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ publisher_id: publisherId }),
+  });
+}
+
+function normalizeEditorAdmin(value: unknown): EditorAdmin | null {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  const publisherId = typeof record.publisher_id === 'string' ? record.publisher_id : '';
+  const username = typeof record.username === 'string' ? record.username : '';
+  if (!publisherId || !username) return null;
+  return {
+    publisher_id: publisherId,
+    username,
+    granted_by: typeof record.granted_by === 'string' ? record.granted_by : null,
+    created_at: typeof record.created_at === 'string' ? record.created_at : null,
   };
 }
 

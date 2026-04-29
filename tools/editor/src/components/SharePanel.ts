@@ -12,7 +12,9 @@ import {
   incrementDownload,
   incrementUpvote,
   publishConversation,
+  updateConversationLibrarySection,
   type CommunityConversation,
+  type CommunityLibrarySection,
   type CommunityLibraryStats,
   type ConversationComplexity,
 } from '../lib/api-client';
@@ -55,11 +57,13 @@ type SortMode = 'newest' | 'upvoted';
 type LengthFilter = 'all' | 'short' | 'medium' | 'long';
 type LibrarySource = 'bundled' | 'remote';
 type ViewMode = 'gallery' | 'list';
+type LibraryView = 'community' | 'curated' | 'demo';
 
 type NormalizedConversation = CommunityConversation & {
   tags: string[];
   branch_count: number;
   complexity: ConversationComplexity;
+  library_section: CommunityLibrarySection;
   summary: string;
   upvotes: number;
   updated_at: string;
@@ -95,6 +99,16 @@ function userOwnsConversation(conv: CommunityConversation): boolean {
   const currentIds = getCurrentPublisherIds();
   if (publisherId && currentIds.includes(publisherId)) return true;
   return (conv.co_authors ?? []).some((coAuthor) => currentIds.includes(coAuthor));
+}
+
+function canManageCommunitySections(): boolean {
+  const profile = (globalThis as any).__pandaUserProfile as UserProfile | null;
+  return Boolean(profile?.publisher_id) || (profile?.username ?? getStoredUsername() ?? '').trim().toLowerCase() === 'panda';
+}
+
+function getAdminPublisherId(): string {
+  const profile = (globalThis as any).__pandaUserProfile as UserProfile | null;
+  return profile?.publisher_id?.trim() || window.localStorage.getItem(LOCAL_PUBLISHER_ID_KEY)?.trim() || '';
 }
 
 function attachCommunitySourceMetadata(conversation: Conversation, metadata: CommunitySourceMetadata): Conversation {
@@ -147,6 +161,7 @@ let searchQuery = '';
 let sortMode: SortMode = 'newest';
 let lengthFilter: LengthFilter = 'all';
 let viewMode: ViewMode = 'gallery';
+let libraryView: LibraryView = 'community';
 let isLoading = false;
 let loadError = '';
 let loadNotice = '';
@@ -374,6 +389,7 @@ function normalizeConversation(entry: CommunityConversation, source: LibrarySour
     tags: Array.from(new Set((entry.tags ?? []).map(tag => tag.trim()).filter(Boolean))).slice(0, 6),
     co_authors: entry.co_authors ?? [],
     co_author_usernames: entry.co_author_usernames ?? [],
+    library_section: entry.library_section === 'curated' || entry.library_section === 'demo' ? entry.library_section : 'community',
     branch_count: branchCount,
     complexity: entry.complexity ?? deriveConversationComplexity(branchCount),
     upvotes: entry.upvotes ?? 0,
@@ -434,6 +450,10 @@ function mergeConversationLists(bundled: NormalizedConversation[], remote: Norma
 function getFilteredResults(): NormalizedConversation[] {
   const q = searchQuery.trim().toLowerCase();
   const filtered = allResults.filter(conv => {
+    const section = conv.library_section ?? 'community';
+    if (libraryView === 'curated' && section !== 'curated') return false;
+    if (libraryView === 'demo' && section !== 'demo') return false;
+    if (libraryView === 'community' && section === 'demo') return false;
     if (lengthFilter === 'short' && conv.branch_count > 3) return false;
     if (lengthFilter === 'medium' && (conv.branch_count < 4 || conv.branch_count > 6)) return false;
     if (lengthFilter === 'long' && conv.branch_count < 7) return false;
@@ -482,6 +502,8 @@ function getDownloadAllBtn(): HTMLButtonElement | null {
 
 type PublishPreviewStats = {
   branchCount: number;
+  dialogueChoiceCount: number;
+  dialogueChoiceXp: number;
   complexity: ConversationComplexity;
   basePublishXp: number;
   qualityScore: ReturnType<typeof calculateQualityScore>;
@@ -496,20 +518,28 @@ function formatMultiplier(value: number): string {
 
 function getPublishPreviewStats(conversation: Conversation): PublishPreviewStats {
   const branchCount = getBranchCount(conversation);
+  const dialogueChoiceCount = getDialogueChoiceCount(conversation);
+  const dialogueChoiceXp = dialogueChoiceCount * 25;
   const complexity = deriveConversationComplexity(branchCount);
   const basePublishXp = getPublishXp(complexity);
   const qualityScore = calculateQualityScore(conversation);
   const qualityMultiplier = getQualityMultiplier(qualityScore.totalStars);
-  const publishXp = Math.round(basePublishXp * qualityMultiplier);
+  const publishXp = Math.round(basePublishXp * qualityMultiplier) + dialogueChoiceXp;
 
   return {
     branchCount,
+    dialogueChoiceCount,
+    dialogueChoiceXp,
     complexity,
     basePublishXp,
     qualityScore,
     qualityMultiplier,
     publishXp,
   };
+}
+
+function getDialogueChoiceCount(conversation: Conversation): number {
+  return conversation.turns.reduce((total, turn) => total + turn.choices.length, 0);
 }
 
 function buildOverlay(): HTMLElement {
@@ -664,6 +694,27 @@ function buildToolbarRow(): HTMLElement {
   const row = document.createElement('div');
   row.className = 'share-toolbar-row';
 
+  const viewTabs = document.createElement('div');
+  viewTabs.className = 'share-library-tabs';
+  ([
+    ['community', 'Community'],
+    ['curated', 'Curated Stories'],
+    ['demo', 'Demo'],
+  ] as Array<[LibraryView, string]>).forEach(([view, label]) => {
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = `share-library-tab${libraryView === view ? ' is-active' : ''}`;
+    tab.textContent = label;
+    tab.onclick = () => {
+      libraryView = view;
+      ensurePreviewSelection();
+      renderContent();
+      updateDownloadAllBtn();
+    };
+    viewTabs.appendChild(tab);
+  });
+  row.appendChild(viewTabs);
+
   const searchInput = document.createElement('input');
   searchInput.type = 'search';
   searchInput.className = 'share-search';
@@ -713,7 +764,7 @@ function buildToolbarRow(): HTMLElement {
   downloadAllBtn.type = 'button';
   downloadAllBtn.className = 'toolbar-button share-download-all-btn';
   setButtonContent(downloadAllBtn, 'download', 'Download All XML');
-  downloadAllBtn.title = 'Download all stories for this faction as a game-ready XML file';
+  downloadAllBtn.title = 'Download curated stories for this faction as a game-ready XML file';
   downloadAllBtn.hidden = activeFaction === 'all';
   downloadAllBtn.onclick = handleDownloadAll;
   row.appendChild(downloadAllBtn);
@@ -906,6 +957,8 @@ function buildCard(conv: NormalizedConversation): HTMLElement {
   if (coAuthorUsernames.length > 0) {
     stats.appendChild(buildChip(`+${coAuthorUsernames.length} co-author${coAuthorUsernames.length === 1 ? '' : 's'}`));
   }
+  if (conv.library_section === 'curated') stats.appendChild(buildChip('Curated'));
+  if (conv.library_section === 'demo') stats.appendChild(buildChip('Demo'));
   card.appendChild(stats);
 
   if (conv.tags.length > 0) {
@@ -969,6 +1022,25 @@ function buildCard(conv: NormalizedConversation): HTMLElement {
       await handleEditImport(conv, editBtn);
     };
     actions.appendChild(editBtn);
+  }
+
+  if (canManageCommunitySections() && conv.source === 'remote') {
+    ([
+      ['community', 'Community'],
+      ['curated', 'Curate'],
+      ['demo', 'Demo'],
+    ] as Array<[CommunityLibrarySection, string]>).forEach(([section, label]) => {
+      if ((conv.library_section ?? 'community') === section) return;
+      const sectionBtn = document.createElement('button');
+      sectionBtn.type = 'button';
+      sectionBtn.className = 'toolbar-button btn-sm share-admin-section-btn';
+      sectionBtn.textContent = label;
+      sectionBtn.onclick = async (event) => {
+        event.stopPropagation();
+        await handleLibrarySectionChange(conv, section, sectionBtn);
+      };
+      actions.appendChild(sectionBtn);
+    });
   }
 
   card.appendChild(actions);
@@ -1243,6 +1315,34 @@ async function handleUpvote(conv: NormalizedConversation, btn: HTMLButtonElement
   }
 }
 
+async function handleLibrarySectionChange(
+  conv: NormalizedConversation,
+  section: CommunityLibrarySection,
+  btn: HTMLButtonElement,
+): Promise<void> {
+  const publisherId = getAdminPublisherId();
+  if (!publisherId) {
+    alert('Log in as admin before changing story section.');
+    return;
+  }
+  const oldLabel = btn.textContent ?? '';
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  try {
+    const updated = await updateConversationLibrarySection(conv.id, publisherId, section);
+    const match = allResults.find(entry => entry.id === conv.id);
+    if (match) {
+      match.library_section = updated?.library_section ?? section;
+    }
+    ensurePreviewSelection();
+    renderContent();
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = oldLabel;
+    alert(`Section update failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 function getUpvoteSet(): Set<string> {
   if (typeof window === 'undefined') return new Set();
   try {
@@ -1270,11 +1370,11 @@ async function handleDownloadAll(): Promise<void> {
   if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
 
   try {
-    // Download-all should always export the full active faction library,
-    // independent of temporary UI filters like search/length/sort.
-    const results = allResults.filter(entry => entry.faction === activeFaction);
+    // Final export uses curated stories only, independent of temporary UI
+    // filters like search/length/sort.
+    const results = allResults.filter(entry => entry.faction === activeFaction && (entry.library_section ?? 'community') === 'curated');
     if (results.length === 0) {
-      alert(`No ${FACTION_DISPLAY_NAMES[activeFaction as FactionId]} conversations to download.`);
+      alert(`No curated ${FACTION_DISPLAY_NAMES[activeFaction as FactionId]} conversations to download.`);
       return;
     }
 
@@ -1824,6 +1924,20 @@ function buildPublishForm(): HTMLElement {
     'share-publish-field-tags',
   );
 
+  const taggedUsersInput = markPublishField(
+    makeFormField(metaStack, 'Tag Users', 'text', 'Co-credit usernames (comma-separated)') as HTMLInputElement,
+    'share-publish-field-tags',
+  );
+
+  const demoRow = document.createElement('label');
+  demoRow.className = 'share-consent-row share-publish-demo-toggle';
+  const demoInput = document.createElement('input');
+  demoInput.type = 'checkbox';
+  const demoText = document.createElement('span');
+  demoText.textContent = 'Publish as Demo storyline';
+  demoRow.append(demoInput, demoText);
+  metaStack.appendChild(demoRow);
+
   const factionRow = document.createElement('div');
   factionRow.className = 'share-form-field share-publish-field share-publish-field-faction';
   const factionLabel = document.createElement('label');
@@ -1938,7 +2052,7 @@ function buildPublishForm(): HTMLElement {
     rewardSummary.textContent = replacementMode
       ? `This update keeps the same community slot, with reward intensity driven by ${preview.qualityScore.totalStars}-star quality.`
       : `This story is lined up as a ${labelForComplexity(preview.complexity).toLowerCase()} publish with a ${preview.qualityScore.totalStars}-star quality rating.`;
-    rewardFormula.textContent = `Base ${preview.basePublishXp} XP x quality ${formatMultiplier(preview.qualityMultiplier)} = ${preview.publishXp} publish XP`;
+    rewardFormula.textContent = `Base ${preview.basePublishXp} XP x quality ${formatMultiplier(preview.qualityMultiplier)} + ${preview.dialogueChoiceCount} choices x 25 XP = ${preview.publishXp} publish XP`;
   };
 
   const applySubmitMode = (isReplacementMode: boolean) => {
@@ -1993,6 +2107,7 @@ function buildPublishForm(): HTMLElement {
     const description = descInput.value.trim();
     const summary = summaryInput.value.trim() || createSummaryFromConversation(conv);
     const tags = tagsInput.value.split(',').map(tag => tag.trim()).filter(Boolean);
+    const taggedUsernames = taggedUsersInput.value.split(',').map(tag => tag.trim()).filter(Boolean);
     const faction = getConversationFaction(conv, store.get().project.faction);
     const branchCount = getBranchCount(conv);
     const selectedSourceMetadata = store.getSelectedConversationSourceMetadata();
@@ -2039,6 +2154,8 @@ function buildPublishForm(): HTMLElement {
         tags,
         branch_count: branchCount,
         complexity: deriveConversationComplexity(branchCount),
+        library_section: demoInput.checked ? 'demo' : 'community',
+        tagged_usernames: taggedUsernames,
         data: {
           version: store.get().project.version,
           faction,
@@ -2211,6 +2328,8 @@ function buildPublishForm(): HTMLElement {
     descInput.value = '';
     summaryInput.value = conv ? createSummaryFromConversation(conv) : '';
     tagsInput.value = branchCount <= 3 ? 'short, starter' : 'branching, story';
+    taggedUsersInput.value = getCollabCoAuthorNames().join(', ');
+    demoInput.checked = false;
     factionValue.textContent = `${FACTION_DISPLAY_NAMES[faction]} | ${branchCount} branches | ${labelForComplexity(deriveConversationComplexity(branchCount))}`;
     factionValue.style.color = FACTION_COLORS[faction];
     applySubmitMode(replacementMode);
