@@ -196,6 +196,8 @@ const TABLE = 'community_conversations';
 const COLLAB_TABLE = 'collab_sessions';
 const SUPPORT_TABLE = 'creator_support_metrics';
 const ACTIVE_USERS_TABLE = 'creator_active_users';
+const PROFILES_TABLE = 'user_profiles';
+const ADMINS_TABLE = 'editor_admins';
 const STREAKS_TABLE = 'user_streaks';
 const MISSIONS_TABLE = 'user_mission_progress';
 const BUG_REPORTS_TABLE = 'editor_bug_reports';
@@ -958,14 +960,37 @@ export async function updateConversationLibrarySection(
   publisherId: string,
   librarySection: CommunityLibrarySection,
 ): Promise<CommunityConversation | null> {
-  const payload = await fetchFromApi<{ conversation?: unknown }>(`/api/conversations/${encodeURIComponent(id)}/library-section`, {
+  try {
+    const payload = await fetchFromApi<{ conversation?: unknown }>(`/api/conversations/${encodeURIComponent(id)}/library-section`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publisher_id: publisherId, library_section: librarySection }),
+    });
+    return payload.conversation && typeof payload.conversation === 'object'
+      ? normalizeConversationRow(payload.conversation as Partial<CommunityConversation>)
+      : null;
+  } catch (err) {
+    if (!isProxyUnavailableError(err)) throw err;
+  }
+
+  if (!(await canManageEditorAdminFeatures(publisherId))) {
+    throw new Error('Only admins can curate community stories.');
+  }
+
+  const res = await fetch(`${sbEndpoint(TABLE)}?id=eq.${encodeURIComponent(id)}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ publisher_id: publisherId, library_section: librarySection }),
+    headers: { ...sbHeaders(), Prefer: 'return=representation' },
+    body: JSON.stringify({ library_section: librarySection }),
   });
-  return payload.conversation && typeof payload.conversation === 'object'
-    ? normalizeConversationRow(payload.conversation as Partial<CommunityConversation>)
-    : null;
+  if (!res.ok) {
+    const message = await readErrorMessage(res);
+    if (isMissingSchemaColumnError(message, 'library_section')) {
+      throw new Error('Missing Supabase column: community_conversations.library_section');
+    }
+    throw new Error(message);
+  }
+  const rows = await res.json() as Array<Partial<CommunityConversation>>;
+  return rows[0] ? normalizeConversationRow(rows[0]) : null;
 }
 
 export async function fetchCommunityLibraryStats(): Promise<CommunityLibraryStats> {
@@ -1165,29 +1190,118 @@ export async function fetchActiveEditorPresence(): Promise<ActiveEditorPresence>
 
 export async function fetchEditorAdmins(publisherId: string): Promise<EditorAdmin[]> {
   const params = new URLSearchParams({ publisher_id: publisherId });
-  const payload = await fetchFromApi<{ admins?: unknown }>(`/api/admins?${params}`);
-  return Array.isArray(payload.admins)
-    ? payload.admins.map(normalizeEditorAdmin).filter((admin): admin is EditorAdmin => Boolean(admin))
-    : [];
+  try {
+    const payload = await fetchFromApi<{ admins?: unknown }>(`/api/admins?${params}`);
+    return Array.isArray(payload.admins)
+      ? payload.admins.map(normalizeEditorAdmin).filter((admin): admin is EditorAdmin => Boolean(admin))
+      : [];
+  } catch (err) {
+    if (!isProxyUnavailableError(err)) throw err;
+  }
+
+  const listParams = new URLSearchParams({
+    select: 'publisher_id,username,granted_by,created_at',
+    order: 'created_at.desc',
+  });
+  const res = await fetch(`${sbEndpoint(ADMINS_TABLE)}?${listParams}`, { headers: sbHeaders() });
+  if (!res.ok) {
+    if (res.status === 404) return [];
+    throw new Error(await readErrorMessage(res));
+  }
+  const rows = await res.json() as unknown[];
+  return rows.map(normalizeEditorAdmin).filter((admin): admin is EditorAdmin => Boolean(admin));
 }
 
 export async function grantEditorAdmin(publisherId: string, username: string): Promise<EditorAdmin[]> {
-  const payload = await fetchFromApi<{ admins?: unknown }>('/api/admins', {
+  try {
+    const payload = await fetchFromApi<{ admins?: unknown }>('/api/admins', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publisher_id: publisherId, username }),
+    });
+    return Array.isArray(payload.admins)
+      ? payload.admins.map(normalizeEditorAdmin).filter((admin): admin is EditorAdmin => Boolean(admin))
+      : [];
+  } catch (err) {
+    if (!isProxyUnavailableError(err)) throw err;
+  }
+
+  if (!(await isPandaPublisher(publisherId))) {
+    throw new Error('Only Panda can manage privileges.');
+  }
+  const match = await fetchPublisherIdsByUsername([username]);
+  const targetPublisherId = match.get(username.trim().toLowerCase());
+  if (!targetPublisherId) throw new Error('User profile not found.');
+
+  const res = await fetch(`${sbEndpoint(ADMINS_TABLE)}?on_conflict=publisher_id`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ publisher_id: publisherId, username }),
+    headers: { ...sbHeaders(), Prefer: 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify([{ publisher_id: targetPublisherId, username: username.trim(), granted_by: publisherId }]),
   });
-  return Array.isArray(payload.admins)
-    ? payload.admins.map(normalizeEditorAdmin).filter((admin): admin is EditorAdmin => Boolean(admin))
-    : [];
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  return fetchEditorAdmins(publisherId);
 }
 
 export async function revokeEditorAdmin(publisherId: string, targetPublisherId: string): Promise<void> {
-  await fetchFromApi(`/api/admins/${encodeURIComponent(targetPublisherId)}`, {
+  try {
+    await fetchFromApi(`/api/admins/${encodeURIComponent(targetPublisherId)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publisher_id: publisherId }),
+    });
+    return;
+  } catch (err) {
+    if (!isProxyUnavailableError(err)) throw err;
+  }
+
+  if (!(await isPandaPublisher(publisherId))) {
+    throw new Error('Only Panda can manage privileges.');
+  }
+  const res = await fetch(`${sbEndpoint(ADMINS_TABLE)}?publisher_id=eq.${encodeURIComponent(targetPublisherId)}`, {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ publisher_id: publisherId }),
+    headers: { ...sbHeaders(), Prefer: 'return=minimal' },
   });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+}
+
+export async function isEditorAdminPublisher(publisherId: string): Promise<boolean> {
+  const id = publisherId.trim();
+  if (!id) return false;
+  const params = new URLSearchParams({
+    select: 'publisher_id',
+    publisher_id: `eq.${id}`,
+    limit: '1',
+  });
+  try {
+    const res = await fetch(`${sbEndpoint(ADMINS_TABLE)}?${params}`, { headers: sbHeaders() });
+    if (!res.ok) return false;
+    const rows = await res.json() as Array<{ publisher_id?: string }>;
+    return rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function canManageEditorAdminFeatures(publisherId: string): Promise<boolean> {
+  return (await isPandaPublisher(publisherId)) || (await isEditorAdminPublisher(publisherId));
+}
+
+async function isPandaPublisher(publisherId: string): Promise<boolean> {
+  const id = publisherId.trim();
+  if (!id) return false;
+  const params = new URLSearchParams({
+    select: 'username',
+    publisher_id: `eq.${id}`,
+    limit: '1',
+  });
+  try {
+    const res = await fetch(`${sbEndpoint(PROFILES_TABLE)}?${params}`, { headers: sbHeaders() });
+    if (!res.ok) return false;
+    const rows = await res.json() as Array<{ username?: string }>;
+    return (rows[0]?.username ?? '').trim().toLowerCase() === 'panda';
+  } catch {
+    return false;
+  }
 }
 
 function normalizeEditorAdmin(value: unknown): EditorAdmin | null {

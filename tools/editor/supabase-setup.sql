@@ -129,6 +129,18 @@ BEGIN
 END;
 $$;
 
+DROP POLICY IF EXISTS "Public admin insert" ON editor_admins;
+CREATE POLICY "Public admin insert"
+  ON editor_admins FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public admin update" ON editor_admins;
+CREATE POLICY "Public admin update"
+  ON editor_admins FOR UPDATE USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public admin delete" ON editor_admins;
+CREATE POLICY "Public admin delete"
+  ON editor_admins FOR DELETE USING (true);
+
 CREATE OR REPLACE FUNCTION set_updated_at_timestamp()
 RETURNS TRIGGER
 LANGUAGE plpgsql

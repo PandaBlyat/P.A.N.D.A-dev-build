@@ -1714,7 +1714,9 @@ function renderNoteAnnotation(
   }
   fontSelect.value = String(fontSize);
   fontSelect.onpointerdown = (event) => event.stopPropagation();
-  fontSelect.onchange = () => {
+  fontSelect.onclick = (event) => event.stopPropagation();
+  fontSelect.onchange = (event) => {
+    event.stopPropagation();
     const nextFontSize = normalizeNoteFontSize(Number(fontSelect.value));
     note.style.setProperty('--note-font-size', `${nextFontSize}px`);
     autosizeAnnotationTextarea(textarea);
@@ -1752,15 +1754,20 @@ function renderNoteAnnotation(
       textarea.blur();
     }
   };
-  textarea.onblur = () => {
-    const nextText = textarea.value.trim();
-    if (!nextText) {
-      store.deleteFlowAnnotation(conversationId, annotation.id);
-      return;
-    }
-    if (nextText !== annotation.text) {
-      store.updateFlowAnnotation(conversationId, annotation.id, { text: nextText } as Partial<FlowAnnotation>);
-    }
+  textarea.onblur = (event) => {
+    const nextFocus = event.relatedTarget;
+    if (nextFocus instanceof Node && note.contains(nextFocus)) return;
+    window.setTimeout(() => {
+      if (document.activeElement && note.contains(document.activeElement)) return;
+      const nextText = textarea.value.trim();
+      if (!nextText) {
+        store.deleteFlowAnnotation(conversationId, annotation.id);
+        return;
+      }
+      if (nextText !== annotation.text) {
+        store.updateFlowAnnotation(conversationId, annotation.id, { text: nextText } as Partial<FlowAnnotation>);
+      }
+    }, 0);
   };
 
   let drag: { pointerId: number; startX: number; startY: number; originX: number; originY: number } | null = null;

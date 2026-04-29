@@ -11,6 +11,7 @@ import {
   fetchCommunityLibraryStats,
   incrementDownload,
   incrementUpvote,
+  isEditorAdminPublisher,
   publishConversation,
   updateConversationLibrarySection,
   type CommunityConversation,
@@ -102,13 +103,23 @@ function userOwnsConversation(conv: CommunityConversation): boolean {
 }
 
 function canManageCommunitySections(): boolean {
-  const profile = (globalThis as any).__pandaUserProfile as UserProfile | null;
-  return Boolean(profile?.publisher_id) || (profile?.username ?? getStoredUsername() ?? '').trim().toLowerCase() === 'panda';
+  return viewerCanManageSections;
 }
 
 function getAdminPublisherId(): string {
   const profile = (globalThis as any).__pandaUserProfile as UserProfile | null;
   return profile?.publisher_id?.trim() || window.localStorage.getItem(LOCAL_PUBLISHER_ID_KEY)?.trim() || '';
+}
+
+async function refreshCommunitySectionPermission(): Promise<void> {
+  const profile = (globalThis as any).__pandaUserProfile as UserProfile | null;
+  const username = (profile?.username ?? getStoredUsername() ?? '').trim().toLowerCase();
+  if (username === 'panda') {
+    viewerCanManageSections = true;
+    return;
+  }
+  const publisherId = getAdminPublisherId();
+  viewerCanManageSections = publisherId ? await isEditorAdminPublisher(publisherId) : false;
 }
 
 function attachCommunitySourceMetadata(conversation: Conversation, metadata: CommunitySourceMetadata): Conversation {
@@ -169,6 +180,7 @@ let communityStats: CommunityLibraryStats | null = null;
 let unsubscribeSharePanelStore: (() => void) | null = null;
 let isReplacementCandidate = false;
 let replacementCommunityId: string | null = null;
+let viewerCanManageSections = false;
 
 function isOwnedSelectedSourceMetadata(
   sourceMetadata: ReturnType<typeof store.getSelectedConversationSourceMetadata>,
@@ -313,6 +325,7 @@ export function openSharePanel(): void {
   loadError = '';
   loadNotice = '';
   communityStats = null;
+  viewerCanManageSections = false;
   isReplacementCandidate = false;
   replacementCommunityId = null;
 
@@ -350,6 +363,7 @@ async function loadConversations(): Promise<void> {
     const [remoteRows, stats] = await Promise.all([
       fetchConversations(activeFaction === 'all' ? undefined : activeFaction),
       fetchCommunityLibraryStats().catch(() => null),
+      refreshCommunitySectionPermission().catch(() => undefined),
     ]);
     const remote = normalizeCollection(remoteRows, 'remote');
     allResults = mergeConversationLists(bundled, remote);
