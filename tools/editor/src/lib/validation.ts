@@ -1447,8 +1447,14 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
       const hasNpcTargetFilters = choiceHasNpcTargeting(choice);
       const targetsContinuationNpc = terminal !== true && choice.continueTo != null && hasNpcTargetFilters;
       if (continueChannel === 'f2f') {
+        const destinationTurn = choice.continueTo != null ? turnByNumber.get(choice.continueTo) : undefined;
+        const destinationHasSpeakerTargeting = destinationTurn != null && (
+          (destinationTurn.speaker_npc_id ?? '').trim() !== ''
+          || (destinationTurn.speaker_npc_faction_filters?.length ?? 0) > 0
+          || destinationTurn.speaker_allow_generic_stalker === true
+        );
         validateF2FTargeting(conv, turn, choice, messages, {
-          requireExplicitTargeting: isCrossChannelHandoff(choiceChannel, continueChannel),
+          requireExplicitTargeting: isCrossChannelHandoff(choiceChannel, continueChannel) && !destinationHasSpeakerTargeting,
         });
       } else if (!hasExplicitF2FContext || !isChannelVisible(choiceChannel, 'f2f')) {
         if (hasNpcTargetFilters && !targetsContinuationNpc) {
