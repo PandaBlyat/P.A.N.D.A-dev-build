@@ -4687,56 +4687,12 @@ function wireCanvasInteractions(options: {
     canvas.addEventListener('pointercancel', onUp);
   };
 
-  // Cache canvas rect; refresh only on resize/scroll. `getBoundingClientRect`
-  // forces a full layout flush, and the wheel handler called it once per
-  // wheel event — a major source of stutter when zooming fast.
-  let cachedCanvasRect: DOMRect = canvas.getBoundingClientRect();
-  const refreshCanvasRect = (): void => { cachedCanvasRect = canvas.getBoundingClientRect(); };
-  window.addEventListener('resize', refreshCanvasRect, { passive: true });
-  window.addEventListener('scroll', refreshCanvasRect, { passive: true, capture: true });
-
-  // Smooth zoom: target zoom + an rAF interpolator that pulls the active
-  // zoom toward the target while continuously re-pivoting on the cursor's
-  // world point. This makes zoom-in / zoom-out feel buttery instead of
-  // stepping in 10% jumps per wheel tick.
-  let zoomAnimFrame = 0;
-  let zoomTarget = viewState.zoom;
-  let zoomCursorX = 0;
-  let zoomCursorY = 0;
+  // Coalesce wheel ticks into a single applyView per frame. Reading
+  // getBoundingClientRect inside the wheel handler is fine (wheel events
+  // are infrequent and reading once per event is cheap); caching the rect
+  // across panel layout changes was causing the pivot to drift off-cursor.
+  let wheelFrame = 0;
   let zoomReleaseTimer: number | null = null;
-
-  const stopZoomAnim = (): void => {
-    if (zoomAnimFrame !== 0) {
-      cancelAnimationFrame(zoomAnimFrame);
-      zoomAnimFrame = 0;
-    }
-  };
-
-  const stepZoom = (): void => {
-    zoomAnimFrame = 0;
-    const current = viewState.zoom;
-    const delta = zoomTarget - current;
-    // 0.28 closes ~half the remaining gap each frame at 60fps; ≤0.001 zoom
-    // unit ends the animation and snaps to the target.
-    if (Math.abs(delta) < 0.001) {
-      // Snap and pivot precisely on cursor world point.
-      const worldX = (zoomCursorX - viewState.panX) / current;
-      const worldY = (zoomCursorY - viewState.panY) / current;
-      viewState.zoom = zoomTarget;
-      viewState.panX = zoomCursorX - worldX * zoomTarget;
-      viewState.panY = zoomCursorY - worldY * zoomTarget;
-      applyView();
-      return;
-    }
-    const next = clamp(current + delta * 0.28, MIN_ZOOM, MAX_ZOOM);
-    const worldX = (zoomCursorX - viewState.panX) / current;
-    const worldY = (zoomCursorY - viewState.panY) / current;
-    viewState.zoom = next;
-    viewState.panX = zoomCursorX - worldX * next;
-    viewState.panY = zoomCursorY - worldY * next;
-    applyView();
-    zoomAnimFrame = requestAnimationFrame(stepZoom);
-  };
 
   canvas.onwheel = (event) => {
     const target = event.target as HTMLElement | null;
@@ -4746,24 +4702,30 @@ function wireCanvasInteractions(options: {
     event.preventDefault();
     onInteractionStateChange(true);
 
-    // Use ctrlKey to detect trackpad pinch-zoom (browsers report it as a
-    // wheel event with ctrlKey=true). For pinch we use the raw delta as a
-    // multiplicative step; for scroll-wheel we use a fixed 1.1 step so each
-    // notch produces a consistent change regardless of OS scroll speed.
+    // ctrlKey wheel = trackpad pinch. Use exponential step from raw deltaY
+    // so pinch feels proportional; scroll-wheel uses a fixed 1.1 per notch.
     const isPinch = event.ctrlKey;
-    const step = isPinch
+    const factor = isPinch
       ? Math.exp(-event.deltaY * 0.01)
       : (event.deltaY > 0 ? 1 / 1.1 : 1.1);
 
-    // Update cursor pivot from cached rect (no DOM read here).
-    zoomCursorX = event.clientX - cachedCanvasRect.left;
-    zoomCursorY = event.clientY - cachedCanvasRect.top;
+    const rect = canvas.getBoundingClientRect();
+    const ox = event.clientX - rect.left;
+    const oy = event.clientY - rect.top;
 
-    // Compose onto current target so rapid wheel ticks accumulate smoothly
-    // instead of overwriting each other.
-    zoomTarget = clamp(zoomTarget * step, MIN_ZOOM, MAX_ZOOM);
-    if (zoomAnimFrame === 0) {
-      zoomAnimFrame = requestAnimationFrame(stepZoom);
+    const nextZoom = clamp(viewState.zoom * factor, MIN_ZOOM, MAX_ZOOM);
+    if (nextZoom !== viewState.zoom) {
+      const worldX = (ox - viewState.panX) / viewState.zoom;
+      const worldY = (oy - viewState.panY) / viewState.zoom;
+      viewState.zoom = nextZoom;
+      viewState.panX = ox - worldX * nextZoom;
+      viewState.panY = oy - worldY * nextZoom;
+      if (wheelFrame === 0) {
+        wheelFrame = requestAnimationFrame(() => {
+          wheelFrame = 0;
+          applyView();
+        });
+      }
     }
 
     if (zoomReleaseTimer !== null) window.clearTimeout(zoomReleaseTimer);
