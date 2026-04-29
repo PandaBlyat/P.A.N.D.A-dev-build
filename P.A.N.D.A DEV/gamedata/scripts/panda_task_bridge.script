@@ -727,6 +727,18 @@ local function cleanup_escort_companion(record)
         if squad then
             squad.scripted_target = nil
             squad.current_action = nil
+            if type(squad.squad_members) == "function" and se_save_var then
+                for member in squad:squad_members() do
+                    local member_id = tonumber(member.id)
+                    local member_se = member_id and alife_object and alife_object(member_id) or nil
+                    local member_name = member_se and member_se.name and member_se:name() or tostring(member_id or "")
+                    if member_id then
+                        se_save_var(member_id, member_name, "companion", nil)
+                        se_save_var(member_id, member_name, "companion_cannot_dismiss", nil)
+                        se_save_var(member_id, member_name, "companion_cannot_teleport", nil)
+                    end
+                end
+            end
             if axr_companions.remove_from_actor_squad then
                 pcall(axr_companions.remove_from_actor_squad, squad)
             end
@@ -1058,9 +1070,7 @@ local function evaluate_status(task, task_id)
         end
 
         maybe_recover_escort(record)
-        local escort_pos = get_object_position_by_id(record.target_npc_id) or squad_position(record.target_squad_id)
-        local destination = get_object_position_by_id(record.destination_map_id)
-        if destination and escort_pos and distance_between(escort_pos, destination) and distance_between(escort_pos, destination) <= (record.target_radius or TARGET_RADIUS_DEFAULT) then
+        if actor_near_object(record.destination_map_id, record.target_radius or TARGET_RADIUS_DEFAULT) then
             return "complete"
         end
         return
@@ -1245,6 +1255,9 @@ function M.create_task(params)
     record.fail_turn = tonumber(params.fail_turn) or record.fail_turn
     record.channel = params.channel or record.channel or "pda"
     record.applied_outcomes = clone_plain(params.applied_outcomes or record.applied_outcomes or {})
+    record.resume_npc_id = params.resume_npc_id or record.resume_npc_id
+    record.resume_npc_faction_filters = clone_plain(params.resume_npc_faction_filters or record.resume_npc_faction_filters or {})
+    record.resume_allow_generic_stalker = params.resume_allow_generic_stalker == true or record.resume_allow_generic_stalker == true
     record.started_at = tonumber(record.started_at) or now_ms()
     record.timeout_seconds = tonumber(params.timeout_seconds or params.timeout or record.timeout_seconds) or nil
     record.expire_at = record.timeout_seconds and (record.started_at + (record.timeout_seconds * 1000)) or record.expire_at

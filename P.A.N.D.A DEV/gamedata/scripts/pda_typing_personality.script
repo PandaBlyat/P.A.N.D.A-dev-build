@@ -61,7 +61,7 @@ local PROFILES = {
     -- BANDITS — sloppy, vulgar, heavy slang, no grammar
     -- --------------------------------------------------------
     bandit = {
-        typo_chance         = 40,
+        typo_chance         = 20,
         lowercase_all       = true,
         cap_after_period    = false,
         punct_miss_chance   = 50,
@@ -152,7 +152,7 @@ local PROFILES = {
     -- FREEDOM — casual, relaxed, some slang
     -- --------------------------------------------------------
     freedom = {
-        typo_chance         = 20,
+        typo_chance         = 5,
         lowercase_all       = false,
         cap_after_period    = false,
         punct_miss_chance   = 30,
@@ -182,7 +182,7 @@ local PROFILES = {
     -- LONERS — average, moderate mistakes
     -- --------------------------------------------------------
     stalker = {
-        typo_chance         = 15,
+        typo_chance         = 10,
         lowercase_all       = false,
         cap_after_period    = true,
         punct_miss_chance   = 15,
@@ -206,7 +206,7 @@ local PROFILES = {
     -- MILITARY — formal, bureaucratic, few mistakes
     -- --------------------------------------------------------
     army = {
-        typo_chance         = 5,
+        typo_chance         = 1,
         lowercase_all       = false,
         cap_after_period    = true,
         punct_miss_chance   = 5,
@@ -246,7 +246,7 @@ local PROFILES = {
     -- CLEAR SKY — educated, casual
     -- --------------------------------------------------------
     csky = {
-        typo_chance         = 10,
+        typo_chance         = 0,
         lowercase_all       = false,
         cap_after_period    = true,
         punct_miss_chance   = 10,
@@ -285,7 +285,7 @@ local PROFILES = {
     -- ISG — sloppy, unprofessional
     -- --------------------------------------------------------
     isg = {
-        typo_chance         = 30,
+        typo_chance         = 15,
         lowercase_all       = false,
         cap_after_period    = false,
         punct_miss_chance   = 35,
@@ -333,7 +333,7 @@ local PROFILES = {
     -- ZOMBIFIED — heavily garbled, broken, eerie
     -- --------------------------------------------------------
     zombied = {
-        typo_chance         = 60,
+        typo_chance         = 50,
         lowercase_all       = true,
         cap_after_period    = false,
         punct_miss_chance   = 70,

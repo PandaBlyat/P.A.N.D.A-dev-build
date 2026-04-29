@@ -185,6 +185,13 @@ const NPC_RELATION_STATE_OPTIONS: ParamOption[] = [
   { value: 'friendly', label: 'Friendly', keywords: ['friend', 'friendly'] },
 ];
 
+const ESCORT_TARGET_OPTIONS: ParamOption[] = [
+  { value: 'sender', label: 'Conversation NPC', keywords: ['sender', 'talker', 'current npc'] },
+  { value: 'story_npc', label: 'Story NPC', keywords: ['story npc', 'named npc'] },
+  { value: 'custom_npc', label: 'Custom NPC Template', keywords: ['custom npc', 'template'] },
+  { value: 'spawn_faction', label: 'Spawn New NPC', keywords: ['spawn', 'new npc', 'faction'] },
+];
+
 export const NPC_ANIMATION_PRESET_OPTIONS: ParamOption[] = [
   { value: 'smoke_stand', label: 'Smoke Standing', keywords: ['smoke', 'standing', 'cigarette', 'smoking_stand'] },
   { value: 'smoke_sit', label: 'Smoke Sitting', keywords: ['smoke', 'sitting', 'cigarette', 'smoking_sit'] },
@@ -2216,13 +2223,22 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     label: 'Task: Escort NPC',
     description: 'NPC becomes companion; escort to destination',
     category: 'Tasks',
-    helpText: 'The conversation NPC joins as a companion (cannot be dismissed). The player must escort them to the destination. The NPC leaves the group on arrival. Fails if the NPC dies or the timeout expires.',
-    examples: ['panda_task_escort:st_mil_smart_terrain_7_7_name:900:3:4'],
+    helpText:
+      'By default the conversation NPC joins as a companion (cannot be dismissed). Optional target fields let authors use a story NPC, spawn or reuse a custom NPC template, or spawn a new faction NPC near the player. The NPC leaves the group on arrival. Fails if the NPC dies or the timeout expires.',
+    examples: [
+      'panda_task_escort:st_mil_smart_terrain_7_7_name:900:3:4',
+      'panda_task_escort:st_mil_smart_terrain_7_7_name:900:3:4:story_npc:bar_visitors_barman_stalker_trader',
+      'panda_task_escort:st_mil_smart_terrain_7_7_name:900:3:4:custom_npc:hired_guns',
+      'panda_task_escort:st_mil_smart_terrain_7_7_name:900:3:4:spawn_faction:stalker',
+    ],
     params: [
       { name: 'destination', type: 'smart_terrain', required: true, label: 'Destination', editor: SMART_TERRAIN_EDITOR },
       { name: 'timeout', type: 'number', required: true, label: 'Timeout (s)', min: 30 },
       { name: 'success_turn', type: 'number', required: true, label: 'Success Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
       { name: 'fail_turn', type: 'number', required: true, label: 'Fail Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
+      { name: 'target_kind', type: 'string', required: false, label: 'Escort Target', placeholder: 'sender', editor: { kind: 'static_select', options: ESCORT_TARGET_OPTIONS, emptyLabel: 'Conversation NPC' } },
+      { name: 'target_id', type: 'string', required: false, label: 'Target ID / Template / Faction', placeholder: 'hired_guns', helpText: 'story_npc uses story ID, custom_npc uses template ID, spawn_faction uses faction key. Leave empty for conversation NPC.' },
+      { name: 'spawn_smart', type: 'smart_terrain', required: false, label: 'Custom Spawn Smart', editor: SMART_TERRAIN_EDITOR, helpText: 'Optional smart terrain used when custom_npc needs to spawn before escort starts.' },
     ],
   },
   {

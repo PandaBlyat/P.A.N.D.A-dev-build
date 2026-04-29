@@ -531,6 +531,14 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
       conv.preconditions = parsePreconditions(precondStr);
     }
 
+    // Repeatability
+    const repeatableStr = strings.get(`${prefix}_repeatable`)?.trim().toLowerCase();
+    if (repeatableStr === '0' || repeatableStr === 'false' || repeatableStr === 'no' || repeatableStr === 'once') {
+      conv.repeatable = false;
+    } else if (repeatableStr === '1' || repeatableStr === 'true' || repeatableStr === 'yes') {
+      conv.repeatable = true;
+    }
+
     // Timeout
     const timeoutStr = strings.get(`${prefix}_timeout`);
     if (timeoutStr) {

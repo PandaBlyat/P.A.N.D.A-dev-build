@@ -41,6 +41,8 @@ export interface Conversation {
   /** Controls how this conversation is triggered: 'pda' (default) via PDA message, 'f2f' via NPC dialogue option. */
   startMode?: ConversationStartMode;
   preconditions: PreconditionEntry[];
+  /** When false, this story can only start once in the same save/playthrough. */
+  repeatable?: boolean;
   timeout?: number;
   timeoutMessage?: string;
   flowAnnotations?: FlowAnnotation[];

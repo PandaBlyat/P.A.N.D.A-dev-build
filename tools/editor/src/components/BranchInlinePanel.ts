@@ -7,6 +7,7 @@ import {
   getChoiceFieldKey,
   getChoicePreconditionItemFieldKey,
   getChoicePreconditionParamFieldKey,
+  getConversationFieldKey,
   getOutcomeChanceFieldKey,
   getOutcomeItemFieldKey,
   getOutcomeParamFieldKey,
@@ -226,6 +227,37 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
       onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingAudio: value.trim() || undefined }),
     }));
     textPane.appendChild(createChannelControls(conv, turn));
+    if (turn.turnNumber === 1) {
+      const repeatableField = document.createElement('label');
+      repeatableField.className = 'branch-inline-field';
+      const repeatableLabel = document.createElement('span');
+      repeatableLabel.textContent = 'Repeatable in Same Playthrough';
+      const repeatableInput = document.createElement('input');
+      repeatableInput.type = 'checkbox';
+      repeatableInput.checked = conv.repeatable !== false;
+      repeatableInput.setAttribute('data-field-key', getConversationFieldKey(conv.id, 'repeatable'));
+      repeatableInput.onchange = () => store.updateConversation(conv.id, { repeatable: repeatableInput.checked });
+      repeatableField.append(repeatableLabel, repeatableInput, createHint('When off, this story starts once in this save.'));
+      textPane.appendChild(repeatableField);
+      textPane.appendChild(createTextInput({
+        label: 'Message Timeout Seconds',
+        value: conv.timeout != null ? String(conv.timeout) : '',
+        placeholder: 'blank = no timeout',
+        description: 'Auto-close story after this many seconds.',
+        fieldKey: getConversationFieldKey(conv.id, 'timeout'),
+        onCommit: (value) => {
+          const parsed = Number.parseInt(value.trim(), 10);
+          store.updateConversation(conv.id, { timeout: Number.isFinite(parsed) && parsed > 0 ? parsed : undefined });
+        },
+      }));
+      textPane.appendChild(createTextarea({
+        label: 'Timeout Message',
+        value: conv.timeoutMessage ?? '',
+        placeholder: 'NPC message shown when player waits too long',
+        fieldKey: getConversationFieldKey(conv.id, 'timeout-message'),
+        onCommit: (value) => store.updateConversation(conv.id, { timeoutMessage: value.trim() || undefined }),
+      }));
+    }
     if (turn.turnNumber === 1) {
       textPane.appendChild(renderOpenerNpcTargetPanel(conv));
     } else {

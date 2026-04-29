@@ -501,6 +501,26 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   startModeField.appendChild(startModeSelect);
   container.appendChild(startModeField);
 
+  const repeatableWrap = document.createElement('div');
+  repeatableWrap.className = 'field';
+  const repeatableField = document.createElement('label');
+  repeatableField.style.cssText = 'display:flex; flex-direction:row; align-items:center; gap:8px; margin:0;';
+  const repeatableInput = document.createElement('input');
+  repeatableInput.type = 'checkbox';
+  repeatableInput.checked = conv.repeatable !== false;
+  repeatableInput.dataset.fieldKey = getConversationFieldKey(conv.id, 'repeatable');
+  repeatableInput.onchange = () => {
+    store.updateConversation(conv.id, { repeatable: repeatableInput.checked });
+  };
+  const repeatableText = document.createElement('span');
+  repeatableText.textContent = 'Repeatable in Same Playthrough';
+  repeatableField.append(repeatableInput, repeatableText);
+  const repeatableHint = document.createElement('div');
+  repeatableHint.className = 'field-hint';
+  repeatableHint.textContent = 'When off, this story will not start again after it finishes or times out in this save.';
+  repeatableWrap.append(repeatableField, repeatableHint);
+  container.appendChild(repeatableWrap);
+
   if (advancedMode) {
   const initialChannelField = document.createElement('div');
   initialChannelField.className = 'field';

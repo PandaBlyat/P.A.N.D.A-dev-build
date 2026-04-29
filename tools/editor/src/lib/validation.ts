@@ -77,7 +77,7 @@ const NESTED_PRECONDITION_UNSUPPORTED_COMMANDS = new Set([
   'req_custom_story_npc',
 ]);
 
-type ConversationField = 'label' | 'initial-channel' | 'start-mode' | 'timeout' | 'timeout-message' | 'preconditions';
+type ConversationField = 'label' | 'initial-channel' | 'start-mode' | 'repeatable' | 'timeout' | 'timeout-message' | 'preconditions';
 type TurnField = 'opening-message' | 'opening-image' | 'opening-audio' | 'speaker-npc-id' | 'channel' | 'pda-entry' | 'f2f-entry' | 'requires-npc-first' | 'first-speaker';
 type ChoiceField =
   | 'text'
@@ -1350,22 +1350,6 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
 
   for (const turn of conv.turns) {
     const turnChannel = normalizeChannel(turn.channel, 'pda');
-    const isF2FEntryTurn = turnChannel === 'f2f' && turn.f2f_entry === true;
-    const isNonEntryF2FTurn = turnChannel === 'f2f' && turn.f2f_entry !== true;
-    if (hasExplicitF2FContext && isNonEntryF2FTurn && (turn.openingMessage ?? '').trim() !== '') {
-      pushMessage(messages, {
-        code: 'non-entry-f2f-opening-message-ignored',
-        group: 'logic',
-        scope: 'turn',
-        level: 'warning',
-        conversationId: conv.id,
-        turnNumber: turn.turnNumber,
-        propertiesTab: 'selection',
-        fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'),
-        fieldLabel: 'Opening Message',
-        message: `Branch ${turn.turnNumber} is a non-entry F2F turn; opening message is ignored (migration cleanup: remove stale opener text).`,
-      });
-    }
     const f2fVisibleChoices = turnChannel === 'f2f' ? turn.choices : [];
 
     for (const choice of turn.choices) {
@@ -1460,8 +1444,17 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         });
       }
 
-      if (!hasExplicitF2FContext || !isChannelVisible(choiceChannel, 'f2f')) {
-        if ((choice.story_npc_id ?? '').trim() !== '' || (choice.npc_faction_filters?.length ?? 0) > 0 || (choice.npc_profile_filters?.length ?? 0) > 0 || choice.allow_generic_stalker) {
+      const hasNpcTargetFilters = (choice.story_npc_id ?? '').trim() !== ''
+        || (choice.npc_faction_filters?.length ?? 0) > 0
+        || (choice.npc_profile_filters?.length ?? 0) > 0
+        || choice.allow_generic_stalker === true;
+      const targetsContinuationNpc = terminal !== true && choice.continueTo != null && hasNpcTargetFilters;
+      if (continueChannel === 'f2f') {
+        validateF2FTargeting(conv, turn, choice, messages, {
+          requireExplicitTargeting: isCrossChannelHandoff(choiceChannel, continueChannel),
+        });
+      } else if (!hasExplicitF2FContext || !isChannelVisible(choiceChannel, 'f2f')) {
+        if (hasNpcTargetFilters && !targetsContinuationNpc) {
           pushMessage(messages, {
             code: 'f2f-targeting-on-non-f2f-choice',
             group: 'logic',
@@ -1476,9 +1469,8 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
             message: `Branch ${turn.turnNumber}, Choice ${choice.index} is not visible in F2F, so NPC targeting filters will not be used.`,
           });
         }
-      } else {
-        const requiresExplicitTargeting = isCrossChannelHandoff(choiceChannel, continueChannel) && continueChannel === 'f2f';
-        validateF2FTargeting(conv, turn, choice, messages, { requireExplicitTargeting: requiresExplicitTargeting });
+      } else if (!targetsContinuationNpc) {
+        validateF2FTargeting(conv, turn, choice, messages, { requireExplicitTargeting: false });
       }
 
       if (terminal === true || choice.continueTo == null) {

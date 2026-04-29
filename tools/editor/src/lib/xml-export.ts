@@ -282,6 +282,9 @@ function generateConversation(
 
   // Preconditions
   lines.push(emitString(`${prefix}_precond`, serializePreconditions(conv.preconditions)));
+  if (conv.repeatable === false) {
+    lines.push(emitString(`${prefix}_repeatable`, '0'));
+  }
 
   // Process each turn
   for (const turn of conv.turns) {
@@ -475,6 +478,7 @@ export function createConversation(project: Project): Conversation {
     faction: project.faction,
     initialChannel: 'pda',
     preconditions: [],
+    repeatable: true,
     turns: [createTurn(1)],
   };
 }

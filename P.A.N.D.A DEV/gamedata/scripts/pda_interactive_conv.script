@@ -782,6 +782,95 @@ local function remove_map_spot_for_id(obj_id, spot_type)
     end
 end
 
+local function add_map_spot_for_object_id(obj_id, spot_type, hint)
+    obj_id = tonumber(obj_id)
+    if not obj_id then
+        return nil
+    end
+
+    spot_type = (spot_type and spot_type ~= "") and spot_type or "primary_object"
+    hint = (hint and hint ~= "") and hint or "default"
+
+    if level and level.map_has_object_spot and level.map_has_object_spot(obj_id, spot_type) == 0 then
+        level.map_add_object_spot_ser(obj_id, spot_type, hint)
+    end
+
+    return obj_id
+end
+
+local function remove_f2f_handoff_attachment(token, contact_id, npc_id)
+    local removed = 0
+    local token_str = token and tostring(token) or nil
+    local contact_str = contact_id and tostring(contact_id) or nil
+    local npc_num = tonumber(npc_id)
+
+    local i = #pda_private_log
+    while i >= 1 do
+        local entry = pda_private_log[i]
+        local matches = entry
+            and entry.msg_type == "map_attachment"
+            and entry.attachment_action == "f2f_handoff"
+            and ((token_str and tostring(entry.f2f_handoff_token or "") == token_str)
+                or (not token_str
+                    and ((contact_str and tostring(entry.contact_id or "") == contact_str)
+                        or (npc_num and tonumber(entry.f2f_handoff_npc_id) == npc_num))))
+
+        if matches then
+            if entry.map_spot_id then
+                remove_map_spot_for_id(entry.map_spot_id, entry.map_spot_type or "primary_object")
+            end
+            table.remove(pda_private_log, i)
+            removed = removed + 1
+        end
+        i = i - 1
+    end
+
+    return removed
+end
+
+local function queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_icon, target_npc_id, target_npc_name, token)
+    local target_id = tonumber(target_npc_id)
+    if not contact_id or not target_id then
+        return nil
+    end
+
+    local target_name = target_npc_name or "Unknown"
+    local spot_type = "primary_object"
+    local marker_hint = utils_data.parse_string_keys(
+        game.translate_string("st_pda_ic_location_marker_hint"),
+        {
+            ["location"] = target_name,
+            ["name"] = sender_npc_name or "Unknown",
+        }
+    )
+    local spot_id = add_map_spot_for_object_id(target_id, spot_type, marker_hint)
+
+    pda_private_add_message(
+        contact_id,
+        sender_npc_name,
+        sender_npc_name or game.translate_string("st_pda_ic_outcome_sender"),
+        "Map Coordinates:",
+        sender_icon or FALLBACK_NPC_ICON,
+        false,
+        "delivered",
+        nil,
+        nil,
+        {
+            msg_type = "map_attachment",
+            attachment_action = "f2f_handoff",
+            attachment_label = "Meet Target:",
+            map_spot_id = spot_id,
+            map_spot_type = spot_type,
+            location_name = target_name,
+            f2f_handoff_token = token,
+            f2f_handoff_npc_id = target_id,
+            skip_personality = true,
+        }
+    )
+
+    return spot_id
+end
+
 
 local function register_location_reference(location_ref, sender_npc_name, sender_npc_id, radius, sender_contact_id, opts)
     local smart, smart_name = resolve_smart_from_reference(location_ref)
@@ -1349,6 +1438,8 @@ local resolve_runtime_npc_se
 local get_audio_fields_for_string_key
 local get_message_attachment_fields_for_string_key
 local sanitize_pda_ui_texture_name
+local recruit_escort_companion
+local resolve_escort_target
 
 -- ============================================================
 -- TASK HELPERS: Completion checks for custom task types
@@ -2104,16 +2195,34 @@ local function queue_panda_task_pda_followup(record, turn)
         return false, "missing_identity"
     end
 
+    local branch_target = read_branch_speaker_target(record.conv_prefix, faction, conv_id, next_turn)
+    if record.resume_npc_id or record.resume_allow_generic_stalker == true then
+        branch_target = {
+            npc_id = record.resume_npc_id,
+            allow_generic_stalker = record.resume_allow_generic_stalker == true,
+            npc_faction_filters = record.resume_npc_faction_filters or {},
+        }
+    end
+    local resume_npc_id, resume_contact_id, resume_npc_name, resume_npc_icon, resume_npc_se =
+        resolve_branch_speaker_npc(branch_target, npc_id, record.npc_name, record.conv_icon)
+    if not resume_npc_id then
+        return false, "missing_resume_npc"
+    end
+    local identity = build_f2f_handoff_identity(resume_npc_se, resume_npc_id)
+
     local ok = queue_pda_followup_internal({
-        npc_id = npc_id,
-        contact_id = contact_id,
-        npc_name = record.npc_name,
-        npc_icon = record.conv_icon,
+        npc_id = resume_npc_id,
+        contact_id = resume_contact_id,
+        npc_name = resume_npc_name,
+        npc_icon = resume_npc_icon,
         faction = faction,
         prefix = record.conv_prefix,
         conv_id = conv_id,
         turn = next_turn,
         delay_seconds = 0,
+        story_id = identity.story_id,
+        canonical_id = identity.canonical_id,
+        fallback_name = identity.fallback_name,
         applied_outcomes = clone_plain_table(record.applied_outcomes) or {},
     })
     if ok then
@@ -2141,16 +2250,30 @@ local function queue_panda_task_f2f_followup(record, turn)
         return false, "handoff_unavailable"
     end
 
-    local npc_se = resolve_runtime_npc_se(nil, npc_id)
+    local branch_target = read_branch_speaker_target(record.conv_prefix, record.faction, conv_id, next_turn)
+    if record.resume_npc_id or record.resume_allow_generic_stalker == true then
+        branch_target = {
+            npc_id = record.resume_npc_id,
+            allow_generic_stalker = record.resume_allow_generic_stalker == true,
+            npc_faction_filters = record.resume_npc_faction_filters or {},
+        }
+    end
+    local target_npc_id, target_contact_id, target_name, target_icon, target_se =
+        resolve_branch_speaker_npc(branch_target, npc_id, record.npc_name, record.conv_icon)
+    if not target_npc_id then
+        return false, "missing_target_npc"
+    end
+
+    local npc_se = target_se or resolve_runtime_npc_se(nil, target_npc_id)
     local set_at = time_global and time_global() or 0
     local handoff_identity = type(build_f2f_handoff_identity) == "function"
-        and build_f2f_handoff_identity(npc_se, npc_id)
+        and build_f2f_handoff_identity(npc_se, target_npc_id)
         or { story_id = nil, canonical_id = nil, fallback_name = nil }
     local handoff_token
     if type(make_f2f_handoff_token) == "function" then
-        handoff_token = make_f2f_handoff_token(npc_id, conv_id, next_turn, set_at)
+        handoff_token = make_f2f_handoff_token(target_npc_id, conv_id, next_turn, set_at)
     else
-        handoff_token = string.format("task_handoff_%s_%s_%s_%s", tostring(npc_id), tostring(conv_id), tostring(next_turn), tostring(set_at))
+        handoff_token = string.format("task_handoff_%s_%s_%s_%s", tostring(target_npc_id), tostring(conv_id), tostring(next_turn), tostring(set_at))
     end
 
     local handoff_dialog = "panda_f2f_hub_dialog"
@@ -2163,10 +2286,10 @@ local function queue_panda_task_f2f_followup(record, turn)
     end
 
     local handoff_row = {
-        contact_id = contact_id,
-        npc_id = npc_id,
-        npc_name = record.npc_name,
-        npc_icon = record.conv_icon,
+        contact_id = target_contact_id,
+        npc_id = target_npc_id,
+        npc_name = target_name,
+        npc_icon = target_icon,
         conv_id = conv_id,
         turn = next_turn,
         faction = record.faction,
@@ -2184,11 +2307,11 @@ local function queue_panda_task_f2f_followup(record, turn)
         route_status = "pending",
     }
 
-    if not register_pending_f2f_handoff(contact_id, handoff_row) then
+    if not register_pending_f2f_handoff(target_contact_id, handoff_row) then
         return false, "register_failed"
     end
 
-    local owner_tag = string.format("task_handoff_%s_%s_%s", tostring(contact_id), tostring(conv_id), tostring(next_turn))
+    local owner_tag = string.format("task_handoff_%s_%s_%s", tostring(target_contact_id), tostring(conv_id), tostring(next_turn))
     local handoff_route = "no-route"
     if bridge and type(bridge.hard_route_branch) == "function" then
         local ok_route_call, route_applied = pcall(bridge.hard_route_branch, handoff_row.npc_id, owner_tag, handoff_dialog)
@@ -2208,17 +2331,31 @@ local function queue_panda_task_f2f_followup(record, turn)
     handoff_row.route_status = handoff_route
     handoff_row.route_set_at = set_at
 
+    dynamic_news_helper.send_tip(
+        "You've received a Private Message from " .. tostring(target_name),
+        "PDA Alert", 0, 10, target_icon or FALLBACK_NPC_ICON, "news", "npc"
+    )
+
     pda_private_add_message(
-        contact_id,
-        record.npc_name,
+        target_contact_id,
+        target_name,
         "PDA System",
-        string.format("Meet %s to continue this conversation.", tostring(record.npc_name or "contact")),
-        record.conv_icon or FALLBACK_NPC_ICON,
+        string.format("Meet %s to continue this conversation.", tostring(target_name or "contact")),
+        target_icon or FALLBACK_NPC_ICON,
         false,
         nil,
         nil,
         nil,
         { skip_personality = true }
+    )
+
+    queue_f2f_handoff_attachment(
+        target_contact_id,
+        target_name,
+        target_icon,
+        target_npc_id,
+        target_name,
+        handoff_token
     )
 
     return true
@@ -5239,6 +5376,22 @@ function is_conv_on_cooldown_generic(key)
     return (game.get_game_time():diffSec(last) / 60) < cd_min
 end
 
+local function is_conversation_repeatable(prefix, faction, conv_id)
+    local base
+    if prefix == "task" or not prefix then
+        base = "st_pda_ic_" .. tostring(faction) .. "_" .. tostring(conv_id)
+    else
+        base = "st_pda_ic_" .. tostring(prefix) .. "_" .. tostring(faction) .. "_" .. tostring(conv_id)
+    end
+    local key = base .. "_repeatable"
+    local raw = game.translate_string(key)
+    if raw == key then
+        return true
+    end
+    raw = tostring(raw or ""):lower():match("^%s*(.-)%s*$")
+    return not (raw == "0" or raw == "false" or raw == "no" or raw == "once")
+end
+
 function pick_random_conv_id_generic(prefix, xml_fac, category, npc_se)
     local base
     if prefix == "task" or not prefix then
@@ -5306,6 +5459,10 @@ function pick_random_conv_id_generic(prefix, xml_fac, category, npc_se)
         -- Cooldown handling
         local cooldown_key = (prefix or "task") .. "_" .. xml_fac .. "_" .. cid
         local last = conv_last_played[cooldown_key]
+        if last and not is_conversation_repeatable(prefix, xml_fac, cid) then
+            skip = true
+            goto continue
+        end
         local on_cooldown = false
         local seconds_since = 0
         if last then
@@ -5440,6 +5597,10 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             conv_id = conv_data and conv_data.conv_id or nil,
             channel = resolved_channel,
             applied_outcomes = conv_data and conv_data.applied_outcomes or {},
+            resume_npc_id = conv_data and conv_data.pending_resume_npc_id or nil,
+            resume_npc_faction_filters = (conv_data and conv_data.pending_resume_allow_generic_stalker == true and has_values(conv_data.pending_resume_npc_faction_filters))
+                and conv_data.pending_resume_npc_faction_filters or nil,
+            resume_allow_generic_stalker = conv_data and conv_data.pending_resume_allow_generic_stalker == true and has_values(conv_data.pending_resume_npc_faction_filters),
         }
 
         if type(extra) == "table" then
@@ -6765,6 +6926,8 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
 
         -- Escort: NPC becomes companion, escort to destination
         -- Syntax: panda_task_escort:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
+        -- Optional target: ...:<target_kind>:<target_id>[:<spawn_smart>]
+        -- target_kind: sender|story_npc|custom_npc|spawn_faction|new_npc
         elseif cmd == "panda_task_escort" then
             local dest_smart = parts[2]
             local timeout = tonumber(parts[3]) or 900
@@ -6773,16 +6936,19 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             if not dest_smart or not s_turn then
                 printf("PANDA_IC: panda_task_escort missing params in '%s'", tostring(cmd_str))
             else
-                local escort_squad_id = nil
-                if sender_npc_id then
-                    recruit_npc_as_companion(sender_npc_id, sender_npc_name, true)
-                    local npc_obj = level.object_by_id(sender_npc_id)
-                    local squad = npc_obj and get_object_squad and get_object_squad(npc_obj) or nil
-                    escort_squad_id = squad and squad.id or nil
-                end
+                local target_kind = parts[6] or "sender"
+                local target_value = parts[7]
+                local target_spawn_smart = parts[8]
+                local escort_npc_id, escort_label, escort_squad_id = resolve_escort_target(
+                    target_kind,
+                    target_value,
+                    target_spawn_smart,
+                    sender_npc_id,
+                    sender_npc_name
+                )
                 local radius = PANDA.get_config("location_watch_radius") or 50
                 local destination_map_id, destination_label = get_smart_task_target(dest_smart)
-                if not sender_npc_id then
+                if not escort_npc_id then
                     printf("PANDA_IC: panda_task_escort missing escort npc id in '%s'", tostring(cmd_str))
                 elseif not destination_map_id then
                     printf("PANDA_IC: panda_task_escort destination resolve failed for '%s'", tostring(dest_smart))
@@ -6791,10 +6957,14 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                     if not bridge then
                         printf("PANDA_IC: panda_task_escort ignored (bridge unavailable)")
                     else
+                        local recruited, recruit_err, recruited_squad_id = recruit_escort_companion(escort_npc_id, escort_label, escort_squad_id)
+                        if not recruited then
+                            printf("PANDA_IC: panda_task_escort companion recruit failed (%s)", tostring(recruit_err))
+                        end
                         local slot_id, err = bridge.create_task(build_bridge_task_params("escort", {
-                            target_npc_id = sender_npc_id,
-                            target_squad_id = escort_squad_id,
-                            target_label = sender_npc_name,
+                            target_npc_id = escort_npc_id,
+                            target_squad_id = recruited_squad_id or escort_squad_id,
+                            target_label = escort_label,
                             destination_ref = dest_smart,
                             destination_map_id = destination_map_id,
                             destination_label = destination_label,
@@ -7880,6 +8050,158 @@ function recruit_npc_as_companion(npc_id, npc_name, cannot_dismiss)
     end
 end
 
+recruit_escort_companion = function(npc_id, npc_name, squad_id)
+    npc_id = tonumber(npc_id)
+    if not npc_id then
+        return false, "missing_npc_id"
+    end
+    if not axr_companions then
+        return false, "axr_companions_unavailable"
+    end
+
+    local se_npc = alife_object and alife_object(npc_id) or nil
+    if not se_npc then
+        return false, "missing_server_object"
+    end
+
+    local npc_obj = level and level.object_by_id and level.object_by_id(npc_id) or nil
+    if npc_obj and npc_obj.alive and not npc_obj:alive() then
+        return false, "npc_dead"
+    end
+    if not npc_obj and se_npc.alive then
+        local ok_alive, alive = pcall(function() return se_npc:alive() end)
+        if ok_alive and alive == false then
+            return false, "npc_dead"
+        end
+    end
+
+    local squad = (squad_id and alife_object and alife_object(squad_id))
+        or (npc_obj and get_object_squad(npc_obj))
+        or get_object_squad(se_npc)
+    if squad and axr_companions.companion_squads then
+        axr_companions.companion_squads[squad.id] = squad
+        if SIMBOARD and SIMBOARD.assign_squad_to_smart then
+            SIMBOARD:assign_squad_to_smart(squad, nil)
+        end
+        if type(squad.squad_members) == "function" then
+            for member in squad:squad_members() do
+                local member_id = tonumber(member.id)
+                local live_member = member_id and level and level.object_by_id and level.object_by_id(member_id) or nil
+                local member_se = member_id and alife_object and alife_object(member_id) or nil
+                local member_name = (live_member and live_member.name and live_member:name())
+                    or (member_se and member_se.name and member_se:name())
+                    or tostring(member_id or "")
+                if member_id and se_save_var then
+                    se_save_var(member_id, member_name, "companion", true)
+                    se_save_var(member_id, member_name, "companion_cannot_dismiss", true)
+                    se_save_var(member_id, member_name, "companion_cannot_teleport", true)
+                end
+                if live_member and live_member.alive and live_member:alive() and axr_companions.add_to_actor_squad then
+                    pcall(function() live_member:give_info_portion("npcx_beh_cannot_dismiss") end)
+                    axr_companions.add_to_actor_squad(live_member)
+                end
+            end
+        end
+    else
+        local save_name = (npc_obj and npc_obj.name and npc_obj:name()) or (se_npc.name and se_npc:name()) or tostring(npc_id)
+        if se_save_var then
+            se_save_var(npc_id, save_name, "companion", true)
+            se_save_var(npc_id, save_name, "companion_cannot_dismiss", true)
+            se_save_var(npc_id, save_name, "companion_cannot_teleport", true)
+        end
+        if npc_obj and axr_companions.add_to_actor_squad then
+            pcall(function() npc_obj:give_info_portion("npcx_beh_cannot_dismiss") end)
+            axr_companions.add_to_actor_squad(npc_obj)
+        end
+    end
+
+    if PANDA.get_config("show_companion_notifications") then
+        dynamic_news_helper.send_tip(
+            utils_data.parse_string_keys(
+                game.translate_string("st_pda_ic_outcome_recruit_success"),
+                { ["name"] = npc_name or "Unknown" }
+            ),
+            game.translate_string("st_pda_ic_outcome_sender"), 0, 10,
+            FALLBACK_NPC_ICON, "beep_2", "npc"
+        )
+    end
+
+    return true, nil, squad and squad.id or squad_id
+end
+
+resolve_escort_target = function(target_kind, target_value, spawn_smart_ref, fallback_npc_id, fallback_npc_name)
+    target_kind = tostring(target_kind or "sender"):lower()
+    if target_kind == "" or target_kind == "self" or target_kind == "sender" or target_kind == "talker" then
+        local se = fallback_npc_id and alife_object and alife_object(fallback_npc_id) or nil
+        local squad = se and get_object_squad(se) or nil
+        return tonumber(fallback_npc_id), fallback_npc_name, squad and squad.id or nil
+    end
+
+    local se = nil
+    local label = nil
+
+    if (target_kind == "story" or target_kind == "story_npc") and target_value and target_value ~= "" then
+        if type(get_story_se_object) == "function" then
+            local ok_story, story_se = pcall(get_story_se_object, target_value)
+            if ok_story then se = story_se end
+        end
+    elseif (target_kind == "custom" or target_kind == "custom_npc") and target_value and target_value ~= "" then
+        if panda_npc_creator and type(panda_npc_creator.get_active_npc_se) == "function" then
+            local ok_existing, existing = pcall(panda_npc_creator.get_active_npc_se, target_value)
+            if ok_existing then se = existing end
+        end
+        if not se and panda_npc_creator and type(panda_npc_creator.spawn_custom_npc) == "function" then
+            pcall(panda_npc_creator.spawn_custom_npc, target_value, {
+                smart_ref = spawn_smart_ref,
+                conv_data = CONV,
+            })
+            if type(panda_npc_creator.get_active_npc_se) == "function" then
+                local ok_spawned, spawned = pcall(panda_npc_creator.get_active_npc_se, target_value)
+                if ok_spawned then se = spawned end
+            end
+        end
+        label = target_value
+    elseif (target_kind == "spawn" or target_kind == "spawn_faction" or target_kind == "new_npc") and target_value and target_value ~= "" then
+        local sec = find_squad_section(target_value)
+        if sec then
+            local min_dist, max_dist = get_spawn_distance_range("companion_spawn_min", "companion_spawn_max", 20, 50)
+            local pos, lvid, gvid = find_spawn_point_near_player(min_dist, max_dist)
+            local squad = create_squad_safely(sec, pos, lvid, gvid)
+            local npc_id = nil
+            if squad and type(squad.squad_members) == "function" then
+                apply_spawned_faction_relation(squad, "friendly")
+                for member in squad:squad_members() do
+                    if not npc_id then npc_id = member.id end
+                end
+                se = npc_id and alife_object and alife_object(npc_id) or nil
+                local name = target_value
+                if se and se.character_name then
+                    local ok_name, resolved_name = pcall(function() return se:character_name() end)
+                    if ok_name and resolved_name and resolved_name ~= "" then name = resolved_name end
+                end
+                return tonumber(npc_id), name, squad.id
+            end
+        end
+    else
+        if type(get_story_se_object) == "function" then
+            local ok_story, story_se = pcall(get_story_se_object, target_kind)
+            if ok_story then se = story_se end
+        end
+    end
+
+    local npc_id = se and tonumber(se.id) or nil
+    if not npc_id then
+        return nil, label or fallback_npc_name, nil
+    end
+
+    if se.character_name then
+        local ok_name, resolved_name = pcall(function() return se:character_name() end)
+        if ok_name and resolved_name and resolved_name ~= "" then label = resolved_name end
+    end
+    local squad = get_object_squad(se)
+    return npc_id, label or fallback_npc_name or tostring(npc_id), squad and squad.id or nil
+end
+
 -- ============================================================
 -- CONVERSATION FLOW (State Machine)
 -- ============================================================
@@ -8368,6 +8690,15 @@ function on_player_choice(idx, contact_id)
                             end
                         end
 
+                        queue_f2f_handoff_attachment(
+                            cid,
+                            npc_name,
+                            c.npc_icon,
+                            handoff_row.npc_id,
+                            handoff_row.npc_name,
+                            handoff_token
+                        )
+
                         register_pending_f2f_handoff(cid, handoff_row)
 
                         local handoff_route = "no-route"
@@ -8653,6 +8984,11 @@ abort_contact_f2f_state = function(contact_id, reason, options)
     if options.remove_thread == true then
         removed_threads = delete_contact_thread(contact_key)
         if removed_threads > 0 then
+            any_cleanup = true
+        end
+    else
+        local removed_attachments = remove_f2f_handoff_attachment(token, contact_key, npc_sid)
+        if removed_attachments > 0 then
             any_cleanup = true
         end
     end
@@ -9060,6 +9396,10 @@ consume_pending_f2f_handoff_internal = function(npc_id, conv_id, turn, token, se
         remove_active_conversation_entry(contact_id)
     end
 
+    if consumed then
+        remove_f2f_handoff_attachment(target_token, nil, npc_sid)
+    end
+
     return consumed
 end
 
@@ -9119,9 +9459,11 @@ local function sweep_expired_f2f_pending_markers(reason)
                     npc_id = tonumber(conv.npc_id),
                     conv_id = tonumber(conv.conv_id),
                     turn = tonumber(conv.pending_in_person_turn),
+                    token = conv.pending_in_person_token,
                     set_at = set_at,
                     age_ms = age_ms,
                 })
+                remove_f2f_handoff_attachment(conv.pending_in_person_token, contact_id, conv.npc_id)
                 conv.pending_in_person_continuation = false
                 conv.pending_in_person_turn = nil
                 conv.pending_in_person_target = nil
@@ -9145,6 +9487,7 @@ local function sweep_expired_f2f_pending_markers(reason)
                     local conv_match = stale.conv_id and handoff_conv and stale.conv_id == handoff_conv
                     local turn_match = stale.turn and handoff_turn and stale.turn == handoff_turn
                     if npc_match and (conv_match or turn_match or (not stale.conv_id and not stale.turn)) then
+                        remove_f2f_handoff_attachment(handoff.token or stale.token, key, handoff.npc_id)
                         pda_f2f_handoffs[key] = nil
                         handoff_rows_removed = handoff_rows_removed + 1
                         break
@@ -9453,6 +9796,9 @@ function PANDA_CONV_API.check_cooldown(conv_id, faction, prefix)
     if not last then
         return false, 0
     end
+    if not is_conversation_repeatable(prefix, faction, conv_id) then
+        return true, 0
+    end
     local seconds_since = game.get_game_time():diffSec(last)
     local default_cooldown = (PANDA.get_config("default_cooldown") or 60) * 60
     local on_cooldown = seconds_since < default_cooldown
@@ -9470,6 +9816,11 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
     local identity = build_f2f_handoff_identity(npc_se)
 
     if is_contact_blocked(contact_id) then
+        return false
+    end
+
+    local start_cooldown_key = (prefix or "task") .. "_" .. tostring(faction or "loner") .. "_" .. tostring(conv_id or 0)
+    if conv_last_played[start_cooldown_key] and not is_conversation_repeatable(prefix, faction, conv_id) then
         return false
     end
 
@@ -9665,15 +10016,19 @@ local function collect_story_npc_conversations(xml_fac)
                     local weight = 100
 
                     if last then
-                        local seconds_since = game.get_game_time():diffSec(last)
-                        local on_cooldown = seconds_since < (PANDA.get_config("default_cooldown") * 60)
-                        if on_cooldown then
-                            if mode == 1 then
-                                skip = true
-                            elseif seconds_since < hard_min then
-                                skip = true
-                            else
-                                weight = penalty * 100
+                        if not is_conversation_repeatable("task", xml_fac, cid) then
+                            skip = true
+                        else
+                            local seconds_since = game.get_game_time():diffSec(last)
+                            local on_cooldown = seconds_since < (PANDA.get_config("default_cooldown") * 60)
+                            if on_cooldown then
+                                if mode == 1 then
+                                    skip = true
+                                elseif seconds_since < hard_min then
+                                    skip = true
+                                else
+                                    weight = penalty * 100
+                                end
                             end
                         end
                     end
@@ -9985,6 +10340,7 @@ local function has_pending_f2f_handoff_entries()
         if actionable then
             has_actionable = true
         else
+            remove_f2f_handoff_attachment(handoff and handoff.token, contact_key, handoff and handoff.npc_id)
             pda_f2f_handoffs[key] = nil
             pruned_any = true
             printf(

@@ -1937,6 +1937,13 @@ class StateManager {
         const newTurn = createTurn(nextTurnNumber());
         newTurn.customLabel = label;
         newTurn.channel = branchChannel;
+        if (branchChannel === 'f2f') {
+          newTurn.f2f_entry = true;
+          newTurn.pda_entry = false;
+        } else {
+          newTurn.pda_entry = true;
+          newTurn.f2f_entry = false;
+        }
         for (const newChoice of newTurn.choices) {
           newChoice.channel = branchChannel;
           newChoice.continueChannel = branchChannel;
