@@ -6,7 +6,7 @@ import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { createOnboardingNudge } from './Onboarding';
 import { FACTION_COLORS } from '../lib/faction-colors';
 import { estimateFlowNodeHeight, FLOW_DEFAULT_TURN_POSITION, FLOW_WORKSPACE_MIN_HEIGHT, FLOW_WORKSPACE_MIN_WIDTH, getFlowNodeLayout } from '../lib/flow-layout';
-import { buildFlowGraphModel, getVisibleFlowItems, type FlowGraphModel } from '../lib/flow-graph-model';
+import { buildFlowGraphModel, getFlowVisibilityOverscan, type FlowGraphModel, type FlowGraphNode, type FlowViewport } from '../lib/flow-graph-model';
 import { createIcon } from './icons';
 import { createFlowCursorSystem, type FlowCursorSystem } from './FlowCursor';
 import { createCatalogPickerPanelEditor } from './CatalogPickerPanel';
@@ -3739,24 +3739,73 @@ function syncViewportVisibility(options: {
   selectedTurnNumber: number | null;
   selectedChoiceIndex: number | null;
 }): void {
-  const { canvas, viewState, graphModel, nodeElements, edgeElements, selectedTurnNumber } = options;
+  const { canvas, viewState, graphModel, nodeElements, edgeElements, selectedTurnNumber, selectedChoiceIndex } = options;
   const keepMounted = new Set<number>();
   if (selectedTurnNumber != null) keepMounted.add(selectedTurnNumber);
-  const viewport = {
+  if (selectedTurnNumber != null && selectedChoiceIndex != null) {
+    for (const edge of graphModel.edges) {
+      if (edge.sourceTurnNumber === selectedTurnNumber && edge.sourceChoiceIndex === selectedChoiceIndex) {
+        keepMounted.add(edge.targetTurnNumber);
+      }
+    }
+  }
+  const viewport: FlowViewport = {
     left: (0 - viewState.panX) / viewState.zoom,
     top: (0 - viewState.panY) / viewState.zoom,
     right: (canvas.clientWidth - viewState.panX) / viewState.zoom,
     bottom: (canvas.clientHeight - viewState.panY) / viewState.zoom,
   };
-  const visible = getVisibleFlowItems(graphModel, viewport, keepMounted);
+  const overscan = getFlowVisibilityOverscan(viewport);
+  const paddedViewport = padFlowViewport(viewport, overscan);
+  const visibleTurnNumbers = new Set<number>();
   for (const [turnNumber, node] of nodeElements) {
-    const isVisible = visible.turnNumbers.has(turnNumber);
+    const graphNode = graphModel.nodes.get(turnNumber);
+    if (keepMounted.has(turnNumber) || flowRectsIntersect(getDomBackedNodeRect(node, graphNode), paddedViewport)) {
+      visibleTurnNumbers.add(turnNumber);
+    }
+  }
+  const visibleEdgeKeys = new Set<string>();
+  for (const edge of graphModel.edges) {
+    if (visibleTurnNumbers.has(edge.sourceTurnNumber) || visibleTurnNumbers.has(edge.targetTurnNumber)) {
+      visibleEdgeKeys.add(edgeKeyFromParts(edge.sourceTurnNumber, edge.sourceChoiceIndex, edge.targetTurnNumber, edge.kind));
+    }
+  }
+  for (const [turnNumber, node] of nodeElements) {
+    const isVisible = visibleTurnNumbers.has(turnNumber);
     node.style.visibility = isVisible ? '' : 'hidden';
     node.style.pointerEvents = isVisible ? '' : 'none';
   }
   for (const [key, edge] of edgeElements) {
-    edge.style.display = visible.edgeKeys.has(key) ? '' : 'none';
+    edge.style.display = visibleEdgeKeys.has(key) ? '' : 'none';
   }
+}
+
+function padFlowViewport(viewport: FlowViewport, overscan: number): FlowViewport {
+  return {
+    left: viewport.left - overscan,
+    top: viewport.top - overscan,
+    right: viewport.right + overscan,
+    bottom: viewport.bottom + overscan,
+  };
+}
+
+function getDomBackedNodeRect(node: HTMLElement, graphNode?: FlowGraphNode): FlowGraphNode {
+  const left = Number.parseFloat(node.style.left) || graphNode?.x || 0;
+  const top = Number.parseFloat(node.style.top) || graphNode?.y || 0;
+  return {
+    turnNumber: graphNode?.turnNumber ?? Number.parseInt(node.dataset.turnNumber ?? '0', 10),
+    x: left,
+    y: top,
+    width: node.offsetWidth || graphNode?.width || 0,
+    height: node.offsetHeight || graphNode?.height || 0,
+  };
+}
+
+function flowRectsIntersect(node: FlowGraphNode, viewport: FlowViewport): boolean {
+  return node.x <= viewport.right
+    && node.x + node.width >= viewport.left
+    && node.y <= viewport.bottom
+    && node.y + node.height >= viewport.top;
 }
 
 function drawConnectionPreview(options: {

@@ -88,7 +88,7 @@ export function getVisibleFlowItems(
   viewport: FlowViewport,
   keepMounted: ReadonlySet<number> = new Set(),
 ): { turnNumbers: Set<number>; edgeKeys: Set<string> } {
-  const overscan = 360;
+  const overscan = getFlowVisibilityOverscan(viewport);
   const paddedViewport = {
     left: viewport.left - overscan,
     top: viewport.top - overscan,
@@ -113,6 +113,13 @@ export function getVisibleFlowItems(
     turnNumbers,
     edgeKeys,
   };
+}
+
+export function getFlowVisibilityOverscan(viewport: FlowViewport): number {
+  const viewportWidth = Math.max(0, viewport.right - viewport.left);
+  const viewportHeight = Math.max(0, viewport.bottom - viewport.top);
+  const viewportSpan = Math.max(viewportWidth, viewportHeight);
+  return Math.round(Math.max(900, Math.min(1800, viewportSpan * 0.55)));
 }
 
 function rectsIntersect(
