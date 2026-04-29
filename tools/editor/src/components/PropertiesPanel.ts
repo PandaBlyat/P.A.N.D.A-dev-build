@@ -959,6 +959,19 @@ function renderTurnProperties(
       store.updateTurn(conv.id, turn.turnNumber, { openingAudio: val.trim() || undefined });
     }, 'Optional sound filename under gamedata/sounds/panda/audio. Extension is optional; playback waits for player click.', openingAudioFieldKey);
     container.appendChild(openingAudioField);
+  } else if (!isNonEntryF2FTurn) {
+    const openingMessageFieldKey = getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message');
+    const msgField = createField('NPC Opener (Optional)', 'textarea', turn.openingMessage || '', (val) => {
+      store.updateTurn(conv.id, turn.turnNumber, { openingMessage: val }, {
+        change: SELECTION_TEXT_RENDER,
+        textSessionKey: openingMessageFieldKey,
+      });
+    }, 'Optional. NPCs can send multiple messages in a row — add an opener here if this NPC should send a follow-up message before player choices appear.', openingMessageFieldKey, {
+      onCommit: () => store.commitTextEdit(openingMessageFieldKey),
+    });
+    container.appendChild(msgField);
+
+    renderEmojiPicker(container, `conv-${conv.id}-turn-${turn.turnNumber}-opening-emojis`);
   } else {
     const openerHintField = document.createElement('div');
     openerHintField.className = 'field';
@@ -969,7 +982,7 @@ function renderTurnProperties(
     openerHintField.appendChild(openerHintLabel);
     const openerHint = document.createElement('div');
     openerHint.className = 'field-hint';
-    openerHint.textContent = `Read-only on continuation turns. This branch continues an existing ${channelLabel(currentTurnChannel)} segment; opener text belongs on the segment start.`;
+    openerHint.textContent = `Not applicable on non-entry F2F continuation turns — opener text is not exported for these branches.`;
     openerHintField.appendChild(openerHint);
 
     if (hasOpeningText) {
