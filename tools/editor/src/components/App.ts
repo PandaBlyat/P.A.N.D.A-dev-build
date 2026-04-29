@@ -898,6 +898,7 @@ function renderMobileMoreActions(body: HTMLElement): void {
     createMobileSheetAction('bug', 'Reports', () => { closeMobileSheet(); openBugReportsPanel(); }),
     createMobileSheetAction('support', 'Support', () => { closeMobileSheet(); openSupportPanel(); }),
     createMobileSheetAction('help', 'Help', () => { closeMobileSheet(); openHelpModal(); }),
+    createMobileSheetAction('eye', `Occlusion: ${state.flowOcclusionEnabled ? 'On' : 'Off'}`, () => store.toggleFlowOcclusion()),
     createMobileSheetAction('eye', state.advancedMode ? 'Advanced On' : 'Advanced mode', () => store.toggleAdvancedMode()),
     createMobileSheetAction('locate', `Density: ${state.flowDensity}`, () => store.setFlowDensity(nextDensity(state.flowDensity))),
     createMobileSheetAction('brand', 'Reset Intro', resetIntro),

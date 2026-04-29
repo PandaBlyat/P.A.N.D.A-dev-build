@@ -32,6 +32,7 @@ export interface BranchInlinePanelState {
 
 const CURSOR_PREFS_KEY = 'panda:cursor-prefs:v1';
 const ADVANCED_MODE_KEY = 'panda:advanced-mode:v1';
+const FLOW_OCCLUSION_KEY = 'panda:flow-occlusion:v1';
 
 type CursorPrefs = {
   enabled: boolean;
@@ -68,6 +69,17 @@ function persistAdvancedMode(enabled: boolean): void {
   window.localStorage.setItem(ADVANCED_MODE_KEY, String(enabled));
 }
 
+function loadFlowOcclusionEnabled(): boolean {
+  if (typeof window === 'undefined') return true;
+  const raw = window.localStorage.getItem(FLOW_OCCLUSION_KEY);
+  return raw == null ? true : raw === 'true';
+}
+
+function persistFlowOcclusionEnabled(enabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(FLOW_OCCLUSION_KEY, String(enabled));
+}
+
 export interface AppState {
   project: Project;
   systemStrings: Map<string, string>;
@@ -84,6 +96,7 @@ export interface AppState {
   bottomWorkspaceHeight: number;
   branchInlinePanel: BranchInlinePanelState | null;
   flowDensity: FlowDensity;
+  flowOcclusionEnabled: boolean;
   customCursorEnabled: boolean;
   cursorAnimationIntensity: CursorAnimationIntensity;
   cursorSize: number;
@@ -384,6 +397,7 @@ class StateManager {
       bottomWorkspaceHeight: 280,
       branchInlinePanel: null,
       flowDensity: 'standard',
+      flowOcclusionEnabled: loadFlowOcclusionEnabled(),
       customCursorEnabled: cursorPrefs.enabled,
       cursorAnimationIntensity: cursorPrefs.animationIntensity,
       cursorSize: cursorPrefs.size,
@@ -1564,6 +1578,17 @@ class StateManager {
       }
     }
     this.notify(FULL_APP_RENDER);
+  }
+
+  setFlowOcclusionEnabled(enabled: boolean): void {
+    if (this.state.flowOcclusionEnabled === enabled) return;
+    this.state.flowOcclusionEnabled = enabled;
+    persistFlowOcclusionEnabled(enabled);
+    this.notify(createFlowChange('settings', 'toolbar', 'flowEditor'));
+  }
+
+  toggleFlowOcclusion(): void {
+    this.setFlowOcclusionEnabled(!this.state.flowOcclusionEnabled);
   }
 
   setCustomCursorEnabled(enabled: boolean): void {

@@ -319,6 +319,7 @@ export function syncFlowEditor(change: StateChange): boolean {
       animationIntensity: state.cursorAnimationIntensity,
       size: state.cursorSize,
     });
+    syncLiveViewportVisibility(liveFlow);
     return true;
   }
 
@@ -832,6 +833,7 @@ export function renderFlowEditor(container: HTMLElement): void {
         canvas,
         viewState,
         graphModel,
+        occlusionEnabled: store.get().flowOcclusionEnabled,
         nodeElements,
         edgeElements,
         selectedTurnNumber: store.get().selectedTurnNumber,
@@ -3723,6 +3725,7 @@ function syncLiveViewportVisibility(flow: LiveFlowState): void {
     canvas: flow.canvas,
     viewState: flow.viewState,
     graphModel: flow.graphModel,
+    occlusionEnabled: store.get().flowOcclusionEnabled,
     nodeElements: flow.nodeElements,
     edgeElements: flow.edgeElements,
     selectedTurnNumber: flow.selectedTurnNumber,
@@ -3734,12 +3737,23 @@ function syncViewportVisibility(options: {
   canvas: HTMLElement;
   viewState: ViewState;
   graphModel: FlowGraphModel;
+  occlusionEnabled: boolean;
   nodeElements: Map<number, HTMLElement>;
   edgeElements: Map<string, SVGGElement>;
   selectedTurnNumber: number | null;
   selectedChoiceIndex: number | null;
 }): void {
-  const { canvas, viewState, graphModel, nodeElements, edgeElements, selectedTurnNumber, selectedChoiceIndex } = options;
+  const { canvas, viewState, graphModel, occlusionEnabled, nodeElements, edgeElements, selectedTurnNumber, selectedChoiceIndex } = options;
+  if (!occlusionEnabled) {
+    for (const node of nodeElements.values()) {
+      node.style.visibility = '';
+      node.style.pointerEvents = '';
+    }
+    for (const edge of edgeElements.values()) {
+      edge.style.display = '';
+    }
+    return;
+  }
   const keepMounted = new Set<number>();
   if (selectedTurnNumber != null) keepMounted.add(selectedTurnNumber);
   if (selectedTurnNumber != null && selectedChoiceIndex != null) {

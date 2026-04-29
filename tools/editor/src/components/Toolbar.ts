@@ -152,6 +152,14 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     title: 'Toggle editor tooltips',
     onclick: () => setBeginnerTooltipsDisabled(!areBeginnerTooltipsDisabled()),
   };
+  const occlusionToggleAction: OverflowAction = {
+    icon: 'eye',
+    label: state.flowOcclusionEnabled ? 'Disable Occlusion' : 'Enable Occlusion',
+    title: state.flowOcclusionEnabled
+      ? 'Stop hiding offscreen branches'
+      : 'Hide far offscreen branches for faster large graphs',
+    onclick: () => store.toggleFlowOcclusion(),
+  };
 
   if (!isCompact) {
     const leftZone = document.createElement('div');
@@ -196,6 +204,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     rightZone.append(roadmapBtn, leadersBtn, supportBtn);
 
     rightZone.appendChild(createOverflowMenu('More', [
+      occlusionToggleAction,
       tooltipToggleAction,
       { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
       { icon: 'trophy', label: 'Leaders', title: leadersBtn.title, onclick: () => openLeaderboardOverlay(null) },
@@ -252,6 +261,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   if (isCompact) {
     const projectOverflowActions: OverflowAction[] = [];
     projectOverflowActions.push(
+      occlusionToggleAction,
       tooltipToggleAction,
       { icon: 'import', label: 'Import XML', title: importBtn.title, onclick: importFromXml },
       { icon: 'share', label: 'Community', title: communityBtn.title, onclick: openSharePanel },
@@ -312,6 +322,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
 
   utilityTier.appendChild(supportBtn);
   utilityTier.appendChild(createOverflowMenu('More', [
+    occlusionToggleAction,
     tooltipToggleAction,
     { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
     { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
