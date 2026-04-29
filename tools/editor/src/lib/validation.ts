@@ -1410,7 +1410,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         hasPdaDelay
         && Number.isInteger(choice.pdaDelaySeconds)
         && (choice.pdaDelaySeconds ?? 0) >= 0
-        && !(choiceChannel === 'f2f' && continueChannel === 'pda' && terminal !== true && choice.continueTo != null)
+        && !(continueChannel === 'pda' && terminal !== true && choice.continueTo != null)
       ) {
         pushMessage(messages, {
           code: 'unused-pda-followup-delay',
@@ -1424,7 +1424,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
           fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'pda-delay-seconds'),
           fieldLabel: 'Delay Before PDA Follow-up',
           fieldPath: buildChoiceFieldPath(turn.turnNumber, choice.index, 'pdaDelaySeconds'),
-          message: `Branch ${turn.turnNumber}, Choice ${choice.index} sets a PDA follow-up delay, but that setting only applies to F2F choices that continue into PDA.`,
+          message: `Branch ${turn.turnNumber}, Choice ${choice.index} sets a PDA follow-up delay, but that setting only applies to choices that continue into PDA.`,
         });
       }
 
@@ -1444,10 +1444,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
         });
       }
 
-      const hasNpcTargetFilters = (choice.story_npc_id ?? '').trim() !== ''
-        || (choice.npc_faction_filters?.length ?? 0) > 0
-        || (choice.npc_profile_filters?.length ?? 0) > 0
-        || choice.allow_generic_stalker === true;
+      const hasNpcTargetFilters = choiceHasNpcTargeting(choice);
       const targetsContinuationNpc = terminal !== true && choice.continueTo != null && hasNpcTargetFilters;
       if (continueChannel === 'f2f') {
         validateF2FTargeting(conv, turn, choice, messages, {
@@ -1801,11 +1798,15 @@ function validateF2FTargeting(
   messages: ValidationMessage[],
   options: { requireExplicitTargeting: boolean },
 ): void {
-  const storyNpc = (choice.story_npc_id ?? '').trim();
+  const explicitStoryNpc = (choice.story_npc_id ?? '').trim();
+  const continuationStoryNpc = (choice.cont_npc_id ?? '').trim();
+  const storyNpc = explicitStoryNpc || continuationStoryNpc;
   const factionFilters = choice.npc_faction_filters ?? [];
   const profileFilters = choice.npc_profile_filters?.map((filter) => filter.trim()).filter(Boolean) ?? [];
   const broadScope = choice.allow_generic_stalker === true;
   const hasSpecificFilters = storyNpc !== '' || factionFilters.length > 0 || profileFilters.length > 0;
+  const storyField: ChoiceField = continuationStoryNpc && !explicitStoryNpc ? 'cont-npc-id' : 'story-npc-id';
+  const storyFieldLabel = storyField === 'cont-npc-id' ? 'Continuation NPC' : 'Story NPC';
 
   if (options.requireExplicitTargeting && !hasSpecificFilters && !broadScope) {
     pushMessage(messages, {
@@ -1817,13 +1818,13 @@ function validateF2FTargeting(
       turnNumber: turn.turnNumber,
       choiceIndex: choice.index,
       propertiesTab: 'selection',
-      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'story-npc-id'),
-      fieldLabel: 'Story NPC',
+      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, storyField),
+      fieldLabel: storyFieldLabel,
       message: `Branch ${turn.turnNumber}, Choice ${choice.index} is visible in F2F but has no NPC target filters and no broad-scope fallback.`,
     });
   }
 
-  if (storyNpc !== '' && !KNOWN_STORY_NPCS.has(storyNpc)) {
+  if (storyNpc !== '' && !storyNpc.startsWith('npc:') && !KNOWN_STORY_NPCS.has(storyNpc)) {
     pushMessage(messages, {
       code: 'f2f-unknown-story-npc',
       group: 'schema',
@@ -1833,8 +1834,8 @@ function validateF2FTargeting(
       turnNumber: turn.turnNumber,
       choiceIndex: choice.index,
       propertiesTab: 'selection',
-      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'story-npc-id'),
-      fieldLabel: 'Story NPC',
+      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, storyField),
+      fieldLabel: storyFieldLabel,
       message: `Unknown story NPC "${storyNpc}" for F2F targeting.`,
     });
   }
@@ -1849,8 +1850,8 @@ function validateF2FTargeting(
       turnNumber: turn.turnNumber,
       choiceIndex: choice.index,
       propertiesTab: 'selection',
-      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'story-npc-id'),
-      fieldLabel: 'Story NPC',
+      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, storyField),
+      fieldLabel: storyFieldLabel,
       message: `Story NPC target is combined with broader sim-NPC filters, which can make F2F selection ambiguous.`,
     });
   }
@@ -1886,6 +1887,14 @@ function validateF2FTargeting(
       message: 'Story NPC targeting cannot be combined with faction filters. This filter combo is not resolvable.',
     });
   }
+}
+
+function choiceHasNpcTargeting(choice: Choice): boolean {
+  return (choice.story_npc_id ?? '').trim() !== ''
+    || (choice.cont_npc_id ?? '').trim() !== ''
+    || (choice.npc_faction_filters?.length ?? 0) > 0
+    || (choice.npc_profile_filters?.length ?? 0) > 0
+    || choice.allow_generic_stalker === true;
 }
 
 function normalizeChannel(

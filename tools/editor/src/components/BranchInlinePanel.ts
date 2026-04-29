@@ -210,7 +210,6 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
       fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'),
       onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingMessage: value }),
     }));
-    renderEmojiPicker(textPane, `branch-inline-${conv.id}-${turn.turnNumber}-opener-emojis`, { defaultCollapsed: true });
     textPane.appendChild(createTextInput({
       label: 'Opener DDS Image',
       value: turn.openingImage ?? '',
@@ -271,7 +270,6 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
       fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'text'),
       onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { text: value }),
     }));
-    renderEmojiPicker(textPane, `branch-inline-${conv.id}-${turn.turnNumber}-${choice.index}-choice-emojis`, { defaultCollapsed: true });
     textPane.appendChild(createTextarea({
       label: 'NPC Reply',
       value: choice.reply,
@@ -279,7 +277,6 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
       fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply'),
       onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { reply: value }),
     }));
-    renderEmojiPicker(textPane, `branch-inline-${conv.id}-${turn.turnNumber}-${choice.index}-reply-emojis`, { defaultCollapsed: true });
     textPane.appendChild(createTextInput({
       label: 'NPC Reply DDS Image',
       value: choice.replyImage ?? '',
@@ -300,6 +297,16 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
 
   const placeholderPane = createPane('Dynamic Placeholder List');
   renderPlaceholderPicker(placeholderPane, `branch-inline-${conv.id}-${turn.turnNumber}-${choice?.index ?? 'opener'}-placeholders`, { defaultCollapsed: true });
+  placeholderPane.appendChild(createHint('Emoji shortcodes are for PDA branches only.'));
+  renderEmojiPicker(
+    placeholderPane,
+    `branch-inline-${conv.id}-${turn.turnNumber}-${choice?.index ?? 'opener'}-emojis`,
+    {
+      defaultCollapsed: true,
+      insertionRoot: grid,
+      helperText: 'Use only on PDA branch text. F2F dialogue does not render these shortcode icons.',
+    },
+  );
 
   const actionRow = document.createElement('div');
   actionRow.className = 'branch-inline-action-row branch-inline-stage-row';
@@ -701,6 +708,19 @@ function renderContinuationPanel(container: HTMLElement, conv: Conversation, tur
     createActionButton('End Here', () => store.clearChoiceContinuation(conv.id, turn.turnNumber, choice.index), choice.continueTo == null),
   );
   pathPane.appendChild(linkRow);
+  pathPane.appendChild(createTextInput({
+    label: 'Delay Before Next Branch (seconds)',
+    value: choice.pdaDelaySeconds != null ? String(choice.pdaDelaySeconds) : '',
+    placeholder: '0 = immediate',
+    description: 'Delays PDA follow-up branches. Leave blank for immediate continuation.',
+    fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'pda-delay-seconds'),
+    onCommit: (value) => {
+      const parsed = Number.parseInt(value.trim(), 10);
+      store.updateChoice(conv.id, turn.turnNumber, choice.index, {
+        pdaDelaySeconds: Number.isFinite(parsed) && parsed > 0 ? parsed : undefined,
+      });
+    },
+  }));
   pathPane.appendChild(renderExistingBranchLinks(conv, turn, choice, turnLabels));
 
   const npcPane = createPane('Who Continues It?');

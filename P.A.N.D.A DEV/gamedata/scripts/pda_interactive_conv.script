@@ -1317,6 +1317,32 @@ local function read_branch_speaker_target(prefix, faction, conv_id, turn)
     return target
 end
 
+local function read_turn_channel_from_registry(prefix, faction, conv_id, turn)
+    local base_key
+    if prefix == "task" or not prefix then
+        base_key = "st_pda_ic_" .. tostring(faction) .. "_" .. tostring(conv_id)
+    else
+        base_key = "st_pda_ic_" .. tostring(prefix) .. "_" .. tostring(faction) .. "_" .. tostring(conv_id)
+    end
+
+    local registry_key = base_key .. "_panda_f2f_registry"
+    local raw = game.translate_string(registry_key)
+    if not raw or raw == registry_key then
+        return "pda"
+    end
+
+    raw = tostring(raw):gsub("&quot;", "\"")
+    local turn_start = raw:find("\"turnNumber\"%s*:%s*" .. tostring(turn))
+    if not turn_start then
+        return "pda"
+    end
+
+    local next_turn_start = raw:find("\"turnNumber\"%s*:%s*%d+", turn_start + 1)
+    local turn_block = raw:sub(turn_start, next_turn_start and (next_turn_start - 1) or #raw)
+    local channel = turn_block:match("\"channel\"%s*:%s*\"([%w_%-]+)\"")
+    return tostring(channel or "pda"):lower() == "f2f" and "f2f" or "pda"
+end
+
 local function pick_sim_branch_speaker_se(faction_filters)
     if type(faction_filters) ~= "table" or #faction_filters == 0 then
         return nil
@@ -1608,6 +1634,128 @@ local function job_resume_conversation(job, turn, is_success)
     then
         printf("PANDA_IC: Job #%d resume blocked — no sim speaker resolved for factions=%s turn=%s",
             job.id, table.concat(branch_target.npc_faction_filters, ","), tostring(turn))
+        return
+    end
+
+    local target_channel = read_turn_channel_from_registry(prefix, faction, conv_id, turn)
+    if target_channel == "f2f" then
+        local set_at = time_global and time_global() or 0
+        local handoff_token = make_f2f_handoff_token(resume_npc_id, conv_id, turn, set_at)
+        local bridge = ensure_panda_f2f_bridge()
+        local handoff_dialog = "panda_f2f_hub_dialog"
+        if bridge and type(bridge.allocate_hub_dialog_id) == "function" then
+            local ok_dialog, allocated_dialog = pcall(bridge.allocate_hub_dialog_id)
+            if ok_dialog and type(allocated_dialog) == "string" and allocated_dialog ~= "" then
+                handoff_dialog = allocated_dialog
+            end
+        end
+
+        dynamic_news_helper.send_tip(
+            "Meet " .. tostring(resume_npc_name) .. " to continue this conversation.",
+            "PDA Alert", 0, 10, resume_npc_icon, "news", "npc"
+        )
+        pda_private_add_message(
+            resume_contact_id,
+            resume_npc_name,
+            "PDA System",
+            string.format("Meet %s (ID: %s) to continue this conversation.", tostring(resume_npc_name), tostring(resume_npc_id)),
+            resume_npc_icon,
+            false,
+            nil,
+            nil,
+            nil,
+            { skip_personality = true }
+        )
+
+        local handoff_identity = nil
+        if build_f2f_handoff_identity then
+            handoff_identity = build_f2f_handoff_identity(resume_npc_se, resume_npc_id, resume_npc_name)
+        end
+        handoff_identity = handoff_identity or {
+            story_id = branch_target and branch_target.npc_id or nil,
+            canonical_id = branch_target and branch_target.npc_id and tostring(branch_target.npc_id):lower() or tostring(resume_npc_id),
+            fallback_name = resume_npc_name,
+        }
+
+        local conv_data = {
+            npc_id = resume_npc_id,
+            contact_id = resume_contact_id,
+            npc_name = resume_npc_name,
+            npc_icon = resume_npc_icon,
+            faction = faction,
+            prefix = prefix,
+            conv_id = conv_id,
+            turn = turn,
+            choices = nil,
+            num_choices = 0,
+            task_id = nil,
+            category = nil,
+            applied_outcomes = job.applied_outcomes or {},
+            started_at = set_at,
+            reply_pending = false,
+            channel = "f2f",
+            pending_in_person_continuation = true,
+            pending_in_person_turn = turn,
+            pending_in_person_target = handoff_dialog,
+            pending_in_person_set_at = set_at,
+            pending_in_person_token = handoff_token,
+            pending_in_person_story_id = handoff_identity.story_id,
+            pending_in_person_canonical_id = handoff_identity.canonical_id,
+        }
+
+        active_conversations[resume_contact_id] = conv_data
+        CONV = conv_data
+
+        local handoff_row = {
+            contact_id = resume_contact_id,
+            npc_id = resume_npc_id,
+            npc_name = resume_npc_name,
+            npc_icon = resume_npc_icon,
+            conv_id = conv_id,
+            turn = turn,
+            faction = faction,
+            prefix = prefix,
+            channel = "f2f",
+            dialog = handoff_dialog,
+            set_at = set_at,
+            token = handoff_token,
+            story_id = handoff_identity.story_id,
+            canonical_id = handoff_identity.canonical_id,
+            fallback_name = handoff_identity.fallback_name,
+            applied_outcomes = job.applied_outcomes or {},
+            route_owner = nil,
+            route_dialog = handoff_dialog,
+            route_status = "pending",
+        }
+
+        queue_f2f_handoff_attachment(resume_contact_id, resume_npc_name, resume_npc_icon, resume_npc_id, resume_npc_name, handoff_token)
+        register_pending_f2f_handoff(resume_contact_id, handoff_row)
+
+        local owner_tag = string.format("task_handoff_%s_%s_%s", tostring(resume_contact_id), tostring(conv_id), tostring(turn))
+        local handoff_route = "no-route"
+        if bridge and type(bridge.hard_route_branch) == "function" then
+            local ok_route_call, route_applied = pcall(bridge.hard_route_branch, handoff_row.npc_id, owner_tag, handoff_dialog)
+            if ok_route_call and route_applied == true then
+                handoff_route = "bridge route"
+            end
+        end
+
+        if handoff_route ~= "bridge route" and xr_meet and type(xr_meet.override_dialog) == "function" then
+            local ok_override_call = pcall(xr_meet.override_dialog, handoff_row.npc_id, handoff_dialog)
+            if ok_override_call and has_xr_meet_dialog_override(handoff_row.npc_id, handoff_dialog) then
+                handoff_route = "xr_meet fallback"
+            end
+        end
+
+        handoff_row.route_owner = owner_tag
+        handoff_row.route_status = handoff_route
+        handoff_row.route_set_at = set_at
+
+        printf("PANDA_IC: Job #%d queued F2F resume at turn %d (%s) npc_id=%s route=%s",
+            job.id, turn, is_success and "SUCCESS" or "FAIL/TIMEOUT", tostring(resume_npc_id), handoff_route)
+        if get_ui then
+            get_ui():Reset()
+        end
         return
     end
 
@@ -8539,7 +8687,7 @@ function on_player_choice(idx, contact_id)
                                 prefix        = c.prefix,
                                 conv_id       = c.conv_id,
                                 turn          = ch.next_turn,
-                                delay_seconds = 0,
+                                delay_seconds = ch.pda_delay_seconds or 0,
                                 story_id      = ch.next_npc_id or tostring(new_npc_id),
                                 canonical_id  = ch.next_npc_id and ch.next_npc_id:lower() or tostring(new_npc_id),
                                 task_id       = c.task_id,
@@ -8554,6 +8702,27 @@ function on_player_choice(idx, contact_id)
                             printf("PANDA_IC: multi-npc handoff pda failed to resolve story_npc_id=%s, falling back to same-npc continuation", tostring(ch.next_npc_id))
                         elseif ch.next_allow_generic_stalker then
                             printf("PANDA_IC: multi-npc handoff pda failed to resolve sim factions=%s, falling back to same-npc continuation", tostring(table.concat(ch.next_npc_faction_filters or {}, ",")))
+                        end
+
+                        if not handed_off and (tonumber(ch.pda_delay_seconds) or 0) > 0 then
+                            queue_pda_followup_internal({
+                                npc_id        = c.npc_id,
+                                contact_id    = cid,
+                                npc_name      = npc_name,
+                                npc_icon      = c.npc_icon,
+                                faction       = c.faction,
+                                prefix        = c.prefix,
+                                conv_id       = c.conv_id,
+                                turn          = ch.next_turn,
+                                delay_seconds = ch.pda_delay_seconds or 0,
+                                story_id      = c.story_id,
+                                canonical_id  = c.canonical_id,
+                                fallback_name = c.fallback_name,
+                                task_id       = c.task_id,
+                                category      = c.category,
+                                applied_outcomes = clone_plain_table(c.applied_outcomes) or {},
+                            })
+                            handed_off = true
                         end
 
                         if not handed_off then

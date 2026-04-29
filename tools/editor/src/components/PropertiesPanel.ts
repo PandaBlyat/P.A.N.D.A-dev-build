@@ -4020,7 +4020,11 @@ export function renderPlaceholderPicker(container: HTMLElement, collapseKey: str
   container.appendChild(wrapper);
 }
 
-export function renderEmojiPicker(container: HTMLElement, collapseKey: string, options: { defaultCollapsed?: boolean } = {}): void {
+export function renderEmojiPicker(
+  container: HTMLElement,
+  collapseKey: string,
+  options: { defaultCollapsed?: boolean; insertionRoot?: HTMLElement; helperText?: string } = {},
+): void {
   const { wrapper, body } = createCollapsibleSection(
     collapseKey,
     'Emoji Shortcodes',
@@ -4030,7 +4034,7 @@ export function renderEmojiPicker(container: HTMLElement, collapseKey: string, o
 
   const helperCopy = document.createElement('div');
   helperCopy.className = 'placeholder-helper-copy';
-  helperCopy.textContent = 'Picker inserts shortcode tokens. Game renders known tokens as PDA texture icons.';
+  helperCopy.textContent = options.helperText ?? 'Picker inserts shortcode tokens. Game renders known tokens as PDA texture icons.';
   body.appendChild(helperCopy);
 
   const picker = document.createElement('div');
@@ -4075,11 +4079,11 @@ export function renderEmojiPicker(container: HTMLElement, collapseKey: string, o
   insert.onclick = (event) => {
     event.preventDefault();
     const value = select.value || PANDA_EMOJI_OPTIONS[0]?.shortcode || ':question:';
-    insertOrCopyPlaceholder(container, value, insert, 'Insert');
+    insertOrCopyPlaceholder(options.insertionRoot ?? container, value, insert, 'Insert');
   };
   select.ondblclick = () => {
     const value = select.value || PANDA_EMOJI_OPTIONS[0]?.shortcode || ':question:';
-    insertOrCopyPlaceholder(container, value, insert, 'Insert');
+    insertOrCopyPlaceholder(options.insertionRoot ?? container, value, insert, 'Insert');
   };
 
   picker.append(search, select, insert);
