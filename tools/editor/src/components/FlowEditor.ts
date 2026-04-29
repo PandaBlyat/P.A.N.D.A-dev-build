@@ -844,8 +844,12 @@ export function renderFlowEditor(container: HTMLElement): void {
 
   const applyView = (): void => {
     // Snap pan to physical device pixels to prevent subpixel blurriness.
-    // Keep zoom separate from translate so Chromium can rasterize branch text
-    // at the final zoom level instead of blurring it inside a transformed layer.
+    // Combine pan + zoom into a single transform. CSS `zoom` was scaling
+    // the translate as well as the children in Chromium, so the
+    // `screen = panX + worldX*zoom` model the rest of the editor assumes
+    // didn't match what was rendered — cursor pivot drifted toward the
+    // bottom-right and the viewport rect used for occlusion was offset,
+    // culling branches that were still on screen.
     const dpr = window.devicePixelRatio || 1;
     const snapX = Math.round(viewState.panX * dpr) / dpr;
     const snapY = Math.round(viewState.panY * dpr) / dpr;
@@ -853,15 +857,14 @@ export function renderFlowEditor(container: HTMLElement): void {
     const lowDetail = lowGraphicsMode
       ? viewState.zoom <= 0.82
       : graphicsQuality === 'medium' && graphSize !== 'normal' && viewState.zoom <= 0.54;
-    if (lastAppliedPanX !== snapX || lastAppliedPanY !== snapY) {
-      content.style.transform = `translate3d(${snapX}px, ${snapY}px, 0)`;
+    if (lastAppliedPanX !== snapX || lastAppliedPanY !== snapY || lastAppliedZoom !== viewState.zoom) {
+      content.style.transform = `translate3d(${snapX}px, ${snapY}px, 0) scale(${viewState.zoom})`;
       lastAppliedPanX = snapX;
       lastAppliedPanY = snapY;
-    }
-    if (lastAppliedZoom !== viewState.zoom) {
-      content.style.zoom = String(viewState.zoom);
-      zoomValue.textContent = `${Math.round(viewState.zoom * 100)}%`;
-      lastAppliedZoom = viewState.zoom;
+      if (lastAppliedZoom !== viewState.zoom) {
+        zoomValue.textContent = `${Math.round(viewState.zoom * 100)}%`;
+        lastAppliedZoom = viewState.zoom;
+      }
     }
     if (lastDepthBlur !== depthBlur) {
       canvas.classList.toggle('is-depth-blur', depthBlur);
