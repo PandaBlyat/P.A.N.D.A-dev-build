@@ -1524,7 +1524,19 @@ class StateManager {
       this.state.showSystemStringsPanel = false;
       this.syncBottomWorkspaceTab();
     }
+    // Bump projectRevision so memoized flow-editor caches keyed on it are
+    // invalidated. Toggling advanced mode resizes the center column, so we
+    // need a fresh layout pass instead of reusing stale cached bounds/edges.
+    this.state.projectRevision += 1;
     this.notify(FULL_APP_RENDER);
+    // Notify size-dependent components (canvas, splitters, virtualized lists)
+    // that the viewport for the center panel has changed without waiting for
+    // the user to resize the window manually.
+    if (typeof window !== 'undefined') {
+      requestAnimationFrame(() => {
+        window.dispatchEvent(new Event('resize'));
+      });
+    }
   }
 
   toggleAdvancedMode(): void {

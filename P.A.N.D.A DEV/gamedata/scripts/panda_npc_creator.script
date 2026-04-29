@@ -3074,7 +3074,7 @@ function spawn_custom_npc(template_id, context)
         end
     end
     if not pos and not needs_smart then
-        local dist = tpl.spawn_dist or 50
+        local dist = tonumber(context.spawn_dist) or tpl.spawn_dist or 50
         pos, lvid, gvid = find_spawn_point_near_player_local(dist, dist)
     end
 
