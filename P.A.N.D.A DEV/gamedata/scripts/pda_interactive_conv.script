@@ -7074,8 +7074,10 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
 
         -- Escort: NPC becomes companion, escort to destination
         -- Syntax: panda_task_escort:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
-        -- Optional target: ...:<target_kind>:<target_id>[:<spawn_smart>]
+        -- Optional target: ...:<target_kind>:<target_id>[:<spawn_distance>]
         -- target_kind: sender|story_npc|custom_npc|spawn_faction|new_npc
+        -- spawn_distance: meters from player; story_npc gets teleported in,
+        -- custom_npc / spawn_faction spawn at this distance.
         elseif cmd == "panda_task_escort" then
             local dest_smart = parts[2]
             local timeout = tonumber(parts[3]) or 900
@@ -7086,11 +7088,11 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             else
                 local target_kind = parts[6] or "sender"
                 local target_value = parts[7]
-                local target_spawn_smart = parts[8]
+                local target_spawn_distance = tonumber(parts[8])
                 local escort_npc_id, escort_label, escort_squad_id = resolve_escort_target(
                     target_kind,
                     target_value,
-                    target_spawn_smart,
+                    target_spawn_distance,
                     sender_npc_id,
                     sender_npc_name
                 )
@@ -8277,7 +8279,7 @@ recruit_escort_companion = function(npc_id, npc_name, squad_id)
     return true, nil, squad and squad.id or squad_id
 end
 
-resolve_escort_target = function(target_kind, target_value, spawn_smart_ref, fallback_npc_id, fallback_npc_name)
+resolve_escort_target = function(target_kind, target_value, spawn_distance, fallback_npc_id, fallback_npc_name)
     target_kind = tostring(target_kind or "sender"):lower()
     if target_kind == "" or target_kind == "self" or target_kind == "sender" or target_kind == "talker" then
         local se = fallback_npc_id and alife_object and alife_object(fallback_npc_id) or nil
@@ -8287,11 +8289,29 @@ resolve_escort_target = function(target_kind, target_value, spawn_smart_ref, fal
 
     local se = nil
     local label = nil
+    local explicit_dist = tonumber(spawn_distance)
 
     if (target_kind == "story" or target_kind == "story_npc") and target_value and target_value ~= "" then
         if type(get_story_se_object) == "function" then
             local ok_story, story_se = pcall(get_story_se_object, target_value)
             if ok_story then se = story_se end
+        end
+        -- Teleport story NPC to the player so escort can begin immediately.
+        if se and db and db.actor then
+            local dist = explicit_dist or 15
+            local pos, lvid, gvid = find_spawn_point_near_player(dist, dist)
+            if pos then
+                local squad = get_object_squad(se)
+                if squad and TeleportSquad then
+                    pcall(TeleportSquad, squad, pos, lvid, gvid)
+                elseif type(se.position) == "function" then
+                    pcall(function()
+                        se.position = pos
+                        se.m_level_vertex_id = lvid
+                        se.m_game_vertex_id = gvid
+                    end)
+                end
+            end
         end
     elseif (target_kind == "custom" or target_kind == "custom_npc") and target_value and target_value ~= "" then
         if panda_npc_creator and type(panda_npc_creator.get_active_npc_se) == "function" then
@@ -8300,7 +8320,8 @@ resolve_escort_target = function(target_kind, target_value, spawn_smart_ref, fal
         end
         if not se and panda_npc_creator and type(panda_npc_creator.spawn_custom_npc) == "function" then
             pcall(panda_npc_creator.spawn_custom_npc, target_value, {
-                smart_ref = spawn_smart_ref,
+                use_player_pos = true,
+                spawn_dist = explicit_dist,
                 conv_data = CONV,
             })
             if type(panda_npc_creator.get_active_npc_se) == "function" then
@@ -8312,7 +8333,12 @@ resolve_escort_target = function(target_kind, target_value, spawn_smart_ref, fal
     elseif (target_kind == "spawn" or target_kind == "spawn_faction" or target_kind == "new_npc") and target_value and target_value ~= "" then
         local sec = find_squad_section(target_value)
         if sec then
-            local min_dist, max_dist = get_spawn_distance_range("companion_spawn_min", "companion_spawn_max", 20, 50)
+            local min_dist, max_dist
+            if explicit_dist then
+                min_dist, max_dist = explicit_dist, explicit_dist
+            else
+                min_dist, max_dist = get_spawn_distance_range("companion_spawn_min", "companion_spawn_max", 20, 50)
+            end
             local pos, lvid, gvid = find_spawn_point_near_player(min_dist, max_dist)
             local squad = create_squad_safely(sec, pos, lvid, gvid)
             local npc_id = nil

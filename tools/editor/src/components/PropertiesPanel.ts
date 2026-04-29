@@ -938,6 +938,12 @@ function renderTurnProperties(
   container.appendChild(title);
 
   const isNonEntryF2FTurn = currentTurnChannel === 'f2f' && !effectiveF2FEntry;
+  const hasNewBranchSpeaker = !!(
+    (turn.speaker_npc_id && turn.speaker_npc_id.trim() !== '')
+    || ((turn.speaker_npc_faction_filters?.length ?? 0) > 0)
+    || turn.speaker_allow_generic_stalker === true
+  );
+  const isF2FContinuationSameNpc = isNonEntryF2FTurn && !hasNewBranchSpeaker;
   const hasOpeningText = (turn.openingMessage ?? '').trim().length > 0;
 
   if (isSegmentStartTurn) {
@@ -959,14 +965,18 @@ function renderTurnProperties(
       store.updateTurn(conv.id, turn.turnNumber, { openingAudio: val.trim() || undefined });
     }, 'Optional sound filename under gamedata/sounds/panda/audio. Extension is optional; playback waits for player click.', openingAudioFieldKey);
     container.appendChild(openingAudioField);
-  } else if (!isNonEntryF2FTurn) {
+  } else if (!isF2FContinuationSameNpc) {
     const openingMessageFieldKey = getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message');
-    const msgField = createField('NPC Opener (Optional)', 'textarea', turn.openingMessage || '', (val) => {
+    const newSpeakerLabel = hasNewBranchSpeaker ? 'NPC Opener' : 'NPC Opener (Optional)';
+    const newSpeakerHint = hasNewBranchSpeaker
+      ? 'Required. This branch hands off to a different NPC, so they need an opening message to introduce the new speaker.'
+      : 'Optional. NPCs can send multiple messages in a row — add an opener here if this NPC should send a follow-up message before player choices appear.';
+    const msgField = createField(newSpeakerLabel, 'textarea', turn.openingMessage || '', (val) => {
       store.updateTurn(conv.id, turn.turnNumber, { openingMessage: val }, {
         change: SELECTION_TEXT_RENDER,
         textSessionKey: openingMessageFieldKey,
       });
-    }, 'Optional. NPCs can send multiple messages in a row — add an opener here if this NPC should send a follow-up message before player choices appear.', openingMessageFieldKey, {
+    }, newSpeakerHint, openingMessageFieldKey, {
       onCommit: () => store.commitTextEdit(openingMessageFieldKey),
     });
     container.appendChild(msgField);
@@ -995,7 +1005,7 @@ function renderTurnProperties(
     container.appendChild(openerHintField);
   }
 
-  if (hasOpeningText && isNonEntryF2FTurn) {
+  if (hasOpeningText && isF2FContinuationSameNpc) {
     const warningRow = document.createElement('div');
     warningRow.style.cssText = 'display:flex; align-items:center; gap:8px; margin-top:-2px; margin-bottom:8px; flex-wrap:wrap;';
     warningRow.appendChild(createBadge('warning', 'Migration cleanup: ignored non-entry F2F opener', 'warning'));
@@ -2328,6 +2338,19 @@ export function renderParamEditors(
   }
 
   schema.params.forEach((paramDef, i) => {
+    if (schema.name === 'panda_task_escort') {
+      const targetKind = (currentParams[4] || '').trim();
+      if (paramDef.name === 'target_id') {
+        if (targetKind === '' || targetKind === 'sender') {
+          return;
+        }
+      }
+      if (paramDef.name === 'spawn_distance') {
+        if (targetKind !== 'custom_npc' && targetKind !== 'spawn_faction' && targetKind !== 'story_npc') {
+          return;
+        }
+      }
+    }
     if (schema.name === 'panda_task_artifact' && paramDef.name === 'zone_mode') {
       if ((currentParams[i] || '') !== 'random_level') {
         const normalizedParams = [...currentParams];
@@ -2378,16 +2401,65 @@ export function renderParamEditors(
       onChange(newParams);
     };
 
-    const richEditor = renderRichParamEditor(
-      schema,
-      paramDef,
-      currentParams[i] || '',
-      updateParam,
-      paramKey,
-      conv,
-      currentParams,
-      i,
-    );
+    let richEditor: HTMLElement | null = null;
+    if (schema.name === 'panda_task_escort' && paramDef.name === 'target_id') {
+      const targetKind = (currentParams[4] || '').trim();
+      const value = currentParams[i] || '';
+      if (targetKind === 'story_npc') {
+        richEditor = createOptionPickerPanelEditor(value, updateParam, paramKey, {
+          title: 'Browse story NPCs',
+          subtitle: 'Pick the story NPC to escort. They will be teleported next to the player when the task starts.',
+          searchPlaceholder: 'Search story NPC name or id...',
+          emptyLabel: '-- Search for a story NPC --',
+          options: STORY_NPC_OPTIONS,
+          facets: [
+            { label: 'Faction', field: 'faction', allLabel: 'All factions' },
+            { label: 'Role', field: 'role', allLabel: 'All roles' },
+            { label: 'Level', field: 'level', allLabel: 'All levels' },
+          ],
+          richRows: true,
+        });
+      } else if (targetKind === 'custom_npc') {
+        richEditor = createCustomNpcBuilderEditor(value, updateParam, paramKey, { showSpawnDistance: false });
+      } else if (targetKind === 'spawn_faction') {
+        const select = document.createElement('select');
+        select.className = 'rich-editor-input';
+        select.setAttribute('data-field-key', paramKey);
+        const emptyOpt = document.createElement('option');
+        emptyOpt.value = '';
+        emptyOpt.textContent = '-- Select faction --';
+        select.appendChild(emptyOpt);
+        for (const fid of FACTION_IDS) {
+          const opt = document.createElement('option');
+          opt.value = fid;
+          opt.textContent = FACTION_DISPLAY_NAMES[fid];
+          opt.selected = value === fid;
+          select.appendChild(opt);
+        }
+        if (value && !FACTION_IDS.includes(value as FactionId)) {
+          const customOpt = document.createElement('option');
+          customOpt.value = value;
+          customOpt.textContent = `Custom: ${value}`;
+          customOpt.selected = true;
+          select.appendChild(customOpt);
+        }
+        select.value = value;
+        select.onchange = () => updateParam(select.value);
+        richEditor = select;
+      }
+    }
+    if (!richEditor) {
+      richEditor = renderRichParamEditor(
+        schema,
+        paramDef,
+        currentParams[i] || '',
+        updateParam,
+        paramKey,
+        conv,
+        currentParams,
+        i,
+      );
+    }
 
     if (richEditor) {
       field.appendChild(richEditor);
