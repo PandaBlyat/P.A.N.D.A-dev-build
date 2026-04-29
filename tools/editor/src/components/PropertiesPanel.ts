@@ -1167,12 +1167,11 @@ function renderTurnProperties(
     }, 'share');
     actionGroup.appendChild(copyBtn);
 
-    if (turn.choices.length > 1) {
-      const delBtn = createActionButton('Delete', 'Delete this choice', () => {
-        store.deleteChoice(conv.id, turn.turnNumber, choice.index);
-      }, 'delete', 'danger');
-      actionGroup.appendChild(delBtn);
-    }
+    const delBtn = createActionButton('X', 'Delete this choice', () => {
+      store.deleteChoice(conv.id, turn.turnNumber, choice.index);
+    }, 'delete', 'danger');
+    delBtn.setAttribute('aria-label', `Delete Choice ${choice.index}`);
+    actionGroup.appendChild(delBtn);
 
     header.appendChild(actionGroup);
 
@@ -1253,6 +1252,12 @@ function renderChoiceProperties(
   }, 'add');
   pasteBtn.disabled = !canPasteChoice;
   titleActions.appendChild(pasteBtn);
+
+  const deleteBtn = createActionButton('X', 'Delete this choice', () => {
+    store.deleteChoice(conv.id, turn.turnNumber, choice.index);
+  }, 'delete', 'danger');
+  deleteBtn.setAttribute('aria-label', `Delete Choice ${choice.index}`);
+  titleActions.appendChild(deleteBtn);
 
   title.appendChild(titleActions);
   container.appendChild(title);
@@ -4009,40 +4014,55 @@ export function renderEmojiPicker(container: HTMLElement, collapseKey: string, o
   body.appendChild(helperCopy);
 
   const picker = document.createElement('div');
-  picker.className = 'placeholder-picker emoji-picker';
+  picker.className = 'placeholder-picker emoji-dropdown-picker';
 
-  for (const option of PANDA_EMOJI_OPTIONS) {
-    const shortcode = option.shortcode.replace(/^:|:$/g, '');
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'placeholder-btn emoji-btn';
-    btn.title = `${option.label} (${option.shortcode}) - click to insert`;
-    btn.draggable = true;
+  const search = document.createElement('input');
+  search.type = 'search';
+  search.className = 'emoji-dropdown-search';
+  search.placeholder = 'Search emoji shortcode...';
+  search.setAttribute('aria-label', 'Search emoji shortcode');
 
-    const img = document.createElement('img');
-    img.className = 'emoji-btn-thumb';
-    img.src = pandaEmojiPreviewUrl(shortcode);
-    img.alt = option.shortcode;
-    img.loading = 'lazy';
-    img.onerror = () => {
-      // PNG not yet shipped (emoji art not authored); fall back to shortcode label
-      img.replaceWith(document.createTextNode(option.shortcode));
-    };
-    btn.appendChild(img);
+  const select = document.createElement('select');
+  select.className = 'emoji-dropdown-select';
+  select.setAttribute('aria-label', 'Emoji shortcode');
 
-    btn.addEventListener('dragstart', (e) => {
-      e.dataTransfer!.setData('text/plain', option.shortcode);
-      e.dataTransfer!.setData('application/x-panda-emoji', option.shortcode);
-      e.dataTransfer!.effectAllowed = 'copy';
-      btn.classList.add('dragging');
-    });
-    btn.addEventListener('dragend', () => btn.classList.remove('dragging'));
-    btn.onclick = (e) => {
-      e.preventDefault();
-      insertOrCopyPlaceholder(container, option.shortcode, btn, option.shortcode);
-    };
-    picker.appendChild(btn);
-  }
+  const insert = document.createElement('button');
+  insert.type = 'button';
+  insert.className = 'btn-sm emoji-dropdown-insert';
+  insert.textContent = 'Insert';
+
+  const renderOptions = (filter = ''): void => {
+    const normalized = filter.trim().toLowerCase();
+    select.innerHTML = '';
+    for (const option of PANDA_EMOJI_OPTIONS) {
+      if (
+        normalized
+        && !option.label.toLowerCase().includes(normalized)
+        && !option.shortcode.toLowerCase().includes(normalized)
+      ) {
+        continue;
+      }
+      const entry = document.createElement('option');
+      entry.value = option.shortcode;
+      entry.textContent = `${option.label} (${option.shortcode})`;
+      select.appendChild(entry);
+    }
+    insert.disabled = select.options.length === 0;
+  };
+
+  renderOptions();
+  search.oninput = () => renderOptions(search.value);
+  insert.onclick = (event) => {
+    event.preventDefault();
+    const value = select.value || PANDA_EMOJI_OPTIONS[0]?.shortcode || ':question:';
+    insertOrCopyPlaceholder(container, value, insert, 'Insert');
+  };
+  select.ondblclick = () => {
+    const value = select.value || PANDA_EMOJI_OPTIONS[0]?.shortcode || ':question:';
+    insertOrCopyPlaceholder(container, value, insert, 'Insert');
+  };
+
+  picker.append(search, select, insert);
 
   body.appendChild(picker);
   container.appendChild(wrapper);

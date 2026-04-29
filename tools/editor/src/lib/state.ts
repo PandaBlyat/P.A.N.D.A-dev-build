@@ -220,6 +220,19 @@ function normalizeOptionalNonNegativeInteger(value: unknown): number | undefined
   return normalized >= 0 ? normalized : undefined;
 }
 
+function normalizeFlowEdgeBends(value: unknown): Record<string, number> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const bends: Record<string, number> = {};
+  for (const [key, rawBend] of Object.entries(value as Record<string, unknown>)) {
+    if (!/^\d+:\d+:\d+:(continue|pause-success|pause-fail)$/.test(key)) continue;
+    const bend = typeof rawBend === 'number' ? rawBend : Number(rawBend);
+    if (!Number.isFinite(bend)) continue;
+    const normalized = Math.round(Math.max(-320, Math.min(320, bend)) * 10) / 10;
+    if (normalized !== 0) bends[key] = normalized;
+  }
+  return Object.keys(bends).length > 0 ? bends : undefined;
+}
+
 function shouldCenterTemplateStartTurn(turn: Turn | undefined): boolean {
   if (!turn?.position) return true;
   const defaultPosition = getDefaultFlowTurnPosition(1);
@@ -940,9 +953,21 @@ class StateManager {
     const layout = getFlowNodeLayout(density);
     const spacing = this.getAutoLayoutSpacing(density, options);
     const positions = new Map<number, { x: number; y: number }>();
+    const columnWidths = new Map<number, number>();
+
+    for (const [depth, column] of orderedColumns) {
+      let width = layout.width;
+      for (const meta of column) {
+        const turn = turnsByNumber.get(meta.turnNumber);
+        if (turn) width = Math.max(width, this.estimateAutoLayoutNodeWidth(turn, density));
+      }
+      columnWidths.set(depth, width);
+    }
+
+    let cursorX = spacing.canvasPaddingX;
 
     for (const [depth, column] of [...orderedColumns.entries()].sort((a, b) => a[0] - b[0])) {
-      const x = spacing.canvasPaddingX + depth * (layout.width + spacing.horizontalGutter);
+      const x = cursorX;
       let cursorY = spacing.canvasPaddingY;
       let previousMeta: AutoLayoutNodeMeta | null = null;
 
@@ -958,6 +983,8 @@ class StateManager {
         positions.set(meta.turnNumber, { x, y: cursorY });
         previousMeta = meta;
       }
+
+      cursorX += (columnWidths.get(depth) ?? layout.width) + spacing.horizontalGutter;
     }
 
     if (options.centerRoot && positions.size > 0) {
@@ -986,6 +1013,18 @@ class StateManager {
 
   private getDefaultTurnPlacement(turnNumber: number): { x: number; y: number } {
     return getDefaultFlowTurnPosition(turnNumber);
+  }
+
+  private estimateAutoLayoutNodeWidth(turn: Turn, density: FlowDensity): number {
+    const layout = getFlowNodeLayout(density);
+    const textLength = Math.max(
+      turn.customLabel?.length ?? 0,
+      turn.openingMessage?.length ?? 0,
+      ...turn.choices.map(choice => Math.max(choice.text?.length ?? 0, choice.reply?.length ?? 0)),
+    );
+    const charWidth = density === 'compact' ? 4.8 : density === 'standard' ? 5.8 : 6.8;
+    const extra = Math.max(0, textLength - layout.messageChars / 2) * charWidth;
+    return Math.round(layout.width + Math.min(extra, density === 'detailed' ? 260 : 210));
   }
 
   private getBranchTurnPlacement(sourceTurn: Turn, sourceChoiceIndex: number, newTurn: Turn): { x: number; y: number } {
@@ -1238,6 +1277,7 @@ class StateManager {
         ...conversation,
         initialChannel: normalizeChannelValue(conversation.initialChannel, normalizeChannelValue(conversation.turns.find((turn) => turn.turnNumber === 1)?.channel, 'pda')),
         faction: getConversationFaction(conversation, sanitizedProject.faction),
+        flowEdgeBends: normalizeFlowEdgeBends(conversation.flowEdgeBends),
         turns: conversation.turns.map((turn, turnIndex) => {
           const parentTurnChannel = normalizeChannelValue(turn.channel, 'pda');
           const normalizedTurn: Turn = {
@@ -2076,6 +2116,23 @@ class StateManager {
     this.finishProjectMutation({ revalidate: false, change: createFlowChange('structure', 'flowEditor') });
   }
 
+  updateFlowEdgeBend(conversationId: number, edgeKey: string, bend: number): void {
+    const conv = this.getConversationById(conversationId);
+    if (!conv || !/^\d+:\d+:\d+:(continue|pause-success|pause-fail)$/.test(edgeKey)) return;
+    const normalized = Math.round(Math.max(-320, Math.min(320, bend)) * 10) / 10;
+    const current = conv.flowEdgeBends?.[edgeKey] ?? 0;
+    if (current === normalized) return;
+    this.pushUndo();
+    const next = { ...(conv.flowEdgeBends ?? {}) };
+    if (Math.abs(normalized) < 0.5) {
+      delete next[edgeKey];
+    } else {
+      next[edgeKey] = normalized;
+    }
+    conv.flowEdgeBends = Object.keys(next).length > 0 ? next : undefined;
+    this.finishProjectMutation({ revalidate: false, change: createFlowChange('position', 'flowEditor') });
+  }
+
   addChoice(conversationId: number, turnNumber: number): void {
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
     const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
@@ -2150,12 +2207,30 @@ class StateManager {
   deleteChoice(conversationId: number, turnNumber: number, choiceIndex: number): void {
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
     const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
-    if (!turn || turn.choices.length <= 1) return;
+    if (!conv || !turn || !turn.choices.some(c => c.index === choiceIndex)) return;
     this.pushUndo();
     turn.choices = turn.choices.filter(c => c.index !== choiceIndex);
     turn.choices.forEach((c, i) => { c.index = i + 1; });
+    if (conv.flowEdgeBends) {
+      const nextBends: Record<string, number> = {};
+      for (const [key, value] of Object.entries(conv.flowEdgeBends)) {
+        const [sourceTurnRaw, sourceChoiceRaw, targetTurnRaw, kind] = key.split(':');
+        const sourceTurn = Number.parseInt(sourceTurnRaw ?? '', 10);
+        const sourceChoice = Number.parseInt(sourceChoiceRaw ?? '', 10);
+        if (sourceTurn !== turnNumber || !Number.isFinite(sourceChoice)) {
+          nextBends[key] = value;
+          continue;
+        }
+        if (sourceChoice === choiceIndex) continue;
+        const nextChoice = sourceChoice > choiceIndex ? sourceChoice - 1 : sourceChoice;
+        nextBends[`${sourceTurnRaw}:${nextChoice}:${targetTurnRaw}:${kind}`] = value;
+      }
+      conv.flowEdgeBends = Object.keys(nextBends).length > 0 ? nextBends : undefined;
+    }
     if (this.state.selectedChoiceIndex === choiceIndex) {
       this.state.selectedChoiceIndex = null;
+    } else if (this.state.selectedTurnNumber === turnNumber && this.state.selectedChoiceIndex != null && this.state.selectedChoiceIndex > choiceIndex) {
+      this.state.selectedChoiceIndex -= 1;
     }
     this.finishProjectMutation();
   }

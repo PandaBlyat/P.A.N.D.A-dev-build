@@ -36,6 +36,7 @@ type EdgeDescriptor = {
   pathClassName: string;
   textClassName: string;
   offsetIndex: number;
+  bend: number;
   highlight: HighlightState;
   kind: EdgeKind;
 };
@@ -264,6 +265,7 @@ export function updateFlowSelection(): boolean {
   for (const [turnNumber, node] of liveFlow.nodeElements) {
     node.classList.toggle('path-active', activeTurnNumbers.has(turnNumber));
   }
+  redrawLiveEdges(liveFlow);
   syncLiveViewportVisibility(liveFlow);
 
   return true;
@@ -292,6 +294,7 @@ export function syncFlowEditor(change: StateChange): boolean {
       node.style.top = `${turn.position.y}px`;
     }
     liveFlow.graphModel = buildFlowGraphModel(conv, liveFlow.density, liveFlow.factionColor);
+    liveFlow.edges = buildEdgeDescriptors(conv, state.selectedTurnNumber, state.selectedChoiceIndex, liveFlow.factionColor);
     redrawLiveEdges(liveFlow);
     syncLiveViewportVisibility(liveFlow);
     return true;
@@ -323,7 +326,11 @@ export function syncFlowEditor(change: StateChange): boolean {
 }
 
 function edgeKey(edge: EdgeDescriptor): string {
-  return `${edge.sourceTurnNumber}:${edge.sourceChoiceIndex}:${edge.targetTurnNumber}:${edge.kind}`;
+  return edgeKeyFromParts(edge.sourceTurnNumber, edge.sourceChoiceIndex, edge.targetTurnNumber, edge.kind);
+}
+
+function edgeKeyFromParts(sourceTurnNumber: number, sourceChoiceIndex: number, targetTurnNumber: number, kind: EdgeKind): string {
+  return `${sourceTurnNumber}:${sourceChoiceIndex}:${targetTurnNumber}:${kind}`;
 }
 
 function indexEdgeElements(svg: SVGSVGElement, map: Map<string, SVGGElement>): void {
@@ -545,12 +552,14 @@ export function renderFlowEditor(container: HTMLElement): void {
 
   content.appendChild(svg);
 
+  const segmentStartTurns = collectSegmentStartTurns(conv);
   for (const turn of conv.turns) {
     const node = renderTurnNode({
       conv,
       turn,
       selected: state.selectedTurnNumber === turn.turnNumber,
       branchInlinePanel: state.branchInlinePanel,
+      segmentStartTurns,
       edges,
       density,
       viewState,
@@ -621,7 +630,7 @@ export function renderFlowEditor(container: HTMLElement): void {
           turnLabels,
           factionColor,
           onlyTurnNumbers: pendingAffectedTurnNumbers,
-          renderPackets: !mobilePerformanceMode,
+          renderPackets: !mobilePerformanceMode && graphSize === 'normal',
         });
       }, {
         turnCount: conv.turns.length,
@@ -636,7 +645,7 @@ export function renderFlowEditor(container: HTMLElement): void {
       positionOverrides: pendingPositionOverrides,
       preview: connectionPreview,
       factionColor,
-      renderPacket: !mobilePerformanceMode,
+      renderPacket: !mobilePerformanceMode && graphSize === 'normal',
     });
     pendingAffectedTurnNumbers = undefined;
     pendingEdgeRedraw = true;
@@ -816,7 +825,8 @@ export function renderFlowEditor(container: HTMLElement): void {
     viewStateByConversation.set(conversationId, { ...viewState });
     const now = performance.now();
     const interacting = shell.classList.contains('is-interacting');
-    if (!mobilePerformanceMode || !interacting || now - lastViewportSyncAt >= 120) {
+    const syncInterval = mobilePerformanceMode ? 120 : 80;
+    if (!interacting || now - lastViewportSyncAt >= syncInterval) {
       lastViewportSyncAt = now;
       syncViewportVisibility({
         canvas,
@@ -1790,6 +1800,7 @@ function renderTurnNode(options: {
   turn: Turn;
   selected: boolean;
   branchInlinePanel: BranchInlinePanelState | null;
+  segmentStartTurns: ReadonlySet<number>;
   edges: EdgeDescriptor[];
   density: FlowDensity;
   viewState: ViewState;
@@ -1807,6 +1818,7 @@ function renderTurnNode(options: {
     turn,
     selected,
     branchInlinePanel,
+    segmentStartTurns,
     edges,
     density,
     viewState,
@@ -1834,6 +1846,7 @@ function renderTurnNode(options: {
     && branchInlinePanel.conversationId === conv.id
     && branchInlinePanel.turnNumber === turn.turnNumber,
   );
+  const showOpener = segmentStartTurns.has(turn.turnNumber);
 
   const node = document.createElement('div');
 
@@ -1846,7 +1859,7 @@ function renderTurnNode(options: {
   node.dataset.turnNumber = String(turn.turnNumber);
   node.tabIndex = 0;
   node.setAttribute('role', 'button');
-  node.setAttribute('aria-label', buildTurnAriaLabel(turn, turnLabels));
+  node.setAttribute('aria-label', buildTurnAriaLabel(turn, turnLabels, showOpener));
   node.setAttribute('aria-pressed', selected ? 'true' : 'false');
   setBeginnerTooltip(node, 'flow-turn-node');
   node.style.left = `${turn.position.x}px`;
@@ -1920,7 +1933,7 @@ function renderTurnNode(options: {
     if (event.key === 'Backspace' || event.key === 'Delete') {
       event.preventDefault();
       const currentState = store.get();
-      if (currentState.selectedTurnNumber === turn.turnNumber && currentState.selectedChoiceIndex != null && turn.choices.length > 1) {
+      if (currentState.selectedTurnNumber === turn.turnNumber && currentState.selectedChoiceIndex != null) {
         store.deleteChoice(conv.id, turn.turnNumber, currentState.selectedChoiceIndex);
       } else if (turn.turnNumber > 1) {
         store.deleteTurn(conv.id, turn.turnNumber);
@@ -2241,7 +2254,7 @@ function renderTurnNode(options: {
   const body = document.createElement('div');
   body.className = 'turn-body';
 
-  if (density !== 'compact' || selected || inlinePanelActive) {
+  if (showOpener && (density !== 'compact' || selected || inlinePanelActive)) {
     const openerCard = document.createElement('div');
     openerCard.className = 'branch-opener-card branch-inline-trigger';
     openerCard.dataset.branchInlineAction = 'opener';
@@ -2383,6 +2396,19 @@ function renderTurnNode(options: {
     editChoiceButton.onpointerdown = openChoicePanel;
     editChoiceButton.onclick = openChoicePanel;
     item.appendChild(editChoiceButton);
+
+    const deleteChoiceButton = document.createElement('button');
+    deleteChoiceButton.type = 'button';
+    deleteChoiceButton.className = 'choice-compact-delete';
+    deleteChoiceButton.textContent = 'X';
+    deleteChoiceButton.title = `Delete Choice ${choice.index}`;
+    deleteChoiceButton.setAttribute('aria-label', `Delete Choice ${choice.index}`);
+    deleteChoiceButton.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      store.deleteChoice(conv.id, turn.turnNumber, choice.index);
+    };
+    item.appendChild(deleteChoiceButton);
 
     const outcomesButton = document.createElement('button');
     outcomesButton.type = 'button';
@@ -3302,8 +3328,9 @@ function collectSegmentStartTurns(conv: Conversation): Set<number> {
 function buildTurnAriaLabel(
   turn: Turn,
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
+  showOpener = true,
 ): string {
-  const opening = turn.openingMessage ? ` Opening message: ${truncate(turn.openingMessage, 80)}.` : '';
+  const opening = showOpener && turn.openingMessage ? ` Opening message: ${truncate(turn.openingMessage, 80)}.` : '';
   const connectionHint = ' Drag a choice connector onto this turn to link it here, or press Escape while dragging to cancel.';
   return `${turnLabels.getLongLabel(turn.turnNumber)}. ${turn.choices.length} choice${turn.choices.length === 1 ? '' : 's'}.${opening}${connectionHint} Shift+T adds a turn, Shift+C adds a choice, Shift+L connects the selected branch here, Shift+D disconnects the current branch. Control or Command+D duplicates this turn, Control or Command+C copies it, and Control or Command+V pastes the copied turn here.`;
 }
@@ -3404,8 +3431,10 @@ function drawEdges(options: {
     if (!sourceAnchor || !targetAnchor) continue;
 
     const key = edgeKey(edge);
-    const pathD = buildEdgePath(sourceAnchor, targetAnchor, edge.offsetIndex);
-    const labelAnchor = getLabelAnchor(sourceAnchor, targetAnchor, edge.offsetIndex);
+    const pathD = buildEdgePath(sourceAnchor, targetAnchor, edge.offsetIndex, edge.bend);
+    const labelAnchor = getLabelAnchor(sourceAnchor, targetAnchor, edge.offsetIndex, edge.bend);
+    const handleAnchor = getBendHandleAnchor(sourceAnchor, targetAnchor, edge.offsetIndex, edge.bend);
+    const showBendHandle = edge.kind === 'continue' && edge.highlight === 'active';
     const highlightSuffix = edge.highlight !== 'normal' ? ` is-${edge.highlight}` : '';
 
     const existing = edgeElements.get(key);
@@ -3430,6 +3459,18 @@ function drawEdges(options: {
         label.setAttribute('y', String(labelAnchor.y));
         label.setAttribute('class', `flow-edge-label ${edge.textClassName}${highlightSuffix}`);
       }
+      syncBendHandle(existing, {
+        svg,
+        conv,
+        edge,
+        sourceAnchor,
+        targetAnchor,
+        labelAnchor,
+        handleAnchor,
+        pathD,
+        show: showBendHandle,
+        renderPackets,
+      });
     } else {
       // Create new edge group
       const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -3490,6 +3531,19 @@ function drawEdges(options: {
       };
       group.appendChild(labelButton);
 
+      syncBendHandle(group, {
+        svg,
+        conv,
+        edge,
+        sourceAnchor,
+        targetAnchor,
+        labelAnchor,
+        handleAnchor,
+        pathD,
+        show: showBendHandle,
+        renderPackets,
+      });
+
       svg.appendChild(group);
       edgeElements.set(key, group);
     }
@@ -3508,7 +3562,120 @@ function redrawLiveEdges(flow: LiveFlowState): void {
     edgeElements: flow.edgeElements,
     turnLabels: flow.turnLabels,
     factionColor: flow.factionColor,
+    renderPackets: getFlowGraphSize(conv.turns.length, flow.edges.length) === 'normal',
   });
+}
+
+function syncBendHandle(group: SVGGElement, options: {
+  svg: SVGSVGElement;
+  conv: Conversation;
+  edge: EdgeDescriptor;
+  sourceAnchor: { x: number; y: number };
+  targetAnchor: { x: number; y: number };
+  labelAnchor: { x: number; y: number };
+  handleAnchor: { x: number; y: number };
+  pathD: string;
+  show: boolean;
+  renderPackets: boolean;
+}): void {
+  const { svg, conv, edge, sourceAnchor, targetAnchor, handleAnchor, show, renderPackets } = options;
+  let handle = group.querySelector('.flow-edge-bend-handle') as SVGCircleElement | null;
+  if (!show) {
+    handle?.remove();
+    return;
+  }
+  if (!handle) {
+    handle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    handle.setAttribute('r', '7');
+    handle.setAttribute('tabindex', '0');
+    handle.setAttribute('role', 'slider');
+    handle.setAttribute('aria-label', 'Adjust flow line bend. Drag, use arrow keys, hold Alt for fine step, or double-click to reset.');
+    handle.classList.add('flow-edge-bend-handle');
+    handle.style.setProperty('--flow-edge-color', edge.color);
+    group.appendChild(handle);
+  }
+  handle.setAttribute('cx', String(handleAnchor.x));
+  handle.setAttribute('cy', String(handleAnchor.y));
+  handle.setAttribute('aria-valuenow', String(Math.round(edge.bend * 10) / 10));
+  handle.setAttribute('aria-valuemin', '-320');
+  handle.setAttribute('aria-valuemax', '320');
+
+  const redrawLocal = (bend: number): void => {
+    edge.bend = bend;
+    const pathD = buildEdgePath(sourceAnchor, targetAnchor, edge.offsetIndex, bend);
+    const labelAnchor = getLabelAnchor(sourceAnchor, targetAnchor, edge.offsetIndex, bend);
+    const nextHandleAnchor = getBendHandleAnchor(sourceAnchor, targetAnchor, edge.offsetIndex, bend);
+    const path = group.querySelector('.flow-edge-path') as SVGPathElement | null;
+    const packet = group.querySelector('.flow-edge-packet') as SVGPathElement | null;
+    const label = group.querySelector('.flow-edge-label') as SVGTextElement | null;
+    path?.setAttribute('d', pathD);
+    if (packet && renderPackets) packet.setAttribute('d', pathD);
+    label?.setAttribute('x', String(labelAnchor.x));
+    label?.setAttribute('y', String(labelAnchor.y));
+    handle?.setAttribute('cx', String(nextHandleAnchor.x));
+    handle?.setAttribute('cy', String(nextHandleAnchor.y));
+    handle?.setAttribute('aria-valuenow', String(Math.round(bend * 10) / 10));
+  };
+
+  handle.onpointerdown = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const pointerId = event.pointerId;
+    let nextBend = edge.bend;
+    handle?.setPointerCapture(pointerId);
+    group.classList.add('is-bending');
+
+    const onMove = (moveEvent: PointerEvent): void => {
+      if (moveEvent.pointerId !== pointerId) return;
+      moveEvent.preventDefault();
+      moveEvent.stopPropagation();
+      nextBend = getBendFromPointer(svg, sourceAnchor, targetAnchor, edge.offsetIndex, moveEvent);
+      redrawLocal(nextBend);
+    };
+
+    const onUp = (upEvent: PointerEvent): void => {
+      if (upEvent.pointerId !== pointerId) return;
+      upEvent.preventDefault();
+      upEvent.stopPropagation();
+      group.classList.remove('is-bending');
+      if (handle?.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
+      window.removeEventListener('pointermove', onMove, true);
+      window.removeEventListener('pointerup', onUp, true);
+      window.removeEventListener('pointercancel', onUp, true);
+      store.updateFlowEdgeBend(conv.id, edgeKey(edge), nextBend);
+    };
+
+    window.addEventListener('pointermove', onMove, true);
+    window.addEventListener('pointerup', onUp, true);
+    window.addEventListener('pointercancel', onUp, true);
+  };
+
+  handle.onkeydown = (event) => {
+    const keyDirection = event.key === 'ArrowUp' || event.key === 'ArrowRight'
+      ? 1
+      : event.key === 'ArrowDown' || event.key === 'ArrowLeft'
+        ? -1
+        : 0;
+    if (keyDirection === 0 && event.key !== 'Home' && event.key !== 'End') return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const step = event.altKey ? 1 : event.shiftKey ? 16 : 4;
+    const nextBend = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? (edge.bend >= 0 ? 320 : -320)
+        : clamp(edge.bend + keyDirection * step, -320, 320);
+    redrawLocal(nextBend);
+    store.updateFlowEdgeBend(conv.id, edgeKey(edge), nextBend);
+  };
+
+  handle.ondblclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    redrawLocal(0);
+    store.updateFlowEdgeBend(conv.id, edgeKey(edge), 0);
+  };
 }
 
 function patchTurnNodeText(
@@ -3740,6 +3907,7 @@ function buildEdgeDescriptors(
         const targetTurn = turnByNumber.get(target.turnNumber);
         const targetTurnIndex = turnIndexByNumber.get(target.turnNumber) ?? 0;
         const targetBranchColor = targetTurn ? getBranchColor(targetTurn, targetTurnIndex, factionColor) : factionColor;
+        const key = edgeKeyFromParts(turn.turnNumber, choice.index, target.turnNumber, target.kind);
 
         edges.push({
           sourceTurnNumber: turn.turnNumber,
@@ -3750,6 +3918,7 @@ function buildEdgeDescriptors(
           pathClassName: `edge-${target.kind}`,
           textClassName: `edge-label-${target.kind}`,
           offsetIndex: spreadOffset(offsetIndex),
+          bend: conv.flowEdgeBends?.[key] ?? 0,
           highlight: getEdgeHighlightState(turn.turnNumber, choice.index, target.turnNumber, selectedTurnNumber, selectedChoiceIndex),
           kind: target.kind,
         });
@@ -3816,10 +3985,10 @@ function hasPauseOutcome(choice: Choice): boolean {
   return choice.outcomes.some(outcome => parseOutcomeResumeTurnNumbers(outcome) != null);
 }
 
-function buildEdgePath(source: { x: number; y: number }, target: { x: number; y: number }, laneOffset: number): string {
+function buildEdgePath(source: { x: number; y: number }, target: { x: number; y: number }, laneOffset: number, bend = 0): string {
   const dx = target.x - source.x;
   const dy = target.y - source.y;
-  const lane = laneOffset * 20;
+  const lane = laneOffset * 20 + bend;
   const absDx = Math.abs(dx);
   const absDy = Math.abs(dy);
   const horizontalBias = absDx >= absDy;
@@ -3847,10 +4016,53 @@ function buildEdgePath(source: { x: number; y: number }, target: { x: number; y:
   return `M${source.x},${source.y} C${cp1x},${cp1y} ${cp2x},${cp2y} ${target.x},${target.y}`;
 }
 
-function getLabelAnchor(source: { x: number; y: number }, target: { x: number; y: number }, offsetIndex: number): { x: number; y: number } {
+function getLabelAnchor(source: { x: number; y: number }, target: { x: number; y: number }, offsetIndex: number, bend = 0): { x: number; y: number } {
+  const normal = getEdgeNormal(source, target);
   return {
-    x: source.x + (target.x - source.x) / 2,
-    y: source.y + (target.y - source.y) / 2 + offsetIndex * 14 - 10,
+    x: source.x + (target.x - source.x) / 2 + normal.x * bend,
+    y: source.y + (target.y - source.y) / 2 + offsetIndex * 14 - 10 + normal.y * bend,
+  };
+}
+
+function getBendHandleAnchor(source: { x: number; y: number }, target: { x: number; y: number }, offsetIndex: number, bend = 0): { x: number; y: number } {
+  const normal = getEdgeNormal(source, target);
+  const baseLane = offsetIndex * 20;
+  return {
+    x: source.x + (target.x - source.x) / 2 + normal.x * (baseLane + bend),
+    y: source.y + (target.y - source.y) / 2 + normal.y * (baseLane + bend),
+  };
+}
+
+function getBendFromPointer(
+  svg: SVGSVGElement,
+  source: { x: number; y: number },
+  target: { x: number; y: number },
+  offsetIndex: number,
+  event: PointerEvent,
+): number {
+  const point = clientToSvgPoint(svg, event.clientX, event.clientY);
+  const normal = getEdgeNormal(source, target);
+  const midX = source.x + (target.x - source.x) / 2;
+  const midY = source.y + (target.y - source.y) / 2;
+  const projected = (point.x - midX) * normal.x + (point.y - midY) * normal.y;
+  return clamp(projected - offsetIndex * 20, -320, 320);
+}
+
+function getEdgeNormal(source: { x: number; y: number }, target: { x: number; y: number }): { x: number; y: number } {
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  const length = Math.hypot(dx, dy);
+  if (length < 0.001) return { x: 0, y: 1 };
+  return { x: -dy / length, y: dx / length };
+}
+
+function clientToSvgPoint(svg: SVGSVGElement, clientX: number, clientY: number): { x: number; y: number } {
+  const rect = svg.getBoundingClientRect();
+  const width = Number(svg.getAttribute('width')) || svg.clientWidth || rect.width || 1;
+  const height = Number(svg.getAttribute('height')) || svg.clientHeight || rect.height || 1;
+  return {
+    x: (clientX - rect.left) * (width / Math.max(1, rect.width)),
+    y: (clientY - rect.top) * (height / Math.max(1, rect.height)),
   };
 }
 

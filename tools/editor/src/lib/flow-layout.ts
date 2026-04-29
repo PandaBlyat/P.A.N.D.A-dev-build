@@ -34,9 +34,9 @@ const FLOW_NODE_LAYOUTS: Record<FlowDensity, FlowNodeLayout> = {
 };
 
 const FLOW_AUTO_LAYOUT_SPACING: Record<FlowDensity, FlowAutoLayoutSpacing> = {
-  compact: { canvasPaddingX: 20, canvasPaddingY: 20, horizontalGutter: 72, siblingGap: 28, branchGroupGap: 72 },
-  standard: { canvasPaddingX: 20, canvasPaddingY: 20, horizontalGutter: 84, siblingGap: 36, branchGroupGap: 92 },
-  detailed: { canvasPaddingX: 20, canvasPaddingY: 20, horizontalGutter: 104, siblingGap: 48, branchGroupGap: 120 },
+  compact: { canvasPaddingX: 32, canvasPaddingY: 32, horizontalGutter: 104, siblingGap: 52, branchGroupGap: 124 },
+  standard: { canvasPaddingX: 36, canvasPaddingY: 36, horizontalGutter: 132, siblingGap: 68, branchGroupGap: 156 },
+  detailed: { canvasPaddingX: 44, canvasPaddingY: 44, horizontalGutter: 164, siblingGap: 86, branchGroupGap: 196 },
 };
 
 export function getFlowNodeLayout(density: FlowDensity): FlowNodeLayout {

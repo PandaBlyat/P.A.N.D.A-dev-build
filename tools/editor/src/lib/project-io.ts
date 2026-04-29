@@ -261,6 +261,19 @@ function normalizeStringArray(values: unknown): string[] | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
+function normalizeFlowEdgeBends(value: unknown): Record<string, number> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const bends: Record<string, number> = {};
+  for (const [key, rawBend] of Object.entries(value as Record<string, unknown>)) {
+    if (!/^\d+:\d+:\d+:(continue|pause-success|pause-fail)$/.test(key)) continue;
+    const bend = typeof rawBend === 'number' ? rawBend : Number(rawBend);
+    if (!Number.isFinite(bend)) continue;
+    const normalized = Math.max(-220, Math.min(220, Math.round(bend)));
+    if (normalized !== 0) bends[key] = normalized;
+  }
+  return Object.keys(bends).length > 0 ? bends : undefined;
+}
+
 function normalizeOptionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
@@ -383,6 +396,7 @@ function normalizeConversation(
     ...conversation,
     faction: normalizeFaction(conversation.faction, fallbackFaction),
     initialChannel: normalizedInitialChannel,
+    flowEdgeBends: normalizeFlowEdgeBends(conversation.flowEdgeBends),
     turns: normalizedTurns,
   };
 }

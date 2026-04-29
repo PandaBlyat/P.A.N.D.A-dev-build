@@ -1347,6 +1347,8 @@ end
 local build_turn_string_prefix
 local resolve_runtime_npc_se
 local get_audio_fields_for_string_key
+local get_message_attachment_fields_for_string_key
+local sanitize_pda_ui_texture_name
 
 -- ============================================================
 -- TASK HELPERS: Completion checks for custom task types
@@ -1559,7 +1561,7 @@ local function job_resume_conversation(job, turn, is_success)
     CONV = conv_data
 
     if open_text and open_text ~= "" then
-        local open_audio_fields = get_audio_fields_for_string_key(open_key .. "_audio")
+        local open_attachment_fields = get_message_attachment_fields_for_string_key(open_key)
         dynamic_news_helper.send_tip(
             "You've received a Private Message from " .. tostring(resume_npc_name),
             "PDA Alert", 0, 10, resume_npc_icon, "news", "npc"
@@ -1574,7 +1576,7 @@ local function job_resume_conversation(job, turn, is_success)
             nil,
             nil,
             nil,
-            open_audio_fields
+            open_attachment_fields
         )
     end
 
@@ -1800,7 +1802,7 @@ local PANDA_EMOJI_REPLY_TEXTURES = {
     target = "panda_file",
 }
 
-local function sanitize_pda_ui_texture_name(value)
+sanitize_pda_ui_texture_name = function(value)
     if not value then return nil end
     local name = tostring(value):gsub("^%s+", ""):gsub("%s+$", "")
     if name == "" then return nil end
@@ -1861,6 +1863,17 @@ get_audio_fields_for_string_key = function(key)
     local audio_raw = game.translate_string(key)
     if audio_raw == key then return nil end
     return build_audio_fields(audio_raw)
+end
+
+get_message_attachment_fields_for_string_key = function(base_key)
+    if not base_key then return nil end
+    local fields = get_audio_fields_for_string_key(base_key .. "_audio") or {}
+    local image_key = base_key .. "_image"
+    local image_raw = game.translate_string(image_key)
+    if image_raw ~= image_key then
+        fields.reply_image_texture = sanitize_pda_ui_texture_name(image_raw)
+    end
+    return next(fields) and fields or nil
 end
 
 local function queue_pda_followup_internal(raw_entry)
@@ -2033,7 +2046,7 @@ local function activate_pending_pda_followup(entry)
         nil,
         nil,
         nil,
-        get_audio_fields_for_string_key(open_key .. "_audio")
+        get_message_attachment_fields_for_string_key(open_key)
     )
 
     if get_ui then
@@ -9555,7 +9568,7 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
         nil,
         nil,
         nil,
-        get_audio_fields_for_string_key(key .. "_audio")
+        get_message_attachment_fields_for_string_key(key)
     )
 
     -- Force refresh of UI if PDA is actively open so the message pops up immediately

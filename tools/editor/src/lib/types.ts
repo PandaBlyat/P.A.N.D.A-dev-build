@@ -44,6 +44,7 @@ export interface Conversation {
   timeout?: number;
   timeoutMessage?: string;
   flowAnnotations?: FlowAnnotation[];
+  flowEdgeBends?: Record<string, number>;
   turns: Turn[];
 }
 

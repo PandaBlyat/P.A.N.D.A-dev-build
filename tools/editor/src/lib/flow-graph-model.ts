@@ -1,6 +1,7 @@
 import type { Conversation, Choice, Turn } from './types';
 import type { FlowDensity } from './state';
 import { estimateFlowNodeHeight, getFlowNodeLayout } from './flow-layout';
+import { parseOutcomeResumeTurnNumbers } from './outcome-branching';
 
 export type FlowViewport = {
   left: number;
@@ -87,12 +88,41 @@ export function getVisibleFlowItems(
   viewport: FlowViewport,
   keepMounted: ReadonlySet<number> = new Set(),
 ): { turnNumbers: Set<number>; edgeKeys: Set<string> } {
-  void viewport;
-  void keepMounted;
-  return {
-    turnNumbers: new Set(model.nodes.keys()),
-    edgeKeys: new Set(model.edges.map(getFlowGraphEdgeKey)),
+  const overscan = 360;
+  const paddedViewport = {
+    left: viewport.left - overscan,
+    top: viewport.top - overscan,
+    right: viewport.right + overscan,
+    bottom: viewport.bottom + overscan,
   };
+  const turnNumbers = new Set<number>();
+  for (const [turnNumber, node] of model.nodes) {
+    if (keepMounted.has(turnNumber) || rectsIntersect(node, paddedViewport)) {
+      turnNumbers.add(turnNumber);
+    }
+  }
+
+  const edgeKeys = new Set<string>();
+  for (const edge of model.edges) {
+    if (turnNumbers.has(edge.sourceTurnNumber) || turnNumbers.has(edge.targetTurnNumber)) {
+      edgeKeys.add(getFlowGraphEdgeKey(edge));
+    }
+  }
+
+  return {
+    turnNumbers,
+    edgeKeys,
+  };
+}
+
+function rectsIntersect(
+  node: FlowGraphNode,
+  viewport: FlowViewport,
+): boolean {
+  return node.x <= viewport.right
+    && node.x + node.width >= viewport.left
+    && node.y <= viewport.bottom
+    && node.y + node.height >= viewport.top;
 }
 
 export function getFlowGraphEdgeKey(edge: FlowGraphEdge): string {
@@ -124,11 +154,10 @@ function addChoiceEdges(edges: FlowGraphEdge[], neighbors: Map<number, Set<numbe
   }
 
   for (const outcome of choice.outcomes) {
-    if (outcome.command !== 'pause_job') continue;
-    const successTurn = parseInt(outcome.params[1], 10);
-    const failTurn = parseInt(outcome.params[2], 10);
-    if (!Number.isNaN(successTurn)) addEdge(edges, neighbors, sourceTurnNumber, choice.index, successTurn, 'pause-success');
-    if (!Number.isNaN(failTurn)) addEdge(edges, neighbors, sourceTurnNumber, choice.index, failTurn, 'pause-fail');
+    const resumeTargets = parseOutcomeResumeTurnNumbers(outcome);
+    if (!resumeTargets) continue;
+    if (resumeTargets.successTurn != null) addEdge(edges, neighbors, sourceTurnNumber, choice.index, resumeTargets.successTurn, 'pause-success');
+    if (resumeTargets.failTurn != null) addEdge(edges, neighbors, sourceTurnNumber, choice.index, resumeTargets.failTurn, 'pause-fail');
   }
 }
 

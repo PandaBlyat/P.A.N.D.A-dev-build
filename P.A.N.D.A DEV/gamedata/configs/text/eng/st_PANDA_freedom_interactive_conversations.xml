@@ -2,7 +2,6 @@
 <string_table>
 
 
-
     <!-- ═══════════════════════════════════════════════════════════ -->
     <!-- CONVERSATION 1: Go to location -->
     <!-- ═══════════════════════════════════════════════════════════ -->
@@ -11,8 +10,10 @@
     </string>
     <string id="st_pda_ic_freedom_1_open">
         <text>We have an urgent problem, meet me asap at HQ.
-
 </text>
+    </string>
+    <string id="st_pda_ic_freedom_1_open_image">
+        <text>hip_pic</text>
     </string>
     <string id="st_pda_ic_freedom_1_choice_1">
         <text>I'm omw. give me a few minutes
@@ -114,7 +115,7 @@
         <text>Roger, on it.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t3_reply_1">
-        <text>*Thumbs UP emoji*</text>
+        <text>:thumbsup:</text>
     </string>
     <string id="st_pda_ic_freedom_1_t3_outcome_1">
         <text>none</text>
@@ -142,8 +143,7 @@
         <text>On it, apologies.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t5_reply_1">
-        <text>*thumbs up emoji*
-</text>
+        <text>:thumbsup:</text>
     </string>
     <string id="st_pda_ic_freedom_1_t5_outcome_1">
         <text>none</text>
@@ -194,8 +194,7 @@
 </text>
     </string>
     <string id="st_pda_ic_freedom_1_t6_reply_2">
-        <text>*Thumbs  UP emoji*
-</text>
+        <text>:thumbsup:</text>
     </string>
     <string id="st_pda_ic_freedom_1_t6_outcome_2">
         <text>none</text>
@@ -228,10 +227,13 @@
         <text>getting bit sick of your empty threats</text>
     </string>
     <string id="st_pda_ic_freedom_1_t7_reply_1">
-        <text>You're done. </text>
+        <text>You're done :smile:</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t7_reply_1_audio">
+        <text>voice_message1</text>
     </string>
     <string id="st_pda_ic_freedom_1_t7_outcome_1">
-        <text>pause_job:6000:9:10,spawn_npc_squad:freedom_sim_squad_advanced:75:120:1:hostile</text>
+        <text>pause_job:6000:9:10,spawn_npc_squad:freedom_sim_squad_advanced:75:120:3:hostile</text>
     </string>
     <string id="st_pda_ic_freedom_1_t7_cont_1">
         <text>9</text>
@@ -256,12 +258,6 @@
     </string>
     <string id="st_pda_ic_freedom_1_t8_cont_channel_1">
         <text>f2f</text>
-    </string>
-    <string id="st_pda_ic_freedom_1_t9_npc_factions">
-        <text>dolg</text>
-    </string>
-    <string id="st_pda_ic_freedom_1_t9_npc_allow_generic">
-        <text>1</text>
     </string>
     <string id="st_pda_ic_freedom_1_t9_open">
         <text>Why did we just watch you kill some of your own!?</text>
@@ -638,10 +634,8 @@
       &quot;turnNumber&quot;: 9,
       &quot;channel&quot;: &quot;pda&quot;,
       &quot;speakerNpcId&quot;: null,
-      &quot;speakerNpcFactionFilters&quot;: [
-        &quot;dolg&quot;
-      ],
-      &quot;speakerAllowGenericStalker&quot;: true,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
       &quot;firstSpeaker&quot;: &quot;npc&quot;,
       &quot;requiresNpcFirst&quot;: null,
       &quot;pdaEntry&quot;: false,
