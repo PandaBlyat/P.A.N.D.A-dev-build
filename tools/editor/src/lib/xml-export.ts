@@ -4,6 +4,7 @@
 import type { Project, Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, Outcome, FactionId, NpcTemplate } from './types';
 import { FACTION_XML_KEYS, getConversationFaction } from './types';
 import { getDefaultFlowTurnPosition } from './flow-layout';
+import { collectSegmentStartTurns as collectBranchSegmentStartTurns } from './branch-segments';
 
 const PANDA_F2F_REGISTRY_SCHEMA = 'panda_f2f_bridge_registry_v1';
 const PANDA_F2F_REGISTRY_SUFFIX = '_panda_f2f_registry';
@@ -285,13 +286,20 @@ function generateConversation(
   if (conv.repeatable === false) {
     lines.push(emitString(`${prefix}_repeatable`, '0'));
   }
+  const segmentStartTurns = collectBranchSegmentStartTurns(conv);
 
   // Process each turn
   for (const turn of conv.turns) {
     const turnInfix = turn.turnNumber === 1 ? '' : `_t${turn.turnNumber}`;
 
     const isEntryTurn = isEntryTurnForExport(turn);
-    const isNonEntryF2FTurn = normalizeChannel(turn.channel, 'pda') === 'f2f' && !isEntryTurn;
+    const turnChannel = normalizeChannel(turn.channel, 'pda');
+    const hasAuthorOpening = (turn.openingMessage ?? '').trim() !== ''
+      || (turn.openingImage ?? '').trim() !== ''
+      || (turn.openingAudio ?? '').trim() !== '';
+    const shouldExportOpening = turnChannel !== 'f2f'
+      || segmentStartTurns.has(turn.turnNumber)
+      || hasAuthorOpening;
 
     if (turn.preconditions.length > 0) {
       lines.push(emitString(`${prefix}${turnInfix}_branch_precond`, serializePreconditions(turn.preconditions)));
@@ -304,16 +312,13 @@ function generateConversation(
       lines.push(emitString(`${prefix}${turnInfix}_npc_allow_generic`, '1'));
     }
 
-    // Opening message export:
-    // - Export all non-F2F turns as before.
-    // - Export F2F opener only for entry turns (initial NPC-first handoff/start).
-    // This prevents authoring/runtime drift where continuation F2F branches carry
-    // redundant per-branch opener strings.
-      if (!isNonEntryF2FTurn) {
+    // Export all PDA openers, and only meaningful F2F openers: entry/segment
+    // starts or author-defined media/text.
+    if (shouldExportOpening) {
       const openingKey = `${prefix}${turnInfix}_open`;
       let openingText = turn.openingMessage ?? '';
       const shouldAutofillMissingOpen =
-        isEntryTurn
+        (isEntryTurn || segmentStartTurns.has(turn.turnNumber))
         && !config.strictDialogueValidation
         && config.autofillMissingOpenWhenNonStrict
         && openingText.trim().length === 0;

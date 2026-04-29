@@ -17,6 +17,8 @@ import {
 } from '../lib/validation';
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
+import { choiceRequiresContinuationOpener } from '../lib/branch-segments';
+import { parseOutcomeResumeTurnNumbers } from '../lib/outcome-branching';
 import { createSmartTerrainPickerEditor } from './CatalogPickerPanel';
 import {
   createCustomNpcBuilderEditor,
@@ -722,6 +724,13 @@ function renderContinuationPanel(container: HTMLElement, conv: Conversation, tur
     },
   }));
   pathPane.appendChild(renderExistingBranchLinks(conv, turn, choice, turnLabels));
+  const targetTurn = choice.continueTo == null
+    ? null
+    : conv.turns.find((candidate) => candidate.turnNumber === choice.continueTo) ?? null;
+  const nextOpenerEditor = renderContinuationOpenerEditor(conv, turn, choice, targetTurn, turnLabels);
+  if (nextOpenerEditor) {
+    pathPane.appendChild(nextOpenerEditor);
+  }
 
   const npcPane = createPane('Who Continues It?');
   npcPane.appendChild(createHint('Same NPC keeps current speaker. New NPC hands next branch to story NPC, custom spawned NPC, or any matching sim NPC.'));
@@ -729,6 +738,61 @@ function renderContinuationPanel(container: HTMLElement, conv: Conversation, tur
 
   grid.append(npcPane, pathPane);
   container.appendChild(grid);
+}
+
+function renderContinuationOpenerEditor(
+  conv: Conversation,
+  turn: Turn,
+  choice: Choice,
+  targetTurn: Turn | null,
+  turnLabels: TurnLabels,
+): HTMLElement | null {
+  if (!targetTurn || !choiceRequiresContinuationOpener(conv, turn, choice, targetTurn)) return null;
+
+  const field = document.createElement('div');
+  field.className = 'branch-inline-field-block branch-inline-next-opener';
+  const title = document.createElement('div');
+  title.className = 'branch-inline-subtitle';
+  title.textContent = 'Next Branch NPC Opener';
+  field.append(title, createHint('Required when continuation changes PDA/F2F mode or hands off to new NPC.'));
+  field.appendChild(createTextarea({
+    label: `${turnLabels.getLongLabel(targetTurn.turnNumber)} Opener Message`,
+    value: targetTurn.openingMessage ?? '',
+    placeholder: 'NPC opening line before next branch choices',
+    fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-message'),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingMessage: value }),
+  }));
+  field.appendChild(createTextInput({
+    label: 'Next Opener DDS Image',
+    value: targetTurn.openingImage ?? '',
+    placeholder: 'panda_file',
+    fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-image'),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingImage: value.trim() || undefined }),
+  }));
+  field.appendChild(createTextInput({
+    label: 'Next Opener Audio',
+    value: targetTurn.openingAudio ?? '',
+    placeholder: 'message_ping',
+    description: 'sound filename under gamedata/sounds/panda/audio',
+    fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-audio'),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingAudio: value.trim() || undefined }),
+  }));
+  const actions = document.createElement('div');
+  actions.className = 'branch-inline-action-row';
+  actions.appendChild(createActionButton('Open Next Branch', () => {
+    store.batch(() => {
+      store.selectTurn(targetTurn.turnNumber);
+      store.openBranchInlinePanel({
+        conversationId: conv.id,
+        turnNumber: targetTurn.turnNumber,
+        choiceIndex: null,
+        mode: 'dialogue',
+      });
+    });
+    requestFlowCenter({ conversationId: conv.id, turnNumber: targetTurn.turnNumber });
+  }));
+  field.appendChild(actions);
+  return field;
 }
 
 function getNpcContinuationKey(conv: Conversation, turn: Turn, choice: Choice): string {
@@ -1105,6 +1169,11 @@ function renderOutcomeDetails(container: HTMLElement, conv: Conversation, turn: 
     container.appendChild(createEmpty('No properties for this outcome.'));
   }
 
+  const resumeOpeners = renderOutcomeResumeOpenerEditors(conv, outcome);
+  if (resumeOpeners) {
+    container.appendChild(resumeOpeners);
+  }
+
   const chance = document.createElement('label');
   chance.className = 'branch-inline-field';
   const chanceText = document.createElement('span');
@@ -1137,6 +1206,79 @@ function renderOutcomeDetails(container: HTMLElement, conv: Conversation, turn: 
     }),
   );
   container.appendChild(actions);
+}
+
+function renderOutcomeResumeOpenerEditors(conv: Conversation, outcome: Outcome): HTMLElement | null {
+  const resumeTargets = parseOutcomeResumeTurnNumbers(outcome);
+  if (!resumeTargets) return null;
+
+  const fields: HTMLElement[] = [];
+  const addTarget = (label: 'Success' | 'Fail', turnNumber: number | null): void => {
+    if (turnNumber == null) return;
+    const targetTurn = conv.turns.find((candidate) => candidate.turnNumber === turnNumber);
+    if (!targetTurn) return;
+    fields.push(renderResumeOpenerField(conv, targetTurn, label));
+  };
+
+  addTarget('Success', resumeTargets.successTurn);
+  addTarget('Fail', resumeTargets.failTurn);
+  if (fields.length === 0) return null;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'branch-inline-field-block branch-inline-next-opener';
+  const title = document.createElement('div');
+  title.className = 'branch-inline-subtitle';
+  title.textContent = 'Task Result NPC Openers';
+  wrap.append(title, createHint('Success/fail branches start fresh conversations after task resolution.'));
+  wrap.append(...fields);
+  return wrap;
+}
+
+function renderResumeOpenerField(conv: Conversation, targetTurn: Turn, label: 'Success' | 'Fail'): HTMLElement {
+  const field = document.createElement('div');
+  field.className = 'branch-inline-field-block branch-inline-resume-opener';
+  const title = document.createElement('div');
+  title.className = 'branch-inline-subtitle';
+  title.textContent = `${label} Branch ${targetTurn.turnNumber}`;
+  field.appendChild(title);
+  field.appendChild(createTextarea({
+    label: `${label} NPC Opener Message`,
+    value: targetTurn.openingMessage ?? '',
+    placeholder: `${label.toLowerCase()} branch NPC opening line`,
+    fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-message'),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingMessage: value }),
+  }));
+  field.appendChild(createTextInput({
+    label: `${label} Opener DDS Image`,
+    value: targetTurn.openingImage ?? '',
+    placeholder: 'panda_file',
+    fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-image'),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingImage: value.trim() || undefined }),
+  }));
+  field.appendChild(createTextInput({
+    label: `${label} Opener Audio`,
+    value: targetTurn.openingAudio ?? '',
+    placeholder: 'message_ping',
+    description: 'sound filename under gamedata/sounds/panda/audio',
+    fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-audio'),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingAudio: value.trim() || undefined }),
+  }));
+  const actions = document.createElement('div');
+  actions.className = 'branch-inline-action-row';
+  actions.appendChild(createActionButton(`Open ${label} Branch`, () => {
+    store.batch(() => {
+      store.selectTurn(targetTurn.turnNumber);
+      store.openBranchInlinePanel({
+        conversationId: conv.id,
+        turnNumber: targetTurn.turnNumber,
+        choiceIndex: null,
+        mode: 'dialogue',
+      });
+    });
+    requestFlowCenter({ conversationId: conv.id, turnNumber: targetTurn.turnNumber });
+  }));
+  field.appendChild(actions);
+  return field;
 }
 
 function addPreconditionEntry(conv: Conversation, turn: Turn, choice: Choice | null, schema: CommandSchema): void {

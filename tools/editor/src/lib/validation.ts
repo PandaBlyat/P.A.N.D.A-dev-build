@@ -6,6 +6,11 @@ import { getOutcomeResumeTurnParamIndices, isTaskOutcomeCommand } from './outcom
 import { findSchema, NPC_ANIMATION_PRESET_OPTIONS, OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from './schema';
 import { createTurnDisplayLabeler } from './turn-labels';
 import { STORY_NPC_OPTIONS } from './generated/story-npc-catalog';
+import {
+  collectSegmentStartTurns as collectBranchSegmentStartTurns,
+  hasBranchSpeakerTargeting,
+  preconditionsHaveNpcTargeting,
+} from './branch-segments';
 import type { CommandSchema, ParamDef } from './schema';
 import type {
   AnyPrecondition,
@@ -1292,41 +1297,6 @@ function validateReachability(
   }
 }
 
-function collectSegmentStartTurns(conv: Conversation): Set<number> {
-  const segmentStarts = new Set<number>();
-  const turnByNumber = new Map(conv.turns.map((turn) => [turn.turnNumber, turn] as const));
-
-  const firstPdaEntryTurn = conv.turns
-    .filter((turn) => normalizeChannel(turn.channel, 'pda') === 'pda' && turn.pda_entry === true)
-    .sort((a, b) => a.turnNumber - b.turnNumber)[0];
-  if (firstPdaEntryTurn) {
-    segmentStarts.add(firstPdaEntryTurn.turnNumber);
-  } else if (turnByNumber.has(1)) {
-    segmentStarts.add(1);
-  }
-
-  const firstF2FEntryTurn = conv.turns
-    .filter((turn) => normalizeChannel(turn.channel, 'pda') === 'f2f' && turn.f2f_entry === true)
-    .sort((a, b) => a.turnNumber - b.turnNumber)[0];
-  if (firstF2FEntryTurn) {
-    segmentStarts.add(firstF2FEntryTurn.turnNumber);
-  }
-
-  for (const turn of conv.turns) {
-    for (const choice of turn.choices) {
-      if (choice.terminal === true || choice.continueTo == null) continue;
-      const choiceChannel = normalizeChannel(turn.channel, 'pda');
-      const continueChannel = normalizeChannel(choice.continueChannel ?? choice.continue_channel, 'pda');
-      if (!isCrossChannelHandoff(choiceChannel, continueChannel)) continue;
-      if (turnByNumber.has(choice.continueTo)) {
-        segmentStarts.add(choice.continueTo);
-      }
-    }
-  }
-
-  return segmentStarts;
-}
-
 function conversationHasExplicitF2FContext(conv: Conversation): boolean {
   const hasExplicitF2FTurn = conv.turns.some((turn) => turn.channel === 'f2f');
   if (hasExplicitF2FTurn) return true;
@@ -1346,7 +1316,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
   const f2fEntryTurnNumbers = new Set<number>(conv.turns
     .filter((turn) => normalizeChannel(turn.channel, 'pda') === 'f2f' && turn.f2f_entry === true)
     .map((turn) => turn.turnNumber));
-  const requiredSegmentOpeningTurns = collectSegmentStartTurns(conv);
+  const requiredSegmentOpeningTurns = collectBranchSegmentStartTurns(conv);
 
   for (const turn of conv.turns) {
     const turnChannel = normalizeChannel(turn.channel, 'pda');
@@ -1448,13 +1418,12 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
       const targetsContinuationNpc = terminal !== true && choice.continueTo != null && hasNpcTargetFilters;
       if (continueChannel === 'f2f') {
         const destinationTurn = choice.continueTo != null ? turnByNumber.get(choice.continueTo) : undefined;
-        const destinationHasSpeakerTargeting = destinationTurn != null && (
-          (destinationTurn.speaker_npc_id ?? '').trim() !== ''
-          || (destinationTurn.speaker_npc_faction_filters?.length ?? 0) > 0
-          || destinationTurn.speaker_allow_generic_stalker === true
-        );
+        const destinationHasSpeakerTargeting = hasBranchSpeakerTargeting(destinationTurn);
+        const hasNpcFallbackTargeting = destinationHasSpeakerTargeting
+          || preconditionsHaveNpcTargeting(destinationTurn?.preconditions)
+          || preconditionsHaveNpcTargeting(conv.preconditions);
         validateF2FTargeting(conv, turn, choice, messages, {
-          requireExplicitTargeting: isCrossChannelHandoff(choiceChannel, continueChannel) && !destinationHasSpeakerTargeting,
+          requireExplicitTargeting: isCrossChannelHandoff(choiceChannel, continueChannel) && !hasNpcFallbackTargeting,
         });
       } else if (!hasExplicitF2FContext || !isChannelVisible(choiceChannel, 'f2f')) {
         if (hasNpcTargetFilters && !targetsContinuationNpc) {

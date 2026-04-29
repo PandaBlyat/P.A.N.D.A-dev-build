@@ -419,7 +419,12 @@ function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSel
 
 function renderRightPanel(shell: AppShell, firstRun = false): void {
   const state = store.get();
-  if (!state.advancedMode || layoutState.responsiveMode === 'mobile') {
+  const hideRightPanel = firstRun || !state.advancedMode || layoutState.responsiveMode === 'mobile';
+  shell.rightSplitter.hidden = hideRightPanel;
+  if (!state.advancedMode && layoutState.activeDrawer === 'right') {
+    layoutState.activeDrawer = null;
+  }
+  if (hideRightPanel) {
     shell.rightPanel.hidden = true;
     shell.rightPanel.setAttribute('aria-hidden', 'true');
     shell.rightActions.replaceChildren();
@@ -430,7 +435,7 @@ function renderRightPanel(shell: AppShell, firstRun = false): void {
   const isOverlay = layoutState.responsiveMode !== 'desktop';
   const isDrawerOpen = isOverlay && layoutState.activeDrawer === 'right';
 
-  shell.rightPanel.hidden = firstRun;
+  shell.rightPanel.hidden = false;
   shell.rightPanel.className = `panel panel-right${layoutState.rightCollapsed && !isOverlay ? ' is-collapsed' : ''}${isDrawerOpen ? ' is-drawer-open' : ''}`;
   shell.rightPanel.dataset.drawerOpen = String(isDrawerOpen);
   shell.rightPanel.setAttribute('aria-hidden', String(isOverlay && !isDrawerOpen));

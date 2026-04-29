@@ -1,12 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <string_table>
 
+    <!-- ═══ NPC TEMPLATES ═══ -->
+    <!-- Edit these via the "Spawn Custom NPC" outcome in the editor. -->
+    <string id="st_panda_npc_template_rabbit_mule">
+        <text>name=Rabbit|faction=freedom|rank=experienced|primary=wpn_k98|outfit=svoboda_heavy_outfit|items=cocaine:50|relation=companion|roam=0</text>
+    </string>
+
 
     <!-- ═══════════════════════════════════════════════════════════ -->
     <!-- CONVERSATION 1: Go to location -->
     <!-- ═══════════════════════════════════════════════════════════ -->
     <string id="st_pda_ic_freedom_1_precond">
-        <text>req_story_npc:mil_smart_terrain_7_7_freedom_leader_stalker</text>
+        <text>req_story_npc:mil_smart_terrain_7_7_freedom_leader_stalker,req_rank:experienced,req_goodwill:1000:freedom,req_faction_kills:20:dolg,req_game_days_min:4</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_repeatable">
+        <text>0</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_branch_precond">
+        <text>req_goodwill:1000:freedom,req_rank:experienced,req_game_days_min:4,req_faction_kills:20:dolg,req_not_surge_soon:12000</text>
     </string>
     <string id="st_pda_ic_freedom_1_open">
         <text>We have an urgent problem, meet me asap at HQ.
@@ -22,8 +34,7 @@
 </text>
     </string>
     <string id="st_pda_ic_freedom_1_reply_1">
-        <text>*thumbs up emoji*
-
+        <text>:thumbsup:
 </text>
     </string>
     <string id="st_pda_ic_freedom_1_outcome_1">
@@ -97,7 +108,7 @@
 </text>
     </string>
     <string id="st_pda_ic_freedom_1_t2_reply_1">
-        <text>I will explain.</text>
+        <text>We have a deal with the mercs where occasionally we run drug mules to them, I am a man down and need you to escort our guy to merc checkpoint up the road.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t2_outcome_1">
         <text>none</text>
@@ -106,6 +117,36 @@
         <text>14</text>
     </string>
     <string id="st_pda_ic_freedom_1_t2_cont_channel_1">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t2_choice_2">
+        <text>As long as it isn't a suicide mission, I am in. </text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t2_reply_2">
+        <text>We don't do that here to our brothers</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t2_outcome_2">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t2_cont_2">
+        <text>16</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t2_cont_channel_2">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t2_choice_3">
+        <text>I'd rather not.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t2_reply_3">
+        <text>I'm sorry what?</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t2_outcome_3">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t2_cont_3">
+        <text>17</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t2_cont_channel_3">
         <text>f2f</text>
     </string>
     <string id="st_pda_ic_freedom_1_t3_open">
@@ -125,15 +166,6 @@
     </string>
     <string id="st_pda_ic_freedom_1_t3_cont_channel_1">
         <text>f2f</text>
-    </string>
-    <string id="st_pda_ic_freedom_1_t3_choice_2">
-        <text>Tell me more.</text>
-    </string>
-    <string id="st_pda_ic_freedom_1_t3_reply_2">
-        <text>I will explain.</text>
-    </string>
-    <string id="st_pda_ic_freedom_1_t3_outcome_2">
-        <text>none</text>
     </string>
     <string id="st_pda_ic_freedom_1_t5_open">
         <text>test
@@ -174,7 +206,7 @@
         <text>test</text>
     </string>
     <string id="st_pda_ic_freedom_1_t6_choice_1">
-        <text>you can't be serious - you know that doesn't work on me, Lukash.</text>
+        <text>You can't be serious - you know that doesn't work on me, Lukash.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t6_reply_1">
         <text>You've been on fucking thin ice and now this shit? Last chance, $player_name, before you become another forgotten name. Don't make me lose patience, kiddo.
@@ -224,13 +256,10 @@
         <text>test</text>
     </string>
     <string id="st_pda_ic_freedom_1_t7_choice_1">
-        <text>getting bit sick of your empty threats</text>
+        <text>Getting a bit sick of your empty threats.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t7_reply_1">
-        <text>You're done :smile:</text>
-    </string>
-    <string id="st_pda_ic_freedom_1_t7_reply_1_audio">
-        <text>voice_message1</text>
+        <text>I'm tired of you. Don't ever show your face anywhere near Warehouses. You were warned.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t7_outcome_1">
         <text>pause_job:6000:9:10,spawn_npc_squad:freedom_sim_squad_advanced:75:120:3:hostile</text>
@@ -240,6 +269,21 @@
     </string>
     <string id="st_pda_ic_freedom_1_t7_cont_channel_1">
         <text>pda</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t7_choice_2">
+        <text>Fine, I was just fucking around with you, sorry. I'm coming.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t7_reply_2">
+        <text>Who do you think you are? We'll talk about it later, don't think that I'll forget it. Now get your ass here already.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t7_outcome_2">
+        <text>punish_rep:50,punish_gw:100:freedom</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t7_cont_2">
+        <text>8</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t7_cont_channel_2">
+        <text>f2f</text>
     </string>
     <string id="st_pda_ic_freedom_1_t8_open">
         <text>Took you a while.</text>
@@ -252,12 +296,6 @@
     </string>
     <string id="st_pda_ic_freedom_1_t8_outcome_1">
         <text>none</text>
-    </string>
-    <string id="st_pda_ic_freedom_1_t8_cont_1">
-        <text>14</text>
-    </string>
-    <string id="st_pda_ic_freedom_1_t8_cont_channel_1">
-        <text>f2f</text>
     </string>
     <string id="st_pda_ic_freedom_1_t9_open">
         <text>Why did we just watch you kill some of your own!?</text>
@@ -278,13 +316,28 @@
         <text>pda</text>
     </string>
     <string id="st_pda_ic_freedom_1_t9_choice_2">
-        <text>Had enough of Lukash and his shit</text>
+        <text>Had enough of Lukash and his shit.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t9_reply_2">
-        <text>Yea we can tell, you know you won't make it alone we could use a guy like you..potentially. </text>
+        <text>Yea we can tell, you know you won't make it alone we could use a guy like you... potentially. </text>
     </string>
     <string id="st_pda_ic_freedom_1_t9_outcome_2">
         <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t9_cont_2">
+        <text>11</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t9_cont_channel_2">
+        <text>pda</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t9_choice_3">
+        <text>...</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t9_reply_3">
+        <text>Ignoring me, huh? Okay.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t9_outcome_3">
+        <text>punish_gw:1500:freedom,punish_rep:100</text>
     </string>
     <string id="st_pda_ic_freedom_1_t10_open">
         <text>test</text>
@@ -331,6 +384,15 @@
     <string id="st_pda_ic_freedom_1_t11_cont_channel_2">
         <text>pda</text>
     </string>
+    <string id="st_pda_ic_freedom_1_t11_choice_3">
+        <text>...</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t11_reply_3">
+        <text>Ignoring me, huh? Okay.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t11_outcome_3">
+        <text>punish_gw:1500:freedom,punish_gw:300:dolg,punish_rep:200</text>
+    </string>
     <string id="st_pda_ic_freedom_1_t12_open">
         <text>test</text>
     </string>
@@ -343,17 +405,222 @@
     <string id="st_pda_ic_freedom_1_t12_outcome_1">
         <text>none</text>
     </string>
+    <string id="st_pda_ic_freedom_1_t12_cont_1">
+        <text>15</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t12_cont_channel_1">
+        <text>pda</text>
+    </string>
     <string id="st_pda_ic_freedom_1_t14_choice_1">
-        <text>Tell me more.</text>
+        <text>No problem, on it. </text>
     </string>
     <string id="st_pda_ic_freedom_1_t14_reply_1">
-        <text>I will explain.</text>
+        <text>Good man</text>
     </string>
     <string id="st_pda_ic_freedom_1_t14_outcome_1">
+        <text>panda_task_escort:st_mil_smart_terrain_2_2_name:1000:22:23:custom_npc:rabbit_mule:30:title=Lukash+wants+me+to+take+this+mule+to+Mercenaries:descr=I+should+hurry+up,+sounds+serious.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t14_choice_2">
+        <text>Anything else i need to know?</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t14_reply_2">
+        <text>Need to know basis, mule will let me know once he's reached the destination. </text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t14_outcome_2">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t14_choice_3">
+        <text>What's the pay?</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t14_reply_3">
+        <text>Go now before you piss me off.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t14_outcome_3">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t15_open">
+        <text></text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t15_choice_1">
+        <text>Ok, I agree that I need a safe harbour. Maybe Duty isn't that bad when I think about it now, you know?</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t15_reply_1">
+        <text>Just don't do anything stupid. Duty will take care of you.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t15_outcome_1">
+        <text>spawn_npc_squad_at_smart:duty_sim_squad_veteran:st_mil_smart_terrain_7_4_name:20:2:friendly,punish_gw:3500:freedom,reward_gw:2000:dolg,change_faction_relations:dolg:freedom:-1000</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t15_cont_1">
+        <text>20</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t15_cont_channel_1">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t15_cont_npc_1">
+        <text>bar_dolg_general_petrenko_stalker</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t16_choice_1">
+        <text>What's the details?</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t16_reply_1">
+        <text>We have a deal with the mercs where ocasionally we run drug mules to them, I am a man down and need you to escort our guy to merc checkpoint up the road.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t16_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t16_cont_1">
+        <text>14</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t16_cont_channel_1">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t17_choice_1">
+        <text>I already have a bunch of other tasks I need to finish in time.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t17_reply_1">
+        <text>OI Fucktard, I am your superior giving you an order it isn't a request. I merely gave you the illusion of choice out of kindness to your stupidity.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t17_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t17_cont_1">
+        <text>18</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t17_cont_channel_1">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t17_choice_2">
+        <text>I don't know what i was thinking, what do you need me to do?</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t17_reply_2">
+        <text>That's fucking better. We have a deal with the mercs where occasionally we run drug mules to them, I am a man down and need you to escort our guy to merc checkpoint up the road.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t17_outcome_2">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t17_cont_2">
+        <text>14</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t17_cont_channel_2">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t18_choice_1">
+        <text>...I don't know what i was thinking</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t18_reply_1">
+        <text>I don't need you to think. I want you to escort my runner up to the merc checkpoint, that's it. He'll tell me once he arrives safe. Don't fuck this up.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t18_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t18_cont_1">
+        <text>19</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t18_cont_channel_1">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t18_choice_2">
+        <text>I don't take shit from anyone blyat.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t18_reply_2">
+        <text>...</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t18_outcome_2">
+        <text>punish_gw:3000:freedom</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t19_choice_1">
+        <text>I won't.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t19_reply_1">
+        <text>Fuck off.  Go now.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t19_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t19_choice_2">
+        <text>I apologize, I am on it.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t19_reply_2">
+        <text>Don't forget your place. </text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t19_outcome_2">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t20_open">
+        <text>Greetings, I've been told about your situation, but I want to hear it from you. Don't worry, you are safe here. For now at least.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t20_choice_1">
+        <text>Hello, I guess? Yeah, about that....do you want the long version or a short one?</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t20_reply_1">
+        <text>As you wish.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t20_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t20_cont_1">
+        <text>21</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t20_cont_channel_1">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t20_choice_2">
+        <text>Hey, yeah, I just realized that I'm not really interested in betraying my people. You can kill me right here, but I won't side with Duty. Never.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t20_reply_2">
+        <text>That's bold of you. So you just came here to waste my time? Duty isn't as groundless as Freedom - we gave you a word that you'll be safe here and we will keep our word. But you are not welcome here anymore, so just walk away. Don't use our h</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t20_outcome_2">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t21_choice_1">
+        <text>So, basically, I just refused one of the Lukash's pointless errands. I got tired of them long time ago, but made up my guts to speak up to him only now. Still don't know if I regret about it, so yeah... I said some things to Lukash and he sent someone after me, I even knew some of these guys, but obviously I had to shoot them and run somewhere Freedom can't find me. Some of your guys  saw it and contacted me and I agreed that I will at least try to talk to you in exchange for a safe place for now.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t21_reply_1">
+        <text>Mhm... Yes, Freedom infiltrators can't get here, but it goes without saying that you can't hide here forever, at least if you don't plan to be useful to Duty.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t21_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t21_choice_2">
+        <text>I said some things to Lukash and now he hates me and all the Freedom goes with it along too, I guess... I can't go back anymore, I know that for sure.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t21_reply_2">
+        <text>As I said, don't worry, Lukash can't get you here. Stick around here for some time, maybe help us a little and you could even get a chance to retaliate later. What do you say?</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t21_outcome_2">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t22_open">
+        <text>While you was out another one of our mules has gone AWOL i need you to find him.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t22_choice_1">
+        <text>Right, whereabouts am i headed?
+</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t22_reply_1">
+        <text></text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t22_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t23_open">
+        <text>You had one fucking job.</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t23_choice_1">
+        <text></text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t23_reply_1">
+        <text></text>
+    </string>
+    <string id="st_pda_ic_freedom_1_t23_outcome_1">
         <text>none</text>
     </string>
     <string id="st_pda_ic_freedom_1_timeout">
         <text>600</text>
+    </string>
+    <string id="st_pda_ic_freedom_1_timeout_msg">
+        <text>test</text>
     </string>
     <string id="st_pda_ic_freedom_1_panda_f2f_registry">
         <text>{
@@ -365,7 +632,10 @@
     ],
     &quot;f2f&quot;: [
       2,
-      8
+      8,
+      20,
+      22,
+      23
     ]
   },
   &quot;turns&quot;: [
@@ -452,6 +722,30 @@
           &quot;npcProfileFilters&quot;: [],
           &quot;allowGenericStalker&quot;: false,
           &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 16,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 3,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 17,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
         }
       ]
     },
@@ -472,18 +766,6 @@
           &quot;terminal&quot;: false,
           &quot;continueTo&quot;: 2,
           &quot;continueChannel&quot;: &quot;f2f&quot;,
-          &quot;storyNpcId&quot;: null,
-          &quot;npcFactionFilters&quot;: [],
-          &quot;npcProfileFilters&quot;: [],
-          &quot;allowGenericStalker&quot;: false,
-          &quot;contNpcId&quot;: null
-        },
-        {
-          &quot;index&quot;: 2,
-          &quot;channel&quot;: &quot;pda&quot;,
-          &quot;terminal&quot;: true,
-          &quot;continueTo&quot;: null,
-          &quot;continueChannel&quot;: null,
           &quot;storyNpcId&quot;: null,
           &quot;npcFactionFilters&quot;: [],
           &quot;npcProfileFilters&quot;: [],
@@ -602,6 +884,18 @@
           &quot;npcProfileFilters&quot;: [],
           &quot;allowGenericStalker&quot;: true,
           &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 8,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
         }
       ]
     },
@@ -619,9 +913,9 @@
         {
           &quot;index&quot;: 1,
           &quot;channel&quot;: &quot;f2f&quot;,
-          &quot;terminal&quot;: false,
-          &quot;continueTo&quot;: 14,
-          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
           &quot;storyNpcId&quot;: null,
           &quot;npcFactionFilters&quot;: [],
           &quot;npcProfileFilters&quot;: [],
@@ -655,6 +949,18 @@
         },
         {
           &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 11,
+          &quot;continueChannel&quot;: &quot;pda&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 3,
           &quot;channel&quot;: &quot;pda&quot;,
           &quot;terminal&quot;: true,
           &quot;continueTo&quot;: null,
@@ -726,6 +1032,18 @@
           &quot;npcProfileFilters&quot;: [],
           &quot;allowGenericStalker&quot;: false,
           &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 3,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
         }
       ]
     },
@@ -743,9 +1061,9 @@
         {
           &quot;index&quot;: 1,
           &quot;channel&quot;: &quot;pda&quot;,
-          &quot;terminal&quot;: true,
-          &quot;continueTo&quot;: null,
-          &quot;continueChannel&quot;: null,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 15,
+          &quot;continueChannel&quot;: &quot;pda&quot;,
           &quot;storyNpcId&quot;: null,
           &quot;npcFactionFilters&quot;: [],
           &quot;npcProfileFilters&quot;: [],
@@ -764,6 +1082,315 @@
       &quot;requiresNpcFirst&quot;: true,
       &quot;pdaEntry&quot;: false,
       &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 3,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 15,
+      &quot;channel&quot;: &quot;pda&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: null,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;pda&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 20,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: &quot;bar_dolg_general_petrenko_stalker&quot;
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 16,
+      &quot;channel&quot;: &quot;f2f&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: true,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 14,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 17,
+      &quot;channel&quot;: &quot;f2f&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: true,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 18,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 14,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 18,
+      &quot;channel&quot;: &quot;f2f&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: true,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 19,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 19,
+      &quot;channel&quot;: &quot;f2f&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: true,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 20,
+      &quot;channel&quot;: &quot;f2f&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: true,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: true,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 21,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 21,
+      &quot;channel&quot;: &quot;f2f&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: true,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 22,
+      &quot;channel&quot;: &quot;f2f&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: true,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: true,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 23,
+      &quot;channel&quot;: &quot;f2f&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: true,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: true,
       &quot;choices&quot;: [
         {
           &quot;index&quot;: 1,

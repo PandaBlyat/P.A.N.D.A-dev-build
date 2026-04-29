@@ -22,6 +22,7 @@ import { sendCollabCursorPing } from '../lib/collab-session';
 import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
 import { renderBranchInlinePanel } from './BranchInlinePanel';
 import { parseOutcomeResumeTurnNumbers } from '../lib/outcome-branching';
+import { collectSegmentStartTurns as collectBranchSegmentStartTurns } from '../lib/branch-segments';
 
 type TurnPositionMap = Map<number, { x: number; y: number }>;
 type EdgeKind = 'continue' | 'pause-success' | 'pause-fail';
@@ -553,7 +554,7 @@ export function renderFlowEditor(container: HTMLElement): void {
 
   content.appendChild(svg);
 
-  const segmentStartTurns = collectSegmentStartTurns(conv);
+  const segmentStartTurns = collectBranchSegmentStartTurns(conv);
   for (const turn of conv.turns) {
     const node = renderTurnNode({
       conv,
@@ -2936,7 +2937,7 @@ function renderStartAuthorMenu(container: HTMLElement, conv: Conversation, turn:
       : 'Branch channel controls whether this scene plays on PDA or face-to-face.'),
   ]));
 
-  const segmentStarts = collectSegmentStartTurns(conv);
+  const segmentStarts = collectBranchSegmentStartTurns(conv);
   const entrySummary = document.createElement('div');
   entrySummary.className = 'branch-author-summary';
   entrySummary.textContent = segmentStarts.has(turn.turnNumber)
@@ -3290,41 +3291,6 @@ function formatCommandSummary(label: string, params: string[]): string {
   const filled = params.filter((param) => param.trim().length > 0);
   if (filled.length === 0) return label;
   return `${label}: ${filled.join(' : ')}`;
-}
-
-function collectSegmentStartTurns(conv: Conversation): Set<number> {
-  const segmentStarts = new Set<number>();
-  const turnByNumber = new Map(conv.turns.map((candidate) => [candidate.turnNumber, candidate] as const));
-
-  const firstPdaEntryTurn = conv.turns
-    .filter((candidate) => normalizeChannel(candidate.channel, 'pda') === 'pda' && candidate.pda_entry === true)
-    .sort((a, b) => a.turnNumber - b.turnNumber)[0];
-  if (firstPdaEntryTurn) {
-    segmentStarts.add(firstPdaEntryTurn.turnNumber);
-  } else if (turnByNumber.has(1)) {
-    segmentStarts.add(1);
-  }
-
-  const firstF2FEntryTurn = conv.turns
-    .filter((candidate) => normalizeChannel(candidate.channel, 'pda') === 'f2f' && candidate.f2f_entry === true)
-    .sort((a, b) => a.turnNumber - b.turnNumber)[0];
-  if (firstF2FEntryTurn) {
-    segmentStarts.add(firstF2FEntryTurn.turnNumber);
-  }
-
-  for (const sourceTurn of conv.turns) {
-    for (const choice of sourceTurn.choices) {
-      if (choice.terminal === true || choice.continueTo == null) continue;
-      const sourceChannel = normalizeChannel(choice.channel, 'pda');
-      const destinationChannel = normalizeChannel(choice.continueChannel ?? choice.continue_channel, 'pda');
-      if (sourceChannel === destinationChannel) continue;
-      if (turnByNumber.has(choice.continueTo)) {
-        segmentStarts.add(choice.continueTo);
-      }
-    }
-  }
-
-  return segmentStarts;
 }
 
 function buildTurnAriaLabel(
