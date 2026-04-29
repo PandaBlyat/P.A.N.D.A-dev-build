@@ -119,7 +119,22 @@ export function getFlowVisibilityOverscan(viewport: FlowViewport): number {
   const viewportWidth = Math.max(0, viewport.right - viewport.left);
   const viewportHeight = Math.max(0, viewport.bottom - viewport.top);
   const viewportSpan = Math.max(viewportWidth, viewportHeight);
-  return Math.round(Math.max(900, Math.min(1800, viewportSpan * 0.55)));
+  // Generous overscan keeps nodes mounted while they remain visually relevant
+  // (Bezier edges can bulge well past straight-line bounds). Min raised so
+  // small viewports still keep neighboring branches alive during fast pans.
+  return Math.round(Math.max(1200, Math.min(2400, viewportSpan * 0.65)));
+}
+
+export function setFlowGraphNodeBounds(
+  model: FlowGraphModel,
+  turnNumber: number,
+  width: number,
+  height: number,
+): void {
+  const node = model.nodes.get(turnNumber);
+  if (!node) return;
+  if (width > 0) node.width = width;
+  if (height > 0) node.height = height;
 }
 
 function rectsIntersect(

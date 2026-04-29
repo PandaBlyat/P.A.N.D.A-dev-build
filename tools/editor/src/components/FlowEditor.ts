@@ -6,7 +6,7 @@ import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { createOnboardingNudge } from './Onboarding';
 import { FACTION_COLORS } from '../lib/faction-colors';
 import { estimateFlowNodeHeight, FLOW_DEFAULT_TURN_POSITION, FLOW_WORKSPACE_MIN_HEIGHT, FLOW_WORKSPACE_MIN_WIDTH, getFlowNodeLayout } from '../lib/flow-layout';
-import { buildFlowGraphModel, getFlowVisibilityOverscan, type FlowGraphModel, type FlowGraphNode, type FlowViewport } from '../lib/flow-graph-model';
+import { buildFlowGraphModel, getFlowVisibilityOverscan, setFlowGraphNodeBounds, type FlowGraphModel, type FlowGraphNode, type FlowViewport } from '../lib/flow-graph-model';
 import { createIcon } from './icons';
 import { createFlowCursorSystem, type FlowCursorSystem } from './FlowCursor';
 import { createCatalogPickerPanelEditor } from './CatalogPickerPanel';
@@ -156,7 +156,11 @@ function syncAnnotationToolUi(canvas: HTMLElement | null, tool: FlowAnnotationTo
   canvas?.classList.toggle('is-annotating', tool !== 'select');
   canvas?.classList.toggle('is-drawing-annotation', tool === 'draw');
   if (canvas) dispatchCursorState(canvas, 'drawing', tool === 'draw');
-  document.querySelectorAll<HTMLButtonElement>('.flow-annotation-tool').forEach((button) => {
+  // Scope to the canvas's parent shell (which contains `.flow-controls`)
+  // instead of the whole document — avoids a global tree scan whenever the
+  // user toggles a tool.
+  const scope: ParentNode = canvas?.parentElement ?? canvas ?? document;
+  scope.querySelectorAll<HTMLButtonElement>('.flow-annotation-tool').forEach((button) => {
     const active = button.dataset.annotationTool === tool;
     button.classList.toggle('is-active', active);
     button.setAttribute('aria-pressed', active ? 'true' : 'false');
@@ -181,6 +185,10 @@ type LiveFlowState = {
   viewState: ViewState;
   density: FlowDensity;
   graphModel: FlowGraphModel;
+  // Tracks last applied visibility per turn / edge so we can skip redundant
+  // style writes (writes invalidate style even when value is identical).
+  visibleTurnState: Map<number, boolean>;
+  visibleEdgeState: Map<string, boolean>;
 };
 let liveFlow: LiveFlowState | null = null;
 let flowCursorSystem: FlowCursorSystem | null = null;
@@ -303,7 +311,16 @@ export function syncFlowEditor(change: StateChange): boolean {
       node.style.left = `${turn.position.x}px`;
       node.style.top = `${turn.position.y}px`;
     }
+    // Rebuild graph model with new positions, but preserve previously measured
+    // bounds — node sizes don't change on a position-only update.
+    const previousBounds = new Map<number, { width: number; height: number }>();
+    for (const [tn, gn] of liveFlow.graphModel.nodes) {
+      previousBounds.set(tn, { width: gn.width, height: gn.height });
+    }
     liveFlow.graphModel = buildFlowGraphModel(conv, liveFlow.density, liveFlow.factionColor);
+    for (const [tn, b] of previousBounds) {
+      setFlowGraphNodeBounds(liveFlow.graphModel, tn, b.width, b.height);
+    }
     liveFlow.edges = buildEdgeDescriptors(conv, state.selectedTurnNumber, state.selectedChoiceIndex, liveFlow.factionColor);
     redrawLiveEdges(liveFlow);
     syncLiveViewportVisibility(liveFlow);
@@ -319,6 +336,8 @@ export function syncFlowEditor(change: StateChange): boolean {
       if (!node) continue;
       patchTurnNodeText(node, conv, turn, liveFlow.density, liveFlow.turnLabels);
     }
+    // Refresh cached bounds — text edits can change rendered width/height.
+    measureAllNodeBounds(liveFlow);
     redrawLiveEdges(liveFlow);
     syncLiveViewportVisibility(liveFlow);
     return true;
@@ -853,10 +872,13 @@ export function renderFlowEditor(container: HTMLElement): void {
       lastLowDetail = lowDetail;
     }
     viewStateByConversation.set(conversationId, { ...viewState });
+    // Visibility sync now uses cached bounds (no DOM reads, no layout thrash),
+    // so we run it every applyView. Throttling here was the cause of branches
+    // popping in/out late during fast pans/zooms.
     const now = performance.now();
     const interacting = shell.classList.contains('is-interacting');
-    const syncInterval = lowGraphicsMode || graphSize === 'huge' ? 160 : mobilePerformanceMode ? 120 : 80;
-    if (!interacting || now - lastViewportSyncAt >= syncInterval) {
+    const syncInterval = lowGraphicsMode || graphSize === 'huge' ? 32 : mobilePerformanceMode ? 24 : 0;
+    if (!interacting || syncInterval === 0 || now - lastViewportSyncAt >= syncInterval) {
       lastViewportSyncAt = now;
       syncViewportVisibility({
         canvas,
@@ -867,6 +889,8 @@ export function renderFlowEditor(container: HTMLElement): void {
         edgeElements,
         selectedTurnNumber: store.get().selectedTurnNumber,
         selectedChoiceIndex: store.get().selectedChoiceIndex,
+        visibleTurnState: liveFlow?.visibleTurnState,
+        visibleEdgeState: liveFlow?.visibleEdgeState,
       });
     }
   };
@@ -1133,9 +1157,16 @@ export function renderFlowEditor(container: HTMLElement): void {
     viewState,
     density,
     graphModel,
+    visibleTurnState: new Map(),
+    visibleEdgeState: new Map(),
   };
 
+  // Measure rendered node sizes once after layout, then update graphModel so
+  // viewport-culling has accurate bounds. Without this, cached widths come
+  // from `getFlowNodeLayout(density).width` (constant) and undercount turns
+  // with long labels — those nodes get culled while still on-screen.
   requestAnimationFrame(() => {
+    measureAllNodeBounds(liveFlow!);
     runDraw();
     if (!existingView && !viewAdjusted) {
       fitContent(false);
@@ -3964,6 +3995,8 @@ function syncLiveViewportVisibility(flow: LiveFlowState): void {
     edgeElements: flow.edgeElements,
     selectedTurnNumber: flow.selectedTurnNumber,
     selectedChoiceIndex: flow.selectedChoiceIndex,
+    visibleTurnState: flow.visibleTurnState,
+    visibleEdgeState: flow.visibleEdgeState,
   });
 }
 
@@ -3976,15 +4009,24 @@ function syncViewportVisibility(options: {
   edgeElements: Map<string, SVGGElement>;
   selectedTurnNumber: number | null;
   selectedChoiceIndex: number | null;
+  visibleTurnState?: Map<number, boolean>;
+  visibleEdgeState?: Map<string, boolean>;
 }): void {
-  const { canvas, viewState, graphModel, occlusionEnabled, nodeElements, edgeElements, selectedTurnNumber, selectedChoiceIndex } = options;
+  const {
+    canvas, viewState, graphModel, occlusionEnabled, nodeElements, edgeElements,
+    selectedTurnNumber, selectedChoiceIndex, visibleTurnState, visibleEdgeState,
+  } = options;
   if (!occlusionEnabled) {
-    for (const node of nodeElements.values()) {
+    for (const [turnNumber, node] of nodeElements) {
+      if (visibleTurnState && visibleTurnState.get(turnNumber) === true) continue;
       node.style.visibility = '';
       node.style.pointerEvents = '';
+      visibleTurnState?.set(turnNumber, true);
     }
-    for (const edge of edgeElements.values()) {
+    for (const [key, edge] of edgeElements) {
+      if (visibleEdgeState && visibleEdgeState.get(key) === true) continue;
       edge.style.display = '';
+      visibleEdgeState?.set(key, true);
     }
     return;
   }
@@ -4006,9 +4048,14 @@ function syncViewportVisibility(options: {
   const overscan = getFlowVisibilityOverscan(viewport);
   const paddedViewport = padFlowViewport(viewport, overscan);
   const visibleTurnNumbers = new Set<number>();
-  for (const [turnNumber, node] of nodeElements) {
+  // Use cached graphModel bounds — measured from the DOM once at render time
+  // and refreshed on text-content changes. No per-frame DOM reads.
+  for (const turnNumber of nodeElements.keys()) {
     const graphNode = graphModel.nodes.get(turnNumber);
-    if (keepMounted.has(turnNumber) || flowRectsIntersect(getDomBackedNodeRect(node, graphNode), paddedViewport)) {
+    if (
+      keepMounted.has(turnNumber)
+      || (graphNode && flowRectsIntersect(graphNode, paddedViewport))
+    ) {
       visibleTurnNumbers.add(turnNumber);
     }
   }
@@ -4020,11 +4067,27 @@ function syncViewportVisibility(options: {
   }
   for (const [turnNumber, node] of nodeElements) {
     const isVisible = visibleTurnNumbers.has(turnNumber);
+    if (visibleTurnState && visibleTurnState.get(turnNumber) === isVisible) continue;
     node.style.visibility = isVisible ? '' : 'hidden';
     node.style.pointerEvents = isVisible ? '' : 'none';
+    visibleTurnState?.set(turnNumber, isVisible);
   }
   for (const [key, edge] of edgeElements) {
-    edge.style.display = visibleEdgeKeys.has(key) ? '' : 'none';
+    const isVisible = visibleEdgeKeys.has(key);
+    if (visibleEdgeState && visibleEdgeState.get(key) === isVisible) continue;
+    edge.style.display = isVisible ? '' : 'none';
+    visibleEdgeState?.set(key, isVisible);
+  }
+}
+
+// Measures actual rendered DOM size for each node and writes back to the
+// cached graphModel. One synchronous layout per call. Call after the initial
+// render and after any change that may resize nodes (text content, density).
+function measureAllNodeBounds(flow: LiveFlowState): void {
+  for (const [turnNumber, node] of flow.nodeElements) {
+    const w = node.offsetWidth;
+    const h = node.offsetHeight;
+    if (w > 0 || h > 0) setFlowGraphNodeBounds(flow.graphModel, turnNumber, w, h);
   }
 }
 
@@ -4034,25 +4097,6 @@ function padFlowViewport(viewport: FlowViewport, overscan: number): FlowViewport
     top: viewport.top - overscan,
     right: viewport.right + overscan,
     bottom: viewport.bottom + overscan,
-  };
-}
-
-function getDomBackedNodeRect(node: HTMLElement, graphNode?: FlowGraphNode): FlowGraphNode {
-  const left = Number.parseFloat(node.style.left) || graphNode?.x || 0;
-  const top = Number.parseFloat(node.style.top) || graphNode?.y || 0;
-  if (graphNode) {
-    return {
-      ...graphNode,
-      x: left,
-      y: top,
-    };
-  }
-  return {
-    turnNumber: Number.parseInt(node.dataset.turnNumber ?? '0', 10),
-    x: left,
-    y: top,
-    width: node.offsetWidth,
-    height: node.offsetHeight,
   };
 }
 
@@ -4643,7 +4687,57 @@ function wireCanvasInteractions(options: {
     canvas.addEventListener('pointercancel', onUp);
   };
 
-  let wheelFrame = 0;
+  // Cache canvas rect; refresh only on resize/scroll. `getBoundingClientRect`
+  // forces a full layout flush, and the wheel handler called it once per
+  // wheel event — a major source of stutter when zooming fast.
+  let cachedCanvasRect: DOMRect = canvas.getBoundingClientRect();
+  const refreshCanvasRect = (): void => { cachedCanvasRect = canvas.getBoundingClientRect(); };
+  window.addEventListener('resize', refreshCanvasRect, { passive: true });
+  window.addEventListener('scroll', refreshCanvasRect, { passive: true, capture: true });
+
+  // Smooth zoom: target zoom + an rAF interpolator that pulls the active
+  // zoom toward the target while continuously re-pivoting on the cursor's
+  // world point. This makes zoom-in / zoom-out feel buttery instead of
+  // stepping in 10% jumps per wheel tick.
+  let zoomAnimFrame = 0;
+  let zoomTarget = viewState.zoom;
+  let zoomCursorX = 0;
+  let zoomCursorY = 0;
+  let zoomReleaseTimer: number | null = null;
+
+  const stopZoomAnim = (): void => {
+    if (zoomAnimFrame !== 0) {
+      cancelAnimationFrame(zoomAnimFrame);
+      zoomAnimFrame = 0;
+    }
+  };
+
+  const stepZoom = (): void => {
+    zoomAnimFrame = 0;
+    const current = viewState.zoom;
+    const delta = zoomTarget - current;
+    // 0.28 closes ~half the remaining gap each frame at 60fps; ≤0.001 zoom
+    // unit ends the animation and snaps to the target.
+    if (Math.abs(delta) < 0.001) {
+      // Snap and pivot precisely on cursor world point.
+      const worldX = (zoomCursorX - viewState.panX) / current;
+      const worldY = (zoomCursorY - viewState.panY) / current;
+      viewState.zoom = zoomTarget;
+      viewState.panX = zoomCursorX - worldX * zoomTarget;
+      viewState.panY = zoomCursorY - worldY * zoomTarget;
+      applyView();
+      return;
+    }
+    const next = clamp(current + delta * 0.28, MIN_ZOOM, MAX_ZOOM);
+    const worldX = (zoomCursorX - viewState.panX) / current;
+    const worldY = (zoomCursorY - viewState.panY) / current;
+    viewState.zoom = next;
+    viewState.panX = zoomCursorX - worldX * next;
+    viewState.panY = zoomCursorY - worldY * next;
+    applyView();
+    zoomAnimFrame = requestAnimationFrame(stepZoom);
+  };
+
   canvas.onwheel = (event) => {
     const target = event.target as HTMLElement | null;
     if (target?.closest('.branch-inline-panel, .command-picker-panel, .catalog-picker-panel, .item-picker-panel')) {
@@ -4651,19 +4745,32 @@ function wireCanvasInteractions(options: {
     }
     event.preventDefault();
     onInteractionStateChange(true);
-    const factor = event.deltaY > 0 ? 1 / 1.1 : 1.1;
-    const rect = canvas.getBoundingClientRect();
-    const ox = event.clientX - rect.left;
-    const oy = event.clientY - rect.top;
-    zoomAtViewportPoint(canvas, viewState, factor, ox, oy, () => {
-      if (wheelFrame === 0) {
-        wheelFrame = requestAnimationFrame(() => {
-          wheelFrame = 0;
-          applyView();
-        });
-      }
-    });
-    onInteractionStateChange(false, 120);
+
+    // Use ctrlKey to detect trackpad pinch-zoom (browsers report it as a
+    // wheel event with ctrlKey=true). For pinch we use the raw delta as a
+    // multiplicative step; for scroll-wheel we use a fixed 1.1 step so each
+    // notch produces a consistent change regardless of OS scroll speed.
+    const isPinch = event.ctrlKey;
+    const step = isPinch
+      ? Math.exp(-event.deltaY * 0.01)
+      : (event.deltaY > 0 ? 1 / 1.1 : 1.1);
+
+    // Update cursor pivot from cached rect (no DOM read here).
+    zoomCursorX = event.clientX - cachedCanvasRect.left;
+    zoomCursorY = event.clientY - cachedCanvasRect.top;
+
+    // Compose onto current target so rapid wheel ticks accumulate smoothly
+    // instead of overwriting each other.
+    zoomTarget = clamp(zoomTarget * step, MIN_ZOOM, MAX_ZOOM);
+    if (zoomAnimFrame === 0) {
+      zoomAnimFrame = requestAnimationFrame(stepZoom);
+    }
+
+    if (zoomReleaseTimer !== null) window.clearTimeout(zoomReleaseTimer);
+    zoomReleaseTimer = window.setTimeout(() => {
+      zoomReleaseTimer = null;
+      onInteractionStateChange(false, 0);
+    }, 140);
   };
 }
 
