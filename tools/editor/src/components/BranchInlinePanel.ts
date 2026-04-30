@@ -134,6 +134,9 @@ function renderHeader(
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     flushBranchInlineEdits(panel ?? header.closest('.branch-inline-panel') ?? header);
     if (onClose) {
       onClose();
