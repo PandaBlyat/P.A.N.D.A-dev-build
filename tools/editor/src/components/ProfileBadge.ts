@@ -39,6 +39,8 @@ import { createIcon, type IconName } from './icons';
 import { renderPublicProfileView } from './PublicProfileView';
 import { renderAvatar } from './AvatarRenderer';
 import { openAvatarCustomizationModal } from './AvatarCustomizationModal';
+import { store } from '../lib/state';
+import { createUiText } from '../lib/ui-language';
 
 const PROFILE_MODAL_MOUNT_ID = 'app-modal-host';
 
@@ -51,6 +53,10 @@ let publicProfileFocusTrap: FocusTrapController | null = null;
 let activePublicProfilePublisherId: string | null = null;
 let activeLeaderboardRow: HTMLButtonElement | null = null;
 let selfProfileDataCache: PublicProfileData | null = null;
+
+function ui(en: string, ru: string): string {
+  return createUiText(store.get().uiLanguage)(en, ru);
+}
 
 function refreshDetachedProfileBadges(skip?: HTMLElement | null): void {
   document.querySelectorAll('.profile-badge').forEach((badge) => {
@@ -260,7 +266,7 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   }, {
     extraClass: 'profile-popover-avatar-circle',
     size: 'lg',
-    title: isSelfProfile ? 'Click to customize your avatar' : 'Operative status',
+    title: isSelfProfile ? ui('Click to customize your avatar', 'Нажмите, чтобы настроить аватар') : ui('Operative status', 'Статус оперативника'),
     onClick: isSelfProfile ? (event) => {
       event.stopPropagation();
       openAvatarCustomizationModal({
@@ -327,9 +333,9 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   const headerHighlights = document.createElement('div');
   headerHighlights.className = 'profile-popover-header-highlights';
   const highlightPills: HTMLElement[] = [
-    createMetaChip('Badges', `${unlocked.length}/${ACHIEVEMENTS.length}`),
-    createMetaChip('Rare', String(rareUnlockedCount), rareUnlockedCount > 0 ? 'accent' : 'muted'),
-    createMetaChip('Title', `Lv.${profile.level}`, 'accent'),
+    createMetaChip(ui('Badges', 'Значки'), `${unlocked.length}/${ACHIEVEMENTS.length}`),
+    createMetaChip(ui('Rare', 'Редкие'), String(rareUnlockedCount), rareUnlockedCount > 0 ? 'accent' : 'muted'),
+    createMetaChip(ui('Title', 'Звание'), `Lv.${profile.level}`, 'accent'),
   ];
 
   let activePillIndex = -1;
@@ -338,10 +344,10 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
     pill.setAttribute('role', 'button');
     pill.tabIndex = 0;
     pill.title = idx === 0
-      ? 'Shows unlocked badge progress'
+      ? ui('Shows unlocked badge progress', 'Показывает прогресс значков')
       : idx === 1
-        ? 'Shows rare badge unlock progress'
-        : 'Shows current title tier';
+        ? ui('Shows rare badge unlock progress', 'Показывает прогресс редких значков')
+        : ui('Shows current title tier', 'Показывает текущий уровень звания');
     const toggle = () => {
       const shouldActivate = activePillIndex !== idx;
       highlightPills.forEach((node, nodeIndex) => {
@@ -362,10 +368,10 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
   const metaRow = document.createElement('div');
   metaRow.className = 'profile-popover-meta-row';
   metaRow.append(
-    createHeroMetaStat('star', 'XP total', profile.xp.toLocaleString(), 'accent'),
-    createHeroMetaStat('flame', 'Publish streak', `${streak.publish} weeks`),
-    createHeroMetaStat('user', 'Daily login', `${streak.login} days`),
-    createHeroMetaStat('clock', 'Joined', formatMemberSince(profile.created_at)),
+    createHeroMetaStat('star', ui('XP total', 'Всего XP'), profile.xp.toLocaleString(), 'accent'),
+    createHeroMetaStat('flame', ui('Publish streak', 'Серия публикаций'), ui(`${streak.publish} weeks`, `${streak.publish} нед.`)),
+    createHeroMetaStat('user', ui('Daily login', 'Ежедневный вход'), ui(`${streak.login} days`, `${streak.login} дн.`)),
+    createHeroMetaStat('clock', ui('Joined', 'Регистрация'), formatMemberSince(profile.created_at)),
   );
 
   const infoTop = document.createElement('div');
@@ -407,11 +413,11 @@ function buildProgressSection(profile: UserProfile): HTMLElement {
 
   const progressKicker = document.createElement('span');
   progressKicker.className = 'profile-popover-progress-kicker';
-  progressKicker.textContent = nextThreshold ? 'Progress to next title' : 'Progress complete';
+  progressKicker.textContent = nextThreshold ? ui('Progress to next title', 'Прогресс до следующего звания') : ui('Progress complete', 'Прогресс завершен');
 
   const levelLabel = document.createElement('span');
   levelLabel.className = 'profile-popover-level-label';
-  levelLabel.textContent = nextThreshold ? `${progressPercent}% to Level ${nextThreshold.level}` : 'Max level reached';
+  levelLabel.textContent = nextThreshold ? ui(`${progressPercent}% to Level ${nextThreshold.level}`, `${progressPercent}% до уровня ${nextThreshold.level}`) : ui('Max level reached', 'Максимальный уровень');
 
   const xpNumbers = document.createElement('span');
   xpNumbers.className = 'profile-popover-bar-label';
@@ -425,8 +431,8 @@ function buildProgressSection(profile: UserProfile): HTMLElement {
   const barTrack = document.createElement('div');
   barTrack.className = 'profile-popover-bar-track';
   barTrack.title = nextThreshold
-    ? `${xpToGo.toLocaleString()} XP needed for Level ${nextThreshold.level}`
-    : 'Max level reached';
+    ? ui(`${xpToGo.toLocaleString()} XP needed for Level ${nextThreshold.level}`, `${xpToGo.toLocaleString()} XP до уровня ${nextThreshold.level}`)
+    : ui('Max level reached', 'Максимальный уровень');
   const barFill = document.createElement('div');
   barFill.className = 'profile-popover-bar-fill';
   barFill.style.width = `${progressPercent}%`;
@@ -452,12 +458,12 @@ function buildProgressSection(profile: UserProfile): HTMLElement {
   const nextLabel = document.createElement('div');
   nextLabel.className = 'profile-popover-next';
   nextLabel.textContent = nextThreshold
-    ? `Next title: ${nextThreshold.title}`
-    : 'All level rewards unlocked';
+    ? ui(`Next title: ${nextThreshold.title}`, `Следующее звание: ${nextThreshold.title}`)
+    : ui('All level rewards unlocked', 'Все награды уровней открыты');
 
   const progressTarget = document.createElement('div');
   progressTarget.className = 'profile-popover-progress-target';
-  progressTarget.textContent = nextThreshold ? `${xpToGo.toLocaleString()} XP to go` : 'Legend status achieved';
+  progressTarget.textContent = nextThreshold ? ui(`${xpToGo.toLocaleString()} XP to go`, `Осталось ${xpToGo.toLocaleString()} XP`) : ui('Legend status achieved', 'Статус легенды получен');
 
   progressFooter.append(nextLabel, progressTarget);
   progressSection.append(progressTop, barTrack, barMarkers, progressFooter);
@@ -503,7 +509,7 @@ function buildStatsSection(profile: UserProfile): HTMLElement {
   header.className = 'profile-popover-section-header';
   const statsIcon = createIcon('database');
   const title = document.createElement('span');
-  title.textContent = 'Progress highlights';
+  title.textContent = ui('Progress highlights', 'Главное по прогрессу');
   header.append(statsIcon, title);
 
   const statsGrid = document.createElement('div');
@@ -511,9 +517,9 @@ function buildStatsSection(profile: UserProfile): HTMLElement {
 
   const publishStat = buildStatCard('export', '...', 'Published conversations');
   publishStat.classList.add('profile-stat-card-featured');
-  const badgesStat = buildStatCard('medal', `${unlocked.length}/${ACHIEVEMENTS.length}`, 'Badges unlocked');
-  const rareStat = buildStatCard('sparkle', String(rareUnlockedCount), 'Rare unlocks');
-  const longestStat = buildStatCard('flame', `${longestStreak}w`, 'Best publish streak');
+  const badgesStat = buildStatCard('medal', `${unlocked.length}/${ACHIEVEMENTS.length}`, ui('Badges unlocked', 'Значков открыто'));
+  const rareStat = buildStatCard('sparkle', String(rareUnlockedCount), ui('Rare unlocks', 'Редких открыто'));
+  const longestStat = buildStatCard('flame', `${longestStreak}w`, ui('Best publish streak', 'Лучшая серия публикаций'));
 
   statsGrid.append(publishStat, badgesStat, rareStat, longestStat);
   statsSection.append(headerBlock);
@@ -545,10 +551,10 @@ function buildXpBreakdownSection(): HTMLElement {
   xpBreakdownHeaderCopy.className = 'profile-popover-section-header';
   const starIcon = createIcon('star');
   const xpBreakdownTitle = document.createElement('span');
-  xpBreakdownTitle.textContent = 'How to Earn XP';
+  xpBreakdownTitle.textContent = ui('How to Earn XP', 'Как получать XP');
   const xpBreakdownMeta = document.createElement('span');
   xpBreakdownMeta.className = 'profile-popover-summary-meta';
-  xpBreakdownMeta.textContent = '3 quick sources';
+  xpBreakdownMeta.textContent = ui('3 quick sources', '3 быстрых источника');
   xpBreakdownHeaderCopy.append(starIcon, xpBreakdownTitle, xpBreakdownMeta);
 
   const xpRows = document.createElement('div');
@@ -1640,8 +1646,8 @@ function buildStreakChallengeSection(profile: UserProfile = cachedProfile!, opti
   const missionTitle = document.createElement('div');
   missionTitle.className = 'profile-challenge-header';
   missionTitle.textContent = options.compact
-    ? (isSelfProfile ? 'Priority objective' : 'Visible objective')
-    : (isSelfProfile ? 'Priority objectives' : 'Visible objectives');
+    ? (isSelfProfile ? ui('Priority objective', 'Приоритетная цель') : ui('Visible objective', 'Видимая цель'))
+    : (isSelfProfile ? ui('Priority objectives', 'Приоритетные цели') : ui('Visible objectives', 'Видимые цели'));
   const resetInfo = getMissionResetInfo();
   const cadence = document.createElement('span');
   cadence.className = 'profile-mission-reset';
@@ -1673,23 +1679,23 @@ function buildLeaderboardSection(profile: UserProfile): HTMLElement {
   lbHeader.className = 'profile-popover-lb-header';
   const trophyIcon = createIcon('trophy');
   const lbTitle = document.createElement('span');
-  lbTitle.textContent = 'Leaderboard snapshot';
+  lbTitle.textContent = ui('Leaderboard snapshot', 'Снимок рейтинга');
   const lbMeta = document.createElement('span');
   lbMeta.className = 'profile-popover-summary-meta';
-  lbMeta.textContent = 'Loading your rank…';
+  lbMeta.textContent = ui('Loading your rank...', 'Загрузка вашего ранга...');
   lbHeader.append(trophyIcon, lbTitle, lbMeta);
 
   const lbList = document.createElement('div');
   lbList.className = 'profile-popover-lb-list';
-  lbList.textContent = 'Loading…';
+  lbList.textContent = ui('Loading...', 'Загрузка...');
 
   leaderboardSection.append(lbHeader, lbList);
 
   const renderSnapshot = (entries: LeaderboardEntry[]) => {
     const rank = entries.findIndex(entry => entry.publisher_id === profile.publisher_id);
     lbMeta.textContent = rank >= 0
-      ? (rank < 10 ? `You are #${rank + 1}` : `You are #${rank + 1} · top 10 shown`)
-      : 'Top 10 snapshot';
+      ? (rank < 10 ? ui(`You are #${rank + 1}`, `Вы #${rank + 1}`) : ui(`You are #${rank + 1} · top 10 shown`, `Вы #${rank + 1} · показан топ 10`))
+      : ui('Top 10 snapshot', 'Топ 10');
     renderLeaderboardList(lbList, entries.slice(0, 10));
   };
 
@@ -1748,9 +1754,9 @@ function buildActivityTab(profile: UserProfile): HTMLElement {
 }
 
 const SELF_PROFILE_TABS: SelfProfileTab[] = [
-  { id: 'overview', label: 'Overview', build: buildOverviewTab, allowScroll: false },
-  { id: 'badges', label: 'Badges', build: buildBadgesTab, allowScroll: true },
-  { id: 'activity', label: 'Activity', build: buildActivityTab, allowScroll: true },
+  { id: 'overview', label: ui('Overview', 'Обзор'), build: buildOverviewTab, allowScroll: false },
+  { id: 'badges', label: ui('Badges', 'Значки'), build: buildBadgesTab, allowScroll: true },
+  { id: 'activity', label: ui('Activity', 'Активность'), build: buildActivityTab, allowScroll: true },
 ];
 
 let lastActiveSelfTab: SelfProfileTabId = 'overview';
@@ -1779,7 +1785,7 @@ function buildSelfProfileContent(profile: UserProfile, leaderboardRank?: number 
 
   const loading = document.createElement('div');
   loading.className = 'public-profile-empty profile-self-loading';
-  loading.textContent = 'Loading dossier...';
+  loading.textContent = ui('Loading dossier...', 'Загрузка досье...');
   shell.appendChild(loading);
 
   void resolveSelfProfileData(profile).then((data) => {
@@ -1806,7 +1812,7 @@ function buildSelfProfileContent(profile: UserProfile, leaderboardRank?: number 
     shell.textContent = '';
     const error = document.createElement('div');
     error.className = 'public-profile-empty';
-    error.textContent = 'Profile dossier unavailable.';
+    error.textContent = ui('Profile dossier unavailable.', 'Досье профиля недоступно.');
     shell.appendChild(error);
   });
 
@@ -1859,7 +1865,7 @@ function openPopover(anchor: HTMLElement): void {
 function renderLeaderboardList(container: HTMLElement, entries: LeaderboardEntry[]): void {
   container.textContent = '';
   if (entries.length === 0) {
-    container.textContent = 'No stalkers ranked yet.';
+    container.textContent = ui('No stalkers ranked yet.', 'В рейтинге пока никого нет.');
     return;
   }
 
@@ -1947,16 +1953,16 @@ async function openPublicProfileOverlay(publisherId: string, trigger: HTMLButton
   const title = document.createElement('h2');
   title.className = 'public-profile-modal-title';
   title.id = 'public-profile-title';
-  title.textContent = 'Stalker profile';
+  title.textContent = ui('Stalker profile', 'Профиль сталкера');
   const subtitle = document.createElement('p');
   subtitle.className = 'public-profile-modal-subtitle';
-  subtitle.textContent = 'Loading public profile…';
+  subtitle.textContent = ui('Loading public profile…', 'Загрузка публичного профиля…');
   titleWrap.append(title, subtitle);
 
   const closeButton = document.createElement('button');
   closeButton.type = 'button';
   closeButton.className = 'public-profile-modal-close';
-  closeButton.setAttribute('aria-label', 'Close public profile');
+  closeButton.setAttribute('aria-label', ui('Close public profile', 'Закрыть публичный профиль'));
   closeButton.appendChild(createIcon('close'));
   closeButton.onclick = () => closePublicProfileOverlay();
 
@@ -1964,7 +1970,7 @@ async function openPublicProfileOverlay(publisherId: string, trigger: HTMLButton
 
   const body = document.createElement('div');
   body.className = 'public-profile-modal-body';
-  body.textContent = 'Fetching the latest signal from the Zone…';
+  body.textContent = ui('Fetching the latest signal from the Zone…', 'Получаем последний сигнал из Зоны…');
 
   modal.append(header, body);
   overlay.appendChild(modal);
@@ -1985,10 +1991,13 @@ async function openPublicProfileOverlay(publisherId: string, trigger: HTMLButton
 
     body.textContent = '';
     if (!publicProfile) {
-      subtitle.textContent = 'Profile unavailable';
+      subtitle.textContent = ui('Profile unavailable', 'Профиль недоступен');
       const emptyState = document.createElement('div');
       emptyState.className = 'public-profile-empty';
-      emptyState.textContent = 'Unable to retrieve this stalker\'s public profile right now.';
+      emptyState.textContent = ui(
+        "Unable to retrieve this stalker's public profile right now.",
+        'Сейчас не удаётся получить публичный профиль этого сталкера.',
+      );
       body.appendChild(emptyState);
       return;
     }
@@ -1996,7 +2005,7 @@ async function openPublicProfileOverlay(publisherId: string, trigger: HTMLButton
     const { profile } = publicProfile;
 
     if (cachedProfile && profile.publisher_id === cachedProfile.publisher_id) {
-      subtitle.textContent = 'This is you';
+      subtitle.textContent = ui('This is you', 'Это ты');
       body.appendChild(buildSelfProfileContent(profile, leaderboardRank));
       return;
     }
@@ -2007,8 +2016,8 @@ async function openPublicProfileOverlay(publisherId: string, trigger: HTMLButton
     if (activePublicProfilePublisherId !== publisherId || publicProfileOverlay !== overlay) {
       return;
     }
-    subtitle.textContent = 'Profile unavailable';
-    body.textContent = 'The Zone went quiet before this profile could be fetched.';
+    subtitle.textContent = ui('Profile unavailable', 'Профиль недоступен');
+    body.textContent = ui('The Zone went quiet before this profile could be fetched.', 'Зона замолчала прежде, чем профиль удалось получить.');
   }
 }
 

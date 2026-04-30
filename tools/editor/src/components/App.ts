@@ -1,6 +1,7 @@
 // P.A.N.D.A. Conversation Editor — Root App Component
 
 import { store, type BottomWorkspaceTab, type AppState, type ConversationSourceMetadata, type FlowDensity, type FlowGraphicsQuality, type RenderTarget, type StateChange } from '../lib/state';
+import { createUiText } from '../lib/ui-language';
 import { renderToolbar as renderToolbarContent } from './Toolbar';
 import {
   centerConversationSelection,
@@ -67,6 +68,7 @@ type AppShell = {
   layoutScrim: HTMLButtonElement;
   utilityRail: HTMLDivElement;
   leftPanel: HTMLDivElement;
+  leftTitle: HTMLSpanElement;
   leftActions: HTMLDivElement;
   leftBody: HTMLDivElement;
   leftSplitter: HTMLDivElement;
@@ -76,6 +78,7 @@ type AppShell = {
   centerActions: HTMLDivElement;
   centerBody: HTMLDivElement;
   rightPanel: HTMLDivElement;
+  rightTitle: HTMLSpanElement;
   rightActions: HTMLDivElement;
   rightBody: HTMLDivElement;
   rightSplitter: HTMLDivElement;
@@ -180,8 +183,10 @@ function getRenderContext(container: HTMLElement): AppRenderContext {
   const state = store.get();
   const conv = store.getSelectedConversation();
   const firstRun = state.project.conversations.length === 0 && shouldShowFirstRunExperience();
+  const ui = createUiText(state.uiLanguage);
 
   applyFactionTheme(container, getConversationFaction(conv, state.project.faction));
+  document.documentElement.lang = state.uiLanguage;
   container.classList.toggle('graphics-low', state.flowGraphicsQuality === 'low');
   container.classList.toggle('graphics-medium', state.flowGraphicsQuality === 'medium');
   container.classList.toggle('graphics-high', state.flowGraphicsQuality === 'high');
@@ -192,6 +197,7 @@ function getRenderContext(container: HTMLElement): AppRenderContext {
     layoutState.toolbarHidden = false;
   }
   layoutState.wasFirstRun = firstRun;
+  syncLocalizedShell(shell, ui, conv);
 
   syncResponsiveLayout(shell.mainLayout);
   shell.mainLayout.classList.toggle('main-layout-onboarding', firstRun);
@@ -322,6 +328,7 @@ function getAppShell(container: HTMLElement): AppShell {
     layoutScrim,
     utilityRail,
     leftPanel,
+    leftTitle,
     leftActions,
     leftBody,
     leftSplitter,
@@ -331,6 +338,7 @@ function getAppShell(container: HTMLElement): AppShell {
     centerActions,
     centerBody,
     rightPanel,
+    rightTitle,
     rightActions,
     rightBody,
     rightSplitter,
@@ -343,6 +351,16 @@ function getAppShell(container: HTMLElement): AppShell {
   };
 
   return appShell;
+}
+
+function syncLocalizedShell(shell: AppShell, ui: ReturnType<typeof createUiText>, conv: ReturnType<typeof store.getSelectedConversation>): void {
+  shell.leftTitle.textContent = ui('Stories', 'Истории');
+  shell.rightTitle.textContent = ui('Properties', 'Свойства');
+  shell.layoutScrim.title = ui('Close open panel', 'Закрыть открытую панель');
+  shell.layoutScrim.setAttribute('aria-label', ui('Close open panel', 'Закрыть открытую панель'));
+  shell.mobileSheetScrim.title = ui('Close mobile panel', 'Закрыть мобильную панель');
+  shell.mobileSheetScrim.setAttribute('aria-label', ui('Close mobile panel', 'Закрыть мобильную панель'));
+  shell.centerTitle.textContent = `${ui('Flow Editor', 'Редактор потока')}${conv ? ` — ${conv.label}` : ''}`;
 }
 
 function renderLeftPanel(shell: AppShell, firstRun = false): void {
@@ -385,7 +403,7 @@ function renderLeftPanel(shell: AppShell, firstRun = false): void {
 function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSelectedConversation>, firstRun: boolean): void {
   shell.centerPanel.classList.toggle('panel-onboarding', firstRun);
   shell.centerHeader.hidden = firstRun;
-  shell.centerTitle.textContent = `Flow Editor${conv ? ` — ${conv.label}` : ''}`;
+  shell.centerTitle.textContent = `${createUiText(store.get().uiLanguage)('Flow Editor', 'Редактор потока')}${conv ? ` — ${conv.label}` : ''}`;
   shell.centerActions.replaceChildren();
 
   if (!firstRun && layoutState.responsiveMode === 'tablet') {

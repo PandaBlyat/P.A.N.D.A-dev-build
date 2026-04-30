@@ -8029,6 +8029,11 @@ hr {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.share-list-row-flags {
+  color: var(--text-dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
 .share-list-row-meta {
   color: var(--text-dim);
   font-size: 11px;
@@ -8548,6 +8553,14 @@ hr {
 .share-toolbar-row {
   padding: 12px 16px;
   background: linear-gradient(180deg, rgba(14, 18, 25, 0.96) 0%, rgba(9, 13, 18, 0.94) 100%);
+}
+
+.share-card-language-flags {
+  margin-left: auto;
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.45));
 }
 
 .share-library-tabs {
@@ -16347,6 +16360,12 @@ select[data-beginner-tooltip-id] {
   .share-list-row-meta {
     grid-column: 2;
     white-space: normal;
+  }
+
+  .share-list-row-flags {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
   }
 
   .share-card,

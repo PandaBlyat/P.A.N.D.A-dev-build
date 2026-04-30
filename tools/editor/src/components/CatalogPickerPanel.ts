@@ -1,5 +1,7 @@
 import { LEVEL_DISPLAY_NAMES, SMART_TERRAIN_LEVELS, SMART_TERRAIN_OPTIONS_ALL, SMART_TERRAIN_OPTIONS_BY_LEVEL, type SmartTerrainOption } from '../lib/constants';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
+import { store } from '../lib/state';
+import { createUiText } from '../lib/ui-language';
 
 const CATALOG_PICKER_MOUNT_ID = 'app-modal-host';
 const RICH_TAG_FIELDS = ['faction', 'role', 'level', 'kind', 'source', 'size'] as const;
@@ -23,6 +25,10 @@ export type CatalogPickerFacet = {
 
 let activeCleanup: (() => void) | null = null;
 let activeTrigger: HTMLElement | null = null;
+
+function ui(en: string, ru: string): string {
+  return createUiText(store.get().uiLanguage)(en, ru);
+}
 
 function getMount(): HTMLElement {
   return document.getElementById(CATALOG_PICKER_MOUNT_ID) ?? document.body;
@@ -104,7 +110,7 @@ export function createCatalogPickerPanelEditor(
   const clearButton = document.createElement('button');
   clearButton.type = 'button';
   clearButton.className = 'btn-sm';
-  clearButton.textContent = 'Clear';
+  clearButton.textContent = ui('Clear', 'Очистить');
 
   const rawWrap = document.createElement('div');
   rawWrap.className = 'item-picker-inline-editor';
@@ -142,12 +148,14 @@ export function createCatalogPickerPanelEditor(
 
     rawWrap.classList.toggle('is-visible', customMode);
     rawInput.hidden = !customMode;
-    customToggleButton.textContent = customMode ? 'Hide custom' : 'Custom ID';
+    customToggleButton.textContent = customMode ? ui('Hide custom', 'Скрыть ID') : ui('Custom ID', 'Свой ID');
     clearButton.disabled = value.length === 0;
 
     summary.textContent = selected
-      ? `Selected ${describeOption(selected)}.`
-      : (value ? `Using custom id ${value}. Keep manual entry for modded content.` : 'Choose from vanilla catalog or open custom id.');
+      ? ui(`Selected ${describeOption(selected)}.`, `Выбрано: ${describeOption(selected)}.`)
+      : (value
+        ? ui(`Using custom id ${value}. Keep manual entry for modded content.`, `Используется свой ID ${value}. Ручной ввод подходит для модов.`)
+        : ui('Choose from vanilla catalog or open custom id.', 'Выбери из ванильного каталога или введи свой ID.'));
   };
 
   const openPicker = (): void => {
@@ -176,7 +184,7 @@ export function createCatalogPickerPanelEditor(
     const closeButton = document.createElement('button');
     closeButton.className = 'btn-icon btn-sm';
     closeButton.textContent = 'x';
-    closeButton.title = 'Close picker';
+    closeButton.title = ui('Close picker', 'Закрыть окно выбора');
     titleWrap.append(title, subtitle);
     header.append(titleWrap, closeButton);
     panel.appendChild(header);
@@ -218,8 +226,8 @@ export function createCatalogPickerPanelEditor(
     const currentSelection = document.createElement('div');
     currentSelection.className = 'item-picker-selection-summary';
     currentSelection.textContent = currentValue
-      ? `Current: ${currentValue}`
-      : 'Current: none';
+      ? ui(`Current: ${currentValue}`, `Текущее: ${currentValue}`)
+      : ui('Current: none', 'Текущее: нет');
     const totalCountBadge = document.createElement('div');
     totalCountBadge.className = 'item-picker-total';
     metaRow.append(currentSelection, totalCountBadge);
@@ -231,7 +239,7 @@ export function createCatalogPickerPanelEditor(
     listContent.className = 'item-picker-list-content item-picker-list-content-static';
     const empty = document.createElement('div');
     empty.className = 'item-picker-empty';
-    empty.textContent = 'No matches. Clear filter or switch to custom id for modded content.';
+    empty.textContent = ui('No matches. Clear filter or switch to custom id for modded content.', 'Нет совпадений. Очисти фильтр или введи свой ID для модов.');
     empty.hidden = true;
     list.append(listContent, empty);
     panel.appendChild(list);
@@ -380,11 +388,11 @@ export function createCatalogPickerPanelEditor(
       if (matches.length > MAX_RENDERED) {
         const overflow = document.createElement('div');
         overflow.className = 'command-description';
-        overflow.textContent = `Showing ${MAX_RENDERED} of ${matches.length}. Keep typing to narrow.`;
+        overflow.textContent = ui(`Showing ${MAX_RENDERED} of ${matches.length}. Keep typing to narrow.`, `Показано ${MAX_RENDERED} из ${matches.length}. Продолжай ввод, чтобы сузить поиск.`);
         listContent.appendChild(overflow);
       }
 
-      totalCountBadge.textContent = `${matches.length} / ${config.options.length} match`;
+      totalCountBadge.textContent = ui(`${matches.length} / ${config.options.length} match`, `${matches.length} / ${config.options.length} совпадений`);
 
       for (const [facetIndex, control] of facetControls.entries()) {
         const counts = new Map<string, number>();
@@ -515,8 +523,8 @@ export function createSmartTerrainPickerEditor(
   const levelSelect = document.createElement('select');
   levelSelect.className = 'rich-editor-input';
   levelSelect.setAttribute('data-field-key', fieldKey);
-  addOption(levelSelect, '', '-- Select level --');
-  addOption(levelSelect, '__all__', 'All levels (vanilla catalog)');
+  addOption(levelSelect, '', ui('-- Select level --', '-- Выбери уровень --'));
+  addOption(levelSelect, '__all__', ui('All levels (vanilla catalog)', 'Все уровни (ванильный каталог)'));
   for (const levelKey of Object.keys(SMART_TERRAIN_LEVELS)) {
     addOption(levelSelect, levelKey, LEVEL_DISPLAY_NAMES[levelKey] || levelKey);
   }
@@ -525,18 +533,18 @@ export function createSmartTerrainPickerEditor(
   const searchInput = document.createElement('input');
   searchInput.className = 'rich-editor-input';
   searchInput.type = 'search';
-  searchInput.placeholder = 'Search smart terrain id or location...';
+  searchInput.placeholder = ui('Search smart terrain id or location...', 'Поиск smart terrain ID или локации...');
 
   const quickActions = document.createElement('div');
   quickActions.className = 'smart-terrain-toolbar';
   const placeholderButton = document.createElement('button');
   placeholderButton.type = 'button';
   placeholderButton.className = 'ghost';
-  placeholderButton.textContent = 'Use dynamic placeholder';
+  placeholderButton.textContent = ui('Use dynamic placeholder', 'Использовать динамический плейсхолдер');
   const clearButton = document.createElement('button');
   clearButton.type = 'button';
   clearButton.className = 'ghost';
-  clearButton.textContent = 'Clear';
+  clearButton.textContent = ui('Clear', 'Очистить');
   if (options.allowPlaceholder) quickActions.appendChild(placeholderButton);
   quickActions.appendChild(clearButton);
 
@@ -560,7 +568,7 @@ export function createSmartTerrainPickerEditor(
     if (!selectedLevel) {
       const hint = document.createElement('div');
       hint.className = 'command-description';
-      hint.textContent = 'Choose level, then select dynamic placeholder or exact smart terrain.';
+      hint.textContent = ui('Choose level, then select dynamic placeholder or exact smart terrain.', 'Выбери уровень, затем динамический плейсхолдер или точный smart terrain.');
       terrainList.appendChild(hint);
       updateSummary();
       return;
@@ -590,11 +598,13 @@ export function createSmartTerrainPickerEditor(
   const updateSummary = (): void => {
     placeholderButton.disabled = !selectedLevel || selectedLevel === '__all__';
     if (!selectedLevel) {
-      summary.textContent = 'No location selected.';
+      summary.textContent = ui('No location selected.', 'Локация не выбрана.');
     } else if (selectionMode === 'placeholder' && selectedLevel !== '__all__') {
-      summary.textContent = `Using dynamic %${selectedLevel}_panda_st_key%.`;
+      summary.textContent = ui(`Using dynamic %${selectedLevel}_panda_st_key%.`, `Используется динамический %${selectedLevel}_panda_st_key%.`);
     } else {
-      summary.textContent = selectedTerrain ? `Using exact smart terrain ${selectedTerrain}.` : 'Choose exact terrain or dynamic placeholder.';
+      summary.textContent = selectedTerrain
+        ? ui(`Using exact smart terrain ${selectedTerrain}.`, `Используется точный smart terrain ${selectedTerrain}.`)
+        : ui('Choose exact terrain or dynamic placeholder.', 'Выбери точный terrain или динамический плейсхолдер.');
     }
   };
 

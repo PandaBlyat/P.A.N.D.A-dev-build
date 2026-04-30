@@ -38,6 +38,11 @@ import { createCatalogPickerPanelEditor, type CatalogPickerOption } from './Cata
 import { createCustomNpcBuilderEditor } from './NpcTemplatePanel';
 import { formatGameItemLabel } from '../lib/item-catalog';
 import { requestFlowCenter } from '../lib/flow-navigation';
+import { createUiText } from '../lib/ui-language';
+
+function ui(en: string, ru: string): string {
+  return createUiText(store.get().uiLanguage)(en, ru);
+}
 import {
   acquireCollabLock,
   collabCanEditPath,
@@ -575,9 +580,9 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
           preconditions: [...conv.preconditions, newPrecond],
         });
       }, {
-        title: 'Add precondition',
-        searchPlaceholder: 'Search preconditions...',
-        emptyMessage: 'No matching preconditions',
+        title: ui('Add precondition', 'Добавить предусловие'),
+        searchPlaceholder: ui('Search preconditions...', 'Поиск предусловий...'),
+        emptyMessage: ui('No matching preconditions', 'Подходящих предусловий нет'),
       });
     },
     { defaultCollapsed: advancedMode },
@@ -1038,9 +1043,9 @@ function renderTurnProperties(
         const nextPreconditions = [...(turn.preconditions ?? []), newPrecond];
         store.updateTurn(conv.id, turn.turnNumber, { preconditions: nextPreconditions });
       }, {
-        title: 'Add branch precondition',
-        searchPlaceholder: 'Search branch preconditions...',
-        emptyMessage: 'No matching branch preconditions',
+        title: ui('Add branch precondition', 'Добавить предусловие ветки'),
+        searchPlaceholder: ui('Search branch preconditions...', 'Поиск предусловий ветки...'),
+        emptyMessage: ui('No matching branch preconditions', 'Подходящих предусловий ветки нет'),
       });
     },
     { defaultCollapsed: advancedMode },
@@ -1387,9 +1392,9 @@ function renderChoiceProperties(
         const nextPreconditions = [...(choice.preconditions ?? []), newPrecond];
         store.updateChoice(conv.id, turn.turnNumber, choice.index, { preconditions: nextPreconditions });
       }, {
-        title: 'Add choice precondition',
-        searchPlaceholder: 'Search choice preconditions...',
-        emptyMessage: 'No matching choice preconditions',
+        title: ui('Add choice precondition', 'Добавить предусловие ответа'),
+        searchPlaceholder: ui('Search choice preconditions...', 'Поиск предусловий ответа...'),
+        emptyMessage: ui('No matching choice preconditions', 'Подходящих предусловий ответа нет'),
       });
     },
     { defaultCollapsed: advancedMode },
@@ -1514,9 +1519,9 @@ function renderChoiceProperties(
         };
         store.appendOutcomeToChoice(conv.id, turn.turnNumber, choice.index, newOutcome);
       }, {
-        title: 'Add outcome',
-        searchPlaceholder: 'Search outcomes...',
-        emptyMessage: 'No matching outcomes',
+        title: ui('Add outcome', 'Добавить результат'),
+        searchPlaceholder: ui('Search outcomes...', 'Поиск результатов...'),
+        emptyMessage: ui('No matching outcomes', 'Подходящих результатов нет'),
       });
     },
     { defaultCollapsed: advancedMode },
@@ -3805,7 +3810,7 @@ export function showCommandPicker(
   const panel = document.createElement('div');
   panel.className = 'command-picker-panel';
   panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-label', options.title ?? 'Command picker');
+  panel.setAttribute('aria-label', options.title ?? ui('Command picker', 'Выбор команды'));
   panel.style.position = 'fixed';
 
   const header = document.createElement('div');
@@ -3816,26 +3821,26 @@ export function showCommandPicker(
 
   const title = document.createElement('div');
   title.className = 'command-picker-title';
-  title.textContent = options.title ?? 'Add command';
+  title.textContent = options.title ?? ui('Add command', 'Добавить команду');
   titleWrap.appendChild(title);
 
   const subtitle = document.createElement('div');
   subtitle.className = 'command-picker-subtitle';
-  subtitle.textContent = 'Browse by category or search to narrow the list.';
+  subtitle.textContent = ui('Browse by category or search to narrow the list.', 'Выберите категорию или используйте поиск.');
   titleWrap.appendChild(subtitle);
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'command-picker-close btn-icon btn-sm';
   closeBtn.textContent = '×';
-  closeBtn.title = 'Close picker';
+  closeBtn.title = ui('Close picker', 'Закрыть список');
 
   header.append(titleWrap, closeBtn);
   panel.appendChild(header);
 
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
-  searchInput.placeholder = options.searchPlaceholder ?? 'Search commands...';
+  searchInput.placeholder = options.searchPlaceholder ?? ui('Search commands...', 'Поиск команд...');
   searchInput.className = 'dropdown-search command-picker-search';
   setBeginnerTooltip(searchInput, 'command-picker-search');
   panel.appendChild(searchInput);
@@ -3899,7 +3904,7 @@ export function showCommandPicker(
     if (!currentGroup) {
       const empty = document.createElement('div');
       empty.className = 'command-picker-empty';
-      empty.textContent = options.emptyMessage ?? 'No matching commands';
+      empty.textContent = options.emptyMessage ?? ui('No matching commands', 'Подходящих команд нет');
       resultPane.appendChild(empty);
       return;
     }
@@ -3914,7 +3919,9 @@ export function showCommandPicker(
 
     const groupMeta = document.createElement('div');
     groupMeta.className = 'command-picker-results-meta';
-    groupMeta.textContent = `${items.length} command${items.length === 1 ? '' : 's'}`;
+    groupMeta.textContent = items.length === 1
+      ? ui('1 command', '1 команда')
+      : ui(`${items.length} commands`, `${items.length} команд`);
 
     groupHeader.append(groupTitle, groupMeta);
     resultPane.appendChild(groupHeader);
@@ -3933,8 +3940,10 @@ export function showCommandPicker(
         placement: 'left',
       });
       const paramsSummary = schema.params.length > 0
-        ? `${schema.params.length} param${schema.params.length === 1 ? '' : 's'}`
-        : 'No params';
+        ? (schema.params.length === 1
+          ? ui('1 param', '1 параметр')
+          : ui(`${schema.params.length} params`, `${schema.params.length} параметров`))
+        : ui('No params', 'Без параметров');
       card.innerHTML = `
         <span class="command-picker-card-title-row">
           <span class="command-picker-card-title">${schema.label}</span>

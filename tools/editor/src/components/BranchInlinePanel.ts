@@ -29,6 +29,7 @@ import {
   renderPlaceholderPicker,
   showCommandPicker,
 } from './CommandEditorFields';
+import { createUiText } from '../lib/ui-language';
 
 type TurnLabels = {
   getLongLabel(turnNumber: number): string;
@@ -59,6 +60,10 @@ type BranchNpcTarget = {
 const npcContinuationSpeakerByChoice = new Map<string, NpcContinuationSpeaker>();
 const newNpcContinuationModeByChoice = new Map<string, NewNpcContinuationMode>();
 
+function getUiText() {
+  return createUiText(store.get().uiLanguage);
+}
+
 export function renderBranchInlinePanel(options: {
   conv: Conversation;
   turn: Turn;
@@ -68,6 +73,7 @@ export function renderBranchInlinePanel(options: {
   turnLabels: TurnLabels;
   onClose?: () => void;
 }): HTMLElement {
+  const ui = getUiText();
   const { conv, turn, choice, mode, selectedOutcomeIndex, turnLabels, onClose } = options;
   const safeMode: BranchInlinePanelMode = !choice && (mode === 'outcomes' || mode === 'continuation') ? 'preconditions' : mode;
   const panel = document.createElement('section');
@@ -95,7 +101,7 @@ export function renderBranchInlinePanel(options: {
   } else if (choice) {
     renderContinuationPanel(body, conv, turn, choice, turnLabels);
   } else {
-    body.appendChild(createEmpty('Pick player choice before continuation.'));
+    body.appendChild(createEmpty(ui('Pick player choice before continuation.', 'Выбери вариант игрока перед продолжением.')));
   }
 
   return panel;
@@ -110,6 +116,7 @@ function renderHeader(
   onClose?: () => void,
   panel?: HTMLElement,
 ): HTMLElement {
+  const ui = getUiText();
   const header = document.createElement('div');
   header.className = 'branch-inline-panel-header';
 
@@ -121,8 +128,8 @@ function renderHeader(
   const close = document.createElement('button');
   close.type = 'button';
   close.className = 'btn-sm branch-inline-close';
-  close.textContent = 'Close';
-  close.setAttribute('aria-label', 'Close branch editor');
+  close.textContent = ui('Close', 'Закрыть');
+  close.setAttribute('aria-label', ui('Close branch editor', 'Закрыть редактор ветки'));
   const closePanel = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
@@ -144,19 +151,20 @@ function renderHeader(
 }
 
 function renderSidebar(conv: Conversation, turn: Turn, choice: Choice | null, mode: BranchInlinePanelMode): HTMLElement {
+  const ui = getUiText();
   const sidebar = document.createElement('nav');
   sidebar.className = 'branch-inline-sidebar';
-  sidebar.setAttribute('aria-label', 'Branch editor sections');
+  sidebar.setAttribute('aria-label', ui('Branch editor sections', 'Разделы редактора ветки'));
   const tabs: Array<{ mode: BranchInlinePanelMode; label: string; count?: number }> = choice
     ? [
-      { mode: 'dialogue', label: 'Dialogue' },
-      { mode: 'preconditions', label: 'Preconditions', count: choice.preconditions?.length ?? 0 },
-      { mode: 'outcomes', label: 'Outcomes', count: choice.outcomes.length },
-      { mode: 'continuation', label: 'Continuation' },
+      { mode: 'dialogue', label: ui('Dialogue', 'Диалог') },
+      { mode: 'preconditions', label: ui('Preconditions', 'Предусловия'), count: choice.preconditions?.length ?? 0 },
+      { mode: 'outcomes', label: ui('Outcomes', 'Результаты'), count: choice.outcomes.length },
+      { mode: 'continuation', label: ui('Continuation', 'Продолжение') },
     ]
     : [
-      { mode: 'dialogue', label: 'Dialogue' },
-      { mode: 'preconditions', label: 'Preconditions', count: turn.preconditions.length },
+      { mode: 'dialogue', label: ui('Dialogue', 'Диалог') },
+      { mode: 'preconditions', label: ui('Preconditions', 'Предусловия'), count: turn.preconditions.length },
     ];
 
   for (const tabInfo of tabs) {
@@ -196,34 +204,41 @@ function flushBranchInlineEdits(root: Element): void {
 }
 
 function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: Turn, choice: Choice | null): void {
+  const ui = getUiText();
   const grid = document.createElement('div');
   grid.className = 'branch-inline-grid branch-inline-grid-two';
 
-  const textPane = createPane(choice ? 'Dialogue Text' : 'NPC Opener');
+  const textPane = createPane(choice ? ui('Dialogue Text', 'Текст диалога') : ui('NPC Opener', 'Начальная реплика NPC'));
   textPane.appendChild(createHint(choice
-    ? 'Player Choice Text is what player clicks. NPC Reply is response shown after that choice.'
-    : 'NPC Opener starts this branch. PDA means distant message flow; F2F means face-to-face NPC dialogue.',
+    ? ui(
+      'Player Choice Text is what player clicks. NPC Reply is response shown after that choice.',
+      'Текст варианта игрока: что игрок выбирает. Ответ NPC: что показывается после выбора.',
+    )
+    : ui(
+      'NPC Opener starts this branch. PDA means distant message flow; F2F means face-to-face NPC dialogue.',
+      'Начальная реплика NPC запускает ветку. PDA: сообщение на расстоянии; F2F: диалог лицом к лицу.',
+    ),
   ));
   if (!choice) {
     textPane.appendChild(createTextarea({
-      label: 'NPC Opener Message',
+      label: ui('NPC Opener Message', 'Сообщение-открытие NPC'),
       value: turn.openingMessage ?? '',
-      placeholder: 'NPC opening line for this branch',
+      placeholder: ui('NPC opening line for this branch', 'Начальная реплика NPC для этой ветки'),
       fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'),
       onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingMessage: value }),
     }));
     textPane.appendChild(createTextInput({
-      label: 'Opener DDS Image',
+      label: ui('Opener DDS Image', 'DDS картинка-открытие'),
       value: turn.openingImage ?? '',
       placeholder: 'panda_file',
       fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-image'),
       onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingImage: value.trim() || undefined }),
     }));
     textPane.appendChild(createTextInput({
-      label: 'Opener Audio',
+      label: ui('Opener Audio', 'Аудио-открытие'),
       value: turn.openingAudio ?? '',
       placeholder: 'message_ping',
-      description: 'sound filename under gamedata/sounds/panda/audio',
+      description: ui('sound filename under gamedata/sounds/panda/audio', 'имя файла звука в gamedata/sounds/panda/audio'),
       fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-audio'),
       onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingAudio: value.trim() || undefined }),
     }));
@@ -232,19 +247,19 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
       const repeatableField = document.createElement('label');
       repeatableField.className = 'branch-inline-field';
       const repeatableLabel = document.createElement('span');
-      repeatableLabel.textContent = 'Repeatable in Same Playthrough';
+      repeatableLabel.textContent = ui('Repeatable in Same Playthrough', 'Повторять в одном прохождении');
       const repeatableInput = document.createElement('input');
       repeatableInput.type = 'checkbox';
       repeatableInput.checked = conv.repeatable !== false;
       repeatableInput.setAttribute('data-field-key', getConversationFieldKey(conv.id, 'repeatable'));
       repeatableInput.onchange = () => store.updateConversation(conv.id, { repeatable: repeatableInput.checked });
-      repeatableField.append(repeatableLabel, repeatableInput, createHint('When off, this story starts once in this save.'));
+      repeatableField.append(repeatableLabel, repeatableInput, createHint(ui('When off, this story starts once in this save.', 'Если выключено, история запускается один раз в этом сохранении.')));
       textPane.appendChild(repeatableField);
       textPane.appendChild(createTextInput({
-        label: 'Message Timeout Seconds',
+        label: ui('Message Timeout Seconds', 'Таймаут сообщения (секунды)'),
         value: conv.timeout != null ? String(conv.timeout) : '',
-        placeholder: 'blank = no timeout',
-        description: 'Auto-close story after this many seconds.',
+        placeholder: ui('blank = no timeout', 'пусто = без таймаута'),
+        description: ui('Auto-close story after this many seconds.', 'Автоматически закрыть историю через это число секунд.'),
         fieldKey: getConversationFieldKey(conv.id, 'timeout'),
         onCommit: (value) => {
           const parsed = Number.parseInt(value.trim(), 10);
@@ -252,9 +267,9 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
         },
       }));
       textPane.appendChild(createTextarea({
-        label: 'Timeout Message',
+        label: ui('Timeout Message', 'Сообщение таймаута'),
         value: conv.timeoutMessage ?? '',
-        placeholder: 'NPC message shown when player waits too long',
+        placeholder: ui('NPC message shown when player waits too long', 'Сообщение NPC, если игрок ждет слишком долго'),
         fieldKey: getConversationFieldKey(conv.id, 'timeout-message'),
         onCommit: (value) => store.updateConversation(conv.id, { timeoutMessage: value.trim() || undefined }),
       }));
@@ -266,57 +281,57 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
     }
   } else {
     textPane.appendChild(createTextarea({
-      label: 'Player Dialogue Choice',
+      label: ui('Player Dialogue Choice', 'Вариант диалога игрока'),
       value: choice.text,
-      placeholder: 'Player choice text',
+      placeholder: ui('Player choice text', 'Текст выбора игрока'),
       fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'text'),
       onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { text: value }),
     }));
     textPane.appendChild(createTextarea({
-      label: 'NPC Reply',
+      label: ui('NPC Reply', 'Ответ NPC'),
       value: choice.reply,
-      placeholder: 'NPC response after player picks this choice',
+      placeholder: ui('NPC response after player picks this choice', 'Ответ NPC после выбора игрока'),
       fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply'),
       onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { reply: value }),
     }));
     textPane.appendChild(createTextInput({
-      label: 'NPC Reply DDS Image',
+      label: ui('NPC Reply DDS Image', 'DDS картинка ответа NPC'),
       value: choice.replyImage ?? '',
       placeholder: 'panda_file',
-      description: 'file name for dds image inside textures/ui',
+      description: ui('file name for dds image inside textures/ui', 'имя DDS-файла внутри textures/ui'),
       fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-image'),
       onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyImage: value.trim() || undefined }),
     }));
     textPane.appendChild(createTextInput({
-      label: 'NPC Reply Audio',
+      label: ui('NPC Reply Audio', 'Аудио ответа NPC'),
       value: choice.replyAudio ?? '',
       placeholder: 'message_ping',
-      description: 'sound filename under gamedata/sounds/panda/audio',
+      description: ui('sound filename under gamedata/sounds/panda/audio', 'имя звука в gamedata/sounds/panda/audio'),
       fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-audio'),
       onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyAudio: value.trim() || undefined }),
     }));
   }
 
-  const placeholderPane = createPane('Dynamic Placeholder List');
+  const placeholderPane = createPane(ui('Dynamic Placeholder List', 'Список динамических плейсхолдеров'));
   renderPlaceholderPicker(placeholderPane, `branch-inline-${conv.id}-${turn.turnNumber}-${choice?.index ?? 'opener'}-placeholders`, { defaultCollapsed: true });
-  placeholderPane.appendChild(createHint('Emoji shortcodes are for PDA branches only.'));
+  placeholderPane.appendChild(createHint(ui('Emoji shortcodes are for PDA branches only.', 'Коды эмодзи работают только в PDA-ветках.')));
   renderEmojiPicker(
     placeholderPane,
     `branch-inline-${conv.id}-${turn.turnNumber}-${choice?.index ?? 'opener'}-emojis`,
     {
       defaultCollapsed: true,
       insertionRoot: grid,
-      helperText: 'Use only on PDA branch text. F2F dialogue does not render these shortcode icons.',
+      helperText: ui('Use only on PDA branch text. F2F dialogue does not render these shortcode icons.', 'Используй только в тексте PDA-веток. F2F-диалог не показывает эти иконки.'),
     },
   );
 
   const actionRow = document.createElement('div');
   actionRow.className = 'branch-inline-action-row branch-inline-stage-row';
-  actionRow.append(createActionButton(`Preconditions (${choice ? (choice.preconditions?.length ?? 0) : turn.preconditions.length})`, () => {
+  actionRow.append(createActionButton(`${ui('Preconditions', 'Предусловия')} (${choice ? (choice.preconditions?.length ?? 0) : turn.preconditions.length})`, () => {
     openPanel(conv.id, turn.turnNumber, choice?.index ?? null, 'preconditions', getInitialPreconditionSelection(turn, choice));
   }));
   if (choice) {
-    actionRow.append(createActionButton(`Outcomes (${choice.outcomes.length})`, () => {
+    actionRow.append(createActionButton(`${ui('Outcomes', 'Результаты')} (${choice.outcomes.length})`, () => {
       openPanel(conv.id, turn.turnNumber, choice.index, 'outcomes', getInitialOutcomeSelection(choice));
     }));
   }
@@ -630,21 +645,24 @@ function renderPreconditionsPanel(
   choice: Choice | null,
   selectedOutcomeIndex: number | null,
 ): void {
+  const ui = getUiText();
   const selection = resolvePreconditionSelection(turn, choice, selectedOutcomeIndex);
   const grid = document.createElement('div');
   grid.className = 'branch-inline-grid branch-inline-grid-preconditions';
 
-  const listPane = createPane(choice ? 'Choice Preconditions' : 'Opener Preconditions');
+  const listPane = createPane(choice ? ui('Choice Preconditions', 'Предусловия выбора') : ui('Opener Preconditions', 'Предусловия открытия'));
   listPane.appendChild(createHint(choice
-    ? 'Preconditions are required checks. If any check fails, this choice stays hidden.'
-    : 'Opener preconditions are required checks before this branch can begin.',
+    ? ui('Preconditions are required checks. If any check fails, this choice stays hidden.', 'Предусловия — обязательные проверки. Если проверка не прошла, выбор скрыт.')
+    : ui('Opener preconditions are required checks before this branch can begin.', 'Предусловия открытия — обязательные проверки перед запуском ветки.'),
   ));
   renderPreconditionAddControls(listPane, conv, turn, choice);
   renderCurrentPreconditionList(listPane, conv, turn, choice, selection);
 
-  const detailPane = createPane('Details / Properties');
+  const detailPane = createPane(ui('Details / Properties', 'Детали / свойства'));
   if (selection == null) {
-    detailPane.appendChild(createEmpty(choice ? 'Pick or add precondition to edit properties here.' : 'Pick or add opener precondition to edit properties here.'));
+    detailPane.appendChild(createEmpty(choice
+      ? ui('Pick or add precondition to edit properties here.', 'Выбери или добавь предусловие, чтобы редактировать свойства.')
+      : ui('Pick or add opener precondition to edit properties here.', 'Выбери или добавь предусловие открытия, чтобы редактировать свойства.')));
   } else {
     renderPreconditionDetails(detailPane, conv, turn, choice, selection);
   }
@@ -660,8 +678,9 @@ function renderOutcomesPanel(
   choice: Choice | null,
   selectedOutcomeIndex: number | null,
 ): void {
+  const ui = getUiText();
   if (!choice) {
-    container.appendChild(createEmpty('Outcomes belong to player choices.'));
+    container.appendChild(createEmpty(ui('Outcomes belong to player choices.', 'Результаты относятся к вариантам игрока.')));
     return;
   }
 
@@ -669,20 +688,23 @@ function renderOutcomesPanel(
   const grid = document.createElement('div');
   grid.className = 'branch-inline-grid branch-inline-grid-outcomes';
 
-  const listPane = createPane('Choice Outcomes');
-  listPane.appendChild(createHint('Outcomes are effects after player picks this choice: money, items, reputation, tasks, spawns, teleport, and similar changes.'));
+  const listPane = createPane(ui('Choice Outcomes', 'Результаты выбора'));
+  listPane.appendChild(createHint(ui(
+    'Outcomes are effects after player picks this choice: money, items, reputation, tasks, spawns, teleport, and similar changes.',
+    'Результаты срабатывают после выбора игрока: деньги, предметы, репутация, задания, спавн, телепорт и похожие изменения.',
+  )));
   renderOutcomeAddControls(listPane, conv, turn, choice);
   renderCurrentOutcomeList(listPane, conv, turn, choice, selection);
 
-  const detailPane = createPane('Details / Properties');
+  const detailPane = createPane(ui('Details / Properties', 'Детали / свойства'));
   if (selection == null) {
-    detailPane.appendChild(createEmpty('Pick or add outcome to edit properties here.'));
+    detailPane.appendChild(createEmpty(ui('Pick or add outcome to edit properties here.', 'Выбери или добавь результат, чтобы редактировать свойства.')));
   } else {
     renderOutcomeDetails(detailPane, conv, turn, choice, selection);
   }
   const continueRow = document.createElement('div');
   continueRow.className = 'branch-inline-action-row branch-inline-next-row';
-  continueRow.appendChild(createActionButton('Continuation', () => openPanel(conv.id, turn.turnNumber, choice.index, 'continuation')));
+  continueRow.appendChild(createActionButton(ui('Continuation', 'Продолжение'), () => openPanel(conv.id, turn.turnNumber, choice.index, 'continuation')));
   detailPane.appendChild(continueRow);
 
   grid.append(listPane, detailPane);
@@ -690,11 +712,12 @@ function renderOutcomesPanel(
 }
 
 function renderContinuationPanel(container: HTMLElement, conv: Conversation, turn: Turn, choice: Choice, turnLabels: TurnLabels): void {
+  const ui = getUiText();
   const grid = document.createElement('div');
   grid.className = 'branch-inline-grid branch-inline-grid-continuation';
 
-  const pathPane = createPane('How Does This Dialogue Continue?');
-  pathPane.appendChild(createHint('Pick PDA to continue through distant messages. Pick F2F to continue through face-to-face NPC dialogue.'));
+  const pathPane = createPane(ui('How Does This Dialogue Continue?', 'Как продолжается диалог?'));
+  pathPane.appendChild(createHint(ui('Pick PDA to continue through distant messages. Pick F2F to continue through face-to-face NPC dialogue.', 'Выбери PDA для продолжения сообщениями. Выбери F2F для личного диалога с NPC.')));
   const currentChannel = normalizeChannel(choice.continueChannel ?? choice.continue_channel, normalizeChannel(turn.channel, normalizeChannel(conv.initialChannel, 'pda')));
   const channelRow = document.createElement('div');
   channelRow.className = 'branch-inline-segmented branch-inline-large-segmented';
@@ -707,14 +730,14 @@ function renderContinuationPanel(container: HTMLElement, conv: Conversation, tur
   const linkRow = document.createElement('div');
   linkRow.className = 'branch-inline-action-row';
   linkRow.append(
-    createActionButton('End Here', () => store.clearChoiceContinuation(conv.id, turn.turnNumber, choice.index), choice.continueTo == null),
+    createActionButton(ui('End Here', 'Закончить здесь'), () => store.clearChoiceContinuation(conv.id, turn.turnNumber, choice.index), choice.continueTo == null),
   );
   pathPane.appendChild(linkRow);
   pathPane.appendChild(createTextInput({
-    label: 'Delay Before Next Branch (seconds)',
+    label: ui('Delay Before Next Branch (seconds)', 'Задержка перед следующей веткой (секунды)'),
     value: choice.pdaDelaySeconds != null ? String(choice.pdaDelaySeconds) : '',
-    placeholder: '0 = immediate',
-    description: 'Delays PDA follow-up branches. Leave blank for immediate continuation.',
+    placeholder: ui('0 = immediate', '0 = сразу'),
+    description: ui('Delays PDA follow-up branches. Leave blank for immediate continuation.', 'Задерживает следующие PDA-ветки. Оставь пустым для мгновенного продолжения.'),
     fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'pda-delay-seconds'),
     onCommit: (value) => {
       const parsed = Number.parseInt(value.trim(), 10);
@@ -732,8 +755,8 @@ function renderContinuationPanel(container: HTMLElement, conv: Conversation, tur
     pathPane.appendChild(nextOpenerEditor);
   }
 
-  const npcPane = createPane('Who Continues It?');
-  npcPane.appendChild(createHint('Same NPC keeps current speaker. New NPC hands next branch to story NPC, custom spawned NPC, or any matching sim NPC.'));
+  const npcPane = createPane(ui('Who Continues It?', 'Кто продолжает?'));
+  npcPane.appendChild(createHint(ui('Same NPC keeps current speaker. New NPC hands next branch to story NPC, custom spawned NPC, or any matching sim NPC.', 'Тот же NPC сохраняет текущего говорящего. Новый NPC передает ветку сюжетному NPC, созданному NPC или подходящему sim NPC.')));
   renderNpcContinuationOptions(npcPane, conv, turn, choice);
 
   grid.append(npcPane, pathPane);
@@ -911,16 +934,17 @@ function renderCommandAddControls(container: HTMLElement, conv: Conversation, tu
 }
 
 function renderPreconditionAddControls(container: HTMLElement, conv: Conversation, turn: Turn, choice: Choice | null): void {
+  const ui = getUiText();
   const controls = document.createElement('div');
   controls.className = 'branch-inline-picker-actions';
-  const addPrecondition = createActionButton(choice ? 'Add Precondition' : 'Add Opener Precondition', () => undefined);
+  const addPrecondition = createActionButton(choice ? ui('Add Precondition', 'Добавить предусловие') : ui('Add Opener Precondition', 'Добавить предусловие открытия'), () => undefined);
   addPrecondition.onclick = () => {
     showCommandPicker(addPrecondition, getAddablePreconditionSchemas(choice ? 'choice' : 'turn'), (schema) => {
       addPreconditionEntry(conv, turn, choice, schema);
     }, {
-      title: choice ? 'Add choice precondition' : 'Add opener precondition',
-      searchPlaceholder: 'Search preconditions...',
-      emptyMessage: 'No matching preconditions',
+      title: choice ? ui('Add choice precondition', 'Добавить предусловие выбора') : ui('Add opener precondition', 'Добавить предусловие открытия'),
+      searchPlaceholder: ui('Search preconditions...', 'Поиск предусловий...'),
+      emptyMessage: ui('No matching preconditions', 'Нет подходящих предусловий'),
     });
   };
   controls.appendChild(addPrecondition);
@@ -928,16 +952,17 @@ function renderPreconditionAddControls(container: HTMLElement, conv: Conversatio
 }
 
 function renderOutcomeAddControls(container: HTMLElement, conv: Conversation, turn: Turn, choice: Choice): void {
+  const ui = getUiText();
   const controls = document.createElement('div');
   controls.className = 'branch-inline-picker-actions';
-  const addOutcome = createActionButton('Add Outcome', () => undefined);
+  const addOutcome = createActionButton(ui('Add Outcome', 'Добавить результат'), () => undefined);
   addOutcome.onclick = () => {
     showCommandPicker(addOutcome, OUTCOME_SCHEMAS, (schema) => {
       addOutcomeEntry(conv, turn, choice, schema);
     }, {
-      title: 'Add outcome',
-      searchPlaceholder: 'Search outcomes...',
-      emptyMessage: 'No matching outcomes',
+      title: ui('Add outcome', 'Добавить результат'),
+      searchPlaceholder: ui('Search outcomes...', 'Поиск результатов...'),
+      emptyMessage: ui('No matching outcomes', 'Нет подходящих результатов'),
     });
   };
   controls.appendChild(addOutcome);
@@ -1713,10 +1738,11 @@ function formatPreconditionLabel(entry: PreconditionEntry): string {
 }
 
 function modeLabel(mode: BranchInlinePanelMode, choice: Choice | null): string {
-  if (mode === 'preconditions') return 'Preconditions';
-  if (mode === 'outcomes') return 'Outcomes';
-  if (mode === 'continuation') return 'Continuation';
-  return 'Dialogue Text';
+  const ui = getUiText();
+  if (mode === 'preconditions') return ui('Preconditions', 'Предусловия');
+  if (mode === 'outcomes') return ui('Outcomes', 'Результаты');
+  if (mode === 'continuation') return ui('Continuation', 'Продолжение');
+  return ui(choice ? 'Dialogue Text' : 'Dialogue', choice ? 'Текст диалога' : 'Диалог');
 }
 
 function stepMatchesMode(label: string, mode: BranchInlinePanelMode): boolean {

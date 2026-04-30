@@ -8,6 +8,11 @@ import { FACTION_DISPLAY_NAMES } from '../lib/types';
 import { FACTION_IDS, RANKS } from '../lib/constants';
 import { trapFocus } from '../lib/focus-trap';
 import { createItemPickerPanelEditor } from './ItemPickerPanel';
+import { createUiText } from '../lib/ui-language';
+
+function ui(en: string, ru: string): string {
+  return createUiText(store.get().uiLanguage)(en, ru);
+}
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -194,13 +199,13 @@ function openNpcBuilderPanel(options: {
   const titleEl = document.createElement('div');
   titleEl.className = 'item-picker-title';
   titleEl.id = 'npc-builder-title';
-  titleEl.textContent = existing ? `Edit NPC Template` : 'Create NPC Template';
+  titleEl.textContent = existing ? ui('Edit NPC Template', 'Редактировать шаблон NPC') : ui('Create NPC Template', 'Создать шаблон NPC');
 
   const subtitleEl = document.createElement('div');
   subtitleEl.className = 'item-picker-subtitle';
   subtitleEl.textContent = options.showSpawnDistance
-    ? 'Configure name, faction, weapons, outfit, inventory, and near-player spawn distance. Near-player spawns always roam. Saved to your conversations XML.'
-    : 'Configure name, faction, weapons, outfit, inventory, and optional smart-terrain locking. Fixed NPCs can bind to vanilla smart-job behaviors on the chosen smart terrain. Placement comes from the command or precondition.';
+    ? ui('Configure name, faction, weapons, outfit, inventory, and near-player spawn distance. Near-player spawns always roam. Saved to your conversations XML.', 'Настройте имя, группировку, оружие, костюм, инвентарь и дистанцию спавна рядом с игроком. Такие NPC всегда свободно перемещаются. Сохраняется в XML диалогов.')
+    : ui('Configure name, faction, weapons, outfit, inventory, and optional smart-terrain locking. Fixed NPCs can bind to vanilla smart-job behaviors on the chosen smart terrain. Placement comes from the command or precondition.', 'Настройте имя, группировку, оружие, костюм, инвентарь и привязку к smart terrain. Фиксированные NPC могут использовать vanilla smart-job на выбранном smart terrain. Размещение задается командой или предусловием.');
 
   titleWrap.append(titleEl, subtitleEl);
 
@@ -208,8 +213,8 @@ function openNpcBuilderPanel(options: {
   closeBtn.type = 'button';
   closeBtn.className = 'btn-icon btn-sm';
   closeBtn.textContent = '\u00d7';
-  closeBtn.title = 'Close';
-  closeBtn.setAttribute('aria-label', 'Close NPC builder');
+  closeBtn.title = ui('Close', 'Закрыть');
+  closeBtn.setAttribute('aria-label', ui('Close NPC builder', 'Закрыть конструктор NPC'));
   closeBtn.onclick = cleanup;
 
   header.append(titleWrap, closeBtn);
@@ -225,21 +230,25 @@ function openNpcBuilderPanel(options: {
 
   const heroEyebrow = document.createElement('div');
   heroEyebrow.className = 'npc-builder-hero-eyebrow';
-  heroEyebrow.textContent = existing ? 'Project NPC template' : 'Reusable story cast template';
+  heroEyebrow.textContent = existing ? ui('Project NPC template', 'Шаблон NPC проекта') : ui('Reusable story cast template', 'Многоразовый шаблон персонажа');
 
   const heroTitle = document.createElement('div');
   heroTitle.className = 'npc-builder-hero-title';
   heroTitle.textContent = existing
-    ? `Editing ${existing.name || existing.id}`
-    : 'Build a custom NPC once, reuse it anywhere.';
+    ? ui(`Editing ${existing.name || existing.id}`, `Редактирование: ${existing.name || existing.id}`)
+    : ui('Build a custom NPC once, reuse it anywhere.', 'Создайте custom NPC один раз и используйте где угодно.');
 
   const heroCopy = document.createElement('div');
   heroCopy.className = 'npc-builder-hero-copy';
-  heroCopy.textContent = 'Templates can drive spawn outcomes, custom story targets, and follow-up preconditions without duplicating setup.';
+  heroCopy.textContent = ui('Templates can drive spawn outcomes, custom story targets, and follow-up preconditions without duplicating setup.', 'Шаблоны работают для результатов спавна, custom story целей и последующих предусловий без повторной настройки.');
 
   const heroChips = document.createElement('div');
   heroChips.className = 'npc-builder-hero-chips';
-  ['Saved into XML', 'Reusable in outcomes', 'Reusable in story targets'].forEach((text) => {
+  [
+    ui('Saved into XML', 'Сохраняется в XML'),
+    ui('Reusable in outcomes', 'Для результатов'),
+    ui('Reusable in story targets', 'Для story целей'),
+  ].forEach((text) => {
     const chip = document.createElement('span');
     chip.className = 'npc-builder-hero-chip';
     chip.textContent = text;
@@ -324,14 +333,14 @@ function openNpcBuilderPanel(options: {
 
     const picker = createItemPickerPanelEditor(sectionVal, onSection, pickerKey, {
       allowEmpty: true,
-      placeholder: 'None',
+      placeholder: ui('None', 'Нет'),
     });
     picker.classList.add('npc-builder-weapon-picker');
 
     const metaWrap = document.createElement('div');
     metaWrap.className = 'npc-builder-weapon-meta';
-    metaWrap.appendChild(makeMetaSelect('Attachment', ATTACHMENT_OPTIONS, attachVal, onAttach));
-    metaWrap.appendChild(makeMetaSelect('Ammo', AMMO_OPTIONS, ammoVal, onAmmo));
+    metaWrap.appendChild(makeMetaSelect(ui('Attachment', 'Обвес'), ATTACHMENT_OPTIONS, attachVal, onAttach));
+    metaWrap.appendChild(makeMetaSelect(ui('Ammo', 'Патроны'), AMMO_OPTIONS, ammoVal, onAmmo));
 
     weaponRow.append(picker, metaWrap);
     group.appendChild(weaponRow);
@@ -341,18 +350,18 @@ function openNpcBuilderPanel(options: {
   // ── § 1 — Identity ───────────────────────────────────────────────────────
 
   {
-    const sec = makeSection('Identity');
+    const sec = makeSection(ui('Identity', 'Личность'));
     const row = document.createElement('div');
     row.className = 'npc-builder-row';
 
     // Display name
     {
-      const { wrap, content } = makeField('Display Name', true);
+      const { wrap, content } = makeField(ui('Display Name', 'Имя'), true);
       const input = document.createElement('input');
       input.type = 'text';
       input.className = 'npc-builder-input';
       input.value = form.name;
-      input.placeholder = 'e.g. Informant, Boris the Broker';
+      input.placeholder = ui('e.g. Informant, Boris the Broker', 'например: Информатор, Борис Брокер');
       input.autocomplete = 'off';
       input.oninput = () => {
         form.name = input.value;
@@ -367,12 +376,12 @@ function openNpcBuilderPanel(options: {
     }
 
     // Template ID — declared early so display-name input can reference it
-    const { wrap: idWrap, content: idContent } = makeField('Template ID', true);
+    const { wrap: idWrap, content: idContent } = makeField(ui('Template ID', 'ID шаблона'), true);
     const idInput = document.createElement('input');
     idInput.type = 'text';
     idInput.className = 'npc-builder-input';
     idInput.value = form.id;
-    idInput.placeholder = 'auto (slugified from name)';
+    idInput.placeholder = ui('auto (slugified from name)', 'авто из имени');
     idInput.autocomplete = 'off';
     idInput.oninput = () => {
       form.id = idInput.value;
@@ -380,7 +389,7 @@ function openNpcBuilderPanel(options: {
     };
     const idHint = document.createElement('div');
     idHint.className = 'command-description';
-    idHint.textContent = 'Unique ID used in st_panda_npc_template_<id>. Auto-filled from name.';
+    idHint.textContent = ui('Unique ID used in st_panda_npc_template_<id>. Auto-filled from name.', 'Уникальный ID для st_panda_npc_template_<id>. Заполняется из имени.');
     idContent.append(idInput, idHint);
     row.appendChild(idWrap);
 
@@ -391,13 +400,13 @@ function openNpcBuilderPanel(options: {
   // ── § 2 — Faction & Status ───────────────────────────────────────────────
 
   {
-    const sec = makeSection('Faction & Status');
+    const sec = makeSection(ui('Faction & Status', 'Группировка и статус'));
     const row = document.createElement('div');
     row.className = 'npc-builder-row';
 
     // Faction
     {
-      const { wrap, content } = makeField('Faction', true);
+      const { wrap, content } = makeField(ui('Faction', 'Группировка'), true);
       const sel = document.createElement('select');
       sel.className = 'npc-builder-select';
       for (const fid of FACTION_IDS) {
@@ -414,7 +423,7 @@ function openNpcBuilderPanel(options: {
 
     // Rank
     {
-      const { wrap, content } = makeField('Rank');
+      const { wrap, content } = makeField(ui('Rank', 'Ранг'));
       const sel = document.createElement('select');
       sel.className = 'npc-builder-select';
       for (const rank of RANKS) {
@@ -431,7 +440,7 @@ function openNpcBuilderPanel(options: {
 
     // Relation
     {
-      const { wrap, content } = makeField('Relation');
+      const { wrap, content } = makeField(ui('Relation', 'Отношение'));
       const sel = document.createElement('select');
       sel.className = 'npc-builder-select';
       for (const { value, label } of RELATION_OPTIONS) {
@@ -452,7 +461,7 @@ function openNpcBuilderPanel(options: {
       const behaviorRow = document.createElement('div');
       behaviorRow.className = 'npc-builder-row';
 
-      const { wrap, content } = makeField('Movement');
+      const { wrap, content } = makeField(ui('Movement', 'Передвижение'));
       const checkRow = document.createElement('div');
       checkRow.className = 'npc-builder-checkbox-row';
 
@@ -464,11 +473,11 @@ function openNpcBuilderPanel(options: {
 
       const cbLabel = document.createElement('label');
       cbLabel.htmlFor = cb.id;
-      cbLabel.textContent = 'Allow roaming after spawn';
+      cbLabel.textContent = ui('Allow roaming after spawn', 'Разрешить движение после спавна');
 
       const hint = document.createElement('div');
       hint.className = 'command-description';
-      hint.textContent = 'Turn this off to lock the NPC to a vanilla smart-terrain job on the chosen smart. When possible, PANDA will reserve an authored job or create a dedicated story slot from an existing vanilla job path/animpoint.';
+      hint.textContent = ui('Turn this off to lock the NPC to a vanilla smart-terrain job on the chosen smart. When possible, PANDA will reserve an authored job or create a dedicated story slot from an existing vanilla job path/animpoint.', 'Отключите, чтобы привязать NPC к vanilla smart-terrain job на выбранном smart. Если возможно, PANDA зарезервирует authored job или создаст story slot из существующего vanilla job path/animpoint.');
 
       checkRow.append(cb, cbLabel);
       content.append(checkRow, hint);
@@ -478,7 +487,7 @@ function openNpcBuilderPanel(options: {
       const jobRow = document.createElement('div');
       jobRow.className = 'npc-builder-row';
 
-      const jobField = makeField('Fixed Job');
+      const jobField = makeField(ui('Fixed Job', 'Фиксированная работа'));
       const jobSelect = document.createElement('select');
       jobSelect.className = 'npc-builder-select';
       for (const { value, label } of STATIONARY_JOB_OPTIONS) {
@@ -493,7 +502,7 @@ function openNpcBuilderPanel(options: {
 
       const jobHint = document.createElement('div');
       jobHint.className = 'command-description';
-      jobHint.textContent = 'Choose which vanilla smart-job family to use when roaming is disabled. Auto prefers the strongest available fit on that smart terrain.';
+      jobHint.textContent = ui('Choose which vanilla smart-job family to use when roaming is disabled. Auto prefers the strongest available fit on that smart terrain.', 'Выберите vanilla smart-job, когда движение отключено. Auto выбирает лучший вариант на выбранном smart terrain.');
 
       cb.onchange = () => {
         form.allowRoam = cb.checked;
@@ -511,11 +520,11 @@ function openNpcBuilderPanel(options: {
   // ── § 3 — Weapons ────────────────────────────────────────────────────────
 
   {
-    const sec = makeSection('Weapons');
+    const sec = makeSection(ui('Weapons', 'Оружие'));
     const triggerId = options.trigger.id || fieldKeyFromTrigger(options.trigger);
 
     sec.appendChild(makeWeaponSection(
-      'Primary Weapon',
+      ui('Primary Weapon', 'Основное оружие'),
       form.primarySection,
       form.primaryAttachment,
       form.primaryAmmo,
@@ -526,7 +535,7 @@ function openNpcBuilderPanel(options: {
     ));
 
     sec.appendChild(makeWeaponSection(
-      'Secondary Weapon',
+      ui('Secondary Weapon', 'Вторичное оружие'),
       form.secondarySection,
       form.secondaryAttachment,
       form.secondaryAmmo,
@@ -542,17 +551,17 @@ function openNpcBuilderPanel(options: {
   // ── § 4 — Equipment ──────────────────────────────────────────────────────
 
   {
-    const sec = makeSection('Equipment');
+    const sec = makeSection(ui('Equipment', 'Экипировка'));
     const row = document.createElement('div');
     row.className = 'npc-builder-row';
     const triggerId = options.trigger.id || fieldKeyFromTrigger(options.trigger);
 
     // Outfit
     {
-      const { wrap, content } = makeField('Outfit / Armour');
+      const { wrap, content } = makeField(ui('Outfit / Armour', 'Костюм / броня'));
       const picker = createItemPickerPanelEditor(form.outfit, (v) => { form.outfit = v; }, `npc-b-outfit-${triggerId}`, {
         allowEmpty: true,
-        placeholder: 'None (default stalker look)',
+        placeholder: ui('None (default stalker look)', 'Нет (вид сталкера по умолчанию)'),
       });
       content.appendChild(picker);
       row.appendChild(wrap);
@@ -560,7 +569,7 @@ function openNpcBuilderPanel(options: {
 
     // Trader flag
     {
-      const { wrap, content } = makeField('Trader');
+      const { wrap, content } = makeField(ui('Trader', 'Торговец'));
       const checkRow = document.createElement('div');
       checkRow.className = 'npc-builder-checkbox-row';
       
@@ -572,7 +581,7 @@ function openNpcBuilderPanel(options: {
       
       const cbLabel = document.createElement('label');
       cbLabel.htmlFor = cb.id;
-      cbLabel.textContent = 'Mark as a trader NPC (can buy/sell items)';
+      cbLabel.textContent = ui('Mark as a trader NPC (can buy/sell items)', 'Сделать NPC торговцем (покупка/продажа предметов)');
       
       checkRow.append(cb, cbLabel);
       content.appendChild(checkRow);
@@ -586,12 +595,12 @@ function openNpcBuilderPanel(options: {
   // ── § 5 — Inventory ──────────────────────────────────────────────────────
 
   {
-    const sec = makeSection('Inventory (Extra Items)');
+    const sec = makeSection(ui('Inventory (Extra Items)', 'Инвентарь (доп. предметы)'));
     const triggerId = options.trigger.id || fieldKeyFromTrigger(options.trigger);
 
     const hint = document.createElement('div');
     hint.className = 'command-description';
-    hint.textContent = 'Items placed in the NPC\u2019s inventory on spawn. Format: item section + quantity.';
+    hint.textContent = ui('Items placed in the NPC\u2019s inventory on spawn. Format: item section + quantity.', 'Предметы в инвентаре NPC при спавне. Формат: section предмета + количество.');
     sec.appendChild(hint);
 
     const listEl = document.createElement('div');
@@ -601,7 +610,7 @@ function openNpcBuilderPanel(options: {
       const addBtn = document.createElement('button');
       addBtn.type = 'button';
       addBtn.className = 'btn-sm npc-builder-add-btn';
-    addBtn.textContent = '+ Add Item';
+    addBtn.textContent = ui('+ Add Item', '+ Добавить предмет');
     addBtn.onclick = () => {
       form.items.push({ section: '', count: '1' });
       rebuildItems();
@@ -620,7 +629,7 @@ function openNpcBuilderPanel(options: {
           `npc-b-extra-item-${triggerId}-${idx}`,
           {
             allowEmpty: true,
-            placeholder: 'Search or type an item section id...',
+            placeholder: ui('Search or type an item section id...', 'Найдите или введите section id предмета...'),
           },
         );
         itemPicker.classList.add('npc-builder-item-picker');
@@ -631,15 +640,15 @@ function openNpcBuilderPanel(options: {
         countInput.value = item.count;
         countInput.min = '1';
         countInput.max = '99';
-        countInput.placeholder = 'Qty';
-        countInput.title = 'Quantity';
+        countInput.placeholder = ui('Qty', 'Кол-во');
+        countInput.title = ui('Quantity', 'Количество');
         countInput.oninput = () => { form.items[idx].count = countInput.value; };
 
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
         removeBtn.className = 'btn-icon btn-sm';
         removeBtn.textContent = '\u00d7';
-        removeBtn.title = 'Remove item';
+        removeBtn.title = ui('Remove item', 'Удалить предмет');
         removeBtn.onclick = () => {
           form.items.splice(idx, 1);
           rebuildItems();
@@ -657,13 +666,13 @@ function openNpcBuilderPanel(options: {
   // ── § 6 — Spawn Config ───────────────────────────────────────────────────
 
   if (options.showSpawnDistance) {
-    const sec = makeSection('Spawn Configuration');
+    const sec = makeSection(ui('Spawn Configuration', 'Настройка спавна'));
     const row = document.createElement('div');
     row.className = 'npc-builder-row';
 
     // Spawn distance
     {
-      const { wrap, content } = makeField('Spawn Distance (m)');
+      const { wrap, content } = makeField(ui('Spawn Distance (m)', 'Дистанция спавна (м)'));
       const input = document.createElement('input');
       input.type = 'number';
       input.className = 'npc-builder-input';
@@ -673,7 +682,7 @@ function openNpcBuilderPanel(options: {
       input.oninput = () => { form.spawnDist = input.value; };
       const hint = document.createElement('div');
       hint.className = 'command-description';
-      hint.textContent = 'Distance from player in meters. Min\u00a010, default\u00a050. Near-player spawns always roam after spawning.';
+      hint.textContent = ui('Distance from player in meters. Min\u00a010, default\u00a050. Near-player spawns always roam after spawning.', 'Дистанция от игрока в метрах. Мин. 10, по умолчанию 50. Спавн рядом с игроком всегда свободно перемещается.');
       content.append(input, hint);
       row.appendChild(wrap);
     }
@@ -693,10 +702,13 @@ function openNpcBuilderPanel(options: {
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className = 'btn-sm btn-danger';
-    deleteBtn.textContent = 'Delete Template';
-    deleteBtn.title = `Remove template "${existing.id}" from this project`;
+    deleteBtn.textContent = ui('Delete Template', 'Удалить шаблон');
+    deleteBtn.title = ui(`Remove template "${existing.id}" from this project`, `Удалить шаблон "${existing.id}" из проекта`);
     deleteBtn.onclick = () => {
-      if (confirm(`Delete template "${existing.id}"?\n\nOutcomes that reference it will still be in the conversation but the NPC won\u2019t spawn until a template with this ID is defined again.`)) {
+      if (confirm(ui(
+        `Delete template "${existing.id}"?\n\nOutcomes that reference it will still be in the conversation but the NPC won\u2019t spawn until a template with this ID is defined again.`,
+        `Удалить шаблон "${existing.id}"?\n\nРезультаты, которые ссылаются на него, останутся в диалоге, но NPC не появится, пока шаблон с этим ID не будет создан снова.`,
+      ))) {
         options.onDelete(existing.id);
         cleanup();
       }
@@ -710,22 +722,22 @@ function openNpcBuilderPanel(options: {
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'btn-sm';
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = ui('Cancel', 'Отмена');
   cancelBtn.onclick = cleanup;
 
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
   saveBtn.className = 'btn-sm btn-primary';
-  saveBtn.textContent = 'Save Template';
+  saveBtn.textContent = ui('Save Template', 'Сохранить шаблон');
   saveBtn.onclick = () => {
     const id = form.id.trim();
     const name = form.name.trim();
     if (!id) {
-      alert('Template ID is required.\nSet a display name (it will be auto-slugified) or type an ID directly.');
+      alert(ui('Template ID is required.\nSet a display name (it will be auto-slugified) or type an ID directly.', 'Требуется ID шаблона.\nВведите имя (ID создастся автоматически) или задайте ID вручную.'));
       return;
     }
     if (!name) {
-      alert('Display Name is required.\nThis is the name shown on the NPC in-game.');
+      alert(ui('Display Name is required.\nThis is the name shown on the NPC in-game.', 'Требуется имя.\nЭто имя NPC в игре.'));
       return;
     }
 
@@ -834,17 +846,17 @@ export function createCustomNpcBuilderEditor(
     if (template) {
       labelSpan.textContent = `${template.id}  \u2014  ${template.name}  ·  ${getTemplateSummary(template)}`;
       chevron.textContent = '\u270e';
-      launchBtn.title = 'Edit this NPC template';
+      launchBtn.title = ui('Edit this NPC template', 'Редактировать этот шаблон NPC');
     } else if (liveId) {
-      labelSpan.textContent = `${liveId}  (template not in project \u2014 click to create)`;
+      labelSpan.textContent = ui(`${liveId}  (template not in project \u2014 click to create)`, `${liveId}  (шаблона нет в проекте — нажмите, чтобы создать)`);
       labelSpan.style.color = 'var(--warning, #e0a030)';
       chevron.textContent = '+';
-      launchBtn.title = 'Create this NPC template';
+      launchBtn.title = ui('Create this NPC template', 'Создать этот шаблон NPC');
     } else {
-      labelSpan.textContent = 'No NPC template \u2014 click to configure';
+      labelSpan.textContent = ui('No NPC template \u2014 click to configure', 'Нет шаблона NPC — нажмите для настройки');
       labelSpan.style.color = 'var(--text-dim)';
       chevron.textContent = '+';
-      launchBtn.title = 'Create a new NPC template';
+      launchBtn.title = ui('Create a new NPC template', 'Создать новый шаблон NPC');
     }
 
     launchBtn.append(labelSpan, chevron);
@@ -875,8 +887,8 @@ export function createCustomNpcBuilderEditor(
       const clearBtn = document.createElement('button');
       clearBtn.type = 'button';
       clearBtn.className = 'btn-sm';
-      clearBtn.textContent = 'Clear';
-      clearBtn.title = 'Clear this NPC template reference';
+      clearBtn.textContent = ui('Clear', 'Очистить');
+      clearBtn.title = ui('Clear this NPC template reference', 'Очистить ссылку на шаблон NPC');
       clearBtn.onclick = () => {
         liveId = '';
         onChange('');
@@ -893,7 +905,7 @@ export function createCustomNpcBuilderEditor(
     rawInput.type = 'text';
     rawInput.className = 'rich-editor-input';
     rawInput.value = liveId;
-    rawInput.placeholder = 'template_id  (or use the button above to configure)';
+    rawInput.placeholder = ui('template_id  (or use the button above to configure)', 'template_id  (или настройте кнопкой выше)');
     rawInput.setAttribute('data-field-key', fieldKey);
     rawInput.oninput = () => {
       liveId = rawInput.value;

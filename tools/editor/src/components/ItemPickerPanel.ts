@@ -10,6 +10,8 @@ import {
   type GameItemCategoryGroup,
   type GameItemPickerSubgroupId,
 } from '../lib/item-catalog';
+import { store } from '../lib/state';
+import { createUiText } from '../lib/ui-language';
 
 const CATEGORY_GROUP_ORDER: GameItemCategoryGroup[] = [
   'Weapons & Attachments',
@@ -85,6 +87,10 @@ const ITEM_PICKER_MOUNT_ID = 'app-modal-host';
 let activeCleanup: (() => void) | null = null;
 let activeTrigger: HTMLElement | null = null;
 
+function ui(en: string, ru: string): string {
+  return createUiText(store.get().uiLanguage)(en, ru);
+}
+
 function getMount(): HTMLElement {
   return document.getElementById(ITEM_PICKER_MOUNT_ID) ?? document.body;
 }
@@ -96,18 +102,18 @@ function normalizeFilter(value: string): string {
 function getItemSummary(value: string, allowEmpty: boolean): string {
   if (!value) {
     return allowEmpty
-      ? 'No item selected. Leave it empty to let the command use its built-in default behavior.'
-      : 'Choose a vanilla item section or type a custom section id for modded content.';
+      ? ui('No item selected. Leave it empty to let the command use its built-in default behavior.', 'Предмет не выбран. Оставь пустым, чтобы команда использовала поведение по умолчанию.')
+      : ui('Choose a vanilla item section or type a custom section id for modded content.', 'Выбери ванильную секцию предмета или введи свой ID для модов.');
   }
 
   const item = findGameItem(value);
   if (!item) {
-    return `Using custom item section ${value}. Manual typing stays available for modded or otherwise unknown items.`;
+    return ui(`Using custom item section ${value}. Manual typing stays available for modded or otherwise unknown items.`, `Используется своя секция предмета ${value}. Ручной ввод доступен для модов и неизвестных предметов.`);
   }
 
   return item.displayName
-    ? `Selected ${item.displayName} (${item.section}). The raw section id remains editable below.`
-    : `Selected ${item.section}. This vanilla item has no separate display string in the bundled catalog.`;
+    ? ui(`Selected ${item.displayName} (${item.section}). The raw section id remains editable below.`, `Выбрано: ${item.displayName} (${item.section}). ID секции можно редактировать ниже.`)
+    : ui(`Selected ${item.section}. This vanilla item has no separate display string in the bundled catalog.`, `Выбрано: ${item.section}. У этого ванильного предмета нет отдельной строки в каталоге.`);
 }
 
 function buildItemOptionLabel(item: GameItemCatalogEntry): string {
@@ -171,18 +177,18 @@ function openItemPickerPanel(options: {
   const title = document.createElement('div');
   title.className = 'item-picker-title';
   title.id = 'item-picker-title';
-  title.textContent = 'Browse game items';
+  title.textContent = ui('Browse game items', 'Просмотр игровых предметов');
   titleWrap.appendChild(title);
 
   const subtitle = document.createElement('div');
   subtitle.className = 'item-picker-subtitle';
-  subtitle.textContent = 'Search by display name, raw section id, kind, or category. Pick a vanilla item, or type a custom section id inline.';
+  subtitle.textContent = ui('Search by display name, raw section id, kind, or category. Pick a vanilla item, or type a custom section id inline.', 'Ищи по названию, ID секции, типу или категории. Выбери ванильный предмет или введи свой ID.');
   titleWrap.appendChild(subtitle);
 
   const closeButton = document.createElement('button');
   closeButton.className = 'btn-icon btn-sm';
   closeButton.textContent = '\u00d7';
-  closeButton.title = 'Close item picker';
+  closeButton.title = ui('Close item picker', 'Закрыть выбор предмета');
   closeButton.onclick = () => cleanup();
 
   header.append(titleWrap, closeButton);
@@ -200,7 +206,7 @@ function openItemPickerPanel(options: {
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
   searchInput.className = 'dropdown-search item-picker-search';
-  searchInput.placeholder = 'Search item name, section id, kind, or category...';
+  searchInput.placeholder = ui('Search item name, section id, kind, or category...', 'Поиск названия, ID секции, типа или категории...');
   searchInput.autocomplete = 'off';
 
   searchWrap.append(searchIcon, searchInput);
@@ -214,7 +220,7 @@ function openItemPickerPanel(options: {
   groupControl.className = 'item-picker-filter-group';
   const groupLabel = document.createElement('span');
   groupLabel.className = 'item-picker-filter-label';
-  groupLabel.textContent = 'Category';
+  groupLabel.textContent = ui('Category', 'Категория');
   const groupSelect = document.createElement('select');
   groupSelect.className = 'item-picker-filter-select';
   groupControl.append(groupLabel, groupSelect);
@@ -223,7 +229,7 @@ function openItemPickerPanel(options: {
   subgroupControl.className = 'item-picker-filter-group';
   const subgroupLabel = document.createElement('span');
   subgroupLabel.className = 'item-picker-filter-label';
-  subgroupLabel.textContent = 'Subcategory';
+  subgroupLabel.textContent = ui('Subcategory', 'Подкатегория');
   const subgroupSelect = document.createElement('select');
   subgroupSelect.className = 'item-picker-filter-select';
   subgroupControl.append(subgroupLabel, subgroupSelect);
@@ -238,8 +244,8 @@ function openItemPickerPanel(options: {
   const selectedSummary = document.createElement('div');
   selectedSummary.className = 'item-picker-selection-summary';
   selectedSummary.textContent = options.currentValue
-    ? `Current selection: ${formatGameItemLabel(options.currentValue)}`
-    : (options.allowEmpty ? 'Current selection: none' : 'No item selected yet');
+    ? ui(`Current selection: ${formatGameItemLabel(options.currentValue)}`, `Текущий выбор: ${formatGameItemLabel(options.currentValue)}`)
+    : (options.allowEmpty ? ui('Current selection: none', 'Текущий выбор: нет') : ui('No item selected yet', 'Предмет пока не выбран'));
   panel.appendChild(selectedSummary);
 
   const actions = document.createElement('div');
@@ -248,7 +254,7 @@ function openItemPickerPanel(options: {
   if (options.allowEmpty) {
     const clearButton = document.createElement('button');
     clearButton.className = 'btn-sm';
-    clearButton.textContent = 'Clear selection';
+    clearButton.textContent = ui('Clear selection', 'Очистить выбор');
     clearButton.onclick = () => {
       options.onSelect('');
       cleanup();
@@ -269,7 +275,7 @@ function openItemPickerPanel(options: {
   const emptyState = document.createElement('div');
   emptyState.className = 'item-picker-empty';
   emptyState.hidden = true;
-  emptyState.textContent = 'No matching vanilla items. Keep typing the section id inline to target custom or modded content.';
+  emptyState.textContent = ui('No matching vanilla items. Keep typing the section id inline to target custom or modded content.', 'Нет подходящих ванильных предметов. Введи ID секции вручную для модов.');
   list.append(listContent, emptyState);
   panel.appendChild(list);
 
@@ -757,7 +763,7 @@ export function createItemPickerPanelEditor(
   if (maybeClearButton) {
     maybeClearButton.type = 'button';
     maybeClearButton.className = 'btn-sm';
-    maybeClearButton.textContent = 'Clear';
+    maybeClearButton.textContent = ui('Clear', 'Очистить');
   }
 
   const rawInput = document.createElement('input');
@@ -776,7 +782,7 @@ export function createItemPickerPanelEditor(
     selectedButton.textContent = '';
     const label = document.createElement('span');
     label.className = 'item-picker-launcher-label';
-    label.textContent = value ? formatGameItemLabel(value) : 'Browse items\u2026';
+    label.textContent = value ? formatGameItemLabel(value) : ui('Browse items...', 'Выбрать предметы...');
     const icon = document.createElement('span');
     icon.className = 'item-picker-launcher-icon';
     icon.textContent = '\u25be';
@@ -832,12 +838,12 @@ function parseItemChain(value: string, separator: string): string[] {
 
 function formatItemChainSummary(items: string[]): string {
   if (items.length === 0) {
-    return 'No stash bonus items selected yet. Use Browse/Add to pick vanilla items, or type raw section ids for modded content.';
+    return ui('No stash bonus items selected yet. Use Browse/Add to pick vanilla items, or type raw section ids for modded content.', 'Бонусные предметы тайника не выбраны. Используй выбор/добавление или введи ID секций.');
   }
 
   const labels = items.slice(0, 3).map((item) => formatGameItemLabel(item));
   const suffix = items.length > 3 ? ` +${items.length - 3} more` : '';
-  return `Stash will include ${labels.join(', ')}${suffix}.`;
+  return ui(`Stash will include ${labels.join(', ')}${suffix}.`, `Тайник будет содержать: ${labels.join(', ')}${suffix}.`);
 }
 
 export function createItemChainPickerPanelEditor(
@@ -862,7 +868,7 @@ export function createItemChainPickerPanelEditor(
   const clearButton = document.createElement('button');
   clearButton.type = 'button';
   clearButton.className = 'btn-sm';
-  clearButton.textContent = 'Clear';
+  clearButton.textContent = ui('Clear', 'Очистить');
 
   const rawInput = document.createElement('input');
   rawInput.type = 'text';
@@ -885,8 +891,8 @@ export function createItemChainPickerPanelEditor(
     const label = document.createElement('span');
     label.className = 'item-picker-launcher-label';
     label.textContent = items.length > 0
-      ? `Browse/Add items (${items.length})`
-      : 'Browse items…';
+      ? ui(`Browse/Add items (${items.length})`, `Выбрать/добавить (${items.length})`)
+      : ui('Browse items...', 'Выбрать предметы...');
     const icon = document.createElement('span');
     icon.className = 'item-picker-launcher-icon';
     icon.textContent = '\u25be';

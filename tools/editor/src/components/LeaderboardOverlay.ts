@@ -12,6 +12,8 @@ import { openPublicProfile } from './ProfileBadge';
 import { createIcon } from './icons';
 import { renderAvatar, getBannerBackground } from './AvatarRenderer';
 import { getAvatarBannerPreset, getAvatarEffectPreset } from '../lib/avatar-catalog';
+import { store } from '../lib/state';
+import { createUiText } from '../lib/ui-language';
 
 function getLeaderboardAccent(level: number): string {
   if (level >= 91) return 'var(--warning, #c4a040)';
@@ -54,6 +56,10 @@ type OverlayRefs = {
 
 let activeOverlay: OverlayRefs | null = null;
 
+function ui(en: string, ru: string): string {
+  return createUiText(store.get().uiLanguage)(en, ru);
+}
+
 function closeOverlay() {
   if (!activeOverlay) return;
   const { backdrop, trigger } = activeOverlay;
@@ -73,7 +79,7 @@ function handleKeydown(event: KeyboardEvent) {
 }
 
 function formatTitle(entry: LeaderboardEntry): string {
-  return getLevelTitle(entry.level) || entry.title || `Level ${entry.level} operative`;
+  return getLevelTitle(entry.level) || entry.title || ui(`Level ${entry.level} operative`, `Оперативник уровня ${entry.level}`);
 }
 
 function getRankTier(rank: number): string {
@@ -273,7 +279,10 @@ function buildRow(ranked: RankedEntry, viewerId: string, staggerIndex: number): 
 function buildEmpty(): HTMLElement {
   const empty = document.createElement('div');
   empty.className = 'panda-leaderboard-empty';
-  empty.textContent = 'The leaderboard is quiet right now. Publish something and climb the ranks.';
+  empty.textContent = ui(
+    'The leaderboard is quiet right now. Publish something and climb the ranks.',
+    'Таблица лидеров сейчас тихая. Опубликуй что-нибудь и поднимайся в рейтинге.',
+  );
   return empty;
 }
 
@@ -425,7 +434,7 @@ function renderPodium(refs: OverlayRefs): void {
 
     const name = document.createElement('span');
     name.className = 'panda-leaderboard-podium-name';
-    name.textContent = entry.username || 'Unknown Stalker';
+    name.textContent = entry.username || ui('Unknown Stalker', 'Неизвестный сталкер');
 
     const badges = document.createElement('span');
     badges.className = 'panda-leaderboard-badges panda-leaderboard-podium-badges';
@@ -437,7 +446,10 @@ function renderPodium(refs: OverlayRefs): void {
 
     const level = document.createElement('span');
     level.className = 'panda-leaderboard-podium-level';
-    level.textContent = `Lv ${entry.level} · ${getLevelTitle(entry.level) || entry.title || 'Stalker'}`;
+    level.textContent = ui(
+      `Lv ${entry.level} · ${getLevelTitle(entry.level) || entry.title || 'Stalker'}`,
+      `Ур ${entry.level} · ${getLevelTitle(entry.level) || entry.title || 'Сталкер'}`,
+    );
 
     card.append(medal, podiumAvatar, name, level, badges, xp);
     refs.podium.appendChild(card);
@@ -449,7 +461,7 @@ function updateLeaderboardView(refs: OverlayRefs): void {
   refs.list.textContent = '';
 
   if (refs.entries.length === 0) {
-    refs.count.textContent = '0 shown';
+    refs.count.textContent = ui('0 shown', '0 показано');
     refs.status.textContent = '';
     refs.jumpSelf.disabled = true;
     refs.podium.textContent = '';
@@ -470,21 +482,27 @@ function updateLeaderboardView(refs: OverlayRefs): void {
     : rows;
 
   refs.count.textContent = refs.scope === 'all'
-    ? `${rows.length}/${refs.entries.length} shown`
-    : `${rows.length} shown`;
+    ? ui(`${rows.length}/${refs.entries.length} shown`, `${rows.length}/${refs.entries.length} показано`)
+    : ui(`${rows.length} shown`, `${rows.length} показано`);
 
   const viewer = refs.entries.find(row => row.entry.publisher_id === refs.viewerId);
   refs.jumpSelf.disabled = !viewer;
   refs.status.textContent = viewer
-    ? `Your rank: #${viewer.rank} with ${viewer.entry.xp.toLocaleString()} XP`
-    : `${refs.entries.length} ranked stalkers loaded`;
+    ? ui(
+      `Your rank: #${viewer.rank} with ${viewer.entry.xp.toLocaleString()} XP`,
+      `Твой ранг: #${viewer.rank} с ${viewer.entry.xp.toLocaleString()} XP`,
+    )
+    : ui(
+      `${refs.entries.length} ranked stalkers loaded`,
+      `Загружено сталкеров в рейтинге: ${refs.entries.length}`,
+    );
 
   if (listRows.length === 0) {
     // Avoid a confusing empty-state when only the podium is present.
     if (!podiumShowing) {
       const empty = document.createElement('div');
       empty.className = 'panda-leaderboard-empty';
-      empty.textContent = 'No stalkers match current filters.';
+      empty.textContent = ui('No stalkers match current filters.', 'Нет сталкеров под текущие фильтры.');
       refs.list.appendChild(empty);
     }
     return;
@@ -510,13 +528,13 @@ async function populateList(container: HTMLDivElement) {
 
   activeRefs.refresh.disabled = true;
   activeRefs.podium.textContent = '';
-  activeRefs.count.textContent = 'Loading';
-  activeRefs.status.textContent = 'Loading all ranks...';
+  activeRefs.count.textContent = ui('Loading', 'Загрузка');
+  activeRefs.status.textContent = ui('Loading all ranks...', 'Загрузка всех рангов...');
   container.textContent = '';
 
   const loading = document.createElement('div');
   loading.className = 'panda-leaderboard-skeleton';
-  loading.textContent = 'Loading stalker ranks...';
+  loading.textContent = ui('Loading stalker ranks...', 'Загрузка рейтинга сталкеров...');
   container.appendChild(loading);
 
   let loadedEntries: LeaderboardEntry[] = [];
@@ -544,7 +562,7 @@ export function openLeaderboardOverlay(trigger?: HTMLButtonElement | null): void
   backdrop.className = 'panda-leaderboard-backdrop';
   backdrop.setAttribute('role', 'dialog');
   backdrop.setAttribute('aria-modal', 'true');
-  backdrop.setAttribute('aria-label', 'Leaderboard');
+  backdrop.setAttribute('aria-label', ui('Leaderboard', 'Таблица лидеров'));
   backdrop.addEventListener('click', (event) => {
     if (event.target === backdrop) closeOverlay();
   });
@@ -557,16 +575,16 @@ export function openLeaderboardOverlay(trigger?: HTMLButtonElement | null): void
 
   const title = document.createElement('h2');
   title.className = 'panda-leaderboard-title-heading';
-  title.textContent = 'Leaderboard';
+  title.textContent = ui('Leaderboard', 'Таблица лидеров');
 
   const subtitle = document.createElement('p');
   subtitle.className = 'panda-leaderboard-subtitle';
-  subtitle.textContent = 'Top stalkers by total XP';
+  subtitle.textContent = ui('Top stalkers by total XP', 'Топ сталкеров по общему XP');
 
   const close = document.createElement('button');
   close.type = 'button';
   close.className = 'panda-leaderboard-close';
-  close.setAttribute('aria-label', 'Close leaderboard');
+  close.setAttribute('aria-label', ui('Close leaderboard', 'Закрыть таблицу лидеров'));
   close.textContent = '\u2715';
   close.addEventListener('click', closeOverlay);
 
@@ -586,15 +604,15 @@ export function openLeaderboardOverlay(trigger?: HTMLButtonElement | null): void
   const search = document.createElement('input');
   search.className = 'panda-leaderboard-search';
   search.type = 'search';
-  search.placeholder = 'Search name, title, level';
-  search.setAttribute('aria-label', 'Search leaderboard');
+  search.placeholder = ui('Search name, title, level', 'Поиск: имя, титул, уровень');
+  search.setAttribute('aria-label', ui('Search leaderboard', 'Поиск по таблице лидеров'));
 
   const scopeGroup = document.createElement('div');
   scopeGroup.className = 'panda-leaderboard-scope';
   const scopeButtons: HTMLButtonElement[] = [
-    ['top10', 'Top 10'],
-    ['all', 'All'],
-    ['nearMe', 'Near me'],
+    ['top10', ui('Top 10', 'Топ 10')],
+    ['all', ui('All', 'Все')],
+    ['nearMe', ui('Near me', 'Рядом со мной')],
   ].map(([scope, label]) => {
     const button = document.createElement('button');
     button.type = 'button';
@@ -607,11 +625,11 @@ export function openLeaderboardOverlay(trigger?: HTMLButtonElement | null): void
 
   const sort = document.createElement('select');
   sort.className = 'panda-leaderboard-sort';
-  sort.setAttribute('aria-label', 'Sort leaderboard');
+  sort.setAttribute('aria-label', ui('Sort leaderboard', 'Сортировать таблицу лидеров'));
   [
-    ['xp', 'XP rank'],
-    ['level', 'Level'],
-    ['name', 'Name'],
+    ['xp', ui('XP rank', 'Ранг по XP')],
+    ['level', ui('Level', 'Уровень')],
+    ['name', ui('Name', 'Имя')],
   ].forEach(([value, label]) => {
     const option = document.createElement('option');
     option.value = value;
@@ -622,12 +640,12 @@ export function openLeaderboardOverlay(trigger?: HTMLButtonElement | null): void
   const refresh = document.createElement('button');
   refresh.type = 'button';
   refresh.className = 'panda-leaderboard-action';
-  refresh.append(createIcon('restart'), document.createTextNode('Refresh'));
+  refresh.append(createIcon('restart'), document.createTextNode(ui('Refresh', 'Обновить')));
 
   const jumpSelf = document.createElement('button');
   jumpSelf.type = 'button';
   jumpSelf.className = 'panda-leaderboard-action';
-  jumpSelf.append(createIcon('locate'), document.createTextNode('Find me'));
+  jumpSelf.append(createIcon('locate'), document.createTextNode(ui('Find me', 'Найти меня')));
   jumpSelf.disabled = true;
 
   controls.append(search, scopeGroup, sort, refresh, jumpSelf);
@@ -637,11 +655,11 @@ export function openLeaderboardOverlay(trigger?: HTMLButtonElement | null): void
 
   const count = document.createElement('span');
   count.className = 'panda-leaderboard-count';
-  count.textContent = 'Loading';
+  count.textContent = ui('Loading', 'Загрузка');
 
   const status = document.createElement('div');
   status.className = 'panda-leaderboard-status';
-  status.textContent = 'Loading ranks...';
+  status.textContent = ui('Loading ranks...', 'Загрузка рангов...');
 
   stats.append(count, status);
 
@@ -685,7 +703,7 @@ export function openLeaderboardOverlay(trigger?: HTMLButtonElement | null): void
   sort.addEventListener('change', () => updateLeaderboardView(refs));
   refresh.addEventListener('click', () => {
     refresh.disabled = true;
-    status.textContent = 'Refreshing ranks...';
+    status.textContent = ui('Refreshing ranks...', 'Обновление рангов...');
     void populateList(list);
   });
   jumpSelf.addEventListener('click', () => {

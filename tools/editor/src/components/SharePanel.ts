@@ -22,6 +22,7 @@ import {
 import { COMMUNITY_CONVERSATIONS } from '../lib/community-data';
 import { FACTION_IDS } from '../lib/constants';
 import { FACTION_DISPLAY_NAMES, FACTION_XML_KEYS, getConversationFaction, type Conversation, type FactionId } from '../lib/types';
+import { createUiText, languageFlag, languageLabel, otherLanguage, type UiLanguage } from '../lib/ui-language';
 import { FACTION_COLORS } from '../lib/faction-colors';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon, setButtonContent } from './icons';
@@ -69,11 +70,20 @@ type NormalizedConversation = CommunityConversation & {
   upvotes: number;
   updated_at: string;
   source: LibrarySource;
+  language: UiLanguage;
 };
 type CommunitySourceMetadata = {
   id: string;
   publisher_id?: string;
   co_authors?: string[];
+  sourceLanguage?: UiLanguage;
+  targetLanguage?: UiLanguage;
+  isTranslationDraft?: boolean;
+};
+type TranslationSourceMetadata = {
+  sourceLanguage?: UiLanguage;
+  targetLanguage?: UiLanguage;
+  isTranslationDraft?: boolean;
 };
 type ConversationWithSource = Conversation & {
   community_source?: CommunitySourceMetadata;
@@ -137,6 +147,9 @@ function getCommunitySourceMetadata(conversation: Conversation | null | undefine
     id: maybe.id.trim(),
     publisher_id: typeof maybe.publisher_id === 'string' ? maybe.publisher_id.trim() : undefined,
     co_authors: Array.isArray(maybe.co_authors) ? maybe.co_authors.filter((id): id is string => typeof id === 'string' && id.trim().length > 0) : undefined,
+    sourceLanguage: maybe.sourceLanguage === 'ru' ? 'ru' : maybe.sourceLanguage === 'en' ? 'en' : undefined,
+    targetLanguage: maybe.targetLanguage === 'ru' ? 'ru' : maybe.targetLanguage === 'en' ? 'en' : undefined,
+    isTranslationDraft: maybe.isTranslationDraft === true ? true : undefined,
   };
 }
 
@@ -144,6 +157,43 @@ function getReplacementPublisherId(sourcePublisherId?: string, sourceCoAuthors: 
   const currentIds = getCurrentPublisherIds();
   if (sourcePublisherId && currentIds.includes(sourcePublisherId)) return sourcePublisherId;
   return currentIds.find((id) => sourceCoAuthors.includes(id));
+}
+
+function getUiLanguage(): UiLanguage {
+  return store.get().uiLanguage;
+}
+
+function getUiText() {
+  return createUiText(getUiLanguage());
+}
+
+function getStoryLanguage(conv: CommunityConversation): UiLanguage {
+  return conv.data?.language === 'ru' ? 'ru' : 'en';
+}
+
+function getStoryRootId(conv: CommunityConversation): string {
+  const root = conv.data?.translation?.source_id;
+  return typeof root === 'string' && root.trim().length > 0 ? root.trim() : conv.id;
+}
+
+function isTranslationEntry(conv: CommunityConversation): boolean {
+  return typeof conv.data?.translation?.source_id === 'string' && conv.data.translation.source_id.trim().length > 0;
+}
+
+function getTranslationSourceLanguage(conv: CommunityConversation): UiLanguage | null {
+  const source = conv.data?.translation?.source_language;
+  return source === 'ru' ? 'ru' : source === 'en' ? 'en' : null;
+}
+
+function hasTranslationForLanguage(sourceId: string, language: UiLanguage): boolean {
+  return allResults.some((entry) =>
+    entry.data?.translation?.source_id === sourceId
+    && entry.data.translation.target_language === language,
+  );
+}
+
+function isTranslationDraftMetadata(metadata: TranslationSourceMetadata | null | undefined): metadata is TranslationSourceMetadata & { isTranslationDraft: true } {
+  return Boolean(metadata?.isTranslationDraft);
 }
 
 
@@ -409,6 +459,7 @@ function normalizeConversation(entry: CommunityConversation, source: LibrarySour
     upvotes: entry.upvotes ?? 0,
     updated_at: entry.updated_at ?? entry.created_at,
     source,
+    language: entry.data?.language === 'ru' ? 'ru' : 'en',
   };
 }
 
@@ -453,17 +504,37 @@ function normalizeKey(value: string): string {
 function mergeConversationLists(bundled: NormalizedConversation[], remote: NormalizedConversation[]): NormalizedConversation[] {
   const merged = new Map<string, NormalizedConversation>();
   for (const entry of bundled) {
-    merged.set(`${entry.faction}::${normalizeKey(entry.label)}`, entry);
+    merged.set(getConversationMergeKey(entry), entry);
   }
   for (const entry of remote) {
-    merged.set(`${entry.faction}::${normalizeKey(entry.label)}`, entry);
+    merged.set(getConversationMergeKey(entry), entry);
   }
   return Array.from(merged.values());
 }
 
+function getConversationMergeKey(entry: NormalizedConversation): string {
+  const translation = entry.data?.translation;
+  if (translation?.source_id && translation.target_language) {
+    return `translation:${translation.source_id}:${translation.target_language}`;
+  }
+  const language = entry.language ?? 'en';
+  return `story:${entry.faction}:${normalizeKey(entry.label)}:${language}`;
+}
+
+function getPrimaryConversationResults(): NormalizedConversation[] {
+  const sourceIds = new Set(allResults.filter((entry) => !isTranslationEntry(entry)).map((entry) => entry.id));
+  return allResults.filter((entry) => {
+    if (!isTranslationEntry(entry)) return true;
+    const sourceId = entry.data?.translation?.source_id;
+    if (!sourceId) return true;
+    // Hide translation rows when source exists; still keep them in allResults for detection/flags.
+    return !sourceIds.has(sourceId);
+  });
+}
+
 function getFilteredResults(): NormalizedConversation[] {
   const q = searchQuery.trim().toLowerCase();
-  const filtered = allResults.filter(conv => {
+  const filtered = getPrimaryConversationResults().filter(conv => {
     const section = conv.library_section ?? 'community';
     if (libraryView === 'curated' && section !== 'curated') return false;
     if (libraryView === 'demo' && section !== 'demo') return false;
@@ -489,6 +560,48 @@ function getFilteredResults(): NormalizedConversation[] {
   });
 
   return filtered;
+}
+
+function getStoryAvailableLanguages(rootId: string): Set<UiLanguage> {
+  const out = new Set<UiLanguage>();
+  for (const entry of allResults) {
+    if (getStoryRootId(entry) !== rootId) continue;
+    out.add(getStoryLanguage(entry));
+  }
+  return out;
+}
+
+function getStoryLanguageFlags(rootId: string): string {
+  const availableLanguages = getStoryAvailableLanguages(rootId);
+  const flags: string[] = [];
+  if (availableLanguages.has('en')) flags.push(languageFlag('en'));
+  if (availableLanguages.has('ru')) flags.push(languageFlag('ru'));
+  return flags.join(' ');
+}
+
+function getStoryRootLanguage(rootId: string): UiLanguage {
+  const root = allResults.find((entry) => entry.id === rootId);
+  if (root) return getStoryLanguage(root);
+  const anyTranslation = allResults.find((entry) => getStoryRootId(entry) === rootId && isTranslationEntry(entry));
+  return (anyTranslation ? (getTranslationSourceLanguage(anyTranslation) ?? null) : null) ?? 'en';
+}
+
+function pickBestStoryVariant(variants: NormalizedConversation[], language: UiLanguage): NormalizedConversation | null {
+  const candidates = variants.filter((entry) => getStoryLanguage(entry) === language);
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+  return candidates[0] ?? null;
+}
+
+function getTranslationSourceEntry(rootId: string): NormalizedConversation | null {
+  return allResults.find((entry) => entry.id === rootId)
+    ?? allResults.find((entry) => getStoryRootId(entry) === rootId && !isTranslationEntry(entry))
+    ?? allResults.find((entry) => getStoryRootId(entry) === rootId)
+    ?? null;
+}
+
+function getStoryVariants(rootId: string): NormalizedConversation[] {
+  return allResults.filter((entry) => getStoryRootId(entry) === rootId);
 }
 
 function ensurePreviewSelection(): void {
@@ -522,6 +635,7 @@ type PublishPreviewStats = {
   basePublishXp: number;
   qualityScore: ReturnType<typeof calculateQualityScore>;
   qualityMultiplier: number;
+  translationMultiplier: number;
   publishXp: number;
 };
 
@@ -538,7 +652,9 @@ function getPublishPreviewStats(conversation: Conversation): PublishPreviewStats
   const basePublishXp = getPublishXp(complexity);
   const qualityScore = calculateQualityScore(conversation);
   const qualityMultiplier = getQualityMultiplier(qualityScore.totalStars);
-  const publishXp = Math.round(basePublishXp * qualityMultiplier) + dialogueChoiceXp;
+  const sourceMetadata = store.getSelectedConversationSourceMetadata() ?? getCommunitySourceMetadata(conversation);
+  const translationMultiplier = isTranslationDraftMetadata(sourceMetadata) ? 0.5 : 1;
+  const publishXp = Math.round((basePublishXp * qualityMultiplier + dialogueChoiceXp) * translationMultiplier);
 
   return {
     branchCount,
@@ -548,6 +664,7 @@ function getPublishPreviewStats(conversation: Conversation): PublishPreviewStats
     basePublishXp,
     qualityScore,
     qualityMultiplier,
+    translationMultiplier,
     publishXp,
   };
 }
@@ -924,6 +1041,15 @@ function buildErrorState(msg: string): HTMLElement {
 }
 
 function buildCard(conv: NormalizedConversation): HTMLElement {
+  const ui = getUiText();
+  const currentLanguage = getUiLanguage();
+  const rootId = getStoryRootId(conv);
+  const root = allResults.find(entry => entry.id === rootId) ?? conv;
+  const sourceLanguage = getStoryRootLanguage(rootId);
+  const translationTarget = otherLanguage(sourceLanguage);
+  const translationExistsForUi = hasTranslationForLanguage(rootId, currentLanguage);
+  const translationExistsForTarget = hasTranslationForLanguage(rootId, translationTarget);
+  const needsTranslation = !translationExistsForTarget;
   const isOwner = userOwnsConversation(conv);
   const card = document.createElement('div');
   card.className = `share-card${selectedPreviewId === conv.id ? ' is-selected' : ''}`;
@@ -952,12 +1078,17 @@ function buildCard(conv: NormalizedConversation): HTMLElement {
   title.textContent = conv.label || 'Untitled';
   title.title = conv.label || 'Untitled';
 
-  cardHeader.append(dot, badge, title);
+  const frameFlags = document.createElement('span');
+  frameFlags.className = 'share-card-language-flags';
+  frameFlags.textContent = getStoryLanguageFlags(rootId);
+  frameFlags.title = frameFlags.textContent ? ui('Available languages', 'Доступные языки') : '';
+
+  cardHeader.append(dot, badge, title, frameFlags);
   card.appendChild(cardHeader);
 
   const meta = document.createElement('div');
   meta.className = 'share-card-meta';
-  meta.textContent = `${conv.author || 'Anonymous'} · ${formatRelativeDate(conv.updated_at)} · ${conv.branch_count} branches`;
+  meta.textContent = `${conv.author || ui('Anonymous', 'Аноним')} · ${formatRelativeDate(conv.updated_at)} · ${conv.branch_count} ${ui('branches', 'веток')}`;
   card.appendChild(meta);
 
   const stats = document.createElement('div');
@@ -973,6 +1104,17 @@ function buildCard(conv: NormalizedConversation): HTMLElement {
   }
   if (conv.library_section === 'curated') stats.appendChild(buildChip('Curated'));
   if (conv.library_section === 'demo') stats.appendChild(buildChip('Demo'));
+  if (translationExistsForUi && currentLanguage !== sourceLanguage) {
+    stats.appendChild(buildChip(`${languageFlag(currentLanguage)} ${ui('Translation', 'Перевод')}`));
+  } else if (sourceLanguage !== currentLanguage) {
+    stats.appendChild(buildChip(`${languageFlag(sourceLanguage)} ${ui('Source', 'Источник')}`));
+  }
+  const storyFlags = getStoryLanguageFlags(rootId);
+  if (storyFlags) {
+    const flagBadge = buildChip(storyFlags);
+    flagBadge.title = ui('Available languages', 'Доступные языки');
+    stats.appendChild(flagBadge);
+  }
   card.appendChild(stats);
 
   if (conv.tags.length > 0) {
@@ -995,7 +1137,7 @@ function buildCard(conv: NormalizedConversation): HTMLElement {
   const previewBtn = document.createElement('button');
   previewBtn.type = 'button';
   previewBtn.className = 'toolbar-button btn-sm';
-  previewBtn.textContent = 'Preview';
+  previewBtn.textContent = ui('Preview', 'Просмотр');
   previewBtn.onclick = (event) => {
     event.stopPropagation();
     selectedPreviewId = conv.id;
@@ -1006,7 +1148,9 @@ function buildCard(conv: NormalizedConversation): HTMLElement {
   const upvoteBtn = document.createElement('button');
   upvoteBtn.type = 'button';
   upvoteBtn.className = 'toolbar-button btn-sm';
-  upvoteBtn.textContent = hasUpvoted(conv.id) ? `Upvoted ↑ ${conv.upvotes}` : `Upvote ↑ ${conv.upvotes}`;
+  upvoteBtn.textContent = hasUpvoted(conv.id)
+    ? `${ui('Upvoted', 'Уже лайкнуто')} ↑ ${conv.upvotes}`
+    : `${ui('Upvote', 'Лайк')} ↑ ${conv.upvotes}`;
   upvoteBtn.disabled = hasUpvoted(conv.id);
   upvoteBtn.onclick = async (event) => {
     event.stopPropagation();
@@ -1014,23 +1158,36 @@ function buildCard(conv: NormalizedConversation): HTMLElement {
   };
   actions.appendChild(upvoteBtn);
 
-  const importBtn = document.createElement('button');
-  importBtn.type = 'button';
-  importBtn.className = 'toolbar-button btn-sm';
-  setButtonContent(importBtn, 'download', 'Import');
-  importBtn.title = 'Add this story to your current project';
-  importBtn.onclick = async (event) => {
-    event.stopPropagation();
-    await handleImportCard(conv, importBtn);
-  };
-  actions.appendChild(importBtn);
+  const variants = getStoryVariants(rootId);
+  const importLanguages = Array.from(getStoryAvailableLanguages(rootId)).sort((a, b) => a === 'en' ? -1 : b === 'en' ? 1 : a.localeCompare(b));
+  if (importLanguages.length > 1) {
+    for (const language of importLanguages) {
+      actions.appendChild(createLanguageImportButton(conv, language, variants, 'card'));
+    }
+  } else {
+    actions.appendChild(createLanguageImportButton(conv, importLanguages[0] ?? getStoryLanguage(conv), variants, 'card', ui('Import', 'Импорт')));
+  }
+
+  if (needsTranslation) {
+    const translateBtn = document.createElement('button');
+    translateBtn.type = 'button';
+    translateBtn.className = 'toolbar-button btn-sm';
+    setButtonContent(translateBtn, 'download', ui('Translate', 'Перевести'));
+    translateBtn.title = ui(
+      `Import story as a translation draft (${languageLabel(sourceLanguage)} → ${languageLabel(translationTarget)})`,
+      `Импортировать историю как черновик перевода (${languageLabel(sourceLanguage)} → ${languageLabel(translationTarget)})`,
+    );
+    translateBtn.onclick = async (event) => {
+      event.stopPropagation();
+      await handleTranslateImport(conv, translateBtn, translationTarget);
+    };
+    actions.appendChild(translateBtn);
+  }
 
   if (isOwner) {
     const editBtn = document.createElement('button');
     editBtn.type = 'button';
     editBtn.className = 'toolbar-button btn-sm';
-    setButtonContent(editBtn, 'duplicate', 'Edit');
-    editBtn.title = 'Import and edit your published conversation';
     editBtn.onclick = async (event) => {
       event.stopPropagation();
       await handleEditImport(conv, editBtn);
@@ -1069,6 +1226,8 @@ function buildListRow(conv: NormalizedConversation): HTMLElement {
     renderContent();
   };
 
+  const rootId = getStoryRootId(conv);
+
   const dot = document.createElement('span');
   dot.className = 'share-faction-dot';
   dot.style.backgroundColor = FACTION_COLORS[conv.faction] ?? 'var(--text-dim)';
@@ -1078,24 +1237,31 @@ function buildListRow(conv: NormalizedConversation): HTMLElement {
   title.textContent = conv.label || 'Untitled';
   title.title = conv.label || 'Untitled';
 
+  const flags = document.createElement('span');
+  flags.className = 'share-list-row-flags';
+  const flagText = getStoryLanguageFlags(rootId);
+  flags.textContent = flagText;
+  flags.title = flagText ? `${languageLabel('en')} / ${languageLabel('ru')}` : '';
+
   const meta = document.createElement('span');
   meta.className = 'share-list-row-meta';
   const coAuthorUsernames = conv.co_author_usernames ?? [];
   const coAuthorMeta = coAuthorUsernames.length > 0 ? ` · +${coAuthorUsernames.length} co-author${coAuthorUsernames.length === 1 ? '' : 's'}` : '';
   meta.textContent = `${conv.author || 'Anonymous'}${coAuthorMeta} · ${conv.branch_count} branches · ↑${conv.upvotes} · ↓${conv.downloads}`;
 
-  row.append(dot, title, meta);
+  row.append(dot, title, flags, meta);
   return row;
 }
 
 function buildPreviewDrawer(conv: NormalizedConversation | null): HTMLElement {
   const drawer = document.createElement('aside');
   drawer.className = 'share-preview-drawer';
+  const currentLanguage = getUiLanguage();
 
   if (!conv) {
     const empty = document.createElement('div');
     empty.className = 'share-state-message';
-    empty.textContent = 'Select a story to preview its summary before importing.';
+    empty.textContent = getUiText()('Select a story to preview its summary before importing.', 'Выбери историю, чтобы посмотреть её краткое описание перед импортом.');
     drawer.appendChild(empty);
     return drawer;
   }
@@ -1109,14 +1275,20 @@ function buildPreviewDrawer(conv: NormalizedConversation | null): HTMLElement {
 
   const subtitle = document.createElement('div');
   subtitle.className = 'share-preview-subtitle';
-  subtitle.textContent = `${FACTION_DISPLAY_NAMES[conv.faction]} · ${conv.author || 'Anonymous'} · Updated ${formatRelativeDate(conv.updated_at)}`;
+  const rootId = getStoryRootId(conv);
+  const root = allResults.find(entry => entry.id === rootId) ?? conv;
+  const sourceLanguage = getStoryRootLanguage(rootId);
+  const translationTarget = otherLanguage(sourceLanguage);
+  const translationExistsForUi = hasTranslationForLanguage(rootId, currentLanguage);
+  const needsTranslation = !hasTranslationForLanguage(rootId, translationTarget);
+  subtitle.textContent = `${FACTION_DISPLAY_NAMES[conv.faction]} · ${conv.author || getUiText()('Anonymous', 'Аноним')} · ${getUiText()('Updated', 'Обновлено')} ${formatRelativeDate(conv.updated_at)}`;
 
   header.append(title, subtitle);
   const coAuthorUsernames = conv.co_author_usernames ?? [];
   if (coAuthorUsernames.length > 0) {
     const coAuthors = document.createElement('div');
     coAuthors.className = 'share-preview-coauthors';
-    coAuthors.textContent = `Co-authors: ${coAuthorUsernames.join(', ')}`;
+    coAuthors.textContent = `${getUiText()('Co-authors', 'Соавторы')}: ${coAuthorUsernames.join(', ')}`;
     header.appendChild(coAuthors);
   }
   drawer.appendChild(header);
@@ -1129,12 +1301,12 @@ function buildPreviewDrawer(conv: NormalizedConversation | null): HTMLElement {
   const facts = document.createElement('div');
   facts.className = 'share-preview-facts';
   facts.append(
-    buildFact('Branches', String(conv.branch_count)),
-    buildFact('Complexity', labelForComplexity(conv.complexity)),
-    buildFact('Upvotes', String(conv.upvotes)),
-    buildFact('Downloads', String(conv.downloads)),
-    buildFact('Published', formatExactDate(conv.created_at)),
-    buildFact('Source', conv.source === 'bundled' ? 'Bundled fallback' : 'Supabase community'),
+    buildFact(getUiText()('Branches', 'Ветки'), String(conv.branch_count)),
+    buildFact(getUiText()('Complexity', 'Сложность'), labelForComplexity(conv.complexity)),
+    buildFact(getUiText()('Upvotes', 'Лайки'), String(conv.upvotes)),
+    buildFact(getUiText()('Downloads', 'Загрузки'), String(conv.downloads)),
+    buildFact(getUiText()('Published', 'Опубликовано'), formatExactDate(conv.created_at)),
+    buildFact(getUiText()('Source', 'Источник'), conv.source === 'bundled' ? getUiText()('Bundled fallback', 'Встроенный запасной вариант') : getUiText()('Supabase community', 'Сообщество Supabase')),
   );
   drawer.appendChild(facts);
 
@@ -1143,6 +1315,12 @@ function buildPreviewDrawer(conv: NormalizedConversation | null): HTMLElement {
     tagWrap.className = 'share-tag-list';
     conv.tags.forEach(tag => tagWrap.appendChild(buildChip(`#${tag}`)));
     drawer.appendChild(tagWrap);
+  }
+
+  if (translationExistsForUi && currentLanguage !== sourceLanguage) {
+    drawer.appendChild(buildChip(`${languageFlag(currentLanguage)} ${languageLabel(currentLanguage)}`));
+  } else if (needsTranslation) {
+    drawer.appendChild(buildChip(`${languageFlag(sourceLanguage)} ${languageLabel(sourceLanguage)} → ${languageFlag(translationTarget)} ${languageLabel(translationTarget)}`));
   }
 
   if (conv.description) {
@@ -1159,23 +1337,38 @@ function buildPreviewDrawer(conv: NormalizedConversation | null): HTMLElement {
   const upvoteBtn = document.createElement('button');
   upvoteBtn.type = 'button';
   upvoteBtn.className = 'toolbar-button';
-  upvoteBtn.textContent = hasUpvoted(conv.id) ? `Upvoted ↑ ${conv.upvotes}` : `Upvote ↑ ${conv.upvotes}`;
+  upvoteBtn.textContent = hasUpvoted(conv.id)
+    ? `${getUiText()('Upvoted', 'Уже лайкнуто')} ↑ ${conv.upvotes}`
+    : `${getUiText()('Upvote', 'Лайк')} ↑ ${conv.upvotes}`;
   upvoteBtn.disabled = hasUpvoted(conv.id);
   upvoteBtn.onclick = async () => handleUpvote(conv, upvoteBtn);
 
-  const importBtn = document.createElement('button');
-  importBtn.type = 'button';
-  importBtn.className = 'toolbar-button btn-primary';
-  setButtonContent(importBtn, 'download', 'Import Story');
-  importBtn.onclick = async () => handleImportCard(conv, importBtn);
+  const variants = getStoryVariants(rootId);
+  const importLanguages = Array.from(getStoryAvailableLanguages(rootId)).sort((a, b) => a === 'en' ? -1 : b === 'en' ? 1 : a.localeCompare(b));
+  actionRow.append(upvoteBtn);
+  if (importLanguages.length > 1) {
+    for (const language of importLanguages) {
+      actionRow.appendChild(createLanguageImportButton(conv, language, variants, 'preview'));
+    }
+  } else {
+    actionRow.appendChild(createLanguageImportButton(conv, importLanguages[0] ?? getStoryLanguage(conv), variants, 'preview', getUiText()('Import', 'Импорт')));
+  }
 
-  actionRow.append(upvoteBtn, importBtn);
+  if (needsTranslation) {
+    const translateBtn = document.createElement('button');
+    translateBtn.type = 'button';
+    translateBtn.className = 'toolbar-button btn-primary';
+    setButtonContent(translateBtn, 'download', getUiText()('Translate', 'Перевести'));
+    translateBtn.title = getUiText()('Import story as a translation draft', 'Импортировать историю как черновик перевода');
+    translateBtn.onclick = async () => handleTranslateImport(conv, translateBtn, translationTarget);
+    actionRow.appendChild(translateBtn);
+  }
   if (isOwner) {
     const editBtn = document.createElement('button');
     editBtn.type = 'button';
     editBtn.className = 'toolbar-button btn-primary';
-    setButtonContent(editBtn, 'duplicate', 'Edit');
-    editBtn.title = 'Import and edit your published conversation';
+    setButtonContent(editBtn, 'duplicate', getUiText()('Edit', 'Редактировать'));
+    editBtn.title = getUiText()('Import and edit your published conversation', 'Импортировать и редактировать опубликованную историю');
     editBtn.onclick = async () => handleEditImport(conv, editBtn);
     actionRow.appendChild(editBtn);
   }
@@ -1183,11 +1376,11 @@ function buildPreviewDrawer(conv: NormalizedConversation | null): HTMLElement {
 
   const outline = document.createElement('div');
   outline.className = 'share-preview-outline';
-  outline.appendChild(buildOutlineHeading('Turn Outline'));
+  outline.appendChild(buildOutlineHeading(getUiText()('Turn Outline', 'План ходов')));
   (conv.data?.conversations?.[0]?.turns ?? []).forEach(turn => {
     const row = document.createElement('div');
     row.className = 'share-preview-outline-row';
-    row.textContent = `Turn ${turn.turnNumber}: ${turn.openingMessage?.trim() || turn.customLabel || `${turn.choices.length} choices`}`;
+    row.textContent = `${getUiText()('Turn', 'Ход')} ${turn.turnNumber}: ${turn.openingMessage?.trim() || turn.customLabel || `${turn.choices.length} ${getUiText()('choices', 'вариантов')}`}`;
     outline.appendChild(row);
   });
   drawer.appendChild(outline);
@@ -1220,6 +1413,31 @@ function buildChip(text: string): HTMLElement {
   return chip;
 }
 
+function createLanguageImportButton(
+  conv: CommunityConversation,
+  language: UiLanguage,
+  variants: NormalizedConversation[],
+  mode: 'card' | 'preview',
+  fallbackLabel?: string,
+): HTMLButtonElement {
+  const ui = getUiText();
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = mode === 'card' ? 'toolbar-button btn-sm' : 'toolbar-button btn-primary';
+  const variant = pickBestStoryVariant(variants, language);
+  const label = fallbackLabel ?? `${ui('Import', 'Импорт')} ${languageFlag(language)}`;
+  setButtonContent(button, 'download', label);
+  button.title = variant
+    ? ui(`Import ${languageLabel(language)} version`, `Импортировать версию: ${languageLabel(language)}`)
+    : ui(`No ${languageLabel(language)} version available`, `Нет версии: ${languageLabel(language)}`);
+  button.disabled = !variant;
+  button.onclick = async (event) => {
+    event.stopPropagation();
+    await handleImportCard(conv, button, { preferredLanguage: language });
+  };
+  return button;
+}
+
 function labelForComplexity(value: ConversationComplexity): string {
   if (value === 'short') return 'Short';
   if (value === 'medium') return 'Medium';
@@ -1242,23 +1460,64 @@ function formatExactDate(value: string): string {
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-async function handleImportCard(conv: CommunityConversation, btn: HTMLButtonElement): Promise<void> {
+async function handleImportCard(
+  conv: CommunityConversation,
+  btn: HTMLButtonElement,
+  options: { translationDraft?: boolean; targetLanguage?: UiLanguage; preferredLanguage?: UiLanguage } = {},
+): Promise<void> {
   const conversations = conv.data?.conversations;
   if (!conversations || conversations.length === 0) {
     alert('This entry has no story data.');
     return;
   }
 
-  const imported = conversations.map(entry => attachCommunitySourceMetadata(entry, {
-    id: conv.id,
-    publisher_id: conv.publisher_id,
-    co_authors: conv.co_authors ?? [],
-  }));
+  const uiLanguage = getUiLanguage();
+  const rootId = getStoryRootId(conv);
+  const variants = allResults.filter((entry) => getStoryRootId(entry) === rootId);
+  const rootLanguage = getStoryRootLanguage(rootId);
+
+  const explicitTarget = options.targetLanguage;
+  const translationDraft = options.translationDraft === true || explicitTarget != null;
+  const preferredLanguage = options.preferredLanguage ?? uiLanguage;
+
+  const importEntry = translationDraft
+    ? (pickBestStoryVariant(variants, rootLanguage) ?? (variants.find(entry => entry.id === rootId) ?? conv as NormalizedConversation))
+    : (pickBestStoryVariant(variants, preferredLanguage) ?? (variants.find(entry => entry.id === rootId) ?? conv as NormalizedConversation));
+
+  const importConversationsPayload = importEntry.data?.conversations;
+  if (!importConversationsPayload || importConversationsPayload.length === 0) {
+    alert('This entry has no story data.');
+    return;
+  }
+
+  const targetLanguage: UiLanguage = explicitTarget ?? getStoryLanguage(importEntry);
+  const isTranslationImport = translationDraft;
+  const sourceCommunityId = isTranslationImport ? rootId : importEntry.id;
+
+  const imported = importConversationsPayload.map((entry) => {
+    const cloned: Conversation = JSON.parse(JSON.stringify(entry));
+    cloned.language = cloned.language ?? getStoryLanguage(importEntry);
+    if (isTranslationImport) {
+      cloned.language = targetLanguage;
+    }
+    return attachCommunitySourceMetadata(cloned, {
+      id: sourceCommunityId,
+      publisher_id: conv.publisher_id,
+      co_authors: conv.co_authors ?? [],
+      sourceLanguage: rootLanguage,
+      targetLanguage,
+      isTranslationDraft: isTranslationImport,
+    });
+  });
+
   importConversations(imported, conv.faction, {
-    sourceCommunityId: conv.id,
+    sourceCommunityId,
     sourcePublisherId: conv.publisher_id?.trim() || 'anonymous',
     sourceCoAuthors: conv.co_authors ?? [],
     sourceUpdatedAt: conv.updated_at || undefined,
+    sourceLanguage: rootLanguage,
+    targetLanguage,
+    isTranslationDraft: isTranslationImport,
   });
   incrementDownload(conv.id);
 
@@ -1273,6 +1532,10 @@ async function handleImportCard(conv: CommunityConversation, btn: HTMLButtonElem
     btn.innerHTML = original;
     renderContent();
   }, 1500);
+}
+
+async function handleTranslateImport(conv: CommunityConversation, btn: HTMLButtonElement, targetLanguage: UiLanguage): Promise<void> {
+  await handleImportCard(conv, btn, { translationDraft: true, targetLanguage });
 }
 
 async function handleEditImport(conv: CommunityConversation, btn: HTMLButtonElement): Promise<void> {
@@ -1392,25 +1655,51 @@ async function handleDownloadAll(): Promise<void> {
       return;
     }
 
-    const mergedProject = createEmptyProject(activeFaction);
-    let nextId = 1;
+    const factionKey = FACTION_XML_KEYS[activeFaction];
+
+    // Build stable story groups by root id (source story id). Each pack (eng/rus)
+    // exports same story list + same sequential ids so string keys align.
+    const grouped = new Map<string, NormalizedConversation[]>();
     for (const entry of results) {
-      for (const conv of (entry.data?.conversations ?? [])) {
-        const c = JSON.parse(JSON.stringify(conv));
-        c.id = nextId++;
-        mergedProject.conversations.push(c);
-      }
+      const rootId = getStoryRootId(entry);
+      const list = grouped.get(rootId) ?? [];
+      list.push(entry);
+      grouped.set(rootId, list);
     }
 
-    const factionKey = FACTION_XML_KEYS[activeFaction];
-    const xml = generateXml(mergedProject);
-    downloadFile(xml, `st_PANDA_${factionKey}_interactive_conversations.xml`, 'application/xml');
-
-    results.forEach(r => {
-      incrementDownload(r.id);
-      const match = allResults.find(entry => entry.id === r.id);
-      if (match) match.downloads += 1;
+    const groups = Array.from(grouped.entries()).map(([rootId, variants]) => {
+      const root = variants.find((entry) => entry.id === rootId) ?? variants[0]!;
+      return { rootId, root, variants };
     });
+    groups.sort((a, b) =>
+      Date.parse(a.root.created_at) - Date.parse(b.root.created_at)
+      || a.rootId.localeCompare(b.rootId),
+    );
+
+    const languages: UiLanguage[] = ['en', 'ru'];
+    for (const language of languages) {
+      const mergedProject = createEmptyProject(activeFaction);
+      let nextId = 1;
+      for (const group of groups) {
+        const best = pickBestStoryVariant(group.variants, language) ?? group.root;
+        const storyConv = best.data?.conversations?.[0];
+        if (!storyConv) continue;
+        const c = JSON.parse(JSON.stringify(storyConv));
+        c.id = nextId++;
+        c.language = language;
+        mergedProject.conversations.push(c);
+      }
+
+      const xml = generateXml(mergedProject, undefined, undefined, undefined, language);
+      const suffix = language === 'ru' ? 'rus' : 'eng';
+      downloadFile(xml, `st_PANDA_${factionKey}_interactive_conversations_${suffix}.xml`, 'application/xml');
+    }
+
+    for (const id of new Set(results.map((entry) => entry.id))) {
+      incrementDownload(id);
+      const match = allResults.find(entry => entry.id === id);
+      if (match) match.downloads += 1;
+    }
   } catch (err) {
     alert(`Download failed: ${err instanceof Error ? err.message : String(err)}`);
   } finally {
@@ -1563,10 +1852,13 @@ function buildPublishFormLegacy(): HTMLElement {
     const tags = tagsInput.value.split(',').map(tag => tag.trim()).filter(Boolean);
     const faction = getConversationFaction(conv, store.get().project.faction);
     const branchCount = getBranchCount(conv);
+    const uiLanguage = getUiLanguage();
     const selectedSourceMetadata = store.getSelectedConversationSourceMetadata();
     const selectedSourcePublisherId = selectedSourceMetadata?.sourcePublisherId?.trim();
     const selectedReplacementPublisherId = getReplacementPublisherId(selectedSourcePublisherId, selectedSourceMetadata?.sourceCoAuthors ?? []);
     const selectedOwnershipValid = Boolean(selectedReplacementPublisherId);
+    const isTranslationDraft = isTranslationDraftMetadata(selectedSourceMetadata);
+    const translationSourceLanguage = selectedSourceMetadata?.sourceLanguage ?? uiLanguage;
     const shouldUseReplacePayload = isReplacementCandidate && selectedOwnershipValid;
     const selectedReplaceId = shouldUseReplacePayload && replacementCommunityId
       ? replacementCommunityId
@@ -1580,7 +1872,7 @@ function buildPublishFormLegacy(): HTMLElement {
     const publisherId = selectedOwnershipValid
       ? selectedReplacementPublisherId
       : (conversationOwnershipValid ? conversationReplacementPublisherId : undefined);
-    const duplicateLocal = allResults.some(entry =>
+    const duplicateLocal = !isTranslationDraft && allResults.some(entry =>
       normalizeKey(entry.label) === normalizeKey(label)
       && (!replaceId || entry.id !== replaceId),
     );
@@ -1767,6 +2059,7 @@ function buildPublishFormLegacy(): HTMLElement {
 }
 
 function buildPublishForm(): HTMLElement {
+  const ui = getUiText();
   const form = document.createElement('div');
   form.className = 'share-publish-form';
   form.hidden = true;
@@ -1804,15 +2097,18 @@ function buildPublishForm(): HTMLElement {
 
   const kicker = document.createElement('div');
   kicker.className = 'share-publish-form-kicker';
-  kicker.textContent = 'Rewarded community publish';
+  kicker.textContent = ui('Rewarded community publish', 'Публикация с наградой');
 
   const formHeader = document.createElement('div');
   formHeader.className = 'share-publish-form-header';
-  formHeader.textContent = 'Publish to Community Library';
+  formHeader.textContent = ui('Publish to Community Library', 'Опубликовать в библиотеке сообщества');
 
   const subtitle = document.createElement('div');
   subtitle.className = 'share-publish-form-subtitle';
-  subtitle.textContent = 'Public publishing is moderated after the fact and limited to one publish per minute from this browser.';
+  subtitle.textContent = ui(
+    'Public publishing is moderated after the fact and limited to one publish per minute from this browser.',
+    'Публичные публикации модерируются после отправки и ограничены одной публикацией в минуту с этого браузера.',
+  );
 
   topbarCopy.append(kicker, formHeader, subtitle);
 
@@ -1822,14 +2118,14 @@ function buildPublishForm(): HTMLElement {
   const backBtn = document.createElement('button');
   backBtn.type = 'button';
   backBtn.className = 'toolbar-button share-publish-header-back';
-  setButtonContent(backBtn, 'undo', 'Back to Library');
+  setButtonContent(backBtn, 'undo', ui('Back to Library', 'Назад в библиотеку'));
   backBtn.onclick = hidePublishForm;
 
   const panelCloseBtn = document.createElement('button');
   panelCloseBtn.type = 'button';
   panelCloseBtn.className = 'toolbar-button toolbar-icon-button btn-icon share-publish-form-close';
   panelCloseBtn.appendChild(createIcon('close'));
-  panelCloseBtn.title = 'Close Community Library';
+  panelCloseBtn.title = ui('Close Community Library', 'Закрыть библиотеку сообщества');
   panelCloseBtn.onclick = closeSharePanel;
 
   topbarActions.append(backBtn, panelCloseBtn);
@@ -1848,15 +2144,18 @@ function buildPublishForm(): HTMLElement {
 
   const heroEyebrow = document.createElement('div');
   heroEyebrow.className = 'share-publish-hero-kicker';
-  heroEyebrow.textContent = 'Ready to go live';
+  heroEyebrow.textContent = ui('Ready to go live', 'Готово к публикации');
 
   const heroTitle = document.createElement('div');
   heroTitle.className = 'share-publish-hero-title';
-  heroTitle.textContent = 'Publish your selected story';
+  heroTitle.textContent = ui('Publish your selected story', 'Опубликовать выбранную историю');
 
   const heroBlurb = document.createElement('div');
   heroBlurb.className = 'share-publish-hero-blurb';
-  heroBlurb.textContent = 'Stronger branching and better quality scores boost publish XP, so a more ambitious story gets a bigger send-off.';
+  heroBlurb.textContent = ui(
+    'Stronger branching and better quality scores boost publish XP, so a more ambitious story gets a bigger send-off.',
+    'Сильные ветки и высокий рейтинг качества повышают XP за публикацию.',
+  );
 
   const replacementContext = document.createElement('div');
   replacementContext.className = 'share-publish-context-badge';
@@ -1866,10 +2165,10 @@ function buildPublishForm(): HTMLElement {
 
   const metrics = document.createElement('div');
   metrics.className = 'share-publish-metrics';
-  const factionMetric = createMetric('Faction');
-  const sizeMetric = createMetric('Flow Size');
-  const qualityMetric = createMetric('Quality');
-  const rewardMetric = createMetric('Reward');
+  const factionMetric = createMetric(ui('Faction', 'Фракция'));
+  const sizeMetric = createMetric(ui('Flow Size', 'Размер ветки'));
+  const qualityMetric = createMetric(ui('Quality', 'Качество'));
+  const rewardMetric = createMetric(ui('Reward', 'Награда'));
   metrics.append(factionMetric.root, sizeMetric.root, qualityMetric.root, rewardMetric.root);
 
   hero.append(heroCopy, metrics);
@@ -1890,7 +2189,7 @@ function buildPublishForm(): HTMLElement {
   mainColumn.appendChild(identityGrid);
 
   const titleInput = markPublishField(
-    makeFormField(identityGrid, 'Title', 'text', 'Story title (unique community title required)') as HTMLInputElement,
+    makeFormField(identityGrid, ui('Title', 'Название'), 'text', ui('Story title (unique community title required)', 'Название истории (должно быть уникальным)')) as HTMLInputElement,
     'share-publish-field-title',
   );
   titleInput.maxLength = 70;
@@ -1899,7 +2198,7 @@ function buildPublishForm(): HTMLElement {
   const authorInput = markPublishField(
     makeFormField(
       identityGrid,
-      'Author',
+      ui('Author', 'Автор'),
       'text',
       storedName ? storedName : 'Anonymous (set a username via your profile)',
     ) as HTMLInputElement,
@@ -1914,7 +2213,7 @@ function buildPublishForm(): HTMLElement {
   }
 
   const descInput = markPublishField(
-    makeFormField(mainColumn, 'Description', 'textarea', 'Brief description of what this story does...') as HTMLTextAreaElement,
+    makeFormField(mainColumn, ui('Description', 'Описание'), 'textarea', ui('Brief description of what this story does...', 'Кратко опиши, что делает история...')) as HTMLTextAreaElement,
     'share-publish-field-description',
   );
   descInput.maxLength = 280;
@@ -1924,7 +2223,7 @@ function buildPublishForm(): HTMLElement {
   mainColumn.appendChild(supportGrid);
 
   const summaryInput = markPublishField(
-    makeFormField(supportGrid, 'Summary', 'textarea', 'Short preview text shown in the drawer before import.') as HTMLTextAreaElement,
+    makeFormField(supportGrid, ui('Summary', 'Краткое описание'), 'textarea', ui('Short preview text shown in the drawer before import.', 'Короткий текст предпросмотра перед импортом.')) as HTMLTextAreaElement,
     'share-publish-field-summary',
   );
   summaryInput.maxLength = 180;
@@ -1934,12 +2233,12 @@ function buildPublishForm(): HTMLElement {
   supportGrid.appendChild(metaStack);
 
   const tagsInput = markPublishField(
-    makeFormField(metaStack, 'Tags', 'text', 'Comma-separated tags (e.g. jobs, tutorial, campfire)') as HTMLInputElement,
+    makeFormField(metaStack, ui('Tags', 'Теги'), 'text', ui('Comma-separated tags (e.g. jobs, tutorial, campfire)', 'Теги через запятую (например: jobs, tutorial, campfire)')) as HTMLInputElement,
     'share-publish-field-tags',
   );
 
   const taggedUsersInput = markPublishField(
-    makeFormField(metaStack, 'Tag Users', 'text', 'Co-credit usernames (comma-separated)') as HTMLInputElement,
+    makeFormField(metaStack, ui('Tag Users', 'Отметить пользователей'), 'text', ui('Co-credit usernames (comma-separated)', 'Соавторы через запятую')) as HTMLInputElement,
     'share-publish-field-tags',
   );
 
@@ -1948,7 +2247,7 @@ function buildPublishForm(): HTMLElement {
   const demoInput = document.createElement('input');
   demoInput.type = 'checkbox';
   const demoText = document.createElement('span');
-  demoText.textContent = 'Publish as Demo storyline';
+  demoText.textContent = ui('Publish as Demo storyline', 'Опубликовать как демо-историю');
   demoRow.append(demoInput, demoText);
   metaStack.appendChild(demoRow);
 
@@ -1956,7 +2255,7 @@ function buildPublishForm(): HTMLElement {
   factionRow.className = 'share-form-field share-publish-field share-publish-field-faction';
   const factionLabel = document.createElement('label');
   factionLabel.className = 'share-form-label';
-  factionLabel.textContent = 'Broadcast Lane';
+  factionLabel.textContent = ui('Broadcast Lane', 'Канал публикации');
   const factionValue = document.createElement('div');
   factionValue.className = 'share-form-faction-display';
   factionRow.append(factionLabel, factionValue);
@@ -1967,7 +2266,10 @@ function buildPublishForm(): HTMLElement {
   const consentInput = document.createElement('input');
   consentInput.type = 'checkbox';
   const consentText = document.createElement('span');
-  consentText.textContent = 'I confirm this story is my own work, safe for public browsing, and not a duplicate community title.';
+  consentText.textContent = ui(
+    'I confirm this story is my own work, safe for public browsing, and not a duplicate community title.',
+    'Подтверждаю: история моя, безопасна для публичного просмотра и не дублирует название в сообществе.',
+  );
   consentRow.append(consentInput, consentText);
   mainColumn.appendChild(consentRow);
 
@@ -1976,7 +2278,7 @@ function buildPublishForm(): HTMLElement {
 
   const rewardKicker = document.createElement('span');
   rewardKicker.className = 'share-publish-side-kicker';
-  rewardKicker.textContent = 'Reward Preview';
+  rewardKicker.textContent = ui('Reward Preview', 'Предпросмотр награды');
 
   const rewardValue = document.createElement('strong');
   rewardValue.className = 'share-publish-reward-value';
@@ -1992,7 +2294,10 @@ function buildPublishForm(): HTMLElement {
 
   const moderationBox = document.createElement('div');
   moderationBox.className = 'share-moderation-box share-publish-moderation';
-  moderationBox.innerHTML = '<strong>Before you publish:</strong> keep titles unique, avoid links or invites, and expect public visibility for anonymous uploads.';
+  moderationBox.textContent = ui(
+    'Before you publish: keep titles unique, avoid links or invites, and expect public visibility for anonymous uploads.',
+    'Перед публикацией: названия должны быть уникальными, без ссылок и инвайтов; анонимные загрузки публичны.',
+  );
   sideColumn.appendChild(moderationBox);
 
   const checklistCard = document.createElement('section');
@@ -2000,14 +2305,14 @@ function buildPublishForm(): HTMLElement {
 
   const checklistTitle = document.createElement('div');
   checklistTitle.className = 'share-publish-side-title';
-  checklistTitle.textContent = 'Make it land well';
+  checklistTitle.textContent = ui('Make it land well', 'Сделай публикацию сильнее');
 
   const checklist = document.createElement('ul');
   checklist.className = 'share-publish-checklist';
   [
-    'Use a specific title so your story is easy to find later.',
-    'A strong summary improves previews before import.',
-    'More branching, outcomes, and conditions push quality and XP higher.',
+    ui('Use a specific title so your story is easy to find later.', 'Используй точное название, чтобы историю было легко найти.'),
+    ui('A strong summary improves previews before import.', 'Хорошее краткое описание улучшает предпросмотр перед импортом.'),
+    ui('More branching, outcomes, and conditions push quality and XP higher.', 'Больше веток, результатов и условий повышают качество и XP.'),
   ].forEach((itemText) => {
     const item = document.createElement('li');
     item.textContent = itemText;
@@ -2020,7 +2325,7 @@ function buildPublishForm(): HTMLElement {
   const submitBtn = document.createElement('button');
   submitBtn.type = 'button';
   submitBtn.className = 'toolbar-button btn-primary share-publish-primary';
-  setButtonContent(submitBtn, 'export', 'Publish Story');
+  setButtonContent(submitBtn, 'export', ui('Publish Story', 'Опубликовать историю'));
 
   const footer = document.createElement('div');
   footer.className = 'share-publish-footer';
@@ -2030,7 +2335,7 @@ function buildPublishForm(): HTMLElement {
 
   const footerLabel = document.createElement('div');
   footerLabel.className = 'share-publish-footer-label';
-  footerLabel.textContent = 'Community publish checks';
+  footerLabel.textContent = ui('Community publish checks', 'Проверки публикации');
 
   const statusMsg = document.createElement('div');
   statusMsg.className = 'share-publish-status';
@@ -2053,6 +2358,7 @@ function buildPublishForm(): HTMLElement {
 
     const preview = getPublishPreviewStats(conversation);
     const faction = getConversationFaction(conversation, store.get().project.faction);
+    const translationDraft = isTranslationDraftMetadata(store.getSelectedConversationSourceMetadata() ?? getCommunitySourceMetadata(conversation));
 
     factionMetric.value.textContent = FACTION_DISPLAY_NAMES[faction];
     sizeMetric.value.textContent = `${preview.branchCount} ${preview.branchCount === 1 ? 'branch' : 'branches'}`;
@@ -2065,22 +2371,26 @@ function buildPublishForm(): HTMLElement {
     rewardValue.textContent = `+${preview.publishXp} XP`;
     rewardSummary.textContent = replacementMode
       ? `This update keeps the same community slot, with reward intensity driven by ${preview.qualityScore.totalStars}-star quality.`
-      : `This story is lined up as a ${labelForComplexity(preview.complexity).toLowerCase()} publish with a ${preview.qualityScore.totalStars}-star quality rating.`;
-    rewardFormula.textContent = `Base ${preview.basePublishXp} XP x quality ${formatMultiplier(preview.qualityMultiplier)} + ${preview.dialogueChoiceCount} choices x 25 XP = ${preview.publishXp} publish XP`;
+      : translationDraft
+        ? `This is a translation publish, so reward drops to 50% of scratch XP before quality math.`
+        : `This story is lined up as a ${labelForComplexity(preview.complexity).toLowerCase()} publish with a ${preview.qualityScore.totalStars}-star quality rating.`;
+    rewardFormula.textContent = translationDraft
+      ? `Base ${preview.basePublishXp} XP x quality ${formatMultiplier(preview.qualityMultiplier)} + ${preview.dialogueChoiceCount} choices x 25 XP, then x ${formatMultiplier(preview.translationMultiplier)} translation multiplier = ${preview.publishXp} publish XP`
+      : `Base ${preview.basePublishXp} XP x quality ${formatMultiplier(preview.qualityMultiplier)} + ${preview.dialogueChoiceCount} choices x 25 XP = ${preview.publishXp} publish XP`;
   };
 
   const applySubmitMode = (isReplacementMode: boolean) => {
-    setButtonContent(submitBtn, 'export', isReplacementMode ? 'Update Story' : 'Publish Story');
-    formHeader.textContent = isReplacementMode ? 'Update existing community entry' : 'Publish to Community Library';
+    setButtonContent(submitBtn, 'export', isReplacementMode ? ui('Update Story', 'Обновить историю') : ui('Publish Story', 'Опубликовать историю'));
+    formHeader.textContent = isReplacementMode ? ui('Update existing community entry', 'Обновить запись сообщества') : ui('Publish to Community Library', 'Опубликовать в библиотеке сообщества');
     subtitle.textContent = isReplacementMode
-      ? 'Replace your live community version with updated content and metadata while ownership checks stay intact.'
-      : 'Public publishing is moderated after the fact and rate limited per browser to keep the library tidy.';
-    kicker.textContent = isReplacementMode ? 'Live signal refresh' : 'Rewarded community publish';
-    heroEyebrow.textContent = isReplacementMode ? 'Updating a live story' : 'Ready to go live';
-    heroTitle.textContent = isReplacementMode ? 'Refresh your published story' : 'Launch a new community story';
+      ? ui('Replace your live community version with updated content and metadata while ownership checks stay intact.', 'Замени опубликованную версию новым содержимым и метаданными с проверкой владельца.')
+      : ui('Public publishing is moderated after the fact and rate limited per browser to keep the library tidy.', 'Публичные публикации модерируются после отправки и ограничены по частоте.');
+    kicker.textContent = isReplacementMode ? ui('Live signal refresh', 'Обновление публикации') : ui('Rewarded community publish', 'Публикация с наградой');
+    heroEyebrow.textContent = isReplacementMode ? ui('Updating a live story', 'Обновление опубликованной истории') : ui('Ready to go live', 'Готово к публикации');
+    heroTitle.textContent = isReplacementMode ? ui('Refresh your published story', 'Обновить опубликованную историю') : ui('Launch a new community story', 'Запустить новую историю сообщества');
     heroBlurb.textContent = isReplacementMode
-      ? 'Ship a cleaner revision without leaving the editor, then let the library refresh around it.'
-      : 'Higher quality branching raises the multiplier, which now feeds a bigger publish celebration the moment your story goes live.';
+      ? ui('Ship a cleaner revision without leaving the editor, then let the library refresh around it.', 'Отправь новую версию прямо из редактора, затем библиотека обновится.')
+      : ui('Higher quality branching raises the multiplier, which now feeds a bigger publish celebration the moment your story goes live.', 'Лучшее качество ветвления повышает множитель и награду при публикации.');
     replacementContext.hidden = !isReplacementMode;
     replacementContext.textContent = isReplacementMode && replacementCommunityId
       ? `Updating community post ${replacementCommunityId}`
@@ -2124,10 +2434,19 @@ function buildPublishForm(): HTMLElement {
     const taggedUsernames = taggedUsersInput.value.split(',').map(tag => tag.trim()).filter(Boolean);
     const faction = getConversationFaction(conv, store.get().project.faction);
     const branchCount = getBranchCount(conv);
+    const uiLanguage = getUiLanguage();
     const selectedSourceMetadata = store.getSelectedConversationSourceMetadata();
-    const selectedSourcePublisherId = selectedSourceMetadata?.sourcePublisherId?.trim();
-    const selectedReplacementPublisherId = getReplacementPublisherId(selectedSourcePublisherId, selectedSourceMetadata?.sourceCoAuthors ?? []);
+    const fallbackCommunityMetadata = getCommunitySourceMetadata(conv);
+    const selectedSourcePublisherId = (selectedSourceMetadata?.sourcePublisherId ?? fallbackCommunityMetadata?.publisher_id ?? '').trim();
+    const selectedSourceCoAuthors = selectedSourceMetadata?.sourceCoAuthors ?? fallbackCommunityMetadata?.co_authors ?? [];
+    const selectedReplacementPublisherId = getReplacementPublisherId(selectedSourcePublisherId, selectedSourceCoAuthors);
     const selectedOwnershipValid = Boolean(selectedReplacementPublisherId);
+    const isTranslationDraft = isTranslationDraftMetadata(selectedSourceMetadata ?? fallbackCommunityMetadata);
+    const storyLanguage: UiLanguage = conv.language === 'ru' ? 'ru' : 'en';
+    const translationTargetLanguage: UiLanguage = selectedSourceMetadata?.targetLanguage ?? fallbackCommunityMetadata?.targetLanguage ?? storyLanguage;
+    const translationSourceLanguage = selectedSourceMetadata?.sourceLanguage ?? fallbackCommunityMetadata?.sourceLanguage ?? otherLanguage(translationTargetLanguage);
+    const translationSourceId = selectedSourceMetadata?.sourceCommunityId ?? fallbackCommunityMetadata?.id ?? replacementCommunityId ?? '';
+    const translationSourceEntry = isTranslationDraft ? getTranslationSourceEntry(translationSourceId) : null;
     const shouldUseReplacePayload = isReplacementCandidate && selectedOwnershipValid;
     const selectedReplaceId = shouldUseReplacePayload && replacementCommunityId
       ? replacementCommunityId
@@ -2174,6 +2493,14 @@ function buildPublishForm(): HTMLElement {
           version: store.get().project.version,
           faction,
           conversations: [conv],
+          language: storyLanguage,
+          translation: isTranslationDraft ? {
+            source_id: translationSourceId,
+            source_language: translationSourceLanguage,
+            target_language: translationTargetLanguage,
+            source_label: translationSourceEntry?.label || conv.label || undefined,
+            source_author: translationSourceEntry?.author || undefined,
+          } : undefined,
         },
         replace_id: replaceId ?? undefined,
         publisher_id: publisherId,
@@ -2333,24 +2660,36 @@ function buildPublishForm(): HTMLElement {
     const conv = store.getSelectedConversation();
     const faction = getConversationFaction(conv, store.get().project.faction);
     const branchCount = getBranchCount(conv ?? undefined);
-    titleInput.value = conv?.label || '';
+    const sourceMetadata = store.getSelectedConversationSourceMetadata() ?? (conv ? getCommunitySourceMetadata(conv) : null);
+    const translationDraft = isTranslationDraftMetadata(sourceMetadata);
+    const sourceCommunityId = sourceMetadata
+      ? ('sourceCommunityId' in sourceMetadata ? sourceMetadata.sourceCommunityId : sourceMetadata.id)
+      : '';
+    const sourceEntry = sourceCommunityId
+      ? getTranslationSourceEntry(sourceCommunityId)
+      : null;
+    titleInput.value = conv?.label || sourceEntry?.label || '';
     const currentUsername = getStoredUsername();
     authorInput.value = currentUsername || '';
     authorInput.readOnly = !!currentUsername;
     authorInput.style.opacity = currentUsername ? '0.7' : '1';
     authorInput.placeholder = currentUsername ? currentUsername : 'Anonymous (set a username via your profile)';
-    descInput.value = '';
-    summaryInput.value = conv ? createSummaryFromConversation(conv) : '';
-    tagsInput.value = branchCount <= 3 ? 'short, starter' : 'branching, story';
+    descInput.value = sourceEntry?.description ?? '';
+    summaryInput.value = conv ? createSummaryFromConversation(conv) : (sourceEntry?.summary ?? '');
+    tagsInput.value = sourceEntry?.tags?.length
+      ? sourceEntry.tags.join(', ')
+      : branchCount <= 3 ? 'short, starter' : 'branching, story';
     taggedUsersInput.value = getCollabCoAuthorNames().join(', ');
-    demoInput.checked = false;
+    demoInput.checked = sourceEntry?.library_section === 'demo';
     factionValue.textContent = `${FACTION_DISPLAY_NAMES[faction]} | ${branchCount} branches | ${labelForComplexity(deriveConversationComplexity(branchCount))}`;
     factionValue.style.color = FACTION_COLORS[faction];
     applySubmitMode(replacementMode);
     updatePreview(conv, replacementMode);
     consentInput.checked = false;
     setStatus(
-      currentUsername
+      translationDraft
+        ? `Translation publish detected from ${sourceEntry?.label ?? sourceCommunityId ?? 'community story'}. Metadata copied; reward is 50% of normal publish XP.`
+        : currentUsername
         ? `Publishing as ${currentUsername}. Duplicate titles are rejected. Story ownership is soft unless identity is backed by authenticated Supabase user auth + RLS.`
         : 'Anonymous publishes are browser-bound and ownership is soft. Duplicate titles are rejected.',
     );

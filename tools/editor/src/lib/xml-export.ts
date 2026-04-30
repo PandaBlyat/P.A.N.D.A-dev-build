@@ -3,6 +3,7 @@
 
 import type { Project, Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, Outcome, FactionId, NpcTemplate } from './types';
 import { FACTION_XML_KEYS, getConversationFaction } from './types';
+import type { UiLanguage } from './ui-language';
 import { getDefaultFlowTurnPosition } from './flow-layout';
 import { collectSegmentStartTurns as collectBranchSegmentStartTurns } from './branch-segments';
 
@@ -416,6 +417,7 @@ export function generateXml(
   systemStrings?: Map<string, string>,
   factionFilter?: FactionId,
   exporterConfig?: XmlExporterConfig,
+  languageFilter?: UiLanguage,
 ): string {
   const config: Required<XmlExporterConfig> = {
     ...DEFAULT_XML_EXPORTER_CONFIG,
@@ -446,6 +448,7 @@ export function generateXml(
   // Conversations (sorted by ID to maintain sequential order)
   const sorted = [...project.conversations]
     .filter((conv) => factionFilter == null || getConversationFaction(conv, project.faction) === factionFilter)
+    .filter((conv) => languageFilter == null || (conv.language ?? 'en') === languageFilter)
     .sort((a, b) => a.id - b.id);
   const exportCounts = new Map<FactionId, number>();
   for (const conv of sorted) {

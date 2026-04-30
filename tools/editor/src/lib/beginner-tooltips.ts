@@ -430,6 +430,113 @@ export const BEGINNER_TOOLTIP_PRESETS = {
   },
 } as const satisfies Record<string, BeginnerTooltipConfig>;
 
+const BEGINNER_TOOLTIP_RU_OVERRIDES: Partial<Record<BeginnerTooltipPresetId, Pick<BeginnerTooltipConfig, 'title' | 'body'>>> = {
+  'toolbar-open': {
+    title: 'Открыть проект',
+    body: 'Загрузи сохранённый .panda/.json проект, или импортируй совместимый PANDA XML.',
+  },
+  'toolbar-import': {
+    title: 'Импорт XML',
+    body: 'Импортируй XML игры в редактируемые карточки истории. Полезно, когда файл уже сделан вручную.',
+  },
+  'toolbar-save': {
+    title: 'Сохранить проект',
+    body: 'Сохраняет формат проекта редактора. Сохраняет раскладку, метки, и данные для дальнейшего редактирования.',
+  },
+  'toolbar-export-xml': {
+    title: 'Экспорт XML',
+    body: 'Генерирует XML для игры после чистой валидации. Это финальный вывод для файлов мода.',
+  },
+  'toolbar-community': {
+    title: 'Библиотека сообщества',
+    body: 'Смотри общие истории, импортируй примеры, или публикуй готовую работу для других авторов.',
+  },
+  'toolbar-help': {
+    title: 'Быстрый старт',
+    body: 'Открывает полный гид: модель мышления, предусловия, динамические ссылки, outcomes, и story recipes.',
+  },
+  'toolbar-search': {
+    title: 'Быстрый поиск',
+    body: 'Прыгай к историям, ходам, вариантам, командам, или системным строкам без охоты по панелям.',
+  },
+  'toolbar-density': {
+    title: 'Плотность потока',
+    body: 'Меняет сколько текста и метаданных показывать на карточке хода. Compact для больших историй; detailed для отладки.',
+  },
+  'toolbar-undo': {
+    title: 'Отменить',
+    body: 'Отмени последнее изменение. Полезно при экспериментах с ветками и outcomes.',
+  },
+  'toolbar-redo': {
+    title: 'Повторить',
+    body: 'Верни последнее отменённое изменение.',
+  },
+  'toolbar-toggle-xml': {
+    title: 'Живой XML предпросмотр',
+    body: 'Открывает нижнюю панель с генерируемым XML. Используй для проверки формы экспорта во время редактирования.',
+  },
+  'toolbar-toggle-strings': {
+    title: 'Системные строки',
+    body: 'Открывает общую панель string-table для локализации, импорта, и экспорта.',
+  },
+  'toolbar-more': {
+    title: 'Ещё действия',
+    body: 'Дополнительные инструменты проекта, когда места на тулбаре мало.',
+  },
+  'toolbar-reset-intro': {
+    title: 'Сбросить интро',
+    body: 'Очищает локальное рабочее пространство и возвращает к первому запуску. Сохранись заранее, если проект важен.',
+  },
+  'story-new': {
+    title: 'Новая история',
+    body: 'Создай ещё один разговор/историю в текущем проекте. У каждой истории свои правила триггера и flow.',
+  },
+  'story-select': {
+    title: 'Список историй',
+    body: 'Выбери историю для редактирования. Значок фракции и маркеры проблем помогают видеть валидацию и контекст.',
+  },
+  'story-center': {
+    title: 'Центрировать историю',
+    body: 'Верни выбранную историю в видимую область редактора потока. Полезно после панорамирования.',
+  },
+  'story-duplicate': {
+    title: 'Дублировать историю',
+    body: 'Клонируй выбранную историю как базу для варианта или копии для другой фракции.',
+  },
+  'story-delete': {
+    title: 'Удалить историю',
+    body: 'Удаляет выбранную историю из проекта. Сделай бэкап, если не уверен.',
+  },
+  'story-issues': {
+    title: 'Список проблем',
+    body: 'Проблемы валидации появляются тут. Клик по проблеме прыгает к истории/ходу/варианту/полю.',
+  },
+  'panel-toggle': {
+    title: 'Панели',
+    body: 'Показывает или скрывает левую/правую панель. На планшете/мобиле панели открываются как drawer/sheet.',
+  },
+  'workspace-tab': {
+    title: 'Вкладка нижней панели',
+    body: 'Переключайся между XML предпросмотром, системными строками, и другими утилитами, открытыми с тулбара.',
+  },
+  'workspace-add-string': {
+    title: 'Добавить системную строку',
+    body: 'Создай общую запись string-table для текста, который переиспользуется импортом или экспортом.',
+  },
+  'workspace-close': {
+    title: 'Закрыть панель',
+    body: 'Закрывает текущую нижнюю панель. Переключатели на тулбаре могут открыть снова.',
+  },
+  'workspace-resize': {
+    title: 'Изменить размер панели',
+    body: 'Тяни ручку, чтобы дать XML предпросмотру или таблице строк больше вертикального места.',
+  },
+  'validation-message': {
+    title: 'Сообщение валидации',
+    body: 'Клик по проблеме выделяет место в истории и прокручивает соответствующее поле в инспекторе.',
+  },
+};
+
 export function setBeginnerTooltip(
   element: HTMLElement,
   config: BeginnerTooltipConfig | BeginnerTooltipPresetId,
@@ -438,9 +545,17 @@ export function setBeginnerTooltip(
     clearBeginnerTooltip(element);
     return element;
   }
-  const resolved: BeginnerTooltipConfig = typeof config === 'string'
-    ? BEGINNER_TOOLTIP_PRESETS[config]
-    : config;
+  const resolved: BeginnerTooltipConfig = (() => {
+    if (typeof config !== 'string') return config;
+    const base = BEGINNER_TOOLTIP_PRESETS[config];
+    if (typeof window !== 'undefined' && window.localStorage.getItem('panda:ui-language:v1') === 'ru') {
+      const override = BEGINNER_TOOLTIP_RU_OVERRIDES[config];
+      if (override) {
+        return { ...base, ...override };
+      }
+    }
+    return base;
+  })();
   element.dataset[DATA_ID] = resolved.id;
   element.dataset[DATA_TITLE] = resolved.title;
   element.dataset[DATA_BODY] = resolved.body;

@@ -1650,14 +1650,15 @@ RETURNS TABLE(
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
-DECLARE
-  conv RECORD;
-  pub_id TEXT;
-  complexity_xp INT := 150;
-  total_publishes INT := 0;
-  distinct_factions INT := 0;
-  faction_list TEXT[];
-  branch_count INT := 0;
+ DECLARE
+   conv RECORD;
+   pub_id TEXT;
+   complexity_xp INT := 150;
+   is_translation BOOLEAN := FALSE;
+   total_publishes INT := 0;
+   distinct_factions INT := 0;
+   faction_list TEXT[];
+   branch_count INT := 0;
   v_publish_xp INT := 0;
   v_ach_xp INT := 0;
   unlocked JSONB := '[]'::jsonb;
@@ -1666,7 +1667,7 @@ DECLARE
   computed RECORD;
   new_xp INT;
 BEGIN
-  SELECT c.publisher_id, c.branch_count, c.faction, c.complexity, c.created_at
+  SELECT c.publisher_id, c.branch_count, c.faction, c.complexity, c.created_at, c.data
     INTO conv
   FROM community_conversations c
   WHERE c.id = p_conversation_id
@@ -1683,6 +1684,13 @@ BEGIN
   IF conv.complexity = 'long' THEN complexity_xp := 300;
   ELSIF conv.complexity = 'medium' THEN complexity_xp := 225;
   ELSE complexity_xp := 150;
+  END IF;
+
+  -- Translation publishes earn 50% of scratch publish XP.
+  -- Translation payload stored at data.translation on community_conversations row.
+  IF conv.data IS NOT NULL AND jsonb_typeof(conv.data) = 'object' AND (conv.data ? 'translation') THEN
+    is_translation := TRUE;
+    complexity_xp := GREATEST(0, ROUND(complexity_xp * 0.5)::INT);
   END IF;
 
   -- Ensure profile row exists; skip rewards if missing (unregistered).

@@ -12,6 +12,7 @@ import { openPlayPanel } from './PlayPanel';
 import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 import { getStoredUsername } from '../lib/api-client';
 import { openCollabSessionModal } from './CollabSessionModal';
+import { createUiText } from '../lib/ui-language';
 
 type ConversationListTab = 'local' | 'collabs';
 
@@ -38,14 +39,19 @@ export function duplicateConversationSelection(conversationId: number): void {
 export function deleteConversationSelection(conversationId: number): void {
   const conversation = store.get().project.conversations.find((entry) => entry.id === conversationId);
   if (!conversation) return;
+  const ui = createUiText(store.get().uiLanguage);
   const conversationLabel = conversation.label || `Story ${conversation.id}`;
-  if (confirm(`Delete story ${conversation.id}: "${conversationLabel}"?`)) {
+  if (confirm(ui(
+    `Delete story ${conversation.id}: "${conversationLabel}"?`,
+    `Удалить историю ${conversation.id}: "${conversationLabel}"?`,
+  ))) {
     store.deleteConversation(conversationId);
   }
 }
 
 export function renderConversationList(container: HTMLElement): void {
   const state = store.get();
+  const ui = createUiText(state.uiLanguage);
   const convs = state.project.conversations;
   const collabIds = new Set<number>();
   if (state.collab.conversationId != null) {
@@ -58,8 +64,11 @@ export function renderConversationList(container: HTMLElement): void {
 
   if (convs.length === 0) {
     container.replaceChildren(createOnboardingNudge({
-      title: 'No stories yet',
-      body: 'Kick off the onboarding flow with a blank project, import existing XML, or publish and import shared stories from the Community Library.',
+      title: ui('No stories yet', 'Пока нет историй'),
+      body: ui(
+        'Kick off the onboarding flow with a blank project, import existing XML, or publish and import shared stories from the Community Library.',
+        'Запусти обучение с пустого проекта, импортируй существующий XML, или публикуй и импортируй истории из Community Library.',
+      ),
     }));
     return;
   }
@@ -86,8 +95,8 @@ export function renderConversationList(container: HTMLElement): void {
       return button;
     };
     tabs.append(
-      createTab('local', 'Local', localCount),
-      createTab('collabs', 'Collabs', collabCount),
+      createTab('local', ui('Local', 'Локальные'), localCount),
+      createTab('collabs', ui('Collabs', 'Совместные'), collabCount),
     );
     shell.appendChild(tabs);
   }
@@ -98,7 +107,7 @@ export function renderConversationList(container: HTMLElement): void {
   const list = document.createElement('ul');
   list.className = 'conv-list';
   list.setAttribute('role', 'listbox');
-  list.setAttribute('aria-label', 'Stories');
+  list.setAttribute('aria-label', ui('Stories', 'Истории'));
 
   const visibleConvs = hasCollabTab
     ? convs.filter(conv => activeConversationListTab === 'collabs' ? collabIds.has(conv.id) : !collabIds.has(conv.id))
@@ -107,12 +116,18 @@ export function renderConversationList(container: HTMLElement): void {
   if (visibleConvs.length === 0) {
     const empty = createOnboardingNudge(activeConversationListTab === 'collabs'
       ? {
-        title: 'No collabs yet',
-        body: 'Start or join a multi-user session to keep shared stories separate from local work.',
+        title: ui('No collabs yet', 'Пока нет совместных'),
+        body: ui(
+          'Start or join a multi-user session to keep shared stories separate from local work.',
+          'Запусти или присоединись к мультипользовательской сессии, чтобы держать общие истории отдельно от локальной работы.',
+        ),
       }
       : {
-        title: 'No local stories',
-        body: 'Current active story is in Collabs. Add or import another story to keep local work separate.',
+        title: ui('No local stories', 'Нет локальных историй'),
+        body: ui(
+          'Current active story is in Collabs. Add or import another story to keep local work separate.',
+          'Текущая активная история в "Совместные". Добавь или импортируй другую историю, чтобы держать локальную работу отдельно.',
+        ),
       });
     listRegion.appendChild(empty);
     shell.appendChild(listRegion);
@@ -172,8 +187,8 @@ export function renderConversationList(container: HTMLElement): void {
       const playBtn = document.createElement('button');
       playBtn.type = 'button';
       playBtn.className = 'conv-play-btn';
-      playBtn.title = 'Preview story';
-      playBtn.append(createIcon('play'), document.createTextNode('Play'));
+      playBtn.title = ui('Preview story', 'Предпросмотр истории');
+      playBtn.append(createIcon('play'), document.createTextNode(ui('Play', 'Играть')));
       playBtn.onpointerdown = (e) => e.stopPropagation();
       playBtn.onclick = (e) => {
         e.stopPropagation();
@@ -186,8 +201,8 @@ export function renderConversationList(container: HTMLElement): void {
       const collabBtn = document.createElement('button');
       collabBtn.type = 'button';
       collabBtn.className = 'conv-collab-btn';
-      collabBtn.title = 'Start multi-user session';
-      collabBtn.append(createIcon('users'), document.createTextNode('Collab'));
+      collabBtn.title = ui('Start multi-user session', 'Начать совместную сессию');
+      collabBtn.append(createIcon('users'), document.createTextNode(ui('Collab', 'Совместно')));
       collabBtn.onpointerdown = (e) => e.stopPropagation();
       collabBtn.onclick = (e) => {
         e.stopPropagation();
@@ -205,8 +220,8 @@ export function renderConversationList(container: HTMLElement): void {
 
     const factionSelect = document.createElement('select');
     factionSelect.className = 'conv-faction-select toolbar-select-quiet';
-    factionSelect.title = "Set this story's faction";
-    factionSelect.setAttribute('aria-label', `Set faction for ${conversationLabel}`);
+    factionSelect.title = ui("Set this story's faction", 'Выбрать фракцию истории');
+    factionSelect.setAttribute('aria-label', ui(`Set faction for ${conversationLabel}`, `Выбрать фракцию для ${conversationLabel}`));
     for (const factionId of FACTION_IDS) {
       const option = document.createElement('option');
       option.value = factionId;
@@ -241,10 +256,10 @@ export function renderConversationList(container: HTMLElement): void {
   const toggle = document.createElement('button');
   toggle.type = 'button';
   toggle.className = 'btn-sm conversation-issues-toggle';
-  setButtonContent(toggle, state.showValidationPanel ? 'close' : 'warning', `Errors x${issueCount}`);
+  setButtonContent(toggle, state.showValidationPanel ? 'close' : 'warning', ui(`Errors x${issueCount}`, `Ошибки x${issueCount}`));
   toggle.title = issueCount > 0
-    ? (state.showValidationPanel ? 'Hide current issues' : `Show current issues (${issueCount})`)
-    : 'No current issues';
+    ? (state.showValidationPanel ? ui('Hide current issues', 'Скрыть текущие проблемы') : ui(`Show current issues (${issueCount})`, `Показать текущие проблемы (${issueCount})`))
+    : ui('No current issues', 'Нет проблем');
   toggle.disabled = issueCount === 0;
   setBeginnerTooltip(toggle, 'story-issues');
   toggle.onclick = () => store.toggleValidationPanel();
@@ -253,7 +268,7 @@ export function renderConversationList(container: HTMLElement): void {
   if (state.showValidationPanel && issueCount > 0) {
     const issuesPanel = document.createElement('section');
     issuesPanel.className = 'conversation-issues-panel validation-drawer';
-    issuesPanel.setAttribute('aria-label', 'Current issues');
+    issuesPanel.setAttribute('aria-label', ui('Current issues', 'Текущие проблемы'));
     issuesPanel.appendChild(createValidationWorkspaceContent(state.validationMessages));
     issuesFooter.appendChild(issuesPanel);
   }

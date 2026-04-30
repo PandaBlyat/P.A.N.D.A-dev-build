@@ -18,6 +18,7 @@ import { canOpenPrivilegeModal, openPrivilegeModal } from './PrivilegeModal';
 import { areBeginnerTooltipsDisabled, setBeginnerTooltip, setBeginnerTooltipsDisabled } from '../lib/beginner-tooltips';
 import { getActiveEditorLocalUserId, getStoredUsername, type ActiveEditorUser, type RecentVisitor, type UserProfile } from '../lib/api-client';
 import { createCollabRoster } from './CollabRoster';
+import { createUiText, languageFlag, languageLabel, otherLanguage, type UiLanguage } from '../lib/ui-language';
 
 type SearchResult = {
   label: string;
@@ -75,6 +76,7 @@ function accent(value: string): HTMLSpanElement {
 
 export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options: ToolbarRenderOptions = {}): HTMLElement {
   const state = store.get();
+  const ui = createUiText(state.uiLanguage);
   const isCompact = layoutMode !== 'desktop';
   const isMobile = layoutMode === 'mobile';
   const toolbar = document.createElement('div');
@@ -111,70 +113,70 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
 
   const subtitle = document.createElement('span');
   subtitle.className = 'toolbar-subtitle';
-  subtitle.textContent = 'Editor';
+  subtitle.textContent = ui('Editor', 'Редактор');
 
   titleText.append(titlePrimary, subtitle);
   title.append(brandIcon, titleText);
   brandCopy.append(title);
   branding.appendChild(brandCopy);
 
-  const openBtn = btn('open', 'Open', importFromJson, 'Open a saved .panda/.json project or import a PANDA XML file');
+  const openBtn = btn('open', ui('Open', 'Открыть'), importFromJson, ui('Open a saved .panda/.json project or import a PANDA XML file', 'Открыть сохранённый .panda/.json проект или импортировать PANDA XML файл'));
   setBeginnerTooltip(openBtn, 'toolbar-open');
-  const saveBtn = btn('save', 'Save', exportProjectJson, 'Save as .panda project file (preserves editor data)');
+  const saveBtn = btn('save', ui('Save', 'Сохранить'), exportProjectJson, ui('Save as .panda project file (preserves editor data)', 'Сохранить как .panda файл проекта (сохраняет данные редактора)'));
   setBeginnerTooltip(saveBtn, 'toolbar-save');
-  const importBtn = btn('import', 'Import', importFromXml, 'Import stories from an existing game XML file');
+  const importBtn = btn('import', ui('Import', 'Импорт'), importFromXml, ui('Import stories from an existing game XML file', 'Импортировать истории из существующего XML файла игры'));
   setBeginnerTooltip(importBtn, 'toolbar-import');
-  const exportXmlBtn = btn('export', 'Export XML', exportXml, 'Export as game-ready XML file for S.T.A.L.K.E.R. Anomaly', {
+  const exportXmlBtn = btn('export', ui('Export XML', 'Экспорт XML'), exportXml, ui('Export as game-ready XML file for S.T.A.L.K.E.R. Anomaly', 'Экспортировать как XML, готовый для S.T.A.L.K.E.R. Anomaly'), {
     classes: ['btn-subtle'],
   });
   setBeginnerTooltip(exportXmlBtn, 'toolbar-export-xml');
-  const communityBtn = btn('share', 'Community', openSharePanel, 'Browse, import, and publish community stories', {
+  const communityBtn = btn('share', ui('Community', 'Сообщество'), openSharePanel, ui('Browse, import, and publish community stories', 'Просматривать, импортировать и публиковать истории сообщества'), {
     classes: ['btn-community', 'toolbar-button-primary'],
   });
   setBeginnerTooltip(communityBtn, 'toolbar-community');
-  const supportBtn = btn('support', 'Support', openSupportPanel, 'Support the Creator', {
+  const supportBtn = btn('support', ui('Support', 'Поддержка'), openSupportPanel, ui('Support the Creator', 'Поддержать автора'), {
     classes: ['toolbar-support-trigger'],
   });
   let leadersBtn: HTMLButtonElement;
-  leadersBtn = btn('trophy', 'Leaders', () => openLeaderboardOverlay(leadersBtn), 'Open the community leaderboard', {
+  leadersBtn = btn('trophy', ui('Leaders', 'Лидеры'), () => openLeaderboardOverlay(leadersBtn), ui('Open the community leaderboard', 'Открыть таблицу лидеров сообщества'), {
     classes: ['toolbar-leaders-trigger'],
   });
   let roadmapBtn: HTMLButtonElement;
-  roadmapBtn = btn('map', 'RoadMap', () => openRoadMapModal(roadmapBtn), 'View the P.A.N.D.A. editor development roadmap and upvote features', {
+  roadmapBtn = btn('map', ui('RoadMap', 'Дорожная карта'), () => openRoadMapModal(roadmapBtn), ui('View the P.A.N.D.A. editor development roadmap and upvote features', 'Посмотреть дорожную карту развития P.A.N.D.A. и голосовать за фичи'), {
     classes: ['toolbar-roadmap-trigger'],
   });
-  const helpBtn = btn('help', '?', openHelpModal, 'New here? Open the quick-start guide to preconditions, dynamic references, outcomes, and story design.', {
+  const helpBtn = btn('help', '?', openHelpModal, ui('New here? Open the quick-start guide to preconditions, dynamic references, outcomes, and story design.', 'Нужна помощь? Открыть быстрый старт по preconditions, dynamic references, outcomes и дизайну истории.'), {
     classes: ['toolbar-help-trigger'],
-    ariaLabel: 'Open P.A.N.D.A. quick-start guide',
+    ariaLabel: ui('Open P.A.N.D.A. quick-start guide', 'Открыть быстрый старт P.A.N.D.A.'),
     icon: null,
   });
   setBeginnerTooltip(helpBtn, 'toolbar-help');
-  const reportsBtn = btn('bug', 'Reports', openBugReportsPanel, 'Report editor bugs or read existing reports', {
+  const reportsBtn = btn('bug', ui('Reports', 'Отчёты'), openBugReportsPanel, ui('Report editor bugs or read existing reports', 'Сообщить об ошибках или читать существующие отчёты'), {
     classes: ['toolbar-report-trigger'],
   });
   const loginAction = getLoginAction();
   const loginBtn = loginAction
-    ? btn('user', 'Log In', loginAction, 'Log in or create a callsign to track your XP and level in the Zone.', {
+    ? btn('user', ui('Log In', 'Войти'), loginAction, ui('Log in or create a callsign to track your XP and level in the Zone.', 'Войти или создать позывной для отслеживания XP и уровня в Зоне.'), {
       classes: ['btn-community', 'toolbar-button-primary'],
     })
     : null;
   const handleReset = (): void => {
-    if (state.dirty && !window.confirm('You have unsaved changes. Clear workspace and return to the intro?')) return;
+    if (state.dirty && !window.confirm(ui('You have unsaved changes. Clear workspace and return to the intro?', 'Есть несохранённые изменения. Очистить рабочую область и вернуться к интро?'))) return;
     clearDraft();
     store.loadProject(createEmptyProject('stalker'), new Map());
   };
   const tooltipToggleAction: OverflowAction = {
     icon: 'help',
-    label: areBeginnerTooltipsDisabled() ? 'Enable Tooltips' : 'Disable Tooltips',
-    title: 'Toggle editor tooltips',
+    label: areBeginnerTooltipsDisabled() ? ui('Enable Tooltips', 'Включить подсказки') : ui('Disable Tooltips', 'Выключить подсказки'),
+    title: ui('Toggle editor tooltips', 'Переключить подсказки редактора'),
     onclick: () => setBeginnerTooltipsDisabled(!areBeginnerTooltipsDisabled()),
   };
   const occlusionToggleAction: OverflowAction = {
     icon: 'eye',
-    label: state.flowOcclusionEnabled ? 'Disable Occlusion' : 'Enable Occlusion',
+    label: state.flowOcclusionEnabled ? ui('Disable Occlusion', 'Отключить отсечение') : ui('Enable Occlusion', 'Включить отсечение'),
     title: state.flowOcclusionEnabled
-      ? 'Stop hiding offscreen branches'
-      : 'Hide far offscreen branches for faster large graphs',
+      ? ui('Stop hiding offscreen branches', 'Не скрывать удалённые ветки')
+      : ui('Hide far offscreen branches for faster large graphs', 'Скрывать дальние ветки для ускорения больших графов'),
     onclick: () => store.toggleFlowOcclusion(),
   };
   const graphicsQualityAction: OverflowCustomAction = {
@@ -182,8 +184,9 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     render: () => createGraphicsQualityPicker(state.flowGraphicsQuality),
   };
   const privilegeAction: OverflowAction | null = canOpenPrivilegeModal()
-    ? { icon: 'user', label: 'Privilage', title: 'Set editor admins', onclick: openPrivilegeModal }
+    ? { icon: 'user', label: ui('Privilege', 'Права'), title: ui('Set editor admins', 'Назначить админов редактора'), onclick: openPrivilegeModal }
     : null;
+  const languageSwitcher = createLanguageSwitcher(state.uiLanguage);
 
   if (!isCompact) {
     const leftZone = document.createElement('div');
@@ -196,7 +199,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
 
     const projectGroup = document.createElement('div');
     projectGroup.className = 'toolbar-group toolbar-group-project';
-    projectGroup.append(openBtn, importBtn, saveBtn, exportXmlBtn, communityBtn, reportsBtn, helpBtn);
+    projectGroup.append(openBtn, importBtn, saveBtn, exportXmlBtn, communityBtn, languageSwitcher, reportsBtn, helpBtn);
     centerZone.appendChild(projectGroup);
 
     const rightZone = document.createElement('div');
@@ -210,33 +213,33 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
       viewGroup.className = 'toolbar-group toolbar-group-segmented';
       viewGroup.appendChild(toggleBtn(
         'xml',
-        'XML',
+        ui('XML', 'XML'),
         state.showXmlPreview,
         () => store.toggleXmlPreview(),
-        state.showXmlPreview ? 'Hide the live XML preview panel' : 'Show the live XML preview panel',
+        state.showXmlPreview ? ui('Hide the live XML preview panel', 'Скрыть живую XML-панель') : ui('Show the live XML preview panel', 'Показать живую XML-панель'),
       ));
       viewGroup.appendChild(toggleBtn(
         'strings',
-        'Strings',
+        ui('Strings', 'Строки'),
         state.showSystemStringsPanel,
         () => store.toggleSystemStringsPanel(),
-        state.showSystemStringsPanel ? 'Hide the shared system strings manager' : 'Show the shared system strings manager',
+        state.showSystemStringsPanel ? ui('Hide the shared system strings manager', 'Скрыть менеджер общих строк') : ui('Show the shared system strings manager', 'Показать менеджер общих строк'),
       ));
       rightZone.appendChild(viewGroup);
     }
 
     rightZone.append(roadmapBtn, leadersBtn, supportBtn);
 
-    rightZone.appendChild(createOverflowMenu('More', [
+    rightZone.appendChild(createOverflowMenu(ui('More', 'Ещё'), [
       occlusionToggleAction,
       graphicsQualityAction,
       tooltipToggleAction,
       ...(privilegeAction ? [privilegeAction] : []),
-      { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
-      { icon: 'trophy', label: 'Leaders', title: leadersBtn.title, onclick: () => openLeaderboardOverlay(null) },
-      { icon: 'bug', label: 'Reports', title: reportsBtn.title, onclick: openBugReportsPanel },
-      { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
-      { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },
+      { icon: 'map', label: ui('RoadMap', 'Дорожная карта'), title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
+      { icon: 'trophy', label: ui('Leaders', 'Лидеры'), title: leadersBtn.title, onclick: () => openLeaderboardOverlay(null) },
+      { icon: 'bug', label: ui('Reports', 'Отчёты'), title: reportsBtn.title, onclick: openBugReportsPanel },
+      { icon: 'help', label: ui('Help', 'Помощь'), title: helpBtn.title, onclick: openHelpModal },
+      { icon: 'brand', label: ui('Reset Intro', 'Сбросить интро'), title: ui('Clear workspace and show the intro sequence', 'Очистить рабочую область и показать интро'), onclick: handleReset },
     ]));
 
     const profileBadge = renderProfileBadge();
@@ -270,13 +273,14 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   const fileGroup = document.createElement('div');
   fileGroup.className = 'toolbar-group toolbar-group-project';
   if (isMobile) {
-    const moreBtn = btn('help', 'More', () => options.onOpenMobileSheet?.('more'), 'Open file, export, and editor actions', {
+    const moreBtn = btn('help', ui('More', 'Ещё'), () => options.onOpenMobileSheet?.('more'), ui('Open file, export, and editor actions', 'Открыть действия файла, экспорта и редактора'), {
       icon: null,
     });
     moreBtn.classList.add('toolbar-mobile-more-button');
     setBeginnerTooltip(moreBtn, 'toolbar-more');
     fileGroup.append(
       communityBtn,
+      languageSwitcher,
       moreBtn,
     );
     projectTier.appendChild(fileGroup);
@@ -290,9 +294,9 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
       occlusionToggleAction,
       graphicsQualityAction,
       tooltipToggleAction,
-      { icon: 'import', label: 'Import XML', title: importBtn.title, onclick: importFromXml },
-      { icon: 'share', label: 'Community', title: communityBtn.title, onclick: openSharePanel },
-      { icon: 'bug', label: 'Reports', title: reportsBtn.title, onclick: openBugReportsPanel },
+      { icon: 'import', label: ui('Import XML', 'Импорт XML'), title: importBtn.title, onclick: importFromXml },
+      { icon: 'share', label: ui('Community', 'Сообщество'), title: communityBtn.title, onclick: openSharePanel },
+      { icon: 'bug', label: ui('Reports', 'Отчёты'), title: reportsBtn.title, onclick: openBugReportsPanel },
     );
 
     fileGroup.appendChild(openBtn);
@@ -300,7 +304,8 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     fileGroup.appendChild(exportXmlBtn);
     fileGroup.appendChild(reportsBtn);
     fileGroup.appendChild(helpBtn);
-    fileGroup.appendChild(createOverflowMenu('More', projectOverflowActions));
+    fileGroup.appendChild(languageSwitcher);
+    fileGroup.appendChild(createOverflowMenu(ui('More', 'Ещё'), projectOverflowActions));
   } else {
     fileGroup.appendChild(openBtn);
     fileGroup.appendChild(importBtn);
@@ -309,6 +314,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     fileGroup.appendChild(exportXmlBtn);
     fileGroup.appendChild(sep());
     fileGroup.appendChild(communityBtn);
+    fileGroup.appendChild(languageSwitcher);
     fileGroup.appendChild(reportsBtn);
     fileGroup.appendChild(helpBtn);
   }
@@ -332,14 +338,14 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     utilityGroup.className = 'toolbar-group toolbar-group-segmented';
     utilityGroup.appendChild(toggleBtn(
       'xml',
-      'XML',
+      ui('XML', 'XML'),
       state.showXmlPreview,
       () => store.toggleXmlPreview(),
       state.showXmlPreview ? 'Hide the live XML preview panel' : 'Show the live XML preview panel',
     ));
     utilityGroup.appendChild(toggleBtn(
       'strings',
-      'Strings',
+      ui('Strings', 'Строки'),
       state.showSystemStringsPanel,
       () => store.toggleSystemStringsPanel(),
       state.showSystemStringsPanel ? 'Hide the shared system strings manager' : 'Show the shared system strings manager',
@@ -347,15 +353,16 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     utilityTier.appendChild(utilityGroup);
   }
 
+    utilityTier.appendChild(createLanguageSwitcher(state.uiLanguage));
     utilityTier.appendChild(supportBtn);
-    utilityTier.appendChild(createOverflowMenu('More', [
+    utilityTier.appendChild(createOverflowMenu(ui('More', 'Ещё'), [
       occlusionToggleAction,
       graphicsQualityAction,
       tooltipToggleAction,
       ...(privilegeAction ? [privilegeAction] : []),
-      { icon: 'map', label: 'RoadMap', title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
-    { icon: 'help', label: 'Help', title: helpBtn.title, onclick: openHelpModal },
-    { icon: 'brand', label: 'Reset Intro', title: 'Clear workspace and show the intro sequence', onclick: handleReset },
+      { icon: 'map', label: ui('RoadMap', 'Дорожная карта'), title: roadmapBtn.title, onclick: () => openRoadMapModal(null) },
+    { icon: 'help', label: ui('Help', 'Помощь'), title: helpBtn.title, onclick: openHelpModal },
+    { icon: 'brand', label: ui('Reset Intro', 'Сбросить интро'), title: ui('Clear workspace and show the intro sequence', 'Очистить рабочую область и показать интро'), onclick: handleReset },
   ]));
 
   const profileBadgeCompact = renderProfileBadge();
@@ -515,15 +522,16 @@ function buildSearchResults(query: string): SearchResult[] {
 function createGraphicsQualityPicker(currentQuality: FlowGraphicsQuality): HTMLElement {
   const row = document.createElement('label');
   row.className = 'toolbar-overflow-select-row';
+  const ui = createUiText(store.get().uiLanguage);
 
   const text = document.createElement('span');
   text.className = 'toolbar-overflow-select-label';
-  text.textContent = 'Graphics';
+  text.textContent = ui('Graphics', 'Графика');
 
   const select = document.createElement('select');
   select.className = 'toolbar-overflow-select';
-  select.title = 'Editor graphics quality';
-  select.setAttribute('aria-label', 'Editor graphics quality');
+  select.title = ui('Editor graphics quality', 'Качество графики редактора');
+  select.setAttribute('aria-label', ui('Editor graphics quality', 'Качество графики редактора'));
   for (const quality of GRAPHICS_QUALITY_OPTIONS) {
     const option = document.createElement('option');
     option.value = quality;
@@ -566,13 +574,44 @@ function createOverflowMenu(label: string, actions: OverflowMenuAction[]): HTMLE
     setButtonContent(item, action.icon, action.label);
     item.title = action.title ?? action.label;
     item.disabled = Boolean(action.disabled);
-    setBeginnerTooltip(item, action.label === 'Reset Intro' ? 'toolbar-reset-intro' : action.label === 'Help' ? 'toolbar-help' : 'toolbar-more');
+    setBeginnerTooltip(item, action.label === 'Reset Intro' || action.label === 'Сбросить интро' ? 'toolbar-reset-intro' : action.label === 'Help' || action.label === 'Помощь' ? 'toolbar-help' : 'toolbar-more');
     item.onclick = () => {
       details.open = false;
       action.onclick();
     };
     menu.appendChild(item);
   }
+
+  details.appendChild(menu);
+  return details;
+}
+
+function createLanguageSwitcher(currentLanguage: UiLanguage): HTMLElement {
+  const details = document.createElement('details');
+  details.className = 'toolbar-overflow toolbar-language-switcher';
+
+  const summary = document.createElement('summary');
+  summary.className = 'toolbar-button toolbar-overflow-toggle';
+  summary.textContent = `${languageFlag(currentLanguage)} ${languageLabel(currentLanguage)}`;
+  summary.setAttribute('role', 'button');
+  summary.setAttribute('aria-label', languageLabel(currentLanguage));
+  summary.title = languageLabel(currentLanguage);
+  details.appendChild(summary);
+
+  const menu = document.createElement('div');
+  menu.className = 'toolbar-overflow-menu';
+
+  const targetLanguage = otherLanguage(currentLanguage);
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = 'toolbar-overflow-item';
+  item.textContent = `${languageFlag(targetLanguage)} ${languageLabel(targetLanguage)}`;
+  item.title = languageLabel(targetLanguage);
+  item.onclick = () => {
+    details.open = false;
+    store.setUiLanguage(targetLanguage);
+  };
+  menu.appendChild(item);
 
   details.appendChild(menu);
   return details;

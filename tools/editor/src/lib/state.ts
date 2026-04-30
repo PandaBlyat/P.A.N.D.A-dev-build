@@ -9,6 +9,7 @@ import { getOutcomeResumeTurnParamIndices } from './outcome-branching';
 import { migrateLegacyF2FEntryOpenings } from './f2f-entry-migration';
 import { estimateFlowNodeHeight, getDefaultFlowTurnPosition, getFlowAutoLayoutSpacing, getFlowNodeLayout } from './flow-layout';
 import { measurePerf } from './perf';
+import { loadUiLanguagePreference, persistUiLanguagePreference, type UiLanguage } from './ui-language';
 import {
   cancelPendingValidation,
   flushValidation,
@@ -115,6 +116,7 @@ export interface AppState {
   flowDensity: FlowDensity;
   flowOcclusionEnabled: boolean;
   flowGraphicsQuality: FlowGraphicsQuality;
+  uiLanguage: UiLanguage;
   customCursorEnabled: boolean;
   cursorAnimationIntensity: CursorAnimationIntensity;
   cursorSize: number;
@@ -356,6 +358,9 @@ export type ConversationSourceMetadata = {
   sourcePublisherId: string;
   sourceCoAuthors?: string[];
   sourceUpdatedAt?: string;
+  sourceLanguage?: UiLanguage;
+  targetLanguage?: UiLanguage;
+  isTranslationDraft?: boolean;
 };
 
 function mergeChanges(a: StateChange, b: StateChange): StateChange {
@@ -417,6 +422,7 @@ class StateManager {
       flowDensity: 'standard',
       flowOcclusionEnabled: loadFlowOcclusionEnabled(),
       flowGraphicsQuality: loadFlowGraphicsQuality(),
+      uiLanguage: loadUiLanguagePreference(),
       customCursorEnabled: cursorPrefs.enabled,
       cursorAnimationIntensity: cursorPrefs.animationIntensity,
       cursorSize: cursorPrefs.size,
@@ -1629,6 +1635,13 @@ class StateManager {
     this.notify(createFlowChange('structure', 'toolbar', 'flowEditor'));
   }
 
+  setUiLanguage(language: UiLanguage): void {
+    if (this.state.uiLanguage === language) return;
+    this.state.uiLanguage = language;
+    persistUiLanguagePreference(language);
+    this.notify(FULL_APP_RENDER);
+  }
+
   setCustomCursorEnabled(enabled: boolean): void {
     if (this.state.customCursorEnabled === enabled) return;
     this.state.customCursorEnabled = enabled;
@@ -1694,6 +1707,7 @@ class StateManager {
     this.pushUndo();
     const conv = createConversation(this.state.project);
     conv.faction = getConversationFaction(this.getSelectedConversation(), this.state.project.faction);
+    conv.language = this.state.uiLanguage;
     this.state.project.conversations.push(conv);
     this.state.selectedConversationId = conv.id;
     this.clearSelection({ notify: false });
@@ -1706,6 +1720,7 @@ class StateManager {
     const nextConversation: Conversation = JSON.parse(JSON.stringify(conversation));
     nextConversation.id = maxId + 1;
     nextConversation.faction = getConversationFaction(nextConversation, this.state.project.faction);
+    nextConversation.language = nextConversation.language ?? this.state.uiLanguage;
     nextConversation.turns.forEach((turn, index) => {
       turn.turnNumber = index + 1;
       turn.choices = turn.choices.map((choice, choiceIndex) => ({
@@ -2489,6 +2504,9 @@ class StateManager {
         sourcePublisherId: metadata.sourcePublisherId,
         sourceCoAuthors: metadata.sourceCoAuthors ? [...metadata.sourceCoAuthors] : undefined,
         sourceUpdatedAt: metadata.sourceUpdatedAt,
+        sourceLanguage: metadata.sourceLanguage,
+        targetLanguage: metadata.targetLanguage,
+        isTranslationDraft: metadata.isTranslationDraft,
       });
     } else {
       this.state.conversationSourceMetadata.delete(conversationId);

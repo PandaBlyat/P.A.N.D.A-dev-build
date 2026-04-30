@@ -1,6 +1,8 @@
-import type { Conversation, FactionId } from './types';
+import type { Conversation, ConversationTranslationMetadata, FactionId } from './types';
 import type { CollabSession } from './collab-protocol';
 import type { UserMissionProgressRecord } from './gamification';
+import { isUiLanguage } from './ui-language';
+import type { UiLanguage } from './ui-language';
 
 export type UserAchievement = {
   achievement_id: string;
@@ -18,6 +20,15 @@ export type UserStreakState = {
 
 export type ConversationComplexity = 'short' | 'medium' | 'long';
 export type CommunityLibrarySection = 'community' | 'curated' | 'demo';
+export type StoryLanguage = UiLanguage;
+
+export type CommunityConversationData = {
+  version: string;
+  faction: FactionId;
+  conversations: Conversation[];
+  language?: StoryLanguage;
+  translation?: ConversationTranslationMetadata;
+};
 
 export type PublishValidationErrorCode =
   | 'missing-conversation'
@@ -62,7 +73,7 @@ export type CommunityConversation = {
   created_at: string;
   updated_at?: string;
   /** Single-conversation project snapshot: { version, faction, conversations: [conv] } */
-  data: { version: string; faction: FactionId; conversations: Conversation[] };
+  data: CommunityConversationData;
 };
 
 export type PublishPayload = Omit<CommunityConversation, 'id' | 'downloads' | 'upvotes' | 'created_at' | 'updated_at'> & {
@@ -375,6 +386,33 @@ export function createSummaryFromConversation(conversation: Conversation): strin
   return 'Branching conversation ready to import into the editor.';
 }
 
+function normalizeConversationTranslation(value: unknown): ConversationTranslationMetadata | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const record = value as Record<string, unknown>;
+  const sourceId = typeof record.source_id === 'string' ? record.source_id.trim() : '';
+  const sourceLanguage = isUiLanguage(record.source_language) ? record.source_language : null;
+  const targetLanguage = isUiLanguage(record.target_language) ? record.target_language : null;
+  if (!sourceId || !sourceLanguage || !targetLanguage) return undefined;
+  return {
+    source_id: sourceId,
+    source_language: sourceLanguage,
+    target_language: targetLanguage,
+    source_label: typeof record.source_label === 'string' ? record.source_label : undefined,
+    source_author: typeof record.source_author === 'string' ? record.source_author : undefined,
+  };
+}
+
+function normalizeCommunityConversationData(value: unknown): CommunityConversationData {
+  const record = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  return {
+    version: typeof record.version === 'string' && record.version.trim() ? record.version : '2.0.0',
+    faction: record.faction as FactionId,
+    conversations: Array.isArray(record.conversations) ? record.conversations as Conversation[] : [],
+    language: isUiLanguage(record.language) ? record.language : undefined,
+    translation: normalizeConversationTranslation(record.translation),
+  };
+}
+
 function normalizeConversationRow(row: Partial<CommunityConversation>): CommunityConversation {
   return {
     publisher_id: typeof row.publisher_id === 'string' ? row.publisher_id : '',
@@ -394,7 +432,7 @@ function normalizeConversationRow(row: Partial<CommunityConversation>): Communit
     upvotes: typeof row.upvotes === 'number' ? row.upvotes : 0,
     created_at: typeof row.created_at === 'string' ? row.created_at : new Date(0).toISOString(),
     updated_at: typeof row.updated_at === 'string' ? row.updated_at : typeof row.created_at === 'string' ? row.created_at : new Date(0).toISOString(),
-    data: row.data as CommunityConversation['data'],
+    data: normalizeCommunityConversationData(row.data),
   };
 }
 
@@ -637,6 +675,10 @@ export async function conversationLabelExists(label: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+function isTranslationPayloadData(data: CommunityConversationData | undefined): data is CommunityConversationData & { translation: ConversationTranslationMetadata } {
+  return Boolean(data?.translation?.source_id && data.translation.source_language && data.translation.target_language);
+}
+
 export async function publishConversation(payload: PublishPayload): Promise<PublishConversationResult> {
   const conversation = payload.data?.conversations?.[0];
   if (!conversation) {
@@ -674,10 +716,15 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
     }
   }
 
-  if (!payload.replace_id && await conversationLabelExists(label)) {
+  if (!payload.replace_id && !isTranslationPayloadData(payload.data) && await conversationLabelExists(label)) {
     throw new PublishValidationError('A community conversation with this title already exists. Rename it before publishing.', 'duplicate-name');
   }
 
+  const publishData: CommunityConversationData = {
+    ...payload.data,
+    language: payload.data.language ?? 'en',
+    translation: payload.data.translation,
+  };
   const publishBody = {
     ...payload,
     label,
@@ -691,6 +738,7 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
     publisher_id: payload.publisher_id?.trim() || getPublisherId(),
     tagged_usernames: taggedUsernames,
     choice_xp: choiceXp,
+    data: publishData,
   };
 
   const replaceId = payload.replace_id?.trim();

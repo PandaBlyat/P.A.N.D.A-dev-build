@@ -1,10 +1,11 @@
 import { store } from './state';
-import { generateXml, type XmlExporterConfig } from './xml-export';
+import { createEmptyProject, generateXml, type XmlExporterConfig } from './xml-export';
 import { importXml } from './xml-import';
 import { createSampleProjectBundle } from './sample-project';
 import { fetchConversationById } from './api-client';
 import type { Choice, Conversation, ConversationChannel, FactionId, Project, Turn } from './types';
 import { FACTION_XML_KEYS, getConversationFaction } from './types';
+import type { UiLanguage } from './ui-language';
 import { migrateLegacyF2FEntryOpenings } from './f2f-entry-migration';
 import { buildValidationSummary, splitValidationMessages } from './validation-gate';
 
@@ -64,11 +65,30 @@ export function exportXml(): void {
 
   try {
     factions.forEach((faction, index) => {
-      const xml = generateXml(state.project, state.systemStrings, faction, exporterConfig);
       const factionKey = FACTION_XML_KEYS[faction];
-      window.setTimeout(() => {
-        downloadFile(xml, `st_PANDA_${factionKey}_interactive_conversations.xml`, 'application/xml');
-      }, index * 150);
+      const languages: UiLanguage[] = ['en', 'ru'];
+      const factionConversations = state.project.conversations
+        .filter((conv) => getConversationFaction(conv, state.project.faction) === faction)
+        .sort((a, b) => a.id - b.id);
+
+      languages.forEach((language, languageIndex) => {
+        // Always export full conversation list into each language pack so string
+        // keys exist regardless of game language. Missing translations fall
+        // back to authored text until a real translation exists.
+        const mergedProject = createEmptyProject(faction);
+        mergedProject.conversations = factionConversations.map((conv, convIndex) => {
+          const cloned: Conversation = JSON.parse(JSON.stringify(conv));
+          cloned.id = convIndex + 1;
+          cloned.language = language;
+          return cloned;
+        });
+
+        const xml = generateXml(mergedProject, state.systemStrings, undefined, exporterConfig, language);
+        const suffix = language === 'ru' ? 'rus' : 'eng';
+        window.setTimeout(() => {
+          downloadFile(xml, `st_PANDA_${factionKey}_interactive_conversations_${suffix}.xml`, 'application/xml');
+        }, index * 150 + languageIndex * 75);
+      });
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

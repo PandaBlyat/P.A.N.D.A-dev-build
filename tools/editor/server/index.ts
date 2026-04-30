@@ -1363,6 +1363,18 @@ function getChoiceXp(value: unknown): number {
   return Math.max(0, Math.min(5000, Math.round(amount)));
 }
 
+function isTranslationPayloadData(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const data = value as Record<string, unknown>;
+  const translation = data.translation as Record<string, unknown> | undefined;
+  return Boolean(
+    translation
+    && typeof translation.source_id === 'string'
+    && typeof translation.source_language === 'string'
+    && typeof translation.target_language === 'string',
+  );
+}
+
 async function resolveTaggedPublishers(usernames: unknown): Promise<{ publisherIds: string[]; displayNames: string[] }> {
   if (!Array.isArray(usernames)) return { publisherIds: [], displayNames: [] };
   const names = Array.from(new Set(usernames
@@ -1393,17 +1405,19 @@ app.post('/api/conversations', async (req, res) => {
       return;
     }
 
-    const duplicateParams = new URLSearchParams({
-      select: 'id',
-      limit: '1',
-      label: `ilike.${escapeIlike(normalizedLabel)}`,
-    });
-    const duplicate = await fetch(`${sbEndpoint(TABLE)}?${duplicateParams}`, { headers: sbHeaders() });
-    if (duplicate.ok) {
-      const rows = await duplicate.json() as Array<{ id: string }>;
-      if (rows.length > 0) {
-        res.status(409).json({ error: 'A community conversation with this title already exists.' });
-        return;
+    if (!isTranslationPayloadData(data)) {
+      const duplicateParams = new URLSearchParams({
+        select: 'id',
+        limit: '1',
+        label: `ilike.${escapeIlike(normalizedLabel)}`,
+      });
+      const duplicate = await fetch(`${sbEndpoint(TABLE)}?${duplicateParams}`, { headers: sbHeaders() });
+      if (duplicate.ok) {
+        const rows = await duplicate.json() as Array<{ id: string }>;
+        if (rows.length > 0) {
+          res.status(409).json({ error: 'A community conversation with this title already exists.' });
+          return;
+        }
       }
     }
 
@@ -1494,7 +1508,10 @@ app.post('/api/conversations', async (req, res) => {
       ? await applyPublishRewards(insertedId).catch(() => null)
       : null;
     const coAuthorRewards: Array<{ publisher_id: string; rewards: ServerProfileRewardResult | null }> = [];
-    const publishXp = Math.max(rewards?.publish_xp ?? 0, getServerPublishXp(complexity)) + getChoiceXp(choice_xp);
+    const translationMultiplier = isTranslationPayloadData(data) ? 0.5 : 1;
+    const fallbackPublishXp = Math.round(getServerPublishXp(complexity) * translationMultiplier);
+    const fallbackChoiceXp = Math.round(getChoiceXp(choice_xp) * translationMultiplier);
+    const publishXp = Math.max(rewards?.publish_xp ?? 0, fallbackPublishXp) + fallbackChoiceXp;
     if (publishXp > 0) {
       for (const coAuthor of coAuthors) {
         const reward = await awardXpCappedBucket(coAuthor, publishXp, 'publish_coauthor_daily', 1000).catch(() => null);
@@ -1566,18 +1583,20 @@ async function handleConversationReplace(req: express.Request, res: express.Resp
       return;
     }
 
-    const duplicateParams = new URLSearchParams({
-      select: 'id',
-      limit: '1',
-      label: `ilike.${escapeIlike(normalizedLabel)}`,
-      id: `neq.${id}`,
-    });
-    const duplicate = await fetch(`${sbEndpoint(TABLE)}?${duplicateParams}`, { headers: sbHeaders() });
-    if (duplicate.ok) {
-      const rows = await duplicate.json() as Array<{ id: string }>;
-      if (rows.length > 0) {
-        res.status(409).json({ error: 'A different community conversation with this title already exists.' });
-        return;
+    if (!isTranslationPayloadData(data)) {
+      const duplicateParams = new URLSearchParams({
+        select: 'id',
+        limit: '1',
+        label: `ilike.${escapeIlike(normalizedLabel)}`,
+        id: `neq.${id}`,
+      });
+      const duplicate = await fetch(`${sbEndpoint(TABLE)}?${duplicateParams}`, { headers: sbHeaders() });
+      if (duplicate.ok) {
+        const rows = await duplicate.json() as Array<{ id: string }>;
+        if (rows.length > 0) {
+          res.status(409).json({ error: 'A different community conversation with this title already exists.' });
+          return;
+        }
       }
     }
 

@@ -1,5 +1,7 @@
 // P.A.N.D.A. Conversation Editor — Data Model
 
+import type { UiLanguage } from './ui-language';
+
 export interface NpcTemplate {
   id: string;
   name: string;
@@ -37,6 +39,8 @@ export interface Conversation {
   id: number;
   label: string;
   faction?: FactionId;
+  language?: UiLanguage;
+  translation?: ConversationTranslationMetadata;
   initialChannel?: ConversationChannel;
   /** Controls how this conversation is triggered: 'pda' (default) via PDA message, 'f2f' via NPC dialogue option. */
   startMode?: ConversationStartMode;
@@ -57,6 +61,14 @@ export interface FlowAnnotationBase {
   color: string;
   authorName?: string;
   createdAt: string;
+}
+
+export interface ConversationTranslationMetadata {
+  source_id: string;
+  source_language: UiLanguage;
+  target_language: UiLanguage;
+  source_label?: string;
+  source_author?: string;
 }
 
 export interface FlowLineAnnotation extends FlowAnnotationBase {
