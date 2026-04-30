@@ -417,7 +417,7 @@ class StateManager {
       showValidationPanel: false,
       advancedMode: loadAdvancedMode(),
       bottomWorkspaceTab: null,
-      bottomWorkspaceHeight: 280,
+      bottomWorkspaceHeight: 420,
       branchInlinePanel: null,
       flowDensity: 'standard',
       flowOcclusionEnabled: loadFlowOcclusionEnabled(),
@@ -1583,7 +1583,7 @@ class StateManager {
   }
 
   setBottomWorkspaceHeight(height: number): void {
-    const next = Math.max(180, Math.min(520, Math.round(height)));
+    const next = Math.max(180, Math.min(700, Math.round(height)));
     if (next === this.state.bottomWorkspaceHeight) return;
     this.state.bottomWorkspaceHeight = next;
     this.notify(FULL_APP_RENDER);

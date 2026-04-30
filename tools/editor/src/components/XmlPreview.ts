@@ -1,72 +1,117 @@
-// P.A.N.D.A. Conversation Editor — XML Preview Panel
+// P.A.N.D.A. Conversation Editor — XML Preview Panel (editable)
 
 import { store } from '../lib/state';
 import { generateXml } from '../lib/xml-export';
+import { importXml } from '../lib/xml-import';
 
 const xmlPreviewCache = {
   projectRevision: -1,
   systemStringsRevision: -1,
   xml: '',
-  highlightedXml: '',
 };
 
-export function renderXmlPreview(container: HTMLElement): void {
-  container.appendChild(createXmlPreviewContent());
-}
+type XmlPreviewPanel = HTMLElement & { __updateFromStore?: () => void };
 
 export function createXmlPreviewContent(): HTMLElement {
-  const panel = document.createElement('div');
+  const panel: XmlPreviewPanel = document.createElement('div');
   panel.className = 'xml-preview-panel';
 
-  const content = document.createElement('pre');
-  content.className = 'xml-preview-content';
-  panel.appendChild(content);
+  const textarea = document.createElement('textarea');
+  textarea.className = 'xml-preview-textarea';
+  textarea.spellcheck = false;
+  textarea.setAttribute('autocorrect', 'off');
+  textarea.setAttribute('autocapitalize', 'off');
+  textarea.setAttribute('data-allow-immediate-render', 'true');
+  panel.appendChild(textarea);
 
-  updateXmlPreviewContent(content);
+  const footer = document.createElement('div');
+  footer.className = 'xml-preview-footer';
+
+  const status = document.createElement('span');
+  status.className = 'xml-preview-status';
+  status.textContent = 'Live';
+
+  const applyBtn = document.createElement('button');
+  applyBtn.type = 'button';
+  applyBtn.className = 'btn-sm xml-preview-apply-btn';
+  applyBtn.textContent = 'Apply';
+  applyBtn.title = 'Parse this XML and apply it to the workspace — creates new branches/choices in real time';
+  applyBtn.disabled = true;
+
+  footer.append(status, applyBtn);
+  panel.appendChild(footer);
+
+  let isDirty = false;
+  let lastKnownXml = '';
+
+  const initialXml = getCachedXml();
+  textarea.value = initialXml;
+  lastKnownXml = initialXml;
+
+  textarea.addEventListener('input', () => {
+    if (textarea.value !== lastKnownXml) {
+      isDirty = true;
+      status.textContent = 'Modified — click Apply to update workspace';
+      status.dataset.xmlState = 'modified';
+      applyBtn.disabled = false;
+    } else {
+      isDirty = false;
+      status.textContent = 'Live';
+      status.dataset.xmlState = '';
+      applyBtn.disabled = true;
+    }
+  });
+
+  applyBtn.addEventListener('click', () => {
+    const rawXml = textarea.value;
+    applyBtn.disabled = true;
+
+    const result = importXml(rawXml);
+    if (!result) {
+      status.textContent = 'Error: invalid PANDA XML — check faction key and structure';
+      status.dataset.xmlState = 'error';
+      applyBtn.disabled = false;
+      return;
+    }
+
+    const savedHeight = store.get().bottomWorkspaceHeight;
+    isDirty = false;
+    lastKnownXml = rawXml;
+
+    store.loadProject(result.project, result.systemStrings);
+    // loadProject resets the XML panel — re-open it and restore height
+    store.toggleXmlPreview();
+    store.setBottomWorkspaceHeight(savedHeight);
+  });
+
+  panel.__updateFromStore = () => {
+    if (isDirty) return;
+    const xml = getCachedXml();
+    if (textarea.value !== xml) {
+      textarea.value = xml;
+      lastKnownXml = xml;
+    }
+  };
+
   return panel;
 }
 
-export function updateXmlPreviewContent(content: HTMLElement): void {
-  const { xml, highlightedXml } = getCachedXmlPreview();
-  if (content.dataset.xmlText === xml) return;
-  content.dataset.xmlText = xml;
-  content.innerHTML = highlightedXml;
+export function updateXmlPreviewContent(panel: HTMLElement): void {
+  const p = panel as XmlPreviewPanel;
+  if (typeof p.__updateFromStore === 'function') {
+    p.__updateFromStore();
+  }
 }
 
-function getCachedXmlPreview(): { xml: string; highlightedXml: string } {
+function getCachedXml(): string {
   const state = store.get();
   if (
     xmlPreviewCache.projectRevision !== state.projectRevision
     || xmlPreviewCache.systemStringsRevision !== state.systemStringsRevision
   ) {
-    const xml = generateXml(state.project, state.systemStrings);
+    xmlPreviewCache.xml = generateXml(state.project, state.systemStrings);
     xmlPreviewCache.projectRevision = state.projectRevision;
     xmlPreviewCache.systemStringsRevision = state.systemStringsRevision;
-
-    if (xmlPreviewCache.xml !== xml) {
-      xmlPreviewCache.xml = xml;
-      xmlPreviewCache.highlightedXml = highlightXml(xml);
-    }
   }
-
-  return {
-    xml: xmlPreviewCache.xml,
-    highlightedXml: xmlPreviewCache.highlightedXml,
-  };
-}
-
-function highlightXml(xml: string): string {
-  return xml
-    // Escape any existing HTML
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    // Comments
-    .replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="xml-comment">$1</span>')
-    // Tags
-    .replace(/(&lt;\/?)([\w_]+)/g, '$1<span class="xml-tag">$2</span>')
-    // Attributes
-    .replace(/([\w-]+)=(&quot;[^&]*&quot;)/g, '<span class="xml-attr">$1</span>=<span class="xml-text">$2</span>')
-    // Text content between tags (simplified)
-    .replace(/(&gt;)([^&<]+)(&lt;)/g, '$1<span class="xml-text">$2</span>$3');
+  return xmlPreviewCache.xml;
 }
