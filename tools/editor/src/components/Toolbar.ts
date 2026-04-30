@@ -383,14 +383,15 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
 }
 
 function renderQuickSearch(): HTMLElement {
+  const ui = createUiText(store.get().uiLanguage);
   const wrapper = document.createElement('div');
   wrapper.className = 'toolbar-search';
 
   const input = document.createElement('input');
   input.type = 'search';
   input.className = 'toolbar-search-input';
-  input.placeholder = 'Jump to convo, turn, string…';
-  input.title = 'Quick navigation across stories, choices, commands, and system strings (Ctrl/Cmd+P)';
+  input.placeholder = ui('Jump to convo, turn, string…', 'Перейти к диалогу, ходу, строке…');
+  input.title = ui('Quick navigation across stories, choices, commands, and system strings (Ctrl/Cmd+P)', 'Быстрая навигация по историям, выборам, командам и системным строкам (Ctrl/Cmd+P)');
   input.setAttribute('data-global-search', 'true');
   setBeginnerTooltip(input, 'toolbar-search');
 
@@ -618,16 +619,24 @@ function createLanguageSwitcher(currentLanguage: UiLanguage): HTMLElement {
 }
 
 function formatStatus(convCount: number, stringCount: number, compact: boolean, dirty: boolean): string {
+  const ui = createUiText(store.get().uiLanguage);
   if (compact) {
-    return `${convCount} conv • ${stringCount} strings${dirty ? ' • unsaved' : ''}`;
+    return ui(
+      `${convCount} conv • ${stringCount} strings${dirty ? ' • unsaved' : ''}`,
+      `${convCount} диал • ${stringCount} строк${dirty ? ' • не сохранено' : ''}`,
+    );
   }
-  return `${convCount} stor${convCount !== 1 ? 'ies' : 'y'} • ${stringCount} strings${dirty ? ' • unsaved' : ''}`;
+  return ui(
+    `${convCount} stor${convCount !== 1 ? 'ies' : 'y'} • ${stringCount} strings${dirty ? ' • unsaved' : ''}`,
+    `${convCount} ${convCount === 1 ? 'история' : convCount < 5 ? 'истории' : 'историй'} • ${stringCount} строк${dirty ? ' • не сохранено' : ''}`,
+  );
 }
 
 function renderVisitorCounter(compact?: boolean): HTMLElement | null {
   const count = (globalThis as any).__pandaVisitorCount ?? 0;
   const recentVisitors = ((globalThis as any).__pandaRecentVisitors as RecentVisitor[] | undefined) ?? [];
   if (count <= 0) return null;
+  const ui = createUiText(store.get().uiLanguage);
 
   const details = document.createElement('details');
   details.className = 'toolbar-overflow toolbar-visitors';
@@ -635,14 +644,14 @@ function renderVisitorCounter(compact?: boolean): HTMLElement | null {
   const summary = document.createElement('summary');
   summary.className = 'toolbar-visitor-counter';
   summary.setAttribute('role', 'button');
-  summary.setAttribute('aria-label', 'Show recent visitors');
-  summary.title = 'Total unique visitors to the P.A.N.D.A. editor';
+  summary.setAttribute('aria-label', ui('Show recent visitors', 'Показать последних посетителей'));
+  summary.title = ui('Total unique visitors to the P.A.N.D.A. editor', 'Всего уникальных посетителей редактора P.A.N.D.A.');
 
   const icon = createIcon('eye');
   const label = document.createElement('span');
   label.textContent = compact
     ? new Intl.NumberFormat().format(count)
-    : `${new Intl.NumberFormat().format(count)} visitor${count !== 1 ? 's' : ''}`;
+    : ui(`${new Intl.NumberFormat().format(count)} visitor${count !== 1 ? 's' : ''}`, `${new Intl.NumberFormat().format(count)} посетител${count === 1 ? 'ь' : count < 5 ? 'я' : 'ей'}`);
 
   summary.append(icon, label);
 
@@ -651,13 +660,13 @@ function renderVisitorCounter(compact?: boolean): HTMLElement | null {
 
   const title = document.createElement('div');
   title.className = 'toolbar-active-users-title';
-  title.textContent = 'Last 10 Visitors';
+  title.textContent = ui('Last 10 Visitors', 'Последние 10 посетителей');
   menu.appendChild(title);
 
   if (recentVisitors.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'toolbar-active-users-empty';
-    empty.textContent = 'No visitor history yet.';
+    empty.textContent = ui('No visitor history yet.', 'История посещений пуста.');
     menu.appendChild(empty);
   } else {
     const uniqueVisitors: RecentVisitor[] = [];
@@ -684,7 +693,7 @@ function renderVisitorCounter(compact?: boolean): HTMLElement | null {
 
   const note = document.createElement('div');
   note.className = 'toolbar-visitors-note';
-  note.textContent = 'Unique visitors with last visit date.';
+  note.textContent = ui('Unique visitors with last visit date.', 'Уникальные посетители с датой последнего визита.');
   menu.appendChild(note);
 
   details.append(summary, menu);
@@ -703,6 +712,7 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
     remoteUsers.unshift({ userId: localUserId, username: localUsername, lastSeenAt: '', publisherId: localProfile?.publisher_id ?? null });
   }
   const count = Math.max(rawCount, remoteUsers.length);
+  const ui = createUiText(store.get().uiLanguage);
 
   const details = document.createElement('details');
   details.className = 'toolbar-overflow toolbar-active-users';
@@ -710,14 +720,14 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
   const summary = document.createElement('summary');
   summary.className = 'toolbar-visitor-counter toolbar-active-user-counter';
   summary.setAttribute('role', 'button');
-  summary.setAttribute('aria-label', 'Show active users');
-  summary.title = 'Current active users in the P.A.N.D.A. editor';
+  summary.setAttribute('aria-label', ui('Show active users', 'Показать активных пользователей'));
+  summary.title = ui('Current active users in the P.A.N.D.A. editor', 'Текущие активные пользователи редактора P.A.N.D.A.');
 
   const icon = createIcon('user');
   const label = document.createElement('span');
   label.textContent = compact
     ? new Intl.NumberFormat().format(count)
-    : `${new Intl.NumberFormat().format(count)} active`;
+    : ui(`${new Intl.NumberFormat().format(count)} active`, `${new Intl.NumberFormat().format(count)} активных`);
   summary.append(icon, label);
 
   const menu = document.createElement('div');
@@ -725,7 +735,7 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
 
   const title = document.createElement('div');
   title.className = 'toolbar-active-users-title';
-  title.textContent = 'Active Users';
+  title.textContent = ui('Active Users', 'Активные пользователи');
   menu.appendChild(title);
 
   const users = remoteUsers;
@@ -733,7 +743,7 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
   if (users.length === 0 && count === 0) {
     const empty = document.createElement('div');
     empty.className = 'toolbar-active-users-empty';
-    empty.textContent = 'No active users.';
+    empty.textContent = ui('No active users.', 'Нет активных пользователей.');
     menu.appendChild(empty);
   } else {
     const list = document.createElement('div');
@@ -746,7 +756,7 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
       if (item instanceof HTMLButtonElement) {
         item.type = 'button';
         item.classList.add('toolbar-active-users-profile-link');
-        item.title = `Open ${user.username ?? 'user'} profile`;
+        item.title = ui(`Open ${user.username ?? 'user'} profile`, `Открыть профиль ${user.username ?? 'пользователя'}`);
         item.onclick = () => {
           details.open = false;
           void openPublicProfile(user.publisherId!, item);
@@ -757,7 +767,7 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
       const name = document.createElement('span');
       name.className = 'toolbar-active-users-name';
       const isLocal = user.userId === localUserId || (localUsername && user.username === localUsername);
-      name.textContent = `${getActiveUserDisplayName(user, index)}${isLocal ? ' (you)' : ''}`;
+      name.textContent = `${getActiveUserDisplayName(user, index)}${isLocal ? ui(' (you)', ' (вы)') : ''}`;
       item.append(dot, name);
       list.appendChild(item);
     });
@@ -766,7 +776,7 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
     if (hiddenCount > 0) {
       const more = document.createElement('div');
       more.className = 'toolbar-active-users-empty';
-      more.textContent = `+${hiddenCount} more`;
+      more.textContent = ui(`+${hiddenCount} more`, `+${hiddenCount} ещё`);
       list.appendChild(more);
     }
     menu.appendChild(list);
@@ -777,13 +787,14 @@ function renderActiveUserCounter(compact?: boolean): HTMLElement | null {
 }
 
 function createVisitorListItem(visitor: RecentVisitor, index: number, details: HTMLDetailsElement): HTMLElement {
+  const ui = createUiText(store.get().uiLanguage);
   const item = visitor.publisherId ? document.createElement('button') : document.createElement('div');
   item.className = 'toolbar-active-users-item toolbar-visitors-item';
   if (!visitor.username) item.classList.add('toolbar-active-users-item-guest');
   if (item instanceof HTMLButtonElement) {
     item.type = 'button';
     item.classList.add('toolbar-active-users-profile-link');
-    item.title = `Open ${visitor.username ?? 'visitor'} profile`;
+    item.title = ui(`Open ${visitor.username ?? 'visitor'} profile`, `Открыть профиль ${visitor.username ?? 'посетителя'}`);
     item.onclick = () => {
       details.open = false;
       void openPublicProfile(visitor.publisherId!, item);

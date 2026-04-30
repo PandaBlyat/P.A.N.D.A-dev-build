@@ -21,7 +21,7 @@ import {
 } from '../lib/api-client';
 import { COMMUNITY_CONVERSATIONS } from '../lib/community-data';
 import { FACTION_IDS } from '../lib/constants';
-import { FACTION_DISPLAY_NAMES, FACTION_XML_KEYS, getConversationFaction, type Conversation, type FactionId } from '../lib/types';
+import { FACTION_DISPLAY_NAMES, FACTION_DISPLAY_NAMES_RU, FACTION_XML_KEYS, getConversationFaction, type Conversation, type FactionId } from '../lib/types';
 import { createUiText, languageFlag, languageLabel, otherLanguage, type UiLanguage } from '../lib/ui-language';
 import { FACTION_COLORS } from '../lib/faction-colors';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
@@ -260,9 +260,10 @@ function updateReplacementIntentState(): void {
 function refreshPrimaryPublishCta(): void {
   const publishBtn = overlayEl?.querySelector<HTMLButtonElement>('[data-share-publish]');
   if (!publishBtn) return;
+  const ui = getUiText();
   if (isInCollabSession() && !isCollabHost()) {
-    setButtonContent(publishBtn, 'export', 'Publish');
-    publishBtn.title = 'Only the host can publish';
+    setButtonContent(publishBtn, 'export', ui('Publish', 'Опубликовать'));
+    publishBtn.title = ui('Only the host can publish', 'Только хост может публиковать');
     publishBtn.disabled = true;
     publishBtn.onclick = null;
     return;
@@ -271,14 +272,14 @@ function refreshPrimaryPublishCta(): void {
 
   const useUpdateMode = getPrimaryPublishReplacementMode();
   if (useUpdateMode) {
-    setButtonContent(publishBtn, 'export', 'Update');
-    publishBtn.title = 'Update your existing community story';
+    setButtonContent(publishBtn, 'export', ui('Update', 'Обновить'));
+    publishBtn.title = ui('Update your existing community story', 'Обновить вашу историю в сообществе');
     publishBtn.onclick = () => { void handlePrimaryPublishAction(publishBtn); };
     return;
   }
 
-  setButtonContent(publishBtn, 'export', 'Publish');
-  publishBtn.title = 'Publish the currently selected story to the Community Library';
+  setButtonContent(publishBtn, 'export', ui('Publish', 'Опубликовать'));
+  publishBtn.title = ui('Publish the currently selected story to the Community Library', 'Опубликовать выбранную историю в Библиотеке сообщества');
   publishBtn.onclick = () => { void handlePrimaryPublishAction(publishBtn); };
 }
 
@@ -726,15 +727,16 @@ function buildHeader(): HTMLElement {
 
   const titleKicker = document.createElement('span');
   titleKicker.className = 'share-modal-title-kicker';
-  titleKicker.textContent = 'Community Exchange';
+  const ui = getUiText();
+  titleKicker.textContent = ui('Community Exchange', 'Обмен сообщества');
 
   const titleText = document.createElement('span');
   titleText.className = 'share-modal-title-text';
-  titleText.textContent = 'Community Library';
+  titleText.textContent = ui('Community Library', 'Библиотека сообщества');
 
   const titleSubtitle = document.createElement('span');
   titleSubtitle.className = 'share-modal-title-subtitle';
-  titleSubtitle.textContent = 'Preview uploads, polish metadata, and publish stronger branching stories without leaving the editor.';
+  titleSubtitle.textContent = ui('Preview uploads, polish metadata, and publish stronger branching stories without leaving the editor.', 'Просматривайте загрузки, улучшайте метаданные и публикуйте истории с ветками, не выходя из редактора.');
 
   titleCopy.append(titleKicker, titleText, titleSubtitle);
   titleWrap.append(titleIcon, titleCopy);
@@ -750,11 +752,11 @@ function buildHeader(): HTMLElement {
   publishBtn.type = 'button';
   publishBtn.className = 'toolbar-button btn-primary';
   publishBtn.dataset.sharePublish = 'true';
-  setButtonContent(publishBtn, 'export', 'Publish');
-  publishBtn.title = 'Publish the currently selected story to the Community Library';
+  setButtonContent(publishBtn, 'export', ui('Publish', 'Опубликовать'));
+  publishBtn.title = ui('Publish the currently selected story to the Community Library', 'Опубликовать выбранную историю в Библиотеке сообщества');
   if (isInCollabSession() && !isCollabHost()) {
     publishBtn.disabled = true;
-    publishBtn.title = 'Only the host can publish';
+    publishBtn.title = ui('Only the host can publish', 'Только хост может публиковать');
   } else {
     publishBtn.onclick = () => showPublishForm();
   }
@@ -770,7 +772,7 @@ function buildHeader(): HTMLElement {
   closeBtn.className = 'toolbar-button toolbar-icon-button btn-icon share-modal-close';
   closeBtn.dataset.shareClose = 'true';
   closeBtn.appendChild(createIcon('close'));
-  closeBtn.title = 'Close Community Library';
+  closeBtn.title = ui('Close Community Library', 'Закрыть библиотеку сообщества');
   closeBtn.onclick = closeSharePanel;
   closeSlot.appendChild(closeBtn);
   header.appendChild(closeSlot);
@@ -782,11 +784,12 @@ function buildSidebar(): HTMLElement {
   const sidebar = document.createElement('div');
   sidebar.className = 'share-sidebar';
 
-  const allTab = buildSidebarTab('All Factions', null, activeFaction === 'all');
+  const ui = getUiText();
+  const allTab = buildSidebarTab(ui('All Factions', 'Все группировки'), null, activeFaction === 'all');
   sidebar.appendChild(allTab);
 
   for (const fid of FACTION_IDS) {
-    const tab = buildSidebarTab(FACTION_DISPLAY_NAMES[fid], fid, activeFaction === fid);
+    const tab = buildSidebarTab(ui(FACTION_DISPLAY_NAMES[fid], FACTION_DISPLAY_NAMES_RU[fid]), fid, activeFaction === fid);
     sidebar.appendChild(tab);
   }
 
@@ -822,15 +825,16 @@ function rebuildSidebar(): void {
 }
 
 function buildToolbarRow(): HTMLElement {
+  const ui = getUiText();
   const row = document.createElement('div');
   row.className = 'share-toolbar-row';
 
   const viewTabs = document.createElement('div');
   viewTabs.className = 'share-library-tabs';
   ([
-    ['community', 'Community'],
-    ['curated', 'Curated Stories'],
-    ['demo', 'Demo'],
+    ['community', ui('Community', 'Сообщество')],
+    ['curated', ui('Curated Stories', 'Подборка историй')],
+    ['demo', ui('Demo', 'Демо')],
   ] as Array<[LibraryView, string]>).forEach(([view, label]) => {
     const tab = document.createElement('button');
     tab.type = 'button';
@@ -849,7 +853,7 @@ function buildToolbarRow(): HTMLElement {
   const searchInput = document.createElement('input');
   searchInput.type = 'search';
   searchInput.className = 'share-search';
-  searchInput.placeholder = 'Search by title, author, description, or tag…';
+  searchInput.placeholder = ui('Search by title, author, description, or tag…', 'Поиск по названию, автору, описанию или тегу…');
   searchInput.value = searchQuery;
   searchInput.oninput = () => {
     searchQuery = searchInput.value;
@@ -860,7 +864,7 @@ function buildToolbarRow(): HTMLElement {
 
   const sortSelect = document.createElement('select');
   sortSelect.className = 'share-select';
-  sortSelect.innerHTML = '<option value="newest">Newest</option><option value="upvoted">Most Upvoted</option>';
+  sortSelect.innerHTML = `<option value="newest">${ui('Newest', 'Новые')}</option><option value="upvoted">${ui('Most Upvoted', 'Популярные')}</option>`;
   sortSelect.value = sortMode;
   sortSelect.onchange = () => {
     sortMode = sortSelect.value as SortMode;
@@ -871,7 +875,7 @@ function buildToolbarRow(): HTMLElement {
 
   const lengthSelect = document.createElement('select');
   lengthSelect.className = 'share-select';
-  lengthSelect.innerHTML = '<option value="all">All lengths</option><option value="short">Short (1–3 branches)</option><option value="medium">Medium (4–6 branches)</option><option value="long">Long (7+ branches)</option>';
+  lengthSelect.innerHTML = `<option value="all">${ui('All lengths', 'Любая длина')}</option><option value="short">${ui('Short (1–3 branches)', 'Короткие (1–3 ветки)')}</option><option value="medium">${ui('Medium (4–6 branches)', 'Средние (4–6 веток)')}</option><option value="long">${ui('Long (7+ branches)', 'Длинные (7+ веток)')}</option>`;
   lengthSelect.value = lengthFilter;
   lengthSelect.onchange = () => {
     lengthFilter = lengthSelect.value as LengthFilter;
@@ -884,7 +888,7 @@ function buildToolbarRow(): HTMLElement {
   refreshBtn.type = 'button';
   refreshBtn.className = 'toolbar-button toolbar-icon-button btn-icon';
   refreshBtn.appendChild(createIcon('undo'));
-  refreshBtn.title = 'Refresh the story list';
+  refreshBtn.title = ui('Refresh the story list', 'Обновить список историй');
   refreshBtn.onclick = () => {
     allResults = [];
     loadConversations();
@@ -894,8 +898,8 @@ function buildToolbarRow(): HTMLElement {
   const downloadAllBtn = document.createElement('button');
   downloadAllBtn.type = 'button';
   downloadAllBtn.className = 'toolbar-button share-download-all-btn';
-  setButtonContent(downloadAllBtn, 'download', 'Download All XML');
-  downloadAllBtn.title = 'Download curated stories for this faction as a game-ready XML file';
+  setButtonContent(downloadAllBtn, 'download', ui('Download All XML', 'Скачать все XML'));
+  downloadAllBtn.title = ui('Download curated stories for this faction as a game-ready XML file', 'Скачать подборку историй для этой группировки в виде XML-файла');
   downloadAllBtn.hidden = activeFaction === 'all';
   downloadAllBtn.onclick = handleDownloadAll;
   row.appendChild(downloadAllBtn);
@@ -907,14 +911,14 @@ function buildToolbarRow(): HTMLElement {
   const galleryBtn = document.createElement('button');
   galleryBtn.type = 'button';
   galleryBtn.textContent = '▦';
-  galleryBtn.title = 'Gallery view';
+  galleryBtn.title = ui('Gallery view', 'Вид сеткой');
   galleryBtn.className = viewMode === 'gallery' ? 'is-active' : '';
   galleryBtn.onclick = () => { viewMode = 'gallery'; renderContent(); rebuildToolbar(); };
 
   const listBtn = document.createElement('button');
   listBtn.type = 'button';
   listBtn.textContent = '☰';
-  listBtn.title = 'List view';
+  listBtn.title = ui('List view', 'Вид списком');
   listBtn.className = viewMode === 'list' ? 'is-active' : '';
   listBtn.onclick = () => { viewMode = 'list'; renderContent(); rebuildToolbar(); };
 
@@ -986,16 +990,17 @@ function renderContent(): void {
 function buildLoadingState(): HTMLElement {
   const el = document.createElement('div');
   el.className = 'share-state-message';
-  el.textContent = 'Loading…';
+  el.textContent = getUiText()('Loading…', 'Загрузка…');
   return el;
 }
 
 function buildEmptyState(): HTMLElement {
   const el = document.createElement('div');
   el.className = 'share-state-message';
+  const ui = getUiText();
   el.textContent = activeFaction === 'all'
-    ? 'No stories matched your filters. Try clearing search terms or publishing a new entry.'
-    : `No ${FACTION_DISPLAY_NAMES[activeFaction as FactionId]} stories matched your filters yet.`;
+    ? ui('No stories matched your filters. Try clearing search terms or publishing a new entry.', 'Ни одна история не соответствует фильтрам. Попробуйте очистить поиск или опубликовать новую.')
+    : ui(`No ${FACTION_DISPLAY_NAMES[activeFaction as FactionId]} stories matched your filters yet.`, `Историй ${FACTION_DISPLAY_NAMES_RU[activeFaction as FactionId]} пока нет.`);
   return el;
 }
 
@@ -1010,17 +1015,26 @@ function buildCommunitySummary(visibleCount: number): HTMLElement {
   const el = document.createElement('div');
   el.className = 'share-state-banner';
 
+  const ui = getUiText();
   const factionLabel = activeFaction === 'all'
-    ? 'all factions'
-    : FACTION_DISPLAY_NAMES[activeFaction as FactionId];
-  const visibleLabel = `${visibleCount} visible story${visibleCount !== 1 ? 's' : ''} in ${factionLabel}`;
+    ? ui('all factions', 'все группировки')
+    : ui(FACTION_DISPLAY_NAMES[activeFaction as FactionId], FACTION_DISPLAY_NAMES_RU[activeFaction as FactionId]);
+  const visibleLabel = ui(
+    `${visibleCount} visible story${visibleCount !== 1 ? 's' : ''} in ${factionLabel}`,
+    `${visibleCount} ${visibleCount === 1 ? 'история' : visibleCount < 5 ? 'истории' : 'историй'} в ${factionLabel}`,
+  );
 
   if (!communityStats) {
     el.textContent = visibleLabel;
     return el;
   }
 
-  el.textContent = `${visibleLabel} · ${communityStats.published_conversations} total published story${communityStats.published_conversations !== 1 ? 's' : ''} · ${communityStats.published_publishers} total publisher${communityStats.published_publishers !== 1 ? 's' : ''}`;
+  const n = communityStats.published_conversations;
+  const p = communityStats.published_publishers;
+  el.textContent = ui(
+    `${visibleLabel} · ${n} total published story${n !== 1 ? 's' : ''} · ${p} total publisher${p !== 1 ? 's' : ''}`,
+    `${visibleLabel} · ${n} ${n === 1 ? 'история' : n < 5 ? 'истории' : 'историй'} всего · ${p} ${p === 1 ? 'автор' : p < 5 ? 'автора' : 'авторов'}`,
+  );
   return el;
 }
 
@@ -1032,7 +1046,7 @@ function buildErrorState(msg: string): HTMLElement {
   const retry = document.createElement('button');
   retry.type = 'button';
   retry.className = 'toolbar-button';
-  retry.textContent = 'Retry';
+  retry.textContent = getUiText()('Retry', 'Повторить');
   retry.style.marginTop = '10px';
   retry.onclick = loadConversations;
   el.appendChild(retry);
@@ -1577,8 +1591,9 @@ async function handleEditImport(conv: CommunityConversation, btn: HTMLButtonElem
 
 async function handleUpvote(conv: NormalizedConversation, btn: HTMLButtonElement): Promise<void> {
   if (hasUpvoted(conv.id)) return;
+  const ui = getUiText();
   btn.disabled = true;
-  btn.textContent = 'Voting…';
+  btn.textContent = ui('Voting…', 'Голосуем…');
   try {
     await incrementUpvote(conv.id);
     rememberUpvote(conv.id);
@@ -1587,7 +1602,7 @@ async function handleUpvote(conv: NormalizedConversation, btn: HTMLButtonElement
     renderContent();
   } catch (err) {
     btn.disabled = false;
-    btn.textContent = `Upvote ↑ ${conv.upvotes}`;
+    btn.textContent = `${ui('Upvote', 'Лайк')} ↑ ${conv.upvotes}`;
     alert(`Upvote failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
@@ -1604,7 +1619,7 @@ async function handleLibrarySectionChange(
   }
   const oldLabel = btn.textContent ?? '';
   btn.disabled = true;
-  btn.textContent = 'Saving...';
+  btn.textContent = getUiText()('Saving...', 'Сохранение...');
   try {
     const updated = await updateConversationLibrarySection(conv.id, publisherId, section);
     const match = allResults.find(entry => entry.id === conv.id);
@@ -1644,7 +1659,7 @@ function rememberUpvote(id: string): void {
 async function handleDownloadAll(): Promise<void> {
   if (activeFaction === 'all') return;
   const btn = getDownloadAllBtn();
-  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+  if (btn) { btn.disabled = true; btn.textContent = getUiText()('Loading…', 'Загрузка…'); }
 
   try {
     // Final export uses curated stories only, independent of temporary UI
@@ -1705,13 +1720,14 @@ async function handleDownloadAll(): Promise<void> {
   } finally {
     if (btn) {
       btn.disabled = false;
-      setButtonContent(btn, 'download', 'Download All XML');
+      setButtonContent(btn, 'download', getUiText()('Download All XML', 'Скачать все XML'));
     }
     renderContent();
   }
 }
 
 function buildPublishFormLegacy(): HTMLElement {
+  const ui = getUiText();
 
   const form = document.createElement('div');
   form.className = 'share-publish-form';
@@ -1719,12 +1735,12 @@ function buildPublishFormLegacy(): HTMLElement {
 
   const formHeader = document.createElement('div');
   formHeader.className = 'share-publish-form-header';
-  formHeader.textContent = 'Publish to Community Library';
+  formHeader.textContent = ui('Publish to Community Library', 'Опубликовать в Библиотеке сообщества');
   form.appendChild(formHeader);
 
   const subtitle = document.createElement('div');
   subtitle.className = 'share-publish-form-subtitle';
-  subtitle.textContent = 'Anonymous publishing is public, moderated after the fact, and limited to one publish per minute from this browser.';
+  subtitle.textContent = ui('Anonymous publishing is public, moderated after the fact, and limited to one publish per minute from this browser.', 'Анонимные публикации общедоступны, модерируются постфактум и ограничены одной публикацией в минуту с этого браузера.');
   form.appendChild(subtitle);
 
   const replacementContext = document.createElement('div');
@@ -1732,33 +1748,33 @@ function buildPublishFormLegacy(): HTMLElement {
   replacementContext.hidden = true;
   form.appendChild(replacementContext);
 
-  const titleInput = makeFormField(form, 'Title', 'text', 'Story title (unique community title required)') as HTMLInputElement;
+  const titleInput = makeFormField(form, ui('Title', 'Название'), 'text', ui('Story title (unique community title required)', 'Название истории (уникальное в сообществе)')) as HTMLInputElement;
   titleInput.maxLength = 70;
 
   const storedName = getStoredUsername();
-  const authorInput = makeFormField(form, 'Author', 'text',
-    storedName ? storedName : 'Anonymous (set a username via your profile)') as HTMLInputElement;
+  const authorInput = makeFormField(form, ui('Author', 'Автор'), 'text',
+    storedName ? storedName : ui('Anonymous (set a username via your profile)', 'Аноним (укажите имя в профиле)')) as HTMLInputElement;
   authorInput.maxLength = 32;
   if (storedName) {
     authorInput.value = storedName;
     authorInput.readOnly = true;
     authorInput.style.opacity = '0.7';
-    authorInput.title = 'Author name is your profile username. Change it in your profile.';
+    authorInput.title = ui('Author name is your profile username. Change it in your profile.', 'Имя автора — это ваш ник в профиле. Измените его в профиле.');
   }
 
-  const descInput = makeFormField(form, 'Description', 'textarea', 'Brief description of what this story does…') as HTMLTextAreaElement;
+  const descInput = makeFormField(form, ui('Description', 'Описание'), 'textarea', ui('Brief description of what this story does…', 'Краткое описание истории…')) as HTMLTextAreaElement;
   descInput.maxLength = 280;
 
-  const summaryInput = makeFormField(form, 'Summary', 'textarea', 'Short preview text shown in the drawer before import.') as HTMLTextAreaElement;
+  const summaryInput = makeFormField(form, ui('Summary', 'Краткое описание'), 'textarea', ui('Short preview text shown in the drawer before import.', 'Короткий текст превью перед импортом.')) as HTMLTextAreaElement;
   summaryInput.maxLength = 180;
 
-  const tagsInput = makeFormField(form, 'Tags', 'text', 'Comma-separated tags (e.g. jobs, tutorial, campfire)') as HTMLInputElement;
+  const tagsInput = makeFormField(form, ui('Tags', 'Теги'), 'text', ui('Comma-separated tags (e.g. jobs, tutorial, campfire)', 'Теги через запятую (напр. работа, урок, костёр)')) as HTMLInputElement;
 
   const factionRow = document.createElement('div');
   factionRow.className = 'share-form-field';
   const factionLabel = document.createElement('label');
   factionLabel.className = 'share-form-label';
-  factionLabel.textContent = 'Faction';
+  factionLabel.textContent = ui('Faction', 'Группировка');
   const factionValue = document.createElement('div');
   factionValue.className = 'share-form-faction-display';
   factionRow.append(factionLabel, factionValue);
@@ -1766,7 +1782,7 @@ function buildPublishFormLegacy(): HTMLElement {
 
   const moderationBox = document.createElement('div');
   moderationBox.className = 'share-moderation-box';
-  moderationBox.innerHTML = '<strong>Before you publish:</strong> keep titles unique, avoid links or invites, and expect public visibility for anonymous uploads.';
+  moderationBox.innerHTML = ui('<strong>Before you publish:</strong> keep titles unique, avoid links or invites, and expect public visibility for anonymous uploads.', '<strong>Перед публикацией:</strong> используйте уникальные названия, не добавляйте ссылки или приглашения, учтите, что анонимные загрузки публично видимы.');
   form.appendChild(moderationBox);
 
   const consentRow = document.createElement('label');
@@ -1774,7 +1790,7 @@ function buildPublishFormLegacy(): HTMLElement {
   const consentInput = document.createElement('input');
   consentInput.type = 'checkbox';
   const consentText = document.createElement('span');
-  consentText.textContent = 'I confirm this story is my own work, safe for public browsing, and not a duplicate community title.';
+  consentText.textContent = ui('I confirm this story is my own work, safe for public browsing, and not a duplicate community title.', 'Подтверждаю, что история — моя работа, безопасна для просмотра и не дублирует уже опубликованную.');
   consentRow.append(consentInput, consentText);
   form.appendChild(consentRow);
 
@@ -1784,23 +1800,23 @@ function buildPublishFormLegacy(): HTMLElement {
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'toolbar-button';
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = ui('Cancel', 'Отмена');
   cancelBtn.onclick = () => { form.hidden = true; showPublishTrigger(); };
 
   const submitBtn = document.createElement('button');
   submitBtn.type = 'button';
   submitBtn.className = 'toolbar-button btn-primary';
-  setButtonContent(submitBtn, 'export', 'Publish →');
+  setButtonContent(submitBtn, 'export', ui('Publish →', 'Опубликовать →'));
 
   const applySubmitMode = (isReplacementCandidate: boolean) => {
-    setButtonContent(submitBtn, 'export', isReplacementCandidate ? 'Update →' : 'Publish →');
-    formHeader.textContent = isReplacementCandidate ? 'Update existing Community Library entry' : 'Publish to Community Library';
+    setButtonContent(submitBtn, 'export', isReplacementCandidate ? ui('Update →', 'Обновить →') : ui('Publish →', 'Опубликовать →'));
+    formHeader.textContent = isReplacementCandidate ? ui('Update existing Community Library entry', 'Обновить запись в Библиотеке сообщества') : ui('Publish to Community Library', 'Опубликовать в Библиотеке сообщества');
     subtitle.textContent = isReplacementCandidate
-      ? 'Update existing community entry metadata/content. Ownership is validated before replace payload is sent.'
-      : 'Anonymous publishing is public, moderated after the fact, and limited to one publish per minute from this browser.';
+      ? ui('Update existing community entry metadata/content. Ownership is validated before replace payload is sent.', 'Обновить метаданные/содержимое записи. Право собственности проверяется перед заменой.')
+      : ui('Anonymous publishing is public, moderated after the fact, and limited to one publish per minute from this browser.', 'Анонимные публикации общедоступны, модерируются постфактум и ограничены одной публикацией в минуту с этого браузера.');
     replacementContext.hidden = !isReplacementCandidate;
     replacementContext.textContent = isReplacementCandidate && replacementCommunityId
-      ? `Update existing community post: ${replacementCommunityId}`
+      ? ui(`Update existing community post: ${replacementCommunityId}`, `Обновить запись в сообществе: ${replacementCommunityId}`)
       : '';
   };
 

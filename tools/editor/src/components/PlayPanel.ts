@@ -7,6 +7,11 @@ import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { createIcon } from './icons';
 import { store } from '../lib/state';
 import { PANDA_EMOJI_SHORTCODES, pandaEmojiPreviewUrl } from './PropertiesPanel';
+import { createUiText } from '../lib/ui-language';
+
+function ui(en: string, ru: string): string {
+  return createUiText(store.get().uiLanguage)(en, ru);
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -96,8 +101,8 @@ export function openPlayPanel(conversation: Conversation): void {
   closeBtn.type = 'button';
   closeBtn.className = 'btn-icon';
   closeBtn.appendChild(createIcon('close'));
-  closeBtn.title = 'Close preview';
-  closeBtn.setAttribute('aria-label', 'Close conversation simulator');
+  closeBtn.title = ui('Close preview', 'Закрыть предпросмотр');
+  closeBtn.setAttribute('aria-label', ui('Close conversation simulator', 'Закрыть симулятор диалога'));
   closeBtn.onclick = closePlayPanel;
   header.appendChild(closeBtn);
 
@@ -107,7 +112,10 @@ export function openPlayPanel(conversation: Conversation): void {
   const disclaimer = document.createElement('div');
   disclaimer.className = 'play-disclaimer';
   disclaimer.id = 'play-panel-disclaimer';
-  disclaimer.textContent = 'Author Preview shows story structure, replies, next scenes, relationship variants, and effects. Game-only checks like live preconditions and random chance are not simulated.';
+  disclaimer.textContent = ui(
+    'Author Preview shows story structure, replies, next scenes, relationship variants, and effects. Game-only checks like live preconditions and random chance are not simulated.',
+    'Предпросмотр автора показывает структуру истории, ответы, следующие сцены, варианты отношений и эффекты. Игровые проверки (живые предусловия, случайный шанс) не симулируются.',
+  );
   panel.appendChild(disclaimer);
 
   // -- status strip --
@@ -121,7 +129,7 @@ export function openPlayPanel(conversation: Conversation): void {
   const messages = document.createElement('div');
   messages.className = 'play-messages';
   messages.setAttribute('aria-live', 'polite');
-  messages.setAttribute('aria-label', 'Conversation transcript');
+  messages.setAttribute('aria-label', ui('Conversation transcript', 'Расшифровка диалога'));
   panel.appendChild(messages);
   messagesEl = messages;
 
@@ -129,7 +137,7 @@ export function openPlayPanel(conversation: Conversation): void {
   const choices = document.createElement('div');
   choices.className = 'play-choices';
   choices.setAttribute('role', 'group');
-  choices.setAttribute('aria-label', 'Available choices');
+  choices.setAttribute('aria-label', ui('Available choices', 'Доступные варианты'));
   panel.appendChild(choices);
   choicesEl = choices;
 
@@ -145,19 +153,19 @@ export function openPlayPanel(conversation: Conversation): void {
     modeWrapper.className = 'play-mode-select-wrap';
     const modeLabel = document.createElement('span');
     modeLabel.className = 'play-mode-select-label';
-    modeLabel.textContent = 'Opening message view';
+    modeLabel.textContent = ui('Opening message view', 'Вид открывающего сообщения');
     const modeSelect = document.createElement('select');
     modeSelect.className = 'play-mode-select';
-    modeSelect.setAttribute('aria-label', 'Opening message display mode');
+    modeSelect.setAttribute('aria-label', ui('Opening message display mode', 'Режим отображения открывающего сообщения'));
     const authorOption = document.createElement('option');
     authorOption.value = 'author';
-    authorOption.textContent = 'Author Preview';
+    authorOption.textContent = ui('Author Preview', 'Предпросмотр автора');
     const runtimeOption = document.createElement('option');
     runtimeOption.value = 'runtime-parity';
-    runtimeOption.textContent = 'Runtime-accurate parity mode';
+    runtimeOption.textContent = ui('Runtime-accurate parity mode', 'Режим точного совпадения с игрой');
     const rawOption = document.createElement('option');
     rawOption.value = 'authoring-raw';
-    rawOption.textContent = 'Authoring raw mode';
+    rawOption.textContent = ui('Authoring raw mode', 'Сырой режим авторинга');
     modeSelect.append(authorOption, runtimeOption, rawOption);
     modeSelect.onchange = () => {
       if (!simState) return;
@@ -178,8 +186,8 @@ export function openPlayPanel(conversation: Conversation): void {
     const timeoutBtn = document.createElement('button');
     timeoutBtn.type = 'button';
     timeoutBtn.className = 'btn-sm play-timeout-btn';
-    timeoutBtn.append(createIcon('clock'), document.createTextNode('Trigger Timeout'));
-    timeoutBtn.title = `Simulate timeout (${conversation.timeout}s)`;
+    timeoutBtn.append(createIcon('clock'), document.createTextNode(ui('Trigger Timeout', 'Вызвать таймаут')));
+    timeoutBtn.title = ui(`Simulate timeout (${conversation.timeout}s)`, `Симулировать таймаут (${conversation.timeout}с)`);
     timeoutBtn.onclick = () => triggerTimeout();
     footerLeft.appendChild(timeoutBtn);
     timeoutBtnEl = timeoutBtn;
@@ -192,8 +200,8 @@ export function openPlayPanel(conversation: Conversation): void {
   const restartBtn = document.createElement('button');
   restartBtn.type = 'button';
   restartBtn.className = 'btn-sm';
-  restartBtn.append(createIcon('restart'), document.createTextNode('Restart'));
-  restartBtn.title = 'Restart conversation from the beginning';
+  restartBtn.append(createIcon('restart'), document.createTextNode(ui('Restart', 'Перезапустить')));
+  restartBtn.title = ui('Restart conversation from the beginning', 'Перезапустить диалог с начала');
   restartBtn.onclick = () => restartSimulation();
   footerRight.appendChild(restartBtn);
 
@@ -521,7 +529,7 @@ function renderOutcomeBlock(msg: SimMessage): HTMLElement {
 
   const heading = document.createElement('div');
   heading.className = 'play-outcome-heading';
-  heading.textContent = 'Effects';
+  heading.textContent = ui('Effects', 'Эффекты');
   block.appendChild(heading);
 
   for (const outcome of (msg.outcomes ?? [])) {
@@ -586,9 +594,9 @@ function renderStatus(): void {
     const timeoutChip = document.createElement('span');
     const hasMessage = simState.timeoutMessage != null && simState.timeoutMessage.trim() !== '';
     timeoutChip.className = 'play-timeout-chip' + (hasMessage ? '' : ' play-warning-chip');
-    timeoutChip.textContent = `\u23F1 ${simState.timeoutSeconds}s`;
+    timeoutChip.textContent = ui(`\u23F1 ${simState.timeoutSeconds}s`, `\u23F1 ${simState.timeoutSeconds}\u0441`);
     if (!hasMessage) {
-      timeoutChip.title = 'Timeout is set but no timeout message is configured';
+      timeoutChip.title = ui('Timeout is set but no timeout message is configured', '\u0422\u0430\u0439\u043C\u0430\u0443\u0442 \u0437\u0430\u0434\u0430\u043D, \u043D\u043E \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \u043E \u0442\u0430\u0439\u043C\u0430\u0443\u0442\u0435 \u043D\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u043E');
     }
     statusEl.appendChild(timeoutChip);
   }
@@ -642,7 +650,7 @@ function renderChoices(choices: Choice[]): void {
     if (choice.outcomes.length > 0) {
       const effectEl = document.createElement('span');
       effectEl.className = 'play-choice-badge';
-      effectEl.textContent = `${choice.outcomes.length} effect${choice.outcomes.length !== 1 ? 's' : ''}`;
+      effectEl.textContent = ui(`${choice.outcomes.length} effect${choice.outcomes.length !== 1 ? 's' : ''}`, `${choice.outcomes.length} эффект${choice.outcomes.length === 1 ? '' : choice.outcomes.length < 5 ? 'а' : 'ов'}`);
       meta.appendChild(effectEl);
     }
 
@@ -650,7 +658,7 @@ function renderChoices(choices: Choice[]): void {
     if (choice.replyRelHigh || choice.replyRelLow) {
       const relEl = document.createElement('span');
       relEl.className = 'play-choice-badge play-choice-rel';
-      relEl.textContent = 'Rel. variants';
+      relEl.textContent = ui('Rel. variants', 'Варианты отношений');
       meta.appendChild(relEl);
     }
 
@@ -658,7 +666,7 @@ function renderChoices(choices: Choice[]): void {
     if (visibilityRules.length > 0) {
       const ruleEl = document.createElement('span');
       ruleEl.className = 'play-choice-badge play-choice-conditional';
-      ruleEl.textContent = `${visibilityRules.length} show rule${visibilityRules.length === 1 ? '' : 's'}`;
+      ruleEl.textContent = ui(`${visibilityRules.length} show rule${visibilityRules.length === 1 ? '' : 's'}`, `${visibilityRules.length} правил${visibilityRules.length === 1 ? 'о' : visibilityRules.length < 5 ? 'а' : ''} показа`);
       ruleEl.title = visibilityRules.map(formatPreconditionPreview).join('\n');
       meta.appendChild(ruleEl);
     }

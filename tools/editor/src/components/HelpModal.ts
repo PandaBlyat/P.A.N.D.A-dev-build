@@ -3,6 +3,12 @@
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon } from './icons';
 import { resetBeginnerTooltipDismissals, mountBeginnerTooltipController } from '../lib/beginner-tooltips';
+import { createUiText } from '../lib/ui-language';
+import { store } from '../lib/state';
+
+function ui(en: string, ru: string): string {
+  return createUiText(store.get().uiLanguage)(en, ru);
+}
 
 let modalElement: HTMLElement | null = null;
 let focusTrap: FocusTrapController | null = null;
@@ -38,7 +44,7 @@ export function openHelpModal(): void {
   closeBtn.type = 'button';
   closeBtn.className = 'btn-icon';
   closeBtn.appendChild(createIcon('close'));
-  closeBtn.title = 'Close help';
+  closeBtn.title = ui('Close help', 'Закрыть справку');
   closeBtn.onclick = closeHelpModal;
   header.appendChild(closeBtn);
 
@@ -55,13 +61,13 @@ export function openHelpModal(): void {
   const resetTipsBtn = document.createElement('button');
   resetTipsBtn.type = 'button';
   resetTipsBtn.className = 'btn-sm';
-  resetTipsBtn.textContent = 'Show beginner tips again';
+  resetTipsBtn.textContent = ui('Show beginner tips again', 'Показать советы для новичков снова');
   resetTipsBtn.onclick = () => {
     resetBeginnerTooltipDismissals();
     mountBeginnerTooltipController(document.body);
-    resetTipsBtn.textContent = 'Tips reset — close this modal to see them';
+    resetTipsBtn.textContent = ui('Tips reset — close this modal to see them', 'Советы сброшены — закройте окно, чтобы увидеть их');
     window.setTimeout(() => {
-      resetTipsBtn.textContent = 'Show beginner tips again';
+      resetTipsBtn.textContent = ui('Show beginner tips again', 'Показать советы для новичков снова');
     }, 2500);
   };
   footer.appendChild(resetTipsBtn);

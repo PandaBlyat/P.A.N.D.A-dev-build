@@ -1,6 +1,6 @@
 import { store, type BranchInlinePanelMode } from '../lib/state';
 import type { Choice, Conversation, FactionId, Outcome, PreconditionEntry, SimplePrecondition, Turn } from '../lib/types';
-import { FACTION_DISPLAY_NAMES, getConversationFaction } from '../lib/types';
+import { FACTION_DISPLAY_NAMES, FACTION_DISPLAY_NAMES_RU, getConversationFaction } from '../lib/types';
 import { OUTCOME_SCHEMAS, type CommandSchema } from '../lib/schema';
 import { FACTION_IDS } from '../lib/constants';
 import {
@@ -349,26 +349,27 @@ const OPENER_NPC_TARGET_COMMANDS = new Set([
 ]);
 
 function renderOpenerNpcTargetPanel(conv: Conversation): HTMLElement {
+  const ui = getUiText();
   const target = inferOpenerNpcTarget(conv);
   const field = document.createElement('div');
   field.className = 'branch-inline-field-block branch-inline-opener-target';
 
   const label = document.createElement('div');
   label.className = 'branch-inline-subtitle';
-  label.textContent = 'First Branch NPC';
+  label.textContent = ui('First Branch NPC', 'NPC первой ветки');
 
   const modeRow = document.createElement('div');
   modeRow.className = 'branch-inline-npc-mode-row';
   modeRow.append(
-    createSegmentButton('Any Friendly x Faction', target.mode === 'friendly_faction', () => updateOpenerNpcTarget(conv, {
+    createSegmentButton(ui('Any Friendly x Faction', 'Любой дружественный x Группировка'), target.mode === 'friendly_faction', () => updateOpenerNpcTarget(conv, {
       ...target,
       mode: 'friendly_faction',
     })),
-    createSegmentButton('Story NPC', target.mode === 'story_npc', () => updateOpenerNpcTarget(conv, {
+    createSegmentButton(ui('Story NPC', 'Сюжетный NPC'), target.mode === 'story_npc', () => updateOpenerNpcTarget(conv, {
       ...target,
       mode: 'story_npc',
     })),
-    createSegmentButton('Custom NPC', target.mode === 'custom_npc', () => updateOpenerNpcTarget(conv, {
+    createSegmentButton(ui('Custom NPC', 'Пользовательский NPC'), target.mode === 'custom_npc', () => updateOpenerNpcTarget(conv, {
       ...target,
       mode: 'custom_npc',
     })),
@@ -380,7 +381,7 @@ function renderOpenerNpcTargetPanel(conv: Conversation): HTMLElement {
     for (const factionId of FACTION_IDS) {
       const option = document.createElement('option');
       option.value = factionId;
-      option.textContent = FACTION_DISPLAY_NAMES[factionId];
+      option.textContent = ui(FACTION_DISPLAY_NAMES[factionId], FACTION_DISPLAY_NAMES_RU[factionId]);
       option.selected = target.faction === factionId;
       factionSelect.appendChild(option);
     }
@@ -403,10 +404,10 @@ function renderOpenerNpcTargetPanel(conv: Conversation): HTMLElement {
       }),
       `branch-inline-opener-${conv.id}-story-npc`,
       {
-        title: 'First Branch Story NPC',
-        subtitle: 'Pick existing story NPC who starts this storyline.',
-        searchPlaceholder: 'Search story NPC id, faction, level, or role...',
-        emptyLabel: 'Pick story NPC',
+        title: ui('First Branch Story NPC', 'Сюжетный NPC первой ветки'),
+        subtitle: ui('Pick existing story NPC who starts this storyline.', 'Выбери существующего сюжетного NPC, который начинает эту историю.'),
+        searchPlaceholder: ui('Search story NPC id, faction, level, or role...', 'Поиск по id, группировке, уровню или роли...'),
+        emptyLabel: ui('Pick story NPC', 'Выбери сюжетного NPC'),
         options: STORY_NPC_OPTIONS,
       },
     ));
@@ -425,7 +426,7 @@ function renderOpenerNpcTargetPanel(conv: Conversation): HTMLElement {
   ));
   const terrainLabel = document.createElement('div');
   terrainLabel.className = 'branch-inline-subtitle';
-  terrainLabel.textContent = 'Spawn smart terrain';
+  terrainLabel.textContent = ui('Spawn smart terrain', 'Умная территория для спавна');
   field.append(
     terrainLabel,
     createSmartTerrainPickerEditor(
@@ -480,26 +481,27 @@ function updateOpenerNpcTarget(conv: Conversation, target: OpenerNpcTarget): voi
 }
 
 function renderBranchNpcTargetPanel(conv: Conversation, turn: Turn): HTMLElement {
+  const ui = getUiText();
   const target = inferBranchNpcTarget(conv, turn);
   const field = document.createElement('div');
   field.className = 'branch-inline-field-block branch-inline-opener-target';
 
   const label = document.createElement('div');
   label.className = 'branch-inline-subtitle';
-  label.textContent = 'Branch NPC';
+  label.textContent = ui('Branch NPC', 'NPC ветки');
 
   const modeRow = document.createElement('div');
   modeRow.className = 'branch-inline-npc-mode-row';
   modeRow.append(
-    createSegmentButton('Same NPC', target.mode === 'same', () => updateBranchNpcTarget(conv, turn, { ...target, mode: 'same' })),
-    createSegmentButton('Any Sim x Faction NPC', target.mode === 'sim', () => updateBranchNpcTarget(conv, turn, { ...target, mode: 'sim' })),
-    createSegmentButton('Story NPC', target.mode === 'story', () => updateBranchNpcTarget(conv, turn, { ...target, mode: 'story' })),
-    createSegmentButton('Custom NPC', target.mode === 'custom', () => updateBranchNpcTarget(conv, turn, { ...target, mode: 'custom' })),
+    createSegmentButton(ui('Same NPC', 'Тот же NPC'), target.mode === 'same', () => updateBranchNpcTarget(conv, turn, { ...target, mode: 'same' })),
+    createSegmentButton(ui('Any Sim x Faction NPC', 'Любой сим NPC x Группировка'), target.mode === 'sim', () => updateBranchNpcTarget(conv, turn, { ...target, mode: 'sim' })),
+    createSegmentButton(ui('Story NPC', 'Сюжетный NPC'), target.mode === 'story', () => updateBranchNpcTarget(conv, turn, { ...target, mode: 'story' })),
+    createSegmentButton(ui('Custom NPC', 'Пользовательский NPC'), target.mode === 'custom', () => updateBranchNpcTarget(conv, turn, { ...target, mode: 'custom' })),
   );
   field.append(label, modeRow);
 
   if (target.mode === 'same') {
-    field.appendChild(createEmpty('Previous NPC delivers this branch.'));
+    field.appendChild(createEmpty(ui('Previous NPC delivers this branch.', 'Предыдущий NPC доставляет эту ветку.')));
     return field;
   }
 
@@ -508,7 +510,7 @@ function renderBranchNpcTargetPanel(conv: Conversation, turn: Turn): HTMLElement
     for (const factionId of FACTION_IDS) {
       const option = document.createElement('option');
       option.value = factionId;
-      option.textContent = FACTION_DISPLAY_NAMES[factionId];
+      option.textContent = ui(FACTION_DISPLAY_NAMES[factionId], FACTION_DISPLAY_NAMES_RU[factionId]);
       option.selected = target.faction === factionId;
       factionSelect.appendChild(option);
     }
@@ -531,10 +533,10 @@ function renderBranchNpcTargetPanel(conv: Conversation, turn: Turn): HTMLElement
       }),
       `branch-inline-branch-${conv.id}-${turn.turnNumber}-story-npc`,
       {
-        title: 'Branch Story NPC',
-        subtitle: 'Pick existing story NPC who delivers this branch.',
-        searchPlaceholder: 'Search story NPC id, faction, level, or role...',
-        emptyLabel: 'Same NPC',
+        title: ui('Branch Story NPC', 'Сюжетный NPC ветки'),
+        subtitle: ui('Pick existing story NPC who delivers this branch.', 'Выбери существующего сюжетного NPC, который доставляет эту ветку.'),
+        searchPlaceholder: ui('Search story NPC id, faction, level, or role...', 'Поиск по id, группировке, уровню или роли...'),
+        emptyLabel: ui('Same NPC', 'Тот же NPC'),
         options: STORY_NPC_OPTIONS,
       },
     ));
@@ -617,20 +619,21 @@ function renderCommandPanel(
   const grid = document.createElement('div');
   grid.className = 'branch-inline-grid branch-inline-grid-outcomes';
 
-  const listPane = createPane(choice ? 'Preconditions / Outcomes' : 'Opener Preconditions');
+  const ui = getUiText();
+  const listPane = createPane(choice ? ui('Preconditions / Outcomes', 'Предусловия / Результаты') : ui('Opener Preconditions', 'Предусловия открытия'));
   listPane.appendChild(createHint(choice
-    ? 'Preconditions gate whether player can see this choice. Outcomes run after player picks it.'
-    : 'Opener preconditions gate whether this branch can start.',
+    ? ui('Preconditions gate whether player can see this choice. Outcomes run after player picks it.', 'Предусловия определяют, видит ли игрок этот выбор. Результаты срабатывают после выбора.')
+    : ui('Opener preconditions gate whether this branch can start.', 'Предусловия открытия определяют, может ли ветка начаться.'),
   ));
   renderCommandAddControls(listPane, conv, turn, choice);
   renderCurrentCommandList(listPane, conv, turn, choice, selection);
 
-  const detailPane = createPane('Details / Properties');
+  const detailPane = createPane(ui('Details / Properties', 'Детали / свойства'));
   renderCommandDetails(detailPane, conv, turn, choice, selection);
   if (choice) {
     const continueRow = document.createElement('div');
     continueRow.className = 'branch-inline-action-row branch-inline-next-row';
-    continueRow.appendChild(createActionButton('Continuation', () => openPanel(conv.id, turn.turnNumber, choice.index, 'continuation')));
+    continueRow.appendChild(createActionButton(ui('Continuation', 'Продолжение'), () => openPanel(conv.id, turn.turnNumber, choice.index, 'continuation')));
     detailPane.appendChild(continueRow);
   }
 
@@ -772,37 +775,38 @@ function renderContinuationOpenerEditor(
 ): HTMLElement | null {
   if (!targetTurn || !choiceRequiresContinuationOpener(conv, turn, choice, targetTurn)) return null;
 
+  const ui = getUiText();
   const field = document.createElement('div');
   field.className = 'branch-inline-field-block branch-inline-next-opener';
   const title = document.createElement('div');
   title.className = 'branch-inline-subtitle';
-  title.textContent = 'Next Branch NPC Opener';
-  field.append(title, createHint('Required when continuation changes PDA/F2F mode or hands off to new NPC.'));
+  title.textContent = ui('Next Branch NPC Opener', 'Открыватель следующей ветки NPC');
+  field.append(title, createHint(ui('Required when continuation changes PDA/F2F mode or hands off to new NPC.', 'Обязательно, если продолжение меняет режим PDA/F2F или передаёт ветку новому NPC.')));
   field.appendChild(createTextarea({
-    label: `${turnLabels.getLongLabel(targetTurn.turnNumber)} Opener Message`,
+    label: `${turnLabels.getLongLabel(targetTurn.turnNumber)} ${ui('Opener Message', 'Начальное сообщение')}`,
     value: targetTurn.openingMessage ?? '',
-    placeholder: 'NPC opening line before next branch choices',
+    placeholder: ui('NPC opening line before next branch choices', 'Начальная реплика NPC перед вариантами следующей ветки'),
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-message'),
     onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingMessage: value }),
   }));
   field.appendChild(createTextInput({
-    label: 'Next Opener DDS Image',
+    label: ui('Next Opener DDS Image', 'DDS картинка следующего открытия'),
     value: targetTurn.openingImage ?? '',
     placeholder: 'panda_file',
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-image'),
     onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingImage: value.trim() || undefined }),
   }));
   field.appendChild(createTextInput({
-    label: 'Next Opener Audio',
+    label: ui('Next Opener Audio', 'Аудио следующего открытия'),
     value: targetTurn.openingAudio ?? '',
     placeholder: 'message_ping',
-    description: 'sound filename under gamedata/sounds/panda/audio',
+    description: ui('sound filename under gamedata/sounds/panda/audio', 'имя файла звука в gamedata/sounds/panda/audio'),
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-audio'),
     onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingAudio: value.trim() || undefined }),
   }));
   const actions = document.createElement('div');
   actions.className = 'branch-inline-action-row';
-  actions.appendChild(createActionButton('Open Next Branch', () => {
+  actions.appendChild(createActionButton(ui('Open Next Branch', 'Открыть следующую ветку'), () => {
     store.batch(() => {
       store.selectTurn(targetTurn.turnNumber);
       store.openBranchInlinePanel({
@@ -976,16 +980,17 @@ function renderCurrentPreconditionList(
   choice: Choice | null,
   selectedIndex: number | null,
 ): void {
+  const ui = getUiText();
   const wrap = document.createElement('div');
   wrap.className = 'branch-inline-current-outcomes';
   const title = document.createElement('div');
   title.className = 'branch-inline-subtitle';
-  title.textContent = 'Current Preconditions';
+  title.textContent = ui('Current Preconditions', 'Текущие предусловия');
   wrap.appendChild(title);
 
   const entries = choice ? (choice.preconditions ?? []) : (turn.preconditions ?? []);
   if (entries.length === 0) {
-    wrap.appendChild(createEmpty(choice ? 'No preconditions on this choice.' : 'No opener preconditions.'));
+    wrap.appendChild(createEmpty(choice ? ui('No preconditions on this choice.', 'Нет предусловий для этого выбора.') : ui('No opener preconditions.', 'Нет предусловий открытия.')));
     container.appendChild(wrap);
     return;
   }
@@ -1011,15 +1016,16 @@ function renderCurrentOutcomeList(
   choice: Choice,
   selectedIndex: number | null,
 ): void {
+  const ui = getUiText();
   const wrap = document.createElement('div');
   wrap.className = 'branch-inline-current-outcomes';
   const title = document.createElement('div');
   title.className = 'branch-inline-subtitle';
-  title.textContent = 'Current Outcomes';
+  title.textContent = ui('Current Outcomes', 'Текущие результаты');
   wrap.appendChild(title);
 
   if (choice.outcomes.length === 0) {
-    wrap.appendChild(createEmpty('No outcomes on this choice.'));
+    wrap.appendChild(createEmpty(ui('No outcomes on this choice.', 'Нет результатов для этого выбора.')));
     container.appendChild(wrap);
     return;
   }
@@ -1044,18 +1050,19 @@ function renderCurrentCommandList(
   choice: Choice | null,
   selection: CommandSelection | null,
 ): void {
+  const ui = getUiText();
   const wrap = document.createElement('div');
   wrap.className = 'branch-inline-current-outcomes';
   const title = document.createElement('div');
   title.className = 'branch-inline-subtitle';
-  title.textContent = 'Current';
+  title.textContent = ui('Current', 'Текущие');
   wrap.appendChild(title);
 
   const entries = choice ? (choice.preconditions ?? []) : (turn.preconditions ?? []);
   if (entries.length > 0) {
     const preTitle = document.createElement('div');
     preTitle.className = 'branch-inline-command-section-label';
-    preTitle.textContent = 'Preconditions';
+    preTitle.textContent = ui('Preconditions', 'Предусловия');
     wrap.appendChild(preTitle);
     entries.forEach((entry, index) => {
       const row = document.createElement('button');
@@ -1073,7 +1080,7 @@ function renderCurrentCommandList(
   if (choice && choice.outcomes.length > 0) {
     const outTitle = document.createElement('div');
     outTitle.className = 'branch-inline-command-section-label';
-    outTitle.textContent = 'Outcomes';
+    outTitle.textContent = ui('Outcomes', 'Результаты');
     wrap.appendChild(outTitle);
     choice.outcomes.forEach((outcome, index) => {
       const schema = OUTCOME_SCHEMAS.find((candidate) => candidate.name === outcome.command);
@@ -1088,7 +1095,7 @@ function renderCurrentCommandList(
   }
 
   if (entries.length === 0 && (!choice || choice.outcomes.length === 0)) {
-    wrap.appendChild(createEmpty(choice ? 'No preconditions or outcomes on this choice.' : 'No opener preconditions.'));
+    wrap.appendChild(createEmpty(choice ? ui('No preconditions or outcomes on this choice.', 'Нет предусловий или результатов для этого выбора.') : ui('No opener preconditions.', 'Нет предусловий открытия.')));
   }
   container.appendChild(wrap);
 }
@@ -1100,8 +1107,9 @@ function renderCommandDetails(
   choice: Choice | null,
   selection: CommandSelection | null,
 ): void {
+  const ui = getUiText();
   if (!selection) {
-    container.appendChild(createEmpty(choice ? 'Pick or add precondition/outcome to edit properties here.' : 'Pick or add opener precondition to edit properties here.'));
+    container.appendChild(createEmpty(choice ? ui('Pick or add precondition/outcome to edit properties here.', 'Выбери или добавь предусловие/результат, чтобы редактировать свойства.') : ui('Pick or add opener precondition to edit properties here.', 'Выбери или добавь предусловие открытия, чтобы редактировать свойства.')));
     return;
   }
 
@@ -1111,17 +1119,18 @@ function renderCommandDetails(
   }
 
   if (!choice) {
-    container.appendChild(createEmpty('Outcomes belong to player choices.'));
+    container.appendChild(createEmpty(ui('Outcomes belong to player choices.', 'Результаты относятся к вариантам игрока.')));
     return;
   }
   renderOutcomeDetails(container, conv, turn, choice, selection.index);
 }
 
 function renderPreconditionDetails(container: HTMLElement, conv: Conversation, turn: Turn, choice: Choice | null, preconditionIndex: number): void {
+  const ui = getUiText();
   const entries = choice ? (choice.preconditions ?? []) : (turn.preconditions ?? []);
   const entry = entries[preconditionIndex];
   if (!entry) {
-    container.appendChild(createEmpty('Precondition no longer exists.'));
+    container.appendChild(createEmpty(ui('Precondition no longer exists.', 'Предусловие больше не существует.')));
     return;
   }
 
@@ -1140,7 +1149,7 @@ function renderPreconditionDetails(container: HTMLElement, conv: Conversation, t
   }
 
   if (entry.type !== 'simple' || !schema) {
-    container.appendChild(createEmpty('Nested or invalid precondition. Use advanced properties to edit full expression.'));
+    container.appendChild(createEmpty(ui('Nested or invalid precondition. Use advanced properties to edit full expression.', 'Вложенное или некорректное предусловие. Используй расширенные свойства для редактирования.')));
   } else if (schema.params.length > 0) {
     container.appendChild(renderParamEditors(schema, entry.params, (newParams) => {
       const next = [...entries];
@@ -1150,15 +1159,15 @@ function renderPreconditionDetails(container: HTMLElement, conv: Conversation, t
       ? getChoicePreconditionParamFieldKey(conv.id, turn.turnNumber, choice.index, preconditionIndex, paramIndex)
       : getTurnPreconditionParamFieldKey(conv.id, turn.turnNumber, preconditionIndex, paramIndex), conv));
   } else {
-    container.appendChild(createEmpty('No properties for this precondition.'));
+    container.appendChild(createEmpty(ui('No properties for this precondition.', 'Нет свойств для этого предусловия.')));
   }
 
   const actions = document.createElement('div');
   actions.className = 'branch-inline-action-row';
   actions.append(
-    createActionButton('Move Up', () => movePrecondition(conv, turn, choice, preconditionIndex, -1), preconditionIndex === 0),
-    createActionButton('Move Down', () => movePrecondition(conv, turn, choice, preconditionIndex, 1), preconditionIndex >= entries.length - 1),
-    createActionButton('Delete', () => {
+    createActionButton(ui('Move Up', 'Вверх'), () => movePrecondition(conv, turn, choice, preconditionIndex, -1), preconditionIndex === 0),
+    createActionButton(ui('Move Down', 'Вниз'), () => movePrecondition(conv, turn, choice, preconditionIndex, 1), preconditionIndex >= entries.length - 1),
+    createActionButton(ui('Delete', 'Удалить'), () => {
       updatePreconditions(conv, turn, choice, entries.filter((_, index) => index !== preconditionIndex));
       openPanel(conv.id, turn.turnNumber, choice?.index ?? null, 'preconditions', getInitialCommandSelectionAfterDelete(entries.length, preconditionIndex));
     }),
@@ -1167,9 +1176,10 @@ function renderPreconditionDetails(container: HTMLElement, conv: Conversation, t
 }
 
 function renderOutcomeDetails(container: HTMLElement, conv: Conversation, turn: Turn, choice: Choice, outcomeIndex: number): void {
+  const ui = getUiText();
   const outcome = choice.outcomes[outcomeIndex];
   if (!outcome) {
-    container.appendChild(createEmpty('Outcome no longer exists.'));
+    container.appendChild(createEmpty(ui('Outcome no longer exists.', 'Результат больше не существует.')));
     return;
   }
   const schema = OUTCOME_SCHEMAS.find((candidate) => candidate.name === outcome.command);
@@ -1191,7 +1201,7 @@ function renderOutcomeDetails(container: HTMLElement, conv: Conversation, turn: 
       store.updateChoice(conv.id, turn.turnNumber, choice.index, { outcomes: updated });
     }, (paramIndex) => getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, paramIndex), conv));
   } else {
-    container.appendChild(createEmpty('No properties for this outcome.'));
+    container.appendChild(createEmpty(ui('No properties for this outcome.', 'Нет свойств для этого результата.')));
   }
 
   const resumeOpeners = renderOutcomeResumeOpenerEditors(conv, outcome);
@@ -1202,7 +1212,7 @@ function renderOutcomeDetails(container: HTMLElement, conv: Conversation, turn: 
   const chance = document.createElement('label');
   chance.className = 'branch-inline-field';
   const chanceText = document.createElement('span');
-  chanceText.textContent = 'Chance %';
+  chanceText.textContent = ui('Chance %', 'Шанс %');
   const chanceInput = document.createElement('input');
   chanceInput.type = 'number';
   chanceInput.min = '1';
@@ -1222,9 +1232,9 @@ function renderOutcomeDetails(container: HTMLElement, conv: Conversation, turn: 
   const actions = document.createElement('div');
   actions.className = 'branch-inline-action-row';
   actions.append(
-    createActionButton('Move Up', () => moveOutcome(conv, turn, choice, outcomeIndex, -1), outcomeIndex === 0),
-    createActionButton('Move Down', () => moveOutcome(conv, turn, choice, outcomeIndex, 1), outcomeIndex >= choice.outcomes.length - 1),
-    createActionButton('Delete', () => {
+    createActionButton(ui('Move Up', 'Вверх'), () => moveOutcome(conv, turn, choice, outcomeIndex, -1), outcomeIndex === 0),
+    createActionButton(ui('Move Down', 'Вниз'), () => moveOutcome(conv, turn, choice, outcomeIndex, 1), outcomeIndex >= choice.outcomes.length - 1),
+    createActionButton(ui('Delete', 'Удалить'), () => {
       const next = choice.outcomes.filter((_, index) => index !== outcomeIndex);
       store.updateChoice(conv.id, turn.turnNumber, choice.index, { outcomes: next });
       openPanel(conv.id, turn.turnNumber, choice.index, 'outcomes', next.length > 0 ? Math.min(outcomeIndex, next.length - 1) : null);
@@ -1249,48 +1259,51 @@ function renderOutcomeResumeOpenerEditors(conv: Conversation, outcome: Outcome):
   addTarget('Fail', resumeTargets.failTurn);
   if (fields.length === 0) return null;
 
+  const ui = getUiText();
   const wrap = document.createElement('div');
   wrap.className = 'branch-inline-field-block branch-inline-next-opener';
   const title = document.createElement('div');
   title.className = 'branch-inline-subtitle';
-  title.textContent = 'Task Result NPC Openers';
-  wrap.append(title, createHint('Success/fail branches start fresh conversations after task resolution.'));
+  title.textContent = ui('Task Result NPC Openers', 'Открыватели NPC результата задания');
+  wrap.append(title, createHint(ui('Success/fail branches start fresh conversations after task resolution.', 'Ветки успеха/провала начинают новые разговоры после завершения задания.')));
   wrap.append(...fields);
   return wrap;
 }
 
 function renderResumeOpenerField(conv: Conversation, targetTurn: Turn, label: 'Success' | 'Fail'): HTMLElement {
+  const ui = getUiText();
+  const labelRu = label === 'Success' ? 'Успех' : 'Провал';
   const field = document.createElement('div');
   field.className = 'branch-inline-field-block branch-inline-resume-opener';
   const title = document.createElement('div');
   title.className = 'branch-inline-subtitle';
-  title.textContent = `${label} Branch ${targetTurn.turnNumber}`;
+  title.textContent = ui(`${label} Branch ${targetTurn.turnNumber}`, `${labelRu} ветка ${targetTurn.turnNumber}`);
   field.appendChild(title);
   field.appendChild(createTextarea({
-    label: `${label} NPC Opener Message`,
+    label: ui(`${label} NPC Opener Message`, `Начальное сообщение NPC (${labelRu})`),
     value: targetTurn.openingMessage ?? '',
-    placeholder: `${label.toLowerCase()} branch NPC opening line`,
+    placeholder: ui(`${label.toLowerCase()} branch NPC opening line`, `Начальная реплика NPC (${labelRu.toLowerCase()})`),
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-message'),
     onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingMessage: value }),
   }));
   field.appendChild(createTextInput({
-    label: `${label} Opener DDS Image`,
+    label: ui(`${label} Opener DDS Image`, `DDS картинка открытия (${labelRu})`),
     value: targetTurn.openingImage ?? '',
     placeholder: 'panda_file',
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-image'),
     onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingImage: value.trim() || undefined }),
   }));
   field.appendChild(createTextInput({
-    label: `${label} Opener Audio`,
+    label: ui(`${label} Opener Audio`, `Аудио открытия (${labelRu})`),
     value: targetTurn.openingAudio ?? '',
     placeholder: 'message_ping',
-    description: 'sound filename under gamedata/sounds/panda/audio',
+    description: ui('sound filename under gamedata/sounds/panda/audio', 'имя файла звука в gamedata/sounds/panda/audio'),
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-audio'),
     onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingAudio: value.trim() || undefined }),
   }));
   const actions = document.createElement('div');
   actions.className = 'branch-inline-action-row';
-  actions.appendChild(createActionButton(`Open ${label} Branch`, () => {
+  actions.appendChild(createActionButton(ui(`Open ${label} Branch`, `Открыть ветку (${labelRu})`), () => {
     store.batch(() => {
       store.selectTurn(targetTurn.turnNumber);
       store.openBranchInlinePanel({
@@ -1340,11 +1353,12 @@ function updatePreconditions(conv: Conversation, turn: Turn, choice: Choice | nu
 }
 
 function renderExistingBranchLinks(conv: Conversation, turn: Turn, choice: Choice, turnLabels: TurnLabels): HTMLElement {
+  const ui = getUiText();
   const wrap = document.createElement('div');
   wrap.className = 'branch-inline-link-list';
   const title = document.createElement('div');
   title.className = 'branch-inline-subtitle';
-  title.textContent = 'Link Existing Branch';
+  title.textContent = ui('Link Existing Branch', 'Связать существующую ветку');
   wrap.appendChild(title);
 
   for (const candidate of conv.turns) {

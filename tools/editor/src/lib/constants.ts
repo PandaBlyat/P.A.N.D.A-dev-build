@@ -59,6 +59,15 @@ export const WEATHER_DISPLAY_NAMES: Record<string, string> = {
   w_partly1: 'Partly Cloudy', w_partly2: 'Partly Cloudy (variant)',
 };
 
+export const WEATHER_DISPLAY_NAMES_RU: Record<string, string> = {
+  w_clear1: 'Ясно', w_clear2: 'Ясно (вариант)',
+  w_cloudy1: 'Облачно', w_cloudy2_dark: 'Тёмные облака',
+  w_rain1: 'Лёгкий дождь', w_rain2: 'Дождь', w_rain3: 'Сильный дождь',
+  w_storm1: 'Шторм', w_storm2: 'Сильный шторм',
+  w_foggy1: 'Туман', w_foggy2: 'Густой туман',
+  w_partly1: 'Переменная облачность', w_partly2: 'Переменная облачность (вариант)',
+};
+
 export const COMPANION_STATES = [
   'follow', 'wait', 'patrol', 'attack', 'stealth', 'ignore_combat',
 ] as const;
@@ -72,6 +81,15 @@ export const COMPANION_STATE_DISPLAY_NAMES: Record<string, string> = {
   ignore_combat: 'Ignore Combat',
 };
 
+export const COMPANION_STATE_DISPLAY_NAMES_RU: Record<string, string> = {
+  follow: 'Следовать за игроком',
+  wait: 'Стоять на месте',
+  patrol: 'Патрулировать',
+  attack: 'Режим атаки',
+  stealth: 'Режим скрытности',
+  ignore_combat: 'Игнорировать бой',
+};
+
 export const INDOOR_LEVELS = [
   'agroprom_underground', 'jupiter_underground', 'labx8',
   'labx18', 'labx16', 'labx10', 'fake_start',
@@ -81,6 +99,24 @@ export const MONTH_NAMES: Record<number, string> = {
   1: 'January', 2: 'February', 3: 'March', 4: 'April',
   5: 'May', 6: 'June', 7: 'July', 8: 'August',
   9: 'September', 10: 'October', 11: 'November', 12: 'December',
+};
+
+export const MONTH_NAMES_RU: Record<number, string> = {
+  1: 'Январь', 2: 'Февраль', 3: 'Март', 4: 'Апрель',
+  5: 'Май', 6: 'Июнь', 7: 'Июль', 8: 'Август',
+  9: 'Сентябрь', 10: 'Октябрь', 11: 'Ноябрь', 12: 'Декабрь',
+};
+
+export const RANK_DISPLAY_NAMES: Record<string, string> = {
+  novice: 'Novice', trainee: 'Trainee', experienced: 'Experienced',
+  professional: 'Professional', veteran: 'Veteran', expert: 'Expert',
+  master: 'Master', legend: 'Legend',
+};
+
+export const RANK_DISPLAY_NAMES_RU: Record<string, string> = {
+  novice: 'Новичок', trainee: 'Стажёр', experienced: 'Опытный',
+  professional: 'Профессионал', veteran: 'Ветеран', expert: 'Эксперт',
+  master: 'Мастер', legend: 'Легенда',
 };
 
 export type DynamicPlaceholderCategory =
@@ -417,6 +453,32 @@ export const LEVEL_DISPLAY_NAMES: Record<string, string> = {
   north_cnpp: 'North CNPP',
   zaton: 'Zaton',
   meadow: 'Meadow',
+};
+
+export const LEVEL_DISPLAY_NAMES_RU: Record<string, string> = {
+  cordon: 'Кордон',
+  darkscape: 'Тёмная долина (Darkscape)',
+  swamp: 'Болото',
+  garbage: 'Свалка',
+  agroprom: 'Агропром',
+  dark_valley: 'Темнолесье',
+  yantar: 'Янтарь',
+  wild_territory: 'Дикая территория',
+  rostok: 'Росток',
+  truck_cemetery: 'Кладбище техники',
+  dead_city: 'Мёртвый город',
+  army_warehouses: 'Армейские склады',
+  radar: 'Радар',
+  red_forest: 'Рыжий лес',
+  limansk: 'Лиманск',
+  pripyat: 'Припять',
+  generators: 'Генераторы',
+  outskirts: 'Окраины',
+  jupiter: 'Юпитер',
+  south_cnpp: 'ЧАЭС (юг)',
+  north_cnpp: 'ЧАЭС (север)',
+  zaton: 'Затон',
+  meadow: 'Луг',
 };
 
 /** System strings that are not conversation entries — preserved during import/export */

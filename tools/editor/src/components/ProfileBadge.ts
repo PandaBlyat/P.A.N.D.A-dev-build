@@ -302,7 +302,7 @@ function buildProfileHeader(profile: UserProfile): HTMLElement {
 
   const eyebrow = document.createElement('div');
   eyebrow.className = 'profile-popover-eyebrow';
-  eyebrow.textContent = `Level ${profile.level} operative`;
+  eyebrow.textContent = ui(`Level ${profile.level} operative`, `Оперативник уровня ${profile.level}`);
 
   const titleEl = document.createElement('div');
   titleEl.className = 'profile-popover-title';
@@ -406,7 +406,7 @@ function buildProgressSection(profile: UserProfile): HTMLElement {
 
   const levelBadge = document.createElement('div');
   levelBadge.className = 'profile-popover-level-badge';
-  levelBadge.textContent = `Lv.${currentThreshold.level}`;
+  levelBadge.textContent = ui(`Lv.${currentThreshold.level}`, `Ур.${currentThreshold.level}`);
 
   const progressCopy = document.createElement('div');
   progressCopy.className = 'profile-popover-progress-copy';
@@ -742,8 +742,8 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
   const subtitle = document.createElement('p');
   subtitle.className = 'profile-focus-subtitle';
   subtitle.textContent = nextTargets.length > 0
-    ? `${nextTargets.length} suggested unlocks based on your progression.`
-    : 'No suggested goals right now — new achievements will appear as you progress.';
+    ? ui(`${nextTargets.length} suggested unlocks based on your progression.`, `${nextTargets.length} предлагаемых открытий на основе вашего прогресса.`)
+    : ui('No suggested goals right now — new achievements will appear as you progress.', 'Нет предлагаемых целей — новые достижения появятся по мере прогресса.');
   titleWrap.append(title, subtitle);
   header.appendChild(titleWrap);
 
@@ -755,13 +755,13 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
     empty.className = 'profile-focus-card profile-surface-card';
     const emptyLabel = document.createElement('div');
     emptyLabel.className = 'profile-focus-card-label';
-    emptyLabel.textContent = 'No goals queued';
+    emptyLabel.textContent = ui('No goals queued', 'Нет запланированных целей');
     const emptyTitle = document.createElement('div');
     emptyTitle.className = 'profile-focus-card-title';
-    emptyTitle.textContent = 'You are caught up';
+    emptyTitle.textContent = ui('You are caught up', 'Вы в курсе');
     const emptyDesc = document.createElement('p');
     emptyDesc.className = 'profile-focus-card-desc';
-    emptyDesc.textContent = 'Publish, complete missions, or keep your streak alive to surface fresh targets.';
+    emptyDesc.textContent = ui('Publish, complete missions, or keep your streak alive to surface fresh targets.', 'Публикуйте, выполняйте миссии или поддерживайте серию активности, чтобы получать новые цели.');
     empty.append(emptyLabel, emptyTitle, emptyDesc);
     cards.appendChild(empty);
   } else {
@@ -771,7 +771,7 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
     const queue = document.createElement('div');
     queue.className = 'profile-focus-goal-queue';
     queue.setAttribute('role', 'tablist');
-    queue.setAttribute('aria-label', 'Next goals queue');
+    queue.setAttribute('aria-label', ui('Next goals queue', 'Очередь следующих целей'));
     queue.setAttribute('aria-orientation', 'vertical');
 
     const detailCard = document.createElement('article');
@@ -827,14 +827,14 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
     const navPrev = document.createElement('button');
     navPrev.type = 'button';
     navPrev.className = 'profile-focus-goal-nav-btn';
-    navPrev.setAttribute('aria-label', 'Show previous goal');
+    navPrev.setAttribute('aria-label', ui('Show previous goal', 'Показать предыдущую цель'));
     navPrev.append(createIcon('undo'), document.createTextNode('Prev'));
     const navCounter = document.createElement('span');
     navCounter.className = 'profile-focus-goal-nav-counter';
     const navNext = document.createElement('button');
     navNext.type = 'button';
     navNext.className = 'profile-focus-goal-nav-btn';
-    navNext.setAttribute('aria-label', 'Show next goal');
+    navNext.setAttribute('aria-label', ui('Show next goal', 'Показать следующую цель'));
     navNext.append(document.createTextNode('Next'), createIcon('redo'));
     detailNav.append(navPrev, navCounter, navNext);
 
@@ -861,11 +861,11 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
       detailDesc.textContent = achievement.description;
       detailReason.textContent = reason;
       detailActionBody.textContent = getGoalActionHint(achievement.id, profile);
-      detailProgressLabel.textContent = 'Goal progress';
+      detailProgressLabel.textContent = ui('Goal progress', 'Прогресс цели');
       detailProgressValue.textContent = progressLabel;
       const progress = Math.min((progressCurrent / Math.max(progressGoal, 1)) * 100, 100);
       detailProgressBar.style.width = `${progress}%`;
-      navCounter.textContent = `Goal ${normalized + 1}/${visibleTargets.length}`;
+      navCounter.textContent = ui(`Goal ${normalized + 1}/${visibleTargets.length}`, `Цель ${normalized + 1}/${visibleTargets.length}`);
       navPrev.disabled = visibleTargets.length <= 1;
       navNext.disabled = visibleTargets.length <= 1;
 
@@ -908,7 +908,7 @@ function buildNextGoalsPanel(profile: UserProfile): HTMLElement {
 
       const goalQueueHint = document.createElement('div');
       goalQueueHint.className = 'profile-focus-goal-queue-hint';
-      goalQueueHint.textContent = index === 0 ? 'Recommended next unlock' : `Queue slot ${index + 1}`;
+      goalQueueHint.textContent = index === 0 ? ui('Recommended next unlock', 'Рекомендуемое следующее открытие') : ui(`Queue slot ${index + 1}`, `Позиция в очереди ${index + 1}`);
 
       goalTab.append(goalTop, goalMeta, goalQueueHint);
       goalTab.addEventListener('click', () => renderActiveTarget(index));
@@ -1095,11 +1095,11 @@ function buildFeaturedBadgeStrip(unlockedIds: string[]): HTMLElement | null {
 
   const label = document.createElement('div');
   label.className = 'profile-achievement-mini-header';
-  label.textContent = 'Featured badges';
+  label.textContent = ui('Featured badges', 'Избранные значки');
 
   const count = document.createElement('span');
   count.className = 'profile-achievement-featured-count';
-  count.textContent = `${featured.length} shown`;
+  count.textContent = ui(`${featured.length} shown`, `Показано: ${featured.length}`);
 
   labelRow.append(label, count);
   strip.appendChild(labelRow);
@@ -1158,13 +1158,13 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
   heroHeader.className = 'profile-popover-section-header';
   const medalIcon = createIcon('medal');
   const title = document.createElement('span');
-  title.textContent = 'Achievements';
+  title.textContent = ui('Achievements', 'Достижения');
   heroHeader.append(medalIcon, title);
   heroText.appendChild(heroHeader);
 
   const heroSub = document.createElement('div');
   heroSub.className = 'profile-achievements-hero-sub';
-  heroSub.textContent = `${unlocked.length} of ${ACHIEVEMENTS.length} unlocked · ${xpFromAchievements} / ${totalXpPossible} XP earned`;
+  heroSub.textContent = ui(`${unlocked.length} of ${ACHIEVEMENTS.length} unlocked · ${xpFromAchievements} / ${totalXpPossible} XP earned`, `${unlocked.length} из ${ACHIEVEMENTS.length} получено · ${xpFromAchievements} / ${totalXpPossible} XP заработано`);
   heroText.appendChild(heroSub);
 
   // Tier pill strip: Bronze / Silver / Gold unlocked counts
@@ -1278,7 +1278,7 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
 
     const categoryCount = document.createElement('span');
     categoryCount.className = 'profile-achievement-category-count';
-    categoryCount.textContent = `${unlockedCount}/${categoryAchievements.length} unlocked`;
+    categoryCount.textContent = ui(`${unlockedCount}/${categoryAchievements.length} unlocked`, `${unlockedCount}/${categoryAchievements.length} получено`);
 
     const categoryProgress = document.createElement('div');
     categoryProgress.className = 'profile-achievement-category-progress';
@@ -1315,7 +1315,7 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
           ? 'Hidden achievement — keep exploring the Zone.'
           : `${achievement.name} — ${achievement.description}`;
 
-      cell.setAttribute('aria-label', isUnlocked || !achievement.hidden ? achievement.name : 'Surprise achievement');
+      cell.setAttribute('aria-label', isUnlocked || !achievement.hidden ? achievement.name : ui('Surprise achievement', 'Секретное достижение'));
       bindMouseSpotlight(cell);
 
       const identity = document.createElement('span');
@@ -1334,19 +1334,19 @@ function buildAchievementsSection(profile: UserProfile = cachedProfile!): HTMLEl
 
       const tooltipName = document.createElement('span');
       tooltipName.className = 'profile-achievement-tooltip-name';
-      tooltipName.textContent = isUnlocked || !achievement.hidden ? achievement.name : 'Surprise achievement';
+      tooltipName.textContent = isUnlocked || !achievement.hidden ? achievement.name : ui('Surprise achievement', 'Секретное достижение');
 
       const tooltipMeta = document.createElement('span');
       tooltipMeta.className = 'profile-achievement-tooltip-meta';
       tooltipMeta.textContent = isUnlocked
         ? `${ACHIEVEMENT_CATEGORY_LABELS[achievement.category]} · ${achievement.tier} · +${achievement.xp} XP`
         : isHiddenLocked
-          ? 'Hidden achievement · keep exploring'
+          ? ui('Hidden achievement · keep exploring', 'Скрытое достижение · продолжайте исследовать')
           : `${ACHIEVEMENT_CATEGORY_LABELS[achievement.category]} · ${achievement.tier}`;
 
       const tooltipDesc = document.createElement('span');
       tooltipDesc.className = 'profile-achievement-tooltip-desc';
-      tooltipDesc.textContent = isHiddenLocked ? 'A hidden badge is still waiting in the Zone.' : achievement.description;
+      tooltipDesc.textContent = isHiddenLocked ? ui('A hidden badge is still waiting in the Zone.', 'Скрытый значок ещё ждёт вас в Зоне.') : achievement.description;
 
       tooltip.append(tooltipName, tooltipMeta, tooltipDesc);
       cell.append(identity, tooltip);
