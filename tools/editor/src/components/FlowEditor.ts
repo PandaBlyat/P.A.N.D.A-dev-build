@@ -699,6 +699,33 @@ export function renderFlowEditor(container: HTMLElement): void {
     drawFrame = window.requestAnimationFrame(runDraw);
   };
 
+  const clearSelectionOnBlankWorkspaceClick = (event: PointerEvent): void => {
+    if (event.button !== 0 && event.button !== 1) return;
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+    const activeElement = document.activeElement;
+    if (
+      activeElement instanceof HTMLElement
+      && activeElement.classList.contains('turn-label-input')
+      && activeElement.closest('.flow-shell') === shell
+      && !target.closest('.turn-label-input')
+    ) {
+      activeElement.blur();
+    }
+    if (target.closest('.turn-node, .flow-controls, .flow-edge, .branch-inline-panel, button, input, select, textarea')) {
+      return;
+    }
+    if (activeAnnotationTool !== 'select') return;
+
+    const currentState = store.get();
+    if (currentState.selectedTurnNumber == null && currentState.selectedChoiceIndex == null) return;
+    closeBranchAuthorPopup();
+    store.clearSelection();
+  };
+
+  shell.addEventListener('pointerdown', clearSelectionOnBlankWorkspaceClick, true);
+  canvas.addEventListener('pointerdown', clearSelectionOnBlankWorkspaceClick, true);
+
   const setAnnotationTool = (tool: FlowAnnotationTool): FlowAnnotationTool => {
     const nextTool = activeAnnotationTool === tool ? 'select' : tool;
     if (nextTool !== 'draw') activeDrawSet = null;
