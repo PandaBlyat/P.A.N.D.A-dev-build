@@ -26,6 +26,19 @@ const CATEGORY_GROUP_ORDER: GameItemCategoryGroup[] = [
   'Other',
 ];
 
+const CATEGORY_GROUP_LABELS_RU: Record<string, string> = {
+  'Weapons & Attachments': 'Оружие и обвесы',
+  'Medical & Drugs': 'Медикаменты',
+  'Artefacts': 'Артефакты',
+  'Food & Drink': 'Еда и напитки',
+  'Outfits & Gear': 'Костюмы и снаряжение',
+  'Tools & Repair': 'Инструменты и ремонт',
+  'Containers': 'Контейнеры',
+  'Quest & Letters': 'Квестовые предметы',
+  'Explosives': 'Взрывчатка',
+  'Other': 'Прочее',
+};
+
 type CategorySubgroup = {
   id: GameItemPickerSubgroupId;
   label: string;
@@ -33,7 +46,37 @@ type CategorySubgroup = {
 
 type CategorySubgroupConfig = {
   allLabel: string;
+  allLabelRu?: string;
   groups: CategorySubgroup[];
+};
+
+const WEAPON_SUBGROUP_LABELS_RU: Record<string, string> = {
+  attachments: 'Обвесы',
+  rifles: 'Винтовки',
+  smgs: 'ПП',
+  pistols: 'Пистолеты',
+  shotguns: 'Дробовики',
+  snipers: 'Снайперские',
+  ammo: 'Патроны',
+  explosives: 'Взрывчатка',
+  melee: 'Холодное оружие',
+  misc: 'Прочее',
+};
+
+const OUTFIT_SUBGROUP_LABELS_RU: Record<string, string> = {
+  general: 'Общее снаряжение',
+  loners: 'Одиночки',
+  bandits: 'Бандиты',
+  'clear-sky': 'Чистое небо',
+  duty: 'Долг',
+  ecologists: 'Учёные',
+  freedom: 'Свобода',
+  military: 'Военные',
+  mercenaries: 'Наёмники',
+  monolith: 'Монолит',
+  renegades: 'Ренегаты',
+  sin: 'Грех',
+  unisg: 'ОМГ',
 };
 
 const WEAPON_SUBGROUPS: CategorySubgroup[] = [
@@ -68,10 +111,12 @@ const OUTFIT_SUBGROUPS: CategorySubgroup[] = [
 const CATEGORY_SUBGROUPS: Partial<Record<GameItemCategoryGroup, CategorySubgroupConfig>> = {
   'Weapons & Attachments': {
     allLabel: 'All weapon items',
+    allLabelRu: 'Всё оружие',
     groups: WEAPON_SUBGROUPS,
   },
   'Outfits & Gear': {
     allLabel: 'All outfits & gear',
+    allLabelRu: 'Всё снаряжение',
     groups: OUTFIT_SUBGROUPS,
   },
 };
@@ -430,13 +475,14 @@ function openItemPickerPanel(options: {
 
     const allOption = document.createElement('option');
     allOption.value = '';
-    allOption.textContent = subgroupConfig.allLabel;
+    allOption.textContent = ui(subgroupConfig.allLabel, subgroupConfig.allLabelRu ?? subgroupConfig.allLabel);
     subgroupSelect.appendChild(allOption);
 
     for (const subgroup of subgroupConfig.groups) {
       const optionEl = document.createElement('option');
       optionEl.value = subgroup.id;
-      optionEl.textContent = subgroup.label;
+      const labelRu = (WEAPON_SUBGROUP_LABELS_RU[subgroup.id] ?? OUTFIT_SUBGROUP_LABELS_RU[subgroup.id]) || subgroup.label;
+      optionEl.textContent = ui(subgroup.label, labelRu);
       subgroupSelect.appendChild(optionEl);
     }
   };
@@ -476,13 +522,14 @@ function openItemPickerPanel(options: {
 
     const allGroupOption = document.createElement('option');
     allGroupOption.value = '';
-    allGroupOption.textContent = `All (${textFilteredEntries.length})`;
+    allGroupOption.textContent = ui(`All (${textFilteredEntries.length})`, `Все (${textFilteredEntries.length})`);
     groupSelect.appendChild(allGroupOption);
 
     for (const group of CATEGORY_GROUP_ORDER) {
       const optionEl = document.createElement('option');
       optionEl.value = group;
-      optionEl.textContent = `${group} (${groupCounts.get(group) ?? 0})`;
+      const groupLabelRu = CATEGORY_GROUP_LABELS_RU[group] ?? group;
+      optionEl.textContent = `${ui(group, groupLabelRu)} (${groupCounts.get(group) ?? 0})`;
       groupSelect.appendChild(optionEl);
     }
     groupSelect.value = currentGroup;
@@ -496,13 +543,14 @@ function openItemPickerPanel(options: {
 
     const allSubgroupOption = document.createElement('option');
     allSubgroupOption.value = '';
-    allSubgroupOption.textContent = `${subgroupConfig.allLabel} (${activeGroup ? (groupCounts.get(activeGroup) ?? 0) : 0})`;
+    allSubgroupOption.textContent = `${ui(subgroupConfig.allLabel, subgroupConfig.allLabelRu ?? subgroupConfig.allLabel)} (${activeGroup ? (groupCounts.get(activeGroup) ?? 0) : 0})`;
     subgroupSelect.appendChild(allSubgroupOption);
 
     for (const subgroup of subgroupConfig.groups) {
       const optionEl = document.createElement('option');
       optionEl.value = subgroup.id;
-      optionEl.textContent = `${subgroup.label} (${subgroupCounts?.get(subgroup.id) ?? 0})`;
+      const subLabelRu = (WEAPON_SUBGROUP_LABELS_RU[subgroup.id] ?? OUTFIT_SUBGROUP_LABELS_RU[subgroup.id]) || subgroup.label;
+      optionEl.textContent = `${ui(subgroup.label, subLabelRu)} (${subgroupCounts?.get(subgroup.id) ?? 0})`;
       subgroupSelect.appendChild(optionEl);
     }
     subgroupSelect.value = currentSubgroup;
@@ -533,13 +581,16 @@ function openItemPickerPanel(options: {
       for (const subgroup of subgroupConfig.groups) {
         const entries = subgroupFilteredEntries.filter((entry) => entry.subgroupId === subgroup.id);
         if (entries.length > 0) {
-          orderedGroups.push({ name: subgroup.label, entries });
+          const subLabelRu = (WEAPON_SUBGROUP_LABELS_RU[subgroup.id] ?? OUTFIT_SUBGROUP_LABELS_RU[subgroup.id]) || subgroup.label;
+          orderedGroups.push({ name: ui(subgroup.label, subLabelRu), entries });
           orderedEntries.push(...entries);
         }
       }
     } else if (subgroupConfig && activeSubgroup) {
-      const subgroupLabel = subgroupConfig.groups.find((subgroup) => subgroup.id === activeSubgroup)?.label ?? activeGroup ?? 'Items';
-      orderedGroups.push({ name: subgroupLabel, entries: subgroupFilteredEntries });
+      const activeSubgroupDef = subgroupConfig.groups.find((subgroup) => subgroup.id === activeSubgroup);
+      const subgroupLabelEn = activeSubgroupDef?.label ?? activeGroup ?? 'Items';
+      const subgroupLabelRu = activeSubgroupDef ? ((WEAPON_SUBGROUP_LABELS_RU[activeSubgroupDef.id] ?? OUTFIT_SUBGROUP_LABELS_RU[activeSubgroupDef.id]) || subgroupLabelEn) : (CATEGORY_GROUP_LABELS_RU[activeGroup ?? ''] ?? subgroupLabelEn);
+      orderedGroups.push({ name: ui(subgroupLabelEn, subgroupLabelRu), entries: subgroupFilteredEntries });
       orderedEntries.push(...subgroupFilteredEntries);
     } else {
       const grouped = new Map<GameItemCategoryGroup, CachedGameItemCatalogEntry[]>();
@@ -551,7 +602,7 @@ function openItemPickerPanel(options: {
       for (const group of CATEGORY_GROUP_ORDER) {
         const entries = grouped.get(group);
         if (entries && entries.length > 0) {
-          orderedGroups.push({ name: group, entries });
+          orderedGroups.push({ name: ui(group, CATEGORY_GROUP_LABELS_RU[group] ?? group), entries });
           orderedEntries.push(...entries);
         }
       }
@@ -565,7 +616,7 @@ function openItemPickerPanel(options: {
     }
     if (filteredItems.length === 0) activeIndex = 0;
 
-    totalLabel.textContent = `${filteredItems.length} / ${GAME_ITEM_CATALOG.length} items`;
+    totalLabel.textContent = ui(`${filteredItems.length} / ${GAME_ITEM_CATALOG.length} items`, `${filteredItems.length} / ${GAME_ITEM_CATALOG.length} предметов`);
     rowModel = [];
     rowOffsets = [];
     itemRowIndices = [];

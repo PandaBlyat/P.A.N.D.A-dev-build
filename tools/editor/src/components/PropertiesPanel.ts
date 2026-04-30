@@ -4,7 +4,7 @@ import { createStateChange, store } from '../lib/state';
 import type { BranchInlinePanelState, PropertiesTab } from '../lib/state';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import type { Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, SimplePrecondition, Outcome, FactionId } from '../lib/types';
-import { FACTION_DISPLAY_NAMES, getConversationFaction } from '../lib/types';
+import { FACTION_DISPLAY_NAMES, FACTION_DISPLAY_NAMES_RU, getConversationFaction } from '../lib/types';
 import { PRECONDITION_SCHEMAS, OUTCOME_SCHEMAS, groupByCategory } from '../lib/schema';
 import {
   getChoiceFieldKey,
@@ -60,9 +60,9 @@ const NESTED_PRECONDITION_BLOCKLIST = new Set([
   'req_story_npc',
   'req_custom_story_npc',
 ]);
-const CHANNEL_OPTIONS: Array<{ value: 'pda' | 'f2f'; label: string }> = [
-  { value: 'pda', label: 'PDA' },
-  { value: 'f2f', label: 'In-person (F2F)' },
+const CHANNEL_OPTIONS: Array<{ value: 'pda' | 'f2f'; label: string; labelRu: string }> = [
+  { value: 'pda', label: 'PDA', labelRu: 'КПК' },
+  { value: 'f2f', label: 'In-person (F2F)', labelRu: 'Лично (Л-к-Л)' },
 ];
 // Editor-side mirror of PANDA_INLINE_EMOJI_TEXTURES in
 // gamedata/scripts/pda_private_tab.script. Each entry maps a shortcode to its
@@ -70,46 +70,46 @@ const CHANNEL_OPTIONS: Array<{ value: 'pda' | 'f2f'; label: string }> = [
 // configs/ui/textures_descr/ui_panda_emoji.xml) and a 64x64 PNG preview shipped
 // under tools/editor/public/emoji/<shortcode>.png for in-browser rendering.
 // Keep this list, the Lua map, and the textures_descr XML in sync.
-export const PANDA_EMOJI_CATALOG: ReadonlyArray<{ shortcode: string; label: string }> = [
-  { shortcode: 'smile',      label: 'Smile' },
-  { shortcode: 'laugh',      label: 'Laugh' },
-  { shortcode: 'wink',       label: 'Wink' },
-  { shortcode: 'ok',         label: 'OK' },
-  { shortcode: 'sad',        label: 'Sad' },
-  { shortcode: 'cry',        label: 'Cry' },
-  { shortcode: 'angry',      label: 'Angry' },
-  { shortcode: 'fear',       label: 'Fear' },
-  { shortcode: 'love',       label: 'Love' },
-  { shortcode: 'thumbsup',   label: 'Thumbs up' },
-  { shortcode: 'thumbsdown', label: 'Thumbs down' },
-  { shortcode: 'clap',       label: 'Clap' },
-  { shortcode: 'wave',       label: 'Wave' },
-  { shortcode: 'warning',    label: 'Warning' },
-  { shortcode: 'exclaim',    label: 'Exclaim' },
-  { shortcode: 'question',   label: 'Question' },
-  { shortcode: 'radio',      label: 'Radio' },
-  { shortcode: 'pda',        label: 'PDA' },
-  { shortcode: 'map',        label: 'Map' },
-  { shortcode: 'target',     label: 'Target' },
-  { shortcode: 'stash',      label: 'Stash' },
-  { shortcode: 'key',        label: 'Key' },
-  { shortcode: 'money',      label: 'Money' },
-  { shortcode: 'artifact',   label: 'Artifact' },
-  { shortcode: 'anomaly',    label: 'Anomaly' },
-  { shortcode: 'zone',       label: 'Zone' },
-  { shortcode: 'rad',        label: 'Radiation' },
-  { shortcode: 'fire',       label: 'Fire' },
-  { shortcode: 'skull',      label: 'Skull' },
-  { shortcode: 'mutant',     label: 'Mutant' },
-  { shortcode: 'gun',        label: 'Gun' },
-  { shortcode: 'knife',      label: 'Knife' },
-  { shortcode: 'ammo',       label: 'Ammo' },
-  { shortcode: 'helmet',     label: 'Helmet' },
-  { shortcode: 'armor',      label: 'Armor' },
-  { shortcode: 'medkit',     label: 'Medkit' },
-  { shortcode: 'food',       label: 'Food' },
-  { shortcode: 'drink',      label: 'Drink' },
-  { shortcode: 'doc',        label: 'Document' },
+export const PANDA_EMOJI_CATALOG: ReadonlyArray<{ shortcode: string; label: string; labelRu: string }> = [
+  { shortcode: 'smile',      label: 'Smile',       labelRu: 'Улыбка' },
+  { shortcode: 'laugh',      label: 'Laugh',       labelRu: 'Смех' },
+  { shortcode: 'wink',       label: 'Wink',        labelRu: 'Подмигивание' },
+  { shortcode: 'ok',         label: 'OK',          labelRu: 'OK' },
+  { shortcode: 'sad',        label: 'Sad',         labelRu: 'Грусть' },
+  { shortcode: 'cry',        label: 'Cry',         labelRu: 'Плач' },
+  { shortcode: 'angry',      label: 'Angry',       labelRu: 'Злость' },
+  { shortcode: 'fear',       label: 'Fear',        labelRu: 'Страх' },
+  { shortcode: 'love',       label: 'Love',        labelRu: 'Любовь' },
+  { shortcode: 'thumbsup',   label: 'Thumbs up',   labelRu: 'Большой палец вверх' },
+  { shortcode: 'thumbsdown', label: 'Thumbs down', labelRu: 'Большой палец вниз' },
+  { shortcode: 'clap',       label: 'Clap',        labelRu: 'Аплодисменты' },
+  { shortcode: 'wave',       label: 'Wave',        labelRu: 'Приветствие' },
+  { shortcode: 'warning',    label: 'Warning',     labelRu: 'Предупреждение' },
+  { shortcode: 'exclaim',    label: 'Exclaim',     labelRu: 'Восклицание' },
+  { shortcode: 'question',   label: 'Question',    labelRu: 'Вопрос' },
+  { shortcode: 'radio',      label: 'Radio',       labelRu: 'Радио' },
+  { shortcode: 'pda',        label: 'PDA',         labelRu: 'КПК' },
+  { shortcode: 'map',        label: 'Map',         labelRu: 'Карта' },
+  { shortcode: 'target',     label: 'Target',      labelRu: 'Цель' },
+  { shortcode: 'stash',      label: 'Stash',       labelRu: 'Тайник' },
+  { shortcode: 'key',        label: 'Key',         labelRu: 'Ключ' },
+  { shortcode: 'money',      label: 'Money',       labelRu: 'Деньги' },
+  { shortcode: 'artifact',   label: 'Artifact',    labelRu: 'Артефакт' },
+  { shortcode: 'anomaly',    label: 'Anomaly',     labelRu: 'Аномалия' },
+  { shortcode: 'zone',       label: 'Zone',        labelRu: 'Зона' },
+  { shortcode: 'rad',        label: 'Radiation',   labelRu: 'Радиация' },
+  { shortcode: 'fire',       label: 'Fire',        labelRu: 'Огонь' },
+  { shortcode: 'skull',      label: 'Skull',       labelRu: 'Череп' },
+  { shortcode: 'mutant',     label: 'Mutant',      labelRu: 'Мутант' },
+  { shortcode: 'gun',        label: 'Gun',         labelRu: 'Оружие' },
+  { shortcode: 'knife',      label: 'Knife',       labelRu: 'Нож' },
+  { shortcode: 'ammo',       label: 'Ammo',        labelRu: 'Патроны' },
+  { shortcode: 'helmet',     label: 'Helmet',      labelRu: 'Шлем' },
+  { shortcode: 'armor',      label: 'Armor',       labelRu: 'Броня' },
+  { shortcode: 'medkit',     label: 'Medkit',      labelRu: 'Аптечка' },
+  { shortcode: 'food',       label: 'Food',        labelRu: 'Еда' },
+  { shortcode: 'drink',      label: 'Drink',       labelRu: 'Напиток' },
+  { shortcode: 'doc',        label: 'Document',    labelRu: 'Документ' },
 ];
 
 export const PANDA_EMOJI_FALLBACK_SHORTCODE = 'question';
@@ -130,7 +130,7 @@ const PANDA_EMOJI_OPTIONS: Array<{ shortcode: string; rawShortcode: string; labe
   PANDA_EMOJI_CATALOG.map((entry) => ({
     shortcode: `:${entry.shortcode}:`,
     rawShortcode: entry.shortcode,
-    label: entry.label,
+    label: ui(entry.label, entry.labelRu),
     previewUrl: pandaEmojiPreviewUrl(entry.shortcode),
   }));
 
@@ -327,8 +327,8 @@ export function renderPropertiesPanel(container: HTMLElement): void {
 
   const convTab = document.createElement('button');
   convTab.className = 'tab' + (activeTab === 'conversation' ? ' active' : '');
-  convTab.textContent = 'Story';
-  convTab.title = 'Edit story label, preconditions & settings';
+  convTab.textContent = ui('Story', 'История');
+  convTab.title = ui('Edit story label, preconditions & settings', 'Редактировать метку, предусловия и настройки истории');
   setBeginnerTooltip(convTab, 'inspector-story-tab');
   convTab.onclick = () => store.setPropertiesTab('conversation');
   tabBar.appendChild(convTab);
@@ -341,9 +341,9 @@ export function renderPropertiesPanel(container: HTMLElement): void {
   } else if (turn) {
     selTab.textContent = turnLabels.getLongLabel(turn.turnNumber);
   } else {
-    selTab.textContent = 'Turn / Choice';
+    selTab.textContent = ui('Turn / Choice', 'Ход / Выбор');
   }
-  selTab.title = turn ? 'Edit selected turn or choice properties' : 'Select a turn in the flow editor';
+  selTab.title = turn ? ui('Edit selected turn or choice properties', 'Редактировать свойства выбранного хода или ответа') : ui('Select a turn in the flow editor', 'Выберите ход в редакторе схемы');
   setBeginnerTooltip(selTab, 'inspector-selection-tab');
   selTab.onclick = () => {
     if (turn) {
@@ -397,17 +397,17 @@ function renderBranchInlineInspectorSummary(
   section.className = 'inline-inspector-summary';
   const title = document.createElement('div');
   title.className = 'section-title';
-  title.textContent = 'Branch Inline Editor';
+  title.textContent = ui('Branch Inline Editor', 'Встроенный редактор ветки');
   section.appendChild(title);
 
   const summary = document.createElement('div');
   summary.className = 'field-hint';
   if (!turn) {
-    summary.textContent = 'Inline branch panel points to branch that no longer exists.';
+    summary.textContent = ui('Inline branch panel points to branch that no longer exists.', 'Встроенная панель ветки указывает на ветку, которой больше не существует.');
   } else if (choice) {
-    summary.textContent = `${turnLabels.getLongLabel(turn.turnNumber)} / Choice ${choice.index}: editing ${inlinePanel.mode}.`;
+    summary.textContent = `${turnLabels.getLongLabel(turn.turnNumber)} / ${ui(`Choice ${choice.index}`, `Выбор ${choice.index}`)}: editing ${inlinePanel.mode}.`;
   } else {
-    summary.textContent = `${turnLabels.getLongLabel(turn.turnNumber)} opener: editing ${inlinePanel.mode}.`;
+    summary.textContent = `${turnLabels.getLongLabel(turn.turnNumber)} ${ui('opener: editing', 'открывающий: редактирование')} ${inlinePanel.mode}.`;
   }
   section.appendChild(summary);
 
@@ -484,21 +484,21 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   startModeField.className = 'field';
   setBeginnerTooltip(startModeField, 'field-start-mode');
   const startModeLabel = document.createElement('label');
-  startModeLabel.textContent = 'Start Mode';
+  startModeLabel.textContent = ui('Start Mode', 'Режим запуска');
   startModeField.appendChild(startModeLabel);
   const startModeHint = document.createElement('div');
   startModeHint.className = 'field-hint';
-  startModeHint.textContent = 'PDA: conversation triggers via a PDA message. F2F: conversation triggers as a dialogue option when the player talks to the NPC.';
+  startModeHint.textContent = ui('PDA: conversation triggers via a PDA message. F2F: conversation triggers as a dialogue option when the player talks to the NPC.', 'КПК: разговор запускается через сообщение на КПК. Л-к-Л: разговор запускается как вариант диалога, когда игрок говорит с NPC.');
   startModeField.appendChild(startModeHint);
   const startModeSelect = document.createElement('select');
   startModeSelect.className = 'channel-select';
   startModeSelect.dataset.fieldKey = getConversationFieldKey(conv.id, 'start-mode');
   const startModeOptionPda = document.createElement('option');
   startModeOptionPda.value = 'pda';
-  startModeOptionPda.textContent = 'PDA (default)';
+  startModeOptionPda.textContent = ui('PDA (default)', 'КПК (по умолчанию)');
   const startModeOptionF2f = document.createElement('option');
   startModeOptionF2f.value = 'f2f';
-  startModeOptionF2f.textContent = 'Face-to-Face';
+  startModeOptionF2f.textContent = ui('Face-to-Face', 'Лицом к лицу');
   startModeSelect.appendChild(startModeOptionPda);
   startModeSelect.appendChild(startModeOptionF2f);
   startModeSelect.value = conv.startMode ?? 'pda';
@@ -523,11 +523,11 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
     store.updateConversation(conv.id, { repeatable: repeatableInput.checked });
   };
   const repeatableText = document.createElement('span');
-  repeatableText.textContent = 'Repeatable in Same Playthrough';
+  repeatableText.textContent = ui('Repeatable in Same Playthrough', 'Повторяется в одном прохождении');
   repeatableField.append(repeatableInput, repeatableText);
   const repeatableHint = document.createElement('div');
   repeatableHint.className = 'field-hint';
-  repeatableHint.textContent = 'When off, this story will not start again after it finishes or times out in this save.';
+  repeatableHint.textContent = ui('When off, this story will not start again after it finishes or times out in this save.', 'Если выключено, история не начнётся снова после завершения или истечения времени в этом сохранении.');
   repeatableWrap.append(repeatableField, repeatableHint);
   container.appendChild(repeatableWrap);
 
@@ -536,11 +536,11 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   initialChannelField.className = 'field';
   setBeginnerTooltip(initialChannelField, 'field-initial-channel');
   const initialChannelLabel = document.createElement('label');
-  initialChannelLabel.textContent = 'Initial Conversation Channel';
+  initialChannelLabel.textContent = ui('Initial Conversation Channel', 'Начальный канал разговора');
   initialChannelField.appendChild(initialChannelLabel);
   const initialChannelHint = document.createElement('div');
   initialChannelHint.className = 'field-hint';
-  initialChannelHint.textContent = 'Sets how Branch 1 starts. Choose PDA for default text-message flow, or F2F for in-person opener flow.';
+  initialChannelHint.textContent = ui('Sets how Branch 1 starts. Choose PDA for default text-message flow, or F2F for in-person opener flow.', 'Определяет, как начинается Ветка 1. Выберите КПК для потока текстовых сообщений или Л-к-Л для вступительного диалога лично.');
   initialChannelField.appendChild(initialChannelHint);
   const initialChannel = normalizeChannel(conv.initialChannel, normalizeChannel(conv.turns.find((turn) => turn.turnNumber === 1)?.channel, 'pda'));
   initialChannelField.appendChild(createChannelSelect(
@@ -559,7 +559,7 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   const advancedHint = document.createElement('div');
   advancedHint.className = 'field-hint';
   advancedHint.style.marginBottom = '10px';
-  advancedHint.textContent = 'Use this section for explicit F2F entry metadata and compatibility with legacy channel workflows.';
+  advancedHint.textContent = ui('Use this section for explicit F2F entry metadata and compatibility with legacy channel workflows.', 'Используйте этот раздел для явных метаданных входа Л-к-Л и совместимости с устаревшими рабочими процессами каналов.');
   advancedBody.appendChild(advancedHint);
   renderF2FEntrySection(advancedBody, conv, turnLabels);
   container.appendChild(advancedWrapper);
@@ -594,9 +594,9 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   if (conv.preconditions.length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
-    hint.textContent = 'No preconditions set — this story will trigger for any NPC. Click "+ Add" to add conditions.';
+    hint.textContent = ui('No preconditions set — this story will trigger for any NPC. Click "+ Add" to add conditions.', 'Предусловия не заданы — история запустится для любого NPC. Нажмите «+ Добавить» для добавления условий.');
     if (!advancedMode) {
-      hint.textContent = 'Pick who can start this story. Friendly NPC is safest first rule.';
+      hint.textContent = ui('Pick who can start this story. Friendly NPC is safest first rule.', 'Выберите, кто может начать эту историю. Дружественный NPC — самое безопасное первое правило.');
     }
     precondBody.appendChild(hint);
   } else {
@@ -774,7 +774,7 @@ function renderF2FEntrySection(
   const f2fEntryHint = document.createElement('div');
   f2fEntryHint.className = 'field-hint';
   f2fEntryHint.style.marginBottom = '10px';
-  f2fEntryHint.textContent = 'Mark entry turn(s) for F2F and configure optional first-actor behavior if your runtime supports it.';
+  f2fEntryHint.textContent = ui('Mark entry turn(s) for F2F and configure optional first-actor behavior if your runtime supports it.', 'Отметьте входные ходы для Л-к-Л и настройте поведение первого актора, если ваша среда выполнения поддерживает это.');
   f2fEntryBody.appendChild(f2fEntryHint);
 
   if (invalidPdaToF2FHandoffs.length > 0) {
@@ -785,7 +785,7 @@ function renderF2FEntrySection(
     warningHeader.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:6px;';
     warningHeader.appendChild(createBadge('warning', 'Blocking warning', 'warning'));
     const warningTitle = document.createElement('strong');
-    warningTitle.textContent = 'PDA → F2F handoff is invalid until a valid F2F entry turn is configured.';
+    warningTitle.textContent = ui('PDA → F2F handoff is invalid until a valid F2F entry turn is configured.', 'Передача КПК → Л-к-Л недействительна, пока не настроен допустимый входной ход Л-к-Л.');
     warningHeader.appendChild(warningTitle);
     warningWrap.appendChild(warningHeader);
 
@@ -803,7 +803,7 @@ function renderF2FEntrySection(
   if (f2fTurns.length === 0) {
     const emptyHint = document.createElement('div');
     emptyHint.className = 'empty-hint';
-    emptyHint.textContent = 'No F2F turns yet. Set a turn visibility channel to In-person (F2F) first.';
+    emptyHint.textContent = ui('No F2F turns yet. Set a turn visibility channel to In-person (F2F) first.', 'Ходов Л-к-Л пока нет. Сначала установите канал видимости хода на «Лично (Л-к-Л)».');
     f2fEntryBody.appendChild(emptyHint);
     container.appendChild(f2fEntryBody);
     return;
@@ -823,7 +823,7 @@ function renderF2FEntrySection(
 
     const channelBadge = document.createElement('span');
     channelBadge.style.cssText = 'font-size:10px; font-family:var(--font-mono); color:var(--accent);';
-    channelBadge.textContent = 'F2F';
+    channelBadge.textContent = ui('F2F', 'Л-к-Л');
     cardHeader.appendChild(channelBadge);
     card.appendChild(cardHeader);
 
@@ -839,18 +839,18 @@ function renderF2FEntrySection(
     entryInput.setAttribute('data-field-key', getTurnFieldKey(conv.id, turn.turnNumber, 'f2f-entry'));
     entryInput.onchange = () => store.updateTurn(conv.id, turn.turnNumber, { f2f_entry: entryInput.checked });
     const entryText = document.createElement('span');
-    entryText.textContent = 'Use as F2F entry turn';
+    entryText.textContent = ui('Use as F2F entry turn', 'Использовать как входной ход Л-к-Л');
     entryToggleField.append(entryInput, entryText);
     body.appendChild(entryToggleField);
 
     const firstSpeakerField = document.createElement('div');
     firstSpeakerField.className = 'field';
     const firstSpeakerLabel = document.createElement('label');
-    firstSpeakerLabel.textContent = 'First actor (optional runtime override)';
+    firstSpeakerLabel.textContent = ui('First actor (optional runtime override)', 'Первый актор (необязательное переопределение во время выполнения)');
     firstSpeakerField.appendChild(firstSpeakerLabel);
     const firstSpeakerHint = document.createElement('div');
     firstSpeakerHint.className = 'field-hint';
-    firstSpeakerHint.textContent = 'Use if your runtime supports actor-first alternatives. Default remains NPC-first.';
+    firstSpeakerHint.textContent = ui('Use if your runtime supports actor-first alternatives. Default remains NPC-first.', 'Используйте, если ваша среда выполнения поддерживает альтернативы с первым актором. По умолчанию NPC идёт первым.');
     firstSpeakerField.appendChild(firstSpeakerHint);
     const firstSpeakerSelect = document.createElement('select');
     firstSpeakerSelect.value = turn.firstSpeaker === 'player' ? 'player' : 'npc';
@@ -884,14 +884,14 @@ function renderF2FEntrySection(
     requiresNpcFirstInput.setAttribute('data-field-key', getTurnFieldKey(conv.id, turn.turnNumber, 'requires-npc-first'));
     requiresNpcFirstInput.onchange = () => store.updateTurn(conv.id, turn.turnNumber, { requiresNpcFirst: requiresNpcFirstInput.checked });
     const requiresNpcFirstText = document.createElement('span');
-    requiresNpcFirstText.textContent = 'Require NPC opener before responses';
+    requiresNpcFirstText.textContent = ui('Require NPC opener before responses', 'Требовать открывающую реплику NPC перед ответами');
     requiresNpcFirstField.append(requiresNpcFirstInput, requiresNpcFirstText);
     body.appendChild(requiresNpcFirstField);
 
     const continuationHint = document.createElement('div');
     continuationHint.className = 'field-hint';
     continuationHint.style.marginTop = '8px';
-    continuationHint.textContent = 'F2F continuation turns use normal back-and-forth flow; author opening text on segment starts.';
+    continuationHint.textContent = ui('F2F continuation turns use normal back-and-forth flow; author opening text on segment starts.', 'Продолжающие ходы Л-к-Л используют обычный поток туда-обратно; добавьте открывающий текст в начале сегментов.');
     body.appendChild(continuationHint);
 
     card.appendChild(body);
@@ -916,7 +916,7 @@ function createChannelSelect(
   for (const option of CHANNEL_OPTIONS) {
     const el = document.createElement('option');
     el.value = option.value;
-    el.textContent = option.label;
+    el.textContent = ui(option.label, option.labelRu);
     el.selected = option.value === value;
     select.appendChild(el);
   }
@@ -997,12 +997,12 @@ function renderTurnProperties(
     openerHintField.className = 'field';
     openerHintField.setAttribute('data-field-key', getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'));
     const openerHintLabel = document.createElement('label');
-    openerHintLabel.textContent = 'Opening Message';
+    openerHintLabel.textContent = ui('Opening Message', 'Открывающее сообщение');
     openerHintLabel.style.opacity = '0.75';
     openerHintField.appendChild(openerHintLabel);
     const openerHint = document.createElement('div');
     openerHint.className = 'field-hint';
-    openerHint.textContent = `Not applicable on non-entry F2F continuation turns — opener text is not exported for these branches.`;
+    openerHint.textContent = ui('Not applicable on non-entry F2F continuation turns — opener text is not exported for these branches.', 'Не применяется для не-входных ходов продолжения Л-к-Л — открывающий текст не экспортируется для этих веток.');
     openerHintField.appendChild(openerHint);
 
     if (hasOpeningText) {
@@ -1023,7 +1023,7 @@ function renderTurnProperties(
     const warningText = document.createElement('div');
     warningText.className = 'field-hint';
     warningText.style.margin = '0';
-    warningText.textContent = 'This opener text is ignored for non-entry F2F branches. Keep opener text only at segment starts and remove legacy continuation opener text.';
+    warningText.textContent = ui('This opener text is ignored for non-entry F2F branches. Keep opener text only at segment starts and remove legacy continuation opener text.', 'Этот открывающий текст игнорируется для не-входных веток Л-к-Л. Оставляйте открывающий текст только в начале сегментов и удалите устаревший текст открытия продолжения.');
     warningRow.appendChild(warningText);
     container.appendChild(warningRow);
   }
@@ -1053,7 +1053,7 @@ function renderTurnProperties(
   if ((turn.preconditions ?? []).length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
-    hint.textContent = 'No branch preconditions — this branch is available whenever the story reaches it.';
+    hint.textContent = ui('No branch preconditions — this branch is available whenever the story reaches it.', 'Предусловий ветки нет — ветка доступна, когда история достигает её.');
     branchPrecondBody.appendChild(hint);
   } else {
     renderPreconditionList(branchPrecondBody, createTurnPreconditionOwner(conv, turn));
@@ -1097,11 +1097,11 @@ function renderTurnProperties(
   const visibilityWrapper = document.createElement('div');
   visibilityWrapper.className = 'field';
   const visibilityLabel = document.createElement('label');
-  visibilityLabel.textContent = 'Turn Visibility Channel';
+  visibilityLabel.textContent = ui('Turn Visibility Channel', 'Канал видимости хода');
   visibilityWrapper.appendChild(visibilityLabel);
   const visibilityHint = document.createElement('div');
   visibilityHint.className = 'field-hint';
-  visibilityHint.textContent = 'Turns are exclusive to one channel: PDA or in-person (F2F). Legacy "Both" values are migrated to PDA.';
+  visibilityHint.textContent = ui('Turns are exclusive to one channel: PDA or in-person (F2F). Legacy "Both" values are migrated to PDA.', 'Ходы привязаны к одному каналу: КПК или лично (Л-к-Л). Устаревшие значения «Оба» переносятся на КПК.');
   visibilityWrapper.appendChild(visibilityHint);
   visibilityWrapper.appendChild(createChannelSelect(
     currentTurnChannel,
@@ -1116,11 +1116,11 @@ function renderTurnProperties(
   const entryScopeField = document.createElement('div');
   entryScopeField.className = 'field';
   const entryScopeLabel = document.createElement('label');
-  entryScopeLabel.textContent = 'Entry Turn Flags';
+  entryScopeLabel.textContent = ui('Entry Turn Flags', 'Флаги входного хода');
   entryScopeField.appendChild(entryScopeLabel);
   const entryScopeHint = document.createElement('div');
   entryScopeHint.className = 'field-hint';
-  entryScopeHint.textContent = 'Mark if this branch can be used as a channel entry target for handoffs.';
+  entryScopeHint.textContent = ui('Mark if this branch can be used as a channel entry target for handoffs.', 'Отметьте, может ли эта ветка использоваться как целевой входной канал для передач.');
   entryScopeField.appendChild(entryScopeHint);
   const entryScopeRow = document.createElement('div');
   entryScopeRow.style.cssText = 'display:flex; gap:12px; flex-wrap:wrap;';
@@ -1169,7 +1169,7 @@ function renderTurnProperties(
   if (turn.choices.length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
-    hint.textContent = 'No choices yet. Use "+ Add" to create a response branch from this turn.';
+    hint.textContent = ui('No choices yet. Use "+ Add" to create a response branch from this turn.', 'Выборов пока нет. Нажмите «+ Добавить», чтобы создать ветку ответа из этого хода.');
     choicesBody.appendChild(hint);
   }
 
@@ -1193,7 +1193,7 @@ function renderTurnProperties(
 
     const cardTitle = document.createElement('span');
     cardTitle.className = 'choice-card-title';
-    cardTitle.textContent = `Choice ${choice.index}`;
+    cardTitle.textContent = ui(`Choice ${choice.index}`, `Выбор ${choice.index}`);
     header.appendChild(cardTitle);
 
     const previewText = document.createElement('span');
@@ -1272,9 +1272,9 @@ function renderChoiceProperties(
   // Back button
   const backBtn = document.createElement('button');
   backBtn.className = 'btn-sm';
-  backBtn.setAttribute('aria-label', `Back to ${turnLabels.getLongLabel(turn.turnNumber)}`);
-  backBtn.textContent = `\u2190 Back to ${turnLabels.getLongLabel(turn.turnNumber)}`;
-  backBtn.title = 'Return to turn overview';
+  backBtn.setAttribute('aria-label', ui(`Back to ${turnLabels.getLongLabel(turn.turnNumber)}`, `\u041d\u0430\u0437\u0430\u0434 \u043a ${turnLabels.getLongLabel(turn.turnNumber)}`));
+  backBtn.textContent = ui(`\u2190 Back to ${turnLabels.getLongLabel(turn.turnNumber)}`, `\u2190 \u041d\u0430\u0437\u0430\u0434 \u043a ${turnLabels.getLongLabel(turn.turnNumber)}`);
+  backBtn.title = ui('Return to turn overview', '\u0412\u0435\u0440\u043d\u0443\u0442\u044c\u0441\u044f \u043a \u043e\u0431\u0437\u043e\u0440\u0443 \u0445\u043e\u0434\u0430');
   backBtn.onclick = () => store.selectChoice(null);
   backBtn.style.marginBottom = '10px';
   container.appendChild(backBtn);
@@ -1283,7 +1283,7 @@ function renderChoiceProperties(
   title.className = 'section-header';
   const titleText = document.createElement('span');
   titleText.className = 'section-title';
-  titleText.textContent = `${turnLabels.getLongLabel(turn.turnNumber)} / Choice ${choice.index}`;
+  titleText.textContent = `${turnLabels.getLongLabel(turn.turnNumber)} / ${ui(`Choice ${choice.index}`, `Выбор ${choice.index}`)}`;
   title.appendChild(titleText);
 
   const titleActions = document.createElement('div');
@@ -1402,7 +1402,7 @@ function renderChoiceProperties(
   if ((choice.preconditions ?? []).length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
-    hint.textContent = 'No choice preconditions — this option is always visible when this branch is active.';
+    hint.textContent = ui('No choice preconditions — this option is always visible when this branch is active.', 'Предусловий выбора нет — этот вариант всегда виден, когда активна данная ветка.');
     choicePrecondBody.appendChild(hint);
   } else {
     renderPreconditionList(choicePrecondBody, createChoicePreconditionOwner(conv, turn, choice));
@@ -1432,18 +1432,18 @@ function renderChoiceProperties(
   const storyNpcField = document.createElement('div');
   storyNpcField.className = 'field';
   const storyNpcLabel = document.createElement('label');
-  storyNpcLabel.textContent = 'Story NPC Picker';
+  storyNpcLabel.textContent = ui('Story NPC Picker', 'Выбор сюжетного NPC');
   storyNpcField.append(storyNpcLabel, storyNpcEditor);
   targetingBody.appendChild(storyNpcField);
 
   const factionFilterField = document.createElement('div');
   factionFilterField.className = 'field';
   const factionFilterLabel = document.createElement('label');
-  factionFilterLabel.textContent = 'Faction Scope';
+  factionFilterLabel.textContent = ui('Faction Scope', 'Фильтр по группировке');
   factionFilterField.appendChild(factionFilterLabel);
   const factionFilterHint = document.createElement('div');
   factionFilterHint.className = 'field-hint';
-  factionFilterHint.textContent = 'Restrict sim NPC matches to one or more factions.';
+  factionFilterHint.textContent = ui('Restrict sim NPC matches to one or more factions.', 'Ограничить совпадения NPC сима одной или несколькими группировками.');
   factionFilterField.appendChild(factionFilterHint);
   const factionFilterSelect = document.createElement('select');
   factionFilterSelect.multiple = true;

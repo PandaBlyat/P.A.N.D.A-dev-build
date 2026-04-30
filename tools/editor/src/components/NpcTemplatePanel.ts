@@ -4,8 +4,8 @@
 
 import { store } from '../lib/state';
 import type { NpcTemplate } from '../lib/types';
-import { FACTION_DISPLAY_NAMES } from '../lib/types';
-import { FACTION_IDS, RANKS } from '../lib/constants';
+import { FACTION_DISPLAY_NAMES, FACTION_DISPLAY_NAMES_RU } from '../lib/types';
+import { FACTION_IDS, RANKS, RANK_DISPLAY_NAMES, RANK_DISPLAY_NAMES_RU } from '../lib/constants';
 import { trapFocus } from '../lib/focus-trap';
 import { createItemPickerPanelEditor } from './ItemPickerPanel';
 import { createUiText } from '../lib/ui-language';
@@ -17,33 +17,33 @@ function ui(en: string, ru: string): string {
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const RELATION_OPTIONS = [
-  { value: 'default', label: 'Default (faction-based)' },
-  { value: 'friendly', label: 'Friendly' },
-  { value: 'hostile', label: 'Hostile' },
-  { value: 'neutral', label: 'Neutral' },
-  { value: 'companion', label: 'Companion (follows player)' },
+  { value: 'default', label: 'Default (faction-based)', labelRu: 'По умолчанию (по группировке)' },
+  { value: 'friendly', label: 'Friendly', labelRu: 'Дружественный' },
+  { value: 'hostile', label: 'Hostile', labelRu: 'Враждебный' },
+  { value: 'neutral', label: 'Neutral', labelRu: 'Нейтральный' },
+  { value: 'companion', label: 'Companion (follows player)', labelRu: 'Компаньон (следует за игроком)' },
 ];
 
 const STATIONARY_JOB_OPTIONS = [
-  { value: 'auto', label: 'Auto (best smart job)' },
-  { value: 'guard', label: 'Guard' },
-  { value: 'animpoint', label: 'Animpoint / Smartcover' },
-  { value: 'walker', label: 'Walker' },
-  { value: 'patrol', label: 'Patrol' },
-  { value: 'camper', label: 'Camper' },
-  { value: 'sniper', label: 'Sniper' },
-  { value: 'sleeper', label: 'Sleeper' },
-  { value: 'beh', label: 'Beh / Point Job' },
+  { value: 'auto', label: 'Auto (best smart job)', labelRu: 'Авто (лучшая работа)' },
+  { value: 'guard', label: 'Guard', labelRu: 'Охранник' },
+  { value: 'animpoint', label: 'Animpoint / Smartcover', labelRu: 'Animpoint / Укрытие' },
+  { value: 'walker', label: 'Walker', labelRu: 'Обходчик' },
+  { value: 'patrol', label: 'Patrol', labelRu: 'Патруль' },
+  { value: 'camper', label: 'Camper', labelRu: 'Засада' },
+  { value: 'sniper', label: 'Sniper', labelRu: 'Снайпер' },
+  { value: 'sleeper', label: 'Sleeper', labelRu: 'Спящий' },
+  { value: 'beh', label: 'Beh / Point Job', labelRu: 'Beh / Точечная работа' },
 ];
 
 const ATTACHMENT_OPTIONS = [
-  { value: '0', label: 'None' },
-  { value: 'r', label: 'Random' },
+  { value: '0', label: 'None', labelRu: 'Нет' },
+  { value: 'r', label: 'Random', labelRu: 'Случайный' },
 ];
 
 const AMMO_OPTIONS = [
-  { value: '0', label: 'First type' },
-  { value: 'r', label: 'Random type' },
+  { value: '0', label: 'First type', labelRu: 'Первый тип' },
+  { value: 'r', label: 'Random type', labelRu: 'Случайный тип' },
 ];
 
 const MOUNT_ID = 'app-modal-host';
@@ -107,7 +107,10 @@ function buildItemsList(rows: Array<{ section: string; count: string }>): string
 
 function getTemplateSummary(t: NpcTemplate): string {
   const parts: string[] = [];
-  const factionLabel = FACTION_DISPLAY_NAMES[t.faction as keyof typeof FACTION_DISPLAY_NAMES] ?? t.faction;
+  const factionLabel = ui(
+    FACTION_DISPLAY_NAMES[t.faction as keyof typeof FACTION_DISPLAY_NAMES] ?? t.faction,
+    FACTION_DISPLAY_NAMES_RU[t.faction as keyof typeof FACTION_DISPLAY_NAMES_RU] ?? t.faction,
+  );
   parts.push(factionLabel);
   if (t.rank) parts.push(t.rank);
   if (t.relation && t.relation !== 'default') parts.push(t.relation);
@@ -339,8 +342,8 @@ function openNpcBuilderPanel(options: {
 
     const metaWrap = document.createElement('div');
     metaWrap.className = 'npc-builder-weapon-meta';
-    metaWrap.appendChild(makeMetaSelect(ui('Attachment', 'Обвес'), ATTACHMENT_OPTIONS, attachVal, onAttach));
-    metaWrap.appendChild(makeMetaSelect(ui('Ammo', 'Патроны'), AMMO_OPTIONS, ammoVal, onAmmo));
+    metaWrap.appendChild(makeMetaSelect(ui('Attachment', 'Обвес'), ATTACHMENT_OPTIONS.map(o => ({ value: o.value, label: ui(o.label, o.labelRu) })), attachVal, onAttach));
+    metaWrap.appendChild(makeMetaSelect(ui('Ammo', 'Патроны'), AMMO_OPTIONS.map(o => ({ value: o.value, label: ui(o.label, o.labelRu) })), ammoVal, onAmmo));
 
     weaponRow.append(picker, metaWrap);
     group.appendChild(weaponRow);
@@ -412,7 +415,7 @@ function openNpcBuilderPanel(options: {
       for (const fid of FACTION_IDS) {
         const opt = document.createElement('option');
         opt.value = fid;
-        opt.textContent = FACTION_DISPLAY_NAMES[fid];
+        opt.textContent = ui(FACTION_DISPLAY_NAMES[fid], FACTION_DISPLAY_NAMES_RU[fid]);
         opt.selected = form.faction === fid;
         sel.appendChild(opt);
       }
@@ -429,7 +432,7 @@ function openNpcBuilderPanel(options: {
       for (const rank of RANKS) {
         const opt = document.createElement('option');
         opt.value = rank;
-        opt.textContent = rank.charAt(0).toUpperCase() + rank.slice(1);
+        opt.textContent = ui(RANK_DISPLAY_NAMES[rank] ?? (rank.charAt(0).toUpperCase() + rank.slice(1)), RANK_DISPLAY_NAMES_RU[rank] ?? rank);
         opt.selected = form.rank === rank;
         sel.appendChild(opt);
       }
@@ -443,10 +446,10 @@ function openNpcBuilderPanel(options: {
       const { wrap, content } = makeField(ui('Relation', 'Отношение'));
       const sel = document.createElement('select');
       sel.className = 'npc-builder-select';
-      for (const { value, label } of RELATION_OPTIONS) {
+      for (const { value, label, labelRu } of RELATION_OPTIONS) {
         const opt = document.createElement('option');
         opt.value = value;
-        opt.textContent = label;
+        opt.textContent = ui(label, labelRu);
         opt.selected = form.relation === value;
         sel.appendChild(opt);
       }
@@ -490,10 +493,10 @@ function openNpcBuilderPanel(options: {
       const jobField = makeField(ui('Fixed Job', 'Фиксированная работа'));
       const jobSelect = document.createElement('select');
       jobSelect.className = 'npc-builder-select';
-      for (const { value, label } of STATIONARY_JOB_OPTIONS) {
+      for (const { value, label, labelRu } of STATIONARY_JOB_OPTIONS) {
         const opt = document.createElement('option');
         opt.value = value;
-        opt.textContent = label;
+        opt.textContent = ui(label, labelRu);
         opt.selected = form.stationaryJob === value;
         jobSelect.appendChild(opt);
       }

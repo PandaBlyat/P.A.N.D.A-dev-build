@@ -237,6 +237,23 @@ export const FACTION_DISPLAY_NAMES: Record<FactionId, string> = {
   greh: 'Sin',
 };
 
+/** Russian faction display mapping for the editor UI */
+export const FACTION_DISPLAY_NAMES_RU: Record<FactionId, string> = {
+  stalker: 'Одиночки',
+  dolg: 'Долг',
+  freedom: 'Свобода',
+  csky: 'Чистое небо',
+  ecolog: 'Учёные',
+  killer: 'Наёмники',
+  army: 'Военные',
+  bandit: 'Бандиты',
+  monolith: 'Монолит',
+  zombied: 'Зомбированные',
+  isg: 'ОМГ',
+  renegade: 'Ренегаты',
+  greh: 'Грех',
+};
+
 /** Map faction ID to the XML file faction key (used in st_pda_ic_<key>_N_...) */
 export const FACTION_XML_KEYS: Record<FactionId, string> = {
   stalker: 'loner',
