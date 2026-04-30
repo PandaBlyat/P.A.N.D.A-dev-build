@@ -16,6 +16,8 @@ local FAMILY_ICONS = {
     fetch = "ui_inGame2_Osobiy_zakaz",
     bounty = "ui_inGame2_Odin_vistrel",
     dead_drop = "ui_inGame2_Karti_mestnosti",
+    dead_drop_stash = "ui_inGame2_Karti_mestnosti",
+    fetch_stash = "ui_inGame2_Osobiy_zakaz",
     artifact = "ui_iconsTotal_artefact",
     escort = "ui_inGame2_Mesta_evakuatsii",
     eliminate = "ui_iconsTotal_mutant",
@@ -28,6 +30,8 @@ local FAMILIES = {
     fetch = true,
     bounty = true,
     dead_drop = true,
+    dead_drop_stash = true,
+    fetch_stash = true,
     artifact = true,
     escort = true,
     eliminate = true,
@@ -858,6 +862,10 @@ local function build_title(record, task)
         return safe_format(tr("st_panda_task_title_bounty", "Eliminate %s"), target_label)
     elseif family == "dead_drop" then
         return safe_format(tr("st_panda_task_title_dead_drop", "Dead Drop %s"), counted_item_name(record.item_section, record.item_count))
+    elseif family == "dead_drop_stash" then
+        return safe_format(tr("st_panda_task_title_dead_drop_stash", "Dead Drop %s"), counted_item_name(record.item_section, record.item_count))
+    elseif family == "fetch_stash" then
+        return safe_format(tr("st_panda_task_title_fetch_stash", "Retrieve %s"), counted_item_name(record.item_section, 1))
     elseif family == "escort" then
         local target_label = record.target_label or record.npc_name or tr("st_panda_task_bounty_target", "target")
         return safe_format(tr("st_panda_task_title_escort", "Escort %s"), target_label)
@@ -914,6 +922,18 @@ local function build_description(record, task)
         return safe_format(
             tr("st_panda_task_descr_dead_drop", "Stash %s at %s."),
             counted_item_name(record.item_section, record.item_count),
+            location_label
+        )
+    elseif family == "dead_drop_stash" then
+        return safe_format(
+            tr("st_panda_task_descr_dead_drop_stash", "Deposit %s in the stash at %s."),
+            counted_item_name(record.item_section, record.item_count),
+            location_label
+        )
+    elseif family == "fetch_stash" then
+        return safe_format(
+            tr("st_panda_task_descr_fetch_stash", "Retrieve %s from the stash at %s."),
+            counted_item_name(record.item_section, 1),
             location_label
         )
     elseif family == "escort" then
@@ -982,6 +1002,8 @@ local function build_target(record, task)
         return record.zone_object_id or record.destination_map_id
     elseif family == "delivery" or family == "dead_drop" or family == "escort" or family == "eliminate" or family == "rescue" then
         return record.destination_map_id
+    elseif family == "dead_drop_stash" or family == "fetch_stash" then
+        return record.stash_box_id
     elseif family == "bounty" then
         return record.target_npc_id or record.destination_map_id
     elseif family == "fetch" then
@@ -1030,6 +1052,24 @@ local function evaluate_status(task, task_id)
         then
             return "complete"
         end
+        return
+    end
+
+    if record.family == "dead_drop_stash" then
+        if actor_has_item_count(record.item_section, record.item_count or 1)
+            and actor_near_object(record.stash_box_id, record.target_radius or TARGET_RADIUS_DEFAULT)
+        then
+            return "complete"
+        end
+        return
+    end
+
+    if record.family == "fetch_stash" then
+        if actor_has_item_count(record.item_section, 1) then
+            mark_stage(task, record, 1)
+            return "complete"
+        end
+        mark_stage(task, record, 0)
         return
     end
 
@@ -1178,7 +1218,7 @@ local function apply_success_side_effects(record)
         return
     end
 
-    if record.family == "delivery" or record.family == "dead_drop" or record.family == "fetch" then
+    if record.family == "delivery" or record.family == "dead_drop" or record.family == "dead_drop_stash" or record.family == "fetch" then
         if not record.item_consumed then
             remove_actor_items(record.item_section, record.item_count or 1)
         end
@@ -1298,6 +1338,8 @@ function M.create_task(params)
         record.fail_if_artifact_lost = record.manual_turn_in == true
     end
     record.scan_radius = tonumber(params.scan_radius or record.scan_radius) or SCAN_RADIUS
+    record.stash_box_id = tonumber(params.stash_box_id or record.stash_box_id) or nil
+    record.stash_name = params.stash_name or record.stash_name
     record.target_icon = FAMILY_ICONS[family]
 
     -- Author-supplied PDA hover/list overrides. May be a literal string or an XML string id
@@ -1672,6 +1714,15 @@ function M.migrate_legacy_job(job)
     if job.job_type == "delivery" or job.job_type == "dead_drop" then
         params.item_section = job.task_item
         params.item_count = 1
+    elseif job.job_type == "dead_drop_stash" then
+        params.item_section = job.task_item
+        params.item_count = 1
+        params.stash_box_id = job.stash_box_id
+        params.stash_name = job.stash_name
+    elseif job.job_type == "fetch_stash" then
+        params.item_section = job.task_item
+        params.stash_box_id = job.stash_box_id
+        params.stash_name = job.stash_name
     elseif job.job_type == "fetch" then
         params.item_section = job.task_item
         params.item_count = job.task_item_count or 1

@@ -7208,6 +7208,100 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                 end
             end
 
+        -- Dead Drop (specific stash box): player deposits item at a named stash; item removed on success.
+        -- Syntax: panda_task_dead_drop_stash:<stash_name>:<item_section>:<timeout>:<success_turn>:<fail_turn>
+        elseif cmd == "panda_task_dead_drop_stash" then
+            local stash_name = parts[2]
+            local item_sec = parts[3]
+            local timeout = tonumber(parts[4]) or 600
+            local s_turn = tonumber(parts[5])
+            local f_turn = tonumber(parts[6])
+            if not stash_name or not item_sec or not s_turn then
+                printf("PANDA_IC: panda_task_dead_drop_stash missing params in '%s'", tostring(cmd_str))
+            else
+                local stash_box_id = find_stash_id_by_name(stash_name)
+                local bridge = ensure_panda_task_bridge()
+                if not stash_box_id then
+                    printf("PANDA_IC: panda_task_dead_drop_stash stash '%s' not found in caches", tostring(stash_name))
+                elseif not bridge then
+                    printf("PANDA_IC: panda_task_dead_drop_stash ignored (bridge unavailable)")
+                else
+                    local label_key = "st_" .. stash_name .. "_name"
+                    local stash_label = game.translate_string(label_key)
+                    if not stash_label or stash_label == "" or stash_label == label_key then
+                        stash_label = stash_name
+                    end
+                    local slot_id, err = bridge.create_task(build_bridge_task_params("dead_drop_stash", {
+                        item_section = item_sec,
+                        item_count = 1,
+                        stash_box_id = stash_box_id,
+                        stash_name = stash_name,
+                        destination_label = stash_label,
+                        location_label = stash_label,
+                        target_radius = PANDA.get_config("location_watch_radius") or 50,
+                        timeout_seconds = timeout,
+                        success_turn = s_turn,
+                        fail_turn = f_turn,
+                    }))
+                    if not slot_id then
+                        printf("PANDA_IC: panda_task_dead_drop_stash failed (%s)", tostring(err))
+                    else
+                        task_given = true
+                        push_task_start_message("st_pda_ic_task_dead_drop_start")
+                    end
+                end
+            end
+
+        -- Fetch from Stash: item pre-spawned inside named stash box; player retrieves it (keeps it).
+        -- Syntax: panda_task_fetch_from_stash:<stash_name>:<item_section>:<timeout>:<success_turn>:<fail_turn>
+        elseif cmd == "panda_task_fetch_from_stash" then
+            local stash_name = parts[2]
+            local item_sec = parts[3]
+            local timeout = tonumber(parts[4]) or 600
+            local s_turn = tonumber(parts[5])
+            local f_turn = tonumber(parts[6])
+            if not stash_name or not item_sec or not s_turn then
+                printf("PANDA_IC: panda_task_fetch_from_stash missing params in '%s'", tostring(cmd_str))
+            else
+                local stash_box_id = find_stash_id_by_name(stash_name)
+                local bridge = ensure_panda_task_bridge()
+                if not stash_box_id then
+                    printf("PANDA_IC: panda_task_fetch_from_stash stash '%s' not found in caches", tostring(stash_name))
+                elseif not bridge then
+                    printf("PANDA_IC: panda_task_fetch_from_stash ignored (bridge unavailable)")
+                else
+                    local label_key = "st_" .. stash_name .. "_name"
+                    local stash_label = game.translate_string(label_key)
+                    if not stash_label or stash_label == "" or stash_label == label_key then
+                        stash_label = stash_name
+                    end
+                    -- Pre-spawn item inside the stash box so the player can loot it.
+                    local stash_se = alife() and alife():object(stash_box_id) or nil
+                    if stash_se and alife_create_item then
+                        alife_create_item(item_sec, stash_se)
+                    else
+                        printf("PANDA_IC: panda_task_fetch_from_stash could not spawn '%s' in stash '%s'", tostring(item_sec), tostring(stash_name))
+                    end
+                    local slot_id, err = bridge.create_task(build_bridge_task_params("fetch_stash", {
+                        item_section = item_sec,
+                        item_count = 1,
+                        stash_box_id = stash_box_id,
+                        stash_name = stash_name,
+                        destination_label = stash_label,
+                        location_label = stash_label,
+                        timeout_seconds = timeout,
+                        success_turn = s_turn,
+                        fail_turn = f_turn,
+                    }))
+                    if not slot_id then
+                        printf("PANDA_IC: panda_task_fetch_from_stash failed (%s)", tostring(err))
+                    else
+                        task_given = true
+                        push_task_start_message("st_pda_ic_task_fetch_start")
+                    end
+                end
+            end
+
         -- Escort: NPC becomes companion, escort to destination
         -- Syntax: panda_task_escort:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
         -- Optional target: ...:<target_kind>:<target_id>[:<spawn_distance>]
