@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Validation Engine
 
-import { ALL_SMART_TERRAIN_IDS, FACTION_ALIASES, FACTION_IDS, LEVEL_DISPLAY_NAMES, MUTANT_TYPES, RANKS } from './constants';
+import { ALL_SMART_TERRAIN_IDS, ALL_STASH_IDS, FACTION_ALIASES, FACTION_IDS, LEVEL_DISPLAY_NAMES, MUTANT_TYPES, RANKS } from './constants';
 import { LEGACY_F2F_OPENING_WARNINGS } from './f2f-entry-migration';
 import { getOutcomeResumeTurnParamIndices, isTaskOutcomeCommand } from './outcome-branching';
 import { findSchema, NPC_ANIMATION_PRESET_OPTIONS, OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from './schema';
@@ -29,6 +29,7 @@ const PRECONDITION_COMMANDS = new Map(PRECONDITION_SCHEMAS.map(schema => [schema
 const OUTCOME_COMMANDS = new Map(OUTCOME_SCHEMAS.map(schema => [schema.name, schema]));
 const KNOWN_LEVELS = new Set(Object.keys(LEVEL_DISPLAY_NAMES));
 const KNOWN_SMART_TERRAINS = new Set(ALL_SMART_TERRAIN_IDS);
+const KNOWN_STASH_IDS = ALL_STASH_IDS;
 const KNOWN_FACTIONS = new Set([...FACTION_IDS, ...Object.keys(FACTION_ALIASES)]);
 const KNOWN_STORY_NPCS = new Set(STORY_NPC_OPTIONS.map((option) => option.value));
 const KNOWN_NPC_ANIMATION_PRESETS = new Set(NPC_ANIMATION_PRESET_OPTIONS.map((option) => option.value.toLowerCase()));
@@ -1979,6 +1980,8 @@ function normalizeParamValue(type: ParamDef['type'], value: string): string | nu
       return MUTANT_TYPES.includes(trimmed.toLowerCase() as typeof MUTANT_TYPES[number]) ? trimmed.toLowerCase() : null;
     case 'smart_terrain':
       return isSmartTerrainPlaceholder(trimmed) || KNOWN_SMART_TERRAINS.has(trimmed) ? trimmed : null;
+    case 'stash_name':
+      return KNOWN_STASH_IDS.has(trimmed) ? trimmed : null;
     case 'story_npc':
       return KNOWN_STORY_NPCS.has(trimmed) ? trimmed : null;
     default:
@@ -1998,6 +2001,8 @@ function describeAllowedValues(type: ParamDef['type'], schemas: CommandSchema[])
       return MUTANT_TYPES.join(', ');
     case 'smart_terrain':
       return 'a known smart terrain id or %level_panda_st_key% placeholder';
+    case 'stash_name':
+      return 'a known vanilla stash location id (from st_treasures.xml)';
     case 'slot':
       return 'a slot between 0 and 12';
     case 'string':

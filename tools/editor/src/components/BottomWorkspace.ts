@@ -144,10 +144,7 @@ function updateWorkspacePanes(shell: WorkspaceShell, items: WorkspaceItem[], act
     pane.hidden = item.key !== activeKey;
     pane.dataset.active = String(item.key === activeKey);
     if (item.key === 'xml') {
-      const pre = pane.querySelector('.xml-preview-content');
-      if (pre instanceof HTMLElement) {
-        updateXmlPreviewContent(pre);
-      }
+      updateXmlPreviewContent(pane);
     }
   }
 
@@ -190,8 +187,8 @@ function getWorkspaceItems(): WorkspaceItem[] {
     items.push({
       key: 'xml',
       label: 'XML',
-      title: 'XML Preview',
-      subtitle: 'Inspect the live export output without leaving the editor.',
+      title: 'XML Editor',
+      subtitle: 'Edit XML directly — changes apply to the workspace in real time via the Apply button.',
       icon: 'xml',
     });
   }
