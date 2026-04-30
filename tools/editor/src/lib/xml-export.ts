@@ -251,6 +251,8 @@ export function encodeNpcTemplate(t: NpcTemplate): string {
   if (t.outfit) parts.push(`outfit=${t.outfit}`);
   if (t.items) parts.push(`items=${t.items}`);
   if (t.relation && t.relation !== 'default') parts.push(`relation=${t.relation}`);
+  if (t.spawnMode && t.spawnMode !== 'player') parts.push(`spawn_mode=${t.spawnMode}`);
+  if (t.smartTerrain) parts.push(`smart_ref=${t.smartTerrain}`);
   if (t.spawnDist != null && t.spawnDist !== 50) parts.push(`spawn_dist=${t.spawnDist}`);
   if (t.trader) parts.push(`trader=1`);
   if (t.allowRoam === false) parts.push(`roam=0`);

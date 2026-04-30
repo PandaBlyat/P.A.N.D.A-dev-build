@@ -6,6 +6,7 @@
 --   st_panda_npc_template_<id>
 -- Pipe-separated key=value format:
 --   name=Petrov|faction=stalker|rank=veteran|primary=wpn_val:r:0|...
+--   spawn_mode=player|smart|smart_ref=<smart_key>
 --
 -- New outcome commands:
 --   spawn_custom_npc:<template_id>[:<delay>]
@@ -737,6 +738,8 @@ local function parse_template(template_id)
         outfit       = nil,
         items        = {},
         relation     = "default",
+        spawn_mode   = "player",
+        smart_ref    = nil,
         spawn_dist   = 50,
         trader       = false,
         allow_roam   = true,
@@ -759,6 +762,14 @@ local function parse_template(template_id)
             elseif key == "secondary"    then tpl.secondary    = (v ~= "") and v or nil
             elseif key == "outfit"       then tpl.outfit       = (v ~= "") and v or nil
             elseif key == "relation"     then tpl.relation     = v
+            elseif key == "spawn_mode" or key == "spawn_target" or key == "spawn_location" then
+                if lower_v == "smart" or lower_v == "smart_terrain" or lower_v == "location" then
+                    tpl.spawn_mode = "smart"
+                else
+                    tpl.spawn_mode = "player"
+                end
+            elseif key == "smart_ref" or key == "smart_terrain" or key == "spawn_smart_ref" then
+                tpl.smart_ref = (v ~= "") and v or nil
             elseif key == "count"        then -- deprecated: custom NPC templates now always spawn one character
             elseif key == "spawn_dist"   then tpl.spawn_dist   = math.max(10, tonumber(v) or 50)
             elseif key == "trader"       then tpl.trader       = (lower_v == "1" or lower_v == "true")
@@ -3026,7 +3037,10 @@ end
 function spawn_custom_npc(template_id, context)
     context = context or {}
     local tpl = parse_template(template_id)
-    local needs_smart = context.smart_ref and context.smart_ref ~= ""
+    local context_smart_ref = context.smart_ref and context.smart_ref ~= "" and context.smart_ref or nil
+    local template_smart_ref = tpl and tpl.spawn_mode == "smart" and tpl.smart_ref or nil
+    local needs_smart = context_smart_ref ~= nil or template_smart_ref ~= nil
+    local resolved_smart_ref = context_smart_ref or template_smart_ref
     local wants_stationary_anchor = tpl and needs_smart and tpl.allow_roam == false
     local allow_roam = tpl and not wants_stationary_anchor
     local stationary_behavior = normalize_stationary_job_behavior(tpl and tpl.stationary_job)
@@ -3036,6 +3050,10 @@ function spawn_custom_npc(template_id, context)
     end
     if not (db and db.actor) and not needs_smart then
         printf("PANDA_NPC: spawn_custom_npc aborted — no actor")
+        return
+    end
+    if tpl.spawn_mode == "smart" and not resolved_smart_ref then
+        printf("PANDA_NPC: template '%s' requested smart-terrain spawn but no smart_ref is set", tostring(template_id))
         return
     end
     if not needs_smart and tpl.allow_roam == false then
@@ -3049,13 +3067,19 @@ function spawn_custom_npc(template_id, context)
     local pos, lvid, gvid
     local smart_obj = nil
     if needs_smart then
-        smart_obj = resolve_smart_terrain(context.smart_ref)
+        smart_obj = resolve_smart_terrain(resolved_smart_ref)
         if smart_obj then
-            pos, lvid, gvid = get_smart_spawn_anchor(smart_obj)
+            local dist = tonumber(context.spawn_dist) or tpl.spawn_dist or 50
+            if tpl.spawn_mode == "smart" or context_smart_ref then
+                local anchor_pos, anchor_lvid, anchor_gvid = get_smart_spawn_anchor(smart_obj)
+                pos, lvid, gvid = find_spawn_point_near_smart_local(dist, dist, anchor_pos, anchor_lvid, anchor_gvid)
+            else
+                pos, lvid, gvid = get_smart_spawn_anchor(smart_obj)
+            end
         end
         if not pos then
             printf("PANDA_NPC: smart terrain '%s' not ready for template '%s'",
-                tostring(context.smart_ref), tostring(template_id))
+                tostring(resolved_smart_ref), tostring(template_id))
         end
     end
     if needs_smart and not pos then
@@ -3068,7 +3092,7 @@ function spawn_custom_npc(template_id, context)
                 "PANDA_NPC: stationary template '%s' requires a compatible stalker smart job for behavior '%s'; smart '%s' has none, aborting fixed-position spawn",
                 tostring(template_id),
                 tostring(stationary_behavior),
-                tostring(smart_obj.name and smart_obj:name() or context.smart_ref or "nil")
+                tostring(smart_obj.name and smart_obj:name() or resolved_smart_ref or "nil")
             )
             return
         end

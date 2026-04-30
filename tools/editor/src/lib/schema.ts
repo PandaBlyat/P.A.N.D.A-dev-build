@@ -1521,8 +1521,8 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Spawn a fully author-defined NPC near the player using a named template',
     category: 'Spawning',
     helpText:
-      'Configure the NPC template directly in the editor — name, faction, rank, weapons, outfit, items, relation, and optional near-player spawn distance. ' +
-      'Near-player spawns always roam after spawning; if you need a fixed custom NPC, use "Spawn Custom NPC at Location" with a smart terrain instead. ' +
+      'Configure the NPC template directly in the editor — name, faction, rank, weapons, outfit, items, relation, and spawn target. ' +
+      'Choose near-player or smart-terrain spawn target in the template modal. Near-player spawns always roam after spawning; if you need a fixed custom NPC, use "Spawn Custom NPC at Location" with a smart terrain instead. ' +
       'The template is stored in your conversations XML as st_panda_npc_template_<id>. ' +
       'Use req_custom_npc_alive / req_custom_npc_dead as preconditions to gate conversations on whether this NPC is still alive.',
     examples: ['spawn_custom_npc:informant', 'spawn_custom_npc:hired_guns:10'],

@@ -7,6 +7,7 @@ import type { NpcTemplate } from '../lib/types';
 import { FACTION_DISPLAY_NAMES, FACTION_DISPLAY_NAMES_RU } from '../lib/types';
 import { FACTION_IDS, RANKS, RANK_DISPLAY_NAMES, RANK_DISPLAY_NAMES_RU } from '../lib/constants';
 import { trapFocus } from '../lib/focus-trap';
+import { createSmartTerrainPickerEditor } from './CatalogPickerPanel';
 import { createItemPickerPanelEditor } from './ItemPickerPanel';
 import { createUiText } from '../lib/ui-language';
 
@@ -22,6 +23,11 @@ const RELATION_OPTIONS = [
   { value: 'hostile', label: 'Hostile', labelRu: 'Враждебный' },
   { value: 'neutral', label: 'Neutral', labelRu: 'Нейтральный' },
   { value: 'companion', label: 'Companion (follows player)', labelRu: 'Компаньон (следует за игроком)' },
+];
+
+const SPAWN_TARGET_OPTIONS = [
+  { value: 'player', label: 'Near player', labelRu: 'Рядом с игроком' },
+  { value: 'smart', label: 'At smart terrain', labelRu: 'На smart terrain' },
 ];
 
 const STATIONARY_JOB_OPTIONS = [
@@ -60,6 +66,8 @@ export function encodeNpcTemplate(t: NpcTemplate): string {
   if (t.outfit) parts.push(`outfit=${t.outfit}`);
   if (t.items) parts.push(`items=${t.items}`);
   if (t.relation && t.relation !== 'default') parts.push(`relation=${t.relation}`);
+  if (t.spawnMode && t.spawnMode !== 'player') parts.push(`spawn_mode=${t.spawnMode}`);
+  if (t.smartTerrain) parts.push(`smart_ref=${t.smartTerrain}`);
   if (t.spawnDist != null && t.spawnDist !== 50) parts.push(`spawn_dist=${t.spawnDist}`);
   if (t.trader) parts.push(`trader=1`);
   if (t.allowRoam === false) parts.push('roam=0');
@@ -114,6 +122,11 @@ function getTemplateSummary(t: NpcTemplate): string {
   parts.push(factionLabel);
   if (t.rank) parts.push(t.rank);
   if (t.relation && t.relation !== 'default') parts.push(t.relation);
+  if (t.spawnMode === 'smart') {
+    parts.push(t.smartTerrain ? ui(`Smart terrain: ${t.smartTerrain}`, `Smart terrain: ${t.smartTerrain}`) : ui('Smart terrain', 'Smart terrain'));
+  } else {
+    parts.push(ui('Near player', 'Рядом с игроком'));
+  }
   return parts.join(' · ');
 }
 
@@ -149,6 +162,8 @@ function openNpcBuilderPanel(options: {
     faction: existing?.faction ?? store.get().project.faction ?? 'stalker',
     rank: existing?.rank ?? 'veteran',
     relation: existing?.relation ?? 'default',
+    spawnMode: existing?.spawnMode ?? (existing?.smartTerrain ? 'smart' : 'player'),
+    smartTerrain: existing?.smartTerrain ?? '',
     primarySection: '',
     primaryAttachment: '0',
     primaryAmmo: '0',
@@ -206,9 +221,9 @@ function openNpcBuilderPanel(options: {
 
   const subtitleEl = document.createElement('div');
   subtitleEl.className = 'item-picker-subtitle';
-  subtitleEl.textContent = options.showSpawnDistance
-    ? ui('Configure name, faction, weapons, outfit, inventory, and near-player spawn distance. Near-player spawns always roam. Saved to your conversations XML.', 'Настройте имя, группировку, оружие, костюм, инвентарь и дистанцию спавна рядом с игроком. Такие NPC всегда свободно перемещаются. Сохраняется в XML диалогов.')
-    : ui('Configure name, faction, weapons, outfit, inventory, and optional smart-terrain locking. Fixed NPCs can bind to vanilla smart-job behaviors on the chosen smart terrain. Placement comes from the command or precondition.', 'Настройте имя, группировку, оружие, костюм, инвентарь и привязку к smart terrain. Фиксированные NPC могут использовать vanilla smart-job на выбранном smart terrain. Размещение задается командой или предусловием.');
+    subtitleEl.textContent = options.showSpawnDistance
+    ? ui('Configure name, faction, weapons, outfit, inventory, and spawn target. Near-player spawns use distance; smart-terrain spawns use a picked location. Saved to your conversations XML.', 'Настройте имя, группировку, оружие, костюм, инвентарь и цель спавна. Спавн рядом с игроком использует дистанцию; спавн на smart terrain использует выбранную локацию. Сохраняется в XML диалогов.')
+    : ui('Configure name, faction, weapons, outfit, inventory, and optional smart-terrain locking. Fixed NPCs can bind to vanilla smart-job behaviors on the chosen smart terrain. Placement comes from the command or precondition.', 'Настройте имя, группировку, оружие, костюм, инвентарь и привязку к smart terrain. Фиксированные NPC могут использовать vanilla smart-job на выбранном smart terrain. Размещение задаётся командой или предусловием.');
 
   titleWrap.append(titleEl, subtitleEl);
 
@@ -669,13 +684,41 @@ function openNpcBuilderPanel(options: {
   // ── § 6 — Spawn Config ───────────────────────────────────────────────────
 
   if (options.showSpawnDistance) {
+    const triggerId = options.trigger.id || fieldKeyFromTrigger(options.trigger);
     const sec = makeSection(ui('Spawn Configuration', 'Настройка спавна'));
     const row = document.createElement('div');
     row.className = 'npc-builder-row';
 
-    // Spawn distance
+    // Spawn target
     {
-      const { wrap, content } = makeField(ui('Spawn Distance (m)', 'Дистанция спавна (м)'));
+      const { wrap, content } = makeField(ui('Spawn Target', 'Цель спавна'), true);
+      const targetSelect = document.createElement('select');
+      targetSelect.className = 'npc-builder-select';
+      const targetRoot = document.createElement('div');
+      targetRoot.className = 'npc-builder-spawn-target-root';
+      const distanceWrap = document.createElement('div');
+      const terrainWrap = document.createElement('div');
+      for (const { value, label, labelRu } of SPAWN_TARGET_OPTIONS) {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = ui(label, labelRu);
+        opt.selected = form.spawnMode === value;
+        targetSelect.appendChild(opt);
+      }
+      const syncSpawnTargetUi = (): void => {
+        const smartSelected = form.spawnMode === 'smart';
+        distanceWrap.hidden = smartSelected;
+        terrainWrap.hidden = !smartSelected;
+      };
+      targetSelect.onchange = () => {
+        form.spawnMode = targetSelect.value as 'player' | 'smart';
+        syncSpawnTargetUi();
+      };
+      content.appendChild(targetSelect);
+
+      const inputWrap = document.createElement('div');
+      const distanceTitle = document.createElement('div');
+      distanceTitle.className = 'npc-builder-meta-label';
       const input = document.createElement('input');
       input.type = 'number';
       input.className = 'npc-builder-input';
@@ -683,10 +726,33 @@ function openNpcBuilderPanel(options: {
       input.min = '10';
       input.placeholder = '50';
       input.oninput = () => { form.spawnDist = input.value; };
-      const hint = document.createElement('div');
-      hint.className = 'command-description';
-      hint.textContent = ui('Distance from player in meters. Min\u00a010, default\u00a050. Near-player spawns always roam after spawning.', 'Дистанция от игрока в метрах. Мин. 10, по умолчанию 50. Спавн рядом с игроком всегда свободно перемещается.');
-      content.append(input, hint);
+      const distanceHint = document.createElement('div');
+      distanceHint.className = 'command-description';
+      distanceHint.textContent = ui('Distance from player in meters. Min 10, default 50. Near-player spawns always roam after spawning.', 'Дистанция от игрока в метрах. Мин. 10, по умолчанию 50. Спавн рядом с игроком всегда свободно перемещается.');
+      inputWrap.append(distanceTitle, input, distanceHint);
+      distanceWrap.appendChild(inputWrap);
+
+      const terrainPicker = createSmartTerrainPickerEditor(
+        form.smartTerrain,
+        (value) => { form.smartTerrain = value; },
+        `npc-b-smart-terrain-${triggerId}`,
+        { allowPlaceholder: false },
+      );
+      const terrainHint = document.createElement('div');
+      terrainHint.className = 'command-description';
+      terrainHint.textContent = ui('Pick exact smart terrain. Radius below is distance from that location.', 'Выберите exact smart terrain. Радиус ниже — дистанция от этой локации.');
+      terrainWrap.append(terrainPicker, terrainHint);
+
+      targetRoot.append(distanceWrap, terrainWrap);
+      content.append(targetRoot);
+      syncSpawnTargetUi();
+      const updateDistanceTitle = (): void => {
+        distanceTitle.textContent = form.spawnMode === 'smart'
+          ? ui('Spawn Radius (m)', 'Радиус спавна (м)')
+          : ui('Spawn Distance (m)', 'Дистанция спавна (м)');
+      };
+      updateDistanceTitle();
+      targetSelect.addEventListener('change', updateDistanceTitle);
       row.appendChild(wrap);
     }
 
@@ -744,6 +810,10 @@ function openNpcBuilderPanel(options: {
       return;
     }
 
+    if (form.spawnMode === 'smart' && !form.smartTerrain.trim()) {
+      alert(ui('Smart terrain is required when spawn target is set to smart terrain.', 'Требуется smart terrain, когда цель спавна — smart terrain.'));
+      return;
+    }
     const spawnDist = parseInt(form.spawnDist, 10);
 
     const template: NpcTemplate = {
@@ -760,6 +830,7 @@ function openNpcBuilderPanel(options: {
         : {}),
       ...(form.outfit ? { outfit: form.outfit } : {}),
       ...(buildItemsList(form.items) ? { items: buildItemsList(form.items) } : {}),
+      ...(form.spawnMode === 'smart' ? { spawnMode: 'smart', smartTerrain: form.smartTerrain.trim() } : {}),
       ...(options.showSpawnDistance
         ? (!isNaN(spawnDist) && spawnDist !== 50 ? { spawnDist } : {})
         : (existing?.spawnDist != null && existing.spawnDist !== 50 ? { spawnDist: existing.spawnDist } : {})),
