@@ -4997,12 +4997,13 @@ local function evaluate_precondition_entry(entry, npc_se, act, get_goodwill_acto
     -- ========== ITEMS ==========
     elseif cmd == "req_has_item" then
         local item_sec = parts[2]
+        local required = tonumber(parts[3]) or 1
         if not item_sec then return false, "missing item section" end
-        local found = false
+        local count = 0
         act:iterate_inventory(function(owner, item)
-            if item:section() == item_sec then found = true end
+            if item:section() == item_sec then count = count + 1 end
         end, act)
-        if not found then return false, "item missing" end
+        if count < required then return false, "item count below minimum" end
     elseif cmd == "req_equipped" then
         local item_sec = parts[2]
         if not item_sec then return false, "missing item section" end

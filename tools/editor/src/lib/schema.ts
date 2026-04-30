@@ -698,10 +698,11 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
   {
     name: 'req_has_item',
     label: 'Has Item',
-    description: 'Player must have item in inventory',
+    description: 'Player must have at least count of item in inventory',
     category: 'Items',
     params: [
       { name: 'item', type: 'item_section', required: true, label: 'Item Section', editor: ITEM_PICKER_PANEL_EDITOR },
+      { name: 'count', type: 'number', required: false, label: 'Minimum Count', min: 1 },
     ],
   },
   {
@@ -918,6 +919,7 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
     label: 'Has Item Count',
     description: 'Player must have >= count of a specific item',
     category: 'Items',
+    pickerHidden: true,
     params: [
       { name: 'item', type: 'item_section', required: true, label: 'Item Section', editor: ITEM_PICKER_PANEL_EDITOR },
       { name: 'count', type: 'number', required: true, label: 'Minimum Count', min: 1 },

@@ -276,7 +276,7 @@ const HELP_CONTENT = `
 <h3>Companions &amp; inventory</h3>
 <ul>
   <li><code>req_companions:&lt;count&gt;</code> / <code>req_companions_max:&lt;count&gt;</code></li>
-  <li><code>req_has_item:&lt;section_name&gt;</code></li>
+  <li><code>req_has_item:&lt;section_name&gt;[:count]</code></li>
   <li><code>req_equipped:&lt;section_name&gt;</code> / <code>req_equipped_slot:&lt;slot&gt;</code></li>
 </ul>
 <h3>Time &amp; weather</h3>
