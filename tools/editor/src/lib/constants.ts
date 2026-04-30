@@ -3,6 +3,7 @@
 
 import type { FactionId } from './types';
 import { SMART_TERRAIN_CATALOG } from './generated/smart-terrain-catalog';
+import { STASH_CATALOG } from './generated/stash-catalog';
 
 export const FACTION_IDS: FactionId[] = [
   'stalker', 'dolg', 'freedom', 'csky', 'ecolog',
@@ -428,6 +429,34 @@ export const SMART_TERRAIN_OPTIONS_ALL: SmartTerrainOption[] = SMART_TERRAIN_CAT
   description: entry.description || entry.id,
   level: levelById.get(entry.id) || 'other',
 }));
+
+// ─── Stash catalog ───────────────────────────────────────────────────────────
+
+export type StashOption = {
+  id: string;
+  name: string;
+  description: string;
+  level: string;
+};
+
+export const STASH_DESCRIPTIONS: Record<string, string> = Object.fromEntries(
+  STASH_CATALOG.map((e) => [e.id, e.name]),
+);
+
+export const ALL_STASH_IDS = new Set(STASH_CATALOG.map((e) => e.id));
+
+export const STASH_OPTIONS_ALL: StashOption[] = STASH_CATALOG.map((e) => ({
+  id: e.id,
+  name: e.name,
+  description: e.description,
+  level: e.level,
+}));
+
+export const STASH_LEVELS_WITH_ENTRIES: string[] = [
+  ...new Set(STASH_CATALOG.map((e) => e.level)),
+].sort();
+
+// ─── Level display names ──────────────────────────────────────────────────────
 
 export const LEVEL_DISPLAY_NAMES: Record<string, string> = {
   cordon: 'Cordon',

@@ -30,7 +30,10 @@ import {
   SMART_TERRAIN_LEVELS,
   SMART_TERRAIN_OPTIONS_ALL,
   SMART_TERRAIN_OPTIONS_BY_LEVEL,
+  STASH_LEVELS_WITH_ENTRIES,
+  STASH_OPTIONS_ALL,
   type SmartTerrainOption,
+  type StashOption,
 } from '../lib/constants';
 import { createOnboardingNudge } from './Onboarding';
 import { createItemChainPickerPanelEditor, createItemPickerPanelEditor } from './ItemPickerPanel';
@@ -2735,6 +2738,8 @@ function renderRichParamEditor(
       return createSmartTerrainEditor(currentValue, onChange, fieldKey, {
         allowPlaceholder: editor.allowPlaceholder ?? true,
       });
+    case 'stash_picker':
+      return createStashPickerEditor(currentValue, onChange, fieldKey);
     case 'turn_reference':
       return createTurnReferenceEditor(currentValue, onChange, fieldKey, conv, editor.emptyLabel);
     case 'item_picker_panel':
@@ -2799,6 +2804,10 @@ function formatParamValueForDisplay(paramDef: ParamDef | undefined, value: strin
   if (!value) return '';
   if (paramDef?.type === 'item_section') {
     return formatGameItemLabel(value);
+  }
+  if (paramDef?.type === 'stash_name') {
+    const entry = STASH_OPTIONS_ALL.find((e) => e.id === value);
+    return entry ? `${entry.name} (${value})` : value;
   }
   if (paramDef?.editor?.kind === 'item_chain_picker_panel') {
     return value
@@ -3431,6 +3440,137 @@ function createSmartTerrainEditor(
   wrapper.appendChild(searchInput);
   wrapper.appendChild(quickActions);
   wrapper.appendChild(terrainList);
+  wrapper.appendChild(summary);
+  return wrapper;
+}
+
+function createStashPickerEditor(
+  currentValue: string,
+  onChange: (value: string) => void,
+  fieldKey: string,
+): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'rich-editor rich-editor-smart-terrain';
+
+  const levelSelect = document.createElement('select');
+  levelSelect.className = 'rich-editor-input';
+  levelSelect.setAttribute('data-field-key', fieldKey);
+
+  const emptyOpt = document.createElement('option');
+  emptyOpt.value = '';
+  emptyOpt.textContent = '-- Filter by level --';
+  levelSelect.appendChild(emptyOpt);
+
+  const allOpt = document.createElement('option');
+  allOpt.value = '__all__';
+  allOpt.textContent = 'All levels';
+  levelSelect.appendChild(allOpt);
+
+  for (const levelKey of STASH_LEVELS_WITH_ENTRIES) {
+    const opt = document.createElement('option');
+    opt.value = levelKey;
+    opt.textContent = LEVEL_DISPLAY_NAMES[levelKey] || levelKey;
+    levelSelect.appendChild(opt);
+  }
+
+  const searchInput = document.createElement('input');
+  searchInput.className = 'rich-editor-input';
+  searchInput.type = 'search';
+  searchInput.placeholder = 'Search by stash id or name…';
+
+  const clearButton = document.createElement('button');
+  clearButton.type = 'button';
+  clearButton.className = 'ghost';
+  clearButton.textContent = 'Clear';
+
+  const quickActions = document.createElement('div');
+  quickActions.className = 'smart-terrain-toolbar';
+  quickActions.appendChild(clearButton);
+
+  const stashList = document.createElement('div');
+  stashList.className = 'smart-terrain-results';
+
+  let selectedStash = currentValue || '';
+  let selectedLevel = currentValue ? '__all__' : '';
+
+  const getFilteredOptions = (): StashOption[] => {
+    const lvl = levelSelect.value;
+    const query = searchInput.value.trim().toLowerCase();
+    let pool = lvl && lvl !== '__all__'
+      ? STASH_OPTIONS_ALL.filter((e) => e.level === lvl)
+      : STASH_OPTIONS_ALL;
+    if (query) {
+      pool = pool.filter((e) =>
+        e.id.toLowerCase().includes(query) || e.name.toLowerCase().includes(query),
+      );
+    }
+    return pool;
+  };
+
+  const renderStashList = () => {
+    stashList.innerHTML = '';
+    if (!levelSelect.value) {
+      const hint = document.createElement('div');
+      hint.className = 'command-description';
+      hint.textContent = 'Choose a level filter or search to browse stash locations.';
+      stashList.appendChild(hint);
+      return;
+    }
+    const filtered = getFilteredOptions();
+    for (const entry of filtered.slice(0, 150)) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'smart-terrain-result';
+      if (selectedStash === entry.id) btn.classList.add('is-selected');
+      const idSpan = document.createElement('span');
+      idSpan.className = 'smart-terrain-result-id';
+      idSpan.textContent = entry.id;
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'smart-terrain-result-desc';
+      nameSpan.textContent = entry.name;
+      btn.appendChild(idSpan);
+      btn.appendChild(nameSpan);
+      btn.onclick = () => {
+        selectedStash = entry.id;
+        onChange(entry.id);
+        renderStashList();
+        updateSummary();
+      };
+      stashList.appendChild(btn);
+    }
+    if (filtered.length > 150) {
+      const more = document.createElement('div');
+      more.className = 'command-description';
+      more.textContent = `${filtered.length - 150} more — refine your search.`;
+      stashList.appendChild(more);
+    }
+  };
+
+  const summary = document.createElement('div');
+  summary.className = 'smart-terrain-summary';
+
+  const updateSummary = () => {
+    summary.textContent = selectedStash
+      ? `Selected: ${selectedStash}`
+      : 'No stash selected.';
+  };
+
+  levelSelect.value = selectedLevel;
+  levelSelect.onchange = () => { renderStashList(); updateSummary(); };
+  searchInput.oninput = () => renderStashList();
+  clearButton.onclick = () => {
+    selectedStash = '';
+    onChange('');
+    updateSummary();
+    renderStashList();
+  };
+
+  renderStashList();
+  updateSummary();
+  wrapper.appendChild(levelSelect);
+  wrapper.appendChild(searchInput);
+  wrapper.appendChild(quickActions);
+  wrapper.appendChild(stashList);
   wrapper.appendChild(summary);
   return wrapper;
 }
