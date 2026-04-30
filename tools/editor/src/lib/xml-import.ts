@@ -470,6 +470,20 @@ function decodeNpcTemplate(id: string, raw: string): NpcTemplate {
       case 'outfit': tpl.outfit = v; break;
       case 'items': tpl.items = v; break;
       case 'relation': tpl.relation = v; break;
+      case 'spawn_mode':
+      case 'spawn_target':
+      case 'spawn_location':
+        if (v === 'smart' || v === 'smart_terrain' || v === 'location') {
+          tpl.spawnMode = 'smart';
+        } else if (v === 'player' || v === 'near_player' || v === 'near') {
+          tpl.spawnMode = 'player';
+        }
+        break;
+      case 'smart_ref':
+      case 'smart_terrain':
+      case 'spawn_smart_ref':
+        tpl.smartTerrain = v;
+        break;
       case 'spawn_dist': { const n = parseInt(v, 10); if (!isNaN(n)) tpl.spawnDist = n; break; }
       case 'count': { const n = parseInt(v, 10); if (!isNaN(n)) tpl.count = n; break; }
       case 'trader': tpl.trader = v === '1' || v === 'true'; break;

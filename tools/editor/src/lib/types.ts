@@ -12,6 +12,8 @@ export interface NpcTemplate {
   secondary?: string;
   outfit?: string;
   items?: string;
+  spawnMode?: 'player' | 'smart';
+  smartTerrain?: string;
   spawnDist?: number;
   count?: number;
   trader?: boolean;
