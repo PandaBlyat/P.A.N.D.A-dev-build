@@ -3491,6 +3491,82 @@ local function queue_stash_attachment_reward_custom(sender_npc_name, sender_npc_
     )
 end
 
+-- Find a stash's alife ID by its display name (as stored in st_treasures.xml: e.g. "dark_valley_treasure_1").
+-- Mirrors treasure_manager's own level_prefix substitution so both named and level_prefix boxes are matched.
+local function find_stash_id_by_name(target_name)
+    if not (treasure_manager and treasure_manager.caches) then return nil end
+    local gg = game_graph()
+    local sim = alife()
+    for id, _ in pairs(treasure_manager.caches) do
+        local se = sim:object(id)
+        if se then
+            local raw = se:name()
+            local resolved = raw
+            if string.find(raw, "level_prefix", 1, true) then
+                local lvl = sim:level_name(gg:vertex(se.m_game_vertex_id):level_id())
+                resolved = string.gsub(raw, "level_prefix", lvl, 1)
+            end
+            if resolved == target_name then
+                return id
+            end
+        end
+    end
+    return nil
+end
+
+local function queue_stash_attachment_at(stash_name, sender_npc_name, sender_npc_id, sender_contact_id)
+    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
+
+    pda_private_add_message(
+        contact_id,
+        sender_npc_name,
+        sender_npc_name or game.translate_string("st_pda_ic_outcome_sender"),
+        "Map Coordinates:",
+        sender_icon,
+        false,
+        "delivered",
+        nil,
+        nil,
+        {
+            msg_type = "map_attachment",
+            attachment_action = "reward_stash_at",
+            attachment_label = "Stash Coordinates:",
+            location_name = game.translate_string("st_pda_ic_outcome_stash_attachment_file"),
+            attachment_claimed = false,
+            stash_name = stash_name,
+            skip_personality = true,
+        }
+    )
+end
+
+local function queue_stash_items_attachment_at(stash_name, custom_items, sender_npc_name, sender_npc_id, sender_contact_id)
+    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
+
+    pda_private_add_message(
+        contact_id,
+        sender_npc_name,
+        sender_npc_name or game.translate_string("st_pda_ic_outcome_sender"),
+        "Map Coordinates:",
+        sender_icon,
+        false,
+        "delivered",
+        nil,
+        nil,
+        {
+            msg_type = "map_attachment",
+            attachment_action = "reward_stash_items_at",
+            attachment_label = "Stash Coordinates:",
+            location_name = game.translate_string("st_pda_ic_outcome_stash_attachment_file"),
+            attachment_claimed = false,
+            stash_name = stash_name,
+            custom_items = custom_items,
+            skip_personality = true,
+        }
+    )
+end
+
 function process_map_attachment_action(entry)
     if type(entry) ~= "table" then
         return false
@@ -3510,6 +3586,33 @@ function process_map_attachment_action(entry)
         local bonus = entry.custom_items or {}
         if treasure_manager and treasure_manager.create_random_stash then
             treasure_manager.create_random_stash(nil, nil, bonus, true)
+        end
+        entry.attachment_claimed = true
+        return true
+    end
+
+    if entry.attachment_action == "reward_stash_at" then
+        local id = find_stash_id_by_name(entry.stash_name)
+        if id then
+            treasure_manager.set_random_stash(nil, nil, nil, id)
+        else
+            printf("PANDA_IC: reward_stash_at | stash '%s' not found, falling back to random", tostring(entry.stash_name))
+            reveal_random_stash()
+        end
+        entry.attachment_claimed = true
+        return true
+    end
+
+    if entry.attachment_action == "reward_stash_items_at" then
+        local bonus = entry.custom_items or {}
+        local id = find_stash_id_by_name(entry.stash_name)
+        if id then
+            treasure_manager.set_random_stash(nil, nil, #bonus > 0 and bonus or nil, id)
+        else
+            printf("PANDA_IC: reward_stash_items_at | stash '%s' not found, falling back to random", tostring(entry.stash_name))
+            if treasure_manager and treasure_manager.create_random_stash then
+                treasure_manager.create_random_stash(nil, nil, #bonus > 0 and bonus or nil, true)
+            end
         end
         entry.attachment_claimed = true
         return true
@@ -6299,6 +6402,39 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                 end
             else
                 queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sender_contact_id)
+            end
+
+        -- ========== REWARD SPECIFIC STASH (RANDOM LOOT) ==========
+        -- Syntax: reward_stash_at:<stash_name>
+        -- <stash_name> is the vanilla inventory box name from st_treasures.xml, e.g. dark_valley_treasure_1
+        elseif cmd == "reward_stash_at" then
+            local stash_name = parts[2]
+            if stash_name and stash_name ~= "" then
+                queue_stash_attachment_at(stash_name, sender_npc_name, sender_npc_id, sender_contact_id)
+            else
+                printf("PANDA_IC: reward_stash_at missing stash_name in '%s'", tostring(cmd_str))
+                queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sender_contact_id)
+            end
+
+        -- ========== REWARD SPECIFIC STASH WITH CUSTOM ITEMS ==========
+        -- Syntax: reward_stash_items_at:<stash_name>:<item1+item2+...>
+        elseif cmd == "reward_stash_items_at" then
+            local stash_name = parts[2]
+            local items_str = parts[3]
+            local bonus_items = {}
+            if items_str and items_str ~= "" then
+                for item_sec in string.gmatch(items_str, "([^+]+)") do
+                    item_sec = item_sec:match("^%s*(.-)%s*$")
+                    if item_sec ~= "" and ini_sys:section_exist(item_sec) then
+                        table.insert(bonus_items, item_sec)
+                    end
+                end
+            end
+            if stash_name and stash_name ~= "" then
+                queue_stash_items_attachment_at(stash_name, #bonus_items > 0 and bonus_items or nil, sender_npc_name, sender_npc_id, sender_contact_id)
+            else
+                printf("PANDA_IC: reward_stash_items_at missing stash_name in '%s'", tostring(cmd_str))
+                queue_stash_attachment_reward_custom(sender_npc_name, sender_npc_id, sender_contact_id, #bonus_items > 0 and bonus_items or nil)
             end
 
         -- ========== KNOWLEDGE / INFO PORTIONS ==========

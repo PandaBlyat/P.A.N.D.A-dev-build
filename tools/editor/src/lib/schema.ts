@@ -49,6 +49,9 @@ export type ParamEditor =
     allowPlaceholder?: boolean;
   }
   | {
+    kind: 'stash_picker';
+  }
+  | {
     kind: 'turn_reference';
     emptyLabel?: string;
   }
@@ -414,7 +417,7 @@ const WATCH_TRIGGER_EDITOR: ParamEditor = {
 
 export interface ParamDef {
   name: string;
-  type: 'faction' | 'rank' | 'number' | 'level' | 'smart_terrain'
+  type: 'faction' | 'rank' | 'number' | 'level' | 'smart_terrain' | 'stash_name'
     | 'item_section' | 'mutant_type' | 'achievement' | 'story_npc' | 'string' | 'slot';
   required: boolean;
   label: string;
@@ -1891,6 +1894,50 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     description: 'Queue random stash for discovery',
     category: 'Rewards',
     params: [],
+  },
+  {
+    name: 'reward_stash_at',
+    label: 'Give Stash (Specific Location)',
+    description: 'Queue a specific named stash for discovery with random loot',
+    category: 'Rewards',
+    helpText: 'The NPC sends coordinates to a specific stash box. The player opens the attachment in the PDA to reveal and mark it. Falls back to a random stash if the location cannot be found.',
+    examples: ['reward_stash_at:dark_valley_treasure_1'],
+    params: [
+      {
+        name: 'stash_name',
+        type: 'stash_name',
+        required: true,
+        label: 'Stash Location',
+        editor: { kind: 'stash_picker' },
+        helpText: 'Pick a specific vanilla stash box by name. The box is revealed with randomised loot.',
+      },
+    ],
+  },
+  {
+    name: 'reward_stash_items_at',
+    label: 'Give Stash (Specific Location + Items)',
+    description: 'Queue a specific named stash for discovery with custom bonus items',
+    category: 'Rewards',
+    helpText: 'Like "Give Stash (Specific Items)" but targets a specific stash box instead of a random one.',
+    examples: ['reward_stash_items_at:dark_valley_treasure_1:medkit+bandage'],
+    params: [
+      {
+        name: 'stash_name',
+        type: 'stash_name',
+        required: true,
+        label: 'Stash Location',
+        editor: { kind: 'stash_picker' },
+        helpText: 'Pick a specific vanilla stash box by name.',
+      },
+      {
+        name: 'items',
+        type: 'string',
+        required: true,
+        label: 'Items (+-separated)',
+        editor: { kind: 'item_chain_picker_panel' },
+        helpText: 'Item sections separated by +. Example: medkit+bandage+vodka',
+      },
+    ],
   },
 
   // ─── NEW: Player Effects (expanded) ──────────────────────────────────────
