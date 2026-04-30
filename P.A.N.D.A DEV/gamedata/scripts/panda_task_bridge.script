@@ -1056,9 +1056,7 @@ local function evaluate_status(task, task_id)
     end
 
     if record.family == "dead_drop_stash" then
-        if actor_has_item_count(record.item_section, record.item_count or 1)
-            and actor_near_object(record.stash_box_id, record.target_radius or TARGET_RADIUS_DEFAULT)
-        then
+        if record.deposit_done == true then
             return "complete"
         end
         return
@@ -1759,6 +1757,27 @@ function M.migrate_legacy_job(job)
     end
 
     return true
+end
+
+-- Find the slot_id and record for an active dead_drop_stash task that targets the given
+-- inventory box id and expects the given item section. Returns nil if none found.
+-- Used by the actor_on_item_put_in_box callback in pda_interactive_conv.
+function M.find_active_dead_drop_stash(box_id, item_section)
+    if not box_id or not item_section then
+        return nil, nil
+    end
+    local state = ensure_state()
+    for slot_id, record in pairs(state.records) do
+        if record.active ~= false
+            and record.family == "dead_drop_stash"
+            and record.deposit_done ~= true
+            and record.stash_box_id == tonumber(box_id)
+            and record.item_section == item_section
+        then
+            return slot_id, clone_plain(record)
+        end
+    end
+    return nil, nil
 end
 
 function M.save_state(m)

@@ -2551,6 +2551,34 @@ local function install_panda_task_bridge_callbacks()
     return bridge
 end
 
+-- Fires when the player places any item into an inventory box via the loot UI.
+-- Handles panda_task_dead_drop_stash: if the box is the task target and the item matches,
+-- delete it from the box and mark the deposit as done so evaluate_status returns "complete".
+local function on_item_put_in_box_cb(box, item)
+    if not box or not item then return end
+
+    local bridge = ensure_panda_task_bridge()
+    if not bridge or type(bridge.find_active_dead_drop_stash) ~= "function" then return end
+
+    local slot_id = bridge.find_active_dead_drop_stash(box:id(), item:section())
+    if not slot_id then return end
+
+    -- Remove the deposited item from the stash box.
+    local item_se = alife_object and alife_object(item:id()) or nil
+    if item_se and alife_release then
+        alife_release(item_se)
+    else
+        printf("PANDA_IC: dead_drop_stash | could not release deposited item id=%s", tostring(item:id()))
+    end
+
+    -- Flag the record so evaluate_status returns "complete" on next poll.
+    if type(bridge.update_record) == "function" then
+        bridge.update_record(slot_id, { deposit_done = true, item_consumed = true })
+    end
+
+    printf("PANDA_IC: dead_drop_stash | deposit accepted for slot '%s'", tostring(slot_id))
+end
+
 local tracked_panda_ic_events = {
     pda_ic_spawn = {},
     pda_ic_courier = {},
@@ -7208,7 +7236,8 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                 end
             end
 
-        -- Dead Drop (specific stash box): player deposits item at a named stash; item removed on success.
+        -- Dead Drop (specific stash box): player must physically put the item inside the named stash box.
+        -- The item is deleted from the box immediately and the success branch fires.
         -- Syntax: panda_task_dead_drop_stash:<stash_name>:<item_section>:<timeout>:<success_turn>:<fail_turn>
         elseif cmd == "panda_task_dead_drop_stash" then
             local stash_name = parts[2]
@@ -7238,7 +7267,6 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                         stash_name = stash_name,
                         destination_label = stash_label,
                         location_label = stash_label,
-                        target_radius = PANDA.get_config("location_watch_radius") or 50,
                         timeout_seconds = timeout,
                         success_turn = s_turn,
                         fail_turn = f_turn,
@@ -11372,6 +11400,7 @@ function on_game_start()
     RegisterScriptCallback("on_game_end", on_game_shutdown_cb)
     RegisterScriptCallback("npc_on_before_hit", panda_npc_invulnerability_check)
     RegisterScriptCallback("npc_on_death_callback", panda_dialog_npc_animation_on_death)
+    RegisterScriptCallback("actor_on_item_put_in_box", on_item_put_in_box_cb)
     reset_all_dialog_npc_animation_state("script_init")
 
     -- Schedule the first trigger
