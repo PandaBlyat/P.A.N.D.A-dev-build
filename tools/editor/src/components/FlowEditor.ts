@@ -2443,6 +2443,20 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
   labelSpan.onclick = startLabelEdit;
   header.appendChild(labelSpan);
 
+  const colorDot = document.createElement('input');
+  colorDot.type = 'color';
+  colorDot.className = 'turn-color-input';
+  colorDot.value = branchColor;
+  colorDot.title = 'Change branch color';
+  colorDot.setAttribute('aria-label', `Change color for branch ${turn.turnNumber}`);
+  setBeginnerTooltip(colorDot, 'flow-turn-color');
+  colorDot.onchange = (event) => {
+    event.stopPropagation();
+    store.setTurnColor(conv.id, turn.turnNumber, colorDot.value);
+  };
+  colorDot.onclick = (event) => event.stopPropagation();
+  header.appendChild(colorDot);
+
   const channelToggle = createFlowChannelToggle({
     current: normalizeChannel(turn.channel, normalizeChannel(conv.initialChannel, 'pda')),
     onChange: (channel) => setTurnChannelFromFlow(conv, turn, channel),
@@ -2462,21 +2476,6 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
     });
   });
   header.appendChild(startMenuButton);
-
-  // Color picker (small dot, click to change branch color)
-  const colorDot = document.createElement('input');
-  colorDot.type = 'color';
-  colorDot.className = 'turn-color-input';
-  colorDot.value = branchColor;
-  colorDot.title = 'Change branch color';
-  setBeginnerTooltip(colorDot, 'flow-turn-color');
-  const applyTurnColor = (event: Event) => {
-    event.stopPropagation();
-    store.setTurnColor(conv.id, turn.turnNumber, colorDot.value);
-  };
-  colorDot.onchange = applyTurnColor;
-  colorDot.onclick = (e) => e.stopPropagation();
-  header.appendChild(colorDot);
 
   const stats = document.createElement('span');
   stats.className = 'turn-stats';
