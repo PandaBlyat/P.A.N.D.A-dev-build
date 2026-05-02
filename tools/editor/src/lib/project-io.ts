@@ -77,7 +77,7 @@ export function exportXml(): void {
         // back to authored text until a real translation exists.
         const mergedProject = createEmptyProject(faction);
         mergedProject.conversations = factionConversations.map((conv, convIndex) => {
-          const cloned: Conversation = JSON.parse(JSON.stringify(conv));
+          const cloned: Conversation = structuredClone(conv);
           cloned.id = convIndex + 1;
           cloned.language = language;
           return cloned;

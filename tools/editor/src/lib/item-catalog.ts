@@ -282,17 +282,36 @@ function computeItemPickerMeta(item: GameItemCatalogEntry): CachedGameItemPicker
   };
 }
 
-export const CACHED_GAME_ITEM_CATALOG: CachedGameItemCatalogEntry[] = GAME_ITEM_CATALOG.map((item) => {
-  const meta = computeItemPickerMeta(item);
-  return {
-    item,
-    ...meta,
-  };
-});
+// The picker meta computation (faction matching, normalized search text) is
+// ~50-100ms across all items. Defer it until the first picker actually opens
+// so it doesn't block initial app load.
+let cachedCatalog: CachedGameItemCatalogEntry[] | null = null;
+let cachedMetaLookup: Map<string, CachedGameItemPickerMeta> | null = null;
 
-const GAME_ITEM_META_LOOKUP = new Map<string, CachedGameItemPickerMeta>(
-  CACHED_GAME_ITEM_CATALOG.map(({ item, ...meta }) => [item.section, meta] as const),
-);
+function ensureCachedCatalog(): CachedGameItemCatalogEntry[] {
+  if (cachedCatalog) return cachedCatalog;
+  const entries: CachedGameItemCatalogEntry[] = new Array(GAME_ITEM_CATALOG.length);
+  const lookup = new Map<string, CachedGameItemPickerMeta>();
+  for (let i = 0; i < GAME_ITEM_CATALOG.length; i++) {
+    const item = GAME_ITEM_CATALOG[i];
+    const meta = computeItemPickerMeta(item);
+    entries[i] = { item, ...meta };
+    lookup.set(item.section, meta);
+  }
+  cachedCatalog = entries;
+  cachedMetaLookup = lookup;
+  return entries;
+}
+
+function ensureMetaLookup(): Map<string, CachedGameItemPickerMeta> {
+  if (cachedMetaLookup) return cachedMetaLookup;
+  ensureCachedCatalog();
+  return cachedMetaLookup!;
+}
+
+export function getCachedGameItemCatalog(): CachedGameItemCatalogEntry[] {
+  return ensureCachedCatalog();
+}
 
 export function findGameItem(section: string): GameItemCatalogEntry | undefined {
   return GAME_ITEM_LOOKUP.get(section);
@@ -313,7 +332,7 @@ export function formatGameItemMeta(item: GameItemCatalogEntry): string {
 }
 
 export function getGameItemSearchText(item: GameItemCatalogEntry): string {
-  return GAME_ITEM_META_LOOKUP.get(item.section)?.normalizedSearchText ?? computeGameItemSearchText(item);
+  return ensureMetaLookup().get(item.section)?.normalizedSearchText ?? computeGameItemSearchText(item);
 }
 
 export function getCachedGameItemSearchText(item: GameItemCatalogEntry): string {
@@ -325,5 +344,5 @@ export function getCategoryGroup(category: string): GameItemCategoryGroup {
 }
 
 export function getCachedItemPickerMeta(item: GameItemCatalogEntry): CachedGameItemPickerMeta {
-  return GAME_ITEM_META_LOOKUP.get(item.section) ?? computeItemPickerMeta(item);
+  return ensureMetaLookup().get(item.section) ?? computeItemPickerMeta(item);
 }
