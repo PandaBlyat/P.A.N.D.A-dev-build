@@ -1977,15 +1977,56 @@ function buildTurnNpcLabel(
   const turnLabel = npcLabelFromTurnSpeaker(turn, npcTemplates);
   if (turnLabel) return turnLabel;
 
-  if (!segmentStartTurns.has(turn.turnNumber)) return '';
-
   // 2. True entry turns use conversation-level preconditions for the initiating NPC
   if (isConvEntryTurn(conv, turn)) {
-    return npcLabelFromConvPreconditions(conv, npcTemplates);
+    const label = npcLabelFromConvPreconditions(conv, npcTemplates);
+    if (label) return label;
   }
 
-  // 3. Continuation/task-resume segment starts: NPC comes from the incoming choice
-  return npcLabelFromIncomingChoice(conv, turn.turnNumber, npcTemplates);
+  // 3. Segment starts with new NPC: NPC comes from the incoming choice
+  if (segmentStartTurns.has(turn.turnNumber)) {
+    const label = npcLabelFromIncomingChoice(conv, turn.turnNumber, npcTemplates);
+    if (label) return label;
+  }
+
+  // 4. Same-NPC continuations: inherit speaker from nearest labeled ancestor
+  return npcLabelFromAncestor(conv, turn.turnNumber, segmentStartTurns, npcTemplates);
+}
+
+function npcLabelFromAncestor(
+  conv: Conversation,
+  startTurnNumber: number,
+  segmentStartTurns: ReadonlySet<number>,
+  npcTemplates: NpcTemplate[],
+): string {
+  const visited = new Set<number>();
+  let frontier = [startTurnNumber];
+  while (frontier.length > 0) {
+    const next: number[] = [];
+    for (const turnNum of frontier) {
+      if (visited.has(turnNum)) continue;
+      visited.add(turnNum);
+      for (const sourceTurn of conv.turns) {
+        for (const choice of sourceTurn.choices) {
+          if (choice.continueTo !== turnNum) continue;
+          if (visited.has(sourceTurn.turnNumber)) continue;
+          const label = npcLabelFromTurnSpeaker(sourceTurn, npcTemplates);
+          if (label) return label;
+          if (isConvEntryTurn(conv, sourceTurn)) {
+            const entryLabel = npcLabelFromConvPreconditions(conv, npcTemplates);
+            if (entryLabel) return entryLabel;
+          }
+          if (segmentStartTurns.has(sourceTurn.turnNumber)) {
+            const segLabel = npcLabelFromIncomingChoice(conv, sourceTurn.turnNumber, npcTemplates);
+            if (segLabel) return segLabel;
+          }
+          next.push(sourceTurn.turnNumber);
+        }
+      }
+    }
+    frontier = next;
+  }
+  return '';
 }
 
 function isConvEntryTurn(conv: Conversation, turn: Turn): boolean {

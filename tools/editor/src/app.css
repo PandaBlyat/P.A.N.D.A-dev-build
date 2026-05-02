@@ -2726,7 +2726,7 @@ body.use-custom-cursor * {
   padding: 3px 10px;
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--text-dim);
+  color: #ffffff;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
   overflow: hidden;
