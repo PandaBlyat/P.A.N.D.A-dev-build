@@ -1973,9 +1973,22 @@ function buildTurnNpcLabel(
 }
 
 function isConvEntryTurn(conv: Conversation, turn: Turn): boolean {
-  if (turn.pda_entry === true || turn.f2f_entry === true) return true;
-  // Turn 1 is the implicit PDA entry when no explicit pda_entry turn exists
-  return turn.turnNumber === 1 && !conv.turns.some((t) => t.pda_entry === true);
+  // Mirror collectSegmentStartTurns: only the FIRST pda_entry and FIRST f2f_entry turn
+  // are true conversation entry turns whose NPC comes from conv.preconditions.
+  // Task-resume turns and cross-channel handoff turns also carry pda_entry/f2f_entry=true
+  // but their NPC comes from turn-level speaker fields or the incoming choice.
+  const firstPdaEntry = conv.turns
+    .filter((t) => normalizeChannel(t.channel, 'pda') === 'pda' && t.pda_entry === true)
+    .sort((a, b) => a.turnNumber - b.turnNumber)[0];
+  if (firstPdaEntry) {
+    if (turn.turnNumber === firstPdaEntry.turnNumber) return true;
+  } else if (turn.turnNumber === 1) {
+    return true;
+  }
+  const firstF2FEntry = conv.turns
+    .filter((t) => normalizeChannel(t.channel, 'pda') === 'f2f' && t.f2f_entry === true)
+    .sort((a, b) => a.turnNumber - b.turnNumber)[0];
+  return firstF2FEntry != null && turn.turnNumber === firstF2FEntry.turnNumber;
 }
 
 function npcLabelFromTurnSpeaker(turn: Turn, npcTemplates: NpcTemplate[]): string {
