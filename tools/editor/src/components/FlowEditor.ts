@@ -1957,7 +1957,28 @@ function buildTurnNpcLabel(
   segmentStartTurns: ReadonlySet<number>,
   npcTemplates: NpcTemplate[],
 ): string {
-  // Turn-level speaker overrides apply to all turns
+  // 1. Turn-level speaker overrides — explicit on this turn, highest priority
+  const turnLabel = npcLabelFromTurnSpeaker(turn, npcTemplates);
+  if (turnLabel) return turnLabel;
+
+  if (!segmentStartTurns.has(turn.turnNumber)) return '';
+
+  // 2. True entry turns use conversation-level preconditions for the initiating NPC
+  if (isConvEntryTurn(conv, turn)) {
+    return npcLabelFromConvPreconditions(conv, npcTemplates);
+  }
+
+  // 3. Continuation/task-resume segment starts: NPC comes from the incoming choice
+  return npcLabelFromIncomingChoice(conv, turn.turnNumber, npcTemplates);
+}
+
+function isConvEntryTurn(conv: Conversation, turn: Turn): boolean {
+  if (turn.pda_entry === true || turn.f2f_entry === true) return true;
+  // Turn 1 is the implicit PDA entry when no explicit pda_entry turn exists
+  return turn.turnNumber === 1 && !conv.turns.some((t) => t.pda_entry === true);
+}
+
+function npcLabelFromTurnSpeaker(turn: Turn, npcTemplates: NpcTemplate[]): string {
   if (turn.speaker_npc_id?.startsWith('npc:')) {
     const templateId = turn.speaker_npc_id.slice(4);
     const template = npcTemplates.find((t) => t.id === templateId);
@@ -1967,54 +1988,71 @@ function buildTurnNpcLabel(
   }
   if (turn.speaker_npc_id) {
     const storyNpc = STORY_NPC_OPTIONS.find((o) => o.value === turn.speaker_npc_id);
-    const name = storyNpc?.characterName ?? turn.speaker_npc_id;
-    return `Story NPC — "${name}"`;
+    return `Story NPC — "${storyNpc?.characterName ?? turn.speaker_npc_id}"`;
   }
   if ((turn.speaker_npc_faction_filters?.length ?? 0) > 0) {
     const factionId = turn.speaker_npc_faction_filters![0] as FactionId;
-    const factionName = FACTION_DISPLAY_NAMES[factionId] ?? factionId;
-    return `Random ${factionName} NPC`;
+    return `Random ${FACTION_DISPLAY_NAMES[factionId] ?? factionId} NPC`;
   }
-  if (turn.speaker_allow_generic_stalker) {
-    return 'Any Random NPC';
-  }
+  if (turn.speaker_allow_generic_stalker) return 'Any Random NPC';
+  return '';
+}
 
-  // For segment-entry turns derive from conversation-level preconditions
-  if (segmentStartTurns.has(turn.turnNumber)) {
-    const entries = conv.preconditions ?? [];
-    const customEntry = entries.find(
-      (e): e is SimplePrecondition => e.type === 'simple' && e.command === 'req_custom_story_npc',
-    );
-    if (customEntry) {
-      const templateId = customEntry.params[0] ?? '';
-      const template = npcTemplates.find((t) => t.id === templateId);
-      const factionName = template ? (FACTION_DISPLAY_NAMES[template.faction as FactionId] ?? template.faction) : '';
-      const name = template?.name ?? templateId;
-      return factionName ? `Custom "${factionName}" — "${name}"` : `Custom — "${name}"`;
-    }
-    const storyEntry = entries.find(
-      (e): e is SimplePrecondition => e.type === 'simple' && e.command === 'req_story_npc',
-    );
-    if (storyEntry) {
-      const npcId = storyEntry.params[0] ?? '';
-      const storyNpc = STORY_NPC_OPTIONS.find((o) => o.value === npcId);
-      const name = storyNpc?.characterName ?? npcId;
-      return `Story NPC — "${name}"`;
-    }
-    const factionEntry = entries.find(
-      (e): e is SimplePrecondition => e.type === 'simple' && e.command === 'req_npc_faction',
-    );
-    if (factionEntry) {
-      const factionId = factionEntry.params[0] as FactionId;
-      const factionName = FACTION_DISPLAY_NAMES[factionId] ?? factionId;
-      return `Random ${factionName} NPC`;
-    }
-    const hasFriendly = entries.some(
-      (e): e is SimplePrecondition => e.type === 'simple' && e.command === 'req_npc_friendly',
-    );
-    if (hasFriendly) return 'Any Random NPC';
+function npcLabelFromConvPreconditions(conv: Conversation, npcTemplates: NpcTemplate[]): string {
+  const entries = conv.preconditions ?? [];
+  const customEntry = entries.find(
+    (e): e is SimplePrecondition => e.type === 'simple' && e.command === 'req_custom_story_npc',
+  );
+  if (customEntry) {
+    const templateId = customEntry.params[0] ?? '';
+    const template = npcTemplates.find((t) => t.id === templateId);
+    const factionName = template ? (FACTION_DISPLAY_NAMES[template.faction as FactionId] ?? template.faction) : '';
+    const name = template?.name ?? templateId;
+    return factionName ? `Custom "${factionName}" — "${name}"` : `Custom — "${name}"`;
   }
+  const storyEntry = entries.find(
+    (e): e is SimplePrecondition => e.type === 'simple' && e.command === 'req_story_npc',
+  );
+  if (storyEntry) {
+    const npcId = storyEntry.params[0] ?? '';
+    const storyNpc = STORY_NPC_OPTIONS.find((o) => o.value === npcId);
+    return `Story NPC — "${storyNpc?.characterName ?? npcId}"`;
+  }
+  const factionEntry = entries.find(
+    (e): e is SimplePrecondition => e.type === 'simple' && e.command === 'req_npc_faction',
+  );
+  if (factionEntry) {
+    const factionId = factionEntry.params[0] as FactionId;
+    return `Random ${FACTION_DISPLAY_NAMES[factionId] ?? factionId} NPC`;
+  }
+  const hasFriendly = entries.some(
+    (e): e is SimplePrecondition => e.type === 'simple' && e.command === 'req_npc_friendly',
+  );
+  return hasFriendly ? 'Any Random NPC' : '';
+}
 
+function npcLabelFromIncomingChoice(conv: Conversation, targetTurnNumber: number, npcTemplates: NpcTemplate[]): string {
+  for (const sourceTurn of conv.turns) {
+    for (const choice of sourceTurn.choices) {
+      if (choice.continueTo !== targetTurnNumber) continue;
+      if (choice.cont_npc_id?.startsWith('npc:')) {
+        const templateId = choice.cont_npc_id.slice(4);
+        const template = npcTemplates.find((t) => t.id === templateId);
+        const factionName = template ? (FACTION_DISPLAY_NAMES[template.faction as FactionId] ?? template.faction) : '';
+        const name = template?.name ?? templateId;
+        return factionName ? `Custom "${factionName}" — "${name}"` : `Custom — "${name}"`;
+      }
+      if (choice.cont_npc_id) {
+        const storyNpc = STORY_NPC_OPTIONS.find((o) => o.value === choice.cont_npc_id);
+        return `Story NPC — "${storyNpc?.characterName ?? choice.cont_npc_id}"`;
+      }
+      if ((choice.npc_faction_filters?.length ?? 0) > 0) {
+        const factionId = choice.npc_faction_filters![0] as FactionId;
+        return `Random ${FACTION_DISPLAY_NAMES[factionId] ?? factionId} NPC`;
+      }
+      if (choice.allow_generic_stalker) return 'Any Random NPC';
+    }
+  }
   return '';
 }
 
