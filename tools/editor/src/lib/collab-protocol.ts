@@ -81,7 +81,7 @@ export function cloneConversation<T>(conversation: T): T {
   if (conversation === undefined || conversation === null || typeof conversation !== 'object') {
     return conversation;
   }
-  return JSON.parse(JSON.stringify(conversation)) as T;
+  return structuredClone(conversation) as T;
 }
 
 export function nowCollabTs(): number {

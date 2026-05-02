@@ -1,10 +1,10 @@
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import {
-  CACHED_GAME_ITEM_CATALOG,
   GAME_ITEM_CATALOG,
   findGameItem,
   formatGameItemLabel,
   formatGameItemMeta,
+  getCachedGameItemCatalog,
   type CachedGameItemCatalogEntry,
   type GameItemCatalogEntry,
   type GameItemCategoryGroup,
@@ -560,9 +560,10 @@ function openItemPickerPanel(options: {
   const renderList = (filterValue: string, options: { resetScroll?: boolean } = {}): void => {
     const filter = normalizeFilter(filterValue);
 
+    const allEntries = getCachedGameItemCatalog();
     const textFilteredEntries = filter
-      ? CACHED_GAME_ITEM_CATALOG.filter((entry) => entry.normalizedSearchText.includes(filter))
-      : CACHED_GAME_ITEM_CATALOG;
+      ? allEntries.filter((entry) => entry.normalizedSearchText.includes(filter))
+      : allEntries;
     updateChipCounts(textFilteredEntries);
 
     const groupFilteredEntries = activeGroup

@@ -1848,7 +1848,7 @@ export type PreconditionOwner = {
 };
 
 function clonePreconditions(entries: PreconditionEntry[]): PreconditionEntry[] {
-  return JSON.parse(JSON.stringify(entries)) as PreconditionEntry[];
+  return structuredClone(entries) as PreconditionEntry[];
 }
 
 export function getAddablePreconditionSchemas(scope: PreconditionScope): CommandSchema[] {

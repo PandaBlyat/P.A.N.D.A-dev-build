@@ -392,6 +392,31 @@ function mergeFlow(a: StateChange['flow'], b: StateChange['flow']): StateChange[
   return { kind: mergeReason(a.kind, b.kind) as NonNullable<StateChange['flow']>['kind'] };
 }
 
+function validationMessagesEqual(a: ValidationMessage[], b: ValidationMessage[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const m1 = a[i];
+    const m2 = b[i];
+    if (m1 === m2) continue;
+    if (
+      m1.code !== m2.code
+      || m1.level !== m2.level
+      || m1.scope !== m2.scope
+      || m1.group !== m2.group
+      || m1.conversationId !== m2.conversationId
+      || m1.turnNumber !== m2.turnNumber
+      || m1.choiceIndex !== m2.choiceIndex
+      || m1.message !== m2.message
+      || m1.fieldKey !== m2.fieldKey
+      || m1.propertiesTab !== m2.propertiesTab
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 class StateManager {
   private state: AppState;
   private listeners: Set<Listener> = new Set();
@@ -823,28 +848,36 @@ class StateManager {
   private revalidate(change: StateChange = FULL_APP_RENDER, options: { notify?: boolean } = {}): StateChange | null {
     const revision = ++this.validationRequestRevision;
     const mode: ValidationMode = options.notify === false ? 'immediate' : 'idle';
-    const projectSnapshot = JSON.parse(JSON.stringify(this.state.project)) as Project;
+    // The worker path's postMessage already structured-clones the project, so
+    // we do not pre-clone here. The fallback (synchronous) path runs on a
+    // setTimeout(0); validate() is read-only, so passing the live project is
+    // safe. Telemetry counts are sampled inline at scheduling time.
+    const project = this.state.project;
+    const conversationCount = project.conversations.length;
+    let turnCount = 0;
+    for (const conversation of project.conversations) turnCount += conversation.turns.length;
     const callback = (result: { revision: number; messages: ValidationMessage[]; durationMs: number }) => {
       if (result.revision !== this.validationRequestRevision) return;
       measurePerf('state.validation.apply', () => {
         this.applyValidationMessages(result.messages);
       }, {
-        conversations: projectSnapshot.conversations.length,
-        turns: projectSnapshot.conversations.reduce((sum, conversation) => sum + conversation.turns.length, 0),
+        conversations: conversationCount,
+        turns: turnCount,
       });
     };
     if (mode === 'immediate') {
-      flushValidation(projectSnapshot, revision, callback);
+      flushValidation(project, revision, callback);
     } else {
-      scheduleWorkerValidation(projectSnapshot, revision, mode, callback, 0);
+      scheduleWorkerValidation(project, revision, mode, callback, 0);
     }
     return null;
   }
 
   private applyValidationMessages(messages: ValidationMessage[]): void {
-    const previousMessages = JSON.stringify(this.state.validationMessages);
+    const previousMessages = this.state.validationMessages;
     const previousShowValidationPanel = this.state.showValidationPanel;
     const previousBottomWorkspaceTab = this.state.bottomWorkspaceTab;
+    const messagesEqual = validationMessagesEqual(previousMessages, messages);
 
     this.state.validationMessages = messages;
     if (this.state.validationMessages.length === 0) {
@@ -852,8 +885,7 @@ class StateManager {
     }
     this.syncBottomWorkspaceTab();
 
-    const nextMessages = JSON.stringify(this.state.validationMessages);
-    const validationChanged = previousMessages !== nextMessages
+    const validationChanged = !messagesEqual
       || previousShowValidationPanel !== this.state.showValidationPanel
       || previousBottomWorkspaceTab !== this.state.bottomWorkspaceTab;
 
@@ -1218,7 +1250,7 @@ class StateManager {
   }
 
   private cloneOutcomeList(outcomes: Choice['outcomes']): Choice['outcomes'] {
-    return JSON.parse(JSON.stringify(outcomes)) as Choice['outcomes'];
+    return structuredClone(outcomes) as Choice['outcomes'];
   }
 
   private remapContinuationTarget(
@@ -1251,7 +1283,7 @@ class StateManager {
     const choice = createChoice(index);
     choice.text = sourceChoice.text;
     choice.channel = parentTurnChannel;
-    choice.preconditions = JSON.parse(JSON.stringify(sourceChoice.preconditions ?? [])) as Choice['preconditions'];
+    choice.preconditions = structuredClone(sourceChoice.preconditions ?? []) as Choice['preconditions'];
     choice.reply = sourceChoice.reply;
     if (sourceChoice.replyImage != null) choice.replyImage = sourceChoice.replyImage;
     if (sourceChoice.replyAudio != null) choice.replyAudio = sourceChoice.replyAudio;
@@ -1290,7 +1322,7 @@ class StateManager {
     turn.speaker_allow_generic_stalker = sourceTurn.speaker_allow_generic_stalker ?? false;
     turn.openingImage = sourceTurn.openingImage;
     turn.openingAudio = sourceTurn.openingAudio;
-    turn.preconditions = JSON.parse(JSON.stringify(sourceTurn.preconditions ?? [])) as Turn['preconditions'];
+    turn.preconditions = structuredClone(sourceTurn.preconditions ?? []) as Turn['preconditions'];
     turn.channel = normalizeChannelValue(sourceTurn.channel, 'pda');
     turn.requiresNpcFirst = sourceTurn.requiresNpcFirst;
     turn.pda_entry = sourceTurn.pda_entry ?? turnNumber === 1;
@@ -1327,7 +1359,7 @@ class StateManager {
             speaker_allow_generic_stalker: turn.speaker_allow_generic_stalker ?? false,
             openingImage: typeof turn.openingImage === 'string' && turn.openingImage.trim() ? turn.openingImage.trim() : undefined,
             openingAudio: typeof turn.openingAudio === 'string' && turn.openingAudio.trim() ? turn.openingAudio.trim() : undefined,
-            preconditions: JSON.parse(JSON.stringify(turn.preconditions ?? [])) as Turn['preconditions'],
+            preconditions: structuredClone(turn.preconditions ?? []) as Turn['preconditions'],
             requiresNpcFirst: typeof turn.requiresNpcFirst === 'boolean'
               ? turn.requiresNpcFirst
               : undefined,
@@ -1339,7 +1371,7 @@ class StateManager {
               ...choice,
               index: choice.index ?? choiceIndex + 1,
               channel: parentTurnChannel,
-              preconditions: JSON.parse(JSON.stringify(choice.preconditions ?? [])) as Choice['preconditions'],
+              preconditions: structuredClone(choice.preconditions ?? []) as Choice['preconditions'],
               terminal: choice.terminal ?? choice.continueTo == null,
               continueChannel: (() => {
                 const sourceContinueChannel = choice.continueChannel ?? choice.continue_channel;
@@ -1717,7 +1749,7 @@ class StateManager {
   addConversationFromTemplate(conversation: Conversation, npcTemplates: NpcTemplate[] = []): void {
     this.pushUndo();
     const maxId = this.state.project.conversations.reduce((max, item) => Math.max(max, item.id), 0);
-    const nextConversation: Conversation = JSON.parse(JSON.stringify(conversation));
+    const nextConversation: Conversation = structuredClone(conversation);
     nextConversation.id = maxId + 1;
     nextConversation.faction = getConversationFaction(nextConversation, this.state.project.faction);
     nextConversation.language = nextConversation.language ?? this.state.uiLanguage;
@@ -1746,7 +1778,7 @@ class StateManager {
     if (npcTemplates.length > 0) {
       const existing = new Map((this.state.project.npcTemplates ?? []).map((template) => [template.id, template]));
       for (const template of npcTemplates) {
-        existing.set(template.id, JSON.parse(JSON.stringify(template)) as NpcTemplate);
+        existing.set(template.id, structuredClone(template) as NpcTemplate);
       }
       this.state.project.npcTemplates = [...existing.values()];
     }
@@ -1781,7 +1813,7 @@ class StateManager {
     const source = this.state.project.conversations.find(c => c.id === id);
     if (!source) return;
     const maxId = this.state.project.conversations.reduce((m, c) => Math.max(m, c.id), 0);
-    const dup: Conversation = JSON.parse(JSON.stringify(source));
+    const dup: Conversation = structuredClone(source);
     dup.id = maxId + 1;
     dup.label = source.label + ' (copy)';
     this.state.project.conversations.push(dup);
@@ -1913,7 +1945,7 @@ class StateManager {
 
     this.state.copiedTurn = {
       conversationId,
-      turn: JSON.parse(JSON.stringify(turn)) as Turn,
+      turn: structuredClone(turn) as Turn,
     };
     this.notify();
     return true;
@@ -2261,7 +2293,7 @@ class StateManager {
     this.state.copiedChoice = {
       conversationId,
       turnNumber,
-      choice: JSON.parse(JSON.stringify(choice)) as Choice,
+      choice: structuredClone(choice) as Choice,
     };
     this.notify();
     return true;
@@ -2474,7 +2506,7 @@ class StateManager {
     let nextId = maxId + 1;
     const importedIds: number[] = [];
     for (const conv of incoming) {
-      const merged: Conversation = JSON.parse(JSON.stringify(conv));
+      const merged: Conversation = structuredClone(conv);
       merged.id = nextId++;
       importedIds.push(merged.id);
       this.state.project.conversations.push(merged);

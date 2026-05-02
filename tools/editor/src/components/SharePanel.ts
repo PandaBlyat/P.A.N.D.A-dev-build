@@ -1509,7 +1509,7 @@ async function handleImportCard(
   const sourceCommunityId = isTranslationImport ? rootId : importEntry.id;
 
   const imported = importConversationsPayload.map((entry) => {
-    const cloned: Conversation = JSON.parse(JSON.stringify(entry));
+    const cloned: Conversation = structuredClone(entry);
     cloned.language = cloned.language ?? getStoryLanguage(importEntry);
     if (isTranslationImport) {
       cloned.language = targetLanguage;
@@ -1699,7 +1699,7 @@ async function handleDownloadAll(): Promise<void> {
         const best = pickBestStoryVariant(group.variants, language) ?? group.root;
         const storyConv = best.data?.conversations?.[0];
         if (!storyConv) continue;
-        const c = JSON.parse(JSON.stringify(storyConv));
+        const c = structuredClone(storyConv);
         c.id = nextId++;
         c.language = language;
         mergedProject.conversations.push(c);
