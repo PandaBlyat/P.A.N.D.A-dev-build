@@ -1282,6 +1282,7 @@ function renderResumeOpenerField(conv: Conversation, targetTurn: Turn, label: 'S
   title.className = 'branch-inline-subtitle';
   title.textContent = ui(`${label} Branch ${targetTurn.turnNumber}`, `${labelRu} ветка ${targetTurn.turnNumber}`);
   field.appendChild(title);
+  field.appendChild(renderBranchNpcTargetPanel(conv, targetTurn));
   field.appendChild(createTextarea({
     label: ui(`${label} NPC Opener Message`, `Начальное сообщение NPC (${labelRu})`),
     value: targetTurn.openingMessage ?? '',
