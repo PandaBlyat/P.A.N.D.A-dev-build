@@ -6,7 +6,7 @@ import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { createOnboardingNudge } from './Onboarding';
 import { FACTION_COLORS } from '../lib/faction-colors';
 import { estimateFlowNodeHeight, FLOW_DEFAULT_TURN_POSITION, FLOW_WORKSPACE_MIN_HEIGHT, FLOW_WORKSPACE_MIN_WIDTH, getFlowNodeLayout } from '../lib/flow-layout';
-import { buildFlowGraphModel, getFlowVisibilityOverscan, setFlowGraphNodeBounds, type FlowGraphModel, type FlowGraphNode, type FlowViewport } from '../lib/flow-graph-model';
+import { buildFlowGraphModel, getFlowVisibilityOverscan, setFlowGraphNodeBounds, syncFlowGraphModelPositions, type FlowGraphModel, type FlowGraphNode, type FlowViewport } from '../lib/flow-graph-model';
 import { createIcon } from './icons';
 import { createFlowCursorSystem, type FlowCursorSystem } from './FlowCursor';
 import { createCatalogPickerPanelEditor } from './CatalogPickerPanel';
@@ -47,6 +47,20 @@ type EdgeElementRefs = {
   packet: SVGPathElement | null;
   label: SVGTextElement | null;
   handle: SVGCircleElement | null;
+  // Cached last-written attribute values. SVG setAttribute is one of the
+  // hottest costs in flow redraws — skip the write when the value is
+  // unchanged. Also makes "did anything visible move?" cheap to detect.
+  lastPathD: string | null;
+  lastPacketD: string | null;
+  lastGroupClass: string | null;
+  lastPathClass: string | null;
+  lastPacketClass: string | null;
+  lastLabelClass: string | null;
+  lastLabelX: number | null;
+  lastLabelY: number | null;
+  lastHandleX: number | null;
+  lastHandleY: number | null;
+  lastHandleBend: number | null;
 };
 
 type ContentBounds = {
@@ -306,24 +320,26 @@ export function syncFlowEditor(change: StateChange): boolean {
 
   if (kind === 'position') {
     liveFlow.projectRevision = state.projectRevision;
-    for (const turn of conv.turns) {
-      const node = liveFlow.nodeElements.get(turn.turnNumber);
-      if (!node) continue;
+    // Diff positions against the cached graph model so we only touch the
+    // turns that actually moved. This skips a full buildFlowGraphModel +
+    // buildEdgeDescriptors pass, and lets drawEdges process only edges
+    // attached to a moved turn.
+    const moved = syncFlowGraphModelPositions(liveFlow.graphModel, conv);
+    if (moved.size === 0) {
+      syncLiveViewportVisibility(liveFlow);
+      return true;
+    }
+    for (const turnNumber of moved) {
+      const turn = conv.turns.find(t => t.turnNumber === turnNumber);
+      const node = liveFlow.nodeElements.get(turnNumber);
+      if (!turn || !node) continue;
       node.style.left = `${turn.position.x}px`;
       node.style.top = `${turn.position.y}px`;
     }
-    // Rebuild graph model with new positions, but preserve previously measured
-    // bounds — node sizes don't change on a position-only update.
-    const previousBounds = new Map<number, { width: number; height: number }>();
-    for (const [tn, gn] of liveFlow.graphModel.nodes) {
-      previousBounds.set(tn, { width: gn.width, height: gn.height });
-    }
-    liveFlow.graphModel = buildFlowGraphModel(conv, liveFlow.density, liveFlow.factionColor);
-    for (const [tn, b] of previousBounds) {
-      setFlowGraphNodeBounds(liveFlow.graphModel, tn, b.width, b.height);
-    }
-    liveFlow.edges = buildEdgeDescriptors(conv, state.selectedTurnNumber, state.selectedChoiceIndex, liveFlow.factionColor);
-    redrawLiveEdges(liveFlow);
+    // Edge descriptors are structural (which choice points where, with what
+    // bend/highlight); positions don't change them. Reuse the existing array
+    // and just redraw edges connected to a moved turn.
+    redrawLiveEdges(liveFlow, moved);
     syncLiveViewportVisibility(liveFlow);
     return true;
   }
@@ -3822,6 +3838,17 @@ function getEdgeElementRefs(group: SVGGElement): EdgeElementRefs {
     packet: group.querySelector('.flow-edge-packet') as SVGPathElement | null,
     label: group.querySelector('.flow-edge-label') as SVGTextElement | null,
     handle: group.querySelector('.flow-edge-bend-handle') as SVGCircleElement | null,
+    lastPathD: null,
+    lastPacketD: null,
+    lastGroupClass: null,
+    lastPathClass: null,
+    lastPacketClass: null,
+    lastLabelClass: null,
+    lastLabelX: null,
+    lastLabelY: null,
+    lastHandleX: null,
+    lastHandleY: null,
+    lastHandleBend: null,
   };
   edgeElementRefs.set(group, refs);
   return refs;
@@ -3838,8 +3865,13 @@ function drawEdges(options: {
   factionColor: string;
   onlyTurnNumbers?: ReadonlySet<number>;
   renderPackets?: boolean;
+  // Optional padded viewport in world coords. When provided, edges whose
+  // source AND target nodes both fall outside it are skipped — they keep
+  // their last-known path until they scroll back into view.
+  cullViewport?: FlowViewport;
+  graphModel?: FlowGraphModel;
 }): void {
-  const { svg, conv, edges, nodeElements, edgeElements, positionOverrides, turnLabels, factionColor, onlyTurnNumbers, renderPackets = true } = options;
+  const { svg, conv, edges, nodeElements, edgeElements, positionOverrides, turnLabels, factionColor, onlyTurnNumbers, renderPackets = true, cullViewport, graphModel } = options;
   const defs = svg.querySelector('defs');
   const turnsByNumber = new Map(conv.turns.map(turn => [turn.turnNumber, turn]));
   const choiceAnchorCache = new Map<string, { x: number; y: number } | null>();
@@ -3868,6 +3900,20 @@ function drawEdges(options: {
     const targetTurn = turnsByNumber.get(edge.targetTurnNumber);
     if (!sourceTurn || !targetTurn) continue;
 
+    // Edge culling: if both endpoint nodes are well outside the viewport,
+    // skip path computation entirely. The cached path on the SVG element
+    // remains valid (positions of off-screen turns can't have changed in a
+    // pan-only frame) and will be refreshed once the turns scroll back in.
+    if (cullViewport && graphModel) {
+      const sourceNode = graphModel.nodes.get(edge.sourceTurnNumber);
+      const targetNode = graphModel.nodes.get(edge.targetTurnNumber);
+      if (sourceNode && targetNode
+        && !flowRectsIntersect(sourceNode, cullViewport)
+        && !flowRectsIntersect(targetNode, cullViewport)) {
+        continue;
+      }
+    }
+
     const sourceAnchor = getCachedChoiceAnchor(edge.sourceTurnNumber, edge.sourceChoiceIndex);
     const targetAnchor = getCachedTurnInputAnchor(edge.targetTurnNumber);
     if (!sourceAnchor || !targetAnchor) continue;
@@ -3878,30 +3924,63 @@ function drawEdges(options: {
     const handleAnchor = getBendHandleAnchor(sourceAnchor, targetAnchor, edge.offsetIndex, edge.bend);
     const showBendHandle = edge.kind === 'continue' && edge.highlight === 'active';
     const highlightSuffix = edge.highlight !== 'normal' ? ` is-${edge.highlight}` : '';
+    const groupClass = `flow-edge${highlightSuffix}`;
+    const pathClass = `flow-edge-path ${edge.pathClassName}${highlightSuffix}`;
+    const packetClass = `flow-edge-packet ${edge.pathClassName}${highlightSuffix}`;
+    const labelClass = `flow-edge-label ${edge.textClassName}${highlightSuffix}`;
 
     const existing = edgeElements.get(key);
     if (existing) {
-      // Update existing group in-place (path + label position + highlight)
-      existing.setAttribute('class', `flow-edge${highlightSuffix}`);
+      // Update existing group in-place — but only emit setAttribute calls
+      // when the value actually changed. SVG attribute writes invalidate
+      // style/layout even when the value is identical, so guarding them
+      // is the single biggest hot-path win.
       const refs = getEdgeElementRefs(existing);
+      if (refs.lastGroupClass !== groupClass) {
+        existing.setAttribute('class', groupClass);
+        refs.lastGroupClass = groupClass;
+      }
       const path = refs.path;
       if (path) {
-        path.setAttribute('d', pathD);
-        path.setAttribute('class', `flow-edge-path ${edge.pathClassName}${highlightSuffix}`);
+        if (refs.lastPathD !== pathD) {
+          path.setAttribute('d', pathD);
+          refs.lastPathD = pathD;
+        }
+        if (refs.lastPathClass !== pathClass) {
+          path.setAttribute('class', pathClass);
+          refs.lastPathClass = pathClass;
+        }
       }
       const packet = refs.packet;
       if (packet && renderPackets) {
-        packet.setAttribute('d', pathD);
-        packet.setAttribute('class', `flow-edge-packet ${edge.pathClassName}${highlightSuffix}`);
+        if (refs.lastPacketD !== pathD) {
+          packet.setAttribute('d', pathD);
+          refs.lastPacketD = pathD;
+        }
+        if (refs.lastPacketClass !== packetClass) {
+          packet.setAttribute('class', packetClass);
+          refs.lastPacketClass = packetClass;
+        }
       } else if (packet && !renderPackets) {
         packet.remove();
         refs.packet = null;
+        refs.lastPacketD = null;
+        refs.lastPacketClass = null;
       }
       const label = refs.label;
       if (label) {
-        label.setAttribute('x', String(labelAnchor.x));
-        label.setAttribute('y', String(labelAnchor.y));
-        label.setAttribute('class', `flow-edge-label ${edge.textClassName}${highlightSuffix}`);
+        if (refs.lastLabelX !== labelAnchor.x) {
+          label.setAttribute('x', String(labelAnchor.x));
+          refs.lastLabelX = labelAnchor.x;
+        }
+        if (refs.lastLabelY !== labelAnchor.y) {
+          label.setAttribute('y', String(labelAnchor.y));
+          refs.lastLabelY = labelAnchor.y;
+        }
+        if (refs.lastLabelClass !== labelClass) {
+          label.setAttribute('class', labelClass);
+          refs.lastLabelClass = labelClass;
+        }
       }
       syncBendHandle(existing, {
         svg,
@@ -3919,13 +3998,13 @@ function drawEdges(options: {
     } else {
       // Create new edge group
       const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      group.setAttribute('class', `flow-edge${highlightSuffix}`);
+      group.setAttribute('class', groupClass);
 
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('d', pathD);
       path.setAttribute('stroke', edge.color);
       path.style.setProperty('--flow-edge-color', edge.color);
-      path.setAttribute('class', `flow-edge-path ${edge.pathClassName}${highlightSuffix}`);
+      path.setAttribute('class', pathClass);
       path.setAttribute('marker-end', `url(#${ensureMarker(defs, edge.kind, edge.color)})`);
       path.dataset.sourceTurnNumber = String(edge.sourceTurnNumber);
       path.dataset.sourceChoiceIndex = String(edge.sourceChoiceIndex);
@@ -3953,7 +4032,7 @@ function drawEdges(options: {
       if (renderPackets) {
         const packetPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         packetPath.setAttribute('d', pathD);
-        packetPath.setAttribute('class', `flow-edge-packet ${edge.pathClassName}${highlightSuffix}`);
+        packetPath.setAttribute('class', packetClass);
         packetPath.style.setProperty('--flow-edge-color', edge.color);
         packetPath.setAttribute('aria-hidden', 'true');
         group.appendChild(packetPath);
@@ -3963,7 +4042,7 @@ function drawEdges(options: {
       labelButton.setAttribute('x', String(labelAnchor.x));
       labelButton.setAttribute('y', String(labelAnchor.y));
       labelButton.setAttribute('text-anchor', 'middle');
-      labelButton.setAttribute('class', `flow-edge-label ${edge.textClassName}${highlightSuffix}`);
+      labelButton.setAttribute('class', labelClass);
       labelButton.style.setProperty('--flow-edge-color', edge.color);
       labelButton.style.setProperty('--flow-edge-label-color', edge.color);
       labelButton.textContent = edge.label;
@@ -3981,6 +4060,17 @@ function drawEdges(options: {
         packet: renderPackets ? group.querySelector('.flow-edge-packet') as SVGPathElement | null : null,
         label: labelButton,
         handle: null,
+        lastPathD: pathD,
+        lastPacketD: renderPackets ? pathD : null,
+        lastGroupClass: groupClass,
+        lastPathClass: pathClass,
+        lastPacketClass: renderPackets ? packetClass : null,
+        lastLabelClass: labelClass,
+        lastLabelX: labelAnchor.x,
+        lastLabelY: labelAnchor.y,
+        lastHandleX: null,
+        lastHandleY: null,
+        lastHandleBend: null,
       });
 
       syncBendHandle(group, {
@@ -4003,10 +4093,13 @@ function drawEdges(options: {
   }
 }
 
-function redrawLiveEdges(flow: LiveFlowState): void {
+function redrawLiveEdges(flow: LiveFlowState, onlyTurnNumbers?: ReadonlySet<number>): void {
   const conv = store.getSelectedConversation();
   if (!conv) return;
   const graphSize = getFlowGraphSize(conv.turns.length, flow.edges.length);
+  // Compute padded viewport in world coords so drawEdges can skip edges
+  // whose endpoints both fall well outside the visible area.
+  const cullViewport = computeCullViewport(flow);
   drawEdges({
     svg: flow.svg,
     conv,
@@ -4016,7 +4109,26 @@ function redrawLiveEdges(flow: LiveFlowState): void {
     turnLabels: flow.turnLabels,
     factionColor: flow.factionColor,
     renderPackets: shouldRenderEdgePackets(store.get().flowGraphicsQuality, isCompactViewport(), graphSize),
+    onlyTurnNumbers,
+    cullViewport,
+    graphModel: flow.graphModel,
   });
+}
+
+function computeCullViewport(flow: LiveFlowState): FlowViewport | undefined {
+  const canvas = flow.canvas;
+  const view = flow.viewState;
+  if (!canvas || canvas.clientWidth <= 0 || canvas.clientHeight <= 0) return undefined;
+  const viewport: FlowViewport = {
+    left: (0 - view.panX) / view.zoom,
+    top: (0 - view.panY) / view.zoom,
+    right: (canvas.clientWidth - view.panX) / view.zoom,
+    bottom: (canvas.clientHeight - view.panY) / view.zoom,
+  };
+  // Mirror the visibility-sync overscan so an edge isn't culled before its
+  // node is actually hidden. Keeps highlight transitions glitch-free.
+  const overscan = getFlowVisibilityOverscan(viewport);
+  return padFlowViewport(viewport, overscan);
 }
 
 function syncBendHandle(group: SVGGElement, options: {
@@ -4051,9 +4163,18 @@ function syncBendHandle(group: SVGGElement, options: {
     group.appendChild(handle);
     refs.handle = handle;
   }
-  handle.setAttribute('cx', String(handleAnchor.x));
-  handle.setAttribute('cy', String(handleAnchor.y));
-  handle.setAttribute('aria-valuenow', String(Math.round(edge.bend * 10) / 10));
+  if (refs.lastHandleX !== handleAnchor.x) {
+    handle.setAttribute('cx', String(handleAnchor.x));
+    refs.lastHandleX = handleAnchor.x;
+  }
+  if (refs.lastHandleY !== handleAnchor.y) {
+    handle.setAttribute('cy', String(handleAnchor.y));
+    refs.lastHandleY = handleAnchor.y;
+  }
+  if (refs.lastHandleBend !== edge.bend) {
+    handle.setAttribute('aria-valuenow', String(Math.round(edge.bend * 10) / 10));
+    refs.lastHandleBend = edge.bend;
+  }
   handle.setAttribute('aria-valuemin', '-320');
   handle.setAttribute('aria-valuemax', '320');
 
@@ -4065,13 +4186,38 @@ function syncBendHandle(group: SVGGElement, options: {
     const path = refs.path;
     const packet = refs.packet;
     const label = refs.label;
-    path?.setAttribute('d', pathD);
-    if (packet && renderPackets) packet.setAttribute('d', pathD);
-    label?.setAttribute('x', String(labelAnchor.x));
-    label?.setAttribute('y', String(labelAnchor.y));
-    handle?.setAttribute('cx', String(nextHandleAnchor.x));
-    handle?.setAttribute('cy', String(nextHandleAnchor.y));
-    handle?.setAttribute('aria-valuenow', String(Math.round(bend * 10) / 10));
+    if (path && refs.lastPathD !== pathD) {
+      path.setAttribute('d', pathD);
+      refs.lastPathD = pathD;
+    }
+    if (packet && renderPackets && refs.lastPacketD !== pathD) {
+      packet.setAttribute('d', pathD);
+      refs.lastPacketD = pathD;
+    }
+    if (label) {
+      if (refs.lastLabelX !== labelAnchor.x) {
+        label.setAttribute('x', String(labelAnchor.x));
+        refs.lastLabelX = labelAnchor.x;
+      }
+      if (refs.lastLabelY !== labelAnchor.y) {
+        label.setAttribute('y', String(labelAnchor.y));
+        refs.lastLabelY = labelAnchor.y;
+      }
+    }
+    if (handle) {
+      if (refs.lastHandleX !== nextHandleAnchor.x) {
+        handle.setAttribute('cx', String(nextHandleAnchor.x));
+        refs.lastHandleX = nextHandleAnchor.x;
+      }
+      if (refs.lastHandleY !== nextHandleAnchor.y) {
+        handle.setAttribute('cy', String(nextHandleAnchor.y));
+        refs.lastHandleY = nextHandleAnchor.y;
+      }
+      if (refs.lastHandleBend !== bend) {
+        handle.setAttribute('aria-valuenow', String(Math.round(bend * 10) / 10));
+        refs.lastHandleBend = bend;
+      }
+    }
   };
 
   handle.onpointerdown = (event) => {

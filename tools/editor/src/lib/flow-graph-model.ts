@@ -137,6 +137,41 @@ export function setFlowGraphNodeBounds(
   if (height > 0) node.height = height;
 }
 
+/**
+ * Update node positions in-place from the conversation. Returns the set of
+ * turn numbers whose x/y actually changed. Also recomputes bounds when any
+ * node moved. Cheap alternative to rebuilding the whole graph model on
+ * position-only changes (drag, paste with offset, etc.).
+ */
+export function syncFlowGraphModelPositions(
+  model: FlowGraphModel,
+  conversation: Conversation,
+): Set<number> {
+  const moved = new Set<number>();
+  for (const turn of conversation.turns) {
+    const node = model.nodes.get(turn.turnNumber);
+    if (!node) continue;
+    if (node.x !== turn.position.x || node.y !== turn.position.y) {
+      node.x = turn.position.x;
+      node.y = turn.position.y;
+      moved.add(turn.turnNumber);
+    }
+  }
+  if (moved.size > 0) {
+    let maxX = 0;
+    let maxY = 0;
+    for (const node of model.nodes.values()) {
+      maxX = Math.max(maxX, node.x + node.width);
+      maxY = Math.max(maxY, node.y + node.height);
+    }
+    model.bounds = {
+      width: Math.max(1400, maxX + 120),
+      height: Math.max(900, maxY + 120),
+    };
+  }
+  return moved;
+}
+
 function rectsIntersect(
   node: FlowGraphNode,
   viewport: FlowViewport,
