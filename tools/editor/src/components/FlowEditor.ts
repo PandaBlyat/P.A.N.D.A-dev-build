@@ -10,8 +10,8 @@ import { buildFlowGraphModel, getFlowVisibilityOverscan, setFlowGraphNodeBounds,
 import { createIcon } from './icons';
 import { createFlowCursorSystem, type FlowCursorSystem } from './FlowCursor';
 import { createCatalogPickerPanelEditor } from './CatalogPickerPanel';
-import type { Choice, Conversation, ConversationChannel, FlowAnnotation, FlowLineAnnotation, FlowLineSetAnnotation, FlowNoteAnnotation, Outcome, PreconditionEntry, SimplePrecondition, Turn } from '../lib/types';
-import { getConversationFaction } from '../lib/types';
+import type { Choice, Conversation, ConversationChannel, FactionId, FlowAnnotation, FlowLineAnnotation, FlowLineSetAnnotation, FlowNoteAnnotation, NpcTemplate, Outcome, PreconditionEntry, SimplePrecondition, Turn } from '../lib/types';
+import { FACTION_DISPLAY_NAMES, getConversationFaction } from '../lib/types';
 import type { BranchInlinePanelState, FlowDensity, FlowGraphicsQuality } from '../lib/state';
 import type { CommandSchema } from '../lib/schema';
 import { OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from '../lib/schema';
@@ -1951,6 +1951,73 @@ type RenderTurnNodeOptions = {
   onDragStateChange: (active: boolean) => void;
 };
 
+function buildTurnNpcLabel(
+  conv: Conversation,
+  turn: Turn,
+  segmentStartTurns: ReadonlySet<number>,
+  npcTemplates: NpcTemplate[],
+): string {
+  // Turn-level speaker overrides apply to all turns
+  if (turn.speaker_npc_id?.startsWith('npc:')) {
+    const templateId = turn.speaker_npc_id.slice(4);
+    const template = npcTemplates.find((t) => t.id === templateId);
+    const factionName = template ? (FACTION_DISPLAY_NAMES[template.faction as FactionId] ?? template.faction) : '';
+    const name = template?.name ?? templateId;
+    return factionName ? `Custom "${factionName}" — "${name}"` : `Custom — "${name}"`;
+  }
+  if (turn.speaker_npc_id) {
+    const storyNpc = STORY_NPC_OPTIONS.find((o) => o.value === turn.speaker_npc_id);
+    const name = storyNpc?.characterName ?? turn.speaker_npc_id;
+    return `Story NPC — "${name}"`;
+  }
+  if ((turn.speaker_npc_faction_filters?.length ?? 0) > 0) {
+    const factionId = turn.speaker_npc_faction_filters![0] as FactionId;
+    const factionName = FACTION_DISPLAY_NAMES[factionId] ?? factionId;
+    return `Random ${factionName} NPC`;
+  }
+  if (turn.speaker_allow_generic_stalker) {
+    return 'Any Random NPC';
+  }
+
+  // For segment-entry turns derive from conversation-level preconditions
+  if (segmentStartTurns.has(turn.turnNumber)) {
+    const entries = conv.preconditions ?? [];
+    const customEntry = entries.find(
+      (e): e is SimplePrecondition => e.type === 'simple' && e.command === 'req_custom_story_npc',
+    );
+    if (customEntry) {
+      const templateId = customEntry.params[0] ?? '';
+      const template = npcTemplates.find((t) => t.id === templateId);
+      const factionName = template ? (FACTION_DISPLAY_NAMES[template.faction as FactionId] ?? template.faction) : '';
+      const name = template?.name ?? templateId;
+      return factionName ? `Custom "${factionName}" — "${name}"` : `Custom — "${name}"`;
+    }
+    const storyEntry = entries.find(
+      (e): e is SimplePrecondition => e.type === 'simple' && e.command === 'req_story_npc',
+    );
+    if (storyEntry) {
+      const npcId = storyEntry.params[0] ?? '';
+      const storyNpc = STORY_NPC_OPTIONS.find((o) => o.value === npcId);
+      const name = storyNpc?.characterName ?? npcId;
+      return `Story NPC — "${name}"`;
+    }
+    const factionEntry = entries.find(
+      (e): e is SimplePrecondition => e.type === 'simple' && e.command === 'req_npc_faction',
+    );
+    if (factionEntry) {
+      const factionId = factionEntry.params[0] as FactionId;
+      const factionName = FACTION_DISPLAY_NAMES[factionId] ?? factionId;
+      return `Random ${factionName} NPC`;
+    }
+    const hasFriendly = entries.some(
+      (e): e is SimplePrecondition => e.type === 'simple' && e.command === 'req_npc_friendly',
+    );
+    if (hasFriendly) return 'Any Random NPC';
+  }
+
+  return '';
+}
+
 function renderLiteTurnNode(options: RenderTurnNodeOptions): HTMLElement {
   const {
     conv,
@@ -2587,6 +2654,14 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
     header.appendChild(compactDelete);
   }
   node.appendChild(header);
+
+  // ── NPC Speaker Sub-header ──
+  const npcRow = document.createElement('div');
+  npcRow.className = 'turn-npc-label';
+  const npcLabelText = buildTurnNpcLabel(conv, turn, segmentStartTurns, store.get().project.npcTemplates ?? []);
+  npcRow.textContent = npcLabelText;
+  if (!npcLabelText) npcRow.hidden = true;
+  node.appendChild(npcRow);
 
   // ── Body ──
   const body = document.createElement('div');
@@ -4031,6 +4106,13 @@ function patchTurnNodeText(
   const opening = node.querySelector('.branch-opener-text, .turn-npc-message');
   if (opening) {
     opening.textContent = truncate(turn.openingMessage ?? '', layout.messageChars);
+  }
+  const npcLabelEl = node.querySelector('.turn-npc-label') as HTMLElement | null;
+  if (npcLabelEl) {
+    const segmentStartTurns = collectBranchSegmentStartTurns(conv);
+    const newNpcLabel = buildTurnNpcLabel(conv, turn, segmentStartTurns, store.get().project.npcTemplates ?? []);
+    npcLabelEl.textContent = newNpcLabel;
+    npcLabelEl.hidden = !newNpcLabel;
   }
   node.classList.toggle('has-warning', hasWarning);
   node.setAttribute('aria-label', buildTurnAriaLabel(turn, turnLabels));
