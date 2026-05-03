@@ -42,6 +42,12 @@ import { createCustomNpcBuilderEditor } from './NpcTemplatePanel';
 import { formatGameItemLabel } from '../lib/item-catalog';
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { createUiText } from '../lib/ui-language';
+import {
+  CORE_DIALOGUE_STATS,
+  DIALOGUE_STAT_DESCRIPTIONS,
+  DIALOGUE_STAT_LABELS,
+  isCoreStat,
+} from '../lib/dialogue-stats';
 
 function ui(en: string, ru: string): string {
   return createUiText(store.get().uiLanguage)(en, ru);
@@ -631,6 +637,98 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   });
   timeoutBody.appendChild(timeoutMsgField);
   container.appendChild(timeoutWrapper);
+
+  renderDialogueStatLedger(container);
+}
+
+function renderDialogueStatLedger(container: HTMLElement): void {
+  const project = store.get().project;
+  const customStats = (project.dialogueStatRegistry ?? []).filter((entry) => !isCoreStat(entry.key));
+
+  const { wrapper, body } = createCollapsibleSection(
+    'project-dialogue-stat-ledger',
+    'Dialogue Stat Ledger',
+    undefined,
+    { defaultCollapsed: true },
+  );
+
+  const intro = document.createElement('div');
+  intro.className = 'field-hint';
+  intro.style.cssText = 'margin-bottom:6px;';
+  intro.textContent = 'Player stats used by Skill Check outcomes. Core stats start at 0; custom keys are project-scoped and persist in save state.';
+  body.appendChild(intro);
+
+  const coreList = document.createElement('div');
+  coreList.style.cssText = 'display:flex; flex-direction:column; gap:4px; margin-bottom:8px;';
+  for (const key of CORE_DIALOGUE_STATS) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; justify-content:space-between; gap:8px; font-size:12px; opacity:0.85;';
+    const left = document.createElement('span');
+    left.textContent = `${DIALOGUE_STAT_LABELS[key]} (${key})`;
+    const right = document.createElement('span');
+    right.style.cssText = 'opacity:0.7;';
+    right.textContent = DIALOGUE_STAT_DESCRIPTIONS[key];
+    row.append(left, right);
+    coreList.appendChild(row);
+  }
+  body.appendChild(coreList);
+
+  if (customStats.length > 0) {
+    const customHeading = document.createElement('div');
+    customHeading.style.cssText = 'font-weight:600; margin-top:6px;';
+    customHeading.textContent = 'Custom Stats';
+    body.appendChild(customHeading);
+
+    for (const entry of customStats) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex; gap:6px; align-items:center; margin:4px 0;';
+      const keyLabel = document.createElement('code');
+      keyLabel.textContent = entry.key;
+      keyLabel.style.cssText = 'flex:0 0 auto;';
+      const labelInput = document.createElement('input');
+      labelInput.type = 'text';
+      labelInput.placeholder = 'Display label';
+      labelInput.value = entry.label ?? '';
+      labelInput.style.cssText = 'flex:1; min-width:60px;';
+      labelInput.onblur = () => store.renameDialogueStat(entry.key, labelInput.value);
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.textContent = 'Remove';
+      removeBtn.onclick = () => store.removeDialogueStat(entry.key);
+      row.append(keyLabel, labelInput, removeBtn);
+      body.appendChild(row);
+    }
+  }
+
+  const addRow = document.createElement('div');
+  addRow.style.cssText = 'display:flex; gap:6px; align-items:center; margin-top:8px;';
+  const keyInput = document.createElement('input');
+  keyInput.type = 'text';
+  keyInput.placeholder = 'new_stat_key';
+  keyInput.style.cssText = 'flex:1;';
+  const labelInput = document.createElement('input');
+  labelInput.type = 'text';
+  labelInput.placeholder = 'Display label (optional)';
+  labelInput.style.cssText = 'flex:1;';
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.textContent = 'Add Custom Stat';
+  addBtn.onclick = () => {
+    const key = keyInput.value.trim();
+    if (!key) return;
+    store.addDialogueStat(key, labelInput.value.trim() || undefined);
+    keyInput.value = '';
+    labelInput.value = '';
+  };
+  addRow.append(keyInput, labelInput, addBtn);
+  body.appendChild(addRow);
+
+  const note = document.createElement('div');
+  note.className = 'field-hint';
+  note.textContent = 'Keys must be lowercase letters, digits, underscores. New keys default to 0 in save state.';
+  body.appendChild(note);
+
+  container.appendChild(wrapper);
 }
 
 function renderStartRuleShortcuts(container: HTMLElement, conv: Conversation): void {

@@ -1,6 +1,7 @@
 // P.A.N.D.A. Conversation Editor — Data Model
 
 import type { UiLanguage } from './ui-language';
+import type { DialogueStatRegistryEntry } from './dialogue-stats';
 
 export interface NpcTemplate {
   id: string;
@@ -26,6 +27,8 @@ export interface Project {
   faction: FactionId;
   conversations: Conversation[];
   npcTemplates?: NpcTemplate[];
+  /** Author-managed registry of player dialogue stats (core + custom keys). */
+  dialogueStatRegistry?: DialogueStatRegistryEntry[];
 }
 
 export type FactionId =

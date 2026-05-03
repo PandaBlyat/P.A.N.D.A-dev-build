@@ -2,7 +2,8 @@
 
 import { ALL_SMART_TERRAIN_IDS, ALL_STASH_IDS, FACTION_ALIASES, FACTION_IDS, LEVEL_DISPLAY_NAMES, MUTANT_TYPES, RANKS } from './constants';
 import { LEGACY_F2F_OPENING_WARNINGS } from './f2f-entry-migration';
-import { getOutcomeResumeTurnParamIndices, isTaskOutcomeCommand } from './outcome-branching';
+import { getOutcomeResumeTurnParamIndices, isCheckOutcomeCommand, isTaskOutcomeCommand } from './outcome-branching';
+import { CORE_DIALOGUE_STATS, RANDOM_STAT_KEY } from './dialogue-stats';
 import { findSchema, NPC_ANIMATION_PRESET_OPTIONS, OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from './schema';
 import { createTurnDisplayLabeler } from './turn-labels';
 import { STORY_NPC_OPTIONS } from './generated/story-npc-catalog';
@@ -196,6 +197,11 @@ export function validate(project: Project): ValidationMessage[] {
       .map((template) => template.id.trim())
       .filter((id) => id.length > 0),
   );
+  const knownDialogueStatKeys = new Set<string>([
+    ...CORE_DIALOGUE_STATS,
+    RANDOM_STAT_KEY,
+    ...((project.dialogueStatRegistry ?? []).map((entry) => entry.key)),
+  ]);
 
   const ids = project.conversations.map(c => c.id).sort((a, b) => a - b);
   for (let i = 0; i < ids.length; i++) {
@@ -214,13 +220,13 @@ export function validate(project: Project): ValidationMessage[] {
   }
 
   for (const conv of project.conversations) {
-    validateConversation(conv, knownNpcTemplateIds, messages);
+    validateConversation(conv, knownNpcTemplateIds, knownDialogueStatKeys, messages);
   }
 
   return messages;
 }
 
-function validateConversation(conv: Conversation, knownNpcTemplateIds: Set<string>, messages: ValidationMessage[]): void {
+function validateConversation(conv: Conversation, knownNpcTemplateIds: Set<string>, knownDialogueStatKeys: Set<string>, messages: ValidationMessage[]): void {
   if (conv.preconditions.length === 0) {
     pushMessage(messages, {
       code: 'missing-preconditions',
@@ -333,7 +339,7 @@ function validateConversation(conv: Conversation, knownNpcTemplateIds: Set<strin
   const turnLabels = createTurnDisplayLabeler(conv);
 
   for (const turn of conv.turns) {
-    validateTurn(conv, turn, turnNumbers, turnLabels, knownNpcTemplateIds, messages);
+    validateTurn(conv, turn, turnNumbers, turnLabels, knownNpcTemplateIds, knownDialogueStatKeys, messages);
   }
 
   if (conv.turns.length > 1) {
@@ -407,6 +413,7 @@ function validateTurn(
   turnNumbers: Set<number>,
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
   knownNpcTemplateIds: Set<string>,
+  knownDialogueStatKeys: Set<string>,
   messages: ValidationMessage[],
 ): void {
   for (const warning of turn.migrationWarnings ?? []) {
@@ -566,7 +573,7 @@ function validateTurn(
     }
 
     choice.outcomes.forEach((outcome, outcomeIndex) => {
-      validateOutcome(conv, turn, choice, outcome, outcomeIndex, turnNumbers, turnLabels, knownNpcTemplateIds, messages);
+      validateOutcome(conv, turn, choice, outcome, outcomeIndex, turnNumbers, turnLabels, knownNpcTemplateIds, knownDialogueStatKeys, messages);
     });
   }
 }
@@ -708,6 +715,7 @@ function validateOutcome(
   turnNumbers: Set<number>,
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>,
   knownNpcTemplateIds: Set<string>,
+  knownDialogueStatKeys: Set<string>,
   messages: ValidationMessage[],
 ): void {
   const schema = OUTCOME_COMMANDS.get(outcome.command);
@@ -914,6 +922,90 @@ function validateOutcome(
         propertiesTab: 'selection',
         fieldKey: getOutcomeItemFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex),
         message: 'Multiple task outcomes exist on this choice; only one task per choice is expected.',
+      });
+    }
+  }
+
+  // Dialogue check-specific validation
+  if (resumeIndices?.kind === 'check') {
+    const checkCount = choice.outcomes.filter((item) => isCheckOutcomeCommand(item.command)).length;
+    if (checkCount > 1) {
+      pushMessage(messages, {
+        code: 'check-multiple',
+        group: 'logic',
+        scope: 'outcome',
+        level: 'warning',
+        conversationId: conv.id,
+        turnNumber: turn.turnNumber,
+        choiceIndex: choice.index,
+        outcomeIndex,
+        propertiesTab: 'selection',
+        fieldKey: getOutcomeItemFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex),
+        message: 'Multiple skill/chance check outcomes exist on this choice; only one check per choice is expected.',
+      });
+    }
+
+    if (outcome.command === 'dialogue_skill_check') {
+      const statKey = (outcome.params[0] ?? '').trim();
+      if (statKey && !knownDialogueStatKeys.has(statKey)) {
+        pushMessage(messages, {
+          code: 'check-unknown-stat',
+          group: 'schema',
+          scope: 'outcome',
+          level: 'warning',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          outcomeIndex,
+          propertiesTab: 'selection',
+          fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, 0),
+          fieldLabel: 'Stat',
+          message: `Stat key "${statKey}" is not registered. Add it in the Dialogue Stats ledger or use a core stat.`,
+        });
+      }
+    }
+
+    // Warn on blank generated branch openers (success/fail turns with empty opening)
+    for (const [label, idx] of [['success', successIdx], ['fail', failIdx]] as const) {
+      const refTurn = parseStrictInteger(outcome.params[idx]);
+      if (refTurn == null) continue;
+      const branchTurn = conv.turns.find(t => t.turnNumber === refTurn);
+      if (branchTurn && (!branchTurn.openingMessage || branchTurn.openingMessage.trim().length === 0)) {
+        pushMessage(messages, {
+          code: 'check-blank-branch-opener',
+          group: 'logic',
+          scope: 'outcome',
+          level: 'warning',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          outcomeIndex,
+          propertiesTab: 'selection',
+          fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, idx),
+          fieldLabel: label === 'success' ? 'Success Turn' : 'Fail Turn',
+          message: `${outcome.command} ${label} branch (${turnLabels.getLongLabel(refTurn)}) has no NPC opener message yet.`,
+        });
+      }
+    }
+  }
+
+  // Validate stat key on change_dialogue_stat / set_dialogue_stat
+  if (outcome.command === 'change_dialogue_stat' || outcome.command === 'set_dialogue_stat') {
+    const statKey = (outcome.params[0] ?? '').trim();
+    if (statKey && !knownDialogueStatKeys.has(statKey)) {
+      pushMessage(messages, {
+        code: 'stat-write-unknown-key',
+        group: 'schema',
+        scope: 'outcome',
+        level: 'warning',
+        conversationId: conv.id,
+        turnNumber: turn.turnNumber,
+        choiceIndex: choice.index,
+        outcomeIndex,
+        propertiesTab: 'selection',
+        fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, 0),
+        fieldLabel: 'Stat Key',
+        message: `Stat key "${statKey}" is not registered. Add it in the Dialogue Stats ledger first.`,
       });
     }
   }

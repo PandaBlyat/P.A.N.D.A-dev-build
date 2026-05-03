@@ -240,6 +240,15 @@ function on_mcm_load()
                     { id = "line_typing_end", type = "line",
                       precondition = { isInteractiveEnabled, {} } },
 
+                    -- DIALOGUE SKILL CHECKS
+                    { id = "title_skill_checks", type = "title",
+                      text = "pda_interactive_conv_title_skill_checks",
+                      clr = {255, 200, 200, 160} },
+                    { id = "line_skill_checks", type = "line" },
+                    { id = "show_player_stats_panel", type = "check", val = 1, def = true },
+                    { id = "show_check_hints_in_choices", type = "check", val = 1, def = true },
+                    { id = "line_skill_checks_end", type = "line" },
+
                     -- DEBUG (always shown)
                     { id = "title_debug", type = "title",
                       text = "pda_interactive_conv_title_debug",

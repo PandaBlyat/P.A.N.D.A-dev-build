@@ -1036,6 +1036,21 @@
 	<string id="pda_interactive_conv_title_debug">
 		<text>Debug</text>
 	</string>
+	<string id="pda_interactive_conv_title_skill_checks">
+		<text>Проверки навыков диалога</text>
+	</string>
+	<string id="pda_interactive_conv_show_player_stats_panel">
+		<text>Показывать статы игрока в шапке КПК</text>
+	</string>
+	<string id="pda_interactive_conv_show_player_stats_panel_desc">
+		<text>Добавляет блок Харизма/Удача/Запугивание/Восприятие в шапку чата с NPC.</text>
+	</string>
+	<string id="pda_interactive_conv_show_check_hints_in_choices">
+		<text>Подсказки [Стат N] на вариантах</text>
+	</string>
+	<string id="pda_interactive_conv_show_check_hints_in_choices_desc">
+		<text>Добавляет, например, "[Харизма 5]" или "[60% шанс]" к вариантам с проверкой.</text>
+	</string>
 	<string id="pda_interactive_conv_title_typing">
 		<text>NPC Typing Personality</text>
 	</string>

@@ -117,6 +117,7 @@ const BRANCH_INLINE_PANEL_HEIGHTS: Record<BranchInlinePanelState['mode'], number
   preconditions: 620,
   outcomes: 620,
   continuation: 540,
+  skillCheck: 540,
 };
 const MIN_ZOOM = 0.35;
 const MAX_ZOOM = 1.8;

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="windows-1251"?>
+
+<!--===========================================================
+<
+<   P.A.N.D.A. — Player Dialogue Stat Labels
+<
+<===========================================================-->
+
+<string_table>
+
+    <string id="st_panda_stat_charisma">
+        <text>Charisma</text>
+    </string>
+    <string id="st_panda_stat_luck">
+        <text>Luck</text>
+    </string>
+    <string id="st_panda_stat_intimidation">
+        <text>Intimidation</text>
+    </string>
+    <string id="st_panda_stat_perception">
+        <text>Perception</text>
+    </string>
+    <string id="st_panda_stat_rank">
+        <text>Rank</text>
+    </string>
+
+</string_table>

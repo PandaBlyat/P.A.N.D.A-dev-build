@@ -620,9 +620,182 @@ local panda_ic_shutdown_in_progress = false
 local is_panda_ic_shutdown_in_progress
 local conv_last_played, last_conv_npc_id, _callbacks_registered = {}, nil, false
 local npc_last_used = {}   -- store last used time per NPC
-local last_pda_warning_time = 0 
+local last_pda_warning_time = 0
 local pending_location_refs = {}
 local next_location_ref_id = 1
+
+-- ============================================================
+-- DIALOGUE SKILL CHECKS: Player stats for percent-roll checks
+-- ============================================================
+local player_dialogue_stats = {}
+local CORE_DIALOGUE_STATS = { "charisma", "luck", "intimidation", "perception" }
+
+function get_dialogue_stat(key)
+    if not key or key == "" then return 0 end
+    if key == "rank" then
+        if db.actor and db.actor.character_rank then
+            local cr = db.actor:character_rank() or 0
+            return math.floor(cr / 1000)
+        end
+        return 0
+    end
+    return tonumber(player_dialogue_stats[key]) or 0
+end
+
+function set_dialogue_stat(key, value)
+    if not key or key == "" or key == "rank" then return end
+    local v = tonumber(value) or 0
+    player_dialogue_stats[key] = v
+    printf("PANDA_IC: dialogue stat '%s' set to %d", tostring(key), v)
+end
+
+function change_dialogue_stat(key, delta)
+    if not key or key == "" or key == "rank" then return end
+    local current = tonumber(player_dialogue_stats[key]) or 0
+    local d = tonumber(delta) or 0
+    player_dialogue_stats[key] = current + d
+    printf("PANDA_IC: dialogue stat '%s' %+d -> %d", tostring(key), d, current + d)
+end
+
+function get_all_dialogue_stats()
+    local out = {}
+    for _, key in ipairs(CORE_DIALOGUE_STATS) do
+        out[key] = get_dialogue_stat(key)
+    end
+    out.rank = get_dialogue_stat("rank")
+    for k, v in pairs(player_dialogue_stats) do
+        if out[k] == nil then out[k] = v end
+    end
+    return out
+end
+
+local function clamp(v, lo, hi)
+    if v < lo then return lo end
+    if v > hi then return hi end
+    return v
+end
+
+-- Returns "success" or "fail" based on the percent roll formula:
+--   chance = clamp(5, 95, 50 + stat_value + floor(luck/2) - difficulty)
+function evaluate_dialogue_check(stat_key, difficulty)
+    local stat_val = get_dialogue_stat(stat_key)
+    local luck = get_dialogue_stat("luck")
+    local diff = tonumber(difficulty) or 0
+    local chance
+    if stat_key == "luck" then
+        chance = 50 + stat_val - diff
+    else
+        chance = 50 + stat_val + math.floor(luck / 2) - diff
+    end
+    chance = clamp(chance, 5, 95)
+    local roll = math.random(1, 100)
+    local result = (roll <= chance) and "success" or "fail"
+    printf("PANDA_IC: skill check stat=%s diff=%d val=%d luck=%d chance=%d roll=%d -> %s",
+        tostring(stat_key), diff, stat_val, luck, chance, roll, result)
+    return result
+end
+
+-- Pure percent roll for random_chance_check.
+function evaluate_random_chance(percent)
+    local p = tonumber(percent) or 50
+    p = clamp(p, 1, 99)
+    local roll = math.random(1, 100)
+    local result = (roll <= p) and "success" or "fail"
+    printf("PANDA_IC: random check percent=%d roll=%d -> %s", p, roll, result)
+    return result
+end
+
+local STAT_DISPLAY_LABELS = {
+    charisma = "Charisma",
+    luck = "Luck",
+    intimidation = "Intimidation",
+    perception = "Perception",
+    rank = "Rank",
+}
+
+local function format_stat_label(key)
+    if not key or key == "" then return "" end
+    local localized_key = "st_panda_stat_" .. tostring(key)
+    local localized = game.translate_string(localized_key)
+    if localized and localized ~= localized_key and localized ~= "" then
+        return localized
+    end
+    return STAT_DISPLAY_LABELS[key] or (key:sub(1,1):upper() .. key:sub(2))
+end
+
+-- Returns "[Charisma 5]" / "[60% Chance]" for an outcome string, or nil.
+function build_dialogue_check_hint(outcome_str)
+    if not outcome_str or outcome_str == "" or outcome_str == "none" then return nil end
+    if PANDA and type(PANDA.get_config) == "function" then
+        local enabled = PANDA.get_config("show_check_hints_in_choices")
+        if enabled == false then return nil end
+    end
+    for entry in string.gmatch(outcome_str, "([^,]+)") do
+        local trimmed = entry:match("^%s*(.-)%s*$")
+        if trimmed and trimmed ~= "" then
+            local parts = {}
+            for token in string.gmatch(trimmed, "([^:]+)") do
+                table.insert(parts, token)
+            end
+            if parts[1] == "chance" and tonumber(parts[2]) then
+                table.remove(parts, 1)
+                table.remove(parts, 1)
+            end
+            if parts[1] == "dialogue_skill_check" then
+                local stat = parts[2] or ""
+                local diff = tonumber(parts[3]) or 0
+                return string.format("[%s %d]", format_stat_label(stat), diff)
+            elseif parts[1] == "random_chance_check" then
+                local pct = tonumber(parts[2]) or 50
+                if pct < 1 then pct = 1 end
+                if pct > 99 then pct = 99 end
+                return string.format("[%d%% Chance]", pct)
+            end
+        end
+    end
+    return nil
+end
+
+-- Inline pre-resolution: scan an outcome string for dialogue_skill_check or
+-- random_chance_check and return the resolved success/fail turn override (or
+-- nil if no check is present). Mutates nothing — the apply_outcome dispatcher
+-- is still called normally afterwards but treats these commands as no-ops.
+function preresolve_dialogue_check(outcome_str)
+    if not outcome_str or outcome_str == "" then return nil end
+    for entry in string.gmatch(outcome_str, "([^,]+)") do
+        local trimmed = entry:match("^%s*(.-)%s*$")
+        if trimmed and trimmed ~= "" then
+            local parts = {}
+            for token in string.gmatch(trimmed, "([^:]+)") do
+                table.insert(parts, token)
+            end
+            -- Strip optional "chance:N:" prefix that wraps any outcome.
+            if parts[1] == "chance" and tonumber(parts[2]) then
+                table.remove(parts, 1)
+                table.remove(parts, 1)
+            end
+            local cmd = parts[1]
+            if cmd == "dialogue_skill_check" then
+                local stat = parts[2]
+                local diff = tonumber(parts[3]) or 0
+                local s_turn = tonumber(parts[4])
+                local f_turn = tonumber(parts[5])
+                local result = evaluate_dialogue_check(stat, diff)
+                if result == "success" then return s_turn end
+                return f_turn
+            elseif cmd == "random_chance_check" then
+                local pct = tonumber(parts[2]) or 50
+                local s_turn = tonumber(parts[3])
+                local f_turn = tonumber(parts[4])
+                local result = evaluate_random_chance(pct)
+                if result == "success" then return s_turn end
+                return f_turn
+            end
+        end
+    end
+    return nil
+end
+
 
 -- ============================================================
 -- JOB SYSTEM: Pause conversations until spawned hostiles die
@@ -7582,6 +7755,20 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                 push_task_start_message("st_pda_ic_task_artifact_start")
             end
 
+        elseif cmd == "change_dialogue_stat" then
+            local key = parts[2]
+            local delta = tonumber(parts[3]) or 0
+            change_dialogue_stat(key, delta)
+
+        elseif cmd == "set_dialogue_stat" then
+            local key = parts[2]
+            local value = tonumber(parts[3]) or 0
+            set_dialogue_stat(key, value)
+
+        elseif cmd == "dialogue_skill_check" or cmd == "random_chance_check" then
+            -- Resolved inline before continuation; dispatcher entry kept so
+            -- apply_outcome doesn't log "Unknown outcome command" warnings.
+
         else
             printf("Unknown outcome command: %s", cmd_str)
         end
@@ -8802,6 +8989,12 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact
                     next_allow_generic_stalker = next_allow_generic_stalker,
                 }
                 if choices[visible_index].outcome == p.."_outcome_"..i then choices[visible_index].outcome = "none" end
+                -- Append "[Charisma 5]" / "[60% Chance]" hint to the choice text so
+                -- players know the choice carries a check.
+                local check_hint = build_dialogue_check_hint(choices[visible_index].outcome)
+                if check_hint and check_hint ~= "" then
+                    choices[visible_index].text = (choices[visible_index].text or "") .. " " .. check_hint
+                end
                 count = visible_index
             end
         end
@@ -8858,6 +9051,13 @@ function on_player_choice(idx, contact_id)
             c.applied_outcomes[outcome_key] = true
         else
             printf("Outcome already applied for choice %s, skipping to prevent farming.", outcome_key)
+        end
+
+        -- Dialogue skill / random checks resolve inline so the success/fail
+        -- branch overrides the choice's regular continuation.
+        local check_override = preresolve_dialogue_check(ch.outcome)
+        if check_override then
+            ch.next_turn = check_override
         end
     end
 
@@ -11028,6 +11228,7 @@ function save_state(m)
     m.pda_private_blocked_contacts = pda_private_blocked_contacts
     m.pda_player_chat_online = pda_player_chat_online
     m.pda_npc_relationship_scores = npc_relationship_scores
+    m.pda_player_dialogue_stats = player_dialogue_stats
     -- Save active conversations (strip non-serializable fields)
     local save_convs = {}
     for cid, c in pairs(active_conversations) do
@@ -11095,6 +11296,15 @@ function load_state(m)
     if m.pda_ic_cooldowns then conv_last_played = m.pda_ic_cooldowns end
     if m.pda_ic_npc_cooldowns then npc_last_used = m.pda_ic_npc_cooldowns end
     if m.pda_npc_relationship_scores then npc_relationship_scores = m.pda_npc_relationship_scores end
+    if m.pda_player_dialogue_stats and type(m.pda_player_dialogue_stats) == "table" then
+        player_dialogue_stats = {}
+        for k, v in pairs(m.pda_player_dialogue_stats) do
+            local n = tonumber(v)
+            if k and n then player_dialogue_stats[k] = n end
+        end
+    else
+        player_dialogue_stats = {}
+    end
     active_conversations = {}
     CONV = nil
     pda_reply_pending = false

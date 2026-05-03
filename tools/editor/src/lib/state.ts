@@ -22,7 +22,7 @@ export type FlowDensity = 'compact' | 'standard' | 'detailed';
 export type FlowGraphicsQuality = 'low' | 'medium' | 'high';
 export type BottomWorkspaceTab = 'strings' | 'xml';
 export type CursorAnimationIntensity = 'low' | 'medium' | 'high';
-export type BranchInlinePanelMode = 'dialogue' | 'preconditions' | 'outcomes' | 'continuation';
+export type BranchInlinePanelMode = 'dialogue' | 'preconditions' | 'outcomes' | 'continuation' | 'skillCheck';
 
 export interface BranchInlinePanelState {
   mode: BranchInlinePanelMode;
@@ -2015,12 +2015,16 @@ class StateManager {
       const spacing = getFlowAutoLayoutSpacing(this.state.flowDensity);
       const nextTurnNumber = () => conversation.turns.reduce((max, item) => Math.max(max, item.turnNumber), 0) + 1;
       const existingTurnNumbers = new Set(conversation.turns.map(item => item.turnNumber));
+      const isCheckKind = resumeIndices.kind === 'check';
       const appendResumeTurn = (label: 'Success' | 'Fail', paramIndex: number, yOffset = 0): number | null => {
         const currentValue = Number.parseInt(nextOutcome.params[paramIndex] ?? '', 10);
         if (Number.isFinite(currentValue) && existingTurnNumbers.has(currentValue)) return currentValue;
 
         const newTurn = createTurn(nextTurnNumber());
         newTurn.customLabel = label;
+        if (isCheckKind) {
+          newTurn.color = label === 'Success' ? '#3a8c3a' : '#a83a3a';
+        }
         newTurn.channel = branchChannel;
         if (branchChannel === 'f2f') {
           newTurn.f2f_entry = true;
@@ -2193,6 +2197,38 @@ class StateManager {
     } else {
       turn.color = color;
     }
+    this.finishProjectMutation({ revalidate: false });
+  }
+
+  addDialogueStat(key: string, label?: string): void {
+    const trimmed = key.trim().toLowerCase().replace(/\s+/g, '_');
+    if (!trimmed) return;
+    if (!/^[a-z][a-z0-9_]*$/.test(trimmed)) return;
+    const registry = this.state.project.dialogueStatRegistry ?? [];
+    if (registry.some((entry) => entry.key === trimmed)) return;
+    this.pushUndo();
+    this.state.project.dialogueStatRegistry = [
+      ...registry,
+      { key: trimmed, label: (label ?? '').trim() || undefined },
+    ];
+    this.finishProjectMutation({ revalidate: false });
+  }
+
+  removeDialogueStat(key: string): void {
+    const registry = this.state.project.dialogueStatRegistry ?? [];
+    if (!registry.some((entry) => entry.key === key)) return;
+    this.pushUndo();
+    this.state.project.dialogueStatRegistry = registry.filter((entry) => entry.key !== key);
+    this.finishProjectMutation({ revalidate: false });
+  }
+
+  renameDialogueStat(key: string, newLabel: string): void {
+    const registry = this.state.project.dialogueStatRegistry ?? [];
+    const entry = registry.find((item) => item.key === key);
+    if (!entry) return;
+    this.pushUndo();
+    entry.label = newLabel.trim() || undefined;
+    this.state.project.dialogueStatRegistry = [...registry];
     this.finishProjectMutation({ revalidate: false });
   }
 

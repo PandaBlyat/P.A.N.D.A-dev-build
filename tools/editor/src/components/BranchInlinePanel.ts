@@ -18,7 +18,17 @@ import {
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
 import { choiceRequiresContinuationOpener } from '../lib/branch-segments';
-import { parseOutcomeResumeTurnNumbers } from '../lib/outcome-branching';
+import { isCheckOutcomeCommand, parseOutcomeResumeTurnNumbers } from '../lib/outcome-branching';
+import {
+  CORE_DIALOGUE_STATS,
+  DIALOGUE_STAT_DESCRIPTIONS,
+  DIALOGUE_STAT_LABELS,
+  formatCheckHint,
+  formatRandomHint,
+  formatStatLabel,
+  isCoreStat,
+  type CoreDialogueStatKey,
+} from '../lib/dialogue-stats';
 import { createSmartTerrainPickerEditor } from './CatalogPickerPanel';
 import {
   createCustomNpcBuilderEditor,
@@ -75,7 +85,7 @@ export function renderBranchInlinePanel(options: {
 }): HTMLElement {
   const ui = getUiText();
   const { conv, turn, choice, mode, selectedOutcomeIndex, turnLabels, onClose } = options;
-  const safeMode: BranchInlinePanelMode = !choice && (mode === 'outcomes' || mode === 'continuation') ? 'preconditions' : mode;
+  const safeMode: BranchInlinePanelMode = !choice && (mode === 'outcomes' || mode === 'continuation' || mode === 'skillCheck') ? 'preconditions' : mode;
   const panel = document.createElement('section');
   panel.className = `branch-inline-panel branch-inline-panel-${safeMode}${choice ? ' is-choice-scope' : ' is-opener-scope'}`;
   panel.onclick = (event) => event.stopPropagation();
@@ -98,7 +108,9 @@ export function renderBranchInlinePanel(options: {
     renderPreconditionsPanel(body, conv, turn, choice, selectedOutcomeIndex);
   } else if (safeMode === 'outcomes') {
     renderOutcomesPanel(body, conv, turn, choice, selectedOutcomeIndex);
-  } else if (choice) {
+  } else if (safeMode === 'skillCheck' && choice) {
+    renderSkillCheckPanel(body, conv, turn, choice, turnLabels);
+  } else if (safeMode === 'continuation' && choice) {
     renderContinuationPanel(body, conv, turn, choice, turnLabels);
   } else {
     body.appendChild(createEmpty(ui('Pick player choice before continuation.', 'Выбери вариант игрока перед продолжением.')));
@@ -158,11 +170,13 @@ function renderSidebar(conv: Conversation, turn: Turn, choice: Choice | null, mo
   const sidebar = document.createElement('nav');
   sidebar.className = 'branch-inline-sidebar';
   sidebar.setAttribute('aria-label', ui('Branch editor sections', 'Разделы редактора ветки'));
+  const checkCount = choice ? choice.outcomes.filter((item) => isCheckOutcomeCommand(item.command)).length : 0;
   const tabs: Array<{ mode: BranchInlinePanelMode; label: string; count?: number }> = choice
     ? [
       { mode: 'dialogue', label: ui('Dialogue', 'Диалог') },
       { mode: 'preconditions', label: ui('Preconditions', 'Предусловия'), count: choice.preconditions?.length ?? 0 },
       { mode: 'outcomes', label: ui('Outcomes', 'Результаты'), count: choice.outcomes.length },
+      { mode: 'skillCheck', label: ui('Skill Check', 'Проверка навыка'), count: checkCount },
       { mode: 'continuation', label: ui('Continuation', 'Продолжение') },
     ]
     : [
@@ -767,6 +781,230 @@ function renderContinuationPanel(container: HTMLElement, conv: Conversation, tur
 
   grid.append(npcPane, pathPane);
   container.appendChild(grid);
+}
+
+function renderSkillCheckPanel(
+  container: HTMLElement,
+  conv: Conversation,
+  turn: Turn,
+  choice: Choice,
+  turnLabels: TurnLabels,
+): void {
+  const ui = getUiText();
+  const project = store.get().project;
+  const customStats = (project.dialogueStatRegistry ?? []).filter((entry) => !isCoreStat(entry.key));
+  const checkIndex = choice.outcomes.findIndex((item) => isCheckOutcomeCommand(item.command));
+  const check = checkIndex >= 0 ? choice.outcomes[checkIndex] : null;
+  const grid = document.createElement('div');
+  grid.className = 'branch-inline-grid branch-inline-grid-two';
+
+  const configPane = createPane(ui('Skill or Chance Check', 'Проверка навыка или шанса'));
+  configPane.appendChild(createHint(ui(
+    'Roll resolves to one of two follow-up branches. The roll formula is clamp(5..95, 50 + stat + floor(luck/2) - difficulty). Use Random Chance for a flat percent without stats.',
+    'Бросок ведёт к одной из двух веток. Формула: clamp(5..95, 50 + статус + floor(удача/2) - сложность). Случайный шанс — плоский процент без статов.',
+  )));
+
+  if (!check) {
+    const addRow = document.createElement('div');
+    addRow.className = 'branch-inline-action-row';
+    addRow.append(
+      createActionButton(ui('Add Skill Check', 'Добавить проверку навыка'), () => addCheckOutcome(conv, turn, choice, 'dialogue_skill_check')),
+      createActionButton(ui('Add Random Chance', 'Добавить случайный шанс'), () => addCheckOutcome(conv, turn, choice, 'random_chance_check')),
+    );
+    configPane.appendChild(addRow);
+    configPane.appendChild(createEmpty(ui(
+      'No check on this choice yet. Adding one auto-creates Success and Fail branch turns ready for editing.',
+      'Проверка не задана. При добавлении автоматически создаются ветки Успех и Провал, готовые к правке.',
+    )));
+  } else if (check.command === 'dialogue_skill_check') {
+    const statKey = (check.params[0] ?? 'charisma').trim() || 'charisma';
+    const difficulty = Number.parseInt(check.params[1] ?? '0', 10) || 0;
+
+    const statRow = document.createElement('label');
+    statRow.className = 'branch-inline-field';
+    const statLabel = document.createElement('span');
+    statLabel.textContent = ui('Stat', 'Стат');
+    const statSelect = document.createElement('select');
+    statSelect.className = 'branch-inline-select';
+    for (const key of CORE_DIALOGUE_STATS) {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = `${DIALOGUE_STAT_LABELS[key as CoreDialogueStatKey]} - ${DIALOGUE_STAT_DESCRIPTIONS[key as CoreDialogueStatKey]}`;
+      if (key === statKey) opt.selected = true;
+      statSelect.appendChild(opt);
+    }
+    for (const entry of customStats) {
+      const opt = document.createElement('option');
+      opt.value = entry.key;
+      opt.textContent = entry.label ?? formatStatLabel(entry.key);
+      if (entry.key === statKey) opt.selected = true;
+      statSelect.appendChild(opt);
+    }
+    if (!CORE_DIALOGUE_STATS.includes(statKey as CoreDialogueStatKey) && !customStats.some((entry) => entry.key === statKey)) {
+      const opt = document.createElement('option');
+      opt.value = statKey;
+      opt.textContent = `${formatStatLabel(statKey)} (unregistered)`;
+      opt.selected = true;
+      statSelect.appendChild(opt);
+    }
+    statSelect.onchange = () => {
+      writeCheckParams(conv, turn, choice, checkIndex, (params) => {
+        params[0] = statSelect.value;
+      });
+    };
+    statRow.append(statLabel, statSelect);
+    configPane.appendChild(statRow);
+
+    configPane.appendChild(createTextInput({
+      label: ui('Difficulty', 'Сложность'),
+      value: String(difficulty),
+      placeholder: '0',
+      description: ui('Subtracts from roll chance. 0 even check, 5 hard, 10 very hard.', 'Вычитается из шанса. 0 — обычно, 5 — сложно, 10 — очень сложно.'),
+      fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, checkIndex, 1),
+      onCommit: (value) => {
+        const parsed = Number.parseInt(value.trim(), 10);
+        const safe = Number.isFinite(parsed) ? Math.max(0, Math.min(99, parsed)) : 0;
+        writeCheckParams(conv, turn, choice, checkIndex, (params) => {
+          params[1] = String(safe);
+        });
+      },
+    }));
+
+    appendCheckBranchControls(configPane, conv, turn, choice, checkIndex, check, 2, 3, turnLabels);
+    appendCheckActionButtons(configPane, conv, turn, choice, checkIndex);
+
+    const previewPane = createPane(ui('Preview', 'Предпросмотр'));
+    previewPane.appendChild(createHint(ui('This hint is appended to the choice text in-game so players know what kind of check this is.', 'Эта подсказка добавляется к тексту выбора в игре, чтобы игрок видел тип проверки.')));
+    const preview = document.createElement('div');
+    preview.className = 'branch-inline-empty';
+    preview.style.fontStyle = 'italic';
+    const choiceText = (choice.text ?? '').trim() || ui('(player choice text)', '(текст варианта игрока)');
+    preview.textContent = `${choiceText} ${formatCheckHint(statKey, difficulty)}`;
+    previewPane.appendChild(preview);
+    grid.append(configPane, previewPane);
+    container.appendChild(grid);
+    return;
+  } else if (check.command === 'random_chance_check') {
+    const percent = Number.parseInt(check.params[0] ?? '50', 10) || 50;
+
+    configPane.appendChild(createTextInput({
+      label: ui('Success Chance %', 'Шанс успеха %'),
+      value: String(percent),
+      placeholder: '50',
+      description: ui('Probability of the success branch (1-99).', 'Вероятность успешной ветки (1-99).'),
+      fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, checkIndex, 0),
+      onCommit: (value) => {
+        const parsed = Number.parseInt(value.trim(), 10);
+        const safe = Number.isFinite(parsed) ? Math.max(1, Math.min(99, parsed)) : 50;
+        writeCheckParams(conv, turn, choice, checkIndex, (params) => {
+          params[0] = String(safe);
+        });
+      },
+    }));
+
+    appendCheckBranchControls(configPane, conv, turn, choice, checkIndex, check, 1, 2, turnLabels);
+    appendCheckActionButtons(configPane, conv, turn, choice, checkIndex);
+
+    const previewPane = createPane(ui('Preview', 'Предпросмотр'));
+    previewPane.appendChild(createHint(ui('This hint is appended to the choice text in-game.', 'Подсказка добавляется к тексту выбора в игре.')));
+    const preview = document.createElement('div');
+    preview.className = 'branch-inline-empty';
+    preview.style.fontStyle = 'italic';
+    const choiceText = (choice.text ?? '').trim() || ui('(player choice text)', '(текст варианта игрока)');
+    preview.textContent = `${choiceText} ${formatRandomHint(percent)}`;
+    previewPane.appendChild(preview);
+    grid.append(configPane, previewPane);
+    container.appendChild(grid);
+    return;
+  }
+
+  grid.append(configPane);
+  container.appendChild(grid);
+}
+
+function addCheckOutcome(conv: Conversation, turn: Turn, choice: Choice, command: 'dialogue_skill_check' | 'random_chance_check'): void {
+  const params = command === 'dialogue_skill_check'
+    ? ['charisma', '0', '', '']
+    : ['50', '', ''];
+  store.appendOutcomeToChoice(conv.id, turn.turnNumber, choice.index, { command, params });
+  // Re-open the panel so the freshly created outcome shows up.
+  openPanel(conv.id, turn.turnNumber, choice.index, 'skillCheck');
+}
+
+function writeCheckParams(
+  conv: Conversation,
+  turn: Turn,
+  choice: Choice,
+  checkIndex: number,
+  mutate: (params: string[]) => void,
+): void {
+  const newOutcomes = choice.outcomes.map((item, index) => {
+    if (index !== checkIndex) return item;
+    const params = [...item.params];
+    mutate(params);
+    return { ...item, params };
+  });
+  store.updateChoice(conv.id, turn.turnNumber, choice.index, { outcomes: newOutcomes });
+}
+
+function removeCheckOutcome(conv: Conversation, turn: Turn, choice: Choice, checkIndex: number): void {
+  const newOutcomes = choice.outcomes.filter((_, idx) => idx !== checkIndex);
+  store.updateChoice(conv.id, turn.turnNumber, choice.index, { outcomes: newOutcomes });
+  openPanel(conv.id, turn.turnNumber, choice.index, 'skillCheck');
+}
+
+function appendCheckBranchControls(
+  pane: HTMLElement,
+  conv: Conversation,
+  turn: Turn,
+  choice: Choice,
+  checkIndex: number,
+  check: Outcome,
+  successParamIdx: number,
+  failParamIdx: number,
+  turnLabels: TurnLabels,
+): void {
+  const ui = getUiText();
+  const successTurnNum = Number.parseInt(check.params[successParamIdx] ?? '', 10);
+  const failTurnNum = Number.parseInt(check.params[failParamIdx] ?? '', 10);
+
+  const branchRow = document.createElement('div');
+  branchRow.className = 'branch-inline-action-row';
+  const successLabel = Number.isFinite(successTurnNum) && successTurnNum > 0
+    ? `${ui('Edit Success', 'Править успех')}: ${turnLabels.getLongLabel(successTurnNum)}`
+    : ui('Success branch missing', 'Ветка успеха отсутствует');
+  const failLabel = Number.isFinite(failTurnNum) && failTurnNum > 0
+    ? `${ui('Edit Fail', 'Править провал')}: ${turnLabels.getLongLabel(failTurnNum)}`
+    : ui('Fail branch missing', 'Ветка провала отсутствует');
+  branchRow.append(
+    createActionButton(successLabel, () => {
+      if (Number.isFinite(successTurnNum) && conv.turns.some((t) => t.turnNumber === successTurnNum)) {
+        store.selectTurn(successTurnNum);
+        requestFlowCenter({ conversationId: conv.id, turnNumber: successTurnNum });
+      }
+    }, !(Number.isFinite(successTurnNum) && conv.turns.some((t) => t.turnNumber === successTurnNum))),
+    createActionButton(failLabel, () => {
+      if (Number.isFinite(failTurnNum) && conv.turns.some((t) => t.turnNumber === failTurnNum)) {
+        store.selectTurn(failTurnNum);
+        requestFlowCenter({ conversationId: conv.id, turnNumber: failTurnNum });
+      }
+    }, !(Number.isFinite(failTurnNum) && conv.turns.some((t) => t.turnNumber === failTurnNum))),
+  );
+  pane.appendChild(branchRow);
+}
+
+function appendCheckActionButtons(
+  pane: HTMLElement,
+  conv: Conversation,
+  turn: Turn,
+  choice: Choice,
+  checkIndex: number,
+): void {
+  const ui = getUiText();
+  const removeRow = document.createElement('div');
+  removeRow.className = 'branch-inline-action-row';
+  removeRow.appendChild(createActionButton(ui('Remove Check', 'Удалить проверку'), () => removeCheckOutcome(conv, turn, choice, checkIndex)));
+  pane.appendChild(removeRow);
 }
 
 function renderContinuationOpenerEditor(
@@ -1760,6 +1998,7 @@ function modeLabel(mode: BranchInlinePanelMode, choice: Choice | null): string {
   if (mode === 'preconditions') return ui('Preconditions', 'Предусловия');
   if (mode === 'outcomes') return ui('Outcomes', 'Результаты');
   if (mode === 'continuation') return ui('Continuation', 'Продолжение');
+  if (mode === 'skillCheck') return ui('Skill Check', 'Проверка навыка');
   return ui(choice ? 'Dialogue Text' : 'Dialogue', choice ? 'Текст диалога' : 'Диалог');
 }
 

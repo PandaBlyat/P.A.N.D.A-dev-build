@@ -11,10 +11,14 @@ const TASK_OUTCOME_TURN_INDICES: Record<string, [number, number, number]> = {
   panda_task_rescue: [5, 6, 4],
 };
 
-export type OutcomeResumeBranchKind = 'pause' | 'task';
+export type OutcomeResumeBranchKind = 'pause' | 'task' | 'check';
 
 export function isTaskOutcomeCommand(command: string): boolean {
   return Object.prototype.hasOwnProperty.call(TASK_OUTCOME_TURN_INDICES, command);
+}
+
+export function isCheckOutcomeCommand(command: string): boolean {
+  return command === 'dialogue_skill_check' || command === 'random_chance_check';
 }
 
 export function getOutcomeResumeTurnParamIndices(
@@ -26,6 +30,26 @@ export function getOutcomeResumeTurnParamIndices(
       failIndex: 2,
       timeoutIndex: 0,
       kind: 'pause',
+    };
+  }
+
+  if (command === 'dialogue_skill_check') {
+    // params: stat_key, difficulty, success_turn, fail_turn
+    return {
+      successIndex: 2,
+      failIndex: 3,
+      timeoutIndex: -1,
+      kind: 'check',
+    };
+  }
+
+  if (command === 'random_chance_check') {
+    // params: chance_percent, success_turn, fail_turn
+    return {
+      successIndex: 1,
+      failIndex: 2,
+      timeoutIndex: -1,
+      kind: 'check',
     };
   }
 
