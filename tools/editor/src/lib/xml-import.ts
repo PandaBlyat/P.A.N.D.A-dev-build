@@ -553,6 +553,12 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
       conv.repeatable = true;
     }
 
+    // Storyline ID (used by req_completed_storyline preconditions)
+    const storylineId = strings.get(`${prefix}_storyline_id`)?.trim();
+    if (storylineId) {
+      conv.storyline_id = storylineId;
+    }
+
     // Timeout
     const timeoutStr = strings.get(`${prefix}_timeout`);
     if (timeoutStr) {

@@ -289,6 +289,9 @@ function generateConversation(
   if (conv.repeatable === false) {
     lines.push(emitString(`${prefix}_repeatable`, '0'));
   }
+  if (conv.storyline_id && conv.storyline_id.trim() !== '') {
+    lines.push(emitString(`${prefix}_storyline_id`, conv.storyline_id.trim()));
+  }
   const segmentStartTurns = collectBranchSegmentStartTurns(conv);
 
   // Process each turn

@@ -946,6 +946,25 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
       { name: 'info_id', type: 'string', required: true, label: 'Info Portion ID', placeholder: 'e.g. bar_deactivate_radar_done', editor: INFO_PORTION_PICKER_PANEL_EDITOR },
     ],
   },
+  {
+    name: 'req_completed_storyline',
+    label: 'Completed Storyline',
+    description: 'Player must have completed another storyline (matched by its Storyline ID).',
+    category: 'Knowledge',
+    helpText: 'Set the target storyline\'s "Storyline ID" in its conversation properties. Completion is recorded when the player reaches a terminal branch.',
+    params: [
+      { name: 'storyline_id', type: 'string', required: true, label: 'Storyline ID', placeholder: 'e.g. bandit_intro_arc' },
+    ],
+  },
+  {
+    name: 'req_not_completed_storyline',
+    label: 'Storyline Not Completed',
+    description: 'Player must NOT have completed the named storyline yet.',
+    category: 'Knowledge',
+    params: [
+      { name: 'storyline_id', type: 'string', required: true, label: 'Storyline ID', placeholder: 'e.g. bandit_intro_arc' },
+    ],
+  },
 
   // Relationship
   {
