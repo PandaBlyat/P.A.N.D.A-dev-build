@@ -84,7 +84,7 @@ const NESTED_PRECONDITION_UNSUPPORTED_COMMANDS = new Set([
   'req_custom_story_npc',
 ]);
 
-type ConversationField = 'label' | 'initial-channel' | 'start-mode' | 'repeatable' | 'timeout' | 'timeout-message' | 'preconditions';
+type ConversationField = 'label' | 'initial-channel' | 'start-mode' | 'repeatable' | 'storyline-id' | 'timeout' | 'timeout-message' | 'preconditions';
 type TurnField = 'opening-message' | 'opening-image' | 'opening-audio' | 'speaker-npc-id' | 'channel' | 'pda-entry' | 'f2f-entry' | 'requires-npc-first' | 'first-speaker';
 type ChoiceField =
   | 'text'

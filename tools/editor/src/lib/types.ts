@@ -52,6 +52,10 @@ export interface Conversation {
   preconditions: PreconditionEntry[];
   /** When false, this story can only start once in the same save/playthrough. */
   repeatable?: boolean;
+  /** Optional author-defined identifier for this storyline. Used by the
+   * `req_completed_storyline` precondition to gate other conversations on
+   * completion of this one. Should be a short, unique slug (e.g. `bandit_intro_arc`). */
+  storyline_id?: string;
   timeout?: number;
   timeoutMessage?: string;
   flowAnnotations?: FlowAnnotation[];

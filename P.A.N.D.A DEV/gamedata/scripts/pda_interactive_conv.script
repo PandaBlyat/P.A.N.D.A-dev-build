@@ -619,6 +619,9 @@ pda_player_chat_online = true
 local panda_ic_shutdown_in_progress = false
 local is_panda_ic_shutdown_in_progress
 local conv_last_played, last_conv_npc_id, _callbacks_registered = {}, nil, false
+-- Storylines completed by the player (author-defined storyline_id from XML).
+-- Marked when a conversation reaches a terminal branch. Persisted via save_state.
+local completed_storylines = {}
 local npc_last_used = {}   -- store last used time per NPC
 local last_pda_warning_time = 0
 local pending_location_refs = {}
@@ -5382,6 +5385,14 @@ local function evaluate_precondition_entry(entry, npc_se, act, get_goodwill_acto
         local info_id = parts[2]
         if not info_id or info_id == "" then return false, "missing info id" end
         if has_alife_info(info_id) then return false, "info portion present (should not be)" end
+    elseif cmd == "req_completed_storyline" then
+        local sid = parts[2]
+        if not sid or sid == "" then return false, "missing storyline id" end
+        if not completed_storylines[sid] then return false, "storyline not completed" end
+    elseif cmd == "req_not_completed_storyline" then
+        local sid = parts[2]
+        if not sid or sid == "" then return false, "missing storyline id" end
+        if completed_storylines[sid] then return false, "storyline already completed" end
 
     -- ========== RELATIONSHIP SCORE ==========
     elseif cmd == "req_relationship_min" then
@@ -5860,6 +5871,24 @@ function is_conv_on_cooldown_generic(key)
     if not last then return false end
     local cd_min = PANDA.get_config("default_cooldown")
     return (game.get_game_time():diffSec(last) / 60) < cd_min
+end
+
+-- Look up the author-defined storyline id (set in the editor's opener panel).
+-- Returns nil if not set.
+local function get_conversation_storyline_id(prefix, faction, conv_id)
+    if not (faction and conv_id) then return nil end
+    local base
+    if prefix == "task" or not prefix then
+        base = "st_pda_ic_" .. tostring(faction) .. "_" .. tostring(conv_id)
+    else
+        base = "st_pda_ic_" .. tostring(prefix) .. "_" .. tostring(faction) .. "_" .. tostring(conv_id)
+    end
+    local key = base .. "_storyline_id"
+    local raw = game.translate_string(key)
+    if not raw or raw == key then return nil end
+    raw = tostring(raw):gsub("^%s+", ""):gsub("%s+$", "")
+    if raw == "" then return nil end
+    return raw
 end
 
 local function is_conversation_repeatable(prefix, faction, conv_id)
@@ -9451,6 +9480,12 @@ function on_player_choice(idx, contact_id)
     if not ch.next_turn then
         local composite_key = (c.prefix or "task") .. "_" .. c.faction .. "_" .. c.conv_id
         conv_last_played[composite_key] = game.get_game_time()
+        -- Record storyline completion (author-defined id) for cross-conversation gating
+        local sid = get_conversation_storyline_id(c.prefix, c.faction, c.conv_id)
+        if sid then
+            completed_storylines[sid] = true
+            printf("PANDA_IC: storyline '%s' marked completed (conv %s/%s)", sid, tostring(c.faction), tostring(c.conv_id))
+        end
     end
 end
 
@@ -11271,6 +11306,7 @@ function save_state(m)
     m.pda_private_blocked_contacts = pda_private_blocked_contacts
     m.pda_player_chat_online = pda_player_chat_online
     m.pda_npc_relationship_scores = npc_relationship_scores
+    m.pda_completed_storylines = completed_storylines
     m.pda_player_dialogue_stats = player_dialogue_stats
     -- Save active conversations (strip non-serializable fields)
     local save_convs = {}
@@ -11339,6 +11375,11 @@ function load_state(m)
     if m.pda_ic_cooldowns then conv_last_played = m.pda_ic_cooldowns end
     if m.pda_ic_npc_cooldowns then npc_last_used = m.pda_ic_npc_cooldowns end
     if m.pda_npc_relationship_scores then npc_relationship_scores = m.pda_npc_relationship_scores end
+    if type(m.pda_completed_storylines) == "table" then
+        completed_storylines = m.pda_completed_storylines
+    else
+        completed_storylines = {}
+    end
     if m.pda_player_dialogue_stats and type(m.pda_player_dialogue_stats) == "table" then
         player_dialogue_stats = {}
         for k, v in pairs(m.pda_player_dialogue_stats) do
