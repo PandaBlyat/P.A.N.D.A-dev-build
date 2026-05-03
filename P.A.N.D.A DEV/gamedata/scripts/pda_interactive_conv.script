@@ -642,9 +642,18 @@ function get_dialogue_stat(key)
     return tonumber(player_dialogue_stats[key]) or 0
 end
 
+local DIALOGUE_STAT_MIN = 0
+local DIALOGUE_STAT_MAX = 100
+
+local function clamp_stat(v)
+    if v < DIALOGUE_STAT_MIN then return DIALOGUE_STAT_MIN end
+    if v > DIALOGUE_STAT_MAX then return DIALOGUE_STAT_MAX end
+    return v
+end
+
 function set_dialogue_stat(key, value)
     if not key or key == "" or key == "rank" then return end
-    local v = tonumber(value) or 0
+    local v = clamp_stat(tonumber(value) or 0)
     player_dialogue_stats[key] = v
     printf("PANDA_IC: dialogue stat '%s' set to %d", tostring(key), v)
 end
@@ -653,8 +662,9 @@ function change_dialogue_stat(key, delta)
     if not key or key == "" or key == "rank" then return end
     local current = tonumber(player_dialogue_stats[key]) or 0
     local d = tonumber(delta) or 0
-    player_dialogue_stats[key] = current + d
-    printf("PANDA_IC: dialogue stat '%s' %+d -> %d", tostring(key), d, current + d)
+    local new_val = clamp_stat(current + d)
+    player_dialogue_stats[key] = new_val
+    printf("PANDA_IC: dialogue stat '%s' %+d -> %d", tostring(key), d, new_val)
 end
 
 function get_all_dialogue_stats()
@@ -675,23 +685,28 @@ local function clamp(v, lo, hi)
     return v
 end
 
--- Returns "success" or "fail" based on the percent roll formula:
---   chance = clamp(5, 95, 50 + stat_value + floor(luck/2) - difficulty)
-function evaluate_dialogue_check(stat_key, difficulty)
+-- Returns "success" or "fail" based on the Fallout-style ratio roll:
+--   chance = clamp(5, 95, floor(stat_value / required_level * 100) + luck - difficulty)
+-- If required_level is nil/0, falls back to a flat 50 baseline so legacy calls
+-- (pre-level format) still resolve sensibly.
+function evaluate_dialogue_check(stat_key, required_level, difficulty)
     local stat_val = get_dialogue_stat(stat_key)
     local luck = get_dialogue_stat("luck")
+    local req = tonumber(required_level)
     local diff = tonumber(difficulty) or 0
-    local chance
-    if stat_key == "luck" then
-        chance = 50 + stat_val - diff
+    local base
+    if req and req > 0 then
+        base = math.floor((stat_val / req) * 100)
     else
-        chance = 50 + stat_val + math.floor(luck / 2) - diff
+        -- Legacy format: difficulty was the only knob, use the old 50-base curve.
+        base = 50 + stat_val
     end
-    chance = clamp(chance, 5, 95)
+    local luck_bonus = (stat_key == "luck") and 0 or luck
+    local chance = clamp(base + luck_bonus - diff, 5, 95)
     local roll = math.random(1, 100)
     local result = (roll <= chance) and "success" or "fail"
-    printf("PANDA_IC: skill check stat=%s diff=%d val=%d luck=%d chance=%d roll=%d -> %s",
-        tostring(stat_key), diff, stat_val, luck, chance, roll, result)
+    printf("PANDA_IC: skill check stat=%s req=%s val=%d luck=%d diff=%d chance=%d roll=%d -> %s",
+        tostring(stat_key), tostring(req), stat_val, luck, diff, chance, roll, result)
     return result
 end
 
@@ -743,8 +758,15 @@ function build_dialogue_check_hint(outcome_str)
             end
             if parts[1] == "dialogue_skill_check" then
                 local stat = parts[2] or ""
-                local diff = tonumber(parts[3]) or 0
-                return string.format("[%s %d]", format_stat_label(stat), diff)
+                -- New format: stat:level:difficulty:success:fail (6 parts incl cmd)
+                -- Legacy:    stat:difficulty:success:fail        (5 parts incl cmd)
+                local hint_value
+                if #parts >= 6 then
+                    hint_value = tonumber(parts[3]) or 0
+                else
+                    hint_value = tonumber(parts[3]) or 0
+                end
+                return string.format("[%s %d]", format_stat_label(stat), hint_value)
             elseif parts[1] == "random_chance_check" then
                 local pct = tonumber(parts[2]) or 50
                 if pct < 1 then pct = 1 end
@@ -777,10 +799,21 @@ function preresolve_dialogue_check(outcome_str)
             local cmd = parts[1]
             if cmd == "dialogue_skill_check" then
                 local stat = parts[2]
-                local diff = tonumber(parts[3]) or 0
-                local s_turn = tonumber(parts[4])
-                local f_turn = tonumber(parts[5])
-                local result = evaluate_dialogue_check(stat, diff)
+                local req, diff, s_turn, f_turn
+                if #parts >= 6 then
+                    -- New format: stat:level:difficulty:success:fail
+                    req = tonumber(parts[3])
+                    diff = tonumber(parts[4]) or 0
+                    s_turn = tonumber(parts[5])
+                    f_turn = tonumber(parts[6])
+                else
+                    -- Legacy format: stat:difficulty:success:fail
+                    req = nil
+                    diff = tonumber(parts[3]) or 0
+                    s_turn = tonumber(parts[4])
+                    f_turn = tonumber(parts[5])
+                end
+                local result = evaluate_dialogue_check(stat, req, diff)
                 if result == "success" then return s_turn end
                 return f_turn
             elseif cmd == "random_chance_check" then
@@ -7759,6 +7792,16 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
             local key = parts[2]
             local delta = tonumber(parts[3]) or 0
             change_dialogue_stat(key, delta)
+
+        elseif cmd == "give_skill_level" then
+            local key = parts[2]
+            local amount = math.abs(tonumber(parts[3]) or 0)
+            change_dialogue_stat(key, amount)
+
+        elseif cmd == "take_skill_level" then
+            local key = parts[2]
+            local amount = math.abs(tonumber(parts[3]) or 0)
+            change_dialogue_stat(key, -amount)
 
         elseif cmd == "set_dialogue_stat" then
             local key = parts[2]

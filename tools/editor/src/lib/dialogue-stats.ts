@@ -44,11 +44,11 @@ export function formatStatLabel(key: string): string {
   return key.charAt(0).toUpperCase() + key.slice(1);
 }
 
-/** Render the in-line hint suffix authors append to choice text, e.g. "[Charisma 5]". */
-export function formatCheckHint(statKey: string, difficulty: number): string {
+/** Render the in-line hint suffix authors append to choice text, e.g. "[Charisma 65]". */
+export function formatCheckHint(statKey: string, requiredLevel: number): string {
   const label = formatStatLabel(statKey);
   if (!label) return '';
-  return `[${label} ${difficulty}]`;
+  return `[${label} ${requiredLevel}]`;
 }
 
 /** Render the random-chance suffix, e.g. "[60% Chance]". */

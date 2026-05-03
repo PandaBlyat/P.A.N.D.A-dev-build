@@ -794,14 +794,14 @@ function renderSkillCheckPanel(
   const project = store.get().project;
   const customStats = (project.dialogueStatRegistry ?? []).filter((entry) => !isCoreStat(entry.key));
   const checkIndex = choice.outcomes.findIndex((item) => isCheckOutcomeCommand(item.command));
-  const check = checkIndex >= 0 ? choice.outcomes[checkIndex] : null;
+  let check = checkIndex >= 0 ? choice.outcomes[checkIndex] : null;
   const grid = document.createElement('div');
   grid.className = 'branch-inline-grid branch-inline-grid-two';
 
   const configPane = createPane(ui('Skill or Chance Check', 'Проверка навыка или шанса'));
   configPane.appendChild(createHint(ui(
-    'Roll resolves to one of two follow-up branches. The roll formula is clamp(5..95, 50 + stat + floor(luck/2) - difficulty). Use Random Chance for a flat percent without stats.',
-    'Бросок ведёт к одной из двух веток. Формула: clamp(5..95, 50 + статус + floor(удача/2) - сложность). Случайный шанс — плоский процент без статов.',
+    'Fallout-style stat check. Stats range 0-100. Formula: clamp(5..95, floor(player_stat / required_level * 100) + luck - difficulty). Use Random Chance for a flat percent without stats.',
+    'Проверка стата в стиле Fallout. Статы 0-100. Формула: clamp(5..95, floor(стат / нужный уровень * 100) + удача - сложность). Случайный шанс — плоский процент без статов.',
   )));
 
   if (!check) {
@@ -817,8 +817,21 @@ function renderSkillCheckPanel(
       'Проверка не задана. При добавлении автоматически создаются ветки Успех и Провал, готовые к правке.',
     )));
   } else if (check.command === 'dialogue_skill_check') {
+    // Migrate legacy 4-param outcomes (stat:difficulty:success:fail) lazily.
+    if (check.params.length === 4) {
+      writeCheckParams(conv, turn, choice, checkIndex, (params) => {
+        const statKey = params[0] ?? 'charisma';
+        const oldDifficulty = params[1] ?? '0';
+        const successTurn = params[2] ?? '';
+        const failTurn = params[3] ?? '';
+        params.length = 0;
+        params.push(statKey, '50', oldDifficulty, successTurn, failTurn);
+      });
+      check = choice.outcomes[checkIndex] ?? check;
+    }
     const statKey = (check.params[0] ?? 'charisma').trim() || 'charisma';
-    const difficulty = Number.parseInt(check.params[1] ?? '0', 10) || 0;
+    const requiredLevel = Number.parseInt(check.params[1] ?? '50', 10) || 50;
+    const difficulty = Number.parseInt(check.params[2] ?? '0', 10) || 0;
 
     const statRow = document.createElement('label');
     statRow.className = 'branch-inline-field';
@@ -856,22 +869,40 @@ function renderSkillCheckPanel(
     configPane.appendChild(statRow);
 
     configPane.appendChild(createTextInput({
-      label: ui('Difficulty', 'Сложность'),
-      value: String(difficulty),
-      placeholder: '0',
-      description: ui('Subtracts from roll chance. 0 even check, 5 hard, 10 very hard.', 'Вычитается из шанса. 0 — обычно, 5 — сложно, 10 — очень сложно.'),
+      label: ui('Required Level', 'Нужный уровень'),
+      value: String(requiredLevel),
+      placeholder: '50',
+      description: ui('Stat level the player is being measured against (1-100). E.g. Charisma 65 means a player with charisma 65 reaches ~100% before luck/difficulty.', 'Уровень стата для проверки (1-100). Напр. Харизма 65 — игрок с харизмой 65 достигнет ~100% до удачи/сложности.'),
       fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, checkIndex, 1),
       onCommit: (value) => {
         const parsed = Number.parseInt(value.trim(), 10);
-        const safe = Number.isFinite(parsed) ? Math.max(0, Math.min(99, parsed)) : 0;
+        const safe = Number.isFinite(parsed) ? Math.max(1, Math.min(100, parsed)) : 50;
         writeCheckParams(conv, turn, choice, checkIndex, (params) => {
           params[1] = String(safe);
         });
       },
     }));
 
-    appendCheckBranchControls(configPane, conv, turn, choice, checkIndex, check, 2, 3, turnLabels);
+    configPane.appendChild(createTextInput({
+      label: ui('Difficulty', 'Сложность'),
+      value: String(difficulty),
+      placeholder: '0',
+      description: ui('Flat penalty subtracted from roll chance. 0 = none, 10 = hard, 25 = very hard.', 'Плоский штраф к шансу. 0 — нет, 10 — сложно, 25 — очень сложно.'),
+      fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, checkIndex, 2),
+      onCommit: (value) => {
+        const parsed = Number.parseInt(value.trim(), 10);
+        const safe = Number.isFinite(parsed) ? Math.max(0, Math.min(99, parsed)) : 0;
+        writeCheckParams(conv, turn, choice, checkIndex, (params) => {
+          params[2] = String(safe);
+        });
+      },
+    }));
+
+    appendCheckBranchControls(configPane, conv, turn, choice, checkIndex, check, 3, 4, turnLabels);
     appendCheckActionButtons(configPane, conv, turn, choice, checkIndex);
+
+    const skillResumeOpeners = renderOutcomeResumeOpenerEditors(conv, check);
+    if (skillResumeOpeners) configPane.appendChild(skillResumeOpeners);
 
     const previewPane = createPane(ui('Preview', 'Предпросмотр'));
     previewPane.appendChild(createHint(ui('This hint is appended to the choice text in-game so players know what kind of check this is.', 'Эта подсказка добавляется к тексту выбора в игре, чтобы игрок видел тип проверки.')));
@@ -879,7 +910,7 @@ function renderSkillCheckPanel(
     preview.className = 'branch-inline-empty';
     preview.style.fontStyle = 'italic';
     const choiceText = (choice.text ?? '').trim() || ui('(player choice text)', '(текст варианта игрока)');
-    preview.textContent = `${choiceText} ${formatCheckHint(statKey, difficulty)}`;
+    preview.textContent = `${choiceText} ${formatCheckHint(statKey, requiredLevel)}`;
     previewPane.appendChild(preview);
     grid.append(configPane, previewPane);
     container.appendChild(grid);
@@ -905,6 +936,9 @@ function renderSkillCheckPanel(
     appendCheckBranchControls(configPane, conv, turn, choice, checkIndex, check, 1, 2, turnLabels);
     appendCheckActionButtons(configPane, conv, turn, choice, checkIndex);
 
+    const randomResumeOpeners = renderOutcomeResumeOpenerEditors(conv, check);
+    if (randomResumeOpeners) configPane.appendChild(randomResumeOpeners);
+
     const previewPane = createPane(ui('Preview', 'Предпросмотр'));
     previewPane.appendChild(createHint(ui('This hint is appended to the choice text in-game.', 'Подсказка добавляется к тексту выбора в игре.')));
     const preview = document.createElement('div');
@@ -924,7 +958,7 @@ function renderSkillCheckPanel(
 
 function addCheckOutcome(conv: Conversation, turn: Turn, choice: Choice, command: 'dialogue_skill_check' | 'random_chance_check'): void {
   const params = command === 'dialogue_skill_check'
-    ? ['charisma', '0', '', '']
+    ? ['charisma', '50', '0', '', '']
     : ['50', '', ''];
   store.appendOutcomeToChoice(conv.id, turn.turnNumber, choice.index, { command, params });
   // Re-open the panel so the freshly created outcome shows up.

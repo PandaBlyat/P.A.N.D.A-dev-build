@@ -946,6 +946,24 @@ function validateOutcome(
     }
 
     if (outcome.command === 'dialogue_skill_check') {
+      const requiredLevelRaw = (outcome.params[1] ?? '').trim();
+      const requiredLevel = Number.parseInt(requiredLevelRaw, 10);
+      if (!Number.isFinite(requiredLevel) || requiredLevel < 1 || requiredLevel > 100) {
+        pushMessage(messages, {
+          code: 'check-invalid-level',
+          group: 'schema',
+          scope: 'outcome',
+          level: 'error',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          outcomeIndex,
+          propertiesTab: 'selection',
+          fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, 1),
+          fieldLabel: 'Required Level',
+          message: 'Required Level must be between 1 and 100.',
+        });
+      }
       const statKey = (outcome.params[0] ?? '').trim();
       if (statKey && !knownDialogueStatKeys.has(statKey)) {
         pushMessage(messages, {
@@ -989,8 +1007,13 @@ function validateOutcome(
     }
   }
 
-  // Validate stat key on change_dialogue_stat / set_dialogue_stat
-  if (outcome.command === 'change_dialogue_stat' || outcome.command === 'set_dialogue_stat') {
+  // Validate stat key on change_dialogue_stat / set_dialogue_stat / give_skill_level / take_skill_level
+  if (
+    outcome.command === 'change_dialogue_stat' ||
+    outcome.command === 'set_dialogue_stat' ||
+    outcome.command === 'give_skill_level' ||
+    outcome.command === 'take_skill_level'
+  ) {
     const statKey = (outcome.params[0] ?? '').trim();
     if (statKey && !knownDialogueStatKeys.has(statKey)) {
       pushMessage(messages, {

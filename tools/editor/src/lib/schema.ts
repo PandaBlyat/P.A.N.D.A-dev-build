@@ -2388,12 +2388,12 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   {
     name: 'dialogue_skill_check',
     label: 'Skill Check',
-    description: 'Roll a percent chance from a player stat (+luck) and route to success or fail turns',
+    description: 'Fallout-style stat check: roll player skill against a required level, route to success or fail turns',
     category: 'Dialogue Checks',
-    helpText: 'Formula: chance = clamp(5, 95, 50 + stat_value + floor(luck/2) - difficulty). Stats persist across saves; "rank" is read live from character_rank/1000. Use change_dialogue_stat / set_dialogue_stat in other branches to evolve stats.',
+    helpText: 'Stats range 0-100. Formula: chance% = clamp(5, 95, floor(player_stat / required_level * 100) + luck - difficulty). E.g. Charisma 15 vs required 65 = ~23% base, then +luck and -difficulty. "rank" is read live from character_rank/1000. Use give_skill_level / take_skill_level / change_dialogue_stat in other branches to evolve stats.',
     examples: [
-      'dialogue_skill_check:charisma:2:3:4',
-      'dialogue_skill_check:intimidation:5:3:4',
+      'dialogue_skill_check:charisma:65:5:3:4',
+      'dialogue_skill_check:intimidation:40:0:3:4',
     ],
     params: [
       { name: 'stat_key', type: 'string', required: true, label: 'Stat',
@@ -2404,8 +2404,10 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
           { value: 'perception', label: 'Perception', keywords: ['perceive', 'notice'] },
           { value: 'rank', label: 'Rank (derived)', keywords: ['rank'] },
         ], emptyLabel: '-- Select stat --' } },
+      { name: 'required_level', type: 'number', required: true, label: 'Required Level', min: 1, max: 100,
+        helpText: 'Level the stat is being measured against (1-100). Player skill / required level = base success ratio. Example: Charisma 65 means a player with charisma 65 reaches ~100% before luck/difficulty.' },
       { name: 'difficulty', type: 'number', required: true, label: 'Difficulty', min: 0, max: 99,
-        helpText: 'Subtracts from roll chance. 0 = even check vs base 50%, 5 = hard, 10 = very hard.' },
+        helpText: 'Flat penalty subtracted from roll chance after the skill ratio. 0 = no penalty, 10 = hard, 25 = very hard.' },
       { name: 'success_turn', type: 'number', required: true, label: 'Success Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
       { name: 'fail_turn', type: 'number', required: true, label: 'Fail Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
     ],
@@ -2424,11 +2426,47 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     ],
   },
   {
+    name: 'give_skill_level',
+    label: 'Give Skill Level',
+    description: 'Award skill levels to the player (clamped 0-100)',
+    category: 'Dialogue Checks',
+    helpText: 'Adds the given amount to the chosen stat. Stats are clamped to the 0-100 range.',
+    examples: ['give_skill_level:charisma:5', 'give_skill_level:perception:10'],
+    params: [
+      { name: 'stat_key', type: 'string', required: true, label: 'Stat',
+        editor: { kind: 'searchable_select', options: [
+          { value: 'charisma', label: 'Charisma' },
+          { value: 'luck', label: 'Luck' },
+          { value: 'intimidation', label: 'Intimidation' },
+          { value: 'perception', label: 'Perception' },
+        ], emptyLabel: '-- Select stat --' } },
+      { name: 'amount', type: 'number', required: true, label: 'Amount', min: 1, max: 100, placeholder: '1' },
+    ],
+  },
+  {
+    name: 'take_skill_level',
+    label: 'Take Skill Level',
+    description: 'Remove skill levels from the player (clamped to 0)',
+    category: 'Dialogue Checks',
+    helpText: 'Subtracts the given amount from the chosen stat. Stats cannot drop below 0.',
+    examples: ['take_skill_level:charisma:5'],
+    params: [
+      { name: 'stat_key', type: 'string', required: true, label: 'Stat',
+        editor: { kind: 'searchable_select', options: [
+          { value: 'charisma', label: 'Charisma' },
+          { value: 'luck', label: 'Luck' },
+          { value: 'intimidation', label: 'Intimidation' },
+          { value: 'perception', label: 'Perception' },
+        ], emptyLabel: '-- Select stat --' } },
+      { name: 'amount', type: 'number', required: true, label: 'Amount', min: 1, max: 100, placeholder: '1' },
+    ],
+  },
+  {
     name: 'change_dialogue_stat',
     label: 'Change Dialogue Stat',
-    description: 'Add or subtract from a player dialogue stat',
+    description: 'Add or subtract from a player dialogue stat (custom keys allowed)',
     category: 'Dialogue Checks',
-    helpText: 'Stats persist across the playthrough. Custom stat keys are allowed; new keys default to 0 on first read.',
+    helpText: 'Stats persist across the playthrough and clamp to 0-100. Custom stat keys are allowed; new keys default to 0 on first read.',
     examples: ['change_dialogue_stat:charisma:1', 'change_dialogue_stat:intimidation:-2'],
     params: [
       { name: 'stat_key', type: 'string', required: true, label: 'Stat Key', placeholder: 'charisma' },
@@ -2438,12 +2476,12 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   {
     name: 'set_dialogue_stat',
     label: 'Set Dialogue Stat',
-    description: 'Set a player dialogue stat to an exact value',
+    description: 'Set a player dialogue stat to an exact value (clamped 0-100)',
     category: 'Dialogue Checks',
     examples: ['set_dialogue_stat:charisma:5'],
     params: [
       { name: 'stat_key', type: 'string', required: true, label: 'Stat Key', placeholder: 'charisma' },
-      { name: 'value', type: 'number', required: true, label: 'Value', placeholder: '0' },
+      { name: 'value', type: 'number', required: true, label: 'Value', min: 0, max: 100, placeholder: '0' },
     ],
   },
 
