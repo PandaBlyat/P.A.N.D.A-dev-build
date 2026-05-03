@@ -290,6 +290,17 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
         fieldKey: getConversationFieldKey(conv.id, 'timeout-message'),
         onCommit: (value) => store.updateConversation(conv.id, { timeoutMessage: value.trim() || undefined }),
       }));
+      textPane.appendChild(createTextInput({
+        label: ui('Storyline ID', 'ID сюжетной линии'),
+        value: conv.storyline_id ?? '',
+        placeholder: ui('e.g. bandit_intro_arc (optional)', 'напр. bandit_intro_arc (необязательно)'),
+        description: ui(
+          'Optional unique slug. Other conversations can require it via the "Completed Storyline" precondition. Recorded when the player reaches a terminal branch.',
+          'Необязательный уникальный идентификатор. Другие разговоры могут требовать его через предусловие «Завершён сюжет». Фиксируется при достижении финальной ветки.',
+        ),
+        fieldKey: getConversationFieldKey(conv.id, 'storyline-id'),
+        onCommit: (value) => store.updateConversation(conv.id, { storyline_id: value.trim() || undefined }),
+      }));
     }
     if (turn.turnNumber === 1) {
       textPane.appendChild(renderOpenerNpcTargetPanel(conv));
