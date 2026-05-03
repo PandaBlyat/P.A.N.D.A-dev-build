@@ -433,7 +433,14 @@ function pda_private_tab:InitControls()
     
     self.xml:InitTextWnd("private_pda:info:description:stat_rank_label", self.desc_box)
     self.stat_rank_value = self.xml:InitTextWnd("private_pda:info:description:stat_rank_value", self.desc_box)
-    
+
+    -- Player dialogue stats panel (Charisma / Luck / Intimidation / Perception)
+    self.player_stats_panel = self.xml:InitStatic("private_pda:info:description:player_stats_panel", self.desc_box)
+    self.player_stat_charisma = self.xml:InitTextWnd("private_pda:info:description:player_stats_panel:stat_charisma", self.player_stats_panel)
+    self.player_stat_luck = self.xml:InitTextWnd("private_pda:info:description:player_stats_panel:stat_luck", self.player_stats_panel)
+    self.player_stat_intimidation = self.xml:InitTextWnd("private_pda:info:description:player_stats_panel:stat_intimidation", self.player_stats_panel)
+    self.player_stat_perception = self.xml:InitTextWnd("private_pda:info:description:player_stats_panel:stat_perception", self.player_stats_panel)
+
     self.scrollbar = self.xml:InitScrollView("private_pda:info:description:scrollbar", self.desc_box)
     self.composer_container = self.xml:InitStatic("private_pda:info:description:composer_container", self.desc_box)
     self.composer_bg = self.xml:InitStatic("private_pda:info:description:composer_container:composer_bg", self.composer_container)
@@ -1828,6 +1835,49 @@ function pda_private_tab:HideStats()
     self.last_seen:SetText("")
     self.status_indicator:InitTexture("ui_panda_off_icon")
     self.status_indicator:SetTextureColor(GetARGB(180, 255, 255, 255))
+    self:RefreshPlayerStatsPanel()
+end
+
+function pda_private_tab:RefreshPlayerStatsPanel()
+    if not self.player_stats_panel then return end
+    local conv_api = get_conv_api()
+    local stats_enabled = true
+    if PANDA and type(PANDA.get_config) == "function" then
+        local cfg = PANDA.get_config("show_player_stats_panel")
+        if cfg == false then stats_enabled = false end
+    end
+    if not stats_enabled then
+        self.player_stats_panel:Show(false)
+        return
+    end
+    self.player_stats_panel:Show(true)
+
+    local function read(key)
+        if conv_api and type(conv_api.get_dialogue_stat) == "function" then
+            local ok, val = pcall(conv_api.get_dialogue_stat, key)
+            if ok and tonumber(val) then return tonumber(val) end
+        end
+        return 0
+    end
+
+    local function fmt(label_key, fallback_label, value)
+        local label = game.translate_string(label_key)
+        if not label or label == "" or label == label_key then label = fallback_label end
+        return string.format("%s: %d", label, value)
+    end
+
+    if self.player_stat_charisma then
+        self.player_stat_charisma:SetText(fmt("st_panda_stat_charisma", "Charisma", read("charisma")))
+    end
+    if self.player_stat_luck then
+        self.player_stat_luck:SetText(fmt("st_panda_stat_luck", "Luck", read("luck")))
+    end
+    if self.player_stat_intimidation then
+        self.player_stat_intimidation:SetText(fmt("st_panda_stat_intimidation", "Intimidation", read("intimidation")))
+    end
+    if self.player_stat_perception then
+        self.player_stat_perception:SetText(fmt("st_panda_stat_perception", "Perception", read("perception")))
+    end
 end
 
 function pda_private_tab:ShowStats(contact_name)
@@ -1866,7 +1916,10 @@ function pda_private_tab:ShowStats(contact_name)
     
     self.stat_goodwill_value:SetText(tostring(npc_data.goodwill))
     self.stat_rank_value:SetText(npc_data.rank or "Unknown")
-    
+
+    self:RefreshPlayerStatsPanel()
+
+
     local conv_api = get_conv_api()
     local log = conv_api.pda_private_log or {}
     local latest_time = nil

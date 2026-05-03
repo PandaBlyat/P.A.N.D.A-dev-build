@@ -1036,6 +1036,21 @@
 	<string id="pda_interactive_conv_title_debug">
 		<text>Debug</text>
 	</string>
+	<string id="pda_interactive_conv_title_skill_checks">
+		<text>Dialogue Skill Checks</text>
+	</string>
+	<string id="pda_interactive_conv_show_player_stats_panel">
+		<text>Show Player Stats in PDA Header</text>
+	</string>
+	<string id="pda_interactive_conv_show_player_stats_panel_desc">
+		<text>Adds a Charisma/Luck/Intimidation/Perception strip to the NPC chat header.</text>
+	</string>
+	<string id="pda_interactive_conv_show_check_hints_in_choices">
+		<text>Show [Stat N] Hints on Choices</text>
+	</string>
+	<string id="pda_interactive_conv_show_check_hints_in_choices_desc">
+		<text>Appends e.g. "[Charisma 5]" or "[60% Chance]" to dialogue choices that carry a check.</text>
+	</string>
 	<string id="pda_interactive_conv_title_typing">
 		<text>NPC Typing Personality</text>
 	</string>

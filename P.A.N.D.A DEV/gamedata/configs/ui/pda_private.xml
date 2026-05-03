@@ -169,7 +169,23 @@
                 <stat_rank_value x="110" y="101" width="100" height="16">
                     <text font="letterica16" r="255" g="255" b="255" a="255" align="l" vert_align="c"/>
                 </stat_rank_value>
-                
+
+                <!-- Player dialogue stats panel: vertical list of Charisma/Luck/Intimidation/Perception -->
+                <player_stats_panel x="240" y="59" width="220" height="68">
+                    <stat_charisma x="0" y="0" width="220" height="16">
+                        <text font="letterica16" r="200" g="200" b="160" a="255" align="l" vert_align="c">Charisma: 0</text>
+                    </stat_charisma>
+                    <stat_luck x="0" y="17" width="220" height="16">
+                        <text font="letterica16" r="200" g="200" b="160" a="255" align="l" vert_align="c">Luck: 0</text>
+                    </stat_luck>
+                    <stat_intimidation x="0" y="34" width="220" height="16">
+                        <text font="letterica16" r="200" g="200" b="160" a="255" align="l" vert_align="c">Intimidation: 0</text>
+                    </stat_intimidation>
+                    <stat_perception x="0" y="51" width="220" height="16">
+                        <text font="letterica16" r="200" g="200" b="160" a="255" align="l" vert_align="c">Perception: 0</text>
+                    </stat_perception>
+                </player_stats_panel>
+
                 <!-- Scrollbar for messages -->
                 <scrollbar x="0" y="130" width="470" height="472" right_ident="0" left_ident="0" top_indent="0" bottom_indent="0" vert_interval="10" always_show_scroll="1">
                     <texture>ui_inGame2_scroll_background</texture>

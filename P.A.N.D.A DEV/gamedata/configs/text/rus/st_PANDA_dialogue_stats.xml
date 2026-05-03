@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="windows-1251"?>
+
+<!--===========================================================
+<
+<   P.A.N.D.A. — Player Dialogue Stat Labels (RU)
+<
+<===========================================================-->
+
+<string_table>
+
+    <string id="st_panda_stat_charisma">
+        <text>Харизма</text>
+    </string>
+    <string id="st_panda_stat_luck">
+        <text>Удача</text>
+    </string>
+    <string id="st_panda_stat_intimidation">
+        <text>Запугивание</text>
+    </string>
+    <string id="st_panda_stat_perception">
+        <text>Восприятие</text>
+    </string>
+    <string id="st_panda_stat_rank">
+        <text>Ранг</text>
+    </string>
+
+</string_table>

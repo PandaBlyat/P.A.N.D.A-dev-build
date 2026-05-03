@@ -2383,6 +2383,70 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     ],
   },
 
+  // ─── Dialogue Skill Checks ────────────────────────────────────────────
+
+  {
+    name: 'dialogue_skill_check',
+    label: 'Skill Check',
+    description: 'Roll a percent chance from a player stat (+luck) and route to success or fail turns',
+    category: 'Dialogue Checks',
+    helpText: 'Formula: chance = clamp(5, 95, 50 + stat_value + floor(luck/2) - difficulty). Stats persist across saves; "rank" is read live from character_rank/1000. Use change_dialogue_stat / set_dialogue_stat in other branches to evolve stats.',
+    examples: [
+      'dialogue_skill_check:charisma:2:3:4',
+      'dialogue_skill_check:intimidation:5:3:4',
+    ],
+    params: [
+      { name: 'stat_key', type: 'string', required: true, label: 'Stat',
+        editor: { kind: 'searchable_select', options: [
+          { value: 'charisma', label: 'Charisma', keywords: ['charisma', 'persuade'] },
+          { value: 'luck', label: 'Luck (passive)', keywords: ['luck'] },
+          { value: 'intimidation', label: 'Intimidation', keywords: ['intimidate', 'threat'] },
+          { value: 'perception', label: 'Perception', keywords: ['perceive', 'notice'] },
+          { value: 'rank', label: 'Rank (derived)', keywords: ['rank'] },
+        ], emptyLabel: '-- Select stat --' } },
+      { name: 'difficulty', type: 'number', required: true, label: 'Difficulty', min: 0, max: 99,
+        helpText: 'Subtracts from roll chance. 0 = even check vs base 50%, 5 = hard, 10 = very hard.' },
+      { name: 'success_turn', type: 'number', required: true, label: 'Success Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
+      { name: 'fail_turn', type: 'number', required: true, label: 'Fail Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
+    ],
+  },
+  {
+    name: 'random_chance_check',
+    label: 'Random Chance Check',
+    description: 'Pure percent roll with success/fail branches (no stats involved)',
+    category: 'Dialogue Checks',
+    helpText: 'Use when you just want a coin-flip branch without bringing stats into it. The chance is the probability of the success branch.',
+    examples: ['random_chance_check:60:3:4'],
+    params: [
+      { name: 'chance_percent', type: 'number', required: true, label: 'Success Chance %', min: 1, max: 99 },
+      { name: 'success_turn', type: 'number', required: true, label: 'Success Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
+      { name: 'fail_turn', type: 'number', required: true, label: 'Fail Turn', min: 2, editor: TURN_REFERENCE_EDITOR },
+    ],
+  },
+  {
+    name: 'change_dialogue_stat',
+    label: 'Change Dialogue Stat',
+    description: 'Add or subtract from a player dialogue stat',
+    category: 'Dialogue Checks',
+    helpText: 'Stats persist across the playthrough. Custom stat keys are allowed; new keys default to 0 on first read.',
+    examples: ['change_dialogue_stat:charisma:1', 'change_dialogue_stat:intimidation:-2'],
+    params: [
+      { name: 'stat_key', type: 'string', required: true, label: 'Stat Key', placeholder: 'charisma' },
+      { name: 'delta', type: 'number', required: true, label: 'Delta', placeholder: '1' },
+    ],
+  },
+  {
+    name: 'set_dialogue_stat',
+    label: 'Set Dialogue Stat',
+    description: 'Set a player dialogue stat to an exact value',
+    category: 'Dialogue Checks',
+    examples: ['set_dialogue_stat:charisma:5'],
+    params: [
+      { name: 'stat_key', type: 'string', required: true, label: 'Stat Key', placeholder: 'charisma' },
+      { name: 'value', type: 'number', required: true, label: 'Value', placeholder: '0' },
+    ],
+  },
+
   // No outcome
   {
     name: 'none',
