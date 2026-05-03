@@ -540,31 +540,6 @@ function renderConversationProperties(container: HTMLElement, conv: Conversation
   repeatableWrap.append(repeatableField, repeatableHint);
   container.appendChild(repeatableWrap);
 
-  // Storyline ID — author-defined identifier for cross-conversation completion gates.
-  const storylineWrap = document.createElement('div');
-  storylineWrap.className = 'field';
-  const storylineLabel = document.createElement('label');
-  storylineLabel.textContent = ui('Storyline ID', 'ID сюжетной линии');
-  storylineWrap.appendChild(storylineLabel);
-  const storylineInput = document.createElement('input');
-  storylineInput.type = 'text';
-  storylineInput.placeholder = ui('e.g. bandit_intro_arc (optional)', 'напр. bandit_intro_arc (необязательно)');
-  storylineInput.value = conv.storyline_id ?? '';
-  storylineInput.dataset.fieldKey = getConversationFieldKey(conv.id, 'storyline-id');
-  storylineInput.oninput = () => {
-    const next = storylineInput.value.trim();
-    store.updateConversation(conv.id, { storyline_id: next === '' ? undefined : next });
-  };
-  storylineWrap.appendChild(storylineInput);
-  const storylineHint = document.createElement('div');
-  storylineHint.className = 'field-hint';
-  storylineHint.textContent = ui(
-    'Optional unique slug for this storyline. Other conversations can gate on it via the "Completed Storyline" precondition. Completion is recorded when the player reaches a terminal branch.',
-    'Необязательный уникальный идентификатор сюжета. Другие разговоры могут проверять его через предусловие "Завершён сюжет". Завершение фиксируется, когда игрок достигает финальной ветки.'
-  );
-  storylineWrap.appendChild(storylineHint);
-  container.appendChild(storylineWrap);
-
   if (advancedMode) {
   const initialChannelField = document.createElement('div');
   initialChannelField.className = 'field';
