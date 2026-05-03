@@ -34,10 +34,10 @@ export function getOutcomeResumeTurnParamIndices(
   }
 
   if (command === 'dialogue_skill_check') {
-    // params: stat_key, difficulty, success_turn, fail_turn
+    // params: stat_key, required_level, difficulty, success_turn, fail_turn
     return {
-      successIndex: 2,
-      failIndex: 3,
+      successIndex: 3,
+      failIndex: 4,
       timeoutIndex: -1,
       kind: 'check',
     };
