@@ -1,5 +1,6 @@
 import { store } from '../lib/state';
 import { createEmptyState, setButtonContent } from './icons';
+import { t } from '../lib/i18n';
 
 export function renderSystemStringsPanel(container: HTMLElement): void {
   container.appendChild(createSystemStringsPanelContent());
@@ -17,7 +18,7 @@ export function createSystemStringsPanelContent(): HTMLElement {
 
   const search = document.createElement('input');
   search.type = 'search';
-  search.placeholder = 'Filter by string id or text…';
+  search.placeholder = t('systemStrings.filter.placeholder');
   search.className = 'system-strings-search';
   toolbar.appendChild(search);
   panel.appendChild(toolbar);
@@ -43,7 +44,7 @@ export function createSystemStringsPanelContent(): HTMLElement {
       } else {
         const empty = document.createElement('div');
         empty.className = 'empty-hint';
-        empty.textContent = 'No string entries match the current filter.';
+        empty.textContent = t('systemStrings.empty');
         list.appendChild(empty);
       }
       return;
@@ -61,7 +62,7 @@ export function createSystemStringsPanelContent(): HTMLElement {
       keyInput.value = key;
       keyInput.className = 'system-string-key';
       keyInput.setAttribute('data-field-key', `system-string-key:${key}`);
-      keyInput.title = 'String-table id';
+      keyInput.title = t('systemStrings.id.tooltip');
       keyInput.onchange = () => store.renameSystemString(key, keyInput.value);
 
       const usage = document.createElement('span');
@@ -71,11 +72,11 @@ export function createSystemStringsPanelContent(): HTMLElement {
       const deleteBtn = document.createElement('button');
       deleteBtn.type = 'button';
       deleteBtn.className = 'btn-icon';
-      setButtonContent(deleteBtn, 'delete', 'Delete');
-      deleteBtn.title = 'Delete string entry';
+      setButtonContent(deleteBtn, 'delete', t('systemStrings.delete'));
+      deleteBtn.title = t('systemStrings.delete.tooltip');
       deleteBtn.style.color = 'var(--danger)';
       deleteBtn.onclick = () => {
-        if (confirm(`Delete string entry "${key}"?`)) {
+        if (confirm(t('systemStrings.delete.confirm', { key }))) {
           store.deleteSystemString(key);
         }
       };
@@ -87,7 +88,7 @@ export function createSystemStringsPanelContent(): HTMLElement {
       valueInput.className = 'system-string-value';
       valueInput.rows = 3;
       valueInput.setAttribute('data-field-key', `system-string-value:${key}`);
-      valueInput.placeholder = 'String-table text…';
+      valueInput.placeholder = t('systemStrings.text.placeholder');
       valueInput.onchange = () => store.setSystemString(keyInput.value || key, valueInput.value);
 
       card.append(keyRow, valueInput);

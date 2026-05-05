@@ -19,6 +19,7 @@ import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
 import { createCatalogPickerPanelEditor, createSmartTerrainPickerEditor } from './CatalogPickerPanel';
 import { createCustomNpcBuilderEditor } from './NpcTemplatePanel';
 import { createIcon, setButtonContent } from './icons';
+import { t } from '../lib/i18n';
 
 let overlayEl: HTMLElement | null = null;
 let focusTrap: FocusTrapController | null = null;
@@ -125,17 +126,17 @@ function renderHeader(): HTMLElement {
   const title = document.createElement('div');
   title.id = 'story-wizard-title';
   title.className = 'story-forge-title';
-  title.append(createIcon('sparkle'), document.createTextNode('Create Story'));
+  title.append(createIcon('sparkle'), document.createTextNode(t('storyWizard.title')));
 
   const copy = document.createElement('p');
-  copy.textContent = 'Fast setup. Add detail after flow exists.';
+  copy.textContent = t('storyWizard.subtitle');
   titleWrap.append(title, copy);
 
   const close = document.createElement('button');
   close.type = 'button';
   close.className = 'btn-icon story-forge-close';
-  close.title = 'Close';
-  close.setAttribute('aria-label', 'Close story wizard');
+  close.title = t('storyWizard.close.title');
+  close.setAttribute('aria-label', t('storyWizard.close.aria'));
   close.appendChild(createIcon('close'));
   close.onclick = closeStoryWizard;
 
@@ -150,8 +151,8 @@ function renderQuickActions(): HTMLElement {
   const blank = document.createElement('button');
   blank.type = 'button';
   blank.className = 'btn-sm story-forge-blank story-forge-blank-top';
-  setButtonContent(blank, 'add', 'Start Blank');
-  blank.title = 'Skip wizard and create one empty story branch';
+  setButtonContent(blank, 'add', t('storyWizard.action.startBlank'));
+  blank.title = t('storyWizard.action.startBlank.title');
   blank.onclick = startBlankStoryFromWizard;
   actions.appendChild(blank);
   return actions;
@@ -204,13 +205,13 @@ function renderFooter(draft: StoryWizardDraft): HTMLElement {
   const cancel = document.createElement('button');
   cancel.type = 'button';
   cancel.className = 'btn-sm';
-  cancel.textContent = 'Cancel';
+  cancel.textContent = t('storyWizard.action.cancel');
   cancel.onclick = closeStoryWizard;
 
   const create = document.createElement('button');
   create.type = 'button';
   create.className = 'btn-sm btn-primary story-forge-primary';
-  setButtonContent(create, 'add', 'Create Story');
+  setButtonContent(create, 'add', t('storyWizard.action.create'));
   create.onclick = () => createGeneratedStory(draft);
 
   footer.append(cancel, create);
@@ -222,7 +223,7 @@ function renderFactionPicker(value: FactionId, onChange: (value: FactionId) => v
   field.className = 'story-forge-simple-field story-forge-simple-field-wide';
   const label = document.createElement('span');
   label.className = 'story-forge-simple-label';
-  label.textContent = 'Faction';
+  label.textContent = t('storyWizard.field.faction');
   const grid = document.createElement('div');
   grid.className = 'story-forge-faction-grid story-forge-simple-factions';
 
@@ -279,7 +280,7 @@ function renderRecipePicker(value: StoryRecipeId, onChange: (value: StoryRecipeI
 
   const label = document.createElement('span');
   label.className = 'story-forge-simple-label';
-  label.textContent = 'Story Goal';
+  label.textContent = t('storyWizard.field.storyGoal');
 
   const currentRecipe = STORY_RECIPES.find((recipe) => recipe.id === value) ?? STORY_RECIPES[0];
   const currentGroup = currentRecipe?.group ?? STORY_RECIPE_GROUP_ORDER[0];
@@ -326,7 +327,7 @@ function renderSpeakerPicker(draft: StoryWizardDraft, setDraft: (patch: Partial<
   if (draft.speakerTarget === 'named_npc') {
     const label = document.createElement('span');
     label.className = 'story-forge-simple-label';
-    label.textContent = 'Story NPC';
+    label.textContent = t('storyWizard.field.storyNpc');
     const picker = createCatalogPickerPanelEditor(
       draft.storyNpcId,
       (storyNpcId) => setDraft({ storyNpcId: storyNpcId.trim() || 'bar_visitors_barman_stalker_trader' }),
@@ -353,7 +354,7 @@ function renderSpeakerPicker(draft: StoryWizardDraft, setDraft: (patch: Partial<
   if (draft.speakerTarget === 'custom_npc') {
     const npcLabel = document.createElement('span');
     npcLabel.className = 'story-forge-simple-label';
-    npcLabel.textContent = 'Custom NPC';
+    npcLabel.textContent = t('storyWizard.field.customNpc');
     const npcPicker = createCustomNpcBuilderEditor(
       draft.customNpcTemplateId,
       (customNpcTemplateId) => setDraft({ customNpcTemplateId }),
@@ -362,7 +363,7 @@ function renderSpeakerPicker(draft: StoryWizardDraft, setDraft: (patch: Partial<
     );
     const terrainLabel = document.createElement('span');
     terrainLabel.className = 'story-forge-simple-label';
-    terrainLabel.textContent = 'Spawn smart terrain';
+    terrainLabel.textContent = t('storyWizard.field.spawnSmartTerrain');
     const terrainPicker = createSmartTerrainPickerEditor(
       draft.customNpcSmartTerrain,
       (customNpcSmartTerrain) => setDraft({ customNpcSmartTerrain }),

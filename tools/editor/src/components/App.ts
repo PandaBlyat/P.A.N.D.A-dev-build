@@ -1,7 +1,7 @@
-// P.A.N.D.A. Conversation Editor — Root App Component
+﻿// P.A.N.D.A. Conversation Editor — Root App Component
 
 import { store, type BottomWorkspaceTab, type AppState, type ConversationSourceMetadata, type FlowDensity, type FlowGraphicsQuality, type RenderTarget, type StateChange } from '../lib/state';
-import { createUiText } from '../lib/ui-language';
+import { t } from '../lib/i18n';
 import { renderToolbar as renderToolbarContent } from './Toolbar';
 import {
   centerConversationSelection,
@@ -183,7 +183,6 @@ function getRenderContext(container: HTMLElement): AppRenderContext {
   const state = store.get();
   const conv = store.getSelectedConversation();
   const firstRun = state.project.conversations.length === 0 && shouldShowFirstRunExperience();
-  const ui = createUiText(state.uiLanguage);
 
   applyFactionTheme(container, getConversationFaction(conv, state.project.faction));
   document.documentElement.lang = state.uiLanguage;
@@ -197,7 +196,7 @@ function getRenderContext(container: HTMLElement): AppRenderContext {
     layoutState.toolbarHidden = false;
   }
   layoutState.wasFirstRun = firstRun;
-  syncLocalizedShell(shell, ui, conv);
+  syncLocalizedShell(shell, conv);
 
   syncResponsiveLayout(shell.mainLayout);
   shell.mainLayout.classList.toggle('main-layout-onboarding', firstRun);
@@ -221,7 +220,7 @@ function getAppShell(container: HTMLElement): AppShell {
   leftHeader.className = 'panel-header panel-header-conversations';
   const leftTitle = document.createElement('span');
   leftTitle.className = 'panel-header-title panel-header-title-conversations';
-  leftTitle.textContent = 'Stories';
+  leftTitle.textContent = t('panel.stories.title');
   const leftActions = document.createElement('div');
   leftActions.className = 'panel-header-actions panel-header-actions-conversations';
   leftHeader.append(leftTitle, leftActions);
@@ -248,7 +247,7 @@ function getAppShell(container: HTMLElement): AppShell {
   const rightHeader = document.createElement('div');
   rightHeader.className = 'panel-header';
   const rightTitle = document.createElement('span');
-  rightTitle.textContent = 'Properties';
+  rightTitle.textContent = t('panel.properties.title');
   const rightActions = document.createElement('div');
   rightActions.className = 'panel-header-actions';
   rightHeader.append(rightTitle, rightActions);
@@ -263,8 +262,8 @@ function getAppShell(container: HTMLElement): AppShell {
   const layoutScrim = document.createElement('button');
   layoutScrim.type = 'button';
   layoutScrim.className = 'layout-scrim';
-  layoutScrim.title = 'Close open panel';
-  layoutScrim.setAttribute('aria-label', 'Close open panel');
+  layoutScrim.title = t('action.closeOpenPanel');
+  layoutScrim.setAttribute('aria-label', t('action.closeOpenPanel'));
   layoutScrim.onclick = () => {
     layoutState.activeDrawer = null;
     renderApp(container);
@@ -297,8 +296,8 @@ function getAppShell(container: HTMLElement): AppShell {
   const mobileSheetScrim = document.createElement('button');
   mobileSheetScrim.type = 'button';
   mobileSheetScrim.className = 'mobile-sheet-scrim';
-  mobileSheetScrim.title = 'Close mobile panel';
-  mobileSheetScrim.setAttribute('aria-label', 'Close mobile panel');
+  mobileSheetScrim.title = t('action.closeMobilePanel');
+  mobileSheetScrim.setAttribute('aria-label', t('action.closeMobilePanel'));
   mobileSheetScrim.hidden = true;
   mobileSheetScrim.onclick = () => closeMobileSheet();
 
@@ -353,14 +352,14 @@ function getAppShell(container: HTMLElement): AppShell {
   return appShell;
 }
 
-function syncLocalizedShell(shell: AppShell, ui: ReturnType<typeof createUiText>, conv: ReturnType<typeof store.getSelectedConversation>): void {
-  shell.leftTitle.textContent = ui('Stories', 'Истории');
-  shell.rightTitle.textContent = ui('Properties', 'Свойства');
-  shell.layoutScrim.title = ui('Close open panel', 'Закрыть открытую панель');
-  shell.layoutScrim.setAttribute('aria-label', ui('Close open panel', 'Закрыть открытую панель'));
-  shell.mobileSheetScrim.title = ui('Close mobile panel', 'Закрыть мобильную панель');
-  shell.mobileSheetScrim.setAttribute('aria-label', ui('Close mobile panel', 'Закрыть мобильную панель'));
-  shell.centerTitle.textContent = `${ui('Flow Editor', 'Редактор потока')}${conv ? ` — ${conv.label}` : ''}`;
+function syncLocalizedShell(shell: AppShell, conv: ReturnType<typeof store.getSelectedConversation>): void {
+  shell.leftTitle.textContent = t('panel.stories.title');
+  shell.rightTitle.textContent = t('panel.properties.title');
+  shell.layoutScrim.title = t('action.closeOpenPanel');
+  shell.layoutScrim.setAttribute('aria-label', t('action.closeOpenPanel'));
+  shell.mobileSheetScrim.title = t('action.closeMobilePanel');
+  shell.mobileSheetScrim.setAttribute('aria-label', t('action.closeMobilePanel'));
+  shell.centerTitle.textContent = `${t('app.title.flowEditor')}${conv ? ` — ${conv.label}` : ''}`;
 }
 
 function renderLeftPanel(shell: AppShell, firstRun = false): void {
@@ -382,13 +381,13 @@ function renderLeftPanel(shell: AppShell, firstRun = false): void {
   shell.leftPanel.setAttribute('aria-hidden', String(isOverlay && !isDrawerOpen));
   const leftPanelActions = [
     createAddConversationButton(),
-    createSelectedConversationActionButton('locate', 'Center', 'Center selected conversation in the flow editor', () => {
+    createSelectedConversationActionButton('locate', t('action.center'), t('action.center.tooltip'), () => {
       if (selectedConversationId != null) centerConversationSelection(selectedConversationId);
     }, selectedConversationId == null),
-    createSelectedConversationActionButton('duplicate', 'Duplicate', 'Duplicate selected conversation', () => {
+    createSelectedConversationActionButton('duplicate', t('action.duplicate'), t('action.duplicate.tooltip'), () => {
       if (selectedConversationId != null) duplicateConversationSelection(selectedConversationId);
     }, selectedConversationId == null),
-    createSelectedConversationActionButton('delete', 'Delete', 'Delete selected conversation', () => {
+    createSelectedConversationActionButton('delete', t('action.delete'), t('action.delete.tooltip'), () => {
       if (selectedConversationId != null) deleteConversationSelection(selectedConversationId);
     }, selectedConversationId == null, true),
     createPanelToggleButton('left'),
@@ -403,27 +402,27 @@ function renderLeftPanel(shell: AppShell, firstRun = false): void {
 function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSelectedConversation>, firstRun: boolean): void {
   shell.centerPanel.classList.toggle('panel-onboarding', firstRun);
   shell.centerHeader.hidden = firstRun;
-  shell.centerTitle.textContent = `${createUiText(store.get().uiLanguage)('Flow Editor', 'Редактор потока')}${conv ? ` — ${conv.label}` : ''}`;
+  shell.centerTitle.textContent = `${t('app.title.flowEditor')}${conv ? ` — ${conv.label}` : ''}`;
   shell.centerActions.replaceChildren();
 
   if (!firstRun && layoutState.responsiveMode === 'tablet') {
-    shell.centerActions.append(createPanelLauncherButton('left', 'Stories'));
+    shell.centerActions.append(createPanelLauncherButton('left', t('panel.stories.title')));
     if (store.get().advancedMode) {
-      shell.centerActions.append(createPanelLauncherButton('right', 'Inspector'));
+      shell.centerActions.append(createPanelLauncherButton('right', t('panel.inspector.title')));
     }
   }
 
   if (conv) {
     const autoLayoutBtn = document.createElement('button');
     autoLayoutBtn.className = 'btn-sm';
-    setButtonContent(autoLayoutBtn, 'locate', 'Auto Layout');
+    setButtonContent(autoLayoutBtn, 'locate', t('action.autoLayout'));
     setBeginnerTooltip(autoLayoutBtn, 'flow-auto-layout');
     autoLayoutBtn.onclick = () => store.autoLayoutConversation(conv.id);
 
     const addTurnBtn = document.createElement('button');
     addTurnBtn.className = 'btn-sm btn-primary flow-add-turn-button';
-    setButtonContent(addTurnBtn, 'add', '+ Turn');
-    addTurnBtn.title = 'Add a new turn to create another branch';
+    setButtonContent(addTurnBtn, 'add', t('action.addTurn'));
+    addTurnBtn.title = t('action.addTurn.tooltip');
     addTurnBtn.setAttribute('aria-label', addTurnBtn.title);
     setBeginnerTooltip(addTurnBtn, 'flow-add-turn');
     addTurnBtn.onclick = () => store.addTurn(conv.id);
@@ -564,8 +563,8 @@ function createAddConversationButton(): HTMLButtonElement {
   addBtn.type = 'button';
   addBtn.className = 'btn-sm btn-icon conversation-panel-action panel-action-add';
   addBtn.appendChild(createIcon('add'));
-  addBtn.title = 'New story';
-  addBtn.setAttribute('aria-label', 'New story');
+  addBtn.title = t('action.newStory');
+  addBtn.setAttribute('aria-label', t('action.newStory'));
   setBeginnerTooltip(addBtn, 'story-new');
   addBtn.onclick = () => openStoryWizard();
   return addBtn;
@@ -861,7 +860,7 @@ function renderMobileSheet(shell: AppShell, firstRun = false): void {
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'btn-sm mobile-sheet-close';
-  setButtonContent(closeBtn, 'close', 'Close');
+  setButtonContent(closeBtn, 'close', t('action.close'));
   closeBtn.onclick = () => closeMobileSheet();
 
   header.append(grip, title, closeBtn);
@@ -940,11 +939,11 @@ function createMobileGraphicsQualityPicker(currentQuality: FlowGraphicsQuality):
   row.className = 'mobile-sheet-select-row';
 
   const label = document.createElement('span');
-  label.textContent = 'Graphics';
+  label.textContent = t('label.graphics');
 
   const select = document.createElement('select');
   select.className = 'mobile-sheet-select';
-  select.setAttribute('aria-label', 'Editor graphics quality');
+  select.setAttribute('aria-label', t('aria.editorGraphicsQuality'));
   for (const quality of GRAPHICS_QUALITY_OPTIONS) {
     const option = document.createElement('option');
     option.value = quality;
@@ -961,9 +960,9 @@ function createMobileGraphicsQualityPicker(currentQuality: FlowGraphicsQuality):
 }
 
 function graphicsQualityLabel(quality: FlowGraphicsQuality): string {
-  if (quality === 'low') return 'Low';
-  if (quality === 'medium') return 'Med';
-  return 'High';
+  if (quality === 'low') return t('graphicsQuality.low');
+  if (quality === 'medium') return t('graphicsQuality.medium');
+  return t('graphicsQuality.high');
 }
 
 function createMobileSheetAction(

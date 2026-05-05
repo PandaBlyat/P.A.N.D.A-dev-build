@@ -2,6 +2,7 @@
 
 import { createStateChange, store } from '../lib/state';
 import type { BranchInlinePanelState, PropertiesTab } from '../lib/state';
+import { t } from '../lib/i18n';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import type { Conversation, Turn, Choice, PreconditionEntry, AnyPreconditionOption, SimplePrecondition, Outcome, FactionId } from '../lib/types';
 import { FACTION_DISPLAY_NAMES, FACTION_DISPLAY_NAMES_RU, getConversationFaction } from '../lib/types';
@@ -655,7 +656,7 @@ function renderDialogueStatLedger(container: HTMLElement): void {
   const intro = document.createElement('div');
   intro.className = 'field-hint';
   intro.style.cssText = 'margin-bottom:6px;';
-  intro.textContent = 'Player stats used by Skill Check outcomes. Core stats start at 0; custom keys are project-scoped and persist in save state.';
+  intro.textContent = t('properties.customStats.help');
   body.appendChild(intro);
 
   const coreList = document.createElement('div');
@@ -676,7 +677,7 @@ function renderDialogueStatLedger(container: HTMLElement): void {
   if (customStats.length > 0) {
     const customHeading = document.createElement('div');
     customHeading.style.cssText = 'font-weight:600; margin-top:6px;';
-    customHeading.textContent = 'Custom Stats';
+    customHeading.textContent = t('properties.customStats.title');
     body.appendChild(customHeading);
 
     for (const entry of customStats) {
@@ -687,13 +688,13 @@ function renderDialogueStatLedger(container: HTMLElement): void {
       keyLabel.style.cssText = 'flex:0 0 auto;';
       const labelInput = document.createElement('input');
       labelInput.type = 'text';
-      labelInput.placeholder = 'Display label';
+      labelInput.placeholder = t('properties.customStats.label.placeholder');
       labelInput.value = entry.label ?? '';
       labelInput.style.cssText = 'flex:1; min-width:60px;';
       labelInput.onblur = () => store.renameDialogueStat(entry.key, labelInput.value);
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
-      removeBtn.textContent = 'Remove';
+      removeBtn.textContent = t('properties.customStats.remove');
       removeBtn.onclick = () => store.removeDialogueStat(entry.key);
       row.append(keyLabel, labelInput, removeBtn);
       body.appendChild(row);
@@ -704,15 +705,15 @@ function renderDialogueStatLedger(container: HTMLElement): void {
   addRow.style.cssText = 'display:flex; gap:6px; align-items:center; margin-top:8px;';
   const keyInput = document.createElement('input');
   keyInput.type = 'text';
-  keyInput.placeholder = 'new_stat_key';
+  keyInput.placeholder = t('properties.customStats.key.placeholder');
   keyInput.style.cssText = 'flex:1;';
   const labelInput = document.createElement('input');
   labelInput.type = 'text';
-  labelInput.placeholder = 'Display label (optional)';
+  labelInput.placeholder = t('properties.customStats.labelOptional.placeholder');
   labelInput.style.cssText = 'flex:1;';
   const addBtn = document.createElement('button');
   addBtn.type = 'button';
-  addBtn.textContent = 'Add Custom Stat';
+  addBtn.textContent = t('properties.customStats.add');
   addBtn.onclick = () => {
     const key = keyInput.value.trim();
     if (!key) return;
@@ -725,7 +726,7 @@ function renderDialogueStatLedger(container: HTMLElement): void {
 
   const note = document.createElement('div');
   note.className = 'field-hint';
-  note.textContent = 'Keys must be lowercase letters, digits, underscores. New keys default to 0 in save state.';
+  note.textContent = t('properties.customStats.rules');
   body.appendChild(note);
 
   container.appendChild(wrapper);
@@ -1567,11 +1568,11 @@ function renderChoiceProperties(
   const profileFilterField = document.createElement('div');
   profileFilterField.className = 'field';
   const profileFilterLabel = document.createElement('label');
-  profileFilterLabel.textContent = 'Profile Scope';
+  profileFilterLabel.textContent = t('properties.profileScope.title');
   profileFilterField.appendChild(profileFilterLabel);
   const profileFilterHint = document.createElement('div');
   profileFilterHint.className = 'field-hint';
-  profileFilterHint.textContent = 'Pick one or more sim profile IDs (derived from story-npc-catalog metadata).';
+  profileFilterHint.textContent = t('properties.profileScope.help');
   profileFilterField.appendChild(profileFilterHint);
   const profileFilterSelect = document.createElement('select');
   profileFilterSelect.multiple = true;
@@ -1601,7 +1602,7 @@ function renderChoiceProperties(
   broadScopeInput.setAttribute('data-field-key', getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'allow-generic-stalker'));
   broadScopeInput.onchange = () => store.updateChoice(conv.id, turn.turnNumber, choice.index, { allow_generic_stalker: broadScopeInput.checked });
   const broadScopeText = document.createElement('span');
-  broadScopeText.textContent = 'Allow generic sim stalker fallback';
+  broadScopeText.textContent = t('properties.profileScope.allowFallback');
   broadScopeToggle.append(broadScopeInput, broadScopeText);
   broadScopeField.appendChild(broadScopeToggle);
   targetingBody.appendChild(broadScopeField);
@@ -1634,7 +1635,7 @@ function renderChoiceProperties(
   if (choice.outcomes.length === 0) {
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
-    hint.textContent = 'No outcomes — this choice is dialogue-only. Click "+ Add" to add rewards, spawns, or other effects.';
+    hint.textContent = t('properties.choice.outcomes.none');
     outcomeBody.appendChild(hint);
   } else {
     renderOutcomeList(outcomeBody, conv, turn, choice);
@@ -1658,12 +1659,12 @@ function renderChoiceProperties(
   const contField = document.createElement('div');
   contField.className = 'field';
   const contLabel = document.createElement('label');
-  contLabel.textContent = 'Continue To Turn';
+  contLabel.textContent = t('properties.choice.continueToTurn.title');
   contField.appendChild(contLabel);
 
   const contHint = document.createElement('div');
   contHint.className = 'field-hint';
-  contHint.textContent = 'Link this choice to another turn for multi-step stories';
+  contHint.textContent = t('properties.choice.continueToTurn.help');
   contField.appendChild(contHint);
 
   const contControls = document.createElement('div');
@@ -1675,7 +1676,7 @@ function renderChoiceProperties(
 
   const noneOpt = document.createElement('option');
   noneOpt.value = '';
-  noneOpt.textContent = '(End story)';
+  noneOpt.textContent = t('properties.choice.endStory');
   noneOpt.selected = choice.continueTo == null;
   contSelect.appendChild(noneOpt);
 
@@ -1698,8 +1699,8 @@ function renderChoiceProperties(
   const createBranchButton = document.createElement('button');
   createBranchButton.type = 'button';
   createBranchButton.className = 'btn-sm inspector-action-btn';
-  setButtonContent(createBranchButton, 'add', 'Create New Branch');
-  createBranchButton.title = 'Create and connect a new turn to this choice';
+  setButtonContent(createBranchButton, 'add', t('properties.choice.createNewBranch'));
+  createBranchButton.title = t('properties.choice.createNewBranch.tooltip');
   createBranchButton.onclick = () => {
     const createdTurnNumber = store.createConnectedTurn(conv.id, turn.turnNumber, choice.index);
     if (createdTurnNumber != null) {
@@ -1718,11 +1719,11 @@ function renderChoiceProperties(
   continueAsField.className = 'field';
   setBeginnerTooltip(continueAsField, 'field-continue-as');
   const continueAsLabel = document.createElement('label');
-  continueAsLabel.textContent = 'Continue As';
+  continueAsLabel.textContent = t('properties.choice.continueAs.title');
   continueAsField.appendChild(continueAsLabel);
   const continueAsHint = document.createElement('div');
   continueAsHint.className = 'field-hint';
-  continueAsHint.textContent = 'Choices inherit this branch channel automatically. If no continuation turn is linked yet, Continue as PDA/F2F now creates one and links it for you.';
+  continueAsHint.textContent = t('properties.choice.continueAs.help');
   continueAsField.appendChild(continueAsHint);
   const continueAsRow = document.createElement('div');
   continueAsRow.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap;';
@@ -1763,11 +1764,11 @@ function renderChoiceProperties(
   const pdaDelayField = document.createElement('div');
   pdaDelayField.className = 'field';
   const pdaDelayLabel = document.createElement('label');
-  pdaDelayLabel.textContent = 'Delay Before PDA Follow-up (seconds)';
+  pdaDelayLabel.textContent = t('properties.choice.pdaDelay.title');
   pdaDelayField.appendChild(pdaDelayLabel);
   const pdaDelayHint = document.createElement('div');
   pdaDelayHint.className = 'field-hint';
-  pdaDelayHint.textContent = 'Only used when this F2F choice continues as PDA. Leave blank or use 0 for an immediate follow-up after the face-to-face dialog closes.';
+  pdaDelayHint.textContent = t('properties.choice.pdaDelay.help');
   pdaDelayField.appendChild(pdaDelayHint);
   const pdaDelayFieldKey = getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'pda-delay-seconds');
   const pdaDelayInput = document.createElement('input');
@@ -1797,11 +1798,11 @@ function renderChoiceProperties(
   const contNpcField = document.createElement('div');
   contNpcField.className = 'field';
   const contNpcLabel = document.createElement('label');
-  contNpcLabel.textContent = 'Hand off to Different NPC';
+  contNpcLabel.textContent = t('properties.choice.handoffNpc.title');
   contNpcField.appendChild(contNpcLabel);
   const contNpcHint = document.createElement('div');
   contNpcHint.className = 'field-hint';
-  contNpcHint.textContent = 'When this choice continues to the next branch, the specified NPC will send those messages instead of the current sender. Leave blank to keep the same NPC.';
+  contNpcHint.textContent = t('properties.choice.handoffNpc.help');
   contNpcField.appendChild(contNpcHint);
   const contNpcEditor = createOptionPickerPanelEditor(
     choice.cont_npc_id ?? '',
@@ -1832,11 +1833,11 @@ function renderChoiceProperties(
   const handoffField = document.createElement('div');
   handoffField.className = 'field';
   const handoffLabel = document.createElement('label');
-  handoffLabel.textContent = 'Explicit Handoff Channel';
+  handoffLabel.textContent = t('properties.choice.handoffChannel.title');
   handoffField.appendChild(handoffLabel);
   const handoffHint = document.createElement('div');
   handoffHint.className = 'field-hint';
-  handoffHint.textContent = 'Used when this choice continues to another turn. Handoffs are exclusive to PDA or F2F.';
+  handoffHint.textContent = t('properties.choice.handoffChannel.help');
   handoffField.appendChild(handoffHint);
   const handoffSelect = createChannelSelect(
     currentContinuationChannel,
@@ -1891,13 +1892,13 @@ function renderAuthorContinuationControls(
   const field = document.createElement('div');
   field.className = 'field';
   const label = document.createElement('label');
-  label.textContent = 'Next scene';
+  label.textContent = t('properties.choice.nextScene');
   field.appendChild(label);
 
   const summary = document.createElement('div');
   summary.className = 'field-hint';
   if (choice.continueTo == null) {
-    summary.textContent = 'This reply ends story. Add follow-up scene to continue branch.';
+    summary.textContent = t('properties.choice.nextScene.help');
   } else {
     const channel = normalizeChannel(choice.continueChannel ?? choice.continue_channel, normalizeChannel(turn.channel, 'pda'));
     summary.textContent = `Continues as ${channelLabel(channel)} to ${turnLabels.getLongLabel(choice.continueTo)}.`;
@@ -2068,7 +2069,7 @@ export function renderPreconditionList(container: HTMLElement, owner: Preconditi
     const handle = document.createElement('span');
     handle.className = 'drag-handle';
     handle.textContent = '⠿';
-    handle.title = 'Drag to reorder';
+    handle.title = t('properties.common.dragReorder');
     const firstItem = editorEl.querySelector('.precond-item');
     if (firstItem) firstItem.prepend(handle);
 
@@ -2141,7 +2142,7 @@ function renderPreconditionEditor(
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-icon btn-sm';
     delBtn.textContent = '×';
-      delBtn.title = 'Remove this precondition';
+      delBtn.title = t('properties.precondition.remove');
       delBtn.style.color = 'var(--danger)';
       delBtn.onclick = (e) => {
         e.stopPropagation();
@@ -2210,7 +2211,7 @@ function renderPreconditionEditor(
       const delBtn = document.createElement('button');
       delBtn.className = 'btn-icon btn-sm';
       delBtn.textContent = '×';
-      delBtn.title = 'Remove this any() option';
+      delBtn.title = t('properties.precondition.any.remove');
       delBtn.style.color = 'var(--danger)';
       delBtn.onclick = (e) => {
         e.stopPropagation();
@@ -2244,7 +2245,7 @@ function renderPreconditionDisplay(entry: PreconditionEntry): HTMLElement {
 
   if (entry.type === 'simple') {
     const schema = PRECONDITION_SCHEMAS.find(s => s.name === entry.command);
-    typeBadge.textContent = 'CHECK';
+    typeBadge.textContent = t('properties.precondition.badge.check');
     const cmd = document.createElement('span');
     cmd.className = 'precond-cmd';
     cmd.textContent = schema ? schema.label : entry.command;
@@ -2257,22 +2258,22 @@ function renderPreconditionDisplay(entry: PreconditionEntry): HTMLElement {
       span.appendChild(params);
     }
   } else if (entry.type === 'not') {
-    typeBadge.textContent = 'NEGATE';
+    typeBadge.textContent = t('properties.precondition.badge.negate');
     const notLabel = document.createElement('span');
     notLabel.style.color = 'var(--warning)';
-    notLabel.textContent = 'NOT';
+    notLabel.textContent = t('properties.precondition.badge.not');
     span.appendChild(notLabel);
   } else if (entry.type === 'any') {
-    typeBadge.textContent = 'GROUP';
+    typeBadge.textContent = t('properties.precondition.badge.group');
     const anyLabel = document.createElement('span');
     anyLabel.style.color = 'var(--info)';
     anyLabel.textContent = `ANY (${entry.options.length} options)`;
     span.appendChild(anyLabel);
   } else {
-    typeBadge.textContent = 'INVALID';
+    typeBadge.textContent = t('properties.precondition.badge.invalid');
     const invalidLabel = document.createElement('span');
     invalidLabel.style.color = 'var(--danger)';
-    invalidLabel.textContent = 'INVALID PRECONDITION';
+    invalidLabel.textContent = t('properties.precondition.badge.invalidTitle');
     span.appendChild(invalidLabel);
   }
 
@@ -2303,7 +2304,7 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
     const handle = document.createElement('span');
     handle.className = 'drag-handle';
     handle.textContent = '⠿';
-    handle.title = 'Drag to reorder';
+    handle.title = t('properties.common.dragReorder');
     item.appendChild(handle);
 
     // Drag events
@@ -2343,7 +2344,7 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
 
     const typeBadge = document.createElement('span');
     typeBadge.className = 'logic-type-badge';
-    typeBadge.textContent = 'EFFECT';
+    typeBadge.textContent = t('properties.outcome.badge.effect');
     display.appendChild(typeBadge);
 
     if (outcome.chancePercent != null && outcome.chancePercent < 100) {
@@ -2372,7 +2373,7 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-icon btn-sm';
     delBtn.textContent = '\u00d7';
-    delBtn.title = 'Remove this outcome';
+    delBtn.title = t('properties.outcome.remove');
     delBtn.style.color = 'var(--danger)';
     delBtn.onclick = (e) => {
       e.stopPropagation();
@@ -2406,8 +2407,8 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
     const chanceDiv = document.createElement('div');
     chanceDiv.style.cssText = 'padding:2px 8px; display:flex; align-items:center; gap:4px; font-size:11px;';
     const chanceLabel = document.createElement('label');
-    chanceLabel.textContent = 'Chance %';
-    chanceLabel.title = 'Probability this outcome fires (1-100, default: always)';
+    chanceLabel.textContent = t('properties.outcome.chance.label');
+    chanceLabel.title = t('properties.outcome.chance.tooltip');
     chanceLabel.style.cssText = 'margin:0; min-width: 60px;';
     const chanceInput = document.createElement('input');
     chanceInput.type = 'number';
@@ -2500,7 +2501,7 @@ export function renderParamEditors(
     label.style.cssText = 'margin:0;';
     if (paramDef.required) {
       label.textContent += ' *';
-      label.title = 'Required';
+      label.title = t('properties.field.required');
     }
     field.appendChild(label);
 
@@ -2538,7 +2539,7 @@ export function renderParamEditors(
         select.setAttribute('data-field-key', paramKey);
         const emptyOpt = document.createElement('option');
         emptyOpt.value = '';
-        emptyOpt.textContent = '-- Select faction --';
+        emptyOpt.textContent = t('properties.select.faction');
         select.appendChild(emptyOpt);
         for (const fid of FACTION_IDS) {
           const opt = document.createElement('option');
@@ -2608,7 +2609,7 @@ export function renderParamEditors(
           input = document.createElement('select');
           const emptyOpt = document.createElement('option');
           emptyOpt.value = '';
-          emptyOpt.textContent = '-- Select Level --';
+          emptyOpt.textContent = t('properties.select.level');
           input.appendChild(emptyOpt);
           for (const [key, name] of Object.entries(LEVEL_DISPLAY_NAMES)) {
             const opt = document.createElement('option');
@@ -2634,7 +2635,7 @@ export function renderParamEditors(
           input = document.createElement('input');
           input.type = 'text';
           input.value = currentParams[i] || '';
-          input.placeholder = '%level_panda_st_key%';
+          input.placeholder = t('properties.placeholder.smartTerrainKey');
           break;
         }
         case 'slot': {
@@ -2762,24 +2763,24 @@ function appendTaskAuthorMetaEditors(
   const heading = document.createElement('div');
   heading.className = 'field-hint';
   heading.style.cssText = 'font-weight: 600; margin-bottom: 4px;';
-  heading.textContent = 'PDA hover text (optional)';
+  heading.textContent = t('properties.task.pdaHover.title');
   wrap.appendChild(heading);
 
   const help = document.createElement('div');
   help.className = 'field-hint';
-  help.textContent = 'Override the title and description that appear in the player\'s PDA task list. Leave blank to use the auto-generated text. Placeholders: $location, $target, $item, $giver.';
+  help.textContent = t('properties.task.pdaHover.help');
   wrap.appendChild(help);
 
   const titleField = document.createElement('div');
   titleField.className = 'field';
   const titleLabel = document.createElement('label');
-  titleLabel.textContent = 'PDA Title';
+  titleLabel.textContent = t('properties.task.pdaTitle.title');
   titleField.appendChild(titleLabel);
   const titleInput = document.createElement('input');
   titleInput.type = 'text';
   titleInput.className = 'rich-editor-input';
   titleInput.value = meta.title;
-  titleInput.placeholder = 'e.g. Help the trapped stalker';
+  titleInput.placeholder = t('properties.task.pdaTitle.placeholder');
   const titleKey = `${getFieldKey(positionalCount)}-meta-title`;
   titleInput.setAttribute('data-field-key', titleKey);
   titleInput.oninput = () => debounced(titleKey, () => {
@@ -2791,13 +2792,13 @@ function appendTaskAuthorMetaEditors(
   const descrField = document.createElement('div');
   descrField.className = 'field';
   const descrLabel = document.createElement('label');
-  descrLabel.textContent = 'PDA Description';
+  descrLabel.textContent = t('properties.task.pdaDesc.title');
   descrField.appendChild(descrLabel);
   const descrInput = document.createElement('textarea');
   descrInput.className = 'rich-editor-input';
   descrInput.rows = 3;
   descrInput.value = meta.description;
-  descrInput.placeholder = 'e.g. Bandits have $target pinned at $location. Get them out alive.';
+  descrInput.placeholder = t('properties.task.pdaDesc.placeholder');
   const descrKey = `${getFieldKey(positionalCount + 1)}-meta-descr`;
   descrInput.setAttribute('data-field-key', descrKey);
   descrInput.oninput = () => debounced(descrKey, () => {
@@ -3095,7 +3096,7 @@ function createLevelOptionPickerPanelEditor(
   const clearButton = document.createElement('button');
   clearButton.type = 'button';
   clearButton.className = 'btn-sm';
-  clearButton.textContent = 'Clear';
+  clearButton.textContent = t('properties.common.clear');
 
   const rawInput = document.createElement('input');
   rawInput.type = 'text';
@@ -3176,7 +3177,7 @@ function createLevelOptionPickerPanelEditor(
     const closeButton = document.createElement('button');
     closeButton.className = 'btn-icon btn-sm';
     closeButton.textContent = '×';
-    closeButton.title = 'Close anomaly field picker';
+    closeButton.title = t('properties.anomalyPicker.close');
 
     titleWrap.append(title, subtitle);
     header.append(titleWrap, closeButton);
@@ -3205,7 +3206,7 @@ function createLevelOptionPickerPanelEditor(
     listContent.className = 'item-picker-list-content item-picker-list-content-static';
     const empty = document.createElement('div');
     empty.className = 'item-picker-empty';
-    empty.textContent = 'No anomaly fields match this search.';
+    empty.textContent = t('properties.anomalyPicker.empty');
     empty.hidden = true;
     list.append(listContent, empty);
     panel.appendChild(list);
@@ -3356,12 +3357,12 @@ function createSmartTerrainEditor(
 
   const emptyLevel = document.createElement('option');
   emptyLevel.value = '';
-  emptyLevel.textContent = '-- Select level --';
+  emptyLevel.textContent = t('properties.select.level');
   levelSelect.appendChild(emptyLevel);
 
   const allLevels = document.createElement('option');
   allLevels.value = '__all__';
-  allLevels.textContent = 'All levels (vanilla catalog)';
+  allLevels.textContent = t('properties.smartTerrainPicker.allLevelsVanilla');
   allLevels.selected = initialLevel === '__all__';
   levelSelect.appendChild(allLevels);
 
@@ -3376,7 +3377,7 @@ function createSmartTerrainEditor(
   const searchInput = document.createElement('input');
   searchInput.className = 'rich-editor-input';
   searchInput.type = 'search';
-  searchInput.placeholder = 'Search by id or location name…';
+  searchInput.placeholder = t('properties.smartTerrainPicker.search.placeholder');
 
   const quickActions = document.createElement('div');
   quickActions.className = 'smart-terrain-toolbar';
@@ -3384,12 +3385,12 @@ function createSmartTerrainEditor(
   const selectPlaceholderButton = document.createElement('button');
   selectPlaceholderButton.type = 'button';
   selectPlaceholderButton.className = 'ghost';
-  selectPlaceholderButton.textContent = 'Use dynamic placeholder';
+  selectPlaceholderButton.textContent = t('properties.smartTerrainPicker.useDynamic');
 
   const clearButton = document.createElement('button');
   clearButton.type = 'button';
   clearButton.className = 'ghost';
-  clearButton.textContent = 'Clear';
+  clearButton.textContent = t('properties.common.clear');
 
   if (options.allowPlaceholder) quickActions.appendChild(selectPlaceholderButton);
   quickActions.appendChild(clearButton);
@@ -3429,7 +3430,7 @@ function createSmartTerrainEditor(
     if (!selectedLevel) {
       const hint = document.createElement('div');
       hint.className = 'command-description';
-      hint.textContent = 'Choose a level to browse smart terrain ids.';
+      hint.textContent = t('properties.smartTerrainPicker.levelHint');
       terrainList.appendChild(hint);
       return;
     }
@@ -3468,7 +3469,7 @@ function createSmartTerrainEditor(
     if (filtered.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'command-description';
-      empty.textContent = 'No smart terrains match this search.';
+      empty.textContent = t('properties.smartTerrainPicker.empty');
       terrainList.appendChild(empty);
       return;
     }
@@ -3485,7 +3486,7 @@ function createSmartTerrainEditor(
   const updateSummary = () => {
     selectPlaceholderButton.disabled = !levelSelect.value || levelSelect.value === '__all__';
     if (!levelSelect.value) {
-      summary.textContent = 'Pick a level first, then choose either a specific vanilla smart terrain key or a dynamic %<level>_panda_st_key% placeholder.';
+      summary.textContent = t('properties.smartTerrainPicker.help');
       return;
     }
     if (selectionMode === 'placeholder' && levelSelect.value !== '__all__') {
@@ -3556,12 +3557,12 @@ function createStashPickerEditor(
 
   const emptyOpt = document.createElement('option');
   emptyOpt.value = '';
-  emptyOpt.textContent = '-- Filter by level --';
+  emptyOpt.textContent = t('properties.stashPicker.levelFilter');
   levelSelect.appendChild(emptyOpt);
 
   const allOpt = document.createElement('option');
   allOpt.value = '__all__';
-  allOpt.textContent = 'All levels';
+  allOpt.textContent = t('properties.stashPicker.allLevels');
   levelSelect.appendChild(allOpt);
 
   for (const levelKey of STASH_LEVELS_WITH_ENTRIES) {
@@ -3574,12 +3575,12 @@ function createStashPickerEditor(
   const searchInput = document.createElement('input');
   searchInput.className = 'rich-editor-input';
   searchInput.type = 'search';
-  searchInput.placeholder = 'Search by stash id or name…';
+  searchInput.placeholder = t('properties.stashPicker.search.placeholder');
 
   const clearButton = document.createElement('button');
   clearButton.type = 'button';
   clearButton.className = 'ghost';
-  clearButton.textContent = 'Clear';
+  clearButton.textContent = t('properties.common.clear');
 
   const quickActions = document.createElement('div');
   quickActions.className = 'smart-terrain-toolbar';
@@ -3610,7 +3611,7 @@ function createStashPickerEditor(
     if (!levelSelect.value) {
       const hint = document.createElement('div');
       hint.className = 'command-description';
-      hint.textContent = 'Choose a level filter or search to browse stash locations.';
+      hint.textContent = t('properties.stashPicker.help');
       stashList.appendChild(hint);
       return;
     }
@@ -3750,7 +3751,7 @@ function createCommandBuilderEditor(
     if (chain.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'empty-hint';
-      empty.textContent = 'No trigger commands yet. Pick one below and click Add, or type one in the box.';
+      empty.textContent = t('properties.trigger.none');
       chainList.appendChild(empty);
       return;
     }
@@ -3775,7 +3776,7 @@ function createCommandBuilderEditor(
       upBtn.type = 'button';
       upBtn.className = 'btn-sm';
       upBtn.textContent = '↑';
-      upBtn.title = 'Move up';
+      upBtn.title = t('properties.trigger.moveUp');
       upBtn.disabled = index === 0;
       upBtn.onclick = (e) => {
         e.preventDefault();
@@ -3792,7 +3793,7 @@ function createCommandBuilderEditor(
       downBtn.type = 'button';
       downBtn.className = 'btn-sm';
       downBtn.textContent = '↓';
-      downBtn.title = 'Move down';
+      downBtn.title = t('properties.trigger.moveDown');
       downBtn.disabled = index === chain.length - 1;
       downBtn.onclick = (e) => {
         e.preventDefault();
@@ -3809,7 +3810,7 @@ function createCommandBuilderEditor(
       delBtn.type = 'button';
       delBtn.className = 'btn-sm btn-danger';
       delBtn.textContent = '✕';
-      delBtn.title = 'Remove this trigger command';
+      delBtn.title = t('properties.trigger.remove');
       delBtn.onclick = (e) => {
         e.preventDefault();
         chain.splice(index, 1);
@@ -3831,7 +3832,7 @@ function createCommandBuilderEditor(
   suggestionSelect.className = 'rich-editor-input';
   const emptySuggestion = document.createElement('option');
   emptySuggestion.value = '';
-  emptySuggestion.textContent = 'Pick a suggested trigger command...';
+  emptySuggestion.textContent = t('properties.trigger.pickSuggested');
   suggestionSelect.appendChild(emptySuggestion);
   for (const suggestion of suggestions) {
     const opt = document.createElement('option');
@@ -3907,7 +3908,7 @@ function createCommandBuilderEditor(
   const addBtn = document.createElement('button');
   addBtn.type = 'button';
   addBtn.className = 'btn-sm btn-primary';
-  addBtn.textContent = 'Add to chain';
+  addBtn.textContent = t('properties.trigger.addToChain');
   addBtn.onclick = (e) => {
     e.preventDefault();
     if (!suggestionSelect.value) return;
@@ -3920,8 +3921,8 @@ function createCommandBuilderEditor(
   const replaceBtn = document.createElement('button');
   replaceBtn.type = 'button';
   replaceBtn.className = 'btn-sm';
-  replaceBtn.textContent = 'Replace chain';
-  replaceBtn.title = 'Discard the current chain and start over with the configured command';
+  replaceBtn.textContent = t('properties.trigger.replaceChain');
+  replaceBtn.title = t('properties.trigger.replaceChain.tooltip');
   replaceBtn.onclick = (e) => {
     e.preventDefault();
     if (!suggestionSelect.value) return;
@@ -3934,7 +3935,7 @@ function createCommandBuilderEditor(
   const clearBtn = document.createElement('button');
   clearBtn.type = 'button';
   clearBtn.className = 'btn-sm';
-  clearBtn.textContent = 'Clear all';
+  clearBtn.textContent = t('properties.trigger.clearAll');
   clearBtn.onclick = (e) => {
     e.preventDefault();
     chain = [];
@@ -4380,19 +4381,19 @@ export function renderEmojiPicker(
   const search = document.createElement('input');
   search.type = 'search';
   search.className = 'emoji-dropdown-search';
-  search.placeholder = 'Search emoji shortcode...';
-  search.setAttribute('aria-label', 'Search emoji shortcode');
+  search.placeholder = t('properties.emoji.search.placeholder');
+  search.setAttribute('aria-label', t('properties.emoji.search.aria'));
 
   const grid = document.createElement('div');
   grid.className = 'emoji-image-grid';
   grid.setAttribute('role', 'listbox');
-  grid.setAttribute('aria-label', 'Emoji shortcode');
+  grid.setAttribute('aria-label', t('properties.emoji.shortcode.aria'));
   let selectedShortcode = PANDA_EMOJI_OPTIONS[0]?.shortcode ?? ':question:';
 
   const insert = document.createElement('button');
   insert.type = 'button';
   insert.className = 'btn-sm emoji-dropdown-insert';
-  insert.textContent = 'Insert';
+  insert.textContent = t('properties.emoji.insert');
 
   const renderOptions = (filter = ''): void => {
     const normalized = filter.trim().toLowerCase();
@@ -4482,7 +4483,7 @@ function insertOrCopyPlaceholder(container: HTMLElement, value: string, button: 
       }, 1000);
       return;
     }
-    button.textContent = 'Copied!';
+    button.textContent = t('properties.emoji.copied');
     button.style.color = 'var(--accent)';
     setTimeout(() => {
       button.textContent = idleLabel;
@@ -4516,7 +4517,7 @@ function createPlaceholderSmartTerrainEditor(container: HTMLElement, triggerButt
 
   const title = document.createElement('div');
   title.className = 'field-hint';
-  title.textContent = 'Choose a level first, then pick either a dynamic placeholder or a specific smart terrain key.';
+  title.textContent = t('properties.smartTerrainPicker.help2');
   card.appendChild(title);
 
   const controls = document.createElement('div');
@@ -4525,7 +4526,7 @@ function createPlaceholderSmartTerrainEditor(container: HTMLElement, triggerButt
   const levelSelect = document.createElement('select');
   const emptyLevel = document.createElement('option');
   emptyLevel.value = '';
-  emptyLevel.textContent = '-- Select level --';
+  emptyLevel.textContent = t('properties.select.level');
   levelSelect.appendChild(emptyLevel);
   for (const levelKey of Object.keys(SMART_TERRAIN_LEVELS)) {
     const option = document.createElement('option');
@@ -4574,7 +4575,7 @@ function createPlaceholderSmartTerrainEditor(container: HTMLElement, triggerButt
   const updatePreview = () => {
     const selected = terrainSelect.value;
     if (!selected) {
-      preview.textContent = 'Use the text placeholder inside dialogue, the _key placeholder inside command params, or choose a specific smart terrain key.';
+      preview.textContent = t('properties.smartTerrainPicker.help3');
       return;
     }
 
@@ -4597,7 +4598,7 @@ function createPlaceholderSmartTerrainEditor(container: HTMLElement, triggerButt
 
   const insertBtn = document.createElement('button');
   insertBtn.className = 'btn-sm';
-  insertBtn.textContent = 'Insert / Copy';
+  insertBtn.textContent = t('properties.insertCopy.title');
   insertBtn.onclick = () => {
     if (!terrainSelect.value) return;
     const [, value] = terrainSelect.value.split(':', 2);
@@ -4607,7 +4608,7 @@ function createPlaceholderSmartTerrainEditor(container: HTMLElement, triggerButt
 
   const closeBtn = document.createElement('button');
   closeBtn.className = 'btn-sm';
-  closeBtn.textContent = 'Close';
+  closeBtn.textContent = t('properties.insertCopy.close');
   closeBtn.onclick = () => {
     triggerButton.classList.remove('active');
     card.remove();

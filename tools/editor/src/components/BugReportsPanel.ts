@@ -10,6 +10,7 @@ import {
 } from '../lib/api-client';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon, setButtonContent } from './icons';
+import { t } from '../lib/i18n';
 
 const BUG_REPORTS_MOUNT_ID = 'app-modal-host';
 
@@ -37,7 +38,7 @@ function getCurrentUsername(): string | null {
 
 function formatReportDate(isoDate: string): string {
   const timestamp = new Date(isoDate).getTime();
-  if (Number.isNaN(timestamp)) return 'Unknown time';
+  if (Number.isNaN(timestamp)) return t('bugReports.time.unknown');
   return new Date(timestamp).toLocaleString(undefined, {
     month: 'short',
     day: 'numeric',
@@ -81,21 +82,21 @@ export function openBugReportsPanel(): void {
   titleWrap.className = 'bug-report-title-wrap';
   const eyebrow = document.createElement('div');
   eyebrow.className = 'bug-report-eyebrow';
-  eyebrow.textContent = 'Editor reports';
+  eyebrow.textContent = t('bugReports.eyebrow');
   const title = document.createElement('h2');
   title.className = 'bug-report-title';
   title.id = 'bug-report-title';
-  title.append(createIcon('bug'), document.createTextNode('Bug Reports'));
+  title.append(createIcon('bug'), document.createTextNode(t('bugReports.title')));
   const subtitle = document.createElement('p');
   subtitle.className = 'bug-report-subtitle';
-  subtitle.textContent = 'Leave complaint. Read past reports. Panda can reply or mark fixed.';
+  subtitle.textContent = t('bugReports.subtitle');
   titleWrap.append(eyebrow, title, subtitle);
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'bug-report-close btn-icon';
-  closeBtn.setAttribute('aria-label', 'Close bug reports');
-  closeBtn.title = 'Close bug reports';
+  closeBtn.setAttribute('aria-label', t('bugReports.close.aria'));
+  closeBtn.title = t('bugReports.close.title');
   closeBtn.appendChild(createIcon('close'));
   closeBtn.onclick = closeBugReportsPanel;
   header.append(titleWrap, closeBtn);
@@ -111,7 +112,7 @@ export function openBugReportsPanel(): void {
   boardHeader.className = 'bug-report-board-header';
   const boardTitle = document.createElement('div');
   boardTitle.className = 'bug-report-board-title';
-  boardTitle.textContent = 'Past reports';
+  boardTitle.textContent = t('bugReports.boardTitle');
   filterEl = document.createElement('div');
   filterEl.className = 'bug-report-filters';
   boardHeader.append(boardTitle, filterEl);
@@ -157,28 +158,28 @@ function buildReportForm(): HTMLElement {
 
   const title = document.createElement('div');
   title.className = 'bug-report-form-title';
-  title.textContent = 'New complaint';
+  title.textContent = t('bugReports.form.title');
 
   const subjectLabel = document.createElement('label');
   subjectLabel.className = 'bug-report-field';
   const subjectText = document.createElement('span');
-  subjectText.textContent = 'Subject';
+  subjectText.textContent = t('bugReports.field.subject');
   const subject = document.createElement('input');
   subject.type = 'text';
   subject.maxLength = 120;
   subject.required = true;
-  subject.placeholder = 'Broken toolbar, profile menu, export issue...';
+  subject.placeholder = t('bugReports.field.subject.placeholder');
   subjectLabel.append(subjectText, subject);
 
   const messageLabel = document.createElement('label');
   messageLabel.className = 'bug-report-field';
   const messageText = document.createElement('span');
-  messageText.textContent = 'Message';
+  messageText.textContent = t('bugReports.field.message');
   const message = document.createElement('textarea');
   message.maxLength = 2500;
   message.required = true;
   message.rows = 8;
-  message.placeholder = 'What happened? What should happen instead?';
+  message.placeholder = t('bugReports.field.message.placeholder');
   messageLabel.append(messageText, message);
 
   const submitRow = document.createElement('div');
@@ -186,7 +187,7 @@ function buildReportForm(): HTMLElement {
   const submit = document.createElement('button');
   submit.type = 'submit';
   submit.className = 'toolbar-button btn-primary bug-report-submit';
-  setButtonContent(submit, 'bug', 'Send Report');
+  setButtonContent(submit, 'bug', t('bugReports.submit'));
   const formStatus = document.createElement('div');
   formStatus.className = 'bug-report-form-status';
   formStatus.setAttribute('aria-live', 'polite');
@@ -199,7 +200,7 @@ function buildReportForm(): HTMLElement {
     if (!subjectValue || !messageValue) return;
 
     submit.disabled = true;
-    formStatus.textContent = 'Sending...';
+    formStatus.textContent = t('bugReports.status.sending');
     try {
       const report = await submitBugReport({
         subject: subjectValue,
@@ -210,14 +211,14 @@ function buildReportForm(): HTMLElement {
       });
       subject.value = '';
       message.value = '';
-      formStatus.textContent = 'Sent.';
+      formStatus.textContent = t('bugReports.status.sent');
       if (report) reports = [report, ...reports.filter(item => item.id !== report.id)];
       currentFilter = 'all';
       renderFilters();
       renderReportList();
       void loadReports();
     } catch (error) {
-      formStatus.textContent = error instanceof Error ? error.message : 'Report failed.';
+      formStatus.textContent = error instanceof Error ? error.message : t('bugReports.status.failed');
     } finally {
       submit.disabled = false;
     }
@@ -231,10 +232,10 @@ function renderFilters(): void {
   if (!filterEl) return;
   filterEl.textContent = '';
   const filters: Array<{ id: BugReportStatus; label: string }> = [
-    { id: 'all', label: 'All' },
-    { id: 'open', label: 'Open' },
-    { id: 'fixed', label: 'Fixed' },
-    { id: 'closed', label: 'Closed' },
+    { id: 'all', label: t('bugReports.filter.all') },
+    { id: 'open', label: t('bugReports.filter.open') },
+    { id: 'fixed', label: t('bugReports.filter.fixed') },
+    { id: 'closed', label: t('bugReports.filter.closed') },
   ];
   for (const filter of filters) {
     const btn = document.createElement('button');
@@ -276,7 +277,7 @@ function renderReportList(): void {
   if (reports.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'bug-report-empty';
-    empty.textContent = 'No reports yet.';
+    empty.textContent = t('bugReports.empty');
     listEl.appendChild(empty);
     return;
   }
@@ -320,7 +321,7 @@ function buildReportCard(report: EditorBugReport): HTMLElement {
     reply.className = 'bug-report-admin-reply';
     const replyTitle = document.createElement('div');
     replyTitle.className = 'bug-report-admin-reply-title';
-    replyTitle.textContent = `Panda reply${report.admin_username ? ` - ${report.admin_username}` : ''}`;
+    replyTitle.textContent = t('bugReports.admin.replyTitle', { suffix: report.admin_username ? ` - ${report.admin_username}` : '' });
     const replyText = document.createElement('p');
     replyText.textContent = report.admin_reply;
     reply.append(replyTitle, replyText);
@@ -352,20 +353,20 @@ function buildAdminControls(report: EditorBugReport): HTMLElement {
   reply.className = 'bug-report-admin-textarea';
   reply.rows = 3;
   reply.maxLength = 2500;
-  reply.placeholder = 'Panda reply...';
+  reply.placeholder = t('bugReports.admin.reply.placeholder');
   reply.value = report.admin_reply;
 
   const save = document.createElement('button');
   save.type = 'button';
   save.className = 'toolbar-button bug-report-admin-save';
-  setButtonContent(save, 'check', 'Save');
+  setButtonContent(save, 'check', t('bugReports.admin.save'));
   const note = document.createElement('div');
   note.className = 'bug-report-admin-note';
   note.setAttribute('aria-live', 'polite');
 
   save.onclick = async () => {
     save.disabled = true;
-    note.textContent = 'Saving...';
+    note.textContent = t('bugReports.admin.saving');
     try {
       const updated = await updateBugReportAdmin(report.id, {
         publisher_id: getLocalPublisherId(),
@@ -375,11 +376,11 @@ function buildAdminControls(report: EditorBugReport): HTMLElement {
       });
       if (updated) {
         reports = reports.map(item => item.id === updated.id ? updated : item);
-        note.textContent = 'Saved.';
+        note.textContent = t('bugReports.admin.saved');
         renderReportList();
       }
     } catch (error) {
-      note.textContent = error instanceof Error ? error.message : 'Save failed.';
+      note.textContent = error instanceof Error ? error.message : t('bugReports.admin.saveFailed');
     } finally {
       save.disabled = false;
     }
@@ -388,18 +389,18 @@ function buildAdminControls(report: EditorBugReport): HTMLElement {
   const deleteBtn = document.createElement('button');
   deleteBtn.type = 'button';
   deleteBtn.className = 'toolbar-button bug-report-admin-delete';
-  setButtonContent(deleteBtn, 'delete', 'Delete');
+  setButtonContent(deleteBtn, 'delete', t('bugReports.admin.delete'));
 
   deleteBtn.onclick = async () => {
-    if (!confirm('Permanently delete this report?')) return;
+    if (!confirm(t('bugReports.admin.confirmDelete'))) return;
     deleteBtn.disabled = true;
-    note.textContent = 'Deleting...';
+    note.textContent = t('bugReports.admin.deleting');
     try {
       await deleteBugReport(report.id, getLocalPublisherId());
       reports = reports.filter(item => item.id !== report.id);
       renderReportList();
     } catch (error) {
-      note.textContent = error instanceof Error ? error.message : 'Delete failed.';
+      note.textContent = error instanceof Error ? error.message : t('bugReports.admin.deleteFailed');
       deleteBtn.disabled = false;
     }
   };

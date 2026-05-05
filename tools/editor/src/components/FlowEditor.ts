@@ -1,6 +1,7 @@
 // P.A.N.D.A. Conversation Editor — Visual Flow Editor (Center Panel)
 
 import { store, type StateChange } from '../lib/state';
+import { t } from '../lib/i18n';
 import { requestFlowCenter, setActiveFlowViewport, type FlowViewportApi } from '../lib/flow-navigation';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { createOnboardingNudge } from './Onboarding';
@@ -544,7 +545,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   const content = document.createElement('div');
   content.className = 'flow-content';
   content.setAttribute('role', 'list');
-  content.setAttribute('aria-label', 'Story turns');
+  content.setAttribute('aria-label', t('flow.aria.turns'));
   content.style.width = `${bounds.width}px`;
   content.style.height = `${bounds.height}px`;
 
@@ -1283,7 +1284,7 @@ function renderBranchInlineModalOverlay(options: {
   modal.className = 'branch-inline-modal';
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
-  modal.setAttribute('aria-label', 'Branch editor');
+  modal.setAttribute('aria-label', t('flow.aria.branchEditor'));
   modal.onclick = (event) => event.stopPropagation();
   modal.onkeydown = (event) => {
     if (event.key !== 'Escape') return;
@@ -1337,7 +1338,7 @@ function renderControls(options: {
   zoomOut.type = 'button';
   zoomOut.className = 'btn-sm';
   zoomOut.textContent = '−';
-  zoomOut.title = 'Zoom out';
+  zoomOut.title = t('flow.zoomOut');
   setBeginnerTooltip(zoomOut, 'flow-zoom');
   zoomOut.onclick = options.onZoomOut;
 
@@ -1345,23 +1346,23 @@ function renderControls(options: {
   zoomIn.type = 'button';
   zoomIn.className = 'btn-sm';
   zoomIn.textContent = '+';
-  zoomIn.title = 'Zoom in';
+  zoomIn.title = t('flow.zoomIn');
   setBeginnerTooltip(zoomIn, 'flow-zoom');
   zoomIn.onclick = options.onZoomIn;
 
   const fit = document.createElement('button');
   fit.type = 'button';
   fit.className = 'btn-sm';
-  fit.textContent = 'Fit';
-  fit.title = 'Fit conversation to viewport';
+  fit.textContent = t('flow.fit');
+  fit.title = t('flow.fit.tooltip');
   setBeginnerTooltip(fit, 'flow-fit');
   fit.onclick = options.onFit;
 
   const reset = document.createElement('button');
   reset.type = 'button';
   reset.className = 'btn-sm';
-  reset.textContent = 'Reset';
-  reset.title = 'Reset pan and zoom';
+  reset.textContent = t('flow.reset');
+  reset.title = t('flow.reset.tooltip');
   setBeginnerTooltip(reset, 'flow-reset');
   reset.onclick = options.onReset;
 
@@ -1369,8 +1370,8 @@ function renderControls(options: {
   undo.type = 'button';
   undo.className = 'btn-sm flow-icon-button';
   undo.appendChild(createIcon('undo'));
-  undo.title = 'Undo last change (Ctrl+Z)';
-  undo.setAttribute('aria-label', 'Undo');
+  undo.title = t('flow.undo.tooltip');
+  undo.setAttribute('aria-label', t('flow.undo.aria'));
   undo.disabled = state.undoStack.length === 0;
   setBeginnerTooltip(undo, 'toolbar-undo');
   undo.onclick = () => store.undo();
@@ -1379,8 +1380,8 @@ function renderControls(options: {
   redo.type = 'button';
   redo.className = 'btn-sm flow-icon-button';
   redo.appendChild(createIcon('redo'));
-  redo.title = 'Redo last undone change (Ctrl+Y)';
-  redo.setAttribute('aria-label', 'Redo');
+  redo.title = t('flow.redo.tooltip');
+  redo.setAttribute('aria-label', t('flow.redo.aria'));
   redo.disabled = state.redoStack.length === 0;
   setBeginnerTooltip(redo, 'toolbar-redo');
   redo.onclick = () => store.redo();
@@ -1389,8 +1390,8 @@ function renderControls(options: {
   addBranch.type = 'button';
   addBranch.className = 'btn-sm flow-icon-button';
   addBranch.appendChild(createIcon('add'));
-  addBranch.title = 'Add new empty branch';
-  addBranch.setAttribute('aria-label', 'Add new empty branch');
+  addBranch.title = t('flow.addBranch.tooltip');
+  addBranch.setAttribute('aria-label', t('flow.addBranch.aria'));
   addBranch.onclick = options.onAddBranch;
 
   const annotationButtons: HTMLButtonElement[] = [];
@@ -1407,8 +1408,8 @@ function renderControls(options: {
   drawButton.className = 'btn-sm flow-icon-button flow-annotation-tool';
   drawButton.dataset.annotationTool = 'draw';
   drawButton.appendChild(createIcon('draw'));
-  drawButton.title = 'Draw markup line on flow';
-  drawButton.setAttribute('aria-label', 'Draw markup line');
+  drawButton.title = t('flow.markup.drawLine.tooltip');
+  drawButton.setAttribute('aria-label', t('flow.markup.drawLine.aria'));
   drawButton.setAttribute('aria-pressed', options.activeAnnotationTool === 'draw' ? 'true' : 'false');
   drawButton.classList.toggle('is-active', options.activeAnnotationTool === 'draw');
   drawButton.onclick = () => setAnnotationTool('draw');
@@ -1419,8 +1420,8 @@ function renderControls(options: {
   textButton.className = 'btn-sm flow-icon-button flow-annotation-tool';
   textButton.dataset.annotationTool = 'text';
   textButton.appendChild(createIcon('comment'));
-  textButton.title = 'Add comment note to flow';
-  textButton.setAttribute('aria-label', 'Add comment note');
+  textButton.title = t('flow.markup.addComment.tooltip');
+  textButton.setAttribute('aria-label', t('flow.markup.addComment.aria'));
   textButton.setAttribute('aria-pressed', options.activeAnnotationTool === 'text' ? 'true' : 'false');
   textButton.classList.toggle('is-active', options.activeAnnotationTool === 'text');
   textButton.onclick = () => setAnnotationTool('text');
@@ -1430,8 +1431,8 @@ function renderControls(options: {
   annotationColor.type = 'color';
   annotationColor.className = 'flow-annotation-color';
   annotationColor.value = activeAnnotationColor;
-  annotationColor.title = 'Markup color';
-  annotationColor.setAttribute('aria-label', 'Markup color');
+  annotationColor.title = t('flow.markup.color.tooltip');
+  annotationColor.setAttribute('aria-label', t('flow.markup.color.aria'));
   annotationColor.oninput = () => {
     activeAnnotationColor = annotationColor.value;
   };
@@ -1439,8 +1440,8 @@ function renderControls(options: {
   const clearAnnotations = document.createElement('button');
   clearAnnotations.type = 'button';
   clearAnnotations.className = 'btn-sm flow-annotation-clear';
-  clearAnnotations.textContent = 'Clear Marks';
-  clearAnnotations.title = 'Remove all flow markup and comments';
+  clearAnnotations.textContent = t('flow.markup.clear');
+  clearAnnotations.title = t('flow.markup.clear.tooltip');
   clearAnnotations.disabled = !(store.getSelectedConversation()?.flowAnnotations?.length);
   clearAnnotations.onclick = () => {
     const selected = store.getSelectedConversation();
@@ -1462,7 +1463,7 @@ function renderControls(options: {
 
   const densitySelect = document.createElement('select');
   densitySelect.className = 'flow-density-select';
-  densitySelect.title = 'Adjust how much information each turn card shows in the flow editor.';
+  densitySelect.title = t('flow.density.tooltip');
   setBeginnerTooltip(densitySelect, 'toolbar-density');
   const densityOptions: FlowDensity[] = ['compact', 'standard', 'detailed'];
   for (const density of densityOptions) {
@@ -1481,7 +1482,7 @@ function renderControls(options: {
   cursorToggleInput.checked = options.customCursorEnabled;
   cursorToggleInput.onchange = () => options.onSetCursorEnabled(cursorToggleInput.checked);
   const cursorToggleLabel = document.createElement('span');
-  cursorToggleLabel.textContent = 'Cursor';
+  cursorToggleLabel.textContent = t('flow.cursor.label');
   cursorToggle.append(cursorToggleInput, cursorToggleLabel);
 
 
@@ -1491,7 +1492,7 @@ function renderControls(options: {
   sizeInput.min = '12';
   sizeInput.max = '28';
   sizeInput.value = String(options.cursorSize);
-  sizeInput.title = 'Cursor size';
+  sizeInput.title = t('flow.cursorSize.tooltip');
   sizeInput.oninput = () => options.onSetCursorSize(Number(sizeInput.value));
 
   if (options.mobilePerformanceMode) {
@@ -1675,7 +1676,7 @@ function renderLineAnnotation(svg: SVGSVGElement, layer: HTMLElement, conversati
   remove.type = 'button';
   remove.className = 'flow-annotation-delete flow-annotation-line-delete';
   remove.textContent = 'x';
-  remove.title = 'Delete drawing';
+  remove.title = t('flow.drawing.delete');
   remove.style.left = `${lastPoint.x}px`;
   remove.style.top = `${lastPoint.y}px`;
   remove.style.setProperty('--annotation-color', annotation.color);
@@ -1704,7 +1705,7 @@ function renderLineSetAnnotation(svg: SVGSVGElement, layer: HTMLElement, convers
   remove.type = 'button';
   remove.className = 'flow-annotation-delete flow-annotation-line-delete';
   remove.textContent = 'x';
-  remove.title = 'Delete drawing set';
+  remove.title = t('flow.drawingSet.delete');
   remove.style.left = `${anchor.x}px`;
   remove.style.top = `${anchor.y}px`;
   remove.style.setProperty('--annotation-color', annotation.color);
@@ -1745,11 +1746,11 @@ function renderNoteAnnotation(
   const swatch = document.createElement('span');
   swatch.className = 'flow-annotation-note-swatch';
   const label = document.createElement('span');
-  label.textContent = 'Comment';
+  label.textContent = t('flow.comment.label');
   const fontSelect = document.createElement('select');
   fontSelect.className = 'flow-annotation-note-font';
-  fontSelect.title = 'Comment font size';
-  fontSelect.setAttribute('aria-label', 'Comment font size');
+  fontSelect.title = t('flow.comment.fontSize.tooltip');
+  fontSelect.setAttribute('aria-label', t('flow.comment.fontSize.aria'));
   for (const size of FLOW_NOTE_FONT_SIZES) {
     const option = document.createElement('option');
     option.value = String(size);
@@ -1772,7 +1773,7 @@ function renderNoteAnnotation(
   remove.type = 'button';
   remove.className = 'flow-annotation-delete';
   remove.textContent = 'x';
-  remove.title = 'Delete comment';
+  remove.title = t('flow.comment.delete');
   remove.onpointerdown = (event) => event.stopPropagation();
   remove.onclick = (event) => {
     event.preventDefault();
@@ -1784,7 +1785,7 @@ function renderNoteAnnotation(
   const textarea = document.createElement('textarea');
   textarea.className = 'flow-annotation-note-input';
   textarea.value = annotation.text;
-  textarea.placeholder = 'Comment';
+  textarea.placeholder = t('flow.comment.placeholder');
   textarea.rows = 3;
   textarea.onpointerdown = (event) => event.stopPropagation();
   textarea.oninput = () => autosizeAnnotationTextarea(textarea);
@@ -2600,7 +2601,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
   const labelSpan = document.createElement('span');
   labelSpan.className = 'turn-label';
   labelSpan.textContent = turnLabels.getLongLabel(turn.turnNumber);
-  labelSpan.title = 'Click to rename this turn';
+  labelSpan.title = t('flow.turn.rename.tooltip');
   labelSpan.style.cursor = 'pointer';
   setBeginnerTooltip(labelSpan, 'flow-turn-label');
   const startLabelEdit = (e: Event) => {
@@ -2650,7 +2651,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
   colorDot.type = 'color';
   colorDot.className = 'turn-color-input';
   colorDot.value = branchColor;
-  colorDot.title = 'Change branch color';
+  colorDot.title = t('flow.branch.color.tooltip');
   colorDot.setAttribute('aria-label', `Change color for branch ${turn.turnNumber}`);
   setBeginnerTooltip(colorDot, 'flow-turn-color');
   colorDot.onchange = (event) => {
@@ -2690,7 +2691,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
     branchCondBadge.type = 'button';
     branchCondBadge.className = 'choice-branch-badge branch-cond-summary';
     branchCondBadge.textContent = `${turn.preconditions.length} cond`;
-    branchCondBadge.title = 'Open branch conditions menu';
+    branchCondBadge.title = t('flow.branch.conditions.tooltip');
     branchCondBadge.onclick = (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -2734,7 +2735,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-icon btn-sm';
     delBtn.textContent = '×';
-    delBtn.title = 'Delete turn';
+    delBtn.title = t('flow.turn.delete.tooltip');
     delBtn.textContent = 'X';
     delBtn.style.color = 'var(--danger)';
     setBeginnerTooltip(delBtn, 'flow-turn-actions');
@@ -2752,7 +2753,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
     compactDelete.type = 'button';
     compactDelete.className = 'turn-compact-delete';
     compactDelete.textContent = 'Ã—';
-    compactDelete.title = 'Delete branch';
+    compactDelete.title = t('flow.branch.delete.tooltip');
     compactDelete.textContent = 'X';
     compactDelete.setAttribute('aria-label', `Delete branch ${turn.turnNumber}`);
     compactDelete.onclick = (event) => {
@@ -2781,7 +2782,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
     openerCard.className = 'branch-opener-card branch-inline-trigger';
     openerCard.dataset.branchInlineAction = 'opener';
     openerCard.tabIndex = 0;
-    openerCard.title = 'Open NPC opener editor';
+    openerCard.title = t('flow.opener.open.tooltip');
     const openOpenerPanel = (event: Event): void => {
       event.preventDefault();
       event.stopPropagation();
@@ -2803,7 +2804,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
     };
     const openerLabel = document.createElement('span');
     openerLabel.className = 'branch-opener-label';
-    openerLabel.textContent = 'Opener';
+    openerLabel.textContent = t('flow.opener.label');
     const openerText = document.createElement('span');
     openerText.className = 'branch-opener-text';
     openerText.textContent = truncate(turn.openingMessage || 'NPC opener message', layout.messageChars);
@@ -2811,7 +2812,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
     openerEdit.type = 'button';
     openerEdit.className = 'branch-inline-edit-btn';
     openerEdit.dataset.branchInlineAction = 'opener';
-    openerEdit.textContent = 'Edit';
+    openerEdit.textContent = t('flow.edit');
     openerCard.append(openerLabel, openerText, openerEdit);
     body.appendChild(openerCard);
   }
@@ -2898,7 +2899,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
     editChoiceButton.className = 'branch-inline-edit-btn';
     editChoiceButton.dataset.branchInlineAction = 'choice';
     editChoiceButton.dataset.choiceIndex = String(choice.index);
-    editChoiceButton.textContent = 'Edit';
+    editChoiceButton.textContent = t('flow.edit');
     editChoiceButton.title = `Edit Choice ${choice.index} below this branch`;
     const openChoicePanel = (event: Event): void => {
       event.preventDefault();
@@ -2967,7 +2968,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
       const unlinkButton = document.createElement('button');
       unlinkButton.type = 'button';
       unlinkButton.className = 'choice-unlink-btn';
-      unlinkButton.textContent = 'Unlink';
+      unlinkButton.textContent = t('flow.unlink');
       unlinkButton.title = `Disconnect Choice ${choice.index} from ${turnLabels.getLongLabel(choice.continueTo)}`;
       unlinkButton.setAttribute('aria-label', `Disconnect choice ${choice.index} from ${turnLabels.getLongLabel(choice.continueTo)}`);
       setBeginnerTooltip(unlinkButton, 'flow-unlink');
@@ -2994,8 +2995,8 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
     if (isAdvancedMode && hasPauseOutcome(choice)) {
       const pauseBadge = document.createElement('span');
       pauseBadge.className = 'choice-branch-badge';
-      pauseBadge.textContent = 'branch';
-      pauseBadge.title = 'Outcome adds success/fail branch targets';
+      pauseBadge.textContent = t('flow.branch.label');
+      pauseBadge.title = t('flow.outcome.targets.tooltip');
       item.appendChild(pauseBadge);
     }
 
@@ -3035,7 +3036,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
       const outBadge = document.createElement('span');
       outBadge.className = 'choice-outcome-badge';
       outBadge.textContent = `${choice.outcomes.length} out`;
-      outBadge.title = 'Open outcomes menu';
+      outBadge.title = t('flow.outcomes.menu.tooltip');
       outBadge.onclick = (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -3125,7 +3126,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
       };
       const replyIcon = document.createElement('span');
       replyIcon.className = 'npc-reply-icon';
-      replyIcon.textContent = 'NPC';
+      replyIcon.textContent = t('flow.npc.label');
       const replyText = choiceActive
         ? createInlineTextInput({
           className: 'npc-reply-text flow-inline-choice-reply',
@@ -3149,8 +3150,8 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
     addChoiceButton.type = 'button';
     addChoiceButton.className = 'turn-choice-add-button';
     addChoiceButton.textContent = '+';
-    addChoiceButton.title = 'Add player dialogue choice';
-    addChoiceButton.setAttribute('aria-label', 'Add player dialogue choice');
+    addChoiceButton.title = t('flow.choice.addPlayer.tooltip');
+    addChoiceButton.setAttribute('aria-label', t('flow.choice.addPlayer.aria'));
     addChoiceButton.onclick = (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -3357,7 +3358,7 @@ function showBranchAuthorPopup(
   close.type = 'button';
   close.className = 'branch-author-popup-close';
   close.textContent = '×';
-  close.title = 'Close menu';
+  close.title = t('flow.menu.close.tooltip');
   close.onclick = () => closeBranchAuthorPopup();
   header.append(title, close);
   panel.appendChild(header);
@@ -3609,7 +3610,7 @@ function renderNextAuthorMenu(
   const npcField = document.createElement('div');
   npcField.className = 'branch-author-field';
   const npcLabel = document.createElement('label');
-  npcLabel.textContent = 'Hand off to NPC';
+  npcLabel.textContent = t('flow.handoffNpc');
   const npcPicker = createCatalogPickerPanelEditor(
     choice.cont_npc_id ?? '',
     (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { cont_npc_id: value.trim() || undefined }),
@@ -3716,7 +3717,7 @@ function renderCommandSummaryList<T>(options: {
     remove.type = 'button';
     remove.className = 'branch-author-remove';
     remove.textContent = '×';
-    remove.title = 'Remove';
+    remove.title = t('flow.remove');
     remove.onclick = (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -3741,7 +3742,7 @@ function createSchemaPicker(options: {
   const search = document.createElement('input');
   search.type = 'search';
   search.className = 'branch-author-search';
-  search.placeholder = 'Search commands...';
+  search.placeholder = t('flow.commands.search.placeholder');
   const results = document.createElement('div');
   results.className = 'branch-author-schema-results';
 
@@ -4199,7 +4200,7 @@ function syncBendHandle(group: SVGGElement, options: {
     handle.setAttribute('r', '7');
     handle.setAttribute('tabindex', '0');
     handle.setAttribute('role', 'slider');
-    handle.setAttribute('aria-label', 'Adjust flow line bend. Drag, use arrow keys, hold Alt for fine step, or double-click to reset.');
+    handle.setAttribute('aria-label', t('flow.lineBend.aria'));
     handle.classList.add('flow-edge-bend-handle');
     handle.style.setProperty('--flow-edge-color', edge.color);
     group.appendChild(handle);

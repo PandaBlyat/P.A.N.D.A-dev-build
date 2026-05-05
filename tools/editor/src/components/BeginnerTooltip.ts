@@ -5,6 +5,7 @@ import {
   type BeginnerTooltipConfig,
   type BeginnerTooltipPlacement,
 } from '../lib/beginner-tooltips';
+import { t } from '../lib/i18n';
 
 type TooltipAnchorPoint = {
   x: number;
@@ -334,7 +335,7 @@ function createTooltipElement(
   const close = document.createElement('button');
   close.type = 'button';
   close.className = 'btn-sm beginner-tooltip-close';
-  close.textContent = 'Close';
+  close.textContent = t('action.close');
   close.addEventListener('click', (event) => {
     stopTooltipEvent(event);
     actions.onClose();
@@ -343,7 +344,7 @@ function createTooltipElement(
   const dismiss = document.createElement('button');
   dismiss.type = 'button';
   dismiss.className = 'btn-sm btn-primary beginner-tooltip-dismiss';
-  dismiss.textContent = "Don't show again";
+  dismiss.textContent = t('action.dontShowAgain');
   dismiss.addEventListener('click', (event) => {
     stopTooltipEvent(event);
     actions.onDismiss();

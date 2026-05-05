@@ -41,6 +41,7 @@ import { renderAvatar } from './AvatarRenderer';
 import { openAvatarCustomizationModal } from './AvatarCustomizationModal';
 import { store } from '../lib/state';
 import { createUiText } from '../lib/ui-language';
+import { t } from '../lib/i18n';
 
 const PROFILE_MODAL_MOUNT_ID = 'app-modal-host';
 
@@ -1626,8 +1627,8 @@ function buildStreakChallengeSection(profile: UserProfile = cachedProfile!, opti
   if (streak.shieldAvailable) {
     const shieldBadge = document.createElement('span');
     shieldBadge.className = 'profile-mission-header-pill profile-surface-token profile-mission-header-pill-active';
-    shieldBadge.title = 'Streak Shield available — miss one week without losing your streak';
-    shieldBadge.textContent = 'Shield ready';
+    shieldBadge.title = t('profileBadge.shieldReady.tooltip');
+    shieldBadge.textContent = t('profileBadge.shieldReady');
     streakMeta.appendChild(shieldBadge);
   }
 

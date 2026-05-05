@@ -6,6 +6,7 @@ import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import type { ValidationMessage } from '../lib/types';
 import { createBadge, createControlContent, setButtonContent } from './icons';
 import { setBeginnerTooltip } from '../lib/beginner-tooltips';
+import { t } from '../lib/i18n';
 
 export function renderValidationBar(container: HTMLElement): void {
   const state = store.get();
@@ -14,7 +15,7 @@ export function renderValidationBar(container: HTMLElement): void {
   const bar = document.createElement('div');
   bar.className = 'validation-bar';
   bar.setAttribute('role', 'region');
-  bar.setAttribute('aria-label', 'Validation summary');
+  bar.setAttribute('aria-label', t('validation.summary.aria'));
 
   const summary = document.createElement('div');
   summary.className = 'validation-summary';
@@ -37,7 +38,7 @@ export function renderValidationBar(container: HTMLElement): void {
     const highlights = document.createElement('div');
     highlights.className = 'validation-highlights';
     highlights.setAttribute('role', 'list');
-    highlights.setAttribute('aria-label', 'Validation issues');
+    highlights.setAttribute('aria-label', t('validation.issues.aria'));
 
     for (const msg of messages.slice(0, 8)) {
       const item = document.createElement('button');

@@ -3,6 +3,7 @@
 import { store } from '../lib/state';
 import { generateXml } from '../lib/xml-export';
 import { importXml } from '../lib/xml-import';
+import { t } from '../lib/i18n';
 
 const xmlPreviewCache = {
   projectRevision: -1,
@@ -29,13 +30,13 @@ export function createXmlPreviewContent(): HTMLElement {
 
   const status = document.createElement('span');
   status.className = 'xml-preview-status';
-  status.textContent = 'Live';
+  status.textContent = t('xmlPreview.live');
 
   const applyBtn = document.createElement('button');
   applyBtn.type = 'button';
   applyBtn.className = 'btn-sm xml-preview-apply-btn';
-  applyBtn.textContent = 'Apply';
-  applyBtn.title = 'Parse this XML and apply it to the workspace — creates new branches/choices in real time';
+  applyBtn.textContent = t('xmlPreview.apply');
+  applyBtn.title = t('xmlPreview.apply.tooltip');
   applyBtn.disabled = true;
 
   footer.append(status, applyBtn);
@@ -51,12 +52,12 @@ export function createXmlPreviewContent(): HTMLElement {
   textarea.addEventListener('input', () => {
     if (textarea.value !== lastKnownXml) {
       isDirty = true;
-      status.textContent = 'Modified — click Apply to update workspace';
+      status.textContent = t('xmlPreview.modified');
       status.dataset.xmlState = 'modified';
       applyBtn.disabled = false;
     } else {
       isDirty = false;
-      status.textContent = 'Live';
+      status.textContent = t('xmlPreview.live');
       status.dataset.xmlState = '';
       applyBtn.disabled = true;
     }
@@ -68,7 +69,7 @@ export function createXmlPreviewContent(): HTMLElement {
 
     const result = importXml(rawXml);
     if (!result) {
-      status.textContent = 'Error: invalid PANDA XML — check faction key and structure';
+      status.textContent = t('xmlPreview.errorInvalid');
       status.dataset.xmlState = 'error';
       applyBtn.disabled = false;
       return;

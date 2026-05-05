@@ -4,6 +4,7 @@ import { createSystemStringsPanelContent } from './SystemStringsPanel';
 import { createXmlPreviewContent, updateXmlPreviewContent } from './XmlPreview';
 import { createControlContent, setButtonContent } from './icons';
 import { setBeginnerTooltip } from '../lib/beginner-tooltips';
+import { t } from '../lib/i18n';
 
 type WorkspaceItem = {
   key: BottomWorkspaceTab;
@@ -56,7 +57,7 @@ function getWorkspaceShell(container: HTMLElement): WorkspaceShell {
 
   const resizeHandle = document.createElement('div');
   resizeHandle.className = 'bottom-workspace-resize-handle';
-  resizeHandle.title = 'Drag to resize the bottom workspace';
+  resizeHandle.title = t('bottomWorkspace.resize');
   setBeginnerTooltip(resizeHandle, 'workspace-resize');
   resizeHandle.onmousedown = (event) => startResize(event);
   root.appendChild(resizeHandle);
@@ -200,7 +201,7 @@ function createAddStringButton(): HTMLButtonElement {
   const addBtn = document.createElement('button');
   addBtn.type = 'button';
   addBtn.className = 'btn-sm';
-  setButtonContent(addBtn, 'add', 'Add string');
+  setButtonContent(addBtn, 'add', t('action.addString'));
   setBeginnerTooltip(addBtn, 'workspace-add-string');
   addBtn.onclick = () => {
     const currentState = store.get();

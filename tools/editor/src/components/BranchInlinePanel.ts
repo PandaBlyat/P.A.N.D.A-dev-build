@@ -1,4 +1,5 @@
 import { store, type BranchInlinePanelMode } from '../lib/state';
+import { t } from '../lib/i18n';
 import type { Choice, Conversation, FactionId, Outcome, PreconditionEntry, SimplePrecondition, Turn } from '../lib/types';
 import { FACTION_DISPLAY_NAMES, FACTION_DISPLAY_NAMES_RU, getConversationFaction } from '../lib/types';
 import { OUTCOME_SCHEMAS, type CommandSchema } from '../lib/schema';
@@ -1679,9 +1680,9 @@ function renderNpcContinuationOptions(container: HTMLElement, conv: Conversation
   const modeRow = document.createElement('div');
   modeRow.className = 'branch-inline-npc-mode-row';
   modeRow.append(
-    createSegmentButton('Story NPC', mode === 'story', () => setNewNpcContinuationMode(conv, turn, choice, 'story')),
-    createSegmentButton('Custom NPC', mode === 'custom', () => setNewNpcContinuationMode(conv, turn, choice, 'custom')),
-    createSegmentButton('Any Sim x Faction NPC', mode === 'sim', () => setNewNpcContinuationMode(conv, turn, choice, 'sim')),
+    createSegmentButton(t('branchInline.npc.story'), mode === 'story', () => setNewNpcContinuationMode(conv, turn, choice, 'story')),
+    createSegmentButton(t('branchInline.npc.custom'), mode === 'custom', () => setNewNpcContinuationMode(conv, turn, choice, 'custom')),
+    createSegmentButton(t('branchInline.npc.anySimFaction'), mode === 'sim', () => setNewNpcContinuationMode(conv, turn, choice, 'sim')),
   );
   container.appendChild(modeRow);
 
@@ -1698,7 +1699,7 @@ function renderNpcContinuationOptions(container: HTMLElement, conv: Conversation
     storyField.className = 'branch-inline-field-block';
     const storyLabel = document.createElement('div');
     storyLabel.className = 'branch-inline-subtitle';
-    storyLabel.textContent = 'Story NPC';
+    storyLabel.textContent = t('branchInline.npc.story');
     const storyPicker = createOptionPickerPanelEditor(
       choice.cont_npc_id?.startsWith('npc:') ? '' : (choice.cont_npc_id ?? ''),
       (value) => {
@@ -1730,7 +1731,7 @@ function renderNpcContinuationOptions(container: HTMLElement, conv: Conversation
     customField.className = 'branch-inline-field-block';
     const customLabel = document.createElement('div');
     customLabel.className = 'branch-inline-subtitle';
-    customLabel.textContent = 'Custom NPC';
+    customLabel.textContent = t('branchInline.npc.custom');
     const currentTemplate = choice.cont_npc_id?.startsWith('npc:') ? choice.cont_npc_id.slice(4) : '';
     const customEditor = createCustomNpcBuilderEditor(
       currentTemplate,
@@ -1757,7 +1758,7 @@ function renderNpcContinuationOptions(container: HTMLElement, conv: Conversation
     simField.className = 'branch-inline-field-block';
     const simTitle = document.createElement('div');
     simTitle.className = 'branch-inline-subtitle';
-    simTitle.textContent = 'Any Sim x Faction NPC';
+    simTitle.textContent = t('branchInline.npc.anySimFaction');
     const factionSelect = document.createElement('select');
     factionSelect.multiple = true;
     factionSelect.size = Math.min(6, FACTION_IDS.length);
@@ -1794,7 +1795,7 @@ function createChannelControls(conv: Conversation, turn: Turn): HTMLElement {
   field.className = 'branch-inline-field-block';
   const label = document.createElement('div');
   label.className = 'branch-inline-subtitle';
-  label.textContent = 'Branch Mode';
+  label.textContent = t('branchInline.mode.title');
   const current = normalizeChannel(turn.channel, normalizeChannel(conv.initialChannel, 'pda'));
   const row = document.createElement('div');
   row.className = 'branch-inline-segmented';

@@ -20,6 +20,7 @@ import { FACTION_COLORS } from '../lib/faction-colors';
 import { createIcon } from './icons';
 import { renderAvatar, getBannerBackground } from './AvatarRenderer';
 import { getAvatarBannerPreset, getAvatarEffectPreset } from '../lib/avatar-catalog';
+import { t } from '../lib/i18n';
 
 type PublicProfileViewOptions = {
   data: PublicProfileData;
@@ -37,11 +38,11 @@ type ProfilePrestigeStat = {
 type RarityTier = { id: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'; label: string; color: string };
 
 function getRarityTier(percent: number): RarityTier {
-  if (percent < 1) return { id: 'legendary', label: 'Legendary', color: '#f59e0b' };
-  if (percent < 5) return { id: 'epic', label: 'Epic', color: '#a855f7' };
-  if (percent < 15) return { id: 'rare', label: 'Rare', color: '#3b82f6' };
-  if (percent < 40) return { id: 'uncommon', label: 'Uncommon', color: '#22c55e' };
-  return { id: 'common', label: 'Common', color: 'var(--text-dim, #8892a6)' };
+  if (percent < 1) return { id: 'legendary', label: t('publicProfile.rarityTier.legendary'), color: '#f59e0b' };
+  if (percent < 5) return { id: 'epic', label: t('publicProfile.rarityTier.epic'), color: '#a855f7' };
+  if (percent < 15) return { id: 'rare', label: t('publicProfile.rarityTier.rare'), color: '#3b82f6' };
+  if (percent < 40) return { id: 'uncommon', label: t('publicProfile.rarityTier.uncommon'), color: '#22c55e' };
+  return { id: 'common', label: t('publicProfile.rarityTier.common'), color: 'var(--text-dim, #8892a6)' };
 }
 
 function getLevelTierColor(level: number): string {
@@ -226,7 +227,7 @@ function buildHeader(data: PublicProfileData, onAvatarClick?: (event: MouseEvent
 
   const eyebrow = document.createElement('div');
   eyebrow.className = 'public-profile-eyebrow';
-  eyebrow.textContent = 'Stalker dossier';
+  eyebrow.textContent = t('publicProfile.eyebrow');
 
   const title = document.createElement('h3');
   title.className = 'public-profile-name';
@@ -267,7 +268,7 @@ function buildHeader(data: PublicProfileData, onAvatarClick?: (event: MouseEvent
   if (featured.length > 0) {
     const label = document.createElement('span');
     label.className = 'public-profile-featured-label';
-    label.textContent = 'Signature badges';
+    label.textContent = t('publicProfile.featuredBadges.label');
     featuredStrip.appendChild(label);
     featured.forEach((achievement) => {
       const badge = document.createElement('span');
@@ -430,7 +431,7 @@ function buildAchievementsSection(data: PublicProfileData, ctx?: BadgeTooltipCon
   if (catalog.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'public-profile-empty';
-    empty.textContent = 'No badges available yet.';
+    empty.textContent = t('publicProfile.badges.emptyCatalog');
     section.appendChild(empty);
     return section;
   }
@@ -467,7 +468,7 @@ function buildAchievementsSection(data: PublicProfileData, ctx?: BadgeTooltipCon
   if (unlockedAchievements.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'public-profile-empty';
-    empty.textContent = 'No badges unlocked yet — start publishing!';
+    empty.textContent = t('publicProfile.badges.emptyUnlocked');
     empty.style.gridColumn = '1 / -1';
     unlockedWall.appendChild(empty);
   }
@@ -553,12 +554,12 @@ function showBadgeTooltip(
   const descEl = document.createElement('p');
   descEl.className = 'public-profile-badge-tooltip-desc';
   descEl.textContent = state === 'locked-hidden'
-    ? 'Unlock condition hidden — keep exploring the Zone.'
+    ? t('publicProfile.badgeTooltip.unlockHidden')
     : description;
 
   const rarityEl = document.createElement('div');
   rarityEl.className = 'public-profile-badge-tooltip-rarity';
-  rarityEl.textContent = 'Loading rarity…';
+  rarityEl.textContent = t('publicProfile.badgeTooltip.rarity.loading');
 
   tooltip.append(iconEl, nameEl, metaEl, descEl, rarityEl);
 
@@ -571,22 +572,22 @@ function showBadgeTooltip(
     const pinBtn = document.createElement('button');
     pinBtn.type = 'button';
     pinBtn.className = `btn-sm public-profile-badge-pin-btn${isPinned ? ' is-pinned' : ''}`;
-    pinBtn.textContent = isPinned ? 'Remove from header display' : 'Display on profile header';
+    pinBtn.textContent = isPinned ? t('publicProfile.badgeTooltip.pin.remove') : t('publicProfile.badgeTooltip.pin.add');
     pinBtn.title = isPinned
-      ? 'Remove this badge from your profile header and leaderboard display'
-      : `Pin this badge to your profile header (max 5, currently ${currentPinned.length}/5)`;
+      ? t('publicProfile.badgeTooltip.pin.remove.title')
+      : t('publicProfile.badgeTooltip.pin.add.title', { count: currentPinned.length });
 
     pinBtn.onclick = async (e) => {
       e.stopPropagation();
       pinBtn.disabled = true;
-      pinBtn.textContent = 'Saving…';
+      pinBtn.textContent = t('publicProfile.badgeTooltip.pin.saving');
       try {
         let nextPinned: string[];
         if (isPinned) {
           nextPinned = currentPinned.filter(p => p !== id);
         } else {
           if (currentPinned.length >= 5) {
-            pinBtn.textContent = 'Already 5 pinned — remove one first';
+            pinBtn.textContent = t('publicProfile.badgeTooltip.pin.tooManyPinned');
             pinBtn.disabled = false;
             return;
           }
@@ -596,14 +597,14 @@ function showBadgeTooltip(
         const updated = await updateFeaturedAchievements(publisherId, nextPinned);
         if (updated) {
           profile.featured_achievements = nextPinned;
-          pinBtn.textContent = isPinned ? 'Removed from header' : 'Added to header!';
+          pinBtn.textContent = isPinned ? t('publicProfile.badgeTooltip.pin.removed') : t('publicProfile.badgeTooltip.pin.added');
           if (ctx.onProfileUpdated) ctx.onProfileUpdated(updated);
         } else {
-          pinBtn.textContent = 'Save failed — try again';
+          pinBtn.textContent = t('publicProfile.badgeTooltip.pin.saveFailed');
           pinBtn.disabled = false;
         }
       } catch {
-        pinBtn.textContent = 'Save failed — try again';
+        pinBtn.textContent = t('publicProfile.badgeTooltip.pin.saveFailed');
         pinBtn.disabled = false;
       }
     };
@@ -616,20 +617,20 @@ function showBadgeTooltip(
       if (!document.body.contains(rarityEl)) return;
       const stat = stats.get(id);
       if (!stat || stat.percent <= 0) {
-        rarityEl.textContent = 'Rarity: unknown';
+        rarityEl.textContent = t('publicProfile.badgeTooltip.rarity.unknown');
         return;
       }
       const pct = stat.percent;
       const tier = getRarityTier(pct);
-      rarityEl.textContent = `Unlocked by ${pct.toFixed(pct < 1 ? 2 : 1)}% of stalkers · ${tier.label}`;
+      rarityEl.textContent = t('publicProfile.badgeTooltip.rarity.unlockedBy', { percent: pct.toFixed(pct < 1 ? 2 : 1), tier: tier.label });
       rarityEl.style.setProperty('--badge-rarity-color', tier.color);
       rarityEl.dataset.rarity = tier.id;
     }).catch(() => {
       if (!document.body.contains(rarityEl)) return;
-      rarityEl.textContent = 'Rarity: unknown';
+      rarityEl.textContent = t('publicProfile.badgeTooltip.rarity.unknown');
     });
   } else {
-    rarityEl.textContent = state === 'locked-hidden' ? 'Rarity: hidden' : 'Rarity: unknown';
+    rarityEl.textContent = state === 'locked-hidden' ? t('publicProfile.badgeTooltip.rarity.hidden') : t('publicProfile.badgeTooltip.rarity.unknown');
   }
 
   // Position the tooltip near the tile.
@@ -716,7 +717,7 @@ function buildBadgeTile(
     if (pinned.includes(id)) {
       const pinnedDot = document.createElement('span');
       pinnedDot.className = 'public-profile-badge-pinned-dot';
-      pinnedDot.title = 'Displayed on your profile header';
+      pinnedDot.title = t('publicProfile.badgeTile.pinned.title');
       iconWrap.appendChild(pinnedDot);
     }
   }
@@ -756,7 +757,7 @@ function buildFactionBreakdown(data: PublicProfileData): HTMLElement {
   if (total === 0) {
     const empty = document.createElement('div');
     empty.className = 'public-profile-empty';
-    empty.textContent = 'No faction history yet.';
+    empty.textContent = t('publicProfile.faction.empty');
     section.appendChild(empty);
     return section;
   }
@@ -840,7 +841,7 @@ function buildRecentCards(data: PublicProfileData): HTMLElement {
     section.classList.add('public-profile-section-recent-empty');
     const empty = document.createElement('div');
     empty.className = 'public-profile-empty';
-    empty.textContent = 'No public conversations available from this publisher yet.';
+    empty.textContent = t('publicProfile.recent.empty');
     section.appendChild(empty);
     return section;
   }

@@ -2,6 +2,7 @@
 // Celebrates achievement unlocks with a distinct visual style from XP toasts.
 
 import type { Achievement } from '../lib/gamification';
+import { t } from '../lib/i18n';
 import { createIcon } from './icons';
 
 const TOAST_DURATION_MS = 5000;
@@ -50,7 +51,7 @@ export function showAchievementToast(achievement: Achievement): void {
 
   const label = document.createElement('span');
   label.className = 'achievement-toast-label';
-  label.textContent = 'Achievement Unlocked';
+  label.textContent = t('toast.achievementUnlocked');
 
   header.append(medalIcon, label);
 
@@ -64,7 +65,7 @@ export function showAchievementToast(achievement: Achievement): void {
 
   const xp = document.createElement('span');
   xp.className = 'achievement-toast-xp';
-  xp.textContent = `+${achievement.xp} XP`;
+  xp.textContent = t('toast.xpPlus', { count: achievement.xp });
 
   body.append(header, name, desc, xp);
   toast.append(iconWrap, body);

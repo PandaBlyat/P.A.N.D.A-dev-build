@@ -2,6 +2,7 @@
 
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon } from './icons';
+import { t } from '../lib/i18n';
 import {
   fetchRoadmapItems,
   createRoadmapItem,
@@ -76,10 +77,10 @@ export function openRoadMapModal(triggerEl?: HTMLElement | null): void {
   const titleEl = document.createElement('h2');
   titleEl.className = 'roadmap-modal-title';
   titleEl.id = 'roadmap-modal-title';
-  titleEl.textContent = 'P.A.N.D.A. Editor Roadmap';
+  titleEl.textContent = t('roadmap.title');
   const subtitleEl = document.createElement('p');
   subtitleEl.className = 'roadmap-modal-subtitle';
-  subtitleEl.textContent = 'Upcoming features, improvements, and community ideas.';
+  subtitleEl.textContent = t('roadmap.subtitle');
   titleWrap.append(icon, titleEl, subtitleEl);
 
   const headerActions = document.createElement('div');
@@ -97,7 +98,7 @@ export function openRoadMapModal(triggerEl?: HTMLElement | null): void {
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'roadmap-modal-close';
-  closeBtn.setAttribute('aria-label', 'Close roadmap');
+  closeBtn.setAttribute('aria-label', t('roadmap.close.aria'));
   closeBtn.appendChild(createIcon('close'));
   closeBtn.onclick = closeRoadMapModal;
   headerActions.append(closeBtn);
@@ -127,7 +128,7 @@ export function openRoadMapModal(triggerEl?: HTMLElement | null): void {
 
   const loadingEl = document.createElement('div');
   loadingEl.className = 'roadmap-loading';
-  loadingEl.textContent = 'Loading roadmap…';
+  loadingEl.textContent = t('roadmap.loading');
   body.appendChild(loadingEl);
 
   modal.append(header, legend, body);
@@ -162,7 +163,7 @@ async function reloadItems(body: HTMLElement): Promise<void> {
   body.replaceChildren();
   const loading = document.createElement('div');
   loading.className = 'roadmap-loading';
-  loading.textContent = 'Loading roadmap…';
+  loading.textContent = t('roadmap.loading');
   body.appendChild(loading);
 
   let items: RoadmapItem[];
@@ -172,7 +173,7 @@ async function reloadItems(body: HTMLElement): Promise<void> {
     body.replaceChildren();
     const err = document.createElement('div');
     err.className = 'roadmap-error';
-    err.textContent = 'Failed to load roadmap. Please try again later.';
+    err.textContent = t('roadmap.errorLoad');
     body.appendChild(err);
     return;
   }
@@ -182,7 +183,7 @@ async function reloadItems(body: HTMLElement): Promise<void> {
   if (items.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'roadmap-empty';
-    empty.textContent = 'No roadmap entries yet. Check back soon!';
+    empty.textContent = t('roadmap.empty');
     body.appendChild(empty);
     return;
   }
@@ -229,7 +230,7 @@ function buildColumn(status: RoadmapStatus, items: RoadmapItem[], body: HTMLElem
   if (items.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'roadmap-card-empty';
-    empty.textContent = 'Nothing here yet.';
+    empty.textContent = t('roadmap.emptySection');
     cards.appendChild(empty);
   }
 
@@ -265,7 +266,7 @@ function buildCard(item: RoadmapItem, body: HTMLElement): HTMLElement {
 
     const statusSelect = document.createElement('select');
     statusSelect.className = 'roadmap-card-status-select';
-    statusSelect.title = 'Set roadmap status';
+    statusSelect.title = t('roadmap.item.status.tooltip');
     (['development', 'planned', 'considering', 'completed', 'dropped'] as RoadmapStatus[]).forEach((status) => {
       const opt = document.createElement('option');
       opt.value = status;
@@ -292,14 +293,14 @@ function buildCard(item: RoadmapItem, body: HTMLElement): HTMLElement {
     const editBtn = document.createElement('button');
     editBtn.type = 'button';
     editBtn.className = 'roadmap-card-admin-btn';
-    editBtn.title = 'Edit item';
+    editBtn.title = t('roadmap.item.edit.tooltip');
     editBtn.appendChild(createIcon('duplicate'));
     editBtn.onclick = () => openItemEditor(item, body, () => reloadItems(body));
 
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className = 'roadmap-card-admin-btn roadmap-card-admin-btn-danger';
-    deleteBtn.title = 'Delete item';
+    deleteBtn.title = t('roadmap.item.delete.tooltip');
     deleteBtn.appendChild(createIcon('delete'));
     deleteBtn.onclick = async () => {
       if (!confirm(`Delete "${item.title}"?`)) return;
@@ -315,7 +316,7 @@ function buildCard(item: RoadmapItem, body: HTMLElement): HTMLElement {
       const completeBtn = document.createElement('button');
       completeBtn.type = 'button';
       completeBtn.className = 'roadmap-card-admin-btn roadmap-card-complete-btn';
-      completeBtn.title = 'Mark completed';
+      completeBtn.title = t('roadmap.item.complete.tooltip');
       completeBtn.appendChild(createIcon('check'));
       completeBtn.onclick = async () => {
         completeBtn.disabled = true;
@@ -398,11 +399,11 @@ function openItemEditor(
   // Title field
   const titleLabel = document.createElement('label');
   titleLabel.className = 'roadmap-editor-label';
-  titleLabel.textContent = 'Title';
+  titleLabel.textContent = t('roadmap.form.title.label');
   const titleInput = document.createElement('input');
   titleInput.type = 'text';
   titleInput.className = 'roadmap-editor-input';
-  titleInput.placeholder = 'e.g. Support for F2F chains…';
+  titleInput.placeholder = t('roadmap.form.title.placeholder');
   titleInput.maxLength = 80;
   titleInput.value = existing?.title ?? '';
   titleLabel.appendChild(titleInput);
@@ -410,10 +411,10 @@ function openItemEditor(
   // Description field
   const descLabel = document.createElement('label');
   descLabel.className = 'roadmap-editor-label';
-  descLabel.textContent = 'Description';
+  descLabel.textContent = t('roadmap.form.description.label');
   const descInput = document.createElement('textarea');
   descInput.className = 'roadmap-editor-textarea';
-  descInput.placeholder = 'Briefly describe the feature or improvement…';
+  descInput.placeholder = t('roadmap.form.description.placeholder');
   descInput.maxLength = 400;
   descInput.rows = 3;
   descInput.value = existing?.description ?? '';
@@ -422,7 +423,7 @@ function openItemEditor(
   // Status field
   const statusLabel = document.createElement('label');
   statusLabel.className = 'roadmap-editor-label';
-  statusLabel.textContent = 'Status';
+  statusLabel.textContent = t('roadmap.form.status.label');
   const statusSelect = document.createElement('select');
   statusSelect.className = 'roadmap-editor-select';
   const allStatuses: RoadmapStatus[] = ['development', 'planned', 'considering', 'completed', 'dropped'];
@@ -438,7 +439,7 @@ function openItemEditor(
   // Category field
   const catLabel = document.createElement('label');
   catLabel.className = 'roadmap-editor-label';
-  catLabel.textContent = 'Category';
+  catLabel.textContent = t('roadmap.form.category.label');
   const catSelect = document.createElement('select');
   catSelect.className = 'roadmap-editor-select';
   const allCats: RoadmapCategory[] = ['feature', 'improvement', 'community', 'bug'];
@@ -454,7 +455,7 @@ function openItemEditor(
   // Priority field
   const prioLabel = document.createElement('label');
   prioLabel.className = 'roadmap-editor-label';
-  prioLabel.textContent = 'Priority (0–10)';
+  prioLabel.textContent = t('roadmap.form.priority.label');
   const prioInput = document.createElement('input');
   prioInput.type = 'number';
   prioInput.className = 'roadmap-editor-input';
@@ -474,7 +475,7 @@ function openItemEditor(
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'btn btn-subtle';
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = t('roadmap.action.cancel');
 
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
@@ -498,12 +499,12 @@ function openItemEditor(
   saveBtn.onclick = async () => {
     const title = titleInput.value.trim();
     if (!title) {
-      errorEl.textContent = 'Title is required.';
+      errorEl.textContent = t('roadmap.error.titleRequired');
       errorEl.hidden = false;
       return;
     }
     saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving…';
+    saveBtn.textContent = t('roadmap.status.saving');
     errorEl.hidden = true;
     try {
       const payload = {

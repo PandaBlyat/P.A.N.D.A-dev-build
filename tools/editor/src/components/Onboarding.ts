@@ -2,6 +2,7 @@ import { hasDraft } from '../lib/draft-storage';
 import { importFromXml, loadOnboardingSamplePack } from '../lib/project-io';
 import { createIcon, setButtonContent, type IconName } from './icons';
 import { openStoryWizard } from './StoryWizard';
+import { t } from '../lib/i18n';
 
 type OnboardingCardOptions = {
   title: string;
@@ -132,15 +133,15 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   const subtitle = document.createElement('p');
   subtitle.className = 'first-run-subtitle hidden';
-  subtitle.textContent = 'P.A.N.D.A. Story Editor';
+  subtitle.textContent = t('onboarding.appTitle');
 
   const title = document.createElement('h2');
   title.className = 'first-run-title hidden';
-  title.textContent = 'Welcome';
+  title.textContent = t('onboarding.welcome');
 
   const tagline = document.createElement('p');
   tagline.className = 'first-run-tagline hidden';
-  tagline.textContent = 'Branching dialogue and tasks for S.T.A.L.K.E.R. Anomaly.';
+  tagline.textContent = t('onboarding.tagline');
 
   brandCopy.append(subtitle, title, tagline);
   brandPanel.append(brandEmblem, brandCopy);
@@ -150,15 +151,15 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   const missionEyebrow = document.createElement('p');
   missionEyebrow.className = 'first-run-panel-eyebrow';
-  missionEyebrow.textContent = 'How it works';
+  missionEyebrow.textContent = t('onboarding.howItWorks.title');
 
   const intro = document.createElement('p');
   intro.className = 'first-run-intro hidden';
-  intro.textContent = 'Build branching stories with preconditions, replies, choices, and outcomes. Validate the flow, then export game-ready XML.';
+  intro.textContent = t('onboarding.howItWorks.body');
 
   const subcopy = document.createElement('p');
   subcopy.className = 'first-run-subcopy hidden';
-  subcopy.textContent = 'Start with the guided builder, open a sample pack, or import existing XML.';
+  subcopy.textContent = t('onboarding.howItWorks.body2');
 
   missionPanel.append(missionEyebrow, intro, subcopy);
 
@@ -167,11 +168,11 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   const ctaLabel = document.createElement('p');
   ctaLabel.className = 'first-run-cta-label';
-  ctaLabel.textContent = 'Pick a starting point';
+  ctaLabel.textContent = t('onboarding.pickStart.title');
 
   const ctaDescription = document.createElement('p');
   ctaDescription.className = 'first-run-cta-description';
-  ctaDescription.textContent = 'Start fresh, study a sample pack, or import existing XML.';
+  ctaDescription.textContent = t('onboarding.pickStart.body');
 
   ctas.append(ctaLabel, ctaDescription);
   FIRST_RUN_CTAS.forEach(card => {
@@ -183,7 +184,7 @@ export function renderFirstRunExperience(container: HTMLElement): void {
   const skipBtn = document.createElement('button');
   skipBtn.type = 'button';
   skipBtn.className = 'first-run-skip-btn';
-  skipBtn.textContent = 'Skip intro →';
+  skipBtn.textContent = t('onboarding.skipIntro');
 
   const checklistWrap = document.createElement('div');
   checklistWrap.className = 'first-run-checklist hidden';
@@ -193,11 +194,11 @@ export function renderFirstRunExperience(container: HTMLElement): void {
 
   const checklistTitle = document.createElement('div');
   checklistTitle.className = 'first-run-checklist-title';
-  checklistTitle.textContent = 'What you will do';
+  checklistTitle.textContent = t('onboarding.whatYouWillDo.title');
 
   const checklistLead = document.createElement('p');
   checklistLead.className = 'first-run-checklist-lead';
-  checklistLead.textContent = 'The full path from blank canvas to export-ready XML.';
+  checklistLead.textContent = t('onboarding.whatYouWillDo.body');
 
   checklistBand.append(checklistTitle, checklistLead);
   checklistWrap.appendChild(checklistBand);
@@ -339,7 +340,7 @@ async function handleSamplePackClick(button?: HTMLButtonElement): Promise<void> 
   const originalMarkup = button?.innerHTML ?? null;
   if (button) {
     button.disabled = true;
-    setButtonContent(button, 'open', 'Loading Template…');
+    setButtonContent(button, 'open', t('onboarding.template.loading'));
   }
 
   try {
@@ -426,17 +427,17 @@ export function createOnboardingNudge(options: OnboardingCardOptions): HTMLEleme
 
   const blankBtn = document.createElement('button');
   blankBtn.className = 'btn btn-sm btn-primary';
-  setButtonContent(blankBtn, 'add', 'Create Story');
+  setButtonContent(blankBtn, 'add', t('onboarding.action.createStory'));
   blankBtn.onclick = () => openStoryWizard();
 
   const sampleBtn = document.createElement('button');
   sampleBtn.className = 'btn btn-sm';
-  setButtonContent(sampleBtn, 'open', 'Sample Pack');
+  setButtonContent(sampleBtn, 'open', t('onboarding.action.samplePack'));
   sampleBtn.onclick = () => void handleSamplePackClick(sampleBtn);
 
   const importBtn = document.createElement('button');
   importBtn.className = 'btn btn-sm';
-  setButtonContent(importBtn, 'import', 'Import XML');
+  setButtonContent(importBtn, 'import', t('onboarding.action.importXml'));
   importBtn.onclick = () => importFromXml();
 
   actions.append(blankBtn, sampleBtn, importBtn);

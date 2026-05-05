@@ -8,6 +8,7 @@ import { createIcon } from './icons';
 import { store } from '../lib/state';
 import { PANDA_EMOJI_SHORTCODES, pandaEmojiPreviewUrl } from './PropertiesPanel';
 import { createUiText } from '../lib/ui-language';
+import { t } from '../lib/i18n';
 
 function ui(en: string, ru: string): string {
   return createUiText(store.get().uiLanguage)(en, ru);
@@ -102,7 +103,7 @@ export function openPlayPanel(conversation: Conversation): void {
   closeBtn.className = 'btn-icon';
   closeBtn.appendChild(createIcon('close'));
   closeBtn.title = ui('Close preview', 'Закрыть предпросмотр');
-  closeBtn.setAttribute('aria-label', ui('Close conversation simulator', 'Закрыть симулятор диалога'));
+  closeBtn.setAttribute('aria-label', t('play.closeSimulator.aria'));
   closeBtn.onclick = closePlayPanel;
   header.appendChild(closeBtn);
 
@@ -208,8 +209,8 @@ export function openPlayPanel(conversation: Conversation): void {
   const footerCloseBtn = document.createElement('button');
   footerCloseBtn.type = 'button';
   footerCloseBtn.className = 'btn-sm';
-  footerCloseBtn.append(createIcon('close'), document.createTextNode('Close'));
-  footerCloseBtn.setAttribute('aria-label', 'Close conversation simulator');
+  footerCloseBtn.append(createIcon('close'), document.createTextNode(t('action.close')));
+  footerCloseBtn.setAttribute('aria-label', t('play.closeSimulator.aria'));
   footerCloseBtn.onclick = closePlayPanel;
   footerRight.appendChild(footerCloseBtn);
 

@@ -5,6 +5,7 @@ import {
   type EditorAdmin,
   type UserProfile,
 } from '../lib/api-client';
+import { t } from '../lib/i18n';
 
 let overlayEl: HTMLElement | null = null;
 
@@ -17,7 +18,7 @@ export function openPrivilegeModal(): void {
   if (overlayEl) return;
   const profile = (globalThis as any).__pandaUserProfile as UserProfile | null;
   if (!profile?.publisher_id || !canOpenPrivilegeModal()) {
-    alert('Only Panda can manage privileges.');
+    alert(t('privilege.onlyPanda'));
     return;
   }
 
@@ -33,11 +34,11 @@ export function openPrivilegeModal(): void {
   header.className = 'privilege-header';
   const title = document.createElement('div');
   title.className = 'privilege-title';
-  title.textContent = 'Privilage';
+  title.textContent = t('privilege.title');
   const close = document.createElement('button');
   close.type = 'button';
   close.className = 'toolbar-button';
-  close.textContent = 'Close';
+  close.textContent = t('action.close');
   close.onclick = closePrivilegeModal;
   header.append(title, close);
 
@@ -48,12 +49,12 @@ export function openPrivilegeModal(): void {
   form.className = 'privilege-form';
   const input = document.createElement('input');
   input.type = 'text';
-  input.placeholder = 'Username to grant admin';
+  input.placeholder = t('privilege.input.placeholder');
   input.className = 'share-form-input';
   const submit = document.createElement('button');
   submit.type = 'submit';
   submit.className = 'toolbar-button btn-primary';
-  submit.textContent = 'Grant Admin';
+  submit.textContent = t('privilege.grant');
   form.append(input, submit);
 
   const status = document.createElement('div');
@@ -76,7 +77,7 @@ export function openPrivilegeModal(): void {
     if (admins.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'privilege-empty';
-      empty.textContent = 'No extra admins yet.';
+      empty.textContent = t('privilege.empty');
       list.appendChild(empty);
       return;
     }
@@ -89,13 +90,13 @@ export function openPrivilegeModal(): void {
       const revoke = document.createElement('button');
       revoke.type = 'button';
       revoke.className = 'toolbar-button';
-      revoke.textContent = 'Revoke';
+      revoke.textContent = t('privilege.revoke');
       revoke.onclick = async () => {
         revoke.disabled = true;
         try {
           await revokeEditorAdmin(profile.publisher_id, admin.publisher_id);
           renderAdmins((await fetchEditorAdmins(profile.publisher_id)).filter(item => item.publisher_id !== admin.publisher_id));
-          setStatus(`Revoked ${admin.username}.`, 'success');
+          setStatus(t('privilege.revoked', { user: admin.username }), 'success');
         } catch (err) {
           revoke.disabled = false;
           setStatus(err instanceof Error ? err.message : String(err), 'danger');
@@ -111,12 +112,12 @@ export function openPrivilegeModal(): void {
     const username = input.value.trim();
     if (!username) return;
     submit.disabled = true;
-    setStatus('Granting admin...', 'neutral');
+    setStatus(t('privilege.granting'), 'neutral');
     try {
       await grantEditorAdmin(profile.publisher_id, username);
       input.value = '';
       renderAdmins(await fetchEditorAdmins(profile.publisher_id));
-      setStatus(`${username} can now manage roadmap, bug reports, curated stories, and demo stories.`, 'success');
+      setStatus(t('privilege.granted', { user: username }), 'success');
     } catch (err) {
       setStatus(err instanceof Error ? err.message : String(err), 'danger');
     } finally {

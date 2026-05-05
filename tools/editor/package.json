@@ -7,7 +7,8 @@
     "build:catalogs": "python ../build_editor_item_catalog.py && python ../build_editor_anomaly_catalog.py && python ../build_editor_story_npc_catalog.py && python ../build_editor_squad_catalog.py && python ../build_editor_task_catalog.py && python ../build_editor_info_portion_catalog.py && python ../build_editor_detector_tier_catalog.py",
     "dev": "vite",
     "build:item-catalog": "python ../build_editor_item_catalog.py",
-    "build": "npm run validate:conversations && tsc && vite build",
+    "validate:i18n": "node ./scripts/audit-ui-i18n.mjs",
+    "build": "npm run validate:conversations && npm run validate:i18n && tsc && vite build",
     "preview": "vite preview",
     "validate:conversations": "node ./scripts/audit-conversation-assets.mjs"
   },

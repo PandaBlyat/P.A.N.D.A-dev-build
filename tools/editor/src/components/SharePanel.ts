@@ -23,6 +23,7 @@ import { COMMUNITY_CONVERSATIONS } from '../lib/community-data';
 import { FACTION_IDS } from '../lib/constants';
 import { FACTION_DISPLAY_NAMES, FACTION_DISPLAY_NAMES_RU, FACTION_XML_KEYS, getConversationFaction, type Conversation, type FactionId } from '../lib/types';
 import { createUiText, languageFlag, languageLabel, otherLanguage, type UiLanguage } from '../lib/ui-language';
+import { t } from '../lib/i18n';
 import { FACTION_COLORS } from '../lib/faction-colors';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon, setButtonContent } from './icons';
@@ -322,7 +323,7 @@ async function handlePrimaryPublishAction(triggerBtn?: HTMLButtonElement): Promi
   const originalContent = triggerBtn?.innerHTML;
   if (triggerBtn) {
     triggerBtn.disabled = true;
-    setButtonContent(triggerBtn, 'export', 'Updating…');
+    setButtonContent(triggerBtn, 'export', t('share.status.updating'));
   }
 
   try {
@@ -1540,7 +1541,7 @@ async function handleImportCard(
 
   const original = btn.innerHTML;
   btn.disabled = true;
-  setButtonContent(btn, 'success', 'Imported!');
+  setButtonContent(btn, 'success', t('share.status.imported'));
   setTimeout(() => {
     btn.disabled = false;
     btn.innerHTML = original;
@@ -1580,7 +1581,7 @@ async function handleEditImport(conv: CommunityConversation, btn: HTMLButtonElem
 
   const original = btn.innerHTML;
   btn.disabled = true;
-  setButtonContent(btn, 'success', 'Ready to Edit');
+  setButtonContent(btn, 'success', t('share.status.readyToEdit'));
   setTimeout(() => {
     btn.disabled = false;
     btn.innerHTML = original;
@@ -1759,7 +1760,7 @@ function buildPublishFormLegacy(): HTMLElement {
     authorInput.value = storedName;
     authorInput.readOnly = true;
     authorInput.style.opacity = '0.7';
-    authorInput.title = ui('Author name is your profile username. Change it in your profile.', 'Имя автора — это ваш ник в профиле. Измените его в профиле.');
+    authorInput.title = t('share.authorName.tooltip');
   }
 
   const descInput = makeFormField(form, ui('Description', 'Описание'), 'textarea', ui('Brief description of what this story does…', 'Краткое описание истории…')) as HTMLTextAreaElement;
@@ -2225,7 +2226,7 @@ function buildPublishForm(): HTMLElement {
     authorInput.value = storedName;
     authorInput.readOnly = true;
     authorInput.style.opacity = '0.7';
-    authorInput.title = 'Author name is your profile username. Change it in your profile.';
+    authorInput.title = t('share.authorName.tooltip');
   }
 
   const descInput = markPublishField(

@@ -3,6 +3,7 @@
 import { fetchCreatorSupportStats, incrementCreatorSupportUpvote } from '../lib/api-client';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon, setButtonContent } from './icons';
+import { t } from '../lib/i18n';
 
 // Replace this with your live Ko-fi, Patreon, or link hub URL before shipping.
 const SUPPORT_PAGE_URL = 'https://ko-fi.com/thepanda98';
@@ -86,15 +87,15 @@ export function openSupportPanel(): void {
   const supportBtn = document.createElement('button');
   supportBtn.type = 'button';
   supportBtn.className = 'btn btn-primary support-panel-cta';
-  setButtonContent(supportBtn, 'support', 'Visit Ko-fi / Patreon');
-  supportBtn.title = 'Open the creator support page in a new tab';
+  setButtonContent(supportBtn, 'support', t('support.visit'));
+  supportBtn.title = t('support.visit.tooltip');
   supportBtn.onclick = () => window.open(SUPPORT_PAGE_URL, '_blank', 'noopener,noreferrer');
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'btn-icon';
-  closeBtn.title = 'Close support panel';
-  closeBtn.setAttribute('aria-label', 'Close support panel');
+  closeBtn.title = t('support.close.tooltip');
+  closeBtn.setAttribute('aria-label', t('support.close.aria'));
   closeBtn.appendChild(createIcon('close'));
   closeBtn.onclick = closeSupportPanel;
 

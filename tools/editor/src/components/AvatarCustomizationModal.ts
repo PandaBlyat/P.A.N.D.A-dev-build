@@ -18,6 +18,7 @@ import {
   type UserCosmetics,
 } from '../lib/api-client';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
+import { t } from '../lib/i18n';
 
 // Re-export so callers that previously imported these from here still work.
 export type { UserProfile, UserCosmetics };
@@ -188,13 +189,13 @@ function renderPreview(username: string, level: number, draft: UserCosmetics): H
 
   const podiumXp = document.createElement('span');
   podiumXp.className = 'pa-preview-podium-xp';
-  podiumXp.textContent = '— XP';
+  podiumXp.textContent = t('avatarModal.preview.xpSuffix');
   podiumTile.appendChild(podiumXp);
 
   // Label below the tile
   const podiumLabel = document.createElement('p');
   podiumLabel.className = 'pa-preview-tile-label';
-  podiumLabel.textContent = 'Podium card';
+  podiumLabel.textContent = t('avatarModal.preview.podiumLabel');
   podiumTile.appendChild(podiumLabel);
 
   // ── Row tile ─────────────────────────────────────────────────────────────
@@ -233,13 +234,13 @@ function renderPreview(username: string, level: number, draft: UserCosmetics): H
   rowName.textContent = username;
   const rowTitle = document.createElement('span');
   rowTitle.className = 'pa-preview-row-title';
-  rowTitle.textContent = 'Leaderboard row preview';
+  rowTitle.textContent = t('avatarModal.preview.leaderboardRowLabel');
   rowIdentity.append(rowName, rowTitle);
   rowTile.appendChild(rowIdentity);
 
   const rowXp = document.createElement('span');
   rowXp.className = 'pa-preview-row-xp';
-  rowXp.textContent = '— XP';
+  rowXp.textContent = t('avatarModal.preview.xpSuffix');
   rowTile.appendChild(rowXp);
 
   wrap.append(podiumTile, rowTile);
@@ -317,7 +318,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
   backdrop.className = 'pa-avatar-modal-backdrop';
   backdrop.setAttribute('role', 'dialog');
   backdrop.setAttribute('aria-modal', 'true');
-  backdrop.setAttribute('aria-label', 'Customize avatar');
+  backdrop.setAttribute('aria-label', t('avatarModal.aria'));
   backdrop.addEventListener('click', (event) => {
     if (event.target === backdrop) closeAvatarCustomizationModal();
   });
@@ -328,14 +329,15 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
   const header = document.createElement('header');
   header.className = 'pa-avatar-modal-header';
   const titleWrap = document.createElement('div');
+  const headerSubtitle = t('avatarModal.header.subtitle');
   const headerTitle = isAdmin
-    ? 'Customize your dossier <span class="pa-avatar-modal-admin-badge">ADMIN</span>'
-    : 'Customize your dossier';
-  titleWrap.innerHTML = `<h3>${headerTitle}</h3><p class="pa-avatar-modal-subtitle">Dress the Zone — Icon, tint, frame, banner, and VFX.</p>`;
+    ? `${t('avatarModal.header.title')} <span class="pa-avatar-modal-admin-badge">ADMIN</span>`
+    : t('avatarModal.header.title');
+  titleWrap.innerHTML = `<h3>${headerTitle}</h3><p class="pa-avatar-modal-subtitle">${headerSubtitle}</p>`;
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'pa-avatar-modal-close';
-  closeBtn.setAttribute('aria-label', 'Close');
+  closeBtn.setAttribute('aria-label', t('avatarModal.close.aria'));
   closeBtn.textContent = '\u2715';
   closeBtn.addEventListener('click', closeAvatarCustomizationModal);
   header.append(titleWrap, closeBtn);
@@ -352,11 +354,11 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
   const tabBar = document.createElement('nav');
   tabBar.className = 'pa-avatar-tabs';
   const tabs: { id: TabId; label: string }[] = [
-    { id: 'icon', label: 'Icons' },
-    { id: 'color', label: 'Tints' },
-    { id: 'frame', label: 'Frames' },
-    { id: 'banner', label: 'Banners' },
-    { id: 'effect', label: 'VFX' },
+    { id: 'icon', label: t('avatarModal.tab.icons') },
+    { id: 'color', label: t('avatarModal.tab.tints') },
+    { id: 'frame', label: t('avatarModal.tab.frames') },
+    { id: 'banner', label: t('avatarModal.tab.banners') },
+    { id: 'effect', label: t('avatarModal.tab.vfx') },
   ];
 
   const tabButtons = new Map<TabId, HTMLButtonElement>();
@@ -537,7 +539,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
       if (effectPreset && effectPreset.id !== 'none') {
         const panelTitle = document.createElement('div');
         panelTitle.className = 'pa-tweak-panel-title';
-        panelTitle.textContent = `Customize: ${effectPreset.label}`;
+        panelTitle.textContent = t('avatarModal.tweak.customizeWithName', { name: effectPreset.label });
         tweakPanel.appendChild(panelTitle);
 
         const controlsGrid = document.createElement('div');
@@ -548,7 +550,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
           const colorGroup = document.createElement('div');
           colorGroup.className = 'pa-tweak-control-group';
           const colorLabel = document.createElement('label');
-          colorLabel.textContent = 'Color';
+          colorLabel.textContent = t('avatarModal.tweak.color');
           const colorInput = document.createElement('input');
           colorInput.type = 'color';
           colorInput.className = 'pa-tweak-color-input';
@@ -679,7 +681,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
       if (framePreset && framePreset.id !== 'none') {
         const panelTitle = document.createElement('div');
         panelTitle.className = 'pa-tweak-panel-title';
-        panelTitle.textContent = `Customize: ${framePreset.label}`;
+        panelTitle.textContent = t('avatarModal.tweak.customizeWithName', { name: framePreset.label });
         tweakPanel.appendChild(panelTitle);
 
         const controlsGrid = document.createElement('div');
@@ -689,7 +691,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
         const colorGroup = document.createElement('div');
         colorGroup.className = 'pa-tweak-control-group';
         const colorLabel = document.createElement('label');
-        colorLabel.textContent = 'Frame color';
+        colorLabel.textContent = t('avatarModal.tweak.frameColor');
         const colorRow = document.createElement('div');
         colorRow.className = 'pa-tweak-color-row';
         const colorInput = document.createElement('input');
@@ -705,7 +707,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
         const resetColor = document.createElement('button');
         resetColor.type = 'button';
         resetColor.className = 'pa-tweak-reset';
-        resetColor.textContent = 'Match tint';
+    resetColor.textContent = t('avatarModal.tweak.matchTint');
         resetColor.addEventListener('click', () => {
           draft.avatar_frame_color = undefined;
           renderWorkspace();
@@ -742,7 +744,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
       if (bannerPreset && bannerPreset.id !== 'default') {
         const panelTitle = document.createElement('div');
         panelTitle.className = 'pa-tweak-panel-title';
-        panelTitle.textContent = `Customize: ${bannerPreset.label}`;
+        panelTitle.textContent = t('avatarModal.tweak.customizeWithName', { name: bannerPreset.label });
         tweakPanel.appendChild(panelTitle);
 
         const controlsGrid = document.createElement('div');
@@ -805,7 +807,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
   const resetBtn = document.createElement('button');
   resetBtn.type = 'button';
   resetBtn.className = 'pa-avatar-modal-action pa-avatar-modal-action-ghost';
-  resetBtn.textContent = 'Reset defaults';
+  resetBtn.textContent = t('avatarModal.action.resetDefaults');
   resetBtn.addEventListener('click', () => {
     draft.avatar_icon = 'default';
     draft.avatar_color = 'loner';
@@ -818,16 +820,16 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'pa-avatar-modal-action';
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = t('avatarModal.action.cancel');
   cancelBtn.addEventListener('click', closeAvatarCustomizationModal);
 
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
   saveBtn.className = 'pa-avatar-modal-action pa-avatar-modal-action-primary';
-  saveBtn.textContent = 'Save customization';
+  saveBtn.textContent = t('avatarModal.action.save');
   saveBtn.addEventListener('click', async () => {
     saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving…';
+    saveBtn.textContent = t('avatarModal.status.saving');
     try {
       const updated = await apiUpdateUserCosmetics(profile.publisher_id, draft);
       if (!updated) {
@@ -840,7 +842,7 @@ export function openAvatarCustomizationModal(options: OpenOptions): void {
     } catch (err) {
       console.error('[avatar] save failed', err);
       saveBtn.disabled = false;
-      saveBtn.textContent = 'Retry save';
+      saveBtn.textContent = t('avatarModal.action.retrySave');
     }
   });
 

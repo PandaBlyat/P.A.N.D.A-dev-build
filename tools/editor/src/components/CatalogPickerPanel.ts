@@ -1,6 +1,7 @@
 import { LEVEL_DISPLAY_NAMES, SMART_TERRAIN_LEVELS, SMART_TERRAIN_OPTIONS_ALL, SMART_TERRAIN_OPTIONS_BY_LEVEL, type SmartTerrainOption } from '../lib/constants';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { store } from '../lib/state';
+import { t } from '../lib/i18n';
 import { createUiText } from '../lib/ui-language';
 
 const CATALOG_PICKER_MOUNT_ID = 'app-modal-host';
@@ -523,8 +524,8 @@ export function createSmartTerrainPickerEditor(
   const levelSelect = document.createElement('select');
   levelSelect.className = 'rich-editor-input';
   levelSelect.setAttribute('data-field-key', fieldKey);
-  addOption(levelSelect, '', ui('-- Select level --', '-- Выбери уровень --'));
-  addOption(levelSelect, '__all__', ui('All levels (vanilla catalog)', 'Все уровни (ванильный каталог)'));
+  addOption(levelSelect, '', t('properties.smartTerrainPicker.levelSelect'));
+  addOption(levelSelect, '__all__', t('properties.smartTerrainPicker.allLevelsVanilla'));
   for (const levelKey of Object.keys(SMART_TERRAIN_LEVELS)) {
     addOption(levelSelect, levelKey, LEVEL_DISPLAY_NAMES[levelKey] || levelKey);
   }
@@ -533,7 +534,7 @@ export function createSmartTerrainPickerEditor(
   const searchInput = document.createElement('input');
   searchInput.className = 'rich-editor-input';
   searchInput.type = 'search';
-  searchInput.placeholder = ui('Search smart terrain id or location...', 'Поиск smart terrain ID или локации...');
+  searchInput.placeholder = t('properties.smartTerrainPicker.search.placeholder');
 
   const quickActions = document.createElement('div');
   quickActions.className = 'smart-terrain-toolbar';

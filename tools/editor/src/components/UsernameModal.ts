@@ -3,6 +3,7 @@
 import { registerUsername, loginWithPassword, getStoredUsername, setStoredUsername, type UserProfile } from '../lib/api-client';
 import { createIcon } from './icons';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
+import { t } from '../lib/i18n';
 
 const MODAL_MOUNT_ID = 'app-modal-host';
 
@@ -34,7 +35,7 @@ export function openUsernameModal(options: UsernameModalOptions): void {
   overlay.className = 'username-modal-overlay';
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
-  overlay.setAttribute('aria-label', 'Login or create a callsign');
+  overlay.setAttribute('aria-label', t('usernameModal.aria'));
 
   const card = document.createElement('div');
   card.className = 'username-modal-card';
@@ -47,13 +48,13 @@ export function openUsernameModal(options: UsernameModalOptions): void {
   registerTab.type = 'button';
   registerTab.className = 'username-modal-tab is-active';
   registerTab.dataset.mode = 'register';
-  registerTab.textContent = 'New Callsign';
+  registerTab.textContent = t('usernameModal.tab.register');
 
   const loginTab = document.createElement('button');
   loginTab.type = 'button';
   loginTab.className = 'username-modal-tab';
   loginTab.dataset.mode = 'login';
-  loginTab.textContent = 'Sign In';
+  loginTab.textContent = t('usernameModal.tab.login');
 
   tabs.append(registerTab, loginTab);
 
@@ -75,7 +76,7 @@ export function openUsernameModal(options: UsernameModalOptions): void {
   const usernameInput = document.createElement('input');
   usernameInput.type = 'text';
   usernameInput.className = 'username-modal-input';
-  usernameInput.placeholder = 'e.g. Strelok_42';
+  usernameInput.placeholder = t('usernameModal.input.username.placeholder');
   usernameInput.minLength = 3;
   usernameInput.maxLength = 20;
   usernameInput.autocomplete = 'username';
@@ -86,7 +87,7 @@ export function openUsernameModal(options: UsernameModalOptions): void {
   const passwordInput = document.createElement('input');
   passwordInput.type = 'password';
   passwordInput.className = 'username-modal-input username-modal-password';
-  passwordInput.placeholder = 'Password (min 6 characters)';
+  passwordInput.placeholder = t('usernameModal.input.password.min6.placeholder');
   passwordInput.autocomplete = 'current-password';
   passwordInput.minLength = 6;
 
@@ -104,7 +105,7 @@ export function openUsernameModal(options: UsernameModalOptions): void {
   const skipBtn = document.createElement('button');
   skipBtn.type = 'button';
   skipBtn.className = 'username-modal-skip';
-  skipBtn.textContent = 'Skip for now';
+  skipBtn.textContent = t('usernameModal.action.skip');
   skipBtn.onclick = () => {
     closeUsernameModal();
     options.onSkip?.();
@@ -131,20 +132,20 @@ export function openUsernameModal(options: UsernameModalOptions): void {
     errorMsg.hidden = true;
 
     if (mode === 'register') {
-      title.textContent = 'Choose your Callsign';
-      subtitle.textContent = 'Pick a name to track your XP and level in the Zone.';
-      hint.textContent = '3–20 characters. Letters, numbers, underscores, hyphens, dots.';
-      passwordInput.placeholder = 'Password (optional, min 6 chars)';
+      title.textContent = t('usernameModal.title.register');
+      subtitle.textContent = t('usernameModal.subtitle.register');
+      hint.textContent = t('usernameModal.hint.register');
+      passwordInput.placeholder = t('usernameModal.input.password.optional.placeholder');
       passwordInput.required = false;
-      submitBtn.textContent = 'Enter the Zone';
+      submitBtn.textContent = t('usernameModal.submit.enterZone');
       skipBtn.hidden = false;
     } else {
-      title.textContent = 'Sign In';
-      subtitle.textContent = 'Enter your callsign and password to restore your profile.';
-      hint.textContent = 'Your account will be loaded and saved to this device.';
-      passwordInput.placeholder = 'Password';
+      title.textContent = t('usernameModal.title.login');
+      subtitle.textContent = t('usernameModal.subtitle.login');
+      hint.textContent = t('usernameModal.hint.login');
+      passwordInput.placeholder = t('usernameModal.input.password.placeholder');
       passwordInput.required = true;
-      submitBtn.textContent = 'Sign In';
+      submitBtn.textContent = t('usernameModal.submit.signIn');
       skipBtn.hidden = true;
     }
   }
@@ -160,23 +161,23 @@ export function openUsernameModal(options: UsernameModalOptions): void {
     const password = passwordInput.value;
 
     if (username.length < 3 || username.length > 20) {
-      errorMsg.textContent = 'Username must be 3–20 characters.';
+      errorMsg.textContent = t('usernameModal.error.usernameRange');
       errorMsg.hidden = false;
       return;
     }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = currentMode === 'register' ? 'Registering…' : 'Signing in…';
+    submitBtn.textContent = currentMode === 'register' ? t('usernameModal.status.registering') : t('usernameModal.status.signingIn');
     errorMsg.hidden = true;
 
     try {
       let profile: UserProfile;
       if (currentMode === 'login') {
         if (!password || password.length < 6) {
-          errorMsg.textContent = 'Password must be at least 6 characters.';
+          errorMsg.textContent = t('usernameModal.error.passwordMin');
           errorMsg.hidden = false;
           submitBtn.disabled = false;
-          submitBtn.textContent = 'Sign In';
+          submitBtn.textContent = t('usernameModal.submit.signIn');
           return;
         }
         profile = await loginWithPassword(username, password);
@@ -191,19 +192,19 @@ export function openUsernameModal(options: UsernameModalOptions): void {
       closeUsernameModal();
       options.onRegistered(profile);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed.';
+      const message = err instanceof Error ? err.message : t('usernameModal.error.failed');
       if (currentMode === 'register') {
         if (message.toLowerCase().includes('unique') || message.toLowerCase().includes('duplicate')) {
-          errorMsg.textContent = 'That callsign is already taken. Try another.';
+          errorMsg.textContent = t('usernameModal.error.callsignTaken');
         } else {
           errorMsg.textContent = message;
         }
       } else {
-        errorMsg.textContent = 'Invalid callsign or password.';
+        errorMsg.textContent = t('usernameModal.error.invalidLogin');
       }
       errorMsg.hidden = false;
       submitBtn.disabled = false;
-      submitBtn.textContent = currentMode === 'register' ? 'Enter the Zone' : 'Sign In';
+      submitBtn.textContent = currentMode === 'register' ? t('usernameModal.submit.enterZone') : t('usernameModal.submit.signIn');
     }
   };
 }
