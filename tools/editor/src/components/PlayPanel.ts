@@ -308,6 +308,7 @@ function restartSimulation(): void {
   simState.messages = [];
   simState.currentTurnNumber = null;
   simState.path = [];
+  simState.turnSpeakerOverrides.clear();
   if (simState.conversation.turns.length === 0) {
     pushMessage({ kind: 'system', text: 'This conversation has no turns to simulate.' });
     renderMessages();
@@ -334,10 +335,12 @@ function advanceTurn(turnNumber: number): void {
 
   simState.currentTurnNumber = turnNumber;
   simState.path.push(turnNumber);
+  const speaker = resolveTurnSpeaker(turn);
+  const channel = normalizeTurnChannel(turn.channel);
 
   // Branch-entry event
   const branchLabel = simState.turnLabels.getLongLabel(turnNumber);
-  pushMessage({ kind: 'branch-entry', text: branchLabel, turnNumber });
+  pushMessage({ kind: 'branch-entry', text: branchLabel, turnNumber, speaker, channel });
 
   if (turn.openingMessage && shouldDisplayOpeningMessage(turn)) {
     const openingSpeaker = turn.firstSpeaker === 'player' ? 'player' : 'npc';
@@ -346,6 +349,8 @@ function advanceTurn(turnNumber: number): void {
       text: turn.openingMessage,
       audio: openingSpeaker === 'npc' ? turn.openingAudio : undefined,
       turnNumber,
+      speaker: openingSpeaker === 'npc' ? speaker : undefined,
+      channel,
     });
   }
 
@@ -370,7 +375,13 @@ function handleChoice(choice: Choice): void {
 
   // NPC reply bubble
   if (choice.reply) {
-    pushMessage({ kind: 'npc', text: choice.reply, audio: choice.replyAudio });
+    pushMessage({
+      kind: 'npc',
+      text: choice.reply,
+      audio: choice.replyAudio,
+      speaker: resolveChoiceSpeaker(choice),
+      channel: normalizeChoiceChannel(choice),
+    });
   }
 
   // Note about relationship variants
@@ -386,6 +397,10 @@ function handleChoice(choice: Choice): void {
 
   // Continue or end
   if (choice.continueTo != null) {
+    const continuationSpeaker = resolveContinuationSpeaker(choice);
+    if (continuationSpeaker) {
+      simState.turnSpeakerOverrides.set(choice.continueTo, continuationSpeaker);
+    }
     advanceTurn(choice.continueTo);
   } else {
     pushMessage({ kind: 'system', text: 'Conversation ended.' });
@@ -394,6 +409,20 @@ function handleChoice(choice: Choice): void {
     renderChoices([]);
     renderStatus();
   }
+}
+
+function testOutcomeBranch(choice: Choice, targetTurn: number | null, label: 'Success' | 'Fail'): void {
+  if (!simState || targetTurn == null || !simState.conversation.turns.some((turn) => turn.turnNumber === targetTurn)) return;
+  pushMessage({ kind: 'player', text: ui(`Test ${label}`, `Тест: ${label === 'Success' ? 'успех' : 'провал'}`) });
+  const continuationSpeaker = resolveContinuationSpeaker(choice);
+  if (continuationSpeaker) {
+    simState.turnSpeakerOverrides.set(targetTurn, continuationSpeaker);
+  }
+  pushMessage({
+    kind: 'system',
+    text: ui(`${label} branch forced by simulator.`, `${label === 'Success' ? 'Успешная' : 'Провальная'} ветка выбрана симулятором.`),
+  });
+  advanceTurn(targetTurn);
 }
 
 function triggerTimeout(): void {
@@ -416,6 +445,103 @@ function triggerTimeout(): void {
 
 function normalizeTurnChannel(channel: Conversation['turns'][number]['channel'] | undefined): 'pda' | 'f2f' {
   return channel === 'f2f' ? 'f2f' : 'pda';
+}
+
+function normalizeChoiceChannel(choice: Choice): 'pda' | 'f2f' {
+  return choice.channel === 'f2f' ? 'f2f' : 'pda';
+}
+
+function createSummaryChip(text: string): HTMLElement {
+  const chip = document.createElement('span');
+  chip.className = 'play-summary-chip';
+  chip.textContent = text;
+  return chip;
+}
+
+function formatIdLabel(value: string): string {
+  return value
+    .replace(/^st_panda_npc_template_/, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function resolveSpeakerFromNpcId(npcId: string | undefined, fallbackSource: SimSpeaker['source'] = 'story'): SimSpeaker | null {
+  const id = npcId?.trim();
+  if (!id) return null;
+
+  const custom = (store.get().project.npcTemplates ?? []).find((template) => template.id === id);
+  if (custom) {
+    return {
+      id,
+      name: custom.name?.trim() || formatIdLabel(id),
+      detail: [custom.faction, custom.rank].filter(Boolean).join(' · ') || id,
+      faction: custom.faction,
+      source: 'custom',
+    };
+  }
+
+  const story = STORY_NPC_OPTIONS.find((option) => option.value === id);
+  if (story) {
+    return {
+      id,
+      name: story.characterName?.trim() || formatIdLabel(id),
+      detail: [story.faction, story.level, story.role].filter(Boolean).join(' · ') || id,
+      faction: story.faction,
+      source: 'story',
+    };
+  }
+
+  return {
+    id,
+    name: formatIdLabel(id),
+    detail: id,
+    source: fallbackSource,
+  };
+}
+
+function resolveSpeakerFromFactionFilters(filters: FactionId[] | undefined): SimSpeaker | null {
+  if (!filters || filters.length === 0) return null;
+  const names = filters.map((faction) => FACTION_DISPLAY_NAMES[faction] ?? faction);
+  return {
+    name: `${names.join(' / ')} ${ui('NPC', 'NPC')}`,
+    detail: ui('Faction-filtered simulated speaker', 'Симулированный speaker по фильтру группировки'),
+    faction: filters[0],
+    source: 'faction',
+  };
+}
+
+function fallbackSpeaker(): SimSpeaker {
+  return {
+    name: ui('Generic NPC', 'Обычный NPC'),
+    detail: ui('No speaker target set', 'Целевой NPC не задан'),
+    source: 'generic',
+  };
+}
+
+function resolveTurnSpeaker(turn: Turn): SimSpeaker {
+  if (!simState) return fallbackSpeaker();
+  return simState.turnSpeakerOverrides.get(turn.turnNumber)
+    ?? resolveSpeakerFromNpcId(turn.speaker_npc_id)
+    ?? resolveSpeakerFromFactionFilters(turn.speaker_npc_faction_filters)
+    ?? fallbackSpeaker();
+}
+
+function resolveChoiceSpeaker(choice: Choice): SimSpeaker {
+  if (!simState) return fallbackSpeaker();
+  const state = simState;
+  const turn = state.currentTurnNumber == null
+    ? null
+    : state.conversation.turns.find((candidate) => candidate.turnNumber === state.currentTurnNumber) ?? null;
+  return resolveSpeakerFromNpcId(choice.story_npc_id)
+    ?? resolveSpeakerFromFactionFilters(choice.npc_faction_filters)
+    ?? (turn ? resolveTurnSpeaker(turn) : null)
+    ?? fallbackSpeaker();
+}
+
+function resolveContinuationSpeaker(choice: Choice): SimSpeaker | null {
+  return resolveSpeakerFromNpcId(choice.cont_npc_id)
+    ?? resolveSpeakerFromNpcId(choice.story_npc_id)
+    ?? resolveSpeakerFromFactionFilters(choice.npc_faction_filters);
 }
 
 function isEntryTurn(turn: Conversation['turns'][number]): boolean {
@@ -443,7 +569,7 @@ function parseOutcome(outcome: Outcome): StructuredOutcome {
   const chance = outcome.chancePercent != null && outcome.chancePercent !== 100
     ? outcome.chancePercent
     : undefined;
-  return { label, params: outcome.params, chancePercent: chance };
+  return { label, params: outcome.params, chancePercent: chance, resumeTargets: parseOutcomeResumeTurnNumbers(outcome) ?? undefined };
 }
 
 // ---------------------------------------------------------------------------
@@ -500,6 +626,9 @@ function renderMessage(msg: SimMessage): HTMLElement {
 function renderBasicMessage(msg: SimMessage): HTMLElement {
   const div = document.createElement('div');
   div.className = `play-msg play-msg-${msg.kind}`;
+  if (msg.kind === 'npc' && msg.speaker) {
+    div.appendChild(renderSpeakerHeader(msg.speaker, msg.channel));
+  }
   renderMessageText(div, msg.text ?? '');
   if (msg.kind === 'npc' && msg.audio) {
     const audio = document.createElement('div');
@@ -508,6 +637,31 @@ function renderBasicMessage(msg: SimMessage): HTMLElement {
     div.appendChild(audio);
   }
   return div;
+}
+
+function renderSpeakerHeader(speaker: SimSpeaker, channel?: 'pda' | 'f2f'): HTMLElement {
+  const header = document.createElement('div');
+  header.className = 'play-speaker-header';
+
+  const name = document.createElement('span');
+  name.className = 'play-speaker-name';
+  name.textContent = speaker.name;
+  name.title = speaker.detail;
+  header.appendChild(name);
+
+  if (channel) {
+    const channelBadge = document.createElement('span');
+    channelBadge.className = 'play-speaker-badge';
+    channelBadge.textContent = channel.toUpperCase();
+    header.appendChild(channelBadge);
+  }
+
+  const sourceBadge = document.createElement('span');
+  sourceBadge.className = `play-speaker-badge play-speaker-${speaker.source}`;
+  sourceBadge.textContent = speaker.source;
+  header.appendChild(sourceBadge);
+
+  return header;
 }
 
 function renderMessageText(container: HTMLElement, text: string): void {
@@ -553,6 +707,14 @@ function renderBranchEntry(msg: SimMessage): HTMLElement {
   label.textContent = msg.text ?? '';
   div.appendChild(label);
 
+  if (msg.speaker) {
+    const speaker = document.createElement('span');
+    speaker.className = 'play-branch-speaker';
+    speaker.textContent = `${msg.speaker.name} · ${(msg.channel ?? 'pda').toUpperCase()}`;
+    speaker.title = msg.speaker.detail;
+    div.appendChild(speaker);
+  }
+
   return div;
 }
 
@@ -588,10 +750,23 @@ function renderOutcomeBlock(msg: SimMessage): HTMLElement {
       row.appendChild(chanceEl);
     }
 
+    if (outcome.resumeTargets) {
+      const targets = document.createElement('span');
+      targets.className = 'play-outcome-targets';
+      targets.textContent = formatResumeTargets(outcome.resumeTargets);
+      row.appendChild(targets);
+    }
+
     block.appendChild(row);
   }
 
   return block;
+}
+
+function formatResumeTargets(targets: SimResumeTargets): string {
+  const success = targets.successTurn == null ? ui('missing', 'нет') : String(targets.successTurn);
+  const fail = targets.failTurn == null ? ui('missing', 'нет') : String(targets.failTurn);
+  return ui(`Success ${success} / Fail ${fail}`, `Успех ${success} / Провал ${fail}`);
 }
 
 function renderTimeoutMessage(msg: SimMessage): HTMLElement {
@@ -649,10 +824,20 @@ function renderChoices(choices: Choice[]): void {
   choicesEl.style.display = '';
 
   for (const choice of choices) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
+    const btn = document.createElement('div');
     btn.className = 'play-choice-card';
-    btn.onclick = () => handleChoice(choice);
+    btn.tabIndex = 0;
+    btn.setAttribute('role', 'button');
+    btn.onclick = (event) => {
+      if ((event.target as HTMLElement).closest('button')) return;
+      handleChoice(choice);
+    };
+    btn.onkeydown = (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        handleChoice(choice);
+      }
+    };
 
     // Title line
     const titleEl = document.createElement('div');
@@ -705,12 +890,58 @@ function renderChoices(choices: Choice[]): void {
     }
 
     btn.appendChild(meta);
+
+    const branchTargets = getChoiceResumeTargets(choice);
+    if (branchTargets.length > 0) {
+      const branchWrap = document.createElement('div');
+      branchWrap.className = 'play-choice-branch-tests';
+      for (const targets of branchTargets) {
+        branchWrap.append(
+          createBranchTestButton(choice, 'Success', targets.successTurn),
+          createBranchTestButton(choice, 'Fail', targets.failTurn),
+        );
+      }
+      btn.appendChild(branchWrap);
+    }
+
     choicesEl.appendChild(btn);
   }
 
   // Focus the first choice for keyboard accessibility
-  const firstBtn = choicesEl.querySelector('button');
+  const firstBtn = choicesEl.querySelector<HTMLElement>('.play-choice-card');
   if (firstBtn) firstBtn.focus();
+}
+
+function getChoiceResumeTargets(choice: Choice): SimResumeTargets[] {
+  const unique = new Map<string, SimResumeTargets>();
+  for (const outcome of choice.outcomes) {
+    const targets = parseOutcomeResumeTurnNumbers(outcome);
+    if (!targets) continue;
+    unique.set(`${targets.kind}:${targets.successTurn ?? ''}:${targets.failTurn ?? ''}`, targets);
+  }
+  return [...unique.values()];
+}
+
+function createBranchTestButton(choice: Choice, label: 'Success' | 'Fail', turnNumber: number | null): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `play-branch-test-btn play-branch-test-${label.toLowerCase()}`;
+  const exists = !!simState?.conversation.turns.some((turn) => turn.turnNumber === turnNumber);
+  button.disabled = !exists;
+  button.append(
+    createIcon(label === 'Success' ? 'success' : 'warning'),
+    document.createTextNode(turnNumber == null
+      ? ui(`${label}: missing`, `${label === 'Success' ? 'Успех' : 'Провал'}: нет`)
+      : ui(`Test ${label} → ${turnNumber}`, `Тест ${label === 'Success' ? 'успех' : 'провал'} → ${turnNumber}`)),
+  );
+  button.title = exists
+    ? ui(`Force ${label.toLowerCase()} branch in simulator`, `Принудительно открыть ветку: ${label === 'Success' ? 'успех' : 'провал'}`)
+    : ui('Configured target turn is missing', 'Целевая реплика не найдена');
+  button.onclick = (event) => {
+    event.stopPropagation();
+    testOutcomeBranch(choice, turnNumber, label);
+  };
+  return button;
 }
 
 function formatPreconditionPreview(entry: NonNullable<Choice['preconditions']>[number]): string {

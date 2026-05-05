@@ -2081,7 +2081,7 @@ function buildPublishForm(): HTMLElement {
   form.className = 'share-publish-form';
   form.hidden = true;
 
-  const markPublishField = <T extends HTMLInputElement | HTMLTextAreaElement>(input: T, ...classNames: string[]): T => {
+  const markPublishField = <T extends HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(input: T, ...classNames: string[]): T => {
     input.closest('.share-form-field')?.classList.add('share-publish-field', ...classNames);
     return input;
   };
@@ -2259,6 +2259,15 @@ function buildPublishForm(): HTMLElement {
     'share-publish-field-tags',
   );
 
+  const languageInput = markPublishField(
+    makeSelectFormField(metaStack, ui('Story Language', 'Story Language'), [
+      { value: 'en', label: `${languageFlag('en')} ${languageLabel('en')}` },
+      { value: 'ru', label: `${languageFlag('ru')} ${languageLabel('ru')}` },
+    ]),
+    'share-publish-field-language',
+  );
+  languageInput.onchange = () => updatePreview(store.getSelectedConversation(), getPrimaryPublishReplacementMode());
+
   const demoRow = document.createElement('label');
   demoRow.className = 'share-consent-row share-publish-demo-toggle';
   const demoInput = document.createElement('input');
@@ -2382,7 +2391,8 @@ function buildPublishForm(): HTMLElement {
     qualityMetric.value.textContent = `${preview.qualityScore.totalStars}-star x${formatMultiplier(preview.qualityMultiplier)}`;
     rewardMetric.value.textContent = `+${preview.publishXp} XP`;
 
-    factionValue.textContent = `${FACTION_DISPLAY_NAMES[faction]} | ${preview.branchCount} branches | ${labelForComplexity(preview.complexity)} signal`;
+    const selectedLanguage = languageInput.value === 'ru' ? 'ru' : 'en';
+    factionValue.textContent = `${FACTION_DISPLAY_NAMES[faction]} | ${languageFlag(selectedLanguage)} ${languageLabel(selectedLanguage)} | ${preview.branchCount} branches | ${labelForComplexity(preview.complexity)} signal`;
     factionValue.style.color = FACTION_COLORS[faction];
 
     rewardValue.textContent = `+${preview.publishXp} XP`;
@@ -2452,6 +2462,11 @@ function buildPublishForm(): HTMLElement {
     const faction = getConversationFaction(conv, store.get().project.faction);
     const branchCount = getBranchCount(conv);
     const uiLanguage = getUiLanguage();
+    const selectedStoryLanguage: UiLanguage = languageInput.value === 'ru' ? 'ru' : 'en';
+    const publishConversationCopy: Conversation = {
+      ...structuredClone(conv),
+      language: selectedStoryLanguage,
+    };
     const selectedSourceMetadata = store.getSelectedConversationSourceMetadata();
     const fallbackCommunityMetadata = getCommunitySourceMetadata(conv);
     const selectedSourcePublisherId = (selectedSourceMetadata?.sourcePublisherId ?? fallbackCommunityMetadata?.publisher_id ?? '').trim();
@@ -2459,7 +2474,7 @@ function buildPublishForm(): HTMLElement {
     const selectedReplacementPublisherId = getReplacementPublisherId(selectedSourcePublisherId, selectedSourceCoAuthors);
     const selectedOwnershipValid = Boolean(selectedReplacementPublisherId);
     const isTranslationDraft = isTranslationDraftMetadata(selectedSourceMetadata ?? fallbackCommunityMetadata);
-    const storyLanguage: UiLanguage = conv.language === 'ru' ? 'ru' : 'en';
+    const storyLanguage: UiLanguage = selectedStoryLanguage;
     const translationTargetLanguage: UiLanguage = selectedSourceMetadata?.targetLanguage ?? fallbackCommunityMetadata?.targetLanguage ?? storyLanguage;
     const translationSourceLanguage = selectedSourceMetadata?.sourceLanguage ?? fallbackCommunityMetadata?.sourceLanguage ?? otherLanguage(translationTargetLanguage);
     const translationSourceId = selectedSourceMetadata?.sourceCommunityId ?? fallbackCommunityMetadata?.id ?? replacementCommunityId ?? '';
@@ -2698,7 +2713,8 @@ function buildPublishForm(): HTMLElement {
       : branchCount <= 3 ? 'short, starter' : 'branching, story';
     taggedUsersInput.value = getCollabCoAuthorNames().join(', ');
     demoInput.checked = sourceEntry?.library_section === 'demo';
-    factionValue.textContent = `${FACTION_DISPLAY_NAMES[faction]} | ${branchCount} branches | ${labelForComplexity(deriveConversationComplexity(branchCount))}`;
+    languageInput.value = conv?.language === 'ru' || (!conv?.language && getUiLanguage() === 'ru') ? 'ru' : 'en';
+    factionValue.textContent = `${FACTION_DISPLAY_NAMES[faction]} | ${languageFlag(languageInput.value as UiLanguage)} ${languageLabel(languageInput.value as UiLanguage)} | ${branchCount} branches | ${labelForComplexity(deriveConversationComplexity(branchCount))}`;
     factionValue.style.color = FACTION_COLORS[faction];
     applySubmitMode(replacementMode);
     updatePreview(conv, replacementMode);
@@ -2742,6 +2758,32 @@ function makeFormField(
   row.append(label, input);
   container.appendChild(row);
   return input;
+}
+
+function makeSelectFormField(
+  container: HTMLElement,
+  labelText: string,
+  options: Array<{ value: string; label: string }>,
+): HTMLSelectElement {
+  const row = document.createElement('div');
+  row.className = 'share-form-field';
+
+  const label = document.createElement('label');
+  label.className = 'share-form-label';
+  label.textContent = labelText;
+
+  const select = document.createElement('select');
+  select.className = 'share-form-input';
+  for (const entry of options) {
+    const option = document.createElement('option');
+    option.value = entry.value;
+    option.textContent = entry.label;
+    select.appendChild(option);
+  }
+
+  row.append(label, select);
+  container.appendChild(row);
+  return select;
 }
 
 function showPublishTrigger(): void {
