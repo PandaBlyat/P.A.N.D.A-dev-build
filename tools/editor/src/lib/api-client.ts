@@ -219,8 +219,49 @@ const LOCAL_PUBLISH_COOLDOWN_MS = 60_000;
 const LOCAL_ROADMAP_UPVOTES_KEY = 'panda-roadmap-upvotes';
 const LOCAL_PUBLISH_KEY = 'panda-community-last-publish-at';
 const LOCAL_PUBLISHER_ID_KEY = 'panda-community-publisher-id';
+const LOCAL_AUTH_TOKEN_KEY = 'panda-community-auth-token';
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
 const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'library_section', 'upvotes', 'updated_at', 'publisher_id', 'co_authors', 'co_author_usernames'] as const;
+
+class ApiRequestError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'ApiRequestError';
+  }
+}
+
+function getStoredAuthToken(): string {
+  if (typeof window === 'undefined') return '';
+  return window.localStorage.getItem(LOCAL_AUTH_TOKEN_KEY)?.trim() || '';
+}
+
+function normalizeHeaders(headers: HeadersInit | undefined): Record<string, string> {
+  if (!headers) return {};
+  if (headers instanceof Headers) return Object.fromEntries(headers.entries());
+  if (Array.isArray(headers)) return Object.fromEntries(headers);
+  return { ...headers };
+}
+
+function withApiAuth(init?: RequestInit): RequestInit | undefined {
+  const token = getStoredAuthToken();
+  if (!token) return init;
+  return {
+    ...init,
+    headers: {
+      ...normalizeHeaders(init?.headers),
+      Authorization: `Bearer ${token}`,
+    },
+  };
+}
+
+function apiJsonHeaders(extra?: HeadersInit): Record<string, string> {
+  const token = getStoredAuthToken();
+  return {
+    'Content-Type': 'application/json',
+    ...normalizeHeaders(extra),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
 
 
 function apiCandidates(path: string): string[] {
@@ -247,8 +288,8 @@ async function fetchFromApi<T>(path: string, init?: RequestInit): Promise<T> {
 
   for (const url of apiCandidates(path)) {
     try {
-      const res = await fetch(url, init);
-      if (!res.ok) throw new Error(`API request failed (${res.status})`);
+      const res = await fetch(url, withApiAuth(init));
+      if (!res.ok) throw new ApiRequestError(`API request failed (${res.status})`, res.status);
       return await res.json() as T;
     } catch (error) {
       lastError = error;
@@ -263,8 +304,8 @@ async function sendToApi(path: string, init?: RequestInit): Promise<void> {
 
   for (const url of apiCandidates(path)) {
     try {
-      const res = await fetch(url, init);
-      if (!res.ok) throw new Error(`API request failed (${res.status})`);
+      const res = await fetch(url, withApiAuth(init));
+      if (!res.ok) throw new ApiRequestError(`API request failed (${res.status})`, res.status);
       return;
     } catch (error) {
       lastError = error;
@@ -679,6 +720,12 @@ function isTranslationPayloadData(data: CommunityConversationData | undefined): 
   return Boolean(data?.translation?.source_id && data.translation.source_language && data.translation.target_language);
 }
 
+function isAuthBlockingError(error: unknown): boolean {
+  if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403)) return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /authentication required|publisher mismatch|current publisher identity/i.test(message);
+}
+
 export async function publishConversation(payload: PublishPayload): Promise<PublishConversationResult> {
   const conversation = payload.data?.conversations?.[0];
   if (!conversation) {
@@ -754,7 +801,7 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
     // Try the proxy server first (handles ownership checks server-side).
     for (const url of apiCandidates(`/api/conversations/${encodeURIComponent(replaceId)}`)) {
       try {
-        const headers = { 'Content-Type': 'application/json' };
+        const headers = apiJsonHeaders();
         let res = await fetch(url, {
           method: 'PATCH',
           headers,
@@ -785,7 +832,8 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
 
         if (!res.ok) {
           const msg = await readErrorMessage(res).catch(() => `API request failed (${res.status})`);
-          if (res.status === 403) throw new Error('You can only update conversations published by your current publisher identity.');
+          if (res.status === 401) throw new ApiRequestError('Authentication required.', 401);
+          if (res.status === 403) throw new ApiRequestError('You can only update conversations published by your current publisher identity.', 403);
           if (res.status === 404) throw new Error('Original community conversation was not found.');
           if (res.status === 409) throw new PublishValidationError('A different conversation already uses this title.', 'duplicate-name');
           throw new Error(msg);
@@ -809,6 +857,9 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
 
     // Direct Supabase fallback when no proxy server is reachable (e.g. GitHub Pages).
     if (!proxySucceeded) {
+      if (isAuthBlockingError(lastError)) {
+        throw lastError instanceof Error ? lastError : new Error(String(lastError));
+      }
       const headers = { ...sbHeaders(), Prefer: 'return=minimal' };
       const updateBody: Record<string, unknown> = {
         label: replacePayload.label,
@@ -867,7 +918,7 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
       try {
         const proxyRes = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: apiJsonHeaders(),
           body: JSON.stringify(publishBody),
         });
         if (proxyRes.status === 404 || proxyRes.status === 405) {
@@ -879,7 +930,7 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
           if (proxyRes.status === 409) {
             throw new PublishValidationError('A community conversation with this title already exists.', 'duplicate-name');
           }
-          throw new Error(msg);
+          throw new ApiRequestError(msg, proxyRes.status);
         }
         const body = await proxyRes.json().catch(() => ({}));
         const rewards = body && typeof body === 'object' && 'rewards' in body ? (body as { rewards: ProfileRewardResult | null }).rewards : null;
@@ -903,6 +954,10 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
         window.localStorage.setItem(LOCAL_PUBLISH_KEY, String(Date.now()));
       }
       return proxyResult;
+    }
+
+    if (isAuthBlockingError(lastProxyError)) {
+      throw lastProxyError instanceof Error ? lastProxyError : new Error(String(lastProxyError));
     }
 
     // Static-mode fallback: write directly to Supabase. No server rewards
@@ -2403,19 +2458,7 @@ export async function awardXp(publisherId: string, amount: number): Promise<User
       body: JSON.stringify({ publisher_id: publisherId, amount }),
     });
   } catch {
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp`, {
-        method: 'POST',
-        headers: sbHeaders(),
-        body: JSON.stringify({ p_publisher_id: publisherId, p_amount: amount }),
-      });
-      if (!res.ok) return null;
-      const rows = await res.json() as UserProfile[] | UserProfile | null;
-      if (!rows) return null;
-      return Array.isArray(rows) ? rows[0] ?? null : rows;
-    } catch {
-      return null;
-    }
+    return null;
   }
 }
 
@@ -2427,19 +2470,7 @@ export async function awardXpCapped(publisherId: string, amount: number, dailyCa
       body: JSON.stringify({ publisher_id: publisherId, amount, daily_cap: dailyCap }),
     });
   } catch {
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp_capped`, {
-        method: 'POST',
-        headers: sbHeaders(),
-        body: JSON.stringify({ p_publisher_id: publisherId, p_amount: amount, p_daily_cap: dailyCap }),
-      });
-      if (!res.ok) return null;
-      const rows = await res.json() as UserProfile[] | UserProfile | null;
-      if (!rows) return null;
-      return Array.isArray(rows) ? rows[0] ?? null : rows;
-    } catch {
-      return null;
-    }
+    return null;
   }
 }
 

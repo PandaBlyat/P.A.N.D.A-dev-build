@@ -8,6 +8,15 @@ const ASSET_DIR = path.join(ROOT, 'conversation-assets');
 const REPORT_PATH = path.join(ASSET_DIR, 'migration-report.md');
 
 const ALLOWED_CHANNELS = new Set(['pda', 'f2f']);
+const PLACEHOLDER_DIALOGUE_PATTERNS = [
+  /^test$/i,
+  /^todo$/i,
+  /^fixme$/i,
+  /^tbd$/i,
+  /^placeholder$/i,
+  /^lorem ipsum\b/i,
+  /^\[MISSING_[A-Z0-9_]+\]$/i,
+];
 
 function normalizeChannel(value, fallback = 'pda') {
   return value === 'f2f' ? 'f2f' : value === 'pda' ? 'pda' : fallback;
@@ -54,11 +63,54 @@ function createIssue(severity, category, file, conversationId, message) {
   return { severity, category, file, conversationId, message };
 }
 
+function hasPlaceholderDialogue(value) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  return Boolean(text && PLACEHOLDER_DIALOGUE_PATTERNS.some((pattern) => pattern.test(text)));
+}
+
+function auditSequentialNumbers(issues, file, conversation, turns) {
+  const sortedTurns = [...turns].sort((left, right) => Number(left.turnNumber ?? 0) - Number(right.turnNumber ?? 0));
+  const seenTurns = new Set();
+  for (let i = 0; i < sortedTurns.length; i++) {
+    const turnNumber = sortedTurns[i]?.turnNumber;
+    if (seenTurns.has(turnNumber)) {
+      issues.push(createIssue('must-fix', 'duplicate-turn-number', file, conversation.id, `Duplicate turn ${turnNumber}.`));
+    }
+    seenTurns.add(turnNumber);
+    const expected = i + 1;
+    if (turnNumber !== expected) {
+      issues.push(createIssue('must-fix', 'turn-number-gap', file, conversation.id, `Expected turn ${expected}, found ${turnNumber}.`));
+      break;
+    }
+  }
+
+  for (const turn of turns) {
+    const choices = Array.isArray(turn.choices) ? [...turn.choices].sort((left, right) => Number(left.index ?? 0) - Number(right.index ?? 0)) : [];
+    const seenChoices = new Set();
+    for (let i = 0; i < choices.length; i++) {
+      const choiceIndex = choices[i]?.index;
+      if (seenChoices.has(choiceIndex)) {
+        issues.push(createIssue('must-fix', 'duplicate-choice-index', file, conversation.id, `Turn ${turn.turnNumber} has duplicate choice ${choiceIndex}.`));
+      }
+      seenChoices.add(choiceIndex);
+      if (choiceIndex < 1 || choiceIndex > 4) {
+        issues.push(createIssue('must-fix', 'choice-index-out-of-range', file, conversation.id, `Turn ${turn.turnNumber} choice ${choiceIndex} is outside runtime range 1-4.`));
+      }
+      const expected = i + 1;
+      if (choiceIndex !== expected) {
+        issues.push(createIssue('must-fix', 'choice-index-gap', file, conversation.id, `Turn ${turn.turnNumber}: expected choice ${expected}, found ${choiceIndex}.`));
+        break;
+      }
+    }
+  }
+}
+
 function auditConversation(file, conversation) {
   const issues = [];
   const turns = Array.isArray(conversation.turns) ? conversation.turns : [];
   const turnById = new Map(turns.map((turn) => [turn.turnNumber, turn]));
   const adjacency = new Map();
+  auditSequentialNumbers(issues, file, conversation, turns);
 
   for (const turn of turns) {
     const turnNumber = turn.turnNumber;
@@ -71,7 +123,10 @@ function auditConversation(file, conversation) {
     }
 
     if (turnChannel === 'f2f' && !isF2FEntryTurn && hasNpcOpenKey) {
-      issues.push(createIssue('warning', 'f2f-opener-key-ignored', file, conversation.id, `Turn ${turnNumber} is an F2F continuation (not an entry turn / segment start), so npcOpenKey metadata will be ignored.`));
+      issues.push(createIssue('must-fix', 'f2f-opener-key-ignored', file, conversation.id, `Turn ${turnNumber} is an F2F continuation (not an entry turn / segment start), so npcOpenKey metadata will be ignored.`));
+    }
+    if (hasPlaceholderDialogue(turn.openingMessage)) {
+      issues.push(createIssue('must-fix', 'placeholder-dialogue-text', file, conversation.id, `Turn ${turnNumber} opening text is placeholder content.`));
     }
 
     adjacency.set(turnNumber, new Set());
@@ -81,6 +136,9 @@ function auditConversation(file, conversation) {
       const terminal = choice.terminal === true;
       const choiceChannel = normalizeChannel(choice.channel, turnChannel);
       const continueChannelRaw = choice.continueChannel ?? choice.continue_channel;
+      if (hasPlaceholderDialogue(choice.text) || hasPlaceholderDialogue(choice.reply)) {
+        issues.push(createIssue('must-fix', 'placeholder-dialogue-text', file, conversation.id, `Turn ${turnNumber} choice ${choice.index} contains placeholder dialogue.`));
+      }
 
       if (!terminal && choice.continueTo != null && continueChannelRaw == null) {
         issues.push(createIssue('must-fix', 'invalid-channel-transition', file, conversation.id, `Turn ${turnNumber} choice ${choice.index} is non-terminal but missing continueChannel/continue_channel.`));

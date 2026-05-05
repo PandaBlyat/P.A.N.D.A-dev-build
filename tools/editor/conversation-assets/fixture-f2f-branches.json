@@ -37,16 +37,15 @@
       "channel": "f2f",
       "pda_entry": false,
       "f2f_entry": false,
-      "npcOpenKey": "warehouse_route",
       "openingMessage": "First branch details.",
       "choices": [
         {
           "index": 1,
-          "text": "Back up. Start over",
-          "reply": "Fine, from the top.",
+          "text": "What's the risk?",
+          "reply": "Ambushes at every checkpoint.",
           "terminal": false,
           "continue_channel": "f2f",
-          "continueTo": 1,
+          "continueTo": 3,
           "outcomes": []
         }
       ],
@@ -57,7 +56,6 @@
       "channel": "f2f",
       "pda_entry": false,
       "f2f_entry": false,
-      "npcOpenKey": "warehouse_risk",
       "openingMessage": "Second branch details.",
       "choices": [
         {

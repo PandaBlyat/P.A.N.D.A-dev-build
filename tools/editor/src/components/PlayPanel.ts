@@ -1,14 +1,17 @@
 // P.A.N.D.A. Conversation Editor — Play Panel (Conversation Simulator)
 
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
-import type { Conversation, Choice, Outcome } from '../lib/types';
+import type { Conversation, Choice, Outcome, FactionId, Turn } from '../lib/types';
+import { FACTION_DISPLAY_NAMES, getConversationFaction } from '../lib/types';
 import { findSchema, OUTCOME_SCHEMAS, PRECONDITION_SCHEMAS } from '../lib/schema';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { createIcon } from './icons';
 import { store } from '../lib/state';
 import { PANDA_EMOJI_SHORTCODES, pandaEmojiPreviewUrl } from './PropertiesPanel';
-import { createUiText } from '../lib/ui-language';
+import { createUiText, languageFlag, languageLabel } from '../lib/ui-language';
 import { t } from '../lib/i18n';
+import { parseOutcomeResumeTurnNumbers } from '../lib/outcome-branching';
+import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
 
 function ui(en: string, ru: string): string {
   return createUiText(store.get().uiLanguage)(en, ru);
@@ -22,6 +25,21 @@ interface StructuredOutcome {
   label: string;
   params: string[];
   chancePercent?: number;
+  resumeTargets?: SimResumeTargets;
+}
+
+interface SimResumeTargets {
+  kind: 'pause' | 'task' | 'check';
+  successTurn: number | null;
+  failTurn: number | null;
+}
+
+interface SimSpeaker {
+  id?: string;
+  name: string;
+  detail: string;
+  faction?: string;
+  source: 'story' | 'custom' | 'faction' | 'generic';
 }
 
 interface SimMessage {
@@ -30,6 +48,8 @@ interface SimMessage {
   audio?: string;
   turnNumber?: number;
   outcomes?: StructuredOutcome[];
+  speaker?: SimSpeaker;
+  channel?: 'pda' | 'f2f';
 }
 
 interface TurnLabeler {
@@ -47,6 +67,7 @@ interface SimState {
   timeoutSeconds: number | null;
   timeoutMessage: string | null;
   mode: 'author' | 'runtime-parity' | 'authoring-raw';
+  turnSpeakerOverrides: Map<number, SimSpeaker>;
 }
 
 // ---------------------------------------------------------------------------
@@ -97,6 +118,16 @@ export function openPlayPanel(conversation: Conversation): void {
   title.id = 'play-panel-title';
   title.append(createIcon('play'), document.createTextNode(conversation.label || `Conversation ${conversation.id}`));
   header.appendChild(title);
+
+  const summary = document.createElement('div');
+  summary.className = 'play-panel-summary';
+  const faction = getConversationFaction(conversation, store.get().project.faction);
+  summary.append(
+    createSummaryChip(FACTION_DISPLAY_NAMES[faction]),
+    createSummaryChip(`${languageFlag(conversation.language ?? 'en')} ${languageLabel(conversation.language ?? 'en')}`),
+    createSummaryChip(ui(`${conversation.turns.length} branch${conversation.turns.length === 1 ? '' : 'es'}`, `${conversation.turns.length} вет${conversation.turns.length === 1 ? 'ка' : conversation.turns.length < 5 ? 'ки' : 'ок'}`)),
+  );
+  header.appendChild(summary);
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
@@ -239,6 +270,7 @@ export function openPlayPanel(conversation: Conversation): void {
     timeoutSeconds: hasTimeout ? conversation.timeout! : null,
     timeoutMessage: hasTimeout ? (conversation.timeoutMessage ?? null) : null,
     mode: 'author',
+    turnSpeakerOverrides: new Map(),
   };
 
   if (conversation.turns.length === 0) {

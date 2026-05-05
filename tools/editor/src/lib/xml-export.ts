@@ -10,6 +10,15 @@ import { collectSegmentStartTurns as collectBranchSegmentStartTurns } from './br
 const PANDA_F2F_REGISTRY_SCHEMA = 'panda_f2f_bridge_registry_v1';
 const PANDA_F2F_REGISTRY_SUFFIX = '_panda_f2f_registry';
 const DEFAULT_MISSING_OPEN_PLACEHOLDER = '[MISSING_OPEN_LINE]';
+const BLOCKED_DIALOGUE_PLACEHOLDERS: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /^test$/i, label: 'test' },
+  { pattern: /^todo$/i, label: 'TODO' },
+  { pattern: /^fixme$/i, label: 'FIXME' },
+  { pattern: /^tbd$/i, label: 'TBD' },
+  { pattern: /^placeholder$/i, label: 'placeholder' },
+  { pattern: /^lorem ipsum\b/i, label: 'lorem ipsum' },
+  { pattern: /^\[MISSING_[A-Z0-9_]+\]$/i, label: '[MISSING_*]' },
+];
 
 export type XmlExporterConfig = {
   strictDialogueValidation?: boolean;
@@ -130,6 +139,10 @@ function validateEmittedDialogueStrings(
     const text = decodeXmlEntities(match[2]).trim();
     if (text.length === 0) {
       throw new Error(`Export blocked: empty dialogue text for key "${id}".`);
+    }
+    const placeholder = BLOCKED_DIALOGUE_PLACEHOLDERS.find(({ pattern }) => pattern.test(text));
+    if (placeholder) {
+      throw new Error(`Export blocked: placeholder dialogue text "${placeholder.label}" for key "${id}".`);
     }
   }
 }

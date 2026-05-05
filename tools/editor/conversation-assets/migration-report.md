@@ -1,11 +1,9 @@
 # Conversation Asset Migration Report
 
-Generated: 2026-05-05T21:07:11.472Z
+Generated: 2026-05-05T21:47:53.172Z
 
 ## Must-fix before publish
 - None ✅
 
 ## Warning (author review)
-- [f2f-opener-key-ignored] fixture-f2f-branches.json · C103: Turn 2 is an F2F continuation (not an entry turn / segment start), so npcOpenKey metadata will be ignored.
-- [f2f-opener-key-ignored] fixture-f2f-branches.json · C103: Turn 3 is an F2F continuation (not an entry turn / segment start), so npcOpenKey metadata will be ignored.
-- [loop-hazard] fixture-f2f-branches.json · C103: Cycle detected: 1 -> 2 -> 1.
+- None ✅

@@ -70,6 +70,15 @@ const ANOMALY_TASK_START_OUTCOMES = new Set([
   'start_artifact_retrieval_task',
 ]);
 const MAX_ANOMALY_TASK_STARTS_PER_CONVERSATION = 3;
+const PLACEHOLDER_DIALOGUE_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /^test$/i, label: 'test' },
+  { pattern: /^todo$/i, label: 'TODO' },
+  { pattern: /^fixme$/i, label: 'FIXME' },
+  { pattern: /^tbd$/i, label: 'TBD' },
+  { pattern: /^placeholder$/i, label: 'placeholder' },
+  { pattern: /^lorem ipsum\b/i, label: 'lorem ipsum' },
+  { pattern: /^\[MISSING_[A-Z0-9_]+\]$/i, label: '[MISSING_*]' },
+];
 const PRECONDITION_RANGE_PAIRS: Array<{ minCommand: string; maxCommand: string; label: string; rankBased?: boolean }> = [
   { minCommand: 'req_money', maxCommand: 'req_money_max', label: 'money' },
   { minCommand: 'req_rep', maxCommand: 'req_rep_max', label: 'reputation' },
@@ -278,6 +287,17 @@ function validateConversation(conv: Conversation, knownNpcTemplateIds: Set<strin
       });
     }
   }
+  if (conv.timeoutMessage) {
+    validateDialoguePlaceholder({
+      value: conv.timeoutMessage,
+      fieldKey: getConversationFieldKey(conv.id, 'timeout-message'),
+      fieldLabel: 'Timeout Message',
+      scope: 'conversation',
+      conversationId: conv.id,
+      propertiesTab: 'conversation',
+      messages,
+    });
+  }
 
   // F2F-first start mode validation
   if (conv.startMode === 'f2f') {
@@ -337,6 +357,7 @@ function validateConversation(conv: Conversation, knownNpcTemplateIds: Set<strin
 
   const turnNumbers = new Set(conv.turns.map(t => t.turnNumber));
   const turnLabels = createTurnDisplayLabeler(conv);
+  validateSequentialTurnNumbers(conv, messages);
 
   for (const turn of conv.turns) {
     validateTurn(conv, turn, turnNumbers, turnLabels, knownNpcTemplateIds, knownDialogueStatKeys, messages);
@@ -457,6 +478,18 @@ function validateTurn(
     });
     return;
   }
+  validateSequentialChoiceIndexes(conv, turn, messages);
+
+  validateDialoguePlaceholder({
+    value: turn.openingMessage,
+    fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'),
+    fieldLabel: 'Opening Message',
+    scope: 'turn',
+    conversationId: conv.id,
+    turnNumber: turn.turnNumber,
+    propertiesTab: 'selection',
+    messages,
+  });
 
   const turnPreconditions = turn.preconditions ?? [];
   turnPreconditions.forEach((entry, idx) => {
@@ -512,6 +545,17 @@ function validateTurn(
         message: `${turnLabels.getLongLabel(turn.turnNumber)}, Choice ${choice.index}: Missing choice text.`,
       });
     }
+    validateDialoguePlaceholder({
+      value: choice.text,
+      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'text'),
+      fieldLabel: 'Player Choice Text',
+      scope: 'choice',
+      conversationId: conv.id,
+      turnNumber: turn.turnNumber,
+      choiceIndex: choice.index,
+      propertiesTab: 'selection',
+      messages,
+    });
 
     if (!choice.reply || choice.reply.trim() === '') {
       pushMessage(messages, {
@@ -528,6 +572,39 @@ function validateTurn(
         message: `${turnLabels.getLongLabel(turn.turnNumber)}, Choice ${choice.index}: Missing reply text.`,
       });
     }
+    validateDialoguePlaceholder({
+      value: choice.reply,
+      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply'),
+      fieldLabel: 'NPC Reply',
+      scope: 'choice',
+      conversationId: conv.id,
+      turnNumber: turn.turnNumber,
+      choiceIndex: choice.index,
+      propertiesTab: 'selection',
+      messages,
+    });
+    validateDialoguePlaceholder({
+      value: choice.replyRelHigh,
+      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-rel-high'),
+      fieldLabel: 'High Relationship Reply',
+      scope: 'choice',
+      conversationId: conv.id,
+      turnNumber: turn.turnNumber,
+      choiceIndex: choice.index,
+      propertiesTab: 'selection',
+      messages,
+    });
+    validateDialoguePlaceholder({
+      value: choice.replyRelLow,
+      fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-rel-low'),
+      fieldLabel: 'Low Relationship Reply',
+      scope: 'choice',
+      conversationId: conv.id,
+      turnNumber: turn.turnNumber,
+      choiceIndex: choice.index,
+      propertiesTab: 'selection',
+      messages,
+    });
 
     validatePandaAudioName({
       value: choice.replyAudio,
@@ -575,6 +652,138 @@ function validateTurn(
     choice.outcomes.forEach((outcome, outcomeIndex) => {
       validateOutcome(conv, turn, choice, outcome, outcomeIndex, turnNumbers, turnLabels, knownNpcTemplateIds, knownDialogueStatKeys, messages);
     });
+  }
+}
+
+function findDialoguePlaceholder(value: string | undefined): string | null {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed) return null;
+  const match = PLACEHOLDER_DIALOGUE_PATTERNS.find(({ pattern }) => pattern.test(trimmed));
+  return match?.label ?? null;
+}
+
+function validateDialoguePlaceholder(options: {
+  value: string | undefined;
+  fieldKey: string;
+  fieldLabel: string;
+  scope: 'conversation' | 'turn' | 'choice';
+  conversationId: number;
+  turnNumber?: number;
+  choiceIndex?: number;
+  propertiesTab: 'conversation' | 'selection';
+  messages: ValidationMessage[];
+}): void {
+  const placeholder = findDialoguePlaceholder(options.value);
+  if (!placeholder) return;
+  pushMessage(options.messages, {
+    code: 'placeholder-dialogue-text',
+    group: 'structure',
+    scope: options.scope,
+    level: 'error',
+    conversationId: options.conversationId,
+    turnNumber: options.turnNumber,
+    choiceIndex: options.choiceIndex,
+    propertiesTab: options.propertiesTab,
+    fieldKey: options.fieldKey,
+    fieldLabel: options.fieldLabel,
+    message: `${options.fieldLabel} contains placeholder text "${placeholder}". Replace it before export/publish.`,
+  });
+}
+
+function validateSequentialTurnNumbers(conv: Conversation, messages: ValidationMessage[]): void {
+  const seen = new Set<number>();
+  const sorted = [...conv.turns].sort((a, b) => a.turnNumber - b.turnNumber);
+  for (const turn of sorted) {
+    if (seen.has(turn.turnNumber)) {
+      pushMessage(messages, {
+        code: 'duplicate-turn-number',
+        group: 'structure',
+        scope: 'turn',
+        level: 'error',
+        conversationId: conv.id,
+        turnNumber: turn.turnNumber,
+        propertiesTab: 'selection',
+        message: `Duplicate Branch ${turn.turnNumber}. Branch numbers must be unique.`,
+      });
+    }
+    seen.add(turn.turnNumber);
+  }
+
+  for (let i = 0; i < sorted.length; i++) {
+    const expected = i + 1;
+    const actual = sorted[i]?.turnNumber;
+    if (actual !== expected) {
+      pushMessage(messages, {
+        code: 'turn-number-gap',
+        group: 'structure',
+        scope: 'turn',
+        level: 'error',
+        conversationId: conv.id,
+        turnNumber: actual,
+        propertiesTab: 'selection',
+        message: `Branch numbers are not sequential. Expected Branch ${expected}, found Branch ${actual}. The Lua runtime and XML importer stop scanning at the first gap.`,
+      });
+      return;
+    }
+  }
+}
+
+function validateSequentialChoiceIndexes(conv: Conversation, turn: Conversation['turns'][number], messages: ValidationMessage[]): void {
+  const seen = new Set<number>();
+  const sorted = [...turn.choices].sort((a, b) => a.index - b.index);
+  for (const choice of sorted) {
+    if (seen.has(choice.index)) {
+      pushMessage(messages, {
+        code: 'duplicate-choice-index',
+        group: 'structure',
+        scope: 'choice',
+        level: 'error',
+        conversationId: conv.id,
+        turnNumber: turn.turnNumber,
+        choiceIndex: choice.index,
+        propertiesTab: 'selection',
+        fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'text'),
+        fieldLabel: 'Player Choice Text',
+        message: `Branch ${turn.turnNumber}, Choice ${choice.index}: Duplicate choice index.`,
+      });
+    }
+    if (choice.index < 1 || choice.index > 4) {
+      pushMessage(messages, {
+        code: 'choice-index-out-of-range',
+        group: 'structure',
+        scope: 'choice',
+        level: 'error',
+        conversationId: conv.id,
+        turnNumber: turn.turnNumber,
+        choiceIndex: choice.index,
+        propertiesTab: 'selection',
+        fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'text'),
+        fieldLabel: 'Player Choice Text',
+        message: `Branch ${turn.turnNumber}, Choice ${choice.index}: Choice index must be 1-4 because the Lua runtime scans four sequential slots.`,
+      });
+    }
+    seen.add(choice.index);
+  }
+
+  for (let i = 0; i < sorted.length; i++) {
+    const expected = i + 1;
+    const actual = sorted[i]?.index;
+    if (actual !== expected) {
+      pushMessage(messages, {
+        code: 'choice-index-gap',
+        group: 'structure',
+        scope: 'choice',
+        level: 'error',
+        conversationId: conv.id,
+        turnNumber: turn.turnNumber,
+        choiceIndex: actual,
+        propertiesTab: 'selection',
+        fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, actual, 'text'),
+        fieldLabel: 'Player Choice Text',
+        message: `Branch ${turn.turnNumber} choices are not sequential. Expected Choice ${expected}, found Choice ${actual}. The Lua runtime and XML importer stop scanning at the first missing choice.`,
+      });
+      return;
+    }
   }
 }
 

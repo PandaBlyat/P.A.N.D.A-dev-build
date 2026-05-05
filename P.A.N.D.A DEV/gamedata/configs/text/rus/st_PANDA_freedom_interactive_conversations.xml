@@ -150,7 +150,7 @@
         <text>f2f</text>
     </string>
     <string id="st_pda_ic_freedom_1_t3_open">
-        <text>test</text>
+        <text>Lukash waits at Warehouses. Move.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t3_choice_1">
         <text>Roger, on it.</text>
@@ -168,8 +168,7 @@
         <text>f2f</text>
     </string>
     <string id="st_pda_ic_freedom_1_t5_open">
-        <text>test
-</text>
+        <text>Watch your tone. I need you moving, not typing excuses.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t5_choice_1">
         <text>On it, apologies.</text>
@@ -203,7 +202,7 @@
         <text>pda</text>
     </string>
     <string id="st_pda_ic_freedom_1_t6_open">
-        <text>test</text>
+        <text>You think this is a joke?</text>
     </string>
     <string id="st_pda_ic_freedom_1_t6_choice_1">
         <text>You can't be serious - you know that doesn't work on me, Lukash.</text>
@@ -253,7 +252,7 @@
         <text>f2f</text>
     </string>
     <string id="st_pda_ic_freedom_1_t7_open">
-        <text>test</text>
+        <text>Last warning. Keep pushing and Warehouses becomes hostile ground.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t7_choice_1">
         <text>Getting a bit sick of your empty threats.</text>
@@ -340,7 +339,7 @@
         <text>punish_gw:1500:freedom,punish_rep:100</text>
     </string>
     <string id="st_pda_ic_freedom_1_t10_open">
-        <text>test</text>
+        <text>Then listen. There is more behind this than Lukash shouting over PDA.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t10_choice_1">
         <text>Tell me more.</text>
@@ -352,7 +351,7 @@
         <text>none</text>
     </string>
     <string id="st_pda_ic_freedom_1_t11_open">
-        <text>test</text>
+        <text>A Duty patrol picks up your trail before Freedom does.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t11_choice_1">
         <text>What do you mean?</text>
@@ -394,7 +393,7 @@
         <text>punish_gw:1500:freedom,punish_gw:300:dolg,punish_rep:200</text>
     </string>
     <string id="st_pda_ic_freedom_1_t12_open">
-        <text>test</text>
+        <text>We can give you a route out, but you need to decide now.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t12_choice_1">
         <text>I get what you saying, but I dont really have time to chit-chat with you now. Lukash will most likely send more people after me so I need to lay low.</text>
@@ -439,7 +438,7 @@
         <text>none</text>
     </string>
     <string id="st_pda_ic_freedom_1_t15_open">
-        <text></text>
+        <text>Duty contact comes back on channel.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t15_choice_1">
         <text>Ok, I agree that I need a safe harbour. Maybe Duty isn't that bad when I think about it now, you know?</text>
@@ -599,7 +598,7 @@
 </text>
     </string>
     <string id="st_pda_ic_freedom_1_t22_reply_1">
-        <text></text>
+        <text>Find him near his last known route and report back when he is moving.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t22_outcome_1">
         <text>none</text>
@@ -608,10 +607,10 @@
         <text>You had one fucking job.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t23_choice_1">
-        <text></text>
+        <text>I lost him.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t23_reply_1">
-        <text></text>
+        <text>Then fix it before Lukash hears.</text>
     </string>
     <string id="st_pda_ic_freedom_1_t23_outcome_1">
         <text>none</text>
@@ -620,7 +619,7 @@
         <text>600</text>
     </string>
     <string id="st_pda_ic_freedom_1_timeout_msg">
-        <text>test</text>
+        <text>Lukash stops waiting and marks this as failed.</text>
     </string>
     <string id="st_pda_ic_freedom_1_panda_f2f_registry">
         <text>{

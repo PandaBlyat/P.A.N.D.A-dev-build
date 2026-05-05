@@ -25,6 +25,7 @@ const ADMIN_PUBLISHER_IDS = new Set(
     .map(value => value.trim())
     .filter(Boolean),
 );
+const ALLOW_LEGACY_PUBLISHER_ID = (process.env.PANDA_ALLOW_LEGACY_PUBLISHER_ID ?? '').trim() === '1';
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
 const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'library_section', 'upvotes', 'updated_at', 'publisher_id', 'co_authors', 'co_author_usernames'] as const;
 
@@ -368,6 +369,68 @@ async function verifyIsPandaOwner(publisherId: string): Promise<boolean> {
   if (!res.ok) return false;
   const rows = await res.json() as Array<{ username?: string }>;
   return (rows[0]?.username ?? '').trim().toLowerCase() === 'panda';
+}
+
+function getBearerToken(req: express.Request): string {
+  const header = req.header('authorization') ?? '';
+  const match = /^Bearer\s+(.+)$/i.exec(header.trim());
+  return match?.[1]?.trim() ?? '';
+}
+
+function extractPublisherIdFromAuthUser(user: Record<string, unknown>): string {
+  const metadataCandidates = [
+    user.user_metadata,
+    user.app_metadata,
+  ].filter((value): value is Record<string, unknown> => Boolean(value) && typeof value === 'object');
+
+  for (const metadata of metadataCandidates) {
+    const publisherId = metadata.publisher_id ?? metadata.publisherId;
+    if (typeof publisherId === 'string' && publisherId.trim()) return publisherId.trim();
+  }
+
+  const rawUserId = user.id;
+  return typeof rawUserId === 'string' ? rawUserId.trim() : '';
+}
+
+async function fetchAuthenticatedPublisherId(token: string): Promise<string> {
+  if (!token || token === SUPABASE_SERVICE_KEY) return '';
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: {
+      apikey: SUPABASE_SERVICE_KEY!,
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) return '';
+  const user = await response.json().catch(() => null) as Record<string, unknown> | null;
+  return user ? extractPublisherIdFromAuthUser(user) : '';
+}
+
+async function resolveRequestPublisherId(
+  req: express.Request,
+  requestedPublisherId: unknown,
+): Promise<{ ok: true; publisherId: string } | { ok: false; status: number; error: string }> {
+  const requested = typeof requestedPublisherId === 'string' ? requestedPublisherId.trim() : '';
+  const token = getBearerToken(req);
+  const authenticated = await fetchAuthenticatedPublisherId(token).catch(() => '');
+
+  if (authenticated) {
+    if (requested && requested !== authenticated) {
+      return { ok: false, status: 403, error: 'Forbidden: publisher mismatch.' };
+    }
+    return { ok: true, publisherId: authenticated };
+  }
+
+  if (ALLOW_LEGACY_PUBLISHER_ID && requested) {
+    return { ok: true, publisherId: requested };
+  }
+
+  return { ok: false, status: 401, error: 'Authentication required.' };
+}
+
+function isPublisherAuthFailure(
+  result: { ok: true; publisherId: string } | { ok: false; status: number; error: string },
+): result is { ok: false; status: number; error: string } {
+  return result.ok === false;
 }
 
 function normalizeBugReport(row: Record<string, unknown>): EditorBugReport {
@@ -1039,7 +1102,12 @@ app.get('/api/admins', async (req, res) => {
 
 app.post('/api/admins', async (req, res) => {
   try {
-    const ownerPublisherId = typeof req.body?.publisher_id === 'string' ? req.body.publisher_id.trim() : '';
+    const ownerAuth = await resolveRequestPublisherId(req, req.body?.publisher_id);
+    if (isPublisherAuthFailure(ownerAuth)) {
+      res.status(ownerAuth.status).json({ error: ownerAuth.error });
+      return;
+    }
+    const ownerPublisherId = ownerAuth.publisherId;
     const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
     if (!(await verifyIsPandaOwner(ownerPublisherId))) {
       res.status(403).json({ error: 'Only Panda can manage privileges.' });
@@ -1068,7 +1136,12 @@ app.post('/api/admins', async (req, res) => {
 
 app.delete('/api/admins/:publisherId', async (req, res) => {
   try {
-    const ownerPublisherId = typeof req.body?.publisher_id === 'string' ? req.body.publisher_id.trim() : '';
+    const ownerAuth = await resolveRequestPublisherId(req, req.body?.publisher_id);
+    if (isPublisherAuthFailure(ownerAuth)) {
+      res.status(ownerAuth.status).json({ error: ownerAuth.error });
+      return;
+    }
+    const ownerPublisherId = ownerAuth.publisherId;
     const targetPublisherId = req.params.publisherId.trim();
     if (!(await verifyIsPandaOwner(ownerPublisherId))) {
       res.status(403).json({ error: 'Only Panda can manage privileges.' });
@@ -1424,7 +1497,12 @@ app.post('/api/conversations', async (req, res) => {
     // Use return=representation so we can pluck the inserted row's ID and
     // then invoke apply_publish_rewards for server-authoritative rewards.
     const headers = { ...sbHeaders(), Prefer: 'return=representation' };
-    const normalizedPublisherId = typeof publisher_id === 'string' && publisher_id.trim() ? publisher_id.trim() : null;
+    const publisherAuth = await resolveRequestPublisherId(req, publisher_id);
+    if (isPublisherAuthFailure(publisherAuth)) {
+      res.status(publisherAuth.status).json({ error: publisherAuth.error });
+      return;
+    }
+    const normalizedPublisherId = publisherAuth.publisherId;
     let collabContext: Awaited<ReturnType<typeof resolveCollabPublishContext>>;
     try {
       collabContext = await resolveCollabPublishContext(collab_session_id, normalizedPublisherId);
@@ -1547,7 +1625,12 @@ async function handleConversationReplace(req: express.Request, res: express.Resp
       publisher_id,
     } = req.body ?? {};
 
-    const normalizedPublisherId = typeof publisher_id === 'string' ? publisher_id.trim() : '';
+    const publisherAuth = await resolveRequestPublisherId(req, publisher_id);
+    if (isPublisherAuthFailure(publisherAuth)) {
+      res.status(publisherAuth.status).json({ error: publisherAuth.error });
+      return;
+    }
+    const normalizedPublisherId = publisherAuth.publisherId;
     const normalizedLabel = typeof label === 'string' ? label.trim() : '';
     if (!id || !normalizedPublisherId || !normalizedLabel || !data) {
       res.status(400).json({ error: 'Missing required fields: id, publisher_id, label, data' });
@@ -1662,7 +1745,12 @@ app.post('/api/conversations/:id/replace', handleConversationReplace);
 app.patch('/api/conversations/:id/library-section', async (req, res) => {
   try {
     const id = req.params.id;
-    const publisherId = typeof req.body?.publisher_id === 'string' ? req.body.publisher_id.trim() : '';
+    const publisherAuth = await resolveRequestPublisherId(req, req.body?.publisher_id);
+    if (isPublisherAuthFailure(publisherAuth)) {
+      res.status(publisherAuth.status).json({ error: publisherAuth.error });
+      return;
+    }
+    const publisherId = publisherAuth.publisherId;
     const section = req.body?.library_section === 'curated' || req.body?.library_section === 'demo'
       ? req.body.library_section
       : 'community';
@@ -1858,7 +1946,12 @@ app.patch('/api/bug-reports/:id/admin', async (req, res) => {
   try {
     const reportId = req.params.id.trim();
     const body = req.body ?? {};
-    const adminPublisherId = sanitizeBugReportText(body.publisher_id, 120);
+    const adminAuth = await resolveRequestPublisherId(req, body.publisher_id);
+    if (isPublisherAuthFailure(adminAuth)) {
+      res.status(adminAuth.status).json({ error: adminAuth.error });
+      return;
+    }
+    const adminPublisherId = adminAuth.publisherId;
     const adminUsername = sanitizeBugReportText(body.username, 40) || null;
     const status = isBugReportStatus(body.status) ? body.status : null;
     const adminReply = sanitizeBugReportText(body.admin_reply, 2500);
@@ -1905,7 +1998,12 @@ app.delete('/api/bug-reports/:id', async (req, res) => {
   try {
     const reportId = req.params.id.trim();
     const body = req.body ?? {};
-    const adminPublisherId = sanitizeBugReportText(body.publisher_id, 120);
+    const adminAuth = await resolveRequestPublisherId(req, body.publisher_id);
+    if (isPublisherAuthFailure(adminAuth)) {
+      res.status(adminAuth.status).json({ error: adminAuth.error });
+      return;
+    }
+    const adminPublisherId = adminAuth.publisherId;
 
     if (!reportId) {
       res.status(400).json({ error: 'Missing report id' });
@@ -2007,6 +2105,12 @@ app.get('/api/profile/:publisherId/missions', async (req, res) => {
 app.post('/api/profile/missions', async (req, res) => {
   try {
     const missions = Array.isArray(req.body?.missions) ? req.body.missions : [];
+    const firstPublisherId = missions.find((mission: unknown) => mission && typeof mission === 'object' && typeof (mission as Record<string, unknown>).publisher_id === 'string') as Record<string, unknown> | undefined;
+    const publisherAuth = await resolveRequestPublisherId(req, firstPublisherId?.publisher_id);
+    if (isPublisherAuthFailure(publisherAuth)) {
+      res.status(publisherAuth.status).json({ error: publisherAuth.error });
+      return;
+    }
     const normalized = missions.filter((mission): mission is Record<string, unknown> => Boolean(mission) && typeof mission === 'object').map((mission) => ({
       publisher_id: typeof mission.publisher_id === 'string' ? mission.publisher_id : '',
       mission_id: typeof mission.mission_id === 'string' ? mission.mission_id : '',
@@ -2019,6 +2123,11 @@ app.post('/api/profile/missions', async (req, res) => {
       completed_at: typeof mission.completed_at === 'string' ? mission.completed_at : null,
       meta: mission.meta && typeof mission.meta === 'object' ? mission.meta : {},
     })).filter(mission => mission.publisher_id && mission.mission_id && mission.period_key);
+
+    if (normalized.some(mission => mission.publisher_id !== publisherAuth.publisherId)) {
+      res.status(403).json({ error: 'Forbidden: publisher mismatch.' });
+      return;
+    }
 
     if (normalized.length === 0) {
       res.status(400).json({ error: 'Missing or invalid mission progress payload.' });
@@ -2034,6 +2143,11 @@ app.post('/api/profile/missions', async (req, res) => {
 
 app.post('/api/profile/:publisherId/achievements/unlock', async (req, res) => {
   try {
+    const publisherAuth = await resolveRequestPublisherId(req, req.params.publisherId);
+    if (isPublisherAuthFailure(publisherAuth)) {
+      res.status(publisherAuth.status).json({ error: publisherAuth.error });
+      return;
+    }
     const { achievement_id } = req.body ?? {};
     if (typeof achievement_id !== 'string' || !achievement_id.trim()) {
       res.status(400).json({ error: 'Missing required field: achievement_id' });
@@ -2126,6 +2240,11 @@ app.post('/api/profile/achievements/recheck', async (req, res) => {
 // Record a daily login and unlock login_streak milestone achievements.
 app.post('/api/profile/:publisherId/login', async (req, res) => {
   try {
+    const publisherAuth = await resolveRequestPublisherId(req, req.params.publisherId);
+    if (isPublisherAuthFailure(publisherAuth)) {
+      res.status(publisherAuth.status).json({ error: publisherAuth.error });
+      return;
+    }
     const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/record_daily_login`, {
       method: 'POST',
       headers: sbHeaders(),
@@ -2170,6 +2289,11 @@ app.get('/api/profile/:publisherId/streak', async (req, res) => {
 app.post('/api/profile/streak', async (req, res) => {
   try {
     const { publisher_id, publish_streak, longest_streak, last_publish_week, login_streak, last_login_date } = req.body ?? {};
+    const publisherAuth = await resolveRequestPublisherId(req, publisher_id);
+    if (isPublisherAuthFailure(publisherAuth)) {
+      res.status(publisherAuth.status).json({ error: publisherAuth.error });
+      return;
+    }
     if (
       typeof publisher_id !== 'string'
       || typeof publish_streak !== 'number'
@@ -2207,67 +2331,24 @@ app.post('/api/profile/streak', async (req, res) => {
 });
 
 app.post('/api/profile/award-xp', async (req, res) => {
-  try {
-    const { publisher_id, amount } = req.body ?? {};
-    if (!publisher_id || typeof amount !== 'number' || amount <= 0) {
-      res.status(400).json({ error: 'Missing or invalid fields: publisher_id, amount (positive int)' });
-      return;
-    }
-
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp`, {
-      method: 'POST',
-      headers: sbHeaders(),
-      body: JSON.stringify({ p_publisher_id: publisher_id, p_amount: amount }),
-    });
-
-    if (!r.ok) {
-      res.status(r.status).json({ error: await readErrorMessage(r) });
-      return;
-    }
-
-    const rows = await r.json();
-    const profile = Array.isArray(rows) ? rows[0] : rows;
-    res.json(profile ?? null);
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
+  void req;
+  res.status(410).json({ error: 'Direct XP awards are disabled. XP is awarded only by server-authoritative publish, download, upvote, login, and mission flows.' });
 });
 
 app.post('/api/profile/award-xp-capped', async (req, res) => {
-  try {
-    const { publisher_id, amount, daily_cap } = req.body ?? {};
-    if (!publisher_id || typeof amount !== 'number' || amount <= 0) {
-      res.status(400).json({ error: 'Missing or invalid fields: publisher_id, amount (positive int)' });
-      return;
-    }
-
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp_capped`, {
-      method: 'POST',
-      headers: sbHeaders(),
-      body: JSON.stringify({
-        p_publisher_id: publisher_id,
-        p_amount: amount,
-        p_daily_cap: typeof daily_cap === 'number' ? daily_cap : 500,
-      }),
-    });
-
-    if (!r.ok) {
-      res.status(r.status).json({ error: await readErrorMessage(r) });
-      return;
-    }
-
-    const rows = await r.json();
-    const profile = Array.isArray(rows) ? rows[0] : rows;
-    res.json(profile ?? null);
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
+  void req;
+  res.status(410).json({ error: 'Direct XP awards are disabled. XP is awarded only by server-authoritative publish, download, upvote, login, and mission flows.' });
 });
 
 // Update a publisher's cosmetic avatar fields.
 app.post('/api/profile/:publisherId/cosmetics', async (req, res) => {
   try {
     const { publisherId } = req.params;
+    const publisherAuth = await resolveRequestPublisherId(req, publisherId);
+    if (isPublisherAuthFailure(publisherAuth)) {
+      res.status(publisherAuth.status).json({ error: publisherAuth.error });
+      return;
+    }
     const { avatar_icon, avatar_color, avatar_frame, avatar_banner, avatar_effect } = req.body ?? {};
 
     const nullish = (value: unknown): string | null => {
