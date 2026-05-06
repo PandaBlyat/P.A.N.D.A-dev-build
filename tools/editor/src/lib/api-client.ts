@@ -493,7 +493,7 @@ function normalizeCollabSessionRow(row: Partial<CollabSession>): CollabSession {
     created_at: typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
     updated_at: typeof row.updated_at === 'string' ? row.updated_at : new Date().toISOString(),
     closed_at: typeof row.closed_at === 'string' ? row.closed_at : null,
-    max_users: typeof row.max_users === 'number' ? row.max_users : 2,
+    max_users: typeof row.max_users === 'number' ? row.max_users : 4,
     guest_edit_count: typeof row.guest_edit_count === 'number' ? row.guest_edit_count : 0,
     last_guest_edit_at: typeof row.last_guest_edit_at === 'string' ? row.last_guest_edit_at : null,
   };
@@ -537,6 +537,7 @@ export async function createCollabSession(input: {
         p_label: input.conversation_label,
         p_snapshot: input.snapshot,
         p_username: input.username ?? input.host_publisher_id,
+        p_max_users: Math.max(2, Math.min(4, Number(input.max_users) || 4)),
       }),
     });
     if (!res.ok) throw new Error(await readErrorMessage(res));

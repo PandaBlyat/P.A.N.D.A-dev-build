@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS public.collab_sessions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   closed_at TIMESTAMPTZ,
-  max_users SMALLINT NOT NULL DEFAULT 2
+  max_users SMALLINT NOT NULL DEFAULT 4
 );
 
 CREATE INDEX IF NOT EXISTS collab_sessions_host_idx ON public.collab_sessions (host_publisher_id, status);
@@ -37,12 +37,15 @@ CREATE POLICY collab_sessions_select
     OR (auth.jwt() ->> 'publisher_id') = ANY(participants)
   );
 
+DROP FUNCTION IF EXISTS public.create_collab_session(TEXT, INTEGER, TEXT, JSONB, TEXT);
+
 CREATE OR REPLACE FUNCTION public.create_collab_session(
   p_host TEXT,
   p_conversation_id INTEGER,
   p_label TEXT,
   p_snapshot JSONB,
-  p_username TEXT DEFAULT NULL
+  p_username TEXT DEFAULT NULL,
+  p_max_users SMALLINT DEFAULT 4
 )
 RETURNS SETOF public.collab_sessions
 LANGUAGE plpgsql
@@ -53,11 +56,12 @@ DECLARE
 BEGIN
   INSERT INTO public.collab_sessions (
     id, host_publisher_id, conversation_id, conversation_label,
-    participants, participant_usernames, snapshot, snapshot_version
+    participants, participant_usernames, snapshot, snapshot_version, max_users
   )
   VALUES (
     new_id, p_host, p_conversation_id, p_label,
-    ARRAY[p_host], ARRAY[coalesce(nullif(p_username, ''), p_host)], p_snapshot, 0
+    ARRAY[p_host], ARRAY[coalesce(nullif(p_username, ''), p_host)], p_snapshot, 0,
+    greatest(2, least(4, coalesce(p_max_users, 4)))
   );
   RETURN QUERY SELECT * FROM public.collab_sessions WHERE id = new_id;
 END;

@@ -154,6 +154,7 @@ export async function startHostCollabSession(conversation: Conversation): Promis
     conversation_label: conversation.label,
     snapshot: conversation,
     username: currentIdentity.username,
+    max_users: 4,
   });
   openRuntime(session, true, { select: true });
   return session;

@@ -167,7 +167,7 @@ CREATE TABLE IF NOT EXISTS collab_sessions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   closed_at TIMESTAMPTZ,
-  max_users SMALLINT NOT NULL DEFAULT 2
+  max_users SMALLINT NOT NULL DEFAULT 4
 );
 
 ALTER TABLE collab_sessions
@@ -185,7 +185,7 @@ ALTER TABLE collab_sessions
   ALTER COLUMN participant_usernames SET DEFAULT '{}'::text[],
   ALTER COLUMN snapshot_version SET DEFAULT 0,
   ALTER COLUMN guest_edit_count SET DEFAULT 0,
-  ALTER COLUMN max_users SET DEFAULT 2;
+  ALTER COLUMN max_users SET DEFAULT 4;
 
 UPDATE collab_sessions
 SET
@@ -193,7 +193,7 @@ SET
   participant_usernames = coalesce(participant_usernames, '{}'::text[]),
   snapshot_version = coalesce(snapshot_version, 0),
   guest_edit_count = coalesce(guest_edit_count, 0),
-  max_users = coalesce(max_users, 2);
+  max_users = greatest(2, least(4, coalesce(max_users, 4)));
 
 ALTER TABLE collab_sessions
   ALTER COLUMN participants SET NOT NULL,
@@ -216,12 +216,15 @@ CREATE POLICY collab_sessions_select
     OR (auth.jwt() ->> 'publisher_id') = ANY(participants)
   );
 
+DROP FUNCTION IF EXISTS create_collab_session(TEXT, INTEGER, TEXT, JSONB, TEXT);
+
 CREATE OR REPLACE FUNCTION create_collab_session(
   p_host TEXT,
   p_conversation_id INTEGER,
   p_label TEXT,
   p_snapshot JSONB,
-  p_username TEXT DEFAULT NULL
+  p_username TEXT DEFAULT NULL,
+  p_max_users SMALLINT DEFAULT 4
 )
 RETURNS SETOF collab_sessions
 LANGUAGE plpgsql
@@ -238,7 +241,8 @@ BEGIN
     participants,
     participant_usernames,
     snapshot,
-    snapshot_version
+    snapshot_version,
+    max_users
   )
   VALUES (
     new_id,
@@ -248,7 +252,8 @@ BEGIN
     ARRAY[p_host],
     ARRAY[coalesce(nullif(p_username, ''), p_host)],
     p_snapshot,
-    0
+    0,
+    greatest(2, least(4, coalesce(p_max_users, 4)))
   );
 
   RETURN QUERY SELECT * FROM collab_sessions WHERE id = new_id;

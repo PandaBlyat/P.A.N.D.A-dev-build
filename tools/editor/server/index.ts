@@ -228,7 +228,7 @@ function normalizeCollabSessionRow(row: Record<string, unknown>): CollabSessionR
     created_at: typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
     updated_at: typeof row.updated_at === 'string' ? row.updated_at : new Date().toISOString(),
     closed_at: typeof row.closed_at === 'string' ? row.closed_at : null,
-    max_users: typeof row.max_users === 'number' ? row.max_users : 2,
+    max_users: typeof row.max_users === 'number' ? row.max_users : 4,
     guest_edit_count: typeof row.guest_edit_count === 'number' ? row.guest_edit_count : 0,
     last_guest_edit_at: typeof row.last_guest_edit_at === 'string' ? row.last_guest_edit_at : null,
   };
@@ -1260,7 +1260,7 @@ app.post('/api/collab/sessions', async (req, res) => {
       snapshot,
       snapshot_version: 0,
       status: 'open',
-      max_users: Math.max(2, Math.min(4, Number(max_users) || 2)),
+      max_users: Math.max(2, Math.min(4, Number(max_users) || 4)),
     };
     const response = await fetch(sbEndpoint(COLLAB_TABLE), {
       method: 'POST',
