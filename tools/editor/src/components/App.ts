@@ -558,6 +558,16 @@ function applyFactionTheme(container: HTMLElement, faction: ReturnType<typeof st
   container.style.setProperty('--bg-selected-border', theme.bgSelectedBorder);
   container.style.setProperty('--edge-color', theme.edgeColor);
   container.style.setProperty('--focus-ring', theme.focusRing);
+  // Also apply to <body> so Soviet theme's body-scoped derived vars
+  // (--stalker-amber, --stalker-green, --console-* color-mixes) resolve
+  // against the active faction accent. CSS custom properties using var()
+  // are computed at the element they're declared on, so without this the
+  // body-level Soviet palette would stay locked to its default green.
+  document.body.style.setProperty('--accent', theme.accent);
+  document.body.style.setProperty('--accent-hover', theme.accentHover);
+  document.body.style.setProperty('--accent-dim', theme.accentDim);
+  document.body.style.setProperty('--accent-glow', theme.accentGlow);
+  document.body.style.setProperty('--accent-glow-strong', theme.accentGlowStrong);
 }
 
 function createAddConversationButton(): HTMLButtonElement {
