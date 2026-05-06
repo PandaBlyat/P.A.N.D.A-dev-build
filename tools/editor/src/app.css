@@ -26648,3 +26648,382 @@ body.theme-soviet .app-bottom-region::after {
   top: auto;
   bottom: 4px;
 }
+
+/* ============================================================================
+   SOVIET CONSOLE — FINAL CASCADE
+   - Faction accent fully replaces the legacy yellow/khaki chassis tones.
+   - Workspace becomes an architect's blueprint screen: faction-tinted "paper"
+     with black grid rules and a recessed bezel.
+   - Heavier "nuclear console" detailing on toolbar / panels / bottom region:
+     stamped label strips, gauge bars, corner brackets, indicator LEDs.
+   This block is intentionally last so it overrides the earlier Soviet passes.
+   ============================================================================ */
+
+body.theme-soviet {
+  /* Re-derive every chassis colour from --accent so a faction switch repaints
+     the metal too, not just the trim. */
+  --console-paper: color-mix(in srgb, var(--accent) 38%, #0e1a26 62%);
+  --console-paper-deep: color-mix(in srgb, var(--accent) 22%, #050b13 78%);
+  --console-paper-light: color-mix(in srgb, var(--accent) 52%, #1a2c3e 48%);
+  --console-grid-major: rgba(0, 0, 0, 0.72);
+  --console-grid-minor: rgba(0, 0, 0, 0.32);
+  --console-bezel: color-mix(in srgb, var(--accent) 18%, #050604 82%);
+  --console-bezel-rim: color-mix(in srgb, var(--accent) 48%, #2a2a1e 52%);
+
+  --console-metal-light: color-mix(in srgb, var(--accent) 16%, #181a14 84%);
+  --console-metal-mid: color-mix(in srgb, var(--accent) 11%, #10120c 89%);
+  --console-metal-dark: color-mix(in srgb, var(--accent) 5%, #06080a 95%);
+  --console-metal-edge: color-mix(in srgb, var(--accent) 24%, #2a2c20 76%);
+  --console-rim: color-mix(in srgb, var(--accent) 38%, #4a4734 62%);
+  --console-rim-bright: color-mix(in srgb, var(--accent) 64%, #7a7252 36%);
+  --console-engrave: color-mix(in srgb, var(--accent) 28%, #1a1c14 72%);
+
+  /* Re-bind the legacy stalker palette so any rule still using it
+     follows the active faction. */
+  --stalker-amber: color-mix(in srgb, var(--accent) 72%, #f0d889 28%);
+  --stalker-amber-deep: color-mix(in srgb, var(--accent) 80%, #1a1408 20%);
+  --stalker-green: var(--accent);
+  --stalker-rim: var(--console-rim);
+  --stalker-metal: var(--console-metal-mid);
+  --stalker-metal-dark: var(--console-metal-dark);
+  --stalker-metal-mid: var(--console-metal-light);
+  --stalker-line: var(--console-rim);
+  --stalker-crt: var(--accent);
+}
+
+/* Body chassis tint follows accent. */
+body.theme-soviet,
+body.theme-soviet #app {
+  background:
+    radial-gradient(circle at 50% 0,
+      color-mix(in srgb, var(--accent) 14%, transparent), transparent 42%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 4px),
+    var(--console-metal-dark) !important;
+}
+
+/* ----------------- BLUEPRINT WORKSPACE ----------------- */
+
+body.theme-soviet .flow-canvas {
+  background-color: var(--console-paper) !important;
+  background-image:
+    /* Major grid lines (every 112px) — solid black, blueprint style */
+    linear-gradient(var(--console-grid-major) 1.4px, transparent 1.4px),
+    linear-gradient(90deg, var(--console-grid-major) 1.4px, transparent 1.4px),
+    /* Minor grid lines (every 14px) — thin black */
+    linear-gradient(var(--console-grid-minor) 1px, transparent 1px),
+    linear-gradient(90deg, var(--console-grid-minor) 1px, transparent 1px),
+    /* Vignette + paper sheen */
+    radial-gradient(ellipse at 50% 50%, transparent 0 58%, rgba(0, 0, 0, 0.55) 100%),
+    /* Paper colour gradient — faction-tinted */
+    linear-gradient(180deg,
+      var(--console-paper-light) 0%,
+      var(--console-paper) 50%,
+      var(--console-paper-deep) 100%) !important;
+  background-size:
+    112px 112px, 112px 112px,
+    14px 14px, 14px 14px,
+    100% 100%, 100% 100% !important;
+  background-blend-mode: normal, normal, normal, normal, multiply, normal !important;
+  box-shadow:
+    inset 0 0 0 2px #050604,
+    inset 0 0 0 4px var(--console-bezel-rim),
+    inset 0 0 0 5px rgba(0, 0, 0, 0.72),
+    inset 0 0 0 7px var(--console-bezel),
+    inset 0 0 36px rgba(0, 0, 0, 0.55),
+    inset 0 0 90px color-mix(in srgb, var(--accent) 14%, transparent) !important;
+}
+
+body.theme-soviet .flow-canvas::before {
+  background:
+    /* Faint horizontal CRT scan tint over blueprint */
+    repeating-linear-gradient(0deg,
+      color-mix(in srgb, var(--accent) 14%, transparent 86%) 0 1px,
+      transparent 1px 5px),
+    /* Slight inner glow */
+    radial-gradient(circle at 50% 50%, transparent 0 60%, rgba(0, 0, 0, 0.32) 100%) !important;
+  mix-blend-mode: overlay !important;
+  opacity: 0.35 !important;
+  filter: none !important;
+}
+
+/* Corner registration marks (architect blueprint feel) */
+body.theme-soviet .flow-canvas::after {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    /* Top-left bracket */
+    linear-gradient(90deg, rgba(0,0,0,0.85) 0 22px, transparent 22px) top left / 22px 2px no-repeat,
+    linear-gradient(180deg, rgba(0,0,0,0.85) 0 22px, transparent 22px) top left / 2px 22px no-repeat,
+    /* Top-right bracket */
+    linear-gradient(270deg, rgba(0,0,0,0.85) 0 22px, transparent 22px) top right / 22px 2px no-repeat,
+    linear-gradient(180deg, rgba(0,0,0,0.85) 0 22px, transparent 22px) top right / 2px 22px no-repeat,
+    /* Bottom-left bracket */
+    linear-gradient(90deg, rgba(0,0,0,0.85) 0 22px, transparent 22px) bottom left / 22px 2px no-repeat,
+    linear-gradient(0deg, rgba(0,0,0,0.85) 0 22px, transparent 22px) bottom left / 2px 22px no-repeat,
+    /* Bottom-right bracket */
+    linear-gradient(270deg, rgba(0,0,0,0.85) 0 22px, transparent 22px) bottom right / 22px 2px no-repeat,
+    linear-gradient(0deg, rgba(0,0,0,0.85) 0 22px, transparent 22px) bottom right / 2px 22px no-repeat;
+  opacity: 0.55;
+}
+
+/* ----------------- TOOLBAR / PANELS — METAL CHASSIS ----------------- */
+
+body.theme-soviet .toolbar,
+body.theme-soviet .panel,
+body.theme-soviet .app-bottom-region,
+body.theme-soviet .bottom-workspace {
+  background:
+    var(--stalker-screw) 9px 9px / 17px 17px no-repeat,
+    var(--stalker-screw) calc(100% - 9px) 9px / 17px 17px no-repeat,
+    var(--stalker-screw) 9px calc(100% - 9px) / 17px 17px no-repeat,
+    var(--stalker-screw) calc(100% - 9px) calc(100% - 9px) / 17px 17px no-repeat,
+    /* Brushed-metal horizontal grain */
+    repeating-linear-gradient(90deg,
+      rgba(255, 255, 255, 0.012) 0 1px,
+      transparent 1px 3px,
+      rgba(0, 0, 0, 0.06) 3px 4px,
+      transparent 4px 7px),
+    var(--stalker-noise),
+    linear-gradient(180deg,
+      var(--console-metal-light) 0%,
+      var(--console-metal-mid) 50%,
+      var(--console-metal-dark) 100%) !important;
+  border: 1px solid var(--console-rim) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 30%, #000 70%),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.85),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 18px 46px rgba(0, 0, 0, 0.72) !important;
+}
+
+/* Engraved label strip across toolbar / bottom region (faction-tinted hairlines) */
+body.theme-soviet .toolbar::after,
+body.theme-soviet .app-bottom-region::after {
+  background:
+    repeating-linear-gradient(90deg,
+      transparent 0 22px,
+      var(--console-rim-bright) 22px 23px,
+      transparent 23px 24px,
+      rgba(0, 0, 0, 0.7) 24px 25px,
+      transparent 25px 46px) !important;
+  opacity: 0.62 !important;
+}
+
+/* Add an extra hairline rule near the bottom edge of the toolbar */
+body.theme-soviet .toolbar::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 3px;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 50%, transparent) 12%,
+    color-mix(in srgb, var(--accent) 65%, transparent) 50%,
+    color-mix(in srgb, var(--accent) 50%, transparent) 88%,
+    transparent);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Toolbar groups: stamped sub-panels with engraved underline */
+body.theme-soviet .toolbar-title,
+body.theme-soviet .toolbar-group,
+body.theme-soviet .toolbar-status,
+body.theme-soviet .toolbar-visitor-counter,
+body.theme-soviet .toolbar-active-user-counter,
+body.theme-soviet .profile-badge,
+body.theme-soviet .collab-roster {
+  background:
+    var(--stalker-noise),
+    linear-gradient(180deg,
+      var(--console-metal-mid) 0%,
+      var(--console-metal-dark) 100%) !important;
+  border: 1px solid var(--console-metal-edge) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 22%, transparent),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.7),
+    0 1px 0 #000 !important;
+}
+
+/* Panel header — engraved label plate */
+body.theme-soviet .panel-header,
+body.theme-soviet .bottom-workspace-header {
+  background:
+    /* Faint accent wash */
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--accent) 26%, transparent),
+      transparent 60%),
+    /* Brushed metal */
+    repeating-linear-gradient(90deg,
+      rgba(255, 255, 255, 0.014) 0 1px,
+      transparent 1px 3px),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 16%, #1c1e16 84%) 0%,
+      var(--console-metal-dark) 100%) !important;
+  border-bottom: 1px solid var(--console-rim) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 30%, transparent),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6) !important;
+  position: relative;
+}
+
+/* Indicator LED at the right side of every panel header */
+body.theme-soviet .panel-header::after,
+body.theme-soviet .bottom-workspace-header::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--accent) 90%, #fff 10%) 0 1.5px,
+    var(--accent) 1.5px 2.8px,
+    color-mix(in srgb, var(--accent) 40%, #000 60%) 2.8px 3.5px);
+  box-shadow:
+    0 0 4px var(--accent),
+    0 0 10px color-mix(in srgb, var(--accent) 60%, transparent),
+    inset 0 0 1px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+/* Panel body (stories list, properties, etc.) — recessed inner casing */
+body.theme-soviet .main-layout,
+body.theme-soviet .panel-body {
+  background:
+    radial-gradient(circle at 50% 12%,
+      color-mix(in srgb, var(--accent) 18%, transparent), transparent 36%),
+    var(--stalker-noise),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 7%, #060806 93%),
+      color-mix(in srgb, var(--accent) 3%, #040504 97%)) !important;
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1px var(--console-rim) !important;
+}
+
+/* Conversation-list cards — subtle faction-tinted plates */
+body.theme-soviet .flow-controls,
+body.theme-soviet .conv-item,
+body.theme-soviet .choice-card,
+body.theme-soviet .props-section {
+  background:
+    var(--stalker-noise),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 9%, #181a13 91%) 0%,
+      var(--console-metal-dark) 100%) !important;
+  border: 1px solid var(--console-rim) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 18%, transparent),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6) !important;
+}
+
+/* ----------------- BUTTONS — STAMPED METAL KEYS ----------------- */
+
+body.theme-soviet button,
+body.theme-soviet .btn,
+body.theme-soviet .btn-sm,
+body.theme-soviet .toolbar-button,
+body.theme-soviet .toolbar-overflow-toggle,
+body.theme-soviet .toolbar-overflow-item,
+body.theme-soviet .conversation-list-tab,
+body.theme-soviet .bottom-workspace-tab {
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 16%, transparent),
+      transparent 38%),
+    linear-gradient(180deg,
+      var(--console-metal-light) 0%,
+      var(--console-metal-mid) 55%,
+      var(--console-metal-dark) 100%) !important;
+  border: 1px solid var(--console-rim) !important;
+  color: var(--stalker-amber) !important;
+  text-shadow: 0 1px 0 #000 !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 28%, transparent),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+    0 1px 0 #000 !important;
+}
+
+body.theme-soviet button:hover:not(:disabled),
+body.theme-soviet .btn:hover:not(:disabled),
+body.theme-soviet .btn-sm:hover:not(:disabled),
+body.theme-soviet .toolbar-button:hover:not(:disabled) {
+  border-color: var(--console-rim-bright) !important;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 26%, transparent),
+      transparent 42%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 18%, var(--console-metal-light) 82%) 0%,
+      color-mix(in srgb, var(--accent) 8%, var(--console-metal-dark) 92%) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 40%, transparent),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+    0 0 10px color-mix(in srgb, var(--accent) 35%, transparent),
+    0 1px 0 #000 !important;
+}
+
+body.theme-soviet button:active:not(:disabled),
+body.theme-soviet .btn:active:not(:disabled),
+body.theme-soviet .toolbar-button:active:not(:disabled) {
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1px var(--console-rim-bright) !important;
+  transform: translateY(1px);
+}
+
+/* ----------------- HEADER LABEL BRACKETS [ TEXT ] ----------------- */
+
+body.theme-soviet .panel-header > span:first-child::before,
+body.theme-soviet .bottom-workspace-header strong::before {
+  color: var(--console-rim-bright) !important;
+}
+body.theme-soviet .panel-header > span:first-child::after,
+body.theme-soviet .bottom-workspace-header strong::after {
+  color: var(--console-rim-bright) !important;
+}
+
+/* Faction-aware text colours — replace fixed amber with derived accent */
+body.theme-soviet .toolbar-title-primary,
+body.theme-soviet .panel-header-title,
+body.theme-soviet .panel-header > span:first-child,
+body.theme-soviet .bottom-workspace-header strong,
+body.theme-soviet .validation-drawer-title,
+body.theme-soviet .drawer-header-copy strong,
+body.theme-soviet .command-picker-title,
+body.theme-soviet .item-picker-title,
+body.theme-soviet .username-modal-title,
+body.theme-soviet .roadmap-modal-title,
+body.theme-soviet .support-panel-title,
+body.theme-soviet .share-modal-title-text,
+body.theme-soviet .help-modal-title,
+body.theme-soviet .public-profile-name {
+  color: var(--stalker-amber) !important;
+  text-shadow:
+    0 1px 0 #000,
+    0 0 9px color-mix(in srgb, var(--accent) 35%, transparent) !important;
+}
+
+body.theme-soviet .toolbar-title-accent,
+body.theme-soviet .toolbar-title .ui-icon {
+  color: var(--accent) !important;
+}
+
+/* ----------------- BOTTOM REGION (NARRATOR BAR) ----------------- */
+
+body.theme-soviet .app-bottom-region {
+  border-top: 2px solid #050604 !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 26%, transparent),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.7),
+    0 -2px 0 #000,
+    0 -8px 24px rgba(0, 0, 0, 0.5) !important;
+}
