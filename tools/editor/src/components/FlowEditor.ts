@@ -787,14 +787,19 @@ export function renderFlowEditor(container: HTMLElement): void {
     lastCollabCursorPingAt = now;
     sendCollabCursorPing(viewportToWorldPoint(canvas, viewState, event.clientX, event.clientY));
   });
-  shell.appendChild(canvas);
-  shell.appendChild(controls);
   const branchModal = renderBranchInlineModalOverlay({
     conv,
     branchInlinePanel: state.branchInlinePanel,
     turnLabels,
   });
-  if (branchModal) shell.appendChild(branchModal);
+  const modalHost = document.getElementById('app-modal-host');
+  const staleBranchModals = (modalHost ?? shell).querySelectorAll(':scope > .branch-inline-modal-overlay');
+  staleBranchModals.forEach((modal) => modal.remove());
+  if (branchModal) {
+    (modalHost ?? shell).appendChild(branchModal);
+  }
+  shell.appendChild(canvas);
+  shell.appendChild(controls);
   container.appendChild(shell);
 
   const focusTurn = (turnNumber: number, options: { center?: boolean } = {}): void => {

@@ -5,9 +5,9 @@ import type { FactionId } from './types';
  * All colours are chosen to work well on dark backgrounds (#10141a).
  */
 export const FACTION_COLORS: Record<FactionId, string> = {
-  stalker: '#ffd700',   // gold
-  dolg: '#ff4040',      // bright red
-  freedom: '#40c840',   // fresh green
+  stalker: '#c7a43a',   // muted loner gold
+  dolg: '#b64a43',      // muted Duty red
+  freedom: '#4f9a52',   // muted Freedom green
   csky: '#87ceeb',      // sky blue (Clear Sky)
   ecolog: '#e6e600',    // amber‑yellow (softer than pure #ffff40)
   killer: '#8080c8',    // muted purple‑blue (Mercenaries)

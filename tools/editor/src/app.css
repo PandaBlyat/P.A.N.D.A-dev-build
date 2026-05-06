@@ -27027,3 +27027,372 @@ body.theme-soviet .app-bottom-region {
     0 -2px 0 #000,
     0 -8px 24px rgba(0, 0, 0, 0.5) !important;
 }
+
+/* ============================================================================
+   FINAL SOVIET THEME TUNING
+   Last-pass overrides keep modern theme untouched while fixing faction tint,
+   branch body colour, darker workspace, and modal chrome.
+   ============================================================================ */
+
+body.theme-soviet {
+  --console-metal-light: color-mix(in srgb, var(--accent) 4%, #171814 96%);
+  --console-metal-mid: color-mix(in srgb, var(--accent) 3%, #0f110d 97%);
+  --console-metal-dark: color-mix(in srgb, var(--accent) 2%, #050605 98%);
+  --console-rim: color-mix(in srgb, var(--accent) 24%, #343434 76%);
+  --console-rim-bright: color-mix(in srgb, var(--accent) 46%, #8a8a82 54%);
+  --console-engrave: color-mix(in srgb, var(--accent) 14%, #292929 86%);
+  --console-screen-tint: color-mix(in srgb, var(--accent) 3%, #030405 97%);
+  --console-screen-grid: rgba(0, 0, 0, 0.62);
+  --console-screen-grid-faint: rgba(0, 0, 0, 0.34);
+  --stalker-amber: color-mix(in srgb, var(--accent) 36%, #c9c2a4 64%);
+  --stalker-amber-deep: color-mix(in srgb, var(--accent) 34%, #25231d 66%);
+  --stalker-green: var(--accent);
+  --stalker-rim: var(--console-rim);
+}
+
+body.theme-soviet .flow-canvas {
+  background-color: var(--console-screen-tint) !important;
+  background-image:
+    linear-gradient(var(--console-screen-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--console-screen-grid) 1px, transparent 1px),
+    linear-gradient(var(--console-screen-grid-faint) 1px, transparent 1px),
+    linear-gradient(90deg, var(--console-screen-grid-faint) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 52%, transparent 0 58%, rgba(0, 0, 0, 0.66) 100%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 4%, #040506 96%) 0%,
+      color-mix(in srgb, var(--accent) 2%, #010202 98%) 100%) !important;
+  background-size:
+    112px 112px, 112px 112px,
+    14px 14px, 14px 14px,
+    100% 100%, 100% 100% !important;
+  background-blend-mode: normal, normal, normal, normal, normal, normal !important;
+  box-shadow:
+    inset 0 0 0 2px #040504,
+    inset 0 0 0 4px color-mix(in srgb, var(--accent) 16%, #111312 84%),
+    inset 0 0 0 5px rgba(0, 0, 0, 0.75),
+    inset 0 0 42px rgba(0, 0, 0, 0.74),
+    inset 0 0 90px color-mix(in srgb, var(--accent) 7%, transparent) !important;
+}
+
+body.theme-soviet .flow-canvas::before {
+  background:
+    repeating-linear-gradient(0deg,
+      rgba(0, 0, 0, 0.36) 0 1px,
+      transparent 1px 6px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.48), transparent 10%, transparent 90%, rgba(0, 0, 0, 0.48)),
+    radial-gradient(circle at 50% 50%, transparent 0 60%, rgba(0, 0, 0, 0.5) 100%) !important;
+  mix-blend-mode: normal !important;
+  opacity: 0.48 !important;
+  filter: none !important;
+}
+
+body.theme-soviet .toolbar,
+body.theme-soviet .panel,
+body.theme-soviet .app-bottom-region,
+body.theme-soviet .bottom-workspace,
+body.theme-soviet .toolbar-overflow-menu,
+body.theme-soviet .mobile-sheet {
+  background:
+    var(--stalker-screw) 10px 10px / 16px 16px no-repeat,
+    var(--stalker-screw) calc(100% - 10px) 10px / 16px 16px no-repeat,
+    var(--stalker-screw) 10px calc(100% - 10px) / 16px 16px no-repeat,
+    var(--stalker-screw) calc(100% - 10px) calc(100% - 10px) / 16px 16px no-repeat,
+    var(--stalker-noise),
+    linear-gradient(180deg, var(--console-metal-light) 0%, var(--console-metal-dark) 100%) !important;
+  border-color: var(--console-rim) !important;
+}
+
+body.theme-soviet .main-layout,
+body.theme-soviet .panel-body {
+  background:
+    radial-gradient(circle at 50% 12%,
+      color-mix(in srgb, var(--accent) 8%, transparent),
+      transparent 34%),
+    var(--stalker-noise),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 2%, #050505 98%),
+      #030303) !important;
+}
+
+body.theme-soviet .panel-header,
+body.theme-soviet .bottom-workspace-header,
+body.theme-soviet .command-picker-header,
+body.theme-soviet .item-picker-header,
+body.theme-soviet .npc-builder-header,
+body.theme-soviet .share-modal-header,
+body.theme-soviet .help-modal-header,
+body.theme-soviet .support-panel-header,
+body.theme-soviet .bug-report-header,
+body.theme-soviet .roadmap-modal-header,
+body.theme-soviet .pa-avatar-modal-header,
+body.theme-soviet .branch-inline-panel-header,
+body.theme-soviet .story-forge-header,
+body.theme-soviet .username-modal-header {
+  border-bottom-color: var(--console-rim) !important;
+  background:
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--accent) 10%, transparent),
+      transparent 50%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 4%, #1b1b18 96%) 0%,
+      var(--console-metal-dark) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 20%, transparent),
+    inset 0 -1px 0 #050604 !important;
+}
+
+body.theme-soviet .flow-controls,
+body.theme-soviet .conv-item,
+body.theme-soviet .choice-card,
+body.theme-soviet .props-section,
+body.theme-soviet .validation-msg,
+body.theme-soviet .validation-drawer-item,
+body.theme-soviet .command-picker-card,
+body.theme-soviet .item-picker-option,
+body.theme-soviet .item-picker-option.item-picker-option-static,
+body.theme-soviet .npc-builder-section,
+body.theme-soviet .share-card,
+body.theme-soviet .share-list-row,
+body.theme-soviet .public-profile-section,
+body.theme-soviet .public-profile-recent-card,
+body.theme-soviet .public-profile-badge-tile,
+body.theme-soviet .roadmap-card,
+body.theme-soviet .roadmap-column,
+body.theme-soviet .support-panel-card,
+body.theme-soviet .support-highlight,
+body.theme-soviet .story-forge-recipe-group {
+  border-color: color-mix(in srgb, var(--accent) 15%, #343434 85%) !important;
+  background:
+    var(--stalker-noise),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 3%, #171817 97%) 0%,
+      #070807 100%) !important;
+}
+
+body.theme-soviet .turn-node {
+  border-color: color-mix(in srgb, var(--branch-color, var(--accent)) 54%, #2e2d22 46%) !important;
+  background:
+    radial-gradient(circle at 11px 11px, #070807 0 1.6px, color-mix(in srgb, var(--branch-color, var(--accent)) 46%, #d8c88f 54%) 1.6px 2.5px, #161711 2.5px 4.2px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 11px) 11px, #070807 0 1.6px, color-mix(in srgb, var(--branch-color, var(--accent)) 46%, #d8c88f 54%) 1.6px 2.5px, #161711 2.5px 4.2px, transparent 4.6px),
+    linear-gradient(180deg, color-mix(in srgb, var(--branch-color, var(--accent)) 18%, transparent) 0%, transparent 36%),
+    var(--stalker-noise),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--branch-color, var(--accent)) 8%, #1f2319 92%) 0%,
+      color-mix(in srgb, var(--branch-color, var(--accent)) 3%, #11140d 97%) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--branch-color, var(--accent)) 18%, rgba(239, 215, 146, 0.1)),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.76),
+    0 0 0 1px color-mix(in srgb, var(--branch-color, var(--accent)) 16%, transparent),
+    0 6px 14px rgba(0, 0, 0, 0.62) !important;
+}
+
+body.theme-soviet .turn-node:hover,
+body.theme-soviet .turn-node.selected,
+body.theme-soviet .turn-node.has-inline-panel,
+body.theme-soviet .turn-node.path-active:not(.selected),
+body.theme-soviet .turn-node.connection-target-active {
+  border-color: color-mix(in srgb, var(--branch-color, var(--accent)) 74%, white 12%) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--branch-color, var(--accent)) 26%, rgba(239, 215, 146, 0.12)),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.82),
+    0 0 0 1px rgba(0, 0, 0, 0.72),
+    0 0 14px color-mix(in srgb, var(--branch-color, var(--accent)) 26%, transparent) !important;
+}
+
+body.theme-soviet .turn-label,
+body.theme-soviet .turn-label-input {
+  color: color-mix(in srgb, var(--branch-color, var(--accent)) 68%, #eadba5 32%) !important;
+  text-shadow: 0 1px 0 #000, 0 0 9px color-mix(in srgb, var(--branch-color, var(--accent)) 34%, transparent) !important;
+}
+
+body.theme-soviet .turn-choice-item,
+body.theme-soviet .turn-npc-reply,
+body.theme-soviet .branch-opener-card {
+  border: 1px solid color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 44%, rgba(64, 63, 48, 0.9) 56%) !important;
+  border-left: 3px solid var(--choice-branch-color, var(--branch-color, var(--accent))) !important;
+  background:
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 24%, transparent),
+      transparent 54%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 10%, transparent),
+      transparent 100%),
+    rgba(7, 10, 8, 0.84) !important;
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.68),
+    inset 0 0 0 1px color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 14%, transparent) !important;
+}
+
+body.theme-soviet .turn-choice-item:hover,
+body.theme-soviet .turn-choice-item.selected,
+body.theme-soviet .branch-opener-card:hover,
+body.theme-soviet .branch-opener-card:focus-visible {
+  border-color: color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 72%, white 10%) !important;
+  border-left-color: var(--choice-branch-color, var(--branch-color, var(--accent))) !important;
+  background:
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 34%, transparent),
+      transparent 58%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 15%, transparent),
+      transparent 100%),
+    rgba(11, 14, 10, 0.94) !important;
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.68),
+    0 0 12px color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 28%, transparent) !important;
+}
+
+body.theme-soviet .branch-opener-label,
+body.theme-soviet .branch-inline-edit-btn,
+body.theme-soviet .choice-number {
+  color: color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 78%, white 22%) !important;
+}
+
+body.theme-soviet .username-modal-card,
+body.theme-soviet .command-picker-panel,
+body.theme-soviet .item-picker-panel,
+body.theme-soviet .catalog-picker-panel,
+body.theme-soviet .npc-builder-panel,
+body.theme-soviet .share-modal,
+body.theme-soviet .help-modal,
+body.theme-soviet .support-panel,
+body.theme-soviet .bug-report-panel,
+body.theme-soviet .public-profile-modal,
+body.theme-soviet .profile-popover,
+body.theme-soviet .roadmap-modal,
+body.theme-soviet .roadmap-editor-form,
+body.theme-soviet .privilege-modal,
+body.theme-soviet .story-forge-panel,
+body.theme-soviet .pa-avatar-modal,
+body.theme-soviet .branch-inline-panel,
+body.theme-soviet .branch-author-popup {
+  border-color: var(--console-rim) !important;
+  background:
+    var(--stalker-screw) 10px 10px / 16px 16px no-repeat,
+    var(--stalker-screw) calc(100% - 10px) 10px / 16px 16px no-repeat,
+    var(--stalker-screw) 10px calc(100% - 10px) / 16px 16px no-repeat,
+    var(--stalker-screw) calc(100% - 10px) calc(100% - 10px) / 16px 16px no-repeat,
+    var(--stalker-noise),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 4%, #1d1e1b 96%) 0%,
+      color-mix(in srgb, var(--accent) 2%, #070807 98%) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 18%, rgba(239, 215, 146, 0.12)),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.82),
+    0 18px 46px rgba(0, 0, 0, 0.72),
+    0 0 20px color-mix(in srgb, var(--accent) 8%, transparent) !important;
+}
+
+body.theme-soviet .catalog-picker-overlay,
+body.theme-soviet .item-picker-overlay,
+body.theme-soviet .npc-builder-overlay,
+body.theme-soviet .share-overlay,
+body.theme-soviet .share-modal-overlay,
+body.theme-soviet .help-modal-overlay,
+body.theme-soviet .bug-report-overlay,
+body.theme-soviet .username-modal-overlay,
+body.theme-soviet .public-profile-overlay,
+body.theme-soviet .roadmap-overlay,
+body.theme-soviet .roadmap-editor-overlay,
+body.theme-soviet .support-overlay,
+body.theme-soviet .story-forge-overlay,
+body.theme-soviet .privilege-overlay,
+body.theme-soviet .pa-avatar-modal-backdrop,
+body.theme-soviet .branch-inline-modal-overlay {
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.34) 0 1px, transparent 1px 5px),
+    radial-gradient(circle at 50% 20%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 38%),
+    rgba(2, 3, 2, 0.9) !important;
+}
+
+body.theme-soviet button,
+body.theme-soviet .btn,
+body.theme-soviet .btn-sm,
+body.theme-soviet .toolbar-button,
+body.theme-soviet .toolbar-overflow-toggle,
+body.theme-soviet .toolbar-overflow-item,
+body.theme-soviet .username-modal-submit,
+body.theme-soviet .username-modal-skip,
+body.theme-soviet .username-modal-tab,
+body.theme-soviet .inspector-action-btn,
+body.theme-soviet .choice-author-action,
+body.theme-soviet .branch-inline-edit-btn,
+body.theme-soviet .item-picker-chip,
+body.theme-soviet .item-picker-subchip,
+body.theme-soviet .roadmap-upvote-btn,
+body.theme-soviet .roadmap-add-btn,
+body.theme-soviet .support-upvote-button,
+body.theme-soviet .pa-avatar-tab-btn,
+body.theme-soviet .pa-avatar-modal-action,
+body.theme-soviet .mobile-sheet-action,
+body.theme-soviet .conversation-list-tab,
+body.theme-soviet .bottom-workspace-tab {
+  border-color: color-mix(in srgb, var(--accent) 30%, #454132 70%) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 38%),
+    linear-gradient(180deg, #1a1b18 0%, #070807 100%) !important;
+  color: color-mix(in srgb, var(--accent) 46%, #d8d8cf 54%) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 18%, rgba(255, 235, 166, 0.12)),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.72),
+    0 1px 0 #000 !important;
+}
+
+body.theme-soviet .btn-primary,
+body.theme-soviet .toolbar-button-primary,
+body.theme-soviet .btn-community,
+body.theme-soviet .toolbar-support-trigger,
+body.theme-soviet .flow-add-turn-button,
+body.theme-soviet .roadmap-add-btn,
+body.theme-soviet .username-modal-submit,
+body.theme-soviet .pa-avatar-modal-action-primary {
+  border-color: color-mix(in srgb, var(--accent) 62%, #51482d 38%) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent 44%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 10%, #1d1f19 90%) 0%,
+      color-mix(in srgb, var(--accent) 4%, #070907 96%) 100%) !important;
+  color: color-mix(in srgb, var(--accent) 70%, white 30%) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 28%, transparent),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.78),
+    0 0 12px color-mix(in srgb, var(--accent) 18%, transparent) !important;
+}
+
+body.theme-soviet input,
+body.theme-soviet select,
+body.theme-soviet textarea,
+body.theme-soviet .username-modal-input,
+body.theme-soviet .rich-editor-input,
+body.theme-soviet .rich-editor-textarea,
+body.theme-soviet .toolbar-search-input,
+body.theme-soviet .toolbar-density-select,
+body.theme-soviet .toolbar-overflow-select,
+body.theme-soviet .mobile-sheet-select,
+body.theme-soviet .share-form-input,
+body.theme-soviet .share-select,
+body.theme-soviet .roadmap-editor-input,
+body.theme-soviet .roadmap-editor-textarea,
+body.theme-soviet .roadmap-editor-select,
+body.theme-soviet .npc-builder-input,
+body.theme-soviet .npc-builder-select,
+body.theme-soviet .npc-builder-select-sm {
+  border-color: color-mix(in srgb, var(--accent) 18%, #323428 82%) !important;
+  background:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 5%, transparent) 0 1px, transparent 1px 3px),
+    color-mix(in srgb, var(--accent) 3%, #080b07 97%) !important;
+  color: color-mix(in srgb, var(--accent) 20%, #d8d0aa 80%) !important;
+}
+
+body.theme-soviet .pa-avatar-modal,
+body.theme-soviet .public-profile-modal,
+body.theme-soviet .profile-popover {
+  --pa-bg: color-mix(in srgb, var(--accent) 2%, #060706 98%);
+  --pa-bg-panel: color-mix(in srgb, var(--accent) 3%, #111211 97%);
+  --pa-bg-card: color-mix(in srgb, var(--accent) 4%, #171817 96%);
+  --pa-bg-input: color-mix(in srgb, var(--accent) 2%, #080908 98%);
+  --pa-border: var(--console-rim);
+  --pa-text-primary: color-mix(in srgb, var(--accent) 30%, #e4d9a8 70%);
+  --pa-text-secondary: color-mix(in srgb, var(--accent) 18%, #8d8566 82%);
+  --pa-accent: var(--accent);
+}
