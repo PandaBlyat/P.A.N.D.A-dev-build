@@ -4242,10 +4242,15 @@ body.theme-soviet {
   --info: #4f8aa7;
   --font-sans: "Arial Narrow", "Roboto Condensed", "Segoe UI", Arial, sans-serif;
   --font-mono: "Share Tech Mono", "Consolas", "Lucida Console", monospace;
-  --stalker-amber: #d9bd73;
-  /* --stalker-green follows the active faction --accent so that
-     changing a story's faction recolors the Soviet UI theme. */
+  /* Faction-aware Soviet palette: --stalker-amber and --stalker-green both
+     derive from the active --accent so changing a story's faction recolors
+     the bulk of the Soviet UI, not just the accent line. Amber is a warm
+     lifted variant of the accent (used for titles/labels), green is the
+     accent itself (used for active states/LEDs/headlines). */
+  --stalker-amber: color-mix(in srgb, var(--accent, #9bd05a) 58%, #f0d889 42%);
+  --stalker-amber-deep: color-mix(in srgb, var(--accent, #9bd05a) 72%, #2a2010 28%);
   --stalker-green: var(--accent, #9bd05a);
+  --stalker-rim: color-mix(in srgb, var(--accent, #9bd05a) 32%, #4d4734 68%);
   --stalker-noise:
     radial-gradient(circle at 9% 18%, rgba(255, 235, 166, 0.055) 0 1px, transparent 1.5px),
     radial-gradient(circle at 78% 28%, rgba(0, 0, 0, 0.22) 0 1px, transparent 1.5px),
@@ -4724,10 +4729,15 @@ textarea,
   --stalker-metal-dark: #0a0c08;
   --stalker-metal-mid: #24261b;
   --stalker-line: #3e3d2c;
-  --stalker-amber: #d9bd73;
-  /* --stalker-green follows the active faction --accent so that
-     changing a story's faction recolors the Soviet UI theme. */
+  /* Faction-aware Soviet palette: --stalker-amber and --stalker-green both
+     derive from the active --accent so changing a story's faction recolors
+     the bulk of the Soviet UI, not just the accent line. Amber is a warm
+     lifted variant of the accent (used for titles/labels), green is the
+     accent itself (used for active states/LEDs/headlines). */
+  --stalker-amber: color-mix(in srgb, var(--accent, #9bd05a) 58%, #f0d889 42%);
+  --stalker-amber-deep: color-mix(in srgb, var(--accent, #9bd05a) 72%, #2a2010 28%);
   --stalker-green: var(--accent, #9bd05a);
+  --stalker-rim: color-mix(in srgb, var(--accent, #9bd05a) 32%, #4d4734 68%);
   --stalker-rust: #9a5c32;
   --stalker-crt: #6fb34a;
   /* Cross-slot screw head: bright bevel ring around a darker dished centre,
@@ -5147,26 +5157,39 @@ select option {
 .support-panel-card,
 .support-highlight,
 .story-forge-recipe-group {
-  border: 1px solid #3e3d2c;
+  border: 1px solid color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 28%, #3e3d2c 72%);
   border-radius: 3px;
   background:
+    /* 4-corner cross-slot screws */
+    radial-gradient(circle at 9px 9px, #080907 0 1.4px, rgba(224, 206, 142, 0.5) 1.4px 2.4px, #1a1812 2.4px 3.8px, transparent 4.2px),
+    radial-gradient(circle at calc(100% - 9px) 9px, #080907 0 1.4px, rgba(224, 206, 142, 0.5) 1.4px 2.4px, #1a1812 2.4px 3.8px, transparent 4.2px),
+    radial-gradient(circle at 9px calc(100% - 9px), #080907 0 1.4px, rgba(224, 206, 142, 0.5) 1.4px 2.4px, #1a1812 2.4px 3.8px, transparent 4.2px),
+    radial-gradient(circle at calc(100% - 9px) calc(100% - 9px), #080907 0 1.4px, rgba(224, 206, 142, 0.5) 1.4px 2.4px, #1a1812 2.4px 3.8px, transparent 4.2px),
+    /* Faction tint wash on top */
+    linear-gradient(180deg, color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 14%, transparent) 0%, transparent 32%),
     var(--stalker-noise),
     linear-gradient(180deg, #1d2118 0%, #10130d 100%);
   box-shadow:
-    inset 0 1px 0 rgba(239, 215, 146, 0.08),
+    inset 0 1px 0 rgba(239, 215, 146, 0.1),
     inset 0 -1px 0 rgba(0, 0, 0, 0.72),
     0 1px 0 #000;
 }
 
 .conv-item::before {
-  width: 3px;
-  background: var(--conversation-faction-color, var(--accent));
-  box-shadow: none;
+  width: 4px;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 90%, white 10%),
+      var(--conversation-faction-color, var(--accent)) 50%,
+      color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 70%, black 30%));
+  box-shadow:
+    0 0 8px color-mix(in srgb, var(--conversation-faction-color, var(--accent)) 50%, transparent),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.45);
 }
 
 .conv-item::after {
   border-radius: 0;
-  border: 1px solid rgba(217, 189, 115, 0.1);
+  border: 1px solid rgba(217, 189, 115, 0.12);
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55);
 }
 
@@ -5307,25 +5330,37 @@ select option {
 }
 
 .turn-node {
-  border: 1px solid color-mix(in srgb, var(--branch-color, var(--accent)) 38%, #3d3b29 62%);
+  border: 1px solid color-mix(in srgb, var(--branch-color, var(--accent)) 52%, #3d3b29 48%);
   border-radius: 3px;
   background:
-    radial-gradient(circle at 11px 11px, #080907 0 2px, rgba(224, 206, 142, 0.46) 2px 3px, transparent 4px),
-    radial-gradient(circle at calc(100% - 11px) 11px, #080907 0 2px, rgba(224, 206, 142, 0.46) 2px 3px, transparent 4px),
+    /* 4-corner cross-slot screws */
+    radial-gradient(circle at 11px 11px, #080907 0 1.6px, rgba(224, 206, 142, 0.5) 1.6px 2.6px, #1a1812 2.6px 4.2px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 11px) 11px, #080907 0 1.6px, rgba(224, 206, 142, 0.5) 1.6px 2.6px, #1a1812 2.6px 4.2px, transparent 4.6px),
+    radial-gradient(circle at 11px calc(100% - 11px), #080907 0 1.6px, rgba(224, 206, 142, 0.5) 1.6px 2.6px, #1a1812 2.6px 4.2px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 11px) calc(100% - 11px), #080907 0 1.6px, rgba(224, 206, 142, 0.5) 1.6px 2.6px, #1a1812 2.6px 4.2px, transparent 4.6px),
+    /* Branch-color tinted top wash so each branch reads distinct at a glance */
+    linear-gradient(180deg, color-mix(in srgb, var(--branch-color, var(--accent)) 28%, transparent) 0%, transparent 38%),
     var(--stalker-noise),
     linear-gradient(180deg, #22251b 0%, #14170f 100%);
   box-shadow:
     inset 0 1px 0 rgba(239, 215, 146, 0.12),
     inset 0 -2px 6px rgba(0, 0, 0, 0.72),
+    0 0 0 1px color-mix(in srgb, var(--branch-color, var(--accent)) 18%, transparent),
     0 6px 14px rgba(0, 0, 0, 0.62);
 }
 
 .turn-node::before {
-  width: 3px;
+  width: 4px;
   inset: 8px auto 8px 0;
   border-radius: 0;
-  background: var(--branch-color, var(--accent));
-  box-shadow: none;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--branch-color, var(--accent)) 90%, white 10%) 0%,
+      var(--branch-color, var(--accent)) 50%,
+      color-mix(in srgb, var(--branch-color, var(--accent)) 70%, black 30%) 100%);
+  box-shadow:
+    0 0 8px color-mix(in srgb, var(--branch-color, var(--accent)) 60%, transparent),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.45);
 }
 
 .turn-node:hover,
@@ -5371,19 +5406,28 @@ select option {
 .turn-choice-item,
 .turn-npc-reply,
 .branch-opener-card {
-  border: 1px solid rgba(86, 84, 59, 0.86);
+  border: 1px solid color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 38%, rgba(86, 84, 59, 0.86) 62%);
+  border-left: 3px solid var(--choice-branch-color, var(--branch-color, var(--accent)));
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 8%, transparent), transparent 38%),
-    rgba(10, 13, 9, 0.72);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.65);
+    linear-gradient(90deg, color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 22%, transparent), transparent 52%),
+    linear-gradient(180deg, color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 8%, transparent), transparent 100%),
+    rgba(10, 13, 9, 0.78);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.65),
+    inset 0 0 0 1px color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 12%, transparent);
 }
 
 .turn-choice-item:hover,
 .turn-choice-item.selected {
-  border-color: color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 48%, #d9bd73 18%);
+  border-color: color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 70%, #d9bd73 18%);
+  border-left-color: color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 100%, white 0%);
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 18%, transparent), transparent 46%),
-    rgba(18, 22, 13, 0.9);
+    linear-gradient(90deg, color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 32%, transparent), transparent 56%),
+    linear-gradient(180deg, color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 14%, transparent), transparent 100%),
+    rgba(18, 22, 13, 0.92);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.65),
+    0 0 12px color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 25%, transparent);
 }
 
 .choice-number,
@@ -6063,6 +6107,249 @@ select option {
   backdrop-filter: none !important;
   box-shadow: var(--shadow-sm) !important;
 }
+
+/* ────────────────────────────────────────────────────────────────────
+   Aesthetic Soviet decoration pass — riveted frames, engraved plates,
+   LED indicators, faction-tinted washes. All pure CSS. Lives inside
+   body.theme-soviet via native nesting.
+   ──────────────────────────────────────────────────────────────────── */
+
+/* Faction-tinted ambient wash on the main layout — gives the whole
+   editor a subtle colour cast that matches the active faction, far
+   stronger than the previous near-invisible 9% radial. */
+.main-layout {
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--accent) 18%, transparent) 0%, transparent 38%),
+    radial-gradient(circle at 8% 92%, color-mix(in srgb, var(--accent) 10%, transparent) 0%, transparent 42%),
+    radial-gradient(circle at 92% 92%, color-mix(in srgb, var(--accent) 10%, transparent) 0%, transparent 42%),
+    var(--stalker-noise),
+    #080a07 !important;
+}
+
+/* Engraved metallic plate look for panel headers — adds a faction-tinted
+   highlight strip + bottom shadow groove for an embossed feel. */
+.panel-header {
+  position: relative;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 18%, transparent), transparent 38%),
+    linear-gradient(180deg, #2a2c20 0%, #15170f 60%, #0d0f09 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(239, 215, 146, 0.18),
+    inset 0 -1px 0 #050604,
+    inset 0 -2px 6px rgba(0, 0, 0, 0.65) !important;
+}
+
+.panel-header::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent) 80%, white 20%) 0%, var(--accent) 50%, color-mix(in srgb, var(--accent) 50%, black 50%) 100%);
+  box-shadow:
+    0 0 6px color-mix(in srgb, var(--accent) 80%, transparent),
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 1px rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+
+.panel-header > span:first-child,
+.panel-header-title {
+  padding-left: 10px !important;
+}
+
+/* Reinforced left/right panel: side rivet column + tinted edge highlight. */
+.panel-left,
+.panel-right {
+  border-right-color: #050604;
+  background:
+    /* extra mid-height side rivets so the panel reads as bolted-on metal */
+    radial-gradient(circle at 10px 50%, #080907 0 1.5px, rgba(224, 206, 142, 0.4) 1.5px 2.5px, #1a1812 2.5px 4px, transparent 4.4px) no-repeat,
+    radial-gradient(circle at calc(100% - 10px) 50%, #080907 0 1.5px, rgba(224, 206, 142, 0.4) 1.5px 2.5px, #1a1812 2.5px 4px, transparent 4.4px) no-repeat,
+    var(--stalker-screw) 10px 10px / 16px 16px no-repeat,
+    var(--stalker-screw) calc(100% - 10px) 10px / 16px 16px no-repeat,
+    var(--stalker-screw) 10px calc(100% - 10px) / 16px 16px no-repeat,
+    var(--stalker-screw) calc(100% - 10px) calc(100% - 10px) / 16px 16px no-repeat,
+    /* hairline vertical seams */
+    repeating-linear-gradient(90deg, transparent 0 14px, rgba(0, 0, 0, 0.13) 14px 16px),
+    /* faction-tinted vertical glow */
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 50%),
+    var(--stalker-noise),
+    linear-gradient(180deg, #22231a 0%, #11140d 100%);
+}
+
+/* Engraved branding plate on the toolbar title (P.A.N.D.A. EDITOR). */
+.toolbar-title {
+  background:
+    radial-gradient(circle at 11px 10px, #0b0b08 0 1.6px, #c0a868 1.6px 2.4px, #181610 2.4px 4px, transparent 4px),
+    radial-gradient(circle at calc(100% - 11px) 10px, #0b0b08 0 1.6px, #c0a868 1.6px 2.4px, #181610 2.4px 4px, transparent 4px),
+    radial-gradient(circle at 11px calc(100% - 10px), #0b0b08 0 1.6px, #c0a868 1.6px 2.4px, #181610 2.4px 4px, transparent 4px),
+    radial-gradient(circle at calc(100% - 11px) calc(100% - 10px), #0b0b08 0 1.6px, #c0a868 1.6px 2.4px, #181610 2.4px 4px, transparent 4px),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%),
+    linear-gradient(180deg, #2d2f22 0%, #14170f 60%, #0a0c08 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(239, 215, 146, 0.22),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.78),
+    0 0 0 1px #050604,
+    0 1px 0 rgba(239, 215, 146, 0.08) !important;
+}
+
+/* The little brand "lamp" in the toolbar title becomes an active LED
+   styled via the accent so the lamp colour follows faction. */
+.toolbar-title .ui-icon {
+  color: var(--accent) !important;
+  background:
+    radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent) 70%, white 30%) 0%, color-mix(in srgb, var(--accent) 80%, transparent) 50%, #0a0d08 90%) !important;
+  border-color: color-mix(in srgb, var(--accent) 60%, #1a1c12 40%) !important;
+  box-shadow:
+    inset 0 0 6px color-mix(in srgb, var(--accent) 50%, transparent),
+    0 0 10px color-mix(in srgb, var(--accent) 55%, transparent),
+    0 0 0 1px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Errors / validation summary — looks like a stamped warning pill with
+   a pulsing red LED. The LED uses the danger colour, not the faction
+   accent, so it reads as a warning regardless of theme. */
+.validation-summary,
+.validation-bar .validation-summary-button {
+  position: relative;
+  border: 1px solid #4a4734 !important;
+  border-radius: 3px !important;
+  background:
+    radial-gradient(circle at 9px 50%, #1a0a07 0 2.4px, #b8401e 2.4px 3.4px, #2a0d08 3.4px 5.6px, transparent 5.6px) no-repeat,
+    linear-gradient(180deg, #2a2c20 0%, #15170f 100%) !important;
+  padding-left: 22px !important;
+  color: var(--stalker-amber) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  box-shadow:
+    inset 0 1px 0 rgba(239, 215, 146, 0.15),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.7),
+    0 0 12px rgba(184, 64, 30, 0.25) !important;
+}
+
+/* Validation summary "red LED" gets a soft pulse so it reads as live. */
+@keyframes panda-soviet-led-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.validation-summary::before,
+.validation-bar .validation-summary-button::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #ffb59b 0%, #d85432 50%, #4a1408 100%);
+  box-shadow: 0 0 6px #d85432, 0 0 0 1px rgba(0, 0, 0, 0.6);
+  animation: panda-soviet-led-pulse 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Bottom narrator strip — engraved metal plinth with faction tint. */
+.app-ticker-region,
+.motivation-ticker {
+  border-top: 2px solid #050604 !important;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent 40%),
+    linear-gradient(180deg, #1d1f15 0%, #0c0e08 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(239, 215, 146, 0.14),
+    inset 0 -1px 0 #050604 !important;
+}
+
+/* Right-side counters, profile badge and roster — pill-shaped metal
+   chips with a faction-tinted edge. */
+.toolbar-visitor-counter,
+.toolbar-active-user-counter,
+.profile-badge,
+.collab-roster {
+  border-color: color-mix(in srgb, var(--accent) 32%, #4b4a36 68%) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 50%),
+    linear-gradient(180deg, #25271c 0%, #11140d 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(239, 215, 146, 0.16),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.7),
+    0 0 8px color-mix(in srgb, var(--accent) 14%, transparent) !important;
+}
+
+/* Active edge connectors and the C1/C2/etc edge labels look more "wired"
+   in the Soviet theme — dotted hot trace with a glowy halo. */
+.flow-edge-label {
+  color: var(--stalker-amber) !important;
+  text-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent), 0 1px 2px #000 !important;
+}
+
+/* Output port dots become brass-rimmed indicator lights. */
+.choice-output-port-dot {
+  background:
+    radial-gradient(circle at 35% 30%,
+      color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 80%, white 20%) 0%,
+      var(--choice-branch-color, var(--branch-color, var(--accent))) 50%,
+      color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 50%, black 50%) 100%) !important;
+  box-shadow:
+    0 0 0 1px #c0a868,
+    0 0 8px color-mix(in srgb, var(--choice-branch-color, var(--branch-color, var(--accent))) 60%, transparent),
+    inset 0 0 1px rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Multi-row vent decoration on the left panel body — replaces the
+   previous single small vent with a richer two-grille stack matching
+   the reference image. */
+.panel-left .panel-body::after {
+  margin: 18px 14px 14px;
+  height: 110px;
+  background:
+    /* corner screws on the vent housing */
+    radial-gradient(circle at 8px 8px, #080907 0 1.5px, rgba(224, 206, 142, 0.45) 1.5px 2.5px, #1a1812 2.5px 4px, transparent 4.4px) no-repeat,
+    radial-gradient(circle at calc(100% - 8px) 8px, #080907 0 1.5px, rgba(224, 206, 142, 0.45) 1.5px 2.5px, #1a1812 2.5px 4px, transparent 4.4px) no-repeat,
+    radial-gradient(circle at 8px calc(100% - 8px), #080907 0 1.5px, rgba(224, 206, 142, 0.45) 1.5px 2.5px, #1a1812 2.5px 4px, transparent 4.4px) no-repeat,
+    radial-gradient(circle at calc(100% - 8px) calc(100% - 8px), #080907 0 1.5px, rgba(224, 206, 142, 0.45) 1.5px 2.5px, #1a1812 2.5px 4px, transparent 4.4px) no-repeat,
+    /* central horizontal ridge separating two louver banks */
+    linear-gradient(180deg, transparent calc(50% - 1px), rgba(255, 235, 166, 0.12) calc(50% - 1px) 50%, rgba(0, 0, 0, 0.7) 50% calc(50% + 1px), transparent calc(50% + 1px)) no-repeat,
+    /* louver slits */
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.82) 0 3px, rgba(70, 64, 46, 0.55) 3px 6px),
+    /* faint faction tint */
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+    linear-gradient(180deg, #1c1d14 0%, #0a0c08 100%);
+  border-color: color-mix(in srgb, var(--accent) 18%, #46432f 82%);
+}
+
+/* CRT-style scanline overlay on the flow canvas, very faint, gives the
+   editor surface a "live monitor" feeling without hurting readability. */
+.flow-canvas {
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(0, 0, 0, 0.06) 2px 3px),
+    radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 60%) !important;
+}
+
+/* Modes / advanced toggles on the flow controls bar pick up faction. */
+.flow-controls .flow-mode-toggle.is-active,
+.flow-controls .flow-annotation-tool.is-active,
+.bottom-workspace-tab.is-active,
+.conversation-list-tab.is-active,
+.item-picker-chip.is-active,
+.item-picker-subchip.is-active,
+.pa-avatar-tab-btn.is-active {
+  border-color: color-mix(in srgb, var(--accent) 60%, #4a4734 40%) !important;
+  color: color-mix(in srgb, var(--accent) 50%, #ffffe0 50%) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 24%, transparent), transparent 50%),
+    linear-gradient(180deg, #2a351d 0%, #10170d 100%) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
+    0 0 12px color-mix(in srgb, var(--accent) 24%, transparent) !important;
+}
+
 } /* end body.theme-soviet (block A) */
 
 /* ─── Properties Panel ─────────────────────────────────── */
