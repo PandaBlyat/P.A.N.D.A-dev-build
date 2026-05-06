@@ -461,6 +461,7 @@ function createSummaryChip(text: string): HTMLElement {
 function formatIdLabel(value: string): string {
   return value
     .replace(/^st_panda_npc_template_/, '')
+    .replace(/^npc:/, '')
     .replace(/[_-]+/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
@@ -468,8 +469,9 @@ function formatIdLabel(value: string): string {
 function resolveSpeakerFromNpcId(npcId: string | undefined, fallbackSource: SimSpeaker['source'] = 'story'): SimSpeaker | null {
   const id = npcId?.trim();
   if (!id) return null;
+  const customId = id.startsWith('npc:') ? id.slice(4).trim() : id;
 
-  const custom = (store.get().project.npcTemplates ?? []).find((template) => template.id === id);
+  const custom = (store.get().project.npcTemplates ?? []).find((template) => template.id === customId);
   if (custom) {
     return {
       id,
