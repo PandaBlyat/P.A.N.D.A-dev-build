@@ -4219,7 +4219,8 @@ body.use-custom-cursor * {
   box-shadow: var(--shadow-sm) !important;
 }
 /* Final Soviet-tech cascade pass. Keep after all legacy component overrides. */
-:root {
+body.theme-soviet {
+& {
   --bg-darkest: #050704;
   --bg-dark: #0a0d09;
   --bg-panel: #151711;
@@ -4242,18 +4243,25 @@ body.use-custom-cursor * {
   --font-sans: "Arial Narrow", "Roboto Condensed", "Segoe UI", Arial, sans-serif;
   --font-mono: "Share Tech Mono", "Consolas", "Lucida Console", monospace;
   --stalker-amber: #d9bd73;
-  --stalker-green: #9bd05a;
+  /* --stalker-green follows the active faction --accent so that
+     changing a story's faction recolors the Soviet UI theme. */
+  --stalker-green: var(--accent, #9bd05a);
   --stalker-noise:
     radial-gradient(circle at 9% 18%, rgba(255, 235, 166, 0.055) 0 1px, transparent 1.5px),
     radial-gradient(circle at 78% 28%, rgba(0, 0, 0, 0.22) 0 1px, transparent 1.5px),
     radial-gradient(circle at 34% 76%, rgba(255, 235, 166, 0.035) 0 1px, transparent 1.5px),
     repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 11px);
-  --stalker-screw: radial-gradient(circle, #0a0a07 0 2px, #80775a 2px 3px, #181910 3px 6px, transparent 6px);
+  /* Cross-slot screw head: bright bevel ring around a darker dished centre,
+     with a subtle phillips slot drawn via two thin linear-gradient strips. */
+  --stalker-screw:
+    linear-gradient(135deg, transparent 42%, rgba(0, 0, 0, 0.85) 47%, rgba(0, 0, 0, 0.85) 53%, transparent 58%),
+    linear-gradient(45deg, transparent 42%, rgba(0, 0, 0, 0.85) 47%, rgba(0, 0, 0, 0.85) 53%, transparent 58%),
+    radial-gradient(circle at 38% 36%, rgba(255, 233, 168, 0.32) 0 1px, transparent 2px),
+    radial-gradient(circle, #1a1812 0 2.4px, #423d2c 2.4px 3.2px, #9c8d63 3.2px 4.6px, #5a5238 4.6px 6.4px, transparent 6.4px);
 }
 
-html,
-body,
-#app {
+/* Native CSS nesting: & resolves to body.theme-soviet, so applies to body. */
+&, #app {
   background:
     radial-gradient(circle at 50% 0, rgba(131, 117, 62, 0.12), transparent 42%),
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 4px),
@@ -4262,7 +4270,7 @@ body,
   font-family: var(--font-sans) !important;
 }
 
-body::before {
+&::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -4676,7 +4684,7 @@ textarea,
 }
 
 /* Soviet-tech reskin: CSS-only metal/PDA treatment. */
-:root {
+& {
   --bg-darkest: #050704;
   --bg-dark: #0a0d09;
   --bg-panel: #151711;
@@ -4717,10 +4725,18 @@ textarea,
   --stalker-metal-mid: #24261b;
   --stalker-line: #3e3d2c;
   --stalker-amber: #d9bd73;
-  --stalker-green: #9bd05a;
+  /* --stalker-green follows the active faction --accent so that
+     changing a story's faction recolors the Soviet UI theme. */
+  --stalker-green: var(--accent, #9bd05a);
   --stalker-rust: #9a5c32;
   --stalker-crt: #6fb34a;
-  --stalker-screw: radial-gradient(circle, #0a0a07 0 2px, #80775a 2px 3px, #181910 3px 6px, transparent 6px);
+  /* Cross-slot screw head: bright bevel ring around a darker dished centre,
+     with a subtle phillips slot drawn via two thin linear-gradient strips. */
+  --stalker-screw:
+    linear-gradient(135deg, transparent 42%, rgba(0, 0, 0, 0.85) 47%, rgba(0, 0, 0, 0.85) 53%, transparent 58%),
+    linear-gradient(45deg, transparent 42%, rgba(0, 0, 0, 0.85) 47%, rgba(0, 0, 0, 0.85) 53%, transparent 58%),
+    radial-gradient(circle at 38% 36%, rgba(255, 233, 168, 0.32) 0 1px, transparent 2px),
+    radial-gradient(circle, #1a1812 0 2.4px, #423d2c 2.4px 3.2px, #9c8d63 3.2px 4.6px, #5a5238 4.6px 6.4px, transparent 6.4px);
   --stalker-noise:
     radial-gradient(circle at 9% 18%, rgba(255, 235, 166, 0.055) 0 1px, transparent 1.5px),
     radial-gradient(circle at 78% 28%, rgba(0, 0, 0, 0.22) 0 1px, transparent 1.5px),
@@ -4735,8 +4751,7 @@ textarea,
     linear-gradient(180deg, #24251b 0%, #151711 42%, #0b0d09 100%);
 }
 
-html,
-body {
+& {
   background:
     radial-gradient(circle at 50% 0, rgba(131, 117, 62, 0.12), transparent 42%),
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 4px),
@@ -4746,7 +4761,7 @@ body {
   letter-spacing: 0;
 }
 
-body::before {
+&::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -6048,6 +6063,7 @@ select option {
   backdrop-filter: none !important;
   box-shadow: var(--shadow-sm) !important;
 }
+} /* end body.theme-soviet (block A) */
 
 /* ─── Properties Panel ─────────────────────────────────── */
 
@@ -25694,6 +25710,7 @@ button.pa-avatar:focus-visible {
 }
 
 /* Late Soviet-tech pass: placed after component-specific modal/profile styles. */
+body.theme-soviet {
 .username-modal-card,
 .command-picker-panel,
 .item-picker-panel,
@@ -25842,6 +25859,67 @@ body:has(.username-modal-overlay) .app-bottom-region {
   opacity: 0 !important;
   pointer-events: none !important;
 }
+
+/* Decorative speaker-grille "vent" inside the left story panel — pure CSS,
+   does not capture pointer events. Uses two layered repeating gradients to
+   simulate a stamped-metal louver pattern with subtle shadowing. */
+.panel-left .panel-body::after {
+  content: "";
+  display: block;
+  margin: 18px 14px 14px;
+  height: 64px;
+  border: 1px solid #46432f;
+  border-radius: 3px;
+  background:
+    radial-gradient(circle at 9px 9px, #0a0a07 0 2px, #80775a 2px 3px, #181910 3px 6px, transparent 6px) no-repeat,
+    radial-gradient(circle at calc(100% - 9px) 9px, #0a0a07 0 2px, #80775a 2px 3px, #181910 3px 6px, transparent 6px) no-repeat,
+    radial-gradient(circle at 9px calc(100% - 9px), #0a0a07 0 2px, #80775a 2px 3px, #181910 3px 6px, transparent 6px) no-repeat,
+    radial-gradient(circle at calc(100% - 9px) calc(100% - 9px), #0a0a07 0 2px, #80775a 2px 3px, #181910 3px 6px, transparent 6px) no-repeat,
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.78) 0 3px, rgba(70, 64, 46, 0.55) 3px 6px),
+    linear-gradient(180deg, #1c1d14 0%, #0a0c08 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(239, 215, 146, 0.12),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.78),
+    0 1px 0 #050604;
+  opacity: 0.92;
+  pointer-events: none;
+}
+
+/* Slightly more dimensional toolbar buttons in the Soviet theme: bevelled
+   metal pill with darker base and brighter top-edge highlight. */
+.toolbar-button {
+  border: 1px solid #4a4734 !important;
+  border-radius: 3px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 235, 166, 0.07), transparent 38%),
+    linear-gradient(180deg, #2a2c20 0%, #15170f 100%) !important;
+  color: var(--stalker-amber) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-shadow: 0 1px 0 #000;
+  box-shadow:
+    inset 0 1px 0 rgba(239, 215, 146, 0.18),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.72),
+    0 1px 0 #050604 !important;
+}
+
+.toolbar-button:hover {
+  border-color: #6a6342 !important;
+  background:
+    linear-gradient(180deg, rgba(255, 235, 166, 0.12), transparent 42%),
+    linear-gradient(180deg, #353727 0%, #1a1c12 100%) !important;
+  color: #f0deaa !important;
+}
+
+.toolbar-button:active {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.32), transparent 60%),
+    linear-gradient(180deg, #181a12 0%, #0a0c08 100%) !important;
+  box-shadow:
+    inset 0 2px 5px rgba(0, 0, 0, 0.78),
+    inset 0 -1px 0 rgba(239, 215, 146, 0.08) !important;
+}
+} /* end body.theme-soviet (block B) */
 
 @media (max-width: 760px) {
   .username-modal-overlay {
