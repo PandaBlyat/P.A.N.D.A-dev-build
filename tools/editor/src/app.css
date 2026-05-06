@@ -26442,3 +26442,209 @@ body:has(.username-modal-overlay) .app-bottom-region {
   backdrop-filter: none !important;
   box-shadow: var(--shadow-sm) !important;
 }
+
+/* ============================================================================
+   SOVIET CONSOLE REFINEMENTS
+   - Faction accent fully drives the chassis tint (replaces fixed olive/khaki).
+   - Workspace becomes a recessed blueprint screen.
+   - PANDA brand icon stays visible (no overpowering LED bg).
+   - Extra rivets / engraved bracket framing for the "nuclear console" feel.
+   ============================================================================ */
+body.theme-soviet {
+  --console-metal-light: color-mix(in srgb, var(--accent) 14%, #1c1f17 86%);
+  --console-metal-mid: color-mix(in srgb, var(--accent) 11%, #14160f 89%);
+  --console-metal-dark: color-mix(in srgb, var(--accent) 6%, #0a0c08 94%);
+  --console-rim: color-mix(in srgb, var(--accent) 38%, #4a4734 62%);
+  --console-rim-bright: color-mix(in srgb, var(--accent) 60%, #79724f 40%);
+  --console-engrave: color-mix(in srgb, var(--accent) 26%, #393624 74%);
+  --console-screen-tint: color-mix(in srgb, var(--accent) 22%, #06121d 78%);
+  --console-screen-grid: color-mix(in srgb, var(--accent) 32%, #b6d8ee 28%);
+  --console-screen-grid-faint: color-mix(in srgb, var(--accent) 22%, #7fa8c8 18%);
+}
+
+body.theme-soviet .toolbar-title .ui-icon {
+  color: var(--stalker-amber) !important;
+  background:
+    radial-gradient(circle, transparent 0 58%,
+      color-mix(in srgb, var(--accent) 22%, transparent) 62%,
+      transparent 78%) !important;
+  border: 1px solid var(--console-rim-bright) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(239, 215, 146, 0.18),
+    0 0 8px color-mix(in srgb, var(--accent) 32%, transparent) !important;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.7)) !important;
+}
+
+body.theme-soviet .flow-canvas {
+  background-color: var(--console-screen-tint) !important;
+  background-image:
+    linear-gradient(var(--console-screen-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--console-screen-grid) 1px, transparent 1px),
+    linear-gradient(var(--console-screen-grid-faint) 1px, transparent 1px),
+    linear-gradient(90deg, var(--console-screen-grid-faint) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 50%, transparent 0 56%, rgba(0, 0, 0, 0.55) 100%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 22%, #082134 78%) 0%,
+      color-mix(in srgb, var(--accent) 12%, #04101b 88%) 100%) !important;
+  background-size:
+    112px 112px, 112px 112px,
+    14px 14px, 14px 14px,
+    100% 100%, 100% 100% !important;
+  background-blend-mode: screen, screen, screen, screen, normal, normal !important;
+  box-shadow:
+    inset 0 0 0 2px #050604,
+    inset 0 0 0 4px var(--console-rim),
+    inset 0 0 0 5px rgba(0, 0, 0, 0.7),
+    inset 0 0 32px rgba(0, 0, 0, 0.65),
+    inset 0 0 80px color-mix(in srgb, var(--accent) 16%, transparent) !important;
+}
+
+body.theme-soviet .flow-canvas::before {
+  background:
+    repeating-linear-gradient(0deg,
+      color-mix(in srgb, var(--accent) 18%, transparent 82%) 0 1px,
+      transparent 1px 4px),
+    radial-gradient(circle at 50% 50%, transparent 0 56%, rgba(0, 0, 0, 0.42) 100%) !important;
+  mix-blend-mode: screen !important;
+  opacity: 0.45 !important;
+  filter: none !important;
+}
+
+body.theme-soviet .toolbar,
+body.theme-soviet .panel,
+body.theme-soviet .app-bottom-region,
+body.theme-soviet .bottom-workspace {
+  background:
+    var(--stalker-screw) 10px 10px / 16px 16px no-repeat,
+    var(--stalker-screw) calc(100% - 10px) 10px / 16px 16px no-repeat,
+    var(--stalker-screw) 10px calc(100% - 10px) / 16px 16px no-repeat,
+    var(--stalker-screw) calc(100% - 10px) calc(100% - 10px) / 16px 16px no-repeat,
+    var(--stalker-noise),
+    linear-gradient(180deg, var(--console-metal-light) 0%, var(--console-metal-dark) 100%) !important;
+  border-color: var(--console-rim) !important;
+}
+
+body.theme-soviet .toolbar-title,
+body.theme-soviet .toolbar-group,
+body.theme-soviet .toolbar-status,
+body.theme-soviet .toolbar-visitor-counter,
+body.theme-soviet .toolbar-active-user-counter,
+body.theme-soviet .profile-badge,
+body.theme-soviet .collab-roster {
+  background:
+    var(--stalker-noise),
+    linear-gradient(180deg, var(--console-metal-mid) 0%, var(--console-metal-dark) 100%) !important;
+  border-color: var(--console-rim) !important;
+}
+
+body.theme-soviet .panel-header,
+body.theme-soviet .bottom-workspace-header {
+  background:
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--accent) 22%, transparent 78%),
+      transparent 50%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 14%, #1f211a 86%) 0%,
+      var(--console-metal-dark) 100%) !important;
+  border-bottom-color: var(--console-rim) !important;
+}
+
+body.theme-soviet .main-layout,
+body.theme-soviet .panel-body {
+  background:
+    radial-gradient(circle at 50% 12%,
+      color-mix(in srgb, var(--accent) 18%, transparent 82%),
+      transparent 36%),
+    var(--stalker-noise),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 6%, #060806 94%),
+      color-mix(in srgb, var(--accent) 3%, #050604 97%)) !important;
+}
+
+body.theme-soviet .flow-controls,
+body.theme-soviet .conv-item,
+body.theme-soviet .choice-card,
+body.theme-soviet .props-section {
+  background:
+    var(--stalker-noise),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 8%, #1a1d14 92%) 0%,
+      var(--console-metal-dark) 100%) !important;
+  border-color: var(--console-rim) !important;
+}
+
+body.theme-soviet button,
+body.theme-soviet .btn,
+body.theme-soviet .btn-sm,
+body.theme-soviet .toolbar-button,
+body.theme-soviet .toolbar-overflow-toggle,
+body.theme-soviet .toolbar-overflow-item,
+body.theme-soviet .conversation-list-tab,
+body.theme-soviet .bottom-workspace-tab {
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 14%, transparent 86%),
+      transparent 38%),
+    linear-gradient(180deg, var(--console-metal-light) 0%, var(--console-metal-dark) 100%) !important;
+  border-color: var(--console-rim) !important;
+}
+
+body.theme-soviet button:hover:not(:disabled),
+body.theme-soviet .btn:hover:not(:disabled),
+body.theme-soviet .btn-sm:hover:not(:disabled),
+body.theme-soviet .toolbar-button:hover:not(:disabled) {
+  border-color: var(--console-rim-bright) !important;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 22%, transparent 78%),
+      transparent 42%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 14%, #2a2c20 86%) 0%,
+      color-mix(in srgb, var(--accent) 6%, #14170f 94%) 100%) !important;
+}
+
+body.theme-soviet .panel-header > span:first-child::before,
+body.theme-soviet .bottom-workspace-header strong::before {
+  content: "[ ";
+  color: var(--console-rim-bright);
+  margin-right: 1px;
+  font-family: var(--font-mono);
+}
+body.theme-soviet .panel-header > span:first-child::after,
+body.theme-soviet .bottom-workspace-header strong::after {
+  content: " ]";
+  color: var(--console-rim-bright);
+  margin-left: 1px;
+  font-family: var(--font-mono);
+}
+
+body.theme-soviet .toolbar,
+body.theme-soviet .app-bottom-region {
+  position: relative;
+}
+
+body.theme-soviet .toolbar::after,
+body.theme-soviet .app-bottom-region::after {
+  content: "";
+  position: absolute;
+  left: 38px;
+  right: 38px;
+  top: 4px;
+  height: 2px;
+  background:
+    repeating-linear-gradient(90deg,
+      transparent 0 22px,
+      var(--console-rim-bright) 22px 23px,
+      transparent 23px 24px,
+      rgba(0, 0, 0, 0.65) 24px 25px,
+      transparent 25px 46px);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.55;
+}
+
+body.theme-soviet .app-bottom-region::after {
+  top: auto;
+  bottom: 4px;
+}
