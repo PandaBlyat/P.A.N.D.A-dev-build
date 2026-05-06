@@ -6373,6 +6373,40 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                 panda_npc_creator.spawn_custom_npc(tpl_id, { smart_ref = smart_ref, conv_data = conv_data })
             end
 
+        elseif cmd == "spawn_dead_custom_npc" then
+            -- spawn_dead_custom_npc:<template_id>:<distance>[:<items_plus_separated>][:<delay>]
+            local tpl_id = parts[2]
+            local distance = tonumber(parts[3])
+            local items = parts[4]
+            local delay = tonumber(parts[5]) or 0
+            if tonumber(items) and not parts[5] then
+                delay = tonumber(items) or 0
+                items = nil
+            end
+            if not tpl_id or tpl_id == "" then
+                printf("PANDA_IC: spawn_dead_custom_npc missing template_id in '%s'", tostring(cmd_str))
+            else
+                spawn_dead_custom_npc(tpl_id, nil, distance, items, delay, conv_data)
+            end
+
+        elseif cmd == "spawn_dead_custom_npc_at" then
+            -- spawn_dead_custom_npc_at:<template_id>:<smart>[:<items_plus_separated>][:<delay>]
+            local tpl_id = parts[2]
+            local smart_ref = parts[3]
+            local items = parts[4]
+            local delay = tonumber(parts[5]) or 0
+            if tonumber(items) and not parts[5] then
+                delay = tonumber(items) or 0
+                items = nil
+            end
+            if not tpl_id or tpl_id == "" then
+                printf("PANDA_IC: spawn_dead_custom_npc_at missing template_id in '%s'", tostring(cmd_str))
+            elseif not smart_ref or smart_ref == "" then
+                printf("PANDA_IC: spawn_dead_custom_npc_at missing smart reference in '%s'", tostring(cmd_str))
+            else
+                spawn_dead_custom_npc(tpl_id, smart_ref, nil, items, delay, conv_data)
+            end
+
         elseif cmd == "spawn_mutant" then
             -- spawn_mutant:<mutant>:<distance>:<delay>[:<count>]
             local distance = tonumber(parts[3])
@@ -6428,6 +6462,42 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
                 for _ = 1, count do
                     spawn_squad_at_smart_terrain(squad_section, smart_ref, false, delay, sender_contact_id, state)
                 end
+            end
+
+        elseif cmd == "spawn_dead_npcs_at_smart" then
+            -- spawn_dead_npcs_at_smart:<faction>:<smart>:<count>[:<items_plus_separated>][:<delay>]
+            local faction = parts[2]
+            local smart_ref = parts[3]
+            local count = math.max(1, tonumber(parts[4]) or 1)
+            local items = parts[5]
+            local delay = tonumber(parts[6]) or 0
+            if tonumber(items) and not parts[6] then
+                delay = tonumber(items) or 0
+                items = nil
+            end
+            if not faction or faction == "" then
+                printf("PANDA_IC: spawn_dead_npcs_at_smart missing faction in '%s'", tostring(cmd_str))
+            elseif not smart_ref or smart_ref == "" then
+                printf("PANDA_IC: spawn_dead_npcs_at_smart missing smart reference in '%s'", tostring(cmd_str))
+            else
+                spawn_dead_npcs_at_smart(faction, smart_ref, count, items, delay)
+            end
+
+        elseif cmd == "spawn_dead_npcs_near_player" then
+            -- spawn_dead_npcs_near_player:<faction>:<distance>:<count>[:<items_plus_separated>][:<delay>]
+            local faction = parts[2]
+            local distance = tonumber(parts[3])
+            local count = math.max(1, tonumber(parts[4]) or 1)
+            local items = parts[5]
+            local delay = tonumber(parts[6]) or 0
+            if tonumber(items) and not parts[6] then
+                delay = tonumber(items) or 0
+                items = nil
+            end
+            if not faction or faction == "" then
+                printf("PANDA_IC: spawn_dead_npcs_near_player missing faction in '%s'", tostring(cmd_str))
+            else
+                spawn_dead_npcs_near_player(faction, distance, count, items, delay)
             end
 
         elseif cmd == "reward_rep" then
@@ -8330,6 +8400,285 @@ function find_spawn_point_near_player(min, max)
         end
     end
     return p, l, g 
+end
+
+local DEAD_NPC_FACTION_ALIASES = {
+    army = "military",
+    dolg = "duty",
+    duty = "duty",
+    freedom = "freedom",
+    bandit = "bandit",
+    stalker = "stalker",
+    loner = "stalker",
+    csky = "csky",
+    clear_sky = "csky",
+    ecolog = "ecolog",
+    killer = "killer",
+    merc = "killer",
+    monolith = "monolith",
+    renegade = "renegade",
+    isg = "isg",
+    greh = "greh",
+    sin = "greh",
+    zombied = "zombied",
+    zombie = "zombied",
+}
+
+local function dead_npc_section_for_faction(faction)
+    local key = faction and string.lower(tostring(faction)) or "stalker"
+    key = string.gsub(key, "^actor_", "")
+    key = DEAD_NPC_FACTION_ALIASES[key] or key
+
+    for _, rank in ipairs({ 1, 0, 2, 3, 4, 5 }) do
+        local sec = "sim_default_" .. key .. "_" .. tostring(rank)
+        if ini_sys and ini_sys:section_exist(sec) then
+            return sec
+        end
+    end
+
+    if ini_sys and ini_sys:section_exist("sim_default_stalker_0") then
+        return "sim_default_stalker_0"
+    end
+
+    return nil
+end
+
+local function parse_dead_body_items(items_str)
+    local items = {}
+    if not items_str or items_str == "" or items_str == "none" then
+        return items
+    end
+
+    local normalized = string.gsub(tostring(items_str), ",", "+")
+    for token in string.gmatch(normalized, "([^%+]+)") do
+        local sec = tostring(token):match("^%s*(.-)%s*$")
+        if sec ~= "" and ini_sys and ini_sys:section_exist(sec) then
+            items[#items + 1] = sec
+        elseif sec ~= "" then
+            printf("PANDA_IC: dead body item section '%s' not found; skipped", tostring(sec))
+        end
+    end
+    return items
+end
+
+local function kill_spawned_dead_npc(se_obj)
+    if not se_obj then
+        return
+    end
+
+    if se_save_var then
+        se_save_var(se_obj.id, se_obj.name and se_obj:name() or nil, "death_dropped", true)
+    end
+
+    local online_obj = level and level.object_by_id and level.object_by_id(se_obj.id) or nil
+    if online_obj and online_obj.alive and online_obj:alive() then
+        online_obj:kill(online_obj)
+        if panda_npc_creator and type(panda_npc_creator.mark_custom_npc_dead) == "function" then
+            pcall(panda_npc_creator.mark_custom_npc_dead, se_obj.id)
+        end
+        return
+    end
+
+    if se_obj.kill then
+        pcall(function() se_obj:kill() end)
+    end
+
+    if panda_npc_creator and type(panda_npc_creator.mark_custom_npc_dead) == "function" then
+        pcall(panda_npc_creator.mark_custom_npc_dead, se_obj.id)
+    end
+end
+
+local function spawn_dead_npc_at_position(faction, pos, lvid, gvid, items)
+    local sec = dead_npc_section_for_faction(faction)
+    if not sec then
+        printf("PANDA_IC: spawn dead NPC failed - no corpse section for faction '%s'", tostring(faction))
+        return nil
+    end
+
+    local se_obj = alife():create(sec, pos, lvid, gvid)
+    if not se_obj then
+        printf("PANDA_IC: spawn dead NPC failed - could not create '%s'", tostring(sec))
+        return nil
+    end
+
+    kill_spawned_dead_npc(se_obj)
+
+    for _, item_sec in ipairs(items or {}) do
+        if alife_create_item then
+            pcall(alife_create_item, item_sec, se_obj)
+        end
+    end
+
+    return se_obj
+end
+
+local function collect_spawned_custom_npc_ids(spawn_result)
+    local ids = {}
+    if not spawn_result then
+        return ids
+    end
+
+    if spawn_result.id and (not spawn_result.clsid or spawn_result:clsid() ~= clsid.online_offline_group_s) then
+        ids[#ids + 1] = spawn_result.id
+        return ids
+    end
+
+    if spawn_result.squad_members then
+        local ok = pcall(function()
+            for k in spawn_result:squad_members() do
+                if k.id then
+                    ids[#ids + 1] = k.id
+                elseif k.object and k.object.id then
+                    ids[#ids + 1] = k.object.id
+                end
+            end
+        end)
+        if not ok then
+            printf("PANDA_IC: spawn_dead_custom_npc could not enumerate squad members")
+        end
+    end
+
+    return ids
+end
+
+local function turn_custom_spawn_into_corpses(spawn_result, items_str)
+    local items = parse_dead_body_items(items_str)
+    local ids = collect_spawned_custom_npc_ids(spawn_result)
+    local killed = 0
+
+    for _, npc_id in ipairs(ids) do
+        local se_obj = alife_object(npc_id)
+        if se_obj then
+            kill_spawned_dead_npc(se_obj)
+            for _, item_sec in ipairs(items) do
+                if alife_create_item then
+                    pcall(alife_create_item, item_sec, se_obj)
+                end
+            end
+            killed = killed + 1
+        end
+    end
+
+    return killed
+end
+
+function spawn_dead_custom_npc(template_id, smart_ref, distance, items_str, delay, conv_data)
+    delay = tonumber(delay) or 0
+
+    local function do_spawn()
+        if not panda_npc_creator or type(panda_npc_creator.spawn_custom_npc) ~= "function" then
+            printf("PANDA_IC: spawn_dead_custom_npc ignored - panda_npc_creator unavailable")
+            return true
+        end
+
+        local context = { conv_data = conv_data }
+        if smart_ref and smart_ref ~= "" then
+            context.smart_ref = smart_ref
+        else
+            context.use_player_pos = true
+            if tonumber(distance) and tonumber(distance) > 0 then
+                context.spawn_dist = tonumber(distance)
+            end
+        end
+
+        local ok, spawn_result = pcall(panda_npc_creator.spawn_custom_npc, template_id, context)
+        if not ok or not spawn_result then
+            printf("PANDA_IC: spawn_dead_custom_npc failed for template '%s'", tostring(template_id))
+            return true
+        end
+
+        local killed = turn_custom_spawn_into_corpses(spawn_result, items_str)
+        if killed == 0 then
+            printf("PANDA_IC: spawn_dead_custom_npc spawned template '%s' but found no NPC members to kill", tostring(template_id))
+        end
+        return true
+    end
+
+    if delay > 0 then
+        local ev_key = "panda_dead_custom_" .. tostring(math.random(100000))
+        track_panda_ic_event("pda_ic_spawn", ev_key)
+        CreateTimeEvent("pda_ic_spawn", ev_key, delay, do_spawn)
+    else
+        do_spawn()
+    end
+end
+
+function spawn_dead_npcs_near_player(faction, distance, count, items_str, delay)
+    delay = tonumber(delay) or 0
+    count = math.max(1, tonumber(count) or 1)
+
+    local function do_spawn()
+        if not db.actor then
+            return true
+        end
+
+        local dist = tonumber(distance)
+        local min, max
+        if dist and dist > 0 then
+            min, max = dist, dist
+        else
+            min = tonumber(PANDA.get_config("npc_spawn_min")) or 40
+            max = tonumber(PANDA.get_config("npc_spawn_max")) or 100
+            if min > max then
+                min, max = max, min
+            end
+            min = math.max(1, min)
+            max = math.max(min, max)
+        end
+
+        local items = parse_dead_body_items(items_str)
+        for _ = 1, count do
+            local pos, lvid, gvid = find_spawn_point_near_player(min, max)
+            spawn_dead_npc_at_position(faction, pos, lvid, gvid, items)
+        end
+        return true
+    end
+
+    if delay > 0 then
+        local ev_key = "panda_dead_npc_player_" .. tostring(math.random(100000))
+        track_panda_ic_event("pda_ic_spawn", ev_key)
+        CreateTimeEvent("pda_ic_spawn", ev_key, delay, do_spawn)
+    else
+        do_spawn()
+    end
+end
+
+function spawn_dead_npcs_at_smart(faction, smart_ref, count, items_str, delay)
+    delay = tonumber(delay) or 0
+    count = math.max(1, tonumber(count) or 1)
+
+    local function do_spawn()
+        local smart, smart_name = resolve_smart_from_reference(smart_ref)
+        if not smart then
+            printf("PANDA_IC: spawn dead NPCs at smart failed - smart terrain '%s' not found", tostring(smart_ref))
+            return true
+        end
+
+        local smart_pos = get_position_from_object(smart)
+        local smart_lvid = smart.m_level_vertex_id
+        local smart_gvid = smart.m_game_vertex_id
+        if not (smart_pos and smart_lvid and smart_gvid) then
+            printf("PANDA_IC: spawn dead NPCs at smart failed - smart terrain '%s' missing position or vertex info", tostring(smart_ref))
+            return true
+        end
+
+        local items = parse_dead_body_items(items_str)
+        for _ = 1, count do
+            local pos, lvid, gvid = find_spawn_point_near_smart(5, 18, smart_pos, smart_lvid, smart_gvid)
+            spawn_dead_npc_at_position(faction, pos, lvid, gvid, items)
+        end
+
+        printf("PANDA_IC: spawned %d dead %s NPC(s) near smart '%s'", count, tostring(faction), tostring(smart_name or smart_ref))
+        return true
+    end
+
+    if delay > 0 then
+        local ev_key = "panda_dead_npc_smart_" .. tostring(math.random(100000))
+        track_panda_ic_event("pda_ic_spawn", ev_key)
+        CreateTimeEvent("pda_ic_spawn", ev_key, delay, do_spawn)
+    else
+        do_spawn()
+    end
 end
 
 local function get_spawn_distance_range(min_key, max_key, default_min, default_max)

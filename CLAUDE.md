@@ -96,7 +96,7 @@ Stalker Anomaly Mods for Reference/                     ← READ ONLY reference
 - Can check: faction, rank, relations, quest state, items, detector tier, custom NPC state, etc.
 
 ### Outcomes
-- Execute on player choice: money, item spawns, reputation, task creation, NPC spawns, artifact flows
+- Execute on player choice: money, item spawns, reputation, task creation, NPC spawns, dead body spawns, artifact flows
 - New outcome commands (from artifact adapter): `start_anomaly_scan_task`, `start_artifact_retrieval_task`, `spawn_artifact_on_npc`, `spawn_artifact_in_zone`, `require_detector_tier`, `turn_in_artifact`
 
 ### Contacts & Relations

@@ -3670,10 +3670,10 @@ local function on_npc_net_spawn(obj, se_obj)
     end
 end
 
-local function on_npc_death(obj, killer)
-    local npc_id = get_callback_npc_id(obj)
+local function mark_custom_npc_dead(npc_id)
+    npc_id = tonumber(npc_id)
     if not npc_id then
-        return
+        return false
     end
 
     local stationary_anchor = stationary_custom_npcs[npc_id]
@@ -3693,9 +3693,17 @@ local function on_npc_death(obj, killer)
             if e.npc_id == npc_id and e.alive then
                 e.alive = false
                 printf("PANDA_NPC: npc_id=%d (template '%s') marked dead", npc_id, tostring(tpl_id))
+                return true
             end
         end
     end
+
+    return false
+end
+
+local function on_npc_death(obj, killer)
+    local npc_id = get_callback_npc_id(obj)
+    mark_custom_npc_dead(npc_id)
 end
 
 local function enforce_stationary_squad_runtime(squad_obj, reason)
@@ -3771,6 +3779,7 @@ end
 
 panda_npc_creator.install_engine_guards = install_engine_guards
 panda_npc_creator.spawn_custom_npc = spawn_custom_npc
+panda_npc_creator.mark_custom_npc_dead = mark_custom_npc_dead
 panda_npc_creator.ensure_story_target_spawned = ensure_story_target_spawned
 panda_npc_creator.save_state = save_state
 panda_npc_creator.load_state = load_state

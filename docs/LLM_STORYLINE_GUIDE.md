@@ -504,10 +504,14 @@ Three forms:
 |---|---|---|
 | `spawn_custom_npc` | `[template_id, delay?]` | Spawn your custom NPC near player. Template is defined in your file. |
 | `spawn_custom_npc_at` | `[template_id, smart_terrain, delay?]` | Spawn custom NPC at location. **smart_terrain = placeholder.** |
+| `spawn_dead_custom_npc` | `[template_id, distance_m, items_plus_separated?, delay?]` | Spawn custom NPC corpse near player. Template is defined in your file. **items = placeholders.** |
+| `spawn_dead_custom_npc_at` | `[template_id, smart_terrain, items_plus_separated?, delay?]` | Spawn custom NPC corpse at location. **smart_terrain/items = placeholders.** |
 | `spawn_mutant` | `[squad_section, distance_m, delay?, count?]` | Spawn mutant squad near player. **squad_section = placeholder.** |
 | `spawn_mutant_at_smart` | `[squad_section, smart_terrain, delay?, count?]` | Spawn mutant at location. **Both = placeholders.** |
 | `spawn_npc_squad` | `[squad_section, distance_m, delay?, count?, state?]` | Spawn faction squad near player. **squad_section = placeholder.** State: `hostile`, `neutral`, `friendly`, `default` |
 | `spawn_npc_squad_at_smart` | `[squad_section, smart_terrain, delay?, count?, state?]` | Spawn faction squad at location. **Both = placeholders.** |
+| `spawn_dead_npcs_at_smart` | `[faction, smart_terrain, count, items_plus_separated?, delay?]` | Spawn dead faction NPC bodies at location. **smart_terrain/items = placeholders.** Items are put in each body. |
+| `spawn_dead_npcs_near_player` | `[faction, distance_m, count, items_plus_separated?, delay?]` | Spawn dead faction NPC bodies near player. **items = placeholders.** Items are put in each body. |
 
 ### Location Watching
 | Command | Params | Notes |

@@ -1584,6 +1584,64 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
     ],
   },
   {
+    name: 'spawn_dead_custom_npc',
+    label: 'Spawn Dead Custom NPC (near player)',
+    description: 'Spawn an author-defined custom NPC near the player as a corpse, optionally with extra body items',
+    category: 'Spawning',
+    helpText:
+      'Uses the same custom NPC template builder as Spawn Custom NPC, applies template loadout/name/faction, marks death_drop handled, kills the NPC, then adds optional extra body loot.',
+    examples: ['spawn_dead_custom_npc:missing_courier:60:device_pda_1+bandage', 'spawn_dead_custom_npc:dead_informant:40:5'],
+    params: [
+      {
+        name: 'template_id',
+        type: 'string',
+        required: true,
+        label: 'NPC Template',
+        placeholder: 'e.g. missing_courier',
+        editor: { kind: 'custom_npc_builder' },
+      },
+      { name: 'distance', type: 'number', required: true, label: 'Distance (m)', min: 1 },
+      {
+        name: 'items',
+        type: 'string',
+        required: false,
+        label: 'Extra Body Items',
+        editor: ITEM_CHAIN_PICKER_PANEL_EDITOR,
+        helpText: 'Optional item sections added to the spawned body after death. Separate items with +.',
+      },
+      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
+    ],
+  },
+  {
+    name: 'spawn_dead_custom_npc_at',
+    label: 'Spawn Dead Custom NPC at Location',
+    description: 'Spawn an author-defined custom NPC corpse at a smart terrain, optionally with extra body items',
+    category: 'Spawning',
+    helpText:
+      'Uses the selected custom NPC template at the chosen smart terrain, then turns the spawned NPC into a corpse and adds optional extra body loot.',
+    examples: ['spawn_dead_custom_npc_at:missing_courier:esc_smart_terrain_5_7:device_pda_1+bandage', 'spawn_dead_custom_npc_at:dead_informant:bar_visitors:5'],
+    params: [
+      {
+        name: 'template_id',
+        type: 'string',
+        required: true,
+        label: 'NPC Template',
+        placeholder: 'e.g. missing_courier',
+        editor: { kind: 'custom_npc_builder' },
+      },
+      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
+      {
+        name: 'items',
+        type: 'string',
+        required: false,
+        label: 'Extra Body Items',
+        editor: ITEM_CHAIN_PICKER_PANEL_EDITOR,
+        helpText: 'Optional item sections added to the spawned body after death. Separate items with +.',
+      },
+      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
+    ],
+  },
+  {
     name: 'spawn_mutant',
     label: 'Spawn Mutants',
     description: 'Spawn a specific mutant squad near player',
@@ -1683,6 +1741,54 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
         editor: { kind: 'static_select', options: SQUAD_STATE_OPTIONS, emptyLabel: '-- Faction default --' },
         helpText: 'Sets relation each spawned squad has toward the player.',
       },
+    ],
+  },
+  {
+    name: 'spawn_dead_npcs_at_smart',
+    label: 'Spawn Dead Faction NPCs at Location',
+    description: 'Spawn dead faction NPC bodies at a smart terrain, optionally with items in each body',
+    category: 'Spawning',
+    helpText:
+      'Creates exact single NPC corpses using vanilla sim_default_<faction> spawn sections. ' +
+      'Runtime marks death_drop handled before killing the NPC, then adds authored loot to each body without random death loot duplication.',
+    examples: ['spawn_dead_npcs_at_smart:stalker:esc_smart_terrain_5_7:2:medkit+bandage', 'spawn_dead_npcs_at_smart:bandit:gar_smart_terrain_1_7:3'],
+    params: [
+      { name: 'faction', type: 'faction', required: true, label: 'Faction', editor: { kind: 'searchable_select', options: FACTION_OPTIONS, emptyLabel: '-- Select faction --' } },
+      { name: 'smart_terrain', type: 'smart_terrain', required: true, label: 'Smart Terrain', editor: SMART_TERRAIN_EDITOR },
+      { name: 'count', type: 'number', required: true, label: 'NPC Count', min: 1, max: 20 },
+      {
+        name: 'items',
+        type: 'string',
+        required: false,
+        label: 'Body Items',
+        editor: ITEM_CHAIN_PICKER_PANEL_EDITOR,
+        helpText: 'Optional item sections added to every spawned body. Separate items with +.',
+      },
+      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
+    ],
+  },
+  {
+    name: 'spawn_dead_npcs_near_player',
+    label: 'Spawn Dead Faction NPCs near Player',
+    description: 'Spawn dead faction NPC bodies at a fixed distance from the player, optionally with items in each body',
+    category: 'Spawning',
+    helpText:
+      'Creates exact single NPC corpses around the actor using vanilla sim_default_<faction> spawn sections. ' +
+      'Use distance in meters; optional item chain is placed into every body.',
+    examples: ['spawn_dead_npcs_near_player:stalker:60:2:device_pda_1+bandage', 'spawn_dead_npcs_near_player:freedom:35:1'],
+    params: [
+      { name: 'faction', type: 'faction', required: true, label: 'Faction', editor: { kind: 'searchable_select', options: FACTION_OPTIONS, emptyLabel: '-- Select faction --' } },
+      { name: 'distance', type: 'number', required: true, label: 'Distance (m)', min: 1 },
+      { name: 'count', type: 'number', required: true, label: 'NPC Count', min: 1, max: 20 },
+      {
+        name: 'items',
+        type: 'string',
+        required: false,
+        label: 'Body Items',
+        editor: ITEM_CHAIN_PICKER_PANEL_EDITOR,
+        helpText: 'Optional item sections added to every spawned body. Separate items with +.',
+      },
+      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', placeholder: '0', min: 0 },
     ],
   },
 
